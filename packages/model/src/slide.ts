@@ -1,4 +1,5 @@
 import { LosslessXmlDocument, type XmlElement } from '@pptx/lossless-xml';
+import { GradientCodec, type GradientFill } from '@pptx/codecs';
 import type { Relationship } from '@pptx/opc';
 import type { PresentationModel } from './presentation.js';
 import { decodeShape, type SemanticShape } from './shapes.js';
@@ -41,6 +42,14 @@ export class SlideModel {
     readonly relationshipId: string,
     readonly slideId: number,
   ) {}
+
+  get background(): GradientFill | undefined {
+    return new GradientCodec().getSlideBackground(this.presentation.opcPackage, this.partUri);
+  }
+
+  set background(value: GradientFill) {
+    new GradientCodec().setSlideBackground(this.presentation.opcPackage, this.partUri, value);
+  }
 
   get relationships(): readonly Relationship[] {
     return this.presentation.opcPackage.relationships(this.partUri);

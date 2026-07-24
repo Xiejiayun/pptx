@@ -22,6 +22,11 @@ describe('PptxDocument vertical slice', () => {
     const arrayBuffer = input.slice().buffer as ArrayBuffer;
     for (const source of [input, arrayBuffer, Readable.from(input)]) {
       const document = await PptxDocument.open(source);
+      expect(document.codecRegistry.codecs.map(({ id }) => id)).toEqual([
+        'builtin.master-layout-theme',
+        'builtin.gradient-transparency',
+        'builtin.media',
+      ]);
       expect(document.slides[0]?.title.text).toBe('Original');
       expect(await document.write()).toEqual(input);
     }

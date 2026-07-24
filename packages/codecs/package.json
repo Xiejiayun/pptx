@@ -1,5 +1,5 @@
 {
-  "name": "@pptx/model",
+  "name": "@pptx/codecs",
   "version": "0.0.0",
   "type": "module",
   "main": "./dist/index.js",
@@ -7,9 +7,9 @@
   "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
   "files": ["dist"],
   "dependencies": {
-    "@pptx/codecs": "workspace:*",
     "@pptx/lossless-xml": "workspace:*",
     "@pptx/opc": "workspace:*"
   },
   "devDependencies": { "jszip": "^3.10.1" }
 }
+

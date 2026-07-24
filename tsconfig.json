@@ -3,6 +3,7 @@
   "references": [
     { "path": "packages/lossless-xml" },
     { "path": "packages/opc" },
+    { "path": "packages/codecs" },
     { "path": "packages/model" },
     { "path": "packages/pptxgenjs-adapter" },
     { "path": "packages/validator" },

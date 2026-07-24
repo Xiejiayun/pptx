@@ -1,4 +1,5 @@
 import { LosslessXmlDocument, type XmlElement } from '@pptx/lossless-xml';
+import { GradientCodec, type GradientFill } from '@pptx/codecs';
 import type { Relationship } from '@pptx/opc';
 import type { SlideModel } from './slide.js';
 import { type Emu, type OoxmlAngle, type Transform } from './units.js';
@@ -60,6 +61,14 @@ export class ShapeModel extends BaseShapeModel {
 
   set text(value: string) {
     this.slide.setShapeText(this.id, value);
+  }
+
+  get gradientFill(): GradientFill | undefined {
+    return new GradientCodec().getShapeFill(this.slide.presentation.opcPackage, this.slide.partUri, this.id);
+  }
+
+  set gradientFill(value: GradientFill) {
+    new GradientCodec().setShapeFill(this.slide.presentation.opcPackage, this.slide.partUri, this.id, value);
   }
 }
 

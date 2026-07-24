@@ -140,3 +140,51 @@ await document.writeFile('output.pptx');
 - adapter 导入→编辑→复制→重新打开：通过。
 - 非 adapter 包依赖边界：通过。
 - 迁移指南：[docs/migration/pptxgenjs.md](./migration/pptxgenjs.md)。
+
+## WP4：v1 高价值 Codec
+
+状态：完成
+
+### 本阶段 change
+
+- 新增 `@pptx/codecs` 与 ownership registry；同优先级 codec 声明相同元素/关系/part 时明确报冲突。
+- Master/Layout/Theme codec 可读取、创建、复制、删除和重新关联三类 part，解析 placeholder 的 `type + idx` 继承链，并提供 `materializeInheritedStyle()`。
+- Theme 保留 scheme color 表达，支持局部修改 color scheme；读取 major/minor font scheme，不因修改其他字段固化主题色。
+- Gradient/Transparency codec 支持 linear/path、任意 stop、角度、scaled、rotate-with-shape、flip、fill rectangle，以及 srgb/scrgb/scheme/system/preset color。
+- `alpha`、`alphaMod`、`alphaOff`、`alphaModFix` 和其他 color transforms 按原顺序 round-trip；`SlideModel.background` 与 shape `gradientFill` 可直接编辑。
+- Media codec 支持文件、Buffer、ArrayBuffer、stream、外链 URL、poster、内容哈希去重、Audio/Video 关系、复制引用和删除引用计数。
+- 媒体 click action 使用 Office 原生表达；autoplay/loop/hide/volume 偏好通过 opaque extension round-trip，并由 Timing codec 转为原生时间树。
+- SDK 写入时汇总渐变、媒体和 external relationship 的 compatibility diagnostics。
+
+### 新增功能演示
+
+下面的三 stop 渐变由 `SlideModel.background` 写成原生 OOXML：中间 stop 使用 theme color，末端带独立 alpha。PptxGenJS 原有 master/layout/theme 关系保持不变，LibreOffice 可直接渲染。
+
+![WP4 渐变与高价值 codecs 演示](./images/wp4-gradient-codecs.png)
+
+### API 示例
+
+```ts
+document.slides[0].background = {
+  kind: 'linear-gradient',
+  angle: 35,
+  stops: [
+    { offset: 0, color: '#1D4ED8' },
+    { offset: 0.52, color: { source: { kind: 'scheme', value: 'accent2' }, alpha: 0.82, transforms: [] } },
+    { offset: 1, color: '#7C3AED', alpha: 0.68 },
+  ],
+};
+
+await document.addAudio(0, audioBuffer, { contentType: 'audio/mpeg', play: 'click' });
+```
+
+### 验证结果
+
+- TypeScript strict typecheck：通过。
+- Vitest：7 个测试文件、22 个测试全部通过。
+- real master/layout/theme chain：1 / 1 / 1，读取通过。
+- gradient/color/alpha round-trip：通过。
+- master/layout/theme create/copy/delete/relink：通过。
+- media embed/external/poster/dedup/ref-count：通过。
+- ZIP integrity 与 LibreOffice 打开/导出：通过。
+- 兼容矩阵：[docs/compatibility/v1-codecs.md](./compatibility/v1-codecs.md)。

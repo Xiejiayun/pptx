@@ -8,6 +8,7 @@ export default defineConfig({
     alias: {
       '@pptx/lossless-xml': `${root}packages/lossless-xml/src/index.ts`,
       '@pptx/opc': `${root}packages/opc/src/index.ts`,
+      '@pptx/codecs': `${root}packages/codecs/src/index.ts`,
       '@pptx/model': `${root}packages/model/src/index.ts`,
       '@pptx/pptxgenjs-adapter': `${root}packages/pptxgenjs-adapter/src/index.ts`,
       '@pptx/validator': `${root}packages/validator/src/index.ts`,

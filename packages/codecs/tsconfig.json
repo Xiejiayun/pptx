@@ -3,8 +3,8 @@
   "compilerOptions": { "composite": true, "rootDir": "src", "outDir": "dist" },
   "include": ["src/**/*.ts"],
   "references": [
-    { "path": "../codecs" },
     { "path": "../lossless-xml" },
     { "path": "../opc" }
   ]
 }
+
