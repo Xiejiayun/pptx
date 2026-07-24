@@ -112,3 +112,31 @@ await document.writeFile('output.pptx');
 - slide add/duplicate/move/delete 与引用同步：通过。
 - 真实文本/图片/表格/图表文件：LibreOffice 无修复打开并导出 3 页。
 - presentation 未知扩展节点保留：通过。
+
+## WP3：PptxGenJS Adapter
+
+状态：完成
+
+### 本阶段 change
+
+- 新增 `@pptx/pptxgenjs-adapter`，并把 `pptxgenjs:^4.0.1` 限定为该包的直接依赖。
+- `importPptxGenJS()` 只调用公开 `write({ outputType: 'uint8array' })`，生成结果立即进入同一 OOXML 内核。
+- adapter 支持透传资源预算和 AbortSignal；异常输出产生明确的 `PptxGenJSAdapterError`。
+- conformance test 使用 PptxGenJS 4.0.1 真实生成文件，导入后修改标题、复制 slide、保存并重新读取。
+- 新增依赖边界回归测试，确保 core/model/opc/sdk/validator 不会意外引入 PptxGenJS。
+- 新增迁移指南，区分“PptxGenJS 新建后加工”和“直接编辑已有 PPTX”两条路径。
+
+### 新增功能演示
+
+下面的标题先由 PptxGenJS 创建，再通过 adapter 导入并由 OOXML 内核改写；保存后由 LibreOffice 打开和导出。整个流程不读取 PptxGenJS 私有字段。
+
+![WP3 PptxGenJS adapter 演示](./images/wp3-pptxgenjs-adapter.png)
+
+### 验证结果
+
+- TypeScript strict typecheck：通过。
+- Vitest：6 个测试文件、17 个测试全部通过。
+- PptxGenJS 4.0.1 public output conformance：通过。
+- adapter 导入→编辑→复制→重新打开：通过。
+- 非 adapter 包依赖边界：通过。
+- 迁移指南：[docs/migration/pptxgenjs.md](./migration/pptxgenjs.md)。
