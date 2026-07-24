@@ -251,7 +251,31 @@ interface FeatureCodec<T> {
 7. Animation、Transition、SmartArt；
 8. 公式、OLE、ActiveX、墨迹、3D Model、Zoom 及其他 PowerPoint 功能。
 
-## 11. 测试与发布门禁
+## 11. PptxGenJS 功能完全覆盖门禁
+
+本库必须覆盖 PptxGenJS 4.x 的全部公开功能，但使用新的高层对象 API；不承诺将现有 PptxGenJS 代码只替换 import 后直接运行。
+
+仓库维护 `PptxGenJS parity matrix`，以当前锁定的最低兼容版本和发布时最新兼容 4.x 版本的公开类型、文档和官方示例为证据。每个 PptxGenJS 功能必须映射到新的公开 API、测试用例和最新版 Windows PowerPoint round-trip 结果。
+
+对等范围至少包括：
+
+- presentation layout、theme、metadata、sections、slide master 和 placeholder；
+- slide 创建、背景、隐藏、页码、speaker notes 和 section 归属；
+- Rich Text、RTL、亚洲字体、bullet/numbering、fit、margin、hyperlink 和 action；
+- 全部公开 shape geometry、line、fill、transparency、shadow、rotation 和 grouping；
+- path、data URI、SVG、animated GIF、裁切、contain、cover、sizing 和 hyperlink 图片能力；
+- table cell/style、row/column sizing、merge、auto paging 与 HTML table-to-slides；
+- PptxGenJS 公开的全部常规和组合 chart type、series 与 chart options；
+- audio、video、online media/YouTube 和 poster frame；
+- base64、Blob、Buffer、`Uint8Array`、文件、下载和 stream 输出；
+- Node、浏览器、React、Angular、Vite、Electron 和 serverless 中与运行时无关的公开能力；
+- 官方公开的 image sizing、data conversion 和其他辅助函数的等价能力。
+
+功能等价不要求复刻 PptxGenJS 的参数形状。新的 API 应保持一致的 `Presentation → Slide → Shape` 对象模型，并提供迁移指南说明每项旧能力的新写法。
+
+PptxGenJS adapter 只作为迁移和交叉验证工具；聚合 `pptx` 包自身必须能够完成 parity matrix 中的全部操作，不能把安装或调用 PptxGenJS 作为功能完成证据。
+
+## 12. 测试与发布门禁
 
 测试体系包括：
 
@@ -266,20 +290,22 @@ interface FeatureCodec<T> {
 - Chrome、Edge、Safari 的打开、编辑、下载与大文件内存测试；
 - Node 20、22 和当前 LTS，覆盖 Windows、macOS、Linux；
 - 单个 npm tarball 在空项目中的安装、类型检查、运行和 CLI smoke test；
-- 公共 API snapshot 和弃用策略。
+- 公共 API snapshot 和弃用策略；
+- PptxGenJS parity matrix 的逐项 API、输出和迁移示例测试。
 
 发布制品不得泄漏 workspace 协议、内部包入口或无法安装的依赖。
 
-## 12. 完成定义
+## 13. 完成定义
 
 `1.0` 完成需要同时满足：
 
 1. 唯一聚合 npm 包提供本文定义的完整高层 API；
-2. 功能矩阵中目标 PowerPoint 功能具有要求的 CRUD、保留、验证和 round-trip 证据；
-3. 六种 OOXML 格式通过真实 PowerPoint 语料门禁；
-4. Node 与浏览器发布矩阵通过；
-5. 未知和未公开扩展满足无损保留约束；
-6. 不存在已知的共享串改、悬空关系、事务残留或静默数据丢失；
-7. 兼容客户端的已知差异均有稳定诊断。
+2. PptxGenJS parity matrix 的全部公开功能均有新 API、测试、迁移示例和 PowerPoint round-trip 证据；
+3. 功能矩阵中目标 PowerPoint 功能具有要求的 CRUD、保留、验证和 round-trip 证据；
+4. 六种 OOXML 格式通过真实 PowerPoint 语料门禁；
+5. Node 与浏览器发布矩阵通过；
+6. 未知和未公开扩展满足无损保留约束；
+7. 不存在已知的共享串改、悬空关系、事务残留或静默数据丢失；
+8. 兼容客户端的已知差异均有稳定诊断。
 
 在这些条件成立前，版本和文档必须明确标记为开发版或技术预览，不得使用“完整”描述当前实现状态。
