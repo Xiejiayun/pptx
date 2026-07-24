@@ -1,0 +1,53 @@
+{
+  "name": "@jiayunxie/pptx",
+  "version": "0.1.0",
+  "description": "Lossless bidirectional PPTX OOXML editing for Node.js and TypeScript",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "pptx-inspect": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Xiejiayun/pptx.git",
+    "directory": "packages/pptx"
+  },
+  "homepage": "https://github.com/Xiejiayun/pptx#readme",
+  "bugs": {
+    "url": "https://github.com/Xiejiayun/pptx/issues"
+  },
+  "keywords": [
+    "pptx",
+    "powerpoint",
+    "ooxml",
+    "presentation",
+    "typescript"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "tag": "next",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "tsup && node ../../scripts/build-npm-package-types.mjs",
+    "prepack": "pnpm run build"
+  }
+}

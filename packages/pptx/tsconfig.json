@@ -1,0 +1,18 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "include": ["src/**/*.ts"],
+  "references": [
+    { "path": "../cli" },
+    { "path": "../pptxgenjs-adapter" },
+    { "path": "../sdk" },
+    { "path": "../../plugins/advanced-charts" },
+    { "path": "../../plugins/animations" },
+    { "path": "../../plugins/smartart" },
+    { "path": "../../plugins/transitions" }
+  ]
+}

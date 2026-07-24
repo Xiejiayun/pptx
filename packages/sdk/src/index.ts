@@ -1,5 +1,5 @@
 import { createReadStream, promises as fs } from 'node:fs';
-import { Readable } from 'node:stream';
+import type { Readable } from 'node:stream';
 import {
   CodecRegistry,
   GradientCodec,

@@ -10,6 +10,7 @@
     { "path": "packages/sdk" },
     { "path": "packages/testkit" },
     { "path": "packages/cli" },
+    { "path": "packages/pptx" },
     { "path": "plugins/transitions" },
     { "path": "plugins/animations" },
     { "path": "plugins/advanced-charts" },

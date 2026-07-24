@@ -4,8 +4,12 @@
 
 当前实施进度和功能截图见 [docs/implementation-progress.md](./docs/implementation-progress.md)。完整路线图见 [PLAN.md](./PLAN.md)。
 
+```sh
+npm install @jiayunxie/pptx@next
+```
+
 ```ts
-import { PptxDocument } from '@pptx/sdk';
+import { PptxDocument } from '@jiayunxie/pptx';
 
 const document = await PptxDocument.open('input.pptx');
 document.slides[0].title.text = 'Updated';
@@ -22,7 +26,9 @@ pnpm build
 
 Node.js 20+；TypeScript strict mode。
 
-## Packages
+## Workspace packages
+
+npm 用户只需安装 `@jiayunxie/pptx`。以下是仓库内部模块边界，不需要分别安装：
 
 - `@pptx/sdk`：统一的打开、编辑、验证和保存 API。
 - `@pptx/opc`：ZIP、content types、relationships 和 package graph。
@@ -40,8 +46,7 @@ Node.js 20+；TypeScript strict mode。
 ## CLI
 
 ```sh
-pnpm build
-pptx-inspect --json doctor
+npx @jiayunxie/pptx@next --json doctor
 pptx-inspect --json package validate deck.pptx
 pptx-inspect --json slides list deck.pptx
 ```

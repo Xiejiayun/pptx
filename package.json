@@ -16,7 +16,15 @@
     "cli": "node packages/cli/dist/main.js"
   },
   "devDependencies": {
+    "@pptx/cli": "workspace:*",
+    "@pptx/plugin-advanced-charts": "workspace:*",
+    "@pptx/plugin-animations": "workspace:*",
+    "@pptx/plugin-smartart": "workspace:*",
+    "@pptx/plugin-transitions": "workspace:*",
+    "@pptx/pptxgenjs-adapter": "workspace:*",
+    "@pptx/sdk": "workspace:*",
     "@types/node": "^24.0.0",
+    "tsup": "^8.5.1",
     "typescript": "^5.8.3",
     "vitest": "^3.2.4"
   }

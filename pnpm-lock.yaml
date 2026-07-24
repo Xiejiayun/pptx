@@ -8,9 +8,33 @@ importers:
 
   .:
     devDependencies:
+      '@pptx/cli':
+        specifier: workspace:*
+        version: link:packages/cli
+      '@pptx/plugin-advanced-charts':
+        specifier: workspace:*
+        version: link:plugins/advanced-charts
+      '@pptx/plugin-animations':
+        specifier: workspace:*
+        version: link:plugins/animations
+      '@pptx/plugin-smartart':
+        specifier: workspace:*
+        version: link:plugins/smartart
+      '@pptx/plugin-transitions':
+        specifier: workspace:*
+        version: link:plugins/transitions
+      '@pptx/pptxgenjs-adapter':
+        specifier: workspace:*
+        version: link:packages/pptxgenjs-adapter
+      '@pptx/sdk':
+        specifier: workspace:*
+        version: link:packages/sdk
       '@types/node':
         specifier: ^24.0.0
         version: 24.13.3
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(postcss@8.5.19)(typescript@5.9.3)
       typescript:
         specifier: ^5.8.3
         version: 5.9.3
@@ -75,6 +99,8 @@ importers:
       jszip:
         specifier: ^3.10.1
         version: 3.10.1
+
+  packages/pptx: {}
 
   packages/pptxgenjs-adapter:
     dependencies:
@@ -199,16 +225,34 @@ importers:
 
 packages:
 
+  '@esbuild/aix-ppc64@0.27.7':
+    resolution: {integrity: sha1-grdPkqp41yC3FBYpOfskjJCt31M=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@esbuild/aix-ppc64/-/aix-ppc64-0.27.7.tgz}
+    engines: {node: '>=18'}
+    cpu: [ppc64]
+    os: [aix]
+
   '@esbuild/aix-ppc64@0.28.1':
     resolution: {integrity: sha1-egGo0uwvuy2seK2tCbD6eB5Agr4=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@esbuild/aix-ppc64/-/aix-ppc64-0.28.1.tgz}
     engines: {node: '>=18'}
     cpu: [ppc64]
     os: [aix]
 
+  '@esbuild/android-arm64@0.27.7':
+    resolution: {integrity: sha1-94y4oxIfwgWlMoWtskly2zhdGF0=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@esbuild/android-arm64/-/android-arm64-0.27.7.tgz}
+    engines: {node: '>=18'}
+    cpu: [arm64]
+    os: [android]
+
   '@esbuild/android-arm64@0.28.1':
     resolution: {integrity: sha1-tUCifRTkr9BYSWpNvsTT9BTbEQo=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@esbuild/android-arm64/-/android-arm64-0.28.1.tgz}
     engines: {node: '>=18'}
     cpu: [arm64]
+    os: [android]
+
+  '@esbuild/android-arm@0.27.7':
+    resolution: {integrity: sha1-WT4QoUULv8rGyzIfYfRoRTusIJ0=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@esbuild/android-arm/-/android-arm-0.27.7.tgz}
+    engines: {node: '>=18'}
+    cpu: [arm]
     os: [android]
 
   '@esbuild/android-arm@0.28.1':
@@ -217,16 +261,34 @@ packages:
     cpu: [arm]
     os: [android]
 
+  '@esbuild/android-x64@0.27.7':
+    resolution: {integrity: sha1-RTFD0HMyYDPS0iyvnkjeS64nSwc=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@esbuild/android-x64/-/android-x64-0.27.7.tgz}
+    engines: {node: '>=18'}
+    cpu: [x64]
+    os: [android]
+
   '@esbuild/android-x64@0.28.1':
     resolution: {integrity: sha1-0csWbTSw+/D+irRgpVlPJKN4cB4=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@esbuild/android-x64/-/android-x64-0.28.1.tgz}
     engines: {node: '>=18'}
     cpu: [x64]
     os: [android]
 
+  '@esbuild/darwin-arm64@0.27.7':
+    resolution: {integrity: sha1-byMAD7m0C34Et9BgbAaTvQYy8yI=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@esbuild/darwin-arm64/-/darwin-arm64-0.27.7.tgz}
+    engines: {node: '>=18'}
+    cpu: [arm64]
+    os: [darwin]
+
   '@esbuild/darwin-arm64@0.28.1':
     resolution: {integrity: sha1-EDSyZFf8iGNo/mG70J9lP2r6jlQ=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@esbuild/darwin-arm64/-/darwin-arm64-0.28.1.tgz}
     engines: {node: '>=18'}
     cpu: [arm64]
+    os: [darwin]
+
+  '@esbuild/darwin-x64@0.27.7':
+    resolution: {integrity: sha1-Jzk90YuxJjxmOXnF8VduAMLQJL4=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@esbuild/darwin-x64/-/darwin-x64-0.27.7.tgz}
+    engines: {node: '>=18'}
+    cpu: [x64]
     os: [darwin]
 
   '@esbuild/darwin-x64@0.28.1':
@@ -235,10 +297,22 @@ packages:
     cpu: [x64]
     os: [darwin]
 
+  '@esbuild/freebsd-arm64@0.27.7':
+    resolution: {integrity: sha1-IuRjj6UC0cACcHcyTJdkDjrfOmI=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@esbuild/freebsd-arm64/-/freebsd-arm64-0.27.7.tgz}
+    engines: {node: '>=18'}
+    cpu: [arm64]
+    os: [freebsd]
+
   '@esbuild/freebsd-arm64@0.28.1':
     resolution: {integrity: sha1-LmHgWS+QMNfj2uGO4l68U1kYrvY=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@esbuild/freebsd-arm64/-/freebsd-arm64-0.28.1.tgz}
     engines: {node: '>=18'}
     cpu: [arm64]
+    os: [freebsd]
+
+  '@esbuild/freebsd-x64@0.27.7':
+    resolution: {integrity: sha1-kiS45P6pJM4hlOPvw+muv4IhktY=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@esbuild/freebsd-x64/-/freebsd-x64-0.27.7.tgz}
+    engines: {node: '>=18'}
+    cpu: [x64]
     os: [freebsd]
 
   '@esbuild/freebsd-x64@0.28.1':
@@ -247,10 +321,22 @@ packages:
     cpu: [x64]
     os: [freebsd]
 
+  '@esbuild/linux-arm64@0.27.7':
+    resolution: {integrity: sha1-T10cJ1J9gXs1aEriFBnlfCvaCWY=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@esbuild/linux-arm64/-/linux-arm64-0.27.7.tgz}
+    engines: {node: '>=18'}
+    cpu: [arm64]
+    os: [linux]
+
   '@esbuild/linux-arm64@0.28.1':
     resolution: {integrity: sha1-QLIhdd2gYYLz7oFBGGxf8wTEpxc=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@esbuild/linux-arm64/-/linux-arm64-0.28.1.tgz}
     engines: {node: '>=18'}
     cpu: [arm64]
+    os: [linux]
+
+  '@esbuild/linux-arm@0.27.7':
+    resolution: {integrity: sha1-uenQcMjBwESc8Ssg6sN9cKRZWSE=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@esbuild/linux-arm/-/linux-arm-0.27.7.tgz}
+    engines: {node: '>=18'}
+    cpu: [arm]
     os: [linux]
 
   '@esbuild/linux-arm@0.28.1':
@@ -259,10 +345,22 @@ packages:
     cpu: [arm]
     os: [linux]
 
+  '@esbuild/linux-ia32@0.27.7':
+    resolution: {integrity: sha1-P4D7aWqpYFGpQEfzXIWwiyHDb54=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@esbuild/linux-ia32/-/linux-ia32-0.27.7.tgz}
+    engines: {node: '>=18'}
+    cpu: [ia32]
+    os: [linux]
+
   '@esbuild/linux-ia32@0.28.1':
     resolution: {integrity: sha1-pYD5xnZ5eDOJHlGfx6EzfIr9jbM=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@esbuild/linux-ia32/-/linux-ia32-0.28.1.tgz}
     engines: {node: '>=18'}
     cpu: [ia32]
+    os: [linux]
+
+  '@esbuild/linux-loong64@0.27.7':
+    resolution: {integrity: sha1-m+HywoIQsT67QVYiG7o1b+FnUgU=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@esbuild/linux-loong64/-/linux-loong64-0.27.7.tgz}
+    engines: {node: '>=18'}
+    cpu: [loong64]
     os: [linux]
 
   '@esbuild/linux-loong64@0.28.1':
@@ -271,10 +369,22 @@ packages:
     cpu: [loong64]
     os: [linux]
 
+  '@esbuild/linux-mips64el@0.27.7':
+    resolution: {integrity: sha1-SrXuZ6Pfy8tej9eIPa5uc1sRY7g=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@esbuild/linux-mips64el/-/linux-mips64el-0.27.7.tgz}
+    engines: {node: '>=18'}
+    cpu: [mips64el]
+    os: [linux]
+
   '@esbuild/linux-mips64el@0.28.1':
     resolution: {integrity: sha1-QhGzGE3WYI9T3LIuOfXTTuCIUsg=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@esbuild/linux-mips64el/-/linux-mips64el-0.28.1.tgz}
     engines: {node: '>=18'}
     cpu: [mips64el]
+    os: [linux]
+
+  '@esbuild/linux-ppc64@0.27.7':
+    resolution: {integrity: sha1-2seMaJ9kmUWcQyHlwVAywSMH5+o=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@esbuild/linux-ppc64/-/linux-ppc64-0.27.7.tgz}
+    engines: {node: '>=18'}
+    cpu: [ppc64]
     os: [linux]
 
   '@esbuild/linux-ppc64@0.28.1':
@@ -283,10 +393,22 @@ packages:
     cpu: [ppc64]
     os: [linux]
 
+  '@esbuild/linux-riscv64@0.27.7':
+    resolution: {integrity: sha1-BQ99OzVcOpgwjpNbxNYyXakbACc=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@esbuild/linux-riscv64/-/linux-riscv64-0.27.7.tgz}
+    engines: {node: '>=18'}
+    cpu: [riscv64]
+    os: [linux]
+
   '@esbuild/linux-riscv64@0.28.1':
     resolution: {integrity: sha1-0ZKUPrFGpArExkl9DPe+NbmGvwg=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@esbuild/linux-riscv64/-/linux-riscv64-0.28.1.tgz}
     engines: {node: '>=18'}
     cpu: [riscv64]
+    os: [linux]
+
+  '@esbuild/linux-s390x@0.27.7':
+    resolution: {integrity: sha1-1h9xXOYdQ/5YRK0Nj0Y/iMvk/vY=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@esbuild/linux-s390x/-/linux-s390x-0.27.7.tgz}
+    engines: {node: '>=18'}
+    cpu: [s390x]
     os: [linux]
 
   '@esbuild/linux-s390x@0.28.1':
@@ -295,16 +417,34 @@ packages:
     cpu: [s390x]
     os: [linux]
 
+  '@esbuild/linux-x64@0.27.7':
+    resolution: {integrity: sha1-yo4apHj8ggkle/Osj3nE3CmC8yo=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@esbuild/linux-x64/-/linux-x64-0.27.7.tgz}
+    engines: {node: '>=18'}
+    cpu: [x64]
+    os: [linux]
+
   '@esbuild/linux-x64@0.28.1':
     resolution: {integrity: sha1-bww84MtkxTS3DExF7LLBbTTjXf0=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@esbuild/linux-x64/-/linux-x64-0.28.1.tgz}
     engines: {node: '>=18'}
     cpu: [x64]
     os: [linux]
 
+  '@esbuild/netbsd-arm64@0.27.7':
+    resolution: {integrity: sha1-FlDywblI3us++Ujy/DBhRyPAlpA=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@esbuild/netbsd-arm64/-/netbsd-arm64-0.27.7.tgz}
+    engines: {node: '>=18'}
+    cpu: [arm64]
+    os: [netbsd]
+
   '@esbuild/netbsd-arm64@0.28.1':
     resolution: {integrity: sha1-i813B3oNzjN4tXT+2ybSolO3PTY=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@esbuild/netbsd-arm64/-/netbsd-arm64-0.28.1.tgz}
     engines: {node: '>=18'}
     cpu: [arm64]
+    os: [netbsd]
+
+  '@esbuild/netbsd-x64@0.27.7':
+    resolution: {integrity: sha1-ZXcqs0LEszGb8HBaIRBQqsG24yA=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@esbuild/netbsd-x64/-/netbsd-x64-0.27.7.tgz}
+    engines: {node: '>=18'}
+    cpu: [x64]
     os: [netbsd]
 
   '@esbuild/netbsd-x64@0.28.1':
@@ -313,10 +453,22 @@ packages:
     cpu: [x64]
     os: [netbsd]
 
+  '@esbuild/openbsd-arm64@0.27.7':
+    resolution: {integrity: sha1-N+18+mZUnXlVhS/ON9DD3k5xXqE=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@esbuild/openbsd-arm64/-/openbsd-arm64-0.27.7.tgz}
+    engines: {node: '>=18'}
+    cpu: [arm64]
+    os: [openbsd]
+
   '@esbuild/openbsd-arm64@0.28.1':
     resolution: {integrity: sha1-xSkJNy24uG4sVeBaiUADO1Zgo7I=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@esbuild/openbsd-arm64/-/openbsd-arm64-0.28.1.tgz}
     engines: {node: '>=18'}
     cpu: [arm64]
+    os: [openbsd]
+
+  '@esbuild/openbsd-x64@0.27.7':
+    resolution: {integrity: sha1-Ab89OFhV71DLM9t8S1L5V8NM0Xk=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@esbuild/openbsd-x64/-/openbsd-x64-0.27.7.tgz}
+    engines: {node: '>=18'}
+    cpu: [x64]
     os: [openbsd]
 
   '@esbuild/openbsd-x64@0.28.1':
@@ -325,11 +477,23 @@ packages:
     cpu: [x64]
     os: [openbsd]
 
+  '@esbuild/openharmony-arm64@0.27.7':
+    resolution: {integrity: sha1-bB+Us0CGWZqr2k6sj2OClLmHdBA=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@esbuild/openharmony-arm64/-/openharmony-arm64-0.27.7.tgz}
+    engines: {node: '>=18'}
+    cpu: [arm64]
+    os: [openharmony]
+
   '@esbuild/openharmony-arm64@0.28.1':
     resolution: {integrity: sha1-3JsUe6yi5sSzyFVxdB70hgpIkJc=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@esbuild/openharmony-arm64/-/openharmony-arm64-0.28.1.tgz}
     engines: {node: '>=18'}
     cpu: [arm64]
     os: [openharmony]
+
+  '@esbuild/sunos-x64@0.27.7':
+    resolution: {integrity: sha1-Sw3ReuCmlB0tD9NakGOSUXBxqQ0=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@esbuild/sunos-x64/-/sunos-x64-0.27.7.tgz}
+    engines: {node: '>=18'}
+    cpu: [x64]
+    os: [sunos]
 
   '@esbuild/sunos-x64@0.28.1':
     resolution: {integrity: sha1-zoZtEt8TwV5MmfBzo9Rm9uBkmzo=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@esbuild/sunos-x64/-/sunos-x64-0.28.1.tgz}
@@ -337,10 +501,22 @@ packages:
     cpu: [x64]
     os: [sunos]
 
+  '@esbuild/win32-arm64@0.27.7':
+    resolution: {integrity: sha1-NBk6tVZdb/aMqSisBL51ECzLLnc=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@esbuild/win32-arm64/-/win32-arm64-0.27.7.tgz}
+    engines: {node: '>=18'}
+    cpu: [arm64]
+    os: [win32]
+
   '@esbuild/win32-arm64@0.28.1':
     resolution: {integrity: sha1-dGjjaS0B1inVlB5dg4F7uA+eObQ=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@esbuild/win32-arm64/-/win32-arm64-0.28.1.tgz}
     engines: {node: '>=18'}
     cpu: [arm64]
+    os: [win32]
+
+  '@esbuild/win32-ia32@0.27.7':
+    resolution: {integrity: sha1-62fw5EglFdjBiU7eYxwyek2p/E0=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@esbuild/win32-ia32/-/win32-ia32-0.27.7.tgz}
+    engines: {node: '>=18'}
+    cpu: [ia32]
     os: [win32]
 
   '@esbuild/win32-ia32@0.28.1':
@@ -349,14 +525,30 @@ packages:
     cpu: [ia32]
     os: [win32]
 
+  '@esbuild/win32-x64@0.27.7':
+    resolution: {integrity: sha1-j+MLMIi4m0hzw6bMh1l645IMCos=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@esbuild/win32-x64/-/win32-x64-0.27.7.tgz}
+    engines: {node: '>=18'}
+    cpu: [x64]
+    os: [win32]
+
   '@esbuild/win32-x64@0.28.1':
     resolution: {integrity: sha1-EAZO5E9DR7kMmgK0Rrv4CpFjKxI=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@esbuild/win32-x64/-/win32-x64-0.28.1.tgz}
     engines: {node: '>=18'}
     cpu: [x64]
     os: [win32]
 
+  '@jridgewell/gen-mapping@0.3.13':
+    resolution: {integrity: sha1-Y0Khn0Q0dRjJPkOxrGnes8Rlah8=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@jridgewell/gen-mapping/-/gen-mapping-0.3.13.tgz}
+
+  '@jridgewell/resolve-uri@3.1.2':
+    resolution: {integrity: sha1-eg7mAfYPmaIMfHxf8MgDiMEYm9Y=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@jridgewell/resolve-uri/-/resolve-uri-3.1.2.tgz}
+    engines: {node: '>=6.0.0'}
+
   '@jridgewell/sourcemap-codec@1.5.5':
     resolution: {integrity: sha1-aRKwDSxjHA0Vzhp6tXzWV/Ko+Lo=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@jridgewell/sourcemap-codec/-/sourcemap-codec-1.5.5.tgz}
+
+  '@jridgewell/trace-mapping@0.3.31':
+    resolution: {integrity: sha1-2xXWeByTHzolGj2sOVAcmKYIL9A=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@jridgewell/trace-mapping/-/trace-mapping-0.3.31.tgz}
 
   '@rollup/rollup-android-arm-eabi@4.62.2':
     resolution: {integrity: sha1-XphJtmHCIpz5Z6CNvi276ejJkeU=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@rollup/rollup-android-arm-eabi/-/rollup-android-arm-eabi-4.62.2.tgz}
@@ -540,9 +732,23 @@ packages:
   '@vitest/utils@3.2.7':
     resolution: {integrity: sha1-MCyBJiEaxN/qh7O1CFwJjW0i6J4=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/@vitest/utils/-/utils-3.2.7.tgz}
 
+  acorn@8.17.0:
+    resolution: {integrity: sha1-F4WtuE+vjYrdEDabk4Jvwr0I8f4=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/acorn/-/acorn-8.17.0.tgz}
+    engines: {node: '>=0.4.0'}
+    hasBin: true
+
+  any-promise@1.3.0:
+    resolution: {integrity: sha1-q8av7tzqUugJzcA3au0845Y10X8=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/any-promise/-/any-promise-1.3.0.tgz}
+
   assertion-error@2.0.1:
     resolution: {integrity: sha1-9kGhlrM1aQsQcL8AtudZP+wZC/c=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/assertion-error/-/assertion-error-2.0.1.tgz}
     engines: {node: '>=12'}
+
+  bundle-require@5.1.0:
+    resolution: {integrity: sha1-jbZvQZUNo9d68e8zIvTD4EAJ+u4=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/bundle-require/-/bundle-require-5.1.0.tgz}
+    engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
+    peerDependencies:
+      esbuild: '>=0.18'
 
   cac@6.7.14:
     resolution: {integrity: sha1-gE4eb1Bu42PLDjzLsJytXdmHCVk=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/cac/-/cac-6.7.14.tgz}
@@ -556,9 +762,24 @@ packages:
     resolution: {integrity: sha1-JCc2ERe3DMqNyJaA6tMrFXAZyvU=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/check-error/-/check-error-2.1.3.tgz}
     engines: {node: '>= 16'}
 
+  chokidar@4.0.3:
+    resolution: {integrity: sha1-e+N6TAPJruHs/oYqSiOyxwwgXTA=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/chokidar/-/chokidar-4.0.3.tgz}
+    engines: {node: '>= 14.16.0'}
+
   commander@14.0.3:
     resolution: {integrity: sha1-Ql15tI+a+C/Nnk/B6or2xewHu8I=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/commander/-/commander-14.0.3.tgz}
     engines: {node: '>=20'}
+
+  commander@4.1.1:
+    resolution: {integrity: sha1-n9YCvZNilOnp70aj9NaWQESxgGg=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/commander/-/commander-4.1.1.tgz}
+    engines: {node: '>= 6'}
+
+  confbox@0.1.8:
+    resolution: {integrity: sha1-gg1z07PILZvZEGUsXU1Znvj/iwY=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/confbox/-/confbox-0.1.8.tgz}
+
+  consola@3.4.2:
+    resolution: {integrity: sha1-WvEQFFOXu2ev2rdwE/3DTK5ZDqc=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/consola/-/consola-3.4.2.tgz}
+    engines: {node: ^14.18.0 || >=16.10.0}
 
   core-util-is@1.0.3:
     resolution: {integrity: sha1-pgQtNjTCsn6TKPg3uWX6yDgI24U=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/core-util-is/-/core-util-is-1.0.3.tgz}
@@ -578,6 +799,11 @@ packages:
 
   es-module-lexer@1.7.0:
     resolution: {integrity: sha1-kVlgFWGICoXyc0VgqQmbLDHlNyo=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/es-module-lexer/-/es-module-lexer-1.7.0.tgz}
+
+  esbuild@0.27.7:
+    resolution: {integrity: sha1-vK3OIrLz/XbyV+OmT4OmSYb+oR8=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/esbuild/-/esbuild-0.27.7.tgz}
+    engines: {node: '>=18'}
+    hasBin: true
 
   esbuild@0.28.1:
     resolution: {integrity: sha1-70W0Y0ycnZeilq6kEUpfmED5VXg=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/esbuild/-/esbuild-0.28.1.tgz}
@@ -599,6 +825,9 @@ packages:
     peerDependenciesMeta:
       picomatch:
         optional: true
+
+  fix-dts-default-cjs-exports@1.0.1:
+    resolution: {integrity: sha1-lVy2s9UZaRxXgosHitrfLLkulUk=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/fix-dts-default-cjs-exports/-/fix-dts-default-cjs-exports-1.0.1.tgz}
 
   fsevents@2.3.3:
     resolution: {integrity: sha1-ysZAd4XQNnWipeGlMFxpezR9kNY=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/fsevents/-/fsevents-2.3.3.tgz}
@@ -622,6 +851,10 @@ packages:
   isarray@1.0.0:
     resolution: {integrity: sha1-u5NdSFgsuhaMBoNJV6VKPgcSTxE=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/isarray/-/isarray-1.0.0.tgz}
 
+  joycon@3.1.1:
+    resolution: {integrity: sha1-vOhZbWroCPi2gWj1/GkoCZaJTwM=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/joycon/-/joycon-3.1.1.tgz}
+    engines: {node: '>=10'}
+
   js-tokens@9.0.1:
     resolution: {integrity: sha1-LsQ5ZGWENSlvZ2GzThBnHC2VJ/Q=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/js-tokens/-/js-tokens-9.0.1.tgz}
 
@@ -631,19 +864,40 @@ packages:
   lie@3.3.0:
     resolution: {integrity: sha1-3Pgt7lRfRgdNryAMfBxaCOD0D2o=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/lie/-/lie-3.3.0.tgz}
 
+  lilconfig@3.1.3:
+    resolution: {integrity: sha1-obz9Ylf5WFv1rhTO7rt7VZAl5MQ=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/lilconfig/-/lilconfig-3.1.3.tgz}
+    engines: {node: '>=14'}
+
+  lines-and-columns@1.2.4:
+    resolution: {integrity: sha1-7KKE910pZQeTCdwK2SVauy68FjI=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/lines-and-columns/-/lines-and-columns-1.2.4.tgz}
+
+  load-tsconfig@0.2.5:
+    resolution: {integrity: sha1-RTuM2JYb+5Et6nfrbBaP6Myj06E=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/load-tsconfig/-/load-tsconfig-0.2.5.tgz}
+    engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
+
   loupe@3.2.1:
     resolution: {integrity: sha1-AJXPVtxbepp8CP9bGoeW7IrRfnY=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/loupe/-/loupe-3.2.1.tgz}
 
   magic-string@0.30.21:
     resolution: {integrity: sha1-VnY+wJoPqAkd8nh5/ZTRkHjADZE=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/magic-string/-/magic-string-0.30.21.tgz}
 
+  mlly@1.8.2:
+    resolution: {integrity: sha1-5/eRmoLROxdEBWExFySaP0SdeLs=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/mlly/-/mlly-1.8.2.tgz}
+
   ms@2.1.3:
     resolution: {integrity: sha1-V0yBOM4dK1hh8LRFedut1gxmFbI=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/ms/-/ms-2.1.3.tgz}
+
+  mz@2.7.0:
+    resolution: {integrity: sha1-lQCAV6Vsr63CvGPd5/n/aVWUjjI=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/mz/-/mz-2.7.0.tgz}
 
   nanoid@3.3.16:
     resolution: {integrity: sha1-oE2OxLHxAAnS1TOUeu/kKTc3gWw=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/nanoid/-/nanoid-3.3.16.tgz}
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
     hasBin: true
+
+  object-assign@4.1.1:
+    resolution: {integrity: sha1-IQmtx5ZYh8/AXLvUQsrIv7s2CGM=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/object-assign/-/object-assign-4.1.1.tgz}
+    engines: {node: '>=0.10.0'}
 
   pako@1.0.11:
     resolution: {integrity: sha1-bJWZ00DVTf05RjgCUqNXBaa5kr8=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/pako/-/pako-1.0.11.tgz}
@@ -662,6 +916,31 @@ packages:
     resolution: {integrity: sha1-UepXoX2G9gX4EDlZX7xA7QalX6s=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/picomatch/-/picomatch-4.0.5.tgz}
     engines: {node: '>=12'}
 
+  pirates@4.0.7:
+    resolution: {integrity: sha1-ZDtKGMQlfIplEEtz8wSc6aChXiI=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/pirates/-/pirates-4.0.7.tgz}
+    engines: {node: '>= 6'}
+
+  pkg-types@1.3.1:
+    resolution: {integrity: sha1-vXzHCIEZJ3fu9TJsGd60bokJF98=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/pkg-types/-/pkg-types-1.3.1.tgz}
+
+  postcss-load-config@6.0.1:
+    resolution: {integrity: sha1-b9fc2K6JutzxstZESJy6v4OqgJY=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/postcss-load-config/-/postcss-load-config-6.0.1.tgz}
+    engines: {node: '>= 18'}
+    peerDependencies:
+      jiti: '>=1.21.0'
+      postcss: '>=8.0.9'
+      tsx: ^4.8.1
+      yaml: ^2.4.2
+    peerDependenciesMeta:
+      jiti:
+        optional: true
+      postcss:
+        optional: true
+      tsx:
+        optional: true
+      yaml:
+        optional: true
+
   postcss@8.5.19:
     resolution: {integrity: sha1-Ra1c/eSZQI4gFHNII3VROBqSIDc=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/postcss/-/postcss-8.5.19.tgz}
     engines: {node: ^10 || ^12 || >=14}
@@ -677,6 +956,14 @@ packages:
 
   readable-stream@2.3.8:
     resolution: {integrity: sha1-kRJegEK7obmIf0k0X2J3Anzovps=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/readable-stream/-/readable-stream-2.3.8.tgz}
+
+  readdirp@4.1.2:
+    resolution: {integrity: sha1-64WAFDX78qfuWPGeCSGwaPxplI0=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/readdirp/-/readdirp-4.1.2.tgz}
+    engines: {node: '>= 14.18.0'}
+
+  resolve-from@5.0.0:
+    resolution: {integrity: sha1-w1IlhD3493bfIcV1V7wIfp39/Gk=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/resolve-from/-/resolve-from-5.0.0.tgz}
+    engines: {node: '>=8'}
 
   rollup@4.62.2:
     resolution: {integrity: sha1-2Q/Ey4EfBxMDyJC3eVlWNPNflUE=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/rollup/-/rollup-4.62.2.tgz}
@@ -696,6 +983,10 @@ packages:
     resolution: {integrity: sha1-HOVlD93YerwJnto33P8CTCZnrkY=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/source-map-js/-/source-map-js-1.2.1.tgz}
     engines: {node: '>=0.10.0'}
 
+  source-map@0.7.6:
+    resolution: {integrity: sha1-o2WKuH5bZCnIofO6AIPUxhyj7wI=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/source-map/-/source-map-0.7.6.tgz}
+    engines: {node: '>= 12'}
+
   stackback@0.0.2:
     resolution: {integrity: sha1-Gsig2Ug4SNFpXkGLbQMaPDzmjjs=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/stackback/-/stackback-0.0.2.tgz}
 
@@ -707,6 +998,18 @@ packages:
 
   strip-literal@3.1.0:
     resolution: {integrity: sha1-IiskPdLUnAvNDeiQatvYQXcZYDI=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/strip-literal/-/strip-literal-3.1.0.tgz}
+
+  sucrase@3.35.1:
+    resolution: {integrity: sha1-RhnqUDk/6L0K5QccJqvZsuNGv+E=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/sucrase/-/sucrase-3.35.1.tgz}
+    engines: {node: '>=16 || 14 >=14.17'}
+    hasBin: true
+
+  thenify-all@1.6.0:
+    resolution: {integrity: sha1-GhkY1ALY/D+Y+/I02wvMjMEOlyY=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/thenify-all/-/thenify-all-1.6.0.tgz}
+    engines: {node: '>=0.8'}
+
+  thenify@3.3.1:
+    resolution: {integrity: sha1-iTLmhqQGYDigFt2eLKRq3Zg4qV8=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/thenify/-/thenify-3.3.1.tgz}
 
   tinybench@2.9.0:
     resolution: {integrity: sha1-EDyfi6bXI3pHq23R3P93JRhjQms=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/tinybench/-/tinybench-2.9.0.tgz}
@@ -730,10 +1033,39 @@ packages:
     resolution: {integrity: sha1-13oAL7U6iKoUKbQZwckkkuDIH3g=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/tinyspy/-/tinyspy-4.0.4.tgz}
     engines: {node: '>=14.0.0'}
 
+  tree-kill@1.2.2:
+    resolution: {integrity: sha1-TKCakJLIi3OnzcXooBtQeweQoMw=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/tree-kill/-/tree-kill-1.2.2.tgz}
+    hasBin: true
+
+  ts-interface-checker@0.1.13:
+    resolution: {integrity: sha1-eE/T1nlyK8EDsbS4AwvN212yppk=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/ts-interface-checker/-/ts-interface-checker-0.1.13.tgz}
+
+  tsup@8.5.1:
+    resolution: {integrity: sha1-qceodbkzRL33BgDe3XjnD4jsmmU=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/tsup/-/tsup-8.5.1.tgz}
+    engines: {node: '>=18'}
+    hasBin: true
+    peerDependencies:
+      '@microsoft/api-extractor': ^7.36.0
+      '@swc/core': ^1
+      postcss: ^8.4.12
+      typescript: '>=4.5.0'
+    peerDependenciesMeta:
+      '@microsoft/api-extractor':
+        optional: true
+      '@swc/core':
+        optional: true
+      postcss:
+        optional: true
+      typescript:
+        optional: true
+
   typescript@5.9.3:
     resolution: {integrity: sha1-W09Z4VMQqxeiFvXWz1PuR27eZw8=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/typescript/-/typescript-5.9.3.tgz}
     engines: {node: '>=14.17'}
     hasBin: true
+
+  ufo@1.6.4:
+    resolution: {integrity: sha1-eo+4dfzGOC0sfQs2knOLBQCpJGc=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/ufo/-/ufo-1.6.4.tgz}
 
   undici-types@6.21.0:
     resolution: {integrity: sha1-aR0ArzkJvpOn+qE75hs6W1DvEss=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/undici-types/-/undici-types-6.21.0.tgz}
@@ -824,85 +1156,175 @@ packages:
 
 snapshots:
 
+  '@esbuild/aix-ppc64@0.27.7':
+    optional: true
+
   '@esbuild/aix-ppc64@0.28.1':
+    optional: true
+
+  '@esbuild/android-arm64@0.27.7':
     optional: true
 
   '@esbuild/android-arm64@0.28.1':
     optional: true
 
+  '@esbuild/android-arm@0.27.7':
+    optional: true
+
   '@esbuild/android-arm@0.28.1':
+    optional: true
+
+  '@esbuild/android-x64@0.27.7':
     optional: true
 
   '@esbuild/android-x64@0.28.1':
     optional: true
 
+  '@esbuild/darwin-arm64@0.27.7':
+    optional: true
+
   '@esbuild/darwin-arm64@0.28.1':
+    optional: true
+
+  '@esbuild/darwin-x64@0.27.7':
     optional: true
 
   '@esbuild/darwin-x64@0.28.1':
     optional: true
 
+  '@esbuild/freebsd-arm64@0.27.7':
+    optional: true
+
   '@esbuild/freebsd-arm64@0.28.1':
+    optional: true
+
+  '@esbuild/freebsd-x64@0.27.7':
     optional: true
 
   '@esbuild/freebsd-x64@0.28.1':
     optional: true
 
+  '@esbuild/linux-arm64@0.27.7':
+    optional: true
+
   '@esbuild/linux-arm64@0.28.1':
+    optional: true
+
+  '@esbuild/linux-arm@0.27.7':
     optional: true
 
   '@esbuild/linux-arm@0.28.1':
     optional: true
 
+  '@esbuild/linux-ia32@0.27.7':
+    optional: true
+
   '@esbuild/linux-ia32@0.28.1':
+    optional: true
+
+  '@esbuild/linux-loong64@0.27.7':
     optional: true
 
   '@esbuild/linux-loong64@0.28.1':
     optional: true
 
+  '@esbuild/linux-mips64el@0.27.7':
+    optional: true
+
   '@esbuild/linux-mips64el@0.28.1':
+    optional: true
+
+  '@esbuild/linux-ppc64@0.27.7':
     optional: true
 
   '@esbuild/linux-ppc64@0.28.1':
     optional: true
 
+  '@esbuild/linux-riscv64@0.27.7':
+    optional: true
+
   '@esbuild/linux-riscv64@0.28.1':
+    optional: true
+
+  '@esbuild/linux-s390x@0.27.7':
     optional: true
 
   '@esbuild/linux-s390x@0.28.1':
     optional: true
 
+  '@esbuild/linux-x64@0.27.7':
+    optional: true
+
   '@esbuild/linux-x64@0.28.1':
+    optional: true
+
+  '@esbuild/netbsd-arm64@0.27.7':
     optional: true
 
   '@esbuild/netbsd-arm64@0.28.1':
     optional: true
 
+  '@esbuild/netbsd-x64@0.27.7':
+    optional: true
+
   '@esbuild/netbsd-x64@0.28.1':
+    optional: true
+
+  '@esbuild/openbsd-arm64@0.27.7':
     optional: true
 
   '@esbuild/openbsd-arm64@0.28.1':
     optional: true
 
+  '@esbuild/openbsd-x64@0.27.7':
+    optional: true
+
   '@esbuild/openbsd-x64@0.28.1':
+    optional: true
+
+  '@esbuild/openharmony-arm64@0.27.7':
     optional: true
 
   '@esbuild/openharmony-arm64@0.28.1':
     optional: true
 
+  '@esbuild/sunos-x64@0.27.7':
+    optional: true
+
   '@esbuild/sunos-x64@0.28.1':
+    optional: true
+
+  '@esbuild/win32-arm64@0.27.7':
     optional: true
 
   '@esbuild/win32-arm64@0.28.1':
     optional: true
 
+  '@esbuild/win32-ia32@0.27.7':
+    optional: true
+
   '@esbuild/win32-ia32@0.28.1':
+    optional: true
+
+  '@esbuild/win32-x64@0.27.7':
     optional: true
 
   '@esbuild/win32-x64@0.28.1':
     optional: true
 
+  '@jridgewell/gen-mapping@0.3.13':
+    dependencies:
+      '@jridgewell/sourcemap-codec': 1.5.5
+      '@jridgewell/trace-mapping': 0.3.31
+
+  '@jridgewell/resolve-uri@3.1.2': {}
+
   '@jridgewell/sourcemap-codec@1.5.5': {}
+
+  '@jridgewell/trace-mapping@0.3.31':
+    dependencies:
+      '@jridgewell/resolve-uri': 3.1.2
+      '@jridgewell/sourcemap-codec': 1.5.5
 
   '@rollup/rollup-android-arm-eabi@4.62.2':
     optional: true
@@ -1038,7 +1460,16 @@ snapshots:
       loupe: 3.2.1
       tinyrainbow: 2.0.0
 
+  acorn@8.17.0: {}
+
+  any-promise@1.3.0: {}
+
   assertion-error@2.0.1: {}
+
+  bundle-require@5.1.0(esbuild@0.27.7):
+    dependencies:
+      esbuild: 0.27.7
+      load-tsconfig: 0.2.5
 
   cac@6.7.14: {}
 
@@ -1052,7 +1483,17 @@ snapshots:
 
   check-error@2.1.3: {}
 
+  chokidar@4.0.3:
+    dependencies:
+      readdirp: 4.1.2
+
   commander@14.0.3: {}
+
+  commander@4.1.1: {}
+
+  confbox@0.1.8: {}
+
+  consola@3.4.2: {}
 
   core-util-is@1.0.3: {}
 
@@ -1063,6 +1504,35 @@ snapshots:
   deep-eql@5.0.2: {}
 
   es-module-lexer@1.7.0: {}
+
+  esbuild@0.27.7:
+    optionalDependencies:
+      '@esbuild/aix-ppc64': 0.27.7
+      '@esbuild/android-arm': 0.27.7
+      '@esbuild/android-arm64': 0.27.7
+      '@esbuild/android-x64': 0.27.7
+      '@esbuild/darwin-arm64': 0.27.7
+      '@esbuild/darwin-x64': 0.27.7
+      '@esbuild/freebsd-arm64': 0.27.7
+      '@esbuild/freebsd-x64': 0.27.7
+      '@esbuild/linux-arm': 0.27.7
+      '@esbuild/linux-arm64': 0.27.7
+      '@esbuild/linux-ia32': 0.27.7
+      '@esbuild/linux-loong64': 0.27.7
+      '@esbuild/linux-mips64el': 0.27.7
+      '@esbuild/linux-ppc64': 0.27.7
+      '@esbuild/linux-riscv64': 0.27.7
+      '@esbuild/linux-s390x': 0.27.7
+      '@esbuild/linux-x64': 0.27.7
+      '@esbuild/netbsd-arm64': 0.27.7
+      '@esbuild/netbsd-x64': 0.27.7
+      '@esbuild/openbsd-arm64': 0.27.7
+      '@esbuild/openbsd-x64': 0.27.7
+      '@esbuild/openharmony-arm64': 0.27.7
+      '@esbuild/sunos-x64': 0.27.7
+      '@esbuild/win32-arm64': 0.27.7
+      '@esbuild/win32-ia32': 0.27.7
+      '@esbuild/win32-x64': 0.27.7
 
   esbuild@0.28.1:
     optionalDependencies:
@@ -1103,6 +1573,12 @@ snapshots:
     optionalDependencies:
       picomatch: 4.0.5
 
+  fix-dts-default-cjs-exports@1.0.1:
+    dependencies:
+      magic-string: 0.30.21
+      mlly: 1.8.2
+      rollup: 4.62.2
+
   fsevents@2.3.3:
     optional: true
 
@@ -1118,6 +1594,8 @@ snapshots:
 
   isarray@1.0.0: {}
 
+  joycon@3.1.1: {}
+
   js-tokens@9.0.1: {}
 
   jszip@3.10.1:
@@ -1131,15 +1609,36 @@ snapshots:
     dependencies:
       immediate: 3.0.6
 
+  lilconfig@3.1.3: {}
+
+  lines-and-columns@1.2.4: {}
+
+  load-tsconfig@0.2.5: {}
+
   loupe@3.2.1: {}
 
   magic-string@0.30.21:
     dependencies:
       '@jridgewell/sourcemap-codec': 1.5.5
 
+  mlly@1.8.2:
+    dependencies:
+      acorn: 8.17.0
+      pathe: 2.0.3
+      pkg-types: 1.3.1
+      ufo: 1.6.4
+
   ms@2.1.3: {}
 
+  mz@2.7.0:
+    dependencies:
+      any-promise: 1.3.0
+      object-assign: 4.1.1
+      thenify-all: 1.6.0
+
   nanoid@3.3.16: {}
+
+  object-assign@4.1.1: {}
 
   pako@1.0.11: {}
 
@@ -1150,6 +1649,20 @@ snapshots:
   picocolors@1.1.1: {}
 
   picomatch@4.0.5: {}
+
+  pirates@4.0.7: {}
+
+  pkg-types@1.3.1:
+    dependencies:
+      confbox: 0.1.8
+      mlly: 1.8.2
+      pathe: 2.0.3
+
+  postcss-load-config@6.0.1(postcss@8.5.19):
+    dependencies:
+      lilconfig: 3.1.3
+    optionalDependencies:
+      postcss: 8.5.19
 
   postcss@8.5.19:
     dependencies:
@@ -1179,6 +1692,10 @@ snapshots:
       safe-buffer: 5.1.2
       string_decoder: 1.1.1
       util-deprecate: 1.0.2
+
+  readdirp@4.1.2: {}
+
+  resolve-from@5.0.0: {}
 
   rollup@4.62.2:
     dependencies:
@@ -1219,6 +1736,8 @@ snapshots:
 
   source-map-js@1.2.1: {}
 
+  source-map@0.7.6: {}
+
   stackback@0.0.2: {}
 
   std-env@3.10.0: {}
@@ -1230,6 +1749,24 @@ snapshots:
   strip-literal@3.1.0:
     dependencies:
       js-tokens: 9.0.1
+
+  sucrase@3.35.1:
+    dependencies:
+      '@jridgewell/gen-mapping': 0.3.13
+      commander: 4.1.1
+      lines-and-columns: 1.2.4
+      mz: 2.7.0
+      pirates: 4.0.7
+      tinyglobby: 0.2.17
+      ts-interface-checker: 0.1.13
+
+  thenify-all@1.6.0:
+    dependencies:
+      thenify: 3.3.1
+
+  thenify@3.3.1:
+    dependencies:
+      any-promise: 1.3.0
 
   tinybench@2.9.0: {}
 
@@ -1246,7 +1783,41 @@ snapshots:
 
   tinyspy@4.0.4: {}
 
+  tree-kill@1.2.2: {}
+
+  ts-interface-checker@0.1.13: {}
+
+  tsup@8.5.1(postcss@8.5.19)(typescript@5.9.3):
+    dependencies:
+      bundle-require: 5.1.0(esbuild@0.27.7)
+      cac: 6.7.14
+      chokidar: 4.0.3
+      consola: 3.4.2
+      debug: 4.4.3
+      esbuild: 0.27.7
+      fix-dts-default-cjs-exports: 1.0.1
+      joycon: 3.1.1
+      picocolors: 1.1.1
+      postcss-load-config: 6.0.1(postcss@8.5.19)
+      resolve-from: 5.0.0
+      rollup: 4.62.2
+      source-map: 0.7.6
+      sucrase: 3.35.1
+      tinyexec: 0.3.2
+      tinyglobby: 0.2.17
+      tree-kill: 1.2.2
+    optionalDependencies:
+      postcss: 8.5.19
+      typescript: 5.9.3
+    transitivePeerDependencies:
+      - jiti
+      - supports-color
+      - tsx
+      - yaml
+
   typescript@5.9.3: {}
+
+  ufo@1.6.4: {}
 
   undici-types@6.21.0: {}
 
