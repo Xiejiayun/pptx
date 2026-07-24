@@ -1,6 +1,8 @@
 # PPTX 双向编辑库实施方案
 
-> 状态：架构方案已确认，等待进入实现阶段
+> 状态：WP0–WP6 已实现；`0.1.0` 技术预览构建就绪，正式发布仍受私有客户端门禁约束
+>
+> 实施记录：[docs/implementation-progress.md](./docs/implementation-progress.md)
 >
 > 基线：Node.js / TypeScript，PptxGenJS `^4.0.1` 作为兼容适配层依赖
 >

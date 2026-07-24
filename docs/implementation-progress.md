@@ -250,3 +250,14 @@ $ pptx-inspect --json package inspect output.pptx
 - 真实 slide XML 包含 `p:transition`、`p:timing`、`p:audio`、`p:animEffect`。
 - ZIP integrity 与 LibreOffice headless open/export：通过，diagnostics 为空。
 - 插件使用文档：[docs/plugins.md](./plugins.md)。
+
+## 最终验收
+
+- `pnpm check`：TypeScript strict build 通过；14 个测试文件、34 项测试全部通过。
+- 独立性能门禁：1,000-part package 在 596ms 打开，低于 5s 预算。
+- LibreOffice：真实 PPTX 无头打开、另存并导出 PDF 通过。
+- npm 制品：13 个可发布 package/plugin 均可打包，workspace 版本正确转换为 `0.1.0`，且不包含 `node_modules` 或测试构建产物。
+- 依赖边界：只有 `@pptx/pptxgenjs-adapter` 直接依赖 `pptxgenjs:^4.0.1`；core、SDK 和插件保持边界。
+- 计划审计：WP0–WP6 的代码、测试、文档、截图、CLI、CI 与可选插件交付物均已落库。
+
+正式 npm 发布仍按 [0.1.0 release checklist](./release/0.1.0.md) 保持 gated：Windows PowerPoint corpus、macOS Keynote corpus 与受控 Google Slides 导入需要在具备非交互授权的专用环境完成。本机安装的 PowerPoint/Keynote 在自动化验证中被首次启动或系统权限模态窗口阻塞，未将超时结果误记为通过。
