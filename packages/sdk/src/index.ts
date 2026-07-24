@@ -23,6 +23,7 @@ export * from '@pptx/model';
 export { PackageError } from '@pptx/opc';
 export type { PackageOpenOptions } from '@pptx/opc';
 export { ValidationError } from '@pptx/validator';
+export type { CompatibilityProfile, Diagnostic } from '@pptx/validator';
 export { ModelParseError as ParseError, SlideModel as Slide, SlideTitleModel as SlideTitle } from '@pptx/model';
 
 export type PptxInput = string | Uint8Array | ArrayBuffer | Readable;

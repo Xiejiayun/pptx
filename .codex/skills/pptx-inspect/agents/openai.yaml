@@ -1,0 +1,4 @@
+interface:
+  display_name: "PPTX Inspect"
+  short_description: "Inspect, validate, diff, and safely edit PPTX files"
+  default_prompt: "Use $pptx-inspect to inspect and validate this PPTX before making a dry-run title edit."

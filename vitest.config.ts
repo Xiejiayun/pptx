@@ -13,6 +13,7 @@ export default defineConfig({
       '@pptx/pptxgenjs-adapter': `${root}packages/pptxgenjs-adapter/src/index.ts`,
       '@pptx/validator': `${root}packages/validator/src/index.ts`,
       '@pptx/sdk': `${root}packages/sdk/src/index.ts`,
+      '@pptx/testkit': `${root}packages/testkit/src/index.ts`,
     },
   },
   test: {

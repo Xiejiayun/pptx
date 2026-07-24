@@ -1,6 +1,6 @@
 {
   "name": "@pptx/pptxgenjs-adapter",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -11,4 +11,3 @@
     "pptxgenjs": "^4.0.1"
   }
 }
-

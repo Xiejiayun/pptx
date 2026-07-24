@@ -21,3 +21,25 @@ pnpm build
 ```
 
 Node.js 20+；TypeScript strict mode。
+
+## Packages
+
+- `@pptx/sdk`：统一的打开、编辑、验证和保存 API。
+- `@pptx/opc`：ZIP、content types、relationships 和 package graph。
+- `@pptx/lossless-xml`：source-span XML tree 与最小 patch。
+- `@pptx/model`：slide 和常规对象语义模型。
+- `@pptx/codecs`：Master/Layout/Theme、Gradient/Transparency、Media。
+- `@pptx/pptxgenjs-adapter`：PptxGenJS 公开输出适配。
+- `@pptx/testkit`：part hash diff、mutation isolation 和 LibreOffice helper。
+- `@pptx/cli`：`pptx-inspect` 离线 inspection CLI。
+
+## CLI
+
+```sh
+pnpm build
+pptx-inspect --json doctor
+pptx-inspect --json package validate deck.pptx
+pptx-inspect --json slides list deck.pptx
+```
+
+CLI 写操作要求明确输出路径，并支持 `--dry-run`。完整命令见 [packages/cli/README.md](./packages/cli/README.md)。

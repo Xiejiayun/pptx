@@ -18,6 +18,24 @@ importers:
         specifier: ^3.2.4
         version: 3.2.7(@types/node@24.13.3)
 
+  packages/cli:
+    dependencies:
+      '@pptx/opc':
+        specifier: workspace:*
+        version: link:../opc
+      '@pptx/sdk':
+        specifier: workspace:*
+        version: link:../sdk
+      '@pptx/testkit':
+        specifier: workspace:*
+        version: link:../testkit
+      '@pptx/validator':
+        specifier: workspace:*
+        version: link:../validator
+      commander:
+        specifier: ^14.0.0
+        version: 14.0.3
+
   packages/codecs:
     dependencies:
       '@pptx/lossless-xml':
@@ -88,6 +106,22 @@ importers:
       jszip:
         specifier: ^3.10.1
         version: 3.10.1
+
+  packages/testkit:
+    dependencies:
+      '@pptx/opc':
+        specifier: workspace:*
+        version: link:../opc
+      jszip:
+        specifier: ^3.10.1
+        version: 3.10.1
+    devDependencies:
+      '@pptx/lossless-xml':
+        specifier: workspace:*
+        version: link:../lossless-xml
+      '@pptx/sdk':
+        specifier: workspace:*
+        version: link:../sdk
 
   packages/validator:
     dependencies:
@@ -457,6 +491,10 @@ packages:
   check-error@2.1.3:
     resolution: {integrity: sha1-JCc2ERe3DMqNyJaA6tMrFXAZyvU=, tarball: https://ms-feed-2.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/check-error/-/check-error-2.1.3.tgz}
     engines: {node: '>= 16'}
+
+  commander@14.0.3:
+    resolution: {integrity: sha1-Ql15tI+a+C/Nnk/B6or2xewHu8I=, tarball: https://ms-feed-12.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/commander/-/commander-14.0.3.tgz}
+    engines: {node: '>=20'}
 
   core-util-is@1.0.3:
     resolution: {integrity: sha1-pgQtNjTCsn6TKPg3uWX6yDgI24U=, tarball: https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/core-util-is/-/core-util-is-1.0.3.tgz}
@@ -949,6 +987,8 @@ snapshots:
       pathval: 2.0.1
 
   check-error@2.1.3: {}
+
+  commander@14.0.3: {}
 
   core-util-is@1.0.3: {}
 

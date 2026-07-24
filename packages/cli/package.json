@@ -1,0 +1,17 @@
+{
+  "name": "@pptx/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": { "pptx-inspect": "./dist/main.js" },
+  "files": ["dist", "README.md"],
+  "dependencies": {
+    "@pptx/opc": "workspace:*",
+    "@pptx/sdk": "workspace:*",
+    "@pptx/testkit": "workspace:*",
+    "@pptx/validator": "workspace:*",
+    "commander": "^14.0.0"
+  }
+}
+

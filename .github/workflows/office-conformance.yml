@@ -1,0 +1,20 @@
+name: Private Office conformance
+
+on:
+  workflow_dispatch:
+
+jobs:
+  powerpoint:
+    runs-on: [self-hosted, windows, powerpoint]
+    steps:
+      - uses: actions/checkout@v4
+      - shell: powershell
+        run: ./scripts/office/validate-powerpoint.ps1 -Corpus fixtures/corpus -Output artifacts/powerpoint
+
+  keynote:
+    runs-on: [self-hosted, macos, keynote]
+    steps:
+      - uses: actions/checkout@v4
+      - run: mkdir -p artifacts/keynote
+      - run: osascript scripts/office/validate-keynote.applescript fixtures/corpus artifacts/keynote
+

@@ -188,3 +188,36 @@ await document.addAudio(0, audioBuffer, { contentType: 'audio/mpeg', play: 'clic
 - media embed/external/poster/dedup/ref-count：通过。
 - ZIP integrity 与 LibreOffice 打开/导出：通过。
 - 兼容矩阵：[docs/compatibility/v1-codecs.md](./compatibility/v1-codecs.md)。
+
+## WP5：SDK、验证与 0.1.0 发布准备
+
+状态：完成
+
+### 本阶段 change
+
+- SDK 公共 API、类型声明、错误与 compatibility diagnostics 汇总完成；全部 workspace package 统一为 `0.1.0`。
+- 新增 `@pptx/testkit`：part fingerprint、package diff、mutation isolation 断言、fixture 与 LibreOffice render helper。
+- 新增可全局运行的 `pptx-inspect`：doctor、package inspect/validate/diff、slides list/set-title、raw part read。
+- CLI 使用稳定 JSON success/error envelope，离线且无需认证；写入要求显式 `--out`，支持 `--dry-run`，不提供 raw write/delete。
+- 新增 repo companion skill `.codex/skills/pptx-inspect`，已通过 skill validator。
+- 新增 250 轮 deterministic XML fuzz、20 轮 package round-trip fuzz 和 1,000-part 性能 smoke test。
+- 新增 Node 20/22 × Linux/macOS/Windows 公共 CI、LibreOffice headless job、PowerPoint COM 与 Keynote AppleScript 私有 runner。
+- 新增 API、安全、跨客户端、迁移、examples、CHANGELOG 和 0.1.0 release gate 文档。
+
+### CLI 直观输出
+
+```text
+$ pptx-inspect --json doctor
+{"ok":true,"command":"doctor","data":{"version":"0.1.0","node":{"supported":true},"auth":{"required":false},"mode":"offline","optional":{"libreoffice":true}}}
+
+$ pptx-inspect --json package inspect output.pptx
+{"ok":true,"command":"package.inspect","data":{"partCount":20,"relationshipCount":18,...}}
+```
+
+### 验证结果
+
+- Full strict check：10 个测试文件通过，28 个测试通过，1 个 performance test 默认跳过。
+- 独立 performance run：1,000-part package 在 606ms 完成 smoke test（预算 5s）。
+- `pptx-inspect` 已链接到 `/usr/local/bin`，从 `/tmp` 执行 help、doctor 和真实 PPTX inspection：通过。
+- LibreOffice CI 脚本生成、修改、打开并导出 PDF：通过。
+- 0.1.0 release checklist：[docs/release/0.1.0.md](./release/0.1.0.md)。
