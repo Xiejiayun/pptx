@@ -29,4 +29,10 @@ describe('LosslessXmlDocument', () => {
     expect(document.serialize()).toBe('<x b="2" a="1">\n\n<b>two</b></x>');
     expect(canonicalizeXml('<x b="2" a="1">\n<a>one</a>\n</x>')).toBe('<x a="1" b="2"><a>one</a></x>');
   });
+
+  it('expands self-closing elements when appending children', () => {
+    const document = LosslessXmlDocument.parse('<x><empty a="1" /></x>');
+    document.appendChildXml(document.elements('empty')[0]!, '<child/>');
+    expect(document.serialize()).toBe('<x><empty a="1"><child/></empty></x>');
+  });
 });

@@ -157,12 +157,19 @@ export class MediaCodec {
       model.settings.hideWhenStopped ||
       (model.settings.volume !== undefined && model.settings.volume !== 1)
     ) {
-      diagnostics.push({
-        severity: 'info',
-        code: 'MEDIA_PLAYBACK_TIMING_EXTENSION',
-        message: 'Playback preferences are preserved and require the timing codec for native client behavior',
-        partUri: model.slidePartUri,
-      });
+      const xml = LosslessXmlDocument.parse(this.pkg.requirePart(model.slidePartUri).bytes);
+      const hasNativeTiming = xml.elements('spTgt').some(
+        (target) =>
+          Number(xml.attribute(target, 'spid')?.value) === model.shapeId && Boolean(ancestor(target, 'cMediaNode')),
+      );
+      if (!hasNativeTiming) {
+        diagnostics.push({
+          severity: 'info',
+          code: 'MEDIA_PLAYBACK_TIMING_EXTENSION',
+          message: 'Playback preferences are preserved and require the timing codec for native client behavior',
+          partUri: model.slidePartUri,
+        });
+      }
     }
     if (model.mediaPartUri) {
       const contentType = this.pkg.getPart(model.mediaPartUri)?.contentType;

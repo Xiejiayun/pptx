@@ -69,7 +69,9 @@ export class PptxDocument extends PresentationModel {
     for (const slide of this.slides) {
       const background = gradients.getSlideBackground(this.opcPackage, slide.partUri);
       if (background) diagnostics.push(...gradients.diagnostics(background, compatibility, slide.partUri));
-      for (const model of media.list(slide.partUri)) diagnostics.push(...media.diagnostics(model, compatibility));
+      for (const model of media.list(slide.partUri)) {
+        diagnostics.push(...media.diagnostics(model, compatibility));
+      }
     }
     this.diagnostics.splice(0, this.diagnostics.length, ...diagnostics);
     if ((options.mode ?? 'strict') === 'strict' && diagnostics.some(({ severity }) => severity === 'error')) {

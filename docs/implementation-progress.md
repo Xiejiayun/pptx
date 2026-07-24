@@ -221,3 +221,32 @@ $ pptx-inspect --json package inspect output.pptx
 - `pptx-inspect` 已链接到 `/usr/local/bin`，从 `/tmp` 执行 help、doctor 和真实 PPTX inspection：通过。
 - LibreOffice CI 脚本生成、修改、打开并导出 PDF：通过。
 - 0.1.0 release checklist：[docs/release/0.1.0.md](./release/0.1.0.md)。
+
+## WP6：扩展插件
+
+状态：完成
+
+### 本阶段 change
+
+- 新增四个独立 `0.1.0` 插件包；core/sdk 对插件保持零反向依赖，未安装时所有对应 XML/parts 继续无损透传。
+- Transition：读写 effect/speed/duration/click/auto advance，管理 sound relationship；Morph 扩展 preserve + diagnostic，禁止生成不安全的伪 Morph XML。
+- Animation/Timing：decode timing tree，新增 appear/fade/wipe/fly/motion，支持 trigger/delay/duration/repeat/text range，shape id retarget 与悬空 target 校验。
+- Timing 插件安装时把 Media codec 的 autoplay/loop/volume 偏好转换为原生 `cMediaNode` 时间树。
+- Advanced Charts：组合/现代图表识别、axis/series、trendline、error bar、data label、cache value、embedded workbook 一致性 diagnostic，以及显式 image fallback。
+- SmartArt：解析 data/layout/quick-style/colors/drawing part set；支持文本替换、节点/连接增删，保留 style 与 fallback drawing，并在需要 PowerPoint 重新布局时诊断。
+- Lossless XML writer 新增安全展开 self-closing element 的 child append，修复 SmartArt connection list 的真实边界用例。
+
+### 新增功能演示
+
+下面的真实文件同时安装四个插件，写入 fade transition、标题动画、媒体 timing 和 chart data labels；ZIP 完整性检查与 LibreOffice 打开/导出均通过。
+
+![WP6 可选插件演示](./images/wp6-plugins.png)
+
+### 验证结果
+
+- TypeScript strict typecheck：通过。
+- Vitest：14 个测试文件、34 个测试全部通过；1 个独立 performance test 默认跳过。
+- plugin ownership registry：7 个内建/可选 codec 无冲突注册。
+- 真实 slide XML 包含 `p:transition`、`p:timing`、`p:audio`、`p:animEffect`。
+- ZIP integrity 与 LibreOffice headless open/export：通过，diagnostics 为空。
+- 插件使用文档：[docs/plugins.md](./plugins.md)。

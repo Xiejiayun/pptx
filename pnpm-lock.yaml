@@ -133,6 +133,70 @@ importers:
         specifier: ^3.10.1
         version: 3.10.1
 
+  plugins/advanced-charts:
+    dependencies:
+      '@pptx/codecs':
+        specifier: workspace:*
+        version: link:../../packages/codecs
+      '@pptx/lossless-xml':
+        specifier: workspace:*
+        version: link:../../packages/lossless-xml
+      '@pptx/opc':
+        specifier: workspace:*
+        version: link:../../packages/opc
+    devDependencies:
+      '@pptx/testkit':
+        specifier: workspace:*
+        version: link:../../packages/testkit
+
+  plugins/animations:
+    dependencies:
+      '@pptx/codecs':
+        specifier: workspace:*
+        version: link:../../packages/codecs
+      '@pptx/lossless-xml':
+        specifier: workspace:*
+        version: link:../../packages/lossless-xml
+      '@pptx/opc':
+        specifier: workspace:*
+        version: link:../../packages/opc
+    devDependencies:
+      '@pptx/testkit':
+        specifier: workspace:*
+        version: link:../../packages/testkit
+
+  plugins/smartart:
+    dependencies:
+      '@pptx/codecs':
+        specifier: workspace:*
+        version: link:../../packages/codecs
+      '@pptx/lossless-xml':
+        specifier: workspace:*
+        version: link:../../packages/lossless-xml
+      '@pptx/opc':
+        specifier: workspace:*
+        version: link:../../packages/opc
+    devDependencies:
+      '@pptx/testkit':
+        specifier: workspace:*
+        version: link:../../packages/testkit
+
+  plugins/transitions:
+    dependencies:
+      '@pptx/codecs':
+        specifier: workspace:*
+        version: link:../../packages/codecs
+      '@pptx/lossless-xml':
+        specifier: workspace:*
+        version: link:../../packages/lossless-xml
+      '@pptx/opc':
+        specifier: workspace:*
+        version: link:../../packages/opc
+    devDependencies:
+      '@pptx/testkit':
+        specifier: workspace:*
+        version: link:../../packages/testkit
+
 packages:
 
   '@esbuild/aix-ppc64@0.28.1':

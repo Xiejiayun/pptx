@@ -8,4 +8,4 @@
 - Added PptxGenJS `^4.0.1` public-output adapter.
 - Added Master/Layout/Theme, Gradient/Transparency, and Audio/Video codecs.
 - Added compatibility diagnostics, security budgets, CLI, testkit, fuzz and performance harnesses.
-
+- Added optional Transition, Animation/Timing, Advanced Charts, and SmartArt plugins.

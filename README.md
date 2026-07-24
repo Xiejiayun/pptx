@@ -32,6 +32,10 @@ Node.js 20+；TypeScript strict mode。
 - `@pptx/pptxgenjs-adapter`：PptxGenJS 公开输出适配。
 - `@pptx/testkit`：part hash diff、mutation isolation 和 LibreOffice helper。
 - `@pptx/cli`：`pptx-inspect` 离线 inspection CLI。
+- `@pptx/plugin-transitions`：转场、自动换页与声音。
+- `@pptx/plugin-animations`：动画/媒体 timing tree。
+- `@pptx/plugin-advanced-charts`：组合/现代图表及高级 series 功能。
+- `@pptx/plugin-smartart`：SmartArt part set 与节点编辑。
 
 ## CLI
 

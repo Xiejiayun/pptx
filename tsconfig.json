@@ -9,6 +9,10 @@
     { "path": "packages/validator" },
     { "path": "packages/sdk" },
     { "path": "packages/testkit" },
-    { "path": "packages/cli" }
+    { "path": "packages/cli" },
+    { "path": "plugins/transitions" },
+    { "path": "plugins/animations" },
+    { "path": "plugins/advanced-charts" },
+    { "path": "plugins/smartart" }
   ]
 }

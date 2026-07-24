@@ -201,8 +201,19 @@ export class LosslessXmlDocument {
   }
 
   appendChildXml(element: XmlElement, xml: string): void {
-    if (element.selfClosing || element.endTagStart < element.startTagEnd) {
-      throw new LosslessXmlError(`Cannot append to self-closing element ${element.name}`, element.start);
+    if (element.selfClosing) {
+      const original = this.source.slice(element.start, element.end);
+      const marker = original.lastIndexOf('/>');
+      if (marker < 0) throw new LosslessXmlError(`Invalid self-closing element ${element.name}`, element.start);
+      this.replace(
+        element.start,
+        element.end,
+        `${original.slice(0, marker).replace(/\s+$/, '')}>${xml}</${element.name}>`,
+      );
+      return;
+    }
+    if (element.endTagStart < element.startTagEnd) {
+      throw new LosslessXmlError(`Cannot append to element ${element.name}`, element.start);
     }
     this.replace(element.endTagStart, element.endTagStart, xml);
   }

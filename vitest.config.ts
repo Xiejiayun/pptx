@@ -14,10 +14,14 @@ export default defineConfig({
       '@pptx/validator': `${root}packages/validator/src/index.ts`,
       '@pptx/sdk': `${root}packages/sdk/src/index.ts`,
       '@pptx/testkit': `${root}packages/testkit/src/index.ts`,
+      '@pptx/plugin-transitions': `${root}plugins/transitions/src/index.ts`,
+      '@pptx/plugin-animations': `${root}plugins/animations/src/index.ts`,
+      '@pptx/plugin-advanced-charts': `${root}plugins/advanced-charts/src/index.ts`,
+      '@pptx/plugin-smartart': `${root}plugins/smartart/src/index.ts`,
     },
   },
   test: {
-    include: ['packages/**/*.test.ts'],
+    include: ['packages/**/*.test.ts', 'plugins/**/*.test.ts'],
     coverage: { reporter: ['text', 'json-summary'] },
   },
 });
