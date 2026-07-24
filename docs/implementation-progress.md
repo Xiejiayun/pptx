@@ -37,3 +37,38 @@
 - [ADR 0003：兼容 profile](./architecture/0003-compatibility-profiles.md)
 - [WP0 依赖评估](./architecture/wp0-dependency-evaluation.md)
 
+## WP1：OPC 与 Lossless XML
+
+状态：完成
+
+### 本阶段 change
+
+- package graph 新增 outgoing/incoming 双向引用视图、part URI 与 `rId` 分配器。
+- relationship updater 支持新增、局部更新、删除、internal/external target 解析；删除 part 时同步清理内部入边和自身 `.rels`。
+- content type updater 改为 source-span patch，新增/删除 override 时继续保留未知节点、命名空间和原始默认项。
+- lossless XML 新增 element replace/remove/append、attribute patch 与仅供 diff/测试使用的 canonical 输出。
+- validator 新增 root office document 基数、重复/非法 relationship id、悬空 target、external portability diagnostics。
+- 安全测试覆盖 entry 数、单 part 大小、总解压预算、压缩比、ZIP traversal、DTD/ENTITY。
+
+### Package graph 直观示意
+
+```mermaid
+flowchart LR
+  Root["/_rels/.rels"] --> Presentation["/ppt/presentation.xml"]
+  Presentation --> Slide["/ppt/slides/slide1.xml"]
+  Slide --> Layout["/ppt/slideLayouts/slideLayout1.xml"]
+  Slide --> Media["/ppt/media/image1.png"]
+  Layout --> Master["/ppt/slideMasters/slideMaster1.xml"]
+  Master --> Theme["/ppt/theme/theme1.xml"]
+```
+
+新增或删除 `Media` 时，relationship 与 `[Content_Types].xml` 会作为同一次受控 mutation 同步更新；未知 content type 扩展节点不会被重建或删除。
+
+### 验证结果
+
+- TypeScript strict typecheck：通过。
+- Vitest：4 个测试文件、13 个测试全部通过。
+- package graph 入边/出边：通过。
+- relationship/content type 同步：通过。
+- unknown content-type node preservation：通过。
+- ZIP/XML 安全预算：通过。

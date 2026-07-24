@@ -50,6 +50,10 @@ importers:
       '@pptx/opc':
         specifier: workspace:*
         version: link:../opc
+    devDependencies:
+      jszip:
+        specifier: ^3.10.1
+        version: 3.10.1
 
 packages:
 

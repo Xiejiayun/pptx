@@ -43,6 +43,7 @@ interface XmlPatch {
   readonly start: number;
   readonly end: number;
   readonly replacement: string;
+  readonly order: number;
 }
 
 export class LosslessXmlDocument {
@@ -191,6 +192,25 @@ export class LosslessXmlDocument {
     this.replace(element.startTagEnd, element.endTagStart, escapeXmlText(value));
   }
 
+  replaceElement(element: XmlElement, xml: string): void {
+    this.replace(element.start, element.end, xml);
+  }
+
+  removeElement(element: XmlElement): void {
+    this.replace(element.start, element.end, '');
+  }
+
+  appendChildXml(element: XmlElement, xml: string): void {
+    if (element.selfClosing || element.endTagStart < element.startTagEnd) {
+      throw new LosslessXmlError(`Cannot append to self-closing element ${element.name}`, element.start);
+    }
+    this.replace(element.endTagStart, element.endTagStart, xml);
+  }
+
+  original(node: XmlNode): string {
+    return this.source.slice(node.start, node.end);
+  }
+
   replaceAttribute(attribute: XmlAttribute, value: string): void {
     this.replace(attribute.valueStart, attribute.valueEnd, escapeXmlAttribute(value));
   }
@@ -204,7 +224,7 @@ export class LosslessXmlDocument {
         throw new LosslessXmlError('Overlapping XML patches are not allowed', start);
       }
     }
-    this.#patches.push({ start, end, replacement });
+    this.#patches.push({ start, end, replacement, order: this.#patches.length });
   }
 
   get changed(): boolean {
@@ -214,11 +234,28 @@ export class LosslessXmlDocument {
   serialize(): string {
     if (!this.changed) return this.source;
     let output = this.source;
-    for (const patch of [...this.#patches].sort((left, right) => right.start - left.start)) {
+    for (const patch of [...this.#patches].sort((left, right) => right.start - left.start || right.order - left.order)) {
       output = output.slice(0, patch.start) + patch.replacement + output.slice(patch.end);
     }
     return output;
   }
+}
+
+export function canonicalizeXml(source: string | Uint8Array): string {
+  const document = LosslessXmlDocument.parse(source);
+  const render = (element: XmlElement): string => {
+    const attributes = [...element.attributes]
+      .sort((left, right) => left.name.localeCompare(right.name))
+      .map(({ name, value }) => ` ${name}="${escapeXmlAttribute(value)}"`)
+      .join('');
+    if (element.selfClosing) return `<${element.name}${attributes}/>`;
+    const children = element.children
+      .filter((child) => child.type === 'element' || child.value.trim().length > 0)
+      .map((child) => (child.type === 'element' ? render(child) : escapeXmlText(child.value)))
+      .join('');
+    return `<${element.name}${attributes}>${children}</${element.name}>`;
+  };
+  return document.roots.map(render).join('');
 }
 
 export function escapeXmlText(value: string): string {

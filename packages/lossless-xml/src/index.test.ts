@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LosslessXmlDocument, LosslessXmlError } from './index.js';
+import { canonicalizeXml, LosslessXmlDocument, LosslessXmlError } from './index.js';
 
 describe('LosslessXmlDocument', () => {
   it('returns the exact source when unchanged', () => {
@@ -20,5 +20,13 @@ describe('LosslessXmlDocument', () => {
     document.replace(3, 13, '<a>changed</a>');
     expect(() => document.replace(6, 9, 'x')).toThrow(/Overlapping/);
   });
-});
 
+  it('supports structural patches and deterministic canonical output', () => {
+    const document = LosslessXmlDocument.parse('<x b="2" a="1">\n<a>one</a>\n</x>');
+    const root = document.elements('x')[0]!;
+    document.removeElement(document.elements('a')[0]!);
+    document.appendChildXml(root, '<b>two</b>');
+    expect(document.serialize()).toBe('<x b="2" a="1">\n\n<b>two</b></x>');
+    expect(canonicalizeXml('<x b="2" a="1">\n<a>one</a>\n</x>')).toBe('<x a="1" b="2"><a>one</a></x>');
+  });
+});

@@ -28,6 +28,16 @@ export class ValidationError extends Error {
 
 export function validatePackage(pkg: OpcPackage): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
+  const officeDocumentRelationships = pkg.relationships('/').filter(({ type }) => type.endsWith('/officeDocument'));
+  if (officeDocumentRelationships.length !== 1) {
+    diagnostics.push({
+      severity: 'error',
+      code: 'OPC_OFFICE_DOCUMENT_CARDINALITY',
+      message: `Expected exactly one root officeDocument relationship; found ${officeDocumentRelationships.length}`,
+      partUri: '/_rels/.rels',
+      suggestion: 'Add one root relationship targeting the presentation part.',
+    });
+  }
   const idsByRelationshipPart = new Map<string, Set<string>>();
   for (const part of pkg.parts.filter(({ uri }) => uri.endsWith('.rels'))) {
     const ids = idsByRelationshipPart.get(part.uri) ?? new Set<string>();
@@ -57,6 +67,16 @@ function validateRelationship(
     });
   }
   ids.add(relationship.id);
+  if (!/^[A-Za-z_][\w.-]*$/.test(relationship.id)) {
+    diagnostics.push({
+      severity: 'error',
+      code: 'OPC_INVALID_RELATIONSHIP_ID',
+      message: `Relationship id ${relationship.id} is not a valid XML ID`,
+      partUri: relationshipPartUri,
+      objectId: relationship.id,
+      suggestion: 'Use an id such as rId1.',
+    });
+  }
   if (relationship.targetMode === 'Internal' && relationship.resolvedTarget && !pkg.hasPart(relationship.resolvedTarget)) {
     diagnostics.push({
       severity: 'error',
@@ -65,6 +85,16 @@ function validateRelationship(
       partUri: relationshipPartUri,
       objectId: relationship.id,
       suggestion: 'Add the target part or remove the relationship.',
+    });
+  }
+  if (relationship.targetMode === 'External') {
+    diagnostics.push({
+      severity: 'warning',
+      code: 'OPC_EXTERNAL_RELATIONSHIP',
+      message: `External relationship ${relationship.id} is not portable`,
+      partUri: relationshipPartUri,
+      objectId: relationship.id,
+      suggestion: 'Embed the resource when the presentation must be self-contained.',
     });
   }
 }

@@ -31,6 +31,20 @@ export interface Relationship {
   readonly resolvedTarget?: string;
 }
 
+export interface RelationshipInput {
+  readonly id?: string;
+  readonly type: string;
+  readonly target: string;
+  readonly targetMode?: 'Internal' | 'External';
+}
+
+export interface PackageGraphNode {
+  readonly uri: string;
+  readonly contentType: string;
+  readonly outgoing: readonly Relationship[];
+  readonly incoming: readonly { sourceUri: string; relationship: Relationship }[];
+}
+
 export interface PackagePart {
   readonly uri: string;
   readonly contentType: string;
@@ -128,6 +142,27 @@ export class OpcPackage {
     return this.#journal;
   }
 
+  get graph(): readonly PackageGraphNode[] {
+    const incoming = new Map<string, { sourceUri: string; relationship: Relationship }[]>();
+    const sources = ['/', ...[...this.#parts.keys()].filter((uri) => !uri.endsWith('.rels'))];
+    for (const sourceUri of sources) {
+      for (const relationship of this.relationships(sourceUri)) {
+        if (!relationship.resolvedTarget) continue;
+        const references = incoming.get(relationship.resolvedTarget) ?? [];
+        references.push({ sourceUri, relationship: { ...relationship } });
+        incoming.set(relationship.resolvedTarget, references);
+      }
+    }
+    return [...this.#parts.values()]
+      .filter(({ uri }) => !uri.endsWith('.rels'))
+      .map((part) => ({
+        uri: part.uri,
+        contentType: part.contentType,
+        outgoing: this.relationships(part.uri).map((relationship) => ({ ...relationship })),
+        incoming: incoming.get(part.uri) ?? [],
+      }));
+  }
+
   get changed(): boolean {
     return this.#journal.length > 0;
   }
@@ -176,11 +211,116 @@ export class OpcPackage {
 
   deletePart(uri: string): void {
     const normalized = normalizePartUri(uri);
-    if (!this.#parts.delete(normalized)) return;
-    this.#zip.remove(normalized.slice(1));
+    if (!this.#parts.has(normalized)) return;
+    for (const source of ['/', ...[...this.#parts.keys()].filter((candidate) => !candidate.endsWith('.rels'))]) {
+      for (const relationship of [...this.relationships(source)]) {
+        if (relationship.targetMode === 'Internal' && relationship.resolvedTarget === normalized) {
+          this.removeRelationship(source, relationship.id);
+        }
+      }
+    }
+    const ownRelationships = relationshipPartUri(normalized);
+    if (this.#parts.has(ownRelationships)) this.#deletePartRecord(ownRelationships);
+    this.#deletePartRecord(normalized);
     this.#overrides.delete(normalized);
-    this.#journal.push({ kind: 'delete', uri: normalized });
     this.#writeContentTypes();
+  }
+
+  addRelationship(sourceUri: string, input: RelationshipInput): Relationship {
+    const source = sourceUri === '/' ? '/' : normalizePartUri(sourceUri);
+    if (source !== '/' && !this.#parts.has(source)) throw new PackageError('Relationship source part is missing', source);
+    const targetMode = input.targetMode ?? 'Internal';
+    const resolvedTarget = targetMode === 'Internal' ? resolveRelationshipTarget(source, input.target) : undefined;
+    if (resolvedTarget && !this.#parts.has(resolvedTarget)) {
+      throw new PackageError('Relationship target part is missing', resolvedTarget);
+    }
+    const id = input.id ?? this.allocateRelationshipId(source);
+    if (this.relationships(source).some((relationship) => relationship.id === id)) {
+      throw new PackageError(`Relationship id ${id} already exists`, source);
+    }
+    const relationshipUri = relationshipPartUri(source);
+    const existing = this.#parts.get(relationshipUri);
+    const xml = existing
+      ? LosslessXmlDocument.parse(existing.bytes)
+      : LosslessXmlDocument.parse(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="${RELATIONSHIP_NS}"></Relationships>`);
+    const root = xml.elements('Relationships')[0];
+    if (!root) throw new PackageError('Invalid relationship part', relationshipUri);
+    const mode = targetMode === 'External' ? ' TargetMode="External"' : '';
+    xml.appendChildXml(
+      root,
+      `<Relationship Id="${xmlAttribute(id)}" Type="${xmlAttribute(input.type)}" Target="${xmlAttribute(input.target)}"${mode}/>`
+    );
+    this.setPart(
+      relationshipUri,
+      xml.serialize(),
+      'application/vnd.openxmlformats-package.relationships+xml',
+    );
+    const relationship: Relationship = {
+      id,
+      type: input.type,
+      target: input.target,
+      targetMode,
+      ...(resolvedTarget ? { resolvedTarget } : {}),
+    };
+    return relationship;
+  }
+
+  removeRelationship(sourceUri: string, id: string): boolean {
+    const relationshipUri = relationshipPartUri(sourceUri);
+    const part = this.#parts.get(relationshipUri);
+    if (!part) return false;
+    const xml = LosslessXmlDocument.parse(part.bytes);
+    const element = xml
+      .elements('Relationship')
+      .find((candidate) => xml.attribute(candidate, 'Id')?.value === id);
+    if (!element) return false;
+    xml.removeElement(element);
+    this.setPart(relationshipUri, xml.serialize(), part.contentType);
+    return true;
+  }
+
+  updateRelationship(
+    sourceUri: string,
+    id: string,
+    changes: Partial<Pick<RelationshipInput, 'type' | 'target' | 'targetMode'>>,
+  ): Relationship {
+    const relationshipUri = relationshipPartUri(sourceUri);
+    const part = this.#parts.get(relationshipUri);
+    if (!part) throw new PackageError(`Relationship ${id} was not found`, sourceUri);
+    const current = part.relationships.find((relationship) => relationship.id === id);
+    if (!current) throw new PackageError(`Relationship ${id} was not found`, sourceUri);
+    const nextType = changes.type ?? current.type;
+    const nextTarget = changes.target ?? current.target;
+    const nextMode = changes.targetMode ?? current.targetMode;
+    const resolvedTarget = nextMode === 'Internal' ? resolveRelationshipTarget(sourceUri, nextTarget) : undefined;
+    if (resolvedTarget && !this.#parts.has(resolvedTarget)) {
+      throw new PackageError('Relationship target part is missing', resolvedTarget);
+    }
+    const xml = LosslessXmlDocument.parse(part.bytes);
+    const element = xml
+      .elements('Relationship')
+      .find((candidate) => xml.attribute(candidate, 'Id')?.value === id);
+    if (!element) throw new PackageError(`Relationship ${id} was not found`, sourceUri);
+    const typeAttribute = xml.attribute(element, 'Type');
+    const targetAttribute = xml.attribute(element, 'Target');
+    const modeAttribute = xml.attribute(element, 'TargetMode');
+    if (!typeAttribute || !targetAttribute) throw new PackageError(`Relationship ${id} is malformed`, relationshipUri);
+    if (typeAttribute.value !== nextType) xml.replaceAttribute(typeAttribute, nextType);
+    if (targetAttribute.value !== nextTarget) xml.replaceAttribute(targetAttribute, nextTarget);
+    if (modeAttribute) {
+      if (modeAttribute.value !== nextMode) xml.replaceAttribute(modeAttribute, nextMode);
+    } else if (nextMode === 'External') {
+      const insertionPoint = element.startTagEnd - (element.selfClosing ? 2 : 1);
+      xml.replace(insertionPoint, insertionPoint, ' TargetMode="External"');
+    }
+    this.setPart(relationshipUri, xml.serialize(), part.contentType);
+    return {
+      id,
+      type: nextType,
+      target: nextTarget,
+      targetMode: nextMode,
+      ...(resolvedTarget ? { resolvedTarget } : {}),
+    };
   }
 
   allocateRelationshipId(sourceUri = '/'): string {
@@ -188,6 +328,14 @@ export class OpcPackage {
     let number = 1;
     while (used.has(`rId${number}`)) number += 1;
     return `rId${number}`;
+  }
+
+  allocatePartUri(directory: string, stem: string, extension: string): string {
+    const normalizedDirectory = normalizePartUri(directory);
+    const suffix = extension.startsWith('.') ? extension : `.${extension}`;
+    let number = 1;
+    while (this.hasPart(`${normalizedDirectory}/${stem}${number}${suffix}`)) number += 1;
+    return normalizePartUri(`${normalizedDirectory}/${stem}${number}${suffix}`);
   }
 
   async write(): Promise<Uint8Array> {
@@ -253,19 +401,43 @@ export class OpcPackage {
   #writeContentTypes(): void {
     const part = this.#parts.get('/[Content_Types].xml');
     if (!part) throw new PackageError('Missing [Content_Types].xml');
-    const defaults = [...this.#defaults.entries()]
-      .map(([extension, contentType]) => `<Default Extension="${xmlAttribute(extension)}" ContentType="${xmlAttribute(contentType)}"/>`)
-      .join('');
-    const overrides = [...this.#overrides.entries()]
-      .map(([partName, contentType]) => `<Override PartName="${xmlAttribute(partName)}" ContentType="${xmlAttribute(contentType)}"/>`)
-      .join('');
-    const xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">${defaults}${overrides}</Types>`;
-    const bytes = new TextEncoder().encode(xml);
+    const document = LosslessXmlDocument.parse(part.bytes);
+    const root = document.elements('Types')[0];
+    if (!root) throw new PackageError('Invalid [Content_Types].xml');
+    const existing = new Map<string, ReturnType<LosslessXmlDocument['elements']>[number]>();
+    for (const element of document.elements('Override')) {
+      const partName = document.attribute(element, 'PartName')?.value;
+      if (partName) existing.set(normalizePartUri(partName), element);
+    }
+    for (const [partName, element] of existing) {
+      const expected = this.#overrides.get(partName);
+      if (!expected) {
+        document.removeElement(element);
+        continue;
+      }
+      const attribute = document.attribute(element, 'ContentType');
+      if (attribute && attribute.value !== expected) document.replaceAttribute(attribute, expected);
+    }
+    for (const [partName, contentType] of this.#overrides) {
+      if (existing.has(partName)) continue;
+      document.appendChildXml(
+        root,
+        `<Override PartName="${xmlAttribute(partName)}" ContentType="${xmlAttribute(contentType)}"/>`,
+      );
+    }
+    const bytes = new TextEncoder().encode(document.serialize());
     part.bytes = bytes;
     this.#zip.file('[Content_Types].xml', bytes);
     if (!this.#journal.some(({ uri }) => uri === '/[Content_Types].xml')) {
       this.#journal.push({ kind: 'update', uri: '/[Content_Types].xml' });
     }
+  }
+
+  #deletePartRecord(normalized: string): void {
+    if (!this.#parts.delete(normalized)) return;
+    this.#zip.remove(normalized.slice(1));
+    this.#overrides.delete(normalized);
+    this.#journal.push({ kind: 'delete', uri: normalized });
   }
 }
 
@@ -336,4 +508,3 @@ function messageOf(error: unknown): string {
 function xmlAttribute(value: string): string {
   return value.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 }
-
