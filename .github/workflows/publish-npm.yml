@@ -52,3 +52,5 @@ jobs:
           if-no-files-found: error
       - name: Publish with provenance
         run: npm publish artifacts/npm/jiayunxie-pptx-0.1.0.tgz --access public --tag next --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_BOOTSTRAP_TOKEN }}
