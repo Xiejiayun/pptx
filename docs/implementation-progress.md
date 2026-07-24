@@ -72,3 +72,43 @@ flowchart LR
 - relationship/content type 同步：通过。
 - unknown content-type node preservation：通过。
 - ZIP/XML 安全预算：通过。
+
+## WP2：基础语义模型
+
+状态：完成
+
+### 本阶段 change
+
+- 新增独立 `@pptx/model`，SDK 不再直接承担 OOXML 解析职责。
+- 按 `p:sldId/@r:id` 精确保持幻灯片顺序，修复数值 `id` 与 relationship id 混淆的多页隐患。
+- 新增 Shape/Text/Image/Table/Chart 语义对象；每个对象保留源 part 与 shape id，可回到最小 XML 区间修改。
+- 文本、表格单元格、shape transform、嵌入图片 payload 和 chart XML 可编辑；常规 chart series 可读取。
+- 新增 `addSlide()`、`duplicateSlide()`、`moveSlide()`、`deleteSlide()`，同步维护 slide id、relationship、content type 和 `.rels`。
+- 新增 EMU、point、inch、OOXML angle 单位转换，以及可保留来源的 color/inheritance 类型。
+- 修正已存在 part 改变 content type 时 override 未同步的问题。
+
+### 新增功能演示
+
+下面是 PptxGenJS 4.0.1 生成的真实文件。新 model 同时识别文本、图片、表格和图表，修改标题、复制并排序幻灯片；LibreOffice 成功打开并导出 3 页 PDF。
+
+![WP2 可编辑语义模型演示](./images/wp2-semantic-model.png)
+
+### API 示例
+
+```ts
+const document = await PptxDocument.open('input.pptx');
+document.slides[0].title.text = 'Updated';
+document.slides[0].shapes[0].setTransform({ x: inches(2) });
+document.duplicateSlide(0);
+document.moveSlide(2, 1);
+await document.writeFile('output.pptx');
+```
+
+### 验证结果
+
+- TypeScript strict typecheck：通过。
+- Vitest：5 个测试文件、15 个测试全部通过。
+- 常规对象 decode/edit/save：通过。
+- slide add/duplicate/move/delete 与引用同步：通过。
+- 真实文本/图片/表格/图表文件：LibreOffice 无修复打开并导出 3 页。
+- presentation 未知扩展节点保留：通过。

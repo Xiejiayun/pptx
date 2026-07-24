@@ -4,8 +4,7 @@
   "include": ["src/**/*.ts"],
   "references": [
     { "path": "../lossless-xml" },
-    { "path": "../model" },
-    { "path": "../opc" },
-    { "path": "../validator" }
+    { "path": "../opc" }
   ]
 }
+

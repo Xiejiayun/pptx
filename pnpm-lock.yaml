@@ -20,6 +20,19 @@ importers:
 
   packages/lossless-xml: {}
 
+  packages/model:
+    dependencies:
+      '@pptx/lossless-xml':
+        specifier: workspace:*
+        version: link:../lossless-xml
+      '@pptx/opc':
+        specifier: workspace:*
+        version: link:../opc
+    devDependencies:
+      jszip:
+        specifier: ^3.10.1
+        version: 3.10.1
+
   packages/opc:
     dependencies:
       '@pptx/lossless-xml':
@@ -34,6 +47,9 @@ importers:
       '@pptx/lossless-xml':
         specifier: workspace:*
         version: link:../lossless-xml
+      '@pptx/model':
+        specifier: workspace:*
+        version: link:../model
       '@pptx/opc':
         specifier: workspace:*
         version: link:../opc

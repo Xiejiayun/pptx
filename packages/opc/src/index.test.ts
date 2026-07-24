@@ -53,6 +53,9 @@ describe('OpcPackage', () => {
     expect(new TextDecoder().decode(reopened.requirePart('/[Content_Types].xml').bytes)).toContain(
       '<x:Unknown xmlns:x="urn:test" keep="yes"/>',
     );
+    reopened.setPart('/ppt/media/image1.png', new Uint8Array([1, 2, 3]), 'image/jpeg');
+    const retyped = await OpcPackage.open(await reopened.write());
+    expect(retyped.requirePart('/ppt/media/image1.png').contentType).toBe('image/jpeg');
     const external = reopened.updateRelationship('/ppt/slides/slide1.xml', relationship.id, {
       target: 'https://example.com/image.png',
       targetMode: 'External',

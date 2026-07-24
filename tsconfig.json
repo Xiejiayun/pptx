@@ -3,8 +3,8 @@
   "references": [
     { "path": "packages/lossless-xml" },
     { "path": "packages/opc" },
+    { "path": "packages/model" },
     { "path": "packages/validator" },
     { "path": "packages/sdk" }
   ]
 }
-

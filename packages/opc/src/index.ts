@@ -194,6 +194,7 @@ export class OpcPackage {
     if (existing && equalBytes(existing.bytes, encoded) && (!contentType || contentType === existing.contentType)) return;
     const type = contentType ?? existing?.contentType;
     if (!type) throw new PackageError('Content type is required for a new part', normalized);
+    const contentTypeChanged = Boolean(existing && existing.contentType !== type);
     this.#parts.set(normalized, {
       uri: normalized,
       contentType: type,
@@ -202,7 +203,7 @@ export class OpcPackage {
     });
     this.#zip.file(normalized.slice(1), encoded);
     this.#journal.push({ kind: existing ? 'update' : 'add', uri: normalized });
-    if (!existing) {
+    if (!existing || contentTypeChanged) {
       this.#overrides.set(normalized, type);
       this.#writeContentTypes();
     }
