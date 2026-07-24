@@ -1,0 +1,24 @@
+import { describe, expect, it } from 'vitest';
+import { LosslessXmlDocument, LosslessXmlError } from './index.js';
+
+describe('LosslessXmlDocument', () => {
+  it('returns the exact source when unchanged', () => {
+    const source = '<?xml version="1.0"?><x:root b="2" a="1">\n  <!--keep--><x:t>A&amp;B</x:t><u:opaque q="x"/>\n</x:root>';
+    expect(LosslessXmlDocument.parse(source).serialize()).toBe(source);
+  });
+
+  it('patches only the requested source span', () => {
+    const source = '<p:sld><a:t>Old</a:t><x:unknown keep="yes"/></p:sld>';
+    const document = LosslessXmlDocument.parse(source);
+    document.replaceText(document.elements('t')[0]!, 'New & safe');
+    expect(document.serialize()).toBe('<p:sld><a:t>New &amp; safe</a:t><x:unknown keep="yes"/></p:sld>');
+  });
+
+  it('rejects DTDs and overlapping patches', () => {
+    expect(() => LosslessXmlDocument.parse('<!DOCTYPE x><x/>')).toThrow(LosslessXmlError);
+    const document = LosslessXmlDocument.parse('<x><a>one</a><b>two</b></x>');
+    document.replace(3, 13, '<a>changed</a>');
+    expect(() => document.replace(6, 9, 'x')).toThrow(/Overlapping/);
+  });
+});
+

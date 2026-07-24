@@ -1,0 +1,10 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/lossless-xml" },
+    { "path": "packages/opc" },
+    { "path": "packages/validator" },
+    { "path": "packages/sdk" }
+  ]
+}
+
