@@ -100,6 +100,37 @@ describe('importPptxGenJS', () => {
       paraSpaceBefore: 0,
       paraSpaceAfter: 0,
     });
+    generatedSlide.addText('Level one', {
+      x: 10,
+      y: 6,
+      w: 2,
+      h: 0.5,
+      bullet: true,
+      indentLevel: 1,
+    });
+    generatedSlide.addText('Custom level two', {
+      x: 10,
+      y: 6.5,
+      w: 2,
+      h: 0.5,
+      bullet: { characterCode: '25BA', indent: 18 },
+      indentLevel: 2,
+    });
+    generatedSlide.addText('Number level three', {
+      x: 10,
+      y: 7,
+      w: 2,
+      h: 0.5,
+      bullet: { type: 'number', style: 'romanUcPeriod', startAt: 3, indent: 22 },
+      indentLevel: 3,
+    });
+    generatedSlide.addText('No bullet level two', {
+      x: 10,
+      y: 7.5,
+      w: 2,
+      h: 0.5,
+      indentLevel: 2,
+    });
     const document = await importPptxGenJS(generated);
     expect(document.slides[0]?.title.text).toBe('Created by PptxGenJS');
     expect((document.slides[0]!.shapes[0] as ShapeModel).richText[0]!.align).toBe('center');
@@ -162,6 +193,21 @@ describe('importPptxGenJS', () => {
       line: { kind: 'multiple', factor: 1.5 },
     });
     expect((document.slides[0]!.shapes[9] as ShapeModel).richText[0]!.spacing).toBeUndefined();
+    expect((document.slides[0]!.shapes[10] as ShapeModel).richText[0]).toMatchObject({
+      bullet: { kind: 'bullet', character: '•', indent: 27 },
+      level: 1,
+    });
+    expect((document.slides[0]!.shapes[11] as ShapeModel).richText[0]).toMatchObject({
+      bullet: { kind: 'bullet', character: '►', indent: 18 },
+      level: 2,
+    });
+    expect((document.slides[0]!.shapes[12] as ShapeModel).richText[0]).toMatchObject({
+      bullet: { kind: 'number', style: 'romanUcPeriod', startAt: 3, indent: 22 },
+      level: 3,
+    });
+    const noBulletLevel = (document.slides[0]!.shapes[13] as ShapeModel).richText[0]!;
+    expect(noBulletLevel.level).toBe(2);
+    expect(noBulletLevel.bullet).toBeUndefined();
     document.slides[0]!.title.text = 'Edited by the OOXML kernel';
     document.duplicateSlide(0);
 
@@ -200,6 +246,14 @@ describe('importPptxGenJS', () => {
       before: 4.25,
       after: 7.75,
       line: { kind: 'multiple', factor: 1.5 },
+    });
+    expect((reopened.slides[1]!.shapes[10] as ShapeModel).richText[0]).toMatchObject({
+      bullet: { kind: 'bullet', indent: 27 },
+      level: 1,
+    });
+    expect((reopened.slides[1]!.shapes[12] as ShapeModel).richText[0]).toMatchObject({
+      bullet: { kind: 'number', indent: 22 },
+      level: 3,
     });
   });
 

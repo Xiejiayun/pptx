@@ -18,6 +18,7 @@
 - Added PptxGenJS-compatible left, center, right, and justified paragraph alignment for plain and structured text creation and editing.
 - Added paragraph bullets and automatic numbering with Unicode characters, all 16 PptxGenJS numbering styles, start values, and point-based hanging indents.
 - Added paragraph before/after spacing plus exact and multiple line spacing with creation defaults, per-paragraph overrides, and lossless OOXML editing.
+- Added zero-based paragraph list levels 0–8 with PptxGenJS-compatible nested bullet and numbering indents.
 
 ## 0.1.0 - 2026-07-25
 

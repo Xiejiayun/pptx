@@ -71,5 +71,6 @@ export interface RichTextParagraph {
   readonly runs: readonly RichTextRun[];
   readonly align?: TextAlignment;
   readonly bullet?: ParagraphBullet;
+  readonly level?: number;
   readonly spacing?: ParagraphSpacing | false;
 }

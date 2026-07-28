@@ -67,6 +67,7 @@ const rich = document.addSlide().addRichText([
   {
     align: 'right',
     bullet: { kind: 'number', style: 'romanUcPeriod', startAt: 3, indent: 22 },
+    level: 2,
     spacing: { before: 6, after: 8, line: { kind: 'multiple', factor: 1.5 } },
     runs: [
       { text: 'Revenue ', style: { bold: true, fontSize: 24 } },
@@ -77,7 +78,7 @@ const rich = document.addSlide().addRichText([
 rich.richText = [{ runs: [{ text: 'Approved', style: { color: { kind: 'scheme', value: 'accent1' } } }] }];
 ```
 
-`richText` is an immutable paragraph/run value snapshot. It reads, creates, and replaces each paragraph's alignment, Unicode bullet or automatic numbering, paragraph before/after spacing and exact/multiple line spacing plus run font family, point size, bold, italic, sRGB/theme color, and soft breaks. `AddTextOptions` supplies paragraph creation defaults; each `RichTextParagraph` can override them, with `bullet: false` or `spacing: false` explicitly suppressing a default. Bullets support a custom character and 0–4032pt indent. Numbering supports the 16 PptxGenJS styles, a 1–32767 start value, and indent. Spacing uses points for before/after/exact and a factor such as `1.5` for multiple line spacing. Setting `richText` preserves text-body metadata and unrelated same-position paragraph properties but intentionally replaces old runs and supported paragraph values; multilevel lists, paragraph indentation, hyperlinks, and advanced typography are separate capabilities.
+`richText` is an immutable paragraph/run value snapshot. It reads, creates, and replaces each paragraph's alignment, Unicode bullet or automatic numbering, list level, paragraph before/after spacing and exact/multiple line spacing plus run font family, point size, bold, italic, sRGB/theme color, and soft breaks. `AddTextOptions` supplies paragraph creation defaults; each `RichTextParagraph` can override them, with `bullet: false`, `level: 0`, or `spacing: false` suppressing a default. Bullets support a custom character and 0–4032pt per-level indent. Numbering supports the 16 PptxGenJS styles, a 1–32767 start value, and indent. List `level` is zero-based from 0–8; nested bullet margin is `indent × (level + 1)`. Spacing uses points for before/after/exact and a factor such as `1.5` for multiple line spacing. Setting `richText` preserves text-body metadata and unrelated same-position paragraph properties but intentionally replaces old runs and supported paragraph values; arbitrary paragraph indentation, tab stops, hyperlinks, and advanced typography are separate capabilities.
 
 Slide and shape model objects have stable identity within a document: repeated collection reads and slide reordering return the same member instances. Their properties remain live and read the current OOXML rather than a cached snapshot. Master, layout, and theme models follow the same rule within `document.masterLayoutTheme`.
 

@@ -465,6 +465,110 @@ describe('PptxDocument vertical slice', () => {
     expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
   });
 
+  it('creates, replaces, rolls back, and round-trips paragraph list levels', async () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const plain = slide.addText('Nested first\nNested second', { bullet: true, level: 2 });
+    const rich = slide.addRichText(
+      [
+        { runs: [{ text: 'Default level' }], spacing: { after: 4 } },
+        {
+          runs: [{ text: 'Custom level two' }],
+          bullet: { kind: 'bullet', character: '▶', indent: 18 },
+          level: 2,
+        },
+        {
+          runs: [{ text: 'Root number' }],
+          bullet: { kind: 'number', style: 'romanUcPeriod', startAt: 3, indent: 22 },
+          level: 0,
+        },
+        { runs: [], bullet: false, level: 3 },
+      ],
+      { bullet: true, level: 1 },
+    );
+    const allLevels = slide.addRichText(
+      Array.from({ length: 9 }, (_, level) => ({
+        runs: [{ text: `Level ${level}` }],
+        bullet: { kind: 'bullet' as const, character: '◆', indent: 18 },
+        level,
+      })),
+    );
+
+    expect(plain.richText.map(({ bullet, level }) => ({ bullet, level }))).toEqual([
+      { bullet: { kind: 'bullet', character: '•', indent: 27 }, level: 2 },
+      { bullet: { kind: 'bullet', character: '•', indent: 27 }, level: 2 },
+    ]);
+    expect(rich.richText.map(({ bullet, level }) => ({ bullet, level }))).toEqual([
+      { bullet: { kind: 'bullet', character: '•', indent: 27 }, level: 1 },
+      { bullet: { kind: 'bullet', character: '▶', indent: 18 }, level: 2 },
+      {
+        bullet: { kind: 'number', style: 'romanUcPeriod', startAt: 3, indent: 22 },
+        level: undefined,
+      },
+      { bullet: undefined, level: 3 },
+    ]);
+    expect(allLevels.richText.map(({ bullet, level }) => ({
+      indent: bullet && typeof bullet !== 'boolean' ? bullet.indent : undefined,
+      level,
+    }))).toEqual(Array.from({ length: 9 }, (_, level) => ({
+      indent: 18,
+      level: level === 0 ? undefined : level,
+    })));
+    let slideXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(slideXml).toContain('indent="-342900" marL="1028700" lvl="2"');
+    expect(slideXml).toContain('indent="-228600" marL="685800" lvl="2"');
+    expect(slideXml).toContain('indent="-228600" marL="2057400" lvl="8"');
+    expect(slideXml).toContain('<a:spcAft><a:spcPts val="400"/></a:spcAft><a:buSzPct');
+
+    rich.richText = [
+      {
+        runs: rich.richText[0]!.runs,
+        bullet: rich.richText[0]!.bullet!,
+        level: 3,
+        spacing: rich.richText[0]!.spacing!,
+      },
+      { runs: rich.richText[1]!.runs, bullet: rich.richText[1]!.bullet!, level: 0 },
+      { runs: rich.richText[2]!.runs, bullet: rich.richText[2]!.bullet!, level: 2 },
+      { runs: rich.richText[3]!.runs, bullet: false, level: 0 },
+    ];
+    expect(rich.richText.map(({ bullet, level }) => ({ bullet, level }))).toEqual([
+      { bullet: { kind: 'bullet', character: '•', indent: 27 }, level: 3 },
+      { bullet: { kind: 'bullet', character: '▶', indent: 18 }, level: undefined },
+      {
+        bullet: { kind: 'number', style: 'romanUcPeriod', startAt: 3, indent: 22 },
+        level: 2,
+      },
+      { bullet: undefined, level: undefined },
+    ]);
+    slideXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(slideXml).toContain('indent="-342900" marL="1371600" lvl="3"');
+    expect(slideXml).toContain('indent="-228600" marL="228600"');
+    expect(slideXml).toContain('indent="-279400" marL="838200" lvl="2"');
+
+    expect(() =>
+      document.transaction(() => {
+        rich.richText = [{ runs: [{ text: 'Rollback' }], bullet: true, level: 4 }];
+        throw new Error('restore paragraph levels');
+      }),
+    ).toThrow('restore paragraph levels');
+    expect(rich.richText[0]!.level).toBe(3);
+    expect(() => slide.addText('Too wide', {
+      bullet: { kind: 'bullet', indent: 500 },
+      level: 8,
+    })).toThrow(/4032 points total/);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedPlain = reopened.slides[0]!.shapes[0] as ShapeModel;
+    const reopenedRich = reopened.slides[0]!.shapes[1] as ShapeModel;
+    expect(reopenedPlain.richText.map(({ bullet, level }) => ({ bullet, level }))).toEqual(
+      plain.richText.map(({ bullet, level }) => ({ bullet, level })),
+    );
+    expect(reopenedRich.richText.map(({ bullet, level }) => ({ bullet, level }))).toEqual(
+      rich.richText.map(({ bullet, level }) => ({ bullet, level })),
+    );
+    expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+  });
+
   it('creates, reads, replaces, and round-trips rich text run styles', async () => {
     const document = PptxDocument.create();
     const slide = document.addSlide();
@@ -621,6 +725,12 @@ describe('PptxDocument vertical slice', () => {
       [{ runs: [], spacing: { line: { kind: 'multiple', factor: 133 } } }],
       [{ runs: [], spacing: { line: { kind: 'multiple', factor: 1.5, points: 12 } } }],
       [{ runs: [], spacing: { before: 2, unknown: true } }],
+      [{ runs: [], level: null }],
+      [{ runs: [], level: '2' }],
+      [{ runs: [], level: Number.NaN }],
+      [{ runs: [], level: -1 }],
+      [{ runs: [], level: 1.5 }],
+      [{ runs: [], level: 9 }],
       [{ runs: [{ text: 'x', breakLine: true }] }],
       [{ runs: [{ text: 'x', style: { underline: true } }] }],
       [{ runs: [{ text: 'x', style: { color: { kind: 'srgb', value: 'FF0000', alpha: 0.5 } } }] }],
@@ -664,6 +774,7 @@ describe('PptxDocument vertical slice', () => {
     expect(() => slide.addText('bad alignment', { align: 'middle' as never })).toThrow(/left, center, right/);
     expect(() => slide.addText('bad bullet', { bullet: { kind: 'number', startAt: 0 } as never })).toThrow(/startAt/);
     expect(() => slide.addText('bad spacing', { spacing: false as never })).toThrow(/spacing/);
+    expect(() => slide.addText('bad level', { level: 9 })).toThrow(/between 0 and 8/);
     expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(before);
     expect(document.opcPackage.mutations).toEqual(journal);
 

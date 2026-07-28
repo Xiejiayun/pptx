@@ -92,6 +92,7 @@ interface NormalizedRichTextParagraph {
   readonly runs: readonly RichTextRun[];
   readonly align?: TextAlignment;
   readonly bullet?: NormalizedParagraphBullet | false;
+  readonly level?: number;
   readonly spacing?: NormalizedParagraphSpacingUpdate | false;
 }
 
@@ -123,8 +124,14 @@ export function normalizeRichText(value: unknown): readonly NormalizedRichTextPa
     if (!paragraph || typeof paragraph !== 'object' || Array.isArray(paragraph)) {
       throw new TypeError(`Rich text paragraph ${paragraphIndex} must be an object`);
     }
-    assertSupportedKeys(paragraph, ['align', 'bullet', 'runs', 'spacing'], `Rich text paragraph ${paragraphIndex}`);
-    const candidate = paragraph as { align?: unknown; bullet?: unknown; runs?: unknown; spacing?: unknown };
+    assertSupportedKeys(paragraph, ['align', 'bullet', 'level', 'runs', 'spacing'], `Rich text paragraph ${paragraphIndex}`);
+    const candidate = paragraph as {
+      align?: unknown;
+      bullet?: unknown;
+      level?: unknown;
+      runs?: unknown;
+      spacing?: unknown;
+    };
     const runs = candidate.runs;
     if (!Array.isArray(runs)) throw new TypeError(`Rich text paragraph ${paragraphIndex} runs must be an array`);
     const align = candidate.align === undefined
@@ -133,6 +140,9 @@ export function normalizeRichText(value: unknown): readonly NormalizedRichTextPa
     const bullet = candidate.bullet === undefined
       ? undefined
       : normalizeParagraphBullet(candidate.bullet, `Rich text paragraph ${paragraphIndex} bullet`);
+    const level = candidate.level === undefined
+      ? undefined
+      : normalizeParagraphLevel(candidate.level, `Rich text paragraph ${paragraphIndex} level`);
     const spacing = candidate.spacing === undefined
       ? undefined
       : candidate.spacing === false
@@ -142,6 +152,7 @@ export function normalizeRichText(value: unknown): readonly NormalizedRichTextPa
       runs: runs.map((run, runIndex) => normalizeRun(run, paragraphIndex, runIndex)),
       ...(align ? { align } : {}),
       ...(bullet !== undefined ? { bullet } : {}),
+      ...(level !== undefined ? { level } : {}),
       ...(spacing !== undefined ? { spacing } : {}),
     };
   });
@@ -151,6 +162,7 @@ interface RenderRichTextOptions {
   readonly prefix?: string;
   readonly defaultAlign?: TextAlignment;
   readonly defaultBullet?: NormalizedParagraphBullet | false;
+  readonly defaultLevel?: number;
   readonly defaultSpacing?: NormalizedParagraphSpacingUpdate;
   readonly paragraphProperties?: readonly (string | undefined)[];
   readonly endParagraphProperties?: string;
@@ -164,7 +176,7 @@ export function renderRichTextParagraphs(
   const defaultEndProperties = `<${prefix}endParaRPr lang="en-US" dirty="0"/>`;
   return paragraphs
     .map(
-      ({ align, bullet, runs, spacing }, index) =>
+      ({ align, bullet, level, runs, spacing }, index) =>
         `<${prefix}p>${renderParagraphProperties(
           options.paragraphProperties?.[index] ?? options.paragraphProperties?.[0],
           prefix,
@@ -173,6 +185,7 @@ export function renderRichTextParagraphs(
             ? undefined
             : bullet ?? (options.defaultBullet === false ? undefined : options.defaultBullet),
           resolveParagraphSpacing(options.defaultSpacing, spacing),
+          level ?? options.defaultLevel,
         )}${runs
           .map((run) => renderRun(run, prefix))
           .join('')}${options.endParagraphProperties ?? defaultEndProperties}</${prefix}p>`,
@@ -185,12 +198,14 @@ export function readRichText(xml: LosslessXmlDocument, element: XmlElement): rea
   if (!textBody) return [];
   return directChildren(textBody, 'p').map((paragraph) => {
     const align = readParagraphAlignment(xml, paragraph);
-    const bullet = readParagraphBullet(xml, paragraph);
+    const level = readParagraphLevel(xml, paragraph);
+    const bullet = readParagraphBullet(xml, paragraph, level ?? 0);
     const spacing = readParagraphSpacing(xml, paragraph);
     return {
       runs: readRuns(xml, paragraph),
       ...(align ? { align } : {}),
       ...(bullet ? { bullet } : {}),
+      ...(level !== undefined ? { level } : {}),
       ...(spacing ? { spacing } : {}),
     };
   });
@@ -229,6 +244,14 @@ export function normalizeTextAlignment(value: unknown, context: string): TextAli
     throw new TypeError(`${context} must be left, center, right, or justify`);
   }
   return value as TextAlignment;
+}
+
+export function normalizeParagraphLevel(value: unknown, context: string): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || !Number.isInteger(value)) {
+    throw new TypeError(`${context} must be an integer`);
+  }
+  if (value < 0 || value > 8) throw new RangeError(`${context} must be between 0 and 8`);
+  return value;
 }
 
 export function normalizeParagraphBullet(
@@ -321,6 +344,7 @@ export function renderParagraphProperties(
   alignment: TextAlignment | undefined,
   bullet?: NormalizedParagraphBullet,
   spacing?: NormalizedParagraphSpacing,
+  level?: number,
 ): string {
   const align = alignment ? ` algn="${TEXT_ALIGNMENT_TO_OOXML[alignment]}"` : '';
   const initial = template ?? `<${prefix}pPr${align} indent="0" marL="0"><${prefix}buNone/></${prefix}pPr>`;
@@ -331,8 +355,9 @@ export function renderParagraphProperties(
         alignment ? TEXT_ALIGNMENT_TO_OOXML[alignment] : undefined,
       )
     : initial;
-  const spaced = renderParagraphSpacing(aligned, prefix, spacing);
-  return renderParagraphBullet(spaced, prefix, bullet);
+  const leveled = updateParagraphAttribute(aligned, 'lvl', level && level > 0 ? String(level) : undefined);
+  const spaced = renderParagraphSpacing(leveled, prefix, spacing);
+  return renderParagraphBullet(spaced, prefix, bullet, level ?? 0);
 }
 
 function renderParagraphSpacing(
@@ -358,6 +383,7 @@ function renderParagraphBullet(
   template: string,
   prefix: string,
   bullet: NormalizedParagraphBullet | undefined,
+  level: number,
 ): string {
   const source = LosslessXmlDocument.parse(template);
   const sourceRoot = requireParagraphPropertiesRoot(source);
@@ -368,10 +394,14 @@ function renderParagraphBullet(
   const indent = readIntegerAttribute(source, sourceRoot, 'indent');
   let withIndent = template;
   if (bullet) {
-    const marginEmu = Math.round(bullet.indent * 12700);
+    const hangingEmu = Math.round(bullet.indent * 12700);
+    const marginEmu = hangingEmu * (level + 1);
+    if (marginEmu > 4032 * 12700) {
+      throw new RangeError('Text bullet indent and level must not exceed 4032 points total');
+    }
     withIndent = updateParagraphAttribute(withIndent, 'marL', String(marginEmu));
-    withIndent = updateParagraphAttribute(withIndent, 'indent', String(-marginEmu));
-  } else if (hadActiveBullet && margin !== undefined && indent === -margin) {
+    withIndent = updateParagraphAttribute(withIndent, 'indent', String(-hangingEmu));
+  } else if (hadActiveBullet && isRecognizedBulletIndentPair(margin, indent)) {
     withIndent = updateParagraphAttribute(withIndent, 'marL', '0');
     withIndent = updateParagraphAttribute(withIndent, 'indent', '0');
   }
@@ -390,6 +420,16 @@ function renderParagraphBullet(
   if (follower) properties.replace(follower.start, follower.start, bulletXml);
   else properties.appendChildXml(root, bulletXml);
   return properties.serialize();
+}
+
+function isRecognizedBulletIndentPair(
+  margin: number | undefined,
+  indent: number | undefined,
+): boolean {
+  if (margin === 0 && indent === 0) return true;
+  if (margin === undefined || indent === undefined || margin < 0 || indent >= 0) return false;
+  const levelMultiplier = margin / -indent;
+  return Number.isInteger(levelMultiplier) && levelMultiplier >= 1 && levelMultiplier <= 9;
 }
 
 function updateParagraphAttribute(template: string, name: string, value: string | undefined): string {
@@ -705,13 +745,24 @@ function readParagraphAlignment(
   return value ? OOXML_TO_TEXT_ALIGNMENT.get(value) : undefined;
 }
 
+function readParagraphLevel(
+  xml: LosslessXmlDocument,
+  paragraph: XmlElement,
+): number | undefined {
+  const properties = directChildren(paragraph, 'pPr')[0];
+  if (!properties) return undefined;
+  const level = readIntegerAttribute(xml, properties, 'lvl');
+  return level !== undefined && level >= 1 && level <= 8 ? level : undefined;
+}
+
 function readParagraphBullet(
   xml: LosslessXmlDocument,
   paragraph: XmlElement,
+  level: number,
 ): CharacterBullet | NumberedBullet | undefined {
   const properties = directChildren(paragraph, 'pPr')[0];
   if (!properties) return undefined;
-  const indent = readBulletIndent(xml, properties);
+  const indent = readBulletIndent(xml, properties, level);
   const characterElement = directChildren(properties, 'buChar')[0];
   const character = characterElement ? xml.attribute(characterElement, 'char')?.value : undefined;
   if (character !== undefined && isValidBulletCharacter(character)) {
@@ -787,11 +838,14 @@ function readPointSpacing(
   return value / 100;
 }
 
-function readBulletIndent(xml: LosslessXmlDocument, properties: XmlElement): number | undefined {
+function readBulletIndent(
+  xml: LosslessXmlDocument,
+  properties: XmlElement,
+  level: number,
+): number | undefined {
   const margin = readIntegerAttribute(xml, properties, 'marL');
-  if (margin === undefined || margin < 0) return undefined;
-  const points = Math.round((margin / 12700) * 100) / 100;
-  if (points > 4032) return undefined;
+  if (margin === undefined || margin < 0 || margin > 4032 * 12700) return undefined;
+  const points = Math.round((margin / (level + 1) / 12700) * 100) / 100;
   return points;
 }
 

@@ -10,6 +10,7 @@ import { ModelParseError } from './errors.js';
 import type { PresentationModel } from './presentation.js';
 import {
   normalizeParagraphBullet,
+  normalizeParagraphLevel,
   normalizeParagraphSpacing,
   normalizeRichText,
   normalizeTextAlignment,
@@ -30,6 +31,7 @@ export interface AddTextOptions extends Partial<Transform> {
   readonly name?: string;
   readonly align?: TextAlignment;
   readonly bullet?: ParagraphBullet;
+  readonly level?: number;
   readonly spacing?: ParagraphSpacing;
 }
 
@@ -193,7 +195,7 @@ export class SlideModel {
       const spacing = resolveParagraphSpacing(normalized.spacing);
       const paragraphs = normalized.value
         .split('\n')
-        .map((line) => textParagraphXml(line, 'a:', options.align, bullet, spacing))
+        .map((line) => textParagraphXml(line, 'a:', options.align, bullet, spacing, normalized.level))
         .join('');
       return this.addTextShape(paragraphs, options);
     });
@@ -207,6 +209,7 @@ export class SlideModel {
         renderRichTextParagraphs(paragraphs, {
           ...(options.align ? { defaultAlign: options.align } : {}),
           ...(defaults.bullet !== undefined ? { defaultBullet: defaults.bullet } : {}),
+          ...(defaults.level !== undefined ? { defaultLevel: defaults.level } : {}),
           ...(defaults.spacing !== undefined ? { defaultSpacing: defaults.spacing } : {}),
         }),
         options,
@@ -287,6 +290,7 @@ function setAttribute(xml: LosslessXmlDocument, element: XmlElement, name: strin
 interface NormalizedTextInput {
   readonly value: string;
   readonly bullet: NormalizedParagraphBullet | false | undefined;
+  readonly level: number | undefined;
   readonly spacing: NormalizedParagraphSpacingUpdate | undefined;
 }
 
@@ -296,12 +300,14 @@ function validateTextInput(value: string, options: AddTextOptions): NormalizedTe
   return {
     value: normalized,
     bullet: defaults.bullet,
+    level: defaults.level,
     spacing: defaults.spacing,
   };
 }
 
 interface NormalizedAddTextOptions {
   readonly bullet?: NormalizedParagraphBullet | false;
+  readonly level?: number;
   readonly spacing?: NormalizedParagraphSpacingUpdate;
 }
 
@@ -341,11 +347,15 @@ function validateAddTextOptions(options: AddTextOptions): NormalizedAddTextOptio
   const bullet = options.bullet === undefined
     ? undefined
     : normalizeParagraphBullet(options.bullet, 'Text bullet');
+  const level = options.level === undefined
+    ? undefined
+    : normalizeParagraphLevel(options.level, 'Text level');
   const spacing = options.spacing === undefined
     ? undefined
     : normalizeParagraphSpacing(options.spacing, 'Text spacing');
   return {
     ...(bullet !== undefined ? { bullet } : {}),
+    ...(level !== undefined ? { level } : {}),
     ...(spacing !== undefined ? { spacing } : {}),
   };
 }
@@ -388,8 +398,9 @@ function textParagraphXml(
   align?: TextAlignment,
   bullet?: NormalizedParagraphBullet,
   spacing?: NormalizedParagraphSpacing,
+  level?: number,
 ): string {
-  const properties = renderParagraphProperties(undefined, prefix, align, bullet, spacing);
+  const properties = renderParagraphProperties(undefined, prefix, align, bullet, spacing, level);
   const endProperties = `<${prefix}endParaRPr lang="en-US" dirty="0"/>`;
   if (value.length === 0) return `<${prefix}p>${properties}${endProperties}</${prefix}p>`;
   return `<${prefix}p>${properties}${defaultTextRunXml(value, prefix)}${endProperties}</${prefix}p>`;

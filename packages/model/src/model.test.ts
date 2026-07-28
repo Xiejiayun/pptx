@@ -313,6 +313,73 @@ describe('PresentationModel', () => {
     ]);
   });
 
+  it('reads and replaces list levels while keeping bullet hanging indents coherent', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.slides[1]!;
+    const part = pkg.requirePart(slide.partUri);
+    pkg.setPart(
+      part.uri,
+      new TextDecoder().decode(part.bytes).replace(
+        '<a:p><a:r><a:t>First title</a:t></a:r></a:p>',
+        '<a:p><a:pPr lvl="2" marL="685800" indent="-228600" custom="FIRST"><a:spcBef><a:spcPts val="600"/></a:spcBef><a:buChar char="◆"/><a:tabLst><a:tab pos="500000" algn="l"/></a:tabLst><a:defRPr sz="1600"/><a:extLst><a:ext uri="urn:test"><x:keep xmlns:x="urn:test">KEEP</x:keep></a:ext></a:extLst></a:pPr><a:r><a:t>Level two</a:t></a:r></a:p><a:p><a:pPr lvl="0" marL="279400" indent="-279400" custom="SECOND"><a:buAutoNum type="romanUcPeriod" startAt="3"/></a:pPr><a:r><a:t>Root number</a:t></a:r></a:p><a:p><a:pPr lvl="1.5" marL="342900" indent="-342900" custom="THIRD"><a:buChar char="•"/><x:third xmlns:x="urn:test">THIRD</x:third></a:pPr><a:r><a:t>Malformed level</a:t></a:r></a:p><a:p><a:pPr lvl="1" marL="777778" indent="-111111" custom="FOURTH"><a:buChar char="►"/></a:pPr><a:r><a:t>Custom margin</a:t></a:r></a:p>',
+      ),
+      part.contentType,
+    );
+    const shape = slide.shapes[0] as ShapeModel;
+    const journal = [...pkg.mutations];
+
+    expect(shape.richText.map(({ bullet, level }) => ({ bullet, level }))).toEqual([
+      { bullet: { kind: 'bullet', character: '◆', indent: 18 }, level: 2 },
+      {
+        bullet: { kind: 'number', style: 'romanUcPeriod', startAt: 3, indent: 22 },
+        level: undefined,
+      },
+      { bullet: { kind: 'bullet', character: '•', indent: 27 }, level: undefined },
+      { bullet: { kind: 'bullet', character: '►', indent: 30.62 }, level: 1 },
+    ]);
+    expect(pkg.mutations).toEqual(journal);
+
+    shape.richText = [
+      {
+        runs: [{ text: 'Level three' }],
+        bullet: { kind: 'bullet', character: '◆', indent: 18 },
+        level: 3,
+        spacing: { before: 6 },
+      },
+      {
+        runs: [{ text: 'Root number' }],
+        bullet: { kind: 'number', style: 'romanUcPeriod', startAt: 3, indent: 22 },
+        level: 0,
+      },
+      { runs: [{ text: 'Cleared recognized bullet' }], bullet: false, level: 2 },
+      { runs: [{ text: 'Preserved custom margin' }], bullet: false, level: 0 },
+    ];
+
+    const updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    const firstStart = updated.indexOf('<a:pPr lvl="3" marL="914400" indent="-228600" custom="FIRST">');
+    const firstEnd = updated.indexOf('</a:pPr>', firstStart);
+    const firstProperties = updated.slice(firstStart, firstEnd);
+    expect(firstStart).toBeGreaterThan(-1);
+    expect(firstProperties.indexOf('<a:spcBef>')).toBeLessThan(firstProperties.indexOf('<a:buSzPct'));
+    expect(firstProperties.indexOf('<a:buChar')).toBeLessThan(firstProperties.indexOf('<a:tabLst>'));
+    expect(firstProperties).toContain('<a:spcBef><a:spcPts val="600"/></a:spcBef>');
+    expect(firstProperties).toContain('<x:keep xmlns:x="urn:test">KEEP</x:keep>');
+    expect(updated).toContain('<a:pPr marL="279400" indent="-279400" custom="SECOND"><a:buSzPct');
+    expect(updated).toContain('<a:pPr lvl="2" marL="0" indent="0" custom="THIRD"><x:third xmlns:x="urn:test">THIRD</x:third><a:buNone/></a:pPr>');
+    expect(updated).toContain('<a:pPr marL="777778" indent="-111111" custom="FOURTH"><a:buNone/></a:pPr>');
+    expect(updated).not.toContain('lvl="1.5"');
+    expect(shape.richText.map(({ bullet, level }) => ({ bullet, level }))).toEqual([
+      { bullet: { kind: 'bullet', character: '◆', indent: 18 }, level: 3 },
+      {
+        bullet: { kind: 'number', style: 'romanUcPeriod', startAt: 3, indent: 22 },
+        level: undefined,
+      },
+      { bullet: undefined, level: 2 },
+      { bullet: undefined, level: undefined },
+    ]);
+  });
+
   it('reads and replaces paragraph spacing without rebuilding unrelated paragraph properties', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);
