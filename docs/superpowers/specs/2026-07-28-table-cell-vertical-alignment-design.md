@@ -67,10 +67,10 @@ table.setCellVerticalAlignment(0, 0, undefined); // clear direct anchor
 - `TableCellProps` 与 `TableProps` 都继承 `TextBaseProps.valign?: 'top' | 'middle' | 'bottom'`。
 - valid `top`、`middle`、`bottom` 分别写为 direct `tcPr@anchor="t"`、`"ctr"`、`"b"`；cell `bodyPr` 不写 anchor。
 - table-level 值在生成时复制到每个未覆盖 cell，cell-level 值覆盖 table-level 值，最终文件没有单独可编辑的 table-level valign 状态。
-- table 和 cell 都省略 `valign` 时，实际 writer 仍在每个 cell 实体化 `anchor="ctr"`，因此导入值是 direct `middle`。这与共享类型注释中的 table-cell default top 不一致，本库以真实公开输出为 conformance 基线。
+- table 和 cell 都省略 `valign` 时，writer 不写 direct `anchor`，因此本库导入为 `undefined`；共享类型注释把其 effective default 描述为 top，但 direct API 不伪造该默认值。
 - runtime 透传类型外 `mid`、`distributed` 会原样生成 `anchor="mid"` / `"distributed"`。本库 getter 对这些 token 返回 `undefined` 并在无关 mutation 中保留，setter 严格拒绝。
 
-adapter conformance 只使用公开输出，不读取 `_slides` 或其他私有字段。PptxGenJS omitted 与 explicit middle 都导入为 `middle`，因为它们具有相同 wire form；本库 `undefined` 表示清除 direct anchor，而不是请求 PptxGenJS 的生成默认值。
+adapter conformance 只使用公开输出，不读取 `_slides` 或其他私有字段。PptxGenJS omitted 导入为 `undefined`，explicit middle 导入为 `middle`；本库 `undefined` 同样表示清除 direct anchor，不解析或实体化 effective default。
 
 ## OOXML 与 direct 语义
 
@@ -111,7 +111,7 @@ setter 在 OPC transaction 内定位目标 table 的物理 row/cell。row 或 ce
 2. `setCellVerticalAlignment()` 覆盖 self-closing/expanded `tcPr` 的 add/replace/top/middle/bottom/clear、same-mode no-op、unknown canonicalization、merged placeholder、invalid index/structure 和 outer rollback。
 3. `setCellText()`、`setCellTextDirection()`、`setCellTextFit()`、transform、duplicate、write/reopen 保留 vertical alignment；只编辑一个 cell 不改变相邻 cell、bodyPr 或 relationships。
 4. SDK 覆盖 immutable snapshots、public transaction、invalid runtime values/coordinates、package isolation 与 stable identity。
-5. PptxGenJS 4.0.1 conformance 覆盖 omitted default middle、table-level top/middle/bottom、per-cell override、valid values 和 invalid passthrough，证明 anchor 只在 `tcPr`。
-6. API、npm README、changelog 与兼容矩阵明确 direct 编辑、physical index、PptxGenJS default materialization，以及 table creation/table-level mutation 仍未支持。
+5. PptxGenJS 4.0.1 conformance 覆盖 omitted direct absence、table-level top/middle/bottom、per-cell override、valid values 和 invalid passthrough，证明 anchor 只在 `tcPr`。
+6. API、npm README、changelog 与兼容矩阵明确 direct 编辑、physical index、PptxGenJS omitted/explicit wire difference，以及 table creation/table-level mutation 仍未支持。
 7. packed Node/browser/declaration smoke 覆盖 snapshot、三值编辑和 clear；typecheck、全仓 tests、独立 performance、actual tarball 与 CLI 全部通过。
 8. 同源 native/hand-patched table 文件通过 PowerPoint 2010 profile 的 0 error / 0 warning 验证且 package diff 为空；LibreOffice 无修复导出并逐图检查 top/middle/bottom 位置，两份 overflow checks 通过。
