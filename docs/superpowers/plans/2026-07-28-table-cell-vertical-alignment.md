@@ -16,7 +16,7 @@
 - Strict read maps only exact unqualified `t`, `ctr`, and `b`; absent, malformed, repeated, namespaced, long-form, justified/distributed, or unknown state returns `undefined`.
 - Setter maps top/middle/bottom to canonical `t/ctr/b`; `undefined` removes only the direct unqualified anchor.
 - Setter requires exactly one direct `tcPr`; same canonical assignment is an exact no-op, and a single unknown token may be replaced or cleared.
-- PptxGenJS 4.0.1 materializes omitted table/cell `valign` as direct `anchor="ctr"`; table-level valid values copy to cells and cell-level values override them.
+- PptxGenJS 4.0.1 leaves direct anchor absent when table/cell `valign` is omitted; explicit table-level valid values copy to cells and cell-level values override them.
 - Do not add table creation, table-level valign mutation, effective inheritance, just/dist support, margin/fill/border APIs, merge mutation, rich text, row/column mutation, or dynamic layout.
 - Preserve `tcPr` ordering/children, direction, bodyPr anchor/fit, text, paragraphs/runs, merge state, neighboring cells, relationships, and `TableModel` identity.
 - Implement inline without subagent delegation, as required for this repository session.
@@ -162,11 +162,11 @@ Expected: typecheck and both suites pass.
 
 - [ ] **Step 1: Add real PptxGenJS valign conformance**
 
-Generate public tables covering omitted table/cell values, table-level top/middle/bottom, cell-level top/middle/bottom overrides, and runtime invalid `mid`/`distributed`. Import through `importPptxGenJS()` and assert valid snapshots, omitted→middle materialization, invalid→undefined, all text survives, valid direct `tcPr@anchor` counts match, and no cell `bodyPr@anchor` is created. Write/reopen and compare snapshots without accessing private fields.
+Generate public tables covering omitted table/cell values, table-level top/middle/bottom, cell-level top/middle/bottom overrides, and runtime invalid `mid`/`distributed`. Import through `importPptxGenJS()` and assert valid snapshots, omitted→undefined direct absence, invalid→undefined, all text survives, valid direct `tcPr@anchor` counts match, and no cell `bodyPr@anchor` is created. Write/reopen and compare snapshots without accessing private fields.
 
 - [ ] **Step 2: Update API, compatibility, npm README, and changelog**
 
-Add the public snapshot/setter example and document physical indices, unique direct `tcPr`, strict `t/ctr/b`, clear semantics, separation from bodyPr anchor/fit/direction, and PptxGenJS omitted→middle materialization. Add this compatibility row:
+Add the public snapshot/setter example and document physical indices, unique direct `tcPr`, strict `t/ctr/b`, clear semantics, separation from bodyPr anchor/fit/direction, and PptxGenJS omitted versus explicit wire behavior. Add this compatibility row:
 
 ```md
 | table-cell `valign: top/middle/bottom` | `TableCell.verticalAlignment` / `TableModel.setCellVerticalAlignment()` | 已支持 direct 编辑 |
@@ -226,7 +226,7 @@ Expected: Node API, browser API, declarations, and CLI smoke all report true, in
 
 - [ ] **Step 2: Generate same-source native and hand-patched table files**
 
-Use public PptxGenJS 4.0.1 to create one fixed five-cell table whose omitted valign is materialized as `ctr`. Open one copy through `PptxDocument` and apply top, middle, bottom, clear, and an untouched neighbor through `setCellVerticalAlignment()`; patch the same `tcPr@anchor` attributes by hand in another copy. Save explicit outputs under `/tmp/pptx-table-cell-alignment-native/native.pptx` and `/tmp/pptx-table-cell-alignment-baseline/baseline.pptx`.
+Use public PptxGenJS 4.0.1 to create one fixed five-cell table with explicit table-level middle alignment materialized as `ctr`. Open one copy through `PptxDocument` and apply top, middle, bottom, clear, and an untouched neighbor through `setCellVerticalAlignment()`; patch the same `tcPr@anchor` attributes by hand in another copy. Save explicit outputs under `/tmp/pptx-table-cell-alignment-native/native.pptx` and `/tmp/pptx-table-cell-alignment-baseline/baseline.pptx`.
 
 Validate and compare:
 
@@ -252,7 +252,7 @@ Expected: both overflow checks pass.
 
 - [ ] **Step 4: Final review, commit, push, and verify remote state**
 
-Run `git diff --check`, inspect the complete diff, and verify the shared three-value type, direct tcPr ownership, omitted PptxGen middle materialization, canonical/clear behavior, strict snapshots, physical indices, malformed/neighbor isolation, and no table-creation/effective-layout expansion. Confirm status lists only intended files plus `.pnpm-store/`. Stage explicit files, run `git diff --cached --check`, commit, and push through the verified SSH-over-443 channel:
+Run `git diff --check`, inspect the complete diff, and verify the shared three-value type, direct tcPr ownership, omitted PptxGen direct absence, explicit table-level materialization, canonical/clear behavior, strict snapshots, physical indices, malformed/neighbor isolation, and no table-creation/effective-layout expansion. Confirm status lists only intended files plus `.pnpm-store/`. Stage explicit files, run `git diff --cached --check`, commit, and push through the verified SSH-over-443 channel:
 
 ```sh
 git commit -m "feat: support table cell vertical alignment"
