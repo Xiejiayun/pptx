@@ -26,6 +26,7 @@ await document.writeFile('output.pptx');
 Transactions are synchronous and roll back all package graph changes when the callback or structural validation fails.
 Slide, shape, master, layout, and theme objects keep stable identity across repeated reads and supported edits.
 Slide duplication isolates owned chart/notes/comment dependencies while preserving shared layouts, images, media, and opaque targets.
+Editing a shared image payload or chart XML uses clone-on-write so only the selected shape changes; chart-owned dependencies are cloned with it.
 
 ## Optional codecs
 

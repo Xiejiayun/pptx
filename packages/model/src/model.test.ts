@@ -100,9 +100,13 @@ describe('PresentationModel', () => {
     (shapes[2] as TableModel).setCellText(0, 1, 'Edited B1');
     expect(model.slides[1]!.shapes[2]).toBe(shapes[2]);
     expect((model.slides[1]!.shapes[2] as TableModel).rows[0]?.cells[1]?.text).toBe('Edited B1');
+    const imagePartUri = (shapes[1] as ImageModel).sourcePartUri;
     (shapes[1] as ImageModel).replaceData(new Uint8Array([1, 2, 3]), 'image/png');
+    expect((shapes[1] as ImageModel).sourcePartUri).toBe(imagePartUri);
     expect(model.opcPackage.requirePart('/ppt/media/image1.png').bytes).toEqual(new Uint8Array([1, 2, 3]));
+    const chartPartUri = (shapes[3] as ChartModel).chartPartUri;
     (shapes[3] as ChartModel).setXml('<c:chartSpace xmlns:c="c"><c:chart><c:plotArea/></c:chart></c:chartSpace>');
+    expect((shapes[3] as ChartModel).chartPartUri).toBe(chartPartUri);
     expect((model.slides[1]!.shapes[3] as ChartModel).xml).toContain('<c:plotArea/>');
   });
 
@@ -201,6 +205,105 @@ describe('PresentationModel', () => {
     expect(new TextDecoder().decode(reopened.requirePart('/[Content_Types].xml').bytes)).not.toContain(
       '/ppt/charts/chart1.xml',
     );
+  });
+
+  it('clones shared image payloads on write while preserving shape identity', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const source = model.slides[1]!;
+    const duplicate = model.duplicateSlide(1);
+    const sourceImage = source.shapes[1] as ImageModel;
+    const duplicateImage = duplicate.shapes[1] as ImageModel;
+    const sharedPartUri = sourceImage.sourcePartUri!;
+    const sourceBytes = pkg.requirePart(sharedPartUri).bytes;
+
+    expect(duplicateImage.sourcePartUri).toBe(sharedPartUri);
+    duplicateImage.replaceData(new Uint8Array([1, 2, 3]), 'image/png');
+    expect(duplicate.shapes[1]).toBe(duplicateImage);
+    expect(duplicateImage.sourcePartUri).not.toBe(sharedPartUri);
+    expect(pkg.requirePart(sharedPartUri).bytes).toEqual(sourceBytes);
+    expect(pkg.requirePart(duplicateImage.sourcePartUri!).bytes).toEqual(new Uint8Array([1, 2, 3]));
+  });
+
+  it('creates a new relationship when two image shapes share one rId', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.slides[1]!;
+    const part = pkg.requirePart(slide.partUri);
+    const xml = new TextDecoder().decode(part.bytes);
+    const picture = xml.match(/<p:pic>.*?<\/p:pic>/)?.[0];
+    expect(picture).toBeTruthy();
+    pkg.setPart(
+      slide.partUri,
+      xml.replace('</p:spTree>', `${picture!.replace('id="3"', 'id="6"').replace('name="Image 1"', 'name="Image 2"')}</p:spTree>`),
+      part.contentType,
+    );
+    const first = slide.shapes.find(({ id }) => id === 3) as ImageModel;
+    const second = slide.shapes.find(({ id }) => id === 6) as ImageModel;
+    const sharedPartUri = first.sourcePartUri!;
+
+    second.replaceData(new Uint8Array([6, 6, 6]), 'image/png');
+    expect(first.sourcePartUri).toBe(sharedPartUri);
+    expect(second.sourcePartUri).toBeDefined();
+    expect(second.sourcePartUri).not.toBe(sharedPartUri);
+    expect(pkg.requirePart(second.sourcePartUri!).bytes).toEqual(new Uint8Array([6, 6, 6]));
+    expect(pkg.relationships(slide.partUri).filter(({ resolvedTarget }) => resolvedTarget === sharedPartUri)).toHaveLength(1);
+  });
+
+  it('rolls back a shared image clone when package metadata cannot be updated', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const source = model.slides[1]!;
+    const duplicate = model.duplicateSlide(1);
+    const image = duplicate.shapes[1] as ImageModel;
+    const sharedPartUri = (source.shapes[1] as ImageModel).sourcePartUri!;
+    pkg.setPart('/[Content_Types].xml', '<invalid/>');
+    const partUris = pkg.parts.map(({ uri }) => uri);
+    const journal = [...pkg.mutations];
+
+    expect(() => image.replaceData(new Uint8Array([4, 5, 6]), 'image/png')).toThrow(
+      /Invalid \[Content_Types\]\.xml/,
+    );
+    expect(image.sourcePartUri).toBe(sharedPartUri);
+    expect(pkg.parts.map(({ uri }) => uri)).toEqual(partUris);
+    expect(pkg.mutations).toEqual(journal);
+  });
+
+  it('clones a shared chart and its owned workbook before raw XML editing', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const source = model.slides[1]!;
+    const target = model.slides[0]!;
+    const sourceChart = (source.shapes[3] as ChartModel).chartPartUri!;
+    const sourceWorkbook = pkg.relationships(sourceChart)[0]!.resolvedTarget!;
+    const targetPart = pkg.requirePart(target.partUri);
+    const targetXml = new TextDecoder()
+      .decode(targetPart.bytes)
+      .replace('<p:sld xmlns:p="p" xmlns:a="a">', '<p:sld xmlns:p="p" xmlns:a="a" xmlns:r="r" xmlns:c="c">')
+      .replace(
+        '</p:spTree>',
+        '<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="3" name="Shared chart"/></p:nvGraphicFramePr><a:graphic><a:graphicData><c:chart r:id="rId1"/></a:graphicData></a:graphic></p:graphicFrame></p:spTree>',
+      );
+    pkg.setPart(target.partUri, targetXml, targetPart.contentType);
+    pkg.addRelationship(target.partUri, {
+      id: 'rId1',
+      type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart',
+      target: '../charts/chart1.xml',
+    });
+    const chart = target.shapes.find(({ id }) => id === 3) as ChartModel;
+
+    expect(chart.chartPartUri).toBe(sourceChart);
+    chart.setXml('<c:chartSpace xmlns:c="c"><c:chart><c:plotArea/></c:chart></c:chartSpace>');
+    const clonedChart = chart.chartPartUri!;
+    expect(clonedChart).toBeDefined();
+    const clonedWorkbook = pkg.relationships(clonedChart)[0]!.resolvedTarget!;
+    expect(clonedWorkbook).toBeDefined();
+    expect(target.shapes.find(({ id }) => id === 3)).toBe(chart);
+    expect(clonedChart).not.toBe(sourceChart);
+    expect(clonedWorkbook).not.toBe(sourceWorkbook);
+    expect(pkg.requirePart(clonedWorkbook).bytes).toEqual(pkg.requirePart(sourceWorkbook).bytes);
+    expect((source.shapes[3] as ChartModel).chartPartUri).toBe(sourceChart);
+    expect(new TextDecoder().decode(pkg.requirePart(sourceChart).bytes)).toContain('Sales');
   });
 
   it('rolls back a partially cloned owned subgraph when a nested target is missing', async () => {

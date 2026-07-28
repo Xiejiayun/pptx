@@ -8,6 +8,7 @@
 - Added nested synchronous mutation transactions with rollback across parts, content types, relationships, ZIP state, and the mutation journal.
 - Added stable object identity for slide, shape, master, layout, and theme models while keeping properties live against current OOXML.
 - Added lifecycle-aware slide duplication and deletion: owned dependency subgraphs are cloned/collected while layout, image, media, external, and opaque targets remain shared or preserved.
+- Added clone-on-write isolation for shared image payload and raw chart XML edits, including chart-owned workbook subgraphs and transaction rollback.
 
 ## 0.1.0 - 2026-07-25
 

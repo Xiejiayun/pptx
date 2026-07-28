@@ -67,6 +67,10 @@ export function garbageCollectOwnedDependencies(pkg: OpcPackage, roots: readonly
   for (const root of new Set(roots)) garbageCollectOwnedRoot(pkg, root);
 }
 
+export function cloneOwnedPartForMutation(pkg: OpcPackage, sourcePartUri: string): string {
+  return cloneOwnedPart(pkg, sourcePartUri, new Map());
+}
+
 function cloneRootRelationshipTarget(
   pkg: OpcPackage,
   relationship: Relationship,

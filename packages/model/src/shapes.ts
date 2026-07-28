@@ -1,6 +1,14 @@
-import { LosslessXmlDocument, type XmlElement } from '@pptx/lossless-xml';
+import { LosslessXmlDocument, type XmlAttribute, type XmlElement } from '@pptx/lossless-xml';
 import { GradientCodec, type GradientFill } from '@pptx/codecs';
-import type { Relationship } from '@pptx/opc';
+import {
+  partUriBasename,
+  partUriDirname,
+  partUriExtension,
+  relativeRelationshipTarget,
+  type OpcPackage,
+  type Relationship,
+} from '@pptx/opc';
+import { cloneOwnedPartForMutation } from './dependency.internal.js';
 import type { SlideModel } from './slide.js';
 import { type Emu, type OoxmlAngle, type Transform } from './units.js';
 
@@ -95,10 +103,28 @@ export class ImageModel extends BaseShapeModel {
   }
 
   replaceData(bytes: Uint8Array, contentType?: string): void {
-    const target = this.sourcePartUri;
-    if (!target) throw new Error(`Image ${this.id} is external or has no embedded part`);
-    const current = this.slide.presentation.opcPackage.requirePart(target);
-    this.slide.presentation.opcPackage.setPart(target, bytes, contentType ?? current.contentType);
+    const pkg = this.slide.presentation.opcPackage;
+    pkg.transaction(() => {
+      const { xml, element } = this.resolve();
+      const blip = xml.descendants(element, 'blip')[0];
+      const reference = blip
+        ? xml.attribute(blip, 'r:embed') ?? xml.attribute(blip, 'r:link')
+        : undefined;
+      const relationship = reference ? this.relationship(reference.value) : undefined;
+      const target = relationship?.resolvedTarget;
+      if (!reference || !relationship || !target || relationship.targetMode === 'External') {
+        throw new Error(`Image ${this.id} is external or has no embedded part`);
+      }
+      const current = pkg.requirePart(target);
+      const nextContentType = contentType ?? current.contentType;
+      if (!isSharedTarget(pkg, xml, relationship)) {
+        pkg.setPart(target, bytes, nextContentType);
+        return;
+      }
+      const cloneUri = allocateSiblingPartUri(pkg, target);
+      pkg.setPart(cloneUri, bytes, nextContentType);
+      retargetShapeRelationship(this.slide, xml, reference, relationship, cloneUri);
+    });
   }
 
   private relationship(id: string): Relationship | undefined {
@@ -159,11 +185,26 @@ export class ChartModel extends BaseShapeModel {
   }
 
   setXml(value: string): void {
-    const uri = this.chartPartUri;
-    if (!uri) throw new Error(`Chart ${this.id} has no chart part`);
-    const current = this.slide.presentation.opcPackage.requirePart(uri);
     LosslessXmlDocument.parse(value);
-    this.slide.presentation.opcPackage.setPart(uri, value, current.contentType);
+    const pkg = this.slide.presentation.opcPackage;
+    pkg.transaction(() => {
+      const { xml, element } = this.resolve();
+      const chart = xml.descendants(element, 'chart')[0];
+      const reference = chart ? xml.attribute(chart, 'r:id') : undefined;
+      const relationship = reference
+        ? this.slide.relationships.find(({ id }) => id === reference.value)
+        : undefined;
+      const target = relationship?.resolvedTarget;
+      if (!reference || !relationship || !target) throw new Error(`Chart ${this.id} has no chart part`);
+      const current = pkg.requirePart(target);
+      if (!isSharedTarget(pkg, xml, relationship)) {
+        pkg.setPart(target, value, current.contentType);
+        return;
+      }
+      const cloneUri = cloneOwnedPartForMutation(pkg, target);
+      retargetShapeRelationship(this.slide, xml, reference, relationship, cloneUri);
+      pkg.setPart(cloneUri, value, current.contentType);
+    });
   }
 }
 
@@ -213,4 +254,47 @@ function lastValue(xml: LosslessXmlDocument, element: XmlElement): string {
   const values = xml.descendants(element, 'v');
   const value = values.at(-1);
   return value ? xml.text(value) : '';
+}
+
+function isSharedTarget(
+  pkg: OpcPackage,
+  xml: LosslessXmlDocument,
+  relationship: Relationship,
+): boolean {
+  const incoming = relationship.resolvedTarget
+    ? pkg.graph.find(({ uri }) => uri === relationship.resolvedTarget)?.incoming.length ?? 0
+    : 0;
+  return incoming > 1 || relationshipReferenceCount(xml, relationship.id) > 1;
+}
+
+function relationshipReferenceCount(xml: LosslessXmlDocument, id: string): number {
+  return xml
+    .elements()
+    .flatMap(({ attributes }) => attributes)
+    .filter(({ name, value }) => name.startsWith('r:') && value === id).length;
+}
+
+function retargetShapeRelationship(
+  slide: SlideModel,
+  xml: LosslessXmlDocument,
+  reference: XmlAttribute,
+  relationship: Relationship,
+  targetPartUri: string,
+): void {
+  const pkg = slide.presentation.opcPackage;
+  const target = relativeRelationshipTarget(slide.partUri, targetPartUri);
+  if (relationshipReferenceCount(xml, relationship.id) > 1) {
+    const cloneRelationship = pkg.addRelationship(slide.partUri, { type: relationship.type, target });
+    xml.replaceAttribute(reference, cloneRelationship.id);
+    slide.setXml(xml.serialize());
+  } else {
+    pkg.updateRelationship(slide.partUri, relationship.id, { target, targetMode: 'Internal' });
+  }
+}
+
+function allocateSiblingPartUri(pkg: OpcPackage, sourcePartUri: string): string {
+  const extension = partUriExtension(sourcePartUri) || '.bin';
+  const basename = partUriBasename(sourcePartUri, partUriExtension(sourcePartUri));
+  const stem = basename.replace(/\d+$/, '') || 'part';
+  return pkg.allocatePartUri(partUriDirname(sourcePartUri), stem, extension);
 }
