@@ -38,6 +38,12 @@ import {
   renderTextBoxVerticalAlignmentAttribute,
   replaceTextBoxVerticalAlignment,
 } from './text-box-vertical-alignment.internal.js';
+import {
+  normalizeTextBoxWrap,
+  readTextBoxWrap,
+  renderTextBoxWrapAttribute,
+  replaceTextBoxWrap,
+} from './text-box-wrapping.internal.js';
 import type {
   ParagraphBullet,
   ParagraphSpacing,
@@ -59,6 +65,7 @@ export interface AddTextOptions extends Partial<Transform> {
   readonly spacing?: ParagraphSpacing;
   readonly tabStops?: readonly ParagraphTabStop[];
   readonly valign?: TextBoxVerticalAlignment;
+  readonly wrap?: boolean;
 }
 
 export class SlideTitleModel {
@@ -228,6 +235,20 @@ export class SlideModel {
     });
   }
 
+  getShapeTextWrap(id: number): boolean | undefined {
+    const { xml, element } = this.resolveShape(id);
+    return readTextBoxWrap(xml, element, this.partUri);
+  }
+
+  setShapeTextWrap(id: number, value: boolean | undefined): void {
+    this.presentation.opcPackage.transaction(() => {
+      const textWrap = value === undefined ? undefined : normalizeTextBoxWrap(value, 'Text wrap');
+      const { xml, element } = this.resolveShape(id);
+      replaceTextBoxWrap(xml, element, textWrap, this.partUri);
+      this.setXml(xml.serialize());
+    });
+  }
+
   setShapeTransform(id: number, changes: Partial<Transform>): void {
     const { xml, element } = this.resolveShape(id);
     const xfrm = xml.descendants(element, 'xfrm')[0];
@@ -266,6 +287,7 @@ export class SlideModel {
         options,
         normalized.margin,
         normalized.verticalAlignment,
+        normalized.textWrap,
       );
     });
   }
@@ -285,6 +307,7 @@ export class SlideModel {
         options,
         defaults.margin,
         defaults.verticalAlignment,
+        defaults.textWrap,
       );
     });
   }
@@ -298,6 +321,7 @@ export class SlideModel {
     options: AddTextOptions,
     margins: TextBoxMargins | undefined,
     verticalAlignment: TextBoxVerticalAlignment,
+    textWrap: boolean,
   ): ShapeModel {
     const { xml } = this.parse();
     const shapeTree = xml
@@ -305,7 +329,7 @@ export class SlideModel {
       .find(({ parent }) => parent?.localName === 'cSld');
     if (!shapeTree) throw new ModelParseError('Slide does not contain a shape tree', this.partUri);
     const nextId = allocateShapeId(xml);
-    const shapeXml = textShapeXml(nextId, paragraphs, options, margins, verticalAlignment);
+    const shapeXml = textShapeXml(nextId, paragraphs, options, margins, verticalAlignment, textWrap);
     const extensionList = shapeTree.children.find(
       (child): child is XmlElement => child.type === 'element' && child.localName === 'extLst',
     );
@@ -372,6 +396,7 @@ interface NormalizedTextInput {
   readonly spacing: NormalizedParagraphSpacingUpdate | undefined;
   readonly tabStops: readonly NormalizedParagraphTabStop[] | undefined;
   readonly verticalAlignment: TextBoxVerticalAlignment;
+  readonly textWrap: boolean;
 }
 
 function validateTextInput(value: string, options: AddTextOptions): NormalizedTextInput {
@@ -385,6 +410,7 @@ function validateTextInput(value: string, options: AddTextOptions): NormalizedTe
     spacing: defaults.spacing,
     tabStops: defaults.tabStops,
     verticalAlignment: defaults.verticalAlignment,
+    textWrap: defaults.textWrap,
   };
 }
 
@@ -395,6 +421,7 @@ interface NormalizedAddTextOptions {
   readonly spacing?: NormalizedParagraphSpacingUpdate;
   readonly tabStops?: readonly NormalizedParagraphTabStop[];
   readonly verticalAlignment: TextBoxVerticalAlignment;
+  readonly textWrap: boolean;
 }
 
 function validateAddTextOptions(options: AddTextOptions): NormalizedAddTextOptions {
@@ -448,6 +475,9 @@ function validateAddTextOptions(options: AddTextOptions): NormalizedAddTextOptio
   const verticalAlignment = options.valign === undefined
     ? 'middle'
     : normalizeTextBoxVerticalAlignment(options.valign, 'Text vertical alignment');
+  const textWrap = options.wrap === undefined
+    ? true
+    : normalizeTextBoxWrap(options.wrap, 'Text wrap');
   return {
     ...(bullet !== undefined ? { bullet } : {}),
     ...(level !== undefined ? { level } : {}),
@@ -455,6 +485,7 @@ function validateAddTextOptions(options: AddTextOptions): NormalizedAddTextOptio
     ...(spacing !== undefined ? { spacing } : {}),
     ...(tabStops !== undefined ? { tabStops } : {}),
     verticalAlignment,
+    textWrap,
   };
 }
 
@@ -481,6 +512,7 @@ function textShapeXml(
   options: AddTextOptions,
   margins: TextBoxMargins | undefined,
   verticalAlignment: TextBoxVerticalAlignment,
+  textWrap: boolean,
 ): string {
   const x = Math.round(options.x ?? 0);
   const y = Math.round(options.y ?? 0);
@@ -493,9 +525,10 @@ function textShapeXml(
     options.flipVertical ? ' flipV="1"' : '',
   ].join('');
   const name = escapeXmlAttribute(options.name ?? `Text ${id}`);
+  const wrapAttribute = renderTextBoxWrapAttribute(textWrap);
   const marginAttributes = renderTextBoxMarginAttributes(margins);
   const verticalAlignmentAttribute = renderTextBoxVerticalAlignmentAttribute(verticalAlignment);
-  return `<p:sp xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><p:nvSpPr><p:cNvPr id="${id}" name="${name}"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm${transformAttributes}><a:off x="${x}" y="${y}"/><a:ext cx="${width}" cy="${height}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></p:spPr><p:txBody><a:bodyPr wrap="square"${marginAttributes} rtlCol="0"${verticalAlignmentAttribute}/><a:lstStyle/>${paragraphs}</p:txBody></p:sp>`;
+  return `<p:sp xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><p:nvSpPr><p:cNvPr id="${id}" name="${name}"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm${transformAttributes}><a:off x="${x}" y="${y}"/><a:ext cx="${width}" cy="${height}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></p:spPr><p:txBody><a:bodyPr${wrapAttribute}${marginAttributes} rtlCol="0"${verticalAlignmentAttribute}/><a:lstStyle/>${paragraphs}</p:txBody></p:sp>`;
 }
 
 function textParagraphXml(

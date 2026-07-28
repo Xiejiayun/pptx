@@ -106,6 +106,14 @@ export class ShapeModel extends BaseShapeModel {
     this.slide.setShapeTextVerticalAlignment(this.id, value);
   }
 
+  get textWrap(): boolean | undefined {
+    return this.slide.getShapeTextWrap(this.id);
+  }
+
+  set textWrap(value: boolean | undefined) {
+    this.slide.setShapeTextWrap(this.id, value);
+  }
+
   get gradientFill(): GradientFill | undefined {
     return new GradientCodec().getShapeFill(this.slide.presentation.opcPackage, this.slide.partUri, this.id);
   }

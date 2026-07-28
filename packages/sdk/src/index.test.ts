@@ -1385,6 +1385,129 @@ describe('PptxDocument vertical slice', () => {
     expect(slide.shapes[0]).toBe(shape);
   });
 
+  it('creates, edits, duplicates, and reopens text-box wrapping', async () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const omitted = slide.addText('Omitted', { name: 'Omitted text wrapping' });
+    const wrapped = slide.addRichText([{
+      runs: [{ text: 'Wrapped rich text', style: { bold: true } }],
+      align: 'center',
+    }], {
+      name: 'Enabled text wrapping',
+      wrap: true,
+      margin: 8,
+      valign: 'bottom',
+    });
+    const unwrapped = slide.addText('Unwrapped', {
+      name: 'Disabled text wrapping',
+      wrap: false,
+      valign: 'top',
+    });
+
+    expect([omitted, wrapped, unwrapped].map(({ textWrap }) => textWrap)).toEqual([
+      true,
+      true,
+      false,
+    ]);
+    expect(wrapped.textMargins).toEqual({ top: 8, right: 8, bottom: 8, left: 8 });
+    expect(wrapped.verticalAlignment).toBe('bottom');
+    const createdXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(createdXml).toContain(
+      '<a:bodyPr wrap="square" lIns="101600" tIns="101600" rIns="101600" bIns="101600" rtlCol="0" anchor="b"/>',
+    );
+    expect(createdXml).toContain('<a:bodyPr wrap="none" rtlCol="0" anchor="t"/>');
+
+    document.duplicateSlide(0);
+    omitted.textWrap = false;
+    wrapped.textWrap = false;
+    wrapped.text = 'Plain replacement';
+    wrapped.richText = [{ runs: [{ text: 'Rich replacement', style: { italic: true } }] }];
+    wrapped.textMargins = { top: 6, left: 8 };
+    wrapped.verticalAlignment = 'middle';
+    wrapped.setTransform({ x: inches(2) });
+    unwrapped.textWrap = undefined;
+    expect(unwrapped.textWrap).toBeUndefined();
+    unwrapped.textWrap = true;
+    expect(unwrapped.textWrap).toBe(true);
+    expect(new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes))
+      .toMatch(/name="Disabled text wrapping"[\s\S]*?<a:bodyPr[^>]*wrap="square"[^>]*\/>/);
+    unwrapped.textWrap = undefined;
+
+    expect(omitted.textWrap).toBe(false);
+    expect(wrapped.textWrap).toBe(false);
+    expect(unwrapped.textWrap).toBeUndefined();
+    expect(slide.shapes[0]).toBe(omitted);
+    expect(slide.shapes[1]).toBe(wrapped);
+    expect(slide.shapes[2]).toBe(unwrapped);
+    const editedXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(editedXml).toMatch(/name="Enabled text wrapping"[\s\S]*?<a:bodyPr[^>]*wrap="none"[^>]*anchor="ctr"\/>/);
+    expect(editedXml).toMatch(/name="Disabled text wrapping"[\s\S]*?<a:bodyPr(?![^>]*\swrap=)[^>]*anchor="t"\/>/);
+
+    const beforeRollback = document.opcPackage.requirePart(slide.partUri).bytes;
+    const journal = [...document.opcPackage.mutations];
+    expect(() =>
+      document.transaction(() => {
+        wrapped.textWrap = true;
+        throw new Error('restore text wrapping');
+      }),
+    ).toThrow('restore text wrapping');
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(beforeRollback);
+    expect(document.opcPackage.mutations).toEqual(journal);
+    expect(wrapped.textWrap).toBe(false);
+    expect(slide.shapes[1]).toBe(wrapped);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const edited = reopened.slides[0]!.shapes as readonly ShapeModel[];
+    const duplicated = reopened.slides[1]!.shapes as readonly ShapeModel[];
+    expect(edited.map(({ textWrap }) => textWrap)).toEqual([false, false, undefined]);
+    expect(duplicated.map(({ textWrap }) => textWrap)).toEqual([true, true, false]);
+    expect(edited[1]!.text).toBe('Rich replacement');
+    expect(edited[1]!.textMargins).toEqual({ top: 6, left: 8 });
+    expect(edited[1]!.verticalAlignment).toBe('middle');
+    expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+  });
+
+  it('rejects malformed text-box wrapping without changing package state', () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const shape = slide.addText('Original', {
+      wrap: false,
+      margin: { top: 4, left: 8 },
+      valign: 'top',
+    });
+    const before = document.opcPackage.requirePart(slide.partUri).bytes;
+    const journal = [...document.opcPackage.mutations];
+
+    for (const wrap of [
+      null,
+      0,
+      1,
+      '',
+      'true',
+      'false',
+      'square',
+      'none',
+      {},
+      [],
+      Symbol('wrap'),
+    ]) {
+      expect(() => slide.addText('Invalid', { wrap: wrap as never })).toThrow(TypeError);
+      expect(() => slide.addRichText([{ runs: [{ text: 'Invalid' }] }], {
+        wrap: wrap as never,
+      })).toThrow(TypeError);
+      expect(() => {
+        shape.textWrap = wrap as never;
+      }).toThrow(TypeError);
+    }
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(before);
+    expect(document.opcPackage.mutations).toEqual(journal);
+    expect(shape.text).toBe('Original');
+    expect(shape.textMargins).toEqual({ top: 4, left: 8 });
+    expect(shape.verticalAlignment).toBe('top');
+    expect(shape.textWrap).toBe(false);
+    expect(slide.shapes[0]).toBe(shape);
+  });
+
   it('creates, edits, duplicates, and reopens rich text highlight colors', async () => {
     const document = PptxDocument.create();
     const slide = document.addSlide();

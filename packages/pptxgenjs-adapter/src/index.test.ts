@@ -321,6 +321,47 @@ describe('importPptxGenJS', () => {
         objectName: 'Vertical run ignored',
       },
     );
+    generatedSlide.addText('Omitted text wrapping', {
+      x: 4,
+      y: 0,
+      w: 2,
+      h: 0.5,
+      objectName: 'Wrap omitted',
+    });
+    generatedSlide.addText('Enabled text wrapping', {
+      x: 4,
+      y: 0.5,
+      w: 2,
+      h: 0.5,
+      wrap: true,
+      objectName: 'Wrap true',
+    });
+    generatedSlide.addText('Disabled text wrapping', {
+      x: 4,
+      y: 1,
+      w: 2,
+      h: 0.5,
+      wrap: false,
+      objectName: 'Wrap false',
+    });
+    generatedSlide.addText('Invalid text wrapping', {
+      x: 4,
+      y: 1.5,
+      w: 2,
+      h: 0.5,
+      wrap: 'false',
+      objectName: 'Wrap invalid fallback',
+    });
+    generatedSlide.addText(
+      [{ text: 'Ignored run text wrapping', options: { wrap: false } }],
+      {
+        x: 4,
+        y: 2,
+        w: 2,
+        h: 0.5,
+        objectName: 'Wrap run ignored',
+      },
+    );
     const document = await importPptxGenJS(generated);
     expect(document.slides[0]?.title.text).toBe('Created by PptxGenJS');
     expect((document.slides[0]!.shapes[0] as ShapeModel).richText[0]!.align).toBe('center');
@@ -494,6 +535,19 @@ describe('importPptxGenJS', () => {
       'bottom',
       'middle',
     ]);
+    expect([
+      'Wrap omitted',
+      'Wrap true',
+      'Wrap false',
+      'Wrap invalid fallback',
+      'Wrap run ignored',
+    ].map((name) => shapeByName(name).textWrap)).toEqual([
+      true,
+      true,
+      false,
+      true,
+      true,
+    ]);
     const importedXml = new TextDecoder().decode(
       document.opcPackage.requirePart(document.slides[0]!.partUri).bytes,
     );
@@ -503,6 +557,11 @@ describe('importPptxGenJS', () => {
     expect(importedXml).toMatch(/name="Vertical middle"[\s\S]*?<a:bodyPr[^>]*anchor="ctr"/);
     expect(importedXml).toMatch(/name="Vertical bottom"[\s\S]*?<a:bodyPr[^>]*anchor="b"/);
     expect(importedXml).toMatch(/name="Vertical run ignored"[\s\S]*?<a:bodyPr[^>]*anchor="ctr"/);
+    expect(importedXml).toMatch(/name="Wrap omitted"[\s\S]*?<a:bodyPr[^>]*wrap="square"/);
+    expect(importedXml).toMatch(/name="Wrap true"[\s\S]*?<a:bodyPr[^>]*wrap="square"/);
+    expect(importedXml).toMatch(/name="Wrap false"[\s\S]*?<a:bodyPr[^>]*wrap="none"/);
+    expect(importedXml).toMatch(/name="Wrap invalid fallback"[\s\S]*?<a:bodyPr[^>]*wrap="square"/);
+    expect(importedXml).toMatch(/name="Wrap run ignored"[\s\S]*?<a:bodyPr[^>]*wrap="square"/);
     document.slides[0]!.title.text = 'Edited by the OOXML kernel';
     document.duplicateSlide(0);
 
@@ -629,6 +688,17 @@ describe('importPptxGenJS', () => {
       ['Vertical middle', 'middle'],
       ['Vertical bottom', 'bottom'],
       ['Vertical run ignored', 'middle'],
+    ]);
+    const reopenedWrapping = reopened.slides[1]!.shapes
+      .filter((shape): shape is ShapeModel => shape instanceof ShapeModel)
+      .filter(({ name }) => name.startsWith('Wrap '))
+      .map(({ name, textWrap }) => [name, textWrap]);
+    expect(reopenedWrapping).toEqual([
+      ['Wrap omitted', true],
+      ['Wrap true', true],
+      ['Wrap false', false],
+      ['Wrap invalid fallback', true],
+      ['Wrap run ignored', true],
     ]);
   }, 10_000);
 

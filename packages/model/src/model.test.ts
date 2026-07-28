@@ -420,6 +420,121 @@ describe('PresentationModel', () => {
     }
   });
 
+  it('reads and losslessly replaces direct text-box wrapping', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.slides[1]!;
+    const part = pkg.requirePart(slide.partUri);
+    const bodyProperties = [
+      `<a:bodyPr wrap='none' lIns="127000" anchor="b" vert="vert" custom="KEEP">`,
+      '<a:normAutofit fontScale="90000"/>',
+      '<x:keep xmlns:x="urn:test">KEEP</x:keep>',
+      '</a:bodyPr>',
+    ].join('');
+    pkg.setPart(
+      part.uri,
+      new TextDecoder().decode(part.bytes).replace(
+        '<p:txBody><a:p>',
+        `<p:txBody>${bodyProperties}<a:p>`,
+      ),
+      part.contentType,
+    );
+    const shape = slide.shapes[0] as ShapeModel;
+    const journal = [...pkg.mutations];
+
+    expect(shape.textWrap).toBe(false);
+    expect(shape.textWrap).toBe(false);
+    expect(pkg.mutations).toEqual(journal);
+    expect(shape.textMargins).toEqual({ left: 10 });
+    expect(shape.verticalAlignment).toBe('bottom');
+
+    shape.textWrap = true;
+    expect(shape.textWrap).toBe(true);
+    let updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated).toContain(`wrap='square'`);
+    expect(updated).toContain('anchor="b" vert="vert" custom="KEEP"');
+
+    shape.textWrap = false;
+    expect(shape.textWrap).toBe(false);
+    shape.text = 'Plain replacement';
+    shape.richText = [{ runs: [{ text: 'Rich replacement', style: { bold: true } }] }];
+    shape.textMargins = { top: 4, left: 8 };
+    shape.verticalAlignment = 'top';
+    shape.setTransform({ x: inches(3) });
+    expect(shape.textWrap).toBe(false);
+    expect(slide.shapes[0]).toBe(shape);
+    updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated).toContain(`wrap='none'`);
+    expect(updated).toContain('anchor="t" vert="vert" custom="KEEP"');
+    expect(updated).toContain('lIns="101600"');
+    expect(updated).toContain('tIns="50800"');
+    expect(updated).toContain('<a:normAutofit fontScale="90000"/>');
+    expect(updated).toContain('<x:keep xmlns:x="urn:test">KEEP</x:keep>');
+
+    const beforeRollback = pkg.requirePart(part.uri).bytes.slice();
+    const rollbackJournal = [...pkg.mutations];
+    expect(() =>
+      pkg.transaction(() => {
+        shape.textWrap = true;
+        throw new Error('restore text wrapping');
+      }),
+    ).toThrow('restore text wrapping');
+    expect(pkg.requirePart(part.uri).bytes).toEqual(beforeRollback);
+    expect(pkg.mutations).toEqual(rollbackJournal);
+    expect(shape.textWrap).toBe(false);
+    expect(slide.shapes[0]).toBe(shape);
+
+    shape.textWrap = undefined;
+    expect(shape.textWrap).toBeUndefined();
+    updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated).not.toMatch(/\swrap=/);
+    expect(updated).toContain('anchor="t" vert="vert" custom="KEEP"');
+    expect(updated).toContain('<a:normAutofit fontScale="90000"/>');
+    expect(updated).toContain('<x:keep xmlns:x="urn:test">KEEP</x:keep>');
+  });
+
+  it('reads only supported direct text-box wrapping tokens', async () => {
+    const cases: readonly [string | undefined, boolean | undefined][] = [
+      ['square', true],
+      ['none', false],
+      [undefined, undefined],
+      ['', undefined],
+      ['Square', undefined],
+      [' square ', undefined],
+      ['false', undefined],
+      ['tight', undefined],
+      ['unknown', undefined],
+    ];
+    for (const [token, expected] of cases) {
+      const pkg = await OpcPackage.open(await modelFixture());
+      const model = new PresentationModel(pkg);
+      const slide = model.slides[1]!;
+      const part = pkg.requirePart(slide.partUri);
+      const wrap = token === undefined ? '' : ` wrap="${token}"`;
+      pkg.setPart(
+        part.uri,
+        new TextDecoder().decode(part.bytes).replace(
+          '<p:txBody><a:p>',
+          `<p:txBody><a:bodyPr${wrap}/><a:p>`,
+        ),
+        part.contentType,
+      );
+      const shape = slide.shapes[0] as ShapeModel;
+      const journal = [...pkg.mutations];
+
+      expect(shape.textWrap).toBe(expected);
+      expect(pkg.mutations).toEqual(journal);
+      if (token === 'tight') {
+        shape.text = 'Plain replacement';
+        shape.richText = [{ runs: [{ text: 'Rich replacement' }] }];
+        shape.textMargins = 2;
+        shape.verticalAlignment = 'bottom';
+        shape.setTransform({ x: inches(2) });
+        expect(new TextDecoder().decode(pkg.requirePart(part.uri).bytes)).toContain('wrap="tight"');
+      }
+    }
+  });
+
   it('reads strict local underline values and preserves their XML during plain text edits', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);
@@ -1174,6 +1289,10 @@ describe('PresentationModel', () => {
       expect(() => shape.verticalAlignment).toThrow(malformedTextBody ? /body properties/ : /text body/);
       expect(() => {
         shape.verticalAlignment = 'bottom';
+      }).toThrow(malformedTextBody ? /body properties/ : /text body/);
+      expect(() => shape.textWrap).toThrow(malformedTextBody ? /body properties/ : /text body/);
+      expect(() => {
+        shape.textWrap = false;
       }).toThrow(malformedTextBody ? /body properties/ : /text body/);
       expect(pkg.requirePart(part.uri).bytes).toEqual(before);
       expect(pkg.mutations).toEqual(journal);
