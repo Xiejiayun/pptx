@@ -131,6 +131,32 @@ describe('importPptxGenJS', () => {
       h: 0.5,
       indentLevel: 2,
     });
+    generatedSlide.addText('Left\tCenter\tRight\tDecimal', {
+      x: 1,
+      y: 7.25,
+      w: 8,
+      h: 0.5,
+      tabStops: [
+        { position: 1 },
+        { position: 2.25, alignment: 'ctr' },
+        { position: 3.5, alignment: 'r' },
+        { position: 4.75, alignment: 'dec' },
+      ],
+    });
+    generatedSlide.addText('Empty tabs', {
+      x: 1,
+      y: 7.75,
+      w: 3,
+      h: 0.5,
+      tabStops: [],
+    });
+    generatedSlide.addText(
+      [
+        { text: 'First\tA', options: { breakLine: true, tabStops: [{ position: 1.5, alignment: 'r' }] } },
+        { text: 'Second\tB', options: { tabStops: [{ position: 2.5, alignment: 'ctr' }] } },
+      ],
+      { x: 5, y: 7.5, w: 4, h: 1 },
+    );
     const document = await importPptxGenJS(generated);
     expect(document.slides[0]?.title.text).toBe('Created by PptxGenJS');
     expect((document.slides[0]!.shapes[0] as ShapeModel).richText[0]!.align).toBe('center');
@@ -208,6 +234,17 @@ describe('importPptxGenJS', () => {
     const noBulletLevel = (document.slides[0]!.shapes[13] as ShapeModel).richText[0]!;
     expect(noBulletLevel.level).toBe(2);
     expect(noBulletLevel.bullet).toBeUndefined();
+    expect((document.slides[0]!.shapes[14] as ShapeModel).richText[0]!.tabStops).toEqual([
+      { position: 1, alignment: 'left' },
+      { position: 2.25, alignment: 'center' },
+      { position: 3.5, alignment: 'right' },
+      { position: 4.75, alignment: 'decimal' },
+    ]);
+    expect((document.slides[0]!.shapes[15] as ShapeModel).richText[0]!.tabStops).toEqual([]);
+    expect((document.slides[0]!.shapes[16] as ShapeModel).richText.map(({ tabStops }) => tabStops)).toEqual([
+      [{ position: 1.5, alignment: 'right' }],
+      [{ position: 2.5, alignment: 'center' }],
+    ]);
     document.slides[0]!.title.text = 'Edited by the OOXML kernel';
     document.duplicateSlide(0);
 
@@ -255,6 +292,16 @@ describe('importPptxGenJS', () => {
       bullet: { kind: 'number', indent: 22 },
       level: 3,
     });
+    expect((reopened.slides[1]!.shapes[14] as ShapeModel).richText[0]!.tabStops).toEqual([
+      { position: 1, alignment: 'left' },
+      { position: 2.25, alignment: 'center' },
+      { position: 3.5, alignment: 'right' },
+      { position: 4.75, alignment: 'decimal' },
+    ]);
+    expect((reopened.slides[1]!.shapes[16] as ShapeModel).richText.map(({ tabStops }) => tabStops)).toEqual([
+      [{ position: 1.5, alignment: 'right' }],
+      [{ position: 2.5, alignment: 'center' }],
+    ]);
   });
 
   it('keeps pptxgenjs out of every non-adapter package dependency list', async () => {

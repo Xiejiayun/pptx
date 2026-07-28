@@ -569,6 +569,126 @@ describe('PptxDocument vertical slice', () => {
     expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
   });
 
+  it('creates, replaces, rolls back, and round-trips paragraph tab stops', async () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const sourceStops = [
+      { position: 1.25, alignment: 'left' as const },
+      { position: 2.5, alignment: 'right' as const },
+    ];
+    const plain = slide.addText('Name\tValue\nCount\t12.50\n', { tabStops: sourceStops });
+    const rich = slide.addRichText(
+      [
+        { runs: [{ text: 'Default\t100' }], spacing: { after: 4 } },
+        {
+          runs: [{ text: 'Override\t12.50' }],
+          tabStops: [
+            { position: 0, alignment: 'center' },
+            { position: -0.5, alignment: 'decimal' },
+          ],
+        },
+        { runs: [{ text: 'Suppressed' }], tabStops: false },
+        { runs: [], tabStops: [] },
+      ],
+      { tabStops: [{ position: 1.5 }, { position: 2.75, alignment: 'right' }] },
+    );
+    const empty = slide.addText('Empty list', { tabStops: [] });
+    sourceStops[0]!.position = 9;
+    sourceStops.push({ position: 10, alignment: 'left' });
+
+    const plainStops = [
+      { position: 1.25, alignment: 'left' },
+      { position: 2.5, alignment: 'right' },
+    ];
+    expect(plain.richText.map(({ tabStops }) => tabStops)).toEqual([
+      plainStops,
+      plainStops,
+      plainStops,
+    ]);
+    expect(rich.richText.map(({ tabStops }) => tabStops)).toEqual([
+      [
+        { position: 1.5, alignment: 'left' },
+        { position: 2.75, alignment: 'right' },
+      ],
+      [
+        { position: 0, alignment: 'center' },
+        { position: -0.5, alignment: 'decimal' },
+      ],
+      undefined,
+      [],
+    ]);
+    expect(empty.richText[0]!.tabStops).toEqual([]);
+
+    let slideXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(slideXml).toContain('<a:tab pos="1143000" algn="l"/><a:tab pos="2286000" algn="r"/>');
+    expect(slideXml).toContain('<a:tab pos="0" algn="ctr"/><a:tab pos="-457200" algn="dec"/>');
+    expect(slideXml).toContain('<a:tabLst></a:tabLst>');
+    expect(slideXml).toContain('<a:buNone/><a:tabLst>');
+
+    const snapshot = rich.richText as unknown as Array<{ tabStops?: Array<{ position: number }> }>;
+    snapshot[0]!.tabStops![0]!.position = 99;
+    expect(rich.richText[0]!.tabStops).toEqual([
+      { position: 1.5, alignment: 'left' },
+      { position: 2.75, alignment: 'right' },
+    ]);
+
+    plain.text = 'Updated\t10\nAgain\t20';
+    expect(plain.richText.map(({ tabStops }) => tabStops)).toEqual([plainStops, plainStops]);
+
+    rich.richText = [
+      {
+        runs: rich.richText[0]!.runs,
+        spacing: rich.richText[0]!.spacing!,
+        tabStops: [
+          { position: 3, alignment: 'right' },
+          { position: 1, alignment: 'left' },
+          { position: 3, alignment: 'center' },
+        ],
+      },
+      { runs: rich.richText[1]!.runs, tabStops: false },
+      { runs: rich.richText[2]!.runs, tabStops: [] },
+      { runs: rich.richText[3]!.runs },
+    ];
+    expect(rich.richText.map(({ tabStops }) => tabStops)).toEqual([
+      [
+        { position: 3, alignment: 'right' },
+        { position: 1, alignment: 'left' },
+        { position: 3, alignment: 'center' },
+      ],
+      undefined,
+      [],
+      undefined,
+    ]);
+    slideXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(slideXml).toContain('<a:tab pos="2743200" algn="r"/><a:tab pos="914400" algn="l"/><a:tab pos="2743200" algn="ctr"/>');
+
+    expect(() =>
+      document.transaction(() => {
+        rich.richText = [{ runs: [{ text: 'Rollback' }], tabStops: [{ position: 4 }] }];
+        throw new Error('restore paragraph tab stops');
+      }),
+    ).toThrow('restore paragraph tab stops');
+    expect(rich.richText[0]!.tabStops).toEqual([
+      { position: 3, alignment: 'right' },
+      { position: 1, alignment: 'left' },
+      { position: 3, alignment: 'center' },
+    ]);
+    expect(() => slide.addText('Too far', { tabStops: [{ position: 3_000 }] })).toThrow(/signed 32-bit/);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedPlain = reopened.slides[0]!.shapes[0] as ShapeModel;
+    const reopenedRich = reopened.slides[0]!.shapes[1] as ShapeModel;
+    const reopenedEmpty = reopened.slides[0]!.shapes[2] as ShapeModel;
+    expect(reopenedPlain.richText.map(({ tabStops }) => tabStops)).toEqual(
+      plain.richText.map(({ tabStops }) => tabStops),
+    );
+    expect(reopenedRich.richText.map(({ tabStops }) => tabStops)).toEqual(
+      rich.richText.map(({ tabStops }) => tabStops),
+    );
+    expect(reopenedEmpty.richText[0]!.tabStops).toEqual([]);
+    expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+  });
+
   it('creates, reads, replaces, and round-trips rich text run styles', async () => {
     const document = PptxDocument.create();
     const slide = document.addSlide();
@@ -731,6 +851,16 @@ describe('PptxDocument vertical slice', () => {
       [{ runs: [], level: -1 }],
       [{ runs: [], level: 1.5 }],
       [{ runs: [], level: 9 }],
+      [{ runs: [], tabStops: null }],
+      [{ runs: [], tabStops: {} }],
+      [{ runs: [], tabStops: [null] }],
+      [{ runs: [], tabStops: [{}] }],
+      [{ runs: [], tabStops: [{ position: '1' }] }],
+      [{ runs: [], tabStops: [{ position: Number.NaN }] }],
+      [{ runs: [], tabStops: [{ position: Number.POSITIVE_INFINITY }] }],
+      [{ runs: [], tabStops: [{ position: 3_000 }] }],
+      [{ runs: [], tabStops: [{ position: 1, alignment: 'tab' }] }],
+      [{ runs: [], tabStops: [{ position: 1, leader: 'dot' }] }],
       [{ runs: [{ text: 'x', breakLine: true }] }],
       [{ runs: [{ text: 'x', style: { underline: true } }] }],
       [{ runs: [{ text: 'x', style: { color: { kind: 'srgb', value: 'FF0000', alpha: 0.5 } } }] }],
@@ -775,6 +905,7 @@ describe('PptxDocument vertical slice', () => {
     expect(() => slide.addText('bad bullet', { bullet: { kind: 'number', startAt: 0 } as never })).toThrow(/startAt/);
     expect(() => slide.addText('bad spacing', { spacing: false as never })).toThrow(/spacing/);
     expect(() => slide.addText('bad level', { level: 9 })).toThrow(/between 0 and 8/);
+    expect(() => slide.addText('bad tabs', { tabStops: [{ position: 1, alignment: 'tab' as never }] })).toThrow(/alignment/);
     expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(before);
     expect(document.opcPackage.mutations).toEqual(journal);
 

@@ -53,6 +53,13 @@ export interface ParagraphSpacing {
   readonly line?: ParagraphLineSpacing | false;
 }
 
+export type ParagraphTabStopAlignment = 'left' | 'center' | 'right' | 'decimal';
+
+export interface ParagraphTabStop {
+  readonly position: number;
+  readonly alignment?: ParagraphTabStopAlignment;
+}
+
 export interface RichTextRunStyle {
   readonly fontFamily?: string;
   readonly fontSize?: number;
@@ -73,4 +80,5 @@ export interface RichTextParagraph {
   readonly bullet?: ParagraphBullet;
   readonly level?: number;
   readonly spacing?: ParagraphSpacing | false;
+  readonly tabStops?: readonly ParagraphTabStop[] | false;
 }

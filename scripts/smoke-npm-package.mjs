@@ -42,17 +42,17 @@ try {
     join(directory, 'smoke.mjs'),
     `import { inches, PptxDocument, GradientCodec, importPptxGenJS, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
 const created = PptxDocument.create();
-const createdText = created.addSlide().addText('Smoke\\n\\nParagraph', { align: 'center', bullet: true, level: 2, spacing: { before: 4, after: 6, line: { kind: 'exact', points: 20 } } });
+const createdText = created.addSlide().addText('Smoke\\n\\nParagraph', { align: 'center', bullet: true, level: 2, spacing: { before: 4, after: 6, line: { kind: 'exact', points: 20 } }, tabStops: [{ position: 1.25 }, { position: 2.5, alignment: 'right' }] });
 createdText.text = 'Updated\\r\\nParagraph';
-const richText = created.slides[0].addRichText([{ align: 'right', bullet: { kind: 'bullet', character: '▶', indent: 18 }, level: 1, spacing: { line: { kind: 'multiple', factor: 1.5 } }, runs: [{ text: 'Bold', style: { bold: true, fontSize: 18, color: { kind: 'srgb', value: 'ff0000' } } }, { text: 'Blue', softBreakBefore: true, style: { color: { kind: 'scheme', value: 'accent1' } } }] }]);
-richText.richText = [{ align: 'justify', bullet: { kind: 'number', style: 'romanUcPeriod', startAt: 3, indent: 22 }, level: 3, spacing: { before: 5, after: 7, line: { kind: 'exact', points: 22 } }, runs: [{ text: 'Updated rich', style: { italic: true } }] }];
+const richText = created.slides[0].addRichText([{ align: 'right', bullet: { kind: 'bullet', character: '▶', indent: 18 }, level: 1, spacing: { line: { kind: 'multiple', factor: 1.5 } }, tabStops: [{ position: 1.5, alignment: 'center' }], runs: [{ text: 'Bold', style: { bold: true, fontSize: 18, color: { kind: 'srgb', value: 'ff0000' } } }, { text: 'Blue', softBreakBefore: true, style: { color: { kind: 'scheme', value: 'accent1' } } }] }]);
+richText.richText = [{ align: 'justify', bullet: { kind: 'number', style: 'romanUcPeriod', startAt: 3, indent: 22 }, level: 3, spacing: { before: 5, after: 7, line: { kind: 'exact', points: 22 } }, tabStops: [{ position: 2.75, alignment: 'decimal' }], runs: [{ text: 'Updated rich', style: { italic: true } }] }];
 const custom = PptxDocument.create({ slideSize: { width: inches(11.7), height: inches(8.3) } });
 custom.slideSize = { width: inches(10), height: inches(7.5) };
 const customXml = new TextDecoder().decode(custom.opcPackage.requirePart('/ppt/presentation.xml').bytes);
 const checks = {
   PptxDocument: typeof PptxDocument === 'function',
-  createText: createdText.text === 'Updated\\nParagraph' && createdText.richText.every(({ align, bullet, level, spacing }) => align === 'center' && bullet?.kind === 'bullet' && bullet.indent === 27 && level === 2 && spacing?.line?.kind === 'exact') && created.slides[0].shapes[0] === createdText,
-  richText: richText.text === 'Updated rich' && richText.richText[0].align === 'justify' && richText.richText[0].bullet.style === 'romanUcPeriod' && richText.richText[0].level === 3 && richText.richText[0].spacing.line.kind === 'exact' && richText.richText[0].runs[0].style.italic === true,
+  createText: createdText.text === 'Updated\\nParagraph' && createdText.richText.every(({ align, bullet, level, spacing, tabStops }) => align === 'center' && bullet?.kind === 'bullet' && bullet.indent === 27 && level === 2 && spacing?.line?.kind === 'exact' && Array.isArray(tabStops) && tabStops[0]?.position === 1.25 && tabStops[1]?.alignment === 'right') && created.slides[0].shapes[0] === createdText,
+  richText: richText.text === 'Updated rich' && richText.richText[0].align === 'justify' && richText.richText[0].bullet.style === 'romanUcPeriod' && richText.richText[0].level === 3 && richText.richText[0].spacing.line.kind === 'exact' && Array.isArray(richText.richText[0].tabStops) && richText.richText[0].tabStops[0].alignment === 'decimal' && richText.richText[0].runs[0].style.italic === true,
   customSlideSize: custom.slideSize.width === inches(10) && customXml.includes('<p:sldSz cx="9144000" cy="6858000"/>'),
   GradientCodec: typeof GradientCodec === 'function',
   importPptxGenJS: typeof importPptxGenJS === 'function',
@@ -76,8 +76,8 @@ if (!resolved.endsWith('/dist/browser.js')) throw new Error('Browser condition r
 const checks = [PptxDocument, transitions.TransitionCodec, animations.AnimationTimingCodec, advancedCharts.AdvancedChartCodec, smartArt.SmartArtDiagramCodec];
 if (checks.some((value) => typeof value !== 'function')) throw new Error('Browser API surface is incomplete');
 const created = PptxDocument.create({ slideSize: '16:9' });
-if (created.addSlide().addText('Browser\\nText', { align: 'center', bullet: true, level: 2, spacing: { line: { kind: 'multiple', factor: 1.25 } } }).richText[0].level !== 2) throw new Error('Browser create-text API failed');
-if (created.slides[0].addRichText([{ align: 'right', bullet: { kind: 'number', style: 'alphaUcPeriod' }, level: 3, spacing: { before: 4, after: 6 }, runs: [{ text: 'Rich', style: { bold: true } }] }]).richText[0].level !== 3) throw new Error('Browser rich-text API failed');
+if (created.addSlide().addText('Browser\\nText', { align: 'center', bullet: true, level: 2, spacing: { line: { kind: 'multiple', factor: 1.25 } }, tabStops: [{ position: 1.25 }] }).richText[0].tabStops[0].position !== 1.25) throw new Error('Browser create-text API failed');
+if (created.slides[0].addRichText([{ align: 'right', bullet: { kind: 'number', style: 'alphaUcPeriod' }, level: 3, spacing: { before: 4, after: 6 }, tabStops: [{ position: 2.5, alignment: 'decimal' }], runs: [{ text: 'Rich', style: { bold: true } }] }]).richText[0].tabStops[0].alignment !== 'decimal') throw new Error('Browser rich-text API failed');
 PptxDocument.create({ slideSize: { width: inches(11.7), height: inches(8.3) } });
 created.slideSize = { width: inches(10), height: inches(7.5) };
 process.stdout.write(resolved);
@@ -97,6 +97,8 @@ process.stdout.write(resolved);
   type ParagraphBullet,
   type ParagraphLineSpacing,
   type ParagraphSpacing,
+  type ParagraphTabStop,
+  type ParagraphTabStopAlignment,
   GradientCodec,
   importPptxGenJS,
   transitions,
@@ -115,9 +117,11 @@ const bullet: ParagraphBullet = { kind: 'bullet', character: '◆', indent: 18 }
 const numbering: NumberingStyle = 'romanUcPeriod';
 const lineSpacing: ParagraphLineSpacing = { kind: 'multiple', factor: 1.5 };
 const spacing: ParagraphSpacing = { before: 4, after: 6, line: lineSpacing };
-const createdText = createdDocument.addSlide().addText('Typed\\ntext', { align: alignment, bullet, level: 2, spacing });
+const tabAlignment: ParagraphTabStopAlignment = 'right';
+const tabStops: readonly ParagraphTabStop[] = [{ position: 1.25 }, { position: 2.5, alignment: tabAlignment }];
+const createdText = createdDocument.addSlide().addText('Typed\\ntext', { align: alignment, bullet, level: 2, spacing, tabStops });
 createdText.text = 'Updated\\n\\ntyped text';
-const paragraphs: readonly RichTextParagraph[] = [{ align: 'justify', bullet: { kind: 'number', style: numbering, startAt: 3 }, level: 3, spacing: { line: { kind: 'exact', points: 20 } }, runs: [{ text: 'Typed rich', style: { fontSize: 12.5, bold: true, color: { kind: 'scheme', value: 'tx1' } } }] }];
+const paragraphs: readonly RichTextParagraph[] = [{ align: 'justify', bullet: { kind: 'number', style: numbering, startAt: 3 }, level: 3, spacing: { line: { kind: 'exact', points: 20 } }, tabStops, runs: [{ text: 'Typed rich', style: { fontSize: 12.5, bold: true, color: { kind: 'scheme', value: 'tx1' } } }] }];
 const richText = createdDocument.slides[0].addRichText(paragraphs);
 richText.richText = paragraphs;
 const gradientConstructor: typeof GradientCodec = GradientCodec;

@@ -12,6 +12,7 @@ import {
   normalizeParagraphBullet,
   normalizeParagraphLevel,
   normalizeParagraphSpacing,
+  normalizeParagraphTabStops,
   normalizeRichText,
   normalizeTextAlignment,
   readRichText,
@@ -22,9 +23,16 @@ import {
   type NormalizedParagraphBullet,
   type NormalizedParagraphSpacing,
   type NormalizedParagraphSpacingUpdate,
+  type NormalizedParagraphTabStop,
 } from './rich-text.internal.js';
 import { decodeShape, ShapeModel, type SemanticShape } from './shapes.js';
-import type { ParagraphBullet, ParagraphSpacing, RichTextParagraph, TextAlignment } from './text.js';
+import type {
+  ParagraphBullet,
+  ParagraphSpacing,
+  ParagraphTabStop,
+  RichTextParagraph,
+  TextAlignment,
+} from './text.js';
 import { inches, type Transform } from './units.js';
 
 export interface AddTextOptions extends Partial<Transform> {
@@ -33,6 +41,7 @@ export interface AddTextOptions extends Partial<Transform> {
   readonly bullet?: ParagraphBullet;
   readonly level?: number;
   readonly spacing?: ParagraphSpacing;
+  readonly tabStops?: readonly ParagraphTabStop[];
 }
 
 export class SlideTitleModel {
@@ -195,7 +204,15 @@ export class SlideModel {
       const spacing = resolveParagraphSpacing(normalized.spacing);
       const paragraphs = normalized.value
         .split('\n')
-        .map((line) => textParagraphXml(line, 'a:', options.align, bullet, spacing, normalized.level))
+        .map((line) => textParagraphXml(
+          line,
+          'a:',
+          options.align,
+          bullet,
+          spacing,
+          normalized.level,
+          normalized.tabStops,
+        ))
         .join('');
       return this.addTextShape(paragraphs, options);
     });
@@ -211,6 +228,7 @@ export class SlideModel {
           ...(defaults.bullet !== undefined ? { defaultBullet: defaults.bullet } : {}),
           ...(defaults.level !== undefined ? { defaultLevel: defaults.level } : {}),
           ...(defaults.spacing !== undefined ? { defaultSpacing: defaults.spacing } : {}),
+          ...(defaults.tabStops !== undefined ? { defaultTabStops: defaults.tabStops } : {}),
         }),
         options,
       );
@@ -292,6 +310,7 @@ interface NormalizedTextInput {
   readonly bullet: NormalizedParagraphBullet | false | undefined;
   readonly level: number | undefined;
   readonly spacing: NormalizedParagraphSpacingUpdate | undefined;
+  readonly tabStops: readonly NormalizedParagraphTabStop[] | undefined;
 }
 
 function validateTextInput(value: string, options: AddTextOptions): NormalizedTextInput {
@@ -302,6 +321,7 @@ function validateTextInput(value: string, options: AddTextOptions): NormalizedTe
     bullet: defaults.bullet,
     level: defaults.level,
     spacing: defaults.spacing,
+    tabStops: defaults.tabStops,
   };
 }
 
@@ -309,6 +329,7 @@ interface NormalizedAddTextOptions {
   readonly bullet?: NormalizedParagraphBullet | false;
   readonly level?: number;
   readonly spacing?: NormalizedParagraphSpacingUpdate;
+  readonly tabStops?: readonly NormalizedParagraphTabStop[];
 }
 
 function validateAddTextOptions(options: AddTextOptions): NormalizedAddTextOptions {
@@ -353,10 +374,14 @@ function validateAddTextOptions(options: AddTextOptions): NormalizedAddTextOptio
   const spacing = options.spacing === undefined
     ? undefined
     : normalizeParagraphSpacing(options.spacing, 'Text spacing');
+  const tabStops = options.tabStops === undefined
+    ? undefined
+    : normalizeParagraphTabStops(options.tabStops, 'Text tabStops');
   return {
     ...(bullet !== undefined ? { bullet } : {}),
     ...(level !== undefined ? { level } : {}),
     ...(spacing !== undefined ? { spacing } : {}),
+    ...(tabStops !== undefined ? { tabStops } : {}),
   };
 }
 
@@ -399,8 +424,9 @@ function textParagraphXml(
   bullet?: NormalizedParagraphBullet,
   spacing?: NormalizedParagraphSpacing,
   level?: number,
+  tabStops?: readonly NormalizedParagraphTabStop[],
 ): string {
-  const properties = renderParagraphProperties(undefined, prefix, align, bullet, spacing, level);
+  const properties = renderParagraphProperties(undefined, prefix, align, bullet, spacing, level, tabStops);
   const endProperties = `<${prefix}endParaRPr lang="en-US" dirty="0"/>`;
   if (value.length === 0) return `<${prefix}p>${properties}${endProperties}</${prefix}p>`;
   return `<${prefix}p>${properties}${defaultTextRunXml(value, prefix)}${endProperties}</${prefix}p>`;

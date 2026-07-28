@@ -281,6 +281,7 @@ describe('PresentationModel', () => {
         runs: [{ text: 'Numbered' }],
         align: 'left',
         bullet: { kind: 'number', style: 'alphaUcPeriod', startAt: 2, indent: 20 },
+        tabStops: [{ position: 500000 / 914400, alignment: 'left' }],
       },
       { runs: [{ text: 'No bullet' }], align: 'center' },
       { runs: [{ text: 'Custom' }], bullet: { kind: 'bullet', character: '▶', indent: 19 } },
@@ -346,6 +347,7 @@ describe('PresentationModel', () => {
         bullet: { kind: 'bullet', character: '◆', indent: 18 },
         level: 3,
         spacing: { before: 6 },
+        tabStops: [{ position: 500000 / 914400, alignment: 'left' }],
       },
       {
         runs: [{ text: 'Root number' }],
@@ -410,6 +412,7 @@ describe('PresentationModel', () => {
         align: 'left',
         bullet: { kind: 'bullet', character: '◆', indent: 18 },
         spacing: { before: 7, after: 9, line: { kind: 'multiple', factor: 2 } },
+        tabStops: [{ position: 500000 / 914400, alignment: 'left' }],
       },
       { runs: [{ text: 'Cleared' }], align: 'center', bullet: false, spacing: false },
       { runs: [{ text: 'Valid exact' }], bullet: false, spacing: { line: { kind: 'exact', points: 18 } } },
@@ -439,6 +442,74 @@ describe('PresentationModel', () => {
       { before: 7, after: 9, line: { kind: 'multiple', factor: 2 } },
       undefined,
       { line: { kind: 'exact', points: 18 } },
+      undefined,
+    ]);
+  });
+
+  it('reads and replaces paragraph tab stops without rebuilding unrelated paragraph properties', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.slides[1]!;
+    const part = pkg.requirePart(slide.partUri);
+    pkg.setPart(
+      part.uri,
+      new TextDecoder().decode(part.bytes).replace(
+        '<a:p><a:r><a:t>First title</a:t></a:r></a:p>',
+        '<a:p><a:pPr algn="r" lvl="1" marL="457200" indent="-228600" custom="FIRST"><a:spcBef><a:spcPts val="600"/></a:spcBef><a:buChar char="◆"/><a:tabLst><a:tab pos="1143000" algn="l"/><a:tab pos="-457200" algn="dec"/></a:tabLst><a:defRPr sz="1600"/><a:extLst><a:ext uri="urn:test"><x:keep xmlns:x="urn:test">KEEP</x:keep></a:ext></a:extLst></a:pPr><a:r><a:t>Valid tabs</a:t></a:r></a:p><a:p><a:pPr custom="SECOND"><a:tabLst/></a:pPr><a:r><a:t>Empty tabs</a:t></a:r></a:p><a:p><a:pPr custom="THIRD"><a:tabLst><a:tab pos="914400" algn="bad"/></a:tabLst><x:third xmlns:x="urn:test">THIRD</x:third></a:pPr><a:r><a:t>Malformed tabs</a:t></a:r></a:p><a:p><a:pPr custom="FOURTH"><a:tabLst><a:tab pos="914400" algn="l"/></a:tabLst><a:tabLst><a:tab pos="1828800" algn="r"/></a:tabLst></a:pPr><a:r><a:t>Duplicate lists</a:t></a:r></a:p>',
+      ),
+      part.contentType,
+    );
+    const shape = slide.shapes[0] as ShapeModel;
+    const journal = [...pkg.mutations];
+
+    expect(shape.richText.map(({ tabStops }) => tabStops)).toEqual([
+      [
+        { position: 1.25, alignment: 'left' },
+        { position: -0.5, alignment: 'decimal' },
+      ],
+      [],
+      undefined,
+      undefined,
+    ]);
+    expect(pkg.mutations).toEqual(journal);
+
+    shape.richText = [
+      {
+        runs: [{ text: 'Updated tabs' }],
+        align: 'left',
+        bullet: { kind: 'bullet', character: '◆', indent: 18 },
+        level: 1,
+        spacing: { before: 6 },
+        tabStops: [
+          { position: 2, alignment: 'right' },
+          { position: 0, alignment: 'decimal' },
+        ],
+      },
+      { runs: [{ text: 'Cleared empty' }], tabStops: false },
+      { runs: [{ text: 'Explicit empty' }], tabStops: [] },
+      { runs: [{ text: 'Cleared duplicates' }] },
+    ];
+
+    const updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    const firstStart = updated.indexOf('<a:pPr algn="l" lvl="1" marL="457200" indent="-228600" custom="FIRST">');
+    const firstEnd = updated.indexOf('</a:pPr>', firstStart);
+    const firstProperties = updated.slice(firstStart, firstEnd);
+    expect(firstStart).toBeGreaterThan(-1);
+    expect(firstProperties.indexOf('<a:spcBef>')).toBeLessThan(firstProperties.indexOf('<a:buSzPct'));
+    expect(firstProperties.indexOf('<a:buChar')).toBeLessThan(firstProperties.indexOf('<a:tabLst>'));
+    expect(firstProperties.indexOf('<a:tabLst>')).toBeLessThan(firstProperties.indexOf('<a:defRPr'));
+    expect(firstProperties).toContain('<a:tab pos="1828800" algn="r"/><a:tab pos="0" algn="dec"/>');
+    expect(firstProperties).toContain('<x:keep xmlns:x="urn:test">KEEP</x:keep>');
+    expect(updated).toContain('<a:pPr custom="SECOND"><a:buNone/></a:pPr>');
+    expect(updated).toContain('<a:pPr custom="THIRD"><a:buNone/><x:third xmlns:x="urn:test">THIRD</x:third><a:tabLst></a:tabLst></a:pPr>');
+    expect(updated).toContain('<a:pPr custom="FOURTH"><a:buNone/></a:pPr>');
+    expect(shape.richText.map(({ tabStops }) => tabStops)).toEqual([
+      [
+        { position: 2, alignment: 'right' },
+        { position: 0, alignment: 'decimal' },
+      ],
+      undefined,
+      [],
       undefined,
     ]);
   });

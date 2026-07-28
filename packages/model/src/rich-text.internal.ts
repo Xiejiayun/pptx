@@ -12,12 +12,15 @@ import type {
   ParagraphBullet,
   ParagraphLineSpacing,
   ParagraphSpacing,
+  ParagraphTabStop,
+  ParagraphTabStopAlignment,
   RichTextColor,
   RichTextParagraph,
   RichTextRun,
   RichTextRunStyle,
   TextAlignment,
 } from './text.js';
+import { EMU_PER_INCH } from './units.js';
 
 const TEXT_ALIGNMENT_TO_OOXML: Readonly<Record<TextAlignment, string>> = {
   left: 'l',
@@ -64,11 +67,28 @@ const BULLET_ELEMENT_NAMES = new Set([
 ]);
 
 const BULLET_INSERTION_FOLLOWERS = new Set(['tabLst', 'defRPr', 'extLst']);
+const TAB_STOP_INSERTION_FOLLOWERS = new Set(['defRPr', 'extLst']);
 const SPACING_ELEMENT_NAMES = new Set(['lnSpc', 'spcBef', 'spcAft']);
 const DEFAULT_BULLET_CHARACTER = '•';
 const DEFAULT_BULLET_INDENT = 27;
 const MAX_SPACING_POINTS = 1584;
 const MAX_SPACING_FACTOR = 132;
+const MIN_COORDINATE_32 = -2_147_483_648;
+const MAX_COORDINATE_32 = 2_147_483_647;
+
+const TAB_STOP_ALIGNMENT_TO_OOXML: Readonly<Record<ParagraphTabStopAlignment, string>> = {
+  left: 'l',
+  center: 'ctr',
+  right: 'r',
+  decimal: 'dec',
+};
+
+const OOXML_TO_TAB_STOP_ALIGNMENT = new Map(
+  Object.entries(TAB_STOP_ALIGNMENT_TO_OOXML).map(([alignment, value]) => [
+    value,
+    alignment as ParagraphTabStopAlignment,
+  ]),
+);
 
 export type NormalizedParagraphBullet =
   | Required<CharacterBullet>
@@ -88,12 +108,18 @@ export interface NormalizedParagraphSpacingUpdate {
   readonly line?: NormalizedParagraphLineSpacing | false;
 }
 
+export interface NormalizedParagraphTabStop {
+  readonly positionEmu: number;
+  readonly alignment: ParagraphTabStopAlignment;
+}
+
 interface NormalizedRichTextParagraph {
   readonly runs: readonly RichTextRun[];
   readonly align?: TextAlignment;
   readonly bullet?: NormalizedParagraphBullet | false;
   readonly level?: number;
   readonly spacing?: NormalizedParagraphSpacingUpdate | false;
+  readonly tabStops?: readonly NormalizedParagraphTabStop[] | false;
 }
 
 const SCHEME_COLORS = new Set([
@@ -124,13 +150,18 @@ export function normalizeRichText(value: unknown): readonly NormalizedRichTextPa
     if (!paragraph || typeof paragraph !== 'object' || Array.isArray(paragraph)) {
       throw new TypeError(`Rich text paragraph ${paragraphIndex} must be an object`);
     }
-    assertSupportedKeys(paragraph, ['align', 'bullet', 'level', 'runs', 'spacing'], `Rich text paragraph ${paragraphIndex}`);
+    assertSupportedKeys(
+      paragraph,
+      ['align', 'bullet', 'level', 'runs', 'spacing', 'tabStops'],
+      `Rich text paragraph ${paragraphIndex}`,
+    );
     const candidate = paragraph as {
       align?: unknown;
       bullet?: unknown;
       level?: unknown;
       runs?: unknown;
       spacing?: unknown;
+      tabStops?: unknown;
     };
     const runs = candidate.runs;
     if (!Array.isArray(runs)) throw new TypeError(`Rich text paragraph ${paragraphIndex} runs must be an array`);
@@ -148,12 +179,18 @@ export function normalizeRichText(value: unknown): readonly NormalizedRichTextPa
       : candidate.spacing === false
         ? false
         : normalizeParagraphSpacing(candidate.spacing, `Rich text paragraph ${paragraphIndex} spacing`);
+    const tabStops = candidate.tabStops === undefined
+      ? undefined
+      : candidate.tabStops === false
+        ? false
+        : normalizeParagraphTabStops(candidate.tabStops, `Rich text paragraph ${paragraphIndex} tabStops`);
     return {
       runs: runs.map((run, runIndex) => normalizeRun(run, paragraphIndex, runIndex)),
       ...(align ? { align } : {}),
       ...(bullet !== undefined ? { bullet } : {}),
       ...(level !== undefined ? { level } : {}),
       ...(spacing !== undefined ? { spacing } : {}),
+      ...(tabStops !== undefined ? { tabStops } : {}),
     };
   });
 }
@@ -164,6 +201,7 @@ interface RenderRichTextOptions {
   readonly defaultBullet?: NormalizedParagraphBullet | false;
   readonly defaultLevel?: number;
   readonly defaultSpacing?: NormalizedParagraphSpacingUpdate;
+  readonly defaultTabStops?: readonly NormalizedParagraphTabStop[];
   readonly paragraphProperties?: readonly (string | undefined)[];
   readonly endParagraphProperties?: string;
 }
@@ -176,7 +214,7 @@ export function renderRichTextParagraphs(
   const defaultEndProperties = `<${prefix}endParaRPr lang="en-US" dirty="0"/>`;
   return paragraphs
     .map(
-      ({ align, bullet, level, runs, spacing }, index) =>
+      ({ align, bullet, level, runs, spacing, tabStops }, index) =>
         `<${prefix}p>${renderParagraphProperties(
           options.paragraphProperties?.[index] ?? options.paragraphProperties?.[0],
           prefix,
@@ -186,6 +224,7 @@ export function renderRichTextParagraphs(
             : bullet ?? (options.defaultBullet === false ? undefined : options.defaultBullet),
           resolveParagraphSpacing(options.defaultSpacing, spacing),
           level ?? options.defaultLevel,
+          tabStops === false ? undefined : tabStops ?? options.defaultTabStops,
         )}${runs
           .map((run) => renderRun(run, prefix))
           .join('')}${options.endParagraphProperties ?? defaultEndProperties}</${prefix}p>`,
@@ -201,12 +240,14 @@ export function readRichText(xml: LosslessXmlDocument, element: XmlElement): rea
     const level = readParagraphLevel(xml, paragraph);
     const bullet = readParagraphBullet(xml, paragraph, level ?? 0);
     const spacing = readParagraphSpacing(xml, paragraph);
+    const tabStops = readParagraphTabStops(xml, paragraph);
     return {
       runs: readRuns(xml, paragraph),
       ...(align ? { align } : {}),
       ...(bullet ? { bullet } : {}),
       ...(level !== undefined ? { level } : {}),
       ...(spacing ? { spacing } : {}),
+      ...(tabStops !== undefined ? { tabStops } : {}),
     };
   });
 }
@@ -252,6 +293,33 @@ export function normalizeParagraphLevel(value: unknown, context: string): number
   }
   if (value < 0 || value > 8) throw new RangeError(`${context} must be between 0 and 8`);
   return value;
+}
+
+export function normalizeParagraphTabStops(
+  value: unknown,
+  context: string,
+): readonly NormalizedParagraphTabStop[] {
+  if (!Array.isArray(value)) throw new TypeError(`${context} must be an array`);
+  return value.map((stop, index) => {
+    const stopContext = `${context} stop ${index}`;
+    if (!stop || typeof stop !== 'object' || Array.isArray(stop)) {
+      throw new TypeError(`${stopContext} must be an object`);
+    }
+    assertSupportedKeys(stop, ['alignment', 'position'], stopContext);
+    const candidate = stop as { alignment?: unknown; position?: unknown };
+    if (typeof candidate.position !== 'number' || !Number.isFinite(candidate.position)) {
+      throw new TypeError(`${stopContext} position must be finite`);
+    }
+    const positionEmu = Math.round(candidate.position * EMU_PER_INCH);
+    if (positionEmu < MIN_COORDINATE_32 || positionEmu > MAX_COORDINATE_32) {
+      throw new RangeError(`${stopContext} position must fit a signed 32-bit OOXML coordinate`);
+    }
+    const alignment = candidate.alignment === undefined ? 'left' : candidate.alignment;
+    if (typeof alignment !== 'string' || !Object.hasOwn(TAB_STOP_ALIGNMENT_TO_OOXML, alignment)) {
+      throw new TypeError(`${stopContext} alignment must be left, center, right, or decimal`);
+    }
+    return { positionEmu, alignment: alignment as ParagraphTabStopAlignment };
+  });
 }
 
 export function normalizeParagraphBullet(
@@ -345,6 +413,7 @@ export function renderParagraphProperties(
   bullet?: NormalizedParagraphBullet,
   spacing?: NormalizedParagraphSpacing,
   level?: number,
+  tabStops?: readonly NormalizedParagraphTabStop[],
 ): string {
   const align = alignment ? ` algn="${TEXT_ALIGNMENT_TO_OOXML[alignment]}"` : '';
   const initial = template ?? `<${prefix}pPr${align} indent="0" marL="0"><${prefix}buNone/></${prefix}pPr>`;
@@ -357,7 +426,29 @@ export function renderParagraphProperties(
     : initial;
   const leveled = updateParagraphAttribute(aligned, 'lvl', level && level > 0 ? String(level) : undefined);
   const spaced = renderParagraphSpacing(leveled, prefix, spacing);
-  return renderParagraphBullet(spaced, prefix, bullet, level ?? 0);
+  const bulleted = renderParagraphBullet(spaced, prefix, bullet, level ?? 0);
+  return renderParagraphTabStops(bulleted, prefix, tabStops);
+}
+
+function renderParagraphTabStops(
+  template: string,
+  prefix: string,
+  tabStops: readonly NormalizedParagraphTabStop[] | undefined,
+): string {
+  const properties = LosslessXmlDocument.parse(template);
+  const root = requireParagraphPropertiesRoot(properties);
+  const children = directChildren(root);
+  const existing = children.filter(({ localName }) => localName === 'tabLst');
+  if (tabStops === undefined && existing.length === 0) return template;
+  for (const list of existing) properties.removeElement(list);
+  if (tabStops === undefined) return properties.serialize();
+  const stops = tabStops.map(({ positionEmu, alignment }) =>
+    `<${prefix}tab pos="${positionEmu}" algn="${TAB_STOP_ALIGNMENT_TO_OOXML[alignment]}"/>`).join('');
+  const listXml = `<${prefix}tabLst>${stops}</${prefix}tabLst>`;
+  const follower = children.find((child) => TAB_STOP_INSERTION_FOLLOWERS.has(child.localName));
+  if (follower) properties.replace(follower.start, follower.start, listXml);
+  else properties.appendChildXml(root, listXml);
+  return properties.serialize();
 }
 
 function renderParagraphSpacing(
@@ -807,6 +898,33 @@ function readParagraphSpacing(
     ...(line ? { line } : {}),
   };
   return Object.keys(spacing).length > 0 ? spacing : undefined;
+}
+
+function readParagraphTabStops(
+  xml: LosslessXmlDocument,
+  paragraph: XmlElement,
+): readonly ParagraphTabStop[] | undefined {
+  const properties = directChildren(paragraph, 'pPr')[0];
+  if (!properties) return undefined;
+  const lists = directChildren(properties, 'tabLst');
+  if (lists.length !== 1) return undefined;
+  const children = directChildren(lists[0]!);
+  if (children.some(({ localName }) => localName !== 'tab')) return undefined;
+  const stops: ParagraphTabStop[] = [];
+  for (const stop of children) {
+    if (directChildren(stop).length > 0) return undefined;
+    const positionEmu = readIntegerAttribute(xml, stop, 'pos');
+    const alignmentValue = xml.attribute(stop, 'algn')?.value;
+    const alignment = alignmentValue ? OOXML_TO_TAB_STOP_ALIGNMENT.get(alignmentValue) : undefined;
+    if (
+      positionEmu === undefined
+      || positionEmu < MIN_COORDINATE_32
+      || positionEmu > MAX_COORDINATE_32
+      || alignment === undefined
+    ) return undefined;
+    stops.push({ position: positionEmu / EMU_PER_INCH, alignment });
+  }
+  return stops;
 }
 
 function readParagraphLineSpacing(
