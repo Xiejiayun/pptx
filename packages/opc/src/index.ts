@@ -1,4 +1,3 @@
-import { posix } from 'node:path';
 import JSZip from 'jszip';
 import { LosslessXmlDocument } from '@pptx/lossless-xml';
 
@@ -367,7 +366,7 @@ export class OpcPackage {
   #contentTypeFor(uri: string): string {
     const override = this.#overrides.get(uri);
     if (override) return override;
-    const extension = posix.extname(uri).slice(1).toLowerCase();
+    const extension = partUriExtension(uri).slice(1).toLowerCase();
     return this.#defaults.get(extension) ?? 'application/octet-stream';
   }
 
@@ -445,32 +444,72 @@ export class OpcPackage {
 export function relationshipPartUri(sourceUri: string): string {
   if (sourceUri === '/') return '/_rels/.rels';
   const normalized = normalizePartUri(sourceUri);
-  return `${posix.dirname(normalized)}/_rels/${posix.basename(normalized)}.rels`.replace('//', '/');
+  return joinPartUri(partUriDirname(normalized), '_rels', `${partUriBasename(normalized)}.rels`);
 }
 
 export function sourcePartUri(relationshipUri: string): string {
   const normalized = normalizePartUri(relationshipUri);
   if (normalized === '/_rels/.rels') return '/';
-  const directory = posix.dirname(normalized);
-  if (posix.basename(directory) !== '_rels' || !normalized.endsWith('.rels')) {
+  const directory = partUriDirname(normalized);
+  if (partUriBasename(directory) !== '_rels' || !normalized.endsWith('.rels')) {
     throw new PackageError('Invalid relationship part URI', normalized);
   }
-  return normalizePartUri(`${posix.dirname(directory)}/${posix.basename(normalized, '.rels')}`);
+  return joinPartUri(partUriDirname(directory), partUriBasename(normalized, '.rels'));
 }
 
 export function resolveRelationshipTarget(sourceUri: string, target: string): string {
   if (target.startsWith('/')) return normalizePartUri(target);
-  const base = sourceUri === '/' ? '/' : posix.dirname(normalizePartUri(sourceUri));
-  return normalizePartUri(posix.join(base, target));
+  const base = sourceUri === '/' ? '/' : partUriDirname(sourceUri);
+  return joinPartUri(base, target);
 }
 
 export function normalizePartUri(uri: string): string {
-  const withSlash = uri.startsWith('/') ? uri : `/${uri}`;
-  const normalized = posix.normalize(withSlash);
-  if (!normalized.startsWith('/') || normalized.includes('/../') || normalized === '/..') {
-    throw new PackageError('Invalid part URI', uri);
+  if (uri.includes('\\')) throw new PackageError('Invalid part URI', uri);
+  const segments: string[] = [];
+  for (const segment of (uri.startsWith('/') ? uri : `/${uri}`).split('/')) {
+    if (!segment || segment === '.') continue;
+    if (segment === '..') {
+      if (segments.length === 0) throw new PackageError('Invalid part URI', uri);
+      segments.pop();
+      continue;
+    }
+    segments.push(segment);
   }
-  return normalized;
+  return `/${segments.join('/')}`;
+}
+
+export function partUriDirname(uri: string): string {
+  const normalized = normalizePartUri(uri);
+  if (normalized === '/') return '/';
+  const separator = normalized.lastIndexOf('/');
+  return separator === 0 ? '/' : normalized.slice(0, separator);
+}
+
+export function partUriBasename(uri: string, suffix?: string): string {
+  const normalized = normalizePartUri(uri);
+  if (normalized === '/') return '';
+  const value = normalized.slice(normalized.lastIndexOf('/') + 1);
+  return suffix && value.endsWith(suffix) ? value.slice(0, -suffix.length) : value;
+}
+
+export function partUriExtension(uri: string): string {
+  const basename = partUriBasename(uri);
+  const dot = basename.lastIndexOf('.');
+  return dot <= 0 ? '' : basename.slice(dot);
+}
+
+export function joinPartUri(base: string, ...segments: readonly string[]): string {
+  return normalizePartUri([base, ...segments].join('/'));
+}
+
+export function relativeRelationshipTarget(sourcePartUri: string, targetPartUri: string): string {
+  const source = partUriDirname(sourcePartUri).split('/').filter(Boolean);
+  const target = normalizePartUri(targetPartUri).split('/').filter(Boolean);
+  let common = 0;
+  while (common < source.length && common < target.length && source[common] === target[common]) {
+    common += 1;
+  }
+  return `${'../'.repeat(source.length - common)}${target.slice(common).join('/')}`;
 }
 
 function validateEntryName(name: string): void {

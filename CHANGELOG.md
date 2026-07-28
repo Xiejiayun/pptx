@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Added explicit detection and public profiles for `.pptx`, `.pptm`, `.ppsx`, `.ppsm`, `.potx`, and `.potm` packages.
+- Replaced host `node:path` semantics in the OPC graph, model, codecs, and transition plugin with portable OPC part URI operations.
 
 ## 0.1.0 - 2026-07-25
 

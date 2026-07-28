@@ -1,7 +1,18 @@
 import { createHash } from 'node:crypto';
 import JSZip from 'jszip';
 import { describe, expect, it } from 'vitest';
-import { OpcPackage, resolveRelationshipTarget } from './index.js';
+import {
+  joinPartUri,
+  normalizePartUri,
+  OpcPackage,
+  partUriBasename,
+  partUriDirname,
+  partUriExtension,
+  relativeRelationshipTarget,
+  relationshipPartUri,
+  resolveRelationshipTarget,
+  sourcePartUri,
+} from './index.js';
 
 async function fixture(): Promise<Uint8Array> {
   const zip = new JSZip();
@@ -33,6 +44,28 @@ describe('OpcPackage', () => {
 
   it('resolves relationship targets relative to the source part', () => {
     expect(resolveRelationshipTarget('/ppt/slides/slide1.xml', '../media/image1.png')).toBe('/ppt/media/image1.png');
+  });
+
+  it('handles OPC part URIs without host path semantics', () => {
+    expect(normalizePartUri('ppt//slides/./../media/image1.png')).toBe('/ppt/media/image1.png');
+    expect(partUriDirname('/ppt/slides/slide1.xml')).toBe('/ppt/slides');
+    expect(partUriBasename('/ppt/slides/slide1.xml')).toBe('slide1.xml');
+    expect(partUriBasename('/_rels/.rels', '.rels')).toBe('');
+    expect(partUriExtension('/ppt/slides/slide1.xml')).toBe('.xml');
+    expect(partUriExtension('/_rels/.rels')).toBe('');
+    expect(joinPartUri('/ppt/slideMasters', '../slideLayouts', 'slideLayout1.xml')).toBe(
+      '/ppt/slideLayouts/slideLayout1.xml',
+    );
+    expect(relativeRelationshipTarget('/ppt/slides/slide1.xml', '/ppt/media/image1.png')).toBe(
+      '../media/image1.png',
+    );
+    expect(relativeRelationshipTarget('/', '/ppt/presentation.xml')).toBe('ppt/presentation.xml');
+    expect(relationshipPartUri('/')).toBe('/_rels/.rels');
+    expect(sourcePartUri('/_rels/.rels')).toBe('/');
+    expect(relationshipPartUri('/ppt/slides/slide1.xml')).toBe('/ppt/slides/_rels/slide1.xml.rels');
+    expect(sourcePartUri('/ppt/slides/_rels/slide1.xml.rels')).toBe('/ppt/slides/slide1.xml');
+    expect(() => normalizePartUri('../../outside.xml')).toThrow(/Invalid part URI/);
+    expect(() => normalizePartUri('/ppt\\outside.xml')).toThrow(/Invalid part URI/);
   });
 
   it('adds and removes parts, content types, and relationships together', async () => {

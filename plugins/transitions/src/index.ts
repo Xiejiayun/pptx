@@ -1,6 +1,6 @@
 import type { CodecRegistry, CodecDiagnostic } from '@pptx/codecs';
 import { LosslessXmlDocument, type XmlElement } from '@pptx/lossless-xml';
-import type { OpcPackage } from '@pptx/opc';
+import { relativeRelationshipTarget, type OpcPackage } from '@pptx/opc';
 
 export type TransitionEffect =
   | 'none'
@@ -106,7 +106,7 @@ export class TransitionCodec {
     if (this.get(slidePartUri)?.soundRelationshipId) this.clearSound(slidePartUri);
     const relationship = this.pkg.addRelationship(slidePartUri, {
       type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/audio',
-      target: relativeTarget(slidePartUri, mediaPartUri),
+      target: relativeRelationshipTarget(slidePartUri, mediaPartUri),
     });
     const part = this.pkg.requirePart(slidePartUri);
     const xml = LosslessXmlDocument.parse(part.bytes);
@@ -205,15 +205,4 @@ function safeName(value: string): string {
 
 function escapeAttribute(value: string): string {
   return value.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
-}
-
-function relativeTarget(sourcePartUri: string, targetPartUri: string): string {
-  const sourceDirectory = sourcePartUri.slice(0, sourcePartUri.lastIndexOf('/'));
-  const targetSegments = targetPartUri.split('/').filter(Boolean);
-  const sourceSegments = sourceDirectory.split('/').filter(Boolean);
-  while (targetSegments.length > 0 && sourceSegments.length > 0 && targetSegments[0] === sourceSegments[0]) {
-    targetSegments.shift();
-    sourceSegments.shift();
-  }
-  return `${'../'.repeat(sourceSegments.length)}${targetSegments.join('/')}`;
 }

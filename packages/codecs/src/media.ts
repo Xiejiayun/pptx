@@ -1,9 +1,8 @@
 import { createHash } from 'node:crypto';
 import { promises as fs } from 'node:fs';
-import { extname, posix } from 'node:path';
 import type { Readable } from 'node:stream';
 import { LosslessXmlDocument, type XmlElement } from '@pptx/lossless-xml';
-import type { OpcPackage } from '@pptx/opc';
+import { relativeRelationshipTarget, type OpcPackage } from '@pptx/opc';
 import type { CodecDiagnostic } from './registry.js';
 
 const REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/';
@@ -296,8 +295,13 @@ async function resolveSource(
   } else if (source instanceof Uint8Array) bytes = new Uint8Array(source);
   else if (source instanceof ArrayBuffer) bytes = new Uint8Array(source);
   else bytes = await readStream(source);
-  const inferred = contentType ?? contentTypeFor(name ? extname(name) : '', kind);
-  return { bytes, contentType: inferred, extension: name ? extname(name) || extensionFor(inferred, kind) : extensionFor(inferred, kind) };
+  const sourceExtension = name ? fileExtension(name) : '';
+  const inferred = contentType ?? contentTypeFor(sourceExtension, kind);
+  return {
+    bytes,
+    contentType: inferred,
+    extension: sourceExtension || extensionFor(inferred, kind),
+  };
 }
 
 async function resolvePoster(source?: MediaSource, contentType?: string): Promise<{ bytes: Uint8Array; contentType: string; extension: string }> {
@@ -346,7 +350,13 @@ function extensionFor(contentType: string, kind: MediaKind): string {
 }
 
 function relativeTarget(sourcePartUri: string, targetPartUri: string): string {
-  return posix.relative(posix.dirname(sourcePartUri), targetPartUri);
+  return relativeRelationshipTarget(sourcePartUri, targetPartUri);
+}
+
+function fileExtension(value: string): string {
+  const basename = value.replaceAll('\\', '/').split('/').at(-1) ?? '';
+  const dot = basename.lastIndexOf('.');
+  return dot <= 0 ? '' : basename.slice(dot);
 }
 
 function hash(bytes: Uint8Array): string {

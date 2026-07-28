@@ -1,6 +1,12 @@
-import { posix } from 'node:path';
 import { LosslessXmlDocument, type XmlElement } from '@pptx/lossless-xml';
-import { OpcPackage, PackageError, relationshipPartUri } from '@pptx/opc';
+import {
+  joinPartUri,
+  OpcPackage,
+  PackageError,
+  partUriDirname,
+  relativeRelationshipTarget,
+  relationshipPartUri,
+} from '@pptx/opc';
 import {
   detectPresentationFormat,
   presentationFormatProfile,
@@ -56,7 +62,11 @@ export class PresentationModel {
   }
 
   addSlide(): SlideModel {
-    const slideUri = this.opcPackage.allocatePartUri(posix.dirname(this.presentationPartUri) + '/slides', 'slide', '.xml');
+    const slideUri = this.opcPackage.allocatePartUri(
+      joinPartUri(partUriDirname(this.presentationPartUri), 'slides'),
+      'slide',
+      '.xml',
+    );
     this.opcPackage.setPart(slideUri, blankSlideXml(), SLIDE_CONTENT_TYPE);
     const template = this.slides[0];
     if (template) {
@@ -73,7 +83,11 @@ export class PresentationModel {
 
   duplicateSlide(index: number): SlideModel {
     const source = this.requireSlide(index);
-    const slideUri = this.opcPackage.allocatePartUri(posix.dirname(this.presentationPartUri) + '/slides', 'slide', '.xml');
+    const slideUri = this.opcPackage.allocatePartUri(
+      joinPartUri(partUriDirname(this.presentationPartUri), 'slides'),
+      'slide',
+      '.xml',
+    );
     const sourcePart = this.opcPackage.requirePart(source.partUri);
     this.opcPackage.setPart(slideUri, sourcePart.bytes, sourcePart.contentType);
     const sourceRelationshipsUri = relationshipPartUri(source.partUri);
@@ -132,7 +146,7 @@ export class PresentationModel {
   }
 
   private attachSlide(slideUri: string): SlideModel {
-    const relativeTarget = posix.relative(posix.dirname(this.presentationPartUri), slideUri);
+    const relativeTarget = relativeRelationshipTarget(this.presentationPartUri, slideUri);
     const relationship = this.opcPackage.addRelationship(this.presentationPartUri, {
       type: SLIDE_RELATIONSHIP,
       target: relativeTarget,

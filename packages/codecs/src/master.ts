@@ -1,6 +1,13 @@
-import { posix } from 'node:path';
 import { LosslessXmlDocument, type XmlElement } from '@pptx/lossless-xml';
-import { OpcPackage, relationshipPartUri, type Relationship } from '@pptx/opc';
+import {
+  joinPartUri,
+  OpcPackage,
+  partUriBasename,
+  partUriDirname,
+  relativeRelationshipTarget,
+  relationshipPartUri,
+  type Relationship,
+} from '@pptx/opc';
 
 const REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/';
 const CONTENT = 'application/vnd.openxmlformats-officedocument.presentationml.';
@@ -72,7 +79,7 @@ export class LayoutModel {
 
   get name(): string {
     const xml = this.codec.parse(this.partUri);
-    return xml.attribute(xml.elements('sldLayout')[0]!, 'name')?.value ?? posix.basename(this.partUri);
+    return xml.attribute(xml.elements('sldLayout')[0]!, 'name')?.value ?? partUriBasename(this.partUri);
   }
 
   get masterPartUri(): string | undefined {
@@ -144,7 +151,11 @@ export class MasterLayoutThemeCodec {
 
   createTheme(xml: string): ThemeModel {
     LosslessXmlDocument.parse(xml);
-    const uri = this.pkg.allocatePartUri(posix.dirname(this.presentationPartUri) + '/theme', 'theme', '.xml');
+    const uri = this.pkg.allocatePartUri(
+      joinPartUri(partUriDirname(this.presentationPartUri), 'theme'),
+      'theme',
+      '.xml',
+    );
     this.pkg.setPart(uri, xml, 'application/vnd.openxmlformats-officedocument.theme+xml');
     return new ThemeModel(this, uri);
   }
@@ -169,7 +180,11 @@ export class MasterLayoutThemeCodec {
 
   createMaster(xml: string, themePartUri: string): MasterModel {
     LosslessXmlDocument.parse(xml);
-    const uri = this.pkg.allocatePartUri(posix.dirname(this.presentationPartUri) + '/slideMasters', 'slideMaster', '.xml');
+    const uri = this.pkg.allocatePartUri(
+      joinPartUri(partUriDirname(this.presentationPartUri), 'slideMasters'),
+      'slideMaster',
+      '.xml',
+    );
     this.pkg.setPart(uri, xml, `${CONTENT}slideMaster+xml`);
     this.pkg.addRelationship(uri, { type: `${REL}theme`, target: relativeTarget(uri, themePartUri) });
     this.attachMaster(uri);
@@ -178,7 +193,7 @@ export class MasterLayoutThemeCodec {
 
   copyMaster(masterPartUri: string): MasterModel {
     const source = this.pkg.requirePart(masterPartUri);
-    const uri = this.pkg.allocatePartUri(posix.dirname(masterPartUri), 'slideMaster', '.xml');
+    const uri = this.pkg.allocatePartUri(partUriDirname(masterPartUri), 'slideMaster', '.xml');
     this.pkg.setPart(uri, source.bytes, source.contentType);
     for (const relationship of this.pkg.relationships(masterPartUri)) {
       if (relationship.type.endsWith('/slideLayout') && relationship.resolvedTarget) {
@@ -224,7 +239,11 @@ export class MasterLayoutThemeCodec {
 
   createLayout(masterPartUri: string, xml: string): LayoutModel {
     LosslessXmlDocument.parse(xml);
-    const uri = this.pkg.allocatePartUri(posix.dirname(masterPartUri) + '/../slideLayouts', 'slideLayout', '.xml');
+    const uri = this.pkg.allocatePartUri(
+      joinPartUri(partUriDirname(masterPartUri), '../slideLayouts'),
+      'slideLayout',
+      '.xml',
+    );
     this.pkg.setPart(uri, xml, `${CONTENT}slideLayout+xml`);
     this.pkg.addRelationship(uri, { type: `${REL}slideMaster`, target: relativeTarget(uri, masterPartUri) });
     this.attachLayout(masterPartUri, uri);
@@ -365,7 +384,7 @@ export class MasterLayoutThemeCodec {
 
   private copyLayoutPart(layoutPartUri: string, targetMasterPartUri: string): string {
     const source = this.pkg.requirePart(layoutPartUri);
-    const uri = this.pkg.allocatePartUri(posix.dirname(layoutPartUri), 'slideLayout', '.xml');
+    const uri = this.pkg.allocatePartUri(partUriDirname(layoutPartUri), 'slideLayout', '.xml');
     this.pkg.setPart(uri, source.bytes, source.contentType);
     for (const relationship of this.pkg.relationships(layoutPartUri)) {
       this.pkg.addRelationship(uri, {
@@ -382,7 +401,7 @@ export class MasterLayoutThemeCodec {
 }
 
 function relativeTarget(sourcePartUri: string, targetPartUri: string): string {
-  return posix.relative(posix.dirname(sourcePartUri), targetPartUri);
+  return relativeRelationshipTarget(sourcePartUri, targetPartUri);
 }
 
 function findShape(xml: LosslessXmlDocument, shapeId: number): XmlElement | undefined {
