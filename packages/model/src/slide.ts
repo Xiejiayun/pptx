@@ -32,6 +32,12 @@ import {
   renderTextBoxMarginAttributes,
   replaceTextBoxMargins,
 } from './text-box-margins.internal.js';
+import {
+  normalizeTextBoxVerticalAlignment,
+  readTextBoxVerticalAlignment,
+  renderTextBoxVerticalAlignmentAttribute,
+  replaceTextBoxVerticalAlignment,
+} from './text-box-vertical-alignment.internal.js';
 import type {
   ParagraphBullet,
   ParagraphSpacing,
@@ -39,6 +45,7 @@ import type {
   RichTextParagraph,
   TextBoxMarginInput,
   TextBoxMargins,
+  TextBoxVerticalAlignment,
   TextAlignment,
 } from './text.js';
 import { inches, type Transform } from './units.js';
@@ -51,6 +58,7 @@ export interface AddTextOptions extends Partial<Transform> {
   readonly margin?: TextBoxMarginInput;
   readonly spacing?: ParagraphSpacing;
   readonly tabStops?: readonly ParagraphTabStop[];
+  readonly valign?: TextBoxVerticalAlignment;
 }
 
 export class SlideTitleModel {
@@ -204,6 +212,22 @@ export class SlideModel {
     });
   }
 
+  getShapeTextVerticalAlignment(id: number): TextBoxVerticalAlignment | undefined {
+    const { xml, element } = this.resolveShape(id);
+    return readTextBoxVerticalAlignment(xml, element, this.partUri);
+  }
+
+  setShapeTextVerticalAlignment(id: number, value: TextBoxVerticalAlignment | undefined): void {
+    this.presentation.opcPackage.transaction(() => {
+      const alignment = value === undefined
+        ? undefined
+        : normalizeTextBoxVerticalAlignment(value, 'Text vertical alignment');
+      const { xml, element } = this.resolveShape(id);
+      replaceTextBoxVerticalAlignment(xml, element, alignment, this.partUri);
+      this.setXml(xml.serialize());
+    });
+  }
+
   setShapeTransform(id: number, changes: Partial<Transform>): void {
     const { xml, element } = this.resolveShape(id);
     const xfrm = xml.descendants(element, 'xfrm')[0];
@@ -237,7 +261,12 @@ export class SlideModel {
           normalized.tabStops,
         ))
         .join('');
-      return this.addTextShape(paragraphs, options, normalized.margin);
+      return this.addTextShape(
+        paragraphs,
+        options,
+        normalized.margin,
+        normalized.verticalAlignment,
+      );
     });
   }
 
@@ -255,6 +284,7 @@ export class SlideModel {
         }),
         options,
         defaults.margin,
+        defaults.verticalAlignment,
       );
     });
   }
@@ -267,6 +297,7 @@ export class SlideModel {
     paragraphs: string,
     options: AddTextOptions,
     margins: TextBoxMargins | undefined,
+    verticalAlignment: TextBoxVerticalAlignment,
   ): ShapeModel {
     const { xml } = this.parse();
     const shapeTree = xml
@@ -274,7 +305,7 @@ export class SlideModel {
       .find(({ parent }) => parent?.localName === 'cSld');
     if (!shapeTree) throw new ModelParseError('Slide does not contain a shape tree', this.partUri);
     const nextId = allocateShapeId(xml);
-    const shapeXml = textShapeXml(nextId, paragraphs, options, margins);
+    const shapeXml = textShapeXml(nextId, paragraphs, options, margins, verticalAlignment);
     const extensionList = shapeTree.children.find(
       (child): child is XmlElement => child.type === 'element' && child.localName === 'extLst',
     );
@@ -340,6 +371,7 @@ interface NormalizedTextInput {
   readonly margin: TextBoxMargins | undefined;
   readonly spacing: NormalizedParagraphSpacingUpdate | undefined;
   readonly tabStops: readonly NormalizedParagraphTabStop[] | undefined;
+  readonly verticalAlignment: TextBoxVerticalAlignment;
 }
 
 function validateTextInput(value: string, options: AddTextOptions): NormalizedTextInput {
@@ -352,6 +384,7 @@ function validateTextInput(value: string, options: AddTextOptions): NormalizedTe
     margin: defaults.margin,
     spacing: defaults.spacing,
     tabStops: defaults.tabStops,
+    verticalAlignment: defaults.verticalAlignment,
   };
 }
 
@@ -361,6 +394,7 @@ interface NormalizedAddTextOptions {
   readonly margin?: TextBoxMargins;
   readonly spacing?: NormalizedParagraphSpacingUpdate;
   readonly tabStops?: readonly NormalizedParagraphTabStop[];
+  readonly verticalAlignment: TextBoxVerticalAlignment;
 }
 
 function validateAddTextOptions(options: AddTextOptions): NormalizedAddTextOptions {
@@ -411,12 +445,16 @@ function validateAddTextOptions(options: AddTextOptions): NormalizedAddTextOptio
   const tabStops = options.tabStops === undefined
     ? undefined
     : normalizeParagraphTabStops(options.tabStops, 'Text tabStops');
+  const verticalAlignment = options.valign === undefined
+    ? 'middle'
+    : normalizeTextBoxVerticalAlignment(options.valign, 'Text vertical alignment');
   return {
     ...(bullet !== undefined ? { bullet } : {}),
     ...(level !== undefined ? { level } : {}),
     ...(margin !== undefined ? { margin } : {}),
     ...(spacing !== undefined ? { spacing } : {}),
     ...(tabStops !== undefined ? { tabStops } : {}),
+    verticalAlignment,
   };
 }
 
@@ -442,6 +480,7 @@ function textShapeXml(
   paragraphs: string,
   options: AddTextOptions,
   margins: TextBoxMargins | undefined,
+  verticalAlignment: TextBoxVerticalAlignment,
 ): string {
   const x = Math.round(options.x ?? 0);
   const y = Math.round(options.y ?? 0);
@@ -455,7 +494,8 @@ function textShapeXml(
   ].join('');
   const name = escapeXmlAttribute(options.name ?? `Text ${id}`);
   const marginAttributes = renderTextBoxMarginAttributes(margins);
-  return `<p:sp xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><p:nvSpPr><p:cNvPr id="${id}" name="${name}"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm${transformAttributes}><a:off x="${x}" y="${y}"/><a:ext cx="${width}" cy="${height}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></p:spPr><p:txBody><a:bodyPr wrap="square"${marginAttributes} rtlCol="0" anchor="ctr"/><a:lstStyle/>${paragraphs}</p:txBody></p:sp>`;
+  const verticalAlignmentAttribute = renderTextBoxVerticalAlignmentAttribute(verticalAlignment);
+  return `<p:sp xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><p:nvSpPr><p:cNvPr id="${id}" name="${name}"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm${transformAttributes}><a:off x="${x}" y="${y}"/><a:ext cx="${width}" cy="${height}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></p:spPr><p:txBody><a:bodyPr wrap="square"${marginAttributes} rtlCol="0"${verticalAlignmentAttribute}/><a:lstStyle/>${paragraphs}</p:txBody></p:sp>`;
 }
 
 function textParagraphXml(

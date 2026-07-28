@@ -1253,6 +1253,138 @@ describe('PptxDocument vertical slice', () => {
     expect(slide.shapes[0]).toBe(shape);
   });
 
+  it('creates, edits, duplicates, and reopens text-box vertical alignment', async () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const omitted = slide.addText('Omitted', { name: 'Omitted vertical alignment' });
+    const top = slide.addText('Top', {
+      name: 'Top vertical alignment',
+      valign: 'top',
+      margin: 4,
+    });
+    const middle = slide.addRichText([{
+      runs: [{ text: 'Middle rich text', style: { bold: true } }],
+      align: 'center',
+    }], {
+      name: 'Middle vertical alignment',
+      valign: 'middle',
+      margin: [1, 2, 3, 4],
+    });
+    const bottom = slide.addText('Bottom', {
+      name: 'Bottom vertical alignment',
+      valign: 'bottom',
+    });
+
+    expect([omitted, top, middle, bottom].map(({ verticalAlignment }) => verticalAlignment)).toEqual([
+      'middle',
+      'top',
+      'middle',
+      'bottom',
+    ]);
+    expect(middle.textMargins).toEqual({ top: 1, right: 2, bottom: 3, left: 4 });
+    const createdXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(createdXml).toContain(
+      '<a:bodyPr wrap="square" lIns="50800" tIns="50800" rIns="50800" bIns="50800" rtlCol="0" anchor="t"/>',
+    );
+    expect(createdXml).toContain('<a:bodyPr wrap="square" rtlCol="0" anchor="b"/>');
+
+    document.duplicateSlide(0);
+    top.verticalAlignment = 'bottom';
+    top.text = 'Plain replacement';
+    top.richText = [{ runs: [{ text: 'Rich replacement', style: { italic: true } }] }];
+    top.textMargins = { top: 6, left: 8 };
+    top.setTransform({ x: inches(2) });
+    middle.verticalAlignment = undefined;
+    expect(middle.verticalAlignment).toBeUndefined();
+    middle.verticalAlignment = 'top';
+    expect(middle.verticalAlignment).toBe('top');
+    expect(new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes))
+      .toMatch(/name="Middle vertical alignment"[\s\S]*?<a:bodyPr[^>]*anchor="t"\/>/);
+    middle.verticalAlignment = undefined;
+    bottom.verticalAlignment = 'top';
+    expect(top.verticalAlignment).toBe('bottom');
+    expect(middle.verticalAlignment).toBeUndefined();
+    expect(bottom.verticalAlignment).toBe('top');
+    expect(slide.shapes[1]).toBe(top);
+    expect(slide.shapes[2]).toBe(middle);
+
+    const editedXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(editedXml).toContain('lIns="101600" tIns="76200" rtlCol="0" anchor="b"/>');
+    expect(editedXml).toMatch(/name="Middle vertical alignment"[\s\S]*?<a:bodyPr[^>]*rtlCol="0"\/>/);
+
+    const beforeRollback = document.opcPackage.requirePart(slide.partUri).bytes;
+    const journal = [...document.opcPackage.mutations];
+    expect(() =>
+      document.transaction(() => {
+        bottom.verticalAlignment = 'bottom';
+        throw new Error('restore vertical alignment');
+      }),
+    ).toThrow('restore vertical alignment');
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(beforeRollback);
+    expect(document.opcPackage.mutations).toEqual(journal);
+    expect(bottom.verticalAlignment).toBe('top');
+    expect(slide.shapes[3]).toBe(bottom);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const edited = reopened.slides[0]!.shapes as readonly ShapeModel[];
+    const duplicated = reopened.slides[1]!.shapes as readonly ShapeModel[];
+    expect(edited.map(({ verticalAlignment }) => verticalAlignment)).toEqual([
+      'middle',
+      'bottom',
+      undefined,
+      'top',
+    ]);
+    expect(duplicated.map(({ verticalAlignment }) => verticalAlignment)).toEqual([
+      'middle',
+      'top',
+      'middle',
+      'bottom',
+    ]);
+    expect(edited[1]!.text).toBe('Rich replacement');
+    expect(edited[1]!.textMargins).toEqual({ top: 6, left: 8 });
+    expect(edited[2]!.textMargins).toEqual({ top: 1, right: 2, bottom: 3, left: 4 });
+    expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+  });
+
+  it('rejects malformed text-box vertical alignment without changing package state', () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const shape = slide.addText('Original', { valign: 'top' });
+    const before = document.opcPackage.requirePart(slide.partUri).bytes;
+    const journal = [...document.opcPackage.mutations];
+
+    for (const valign of [
+      null,
+      true,
+      1,
+      '',
+      'top ',
+      'Top',
+      'center',
+      't',
+      'ctr',
+      'b',
+      'just',
+      'dist',
+      {},
+      [],
+      Symbol('top'),
+    ]) {
+      expect(() => slide.addText('Invalid', { valign: valign as never })).toThrow(TypeError);
+      expect(() => slide.addRichText([{ runs: [{ text: 'Invalid' }] }], {
+        valign: valign as never,
+      })).toThrow(TypeError);
+      expect(() => {
+        shape.verticalAlignment = valign as never;
+      }).toThrow(TypeError);
+    }
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(before);
+    expect(document.opcPackage.mutations).toEqual(journal);
+    expect(shape.text).toBe('Original');
+    expect(shape.verticalAlignment).toBe('top');
+    expect(slide.shapes[0]).toBe(shape);
+  });
+
   it('creates, edits, duplicates, and reopens rich text highlight colors', async () => {
     const document = PptxDocument.create();
     const slide = document.addSlide();

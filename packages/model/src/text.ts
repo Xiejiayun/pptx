@@ -110,6 +110,8 @@ export type TextBoxMarginInput =
   | readonly [top: number, right: number, bottom: number, left: number]
   | TextBoxMargins;
 
+export type TextBoxVerticalAlignment = 'top' | 'middle' | 'bottom';
+
 export interface RichTextRunStyle {
   readonly fontFamily?: string;
   readonly fontSize?: number;

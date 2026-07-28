@@ -311,6 +311,115 @@ describe('PresentationModel', () => {
     }
   });
 
+  it('reads and losslessly replaces direct text-box vertical alignment', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.slides[1]!;
+    const part = pkg.requirePart(slide.partUri);
+    const bodyProperties = [
+      '<a:bodyPr wrap="square" lIns="127000" anchor="t" anchorCtr="1" custom="KEEP">',
+      '<a:normAutofit fontScale="90000"/>',
+      '<x:keep xmlns:x="urn:test">KEEP</x:keep>',
+      '</a:bodyPr>',
+    ].join('');
+    pkg.setPart(
+      part.uri,
+      new TextDecoder().decode(part.bytes).replace(
+        '<p:txBody><a:p>',
+        `<p:txBody>${bodyProperties}<a:p>`,
+      ),
+      part.contentType,
+    );
+    const shape = slide.shapes[0] as ShapeModel;
+    const journal = [...pkg.mutations];
+
+    expect(shape.verticalAlignment).toBe('top');
+    expect(shape.verticalAlignment).toBe('top');
+    expect(pkg.mutations).toEqual(journal);
+    expect(shape.textMargins).toEqual({ left: 10 });
+
+    shape.verticalAlignment = 'middle';
+    expect(shape.verticalAlignment).toBe('middle');
+    let updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated).toContain('lIns="127000" anchor="ctr" anchorCtr="1" custom="KEEP"');
+
+    shape.verticalAlignment = 'bottom';
+    expect(shape.verticalAlignment).toBe('bottom');
+    shape.text = 'Plain replacement';
+    shape.richText = [{ runs: [{ text: 'Rich replacement', style: { bold: true } }] }];
+    shape.textMargins = { top: 4, left: 8 };
+    shape.setTransform({ x: inches(3) });
+    expect(shape.verticalAlignment).toBe('bottom');
+    expect(slide.shapes[0]).toBe(shape);
+    updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated).toContain('anchor="b" anchorCtr="1" custom="KEEP"');
+    expect(updated).toContain('<a:normAutofit fontScale="90000"/>');
+    expect(updated).toContain('<x:keep xmlns:x="urn:test">KEEP</x:keep>');
+
+    const beforeRollback = pkg.requirePart(part.uri).bytes.slice();
+    expect(() =>
+      pkg.transaction(() => {
+        shape.verticalAlignment = 'top';
+        throw new Error('restore vertical alignment');
+      }),
+    ).toThrow('restore vertical alignment');
+    expect(pkg.requirePart(part.uri).bytes).toEqual(beforeRollback);
+    expect(shape.verticalAlignment).toBe('bottom');
+    expect(slide.shapes[0]).toBe(shape);
+
+    shape.verticalAlignment = undefined;
+    expect(shape.verticalAlignment).toBeUndefined();
+    updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated).not.toMatch(/\sanchor=/);
+    expect(updated).toContain('anchorCtr="1" custom="KEEP"');
+    expect(updated).toContain('lIns="101600"');
+    expect(updated).toContain('tIns="50800"');
+    expect(updated).toContain('<a:normAutofit fontScale="90000"/>');
+    expect(updated).toContain('<x:keep xmlns:x="urn:test">KEEP</x:keep>');
+  });
+
+  it('reads only supported direct text-box vertical-alignment tokens', async () => {
+    const cases: readonly [string | undefined, string | undefined][] = [
+      ['t', 'top'],
+      ['ctr', 'middle'],
+      ['b', 'bottom'],
+      [undefined, undefined],
+      ['just', undefined],
+      ['dist', undefined],
+      ['', undefined],
+      ['T', undefined],
+      [' middle ', undefined],
+      ['unknown', undefined],
+    ];
+    for (const [token, expected] of cases) {
+      const pkg = await OpcPackage.open(await modelFixture());
+      const model = new PresentationModel(pkg);
+      const slide = model.slides[1]!;
+      const part = pkg.requirePart(slide.partUri);
+      const anchor = token === undefined ? '' : ` anchor="${token}"`;
+      pkg.setPart(
+        part.uri,
+        new TextDecoder().decode(part.bytes).replace(
+          '<p:txBody><a:p>',
+          `<p:txBody><a:bodyPr${anchor}/><a:p>`,
+        ),
+        part.contentType,
+      );
+      const shape = slide.shapes[0] as ShapeModel;
+      const journal = [...pkg.mutations];
+
+      expect(shape.verticalAlignment).toBe(expected);
+      expect(pkg.mutations).toEqual(journal);
+      if (token === 'just' || token === 'dist') {
+        shape.textMargins = 2;
+        shape.text = 'Plain replacement';
+        shape.richText = [{ runs: [{ text: 'Rich replacement' }] }];
+        shape.setTransform({ x: inches(2) });
+        expect(new TextDecoder().decode(pkg.requirePart(part.uri).bytes)).toContain(`anchor="${token}"`);
+      }
+    }
+  });
+
   it('reads strict local underline values and preserves their XML during plain text edits', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);
@@ -1061,6 +1170,10 @@ describe('PresentationModel', () => {
       expect(() => shape.textMargins).toThrow(malformedTextBody ? /body properties/ : /text body/);
       expect(() => {
         shape.textMargins = 1;
+      }).toThrow(malformedTextBody ? /body properties/ : /text body/);
+      expect(() => shape.verticalAlignment).toThrow(malformedTextBody ? /body properties/ : /text body/);
+      expect(() => {
+        shape.verticalAlignment = 'bottom';
       }).toThrow(malformedTextBody ? /body properties/ : /text body/);
       expect(pkg.requirePart(part.uri).bytes).toEqual(before);
       expect(pkg.mutations).toEqual(journal);

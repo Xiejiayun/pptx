@@ -56,8 +56,10 @@ const text = document.addSlide().addText('Quarterly results\nQ4 forecast', {
   width: inches(8),
   height: inches(1),
   align: 'center',
+  valign: 'middle',
 });
 text.text = 'Updated results\nApproved';
+text.verticalAlignment = 'bottom';
 ```
 
 `addText()` creates plain-text paragraphs with name and transform options. CRLF and CR normalize to LF; consecutive and trailing line breaks remain empty paragraphs. Setting `.text` replaces the visible text using the first paragraph as the style template. Use the structured API below when run styles must remain distinct.
@@ -82,6 +84,8 @@ rich.richText = [{ runs: [{ text: 'Approved', style: { color: { kind: 'scheme', 
 `richText` is an immutable paragraph/run value snapshot. It reads, creates, and replaces each paragraph's alignment, Unicode bullet or automatic numbering, list level, paragraph spacing, tab stops, and run styles. `AddTextOptions` supplies paragraph creation defaults; each `RichTextParagraph` can override them, with `bullet: false`, `level: 0`, `spacing: false`, or `tabStops: false` suppressing the corresponding default. Bullets support a custom character and 0–4032pt per-level indent. Numbering supports the 16 PptxGenJS styles, a 1–32767 start value, and indent. List `level` is zero-based from 0–8; nested bullet margin is `indent × (level + 1)`. Spacing uses points for before/after/exact and a factor such as `1.5` for multiple line spacing. Tab stop positions use inches and support left, center, right, and decimal alignment; `[]` is an explicit empty list. Run styles include font family, point size, bold, italic, sRGB/theme color, and soft breaks. Setting `richText` preserves text-body metadata and unrelated same-position paragraph properties but intentionally replaces old runs and supported paragraph values; arbitrary paragraph indentation, hyperlinks, and advanced typography are separate capabilities.
 
 Text-box `margin` values use points and accept one number, a `[top, right, bottom, left]` tuple, or a named object. `shape.textMargins` reads only direct `bodyPr` overrides as a named object; assigning a scalar/tuple/object replaces the four supported direct sides, while `undefined` or `{}` clears them. This is separate from paragraph `marL`, first-line indent, and bullet hanging indent. Unlike PptxGenJS 4.0.1's asymmetric-tuple runtime bug, native tuple creation follows the documented TRBL order.
+
+Text-box `valign` accepts `top`, `middle`, or `bottom`; omission creates an explicit middle anchor. `shape.verticalAlignment` reads or replaces only the direct text-body anchor, and assigning `undefined` removes that direct override while preserving margins, autofit metadata, and other text-body content.
 
 Slide and shape model objects have stable identity within a document: repeated collection reads and slide reordering return the same member instances. Their properties remain live and read the current OOXML rather than a cached snapshot. Master, layout, and theme models follow the same rule within `document.masterLayoutTheme`.
 

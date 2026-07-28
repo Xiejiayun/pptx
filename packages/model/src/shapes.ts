@@ -14,6 +14,7 @@ import type {
   RichTextParagraph,
   TextBoxMarginInput,
   TextBoxMargins,
+  TextBoxVerticalAlignment,
 } from './text.js';
 import { type Emu, type OoxmlAngle, type Transform } from './units.js';
 
@@ -95,6 +96,14 @@ export class ShapeModel extends BaseShapeModel {
 
   set textMargins(value: TextBoxMarginInput | undefined) {
     this.slide.setShapeTextMargins(this.id, value);
+  }
+
+  get verticalAlignment(): TextBoxVerticalAlignment | undefined {
+    return this.slide.getShapeTextVerticalAlignment(this.id);
+  }
+
+  set verticalAlignment(value: TextBoxVerticalAlignment | undefined) {
+    this.slide.setShapeTextVerticalAlignment(this.id, value);
   }
 
   get gradientFill(): GradientFill | undefined {

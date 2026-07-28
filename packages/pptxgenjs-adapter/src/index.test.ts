@@ -280,6 +280,47 @@ describe('importPptxGenJS', () => {
       margin: [1, 2, 3, 4],
       objectName: 'Margin asymmetric probe',
     });
+    generatedSlide.addText('Omitted vertical alignment', {
+      x: 2,
+      y: 0,
+      w: 2,
+      h: 0.5,
+      objectName: 'Vertical omitted',
+    });
+    generatedSlide.addText('Top vertical alignment', {
+      x: 2,
+      y: 0.5,
+      w: 2,
+      h: 0.5,
+      valign: 'top',
+      objectName: 'Vertical top',
+    });
+    generatedSlide.addText('Middle vertical alignment', {
+      x: 2,
+      y: 1,
+      w: 2,
+      h: 0.5,
+      valign: 'middle',
+      objectName: 'Vertical middle',
+    });
+    generatedSlide.addText('Bottom vertical alignment', {
+      x: 2,
+      y: 1.5,
+      w: 2,
+      h: 0.5,
+      valign: 'bottom',
+      objectName: 'Vertical bottom',
+    });
+    generatedSlide.addText(
+      [{ text: 'Ignored run vertical alignment', options: { valign: 'bottom' } }],
+      {
+        x: 2,
+        y: 2,
+        w: 2,
+        h: 0.5,
+        objectName: 'Vertical run ignored',
+      },
+    );
     const document = await importPptxGenJS(generated);
     expect(document.slides[0]?.title.text).toBe('Created by PptxGenJS');
     expect((document.slides[0]!.shapes[0] as ShapeModel).richText[0]!.align).toBe('center');
@@ -408,42 +449,60 @@ describe('importPptxGenJS', () => {
     const spaced = (document.slides[0]!.shapes[23] as ShapeModel).richText[0]!.runs;
     expect(spaced.map(({ style }) => style?.characterSpacing)).toEqual([2.5, -1.25, 0, undefined, 3, undefined]);
     expect(spaced[4]!.style!.baseline).toBe('superscript');
-    const marginShape = (name: string): ShapeModel => {
+    const shapeByName = (name: string): ShapeModel => {
       const shape = document.slides[0]!.shapes.find((candidate) => candidate.name === name);
       expect(shape).toBeInstanceOf(ShapeModel);
       return shape as ShapeModel;
     };
-    expect(marginShape('Margin omitted').textMargins).toBeUndefined();
-    expect(marginShape('Margin zero').textMargins).toEqual({ top: 0, right: 0, bottom: 0, left: 0 });
-    expect(marginShape('Margin scalar').textMargins).toEqual({
+    expect(shapeByName('Margin omitted').textMargins).toBeUndefined();
+    expect(shapeByName('Margin zero').textMargins).toEqual({ top: 0, right: 0, bottom: 0, left: 0 });
+    expect(shapeByName('Margin scalar').textMargins).toEqual({
       top: 10,
       right: 10,
       bottom: 10,
       left: 10,
     });
-    expect(marginShape('Margin tuple').textMargins).toEqual({ top: 4, right: 8, bottom: 8, left: 4 });
-    expect(marginShape('Margin fractional').textMargins).toEqual({
+    expect(shapeByName('Margin tuple').textMargins).toEqual({ top: 4, right: 8, bottom: 8, left: 4 });
+    expect(shapeByName('Margin fractional').textMargins).toEqual({
       top: 1_588 / 12_700,
       right: 1_588 / 12_700,
       bottom: 1_588 / 12_700,
       left: 1_588 / 12_700,
     });
-    expect(marginShape('Margin negative').textMargins).toEqual({
+    expect(shapeByName('Margin negative').textMargins).toEqual({
       top: -0.5,
       right: -0.5,
       bottom: -0.5,
       left: -0.5,
     });
-    expect(marginShape('Margin asymmetric probe').textMargins).toEqual({
+    expect(shapeByName('Margin asymmetric probe').textMargins).toEqual({
       top: 4,
       right: 2,
       bottom: 3,
       left: 1,
     });
+    expect([
+      'Vertical omitted',
+      'Vertical top',
+      'Vertical middle',
+      'Vertical bottom',
+      'Vertical run ignored',
+    ].map((name) => shapeByName(name).verticalAlignment)).toEqual([
+      'middle',
+      'top',
+      'middle',
+      'bottom',
+      'middle',
+    ]);
     const importedXml = new TextDecoder().decode(
       document.opcPackage.requirePart(document.slides[0]!.partUri).bytes,
     );
     expect(importedXml).toContain('lIns="12700" tIns="50800" rIns="25400" bIns="38100"');
+    expect(importedXml).toMatch(/name="Vertical omitted"[\s\S]*?<a:bodyPr[^>]*anchor="ctr"/);
+    expect(importedXml).toMatch(/name="Vertical top"[\s\S]*?<a:bodyPr[^>]*anchor="t"/);
+    expect(importedXml).toMatch(/name="Vertical middle"[\s\S]*?<a:bodyPr[^>]*anchor="ctr"/);
+    expect(importedXml).toMatch(/name="Vertical bottom"[\s\S]*?<a:bodyPr[^>]*anchor="b"/);
+    expect(importedXml).toMatch(/name="Vertical run ignored"[\s\S]*?<a:bodyPr[^>]*anchor="ctr"/);
     document.slides[0]!.title.text = 'Edited by the OOXML kernel';
     document.duplicateSlide(0);
 
@@ -560,7 +619,18 @@ describe('importPptxGenJS', () => {
       ['Margin negative', { top: -0.5, right: -0.5, bottom: -0.5, left: -0.5 }],
       ['Margin asymmetric probe', { top: 4, right: 2, bottom: 3, left: 1 }],
     ]);
-  });
+    const reopenedVerticalAlignment = reopened.slides[1]!.shapes
+      .filter((shape): shape is ShapeModel => shape instanceof ShapeModel)
+      .filter(({ name }) => name.startsWith('Vertical '))
+      .map(({ name, verticalAlignment }) => [name, verticalAlignment]);
+    expect(reopenedVerticalAlignment).toEqual([
+      ['Vertical omitted', 'middle'],
+      ['Vertical top', 'top'],
+      ['Vertical middle', 'middle'],
+      ['Vertical bottom', 'bottom'],
+      ['Vertical run ignored', 'middle'],
+    ]);
+  }, 10_000);
 
   it('keeps pptxgenjs out of every non-adapter package dependency list', async () => {
     const packagesDirectory = fileURLToPath(new URL('../..', import.meta.url));
