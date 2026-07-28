@@ -44,12 +44,15 @@ try {
 const created = PptxDocument.create();
 const createdText = created.addSlide().addText('Smoke\\n\\nParagraph');
 createdText.text = 'Updated\\r\\nParagraph';
+const richText = created.slides[0].addRichText([{ runs: [{ text: 'Bold', style: { bold: true, fontSize: 18, color: { kind: 'srgb', value: 'ff0000' } } }, { text: 'Blue', softBreakBefore: true, style: { color: { kind: 'scheme', value: 'accent1' } } }] }]);
+richText.richText = [{ runs: [{ text: 'Updated rich', style: { italic: true } }] }];
 const custom = PptxDocument.create({ slideSize: { width: inches(11.7), height: inches(8.3) } });
 custom.slideSize = { width: inches(10), height: inches(7.5) };
 const customXml = new TextDecoder().decode(custom.opcPackage.requirePart('/ppt/presentation.xml').bytes);
 const checks = {
   PptxDocument: typeof PptxDocument === 'function',
   createText: createdText.text === 'Updated\\nParagraph' && created.slides[0].shapes[0] === createdText,
+  richText: richText.text === 'Updated rich' && richText.richText[0].runs[0].style.italic === true,
   customSlideSize: custom.slideSize.width === inches(10) && customXml.includes('<p:sldSz cx="9144000" cy="6858000"/>'),
   GradientCodec: typeof GradientCodec === 'function',
   importPptxGenJS: typeof importPptxGenJS === 'function',
@@ -74,6 +77,7 @@ const checks = [PptxDocument, transitions.TransitionCodec, animations.AnimationT
 if (checks.some((value) => typeof value !== 'function')) throw new Error('Browser API surface is incomplete');
 const created = PptxDocument.create({ slideSize: '16:9' });
 if (created.addSlide().addText('Browser\\nText').text !== 'Browser\\nText') throw new Error('Browser create-text API failed');
+if (created.slides[0].addRichText([{ runs: [{ text: 'Rich', style: { bold: true } }] }]).richText[0].runs[0].style.bold !== true) throw new Error('Browser rich-text API failed');
 PptxDocument.create({ slideSize: { width: inches(11.7), height: inches(8.3) } });
 created.slideSize = { width: inches(10), height: inches(7.5) };
 process.stdout.write(resolved);
@@ -87,6 +91,7 @@ process.stdout.write(resolved);
   PptxDocument,
   inches,
   type CustomSlideSize,
+  type RichTextParagraph,
   GradientCodec,
   importPptxGenJS,
   transitions,
@@ -102,6 +107,9 @@ const customDocument: PptxDocument = PptxDocument.create({ slideSize: customSlid
 customDocument.slideSize = { width: inches(10), height: inches(7.5) };
 const createdText = createdDocument.addSlide().addText('Typed\\ntext');
 createdText.text = 'Updated\\n\\ntyped text';
+const paragraphs: readonly RichTextParagraph[] = [{ runs: [{ text: 'Typed rich', style: { fontSize: 12.5, bold: true, color: { kind: 'scheme', value: 'tx1' } } }] }];
+const richText = createdDocument.slides[0].addRichText(paragraphs);
+richText.richText = paragraphs;
 const gradientConstructor: typeof GradientCodec = GradientCodec;
 const adapter: typeof importPptxGenJS = importPptxGenJS;
 const transition: transitions.SlideTransition = { effect: 'fade' };
@@ -114,7 +122,7 @@ documentPromise.then((document) => {
   advancedCharts.installAdvancedChartPlugin(document);
   smartArt.installSmartArtPlugin(document);
 });
-void [documentPromise, createdDocument, customDocument, createdText, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
+void [documentPromise, createdDocument, customDocument, createdText, richText, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
 `,
   );
   run(

@@ -25,6 +25,7 @@ adapter 不读取 `_slides` 等私有字段。后续 peer-range conformance test
 | `slide.addText(string)` 单段文本 | `slide.addText(string, options)` | 已支持 |
 | string 中的 CR/LF、多段落与空行 | `addText()` / `ShapeModel.text` | 已支持 |
 | 文本框 x/y/w/h、旋转、翻转、名称 | `AddTextOptions` + `inches()` / `degrees()` | 已支持 |
-| rich text runs、逐段样式、字体及文本布局 options | 尚无完整公开 API | 部分支持，后续逐项补齐 |
+| `TextProps[]` 基础 runs、字体、字号、粗斜体、颜色、soft break | `addRichText()` / `ShapeModel.richText` | 已支持 |
+| rich run 高级样式、逐段样式及文本布局 options | 尚无完整公开 API | 部分支持，后续逐项补齐 |
 
 原生创建会生成可重新打开和验证的 master/layout/theme 关系链，不通过 adapter，也不在运行时安装或调用 PptxGenJS。

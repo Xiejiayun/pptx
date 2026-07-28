@@ -27,7 +27,7 @@ document.addSlide().addText('Quarterly results\nQ4 forecast', {
 await document.writeFile('created.pptx');
 ```
 
-Creation is native and does not require PptxGenJS. A new document starts with zero slides and a complete default master/layout/theme chain; its size can use a built-in preset or custom EMU dimensions. `document.slideSize` also reads or changes the canvas of an existing deck without silently scaling its content. Plain-text boxes preserve paragraphs and empty lines and can be edited through their stable shape model.
+Creation is native and does not require PptxGenJS. A new document starts with zero slides and a complete default master/layout/theme chain; its size can use a built-in preset or custom EMU dimensions. `document.slideSize` also reads or changes the canvas of an existing deck without silently scaling its content. Plain-text boxes preserve paragraphs and empty lines. `addRichText()` and `shape.richText` add structured runs with fonts, sizes, bold/italic, colors, and soft breaks.
 
 ## Edit an existing presentation
 

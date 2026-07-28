@@ -6,19 +6,20 @@ import {
 } from '@pptx/lossless-xml';
 import { GradientCodec, type GradientFill } from '@pptx/codecs';
 import type { Relationship } from '@pptx/opc';
+import { ModelParseError } from './errors.js';
 import type { PresentationModel } from './presentation.js';
+import {
+  normalizeRichText,
+  readRichText,
+  renderRichTextParagraphs,
+  replaceRichText,
+} from './rich-text.internal.js';
 import { decodeShape, ShapeModel, type SemanticShape } from './shapes.js';
+import type { RichTextParagraph } from './text.js';
 import { inches, type Transform } from './units.js';
 
 export interface AddTextOptions extends Partial<Transform> {
   readonly name?: string;
-}
-
-export class ModelParseError extends Error {
-  constructor(message: string, readonly partUri?: string) {
-    super(partUri ? `${message}: ${partUri}` : message);
-    this.name = 'ModelParseError';
-  }
 }
 
 export class SlideTitleModel {
@@ -145,6 +146,19 @@ export class SlideModel {
     return readPlainText(xml, element);
   }
 
+  setShapeRichText(id: number, value: readonly RichTextParagraph[]): void {
+    this.presentation.opcPackage.transaction(() => {
+      const paragraphs = normalizeRichText(value);
+      const { xml, element } = this.resolveShape(id);
+      replaceRichText(xml, element, paragraphs, this.partUri, (updated) => this.setXml(updated));
+    });
+  }
+
+  getShapeRichText(id: number): readonly RichTextParagraph[] {
+    const { xml, element } = this.resolveShape(id);
+    return readRichText(xml, element);
+  }
+
   setShapeTransform(id: number, changes: Partial<Transform>): void {
     const { xml, element } = this.resolveShape(id);
     const xfrm = xml.descendants(element, 'xfrm')[0];
@@ -164,29 +178,42 @@ export class SlideModel {
   addText(value: string, options: AddTextOptions = {}): ShapeModel {
     return this.presentation.opcPackage.transaction(() => {
       const normalized = validateTextInput(value, options);
-      const { xml } = this.parse();
-      const shapeTree = xml
-        .elements('spTree')
-        .find(({ parent }) => parent?.localName === 'cSld');
-      if (!shapeTree) throw new ModelParseError('Slide does not contain a shape tree', this.partUri);
-      const nextId = allocateShapeId(xml);
-      const shapeXml = textShapeXml(nextId, normalized, options);
-      const extensionList = shapeTree.children.find(
-        (child): child is XmlElement => child.type === 'element' && child.localName === 'extLst',
-      );
-      if (extensionList) xml.replace(extensionList.start, extensionList.start, shapeXml);
-      else xml.appendChildXml(shapeTree, shapeXml);
-      this.setXml(xml.serialize());
-      const shape = this.shapes.find((candidate) => candidate.id === nextId);
-      if (!(shape instanceof ShapeModel) || shape.kind !== 'text') {
-        throw new ModelParseError(`Created text shape ${nextId} could not be resolved`, this.partUri);
-      }
-      return shape;
+      const paragraphs = normalized.split('\n').map((line) => textParagraphXml(line)).join('');
+      return this.addTextShape(paragraphs, options);
+    });
+  }
+
+  addRichText(value: readonly RichTextParagraph[], options: AddTextOptions = {}): ShapeModel {
+    return this.presentation.opcPackage.transaction(() => {
+      const paragraphs = normalizeRichText(value);
+      validateAddTextOptions(options);
+      return this.addTextShape(renderRichTextParagraphs(paragraphs), options);
     });
   }
 
   setXml(xml: string): void {
     this.presentation.setXmlPart(this.partUri, xml);
+  }
+
+  private addTextShape(paragraphs: string, options: AddTextOptions): ShapeModel {
+    const { xml } = this.parse();
+    const shapeTree = xml
+      .elements('spTree')
+      .find(({ parent }) => parent?.localName === 'cSld');
+    if (!shapeTree) throw new ModelParseError('Slide does not contain a shape tree', this.partUri);
+    const nextId = allocateShapeId(xml);
+    const shapeXml = textShapeXml(nextId, paragraphs, options);
+    const extensionList = shapeTree.children.find(
+      (child): child is XmlElement => child.type === 'element' && child.localName === 'extLst',
+    );
+    if (extensionList) xml.replace(extensionList.start, extensionList.start, shapeXml);
+    else xml.appendChildXml(shapeTree, shapeXml);
+    this.setXml(xml.serialize());
+    const shape = this.shapes.find((candidate) => candidate.id === nextId);
+    if (!(shape instanceof ShapeModel) || shape.kind !== 'text') {
+      throw new ModelParseError(`Created text shape ${nextId} could not be resolved`, this.partUri);
+    }
+    return shape;
   }
 }
 
@@ -236,6 +263,11 @@ function setAttribute(xml: LosslessXmlDocument, element: XmlElement, name: strin
 
 function validateTextInput(value: string, options: AddTextOptions): string {
   const normalized = validatePlainText(value);
+  validateAddTextOptions(options);
+  return normalized;
+}
+
+function validateAddTextOptions(options: AddTextOptions): void {
   if (options.name !== undefined && typeof options.name !== 'string') {
     throw new TypeError('Text shape name must be a string');
   }
@@ -267,7 +299,6 @@ function validateTextInput(value: string, options: AddTextOptions): string {
   if (options.height !== undefined && Math.round(options.height) <= 0) {
     throw new RangeError('Text shape height must be greater than zero');
   }
-  return normalized;
 }
 
 function validatePlainText(value: string): string {
@@ -287,7 +318,7 @@ function allocateShapeId(xml: LosslessXmlDocument): number {
   }, 1) + 1;
 }
 
-function textShapeXml(id: number, value: string, options: AddTextOptions): string {
+function textShapeXml(id: number, paragraphs: string, options: AddTextOptions): string {
   const x = Math.round(options.x ?? 0);
   const y = Math.round(options.y ?? 0);
   const width = Math.round(options.width ?? inches(1));
@@ -299,7 +330,6 @@ function textShapeXml(id: number, value: string, options: AddTextOptions): strin
     options.flipVertical ? ' flipV="1"' : '',
   ].join('');
   const name = escapeXmlAttribute(options.name ?? `Text ${id}`);
-  const paragraphs = value.split('\n').map((line) => textParagraphXml(line)).join('');
   return `<p:sp xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><p:nvSpPr><p:cNvPr id="${id}" name="${name}"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm${transformAttributes}><a:off x="${x}" y="${y}"/><a:ext cx="${width}" cy="${height}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></p:spPr><p:txBody><a:bodyPr wrap="square" rtlCol="0" anchor="ctr"/><a:lstStyle/>${paragraphs}</p:txBody></p:sp>`;
 }
 

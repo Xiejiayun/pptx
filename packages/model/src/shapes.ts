@@ -10,6 +10,7 @@ import {
 } from '@pptx/opc';
 import { cloneOwnedPartForMutation } from './dependency.internal.js';
 import type { SlideModel } from './slide.js';
+import type { RichTextParagraph } from './text.js';
 import { type Emu, type OoxmlAngle, type Transform } from './units.js';
 
 export type ShapeKind = 'shape' | 'text' | 'image' | 'table' | 'chart' | 'graphic-frame' | 'group' | 'unknown';
@@ -74,6 +75,14 @@ export class ShapeModel extends BaseShapeModel {
 
   set text(value: string) {
     this.slide.setShapeText(this.id, value);
+  }
+
+  get richText(): readonly RichTextParagraph[] {
+    return this.slide.getShapeRichText(this.id);
+  }
+
+  set richText(value: readonly RichTextParagraph[]) {
+    this.slide.setShapeRichText(this.id, value);
   }
 
   get gradientFill(): GradientFill | undefined {

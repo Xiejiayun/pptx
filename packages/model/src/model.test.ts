@@ -163,6 +163,57 @@ describe('PresentationModel', () => {
     );
   });
 
+  it('reads fields and repeated soft breaks, then preserves paragraph and text-body metadata on rich replacement', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.slides[1]!;
+    const part = pkg.requirePart(slide.partUri);
+    const richText = new TextDecoder()
+      .decode(part.bytes)
+      .replace(
+        '<a:p><a:r><a:t>First title</a:t></a:r></a:p>',
+        '<p:txBodyMeta xmlns:p="urn:test">KEEP</p:txBodyMeta><a:p><a:pPr algn="r"><a:buNone/></a:pPr><a:r><a:t>First</a:t></a:r><a:br/><a:br/><a:fld id="{TEST}"><a:rPr lang="en-US" sz="1250" b="0" i="1"><a:solidFill><a:srgbClr val="00aa11"/></a:solidFill><a:latin typeface="Field Font"/></a:rPr><a:t>Field</a:t></a:fld><a:br/><a:endParaRPr lang="fr-FR"/></a:p>',
+      );
+    pkg.setPart(part.uri, richText, part.contentType);
+    const shape = slide.shapes[0] as ShapeModel;
+    const journal = [...pkg.mutations];
+
+    expect(shape.richText).toEqual([
+      {
+        runs: [
+          { text: 'First' },
+          { text: '', softBreakBefore: true },
+          {
+            text: 'Field',
+            softBreakBefore: true,
+            style: {
+              fontFamily: 'Field Font',
+              fontSize: 12.5,
+              bold: false,
+              italic: true,
+              color: { kind: 'srgb', value: '00AA11' },
+            },
+          },
+          { text: '', softBreakBefore: true },
+        ],
+      },
+    ]);
+    expect(shape.text).toBe('First\n\nField\n');
+    expect(pkg.mutations).toEqual(journal);
+
+    shape.richText = [
+      { runs: [{ text: 'One', style: { bold: true } }, { text: 'Two', softBreakBefore: true }] },
+      { runs: [] },
+    ];
+    expect(shape.text).toBe('One\nTwo\n');
+    expect(slide.shapes[0]).toBe(shape);
+    const updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated.match(/<a:pPr algn="r"><a:buNone\/><\/a:pPr>/g)).toHaveLength(2);
+    expect(updated.match(/<a:endParaRPr lang="fr-FR"\/>/g)).toHaveLength(2);
+    expect(updated).toContain('<p:txBodyMeta xmlns:p="urn:test">KEEP</p:txBodyMeta>');
+    expect(updated).not.toContain('<a:fld');
+  });
+
   it('does not mutate malformed text shapes that lack a text body or paragraph', async () => {
     for (const malformedTextBody of ['', '<p:txBody/>']) {
       const pkg = await OpcPackage.open(await modelFixture());
@@ -180,6 +231,9 @@ describe('PresentationModel', () => {
 
       expect(() => {
         shape.text = 'Rejected';
+      }).toThrow(malformedTextBody ? /text paragraph/ : /text body/);
+      expect(() => {
+        shape.richText = [{ runs: [{ text: 'Rejected' }] }];
       }).toThrow(malformedTextBody ? /text paragraph/ : /text body/);
       expect(pkg.requirePart(part.uri).bytes).toEqual(before);
       expect(pkg.mutations).toEqual(journal);

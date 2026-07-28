@@ -217,6 +217,151 @@ describe('PptxDocument vertical slice', () => {
     expect(empty.text).toBe('Filled from an empty paragraph');
   });
 
+  it('creates, reads, replaces, and round-trips rich text run styles', async () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const input = [
+      {
+        runs: [
+          {
+            text: 'Bold & ',
+            style: {
+              fontFamily: 'Aptos & Display',
+              fontSize: 12.5,
+              bold: true,
+              italic: false,
+              color: { kind: 'srgb' as const, value: '#ff0000' },
+            },
+          },
+          {
+            text: 'soft',
+            softBreakBefore: true,
+            style: { italic: true, color: { kind: 'scheme' as const, value: 'accent1' } },
+          },
+        ],
+      },
+      { runs: [] },
+      { runs: [{ text: 'Last' }] },
+    ];
+    const shape = slide.addRichText(input, {
+      name: 'Rich text',
+      x: inches(1),
+      y: inches(1),
+      width: inches(5),
+      height: inches(2),
+    });
+    input[0]!.runs[0]!.text = 'MUTATED';
+
+    expect(shape.text).toBe('Bold & \nsoft\n\nLast');
+    expect(shape.richText).toEqual([
+      {
+        runs: [
+          {
+            text: 'Bold & ',
+            style: {
+              fontFamily: 'Aptos & Display',
+              fontSize: 12.5,
+              bold: true,
+              italic: false,
+              color: { kind: 'srgb', value: 'FF0000' },
+            },
+          },
+          {
+            text: 'soft',
+            softBreakBefore: true,
+            style: {
+              fontFamily: '+mn-lt',
+              italic: true,
+              color: { kind: 'scheme', value: 'accent1' },
+            },
+          },
+        ],
+      },
+      { runs: [] },
+      {
+        runs: [
+          {
+            text: 'Last',
+            style: { fontFamily: '+mn-lt', color: { kind: 'scheme', value: 'tx1' } },
+          },
+        ],
+      },
+    ]);
+    const createdXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(createdXml).toContain('typeface="Aptos &amp; Display"');
+    expect(createdXml).toContain('sz="1250" b="1" i="0"');
+    expect(createdXml).toContain('<a:srgbClr val="FF0000"/>');
+    expect(createdXml).toContain('<a:ea typeface="+mn-ea"/>');
+    expect(createdXml).toContain('<a:cs typeface="+mn-cs"/>');
+    const snapshot = shape.richText as Array<{ runs: Array<{ text: string }> }>;
+    snapshot[0]!.runs[0]!.text = 'LOCAL';
+    expect(shape.text).toBe('Bold & \nsoft\n\nLast');
+
+    shape.richText = [
+      { runs: [{ text: 'Updated', style: { bold: false, fontSize: 24 } }] },
+      { runs: [{ text: 'Blue', style: { color: { kind: 'scheme', value: 'tx2' } } }] },
+    ];
+    expect(shape.text).toBe('Updated\nBlue');
+    expect(slide.shapes[0]).toBe(shape);
+    expect(shape.richText[0]!.runs[0]).toMatchObject({ text: 'Updated', style: { bold: false, fontSize: 24 } });
+
+    const slideXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(slideXml).toContain('sz="2400" b="0"');
+    expect(slideXml).toContain('<a:schemeClr val="tx2"/>');
+
+    expect(() =>
+      document.transaction(() => {
+        shape.richText = [{ runs: [{ text: 'Rollback', style: { italic: true } }] }];
+        throw new Error('restore rich text runs');
+      }),
+    ).toThrow('restore rich text runs');
+    expect(shape.text).toBe('Updated\nBlue');
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedShape = reopened.slides[0]!.shapes[0] as ShapeModel;
+    expect(reopenedShape.text).toBe('Updated\nBlue');
+    expect(reopenedShape.richText[0]!.runs[0]).toMatchObject({ style: { bold: false, fontSize: 24 } });
+    expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+  });
+
+  it('rejects malformed rich text values before changing the slide package state', () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const shape = slide.addText('Original');
+    const before = document.opcPackage.requirePart(slide.partUri).bytes;
+    const journal = [...document.opcPackage.mutations];
+    const invalid = [
+      [],
+      [null],
+      [{}],
+      [{ runs: null }],
+      [{ runs: [null] }],
+      [{ runs: [{ text: 42 }] }],
+      [{ runs: [{ text: 'two\nlines' }] }],
+      [{ runs: [{ text: 'invalid\u0000xml' }] }],
+      [{ runs: [{ text: 'x', softBreakBefore: 'yes' }] }],
+      [{ runs: [{ text: 'x', style: null }] }],
+      [{ runs: [{ text: 'x', style: { fontFamily: '' } }] }],
+      [{ runs: [{ text: 'x', style: { fontSize: 0 } }] }],
+      [{ runs: [{ text: 'x', style: { fontSize: Number.POSITIVE_INFINITY } }] }],
+      [{ runs: [{ text: 'x', style: { bold: 'yes' } }] }],
+      [{ runs: [{ text: 'x', style: { color: { kind: 'srgb', value: 'red' } } }] }],
+      [{ runs: [{ text: 'x', style: { color: { kind: 'scheme', value: 'unknown' } } }] }],
+      [{ runs: [], align: 'center' }],
+      [{ runs: [{ text: 'x', breakLine: true }] }],
+      [{ runs: [{ text: 'x', style: { underline: true } }] }],
+      [{ runs: [{ text: 'x', style: { color: { kind: 'srgb', value: 'FF0000', alpha: 0.5 } } }] }],
+    ];
+    for (const value of invalid) {
+      expect(() => slide.addRichText(value as never)).toThrow();
+      expect(() => {
+        shape.richText = value as never;
+      }).toThrow();
+    }
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(before);
+    expect(document.opcPackage.mutations).toEqual(journal);
+  });
+
   it('allocates text shape ids before extLst and rolls back rejected additions', () => {
     const document = PptxDocument.create();
     const slide = document.addSlide();
