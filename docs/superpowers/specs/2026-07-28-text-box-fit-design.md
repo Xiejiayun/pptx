@@ -57,7 +57,7 @@ shape.textFit = undefined;   // remove any direct supported fit child
 
 使用公开 `addText()` / `writeFile()` 生成真实文件并检查 slide XML：
 
-- 省略 `fit` 与显式 `fit: 'none'` 都生成 self-closing `bodyPr`，不写 `noAutofit`。
+- 省略 `fit` 与显式 `fit: 'none'` 都生成不含 fit child 的空 `bodyPr`；PptxGenJS raw XML 使用 expanded empty form，本库保留现有 self-closing creation form，两者都不写 `noAutofit`。
 - `fit: 'shrink'` 生成 direct `<a:normAutofit/>`。
 - `fit: 'resize'` 生成 direct `<a:spAutoFit/>`。
 - truthy 非法字符串不会生成 fit child；本库不复制这种静默回退，严格拒绝非法输入。

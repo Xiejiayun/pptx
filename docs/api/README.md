@@ -56,11 +56,13 @@ const text = document.addSlide().addText('Quarterly results\nQ4 forecast', {
   width: inches(8),
   height: inches(1),
   align: 'center',
+  fit: 'shrink',
   valign: 'middle',
   vert: 'vert270',
   wrap: true,
 });
 text.text = 'Updated results\nApproved';
+text.textFit = 'resize';
 text.verticalAlignment = 'bottom';
 text.textDirection = 'wordArtVert';
 text.textWrap = false;
@@ -94,6 +96,8 @@ Text-box `valign` accepts `top`, `middle`, or `bottom`; omission creates an expl
 Text-box `wrap` accepts a boolean; omission and true create explicit automatic wrapping, while false keeps text on an unwrapped line. `shape.textWrap` reads or replaces only the direct text-body wrapping token, and assigning `undefined` removes that direct override without changing fit, margins, vertical alignment, or text content.
 
 Text-box `vert` accepts `eaVert`, `horz`, `mongolianVert`, `vert`, `vert270`, `wordArtVert`, or `wordArtVertRtl`. Omission writes no direction, so it remains distinct from explicit `horz`. `shape.textDirection` reads or replaces only an exact valid direct `bodyPr@vert`; assigning `undefined` clears that override while preserving unknown direction tokens during unrelated edits. Table-cell direction is a separate capability.
+
+Text-box `fit` accepts `none`, `shrink`, or `resize`. Omission and none write no autofit child for PptxGenJS and PowerPoint 2013 compatibility; shrink writes `normAutofit`, and resize writes `spAutoFit`. `shape.textFit` reads only a unique direct choice, including an existing explicit `noAutofit` as none. Assigning none or `undefined` clears the direct choice; reassigning the current shrink/resize mode preserves any PowerPoint-calculated scale attributes. Final shrink factors may be calculated by PowerPoint only after editing text or resizing the shape.
 
 Slide and shape model objects have stable identity within a document: repeated collection reads and slide reordering return the same member instances. Their properties remain live and read the current OOXML rather than a cached snapshot. Master, layout, and theme models follow the same rule within `document.masterLayoutTheme`.
 

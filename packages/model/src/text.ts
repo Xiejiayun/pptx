@@ -121,6 +121,8 @@ export type TextBoxTextDirection =
   | 'wordArtVert'
   | 'wordArtVertRtl';
 
+export type TextBoxFit = 'none' | 'shrink' | 'resize';
+
 export interface RichTextRunStyle {
   readonly fontFamily?: string;
   readonly fontSize?: number;

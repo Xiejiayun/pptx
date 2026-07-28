@@ -1657,6 +1657,159 @@ describe('PptxDocument vertical slice', () => {
     expect(slide.shapes[0]).toBe(shape);
   });
 
+  it('creates, edits, duplicates, and reopens text-box fit modes', async () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const omitted = slide.addText('Omitted', { name: 'Fit omitted' });
+    const none = slide.addText('None', { name: 'Fit none', fit: 'none' });
+    const shrink = slide.addRichText([{
+      align: 'center',
+      runs: [{ text: 'Shrink rich text', style: { bold: true } }],
+    }], {
+      name: 'Fit shrink',
+      fit: 'shrink',
+      margin: 8,
+      valign: 'bottom',
+      vert: 'vert',
+      wrap: false,
+    });
+    const resize = slide.addText('Resize', { name: 'Fit resize', fit: 'resize' });
+
+    expect([omitted, none, shrink, resize].map(({ textFit }) => textFit)).toEqual([
+      undefined,
+      undefined,
+      'shrink',
+      'resize',
+    ]);
+    expect(shrink.textMargins).toEqual({ top: 8, right: 8, bottom: 8, left: 8 });
+    expect(shrink.verticalAlignment).toBe('bottom');
+    expect(shrink.textDirection).toBe('vert');
+    expect(shrink.textWrap).toBe(false);
+    const createdXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(createdXml).toMatch(/name="Fit omitted"[\s\S]*?<a:bodyPr[^>]*\/>/);
+    expect(createdXml).toMatch(/name="Fit none"[\s\S]*?<a:bodyPr[^>]*\/>/);
+    expect(createdXml).toMatch(
+      /name="Fit shrink"[\s\S]*?<a:bodyPr[^>]*><a:normAutofit\/><\/a:bodyPr>/,
+    );
+    expect(createdXml).toMatch(
+      /name="Fit resize"[\s\S]*?<a:bodyPr[^>]*><a:spAutoFit\/><\/a:bodyPr>/,
+    );
+
+    document.duplicateSlide(0);
+    shrink.textFit = 'resize';
+    shrink.text = 'Plain replacement';
+    shrink.richText = [{ runs: [{ text: 'Rich replacement', style: { italic: true } }] }];
+    shrink.textMargins = { top: 6, left: 8 };
+    shrink.verticalAlignment = 'middle';
+    shrink.textWrap = true;
+    shrink.textDirection = 'vert270';
+    shrink.setTransform({ x: inches(2) });
+    resize.textFit = undefined;
+    expect(resize.textFit).toBeUndefined();
+    resize.textFit = 'shrink';
+    expect(resize.textFit).toBe('shrink');
+    resize.textFit = 'none';
+    expect(resize.textFit).toBeUndefined();
+    omitted.textFit = 'shrink';
+    expect(omitted.textFit).toBe('shrink');
+    omitted.textFit = 'none';
+    expect(omitted.textFit).toBeUndefined();
+    expect(slide.shapes[0]).toBe(omitted);
+    expect(slide.shapes[2]).toBe(shrink);
+    expect(slide.shapes[3]).toBe(resize);
+
+    const editedXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(editedXml).toMatch(
+      /name="Fit shrink"[\s\S]*?<a:bodyPr[^>]*><a:spAutoFit\/><\/a:bodyPr>/,
+    );
+    expect(editedXml).toMatch(
+      /name="Fit resize"[\s\S]*?<a:bodyPr[^>]*><\/a:bodyPr>/,
+    );
+
+    const beforeRollback = document.opcPackage.requirePart(slide.partUri).bytes;
+    const journal = [...document.opcPackage.mutations];
+    expect(() =>
+      document.transaction(() => {
+        shrink.textFit = 'shrink';
+        throw new Error('restore text fit');
+      }),
+    ).toThrow('restore text fit');
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(beforeRollback);
+    expect(document.opcPackage.mutations).toEqual(journal);
+    expect(shrink.textFit).toBe('resize');
+    expect(slide.shapes[2]).toBe(shrink);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const edited = reopened.slides[0]!.shapes as readonly ShapeModel[];
+    const duplicated = reopened.slides[1]!.shapes as readonly ShapeModel[];
+    expect(edited.map(({ textFit }) => textFit)).toEqual([
+      undefined,
+      undefined,
+      'resize',
+      undefined,
+    ]);
+    expect(duplicated.map(({ textFit }) => textFit)).toEqual([
+      undefined,
+      undefined,
+      'shrink',
+      'resize',
+    ]);
+    expect(edited[2]!.text).toBe('Rich replacement');
+    expect(edited[2]!.textMargins).toEqual({ top: 6, left: 8 });
+    expect(edited[2]!.verticalAlignment).toBe('middle');
+    expect(edited[2]!.textWrap).toBe(true);
+    expect(edited[2]!.textDirection).toBe('vert270');
+    expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+  });
+
+  it('rejects malformed text-box fit without changing package state', () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const shape = slide.addText('Original', {
+      fit: 'shrink',
+      margin: { top: 4, left: 8 },
+      valign: 'top',
+      vert: 'vert',
+      wrap: false,
+    });
+    const before = document.opcPackage.requirePart(slide.partUri).bytes;
+    const journal = [...document.opcPackage.mutations];
+
+    for (const fit of [
+      null,
+      true,
+      false,
+      0,
+      1,
+      '',
+      'None',
+      ' shrink ',
+      'SHRINK',
+      'autofit',
+      'normal',
+      {},
+      [],
+      Symbol('fit'),
+    ]) {
+      expect(() => slide.addText('Invalid', { fit: fit as never })).toThrow(TypeError);
+      expect(() => slide.addRichText([{ runs: [{ text: 'Invalid' }] }], {
+        fit: fit as never,
+      })).toThrow(TypeError);
+      expect(() => {
+        shape.textFit = fit as never;
+      }).toThrow(TypeError);
+    }
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(before);
+    expect(document.opcPackage.mutations).toEqual(journal);
+    expect(shape.text).toBe('Original');
+    expect(shape.textMargins).toEqual({ top: 4, left: 8 });
+    expect(shape.verticalAlignment).toBe('top');
+    expect(shape.textWrap).toBe(false);
+    expect(shape.textDirection).toBe('vert');
+    expect(shape.textFit).toBe('shrink');
+    expect(slide.shapes[0]).toBe(shape);
+  });
+
   it('creates, edits, duplicates, and reopens rich text highlight colors', async () => {
     const document = PptxDocument.create();
     const slide = document.addSlide();

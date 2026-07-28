@@ -24,6 +24,7 @@ document.addSlide().addText('Quarterly results\nQ4 forecast', {
   width: inches(6),
   height: inches(1),
   align: 'center',
+  fit: 'shrink',
   valign: 'middle',
   vert: 'vert270',
   wrap: true,
@@ -31,7 +32,7 @@ document.addSlide().addText('Quarterly results\nQ4 forecast', {
 await document.writeFile('created.pptx');
 ```
 
-Creation is native and does not require PptxGenJS. A new document starts with zero slides and a complete default master/layout/theme chain; its size can use a built-in preset or custom EMU dimensions. `document.slideSize` also reads or changes the canvas of an existing deck without silently scaling its content. Plain-text boxes preserve paragraphs and empty lines; point-based text-box margins accept a scalar, TRBL tuple, or named sides and remain editable through `shape.textMargins`. Text-box `valign` supports top, middle, and bottom through `shape.verticalAlignment`; boolean automatic wrapping remains editable through `shape.textWrap`; all seven OOXML `vert` directions remain editable through `shape.textDirection`. Plain and rich paragraphs support horizontal alignment, Unicode bullets, all 16 PptxGenJS numbering styles, list levels 0–8, paragraph spacing, and left/center/right/decimal tab stops. `addRichText()` and `shape.richText` add structured runs with fonts, sizes, bold/italic, point-based character spacing, text/highlight colors, superscript/subscript/custom baselines, soft breaks, solid sRGB/theme outlines, glow with point radii and opacity, all valid OOXML underline styles with independent colors, and single/double strike.
+Creation is native and does not require PptxGenJS. A new document starts with zero slides and a complete default master/layout/theme chain; its size can use a built-in preset or custom EMU dimensions. `document.slideSize` also reads or changes the canvas of an existing deck without silently scaling its content. Plain-text boxes preserve paragraphs and empty lines; point-based text-box margins accept a scalar, TRBL tuple, or named sides and remain editable through `shape.textMargins`. Text-box `valign` supports top, middle, and bottom through `shape.verticalAlignment`; boolean automatic wrapping remains editable through `shape.textWrap`; all seven OOXML `vert` directions remain editable through `shape.textDirection`; none/shrink/resize fit modes remain editable through `shape.textFit`. Plain and rich paragraphs support horizontal alignment, Unicode bullets, all 16 PptxGenJS numbering styles, list levels 0–8, paragraph spacing, and left/center/right/decimal tab stops. `addRichText()` and `shape.richText` add structured runs with fonts, sizes, bold/italic, point-based character spacing, text/highlight colors, superscript/subscript/custom baselines, soft breaks, solid sRGB/theme outlines, glow with point radii and opacity, all valid OOXML underline styles with independent colors, and single/double strike.
 
 ## Edit an existing presentation
 

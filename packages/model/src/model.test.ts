@@ -662,6 +662,149 @@ describe('PresentationModel', () => {
     }
   });
 
+  it('reads and losslessly replaces direct text-box fit', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.slides[1]!;
+    const part = pkg.requirePart(slide.partUri);
+    const bodyProperties = [
+      `<a:bodyPr wrap="none" lIns="127000" anchor="b" vert="vert270" custom="KEEP">`,
+      '<a:prstTxWarp prst="textNoShape"><a:avLst/></a:prstTxWarp>',
+      `<a:normAutofit fontScale='85000' lnSpcReduction="20000"/>`,
+      '<a:scene3d><a:camera prst="orthographicFront"/></a:scene3d>',
+      '<x:keep xmlns:x="urn:test">KEEP</x:keep>',
+      '</a:bodyPr>',
+    ].join('');
+    pkg.setPart(
+      part.uri,
+      new TextDecoder().decode(part.bytes).replace(
+        '<p:txBody><a:p>',
+        `<p:txBody>${bodyProperties}<a:p>`,
+      ),
+      part.contentType,
+    );
+    const shape = slide.shapes[0] as ShapeModel;
+    const beforeSameMode = pkg.requirePart(part.uri).bytes.slice();
+    const journal = [...pkg.mutations];
+
+    expect(shape.textFit).toBe('shrink');
+    expect(shape.textFit).toBe('shrink');
+    expect(pkg.mutations).toEqual(journal);
+    shape.textFit = 'shrink';
+    expect(pkg.requirePart(part.uri).bytes).toEqual(beforeSameMode);
+    expect(pkg.mutations).toEqual(journal);
+
+    shape.textFit = 'resize';
+    expect(shape.textFit).toBe('resize');
+    let updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated).toContain(
+      '<a:prstTxWarp prst="textNoShape"><a:avLst/></a:prstTxWarp>'
+      + '<a:spAutoFit/>'
+      + '<a:scene3d><a:camera prst="orthographicFront"/></a:scene3d>',
+    );
+    expect(updated).not.toContain('normAutofit');
+    expect(updated).toContain('<x:keep xmlns:x="urn:test">KEEP</x:keep>');
+
+    shape.text = 'Plain replacement';
+    shape.richText = [{ runs: [{ text: 'Rich replacement', style: { bold: true } }] }];
+    shape.textMargins = { top: 4, left: 8 };
+    shape.verticalAlignment = 'top';
+    shape.textWrap = true;
+    shape.textDirection = 'wordArtVert';
+    shape.setTransform({ x: inches(3) });
+    expect(shape.textFit).toBe('resize');
+    expect(slide.shapes[0]).toBe(shape);
+    updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated).toContain('<a:spAutoFit/>');
+    expect(updated).toContain('wrap="square"');
+    expect(updated).toContain('anchor="t"');
+    expect(updated).toContain('vert="wordArtVert"');
+    expect(updated).toContain('custom="KEEP"');
+    expect(updated).toContain('<x:keep xmlns:x="urn:test">KEEP</x:keep>');
+
+    const beforeRollback = pkg.requirePart(part.uri).bytes.slice();
+    const rollbackJournal = [...pkg.mutations];
+    expect(() =>
+      pkg.transaction(() => {
+        shape.textFit = 'shrink';
+        throw new Error('restore text fit');
+      }),
+    ).toThrow('restore text fit');
+    expect(pkg.requirePart(part.uri).bytes).toEqual(beforeRollback);
+    expect(pkg.mutations).toEqual(rollbackJournal);
+    expect(shape.textFit).toBe('resize');
+
+    shape.textFit = undefined;
+    expect(shape.textFit).toBeUndefined();
+    updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated).not.toMatch(/<(?:a:)?(?:noAutofit|normAutofit|spAutoFit)\b/);
+    expect(updated).toContain(
+      '<a:prstTxWarp prst="textNoShape"><a:avLst/></a:prstTxWarp>'
+      + '<a:scene3d><a:camera prst="orthographicFront"/></a:scene3d>',
+    );
+
+    shape.textFit = 'shrink';
+    expect(shape.textFit).toBe('shrink');
+    updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated).toContain(
+      '<a:prstTxWarp prst="textNoShape"><a:avLst/></a:prstTxWarp>'
+      + '<a:normAutofit/>'
+      + '<a:scene3d><a:camera prst="orthographicFront"/></a:scene3d>',
+    );
+    shape.textFit = 'none';
+    expect(shape.textFit).toBeUndefined();
+    updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated).not.toMatch(/<(?:a:)?(?:noAutofit|normAutofit|spAutoFit)\b/);
+    expect(updated).toContain('<x:keep xmlns:x="urn:test">KEEP</x:keep>');
+  });
+
+  it('reads only a unique direct text-box fit choice', async () => {
+    const cases: ReadonlyArray<readonly [string, string | undefined]> = [
+      ['', undefined],
+      ['<a:noAutofit/>', 'none'],
+      ['<a:normAutofit/>', 'shrink'],
+      ['<a:spAutoFit/>', 'resize'],
+      ['<a:NormAutofit/>', undefined],
+      ['<x:normAutofit xmlns:x="urn:test"/>', undefined],
+      ['<x:keep xmlns:x="urn:test"><a:normAutofit/></x:keep>', undefined],
+      ['<a:normAutofit/><a:normAutofit/>', undefined],
+      ['<a:noAutofit/><a:spAutoFit/>', undefined],
+      ['<x:unknown xmlns:x="urn:test"/>', undefined],
+    ];
+    for (const [children, expected] of cases) {
+      const pkg = await OpcPackage.open(await modelFixture());
+      const model = new PresentationModel(pkg);
+      const slide = model.slides[1]!;
+      const part = pkg.requirePart(slide.partUri);
+      const bodyProperties = children === ''
+        ? '<a:bodyPr/>'
+        : `<a:bodyPr>${children}</a:bodyPr>`;
+      pkg.setPart(
+        part.uri,
+        new TextDecoder().decode(part.bytes).replace(
+          '<p:txBody><a:p>',
+          `<p:txBody>${bodyProperties}<a:p>`,
+        ),
+        part.contentType,
+      );
+      const shape = slide.shapes[0] as ShapeModel;
+      const journal = [...pkg.mutations];
+
+      expect(shape.textFit).toBe(expected);
+      expect(pkg.mutations).toEqual(journal);
+      if (children === '<a:noAutofit/>') {
+        shape.text = 'Plain replacement';
+        shape.richText = [{ runs: [{ text: 'Rich replacement' }] }];
+        shape.textMargins = 2;
+        shape.verticalAlignment = 'bottom';
+        shape.textWrap = false;
+        shape.textDirection = 'vert';
+        shape.setTransform({ x: inches(2) });
+        expect(new TextDecoder().decode(pkg.requirePart(part.uri).bytes)).toContain('<a:noAutofit/>');
+      }
+    }
+  });
+
   it('reads strict local underline values and preserves their XML during plain text edits', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);
@@ -1424,6 +1567,10 @@ describe('PresentationModel', () => {
       expect(() => shape.textDirection).toThrow(malformedTextBody ? /body properties/ : /text body/);
       expect(() => {
         shape.textDirection = 'vert';
+      }).toThrow(malformedTextBody ? /body properties/ : /text body/);
+      expect(() => shape.textFit).toThrow(malformedTextBody ? /body properties/ : /text body/);
+      expect(() => {
+        shape.textFit = 'shrink';
       }).toThrow(malformedTextBody ? /body properties/ : /text body/);
       expect(pkg.requirePart(part.uri).bytes).toEqual(before);
       expect(pkg.mutations).toEqual(journal);

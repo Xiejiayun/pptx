@@ -12,6 +12,7 @@ import { cloneOwnedPartForMutation } from './dependency.internal.js';
 import type { SlideModel } from './slide.js';
 import type {
   RichTextParagraph,
+  TextBoxFit,
   TextBoxMarginInput,
   TextBoxMargins,
   TextBoxTextDirection,
@@ -121,6 +122,14 @@ export class ShapeModel extends BaseShapeModel {
 
   set textDirection(value: TextBoxTextDirection | undefined) {
     this.slide.setShapeTextDirection(this.id, value);
+  }
+
+  get textFit(): TextBoxFit | undefined {
+    return this.slide.getShapeTextFit(this.id);
+  }
+
+  set textFit(value: TextBoxFit | undefined) {
+    this.slide.setShapeTextFit(this.id, value);
   }
 
   get gradientFill(): GradientFill | undefined {

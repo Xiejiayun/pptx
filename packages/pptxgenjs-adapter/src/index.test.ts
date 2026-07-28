@@ -414,6 +414,71 @@ describe('importPptxGenJS', () => {
         objectName: 'Direction run ignored',
       },
     );
+    generatedSlide.addText('Omitted text fit', {
+      x: 8,
+      y: 0,
+      w: 2,
+      h: 0.5,
+      objectName: 'Fit omitted',
+    });
+    generatedSlide.addText('No text fit', {
+      x: 8,
+      y: 0.5,
+      w: 2,
+      h: 0.5,
+      fit: 'none',
+      objectName: 'Fit none',
+    });
+    generatedSlide.addText('Shrink text fit', {
+      x: 8,
+      y: 1,
+      w: 2,
+      h: 0.5,
+      fit: 'shrink',
+      objectName: 'Fit shrink',
+    });
+    generatedSlide.addText('Resize text fit', {
+      x: 8,
+      y: 1.5,
+      w: 2,
+      h: 0.5,
+      fit: 'resize',
+      objectName: 'Fit resize',
+    });
+    generatedSlide.addText('Invalid text fit', {
+      x: 8,
+      y: 2,
+      w: 2,
+      h: 0.5,
+      fit: 'SHRINK',
+      objectName: 'Fit invalid ignored',
+    });
+    generatedSlide.addText('Legacy shrink text fit', {
+      x: 8,
+      y: 2.5,
+      w: 2,
+      h: 0.5,
+      shrinkText: true,
+      objectName: 'Fit legacy shrink',
+    });
+    generatedSlide.addText('Legacy resize text fit', {
+      x: 8,
+      y: 3,
+      w: 2,
+      h: 0.5,
+      autoFit: true,
+      objectName: 'Fit legacy resize',
+    });
+    generatedSlide.addText(
+      [{ text: 'Ignored run text fit', options: { fit: 'shrink', shrinkText: true, autoFit: true } }],
+      {
+        x: 8,
+        y: 3.5,
+        w: 2,
+        h: 0.5,
+        objectName: 'Fit run ignored',
+      },
+    );
     const document = await importPptxGenJS(generated);
     expect(document.slides[0]?.title.text).toBe('Created by PptxGenJS');
     expect((document.slides[0]!.shapes[0] as ShapeModel).richText[0]!.align).toBe('center');
@@ -613,6 +678,25 @@ describe('importPptxGenJS', () => {
       undefined,
       undefined,
     ]);
+    expect([
+      'Fit omitted',
+      'Fit none',
+      'Fit shrink',
+      'Fit resize',
+      'Fit invalid ignored',
+      'Fit legacy shrink',
+      'Fit legacy resize',
+      'Fit run ignored',
+    ].map((name) => shapeByName(name).textFit)).toEqual([
+      undefined,
+      undefined,
+      'shrink',
+      'resize',
+      undefined,
+      'shrink',
+      'resize',
+      undefined,
+    ]);
     const importedXml = new TextDecoder().decode(
       document.opcPackage.requirePart(document.slides[0]!.partUri).bytes,
     );
@@ -643,6 +727,30 @@ describe('importPptxGenJS', () => {
     );
     expect(importedXml).toMatch(
       /name="Direction run ignored"[\s\S]*?<a:bodyPr(?![^>]*\svert=)[^>]*>/,
+    );
+    expect(importedXml).toMatch(
+      /name="Fit omitted"[\s\S]*?<a:bodyPr[^>]*(?:\/>|><\/a:bodyPr>)/,
+    );
+    expect(importedXml).toMatch(
+      /name="Fit none"[\s\S]*?<a:bodyPr[^>]*(?:\/>|><\/a:bodyPr>)/,
+    );
+    expect(importedXml).toMatch(
+      /name="Fit shrink"[\s\S]*?<a:bodyPr[^>]*><a:normAutofit\/><\/a:bodyPr>/,
+    );
+    expect(importedXml).toMatch(
+      /name="Fit resize"[\s\S]*?<a:bodyPr[^>]*><a:spAutoFit\/><\/a:bodyPr>/,
+    );
+    expect(importedXml).toMatch(
+      /name="Fit invalid ignored"[\s\S]*?<a:bodyPr[^>]*(?:\/>|><\/a:bodyPr>)/,
+    );
+    expect(importedXml).toMatch(
+      /name="Fit legacy shrink"[\s\S]*?<a:bodyPr[^>]*><a:normAutofit\/><\/a:bodyPr>/,
+    );
+    expect(importedXml).toMatch(
+      /name="Fit legacy resize"[\s\S]*?<a:bodyPr[^>]*><a:spAutoFit\/><\/a:bodyPr>/,
+    );
+    expect(importedXml).toMatch(
+      /name="Fit run ignored"[\s\S]*?<a:bodyPr[^>]*(?:\/>|><\/a:bodyPr>)/,
     );
     document.slides[0]!.title.text = 'Edited by the OOXML kernel';
     document.duplicateSlide(0);
@@ -793,7 +901,21 @@ describe('importPptxGenJS', () => {
       ['Direction alias ignored', undefined],
       ['Direction run ignored', undefined],
     ]);
-  }, 10_000);
+    const reopenedFit = reopened.slides[1]!.shapes
+      .filter((shape): shape is ShapeModel => shape instanceof ShapeModel)
+      .filter(({ name }) => name.startsWith('Fit '))
+      .map(({ name, textFit }) => [name, textFit]);
+    expect(reopenedFit).toEqual([
+      ['Fit omitted', undefined],
+      ['Fit none', undefined],
+      ['Fit shrink', 'shrink'],
+      ['Fit resize', 'resize'],
+      ['Fit invalid ignored', undefined],
+      ['Fit legacy shrink', 'shrink'],
+      ['Fit legacy resize', 'resize'],
+      ['Fit run ignored', undefined],
+    ]);
+  }, 20_000);
 
   it('keeps pptxgenjs out of every non-adapter package dependency list', async () => {
     const packagesDirectory = fileURLToPath(new URL('../..', import.meta.url));

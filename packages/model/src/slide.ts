@@ -33,6 +33,12 @@ import {
   replaceTextBoxMargins,
 } from './text-box-margins.internal.js';
 import {
+  normalizeTextBoxFit,
+  readTextBoxFit,
+  renderTextBoxFitChild,
+  replaceTextBoxFit,
+} from './text-box-fit.internal.js';
+import {
   normalizeTextBoxTextDirection,
   readTextBoxTextDirection,
   renderTextBoxTextDirectionAttribute,
@@ -55,6 +61,7 @@ import type {
   ParagraphSpacing,
   ParagraphTabStop,
   RichTextParagraph,
+  TextBoxFit,
   TextBoxMarginInput,
   TextBoxMargins,
   TextBoxTextDirection,
@@ -67,6 +74,7 @@ export interface AddTextOptions extends Partial<Transform> {
   readonly name?: string;
   readonly align?: TextAlignment;
   readonly bullet?: ParagraphBullet;
+  readonly fit?: TextBoxFit;
   readonly level?: number;
   readonly margin?: TextBoxMarginInput;
   readonly spacing?: ParagraphSpacing;
@@ -273,6 +281,20 @@ export class SlideModel {
     });
   }
 
+  getShapeTextFit(id: number): TextBoxFit | undefined {
+    const { xml, element } = this.resolveShape(id);
+    return readTextBoxFit(xml, element, this.partUri);
+  }
+
+  setShapeTextFit(id: number, value: TextBoxFit | undefined): void {
+    this.presentation.opcPackage.transaction(() => {
+      const fit = value === undefined ? undefined : normalizeTextBoxFit(value, 'Text fit');
+      const { xml, element } = this.resolveShape(id);
+      replaceTextBoxFit(xml, element, fit, this.partUri);
+      this.setXml(xml.serialize());
+    });
+  }
+
   setShapeTransform(id: number, changes: Partial<Transform>): void {
     const { xml, element } = this.resolveShape(id);
     const xfrm = xml.descendants(element, 'xfrm')[0];
@@ -312,6 +334,7 @@ export class SlideModel {
         normalized.margin,
         normalized.verticalAlignment,
         normalized.textDirection,
+        normalized.textFit,
         normalized.textWrap,
       );
     });
@@ -333,6 +356,7 @@ export class SlideModel {
         defaults.margin,
         defaults.verticalAlignment,
         defaults.textDirection,
+        defaults.textFit,
         defaults.textWrap,
       );
     });
@@ -348,6 +372,7 @@ export class SlideModel {
     margins: TextBoxMargins | undefined,
     verticalAlignment: TextBoxVerticalAlignment,
     textDirection: TextBoxTextDirection | undefined,
+    textFit: TextBoxFit | undefined,
     textWrap: boolean,
   ): ShapeModel {
     const { xml } = this.parse();
@@ -363,6 +388,7 @@ export class SlideModel {
       margins,
       verticalAlignment,
       textDirection,
+      textFit,
       textWrap,
     );
     const extensionList = shapeTree.children.find(
@@ -432,6 +458,7 @@ interface NormalizedTextInput {
   readonly tabStops: readonly NormalizedParagraphTabStop[] | undefined;
   readonly verticalAlignment: TextBoxVerticalAlignment;
   readonly textDirection: TextBoxTextDirection | undefined;
+  readonly textFit: TextBoxFit | undefined;
   readonly textWrap: boolean;
 }
 
@@ -447,6 +474,7 @@ function validateTextInput(value: string, options: AddTextOptions): NormalizedTe
     tabStops: defaults.tabStops,
     verticalAlignment: defaults.verticalAlignment,
     textDirection: defaults.textDirection,
+    textFit: defaults.textFit,
     textWrap: defaults.textWrap,
   };
 }
@@ -459,6 +487,7 @@ interface NormalizedAddTextOptions {
   readonly tabStops?: readonly NormalizedParagraphTabStop[];
   readonly verticalAlignment: TextBoxVerticalAlignment;
   readonly textDirection?: TextBoxTextDirection;
+  readonly textFit?: TextBoxFit;
   readonly textWrap: boolean;
 }
 
@@ -516,6 +545,9 @@ function validateAddTextOptions(options: AddTextOptions): NormalizedAddTextOptio
   const textDirection = options.vert === undefined
     ? undefined
     : normalizeTextBoxTextDirection(options.vert, 'Text direction');
+  const textFit = options.fit === undefined
+    ? undefined
+    : normalizeTextBoxFit(options.fit, 'Text fit');
   const textWrap = options.wrap === undefined
     ? true
     : normalizeTextBoxWrap(options.wrap, 'Text wrap');
@@ -527,6 +559,7 @@ function validateAddTextOptions(options: AddTextOptions): NormalizedAddTextOptio
     ...(tabStops !== undefined ? { tabStops } : {}),
     verticalAlignment,
     ...(textDirection !== undefined ? { textDirection } : {}),
+    ...(textFit !== undefined ? { textFit } : {}),
     textWrap,
   };
 }
@@ -555,6 +588,7 @@ function textShapeXml(
   margins: TextBoxMargins | undefined,
   verticalAlignment: TextBoxVerticalAlignment,
   textDirection: TextBoxTextDirection | undefined,
+  textFit: TextBoxFit | undefined,
   textWrap: boolean,
 ): string {
   const x = Math.round(options.x ?? 0);
@@ -574,7 +608,11 @@ function textShapeXml(
   const textDirectionAttribute = textDirection === undefined
     ? ''
     : renderTextBoxTextDirectionAttribute(textDirection);
-  return `<p:sp xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><p:nvSpPr><p:cNvPr id="${id}" name="${name}"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm${transformAttributes}><a:off x="${x}" y="${y}"/><a:ext cx="${width}" cy="${height}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></p:spPr><p:txBody><a:bodyPr${wrapAttribute}${marginAttributes} rtlCol="0"${verticalAlignmentAttribute}${textDirectionAttribute}/><a:lstStyle/>${paragraphs}</p:txBody></p:sp>`;
+  const fitChild = textFit === undefined ? '' : renderTextBoxFitChild(textFit);
+  const bodyProperties = fitChild === ''
+    ? `<a:bodyPr${wrapAttribute}${marginAttributes} rtlCol="0"${verticalAlignmentAttribute}${textDirectionAttribute}/>`
+    : `<a:bodyPr${wrapAttribute}${marginAttributes} rtlCol="0"${verticalAlignmentAttribute}${textDirectionAttribute}>${fitChild}</a:bodyPr>`;
+  return `<p:sp xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><p:nvSpPr><p:cNvPr id="${id}" name="${name}"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm${transformAttributes}><a:off x="${x}" y="${y}"/><a:ext cx="${width}" cy="${height}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></p:spPr><p:txBody>${bodyProperties}<a:lstStyle/>${paragraphs}</p:txBody></p:sp>`;
 }
 
 function textParagraphXml(
