@@ -5,7 +5,6 @@ import {
   PackageError,
   partUriDirname,
   relativeRelationshipTarget,
-  relationshipPartUri,
 } from '@pptx/opc';
 import {
   detectPresentationFormat,
@@ -15,6 +14,11 @@ import {
   type PresentationFormatProfile,
 } from './format.js';
 import { SlideModel } from './slide.js';
+import {
+  cloneSlideDependencies,
+  garbageCollectOwnedDependencies,
+  ownedSlideDependencyRoots,
+} from './dependency.internal.js';
 
 const SLIDE_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slide+xml';
 const SLIDE_RELATIONSHIP = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide';
@@ -94,15 +98,7 @@ export class PresentationModel {
       );
       const sourcePart = this.opcPackage.requirePart(source.partUri);
       this.opcPackage.setPart(slideUri, sourcePart.bytes, sourcePart.contentType);
-      const sourceRelationshipsUri = relationshipPartUri(source.partUri);
-      const relationshipsPart = this.opcPackage.getPart(sourceRelationshipsUri);
-      if (relationshipsPart) {
-        this.opcPackage.setPart(
-          relationshipPartUri(slideUri),
-          relationshipsPart.bytes,
-          relationshipsPart.contentType,
-        );
-      }
+      cloneSlideDependencies(this.opcPackage, source.partUri, slideUri);
       return this.attachSlide(slideUri);
     });
   }
@@ -115,10 +111,12 @@ export class PresentationModel {
         (element) => xml.attribute(element, 'r:id')?.value === slide.relationshipId,
       );
       if (!entry) throw new PackageError(`Slide entry ${slide.relationshipId} is missing`, this.presentationPartUri);
+      const ownedDependencies = ownedSlideDependencyRoots(this.opcPackage, slide.partUri);
       xml.removeElement(entry);
       this.setXmlPart(this.presentationPartUri, xml.serialize());
       this.opcPackage.removeRelationship(this.presentationPartUri, slide.relationshipId);
       this.opcPackage.deletePart(slide.partUri);
+      garbageCollectOwnedDependencies(this.opcPackage, ownedDependencies);
     });
   }
 
