@@ -15,6 +15,7 @@ import type {
   ParagraphTabStop,
   ParagraphTabStopAlignment,
   RichTextColor,
+  RichTextGlow,
   RichTextOutline,
   RichTextParagraph,
   RichTextRun,
@@ -81,6 +82,8 @@ const MIN_COORDINATE_32 = -2_147_483_648;
 const MAX_COORDINATE_32 = 2_147_483_647;
 const EMU_PER_POINT = 12_700;
 const MAX_LINE_WIDTH_EMU = 20_116_800;
+const MAX_POSITIVE_COORDINATE_EMU = 27_273_042_316_900;
+const PERCENT_SCALE = 100_000;
 
 const TAB_STOP_ALIGNMENT_TO_OOXML: Readonly<Record<ParagraphTabStopAlignment, string>> = {
   left: 'l',
@@ -746,7 +749,7 @@ function normalizeStyle(value: unknown, paragraphIndex: number, runIndex: number
   }
   assertSupportedKeys(
     value,
-    ['bold', 'color', 'fontFamily', 'fontSize', 'highlight', 'italic', 'outline', 'strike', 'underline'],
+    ['bold', 'color', 'fontFamily', 'fontSize', 'glow', 'highlight', 'italic', 'outline', 'strike', 'underline'],
     `Rich text run ${paragraphIndex},${runIndex} style`,
   );
   const candidate = value as RichTextRunStyle;
@@ -778,6 +781,9 @@ function normalizeStyle(value: unknown, paragraphIndex: number, runIndex: number
   const color = candidate.color === undefined
     ? undefined
     : normalizeColor(candidate.color, `${context} color`);
+  const glow = candidate.glow === undefined
+    ? undefined
+    : normalizeGlow(candidate.glow, `${context} glow`);
   const highlight = candidate.highlight === undefined
     ? undefined
     : normalizeColor(candidate.highlight, `${context} highlight`);
@@ -796,10 +802,42 @@ function normalizeStyle(value: unknown, paragraphIndex: number, runIndex: number
     ...(candidate.bold !== undefined ? { bold: candidate.bold } : {}),
     ...(candidate.italic !== undefined ? { italic: candidate.italic } : {}),
     ...(color ? { color } : {}),
+    ...(glow ? { glow } : {}),
     ...(highlight ? { highlight } : {}),
     ...(outline ? { outline } : {}),
     ...(underline !== undefined ? { underline } : {}),
     ...(strike !== undefined ? { strike } : {}),
+  };
+}
+
+function normalizeGlow(value: unknown, context: string): RichTextGlow {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new TypeError(`${context} must be an object`);
+  }
+  assertSupportedKeys(value, ['color', 'opacity', 'size'], context);
+  const candidate = value as { color?: unknown; opacity?: unknown; size?: unknown };
+  if (candidate.opacity === undefined || candidate.size === undefined) {
+    throw new TypeError(`${context} must provide opacity and size`);
+  }
+  if (typeof candidate.size !== 'number' || !Number.isFinite(candidate.size)) {
+    throw new TypeError(`${context} size must be finite`);
+  }
+  if (typeof candidate.opacity !== 'number' || !Number.isFinite(candidate.opacity)) {
+    throw new TypeError(`${context} opacity must be finite`);
+  }
+  const radiusEmu = Math.round(candidate.size * EMU_PER_POINT);
+  if (candidate.size < 0 || radiusEmu > MAX_POSITIVE_COORDINATE_EMU) {
+    throw new RangeError(`${context} size must fit the OOXML 0 to 2147483647 point range`);
+  }
+  if (candidate.opacity < 0 || candidate.opacity > 1) {
+    throw new RangeError(`${context} opacity must be between 0 and 1`);
+  }
+  return {
+    color: candidate.color === undefined
+      ? { kind: 'srgb', value: 'FFFFFF' }
+      : normalizeColor(candidate.color, `${context} color`),
+    opacity: Math.round(candidate.opacity * PERCENT_SCALE) / PERCENT_SCALE,
+    size: radiusEmu / EMU_PER_POINT,
   };
 }
 
@@ -901,6 +939,9 @@ function renderRun(run: RichTextRun, prefix: string): string {
   const outline = style.outline
     ? `<${prefix}ln w="${Math.round(style.outline.size * EMU_PER_POINT)}"><${prefix}solidFill>${renderColorChoice(style.outline.color, prefix)}</${prefix}solidFill></${prefix}ln>`
     : '';
+  const glow = style.glow
+    ? `<${prefix}effectLst><${prefix}glow rad="${Math.round(style.glow.size * EMU_PER_POINT)}">${renderGlowColorChoice(style.glow, prefix)}</${prefix}glow></${prefix}effectLst>`
+    : '';
   const highlight = style.highlight
     ? `<${prefix}highlight>${renderColorChoice(style.highlight, prefix)}</${prefix}highlight>`
     : '';
@@ -911,13 +952,19 @@ function renderRun(run: RichTextRun, prefix: string): string {
   const latin = escapeXmlAttribute(style.fontFamily ?? '+mn-lt');
   const eastAsian = escapeXmlAttribute(style.fontFamily ?? '+mn-ea');
   const complexScript = escapeXmlAttribute(style.fontFamily ?? '+mn-cs');
-  return `${softBreak}<${prefix}r><${prefix}rPr ${attributes}>${outline}<${prefix}solidFill>${colorXml}</${prefix}solidFill>${highlight}${underlineFill}<${prefix}latin typeface="${latin}"/><${prefix}ea typeface="${eastAsian}"/><${prefix}cs typeface="${complexScript}"/></${prefix}rPr><${prefix}t xml:space="preserve">${escapeXmlText(run.text)}</${prefix}t></${prefix}r>`;
+  return `${softBreak}<${prefix}r><${prefix}rPr ${attributes}>${outline}<${prefix}solidFill>${colorXml}</${prefix}solidFill>${glow}${highlight}${underlineFill}<${prefix}latin typeface="${latin}"/><${prefix}ea typeface="${eastAsian}"/><${prefix}cs typeface="${complexScript}"/></${prefix}rPr><${prefix}t xml:space="preserve">${escapeXmlText(run.text)}</${prefix}t></${prefix}r>`;
 }
 
 function renderColorChoice(color: RichTextColor, prefix: string): string {
   return color.kind === 'srgb'
     ? `<${prefix}srgbClr val="${color.value}"/>`
     : `<${prefix}schemeClr val="${color.value}"/>`;
+}
+
+function renderGlowColorChoice(glow: RichTextGlow, prefix: string): string {
+  const color = glow.color ?? { kind: 'srgb' as const, value: 'FFFFFF' };
+  const tag = color.kind === 'srgb' ? 'srgbClr' : 'schemeClr';
+  return `<${prefix}${tag} val="${color.value}"><${prefix}alpha val="${Math.round(glow.opacity * PERCENT_SCALE)}"/></${prefix}${tag}>`;
 }
 
 function readRuns(xml: LosslessXmlDocument, paragraph: XmlElement): RichTextRun[] {
@@ -1119,6 +1166,7 @@ function readStyle(xml: LosslessXmlDocument, run: XmlElement): RichTextRunStyle 
   const bold = booleanAttribute(xml, properties, 'b');
   const italic = booleanAttribute(xml, properties, 'i');
   const strike = readStrike(xml, properties);
+  const glow = readGlow(xml, properties);
   const highlight = readHighlight(xml, properties);
   const outline = readOutline(xml, properties);
   const underline = readUnderline(xml, properties);
@@ -1128,12 +1176,65 @@ function readStyle(xml: LosslessXmlDocument, run: XmlElement): RichTextRunStyle 
     ...(bold !== undefined ? { bold } : {}),
     ...(italic !== undefined ? { italic } : {}),
     ...(color ? { color } : {}),
+    ...(glow ? { glow } : {}),
     ...(highlight ? { highlight } : {}),
     ...(outline ? { outline } : {}),
     ...(underline !== undefined ? { underline } : {}),
     ...(strike !== undefined ? { strike } : {}),
   };
   return Object.keys(style).length > 0 ? style : undefined;
+}
+
+function readGlow(
+  xml: LosslessXmlDocument,
+  properties: XmlElement,
+): RichTextGlow | undefined {
+  if (directChildren(properties, 'effectDag').length > 0) return undefined;
+  const effectLists = directChildren(properties, 'effectLst');
+  if (effectLists.length !== 1) return undefined;
+  const elements = directChildren(effectLists[0]!, 'glow');
+  if (elements.length !== 1) return undefined;
+  const glow = elements[0]!;
+  const attributes = glow.attributes.filter(({ name }) => name !== 'xmlns' && !name.startsWith('xmlns:'));
+  if (attributes.length !== 1 || attributes[0]?.localName !== 'rad') return undefined;
+  const radiusEmu = readIntegerAttribute(xml, glow, 'rad');
+  if (radiusEmu === undefined || radiusEmu < 0 || radiusEmu > MAX_POSITIVE_COORDINATE_EMU) return undefined;
+  const result = readGlowColor(xml, glow);
+  return result
+    ? { color: result.color, opacity: result.opacity, size: radiusEmu / EMU_PER_POINT }
+    : undefined;
+}
+
+function readGlowColor(
+  xml: LosslessXmlDocument,
+  glow: XmlElement,
+): { color: RichTextColor; opacity: number } | undefined {
+  const children = directChildren(glow);
+  if (children.length !== 1) return undefined;
+  const colorElement = children[0]!;
+  const colorAttributes = colorElement.attributes.filter(
+    ({ name }) => name !== 'xmlns' && !name.startsWith('xmlns:'),
+  );
+  if (colorAttributes.length !== 1 || colorAttributes[0]?.localName !== 'val') return undefined;
+  const value = xml.attribute(colorElement, 'val')?.value;
+  const color = colorElement.localName === 'srgbClr' && value && /^[\da-f]{6}$/i.test(value)
+    ? { kind: 'srgb' as const, value: value.toUpperCase() }
+    : colorElement.localName === 'schemeClr' && value && SCHEME_COLORS.has(value)
+      ? { kind: 'scheme' as const, value }
+      : undefined;
+  if (!color) return undefined;
+  const transforms = directChildren(colorElement);
+  if (transforms.length === 0) return { color, opacity: 1 };
+  if (transforms.length !== 1 || transforms[0]?.localName !== 'alpha') return undefined;
+  const alpha = transforms[0]!;
+  const alphaAttributes = alpha.attributes.filter(({ name }) => name !== 'xmlns' && !name.startsWith('xmlns:'));
+  if (alphaAttributes.length !== 1 || alphaAttributes[0]?.localName !== 'val' || directChildren(alpha).length > 0) {
+    return undefined;
+  }
+  const opacity = readIntegerAttribute(xml, alpha, 'val');
+  return opacity !== undefined && opacity >= 0 && opacity <= PERCENT_SCALE
+    ? { color, opacity: opacity / PERCENT_SCALE }
+    : undefined;
 }
 
 function readOutline(

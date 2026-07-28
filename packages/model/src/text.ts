@@ -33,6 +33,12 @@ export interface RichTextOutline {
   readonly size: number;
 }
 
+export interface RichTextGlow {
+  readonly color?: RichTextColor;
+  readonly opacity: number;
+  readonly size: number;
+}
+
 export type TextAlignment = 'left' | 'center' | 'right' | 'justify';
 
 export type NumberingStyle =
@@ -97,6 +103,7 @@ export interface RichTextRunStyle {
   readonly bold?: boolean;
   readonly italic?: boolean;
   readonly color?: RichTextColor;
+  readonly glow?: RichTextGlow;
   readonly highlight?: RichTextColor;
   readonly outline?: RichTextOutline;
   readonly underline?: boolean | RichTextUnderline;

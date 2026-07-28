@@ -193,6 +193,15 @@ describe('importPptxGenJS', () => {
       ],
       { x: 9, y: 6, w: 3, h: 1 },
     );
+    generatedSlide.addText(
+      [
+        { text: 'Red', options: { glow: { color: 'ff0000', size: 8, opacity: 0.5 } } },
+        { text: ' Theme', options: { glow: { color: 'accent1', size: 2.5, opacity: 1 } } },
+        { text: ' Default', options: { glow: { size: 0, opacity: 0 } } },
+        { text: ' None', options: {} },
+      ],
+      { x: 9, y: 7, w: 3, h: 1 },
+    );
     const document = await importPptxGenJS(generated);
     expect(document.slides[0]?.title.text).toBe('Created by PptxGenJS');
     expect((document.slides[0]!.shapes[0] as ShapeModel).richText[0]!.align).toBe('center');
@@ -307,6 +316,14 @@ describe('importPptxGenJS', () => {
       { color: { kind: 'scheme', value: 'accent1' }, size: 2 },
       undefined,
     ]);
+    expect((document.slides[0]!.shapes[21] as ShapeModel).richText[0]!.runs.map(
+      ({ style }) => style?.glow,
+    )).toEqual([
+      { color: { kind: 'srgb', value: 'FF0000' }, opacity: 0.5, size: 8 },
+      { color: { kind: 'scheme', value: 'accent1' }, opacity: 1, size: 2.5 },
+      { color: { kind: 'srgb', value: 'FFFFFF' }, opacity: 0, size: 0 },
+      undefined,
+    ]);
     document.slides[0]!.title.text = 'Edited by the OOXML kernel';
     document.duplicateSlide(0);
 
@@ -388,6 +405,14 @@ describe('importPptxGenJS', () => {
     )).toEqual([
       { color: { kind: 'srgb', value: 'FF0000' }, size: 1.5 },
       { color: { kind: 'scheme', value: 'accent1' }, size: 2 },
+      undefined,
+    ]);
+    expect((reopened.slides[1]!.shapes[21] as ShapeModel).richText[0]!.runs.map(
+      ({ style }) => style?.glow,
+    )).toEqual([
+      { color: { kind: 'srgb', value: 'FF0000' }, opacity: 0.5, size: 8 },
+      { color: { kind: 'scheme', value: 'accent1' }, opacity: 1, size: 2.5 },
+      { color: { kind: 'srgb', value: 'FFFFFF' }, opacity: 0, size: 0 },
       undefined,
     ]);
   });

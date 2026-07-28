@@ -452,6 +452,91 @@ describe('PresentationModel', () => {
       .toHaveLength(2);
   });
 
+  it('reads strict local text glows and preserves their XML during plain text edits', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.slides[1]!;
+    const part = pkg.requirePart(slide.partUri);
+    const glowText = [
+      '<a:p>',
+      '<a:r><a:rPr><a:effectLst><a:glow rad="101600"><a:srgbClr val="ff0000"><a:alpha val="50000"/></a:srgbClr></a:glow></a:effectLst></a:rPr><a:t>Red</a:t></a:r>',
+      '<a:r><a:rPr><a:effectLst><a:glow rad="31750"><a:schemeClr val="accent1"/></a:glow></a:effectLst></a:rPr><a:t>Theme</a:t></a:r>',
+      '<a:r><a:rPr><a:effectLst><a:glow rad="0"><a:srgbClr val="00FF00"><a:alpha val="0"/></a:srgbClr></a:glow></a:effectLst></a:rPr><a:t>Zero</a:t></a:r>',
+      '<a:r><a:rPr><a:effectLst><a:glow rad="27273042316900"><a:schemeClr val="accent2"><a:alpha val="100000"/></a:schemeClr></a:glow></a:effectLst></a:rPr><a:t>Maximum</a:t></a:r>',
+      '<a:r><a:rPr><a:effectLst><a:glow rad="12700"><a:srgbClr val="0000FF"><a:alpha val="75000"/></a:srgbClr></a:glow><a:outerShdw blurRad="0"/></a:effectLst></a:rPr><a:t>Sibling effect</a:t></a:r>',
+      '<a:r><a:rPr><a:effectLst><a:glow rad="12700"><a:srgbClr val="FF0000"/></a:glow></a:effectLst><a:effectLst><a:glow rad="12700"><a:srgbClr val="00FF00"/></a:glow></a:effectLst></a:rPr><a:t>Repeated list</a:t></a:r>',
+      '<a:r><a:rPr><a:effectDag/><a:effectLst><a:glow rad="12700"><a:srgbClr val="FF0000"/></a:glow></a:effectLst></a:rPr><a:t>Effect DAG</a:t></a:r>',
+      '<a:r><a:rPr><a:effectLst><a:glow rad="12700"><a:srgbClr val="FF0000"/></a:glow><a:glow rad="25400"><a:srgbClr val="00FF00"/></a:glow></a:effectLst></a:rPr><a:t>Repeated glow</a:t></a:r>',
+      '<a:r><a:rPr><a:effectLst><a:glow><a:srgbClr val="FF0000"/></a:glow></a:effectLst></a:rPr><a:t>Missing radius</a:t></a:r>',
+      '<a:r><a:rPr><a:effectLst><a:glow rad="-1"><a:srgbClr val="FF0000"/></a:glow></a:effectLst></a:rPr><a:t>Negative</a:t></a:r>',
+      '<a:r><a:rPr><a:effectLst><a:glow rad="27273042316901"><a:srgbClr val="FF0000"/></a:glow></a:effectLst></a:rPr><a:t>Too large</a:t></a:r>',
+      '<a:r><a:rPr><a:effectLst><a:glow rad="1.5"><a:srgbClr val="FF0000"/></a:glow></a:effectLst></a:rPr><a:t>Decimal</a:t></a:r>',
+      '<a:r><a:rPr><a:effectLst><a:glow rad="12700" custom="1"><a:srgbClr val="FF0000"/></a:glow></a:effectLst></a:rPr><a:t>Extra attribute</a:t></a:r>',
+      '<a:r><a:rPr><a:effectLst><a:glow rad="12700"><a:prstClr val="red"/></a:glow></a:effectLst></a:rPr><a:t>Unsupported color</a:t></a:r>',
+      '<a:r><a:rPr strike="sngStrike"><a:effectLst><a:glow rad="12700"><a:schemeClr val="accent1"><a:tint val="50000"/></a:schemeClr></a:glow></a:effectLst></a:rPr><a:t>Transform</a:t></a:r>',
+      '<a:r><a:rPr><a:effectLst><a:glow rad="12700"><a:srgbClr val="FF0000"><a:alpha val="50000"/><a:alpha val="75000"/></a:srgbClr></a:glow></a:effectLst></a:rPr><a:t>Repeated alpha</a:t></a:r>',
+      '<a:r><a:rPr><a:effectLst><a:glow rad="12700"><a:srgbClr val="FF0000"><a:alpha val="100001"/></a:srgbClr></a:glow></a:effectLst></a:rPr><a:t>High alpha</a:t></a:r>',
+      '<a:r><a:rPr><a:effectLst><a:glow rad="12700"><a:srgbClr val="FF0000"><a:alpha val="1.5"/></a:srgbClr></a:glow></a:effectLst></a:rPr><a:t>Decimal alpha</a:t></a:r>',
+      '<a:r><a:rPr/><a:t>Absent</a:t></a:r>',
+      '</a:p>',
+    ].join('');
+    pkg.setPart(
+      part.uri,
+      new TextDecoder().decode(part.bytes).replace(
+        '<a:p><a:r><a:t>First title</a:t></a:r></a:p>',
+        glowText,
+      ),
+      part.contentType,
+    );
+    const shape = slide.shapes[0] as ShapeModel;
+    const journal = [...pkg.mutations];
+
+    expect(shape.richText[0]!.runs.map(({ style }) => style?.glow)).toEqual([
+      { color: { kind: 'srgb', value: 'FF0000' }, opacity: 0.5, size: 8 },
+      { color: { kind: 'scheme', value: 'accent1' }, opacity: 1, size: 2.5 },
+      { color: { kind: 'srgb', value: '00FF00' }, opacity: 0, size: 0 },
+      { color: { kind: 'scheme', value: 'accent2' }, opacity: 1, size: 2_147_483_647 },
+      { color: { kind: 'srgb', value: '0000FF' }, opacity: 0.75, size: 1 },
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    ]);
+    expect(shape.richText[0]!.runs[14]!.style!.strike).toBe('sngStrike');
+    expect(pkg.mutations).toEqual(journal);
+
+    const snapshot = shape.richText as unknown as Array<{
+      runs: Array<{ style?: { glow?: { color?: { value: string }; opacity: number; size: number } } }>;
+    }>;
+    snapshot[0]!.runs[0]!.style!.glow!.color!.value = '000000';
+    snapshot[0]!.runs[0]!.style!.glow!.opacity = 1;
+    snapshot[0]!.runs[0]!.style!.glow!.size = 3;
+    expect(shape.richText[0]!.runs[0]!.style!.glow).toEqual({
+      color: { kind: 'srgb', value: 'FF0000' },
+      opacity: 0.5,
+      size: 8,
+    });
+
+    shape.text = 'First replacement\nSecond replacement';
+    expect(shape.richText.map((paragraph) => paragraph.runs[0]!.style!.glow)).toEqual([
+      { color: { kind: 'srgb', value: 'FF0000' }, opacity: 0.5, size: 8 },
+      { color: { kind: 'srgb', value: 'FF0000' }, opacity: 0.5, size: 8 },
+    ]);
+    const updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated.match(/<a:effectLst><a:glow rad="101600"><a:srgbClr val="ff0000"><a:alpha val="50000"\/><\/a:srgbClr><\/a:glow><\/a:effectLst>/g))
+      .toHaveLength(2);
+  });
+
   it('updates alignment without rebuilding other paragraph properties', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);

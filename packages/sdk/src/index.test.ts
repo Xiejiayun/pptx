@@ -892,6 +892,108 @@ describe('PptxDocument vertical slice', () => {
     expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
   });
 
+  it('creates, edits, duplicates, and reopens rich text glows', async () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const sourceGlow = {
+      color: { kind: 'srgb' as const, value: '#ff0000' },
+      opacity: 0.5,
+      size: 8,
+    };
+    const shape = slide.addRichText([{
+      runs: [
+        { text: 'Red', style: { glow: sourceGlow } },
+        { text: 'Default', style: { glow: { opacity: 0.75, size: 4 } } },
+        { text: 'Theme', style: { glow: { color: { kind: 'scheme', value: 'accent1' }, opacity: 1, size: 2.5 } } },
+        { text: 'Zero', style: { glow: { color: { kind: 'srgb', value: '00FF00' }, opacity: 0, size: 0 } } },
+        { text: 'Quantized', style: { glow: { color: { kind: 'srgb', value: '0000FF' }, opacity: 0.123456, size: 1.23456 } } },
+        { text: 'Maximum', style: { glow: { color: { kind: 'scheme', value: 'accent2' }, opacity: 1, size: 2_147_483_647 } } },
+        {
+          text: 'Combined',
+          style: {
+            glow: { color: { kind: 'scheme', value: 'accent3' }, opacity: 0.25, size: 6 },
+            highlight: { kind: 'srgb', value: 'FFFF00' },
+            outline: { color: { kind: 'scheme', value: 'accent2' }, size: 0.75 },
+            strike: 'dblStrike',
+            underline: { style: 'dbl' },
+          },
+        },
+      ],
+    }]);
+    sourceGlow.color.value = '000000';
+    sourceGlow.opacity = 1;
+    sourceGlow.size = 3;
+
+    expect(shape.richText[0]!.runs.map(({ style }) => style?.glow)).toEqual([
+      { color: { kind: 'srgb', value: 'FF0000' }, opacity: 0.5, size: 8 },
+      { color: { kind: 'srgb', value: 'FFFFFF' }, opacity: 0.75, size: 4 },
+      { color: { kind: 'scheme', value: 'accent1' }, opacity: 1, size: 2.5 },
+      { color: { kind: 'srgb', value: '00FF00' }, opacity: 0, size: 0 },
+      { color: { kind: 'srgb', value: '0000FF' }, opacity: 0.12346, size: 15_679 / 12_700 },
+      { color: { kind: 'scheme', value: 'accent2' }, opacity: 1, size: 2_147_483_647 },
+      { color: { kind: 'scheme', value: 'accent3' }, opacity: 0.25, size: 6 },
+    ]);
+    const createdXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(createdXml).toContain(
+      '<a:effectLst><a:glow rad="101600"><a:srgbClr val="FF0000"><a:alpha val="50000"/></a:srgbClr></a:glow></a:effectLst>',
+    );
+    expect(createdXml).toContain('<a:glow rad="15679"><a:srgbClr val="0000FF"><a:alpha val="12346"/>');
+    expect(createdXml).toContain('<a:glow rad="27273042316900">');
+
+    const snapshot = shape.richText as unknown as Array<{
+      runs: Array<{ style?: { glow?: { color?: { value: string }; opacity: number; size: number } } }>;
+    }>;
+    snapshot[0]!.runs[0]!.style!.glow!.color!.value = 'FFFFFF';
+    snapshot[0]!.runs[0]!.style!.glow!.opacity = 1;
+    snapshot[0]!.runs[0]!.style!.glow!.size = 4;
+    expect(shape.richText[0]!.runs[0]!.style!.glow).toEqual({
+      color: { kind: 'srgb', value: 'FF0000' },
+      opacity: 0.5,
+      size: 8,
+    });
+
+    document.duplicateSlide(0);
+    shape.richText = [{
+      runs: [
+        { text: 'Changed', style: { glow: { color: { kind: 'scheme', value: 'tx1' }, opacity: 0.6, size: 5 } } },
+        { text: 'Cleared' },
+      ],
+    }];
+    expect(shape.richText[0]!.runs.map(({ style }) => style?.glow)).toEqual([
+      { color: { kind: 'scheme', value: 'tx1' }, opacity: 0.6, size: 5 },
+      undefined,
+    ]);
+
+    const beforeRollback = document.opcPackage.requirePart(slide.partUri).bytes;
+    expect(() =>
+      document.transaction(() => {
+        shape.richText = [{
+          runs: [{
+            text: 'Rollback',
+            style: { glow: { color: { kind: 'srgb', value: '000000' }, opacity: 1, size: 2 } },
+          }],
+        }];
+        throw new Error('restore glow');
+      }),
+    ).toThrow('restore glow');
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(beforeRollback);
+    expect(slide.shapes[0]).toBe(shape);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const edited = reopened.slides[0]!.shapes[0] as ShapeModel;
+    const duplicated = reopened.slides[1]!.shapes[0] as ShapeModel;
+    expect(edited.richText[0]!.runs.map(({ style }) => style?.glow)).toEqual([
+      { color: { kind: 'scheme', value: 'tx1' }, opacity: 0.6, size: 5 },
+      undefined,
+    ]);
+    expect(duplicated.richText[0]!.runs[0]!.style!.glow).toEqual({
+      color: { kind: 'srgb', value: 'FF0000' },
+      opacity: 0.5,
+      size: 8,
+    });
+    expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+  });
+
   it('creates, edits, duplicates, and reopens rich text highlight colors', async () => {
     const document = PptxDocument.create();
     const slide = document.addSlide();
@@ -1218,6 +1320,23 @@ describe('PptxDocument vertical slice', () => {
       [{ runs: [{ text: 'x', style: { highlight: { kind: 'srgb', value: 'yellow' } } }] }],
       [{ runs: [{ text: 'x', style: { highlight: { kind: 'scheme', value: 'unknown' } } }] }],
       [{ runs: [{ text: 'x', style: { highlight: { kind: 'srgb', value: 'FFFF00', alpha: 1 } } }] }],
+      [{ runs: [{ text: 'x', style: { glow: null } }] }],
+      [{ runs: [{ text: 'x', style: { glow: true } }] }],
+      [{ runs: [{ text: 'x', style: { glow: 'red' } }] }],
+      [{ runs: [{ text: 'x', style: { glow: [] } }] }],
+      [{ runs: [{ text: 'x', style: { glow: {} } }] }],
+      [{ runs: [{ text: 'x', style: { glow: { size: 1 } } }] }],
+      [{ runs: [{ text: 'x', style: { glow: { opacity: 0.5 } } }] }],
+      [{ runs: [{ text: 'x', style: { glow: { opacity: 0.5, size: '1' } } }] }],
+      [{ runs: [{ text: 'x', style: { glow: { opacity: '0.5', size: 1 } } }] }],
+      [{ runs: [{ text: 'x', style: { glow: { opacity: 0.5, size: Number.NaN } } }] }],
+      [{ runs: [{ text: 'x', style: { glow: { opacity: Number.POSITIVE_INFINITY, size: 1 } } }] }],
+      [{ runs: [{ text: 'x', style: { glow: { opacity: 0.5, size: -0.01 } } }] }],
+      [{ runs: [{ text: 'x', style: { glow: { opacity: 0.5, size: 2_147_483_648 } } }] }],
+      [{ runs: [{ text: 'x', style: { glow: { opacity: -0.01, size: 1 } } }] }],
+      [{ runs: [{ text: 'x', style: { glow: { opacity: 1.01, size: 1 } } }] }],
+      [{ runs: [{ text: 'x', style: { glow: { color: { kind: 'srgb', value: 'red' }, opacity: 0.5, size: 1 } } }] }],
+      [{ runs: [{ text: 'x', style: { glow: { color: { kind: 'srgb', value: 'FF0000' }, opacity: 0.5, size: 1, blur: 2 } } }] }],
       [{ runs: [{ text: 'x', style: { outline: null } }] }],
       [{ runs: [{ text: 'x', style: { outline: true } }] }],
       [{ runs: [{ text: 'x', style: { outline: 'red' } }] }],
