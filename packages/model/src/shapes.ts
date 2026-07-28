@@ -11,10 +11,15 @@ import {
 import { cloneOwnedPartForMutation } from './dependency.internal.js';
 import type { SlideModel } from './slide.js';
 import {
+  readTableCellTextFit,
+  replaceTableCellTextFit,
+} from './table-cell-text-fit.internal.js';
+import {
   normalizeTableCellTextDirection,
   readTableCellTextDirection,
   replaceTableCellTextDirection,
 } from './table-cell-text-direction.internal.js';
+import { normalizeTextBoxFit } from './text-box-fit.internal.js';
 import type {
   RichTextParagraph,
   TextBoxFit,
@@ -32,6 +37,7 @@ export type TableCellTextDirection = 'horz' | 'vert' | 'vert270' | 'wordArtVert'
 export interface TableCell {
   readonly text: string;
   readonly textDirection?: TableCellTextDirection;
+  readonly textFit?: TextBoxFit;
 }
 
 export interface TableRow {
@@ -201,9 +207,11 @@ export class TableModel extends BaseShapeModel {
     return xml.descendants(element, 'tr').map((row) => ({
       cells: xml.descendants(row, 'tc').map((cell) => {
         const textDirection = readTableCellTextDirection(xml, cell);
+        const textFit = readTableCellTextFit(xml, cell, this.slide.partUri);
         return {
           text: xml.descendants(cell, 't').map((node) => xml.text(node)).join(''),
           ...(textDirection !== undefined ? { textDirection } : {}),
+          ...(textFit !== undefined ? { textFit } : {}),
         };
       }),
     }));
@@ -233,6 +241,25 @@ export class TableModel extends BaseShapeModel {
       const cell = row ? xml.descendants(row, 'tc')[columnIndex] : undefined;
       if (!cell) throw new RangeError(`Table cell ${rowIndex},${columnIndex} was not found`);
       if (replaceTableCellTextDirection(xml, cell, direction, this.slide.partUri)) {
+        this.slide.setXml(xml.serialize());
+      }
+    });
+  }
+
+  setCellTextFit(
+    rowIndex: number,
+    columnIndex: number,
+    value: TextBoxFit | undefined,
+  ): void {
+    const fit = value === undefined
+      ? undefined
+      : normalizeTextBoxFit(value, 'Table cell text fit');
+    this.slide.presentation.opcPackage.transaction(() => {
+      const { xml, element } = this.resolve();
+      const row = xml.descendants(element, 'tr')[rowIndex];
+      const cell = row ? xml.descendants(row, 'tc')[columnIndex] : undefined;
+      if (!cell) throw new RangeError(`Table cell ${rowIndex},${columnIndex} was not found`);
+      if (replaceTableCellTextFit(xml, cell, fit, this.slide.partUri)) {
         this.slide.setXml(xml.serialize());
       }
     });

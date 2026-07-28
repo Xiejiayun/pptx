@@ -49,7 +49,7 @@ document.moveSlide(1, 0);
 document.deleteSlide(2);
 ```
 
-Shape kinds include `text`, `shape`, `image`, `table`, `chart`, `graphic-frame`, and `group`. Images expose embedded part URIs and replacement; tables expose rows/cells plus cell text and text-direction editing; charts expose cached series and lossless chart XML editing.
+Shape kinds include `text`, `shape`, `image`, `table`, `chart`, `graphic-frame`, and `group`. Images expose embedded part URIs and replacement; tables expose rows/cells plus cell text, text-direction, and text-fit editing; charts expose cached series and lossless chart XML editing.
 
 ```ts
 const text = document.addSlide().addText('Quarterly results\nQ4 forecast', {
@@ -122,7 +122,7 @@ Text-box `wrap` accepts a boolean; omission and true create explicit automatic w
 Text-box `vert` accepts `eaVert`, `horz`, `mongolianVert`, `vert`, `vert270`, `wordArtVert`, or `wordArtVertRtl`. Omission writes no direction, so it remains distinct from explicit `horz`. `shape.textDirection` reads or replaces only an exact valid direct `bodyPr@vert`; assigning `undefined` clears that override while preserving unknown direction tokens during unrelated edits. Table-cell direction is a separate capability.
 
 ```ts
-import { TableModel, type TableCellTextDirection } from '@pptx/sdk';
+import { TableModel, type TableCellTextDirection, type TextBoxFit } from '@pptx/sdk';
 
 const table = document.slides[0].shapes.find(
   (shape): shape is TableModel => shape instanceof TableModel,
@@ -133,9 +133,16 @@ table?.setCellTextDirection(0, 0, 'vert270');
 table?.setCellTextDirection(0, 1, 'wordArtVert');
 table?.setCellTextDirection(0, 2, 'horz');
 table?.setCellTextDirection(0, 2, undefined);
+const currentFit: TextBoxFit | undefined = table?.rows[0]?.cells[0]?.textFit;
+table?.setCellTextFit(0, 0, 'shrink');
+table?.setCellTextFit(0, 1, 'resize');
+table?.setCellTextFit(0, 2, 'none');
+table?.setCellTextFit(0, 2, undefined);
 ```
 
 Table-cell `textDirection` is an immutable snapshot with the dedicated values `horz`, `vert`, `vert270`, and `wordArtVert`. `setCellTextDirection()` addresses physical zero-based row/cell positions and edits only the selected cell's direct `tcPr@vert`; explicit `horz` writes `vert="horz"`, while `undefined` clears the direct attribute. The getter requires one direct `tcPr`, one unqualified `vert`, and one exact public token; it does not resolve table defaults or inheritance. PptxGenJS 4.0.1 materializes a table-level direction onto individual cells, so imported cells expose those wire attributes; PptxGenJS collapses omitted and explicit `horz` to no attribute, and both therefore import as `undefined`. This four-value cell API is intentionally separate from the seven-value text-box API and does not add table creation or table-level defaults.
+
+Table-cell `textFit` reuses the immutable `TextBoxFit` values `none`, `shrink`, and `resize`, backed only by the selected physical cell's direct `txBody/bodyPr` fit choice. The getter requires exactly one direct text body, one direct body properties element, and one unambiguous supported fit child; it reads an existing `noAutofit` as `none` and otherwise returns `undefined` for absent or malformed state. `setCellTextFit()` uses physical zero-based row/cell positions: `shrink` and `resize` write `normAutofit` and `spAutoFit`, while `none` and `undefined` both clear the direct choice without creating `noAutofit`. Reassigning the current shrink/resize mode preserves any calculated `fontScale` and `lnSpcReduction`. The operation does not change `tcPr@vert`, compute final font scaling, resize a table, add table-level defaults, or create tables. PptxGenJS 4.0.1 has no table-cell fit API and ignores runtime `fit`, `autoFit`, and `shrinkText` values supplied to table/cell options.
 
 Text-box `fit` accepts `none`, `shrink`, or `resize`. Omission and none write no autofit child for PptxGenJS and PowerPoint 2013 compatibility; shrink writes `normAutofit`, and resize writes `spAutoFit`. `shape.textFit` reads only a unique direct choice, including an existing explicit `noAutofit` as none. Assigning none or `undefined` clears the direct choice; reassigning the current shrink/resize mode preserves any PowerPoint-calculated scale attributes. Final shrink factors may be calculated by PowerPoint only after editing text or resizing the shape.
 

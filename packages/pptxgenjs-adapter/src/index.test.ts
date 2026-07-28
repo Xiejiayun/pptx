@@ -110,6 +110,85 @@ describe('importPptxGenJS', () => {
     ]);
   });
 
+  it('imports PptxGenJS table fit-like runtime options as fit-less cells', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    generated.layout = 'LAYOUT_WIDE';
+    const slide = generated.addSlide();
+    slide.addTable(
+      [[
+        { text: 'Omitted', options: {} },
+        { text: 'Fit none', options: { fit: 'none' } },
+        { text: 'Fit shrink', options: { fit: 'shrink' } },
+        { text: 'Fit resize', options: { fit: 'resize' } },
+        { text: 'Auto fit', options: { autoFit: true } },
+        { text: 'Shrink text', options: { shrinkText: true } },
+        {
+          text: 'Conflicting',
+          options: { fit: 'resize', autoFit: true, shrinkText: true, textDirection: 'vert' },
+        },
+      ]],
+      {
+        x: 0.5,
+        y: 0.5,
+        w: 12,
+        h: 1,
+        fit: 'resize',
+        autoFit: true,
+        shrinkText: true,
+        textDirection: 'vert270',
+      },
+    );
+
+    const document = await importPptxGenJS(generated);
+    const table = document.slides[0]!.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    );
+    expect(table?.rows[0]!.cells.map(({ textFit }) => textFit)).toEqual(
+      Array(7).fill(undefined),
+    );
+    expect(table?.rows[0]!.cells.map(({ text }) => text)).toEqual([
+      'Omitted',
+      'Fit none',
+      'Fit shrink',
+      'Fit resize',
+      'Auto fit',
+      'Shrink text',
+      'Conflicting',
+    ]);
+    expect(table?.rows[0]!.cells.map(({ textDirection }) => textDirection)).toEqual([
+      'vert270',
+      'vert270',
+      'vert270',
+      'vert270',
+      'vert270',
+      'vert270',
+      'vert',
+    ]);
+
+    const xml = new TextDecoder().decode(
+      document.opcPackage.requirePart(document.slides[0]!.partUri).bytes,
+    );
+    expect(xml).not.toMatch(/<a:(?:noAutofit|normAutofit|spAutoFit)\b/);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedTable = reopened.slides[0]!.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    );
+    expect(reopenedTable?.rows[0]!.cells.map(({ textFit }) => textFit)).toEqual(
+      Array(7).fill(undefined),
+    );
+    expect(reopenedTable?.rows[0]!.cells.map(({ textDirection }) => textDirection)).toEqual([
+      'vert270',
+      'vert270',
+      'vert270',
+      'vert270',
+      'vert270',
+      'vert270',
+      'vert',
+    ]);
+  });
+
   it('imports public PptxGenJS output and continues editing in the OOXML kernel', async () => {
     const generated = new PptxGenJS();
     expect(generated.version).toBe('4.0.1');

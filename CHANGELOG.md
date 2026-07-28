@@ -39,6 +39,7 @@
 - Added PptxGenJS-compatible text-box wrapping with strict boolean creation plus direct lossless editing and clearing.
 - Added all seven PptxGenJS text-box directions with strict creation plus direct lossless editing and clearing.
 - Added PptxGenJS-compatible four-value table-cell text-direction snapshots and physical-cell direct editing with explicit horizontal and clear operations.
+- Added strict table-cell text-fit snapshots and physical-cell direct editing for existing `noAutofit`, `normAutofit`, and `spAutoFit` choices.
 - Added PptxGenJS-compatible none, shrink, and resize text-box fit modes with direct lossless editing.
 
 ## 0.1.0 - 2026-07-25

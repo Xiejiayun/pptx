@@ -344,6 +344,179 @@ describe('PresentationModel', () => {
     expect(table.rows[0]!.cells.map(({ textDirection }) => textDirection)).toEqual(rollbackDirections);
   });
 
+  it('reads only a unique direct table-cell fit choice into detached snapshots', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const part = pkg.requirePart('/ppt/slides/slide1.xml');
+    const textBody = (bodyProperties: string, index: number): string =>
+      `<a:txBody>${bodyProperties}<a:p><a:r><a:t>Fit ${index}</a:t></a:r></a:p></a:txBody>`;
+    const cell = (body: string, index: number): string =>
+      `<a:tc>${body}<a:tcPr vert="horz" keep="CELL-${index}"/></a:tc>`;
+    const cells = [
+      cell(textBody('<a:bodyPr><a:noAutofit/></a:bodyPr>', 0), 0),
+      cell(textBody("<a:bodyPr><a:normAutofit fontScale='85000' lnSpcReduction=\"20000\"/></a:bodyPr>", 1), 1),
+      cell(textBody('<a:bodyPr><a:spAutoFit/></a:bodyPr>', 2), 2),
+      cell(textBody('<a:bodyPr/>', 3), 3),
+      cell(textBody('<a:bodyPr><a:normAutofit/><a:normAutofit/></a:bodyPr>', 4), 4),
+      cell(textBody('<a:bodyPr><a:noAutofit/><a:spAutoFit/></a:bodyPr>', 5), 5),
+      cell(textBody('<a:bodyPr><a:normAutoFit/></a:bodyPr>', 6), 6),
+      cell(textBody('<a:bodyPr xmlns:x="urn:test"><x:normAutofit/></a:bodyPr>', 7), 7),
+      cell(textBody('<a:bodyPr><a:extLst><a:normAutofit/></a:extLst></a:bodyPr>', 8), 8),
+      cell(
+        `${textBody('<a:bodyPr><a:noAutofit/></a:bodyPr>', 9)}${textBody('<a:bodyPr custom="SECOND"/>', 9)}`,
+        9,
+      ),
+      cell(
+        textBody('<a:bodyPr><a:spAutoFit/></a:bodyPr><a:bodyPr custom="SECOND"/>', 10),
+        10,
+      ),
+      cell('<a:txBody><a:p><a:r><a:t>Fit 11</a:t></a:r></a:p></a:txBody>', 11),
+      cell('<x:keep xmlns:x="urn:test">NO TEXT BODY</x:keep>', 12),
+    ].join('');
+    pkg.setPart(
+      part.uri,
+      new TextDecoder().decode(part.bytes).replace(/<a:tr>.*?<\/a:tr>/, `<a:tr>${cells}</a:tr>`),
+      part.contentType,
+    );
+    const table = new PresentationModel(pkg).slides[1]!.shapes[2] as TableModel;
+    const journal = [...pkg.mutations];
+
+    const snapshot = table.rows;
+    const fits = snapshot[0]!.cells.map(({ textFit }) => textFit);
+    expect(fits.slice(0, 3)).toEqual(['none', 'shrink', 'resize']);
+    expect(fits.slice(3)).toEqual(Array(10).fill(undefined));
+    expect(snapshot[0]!.cells.every(({ textDirection }) => textDirection === 'horz')).toBe(true);
+    expect(pkg.mutations).toEqual(journal);
+
+    (snapshot[0]!.cells[0] as { textFit?: string }).textFit = 'resize';
+    expect(table.rows[0]!.cells[0]!.textFit).toBe('none');
+    expect(pkg.mutations).toEqual(journal);
+  });
+
+  it('losslessly edits one table-cell fit choice and rolls back atomically', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const part = pkg.requirePart('/ppt/slides/slide1.xml');
+    const textBody = (bodyProperties: string, text: string): string =>
+      `<a:txBody>${bodyProperties}<a:p><a:r><a:t>${text}</a:t></a:r></a:p></a:txBody>`;
+    const cell = (body: string, properties: string, attributes = ''): string =>
+      `<a:tc${attributes}>${body}${properties}</a:tc>`;
+    const adjacentCell = cell(
+      textBody('<a:bodyPr keep="ADJACENT"><a:spAutoFit/></a:bodyPr>', 'Adjacent'),
+      '<a:tcPr vert="horz" keep="ADJACENT-TCPR"/>',
+    );
+    const cells = [
+      cell(
+        textBody(
+          '<a:bodyPr wrap="none" lIns="127000" anchor="b" vert="vert270" custom="KEEP"><a:prstTxWarp prst="textNoShape"><a:avLst/></a:prstTxWarp><a:normAutofit fontScale=\'85000\' lnSpcReduction="20000"/><a:scene3d><a:camera prst="orthographicFront"/></a:scene3d><x:keep xmlns:x="urn:test">KEEP</x:keep></a:bodyPr>',
+          'Calculated',
+        ),
+        '<a:tcPr vert="vert270" keep="TCPR"/>',
+      ),
+      cell(textBody('<a:bodyPr/>', 'Self closing'), '<a:tcPr vert="vert" keep="SELF"/>'),
+      cell(
+        textBody(
+          '<a:bodyPr custom="ORDER"><a:prstTxWarp prst="textNoShape"><a:avLst/></a:prstTxWarp><a:scene3d><a:camera prst="orthographicFront"/></a:scene3d><a:extLst><a:ext uri="urn:test"/></a:extLst></a:bodyPr>',
+          'Ordered',
+        ),
+        '<a:tcPr vert="horz" keep="ORDER"/>',
+      ),
+      cell(
+        textBody('<a:bodyPr><a:noAutofit/><a:spAutoFit/><x:keep xmlns:x="urn:test">CONFLICT</x:keep></a:bodyPr>', 'Conflict'),
+        '<a:tcPr keep="CONFLICT"/>',
+      ),
+      adjacentCell,
+      cell(
+        textBody('<a:bodyPr custom="MERGED"><a:noAutofit/></a:bodyPr>', 'Merged'),
+        '<a:tcPr vert="wordArtVert" keep="MERGED"/>',
+        ' hMerge="1"',
+      ),
+      cell('<a:txBody><a:p><a:r><a:t>Missing bodyPr</a:t></a:r></a:p></a:txBody>', '<a:tcPr/>'),
+      cell(
+        textBody('<a:bodyPr/><a:bodyPr custom="SECOND"/>', 'Repeated bodyPr'),
+        '<a:tcPr/>',
+      ),
+      cell(
+        `${textBody('<a:bodyPr/>', 'First txBody')}${textBody('<a:bodyPr custom="SECOND"/>', 'Second txBody')}`,
+        '<a:tcPr/>',
+      ),
+      cell('<x:keep xmlns:x="urn:test">MISSING TXBODY</x:keep>', '<a:tcPr/>'),
+    ].join('');
+    const source = new TextDecoder().decode(part.bytes)
+      .replace(
+        '<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="4" name="Table 1"/></p:nvGraphicFramePr><a:graphic>',
+        '<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="4" name="Table 1"/></p:nvGraphicFramePr><p:xfrm><a:off x="0" y="0"/><a:ext cx="1000" cy="2000"/></p:xfrm><a:graphic>',
+      )
+      .replace(/<a:tr>.*?<\/a:tr>/, `<a:tr>${cells}</a:tr>`);
+    pkg.setPart(part.uri, source, part.contentType);
+    const model = new PresentationModel(pkg);
+    const table = model.slides[1]!.shapes[2] as TableModel;
+
+    const noOpJournal = [...pkg.mutations];
+    table.setCellTextFit(0, 0, 'shrink');
+    table.setCellTextFit(0, 1, undefined);
+    expect(pkg.mutations).toEqual(noOpJournal);
+
+    table.setCellTextFit(0, 0, 'resize');
+    let updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated).toContain('<a:prstTxWarp prst="textNoShape"><a:avLst/></a:prstTxWarp><a:spAutoFit/><a:scene3d>');
+    expect(updated).not.toContain('fontScale=\'85000\'');
+    expect(updated).toContain('<a:bodyPr wrap="none" lIns="127000" anchor="b" vert="vert270" custom="KEEP">');
+    expect(updated).toContain('<a:tcPr vert="vert270" keep="TCPR"/>');
+    expect(updated).toContain(adjacentCell);
+
+    table.setCellTextFit(0, 1, 'shrink');
+    table.setCellTextFit(0, 2, 'resize');
+    table.setCellTextFit(0, 3, 'shrink');
+    table.setCellTextFit(0, 5, 'none');
+    updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated).toContain('<a:bodyPr><a:normAutofit/></a:bodyPr><a:p><a:r><a:t>Self closing</a:t>');
+    expect(updated).toContain('<a:bodyPr custom="ORDER"><a:prstTxWarp prst="textNoShape"><a:avLst/></a:prstTxWarp><a:spAutoFit/><a:scene3d>');
+    expect(updated).toContain('<a:bodyPr><a:normAutofit/><x:keep xmlns:x="urn:test">CONFLICT</x:keep></a:bodyPr>');
+    expect(updated).toContain('<a:bodyPr custom="MERGED"></a:bodyPr>');
+    expect(updated).toContain('<a:tc hMerge="1">');
+    expect(updated).toContain(adjacentCell);
+
+    table.setCellText(0, 2, 'Edited ordered');
+    table.setCellTextDirection(0, 1, 'wordArtVert');
+    table.setTransform({ x: inches(1) });
+    updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated).toContain('<a:t>Edited ordered</a:t>');
+    expect(updated).toContain('<a:tcPr vert="wordArtVert" keep="SELF"/>');
+    expect(updated).toContain('<a:bodyPr><a:normAutofit/></a:bodyPr>');
+    expect(updated).toContain('<a:bodyPr custom="ORDER"><a:prstTxWarp prst="textNoShape"><a:avLst/></a:prstTxWarp><a:spAutoFit/>');
+    expect(updated).toContain('<a:off x="914400" y="0"/>');
+    expect(updated).toContain(adjacentCell);
+
+    table.setCellTextFit(0, 1, undefined);
+    expect(table.rows[0]!.cells[1]!.textFit).toBeUndefined();
+    expect(table.rows[0]!.cells[1]!.textDirection).toBe('wordArtVert');
+
+    const beforeInvalid = pkg.requirePart(part.uri).bytes;
+    const invalidJournal = [...pkg.mutations];
+    for (const [row, column] of [[-1, 0], [0, -1], [0, 10], [1, 0]]) {
+      expect(() => table.setCellTextFit(row!, column!, 'resize')).toThrow(RangeError);
+    }
+    for (const column of [6, 7, 8, 9]) {
+      expect(() => table.setCellTextFit(0, column, 'resize')).toThrow(ModelParseError);
+    }
+    expect(pkg.requirePart(part.uri).bytes).toEqual(beforeInvalid);
+    expect(pkg.mutations).toEqual(invalidJournal);
+
+    const beforeRollback = pkg.requirePart(part.uri).bytes;
+    const rollbackJournal = [...pkg.mutations];
+    const rollbackFits = table.rows[0]!.cells.map(({ textFit }) => textFit);
+    expect(() =>
+      pkg.transaction(() => {
+        table.setCellTextFit(0, 0, 'shrink');
+        table.setCellTextFit(0, 2, undefined);
+        throw new Error('restore table cell fits');
+      }),
+    ).toThrow('restore table cell fits');
+    expect(pkg.requirePart(part.uri).bytes).toEqual(beforeRollback);
+    expect(pkg.mutations).toEqual(rollbackJournal);
+    expect(model.slides[1]!.shapes[2]).toBe(table);
+    expect(table.rows[0]!.cells.map(({ textFit }) => textFit)).toEqual(rollbackFits);
+  });
+
   it('reads paragraph and soft breaks, then preserves the first paragraph style on plain-text overwrite', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);

@@ -40,8 +40,13 @@ async function tableTextDirectionFixture(): Promise<Uint8Array> {
   const document = PptxDocument.create();
   const slide = document.addSlide();
   const part = document.opcPackage.requirePart(slide.partUri);
-  const cell = (text: string, properties: string, attributes = ''): string =>
-    `<a:tc${attributes}><a:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr lang="en-US"/><a:t>${text}</a:t></a:r><a:endParaRPr lang="en-US"/></a:p></a:txBody>${properties}</a:tc>`;
+  const cell = (
+    text: string,
+    properties: string,
+    attributes = '',
+    bodyProperties = '<a:bodyPr/>',
+  ): string =>
+    `<a:tc${attributes}><a:txBody>${bodyProperties}<a:lstStyle/><a:p><a:r><a:rPr lang="en-US"/><a:t>${text}</a:t></a:r><a:endParaRPr lang="en-US"/></a:p></a:txBody>${properties}</a:tc>`;
   const table = '<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="2" name="Direction table"/><p:cNvGraphicFramePr/><p:nvPr/></p:nvGraphicFramePr><p:xfrm><a:off x="914400" y="914400"/><a:ext cx="7315200" cy="2743200"/></p:xfrm><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/table"><a:tbl><a:tblPr firstRow="1" bandRow="1"><a:tableStyleId>{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}</a:tableStyleId></a:tblPr><a:tblGrid><a:gridCol w="1463040"/><a:gridCol w="1463040"/><a:gridCol w="1463040"/><a:gridCol w="1463040"/><a:gridCol w="1463040"/></a:tblGrid>'
     + `<a:tr h="1371600">${[
       cell('Horz', '<a:tcPr vert="horz"/>'),
@@ -56,6 +61,13 @@ async function tableTextDirectionFixture(): Promise<Uint8Array> {
       cell('Merged placeholder', '<a:tcPr marR="200"/>', ' hMerge="1"'),
       cell('Neighbor', '<a:tcPr vert="horz" keep="NEIGHBOR"/>'),
       cell('Tail', '<a:tcPr/>'),
+    ].join('')}</a:tr>`
+    + `<a:tr h="1371600">${[
+      cell('Explicit none', '<a:tcPr vert="horz" keep="FIT-NONE"/>', '', '<a:bodyPr custom="NONE"><a:noAutofit/></a:bodyPr>'),
+      cell('Calculated shrink', '<a:tcPr vert="vert" keep="FIT-SHRINK"/>', '', '<a:bodyPr custom="SHRINK"><a:normAutofit fontScale="85000" lnSpcReduction="20000"/></a:bodyPr>'),
+      cell('Resize', '<a:tcPr vert="vert270" keep="FIT-RESIZE"/>', '', '<a:bodyPr custom="RESIZE"><a:spAutoFit/></a:bodyPr>'),
+      cell('Absent fit', '<a:tcPr keep="FIT-ABSENT"/>'),
+      cell('Merged fit', '<a:tcPr vert="wordArtVert" keep="FIT-MERGED"/>', ' hMerge="1"'),
     ].join('')}</a:tr>`
     + '</a:tbl></a:graphicData></a:graphic></p:graphicFrame>';
   document.opcPackage.setPart(
@@ -412,7 +424,7 @@ describe('PptxDocument vertical slice', () => {
       [0, Number.NaN],
       [Number.POSITIVE_INFINITY, 0],
       [0, Number.NEGATIVE_INFINITY],
-      [2, 0],
+      [3, 0],
       [0, 5],
     ];
     for (const [row, column] of invalidCoordinates) {
@@ -424,6 +436,158 @@ describe('PptxDocument vertical slice', () => {
     expect(document.slides).toHaveLength(1);
     expect(document.slides[0]).toBe(slide);
     expect(slide.shapes[0]).toBe(table);
+    expect(table.rows.map(({ cells }) => cells.map(({ textDirection }) => textDirection))).toEqual(directions);
+    expect(table.rows.map(({ cells }) => cells.map((cell) => cell.text))).toEqual(text);
+  });
+
+  it('edits table-cell fits through duplicate, rollback, and reopen lifecycles', async () => {
+    const document = await PptxDocument.open(await tableTextDirectionFixture());
+    expect(validatePackage(document.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+    const slide = document.slides[0]!;
+    const table = slide.shapes[0] as TableModel;
+    expect(table.rows[2]!.cells.map(({ textFit }) => textFit)).toEqual([
+      'none',
+      'shrink',
+      'resize',
+      undefined,
+      undefined,
+    ]);
+    const duplicate = document.duplicateSlide(0);
+    const duplicateTable = duplicate.shapes[0] as TableModel;
+
+    table.setCellTextFit(2, 0, 'none');
+    table.setCellTextFit(2, 1, 'resize');
+    table.setCellTextFit(2, 2, 'shrink');
+    table.setCellTextFit(2, 3, 'resize');
+    table.setCellTextFit(2, 4, 'shrink');
+    table.setCellText(2, 4, 'Edited merged fit');
+    table.setCellTextDirection(2, 3, 'horz');
+    table.setTransform({ x: inches(2) });
+    const snapshot = table.rows;
+    (snapshot[2]!.cells[1] as { textFit?: string }).textFit = 'none';
+
+    expect(document.slides[0]).toBe(slide);
+    expect(slide.shapes[0]).toBe(table);
+    expect(table.rows[2]!.cells.map(({ textFit }) => textFit)).toEqual([
+      undefined,
+      'resize',
+      'shrink',
+      'resize',
+      'shrink',
+    ]);
+    expect(table.rows[2]!.cells.map(({ textDirection }) => textDirection)).toEqual([
+      'horz',
+      'vert',
+      'vert270',
+      'horz',
+      'wordArtVert',
+    ]);
+    expect(table.rows[2]!.cells[4]!.text).toBe('Edited merged fit');
+    const editedXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(editedXml).toContain('<a:bodyPr custom="NONE"></a:bodyPr>');
+    expect(editedXml).toContain('<a:bodyPr custom="SHRINK"><a:spAutoFit/></a:bodyPr>');
+    expect(editedXml).toContain('<a:bodyPr custom="RESIZE"><a:normAutofit/></a:bodyPr>');
+    expect(editedXml).toContain('<a:bodyPr><a:spAutoFit/></a:bodyPr>');
+    expect(editedXml).toContain('<a:tc hMerge="1">');
+    expect(editedXml).toContain('<a:tcPr vert="wordArtVert" keep="FIT-MERGED"/>');
+    expect(editedXml).toContain('<a:off x="1828800" y="914400"/>');
+    expect(duplicateTable.rows[2]!.cells.map(({ textFit }) => textFit)).toEqual([
+      'none',
+      'shrink',
+      'resize',
+      undefined,
+      undefined,
+    ]);
+
+    const beforeRollback = document.opcPackage.requirePart(slide.partUri).bytes;
+    const rollbackJournal = [...document.opcPackage.mutations];
+    expect(() =>
+      document.transaction(() => {
+        table.setCellTextFit(2, 1, 'shrink');
+        table.setCellTextFit(2, 3, undefined);
+        throw new Error('restore public table fit edits');
+      }),
+    ).toThrow('restore public table fit edits');
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(beforeRollback);
+    expect(document.opcPackage.mutations).toEqual(rollbackJournal);
+    expect(document.slides[0]).toBe(slide);
+    expect(slide.shapes[0]).toBe(table);
+    expect(table.rows[2]!.cells.map(({ textFit }) => textFit)).toEqual([
+      undefined,
+      'resize',
+      'shrink',
+      'resize',
+      'shrink',
+    ]);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedEdited = reopened.slides[0]!.shapes[0] as TableModel;
+    const reopenedDuplicate = reopened.slides[1]!.shapes[0] as TableModel;
+    expect(reopenedEdited.rows[2]!.cells.map(({ textFit }) => textFit)).toEqual([
+      undefined,
+      'resize',
+      'shrink',
+      'resize',
+      'shrink',
+    ]);
+    expect(reopenedDuplicate.rows[2]!.cells.map(({ textFit }) => textFit)).toEqual([
+      'none',
+      'shrink',
+      'resize',
+      undefined,
+      undefined,
+    ]);
+  });
+
+  it('rejects invalid table-cell fits and physical coordinates before mutation', async () => {
+    const document = await PptxDocument.open(await tableTextDirectionFixture());
+    const slide = document.slides[0]!;
+    const table = slide.shapes[0] as TableModel;
+    const before = document.opcPackage.requirePart(slide.partUri).bytes;
+    const journal = [...document.opcPackage.mutations];
+    const fits = table.rows.map(({ cells }) => cells.map(({ textFit }) => textFit));
+    const directions = table.rows.map(({ cells }) => cells.map(({ textDirection }) => textDirection));
+    const text = table.rows.map(({ cells }) => cells.map((cell) => cell.text));
+
+    const invalidValues = [
+      null,
+      false,
+      true,
+      0,
+      1,
+      '',
+      'None',
+      ' shrink ',
+      'grow',
+      {},
+      [],
+      Symbol('fit'),
+    ];
+    for (const value of invalidValues) {
+      expect(() => table.setCellTextFit(2, 0, value as never)).toThrow(TypeError);
+    }
+    const invalidCoordinates = [
+      [-1, 0],
+      [0, -1],
+      [0.5, 0],
+      [0, 0.5],
+      [Number.NaN, 0],
+      [0, Number.NaN],
+      [Number.POSITIVE_INFINITY, 0],
+      [0, Number.NEGATIVE_INFINITY],
+      [3, 0],
+      [2, 5],
+    ];
+    for (const [row, column] of invalidCoordinates) {
+      expect(() => table.setCellTextFit(row!, column!, 'shrink')).toThrow(RangeError);
+    }
+
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(before);
+    expect(document.opcPackage.mutations).toEqual(journal);
+    expect(document.slides).toHaveLength(1);
+    expect(document.slides[0]).toBe(slide);
+    expect(slide.shapes[0]).toBe(table);
+    expect(table.rows.map(({ cells }) => cells.map(({ textFit }) => textFit))).toEqual(fits);
     expect(table.rows.map(({ cells }) => cells.map(({ textDirection }) => textDirection))).toEqual(directions);
     expect(table.rows.map(({ cells }) => cells.map((cell) => cell.text))).toEqual(text);
   });
