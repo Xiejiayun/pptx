@@ -1,14 +1,20 @@
 import {
   PRESENTATION_FORMAT_PROFILES,
+  type Emu,
   type PresentationFormat,
 } from '@pptx/model';
 import { OpcPackage } from '@pptx/opc';
 
 export type BuiltInSlideSize = '4:3' | '16:9' | '16:10' | 'wide';
 
+export interface CustomSlideSize {
+  readonly width: Emu;
+  readonly height: Emu;
+}
+
 export interface CreatePresentationOptions {
   readonly format?: PresentationFormat;
-  readonly slideSize?: BuiltInSlideSize;
+  readonly slideSize?: BuiltInSlideSize | CustomSlideSize;
 }
 
 const SLIDE_SIZES: Readonly<Record<BuiltInSlideSize, { readonly cx: number; readonly cy: number }>> = {
@@ -20,18 +26,17 @@ const SLIDE_SIZES: Readonly<Record<BuiltInSlideSize, { readonly cx: number; read
 
 const REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/';
 const CONTENT = 'application/vnd.openxmlformats-officedocument.presentationml.';
+const MIN_SLIDE_SIZE = 914_400;
+const MAX_SLIDE_SIZE = 51_206_400;
 
 export function createPresentationPackage(options: CreatePresentationOptions = {}): OpcPackage {
   const format = options.format ?? 'pptx';
-  const slideSize = options.slideSize ?? '16:9';
+  const slideSize = options.slideSize === undefined ? '16:9' : options.slideSize;
   if (!Object.hasOwn(PRESENTATION_FORMAT_PROFILES, format)) {
     throw new TypeError(`Unsupported presentation format: ${String(format)}`);
   }
-  if (!Object.hasOwn(SLIDE_SIZES, slideSize)) {
-    throw new TypeError(`Unsupported built-in slide size: ${String(slideSize)}`);
-  }
   const profile = PRESENTATION_FORMAT_PROFILES[format];
-  const size = SLIDE_SIZES[slideSize];
+  const size = resolveSlideSize(slideSize);
   const pkg = OpcPackage.create();
 
   return pkg.transaction(() => {
@@ -115,6 +120,33 @@ export function createPresentationPackage(options: CreatePresentationOptions = {
     });
     return pkg;
   });
+}
+
+function resolveSlideSize(slideSize: BuiltInSlideSize | CustomSlideSize): { readonly cx: number; readonly cy: number } {
+  if (typeof slideSize === 'string') {
+    if (!Object.hasOwn(SLIDE_SIZES, slideSize)) {
+      throw new TypeError(`Unsupported built-in slide size: ${String(slideSize)}`);
+    }
+    return SLIDE_SIZES[slideSize];
+  }
+  if (!slideSize || typeof slideSize !== 'object' || Array.isArray(slideSize)) {
+    throw new TypeError('Slide size must be a built-in name or a custom width and height');
+  }
+  return {
+    cx: normalizeSlideSizeCoordinate(slideSize.width, 'width'),
+    cy: normalizeSlideSizeCoordinate(slideSize.height, 'height'),
+  };
+}
+
+function normalizeSlideSizeCoordinate(value: unknown, name: 'width' | 'height'): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new TypeError(`Custom slide ${name} must be a finite number`);
+  }
+  const rounded = Math.round(value);
+  if (rounded < MIN_SLIDE_SIZE || rounded > MAX_SLIDE_SIZE) {
+    throw new RangeError(`Custom slide ${name} must be between 1 and 56 inches`);
+  }
+  return rounded;
 }
 
 function presentationXml(cx: number, cy: number): string {

@@ -81,6 +81,46 @@ describe('PptxDocument vertical slice', () => {
     }
   });
 
+  it('creates and round-trips an OOXML-valid custom slide size without retaining its input', async () => {
+    const slideSize = { width: inches(11.7), height: inches(8.3) };
+    const document = PptxDocument.create({ slideSize });
+    slideSize.width = inches(10);
+    const presentationXml = new TextDecoder().decode(
+      document.opcPackage.requirePart('/ppt/presentation.xml').bytes,
+    );
+    expect(presentationXml).toContain('<p:sldSz cx="10698480" cy="7589520"/>');
+    expect(presentationXml).toContain('<p:notesSz cx="7589520" cy="10698480"/>');
+
+    document.addSlide();
+    const reopened = await PptxDocument.open(await document.write());
+    expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+    expect(new TextDecoder().decode(reopened.opcPackage.requirePart('/ppt/presentation.xml').bytes)).toContain(
+      '<p:sldSz cx="10698480" cy="7589520"/>',
+    );
+  });
+
+  it('accepts custom slide size boundaries and rejects malformed or out-of-range dimensions', () => {
+    expect(() =>
+      PptxDocument.create({ slideSize: Object.freeze({ width: inches(1), height: inches(56) }) }),
+    ).not.toThrow();
+
+    for (const slideSize of [
+      null,
+      [],
+      {},
+      { width: Number.NaN, height: inches(1) },
+      { width: inches(1), height: Number.POSITIVE_INFINITY },
+    ]) {
+      expect(() => PptxDocument.create({ slideSize: slideSize as never })).toThrow(TypeError);
+    }
+    for (const slideSize of [
+      { width: inches(0.99), height: inches(1) },
+      { width: inches(1), height: inches(56.01) },
+    ]) {
+      expect(() => PptxDocument.create({ slideSize })).toThrow(RangeError);
+    }
+  });
+
   it('rejects unknown create options before returning a document', () => {
     expect(() => PptxDocument.create({ format: 'pdf' as PresentationFormat })).toThrow(
       /Unsupported presentation format/,

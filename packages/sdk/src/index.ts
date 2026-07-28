@@ -19,7 +19,7 @@ import { createPresentationPackage, type CreatePresentationOptions } from './cre
 
 export * from '@pptx/codecs';
 export * from '@pptx/model';
-export type { BuiltInSlideSize, CreatePresentationOptions } from './create.js';
+export type { BuiltInSlideSize, CreatePresentationOptions, CustomSlideSize } from './create.js';
 export { PackageError } from '@pptx/opc';
 export type { PackageOpenOptions } from '@pptx/opc';
 export { ValidationError } from '@pptx/validator';

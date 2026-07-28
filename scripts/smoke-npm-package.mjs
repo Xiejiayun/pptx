@@ -40,12 +40,15 @@ try {
 
   await writeFile(
     join(directory, 'smoke.mjs'),
-    `import { PptxDocument, GradientCodec, importPptxGenJS, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
+    `import { inches, PptxDocument, GradientCodec, importPptxGenJS, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
 const created = PptxDocument.create();
 const createdText = created.addSlide().addText('Smoke');
+const custom = PptxDocument.create({ slideSize: { width: inches(11.7), height: inches(8.3) } });
+const customXml = new TextDecoder().decode(custom.opcPackage.requirePart('/ppt/presentation.xml').bytes);
 const checks = {
   PptxDocument: typeof PptxDocument === 'function',
   createText: createdText.text === 'Smoke' && created.slides[0].shapes[0] === createdText,
+  customSlideSize: customXml.includes('<p:sldSz cx="10698480" cy="7589520"/>'),
   GradientCodec: typeof GradientCodec === 'function',
   importPptxGenJS: typeof importPptxGenJS === 'function',
   transitions: typeof transitions.TransitionCodec === 'function',
@@ -62,13 +65,14 @@ process.stdout.write(JSON.stringify(checks));
 
   await writeFile(
     join(directory, 'browser-smoke.mjs'),
-    `import { PptxDocument, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
+    `import { inches, PptxDocument, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
 const resolved = import.meta.resolve('@jiayunxie/pptx');
 if (!resolved.endsWith('/dist/browser.js')) throw new Error('Browser condition resolved to ' + resolved);
 const checks = [PptxDocument, transitions.TransitionCodec, animations.AnimationTimingCodec, advancedCharts.AdvancedChartCodec, smartArt.SmartArtDiagramCodec];
 if (checks.some((value) => typeof value !== 'function')) throw new Error('Browser API surface is incomplete');
 const created = PptxDocument.create({ slideSize: '16:9' });
 if (created.addSlide().addText('Browser').text !== 'Browser') throw new Error('Browser create-text API failed');
+PptxDocument.create({ slideSize: { width: inches(11.7), height: inches(8.3) } });
 process.stdout.write(resolved);
 `,
   );
@@ -78,6 +82,8 @@ process.stdout.write(resolved);
     join(directory, 'smoke.ts'),
     `import {
   PptxDocument,
+  inches,
+  type CustomSlideSize,
   GradientCodec,
   importPptxGenJS,
   transitions,
@@ -88,6 +94,8 @@ process.stdout.write(resolved);
 
 const documentPromise: Promise<PptxDocument> = PptxDocument.open(new Uint8Array());
 const createdDocument: PptxDocument = PptxDocument.create({ format: 'pptx', slideSize: 'wide' });
+const customSlideSize: CustomSlideSize = { width: inches(11.7), height: inches(8.3) };
+const customDocument: PptxDocument = PptxDocument.create({ slideSize: customSlideSize });
 const createdText = createdDocument.addSlide().addText('Typed text');
 createdText.text = 'Updated typed text';
 const gradientConstructor: typeof GradientCodec = GradientCodec;
@@ -102,7 +110,7 @@ documentPromise.then((document) => {
   advancedCharts.installAdvancedChartPlugin(document);
   smartArt.installSmartArtPlugin(document);
 });
-void [documentPromise, createdDocument, createdText, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
+void [documentPromise, createdDocument, customDocument, createdText, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
 `,
   );
   run(
