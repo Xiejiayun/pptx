@@ -49,17 +49,17 @@ document.deleteSlide(2);
 Shape kinds include `text`, `shape`, `image`, `table`, `chart`, `graphic-frame`, and `group`. Images expose embedded part URIs and replacement; tables expose rows/cells and cell text editing; charts expose cached series and lossless chart XML editing.
 
 ```ts
-const text = document.addSlide().addText('Quarterly results', {
+const text = document.addSlide().addText('Quarterly results\nQ4 forecast', {
   name: 'Heading',
   x: inches(1),
   y: inches(0.75),
   width: inches(8),
   height: inches(1),
 });
-text.text = 'Updated results';
+text.text = 'Updated results\nApproved';
 ```
 
-`addText()` currently creates one plain-text paragraph with name and transform options. Line breaks and rich formatting are intentionally rejected or deferred until the paragraph/run APIs are available.
+`addText()` creates plain-text paragraphs with name and transform options. CRLF and CR normalize to LF; consecutive and trailing line breaks remain empty paragraphs. Setting `.text` replaces the visible text using the first paragraph as the style template. Per-run and per-paragraph rich formatting remains deferred until the rich text APIs are available.
 
 Slide and shape model objects have stable identity within a document: repeated collection reads and slide reordering return the same member instances. Their properties remain live and read the current OOXML rather than a cached snapshot. Master, layout, and theme models follow the same rule within `document.masterLayoutTheme`.
 

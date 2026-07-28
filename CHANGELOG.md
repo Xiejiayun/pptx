@@ -13,6 +13,7 @@
 - Added transactional single-paragraph text-box creation with stable shape identity, XML-safe content, unique IDs, and editable transforms.
 - Added custom OOXML-valid slide dimensions at presentation creation, matching PptxGenJS custom-layout output semantics.
 - Added lossless slide-canvas size reading and editing without silently scaling shapes or changing the notes page.
+- Added PptxGenJS-compatible plain-text paragraphs with normalized line endings, empty-line preservation, and transactional text overwrite.
 
 ## 0.1.0 - 2026-07-25
 

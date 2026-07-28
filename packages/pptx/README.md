@@ -18,7 +18,7 @@ import { inches, PptxDocument } from '@jiayunxie/pptx';
 const document = PptxDocument.create({
   slideSize: { width: inches(11.7), height: inches(8.3) },
 });
-document.addSlide().addText('Quarterly results', {
+document.addSlide().addText('Quarterly results\nQ4 forecast', {
   x: inches(1),
   y: inches(1),
   width: inches(6),
@@ -27,7 +27,7 @@ document.addSlide().addText('Quarterly results', {
 await document.writeFile('created.pptx');
 ```
 
-Creation is native and does not require PptxGenJS. A new document starts with zero slides and a complete default master/layout/theme chain; its size can use a built-in preset or custom EMU dimensions. `document.slideSize` also reads or changes the canvas of an existing deck without silently scaling its content. Basic single-paragraph text boxes can be created and then edited through their stable shape model.
+Creation is native and does not require PptxGenJS. A new document starts with zero slides and a complete default master/layout/theme chain; its size can use a built-in preset or custom EMU dimensions. `document.slideSize` also reads or changes the canvas of an existing deck without silently scaling its content. Plain-text boxes preserve paragraphs and empty lines and can be edited through their stable shape model.
 
 ## Edit an existing presentation
 

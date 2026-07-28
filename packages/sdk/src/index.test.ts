@@ -180,6 +180,43 @@ describe('PptxDocument vertical slice', () => {
     });
   });
 
+  it('creates, edits, and round-trips plain-text paragraphs with normalized line endings', async () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const text = slide.addText(' First & <\r\nSecond\r\rFourth > \n');
+    const normalized = ' First & <\nSecond\n\nFourth > \n';
+
+    expect(text.text).toBe(normalized);
+    let slideXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(slideXml.match(/<a:p>/g)).toHaveLength(5);
+    expect(slideXml).toContain('<a:t xml:space="preserve"> First &amp; &lt;</a:t>');
+    expect(slideXml).toContain('<a:t xml:space="preserve">Fourth &gt; </a:t>');
+
+    text.text = 'Updated\r\n\rEnd';
+    expect(text.text).toBe('Updated\n\nEnd');
+    expect(slide.shapes[0]).toBe(text);
+    slideXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(slideXml.match(/<a:p>/g)).toHaveLength(3);
+
+    expect(() =>
+      document.transaction(() => {
+        text.text = 'Rollback\ntext';
+        throw new Error('restore paragraphs');
+      }),
+    ).toThrow('restore paragraphs');
+    expect(text.text).toBe('Updated\n\nEnd');
+
+    const reopened = await PptxDocument.open(await document.write());
+    expect((reopened.slides[0]!.shapes[0] as ShapeModel).text).toBe('Updated\n\nEnd');
+    expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+
+    const emptyDocument = PptxDocument.create();
+    const empty = emptyDocument.addSlide().addText('');
+    expect(empty.text).toBe('');
+    empty.text = 'Filled from an empty paragraph';
+    expect(empty.text).toBe('Filled from an empty paragraph');
+  });
+
   it('allocates text shape ids before extLst and rolls back rejected additions', () => {
     const document = PptxDocument.create();
     const slide = document.addSlide();
@@ -199,10 +236,9 @@ describe('PptxDocument vertical slice', () => {
 
     const before = document.opcPackage.requirePart(slide.partUri).bytes;
     const journal = [...document.opcPackage.mutations];
-    expect(() => slide.addText('two\nlines')).toThrow(/do not support line breaks/);
     expect(() => {
-      first.text = 'two\nlines';
-    }).toThrow(/do not support line breaks/);
+      first.text = 'invalid\u0000xml';
+    }).toThrow(/invalid XML characters/);
     expect(() => slide.addText('invalid\u0000xml')).toThrow(/invalid XML characters/);
     expect(() => slide.addText('bad width', { width: 0 as never })).toThrow(/width must be greater/);
     expect(() => slide.addText('bad coordinate', { x: Number.NaN as never })).toThrow(/x must be finite/);
@@ -311,7 +347,7 @@ describe('PptxDocument vertical slice', () => {
     const output = await document.write();
     const after = await OpcPackage.open(output);
     const slideXml = new TextDecoder().decode(after.requirePart('/ppt/slides/slide1.xml').bytes);
-    expect(slideXml).toContain('<a:t>Updated &amp; preserved</a:t>');
+    expect(slideXml).toContain('<a:t xml:space="preserve">Updated &amp; preserved</a:t>');
     expect(slideXml).toContain('<x:unknown xmlns:x="x" custom="keep"/>');
     for (const [uri, expectedHash] of untouchedHashes) {
       expect(hash(after.requirePart(uri).bytes), uri).toBe(expectedHash);

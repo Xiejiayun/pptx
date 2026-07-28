@@ -28,17 +28,19 @@ export class SlideTitleModel {
     const { xml } = this.slide.parse();
     const shape = findTitleShape(xml);
     if (!shape) return '';
-    return xml.descendants(shape, 't').map((node) => xml.text(node)).join('');
+    return readPlainText(xml, shape);
   }
 
   set text(value: string) {
-    const { xml } = this.slide.parse();
-    const shape = findTitleShape(xml);
-    if (!shape) throw new ModelParseError('Slide does not contain a title shape', this.slide.partUri);
-    const properties = xml.descendants(shape, 'cNvPr')[0];
-    const id = Number.parseInt(properties ? xml.attribute(properties, 'id')?.value ?? '' : '', 10);
-    if (Number.isFinite(id)) this.slide.setShapeText(id, value);
-    else replaceTextRuns(xml, shape, value, this.slide.partUri, (updated) => this.slide.setXml(updated));
+    this.slide.presentation.opcPackage.transaction(() => {
+      const { xml } = this.slide.parse();
+      const shape = findTitleShape(xml);
+      if (!shape) throw new ModelParseError('Slide does not contain a title shape', this.slide.partUri);
+      const properties = xml.descendants(shape, 'cNvPr')[0];
+      const id = Number.parseInt(properties ? xml.attribute(properties, 'id')?.value ?? '' : '', 10);
+      if (Number.isFinite(id)) this.slide.setShapeText(id, value);
+      else replacePlainText(xml, shape, value, this.slide.partUri, (updated) => this.slide.setXml(updated));
+    });
   }
 }
 
@@ -132,8 +134,15 @@ export class SlideModel {
   }
 
   setShapeText(id: number, value: string): void {
+    this.presentation.opcPackage.transaction(() => {
+      const { xml, element } = this.resolveShape(id);
+      replacePlainText(xml, element, value, this.partUri, (updated) => this.setXml(updated));
+    });
+  }
+
+  getShapeText(id: number): string {
     const { xml, element } = this.resolveShape(id);
-    replaceTextRuns(xml, element, value, this.partUri, (updated) => this.setXml(updated));
+    return readPlainText(xml, element);
   }
 
   setShapeTransform(id: number, changes: Partial<Transform>): void {
@@ -154,14 +163,14 @@ export class SlideModel {
 
   addText(value: string, options: AddTextOptions = {}): ShapeModel {
     return this.presentation.opcPackage.transaction(() => {
-      validateTextInput(value, options);
+      const normalized = validateTextInput(value, options);
       const { xml } = this.parse();
       const shapeTree = xml
         .elements('spTree')
         .find(({ parent }) => parent?.localName === 'cSld');
       if (!shapeTree) throw new ModelParseError('Slide does not contain a shape tree', this.partUri);
       const nextId = allocateShapeId(xml);
-      const shapeXml = textShapeXml(nextId, value, options);
+      const shapeXml = textShapeXml(nextId, normalized, options);
       const extensionList = shapeTree.children.find(
         (child): child is XmlElement => child.type === 'element' && child.localName === 'extLst',
       );
@@ -193,19 +202,25 @@ export function findTitleShape(xml: LosslessXmlDocument): XmlElement | undefined
   );
 }
 
-function replaceTextRuns(
+function replacePlainText(
   xml: LosslessXmlDocument,
   element: XmlElement,
   value: string,
   partUri: string,
   save: (xml: string) => void,
 ): void {
-  validatePlainText(value);
-  const runs = xml.descendants(element, 't');
-  const first = runs[0];
-  if (!first) throw new ModelParseError('Shape does not contain text', partUri);
-  xml.replaceText(first, value);
-  for (const extra of runs.slice(1)) xml.replaceText(extra, '');
+  const normalized = validatePlainText(value);
+  const textBody = directChildren(element, 'txBody')[0];
+  if (!textBody) throw new ModelParseError('Shape does not contain a text body', partUri);
+  const paragraphs = directChildren(textBody, 'p');
+  const template = paragraphs[0];
+  if (!template) throw new ModelParseError('Shape does not contain a text paragraph', partUri);
+  const replacement = normalized
+    .split('\n')
+    .map((line) => renderParagraphTemplate(xml, template, line))
+    .join('');
+  xml.replaceElement(template, replacement);
+  for (const extra of paragraphs.slice(1)) xml.removeElement(extra);
   save(xml.serialize());
 }
 
@@ -219,8 +234,8 @@ function setAttribute(xml: LosslessXmlDocument, element: XmlElement, name: strin
   xml.replace(insertionPoint, insertionPoint, ` ${name}="${value}"`);
 }
 
-function validateTextInput(value: string, options: AddTextOptions): void {
-  validatePlainText(value);
+function validateTextInput(value: string, options: AddTextOptions): string {
+  const normalized = validatePlainText(value);
   if (options.name !== undefined && typeof options.name !== 'string') {
     throw new TypeError('Text shape name must be a string');
   }
@@ -252,12 +267,13 @@ function validateTextInput(value: string, options: AddTextOptions): void {
   if (options.height !== undefined && Math.round(options.height) <= 0) {
     throw new RangeError('Text shape height must be greater than zero');
   }
+  return normalized;
 }
 
-function validatePlainText(value: string): void {
+function validatePlainText(value: string): string {
   if (typeof value !== 'string') throw new TypeError('Text shape value must be a string');
-  if (/\r|\n/.test(value)) throw new TypeError('Basic text shapes do not support line breaks yet');
   if (containsInvalidXmlCharacter(value)) throw new TypeError('Text shape value contains invalid XML characters');
+  return value.replace(/\r\n?/g, '\n');
 }
 
 function containsInvalidXmlCharacter(value: string): boolean {
@@ -283,6 +299,98 @@ function textShapeXml(id: number, value: string, options: AddTextOptions): strin
     options.flipVertical ? ' flipV="1"' : '',
   ].join('');
   const name = escapeXmlAttribute(options.name ?? `Text ${id}`);
-  const text = escapeXmlText(value);
-  return `<p:sp xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><p:nvSpPr><p:cNvPr id="${id}" name="${name}"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm${transformAttributes}><a:off x="${x}" y="${y}"/><a:ext cx="${width}" cy="${height}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></p:spPr><p:txBody><a:bodyPr wrap="square" rtlCol="0" anchor="ctr"/><a:lstStyle/><a:p><a:pPr indent="0" marL="0"><a:buNone/></a:pPr><a:r><a:rPr lang="en-US" dirty="0"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mn-lt"/></a:rPr><a:t xml:space="preserve">${text}</a:t></a:r><a:endParaRPr lang="en-US" dirty="0"/></a:p></p:txBody></p:sp>`;
+  const paragraphs = value.split('\n').map((line) => textParagraphXml(line)).join('');
+  return `<p:sp xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><p:nvSpPr><p:cNvPr id="${id}" name="${name}"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm${transformAttributes}><a:off x="${x}" y="${y}"/><a:ext cx="${width}" cy="${height}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></p:spPr><p:txBody><a:bodyPr wrap="square" rtlCol="0" anchor="ctr"/><a:lstStyle/>${paragraphs}</p:txBody></p:sp>`;
+}
+
+function textParagraphXml(value: string, prefix = 'a:'): string {
+  const properties = `<${prefix}pPr indent="0" marL="0"><${prefix}buNone/></${prefix}pPr>`;
+  const endProperties = `<${prefix}endParaRPr lang="en-US" dirty="0"/>`;
+  if (value.length === 0) return `<${prefix}p>${properties}${endProperties}</${prefix}p>`;
+  return `<${prefix}p>${properties}${defaultTextRunXml(value, prefix)}${endProperties}</${prefix}p>`;
+}
+
+function defaultTextRunXml(value: string, prefix = 'a:'): string {
+  return `<${prefix}r><${prefix}rPr lang="en-US" dirty="0"><${prefix}solidFill><${prefix}schemeClr val="tx1"/></${prefix}solidFill><${prefix}latin typeface="+mn-lt"/></${prefix}rPr><${prefix}t xml:space="preserve">${escapeXmlText(value)}</${prefix}t></${prefix}r>`;
+}
+
+function readPlainText(xml: LosslessXmlDocument, element: XmlElement): string {
+  const textBody = directChildren(element, 'txBody')[0];
+  if (!textBody) return '';
+  return directChildren(textBody, 'p').map((paragraph) => readParagraphText(xml, paragraph)).join('\n');
+}
+
+function readParagraphText(xml: LosslessXmlDocument, paragraph: XmlElement): string {
+  let value = '';
+  const visit = (element: XmlElement): void => {
+    for (const child of element.children) {
+      if (child.type !== 'element') continue;
+      if (child.localName === 't') value += xml.text(child);
+      else if (child.localName === 'br') value += '\n';
+      else visit(child);
+    }
+  };
+  visit(paragraph);
+  return value;
+}
+
+function directChildren(element: XmlElement, localName: string): XmlElement[] {
+  return element.children.filter(
+    (child): child is XmlElement => child.type === 'element' && child.localName === localName,
+  );
+}
+
+function renderParagraphTemplate(
+  source: LosslessXmlDocument,
+  template: XmlElement,
+  value: string,
+): string {
+  const prefix = qualifiedPrefix(template.name);
+  if (template.selfClosing) return textParagraphXml(value, prefix);
+  const paragraph = LosslessXmlDocument.parse(source.original(template));
+  const root = paragraph.roots[0];
+  if (!root) return textParagraphXml(value, prefix);
+  for (const lineBreak of paragraph.descendants(root, 'br')) paragraph.removeElement(lineBreak);
+  const textNodes = paragraph.descendants(root, 't');
+  const first = textNodes[0];
+  if (!first) {
+    if (value.length === 0) return paragraph.serialize();
+    const endProperties = directChildren(root, 'endParaRPr')[0];
+    const insertionPoint = endProperties?.start ?? root.endTagStart;
+    paragraph.replace(insertionPoint, insertionPoint, defaultTextRunXml(value, qualifiedPrefix(root.name)));
+    return paragraph.serialize();
+  }
+  replaceTextElement(paragraph, first, value);
+  for (const extra of textNodes.slice(1)) replaceTextElement(paragraph, extra, '');
+  return paragraph.serialize();
+}
+
+function replaceTextElement(xml: LosslessXmlDocument, element: XmlElement, value: string): void {
+  const space = xml.attribute(element, 'xml:space');
+  if (element.selfClosing) {
+    const original = xml.original(element);
+    const marker = original.lastIndexOf('/>');
+    if (marker < 0) throw new ModelParseError(`Invalid self-closing text element ${element.name}`);
+    let opening = original.slice(0, marker).replace(/\s+$/, '');
+    if (space) {
+      const relativeStart = space.valueStart - element.start;
+      const relativeEnd = space.valueEnd - element.start;
+      opening = `${opening.slice(0, relativeStart)}preserve${opening.slice(relativeEnd)}`;
+    } else {
+      opening += ' xml:space="preserve"';
+    }
+    xml.replaceElement(element, `${opening}>${escapeXmlText(value)}</${element.name}>`);
+    return;
+  }
+  if (space) xml.replaceAttribute(space, 'preserve');
+  else {
+    const insertionPoint = element.startTagEnd - 1;
+    xml.replace(insertionPoint, insertionPoint, ' xml:space="preserve"');
+  }
+  xml.replaceText(element, value);
+}
+
+function qualifiedPrefix(name: string): string {
+  const separator = name.indexOf(':');
+  return separator < 0 ? '' : `${name.slice(0, separator)}:`;
 }

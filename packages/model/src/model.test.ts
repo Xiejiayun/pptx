@@ -110,6 +110,82 @@ describe('PresentationModel', () => {
     expect((model.slides[1]!.shapes[3] as ChartModel).xml).toContain('<c:plotArea/>');
   });
 
+  it('reads paragraph and soft breaks, then preserves the first paragraph style on plain-text overwrite', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.slides[1]!;
+    const part = pkg.requirePart(slide.partUri);
+    const richText = new TextDecoder()
+      .decode(part.bytes)
+      .replace(
+        '<a:p><a:r><a:t>First title</a:t></a:r></a:p>',
+        '<a:p><a:pPr algn="ctr"/><a:r><a:rPr lang="fr-FR"/><a:t>First</a:t></a:r><a:br/><a:r><a:t>soft</a:t></a:r></a:p><x:keep xmlns:x="urn:test">OPAQUE</x:keep><a:p><a:r><a:t>Second</a:t></a:r></a:p>',
+      );
+    pkg.setPart(part.uri, richText, part.contentType);
+    const shape = slide.shapes[0] as ShapeModel;
+
+    expect(shape.text).toBe('First\nsoft\nSecond');
+    expect(slide.title.text).toBe('First\nsoft\nSecond');
+    shape.text = ' Updated \r\n\rEnd';
+    expect(shape.text).toBe(' Updated \n\nEnd');
+    expect(slide.title.text).toBe(' Updated \n\nEnd');
+    expect(slide.shapes[0]).toBe(shape);
+
+    const updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated.match(/<a:pPr algn="ctr"\/>/g)).toHaveLength(3);
+    expect(updated.match(/<a:rPr lang="fr-FR"\/>/g)).toHaveLength(3);
+    expect(updated).not.toContain('<a:br/>');
+    expect(updated).toContain('<x:keep xmlns:x="urn:test">OPAQUE</x:keep>');
+    expect(updated).toContain('<a:t xml:space="preserve"> Updated </a:t>');
+
+    expect(() =>
+      pkg.transaction(() => {
+        shape.text = 'Rollback';
+        throw new Error('restore rich text');
+      }),
+    ).toThrow('restore rich text');
+    expect(shape.text).toBe(' Updated \n\nEnd');
+
+    const selfClosingPkg = await OpcPackage.open(await modelFixture());
+    const selfClosingModel = new PresentationModel(selfClosingPkg);
+    const selfClosingSlide = selfClosingModel.slides[1]!;
+    const selfClosingPart = selfClosingPkg.requirePart(selfClosingSlide.partUri);
+    selfClosingPkg.setPart(
+      selfClosingPart.uri,
+      new TextDecoder().decode(selfClosingPart.bytes).replace('<a:t>First title</a:t>', '<a:t/>'),
+      selfClosingPart.contentType,
+    );
+    const selfClosingShape = selfClosingSlide.shapes[0] as ShapeModel;
+    selfClosingShape.text = 'Expanded';
+    expect(selfClosingShape.text).toBe('Expanded');
+    expect(new TextDecoder().decode(selfClosingPkg.requirePart(selfClosingPart.uri).bytes)).toContain(
+      '<a:t xml:space="preserve">Expanded</a:t>',
+    );
+  });
+
+  it('does not mutate malformed text shapes that lack a text body or paragraph', async () => {
+    for (const malformedTextBody of ['', '<p:txBody/>']) {
+      const pkg = await OpcPackage.open(await modelFixture());
+      const model = new PresentationModel(pkg);
+      const slide = model.slides[1]!;
+      const shape = slide.shapes[0] as ShapeModel;
+      const part = pkg.requirePart(slide.partUri);
+      pkg.setPart(
+        part.uri,
+        new TextDecoder().decode(part.bytes).replace(/<p:txBody>.*?<\/p:txBody>/, malformedTextBody),
+        part.contentType,
+      );
+      const before = pkg.requirePart(part.uri).bytes;
+      const journal = [...pkg.mutations];
+
+      expect(() => {
+        shape.text = 'Rejected';
+      }).toThrow(malformedTextBody ? /text paragraph/ : /text body/);
+      expect(pkg.requirePart(part.uri).bytes).toEqual(before);
+      expect(pkg.mutations).toEqual(journal);
+    }
+  });
+
   it('reads and edits slide size without changing notes, opaque XML, or shape transforms', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);

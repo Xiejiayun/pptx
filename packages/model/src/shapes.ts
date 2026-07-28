@@ -69,8 +69,7 @@ export abstract class BaseShapeModel {
 
 export class ShapeModel extends BaseShapeModel {
   get text(): string {
-    const { xml, element } = this.resolve();
-    return xml.descendants(element, 't').map((node) => xml.text(node)).join('');
+    return this.slide.getShapeText(this.id);
   }
 
   set text(value: string) {

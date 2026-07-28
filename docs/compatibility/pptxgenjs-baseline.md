@@ -23,7 +23,8 @@ adapter 不读取 `_slides` 等私有字段。后续 peer-range conformance test
 | `defineLayout()` 自定义尺寸 | `create({ slideSize: { width, height } })` | 已支持 |
 | 创建后读取或修改页面尺寸 | `document.slideSize` | 已支持 |
 | `slide.addText(string)` 单段文本 | `slide.addText(string, options)` | 已支持 |
+| string 中的 CR/LF、多段落与空行 | `addText()` / `ShapeModel.text` | 已支持 |
 | 文本框 x/y/w/h、旋转、翻转、名称 | `AddTextOptions` + `inches()` / `degrees()` | 已支持 |
-| rich text runs、段落、换行、字体及文本布局 options | 尚无完整公开 API | 部分支持，后续逐项补齐 |
+| rich text runs、逐段样式、字体及文本布局 options | 尚无完整公开 API | 部分支持，后续逐项补齐 |
 
 原生创建会生成可重新打开和验证的 master/layout/theme 关系链，不通过 adapter，也不在运行时安装或调用 PptxGenJS。
