@@ -48,7 +48,8 @@ adapter 不读取 `_slides` 等私有字段。后续 peer-range conformance test
 | 文本框 `vert` 七种文本方向与 direct 编辑 | `AddTextOptions.vert` / `ShapeModel.textDirection` | 已支持 |
 | 文本框 `fit: none/shrink/resize` 与 direct 编辑 | `AddTextOptions.fit` / `ShapeModel.textFit` | 已支持 |
 | paragraph 左右 margin、first-line/hanging indent | `paragraphMarginLeft` / `paragraphMarginRight` / `paragraphIndent` 与 rich paragraph overrides | 已支持 direct 创建、读取、编辑与清除 |
-| table-cell fit / `textDirection` | 尚无完整公开 API | 部分支持，后续逐项补齐 |
+| table-cell `textDirection` | `TableCell.textDirection` / `TableModel.setCellTextDirection()` | 已支持 |
+| table-cell fit | 尚无完整公开 API | 部分支持，后续逐项补齐 |
 
 LibreOffice headless 可无修复打开 underline 文件，但当前会把 double/dash/wavy 和独立 underline color 降级显示为普通单实线；同一 PptxGenJS 4.0.1 对照文件表现一致。OOXML token 与颜色仍保持合法并可由支持这些样式的客户端读取。
 
@@ -60,7 +61,11 @@ PptxGenJS 4.0.1 的 `margin` tuple 注释声明 `[top, right, bottom, left]`，�
 
 文本框 `wrap` 省略或为 true 时原生 API 与 PptxGenJS 4.0.1 都写 `bodyPr@wrap="square"`，false 写 `none`。PptxGenJS 对非法值静默回退 true、并忽略单个 rich-text run 上的 `wrap`；本库只在文本框级接受严格 boolean。
 
-文本框 `vert` 支持 `eaVert`、`horz`、`mongolianVert`、`vert`、`vert270`、`wordArtVert`、`wordArtVertRtl`，并原样映射到 direct `bodyPr@vert`。省略值不写属性，因此与显式 `horz` 不同；`shape.textDirection = undefined` 只清除 direct override。PptxGenJS 4.0.1 会把非法字符串原样写入，但本库创建和编辑严格拒绝，读取未知 token 返回 `undefined` 且保留原始 XML。普通文本框的 `textDirection` 别名以及 run 级 `vert` / `textDirection` 在 PptxGenJS 中不生效；table-cell `textDirection` 留作独立能力。
+文本框 `vert` 支持 `eaVert`、`horz`、`mongolianVert`、`vert`、`vert270`、`wordArtVert`、`wordArtVertRtl`，并原样映射到 direct `bodyPr@vert`。省略值不写属性，因此与显式 `horz` 不同；`shape.textDirection = undefined` 只清除 direct override。PptxGenJS 4.0.1 会把非法字符串原样写入，但本库创建和编辑严格拒绝，读取未知 token 返回 `undefined` 且保留原始 XML。普通文本框的 `textDirection` 别名以及 run 级 `vert` / `textDirection` 在 PptxGenJS 中不生效。
+
+Table-cell `textDirection` 是独立的四值能力：`horz`、`vert`、`vert270`、`wordArtVert` 映射到选中物理 cell 的 direct `tcPr@vert`。`TableCell.textDirection` 只读取唯一 direct `tcPr` 上唯一、无 namespace 且精确合法的 token；`setCellTextDirection()` 以零基 physical row/cell index 编辑，显式 `horz` 写属性，`undefined` 只清除该属性。PptxGenJS 4.0.1 的 table-level 值会实体化到各 cell，cell-level omitted/explicit `horz` 都不写属性，因此导入时均为 `undefined`；runtime 放行的 `eaVert` 等类型外 token 也严格读为 `undefined` 并原样保留。该能力不包含 table creation、table-level default 或 cell fit。
+
+LibreOffice headless 可正确显示 table-cell `horz`、`vert` 和 `vert270`，但当前把 `wordArtVert` 显示为水平文字；同一 direct OOXML 的 PptxGenJS 4.0.1 对照文件表现完全一致，`tcPr@vert="wordArtVert"` 仍保持合法并可由 PowerPoint 等支持该模式的客户端读取。
 
 文本框 `fit` 的 omitted/none 都不写 direct child，shrink 写 `bodyPr/a:normAutofit`，resize 写 `bodyPr/a:spAutoFit`。`shape.textFit` 也读取既有唯一 `a:noAutofit` 为 none；none 或 `undefined` 清除 direct fit choice，同模式 shrink/resize 赋值保留 PowerPoint 已计算的 `fontScale` / `lnSpcReduction`。PptxGenJS 对非法 outer 值和 run-level fit 静默忽略，本库严格拒绝非法原生输入；adapter 仍兼容 deprecated outer `shrinkText` / `autoFit` 输出。最终缩放比例可能要由 PowerPoint 在编辑文字或改变 shape 大小时动态重算。
 

@@ -49,7 +49,7 @@ document.moveSlide(1, 0);
 document.deleteSlide(2);
 ```
 
-Shape kinds include `text`, `shape`, `image`, `table`, `chart`, `graphic-frame`, and `group`. Images expose embedded part URIs and replacement; tables expose rows/cells and cell text editing; charts expose cached series and lossless chart XML editing.
+Shape kinds include `text`, `shape`, `image`, `table`, `chart`, `graphic-frame`, and `group`. Images expose embedded part URIs and replacement; tables expose rows/cells plus cell text and text-direction editing; charts expose cached series and lossless chart XML editing.
 
 ```ts
 const text = document.addSlide().addText('Quarterly results\nQ4 forecast', {
@@ -120,6 +120,22 @@ Text-box `valign` accepts `top`, `middle`, or `bottom`; omission creates an expl
 Text-box `wrap` accepts a boolean; omission and true create explicit automatic wrapping, while false keeps text on an unwrapped line. `shape.textWrap` reads or replaces only the direct text-body wrapping token, and assigning `undefined` removes that direct override without changing fit, margins, vertical alignment, or text content.
 
 Text-box `vert` accepts `eaVert`, `horz`, `mongolianVert`, `vert`, `vert270`, `wordArtVert`, or `wordArtVertRtl`. Omission writes no direction, so it remains distinct from explicit `horz`. `shape.textDirection` reads or replaces only an exact valid direct `bodyPr@vert`; assigning `undefined` clears that override while preserving unknown direction tokens during unrelated edits. Table-cell direction is a separate capability.
+
+```ts
+import { TableModel, type TableCellTextDirection } from '@pptx/sdk';
+
+const table = document.slides[0].shapes.find(
+  (shape): shape is TableModel => shape instanceof TableModel,
+);
+const current: TableCellTextDirection | undefined =
+  table?.rows[0]?.cells[0]?.textDirection;
+table?.setCellTextDirection(0, 0, 'vert270');
+table?.setCellTextDirection(0, 1, 'wordArtVert');
+table?.setCellTextDirection(0, 2, 'horz');
+table?.setCellTextDirection(0, 2, undefined);
+```
+
+Table-cell `textDirection` is an immutable snapshot with the dedicated values `horz`, `vert`, `vert270`, and `wordArtVert`. `setCellTextDirection()` addresses physical zero-based row/cell positions and edits only the selected cell's direct `tcPr@vert`; explicit `horz` writes `vert="horz"`, while `undefined` clears the direct attribute. The getter requires one direct `tcPr`, one unqualified `vert`, and one exact public token; it does not resolve table defaults or inheritance. PptxGenJS 4.0.1 materializes a table-level direction onto individual cells, so imported cells expose those wire attributes; PptxGenJS collapses omitted and explicit `horz` to no attribute, and both therefore import as `undefined`. This four-value cell API is intentionally separate from the seven-value text-box API and does not add table creation or table-level defaults.
 
 Text-box `fit` accepts `none`, `shrink`, or `resize`. Omission and none write no autofit child for PptxGenJS and PowerPoint 2013 compatibility; shrink writes `normAutofit`, and resize writes `spAutoFit`. `shape.textFit` reads only a unique direct choice, including an existing explicit `noAutofit` as none. Assigning none or `undefined` clears the direct choice; reassigning the current shrink/resize mode preserves any PowerPoint-calculated scale attributes. Final shrink factors may be calculated by PowerPoint only after editing text or resizing the shape.
 

@@ -21,6 +21,7 @@ import {
   openPptxStream,
   PptxDocument,
   ShapeModel,
+  TableModel,
   ValidationError,
 } from './index.js';
 
@@ -33,6 +34,36 @@ async function titleFixture(): Promise<Uint8Array> {
   zip.file('ppt/slides/slide1.xml', '<p:sld xmlns:p="p" xmlns:a="a"><p:cSld><p:spTree><p:sp><p:nvSpPr><p:nvPr><p:ph type="title"/></p:nvPr></p:nvSpPr><p:txBody><a:p><a:r><a:t>Original</a:t></a:r></a:p></p:txBody><x:unknown xmlns:x="x" custom="keep"/></p:sp></p:spTree></p:cSld></p:sld>');
   zip.file('ppt/theme/theme1.xml', '<a:theme xmlns:a="a"><x:opaque xmlns:x="x">KEEP</x:opaque></a:theme>');
   return zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' });
+}
+
+async function tableTextDirectionFixture(): Promise<Uint8Array> {
+  const document = PptxDocument.create();
+  const slide = document.addSlide();
+  const part = document.opcPackage.requirePart(slide.partUri);
+  const cell = (text: string, properties: string, attributes = ''): string =>
+    `<a:tc${attributes}><a:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr lang="en-US"/><a:t>${text}</a:t></a:r><a:endParaRPr lang="en-US"/></a:p></a:txBody>${properties}</a:tc>`;
+  const table = '<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="2" name="Direction table"/><p:cNvGraphicFramePr/><p:nvPr/></p:nvGraphicFramePr><p:xfrm><a:off x="914400" y="914400"/><a:ext cx="7315200" cy="2743200"/></p:xfrm><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/table"><a:tbl><a:tblPr firstRow="1" bandRow="1"><a:tableStyleId>{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}</a:tableStyleId></a:tblPr><a:tblGrid><a:gridCol w="1463040"/><a:gridCol w="1463040"/><a:gridCol w="1463040"/><a:gridCol w="1463040"/><a:gridCol w="1463040"/></a:tblGrid>'
+    + `<a:tr h="1371600">${[
+      cell('Horz', '<a:tcPr vert="horz"/>'),
+      cell('Vert', '<a:tcPr vert="vert"/>'),
+      cell('Vert 270', '<a:tcPr vert="vert270"/>'),
+      cell('WordArt', '<a:tcPr vert="wordArtVert"/>'),
+      cell('Absent', '<a:tcPr keep="ABSENT"/>'),
+    ].join('')}</a:tr>`
+    + `<a:tr h="1371600">${[
+      cell('Clear me', '<a:tcPr vert="vert"/>'),
+      cell('Edit me', '<a:tcPr marL="100"><x:keep xmlns:x="urn:test">OPAQUE</x:keep></a:tcPr>'),
+      cell('Merged placeholder', '<a:tcPr marR="200"/>', ' hMerge="1"'),
+      cell('Neighbor', '<a:tcPr vert="horz" keep="NEIGHBOR"/>'),
+      cell('Tail', '<a:tcPr/>'),
+    ].join('')}</a:tr>`
+    + '</a:tbl></a:graphicData></a:graphic></p:graphicFrame>';
+  document.opcPackage.setPart(
+    slide.partUri,
+    new TextDecoder().decode(part.bytes).replace('</p:spTree>', `${table}</p:spTree>`),
+    part.contentType,
+  );
+  return document.opcPackage.write();
 }
 
 describe('PptxDocument vertical slice', () => {
@@ -251,6 +282,150 @@ describe('PptxDocument vertical slice', () => {
       flipHorizontal: true,
       flipVertical: true,
     });
+  });
+
+  it('edits table-cell text directions through duplicate, rollback, and reopen lifecycles', async () => {
+    const document = await PptxDocument.open(await tableTextDirectionFixture());
+    expect(validatePackage(document.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+    const slide = document.slides[0]!;
+    const table = slide.shapes[0] as TableModel;
+    expect(table).toBeInstanceOf(TableModel);
+    expect(table.rows[0]!.cells.map(({ textDirection }) => textDirection)).toEqual([
+      'horz',
+      'vert',
+      'vert270',
+      'wordArtVert',
+      undefined,
+    ]);
+    const duplicate = document.duplicateSlide(0);
+    const duplicateTable = duplicate.shapes[0] as TableModel;
+
+    table.setCellTextDirection(0, 0, 'wordArtVert');
+    table.setCellTextDirection(0, 1, 'horz');
+    table.setCellTextDirection(0, 2, 'vert');
+    table.setCellTextDirection(0, 3, 'vert270');
+    table.setCellTextDirection(0, 4, 'wordArtVert');
+    table.setCellTextDirection(1, 0, undefined);
+    table.setCellText(1, 1, 'Edited text');
+    table.setCellTextDirection(1, 2, 'vert');
+    table.setTransform({ x: inches(2) });
+    const snapshot = table.rows;
+    (snapshot[0]!.cells[0] as { textDirection?: string }).textDirection = 'horz';
+
+    expect(document.slides[0]).toBe(slide);
+    expect(slide.shapes[0]).toBe(table);
+    expect(table.rows[0]!.cells.map(({ textDirection }) => textDirection)).toEqual([
+      'wordArtVert',
+      'horz',
+      'vert',
+      'vert270',
+      'wordArtVert',
+    ]);
+    expect(table.rows[1]!.cells.map(({ text, textDirection }) => [text, textDirection])).toEqual([
+      ['Clear me', undefined],
+      ['Edited text', undefined],
+      ['Merged placeholder', 'vert'],
+      ['Neighbor', 'horz'],
+      ['Tail', undefined],
+    ]);
+    const editedXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(editedXml).toContain('<x:keep xmlns:x="urn:test">OPAQUE</x:keep>');
+    expect(editedXml).toContain('<a:tc hMerge="1">');
+    expect(editedXml).toContain('<a:tcPr vert="horz" keep="NEIGHBOR"/>');
+    expect(editedXml).toContain('<a:off x="1828800" y="914400"/>');
+    expect(duplicateTable.rows[0]!.cells.map(({ textDirection }) => textDirection)).toEqual([
+      'horz',
+      'vert',
+      'vert270',
+      'wordArtVert',
+      undefined,
+    ]);
+
+    const beforeRollback = document.opcPackage.requirePart(slide.partUri).bytes;
+    const rollbackJournal = [...document.opcPackage.mutations];
+    expect(() =>
+      document.transaction(() => {
+        table.setCellTextDirection(0, 0, 'vert');
+        table.setCellTextDirection(0, 1, undefined);
+        throw new Error('restore public table edits');
+      }),
+    ).toThrow('restore public table edits');
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(beforeRollback);
+    expect(document.opcPackage.mutations).toEqual(rollbackJournal);
+    expect(document.slides[0]).toBe(slide);
+    expect(slide.shapes[0]).toBe(table);
+    expect(table.rows[0]!.cells[0]!.textDirection).toBe('wordArtVert');
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedEdited = reopened.slides[0]!.shapes[0] as TableModel;
+    const reopenedDuplicate = reopened.slides[1]!.shapes[0] as TableModel;
+    expect(reopenedEdited.rows[0]!.cells.map(({ textDirection }) => textDirection)).toEqual([
+      'wordArtVert',
+      'horz',
+      'vert',
+      'vert270',
+      'wordArtVert',
+    ]);
+    expect(reopenedDuplicate.rows[0]!.cells.map(({ textDirection }) => textDirection)).toEqual([
+      'horz',
+      'vert',
+      'vert270',
+      'wordArtVert',
+      undefined,
+    ]);
+  });
+
+  it('rejects invalid table-cell directions and physical coordinates before mutation', async () => {
+    const document = await PptxDocument.open(await tableTextDirectionFixture());
+    const slide = document.slides[0]!;
+    const table = slide.shapes[0] as TableModel;
+    const before = document.opcPackage.requirePart(slide.partUri).bytes;
+    const journal = [...document.opcPackage.mutations];
+    const directions = table.rows.map(({ cells }) => cells.map(({ textDirection }) => textDirection));
+    const text = table.rows.map(({ cells }) => cells.map((cell) => cell.text));
+
+    const invalidValues = [
+      null,
+      false,
+      true,
+      0,
+      1,
+      '',
+      'Vert',
+      ' vert ',
+      'eaVert',
+      'mongolianVert',
+      'wordArtVertRtl',
+      {},
+      [],
+      Symbol('direction'),
+    ];
+    for (const value of invalidValues) {
+      expect(() => table.setCellTextDirection(0, 0, value as never)).toThrow(TypeError);
+    }
+    const invalidCoordinates = [
+      [-1, 0],
+      [0, -1],
+      [0.5, 0],
+      [0, 0.5],
+      [Number.NaN, 0],
+      [0, Number.NaN],
+      [Number.POSITIVE_INFINITY, 0],
+      [0, Number.NEGATIVE_INFINITY],
+      [2, 0],
+      [0, 5],
+    ];
+    for (const [row, column] of invalidCoordinates) {
+      expect(() => table.setCellTextDirection(row!, column!, 'vert')).toThrow(RangeError);
+    }
+
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(before);
+    expect(document.opcPackage.mutations).toEqual(journal);
+    expect(document.slides).toHaveLength(1);
+    expect(document.slides[0]).toBe(slide);
+    expect(slide.shapes[0]).toBe(table);
+    expect(table.rows.map(({ cells }) => cells.map(({ textDirection }) => textDirection))).toEqual(directions);
+    expect(table.rows.map(({ cells }) => cells.map((cell) => cell.text))).toEqual(text);
   });
 
   it('creates, edits, and round-trips plain-text paragraphs with normalized line endings', async () => {

@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { PptxDocument, ShapeModel } from '@pptx/sdk';
+import { PptxDocument, ShapeModel, TableModel } from '@pptx/sdk';
 import { importPptxGenJS } from './index.js';
 
 interface PptxGenJSInstance {
@@ -14,6 +14,13 @@ interface PptxGenJSInstance {
       text: string | readonly { readonly text: string; readonly options?: Record<string, unknown> }[],
       options: Record<string, unknown>,
     ): void;
+    addTable(
+      rows: readonly (readonly {
+        readonly text?: string;
+        readonly options?: Record<string, unknown>;
+      }[])[],
+      options: Record<string, unknown>,
+    ): void;
   };
   write(options: { outputType: 'uint8array'; compression: boolean }): Promise<Uint8Array>;
 }
@@ -22,6 +29,87 @@ const require = createRequire(import.meta.url);
 const PptxGenJS = require('pptxgenjs') as new () => PptxGenJSInstance;
 
 describe('importPptxGenJS', () => {
+  it('imports PptxGenJS table-cell text directions with exact four-value semantics', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    generated.layout = 'LAYOUT_WIDE';
+    const slide = generated.addSlide();
+    slide.addTable(
+      [[
+        { text: 'Inherited', options: {} },
+        { text: 'Horizontal', options: { textDirection: 'horz' } },
+        { text: 'Vertical', options: { textDirection: 'vert' } },
+        { text: 'Rotate 270', options: { textDirection: 'vert270' } },
+        { text: 'Stacked', options: { textDirection: 'wordArtVert' } },
+        { text: 'Invalid', options: { textDirection: 'eaVert' } },
+      ]],
+      { x: 0.5, y: 0.5, w: 12, h: 1, textDirection: 'vert270' },
+    );
+    slide.addTable(
+      [[
+        { text: 'Omitted', options: {} },
+        { text: 'Explicit horizontal', options: { textDirection: 'horz' } },
+      ]],
+      { x: 0.5, y: 2, w: 12, h: 1 },
+    );
+
+    const document = await importPptxGenJS(generated);
+    const tables = document.slides[0]!.shapes.filter(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    );
+    expect(tables).toHaveLength(2);
+    expect(tables[0]!.rows[0]!.cells.map(({ textDirection }) => textDirection)).toEqual([
+      'vert270',
+      undefined,
+      'vert',
+      'vert270',
+      'wordArtVert',
+      undefined,
+    ]);
+    expect(tables[1]!.rows[0]!.cells.map(({ textDirection }) => textDirection)).toEqual([
+      undefined,
+      undefined,
+    ]);
+    expect(tables[0]!.rows[0]!.cells.map(({ text }) => text)).toEqual([
+      'Inherited',
+      'Horizontal',
+      'Vertical',
+      'Rotate 270',
+      'Stacked',
+      'Invalid',
+    ]);
+    expect(tables[1]!.rows[0]!.cells.map(({ text }) => text)).toEqual([
+      'Omitted',
+      'Explicit horizontal',
+    ]);
+
+    const xml = new TextDecoder().decode(
+      document.opcPackage.requirePart(document.slides[0]!.partUri).bytes,
+    );
+    expect(xml.match(/<a:tcPr[^>]* vert="vert270"/g)).toHaveLength(2);
+    expect(xml.match(/<a:tcPr[^>]* vert="vert"/g)).toHaveLength(1);
+    expect(xml.match(/<a:tcPr[^>]* vert="wordArtVert"/g)).toHaveLength(1);
+    expect(xml.match(/<a:tcPr[^>]* vert="eaVert"/g)).toHaveLength(1);
+    expect(xml).not.toMatch(/<a:tcPr[^>]* vert="horz"/);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedTables = reopened.slides[0]!.shapes.filter(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    );
+    expect(reopenedTables[0]!.rows[0]!.cells.map(({ textDirection }) => textDirection)).toEqual([
+      'vert270',
+      undefined,
+      'vert',
+      'vert270',
+      'wordArtVert',
+      undefined,
+    ]);
+    expect(reopenedTables[1]!.rows[0]!.cells.map(({ textDirection }) => textDirection)).toEqual([
+      undefined,
+      undefined,
+    ]);
+  });
+
   it('imports public PptxGenJS output and continues editing in the OOXML kernel', async () => {
     const generated = new PptxGenJS();
     expect(generated.version).toBe('4.0.1');

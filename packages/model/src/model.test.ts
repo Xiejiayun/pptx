@@ -4,6 +4,7 @@ import { OpcPackage } from '@pptx/opc';
 import {
   ChartModel,
   ImageModel,
+  ModelParseError,
   PRESENTATION_FORMAT_PROFILES,
   PresentationModel,
   ShapeModel,
@@ -214,6 +215,133 @@ describe('PresentationModel', () => {
     (shapes[3] as ChartModel).setXml('<c:chartSpace xmlns:c="c"><c:chart><c:plotArea/></c:chart></c:chartSpace>');
     expect((shapes[3] as ChartModel).chartPartUri).toBe(chartPartUri);
     expect((model.slides[1]!.shapes[3] as ChartModel).xml).toContain('<c:plotArea/>');
+  });
+
+  it('reads only exact direct table-cell text directions into detached snapshots', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const part = pkg.requirePart('/ppt/slides/slide1.xml');
+    const cell = (properties: string, index: number, bodyProperties = '<a:bodyPr/>'): string =>
+      `<a:tc><a:txBody>${bodyProperties}<a:p><a:r><a:t>Cell ${index}</a:t></a:r></a:p></a:txBody>${properties}</a:tc>`;
+    const cells = [
+      cell('<a:tcPr vert="horz"/>', 0),
+      cell('<a:tcPr vert="vert"/>', 1),
+      cell('<a:tcPr vert="vert270"/>', 2),
+      cell('<a:tcPr vert="wordArtVert"/>', 3),
+      cell('<a:tcPr keep="absent"/>', 4),
+      cell('<a:tcPr vert=""/>', 5),
+      cell('<a:tcPr vert="Vert"/>', 6),
+      cell('<a:tcPr vert=" vert "/>', 7),
+      cell('<a:tcPr xmlns:x="urn:test" x:vert="vert"/>', 8),
+      cell('<a:tcPr vert="vert" vert="horz"/>', 9),
+      cell('<a:tcPr vert="eaVert"/>', 10),
+      cell('<a:tcPr keep="body-direction"/>', 11, '<a:bodyPr vert="vert" custom="KEEP"/>'),
+      cell('<a:tcPr vert="vert"/><a:tcPr keep="repeated"/>', 12, '<a:bodyPr custom="KEEP"/>'),
+      cell('', 13, '<a:bodyPr custom="KEEP"/>'),
+    ].join('');
+    pkg.setPart(
+      part.uri,
+      new TextDecoder().decode(part.bytes).replace(
+        /<a:tr>.*?<\/a:tr>/,
+        `<a:tr>${cells}</a:tr>`,
+      ),
+      part.contentType,
+    );
+    const table = new PresentationModel(pkg).slides[1]!.shapes[2] as TableModel;
+    const journal = [...pkg.mutations];
+
+    const snapshot = table.rows;
+    const directions = snapshot[0]!.cells.map(({ textDirection }) => textDirection);
+    expect(directions.slice(0, 4)).toEqual(['horz', 'vert', 'vert270', 'wordArtVert']);
+    expect(directions.slice(4)).toEqual(Array(10).fill(undefined));
+    expect(pkg.mutations).toEqual(journal);
+
+    (snapshot[0]!.cells[0] as { textDirection?: string }).textDirection = 'vert';
+    expect(table.rows[0]!.cells[0]!.textDirection).toBe('horz');
+    expect(pkg.mutations).toEqual(journal);
+  });
+
+  it('losslessly edits one direct table-cell direction and rolls back atomically', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const part = pkg.requirePart('/ppt/slides/slide1.xml');
+    const cell = (properties: string, text: string, cellAttributes = ''): string =>
+      `<a:tc${cellAttributes}><a:txBody><a:bodyPr custom="BODY"/><a:p><a:r><a:t>${text}</a:t></a:r></a:p></a:txBody>${properties}</a:tc>`;
+    const adjacentCell = cell('<a:tcPr vert="vert" keep="ADJACENT"/>', 'Adjacent');
+    const cells = [
+      cell("<a:tcPr vert='eaVert' marL=\"100\"><a:solidFill><a:srgbClr val=\"112233\"/></a:solidFill><x:keep xmlns:x=\"urn:test\"/></a:tcPr>", 'Replace'),
+      cell('<a:tcPr marR="200"/>', 'Merged', ' hMerge="1"'),
+      cell('<a:tcPr marT="300"><a:noFill/></a:tcPr>', 'Add'),
+      adjacentCell,
+      cell('<a:tcPr vert="vert"/><a:tcPr keep="AMBIGUOUS"/>', 'Repeated'),
+      cell('', 'Missing'),
+    ].join('');
+    const source = new TextDecoder().decode(part.bytes)
+      .replace(
+        '<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="4" name="Table 1"/></p:nvGraphicFramePr><a:graphic>',
+        '<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="4" name="Table 1"/></p:nvGraphicFramePr><p:xfrm><a:off x="0" y="0"/><a:ext cx="1000" cy="2000"/></p:xfrm><a:graphic>',
+      )
+      .replace(/<a:tr>.*?<\/a:tr>/, `<a:tr>${cells}</a:tr>`);
+    pkg.setPart(part.uri, source, part.contentType);
+    const model = new PresentationModel(pkg);
+    const table = model.slides[1]!.shapes[2] as TableModel;
+
+    const absentClearJournal = [...pkg.mutations];
+    table.setCellTextDirection(0, 1, undefined);
+    expect(pkg.mutations).toEqual(absentClearJournal);
+
+    table.setCellTextDirection(0, 0, 'vert270');
+    let updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated).toContain("<a:tcPr vert='vert270' marL=\"100\"><a:solidFill>");
+    expect(updated).toContain(adjacentCell);
+    expect(table.rows[0]!.cells[0]!.textDirection).toBe('vert270');
+
+    table.setCellTextDirection(0, 1, 'wordArtVert');
+    table.setCellTextDirection(0, 2, 'horz');
+    updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated).toContain('<a:tcPr marR="200" vert="wordArtVert"/>');
+    expect(updated).toContain('<a:tcPr marT="300" vert="horz"><a:noFill/></a:tcPr>');
+    expect(updated).toContain('<a:tc hMerge="1">');
+    expect(updated).toContain('<a:bodyPr custom="BODY"/>');
+    expect(updated).toContain(adjacentCell);
+
+    const noOpJournal = [...pkg.mutations];
+    table.setCellTextDirection(0, 2, 'horz');
+    expect(pkg.mutations).toEqual(noOpJournal);
+
+    table.setCellTextDirection(0, 0, undefined);
+    table.setCellText(0, 2, 'Edited Add');
+    table.setTransform({ x: inches(1) });
+    updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated).toContain('<a:tcPr marL="100"><a:solidFill>');
+    expect(updated).not.toContain("vert='vert270'");
+    expect(updated).toContain('<a:tcPr marT="300" vert="horz"><a:noFill/></a:tcPr>');
+    expect(updated).toContain('<a:t>Edited Add</a:t>');
+    expect(updated).toContain('<a:off x="914400" y="0"/>');
+    expect(updated).toContain(adjacentCell);
+
+    const beforeInvalid = pkg.requirePart(part.uri).bytes;
+    const invalidJournal = [...pkg.mutations];
+    for (const [row, column] of [[-1, 0], [0, -1], [0, 9], [1, 0]]) {
+      expect(() => table.setCellTextDirection(row!, column!, 'vert')).toThrow(RangeError);
+    }
+    expect(() => table.setCellTextDirection(0, 4, 'vert270')).toThrow(ModelParseError);
+    expect(() => table.setCellTextDirection(0, 5, 'vert270')).toThrow(ModelParseError);
+    expect(pkg.requirePart(part.uri).bytes).toEqual(beforeInvalid);
+    expect(pkg.mutations).toEqual(invalidJournal);
+
+    const beforeRollback = pkg.requirePart(part.uri).bytes;
+    const rollbackJournal = [...pkg.mutations];
+    const rollbackDirections = table.rows[0]!.cells.map(({ textDirection }) => textDirection);
+    expect(() =>
+      pkg.transaction(() => {
+        table.setCellTextDirection(0, 3, 'wordArtVert');
+        table.setCellTextDirection(0, 1, undefined);
+        throw new Error('restore table cell directions');
+      }),
+    ).toThrow('restore table cell directions');
+    expect(pkg.requirePart(part.uri).bytes).toEqual(beforeRollback);
+    expect(pkg.mutations).toEqual(rollbackJournal);
+    expect(model.slides[1]!.shapes[2]).toBe(table);
+    expect(table.rows[0]!.cells.map(({ textDirection }) => textDirection)).toEqual(rollbackDirections);
   });
 
   it('reads paragraph and soft breaks, then preserves the first paragraph style on plain-text overwrite', async () => {

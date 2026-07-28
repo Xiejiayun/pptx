@@ -40,7 +40,7 @@ try {
 
   await writeFile(
     join(directory, 'smoke.mjs'),
-    `import { inches, PptxDocument, GradientCodec, importPptxGenJS, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
+    `import { inches, PptxDocument, TableModel, GradientCodec, importPptxGenJS, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
 const created = PptxDocument.create({ rtlMode: true });
 const createdText = created.addSlide().addText('Smoke\\n\\nParagraph', { align: 'center', fit: 'shrink', valign: 'top', vert: 'vert270', wrap: false, bullet: true, level: 2, margin: 10, rtlMode: true, spacing: { before: 4, after: 6, line: { kind: 'exact', points: 20 } }, tabStops: [{ position: 1.25 }, { position: 2.5, alignment: 'right' }] });
 const initialTextWrap = createdText.textWrap;
@@ -79,6 +79,20 @@ const transparencyText = created.slides[0].addRichText([{ runs: [{ text: 'Quarte
 const initialTransparencies = transparencyText.richText[0].runs.map(({ style }) => style?.transparency);
 transparencyText.richText = [{ runs: [{ text: 'Opaque', style: { transparency: 0 } }, { text: 'Mostly', style: { transparency: 75 } }, { text: 'Cleared' }] }];
 const updatedTransparencies = transparencyText.richText[0].runs.map(({ style }) => style?.transparency);
+const tableSlide = created.slides[0];
+const tablePart = created.opcPackage.requirePart(tableSlide.partUri);
+const tableXml = '<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="99" name="Smoke table"/></p:nvGraphicFramePr><a:graphic><a:graphicData><a:tbl><a:tr><a:tc><a:txBody><a:p><a:r><a:t>Target</a:t></a:r></a:p></a:txBody><a:tcPr vert="horz"/></a:tc><a:tc><a:txBody><a:p><a:r><a:t>Neighbor</a:t></a:r></a:p></a:txBody><a:tcPr vert="vert" keep="ADJACENT"/></a:tc></a:tr></a:tbl></a:graphicData></a:graphic></p:graphicFrame>';
+created.opcPackage.setPart(tableSlide.partUri, new TextDecoder().decode(tablePart.bytes).replace('</p:spTree>', tableXml + '</p:spTree>'), tablePart.contentType);
+const table = tableSlide.shapes.find((shape) => shape instanceof TableModel);
+const initialCellDirection = table?.rows[0]?.cells[0]?.textDirection;
+table?.setCellTextDirection(0, 0, 'vert270');
+const rotatedCellDirection = table?.rows[0]?.cells[0]?.textDirection;
+table?.setCellTextDirection(0, 0, 'wordArtVert');
+const stackedCellDirection = table?.rows[0]?.cells[0]?.textDirection;
+table?.setCellTextDirection(0, 0, 'horz');
+const horizontalCellDirection = table?.rows[0]?.cells[0]?.textDirection;
+table?.setCellTextDirection(0, 0, undefined);
+const clearedCellDirection = table?.rows[0]?.cells[0]?.textDirection;
 const inheritedLanguage = richText.richText[0].runs[0].style.lang;
 const localLanguage = richText.richText[0].runs[1].style.lang;
 const initialRtl = richText.richText.map(({ rtl }) => rtl);
@@ -99,6 +113,7 @@ const checks = {
   paragraphMarginRight: initialParagraphRightMargins[0] === 12 && initialParagraphRightMargins[1] === 24 && initialParagraphRightMargins[2] === undefined && bulletRightMarginCoexistence && updatedParagraphRightMargins[0] === 6 && updatedParagraphRightMargins[1] === 0 && updatedParagraphRightMargins[2] === undefined && updatedParagraphRightMargins[3] === undefined && updatedParagraphRightMargins[4] === 9,
   paragraphIndent: initialParagraphIndents[0] === 24 && initialParagraphIndents[1] === -18 && initialParagraphIndents[2] === undefined && initialParagraphIndents[3] === undefined && bulletIndentIsolation && updatedParagraphIndents[0] === 6 && updatedParagraphIndents[1] === -6 && updatedParagraphIndents[2] === 0 && updatedParagraphIndents[3] === undefined && updatedParagraphIndents[4] === undefined,
   richTextTransparency: initialTransparencies[0] === 25 && initialTransparencies[1] === 50.555 && initialTransparencies[2] === 100 && initialTransparencies[3] === 60 && updatedTransparencies[0] === 0 && updatedTransparencies[1] === 75 && updatedTransparencies[2] === undefined,
+  tableCellTextDirection: table instanceof TableModel && initialCellDirection === 'horz' && rotatedCellDirection === 'vert270' && stackedCellDirection === 'wordArtVert' && horizontalCellDirection === 'horz' && clearedCellDirection === undefined && table.rows[0].cells[0].text === 'Target' && table.rows[0].cells[1].textDirection === 'vert' && table.rows[0].cells[1].text === 'Neighbor',
   createText: createdText.text === 'Updated\\nParagraph' && initialTextWrap === false && updatedTextWrap === true && createdText.textWrap === undefined && initialTextDirection === 'vert270' && updatedTextDirection === 'wordArtVert' && createdText.textDirection === undefined && initialTextFit === 'shrink' && updatedTextFit === 'resize' && createdText.textFit === undefined && createdText.verticalAlignment === 'bottom' && createdText.textMargins.top === 4 && createdText.textMargins.left === 8 && createdText.textMargins.right === undefined && createdText.richText.every(({ align, bullet, level, rtl, spacing, tabStops }) => align === 'center' && bullet?.kind === 'bullet' && bullet.indent === 27 && level === 2 && rtl === true && spacing?.line?.kind === 'exact' && Array.isArray(tabStops) && tabStops[0]?.position === 1.25 && tabStops[1]?.alignment === 'right') && created.slides[0].shapes[0] === createdText,
   richText: inheritedLanguage === 'fr-CA' && localLanguage === 'de-DE' && initialRtl[0] === true && initialRtl[1] === false && richText.text === 'Updated rich' && richText.richText[0].rtl === undefined && richText.richText[0].align === 'justify' && richText.richText[0].bullet.style === 'romanUcPeriod' && richText.richText[0].level === 3 && richText.richText[0].spacing.line.kind === 'exact' && Array.isArray(richText.richText[0].tabStops) && richText.richText[0].tabStops[0].alignment === 'decimal' && richText.richText[0].runs[0].style.lang === 'ja-JP' && richText.richText[0].runs[0].style.baseline === 'superscript' && richText.richText[0].runs[0].style.characterSpacing === 2.5 && richText.richText[0].runs[0].style.italic === true && richText.richText[0].runs[0].style.glow.color.value === 'accent3' && richText.richText[0].runs[0].style.glow.opacity === 0.25 && richText.richText[0].runs[0].style.glow.size === 6 && richText.richText[0].runs[0].style.highlight.value === '00FF00' && richText.richText[0].runs[0].style.outline.color.value === 'accent1' && richText.richText[0].runs[0].style.outline.size === 0.75 && richText.richText[0].runs[0].style.underline.style === 'wavyHeavy' && richText.richText[0].runs[0].style.underline.color.value === 'accent2' && richText.richText[0].runs[0].style.strike === false,
   customSlideSize: custom.slideSize.width === inches(10) && customXml.includes('<p:sldSz cx="9144000" cy="6858000"/>'),
@@ -118,7 +133,7 @@ process.stdout.write(JSON.stringify(checks));
 
   await writeFile(
     join(directory, 'browser-smoke.mjs'),
-    `import { inches, PptxDocument, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
+    `import { inches, PptxDocument, TableModel, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
 const resolved = import.meta.resolve('@jiayunxie/pptx');
 if (!resolved.endsWith('/dist/browser.js')) throw new Error('Browser condition resolved to ' + resolved);
 const checks = [PptxDocument, transitions.TransitionCodec, animations.AnimationTimingCodec, advancedCharts.AdvancedChartCodec, smartArt.SmartArtDiagramCodec];
@@ -144,6 +159,17 @@ const browserIndent = created.slides[0].addRichText([{ indent: -12, runs: [{ tex
 if (browserIndent.richText[0].indent !== -12 || browserIndent.richText[1].indent !== undefined || browserIndent.richText[1].bullet.indent !== 27) throw new Error('Browser paragraph indent create failed');
 browserIndent.richText = [{ indent: false, runs: [{ text: 'Cleared' }] }];
 if (browserIndent.richText[0].indent !== undefined) throw new Error('Browser paragraph indent clear failed');
+const tableSlide = created.slides[0];
+const tablePart = created.opcPackage.requirePart(tableSlide.partUri);
+const tableXml = '<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="99" name="Browser table"/></p:nvGraphicFramePr><a:graphic><a:graphicData><a:tbl><a:tr><a:tc><a:txBody><a:p><a:r><a:t>Browser target</a:t></a:r></a:p></a:txBody><a:tcPr vert="horz"/></a:tc><a:tc><a:txBody><a:p><a:r><a:t>Browser neighbor</a:t></a:r></a:p></a:txBody><a:tcPr vert="vert"/></a:tc></a:tr></a:tbl></a:graphicData></a:graphic></p:graphicFrame>';
+created.opcPackage.setPart(tableSlide.partUri, new TextDecoder().decode(tablePart.bytes).replace('</p:spTree>', tableXml + '</p:spTree>'), tablePart.contentType);
+const table = tableSlide.shapes.find((shape) => shape instanceof TableModel);
+table?.setCellTextDirection(0, 0, 'vert270');
+if (!(table instanceof TableModel) || table.rows[0].cells[0].textDirection !== 'vert270' || table.rows[0].cells[1].textDirection !== 'vert') throw new Error('Browser table-cell direction edit failed');
+table.setCellTextDirection(0, 0, 'wordArtVert');
+if (table.rows[0].cells[0].textDirection !== 'wordArtVert') throw new Error('Browser table-cell stacked direction edit failed');
+table.setCellTextDirection(0, 0, undefined);
+if (table.rows[0].cells[0].textDirection !== undefined || table.rows[0].cells[0].text !== 'Browser target' || table.rows[0].cells[1].text !== 'Browser neighbor') throw new Error('Browser table-cell direction clear failed');
 if (created.rtlMode !== true) throw new Error('Browser presentation RTL create failed');
 created.rtlMode = false;
 if (created.rtlMode !== false || browserRich.rtl !== true) throw new Error('Browser presentation RTL edit failed');
@@ -160,6 +186,7 @@ process.stdout.write(resolved);
     join(directory, 'smoke.ts'),
     `import {
   PptxDocument,
+  TableModel,
   inches,
   type CustomSlideSize,
   type RichTextParagraph,
@@ -181,6 +208,7 @@ process.stdout.write(resolved);
   type TextBoxMargins,
   type TextBoxFit,
   type TextBoxTextDirection,
+  type TableCellTextDirection,
   type TextBoxVerticalAlignment,
   GradientCodec,
   importPptxGenJS,
@@ -216,8 +244,16 @@ const characterStyle: RichTextRunStyle = { baseline, characterSpacing: 2.5, lang
 const margin: TextBoxMarginInput = [4, 8, 4, 8];
 const verticalAlignment: TextBoxVerticalAlignment = 'top';
 const direction: TextBoxTextDirection = 'vert270';
+const cellDirection: TableCellTextDirection = 'vert270';
 const fit: TextBoxFit = 'shrink';
 const createdText = createdDocument.addSlide().addText('Typed\\ntext', { align: alignment, fit, valign: verticalAlignment, vert: direction, wrap: true, bullet, level: 2, margin, spacing, tabStops });
+const table = createdDocument.slides[0].shapes.find(
+  (shape): shape is TableModel => shape instanceof TableModel,
+);
+const snapshotDirection: TableCellTextDirection | undefined =
+  table?.rows[0]?.cells[0]?.textDirection;
+table?.setCellTextDirection(0, 0, cellDirection);
+table?.setCellTextDirection(0, 0, undefined);
 const marginSnapshot: TextBoxMargins | undefined = createdText.textMargins;
 const wrapSnapshot: boolean | undefined = createdText.textWrap;
 const directionSnapshot: TextBoxTextDirection | undefined = createdText.textDirection;
@@ -282,7 +318,7 @@ documentPromise.then((document) => {
   advancedCharts.installAdvancedChartPlugin(document);
   smartArt.installSmartArtPlugin(document);
 });
-void [documentPromise, createdDocument, globalRtl, globalRtlSnapshot, customDocument, createdText, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
+void [documentPromise, createdDocument, globalRtl, globalRtlSnapshot, customDocument, createdText, table, snapshotDirection, cellDirection, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
 `,
   );
   run(
