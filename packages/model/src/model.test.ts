@@ -1567,6 +1567,76 @@ describe('PresentationModel', () => {
       .toHaveLength(2);
   });
 
+  it('reads strict signed ordinary paragraph indents and preserves them during plain text edits', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.slides[1]!;
+    const part = pkg.requirePart(slide.partUri);
+    const indentText = [
+      '<a:p><a:pPr indent="0"/><a:r><a:t>Zero</a:t></a:r></a:p>',
+      '<a:p><a:pPr indent="152400"/><a:r><a:t>First line</a:t></a:r></a:p>',
+      '<a:p><a:pPr indent="-228600"/><a:r><a:t>Hanging</a:t></a:r></a:p>',
+      '<a:p><a:pPr indent="1"/><a:r><a:t>One EMU</a:t></a:r></a:p>',
+      '<a:p><a:pPr/><a:r><a:t>Missing</a:t></a:r></a:p>',
+      '<a:p><a:pPr indent=""/><a:r><a:t>Empty</a:t></a:r></a:p>',
+      '<a:p><a:pPr indent="1.5"/><a:r><a:t>Fractional</a:t></a:r></a:p>',
+      '<a:p><a:pPr indent="51206401"/><a:r><a:t>Too positive</a:t></a:r></a:p>',
+      '<a:p><a:pPr indent="-51206401"/><a:r><a:t>Too negative</a:t></a:r></a:p>',
+      '<a:p><a:pPr indent="yes"/><a:r><a:t>Unknown</a:t></a:r></a:p>',
+      '<a:p><a:pPr indent="228600"><a:buNone/></a:pPr><a:r><a:t>No bullet</a:t></a:r></a:p>',
+      '<a:p><a:pPr indent="228600"><a:buChar char="•"/></a:pPr><a:r><a:t>Bullet</a:t></a:r></a:p>',
+      '<a:p><a:pPr indent="228600"><a:buAutoNum type="arabicPeriod"/></a:pPr><a:r><a:t>Number</a:t></a:r></a:p>',
+      '<a:p><a:pPr indent="228600"><a:buBlip><a:blip r:embed="rId1"/></a:buBlip></a:pPr><a:r><a:t>Picture</a:t></a:r></a:p>',
+    ].join('');
+    pkg.setPart(
+      part.uri,
+      new TextDecoder().decode(part.bytes).replace(
+        '<a:p><a:r><a:t>First title</a:t></a:r></a:p>',
+        indentText,
+      ),
+      part.contentType,
+    );
+    const shape = slide.shapes[0] as ShapeModel;
+    const journal = [...pkg.mutations];
+
+    expect(shape.richText.map(({ indent }) => indent)).toEqual([
+      0,
+      12,
+      -18,
+      1 / 12700,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      18,
+      undefined,
+      undefined,
+      undefined,
+    ]);
+    expect(pkg.mutations).toEqual(journal);
+
+    const plainPkg = await OpcPackage.open(await modelFixture());
+    const plainModel = new PresentationModel(plainPkg);
+    const plainSlide = plainModel.slides[1]!;
+    const plainPart = plainPkg.requirePart(plainSlide.partUri);
+    plainPkg.setPart(
+      plainPart.uri,
+      new TextDecoder().decode(plainPart.bytes).replace(
+        '<a:p><a:r><a:t>First title</a:t></a:r></a:p>',
+        '<a:p><a:pPr marL="304800" marR="152400" indent="-228600" custom="KEEP"><x:keep xmlns:x="urn:test"/></a:pPr><a:r><a:t>Original</a:t></a:r></a:p>',
+      ),
+      plainPart.contentType,
+    );
+    const plainShape = plainSlide.shapes[0] as ShapeModel;
+    plainShape.text = 'First\nSecond';
+    expect(plainShape.richText.map(({ indent }) => indent)).toEqual([-18, -18]);
+    const updated = new TextDecoder().decode(plainPkg.requirePart(plainPart.uri).bytes);
+    expect(updated.match(/<a:pPr marL="304800" marR="152400" indent="-228600" custom="KEEP"><x:keep xmlns:x="urn:test"\/><\/a:pPr>/g))
+      .toHaveLength(2);
+  });
+
   it('updates alignment without rebuilding other paragraph properties', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);
@@ -1654,7 +1724,7 @@ describe('PresentationModel', () => {
     expect(firstProperties.indexOf('<a:defRPr')).toBeLessThan(firstProperties.indexOf('<a:extLst>'));
     expect(firstProperties).toContain('<a:buAutoNum type="alphaUcPeriod" startAt="2"/>');
     expect(firstProperties).toContain('<x:keep xmlns:x="urn:test">KEEP</x:keep>');
-    expect(updated).toContain('<a:pPr marL="304800" indent="-100000" custom="SECOND" algn="ctr"><a:buNone/></a:pPr>');
+    expect(updated).toContain('<a:pPr marL="304800" custom="SECOND" algn="ctr"><a:buNone/></a:pPr>');
     expect(updated).toContain('<a:buChar char="▶"/>');
     expect(updated).not.toContain('Wingdings');
     expect(updated).not.toContain('hebrew2Minus');
@@ -1711,6 +1781,7 @@ describe('PresentationModel', () => {
       {
         runs: [{ text: 'Preserved custom margin' }],
         bullet: false,
+        indent: -111111 / 12700,
         level: 0,
         marginLeft: 777778 / 12700,
       },
@@ -1726,7 +1797,7 @@ describe('PresentationModel', () => {
     expect(firstProperties).toContain('<a:spcBef><a:spcPts val="600"/></a:spcBef>');
     expect(firstProperties).toContain('<x:keep xmlns:x="urn:test">KEEP</x:keep>');
     expect(updated).toContain('<a:pPr marL="279400" indent="-279400" custom="SECOND"><a:buSzPct');
-    expect(updated).toContain('<a:pPr lvl="2" marL="0" indent="0" custom="THIRD"><x:third xmlns:x="urn:test">THIRD</x:third><a:buNone/></a:pPr>');
+    expect(updated).toContain('<a:pPr lvl="2" marL="0" custom="THIRD"><x:third xmlns:x="urn:test">THIRD</x:third><a:buNone/></a:pPr>');
     expect(updated).toContain('<a:pPr marL="777778" indent="-111111" custom="FOURTH"><a:buNone/></a:pPr>');
     expect(updated).not.toContain('lvl="1.5"');
     expect(shape.richText.map(({ bullet, level }) => ({ bullet, level }))).toEqual([

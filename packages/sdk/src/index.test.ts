@@ -722,6 +722,159 @@ describe('PptxDocument vertical slice', () => {
     expect(slide.shapes).toHaveLength(3);
   });
 
+  it('creates, edits, duplicates, and reopens signed ordinary paragraph indents', async () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const omitted = slide.addText('Canonical zero');
+    const plain = slide.addText('Hanging first\r\n\rSecond', {
+      align: 'center',
+      paragraphIndent: -12.5,
+      paragraphMarginLeft: 48,
+      paragraphMarginRight: 6,
+      rtlMode: false,
+      spacing: { after: 4 },
+      tabStops: [{ position: 1.5 }],
+    });
+    const rich = slide.addRichText([
+      { runs: [{ text: 'Default twenty-four' }] },
+      { indent: 12, runs: [{ text: 'First-line twelve' }] },
+      { indent: -18, runs: [{ text: 'Hanging eighteen' }] },
+      { indent: 0, runs: [{ text: 'Direct zero' }] },
+      { indent: false, runs: [] },
+      { bullet: true, indent: false, runs: [{ text: 'Bullet-owned indent' }] },
+    ], { paragraphIndent: 24 });
+    const ordinaryUnderOuterBullet = slide.addRichText([{
+      bullet: false,
+      indent: -18,
+      runs: [{ text: 'Ordinary under outer bullet' }],
+    }], { bullet: true });
+
+    expect(omitted.richText.map(({ indent }) => indent)).toEqual([0]);
+    expect(plain.richText.map(({ indent, marginLeft, marginRight }) => ({ indent, marginLeft, marginRight })))
+      .toEqual([
+        { indent: -12.5, marginLeft: 48, marginRight: 6 },
+        { indent: -12.5, marginLeft: 48, marginRight: 6 },
+        { indent: -12.5, marginLeft: 48, marginRight: 6 },
+      ]);
+    expect(rich.richText.map(({ indent }) => indent)).toEqual([24, 12, -18, 0, undefined, undefined]);
+    expect(rich.richText[5]!.bullet).toEqual({ kind: 'bullet', character: '•', indent: 27 });
+    expect(ordinaryUnderOuterBullet.richText[0]!.indent).toBe(-18);
+    expect(ordinaryUnderOuterBullet.richText[0]!.bullet).toBeUndefined();
+    let slideXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(slideXml.match(/indent="-158750"/g)).toHaveLength(3);
+    expect(slideXml).toContain('indent="304800"');
+    expect(slideXml).toContain('indent="152400"');
+    expect(slideXml).toContain('indent="-228600"');
+    expect(slideXml).toContain('indent="-342900" marL="342900"');
+
+    document.duplicateSlide(0);
+    plain.text = 'Updated\nCloned indent';
+    expect(plain.richText.map(({ indent }) => indent)).toEqual([-12.5, -12.5]);
+    rich.richText = [
+      { indent: 6, runs: [{ text: 'Positive six' }] },
+      { indent: -6, runs: [{ text: 'Negative six' }] },
+      { indent: 0, runs: [{ text: 'Zero' }] },
+      { indent: false, runs: [{ text: 'Cleared false' }] },
+      { runs: [{ text: 'Cleared omitted' }] },
+      { runs: [{ text: 'Former bullet cleared' }] },
+    ];
+    expect(rich.richText.map(({ indent }) => indent)).toEqual([6, -6, 0, undefined, undefined, undefined]);
+    slideXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(slideXml).toContain('indent="76200"');
+    expect(slideXml).toContain('indent="-76200"');
+    const formerBulletStart = slideXml.indexOf('>Former bullet cleared<');
+    const formerBulletEnd = slideXml.indexOf('</a:p>', formerBulletStart);
+    const formerBullet = slideXml.slice(slideXml.lastIndexOf('<a:p>', formerBulletStart), formerBulletEnd);
+    expect(formerBullet).not.toContain('indent=');
+    expect(formerBullet).not.toContain('marL=');
+
+    const beforeRollback = document.opcPackage.requirePart(slide.partUri).bytes;
+    const journal = [...document.opcPackage.mutations];
+    expect(() =>
+      document.transaction(() => {
+        rich.richText = [{ indent: -48, runs: [{ text: 'Rollback' }] }];
+        throw new Error('restore paragraph indent');
+      }),
+    ).toThrow('restore paragraph indent');
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(beforeRollback);
+    expect(document.opcPackage.mutations).toEqual(journal);
+    expect(slide.shapes[2]).toBe(rich);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const editedPlain = reopened.slides[0]!.shapes[1] as ShapeModel;
+    const editedRich = reopened.slides[0]!.shapes[2] as ShapeModel;
+    const duplicatedRich = reopened.slides[1]!.shapes[2] as ShapeModel;
+    expect(editedPlain.richText.map(({ indent }) => indent)).toEqual([-12.5, -12.5]);
+    expect(editedRich.richText.map(({ indent }) => indent)).toEqual([6, -6, 0, undefined, undefined, undefined]);
+    expect(duplicatedRich.richText.map(({ indent }) => indent)).toEqual([24, 12, -18, 0, undefined, undefined]);
+    expect(duplicatedRich.richText[5]!.bullet).toEqual({ kind: 'bullet', character: '•', indent: 27 });
+    expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+  });
+
+  it('rejects malformed or conflicting paragraph indents before package mutation', () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const shape = slide.addText('Original');
+    const positiveBoundary = slide.addText('Positive boundary', { paragraphIndent: 4032 });
+    const negativeBoundary = slide.addText('Negative boundary', { paragraphIndent: -4032 });
+    slide.addRichText([{ bullet: false, indent: -18, runs: [{ text: 'Ordinary' }] }], { bullet: true });
+    slide.addRichText([{ bullet: true, indent: false, runs: [{ text: 'Bullet' }] }], {
+      paragraphIndent: 24,
+    });
+    expect(positiveBoundary.richText[0]!.indent).toBe(4032);
+    expect(negativeBoundary.richText[0]!.indent).toBe(-4032);
+    const boundaryXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(boundaryXml).toContain('indent="51206400"');
+    expect(boundaryXml).toContain('indent="-51206400"');
+
+    const before = document.opcPackage.requirePart(slide.partUri).bytes;
+    const journal = [...document.opcPackage.mutations];
+    const invalidOuterTypes = [null, true, false, '12', {}, [], Symbol('indent'), Number.NaN, Infinity];
+    const invalidParagraphTypes = [null, true, '12', {}, [], Symbol('indent'), Number.NaN, Infinity];
+    const invalidRanges = [-4032.01, 4032.01];
+
+    for (const paragraphIndent of invalidOuterTypes) {
+      expect(() => slide.addText('Invalid', { paragraphIndent: paragraphIndent as never })).toThrow(TypeError);
+      expect(() => slide.addRichText([{ runs: [{ text: 'Invalid' }] }], {
+        paragraphIndent: paragraphIndent as never,
+      })).toThrow(TypeError);
+    }
+    for (const indent of invalidParagraphTypes) {
+      expect(() => slide.addRichText([{ indent: indent as never, runs: [{ text: 'Invalid' }] }]))
+        .toThrow(TypeError);
+      expect(() => {
+        shape.richText = [{ indent: indent as never, runs: [{ text: 'Invalid' }] }];
+      }).toThrow(TypeError);
+    }
+    for (const indent of invalidRanges) {
+      expect(() => slide.addText('Invalid', { paragraphIndent: indent })).toThrow(RangeError);
+      expect(() => slide.addRichText([{ runs: [{ text: 'Invalid' }] }], { paragraphIndent: indent }))
+        .toThrow(RangeError);
+      expect(() => slide.addRichText([{ indent, runs: [{ text: 'Invalid' }] }])).toThrow(RangeError);
+      expect(() => {
+        shape.richText = [{ indent, runs: [{ text: 'Invalid' }] }];
+      }).toThrow(RangeError);
+    }
+    expect(() => slide.addText('Conflict', { bullet: true, paragraphIndent: 0 })).toThrow(TypeError);
+    expect(() => slide.addRichText([{ runs: [{ text: 'Conflict' }] }], {
+      bullet: true,
+      paragraphIndent: 12,
+    })).toThrow(TypeError);
+    expect(() => slide.addRichText([{
+      bullet: true,
+      indent: 0,
+      runs: [{ text: 'Conflict' }],
+    }])).toThrow(TypeError);
+    expect(() => {
+      shape.richText = [{ bullet: true, indent: -12, runs: [{ text: 'Conflict' }] }];
+    }).toThrow(TypeError);
+
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(before);
+    expect(document.opcPackage.mutations).toEqual(journal);
+    expect(slide.shapes[0]).toBe(shape);
+    expect(slide.shapes).toHaveLength(5);
+  });
+
   it('creates, replaces, rolls back, and round-trips bullets and numbering', async () => {
     const styles: readonly NumberingStyle[] = [
       'alphaLcParenBoth',
@@ -1184,6 +1337,7 @@ describe('PptxDocument vertical slice', () => {
     expect(shape.text).toBe('Bold & \nsoft\n\nLast');
     expect(shape.richText).toEqual([
       {
+        indent: 0,
         marginLeft: 0,
         runs: [
           {
@@ -1209,8 +1363,9 @@ describe('PptxDocument vertical slice', () => {
           },
         ],
       },
-      { marginLeft: 0, runs: [] },
+      { indent: 0, marginLeft: 0, runs: [] },
       {
+        indent: 0,
         marginLeft: 0,
         runs: [
           {

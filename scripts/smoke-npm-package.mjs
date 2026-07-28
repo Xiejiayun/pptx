@@ -70,6 +70,11 @@ const initialParagraphRightMargins = rightMarginText.richText.map(({ marginRight
 const bulletRightMarginCoexistence = rightMarginText.richText[1].marginRight === 24 && rightMarginText.richText[1].bullet.indent === 27;
 rightMarginText.richText = [{ marginRight: 6, runs: [{ text: 'Six' }] }, { marginRight: 0, runs: [{ text: 'Zero' }] }, { marginRight: false, runs: [{ text: 'Cleared' }] }, { runs: [{ text: 'Omitted' }] }, { bullet: true, marginRight: 9, runs: [{ text: 'Bullet' }] }];
 const updatedParagraphRightMargins = rightMarginText.richText.map(({ marginRight }) => marginRight);
+const indentText = created.slides[0].addRichText([{ runs: [{ text: 'Default' }] }, { indent: -18, runs: [{ text: 'Hanging' }] }, { indent: false, runs: [{ text: 'Absent' }] }, { bullet: true, indent: false, runs: [{ text: 'Bullet' }] }], { paragraphIndent: 24 });
+const initialParagraphIndents = indentText.richText.map(({ indent }) => indent);
+const bulletIndentIsolation = indentText.richText[3].indent === undefined && indentText.richText[3].bullet.indent === 27;
+indentText.richText = [{ indent: 6, runs: [{ text: 'Positive' }] }, { indent: -6, runs: [{ text: 'Negative' }] }, { indent: 0, runs: [{ text: 'Zero' }] }, { indent: false, runs: [{ text: 'Cleared' }] }, { runs: [{ text: 'Omitted' }] }];
+const updatedParagraphIndents = indentText.richText.map(({ indent }) => indent);
 const inheritedLanguage = richText.richText[0].runs[0].style.lang;
 const localLanguage = richText.richText[0].runs[1].style.lang;
 const initialRtl = richText.richText.map(({ rtl }) => rtl);
@@ -88,6 +93,7 @@ const checks = {
   presentationRtl: presentationRtlEnabled === true && presentationRtlDisabled === false && presentationRtlCleared === undefined && paragraphRtlAfterGlobalClear[0] === true && paragraphRtlAfterGlobalClear[1] === false,
   paragraphMarginLeft: initialParagraphMargins[0] === 12 && initialParagraphMargins[1] === undefined && initialParagraphMargins[2] === undefined && bulletMarginIsolation && updatedParagraphMargins[0] === 6 && updatedParagraphMargins[1] === 0 && updatedParagraphMargins[2] === undefined && updatedParagraphMargins[3] === undefined,
   paragraphMarginRight: initialParagraphRightMargins[0] === 12 && initialParagraphRightMargins[1] === 24 && initialParagraphRightMargins[2] === undefined && bulletRightMarginCoexistence && updatedParagraphRightMargins[0] === 6 && updatedParagraphRightMargins[1] === 0 && updatedParagraphRightMargins[2] === undefined && updatedParagraphRightMargins[3] === undefined && updatedParagraphRightMargins[4] === 9,
+  paragraphIndent: initialParagraphIndents[0] === 24 && initialParagraphIndents[1] === -18 && initialParagraphIndents[2] === undefined && initialParagraphIndents[3] === undefined && bulletIndentIsolation && updatedParagraphIndents[0] === 6 && updatedParagraphIndents[1] === -6 && updatedParagraphIndents[2] === 0 && updatedParagraphIndents[3] === undefined && updatedParagraphIndents[4] === undefined,
   createText: createdText.text === 'Updated\\nParagraph' && initialTextWrap === false && updatedTextWrap === true && createdText.textWrap === undefined && initialTextDirection === 'vert270' && updatedTextDirection === 'wordArtVert' && createdText.textDirection === undefined && initialTextFit === 'shrink' && updatedTextFit === 'resize' && createdText.textFit === undefined && createdText.verticalAlignment === 'bottom' && createdText.textMargins.top === 4 && createdText.textMargins.left === 8 && createdText.textMargins.right === undefined && createdText.richText.every(({ align, bullet, level, rtl, spacing, tabStops }) => align === 'center' && bullet?.kind === 'bullet' && bullet.indent === 27 && level === 2 && rtl === true && spacing?.line?.kind === 'exact' && Array.isArray(tabStops) && tabStops[0]?.position === 1.25 && tabStops[1]?.alignment === 'right') && created.slides[0].shapes[0] === createdText,
   richText: inheritedLanguage === 'fr-CA' && localLanguage === 'de-DE' && initialRtl[0] === true && initialRtl[1] === false && richText.text === 'Updated rich' && richText.richText[0].rtl === undefined && richText.richText[0].align === 'justify' && richText.richText[0].bullet.style === 'romanUcPeriod' && richText.richText[0].level === 3 && richText.richText[0].spacing.line.kind === 'exact' && Array.isArray(richText.richText[0].tabStops) && richText.richText[0].tabStops[0].alignment === 'decimal' && richText.richText[0].runs[0].style.lang === 'ja-JP' && richText.richText[0].runs[0].style.baseline === 'superscript' && richText.richText[0].runs[0].style.characterSpacing === 2.5 && richText.richText[0].runs[0].style.italic === true && richText.richText[0].runs[0].style.glow.color.value === 'accent3' && richText.richText[0].runs[0].style.glow.opacity === 0.25 && richText.richText[0].runs[0].style.glow.size === 6 && richText.richText[0].runs[0].style.highlight.value === '00FF00' && richText.richText[0].runs[0].style.outline.color.value === 'accent1' && richText.richText[0].runs[0].style.outline.size === 0.75 && richText.richText[0].runs[0].style.underline.style === 'wavyHeavy' && richText.richText[0].runs[0].style.underline.color.value === 'accent2' && richText.richText[0].runs[0].style.strike === false,
   customSlideSize: custom.slideSize.width === inches(10) && customXml.includes('<p:sldSz cx="9144000" cy="6858000"/>'),
@@ -125,6 +131,10 @@ const browserRightMargin = created.slides[0].addRichText([{ bullet: true, margin
 if (browserRightMargin.richText[0].marginRight !== 12 || browserRightMargin.richText[0].bullet.indent !== 27) throw new Error('Browser paragraph right margin create failed');
 browserRightMargin.richText = [{ marginRight: false, runs: [{ text: 'Cleared' }] }];
 if (browserRightMargin.richText[0].marginRight !== undefined) throw new Error('Browser paragraph right margin clear failed');
+const browserIndent = created.slides[0].addRichText([{ indent: -12, runs: [{ text: 'Indent' }] }, { bullet: true, indent: false, runs: [{ text: 'Bullet' }] }], { paragraphIndent: 24 });
+if (browserIndent.richText[0].indent !== -12 || browserIndent.richText[1].indent !== undefined || browserIndent.richText[1].bullet.indent !== 27) throw new Error('Browser paragraph indent create failed');
+browserIndent.richText = [{ indent: false, runs: [{ text: 'Cleared' }] }];
+if (browserIndent.richText[0].indent !== undefined) throw new Error('Browser paragraph indent clear failed');
 if (created.rtlMode !== true) throw new Error('Browser presentation RTL create failed');
 created.rtlMode = false;
 if (created.rtlMode !== false || browserRich.rtl !== true) throw new Error('Browser presentation RTL edit failed');
@@ -235,6 +245,14 @@ const paragraphRightMargins: readonly RichTextParagraph[] = [
   { bullet: true, marginRight: 18, runs: [{ text: 'Bullet' }] },
 ];
 createdDocument.addSlide().addRichText(paragraphRightMargins, { paragraphMarginRight: 24 });
+const paragraphIndents: readonly RichTextParagraph[] = [
+  { runs: [{ text: 'Default' }] },
+  { indent: 18, runs: [{ text: 'First-line' }] },
+  { indent: -18, runs: [{ text: 'Hanging' }] },
+  { indent: false, runs: [{ text: 'Suppressed' }] },
+  { bullet: true, indent: false, runs: [{ text: 'Bullet' }] },
+];
+createdDocument.addSlide().addRichText(paragraphIndents, { paragraphIndent: 24 });
 const gradientConstructor: typeof GradientCodec = GradientCodec;
 const adapter: typeof importPptxGenJS = importPptxGenJS;
 const transition: transitions.SlideTransition = { effect: 'fade' };
@@ -247,7 +265,7 @@ documentPromise.then((document) => {
   advancedCharts.installAdvancedChartPlugin(document);
   smartArt.installSmartArtPlugin(document);
 });
-void [documentPromise, createdDocument, globalRtl, globalRtlSnapshot, customDocument, createdText, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, rtlParagraphs, paragraphMargins, paragraphRightMargins, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
+void [documentPromise, createdDocument, globalRtl, globalRtlSnapshot, customDocument, createdText, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
 `,
   );
   run(

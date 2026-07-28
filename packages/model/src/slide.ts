@@ -10,6 +10,7 @@ import { ModelParseError } from './errors.js';
 import type { PresentationModel } from './presentation.js';
 import {
   normalizeParagraphBullet,
+  normalizeParagraphIndent,
   normalizeParagraphLevel,
   normalizeParagraphMarginLeft,
   normalizeParagraphMarginRight,
@@ -82,6 +83,7 @@ export interface AddTextOptions extends Partial<Transform> {
   readonly lang?: string;
   readonly level?: number;
   readonly margin?: TextBoxMarginInput;
+  readonly paragraphIndent?: number;
   readonly paragraphMarginLeft?: number;
   readonly paragraphMarginRight?: number;
   readonly rtlMode?: boolean;
@@ -338,6 +340,7 @@ export class SlideModel {
           normalized.language,
           normalized.marginLeft,
           normalized.marginRight,
+          normalized.indent,
         ))
         .join('');
       return this.addTextShape(
@@ -362,6 +365,7 @@ export class SlideModel {
           ...(options.align ? { defaultAlign: options.align } : {}),
           ...(defaults.rtl !== undefined ? { defaultRtl: defaults.rtl } : {}),
           ...(defaults.bullet !== undefined ? { defaultBullet: defaults.bullet } : {}),
+          ...(defaults.indent !== undefined ? { defaultIndent: defaults.indent } : {}),
           ...(defaults.level !== undefined ? { defaultLevel: defaults.level } : {}),
           ...(defaults.marginLeft !== undefined ? { defaultMarginLeft: defaults.marginLeft } : {}),
           ...(defaults.marginRight !== undefined ? { defaultMarginRight: defaults.marginRight } : {}),
@@ -468,6 +472,7 @@ function setAttribute(xml: LosslessXmlDocument, element: XmlElement, name: strin
 interface NormalizedTextInput {
   readonly value: string;
   readonly bullet: NormalizedParagraphBullet | false | undefined;
+  readonly indent: number | undefined;
   readonly language: string | undefined;
   readonly level: number | undefined;
   readonly margin: TextBoxMargins | undefined;
@@ -488,9 +493,13 @@ function validateTextInput(value: string, options: AddTextOptions): NormalizedTe
   if (defaults.bullet && defaults.marginLeft !== undefined) {
     throw new TypeError('Paragraph left margin cannot be combined with an active bullet');
   }
+  if (defaults.bullet && defaults.indent !== undefined) {
+    throw new TypeError('Paragraph indent cannot be combined with an active bullet');
+  }
   return {
     value: normalized,
     bullet: defaults.bullet,
+    indent: defaults.indent,
     language: defaults.language,
     level: defaults.level,
     margin: defaults.margin,
@@ -508,6 +517,7 @@ function validateTextInput(value: string, options: AddTextOptions): NormalizedTe
 
 interface NormalizedAddTextOptions {
   readonly bullet?: NormalizedParagraphBullet | false;
+  readonly indent?: number;
   readonly language?: string;
   readonly level?: number;
   readonly margin?: TextBoxMargins;
@@ -564,6 +574,9 @@ function validateAddTextOptions(options: AddTextOptions): NormalizedAddTextOptio
   const language = options.lang === undefined
     ? undefined
     : normalizeTextLanguage(options.lang, 'Text language');
+  const indent = options.paragraphIndent === undefined
+    ? undefined
+    : normalizeParagraphIndent(options.paragraphIndent, 'Paragraph indent');
   const margin = options.margin === undefined
     ? undefined
     : normalizeTextBoxMargins(options.margin, 'Text margin');
@@ -596,6 +609,7 @@ function validateAddTextOptions(options: AddTextOptions): NormalizedAddTextOptio
     : normalizeTextBoxWrap(options.wrap, 'Text wrap');
   return {
     ...(bullet !== undefined ? { bullet } : {}),
+    ...(indent !== undefined ? { indent } : {}),
     ...(language !== undefined ? { language } : {}),
     ...(level !== undefined ? { level } : {}),
     ...(margin !== undefined ? { margin } : {}),
@@ -674,6 +688,7 @@ function textParagraphXml(
   language?: string,
   marginLeft?: number,
   marginRight?: number,
+  indent?: number,
 ): string {
   const properties = renderParagraphProperties(
     undefined,
@@ -686,6 +701,7 @@ function textParagraphXml(
     tabStops,
     marginLeft,
     marginRight,
+    indent,
   );
   const languageValue = escapeXmlAttribute(language ?? 'en-US');
   const endProperties = `<${prefix}endParaRPr lang="${languageValue}" dirty="0"/>`;

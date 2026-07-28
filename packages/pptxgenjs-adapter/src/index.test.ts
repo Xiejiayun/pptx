@@ -1054,7 +1054,7 @@ describe('importPptxGenJS', () => {
     }
   }, 20_000);
 
-  it('imports PptxGenJS non-list zero margins without aliasing bullet indentation', async () => {
+  it('imports PptxGenJS non-list zero margins and indents without aliasing bullet indentation', async () => {
     const generated = new PptxGenJS();
     const slide = generated.addSlide();
     slide.addText('Plain', { name: 'Margin plain', x: 1, y: 1, w: 3, h: 0.5 });
@@ -1091,6 +1091,12 @@ describe('importPptxGenJS', () => {
       undefined,
       undefined,
     ]);
+    expect(shapes.map(({ richText }) => richText[0]?.indent)).toEqual([
+      0,
+      0,
+      undefined,
+      undefined,
+    ]);
     expect(shapes[2]!.richText[0]!.bullet).toEqual({ kind: 'bullet', character: '•', indent: 27 });
     expect(shapes[3]!.richText[0]!.bullet).toEqual({
       kind: 'number',
@@ -1118,6 +1124,12 @@ describe('importPptxGenJS', () => {
     expect(reopenedShapes.map(({ richText }) => richText[0]?.marginRight)).toEqual([
       undefined,
       undefined,
+      undefined,
+      undefined,
+    ]);
+    expect(reopenedShapes.map(({ richText }) => richText[0]?.indent)).toEqual([
+      0,
+      0,
       undefined,
       undefined,
     ]);
