@@ -2,6 +2,30 @@ export type RichTextColor =
   | { readonly kind: 'srgb'; readonly value: string }
   | { readonly kind: 'scheme'; readonly value: string };
 
+export type RichTextUnderlineStyle =
+  | 'words'
+  | 'sng'
+  | 'dbl'
+  | 'heavy'
+  | 'dotted'
+  | 'dottedHeavy'
+  | 'dash'
+  | 'dashHeavy'
+  | 'dashLong'
+  | 'dashLongHeavy'
+  | 'dotDash'
+  | 'dotDashHeavy'
+  | 'dotDotDash'
+  | 'dotDotDashHeavy'
+  | 'wavy'
+  | 'wavyHeavy'
+  | 'wavyDbl';
+
+export interface RichTextUnderline {
+  readonly style?: RichTextUnderlineStyle;
+  readonly color?: RichTextColor;
+}
+
 export type TextAlignment = 'left' | 'center' | 'right' | 'justify';
 
 export type NumberingStyle =
@@ -66,6 +90,7 @@ export interface RichTextRunStyle {
   readonly bold?: boolean;
   readonly italic?: boolean;
   readonly color?: RichTextColor;
+  readonly underline?: boolean | RichTextUnderline;
 }
 
 export interface RichTextRun {

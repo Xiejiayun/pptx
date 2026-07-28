@@ -157,6 +157,16 @@ describe('importPptxGenJS', () => {
       ],
       { x: 5, y: 7.5, w: 4, h: 1 },
     );
+    generatedSlide.addText(
+      [
+        { text: 'Single', options: { underline: true } },
+        { text: ' Double', options: { underline: { style: 'dbl', color: 'ff0000' } } },
+        { text: ' Wavy', options: { underline: { style: 'wavyDbl' } } },
+        { text: ' None', options: { underline: { style: 'none' } } },
+        { text: ' Dot dash', options: { underline: { style: 'dotDashHeavy' } } },
+      ],
+      { x: 9, y: 3, w: 3, h: 1 },
+    );
     const document = await importPptxGenJS(generated);
     expect(document.slides[0]?.title.text).toBe('Created by PptxGenJS');
     expect((document.slides[0]!.shapes[0] as ShapeModel).richText[0]!.align).toBe('center');
@@ -245,6 +255,15 @@ describe('importPptxGenJS', () => {
       [{ position: 1.5, alignment: 'right' }],
       [{ position: 2.5, alignment: 'center' }],
     ]);
+    expect((document.slides[0]!.shapes[17] as ShapeModel).richText[0]!.runs.map(
+      ({ style }) => style?.underline,
+    )).toEqual([
+      { style: 'sng' },
+      { style: 'dbl', color: { kind: 'srgb', value: 'FF0000' } },
+      { style: 'wavyDbl' },
+      false,
+      { style: 'dotDashHeavy' },
+    ]);
     document.slides[0]!.title.text = 'Edited by the OOXML kernel';
     document.duplicateSlide(0);
 
@@ -301,6 +320,15 @@ describe('importPptxGenJS', () => {
     expect((reopened.slides[1]!.shapes[16] as ShapeModel).richText.map(({ tabStops }) => tabStops)).toEqual([
       [{ position: 1.5, alignment: 'right' }],
       [{ position: 2.5, alignment: 'center' }],
+    ]);
+    expect((reopened.slides[1]!.shapes[17] as ShapeModel).richText[0]!.runs.map(
+      ({ style }) => style?.underline,
+    )).toEqual([
+      { style: 'sng' },
+      { style: 'dbl', color: { kind: 'srgb', value: 'FF0000' } },
+      { style: 'wavyDbl' },
+      false,
+      { style: 'dotDashHeavy' },
     ]);
   });
 

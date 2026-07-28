@@ -18,6 +18,8 @@ import type {
   RichTextParagraph,
   RichTextRun,
   RichTextRunStyle,
+  RichTextUnderline,
+  RichTextUnderlineStyle,
   TextAlignment,
 } from './text.js';
 import { EMU_PER_INCH } from './units.js';
@@ -140,6 +142,26 @@ const SCHEME_COLORS = new Set([
   'phClr',
   'tx1',
   'tx2',
+]);
+
+const UNDERLINE_STYLES = new Set<RichTextUnderlineStyle>([
+  'words',
+  'sng',
+  'dbl',
+  'heavy',
+  'dotted',
+  'dottedHeavy',
+  'dash',
+  'dashHeavy',
+  'dashLong',
+  'dashLongHeavy',
+  'dotDash',
+  'dotDashHeavy',
+  'dotDotDash',
+  'dotDotDashHeavy',
+  'wavy',
+  'wavyHeavy',
+  'wavyDbl',
 ]);
 
 export function normalizeRichText(value: unknown): readonly NormalizedRichTextParagraph[] {
@@ -718,7 +740,7 @@ function normalizeStyle(value: unknown, paragraphIndex: number, runIndex: number
   }
   assertSupportedKeys(
     value,
-    ['bold', 'color', 'fontFamily', 'fontSize', 'italic'],
+    ['bold', 'color', 'fontFamily', 'fontSize', 'italic', 'underline'],
     `Rich text run ${paragraphIndex},${runIndex} style`,
   );
   const candidate = value as RichTextRunStyle;
@@ -746,35 +768,67 @@ function normalizeStyle(value: unknown, paragraphIndex: number, runIndex: number
       throw new TypeError(`Rich text run ${paragraphIndex},${runIndex} ${name} must be a boolean`);
     }
   }
-  const color = candidate.color === undefined ? undefined : normalizeColor(candidate.color, paragraphIndex, runIndex);
+  const context = `Rich text run ${paragraphIndex},${runIndex}`;
+  const color = candidate.color === undefined
+    ? undefined
+    : normalizeColor(candidate.color, `${context} color`);
+  const underline = candidate.underline === undefined
+    ? undefined
+    : normalizeUnderline(candidate.underline, `${context} underline`);
   return {
     ...(candidate.fontFamily !== undefined ? { fontFamily: candidate.fontFamily } : {}),
     ...(candidate.fontSize !== undefined ? { fontSize: Math.round(candidate.fontSize * 100) / 100 } : {}),
     ...(candidate.bold !== undefined ? { bold: candidate.bold } : {}),
     ...(candidate.italic !== undefined ? { italic: candidate.italic } : {}),
     ...(color ? { color } : {}),
+    ...(underline !== undefined ? { underline } : {}),
   };
 }
 
-function normalizeColor(value: unknown, paragraphIndex: number, runIndex: number): RichTextColor {
+function normalizeUnderline(value: unknown, context: string): RichTextUnderline | false {
+  if (typeof value === 'boolean') return value ? { style: 'sng' } : false;
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new TypeError(`Rich text run ${paragraphIndex},${runIndex} color must be an object`);
+    throw new TypeError(`${context} must be a boolean or configuration object`);
   }
-  assertSupportedKeys(value, ['kind', 'value'], `Rich text run ${paragraphIndex},${runIndex} color`);
+  assertSupportedKeys(value, ['color', 'style'], context);
+  const candidate = value as { color?: unknown; style?: unknown };
+  if (candidate.style === undefined && candidate.color === undefined) {
+    throw new TypeError(`${context} must provide style or color`);
+  }
+  if (
+    candidate.style !== undefined
+    && (typeof candidate.style !== 'string' || !UNDERLINE_STYLES.has(candidate.style as RichTextUnderlineStyle))
+  ) {
+    throw new TypeError(`${context} style is unsupported`);
+  }
+  const color = candidate.color === undefined
+    ? undefined
+    : normalizeColor(candidate.color, `${context} color`);
+  return {
+    style: (candidate.style as RichTextUnderlineStyle | undefined) ?? 'sng',
+    ...(color ? { color } : {}),
+  };
+}
+
+function normalizeColor(value: unknown, context: string): RichTextColor {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new TypeError(`${context} must be an object`);
+  }
+  assertSupportedKeys(value, ['kind', 'value'], context);
   const candidate = value as { kind?: unknown; value?: unknown };
   if (candidate.kind === 'srgb') {
     if (typeof candidate.value !== 'string' || !/^#?[\da-f]{6}$/i.test(candidate.value)) {
-      throw new TypeError(`Rich text run ${paragraphIndex},${runIndex} sRGB color must contain six hex digits`);
+      throw new TypeError(`${context} sRGB value must contain six hex digits`);
     }
     return { kind: 'srgb', value: candidate.value.replace(/^#/, '').toUpperCase() };
   }
   if (candidate.kind === 'scheme') {
     if (typeof candidate.value !== 'string' || !SCHEME_COLORS.has(candidate.value)) {
-      throw new TypeError(`Rich text run ${paragraphIndex},${runIndex} scheme color is unsupported`);
+      throw new TypeError(`${context} scheme value is unsupported`);
     }
     return { kind: 'scheme', value: candidate.value };
   }
-  throw new TypeError(`Rich text run ${paragraphIndex},${runIndex} color kind must be srgb or scheme`);
+  throw new TypeError(`${context} kind must be srgb or scheme`);
 }
 
 function renderRun(run: RichTextRun, prefix: string): string {
@@ -786,16 +840,27 @@ function renderRun(run: RichTextRun, prefix: string): string {
     style.fontSize === undefined ? '' : `sz="${Math.round(style.fontSize * 100)}"`,
     style.bold === undefined ? '' : `b="${style.bold ? 1 : 0}"`,
     style.italic === undefined ? '' : `i="${style.italic ? 1 : 0}"`,
+    style.underline === undefined
+      ? ''
+      : `u="${style.underline === false ? 'none' : style.underline === true ? 'sng' : style.underline.style}"`,
     'dirty="0"',
   ].filter(Boolean).join(' ');
   const color = style.color ?? { kind: 'scheme' as const, value: 'tx1' };
-  const colorXml = color.kind === 'srgb'
-    ? `<${prefix}srgbClr val="${color.value}"/>`
-    : `<${prefix}schemeClr val="${color.value}"/>`;
+  const colorXml = renderColorChoice(color, prefix);
+  const underlineColor = typeof style.underline === 'object' ? style.underline.color : undefined;
+  const underlineFill = underlineColor
+    ? `<${prefix}uFill><${prefix}solidFill>${renderColorChoice(underlineColor, prefix)}</${prefix}solidFill></${prefix}uFill>`
+    : '';
   const latin = escapeXmlAttribute(style.fontFamily ?? '+mn-lt');
   const eastAsian = escapeXmlAttribute(style.fontFamily ?? '+mn-ea');
   const complexScript = escapeXmlAttribute(style.fontFamily ?? '+mn-cs');
-  return `${softBreak}<${prefix}r><${prefix}rPr ${attributes}><${prefix}solidFill>${colorXml}</${prefix}solidFill><${prefix}latin typeface="${latin}"/><${prefix}ea typeface="${eastAsian}"/><${prefix}cs typeface="${complexScript}"/></${prefix}rPr><${prefix}t xml:space="preserve">${escapeXmlText(run.text)}</${prefix}t></${prefix}r>`;
+  return `${softBreak}<${prefix}r><${prefix}rPr ${attributes}><${prefix}solidFill>${colorXml}</${prefix}solidFill>${underlineFill}<${prefix}latin typeface="${latin}"/><${prefix}ea typeface="${eastAsian}"/><${prefix}cs typeface="${complexScript}"/></${prefix}rPr><${prefix}t xml:space="preserve">${escapeXmlText(run.text)}</${prefix}t></${prefix}r>`;
+}
+
+function renderColorChoice(color: RichTextColor, prefix: string): string {
+  return color.kind === 'srgb'
+    ? `<${prefix}srgbClr val="${color.value}"/>`
+    : `<${prefix}schemeClr val="${color.value}"/>`;
 }
 
 function readRuns(xml: LosslessXmlDocument, paragraph: XmlElement): RichTextRun[] {
@@ -996,14 +1061,52 @@ function readStyle(xml: LosslessXmlDocument, run: XmlElement): RichTextRunStyle 
     : undefined;
   const bold = booleanAttribute(xml, properties, 'b');
   const italic = booleanAttribute(xml, properties, 'i');
+  const underline = readUnderline(xml, properties);
   const style: RichTextRunStyle = {
     ...(fontFamily !== undefined ? { fontFamily } : {}),
     ...(Number.isFinite(size) && size > 0 ? { fontSize: size / 100 } : {}),
     ...(bold !== undefined ? { bold } : {}),
     ...(italic !== undefined ? { italic } : {}),
     ...(color ? { color } : {}),
+    ...(underline !== undefined ? { underline } : {}),
   };
   return Object.keys(style).length > 0 ? style : undefined;
+}
+
+function readUnderline(
+  xml: LosslessXmlDocument,
+  properties: XmlElement,
+): RichTextUnderline | false | undefined {
+  const value = xml.attribute(properties, 'u')?.value;
+  if (value === undefined) return undefined;
+  if (value === 'none') return false;
+  if (!UNDERLINE_STYLES.has(value as RichTextUnderlineStyle)) return undefined;
+  const fill = directChildren(properties, 'uFill');
+  const color = fill.length === 1 ? readDirectSolidColor(xml, fill[0]!) : undefined;
+  return {
+    style: value as RichTextUnderlineStyle,
+    ...(color ? { color } : {}),
+  };
+}
+
+function readDirectSolidColor(
+  xml: LosslessXmlDocument,
+  container: XmlElement,
+): RichTextColor | undefined {
+  const containerChildren = directChildren(container);
+  if (containerChildren.length !== 1 || containerChildren[0]?.localName !== 'solidFill') return undefined;
+  const fillChildren = directChildren(containerChildren[0]);
+  if (fillChildren.length !== 1) return undefined;
+  const color = fillChildren[0]!;
+  if (directChildren(color).length > 0) return undefined;
+  const value = xml.attribute(color, 'val')?.value;
+  if (color.localName === 'srgbClr' && value && /^[\da-f]{6}$/i.test(value)) {
+    return { kind: 'srgb', value: value.toUpperCase() };
+  }
+  if (color.localName === 'schemeClr' && value && SCHEME_COLORS.has(value)) {
+    return { kind: 'scheme', value };
+  }
+  return undefined;
 }
 
 function booleanAttribute(

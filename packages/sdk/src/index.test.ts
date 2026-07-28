@@ -9,6 +9,7 @@ import {
   PRESENTATION_FORMAT_PROFILES,
   type NumberingStyle,
   type PresentationFormat,
+  type RichTextUnderlineStyle,
 } from '@pptx/model';
 import { OpcPackage } from '@pptx/opc';
 import { validatePackage } from '@pptx/validator';
@@ -796,6 +797,104 @@ describe('PptxDocument vertical slice', () => {
     expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
   });
 
+  it('creates, edits, duplicates, and reopens rich text underline styles', async () => {
+    const underlineStyles: readonly RichTextUnderlineStyle[] = [
+      'words',
+      'sng',
+      'dbl',
+      'heavy',
+      'dotted',
+      'dottedHeavy',
+      'dash',
+      'dashHeavy',
+      'dashLong',
+      'dashLongHeavy',
+      'dotDash',
+      'dotDashHeavy',
+      'dotDotDash',
+      'dotDotDashHeavy',
+      'wavy',
+      'wavyHeavy',
+      'wavyDbl',
+    ];
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const sourceColor = { kind: 'srgb' as const, value: '#ff0000' };
+    const shape = slide.addRichText([{
+      runs: [
+        { text: 'True', style: { underline: true } },
+        { text: 'False', style: { underline: false } },
+        { text: 'Color', style: { underline: { color: sourceColor } } },
+        {
+          text: 'Scheme',
+          style: { underline: { style: 'dbl', color: { kind: 'scheme', value: 'accent2' } } },
+        },
+        ...underlineStyles.map((style) => ({ text: style, style: { underline: { style } } })),
+      ],
+    }]);
+    sourceColor.value = '000000';
+
+    const underlines = shape.richText[0]!.runs.map(({ style }) => style?.underline);
+    expect(underlines.slice(0, 4)).toEqual([
+      { style: 'sng' },
+      false,
+      { style: 'sng', color: { kind: 'srgb', value: 'FF0000' } },
+      { style: 'dbl', color: { kind: 'scheme', value: 'accent2' } },
+    ]);
+    expect(underlines.slice(4).map((underline) =>
+      typeof underline === 'object' ? underline.style : underline)).toEqual(underlineStyles);
+
+    const createdXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(createdXml).toContain('u="none"');
+    expect(createdXml).toContain('u="dotDashHeavy"');
+    expect(createdXml).toContain(
+      '<a:uFill><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill></a:uFill>',
+    );
+    const underlineFillIndex = createdXml.indexOf('<a:uFill>');
+    expect(underlineFillIndex).toBeGreaterThan(createdXml.lastIndexOf('<a:solidFill>', underlineFillIndex));
+    expect(underlineFillIndex).toBeLessThan(createdXml.indexOf('<a:latin', underlineFillIndex));
+
+    const snapshot = shape.richText as unknown as Array<{
+      runs: Array<{ style?: { underline?: { style?: string; color?: { value: string } } } }>;
+    }>;
+    snapshot[0]!.runs[2]!.style!.underline!.style = 'wavy';
+    snapshot[0]!.runs[2]!.style!.underline!.color!.value = '00FF00';
+    expect(shape.richText[0]!.runs[2]!.style!.underline).toEqual({
+      style: 'sng',
+      color: { kind: 'srgb', value: 'FF0000' },
+    });
+
+    document.duplicateSlide(0);
+    shape.richText = [{
+      runs: [
+        { text: 'Disabled', style: { underline: false } },
+        { text: 'Cleared' },
+      ],
+    }];
+    expect(shape.richText[0]!.runs.map(({ style }) => style?.underline)).toEqual([false, undefined]);
+
+    const beforeRollback = document.opcPackage.requirePart(slide.partUri).bytes;
+    expect(() =>
+      document.transaction(() => {
+        shape.richText = [{ runs: [{ text: 'Rollback', style: { underline: { style: 'wavyDbl' } } }] }];
+        throw new Error('restore underline');
+      }),
+    ).toThrow('restore underline');
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(beforeRollback);
+    expect(slide.shapes[0]).toBe(shape);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const edited = reopened.slides[0]!.shapes[0] as ShapeModel;
+    const duplicated = reopened.slides[1]!.shapes[0] as ShapeModel;
+    expect(edited.richText[0]!.runs.map(({ style }) => style?.underline)).toEqual([false, undefined]);
+    expect(duplicated.richText[0]!.runs[2]!.style!.underline).toEqual({
+      style: 'sng',
+      color: { kind: 'srgb', value: 'FF0000' },
+    });
+    expect(duplicated.richText[0]!.runs.at(-1)!.style!.underline).toEqual({ style: 'wavyDbl' });
+    expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+  });
+
   it('rejects malformed rich text values before changing the slide package state', () => {
     const document = PptxDocument.create();
     const slide = document.addSlide();
@@ -862,7 +961,17 @@ describe('PptxDocument vertical slice', () => {
       [{ runs: [], tabStops: [{ position: 1, alignment: 'tab' }] }],
       [{ runs: [], tabStops: [{ position: 1, leader: 'dot' }] }],
       [{ runs: [{ text: 'x', breakLine: true }] }],
-      [{ runs: [{ text: 'x', style: { underline: true } }] }],
+      [{ runs: [{ text: 'x', style: { underline: null } }] }],
+      [{ runs: [{ text: 'x', style: { underline: 'sng' } }] }],
+      [{ runs: [{ text: 'x', style: { underline: [] } }] }],
+      [{ runs: [{ text: 'x', style: { underline: {} } }] }],
+      [{ runs: [{ text: 'x', style: { underline: { style: 'none' } } }] }],
+      [{ runs: [{ text: 'x', style: { underline: { style: 'dotDashHeave' } } }] }],
+      [{ runs: [{ text: 'x', style: { underline: { style: 'unknown' } } }] }],
+      [{ runs: [{ text: 'x', style: { underline: { style: 1 } } }] }],
+      [{ runs: [{ text: 'x', style: { underline: { color: null } } }] }],
+      [{ runs: [{ text: 'x', style: { underline: { color: { kind: 'srgb', value: 'red' } } } }] }],
+      [{ runs: [{ text: 'x', style: { underline: { style: 'sng', width: 2 } } }] }],
       [{ runs: [{ text: 'x', style: { color: { kind: 'srgb', value: 'FF0000', alpha: 0.5 } } }] }],
     ];
     for (const value of invalid) {

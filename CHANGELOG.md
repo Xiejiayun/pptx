@@ -20,6 +20,7 @@
 - Added paragraph before/after spacing plus exact and multiple line spacing with creation defaults, per-paragraph overrides, and lossless OOXML editing.
 - Added zero-based paragraph list levels 0–8 with PptxGenJS-compatible nested bullet and numbering indents.
 - Added paragraph tab stops with left, center, right, and decimal alignment, creation defaults, per-paragraph overrides, and lossless OOXML editing.
+- Added rich-text underline creation and editing with all 17 valid OOXML styles, explicit none, independent sRGB/theme colors, and strict lossless reads.
 
 ## 0.1.0 - 2026-07-25
 

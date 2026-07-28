@@ -219,6 +219,65 @@ describe('PresentationModel', () => {
     expect(updated).not.toContain('<a:fld');
   });
 
+  it('reads strict local underline values and preserves their XML during plain text edits', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.slides[1]!;
+    const part = pkg.requirePart(slide.partUri);
+    const underlineText = [
+      '<a:p>',
+      '<a:r><a:rPr u="words"><a:uFill><a:solidFill><a:srgbClr val="ff0000"/></a:solidFill></a:uFill></a:rPr><a:t>Words</a:t></a:r>',
+      '<a:r><a:rPr u="none"><a:uFill><a:solidFill><a:srgbClr val="00FF00"/></a:solidFill></a:uFill></a:rPr><a:t>None</a:t></a:r>',
+      '<a:r><a:rPr u="mystery"><a:uFill><a:solidFill><a:schemeClr val="accent1"/></a:solidFill></a:uFill></a:rPr><a:t>Unknown</a:t></a:r>',
+      '<a:r><a:rPr u="dbl"><a:uFill><a:solidFill><a:srgbClr val="red"/></a:solidFill></a:uFill></a:rPr><a:t>Malformed</a:t></a:r>',
+      '<a:r><a:rPr><a:uFill><a:solidFill><a:srgbClr val="112233"/></a:solidFill></a:uFill></a:rPr><a:t>Orphan</a:t></a:r>',
+      '<a:r><a:rPr u="wavyHeavy"><a:uFill><a:solidFill><a:schemeClr val="tx2"/></a:solidFill></a:uFill></a:rPr><a:t>Scheme</a:t></a:r>',
+      '<a:r><a:rPr u="dash"><a:uFill><a:solidFill><a:schemeClr val="accent1"><a:tint val="50000"/></a:schemeClr></a:solidFill></a:uFill></a:rPr><a:t>Transformed</a:t></a:r>',
+      '</a:p>',
+    ].join('');
+    pkg.setPart(
+      part.uri,
+      new TextDecoder().decode(part.bytes).replace(
+        '<a:p><a:r><a:t>First title</a:t></a:r></a:p>',
+        underlineText,
+      ),
+      part.contentType,
+    );
+    const shape = slide.shapes[0] as ShapeModel;
+    const journal = [...pkg.mutations];
+
+    expect(shape.richText[0]!.runs.map(({ style }) => style?.underline)).toEqual([
+      { style: 'words', color: { kind: 'srgb', value: 'FF0000' } },
+      false,
+      undefined,
+      { style: 'dbl' },
+      undefined,
+      { style: 'wavyHeavy', color: { kind: 'scheme', value: 'tx2' } },
+      { style: 'dash' },
+    ]);
+    expect(pkg.mutations).toEqual(journal);
+
+    const snapshot = shape.richText as unknown as Array<{
+      runs: Array<{ style?: { underline?: { style?: string; color?: { value: string } } } }>;
+    }>;
+    snapshot[0]!.runs[0]!.style!.underline!.style = 'dbl';
+    snapshot[0]!.runs[0]!.style!.underline!.color!.value = '000000';
+    expect(shape.richText[0]!.runs[0]!.style!.underline).toEqual({
+      style: 'words',
+      color: { kind: 'srgb', value: 'FF0000' },
+    });
+
+    shape.text = 'First replacement\nSecond replacement';
+    expect(shape.richText.map((paragraph) => paragraph.runs[0]!.style!.underline)).toEqual([
+      { style: 'words', color: { kind: 'srgb', value: 'FF0000' } },
+      { style: 'words', color: { kind: 'srgb', value: 'FF0000' } },
+    ]);
+    const updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated.match(/<a:rPr u="words">/g)).toHaveLength(2);
+    expect(updated.match(/<a:uFill><a:solidFill><a:srgbClr val="ff0000"\/><\/a:solidFill><\/a:uFill>/g))
+      .toHaveLength(2);
+  });
+
   it('updates alignment without rebuilding other paragraph properties', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);
