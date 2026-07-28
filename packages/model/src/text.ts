@@ -37,6 +37,22 @@ export interface NumberedBullet {
 
 export type ParagraphBullet = boolean | CharacterBullet | NumberedBullet;
 
+export type ParagraphLineSpacing =
+  | {
+      readonly kind: 'exact';
+      readonly points: number;
+    }
+  | {
+      readonly kind: 'multiple';
+      readonly factor: number;
+    };
+
+export interface ParagraphSpacing {
+  readonly before?: number;
+  readonly after?: number;
+  readonly line?: ParagraphLineSpacing | false;
+}
+
 export interface RichTextRunStyle {
   readonly fontFamily?: string;
   readonly fontSize?: number;
@@ -55,4 +71,5 @@ export interface RichTextParagraph {
   readonly runs: readonly RichTextRun[];
   readonly align?: TextAlignment;
   readonly bullet?: ParagraphBullet;
+  readonly spacing?: ParagraphSpacing | false;
 }

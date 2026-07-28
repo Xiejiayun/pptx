@@ -10,6 +10,8 @@ import type {
   NumberedBullet,
   NumberingStyle,
   ParagraphBullet,
+  ParagraphLineSpacing,
+  ParagraphSpacing,
   RichTextColor,
   RichTextParagraph,
   RichTextRun,
@@ -62,17 +64,35 @@ const BULLET_ELEMENT_NAMES = new Set([
 ]);
 
 const BULLET_INSERTION_FOLLOWERS = new Set(['tabLst', 'defRPr', 'extLst']);
+const SPACING_ELEMENT_NAMES = new Set(['lnSpc', 'spcBef', 'spcAft']);
 const DEFAULT_BULLET_CHARACTER = '•';
 const DEFAULT_BULLET_INDENT = 27;
+const MAX_SPACING_POINTS = 1584;
+const MAX_SPACING_FACTOR = 132;
 
 export type NormalizedParagraphBullet =
   | Required<CharacterBullet>
   | Required<NumberedBullet>;
 
+type NormalizedParagraphLineSpacing = ParagraphLineSpacing;
+
+export interface NormalizedParagraphSpacing {
+  readonly before?: number;
+  readonly after?: number;
+  readonly line?: NormalizedParagraphLineSpacing;
+}
+
+export interface NormalizedParagraphSpacingUpdate {
+  readonly before?: number | false;
+  readonly after?: number | false;
+  readonly line?: NormalizedParagraphLineSpacing | false;
+}
+
 interface NormalizedRichTextParagraph {
   readonly runs: readonly RichTextRun[];
   readonly align?: TextAlignment;
   readonly bullet?: NormalizedParagraphBullet | false;
+  readonly spacing?: NormalizedParagraphSpacingUpdate | false;
 }
 
 const SCHEME_COLORS = new Set([
@@ -103,8 +123,8 @@ export function normalizeRichText(value: unknown): readonly NormalizedRichTextPa
     if (!paragraph || typeof paragraph !== 'object' || Array.isArray(paragraph)) {
       throw new TypeError(`Rich text paragraph ${paragraphIndex} must be an object`);
     }
-    assertSupportedKeys(paragraph, ['align', 'bullet', 'runs'], `Rich text paragraph ${paragraphIndex}`);
-    const candidate = paragraph as { align?: unknown; bullet?: unknown; runs?: unknown };
+    assertSupportedKeys(paragraph, ['align', 'bullet', 'runs', 'spacing'], `Rich text paragraph ${paragraphIndex}`);
+    const candidate = paragraph as { align?: unknown; bullet?: unknown; runs?: unknown; spacing?: unknown };
     const runs = candidate.runs;
     if (!Array.isArray(runs)) throw new TypeError(`Rich text paragraph ${paragraphIndex} runs must be an array`);
     const align = candidate.align === undefined
@@ -113,10 +133,16 @@ export function normalizeRichText(value: unknown): readonly NormalizedRichTextPa
     const bullet = candidate.bullet === undefined
       ? undefined
       : normalizeParagraphBullet(candidate.bullet, `Rich text paragraph ${paragraphIndex} bullet`);
+    const spacing = candidate.spacing === undefined
+      ? undefined
+      : candidate.spacing === false
+        ? false
+        : normalizeParagraphSpacing(candidate.spacing, `Rich text paragraph ${paragraphIndex} spacing`);
     return {
       runs: runs.map((run, runIndex) => normalizeRun(run, paragraphIndex, runIndex)),
       ...(align ? { align } : {}),
       ...(bullet !== undefined ? { bullet } : {}),
+      ...(spacing !== undefined ? { spacing } : {}),
     };
   });
 }
@@ -125,6 +151,7 @@ interface RenderRichTextOptions {
   readonly prefix?: string;
   readonly defaultAlign?: TextAlignment;
   readonly defaultBullet?: NormalizedParagraphBullet | false;
+  readonly defaultSpacing?: NormalizedParagraphSpacingUpdate;
   readonly paragraphProperties?: readonly (string | undefined)[];
   readonly endParagraphProperties?: string;
 }
@@ -137,7 +164,7 @@ export function renderRichTextParagraphs(
   const defaultEndProperties = `<${prefix}endParaRPr lang="en-US" dirty="0"/>`;
   return paragraphs
     .map(
-      ({ align, bullet, runs }, index) =>
+      ({ align, bullet, runs, spacing }, index) =>
         `<${prefix}p>${renderParagraphProperties(
           options.paragraphProperties?.[index] ?? options.paragraphProperties?.[0],
           prefix,
@@ -145,6 +172,7 @@ export function renderRichTextParagraphs(
           bullet === false
             ? undefined
             : bullet ?? (options.defaultBullet === false ? undefined : options.defaultBullet),
+          resolveParagraphSpacing(options.defaultSpacing, spacing),
         )}${runs
           .map((run) => renderRun(run, prefix))
           .join('')}${options.endParagraphProperties ?? defaultEndProperties}</${prefix}p>`,
@@ -158,10 +186,12 @@ export function readRichText(xml: LosslessXmlDocument, element: XmlElement): rea
   return directChildren(textBody, 'p').map((paragraph) => {
     const align = readParagraphAlignment(xml, paragraph);
     const bullet = readParagraphBullet(xml, paragraph);
+    const spacing = readParagraphSpacing(xml, paragraph);
     return {
       runs: readRuns(xml, paragraph),
       ...(align ? { align } : {}),
       ...(bullet ? { bullet } : {}),
+      ...(spacing ? { spacing } : {}),
     };
   });
 }
@@ -240,11 +270,57 @@ export function normalizeParagraphBullet(
   throw new TypeError(`${context} kind must be bullet or number`);
 }
 
+export function normalizeParagraphSpacing(
+  value: unknown,
+  context: string,
+): NormalizedParagraphSpacingUpdate {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new TypeError(`${context} must be an object`);
+  }
+  assertSupportedKeys(value, ['after', 'before', 'line'], context);
+  const candidate = value as { after?: unknown; before?: unknown; line?: unknown };
+  if (candidate.before === undefined && candidate.after === undefined && candidate.line === undefined) {
+    throw new TypeError(`${context} must provide before, after, or line`);
+  }
+  const before = candidate.before === undefined
+    ? undefined
+    : normalizeParagraphSpacingPoint(candidate.before, `${context} before`, true);
+  const after = candidate.after === undefined
+    ? undefined
+    : normalizeParagraphSpacingPoint(candidate.after, `${context} after`, true);
+  const line = candidate.line === undefined
+    ? undefined
+    : candidate.line === false
+      ? false
+      : normalizeParagraphLineSpacing(candidate.line, `${context} line`);
+  return {
+    ...(before !== undefined ? { before } : {}),
+    ...(after !== undefined ? { after } : {}),
+    ...(line !== undefined ? { line } : {}),
+  };
+}
+
+export function resolveParagraphSpacing(
+  defaultSpacing?: NormalizedParagraphSpacingUpdate,
+  paragraphSpacing?: NormalizedParagraphSpacingUpdate | false,
+): NormalizedParagraphSpacing | undefined {
+  const resolved: {
+    before?: number;
+    after?: number;
+    line?: NormalizedParagraphLineSpacing;
+  } = {};
+  applyParagraphSpacingUpdate(resolved, defaultSpacing);
+  if (paragraphSpacing === false) return undefined;
+  applyParagraphSpacingUpdate(resolved, paragraphSpacing);
+  return Object.keys(resolved).length > 0 ? resolved : undefined;
+}
+
 export function renderParagraphProperties(
   template: string | undefined,
   prefix: string,
   alignment: TextAlignment | undefined,
   bullet?: NormalizedParagraphBullet,
+  spacing?: NormalizedParagraphSpacing,
 ): string {
   const align = alignment ? ` algn="${TEXT_ALIGNMENT_TO_OOXML[alignment]}"` : '';
   const initial = template ?? `<${prefix}pPr${align} indent="0" marL="0"><${prefix}buNone/></${prefix}pPr>`;
@@ -255,7 +331,27 @@ export function renderParagraphProperties(
         alignment ? TEXT_ALIGNMENT_TO_OOXML[alignment] : undefined,
       )
     : initial;
-  return renderParagraphBullet(aligned, prefix, bullet);
+  const spaced = renderParagraphSpacing(aligned, prefix, spacing);
+  return renderParagraphBullet(spaced, prefix, bullet);
+}
+
+function renderParagraphSpacing(
+  template: string,
+  prefix: string,
+  spacing: NormalizedParagraphSpacing | undefined,
+): string {
+  const properties = LosslessXmlDocument.parse(template);
+  const root = requireParagraphPropertiesRoot(properties);
+  const children = directChildren(root);
+  const spacingChildren = children.filter(({ localName }) => SPACING_ELEMENT_NAMES.has(localName));
+  if (!spacing && spacingChildren.length === 0) return template;
+  for (const child of spacingChildren) properties.removeElement(child);
+  if (!spacing) return properties.serialize();
+  const spacingXml = renderParagraphSpacingXml(prefix, spacing);
+  const firstRemainingChild = children.find(({ localName }) => !SPACING_ELEMENT_NAMES.has(localName));
+  if (firstRemainingChild) properties.replace(firstRemainingChild.start, firstRemainingChild.start, spacingXml);
+  else properties.appendChildXml(root, spacingXml);
+  return properties.serialize();
 }
 
 function renderParagraphBullet(
@@ -376,6 +472,87 @@ function normalizeNumberingStart(value: unknown, context: string): number {
     throw new RangeError(`${context} startAt must be between 1 and 32767`);
   }
   return startAt;
+}
+
+function normalizeParagraphSpacingPoint(
+  value: unknown,
+  context: string,
+  allowZero: boolean,
+): number | false {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new TypeError(`${context} must be finite`);
+  }
+  if (value < 0 || value > MAX_SPACING_POINTS) {
+    throw new RangeError(`${context} must be between 0 and ${MAX_SPACING_POINTS} points`);
+  }
+  const points = Math.round(value * 100) / 100;
+  if (points === 0) {
+    if (allowZero) return false;
+    throw new RangeError(`${context} must be greater than zero`);
+  }
+  return points;
+}
+
+function normalizeParagraphLineSpacing(
+  value: unknown,
+  context: string,
+): NormalizedParagraphLineSpacing {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new TypeError(`${context} must be an object or false`);
+  }
+  const candidate = value as { factor?: unknown; kind?: unknown; points?: unknown };
+  if (candidate.kind === 'exact') {
+    assertSupportedKeys(value, ['kind', 'points'], context);
+    return {
+      kind: 'exact',
+      points: normalizeParagraphSpacingPoint(candidate.points, `${context} points`, false) as number,
+    };
+  }
+  if (candidate.kind === 'multiple') {
+    assertSupportedKeys(value, ['factor', 'kind'], context);
+    if (typeof candidate.factor !== 'number' || !Number.isFinite(candidate.factor)) {
+      throw new TypeError(`${context} factor must be finite`);
+    }
+    if (candidate.factor <= 0 || candidate.factor > MAX_SPACING_FACTOR) {
+      throw new RangeError(`${context} factor must be greater than zero and at most ${MAX_SPACING_FACTOR}`);
+    }
+    const factor = Math.round(candidate.factor * 100000) / 100000;
+    if (factor === 0) throw new RangeError(`${context} factor must be greater than zero`);
+    return { kind: 'multiple', factor };
+  }
+  throw new TypeError(`${context} kind must be exact or multiple`);
+}
+
+function applyParagraphSpacingUpdate(
+  target: { before?: number; after?: number; line?: NormalizedParagraphLineSpacing },
+  update: NormalizedParagraphSpacingUpdate | undefined,
+): void {
+  if (!update) return;
+  for (const property of ['before', 'after', 'line'] as const) {
+    if (!Object.hasOwn(update, property)) continue;
+    const value = update[property];
+    if (value === false || value === undefined) delete target[property];
+    else if (property === 'line') target.line = value as NormalizedParagraphLineSpacing;
+    else target[property] = value as number;
+  }
+}
+
+function renderParagraphSpacingXml(
+  prefix: string,
+  spacing: NormalizedParagraphSpacing,
+): string {
+  const line = spacing.line
+    ? spacing.line.kind === 'exact'
+      ? `<${prefix}lnSpc><${prefix}spcPts val="${Math.round(spacing.line.points * 100)}"/></${prefix}lnSpc>`
+      : `<${prefix}lnSpc><${prefix}spcPct val="${Math.round(spacing.line.factor * 100000)}"/></${prefix}lnSpc>`
+    : '';
+  const before = spacing.before === undefined
+    ? ''
+    : `<${prefix}spcBef><${prefix}spcPts val="${Math.round(spacing.before * 100)}"/></${prefix}spcBef>`;
+  const after = spacing.after === undefined
+    ? ''
+    : `<${prefix}spcAft><${prefix}spcPts val="${Math.round(spacing.after * 100)}"/></${prefix}spcAft>`;
+  return `${line}${before}${after}`;
 }
 
 function normalizeRun(value: unknown, paragraphIndex: number, runIndex: number): RichTextRun {
@@ -559,6 +736,55 @@ function readParagraphBullet(
     ...(startAt !== undefined ? { startAt } : {}),
     ...(indent !== undefined ? { indent } : {}),
   };
+}
+
+function readParagraphSpacing(
+  xml: LosslessXmlDocument,
+  paragraph: XmlElement,
+): ParagraphSpacing | undefined {
+  const properties = directChildren(paragraph, 'pPr')[0];
+  if (!properties) return undefined;
+  const lineElement = directChildren(properties, 'lnSpc')[0];
+  const beforeElement = directChildren(properties, 'spcBef')[0];
+  const afterElement = directChildren(properties, 'spcAft')[0];
+  const line = lineElement ? readParagraphLineSpacing(xml, lineElement) : undefined;
+  const before = beforeElement ? readPointSpacing(xml, beforeElement) : undefined;
+  const after = afterElement ? readPointSpacing(xml, afterElement) : undefined;
+  const spacing: ParagraphSpacing = {
+    ...(before !== undefined ? { before } : {}),
+    ...(after !== undefined ? { after } : {}),
+    ...(line ? { line } : {}),
+  };
+  return Object.keys(spacing).length > 0 ? spacing : undefined;
+}
+
+function readParagraphLineSpacing(
+  xml: LosslessXmlDocument,
+  container: XmlElement,
+): ParagraphLineSpacing | undefined {
+  const children = directChildren(container);
+  if (children.length !== 1) return undefined;
+  const choice = children[0]!;
+  const value = readIntegerAttribute(xml, choice, 'val');
+  if (value === undefined || value <= 0) return undefined;
+  if (choice.localName === 'spcPts' && value <= MAX_SPACING_POINTS * 100) {
+    return { kind: 'exact', points: value / 100 };
+  }
+  if (choice.localName === 'spcPct' && value <= MAX_SPACING_FACTOR * 100000) {
+    return { kind: 'multiple', factor: value / 100000 };
+  }
+  return undefined;
+}
+
+function readPointSpacing(
+  xml: LosslessXmlDocument,
+  container: XmlElement,
+): number | undefined {
+  const children = directChildren(container);
+  if (children.length !== 1 || children[0]?.localName !== 'spcPts') return undefined;
+  const value = readIntegerAttribute(xml, children[0], 'val');
+  if (value === undefined || value <= 0 || value > MAX_SPACING_POINTS * 100) return undefined;
+  return value / 100;
 }
 
 function readBulletIndent(xml: LosslessXmlDocument, properties: XmlElement): number | undefined {

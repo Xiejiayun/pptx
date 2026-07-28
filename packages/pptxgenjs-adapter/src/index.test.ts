@@ -71,6 +71,35 @@ describe('importPptxGenJS', () => {
       h: 1,
       bullet: { type: 'number', style: 'romanLcParenR', startAt: 4, indent: 24 },
     });
+    generatedSlide.addText('Exact first\nExact second', {
+      x: 1,
+      y: 6,
+      w: 3,
+      h: 1,
+      lineSpacing: 28,
+      lineSpacingMultiple: 1.5,
+      paraSpaceBefore: 6.25,
+      paraSpaceAfter: 8.5,
+    });
+    generatedSlide.addText('Multiple', {
+      x: 4,
+      y: 6,
+      w: 3,
+      h: 1,
+      lineSpacingMultiple: 1.5,
+      paraSpaceBefore: 4.25,
+      paraSpaceAfter: 7.75,
+    });
+    generatedSlide.addText('Zero spacing', {
+      x: 7,
+      y: 6,
+      w: 3,
+      h: 1,
+      lineSpacing: 0,
+      lineSpacingMultiple: 0,
+      paraSpaceBefore: 0,
+      paraSpaceAfter: 0,
+    });
     const document = await importPptxGenJS(generated);
     expect(document.slides[0]?.title.text).toBe('Created by PptxGenJS');
     expect((document.slides[0]!.shapes[0] as ShapeModel).richText[0]!.align).toBe('center');
@@ -123,6 +152,16 @@ describe('importPptxGenJS', () => {
       startAt: 4,
       indent: 24,
     });
+    expect((document.slides[0]!.shapes[7] as ShapeModel).richText.map(({ spacing }) => spacing)).toEqual([
+      { before: 6.25, after: 8.5, line: { kind: 'exact', points: 28 } },
+      { before: 6.25, after: 8.5, line: { kind: 'exact', points: 28 } },
+    ]);
+    expect((document.slides[0]!.shapes[8] as ShapeModel).richText[0]!.spacing).toEqual({
+      before: 4.25,
+      after: 7.75,
+      line: { kind: 'multiple', factor: 1.5 },
+    });
+    expect((document.slides[0]!.shapes[9] as ShapeModel).richText[0]!.spacing).toBeUndefined();
     document.slides[0]!.title.text = 'Edited by the OOXML kernel';
     document.duplicateSlide(0);
 
@@ -151,6 +190,16 @@ describe('importPptxGenJS', () => {
       kind: 'number',
       style: 'romanLcParenR',
       startAt: 4,
+    });
+    expect((reopened.slides[1]!.shapes[7] as ShapeModel).richText[0]!.spacing).toEqual({
+      before: 6.25,
+      after: 8.5,
+      line: { kind: 'exact', points: 28 },
+    });
+    expect((reopened.slides[1]!.shapes[8] as ShapeModel).richText[0]!.spacing).toEqual({
+      before: 4.25,
+      after: 7.75,
+      line: { kind: 'multiple', factor: 1.5 },
     });
   });
 

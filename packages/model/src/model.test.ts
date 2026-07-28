@@ -245,7 +245,7 @@ describe('PresentationModel', () => {
 
     const updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
     expect(updated).toContain('<a:pPr algn="ctr" marL="111" custom="FIRST"><a:buNone/><x:first xmlns:x="urn:test"/></a:pPr>');
-    expect(updated).toContain('<a:pPr algn="just" marL="222" custom="SECOND"><a:spcBef><a:spcPts val="300"/></a:spcBef><a:buNone/></a:pPr>');
+    expect(updated).toContain('<a:pPr algn="just" marL="222" custom="SECOND"><a:buNone/></a:pPr>');
     expect(updated).toContain('<a:pPr marL="333" custom="THIRD"><x:third xmlns:x="urn:test"/><a:buNone/></a:pPr>');
     expect(updated).toContain('<a:pPr algn="r"><a:buNone/></a:pPr>');
     expect(updated).toContain('<a:pPr algn="l" marL="111" custom="FIRST"><a:buNone/><x:first xmlns:x="urn:test"/></a:pPr>');
@@ -300,7 +300,7 @@ describe('PresentationModel', () => {
     expect(firstProperties.indexOf('<a:defRPr')).toBeLessThan(firstProperties.indexOf('<a:extLst>'));
     expect(firstProperties).toContain('<a:buAutoNum type="alphaUcPeriod" startAt="2"/>');
     expect(firstProperties).toContain('<x:keep xmlns:x="urn:test">KEEP</x:keep>');
-    expect(updated).toContain('<a:pPr marL="304800" indent="-100000" custom="SECOND" algn="ctr"><a:spcAft><a:spcPts val="400"/></a:spcAft><a:buNone/></a:pPr>');
+    expect(updated).toContain('<a:pPr marL="304800" indent="-100000" custom="SECOND" algn="ctr"><a:buNone/></a:pPr>');
     expect(updated).toContain('<a:buChar char="▶"/>');
     expect(updated).not.toContain('Wingdings');
     expect(updated).not.toContain('hebrew2Minus');
@@ -309,6 +309,69 @@ describe('PresentationModel', () => {
       { kind: 'number', style: 'alphaUcPeriod', startAt: 2, indent: 20 },
       undefined,
       { kind: 'bullet', character: '▶', indent: 19 },
+      undefined,
+    ]);
+  });
+
+  it('reads and replaces paragraph spacing without rebuilding unrelated paragraph properties', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.slides[1]!;
+    const part = pkg.requirePart(slide.partUri);
+    pkg.setPart(
+      part.uri,
+      new TextDecoder().decode(part.bytes).replace(
+        '<a:p><a:r><a:t>First title</a:t></a:r></a:p>',
+        '<a:p><a:pPr algn="r" marL="228600" custom="FIRST"><a:lnSpc><a:spcPts val="2400"/></a:lnSpc><a:spcBef><a:spcPts val="600"/></a:spcBef><a:spcAft><a:spcPts val="800"/></a:spcAft><a:buChar char="◆"/><a:tabLst><a:tab pos="500000" algn="l"/></a:tabLst><a:defRPr sz="1600"/><a:extLst><a:ext uri="urn:test"><x:keep xmlns:x="urn:test">KEEP</x:keep></a:ext></a:extLst></a:pPr><a:r><a:t>Exact</a:t></a:r></a:p><a:p><a:pPr custom="SECOND"><a:lnSpc><a:spcPct val="150000"/></a:lnSpc><a:spcBef><a:spcPct val="120000"/></a:spcBef><a:spcAft><a:spcPts val="0"/></a:spcAft><a:buNone/></a:pPr><a:r><a:t>Multiple</a:t></a:r></a:p><a:p><a:pPr custom="THIRD"><a:lnSpc><a:spcPts val="12x"/></a:lnSpc><a:spcBef><a:spcPts val="158401"/></a:spcBef><a:spcAft><a:spcPct val="100000"/></a:spcAft><x:third xmlns:x="urn:test">THIRD</x:third></a:pPr><a:r><a:t>Malformed</a:t></a:r></a:p><a:p><a:pPr custom="FOURTH"/><a:r><a:t>None</a:t></a:r></a:p>',
+      ),
+      part.contentType,
+    );
+    const shape = slide.shapes[0] as ShapeModel;
+    const journal = [...pkg.mutations];
+
+    expect(shape.richText.map(({ spacing }) => spacing)).toEqual([
+      { before: 6, after: 8, line: { kind: 'exact', points: 24 } },
+      { line: { kind: 'multiple', factor: 1.5 } },
+      undefined,
+      undefined,
+    ]);
+    expect(pkg.mutations).toEqual(journal);
+
+    shape.richText = [
+      {
+        runs: [{ text: 'Updated multiple' }],
+        align: 'left',
+        bullet: { kind: 'bullet', character: '◆', indent: 18 },
+        spacing: { before: 7, after: 9, line: { kind: 'multiple', factor: 2 } },
+      },
+      { runs: [{ text: 'Cleared' }], align: 'center', bullet: false, spacing: false },
+      { runs: [{ text: 'Valid exact' }], bullet: false, spacing: { line: { kind: 'exact', points: 18 } } },
+      { runs: [{ text: 'Still none' }], bullet: false },
+    ];
+
+    const updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    const firstStart = updated.indexOf('<a:pPr algn="l" marL="228600" custom="FIRST" indent="-228600">');
+    const firstEnd = updated.indexOf('</a:pPr>', firstStart);
+    const firstProperties = updated.slice(firstStart, firstEnd);
+    expect(firstStart).toBeGreaterThan(-1);
+    expect(firstProperties.indexOf('<a:lnSpc>')).toBeLessThan(firstProperties.indexOf('<a:spcBef>'));
+    expect(firstProperties.indexOf('<a:spcBef>')).toBeLessThan(firstProperties.indexOf('<a:spcAft>'));
+    expect(firstProperties.indexOf('<a:spcAft>')).toBeLessThan(firstProperties.indexOf('<a:buSzPct'));
+    expect(firstProperties.indexOf('<a:buChar')).toBeLessThan(firstProperties.indexOf('<a:tabLst>'));
+    expect(firstProperties.indexOf('<a:tabLst>')).toBeLessThan(firstProperties.indexOf('<a:defRPr'));
+    expect(firstProperties.indexOf('<a:defRPr')).toBeLessThan(firstProperties.indexOf('<a:extLst>'));
+    expect(firstProperties).toContain('<a:lnSpc><a:spcPct val="200000"/></a:lnSpc>');
+    expect(firstProperties).toContain('<a:spcBef><a:spcPts val="700"/></a:spcBef>');
+    expect(firstProperties).toContain('<a:spcAft><a:spcPts val="900"/></a:spcAft>');
+    expect(firstProperties).toContain('<x:keep xmlns:x="urn:test">KEEP</x:keep>');
+    expect(updated).toContain('<a:pPr custom="SECOND" algn="ctr"><a:buNone/></a:pPr>');
+    expect(updated).toContain('<a:pPr custom="THIRD"><a:lnSpc><a:spcPts val="1800"/></a:lnSpc><x:third xmlns:x="urn:test">THIRD</x:third><a:buNone/></a:pPr>');
+    expect(updated).not.toContain('12x');
+    expect(updated).not.toContain('158401');
+    expect(shape.richText.map(({ spacing }) => spacing)).toEqual([
+      { before: 7, after: 9, line: { kind: 'multiple', factor: 2 } },
+      undefined,
+      { line: { kind: 'exact', points: 18 } },
       undefined,
     ]);
   });

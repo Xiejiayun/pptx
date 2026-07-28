@@ -371,6 +371,100 @@ describe('PptxDocument vertical slice', () => {
     expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
   });
 
+  it('creates, replaces, rolls back, and round-trips paragraph spacing', async () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const plain = slide.addText('Exact first\nExact second', {
+      spacing: { before: 6.25, after: 8.5, line: { kind: 'exact', points: 28 } },
+    });
+    const rich = slide.addRichText(
+      [
+        { runs: [{ text: 'Defaults' }], bullet: true },
+        {
+          runs: [{ text: 'Partial override' }],
+          spacing: { before: 0, line: { kind: 'multiple', factor: 1.5 } },
+        },
+        { runs: [], spacing: { after: 12, line: false } },
+        { runs: [{ text: 'No spacing' }], spacing: false },
+      ],
+      { spacing: { before: 4, after: 6, line: { kind: 'multiple', factor: 1.2 } } },
+    );
+
+    expect(plain.richText.map(({ spacing }) => spacing)).toEqual([
+      { before: 6.25, after: 8.5, line: { kind: 'exact', points: 28 } },
+      { before: 6.25, after: 8.5, line: { kind: 'exact', points: 28 } },
+    ]);
+    expect(rich.richText.map(({ spacing }) => spacing)).toEqual([
+      { before: 4, after: 6, line: { kind: 'multiple', factor: 1.2 } },
+      { after: 6, line: { kind: 'multiple', factor: 1.5 } },
+      { before: 4, after: 12 },
+      undefined,
+    ]);
+    let slideXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(slideXml).toContain('<a:lnSpc><a:spcPts val="2800"/></a:lnSpc>');
+    expect(slideXml).toContain('<a:lnSpc><a:spcPct val="150000"/></a:lnSpc>');
+    expect(slideXml).toContain('<a:spcBef><a:spcPts val="625"/></a:spcBef>');
+    const firstRichProperties = slideXml.slice(
+      slideXml.indexOf('<a:pPr', slideXml.indexOf('Defaults') - 500),
+      slideXml.indexOf('</a:pPr>', slideXml.indexOf('Defaults') - 500),
+    );
+    expect(firstRichProperties.indexOf('<a:lnSpc>')).toBeLessThan(firstRichProperties.indexOf('<a:spcBef>'));
+    expect(firstRichProperties.indexOf('<a:spcBef>')).toBeLessThan(firstRichProperties.indexOf('<a:spcAft>'));
+    expect(firstRichProperties.indexOf('<a:spcAft>')).toBeLessThan(firstRichProperties.indexOf('<a:buSzPct'));
+    const spacingSnapshot = rich.richText as unknown as Array<{ spacing?: { before?: number } }>;
+    spacingSnapshot[0]!.spacing!.before = 999;
+    expect(rich.richText[0]!.spacing).toEqual({
+      before: 4,
+      after: 6,
+      line: { kind: 'multiple', factor: 1.2 },
+    });
+
+    rich.richText = [
+      {
+        runs: rich.richText[0]!.runs,
+        bullet: rich.richText[0]!.bullet!,
+        spacing: { before: 5, line: { kind: 'exact', points: 20 } },
+      },
+      { runs: rich.richText[1]!.runs, spacing: false },
+      { runs: rich.richText[2]!.runs, spacing: { after: 7.5 } },
+      { runs: rich.richText[3]!.runs },
+    ];
+    expect(rich.richText.map(({ spacing }) => spacing)).toEqual([
+      { before: 5, line: { kind: 'exact', points: 20 } },
+      undefined,
+      { after: 7.5 },
+      undefined,
+    ]);
+    slideXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(slideXml).toContain('<a:spcAft><a:spcPts val="750"/></a:spcAft>');
+    expect(slideXml).not.toContain('val="150000"');
+
+    expect(() =>
+      document.transaction(() => {
+        rich.richText = [{
+          runs: [{ text: 'Rollback' }],
+          spacing: { line: { kind: 'multiple', factor: 2 } },
+        }];
+        throw new Error('restore paragraph spacing');
+      }),
+    ).toThrow('restore paragraph spacing');
+    expect(rich.richText[0]!.spacing).toEqual({
+      before: 5,
+      line: { kind: 'exact', points: 20 },
+    });
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedPlain = reopened.slides[0]!.shapes[0] as ShapeModel;
+    const reopenedRich = reopened.slides[0]!.shapes[1] as ShapeModel;
+    expect(reopenedPlain.richText.map(({ spacing }) => spacing)).toEqual(
+      plain.richText.map(({ spacing }) => spacing),
+    );
+    expect(reopenedRich.richText.map(({ spacing }) => spacing)).toEqual(
+      rich.richText.map(({ spacing }) => spacing),
+    );
+    expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+  });
+
   it('creates, reads, replaces, and round-trips rich text run styles', async () => {
     const document = PptxDocument.create();
     const slide = document.addSlide();
@@ -514,6 +608,19 @@ describe('PptxDocument vertical slice', () => {
       [{ runs: [], bullet: { kind: 'number', startAt: 1.5 } }],
       [{ runs: [], bullet: { kind: 'number', startAt: 32768 } }],
       [{ runs: [], bullet: { kind: 'number', color: 'red' } }],
+      [{ runs: [], spacing: null }],
+      [{ runs: [], spacing: {} }],
+      [{ runs: [], spacing: { before: -1 } }],
+      [{ runs: [], spacing: { before: 1584.01 } }],
+      [{ runs: [], spacing: { after: Number.POSITIVE_INFINITY } }],
+      [{ runs: [], spacing: { line: null } }],
+      [{ runs: [], spacing: { line: {} } }],
+      [{ runs: [], spacing: { line: { kind: 'exact', points: 0 } } }],
+      [{ runs: [], spacing: { line: { kind: 'exact', points: 1585 } } }],
+      [{ runs: [], spacing: { line: { kind: 'multiple', factor: 0 } } }],
+      [{ runs: [], spacing: { line: { kind: 'multiple', factor: 133 } } }],
+      [{ runs: [], spacing: { line: { kind: 'multiple', factor: 1.5, points: 12 } } }],
+      [{ runs: [], spacing: { before: 2, unknown: true } }],
       [{ runs: [{ text: 'x', breakLine: true }] }],
       [{ runs: [{ text: 'x', style: { underline: true } }] }],
       [{ runs: [{ text: 'x', style: { color: { kind: 'srgb', value: 'FF0000', alpha: 0.5 } } }] }],
@@ -556,6 +663,7 @@ describe('PptxDocument vertical slice', () => {
     expect(() => slide.addText('bad flip', { flipHorizontal: 'yes' as never })).toThrow(/must be a boolean/);
     expect(() => slide.addText('bad alignment', { align: 'middle' as never })).toThrow(/left, center, right/);
     expect(() => slide.addText('bad bullet', { bullet: { kind: 'number', startAt: 0 } as never })).toThrow(/startAt/);
+    expect(() => slide.addText('bad spacing', { spacing: false as never })).toThrow(/spacing/);
     expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(before);
     expect(document.opcPackage.mutations).toEqual(journal);
 

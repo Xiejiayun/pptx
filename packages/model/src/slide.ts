@@ -10,22 +10,27 @@ import { ModelParseError } from './errors.js';
 import type { PresentationModel } from './presentation.js';
 import {
   normalizeParagraphBullet,
+  normalizeParagraphSpacing,
   normalizeRichText,
   normalizeTextAlignment,
   readRichText,
   renderParagraphProperties,
   renderRichTextParagraphs,
+  resolveParagraphSpacing,
   replaceRichText,
   type NormalizedParagraphBullet,
+  type NormalizedParagraphSpacing,
+  type NormalizedParagraphSpacingUpdate,
 } from './rich-text.internal.js';
 import { decodeShape, ShapeModel, type SemanticShape } from './shapes.js';
-import type { ParagraphBullet, RichTextParagraph, TextAlignment } from './text.js';
+import type { ParagraphBullet, ParagraphSpacing, RichTextParagraph, TextAlignment } from './text.js';
 import { inches, type Transform } from './units.js';
 
 export interface AddTextOptions extends Partial<Transform> {
   readonly name?: string;
   readonly align?: TextAlignment;
   readonly bullet?: ParagraphBullet;
+  readonly spacing?: ParagraphSpacing;
 }
 
 export class SlideTitleModel {
@@ -185,9 +190,10 @@ export class SlideModel {
     return this.presentation.opcPackage.transaction(() => {
       const normalized = validateTextInput(value, options);
       const bullet = normalized.bullet === false ? undefined : normalized.bullet;
+      const spacing = resolveParagraphSpacing(normalized.spacing);
       const paragraphs = normalized.value
         .split('\n')
-        .map((line) => textParagraphXml(line, 'a:', options.align, bullet))
+        .map((line) => textParagraphXml(line, 'a:', options.align, bullet, spacing))
         .join('');
       return this.addTextShape(paragraphs, options);
     });
@@ -196,11 +202,12 @@ export class SlideModel {
   addRichText(value: readonly RichTextParagraph[], options: AddTextOptions = {}): ShapeModel {
     return this.presentation.opcPackage.transaction(() => {
       const paragraphs = normalizeRichText(value);
-      const bullet = validateAddTextOptions(options);
+      const defaults = validateAddTextOptions(options);
       return this.addTextShape(
         renderRichTextParagraphs(paragraphs, {
           ...(options.align ? { defaultAlign: options.align } : {}),
-          ...(bullet !== undefined ? { defaultBullet: bullet } : {}),
+          ...(defaults.bullet !== undefined ? { defaultBullet: defaults.bullet } : {}),
+          ...(defaults.spacing !== undefined ? { defaultSpacing: defaults.spacing } : {}),
         }),
         options,
       );
@@ -280,18 +287,25 @@ function setAttribute(xml: LosslessXmlDocument, element: XmlElement, name: strin
 interface NormalizedTextInput {
   readonly value: string;
   readonly bullet: NormalizedParagraphBullet | false | undefined;
+  readonly spacing: NormalizedParagraphSpacingUpdate | undefined;
 }
 
 function validateTextInput(value: string, options: AddTextOptions): NormalizedTextInput {
+  const normalized = validatePlainText(value);
+  const defaults = validateAddTextOptions(options);
   return {
-    value: validatePlainText(value),
-    bullet: validateAddTextOptions(options),
+    value: normalized,
+    bullet: defaults.bullet,
+    spacing: defaults.spacing,
   };
 }
 
-function validateAddTextOptions(
-  options: AddTextOptions,
-): NormalizedParagraphBullet | false | undefined {
+interface NormalizedAddTextOptions {
+  readonly bullet?: NormalizedParagraphBullet | false;
+  readonly spacing?: NormalizedParagraphSpacingUpdate;
+}
+
+function validateAddTextOptions(options: AddTextOptions): NormalizedAddTextOptions {
   if (options.name !== undefined && typeof options.name !== 'string') {
     throw new TypeError('Text shape name must be a string');
   }
@@ -324,9 +338,16 @@ function validateAddTextOptions(
   if (options.height !== undefined && Math.round(options.height) <= 0) {
     throw new RangeError('Text shape height must be greater than zero');
   }
-  return options.bullet === undefined
+  const bullet = options.bullet === undefined
     ? undefined
     : normalizeParagraphBullet(options.bullet, 'Text bullet');
+  const spacing = options.spacing === undefined
+    ? undefined
+    : normalizeParagraphSpacing(options.spacing, 'Text spacing');
+  return {
+    ...(bullet !== undefined ? { bullet } : {}),
+    ...(spacing !== undefined ? { spacing } : {}),
+  };
 }
 
 function validatePlainText(value: string): string {
@@ -366,8 +387,9 @@ function textParagraphXml(
   prefix = 'a:',
   align?: TextAlignment,
   bullet?: NormalizedParagraphBullet,
+  spacing?: NormalizedParagraphSpacing,
 ): string {
-  const properties = renderParagraphProperties(undefined, prefix, align, bullet);
+  const properties = renderParagraphProperties(undefined, prefix, align, bullet, spacing);
   const endProperties = `<${prefix}endParaRPr lang="en-US" dirty="0"/>`;
   if (value.length === 0) return `<${prefix}p>${properties}${endProperties}</${prefix}p>`;
   return `<${prefix}p>${properties}${defaultTextRunXml(value, prefix)}${endProperties}</${prefix}p>`;

@@ -28,7 +28,8 @@ adapter 不读取 `_slides` 等私有字段。后续 peer-range conformance test
 | `TextProps[]` 基础 runs、字体、字号、粗斜体、颜色、soft break | `addRichText()` / `ShapeModel.richText` | 已支持 |
 | 段落 `align: left/center/right/justify` | `AddTextOptions.align` / `RichTextParagraph.align` | 已支持 |
 | 标准/custom bullet、16 种 numbering、startAt、indent | `AddTextOptions.bullet` / `RichTextParagraph.bullet` | 已支持 |
-| 多级列表 `indentLevel`、普通段落 indent/tab/spacing | 尚无完整公开 API | 尚未支持，后续逐项补齐 |
+| 段前/段后、exact/multiple line spacing | `AddTextOptions.spacing` / `RichTextParagraph.spacing` | 已支持 |
+| 多级列表 `indentLevel`、普通段落 indent/tab | 尚无完整公开 API | 尚未支持，后续逐项补齐 |
 | rich run 高级样式、其他逐段样式及文本布局 options | 尚无完整公开 API | 部分支持，后续逐项补齐 |
 
 原生创建会生成可重新打开和验证的 master/layout/theme 关系链，不通过 adapter，也不在运行时安装或调用 PptxGenJS。

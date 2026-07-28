@@ -17,6 +17,7 @@
 - Added structured rich-text run creation, snapshots, and replacement with fonts, point sizes, bold/italic, sRGB/theme colors, and soft breaks.
 - Added PptxGenJS-compatible left, center, right, and justified paragraph alignment for plain and structured text creation and editing.
 - Added paragraph bullets and automatic numbering with Unicode characters, all 16 PptxGenJS numbering styles, start values, and point-based hanging indents.
+- Added paragraph before/after spacing plus exact and multiple line spacing with creation defaults, per-paragraph overrides, and lossless OOXML editing.
 
 ## 0.1.0 - 2026-07-25
 
