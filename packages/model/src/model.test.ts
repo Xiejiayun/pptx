@@ -1282,6 +1282,49 @@ describe('PresentationModel', () => {
     expect(updated.match(/<a:endParaRPr lang="zh-CN" altLang="ja-JP"\/>/g)).toHaveLength(2);
   });
 
+  it('reads strict direct paragraph RTL and preserves its XML during plain text edits', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.slides[1]!;
+    const part = pkg.requirePart(slide.partUri);
+    const values = ['1', 'true', 'on', '0', 'false', 'off', undefined, '', 'yes'];
+    const rtlText = values.map((rtl, index) => [
+      '<a:p>',
+      `<a:pPr${rtl === undefined ? '' : ` rtl="${rtl}"`} custom="P${index}"><x:keep xmlns:x="urn:test"/></a:pPr>`,
+      `<a:r><a:t>Paragraph ${index}</a:t></a:r>`,
+      '</a:p>',
+    ].join('')).join('');
+    pkg.setPart(
+      part.uri,
+      new TextDecoder().decode(part.bytes).replace(
+        '<a:p><a:r><a:t>First title</a:t></a:r></a:p>',
+        rtlText,
+      ),
+      part.contentType,
+    );
+    const shape = slide.shapes[0] as ShapeModel;
+    const journal = [...pkg.mutations];
+
+    expect(shape.richText.map(({ rtl }) => rtl)).toEqual([
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      undefined,
+      undefined,
+      undefined,
+    ]);
+    expect(pkg.mutations).toEqual(journal);
+
+    shape.text = 'First replacement\nSecond replacement';
+    expect(shape.richText.map(({ rtl }) => rtl)).toEqual([true, true]);
+    const updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated.match(/<a:pPr rtl="1" custom="P0"><x:keep xmlns:x="urn:test"\/><\/a:pPr>/g))
+      .toHaveLength(2);
+  });
+
   it('updates alignment without rebuilding other paragraph properties', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);

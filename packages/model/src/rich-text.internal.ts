@@ -126,6 +126,7 @@ export interface NormalizedParagraphTabStop {
 interface NormalizedRichTextParagraph {
   readonly runs: readonly RichTextRun[];
   readonly align?: TextAlignment;
+  readonly rtl?: boolean;
   readonly bullet?: NormalizedParagraphBullet | false;
   readonly level?: number;
   readonly spacing?: NormalizedParagraphSpacingUpdate | false;
@@ -184,13 +185,14 @@ export function normalizeRichText(value: unknown): readonly NormalizedRichTextPa
     }
     assertSupportedKeys(
       paragraph,
-      ['align', 'bullet', 'level', 'runs', 'spacing', 'tabStops'],
+      ['align', 'bullet', 'level', 'rtl', 'runs', 'spacing', 'tabStops'],
       `Rich text paragraph ${paragraphIndex}`,
     );
     const candidate = paragraph as {
       align?: unknown;
       bullet?: unknown;
       level?: unknown;
+      rtl?: unknown;
       runs?: unknown;
       spacing?: unknown;
       tabStops?: unknown;
@@ -206,6 +208,9 @@ export function normalizeRichText(value: unknown): readonly NormalizedRichTextPa
     const level = candidate.level === undefined
       ? undefined
       : normalizeParagraphLevel(candidate.level, `Rich text paragraph ${paragraphIndex} level`);
+    const rtl = candidate.rtl === undefined
+      ? undefined
+      : normalizeParagraphRtl(candidate.rtl, `Rich text paragraph ${paragraphIndex} rtl`);
     const spacing = candidate.spacing === undefined
       ? undefined
       : candidate.spacing === false
@@ -221,6 +226,7 @@ export function normalizeRichText(value: unknown): readonly NormalizedRichTextPa
       ...(align ? { align } : {}),
       ...(bullet !== undefined ? { bullet } : {}),
       ...(level !== undefined ? { level } : {}),
+      ...(rtl !== undefined ? { rtl } : {}),
       ...(spacing !== undefined ? { spacing } : {}),
       ...(tabStops !== undefined ? { tabStops } : {}),
     };
@@ -231,6 +237,7 @@ interface RenderRichTextOptions {
   readonly prefix?: string;
   readonly defaultLanguage?: string;
   readonly defaultAlign?: TextAlignment;
+  readonly defaultRtl?: boolean;
   readonly defaultBullet?: NormalizedParagraphBullet | false;
   readonly defaultLevel?: number;
   readonly defaultSpacing?: NormalizedParagraphSpacingUpdate;
@@ -248,11 +255,12 @@ export function renderRichTextParagraphs(
   const defaultEndProperties = `<${prefix}endParaRPr lang="${escapeXmlAttribute(defaultLanguage)}" dirty="0"/>`;
   return paragraphs
     .map(
-      ({ align, bullet, level, runs, spacing, tabStops }, index) =>
+      ({ align, bullet, level, rtl, runs, spacing, tabStops }, index) =>
         `<${prefix}p>${renderParagraphProperties(
           options.paragraphProperties?.[index] ?? options.paragraphProperties?.[0],
           prefix,
           align ?? options.defaultAlign,
+          rtl ?? options.defaultRtl,
           bullet === false
             ? undefined
             : bullet ?? (options.defaultBullet === false ? undefined : options.defaultBullet),
@@ -271,6 +279,7 @@ export function readRichText(xml: LosslessXmlDocument, element: XmlElement): rea
   if (!textBody) return [];
   return directChildren(textBody, 'p').map((paragraph) => {
     const align = readParagraphAlignment(xml, paragraph);
+    const rtl = readParagraphRtl(xml, paragraph);
     const level = readParagraphLevel(xml, paragraph);
     const bullet = readParagraphBullet(xml, paragraph, level ?? 0);
     const spacing = readParagraphSpacing(xml, paragraph);
@@ -278,6 +287,7 @@ export function readRichText(xml: LosslessXmlDocument, element: XmlElement): rea
     return {
       runs: readRuns(xml, paragraph),
       ...(align ? { align } : {}),
+      ...(rtl !== undefined ? { rtl } : {}),
       ...(bullet ? { bullet } : {}),
       ...(level !== undefined ? { level } : {}),
       ...(spacing ? { spacing } : {}),
@@ -326,6 +336,11 @@ export function normalizeParagraphLevel(value: unknown, context: string): number
     throw new TypeError(`${context} must be an integer`);
   }
   if (value < 0 || value > 8) throw new RangeError(`${context} must be between 0 and 8`);
+  return value;
+}
+
+export function normalizeParagraphRtl(value: unknown, context: string): boolean {
+  if (typeof value !== 'boolean') throw new TypeError(`${context} must be a boolean`);
   return value;
 }
 
@@ -444,6 +459,7 @@ export function renderParagraphProperties(
   template: string | undefined,
   prefix: string,
   alignment: TextAlignment | undefined,
+  rtl: boolean | undefined,
   bullet?: NormalizedParagraphBullet,
   spacing?: NormalizedParagraphSpacing,
   level?: number,
@@ -458,7 +474,8 @@ export function renderParagraphProperties(
         alignment ? TEXT_ALIGNMENT_TO_OOXML[alignment] : undefined,
       )
     : initial;
-  const leveled = updateParagraphAttribute(aligned, 'lvl', level && level > 0 ? String(level) : undefined);
+  const directed = updateParagraphAttribute(aligned, 'rtl', rtl === undefined ? undefined : rtl ? '1' : '0');
+  const leveled = updateParagraphAttribute(directed, 'lvl', level && level > 0 ? String(level) : undefined);
   const spaced = renderParagraphSpacing(leveled, prefix, spacing);
   const bulleted = renderParagraphBullet(spaced, prefix, bullet, level ?? 0);
   return renderParagraphTabStops(bulleted, prefix, tabStops);
@@ -1063,6 +1080,18 @@ function readParagraphAlignment(
   const properties = directChildren(paragraph, 'pPr')[0];
   const value = properties ? xml.attribute(properties, 'algn')?.value : undefined;
   return value ? OOXML_TO_TEXT_ALIGNMENT.get(value) : undefined;
+}
+
+function readParagraphRtl(
+  xml: LosslessXmlDocument,
+  paragraph: XmlElement,
+): boolean | undefined {
+  const properties = directChildren(paragraph, 'pPr')[0];
+  const value = properties ? xml.attribute(properties, 'rtl')?.value : undefined;
+  if (value === undefined) return undefined;
+  if (['1', 'true', 'on'].includes(value)) return true;
+  if (['0', 'false', 'off'].includes(value)) return false;
+  return undefined;
 }
 
 function readParagraphLevel(

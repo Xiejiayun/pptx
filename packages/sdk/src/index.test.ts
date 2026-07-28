@@ -267,6 +267,104 @@ describe('PptxDocument vertical slice', () => {
     expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
   });
 
+  it('creates, edits, duplicates, and reopens plain and rich paragraph RTL', async () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const omitted = slide.addText('Default direction', { name: 'RTL omitted' });
+    const plain = slide.addText('مرحبا\n\nالعالم', {
+      name: 'RTL plain',
+      align: 'right',
+      bullet: true,
+      lang: 'ar-SA',
+      level: 1,
+      rtlMode: true,
+      spacing: { before: 4, after: 6 },
+      tabStops: [{ position: 1, alignment: 'right' }],
+    });
+    const explicitFalse = slide.addText('English', { name: 'RTL false', rtlMode: false });
+    const rich = slide.addRichText([
+      { runs: [{ text: 'Inherited' }] },
+      { rtl: false, runs: [{ text: 'English override' }] },
+      { rtl: true, runs: [] },
+    ], {
+      name: 'RTL rich',
+      lang: 'he-IL',
+      rtlMode: true,
+    });
+
+    expect(omitted.richText.map(({ rtl }) => rtl)).toEqual([undefined]);
+    expect(plain.richText.map(({ rtl }) => rtl)).toEqual([true, true, true]);
+    expect(explicitFalse.richText.map(({ rtl }) => rtl)).toEqual([false]);
+    expect(rich.richText.map(({ rtl }) => rtl)).toEqual([true, false, true]);
+    let slideXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(slideXml.match(/rtl="1"/g)).toHaveLength(5);
+    expect(slideXml.match(/rtl="0"/g)).toHaveLength(2);
+    expect(slideXml).toMatch(/<a:pPr algn="r"[^>]*rtl="1"[^>]*lvl="1"/);
+    expect(slideXml).toContain('<a:bodyPr wrap="square" rtlCol="0"');
+    const omittedStart = slideXml.indexOf('name="RTL omitted"');
+    const omittedEnd = slideXml.indexOf('</p:sp>', omittedStart);
+    expect(slideXml.slice(omittedStart, omittedEnd)).not.toContain(' rtl=');
+
+    document.duplicateSlide(0);
+    rich.richText = [
+      { rtl: true, runs: [{ text: 'RTL' }] },
+      { rtl: false, runs: [{ text: 'LTR' }] },
+      { runs: [{ text: 'Cleared' }] },
+    ];
+    expect(rich.richText.map(({ rtl }) => rtl)).toEqual([true, false, undefined]);
+    slideXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    const clearedText = slideXml.indexOf('>Cleared<', slideXml.indexOf('name="RTL rich"'));
+    const clearedParagraphStart = slideXml.lastIndexOf('<a:p>', clearedText);
+    const clearedParagraphEnd = slideXml.indexOf('</a:p>', clearedText);
+    expect(slideXml.slice(clearedParagraphStart, clearedParagraphEnd)).not.toContain(' rtl=');
+
+    const beforeRollback = document.opcPackage.requirePart(slide.partUri).bytes;
+    const journal = [...document.opcPackage.mutations];
+    expect(() =>
+      document.transaction(() => {
+        rich.richText = [{ rtl: false, runs: [{ text: 'Rollback' }] }];
+        throw new Error('restore paragraph RTL');
+      }),
+    ).toThrow('restore paragraph RTL');
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(beforeRollback);
+    expect(document.opcPackage.mutations).toEqual(journal);
+    expect(slide.shapes[3]).toBe(rich);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const edited = reopened.slides[0]!.shapes[3] as ShapeModel;
+    const duplicated = reopened.slides[1]!.shapes[3] as ShapeModel;
+    expect(edited.richText.map(({ rtl }) => rtl)).toEqual([true, false, undefined]);
+    expect(duplicated.richText.map(({ rtl }) => rtl)).toEqual([true, false, true]);
+    expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+  });
+
+  it('rejects malformed paragraph RTL before changing slide package state', () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const shape = slide.addText('Original');
+    const before = document.opcPackage.requirePart(slide.partUri).bytes;
+    const journal = [...document.opcPackage.mutations];
+    const invalidValues = [null, 0, 'true', {}, [], Symbol('rtl')] as const;
+
+    for (const rtl of invalidValues) {
+      expect(() => slide.addText('Invalid', { rtlMode: rtl as never })).toThrow(TypeError);
+      expect(() => slide.addRichText([{ runs: [{ text: 'Invalid' }] }], {
+        rtlMode: rtl as never,
+      })).toThrow(TypeError);
+      expect(() => slide.addRichText([{
+        rtl: rtl as never,
+        runs: [{ text: 'Invalid' }],
+      }])).toThrow(TypeError);
+      expect(() => {
+        shape.richText = [{ rtl: rtl as never, runs: [{ text: 'Invalid' }] }];
+      }).toThrow(TypeError);
+    }
+
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(before);
+    expect(document.opcPackage.mutations).toEqual(journal);
+    expect(slide.shapes[0]).toBe(shape);
+  });
+
   it('creates, replaces, rolls back, and round-trips bullets and numbering', async () => {
     const styles: readonly NumberingStyle[] = [
       'alphaLcParenBoth',

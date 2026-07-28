@@ -488,6 +488,42 @@ describe('importPptxGenJS', () => {
         objectName: 'Fit run ignored',
       },
     );
+    generatedSlide.addText('مرحبا\nالعالم', {
+      x: 0,
+      y: 4,
+      w: 2,
+      h: 1,
+      objectName: 'RTL true',
+      rtlMode: true,
+    });
+    generatedSlide.addText('Explicit false', {
+      x: 0,
+      y: 5,
+      w: 2,
+      h: 0.5,
+      objectName: 'RTL false',
+      rtlMode: false,
+    });
+    generatedSlide.addText('Omitted', {
+      x: 0,
+      y: 5.5,
+      w: 2,
+      h: 0.5,
+      objectName: 'RTL omitted',
+    });
+    generatedSlide.addText(
+      [
+        { text: 'Run one', options: { rtlMode: true } },
+        { text: ' Run two', options: { rtlMode: true } },
+      ],
+      {
+        x: 0,
+        y: 6,
+        w: 2,
+        h: 0.5,
+        objectName: 'RTL run probe',
+      },
+    );
     const document = await importPptxGenJS(generated);
     expect(document.slides[0]?.title.text).toBe('Created by PptxGenJS');
     expect((document.slides[0]!.shapes[0] as ShapeModel).richText[0]!.align).toBe('center');
@@ -634,6 +670,13 @@ describe('importPptxGenJS', () => {
       expect(shape).toBeInstanceOf(ShapeModel);
       return shape as ShapeModel;
     };
+    expect(shapeByName('RTL true').richText.map(({ rtl }) => rtl)).toEqual([true, true]);
+    expect(shapeByName('RTL false').richText.map(({ rtl }) => rtl)).toEqual([undefined]);
+    expect(shapeByName('RTL omitted').richText.map(({ rtl }) => rtl)).toEqual([undefined]);
+    const rtlRunProbe = shapeByName('RTL run probe');
+    expect(rtlRunProbe.text).toBe('Run one Run two');
+    expect(rtlRunProbe.richText[0]!.runs.map(({ style }) =>
+      (style as Record<string, unknown> | undefined)?.rtlMode)).toEqual([undefined, undefined]);
     expect(shapeByName('Margin omitted').textMargins).toBeUndefined();
     expect(shapeByName('Margin zero').textMargins).toEqual({ top: 0, right: 0, bottom: 0, left: 0 });
     expect(shapeByName('Margin scalar').textMargins).toEqual({
@@ -783,6 +826,18 @@ describe('importPptxGenJS', () => {
     expect(importedXml).toMatch(
       /name="Language outer"[\s\S]*?<a:endParaRPr lang="fr-CA" dirty="0"\/>/,
     );
+    expect(importedXml).toMatch(
+      /name="RTL true"[\s\S]*?<a:p><a:pPr rtl="1"[^>]*>[\s\S]*?<a:p><a:pPr rtl="1"/,
+    );
+    expect(importedXml).toMatch(
+      /name="RTL false"[\s\S]*?<a:p><a:pPr(?![^>]*\srtl=)[^>]*>/,
+    );
+    expect(importedXml).toMatch(
+      /name="RTL omitted"[\s\S]*?<a:p><a:pPr(?![^>]*\srtl=)[^>]*>/,
+    );
+    const rtlRunStart = importedXml.indexOf('name="RTL run probe"');
+    const rtlRunEnd = importedXml.indexOf('</p:sp>', rtlRunStart);
+    expect(importedXml.slice(rtlRunStart, rtlRunEnd).match(/<a:pPr rtl="1"/g)).toHaveLength(2);
     document.slides[0]!.title.text = 'Edited by the OOXML kernel';
     document.duplicateSlide(0);
 
@@ -952,6 +1007,16 @@ describe('importPptxGenJS', () => {
       ['Fit legacy shrink', 'shrink'],
       ['Fit legacy resize', 'resize'],
       ['Fit run ignored', undefined],
+    ]);
+    const reopenedRtl = reopened.slides[1]!.shapes
+      .filter((shape): shape is ShapeModel => shape instanceof ShapeModel)
+      .filter(({ name }) => name.startsWith('RTL '))
+      .map(({ name, richText }) => [name, richText.map(({ rtl }) => rtl)]);
+    expect(reopenedRtl).toEqual([
+      ['RTL true', [true, true]],
+      ['RTL false', [undefined]],
+      ['RTL omitted', [undefined]],
+      ['RTL run probe', [true]],
     ]);
   }, 20_000);
 

@@ -11,6 +11,7 @@ import type { PresentationModel } from './presentation.js';
 import {
   normalizeParagraphBullet,
   normalizeParagraphLevel,
+  normalizeParagraphRtl,
   normalizeParagraphSpacing,
   normalizeParagraphTabStops,
   normalizeRichText,
@@ -79,6 +80,7 @@ export interface AddTextOptions extends Partial<Transform> {
   readonly lang?: string;
   readonly level?: number;
   readonly margin?: TextBoxMarginInput;
+  readonly rtlMode?: boolean;
   readonly spacing?: ParagraphSpacing;
   readonly tabStops?: readonly ParagraphTabStop[];
   readonly valign?: TextBoxVerticalAlignment;
@@ -324,6 +326,7 @@ export class SlideModel {
           line,
           'a:',
           options.align,
+          normalized.rtl,
           bullet,
           spacing,
           normalized.level,
@@ -351,6 +354,7 @@ export class SlideModel {
         renderRichTextParagraphs(paragraphs, {
           ...(defaults.language !== undefined ? { defaultLanguage: defaults.language } : {}),
           ...(options.align ? { defaultAlign: options.align } : {}),
+          ...(defaults.rtl !== undefined ? { defaultRtl: defaults.rtl } : {}),
           ...(defaults.bullet !== undefined ? { defaultBullet: defaults.bullet } : {}),
           ...(defaults.level !== undefined ? { defaultLevel: defaults.level } : {}),
           ...(defaults.spacing !== undefined ? { defaultSpacing: defaults.spacing } : {}),
@@ -459,6 +463,7 @@ interface NormalizedTextInput {
   readonly language: string | undefined;
   readonly level: number | undefined;
   readonly margin: TextBoxMargins | undefined;
+  readonly rtl: boolean | undefined;
   readonly spacing: NormalizedParagraphSpacingUpdate | undefined;
   readonly tabStops: readonly NormalizedParagraphTabStop[] | undefined;
   readonly verticalAlignment: TextBoxVerticalAlignment;
@@ -476,6 +481,7 @@ function validateTextInput(value: string, options: AddTextOptions): NormalizedTe
     language: defaults.language,
     level: defaults.level,
     margin: defaults.margin,
+    rtl: defaults.rtl,
     spacing: defaults.spacing,
     tabStops: defaults.tabStops,
     verticalAlignment: defaults.verticalAlignment,
@@ -490,6 +496,7 @@ interface NormalizedAddTextOptions {
   readonly language?: string;
   readonly level?: number;
   readonly margin?: TextBoxMargins;
+  readonly rtl?: boolean;
   readonly spacing?: NormalizedParagraphSpacingUpdate;
   readonly tabStops?: readonly NormalizedParagraphTabStop[];
   readonly verticalAlignment: TextBoxVerticalAlignment;
@@ -543,6 +550,9 @@ function validateAddTextOptions(options: AddTextOptions): NormalizedAddTextOptio
   const margin = options.margin === undefined
     ? undefined
     : normalizeTextBoxMargins(options.margin, 'Text margin');
+  const rtl = options.rtlMode === undefined
+    ? undefined
+    : normalizeParagraphRtl(options.rtlMode, 'Text RTL mode');
   const spacing = options.spacing === undefined
     ? undefined
     : normalizeParagraphSpacing(options.spacing, 'Text spacing');
@@ -566,6 +576,7 @@ function validateAddTextOptions(options: AddTextOptions): NormalizedAddTextOptio
     ...(language !== undefined ? { language } : {}),
     ...(level !== undefined ? { level } : {}),
     ...(margin !== undefined ? { margin } : {}),
+    ...(rtl !== undefined ? { rtl } : {}),
     ...(spacing !== undefined ? { spacing } : {}),
     ...(tabStops !== undefined ? { tabStops } : {}),
     verticalAlignment,
@@ -630,13 +641,23 @@ function textParagraphXml(
   value: string,
   prefix = 'a:',
   align?: TextAlignment,
+  rtl?: boolean,
   bullet?: NormalizedParagraphBullet,
   spacing?: NormalizedParagraphSpacing,
   level?: number,
   tabStops?: readonly NormalizedParagraphTabStop[],
   language?: string,
 ): string {
-  const properties = renderParagraphProperties(undefined, prefix, align, bullet, spacing, level, tabStops);
+  const properties = renderParagraphProperties(
+    undefined,
+    prefix,
+    align,
+    rtl,
+    bullet,
+    spacing,
+    level,
+    tabStops,
+  );
   const languageValue = escapeXmlAttribute(language ?? 'en-US');
   const endProperties = `<${prefix}endParaRPr lang="${languageValue}" dirty="0"/>`;
   if (value.length === 0) return `<${prefix}p>${properties}${endProperties}</${prefix}p>`;
