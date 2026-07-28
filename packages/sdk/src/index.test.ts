@@ -63,11 +63,11 @@ async function tableTextDirectionFixture(): Promise<Uint8Array> {
       cell('Tail', '<a:tcPr/>'),
     ].join('')}</a:tr>`
     + `<a:tr h="1371600">${[
-      cell('Explicit none', '<a:tcPr vert="horz" anchor="t" marT="50800" marR="101600" marB="152400" marL="203200" keep="FIT-NONE"/>', '', '<a:bodyPr custom="NONE"><a:noAutofit/></a:bodyPr>'),
-      cell('Calculated shrink', '<a:tcPr vert="vert" anchor="ctr" marT="0" marL="25400" keep="FIT-SHRINK"/>', '', '<a:bodyPr custom="SHRINK"><a:normAutofit fontScale="85000" lnSpcReduction="20000"/></a:bodyPr>'),
-      cell('Resize', '<a:tcPr vert="vert270" anchor="b" marR="91440" keep="FIT-RESIZE"/>', '', '<a:bodyPr custom="RESIZE"><a:spAutoFit/></a:bodyPr>'),
+      cell('Explicit none', '<a:tcPr vert="horz" anchor="t" marT="50800" marR="101600" marB="152400" marL="203200" keep="FIT-NONE"><a:solidFill><a:srgbClr val="4472C4"/></a:solidFill></a:tcPr>', '', '<a:bodyPr custom="NONE"><a:noAutofit/></a:bodyPr>'),
+      cell('Calculated shrink', '<a:tcPr vert="vert" anchor="ctr" marT="0" marL="25400" keep="FIT-SHRINK"><a:solidFill><a:schemeClr val="accent2"><a:alpha val="75000"/></a:schemeClr></a:solidFill></a:tcPr>', '', '<a:bodyPr custom="SHRINK"><a:normAutofit fontScale="85000" lnSpcReduction="20000"/></a:bodyPr>'),
+      cell('Resize', '<a:tcPr vert="vert270" anchor="b" marR="91440" keep="FIT-RESIZE"><a:noFill/></a:tcPr>', '', '<a:bodyPr custom="RESIZE"><a:spAutoFit/></a:bodyPr>'),
       cell('Absent fit', '<a:tcPr keep="FIT-ABSENT"/>'),
-      cell('Merged fit', '<a:tcPr vert="wordArtVert" anchor="ctr" marT="45720" marR="91440" marB="45720" marL="91440" keep="FIT-MERGED"/>', ' hMerge="1"'),
+      cell('Merged fit', '<a:tcPr vert="wordArtVert" anchor="ctr" marT="45720" marR="91440" marB="45720" marL="91440" keep="FIT-MERGED"><a:solidFill><a:srgbClr val="70AD47"><a:alpha val="50000"/></a:srgbClr></a:solidFill></a:tcPr>', ' hMerge="1"'),
     ].join('')}</a:tr>`
     + '</a:tbl></a:graphicData></a:graphic></p:graphicFrame>';
   document.opcPackage.setPart(
@@ -489,7 +489,7 @@ describe('PptxDocument vertical slice', () => {
     expect(editedXml).toContain('<a:bodyPr custom="RESIZE"><a:normAutofit/></a:bodyPr>');
     expect(editedXml).toContain('<a:bodyPr><a:spAutoFit/></a:bodyPr>');
     expect(editedXml).toContain('<a:tc hMerge="1">');
-    expect(editedXml).toContain('<a:tcPr vert="wordArtVert" anchor="ctr" marT="45720" marR="91440" marB="45720" marL="91440" keep="FIT-MERGED"/>');
+    expect(editedXml).toContain('<a:tcPr vert="wordArtVert" anchor="ctr" marT="45720" marR="91440" marB="45720" marL="91440" keep="FIT-MERGED"><a:solidFill><a:srgbClr val="70AD47"><a:alpha val="50000"/></a:srgbClr></a:solidFill></a:tcPr>');
     expect(editedXml).toContain('<a:off x="1828800" y="914400"/>');
     expect(duplicateTable.rows[2]!.cells.map(({ textFit }) => textFit)).toEqual([
       'none',
@@ -644,11 +644,11 @@ describe('PptxDocument vertical slice', () => {
     ]);
     expect(table.rows[2]!.cells[4]!.text).toBe('Edited merged alignment');
     const editedXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
-    expect(editedXml).toContain('<a:tcPr vert="horz" anchor="ctr" marT="50800" marR="101600" marB="152400" marL="203200" keep="FIT-NONE"/>');
-    expect(editedXml).toContain('<a:tcPr vert="vert" anchor="t" marT="0" marL="25400" keep="FIT-SHRINK"/>');
-    expect(editedXml).toContain('<a:tcPr vert="vert270" marR="91440" keep="FIT-RESIZE"/>');
+    expect(editedXml).toContain('<a:tcPr vert="horz" anchor="ctr" marT="50800" marR="101600" marB="152400" marL="203200" keep="FIT-NONE"><a:solidFill><a:srgbClr val="4472C4"/></a:solidFill></a:tcPr>');
+    expect(editedXml).toContain('<a:tcPr vert="vert" anchor="t" marT="0" marL="25400" keep="FIT-SHRINK"><a:solidFill><a:schemeClr val="accent2"><a:alpha val="75000"/></a:schemeClr></a:solidFill></a:tcPr>');
+    expect(editedXml).toContain('<a:tcPr vert="vert270" marR="91440" keep="FIT-RESIZE"><a:noFill/></a:tcPr>');
     expect(editedXml).toContain('<a:tcPr keep="FIT-ABSENT" anchor="b" vert="horz"/>');
-    expect(editedXml).toContain('<a:tcPr vert="wordArtVert" anchor="t" marT="45720" marR="91440" marB="45720" marL="91440" keep="FIT-MERGED"/>');
+    expect(editedXml).toContain('<a:tcPr vert="wordArtVert" anchor="t" marT="45720" marR="91440" marB="45720" marL="91440" keep="FIT-MERGED"><a:solidFill><a:srgbClr val="70AD47"><a:alpha val="50000"/></a:srgbClr></a:solidFill></a:tcPr>');
     expect(editedXml).toContain('<a:bodyPr custom="NONE"><a:spAutoFit/></a:bodyPr>');
     expect(editedXml).toContain('<a:off x="1828800" y="914400"/>');
     expect(duplicateTable.rows[2]!.cells.map(({ verticalAlignment }) => verticalAlignment)).toEqual([
@@ -822,11 +822,11 @@ describe('PptxDocument vertical slice', () => {
     ]);
     expect(table.rows[2]!.cells[4]!.text).toBe('Edited merged margins');
     const editedXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
-    expect(editedXml).toContain('<a:tcPr vert="horz" anchor="t" marT="76200" marR="76200" marB="76200" marL="76200" keep="FIT-NONE"/>');
-    expect(editedXml).toContain('<a:tcPr vert="vert" anchor="b" marT="12700" marL="50800" keep="FIT-SHRINK" marR="25400" marB="38100"/>');
-    expect(editedXml).toContain('<a:tcPr vert="vert270" anchor="b" keep="FIT-RESIZE" marL="88900" marT="63500"/>');
+    expect(editedXml).toContain('<a:tcPr vert="horz" anchor="t" marT="76200" marR="76200" marB="76200" marL="76200" keep="FIT-NONE"><a:solidFill><a:srgbClr val="4472C4"/></a:solidFill></a:tcPr>');
+    expect(editedXml).toContain('<a:tcPr vert="vert" anchor="b" marT="12700" marL="50800" keep="FIT-SHRINK" marR="25400" marB="38100"><a:solidFill><a:schemeClr val="accent2"><a:alpha val="75000"/></a:schemeClr></a:solidFill></a:tcPr>');
+    expect(editedXml).toContain('<a:tcPr vert="vert270" anchor="b" keep="FIT-RESIZE" marL="88900" marT="63500"><a:noFill/></a:tcPr>');
     expect(editedXml).toContain('<a:tcPr keep="FIT-ABSENT" marL="0" marR="0" marT="0" marB="0" vert="horz"/>');
-    expect(editedXml).toContain('<a:tcPr vert="wordArtVert" anchor="ctr" marB="114300" keep="FIT-MERGED"/>');
+    expect(editedXml).toContain('<a:tcPr vert="wordArtVert" anchor="ctr" marB="114300" keep="FIT-MERGED"><a:solidFill><a:srgbClr val="70AD47"><a:alpha val="50000"/></a:srgbClr></a:solidFill></a:tcPr>');
     expect(editedXml).toContain('<a:bodyPr custom="NONE"><a:spAutoFit/></a:bodyPr>');
     expect(editedXml).toContain('<a:off x="1828800" y="914400"/>');
     expect(duplicateTable.rows[2]!.cells.map(({ margins }) => margins)).toEqual(originalMargins);
@@ -909,6 +909,209 @@ describe('PptxDocument vertical slice', () => {
     expect(document.slides).toHaveLength(1);
     expect(document.slides[0]).toBe(slide);
     expect(slide.shapes[0]).toBe(table);
+    expect(table.rows.map(({ cells }) => cells.map((cell) => cell.margins))).toEqual(margins);
+    expect(table.rows.map(({ cells }) =>
+      cells.map(({ verticalAlignment }) => verticalAlignment))).toEqual(alignments);
+    expect(table.rows.map(({ cells }) => cells.map(({ textFit }) => textFit))).toEqual(fits);
+    expect(table.rows.map(({ cells }) => cells.map(({ textDirection }) => textDirection))).toEqual(directions);
+    expect(table.rows.map(({ cells }) => cells.map((cell) => cell.text))).toEqual(text);
+  });
+
+  it('edits table-cell fills through duplicate, rollback, and reopen lifecycles', async () => {
+    const document = await PptxDocument.open(await tableTextDirectionFixture());
+    expect(validatePackage(document.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+    const slide = document.slides[0]!;
+    const table = slide.shapes[0] as TableModel;
+    const originalFills = [
+      { kind: 'solid', color: { kind: 'srgb', value: '4472C4' } },
+      {
+        kind: 'solid',
+        color: { kind: 'scheme', value: 'accent2' },
+        transparency: 25,
+      },
+      { kind: 'none' },
+      undefined,
+      {
+        kind: 'solid',
+        color: { kind: 'srgb', value: '70AD47' },
+        transparency: 50,
+      },
+    ];
+    expect(table.rows[2]!.cells.map(({ fill }) => fill)).toEqual(originalFills);
+    const duplicate = document.duplicateSlide(0);
+    const duplicateTable = duplicate.shapes[0] as TableModel;
+
+    table.setCellFill(2, 0, {
+      kind: 'solid',
+      color: { kind: 'srgb', value: '#C00000' },
+    });
+    table.setCellFill(2, 1, {
+      kind: 'solid',
+      color: { kind: 'scheme', value: 'accent1' },
+      transparency: 0,
+    });
+    table.setCellFill(2, 2, {
+      kind: 'solid',
+      color: { kind: 'srgb', value: '0000FF' },
+      transparency: 33.333,
+    });
+    table.setCellFill(2, 2, { kind: 'none' });
+    table.setCellFill(2, 3, {
+      kind: 'solid',
+      color: { kind: 'scheme', value: 'accent4' },
+    });
+    table.setCellFill(2, 3, undefined);
+    table.setCellFill(2, 4, {
+      kind: 'solid',
+      color: { kind: 'srgb', value: '00B0F0' },
+      transparency: 100,
+    });
+    table.setCellMargins(2, 0, 6);
+    table.setCellTextFit(2, 1, 'resize');
+    table.setCellTextDirection(2, 3, 'horz');
+    table.setCellVerticalAlignment(2, 1, 'bottom');
+    table.setCellText(2, 4, 'Edited merged fill');
+    table.setTransform({ x: inches(2) });
+    const snapshot = table.rows;
+    const mutableFill = snapshot[2]!.cells[1]!.fill as {
+      kind: string;
+      color: { kind: string; value: string };
+      transparency?: number;
+    };
+    mutableFill.kind = 'none';
+    mutableFill.color.value = 'FFFFFF';
+    mutableFill.transparency = 99;
+
+    const editedFills = [
+      { kind: 'solid', color: { kind: 'srgb', value: 'C00000' } },
+      {
+        kind: 'solid',
+        color: { kind: 'scheme', value: 'accent1' },
+        transparency: 0,
+      },
+      { kind: 'none' },
+      undefined,
+      {
+        kind: 'solid',
+        color: { kind: 'srgb', value: '00B0F0' },
+        transparency: 100,
+      },
+    ];
+    expect(document.slides[0]).toBe(slide);
+    expect(slide.shapes[0]).toBe(table);
+    expect(table.rows[2]!.cells.map(({ fill }) => fill)).toEqual(editedFills);
+    expect(table.rows[2]!.cells[0]!.margins).toEqual({
+      top: 6,
+      right: 6,
+      bottom: 6,
+      left: 6,
+    });
+    expect(table.rows[2]!.cells[1]!.textFit).toBe('resize');
+    expect(table.rows[2]!.cells[1]!.verticalAlignment).toBe('bottom');
+    expect(table.rows[2]!.cells[3]!.textDirection).toBe('horz');
+    expect(table.rows[2]!.cells[4]!.text).toBe('Edited merged fill');
+    const editedXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(editedXml).toContain(
+      '<a:tcPr vert="horz" anchor="t" marT="76200" marR="76200" marB="76200" marL="76200" keep="FIT-NONE"><a:solidFill><a:srgbClr val="C00000"/></a:solidFill></a:tcPr>',
+    );
+    expect(editedXml).toContain(
+      '<a:tcPr vert="vert" anchor="b" marT="0" marL="25400" keep="FIT-SHRINK"><a:solidFill><a:schemeClr val="accent1"><a:alpha val="100000"/></a:schemeClr></a:solidFill></a:tcPr>',
+    );
+    expect(editedXml).toContain(
+      '<a:tcPr vert="vert270" anchor="b" marR="91440" keep="FIT-RESIZE"><a:noFill/></a:tcPr>',
+    );
+    expect(editedXml).toContain('<a:tcPr keep="FIT-ABSENT" vert="horz"></a:tcPr>');
+    expect(editedXml).toContain(
+      '<a:tcPr vert="wordArtVert" anchor="ctr" marT="45720" marR="91440" marB="45720" marL="91440" keep="FIT-MERGED"><a:solidFill><a:srgbClr val="00B0F0"><a:alpha val="0"/></a:srgbClr></a:solidFill></a:tcPr>',
+    );
+    expect(editedXml).toContain('<a:off x="1828800" y="914400"/>');
+    expect(duplicateTable.rows[2]!.cells.map(({ fill }) => fill)).toEqual(originalFills);
+
+    const beforeRollback = document.opcPackage.requirePart(slide.partUri).bytes;
+    const rollbackJournal = [...document.opcPackage.mutations];
+    expect(() =>
+      document.transaction(() => {
+        table.setCellFill(2, 0, { kind: 'none' });
+        table.setCellFill(2, 3, {
+          kind: 'solid',
+          color: { kind: 'srgb', value: 'FFFFFF' },
+        });
+        throw new Error('restore public table fill edits');
+      }),
+    ).toThrow('restore public table fill edits');
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(beforeRollback);
+    expect(document.opcPackage.mutations).toEqual(rollbackJournal);
+    expect(document.slides[0]).toBe(slide);
+    expect(slide.shapes[0]).toBe(table);
+    expect(table.rows[2]!.cells.map(({ fill }) => fill)).toEqual(editedFills);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedEdited = reopened.slides[0]!.shapes[0] as TableModel;
+    const reopenedDuplicate = reopened.slides[1]!.shapes[0] as TableModel;
+    expect(reopenedEdited.rows[2]!.cells.map(({ fill }) => fill)).toEqual(editedFills);
+    expect(reopenedDuplicate.rows[2]!.cells.map(({ fill }) => fill)).toEqual(originalFills);
+  });
+
+  it('rejects invalid table-cell fills and physical coordinates before mutation', async () => {
+    const document = await PptxDocument.open(await tableTextDirectionFixture());
+    const slide = document.slides[0]!;
+    const table = slide.shapes[0] as TableModel;
+    const before = document.opcPackage.requirePart(slide.partUri).bytes;
+    const journal = [...document.opcPackage.mutations];
+    const fills = table.rows.map(({ cells }) => cells.map((cell) => cell.fill));
+    const margins = table.rows.map(({ cells }) => cells.map((cell) => cell.margins));
+    const alignments = table.rows.map(({ cells }) =>
+      cells.map(({ verticalAlignment }) => verticalAlignment));
+    const fits = table.rows.map(({ cells }) => cells.map(({ textFit }) => textFit));
+    const directions = table.rows.map(({ cells }) => cells.map(({ textDirection }) => textDirection));
+    const text = table.rows.map(({ cells }) => cells.map((cell) => cell.text));
+
+    const invalidValues = [
+      null,
+      false,
+      true,
+      '',
+      [],
+      {},
+      { kind: 'none', color: { kind: 'srgb', value: 'FF0000' } },
+      { kind: 'unknown' },
+      { kind: 'solid' },
+      { kind: 'solid', color: null },
+      { kind: 'solid', color: { kind: 'srgb', value: 'FFF' } },
+      { kind: 'solid', color: { kind: 'srgb', value: 'GG0000' } },
+      { kind: 'solid', color: { kind: 'scheme', value: 'unknown' } },
+      { kind: 'solid', color: { kind: 'srgb', value: 'FF0000', extra: true } },
+      { kind: 'solid', color: { kind: 'srgb', value: 'FF0000' }, transparency: -0.001 },
+      { kind: 'solid', color: { kind: 'srgb', value: 'FF0000' }, transparency: 100.001 },
+      { kind: 'solid', color: { kind: 'srgb', value: 'FF0000' }, transparency: Number.NaN },
+      { kind: 'solid', color: { kind: 'srgb', value: 'FF0000' }, transparency: Number.POSITIVE_INFINITY },
+      Symbol('table cell fill'),
+    ];
+    for (const value of invalidValues) {
+      expect(() => table.setCellFill(2, 0, value as never)).toThrow();
+    }
+    const invalidCoordinates = [
+      [-1, 0],
+      [0, -1],
+      [0.5, 0],
+      [0, 0.5],
+      [Number.NaN, 0],
+      [0, Number.NaN],
+      [Number.POSITIVE_INFINITY, 0],
+      [0, Number.NEGATIVE_INFINITY],
+      [3, 0],
+      [2, 5],
+    ];
+    for (const [row, column] of invalidCoordinates) {
+      expect(() => table.setCellFill(row!, column!, { kind: 'none' })).toThrow(RangeError);
+    }
+
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(before);
+    expect(document.opcPackage.mutations).toEqual(journal);
+    expect(document.slides).toHaveLength(1);
+    expect(document.slides[0]).toBe(slide);
+    expect(slide.shapes[0]).toBe(table);
+    expect(table.rows.map(({ cells }) => cells.map((cell) => cell.fill))).toEqual(fills);
     expect(table.rows.map(({ cells }) => cells.map((cell) => cell.margins))).toEqual(margins);
     expect(table.rows.map(({ cells }) =>
       cells.map(({ verticalAlignment }) => verticalAlignment))).toEqual(alignments);

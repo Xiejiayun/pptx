@@ -7,6 +7,10 @@ import { importPptxGenJS } from './index.js';
 
 interface PptxGenJSInstance {
   readonly version: string;
+  readonly SchemeColor: {
+    readonly accent1: 'accent1';
+    readonly accent2: 'accent2';
+  };
   layout: string;
   rtlMode: unknown;
   addSlide(): {
@@ -369,6 +373,128 @@ describe('importPptxGenJS', () => {
     );
     expect(reopenedTables.map((table) =>
       table.rows[0]!.cells.map(({ margins }) => margins))).toEqual(snapshots);
+  });
+
+  it('imports PptxGenJS table-cell fills from direct cell properties', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    generated.layout = 'LAYOUT_WIDE';
+    const slide = generated.addSlide();
+    slide.addTable(
+      [[{ text: 'Omitted fill', options: {} }]],
+      { x: 0.2, y: 0.2, w: 2, h: 0.5 },
+    );
+    slide.addTable(
+      [[{ text: 'Type none', options: { fill: { type: 'none' } } }]],
+      { x: 0.2, y: 1, w: 2, h: 0.5 },
+    );
+    slide.addTable(
+      [[{ text: 'Table red', options: {} }]],
+      { x: 0.2, y: 1.8, w: 2, h: 0.5, fill: { color: 'FF0000' } },
+    );
+    slide.addTable(
+      [[{ text: 'Table theme alpha', options: {} }]],
+      {
+        x: 0.2,
+        y: 2.6,
+        w: 2,
+        h: 0.5,
+        fill: { color: generated.SchemeColor.accent1, transparency: 25 },
+      },
+    );
+    slide.addTable(
+      [[
+        { text: 'Inherited blue', options: {} },
+        { text: 'Cell yellow alpha', options: { fill: { color: 'FFFF00', transparency: 50 } } },
+        { text: 'Explicit zero', options: { fill: { color: '00FF00', transparency: 0 } } },
+        { text: 'Fractional', options: { fill: { color: '112233', transparency: 33.333 } } },
+        { text: 'Full transparency', options: { fill: { color: '445566', transparency: 100 } } },
+        { text: 'Deprecated alpha', options: { fill: { color: generated.SchemeColor.accent2, alpha: 25 } } },
+        { text: 'Runtime negative', options: { fill: { color: '778899', transparency: -1 } } },
+        { text: 'Runtime overflow', options: { fill: { color: 'AABBCC', transparency: 101 } } },
+      ]],
+      { x: 0.2, y: 3.4, w: 12.8, h: 1, fill: { color: '0000FF' } },
+    );
+
+    const document = await importPptxGenJS(generated);
+    const tables = document.slides[0]!.shapes.filter(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    );
+    expect(tables).toHaveLength(5);
+    const snapshots = tables.map((table) => table.rows[0]!.cells.map(({ fill }) => fill));
+    expect(snapshots).toEqual([
+      [undefined],
+      [undefined],
+      [{ kind: 'solid', color: { kind: 'srgb', value: 'FF0000' } }],
+      [{
+        kind: 'solid',
+        color: { kind: 'scheme', value: 'accent1' },
+        transparency: 25,
+      }],
+      [
+        { kind: 'solid', color: { kind: 'srgb', value: '0000FF' } },
+        {
+          kind: 'solid',
+          color: { kind: 'srgb', value: 'FFFF00' },
+          transparency: 50,
+        },
+        { kind: 'solid', color: { kind: 'srgb', value: '00FF00' } },
+        {
+          kind: 'solid',
+          color: { kind: 'srgb', value: '112233' },
+          transparency: 33.333,
+        },
+        {
+          kind: 'solid',
+          color: { kind: 'srgb', value: '445566' },
+          transparency: 100,
+        },
+        {
+          kind: 'solid',
+          color: { kind: 'scheme', value: 'accent2' },
+          transparency: 25,
+        },
+        undefined,
+        undefined,
+      ],
+    ]);
+    expect(tables.flatMap(({ rows }) => rows[0]!.cells.map(({ text }) => text))).toEqual([
+      'Omitted fill',
+      'Type none',
+      'Table red',
+      'Table theme alpha',
+      'Inherited blue',
+      'Cell yellow alpha',
+      'Explicit zero',
+      'Fractional',
+      'Full transparency',
+      'Deprecated alpha',
+      'Runtime negative',
+      'Runtime overflow',
+    ]);
+
+    const xml = new TextDecoder().decode(
+      document.opcPackage.requirePart(document.slides[0]!.partUri).bytes,
+    );
+    const directFillXml = [...xml.matchAll(/<a:tcPr[^>]*>([\s\S]*?)<\/a:tcPr>/g)]
+      .map((match) => match[1]!.replace(/<a:ln[LRBT][\s\S]*?<\/a:ln[LRBT]>/g, ''))
+      .map((properties) => properties.match(/<a:solidFill>[\s\S]*?<\/a:solidFill>/)?.[0]);
+    expect(directFillXml.filter(Boolean)).toHaveLength(10);
+    expect(directFillXml[0]).toBeUndefined();
+    expect(directFillXml[1]).toBeUndefined();
+    expect(xml).toContain('<a:solidFill><a:schemeClr val="accent1"><a:alpha val="75000"/></a:schemeClr></a:solidFill>');
+    expect(xml).toContain('<a:solidFill><a:srgbClr val="00FF00"/></a:solidFill>');
+    expect(xml).toContain('<a:solidFill><a:srgbClr val="112233"><a:alpha val="66667"/></a:srgbClr></a:solidFill>');
+    expect(xml).toContain('<a:solidFill><a:srgbClr val="445566"><a:alpha val="0"/></a:srgbClr></a:solidFill>');
+    expect(xml).toContain('<a:solidFill><a:srgbClr val="778899"><a:alpha val="101000"/></a:srgbClr></a:solidFill>');
+    expect(xml).toContain('<a:solidFill><a:srgbClr val="AABBCC"><a:alpha val="-1000"/></a:srgbClr></a:solidFill>');
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedTables = reopened.slides[0]!.shapes.filter(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    );
+    expect(reopenedTables.map((table) =>
+      table.rows[0]!.cells.map(({ fill }) => fill))).toEqual(snapshots);
   });
 
   it('imports public PptxGenJS output and continues editing in the OOXML kernel', async () => {

@@ -42,6 +42,7 @@
 - Added strict table-cell text-fit snapshots and physical-cell direct editing for existing `noAutofit`, `normAutofit`, and `spAutoFit` choices.
 - Added PptxGenJS-compatible table-cell top, middle, and bottom vertical-alignment snapshots plus physical-cell direct editing and clearing.
 - Added strict point-based table-cell margin snapshots plus physical-cell scalar, TRBL, partial, and clear editing.
+- Added strict table-cell solid/no-fill snapshots plus physical-cell sRGB, theme, transparency, and clear editing.
 - Added PptxGenJS-compatible none, shrink, and resize text-box fit modes with direct lossless editing.
 
 ## 0.1.0 - 2026-07-25

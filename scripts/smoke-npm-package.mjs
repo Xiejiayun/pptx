@@ -81,13 +81,24 @@ transparencyText.richText = [{ runs: [{ text: 'Opaque', style: { transparency: 0
 const updatedTransparencies = transparencyText.richText[0].runs.map(({ style }) => style?.transparency);
 const tableSlide = created.slides[0];
 const tablePart = created.opcPackage.requirePart(tableSlide.partUri);
-const tableXml = '<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="99" name="Smoke table"/></p:nvGraphicFramePr><a:graphic><a:graphicData><a:tbl><a:tr><a:tc><a:txBody><a:bodyPr custom="TARGET"><a:noAutofit/></a:bodyPr><a:p><a:r><a:t>Target</a:t></a:r></a:p></a:txBody><a:tcPr vert="horz" anchor="ctr" marL="12700" marR="25400" marT="38100" marB="50800"/></a:tc><a:tc><a:txBody><a:bodyPr custom="NEIGHBOR"><a:spAutoFit/></a:bodyPr><a:p><a:r><a:t>Neighbor</a:t></a:r></a:p></a:txBody><a:tcPr vert="vert" anchor="b" marL="63500" marR="76200" marT="88900" marB="101600" keep="ADJACENT"/></a:tc></a:tr></a:tbl></a:graphicData></a:graphic></p:graphicFrame>';
+const tableXml = '<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="99" name="Smoke table"/></p:nvGraphicFramePr><a:graphic><a:graphicData><a:tbl><a:tr><a:tc><a:txBody><a:bodyPr custom="TARGET"><a:noAutofit/></a:bodyPr><a:p><a:r><a:t>Target</a:t></a:r></a:p></a:txBody><a:tcPr vert="horz" anchor="ctr" marL="12700" marR="25400" marT="38100" marB="50800"><a:solidFill><a:schemeClr val="accent1"><a:alpha val="75000"/></a:schemeClr></a:solidFill></a:tcPr></a:tc><a:tc><a:txBody><a:bodyPr custom="NEIGHBOR"><a:spAutoFit/></a:bodyPr><a:p><a:r><a:t>Neighbor</a:t></a:r></a:p></a:txBody><a:tcPr vert="vert" anchor="b" marL="63500" marR="76200" marT="88900" marB="101600" keep="ADJACENT"><a:solidFill><a:srgbClr val="70AD47"><a:alpha val="50000"/></a:srgbClr></a:solidFill></a:tcPr></a:tc></a:tr></a:tbl></a:graphicData></a:graphic></p:graphicFrame>';
 created.opcPackage.setPart(tableSlide.partUri, new TextDecoder().decode(tablePart.bytes).replace('</p:spTree>', tableXml + '</p:spTree>'), tablePart.contentType);
 const table = tableSlide.shapes.find((shape) => shape instanceof TableModel);
 const initialCellDirection = table?.rows[0]?.cells[0]?.textDirection;
 const initialCellFit = table?.rows[0]?.cells[0]?.textFit;
 const initialCellAlignment = table?.rows[0]?.cells[0]?.verticalAlignment;
 const initialCellMargins = table?.rows[0]?.cells[0]?.margins;
+const initialCellFill = table?.rows[0]?.cells[0]?.fill;
+table?.setCellFill(0, 0, { kind: 'solid', color: { kind: 'srgb', value: '#FF0000' } });
+const opaqueCellFill = table?.rows[0]?.cells[0]?.fill;
+table?.setCellFill(0, 0, { kind: 'solid', color: { kind: 'scheme', value: 'accent2' }, transparency: 0 });
+const explicitOpaqueCellFill = table?.rows[0]?.cells[0]?.fill;
+table?.setCellFill(0, 0, { kind: 'solid', color: { kind: 'srgb', value: '112233' }, transparency: 33.333 });
+const fractionalCellFill = table?.rows[0]?.cells[0]?.fill;
+table?.setCellFill(0, 0, { kind: 'none' });
+const noneCellFill = table?.rows[0]?.cells[0]?.fill;
+table?.setCellFill(0, 0, undefined);
+const clearedCellFill = table?.rows[0]?.cells[0]?.fill;
 table?.setCellMargins(0, 0, 4);
 const uniformCellMargins = table?.rows[0]?.cells[0]?.margins;
 table?.setCellMargins(0, 0, [1, 2, 3, 4]);
@@ -148,6 +159,7 @@ const checks = {
   tableCellTextFit: table instanceof TableModel && initialCellFit === 'none' && shrinkCellFit === 'shrink' && sameFitPreserved && resizeCellFit === 'resize' && noneClearedCellFit === undefined && undefinedClearedCellFit === undefined && table.rows[0].cells[0].textFit === undefined && table.rows[0].cells[0].text === 'Target' && table.rows[0].cells[1].textFit === 'resize' && table.rows[0].cells[1].text === 'Neighbor',
   tableCellVerticalAlignment: table instanceof TableModel && initialCellAlignment === 'middle' && topCellAlignment === 'top' && middleCellAlignment === 'middle' && bottomCellAlignment === 'bottom' && clearedCellAlignment === undefined && table.rows[0].cells[0].verticalAlignment === undefined && table.rows[0].cells[0].text === 'Target' && table.rows[0].cells[1].verticalAlignment === 'bottom' && table.rows[0].cells[1].text === 'Neighbor',
   tableCellMargins: table instanceof TableModel && initialCellMargins?.top === 3 && initialCellMargins?.right === 2 && initialCellMargins?.bottom === 4 && initialCellMargins?.left === 1 && uniformCellMargins?.top === 4 && uniformCellMargins?.right === 4 && uniformCellMargins?.bottom === 4 && uniformCellMargins?.left === 4 && tupleCellMargins?.top === 1 && tupleCellMargins?.right === 2 && tupleCellMargins?.bottom === 3 && tupleCellMargins?.left === 4 && partialCellMargins?.top === 5 && partialCellMargins?.right === undefined && partialCellMargins?.bottom === undefined && partialCellMargins?.left === 7 && clearedCellMargins === undefined && table.rows[0].cells[0].margins === undefined && table.rows[0].cells[0].text === 'Target' && table.rows[0].cells[1].margins?.top === 7 && table.rows[0].cells[1].margins?.right === 6 && table.rows[0].cells[1].margins?.bottom === 8 && table.rows[0].cells[1].margins?.left === 5 && table.rows[0].cells[1].text === 'Neighbor',
+  tableCellFill: table instanceof TableModel && initialCellFill?.kind === 'solid' && initialCellFill.color.kind === 'scheme' && initialCellFill.color.value === 'accent1' && initialCellFill.transparency === 25 && opaqueCellFill?.kind === 'solid' && opaqueCellFill.color.kind === 'srgb' && opaqueCellFill.color.value === 'FF0000' && opaqueCellFill.transparency === undefined && explicitOpaqueCellFill?.kind === 'solid' && explicitOpaqueCellFill.color.kind === 'scheme' && explicitOpaqueCellFill.color.value === 'accent2' && explicitOpaqueCellFill.transparency === 0 && fractionalCellFill?.kind === 'solid' && fractionalCellFill.color.kind === 'srgb' && fractionalCellFill.color.value === '112233' && fractionalCellFill.transparency === 33.333 && noneCellFill?.kind === 'none' && clearedCellFill === undefined && table.rows[0].cells[0].fill === undefined && table.rows[0].cells[0].text === 'Target' && table.rows[0].cells[1].fill?.kind === 'solid' && table.rows[0].cells[1].fill.color.kind === 'srgb' && table.rows[0].cells[1].fill.color.value === '70AD47' && table.rows[0].cells[1].fill.transparency === 50 && table.rows[0].cells[1].text === 'Neighbor',
   createText: createdText.text === 'Updated\\nParagraph' && initialTextWrap === false && updatedTextWrap === true && createdText.textWrap === undefined && initialTextDirection === 'vert270' && updatedTextDirection === 'wordArtVert' && createdText.textDirection === undefined && initialTextFit === 'shrink' && updatedTextFit === 'resize' && createdText.textFit === undefined && createdText.verticalAlignment === 'bottom' && createdText.textMargins.top === 4 && createdText.textMargins.left === 8 && createdText.textMargins.right === undefined && createdText.richText.every(({ align, bullet, level, rtl, spacing, tabStops }) => align === 'center' && bullet?.kind === 'bullet' && bullet.indent === 27 && level === 2 && rtl === true && spacing?.line?.kind === 'exact' && Array.isArray(tabStops) && tabStops[0]?.position === 1.25 && tabStops[1]?.alignment === 'right') && created.slides[0].shapes[0] === createdText,
   richText: inheritedLanguage === 'fr-CA' && localLanguage === 'de-DE' && initialRtl[0] === true && initialRtl[1] === false && richText.text === 'Updated rich' && richText.richText[0].rtl === undefined && richText.richText[0].align === 'justify' && richText.richText[0].bullet.style === 'romanUcPeriod' && richText.richText[0].level === 3 && richText.richText[0].spacing.line.kind === 'exact' && Array.isArray(richText.richText[0].tabStops) && richText.richText[0].tabStops[0].alignment === 'decimal' && richText.richText[0].runs[0].style.lang === 'ja-JP' && richText.richText[0].runs[0].style.baseline === 'superscript' && richText.richText[0].runs[0].style.characterSpacing === 2.5 && richText.richText[0].runs[0].style.italic === true && richText.richText[0].runs[0].style.glow.color.value === 'accent3' && richText.richText[0].runs[0].style.glow.opacity === 0.25 && richText.richText[0].runs[0].style.glow.size === 6 && richText.richText[0].runs[0].style.highlight.value === '00FF00' && richText.richText[0].runs[0].style.outline.color.value === 'accent1' && richText.richText[0].runs[0].style.outline.size === 0.75 && richText.richText[0].runs[0].style.underline.style === 'wavyHeavy' && richText.richText[0].runs[0].style.underline.color.value === 'accent2' && richText.richText[0].runs[0].style.strike === false,
   customSlideSize: custom.slideSize.width === inches(10) && customXml.includes('<p:sldSz cx="9144000" cy="6858000"/>'),
@@ -195,10 +207,21 @@ browserIndent.richText = [{ indent: false, runs: [{ text: 'Cleared' }] }];
 if (browserIndent.richText[0].indent !== undefined) throw new Error('Browser paragraph indent clear failed');
 const tableSlide = created.slides[0];
 const tablePart = created.opcPackage.requirePart(tableSlide.partUri);
-const tableXml = '<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="99" name="Browser table"/></p:nvGraphicFramePr><a:graphic><a:graphicData><a:tbl><a:tr><a:tc><a:txBody><a:bodyPr custom="TARGET"><a:noAutofit/></a:bodyPr><a:p><a:r><a:t>Browser target</a:t></a:r></a:p></a:txBody><a:tcPr vert="horz" anchor="ctr" marL="12700" marR="25400" marT="38100" marB="50800"/></a:tc><a:tc><a:txBody><a:bodyPr custom="NEIGHBOR"><a:spAutoFit/></a:bodyPr><a:p><a:r><a:t>Browser neighbor</a:t></a:r></a:p></a:txBody><a:tcPr vert="vert" anchor="b" marL="63500" marR="76200" marT="88900" marB="101600"/></a:tc></a:tr></a:tbl></a:graphicData></a:graphic></p:graphicFrame>';
+const tableXml = '<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="99" name="Browser table"/></p:nvGraphicFramePr><a:graphic><a:graphicData><a:tbl><a:tr><a:tc><a:txBody><a:bodyPr custom="TARGET"><a:noAutofit/></a:bodyPr><a:p><a:r><a:t>Browser target</a:t></a:r></a:p></a:txBody><a:tcPr vert="horz" anchor="ctr" marL="12700" marR="25400" marT="38100" marB="50800"><a:solidFill><a:schemeClr val="accent1"><a:alpha val="75000"/></a:schemeClr></a:solidFill></a:tcPr></a:tc><a:tc><a:txBody><a:bodyPr custom="NEIGHBOR"><a:spAutoFit/></a:bodyPr><a:p><a:r><a:t>Browser neighbor</a:t></a:r></a:p></a:txBody><a:tcPr vert="vert" anchor="b" marL="63500" marR="76200" marT="88900" marB="101600"><a:solidFill><a:srgbClr val="70AD47"><a:alpha val="50000"/></a:srgbClr></a:solidFill></a:tcPr></a:tc></a:tr></a:tbl></a:graphicData></a:graphic></p:graphicFrame>';
 created.opcPackage.setPart(tableSlide.partUri, new TextDecoder().decode(tablePart.bytes).replace('</p:spTree>', tableXml + '</p:spTree>'), tablePart.contentType);
 const table = tableSlide.shapes.find((shape) => shape instanceof TableModel);
 if (!(table instanceof TableModel) || table.rows[0].cells[0].textFit !== 'none' || table.rows[0].cells[1].textFit !== 'resize') throw new Error('Browser table-cell fit read failed');
+if (table.rows[0].cells[0].fill?.kind !== 'solid' || table.rows[0].cells[0].fill.color.kind !== 'scheme' || table.rows[0].cells[0].fill.color.value !== 'accent1' || table.rows[0].cells[0].fill.transparency !== 25) throw new Error('Browser table-cell fill read failed');
+table.setCellFill(0, 0, { kind: 'solid', color: { kind: 'srgb', value: '#FF0000' } });
+if (table.rows[0].cells[0].fill?.kind !== 'solid' || table.rows[0].cells[0].fill.color.kind !== 'srgb' || table.rows[0].cells[0].fill.color.value !== 'FF0000' || table.rows[0].cells[0].fill.transparency !== undefined) throw new Error('Browser table-cell opaque fill failed');
+table.setCellFill(0, 0, { kind: 'solid', color: { kind: 'scheme', value: 'accent2' }, transparency: 0 });
+if (table.rows[0].cells[0].fill?.kind !== 'solid' || table.rows[0].cells[0].fill.color.kind !== 'scheme' || table.rows[0].cells[0].fill.color.value !== 'accent2' || table.rows[0].cells[0].fill.transparency !== 0) throw new Error('Browser table-cell explicit opaque fill failed');
+table.setCellFill(0, 0, { kind: 'solid', color: { kind: 'srgb', value: '112233' }, transparency: 33.333 });
+if (table.rows[0].cells[0].fill?.kind !== 'solid' || table.rows[0].cells[0].fill.color.kind !== 'srgb' || table.rows[0].cells[0].fill.transparency !== 33.333) throw new Error('Browser table-cell fractional fill failed');
+table.setCellFill(0, 0, { kind: 'none' });
+if (table.rows[0].cells[0].fill?.kind !== 'none') throw new Error('Browser table-cell no fill failed');
+table.setCellFill(0, 0, undefined);
+if (table.rows[0].cells[0].fill !== undefined || table.rows[0].cells[1].fill?.kind !== 'solid' || table.rows[0].cells[1].fill.color.kind !== 'srgb' || table.rows[0].cells[1].fill.color.value !== '70AD47' || table.rows[0].cells[1].fill.transparency !== 50) throw new Error('Browser table-cell fill clear failed');
 if (table.rows[0].cells[0].margins?.top !== 3 || table.rows[0].cells[0].margins?.right !== 2 || table.rows[0].cells[0].margins?.bottom !== 4 || table.rows[0].cells[0].margins?.left !== 1) throw new Error('Browser table-cell margin read failed');
 table.setCellMargins(0, 0, 4);
 if (table.rows[0].cells[0].margins?.top !== 4 || table.rows[0].cells[0].margins?.right !== 4 || table.rows[0].cells[0].margins?.bottom !== 4 || table.rows[0].cells[0].margins?.left !== 4) throw new Error('Browser table-cell scalar margin failed');
@@ -273,6 +296,7 @@ process.stdout.write(resolved);
   type TextBoxFit,
   type TextBoxTextDirection,
   type TableCellTextDirection,
+  type TableCellFill,
   type TextBoxVerticalAlignment,
   GradientCodec,
   importPptxGenJS,
@@ -313,6 +337,7 @@ const fit: TextBoxFit = 'shrink';
 const cellFit: TextBoxFit = 'shrink';
 const cellAlignment: TextBoxVerticalAlignment = 'middle';
 const cellMargins: TextBoxMarginInput = { top: 4, left: 8 };
+const cellFill: TableCellFill = { kind: 'solid', color: { kind: 'scheme', value: 'accent1' }, transparency: 25 };
 const createdText = createdDocument.addSlide().addText('Typed\\ntext', { align: alignment, fit, valign: verticalAlignment, vert: direction, wrap: true, bullet, level: 2, margin, spacing, tabStops });
 const table = createdDocument.slides[0].shapes.find(
   (shape): shape is TableModel => shape instanceof TableModel,
@@ -323,6 +348,7 @@ const snapshotFit: TextBoxFit | undefined = table?.rows[0]?.cells[0]?.textFit;
 const snapshotAlignment: TextBoxVerticalAlignment | undefined =
   table?.rows[0]?.cells[0]?.verticalAlignment;
 const snapshotCellMargins: TextBoxMargins | undefined = table?.rows[0]?.cells[0]?.margins;
+const snapshotCellFill: TableCellFill | undefined = table?.rows[0]?.cells[0]?.fill;
 table?.setCellTextDirection(0, 0, cellDirection);
 table?.setCellTextDirection(0, 0, undefined);
 table?.setCellTextFit(0, 0, cellFit);
@@ -333,6 +359,9 @@ table?.setCellVerticalAlignment(0, 0, undefined);
 table?.setCellMargins(0, 0, cellMargins);
 table?.setCellMargins(0, 0, [3.6, 7.2, 10.8, 14.4]);
 table?.setCellMargins(0, 0, undefined);
+table?.setCellFill(0, 0, cellFill);
+table?.setCellFill(0, 0, { kind: 'none' });
+table?.setCellFill(0, 0, undefined);
 const marginSnapshot: TextBoxMargins | undefined = createdText.textMargins;
 const wrapSnapshot: boolean | undefined = createdText.textWrap;
 const directionSnapshot: TextBoxTextDirection | undefined = createdText.textDirection;
@@ -397,7 +426,7 @@ documentPromise.then((document) => {
   advancedCharts.installAdvancedChartPlugin(document);
   smartArt.installSmartArtPlugin(document);
 });
-void [documentPromise, createdDocument, globalRtl, globalRtlSnapshot, customDocument, createdText, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotCellMargins, cellDirection, cellFit, cellAlignment, cellMargins, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
+void [documentPromise, createdDocument, globalRtl, globalRtlSnapshot, customDocument, createdText, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotCellMargins, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellMargins, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
 `,
   );
   run(

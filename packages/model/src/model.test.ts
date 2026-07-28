@@ -728,6 +728,317 @@ describe('PresentationModel', () => {
     expect(table.rows[0]!.cells.map(({ margins }) => margins)).toEqual(rollbackMargins);
   });
 
+  it('reads strict direct table-cell fills into detached snapshots', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const part = pkg.requirePart('/ppt/slides/slide1.xml');
+    const cell = (properties: string, index: number): string =>
+      `<a:tc><a:txBody><a:bodyPr/><a:p><a:r><a:rPr><a:solidFill><a:srgbClr val="111111"/></a:solidFill></a:rPr><a:t>Fill ${index}</a:t></a:r></a:p></a:txBody>${properties}</a:tc>`;
+    const cells = [
+      cell('<a:tcPr><a:noFill/></a:tcPr>', 0),
+      cell('<a:tcPr><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill></a:tcPr>', 1),
+      cell('<a:tcPr><a:solidFill><a:schemeClr val="accent1"><a:alpha val="75000"/></a:schemeClr></a:solidFill></a:tcPr>', 2),
+      cell('<a:tcPr><a:solidFill><a:srgbClr val="00FF00"><a:alpha val="100000"/></a:srgbClr></a:solidFill></a:tcPr>', 3),
+      cell('<a:tcPr><a:solidFill><a:srgbClr val="0000FF"><a:alpha val="0"/></a:srgbClr></a:solidFill></a:tcPr>', 4),
+      cell('<a:tcPr><a:solidFill><a:srgbClr val="abcdef"><a:alpha val="075000"/></a:srgbClr></a:solidFill></a:tcPr>', 5),
+      cell('<a:tcPr/>', 6),
+      cell('<a:tcPr><a:lnL><a:solidFill><a:srgbClr val="123456"/></a:solidFill></a:lnL></a:tcPr>', 7),
+      cell('<a:tcPr><a:gradFill><a:gsLst/></a:gradFill></a:tcPr>', 8),
+      cell('<a:tcPr><a:pattFill prst="pct5"/></a:tcPr>', 9),
+      cell('<a:tcPr><a:noFill/><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill></a:tcPr>', 10),
+      cell('<a:tcPr><a:solidFill><a:srgbClr val="FFF"/></a:solidFill></a:tcPr>', 11),
+      cell('<a:tcPr><a:solidFill><a:schemeClr val="unknown"/></a:solidFill></a:tcPr>', 12),
+      cell('<a:tcPr><a:solidFill><a:srgbClr val="FF0000"><a:alpha val=""/></a:srgbClr></a:solidFill></a:tcPr>', 13),
+      cell('<a:tcPr><a:solidFill><a:srgbClr val="FF0000"><a:alpha val="1.5"/></a:srgbClr></a:solidFill></a:tcPr>', 14),
+      cell('<a:tcPr><a:solidFill><a:srgbClr val="FF0000"><a:alpha val="-1"/></a:srgbClr></a:solidFill></a:tcPr>', 15),
+      cell('<a:tcPr><a:solidFill><a:srgbClr val="FF0000"><a:alpha val="100001"/></a:srgbClr></a:solidFill></a:tcPr>', 16),
+      cell('<a:tcPr><a:solidFill><a:srgbClr val="FF0000"><a:alpha val="50000"/><a:alpha val="75000"/></a:srgbClr></a:solidFill></a:tcPr>', 17),
+      cell('<a:tcPr><a:solidFill><a:srgbClr val="FF0000"><a:alpha val="75000"/><a:tint val="50000"/></a:srgbClr></a:solidFill></a:tcPr>', 18),
+      cell('<a:tcPr xmlns:x="urn:test"><a:solidFill><a:srgbClr x:val="FF0000"/></a:solidFill></a:tcPr>', 19),
+      cell('<a:tcPr xmlns:x="urn:test"><x:solidFill><x:srgbClr val="FF0000"/></x:solidFill></a:tcPr>', 20),
+      cell('<a:tcPr><a:noFill custom="INVALID"/></a:tcPr>', 21),
+      cell('<a:tcPr><a:solidFill custom="INVALID"><a:srgbClr val="FF0000"/></a:solidFill></a:tcPr>', 22),
+      cell('<a:tcPr xmlns:x="urn:test"><a:solidFill><a:srgbClr val="FF0000"><a:alpha x:val="75000"/></a:srgbClr></a:solidFill></a:tcPr>', 23),
+      cell('<a:tcPr><a:solidFill><a:srgbClr val="FF0000"><a:alpha val="75000"><a:ext/></a:alpha></a:srgbClr></a:solidFill></a:tcPr>', 24),
+      cell('<a:tcPr><a:noFill/></a:tcPr><a:tcPr keep="SECOND"/>', 25),
+      cell('', 26),
+    ].join('');
+    pkg.setPart(
+      part.uri,
+      new TextDecoder().decode(part.bytes).replace(/<a:tr>.*?<\/a:tr>/, `<a:tr>${cells}</a:tr>`),
+      part.contentType,
+    );
+    const table = new PresentationModel(pkg).slides[1]!.shapes[2] as TableModel;
+    const journal = [...pkg.mutations];
+
+    const snapshot = table.rows;
+    expect(snapshot[0]!.cells.map(({ fill }) => fill)).toEqual([
+      { kind: 'none' },
+      { kind: 'solid', color: { kind: 'srgb', value: 'FF0000' } },
+      {
+        kind: 'solid',
+        color: { kind: 'scheme', value: 'accent1' },
+        transparency: 25,
+      },
+      {
+        kind: 'solid',
+        color: { kind: 'srgb', value: '00FF00' },
+        transparency: 0,
+      },
+      {
+        kind: 'solid',
+        color: { kind: 'srgb', value: '0000FF' },
+        transparency: 100,
+      },
+      {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'ABCDEF' },
+        transparency: 25,
+      },
+      ...Array(21).fill(undefined),
+    ]);
+    expect(pkg.mutations).toEqual(journal);
+
+    const mutable = snapshot[0]!.cells[2]!.fill as {
+      kind: string;
+      color: { kind: string; value: string };
+      transparency?: number;
+    };
+    mutable.kind = 'none';
+    mutable.color.value = 'FFFFFF';
+    mutable.transparency = 100;
+    expect(table.rows[0]!.cells[2]!.fill).toEqual({
+      kind: 'solid',
+      color: { kind: 'scheme', value: 'accent1' },
+      transparency: 25,
+    });
+    expect(pkg.mutations).toEqual(journal);
+  });
+
+  it('losslessly replaces one table-cell fill and rolls back atomically', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const part = pkg.requirePart('/ppt/slides/slide1.xml');
+    const textBody = (bodyProperties: string, text: string): string =>
+      `<a:txBody>${bodyProperties}<a:p><a:r><a:rPr><a:solidFill><a:srgbClr val="222222"/></a:solidFill></a:rPr><a:t>${text}</a:t></a:r></a:p></a:txBody>`;
+    const cell = (body: string, properties: string, attributes = ''): string =>
+      `<a:tc${attributes}>${body}${properties}</a:tc>`;
+    const adjacentCell = cell(
+      textBody('<a:bodyPr lIns="12700" keep="ADJACENT"><a:spAutoFit/></a:bodyPr>', 'Adjacent'),
+      '<a:tcPr marL="12700" marR="25400" marT="38100" marB="50800" anchor="b" vert="horz" keep="ADJACENT-TCPR"><a:lnL w="12700"><a:solidFill><a:srgbClr val="333333"/></a:solidFill></a:lnL><a:solidFill><a:srgbClr val="70AD47"><a:alpha val="50000"/></a:srgbClr></a:solidFill></a:tcPr>',
+    );
+    const cells = [
+      cell(
+        textBody('<a:bodyPr custom="SAME"><a:normAutofit fontScale="85000"/></a:bodyPr>', 'Same fill'),
+        '<a:tcPr marL="12700" anchor="ctr" vert="vert270" custom="KEEP"><a:solidFill><a:srgbClr val="abcdef"><a:alpha val="075000"/></a:srgbClr></a:solidFill><x:keep xmlns:x="urn:test">TCPR</x:keep></a:tcPr>',
+      ),
+      cell(
+        textBody('<a:bodyPr/>', 'Alternate prefix'),
+        '<q:tcPr xmlns:q="a" anchor="t"/>',
+      ),
+      cell(
+        textBody('<a:bodyPr/>', 'Replace no fill'),
+        '<a:tcPr anchor="b"><a:lnL w="12700"><a:solidFill><a:srgbClr val="123456"/></a:solidFill></a:lnL><a:noFill/><a:extLst><a:ext uri="KEEP"/></a:extLst></a:tcPr>',
+      ),
+      cell(
+        textBody('<a:bodyPr/>', 'Replace gradient'),
+        '<a:tcPr keep="GRADIENT"><a:gradFill><a:gsLst><a:gs pos="0"><a:srgbClr val="FFFFFF"/></a:gs></a:gsLst></a:gradFill></a:tcPr>',
+      ),
+      cell(
+        textBody('<a:bodyPr/>', 'Clear solid'),
+        '<a:tcPr keep="CLEAR"><a:solidFill><a:srgbClr val="00FF00"/></a:solidFill><x:keep xmlns:x="urn:test">CLEAR</x:keep></a:tcPr>',
+      ),
+      cell(
+        textBody('<a:bodyPr/>', 'Canonicalize malformed'),
+        '<a:tcPr keep="MALFORMED"><a:solidFill><a:srgbClr val="FFF"><a:alpha val="invalid"/></a:srgbClr></a:solidFill></a:tcPr>',
+      ),
+      adjacentCell,
+      cell(
+        textBody('<a:bodyPr/>', 'Merged'),
+        '<a:tcPr/>',
+        ' hMerge="1"',
+      ),
+      cell(
+        textBody('<a:bodyPr/>', 'Multiple fills'),
+        '<a:tcPr><a:noFill/><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill></a:tcPr>',
+      ),
+      cell(textBody('<a:bodyPr/>', 'Repeated tcPr'), '<a:tcPr/><a:tcPr keep="SECOND"/>'),
+      cell(textBody('<a:bodyPr/>', 'Missing tcPr'), ''),
+      cell(
+        textBody('<a:bodyPr/>', 'Wrong prefix'),
+        '<a:tcPr xmlns:x="urn:test"><x:solidFill><x:srgbClr val="999999"/></x:solidFill><a:extLst><a:ext uri="LAST"/></a:extLst></a:tcPr>',
+      ),
+    ].join('');
+    const source = new TextDecoder().decode(part.bytes)
+      .replace(
+        '<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="4" name="Table 1"/></p:nvGraphicFramePr><a:graphic>',
+        '<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="4" name="Table 1"/></p:nvGraphicFramePr><p:xfrm><a:off x="0" y="0"/><a:ext cx="1000" cy="2000"/></p:xfrm><a:graphic>',
+      )
+      .replace(/<a:tr>.*?<\/a:tr>/, `<a:tr>${cells}</a:tr>`);
+    pkg.setPart(part.uri, source, part.contentType);
+    const model = new PresentationModel(pkg);
+    const table = model.slides[1]!.shapes[2] as TableModel;
+
+    const noOpJournal = [...pkg.mutations];
+    table.setCellFill(0, 0, {
+      kind: 'solid',
+      color: { kind: 'srgb', value: '#ABCDEF' },
+      transparency: 25,
+    });
+    expect(pkg.mutations).toEqual(noOpJournal);
+    expect(new TextDecoder().decode(pkg.requirePart(part.uri).bytes)).toContain(
+      '<a:srgbClr val="abcdef"><a:alpha val="075000"/></a:srgbClr>',
+    );
+
+    table.setCellFill(0, 1, {
+      kind: 'solid',
+      color: { kind: 'srgb', value: 'FF0000' },
+    });
+    table.setCellFill(0, 2, {
+      kind: 'solid',
+      color: { kind: 'scheme', value: 'accent2' },
+      transparency: 33.333,
+    });
+    table.setCellFill(0, 3, { kind: 'none' });
+    table.setCellFill(0, 4, undefined);
+    table.setCellFill(0, 5, {
+      kind: 'solid',
+      color: { kind: 'scheme', value: 'accent3' },
+      transparency: 0,
+    });
+    table.setCellFill(0, 7, {
+      kind: 'solid',
+      color: { kind: 'srgb', value: '0000FF' },
+      transparency: 100,
+    });
+    table.setCellFill(0, 11, {
+      kind: 'solid',
+      color: { kind: 'srgb', value: '445566' },
+    });
+    let updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated).toContain(
+      '<q:tcPr xmlns:q="a" anchor="t"><q:solidFill><q:srgbClr val="FF0000"/></q:solidFill></q:tcPr>',
+    );
+    expect(updated).toContain(
+      '<a:lnL w="12700"><a:solidFill><a:srgbClr val="123456"/></a:solidFill></a:lnL><a:solidFill><a:schemeClr val="accent2"><a:alpha val="66667"/></a:schemeClr></a:solidFill><a:extLst>',
+    );
+    expect(updated).toContain('<a:tcPr keep="GRADIENT"><a:noFill/></a:tcPr>');
+    expect(updated).toContain(
+      '<a:tcPr keep="CLEAR"><x:keep xmlns:x="urn:test">CLEAR</x:keep></a:tcPr>',
+    );
+    expect(updated).toContain(
+      '<a:tcPr keep="MALFORMED"><a:solidFill><a:schemeClr val="accent3"><a:alpha val="100000"/></a:schemeClr></a:solidFill></a:tcPr>',
+    );
+    expect(updated).toContain('<a:tc hMerge="1">');
+    expect(updated).toContain(
+      '<a:tcPr><a:solidFill><a:srgbClr val="0000FF"><a:alpha val="0"/></a:srgbClr></a:solidFill></a:tcPr>',
+    );
+    expect(updated).toContain(
+      '<x:solidFill><x:srgbClr val="999999"/></x:solidFill><a:solidFill><a:srgbClr val="445566"/></a:solidFill><a:extLst>',
+    );
+    expect(updated).toContain(adjacentCell);
+
+    table.setCellTextFit(0, 0, 'resize');
+    table.setCellTextDirection(0, 1, 'wordArtVert');
+    table.setCellVerticalAlignment(0, 1, 'bottom');
+    table.setCellMargins(0, 2, { top: 4, left: 8 });
+    table.setCellText(0, 2, 'Edited fill');
+    table.setTransform({ x: inches(1) });
+    updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated).toContain('<a:t>Edited fill</a:t>');
+    expect(updated).toContain('<a:bodyPr custom="SAME"><a:spAutoFit/></a:bodyPr>');
+    expect(updated).toContain('<a:srgbClr val="abcdef"><a:alpha val="075000"/></a:srgbClr>');
+    expect(updated).toContain(
+      '<q:tcPr xmlns:q="a" anchor="b" vert="wordArtVert"><q:solidFill><q:srgbClr val="FF0000"/></q:solidFill></q:tcPr>',
+    );
+    expect(updated).toContain(
+      '<a:tcPr anchor="b" marL="101600" marT="50800"><a:lnL w="12700">',
+    );
+    expect(updated).toContain('<a:off x="914400" y="0"/>');
+    expect(updated).toContain(adjacentCell);
+
+    expect(table.rows[0]!.cells.map(({ fill }) => fill)).toEqual([
+      {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'ABCDEF' },
+        transparency: 25,
+      },
+      { kind: 'solid', color: { kind: 'srgb', value: 'FF0000' } },
+      {
+        kind: 'solid',
+        color: { kind: 'scheme', value: 'accent2' },
+        transparency: 33.333,
+      },
+      { kind: 'none' },
+      undefined,
+      {
+        kind: 'solid',
+        color: { kind: 'scheme', value: 'accent3' },
+        transparency: 0,
+      },
+      {
+        kind: 'solid',
+        color: { kind: 'srgb', value: '70AD47' },
+        transparency: 50,
+      },
+      {
+        kind: 'solid',
+        color: { kind: 'srgb', value: '0000FF' },
+        transparency: 100,
+      },
+      undefined,
+      undefined,
+      undefined,
+      { kind: 'solid', color: { kind: 'srgb', value: '445566' } },
+    ]);
+
+    const beforeInvalid = pkg.requirePart(part.uri).bytes;
+    const invalidJournal = [...pkg.mutations];
+    for (const [row, column] of [[-1, 0], [0, -1], [0, 12], [1, 0]]) {
+      expect(() => table.setCellFill(row!, column!, { kind: 'none' })).toThrow(RangeError);
+    }
+    for (const column of [8, 9, 10]) {
+      expect(() => table.setCellFill(0, column, { kind: 'none' })).toThrow(ModelParseError);
+    }
+    const invalidValues = [
+      null,
+      false,
+      '',
+      [],
+      {},
+      { kind: 'none', color: { kind: 'srgb', value: 'FF0000' } },
+      { kind: 'unknown' },
+      { kind: 'solid' },
+      { kind: 'solid', color: { kind: 'srgb', value: 'FFF' } },
+      { kind: 'solid', color: { kind: 'scheme', value: 'unknown' } },
+      { kind: 'solid', color: { kind: 'srgb', value: 'FF0000' }, transparency: -1 },
+      { kind: 'solid', color: { kind: 'srgb', value: 'FF0000' }, transparency: 101 },
+      { kind: 'solid', color: { kind: 'srgb', value: 'FF0000' }, transparency: Number.NaN },
+      Symbol('table cell fill'),
+    ];
+    for (const value of invalidValues) {
+      expect(() => table.setCellFill(0, 0, value as never)).toThrow();
+    }
+    expect(pkg.requirePart(part.uri).bytes).toEqual(beforeInvalid);
+    expect(pkg.mutations).toEqual(invalidJournal);
+
+    const beforeRollback = pkg.requirePart(part.uri).bytes;
+    const rollbackJournal = [...pkg.mutations];
+    const rollbackFills = table.rows[0]!.cells.map(({ fill }) => fill);
+    expect(() =>
+      pkg.transaction(() => {
+        table.setCellFill(0, 0, { kind: 'none' });
+        table.setCellFill(0, 4, {
+          kind: 'solid',
+          color: { kind: 'srgb', value: 'FFFFFF' },
+        });
+        throw new Error('restore table cell fills');
+      }),
+    ).toThrow('restore table cell fills');
+    expect(pkg.requirePart(part.uri).bytes).toEqual(beforeRollback);
+    expect(pkg.mutations).toEqual(rollbackJournal);
+    expect(model.slides[1]!.shapes[2]).toBe(table);
+    expect(table.rows[0]!.cells.map(({ fill }) => fill)).toEqual(rollbackFills);
+  });
+
   it('reads only exact direct table-cell vertical alignments into detached snapshots', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const part = pkg.requirePart('/ppt/slides/slide1.xml');
