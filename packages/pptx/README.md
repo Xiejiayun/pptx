@@ -16,9 +16,14 @@ npm install @jiayunxie/pptx@next
 import { PptxDocument } from '@jiayunxie/pptx';
 
 const document = await PptxDocument.open('input.pptx');
-document.slides[0].title.text = 'Updated';
+document.transaction((draft) => {
+  draft.slides[0].title.text = 'Updated';
+  draft.duplicateSlide(0);
+});
 await document.writeFile('output.pptx');
 ```
+
+Transactions are synchronous and roll back all package graph changes when the callback or structural validation fails.
 
 ## Optional codecs
 

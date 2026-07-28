@@ -61,6 +61,15 @@ export class PptxDocument extends PresentationModel {
     return this.open(input, options);
   }
 
+  transaction<T>(operation: (document: this) => T): T {
+    return this.opcPackage.transaction(() => {
+      const result = operation(this);
+      const diagnostics = validatePackage(this.opcPackage);
+      if (diagnostics.some(({ severity }) => severity === 'error')) throw new ValidationError(diagnostics);
+      return result;
+    });
+  }
+
   async write(options: WriteOptions = {}): Promise<Uint8Array> {
     const compatibility = options.compatibility ?? 'powerpoint-current';
     const diagnostics: Diagnostic[] = [...validatePackage(this.opcPackage)];

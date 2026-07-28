@@ -34,6 +34,17 @@ document.deleteSlide(2);
 
 Shape kinds include `text`, `shape`, `image`, `table`, `chart`, `graphic-frame`, and `group`. Images expose embedded part URIs and replacement; tables expose rows/cells and cell text editing; charts expose cached series and lossless chart XML editing.
 
+## Transactions
+
+```ts
+document.transaction((draft) => {
+  draft.slides[0].title.text = 'Updated';
+  draft.duplicateSlide(0);
+});
+```
+
+Transactions are synchronous and nestable. A thrown error or package validation failure restores parts, content types, relationships, ZIP entries, and the mutation journal to the transaction savepoint. Complete asynchronous preparation before entering the callback.
+
 ## Gradients and transparency
 
 ```ts

@@ -6,7 +6,7 @@ import { Readable } from 'node:stream';
 import JSZip from 'jszip';
 import { describe, expect, it } from 'vitest';
 import { OpcPackage } from '@pptx/opc';
-import { openPptxStream, PptxDocument } from './index.js';
+import { openPptxStream, PptxDocument, ValidationError } from './index.js';
 
 async function titleFixture(): Promise<Uint8Array> {
   const zip = new JSZip();
@@ -94,6 +94,28 @@ describe('PptxDocument vertical slice', () => {
     for (const [uri, expectedHash] of untouchedHashes) {
       expect(hash(after.requirePart(uri).bytes), uri).toBe(expectedHash);
     }
+  });
+
+  it('commits document transactions and rolls back package validation failures', async () => {
+    const document = await PptxDocument.open(await titleFixture());
+    const slideId = document.transaction((draft) => {
+      draft.slides[0]!.title.text = 'Committed';
+      return draft.addSlide().slideId;
+    });
+    expect(slideId).toBe(257);
+    expect(document.slides.map(({ title }) => title.text)).toEqual(['Committed', '']);
+
+    const rootRelationships = document.opcPackage.requirePart('/_rels/.rels').bytes;
+    expect(() =>
+      document.transaction((draft) => {
+        draft.opcPackage.setPart(
+          '/_rels/.rels',
+          '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/missing.xml"/></Relationships>',
+        );
+      }),
+    ).toThrow(ValidationError);
+    expect(document.opcPackage.requirePart('/_rels/.rels').bytes).toEqual(rootRelationships);
+    expect(document.slides.map(({ title }) => title.text)).toEqual(['Committed', '']);
   });
 });
 

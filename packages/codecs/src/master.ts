@@ -150,148 +150,170 @@ export class MasterLayoutThemeCodec {
   }
 
   createTheme(xml: string): ThemeModel {
-    LosslessXmlDocument.parse(xml);
-    const uri = this.pkg.allocatePartUri(
-      joinPartUri(partUriDirname(this.presentationPartUri), 'theme'),
-      'theme',
-      '.xml',
-    );
-    this.pkg.setPart(uri, xml, 'application/vnd.openxmlformats-officedocument.theme+xml');
-    return new ThemeModel(this, uri);
+    return this.pkg.transaction(() => {
+      LosslessXmlDocument.parse(xml);
+      const uri = this.pkg.allocatePartUri(
+        joinPartUri(partUriDirname(this.presentationPartUri), 'theme'),
+        'theme',
+        '.xml',
+      );
+      this.pkg.setPart(uri, xml, 'application/vnd.openxmlformats-officedocument.theme+xml');
+      return new ThemeModel(this, uri);
+    });
   }
 
   copyTheme(themePartUri: string): ThemeModel {
-    const part = this.pkg.requirePart(themePartUri);
-    return this.createTheme(new TextDecoder().decode(part.bytes));
+    return this.pkg.transaction(() => {
+      const part = this.pkg.requirePart(themePartUri);
+      return this.createTheme(new TextDecoder().decode(part.bytes));
+    });
   }
 
   deleteTheme(themePartUri: string): void {
-    const incoming = this.pkg.graph.find(({ uri }) => uri === themePartUri)?.incoming ?? [];
-    if (incoming.length > 0) throw new Error(`Theme ${themePartUri} is still referenced by ${incoming.length} part(s)`);
-    this.pkg.deletePart(themePartUri);
+    this.pkg.transaction(() => {
+      const incoming = this.pkg.graph.find(({ uri }) => uri === themePartUri)?.incoming ?? [];
+      if (incoming.length > 0) throw new Error(`Theme ${themePartUri} is still referenced by ${incoming.length} part(s)`);
+      this.pkg.deletePart(themePartUri);
+    });
   }
 
   relinkMasterTheme(masterPartUri: string, themePartUri: string): void {
-    const relationship = this.relationship(masterPartUri, 'theme');
-    const target = relativeTarget(masterPartUri, themePartUri);
-    if (relationship) this.pkg.updateRelationship(masterPartUri, relationship.id, { target, targetMode: 'Internal' });
-    else this.pkg.addRelationship(masterPartUri, { type: `${REL}theme`, target });
+    this.pkg.transaction(() => {
+      const relationship = this.relationship(masterPartUri, 'theme');
+      const target = relativeTarget(masterPartUri, themePartUri);
+      if (relationship) this.pkg.updateRelationship(masterPartUri, relationship.id, { target, targetMode: 'Internal' });
+      else this.pkg.addRelationship(masterPartUri, { type: `${REL}theme`, target });
+    });
   }
 
   createMaster(xml: string, themePartUri: string): MasterModel {
-    LosslessXmlDocument.parse(xml);
-    const uri = this.pkg.allocatePartUri(
-      joinPartUri(partUriDirname(this.presentationPartUri), 'slideMasters'),
-      'slideMaster',
-      '.xml',
-    );
-    this.pkg.setPart(uri, xml, `${CONTENT}slideMaster+xml`);
-    this.pkg.addRelationship(uri, { type: `${REL}theme`, target: relativeTarget(uri, themePartUri) });
-    this.attachMaster(uri);
-    return new MasterModel(this, uri);
+    return this.pkg.transaction(() => {
+      LosslessXmlDocument.parse(xml);
+      const uri = this.pkg.allocatePartUri(
+        joinPartUri(partUriDirname(this.presentationPartUri), 'slideMasters'),
+        'slideMaster',
+        '.xml',
+      );
+      this.pkg.setPart(uri, xml, `${CONTENT}slideMaster+xml`);
+      this.pkg.addRelationship(uri, { type: `${REL}theme`, target: relativeTarget(uri, themePartUri) });
+      this.attachMaster(uri);
+      return new MasterModel(this, uri);
+    });
   }
 
   copyMaster(masterPartUri: string): MasterModel {
-    const source = this.pkg.requirePart(masterPartUri);
-    const uri = this.pkg.allocatePartUri(partUriDirname(masterPartUri), 'slideMaster', '.xml');
-    this.pkg.setPart(uri, source.bytes, source.contentType);
-    for (const relationship of this.pkg.relationships(masterPartUri)) {
-      if (relationship.type.endsWith('/slideLayout') && relationship.resolvedTarget) {
-        const layoutUri = this.copyLayoutPart(relationship.resolvedTarget, uri);
-        this.pkg.addRelationship(uri, {
-          id: relationship.id,
-          type: relationship.type,
-          target: relativeTarget(uri, layoutUri),
-        });
-      } else {
-        this.pkg.addRelationship(uri, {
-          id: relationship.id,
-          type: relationship.type,
-          target: relationship.target,
-          targetMode: relationship.targetMode,
-        });
+    return this.pkg.transaction(() => {
+      const source = this.pkg.requirePart(masterPartUri);
+      const uri = this.pkg.allocatePartUri(partUriDirname(masterPartUri), 'slideMaster', '.xml');
+      this.pkg.setPart(uri, source.bytes, source.contentType);
+      for (const relationship of this.pkg.relationships(masterPartUri)) {
+        if (relationship.type.endsWith('/slideLayout') && relationship.resolvedTarget) {
+          const layoutUri = this.copyLayoutPart(relationship.resolvedTarget, uri);
+          this.pkg.addRelationship(uri, {
+            id: relationship.id,
+            type: relationship.type,
+            target: relativeTarget(uri, layoutUri),
+          });
+        } else {
+          this.pkg.addRelationship(uri, {
+            id: relationship.id,
+            type: relationship.type,
+            target: relationship.target,
+            targetMode: relationship.targetMode,
+          });
+        }
       }
-    }
-    this.attachMaster(uri);
-    return new MasterModel(this, uri);
+      this.attachMaster(uri);
+      return new MasterModel(this, uri);
+    });
   }
 
   deleteMaster(masterPartUri: string, replacementMasterPartUri?: string): void {
-    const master = new MasterModel(this, masterPartUri);
-    const replacementLayout = replacementMasterPartUri
-      ? new MasterModel(this, replacementMasterPartUri).layouts[0]?.partUri
-      : undefined;
-    for (const layout of master.layouts) this.deleteLayout(layout.partUri, replacementLayout);
-    const relationship = this.pkg
-      .relationships(this.presentationPartUri)
-      .find(({ resolvedTarget, type }) => type.endsWith('/slideMaster') && resolvedTarget === masterPartUri);
-    if (relationship) {
-      const xml = this.parse(this.presentationPartUri);
-      const element = xml
-        .elements('sldMasterId')
-        .find((candidate) => xml.attribute(candidate, 'r:id')?.value === relationship.id);
-      if (element) xml.removeElement(element);
-      this.save(this.presentationPartUri, xml);
-      this.pkg.removeRelationship(this.presentationPartUri, relationship.id);
-    }
-    this.pkg.deletePart(masterPartUri);
+    this.pkg.transaction(() => {
+      const master = new MasterModel(this, masterPartUri);
+      const replacementLayout = replacementMasterPartUri
+        ? new MasterModel(this, replacementMasterPartUri).layouts[0]?.partUri
+        : undefined;
+      for (const layout of master.layouts) this.deleteLayout(layout.partUri, replacementLayout);
+      const relationship = this.pkg
+        .relationships(this.presentationPartUri)
+        .find(({ resolvedTarget, type }) => type.endsWith('/slideMaster') && resolvedTarget === masterPartUri);
+      if (relationship) {
+        const xml = this.parse(this.presentationPartUri);
+        const element = xml
+          .elements('sldMasterId')
+          .find((candidate) => xml.attribute(candidate, 'r:id')?.value === relationship.id);
+        if (element) xml.removeElement(element);
+        this.save(this.presentationPartUri, xml);
+        this.pkg.removeRelationship(this.presentationPartUri, relationship.id);
+      }
+      this.pkg.deletePart(masterPartUri);
+    });
   }
 
   createLayout(masterPartUri: string, xml: string): LayoutModel {
-    LosslessXmlDocument.parse(xml);
-    const uri = this.pkg.allocatePartUri(
-      joinPartUri(partUriDirname(masterPartUri), '../slideLayouts'),
-      'slideLayout',
-      '.xml',
-    );
-    this.pkg.setPart(uri, xml, `${CONTENT}slideLayout+xml`);
-    this.pkg.addRelationship(uri, { type: `${REL}slideMaster`, target: relativeTarget(uri, masterPartUri) });
-    this.attachLayout(masterPartUri, uri);
-    return new LayoutModel(this, uri);
+    return this.pkg.transaction(() => {
+      LosslessXmlDocument.parse(xml);
+      const uri = this.pkg.allocatePartUri(
+        joinPartUri(partUriDirname(masterPartUri), '../slideLayouts'),
+        'slideLayout',
+        '.xml',
+      );
+      this.pkg.setPart(uri, xml, `${CONTENT}slideLayout+xml`);
+      this.pkg.addRelationship(uri, { type: `${REL}slideMaster`, target: relativeTarget(uri, masterPartUri) });
+      this.attachLayout(masterPartUri, uri);
+      return new LayoutModel(this, uri);
+    });
   }
 
   copyLayout(layoutPartUri: string, masterPartUri?: string): LayoutModel {
-    const sourceMaster = this.relationship(layoutPartUri, 'slideMaster')?.resolvedTarget;
-    const targetMaster = masterPartUri ?? sourceMaster;
-    if (!targetMaster) throw new Error(`Layout ${layoutPartUri} has no master`);
-    const uri = this.copyLayoutPart(layoutPartUri, targetMaster);
-    this.attachLayout(targetMaster, uri);
-    return new LayoutModel(this, uri);
+    return this.pkg.transaction(() => {
+      const sourceMaster = this.relationship(layoutPartUri, 'slideMaster')?.resolvedTarget;
+      const targetMaster = masterPartUri ?? sourceMaster;
+      if (!targetMaster) throw new Error(`Layout ${layoutPartUri} has no master`);
+      const uri = this.copyLayoutPart(layoutPartUri, targetMaster);
+      this.attachLayout(targetMaster, uri);
+      return new LayoutModel(this, uri);
+    });
   }
 
   deleteLayout(layoutPartUri: string, replacementLayoutPartUri?: string): void {
-    const incomingSlides = (this.pkg.graph.find(({ uri }) => uri === layoutPartUri)?.incoming ?? []).filter(
-      ({ sourceUri, relationship }) =>
-        relationship.type.endsWith('/slideLayout') &&
-        this.pkg.getPart(sourceUri)?.contentType === `${CONTENT}slide+xml`,
-    );
-    if (incomingSlides.length > 0 && !replacementLayoutPartUri) {
-      throw new Error(`Layout ${layoutPartUri} is still used by ${incomingSlides.length} slide(s)`);
-    }
-    for (const { sourceUri } of incomingSlides) this.relinkSlideLayout(sourceUri, replacementLayoutPartUri!);
-    const masterPartUri = this.relationship(layoutPartUri, 'slideMaster')?.resolvedTarget;
-    if (masterPartUri) {
-      const relationship = this.pkg
-        .relationships(masterPartUri)
-        .find(({ resolvedTarget, type }) => type.endsWith('/slideLayout') && resolvedTarget === layoutPartUri);
-      if (relationship) {
-        const xml = this.parse(masterPartUri);
-        const element = xml
-          .elements('sldLayoutId')
-          .find((candidate) => xml.attribute(candidate, 'r:id')?.value === relationship.id);
-        if (element) xml.removeElement(element);
-        this.save(masterPartUri, xml);
-        this.pkg.removeRelationship(masterPartUri, relationship.id);
+    this.pkg.transaction(() => {
+      const incomingSlides = (this.pkg.graph.find(({ uri }) => uri === layoutPartUri)?.incoming ?? []).filter(
+        ({ sourceUri, relationship }) =>
+          relationship.type.endsWith('/slideLayout') &&
+          this.pkg.getPart(sourceUri)?.contentType === `${CONTENT}slide+xml`,
+      );
+      if (incomingSlides.length > 0 && !replacementLayoutPartUri) {
+        throw new Error(`Layout ${layoutPartUri} is still used by ${incomingSlides.length} slide(s)`);
       }
-    }
-    this.pkg.deletePart(layoutPartUri);
+      for (const { sourceUri } of incomingSlides) this.relinkSlideLayout(sourceUri, replacementLayoutPartUri!);
+      const masterPartUri = this.relationship(layoutPartUri, 'slideMaster')?.resolvedTarget;
+      if (masterPartUri) {
+        const relationship = this.pkg
+          .relationships(masterPartUri)
+          .find(({ resolvedTarget, type }) => type.endsWith('/slideLayout') && resolvedTarget === layoutPartUri);
+        if (relationship) {
+          const xml = this.parse(masterPartUri);
+          const element = xml
+            .elements('sldLayoutId')
+            .find((candidate) => xml.attribute(candidate, 'r:id')?.value === relationship.id);
+          if (element) xml.removeElement(element);
+          this.save(masterPartUri, xml);
+          this.pkg.removeRelationship(masterPartUri, relationship.id);
+        }
+      }
+      this.pkg.deletePart(layoutPartUri);
+    });
   }
 
   relinkSlideLayout(slidePartUri: string, layoutPartUri: string): void {
-    const relationship = this.relationship(slidePartUri, 'slideLayout');
-    const target = relativeTarget(slidePartUri, layoutPartUri);
-    if (relationship) this.pkg.updateRelationship(slidePartUri, relationship.id, { target, targetMode: 'Internal' });
-    else this.pkg.addRelationship(slidePartUri, { type: `${REL}slideLayout`, target });
+    this.pkg.transaction(() => {
+      const relationship = this.relationship(slidePartUri, 'slideLayout');
+      const target = relativeTarget(slidePartUri, layoutPartUri);
+      if (relationship) this.pkg.updateRelationship(slidePartUri, relationship.id, { target, targetMode: 'Internal' });
+      else this.pkg.addRelationship(slidePartUri, { type: `${REL}slideLayout`, target });
+    });
   }
 
   materializeInheritedStyle(slidePartUri: string, shapeId: number): MaterializedPlaceholder | undefined {

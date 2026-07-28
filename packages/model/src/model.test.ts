@@ -120,4 +120,19 @@ describe('PresentationModel', () => {
     const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
     expect(reopened.slides.map(({ title }) => title.text)).toEqual(['Edited first', 'Edited first', '']);
   });
+
+  it('rolls back composite slide mutations when presentation XML fails after part creation', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    pkg.setPart('/ppt/presentation.xml', '<p:notPresentation xmlns:p="p"/>');
+    const partUris = pkg.parts.map(({ uri }) => uri);
+    const relationships = pkg.relationships('/ppt/presentation.xml');
+    const journal = [...pkg.mutations];
+
+    expect(() => model.addSlide()).toThrow(/Invalid presentation XML/);
+    expect(pkg.parts.map(({ uri }) => uri)).toEqual(partUris);
+    expect(pkg.relationships('/ppt/presentation.xml')).toEqual(relationships);
+    expect(pkg.mutations).toEqual(journal);
+    expect(pkg.hasPart('/ppt/slides/slide3.xml')).toBe(false);
+  });
 });

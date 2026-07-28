@@ -105,32 +105,34 @@ export class MediaCodec {
   }
 
   delete(slidePartUri: string, shapeId: number): void {
-    const part = this.pkg.requirePart(slidePartUri);
-    const xml = LosslessXmlDocument.parse(part.bytes);
-    const picture = xml.elements('pic').find((candidate) => {
-      const properties = xml.descendants(candidate, 'cNvPr')[0];
-      return Number(properties ? xml.attribute(properties, 'id')?.value : -1) === shapeId;
+    this.pkg.transaction(() => {
+      const part = this.pkg.requirePart(slidePartUri);
+      const xml = LosslessXmlDocument.parse(part.bytes);
+      const picture = xml.elements('pic').find((candidate) => {
+        const properties = xml.descendants(candidate, 'cNvPr')[0];
+        return Number(properties ? xml.attribute(properties, 'id')?.value : -1) === shapeId;
+      });
+      if (!picture) throw new Error(`Media shape ${shapeId} was not found on ${slidePartUri}`);
+      const ids = new Set(
+        xml
+          .descendants(picture)
+          .flatMap((element) => element.attributes)
+          .filter(({ name }) => name === 'r:embed' || name === 'r:link')
+          .map(({ value }) => value),
+      );
+      const targets = this.pkg
+        .relationships(slidePartUri)
+        .filter(({ id }) => ids.has(id))
+        .map(({ resolvedTarget }) => resolvedTarget)
+        .filter((target): target is string => Boolean(target));
+      xml.removeElement(picture);
+      this.pkg.setPart(slidePartUri, xml.serialize(), part.contentType);
+      for (const id of ids) this.pkg.removeRelationship(slidePartUri, id);
+      for (const target of new Set(targets)) {
+        const incoming = this.pkg.graph.find(({ uri }) => uri === target)?.incoming ?? [];
+        if (incoming.length === 0 && target.startsWith('/ppt/media/')) this.pkg.deletePart(target);
+      }
     });
-    if (!picture) throw new Error(`Media shape ${shapeId} was not found on ${slidePartUri}`);
-    const ids = new Set(
-      xml
-        .descendants(picture)
-        .flatMap((element) => element.attributes)
-        .filter(({ name }) => name === 'r:embed' || name === 'r:link')
-        .map(({ value }) => value),
-    );
-    const targets = this.pkg
-      .relationships(slidePartUri)
-      .filter(({ id }) => ids.has(id))
-      .map(({ resolvedTarget }) => resolvedTarget)
-      .filter((target): target is string => Boolean(target));
-    xml.removeElement(picture);
-    this.pkg.setPart(slidePartUri, xml.serialize(), part.contentType);
-    for (const id of ids) this.pkg.removeRelationship(slidePartUri, id);
-    for (const target of new Set(targets)) {
-      const incoming = this.pkg.graph.find(({ uri }) => uri === target)?.incoming ?? [];
-      if (incoming.length === 0 && target.startsWith('/ppt/media/')) this.pkg.deletePart(target);
-    }
   }
 
   diagnostics(model: MediaModel, profile: string): CodecDiagnostic[] {
@@ -194,6 +196,7 @@ export class MediaCodec {
     const resolved = await resolveSource(source, kind, options.contentType, options.fileName);
     let mediaPartUri: string | undefined;
     let externalUrl: string | undefined;
+    let embeddedMedia: { readonly bytes: Uint8Array; readonly contentType: string } | undefined;
     let linkTarget: string;
     let linkMode: 'Internal' | 'External';
     if (resolved.externalUrl) {
@@ -212,66 +215,77 @@ export class MediaCodec {
       }
       mediaPartUri =
         (await this.findByHash(bytes, contentType)) ?? this.pkg.allocatePartUri('/ppt/media', 'media', extension);
-      if (!this.pkg.hasPart(mediaPartUri)) this.pkg.setPart(mediaPartUri, bytes, contentType);
+      embeddedMedia = { bytes, contentType };
       linkTarget = relativeTarget(slidePartUri, mediaPartUri);
       linkMode = 'Internal';
     }
 
-    const link = this.pkg.addRelationship(slidePartUri, {
-      type: `${REL}${kind}`,
-      target: linkTarget,
-      targetMode: linkMode,
-    });
-    const embedded = mediaPartUri
-      ? this.pkg.addRelationship(slidePartUri, { type: MEDIA_REL, target: relativeTarget(slidePartUri, mediaPartUri) })
-      : undefined;
     const poster = await resolvePoster(options.poster, options.posterContentType);
     const posterPartUri =
       (await this.findByHash(poster.bytes, poster.contentType)) ??
       this.pkg.allocatePartUri('/ppt/media', 'poster', poster.extension);
-    if (!this.pkg.hasPart(posterPartUri)) this.pkg.setPart(posterPartUri, poster.bytes, poster.contentType);
-    const posterRelationship = this.pkg.addRelationship(slidePartUri, {
-      type: `${REL}image`,
-      target: relativeTarget(slidePartUri, posterPartUri),
-    });
+    return this.pkg.transaction(() => {
+      if (mediaPartUri && embeddedMedia && !this.pkg.hasPart(mediaPartUri)) {
+        this.pkg.setPart(mediaPartUri, embeddedMedia.bytes, embeddedMedia.contentType);
+      }
+      const link = this.pkg.addRelationship(slidePartUri, {
+        type: `${REL}${kind}`,
+        target: linkTarget,
+        targetMode: linkMode,
+      });
+      const embedded = mediaPartUri
+        ? this.pkg.addRelationship(slidePartUri, {
+            type: MEDIA_REL,
+            target: relativeTarget(slidePartUri, mediaPartUri),
+          })
+        : undefined;
+      if (!this.pkg.hasPart(posterPartUri)) {
+        this.pkg.setPart(posterPartUri, poster.bytes, poster.contentType);
+      }
+      const posterRelationship = this.pkg.addRelationship(slidePartUri, {
+        type: `${REL}image`,
+        target: relativeTarget(slidePartUri, posterPartUri),
+      });
 
-    const part = this.pkg.requirePart(slidePartUri);
-    const xml = LosslessXmlDocument.parse(part.bytes);
-    const shapeTree = xml.elements('spTree')[0];
-    if (!shapeTree) throw new Error(`Slide ${slidePartUri} has no shape tree`);
-    const shapeId = Math.max(1, ...xml.elements('cNvPr').map((element) => Number(xml.attribute(element, 'id')?.value ?? 0))) + 1;
-    const position = {
-      x: options.x ?? 914_400,
-      y: options.y ?? 914_400,
-      width: options.width ?? (kind === 'video' ? 4_572_000 : 914_400),
-      height: options.height ?? (kind === 'video' ? 2_571_750 : 914_400),
-    };
-    const mediaExtension = embedded
-      ? `<p:ext uri="{DAA4B4D4-6D71-4841-9C94-3DE7FCFB9230}"><p14:media xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" r:embed="${embedded.id}"/></p:ext>`
-      : '';
-    const playbackExtension = `<p:ext uri="{C13D3E4A-5148-4B6D-A7E7-505054582D4F}"><px:playback xmlns:px="urn:pptx-ooxml:media" play="${
-      options.play ?? 'click'
-    }" loop="${options.loop ? 1 : 0}" hideWhenStopped="${options.hideWhenStopped ? 1 : 0}" volume="${Math.round(
-      clamp(options.volume ?? 1) * 100_000,
-    )}"/></p:ext>`;
-    const extension = `<p:extLst>${mediaExtension}${playbackExtension}</p:extLst>`;
-    const picture = `<p:pic><p:nvPicPr><p:cNvPr id="${shapeId}" name="${kind === 'video' ? 'Video' : 'Audio'} ${shapeId}"><a:hlinkClick r:id="" action="ppaction://media"/></p:cNvPr><p:cNvPicPr/><p:nvPr><a:${kind}File r:link="${link.id}"/>${extension}</p:nvPr></p:nvPicPr><p:blipFill><a:blip r:embed="${posterRelationship.id}"/><a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr><a:xfrm><a:off x="${position.x}" y="${position.y}"/><a:ext cx="${position.width}" cy="${position.height}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>`;
-    xml.appendChildXml(shapeTree, picture);
-    this.pkg.setPart(slidePartUri, xml.serialize(), part.contentType);
-    return {
-      kind,
-      shapeId,
-      slidePartUri,
-      ...(mediaPartUri ? { mediaPartUri } : {}),
-      ...(externalUrl ? { externalUrl } : {}),
-      posterPartUri,
-      settings: {
-        play: options.play ?? 'click',
-        loop: options.loop ?? false,
-        hideWhenStopped: options.hideWhenStopped ?? false,
-        volume: clamp(options.volume ?? 1),
-      },
-    };
+      const part = this.pkg.requirePart(slidePartUri);
+      const xml = LosslessXmlDocument.parse(part.bytes);
+      const shapeTree = xml.elements('spTree')[0];
+      if (!shapeTree) throw new Error(`Slide ${slidePartUri} has no shape tree`);
+      const shapeId =
+        Math.max(1, ...xml.elements('cNvPr').map((element) => Number(xml.attribute(element, 'id')?.value ?? 0))) + 1;
+      const position = {
+        x: options.x ?? 914_400,
+        y: options.y ?? 914_400,
+        width: options.width ?? (kind === 'video' ? 4_572_000 : 914_400),
+        height: options.height ?? (kind === 'video' ? 2_571_750 : 914_400),
+      };
+      const mediaExtension = embedded
+        ? `<p:ext uri="{DAA4B4D4-6D71-4841-9C94-3DE7FCFB9230}"><p14:media xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" r:embed="${embedded.id}"/></p:ext>`
+        : '';
+      const playbackExtension = `<p:ext uri="{C13D3E4A-5148-4B6D-A7E7-505054582D4F}"><px:playback xmlns:px="urn:pptx-ooxml:media" play="${
+        options.play ?? 'click'
+      }" loop="${options.loop ? 1 : 0}" hideWhenStopped="${options.hideWhenStopped ? 1 : 0}" volume="${Math.round(
+        clamp(options.volume ?? 1) * 100_000,
+      )}"/></p:ext>`;
+      const extension = `<p:extLst>${mediaExtension}${playbackExtension}</p:extLst>`;
+      const picture = `<p:pic><p:nvPicPr><p:cNvPr id="${shapeId}" name="${kind === 'video' ? 'Video' : 'Audio'} ${shapeId}"><a:hlinkClick r:id="" action="ppaction://media"/></p:cNvPr><p:cNvPicPr/><p:nvPr><a:${kind}File r:link="${link.id}"/>${extension}</p:nvPr></p:nvPicPr><p:blipFill><a:blip r:embed="${posterRelationship.id}"/><a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr><a:xfrm><a:off x="${position.x}" y="${position.y}"/><a:ext cx="${position.width}" cy="${position.height}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>`;
+      xml.appendChildXml(shapeTree, picture);
+      this.pkg.setPart(slidePartUri, xml.serialize(), part.contentType);
+      return {
+        kind,
+        shapeId,
+        slidePartUri,
+        ...(mediaPartUri ? { mediaPartUri } : {}),
+        ...(externalUrl ? { externalUrl } : {}),
+        posterPartUri,
+        settings: {
+          play: options.play ?? 'click',
+          loop: options.loop ?? false,
+          hideWhenStopped: options.hideWhenStopped ?? false,
+          volume: clamp(options.volume ?? 1),
+        },
+      };
+    });
   }
 
   private async findByHash(bytes: Uint8Array, contentType: string): Promise<string | undefined> {

@@ -62,78 +62,86 @@ export class PresentationModel {
   }
 
   addSlide(): SlideModel {
-    const slideUri = this.opcPackage.allocatePartUri(
-      joinPartUri(partUriDirname(this.presentationPartUri), 'slides'),
-      'slide',
-      '.xml',
-    );
-    this.opcPackage.setPart(slideUri, blankSlideXml(), SLIDE_CONTENT_TYPE);
-    const template = this.slides[0];
-    if (template) {
-      for (const relationship of template.relationships.filter(({ type }) => type === SLIDE_LAYOUT_RELATIONSHIP)) {
-        this.opcPackage.addRelationship(slideUri, {
-          type: relationship.type,
-          target: relationship.target,
-          targetMode: relationship.targetMode,
-        });
+    return this.opcPackage.transaction(() => {
+      const slideUri = this.opcPackage.allocatePartUri(
+        joinPartUri(partUriDirname(this.presentationPartUri), 'slides'),
+        'slide',
+        '.xml',
+      );
+      this.opcPackage.setPart(slideUri, blankSlideXml(), SLIDE_CONTENT_TYPE);
+      const template = this.slides[0];
+      if (template) {
+        for (const relationship of template.relationships.filter(({ type }) => type === SLIDE_LAYOUT_RELATIONSHIP)) {
+          this.opcPackage.addRelationship(slideUri, {
+            type: relationship.type,
+            target: relationship.target,
+            targetMode: relationship.targetMode,
+          });
+        }
       }
-    }
-    return this.attachSlide(slideUri);
+      return this.attachSlide(slideUri);
+    });
   }
 
   duplicateSlide(index: number): SlideModel {
-    const source = this.requireSlide(index);
-    const slideUri = this.opcPackage.allocatePartUri(
-      joinPartUri(partUriDirname(this.presentationPartUri), 'slides'),
-      'slide',
-      '.xml',
-    );
-    const sourcePart = this.opcPackage.requirePart(source.partUri);
-    this.opcPackage.setPart(slideUri, sourcePart.bytes, sourcePart.contentType);
-    const sourceRelationshipsUri = relationshipPartUri(source.partUri);
-    const relationshipsPart = this.opcPackage.getPart(sourceRelationshipsUri);
-    if (relationshipsPart) {
-      this.opcPackage.setPart(
-        relationshipPartUri(slideUri),
-        relationshipsPart.bytes,
-        relationshipsPart.contentType,
+    return this.opcPackage.transaction(() => {
+      const source = this.requireSlide(index);
+      const slideUri = this.opcPackage.allocatePartUri(
+        joinPartUri(partUriDirname(this.presentationPartUri), 'slides'),
+        'slide',
+        '.xml',
       );
-    }
-    return this.attachSlide(slideUri);
+      const sourcePart = this.opcPackage.requirePart(source.partUri);
+      this.opcPackage.setPart(slideUri, sourcePart.bytes, sourcePart.contentType);
+      const sourceRelationshipsUri = relationshipPartUri(source.partUri);
+      const relationshipsPart = this.opcPackage.getPart(sourceRelationshipsUri);
+      if (relationshipsPart) {
+        this.opcPackage.setPart(
+          relationshipPartUri(slideUri),
+          relationshipsPart.bytes,
+          relationshipsPart.contentType,
+        );
+      }
+      return this.attachSlide(slideUri);
+    });
   }
 
   deleteSlide(index: number): void {
-    const slide = this.requireSlide(index);
-    const { xml } = this.parsePresentation();
-    const entry = this.slideIdElements(xml).find(
-      (element) => xml.attribute(element, 'r:id')?.value === slide.relationshipId,
-    );
-    if (!entry) throw new PackageError(`Slide entry ${slide.relationshipId} is missing`, this.presentationPartUri);
-    xml.removeElement(entry);
-    this.setXmlPart(this.presentationPartUri, xml.serialize());
-    this.opcPackage.removeRelationship(this.presentationPartUri, slide.relationshipId);
-    this.opcPackage.deletePart(slide.partUri);
+    this.opcPackage.transaction(() => {
+      const slide = this.requireSlide(index);
+      const { xml } = this.parsePresentation();
+      const entry = this.slideIdElements(xml).find(
+        (element) => xml.attribute(element, 'r:id')?.value === slide.relationshipId,
+      );
+      if (!entry) throw new PackageError(`Slide entry ${slide.relationshipId} is missing`, this.presentationPartUri);
+      xml.removeElement(entry);
+      this.setXmlPart(this.presentationPartUri, xml.serialize());
+      this.opcPackage.removeRelationship(this.presentationPartUri, slide.relationshipId);
+      this.opcPackage.deletePart(slide.partUri);
+    });
   }
 
   moveSlide(fromIndex: number, toIndex: number): void {
-    const { xml } = this.parsePresentation();
-    const list = xml.elements('sldIdLst')[0];
-    if (!list) throw new PackageError('Presentation has no slide id list', this.presentationPartUri);
-    const elements = this.slideIdElements(xml);
-    if (!elements[fromIndex]) throw new RangeError(`Slide index ${fromIndex} is out of range`);
-    const boundedTarget = Math.max(0, Math.min(toIndex, elements.length - 1));
-    const [moved] = elements.splice(fromIndex, 1);
-    elements.splice(boundedTarget, 0, moved!);
-    const known = new Set(this.slideIdElements(xml));
-    const opaqueChildren = list.children
-      .filter((child): child is XmlElement => child.type === 'element' && !known.has(child))
-      .map((child) => xml.original(child));
-    xml.replace(
-      list.startTagEnd,
-      list.endTagStart,
-      [...elements.map((element) => xml.original(element)), ...opaqueChildren].join(''),
-    );
-    this.setXmlPart(this.presentationPartUri, xml.serialize());
+    this.opcPackage.transaction(() => {
+      const { xml } = this.parsePresentation();
+      const list = xml.elements('sldIdLst')[0];
+      if (!list) throw new PackageError('Presentation has no slide id list', this.presentationPartUri);
+      const elements = this.slideIdElements(xml);
+      if (!elements[fromIndex]) throw new RangeError(`Slide index ${fromIndex} is out of range`);
+      const boundedTarget = Math.max(0, Math.min(toIndex, elements.length - 1));
+      const [moved] = elements.splice(fromIndex, 1);
+      elements.splice(boundedTarget, 0, moved!);
+      const known = new Set(this.slideIdElements(xml));
+      const opaqueChildren = list.children
+        .filter((child): child is XmlElement => child.type === 'element' && !known.has(child))
+        .map((child) => xml.original(child));
+      xml.replace(
+        list.startTagEnd,
+        list.endTagStart,
+        [...elements.map((element) => xml.original(element)), ...opaqueChildren].join(''),
+      );
+      this.setXmlPart(this.presentationPartUri, xml.serialize());
+    });
   }
 
   setXmlPart(partUri: string, xml: string): void {

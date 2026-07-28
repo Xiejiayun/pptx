@@ -70,6 +70,13 @@ interface MutablePart {
   relationships: Relationship[];
 }
 
+interface PackageSavepoint {
+  readonly parts: readonly MutablePart[];
+  readonly journal: readonly MutationRecord[];
+  readonly defaults: readonly (readonly [string, string])[];
+  readonly overrides: readonly (readonly [string, string])[];
+}
+
 export class OpcPackage {
   readonly #original: Uint8Array;
   readonly #zip: JSZip;
@@ -77,6 +84,7 @@ export class OpcPackage {
   readonly #journal: MutationRecord[] = [];
   readonly #defaults = new Map<string, string>();
   readonly #overrides = new Map<string, string>();
+  #transactionDepth = 0;
 
   private constructor(original: Uint8Array, zip: JSZip) {
     this.#original = original;
@@ -166,6 +174,23 @@ export class OpcPackage {
     return this.#journal.length > 0;
   }
 
+  transaction<T>(operation: () => T): T {
+    const savepoint = this.#createSavepoint();
+    this.#transactionDepth += 1;
+    try {
+      const result = operation();
+      if (isThenable(result)) {
+        throw new TypeError('OpcPackage.transaction() only supports synchronous callbacks');
+      }
+      return result;
+    } catch (error) {
+      this.#restoreSavepoint(savepoint);
+      throw error;
+    } finally {
+      this.#transactionDepth -= 1;
+    }
+  }
+
   hasPart(uri: string): boolean {
     return this.#parts.has(normalizePartUri(uri));
   }
@@ -187,6 +212,10 @@ export class OpcPackage {
   }
 
   setPart(uri: string, bytes: Uint8Array | string, contentType?: string): void {
+    if (this.#transactionDepth === 0) {
+      this.transaction(() => this.setPart(uri, bytes, contentType));
+      return;
+    }
     const normalized = normalizePartUri(uri);
     const existing = this.#parts.get(normalized);
     const encoded = typeof bytes === 'string' ? new TextEncoder().encode(bytes) : new Uint8Array(bytes);
@@ -210,6 +239,10 @@ export class OpcPackage {
   }
 
   deletePart(uri: string): void {
+    if (this.#transactionDepth === 0) {
+      this.transaction(() => this.deletePart(uri));
+      return;
+    }
     const normalized = normalizePartUri(uri);
     if (!this.#parts.has(normalized)) return;
     for (const source of ['/', ...[...this.#parts.keys()].filter((candidate) => !candidate.endsWith('.rels'))]) {
@@ -227,6 +260,9 @@ export class OpcPackage {
   }
 
   addRelationship(sourceUri: string, input: RelationshipInput): Relationship {
+    if (this.#transactionDepth === 0) {
+      return this.transaction(() => this.addRelationship(sourceUri, input));
+    }
     const source = sourceUri === '/' ? '/' : normalizePartUri(sourceUri);
     if (source !== '/' && !this.#parts.has(source)) throw new PackageError('Relationship source part is missing', source);
     const targetMode = input.targetMode ?? 'Internal';
@@ -266,6 +302,9 @@ export class OpcPackage {
   }
 
   removeRelationship(sourceUri: string, id: string): boolean {
+    if (this.#transactionDepth === 0) {
+      return this.transaction(() => this.removeRelationship(sourceUri, id));
+    }
     const relationshipUri = relationshipPartUri(sourceUri);
     const part = this.#parts.get(relationshipUri);
     if (!part) return false;
@@ -284,6 +323,9 @@ export class OpcPackage {
     id: string,
     changes: Partial<Pick<RelationshipInput, 'type' | 'target' | 'targetMode'>>,
   ): Relationship {
+    if (this.#transactionDepth === 0) {
+      return this.transaction(() => this.updateRelationship(sourceUri, id, changes));
+    }
     const relationshipUri = relationshipPartUri(sourceUri);
     const part = this.#parts.get(relationshipUri);
     if (!part) throw new PackageError(`Relationship ${id} was not found`, sourceUri);
@@ -439,6 +481,30 @@ export class OpcPackage {
     this.#overrides.delete(normalized);
     this.#journal.push({ kind: 'delete', uri: normalized });
   }
+
+  #createSavepoint(): PackageSavepoint {
+    return {
+      parts: [...this.#parts.values()].map(cloneMutablePart),
+      journal: this.#journal.map((record) => ({ ...record })),
+      defaults: [...this.#defaults.entries()],
+      overrides: [...this.#overrides.entries()],
+    };
+  }
+
+  #restoreSavepoint(savepoint: PackageSavepoint): void {
+    for (const name of Object.keys(this.#zip.files)) this.#zip.remove(name);
+    this.#parts.clear();
+    for (const saved of savepoint.parts) {
+      const part = cloneMutablePart(saved);
+      this.#parts.set(part.uri, part);
+      this.#zip.file(part.uri.slice(1), part.bytes);
+    }
+    this.#defaults.clear();
+    for (const [extension, contentType] of savepoint.defaults) this.#defaults.set(extension, contentType);
+    this.#overrides.clear();
+    for (const [uri, contentType] of savepoint.overrides) this.#overrides.set(uri, contentType);
+    this.#journal.splice(0, this.#journal.length, ...savepoint.journal.map((record) => ({ ...record })));
+  }
 }
 
 export function relationshipPartUri(sourceUri: string): string {
@@ -530,6 +596,19 @@ function publicPart(part: MutablePart): PackagePart {
     bytes: new Uint8Array(part.bytes),
     relationships: part.relationships.map((relationship) => ({ ...relationship })),
   };
+}
+
+function cloneMutablePart(part: MutablePart): MutablePart {
+  return {
+    uri: part.uri,
+    contentType: part.contentType,
+    bytes: new Uint8Array(part.bytes),
+    relationships: part.relationships.map((relationship) => ({ ...relationship })),
+  };
+}
+
+function isThenable(value: unknown): value is PromiseLike<unknown> {
+  return Boolean(value && (typeof value === 'object' || typeof value === 'function') && 'then' in value);
 }
 
 function throwIfAborted(signal?: AbortSignal): void {

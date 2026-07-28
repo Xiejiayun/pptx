@@ -103,6 +103,98 @@ describe('OpcPackage', () => {
     expect(deleted.relationships('/ppt/slides/slide1.xml')).toHaveLength(0);
   });
 
+  it('commits and rolls back package transactions without leaking graph or journal changes', async () => {
+    const input = await fixture();
+    const pkg = await OpcPackage.open(input);
+    const originalSlide = pkg.requirePart('/ppt/slides/slide1.xml').bytes;
+
+    expect(() =>
+      pkg.transaction(() => {
+        pkg.setPart('/ppt/media/image1.png', new Uint8Array([1, 2, 3]), 'image/png');
+        pkg.addRelationship('/ppt/slides/slide1.xml', {
+          type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image',
+          target: '../media/image1.png',
+        });
+        pkg.setPart('/ppt/slides/slide1.xml', '<p:sld xmlns:p="p"><p:changed/></p:sld>');
+        throw new Error('rollback');
+      }),
+    ).toThrow('rollback');
+
+    expect(pkg.hasPart('/ppt/media/image1.png')).toBe(false);
+    expect(pkg.relationships('/ppt/slides/slide1.xml')).toHaveLength(0);
+    expect(pkg.requirePart('/ppt/slides/slide1.xml').bytes).toEqual(originalSlide);
+    expect(pkg.mutations).toHaveLength(0);
+    expect(await pkg.write()).toEqual(input);
+
+    const relationship = pkg.transaction(() => {
+      pkg.setPart('/ppt/media/image1.png', new Uint8Array([4, 5, 6]), 'image/png');
+      return pkg.addRelationship('/ppt/slides/slide1.xml', {
+        type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image',
+        target: '../media/image1.png',
+      });
+    });
+    expect(relationship.id).toBe('rId1');
+    expect(pkg.graph.find(({ uri }) => uri === '/ppt/media/image1.png')?.incoming).toHaveLength(1);
+  });
+
+  it('uses nested savepoints and rejects asynchronous transaction callbacks', async () => {
+    const input = await fixture();
+    const pkg = await OpcPackage.open(input);
+
+    pkg.transaction(() => {
+      pkg.setPart('/ppt/slides/slide1.xml', '<p:sld xmlns:p="p"><p:outer/></p:sld>');
+      expect(() =>
+        pkg.transaction(() => {
+          pkg.setPart('/ppt/slides/slide1.xml', '<p:sld xmlns:p="p"><p:inner/></p:sld>');
+          pkg.setPart('/ppt/media/inner.png', new Uint8Array([1]), 'image/png');
+          throw new Error('inner rollback');
+        }),
+      ).toThrow('inner rollback');
+      expect(new TextDecoder().decode(pkg.requirePart('/ppt/slides/slide1.xml').bytes)).toContain('<p:outer/>');
+      expect(pkg.hasPart('/ppt/media/inner.png')).toBe(false);
+    });
+
+    const committedOuter = pkg.requirePart('/ppt/slides/slide1.xml').bytes;
+    const committedJournal = [...pkg.mutations];
+    expect(() =>
+      pkg.transaction(() => {
+        pkg.setPart('/ppt/slides/slide1.xml', '<p:sld xmlns:p="p"><p:outer-rollback/></p:sld>');
+        pkg.transaction(() => {
+          pkg.setPart('/ppt/media/nested.png', new Uint8Array([2]), 'image/png');
+        });
+        throw new Error('outer rollback');
+      }),
+    ).toThrow('outer rollback');
+    expect(pkg.requirePart('/ppt/slides/slide1.xml').bytes).toEqual(committedOuter);
+    expect(pkg.hasPart('/ppt/media/nested.png')).toBe(false);
+    expect(pkg.mutations).toEqual(committedJournal);
+
+    expect(() =>
+      pkg.transaction(() => {
+        pkg.setPart('/ppt/media/async.png', new Uint8Array([3]), 'image/png');
+        return Promise.resolve('unsupported');
+      }),
+    ).toThrow(/synchronous callbacks/);
+    expect(pkg.hasPart('/ppt/media/async.png')).toBe(false);
+    expect(pkg.hasPart('/ppt/media/inner.png')).toBe(false);
+
+    const reopened = await OpcPackage.open(await pkg.write());
+    expect(new TextDecoder().decode(reopened.requirePart('/ppt/slides/slide1.xml').bytes)).toContain('<p:outer/>');
+    expect(new TextDecoder().decode(reopened.requirePart('/[Content_Types].xml').bytes)).not.toContain('inner.png');
+  });
+
+  it('makes individual package mutations atomic when dependent metadata is malformed', async () => {
+    const pkg = await OpcPackage.open(await fixture());
+    pkg.setPart('/[Content_Types].xml', '<invalid/>');
+    const journal = [...pkg.mutations];
+
+    expect(() => pkg.setPart('/ppt/media/image1.png', new Uint8Array([1]), 'image/png')).toThrow(
+      /Invalid \[Content_Types\]\.xml/,
+    );
+    expect(pkg.hasPart('/ppt/media/image1.png')).toBe(false);
+    expect(pkg.mutations).toEqual(journal);
+  });
+
   it('enforces entry and part resource budgets', async () => {
     const input = await fixture();
     await expect(OpcPackage.open(input, { limits: { maxEntries: 2 } })).rejects.toThrow(/entries/);

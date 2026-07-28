@@ -120,6 +120,22 @@ describe('MasterLayoutThemeCodec', () => {
     codec.deleteMaster(createdMaster.partUri);
     codec.deleteTheme(createdTheme.partUri);
   });
+
+  it('rolls back a master part when a dependent relationship cannot be created', async () => {
+    const pkg = await featureFixture();
+    const codec = new MasterLayoutThemeCodec(pkg);
+    const partUris = pkg.parts.map(({ uri }) => uri);
+    const journal = [...pkg.mutations];
+
+    expect(() =>
+      codec.createMaster(
+        '<p:sldMaster xmlns:p="p"><p:cSld><p:spTree/></p:cSld></p:sldMaster>',
+        '/ppt/theme/missing.xml',
+      ),
+    ).toThrow(/target part is missing/);
+    expect(pkg.parts.map(({ uri }) => uri)).toEqual(partUris);
+    expect(pkg.mutations).toEqual(journal);
+  });
 });
 
 describe('MediaCodec', () => {
@@ -161,5 +177,21 @@ describe('MediaCodec', () => {
     codec.delete('/ppt/slides/slide1.xml', fromBlob.shapeId);
     codec.delete('/ppt/slides/slide1.xml', fromWebStream.shapeId);
     expect(pkg.hasPart(first.mediaPartUri!)).toBe(false);
+  });
+
+  it('rolls back media parts and relationships when the slide cannot accept a shape', async () => {
+    const pkg = await featureFixture();
+    pkg.setPart('/ppt/slides/slide1.xml', '<p:sld xmlns:p="p"/>');
+    const codec = new MediaCodec(pkg);
+    const partUris = pkg.parts.map(({ uri }) => uri);
+    const relationships = pkg.relationships('/ppt/slides/slide1.xml');
+    const journal = [...pkg.mutations];
+
+    await expect(
+      codec.addAudio('/ppt/slides/slide1.xml', new Uint8Array([1, 2, 3]), { contentType: 'audio/mpeg' }),
+    ).rejects.toThrow(/no shape tree/);
+    expect(pkg.parts.map(({ uri }) => uri)).toEqual(partUris);
+    expect(pkg.relationships('/ppt/slides/slide1.xml')).toEqual(relationships);
+    expect(pkg.mutations).toEqual(journal);
   });
 });
