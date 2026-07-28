@@ -25,6 +25,7 @@
 - Added rich-text highlight creation and editing with normalized sRGB/theme colors, strict reads, and PptxGenJS output conformance.
 - Added solid rich-text outline creation and editing with point widths, sRGB/theme colors, strict reads, and PptxGenJS output conformance.
 - Added rich-text glow creation and editing with point radii, opacity, sRGB/theme colors, strict effect-list reads, and PptxGenJS output conformance.
+- Added rich-text superscript, subscript, and custom percentage baseline creation and editing with explicit normal-baseline suppression and strict reads.
 
 ## 0.1.0 - 2026-07-25
 

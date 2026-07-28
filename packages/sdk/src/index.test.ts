@@ -994,6 +994,72 @@ describe('PptxDocument vertical slice', () => {
     expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
   });
 
+  it('creates, edits, duplicates, and reopens rich text baselines', async () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const shape = slide.addRichText([{
+      runs: [
+        { text: 'Super', style: { baseline: 'superscript' } },
+        { text: 'Sub', style: { baseline: 'subscript' } },
+        { text: 'Normal', style: { baseline: 0 } },
+        { text: 'Custom', style: { baseline: 12.3456 } },
+        { text: 'Minimum', style: { baseline: -2_147_483.648 } },
+        { text: 'Maximum', style: { baseline: 2_147_483.647 } },
+        {
+          text: 'Combined',
+          style: {
+            baseline: 30,
+            glow: { color: { kind: 'scheme', value: 'accent3' }, opacity: 0.25, size: 6 },
+            outline: { color: { kind: 'scheme', value: 'accent2' }, size: 0.75 },
+            strike: 'dblStrike',
+            underline: { style: 'dbl' },
+          },
+        },
+      ],
+    }]);
+
+    expect(shape.richText[0]!.runs.map(({ style }) => style?.baseline)).toEqual([
+      'superscript',
+      'subscript',
+      0,
+      12.346,
+      -2_147_483.648,
+      2_147_483.647,
+      'superscript',
+    ]);
+    const createdXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(createdXml).toContain('<a:rPr lang="en-US" baseline="0" dirty="0">');
+    expect(createdXml).toContain('baseline="12346"');
+    expect(createdXml).toContain('baseline="-2147483648"');
+    expect(createdXml).toContain('baseline="2147483647"');
+
+    document.duplicateSlide(0);
+    shape.richText = [{
+      runs: [
+        { text: 'Changed', style: { baseline: -12.5 } },
+        { text: 'Cleared' },
+      ],
+    }];
+    expect(shape.richText[0]!.runs.map(({ style }) => style?.baseline)).toEqual([-12.5, undefined]);
+
+    const beforeRollback = document.opcPackage.requirePart(slide.partUri).bytes;
+    expect(() =>
+      document.transaction(() => {
+        shape.richText = [{ runs: [{ text: 'Rollback', style: { baseline: 'subscript' } }] }];
+        throw new Error('restore baseline');
+      }),
+    ).toThrow('restore baseline');
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(beforeRollback);
+    expect(slide.shapes[0]).toBe(shape);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const edited = reopened.slides[0]!.shapes[0] as ShapeModel;
+    const duplicated = reopened.slides[1]!.shapes[0] as ShapeModel;
+    expect(edited.richText[0]!.runs.map(({ style }) => style?.baseline)).toEqual([-12.5, undefined]);
+    expect(duplicated.richText[0]!.runs[0]!.style!.baseline).toBe('superscript');
+    expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+  });
+
   it('creates, edits, duplicates, and reopens rich text highlight colors', async () => {
     const document = PptxDocument.create();
     const slide = document.addSlide();
@@ -1320,6 +1386,16 @@ describe('PptxDocument vertical slice', () => {
       [{ runs: [{ text: 'x', style: { highlight: { kind: 'srgb', value: 'yellow' } } }] }],
       [{ runs: [{ text: 'x', style: { highlight: { kind: 'scheme', value: 'unknown' } } }] }],
       [{ runs: [{ text: 'x', style: { highlight: { kind: 'srgb', value: 'FFFF00', alpha: 1 } } }] }],
+      [{ runs: [{ text: 'x', style: { baseline: null } }] }],
+      [{ runs: [{ text: 'x', style: { baseline: true } }] }],
+      [{ runs: [{ text: 'x', style: { baseline: false } }] }],
+      [{ runs: [{ text: 'x', style: { baseline: {} } }] }],
+      [{ runs: [{ text: 'x', style: { baseline: [] } }] }],
+      [{ runs: [{ text: 'x', style: { baseline: 'super' } }] }],
+      [{ runs: [{ text: 'x', style: { baseline: Number.NaN } }] }],
+      [{ runs: [{ text: 'x', style: { baseline: Number.POSITIVE_INFINITY } }] }],
+      [{ runs: [{ text: 'x', style: { baseline: -2_147_483.649 } }] }],
+      [{ runs: [{ text: 'x', style: { baseline: 2_147_483.648 } }] }],
       [{ runs: [{ text: 'x', style: { glow: null } }] }],
       [{ runs: [{ text: 'x', style: { glow: true } }] }],
       [{ runs: [{ text: 'x', style: { glow: 'red' } }] }],

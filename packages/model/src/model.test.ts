@@ -537,6 +537,64 @@ describe('PresentationModel', () => {
       .toHaveLength(2);
   });
 
+  it('reads strict local text baselines and preserves their XML during plain text edits', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.slides[1]!;
+    const part = pkg.requirePart(slide.partUri);
+    const baselineText = [
+      '<a:p>',
+      '<a:r><a:rPr baseline="30000"/><a:t>Super</a:t></a:r>',
+      '<a:r><a:rPr baseline="-40000"/><a:t>Sub</a:t></a:r>',
+      '<a:r><a:rPr baseline="0"/><a:t>Normal</a:t></a:r>',
+      '<a:r><a:rPr baseline="12346"/><a:t>Custom</a:t></a:r>',
+      '<a:r><a:rPr baseline="-2147483648"/><a:t>Minimum</a:t></a:r>',
+      '<a:r><a:rPr baseline="2147483647"/><a:t>Maximum</a:t></a:r>',
+      '<a:r><a:rPr baseline="1.5"/><a:t>Decimal</a:t></a:r>',
+      '<a:r><a:rPr baseline="1e3" strike="dblStrike"/><a:t>Exponent</a:t></a:r>',
+      '<a:r><a:rPr baseline="2147483648"/><a:t>Too high</a:t></a:r>',
+      '<a:r><a:rPr baseline="-2147483649"/><a:t>Too low</a:t></a:r>',
+      '<a:r><a:rPr baseline=""/><a:t>Empty</a:t></a:r>',
+      '<a:r><a:rPr/><a:t>Absent</a:t></a:r>',
+      '</a:p>',
+    ].join('');
+    pkg.setPart(
+      part.uri,
+      new TextDecoder().decode(part.bytes).replace(
+        '<a:p><a:r><a:t>First title</a:t></a:r></a:p>',
+        baselineText,
+      ),
+      part.contentType,
+    );
+    const shape = slide.shapes[0] as ShapeModel;
+    const journal = [...pkg.mutations];
+
+    expect(shape.richText[0]!.runs.map(({ style }) => style?.baseline)).toEqual([
+      'superscript',
+      'subscript',
+      0,
+      12.346,
+      -2_147_483.648,
+      2_147_483.647,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    ]);
+    expect(shape.richText[0]!.runs[7]!.style!.strike).toBe('dblStrike');
+    expect(pkg.mutations).toEqual(journal);
+
+    shape.text = 'First replacement\nSecond replacement';
+    expect(shape.richText.map((paragraph) => paragraph.runs[0]!.style!.baseline)).toEqual([
+      'superscript',
+      'superscript',
+    ]);
+    const updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated.match(/<a:rPr baseline="30000"\/>/g)).toHaveLength(2);
+  });
+
   it('updates alignment without rebuilding other paragraph properties', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);

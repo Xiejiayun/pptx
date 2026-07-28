@@ -27,6 +27,7 @@ export interface RichTextUnderline {
 }
 
 export type RichTextStrikeStyle = 'sngStrike' | 'dblStrike';
+export type RichTextBaseline = number | 'superscript' | 'subscript';
 
 export interface RichTextOutline {
   readonly color: RichTextColor;
@@ -100,6 +101,7 @@ export interface ParagraphTabStop {
 export interface RichTextRunStyle {
   readonly fontFamily?: string;
   readonly fontSize?: number;
+  readonly baseline?: RichTextBaseline;
   readonly bold?: boolean;
   readonly italic?: boolean;
   readonly color?: RichTextColor;

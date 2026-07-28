@@ -202,6 +202,18 @@ describe('importPptxGenJS', () => {
       ],
       { x: 9, y: 7, w: 3, h: 1 },
     );
+    generatedSlide.addText(
+      [
+        { text: 'Super', options: { superscript: true } },
+        { text: ' Sub', options: { subscript: true } },
+        { text: ' Custom+', options: { baseline: 600 } },
+        { text: ' Custom-', options: { baseline: -800 } },
+        { text: ' Fraction', options: { baseline: 1.5 } },
+        { text: ' Zero', options: { baseline: 0 } },
+        { text: ' None', options: {} },
+      ],
+      { x: 9, y: 8, w: 3, h: 1 },
+    );
     const document = await importPptxGenJS(generated);
     expect(document.slides[0]?.title.text).toBe('Created by PptxGenJS');
     expect((document.slides[0]!.shapes[0] as ShapeModel).richText[0]!.align).toBe('center');
@@ -324,6 +336,9 @@ describe('importPptxGenJS', () => {
       { color: { kind: 'srgb', value: 'FFFFFF' }, opacity: 0, size: 0 },
       undefined,
     ]);
+    expect((document.slides[0]!.shapes[22] as ShapeModel).richText[0]!.runs.map(
+      ({ style }) => style?.baseline,
+    )).toEqual(['superscript', 'subscript', 'superscript', 'subscript', 0.075, undefined, undefined]);
     document.slides[0]!.title.text = 'Edited by the OOXML kernel';
     document.duplicateSlide(0);
 
@@ -415,6 +430,9 @@ describe('importPptxGenJS', () => {
       { color: { kind: 'srgb', value: 'FFFFFF' }, opacity: 0, size: 0 },
       undefined,
     ]);
+    expect((reopened.slides[1]!.shapes[22] as ShapeModel).richText[0]!.runs.map(
+      ({ style }) => style?.baseline,
+    )).toEqual(['superscript', 'subscript', 'superscript', 'subscript', 0.075, undefined, undefined]);
   });
 
   it('keeps pptxgenjs out of every non-adapter package dependency list', async () => {
