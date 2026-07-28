@@ -8,6 +8,7 @@ import { importPptxGenJS } from './index.js';
 interface PptxGenJSInstance {
   readonly version: string;
   layout: string;
+  rtlMode: unknown;
   addSlide(): {
     addText(
       text: string | readonly { readonly text: string; readonly options?: Record<string, unknown> }[],
@@ -1018,6 +1019,39 @@ describe('importPptxGenJS', () => {
       ['RTL omitted', [undefined]],
       ['RTL run probe', [true]],
     ]);
+  }, 30_000);
+
+  it('imports only direct PptxGenJS presentation RTL and reopens it', async () => {
+    const cases: readonly [string, boolean, unknown, boolean | undefined][] = [
+      ['omitted', false, undefined, undefined],
+      ['true', true, true, true],
+      ['false', true, false, undefined],
+      ['truthy', true, 'yes', true],
+    ];
+    for (const [name, assign, value, expected] of cases) {
+      const generated = new PptxGenJS();
+      if (assign) generated.rtlMode = value;
+      generated.addSlide();
+      const document = await importPptxGenJS(generated);
+      const journal = [...document.opcPackage.mutations];
+
+      expect(document.rtlMode, name).toBe(expected);
+      expect(document.opcPackage.mutations, name).toEqual(journal);
+      const presentationXml = new TextDecoder().decode(
+        document.opcPackage.requirePart(document.presentationPartUri).bytes,
+      );
+      if (expected === true) {
+        expect(presentationXml, name).toMatch(/<p:presentation\b[^>]*\srtl="1"/);
+      } else {
+        expect(presentationXml, name).not.toMatch(/<p:presentation\b[^>]*\srtl=/);
+      }
+      expect(presentationXml, name).toMatch(/<a:lvl1pPr\b[^>]*\srtl="0"/);
+
+      if (name === 'true') {
+        const reopened = await PptxDocument.open(await document.write());
+        expect(reopened.rtlMode).toBe(true);
+      }
+    }
   }, 20_000);
 
   it('keeps pptxgenjs out of every non-adapter package dependency list', async () => {

@@ -75,6 +75,112 @@ describe('PresentationModel', () => {
     });
   });
 
+  it('reads only recognized direct presentation RTL tokens without mutating the package', async () => {
+    const cases: readonly [string | undefined, boolean | undefined][] = [
+      ['1', true],
+      ['true', true],
+      ['on', true],
+      ['0', false],
+      ['false', false],
+      ['off', false],
+      [undefined, undefined],
+      ['', undefined],
+      ['yes', undefined],
+    ];
+    for (const [token, expected] of cases) {
+      const pkg = await OpcPackage.open(await modelFixture());
+      const part = pkg.requirePart('/ppt/presentation.xml');
+      const rtl = token === undefined ? '' : ` rtl="${token}"`;
+      pkg.setPart(
+        part.uri,
+        new TextDecoder().decode(part.bytes).replace('<p:presentation ', `<p:presentation${rtl} `),
+        part.contentType,
+      );
+      const model = new PresentationModel(pkg);
+      const journal = [...pkg.mutations];
+
+      expect(model.rtlMode).toBe(expected);
+      expect(pkg.mutations).toEqual(journal);
+    }
+
+    const descendantPkg = await OpcPackage.open(await modelFixture());
+    const descendantPart = descendantPkg.requirePart('/ppt/presentation.xml');
+    descendantPkg.setPart(
+      descendantPart.uri,
+      new TextDecoder().decode(descendantPart.bytes)
+        .replace('xmlns:r="r"', 'xmlns:r="r" xmlns:a="a"')
+        .replace('</p:presentation>', '<a:lvl1pPr rtl="1"/></p:presentation>'),
+      descendantPart.contentType,
+    );
+    const descendantModel = new PresentationModel(descendantPkg);
+    const journal = [...descendantPkg.mutations];
+    expect(descendantModel.rtlMode).toBeUndefined();
+    expect(descendantPkg.mutations).toEqual(journal);
+  });
+
+  it('losslessly replaces, clears, validates, and rolls back presentation RTL', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const part = pkg.requirePart('/ppt/presentation.xml');
+    pkg.setPart(
+      part.uri,
+      new TextDecoder().decode(part.bytes).replace(
+        '<p:presentation ',
+        '<p:presentation rtl="yes" saveSubsetFonts="1" custom="KEEP" ',
+      ),
+      part.contentType,
+    );
+    const model = new PresentationModel(pkg);
+    const slide = model.slides[0];
+    const beforeInvalid = pkg.requirePart(part.uri).bytes;
+    const journal = [...pkg.mutations];
+
+    for (const invalid of [null, 0, 'true', {}, [], Symbol('rtl')]) {
+      expect(() => {
+        model.rtlMode = invalid as never;
+      }).toThrow(TypeError);
+    }
+    expect(pkg.requirePart(part.uri).bytes).toEqual(beforeInvalid);
+    expect(pkg.mutations).toEqual(journal);
+    expect(model.slides[0]).toBe(slide);
+
+    model.rtlMode = true;
+    expect(model.rtlMode).toBe(true);
+    let updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated).toContain(
+      '<p:presentation rtl="1" saveSubsetFonts="1" custom="KEEP" xmlns:p="p" xmlns:r="r">',
+    );
+    expect(updated).toContain('<x:unknown xmlns:x="urn:test"/>');
+
+    model.rtlMode = false;
+    expect(model.rtlMode).toBe(false);
+    updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated).toContain(
+      '<p:presentation rtl="0" saveSubsetFonts="1" custom="KEEP" xmlns:p="p" xmlns:r="r">',
+    );
+
+    const beforeRollback = pkg.requirePart(part.uri).bytes;
+    const rollbackJournal = [...pkg.mutations];
+    expect(() =>
+      pkg.transaction(() => {
+        model.rtlMode = true;
+        throw new Error('restore presentation RTL');
+      }),
+    ).toThrow('restore presentation RTL');
+    expect(pkg.requirePart(part.uri).bytes).toEqual(beforeRollback);
+    expect(pkg.mutations).toEqual(rollbackJournal);
+    expect(model.rtlMode).toBe(false);
+    expect(model.slides[0]).toBe(slide);
+
+    model.rtlMode = undefined;
+    expect(model.rtlMode).toBeUndefined();
+    updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated).toContain(
+      '<p:presentation saveSubsetFonts="1" custom="KEEP" xmlns:p="p" xmlns:r="r">',
+    );
+    expect(updated).not.toMatch(/<p:presentation[^>]*\srtl=/);
+    expect(updated).toContain('<x:unknown xmlns:x="urn:test"/>');
+  });
+
   it('uses r:id order and exposes common semantic objects', async () => {
     const model = new PresentationModel(await OpcPackage.open(await modelFixture()));
     const initialSlides = model.slides;

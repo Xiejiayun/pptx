@@ -81,6 +81,28 @@ export class PresentationModel {
     };
   }
 
+  get rtlMode(): boolean | undefined {
+    const { xml } = this.parsePresentation();
+    const root = presentationRoot(xml, this.presentationPartUri);
+    const value = xml.attribute(root, 'rtl')?.value;
+    if (value === undefined) return undefined;
+    if (['1', 'true', 'on'].includes(value)) return true;
+    if (['0', 'false', 'off'].includes(value)) return false;
+    return undefined;
+  }
+
+  set rtlMode(value: boolean | undefined) {
+    this.opcPackage.transaction(() => {
+      if (value !== undefined && typeof value !== 'boolean') {
+        throw new TypeError('Presentation RTL mode must be a boolean or undefined');
+      }
+      const { xml } = this.parsePresentation();
+      const root = presentationRoot(xml, this.presentationPartUri);
+      updatePresentationAttribute(xml, root, 'rtl', value === undefined ? undefined : value ? '1' : '0');
+      this.setXmlPart(this.presentationPartUri, xml.serialize());
+    });
+  }
+
   set slideSize(value: SlideSize) {
     this.opcPackage.transaction(() => {
       const normalized = normalizeSlideSize(value);
@@ -310,4 +332,26 @@ function setNumericAttribute(
   }
   const insertionPoint = element.startTagEnd - (element.selfClosing ? 2 : 1);
   xml.replace(insertionPoint, insertionPoint, ` ${name}="${value}"`);
+}
+
+function updatePresentationAttribute(
+  xml: LosslessXmlDocument,
+  root: XmlElement,
+  name: string,
+  value: string | undefined,
+): void {
+  const attribute = xml.attribute(root, name);
+  if (value !== undefined) {
+    if (attribute) xml.replaceAttribute(attribute, value);
+    else {
+      const insertionPoint = root.selfClosing
+        ? xml.source.lastIndexOf('/', root.startTagEnd - 1)
+        : root.startTagEnd - 1;
+      xml.replace(insertionPoint, insertionPoint, ` ${name}="${value}"`);
+    }
+  } else if (attribute) {
+    let start = attribute.start;
+    while (start > root.start && /[\t ]/.test(xml.source[start - 1] ?? '')) start -= 1;
+    xml.replace(start, attribute.end, '');
+  }
 }

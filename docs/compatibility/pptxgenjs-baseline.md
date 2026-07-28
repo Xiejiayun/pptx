@@ -17,6 +17,7 @@ adapter 不读取 `_slides` 等私有字段。后续 peer-range conformance test
 | PptxGenJS 4.x surface | 原生 API | 状态 |
 | --- | --- | --- |
 | `new PptxGenJS()` | `PptxDocument.create()` | 已支持 |
+| presentation `pptx.rtlMode` | `CreatePresentationOptions.rtlMode` / `document.rtlMode` | 已支持 |
 | 默认 `LAYOUT_16x9` | `create({ slideSize: '16:9' })` | 已支持 |
 | `LAYOUT_4x3` / `LAYOUT_16x10` / `LAYOUT_WIDE` | `create({ slideSize: '4:3' / '16:10' / 'wide' })` | 已支持 |
 | `addSlide()` 空白页 | `document.addSlide()` | 已支持 |
@@ -64,6 +65,8 @@ PptxGenJS 4.0.1 的 `margin` tuple 注释声明 `[top, right, bottom, left]`，�
 
 文本语言通过 `AddTextOptions.lang` 提供 plain/rich 创建默认值，`RichTextRunStyle.lang` 可覆盖单个 run。省略时 run 与 `endParaRPr` 使用 `en-US`；显式 outer/run 语言在 run 上同时写 `altLang="en-US"`，`endParaRPr` 只跟随 outer 值。getter 只暴露非空 direct `rPr@lang`，不解析 `altLang` 或 master/layout 继承。原生 API 拒绝非 string、空 string 和非法 XML 控制字符，并安全转义 attribute metacharacters。PptxGenJS 4.0.1 的 falsy fallback 仍由 adapter 输入兼容；未转义字符串产生的无效 XML 不属于兼容承诺。
 
-段落 RTL 通过 `AddTextOptions.rtlMode` 提供 plain/rich 创建默认值，`RichTextParagraph.rtl` 可逐段覆盖。true/false 分别写 direct `pPr@rtl="1"` / `"0"`；setter 中省略字段会清除 direct override。getter 只接受 `1/true/on` 与 `0/false/off`，未知 token 返回 `undefined` 并在无关编辑中原样保留。该能力不读取或修改 `bodyPr@rtlCol`、presentation-level RTL，也不自动交换 alignment。PptxGenJS 4.0.1 的 valid outer true 多段输出可直接导入；其 run-level `rtlMode` 会在同一 paragraph 中插入重复且位置非法的 `pPr`，因此本库不公开 run-level RTL。
+Presentation RTL 通过 `CreatePresentationOptions.rtlMode` 创建，并可由 `document.rtlMode` 读取、编辑和清除。getter 只读取 direct `p:presentation@rtl`，接受 `1/true/on` 与 `0/false/off`；未知或 descendant token 不会伪造全局状态。true/false 分别写 `1` / `0`，undefined 清除 direct attribute。PptxGenJS 4.0.1 的 true 与 truthy 非 boolean 都写 `1`，false/omitted 都省略；本库严格拒绝非 boolean，显式 false 写 `0`，effective behavior 相同且 direct intent 可逆。全局 RTL 不改写 paragraph `pPr@rtl`、`bodyPr@rtlCol`、default text style、alignment 或 run 顺序。
+
+段落 RTL 通过 `AddTextOptions.rtlMode` 提供 plain/rich 创建默认值，`RichTextParagraph.rtl` 可逐段覆盖。true/false 分别写 direct `pPr@rtl="1"` / `"0"`；setter 中省略字段会清除 direct override。getter 只接受 `1/true/on` 与 `0/false/off`，未知 token 返回 `undefined` 并在无关编辑中原样保留。该能力不读取或修改 `bodyPr@rtlCol` 或 presentation-level RTL，也不自动交换 alignment。PptxGenJS 4.0.1 的 valid outer true 多段输出可直接导入；其 run-level `rtlMode` 会在同一 paragraph 中插入重复且位置非法的 `pPr`，因此本库不公开 run-level RTL。
 
 原生创建会生成可重新打开和验证的 master/layout/theme 关系链，不通过 adapter，也不在运行时安装或调用 PptxGenJS。

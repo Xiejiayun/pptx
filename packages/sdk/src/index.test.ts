@@ -108,6 +108,73 @@ describe('PptxDocument vertical slice', () => {
     );
   });
 
+  it('creates, edits, clears, rolls back, and reopens presentation RTL independently', async () => {
+    const readPresentationXml = (document: PptxDocument): string => new TextDecoder().decode(
+      document.opcPackage.requirePart(document.presentationPartUri).bytes,
+    );
+    const omitted = PptxDocument.create();
+    const enabled = PptxDocument.create({ rtlMode: true });
+    const disabled = PptxDocument.create({ rtlMode: false });
+    expect([omitted.rtlMode, enabled.rtlMode, disabled.rtlMode]).toEqual([undefined, true, false]);
+    expect(readPresentationXml(enabled)).toMatch(/<p:presentation[^>]* rtl="1"/);
+    expect(readPresentationXml(disabled)).toMatch(/<p:presentation[^>]* rtl="0"/);
+    expect(readPresentationXml(omitted)).not.toMatch(/<p:presentation[^>]*\srtl=/);
+
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const created = PptxDocument.create({ format, rtlMode: true });
+      expect(created.rtlMode).toBe(true);
+      expect(validatePackage(created.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+    }
+
+    const slide = enabled.addSlide();
+    const shape = slide.addRichText([
+      { rtl: true, runs: [{ text: 'Paragraph RTL' }] },
+      { rtl: false, runs: [{ text: 'Paragraph LTR' }] },
+    ]);
+    enabled.duplicateSlide(0);
+    const paragraphState = shape.richText.map(({ rtl }) => rtl);
+
+    enabled.rtlMode = false;
+    expect(enabled.rtlMode).toBe(false);
+    expect(readPresentationXml(enabled)).toMatch(/<p:presentation[^>]* rtl="0"/);
+    expect(shape.richText.map(({ rtl }) => rtl)).toEqual(paragraphState);
+
+    const beforeRollback = enabled.opcPackage.requirePart(enabled.presentationPartUri).bytes;
+    const journal = [...enabled.opcPackage.mutations];
+    expect(() =>
+      enabled.transaction(() => {
+        enabled.rtlMode = true;
+        throw new Error('restore presentation RTL');
+      }),
+    ).toThrow('restore presentation RTL');
+    expect(enabled.opcPackage.requirePart(enabled.presentationPartUri).bytes).toEqual(beforeRollback);
+    expect(enabled.opcPackage.mutations).toEqual(journal);
+    expect(enabled.slides[0]).toBe(slide);
+    expect(enabled.slides[0]!.shapes[0]).toBe(shape);
+    expect(enabled.rtlMode).toBe(false);
+
+    const reopenedTrue = await PptxDocument.open(await PptxDocument.create({ rtlMode: true }).write());
+    const reopenedFalse = await PptxDocument.open(await disabled.write());
+    expect([reopenedTrue.rtlMode, reopenedFalse.rtlMode]).toEqual([true, false]);
+
+    enabled.rtlMode = undefined;
+    expect(enabled.rtlMode).toBeUndefined();
+    expect(readPresentationXml(enabled)).not.toMatch(/<p:presentation[^>]*\srtl=/);
+    expect(shape.richText.map(({ rtl }) => rtl)).toEqual(paragraphState);
+    const reopened = await PptxDocument.open(await enabled.write());
+    expect(reopened.rtlMode).toBeUndefined();
+    expect(reopened.slides).toHaveLength(2);
+    expect((reopened.slides[0]!.shapes[0] as ShapeModel).richText.map(({ rtl }) => rtl))
+      .toEqual(paragraphState);
+    expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+  });
+
+  it('rejects malformed presentation RTL before returning a created document', () => {
+    for (const rtlMode of [null, 0, 'true', {}, [], Symbol('rtl')]) {
+      expect(() => PptxDocument.create({ rtlMode: rtlMode as never })).toThrow(TypeError);
+    }
+  });
+
   it('accepts custom slide size boundaries and rejects malformed or out-of-range dimensions', () => {
     expect(() =>
       PptxDocument.create({ slideSize: Object.freeze({ width: inches(1), height: inches(56) }) }),
