@@ -180,6 +180,7 @@ describe('PresentationModel', () => {
 
     expect(shape.richText).toEqual([
       {
+        align: 'right',
         runs: [
           { text: 'First' },
           { text: '', softBreakBefore: true },
@@ -202,16 +203,53 @@ describe('PresentationModel', () => {
     expect(pkg.mutations).toEqual(journal);
 
     shape.richText = [
-      { runs: [{ text: 'One', style: { bold: true } }, { text: 'Two', softBreakBefore: true }] },
+      {
+        runs: [{ text: 'One', style: { bold: true } }, { text: 'Two', softBreakBefore: true }],
+        align: 'center',
+      },
       { runs: [] },
     ];
     expect(shape.text).toBe('One\nTwo\n');
     expect(slide.shapes[0]).toBe(shape);
     const updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
-    expect(updated.match(/<a:pPr algn="r"><a:buNone\/><\/a:pPr>/g)).toHaveLength(2);
+    expect(updated.match(/<a:pPr algn="ctr"><a:buNone\/><\/a:pPr>/g)).toHaveLength(1);
+    expect(updated.match(/<a:pPr><a:buNone\/><\/a:pPr>/g)).toHaveLength(1);
     expect(updated.match(/<a:endParaRPr lang="fr-FR"\/>/g)).toHaveLength(2);
     expect(updated).toContain('<p:txBodyMeta xmlns:p="urn:test">KEEP</p:txBodyMeta>');
     expect(updated).not.toContain('<a:fld');
+  });
+
+  it('updates alignment without rebuilding other paragraph properties', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.slides[1]!;
+    const part = pkg.requirePart(slide.partUri);
+    pkg.setPart(
+      part.uri,
+      new TextDecoder().decode(part.bytes).replace(
+        '<a:p><a:r><a:t>First title</a:t></a:r></a:p>',
+        '<a:p><a:pPr algn="l" marL="111" custom="FIRST"><a:buNone/><x:first xmlns:x="urn:test"/></a:pPr><a:r><a:t>First</a:t></a:r></a:p><a:p><a:pPr algn="r" marL="222" custom="SECOND"><a:spcBef><a:spcPts val="300"/></a:spcBef></a:pPr><a:r><a:t>Second</a:t></a:r></a:p><a:p><a:pPr algn="dist" marL="333" custom="THIRD"><x:third xmlns:x="urn:test"/></a:pPr><a:r><a:t>Third</a:t></a:r></a:p><a:p><a:pPr/><a:r><a:t>Fourth</a:t></a:r></a:p>',
+      ),
+      part.contentType,
+    );
+    const shape = slide.shapes[0] as ShapeModel;
+
+    expect(shape.richText.map(({ align }) => align)).toEqual(['left', 'right', undefined, undefined]);
+    shape.richText = [
+      { runs: [{ text: 'First' }], align: 'center' },
+      { runs: [{ text: 'Second' }], align: 'justify' },
+      { runs: [{ text: 'Third' }] },
+      { runs: [{ text: 'Fourth' }], align: 'right' },
+      { runs: [], align: 'left' },
+    ];
+
+    const updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated).toContain('<a:pPr algn="ctr" marL="111" custom="FIRST"><a:buNone/><x:first xmlns:x="urn:test"/></a:pPr>');
+    expect(updated).toContain('<a:pPr algn="just" marL="222" custom="SECOND"><a:spcBef><a:spcPts val="300"/></a:spcBef></a:pPr>');
+    expect(updated).toContain('<a:pPr marL="333" custom="THIRD"><x:third xmlns:x="urn:test"/></a:pPr>');
+    expect(updated).toContain('<a:pPr algn="r"/>');
+    expect(updated).toContain('<a:pPr algn="l" marL="111" custom="FIRST"><a:buNone/><x:first xmlns:x="urn:test"/></a:pPr>');
+    expect(shape.richText.map(({ align }) => align)).toEqual(['center', 'justify', undefined, 'right', 'left']);
   });
 
   it('does not mutate malformed text shapes that lack a text body or paragraph', async () => {

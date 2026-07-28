@@ -42,17 +42,17 @@ try {
     join(directory, 'smoke.mjs'),
     `import { inches, PptxDocument, GradientCodec, importPptxGenJS, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
 const created = PptxDocument.create();
-const createdText = created.addSlide().addText('Smoke\\n\\nParagraph');
+const createdText = created.addSlide().addText('Smoke\\n\\nParagraph', { align: 'center' });
 createdText.text = 'Updated\\r\\nParagraph';
-const richText = created.slides[0].addRichText([{ runs: [{ text: 'Bold', style: { bold: true, fontSize: 18, color: { kind: 'srgb', value: 'ff0000' } } }, { text: 'Blue', softBreakBefore: true, style: { color: { kind: 'scheme', value: 'accent1' } } }] }]);
-richText.richText = [{ runs: [{ text: 'Updated rich', style: { italic: true } }] }];
+const richText = created.slides[0].addRichText([{ align: 'right', runs: [{ text: 'Bold', style: { bold: true, fontSize: 18, color: { kind: 'srgb', value: 'ff0000' } } }, { text: 'Blue', softBreakBefore: true, style: { color: { kind: 'scheme', value: 'accent1' } } }] }]);
+richText.richText = [{ align: 'justify', runs: [{ text: 'Updated rich', style: { italic: true } }] }];
 const custom = PptxDocument.create({ slideSize: { width: inches(11.7), height: inches(8.3) } });
 custom.slideSize = { width: inches(10), height: inches(7.5) };
 const customXml = new TextDecoder().decode(custom.opcPackage.requirePart('/ppt/presentation.xml').bytes);
 const checks = {
   PptxDocument: typeof PptxDocument === 'function',
-  createText: createdText.text === 'Updated\\nParagraph' && created.slides[0].shapes[0] === createdText,
-  richText: richText.text === 'Updated rich' && richText.richText[0].runs[0].style.italic === true,
+  createText: createdText.text === 'Updated\\nParagraph' && createdText.richText.every(({ align }) => align === 'center') && created.slides[0].shapes[0] === createdText,
+  richText: richText.text === 'Updated rich' && richText.richText[0].align === 'justify' && richText.richText[0].runs[0].style.italic === true,
   customSlideSize: custom.slideSize.width === inches(10) && customXml.includes('<p:sldSz cx="9144000" cy="6858000"/>'),
   GradientCodec: typeof GradientCodec === 'function',
   importPptxGenJS: typeof importPptxGenJS === 'function',
@@ -76,8 +76,8 @@ if (!resolved.endsWith('/dist/browser.js')) throw new Error('Browser condition r
 const checks = [PptxDocument, transitions.TransitionCodec, animations.AnimationTimingCodec, advancedCharts.AdvancedChartCodec, smartArt.SmartArtDiagramCodec];
 if (checks.some((value) => typeof value !== 'function')) throw new Error('Browser API surface is incomplete');
 const created = PptxDocument.create({ slideSize: '16:9' });
-if (created.addSlide().addText('Browser\\nText').text !== 'Browser\\nText') throw new Error('Browser create-text API failed');
-if (created.slides[0].addRichText([{ runs: [{ text: 'Rich', style: { bold: true } }] }]).richText[0].runs[0].style.bold !== true) throw new Error('Browser rich-text API failed');
+if (created.addSlide().addText('Browser\\nText', { align: 'center' }).richText[0].align !== 'center') throw new Error('Browser create-text API failed');
+if (created.slides[0].addRichText([{ align: 'right', runs: [{ text: 'Rich', style: { bold: true } }] }]).richText[0].align !== 'right') throw new Error('Browser rich-text API failed');
 PptxDocument.create({ slideSize: { width: inches(11.7), height: inches(8.3) } });
 created.slideSize = { width: inches(10), height: inches(7.5) };
 process.stdout.write(resolved);
@@ -92,6 +92,7 @@ process.stdout.write(resolved);
   inches,
   type CustomSlideSize,
   type RichTextParagraph,
+  type TextAlignment,
   GradientCodec,
   importPptxGenJS,
   transitions,
@@ -105,9 +106,10 @@ const createdDocument: PptxDocument = PptxDocument.create({ format: 'pptx', slid
 const customSlideSize: CustomSlideSize = { width: inches(11.7), height: inches(8.3) };
 const customDocument: PptxDocument = PptxDocument.create({ slideSize: customSlideSize });
 customDocument.slideSize = { width: inches(10), height: inches(7.5) };
-const createdText = createdDocument.addSlide().addText('Typed\\ntext');
+const alignment: TextAlignment = 'center';
+const createdText = createdDocument.addSlide().addText('Typed\\ntext', { align: alignment });
 createdText.text = 'Updated\\n\\ntyped text';
-const paragraphs: readonly RichTextParagraph[] = [{ runs: [{ text: 'Typed rich', style: { fontSize: 12.5, bold: true, color: { kind: 'scheme', value: 'tx1' } } }] }];
+const paragraphs: readonly RichTextParagraph[] = [{ align: 'justify', runs: [{ text: 'Typed rich', style: { fontSize: 12.5, bold: true, color: { kind: 'scheme', value: 'tx1' } } }] }];
 const richText = createdDocument.slides[0].addRichText(paragraphs);
 richText.richText = paragraphs;
 const gradientConstructor: typeof GradientCodec = GradientCodec;

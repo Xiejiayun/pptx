@@ -10,16 +10,19 @@ import { ModelParseError } from './errors.js';
 import type { PresentationModel } from './presentation.js';
 import {
   normalizeRichText,
+  normalizeTextAlignment,
   readRichText,
+  renderParagraphProperties,
   renderRichTextParagraphs,
   replaceRichText,
 } from './rich-text.internal.js';
 import { decodeShape, ShapeModel, type SemanticShape } from './shapes.js';
-import type { RichTextParagraph } from './text.js';
+import type { RichTextParagraph, TextAlignment } from './text.js';
 import { inches, type Transform } from './units.js';
 
 export interface AddTextOptions extends Partial<Transform> {
   readonly name?: string;
+  readonly align?: TextAlignment;
 }
 
 export class SlideTitleModel {
@@ -178,7 +181,7 @@ export class SlideModel {
   addText(value: string, options: AddTextOptions = {}): ShapeModel {
     return this.presentation.opcPackage.transaction(() => {
       const normalized = validateTextInput(value, options);
-      const paragraphs = normalized.split('\n').map((line) => textParagraphXml(line)).join('');
+      const paragraphs = normalized.split('\n').map((line) => textParagraphXml(line, 'a:', options.align)).join('');
       return this.addTextShape(paragraphs, options);
     });
   }
@@ -187,7 +190,12 @@ export class SlideModel {
     return this.presentation.opcPackage.transaction(() => {
       const paragraphs = normalizeRichText(value);
       validateAddTextOptions(options);
-      return this.addTextShape(renderRichTextParagraphs(paragraphs), options);
+      return this.addTextShape(
+        renderRichTextParagraphs(paragraphs, {
+          ...(options.align ? { defaultAlign: options.align } : {}),
+        }),
+        options,
+      );
     });
   }
 
@@ -271,6 +279,7 @@ function validateAddTextOptions(options: AddTextOptions): void {
   if (options.name !== undefined && typeof options.name !== 'string') {
     throw new TypeError('Text shape name must be a string');
   }
+  if (options.align !== undefined) normalizeTextAlignment(options.align, 'Text alignment');
   if (options.name !== undefined && containsInvalidXmlCharacter(options.name)) {
     throw new TypeError('Text shape name contains invalid XML characters');
   }
@@ -333,8 +342,8 @@ function textShapeXml(id: number, paragraphs: string, options: AddTextOptions): 
   return `<p:sp xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><p:nvSpPr><p:cNvPr id="${id}" name="${name}"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm${transformAttributes}><a:off x="${x}" y="${y}"/><a:ext cx="${width}" cy="${height}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></p:spPr><p:txBody><a:bodyPr wrap="square" rtlCol="0" anchor="ctr"/><a:lstStyle/>${paragraphs}</p:txBody></p:sp>`;
 }
 
-function textParagraphXml(value: string, prefix = 'a:'): string {
-  const properties = `<${prefix}pPr indent="0" marL="0"><${prefix}buNone/></${prefix}pPr>`;
+function textParagraphXml(value: string, prefix = 'a:', align?: TextAlignment): string {
+  const properties = renderParagraphProperties(undefined, prefix, align);
   const endProperties = `<${prefix}endParaRPr lang="en-US" dirty="0"/>`;
   if (value.length === 0) return `<${prefix}p>${properties}${endProperties}</${prefix}p>`;
   return `<${prefix}p>${properties}${defaultTextRunXml(value, prefix)}${endProperties}</${prefix}p>`;

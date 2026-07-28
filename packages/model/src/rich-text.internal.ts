@@ -10,7 +10,19 @@ import type {
   RichTextParagraph,
   RichTextRun,
   RichTextRunStyle,
+  TextAlignment,
 } from './text.js';
+
+const TEXT_ALIGNMENT_TO_OOXML: Readonly<Record<TextAlignment, string>> = {
+  left: 'l',
+  center: 'ctr',
+  right: 'r',
+  justify: 'just',
+};
+
+const OOXML_TO_TEXT_ALIGNMENT = new Map(
+  Object.entries(TEXT_ALIGNMENT_TO_OOXML).map(([alignment, value]) => [value, alignment as TextAlignment]),
+);
 
 const SCHEME_COLORS = new Set([
   'accent1',
@@ -40,29 +52,43 @@ export function normalizeRichText(value: unknown): readonly RichTextParagraph[] 
     if (!paragraph || typeof paragraph !== 'object' || Array.isArray(paragraph)) {
       throw new TypeError(`Rich text paragraph ${paragraphIndex} must be an object`);
     }
-    assertSupportedKeys(paragraph, ['runs'], `Rich text paragraph ${paragraphIndex}`);
-    const runs = (paragraph as { runs?: unknown }).runs;
+    assertSupportedKeys(paragraph, ['align', 'runs'], `Rich text paragraph ${paragraphIndex}`);
+    const candidate = paragraph as { align?: unknown; runs?: unknown };
+    const runs = candidate.runs;
     if (!Array.isArray(runs)) throw new TypeError(`Rich text paragraph ${paragraphIndex} runs must be an array`);
+    const align = candidate.align === undefined
+      ? undefined
+      : normalizeTextAlignment(candidate.align, `Rich text paragraph ${paragraphIndex} align`);
     return {
       runs: runs.map((run, runIndex) => normalizeRun(run, paragraphIndex, runIndex)),
+      ...(align ? { align } : {}),
     };
   });
 }
 
+interface RenderRichTextOptions {
+  readonly prefix?: string;
+  readonly defaultAlign?: TextAlignment;
+  readonly paragraphProperties?: readonly (string | undefined)[];
+  readonly endParagraphProperties?: string;
+}
+
 export function renderRichTextParagraphs(
   paragraphs: readonly RichTextParagraph[],
-  prefix = 'a:',
-  paragraphProperties?: string,
-  endParagraphProperties?: string,
+  options: RenderRichTextOptions = {},
 ): string {
-  const defaultParagraphProperties = `<${prefix}pPr indent="0" marL="0"><${prefix}buNone/></${prefix}pPr>`;
+  const prefix = options.prefix ?? 'a:';
   const defaultEndProperties = `<${prefix}endParaRPr lang="en-US" dirty="0"/>`;
   return paragraphs
     .map(
-      ({ runs }) =>
-        `<${prefix}p>${paragraphProperties ?? defaultParagraphProperties}${runs
+      ({ align, runs }, index) =>
+        `<${prefix}p>${renderParagraphProperties(
+          options.paragraphProperties?.[index] ?? options.paragraphProperties?.[0],
+          prefix,
+          align ?? options.defaultAlign,
+        )}${runs
           .map((run) => renderRun(run, prefix))
-          .join('')}${endParagraphProperties ?? defaultEndProperties}</${prefix}p>`,
+          .join('')}${options.endParagraphProperties ?? defaultEndProperties}</${prefix}p>`,
     )
     .join('');
 }
@@ -70,7 +96,13 @@ export function renderRichTextParagraphs(
 export function readRichText(xml: LosslessXmlDocument, element: XmlElement): readonly RichTextParagraph[] {
   const textBody = directChildren(element, 'txBody')[0];
   if (!textBody) return [];
-  return directChildren(textBody, 'p').map((paragraph) => ({ runs: readRuns(xml, paragraph) }));
+  return directChildren(textBody, 'p').map((paragraph) => {
+    const align = readParagraphAlignment(xml, paragraph);
+    return {
+      runs: readRuns(xml, paragraph),
+      ...(align ? { align } : {}),
+    };
+  });
 }
 
 export function replaceRichText(
@@ -86,17 +118,56 @@ export function replaceRichText(
   const template = existing[0];
   if (!template) throw new ModelParseError('Shape does not contain a text paragraph', partUri);
   const prefix = qualifiedPrefix(template.name);
-  const paragraphProperties = directChildren(template, 'pPr')[0];
   const endProperties = directChildren(template, 'endParaRPr')[0];
-  const replacement = renderRichTextParagraphs(
-    paragraphs,
+  const paragraphProperties = existing.map((paragraph) => {
+    const properties = directChildren(paragraph, 'pPr')[0];
+    return properties ? xml.original(properties) : undefined;
+  });
+  const replacement = renderRichTextParagraphs(paragraphs, {
     prefix,
-    paragraphProperties ? xml.original(paragraphProperties) : undefined,
-    endProperties ? xml.original(endProperties) : undefined,
-  );
+    paragraphProperties,
+    ...(endProperties ? { endParagraphProperties: xml.original(endProperties) } : {}),
+  });
   xml.replaceElement(template, replacement);
   for (const extra of existing.slice(1)) xml.removeElement(extra);
   save(xml.serialize());
+}
+
+export function normalizeTextAlignment(value: unknown, context: string): TextAlignment {
+  if (typeof value !== 'string' || !Object.hasOwn(TEXT_ALIGNMENT_TO_OOXML, value)) {
+    throw new TypeError(`${context} must be left, center, right, or justify`);
+  }
+  return value as TextAlignment;
+}
+
+export function renderParagraphProperties(
+  template: string | undefined,
+  prefix: string,
+  alignment: TextAlignment | undefined,
+): string {
+  if (!template) {
+    const align = alignment ? ` algn="${TEXT_ALIGNMENT_TO_OOXML[alignment]}"` : '';
+    return `<${prefix}pPr${align} indent="0" marL="0"><${prefix}buNone/></${prefix}pPr>`;
+  }
+  const properties = LosslessXmlDocument.parse(template);
+  const root = properties.roots[0];
+  if (!root || root.localName !== 'pPr') throw new ModelParseError('Invalid paragraph properties template');
+  const attribute = properties.attribute(root, 'algn');
+  if (alignment) {
+    const value = TEXT_ALIGNMENT_TO_OOXML[alignment];
+    if (attribute) properties.replaceAttribute(attribute, value);
+    else {
+      const insertionPoint = root.selfClosing
+        ? properties.source.lastIndexOf('/', root.startTagEnd - 1)
+        : root.startTagEnd - 1;
+      properties.replace(insertionPoint, insertionPoint, ` algn="${value}"`);
+    }
+  } else if (attribute) {
+    let start = attribute.start;
+    while (start > root.start && /[\t ]/.test(properties.source[start - 1] ?? '')) start -= 1;
+    properties.replace(start, attribute.end, '');
+  }
+  return properties.serialize();
 }
 
 function normalizeRun(value: unknown, paragraphIndex: number, runIndex: number): RichTextRun {
@@ -238,6 +309,15 @@ function readRuns(xml: LosslessXmlDocument, paragraph: XmlElement): RichTextRun[
     pendingBreaks -= 1;
   }
   return runs;
+}
+
+function readParagraphAlignment(
+  xml: LosslessXmlDocument,
+  paragraph: XmlElement,
+): TextAlignment | undefined {
+  const properties = directChildren(paragraph, 'pPr')[0];
+  const value = properties ? xml.attribute(properties, 'algn')?.value : undefined;
+  return value ? OOXML_TO_TEXT_ALIGNMENT.get(value) : undefined;
 }
 
 function readStyle(xml: LosslessXmlDocument, run: XmlElement): RichTextRunStyle | undefined {

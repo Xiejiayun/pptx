@@ -55,6 +55,7 @@ const text = document.addSlide().addText('Quarterly results\nQ4 forecast', {
   y: inches(0.75),
   width: inches(8),
   height: inches(1),
+  align: 'center',
 });
 text.text = 'Updated results\nApproved';
 ```
@@ -64,6 +65,7 @@ text.text = 'Updated results\nApproved';
 ```ts
 const rich = document.addSlide().addRichText([
   {
+    align: 'right',
     runs: [
       { text: 'Revenue ', style: { bold: true, fontSize: 24 } },
       { text: '+18%', style: { italic: true, color: { kind: 'srgb', value: '00A651' } } },
@@ -73,7 +75,7 @@ const rich = document.addSlide().addRichText([
 rich.richText = [{ runs: [{ text: 'Approved', style: { color: { kind: 'scheme', value: 'accent1' } } }] }];
 ```
 
-`richText` is an immutable paragraph/run value snapshot. The initial run layer reads, creates, and replaces font family, point size, bold, italic, sRGB/theme color, and soft breaks. Setting it preserves the text body's metadata and first paragraph properties but intentionally replaces old runs; paragraph styles, hyperlinks, and advanced typography are separate capabilities.
+`richText` is an immutable paragraph/run value snapshot. It reads, creates, and replaces each paragraph's `left`, `center`, `right`, or `justify` alignment plus run font family, point size, bold, italic, sRGB/theme color, and soft breaks. `AddTextOptions.align` supplies a creation default and `RichTextParagraph.align` overrides it. Setting `richText` preserves text-body metadata and unrelated same-position paragraph properties but intentionally replaces old runs; bullets, spacing, hyperlinks, and advanced typography are separate capabilities.
 
 Slide and shape model objects have stable identity within a document: repeated collection reads and slide reordering return the same member instances. Their properties remain live and read the current OOXML rather than a cached snapshot. Master, layout, and theme models follow the same rule within `document.masterLayoutTheme`.
 

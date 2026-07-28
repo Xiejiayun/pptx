@@ -11,7 +11,7 @@ interface PptxGenJSInstance {
   addSlide(): {
     addText(
       text: string | readonly { readonly text: string; readonly options?: Record<string, unknown> }[],
-      options: Record<string, number>,
+      options: Record<string, unknown>,
     ): void;
   };
   write(options: { outputType: 'uint8array'; compression: boolean }): Promise<Uint8Array>;
@@ -26,7 +26,7 @@ describe('importPptxGenJS', () => {
     expect(generated.version).toBe('4.0.1');
     generated.layout = 'LAYOUT_WIDE';
     const generatedSlide = generated.addSlide();
-    generatedSlide.addText('Created by PptxGenJS', { x: 1, y: 1, w: 7, h: 1 });
+    generatedSlide.addText('Created by PptxGenJS', { x: 1, y: 1, w: 7, h: 1, align: 'center' });
     generatedSlide.addText(
       [
         {
@@ -40,8 +40,18 @@ describe('importPptxGenJS', () => {
       ],
       { x: 1, y: 2, w: 7, h: 1 },
     );
+    generatedSlide.addText(
+      [
+        { text: 'Left', options: { align: 'left' } },
+        { text: 'Center', options: { align: 'center' } },
+        { text: 'Right', options: { align: 'right' } },
+        { text: 'Justify', options: { align: 'justify' } },
+      ],
+      { x: 1, y: 3, w: 7, h: 2, align: 'left' },
+    );
     const document = await importPptxGenJS(generated);
     expect(document.slides[0]?.title.text).toBe('Created by PptxGenJS');
+    expect((document.slides[0]!.shapes[0] as ShapeModel).richText[0]!.align).toBe('center');
     const rich = document.slides[0]!.shapes[1] as ShapeModel;
     expect(rich.text).toBe('Bold red\nitalic');
     expect(rich.richText[0]!.runs).toEqual([
@@ -60,6 +70,16 @@ describe('importPptxGenJS', () => {
         style: { fontSize: 14, italic: true, color: { kind: 'srgb', value: '4472C4' } },
       },
     ]);
+    const aligned = document.slides[0]!.shapes[2] as ShapeModel;
+    expect(aligned.richText.map(({ align }) => align)).toEqual(['left', 'center', 'right', 'justify']);
+    aligned.richText = aligned.richText.map((paragraph, index) => ({
+      runs: paragraph.runs,
+      ...(index === 3
+        ? { align: 'center' as const }
+        : paragraph.align
+          ? { align: paragraph.align }
+          : {}),
+    }));
     document.slides[0]!.title.text = 'Edited by the OOXML kernel';
     document.duplicateSlide(0);
 
@@ -73,6 +93,12 @@ describe('importPptxGenJS', () => {
       softBreakBefore: true,
       style: { italic: true, color: { kind: 'srgb', value: '4472C4' } },
     });
+    expect((reopened.slides[1]!.shapes[2] as ShapeModel).richText.map(({ align }) => align)).toEqual([
+      'left',
+      'center',
+      'right',
+      'center',
+    ]);
   });
 
   it('keeps pptxgenjs out of every non-adapter package dependency list', async () => {

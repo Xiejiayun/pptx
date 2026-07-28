@@ -2,6 +2,8 @@ export type RichTextColor =
   | { readonly kind: 'srgb'; readonly value: string }
   | { readonly kind: 'scheme'; readonly value: string };
 
+export type TextAlignment = 'left' | 'center' | 'right' | 'justify';
+
 export interface RichTextRunStyle {
   readonly fontFamily?: string;
   readonly fontSize?: number;
@@ -18,4 +20,5 @@ export interface RichTextRun {
 
 export interface RichTextParagraph {
   readonly runs: readonly RichTextRun[];
+  readonly align?: TextAlignment;
 }

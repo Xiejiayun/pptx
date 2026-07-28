@@ -217,6 +217,50 @@ describe('PptxDocument vertical slice', () => {
     expect(empty.text).toBe('Filled from an empty paragraph');
   });
 
+  it('creates, replaces, rolls back, and round-trips paragraph alignment', async () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const plain = slide.addText('Centered\n\nParagraphs', { align: 'center' });
+    const input = [
+      { runs: [{ text: 'Left' }], align: 'left' as const },
+      { runs: [{ text: 'Default right' }] },
+      { runs: [], align: 'justify' as const },
+    ];
+    const rich = slide.addRichText(input, { align: 'right' });
+
+    expect(plain.richText.map(({ align }) => align)).toEqual(['center', 'center', 'center']);
+    expect(rich.richText.map(({ align }) => align)).toEqual(['left', 'right', 'justify']);
+    let slideXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(slideXml.match(/algn="ctr"/g)).toHaveLength(3);
+    expect(slideXml).toContain('<a:pPr algn="l" indent="0" marL="0">');
+    expect(slideXml).toContain('<a:pPr algn="r" indent="0" marL="0">');
+    expect(slideXml).toContain('<a:pPr algn="just" indent="0" marL="0">');
+
+    rich.richText = [
+      { runs: rich.richText[0]!.runs, align: 'center' },
+      { runs: rich.richText[1]!.runs },
+      { runs: rich.richText[2]!.runs, align: 'right' },
+    ];
+    expect(rich.richText.map(({ align }) => align)).toEqual(['center', undefined, 'right']);
+    slideXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(slideXml).not.toContain('<a:pPr algn="just"');
+
+    expect(() =>
+      document.transaction(() => {
+        rich.richText = [{ runs: [{ text: 'Rollback' }], align: 'left' }];
+        throw new Error('restore paragraph alignment');
+      }),
+    ).toThrow('restore paragraph alignment');
+    expect(rich.richText.map(({ align }) => align)).toEqual(['center', undefined, 'right']);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedPlain = reopened.slides[0]!.shapes[0] as ShapeModel;
+    const reopenedRich = reopened.slides[0]!.shapes[1] as ShapeModel;
+    expect(reopenedPlain.richText.map(({ align }) => align)).toEqual(['center', 'center', 'center']);
+    expect(reopenedRich.richText.map(({ align }) => align)).toEqual(['center', undefined, 'right']);
+    expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+  });
+
   it('creates, reads, replaces, and round-trips rich text run styles', async () => {
     const document = PptxDocument.create();
     const slide = document.addSlide();
@@ -347,7 +391,7 @@ describe('PptxDocument vertical slice', () => {
       [{ runs: [{ text: 'x', style: { bold: 'yes' } }] }],
       [{ runs: [{ text: 'x', style: { color: { kind: 'srgb', value: 'red' } } }] }],
       [{ runs: [{ text: 'x', style: { color: { kind: 'scheme', value: 'unknown' } } }] }],
-      [{ runs: [], align: 'center' }],
+      [{ runs: [], align: 'middle' }],
       [{ runs: [{ text: 'x', breakLine: true }] }],
       [{ runs: [{ text: 'x', style: { underline: true } }] }],
       [{ runs: [{ text: 'x', style: { color: { kind: 'srgb', value: 'FF0000', alpha: 0.5 } } }] }],
@@ -388,6 +432,7 @@ describe('PptxDocument vertical slice', () => {
     expect(() => slide.addText('bad width', { width: 0 as never })).toThrow(/width must be greater/);
     expect(() => slide.addText('bad coordinate', { x: Number.NaN as never })).toThrow(/x must be finite/);
     expect(() => slide.addText('bad flip', { flipHorizontal: 'yes' as never })).toThrow(/must be a boolean/);
+    expect(() => slide.addText('bad alignment', { align: 'middle' as never })).toThrow(/left, center, right/);
     expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(before);
     expect(document.opcPackage.mutations).toEqual(journal);
 

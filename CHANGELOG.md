@@ -15,6 +15,7 @@
 - Added lossless slide-canvas size reading and editing without silently scaling shapes or changing the notes page.
 - Added PptxGenJS-compatible plain-text paragraphs with normalized line endings, empty-line preservation, and transactional text overwrite.
 - Added structured rich-text run creation, snapshots, and replacement with fonts, point sizes, bold/italic, sRGB/theme colors, and soft breaks.
+- Added PptxGenJS-compatible left, center, right, and justified paragraph alignment for plain and structured text creation and editing.
 
 ## 0.1.0 - 2026-07-25
 
