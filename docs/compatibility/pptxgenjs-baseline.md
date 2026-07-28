@@ -50,6 +50,7 @@ adapter 不读取 `_slides` 等私有字段。后续 peer-range conformance test
 | paragraph 左右 margin、first-line/hanging indent | `paragraphMarginLeft` / `paragraphMarginRight` / `paragraphIndent` 与 rich paragraph overrides | 已支持 direct 创建、读取、编辑与清除 |
 | table-cell `textDirection` | `TableCell.textDirection` / `TableModel.setCellTextDirection()` | 已支持 |
 | table-cell `valign: top/middle/bottom` | `TableCell.verticalAlignment` / `TableModel.setCellVerticalAlignment()` | 已支持 direct 编辑 |
+| table-cell `margin` scalar/TRBL | `TableCell.margins` / `TableModel.setCellMargins()` | 已支持 direct point snapshot 与编辑 |
 | table-cell bodyPr autofit | `TableCell.textFit` / `TableModel.setCellTextFit()` | 原生编辑已支持；PptxGenJS 4.0.1 本身无 table fit API |
 
 LibreOffice headless 可无修复打开 underline 文件，但当前会把 double/dash/wavy 和独立 underline color 降级显示为普通单实线；同一 PptxGenJS 4.0.1 对照文件表现一致。OOXML token 与颜色仍保持合法并可由支持这些样式的客户端读取。
@@ -67,6 +68,8 @@ PptxGenJS 4.0.1 的 `margin` tuple 注释声明 `[top, right, bottom, left]`，�
 Table-cell `textDirection` 是独立的四值能力：`horz`、`vert`、`vert270`、`wordArtVert` 映射到选中物理 cell 的 direct `tcPr@vert`。`TableCell.textDirection` 只读取唯一 direct `tcPr` 上唯一、无 namespace 且精确合法的 token；`setCellTextDirection()` 以零基 physical row/cell index 编辑，显式 `horz` 写属性，`undefined` 只清除该属性。PptxGenJS 4.0.1 的 table-level 值会实体化到各 cell，cell-level omitted/explicit `horz` 都不写属性，因此导入时均为 `undefined`；runtime 放行的 `eaVert` 等类型外 token 也严格读为 `undefined` 并原样保留。该能力不包含 table creation 或 table-level default，并与 cell fit 独立。
 
 Table-cell `verticalAlignment` 复用 `top`、`middle`、`bottom`，但只映射选中物理 cell 的 direct `tcPr@anchor="t/ctr/b"`，不读写 cell `bodyPr@anchor`。getter 要求唯一 direct `tcPr`、唯一无 namespace anchor 和精确 wire token；`setCellVerticalAlignment()` 写 canonical token，`undefined` 清除 direct anchor，不解析 effective default 或支持 `just/dist`。PptxGenJS 4.0.1 完全省略 table/cell `valign` 时不写 anchor；显式 table-level 值会实体化到未覆盖 cells，cell-level 值优先；runtime 类型外 token 原样保留但严格导入为 `undefined`。该能力不增加 table creation 或 table-level mutation。
+
+Table-cell `margins` 复用 point-based `TextBoxMargins` value shape，但只读取唯一 direct `tcPr` 上独立合法的 `marL/marR/marT/marB` signed-Int32 integer，并以 point 返回 partial snapshot；不读取 `bodyPr@*Ins`、style 或 effective default。`setCellMargins()` 使用零基 physical row/cell index，接受 point scalar、TRBL tuple、partial named object、`{}` 或 `undefined`，整体替换四个受管 direct attributes；合法同数值为 exact no-op，malformed direct token 可由合法值覆盖，或因该边缺省而清除。PptxGenJS 4.0.1 省略 margin 时仍给普通 cell 写 top/bottom 0.05in、left/right 0.1in 的 narrow defaults，table-level 值会实体化到 cells，cell-level 值覆盖；其遗留 runtime 以第一项 `<1` 按 inches、`>=1` 按 points。adapter 忠实读取最终 EMU 并统一暴露 point，不逆推输入单位。该能力不增加 table creation、table-level mutation 或 layout recomputation。
 
 Table-cell `textFit` 复用 `none`、`shrink`、`resize`：只读取唯一 direct `txBody/bodyPr` 中唯一 supported fit child，既有 `noAutofit` 映射为 `none`，缺失或 malformed 状态返回 `undefined`。`setCellTextFit()` 以零基 physical row/cell index 编辑；shrink/resize 分别写 `normAutofit` / `spAutoFit`，none/`undefined` 都移除 direct choice 且不新增 `noAutofit`，同模式赋值保留 PowerPoint 已计算的 scale metadata。它不修改 `tcPr@vert`，也不计算动态缩放、改变 table 尺寸、提供 table-level default 或创建 table。PptxGenJS 4.0.1 的 `TableCellProps` / `TableProps` 没有 fit API，runtime 透传的 `fit`、`autoFit`、`shrinkText` 均被忽略并生成 fit-less `bodyPr`。
 

@@ -11,6 +11,10 @@ import {
 import { cloneOwnedPartForMutation } from './dependency.internal.js';
 import type { SlideModel } from './slide.js';
 import {
+  readTableCellMargins,
+  replaceTableCellMargins,
+} from './table-cell-margins.internal.js';
+import {
   readTableCellTextFit,
   replaceTableCellTextFit,
 } from './table-cell-text-fit.internal.js';
@@ -24,6 +28,7 @@ import {
   replaceTableCellVerticalAlignment,
 } from './table-cell-vertical-alignment.internal.js';
 import { normalizeTextBoxFit } from './text-box-fit.internal.js';
+import { normalizeTextBoxMargins } from './text-box-margins.internal.js';
 import { normalizeTextBoxVerticalAlignment } from './text-box-vertical-alignment.internal.js';
 import type {
   RichTextParagraph,
@@ -41,6 +46,7 @@ export type TableCellTextDirection = 'horz' | 'vert' | 'vert270' | 'wordArtVert'
 
 export interface TableCell {
   readonly text: string;
+  readonly margins?: TextBoxMargins;
   readonly textDirection?: TableCellTextDirection;
   readonly textFit?: TextBoxFit;
   readonly verticalAlignment?: TextBoxVerticalAlignment;
@@ -212,11 +218,13 @@ export class TableModel extends BaseShapeModel {
     const { xml, element } = this.resolve();
     return xml.descendants(element, 'tr').map((row) => ({
       cells: xml.descendants(row, 'tc').map((cell) => {
+        const margins = readTableCellMargins(xml, cell);
         const textDirection = readTableCellTextDirection(xml, cell);
         const textFit = readTableCellTextFit(xml, cell, this.slide.partUri);
         const verticalAlignment = readTableCellVerticalAlignment(xml, cell);
         return {
           text: xml.descendants(cell, 't').map((node) => xml.text(node)).join(''),
+          ...(margins !== undefined ? { margins } : {}),
           ...(textDirection !== undefined ? { textDirection } : {}),
           ...(textFit !== undefined ? { textFit } : {}),
           ...(verticalAlignment !== undefined ? { verticalAlignment } : {}),
@@ -233,6 +241,23 @@ export class TableModel extends BaseShapeModel {
     if (!text) throw new RangeError(`Table cell ${rowIndex},${columnIndex} was not found`);
     xml.replaceText(text, value);
     this.slide.setXml(xml.serialize());
+  }
+
+  setCellMargins(
+    rowIndex: number,
+    columnIndex: number,
+    value: TextBoxMarginInput | undefined,
+  ): void {
+    const margins = normalizeTextBoxMargins(value, 'Table cell margins');
+    this.slide.presentation.opcPackage.transaction(() => {
+      const { xml, element } = this.resolve();
+      const row = xml.descendants(element, 'tr')[rowIndex];
+      const cell = row ? xml.descendants(row, 'tc')[columnIndex] : undefined;
+      if (!cell) throw new RangeError(`Table cell ${rowIndex},${columnIndex} was not found`);
+      if (replaceTableCellMargins(xml, cell, margins, this.slide.partUri)) {
+        this.slide.setXml(xml.serialize());
+      }
+    });
   }
 
   setCellTextDirection(

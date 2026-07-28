@@ -517,6 +517,217 @@ describe('PresentationModel', () => {
     expect(table.rows[0]!.cells.map(({ textFit }) => textFit)).toEqual(rollbackFits);
   });
 
+  it('reads strict direct table-cell margins into detached point snapshots', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const part = pkg.requirePart('/ppt/slides/slide1.xml');
+    const cell = (
+      properties: string,
+      index: number,
+      bodyProperties = '<a:bodyPr/>',
+    ): string =>
+      `<a:tc><a:txBody>${bodyProperties}<a:p><a:r><a:t>Margins ${index}</a:t></a:r></a:p></a:txBody>${properties}</a:tc>`;
+    const cells = [
+      cell('<a:tcPr marT="45720" marR="91440" marB="137160" marL="182880"/>', 0),
+      cell('<a:tcPr marT="0" marL="-12700"/>', 1),
+      cell('<a:tcPr marR="1588"/>', 2),
+      cell('<a:tcPr marT="-2147483648" marB="2147483647"/>', 3),
+      cell('<a:tcPr vert="horz"/>', 4),
+      cell('<a:tcPr marT="" marR="101600" marB="1.5" marL="1e3"/>', 5),
+      cell(
+        '<a:tcPr xmlns:x="urn:test" x:marL="12700"/>',
+        6,
+        '<a:bodyPr lIns="12700" tIns="25400" rIns="38100" bIns="50800"/>',
+      ),
+      cell('<a:tcPr marT="12700" marT="25400"/>', 7),
+      cell('<a:tcPr mart="12700" marR=" 12700 "/>', 8),
+      cell('<a:tcPr marL="-2147483649" marR="2147483648"/>', 9),
+      cell('<a:tcPr marL="12700"/><a:tcPr marR="25400"/>', 10),
+      cell('', 11),
+    ].join('');
+    pkg.setPart(
+      part.uri,
+      new TextDecoder().decode(part.bytes).replace(/<a:tr>.*?<\/a:tr>/, `<a:tr>${cells}</a:tr>`),
+      part.contentType,
+    );
+    const table = new PresentationModel(pkg).slides[1]!.shapes[2] as TableModel;
+    const journal = [...pkg.mutations];
+
+    const snapshot = table.rows;
+    expect(snapshot[0]!.cells.map(({ margins }) => margins)).toEqual([
+      { top: 3.6, right: 7.2, bottom: 10.8, left: 14.4 },
+      { top: 0, left: -1 },
+      { right: 1_588 / 12_700 },
+      { top: -2_147_483_648 / 12_700, bottom: 2_147_483_647 / 12_700 },
+      undefined,
+      { right: 8 },
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    ]);
+    expect(pkg.mutations).toEqual(journal);
+
+    (snapshot[0]!.cells[0]!.margins as { top?: number }).top = 99;
+    expect(table.rows[0]!.cells[0]!.margins).toEqual({
+      top: 3.6,
+      right: 7.2,
+      bottom: 10.8,
+      left: 14.4,
+    });
+    expect(pkg.mutations).toEqual(journal);
+  });
+
+  it('losslessly replaces one table-cell margin set and rolls back atomically', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const part = pkg.requirePart('/ppt/slides/slide1.xml');
+    const textBody = (bodyProperties: string, text: string): string =>
+      `<a:txBody>${bodyProperties}<a:p><a:r><a:t>${text}</a:t></a:r></a:p></a:txBody>`;
+    const cell = (body: string, properties: string, attributes = ''): string =>
+      `<a:tc${attributes}>${body}${properties}</a:tc>`;
+    const adjacentCell = cell(
+      textBody('<a:bodyPr lIns="12700" keep="ADJACENT"><a:spAutoFit/></a:bodyPr>', 'Adjacent'),
+      '<a:tcPr marL="12700" marR="25400" marT="38100" marB="50800" anchor="b" vert="horz" keep="ADJACENT-TCPR"/>',
+    );
+    const cells = [
+      cell(
+        textBody(
+          '<a:bodyPr lIns="99999" tIns="88888" anchor="b" custom="BODY"><a:normAutofit fontScale="85000"/><x:keep xmlns:x="urn:test">BODY</x:keep></a:bodyPr>',
+          'Same numeric margins',
+        ),
+        '<a:tcPr marL="00101600" marR="101600" marT="101600" marB="101600" anchor=\'ctr\' vert="vert270" custom="KEEP"><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill><x:keep xmlns:x="urn:test">TCPR</x:keep></a:tcPr>',
+      ),
+      cell(textBody('<a:bodyPr/>', 'Add uniform'), '<a:tcPr anchor="t"/>'),
+      cell(
+        textBody('<a:bodyPr><a:noAutofit/></a:bodyPr>', 'Replace TRBL'),
+        '<a:tcPr marB=\'0\' marT="0" marR="0" marL="0" horzOverflow="clip"><a:noFill/></a:tcPr>',
+      ),
+      cell(
+        textBody('<a:bodyPr/>', 'Partial object'),
+        '<a:tcPr marT="1.5" marR="invalid" marB="25400" keep="PARTIAL"/>',
+      ),
+      cell(
+        textBody('<a:bodyPr/>', 'Clear object'),
+        '<a:tcPr marL="12700" marR="25400" marT="38100" marB="50800" anchor="b" keep="CLEAR-OBJECT"/>',
+      ),
+      cell(
+        textBody('<a:bodyPr/>', 'Clear undefined'),
+        '<a:tcPr xmlns:x="urn:test" marL="unknown" x:marL="777" vert="wordArtVert" keep="CLEAR-UNDEFINED"/>',
+      ),
+      adjacentCell,
+      cell(
+        textBody('<a:bodyPr><a:spAutoFit/></a:bodyPr>', 'Merged'),
+        '<a:tcPr marL="12700" marR="12700" marT="12700" marB="12700" anchor="ctr" vert="wordArtVert" keep="MERGED"/>',
+        ' hMerge="1"',
+      ),
+      cell(textBody('<a:bodyPr/>', 'Repeated margin'), '<a:tcPr marT="12700" marT="25400"/>'),
+      cell(textBody('<a:bodyPr/>', 'Repeated tcPr'), '<a:tcPr/><a:tcPr keep="SECOND"/>'),
+      cell(textBody('<a:bodyPr/>', 'Missing tcPr'), ''),
+    ].join('');
+    const source = new TextDecoder().decode(part.bytes)
+      .replace(
+        '<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="4" name="Table 1"/></p:nvGraphicFramePr><a:graphic>',
+        '<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="4" name="Table 1"/></p:nvGraphicFramePr><p:xfrm><a:off x="0" y="0"/><a:ext cx="1000" cy="2000"/></p:xfrm><a:graphic>',
+      )
+      .replace(/<a:tr>.*?<\/a:tr>/, `<a:tr>${cells}</a:tr>`);
+    pkg.setPart(part.uri, source, part.contentType);
+    const model = new PresentationModel(pkg);
+    const table = model.slides[1]!.shapes[2] as TableModel;
+
+    const noOpJournal = [...pkg.mutations];
+    table.setCellMargins(0, 0, 8);
+    expect(pkg.mutations).toEqual(noOpJournal);
+    expect(new TextDecoder().decode(pkg.requirePart(part.uri).bytes)).toContain(
+      '<a:tcPr marL="00101600" marR="101600" marT="101600" marB="101600"',
+    );
+
+    table.setCellMargins(0, 1, 4);
+    table.setCellMargins(0, 2, [1, 2, 3, 4]);
+    table.setCellMargins(0, 3, { top: 4, left: 8 });
+    table.setCellMargins(0, 4, {});
+    table.setCellMargins(0, 5, undefined);
+    table.setCellMargins(0, 7, { bottom: 6 });
+    let updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated).toContain(
+      '<a:tcPr anchor="t" marL="50800" marR="50800" marT="50800" marB="50800"/>',
+    );
+    expect(updated).toContain(
+      '<a:tcPr marB=\'38100\' marT="12700" marR="25400" marL="50800" horzOverflow="clip">',
+    );
+    expect(updated).toContain('<a:tcPr marT="50800" keep="PARTIAL" marL="101600"/>');
+    expect(updated).toContain('<a:tcPr anchor="b" keep="CLEAR-OBJECT"/>');
+    expect(updated).toContain(
+      '<a:tcPr xmlns:x="urn:test" x:marL="777" vert="wordArtVert" keep="CLEAR-UNDEFINED"/>',
+    );
+    expect(updated).toContain('<a:tc hMerge="1">');
+    expect(updated).toContain(
+      '<a:tcPr marB="76200" anchor="ctr" vert="wordArtVert" keep="MERGED"/>',
+    );
+    expect(updated).toContain('<a:bodyPr lIns="99999" tIns="88888" anchor="b" custom="BODY">');
+    expect(updated).toContain(adjacentCell);
+
+    table.setCellText(0, 2, 'Edited margins');
+    table.setCellTextDirection(0, 1, 'wordArtVert');
+    table.setCellTextFit(0, 0, 'resize');
+    table.setCellVerticalAlignment(0, 1, 'bottom');
+    table.setTransform({ x: inches(1) });
+    updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated).toContain('<a:t>Edited margins</a:t>');
+    expect(updated).toContain(
+      '<a:tcPr anchor="b" marL="50800" marR="50800" marT="50800" marB="50800" vert="wordArtVert"/>',
+    );
+    expect(updated).toContain(
+      '<a:tcPr marB=\'38100\' marT="12700" marR="25400" marL="50800" horzOverflow="clip">',
+    );
+    expect(updated).toContain('<a:bodyPr lIns="99999" tIns="88888" anchor="b" custom="BODY"><a:spAutoFit/>');
+    expect(updated).toContain('<a:off x="914400" y="0"/>');
+    expect(updated).toContain(adjacentCell);
+
+    expect(table.rows[0]!.cells[1]!.margins).toEqual({
+      top: 4,
+      right: 4,
+      bottom: 4,
+      left: 4,
+    });
+    expect(table.rows[0]!.cells[3]!.margins).toEqual({ top: 4, left: 8 });
+    expect(table.rows[0]!.cells[4]!.margins).toBeUndefined();
+    expect(table.rows[0]!.cells[5]!.margins).toBeUndefined();
+    expect(table.rows[0]!.cells[6]!.margins).toEqual({
+      top: 3,
+      right: 2,
+      bottom: 4,
+      left: 1,
+    });
+    expect(table.rows[0]!.cells[7]!.margins).toEqual({ bottom: 6 });
+
+    const beforeInvalid = pkg.requirePart(part.uri).bytes;
+    const invalidJournal = [...pkg.mutations];
+    for (const [row, column] of [[-1, 0], [0, -1], [0, 11], [1, 0]]) {
+      expect(() => table.setCellMargins(row!, column!, 4)).toThrow(RangeError);
+    }
+    for (const column of [8, 9, 10]) {
+      expect(() => table.setCellMargins(0, column, 4)).toThrow(ModelParseError);
+    }
+    expect(pkg.requirePart(part.uri).bytes).toEqual(beforeInvalid);
+    expect(pkg.mutations).toEqual(invalidJournal);
+
+    const beforeRollback = pkg.requirePart(part.uri).bytes;
+    const rollbackJournal = [...pkg.mutations];
+    const rollbackMargins = table.rows[0]!.cells.map(({ margins }) => margins);
+    expect(() =>
+      pkg.transaction(() => {
+        table.setCellMargins(0, 0, 1);
+        table.setCellMargins(0, 3, undefined);
+        throw new Error('restore table cell margins');
+      }),
+    ).toThrow('restore table cell margins');
+    expect(pkg.requirePart(part.uri).bytes).toEqual(beforeRollback);
+    expect(pkg.mutations).toEqual(rollbackJournal);
+    expect(model.slides[1]!.shapes[2]).toBe(table);
+    expect(table.rows[0]!.cells.map(({ margins }) => margins)).toEqual(rollbackMargins);
+  });
+
   it('reads only exact direct table-cell vertical alignments into detached snapshots', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const part = pkg.requirePart('/ppt/slides/slide1.xml');

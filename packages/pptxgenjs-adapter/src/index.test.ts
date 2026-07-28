@@ -279,6 +279,98 @@ describe('importPptxGenJS', () => {
     ]);
   });
 
+  it('imports PptxGenJS table-cell margins from direct cell properties', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    generated.layout = 'LAYOUT_WIDE';
+    const slide = generated.addSlide();
+    slide.addTable(
+      [[{ text: 'Omitted defaults', options: {} }]],
+      { x: 0.2, y: 0.2, w: 2, h: 0.5 },
+    );
+    slide.addTable(
+      [[{ text: 'Table zero', options: {} }]],
+      { x: 0.2, y: 1, w: 2, h: 0.5, margin: 0 },
+    );
+    slide.addTable(
+      [[{ text: 'Table 0.1 inch', options: {} }]],
+      { x: 0.2, y: 1.8, w: 2, h: 0.5, margin: 0.1 },
+    );
+    slide.addTable(
+      [[{ text: 'Table inch tuple', options: {} }]],
+      { x: 0.2, y: 2.6, w: 2, h: 0.5, margin: [0.05, 0.1, 0.15, 0.2] },
+    );
+    slide.addTable(
+      [[
+        { text: 'Inherited 0.1', options: {} },
+        { text: 'Cell zero', options: { margin: 0 } },
+        { text: 'Cell quarter inch', options: { margin: 0.25 } },
+        { text: 'Cell inch tuple', options: { margin: [0.05, 0.1, 0.15, 0.2] } },
+        { text: 'Cell scalar one point', options: { margin: 1 } },
+        { text: 'Cell point tuple', options: { margin: [1, 2, 3, 4] } },
+        { text: 'Cell negative inch', options: { margin: -0.1 } },
+      ]],
+      { x: 0.2, y: 3.4, w: 12.8, h: 1, margin: 0.1 },
+    );
+
+    const document = await importPptxGenJS(generated);
+    const tables = document.slides[0]!.shapes.filter(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    );
+    expect(tables).toHaveLength(5);
+    const snapshots = tables.map((table) =>
+      table.rows[0]!.cells.map(({ margins }) => margins));
+    expect(snapshots).toEqual([
+      [{ top: 3.6, right: 7.2, bottom: 3.6, left: 7.2 }],
+      [{ top: 0, right: 0, bottom: 0, left: 0 }],
+      [{ top: 7.2, right: 7.2, bottom: 7.2, left: 7.2 }],
+      [{ top: 3.6, right: 7.2, bottom: 10.8, left: 14.4 }],
+      [
+        { top: 7.2, right: 7.2, bottom: 7.2, left: 7.2 },
+        { top: 0, right: 0, bottom: 0, left: 0 },
+        { top: 18, right: 18, bottom: 18, left: 18 },
+        { top: 3.6, right: 7.2, bottom: 10.8, left: 14.4 },
+        { top: 1, right: 1, bottom: 1, left: 1 },
+        { top: 1, right: 2, bottom: 3, left: 4 },
+        { top: -7.2, right: -7.2, bottom: -7.2, left: -7.2 },
+      ],
+    ]);
+    expect(tables.flatMap(({ rows }) => rows[0]!.cells.map(({ text }) => text))).toEqual([
+      'Omitted defaults',
+      'Table zero',
+      'Table 0.1 inch',
+      'Table inch tuple',
+      'Inherited 0.1',
+      'Cell zero',
+      'Cell quarter inch',
+      'Cell inch tuple',
+      'Cell scalar one point',
+      'Cell point tuple',
+      'Cell negative inch',
+    ]);
+
+    const xml = new TextDecoder().decode(
+      document.opcPackage.requirePart(document.slides[0]!.partUri).bytes,
+    );
+    expect(xml.match(/<a:tcPr[^>]* marL=/g)).toHaveLength(11);
+    expect(xml.match(/<a:tcPr[^>]* marR=/g)).toHaveLength(11);
+    expect(xml.match(/<a:tcPr[^>]* marT=/g)).toHaveLength(11);
+    expect(xml.match(/<a:tcPr[^>]* marB=/g)).toHaveLength(11);
+    expect(xml.match(/<a:tcPr marL="91440" marR="91440" marT="91440" marB="91440">/g)).toHaveLength(2);
+    expect(xml.match(/<a:tcPr marL="182880" marR="91440" marT="45720" marB="137160">/g)).toHaveLength(2);
+    expect(xml).toContain('<a:tcPr marL="12700" marR="12700" marT="12700" marB="12700">');
+    expect(xml).toContain('<a:tcPr marL="50800" marR="25400" marT="12700" marB="38100">');
+    expect(xml).toContain('<a:tcPr marL="-91440" marR="-91440" marT="-91440" marB="-91440">');
+    expect(xml).not.toMatch(/<a:bodyPr[^>]*(?:lIns|rIns|tIns|bIns)=/);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedTables = reopened.slides[0]!.shapes.filter(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    );
+    expect(reopenedTables.map((table) =>
+      table.rows[0]!.cells.map(({ margins }) => margins))).toEqual(snapshots);
+  });
+
   it('imports public PptxGenJS output and continues editing in the OOXML kernel', async () => {
     const generated = new PptxGenJS();
     expect(generated.version).toBe('4.0.1');
