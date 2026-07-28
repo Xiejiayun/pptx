@@ -535,6 +535,133 @@ describe('PresentationModel', () => {
     }
   });
 
+  it('reads and losslessly replaces direct text-box direction', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.slides[1]!;
+    const part = pkg.requirePart(slide.partUri);
+    const bodyProperties = [
+      `<a:bodyPr wrap="none" lIns="127000" anchor="b" vert='vert270' rtlCol="1" custom="KEEP">`,
+      '<a:normAutofit fontScale="90000"/>',
+      '<x:keep xmlns:x="urn:test">KEEP</x:keep>',
+      '</a:bodyPr>',
+    ].join('');
+    pkg.setPart(
+      part.uri,
+      new TextDecoder().decode(part.bytes).replace(
+        '<p:txBody><a:p>',
+        `<p:txBody>${bodyProperties}<a:p>`,
+      ),
+      part.contentType,
+    );
+    const shape = slide.shapes[0] as ShapeModel;
+    const journal = [...pkg.mutations];
+
+    expect(shape.textDirection).toBe('vert270');
+    expect(shape.textDirection).toBe('vert270');
+    expect(pkg.mutations).toEqual(journal);
+    expect(shape.textMargins).toEqual({ left: 10 });
+    expect(shape.verticalAlignment).toBe('bottom');
+    expect(shape.textWrap).toBe(false);
+
+    shape.textDirection = 'wordArtVert';
+    expect(shape.textDirection).toBe('wordArtVert');
+    let updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated).toContain(`vert='wordArtVert'`);
+    expect(updated).toContain('rtlCol="1" custom="KEEP"');
+
+    shape.textDirection = 'eaVert';
+    expect(shape.textDirection).toBe('eaVert');
+    shape.text = 'Plain replacement';
+    shape.richText = [{ runs: [{ text: 'Rich replacement', style: { bold: true } }] }];
+    shape.textMargins = { top: 4, left: 8 };
+    shape.verticalAlignment = 'top';
+    shape.textWrap = true;
+    shape.setTransform({ x: inches(3) });
+    expect(shape.textDirection).toBe('eaVert');
+    expect(slide.shapes[0]).toBe(shape);
+    updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated).toContain(`vert='eaVert'`);
+    expect(updated).toContain('wrap="square"');
+    expect(updated).toContain('anchor="t"');
+    expect(updated).toContain('rtlCol="1" custom="KEEP"');
+    expect(updated).toContain('<a:normAutofit fontScale="90000"/>');
+    expect(updated).toContain('<x:keep xmlns:x="urn:test">KEEP</x:keep>');
+
+    const beforeRollback = pkg.requirePart(part.uri).bytes.slice();
+    const rollbackJournal = [...pkg.mutations];
+    expect(() =>
+      pkg.transaction(() => {
+        shape.textDirection = 'horz';
+        throw new Error('restore text direction');
+      }),
+    ).toThrow('restore text direction');
+    expect(pkg.requirePart(part.uri).bytes).toEqual(beforeRollback);
+    expect(pkg.mutations).toEqual(rollbackJournal);
+    expect(shape.textDirection).toBe('eaVert');
+    expect(slide.shapes[0]).toBe(shape);
+
+    shape.textDirection = undefined;
+    expect(shape.textDirection).toBeUndefined();
+    updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated).not.toMatch(/\svert=/);
+    expect(updated).toContain('wrap="square"');
+    expect(updated).toContain('anchor="t"');
+    expect(updated).toContain('rtlCol="1" custom="KEEP"');
+    expect(updated).toContain('<a:normAutofit fontScale="90000"/>');
+    expect(updated).toContain('<x:keep xmlns:x="urn:test">KEEP</x:keep>');
+  });
+
+  it('reads only supported direct text-box direction tokens', async () => {
+    const directions = [
+      'eaVert',
+      'horz',
+      'mongolianVert',
+      'vert',
+      'vert270',
+      'wordArtVert',
+      'wordArtVertRtl',
+    ] as const;
+    const cases: ReadonlyArray<readonly [string | undefined, string | undefined]> = [
+      ...directions.map((direction) => [direction, direction] as const),
+      [undefined, undefined],
+      ['', undefined],
+      ['Vert', undefined],
+      [' vert ', undefined],
+      ['vertical', undefined],
+      ['unknown', undefined],
+    ];
+    for (const [token, expected] of cases) {
+      const pkg = await OpcPackage.open(await modelFixture());
+      const model = new PresentationModel(pkg);
+      const slide = model.slides[1]!;
+      const part = pkg.requirePart(slide.partUri);
+      const vert = token === undefined ? '' : ` vert="${token}"`;
+      pkg.setPart(
+        part.uri,
+        new TextDecoder().decode(part.bytes).replace(
+          '<p:txBody><a:p>',
+          `<p:txBody><a:bodyPr${vert}/><a:p>`,
+        ),
+        part.contentType,
+      );
+      const shape = slide.shapes[0] as ShapeModel;
+      const journal = [...pkg.mutations];
+
+      expect(shape.textDirection).toBe(expected);
+      expect(pkg.mutations).toEqual(journal);
+      if (token === 'vertical') {
+        shape.text = 'Plain replacement';
+        shape.richText = [{ runs: [{ text: 'Rich replacement' }] }];
+        shape.textMargins = 2;
+        shape.verticalAlignment = 'bottom';
+        shape.textWrap = false;
+        shape.setTransform({ x: inches(2) });
+        expect(new TextDecoder().decode(pkg.requirePart(part.uri).bytes)).toContain('vert="vertical"');
+      }
+    }
+  });
+
   it('reads strict local underline values and preserves their XML during plain text edits', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);
@@ -1293,6 +1420,10 @@ describe('PresentationModel', () => {
       expect(() => shape.textWrap).toThrow(malformedTextBody ? /body properties/ : /text body/);
       expect(() => {
         shape.textWrap = false;
+      }).toThrow(malformedTextBody ? /body properties/ : /text body/);
+      expect(() => shape.textDirection).toThrow(malformedTextBody ? /body properties/ : /text body/);
+      expect(() => {
+        shape.textDirection = 'vert';
       }).toThrow(malformedTextBody ? /body properties/ : /text body/);
       expect(pkg.requirePart(part.uri).bytes).toEqual(before);
       expect(pkg.mutations).toEqual(journal);

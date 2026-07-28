@@ -1508,6 +1508,155 @@ describe('PptxDocument vertical slice', () => {
     expect(slide.shapes[0]).toBe(shape);
   });
 
+  it('creates, edits, duplicates, and reopens every text-box text direction', async () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const directions = [
+      'eaVert',
+      'horz',
+      'mongolianVert',
+      'vert',
+      'vert270',
+      'wordArtVert',
+      'wordArtVertRtl',
+    ] as const;
+    const omitted = slide.addText('Omitted', { name: 'Direction omitted' });
+    const directed = directions.map((direction, index) => index % 2 === 0
+      ? slide.addText(direction, {
+        name: `Direction ${direction}`,
+        vert: direction,
+        ...(index === 0 ? { margin: 8, valign: 'bottom' as const, wrap: false } : {}),
+      })
+      : slide.addRichText([{
+        align: 'center',
+        runs: [{ text: direction, style: { bold: true } }],
+      }], {
+        name: `Direction ${direction}`,
+        vert: direction,
+      }));
+
+    expect(omitted.textDirection).toBeUndefined();
+    expect(directed.map(({ textDirection }) => textDirection)).toEqual(directions);
+    expect(directed[0]!.textMargins).toEqual({ top: 8, right: 8, bottom: 8, left: 8 });
+    expect(directed[0]!.verticalAlignment).toBe('bottom');
+    expect(directed[0]!.textWrap).toBe(false);
+    const createdXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(createdXml).toMatch(
+      /name="Direction omitted"[\s\S]*?<a:bodyPr(?![^>]*\svert=)[^>]*\/>/,
+    );
+    for (const direction of directions) {
+      expect(createdXml).toMatch(
+        new RegExp(`name="Direction ${direction}"[\\s\\S]*?<a:bodyPr[^>]* vert="${direction}"\\/>`),
+      );
+    }
+
+    document.duplicateSlide(0);
+    directed[0]!.textDirection = 'vert270';
+    directed[0]!.text = 'Plain replacement';
+    directed[0]!.richText = [{ runs: [{ text: 'Rich replacement', style: { italic: true } }] }];
+    directed[0]!.textMargins = { top: 6, left: 8 };
+    directed[0]!.verticalAlignment = 'middle';
+    directed[0]!.textWrap = true;
+    directed[0]!.setTransform({ x: inches(2) });
+    directed[1]!.textDirection = undefined;
+    expect(directed[1]!.textDirection).toBeUndefined();
+    directed[1]!.textDirection = 'wordArtVert';
+    expect(directed[1]!.textDirection).toBe('wordArtVert');
+    directed[1]!.textDirection = undefined;
+    omitted.textDirection = 'horz';
+    expect(omitted.textDirection).toBe('horz');
+    omitted.textDirection = undefined;
+    expect(omitted.textDirection).toBeUndefined();
+    expect(slide.shapes[0]).toBe(omitted);
+    expect(slide.shapes[1]).toBe(directed[0]);
+    expect(slide.shapes[2]).toBe(directed[1]);
+
+    const editedXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(editedXml).toMatch(/name="Direction eaVert"[\s\S]*?<a:bodyPr[^>]* vert="vert270"\/>/);
+    expect(editedXml).toMatch(
+      /name="Direction horz"[\s\S]*?<a:bodyPr(?![^>]*\svert=)[^>]*\/>/,
+    );
+
+    const beforeRollback = document.opcPackage.requirePart(slide.partUri).bytes;
+    const journal = [...document.opcPackage.mutations];
+    expect(() =>
+      document.transaction(() => {
+        directed[2]!.textDirection = 'wordArtVertRtl';
+        throw new Error('restore text direction');
+      }),
+    ).toThrow('restore text direction');
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(beforeRollback);
+    expect(document.opcPackage.mutations).toEqual(journal);
+    expect(directed[2]!.textDirection).toBe('mongolianVert');
+    expect(slide.shapes[3]).toBe(directed[2]);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const edited = reopened.slides[0]!.shapes as readonly ShapeModel[];
+    const duplicated = reopened.slides[1]!.shapes as readonly ShapeModel[];
+    expect(edited.map(({ textDirection }) => textDirection)).toEqual([
+      undefined,
+      'vert270',
+      undefined,
+      'mongolianVert',
+      'vert',
+      'vert270',
+      'wordArtVert',
+      'wordArtVertRtl',
+    ]);
+    expect(duplicated.map(({ textDirection }) => textDirection)).toEqual([
+      undefined,
+      ...directions,
+    ]);
+    expect(edited[1]!.text).toBe('Rich replacement');
+    expect(edited[1]!.textMargins).toEqual({ top: 6, left: 8 });
+    expect(edited[1]!.verticalAlignment).toBe('middle');
+    expect(edited[1]!.textWrap).toBe(true);
+    expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+  });
+
+  it('rejects malformed text-box text direction without changing package state', () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const shape = slide.addText('Original', {
+      vert: 'vert',
+      margin: { top: 4, left: 8 },
+      valign: 'top',
+      wrap: false,
+    });
+    const before = document.opcPackage.requirePart(slide.partUri).bytes;
+    const journal = [...document.opcPackage.mutations];
+
+    for (const direction of [
+      null,
+      true,
+      1,
+      '',
+      'Vert',
+      ' vert ',
+      'vertical',
+      'unknown',
+      {},
+      [],
+      Symbol('vert'),
+    ]) {
+      expect(() => slide.addText('Invalid', { vert: direction as never })).toThrow(TypeError);
+      expect(() => slide.addRichText([{ runs: [{ text: 'Invalid' }] }], {
+        vert: direction as never,
+      })).toThrow(TypeError);
+      expect(() => {
+        shape.textDirection = direction as never;
+      }).toThrow(TypeError);
+    }
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(before);
+    expect(document.opcPackage.mutations).toEqual(journal);
+    expect(shape.text).toBe('Original');
+    expect(shape.textMargins).toEqual({ top: 4, left: 8 });
+    expect(shape.verticalAlignment).toBe('top');
+    expect(shape.textWrap).toBe(false);
+    expect(shape.textDirection).toBe('vert');
+    expect(slide.shapes[0]).toBe(shape);
+  });
+
   it('creates, edits, duplicates, and reopens rich text highlight colors', async () => {
     const document = PptxDocument.create();
     const slide = document.addSlide();

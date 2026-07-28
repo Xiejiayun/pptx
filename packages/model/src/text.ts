@@ -112,6 +112,15 @@ export type TextBoxMarginInput =
 
 export type TextBoxVerticalAlignment = 'top' | 'middle' | 'bottom';
 
+export type TextBoxTextDirection =
+  | 'eaVert'
+  | 'horz'
+  | 'mongolianVert'
+  | 'vert'
+  | 'vert270'
+  | 'wordArtVert'
+  | 'wordArtVertRtl';
+
 export interface RichTextRunStyle {
   readonly fontFamily?: string;
   readonly fontSize?: number;

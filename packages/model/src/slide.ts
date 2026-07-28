@@ -33,6 +33,12 @@ import {
   replaceTextBoxMargins,
 } from './text-box-margins.internal.js';
 import {
+  normalizeTextBoxTextDirection,
+  readTextBoxTextDirection,
+  renderTextBoxTextDirectionAttribute,
+  replaceTextBoxTextDirection,
+} from './text-box-text-direction.internal.js';
+import {
   normalizeTextBoxVerticalAlignment,
   readTextBoxVerticalAlignment,
   renderTextBoxVerticalAlignmentAttribute,
@@ -51,6 +57,7 @@ import type {
   RichTextParagraph,
   TextBoxMarginInput,
   TextBoxMargins,
+  TextBoxTextDirection,
   TextBoxVerticalAlignment,
   TextAlignment,
 } from './text.js';
@@ -65,6 +72,7 @@ export interface AddTextOptions extends Partial<Transform> {
   readonly spacing?: ParagraphSpacing;
   readonly tabStops?: readonly ParagraphTabStop[];
   readonly valign?: TextBoxVerticalAlignment;
+  readonly vert?: TextBoxTextDirection;
   readonly wrap?: boolean;
 }
 
@@ -249,6 +257,22 @@ export class SlideModel {
     });
   }
 
+  getShapeTextDirection(id: number): TextBoxTextDirection | undefined {
+    const { xml, element } = this.resolveShape(id);
+    return readTextBoxTextDirection(xml, element, this.partUri);
+  }
+
+  setShapeTextDirection(id: number, value: TextBoxTextDirection | undefined): void {
+    this.presentation.opcPackage.transaction(() => {
+      const direction = value === undefined
+        ? undefined
+        : normalizeTextBoxTextDirection(value, 'Text direction');
+      const { xml, element } = this.resolveShape(id);
+      replaceTextBoxTextDirection(xml, element, direction, this.partUri);
+      this.setXml(xml.serialize());
+    });
+  }
+
   setShapeTransform(id: number, changes: Partial<Transform>): void {
     const { xml, element } = this.resolveShape(id);
     const xfrm = xml.descendants(element, 'xfrm')[0];
@@ -287,6 +311,7 @@ export class SlideModel {
         options,
         normalized.margin,
         normalized.verticalAlignment,
+        normalized.textDirection,
         normalized.textWrap,
       );
     });
@@ -307,6 +332,7 @@ export class SlideModel {
         options,
         defaults.margin,
         defaults.verticalAlignment,
+        defaults.textDirection,
         defaults.textWrap,
       );
     });
@@ -321,6 +347,7 @@ export class SlideModel {
     options: AddTextOptions,
     margins: TextBoxMargins | undefined,
     verticalAlignment: TextBoxVerticalAlignment,
+    textDirection: TextBoxTextDirection | undefined,
     textWrap: boolean,
   ): ShapeModel {
     const { xml } = this.parse();
@@ -329,7 +356,15 @@ export class SlideModel {
       .find(({ parent }) => parent?.localName === 'cSld');
     if (!shapeTree) throw new ModelParseError('Slide does not contain a shape tree', this.partUri);
     const nextId = allocateShapeId(xml);
-    const shapeXml = textShapeXml(nextId, paragraphs, options, margins, verticalAlignment, textWrap);
+    const shapeXml = textShapeXml(
+      nextId,
+      paragraphs,
+      options,
+      margins,
+      verticalAlignment,
+      textDirection,
+      textWrap,
+    );
     const extensionList = shapeTree.children.find(
       (child): child is XmlElement => child.type === 'element' && child.localName === 'extLst',
     );
@@ -396,6 +431,7 @@ interface NormalizedTextInput {
   readonly spacing: NormalizedParagraphSpacingUpdate | undefined;
   readonly tabStops: readonly NormalizedParagraphTabStop[] | undefined;
   readonly verticalAlignment: TextBoxVerticalAlignment;
+  readonly textDirection: TextBoxTextDirection | undefined;
   readonly textWrap: boolean;
 }
 
@@ -410,6 +446,7 @@ function validateTextInput(value: string, options: AddTextOptions): NormalizedTe
     spacing: defaults.spacing,
     tabStops: defaults.tabStops,
     verticalAlignment: defaults.verticalAlignment,
+    textDirection: defaults.textDirection,
     textWrap: defaults.textWrap,
   };
 }
@@ -421,6 +458,7 @@ interface NormalizedAddTextOptions {
   readonly spacing?: NormalizedParagraphSpacingUpdate;
   readonly tabStops?: readonly NormalizedParagraphTabStop[];
   readonly verticalAlignment: TextBoxVerticalAlignment;
+  readonly textDirection?: TextBoxTextDirection;
   readonly textWrap: boolean;
 }
 
@@ -475,6 +513,9 @@ function validateAddTextOptions(options: AddTextOptions): NormalizedAddTextOptio
   const verticalAlignment = options.valign === undefined
     ? 'middle'
     : normalizeTextBoxVerticalAlignment(options.valign, 'Text vertical alignment');
+  const textDirection = options.vert === undefined
+    ? undefined
+    : normalizeTextBoxTextDirection(options.vert, 'Text direction');
   const textWrap = options.wrap === undefined
     ? true
     : normalizeTextBoxWrap(options.wrap, 'Text wrap');
@@ -485,6 +526,7 @@ function validateAddTextOptions(options: AddTextOptions): NormalizedAddTextOptio
     ...(spacing !== undefined ? { spacing } : {}),
     ...(tabStops !== undefined ? { tabStops } : {}),
     verticalAlignment,
+    ...(textDirection !== undefined ? { textDirection } : {}),
     textWrap,
   };
 }
@@ -512,6 +554,7 @@ function textShapeXml(
   options: AddTextOptions,
   margins: TextBoxMargins | undefined,
   verticalAlignment: TextBoxVerticalAlignment,
+  textDirection: TextBoxTextDirection | undefined,
   textWrap: boolean,
 ): string {
   const x = Math.round(options.x ?? 0);
@@ -528,7 +571,10 @@ function textShapeXml(
   const wrapAttribute = renderTextBoxWrapAttribute(textWrap);
   const marginAttributes = renderTextBoxMarginAttributes(margins);
   const verticalAlignmentAttribute = renderTextBoxVerticalAlignmentAttribute(verticalAlignment);
-  return `<p:sp xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><p:nvSpPr><p:cNvPr id="${id}" name="${name}"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm${transformAttributes}><a:off x="${x}" y="${y}"/><a:ext cx="${width}" cy="${height}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></p:spPr><p:txBody><a:bodyPr${wrapAttribute}${marginAttributes} rtlCol="0"${verticalAlignmentAttribute}/><a:lstStyle/>${paragraphs}</p:txBody></p:sp>`;
+  const textDirectionAttribute = textDirection === undefined
+    ? ''
+    : renderTextBoxTextDirectionAttribute(textDirection);
+  return `<p:sp xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><p:nvSpPr><p:cNvPr id="${id}" name="${name}"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm${transformAttributes}><a:off x="${x}" y="${y}"/><a:ext cx="${width}" cy="${height}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></p:spPr><p:txBody><a:bodyPr${wrapAttribute}${marginAttributes} rtlCol="0"${verticalAlignmentAttribute}${textDirectionAttribute}/><a:lstStyle/>${paragraphs}</p:txBody></p:sp>`;
 }
 
 function textParagraphXml(

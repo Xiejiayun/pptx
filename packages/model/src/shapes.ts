@@ -14,6 +14,7 @@ import type {
   RichTextParagraph,
   TextBoxMarginInput,
   TextBoxMargins,
+  TextBoxTextDirection,
   TextBoxVerticalAlignment,
 } from './text.js';
 import { type Emu, type OoxmlAngle, type Transform } from './units.js';
@@ -112,6 +113,14 @@ export class ShapeModel extends BaseShapeModel {
 
   set textWrap(value: boolean | undefined) {
     this.slide.setShapeTextWrap(this.id, value);
+  }
+
+  get textDirection(): TextBoxTextDirection | undefined {
+    return this.slide.getShapeTextDirection(this.id);
+  }
+
+  set textDirection(value: TextBoxTextDirection | undefined) {
+    this.slide.setShapeTextDirection(this.id, value);
   }
 
   get gradientFill(): GradientFill | undefined {

@@ -57,10 +57,12 @@ const text = document.addSlide().addText('Quarterly results\nQ4 forecast', {
   height: inches(1),
   align: 'center',
   valign: 'middle',
+  vert: 'vert270',
   wrap: true,
 });
 text.text = 'Updated results\nApproved';
 text.verticalAlignment = 'bottom';
+text.textDirection = 'wordArtVert';
 text.textWrap = false;
 ```
 
@@ -90,6 +92,8 @@ Text-box `margin` values use points and accept one number, a `[top, right, botto
 Text-box `valign` accepts `top`, `middle`, or `bottom`; omission creates an explicit middle anchor. `shape.verticalAlignment` reads or replaces only the direct text-body anchor, and assigning `undefined` removes that direct override while preserving margins, autofit metadata, and other text-body content.
 
 Text-box `wrap` accepts a boolean; omission and true create explicit automatic wrapping, while false keeps text on an unwrapped line. `shape.textWrap` reads or replaces only the direct text-body wrapping token, and assigning `undefined` removes that direct override without changing fit, margins, vertical alignment, or text content.
+
+Text-box `vert` accepts `eaVert`, `horz`, `mongolianVert`, `vert`, `vert270`, `wordArtVert`, or `wordArtVertRtl`. Omission writes no direction, so it remains distinct from explicit `horz`. `shape.textDirection` reads or replaces only an exact valid direct `bodyPr@vert`; assigning `undefined` clears that override while preserving unknown direction tokens during unrelated edits. Table-cell direction is a separate capability.
 
 Slide and shape model objects have stable identity within a document: repeated collection reads and slide reordering return the same member instances. Their properties remain live and read the current OOXML rather than a cached snapshot. Master, layout, and theme models follow the same rule within `document.masterLayoutTheme`.
 

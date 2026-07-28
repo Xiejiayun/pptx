@@ -30,6 +30,7 @@
 - Added point-based text-box margin creation and direct four-side editing with scalar, documented TRBL tuple, named-object, and PptxGenJS output support.
 - Added PptxGenJS-compatible top, middle, and bottom text-box vertical alignment with direct lossless editing and clearing.
 - Added PptxGenJS-compatible text-box wrapping with strict boolean creation plus direct lossless editing and clearing.
+- Added all seven PptxGenJS text-box directions with strict creation plus direct lossless editing and clearing.
 
 ## 0.1.0 - 2026-07-25
 

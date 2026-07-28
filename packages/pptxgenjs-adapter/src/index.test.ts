@@ -362,6 +362,58 @@ describe('importPptxGenJS', () => {
         objectName: 'Wrap run ignored',
       },
     );
+    const textDirections = [
+      'eaVert',
+      'horz',
+      'mongolianVert',
+      'vert',
+      'vert270',
+      'wordArtVert',
+      'wordArtVertRtl',
+    ] as const;
+    generatedSlide.addText('Omitted text direction', {
+      x: 6,
+      y: 0,
+      w: 2,
+      h: 0.5,
+      objectName: 'Direction omitted',
+    });
+    for (const [index, direction] of textDirections.entries()) {
+      generatedSlide.addText(direction, {
+        x: 6,
+        y: (index + 1) * 0.5,
+        w: 2,
+        h: 0.5,
+        vert: direction,
+        objectName: `Direction ${direction}`,
+      });
+    }
+    generatedSlide.addText('Invalid text direction', {
+      x: 6,
+      y: 4,
+      w: 2,
+      h: 0.5,
+      vert: 'vertical',
+      objectName: 'Direction invalid passthrough',
+    });
+    generatedSlide.addText('Ignored textDirection alias', {
+      x: 6,
+      y: 4.5,
+      w: 2,
+      h: 0.5,
+      textDirection: 'vert',
+      objectName: 'Direction alias ignored',
+    });
+    generatedSlide.addText(
+      [{ text: 'Ignored run text direction', options: { vert: 'vert270', textDirection: 'vert' } }],
+      {
+        x: 6,
+        y: 5,
+        w: 2,
+        h: 0.5,
+        objectName: 'Direction run ignored',
+      },
+    );
     const document = await importPptxGenJS(generated);
     expect(document.slides[0]?.title.text).toBe('Created by PptxGenJS');
     expect((document.slides[0]!.shapes[0] as ShapeModel).richText[0]!.align).toBe('center');
@@ -548,6 +600,19 @@ describe('importPptxGenJS', () => {
       true,
       true,
     ]);
+    expect([
+      'Direction omitted',
+      ...textDirections.map((direction) => `Direction ${direction}`),
+      'Direction invalid passthrough',
+      'Direction alias ignored',
+      'Direction run ignored',
+    ].map((name) => shapeByName(name).textDirection)).toEqual([
+      undefined,
+      ...textDirections,
+      undefined,
+      undefined,
+      undefined,
+    ]);
     const importedXml = new TextDecoder().decode(
       document.opcPackage.requirePart(document.slides[0]!.partUri).bytes,
     );
@@ -562,6 +627,23 @@ describe('importPptxGenJS', () => {
     expect(importedXml).toMatch(/name="Wrap false"[\s\S]*?<a:bodyPr[^>]*wrap="none"/);
     expect(importedXml).toMatch(/name="Wrap invalid fallback"[\s\S]*?<a:bodyPr[^>]*wrap="square"/);
     expect(importedXml).toMatch(/name="Wrap run ignored"[\s\S]*?<a:bodyPr[^>]*wrap="square"/);
+    expect(importedXml).toMatch(
+      /name="Direction omitted"[\s\S]*?<a:bodyPr(?![^>]*\svert=)[^>]*>/,
+    );
+    for (const direction of textDirections) {
+      expect(importedXml).toMatch(
+        new RegExp(`name="Direction ${direction}"[\\s\\S]*?<a:bodyPr[^>]* vert="${direction}"`),
+      );
+    }
+    expect(importedXml).toMatch(
+      /name="Direction invalid passthrough"[\s\S]*?<a:bodyPr[^>]* vert="vertical"/,
+    );
+    expect(importedXml).toMatch(
+      /name="Direction alias ignored"[\s\S]*?<a:bodyPr(?![^>]*\svert=)[^>]*>/,
+    );
+    expect(importedXml).toMatch(
+      /name="Direction run ignored"[\s\S]*?<a:bodyPr(?![^>]*\svert=)[^>]*>/,
+    );
     document.slides[0]!.title.text = 'Edited by the OOXML kernel';
     document.duplicateSlide(0);
 
@@ -699,6 +781,17 @@ describe('importPptxGenJS', () => {
       ['Wrap false', false],
       ['Wrap invalid fallback', true],
       ['Wrap run ignored', true],
+    ]);
+    const reopenedDirections = reopened.slides[1]!.shapes
+      .filter((shape): shape is ShapeModel => shape instanceof ShapeModel)
+      .filter(({ name }) => name.startsWith('Direction '))
+      .map(({ name, textDirection }) => [name, textDirection]);
+    expect(reopenedDirections).toEqual([
+      ['Direction omitted', undefined],
+      ...textDirections.map((direction) => [`Direction ${direction}`, direction]),
+      ['Direction invalid passthrough', undefined],
+      ['Direction alias ignored', undefined],
+      ['Direction run ignored', undefined],
     ]);
   }, 10_000);
 
