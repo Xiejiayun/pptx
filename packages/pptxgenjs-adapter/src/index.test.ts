@@ -225,6 +225,61 @@ describe('importPptxGenJS', () => {
       ],
       { x: 9, y: 9, w: 3, h: 1 },
     );
+    generatedSlide.addText('Omitted margin', {
+      x: 0,
+      y: 0,
+      w: 2,
+      h: 0.5,
+      objectName: 'Margin omitted',
+    });
+    generatedSlide.addText('Zero margin', {
+      x: 0,
+      y: 0.5,
+      w: 2,
+      h: 0.5,
+      margin: 0,
+      objectName: 'Margin zero',
+    });
+    generatedSlide.addText('Scalar margin', {
+      x: 0,
+      y: 1,
+      w: 2,
+      h: 0.5,
+      margin: 10,
+      objectName: 'Margin scalar',
+    });
+    generatedSlide.addText('Tuple margin', {
+      x: 0,
+      y: 1.5,
+      w: 2,
+      h: 0.5,
+      margin: [4, 8, 8, 4],
+      objectName: 'Margin tuple',
+    });
+    generatedSlide.addText('Fractional margin', {
+      x: 0,
+      y: 2,
+      w: 2,
+      h: 0.5,
+      margin: 0.125,
+      objectName: 'Margin fractional',
+    });
+    generatedSlide.addText('Negative margin', {
+      x: 0,
+      y: 2.5,
+      w: 2,
+      h: 0.5,
+      margin: -0.5,
+      objectName: 'Margin negative',
+    });
+    generatedSlide.addText('Asymmetric probe', {
+      x: 0,
+      y: 3,
+      w: 2,
+      h: 0.5,
+      margin: [1, 2, 3, 4],
+      objectName: 'Margin asymmetric probe',
+    });
     const document = await importPptxGenJS(generated);
     expect(document.slides[0]?.title.text).toBe('Created by PptxGenJS');
     expect((document.slides[0]!.shapes[0] as ShapeModel).richText[0]!.align).toBe('center');
@@ -353,6 +408,42 @@ describe('importPptxGenJS', () => {
     const spaced = (document.slides[0]!.shapes[23] as ShapeModel).richText[0]!.runs;
     expect(spaced.map(({ style }) => style?.characterSpacing)).toEqual([2.5, -1.25, 0, undefined, 3, undefined]);
     expect(spaced[4]!.style!.baseline).toBe('superscript');
+    const marginShape = (name: string): ShapeModel => {
+      const shape = document.slides[0]!.shapes.find((candidate) => candidate.name === name);
+      expect(shape).toBeInstanceOf(ShapeModel);
+      return shape as ShapeModel;
+    };
+    expect(marginShape('Margin omitted').textMargins).toBeUndefined();
+    expect(marginShape('Margin zero').textMargins).toEqual({ top: 0, right: 0, bottom: 0, left: 0 });
+    expect(marginShape('Margin scalar').textMargins).toEqual({
+      top: 10,
+      right: 10,
+      bottom: 10,
+      left: 10,
+    });
+    expect(marginShape('Margin tuple').textMargins).toEqual({ top: 4, right: 8, bottom: 8, left: 4 });
+    expect(marginShape('Margin fractional').textMargins).toEqual({
+      top: 1_588 / 12_700,
+      right: 1_588 / 12_700,
+      bottom: 1_588 / 12_700,
+      left: 1_588 / 12_700,
+    });
+    expect(marginShape('Margin negative').textMargins).toEqual({
+      top: -0.5,
+      right: -0.5,
+      bottom: -0.5,
+      left: -0.5,
+    });
+    expect(marginShape('Margin asymmetric probe').textMargins).toEqual({
+      top: 4,
+      right: 2,
+      bottom: 3,
+      left: 1,
+    });
+    const importedXml = new TextDecoder().decode(
+      document.opcPackage.requirePart(document.slides[0]!.partUri).bytes,
+    );
+    expect(importedXml).toContain('lIns="12700" tIns="50800" rIns="25400" bIns="38100"');
     document.slides[0]!.title.text = 'Edited by the OOXML kernel';
     document.duplicateSlide(0);
 
@@ -451,6 +542,24 @@ describe('importPptxGenJS', () => {
     expect(reopenedSpaced.map(({ style }) => style?.characterSpacing))
       .toEqual([2.5, -1.25, 0, undefined, 3, undefined]);
     expect(reopenedSpaced[4]!.style!.baseline).toBe('superscript');
+    const reopenedMargins = reopened.slides[1]!.shapes
+      .filter((shape): shape is ShapeModel => shape instanceof ShapeModel)
+      .filter(({ name }) => name.startsWith('Margin '))
+      .map(({ name, textMargins }) => [name, textMargins]);
+    expect(reopenedMargins).toEqual([
+      ['Margin omitted', undefined],
+      ['Margin zero', { top: 0, right: 0, bottom: 0, left: 0 }],
+      ['Margin scalar', { top: 10, right: 10, bottom: 10, left: 10 }],
+      ['Margin tuple', { top: 4, right: 8, bottom: 8, left: 4 }],
+      ['Margin fractional', {
+        top: 1_588 / 12_700,
+        right: 1_588 / 12_700,
+        bottom: 1_588 / 12_700,
+        left: 1_588 / 12_700,
+      }],
+      ['Margin negative', { top: -0.5, right: -0.5, bottom: -0.5, left: -0.5 }],
+      ['Margin asymmetric probe', { top: 4, right: 2, bottom: 3, left: 1 }],
+    ]);
   });
 
   it('keeps pptxgenjs out of every non-adapter package dependency list', async () => {

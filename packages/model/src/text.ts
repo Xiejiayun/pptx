@@ -98,6 +98,18 @@ export interface ParagraphTabStop {
   readonly alignment?: ParagraphTabStopAlignment;
 }
 
+export interface TextBoxMargins {
+  readonly top?: number;
+  readonly right?: number;
+  readonly bottom?: number;
+  readonly left?: number;
+}
+
+export type TextBoxMarginInput =
+  | number
+  | readonly [top: number, right: number, bottom: number, left: number]
+  | TextBoxMargins;
+
 export interface RichTextRunStyle {
   readonly fontFamily?: string;
   readonly fontSize?: number;

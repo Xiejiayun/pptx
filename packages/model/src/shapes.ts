@@ -10,7 +10,11 @@ import {
 } from '@pptx/opc';
 import { cloneOwnedPartForMutation } from './dependency.internal.js';
 import type { SlideModel } from './slide.js';
-import type { RichTextParagraph } from './text.js';
+import type {
+  RichTextParagraph,
+  TextBoxMarginInput,
+  TextBoxMargins,
+} from './text.js';
 import { type Emu, type OoxmlAngle, type Transform } from './units.js';
 
 export type ShapeKind = 'shape' | 'text' | 'image' | 'table' | 'chart' | 'graphic-frame' | 'group' | 'unknown';
@@ -83,6 +87,14 @@ export class ShapeModel extends BaseShapeModel {
 
   set richText(value: readonly RichTextParagraph[]) {
     this.slide.setShapeRichText(this.id, value);
+  }
+
+  get textMargins(): TextBoxMargins | undefined {
+    return this.slide.getShapeTextMargins(this.id);
+  }
+
+  set textMargins(value: TextBoxMarginInput | undefined) {
+    this.slide.setShapeTextMargins(this.id, value);
   }
 
   get gradientFill(): GradientFill | undefined {

@@ -219,6 +219,98 @@ describe('PresentationModel', () => {
     expect(updated).not.toContain('<a:fld');
   });
 
+  it('reads and losslessly replaces strict direct text-box margins', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.slides[1]!;
+    const part = pkg.requirePart(slide.partUri);
+    const marginBody = [
+      '<a:bodyPr wrap="square" lIns="127000" tIns="-6350"',
+      ' rIns="2147483647" bIns="1e3" custom="KEEP">',
+      '<a:normAutofit fontScale="90000"/>',
+      '<x:keep xmlns:x="urn:test">KEEP</x:keep>',
+      '</a:bodyPr>',
+    ].join('');
+    pkg.setPart(
+      part.uri,
+      new TextDecoder().decode(part.bytes).replace('<p:txBody><a:p>', `<p:txBody>${marginBody}<a:p>`),
+      part.contentType,
+    );
+    const shape = slide.shapes[0] as ShapeModel;
+    const journal = [...pkg.mutations];
+
+    expect(shape.textMargins).toEqual({
+      left: 10,
+      top: -0.5,
+      right: 2_147_483_647 / 12_700,
+    });
+    expect(pkg.mutations).toEqual(journal);
+    const detached = shape.textMargins as { left?: number };
+    detached.left = 99;
+    expect(shape.textMargins?.left).toBe(10);
+
+    shape.textMargins = { top: 4, left: 8 };
+    expect(shape.textMargins).toEqual({ left: 8, top: 4 });
+    expect(slide.shapes[0]).toBe(shape);
+    let updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated).toContain(
+      '<a:bodyPr wrap="square" lIns="101600" tIns="50800" custom="KEEP">',
+    );
+    expect(updated).not.toMatch(/\s[rb]Ins=/);
+    expect(updated).toContain('<a:normAutofit fontScale="90000"/>');
+    expect(updated).toContain('<x:keep xmlns:x="urn:test">KEEP</x:keep>');
+    expect(shape.text).toBe('First title');
+
+    shape.text = 'Plain replacement';
+    shape.richText = [{ runs: [{ text: 'Rich replacement', style: { bold: true } }] }];
+    shape.setTransform({ x: inches(3) });
+    updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated).toContain(
+      '<a:bodyPr wrap="square" lIns="101600" tIns="50800" custom="KEEP">',
+    );
+
+    const beforeRollback = pkg.requirePart(part.uri).bytes.slice();
+    expect(() =>
+      pkg.transaction(() => {
+        shape.textMargins = 10;
+        throw new Error('restore text margins');
+      }),
+    ).toThrow('restore text margins');
+    expect(pkg.requirePart(part.uri).bytes).toEqual(beforeRollback);
+    expect(shape.textMargins).toEqual({ left: 8, top: 4 });
+    expect(slide.shapes[0]).toBe(shape);
+
+    shape.textMargins = undefined;
+    expect(shape.textMargins).toBeUndefined();
+    updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated).not.toMatch(/\s(?:lIns|tIns|rIns|bIns)=/);
+    expect(updated).toContain('<a:bodyPr wrap="square" custom="KEEP">');
+    expect(updated).toContain('<a:normAutofit fontScale="90000"/>');
+    expect(updated).toContain('<x:keep xmlns:x="urn:test">KEEP</x:keep>');
+  });
+
+  it('ignores malformed direct text-box margin attributes independently', async () => {
+    for (const malformed of ['100.5', '1e3', '', '+100', '2147483648', '-2147483649']) {
+      const pkg = await OpcPackage.open(await modelFixture());
+      const model = new PresentationModel(pkg);
+      const slide = model.slides[1]!;
+      const part = pkg.requirePart(slide.partUri);
+      pkg.setPart(
+        part.uri,
+        new TextDecoder().decode(part.bytes).replace(
+          '<p:txBody><a:p>',
+          `<p:txBody><a:bodyPr lIns="${malformed}" rIns="12700"/><a:p>`,
+        ),
+        part.contentType,
+      );
+      const shape = slide.shapes[0] as ShapeModel;
+      const journal = [...pkg.mutations];
+
+      expect(shape.textMargins).toEqual({ right: 1 });
+      expect(pkg.mutations).toEqual(journal);
+    }
+  });
+
   it('reads strict local underline values and preserves their XML during plain text edits', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);
@@ -966,6 +1058,10 @@ describe('PresentationModel', () => {
       expect(() => {
         shape.richText = [{ runs: [{ text: 'Rejected' }] }];
       }).toThrow(malformedTextBody ? /text paragraph/ : /text body/);
+      expect(() => shape.textMargins).toThrow(malformedTextBody ? /body properties/ : /text body/);
+      expect(() => {
+        shape.textMargins = 1;
+      }).toThrow(malformedTextBody ? /body properties/ : /text body/);
       expect(pkg.requirePart(part.uri).bytes).toEqual(before);
       expect(pkg.mutations).toEqual(journal);
     }

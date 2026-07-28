@@ -1126,6 +1126,133 @@ describe('PptxDocument vertical slice', () => {
     expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
   });
 
+  it('creates, edits, duplicates, and reopens text-box margins', async () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const sourceMargins = { top: -0.5, right: 0, bottom: 0.125, left: 8 };
+    const uniform = slide.addText('Uniform', { name: 'Uniform margins', margin: 10 });
+    const tuple = slide.addRichText([{ runs: [{ text: 'Tuple' }] }], {
+      name: 'Tuple margins',
+      margin: [1, 2, 3, 4],
+    });
+    const named = slide.addText('Named', { name: 'Named margins', margin: sourceMargins });
+    const zero = slide.addText('Zero', { name: 'Zero margins', margin: 0 });
+    const omitted = slide.addText('Omitted', { name: 'Omitted margins' });
+    const boundaries = slide.addText('Boundaries', {
+      name: 'Boundary margins',
+      margin: {
+        top: -2_147_483_648 / 12_700,
+        right: 2_147_483_647 / 12_700,
+      },
+    });
+    sourceMargins.left = 99;
+
+    expect(uniform.textMargins).toEqual({ top: 10, right: 10, bottom: 10, left: 10 });
+    expect(tuple.textMargins).toEqual({ top: 1, right: 2, bottom: 3, left: 4 });
+    expect(named.textMargins).toEqual({ top: -0.5, right: 0, bottom: 1_588 / 12_700, left: 8 });
+    expect(zero.textMargins).toEqual({ top: 0, right: 0, bottom: 0, left: 0 });
+    expect(omitted.textMargins).toBeUndefined();
+    expect(boundaries.textMargins).toEqual({
+      top: -2_147_483_648 / 12_700,
+      right: 2_147_483_647 / 12_700,
+    });
+
+    const createdXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(createdXml).toContain(
+      '<a:bodyPr wrap="square" lIns="127000" tIns="127000" rIns="127000" bIns="127000" rtlCol="0" anchor="ctr"/>',
+    );
+    expect(createdXml).toContain(
+      '<a:bodyPr wrap="square" lIns="50800" tIns="12700" rIns="25400" bIns="38100" rtlCol="0" anchor="ctr"/>',
+    );
+    expect(createdXml).toContain(
+      '<a:bodyPr wrap="square" lIns="101600" tIns="-6350" rIns="0" bIns="1588" rtlCol="0" anchor="ctr"/>',
+    );
+    expect(createdXml).toContain(
+      '<a:bodyPr wrap="square" lIns="0" tIns="0" rIns="0" bIns="0" rtlCol="0" anchor="ctr"/>',
+    );
+
+    document.duplicateSlide(0);
+    uniform.textMargins = { top: 4, left: 8 };
+    tuple.textMargins = {};
+    zero.textMargins = undefined;
+    omitted.textMargins = [5, 6, 7, 8];
+    expect(uniform.textMargins).toEqual({ top: 4, left: 8 });
+    expect(tuple.textMargins).toBeUndefined();
+    expect(zero.textMargins).toBeUndefined();
+    expect(omitted.textMargins).toEqual({ top: 5, right: 6, bottom: 7, left: 8 });
+    expect(slide.shapes[0]).toBe(uniform);
+    expect(slide.shapes[1]).toBe(tuple);
+
+    const beforeRollback = document.opcPackage.requirePart(slide.partUri).bytes;
+    expect(() =>
+      document.transaction(() => {
+        uniform.textMargins = [9, 8, 7, 6];
+        throw new Error('restore text margins');
+      }),
+    ).toThrow('restore text margins');
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(beforeRollback);
+    expect(uniform.textMargins).toEqual({ top: 4, left: 8 });
+    expect(slide.shapes[0]).toBe(uniform);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const editedUniform = reopened.slides[0]!.shapes[0] as ShapeModel;
+    const editedTuple = reopened.slides[0]!.shapes[1] as ShapeModel;
+    const editedZero = reopened.slides[0]!.shapes[3] as ShapeModel;
+    const editedOmitted = reopened.slides[0]!.shapes[4] as ShapeModel;
+    const duplicatedUniform = reopened.slides[1]!.shapes[0] as ShapeModel;
+    const duplicatedTuple = reopened.slides[1]!.shapes[1] as ShapeModel;
+    const duplicatedZero = reopened.slides[1]!.shapes[3] as ShapeModel;
+    const duplicatedOmitted = reopened.slides[1]!.shapes[4] as ShapeModel;
+    expect(editedUniform.textMargins).toEqual({ top: 4, left: 8 });
+    expect(editedTuple.textMargins).toBeUndefined();
+    expect(editedZero.textMargins).toBeUndefined();
+    expect(editedOmitted.textMargins).toEqual({ top: 5, right: 6, bottom: 7, left: 8 });
+    expect(duplicatedUniform.textMargins).toEqual({ top: 10, right: 10, bottom: 10, left: 10 });
+    expect(duplicatedTuple.textMargins).toEqual({ top: 1, right: 2, bottom: 3, left: 4 });
+    expect(duplicatedZero.textMargins).toEqual({ top: 0, right: 0, bottom: 0, left: 0 });
+    expect(duplicatedOmitted.textMargins).toBeUndefined();
+    expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+  });
+
+  it('rejects malformed text-box margins without changing package state', () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const shape = slide.addText('Original', { margin: { top: 4, left: 8 } });
+    const before = document.opcPackage.requirePart(slide.partUri).bytes;
+    const journal = [...document.opcPackage.mutations];
+    const invalid = [
+      null,
+      true,
+      '1',
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+      Number.NEGATIVE_INFINITY,
+      [-2_147_483_649 / 12_700, 0, 0, 0],
+      [2_147_483_648 / 12_700, 0, 0, 0],
+      [1, 2, 3],
+      [1, 2, 3, 4, 5],
+      [1, 2, Number.NaN, 4],
+      { top: '1' },
+      { right: Number.POSITIVE_INFINITY },
+      { inline: 1 },
+    ];
+
+    for (const margin of invalid) {
+      expect(() => slide.addText('Invalid', { margin: margin as never })).toThrow();
+      expect(() => slide.addRichText([{ runs: [{ text: 'Invalid' }] }], {
+        margin: margin as never,
+      })).toThrow();
+      expect(() => {
+        shape.textMargins = margin as never;
+      }).toThrow();
+    }
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(before);
+    expect(document.opcPackage.mutations).toEqual(journal);
+    expect(shape.text).toBe('Original');
+    expect(shape.textMargins).toEqual({ top: 4, left: 8 });
+    expect(slide.shapes[0]).toBe(shape);
+  });
+
   it('creates, edits, duplicates, and reopens rich text highlight colors', async () => {
     const document = PptxDocument.create();
     const slide = document.addSlide();

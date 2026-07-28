@@ -26,11 +26,19 @@ import {
   type NormalizedParagraphTabStop,
 } from './rich-text.internal.js';
 import { decodeShape, ShapeModel, type SemanticShape } from './shapes.js';
+import {
+  normalizeTextBoxMargins,
+  readTextBoxMargins,
+  renderTextBoxMarginAttributes,
+  replaceTextBoxMargins,
+} from './text-box-margins.internal.js';
 import type {
   ParagraphBullet,
   ParagraphSpacing,
   ParagraphTabStop,
   RichTextParagraph,
+  TextBoxMarginInput,
+  TextBoxMargins,
   TextAlignment,
 } from './text.js';
 import { inches, type Transform } from './units.js';
@@ -40,6 +48,7 @@ export interface AddTextOptions extends Partial<Transform> {
   readonly align?: TextAlignment;
   readonly bullet?: ParagraphBullet;
   readonly level?: number;
+  readonly margin?: TextBoxMarginInput;
   readonly spacing?: ParagraphSpacing;
   readonly tabStops?: readonly ParagraphTabStop[];
 }
@@ -181,6 +190,20 @@ export class SlideModel {
     return readRichText(xml, element);
   }
 
+  getShapeTextMargins(id: number): TextBoxMargins | undefined {
+    const { xml, element } = this.resolveShape(id);
+    return readTextBoxMargins(xml, element, this.partUri);
+  }
+
+  setShapeTextMargins(id: number, value: TextBoxMarginInput | undefined): void {
+    this.presentation.opcPackage.transaction(() => {
+      const margins = normalizeTextBoxMargins(value, 'Text margins');
+      const { xml, element } = this.resolveShape(id);
+      replaceTextBoxMargins(xml, element, margins, this.partUri);
+      this.setXml(xml.serialize());
+    });
+  }
+
   setShapeTransform(id: number, changes: Partial<Transform>): void {
     const { xml, element } = this.resolveShape(id);
     const xfrm = xml.descendants(element, 'xfrm')[0];
@@ -214,7 +237,7 @@ export class SlideModel {
           normalized.tabStops,
         ))
         .join('');
-      return this.addTextShape(paragraphs, options);
+      return this.addTextShape(paragraphs, options, normalized.margin);
     });
   }
 
@@ -231,6 +254,7 @@ export class SlideModel {
           ...(defaults.tabStops !== undefined ? { defaultTabStops: defaults.tabStops } : {}),
         }),
         options,
+        defaults.margin,
       );
     });
   }
@@ -239,14 +263,18 @@ export class SlideModel {
     this.presentation.setXmlPart(this.partUri, xml);
   }
 
-  private addTextShape(paragraphs: string, options: AddTextOptions): ShapeModel {
+  private addTextShape(
+    paragraphs: string,
+    options: AddTextOptions,
+    margins: TextBoxMargins | undefined,
+  ): ShapeModel {
     const { xml } = this.parse();
     const shapeTree = xml
       .elements('spTree')
       .find(({ parent }) => parent?.localName === 'cSld');
     if (!shapeTree) throw new ModelParseError('Slide does not contain a shape tree', this.partUri);
     const nextId = allocateShapeId(xml);
-    const shapeXml = textShapeXml(nextId, paragraphs, options);
+    const shapeXml = textShapeXml(nextId, paragraphs, options, margins);
     const extensionList = shapeTree.children.find(
       (child): child is XmlElement => child.type === 'element' && child.localName === 'extLst',
     );
@@ -309,6 +337,7 @@ interface NormalizedTextInput {
   readonly value: string;
   readonly bullet: NormalizedParagraphBullet | false | undefined;
   readonly level: number | undefined;
+  readonly margin: TextBoxMargins | undefined;
   readonly spacing: NormalizedParagraphSpacingUpdate | undefined;
   readonly tabStops: readonly NormalizedParagraphTabStop[] | undefined;
 }
@@ -320,6 +349,7 @@ function validateTextInput(value: string, options: AddTextOptions): NormalizedTe
     value: normalized,
     bullet: defaults.bullet,
     level: defaults.level,
+    margin: defaults.margin,
     spacing: defaults.spacing,
     tabStops: defaults.tabStops,
   };
@@ -328,6 +358,7 @@ function validateTextInput(value: string, options: AddTextOptions): NormalizedTe
 interface NormalizedAddTextOptions {
   readonly bullet?: NormalizedParagraphBullet | false;
   readonly level?: number;
+  readonly margin?: TextBoxMargins;
   readonly spacing?: NormalizedParagraphSpacingUpdate;
   readonly tabStops?: readonly NormalizedParagraphTabStop[];
 }
@@ -371,6 +402,9 @@ function validateAddTextOptions(options: AddTextOptions): NormalizedAddTextOptio
   const level = options.level === undefined
     ? undefined
     : normalizeParagraphLevel(options.level, 'Text level');
+  const margin = options.margin === undefined
+    ? undefined
+    : normalizeTextBoxMargins(options.margin, 'Text margin');
   const spacing = options.spacing === undefined
     ? undefined
     : normalizeParagraphSpacing(options.spacing, 'Text spacing');
@@ -380,6 +414,7 @@ function validateAddTextOptions(options: AddTextOptions): NormalizedAddTextOptio
   return {
     ...(bullet !== undefined ? { bullet } : {}),
     ...(level !== undefined ? { level } : {}),
+    ...(margin !== undefined ? { margin } : {}),
     ...(spacing !== undefined ? { spacing } : {}),
     ...(tabStops !== undefined ? { tabStops } : {}),
   };
@@ -402,7 +437,12 @@ function allocateShapeId(xml: LosslessXmlDocument): number {
   }, 1) + 1;
 }
 
-function textShapeXml(id: number, paragraphs: string, options: AddTextOptions): string {
+function textShapeXml(
+  id: number,
+  paragraphs: string,
+  options: AddTextOptions,
+  margins: TextBoxMargins | undefined,
+): string {
   const x = Math.round(options.x ?? 0);
   const y = Math.round(options.y ?? 0);
   const width = Math.round(options.width ?? inches(1));
@@ -414,7 +454,8 @@ function textShapeXml(id: number, paragraphs: string, options: AddTextOptions): 
     options.flipVertical ? ' flipV="1"' : '',
   ].join('');
   const name = escapeXmlAttribute(options.name ?? `Text ${id}`);
-  return `<p:sp xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><p:nvSpPr><p:cNvPr id="${id}" name="${name}"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm${transformAttributes}><a:off x="${x}" y="${y}"/><a:ext cx="${width}" cy="${height}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></p:spPr><p:txBody><a:bodyPr wrap="square" rtlCol="0" anchor="ctr"/><a:lstStyle/>${paragraphs}</p:txBody></p:sp>`;
+  const marginAttributes = renderTextBoxMarginAttributes(margins);
+  return `<p:sp xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><p:nvSpPr><p:cNvPr id="${id}" name="${name}"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm${transformAttributes}><a:off x="${x}" y="${y}"/><a:ext cx="${width}" cy="${height}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></p:spPr><p:txBody><a:bodyPr wrap="square"${marginAttributes} rtlCol="0" anchor="ctr"/><a:lstStyle/>${paragraphs}</p:txBody></p:sp>`;
 }
 
 function textParagraphXml(
