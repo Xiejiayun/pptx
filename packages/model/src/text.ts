@@ -28,6 +28,11 @@ export interface RichTextUnderline {
 
 export type RichTextStrikeStyle = 'sngStrike' | 'dblStrike';
 
+export interface RichTextOutline {
+  readonly color: RichTextColor;
+  readonly size: number;
+}
+
 export type TextAlignment = 'left' | 'center' | 'right' | 'justify';
 
 export type NumberingStyle =
@@ -93,6 +98,7 @@ export interface RichTextRunStyle {
   readonly italic?: boolean;
   readonly color?: RichTextColor;
   readonly highlight?: RichTextColor;
+  readonly outline?: RichTextOutline;
   readonly underline?: boolean | RichTextUnderline;
   readonly strike?: boolean | RichTextStrikeStyle;
 }

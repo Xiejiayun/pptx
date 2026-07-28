@@ -23,6 +23,7 @@
 - Added rich-text underline creation and editing with all 17 valid OOXML styles, explicit none, independent sRGB/theme colors, and strict lossless reads.
 - Added PptxGenJS-compatible single and double rich-text strike creation, explicit inherited-style suppression, editing, and strict lossless reads.
 - Added rich-text highlight creation and editing with normalized sRGB/theme colors, strict reads, and PptxGenJS output conformance.
+- Added solid rich-text outline creation and editing with point widths, sRGB/theme colors, strict reads, and PptxGenJS output conformance.
 
 ## 0.1.0 - 2026-07-25
 

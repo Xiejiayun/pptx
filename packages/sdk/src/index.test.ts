@@ -798,6 +798,100 @@ describe('PptxDocument vertical slice', () => {
     expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
   });
 
+  it('creates, edits, duplicates, and reopens rich text outlines', async () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const sourceOutline = {
+      color: { kind: 'srgb' as const, value: '#ff0000' },
+      size: 1.5,
+    };
+    const shape = slide.addRichText([{
+      runs: [
+        { text: 'Red', style: { outline: sourceOutline } },
+        { text: 'Theme', style: { outline: { color: { kind: 'scheme', value: 'accent1' }, size: 2 } } },
+        { text: 'Hairline', style: { outline: { color: { kind: 'srgb', value: '00FF00' }, size: 0 } } },
+        { text: 'Quantized', style: { outline: { color: { kind: 'srgb', value: '0000FF' }, size: 1.23456 } } },
+        { text: 'Maximum', style: { outline: { color: { kind: 'scheme', value: 'tx2' }, size: 1584 } } },
+        {
+          text: 'Combined',
+          style: {
+            highlight: { kind: 'srgb', value: 'FFFF00' },
+            outline: { color: { kind: 'scheme', value: 'accent2' }, size: 0.75 },
+            strike: 'dblStrike',
+            underline: { style: 'dbl' },
+          },
+        },
+      ],
+    }]);
+    sourceOutline.color.value = '000000';
+    sourceOutline.size = 3;
+
+    expect(shape.richText[0]!.runs.map(({ style }) => style?.outline)).toEqual([
+      { color: { kind: 'srgb', value: 'FF0000' }, size: 1.5 },
+      { color: { kind: 'scheme', value: 'accent1' }, size: 2 },
+      { color: { kind: 'srgb', value: '00FF00' }, size: 0 },
+      { color: { kind: 'srgb', value: '0000FF' }, size: 15_679 / 12_700 },
+      { color: { kind: 'scheme', value: 'tx2' }, size: 1584 },
+      { color: { kind: 'scheme', value: 'accent2' }, size: 0.75 },
+    ]);
+    const createdXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(createdXml).toContain(
+      '<a:ln w="19050"><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill></a:ln><a:solidFill>',
+    );
+    expect(createdXml).toContain('<a:ln w="15679">');
+    expect(createdXml).toContain('<a:ln w="20116800">');
+
+    const snapshot = shape.richText as unknown as Array<{
+      runs: Array<{ style?: { outline?: { color: { value: string }; size: number } } }>;
+    }>;
+    snapshot[0]!.runs[0]!.style!.outline!.color.value = 'FFFFFF';
+    snapshot[0]!.runs[0]!.style!.outline!.size = 4;
+    expect(shape.richText[0]!.runs[0]!.style!.outline).toEqual({
+      color: { kind: 'srgb', value: 'FF0000' },
+      size: 1.5,
+    });
+
+    document.duplicateSlide(0);
+    shape.richText = [{
+      runs: [
+        { text: 'Changed', style: { outline: { color: { kind: 'scheme', value: 'tx1' }, size: 1 } } },
+        { text: 'Cleared' },
+      ],
+    }];
+    expect(shape.richText[0]!.runs.map(({ style }) => style?.outline)).toEqual([
+      { color: { kind: 'scheme', value: 'tx1' }, size: 1 },
+      undefined,
+    ]);
+
+    const beforeRollback = document.opcPackage.requirePart(slide.partUri).bytes;
+    expect(() =>
+      document.transaction(() => {
+        shape.richText = [{
+          runs: [{
+            text: 'Rollback',
+            style: { outline: { color: { kind: 'srgb', value: '000000' }, size: 2 } },
+          }],
+        }];
+        throw new Error('restore outline');
+      }),
+    ).toThrow('restore outline');
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(beforeRollback);
+    expect(slide.shapes[0]).toBe(shape);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const edited = reopened.slides[0]!.shapes[0] as ShapeModel;
+    const duplicated = reopened.slides[1]!.shapes[0] as ShapeModel;
+    expect(edited.richText[0]!.runs.map(({ style }) => style?.outline)).toEqual([
+      { color: { kind: 'scheme', value: 'tx1' }, size: 1 },
+      undefined,
+    ]);
+    expect(duplicated.richText[0]!.runs[0]!.style!.outline).toEqual({
+      color: { kind: 'srgb', value: 'FF0000' },
+      size: 1.5,
+    });
+    expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+  });
+
   it('creates, edits, duplicates, and reopens rich text highlight colors', async () => {
     const document = PptxDocument.create();
     const slide = document.addSlide();
@@ -1124,6 +1218,20 @@ describe('PptxDocument vertical slice', () => {
       [{ runs: [{ text: 'x', style: { highlight: { kind: 'srgb', value: 'yellow' } } }] }],
       [{ runs: [{ text: 'x', style: { highlight: { kind: 'scheme', value: 'unknown' } } }] }],
       [{ runs: [{ text: 'x', style: { highlight: { kind: 'srgb', value: 'FFFF00', alpha: 1 } } }] }],
+      [{ runs: [{ text: 'x', style: { outline: null } }] }],
+      [{ runs: [{ text: 'x', style: { outline: true } }] }],
+      [{ runs: [{ text: 'x', style: { outline: 'red' } }] }],
+      [{ runs: [{ text: 'x', style: { outline: [] } }] }],
+      [{ runs: [{ text: 'x', style: { outline: {} } }] }],
+      [{ runs: [{ text: 'x', style: { outline: { color: { kind: 'srgb', value: 'FF0000' } } } }] }],
+      [{ runs: [{ text: 'x', style: { outline: { size: 1 } } }] }],
+      [{ runs: [{ text: 'x', style: { outline: { color: { kind: 'srgb', value: 'FF0000' }, size: '1' } } }] }],
+      [{ runs: [{ text: 'x', style: { outline: { color: { kind: 'srgb', value: 'FF0000' }, size: Number.NaN } } }] }],
+      [{ runs: [{ text: 'x', style: { outline: { color: { kind: 'srgb', value: 'FF0000' }, size: Number.POSITIVE_INFINITY } } }] }],
+      [{ runs: [{ text: 'x', style: { outline: { color: { kind: 'srgb', value: 'FF0000' }, size: -0.01 } } }] }],
+      [{ runs: [{ text: 'x', style: { outline: { color: { kind: 'srgb', value: 'FF0000' }, size: 1584.1 } } }] }],
+      [{ runs: [{ text: 'x', style: { outline: { color: { kind: 'srgb', value: 'red' }, size: 1 } } }] }],
+      [{ runs: [{ text: 'x', style: { outline: { color: { kind: 'srgb', value: 'FF0000' }, size: 1, dash: 'solid' } } }] }],
       [{ runs: [{ text: 'x', style: { color: { kind: 'srgb', value: 'FF0000', alpha: 0.5 } } }] }],
     ];
     for (const value of invalid) {

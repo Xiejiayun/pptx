@@ -379,6 +379,79 @@ describe('PresentationModel', () => {
     expect(updated.match(/<a:highlight><a:srgbClr val="ffff00"\/><\/a:highlight>/g)).toHaveLength(2);
   });
 
+  it('reads strict local text outlines and preserves their XML during plain text edits', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.slides[1]!;
+    const part = pkg.requirePart(slide.partUri);
+    const outlineText = [
+      '<a:p>',
+      '<a:r><a:rPr><a:ln w="19050"><a:solidFill><a:srgbClr val="ff0000"/></a:solidFill></a:ln></a:rPr><a:t>Red</a:t></a:r>',
+      '<a:r><a:rPr><a:ln w="0"><a:solidFill><a:schemeClr val="accent1"/></a:solidFill></a:ln></a:rPr><a:t>Hairline</a:t></a:r>',
+      '<a:r><a:rPr><a:ln w="20116800"><a:solidFill><a:schemeClr val="tx2"/></a:solidFill></a:ln></a:rPr><a:t>Maximum</a:t></a:r>',
+      '<a:r><a:rPr><a:ln w="12700"><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill></a:ln><a:ln w="25400"><a:solidFill><a:srgbClr val="00FF00"/></a:solidFill></a:ln></a:rPr><a:t>Repeated</a:t></a:r>',
+      '<a:r><a:rPr><a:ln><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill></a:ln></a:rPr><a:t>Missing width</a:t></a:r>',
+      '<a:r><a:rPr><a:ln w="-1"><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill></a:ln></a:rPr><a:t>Negative</a:t></a:r>',
+      '<a:r><a:rPr><a:ln w="20116801"><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill></a:ln></a:rPr><a:t>Too wide</a:t></a:r>',
+      '<a:r><a:rPr><a:ln w="1.5"><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill></a:ln></a:rPr><a:t>Decimal</a:t></a:r>',
+      '<a:r><a:rPr><a:ln w="12700" cap="round"><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill></a:ln></a:rPr><a:t>Cap</a:t></a:r>',
+      '<a:r><a:rPr strike="dblStrike"><a:ln w="12700"><a:solidFill><a:schemeClr val="accent2"/></a:solidFill><a:prstDash val="dash"/></a:ln></a:rPr><a:t>Dash</a:t></a:r>',
+      '<a:r><a:rPr><a:ln w="12700"><a:solidFill><a:srgbClr val="FF0000"><a:alpha val="50000"/></a:srgbClr></a:solidFill></a:ln></a:rPr><a:t>Transform</a:t></a:r>',
+      '<a:r><a:rPr><a:ln w="12700"><a:noFill/></a:ln></a:rPr><a:t>Unknown fill</a:t></a:r>',
+      '<a:r><a:rPr><a:ln w="12700"><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill><a:solidFill><a:schemeClr val="accent1"/></a:solidFill></a:ln></a:rPr><a:t>Multiple fills</a:t></a:r>',
+      '<a:r><a:rPr/><a:t>Absent</a:t></a:r>',
+      '</a:p>',
+    ].join('');
+    pkg.setPart(
+      part.uri,
+      new TextDecoder().decode(part.bytes).replace(
+        '<a:p><a:r><a:t>First title</a:t></a:r></a:p>',
+        outlineText,
+      ),
+      part.contentType,
+    );
+    const shape = slide.shapes[0] as ShapeModel;
+    const journal = [...pkg.mutations];
+
+    expect(shape.richText[0]!.runs.map(({ style }) => style?.outline)).toEqual([
+      { color: { kind: 'srgb', value: 'FF0000' }, size: 1.5 },
+      { color: { kind: 'scheme', value: 'accent1' }, size: 0 },
+      { color: { kind: 'scheme', value: 'tx2' }, size: 1584 },
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    ]);
+    expect(shape.richText[0]!.runs[9]!.style!.strike).toBe('dblStrike');
+    expect(pkg.mutations).toEqual(journal);
+
+    const snapshot = shape.richText as unknown as Array<{
+      runs: Array<{ style?: { outline?: { color: { value: string }; size: number } } }>;
+    }>;
+    snapshot[0]!.runs[0]!.style!.outline!.color.value = '000000';
+    snapshot[0]!.runs[0]!.style!.outline!.size = 3;
+    expect(shape.richText[0]!.runs[0]!.style!.outline).toEqual({
+      color: { kind: 'srgb', value: 'FF0000' },
+      size: 1.5,
+    });
+
+    shape.text = 'First replacement\nSecond replacement';
+    expect(shape.richText.map((paragraph) => paragraph.runs[0]!.style!.outline)).toEqual([
+      { color: { kind: 'srgb', value: 'FF0000' }, size: 1.5 },
+      { color: { kind: 'srgb', value: 'FF0000' }, size: 1.5 },
+    ]);
+    const updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated.match(/<a:ln w="19050"><a:solidFill><a:srgbClr val="ff0000"\/><\/a:solidFill><\/a:ln>/g))
+      .toHaveLength(2);
+  });
+
   it('updates alignment without rebuilding other paragraph properties', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);

@@ -15,6 +15,7 @@ import type {
   ParagraphTabStop,
   ParagraphTabStopAlignment,
   RichTextColor,
+  RichTextOutline,
   RichTextParagraph,
   RichTextRun,
   RichTextRunStyle,
@@ -78,6 +79,8 @@ const MAX_SPACING_POINTS = 1584;
 const MAX_SPACING_FACTOR = 132;
 const MIN_COORDINATE_32 = -2_147_483_648;
 const MAX_COORDINATE_32 = 2_147_483_647;
+const EMU_PER_POINT = 12_700;
+const MAX_LINE_WIDTH_EMU = 20_116_800;
 
 const TAB_STOP_ALIGNMENT_TO_OOXML: Readonly<Record<ParagraphTabStopAlignment, string>> = {
   left: 'l',
@@ -743,7 +746,7 @@ function normalizeStyle(value: unknown, paragraphIndex: number, runIndex: number
   }
   assertSupportedKeys(
     value,
-    ['bold', 'color', 'fontFamily', 'fontSize', 'highlight', 'italic', 'strike', 'underline'],
+    ['bold', 'color', 'fontFamily', 'fontSize', 'highlight', 'italic', 'outline', 'strike', 'underline'],
     `Rich text run ${paragraphIndex},${runIndex} style`,
   );
   const candidate = value as RichTextRunStyle;
@@ -778,6 +781,9 @@ function normalizeStyle(value: unknown, paragraphIndex: number, runIndex: number
   const highlight = candidate.highlight === undefined
     ? undefined
     : normalizeColor(candidate.highlight, `${context} highlight`);
+  const outline = candidate.outline === undefined
+    ? undefined
+    : normalizeOutline(candidate.outline, `${context} outline`);
   const underline = candidate.underline === undefined
     ? undefined
     : normalizeUnderline(candidate.underline, `${context} underline`);
@@ -791,8 +797,31 @@ function normalizeStyle(value: unknown, paragraphIndex: number, runIndex: number
     ...(candidate.italic !== undefined ? { italic: candidate.italic } : {}),
     ...(color ? { color } : {}),
     ...(highlight ? { highlight } : {}),
+    ...(outline ? { outline } : {}),
     ...(underline !== undefined ? { underline } : {}),
     ...(strike !== undefined ? { strike } : {}),
+  };
+}
+
+function normalizeOutline(value: unknown, context: string): RichTextOutline {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new TypeError(`${context} must be an object`);
+  }
+  assertSupportedKeys(value, ['color', 'size'], context);
+  const candidate = value as { color?: unknown; size?: unknown };
+  if (candidate.color === undefined || candidate.size === undefined) {
+    throw new TypeError(`${context} must provide color and size`);
+  }
+  if (typeof candidate.size !== 'number' || !Number.isFinite(candidate.size)) {
+    throw new TypeError(`${context} size must be finite`);
+  }
+  const widthEmu = Math.round(candidate.size * EMU_PER_POINT);
+  if (candidate.size < 0 || widthEmu > MAX_LINE_WIDTH_EMU) {
+    throw new RangeError(`${context} size must fit the OOXML 0 to 1584 point range`);
+  }
+  return {
+    color: normalizeColor(candidate.color, `${context} color`),
+    size: widthEmu / EMU_PER_POINT,
   };
 }
 
@@ -869,6 +898,9 @@ function renderRun(run: RichTextRun, prefix: string): string {
   ].filter(Boolean).join(' ');
   const color = style.color ?? { kind: 'scheme' as const, value: 'tx1' };
   const colorXml = renderColorChoice(color, prefix);
+  const outline = style.outline
+    ? `<${prefix}ln w="${Math.round(style.outline.size * EMU_PER_POINT)}"><${prefix}solidFill>${renderColorChoice(style.outline.color, prefix)}</${prefix}solidFill></${prefix}ln>`
+    : '';
   const highlight = style.highlight
     ? `<${prefix}highlight>${renderColorChoice(style.highlight, prefix)}</${prefix}highlight>`
     : '';
@@ -879,7 +911,7 @@ function renderRun(run: RichTextRun, prefix: string): string {
   const latin = escapeXmlAttribute(style.fontFamily ?? '+mn-lt');
   const eastAsian = escapeXmlAttribute(style.fontFamily ?? '+mn-ea');
   const complexScript = escapeXmlAttribute(style.fontFamily ?? '+mn-cs');
-  return `${softBreak}<${prefix}r><${prefix}rPr ${attributes}><${prefix}solidFill>${colorXml}</${prefix}solidFill>${highlight}${underlineFill}<${prefix}latin typeface="${latin}"/><${prefix}ea typeface="${eastAsian}"/><${prefix}cs typeface="${complexScript}"/></${prefix}rPr><${prefix}t xml:space="preserve">${escapeXmlText(run.text)}</${prefix}t></${prefix}r>`;
+  return `${softBreak}<${prefix}r><${prefix}rPr ${attributes}>${outline}<${prefix}solidFill>${colorXml}</${prefix}solidFill>${highlight}${underlineFill}<${prefix}latin typeface="${latin}"/><${prefix}ea typeface="${eastAsian}"/><${prefix}cs typeface="${complexScript}"/></${prefix}rPr><${prefix}t xml:space="preserve">${escapeXmlText(run.text)}</${prefix}t></${prefix}r>`;
 }
 
 function renderColorChoice(color: RichTextColor, prefix: string): string {
@@ -1088,6 +1120,7 @@ function readStyle(xml: LosslessXmlDocument, run: XmlElement): RichTextRunStyle 
   const italic = booleanAttribute(xml, properties, 'i');
   const strike = readStrike(xml, properties);
   const highlight = readHighlight(xml, properties);
+  const outline = readOutline(xml, properties);
   const underline = readUnderline(xml, properties);
   const style: RichTextRunStyle = {
     ...(fontFamily !== undefined ? { fontFamily } : {}),
@@ -1096,10 +1129,26 @@ function readStyle(xml: LosslessXmlDocument, run: XmlElement): RichTextRunStyle 
     ...(italic !== undefined ? { italic } : {}),
     ...(color ? { color } : {}),
     ...(highlight ? { highlight } : {}),
+    ...(outline ? { outline } : {}),
     ...(underline !== undefined ? { underline } : {}),
     ...(strike !== undefined ? { strike } : {}),
   };
   return Object.keys(style).length > 0 ? style : undefined;
+}
+
+function readOutline(
+  xml: LosslessXmlDocument,
+  properties: XmlElement,
+): RichTextOutline | undefined {
+  const elements = directChildren(properties, 'ln');
+  if (elements.length !== 1) return undefined;
+  const line = elements[0]!;
+  const attributes = line.attributes.filter(({ name }) => name !== 'xmlns' && !name.startsWith('xmlns:'));
+  if (attributes.length !== 1 || attributes[0]?.localName !== 'w') return undefined;
+  const widthEmu = readIntegerAttribute(xml, line, 'w');
+  if (widthEmu === undefined || widthEmu < 0 || widthEmu > MAX_LINE_WIDTH_EMU) return undefined;
+  const color = readDirectSolidColor(xml, line);
+  return color ? { color, size: widthEmu / EMU_PER_POINT } : undefined;
 }
 
 function readHighlight(
