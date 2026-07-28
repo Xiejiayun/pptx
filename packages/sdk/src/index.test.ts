@@ -798,6 +798,83 @@ describe('PptxDocument vertical slice', () => {
     expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
   });
 
+  it('creates, edits, duplicates, and reopens rich text highlight colors', async () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const sourceHighlight = { kind: 'srgb' as const, value: '#ffff00' };
+    const shape = slide.addRichText([{
+      runs: [
+        { text: 'Yellow', style: { highlight: sourceHighlight } },
+        { text: 'Theme', style: { highlight: { kind: 'scheme', value: 'accent2' } } },
+        {
+          text: 'Combined',
+          style: {
+            highlight: { kind: 'srgb', value: '00ff00' },
+            strike: 'dblStrike',
+            underline: { style: 'dbl', color: { kind: 'scheme', value: 'accent1' } },
+          },
+        },
+      ],
+    }]);
+    sourceHighlight.value = '000000';
+
+    expect(shape.richText[0]!.runs.map(({ style }) => style?.highlight)).toEqual([
+      { kind: 'srgb', value: 'FFFF00' },
+      { kind: 'scheme', value: 'accent2' },
+      { kind: 'srgb', value: '00FF00' },
+    ]);
+    const createdXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(createdXml).toContain('<a:highlight><a:schemeClr val="accent2"/></a:highlight>');
+    const highlightIndex = createdXml.indexOf('<a:highlight>');
+    expect(highlightIndex).toBeGreaterThan(createdXml.lastIndexOf('</a:solidFill>', highlightIndex));
+    expect(createdXml).toContain(
+      '<a:highlight><a:srgbClr val="00FF00"/></a:highlight><a:uFill><a:solidFill>',
+    );
+
+    const snapshot = shape.richText as unknown as Array<{
+      runs: Array<{ style?: { highlight?: { value: string } } }>;
+    }>;
+    snapshot[0]!.runs[0]!.style!.highlight!.value = 'FF0000';
+    expect(shape.richText[0]!.runs[0]!.style!.highlight).toEqual({ kind: 'srgb', value: 'FFFF00' });
+
+    document.duplicateSlide(0);
+    shape.richText = [{
+      runs: [
+        { text: 'Changed', style: { highlight: { kind: 'scheme', value: 'tx2' } } },
+        { text: 'Cleared' },
+      ],
+    }];
+    expect(shape.richText[0]!.runs.map(({ style }) => style?.highlight)).toEqual([
+      { kind: 'scheme', value: 'tx2' },
+      undefined,
+    ]);
+
+    const beforeRollback = document.opcPackage.requirePart(slide.partUri).bytes;
+    expect(() =>
+      document.transaction(() => {
+        shape.richText = [{
+          runs: [{ text: 'Rollback', style: { highlight: { kind: 'srgb', value: 'FF0000' } } }],
+        }];
+        throw new Error('restore highlight');
+      }),
+    ).toThrow('restore highlight');
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(beforeRollback);
+    expect(slide.shapes[0]).toBe(shape);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const edited = reopened.slides[0]!.shapes[0] as ShapeModel;
+    const duplicated = reopened.slides[1]!.shapes[0] as ShapeModel;
+    expect(edited.richText[0]!.runs.map(({ style }) => style?.highlight)).toEqual([
+      { kind: 'scheme', value: 'tx2' },
+      undefined,
+    ]);
+    expect(duplicated.richText[0]!.runs[0]!.style!.highlight).toEqual({
+      kind: 'srgb',
+      value: 'FFFF00',
+    });
+    expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+  });
+
   it('creates, edits, duplicates, and reopens rich text strike styles', async () => {
     const strikeStyles: readonly RichTextStrikeStyle[] = ['sngStrike', 'dblStrike'];
     const document = PptxDocument.create();
@@ -1039,6 +1116,14 @@ describe('PptxDocument vertical slice', () => {
       [{ runs: [{ text: 'x', style: { strike: [] } }] }],
       [{ runs: [{ text: 'x', style: { strike: 'noStrike' } }] }],
       [{ runs: [{ text: 'x', style: { strike: 'tripleStrike' } }] }],
+      [{ runs: [{ text: 'x', style: { highlight: null } }] }],
+      [{ runs: [{ text: 'x', style: { highlight: true } }] }],
+      [{ runs: [{ text: 'x', style: { highlight: 'FFFF00' } }] }],
+      [{ runs: [{ text: 'x', style: { highlight: [] } }] }],
+      [{ runs: [{ text: 'x', style: { highlight: {} } }] }],
+      [{ runs: [{ text: 'x', style: { highlight: { kind: 'srgb', value: 'yellow' } } }] }],
+      [{ runs: [{ text: 'x', style: { highlight: { kind: 'scheme', value: 'unknown' } } }] }],
+      [{ runs: [{ text: 'x', style: { highlight: { kind: 'srgb', value: 'FFFF00', alpha: 1 } } }] }],
       [{ runs: [{ text: 'x', style: { color: { kind: 'srgb', value: 'FF0000', alpha: 0.5 } } }] }],
     ];
     for (const value of invalid) {

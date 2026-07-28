@@ -177,6 +177,14 @@ describe('importPptxGenJS', () => {
       ],
       { x: 9, y: 4, w: 3, h: 1 },
     );
+    generatedSlide.addText(
+      [
+        { text: 'Yellow', options: { highlight: 'ffff00' } },
+        { text: ' Theme', options: { highlight: 'accent2' } },
+        { text: ' None', options: {} },
+      ],
+      { x: 9, y: 5, w: 3, h: 1 },
+    );
     const document = await importPptxGenJS(generated);
     expect(document.slides[0]?.title.text).toBe('Created by PptxGenJS');
     expect((document.slides[0]!.shapes[0] as ShapeModel).richText[0]!.align).toBe('center');
@@ -277,6 +285,13 @@ describe('importPptxGenJS', () => {
     expect((document.slides[0]!.shapes[18] as ShapeModel).richText[0]!.runs.map(
       ({ style }) => style?.strike,
     )).toEqual(['sngStrike', undefined, 'sngStrike', 'dblStrike', false]);
+    expect((document.slides[0]!.shapes[19] as ShapeModel).richText[0]!.runs.map(
+      ({ style }) => style?.highlight,
+    )).toEqual([
+      { kind: 'srgb', value: 'FFFF00' },
+      { kind: 'scheme', value: 'accent2' },
+      undefined,
+    ]);
     document.slides[0]!.title.text = 'Edited by the OOXML kernel';
     document.duplicateSlide(0);
 
@@ -346,6 +361,13 @@ describe('importPptxGenJS', () => {
     expect((reopened.slides[1]!.shapes[18] as ShapeModel).richText[0]!.runs.map(
       ({ style }) => style?.strike,
     )).toEqual(['sngStrike', undefined, 'sngStrike', 'dblStrike', false]);
+    expect((reopened.slides[1]!.shapes[19] as ShapeModel).richText[0]!.runs.map(
+      ({ style }) => style?.highlight,
+    )).toEqual([
+      { kind: 'srgb', value: 'FFFF00' },
+      { kind: 'scheme', value: 'accent2' },
+      undefined,
+    ]);
   });
 
   it('keeps pptxgenjs out of every non-adapter package dependency list', async () => {

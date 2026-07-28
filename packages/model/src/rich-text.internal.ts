@@ -743,7 +743,7 @@ function normalizeStyle(value: unknown, paragraphIndex: number, runIndex: number
   }
   assertSupportedKeys(
     value,
-    ['bold', 'color', 'fontFamily', 'fontSize', 'italic', 'strike', 'underline'],
+    ['bold', 'color', 'fontFamily', 'fontSize', 'highlight', 'italic', 'strike', 'underline'],
     `Rich text run ${paragraphIndex},${runIndex} style`,
   );
   const candidate = value as RichTextRunStyle;
@@ -775,6 +775,9 @@ function normalizeStyle(value: unknown, paragraphIndex: number, runIndex: number
   const color = candidate.color === undefined
     ? undefined
     : normalizeColor(candidate.color, `${context} color`);
+  const highlight = candidate.highlight === undefined
+    ? undefined
+    : normalizeColor(candidate.highlight, `${context} highlight`);
   const underline = candidate.underline === undefined
     ? undefined
     : normalizeUnderline(candidate.underline, `${context} underline`);
@@ -787,6 +790,7 @@ function normalizeStyle(value: unknown, paragraphIndex: number, runIndex: number
     ...(candidate.bold !== undefined ? { bold: candidate.bold } : {}),
     ...(candidate.italic !== undefined ? { italic: candidate.italic } : {}),
     ...(color ? { color } : {}),
+    ...(highlight ? { highlight } : {}),
     ...(underline !== undefined ? { underline } : {}),
     ...(strike !== undefined ? { strike } : {}),
   };
@@ -865,6 +869,9 @@ function renderRun(run: RichTextRun, prefix: string): string {
   ].filter(Boolean).join(' ');
   const color = style.color ?? { kind: 'scheme' as const, value: 'tx1' };
   const colorXml = renderColorChoice(color, prefix);
+  const highlight = style.highlight
+    ? `<${prefix}highlight>${renderColorChoice(style.highlight, prefix)}</${prefix}highlight>`
+    : '';
   const underlineColor = typeof style.underline === 'object' ? style.underline.color : undefined;
   const underlineFill = underlineColor
     ? `<${prefix}uFill><${prefix}solidFill>${renderColorChoice(underlineColor, prefix)}</${prefix}solidFill></${prefix}uFill>`
@@ -872,7 +879,7 @@ function renderRun(run: RichTextRun, prefix: string): string {
   const latin = escapeXmlAttribute(style.fontFamily ?? '+mn-lt');
   const eastAsian = escapeXmlAttribute(style.fontFamily ?? '+mn-ea');
   const complexScript = escapeXmlAttribute(style.fontFamily ?? '+mn-cs');
-  return `${softBreak}<${prefix}r><${prefix}rPr ${attributes}><${prefix}solidFill>${colorXml}</${prefix}solidFill>${underlineFill}<${prefix}latin typeface="${latin}"/><${prefix}ea typeface="${eastAsian}"/><${prefix}cs typeface="${complexScript}"/></${prefix}rPr><${prefix}t xml:space="preserve">${escapeXmlText(run.text)}</${prefix}t></${prefix}r>`;
+  return `${softBreak}<${prefix}r><${prefix}rPr ${attributes}><${prefix}solidFill>${colorXml}</${prefix}solidFill>${highlight}${underlineFill}<${prefix}latin typeface="${latin}"/><${prefix}ea typeface="${eastAsian}"/><${prefix}cs typeface="${complexScript}"/></${prefix}rPr><${prefix}t xml:space="preserve">${escapeXmlText(run.text)}</${prefix}t></${prefix}r>`;
 }
 
 function renderColorChoice(color: RichTextColor, prefix: string): string {
@@ -1080,6 +1087,7 @@ function readStyle(xml: LosslessXmlDocument, run: XmlElement): RichTextRunStyle 
   const bold = booleanAttribute(xml, properties, 'b');
   const italic = booleanAttribute(xml, properties, 'i');
   const strike = readStrike(xml, properties);
+  const highlight = readHighlight(xml, properties);
   const underline = readUnderline(xml, properties);
   const style: RichTextRunStyle = {
     ...(fontFamily !== undefined ? { fontFamily } : {}),
@@ -1087,10 +1095,19 @@ function readStyle(xml: LosslessXmlDocument, run: XmlElement): RichTextRunStyle 
     ...(bold !== undefined ? { bold } : {}),
     ...(italic !== undefined ? { italic } : {}),
     ...(color ? { color } : {}),
+    ...(highlight ? { highlight } : {}),
     ...(underline !== undefined ? { underline } : {}),
     ...(strike !== undefined ? { strike } : {}),
   };
   return Object.keys(style).length > 0 ? style : undefined;
+}
+
+function readHighlight(
+  xml: LosslessXmlDocument,
+  properties: XmlElement,
+): RichTextColor | undefined {
+  const elements = directChildren(properties, 'highlight');
+  return elements.length === 1 ? readDirectColorChoice(xml, elements[0]!) : undefined;
 }
 
 function readStrike(
@@ -1127,9 +1144,16 @@ function readDirectSolidColor(
 ): RichTextColor | undefined {
   const containerChildren = directChildren(container);
   if (containerChildren.length !== 1 || containerChildren[0]?.localName !== 'solidFill') return undefined;
-  const fillChildren = directChildren(containerChildren[0]);
-  if (fillChildren.length !== 1) return undefined;
-  const color = fillChildren[0]!;
+  return readDirectColorChoice(xml, containerChildren[0]);
+}
+
+function readDirectColorChoice(
+  xml: LosslessXmlDocument,
+  container: XmlElement,
+): RichTextColor | undefined {
+  const children = directChildren(container);
+  if (children.length !== 1) return undefined;
+  const color = children[0]!;
   if (directChildren(color).length > 0) return undefined;
   const value = xml.attribute(color, 'val')?.value;
   if (color.localName === 'srgbClr' && value && /^[\da-f]{6}$/i.test(value)) {

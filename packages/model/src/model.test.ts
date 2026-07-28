@@ -323,6 +323,62 @@ describe('PresentationModel', () => {
     expect(updated.match(/<a:rPr strike="sngStrike"\/>/g)).toHaveLength(2);
   });
 
+  it('reads strict local highlight colors and preserves their XML during plain text edits', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.slides[1]!;
+    const part = pkg.requirePart(slide.partUri);
+    const highlightText = [
+      '<a:p>',
+      '<a:r><a:rPr><a:highlight><a:srgbClr val="ffff00"/></a:highlight></a:rPr><a:t>Yellow</a:t></a:r>',
+      '<a:r><a:rPr><a:highlight><a:schemeClr val="accent2"/></a:highlight></a:rPr><a:t>Theme</a:t></a:r>',
+      '<a:r><a:rPr><a:highlight><a:srgbClr val="FF0000"/></a:highlight><a:highlight><a:srgbClr val="00FF00"/></a:highlight></a:rPr><a:t>Repeated</a:t></a:r>',
+      '<a:r><a:rPr><a:highlight><a:prstClr val="yellow"/></a:highlight></a:rPr><a:t>Unsupported</a:t></a:r>',
+      '<a:r><a:rPr><a:highlight><a:srgbClr val="yellow"/></a:highlight></a:rPr><a:t>Malformed</a:t></a:r>',
+      '<a:r><a:rPr strike="sngStrike"><a:highlight><a:schemeClr val="accent1"><a:tint val="50000"/></a:schemeClr></a:highlight></a:rPr><a:t>Transformed</a:t></a:r>',
+      '<a:r><a:rPr><a:highlight><a:srgbClr val="112233"/><a:schemeClr val="tx1"/></a:highlight></a:rPr><a:t>Multiple</a:t></a:r>',
+      '<a:r><a:rPr/><a:t>Absent</a:t></a:r>',
+      '</a:p>',
+    ].join('');
+    pkg.setPart(
+      part.uri,
+      new TextDecoder().decode(part.bytes).replace(
+        '<a:p><a:r><a:t>First title</a:t></a:r></a:p>',
+        highlightText,
+      ),
+      part.contentType,
+    );
+    const shape = slide.shapes[0] as ShapeModel;
+    const journal = [...pkg.mutations];
+
+    expect(shape.richText[0]!.runs.map(({ style }) => style?.highlight)).toEqual([
+      { kind: 'srgb', value: 'FFFF00' },
+      { kind: 'scheme', value: 'accent2' },
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    ]);
+    expect(shape.richText[0]!.runs[5]!.style!.strike).toBe('sngStrike');
+    expect(pkg.mutations).toEqual(journal);
+
+    const snapshot = shape.richText as unknown as Array<{
+      runs: Array<{ style?: { highlight?: { value: string } } }>;
+    }>;
+    snapshot[0]!.runs[0]!.style!.highlight!.value = '000000';
+    expect(shape.richText[0]!.runs[0]!.style!.highlight).toEqual({ kind: 'srgb', value: 'FFFF00' });
+
+    shape.text = 'First replacement\nSecond replacement';
+    expect(shape.richText.map((paragraph) => paragraph.runs[0]!.style!.highlight)).toEqual([
+      { kind: 'srgb', value: 'FFFF00' },
+      { kind: 'srgb', value: 'FFFF00' },
+    ]);
+    const updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated.match(/<a:highlight><a:srgbClr val="ffff00"\/><\/a:highlight>/g)).toHaveLength(2);
+  });
+
   it('updates alignment without rebuilding other paragraph properties', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);
