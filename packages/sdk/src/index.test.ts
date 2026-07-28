@@ -342,6 +342,169 @@ describe('PptxDocument vertical slice', () => {
     });
   });
 
+  it('creates, edits, duplicates, rolls back, and reopens a basic table', async () => {
+    const document = PptxDocument.create({ slideSize: 'wide' });
+    const slide = document.addSlide();
+    const otherParts = new Map(
+      document.opcPackage.parts
+        .filter(({ uri }) => uri !== slide.partUri)
+        .map(({ uri, bytes }) => [uri, bytes]),
+    );
+    const table = slide.addTable(
+      [
+        ['Region', 'Revenue', 'Growth'],
+        ['East', '$1.2M', '12%'],
+        ['West', '$980K', ''],
+      ],
+      {
+        name: 'Revenue table',
+        x: inches(1),
+        y: inches(1.25),
+        width: inches(8),
+        height: inches(2.25),
+      },
+    );
+
+    expect(table).toBeInstanceOf(TableModel);
+    expect(table.name).toBe('Revenue table');
+    expect(slide.shapes[0]).toBe(table);
+    expect(table.rows.map(({ cells }) => cells.map(({ text }) => text))).toEqual([
+      ['Region', 'Revenue', 'Growth'],
+      ['East', '$1.2M', '12%'],
+      ['West', '$980K', ''],
+    ]);
+    expect(table.transform).toMatchObject({
+      x: inches(1),
+      y: inches(1.25),
+      width: inches(8),
+      height: inches(2.25),
+    });
+    expect(table.rows[0]!.cells[0]).toMatchObject({
+      text: 'Region',
+      margins: { top: 3.6, right: 7.2, bottom: 3.6, left: 7.2 },
+      borders: {
+        top: { kind: 'none' },
+        right: { kind: 'none' },
+        bottom: { kind: 'none' },
+        left: { kind: 'none' },
+      },
+    });
+    expect(table.rows[0]!.cells[0]!.fill).toBeUndefined();
+    expect(table.rows[0]!.cells[0]!.textDirection).toBeUndefined();
+    expect(table.rows[0]!.cells[0]!.textFit).toBeUndefined();
+    expect(table.rows[0]!.cells[0]!.verticalAlignment).toBeUndefined();
+    expect(validatePackage(document.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+    for (const [uri, bytes] of otherParts) {
+      expect(document.opcPackage.requirePart(uri).bytes).toEqual(bytes);
+    }
+
+    const duplicate = document.duplicateSlide(0);
+    const duplicateTable = duplicate.shapes[0] as TableModel;
+    const originalRows = duplicateTable.rows;
+
+    table.setCellText(1, 0, 'Eastern');
+    table.setCellText(2, 2, 'Now filled');
+    table.setCellTextDirection(1, 1, 'vert270');
+    table.setCellTextFit(1, 2, 'shrink');
+    table.setCellVerticalAlignment(2, 0, 'bottom');
+    table.setCellMargins(2, 1, [2, 4, 6, 8]);
+    table.setCellFill(0, 0, {
+      kind: 'solid',
+      color: { kind: 'scheme', value: 'accent1' },
+      transparency: 25,
+    });
+    table.setCellBorders(0, 0, {
+      kind: 'line',
+      color: { kind: 'srgb', value: 'FFFFFF' },
+      width: 1,
+      style: 'solid',
+    });
+    table.setTransform({ x: inches(1.5) });
+
+    expect(slide.shapes[0]).toBe(table);
+    expect(table.rows[1]!.cells[0]!.text).toBe('Eastern');
+    expect(table.rows[2]!.cells[2]!.text).toBe('Now filled');
+    expect(table.rows[1]!.cells[1]!.textDirection).toBe('vert270');
+    expect(table.rows[1]!.cells[2]!.textFit).toBe('shrink');
+    expect(table.rows[2]!.cells[0]!.verticalAlignment).toBe('bottom');
+    expect(table.rows[2]!.cells[1]!.margins).toEqual({
+      top: 2,
+      right: 4,
+      bottom: 6,
+      left: 8,
+    });
+    expect(table.rows[0]!.cells[0]!.fill).toEqual({
+      kind: 'solid',
+      color: { kind: 'scheme', value: 'accent1' },
+      transparency: 25,
+    });
+    expect(table.rows[0]!.cells[0]!.borders).toEqual({
+      top: {
+        kind: 'line',
+        color: { kind: 'srgb', value: 'FFFFFF' },
+        width: 1,
+        style: 'solid',
+      },
+      right: {
+        kind: 'line',
+        color: { kind: 'srgb', value: 'FFFFFF' },
+        width: 1,
+        style: 'solid',
+      },
+      bottom: {
+        kind: 'line',
+        color: { kind: 'srgb', value: 'FFFFFF' },
+        width: 1,
+        style: 'solid',
+      },
+      left: {
+        kind: 'line',
+        color: { kind: 'srgb', value: 'FFFFFF' },
+        width: 1,
+        style: 'solid',
+      },
+    });
+    expect(table.transform.x).toBe(inches(1.5));
+    expect(duplicateTable.rows).toEqual(originalRows);
+
+    const beforeRollback = document.opcPackage.requirePart(slide.partUri).bytes;
+    const rollbackJournal = [...document.opcPackage.mutations];
+    let rolledBack: TableModel | undefined;
+    expect(() =>
+      document.transaction(() => {
+        table.setCellFill(0, 0, { kind: 'none' });
+        rolledBack = slide.addTable([['temporary']]);
+        throw new Error('restore created table state');
+      }),
+    ).toThrow('restore created table state');
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(beforeRollback);
+    expect(document.opcPackage.mutations).toEqual(rollbackJournal);
+    expect(slide.shapes[0]).toBe(table);
+    expect(() => rolledBack!.rows).toThrow(ModelParseError);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedTable = reopened.slides[0]!.shapes[0] as TableModel;
+    const reopenedDuplicate = reopened.slides[1]!.shapes[0] as TableModel;
+    expect(reopenedTable.rows.map(({ cells }) => cells.map(({ text }) => text))).toEqual([
+      ['Region', 'Revenue', 'Growth'],
+      ['Eastern', '$1.2M', '12%'],
+      ['West', '$980K', 'Now filled'],
+    ]);
+    expect(reopenedTable.rows[0]!.cells[0]!.fill).toEqual(table.rows[0]!.cells[0]!.fill);
+    expect(reopenedTable.rows[0]!.cells[0]!.borders).toEqual(table.rows[0]!.cells[0]!.borders);
+    expect(reopenedTable.rows[1]!.cells[1]!.textDirection).toBe('vert270');
+    expect(reopenedTable.rows[1]!.cells[2]!.textFit).toBe('shrink');
+    expect(reopenedTable.rows[2]!.cells[0]!.verticalAlignment).toBe('bottom');
+    expect(reopenedTable.rows[2]!.cells[1]!.margins).toEqual({
+      top: 2,
+      right: 4,
+      bottom: 6,
+      left: 8,
+    });
+    expect(reopenedTable.transform.x).toBe(inches(1.5));
+    expect(reopenedDuplicate.rows).toEqual(originalRows);
+  });
+
   it('edits table-cell text directions through duplicate, rollback, and reopen lifecycles', async () => {
     const document = await PptxDocument.open(await tableTextDirectionFixture());
     expect(validatePackage(document.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);

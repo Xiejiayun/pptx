@@ -30,7 +30,11 @@ import {
   type NormalizedParagraphSpacingUpdate,
   type NormalizedParagraphTabStop,
 } from './rich-text.internal.js';
-import { decodeShape, ShapeModel, type SemanticShape } from './shapes.js';
+import { decodeShape, ShapeModel, TableModel, type SemanticShape } from './shapes.js';
+import {
+  normalizeTableDefinition,
+  renderTableGraphicFrame,
+} from './table-create.internal.js';
 import {
   normalizeTextBoxMargins,
   readTextBoxMargins,
@@ -92,6 +96,14 @@ export interface AddTextOptions extends Partial<Transform> {
   readonly valign?: TextBoxVerticalAlignment;
   readonly vert?: TextBoxTextDirection;
   readonly wrap?: boolean;
+}
+
+export interface AddTableOptions {
+  readonly name?: string;
+  readonly x?: number;
+  readonly y?: number;
+  readonly width?: number;
+  readonly height?: number;
 }
 
 export class SlideTitleModel {
@@ -319,6 +331,28 @@ export class SlideModel {
     if (changes.flipHorizontal !== undefined) setAttribute(xml, xfrm, 'flipH', changes.flipHorizontal ? 1 : 0);
     if (changes.flipVertical !== undefined) setAttribute(xml, xfrm, 'flipV', changes.flipVertical ? 1 : 0);
     this.setXml(xml.serialize());
+  }
+
+  addTable(
+    rows: readonly (readonly string[])[],
+    options: AddTableOptions = {},
+  ): TableModel {
+    return this.presentation.opcPackage.transaction(() => {
+      const definition = normalizeTableDefinition(rows, options);
+      const { xml } = this.parse();
+      const shapeTree = requireTableShapeTree(xml, this.partUri);
+      const nextId = allocateShapeId(xml);
+      const tableXml = renderTableGraphicFrame(nextId, definition);
+      const extensionList = directChildren(shapeTree, 'extLst')[0];
+      if (extensionList) xml.replace(extensionList.start, extensionList.start, tableXml);
+      else xml.appendChildXml(shapeTree, tableXml);
+      this.setXml(xml.serialize());
+      const table = this.shapes.find((candidate) => candidate.id === nextId);
+      if (!(table instanceof TableModel) || table.kind !== 'table') {
+        throw new ModelParseError(`Created table ${nextId} could not be resolved`, this.partUri);
+      }
+      return table;
+    });
   }
 
   addText(value: string, options: AddTextOptions = {}): ShapeModel {
@@ -640,6 +674,23 @@ function allocateShapeId(xml: LosslessXmlDocument): number {
     const value = Number.parseInt(xml.attribute(element, 'id')?.value ?? '', 10);
     return Number.isFinite(value) ? Math.max(maximum, value) : maximum;
   }, 1) + 1;
+}
+
+function requireTableShapeTree(
+  xml: LosslessXmlDocument,
+  partUri: string,
+): XmlElement {
+  const candidates = xml.elements('spTree').filter((tree) =>
+    tree.parent?.localName === 'cSld'
+    && tree.parent.parent?.localName === 'sld');
+  if (candidates.length !== 1) {
+    throw new ModelParseError('Slide must contain exactly one direct shape tree', partUri);
+  }
+  const extensionLists = directChildren(candidates[0]!, 'extLst');
+  if (extensionLists.length > 1) {
+    throw new ModelParseError('Slide shape tree contains repeated extension lists', partUri);
+  }
+  return candidates[0]!;
 }
 
 function textShapeXml(

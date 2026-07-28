@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { PptxDocument, ShapeModel, TableModel } from '@pptx/sdk';
+import { inches, PptxDocument, ShapeModel, TableModel } from '@pptx/sdk';
 import { importPptxGenJS } from './index.js';
 
 interface BorderProps {
@@ -39,6 +39,86 @@ const require = createRequire(import.meta.url);
 const PptxGenJS = require('pptxgenjs') as new () => PptxGenJSInstance;
 
 describe('importPptxGenJS', () => {
+  it('matches native basic table creation to public PptxGenJS plain-table output', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    generated.layout = 'LAYOUT_WIDE';
+    const generatedSlide = generated.addSlide();
+    const rows = [
+      ['A1', 'B1', 'C1'],
+      ['A2', 'B2', 'C2'],
+    ] as const;
+    generatedSlide.addTable(
+      rows.map((row) => row.map((text) => ({ text, options: {} }))),
+      { x: 1, y: 1.5, w: 6, h: 2 },
+    );
+
+    const imported = await importPptxGenJS(generated);
+    const importedTable = imported.slides[0]!.shapes[0] as TableModel;
+    const native = PptxDocument.create({ slideSize: 'wide' });
+    const nativeTable = native.addSlide().addTable(rows, {
+      x: inches(1),
+      y: inches(1.5),
+      width: inches(6),
+      height: inches(2),
+    });
+
+    expect(importedTable).toBeInstanceOf(TableModel);
+    expect(nativeTable.transform).toMatchObject(importedTable.transform);
+    expect(nativeTable.rows.map(({ cells }) => cells.map(({ text }) => text))).toEqual(
+      importedTable.rows.map(({ cells }) => cells.map(({ text }) => text)),
+    );
+    expect(nativeTable.rows.map(({ cells }) => cells.map(({ margins }) => margins))).toEqual(
+      importedTable.rows.map(({ cells }) => cells.map(({ margins }) => margins)),
+    );
+    expect(nativeTable.rows.map(({ cells }) => cells.map(({ borders }) => borders))).toEqual(
+      importedTable.rows.map(({ cells }) => cells.map(({ borders }) => borders)),
+    );
+
+    const nativeXml = new TextDecoder().decode(
+      native.opcPackage.requirePart(native.slides[0]!.partUri).bytes,
+    );
+    const importedXml = new TextDecoder().decode(
+      imported.opcPackage.requirePart(imported.slides[0]!.partUri).bytes,
+    );
+    for (const xml of [nativeXml, importedXml]) {
+      expect(xml).toContain(
+        'uri="http://schemas.openxmlformats.org/drawingml/2006/table"',
+      );
+      const columnWidths = [...xml.matchAll(/<a:gridCol w="(\d+)"\/>/g)]
+        .map((match) => Number(match[1]));
+      const rowHeights = [...xml.matchAll(/<a:tr h="(\d+)">/g)]
+        .map((match) => Number(match[1]));
+      expect(columnWidths).toHaveLength(3);
+      expect(columnWidths.reduce((sum, width) => sum + width, 0)).toBe(5_486_400);
+      expect(rowHeights).toEqual([914_400, 914_400]);
+      expect(xml.match(/<a:tc>/g)).toHaveLength(6);
+      expect(xml.match(/marL="91440" marR="91440" marT="45720" marB="45720"/g))
+        .toHaveLength(6);
+      const properties = xml.match(/<a:tcPr[^>]*>([\s\S]*?)<\/a:tcPr>/)?.[1];
+      expect(properties).toBeDefined();
+      const left = properties!.indexOf('<a:lnL ');
+      const right = properties!.indexOf('<a:lnR ');
+      const top = properties!.indexOf('<a:lnT ');
+      const bottom = properties!.indexOf('<a:lnB ');
+      expect(left).toBeGreaterThanOrEqual(0);
+      expect(left).toBeLessThan(right);
+      expect(right).toBeLessThan(top);
+      expect(top).toBeLessThan(bottom);
+    }
+    expect(nativeXml).not.toContain('p14:modId');
+    expect(nativeXml).toContain('<a:ext cx="5486400" cy="1828800"/>');
+
+    const reopenedNative = await PptxDocument.open(await native.write());
+    const reopenedImported = await PptxDocument.open(await imported.write());
+    const reopenedNativeTable = reopenedNative.slides[0]!.shapes[0] as TableModel;
+    const reopenedImportedTable = reopenedImported.slides[0]!.shapes[0] as TableModel;
+    expect(reopenedNativeTable.rows).toEqual(nativeTable.rows);
+    expect(reopenedImportedTable.rows).toEqual(importedTable.rows);
+    expect(reopenedNativeTable.transform).toEqual(nativeTable.transform);
+    expect(reopenedImportedTable.transform).toEqual(importedTable.transform);
+  });
+
   it('imports PptxGenJS table-cell text directions with exact four-value semantics', async () => {
     const generated = new PptxGenJS();
     expect(generated.version).toBe('4.0.1');

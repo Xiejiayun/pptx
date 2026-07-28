@@ -11,6 +11,7 @@
 - Added clone-on-write isolation for shared image payload and raw chart XML edits, including chart-owned workbook subgraphs and transaction rollback.
 - Added native zero-input presentation creation for all six formats, four PptxGenJS-compatible slide sizes, and blank slides linked to a canonical master/layout/theme chain.
 - Added transactional single-paragraph text-box creation with stable shape identity, XML-safe content, unique IDs, and editable transforms.
+- Added native basic table creation from strict rectangular single-paragraph string matrices with deterministic geometry, stable identity, and immediate cell/transform editing.
 - Added custom OOXML-valid slide dimensions at presentation creation, matching PptxGenJS custom-layout output semantics.
 - Added lossless slide-canvas size reading and editing without silently scaling shapes or changing the notes page.
 - Added PptxGenJS-compatible plain-text paragraphs with normalized line endings, empty-line preservation, and transactional text overwrite.

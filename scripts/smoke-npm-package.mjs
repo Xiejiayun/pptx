@@ -80,10 +80,17 @@ const initialTransparencies = transparencyText.richText[0].runs.map(({ style }) 
 transparencyText.richText = [{ runs: [{ text: 'Opaque', style: { transparency: 0 } }, { text: 'Mostly', style: { transparency: 75 } }, { text: 'Cleared' }] }];
 const updatedTransparencies = transparencyText.richText[0].runs.map(({ style }) => style?.transparency);
 const tableSlide = created.slides[0];
+const createdTable = tableSlide.addTable([['Region', 'Revenue'], ['East', '']], { name: 'Created smoke table' });
+const createdTableDefaults = createdTable instanceof TableModel && createdTable.transform.x === inches(0.5) && createdTable.transform.y === inches(0.5) && createdTable.transform.width === inches(2) && createdTable.transform.height === inches(1) && createdTable.rows[0].cells[0].margins?.top === 3.6 && createdTable.rows[0].cells[0].margins?.left === 7.2 && createdTable.rows[0].cells[0].borders?.top?.kind === 'none';
+createdTable.setCellText(1, 0, 'Edited East');
+createdTable.setCellVerticalAlignment(1, 1, 'bottom');
+const reopenedCreated = await PptxDocument.open(await created.write());
+const reopenedCreatedTable = reopenedCreated.slides[0].shapes.find((shape) => shape.name === 'Created smoke table');
+const tableCreation = createdTableDefaults && reopenedCreatedTable instanceof TableModel && reopenedCreatedTable.rows[1].cells[0].text === 'Edited East' && reopenedCreatedTable.rows[1].cells[1].text === '' && reopenedCreatedTable.rows[1].cells[1].verticalAlignment === 'bottom';
 const tablePart = created.opcPackage.requirePart(tableSlide.partUri);
 const tableXml = '<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="99" name="Smoke table"/></p:nvGraphicFramePr><a:graphic><a:graphicData><a:tbl><a:tr><a:tc><a:txBody><a:bodyPr custom="TARGET"><a:noAutofit/></a:bodyPr><a:p><a:r><a:t>Target</a:t></a:r></a:p></a:txBody><a:tcPr vert="horz" anchor="ctr" marL="12700" marR="25400" marT="38100" marB="50800"><a:lnL w="12700" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill><a:prstDash val="solid"/><a:round/><a:headEnd type="none" w="med" len="med"/><a:tailEnd type="none" w="med" len="med"/></a:lnL><a:lnR w="0" cap="flat" cmpd="sng" algn="ctr"><a:noFill/></a:lnR><a:lnT w="19050" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="accent2"/></a:solidFill><a:prstDash val="sysDash"/><a:round/><a:headEnd type="none" w="med" len="med"/><a:tailEnd type="none" w="med" len="med"/></a:lnT><a:lnB w="0" cap="flat" cmpd="sng" algn="ctr"><a:noFill/></a:lnB><a:solidFill><a:schemeClr val="accent1"><a:alpha val="75000"/></a:schemeClr></a:solidFill></a:tcPr></a:tc><a:tc><a:txBody><a:bodyPr custom="NEIGHBOR"><a:spAutoFit/></a:bodyPr><a:p><a:r><a:t>Neighbor</a:t></a:r></a:p></a:txBody><a:tcPr vert="vert" anchor="b" marL="63500" marR="76200" marT="88900" marB="101600" keep="ADJACENT"><a:lnL w="25400" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:srgbClr val="333333"/></a:solidFill><a:prstDash val="solid"/><a:round/><a:headEnd type="none" w="med" len="med"/><a:tailEnd type="none" w="med" len="med"/></a:lnL><a:solidFill><a:srgbClr val="70AD47"><a:alpha val="50000"/></a:srgbClr></a:solidFill></a:tcPr></a:tc></a:tr></a:tbl></a:graphicData></a:graphic></p:graphicFrame>';
 created.opcPackage.setPart(tableSlide.partUri, new TextDecoder().decode(tablePart.bytes).replace('</p:spTree>', tableXml + '</p:spTree>'), tablePart.contentType);
-const table = tableSlide.shapes.find((shape) => shape instanceof TableModel);
+const table = tableSlide.shapes.find((shape) => shape.name === 'Smoke table');
 const initialCellDirection = table?.rows[0]?.cells[0]?.textDirection;
 const initialCellFit = table?.rows[0]?.cells[0]?.textFit;
 const initialCellAlignment = table?.rows[0]?.cells[0]?.verticalAlignment;
@@ -164,6 +171,7 @@ const checks = {
   paragraphMarginRight: initialParagraphRightMargins[0] === 12 && initialParagraphRightMargins[1] === 24 && initialParagraphRightMargins[2] === undefined && bulletRightMarginCoexistence && updatedParagraphRightMargins[0] === 6 && updatedParagraphRightMargins[1] === 0 && updatedParagraphRightMargins[2] === undefined && updatedParagraphRightMargins[3] === undefined && updatedParagraphRightMargins[4] === 9,
   paragraphIndent: initialParagraphIndents[0] === 24 && initialParagraphIndents[1] === -18 && initialParagraphIndents[2] === undefined && initialParagraphIndents[3] === undefined && bulletIndentIsolation && updatedParagraphIndents[0] === 6 && updatedParagraphIndents[1] === -6 && updatedParagraphIndents[2] === 0 && updatedParagraphIndents[3] === undefined && updatedParagraphIndents[4] === undefined,
   richTextTransparency: initialTransparencies[0] === 25 && initialTransparencies[1] === 50.555 && initialTransparencies[2] === 100 && initialTransparencies[3] === 60 && updatedTransparencies[0] === 0 && updatedTransparencies[1] === 75 && updatedTransparencies[2] === undefined,
+  tableCreation,
   tableCellTextDirection: table instanceof TableModel && initialCellDirection === 'horz' && rotatedCellDirection === 'vert270' && stackedCellDirection === 'wordArtVert' && horizontalCellDirection === 'horz' && clearedCellDirection === undefined && table.rows[0].cells[0].text === 'Target' && table.rows[0].cells[1].textDirection === 'vert' && table.rows[0].cells[1].text === 'Neighbor',
   tableCellTextFit: table instanceof TableModel && initialCellFit === 'none' && shrinkCellFit === 'shrink' && sameFitPreserved && resizeCellFit === 'resize' && noneClearedCellFit === undefined && undefinedClearedCellFit === undefined && table.rows[0].cells[0].textFit === undefined && table.rows[0].cells[0].text === 'Target' && table.rows[0].cells[1].textFit === 'resize' && table.rows[0].cells[1].text === 'Neighbor',
   tableCellVerticalAlignment: table instanceof TableModel && initialCellAlignment === 'middle' && topCellAlignment === 'top' && middleCellAlignment === 'middle' && bottomCellAlignment === 'bottom' && clearedCellAlignment === undefined && table.rows[0].cells[0].verticalAlignment === undefined && table.rows[0].cells[0].text === 'Target' && table.rows[0].cells[1].verticalAlignment === 'bottom' && table.rows[0].cells[1].text === 'Neighbor',
@@ -216,10 +224,17 @@ if (browserIndent.richText[0].indent !== -12 || browserIndent.richText[1].indent
 browserIndent.richText = [{ indent: false, runs: [{ text: 'Cleared' }] }];
 if (browserIndent.richText[0].indent !== undefined) throw new Error('Browser paragraph indent clear failed');
 const tableSlide = created.slides[0];
+const createdTable = tableSlide.addTable([['Region', 'Revenue'], ['West', '']], { name: 'Created browser table' });
+if (!(createdTable instanceof TableModel) || createdTable.transform.x !== inches(0.5) || createdTable.transform.y !== inches(0.5) || createdTable.transform.width !== inches(2) || createdTable.transform.height !== inches(1) || createdTable.rows[0].cells[0].margins?.top !== 3.6 || createdTable.rows[0].cells[0].borders?.left?.kind !== 'none') throw new Error('Browser table creation defaults failed');
+createdTable.setCellText(1, 0, 'Edited West');
+createdTable.setCellFill(0, 0, { kind: 'solid', color: { kind: 'scheme', value: 'accent1' } });
+const reopenedCreated = await PptxDocument.open(await created.write());
+const reopenedCreatedTable = reopenedCreated.slides[0].shapes.find((shape) => shape.name === 'Created browser table');
+if (!(reopenedCreatedTable instanceof TableModel) || reopenedCreatedTable.rows[1].cells[0].text !== 'Edited West' || reopenedCreatedTable.rows[1].cells[1].text !== '' || reopenedCreatedTable.rows[0].cells[0].fill?.kind !== 'solid') throw new Error('Browser table creation round trip failed');
 const tablePart = created.opcPackage.requirePart(tableSlide.partUri);
 const tableXml = '<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="99" name="Browser table"/></p:nvGraphicFramePr><a:graphic><a:graphicData><a:tbl><a:tr><a:tc><a:txBody><a:bodyPr custom="TARGET"><a:noAutofit/></a:bodyPr><a:p><a:r><a:t>Browser target</a:t></a:r></a:p></a:txBody><a:tcPr vert="horz" anchor="ctr" marL="12700" marR="25400" marT="38100" marB="50800"><a:lnL w="12700" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill><a:prstDash val="solid"/><a:round/><a:headEnd type="none" w="med" len="med"/><a:tailEnd type="none" w="med" len="med"/></a:lnL><a:lnR w="0" cap="flat" cmpd="sng" algn="ctr"><a:noFill/></a:lnR><a:lnT w="19050" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="accent2"/></a:solidFill><a:prstDash val="sysDash"/><a:round/><a:headEnd type="none" w="med" len="med"/><a:tailEnd type="none" w="med" len="med"/></a:lnT><a:lnB w="0" cap="flat" cmpd="sng" algn="ctr"><a:noFill/></a:lnB><a:solidFill><a:schemeClr val="accent1"><a:alpha val="75000"/></a:schemeClr></a:solidFill></a:tcPr></a:tc><a:tc><a:txBody><a:bodyPr custom="NEIGHBOR"><a:spAutoFit/></a:bodyPr><a:p><a:r><a:t>Browser neighbor</a:t></a:r></a:p></a:txBody><a:tcPr vert="vert" anchor="b" marL="63500" marR="76200" marT="88900" marB="101600"><a:lnL w="25400" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:srgbClr val="333333"/></a:solidFill><a:prstDash val="solid"/><a:round/><a:headEnd type="none" w="med" len="med"/><a:tailEnd type="none" w="med" len="med"/></a:lnL><a:solidFill><a:srgbClr val="70AD47"><a:alpha val="50000"/></a:srgbClr></a:solidFill></a:tcPr></a:tc></a:tr></a:tbl></a:graphicData></a:graphic></p:graphicFrame>';
 created.opcPackage.setPart(tableSlide.partUri, new TextDecoder().decode(tablePart.bytes).replace('</p:spTree>', tableXml + '</p:spTree>'), tablePart.contentType);
-const table = tableSlide.shapes.find((shape) => shape instanceof TableModel);
+const table = tableSlide.shapes.find((shape) => shape.name === 'Browser table');
 if (!(table instanceof TableModel) || table.rows[0].cells[0].textFit !== 'none' || table.rows[0].cells[1].textFit !== 'resize') throw new Error('Browser table-cell fit read failed');
 if (table.rows[0].cells[0].borders?.top?.kind !== 'line' || table.rows[0].cells[0].borders.top.color.kind !== 'scheme' || table.rows[0].cells[0].borders.top.color.value !== 'accent2' || table.rows[0].cells[0].borders.top.width !== 1.5 || table.rows[0].cells[0].borders.top.style !== 'dash' || table.rows[0].cells[0].borders.right?.kind !== 'none' || table.rows[0].cells[0].borders.bottom?.kind !== 'none' || table.rows[0].cells[0].borders.left?.kind !== 'line') throw new Error('Browser table-cell border read failed');
 table.setCellBorders(0, 0, { kind: 'line', color: { kind: 'srgb', value: '#0000FF' }, width: 2, style: 'solid' });
@@ -314,6 +329,7 @@ process.stdout.write(resolved);
   type TextBoxMargins,
   type TextBoxFit,
   type TextBoxTextDirection,
+  type AddTableOptions,
   type TableCellTextDirection,
   type TableCellBorder,
   type TableCellBorderInput,
@@ -365,6 +381,9 @@ const cellBorder: TableCellBorder = { kind: 'line', color: { kind: 'scheme', val
 const cellBorderInput: TableCellBorderInput = [cellBorder, { kind: 'none' }, undefined, cellBorder];
 const cellFill: TableCellFill = { kind: 'solid', color: { kind: 'scheme', value: 'accent1' }, transparency: 25 };
 const createdText = createdDocument.addSlide().addText('Typed\\ntext', { align: alignment, fit, valign: verticalAlignment, vert: direction, wrap: true, bullet, level: 2, margin, spacing, tabStops });
+const tableRows: readonly (readonly string[])[] = [['Region', 'Revenue'], ['East', '']];
+const tableOptions: AddTableOptions = { name: 'Typed table', x: inches(1), width: inches(4) };
+const typedTable: TableModel = createdDocument.slides[0].addTable(tableRows, tableOptions);
 const table = createdDocument.slides[0].shapes.find(
   (shape): shape is TableModel => shape instanceof TableModel,
 );
@@ -457,7 +476,7 @@ documentPromise.then((document) => {
   advancedCharts.installAdvancedChartPlugin(document);
   smartArt.installSmartArtPlugin(document);
 });
-void [documentPromise, createdDocument, globalRtl, globalRtlSnapshot, customDocument, createdText, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
+void [documentPromise, createdDocument, globalRtl, globalRtlSnapshot, customDocument, createdText, tableRows, tableOptions, typedTable, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
 `,
   );
   run(

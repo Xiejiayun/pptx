@@ -217,6 +217,142 @@ describe('PresentationModel', () => {
     expect((model.slides[1]!.shapes[3] as ChartModel).xml).toContain('<c:plotArea/>');
   });
 
+  it('creates strict basic tables with stable identity, ordering, and atomic failure', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const part = pkg.requirePart(slide.partUri);
+    pkg.setPart(
+      slide.partUri,
+      new TextDecoder().decode(part.bytes).replace(
+        '</p:spTree>',
+        '<p:extLst><p:ext uri="urn:test"><x:opaque xmlns:x="urn:test">KEEP</x:opaque></p:ext></p:extLst></p:spTree>',
+      ),
+      part.contentType,
+    );
+
+    const first = slide.addText('Before table', { name: 'Before' });
+    const table = slide.addTable(
+      [['A & <1>', ''], ['A2', 'B2']],
+      {
+        name: 'Table "A"',
+        x: inches(1),
+        y: inches(1.5),
+        width: inches(4),
+        height: inches(2),
+      },
+    );
+    const last = slide.addText('After table', { name: 'After' });
+
+    expect([first.id, table.id, last.id]).toEqual([2, 3, 4]);
+    expect(table).toBeInstanceOf(TableModel);
+    expect(table.name).toBe('Table "A"');
+    expect(table.rows.map(({ cells }) => cells.map(({ text }) => text))).toEqual([
+      ['A & <1>', ''],
+      ['A2', 'B2'],
+    ]);
+    expect(table.rows[0]!.cells[0]!.margins).toEqual({
+      top: 3.6,
+      right: 7.2,
+      bottom: 3.6,
+      left: 7.2,
+    });
+    expect(table.rows[0]!.cells[0]!.borders).toEqual({
+      top: { kind: 'none' },
+      right: { kind: 'none' },
+      bottom: { kind: 'none' },
+      left: { kind: 'none' },
+    });
+    expect(table.transform).toMatchObject({
+      x: inches(1),
+      y: inches(1.5),
+      width: inches(4),
+      height: inches(2),
+    });
+    expect(slide.shapes.find(({ id }) => id === table.id)).toBe(table);
+
+    table.setCellText(0, 0, 'Edited');
+    table.setTransform({ x: inches(2) });
+    expect(slide.shapes.find(({ id }) => id === table.id)).toBe(table);
+    expect(table.rows[0]!.cells[0]!.text).toBe('Edited');
+    expect(table.transform.x).toBe(inches(2));
+
+    const updated = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect(updated.indexOf('name="Before"')).toBeLessThan(updated.indexOf('name="Table &quot;A&quot;"'));
+    expect(updated.indexOf('name="Table &quot;A&quot;"')).toBeLessThan(updated.indexOf('name="After"'));
+    expect(updated.indexOf('name="After"')).toBeLessThan(updated.indexOf('<p:extLst>'));
+    expect(updated).toContain('<x:opaque xmlns:x="urn:test">KEEP</x:opaque>');
+
+    const beforeInvalid = pkg.requirePart(slide.partUri).bytes;
+    const invalidJournal = [...pkg.mutations];
+    const invalidRows = [null, [], ['A'], [['A'], ['B', 'C']], [[1]], [['line\nbreak']]];
+    for (const rows of invalidRows) {
+      expect(() => slide.addTable(rows as never)).toThrow();
+    }
+    const invalidOptions = [
+      null,
+      [],
+      { unknown: true },
+      { name: 1 },
+      { x: Number.NaN },
+      { width: 0 },
+      { height: Number.POSITIVE_INFINITY },
+    ];
+    for (const options of invalidOptions) {
+      expect(() => slide.addTable([['A']], options as never)).toThrow();
+    }
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeInvalid);
+    expect(pkg.mutations).toEqual(invalidJournal);
+
+    let rolledBack: TableModel | undefined;
+    const beforeRollback = pkg.requirePart(slide.partUri).bytes;
+    const rollbackJournal = [...pkg.mutations];
+    expect(() =>
+      pkg.transaction(() => {
+        rolledBack = slide.addTable([['rollback']]);
+        throw new Error('restore table');
+      }),
+    ).toThrow('restore table');
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeRollback);
+    expect(pkg.mutations).toEqual(rollbackJournal);
+    expect(() => rolledBack!.rows).toThrow(ModelParseError);
+
+    const missingTree = model.addSlide();
+    const missingPart = pkg.requirePart(missingTree.partUri);
+    pkg.setPart(
+      missingTree.partUri,
+      '<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld/></p:sld>',
+      missingPart.contentType,
+    );
+    const beforeMissing = pkg.requirePart(missingTree.partUri).bytes;
+    const missingJournal = [...pkg.mutations];
+    expect(() => missingTree.addTable([['A'], ['B', 'C']])).toThrow(/same number/);
+    expect(() => missingTree.addTable([['A']])).toThrow(/exactly one direct shape tree/);
+    expect(pkg.requirePart(missingTree.partUri).bytes).toEqual(beforeMissing);
+    expect(pkg.mutations).toEqual(missingJournal);
+
+    const repeatedTree = model.addSlide();
+    const repeatedTreePart = pkg.requirePart(repeatedTree.partUri);
+    pkg.setPart(
+      repeatedTree.partUri,
+      '<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree/><p:spTree/></p:cSld></p:sld>',
+      repeatedTreePart.contentType,
+    );
+    expect(() => repeatedTree.addTable([['A']])).toThrow(/exactly one direct shape tree/);
+
+    const repeatedExtension = model.addSlide();
+    const repeatedExtensionPart = pkg.requirePart(repeatedExtension.partUri);
+    pkg.setPart(
+      repeatedExtension.partUri,
+      new TextDecoder().decode(repeatedExtensionPart.bytes).replace(
+        '</p:spTree>',
+        '<p:extLst/><p:extLst/></p:spTree>',
+      ),
+      repeatedExtensionPart.contentType,
+    );
+    expect(() => repeatedExtension.addTable([['A']])).toThrow(/repeated extension lists/);
+  });
+
   it('reads only exact direct table-cell text directions into detached snapshots', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const part = pkg.requirePart('/ppt/slides/slide1.xml');
