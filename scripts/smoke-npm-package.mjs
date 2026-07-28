@@ -43,6 +43,7 @@ try {
     `import { PptxDocument, GradientCodec, importPptxGenJS, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
 const checks = {
   PptxDocument: typeof PptxDocument === 'function',
+  create: PptxDocument.create().slides.length === 0,
   GradientCodec: typeof GradientCodec === 'function',
   importPptxGenJS: typeof importPptxGenJS === 'function',
   transitions: typeof transitions.TransitionCodec === 'function',
@@ -64,6 +65,7 @@ const resolved = import.meta.resolve('@jiayunxie/pptx');
 if (!resolved.endsWith('/dist/browser.js')) throw new Error('Browser condition resolved to ' + resolved);
 const checks = [PptxDocument, transitions.TransitionCodec, animations.AnimationTimingCodec, advancedCharts.AdvancedChartCodec, smartArt.SmartArtDiagramCodec];
 if (checks.some((value) => typeof value !== 'function')) throw new Error('Browser API surface is incomplete');
+if (PptxDocument.create({ slideSize: '16:9' }).slides.length !== 0) throw new Error('Browser create API failed');
 process.stdout.write(resolved);
 `,
   );
@@ -82,6 +84,7 @@ process.stdout.write(resolved);
 } from '@jiayunxie/pptx';
 
 const documentPromise: Promise<PptxDocument> = PptxDocument.open(new Uint8Array());
+const createdDocument: PptxDocument = PptxDocument.create({ format: 'pptx', slideSize: 'wide' });
 const gradientConstructor: typeof GradientCodec = GradientCodec;
 const adapter: typeof importPptxGenJS = importPptxGenJS;
 const transition: transitions.SlideTransition = { effect: 'fade' };
@@ -94,7 +97,7 @@ documentPromise.then((document) => {
   advancedCharts.installAdvancedChartPlugin(document);
   smartArt.installSmartArtPlugin(document);
 });
-void [documentPromise, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
+void [documentPromise, createdDocument, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
 `,
   );
   run(

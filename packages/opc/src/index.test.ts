@@ -26,6 +26,17 @@ async function fixture(): Promise<Uint8Array> {
 }
 
 describe('OpcPackage', () => {
+  it('creates an empty mutable package with content type bookkeeping', async () => {
+    const pkg = OpcPackage.create();
+    pkg.setPart('/example/data.xml', '<example/>', 'application/example+xml');
+
+    const reopened = await OpcPackage.open(await pkg.write());
+    expect(reopened.requirePart('/example/data.xml').contentType).toBe('application/example+xml');
+    expect(new TextDecoder().decode(reopened.requirePart('/[Content_Types].xml').bytes)).toContain(
+      'PartName="/example/data.xml"',
+    );
+  });
+
   it('returns the original bytes if there are no mutations', async () => {
     const input = await fixture();
     const pkg = await OpcPackage.open(input);

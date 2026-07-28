@@ -91,6 +91,21 @@ export class OpcPackage {
     this.#zip = zip;
   }
 
+  static create(): OpcPackage {
+    const zip = new JSZip();
+    const pkg = new OpcPackage(new Uint8Array(), zip);
+    const uri = '/[Content_Types].xml';
+    const bytes = new TextEncoder().encode(
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/></Types>`,
+    );
+    pkg.#defaults.set('rels', 'application/vnd.openxmlformats-package.relationships+xml');
+    pkg.#defaults.set('xml', 'application/xml');
+    pkg.#parts.set(uri, { uri, contentType: 'application/xml', bytes, relationships: [] });
+    pkg.#zip.file('[Content_Types].xml', bytes);
+    pkg.#journal.push({ kind: 'add', uri });
+    return pkg;
+  }
+
   static async open(input: Uint8Array | ArrayBuffer, options: PackageOpenOptions = {}): Promise<OpcPackage> {
     throwIfAborted(options.signal);
     const original = input instanceof Uint8Array ? new Uint8Array(input) : new Uint8Array(input);

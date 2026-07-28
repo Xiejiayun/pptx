@@ -79,7 +79,13 @@ export class LayoutModel {
 
   get name(): string {
     const xml = this.codec.parse(this.partUri);
-    return xml.attribute(xml.elements('sldLayout')[0]!, 'name')?.value ?? partUriBasename(this.partUri);
+    const layout = xml.elements('sldLayout')[0];
+    const commonSlideData = xml.elements('cSld')[0];
+    return (
+      (layout ? xml.attribute(layout, 'name')?.value : undefined) ??
+      (commonSlideData ? xml.attribute(commonSlideData, 'name')?.value : undefined) ??
+      partUriBasename(this.partUri)
+    );
   }
 
   get masterPartUri(): string | undefined {

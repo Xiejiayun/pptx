@@ -15,9 +15,11 @@ import {
   type CompatibilityProfile,
   type Diagnostic,
 } from '@pptx/validator';
+import { createPresentationPackage, type CreatePresentationOptions } from './create.js';
 
 export * from '@pptx/codecs';
 export * from '@pptx/model';
+export type { BuiltInSlideSize, CreatePresentationOptions } from './create.js';
 export { PackageError } from '@pptx/opc';
 export type { PackageOpenOptions } from '@pptx/opc';
 export { ValidationError } from '@pptx/validator';
@@ -57,6 +59,10 @@ export class PptxDocument extends PresentationModel {
     const bytes = await readInput(input, options.signal);
     const pkg = await OpcPackage.open(bytes, options);
     return new PptxDocument(pkg);
+  }
+
+  static create(options: CreatePresentationOptions = {}): PptxDocument {
+    return new PptxDocument(createPresentationPackage(options));
   }
 
   static async fromBuffer(input: Uint8Array | ArrayBuffer, options: PackageOpenOptions = {}): Promise<PptxDocument> {

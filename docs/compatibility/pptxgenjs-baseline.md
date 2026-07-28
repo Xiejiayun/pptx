@@ -11,3 +11,15 @@ WP0 只依赖以下公开表面：
 验证样例包含文本、形状、主题和 slide relationships。PptxGenJS 4.0.1 生成的真实文件可由 `PptxDocument.open()` 导入、局部修改标题，并由 LibreOffice headless 无修复地打开和导出。
 
 adapter 不读取 `_slides` 等私有字段。后续 peer-range conformance test 会对 `^4.0.1` 的最低版本和当前最新兼容版本运行同一组输出导入用例。
+
+## 原生 API 对等进度
+
+| PptxGenJS 4.x surface | 原生 API | 状态 |
+| --- | --- | --- |
+| `new PptxGenJS()` | `PptxDocument.create()` | 已支持 |
+| 默认 `LAYOUT_16x9` | `create({ slideSize: '16:9' })` | 已支持 |
+| `LAYOUT_4x3` / `LAYOUT_16x10` / `LAYOUT_WIDE` | `create({ slideSize: '4:3' / '16:10' / 'wide' })` | 已支持 |
+| `addSlide()` 空白页 | `document.addSlide()` | 已支持 |
+| `defineLayout()` 自定义尺寸 | 尚无公开 API | 未支持，后续独立小项 |
+
+原生创建会生成可重新打开和验证的 master/layout/theme 关系链，不通过 adapter，也不在运行时安装或调用 PptxGenJS。

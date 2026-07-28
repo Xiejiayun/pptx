@@ -75,14 +75,14 @@ export class PresentationModel {
       );
       this.opcPackage.setPart(slideUri, blankSlideXml(), SLIDE_CONTENT_TYPE);
       const template = this.slides[0];
-      if (template) {
-        for (const relationship of template.relationships.filter(({ type }) => type === SLIDE_LAYOUT_RELATIONSHIP)) {
-          this.opcPackage.addRelationship(slideUri, {
-            type: relationship.type,
-            target: relationship.target,
-            targetMode: relationship.targetMode,
-          });
-        }
+      const layoutPartUri =
+        template?.relationships.find(({ type }) => type === SLIDE_LAYOUT_RELATIONSHIP)?.resolvedTarget ??
+        this.defaultLayoutPartUri();
+      if (layoutPartUri) {
+        this.opcPackage.addRelationship(slideUri, {
+          type: SLIDE_LAYOUT_RELATIONSHIP,
+          target: relativeRelationshipTarget(slideUri, layoutPartUri),
+        });
       }
       return this.attachSlide(slideUri);
     });
@@ -172,6 +172,18 @@ export class PresentationModel {
     }
     this.setXmlPart(this.presentationPartUri, xml.serialize());
     return this.slideModel(slideUri, relationship.id, slideId);
+  }
+
+  private defaultLayoutPartUri(): string | undefined {
+    for (const master of this.opcPackage
+      .relationships(this.presentationPartUri)
+      .filter(({ type, resolvedTarget }) => type.endsWith('/slideMaster') && resolvedTarget)) {
+      const layout = this.opcPackage
+        .relationships(master.resolvedTarget!)
+        .find(({ type, resolvedTarget }) => type === SLIDE_LAYOUT_RELATIONSHIP && resolvedTarget);
+      if (layout?.resolvedTarget) return layout.resolvedTarget;
+    }
+    return undefined;
   }
 
   private slideModel(partUri: string, relationshipId: string, slideId: number): SlideModel {

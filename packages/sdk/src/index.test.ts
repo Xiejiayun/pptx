@@ -5,7 +5,9 @@ import { join } from 'node:path';
 import { Readable } from 'node:stream';
 import JSZip from 'jszip';
 import { describe, expect, it } from 'vitest';
+import { PRESENTATION_FORMAT_PROFILES, type PresentationFormat } from '@pptx/model';
 import { OpcPackage } from '@pptx/opc';
+import { validatePackage } from '@pptx/validator';
 import { openPptxStream, PptxDocument, ValidationError } from './index.js';
 
 async function titleFixture(): Promise<Uint8Array> {
@@ -20,6 +22,66 @@ async function titleFixture(): Promise<Uint8Array> {
 }
 
 describe('PptxDocument vertical slice', () => {
+  it('creates a zero-slide presentation and adds blank slides with the default layout', async () => {
+    const document = PptxDocument.create();
+    expect(document.format).toBe('pptx');
+    expect(document.slides).toHaveLength(0);
+    expect(document.masters).toHaveLength(1);
+    expect(document.layouts).toHaveLength(1);
+    expect(document.layouts[0]?.name).toBe('DEFAULT');
+    expect(document.themes).toHaveLength(1);
+    expect(new TextDecoder().decode(document.opcPackage.requirePart('/ppt/presentation.xml').bytes)).toContain(
+      '<p:sldSz cx="9144000" cy="5143500"/>',
+    );
+
+    const first = document.addSlide();
+    const second = document.addSlide();
+    expect([first.slideId, second.slideId]).toEqual([256, 257]);
+    expect(first.relationships.find(({ type }) => type.endsWith('/slideLayout'))?.resolvedTarget).toBe(
+      document.layouts[0]?.partUri,
+    );
+    expect(second.relationships.find(({ type }) => type.endsWith('/slideLayout'))?.resolvedTarget).toBe(
+      document.layouts[0]?.partUri,
+    );
+    expect(validatePackage(document.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+
+    const reopened = await PptxDocument.open(await document.write());
+    expect(reopened.slides).toHaveLength(2);
+    expect(reopened.slides.map(({ slideId }) => slideId)).toEqual([256, 257]);
+    expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+  });
+
+  it('creates all presentation formats and built-in PptxGenJS slide sizes', async () => {
+    const sizes = {
+      '4:3': [9_144_000, 6_858_000],
+      '16:9': [9_144_000, 5_143_500],
+      '16:10': [9_144_000, 5_715_000],
+      wide: [12_192_000, 6_858_000],
+    } as const;
+    for (const [slideSize, [cx, cy]] of Object.entries(sizes)) {
+      const document = PptxDocument.create({ slideSize: slideSize as keyof typeof sizes });
+      expect(new TextDecoder().decode(document.opcPackage.requirePart('/ppt/presentation.xml').bytes)).toContain(
+        `<p:sldSz cx="${cx}" cy="${cy}"/>`,
+      );
+    }
+
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const created = PptxDocument.create({ format });
+      expect(created.formatProfile).toEqual(PRESENTATION_FORMAT_PROFILES[format]);
+      const reopened = await PptxDocument.open(await created.write());
+      expect(reopened.formatProfile).toEqual(PRESENTATION_FORMAT_PROFILES[format]);
+    }
+  });
+
+  it('rejects unknown create options before returning a document', () => {
+    expect(() => PptxDocument.create({ format: 'pdf' as PresentationFormat })).toThrow(
+      /Unsupported presentation format/,
+    );
+    expect(() => PptxDocument.create({ slideSize: 'a4' as '16:9' })).toThrow(
+      /Unsupported built-in slide size/,
+    );
+  });
+
   it('opens Buffer-like values and streams, then returns unchanged bytes exactly', async () => {
     const input = await titleFixture();
     const arrayBuffer = input.slice().buffer as ArrayBuffer;

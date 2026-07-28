@@ -10,6 +10,18 @@ This release is a technical preview published under the `next` tag.
 npm install @jiayunxie/pptx@next
 ```
 
+## Create a presentation
+
+```ts
+import { PptxDocument } from '@jiayunxie/pptx';
+
+const document = PptxDocument.create({ slideSize: '16:9' });
+document.addSlide();
+await document.writeFile('created.pptx');
+```
+
+Creation is native and does not require PptxGenJS. A new document starts with zero slides and a complete default master/layout/theme chain.
+
 ## Edit an existing presentation
 
 ```ts
