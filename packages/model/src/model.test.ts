@@ -1230,6 +1230,79 @@ describe('PresentationModel', () => {
       .toHaveLength(2);
   });
 
+  it('reads strict local main-text transparency without mutating malformed color transforms', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.slides[1]!;
+    const part = pkg.requirePart(slide.partUri);
+    const transparencyText = [
+      '<a:p>',
+      '<a:r><a:rPr><a:solidFill><a:srgbClr val="FF0000"><a:alpha val="0"/></a:srgbClr></a:solidFill></a:rPr><a:t>Invisible</a:t></a:r>',
+      '<a:r><a:rPr><a:solidFill><a:schemeClr val="accent1"><a:alpha val="1"/></a:schemeClr></a:solidFill></a:rPr><a:t>Almost invisible</a:t></a:r>',
+      '<a:r><a:rPr><a:solidFill><a:srgbClr val="00FF00"><a:alpha val="49445"/></a:srgbClr></a:solidFill></a:rPr><a:t>Fractional</a:t></a:r>',
+      '<a:r><a:rPr><a:solidFill><a:schemeClr val="tx1"><a:alpha val="75000"/></a:schemeClr></a:solidFill></a:rPr><a:t>Quarter</a:t></a:r>',
+      '<a:r><a:rPr><a:solidFill><a:srgbClr val="0000FF"><a:alpha val="100000"/></a:srgbClr></a:solidFill></a:rPr><a:t>Opaque</a:t></a:r>',
+      '<a:r><a:rPr><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill></a:rPr><a:t>No alpha</a:t></a:r>',
+      '<a:r><a:rPr><a:solidFill><a:srgbClr val="FF0000"><a:alpha/></a:srgbClr></a:solidFill></a:rPr><a:t>Missing value</a:t></a:r>',
+      '<a:r><a:rPr><a:solidFill><a:srgbClr val="FF0000"><a:alpha val=""/></a:srgbClr></a:solidFill></a:rPr><a:t>Empty</a:t></a:r>',
+      '<a:r><a:rPr><a:solidFill><a:srgbClr val="FF0000"><a:alpha val="1.5"/></a:srgbClr></a:solidFill></a:rPr><a:t>Decimal</a:t></a:r>',
+      '<a:r><a:rPr><a:solidFill><a:srgbClr val="FF0000"><a:alpha val="1e3"/></a:srgbClr></a:solidFill></a:rPr><a:t>Scientific</a:t></a:r>',
+      '<a:r><a:rPr><a:solidFill><a:srgbClr val="FF0000"><a:alpha val="-1"/></a:srgbClr></a:solidFill></a:rPr><a:t>Negative</a:t></a:r>',
+      '<a:r><a:rPr><a:solidFill><a:srgbClr val="FF0000"><a:alpha val="100001"/></a:srgbClr></a:solidFill></a:rPr><a:t>Too high</a:t></a:r>',
+      '<a:r><a:rPr><a:solidFill><a:srgbClr val="FF0000"><a:alpha val="50000"/><a:alpha val="75000"/></a:srgbClr></a:solidFill></a:rPr><a:t>Repeated alpha</a:t></a:r>',
+      '<a:r><a:rPr><a:solidFill><a:srgbClr val="FF0000"><a:alphaMod val="50000"/></a:srgbClr></a:solidFill></a:rPr><a:t>Alpha mod</a:t></a:r>',
+      '<a:r><a:rPr><a:solidFill><a:srgbClr val="FF0000"><a:alphaOff val="50000"/></a:srgbClr></a:solidFill></a:rPr><a:t>Alpha offset</a:t></a:r>',
+      '<a:r><a:rPr><a:solidFill><a:srgbClr val="FF0000"><a:alpha val="50000"/><a:tint val="50000"/></a:srgbClr></a:solidFill></a:rPr><a:t>Mixed transform</a:t></a:r>',
+      '<a:r><a:rPr><a:solidFill><a:srgbClr val="FF0000"><a:alpha val="50000" custom="KEEP"/></a:srgbClr></a:solidFill></a:rPr><a:t>Alpha attribute</a:t></a:r>',
+      '<a:r><a:rPr><a:solidFill><a:srgbClr val="FF0000"><a:alpha val="50000"><a:ext/></a:alpha></a:srgbClr></a:solidFill></a:rPr><a:t>Alpha child</a:t></a:r>',
+      '<a:r><a:rPr><a:solidFill><a:srgbClr val="FF0000" custom="KEEP"><a:alpha val="50000"/></a:srgbClr></a:solidFill></a:rPr><a:t>Color attribute</a:t></a:r>',
+      '<a:r><a:rPr><a:solidFill><a:srgbClr val="FF0000"><a:alpha val="50000"/></a:srgbClr></a:solidFill><a:solidFill><a:schemeClr val="accent1"><a:alpha val="50000"/></a:schemeClr></a:solidFill></a:rPr><a:t>Repeated fill</a:t></a:r>',
+      '<a:r><a:rPr><a:solidFill><a:srgbClr val="FF0000"><a:alpha val="50000"/></a:srgbClr><a:schemeClr val="accent1"><a:alpha val="50000"/></a:schemeClr></a:solidFill></a:rPr><a:t>Repeated color</a:t></a:r>',
+      '<a:r><a:rPr><a:solidFill><a:srgbClr val="red"><a:alpha val="50000"/></a:srgbClr></a:solidFill></a:rPr><a:t>Invalid sRGB</a:t></a:r>',
+      '<a:r><a:rPr strike="sngStrike"><a:solidFill><a:schemeClr val="unknown"><a:alpha val="50000"/></a:schemeClr></a:solidFill></a:rPr><a:t>Unknown scheme</a:t></a:r>',
+      '</a:p>',
+    ].join('');
+    pkg.setPart(
+      part.uri,
+      new TextDecoder().decode(part.bytes).replace(
+        '<a:p><a:r><a:t>First title</a:t></a:r></a:p>',
+        transparencyText,
+      ),
+      part.contentType,
+    );
+    const shape = slide.shapes[0] as ShapeModel;
+    const journal = [...pkg.mutations];
+
+    const transparencies = shape.richText[0]!.runs.map(({ style }) => style?.transparency);
+    expect(transparencies.slice(0, 5)).toEqual([100, 99.999, 50.555, 25, 0]);
+    expect(transparencies.slice(5)).toEqual(Array(18).fill(undefined));
+    expect(shape.richText[0]!.runs[22]!.style!.strike).toBe('sngStrike');
+    expect(pkg.mutations).toEqual(journal);
+  });
+
+  it('preserves main-text alpha and unrelated run XML during plain text edits', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.slides[1]!;
+    const part = pkg.requirePart(slide.partUri);
+    pkg.setPart(
+      part.uri,
+      new TextDecoder().decode(part.bytes).replace(
+        '<a:p><a:r><a:t>First title</a:t></a:r></a:p>',
+        '<a:p><a:r><a:rPr strike="sngStrike"><a:solidFill><a:srgbClr val="FF0000"><a:alpha val="75000"/></a:srgbClr></a:solidFill><a:effectLst><a:outerShdw blurRad="0"/></a:effectLst></a:rPr><a:t>Original</a:t></a:r></a:p>',
+      ),
+      part.contentType,
+    );
+    const shape = slide.shapes[0] as ShapeModel;
+
+    shape.text = 'First\nSecond';
+
+    expect(shape.richText.map((paragraph) => paragraph.runs[0]!.style!.transparency)).toEqual([25, 25]);
+    const updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated.match(/<a:srgbClr val="FF0000"><a:alpha val="75000"\/><\/a:srgbClr>/g)).toHaveLength(2);
+    expect(updated.match(/<a:effectLst><a:outerShdw blurRad="0"\/><\/a:effectLst>/g)).toHaveLength(2);
+  });
+
   it('reads strict local text baselines and preserves their XML during plain text edits', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);

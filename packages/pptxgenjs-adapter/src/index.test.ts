@@ -1021,6 +1021,71 @@ describe('importPptxGenJS', () => {
     ]);
   }, 30_000);
 
+  it('imports and reopens PptxGenJS rich text transparency from real output', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    const slide = generated.addSlide();
+    slide.addText(
+      [
+        { text: 'Omitted', options: { color: 'FF0000' } },
+        { text: ' Zero', options: { color: '00FF00', transparency: 0 } },
+        { text: ' Quarter', options: { color: '0000FF', transparency: 25 } },
+        { text: ' Fractional', options: { color: '112233', transparency: 50.5555 } },
+        { text: ' Invisible', options: { color: '445566', transparency: 100 } },
+        { text: ' Theme', options: { color: 'accent1', transparency: 40 } },
+        { text: ' Default', options: { transparency: 60 } },
+      ],
+      { x: 1, y: 1, w: 10, h: 1, objectName: 'Transparency probe' },
+    );
+
+    const document = await importPptxGenJS(generated);
+    const shape = document.slides[0]!.shapes.find(({ name }) => name === 'Transparency probe');
+    expect(shape).toBeInstanceOf(ShapeModel);
+    const runs = (shape as ShapeModel).richText[0]!.runs;
+    expect(runs.map(({ style }) => style?.transparency)).toEqual([
+      undefined,
+      undefined,
+      25,
+      50.555,
+      100,
+      40,
+      60,
+    ]);
+    expect(runs.map(({ style }) => style?.color)).toEqual([
+      { kind: 'srgb', value: 'FF0000' },
+      { kind: 'srgb', value: '00FF00' },
+      { kind: 'srgb', value: '0000FF' },
+      { kind: 'srgb', value: '112233' },
+      { kind: 'srgb', value: '445566' },
+      { kind: 'scheme', value: 'accent1' },
+      { kind: 'srgb', value: '000000' },
+    ]);
+    const slideXml = new TextDecoder().decode(
+      document.opcPackage.requirePart(document.slides[0]!.partUri).bytes,
+    );
+    expect(slideXml.match(/<a:alpha val="\d+"\/>/g)).toEqual([
+      '<a:alpha val="75000"/>',
+      '<a:alpha val="49445"/>',
+      '<a:alpha val="0"/>',
+      '<a:alpha val="60000"/>',
+      '<a:alpha val="40000"/>',
+    ]);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedShape = reopened.slides[0]!.shapes.find(
+      ({ name }) => name === 'Transparency probe',
+    ) as ShapeModel;
+    expect(reopenedShape.richText[0]!.runs.map(({ style }) => style?.transparency)).toEqual([
+      undefined,
+      undefined,
+      25,
+      50.555,
+      100,
+      40,
+      60,
+    ]);
+  });
+
   it('imports only direct PptxGenJS presentation RTL and reopens it', async () => {
     const cases: readonly [string, boolean, unknown, boolean | undefined][] = [
       ['omitted', false, undefined, undefined],

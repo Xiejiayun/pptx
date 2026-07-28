@@ -920,7 +920,7 @@ function normalizeStyle(value: unknown, paragraphIndex: number, runIndex: number
   }
   assertSupportedKeys(
     value,
-    ['baseline', 'bold', 'characterSpacing', 'color', 'fontFamily', 'fontSize', 'glow', 'highlight', 'italic', 'lang', 'outline', 'strike', 'underline'],
+    ['baseline', 'bold', 'characterSpacing', 'color', 'fontFamily', 'fontSize', 'glow', 'highlight', 'italic', 'lang', 'outline', 'strike', 'transparency', 'underline'],
     `Rich text run ${paragraphIndex},${runIndex} style`,
   );
   const candidate = value as RichTextRunStyle;
@@ -961,6 +961,9 @@ function normalizeStyle(value: unknown, paragraphIndex: number, runIndex: number
   const color = candidate.color === undefined
     ? undefined
     : normalizeColor(candidate.color, `${context} color`);
+  const transparency = candidate.transparency === undefined
+    ? undefined
+    : normalizeTextTransparency(candidate.transparency, `${context} transparency`);
   const glow = candidate.glow === undefined
     ? undefined
     : normalizeGlow(candidate.glow, `${context} glow`);
@@ -985,12 +988,24 @@ function normalizeStyle(value: unknown, paragraphIndex: number, runIndex: number
     ...(candidate.bold !== undefined ? { bold: candidate.bold } : {}),
     ...(candidate.italic !== undefined ? { italic: candidate.italic } : {}),
     ...(color ? { color } : {}),
+    ...(transparency !== undefined ? { transparency } : {}),
     ...(glow ? { glow } : {}),
     ...(highlight ? { highlight } : {}),
     ...(outline ? { outline } : {}),
     ...(underline !== undefined ? { underline } : {}),
     ...(strike !== undefined ? { strike } : {}),
   };
+}
+
+function normalizeTextTransparency(value: unknown, context: string): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new TypeError(`${context} must be finite`);
+  }
+  if (value < 0 || value > 100) {
+    throw new RangeError(`${context} must be between 0 and 100 percent`);
+  }
+  const alpha = Math.round((100 - value) * 1_000);
+  return 100 - alpha / 1_000;
 }
 
 export function normalizeTextLanguage(value: unknown, context: string): string {
@@ -1163,7 +1178,7 @@ function renderRun(run: RichTextRun, prefix: string, defaultLanguage?: string): 
     'dirty="0"',
   ].filter(Boolean).join(' ');
   const color = style.color ?? { kind: 'scheme' as const, value: 'tx1' };
-  const colorXml = renderColorChoice(color, prefix);
+  const colorXml = renderMainTextColorChoice(color, prefix, style.transparency);
   const outline = style.outline
     ? `<${prefix}ln w="${Math.round(style.outline.size * EMU_PER_POINT)}"><${prefix}solidFill>${renderColorChoice(style.outline.color, prefix)}</${prefix}solidFill></${prefix}ln>`
     : '';
@@ -1181,6 +1196,17 @@ function renderRun(run: RichTextRun, prefix: string, defaultLanguage?: string): 
   const eastAsian = escapeXmlAttribute(style.fontFamily ?? '+mn-ea');
   const complexScript = escapeXmlAttribute(style.fontFamily ?? '+mn-cs');
   return `${softBreak}<${prefix}r><${prefix}rPr ${attributes}>${outline}<${prefix}solidFill>${colorXml}</${prefix}solidFill>${glow}${highlight}${underlineFill}<${prefix}latin typeface="${latin}"/><${prefix}ea typeface="${eastAsian}"/><${prefix}cs typeface="${complexScript}"/></${prefix}rPr><${prefix}t xml:space="preserve">${escapeXmlText(run.text)}</${prefix}t></${prefix}r>`;
+}
+
+function renderMainTextColorChoice(
+  color: RichTextColor,
+  prefix: string,
+  transparency: number | undefined,
+): string {
+  const tag = color.kind === 'srgb' ? 'srgbClr' : 'schemeClr';
+  if (transparency === undefined) return `<${prefix}${tag} val="${color.value}"/>`;
+  const alpha = Math.round((100 - transparency) * 1_000);
+  return `<${prefix}${tag} val="${color.value}"><${prefix}alpha val="${alpha}"/></${prefix}${tag}>`;
 }
 
 function renderColorChoice(color: RichTextColor, prefix: string): string {
@@ -1433,6 +1459,7 @@ function readStyle(xml: LosslessXmlDocument, run: XmlElement): RichTextRunStyle 
   const language = xml.attribute(properties, 'lang')?.value;
   const baseline = readBaseline(xml, properties);
   const characterSpacing = readCharacterSpacing(xml, properties);
+  const transparency = readMainTextTransparency(xml, properties);
   const font = directChildren(properties, 'latin')[0];
   const fontFamily = font ? xml.attribute(font, 'typeface')?.value : undefined;
   const fill = directChildren(properties, 'solidFill')[0];
@@ -1461,6 +1488,7 @@ function readStyle(xml: LosslessXmlDocument, run: XmlElement): RichTextRunStyle 
     ...(bold !== undefined ? { bold } : {}),
     ...(italic !== undefined ? { italic } : {}),
     ...(color ? { color } : {}),
+    ...(transparency !== undefined ? { transparency } : {}),
     ...(glow ? { glow } : {}),
     ...(highlight ? { highlight } : {}),
     ...(outline ? { outline } : {}),
@@ -1468,6 +1496,49 @@ function readStyle(xml: LosslessXmlDocument, run: XmlElement): RichTextRunStyle 
     ...(strike !== undefined ? { strike } : {}),
   };
   return Object.keys(style).length > 0 ? style : undefined;
+}
+
+function readMainTextTransparency(
+  xml: LosslessXmlDocument,
+  properties: XmlElement,
+): number | undefined {
+  const fills = directChildren(properties, 'solidFill');
+  if (fills.length !== 1) return undefined;
+  const colors = directChildren(fills[0]!);
+  if (colors.length !== 1) return undefined;
+  const color = colors[0]!;
+  const colorValue = xml.attribute(color, 'val')?.value;
+  if (
+    !(
+      color.localName === 'srgbClr'
+      && colorValue !== undefined
+      && /^[\da-f]{6}$/i.test(colorValue)
+    )
+    && !(
+      color.localName === 'schemeClr'
+      && colorValue !== undefined
+      && SCHEME_COLORS.has(colorValue)
+    )
+  ) return undefined;
+  const colorAttributes = color.attributes.filter(
+    ({ name }) => name !== 'xmlns' && !name.startsWith('xmlns:'),
+  );
+  if (colorAttributes.length !== 1 || colorAttributes[0]?.name !== 'val') return undefined;
+  const transforms = directChildren(color);
+  if (transforms.length !== 1 || transforms[0]?.localName !== 'alpha') return undefined;
+  const alpha = transforms[0]!;
+  const alphaAttributes = alpha.attributes.filter(
+    ({ name }) => name !== 'xmlns' && !name.startsWith('xmlns:'),
+  );
+  if (
+    alphaAttributes.length !== 1
+    || alphaAttributes[0]?.name !== 'val'
+    || directChildren(alpha).length > 0
+  ) return undefined;
+  const value = readIntegerAttribute(xml, alpha, 'val');
+  return value !== undefined && value >= 0 && value <= PERCENT_SCALE
+    ? 100 - value / 1_000
+    : undefined;
 }
 
 function readCharacterSpacing(

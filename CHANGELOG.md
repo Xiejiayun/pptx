@@ -27,6 +27,7 @@
 - Added rich-text glow creation and editing with point radii, opacity, sRGB/theme colors, strict effect-list reads, and PptxGenJS output conformance.
 - Added rich-text superscript, subscript, and custom percentage baseline creation and editing with explicit normal-baseline suppression and strict reads.
 - Added point-based rich-text character spacing creation and editing with explicit zero, strict Int32 reads, and PptxGenJS output conformance.
+- Added rich-text main-fill transparency creation and editing with 0–100 percentages, 0.001% quantization, strict direct-alpha reads, and PptxGenJS output conformance.
 - Added PptxGenJS-compatible outer and run-level text languages with direct reads, strict validation, inheritance, and XML-safe serialization.
 - Added PptxGenJS-compatible paragraph RTL creation defaults, per-paragraph true/false overrides, strict direct reads, editing, and clearing.
 - Added PptxGenJS-compatible presentation RTL creation with strict direct root reads, editing, explicit false, and clearing.

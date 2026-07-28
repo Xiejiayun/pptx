@@ -132,6 +132,7 @@ export interface RichTextRunStyle {
   readonly bold?: boolean;
   readonly italic?: boolean;
   readonly color?: RichTextColor;
+  readonly transparency?: number;
   readonly glow?: RichTextGlow;
   readonly highlight?: RichTextColor;
   readonly outline?: RichTextOutline;

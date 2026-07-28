@@ -34,6 +34,7 @@ adapter 不读取 `_slides` 等私有字段。后续 peer-range conformance test
 | rich run `glow` sRGB/theme color、point size 与 opacity | `RichTextRunStyle.glow` | 已支持 |
 | rich run `superscript` / `subscript` / custom `baseline` | `RichTextRunStyle.baseline` | 已支持 |
 | rich run `charSpacing` 正/负/fractional point | `RichTextRunStyle.characterSpacing` | 已支持 |
+| rich run `transparency` 0–100% | `RichTextRunStyle.transparency` | 已支持 |
 | outer/run `lang` 默认、继承与覆盖 | `AddTextOptions.lang` / `RichTextRunStyle.lang` | 已支持 |
 | 段落 `align: left/center/right/justify` | `AddTextOptions.align` / `RichTextParagraph.align` | 已支持 |
 | 段落 `rtlMode` 默认与逐段覆盖 | `AddTextOptions.rtlMode` / `RichTextParagraph.rtl` | 已支持 |
@@ -47,7 +48,7 @@ adapter 不读取 `_slides` 等私有字段。后续 peer-range conformance test
 | 文本框 `vert` 七种文本方向与 direct 编辑 | `AddTextOptions.vert` / `ShapeModel.textDirection` | 已支持 |
 | 文本框 `fit: none/shrink/resize` 与 direct 编辑 | `AddTextOptions.fit` / `ShapeModel.textFit` | 已支持 |
 | paragraph 左右 margin、first-line/hanging indent | `paragraphMarginLeft` / `paragraphMarginRight` / `paragraphIndent` 与 rich paragraph overrides | 已支持 direct 创建、读取、编辑与清除 |
-| table-cell fit/`textDirection` 与 run transparency | 尚无完整公开 API | 部分支持，后续逐项补齐 |
+| table-cell fit / `textDirection` | 尚无完整公开 API | 部分支持，后续逐项补齐 |
 
 LibreOffice headless 可无修复打开 underline 文件，但当前会把 double/dash/wavy 和独立 underline color 降级显示为普通单实线；同一 PptxGenJS 4.0.1 对照文件表现一致。OOXML token 与颜色仍保持合法并可由支持这些样式的客户端读取。
 
@@ -64,6 +65,8 @@ PptxGenJS 4.0.1 的 `margin` tuple 注释声明 `[top, right, bottom, left]`，�
 文本框 `fit` 的 omitted/none 都不写 direct child，shrink 写 `bodyPr/a:normAutofit`，resize 写 `bodyPr/a:spAutoFit`。`shape.textFit` 也读取既有唯一 `a:noAutofit` 为 none；none 或 `undefined` 清除 direct fit choice，同模式 shrink/resize 赋值保留 PowerPoint 已计算的 `fontScale` / `lnSpcReduction`。PptxGenJS 对非法 outer 值和 run-level fit 静默忽略，本库严格拒绝非法原生输入；adapter 仍兼容 deprecated outer `shrinkText` / `autoFit` 输出。最终缩放比例可能要由 PowerPoint 在编辑文字或改变 shape 大小时动态重算。
 
 文本语言通过 `AddTextOptions.lang` 提供 plain/rich 创建默认值，`RichTextRunStyle.lang` 可覆盖单个 run。省略时 run 与 `endParaRPr` 使用 `en-US`；显式 outer/run 语言在 run 上同时写 `altLang="en-US"`，`endParaRPr` 只跟随 outer 值。getter 只暴露非空 direct `rPr@lang`，不解析 `altLang` 或 master/layout 继承。原生 API 拒绝非 string、空 string 和非法 XML 控制字符，并安全转义 attribute metacharacters。PptxGenJS 4.0.1 的 falsy fallback 仍由 adapter 输入兼容；未转义字符串产生的无效 XML 不属于兼容承诺。
+
+Rich run `transparency` 使用 `0..100` 百分比：0 完全不透明，100 完全透明，并量化到最近 `0.001%`（`alpha = Math.round((100 - transparency) * 1000)`）。省略字段不写 alpha，显式 0 写 direct `alpha val="100000"`，因此本库可区分 absence 与 explicit opaque；PptxGenJS 4.0.1 因 truthy 判断会把 0 与 omitted 都省略。没有显式 run color 时本库沿用默认 `schemeClr tx1`，PptxGenJS 则实体化 direct black，effective transparency 相同。该字段只控制文字主 `rPr/solidFill`，不影响 outline、glow、highlight、underline、shape 或 table-cell fill。getter 只接受唯一 direct solid fill、唯一合法 sRGB/theme color 和唯一严格 integer alpha，不解析继承或其他/mixed color transform。
 
 Paragraph 左右边距分别通过 `AddTextOptions.paragraphMarginLeft` / `paragraphMarginRight` 提供 plain/rich 创建默认，`RichTextParagraph.marginLeft` / `marginRight` 使用 point 提供本地 number override，`false` 抑制默认或清除对应 direct `pPr@marL` / `marR`。getter 仅读取 `0..51206400` 的 direct integer EMU，不解析继承。普通段落缩进通过 `AddTextOptions.paragraphIndent` 提供创建默认，`RichTextParagraph.indent` 接受 `-4032..4032` point：正值是 first-line indent，负值是 hanging indent，`false` 抑制默认或清除 direct `pPr@indent`。新建普通段落保留 canonical direct zero；setter omission 清除已有 direct 值。getter 仅读取 `-51206400..51206400` 的 direct signed integer EMU。direct bullet/numbering/picture bullet 拥有 `marL` 与 `indent`，因此 getter 不重复暴露 `marginLeft` 或 ordinary `indent`，同 paragraph 的 numeric left margin/ordinary indent 与 active bullet 也在 mutation 前拒绝；`marR` 与列表缩进独立，可在普通、bullet 或 numbering paragraph 上读取和编辑。左右字段与 indent sign 始终映射物理 OOXML，不因 RTL 交换。PptxGenJS 4.0.1 没有普通 paragraph 左右边距或 first-line/hanging indent 公开选项；其普通 paragraph direct `marL="0"` / `indent="0"`、列表 `marL` / negative `indent` 和默认缺失 `marR` 的输出均可正常导入。
 

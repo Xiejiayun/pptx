@@ -1608,6 +1608,179 @@ describe('PptxDocument vertical slice', () => {
     expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
   });
 
+  it('creates, edits, clears, duplicates, rolls back, and reopens rich text transparency', async () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const shape = slide.addRichText([{
+      indent: -12,
+      rtl: true,
+      spacing: { before: 4, after: 6, line: { kind: 'multiple', factor: 1.25 } },
+      tabStops: [{ position: 1.5, alignment: 'decimal' }],
+      runs: [
+        { text: 'Omitted' },
+        { text: 'Opaque', style: { color: { kind: 'srgb', value: 'FF0000' }, transparency: 0 } },
+        {
+          text: 'Quarter',
+          style: {
+            fontFamily: 'Aptos',
+            fontSize: 18,
+            lang: 'fr-CA',
+            baseline: 'superscript',
+            characterSpacing: 2.5,
+            bold: true,
+            italic: true,
+            color: { kind: 'srgb', value: '00FF00' },
+            transparency: 25,
+            glow: { color: { kind: 'scheme', value: 'accent3' }, opacity: 0.25, size: 6 },
+            highlight: { kind: 'srgb', value: 'FFFF00' },
+            outline: { color: { kind: 'scheme', value: 'accent2' }, size: 0.75 },
+            underline: { style: 'dbl', color: { kind: 'scheme', value: 'accent1' } },
+            strike: 'dblStrike',
+          },
+        },
+        { text: 'Fractional', style: { color: { kind: 'srgb', value: '0000FF' }, transparency: 50.5555 } },
+        { text: 'Invisible', style: { color: { kind: 'srgb', value: '112233' }, transparency: 100 } },
+        { text: 'Theme', style: { color: { kind: 'scheme', value: 'accent1' }, transparency: 40 } },
+        { text: 'Default', style: { transparency: 60 } },
+        { text: '', style: { color: { kind: 'scheme', value: 'accent2' }, transparency: 75 } },
+      ],
+    }]);
+
+    expect(shape.richText[0]!.runs.map(({ style }) => style?.transparency)).toEqual([
+      undefined,
+      0,
+      25,
+      50.555,
+      100,
+      40,
+      60,
+      75,
+    ]);
+    let slideXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(slideXml).toContain('<a:srgbClr val="FF0000"><a:alpha val="100000"/></a:srgbClr>');
+    expect(slideXml).toContain('<a:srgbClr val="00FF00"><a:alpha val="75000"/></a:srgbClr>');
+    expect(slideXml).toContain('<a:srgbClr val="0000FF"><a:alpha val="49445"/></a:srgbClr>');
+    expect(slideXml).toContain('<a:srgbClr val="112233"><a:alpha val="0"/></a:srgbClr>');
+    expect(slideXml).toContain('<a:schemeClr val="tx1"><a:alpha val="40000"/></a:schemeClr>');
+    expect(slideXml).toContain(
+      '<a:glow rad="76200"><a:schemeClr val="accent3"><a:alpha val="25000"/></a:schemeClr></a:glow>',
+    );
+    expect(slideXml).toContain('<a:ln w="9525"><a:solidFill><a:schemeClr val="accent2"/></a:solidFill></a:ln>');
+    expect(slideXml).toContain('<a:highlight><a:srgbClr val="FFFF00"/></a:highlight>');
+    expect(slideXml).toContain('<a:uFill><a:solidFill><a:schemeClr val="accent1"/></a:solidFill></a:uFill>');
+
+    const snapshot = shape.richText as unknown as Array<{
+      runs: Array<{ style?: { transparency?: number } }>;
+    }>;
+    snapshot[0]!.runs[1]!.style!.transparency = 50;
+    expect(shape.richText[0]!.runs[1]!.style!.transparency).toBe(0);
+
+    document.duplicateSlide(0);
+    shape.richText = [{
+      runs: [
+        { text: 'Ten', style: { transparency: 10 } },
+        { text: 'Ninety', style: { color: { kind: 'scheme', value: 'accent2' }, transparency: 90 } },
+        { text: 'Zero', style: { color: { kind: 'srgb', value: 'FF0000' }, transparency: 0 } },
+        { text: 'Hundred', style: { transparency: 100 } },
+        { text: 'Cleared', style: { bold: true } },
+      ],
+    }];
+    expect(shape.richText[0]!.runs.map(({ style }) => style?.transparency)).toEqual([
+      10,
+      90,
+      0,
+      100,
+      undefined,
+    ]);
+    slideXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    const clearedIndex = slideXml.indexOf('>Cleared<');
+    const clearedStart = slideXml.lastIndexOf('<a:r>', clearedIndex);
+    const clearedEnd = slideXml.indexOf('</a:r>', clearedIndex);
+    expect(slideXml.slice(clearedStart, clearedEnd)).not.toContain('<a:alpha');
+
+    const beforeRollback = document.opcPackage.requirePart(slide.partUri).bytes;
+    const journal = [...document.opcPackage.mutations];
+    const liveState = shape.richText;
+    expect(() =>
+      document.transaction(() => {
+        shape.richText = [{ runs: [{ text: 'Rollback', style: { transparency: 33.3333 } }] }];
+        throw new Error('restore transparency');
+      }),
+    ).toThrow('restore transparency');
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(beforeRollback);
+    expect(document.opcPackage.mutations).toEqual(journal);
+    expect(document.slides[0]).toBe(slide);
+    expect(slide.shapes[0]).toBe(shape);
+    expect(shape.richText).toEqual(liveState);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const edited = reopened.slides[0]!.shapes[0] as ShapeModel;
+    const duplicated = reopened.slides[1]!.shapes[0] as ShapeModel;
+    expect(edited.richText[0]!.runs.map(({ style }) => style?.transparency)).toEqual([
+      10,
+      90,
+      0,
+      100,
+      undefined,
+    ]);
+    expect(duplicated.richText[0]!.runs.map(({ style }) => style?.transparency)).toEqual([
+      undefined,
+      0,
+      25,
+      50.555,
+      100,
+      40,
+      60,
+      75,
+    ]);
+    expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+  });
+
+  it('rejects malformed rich text transparency without changing package state', () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const shape = slide.addRichText([{
+      runs: [{ text: 'Original', style: { transparency: 25 } }],
+    }]);
+    const before = document.opcPackage.requirePart(slide.partUri).bytes;
+    const journal = [...document.opcPackage.mutations];
+
+    for (const transparency of [
+      null,
+      true,
+      false,
+      '25',
+      {},
+      [],
+      Symbol('transparency'),
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+    ]) {
+      expect(() => slide.addRichText([{
+        runs: [{ text: 'Invalid', style: { transparency: transparency as never } }],
+      }])).toThrow(TypeError);
+      expect(() => {
+        shape.richText = [{
+          runs: [{ text: 'Invalid', style: { transparency: transparency as never } }],
+        }];
+      }).toThrow(TypeError);
+    }
+    for (const transparency of [-0.001, 100.001]) {
+      expect(() => slide.addRichText([{
+        runs: [{ text: 'Invalid', style: { transparency } }],
+      }])).toThrow(RangeError);
+      expect(() => {
+        shape.richText = [{ runs: [{ text: 'Invalid', style: { transparency } }] }];
+      }).toThrow(RangeError);
+    }
+
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(before);
+    expect(document.opcPackage.mutations).toEqual(journal);
+    expect(slide.shapes).toHaveLength(1);
+    expect(slide.shapes[0]).toBe(shape);
+    expect(shape.richText[0]!.runs[0]!.style!.transparency).toBe(25);
+  });
+
   it('creates, edits, duplicates, and reopens rich text baselines', async () => {
     const document = PptxDocument.create();
     const slide = document.addSlide();
