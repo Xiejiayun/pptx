@@ -19,6 +19,9 @@ try {
     throw new Error(`Unexpected package identity: ${manifest.name}@${manifest.version}`);
   }
   if (JSON.stringify(manifest).includes('workspace:')) throw new Error('Packed manifest contains workspace protocol');
+  if (manifest.exports?.['.']?.browser !== './dist/browser.js') {
+    throw new Error('Packed manifest is missing the browser conditional export');
+  }
   for (const section of ['dependencies', 'optionalDependencies', 'peerDependencies']) {
     for (const name of Object.keys(manifest[section] ?? {})) {
       if (name.startsWith('@pptx/')) throw new Error(`Packed manifest contains internal runtime dependency: ${name}`);
@@ -29,6 +32,10 @@ try {
   for (const file of distFiles) {
     const source = await readFile(file, 'utf8');
     if (source.includes('@pptx/')) throw new Error(`Bundled output contains internal import: ${file}`);
+  }
+  const browserSource = await readFile(join(installed, 'dist/browser.js'), 'utf8');
+  if (/\b(?:from|import)\s*['"]node:/.test(browserSource)) {
+    throw new Error('Browser bundle contains a static node: import');
   }
 
   await writeFile(
@@ -49,6 +56,18 @@ process.stdout.write(JSON.stringify(checks));
   );
   const apiResult = run(process.execPath, ['smoke.mjs'], directory);
   const apiChecks = JSON.parse(apiResult.stdout);
+
+  await writeFile(
+    join(directory, 'browser-smoke.mjs'),
+    `import { PptxDocument, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
+const resolved = import.meta.resolve('@jiayunxie/pptx');
+if (!resolved.endsWith('/dist/browser.js')) throw new Error('Browser condition resolved to ' + resolved);
+const checks = [PptxDocument, transitions.TransitionCodec, animations.AnimationTimingCodec, advancedCharts.AdvancedChartCodec, smartArt.SmartArtDiagramCodec];
+if (checks.some((value) => typeof value !== 'function')) throw new Error('Browser API surface is incomplete');
+process.stdout.write(resolved);
+`,
+  );
+  run(process.execPath, ['--conditions=browser', 'browser-smoke.mjs'], directory);
 
   await writeFile(
     join(directory, 'smoke.ts'),

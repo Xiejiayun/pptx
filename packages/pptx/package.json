@@ -1,13 +1,14 @@
 {
   "name": "@jiayunxie/pptx",
   "version": "0.1.0",
-  "description": "Lossless bidirectional PPTX OOXML editing for Node.js and TypeScript",
+  "description": "Lossless bidirectional PPTX OOXML editing for Node.js and modern browsers",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
+      "browser": "./dist/browser.js",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     }
@@ -47,7 +48,7 @@
     "provenance": true
   },
   "scripts": {
-    "build": "tsup && node ../../scripts/build-npm-package-types.mjs",
+    "build": "tsup && tsup --config tsup.browser.config.ts && node ../../scripts/build-npm-package-types.mjs",
     "prepack": "pnpm run build"
   }
 }

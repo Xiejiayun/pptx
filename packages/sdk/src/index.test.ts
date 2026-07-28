@@ -1,9 +1,12 @@
 import { createHash } from 'node:crypto';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { Readable } from 'node:stream';
 import JSZip from 'jszip';
 import { describe, expect, it } from 'vitest';
 import { OpcPackage } from '@pptx/opc';
-import { PptxDocument } from './index.js';
+import { openPptxStream, PptxDocument } from './index.js';
 
 async function titleFixture(): Promise<Uint8Array> {
   const zip = new JSZip();
@@ -20,7 +23,27 @@ describe('PptxDocument vertical slice', () => {
   it('opens Buffer-like values and streams, then returns unchanged bytes exactly', async () => {
     const input = await titleFixture();
     const arrayBuffer = input.slice().buffer as ArrayBuffer;
-    for (const source of [input, arrayBuffer, Readable.from(input)]) {
+    const webStream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(input.slice(0, 20));
+        controller.enqueue(input.slice(20));
+        controller.close();
+      },
+    });
+    const asyncBytes = {
+      async *[Symbol.asyncIterator]() {
+        yield input.slice(0, 30);
+        yield input.slice(30);
+      },
+    };
+    for (const source of [
+      input,
+      arrayBuffer,
+      new Blob([new Uint8Array(input).buffer]),
+      webStream,
+      asyncBytes,
+      Readable.from(input),
+    ]) {
       const document = await PptxDocument.open(source);
       expect(document.codecRegistry.codecs.map(({ id }) => id)).toEqual([
         'builtin.master-layout-theme',
@@ -30,6 +53,26 @@ describe('PptxDocument vertical slice', () => {
       expect(document.format).toBe('pptx');
       expect(document.slides[0]?.title.text).toBe('Original');
       expect(await document.write()).toEqual(input);
+      const blob = await document.writeBlob();
+      expect(blob.type).toBe('application/vnd.openxmlformats-officedocument.presentationml.presentation');
+      expect(new Uint8Array(await blob.arrayBuffer())).toEqual(input);
+    }
+  });
+
+  it('keeps Node path, stream, and writeFile adapters working', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'pptx-sdk-'));
+    const inputPath = join(directory, 'input.pptx');
+    const outputPath = join(directory, 'output.pptx');
+    const input = await titleFixture();
+    try {
+      await writeFile(inputPath, input);
+      const fromPath = await PptxDocument.open(inputPath);
+      expect(await fromPath.write()).toEqual(input);
+      const fromStream = await PptxDocument.open(openPptxStream(inputPath));
+      await fromStream.writeFile(outputPath);
+      expect(new Uint8Array(await readFile(outputPath))).toEqual(input);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
     }
   });
 

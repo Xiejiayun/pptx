@@ -43,7 +43,17 @@ The CLI is offline by default. Write operations require an explicit output path 
 
 ## Requirements
 
-- Node.js 20 or newer
+- Node.js 20 or newer, or a modern browser
 - ESM
+
+## Browser
+
+The same import path selects the browser bundle automatically through conditional exports.
+
+```ts
+const document = await PptxDocument.open(fileInput.files[0]);
+document.slides[0].title.text = 'Updated';
+await document.download('updated.pptx');
+```
 
 Project documentation and source: [github.com/Xiejiayun/pptx](https://github.com/Xiejiayun/pptx)

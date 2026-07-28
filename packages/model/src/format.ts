@@ -4,6 +4,7 @@ export interface PresentationFormatProfile {
   readonly format: PresentationFormat;
   readonly extension: `.${PresentationFormat}`;
   readonly presentationContentType: string;
+  readonly fileContentType: string;
   readonly macroEnabled: boolean;
   readonly slideshow: boolean;
   readonly template: boolean;
@@ -15,6 +16,7 @@ export const PRESENTATION_FORMAT_PROFILES: Readonly<Record<PresentationFormat, P
     extension: '.pptx',
     presentationContentType:
       'application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml',
+    fileContentType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
     macroEnabled: false,
     slideshow: false,
     template: false,
@@ -23,6 +25,7 @@ export const PRESENTATION_FORMAT_PROFILES: Readonly<Record<PresentationFormat, P
     format: 'pptm',
     extension: '.pptm',
     presentationContentType: 'application/vnd.ms-powerpoint.presentation.macroEnabled.main+xml',
+    fileContentType: 'application/vnd.ms-powerpoint.presentation.macroEnabled.12',
     macroEnabled: true,
     slideshow: false,
     template: false,
@@ -32,6 +35,7 @@ export const PRESENTATION_FORMAT_PROFILES: Readonly<Record<PresentationFormat, P
     extension: '.ppsx',
     presentationContentType:
       'application/vnd.openxmlformats-officedocument.presentationml.slideshow.main+xml',
+    fileContentType: 'application/vnd.openxmlformats-officedocument.presentationml.slideshow',
     macroEnabled: false,
     slideshow: true,
     template: false,
@@ -40,6 +44,7 @@ export const PRESENTATION_FORMAT_PROFILES: Readonly<Record<PresentationFormat, P
     format: 'ppsm',
     extension: '.ppsm',
     presentationContentType: 'application/vnd.ms-powerpoint.slideshow.macroEnabled.main+xml',
+    fileContentType: 'application/vnd.ms-powerpoint.slideshow.macroEnabled.12',
     macroEnabled: true,
     slideshow: true,
     template: false,
@@ -49,6 +54,7 @@ export const PRESENTATION_FORMAT_PROFILES: Readonly<Record<PresentationFormat, P
     extension: '.potx',
     presentationContentType:
       'application/vnd.openxmlformats-officedocument.presentationml.template.main+xml',
+    fileContentType: 'application/vnd.openxmlformats-officedocument.presentationml.template',
     macroEnabled: false,
     slideshow: false,
     template: true,
@@ -57,6 +63,7 @@ export const PRESENTATION_FORMAT_PROFILES: Readonly<Record<PresentationFormat, P
     format: 'potm',
     extension: '.potm',
     presentationContentType: 'application/vnd.ms-powerpoint.template.macroEnabled.main+xml',
+    fileContentType: 'application/vnd.ms-powerpoint.template.macroEnabled.12',
     macroEnabled: true,
     slideshow: false,
     template: true,

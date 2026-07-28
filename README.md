@@ -24,7 +24,7 @@ pnpm check
 pnpm build
 ```
 
-Node.js 20+；TypeScript strict mode。
+Node.js 20+ 或现代浏览器；TypeScript strict mode。浏览器支持 `Blob`、`File`、Web `ReadableStream` 输入，以及 `writeBlob()` 和 `download()` 输出。
 
 ## Workspace packages
 

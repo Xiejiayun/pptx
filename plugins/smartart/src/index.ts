@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import type { CodecDiagnostic, CodecRegistry } from '@pptx/codecs';
 import { escapeXmlAttribute, escapeXmlText, LosslessXmlDocument, type XmlElement } from '@pptx/lossless-xml';
 import type { OpcPackage } from '@pptx/opc';
@@ -82,7 +81,7 @@ export class SmartArtDiagramCodec {
     const xml = LosslessXmlDocument.parse(part.bytes);
     const list = xml.elements('ptLst')[0];
     if (!list) throw new Error(`SmartArt data ${dataPartUri} has no point list`);
-    const id = `{${randomUUID().toUpperCase()}}`;
+    const id = `{${randomUuid().toUpperCase()}}`;
     xml.appendChildXml(
       list,
       `<dgm:pt modelId="${escapeXmlAttribute(id)}" type="node"><dgm:prSet/><dgm:t><a:p><a:r><a:t>${escapeXmlText(
@@ -92,7 +91,7 @@ export class SmartArtDiagramCodec {
     if (parentId) {
       const connections = xml.elements('cxnLst')[0];
       if (!connections) throw new Error(`SmartArt data ${dataPartUri} has no connection list`);
-      const connectionId = `{${randomUUID().toUpperCase()}}`;
+      const connectionId = `{${randomUuid().toUpperCase()}}`;
       xml.appendChildXml(
         connections,
         `<dgm:cxn modelId="${escapeXmlAttribute(connectionId)}" type="parOf" srcId="${escapeXmlAttribute(
@@ -150,6 +149,11 @@ export class SmartArtDiagramCodec {
     this.pkg.setPart(dataPartUri, xml.serialize(), part.contentType);
     this.#mutatedDataParts.add(dataPartUri);
   }
+}
+
+function randomUuid(): string {
+  if (!globalThis.crypto?.randomUUID) throw new Error('SmartArt node creation requires crypto.randomUUID()');
+  return globalThis.crypto.randomUUID();
 }
 
 export function installSmartArtPlugin(host: PluginHost): SmartArtDiagramCodec {

@@ -1,18 +1,19 @@
-import { createHash } from 'node:crypto';
-import { promises as fs } from 'node:fs';
-import type { Readable } from 'node:stream';
 import { LosslessXmlDocument, type XmlElement } from '@pptx/lossless-xml';
 import { relativeRelationshipTarget, type OpcPackage } from '@pptx/opc';
 import type { CodecDiagnostic } from './registry.js';
 
 const REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/';
 const MEDIA_REL = 'http://schemas.microsoft.com/office/2007/relationships/media';
-const ONE_PIXEL_PNG = Uint8Array.from(
-  Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z1ZkAAAAASUVORK5CYII=', 'base64'),
-);
+const ONE_PIXEL_PNG = Uint8Array.from([
+  137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1, 8, 4, 0, 0, 0,
+  181, 28, 12, 2, 0, 0, 0, 11, 73, 68, 65, 84, 120, 218, 99, 252, 255, 31, 0, 2, 235, 1, 245, 143, 89, 213,
+  153, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130,
+]);
 
 export type MediaKind = 'audio' | 'video';
-export type MediaSource = string | Uint8Array | ArrayBuffer | Readable;
+export type MediaByteChunk = number | Uint8Array | ArrayBuffer | ArrayBufferView;
+export type MediaByteStream = ReadableStream<MediaByteChunk> | AsyncIterable<MediaByteChunk>;
+export type MediaSource = string | Uint8Array | ArrayBuffer | Blob | MediaByteStream;
 
 export interface MediaPlaybackSettings {
   readonly play?: 'click' | 'auto';
@@ -209,7 +210,8 @@ export class MediaCodec {
         contentType = transcoded.contentType;
         extension = transcoded.extension ?? extensionFor(contentType, kind);
       }
-      mediaPartUri = this.findByHash(bytes, contentType) ?? this.pkg.allocatePartUri('/ppt/media', 'media', extension);
+      mediaPartUri =
+        (await this.findByHash(bytes, contentType)) ?? this.pkg.allocatePartUri('/ppt/media', 'media', extension);
       if (!this.pkg.hasPart(mediaPartUri)) this.pkg.setPart(mediaPartUri, bytes, contentType);
       linkTarget = relativeTarget(slidePartUri, mediaPartUri);
       linkMode = 'Internal';
@@ -224,7 +226,9 @@ export class MediaCodec {
       ? this.pkg.addRelationship(slidePartUri, { type: MEDIA_REL, target: relativeTarget(slidePartUri, mediaPartUri) })
       : undefined;
     const poster = await resolvePoster(options.poster, options.posterContentType);
-    const posterPartUri = this.findByHash(poster.bytes, poster.contentType) ?? this.pkg.allocatePartUri('/ppt/media', 'poster', poster.extension);
+    const posterPartUri =
+      (await this.findByHash(poster.bytes, poster.contentType)) ??
+      this.pkg.allocatePartUri('/ppt/media', 'poster', poster.extension);
     if (!this.pkg.hasPart(posterPartUri)) this.pkg.setPart(posterPartUri, poster.bytes, poster.contentType);
     const posterRelationship = this.pkg.addRelationship(slidePartUri, {
       type: `${REL}image`,
@@ -270,11 +274,18 @@ export class MediaCodec {
     };
   }
 
-  private findByHash(bytes: Uint8Array, contentType: string): string | undefined {
-    const expected = hash(bytes);
-    return this.pkg.parts.find(
-      (part) => part.contentType === contentType && part.uri.startsWith('/ppt/media/') && hash(part.bytes) === expected,
-    )?.uri;
+  private async findByHash(bytes: Uint8Array, contentType: string): Promise<string | undefined> {
+    const expected = await hash(bytes);
+    for (const part of this.pkg.parts) {
+      if (
+        part.contentType === contentType &&
+        part.uri.startsWith('/ppt/media/') &&
+        (await hash(part.bytes)) === expected
+      ) {
+        return part.uri;
+      }
+    }
+    return undefined;
   }
 }
 
@@ -290,11 +301,16 @@ async function resolveSource(
   let bytes: Uint8Array;
   let name = fileName;
   if (typeof source === 'string') {
+    const fs = await loadNodeModule<NodeFsPromises>(['node:fs', 'promises'].join('/'));
     bytes = new Uint8Array(await fs.readFile(source));
     name = name ?? source;
   } else if (source instanceof Uint8Array) bytes = new Uint8Array(source);
   else if (source instanceof ArrayBuffer) bytes = new Uint8Array(source);
-  else bytes = await readStream(source);
+  else if (isBlob(source)) {
+    bytes = new Uint8Array(await source.arrayBuffer());
+    const sourceName = (source as Blob & { readonly name?: unknown }).name;
+    if (!name && typeof sourceName === 'string') name = sourceName;
+  } else bytes = await readStream(source);
   const sourceExtension = name ? fileExtension(name) : '';
   const inferred = contentType ?? contentTypeFor(sourceExtension, kind);
   return {
@@ -312,10 +328,23 @@ async function resolvePoster(source?: MediaSource, contentType?: string): Promis
   return { bytes: resolved.bytes!, contentType: resolved.contentType, extension: resolved.extension };
 }
 
-async function readStream(stream: Readable): Promise<Uint8Array> {
-  const chunks: Buffer[] = [];
-  for await (const chunk of stream) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as Uint8Array));
-  return new Uint8Array(Buffer.concat(chunks));
+async function readStream(stream: MediaByteStream): Promise<Uint8Array> {
+  const chunks: Uint8Array[] = [];
+  if (isReadableStream(stream)) {
+    const reader = stream.getReader();
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(normalizeByteChunk(value));
+      }
+    } finally {
+      reader.releaseLock();
+    }
+  } else {
+    for await (const chunk of stream) chunks.push(normalizeByteChunk(chunk));
+  }
+  return concatenateBytes(chunks);
 }
 
 function defaultContentType(kind: MediaKind): string {
@@ -359,8 +388,51 @@ function fileExtension(value: string): string {
   return dot <= 0 ? '' : basename.slice(dot);
 }
 
-function hash(bytes: Uint8Array): string {
-  return createHash('sha256').update(bytes).digest('hex');
+async function hash(bytes: Uint8Array): Promise<string> {
+  if (!globalThis.crypto?.subtle) throw new Error('Media hashing requires the Web Crypto API');
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', new Uint8Array(bytes).buffer);
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+interface NodeFsPromises {
+  readFile(path: string): Promise<Uint8Array>;
+}
+
+async function loadNodeModule<T>(specifier: string): Promise<T> {
+  if (typeof process === 'undefined' || !process.versions?.node) {
+    throw new Error('Local media paths are only supported in Node.js; pass a Blob, File, or byte stream');
+  }
+  return import(specifier) as Promise<T>;
+}
+
+function isReadableStream(value: unknown): value is ReadableStream<unknown> {
+  return Boolean(value && typeof (value as { getReader?: unknown }).getReader === 'function');
+}
+
+function isBlob(value: unknown): value is Blob {
+  return typeof Blob !== 'undefined' && value instanceof Blob;
+}
+
+function normalizeByteChunk(chunk: unknown): Uint8Array {
+  if (typeof chunk === 'number' && Number.isInteger(chunk) && chunk >= 0 && chunk <= 255) {
+    return Uint8Array.of(chunk);
+  }
+  if (chunk instanceof Uint8Array) return new Uint8Array(chunk);
+  if (chunk instanceof ArrayBuffer) return new Uint8Array(chunk);
+  if (ArrayBuffer.isView(chunk)) {
+    return new Uint8Array(new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength));
+  }
+  throw new TypeError('Media streams must yield byte numbers, Uint8Array, ArrayBuffer, or ArrayBufferView chunks');
+}
+
+function concatenateBytes(chunks: readonly Uint8Array[]): Uint8Array {
+  const output = new Uint8Array(chunks.reduce((total, chunk) => total + chunk.byteLength, 0));
+  let offset = 0;
+  for (const chunk of chunks) {
+    output.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return output;
 }
 
 function ancestor(element: XmlElement, localName: string): XmlElement | undefined {

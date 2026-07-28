@@ -1,5 +1,3 @@
-import { createReadStream, promises as fs } from 'node:fs';
-import type { Readable } from 'node:stream';
 import {
   CodecRegistry,
   GradientCodec,
@@ -26,7 +24,9 @@ export { ValidationError } from '@pptx/validator';
 export type { CompatibilityProfile, Diagnostic } from '@pptx/validator';
 export { ModelParseError as ParseError, SlideModel as Slide, SlideTitleModel as SlideTitle } from '@pptx/model';
 
-export type PptxInput = string | Uint8Array | ArrayBuffer | Readable;
+export type PptxByteChunk = number | Uint8Array | ArrayBuffer | ArrayBufferView;
+export type PptxByteStream = ReadableStream<PptxByteChunk> | AsyncIterable<PptxByteChunk>;
+export type PptxInput = string | Uint8Array | ArrayBuffer | Blob | PptxByteStream;
 
 export interface WriteOptions {
   readonly compatibility?: CompatibilityProfile;
@@ -81,7 +81,31 @@ export class PptxDocument extends PresentationModel {
   }
 
   async writeFile(path: string, options: WriteOptions = {}): Promise<void> {
+    const fs = await loadNodeModule<NodeFsPromises>(['node:fs', 'promises'].join('/'));
     await fs.writeFile(path, await this.write(options));
+  }
+
+  async writeBlob(options: WriteOptions = {}): Promise<Blob> {
+    const bytes = await this.write(options);
+    return new Blob([new Uint8Array(bytes).buffer], { type: this.formatProfile.fileContentType });
+  }
+
+  async download(fileName = `presentation${this.formatProfile.extension}`, options: WriteOptions = {}): Promise<void> {
+    if (typeof document === 'undefined' || typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') {
+      throw new Error('PptxDocument.download() requires a browser DOM; use writeFile() in Node.js');
+    }
+    const url = URL.createObjectURL(await this.writeBlob(options));
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = fileName;
+    anchor.style.display = 'none';
+    document.body?.appendChild(anchor);
+    try {
+      anchor.click();
+    } finally {
+      anchor.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+    }
   }
 
   get masters() {
@@ -119,19 +143,90 @@ export class PptxDocument extends PresentationModel {
   }
 }
 
-export function openPptxStream(path: string): Readable {
-  return createReadStream(path);
+export async function* openPptxStream(path: string): AsyncIterable<Uint8Array> {
+  const fs = await loadNodeModule<NodeFs>(['node:fs'].join('/'));
+  for await (const chunk of fs.createReadStream(path)) yield normalizeByteChunk(chunk);
 }
 
 async function readInput(input: PptxInput, signal?: AbortSignal): Promise<Uint8Array> {
-  if (typeof input === 'string') return new Uint8Array(await fs.readFile(input, { signal }));
+  if (typeof input === 'string') {
+    const fs = await loadNodeModule<NodeFsPromises>(['node:fs', 'promises'].join('/'));
+    return new Uint8Array(await fs.readFile(input, signal ? { signal } : undefined));
+  }
   if (input instanceof Uint8Array) return new Uint8Array(input);
   if (input instanceof ArrayBuffer) return new Uint8Array(input);
-  const chunks: Buffer[] = [];
+  if (typeof Blob !== 'undefined' && input instanceof Blob) return new Uint8Array(await input.arrayBuffer());
+  const chunks: Uint8Array[] = [];
+  if (isReadableStream(input)) {
+    const reader = input.getReader();
+    try {
+      while (true) {
+        throwIfAborted(signal);
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(normalizeByteChunk(value));
+      }
+    } finally {
+      reader.releaseLock();
+    }
+    return concatenateBytes(chunks);
+  }
+  if (!isAsyncIterable(input)) throw new TypeError('Unsupported PPTX input type');
   for await (const chunk of input) {
     if (signal?.aborted) throw signal.reason instanceof Error ? signal.reason : new DOMException('Aborted', 'AbortError');
-    if (typeof chunk === 'number') chunks.push(Buffer.from([chunk]));
-    else chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as Uint8Array));
+    chunks.push(normalizeByteChunk(chunk));
   }
-  return new Uint8Array(Buffer.concat(chunks));
+  return concatenateBytes(chunks);
+}
+
+interface NodeFsPromises {
+  readFile(path: string, options?: { readonly signal?: AbortSignal }): Promise<Uint8Array>;
+  writeFile(path: string, bytes: Uint8Array): Promise<void>;
+}
+
+interface NodeFs {
+  createReadStream(path: string): AsyncIterable<unknown>;
+}
+
+async function loadNodeModule<T>(specifier: string): Promise<T> {
+  if (typeof process === 'undefined' || !process.versions?.node) {
+    throw new Error('Local file paths are only supported in Node.js; pass a Blob, File, or byte stream');
+  }
+  return import(specifier) as Promise<T>;
+}
+
+function isReadableStream(value: unknown): value is ReadableStream<unknown> {
+  return Boolean(value && typeof (value as { getReader?: unknown }).getReader === 'function');
+}
+
+function isAsyncIterable(value: unknown): value is AsyncIterable<unknown> {
+  return Boolean(value && typeof (value as { [Symbol.asyncIterator]?: unknown })[Symbol.asyncIterator] === 'function');
+}
+
+function normalizeByteChunk(chunk: unknown): Uint8Array {
+  if (typeof chunk === 'number' && Number.isInteger(chunk) && chunk >= 0 && chunk <= 255) {
+    return Uint8Array.of(chunk);
+  }
+  if (chunk instanceof Uint8Array) return new Uint8Array(chunk);
+  if (chunk instanceof ArrayBuffer) return new Uint8Array(chunk);
+  if (ArrayBuffer.isView(chunk)) {
+    return new Uint8Array(new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength));
+  }
+  throw new TypeError('PPTX streams must yield byte numbers, Uint8Array, ArrayBuffer, or ArrayBufferView chunks');
+}
+
+function concatenateBytes(chunks: readonly Uint8Array[]): Uint8Array {
+  const output = new Uint8Array(chunks.reduce((total, chunk) => total + chunk.byteLength, 0));
+  let offset = 0;
+  for (const chunk of chunks) {
+    output.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return output;
+}
+
+function throwIfAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) {
+    throw signal.reason instanceof Error ? signal.reason : new DOMException('Aborted', 'AbortError');
+  }
 }

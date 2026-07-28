@@ -135,14 +135,31 @@ describe('MediaCodec', () => {
     });
     const second = await codec.addAudio('/ppt/slides/slide1.xml', bytes, { contentType: 'audio/mpeg' });
     expect(second.mediaPartUri).toBe(first.mediaPartUri);
+    const fromBlob = await codec.addAudio('/ppt/slides/slide1.xml', new Blob([bytes]), {
+      contentType: 'audio/mpeg',
+    });
+    expect(fromBlob.mediaPartUri).toBe(first.mediaPartUri);
+    const fromWebStream = await codec.addAudio(
+      '/ppt/slides/slide1.xml',
+      new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(bytes);
+          controller.close();
+        },
+      }),
+      { contentType: 'audio/mpeg' },
+    );
+    expect(fromWebStream.mediaPartUri).toBe(first.mediaPartUri);
     const external = await codec.addVideo('/ppt/slides/slide1.xml', 'https://example.com/video.mp4');
     const listed = codec.list('/ppt/slides/slide1.xml');
-    expect(listed).toHaveLength(3);
+    expect(listed).toHaveLength(5);
     expect(listed[0]?.settings).toMatchObject({ play: 'auto', loop: true, volume: 0.5 });
     expect(codec.diagnostics(external, 'google-slides-import')[0]?.code).toBe('MEDIA_EXTERNAL_NOT_PORTABLE');
     codec.delete('/ppt/slides/slide1.xml', first.shapeId);
     expect(pkg.hasPart(first.mediaPartUri!)).toBe(true);
     codec.delete('/ppt/slides/slide1.xml', second.shapeId);
+    codec.delete('/ppt/slides/slide1.xml', fromBlob.shapeId);
+    codec.delete('/ppt/slides/slide1.xml', fromWebStream.shapeId);
     expect(pkg.hasPart(first.mediaPartUri!)).toBe(false);
   });
 });

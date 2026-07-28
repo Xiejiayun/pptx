@@ -16,7 +16,7 @@ await document.writeFile('output.pptx', {
 });
 ```
 
-Inputs: file path, `Buffer`/`Uint8Array`, `ArrayBuffer`, or Node readable stream. `write()` returns `Uint8Array`.
+Inputs: `Uint8Array`, `ArrayBuffer`, `Blob`/`File`, Web `ReadableStream`, or async byte iterable. Node.js additionally accepts a file path or Node readable stream. `write()` returns `Uint8Array`; browsers can use `writeBlob()` or `download()`.
 
 ## Presentation format
 
