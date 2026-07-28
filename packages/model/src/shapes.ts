@@ -24,9 +24,15 @@ export abstract class BaseShapeModel {
   constructor(
     protected readonly slide: SlideModel,
     readonly id: number,
-    readonly name: string,
+    private readonly initialName: string,
     readonly kind: ShapeKind,
   ) {}
+
+  get name(): string {
+    const { xml, element } = this.resolve();
+    const properties = xml.descendants(element, 'cNvPr')[0];
+    return properties ? xml.attribute(properties, 'name')?.value ?? this.initialName : this.initialName;
+  }
 
   get transform(): Transform {
     const { xml, element } = this.resolve();

@@ -50,6 +50,10 @@ describe('PptxDocument vertical slice', () => {
         'builtin.gradient-transparency',
         'builtin.media',
       ]);
+      expect(document.masterLayoutTheme).toBe(document.masterLayoutTheme);
+      expect(document.codecRegistry.codecs.find(({ id }) => id === 'builtin.master-layout-theme')).toBe(
+        document.masterLayoutTheme,
+      );
       expect(document.format).toBe('pptx');
       expect(document.slides[0]?.title.text).toBe('Original');
       expect(await document.write()).toEqual(input);

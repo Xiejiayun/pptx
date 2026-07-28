@@ -35,13 +35,33 @@ export class SlideTitleModel {
 
 export class SlideModel {
   readonly title = new SlideTitleModel(this);
+  readonly #shapeModels = new Map<number, SemanticShape>();
+  #relationshipId: string;
+  #slideId: number;
 
   constructor(
     readonly presentation: PresentationModel,
     readonly partUri: string,
-    readonly relationshipId: string,
-    readonly slideId: number,
-  ) {}
+    relationshipId: string,
+    slideId: number,
+  ) {
+    this.#relationshipId = relationshipId;
+    this.#slideId = slideId;
+  }
+
+  get relationshipId(): string {
+    return this.#relationshipId;
+  }
+
+  get slideId(): number {
+    return this.#slideId;
+  }
+
+  /** @internal */
+  syncIdentity(relationshipId: string, slideId: number): void {
+    this.#relationshipId = relationshipId;
+    this.#slideId = slideId;
+  }
 
   get background(): GradientFill | undefined {
     return new GradientCodec().getSlideBackground(this.presentation.opcPackage, this.partUri);
@@ -60,9 +80,19 @@ export class SlideModel {
     const candidates = xml
       .elements()
       .filter(({ localName }) => ['sp', 'pic', 'graphicFrame', 'grpSp'].includes(localName));
-    return candidates
-      .map((element) => decodeShape(this, xml, element))
-      .filter((shape): shape is SemanticShape => Boolean(shape));
+    const shapes: SemanticShape[] = [];
+    for (const element of candidates) {
+      const decoded = decodeShape(this, xml, element);
+      if (!decoded) continue;
+      const existing = this.#shapeModels.get(decoded.id);
+      if (existing && existing.kind === decoded.kind && existing.constructor === decoded.constructor) {
+        shapes.push(existing);
+      } else {
+        this.#shapeModels.set(decoded.id, decoded);
+        shapes.push(decoded);
+      }
+    }
+    return shapes;
   }
 
   get opaqueExtensionCount(): number {

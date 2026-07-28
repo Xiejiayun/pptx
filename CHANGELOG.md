@@ -6,6 +6,7 @@
 - Replaced host `node:path` semantics in the OPC graph, model, codecs, and transition plugin with portable OPC part URI operations.
 - Added a browser conditional export with Blob/File/Web Stream input, Blob/download output, portable media hashing, and browser-safe SmartArt IDs.
 - Added nested synchronous mutation transactions with rollback across parts, content types, relationships, ZIP state, and the mutation journal.
+- Added stable object identity for slide, shape, master, layout, and theme models while keeping properties live against current OOXML.
 
 ## 0.1.0 - 2026-07-25
 

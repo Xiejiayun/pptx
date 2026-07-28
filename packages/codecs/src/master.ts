@@ -98,12 +98,12 @@ export class MasterModel {
     return this.codec.pkg
       .relationships(this.partUri)
       .filter(({ type, resolvedTarget }) => type.endsWith('/slideLayout') && resolvedTarget)
-      .map(({ resolvedTarget }) => new LayoutModel(this.codec, resolvedTarget!));
+      .map(({ resolvedTarget }) => this.codec.modelForLayout(resolvedTarget!));
   }
 
   get theme(): ThemeModel | undefined {
     const target = this.codec.relationship(this.partUri, 'theme')?.resolvedTarget;
-    return target ? new ThemeModel(this.codec, target) : undefined;
+    return target ? this.codec.modelForTheme(target) : undefined;
   }
 
   get placeholders(): readonly PlaceholderModel[] {
@@ -126,6 +126,9 @@ export class MasterLayoutThemeCodec {
     relationshipTypes: [`${REL}slideLayout`, `${REL}slideMaster`, `${REL}theme`],
     contentTypes: [`${CONTENT}slideMaster+xml`, `${CONTENT}slideLayout+xml`, 'application/vnd.openxmlformats-officedocument.theme+xml'],
   } as const;
+  readonly #masterModels = new Map<string, MasterModel>();
+  readonly #layoutModels = new Map<string, LayoutModel>();
+  readonly #themeModels = new Map<string, ThemeModel>();
 
   constructor(readonly pkg: OpcPackage, readonly presentationPartUri = '/ppt/presentation.xml') {}
 
@@ -133,7 +136,7 @@ export class MasterLayoutThemeCodec {
     return this.pkg
       .relationships(this.presentationPartUri)
       .filter(({ type, resolvedTarget }) => type.endsWith('/slideMaster') && resolvedTarget)
-      .map(({ resolvedTarget }) => new MasterModel(this, resolvedTarget!));
+      .map(({ resolvedTarget }) => this.modelForMaster(resolvedTarget!));
   }
 
   get layouts(): readonly LayoutModel[] {
@@ -146,7 +149,34 @@ export class MasterLayoutThemeCodec {
         .filter(({ contentType }) => contentType === 'application/vnd.openxmlformats-officedocument.theme+xml')
         .map(({ uri }) => uri),
     );
-    return [...uris].map((uri) => new ThemeModel(this, uri));
+    return [...uris].map((uri) => this.modelForTheme(uri));
+  }
+
+  /** @internal */
+  modelForMaster(partUri: string): MasterModel {
+    const existing = this.#masterModels.get(partUri);
+    if (existing) return existing;
+    const created = new MasterModel(this, partUri);
+    this.#masterModels.set(partUri, created);
+    return created;
+  }
+
+  /** @internal */
+  modelForLayout(partUri: string): LayoutModel {
+    const existing = this.#layoutModels.get(partUri);
+    if (existing) return existing;
+    const created = new LayoutModel(this, partUri);
+    this.#layoutModels.set(partUri, created);
+    return created;
+  }
+
+  /** @internal */
+  modelForTheme(partUri: string): ThemeModel {
+    const existing = this.#themeModels.get(partUri);
+    if (existing) return existing;
+    const created = new ThemeModel(this, partUri);
+    this.#themeModels.set(partUri, created);
+    return created;
   }
 
   createTheme(xml: string): ThemeModel {
@@ -158,7 +188,7 @@ export class MasterLayoutThemeCodec {
         '.xml',
       );
       this.pkg.setPart(uri, xml, 'application/vnd.openxmlformats-officedocument.theme+xml');
-      return new ThemeModel(this, uri);
+      return this.modelForTheme(uri);
     });
   }
 
@@ -197,7 +227,7 @@ export class MasterLayoutThemeCodec {
       this.pkg.setPart(uri, xml, `${CONTENT}slideMaster+xml`);
       this.pkg.addRelationship(uri, { type: `${REL}theme`, target: relativeTarget(uri, themePartUri) });
       this.attachMaster(uri);
-      return new MasterModel(this, uri);
+      return this.modelForMaster(uri);
     });
   }
 
@@ -224,15 +254,15 @@ export class MasterLayoutThemeCodec {
         }
       }
       this.attachMaster(uri);
-      return new MasterModel(this, uri);
+      return this.modelForMaster(uri);
     });
   }
 
   deleteMaster(masterPartUri: string, replacementMasterPartUri?: string): void {
     this.pkg.transaction(() => {
-      const master = new MasterModel(this, masterPartUri);
+      const master = this.modelForMaster(masterPartUri);
       const replacementLayout = replacementMasterPartUri
-        ? new MasterModel(this, replacementMasterPartUri).layouts[0]?.partUri
+        ? this.modelForMaster(replacementMasterPartUri).layouts[0]?.partUri
         : undefined;
       for (const layout of master.layouts) this.deleteLayout(layout.partUri, replacementLayout);
       const relationship = this.pkg
@@ -262,7 +292,7 @@ export class MasterLayoutThemeCodec {
       this.pkg.setPart(uri, xml, `${CONTENT}slideLayout+xml`);
       this.pkg.addRelationship(uri, { type: `${REL}slideMaster`, target: relativeTarget(uri, masterPartUri) });
       this.attachLayout(masterPartUri, uri);
-      return new LayoutModel(this, uri);
+      return this.modelForLayout(uri);
     });
   }
 
@@ -273,7 +303,7 @@ export class MasterLayoutThemeCodec {
       if (!targetMaster) throw new Error(`Layout ${layoutPartUri} has no master`);
       const uri = this.copyLayoutPart(layoutPartUri, targetMaster);
       this.attachLayout(targetMaster, uri);
-      return new LayoutModel(this, uri);
+      return this.modelForLayout(uri);
     });
   }
 

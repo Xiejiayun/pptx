@@ -43,10 +43,12 @@ export class OpaqueMutationError extends Error {
 export class PptxDocument extends PresentationModel {
   readonly diagnostics: Diagnostic[] = [];
   readonly codecRegistry = new CodecRegistry();
+  readonly #masterLayoutTheme: MasterLayoutThemeCodec;
 
   private constructor(opcPackage: OpcPackage) {
     super(opcPackage);
-    this.codecRegistry.register(new MasterLayoutThemeCodec(opcPackage, this.presentationPartUri));
+    this.#masterLayoutTheme = new MasterLayoutThemeCodec(opcPackage, this.presentationPartUri);
+    this.codecRegistry.register(this.#masterLayoutTheme);
     this.codecRegistry.register(new GradientCodec());
     this.codecRegistry.register(new MediaCodec(opcPackage));
   }
@@ -118,19 +120,19 @@ export class PptxDocument extends PresentationModel {
   }
 
   get masters() {
-    return new MasterLayoutThemeCodec(this.opcPackage, this.presentationPartUri).masters;
+    return this.#masterLayoutTheme.masters;
   }
 
   get layouts() {
-    return new MasterLayoutThemeCodec(this.opcPackage, this.presentationPartUri).layouts;
+    return this.#masterLayoutTheme.layouts;
   }
 
   get themes() {
-    return new MasterLayoutThemeCodec(this.opcPackage, this.presentationPartUri).themes;
+    return this.#masterLayoutTheme.themes;
   }
 
   get masterLayoutTheme(): MasterLayoutThemeCodec {
-    return new MasterLayoutThemeCodec(this.opcPackage, this.presentationPartUri);
+    return this.#masterLayoutTheme;
   }
 
   async addAudio(slideIndex: number, source: MediaSource, options: AddMediaOptions = {}): Promise<MediaModel> {

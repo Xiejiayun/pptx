@@ -71,8 +71,12 @@ describe('PresentationModel', () => {
 
   it('uses r:id order and exposes common semantic objects', async () => {
     const model = new PresentationModel(await OpcPackage.open(await modelFixture()));
+    const initialSlides = model.slides;
+    expect(model.slides[0]).toBe(initialSlides[0]);
     expect(model.slides.map(({ title }) => title.text)).toEqual(['Second title', 'First title']);
     const shapes = model.slides[1]!.shapes;
+    expect(model.slides[1]!.shapes[0]).toBe(shapes[0]);
+    expect(model.slides[1]!.shapes[1]).toBe(shapes[1]);
     expect(shapes[0]).toBeInstanceOf(ShapeModel);
     expect(shapes[1]).toBeInstanceOf(ImageModel);
     expect(shapes[2]).toBeInstanceOf(TableModel);
@@ -85,8 +89,10 @@ describe('PresentationModel', () => {
       { name: 'Sales', categories: ['Q1', 'Q2'], values: [10, 20] },
     ]);
     (shapes[0] as ShapeModel).setTransform({ x: inches(2) });
+    expect(model.slides[1]!.shapes[0]).toBe(shapes[0]);
     expect(emuToInches(model.slides[1]!.shapes[0]!.transform.x)).toBe(2);
     (shapes[2] as TableModel).setCellText(0, 1, 'Edited B1');
+    expect(model.slides[1]!.shapes[2]).toBe(shapes[2]);
     expect((model.slides[1]!.shapes[2] as TableModel).rows[0]?.cells[1]?.text).toBe('Edited B1');
     (shapes[1] as ImageModel).replaceData(new Uint8Array([1, 2, 3]), 'image/png');
     expect(model.opcPackage.requirePart('/ppt/media/image1.png').bytes).toEqual(new Uint8Array([1, 2, 3]));
@@ -102,8 +108,10 @@ describe('PresentationModel', () => {
     expect(model.slides[1]!.title.text).toBe('Edited first');
 
     model.moveSlide(1, 0);
+    expect(model.slides[0]).toBe(first);
     expect(model.slides.map(({ title }) => title.text)).toEqual(['Edited first', 'Second title']);
     const duplicate = model.duplicateSlide(0);
+    expect(model.slides.find(({ partUri }) => partUri === duplicate.partUri)).toBe(duplicate);
     expect(duplicate.title.text).toBe('Edited first');
     expect((duplicate.shapes[1] as ImageModel).sourcePartUri).toBe('/ppt/media/image1.png');
     const blank = model.addSlide();
@@ -134,5 +142,35 @@ describe('PresentationModel', () => {
     expect(pkg.relationships('/ppt/presentation.xml')).toEqual(relationships);
     expect(pkg.mutations).toEqual(journal);
     expect(pkg.hasPart('/ppt/slides/slide3.xml')).toBe(false);
+  });
+
+  it('keeps slide and shape identity through rollback while exposing live shape metadata', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.slides[1]!;
+    const shape = slide.shapes[0]!;
+    const image = slide.shapes[1]!;
+
+    expect(() =>
+      pkg.transaction(() => {
+        model.deleteSlide(1);
+        expect(model.slides.includes(slide)).toBe(false);
+        throw new Error('restore slide');
+      }),
+    ).toThrow('restore slide');
+    expect(model.slides[1]).toBe(slide);
+    expect(model.slides[1]!.shapes[0]).toBe(shape);
+
+    const part = pkg.requirePart(slide.partUri);
+    const renamed = new TextDecoder().decode(part.bytes).replace('name="Image 1"', 'name="Renamed image"');
+    pkg.setPart(slide.partUri, renamed, part.contentType);
+    expect(image.name).toBe('Renamed image');
+    expect(slide.shapes[1]).toBe(image);
+
+    const table = '<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="3" name="Replacement table"/></p:nvGraphicFramePr><a:graphic><a:graphicData><a:tbl><a:tr><a:tc><a:txBody><a:p><a:r><a:t>Cell</a:t></a:r></a:p></a:txBody></a:tc></a:tr></a:tbl></a:graphicData></a:graphic></p:graphicFrame>';
+    pkg.setPart(slide.partUri, renamed.replace(/<p:pic>.*?<\/p:pic>/, table), part.contentType);
+    const replacement = slide.shapes.find(({ id }) => id === 3);
+    expect(replacement).toBeInstanceOf(TableModel);
+    expect(replacement).not.toBe(image);
   });
 });

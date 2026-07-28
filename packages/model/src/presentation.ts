@@ -24,6 +24,7 @@ export class PresentationModel {
   readonly presentationPartUri: string;
   readonly format: PresentationFormat;
   readonly formatProfile: PresentationFormatProfile;
+  readonly #slideModels = new Map<string, SlideModel>();
 
   constructor(readonly opcPackage: OpcPackage) {
     const rootRelationship = opcPackage.relationships('/').find(({ type }) => type.endsWith('/officeDocument'));
@@ -55,7 +56,7 @@ export class PresentationModel {
     for (const entry of ordered) {
       const relationship = relationships.find(({ id }) => id === entry.relationshipId);
       if (relationship?.type.endsWith('/slide') && relationship.resolvedTarget) {
-        slides.push(new SlideModel(this, relationship.resolvedTarget, relationship.id, entry.slideId));
+        slides.push(this.slideModel(relationship.resolvedTarget, relationship.id, entry.slideId));
       }
     }
     return slides;
@@ -172,7 +173,18 @@ export class PresentationModel {
       list = undefined;
     }
     this.setXmlPart(this.presentationPartUri, xml.serialize());
-    return new SlideModel(this, slideUri, relationship.id, slideId);
+    return this.slideModel(slideUri, relationship.id, slideId);
+  }
+
+  private slideModel(partUri: string, relationshipId: string, slideId: number): SlideModel {
+    const existing = this.#slideModels.get(partUri);
+    if (existing) {
+      existing.syncIdentity(relationshipId, slideId);
+      return existing;
+    }
+    const created = new SlideModel(this, partUri, relationshipId, slideId);
+    this.#slideModels.set(partUri, created);
+    return created;
   }
 
   private slideIdElements(xml: LosslessXmlDocument): XmlElement[] {

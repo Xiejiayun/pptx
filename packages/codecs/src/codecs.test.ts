@@ -80,6 +80,14 @@ describe('MasterLayoutThemeCodec', () => {
   it('decodes, edits, copies, and relinks the inheritance chain', async () => {
     const pkg = await featureFixture();
     const codec = new MasterLayoutThemeCodec(pkg);
+    const master = codec.masters[0]!;
+    const layout = codec.layouts[0]!;
+    const theme = codec.themes[0]!;
+    expect(codec.masters[0]).toBe(master);
+    expect(codec.layouts[0]).toBe(layout);
+    expect(master.layouts[0]).toBe(layout);
+    expect(codec.themes[0]).toBe(theme);
+    expect(master.theme).toBe(theme);
     expect(codec.masters).toHaveLength(1);
     expect(codec.layouts[0]?.placeholders[0]).toMatchObject({ type: 'title', index: 1 });
     expect(codec.themes[0]?.fonts).toEqual({ majorLatin: 'Aptos Display', minorLatin: 'Aptos' });
@@ -93,15 +101,19 @@ describe('MasterLayoutThemeCodec', () => {
     });
 
     const copiedTheme = codec.copyTheme('/ppt/theme/theme1.xml');
+    expect(codec.themes.find(({ partUri }) => partUri === copiedTheme.partUri)).toBe(copiedTheme);
     codec.relinkMasterTheme('/ppt/slideMasters/slideMaster1.xml', copiedTheme.partUri);
+    expect(master.theme).toBe(copiedTheme);
     codec.deleteTheme('/ppt/theme/theme1.xml');
     expect(pkg.hasPart('/ppt/theme/theme1.xml')).toBe(false);
     const copiedLayout = codec.copyLayout('/ppt/slideLayouts/slideLayout1.xml');
+    expect(codec.layouts.find(({ partUri }) => partUri === copiedLayout.partUri)).toBe(copiedLayout);
     expect(copiedLayout.masterPartUri).toBe(
       '/ppt/slideMasters/slideMaster1.xml',
     );
     codec.deleteLayout(copiedLayout.partUri);
     const copiedMaster = codec.copyMaster('/ppt/slideMasters/slideMaster1.xml');
+    expect(codec.masters.find(({ partUri }) => partUri === copiedMaster.partUri)).toBe(copiedMaster);
     expect(copiedMaster.layouts.length).toBeGreaterThan(0);
     expect(codec.masters).toHaveLength(2);
     codec.deleteMaster(copiedMaster.partUri);
@@ -116,6 +128,9 @@ describe('MasterLayoutThemeCodec', () => {
       createdMaster.partUri,
       '<p:sldLayout xmlns:p="p" xmlns:a="a"><p:cSld><p:spTree/></p:cSld></p:sldLayout>',
     );
+    expect(codec.masters.find(({ partUri }) => partUri === createdMaster.partUri)).toBe(createdMaster);
+    expect(codec.themes.find(({ partUri }) => partUri === createdTheme.partUri)).toBe(createdTheme);
+    expect(createdMaster.layouts.find(({ partUri }) => partUri === createdLayout.partUri)).toBe(createdLayout);
     expect(createdLayout.masterPartUri).toBe(createdMaster.partUri);
     codec.deleteMaster(createdMaster.partUri);
     codec.deleteTheme(createdTheme.partUri);

@@ -6,6 +6,7 @@
     "strict": true,
     "declaration": true,
     "declarationMap": true,
+    "stripInternal": true,
     "sourceMap": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
@@ -15,4 +16,3 @@
     "forceConsistentCasingInFileNames": true
   }
 }
-
