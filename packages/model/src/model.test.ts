@@ -20,7 +20,7 @@ async function modelFixture(
   const zip = new JSZip();
   zip.file('[Content_Types].xml', `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Override PartName="/ppt/presentation.xml" ContentType="${presentationContentType}"/><Override PartName="/ppt/slides/slide1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/><Override PartName="/ppt/slides/slide2.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/><Override PartName="/ppt/charts/chart1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/><Override PartName="/ppt/embeddings/workbook1.xlsx" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"/><Override PartName="/ppt/custom/opaque1.bin" ContentType="application/octet-stream"/><Override PartName="/ppt/notesSlides/notesSlide1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml"/><Override PartName="/ppt/notesMasters/notesMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.notesMaster+xml"/></Types>`);
   zip.file('_rels/.rels', '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/></Relationships>');
-  zip.file('ppt/presentation.xml', '<p:presentation xmlns:p="p" xmlns:r="r"><p:sldIdLst><p:sldId id="257" r:id="rId2"/><p:sldId id="256" r:id="rId1"/></p:sldIdLst><x:unknown xmlns:x="urn:test"/></p:presentation>');
+  zip.file('ppt/presentation.xml', '<p:presentation xmlns:p="p" xmlns:r="r"><p:sldIdLst><p:sldId id="257" r:id="rId2"/><p:sldId id="256" r:id="rId1"/></p:sldIdLst><p:sldSz cx="9144000" cy="5143500" type="screen" custom="KEEP"/><p:notesSz cx="5143500" cy="9144000"/><x:unknown xmlns:x="urn:test"/></p:presentation>');
   zip.file('ppt/_rels/presentation.xml.rels', '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide2.xml"/></Relationships>');
   zip.file('ppt/slides/slide1.xml', '<p:sld xmlns:p="p" xmlns:a="a" xmlns:r="r" xmlns:c="c"><p:cSld><p:spTree><p:sp><p:nvSpPr><p:cNvPr id="2" name="Title 1"/><p:cNvSpPr/><p:nvPr><p:ph type="title"/></p:nvPr></p:nvSpPr><p:spPr><a:xfrm rot="60000"><a:off x="914400" y="1828800"/><a:ext cx="2743200" cy="914400"/></a:xfrm></p:spPr><p:txBody><a:p><a:r><a:t>First title</a:t></a:r></a:p></p:txBody></p:sp><p:pic><p:nvPicPr><p:cNvPr id="3" name="Image 1"/></p:nvPicPr><p:blipFill><a:blip r:embed="rId1"/></p:blipFill><p:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="10" cy="20"/></a:xfrm></p:spPr></p:pic><p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="4" name="Table 1"/></p:nvGraphicFramePr><a:graphic><a:graphicData><a:tbl><a:tr><a:tc><a:txBody><a:p><a:r><a:t>A1</a:t></a:r></a:p></a:txBody></a:tc><a:tc><a:txBody><a:p><a:r><a:t>B1</a:t></a:r></a:p></a:txBody></a:tc></a:tr></a:tbl></a:graphicData></a:graphic></p:graphicFrame><p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="5" name="Chart 1"/></p:nvGraphicFramePr><a:graphic><a:graphicData><c:chart r:id="rId2"/></a:graphicData></a:graphic></p:graphicFrame></p:spTree></p:cSld></p:sld>');
   zip.file('ppt/slides/_rels/slide1.xml.rels', '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image1.png"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart" Target="../charts/chart1.xml"/><Relationship Id="rId3" Type="urn:example:relationships/opaque" Target="../custom/opaque1.bin"/><Relationship Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide" Target="../notesSlides/notesSlide1.xml"/><Relationship Id="rId5" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="https://example.com" TargetMode="External"/></Relationships>');
@@ -108,6 +108,111 @@ describe('PresentationModel', () => {
     (shapes[3] as ChartModel).setXml('<c:chartSpace xmlns:c="c"><c:chart><c:plotArea/></c:chart></c:chartSpace>');
     expect((shapes[3] as ChartModel).chartPartUri).toBe(chartPartUri);
     expect((model.slides[1]!.shapes[3] as ChartModel).xml).toContain('<c:plotArea/>');
+  });
+
+  it('reads and edits slide size without changing notes, opaque XML, or shape transforms', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const shape = model.slides[1]!.shapes[0]!;
+    const transform = shape.transform;
+    const input = { width: inches(11.7), height: inches(8.3) };
+
+    expect(model.slideSize).toEqual({ width: inches(10), height: inches(5.625) });
+    expect(model.slideSize).not.toBe(model.slideSize);
+    model.slideSize = input;
+    input.width = inches(10);
+
+    expect(model.slideSize).toEqual({ width: inches(11.7), height: inches(8.3) });
+    expect(shape.transform).toEqual(transform);
+    const updated = new TextDecoder().decode(pkg.requirePart('/ppt/presentation.xml').bytes);
+    expect(updated).toContain('<p:sldSz cx="10698480" cy="7589520" type="screen" custom="KEEP"/>');
+    expect(updated).toContain('<p:notesSz cx="5143500" cy="9144000"/>');
+    expect(updated).toContain('<x:unknown xmlns:x="urn:test"/>');
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    expect(reopened.slideSize).toEqual({ width: inches(11.7), height: inches(8.3) });
+  });
+
+  it('inserts a missing slide size before notes and restores it after an outer rollback', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const part = pkg.requirePart('/ppt/presentation.xml');
+    pkg.setPart(
+      part.uri,
+      new TextDecoder().decode(part.bytes).replace(/<p:sldSz .*?\/>/, ''),
+      part.contentType,
+    );
+    const model = new PresentationModel(pkg);
+    expect(() => model.slideSize).toThrow(/slide size is missing/);
+
+    model.slideSize = { width: inches(12), height: inches(7) };
+    const inserted = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(inserted.indexOf('<p:sldSz')).toBeLessThan(inserted.indexOf('<p:notesSz'));
+    expect(inserted).toContain('xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"');
+
+    expect(() =>
+      pkg.transaction(() => {
+        model.slideSize = { width: inches(10), height: inches(10) };
+        throw new Error('restore slide size');
+      }),
+    ).toThrow('restore slide size');
+    expect(model.slideSize).toEqual({ width: inches(12), height: inches(7) });
+
+    const insertedPart = pkg.requirePart(part.uri);
+    pkg.setPart(
+      insertedPart.uri,
+      new TextDecoder().decode(insertedPart.bytes).replace(/<p:sldSz .*?\/>/, '<p:sldSz type="screen"/>'),
+      insertedPart.contentType,
+    );
+    model.slideSize = { width: inches(10), height: inches(7.5) };
+    expect(new TextDecoder().decode(pkg.requirePart(part.uri).bytes)).toContain(
+      '<p:sldSz type="screen" cx="9144000" cy="6858000"/>',
+    );
+  });
+
+  it('rejects invalid slide size edits without changing package bytes or mutations', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const before = pkg.requirePart('/ppt/presentation.xml').bytes;
+    const journal = [...pkg.mutations];
+
+    for (const value of [
+      null,
+      [],
+      {},
+      { width: Number.NaN, height: inches(1) },
+      { width: inches(1), height: Number.POSITIVE_INFINITY },
+      { width: inches(0.99), height: inches(1) },
+      { width: inches(1), height: inches(56.01) },
+    ]) {
+      expect(() => {
+        model.slideSize = value as never;
+      }).toThrow();
+    }
+    expect(pkg.requirePart('/ppt/presentation.xml').bytes).toEqual(before);
+    expect(pkg.mutations).toEqual(journal);
+
+    const part = pkg.requirePart('/ppt/presentation.xml');
+    pkg.setPart(
+      part.uri,
+      new TextDecoder().decode(part.bytes).replace(/<p:notesSz .*?\/>/, ''),
+      part.contentType,
+    );
+    const withoutNotes = pkg.requirePart(part.uri).bytes;
+    const withoutNotesJournal = [...pkg.mutations];
+    expect(() => {
+      model.slideSize = { width: inches(12), height: inches(7) };
+    }).toThrow(/notes size is missing/);
+    expect(pkg.requirePart(part.uri).bytes).toEqual(withoutNotes);
+    expect(pkg.mutations).toEqual(withoutNotesJournal);
+
+    const malformedPkg = await OpcPackage.open(await modelFixture());
+    const malformedPart = malformedPkg.requirePart('/ppt/presentation.xml');
+    malformedPkg.setPart(
+      malformedPart.uri,
+      new TextDecoder().decode(malformedPart.bytes).replace('cx="9144000"', 'cx="9144000.5"'),
+      malformedPart.contentType,
+    );
+    expect(() => new PresentationModel(malformedPkg).slideSize).toThrow(/slide width is invalid/);
   });
 
   it('edits shape text and adds, duplicates, moves, and deletes slides with relationship updates', async () => {

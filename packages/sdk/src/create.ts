@@ -1,16 +1,13 @@
 import {
   PRESENTATION_FORMAT_PROFILES,
-  type Emu,
   type PresentationFormat,
+  type SlideSize,
 } from '@pptx/model';
 import { OpcPackage } from '@pptx/opc';
 
 export type BuiltInSlideSize = '4:3' | '16:9' | '16:10' | 'wide';
 
-export interface CustomSlideSize {
-  readonly width: Emu;
-  readonly height: Emu;
-}
+export type CustomSlideSize = SlideSize;
 
 export interface CreatePresentationOptions {
   readonly format?: PresentationFormat;

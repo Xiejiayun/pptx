@@ -44,11 +44,12 @@ try {
 const created = PptxDocument.create();
 const createdText = created.addSlide().addText('Smoke');
 const custom = PptxDocument.create({ slideSize: { width: inches(11.7), height: inches(8.3) } });
+custom.slideSize = { width: inches(10), height: inches(7.5) };
 const customXml = new TextDecoder().decode(custom.opcPackage.requirePart('/ppt/presentation.xml').bytes);
 const checks = {
   PptxDocument: typeof PptxDocument === 'function',
   createText: createdText.text === 'Smoke' && created.slides[0].shapes[0] === createdText,
-  customSlideSize: customXml.includes('<p:sldSz cx="10698480" cy="7589520"/>'),
+  customSlideSize: custom.slideSize.width === inches(10) && customXml.includes('<p:sldSz cx="9144000" cy="6858000"/>'),
   GradientCodec: typeof GradientCodec === 'function',
   importPptxGenJS: typeof importPptxGenJS === 'function',
   transitions: typeof transitions.TransitionCodec === 'function',
@@ -73,6 +74,7 @@ if (checks.some((value) => typeof value !== 'function')) throw new Error('Browse
 const created = PptxDocument.create({ slideSize: '16:9' });
 if (created.addSlide().addText('Browser').text !== 'Browser') throw new Error('Browser create-text API failed');
 PptxDocument.create({ slideSize: { width: inches(11.7), height: inches(8.3) } });
+created.slideSize = { width: inches(10), height: inches(7.5) };
 process.stdout.write(resolved);
 `,
   );
@@ -96,6 +98,7 @@ const documentPromise: Promise<PptxDocument> = PptxDocument.open(new Uint8Array(
 const createdDocument: PptxDocument = PptxDocument.create({ format: 'pptx', slideSize: 'wide' });
 const customSlideSize: CustomSlideSize = { width: inches(11.7), height: inches(8.3) };
 const customDocument: PptxDocument = PptxDocument.create({ slideSize: customSlideSize });
+customDocument.slideSize = { width: inches(10), height: inches(7.5) };
 const createdText = createdDocument.addSlide().addText('Typed text');
 createdText.text = 'Updated typed text';
 const gradientConstructor: typeof GradientCodec = GradientCodec;

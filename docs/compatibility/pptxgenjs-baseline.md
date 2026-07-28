@@ -21,7 +21,7 @@ adapter 不读取 `_slides` 等私有字段。后续 peer-range conformance test
 | `LAYOUT_4x3` / `LAYOUT_16x10` / `LAYOUT_WIDE` | `create({ slideSize: '4:3' / '16:10' / 'wide' })` | 已支持 |
 | `addSlide()` 空白页 | `document.addSlide()` | 已支持 |
 | `defineLayout()` 自定义尺寸 | `create({ slideSize: { width, height } })` | 已支持 |
-| 创建后读取或修改页面尺寸 | 尚无公开 API | 未支持，后续独立小项 |
+| 创建后读取或修改页面尺寸 | `document.slideSize` | 已支持 |
 | `slide.addText(string)` 单段文本 | `slide.addText(string, options)` | 已支持 |
 | 文本框 x/y/w/h、旋转、翻转、名称 | `AddTextOptions` + `inches()` / `degrees()` | 已支持 |
 | rich text runs、段落、换行、字体及文本布局 options | 尚无完整公开 API | 部分支持，后续逐项补齐 |

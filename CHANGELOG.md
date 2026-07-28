@@ -12,6 +12,7 @@
 - Added native zero-input presentation creation for all six formats, four PptxGenJS-compatible slide sizes, and blank slides linked to a canonical master/layout/theme chain.
 - Added transactional single-paragraph text-box creation with stable shape identity, XML-safe content, unique IDs, and editable transforms.
 - Added custom OOXML-valid slide dimensions at presentation creation, matching PptxGenJS custom-layout output semantics.
+- Added lossless slide-canvas size reading and editing without silently scaling shapes or changing the notes page.
 
 ## 0.1.0 - 2026-07-25
 

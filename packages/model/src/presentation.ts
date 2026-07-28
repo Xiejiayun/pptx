@@ -19,10 +19,14 @@ import {
   garbageCollectOwnedDependencies,
   ownedSlideDependencyRoots,
 } from './dependency.internal.js';
+import type { Emu, SlideSize } from './units.js';
 
 const SLIDE_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slide+xml';
 const SLIDE_RELATIONSHIP = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide';
 const SLIDE_LAYOUT_RELATIONSHIP = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout';
+const PRESENTATION_NAMESPACE = 'http://schemas.openxmlformats.org/presentationml/2006/main';
+const MIN_SLIDE_SIZE = 914_400;
+const MAX_SLIDE_SIZE = 51_206_400;
 
 export class PresentationModel {
   readonly presentationPartUri: string;
@@ -64,6 +68,39 @@ export class PresentationModel {
       }
     }
     return slides;
+  }
+
+  get slideSize(): SlideSize {
+    const { xml } = this.parsePresentation();
+    const root = presentationRoot(xml, this.presentationPartUri);
+    const size = directChild(root, 'sldSz');
+    if (!size) throw new PackageError('Presentation slide size is missing', this.presentationPartUri);
+    return {
+      width: readSlideSizeCoordinate(xml, size, 'cx', 'width', this.presentationPartUri),
+      height: readSlideSizeCoordinate(xml, size, 'cy', 'height', this.presentationPartUri),
+    };
+  }
+
+  set slideSize(value: SlideSize) {
+    this.opcPackage.transaction(() => {
+      const normalized = normalizeSlideSize(value);
+      const { xml } = this.parsePresentation();
+      const root = presentationRoot(xml, this.presentationPartUri);
+      const notesSize = directChild(root, 'notesSz');
+      if (!notesSize) throw new PackageError('Presentation notes size is missing', this.presentationPartUri);
+      const size = directChild(root, 'sldSz');
+      if (size) {
+        setNumericAttribute(xml, size, 'cx', normalized.width);
+        setNumericAttribute(xml, size, 'cy', normalized.height);
+      } else {
+        xml.replace(
+          notesSize.start,
+          notesSize.start,
+          `<p:sldSz xmlns:p="${PRESENTATION_NAMESPACE}" cx="${normalized.width}" cy="${normalized.height}"/>`,
+        );
+      }
+      this.setXmlPart(this.presentationPartUri, xml.serialize());
+    });
   }
 
   addSlide(): SlideModel {
@@ -210,4 +247,67 @@ export class PresentationModel {
 
 function blankSlideXml(): string {
   return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr></p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>';
+}
+
+function presentationRoot(xml: LosslessXmlDocument, partUri: string): XmlElement {
+  const root = xml.elements('presentation').find(({ parent }) => !parent);
+  if (!root) throw new PackageError('Presentation root is missing', partUri);
+  return root;
+}
+
+function directChild(parent: XmlElement, localName: string): XmlElement | undefined {
+  return parent.children.find(
+    (child): child is XmlElement => child.type === 'element' && child.localName === localName,
+  );
+}
+
+function readSlideSizeCoordinate(
+  xml: LosslessXmlDocument,
+  size: XmlElement,
+  attributeName: 'cx' | 'cy',
+  dimensionName: 'width' | 'height',
+  partUri: string,
+): Emu {
+  const raw = xml.attribute(size, attributeName)?.value ?? '';
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < MIN_SLIDE_SIZE || value > MAX_SLIDE_SIZE) {
+    throw new PackageError(`Presentation slide ${dimensionName} is invalid`, partUri);
+  }
+  return value as Emu;
+}
+
+function normalizeSlideSize(value: SlideSize): SlideSize {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new TypeError('Slide size must contain a width and height');
+  }
+  return {
+    width: normalizeSlideSizeCoordinate(value.width, 'width'),
+    height: normalizeSlideSizeCoordinate(value.height, 'height'),
+  };
+}
+
+function normalizeSlideSizeCoordinate(value: unknown, name: 'width' | 'height'): Emu {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new TypeError(`Slide ${name} must be a finite number`);
+  }
+  const rounded = Math.round(value);
+  if (rounded < MIN_SLIDE_SIZE || rounded > MAX_SLIDE_SIZE) {
+    throw new RangeError(`Slide ${name} must be between 1 and 56 inches`);
+  }
+  return rounded as Emu;
+}
+
+function setNumericAttribute(
+  xml: LosslessXmlDocument,
+  element: XmlElement,
+  name: 'cx' | 'cy',
+  value: number,
+): void {
+  const attribute = xml.attribute(element, name);
+  if (attribute) {
+    xml.replaceAttribute(attribute, String(value));
+    return;
+  }
+  const insertionPoint = element.startTagEnd - (element.selfClosing ? 2 : 1);
+  xml.replace(insertionPoint, insertionPoint, ` ${name}="${value}"`);
 }

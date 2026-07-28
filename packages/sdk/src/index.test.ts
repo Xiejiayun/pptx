@@ -85,6 +85,7 @@ describe('PptxDocument vertical slice', () => {
     const slideSize = { width: inches(11.7), height: inches(8.3) };
     const document = PptxDocument.create({ slideSize });
     slideSize.width = inches(10);
+    expect(document.slideSize).toEqual({ width: inches(11.7), height: inches(8.3) });
     const presentationXml = new TextDecoder().decode(
       document.opcPackage.requirePart('/ppt/presentation.xml').bytes,
     );
@@ -93,9 +94,11 @@ describe('PptxDocument vertical slice', () => {
 
     document.addSlide();
     const reopened = await PptxDocument.open(await document.write());
+    reopened.slideSize = { width: inches(10), height: inches(7.5) };
+    expect(reopened.slideSize).toEqual({ width: inches(10), height: inches(7.5) });
     expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
     expect(new TextDecoder().decode(reopened.opcPackage.requirePart('/ppt/presentation.xml').bytes)).toContain(
-      '<p:sldSz cx="10698480" cy="7589520"/>',
+      '<p:sldSz cx="9144000" cy="6858000"/>',
     );
   });
 

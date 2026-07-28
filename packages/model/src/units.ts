@@ -35,3 +35,7 @@ export interface Transform {
   readonly flipVertical: boolean;
 }
 
+export interface SlideSize {
+  readonly width: Emu;
+  readonly height: Emu;
+}

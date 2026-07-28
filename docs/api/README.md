@@ -15,6 +15,7 @@ await created.writeFile('created.pptx');
 const customSize = PptxDocument.create({
   slideSize: { width: inches(11.7), height: inches(8.3) },
 });
+customSize.slideSize = { width: inches(10), height: inches(7.5) };
 
 const document = await PptxDocument.open('input.pptx', {
   limits: { maxPartBytes: 128 * 1024 * 1024 },
@@ -27,7 +28,7 @@ await document.writeFile('output.pptx', {
 });
 ```
 
-`create()` is synchronous and starts with zero slides plus a default master, blank layout, theme, notes master, and document properties. Built-in slide sizes are `4:3`, `16:9` (the default), `16:10`, and `wide`; a `{ width, height }` value accepts any OOXML-valid 1–56 inch dimensions in EMU. All six presentation formats can be created without using PptxGenJS; macro-enabled formats start without a VBA project.
+`create()` is synchronous and starts with zero slides plus a default master, blank layout, theme, notes master, and document properties. Built-in slide sizes are `4:3`, `16:9` (the default), `16:10`, and `wide`; a `{ width, height }` value accepts any OOXML-valid 1–56 inch dimensions in EMU. `document.slideSize` reads or changes the slide canvas without scaling existing shapes or changing the notes page. All six presentation formats can be created without using PptxGenJS; macro-enabled formats start without a VBA project.
 
 Inputs: `Uint8Array`, `ArrayBuffer`, `Blob`/`File`, Web `ReadableStream`, or async byte iterable. Node.js additionally accepts a file path or Node readable stream. `write()` returns `Uint8Array`; browsers can use `writeBlob()` or `download()`.
 
