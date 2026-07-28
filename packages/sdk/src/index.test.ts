@@ -9,6 +9,7 @@ import {
   PRESENTATION_FORMAT_PROFILES,
   type NumberingStyle,
   type PresentationFormat,
+  type RichTextStrikeStyle,
   type RichTextUnderlineStyle,
 } from '@pptx/model';
 import { OpcPackage } from '@pptx/opc';
@@ -797,6 +798,66 @@ describe('PptxDocument vertical slice', () => {
     expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
   });
 
+  it('creates, edits, duplicates, and reopens rich text strike styles', async () => {
+    const strikeStyles: readonly RichTextStrikeStyle[] = ['sngStrike', 'dblStrike'];
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const shape = slide.addRichText([{
+      runs: [
+        { text: 'True', style: { strike: true } },
+        { text: 'False', style: { strike: false } },
+        ...strikeStyles.map((strike) => ({ text: strike, style: { strike } })),
+        {
+          text: 'Combined',
+          style: { bold: true, strike: 'dblStrike', underline: { style: 'wavy' } },
+        },
+      ],
+    }]);
+
+    expect(shape.richText[0]!.runs.map(({ style }) => style?.strike)).toEqual([
+      'sngStrike',
+      false,
+      'sngStrike',
+      'dblStrike',
+      'dblStrike',
+    ]);
+    const createdXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(createdXml).toContain('strike="noStrike"');
+    expect(createdXml).toContain('b="1" strike="dblStrike" u="wavy"');
+
+    document.duplicateSlide(0);
+    shape.richText = [{
+      runs: [
+        { text: 'Disabled', style: { strike: false } },
+        { text: 'Cleared' },
+      ],
+    }];
+    expect(shape.richText[0]!.runs.map(({ style }) => style?.strike)).toEqual([false, undefined]);
+
+    const beforeRollback = document.opcPackage.requirePart(slide.partUri).bytes;
+    expect(() =>
+      document.transaction(() => {
+        shape.richText = [{ runs: [{ text: 'Rollback', style: { strike: 'dblStrike' } }] }];
+        throw new Error('restore strike');
+      }),
+    ).toThrow('restore strike');
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(beforeRollback);
+    expect(slide.shapes[0]).toBe(shape);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const edited = reopened.slides[0]!.shapes[0] as ShapeModel;
+    const duplicated = reopened.slides[1]!.shapes[0] as ShapeModel;
+    expect(edited.richText[0]!.runs.map(({ style }) => style?.strike)).toEqual([false, undefined]);
+    expect(duplicated.richText[0]!.runs.map(({ style }) => style?.strike)).toEqual([
+      'sngStrike',
+      false,
+      'sngStrike',
+      'dblStrike',
+      'dblStrike',
+    ]);
+    expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+  });
+
   it('creates, edits, duplicates, and reopens rich text underline styles', async () => {
     const underlineStyles: readonly RichTextUnderlineStyle[] = [
       'words',
@@ -972,6 +1033,12 @@ describe('PptxDocument vertical slice', () => {
       [{ runs: [{ text: 'x', style: { underline: { color: null } } }] }],
       [{ runs: [{ text: 'x', style: { underline: { color: { kind: 'srgb', value: 'red' } } } }] }],
       [{ runs: [{ text: 'x', style: { underline: { style: 'sng', width: 2 } } }] }],
+      [{ runs: [{ text: 'x', style: { strike: null } }] }],
+      [{ runs: [{ text: 'x', style: { strike: 1 } }] }],
+      [{ runs: [{ text: 'x', style: { strike: {} } }] }],
+      [{ runs: [{ text: 'x', style: { strike: [] } }] }],
+      [{ runs: [{ text: 'x', style: { strike: 'noStrike' } }] }],
+      [{ runs: [{ text: 'x', style: { strike: 'tripleStrike' } }] }],
       [{ runs: [{ text: 'x', style: { color: { kind: 'srgb', value: 'FF0000', alpha: 0.5 } } }] }],
     ];
     for (const value of invalid) {

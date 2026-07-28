@@ -18,6 +18,7 @@ import type {
   RichTextParagraph,
   RichTextRun,
   RichTextRunStyle,
+  RichTextStrikeStyle,
   RichTextUnderline,
   RichTextUnderlineStyle,
   TextAlignment,
@@ -163,6 +164,8 @@ const UNDERLINE_STYLES = new Set<RichTextUnderlineStyle>([
   'wavyHeavy',
   'wavyDbl',
 ]);
+
+const STRIKE_STYLES = new Set<RichTextStrikeStyle>(['sngStrike', 'dblStrike']);
 
 export function normalizeRichText(value: unknown): readonly NormalizedRichTextParagraph[] {
   if (!Array.isArray(value) || value.length === 0) {
@@ -740,7 +743,7 @@ function normalizeStyle(value: unknown, paragraphIndex: number, runIndex: number
   }
   assertSupportedKeys(
     value,
-    ['bold', 'color', 'fontFamily', 'fontSize', 'italic', 'underline'],
+    ['bold', 'color', 'fontFamily', 'fontSize', 'italic', 'strike', 'underline'],
     `Rich text run ${paragraphIndex},${runIndex} style`,
   );
   const candidate = value as RichTextRunStyle;
@@ -775,6 +778,9 @@ function normalizeStyle(value: unknown, paragraphIndex: number, runIndex: number
   const underline = candidate.underline === undefined
     ? undefined
     : normalizeUnderline(candidate.underline, `${context} underline`);
+  const strike = candidate.strike === undefined
+    ? undefined
+    : normalizeStrike(candidate.strike, `${context} strike`);
   return {
     ...(candidate.fontFamily !== undefined ? { fontFamily: candidate.fontFamily } : {}),
     ...(candidate.fontSize !== undefined ? { fontSize: Math.round(candidate.fontSize * 100) / 100 } : {}),
@@ -782,7 +788,16 @@ function normalizeStyle(value: unknown, paragraphIndex: number, runIndex: number
     ...(candidate.italic !== undefined ? { italic: candidate.italic } : {}),
     ...(color ? { color } : {}),
     ...(underline !== undefined ? { underline } : {}),
+    ...(strike !== undefined ? { strike } : {}),
   };
+}
+
+function normalizeStrike(value: unknown, context: string): RichTextStrikeStyle | false {
+  if (typeof value === 'boolean') return value ? 'sngStrike' : false;
+  if (typeof value === 'string' && STRIKE_STYLES.has(value as RichTextStrikeStyle)) {
+    return value as RichTextStrikeStyle;
+  }
+  throw new TypeError(`${context} must be a boolean, sngStrike, or dblStrike`);
 }
 
 function normalizeUnderline(value: unknown, context: string): RichTextUnderline | false {
@@ -840,6 +855,9 @@ function renderRun(run: RichTextRun, prefix: string): string {
     style.fontSize === undefined ? '' : `sz="${Math.round(style.fontSize * 100)}"`,
     style.bold === undefined ? '' : `b="${style.bold ? 1 : 0}"`,
     style.italic === undefined ? '' : `i="${style.italic ? 1 : 0}"`,
+    style.strike === undefined
+      ? ''
+      : `strike="${style.strike === false ? 'noStrike' : style.strike === true ? 'sngStrike' : style.strike}"`,
     style.underline === undefined
       ? ''
       : `u="${style.underline === false ? 'none' : style.underline === true ? 'sng' : style.underline.style}"`,
@@ -1061,6 +1079,7 @@ function readStyle(xml: LosslessXmlDocument, run: XmlElement): RichTextRunStyle 
     : undefined;
   const bold = booleanAttribute(xml, properties, 'b');
   const italic = booleanAttribute(xml, properties, 'i');
+  const strike = readStrike(xml, properties);
   const underline = readUnderline(xml, properties);
   const style: RichTextRunStyle = {
     ...(fontFamily !== undefined ? { fontFamily } : {}),
@@ -1069,8 +1088,21 @@ function readStyle(xml: LosslessXmlDocument, run: XmlElement): RichTextRunStyle 
     ...(italic !== undefined ? { italic } : {}),
     ...(color ? { color } : {}),
     ...(underline !== undefined ? { underline } : {}),
+    ...(strike !== undefined ? { strike } : {}),
   };
   return Object.keys(style).length > 0 ? style : undefined;
+}
+
+function readStrike(
+  xml: LosslessXmlDocument,
+  properties: XmlElement,
+): RichTextStrikeStyle | false | undefined {
+  const value = xml.attribute(properties, 'strike')?.value;
+  if (value === undefined) return undefined;
+  if (value === 'noStrike') return false;
+  return STRIKE_STYLES.has(value as RichTextStrikeStyle)
+    ? value as RichTextStrikeStyle
+    : undefined;
 }
 
 function readUnderline(

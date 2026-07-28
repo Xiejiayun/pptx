@@ -26,6 +26,8 @@ export interface RichTextUnderline {
   readonly color?: RichTextColor;
 }
 
+export type RichTextStrikeStyle = 'sngStrike' | 'dblStrike';
+
 export type TextAlignment = 'left' | 'center' | 'right' | 'justify';
 
 export type NumberingStyle =
@@ -91,6 +93,7 @@ export interface RichTextRunStyle {
   readonly italic?: boolean;
   readonly color?: RichTextColor;
   readonly underline?: boolean | RichTextUnderline;
+  readonly strike?: boolean | RichTextStrikeStyle;
 }
 
 export interface RichTextRun {

@@ -278,6 +278,51 @@ describe('PresentationModel', () => {
       .toHaveLength(2);
   });
 
+  it('reads strict local strike values and preserves their XML during plain text edits', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.slides[1]!;
+    const part = pkg.requirePart(slide.partUri);
+    const strikeText = [
+      '<a:p>',
+      '<a:r><a:rPr strike="sngStrike"/><a:t>Single</a:t></a:r>',
+      '<a:r><a:rPr strike="dblStrike" u="sng"/><a:t>Double</a:t></a:r>',
+      '<a:r><a:rPr strike="noStrike"/><a:t>None</a:t></a:r>',
+      '<a:r><a:rPr strike="tripleStrike" b="1"/><a:t>Unknown</a:t></a:r>',
+      '<a:r><a:rPr/><a:t>Absent</a:t></a:r>',
+      '</a:p>',
+    ].join('');
+    pkg.setPart(
+      part.uri,
+      new TextDecoder().decode(part.bytes).replace(
+        '<a:p><a:r><a:t>First title</a:t></a:r></a:p>',
+        strikeText,
+      ),
+      part.contentType,
+    );
+    const shape = slide.shapes[0] as ShapeModel;
+    const journal = [...pkg.mutations];
+
+    expect(shape.richText[0]!.runs.map(({ style }) => style?.strike)).toEqual([
+      'sngStrike',
+      'dblStrike',
+      false,
+      undefined,
+      undefined,
+    ]);
+    expect(shape.richText[0]!.runs[1]!.style!.underline).toEqual({ style: 'sng' });
+    expect(shape.richText[0]!.runs[3]!.style!.bold).toBe(true);
+    expect(pkg.mutations).toEqual(journal);
+
+    shape.text = 'First replacement\nSecond replacement';
+    expect(shape.richText.map((paragraph) => paragraph.runs[0]!.style!.strike)).toEqual([
+      'sngStrike',
+      'sngStrike',
+    ]);
+    const updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated.match(/<a:rPr strike="sngStrike"\/>/g)).toHaveLength(2);
+  });
+
   it('updates alignment without rebuilding other paragraph properties', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);
