@@ -46,7 +46,7 @@ adapter 不读取 `_slides` 等私有字段。后续 peer-range conformance test
 | 文本框 `wrap: boolean` 与 direct wrapping 编辑 | `AddTextOptions.wrap` / `ShapeModel.textWrap` | 已支持 |
 | 文本框 `vert` 七种文本方向与 direct 编辑 | `AddTextOptions.vert` / `ShapeModel.textDirection` | 已支持 |
 | 文本框 `fit: none/shrink/resize` 与 direct 编辑 | `AddTextOptions.fit` / `ShapeModel.textFit` | 已支持 |
-| paragraph 左右 margin、first-line/hanging indent（非 bullet） | 尚无完整公开 API | 尚未支持，后续逐项补齐 |
+| paragraph 左右 margin、first-line/hanging indent（非 bullet） | `paragraphMarginLeft` / `RichTextParagraph.marginLeft` | 部分支持：direct 左边距已支持，其余逐项补齐 |
 | table-cell fit/`textDirection` 与 run transparency | 尚无完整公开 API | 部分支持，后续逐项补齐 |
 
 LibreOffice headless 可无修复打开 underline 文件，但当前会把 double/dash/wavy 和独立 underline color 降级显示为普通单实线；同一 PptxGenJS 4.0.1 对照文件表现一致。OOXML token 与颜色仍保持合法并可由支持这些样式的客户端读取。
@@ -64,6 +64,8 @@ PptxGenJS 4.0.1 的 `margin` tuple 注释声明 `[top, right, bottom, left]`，�
 文本框 `fit` 的 omitted/none 都不写 direct child，shrink 写 `bodyPr/a:normAutofit`，resize 写 `bodyPr/a:spAutoFit`。`shape.textFit` 也读取既有唯一 `a:noAutofit` 为 none；none 或 `undefined` 清除 direct fit choice，同模式 shrink/resize 赋值保留 PowerPoint 已计算的 `fontScale` / `lnSpcReduction`。PptxGenJS 对非法 outer 值和 run-level fit 静默忽略，本库严格拒绝非法原生输入；adapter 仍兼容 deprecated outer `shrinkText` / `autoFit` 输出。最终缩放比例可能要由 PowerPoint 在编辑文字或改变 shape 大小时动态重算。
 
 文本语言通过 `AddTextOptions.lang` 提供 plain/rich 创建默认值，`RichTextRunStyle.lang` 可覆盖单个 run。省略时 run 与 `endParaRPr` 使用 `en-US`；显式 outer/run 语言在 run 上同时写 `altLang="en-US"`，`endParaRPr` 只跟随 outer 值。getter 只暴露非空 direct `rPr@lang`，不解析 `altLang` 或 master/layout 继承。原生 API 拒绝非 string、空 string 和非法 XML 控制字符，并安全转义 attribute metacharacters。PptxGenJS 4.0.1 的 falsy fallback 仍由 adapter 输入兼容；未转义字符串产生的无效 XML 不属于兼容承诺。
+
+非列表 paragraph 左边距通过 `AddTextOptions.paragraphMarginLeft` 提供 plain/rich 创建默认，`RichTextParagraph.marginLeft` 使用 point 提供本地 number override，`false` 抑制默认或清除 direct `pPr@marL`。getter 仅读取 `0..51206400` 的 direct integer EMU，不解析继承；如果 paragraph 含 direct bullet/numbering/picture bullet，则 `marL` 继续由 `bullet.indent` 表达而不重复暴露。同 paragraph 的 numeric margin 与 active bullet 在 mutation 前拒绝。PptxGenJS 4.0.1 没有非列表公开选项；其普通 paragraph 输出的 direct `marL="0"` 可正常导入，bullet `marL`/`indent` 不受影响。右边距和 first-line/hanging indent 仍是后续小项。
 
 Presentation RTL 通过 `CreatePresentationOptions.rtlMode` 创建，并可由 `document.rtlMode` 读取、编辑和清除。getter 只读取 direct `p:presentation@rtl`，接受 `1/true/on` 与 `0/false/off`；未知或 descendant token 不会伪造全局状态。true/false 分别写 `1` / `0`，undefined 清除 direct attribute。PptxGenJS 4.0.1 的 true 与 truthy 非 boolean 都写 `1`，false/omitted 都省略；本库严格拒绝非 boolean，显式 false 写 `0`，effective behavior 相同且 direct intent 可逆。全局 RTL 不改写 paragraph `pPr@rtl`、`bodyPr@rtlCol`、default text style、alignment 或 run 顺序。
 

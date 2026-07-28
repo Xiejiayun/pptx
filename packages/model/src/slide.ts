@@ -11,6 +11,7 @@ import type { PresentationModel } from './presentation.js';
 import {
   normalizeParagraphBullet,
   normalizeParagraphLevel,
+  normalizeParagraphMarginLeft,
   normalizeParagraphRtl,
   normalizeParagraphSpacing,
   normalizeParagraphTabStops,
@@ -80,6 +81,7 @@ export interface AddTextOptions extends Partial<Transform> {
   readonly lang?: string;
   readonly level?: number;
   readonly margin?: TextBoxMarginInput;
+  readonly paragraphMarginLeft?: number;
   readonly rtlMode?: boolean;
   readonly spacing?: ParagraphSpacing;
   readonly tabStops?: readonly ParagraphTabStop[];
@@ -332,6 +334,7 @@ export class SlideModel {
           normalized.level,
           normalized.tabStops,
           normalized.language,
+          normalized.marginLeft,
         ))
         .join('');
       return this.addTextShape(
@@ -357,6 +360,7 @@ export class SlideModel {
           ...(defaults.rtl !== undefined ? { defaultRtl: defaults.rtl } : {}),
           ...(defaults.bullet !== undefined ? { defaultBullet: defaults.bullet } : {}),
           ...(defaults.level !== undefined ? { defaultLevel: defaults.level } : {}),
+          ...(defaults.marginLeft !== undefined ? { defaultMarginLeft: defaults.marginLeft } : {}),
           ...(defaults.spacing !== undefined ? { defaultSpacing: defaults.spacing } : {}),
           ...(defaults.tabStops !== undefined ? { defaultTabStops: defaults.tabStops } : {}),
         }),
@@ -463,6 +467,7 @@ interface NormalizedTextInput {
   readonly language: string | undefined;
   readonly level: number | undefined;
   readonly margin: TextBoxMargins | undefined;
+  readonly marginLeft: number | undefined;
   readonly rtl: boolean | undefined;
   readonly spacing: NormalizedParagraphSpacingUpdate | undefined;
   readonly tabStops: readonly NormalizedParagraphTabStop[] | undefined;
@@ -475,12 +480,16 @@ interface NormalizedTextInput {
 function validateTextInput(value: string, options: AddTextOptions): NormalizedTextInput {
   const normalized = validatePlainText(value);
   const defaults = validateAddTextOptions(options);
+  if (defaults.bullet && defaults.marginLeft !== undefined) {
+    throw new TypeError('Paragraph left margin cannot be combined with an active bullet');
+  }
   return {
     value: normalized,
     bullet: defaults.bullet,
     language: defaults.language,
     level: defaults.level,
     margin: defaults.margin,
+    marginLeft: defaults.marginLeft,
     rtl: defaults.rtl,
     spacing: defaults.spacing,
     tabStops: defaults.tabStops,
@@ -496,6 +505,7 @@ interface NormalizedAddTextOptions {
   readonly language?: string;
   readonly level?: number;
   readonly margin?: TextBoxMargins;
+  readonly marginLeft?: number;
   readonly rtl?: boolean;
   readonly spacing?: NormalizedParagraphSpacingUpdate;
   readonly tabStops?: readonly NormalizedParagraphTabStop[];
@@ -550,6 +560,9 @@ function validateAddTextOptions(options: AddTextOptions): NormalizedAddTextOptio
   const margin = options.margin === undefined
     ? undefined
     : normalizeTextBoxMargins(options.margin, 'Text margin');
+  const marginLeft = options.paragraphMarginLeft === undefined
+    ? undefined
+    : normalizeParagraphMarginLeft(options.paragraphMarginLeft, 'Paragraph left margin');
   const rtl = options.rtlMode === undefined
     ? undefined
     : normalizeParagraphRtl(options.rtlMode, 'Text RTL mode');
@@ -576,6 +589,7 @@ function validateAddTextOptions(options: AddTextOptions): NormalizedAddTextOptio
     ...(language !== undefined ? { language } : {}),
     ...(level !== undefined ? { level } : {}),
     ...(margin !== undefined ? { margin } : {}),
+    ...(marginLeft !== undefined ? { marginLeft } : {}),
     ...(rtl !== undefined ? { rtl } : {}),
     ...(spacing !== undefined ? { spacing } : {}),
     ...(tabStops !== undefined ? { tabStops } : {}),
@@ -647,6 +661,7 @@ function textParagraphXml(
   level?: number,
   tabStops?: readonly NormalizedParagraphTabStop[],
   language?: string,
+  marginLeft?: number,
 ): string {
   const properties = renderParagraphProperties(
     undefined,
@@ -657,6 +672,7 @@ function textParagraphXml(
     spacing,
     level,
     tabStops,
+    marginLeft,
   );
   const languageValue = escapeXmlAttribute(language ?? 'en-US');
   const endProperties = `<${prefix}endParaRPr lang="${languageValue}" dirty="0"/>`;

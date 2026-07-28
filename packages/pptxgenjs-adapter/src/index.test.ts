@@ -1054,6 +1054,62 @@ describe('importPptxGenJS', () => {
     }
   }, 20_000);
 
+  it('imports PptxGenJS non-list zero margins without aliasing bullet indentation', async () => {
+    const generated = new PptxGenJS();
+    const slide = generated.addSlide();
+    slide.addText('Plain', { name: 'Margin plain', x: 1, y: 1, w: 3, h: 0.5 });
+    slide.addText([{ text: 'Rich' }], { name: 'Margin rich', x: 1, y: 2, w: 3, h: 0.5 });
+    slide.addText('Bullet', {
+      name: 'Margin bullet',
+      x: 1,
+      y: 3,
+      w: 3,
+      h: 0.5,
+      bullet: true,
+    });
+    slide.addText('Number', {
+      name: 'Margin number',
+      x: 1,
+      y: 4,
+      w: 3,
+      h: 0.5,
+      bullet: { type: 'number', numberType: 'romanUcPeriod', numberStartAt: 1, indent: 22 },
+    });
+    const document = await importPptxGenJS(generated);
+    const shapes = document.slides[0]!.shapes
+      .filter((shape): shape is ShapeModel => shape instanceof ShapeModel);
+
+    expect(shapes.map(({ richText }) => richText[0]?.marginLeft)).toEqual([
+      0,
+      0,
+      undefined,
+      undefined,
+    ]);
+    expect(shapes[2]!.richText[0]!.bullet).toEqual({ kind: 'bullet', character: '•', indent: 27 });
+    expect(shapes[3]!.richText[0]!.bullet).toEqual({
+      kind: 'number',
+      style: 'arabicPeriod',
+      startAt: 1,
+      indent: 22,
+    });
+    const slideXml = new TextDecoder().decode(
+      document.opcPackage.requirePart(document.slides[0]!.partUri).bytes,
+    );
+    expect(slideXml.match(/indent="0" marL="0"/g)).toHaveLength(2);
+    expect(slideXml).toMatch(/marL="342900" indent="-342900"/);
+    expect(slideXml).toMatch(/marL="279400" indent="-279400"/);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedShapes = reopened.slides[0]!.shapes
+      .filter((shape): shape is ShapeModel => shape instanceof ShapeModel);
+    expect(reopenedShapes.map(({ richText }) => richText[0]?.marginLeft)).toEqual([
+      0,
+      0,
+      undefined,
+      undefined,
+    ]);
+  }, 20_000);
+
   it('keeps pptxgenjs out of every non-adapter package dependency list', async () => {
     const packagesDirectory = fileURLToPath(new URL('../..', import.meta.url));
     const packageNames = ['lossless-xml', 'model', 'opc', 'sdk', 'validator'];

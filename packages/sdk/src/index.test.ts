@@ -432,6 +432,146 @@ describe('PptxDocument vertical slice', () => {
     expect(slide.shapes[0]).toBe(shape);
   });
 
+  it('creates, edits, duplicates, and reopens non-list paragraph left margins', async () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const omitted = slide.addText('Default margin');
+    const plain = slide.addText('Twelve and a half\r\n\rSecond', {
+      align: 'center',
+      paragraphMarginLeft: 12.5,
+      rtlMode: false,
+      spacing: { after: 4 },
+      tabStops: [{ position: 1.5 }],
+    });
+    const rich = slide.addRichText([
+      { runs: [{ text: 'Default twenty-four' }] },
+      { marginLeft: 12, runs: [{ text: 'Override twelve' }] },
+      { bullet: true, marginLeft: false, runs: [{ text: 'Independent bullet' }] },
+      { marginLeft: false, runs: [] },
+    ], { paragraphMarginLeft: 24 });
+
+    expect(omitted.richText.map(({ marginLeft }) => marginLeft)).toEqual([0]);
+    expect(plain.richText.map(({ marginLeft }) => marginLeft)).toEqual([12.5, 12.5, 12.5]);
+    expect(rich.richText.map(({ marginLeft }) => marginLeft)).toEqual([24, 12, undefined, undefined]);
+    expect(rich.richText[2]!.bullet).toEqual({ kind: 'bullet', character: '•', indent: 27 });
+    let slideXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(slideXml.match(/marL="158750"/g)).toHaveLength(3);
+    expect(slideXml).toContain('marL="304800"');
+    expect(slideXml).toContain('marL="152400"');
+    expect(slideXml).toContain('indent="-342900" marL="342900"');
+
+    document.duplicateSlide(0);
+    plain.text = 'Updated\nCloned margin';
+    expect(plain.richText.map(({ marginLeft }) => marginLeft)).toEqual([12.5, 12.5]);
+    rich.richText = [
+      { marginLeft: 6, runs: [{ text: 'Six' }] },
+      { marginLeft: 0, runs: [{ text: 'Zero' }] },
+      { marginLeft: false, runs: [{ text: 'Cleared false' }] },
+      { runs: [{ text: 'Cleared omitted' }] },
+    ];
+    expect(rich.richText.map(({ marginLeft }) => marginLeft)).toEqual([6, 0, undefined, undefined]);
+    slideXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(slideXml).toContain('marL="76200"');
+    expect(slideXml).toContain('marL="0"');
+    const clearedStart = slideXml.indexOf('>Cleared false<');
+    const clearedEnd = slideXml.indexOf('</a:p>', clearedStart);
+    expect(slideXml.slice(slideXml.lastIndexOf('<a:p>', clearedStart), clearedEnd)).not.toContain('marL=');
+
+    const beforeRollback = document.opcPackage.requirePart(slide.partUri).bytes;
+    const journal = [...document.opcPackage.mutations];
+    expect(() =>
+      document.transaction(() => {
+        rich.richText = [{ marginLeft: 48, runs: [{ text: 'Rollback' }] }];
+        throw new Error('restore paragraph left margin');
+      }),
+    ).toThrow('restore paragraph left margin');
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(beforeRollback);
+    expect(document.opcPackage.mutations).toEqual(journal);
+    expect(slide.shapes[2]).toBe(rich);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const editedPlain = reopened.slides[0]!.shapes[1] as ShapeModel;
+    const editedRich = reopened.slides[0]!.shapes[2] as ShapeModel;
+    const duplicatedRich = reopened.slides[1]!.shapes[2] as ShapeModel;
+    expect(editedPlain.richText.map(({ marginLeft }) => marginLeft)).toEqual([12.5, 12.5]);
+    expect(editedRich.richText.map(({ marginLeft }) => marginLeft)).toEqual([6, 0, undefined, undefined]);
+    expect(duplicatedRich.richText.map(({ marginLeft }) => marginLeft)).toEqual([
+      24,
+      12,
+      undefined,
+      undefined,
+    ]);
+    expect(duplicatedRich.richText[2]!.bullet).toEqual({ kind: 'bullet', character: '•', indent: 27 });
+    expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+  });
+
+  it('rejects malformed or conflicting paragraph left margins before package mutation', () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const shape = slide.addText('Original');
+    slide.addRichText([{ marginLeft: false, runs: [{ text: 'Suppressed margin' }] }], {
+      bullet: true,
+      paragraphMarginLeft: 12,
+    });
+    slide.addRichText([{ bullet: false, runs: [{ text: 'Suppressed bullet' }] }], {
+      bullet: true,
+      paragraphMarginLeft: 12,
+    });
+    const before = document.opcPackage.requirePart(slide.partUri).bytes;
+    const journal = [...document.opcPackage.mutations];
+    const invalidOuterTypes = [null, true, false, '12', {}, [], Symbol('margin'), Number.NaN, Infinity];
+    const invalidParagraphTypes = [null, true, '12', {}, [], Symbol('margin'), Number.NaN, Infinity];
+    const invalidRanges = [-0.01, 4032.01];
+
+    for (const paragraphMarginLeft of invalidOuterTypes) {
+      expect(() => slide.addText('Invalid', {
+        paragraphMarginLeft: paragraphMarginLeft as never,
+      })).toThrow(TypeError);
+      expect(() => slide.addRichText([{ runs: [{ text: 'Invalid' }] }], {
+        paragraphMarginLeft: paragraphMarginLeft as never,
+      })).toThrow(TypeError);
+    }
+    for (const marginLeft of invalidParagraphTypes) {
+      expect(() => slide.addRichText([{
+        marginLeft: marginLeft as never,
+        runs: [{ text: 'Invalid' }],
+      }])).toThrow(TypeError);
+      expect(() => {
+        shape.richText = [{ marginLeft: marginLeft as never, runs: [{ text: 'Invalid' }] }];
+      }).toThrow(TypeError);
+    }
+    for (const marginLeft of invalidRanges) {
+      expect(() => slide.addText('Invalid', { paragraphMarginLeft: marginLeft })).toThrow(RangeError);
+      expect(() => slide.addRichText([{ runs: [{ text: 'Invalid' }] }], {
+        paragraphMarginLeft: marginLeft,
+      })).toThrow(RangeError);
+      expect(() => slide.addRichText([{
+        marginLeft,
+        runs: [{ text: 'Invalid' }],
+      }])).toThrow(RangeError);
+      expect(() => {
+        shape.richText = [{ marginLeft, runs: [{ text: 'Invalid' }] }];
+      }).toThrow(RangeError);
+    }
+    expect(() => slide.addText('Conflict', {
+      bullet: true,
+      paragraphMarginLeft: 12,
+    })).toThrow(TypeError);
+    expect(() => slide.addRichText([{ runs: [{ text: 'Conflict' }] }], {
+      bullet: true,
+      paragraphMarginLeft: 12,
+    })).toThrow(TypeError);
+    expect(() => slide.addRichText([{
+      bullet: true,
+      marginLeft: 12,
+      runs: [{ text: 'Conflict' }],
+    }])).toThrow(TypeError);
+
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(before);
+    expect(document.opcPackage.mutations).toEqual(journal);
+    expect(slide.shapes[0]).toBe(shape);
+  });
+
   it('creates, replaces, rolls back, and round-trips bullets and numbering', async () => {
     const styles: readonly NumberingStyle[] = [
       'alphaLcParenBoth',
@@ -894,6 +1034,7 @@ describe('PptxDocument vertical slice', () => {
     expect(shape.text).toBe('Bold & \nsoft\n\nLast');
     expect(shape.richText).toEqual([
       {
+        marginLeft: 0,
         runs: [
           {
             text: 'Bold & ',
@@ -918,8 +1059,9 @@ describe('PptxDocument vertical slice', () => {
           },
         ],
       },
-      { runs: [] },
+      { marginLeft: 0, runs: [] },
       {
+        marginLeft: 0,
         runs: [
           {
             text: 'Last',

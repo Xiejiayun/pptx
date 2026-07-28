@@ -1431,6 +1431,74 @@ describe('PresentationModel', () => {
       .toHaveLength(2);
   });
 
+  it('reads strict non-list paragraph left margins and preserves them during plain text edits', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.slides[1]!;
+    const part = pkg.requirePart(slide.partUri);
+    const marginText = [
+      '<a:p><a:pPr marL="0"/><a:r><a:t>Zero</a:t></a:r></a:p>',
+      '<a:p><a:pPr marL="152400"/><a:r><a:t>Twelve</a:t></a:r></a:p>',
+      '<a:p><a:pPr marL="1"/><a:r><a:t>One EMU</a:t></a:r></a:p>',
+      '<a:p><a:pPr/><a:r><a:t>Missing</a:t></a:r></a:p>',
+      '<a:p><a:pPr marL=""/><a:r><a:t>Empty</a:t></a:r></a:p>',
+      '<a:p><a:pPr marL="1.5"/><a:r><a:t>Fractional</a:t></a:r></a:p>',
+      '<a:p><a:pPr marL="-1"/><a:r><a:t>Negative</a:t></a:r></a:p>',
+      '<a:p><a:pPr marL="51206401"/><a:r><a:t>Too large</a:t></a:r></a:p>',
+      '<a:p><a:pPr marL="yes"/><a:r><a:t>Unknown</a:t></a:r></a:p>',
+      '<a:p><a:pPr marL="228600"><a:buNone/></a:pPr><a:r><a:t>No bullet</a:t></a:r></a:p>',
+      '<a:p><a:pPr marL="228600"><a:buChar char="•"/></a:pPr><a:r><a:t>Bullet</a:t></a:r></a:p>',
+      '<a:p><a:pPr marL="228600"><a:buAutoNum type="arabicPeriod"/></a:pPr><a:r><a:t>Number</a:t></a:r></a:p>',
+      '<a:p><a:pPr marL="228600"><a:buBlip><a:blip r:embed="rId1"/></a:buBlip></a:pPr><a:r><a:t>Picture</a:t></a:r></a:p>',
+    ].join('');
+    pkg.setPart(
+      part.uri,
+      new TextDecoder().decode(part.bytes).replace(
+        '<a:p><a:r><a:t>First title</a:t></a:r></a:p>',
+        marginText,
+      ),
+      part.contentType,
+    );
+    const shape = slide.shapes[0] as ShapeModel;
+    const journal = [...pkg.mutations];
+
+    expect(shape.richText.map(({ marginLeft }) => marginLeft)).toEqual([
+      0,
+      12,
+      1 / 12700,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      18,
+      undefined,
+      undefined,
+      undefined,
+    ]);
+    expect(pkg.mutations).toEqual(journal);
+
+    const plainPkg = await OpcPackage.open(await modelFixture());
+    const plainModel = new PresentationModel(plainPkg);
+    const plainSlide = plainModel.slides[1]!;
+    const plainPart = plainPkg.requirePart(plainSlide.partUri);
+    plainPkg.setPart(
+      plainPart.uri,
+      new TextDecoder().decode(plainPart.bytes).replace(
+        '<a:p><a:r><a:t>First title</a:t></a:r></a:p>',
+        '<a:p><a:pPr marL="152400" custom="KEEP"><x:keep xmlns:x="urn:test"/></a:pPr><a:r><a:t>Original</a:t></a:r></a:p>',
+      ),
+      plainPart.contentType,
+    );
+    const plainShape = plainSlide.shapes[0] as ShapeModel;
+    plainShape.text = 'First\nSecond';
+    expect(plainShape.richText.map(({ marginLeft }) => marginLeft)).toEqual([12, 12]);
+    const updated = new TextDecoder().decode(plainPkg.requirePart(plainPart.uri).bytes);
+    expect(updated.match(/<a:pPr marL="152400" custom="KEEP"><x:keep xmlns:x="urn:test"\/><\/a:pPr>/g))
+      .toHaveLength(2);
+  });
+
   it('updates alignment without rebuilding other paragraph properties', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);
@@ -1446,13 +1514,18 @@ describe('PresentationModel', () => {
     );
     const shape = slide.shapes[0] as ShapeModel;
 
-    expect(shape.richText.map(({ align }) => align)).toEqual(['left', 'right', undefined, undefined]);
+    expect(shape.richText.map(({ align, marginLeft }) => ({ align, marginLeft }))).toEqual([
+      { align: 'left', marginLeft: 111 / 12700 },
+      { align: 'right', marginLeft: 222 / 12700 },
+      { align: undefined, marginLeft: 333 / 12700 },
+      { align: undefined, marginLeft: undefined },
+    ]);
     shape.richText = [
-      { runs: [{ text: 'First' }], align: 'center' },
-      { runs: [{ text: 'Second' }], align: 'justify' },
-      { runs: [{ text: 'Third' }] },
+      { runs: [{ text: 'First' }], align: 'center', marginLeft: 111 / 12700 },
+      { runs: [{ text: 'Second' }], align: 'justify', marginLeft: 222 / 12700 },
+      { runs: [{ text: 'Third' }], marginLeft: 333 / 12700 },
       { runs: [{ text: 'Fourth' }], align: 'right' },
-      { runs: [], align: 'left' },
+      { runs: [], align: 'left', marginLeft: 111 / 12700 },
     ];
 
     const updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
@@ -1495,7 +1568,7 @@ describe('PresentationModel', () => {
         bullet: { kind: 'number', style: 'alphaUcPeriod', startAt: 2, indent: 20 },
         tabStops: [{ position: 500000 / 914400, alignment: 'left' }],
       },
-      { runs: [{ text: 'No bullet' }], align: 'center' },
+      { runs: [{ text: 'No bullet' }], align: 'center', marginLeft: 24 },
       { runs: [{ text: 'Custom' }], bullet: { kind: 'bullet', character: '▶', indent: 19 } },
       { runs: [{ text: 'Cleared picture' }] },
     ];
@@ -1566,8 +1639,13 @@ describe('PresentationModel', () => {
         bullet: { kind: 'number', style: 'romanUcPeriod', startAt: 3, indent: 22 },
         level: 0,
       },
-      { runs: [{ text: 'Cleared recognized bullet' }], bullet: false, level: 2 },
-      { runs: [{ text: 'Preserved custom margin' }], bullet: false, level: 0 },
+      { runs: [{ text: 'Cleared recognized bullet' }], bullet: false, level: 2, marginLeft: 0 },
+      {
+        runs: [{ text: 'Preserved custom margin' }],
+        bullet: false,
+        level: 0,
+        marginLeft: 777778 / 12700,
+      },
     ];
 
     const updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
