@@ -12,6 +12,7 @@ import {
   normalizeParagraphBullet,
   normalizeParagraphLevel,
   normalizeParagraphMarginLeft,
+  normalizeParagraphMarginRight,
   normalizeParagraphRtl,
   normalizeParagraphSpacing,
   normalizeParagraphTabStops,
@@ -82,6 +83,7 @@ export interface AddTextOptions extends Partial<Transform> {
   readonly level?: number;
   readonly margin?: TextBoxMarginInput;
   readonly paragraphMarginLeft?: number;
+  readonly paragraphMarginRight?: number;
   readonly rtlMode?: boolean;
   readonly spacing?: ParagraphSpacing;
   readonly tabStops?: readonly ParagraphTabStop[];
@@ -335,6 +337,7 @@ export class SlideModel {
           normalized.tabStops,
           normalized.language,
           normalized.marginLeft,
+          normalized.marginRight,
         ))
         .join('');
       return this.addTextShape(
@@ -361,6 +364,7 @@ export class SlideModel {
           ...(defaults.bullet !== undefined ? { defaultBullet: defaults.bullet } : {}),
           ...(defaults.level !== undefined ? { defaultLevel: defaults.level } : {}),
           ...(defaults.marginLeft !== undefined ? { defaultMarginLeft: defaults.marginLeft } : {}),
+          ...(defaults.marginRight !== undefined ? { defaultMarginRight: defaults.marginRight } : {}),
           ...(defaults.spacing !== undefined ? { defaultSpacing: defaults.spacing } : {}),
           ...(defaults.tabStops !== undefined ? { defaultTabStops: defaults.tabStops } : {}),
         }),
@@ -468,6 +472,7 @@ interface NormalizedTextInput {
   readonly level: number | undefined;
   readonly margin: TextBoxMargins | undefined;
   readonly marginLeft: number | undefined;
+  readonly marginRight: number | undefined;
   readonly rtl: boolean | undefined;
   readonly spacing: NormalizedParagraphSpacingUpdate | undefined;
   readonly tabStops: readonly NormalizedParagraphTabStop[] | undefined;
@@ -490,6 +495,7 @@ function validateTextInput(value: string, options: AddTextOptions): NormalizedTe
     level: defaults.level,
     margin: defaults.margin,
     marginLeft: defaults.marginLeft,
+    marginRight: defaults.marginRight,
     rtl: defaults.rtl,
     spacing: defaults.spacing,
     tabStops: defaults.tabStops,
@@ -506,6 +512,7 @@ interface NormalizedAddTextOptions {
   readonly level?: number;
   readonly margin?: TextBoxMargins;
   readonly marginLeft?: number;
+  readonly marginRight?: number;
   readonly rtl?: boolean;
   readonly spacing?: NormalizedParagraphSpacingUpdate;
   readonly tabStops?: readonly NormalizedParagraphTabStop[];
@@ -563,6 +570,9 @@ function validateAddTextOptions(options: AddTextOptions): NormalizedAddTextOptio
   const marginLeft = options.paragraphMarginLeft === undefined
     ? undefined
     : normalizeParagraphMarginLeft(options.paragraphMarginLeft, 'Paragraph left margin');
+  const marginRight = options.paragraphMarginRight === undefined
+    ? undefined
+    : normalizeParagraphMarginRight(options.paragraphMarginRight, 'Paragraph right margin');
   const rtl = options.rtlMode === undefined
     ? undefined
     : normalizeParagraphRtl(options.rtlMode, 'Text RTL mode');
@@ -590,6 +600,7 @@ function validateAddTextOptions(options: AddTextOptions): NormalizedAddTextOptio
     ...(level !== undefined ? { level } : {}),
     ...(margin !== undefined ? { margin } : {}),
     ...(marginLeft !== undefined ? { marginLeft } : {}),
+    ...(marginRight !== undefined ? { marginRight } : {}),
     ...(rtl !== undefined ? { rtl } : {}),
     ...(spacing !== undefined ? { spacing } : {}),
     ...(tabStops !== undefined ? { tabStops } : {}),
@@ -662,6 +673,7 @@ function textParagraphXml(
   tabStops?: readonly NormalizedParagraphTabStop[],
   language?: string,
   marginLeft?: number,
+  marginRight?: number,
 ): string {
   const properties = renderParagraphProperties(
     undefined,
@@ -673,6 +685,7 @@ function textParagraphXml(
     level,
     tabStops,
     marginLeft,
+    marginRight,
   );
   const languageValue = escapeXmlAttribute(language ?? 'en-US');
   const endProperties = `<${prefix}endParaRPr lang="${languageValue}" dirty="0"/>`;

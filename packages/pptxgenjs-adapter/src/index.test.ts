@@ -1085,6 +1085,12 @@ describe('importPptxGenJS', () => {
       undefined,
       undefined,
     ]);
+    expect(shapes.map(({ richText }) => richText[0]?.marginRight)).toEqual([
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    ]);
     expect(shapes[2]!.richText[0]!.bullet).toEqual({ kind: 'bullet', character: '•', indent: 27 });
     expect(shapes[3]!.richText[0]!.bullet).toEqual({
       kind: 'number',
@@ -1098,6 +1104,7 @@ describe('importPptxGenJS', () => {
     expect(slideXml.match(/indent="0" marL="0"/g)).toHaveLength(2);
     expect(slideXml).toMatch(/marL="342900" indent="-342900"/);
     expect(slideXml).toMatch(/marL="279400" indent="-279400"/);
+    expect(slideXml).not.toContain('marR=');
 
     const reopened = await PptxDocument.open(await document.write());
     const reopenedShapes = reopened.slides[0]!.shapes
@@ -1105,6 +1112,12 @@ describe('importPptxGenJS', () => {
     expect(reopenedShapes.map(({ richText }) => richText[0]?.marginLeft)).toEqual([
       0,
       0,
+      undefined,
+      undefined,
+    ]);
+    expect(reopenedShapes.map(({ richText }) => richText[0]?.marginRight)).toEqual([
+      undefined,
+      undefined,
       undefined,
       undefined,
     ]);

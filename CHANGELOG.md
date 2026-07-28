@@ -31,6 +31,7 @@
 - Added PptxGenJS-compatible paragraph RTL creation defaults, per-paragraph true/false overrides, strict direct reads, editing, and clearing.
 - Added PptxGenJS-compatible presentation RTL creation with strict direct root reads, editing, explicit false, and clearing.
 - Added point-based non-list paragraph left margins with creation defaults, strict direct reads, editing, clearing, and bullet isolation.
+- Added point-based paragraph right margins with creation defaults, strict direct reads, editing, clearing, and list coexistence.
 - Added point-based text-box margin creation and direct four-side editing with scalar, documented TRBL tuple, named-object, and PptxGenJS output support.
 - Added PptxGenJS-compatible top, middle, and bottom text-box vertical alignment with direct lossless editing and clearing.
 - Added PptxGenJS-compatible text-box wrapping with strict boolean creation plus direct lossless editing and clearing.

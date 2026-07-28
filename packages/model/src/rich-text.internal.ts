@@ -129,6 +129,7 @@ interface NormalizedRichTextParagraph {
   readonly align?: TextAlignment;
   readonly rtl?: boolean;
   readonly marginLeft?: number | false;
+  readonly marginRight?: number | false;
   readonly bullet?: NormalizedParagraphBullet | false;
   readonly level?: number;
   readonly spacing?: NormalizedParagraphSpacingUpdate | false;
@@ -187,7 +188,7 @@ export function normalizeRichText(value: unknown): readonly NormalizedRichTextPa
     }
     assertSupportedKeys(
       paragraph,
-      ['align', 'bullet', 'level', 'marginLeft', 'rtl', 'runs', 'spacing', 'tabStops'],
+      ['align', 'bullet', 'level', 'marginLeft', 'marginRight', 'rtl', 'runs', 'spacing', 'tabStops'],
       `Rich text paragraph ${paragraphIndex}`,
     );
     const candidate = paragraph as {
@@ -195,6 +196,7 @@ export function normalizeRichText(value: unknown): readonly NormalizedRichTextPa
       bullet?: unknown;
       level?: unknown;
       marginLeft?: unknown;
+      marginRight?: unknown;
       rtl?: unknown;
       runs?: unknown;
       spacing?: unknown;
@@ -219,6 +221,14 @@ export function normalizeRichText(value: unknown): readonly NormalizedRichTextPa
             candidate.marginLeft,
             `Rich text paragraph ${paragraphIndex} marginLeft`,
           );
+    const marginRight = candidate.marginRight === undefined
+      ? undefined
+      : candidate.marginRight === false
+        ? false
+        : normalizeParagraphMarginRight(
+            candidate.marginRight,
+            `Rich text paragraph ${paragraphIndex} marginRight`,
+          );
     const rtl = candidate.rtl === undefined
       ? undefined
       : normalizeParagraphRtl(candidate.rtl, `Rich text paragraph ${paragraphIndex} rtl`);
@@ -238,6 +248,7 @@ export function normalizeRichText(value: unknown): readonly NormalizedRichTextPa
       ...(bullet !== undefined ? { bullet } : {}),
       ...(level !== undefined ? { level } : {}),
       ...(marginLeft !== undefined ? { marginLeft } : {}),
+      ...(marginRight !== undefined ? { marginRight } : {}),
       ...(rtl !== undefined ? { rtl } : {}),
       ...(spacing !== undefined ? { spacing } : {}),
       ...(tabStops !== undefined ? { tabStops } : {}),
@@ -253,6 +264,7 @@ interface RenderRichTextOptions {
   readonly defaultBullet?: NormalizedParagraphBullet | false;
   readonly defaultLevel?: number;
   readonly defaultMarginLeft?: number;
+  readonly defaultMarginRight?: number;
   readonly defaultSpacing?: NormalizedParagraphSpacingUpdate;
   readonly defaultTabStops?: readonly NormalizedParagraphTabStop[];
   readonly paragraphProperties?: readonly (string | undefined)[];
@@ -267,13 +279,16 @@ export function renderRichTextParagraphs(
   const defaultLanguage = options.defaultLanguage ?? 'en-US';
   const defaultEndProperties = `<${prefix}endParaRPr lang="${escapeXmlAttribute(defaultLanguage)}" dirty="0"/>`;
   return paragraphs
-    .map(({ align, bullet, level, marginLeft, rtl, runs, spacing, tabStops }, index) => {
+    .map(({ align, bullet, level, marginLeft, marginRight, rtl, runs, spacing, tabStops }, index) => {
       const resolvedBullet = bullet === false
         ? undefined
         : bullet ?? (options.defaultBullet === false ? undefined : options.defaultBullet);
       const resolvedMarginLeft = marginLeft === false
         ? false
         : marginLeft ?? options.defaultMarginLeft;
+      const resolvedMarginRight = marginRight === false
+        ? false
+        : marginRight ?? options.defaultMarginRight;
       if (resolvedBullet && typeof resolvedMarginLeft === 'number') {
         throw new TypeError('Paragraph left margin cannot be combined with an active bullet');
       }
@@ -287,6 +302,7 @@ export function renderRichTextParagraphs(
         level ?? options.defaultLevel,
         tabStops === false ? undefined : tabStops ?? options.defaultTabStops,
         resolvedMarginLeft,
+        resolvedMarginRight,
       )}${runs
         .map((run) => renderRun(run, prefix, options.defaultLanguage))
         .join('')}${options.endParagraphProperties ?? defaultEndProperties}</${prefix}p>`;
@@ -301,6 +317,7 @@ export function readRichText(xml: LosslessXmlDocument, element: XmlElement): rea
     const align = readParagraphAlignment(xml, paragraph);
     const rtl = readParagraphRtl(xml, paragraph);
     const marginLeft = readParagraphMarginLeft(xml, paragraph);
+    const marginRight = readParagraphMarginRight(xml, paragraph);
     const level = readParagraphLevel(xml, paragraph);
     const bullet = readParagraphBullet(xml, paragraph, level ?? 0);
     const spacing = readParagraphSpacing(xml, paragraph);
@@ -310,6 +327,7 @@ export function readRichText(xml: LosslessXmlDocument, element: XmlElement): rea
       ...(align ? { align } : {}),
       ...(rtl !== undefined ? { rtl } : {}),
       ...(marginLeft !== undefined ? { marginLeft } : {}),
+      ...(marginRight !== undefined ? { marginRight } : {}),
       ...(bullet ? { bullet } : {}),
       ...(level !== undefined ? { level } : {}),
       ...(spacing ? { spacing } : {}),
@@ -367,6 +385,16 @@ export function normalizeParagraphRtl(value: unknown, context: string): boolean 
 }
 
 export function normalizeParagraphMarginLeft(value: unknown, context: string): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new TypeError(`${context} must be finite`);
+  }
+  if (value < 0 || value > 4032) {
+    throw new RangeError(`${context} must be between 0 and 4032 points`);
+  }
+  return value;
+}
+
+export function normalizeParagraphMarginRight(value: unknown, context: string): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
     throw new TypeError(`${context} must be finite`);
   }
@@ -497,6 +525,7 @@ export function renderParagraphProperties(
   level?: number,
   tabStops?: readonly NormalizedParagraphTabStop[],
   marginLeft?: number | false,
+  marginRight?: number | false,
 ): string {
   const align = alignment ? ` algn="${TEXT_ALIGNMENT_TO_OOXML[alignment]}"` : '';
   const initial = template ?? `<${prefix}pPr${align} indent="0" marL="0"><${prefix}buNone/></${prefix}pPr>`;
@@ -517,7 +546,12 @@ export function renderParagraphProperties(
     bullet !== undefined,
     template === undefined,
   );
-  return renderParagraphTabStops(marginalized, prefix, tabStops);
+  const rightMarginalized = renderParagraphRightMargin(
+    marginalized,
+    marginRight,
+    template === undefined,
+  );
+  return renderParagraphTabStops(rightMarginalized, prefix, tabStops);
 }
 
 function renderParagraphLeftMargin(
@@ -532,6 +566,19 @@ function renderParagraphLeftMargin(
     template,
     'marL',
     typeof marginLeft === 'number' ? String(Math.round(marginLeft * EMU_PER_POINT)) : undefined,
+  );
+}
+
+function renderParagraphRightMargin(
+  template: string,
+  marginRight: number | false | undefined,
+  isNewParagraph: boolean,
+): string {
+  if (marginRight === undefined && isNewParagraph) return template;
+  return updateParagraphAttribute(
+    template,
+    'marR',
+    typeof marginRight === 'number' ? String(Math.round(marginRight * EMU_PER_POINT)) : undefined,
   );
 }
 
@@ -1157,6 +1204,17 @@ function readParagraphMarginLeft(
   if (directChildren(properties).some(({ localName }) =>
     ['buChar', 'buAutoNum', 'buBlip'].includes(localName))) return undefined;
   const margin = readIntegerAttribute(xml, properties, 'marL');
+  if (margin === undefined || margin < 0 || margin > MAX_PARAGRAPH_MARGIN_EMU) return undefined;
+  return margin / EMU_PER_POINT;
+}
+
+function readParagraphMarginRight(
+  xml: LosslessXmlDocument,
+  paragraph: XmlElement,
+): number | undefined {
+  const properties = directChildren(paragraph, 'pPr')[0];
+  if (!properties) return undefined;
+  const margin = readIntegerAttribute(xml, properties, 'marR');
   if (margin === undefined || margin < 0 || margin > MAX_PARAGRAPH_MARGIN_EMU) return undefined;
   return margin / EMU_PER_POINT;
 }

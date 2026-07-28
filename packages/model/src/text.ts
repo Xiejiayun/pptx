@@ -150,6 +150,7 @@ export interface RichTextParagraph {
   readonly align?: TextAlignment;
   readonly rtl?: boolean;
   readonly marginLeft?: number | false;
+  readonly marginRight?: number | false;
   readonly bullet?: ParagraphBullet;
   readonly level?: number;
   readonly spacing?: ParagraphSpacing | false;
