@@ -225,6 +225,15 @@ describe('importPptxGenJS', () => {
       ],
       { x: 9, y: 9, w: 3, h: 1 },
     );
+    generatedSlide.addText(
+      [
+        { text: 'Inherited', options: {} },
+        { text: ' German', options: { lang: 'de-DE' } },
+        { text: ' Explicit default', options: { lang: 'en-US' } },
+        { text: ' Empty inherits', options: { lang: '' } },
+      ],
+      { x: 9, y: 10, w: 3, h: 1, lang: 'fr-CA', objectName: 'Language outer' },
+    );
     generatedSlide.addText('Omitted margin', {
       x: 0,
       y: 0,
@@ -490,6 +499,7 @@ describe('importPptxGenJS', () => {
         style: {
           fontFamily: 'Aptos',
           fontSize: 24,
+          lang: 'en-US',
           bold: true,
           color: { kind: 'srgb', value: 'FF0000' },
         },
@@ -497,7 +507,12 @@ describe('importPptxGenJS', () => {
       {
         text: 'italic',
         softBreakBefore: true,
-        style: { fontSize: 14, italic: true, color: { kind: 'srgb', value: '4472C4' } },
+        style: {
+          fontSize: 14,
+          lang: 'en-US',
+          italic: true,
+          color: { kind: 'srgb', value: '4472C4' },
+        },
       },
     ]);
     const aligned = document.slides[0]!.shapes[2] as ShapeModel;
@@ -607,6 +622,13 @@ describe('importPptxGenJS', () => {
     const spaced = (document.slides[0]!.shapes[23] as ShapeModel).richText[0]!.runs;
     expect(spaced.map(({ style }) => style?.characterSpacing)).toEqual([2.5, -1.25, 0, undefined, 3, undefined]);
     expect(spaced[4]!.style!.baseline).toBe('superscript');
+    const languages = (document.slides[0]!.shapes[24] as ShapeModel).richText[0]!.runs;
+    expect(languages.map(({ style }) => style?.lang)).toEqual([
+      'fr-CA',
+      'de-DE',
+      'en-US',
+      'fr-CA',
+    ]);
     const shapeByName = (name: string): ShapeModel => {
       const shape = document.slides[0]!.shapes.find((candidate) => candidate.name === name);
       expect(shape).toBeInstanceOf(ShapeModel);
@@ -752,6 +774,15 @@ describe('importPptxGenJS', () => {
     expect(importedXml).toMatch(
       /name="Fit run ignored"[\s\S]*?<a:bodyPr[^>]*(?:\/>|><\/a:bodyPr>)/,
     );
+    expect(importedXml).toMatch(
+      /name="Language outer"[\s\S]*?<a:rPr lang="fr-CA" altLang="en-US" dirty="0">/,
+    );
+    expect(importedXml).toMatch(
+      /name="Language outer"[\s\S]*?<a:rPr lang="de-DE" altLang="en-US" dirty="0">/,
+    );
+    expect(importedXml).toMatch(
+      /name="Language outer"[\s\S]*?<a:endParaRPr lang="fr-CA" dirty="0"\/>/,
+    );
     document.slides[0]!.title.text = 'Edited by the OOXML kernel';
     document.duplicateSlide(0);
 
@@ -850,6 +881,13 @@ describe('importPptxGenJS', () => {
     expect(reopenedSpaced.map(({ style }) => style?.characterSpacing))
       .toEqual([2.5, -1.25, 0, undefined, 3, undefined]);
     expect(reopenedSpaced[4]!.style!.baseline).toBe('superscript');
+    const reopenedLanguages = (reopened.slides[1]!.shapes[24] as ShapeModel).richText[0]!.runs;
+    expect(reopenedLanguages.map(({ style }) => style?.lang)).toEqual([
+      'fr-CA',
+      'de-DE',
+      'en-US',
+      'fr-CA',
+    ]);
     const reopenedMargins = reopened.slides[1]!.shapes
       .filter((shape): shape is ShapeModel => shape instanceof ShapeModel)
       .filter(({ name }) => name.startsWith('Margin '))

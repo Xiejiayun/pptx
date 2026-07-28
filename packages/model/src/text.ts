@@ -126,6 +126,7 @@ export type TextBoxFit = 'none' | 'shrink' | 'resize';
 export interface RichTextRunStyle {
   readonly fontFamily?: string;
   readonly fontSize?: number;
+  readonly lang?: string;
   readonly baseline?: RichTextBaseline;
   readonly characterSpacing?: number;
   readonly bold?: boolean;

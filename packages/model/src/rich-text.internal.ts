@@ -229,6 +229,7 @@ export function normalizeRichText(value: unknown): readonly NormalizedRichTextPa
 
 interface RenderRichTextOptions {
   readonly prefix?: string;
+  readonly defaultLanguage?: string;
   readonly defaultAlign?: TextAlignment;
   readonly defaultBullet?: NormalizedParagraphBullet | false;
   readonly defaultLevel?: number;
@@ -243,7 +244,8 @@ export function renderRichTextParagraphs(
   options: RenderRichTextOptions = {},
 ): string {
   const prefix = options.prefix ?? 'a:';
-  const defaultEndProperties = `<${prefix}endParaRPr lang="en-US" dirty="0"/>`;
+  const defaultLanguage = options.defaultLanguage ?? 'en-US';
+  const defaultEndProperties = `<${prefix}endParaRPr lang="${escapeXmlAttribute(defaultLanguage)}" dirty="0"/>`;
   return paragraphs
     .map(
       ({ align, bullet, level, runs, spacing, tabStops }, index) =>
@@ -258,7 +260,7 @@ export function renderRichTextParagraphs(
           level ?? options.defaultLevel,
           tabStops === false ? undefined : tabStops ?? options.defaultTabStops,
         )}${runs
-          .map((run) => renderRun(run, prefix))
+          .map((run) => renderRun(run, prefix, options.defaultLanguage))
           .join('')}${options.endParagraphProperties ?? defaultEndProperties}</${prefix}p>`,
     )
     .join('');
@@ -750,7 +752,7 @@ function normalizeStyle(value: unknown, paragraphIndex: number, runIndex: number
   }
   assertSupportedKeys(
     value,
-    ['baseline', 'bold', 'characterSpacing', 'color', 'fontFamily', 'fontSize', 'glow', 'highlight', 'italic', 'outline', 'strike', 'underline'],
+    ['baseline', 'bold', 'characterSpacing', 'color', 'fontFamily', 'fontSize', 'glow', 'highlight', 'italic', 'lang', 'outline', 'strike', 'underline'],
     `Rich text run ${paragraphIndex},${runIndex} style`,
   );
   const candidate = value as RichTextRunStyle;
@@ -779,6 +781,9 @@ function normalizeStyle(value: unknown, paragraphIndex: number, runIndex: number
     }
   }
   const context = `Rich text run ${paragraphIndex},${runIndex}`;
+  const language = candidate.lang === undefined
+    ? undefined
+    : normalizeTextLanguage(candidate.lang, `${context} lang`);
   const baseline = candidate.baseline === undefined
     ? undefined
     : normalizeBaseline(candidate.baseline, `${context} baseline`);
@@ -806,6 +811,7 @@ function normalizeStyle(value: unknown, paragraphIndex: number, runIndex: number
   return {
     ...(candidate.fontFamily !== undefined ? { fontFamily: candidate.fontFamily } : {}),
     ...(candidate.fontSize !== undefined ? { fontSize: Math.round(candidate.fontSize * 100) / 100 } : {}),
+    ...(language !== undefined ? { lang: language } : {}),
     ...(baseline !== undefined ? { baseline } : {}),
     ...(characterSpacing !== undefined ? { characterSpacing } : {}),
     ...(candidate.bold !== undefined ? { bold: candidate.bold } : {}),
@@ -817,6 +823,16 @@ function normalizeStyle(value: unknown, paragraphIndex: number, runIndex: number
     ...(underline !== undefined ? { underline } : {}),
     ...(strike !== undefined ? { strike } : {}),
   };
+}
+
+export function normalizeTextLanguage(value: unknown, context: string): string {
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new TypeError(`${context} must be a non-empty string`);
+  }
+  if (containsInvalidXmlCharacter(value)) {
+    throw new TypeError(`${context} contains invalid XML characters`);
+  }
+  return value;
 }
 
 function normalizeCharacterSpacing(value: unknown, context: string): number {
@@ -951,12 +967,17 @@ function normalizeColor(value: unknown, context: string): RichTextColor {
   throw new TypeError(`${context} kind must be srgb or scheme`);
 }
 
-function renderRun(run: RichTextRun, prefix: string): string {
+function renderRun(run: RichTextRun, prefix: string, defaultLanguage?: string): string {
   const softBreak = run.softBreakBefore ? `<${prefix}br/>` : '';
   if (run.text.length === 0 && run.style === undefined) return softBreak;
   const style = run.style ?? {};
+  const language = style.lang ?? defaultLanguage ?? 'en-US';
+  const explicitLanguage = style.lang !== undefined || defaultLanguage !== undefined;
+  const languageAttributes = `lang="${escapeXmlAttribute(language)}"${
+    explicitLanguage ? ' altLang="en-US"' : ''
+  }`;
   const attributes = [
-    'lang="en-US"',
+    languageAttributes,
     style.fontSize === undefined ? '' : `sz="${Math.round(style.fontSize * 100)}"`,
     style.baseline === undefined
       ? ''
@@ -1190,6 +1211,7 @@ function readStyle(xml: LosslessXmlDocument, run: XmlElement): RichTextRunStyle 
   const properties = directChildren(run, 'rPr')[0];
   if (!properties) return undefined;
   const size = Number.parseInt(xml.attribute(properties, 'sz')?.value ?? '', 10);
+  const language = xml.attribute(properties, 'lang')?.value;
   const baseline = readBaseline(xml, properties);
   const characterSpacing = readCharacterSpacing(xml, properties);
   const font = directChildren(properties, 'latin')[0];
@@ -1214,6 +1236,7 @@ function readStyle(xml: LosslessXmlDocument, run: XmlElement): RichTextRunStyle 
   const style: RichTextRunStyle = {
     ...(fontFamily !== undefined ? { fontFamily } : {}),
     ...(Number.isFinite(size) && size > 0 ? { fontSize: size / 100 } : {}),
+    ...(language ? { lang: language } : {}),
     ...(baseline !== undefined ? { baseline } : {}),
     ...(characterSpacing !== undefined ? { characterSpacing } : {}),
     ...(bold !== undefined ? { bold } : {}),

@@ -15,6 +15,7 @@ import {
   normalizeParagraphTabStops,
   normalizeRichText,
   normalizeTextAlignment,
+  normalizeTextLanguage,
   readRichText,
   renderParagraphProperties,
   renderRichTextParagraphs,
@@ -75,6 +76,7 @@ export interface AddTextOptions extends Partial<Transform> {
   readonly align?: TextAlignment;
   readonly bullet?: ParagraphBullet;
   readonly fit?: TextBoxFit;
+  readonly lang?: string;
   readonly level?: number;
   readonly margin?: TextBoxMarginInput;
   readonly spacing?: ParagraphSpacing;
@@ -326,6 +328,7 @@ export class SlideModel {
           spacing,
           normalized.level,
           normalized.tabStops,
+          normalized.language,
         ))
         .join('');
       return this.addTextShape(
@@ -346,6 +349,7 @@ export class SlideModel {
       const defaults = validateAddTextOptions(options);
       return this.addTextShape(
         renderRichTextParagraphs(paragraphs, {
+          ...(defaults.language !== undefined ? { defaultLanguage: defaults.language } : {}),
           ...(options.align ? { defaultAlign: options.align } : {}),
           ...(defaults.bullet !== undefined ? { defaultBullet: defaults.bullet } : {}),
           ...(defaults.level !== undefined ? { defaultLevel: defaults.level } : {}),
@@ -452,6 +456,7 @@ function setAttribute(xml: LosslessXmlDocument, element: XmlElement, name: strin
 interface NormalizedTextInput {
   readonly value: string;
   readonly bullet: NormalizedParagraphBullet | false | undefined;
+  readonly language: string | undefined;
   readonly level: number | undefined;
   readonly margin: TextBoxMargins | undefined;
   readonly spacing: NormalizedParagraphSpacingUpdate | undefined;
@@ -468,6 +473,7 @@ function validateTextInput(value: string, options: AddTextOptions): NormalizedTe
   return {
     value: normalized,
     bullet: defaults.bullet,
+    language: defaults.language,
     level: defaults.level,
     margin: defaults.margin,
     spacing: defaults.spacing,
@@ -481,6 +487,7 @@ function validateTextInput(value: string, options: AddTextOptions): NormalizedTe
 
 interface NormalizedAddTextOptions {
   readonly bullet?: NormalizedParagraphBullet | false;
+  readonly language?: string;
   readonly level?: number;
   readonly margin?: TextBoxMargins;
   readonly spacing?: NormalizedParagraphSpacingUpdate;
@@ -530,6 +537,9 @@ function validateAddTextOptions(options: AddTextOptions): NormalizedAddTextOptio
   const level = options.level === undefined
     ? undefined
     : normalizeParagraphLevel(options.level, 'Text level');
+  const language = options.lang === undefined
+    ? undefined
+    : normalizeTextLanguage(options.lang, 'Text language');
   const margin = options.margin === undefined
     ? undefined
     : normalizeTextBoxMargins(options.margin, 'Text margin');
@@ -553,6 +563,7 @@ function validateAddTextOptions(options: AddTextOptions): NormalizedAddTextOptio
     : normalizeTextBoxWrap(options.wrap, 'Text wrap');
   return {
     ...(bullet !== undefined ? { bullet } : {}),
+    ...(language !== undefined ? { language } : {}),
     ...(level !== undefined ? { level } : {}),
     ...(margin !== undefined ? { margin } : {}),
     ...(spacing !== undefined ? { spacing } : {}),
@@ -623,15 +634,19 @@ function textParagraphXml(
   spacing?: NormalizedParagraphSpacing,
   level?: number,
   tabStops?: readonly NormalizedParagraphTabStop[],
+  language?: string,
 ): string {
   const properties = renderParagraphProperties(undefined, prefix, align, bullet, spacing, level, tabStops);
-  const endProperties = `<${prefix}endParaRPr lang="en-US" dirty="0"/>`;
+  const languageValue = escapeXmlAttribute(language ?? 'en-US');
+  const endProperties = `<${prefix}endParaRPr lang="${languageValue}" dirty="0"/>`;
   if (value.length === 0) return `<${prefix}p>${properties}${endProperties}</${prefix}p>`;
-  return `<${prefix}p>${properties}${defaultTextRunXml(value, prefix)}${endProperties}</${prefix}p>`;
+  return `<${prefix}p>${properties}${defaultTextRunXml(value, prefix, language)}${endProperties}</${prefix}p>`;
 }
 
-function defaultTextRunXml(value: string, prefix = 'a:'): string {
-  return `<${prefix}r><${prefix}rPr lang="en-US" dirty="0"><${prefix}solidFill><${prefix}schemeClr val="tx1"/></${prefix}solidFill><${prefix}latin typeface="+mn-lt"/></${prefix}rPr><${prefix}t xml:space="preserve">${escapeXmlText(value)}</${prefix}t></${prefix}r>`;
+function defaultTextRunXml(value: string, prefix = 'a:', language?: string): string {
+  const languageValue = escapeXmlAttribute(language ?? 'en-US');
+  const alternateLanguage = language === undefined ? '' : ' altLang="en-US"';
+  return `<${prefix}r><${prefix}rPr lang="${languageValue}"${alternateLanguage} dirty="0"><${prefix}solidFill><${prefix}schemeClr val="tx1"/></${prefix}solidFill><${prefix}latin typeface="+mn-lt"/></${prefix}rPr><${prefix}t xml:space="preserve">${escapeXmlText(value)}</${prefix}t></${prefix}r>`;
 }
 
 function readPlainText(xml: LosslessXmlDocument, element: XmlElement): string {

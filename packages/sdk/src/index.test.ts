@@ -735,6 +735,7 @@ describe('PptxDocument vertical slice', () => {
             style: {
               fontFamily: 'Aptos & Display',
               fontSize: 12.5,
+              lang: 'en-US',
               bold: true,
               italic: false,
               color: { kind: 'srgb', value: 'FF0000' },
@@ -745,6 +746,7 @@ describe('PptxDocument vertical slice', () => {
             softBreakBefore: true,
             style: {
               fontFamily: '+mn-lt',
+              lang: 'en-US',
               italic: true,
               color: { kind: 'scheme', value: 'accent1' },
             },
@@ -756,7 +758,7 @@ describe('PptxDocument vertical slice', () => {
         runs: [
           {
             text: 'Last',
-            style: { fontFamily: '+mn-lt', color: { kind: 'scheme', value: 'tx1' } },
+            style: { fontFamily: '+mn-lt', lang: 'en-US', color: { kind: 'scheme', value: 'tx1' } },
           },
         ],
       },
@@ -1124,6 +1126,130 @@ describe('PptxDocument vertical slice', () => {
     expect(edited.richText[0]!.runs.map(({ style }) => style?.characterSpacing)).toEqual([-2.75, undefined]);
     expect(duplicated.richText[0]!.runs[0]!.style!.characterSpacing).toBe(2.5);
     expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+  });
+
+  it('creates, edits, duplicates, and reopens plain and rich text languages', async () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const defaultPlain = slide.addText('Default language', { name: 'Language default' });
+    const frenchPlain = slide.addText('Bonjour\n\nEncore', {
+      name: 'Language plain',
+      lang: 'fr-CA',
+    });
+    const rich = slide.addRichText([{
+      runs: [
+        { text: 'Inherited' },
+        { text: ' German', style: { lang: 'de-DE' } },
+        { text: ' Explicit default', style: { lang: 'en-US' } },
+        { text: ' Escaped', style: { bold: true, lang: 'x-private&"quoted' } },
+      ],
+    }], {
+      name: 'Language rich',
+      lang: 'fr-CA',
+    });
+    const escapedPlain = slide.addText('Escaped outer language', {
+      name: 'Language escaped outer',
+      lang: 'x-private&"quoted',
+    });
+
+    expect(defaultPlain.richText[0]!.runs[0]!.style!.lang).toBe('en-US');
+    expect(frenchPlain.richText.map((paragraph) => paragraph.runs[0]?.style?.lang)).toEqual([
+      'fr-CA',
+      undefined,
+      'fr-CA',
+    ]);
+    expect(rich.richText[0]!.runs.map(({ style }) => style?.lang)).toEqual([
+      'fr-CA',
+      'de-DE',
+      'en-US',
+      'x-private&"quoted',
+    ]);
+    expect(escapedPlain.richText[0]!.runs[0]!.style!.lang).toBe('x-private&"quoted');
+
+    const createdXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(createdXml).toMatch(
+      /name="Language default"[\s\S]*?<a:rPr lang="en-US" dirty="0">/,
+    );
+    expect(createdXml).toMatch(
+      /name="Language plain"[\s\S]*?<a:rPr lang="fr-CA" altLang="en-US" dirty="0">/,
+    );
+    expect(createdXml).toContain(
+      '<a:rPr lang="x-private&amp;&quot;quoted" altLang="en-US" b="1" dirty="0">',
+    );
+    expect(createdXml).toContain(
+      '<a:endParaRPr lang="x-private&amp;&quot;quoted" dirty="0"/>',
+    );
+    expect(createdXml.match(/<a:endParaRPr lang="fr-CA" dirty="0"\/>/g)).toHaveLength(4);
+
+    document.duplicateSlide(0);
+    const beforeRollback = document.opcPackage.requirePart(slide.partUri).bytes;
+    expect(() =>
+      document.transaction(() => {
+        rich.richText = [{ runs: [{ text: 'Rollback', style: { lang: 'ko-KR' } }] }];
+        throw new Error('restore language');
+      }),
+    ).toThrow('restore language');
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(beforeRollback);
+    expect(slide.shapes[2]).toBe(rich);
+
+    rich.richText = [{
+      runs: [
+        { text: 'Japanese', style: { lang: 'ja-JP' } },
+        { text: ' Default' },
+      ],
+    }];
+    expect(rich.richText[0]!.runs.map(({ style }) => style?.lang)).toEqual(['ja-JP', 'en-US']);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const edited = reopened.slides[0]!.shapes[2] as ShapeModel;
+    const duplicated = reopened.slides[1]!.shapes[2] as ShapeModel;
+    expect(edited.richText[0]!.runs.map(({ style }) => style?.lang)).toEqual(['ja-JP', 'en-US']);
+    expect(duplicated.richText[0]!.runs.map(({ style }) => style?.lang)).toEqual([
+      'fr-CA',
+      'de-DE',
+      'en-US',
+      'x-private&"quoted',
+    ]);
+    expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+  });
+
+  it('rejects malformed text languages without changing package state', () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const shape = slide.addRichText([{ runs: [{ text: 'Original', style: { lang: 'en-US' } }] }], {
+      lang: 'fr-CA',
+    });
+    const before = document.opcPackage.requirePart(slide.partUri).bytes;
+    const journal = [...document.opcPackage.mutations];
+
+    for (const language of [
+      null,
+      true,
+      false,
+      0,
+      1,
+      '',
+      {},
+      [],
+      Symbol('language'),
+      'bad\u0000language',
+    ]) {
+      expect(() => slide.addText('Invalid', { lang: language as never })).toThrow(TypeError);
+      expect(() => slide.addRichText([{ runs: [{ text: 'Invalid' }] }], {
+        lang: language as never,
+      })).toThrow(TypeError);
+      expect(() => slide.addRichText([{
+        runs: [{ text: 'Invalid', style: { lang: language as never } }],
+      }])).toThrow(TypeError);
+      expect(() => {
+        shape.richText = [{ runs: [{ text: 'Invalid', style: { lang: language as never } }] }];
+      }).toThrow(TypeError);
+    }
+
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(before);
+    expect(document.opcPackage.mutations).toEqual(journal);
+    expect(shape.richText[0]!.runs[0]!.style!.lang).toBe('en-US');
+    expect(slide.shapes[0]).toBe(shape);
   });
 
   it('creates, edits, duplicates, and reopens text-box margins', async () => {

@@ -190,6 +190,7 @@ describe('PresentationModel', () => {
             style: {
               fontFamily: 'Field Font',
               fontSize: 12.5,
+              lang: 'en-US',
               bold: false,
               italic: true,
               color: { kind: 'srgb', value: '00AA11' },
@@ -1234,6 +1235,51 @@ describe('PresentationModel', () => {
     expect(shape.richText.map((paragraph) => paragraph.runs[0]!.style!.characterSpacing)).toEqual([2.5, 2.5]);
     const updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
     expect(updated.match(/<a:rPr spc="250" kern="1200"\/>/g)).toHaveLength(2);
+  });
+
+  it('reads direct run languages and preserves language XML during plain text edits', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.slides[1]!;
+    const part = pkg.requirePart(slide.partUri);
+    const languageText = [
+      '<a:p>',
+      '<a:r><a:rPr lang="fr-CA" altLang="it-IT"/><a:t>French</a:t></a:r>',
+      '<a:r><a:rPr lang="x-private"/><a:t>Private</a:t></a:r>',
+      '<a:r><a:rPr lang="" strike="sngStrike"/><a:t>Empty</a:t></a:r>',
+      '<a:r><a:rPr altLang="ja-JP" b="1"/><a:t>Alternate only</a:t></a:r>',
+      '<a:endParaRPr lang="zh-CN" altLang="ja-JP"/>',
+      '</a:p>',
+    ].join('');
+    pkg.setPart(
+      part.uri,
+      new TextDecoder().decode(part.bytes).replace(
+        '<a:p><a:r><a:t>First title</a:t></a:r></a:p>',
+        languageText,
+      ),
+      part.contentType,
+    );
+    const shape = slide.shapes[0] as ShapeModel;
+    const journal = [...pkg.mutations];
+
+    expect(shape.richText[0]!.runs.map(({ style }) => style?.lang)).toEqual([
+      'fr-CA',
+      'x-private',
+      undefined,
+      undefined,
+    ]);
+    expect(shape.richText[0]!.runs[2]!.style!.strike).toBe('sngStrike');
+    expect(shape.richText[0]!.runs[3]!.style!.bold).toBe(true);
+    expect(pkg.mutations).toEqual(journal);
+
+    shape.text = 'First replacement\nSecond replacement';
+    expect(shape.richText.map((paragraph) => paragraph.runs[0]!.style!.lang)).toEqual([
+      'fr-CA',
+      'fr-CA',
+    ]);
+    const updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated.match(/<a:rPr lang="fr-CA" altLang="it-IT"\/>/g)).toHaveLength(2);
+    expect(updated.match(/<a:endParaRPr lang="zh-CN" altLang="ja-JP"\/>/g)).toHaveLength(2);
   });
 
   it('updates alignment without rebuilding other paragraph properties', async () => {
