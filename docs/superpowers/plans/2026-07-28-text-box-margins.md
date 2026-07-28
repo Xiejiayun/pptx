@@ -213,7 +213,7 @@ Expected: typecheck exits 0 and both suites pass.
 
 - [ ] **Step 1: Add PptxGenJS-generated margin shapes**
 
-Generate named shapes for omitted, zero, scalar 10, symmetric tuple `[4, 8, 4, 8]`, fractional `0.125`, and negative `-0.5` margins. Import the actual public `write({ outputType: 'uint8array' })` result and assert direct snapshots before and after this library writes/reopens the deck. Use the symmetric tuple for shared functional parity. Add a separate `[1, 2, 3, 4]` probe and assert its imported snapshot is `{ left: 1, top: 4, right: 2, bottom: 3 }`, documenting PptxGenJS 4.0.1's actual top/left swap without using that order in native creation.
+Generate named shapes for omitted, zero, scalar 10, top/left-equal tuple `[4, 8, 8, 4]`, fractional `0.125`, and negative `-0.5` margins. Import the actual public `write({ outputType: 'uint8array' })` result and assert direct snapshots before and after this library writes/reopens the deck. The top/left-equal tuple remains non-uniform while avoiding the 4.0.1 swap defect, so it tests shared functional parity. Add a separate `[1, 2, 3, 4]` probe and assert its imported snapshot is `{ left: 1, top: 4, right: 2, bottom: 3 }`, documenting PptxGenJS 4.0.1's actual top/left swap without using that order in native creation.
 
 - [ ] **Step 2: Correct and advance the compatibility surface**
 
