@@ -750,7 +750,7 @@ function normalizeStyle(value: unknown, paragraphIndex: number, runIndex: number
   }
   assertSupportedKeys(
     value,
-    ['baseline', 'bold', 'color', 'fontFamily', 'fontSize', 'glow', 'highlight', 'italic', 'outline', 'strike', 'underline'],
+    ['baseline', 'bold', 'characterSpacing', 'color', 'fontFamily', 'fontSize', 'glow', 'highlight', 'italic', 'outline', 'strike', 'underline'],
     `Rich text run ${paragraphIndex},${runIndex} style`,
   );
   const candidate = value as RichTextRunStyle;
@@ -782,6 +782,9 @@ function normalizeStyle(value: unknown, paragraphIndex: number, runIndex: number
   const baseline = candidate.baseline === undefined
     ? undefined
     : normalizeBaseline(candidate.baseline, `${context} baseline`);
+  const characterSpacing = candidate.characterSpacing === undefined
+    ? undefined
+    : normalizeCharacterSpacing(candidate.characterSpacing, `${context} characterSpacing`);
   const color = candidate.color === undefined
     ? undefined
     : normalizeColor(candidate.color, `${context} color`);
@@ -804,6 +807,7 @@ function normalizeStyle(value: unknown, paragraphIndex: number, runIndex: number
     ...(candidate.fontFamily !== undefined ? { fontFamily: candidate.fontFamily } : {}),
     ...(candidate.fontSize !== undefined ? { fontSize: Math.round(candidate.fontSize * 100) / 100 } : {}),
     ...(baseline !== undefined ? { baseline } : {}),
+    ...(characterSpacing !== undefined ? { characterSpacing } : {}),
     ...(candidate.bold !== undefined ? { bold: candidate.bold } : {}),
     ...(candidate.italic !== undefined ? { italic: candidate.italic } : {}),
     ...(color ? { color } : {}),
@@ -813,6 +817,17 @@ function normalizeStyle(value: unknown, paragraphIndex: number, runIndex: number
     ...(underline !== undefined ? { underline } : {}),
     ...(strike !== undefined ? { strike } : {}),
   };
+}
+
+function normalizeCharacterSpacing(value: unknown, context: string): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new TypeError(`${context} must be finite`);
+  }
+  const raw = Math.round(value * 100);
+  if (raw < MIN_COORDINATE_32 || raw > MAX_COORDINATE_32) {
+    throw new RangeError(`${context} must fit the OOXML Int32 point range`);
+  }
+  return raw / 100;
 }
 
 function normalizeBaseline(value: unknown, context: string): RichTextBaseline {
@@ -946,6 +961,8 @@ function renderRun(run: RichTextRun, prefix: string): string {
     style.baseline === undefined
       ? ''
       : `baseline="${style.baseline === 'superscript' ? 30_000 : style.baseline === 'subscript' ? -40_000 : Math.round(style.baseline * 1_000)}"`,
+    style.characterSpacing === undefined ? '' : `spc="${Math.round(style.characterSpacing * 100)}"`,
+    style.characterSpacing === undefined ? '' : 'kern="0"',
     style.bold === undefined ? '' : `b="${style.bold ? 1 : 0}"`,
     style.italic === undefined ? '' : `i="${style.italic ? 1 : 0}"`,
     style.strike === undefined
@@ -1174,6 +1191,7 @@ function readStyle(xml: LosslessXmlDocument, run: XmlElement): RichTextRunStyle 
   if (!properties) return undefined;
   const size = Number.parseInt(xml.attribute(properties, 'sz')?.value ?? '', 10);
   const baseline = readBaseline(xml, properties);
+  const characterSpacing = readCharacterSpacing(xml, properties);
   const font = directChildren(properties, 'latin')[0];
   const fontFamily = font ? xml.attribute(font, 'typeface')?.value : undefined;
   const fill = directChildren(properties, 'solidFill')[0];
@@ -1197,6 +1215,7 @@ function readStyle(xml: LosslessXmlDocument, run: XmlElement): RichTextRunStyle 
     ...(fontFamily !== undefined ? { fontFamily } : {}),
     ...(Number.isFinite(size) && size > 0 ? { fontSize: size / 100 } : {}),
     ...(baseline !== undefined ? { baseline } : {}),
+    ...(characterSpacing !== undefined ? { characterSpacing } : {}),
     ...(bold !== undefined ? { bold } : {}),
     ...(italic !== undefined ? { italic } : {}),
     ...(color ? { color } : {}),
@@ -1207,6 +1226,17 @@ function readStyle(xml: LosslessXmlDocument, run: XmlElement): RichTextRunStyle 
     ...(strike !== undefined ? { strike } : {}),
   };
   return Object.keys(style).length > 0 ? style : undefined;
+}
+
+function readCharacterSpacing(
+  xml: LosslessXmlDocument,
+  properties: XmlElement,
+): number | undefined {
+  if (!xml.attribute(properties, 'spc')) return undefined;
+  const raw = readIntegerAttribute(xml, properties, 'spc');
+  return raw !== undefined && raw >= MIN_COORDINATE_32 && raw <= MAX_COORDINATE_32
+    ? raw / 100
+    : undefined;
 }
 
 function readBaseline(

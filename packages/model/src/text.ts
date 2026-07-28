@@ -102,6 +102,7 @@ export interface RichTextRunStyle {
   readonly fontFamily?: string;
   readonly fontSize?: number;
   readonly baseline?: RichTextBaseline;
+  readonly characterSpacing?: number;
   readonly bold?: boolean;
   readonly italic?: boolean;
   readonly color?: RichTextColor;

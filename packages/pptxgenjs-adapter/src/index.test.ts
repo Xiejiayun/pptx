@@ -214,6 +214,17 @@ describe('importPptxGenJS', () => {
       ],
       { x: 9, y: 8, w: 3, h: 1 },
     );
+    generatedSlide.addText(
+      [
+        { text: 'Positive', options: { charSpacing: 2.5 } },
+        { text: ' Negative', options: { charSpacing: -1.25 } },
+        { text: ' Fraction', options: { charSpacing: 0.004 } },
+        { text: ' Zero', options: { charSpacing: 0 } },
+        { text: ' Combined', options: { charSpacing: 3, baseline: 600 } },
+        { text: ' None', options: {} },
+      ],
+      { x: 9, y: 9, w: 3, h: 1 },
+    );
     const document = await importPptxGenJS(generated);
     expect(document.slides[0]?.title.text).toBe('Created by PptxGenJS');
     expect((document.slides[0]!.shapes[0] as ShapeModel).richText[0]!.align).toBe('center');
@@ -339,6 +350,9 @@ describe('importPptxGenJS', () => {
     expect((document.slides[0]!.shapes[22] as ShapeModel).richText[0]!.runs.map(
       ({ style }) => style?.baseline,
     )).toEqual(['superscript', 'subscript', 'superscript', 'subscript', 0.075, undefined, undefined]);
+    const spaced = (document.slides[0]!.shapes[23] as ShapeModel).richText[0]!.runs;
+    expect(spaced.map(({ style }) => style?.characterSpacing)).toEqual([2.5, -1.25, 0, undefined, 3, undefined]);
+    expect(spaced[4]!.style!.baseline).toBe('superscript');
     document.slides[0]!.title.text = 'Edited by the OOXML kernel';
     document.duplicateSlide(0);
 
@@ -433,6 +447,10 @@ describe('importPptxGenJS', () => {
     expect((reopened.slides[1]!.shapes[22] as ShapeModel).richText[0]!.runs.map(
       ({ style }) => style?.baseline,
     )).toEqual(['superscript', 'subscript', 'superscript', 'subscript', 0.075, undefined, undefined]);
+    const reopenedSpaced = (reopened.slides[1]!.shapes[23] as ShapeModel).richText[0]!.runs;
+    expect(reopenedSpaced.map(({ style }) => style?.characterSpacing))
+      .toEqual([2.5, -1.25, 0, undefined, 3, undefined]);
+    expect(reopenedSpaced[4]!.style!.baseline).toBe('superscript');
   });
 
   it('keeps pptxgenjs out of every non-adapter package dependency list', async () => {

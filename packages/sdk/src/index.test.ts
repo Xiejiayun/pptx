@@ -1060,6 +1060,72 @@ describe('PptxDocument vertical slice', () => {
     expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
   });
 
+  it('creates, edits, duplicates, and reopens rich text character spacing', async () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const shape = slide.addRichText([{
+      runs: [
+        { text: 'Expanded', style: { characterSpacing: 2.5 } },
+        { text: 'Condensed', style: { characterSpacing: -1.25 } },
+        { text: 'Normal', style: { characterSpacing: 0 } },
+        { text: 'Quantized', style: { characterSpacing: 0.004 } },
+        { text: 'Minimum', style: { characterSpacing: -21_474_836.48 } },
+        { text: 'Maximum', style: { characterSpacing: 21_474_836.47 } },
+        {
+          text: 'Combined',
+          style: {
+            baseline: 'superscript',
+            characterSpacing: 3,
+            glow: { color: { kind: 'scheme', value: 'accent3' }, opacity: 0.25, size: 6 },
+            outline: { color: { kind: 'scheme', value: 'accent2' }, size: 0.75 },
+            strike: 'dblStrike',
+            underline: { style: 'dbl' },
+          },
+        },
+      ],
+    }]);
+
+    expect(shape.richText[0]!.runs.map(({ style }) => style?.characterSpacing)).toEqual([
+      2.5,
+      -1.25,
+      0,
+      0,
+      -21_474_836.48,
+      21_474_836.47,
+      3,
+    ]);
+    const createdXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(createdXml).toContain('spc="250" kern="0"');
+    expect(createdXml.match(/spc="0" kern="0"/g)).toHaveLength(2);
+    expect(createdXml).toContain('baseline="30000" spc="300" kern="0"');
+
+    document.duplicateSlide(0);
+    shape.richText = [{
+      runs: [
+        { text: 'Changed', style: { characterSpacing: -2.75 } },
+        { text: 'Cleared' },
+      ],
+    }];
+    expect(shape.richText[0]!.runs.map(({ style }) => style?.characterSpacing)).toEqual([-2.75, undefined]);
+
+    const beforeRollback = document.opcPackage.requirePart(slide.partUri).bytes;
+    expect(() =>
+      document.transaction(() => {
+        shape.richText = [{ runs: [{ text: 'Rollback', style: { characterSpacing: 4 } }] }];
+        throw new Error('restore character spacing');
+      }),
+    ).toThrow('restore character spacing');
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(beforeRollback);
+    expect(slide.shapes[0]).toBe(shape);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const edited = reopened.slides[0]!.shapes[0] as ShapeModel;
+    const duplicated = reopened.slides[1]!.shapes[0] as ShapeModel;
+    expect(edited.richText[0]!.runs.map(({ style }) => style?.characterSpacing)).toEqual([-2.75, undefined]);
+    expect(duplicated.richText[0]!.runs[0]!.style!.characterSpacing).toBe(2.5);
+    expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+  });
+
   it('creates, edits, duplicates, and reopens rich text highlight colors', async () => {
     const document = PptxDocument.create();
     const slide = document.addSlide();
@@ -1396,6 +1462,15 @@ describe('PptxDocument vertical slice', () => {
       [{ runs: [{ text: 'x', style: { baseline: Number.POSITIVE_INFINITY } }] }],
       [{ runs: [{ text: 'x', style: { baseline: -2_147_483.649 } }] }],
       [{ runs: [{ text: 'x', style: { baseline: 2_147_483.648 } }] }],
+      [{ runs: [{ text: 'x', style: { characterSpacing: null } }] }],
+      [{ runs: [{ text: 'x', style: { characterSpacing: true } }] }],
+      [{ runs: [{ text: 'x', style: { characterSpacing: '1' } }] }],
+      [{ runs: [{ text: 'x', style: { characterSpacing: {} } }] }],
+      [{ runs: [{ text: 'x', style: { characterSpacing: [] } }] }],
+      [{ runs: [{ text: 'x', style: { characterSpacing: Number.NaN } }] }],
+      [{ runs: [{ text: 'x', style: { characterSpacing: Number.POSITIVE_INFINITY } }] }],
+      [{ runs: [{ text: 'x', style: { characterSpacing: -21_474_836.49 } }] }],
+      [{ runs: [{ text: 'x', style: { characterSpacing: 21_474_836.48 } }] }],
       [{ runs: [{ text: 'x', style: { glow: null } }] }],
       [{ runs: [{ text: 'x', style: { glow: true } }] }],
       [{ runs: [{ text: 'x', style: { glow: 'red' } }] }],
