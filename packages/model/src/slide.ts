@@ -9,20 +9,23 @@ import type { Relationship } from '@pptx/opc';
 import { ModelParseError } from './errors.js';
 import type { PresentationModel } from './presentation.js';
 import {
+  normalizeParagraphBullet,
   normalizeRichText,
   normalizeTextAlignment,
   readRichText,
   renderParagraphProperties,
   renderRichTextParagraphs,
   replaceRichText,
+  type NormalizedParagraphBullet,
 } from './rich-text.internal.js';
 import { decodeShape, ShapeModel, type SemanticShape } from './shapes.js';
-import type { RichTextParagraph, TextAlignment } from './text.js';
+import type { ParagraphBullet, RichTextParagraph, TextAlignment } from './text.js';
 import { inches, type Transform } from './units.js';
 
 export interface AddTextOptions extends Partial<Transform> {
   readonly name?: string;
   readonly align?: TextAlignment;
+  readonly bullet?: ParagraphBullet;
 }
 
 export class SlideTitleModel {
@@ -181,7 +184,11 @@ export class SlideModel {
   addText(value: string, options: AddTextOptions = {}): ShapeModel {
     return this.presentation.opcPackage.transaction(() => {
       const normalized = validateTextInput(value, options);
-      const paragraphs = normalized.split('\n').map((line) => textParagraphXml(line, 'a:', options.align)).join('');
+      const bullet = normalized.bullet === false ? undefined : normalized.bullet;
+      const paragraphs = normalized.value
+        .split('\n')
+        .map((line) => textParagraphXml(line, 'a:', options.align, bullet))
+        .join('');
       return this.addTextShape(paragraphs, options);
     });
   }
@@ -189,10 +196,11 @@ export class SlideModel {
   addRichText(value: readonly RichTextParagraph[], options: AddTextOptions = {}): ShapeModel {
     return this.presentation.opcPackage.transaction(() => {
       const paragraphs = normalizeRichText(value);
-      validateAddTextOptions(options);
+      const bullet = validateAddTextOptions(options);
       return this.addTextShape(
         renderRichTextParagraphs(paragraphs, {
           ...(options.align ? { defaultAlign: options.align } : {}),
+          ...(bullet !== undefined ? { defaultBullet: bullet } : {}),
         }),
         options,
       );
@@ -269,13 +277,21 @@ function setAttribute(xml: LosslessXmlDocument, element: XmlElement, name: strin
   xml.replace(insertionPoint, insertionPoint, ` ${name}="${value}"`);
 }
 
-function validateTextInput(value: string, options: AddTextOptions): string {
-  const normalized = validatePlainText(value);
-  validateAddTextOptions(options);
-  return normalized;
+interface NormalizedTextInput {
+  readonly value: string;
+  readonly bullet: NormalizedParagraphBullet | false | undefined;
 }
 
-function validateAddTextOptions(options: AddTextOptions): void {
+function validateTextInput(value: string, options: AddTextOptions): NormalizedTextInput {
+  return {
+    value: validatePlainText(value),
+    bullet: validateAddTextOptions(options),
+  };
+}
+
+function validateAddTextOptions(
+  options: AddTextOptions,
+): NormalizedParagraphBullet | false | undefined {
   if (options.name !== undefined && typeof options.name !== 'string') {
     throw new TypeError('Text shape name must be a string');
   }
@@ -308,6 +324,9 @@ function validateAddTextOptions(options: AddTextOptions): void {
   if (options.height !== undefined && Math.round(options.height) <= 0) {
     throw new RangeError('Text shape height must be greater than zero');
   }
+  return options.bullet === undefined
+    ? undefined
+    : normalizeParagraphBullet(options.bullet, 'Text bullet');
 }
 
 function validatePlainText(value: string): string {
@@ -342,8 +361,13 @@ function textShapeXml(id: number, paragraphs: string, options: AddTextOptions): 
   return `<p:sp xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><p:nvSpPr><p:cNvPr id="${id}" name="${name}"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm${transformAttributes}><a:off x="${x}" y="${y}"/><a:ext cx="${width}" cy="${height}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></p:spPr><p:txBody><a:bodyPr wrap="square" rtlCol="0" anchor="ctr"/><a:lstStyle/>${paragraphs}</p:txBody></p:sp>`;
 }
 
-function textParagraphXml(value: string, prefix = 'a:', align?: TextAlignment): string {
-  const properties = renderParagraphProperties(undefined, prefix, align);
+function textParagraphXml(
+  value: string,
+  prefix = 'a:',
+  align?: TextAlignment,
+  bullet?: NormalizedParagraphBullet,
+): string {
+  const properties = renderParagraphProperties(undefined, prefix, align, bullet);
   const endProperties = `<${prefix}endParaRPr lang="en-US" dirty="0"/>`;
   if (value.length === 0) return `<${prefix}p>${properties}${endProperties}</${prefix}p>`;
   return `<${prefix}p>${properties}${defaultTextRunXml(value, prefix)}${endProperties}</${prefix}p>`;

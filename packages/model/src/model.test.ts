@@ -245,11 +245,72 @@ describe('PresentationModel', () => {
 
     const updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
     expect(updated).toContain('<a:pPr algn="ctr" marL="111" custom="FIRST"><a:buNone/><x:first xmlns:x="urn:test"/></a:pPr>');
-    expect(updated).toContain('<a:pPr algn="just" marL="222" custom="SECOND"><a:spcBef><a:spcPts val="300"/></a:spcBef></a:pPr>');
-    expect(updated).toContain('<a:pPr marL="333" custom="THIRD"><x:third xmlns:x="urn:test"/></a:pPr>');
-    expect(updated).toContain('<a:pPr algn="r"/>');
+    expect(updated).toContain('<a:pPr algn="just" marL="222" custom="SECOND"><a:spcBef><a:spcPts val="300"/></a:spcBef><a:buNone/></a:pPr>');
+    expect(updated).toContain('<a:pPr marL="333" custom="THIRD"><x:third xmlns:x="urn:test"/><a:buNone/></a:pPr>');
+    expect(updated).toContain('<a:pPr algn="r"><a:buNone/></a:pPr>');
     expect(updated).toContain('<a:pPr algn="l" marL="111" custom="FIRST"><a:buNone/><x:first xmlns:x="urn:test"/></a:pPr>');
     expect(shape.richText.map(({ align }) => align)).toEqual(['center', 'justify', undefined, 'right', 'left']);
+  });
+
+  it('reads and replaces bullet choices without rebuilding unrelated paragraph properties', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.slides[1]!;
+    const part = pkg.requirePart(slide.partUri);
+    pkg.setPart(
+      part.uri,
+      new TextDecoder().decode(part.bytes).replace(
+        '<a:p><a:r><a:t>First title</a:t></a:r></a:p>',
+        '<a:p><a:pPr algn="r" marL="228600" indent="-228600" custom="FIRST"><a:spcBef><a:spcPts val="300"/></a:spcBef><a:buClr><a:srgbClr val="FF0000"/></a:buClr><a:buSzPts val="1400"/><a:buFont typeface="Wingdings"/><a:buChar char="◆"/><a:tabLst><a:tab pos="500000" algn="l"/></a:tabLst><a:defRPr sz="1600"/><a:extLst><a:ext uri="urn:test"><x:keep xmlns:x="urn:test">KEEP</x:keep></a:ext></a:extLst></a:pPr><a:r><a:t>Bullet</a:t></a:r></a:p><a:p><a:pPr marL="304800" indent="-100000" custom="SECOND"><a:spcAft><a:spcPts val="400"/></a:spcAft><a:buSzPct val="100000"/><a:buFont typeface="+mj-lt"/><a:buAutoNum type="romanLcParenR" startAt="4"/></a:pPr><a:r><a:t>Number</a:t></a:r></a:p><a:p><a:pPr><a:buAutoNum type="hebrew2Minus" startAt="2"/></a:pPr><a:r><a:t>Unknown number</a:t></a:r></a:p><a:p><a:pPr><a:buBlip><a:blip r:embed="rId1"/></a:buBlip></a:pPr><a:r><a:t>Picture bullet</a:t></a:r></a:p>',
+      ),
+      part.contentType,
+    );
+    const shape = slide.shapes[0] as ShapeModel;
+    const journal = [...pkg.mutations];
+
+    expect(shape.richText.map(({ bullet }) => bullet)).toEqual([
+      { kind: 'bullet', character: '◆', indent: 18 },
+      { kind: 'number', style: 'romanLcParenR', startAt: 4, indent: 24 },
+      undefined,
+      undefined,
+    ]);
+    expect(pkg.mutations).toEqual(journal);
+
+    shape.richText = [
+      {
+        runs: [{ text: 'Numbered' }],
+        align: 'left',
+        bullet: { kind: 'number', style: 'alphaUcPeriod', startAt: 2, indent: 20 },
+      },
+      { runs: [{ text: 'No bullet' }], align: 'center' },
+      { runs: [{ text: 'Custom' }], bullet: { kind: 'bullet', character: '▶', indent: 19 } },
+      { runs: [{ text: 'Cleared picture' }] },
+    ];
+
+    const updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    const firstStart = updated.indexOf('<a:pPr algn="l" marL="254000" indent="-254000" custom="FIRST">');
+    const firstEnd = updated.indexOf('</a:pPr>', firstStart);
+    const firstProperties = updated.slice(firstStart, firstEnd);
+    expect(firstStart).toBeGreaterThan(-1);
+    expect(firstProperties.indexOf('<a:spcBef>')).toBeLessThan(firstProperties.indexOf('<a:buSzPct'));
+    expect(firstProperties.indexOf('<a:buSzPct')).toBeLessThan(firstProperties.indexOf('<a:buFont'));
+    expect(firstProperties.indexOf('<a:buFont')).toBeLessThan(firstProperties.indexOf('<a:buAutoNum'));
+    expect(firstProperties.indexOf('<a:buAutoNum')).toBeLessThan(firstProperties.indexOf('<a:tabLst>'));
+    expect(firstProperties.indexOf('<a:tabLst>')).toBeLessThan(firstProperties.indexOf('<a:defRPr'));
+    expect(firstProperties.indexOf('<a:defRPr')).toBeLessThan(firstProperties.indexOf('<a:extLst>'));
+    expect(firstProperties).toContain('<a:buAutoNum type="alphaUcPeriod" startAt="2"/>');
+    expect(firstProperties).toContain('<x:keep xmlns:x="urn:test">KEEP</x:keep>');
+    expect(updated).toContain('<a:pPr marL="304800" indent="-100000" custom="SECOND" algn="ctr"><a:spcAft><a:spcPts val="400"/></a:spcAft><a:buNone/></a:pPr>');
+    expect(updated).toContain('<a:buChar char="▶"/>');
+    expect(updated).not.toContain('Wingdings');
+    expect(updated).not.toContain('hebrew2Minus');
+    expect(updated).not.toContain('<a:buBlip>');
+    expect(shape.richText.map(({ bullet }) => bullet)).toEqual([
+      { kind: 'number', style: 'alphaUcPeriod', startAt: 2, indent: 20 },
+      undefined,
+      { kind: 'bullet', character: '▶', indent: 19 },
+      undefined,
+    ]);
   });
 
   it('does not mutate malformed text shapes that lack a text body or paragraph', async () => {

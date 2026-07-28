@@ -49,6 +49,28 @@ describe('importPptxGenJS', () => {
       ],
       { x: 1, y: 3, w: 7, h: 2, align: 'left' },
     );
+    generatedSlide.addText('Standard\nSecond', { x: 1, y: 5, w: 3, h: 1, bullet: true });
+    generatedSlide.addText('Custom', {
+      x: 4,
+      y: 5,
+      w: 3,
+      h: 1,
+      bullet: { characterCode: '25BA', indent: 18 },
+    });
+    generatedSlide.addText('Public numberType', {
+      x: 7,
+      y: 5,
+      w: 3,
+      h: 1,
+      bullet: { type: 'number', numberType: 'romanUcPeriod', numberStartAt: 3, indent: 22 },
+    });
+    generatedSlide.addText('Deprecated style', {
+      x: 10,
+      y: 5,
+      w: 2,
+      h: 1,
+      bullet: { type: 'number', style: 'romanLcParenR', startAt: 4, indent: 24 },
+    });
     const document = await importPptxGenJS(generated);
     expect(document.slides[0]?.title.text).toBe('Created by PptxGenJS');
     expect((document.slides[0]!.shapes[0] as ShapeModel).richText[0]!.align).toBe('center');
@@ -80,6 +102,27 @@ describe('importPptxGenJS', () => {
           ? { align: paragraph.align }
           : {}),
     }));
+    expect((document.slides[0]!.shapes[3] as ShapeModel).richText.map(({ bullet }) => bullet)).toEqual([
+      { kind: 'bullet', character: '•', indent: 27 },
+      { kind: 'bullet', character: '•', indent: 27 },
+    ]);
+    expect((document.slides[0]!.shapes[4] as ShapeModel).richText[0]!.bullet).toEqual({
+      kind: 'bullet',
+      character: '►',
+      indent: 18,
+    });
+    expect((document.slides[0]!.shapes[5] as ShapeModel).richText[0]!.bullet).toEqual({
+      kind: 'number',
+      style: 'arabicPeriod',
+      startAt: 3,
+      indent: 22,
+    });
+    expect((document.slides[0]!.shapes[6] as ShapeModel).richText[0]!.bullet).toEqual({
+      kind: 'number',
+      style: 'romanLcParenR',
+      startAt: 4,
+      indent: 24,
+    });
     document.slides[0]!.title.text = 'Edited by the OOXML kernel';
     document.duplicateSlide(0);
 
@@ -99,6 +142,16 @@ describe('importPptxGenJS', () => {
       'right',
       'center',
     ]);
+    expect((reopened.slides[1]!.shapes[4] as ShapeModel).richText[0]!.bullet).toEqual({
+      kind: 'bullet',
+      character: '►',
+      indent: 18,
+    });
+    expect((reopened.slides[1]!.shapes[6] as ShapeModel).richText[0]!.bullet).toMatchObject({
+      kind: 'number',
+      style: 'romanLcParenR',
+      startAt: 4,
+    });
   });
 
   it('keeps pptxgenjs out of every non-adapter package dependency list', async () => {

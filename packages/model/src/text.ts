@@ -4,6 +4,39 @@ export type RichTextColor =
 
 export type TextAlignment = 'left' | 'center' | 'right' | 'justify';
 
+export type NumberingStyle =
+  | 'alphaLcParenBoth'
+  | 'alphaLcParenR'
+  | 'alphaLcPeriod'
+  | 'alphaUcParenBoth'
+  | 'alphaUcParenR'
+  | 'alphaUcPeriod'
+  | 'arabicParenBoth'
+  | 'arabicParenR'
+  | 'arabicPeriod'
+  | 'arabicPlain'
+  | 'romanLcParenBoth'
+  | 'romanLcParenR'
+  | 'romanLcPeriod'
+  | 'romanUcParenBoth'
+  | 'romanUcParenR'
+  | 'romanUcPeriod';
+
+export interface CharacterBullet {
+  readonly kind: 'bullet';
+  readonly character?: string;
+  readonly indent?: number;
+}
+
+export interface NumberedBullet {
+  readonly kind: 'number';
+  readonly style?: NumberingStyle;
+  readonly startAt?: number;
+  readonly indent?: number;
+}
+
+export type ParagraphBullet = boolean | CharacterBullet | NumberedBullet;
+
 export interface RichTextRunStyle {
   readonly fontFamily?: string;
   readonly fontSize?: number;
@@ -21,4 +54,5 @@ export interface RichTextRun {
 export interface RichTextParagraph {
   readonly runs: readonly RichTextRun[];
   readonly align?: TextAlignment;
+  readonly bullet?: ParagraphBullet;
 }

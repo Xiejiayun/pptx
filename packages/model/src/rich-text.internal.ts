@@ -6,6 +6,10 @@ import {
 } from '@pptx/lossless-xml';
 import { ModelParseError } from './errors.js';
 import type {
+  CharacterBullet,
+  NumberedBullet,
+  NumberingStyle,
+  ParagraphBullet,
   RichTextColor,
   RichTextParagraph,
   RichTextRun,
@@ -23,6 +27,53 @@ const TEXT_ALIGNMENT_TO_OOXML: Readonly<Record<TextAlignment, string>> = {
 const OOXML_TO_TEXT_ALIGNMENT = new Map(
   Object.entries(TEXT_ALIGNMENT_TO_OOXML).map(([alignment, value]) => [value, alignment as TextAlignment]),
 );
+
+const NUMBERING_STYLES = new Set<NumberingStyle>([
+  'alphaLcParenBoth',
+  'alphaLcParenR',
+  'alphaLcPeriod',
+  'alphaUcParenBoth',
+  'alphaUcParenR',
+  'alphaUcPeriod',
+  'arabicParenBoth',
+  'arabicParenR',
+  'arabicPeriod',
+  'arabicPlain',
+  'romanLcParenBoth',
+  'romanLcParenR',
+  'romanLcPeriod',
+  'romanUcParenBoth',
+  'romanUcParenR',
+  'romanUcPeriod',
+]);
+
+const BULLET_ELEMENT_NAMES = new Set([
+  'buClrTx',
+  'buClr',
+  'buSzTx',
+  'buSzPct',
+  'buSzPts',
+  'buFontTx',
+  'buFont',
+  'buNone',
+  'buAutoNum',
+  'buChar',
+  'buBlip',
+]);
+
+const BULLET_INSERTION_FOLLOWERS = new Set(['tabLst', 'defRPr', 'extLst']);
+const DEFAULT_BULLET_CHARACTER = '•';
+const DEFAULT_BULLET_INDENT = 27;
+
+export type NormalizedParagraphBullet =
+  | Required<CharacterBullet>
+  | Required<NumberedBullet>;
+
+interface NormalizedRichTextParagraph {
+  readonly runs: readonly RichTextRun[];
+  readonly align?: TextAlignment;
+  readonly bullet?: NormalizedParagraphBullet | false;
+}
 
 const SCHEME_COLORS = new Set([
   'accent1',
@@ -44,7 +95,7 @@ const SCHEME_COLORS = new Set([
   'tx2',
 ]);
 
-export function normalizeRichText(value: unknown): readonly RichTextParagraph[] {
+export function normalizeRichText(value: unknown): readonly NormalizedRichTextParagraph[] {
   if (!Array.isArray(value) || value.length === 0) {
     throw new TypeError('Rich text must contain at least one paragraph');
   }
@@ -52,16 +103,20 @@ export function normalizeRichText(value: unknown): readonly RichTextParagraph[] 
     if (!paragraph || typeof paragraph !== 'object' || Array.isArray(paragraph)) {
       throw new TypeError(`Rich text paragraph ${paragraphIndex} must be an object`);
     }
-    assertSupportedKeys(paragraph, ['align', 'runs'], `Rich text paragraph ${paragraphIndex}`);
-    const candidate = paragraph as { align?: unknown; runs?: unknown };
+    assertSupportedKeys(paragraph, ['align', 'bullet', 'runs'], `Rich text paragraph ${paragraphIndex}`);
+    const candidate = paragraph as { align?: unknown; bullet?: unknown; runs?: unknown };
     const runs = candidate.runs;
     if (!Array.isArray(runs)) throw new TypeError(`Rich text paragraph ${paragraphIndex} runs must be an array`);
     const align = candidate.align === undefined
       ? undefined
       : normalizeTextAlignment(candidate.align, `Rich text paragraph ${paragraphIndex} align`);
+    const bullet = candidate.bullet === undefined
+      ? undefined
+      : normalizeParagraphBullet(candidate.bullet, `Rich text paragraph ${paragraphIndex} bullet`);
     return {
       runs: runs.map((run, runIndex) => normalizeRun(run, paragraphIndex, runIndex)),
       ...(align ? { align } : {}),
+      ...(bullet !== undefined ? { bullet } : {}),
     };
   });
 }
@@ -69,23 +124,27 @@ export function normalizeRichText(value: unknown): readonly RichTextParagraph[] 
 interface RenderRichTextOptions {
   readonly prefix?: string;
   readonly defaultAlign?: TextAlignment;
+  readonly defaultBullet?: NormalizedParagraphBullet | false;
   readonly paragraphProperties?: readonly (string | undefined)[];
   readonly endParagraphProperties?: string;
 }
 
 export function renderRichTextParagraphs(
-  paragraphs: readonly RichTextParagraph[],
+  paragraphs: readonly NormalizedRichTextParagraph[],
   options: RenderRichTextOptions = {},
 ): string {
   const prefix = options.prefix ?? 'a:';
   const defaultEndProperties = `<${prefix}endParaRPr lang="en-US" dirty="0"/>`;
   return paragraphs
     .map(
-      ({ align, runs }, index) =>
+      ({ align, bullet, runs }, index) =>
         `<${prefix}p>${renderParagraphProperties(
           options.paragraphProperties?.[index] ?? options.paragraphProperties?.[0],
           prefix,
           align ?? options.defaultAlign,
+          bullet === false
+            ? undefined
+            : bullet ?? (options.defaultBullet === false ? undefined : options.defaultBullet),
         )}${runs
           .map((run) => renderRun(run, prefix))
           .join('')}${options.endParagraphProperties ?? defaultEndProperties}</${prefix}p>`,
@@ -98,9 +157,11 @@ export function readRichText(xml: LosslessXmlDocument, element: XmlElement): rea
   if (!textBody) return [];
   return directChildren(textBody, 'p').map((paragraph) => {
     const align = readParagraphAlignment(xml, paragraph);
+    const bullet = readParagraphBullet(xml, paragraph);
     return {
       runs: readRuns(xml, paragraph),
       ...(align ? { align } : {}),
+      ...(bullet ? { bullet } : {}),
     };
   });
 }
@@ -108,7 +169,7 @@ export function readRichText(xml: LosslessXmlDocument, element: XmlElement): rea
 export function replaceRichText(
   xml: LosslessXmlDocument,
   element: XmlElement,
-  paragraphs: readonly RichTextParagraph[],
+  paragraphs: readonly NormalizedRichTextParagraph[],
   partUri: string,
   save: (xml: string) => void,
 ): void {
@@ -140,27 +201,112 @@ export function normalizeTextAlignment(value: unknown, context: string): TextAli
   return value as TextAlignment;
 }
 
+export function normalizeParagraphBullet(
+  value: unknown,
+  context: string,
+): NormalizedParagraphBullet | false {
+  if (typeof value === 'boolean') {
+    return value
+      ? { kind: 'bullet', character: DEFAULT_BULLET_CHARACTER, indent: DEFAULT_BULLET_INDENT }
+      : false;
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new TypeError(`${context} must be a boolean or bullet configuration object`);
+  }
+  const candidate = value as {
+    character?: unknown;
+    indent?: unknown;
+    kind?: unknown;
+    startAt?: unknown;
+    style?: unknown;
+  };
+  if (candidate.kind === 'bullet') {
+    assertSupportedKeys(value, ['character', 'indent', 'kind'], context);
+    return {
+      kind: 'bullet',
+      character: normalizeBulletCharacter(candidate.character, context),
+      indent: normalizeBulletIndent(candidate.indent, context),
+    };
+  }
+  if (candidate.kind === 'number') {
+    assertSupportedKeys(value, ['indent', 'kind', 'startAt', 'style'], context);
+    return {
+      kind: 'number',
+      style: normalizeNumberingStyle(candidate.style, context),
+      startAt: normalizeNumberingStart(candidate.startAt, context),
+      indent: normalizeBulletIndent(candidate.indent, context),
+    };
+  }
+  throw new TypeError(`${context} kind must be bullet or number`);
+}
+
 export function renderParagraphProperties(
   template: string | undefined,
   prefix: string,
   alignment: TextAlignment | undefined,
+  bullet?: NormalizedParagraphBullet,
 ): string {
-  if (!template) {
-    const align = alignment ? ` algn="${TEXT_ALIGNMENT_TO_OOXML[alignment]}"` : '';
-    return `<${prefix}pPr${align} indent="0" marL="0"><${prefix}buNone/></${prefix}pPr>`;
+  const align = alignment ? ` algn="${TEXT_ALIGNMENT_TO_OOXML[alignment]}"` : '';
+  const initial = template ?? `<${prefix}pPr${align} indent="0" marL="0"><${prefix}buNone/></${prefix}pPr>`;
+  const aligned = template
+    ? updateParagraphAttribute(
+        initial,
+        'algn',
+        alignment ? TEXT_ALIGNMENT_TO_OOXML[alignment] : undefined,
+      )
+    : initial;
+  return renderParagraphBullet(aligned, prefix, bullet);
+}
+
+function renderParagraphBullet(
+  template: string,
+  prefix: string,
+  bullet: NormalizedParagraphBullet | undefined,
+): string {
+  const source = LosslessXmlDocument.parse(template);
+  const sourceRoot = requireParagraphPropertiesRoot(source);
+  const sourceChildren = directChildren(sourceRoot);
+  const sourceBulletChildren = sourceChildren.filter(({ localName }) => BULLET_ELEMENT_NAMES.has(localName));
+  const hadActiveBullet = sourceChildren.some(({ localName }) => ['buChar', 'buAutoNum', 'buBlip'].includes(localName));
+  const margin = readIntegerAttribute(source, sourceRoot, 'marL');
+  const indent = readIntegerAttribute(source, sourceRoot, 'indent');
+  let withIndent = template;
+  if (bullet) {
+    const marginEmu = Math.round(bullet.indent * 12700);
+    withIndent = updateParagraphAttribute(withIndent, 'marL', String(marginEmu));
+    withIndent = updateParagraphAttribute(withIndent, 'indent', String(-marginEmu));
+  } else if (hadActiveBullet && margin !== undefined && indent === -margin) {
+    withIndent = updateParagraphAttribute(withIndent, 'marL', '0');
+    withIndent = updateParagraphAttribute(withIndent, 'indent', '0');
   }
+  if (!bullet && sourceBulletChildren.length === 1 && sourceBulletChildren[0]?.localName === 'buNone') {
+    return withIndent;
+  }
+
+  const properties = LosslessXmlDocument.parse(withIndent);
+  const root = requireParagraphPropertiesRoot(properties);
+  const children = directChildren(root);
+  for (const child of children) {
+    if (BULLET_ELEMENT_NAMES.has(child.localName)) properties.removeElement(child);
+  }
+  const bulletXml = renderBulletXml(prefix, bullet);
+  const follower = children.find((child) => BULLET_INSERTION_FOLLOWERS.has(child.localName));
+  if (follower) properties.replace(follower.start, follower.start, bulletXml);
+  else properties.appendChildXml(root, bulletXml);
+  return properties.serialize();
+}
+
+function updateParagraphAttribute(template: string, name: string, value: string | undefined): string {
   const properties = LosslessXmlDocument.parse(template);
-  const root = properties.roots[0];
-  if (!root || root.localName !== 'pPr') throw new ModelParseError('Invalid paragraph properties template');
-  const attribute = properties.attribute(root, 'algn');
-  if (alignment) {
-    const value = TEXT_ALIGNMENT_TO_OOXML[alignment];
+  const root = requireParagraphPropertiesRoot(properties);
+  const attribute = properties.attribute(root, name);
+  if (value !== undefined) {
     if (attribute) properties.replaceAttribute(attribute, value);
     else {
       const insertionPoint = root.selfClosing
         ? properties.source.lastIndexOf('/', root.startTagEnd - 1)
         : root.startTagEnd - 1;
-      properties.replace(insertionPoint, insertionPoint, ` algn="${value}"`);
+      properties.replace(insertionPoint, insertionPoint, ` ${name}="${escapeXmlAttribute(value)}"`);
     }
   } else if (attribute) {
     let start = attribute.start;
@@ -168,6 +314,68 @@ export function renderParagraphProperties(
     properties.replace(start, attribute.end, '');
   }
   return properties.serialize();
+}
+
+function renderBulletXml(prefix: string, bullet: NormalizedParagraphBullet | undefined): string {
+  if (!bullet) return `<${prefix}buNone/>`;
+  if (bullet.kind === 'bullet') {
+    return `<${prefix}buSzPct val="100000"/><${prefix}buChar char="${escapeXmlAttribute(bullet.character)}"/>`;
+  }
+  return `<${prefix}buSzPct val="100000"/><${prefix}buFont typeface="+mj-lt"/><${prefix}buAutoNum type="${bullet.style}" startAt="${bullet.startAt}"/>`;
+}
+
+function requireParagraphPropertiesRoot(xml: LosslessXmlDocument): XmlElement {
+  const root = xml.roots[0];
+  if (!root || root.localName !== 'pPr') throw new ModelParseError('Invalid paragraph properties template');
+  return root;
+}
+
+function normalizeBulletCharacter(value: unknown, context: string): string {
+  const character = value === undefined ? DEFAULT_BULLET_CHARACTER : value;
+  if (typeof character !== 'string') throw new TypeError(`${context} character must be a string`);
+  if (!isValidBulletCharacter(character)) {
+    throw new TypeError(`${context} character must contain one valid Unicode character`);
+  }
+  return character;
+}
+
+function isValidBulletCharacter(character: string): boolean {
+  const codePoint = character.codePointAt(0);
+  return [...character].length === 1
+    && codePoint !== undefined
+    && !(codePoint >= 0xD800 && codePoint <= 0xDFFF)
+    && !/\p{Cc}/u.test(character)
+    && !containsInvalidXmlCharacter(character)
+    && codePoint !== 0xFFFE
+    && codePoint !== 0xFFFF;
+}
+
+function normalizeBulletIndent(value: unknown, context: string): number {
+  const indent = value === undefined ? DEFAULT_BULLET_INDENT : value;
+  if (typeof indent !== 'number' || !Number.isFinite(indent)) {
+    throw new TypeError(`${context} indent must be finite`);
+  }
+  if (indent < 0 || indent > 4032) throw new RangeError(`${context} indent must be between 0 and 4032 points`);
+  return Math.round(indent * 100) / 100;
+}
+
+function normalizeNumberingStyle(value: unknown, context: string): NumberingStyle {
+  const style = value === undefined ? 'arabicPeriod' : value;
+  if (typeof style !== 'string' || !NUMBERING_STYLES.has(style as NumberingStyle)) {
+    throw new TypeError(`${context} style is unsupported`);
+  }
+  return style as NumberingStyle;
+}
+
+function normalizeNumberingStart(value: unknown, context: string): number {
+  const startAt = value === undefined ? 1 : value;
+  if (typeof startAt !== 'number' || !Number.isInteger(startAt)) {
+    throw new TypeError(`${context} startAt must be an integer`);
+  }
+  if (startAt < 1 || startAt > 32767) {
+    throw new RangeError(`${context} startAt must be between 1 and 32767`);
+  }
+  return startAt;
 }
 
 function normalizeRun(value: unknown, paragraphIndex: number, runIndex: number): RichTextRun {
@@ -320,6 +528,58 @@ function readParagraphAlignment(
   return value ? OOXML_TO_TEXT_ALIGNMENT.get(value) : undefined;
 }
 
+function readParagraphBullet(
+  xml: LosslessXmlDocument,
+  paragraph: XmlElement,
+): CharacterBullet | NumberedBullet | undefined {
+  const properties = directChildren(paragraph, 'pPr')[0];
+  if (!properties) return undefined;
+  const indent = readBulletIndent(xml, properties);
+  const characterElement = directChildren(properties, 'buChar')[0];
+  const character = characterElement ? xml.attribute(characterElement, 'char')?.value : undefined;
+  if (character !== undefined && isValidBulletCharacter(character)) {
+    return {
+      kind: 'bullet',
+      character,
+      ...(indent !== undefined ? { indent } : {}),
+    };
+  }
+  const numbering = directChildren(properties, 'buAutoNum')[0];
+  if (!numbering) return undefined;
+  const style = xml.attribute(numbering, 'type')?.value;
+  if (!style || !NUMBERING_STYLES.has(style as NumberingStyle)) return undefined;
+  const startRaw = xml.attribute(numbering, 'startAt')?.value ?? '';
+  const startValue = /^\d+$/.test(startRaw) ? Number(startRaw) : Number.NaN;
+  const startAt = Number.isInteger(startValue) && startValue >= 1 && startValue <= 32767
+    ? startValue
+    : undefined;
+  return {
+    kind: 'number',
+    style: style as NumberingStyle,
+    ...(startAt !== undefined ? { startAt } : {}),
+    ...(indent !== undefined ? { indent } : {}),
+  };
+}
+
+function readBulletIndent(xml: LosslessXmlDocument, properties: XmlElement): number | undefined {
+  const margin = readIntegerAttribute(xml, properties, 'marL');
+  if (margin === undefined || margin < 0) return undefined;
+  const points = Math.round((margin / 12700) * 100) / 100;
+  if (points > 4032) return undefined;
+  return points;
+}
+
+function readIntegerAttribute(
+  xml: LosslessXmlDocument,
+  element: XmlElement,
+  name: string,
+): number | undefined {
+  const raw = xml.attribute(element, name)?.value;
+  if (!raw || !/^-?\d+$/.test(raw)) return undefined;
+  const value = Number(raw);
+  return Number.isSafeInteger(value) ? value : undefined;
+}
+
 function readStyle(xml: LosslessXmlDocument, run: XmlElement): RichTextRunStyle | undefined {
   const properties = directChildren(run, 'rPr')[0];
   if (!properties) return undefined;
@@ -358,9 +618,9 @@ function booleanAttribute(
   return ['1', 'true', 'on'].includes(attribute.value);
 }
 
-function directChildren(element: XmlElement, localName: string): XmlElement[] {
+function directChildren(element: XmlElement, localName?: string): XmlElement[] {
   return element.children.filter(
-    (child): child is XmlElement => child.type === 'element' && child.localName === localName,
+    (child): child is XmlElement => child.type === 'element' && (!localName || child.localName === localName),
   );
 }
 

@@ -5,7 +5,11 @@ import { join } from 'node:path';
 import { Readable } from 'node:stream';
 import JSZip from 'jszip';
 import { describe, expect, it } from 'vitest';
-import { PRESENTATION_FORMAT_PROFILES, type PresentationFormat } from '@pptx/model';
+import {
+  PRESENTATION_FORMAT_PROFILES,
+  type NumberingStyle,
+  type PresentationFormat,
+} from '@pptx/model';
 import { OpcPackage } from '@pptx/opc';
 import { validatePackage } from '@pptx/validator';
 import {
@@ -261,6 +265,112 @@ describe('PptxDocument vertical slice', () => {
     expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
   });
 
+  it('creates, replaces, rolls back, and round-trips bullets and numbering', async () => {
+    const styles: readonly NumberingStyle[] = [
+      'alphaLcParenBoth',
+      'alphaLcParenR',
+      'alphaLcPeriod',
+      'alphaUcParenBoth',
+      'alphaUcParenR',
+      'alphaUcPeriod',
+      'arabicParenBoth',
+      'arabicParenR',
+      'arabicPeriod',
+      'arabicPlain',
+      'romanLcParenBoth',
+      'romanLcParenR',
+      'romanLcPeriod',
+      'romanUcParenBoth',
+      'romanUcParenR',
+      'romanUcPeriod',
+    ];
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const plain = slide.addText('First\nSecond', { bullet: true });
+    const rich = slide.addRichText(
+      [
+        { runs: [{ text: 'Default' }] },
+        { runs: [{ text: 'Custom' }], bullet: { kind: 'bullet', character: '▶', indent: 18 } },
+        {
+          runs: [{ text: 'Roman' }],
+          bullet: { kind: 'number', style: 'romanUcPeriod', startAt: 3, indent: 22 },
+        },
+        { runs: [], bullet: { kind: 'bullet', character: '💡', indent: 21 } },
+        { runs: [], bullet: false },
+      ],
+      { bullet: true },
+    );
+    const allStyles = slide.addRichText(
+      styles.map((style, index) => ({
+        runs: [{ text: style }],
+        bullet: { kind: 'number' as const, style, startAt: index + 1, indent: 20 },
+      })),
+    );
+
+    expect(plain.richText.map(({ bullet }) => bullet)).toEqual([
+      { kind: 'bullet', character: '•', indent: 27 },
+      { kind: 'bullet', character: '•', indent: 27 },
+    ]);
+    expect(rich.richText.map(({ bullet }) => bullet)).toEqual([
+      { kind: 'bullet', character: '•', indent: 27 },
+      { kind: 'bullet', character: '▶', indent: 18 },
+      { kind: 'number', style: 'romanUcPeriod', startAt: 3, indent: 22 },
+      { kind: 'bullet', character: '💡', indent: 21 },
+      undefined,
+    ]);
+    expect(allStyles.richText.map(({ bullet }) =>
+      bullet && typeof bullet !== 'boolean' && bullet.kind === 'number' ? bullet.style : undefined,
+    )).toEqual(styles);
+    let slideXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(slideXml).toContain('<a:buChar char="▶"/>');
+    expect(slideXml).toContain('<a:buChar char="💡"/>');
+    expect(slideXml).toContain('<a:buAutoNum type="romanUcPeriod" startAt="3"/>');
+    expect(slideXml).toContain('indent="-279400" marL="279400"');
+    const bulletSnapshot = rich.richText as unknown as Array<{ bullet?: { indent: number } }>;
+    bulletSnapshot[0]!.bullet!.indent = 999;
+    expect(rich.richText[0]!.bullet).toEqual({ kind: 'bullet', character: '•', indent: 27 });
+
+    rich.richText = [
+      {
+        runs: rich.richText[0]!.runs,
+        bullet: { kind: 'number', style: 'romanLcParenR', startAt: 4, indent: 24 },
+      },
+      { runs: rich.richText[1]!.runs },
+      { runs: rich.richText[2]!.runs, bullet: true },
+      { runs: rich.richText[3]!.runs, bullet: false },
+      { runs: rich.richText[4]!.runs, bullet: false },
+    ];
+    expect(rich.richText.map(({ bullet }) => bullet)).toEqual([
+      { kind: 'number', style: 'romanLcParenR', startAt: 4, indent: 24 },
+      undefined,
+      { kind: 'bullet', character: '•', indent: 27 },
+      undefined,
+      undefined,
+    ]);
+    slideXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(slideXml).not.toContain('<a:buChar char="▶"/>');
+
+    expect(() =>
+      document.transaction(() => {
+        rich.richText = [{ runs: [{ text: 'Rollback' }], bullet: { kind: 'bullet', character: '◆' } }];
+        throw new Error('restore paragraph bullets');
+      }),
+    ).toThrow('restore paragraph bullets');
+    expect(rich.richText[0]!.bullet).toEqual({
+      kind: 'number',
+      style: 'romanLcParenR',
+      startAt: 4,
+      indent: 24,
+    });
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedPlain = reopened.slides[0]!.shapes[0] as ShapeModel;
+    const reopenedRich = reopened.slides[0]!.shapes[1] as ShapeModel;
+    expect(reopenedPlain.richText[0]!.bullet).toEqual({ kind: 'bullet', character: '•', indent: 27 });
+    expect(reopenedRich.richText.map(({ bullet }) => bullet)).toEqual(rich.richText.map(({ bullet }) => bullet));
+    expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+  });
+
   it('creates, reads, replaces, and round-trips rich text run styles', async () => {
     const document = PptxDocument.create();
     const slide = document.addSlide();
@@ -392,6 +502,18 @@ describe('PptxDocument vertical slice', () => {
       [{ runs: [{ text: 'x', style: { color: { kind: 'srgb', value: 'red' } } }] }],
       [{ runs: [{ text: 'x', style: { color: { kind: 'scheme', value: 'unknown' } } }] }],
       [{ runs: [], align: 'middle' }],
+      [{ runs: [], bullet: null }],
+      [{ runs: [], bullet: {} }],
+      [{ runs: [], bullet: { kind: 'bullet', character: '' } }],
+      [{ runs: [], bullet: { kind: 'bullet', character: 'ab' } }],
+      [{ runs: [], bullet: { kind: 'bullet', character: '\n' } }],
+      [{ runs: [], bullet: { kind: 'bullet', indent: -1 } }],
+      [{ runs: [], bullet: { kind: 'bullet', indent: 4033 } }],
+      [{ runs: [], bullet: { kind: 'number', style: 'unsupported' } }],
+      [{ runs: [], bullet: { kind: 'number', startAt: 0 } }],
+      [{ runs: [], bullet: { kind: 'number', startAt: 1.5 } }],
+      [{ runs: [], bullet: { kind: 'number', startAt: 32768 } }],
+      [{ runs: [], bullet: { kind: 'number', color: 'red' } }],
       [{ runs: [{ text: 'x', breakLine: true }] }],
       [{ runs: [{ text: 'x', style: { underline: true } }] }],
       [{ runs: [{ text: 'x', style: { color: { kind: 'srgb', value: 'FF0000', alpha: 0.5 } } }] }],
@@ -433,6 +555,7 @@ describe('PptxDocument vertical slice', () => {
     expect(() => slide.addText('bad coordinate', { x: Number.NaN as never })).toThrow(/x must be finite/);
     expect(() => slide.addText('bad flip', { flipHorizontal: 'yes' as never })).toThrow(/must be a boolean/);
     expect(() => slide.addText('bad alignment', { align: 'middle' as never })).toThrow(/left, center, right/);
+    expect(() => slide.addText('bad bullet', { bullet: { kind: 'number', startAt: 0 } as never })).toThrow(/startAt/);
     expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(before);
     expect(document.opcPackage.mutations).toEqual(journal);
 
