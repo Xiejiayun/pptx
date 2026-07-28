@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Added explicit detection and public profiles for `.pptx`, `.pptm`, `.ppsx`, `.ppsm`, `.potx`, and `.potm` packages.
+
 ## 0.1.0 - 2026-07-25
 
 - Added lossless OOXML source-span patching and OPC package graph.

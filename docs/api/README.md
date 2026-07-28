@@ -18,6 +18,10 @@ await document.writeFile('output.pptx', {
 
 Inputs: file path, `Buffer`/`Uint8Array`, `ArrayBuffer`, or Node readable stream. `write()` returns `Uint8Array`.
 
+## Presentation format
+
+`document.format` is detected from the presentation part content type and is one of `pptx`, `pptm`, `ppsx`, `ppsm`, `potx`, or `potm`. `document.formatProfile` also reports whether the package is macro-enabled, a slideshow, or a template. Unknown presentation content types are rejected instead of being treated as `.pptx`.
+
 ## Semantic model
 
 ```ts
@@ -78,4 +82,3 @@ Local media can come from paths, bytes, ArrayBuffers, or streams. External URLs 
 Errors: `PackageError`, `ParseError`, `ValidationError`, `OpaqueMutationError`, `PptxGenJSAdapterError`.
 
 Every diagnostic has severity, code, message, and optional part URI, XML path, object id, compatibility profile, and suggestion. Strict mode blocks only error diagnostics.
-

@@ -1,6 +1,13 @@
 import { posix } from 'node:path';
 import { LosslessXmlDocument, type XmlElement } from '@pptx/lossless-xml';
 import { OpcPackage, PackageError, relationshipPartUri } from '@pptx/opc';
+import {
+  detectPresentationFormat,
+  presentationFormatProfile,
+  UnsupportedPresentationFormatError,
+  type PresentationFormat,
+  type PresentationFormatProfile,
+} from './format.js';
 import { SlideModel } from './slide.js';
 
 const SLIDE_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slide+xml';
@@ -9,6 +16,8 @@ const SLIDE_LAYOUT_RELATIONSHIP = 'http://schemas.openxmlformats.org/officeDocum
 
 export class PresentationModel {
   readonly presentationPartUri: string;
+  readonly format: PresentationFormat;
+  readonly formatProfile: PresentationFormatProfile;
 
   constructor(readonly opcPackage: OpcPackage) {
     const rootRelationship = opcPackage.relationships('/').find(({ type }) => type.endsWith('/officeDocument'));
@@ -16,6 +25,11 @@ export class PresentationModel {
     if (!opcPackage.hasPart(this.presentationPartUri)) {
       throw new PackageError('Presentation part was not found', this.presentationPartUri);
     }
+    const contentType = opcPackage.requirePart(this.presentationPartUri).contentType;
+    const format = detectPresentationFormat(contentType);
+    if (!format) throw new UnsupportedPresentationFormatError(contentType, this.presentationPartUri);
+    this.format = format;
+    this.formatProfile = presentationFormatProfile(format);
   }
 
   get slides(): readonly SlideModel[] {

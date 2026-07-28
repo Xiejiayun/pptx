@@ -1,11 +1,24 @@
 import JSZip from 'jszip';
 import { describe, expect, it } from 'vitest';
 import { OpcPackage } from '@pptx/opc';
-import { ChartModel, ImageModel, PresentationModel, ShapeModel, TableModel, emuToInches, inches } from './index.js';
+import {
+  ChartModel,
+  ImageModel,
+  PRESENTATION_FORMAT_PROFILES,
+  PresentationModel,
+  ShapeModel,
+  TableModel,
+  UnsupportedPresentationFormatError,
+  emuToInches,
+  inches,
+  type PresentationFormat,
+} from './index.js';
 
-async function modelFixture(): Promise<Uint8Array> {
+async function modelFixture(
+  presentationContentType = PRESENTATION_FORMAT_PROFILES.pptx.presentationContentType,
+): Promise<Uint8Array> {
   const zip = new JSZip();
-  zip.file('[Content_Types].xml', '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/><Override PartName="/ppt/slides/slide1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/><Override PartName="/ppt/slides/slide2.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/><Override PartName="/ppt/charts/chart1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/></Types>');
+  zip.file('[Content_Types].xml', `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Override PartName="/ppt/presentation.xml" ContentType="${presentationContentType}"/><Override PartName="/ppt/slides/slide1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/><Override PartName="/ppt/slides/slide2.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/><Override PartName="/ppt/charts/chart1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/></Types>`);
   zip.file('_rels/.rels', '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/></Relationships>');
   zip.file('ppt/presentation.xml', '<p:presentation xmlns:p="p" xmlns:r="r"><p:sldIdLst><p:sldId id="257" r:id="rId2"/><p:sldId id="256" r:id="rId1"/></p:sldIdLst><x:unknown xmlns:x="urn:test"/></p:presentation>');
   zip.file('ppt/_rels/presentation.xml.rels', '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide2.xml"/></Relationships>');
@@ -18,6 +31,44 @@ async function modelFixture(): Promise<Uint8Array> {
 }
 
 describe('PresentationModel', () => {
+  it('detects all six OOXML presentation formats from the package content type', async () => {
+    const expectedFlags: Record<PresentationFormat, readonly [boolean, boolean, boolean]> = {
+      pptx: [false, false, false],
+      pptm: [true, false, false],
+      ppsx: [false, true, false],
+      ppsm: [true, true, false],
+      potx: [false, false, true],
+      potm: [true, false, true],
+    };
+
+    for (const profile of Object.values(PRESENTATION_FORMAT_PROFILES)) {
+      const model = new PresentationModel(
+        await OpcPackage.open(await modelFixture(profile.presentationContentType)),
+      );
+      expect(model.format).toBe(profile.format);
+      expect([
+        model.formatProfile.macroEnabled,
+        model.formatProfile.slideshow,
+        model.formatProfile.template,
+      ]).toEqual(expectedFlags[profile.format]);
+    }
+  });
+
+  it('rejects an unsupported presentation content type without guessing from a file name', async () => {
+    const pkg = await OpcPackage.open(await modelFixture('application/vnd.example.presentation+xml'));
+    let thrown: unknown;
+    try {
+      new PresentationModel(pkg);
+    } catch (error) {
+      thrown = error;
+    }
+    expect(thrown).toBeInstanceOf(UnsupportedPresentationFormatError);
+    expect(thrown).toMatchObject({
+      contentType: 'application/vnd.example.presentation+xml',
+      partUri: '/ppt/presentation.xml',
+    });
+  });
+
   it('uses r:id order and exposes common semantic objects', async () => {
     const model = new PresentationModel(await OpcPackage.open(await modelFixture()));
     expect(model.slides.map(({ title }) => title.text)).toEqual(['Second title', 'First title']);
