@@ -41,9 +41,11 @@ try {
   await writeFile(
     join(directory, 'smoke.mjs'),
     `import { PptxDocument, GradientCodec, importPptxGenJS, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
+const created = PptxDocument.create();
+const createdText = created.addSlide().addText('Smoke');
 const checks = {
   PptxDocument: typeof PptxDocument === 'function',
-  create: PptxDocument.create().slides.length === 0,
+  createText: createdText.text === 'Smoke' && created.slides[0].shapes[0] === createdText,
   GradientCodec: typeof GradientCodec === 'function',
   importPptxGenJS: typeof importPptxGenJS === 'function',
   transitions: typeof transitions.TransitionCodec === 'function',
@@ -65,7 +67,8 @@ const resolved = import.meta.resolve('@jiayunxie/pptx');
 if (!resolved.endsWith('/dist/browser.js')) throw new Error('Browser condition resolved to ' + resolved);
 const checks = [PptxDocument, transitions.TransitionCodec, animations.AnimationTimingCodec, advancedCharts.AdvancedChartCodec, smartArt.SmartArtDiagramCodec];
 if (checks.some((value) => typeof value !== 'function')) throw new Error('Browser API surface is incomplete');
-if (PptxDocument.create({ slideSize: '16:9' }).slides.length !== 0) throw new Error('Browser create API failed');
+const created = PptxDocument.create({ slideSize: '16:9' });
+if (created.addSlide().addText('Browser').text !== 'Browser') throw new Error('Browser create-text API failed');
 process.stdout.write(resolved);
 `,
   );
@@ -85,6 +88,8 @@ process.stdout.write(resolved);
 
 const documentPromise: Promise<PptxDocument> = PptxDocument.open(new Uint8Array());
 const createdDocument: PptxDocument = PptxDocument.create({ format: 'pptx', slideSize: 'wide' });
+const createdText = createdDocument.addSlide().addText('Typed text');
+createdText.text = 'Updated typed text';
 const gradientConstructor: typeof GradientCodec = GradientCodec;
 const adapter: typeof importPptxGenJS = importPptxGenJS;
 const transition: transitions.SlideTransition = { effect: 'fade' };
@@ -97,7 +102,7 @@ documentPromise.then((document) => {
   advancedCharts.installAdvancedChartPlugin(document);
   smartArt.installSmartArtPlugin(document);
 });
-void [documentPromise, createdDocument, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
+void [documentPromise, createdDocument, createdText, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
 `,
   );
   run(

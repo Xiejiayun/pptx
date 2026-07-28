@@ -10,6 +10,7 @@
 - Added lifecycle-aware slide duplication and deletion: owned dependency subgraphs are cloned/collected while layout, image, media, external, and opaque targets remain shared or preserved.
 - Added clone-on-write isolation for shared image payload and raw chart XML edits, including chart-owned workbook subgraphs and transaction rollback.
 - Added native zero-input presentation creation for all six formats, four PptxGenJS-compatible slide sizes, and blank slides linked to a canonical master/layout/theme chain.
+- Added transactional single-paragraph text-box creation with stable shape identity, XML-safe content, unique IDs, and editable transforms.
 
 ## 0.1.0 - 2026-07-25
 

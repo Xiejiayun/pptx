@@ -8,7 +8,15 @@ import { describe, expect, it } from 'vitest';
 import { PRESENTATION_FORMAT_PROFILES, type PresentationFormat } from '@pptx/model';
 import { OpcPackage } from '@pptx/opc';
 import { validatePackage } from '@pptx/validator';
-import { openPptxStream, PptxDocument, ValidationError } from './index.js';
+import {
+  degrees,
+  inches,
+  ModelParseError,
+  openPptxStream,
+  PptxDocument,
+  ShapeModel,
+  ValidationError,
+} from './index.js';
 
 async function titleFixture(): Promise<Uint8Array> {
   const zip = new JSZip();
@@ -80,6 +88,111 @@ describe('PptxDocument vertical slice', () => {
     expect(() => PptxDocument.create({ slideSize: 'a4' as '16:9' })).toThrow(
       /Unsupported built-in slide size/,
     );
+  });
+
+  it('creates, edits, and round-trips a basic text shape with stable identity', async () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const text = slide.addText(' Hello & <world> ', {
+      name: 'Heading "A"',
+      x: inches(1),
+      y: inches(1.5),
+      width: inches(4),
+      height: inches(1),
+      rotation: degrees(15),
+      flipHorizontal: true,
+    });
+
+    expect(text).toBeInstanceOf(ShapeModel);
+    expect(text.kind).toBe('text');
+    expect(text.text).toBe(' Hello & <world> ');
+    expect(text.name).toBe('Heading "A"');
+    expect(text.transform).toMatchObject({
+      x: inches(1),
+      y: inches(1.5),
+      width: inches(4),
+      height: inches(1),
+      rotation: degrees(15),
+      flipHorizontal: true,
+      flipVertical: false,
+    });
+    expect(slide.shapes[0]).toBe(text);
+
+    text.text = 'Updated & safe';
+    text.setTransform({ y: inches(2), flipVertical: true });
+    expect(slide.shapes[0]).toBe(text);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const roundTripped = reopened.slides[0]!.shapes[0] as ShapeModel;
+    expect(roundTripped.text).toBe('Updated & safe');
+    expect(roundTripped.name).toBe('Heading "A"');
+    expect(roundTripped.transform).toMatchObject({
+      x: inches(1),
+      y: inches(2),
+      width: inches(4),
+      height: inches(1),
+      rotation: degrees(15),
+      flipHorizontal: true,
+      flipVertical: true,
+    });
+  });
+
+  it('allocates text shape ids before extLst and rolls back rejected additions', () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const part = document.opcPackage.requirePart(slide.partUri);
+    const withExtension = new TextDecoder()
+      .decode(part.bytes)
+      .replace('</p:spTree>', '<p:extLst><p:ext uri="urn:test"><x:opaque xmlns:x="urn:test">KEEP</x:opaque></p:ext></p:extLst></p:spTree>');
+    document.opcPackage.setPart(slide.partUri, withExtension, part.contentType);
+
+    const first = slide.addText('First', { name: 'First' });
+    const second = slide.addText('Second', { name: 'Second' });
+    expect([first.id, second.id]).toEqual([2, 3]);
+    const updatedXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(updatedXml.indexOf('name="Second"')).toBeLessThan(updatedXml.indexOf('<p:extLst>'));
+    expect(updatedXml).toContain('<a:t xml:space="preserve">First</a:t>');
+    expect(updatedXml).toContain('<x:opaque xmlns:x="urn:test">KEEP</x:opaque>');
+
+    const before = document.opcPackage.requirePart(slide.partUri).bytes;
+    const journal = [...document.opcPackage.mutations];
+    expect(() => slide.addText('two\nlines')).toThrow(/do not support line breaks/);
+    expect(() => {
+      first.text = 'two\nlines';
+    }).toThrow(/do not support line breaks/);
+    expect(() => slide.addText('invalid\u0000xml')).toThrow(/invalid XML characters/);
+    expect(() => slide.addText('bad width', { width: 0 as never })).toThrow(/width must be greater/);
+    expect(() => slide.addText('bad coordinate', { x: Number.NaN as never })).toThrow(/x must be finite/);
+    expect(() => slide.addText('bad flip', { flipHorizontal: 'yes' as never })).toThrow(/must be a boolean/);
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(before);
+    expect(document.opcPackage.mutations).toEqual(journal);
+
+    let rolledBack: ShapeModel | undefined;
+    expect(() =>
+      document.transaction(() => {
+        rolledBack = slide.addText('rollback');
+        throw new Error('restore text shape');
+      }),
+    ).toThrow('restore text shape');
+    expect(slide.shapes).toHaveLength(2);
+    expect(() => rolledBack!.text).toThrow(ModelParseError);
+  });
+
+  it('does not mutate a malformed slide when its shape tree is missing', () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const part = document.opcPackage.requirePart(slide.partUri);
+    document.opcPackage.setPart(
+      slide.partUri,
+      '<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld/></p:sld>',
+      part.contentType,
+    );
+    const before = document.opcPackage.requirePart(slide.partUri).bytes;
+    const journal = [...document.opcPackage.mutations];
+
+    expect(() => slide.addText('missing tree')).toThrow(/does not contain a shape tree/);
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(before);
+    expect(document.opcPackage.mutations).toEqual(journal);
   });
 
   it('opens Buffer-like values and streams, then returns unchanged bytes exactly', async () => {

@@ -43,6 +43,19 @@ document.deleteSlide(2);
 
 Shape kinds include `text`, `shape`, `image`, `table`, `chart`, `graphic-frame`, and `group`. Images expose embedded part URIs and replacement; tables expose rows/cells and cell text editing; charts expose cached series and lossless chart XML editing.
 
+```ts
+const text = document.addSlide().addText('Quarterly results', {
+  name: 'Heading',
+  x: inches(1),
+  y: inches(0.75),
+  width: inches(8),
+  height: inches(1),
+});
+text.text = 'Updated results';
+```
+
+`addText()` currently creates one plain-text paragraph with name and transform options. Line breaks and rich formatting are intentionally rejected or deferred until the paragraph/run APIs are available.
+
 Slide and shape model objects have stable identity within a document: repeated collection reads and slide reordering return the same member instances. Their properties remain live and read the current OOXML rather than a cached snapshot. Master, layout, and theme models follow the same rule within `document.masterLayoutTheme`.
 
 `duplicateSlide()` deep-clones owned dependencies such as charts and their embedded workbooks while retaining shared image, media, and layout targets. `deleteSlide()` garbage-collects only unreferenced owned dependency subgraphs; opaque and shared targets are preserved.

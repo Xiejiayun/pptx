@@ -13,14 +13,19 @@ npm install @jiayunxie/pptx@next
 ## Create a presentation
 
 ```ts
-import { PptxDocument } from '@jiayunxie/pptx';
+import { inches, PptxDocument } from '@jiayunxie/pptx';
 
 const document = PptxDocument.create({ slideSize: '16:9' });
-document.addSlide();
+document.addSlide().addText('Quarterly results', {
+  x: inches(1),
+  y: inches(1),
+  width: inches(6),
+  height: inches(1),
+});
 await document.writeFile('created.pptx');
 ```
 
-Creation is native and does not require PptxGenJS. A new document starts with zero slides and a complete default master/layout/theme chain.
+Creation is native and does not require PptxGenJS. A new document starts with zero slides and a complete default master/layout/theme chain. Basic single-paragraph text boxes can be created and then edited through their stable shape model.
 
 ## Edit an existing presentation
 
