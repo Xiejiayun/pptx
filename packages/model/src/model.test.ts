@@ -1039,6 +1039,446 @@ describe('PresentationModel', () => {
     expect(table.rows[0]!.cells.map(({ fill }) => fill)).toEqual(rollbackFills);
   });
 
+  it('reads strict direct table-cell borders into detached partial snapshots', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const part = pkg.requirePart('/ppt/slides/slide1.xml');
+    const cell = (properties: string, index: number): string =>
+      `<a:tc><a:txBody><a:bodyPr/><a:p><a:r><a:t>Border ${index}</a:t></a:r></a:p></a:txBody>${properties}</a:tc>`;
+    const cells = [
+      cell(
+        '<a:tcPr><a:lnL w="0" cap="flat" cmpd="sng" algn="ctr"><a:noFill/></a:lnL><a:lnR w="12700"><a:solidFill><a:srgbClr val="ff0000"/></a:solidFill></a:lnR><a:lnT w="19050" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="accent1"/></a:solidFill><a:prstDash val="solid"/><a:round/><a:headEnd type="none" w="med" len="med"/><a:tailEnd type="none" w="med" len="med"/></a:lnT><a:lnB w="25400"><a:solidFill><a:srgbClr val="0000FF"/></a:solidFill><a:prstDash val="sysDash"/></a:lnB></a:tcPr>',
+        0,
+      ),
+      cell(
+        '<a:tcPr><a:lnL w="00012700"><a:solidFill><a:srgbClr val="abcdef"/></a:solidFill></a:lnL><a:lnR w="20116800"><a:solidFill><a:schemeClr val="accent6"/></a:solidFill></a:lnR><a:lnT w="0"><a:solidFill><a:srgbClr val="112233"/></a:solidFill></a:lnT></a:tcPr>',
+        1,
+      ),
+      cell(
+        '<a:tcPr><a:lnL w="-1"><a:noFill/></a:lnL><a:lnR w="1.5"><a:noFill/></a:lnR><a:lnT w="20116801"><a:noFill/></a:lnT><a:lnB w=""><a:noFill/></a:lnB></a:tcPr>',
+        2,
+      ),
+      cell(
+        '<a:tcPr><a:lnL w="12700"><a:noFill/></a:lnL><a:lnL w="25400"><a:noFill/></a:lnL><a:lnT w="12700"><a:solidFill><a:srgbClr val="445566"/></a:solidFill></a:lnT></a:tcPr>',
+        3,
+      ),
+      cell(
+        '<a:tcPr><a:lnL w="12700"><a:gradFill><a:gsLst/></a:gradFill></a:lnL><a:lnR w="12700"><a:solidFill><a:schemeClr val="accent2"/></a:solidFill><a:prstDash val="sysDash"/></a:lnR></a:tcPr>',
+        4,
+      ),
+      cell(
+        '<a:tcPr><a:lnT w="12700"><a:solidFill><a:srgbClr val="FF0000"><a:alpha val="50000"/></a:srgbClr></a:solidFill></a:lnT><a:lnB w="12700"><a:solidFill><a:srgbClr val="00FF00"/></a:solidFill><a:prstDash val="dash"/></a:lnB></a:tcPr>',
+        5,
+      ),
+      cell(
+        '<a:tcPr><a:lnT w="0"><a:noFill custom="INVALID"/></a:lnT><a:lnB w="0"><a:noFill/><a:round/></a:lnB></a:tcPr>',
+        6,
+      ),
+      cell(
+        '<a:tcPr><a:lnL w="12700"><a:solidFill><a:srgbClr val="778899"/></a:solidFill></a:lnL><a:lnT w="12700"><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill><a:headEnd type="arrow" w="med" len="med"/></a:lnT></a:tcPr>',
+        7,
+      ),
+      cell(
+        '<a:tcPr xmlns:x="urn:test"><x:lnL w="12700"><x:noFill/></x:lnL><a:lnR w="12700"><a:solidFill><a:srgbClr val="AABBCC"/></a:solidFill></a:lnR></a:tcPr>',
+        8,
+      ),
+      cell(
+        '<a:tcPr><a:lnTlToBr w="12700"><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill></a:lnTlToBr><a:lnBlToTr w="12700"><a:noFill/></a:lnBlToTr><a:lnB w="12700"><a:noFill/></a:lnB></a:tcPr>',
+        9,
+      ),
+      cell('<a:tcPr><a:lnL w="12700"><a:noFill/></a:lnL></a:tcPr><a:tcPr/>', 10),
+      cell('', 11),
+    ].join('');
+    pkg.setPart(
+      part.uri,
+      new TextDecoder().decode(part.bytes).replace(/<a:tr>.*?<\/a:tr>/, `<a:tr>${cells}</a:tr>`),
+      part.contentType,
+    );
+    const table = new PresentationModel(pkg).slides[1]!.shapes[2] as TableModel;
+    const journal = [...pkg.mutations];
+
+    const snapshot = table.rows;
+    expect(snapshot[0]!.cells.map(({ borders }) => borders)).toEqual([
+      {
+        top: {
+          kind: 'line',
+          color: { kind: 'scheme', value: 'accent1' },
+          width: 1.5,
+          style: 'solid',
+        },
+        right: {
+          kind: 'line',
+          color: { kind: 'srgb', value: 'FF0000' },
+          width: 1,
+        },
+        bottom: {
+          kind: 'line',
+          color: { kind: 'srgb', value: '0000FF' },
+          width: 2,
+          style: 'dash',
+        },
+        left: { kind: 'none' },
+      },
+      {
+        top: {
+          kind: 'line',
+          color: { kind: 'srgb', value: '112233' },
+          width: 0,
+        },
+        right: {
+          kind: 'line',
+          color: { kind: 'scheme', value: 'accent6' },
+          width: 1584,
+        },
+        left: {
+          kind: 'line',
+          color: { kind: 'srgb', value: 'ABCDEF' },
+          width: 1,
+        },
+      },
+      undefined,
+      {
+        top: {
+          kind: 'line',
+          color: { kind: 'srgb', value: '445566' },
+          width: 1,
+        },
+      },
+      {
+        right: {
+          kind: 'line',
+          color: { kind: 'scheme', value: 'accent2' },
+          width: 1,
+          style: 'dash',
+        },
+      },
+      undefined,
+      undefined,
+      {
+        left: {
+          kind: 'line',
+          color: { kind: 'srgb', value: '778899' },
+          width: 1,
+        },
+      },
+      {
+        right: {
+          kind: 'line',
+          color: { kind: 'srgb', value: 'AABBCC' },
+          width: 1,
+        },
+      },
+      { bottom: { kind: 'none' } },
+      undefined,
+      undefined,
+    ]);
+    expect(pkg.mutations).toEqual(journal);
+
+    const mutable = snapshot[0]!.cells[0]!.borders as {
+      top?: { kind: string; color: { kind: string; value: string }; width: number };
+      left?: { kind: string };
+    };
+    mutable.top!.kind = 'none';
+    mutable.top!.color.value = 'FFFFFF';
+    mutable.top!.width = 99;
+    mutable.left!.kind = 'line';
+    expect(table.rows[0]!.cells[0]!.borders).toEqual({
+      top: {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent1' },
+        width: 1.5,
+        style: 'solid',
+      },
+      right: {
+        kind: 'line',
+        color: { kind: 'srgb', value: 'FF0000' },
+        width: 1,
+      },
+      bottom: {
+        kind: 'line',
+        color: { kind: 'srgb', value: '0000FF' },
+        width: 2,
+        style: 'dash',
+      },
+      left: { kind: 'none' },
+    });
+    expect(pkg.mutations).toEqual(journal);
+  });
+
+  it('losslessly replaces table-cell borders and rolls back atomically', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const part = pkg.requirePart('/ppt/slides/slide1.xml');
+    const textBody = (bodyProperties: string, text: string): string =>
+      `<a:txBody>${bodyProperties}<a:p><a:r><a:rPr><a:solidFill><a:srgbClr val="222222"/></a:solidFill></a:rPr><a:t>${text}</a:t></a:r></a:p></a:txBody>`;
+    const cell = (body: string, properties: string, attributes = ''): string =>
+      `<a:tc${attributes}>${body}${properties}</a:tc>`;
+    const solidLine = (
+      tag: 'lnL' | 'lnR' | 'lnT' | 'lnB',
+      color = 'abcdef',
+      width = '012700',
+      dash = 'solid',
+    ): string =>
+      `<a:${tag} w="${width}" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:srgbClr val="${color}"/></a:solidFill><a:prstDash val="${dash}"/><a:round/><a:headEnd type="none" w="med" len="med"/><a:tailEnd type="none" w="med" len="med"/></a:${tag}>`;
+    const sameBorders = [
+      solidLine('lnL'),
+      solidLine('lnR'),
+      solidLine('lnT'),
+      solidLine('lnB'),
+    ].join('');
+    const adjacentCell = cell(
+      textBody('<a:bodyPr lIns="12700" keep="ADJACENT"><a:spAutoFit/></a:bodyPr>', 'Adjacent'),
+      `<a:tcPr marL="12700" marR="25400" marT="38100" marB="50800" anchor="b" vert="horz" keep="ADJACENT-TCPR">${solidLine('lnL', '333333', '25400')}<a:solidFill><a:srgbClr val="70AD47"><a:alpha val="50000"/></a:srgbClr></a:solidFill></a:tcPr>`,
+    );
+    const cells = [
+      cell(
+        textBody('<a:bodyPr custom="SAME"><a:normAutofit fontScale="85000"/></a:bodyPr>', 'Same borders'),
+        `<a:tcPr marL="12700" anchor="ctr" vert="vert270" custom="KEEP">${sameBorders}<a:solidFill><a:schemeClr val="accent6"/></a:solidFill><x:keep xmlns:x="urn:test">TCPR</x:keep></a:tcPr>`,
+      ),
+      cell(textBody('<a:bodyPr/>', 'Alternate prefix'), '<q:tcPr xmlns:q="a" anchor="t"/>'),
+      cell(
+        textBody('<a:bodyPr/>', 'Partial replacement'),
+        '<a:tcPr anchor="b"><a:lnL w="12700"><a:gradFill><a:gsLst/></a:gradFill></a:lnL><a:lnR w="0"><a:noFill/></a:lnR><a:lnTlToBr w="12700"><a:solidFill><a:srgbClr val="123456"/></a:solidFill></a:lnTlToBr><a:solidFill><a:srgbClr val="F2F2F2"/></a:solidFill><a:cell3D prstMaterial="flat"/><a:extLst><a:ext uri="KEEP"/></a:extLst></a:tcPr>',
+      ),
+      cell(
+        textBody('<a:bodyPr/>', 'Clear object'),
+        `<a:tcPr keep="CLEAR-OBJECT">${sameBorders}<x:keep xmlns:x="urn:test">OBJECT</x:keep></a:tcPr>`,
+      ),
+      cell(
+        textBody('<a:bodyPr/>', 'Clear undefined'),
+        `<a:tcPr keep="CLEAR-UNDEFINED">${sameBorders}<x:keep xmlns:x="urn:test">UNDEFINED</x:keep></a:tcPr>`,
+      ),
+      cell(
+        textBody('<a:bodyPr/>', 'Malformed replacement'),
+        '<a:tcPr keep="MALFORMED"><a:lnT w="invalid"><a:solidFill><a:srgbClr val="FFF"/></a:solidFill><a:prstDash val="dot"/></a:lnT></a:tcPr>',
+      ),
+      adjacentCell,
+      cell(textBody('<a:bodyPr/>', 'Merged'), '<a:tcPr/>', ' hMerge="1"'),
+      cell(
+        textBody('<a:bodyPr/>', 'Repeated side'),
+        '<a:tcPr><a:lnL w="0"><a:noFill/></a:lnL><a:lnL w="0"><a:noFill/></a:lnL></a:tcPr>',
+      ),
+      cell(textBody('<a:bodyPr/>', 'Repeated tcPr'), '<a:tcPr/><a:tcPr keep="SECOND"/>'),
+      cell(textBody('<a:bodyPr/>', 'Missing tcPr'), ''),
+      cell(
+        textBody('<a:bodyPr/>', 'Wrong prefix'),
+        '<a:tcPr xmlns:x="urn:test"><x:lnL w="0"><x:noFill/></x:lnL><a:extLst><a:ext uri="LAST"/></a:extLst></a:tcPr>',
+      ),
+    ].join('');
+    const source = new TextDecoder().decode(part.bytes)
+      .replace(
+        '<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="4" name="Table 1"/></p:nvGraphicFramePr><a:graphic>',
+        '<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="4" name="Table 1"/></p:nvGraphicFramePr><p:xfrm><a:off x="0" y="0"/><a:ext cx="1000" cy="2000"/></p:xfrm><a:graphic>',
+      )
+      .replace(/<a:tr>.*?<\/a:tr>/, `<a:tr>${cells}</a:tr>`);
+    pkg.setPart(part.uri, source, part.contentType);
+    const model = new PresentationModel(pkg);
+    const table = model.slides[1]!.shapes[2] as TableModel;
+
+    const noOpBytes = pkg.requirePart(part.uri).bytes;
+    const noOpJournal = [...pkg.mutations];
+    table.setCellBorders(0, 0, {
+      kind: 'line',
+      color: { kind: 'srgb', value: '#ABCDEF' },
+      width: 1,
+      style: 'solid',
+    });
+    expect(pkg.requirePart(part.uri).bytes).toEqual(noOpBytes);
+    expect(pkg.mutations).toEqual(noOpJournal);
+    expect(new TextDecoder().decode(pkg.requirePart(part.uri).bytes)).toContain(sameBorders);
+
+    table.setCellBorders(0, 1, [
+      {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent2' },
+        width: 1.5,
+        style: 'dash',
+      },
+      {
+        kind: 'line',
+        color: { kind: 'srgb', value: '00FF00' },
+        width: 0,
+      },
+      { kind: 'none' },
+      undefined,
+    ]);
+    table.setCellBorders(0, 2, {
+      top: {
+        kind: 'line',
+        color: { kind: 'srgb', value: '112233' },
+        width: 2,
+      },
+      left: { kind: 'none' },
+    });
+    table.setCellBorders(0, 3, {});
+    table.setCellBorders(0, 4, undefined);
+    table.setCellBorders(0, 5, {
+      kind: 'line',
+      color: { kind: 'scheme', value: 'accent3' },
+      width: 2.25,
+      style: 'dash',
+    });
+    table.setCellBorders(0, 7, { kind: 'none' });
+    table.setCellBorders(0, 11, {
+      kind: 'line',
+      color: { kind: 'srgb', value: '445566' },
+      width: 0.5,
+    });
+
+    let updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated).toContain(
+      '<q:tcPr xmlns:q="a" anchor="t"><q:lnR w="0" cap="flat" cmpd="sng" algn="ctr"><q:solidFill><q:srgbClr val="00FF00"/></q:solidFill><q:round/><q:headEnd type="none" w="med" len="med"/><q:tailEnd type="none" w="med" len="med"/></q:lnR><q:lnT w="19050" cap="flat" cmpd="sng" algn="ctr"><q:solidFill><q:schemeClr val="accent2"/></q:solidFill><q:prstDash val="sysDash"/>',
+    );
+    expect(updated).toContain(
+      '</q:lnT><q:lnB w="0" cap="flat" cmpd="sng" algn="ctr"><q:noFill/></q:lnB></q:tcPr>',
+    );
+    expect(updated).toContain(
+      '<a:tcPr anchor="b"><a:lnL w="0" cap="flat" cmpd="sng" algn="ctr"><a:noFill/></a:lnL><a:lnT w="25400" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:srgbClr val="112233"/></a:solidFill><a:round/>',
+    );
+    expect(updated).toContain(
+      '</a:lnT><a:lnTlToBr w="12700"><a:solidFill><a:srgbClr val="123456"/></a:solidFill></a:lnTlToBr><a:solidFill><a:srgbClr val="F2F2F2"/></a:solidFill><a:cell3D prstMaterial="flat"/><a:extLst>',
+    );
+    expect(updated).toContain(
+      '<a:tcPr keep="CLEAR-OBJECT"><x:keep xmlns:x="urn:test">OBJECT</x:keep></a:tcPr>',
+    );
+    expect(updated).toContain(
+      '<a:tcPr keep="CLEAR-UNDEFINED"><x:keep xmlns:x="urn:test">UNDEFINED</x:keep></a:tcPr>',
+    );
+    expect(updated).toContain('<a:tc hMerge="1">');
+    expect(updated).toContain(
+      '<x:lnL w="0"><x:noFill/></x:lnL><a:lnL w="6350" cap="flat" cmpd="sng" algn="ctr">',
+    );
+    expect(updated).toContain(
+      '</a:lnB><a:extLst><a:ext uri="LAST"/></a:extLst>',
+    );
+    expect(updated).toContain(adjacentCell);
+
+    table.setCellTextFit(0, 0, 'resize');
+    table.setCellTextDirection(0, 1, 'wordArtVert');
+    table.setCellVerticalAlignment(0, 1, 'bottom');
+    table.setCellMargins(0, 2, { top: 4, left: 8 });
+    table.setCellFill(0, 2, {
+      kind: 'solid',
+      color: { kind: 'scheme', value: 'accent5' },
+    });
+    table.setCellText(0, 2, 'Edited borders');
+    table.setTransform({ x: inches(1) });
+    updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated).toContain('<a:t>Edited borders</a:t>');
+    expect(updated).toContain('<a:off x="914400" y="0"/>');
+    expect(updated).toContain('<a:lnTlToBr w="12700">');
+    expect(updated).toContain('<a:solidFill><a:schemeClr val="accent5"/></a:solidFill>');
+    expect(updated).toContain(adjacentCell);
+
+    const line = (
+      color: { kind: 'srgb' | 'scheme'; value: string },
+      width: number,
+      style?: 'solid' | 'dash',
+    ) => ({ kind: 'line' as const, color, width, ...(style ? { style } : {}) });
+    expect(table.rows[0]!.cells.map(({ borders }) => borders)).toEqual([
+      {
+        top: line({ kind: 'srgb', value: 'ABCDEF' }, 1, 'solid'),
+        right: line({ kind: 'srgb', value: 'ABCDEF' }, 1, 'solid'),
+        bottom: line({ kind: 'srgb', value: 'ABCDEF' }, 1, 'solid'),
+        left: line({ kind: 'srgb', value: 'ABCDEF' }, 1, 'solid'),
+      },
+      {
+        top: line({ kind: 'scheme', value: 'accent2' }, 1.5, 'dash'),
+        right: line({ kind: 'srgb', value: '00FF00' }, 0),
+        bottom: { kind: 'none' },
+      },
+      {
+        top: line({ kind: 'srgb', value: '112233' }, 2),
+        left: { kind: 'none' },
+      },
+      undefined,
+      undefined,
+      {
+        top: line({ kind: 'scheme', value: 'accent3' }, 2.25, 'dash'),
+        right: line({ kind: 'scheme', value: 'accent3' }, 2.25, 'dash'),
+        bottom: line({ kind: 'scheme', value: 'accent3' }, 2.25, 'dash'),
+        left: line({ kind: 'scheme', value: 'accent3' }, 2.25, 'dash'),
+      },
+      { left: line({ kind: 'srgb', value: '333333' }, 2, 'solid') },
+      {
+        top: { kind: 'none' },
+        right: { kind: 'none' },
+        bottom: { kind: 'none' },
+        left: { kind: 'none' },
+      },
+      undefined,
+      undefined,
+      undefined,
+      {
+        top: line({ kind: 'srgb', value: '445566' }, 0.5),
+        right: line({ kind: 'srgb', value: '445566' }, 0.5),
+        bottom: line({ kind: 'srgb', value: '445566' }, 0.5),
+        left: line({ kind: 'srgb', value: '445566' }, 0.5),
+      },
+    ]);
+
+    const beforeInvalid = pkg.requirePart(part.uri).bytes;
+    const invalidJournal = [...pkg.mutations];
+    for (const [row, column] of [[-1, 0], [0, -1], [0, 12], [1, 0]]) {
+      expect(() => table.setCellBorders(row!, column!, { kind: 'none' })).toThrow(RangeError);
+    }
+    for (const column of [8, 9, 10]) {
+      expect(() => table.setCellBorders(0, column, { kind: 'none' })).toThrow(ModelParseError);
+    }
+    const sparse = Array(4);
+    sparse[0] = { kind: 'none' };
+    const extraTuple = Object.assign(
+      [{ kind: 'none' }, undefined, undefined, undefined],
+      { extra: true },
+    );
+    const invalidValues = [
+      null,
+      false,
+      '',
+      [],
+      [{ kind: 'none' }, undefined, undefined],
+      sparse,
+      extraTuple,
+      { top: undefined, extra: true },
+      { kind: 'none', width: 1 },
+      { kind: 'unknown' },
+      { kind: 'line' },
+      { kind: 'line', color: null, width: 1 },
+      { kind: 'line', color: { kind: 'srgb', value: 'FFF' }, width: 1 },
+      { kind: 'line', color: { kind: 'srgb', value: 'GG0000' }, width: 1 },
+      { kind: 'line', color: { kind: 'scheme', value: 'unknown' }, width: 1 },
+      { kind: 'line', color: { kind: 'srgb', value: 'FF0000', extra: true }, width: 1 },
+      { kind: 'line', color: { kind: 'srgb', value: 'FF0000' }, width: -0.001 },
+      { kind: 'line', color: { kind: 'srgb', value: 'FF0000' }, width: 1584.001 },
+      { kind: 'line', color: { kind: 'srgb', value: 'FF0000' }, width: Number.NaN },
+      { kind: 'line', color: { kind: 'srgb', value: 'FF0000' }, width: Number.POSITIVE_INFINITY },
+      { kind: 'line', color: { kind: 'srgb', value: 'FF0000' }, width: 1, style: 'dot' },
+      Symbol('table cell borders'),
+    ];
+    for (const value of invalidValues) {
+      expect(() => table.setCellBorders(0, 0, value as never)).toThrow();
+    }
+    expect(pkg.requirePart(part.uri).bytes).toEqual(beforeInvalid);
+    expect(pkg.mutations).toEqual(invalidJournal);
+
+    const beforeRollback = pkg.requirePart(part.uri).bytes;
+    const rollbackJournal = [...pkg.mutations];
+    const rollbackBorders = table.rows[0]!.cells.map(({ borders }) => borders);
+    expect(() =>
+      pkg.transaction(() => {
+        table.setCellBorders(0, 0, { kind: 'none' });
+        table.setCellBorders(0, 4, {
+          kind: 'line',
+          color: { kind: 'srgb', value: 'FFFFFF' },
+          width: 1,
+        });
+        throw new Error('restore table cell borders');
+      }),
+    ).toThrow('restore table cell borders');
+    expect(pkg.requirePart(part.uri).bytes).toEqual(beforeRollback);
+    expect(pkg.mutations).toEqual(rollbackJournal);
+    expect(model.slides[1]!.shapes[2]).toBe(table);
+    expect(table.rows[0]!.cells.map(({ borders }) => borders)).toEqual(rollbackBorders);
+  });
+
   it('reads only exact direct table-cell vertical alignments into detached snapshots', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const part = pkg.requirePart('/ppt/slides/slide1.xml');

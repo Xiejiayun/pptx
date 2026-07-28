@@ -5,6 +5,12 @@ import { describe, expect, it } from 'vitest';
 import { PptxDocument, ShapeModel, TableModel } from '@pptx/sdk';
 import { importPptxGenJS } from './index.js';
 
+interface BorderProps {
+  readonly type?: 'none' | 'dash' | 'solid';
+  readonly color?: string;
+  readonly pt?: number;
+}
+
 interface PptxGenJSInstance {
   readonly version: string;
   readonly SchemeColor: {
@@ -495,6 +501,139 @@ describe('importPptxGenJS', () => {
     );
     expect(reopenedTables.map((table) =>
       table.rows[0]!.cells.map(({ fill }) => fill))).toEqual(snapshots);
+  });
+
+  it('imports PptxGenJS table-cell borders from materialized direct lines', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    generated.layout = 'LAYOUT_WIDE';
+    const slide = generated.addSlide();
+    const tableTuple = [
+      { type: 'none' },
+      { type: 'dash', color: '00FF00', pt: 1.5 },
+      { type: 'solid', color: '0000FF', pt: 0 },
+      { type: 'solid' },
+    ] satisfies [BorderProps, BorderProps, BorderProps, BorderProps];
+    const partialCellTuple = [
+      undefined,
+      { type: 'dash' },
+      undefined,
+      { type: 'solid' },
+    ] as unknown as [BorderProps, BorderProps, BorderProps, BorderProps];
+
+    slide.addTable(
+      [[{ text: 'Omitted border', options: {} }]],
+      { x: 0.2, y: 0.2, w: 2, h: 0.5 },
+    );
+    slide.addTable(
+      [[{ text: 'Table scalar', options: {} }]],
+      { x: 0.2, y: 1, w: 2, h: 0.5, border: { type: 'solid', color: 'FF0000', pt: 2 } },
+    );
+    slide.addTable(
+      [[{ text: 'Table tuple', options: {} }]],
+      { x: 0.2, y: 1.8, w: 2, h: 0.5, border: tableTuple },
+    );
+    slide.addTable(
+      [[{
+        text: 'Cell scalar zero',
+        options: { border: { type: 'solid', color: 'FFFF00', pt: 0 } },
+      }]],
+      { x: 0.2, y: 2.6, w: 2, h: 0.5, border: { type: 'solid', color: 'AAAAAA', pt: 3 } },
+    );
+    slide.addTable(
+      [[{ text: 'Cell partial tuple', options: { border: partialCellTuple } }]],
+      { x: 0.2, y: 3.4, w: 2, h: 0.5 },
+    );
+    slide.addTable(
+      [[{ text: 'Default border values', options: {} }]],
+      { x: 0.2, y: 4.2, w: 2, h: 0.5, border: {} },
+    );
+    slide.addTable(
+      [[
+        { text: 'Runtime negative', options: { border: { type: 'solid', color: '778899', pt: -1 } } },
+        { text: 'Runtime overflow', options: { border: { type: 'dash', color: 'AABBCC', pt: 2000 } } },
+      ]],
+      { x: 0.2, y: 5, w: 4, h: 0.5 },
+    );
+
+    const document = await importPptxGenJS(generated);
+    const tables = document.slides[0]!.shapes.filter(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    );
+    expect(tables).toHaveLength(7);
+    const line = (
+      color: string,
+      width: number,
+      style: 'solid' | 'dash' = 'solid',
+    ) => ({
+      kind: 'line' as const,
+      color: { kind: 'srgb' as const, value: color },
+      width,
+      style,
+    });
+    const none = { kind: 'none' as const };
+    const four = <T>(value: T) => ({ top: value, right: value, bottom: value, left: value });
+    const snapshots = tables.map((table) =>
+      table.rows[0]!.cells.map(({ borders }) => borders));
+    expect(snapshots).toEqual([
+      [four(none)],
+      [four(line('FF0000', 2))],
+      [{
+        top: none,
+        right: line('00FF00', 1.5, 'dash'),
+        bottom: line('0000FF', 1),
+        left: line('666666', 1),
+      }],
+      [four(line('FFFF00', 0))],
+      [{
+        top: none,
+        right: line('666666', 1, 'dash'),
+        bottom: none,
+        left: line('666666', 1),
+      }],
+      [four(line('666666', 1))],
+      [undefined, undefined],
+    ]);
+    expect(tables.flatMap(({ rows }) => rows[0]!.cells.map(({ text }) => text))).toEqual([
+      'Omitted border',
+      'Table scalar',
+      'Table tuple',
+      'Cell scalar zero',
+      'Cell partial tuple',
+      'Default border values',
+      'Runtime negative',
+      'Runtime overflow',
+    ]);
+
+    const xml = new TextDecoder().decode(
+      document.opcPackage.requirePart(document.slides[0]!.partUri).bytes,
+    );
+    expect(xml).toContain(
+      '<a:lnL w="0" cap="flat" cmpd="sng" algn="ctr"><a:noFill/></a:lnL><a:lnR w="0" cap="flat" cmpd="sng" algn="ctr"><a:noFill/></a:lnR><a:lnT w="0" cap="flat" cmpd="sng" algn="ctr"><a:noFill/></a:lnT><a:lnB w="0" cap="flat" cmpd="sng" algn="ctr"><a:noFill/></a:lnB>',
+    );
+    expect(xml).toContain('<a:prstDash val="solid"/>');
+    expect(xml).toContain('<a:prstDash val="sysDash"/>');
+    expect(xml).toContain('<a:lnB w="12700" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:srgbClr val="0000FF"/></a:solidFill>');
+    expect(xml).toContain('<a:lnL w="-12700" cap="flat" cmpd="sng" algn="ctr">');
+    expect(xml).toContain('<a:lnL w="25400000" cap="flat" cmpd="sng" algn="ctr">');
+    for (const properties of xml.matchAll(/<a:tcPr[^>]*>([\s\S]*?)<\/a:tcPr>/g)) {
+      const direct = properties[1]!;
+      const left = direct.indexOf('<a:lnL ');
+      const right = direct.indexOf('<a:lnR ');
+      const top = direct.indexOf('<a:lnT ');
+      const bottom = direct.indexOf('<a:lnB ');
+      expect(left).toBeGreaterThanOrEqual(0);
+      expect(left).toBeLessThan(right);
+      expect(right).toBeLessThan(top);
+      expect(top).toBeLessThan(bottom);
+    }
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedTables = reopened.slides[0]!.shapes.filter(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    );
+    expect(reopenedTables.map((table) =>
+      table.rows[0]!.cells.map(({ borders }) => borders))).toEqual(snapshots);
   });
 
   it('imports public PptxGenJS output and continues editing in the OOXML kernel', async () => {

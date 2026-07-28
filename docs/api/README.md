@@ -49,7 +49,7 @@ document.moveSlide(1, 0);
 document.deleteSlide(2);
 ```
 
-Shape kinds include `text`, `shape`, `image`, `table`, `chart`, `graphic-frame`, and `group`. Images expose embedded part URIs and replacement; tables expose rows/cells plus cell text, fill, margins, text-direction, text-fit, and vertical-alignment editing; charts expose cached series and lossless chart XML editing.
+Shape kinds include `text`, `shape`, `image`, `table`, `chart`, `graphic-frame`, and `group`. Images expose embedded part URIs and replacement; tables expose rows/cells plus cell text, borders, fill, margins, text-direction, text-fit, and vertical-alignment editing; charts expose cached series and lossless chart XML editing.
 
 ```ts
 const text = document.addSlide().addText('Quarterly results\nQ4 forecast', {
@@ -124,6 +124,7 @@ Text-box `vert` accepts `eaVert`, `horz`, `mongolianVert`, `vert`, `vert270`, `w
 ```ts
 import {
   TableModel,
+  type TableCellBorders,
   type TableCellFill,
   type TableCellTextDirection,
   type TextBoxFit,
@@ -156,6 +157,21 @@ table?.setCellMargins(0, 0, 7.2);
 table?.setCellMargins(0, 1, [3.6, 7.2, 10.8, 14.4]);
 table?.setCellMargins(0, 2, { top: 4, left: 8 });
 table?.setCellMargins(0, 2, undefined);
+const currentBorders: TableCellBorders | undefined = table?.rows[0]?.cells[0]?.borders;
+table?.setCellBorders(0, 0, {
+  kind: 'line',
+  color: { kind: 'srgb', value: 'FF0000' },
+  width: 2,
+  style: 'solid',
+});
+table?.setCellBorders(0, 1, [
+  { kind: 'line', color: { kind: 'scheme', value: 'accent1' }, width: 1, style: 'dash' },
+  { kind: 'line', color: { kind: 'srgb', value: '00FF00' }, width: 1.5 },
+  { kind: 'none' },
+  undefined,
+]);
+table?.setCellBorders(0, 2, { top: { kind: 'none' } });
+table?.setCellBorders(0, 2, undefined);
 const currentFill: TableCellFill | undefined = table?.rows[0]?.cells[0]?.fill;
 table?.setCellFill(0, 0, {
   kind: 'solid',
@@ -175,6 +191,8 @@ Table-cell `textDirection` is an immutable snapshot with the dedicated values `h
 Table-cell `verticalAlignment` reuses `TextBoxVerticalAlignment` values `top`, `middle`, and `bottom`, but stores them only in the selected physical cell's direct `tcPr@anchor` as `t`, `ctr`, or `b`. `setCellVerticalAlignment()` writes the canonical token or clears it with `undefined`; the strict snapshot getter requires exactly one direct `tcPr` and one unqualified supported anchor. It does not read or change the separate `bodyPr@anchor`, resolve effective defaults, or support `just` / `dist`. PptxGenJS 4.0.1 leaves the direct anchor absent when table/cell `valign` is omitted, copies an explicit table-level value into uncovered cells, and lets a cell value override it; runtime invalid tokens remain opaque and import as `undefined`.
 
 Table-cell `margins` reuses the point-based `TextBoxMargins` value shape but owns only the selected physical cell's direct `tcPr@marL/marR/marT/marB`; it never reads or changes text-box `bodyPr@*Ins`. `setCellMargins()` addresses zero-based physical row/cell positions and accepts a point scalar, `[top, right, bottom, left]` tuple, partial named object, `{}` or `undefined`; the named/object form is a whole replacement, so omitted sides are cleared. The snapshot getter requires exactly one direct `tcPr`, reads each unique unqualified signed-Int32 integer independently, and returns only valid direct sides. PptxGenJS 4.0.1 writes narrow direct defaults when margin is omitted, materializes a table-level margin into cells, and retains a legacy branch that treats a first value below 1 as inches but a first value of at least 1 as points. Adapter imports expose the resulting OOXML in points instead of guessing the original unit.
+
+Table-cell `borders` is a detached partial snapshot of the selected physical cell's same-prefix direct `lnL/lnR/lnT/lnB`. Each supported side is `{ kind: 'none' }` or `{ kind: 'line', color, width, style? }`, where width is finite `0..1584` points, color is strict sRGB/theme, and style is omitted, `solid`, or `dash`. `setCellBorders()` accepts one scalar border for all sides, an exact `[top, right, bottom, left]` tuple, or a partial named whole replacement; omitted named/tuple sides are cleared, and `{}` / `undefined` clear all four direct sides. Explicit none writes a direct zero-width `noFill` line, while an omitted side removes that line, so table-style fallback remains distinct. Public TRBL input is serialized in OOXML's required L/R/T/B order; dash maps to `sysDash`, zero-width line remains a line, and widths are quantized to the nearest EMU. The strict getter omits malformed or unsupported sides independently and never treats diagonals, cell fill, text outlines, advanced dash presets, joins, arrows, or shared-edge/effective style as supported state; unrelated edits preserve them. PptxGenJS 4.0.1 materializes four direct noFill sides when border is omitted, copies table-level scalar/TRBL values into cells, defaults visible borders to `666666`/1pt/solid, preserves cell-level `pt: 0`, and changes table-tuple `pt: 0` to its 1pt default. Adapter snapshots reflect final XML rather than guessing the original input layer.
 
 Table-cell `fill` is a detached direct-state snapshot with explicit `{ kind: 'none' }` and `{ kind: 'solid', color, transparency? }` variants. Solid fill supports strict six-digit sRGB or the existing theme-color tokens; transparency is a finite `0..100` percentage quantized to `0.001%`. Omitted transparency writes no alpha, while explicit zero writes direct opaque alpha. `setCellFill()` addresses zero-based physical row/cell positions: `none` writes direct `tcPr/a:noFill`, while `undefined` removes the direct fill choice so table-style fallback remains distinct. The strict getter requires a unique direct `tcPr` and one unambiguous same-prefix noFill or solidFill; it never reads border/text descendant fills or resolves table styles. Unsupported gradient/pattern/picture/group fills remain preserved during unrelated edits and can be explicitly replaced or cleared. PptxGenJS 4.0.1 materializes table-level fill into cells, collapses omitted and `type: 'none'` to no direct fill, and may emit invalid alpha for out-of-range runtime values; adapter imports preserve that XML but do not fabricate a valid snapshot.
 

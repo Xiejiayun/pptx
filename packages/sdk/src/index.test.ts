@@ -78,6 +78,52 @@ async function tableTextDirectionFixture(): Promise<Uint8Array> {
   return document.opcPackage.write();
 }
 
+async function tableBordersFixture(): Promise<Uint8Array> {
+  const document = await PptxDocument.open(await tableTextDirectionFixture());
+  const slide = document.slides[0]!;
+  const part = document.opcPackage.requirePart(slide.partUri);
+  const line = (
+    tag: 'lnL' | 'lnR' | 'lnT' | 'lnB',
+    width: number,
+    fill: string,
+    dash = '',
+  ): string =>
+    `<a:${tag} w="${width}" cap="flat" cmpd="sng" algn="ctr">${fill}${dash}<a:round/><a:headEnd type="none" w="med" len="med"/><a:tailEnd type="none" w="med" len="med"/></a:${tag}>`;
+  const red = ['lnL', 'lnR', 'lnT', 'lnB'].map((tag) =>
+    line(
+      tag as 'lnL' | 'lnR' | 'lnT' | 'lnB',
+      12700,
+      '<a:solidFill><a:srgbClr val="C00000"/></a:solidFill>',
+      '<a:prstDash val="solid"/>',
+    )).join('');
+  const none = (tag: 'lnL' | 'lnR' | 'lnT' | 'lnB'): string =>
+    `<a:${tag} w="0" cap="flat" cmpd="sng" algn="ctr"><a:noFill/></a:${tag}>`;
+  const fourNone = [none('lnL'), none('lnR'), none('lnT'), none('lnB')].join('');
+  const mixed = line(
+    'lnR',
+    0,
+    '<a:solidFill><a:srgbClr val="00FF00"/></a:solidFill>',
+  ) + line(
+    'lnT',
+    19050,
+    '<a:solidFill><a:schemeClr val="accent1"/></a:solidFill>',
+    '<a:prstDash val="sysDash"/>',
+  ) + none('lnB');
+  const merged = line(
+    'lnL',
+    25400,
+    '<a:solidFill><a:srgbClr val="333333"/></a:solidFill>',
+    '<a:prstDash val="solid"/>',
+  );
+  const source = new TextDecoder().decode(part.bytes)
+    .replace('keep="FIT-NONE"><a:solidFill>', `keep="FIT-NONE">${red}<a:solidFill>`)
+    .replace('keep="FIT-SHRINK"><a:solidFill>', `keep="FIT-SHRINK">${mixed}<a:solidFill>`)
+    .replace('keep="FIT-RESIZE"><a:noFill/>', `keep="FIT-RESIZE">${fourNone}<a:lnTlToBr w="12700"><a:solidFill><a:srgbClr val="123456"/></a:solidFill></a:lnTlToBr><a:noFill/>`)
+    .replace('keep="FIT-MERGED"><a:solidFill>', `keep="FIT-MERGED">${merged}<a:solidFill>`);
+  document.opcPackage.setPart(slide.partUri, source, part.contentType);
+  return document.write();
+}
+
 describe('PptxDocument vertical slice', () => {
   it('creates a zero-slide presentation and adds blank slides with the default layout', async () => {
     const document = PptxDocument.create();
@@ -1111,6 +1157,246 @@ describe('PptxDocument vertical slice', () => {
     expect(document.slides).toHaveLength(1);
     expect(document.slides[0]).toBe(slide);
     expect(slide.shapes[0]).toBe(table);
+    expect(table.rows.map(({ cells }) => cells.map((cell) => cell.fill))).toEqual(fills);
+    expect(table.rows.map(({ cells }) => cells.map((cell) => cell.margins))).toEqual(margins);
+    expect(table.rows.map(({ cells }) =>
+      cells.map(({ verticalAlignment }) => verticalAlignment))).toEqual(alignments);
+    expect(table.rows.map(({ cells }) => cells.map(({ textFit }) => textFit))).toEqual(fits);
+    expect(table.rows.map(({ cells }) => cells.map(({ textDirection }) => textDirection))).toEqual(directions);
+    expect(table.rows.map(({ cells }) => cells.map((cell) => cell.text))).toEqual(text);
+  });
+
+  it('edits table-cell borders through duplicate, rollback, and reopen lifecycles', async () => {
+    const document = await PptxDocument.open(await tableBordersFixture());
+    expect(validatePackage(document.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+    const slide = document.slides[0]!;
+    const table = slide.shapes[0] as TableModel;
+    const line = (
+      color: { kind: 'srgb' | 'scheme'; value: string },
+      width: number,
+      style?: 'solid' | 'dash',
+    ) => ({ kind: 'line' as const, color, width, ...(style ? { style } : {}) });
+    const red = line({ kind: 'srgb', value: 'C00000' }, 1, 'solid');
+    const originalBorders = [
+      { top: red, right: red, bottom: red, left: red },
+      {
+        top: line({ kind: 'scheme', value: 'accent1' }, 1.5, 'dash'),
+        right: line({ kind: 'srgb', value: '00FF00' }, 0),
+        bottom: { kind: 'none' },
+      },
+      {
+        top: { kind: 'none' },
+        right: { kind: 'none' },
+        bottom: { kind: 'none' },
+        left: { kind: 'none' },
+      },
+      undefined,
+      { left: line({ kind: 'srgb', value: '333333' }, 2, 'solid') },
+    ];
+    expect(table.rows[2]!.cells.map(({ borders }) => borders)).toEqual(originalBorders);
+    const duplicate = document.duplicateSlide(0);
+    const duplicateTable = duplicate.shapes[0] as TableModel;
+
+    table.setCellBorders(2, 0, {
+      kind: 'line',
+      color: { kind: 'scheme', value: 'accent3' },
+      width: 2.25,
+      style: 'dash',
+    });
+    table.setCellBorders(2, 1, [
+      {
+        kind: 'line',
+        color: { kind: 'srgb', value: '#112233' },
+        width: 2,
+      },
+      { kind: 'none' },
+      {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent4' },
+        width: 0,
+        style: 'solid',
+      },
+      undefined,
+    ]);
+    table.setCellBorders(2, 2, {
+      top: {
+        kind: 'line',
+        color: { kind: 'srgb', value: '0000FF' },
+        width: 3,
+        style: 'solid',
+      },
+      left: { kind: 'none' },
+    });
+    table.setCellBorders(2, 3, { kind: 'none' });
+    table.setCellBorders(2, 3, undefined);
+    table.setCellBorders(2, 4, {
+      kind: 'line',
+      color: { kind: 'srgb', value: '00B0F0' },
+      width: 0.5,
+    });
+    table.setCellMargins(2, 0, 6);
+    table.setCellFill(2, 1, { kind: 'solid', color: { kind: 'scheme', value: 'accent5' } });
+    table.setCellTextFit(2, 1, 'resize');
+    table.setCellTextDirection(2, 3, 'horz');
+    table.setCellVerticalAlignment(2, 1, 'bottom');
+    table.setCellText(2, 4, 'Edited merged borders');
+    table.setTransform({ x: inches(2) });
+
+    const snapshot = table.rows;
+    const mutable = snapshot[2]!.cells[0]!.borders as {
+      top?: {
+        kind: string;
+        color: { kind: string; value: string };
+        width: number;
+        style?: string;
+      };
+    };
+    mutable.top!.kind = 'none';
+    mutable.top!.color.value = 'FFFFFF';
+    mutable.top!.width = 99;
+    mutable.top!.style = 'solid';
+
+    const accent3 = line({ kind: 'scheme', value: 'accent3' }, 2.25, 'dash');
+    const cyan = line({ kind: 'srgb', value: '00B0F0' }, 0.5);
+    const editedBorders = [
+      { top: accent3, right: accent3, bottom: accent3, left: accent3 },
+      {
+        top: line({ kind: 'srgb', value: '112233' }, 2),
+        right: { kind: 'none' },
+        bottom: line({ kind: 'scheme', value: 'accent4' }, 0, 'solid'),
+      },
+      {
+        top: line({ kind: 'srgb', value: '0000FF' }, 3, 'solid'),
+        left: { kind: 'none' },
+      },
+      undefined,
+      { top: cyan, right: cyan, bottom: cyan, left: cyan },
+    ];
+    expect(document.slides[0]).toBe(slide);
+    expect(slide.shapes[0]).toBe(table);
+    expect(table.rows[2]!.cells.map(({ borders }) => borders)).toEqual(editedBorders);
+    expect(table.rows[2]!.cells[0]!.margins).toEqual({
+      top: 6,
+      right: 6,
+      bottom: 6,
+      left: 6,
+    });
+    expect(table.rows[2]!.cells[1]!.fill).toEqual({
+      kind: 'solid',
+      color: { kind: 'scheme', value: 'accent5' },
+    });
+    expect(table.rows[2]!.cells[1]!.textFit).toBe('resize');
+    expect(table.rows[2]!.cells[1]!.verticalAlignment).toBe('bottom');
+    expect(table.rows[2]!.cells[3]!.textDirection).toBe('horz');
+    expect(table.rows[2]!.cells[4]!.text).toBe('Edited merged borders');
+    const editedXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(editedXml).toContain(
+      '<a:lnL w="28575" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="accent3"/></a:solidFill><a:prstDash val="sysDash"/>',
+    );
+    expect(editedXml).toContain(
+      '<a:lnL w="0" cap="flat" cmpd="sng" algn="ctr"><a:noFill/></a:lnL><a:lnT w="38100"',
+    );
+    expect(editedXml).toContain('<a:lnTlToBr w="12700">');
+    expect(editedXml).toContain('<a:off x="1828800" y="914400"/>');
+    expect(duplicateTable.rows[2]!.cells.map(({ borders }) => borders)).toEqual(originalBorders);
+
+    const beforeRollback = document.opcPackage.requirePart(slide.partUri).bytes;
+    const rollbackJournal = [...document.opcPackage.mutations];
+    expect(() =>
+      document.transaction(() => {
+        table.setCellBorders(2, 0, { kind: 'none' });
+        table.setCellBorders(2, 3, {
+          kind: 'line',
+          color: { kind: 'srgb', value: 'FFFFFF' },
+          width: 1,
+        });
+        throw new Error('restore public table border edits');
+      }),
+    ).toThrow('restore public table border edits');
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(beforeRollback);
+    expect(document.opcPackage.mutations).toEqual(rollbackJournal);
+    expect(document.slides[0]).toBe(slide);
+    expect(slide.shapes[0]).toBe(table);
+    expect(table.rows[2]!.cells.map(({ borders }) => borders)).toEqual(editedBorders);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedEdited = reopened.slides[0]!.shapes[0] as TableModel;
+    const reopenedDuplicate = reopened.slides[1]!.shapes[0] as TableModel;
+    expect(reopenedEdited.rows[2]!.cells.map(({ borders }) => borders)).toEqual(editedBorders);
+    expect(reopenedDuplicate.rows[2]!.cells.map(({ borders }) => borders)).toEqual(originalBorders);
+  });
+
+  it('rejects invalid table-cell borders and physical coordinates before mutation', async () => {
+    const document = await PptxDocument.open(await tableBordersFixture());
+    const slide = document.slides[0]!;
+    const table = slide.shapes[0] as TableModel;
+    const before = document.opcPackage.requirePart(slide.partUri).bytes;
+    const journal = [...document.opcPackage.mutations];
+    const borders = table.rows.map(({ cells }) => cells.map((cell) => cell.borders));
+    const fills = table.rows.map(({ cells }) => cells.map((cell) => cell.fill));
+    const margins = table.rows.map(({ cells }) => cells.map((cell) => cell.margins));
+    const alignments = table.rows.map(({ cells }) =>
+      cells.map(({ verticalAlignment }) => verticalAlignment));
+    const fits = table.rows.map(({ cells }) => cells.map(({ textFit }) => textFit));
+    const directions = table.rows.map(({ cells }) => cells.map(({ textDirection }) => textDirection));
+    const text = table.rows.map(({ cells }) => cells.map((cell) => cell.text));
+
+    const sparse = Array(4);
+    sparse[0] = { kind: 'none' };
+    const extraTuple = Object.assign(
+      [{ kind: 'none' }, undefined, undefined, undefined],
+      { extra: true },
+    );
+    const invalidValues = [
+      null,
+      false,
+      true,
+      '',
+      [],
+      [{ kind: 'none' }, undefined, undefined],
+      sparse,
+      extraTuple,
+      { top: undefined, extra: true },
+      { kind: 'none', width: 1 },
+      { kind: 'unknown' },
+      { kind: 'line' },
+      { kind: 'line', color: null, width: 1 },
+      { kind: 'line', color: { kind: 'srgb', value: 'FFF' }, width: 1 },
+      { kind: 'line', color: { kind: 'srgb', value: 'GG0000' }, width: 1 },
+      { kind: 'line', color: { kind: 'scheme', value: 'unknown' }, width: 1 },
+      { kind: 'line', color: { kind: 'srgb', value: 'FF0000', extra: true }, width: 1 },
+      { kind: 'line', color: { kind: 'srgb', value: 'FF0000' }, width: -0.001 },
+      { kind: 'line', color: { kind: 'srgb', value: 'FF0000' }, width: 1584.001 },
+      { kind: 'line', color: { kind: 'srgb', value: 'FF0000' }, width: Number.NaN },
+      { kind: 'line', color: { kind: 'srgb', value: 'FF0000' }, width: Number.POSITIVE_INFINITY },
+      { kind: 'line', color: { kind: 'srgb', value: 'FF0000' }, width: 1, style: 'dot' },
+      Symbol('table cell borders'),
+    ];
+    for (const value of invalidValues) {
+      expect(() => table.setCellBorders(2, 0, value as never)).toThrow();
+    }
+    const invalidCoordinates = [
+      [-1, 0],
+      [0, -1],
+      [0.5, 0],
+      [0, 0.5],
+      [Number.NaN, 0],
+      [0, Number.NaN],
+      [Number.POSITIVE_INFINITY, 0],
+      [0, Number.NEGATIVE_INFINITY],
+      [3, 0],
+      [2, 5],
+    ];
+    for (const [row, column] of invalidCoordinates) {
+      expect(() => table.setCellBorders(row!, column!, { kind: 'none' })).toThrow(RangeError);
+    }
+
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(before);
+    expect(document.opcPackage.mutations).toEqual(journal);
+    expect(document.slides).toHaveLength(1);
+    expect(document.slides[0]).toBe(slide);
+    expect(slide.shapes[0]).toBe(table);
+    expect(table.rows.map(({ cells }) => cells.map((cell) => cell.borders))).toEqual(borders);
     expect(table.rows.map(({ cells }) => cells.map((cell) => cell.fill))).toEqual(fills);
     expect(table.rows.map(({ cells }) => cells.map((cell) => cell.margins))).toEqual(margins);
     expect(table.rows.map(({ cells }) =>

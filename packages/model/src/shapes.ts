@@ -11,6 +11,11 @@ import {
 import { cloneOwnedPartForMutation } from './dependency.internal.js';
 import type { SlideModel } from './slide.js';
 import {
+  normalizeTableCellBorders,
+  readTableCellBorders,
+  replaceTableCellBorders,
+} from './table-cell-borders.internal.js';
+import {
   normalizeTableCellFill,
   readTableCellFill,
   replaceTableCellFill,
@@ -50,6 +55,34 @@ export type ShapeKind = 'shape' | 'text' | 'image' | 'table' | 'chart' | 'graphi
 
 export type TableCellTextDirection = 'horz' | 'vert' | 'vert270' | 'wordArtVert';
 
+export type TableCellBorderStyle = 'solid' | 'dash';
+
+export type TableCellBorder =
+  | { readonly kind: 'none' }
+  | {
+      readonly kind: 'line';
+      readonly color: RichTextColor;
+      readonly width: number;
+      readonly style?: TableCellBorderStyle;
+    };
+
+export interface TableCellBorders {
+  readonly top?: TableCellBorder;
+  readonly right?: TableCellBorder;
+  readonly bottom?: TableCellBorder;
+  readonly left?: TableCellBorder;
+}
+
+export type TableCellBorderInput =
+  | TableCellBorder
+  | readonly [
+      TableCellBorder | undefined,
+      TableCellBorder | undefined,
+      TableCellBorder | undefined,
+      TableCellBorder | undefined,
+    ]
+  | TableCellBorders;
+
 export type TableCellFill =
   | { readonly kind: 'none' }
   | {
@@ -60,6 +93,7 @@ export type TableCellFill =
 
 export interface TableCell {
   readonly text: string;
+  readonly borders?: TableCellBorders;
   readonly fill?: TableCellFill;
   readonly margins?: TextBoxMargins;
   readonly textDirection?: TableCellTextDirection;
@@ -233,6 +267,7 @@ export class TableModel extends BaseShapeModel {
     const { xml, element } = this.resolve();
     return xml.descendants(element, 'tr').map((row) => ({
       cells: xml.descendants(row, 'tc').map((cell) => {
+        const borders = readTableCellBorders(xml, cell);
         const fill = readTableCellFill(xml, cell);
         const margins = readTableCellMargins(xml, cell);
         const textDirection = readTableCellTextDirection(xml, cell);
@@ -240,6 +275,7 @@ export class TableModel extends BaseShapeModel {
         const verticalAlignment = readTableCellVerticalAlignment(xml, cell);
         return {
           text: xml.descendants(cell, 't').map((node) => xml.text(node)).join(''),
+          ...(borders !== undefined ? { borders } : {}),
           ...(fill !== undefined ? { fill } : {}),
           ...(margins !== undefined ? { margins } : {}),
           ...(textDirection !== undefined ? { textDirection } : {}),
@@ -258,6 +294,23 @@ export class TableModel extends BaseShapeModel {
     if (!text) throw new RangeError(`Table cell ${rowIndex},${columnIndex} was not found`);
     xml.replaceText(text, value);
     this.slide.setXml(xml.serialize());
+  }
+
+  setCellBorders(
+    rowIndex: number,
+    columnIndex: number,
+    value: TableCellBorderInput | undefined,
+  ): void {
+    const borders = normalizeTableCellBorders(value, 'Table cell borders');
+    this.slide.presentation.opcPackage.transaction(() => {
+      const { xml, element } = this.resolve();
+      const row = xml.descendants(element, 'tr')[rowIndex];
+      const cell = row ? xml.descendants(row, 'tc')[columnIndex] : undefined;
+      if (!cell) throw new RangeError(`Table cell ${rowIndex},${columnIndex} was not found`);
+      if (replaceTableCellBorders(xml, cell, borders, this.slide.partUri)) {
+        this.slide.setXml(xml.serialize());
+      }
+    });
   }
 
   setCellFill(
