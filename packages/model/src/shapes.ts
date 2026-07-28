@@ -19,7 +19,12 @@ import {
   readTableCellTextDirection,
   replaceTableCellTextDirection,
 } from './table-cell-text-direction.internal.js';
+import {
+  readTableCellVerticalAlignment,
+  replaceTableCellVerticalAlignment,
+} from './table-cell-vertical-alignment.internal.js';
 import { normalizeTextBoxFit } from './text-box-fit.internal.js';
+import { normalizeTextBoxVerticalAlignment } from './text-box-vertical-alignment.internal.js';
 import type {
   RichTextParagraph,
   TextBoxFit,
@@ -38,6 +43,7 @@ export interface TableCell {
   readonly text: string;
   readonly textDirection?: TableCellTextDirection;
   readonly textFit?: TextBoxFit;
+  readonly verticalAlignment?: TextBoxVerticalAlignment;
 }
 
 export interface TableRow {
@@ -208,10 +214,12 @@ export class TableModel extends BaseShapeModel {
       cells: xml.descendants(row, 'tc').map((cell) => {
         const textDirection = readTableCellTextDirection(xml, cell);
         const textFit = readTableCellTextFit(xml, cell, this.slide.partUri);
+        const verticalAlignment = readTableCellVerticalAlignment(xml, cell);
         return {
           text: xml.descendants(cell, 't').map((node) => xml.text(node)).join(''),
           ...(textDirection !== undefined ? { textDirection } : {}),
           ...(textFit !== undefined ? { textFit } : {}),
+          ...(verticalAlignment !== undefined ? { verticalAlignment } : {}),
         };
       }),
     }));
@@ -260,6 +268,25 @@ export class TableModel extends BaseShapeModel {
       const cell = row ? xml.descendants(row, 'tc')[columnIndex] : undefined;
       if (!cell) throw new RangeError(`Table cell ${rowIndex},${columnIndex} was not found`);
       if (replaceTableCellTextFit(xml, cell, fit, this.slide.partUri)) {
+        this.slide.setXml(xml.serialize());
+      }
+    });
+  }
+
+  setCellVerticalAlignment(
+    rowIndex: number,
+    columnIndex: number,
+    value: TextBoxVerticalAlignment | undefined,
+  ): void {
+    const alignment = value === undefined
+      ? undefined
+      : normalizeTextBoxVerticalAlignment(value, 'Table cell vertical alignment');
+    this.slide.presentation.opcPackage.transaction(() => {
+      const { xml, element } = this.resolve();
+      const row = xml.descendants(element, 'tr')[rowIndex];
+      const cell = row ? xml.descendants(row, 'tc')[columnIndex] : undefined;
+      if (!cell) throw new RangeError(`Table cell ${rowIndex},${columnIndex} was not found`);
+      if (replaceTableCellVerticalAlignment(xml, cell, alignment, this.slide.partUri)) {
         this.slide.setXml(xml.serialize());
       }
     });

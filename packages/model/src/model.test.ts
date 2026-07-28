@@ -517,6 +517,168 @@ describe('PresentationModel', () => {
     expect(table.rows[0]!.cells.map(({ textFit }) => textFit)).toEqual(rollbackFits);
   });
 
+  it('reads only exact direct table-cell vertical alignments into detached snapshots', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const part = pkg.requirePart('/ppt/slides/slide1.xml');
+    const cell = (
+      properties: string,
+      index: number,
+      bodyProperties = '<a:bodyPr/>',
+    ): string =>
+      `<a:tc><a:txBody>${bodyProperties}<a:p><a:r><a:t>Alignment ${index}</a:t></a:r></a:p></a:txBody>${properties}</a:tc>`;
+    const cells = [
+      cell('<a:tcPr anchor="t" vert="horz"/>', 0),
+      cell('<a:tcPr anchor="ctr" vert="horz"/>', 1),
+      cell('<a:tcPr anchor="b" vert="horz"/>', 2),
+      cell('<a:tcPr vert="horz"/>', 3),
+      cell('<a:tcPr anchor="" vert="horz"/>', 4),
+      cell('<a:tcPr anchor="T" vert="horz"/>', 5),
+      cell('<a:tcPr anchor=" ctr " vert="horz"/>', 6),
+      cell('<a:tcPr anchor="top" vert="horz"/>', 7),
+      cell('<a:tcPr anchor="middle" vert="horz"/>', 8),
+      cell('<a:tcPr anchor="bottom" vert="horz"/>', 9),
+      cell('<a:tcPr anchor="just" vert="horz"/>', 10),
+      cell('<a:tcPr anchor="dist" vert="horz"/>', 11),
+      cell('<a:tcPr anchor="unknown" vert="horz"/>', 12),
+      cell('<a:tcPr xmlns:x="urn:test" x:anchor="t" vert="horz"/>', 13),
+      cell('<a:tcPr anchor="t" anchor="b" vert="horz"/>', 14),
+      cell('<a:tcPr vert="horz"/>', 15, '<a:bodyPr anchor="b"/>'),
+      cell('<a:tcPr anchor="t"/><a:tcPr keep="SECOND"/>', 16),
+      cell('', 17),
+    ].join('');
+    pkg.setPart(
+      part.uri,
+      new TextDecoder().decode(part.bytes).replace(/<a:tr>.*?<\/a:tr>/, `<a:tr>${cells}</a:tr>`),
+      part.contentType,
+    );
+    const table = new PresentationModel(pkg).slides[1]!.shapes[2] as TableModel;
+    const journal = [...pkg.mutations];
+
+    const snapshot = table.rows;
+    const alignments = snapshot[0]!.cells.map(({ verticalAlignment }) => verticalAlignment);
+    expect(alignments.slice(0, 3)).toEqual(['top', 'middle', 'bottom']);
+    expect(alignments.slice(3)).toEqual(Array(15).fill(undefined));
+    expect(snapshot[0]!.cells.slice(0, 16).every(({ textDirection }) => textDirection === 'horz')).toBe(true);
+    expect(snapshot[0]!.cells.slice(16).every(({ textDirection }) => textDirection === undefined)).toBe(true);
+    expect(pkg.mutations).toEqual(journal);
+
+    (snapshot[0]!.cells[0] as { verticalAlignment?: string }).verticalAlignment = 'bottom';
+    expect(table.rows[0]!.cells[0]!.verticalAlignment).toBe('top');
+    expect(pkg.mutations).toEqual(journal);
+  });
+
+  it('losslessly edits one table-cell vertical alignment and rolls back atomically', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const part = pkg.requirePart('/ppt/slides/slide1.xml');
+    const textBody = (bodyProperties: string, text: string): string =>
+      `<a:txBody>${bodyProperties}<a:p><a:r><a:t>${text}</a:t></a:r></a:p></a:txBody>`;
+    const cell = (body: string, properties: string, attributes = ''): string =>
+      `<a:tc${attributes}>${body}${properties}</a:tc>`;
+    const adjacentCell = cell(
+      textBody('<a:bodyPr anchor="t" keep="ADJACENT"><a:spAutoFit/></a:bodyPr>', 'Adjacent'),
+      '<a:tcPr anchor="b" vert="horz" keep="ADJACENT-TCPR"/>',
+    );
+    const cells = [
+      cell(
+        textBody(
+          '<a:bodyPr anchor="b" custom="BODY"><a:normAutofit fontScale="85000" lnSpcReduction="20000"/><x:keep xmlns:x="urn:test">BODY</x:keep></a:bodyPr>',
+          'Same mode',
+        ),
+        '<a:tcPr marL="100" anchor=\'ctr\' vert="vert270" custom="KEEP"><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill><x:keep xmlns:x="urn:test">TCPR</x:keep></a:tcPr>',
+      ),
+      cell(textBody('<a:bodyPr/>', 'Add top'), '<a:tcPr marR="200"/>'),
+      cell(textBody('<a:bodyPr><a:noAutofit/></a:bodyPr>', 'Top to middle'), '<a:tcPr anchor="t" horzOverflow="clip"><a:noFill/></a:tcPr>'),
+      cell(textBody('<a:bodyPr/>', 'Clear bottom'), '<a:tcPr anchor="b" marT="300"/>'),
+      cell(textBody('<a:bodyPr/>', 'Canonicalize'), '<a:tcPr anchor="distributed" keep="UNKNOWN"/>'),
+      cell(textBody('<a:bodyPr/>', 'Clear unknown'), '<a:tcPr anchor="mid" keep="CLEAR"/>'),
+      adjacentCell,
+      cell(
+        textBody('<a:bodyPr><a:spAutoFit/></a:bodyPr>', 'Merged'),
+        '<a:tcPr anchor="ctr" vert="wordArtVert" keep="MERGED"/>',
+        ' hMerge="1"',
+      ),
+      cell(textBody('<a:bodyPr/>', 'Repeated anchor'), '<a:tcPr anchor="t" anchor="b"/>'),
+      cell(textBody('<a:bodyPr/>', 'Repeated tcPr'), '<a:tcPr/><a:tcPr keep="SECOND"/>'),
+      cell(textBody('<a:bodyPr/>', 'Missing tcPr'), ''),
+    ].join('');
+    const source = new TextDecoder().decode(part.bytes)
+      .replace(
+        '<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="4" name="Table 1"/></p:nvGraphicFramePr><a:graphic>',
+        '<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="4" name="Table 1"/></p:nvGraphicFramePr><p:xfrm><a:off x="0" y="0"/><a:ext cx="1000" cy="2000"/></p:xfrm><a:graphic>',
+      )
+      .replace(/<a:tr>.*?<\/a:tr>/, `<a:tr>${cells}</a:tr>`);
+    pkg.setPart(part.uri, source, part.contentType);
+    const model = new PresentationModel(pkg);
+    const table = model.slides[1]!.shapes[2] as TableModel;
+
+    const noOpJournal = [...pkg.mutations];
+    table.setCellVerticalAlignment(0, 0, 'middle');
+    expect(pkg.mutations).toEqual(noOpJournal);
+
+    table.setCellVerticalAlignment(0, 1, 'top');
+    table.setCellVerticalAlignment(0, 2, 'middle');
+    table.setCellVerticalAlignment(0, 3, undefined);
+    table.setCellVerticalAlignment(0, 4, 'bottom');
+    table.setCellVerticalAlignment(0, 5, undefined);
+    table.setCellVerticalAlignment(0, 7, 'top');
+    let updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated).toContain('<a:tcPr marL="100" anchor=\'ctr\' vert="vert270" custom="KEEP">');
+    expect(updated).toContain('<a:tcPr marR="200" anchor="t"/>');
+    expect(updated).toContain('<a:tcPr anchor="ctr" horzOverflow="clip"><a:noFill/></a:tcPr>');
+    expect(updated).toContain('<a:tcPr marT="300"/>');
+    expect(updated).toContain('<a:tcPr anchor="b" keep="UNKNOWN"/>');
+    expect(updated).toContain('<a:tcPr keep="CLEAR"/>');
+    expect(updated).toContain('<a:tc hMerge="1">');
+    expect(updated).toContain('<a:tcPr anchor="t" vert="wordArtVert" keep="MERGED"/>');
+    expect(updated).toContain('<a:bodyPr anchor="b" custom="BODY"><a:normAutofit fontScale="85000"');
+    expect(updated).toContain(adjacentCell);
+
+    table.setCellText(0, 2, 'Edited alignment');
+    table.setCellTextDirection(0, 1, 'wordArtVert');
+    table.setCellTextFit(0, 0, 'resize');
+    table.setTransform({ x: inches(1) });
+    updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(updated).toContain('<a:t>Edited alignment</a:t>');
+    expect(updated).toContain('<a:tcPr marR="200" anchor="t" vert="wordArtVert"/>');
+    expect(updated).toContain('<a:tcPr marL="100" anchor=\'ctr\' vert="vert270" custom="KEEP">');
+    expect(updated).toContain('<a:bodyPr anchor="b" custom="BODY"><a:spAutoFit/>');
+    expect(updated).toContain('<a:off x="914400" y="0"/>');
+    expect(updated).toContain(adjacentCell);
+
+    table.setCellVerticalAlignment(0, 2, 'bottom');
+    table.setCellVerticalAlignment(0, 2, undefined);
+    expect(table.rows[0]!.cells[2]!.verticalAlignment).toBeUndefined();
+    expect(table.rows[0]!.cells[2]!.textFit).toBe('none');
+
+    const beforeInvalid = pkg.requirePart(part.uri).bytes;
+    const invalidJournal = [...pkg.mutations];
+    for (const [row, column] of [[-1, 0], [0, -1], [0, 11], [1, 0]]) {
+      expect(() => table.setCellVerticalAlignment(row!, column!, 'middle')).toThrow(RangeError);
+    }
+    for (const column of [8, 9, 10]) {
+      expect(() => table.setCellVerticalAlignment(0, column, 'middle')).toThrow(ModelParseError);
+    }
+    expect(pkg.requirePart(part.uri).bytes).toEqual(beforeInvalid);
+    expect(pkg.mutations).toEqual(invalidJournal);
+
+    const beforeRollback = pkg.requirePart(part.uri).bytes;
+    const rollbackJournal = [...pkg.mutations];
+    const rollbackAlignments = table.rows[0]!.cells.map(({ verticalAlignment }) => verticalAlignment);
+    expect(() =>
+      pkg.transaction(() => {
+        table.setCellVerticalAlignment(0, 0, 'top');
+        table.setCellVerticalAlignment(0, 4, undefined);
+        throw new Error('restore table cell vertical alignments');
+      }),
+    ).toThrow('restore table cell vertical alignments');
+    expect(pkg.requirePart(part.uri).bytes).toEqual(beforeRollback);
+    expect(pkg.mutations).toEqual(rollbackJournal);
+    expect(model.slides[1]!.shapes[2]).toBe(table);
+    expect(table.rows[0]!.cells.map(({ verticalAlignment }) => verticalAlignment)).toEqual(
+      rollbackAlignments,
+    );
+  });
+
   it('reads paragraph and soft breaks, then preserves the first paragraph style on plain-text overwrite', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);

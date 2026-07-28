@@ -189,6 +189,96 @@ describe('importPptxGenJS', () => {
     ]);
   });
 
+  it('imports PptxGenJS table-cell vertical alignments from direct cell anchors', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    generated.layout = 'LAYOUT_WIDE';
+    const slide = generated.addSlide();
+    slide.addTable(
+      [[
+        { text: 'Inherited bottom', options: {} },
+        { text: 'Top', options: { valign: 'top' } },
+        { text: 'Middle', options: { valign: 'middle' } },
+        { text: 'Bottom', options: { valign: 'bottom' } },
+        { text: 'Invalid mid', options: { valign: 'mid' } },
+        { text: 'Invalid distributed', options: { valign: 'distributed' } },
+      ]],
+      { x: 0.5, y: 0.5, w: 12, h: 1, valign: 'bottom' },
+    );
+    slide.addTable(
+      [[{ text: 'Inherited top', options: {} }]],
+      { x: 0.5, y: 2, w: 3, h: 1, valign: 'top' },
+    );
+    slide.addTable(
+      [[{ text: 'Inherited middle', options: {} }]],
+      { x: 4, y: 2, w: 3, h: 1, valign: 'middle' },
+    );
+    slide.addTable(
+      [[{ text: 'Omitted direct alignment', options: {} }]],
+      { x: 7.5, y: 2, w: 3, h: 1 },
+    );
+
+    const document = await importPptxGenJS(generated);
+    const tables = document.slides[0]!.shapes.filter(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    );
+    expect(tables).toHaveLength(4);
+    expect(tables[0]!.rows[0]!.cells.map(({ verticalAlignment }) => verticalAlignment)).toEqual([
+      'bottom',
+      'top',
+      'middle',
+      'bottom',
+      undefined,
+      undefined,
+    ]);
+    expect(tables.slice(1).map((table) => table.rows[0]!.cells[0]!.verticalAlignment)).toEqual([
+      'top',
+      'middle',
+      undefined,
+    ]);
+    expect(tables.flatMap(({ rows }) => rows[0]!.cells.map(({ text }) => text))).toEqual([
+      'Inherited bottom',
+      'Top',
+      'Middle',
+      'Bottom',
+      'Invalid mid',
+      'Invalid distributed',
+      'Inherited top',
+      'Inherited middle',
+      'Omitted direct alignment',
+    ]);
+
+    const xml = new TextDecoder().decode(
+      document.opcPackage.requirePart(document.slides[0]!.partUri).bytes,
+    );
+    expect(xml.match(/<a:tcPr[^>]* anchor="t"/g)).toHaveLength(2);
+    expect(xml.match(/<a:tcPr[^>]* anchor="ctr"/g)).toHaveLength(2);
+    expect(xml.match(/<a:tcPr[^>]* anchor="b"/g)).toHaveLength(2);
+    expect(xml.match(/<a:tcPr[^>]* anchor="mid"/g)).toHaveLength(1);
+    expect(xml.match(/<a:tcPr[^>]* anchor="distributed"/g)).toHaveLength(1);
+    expect(xml).not.toMatch(/<a:bodyPr[^>]* anchor=/);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedTables = reopened.slides[0]!.shapes.filter(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    );
+    expect(reopenedTables[0]!.rows[0]!.cells.map(
+      ({ verticalAlignment }) => verticalAlignment)).toEqual([
+      'bottom',
+      'top',
+      'middle',
+      'bottom',
+      undefined,
+      undefined,
+    ]);
+    expect(reopenedTables.slice(1).map(
+      (table) => table.rows[0]!.cells[0]!.verticalAlignment)).toEqual([
+      'top',
+      'middle',
+      undefined,
+    ]);
+  });
+
   it('imports public PptxGenJS output and continues editing in the OOXML kernel', async () => {
     const generated = new PptxGenJS();
     expect(generated.version).toBe('4.0.1');

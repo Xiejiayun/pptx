@@ -49,7 +49,7 @@ document.moveSlide(1, 0);
 document.deleteSlide(2);
 ```
 
-Shape kinds include `text`, `shape`, `image`, `table`, `chart`, `graphic-frame`, and `group`. Images expose embedded part URIs and replacement; tables expose rows/cells plus cell text, text-direction, and text-fit editing; charts expose cached series and lossless chart XML editing.
+Shape kinds include `text`, `shape`, `image`, `table`, `chart`, `graphic-frame`, and `group`. Images expose embedded part URIs and replacement; tables expose rows/cells plus cell text, text-direction, text-fit, and vertical-alignment editing; charts expose cached series and lossless chart XML editing.
 
 ```ts
 const text = document.addSlide().addText('Quarterly results\nQ4 forecast', {
@@ -122,7 +122,12 @@ Text-box `wrap` accepts a boolean; omission and true create explicit automatic w
 Text-box `vert` accepts `eaVert`, `horz`, `mongolianVert`, `vert`, `vert270`, `wordArtVert`, or `wordArtVertRtl`. Omission writes no direction, so it remains distinct from explicit `horz`. `shape.textDirection` reads or replaces only an exact valid direct `bodyPr@vert`; assigning `undefined` clears that override while preserving unknown direction tokens during unrelated edits. Table-cell direction is a separate capability.
 
 ```ts
-import { TableModel, type TableCellTextDirection, type TextBoxFit } from '@pptx/sdk';
+import {
+  TableModel,
+  type TableCellTextDirection,
+  type TextBoxFit,
+  type TextBoxVerticalAlignment,
+} from '@pptx/sdk';
 
 const table = document.slides[0].shapes.find(
   (shape): shape is TableModel => shape instanceof TableModel,
@@ -138,9 +143,17 @@ table?.setCellTextFit(0, 0, 'shrink');
 table?.setCellTextFit(0, 1, 'resize');
 table?.setCellTextFit(0, 2, 'none');
 table?.setCellTextFit(0, 2, undefined);
+const currentAlignment: TextBoxVerticalAlignment | undefined =
+  table?.rows[0]?.cells[0]?.verticalAlignment;
+table?.setCellVerticalAlignment(0, 0, 'top');
+table?.setCellVerticalAlignment(0, 1, 'middle');
+table?.setCellVerticalAlignment(0, 2, 'bottom');
+table?.setCellVerticalAlignment(0, 2, undefined);
 ```
 
 Table-cell `textDirection` is an immutable snapshot with the dedicated values `horz`, `vert`, `vert270`, and `wordArtVert`. `setCellTextDirection()` addresses physical zero-based row/cell positions and edits only the selected cell's direct `tcPr@vert`; explicit `horz` writes `vert="horz"`, while `undefined` clears the direct attribute. The getter requires one direct `tcPr`, one unqualified `vert`, and one exact public token; it does not resolve table defaults or inheritance. PptxGenJS 4.0.1 materializes a table-level direction onto individual cells, so imported cells expose those wire attributes; PptxGenJS collapses omitted and explicit `horz` to no attribute, and both therefore import as `undefined`. This four-value cell API is intentionally separate from the seven-value text-box API and does not add table creation or table-level defaults.
+
+Table-cell `verticalAlignment` reuses `TextBoxVerticalAlignment` values `top`, `middle`, and `bottom`, but stores them only in the selected physical cell's direct `tcPr@anchor` as `t`, `ctr`, or `b`. `setCellVerticalAlignment()` writes the canonical token or clears it with `undefined`; the strict snapshot getter requires exactly one direct `tcPr` and one unqualified supported anchor. It does not read or change the separate `bodyPr@anchor`, resolve effective defaults, or support `just` / `dist`. PptxGenJS 4.0.1 leaves the direct anchor absent when table/cell `valign` is omitted, copies an explicit table-level value into uncovered cells, and lets a cell value override it; runtime invalid tokens remain opaque and import as `undefined`.
 
 Table-cell `textFit` reuses the immutable `TextBoxFit` values `none`, `shrink`, and `resize`, backed only by the selected physical cell's direct `txBody/bodyPr` fit choice. The getter requires exactly one direct text body, one direct body properties element, and one unambiguous supported fit child; it reads an existing `noAutofit` as `none` and otherwise returns `undefined` for absent or malformed state. `setCellTextFit()` uses physical zero-based row/cell positions: `shrink` and `resize` write `normAutofit` and `spAutoFit`, while `none` and `undefined` both clear the direct choice without creating `noAutofit`. Reassigning the current shrink/resize mode preserves any calculated `fontScale` and `lnSpcReduction`. The operation does not change `tcPr@vert`, compute final font scaling, resize a table, add table-level defaults, or create tables. PptxGenJS 4.0.1 has no table-cell fit API and ignores runtime `fit`, `autoFit`, and `shrinkText` values supplied to table/cell options.
 
