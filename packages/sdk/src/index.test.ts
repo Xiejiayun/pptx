@@ -25,6 +25,7 @@ import {
   ValidationError,
   type AddTableCellOptions,
   type AddTableCellInput,
+  type AddTableOptions,
 } from './index.js';
 
 async function titleFixture(): Promise<Uint8Array> {
@@ -436,18 +437,17 @@ describe('PptxDocument vertical slice', () => {
         left: { kind: 'none' },
       } } }, '$980K', { text: '' }],
     ];
-    const table = slide.addTable(
-      rows,
-      {
-        name: 'Revenue table',
-        x: inches(1),
-        y: inches(1.25),
-        width: inches(8),
-        height: inches(2.25),
-        columnWidths: [inches(2), inches(4), inches(2)],
-        rowHeights: [inches(0.5), inches(0.75), inches(1)],
-      },
-    );
+    const tableOptions: AddTableOptions = {
+      name: 'Revenue table',
+      x: inches(1),
+      y: inches(1.25),
+      width: inches(8),
+      height: inches(2.25),
+      columnWidths: [inches(2), inches(4), inches(2)],
+      rowHeights: [inches(0.5), inches(0.75), inches(1)],
+      valign: 'middle',
+    };
+    const table = slide.addTable(rows, tableOptions);
 
     expect(table).toBeInstanceOf(TableModel);
     expect(table.name).toBe('Revenue table');
@@ -485,8 +485,8 @@ describe('PptxDocument vertical slice', () => {
     expect(table.rows.map(({ cells }) =>
       cells.map(({ verticalAlignment }) => verticalAlignment))).toEqual([
       ['top', 'middle', 'bottom'],
-      [undefined, undefined, undefined],
-      [undefined, undefined, undefined],
+      ['middle', 'middle', 'middle'],
+      ['middle', 'middle', 'middle'],
     ]);
     expect(table.rows.map(({ cells }) => cells.map(({ fill }) => fill))).toEqual([
       [
@@ -674,8 +674,8 @@ describe('PptxDocument vertical slice', () => {
     expect(duplicateTable.rows.map(({ cells }) =>
       cells.map(({ verticalAlignment }) => verticalAlignment))).toEqual([
       ['top', 'middle', 'bottom'],
-      [undefined, undefined, undefined],
-      [undefined, undefined, undefined],
+      ['middle', 'middle', 'middle'],
+      ['middle', 'middle', 'middle'],
     ]);
 
     table.setCellText(1, 0, 'Eastern');
@@ -719,8 +719,8 @@ describe('PptxDocument vertical slice', () => {
     expect(table.rows.map(({ cells }) =>
       cells.map(({ verticalAlignment }) => verticalAlignment))).toEqual([
       ['bottom', undefined, 'bottom'],
-      ['top', undefined, undefined],
-      ['bottom', undefined, undefined],
+      ['top', 'middle', 'middle'],
+      ['bottom', 'middle', 'middle'],
     ]);
     expect(table.rows[2]!.cells[0]!.verticalAlignment).toBe('bottom');
     expect(table.rows[2]!.cells[1]!.margins).toEqual({
@@ -828,8 +828,8 @@ describe('PptxDocument vertical slice', () => {
     expect(table.rows.map(({ cells }) =>
       cells.map(({ verticalAlignment }) => verticalAlignment))).toEqual([
       ['bottom', undefined, 'bottom'],
-      ['top', undefined, undefined],
-      ['bottom', undefined, undefined],
+      ['top', 'middle', 'middle'],
+      ['bottom', 'middle', 'middle'],
     ]);
     expect(() => rolledBack!.rows).toThrow(ModelParseError);
 
@@ -1012,11 +1012,19 @@ describe('PptxDocument vertical slice', () => {
       text: 'Accessor',
       options: accessorOptions as AddTableCellOptions,
     }]])).toThrow();
+    expect(() => slide.addTable(
+      [['Accessor table']],
+      accessorOptions as AddTableOptions,
+    )).toThrow();
     for (const valign of invalidValigns) {
       expect(() => slide.addTable([[{
         text: 'Invalid',
         options: { valign } as unknown as AddTableCellOptions,
       }]])).toThrow(TypeError);
+      expect(() => slide.addTable(
+        [['Invalid table']],
+        { valign } as unknown as AddTableOptions,
+      )).toThrow(TypeError);
     }
 
     expect(sdkValignGetterCalls).toBe(0);
