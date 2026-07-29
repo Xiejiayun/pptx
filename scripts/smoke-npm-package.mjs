@@ -91,17 +91,18 @@ const creationBorder = { kind: 'line', color: creationBorderColor, width: 2, sty
 const creationMargin = { top: 4, left: 8 };
 const createdTable = tableSlide.addTable([
   [
-    { text: 'Region', options: { align: 'left', border: creationBorder, fill: creationFill, margin: creationMargin, valign: 'top' } },
+    { text: 'Region', options: { align: 'left', border: creationBorder, fill: creationFill, margin: creationMargin, textDirection: 'vert', valign: 'top' } },
     { text: 'Revenue', options: {
       border: [{ kind: 'line', color: { kind: 'scheme', value: 'accent1' }, width: 1.5, style: 'dash' }, undefined, { kind: 'line', color: { kind: 'srgb', value: '00FF00' }, width: 0 }, { kind: 'none' }],
       fill: { kind: 'solid', color: { kind: 'scheme', value: 'accent2' }, transparency: 25 },
       margin: [1, 2, 3, 4],
+      textDirection: 'vert270',
       valign: 'middle',
     } },
   ],
   [
-    { text: 'East', options: { align: 'right', border: { top: { kind: 'line', color: { kind: 'scheme', value: 'accent3' }, width: 1, style: 'dash' }, left: { kind: 'none' } }, margin: 0, valign: 'bottom' } },
-    { text: '', options: { align: 'justify', border: { kind: 'none' }, fill: { kind: 'none' }, margin: {} } },
+    { text: 'East', options: { align: 'right', border: { top: { kind: 'line', color: { kind: 'scheme', value: 'accent3' }, width: 1, style: 'dash' }, left: { kind: 'none' } }, margin: 0, textDirection: 'wordArtVert', valign: 'bottom' } },
+    { text: '', options: { align: 'justify', border: { kind: 'none' }, fill: { kind: 'none' }, margin: {}, textDirection: 'horz' } },
   ],
 ], { name: 'Created smoke table', align: 'center', columnWidths: [inches(1), inches(3)], rowHeights: [inches(0.5), inches(1.5)], fill: tableCreationFill, margin: { top: 9, left: 18 }, valign: 'middle' });
 const tableBorderSlide = created.addSlide();
@@ -118,6 +119,7 @@ const initialTableDefaultBorders = createdTableBorderDefault.rows[0].cells[0].bo
 const initialTableBorderNoneOverride = createdTableBorderDefault.rows[0].cells[1].borders;
 const initialCreatedMargins = createdTable.rows.map(({ cells }) => cells.map(({ margins }) => margins));
 const initialCreatedAlignments = createdTable.rows.map(({ cells }) => cells.map(({ verticalAlignment }) => verticalAlignment));
+const initialCreatedDirections = createdTable.rows.map(({ cells }) => cells.map(({ textDirection }) => textDirection));
 creationColor.value = '000000';
 creationFill.transparency = 1;
 tableCreationFillColor.value = 'accent6';
@@ -137,6 +139,7 @@ const createdTableDefaults = createdTable instanceof TableModel && createdTable.
 const createdTableXml = new TextDecoder().decode(created.opcPackage.requirePart(tableSlide.partUri).bytes);
 const createdTableCells = [...createdTableXml.matchAll(/<a:tc(?:\\s[^>]*)?>[\\s\\S]*?<\\/a:tc>/g)].map((match) => match[0]);
 const createdTableHorizontalAlignments = createdTableCells.map((cellXml) => cellXml.match(/<a:pPr[^>]*\\salgn="([^"]+)"/)?.[1]);
+const createdTableDirections = createdTableCells.map((cellXml) => cellXml.match(/<a:tcPr[^>]*\\svert="([^"]+)"/)?.[1]);
 const createdTableAnchors = createdTableCells.flatMap((cellXml) => [...cellXml.matchAll(/<a:tcPr[^>]* anchor="([^"]+)"/g)].map((match) => match[1]));
 const createdTableGrid = [...createdTableXml.matchAll(/<a:gridCol w="(\\d+)"\\/>/g)].map((match) => Number(match[1]));
 const createdTableRows = [...createdTableXml.matchAll(/<a:tr h="(\\d+)">/g)].map((match) => Number(match[1]));
@@ -161,6 +164,7 @@ const reopenedCreated = await PptxDocument.open(await created.write());
 const reopenedCreatedTable = reopenedCreated.slides[0].shapes.find((shape) => shape.name === 'Created smoke table');
 const reopenedCreatedTableXml = new TextDecoder().decode(reopenedCreated.opcPackage.requirePart(reopenedCreated.slides[0].partUri).bytes);
 const reopenedCreatedTableHorizontalAlignments = [...reopenedCreatedTableXml.matchAll(/<a:tc(?:\\s[^>]*)?>[\\s\\S]*?<\\/a:tc>/g)].map((match) => match[0].match(/<a:pPr[^>]*\\salgn="([^"]+)"/)?.[1]);
+const reopenedCreatedTableDirections = [...reopenedCreatedTableXml.matchAll(/<a:tc(?:\\s[^>]*)?>[\\s\\S]*?<\\/a:tc>/g)].map((match) => match[0].match(/<a:tcPr[^>]*\\svert="([^"]+)"/)?.[1]);
 const reopenedTableBorderDefault = reopenedCreated.slides
   .flatMap(({ shapes }) => shapes)
   .find((shape) => shape.name === 'Created table border default');
@@ -270,6 +274,29 @@ const tableCellHorizontalAlignmentCreation = tableVerticalAlignmentCreation &&
 const tableHorizontalAlignmentCreation = tableCellHorizontalAlignmentCreation &&
   createdTableHorizontalAlignments[1] === 'ctr' &&
   reopenedCreatedTableHorizontalAlignments[1] === 'ctr';
+const tableCellTextDirectionCreation = tableHorizontalAlignmentCreation &&
+  JSON.stringify(initialCreatedDirections) === JSON.stringify([
+    ['vert', 'vert270'],
+    ['wordArtVert', undefined],
+  ]) &&
+  JSON.stringify(createdTableDirections) === JSON.stringify([
+    'vert',
+    'vert270',
+    'wordArtVert',
+    undefined,
+  ]) &&
+  reopenedCreatedTable instanceof TableModel &&
+  JSON.stringify(reopenedCreatedTable.rows.map(({ cells }) =>
+    cells.map(({ textDirection }) => textDirection))) === JSON.stringify([
+    ['vert', 'vert270'],
+    ['wordArtVert', undefined],
+  ]) &&
+  JSON.stringify(reopenedCreatedTableDirections) === JSON.stringify([
+    'vert',
+    'vert270',
+    'wordArtVert',
+    undefined,
+  ]);
 const tablePart = created.opcPackage.requirePart(tableSlide.partUri);
 const tableXml = '<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="99" name="Smoke table"/></p:nvGraphicFramePr><a:graphic><a:graphicData><a:tbl><a:tr><a:tc><a:txBody><a:bodyPr custom="TARGET"><a:noAutofit/></a:bodyPr><a:p><a:pPr algn="ctr"/><a:r><a:t>Target</a:t></a:r></a:p></a:txBody><a:tcPr vert="horz" anchor="ctr" marL="12700" marR="25400" marT="38100" marB="50800"><a:lnL w="12700" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill><a:prstDash val="solid"/><a:round/><a:headEnd type="none" w="med" len="med"/><a:tailEnd type="none" w="med" len="med"/></a:lnL><a:lnR w="0" cap="flat" cmpd="sng" algn="ctr"><a:noFill/></a:lnR><a:lnT w="19050" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="accent2"/></a:solidFill><a:prstDash val="sysDash"/><a:round/><a:headEnd type="none" w="med" len="med"/><a:tailEnd type="none" w="med" len="med"/></a:lnT><a:lnB w="0" cap="flat" cmpd="sng" algn="ctr"><a:noFill/></a:lnB><a:solidFill><a:schemeClr val="accent1"><a:alpha val="75000"/></a:schemeClr></a:solidFill></a:tcPr></a:tc><a:tc><a:txBody><a:bodyPr custom="NEIGHBOR"><a:spAutoFit/></a:bodyPr><a:p><a:r><a:t>Neighbor</a:t></a:r></a:p></a:txBody><a:tcPr vert="vert" anchor="b" marL="63500" marR="76200" marT="88900" marB="101600" keep="ADJACENT"><a:lnL w="25400" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:srgbClr val="333333"/></a:solidFill><a:prstDash val="solid"/><a:round/><a:headEnd type="none" w="med" len="med"/><a:tailEnd type="none" w="med" len="med"/></a:lnL><a:solidFill><a:srgbClr val="70AD47"><a:alpha val="50000"/></a:srgbClr></a:solidFill></a:tcPr></a:tc></a:tr></a:tbl></a:graphicData></a:graphic></p:graphicFrame>';
 created.opcPackage.setPart(tableSlide.partUri, new TextDecoder().decode(tablePart.bytes).replace('</p:spTree>', tableXml + '</p:spTree>'), tablePart.contentType);
@@ -388,6 +415,7 @@ const checks = {
   tableVerticalAlignmentCreation,
   tableCellHorizontalAlignmentCreation,
   tableHorizontalAlignmentCreation,
+  tableCellTextDirectionCreation,
   tableColumnWidths,
   tableColumnWidthEditing,
   tableRowHeights,
@@ -456,17 +484,18 @@ const browserCreationBorder = { kind: 'line', color: browserCreationBorderColor,
 const browserCreationMargin = { top: 4, left: 8 };
 const createdTable = tableSlide.addTable([
   [
-    { text: 'Region', options: { align: 'left', border: browserCreationBorder, fill: browserCreationFill, margin: browserCreationMargin, valign: 'top' } },
+    { text: 'Region', options: { align: 'left', border: browserCreationBorder, fill: browserCreationFill, margin: browserCreationMargin, textDirection: 'vert', valign: 'top' } },
     { text: 'Revenue', options: {
       border: [{ kind: 'line', color: { kind: 'scheme', value: 'accent1' }, width: 1.5, style: 'dash' }, undefined, { kind: 'line', color: { kind: 'srgb', value: '00FF00' }, width: 0 }, { kind: 'none' }],
       fill: { kind: 'solid', color: { kind: 'scheme', value: 'accent2' }, transparency: 25 },
       margin: [1, 2, 3, 4],
+      textDirection: 'vert270',
       valign: 'middle',
     } },
   ],
   [
-    { text: 'West', options: { align: 'right', border: { top: { kind: 'line', color: { kind: 'scheme', value: 'accent3' }, width: 1, style: 'dash' }, left: { kind: 'none' } }, margin: 0, valign: 'bottom' } },
-    { text: '', options: { align: 'justify', border: { kind: 'none' }, fill: { kind: 'none' }, margin: {} } },
+    { text: 'West', options: { align: 'right', border: { top: { kind: 'line', color: { kind: 'scheme', value: 'accent3' }, width: 1, style: 'dash' }, left: { kind: 'none' } }, margin: 0, textDirection: 'wordArtVert', valign: 'bottom' } },
+    { text: '', options: { align: 'justify', border: { kind: 'none' }, fill: { kind: 'none' }, margin: {}, textDirection: 'horz' } },
   ],
 ], { name: 'Created browser table', align: 'center', columnWidths: inches(1.25), rowHeights: inches(0.75), fill: browserTableFill, margin: { top: 9, left: 18 }, valign: 'middle' });
 const browserTableBorderDefault = created.addSlide().addTable([[
@@ -475,6 +504,7 @@ const browserTableBorderDefault = created.addSlide().addTable([[
 ]], { name: 'Created browser table border default', columnWidths: inches(1), rowHeights: inches(0.5), border: browserTableBorder });
 if (JSON.stringify(createdTable.rows.map(({ cells }) => cells.map(({ text }) => text))) !== JSON.stringify([['Region', 'Revenue'], ['West', '']])) throw new Error('Browser table cell object creation failed');
 if (JSON.stringify(createdTable.rows.map(({ cells }) => cells.map(({ verticalAlignment }) => verticalAlignment))) !== JSON.stringify([['top', 'middle'], ['bottom', 'middle']])) throw new Error('Browser table vertical alignment creation failed');
+if (JSON.stringify(createdTable.rows.map(({ cells }) => cells.map(({ textDirection }) => textDirection))) !== JSON.stringify([['vert', 'vert270'], ['wordArtVert', undefined]])) throw new Error('Browser table cell text direction creation failed');
 const browserMarginVector = (margins) => [margins?.top, margins?.right, margins?.bottom, margins?.left];
 const browserInitialMargins = createdTable.rows.map(({ cells }) => cells.map(({ margins }) => browserMarginVector(margins)));
 if (JSON.stringify(browserInitialMargins) !== JSON.stringify([[[4, 7.2, 3.6, 8], [1, 2, 3, 4]], [[0, 0, 0, 0], [9, 7.2, 3.6, 18]]])) throw new Error('Browser table cell margin creation failed');
@@ -508,10 +538,12 @@ if (JSON.stringify(browserMarginVector(createdTable.rows[0].cells[0].margins)) !
 const createdTablePartXml = new TextDecoder().decode(created.opcPackage.requirePart(tableSlide.partUri).bytes);
 const browserCreatedTableCells = [...createdTablePartXml.matchAll(/<a:tc(?:\\s[^>]*)?>[\\s\\S]*?<\\/a:tc>/g)].map((match) => match[0]);
 const browserCreatedTableHorizontalAlignments = browserCreatedTableCells.map((cellXml) => cellXml.match(/<a:pPr[^>]*\\salgn="([^"]+)"/)?.[1]);
+const browserCreatedTableDirections = browserCreatedTableCells.map((cellXml) => cellXml.match(/<a:tcPr[^>]*\\svert="([^"]+)"/)?.[1]);
 const createdTableGrid = [...createdTablePartXml.matchAll(/<a:gridCol w="(\\d+)"\\/>/g)].map((match) => Number(match[1]));
 const createdTableRows = [...createdTablePartXml.matchAll(/<a:tr h="(\\d+)">/g)].map((match) => Number(match[1]));
 if (!createdTablePartXml.includes('<a:tcPr marL="228600" marR="91440" marT="114300" marB="45720" anchor="ctr">')) throw new Error('Browser table margin XML creation failed');
 if (JSON.stringify(browserCreatedTableHorizontalAlignments) !== JSON.stringify(['l', 'ctr', 'r', 'just'])) throw new Error('Browser table horizontal alignment creation failed');
+if (JSON.stringify(browserCreatedTableDirections) !== JSON.stringify(['vert', 'vert270', 'wordArtVert', undefined])) throw new Error('Browser table cell text direction XML creation failed');
 if (!(createdTable instanceof TableModel) || createdTable.transform.x !== inches(0.5) || createdTable.transform.y !== inches(0.5) || createdTable.transform.width !== inches(2.5) || createdTable.transform.height !== inches(1.5) || createdTableGrid.length !== 2 || createdTableGrid.some((width) => width !== inches(1.25)) || createdTableRows.length !== 2 || createdTableRows.some((height) => height !== inches(0.75)) || createdTable.rows[1].cells[1].margins?.top !== 9 || createdTable.rows[1].cells[1].margins?.left !== 18) throw new Error('Browser table sizing creation failed');
 createdTable.setColumnWidths([inches(1), inches(1.5)]);
 if (createdTable.columnWidths?.join(',') !== [inches(1), inches(1.5)].join(',') || createdTable.transform.width !== inches(2.5)) throw new Error('Browser table column-width editing failed');
@@ -533,6 +565,7 @@ const reopenedCreated = await PptxDocument.open(await created.write());
 const reopenedCreatedTable = reopenedCreated.slides[0].shapes.find((shape) => shape.name === 'Created browser table');
 const reopenedCreatedTableXml = new TextDecoder().decode(reopenedCreated.opcPackage.requirePart(reopenedCreated.slides[0].partUri).bytes);
 const reopenedCreatedTableHorizontalAlignments = [...reopenedCreatedTableXml.matchAll(/<a:tc(?:\\s[^>]*)?>[\\s\\S]*?<\\/a:tc>/g)].map((match) => match[0].match(/<a:pPr[^>]*\\salgn="([^"]+)"/)?.[1]);
+const reopenedCreatedTableDirections = [...reopenedCreatedTableXml.matchAll(/<a:tc(?:\\s[^>]*)?>[\\s\\S]*?<\\/a:tc>/g)].map((match) => match[0].match(/<a:tcPr[^>]*\\svert="([^"]+)"/)?.[1]);
 const reopenedBrowserTableBorderDefault = reopenedCreated.slides
   .flatMap(({ shapes }) => shapes)
   .find((shape) => shape.name === 'Created browser table border default');
@@ -543,6 +576,7 @@ if (reopenedCreatedTable.rows[0].cells[0].margins?.top !== undefined || reopened
 if (reopenedCreatedTable.rows[1].cells[1].margins !== undefined) throw new Error('Browser table margin clear re-inherited');
 if (reopenedCreatedTable.rows[0].cells[0].verticalAlignment !== 'bottom' || reopenedCreatedTable.rows[0].cells[1].verticalAlignment !== 'middle' || reopenedCreatedTable.rows[1].cells[0].verticalAlignment !== 'bottom' || reopenedCreatedTable.rows[1].cells[1].verticalAlignment !== undefined) throw new Error('Browser table cell vertical alignment creation round trip failed');
 if (JSON.stringify(reopenedCreatedTableHorizontalAlignments) !== JSON.stringify(['l', 'ctr', 'r', 'just'])) throw new Error('Browser table horizontal alignment creation round trip failed');
+if (JSON.stringify(reopenedCreatedTable.rows.map(({ cells }) => cells.map(({ textDirection }) => textDirection))) !== JSON.stringify([['vert', 'vert270'], ['wordArtVert', undefined]]) || JSON.stringify(reopenedCreatedTableDirections) !== JSON.stringify(['vert', 'vert270', 'wordArtVert', undefined])) throw new Error('Browser table cell text direction creation round trip failed');
 const tablePart = created.opcPackage.requirePart(tableSlide.partUri);
 const tableXml = '<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="99" name="Browser table"/></p:nvGraphicFramePr><a:graphic><a:graphicData><a:tbl><a:tr><a:tc><a:txBody><a:bodyPr custom="TARGET"><a:noAutofit/></a:bodyPr><a:p><a:r><a:t>Browser target</a:t></a:r></a:p></a:txBody><a:tcPr vert="horz" anchor="ctr" marL="12700" marR="25400" marT="38100" marB="50800"><a:lnL w="12700" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill><a:prstDash val="solid"/><a:round/><a:headEnd type="none" w="med" len="med"/><a:tailEnd type="none" w="med" len="med"/></a:lnL><a:lnR w="0" cap="flat" cmpd="sng" algn="ctr"><a:noFill/></a:lnR><a:lnT w="19050" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="accent2"/></a:solidFill><a:prstDash val="sysDash"/><a:round/><a:headEnd type="none" w="med" len="med"/><a:tailEnd type="none" w="med" len="med"/></a:lnT><a:lnB w="0" cap="flat" cmpd="sng" algn="ctr"><a:noFill/></a:lnB><a:solidFill><a:schemeClr val="accent1"><a:alpha val="75000"/></a:schemeClr></a:solidFill></a:tcPr></a:tc><a:tc><a:txBody><a:bodyPr custom="NEIGHBOR"><a:spAutoFit/></a:bodyPr><a:p><a:r><a:t>Browser neighbor</a:t></a:r></a:p></a:txBody><a:tcPr vert="vert" anchor="b" marL="63500" marR="76200" marT="88900" marB="101600"><a:lnL w="25400" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:srgbClr val="333333"/></a:solidFill><a:prstDash val="solid"/><a:round/><a:headEnd type="none" w="med" len="med"/><a:tailEnd type="none" w="med" len="med"/></a:lnL><a:solidFill><a:srgbClr val="70AD47"><a:alpha val="50000"/></a:srgbClr></a:solidFill></a:tcPr></a:tc></a:tr></a:tbl></a:graphicData></a:graphic></p:graphicFrame>';
 created.opcPackage.setPart(tableSlide.partUri, new TextDecoder().decode(tablePart.bytes).replace('</p:spTree>', tableXml + '</p:spTree>'), tablePart.contentType);
@@ -760,6 +794,7 @@ const creationOptions: AddTableCellOptions = {
   border: creationBorder,
   fill: cellFill,
   margin: creationMargin,
+  textDirection: cellDirection,
   valign: cellAlignment,
 };
 const objectCell: AddTableCell = { text: 'Revenue', options: creationOptions };
