@@ -128,6 +128,16 @@ describe('importPptxGenJS', () => {
       inches(3),
     ]);
     expect(importedTable.transform.width).toBe(inches(6));
+    expect(importedTable.rowHeights).toEqual([
+      inches(0.75),
+      inches(1.25),
+    ]);
+    importedTable.setRowHeights([inches(1), inches(1.5)]);
+    expect(importedTable.rowHeights).toEqual([
+      inches(1),
+      inches(1.5),
+    ]);
+    expect(importedTable.transform.height).toBe(inches(2.5));
 
     const reopenedNative = await PptxDocument.open(await native.write());
     const reopenedImported = await PptxDocument.open(await imported.write());
@@ -141,6 +151,10 @@ describe('importPptxGenJS', () => {
       inches(1.5),
       inches(1.5),
       inches(3),
+    ]);
+    expect(reopenedImportedTable.rowHeights).toEqual([
+      inches(1),
+      inches(1.5),
     ]);
   });
 
@@ -228,6 +242,53 @@ describe('importPptxGenJS', () => {
     expect((imported.slides[0]!.shapes[0] as TableModel).transform.width).toBe(inches(3));
     expect(nativeTable.transform.width).toBe(inches(3.75));
     expect(nativeXml).toContain('<a:ext cx="3429000" cy="914400"/>');
+  });
+
+  it('repairs an explicit PptxGenJS row-height mismatch and preserves transform height for automatic rows', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    generated.layout = 'LAYOUT_WIDE';
+    generated.addSlide().addTable(
+      [
+        ['A', 'B'].map((text) => ({ text, options: {} })),
+        ['C', 'D'].map((text) => ({ text, options: {} })),
+      ],
+      { x: 1, y: 1, w: 5, h: 1, rowH: [0.5, 1.5] },
+    );
+
+    const imported = await importPptxGenJS(generated);
+    const table = imported.slides[0]!.shapes[0] as TableModel;
+    expect(table).toBeInstanceOf(TableModel);
+    expect(table.rowHeights).toEqual([inches(0.5), inches(1.5)]);
+    expect(table.transform.height).toBe(inches(1));
+    const before = new TextDecoder().decode(
+      imported.opcPackage.requirePart(imported.slides[0]!.partUri).bytes,
+    );
+    const rowsBefore = [...before.matchAll(/<a:tr h="(\d+)">/g)]
+      .map((match) => match[1]);
+
+    table.setRowHeights(table.rowHeights!);
+
+    expect(table.transform.height).toBe(inches(2));
+    let after = new TextDecoder().decode(
+      imported.opcPackage.requirePart(imported.slides[0]!.partUri).bytes,
+    );
+    expect([...after.matchAll(/<a:tr h="(\d+)">/g)]
+      .map((match) => match[1])).toEqual(rowsBefore);
+    expect(after).toContain('cy="1828800"');
+
+    table.setRowHeights([0, inches(1.5)]);
+    expect(table.rowHeights).toEqual([0, inches(1.5)]);
+    expect(table.transform.height).toBe(inches(2));
+    after = new TextDecoder().decode(
+      imported.opcPackage.requirePart(imported.slides[0]!.partUri).bytes,
+    );
+    expect(after).toContain('cy="1828800"');
+
+    const reopened = await PptxDocument.open(await imported.write());
+    const reopenedTable = reopened.slides[0]!.shapes[0] as TableModel;
+    expect(reopenedTable.rowHeights).toEqual([0, inches(1.5)]);
+    expect(reopenedTable.transform.height).toBe(inches(2));
   });
 
   it('repairs PptxGenJS omitted-height mismatch for explicit row heights', async () => {

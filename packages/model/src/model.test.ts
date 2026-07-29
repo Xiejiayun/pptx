@@ -620,6 +620,217 @@ describe('PresentationModel', () => {
     expect(transformPkg.mutations).toEqual(transformFailureJournal);
   });
 
+  it('reads and losslessly edits live table row heights through explicit, automatic, merge, no-op, repair, and rollback paths', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const table = slide.addTable(
+      [
+        ['A', 'B'],
+        ['C', 'D'],
+        ['E', 'F'],
+      ],
+      {
+        columnWidths: [inches(2), inches(3)],
+        rowHeights: [inches(0.5), inches(0.75), inches(1)],
+      },
+    );
+    const part = pkg.requirePart(slide.partUri);
+    pkg.setPart(
+      part.uri,
+      new TextDecoder().decode(part.bytes)
+        .replace(
+          '</a:tblGrid>',
+          '</a:tblGrid>' +
+            '<x:opaque xmlns:x="urn:test"><a:tr h="999"/></x:opaque>',
+        )
+        .replace('<a:tc>', '<a:tc rowSpan="2">')
+        .replace('<a:tc>', '<a:tc hMerge="1" vMerge="1">')
+        .replace('h="457200"', 'h="0457200"')
+        .replace('cy="2057400"', 'cy="02057400"'),
+      part.contentType,
+    );
+
+    expect(table.rowHeights).toEqual([
+      inches(0.5),
+      inches(0.75),
+      inches(1),
+    ]);
+    const detached = table.rowHeights as number[];
+    detached[0] = 1;
+    expect(table.rowHeights).toEqual([
+      inches(0.5),
+      inches(0.75),
+      inches(1),
+    ]);
+
+    const beforeNoOp = pkg.requirePart(slide.partUri).bytes;
+    const noOpJournal = [...pkg.mutations];
+    table.setRowHeights([inches(0.5), inches(0.75), inches(1)]);
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeNoOp);
+    expect(pkg.mutations).toEqual(noOpJournal);
+
+    table.setRowHeights([inches(0.75), inches(1.25), inches(0.5)]);
+    expect(table.rowHeights).toEqual([
+      inches(0.75),
+      inches(1.25),
+      inches(0.5),
+    ]);
+    expect(table.transform.height).toBe(inches(2.5));
+    expect(slide.shapes.find(({ id }) => id === table.id)).toBe(table);
+    let updated = new TextDecoder().decode(
+      pkg.requirePart(slide.partUri).bytes,
+    );
+    expect(updated).toContain(
+      '<x:opaque xmlns:x="urn:test"><a:tr h="999"/></x:opaque>',
+    );
+    expect(updated).toContain('rowSpan="2"');
+    expect(updated).toContain('hMerge="1" vMerge="1"');
+
+    table.setTransform({ height: inches(3) });
+    expect(table.transform.height).toBe(inches(3));
+    expect(table.rowHeights).toEqual([
+      inches(0.75),
+      inches(1.25),
+      inches(0.5),
+    ]);
+    table.setRowHeights(table.rowHeights!);
+    expect(table.transform.height).toBe(inches(2.5));
+
+    const mixedTransformHeight = table.transform.height;
+    table.setRowHeights([0, inches(1), 0]);
+    expect(table.rowHeights).toEqual([0, inches(1), 0]);
+    expect(table.transform.height).toBe(mixedTransformHeight);
+    updated = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect(updated).toContain('<a:ext cx="4572000" cy="2286000"/>');
+
+    const beforeMixedNoOp = pkg.requirePart(slide.partUri).bytes;
+    const mixedNoOpJournal = [...pkg.mutations];
+    table.setRowHeights([0, inches(1), 0]);
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeMixedNoOp);
+    expect(pkg.mutations).toEqual(mixedNoOpJournal);
+
+    const beforeRollback = pkg.requirePart(slide.partUri).bytes;
+    const rollbackJournal = [...pkg.mutations];
+    expect(() =>
+      pkg.transaction(() => {
+        table.setRowHeights(inches(1));
+        expect(table.rowHeights).toEqual([
+          inches(1),
+          inches(1),
+          inches(1),
+        ]);
+        expect(table.transform.height).toBe(inches(3));
+        throw new Error('restore table row heights');
+      }),
+    ).toThrow('restore table row heights');
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeRollback);
+    expect(pkg.mutations).toEqual(rollbackJournal);
+    expect(table.rowHeights).toEqual([0, inches(1), 0]);
+    expect(table.transform.height).toBe(mixedTransformHeight);
+    expect(slide.shapes.find(({ id }) => id === table.id)).toBe(table);
+  });
+
+  it('rejects invalid table row-height inputs and malformed OOXML without mutation', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const table = slide.addTable(
+      [['A'], ['B'], ['C']],
+      { rowHeights: [inches(0.5), inches(0.75), inches(1)] },
+    );
+    const accessor = [1, 2, 3];
+    let accessorCalls = 0;
+    Object.defineProperty(accessor, '1', {
+      get() {
+        accessorCalls += 1;
+        return 2;
+      },
+      enumerable: true,
+      configurable: true,
+    });
+    const hole = [1, 2, 3];
+    delete hole[1];
+    const extra = [1, 2, 3];
+    Object.defineProperty(extra, 'extra', { value: true });
+    const symbol = [1, 2, 3];
+    Object.defineProperty(symbol, Symbol('height'), { value: true });
+    const invalid = [
+      undefined,
+      null,
+      [],
+      [1],
+      [1, 2],
+      [1, 2, 3, 4],
+      new Uint32Array([1, 2, 3]),
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+      -1,
+      -0.4,
+      Number.MAX_SAFE_INTEGER,
+      accessor,
+      hole,
+      extra,
+      symbol,
+      [Number.MAX_SAFE_INTEGER, 1, 1],
+    ];
+    const beforeInvalid = pkg.requirePart(slide.partUri).bytes;
+    const invalidJournal = [...pkg.mutations];
+    for (const value of invalid) {
+      expect(() => table.setRowHeights(value as never)).toThrow();
+    }
+    expect(accessorCalls).toBe(0);
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeInvalid);
+    expect(pkg.mutations).toEqual(invalidJournal);
+
+    const malformedRowPart = pkg.requirePart(slide.partUri);
+    pkg.setPart(
+      malformedRowPart.uri,
+      new TextDecoder().decode(malformedRowPart.bytes)
+        .replace('h="457200"', 'x:h="457200" xmlns:x="urn:test"'),
+      malformedRowPart.contentType,
+    );
+    expect(table.rowHeights).toBeUndefined();
+    const beforeRowFailure = pkg.requirePart(slide.partUri).bytes;
+    const rowFailureJournal = [...pkg.mutations];
+    expect(() => table.setRowHeights(inches(1))).toThrow(ModelParseError);
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeRowFailure);
+    expect(pkg.mutations).toEqual(rowFailureJournal);
+
+    const transformPkg = await OpcPackage.open(await modelFixture());
+    const transformModel = new PresentationModel(transformPkg);
+    const transformSlide = transformModel.addSlide();
+    const transformTable = transformSlide.addTable(
+      [['A'], ['B']],
+      { rowHeights: [inches(0.5), inches(1.5)] },
+    );
+    const transformPart = transformPkg.requirePart(transformSlide.partUri);
+    transformPkg.setPart(
+      transformPart.uri,
+      new TextDecoder().decode(transformPart.bytes)
+        .replace('cy="1828800"', 'x:cy="1828800" xmlns:x="urn:test"'),
+      transformPart.contentType,
+    );
+    expect(transformTable.rowHeights).toEqual([
+      inches(0.5),
+      inches(1.5),
+    ]);
+    const beforeTransformFailure =
+      transformPkg.requirePart(transformSlide.partUri).bytes;
+    const transformFailureJournal = [...transformPkg.mutations];
+    let thrown: unknown;
+    try {
+      transformTable.setRowHeights(0);
+    } catch (error) {
+      thrown = error;
+    }
+    expect(thrown).toBeInstanceOf(ModelParseError);
+    expect(thrown).toMatchObject({ partUri: transformSlide.partUri });
+    expect(transformPkg.requirePart(transformSlide.partUri).bytes)
+      .toEqual(beforeTransformFailure);
+    expect(transformPkg.mutations).toEqual(transformFailureJournal);
+  });
+
   it('reads only exact direct table-cell text directions into detached snapshots', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const part = pkg.requirePart('/ppt/slides/slide1.xml');

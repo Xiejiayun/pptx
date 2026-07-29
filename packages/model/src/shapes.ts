@@ -39,6 +39,11 @@ import {
   replaceTableColumnWidths,
 } from './table-column-widths.internal.js';
 import {
+  normalizeTableRowHeightInput,
+  readTableRowHeights,
+  replaceTableRowHeights,
+} from './table-row-heights.internal.js';
+import {
   readTableCellVerticalAlignment,
   replaceTableCellVerticalAlignment,
 } from './table-cell-vertical-alignment.internal.js';
@@ -301,6 +306,21 @@ export class TableModel extends BaseShapeModel {
     this.slide.presentation.opcPackage.transaction(() => {
       const { xml, element } = this.resolve();
       if (replaceTableColumnWidths(xml, element, input, this.slide.partUri)) {
+        this.slide.setXml(xml.serialize());
+      }
+    });
+  }
+
+  get rowHeights(): readonly number[] | undefined {
+    const { xml, element } = this.resolve();
+    return readTableRowHeights(xml, element);
+  }
+
+  setRowHeights(value: number | readonly number[]): void {
+    const input = normalizeTableRowHeightInput(value);
+    this.slide.presentation.opcPackage.transaction(() => {
+      const { xml, element } = this.resolve();
+      if (replaceTableRowHeights(xml, element, input, this.slide.partUri)) {
         this.slide.setXml(xml.serialize());
       }
     });

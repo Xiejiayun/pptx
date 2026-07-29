@@ -386,6 +386,11 @@ describe('PptxDocument vertical slice', () => {
       inches(4),
       inches(2),
     ]);
+    expect(table.rowHeights).toEqual([
+      inches(0.5),
+      inches(0.75),
+      inches(1),
+    ]);
     expect(table.rows[0]!.cells[0]).toMatchObject({
       text: 'Region',
       margins: { top: 3.6, right: 7.2, bottom: 3.6, left: 7.2 },
@@ -444,6 +449,11 @@ describe('PptxDocument vertical slice', () => {
       inches(4),
       inches(2),
     ]);
+    expect(duplicateTable.rowHeights).toEqual([
+      inches(0.5),
+      inches(0.75),
+      inches(1),
+    ]);
 
     table.setCellText(1, 0, 'Eastern');
     table.setCellText(2, 2, 'Now filled');
@@ -463,6 +473,15 @@ describe('PptxDocument vertical slice', () => {
       style: 'solid',
     });
     table.setColumnWidths([inches(1.5), inches(4.5), inches(2)]);
+    table.setRowHeights([inches(0.75), inches(1.25), inches(0.5)]);
+    expect(table.rowHeights).toEqual([
+      inches(0.75),
+      inches(1.25),
+      inches(0.5),
+    ]);
+    expect(table.transform.height).toBe(inches(2.5));
+    const explicitTransformHeight = table.transform.height;
+    table.setRowHeights([0, inches(1), 0]);
     table.setTransform({ x: inches(1.5) });
 
     expect(slide.shapes[0]).toBe(table);
@@ -515,10 +534,17 @@ describe('PptxDocument vertical slice', () => {
       inches(4.5),
       inches(2),
     ]);
+    expect(table.rowHeights).toEqual([0, inches(1), 0]);
+    expect(table.transform.height).toBe(explicitTransformHeight);
     expect(duplicateTable.columnWidths).toEqual([
       inches(2),
       inches(4),
       inches(2),
+    ]);
+    expect(duplicateTable.rowHeights).toEqual([
+      inches(0.5),
+      inches(0.75),
+      inches(1),
     ]);
     expect(duplicateTable.rows).toEqual(originalRows);
 
@@ -529,6 +555,7 @@ describe('PptxDocument vertical slice', () => {
       document.transaction(() => {
         table.setCellFill(0, 0, { kind: 'none' });
         table.setColumnWidths(inches(1));
+        table.setRowHeights(0);
         rolledBack = slide.addTable([['temporary']]);
         throw new Error('restore created table state');
       }),
@@ -542,6 +569,8 @@ describe('PptxDocument vertical slice', () => {
       inches(2),
     ]);
     expect(table.transform.width).toBe(inches(8));
+    expect(table.rowHeights).toEqual([0, inches(1), 0]);
+    expect(table.transform.height).toBe(explicitTransformHeight);
     expect(() => rolledBack!.rows).toThrow(ModelParseError);
 
     const reopened = await PptxDocument.open(await document.write());
@@ -570,10 +599,17 @@ describe('PptxDocument vertical slice', () => {
       inches(4.5),
       inches(2),
     ]);
+    expect(reopenedTable.rowHeights).toEqual([0, inches(1), 0]);
+    expect(reopenedTable.transform.height).toBe(inches(2.5));
     expect(reopenedDuplicate.columnWidths).toEqual([
       inches(2),
       inches(4),
       inches(2),
+    ]);
+    expect(reopenedDuplicate.rowHeights).toEqual([
+      inches(0.5),
+      inches(0.75),
+      inches(1),
     ]);
     expect(reopenedDuplicate.rows).toEqual(originalRows);
     const reopenedTableXml = new TextDecoder().decode(
@@ -587,9 +623,9 @@ describe('PptxDocument vertical slice', () => {
     ]);
     expect([...reopenedTableXml.matchAll(/<a:tr h="(\d+)">/g)]
       .map((match) => Number(match[1]))).toEqual([
-      inches(0.5),
-      inches(0.75),
+      0,
       inches(1),
+      0,
     ]);
   });
 
