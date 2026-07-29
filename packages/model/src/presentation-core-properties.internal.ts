@@ -1,6 +1,8 @@
 import {
+  escapeXmlAttribute,
   escapeXmlText,
   LosslessXmlDocument,
+  type XmlAttribute,
   type XmlElement,
 } from '@pptx/lossless-xml';
 import {
@@ -23,6 +25,15 @@ export interface CoreTextPropertyDescriptor {
   readonly localName: string;
   readonly namespace: string;
   readonly preferredPrefix: string;
+  readonly qualifiedType?: CoreQualifiedTypeDescriptor;
+}
+
+export interface CoreQualifiedTypeDescriptor {
+  readonly attributeNamespace: string;
+  readonly attributePreferredPrefix: string;
+  readonly valueNamespace: string;
+  readonly valuePreferredPrefix: string;
+  readonly valueLocalName: string;
 }
 
 interface CorePropertiesState {
@@ -39,7 +50,16 @@ export function readCoreTextProperty(
 ): string | undefined {
   const state = readCorePropertiesState(pkg, descriptor);
   if (!state || state.properties.length !== 1) return undefined;
-  return readSimpleProperty(state.xml, state.properties[0]!);
+  const property = state.properties[0]!;
+  const value = readSimpleProperty(state.xml, property);
+  if (value === undefined) return undefined;
+  if (
+    descriptor.qualifiedType
+    && !qualifiedTypeMatches(property, descriptor.qualifiedType)
+  ) {
+    return undefined;
+  }
+  return value;
 }
 
 export function replaceCoreTextProperty(
@@ -72,7 +92,27 @@ export function replaceCoreTextProperty(
       state.part.uri,
     );
   }
-  if (property && value !== undefined && current === value) return;
+  const qualifiedTypeAttributes = property && descriptor.qualifiedType
+    ? attributesByExpandedName(
+      property,
+      descriptor.qualifiedType.attributeNamespace,
+      'type',
+    )
+    : [];
+  if (qualifiedTypeAttributes.length > 1) {
+    throw new ModelParseError(
+      `Core properties ${descriptor.label} has multiple qualified type attributes`,
+      state.part.uri,
+    );
+  }
+  const qualifiedTypeIsCorrect = !descriptor.qualifiedType
+    || (property !== undefined && qualifiedTypeMatches(property, descriptor.qualifiedType));
+  if (
+    property
+    && value !== undefined
+    && current === value
+    && qualifiedTypeIsCorrect
+  ) return;
   if (!property && value === undefined) return;
 
   if (value === undefined) {
@@ -85,10 +125,29 @@ export function replaceCoreTextProperty(
   } else if (property.selfClosing) {
     state.xml.replaceElement(
       property,
-      expandSelfClosingProperty(state.xml, property, descriptor, value),
+      expandSelfClosingProperty(
+        state.xml,
+        property,
+        descriptor,
+        value,
+        qualifiedTypeAttributes[0],
+      ),
     );
-  } else {
+  } else if (current !== value) {
     state.xml.replaceText(property, value);
+  }
+  if (
+    property
+    && !property.selfClosing
+    && descriptor.qualifiedType
+    && !qualifiedTypeIsCorrect
+  ) {
+    ensureQualifiedType(
+      state.xml,
+      property,
+      descriptor.qualifiedType,
+      qualifiedTypeAttributes[0],
+    );
   }
   pkg.setPart(state.part.uri, state.xml.serialize(), state.part.contentType);
 }
@@ -186,15 +245,14 @@ function createCoreProperties(
   const partUri = pkg.hasPart(canonicalUri)
     ? pkg.allocatePartUri('/docProps', 'core', '.xml')
     : canonicalUri;
-  const qualifiedName = `${descriptor.preferredPrefix}:${descriptor.localName}`;
-  const preferredNamespaceDeclaration =
-    descriptor.preferredPrefix === 'cp' && descriptor.namespace === CORE_PROPERTIES_NAMESPACE
-      ? ''
-      : ` xmlns:${descriptor.preferredPrefix}="${descriptor.namespace}"`;
+  const rendered = renderNewProperty(
+    new Map([['cp', CORE_PROPERTIES_NAMESPACE]]),
+    descriptor,
+  );
   const xml =
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`
-    + `<cp:coreProperties xmlns:cp="${CORE_PROPERTIES_NAMESPACE}"${preferredNamespaceDeclaration}>`
-    + `<${qualifiedName}>${escapeXmlText(value)}</${qualifiedName}>`
+    + `<cp:coreProperties xmlns:cp="${CORE_PROPERTIES_NAMESPACE}"${renderNamespaceDeclarations(rendered.declarations)}>`
+    + `<${rendered.elementName}${rendered.typeAttribute}>${escapeXmlText(value)}</${rendered.elementName}>`
     + '</cp:coreProperties>';
   pkg.setPart(partUri, xml, CORE_PROPERTIES_CONTENT_TYPE);
   pkg.addRelationship('/', {
@@ -208,14 +266,9 @@ function renderInsertedProperty(
   descriptor: CoreTextPropertyDescriptor,
   value: string,
 ): string {
-  const prefix = prefixForNamespace(root, descriptor.namespace);
-  if (prefix === undefined) {
-    const qualifiedName = `${descriptor.preferredPrefix}:${descriptor.localName}`;
-    return `<${qualifiedName} xmlns:${descriptor.preferredPrefix}="${descriptor.namespace}">`
-      + `${escapeXmlText(value)}</${qualifiedName}>`;
-  }
-  const name = prefix === '' ? descriptor.localName : `${prefix}:${descriptor.localName}`;
-  return `<${name}>${escapeXmlText(value)}</${name}>`;
+  const rendered = renderNewProperty(inScopeNamespaces(root), descriptor);
+  return `<${rendered.elementName}${renderNamespaceDeclarations(rendered.declarations)}${rendered.typeAttribute}>`
+    + `${escapeXmlText(value)}</${rendered.elementName}>`;
 }
 
 function expandSelfClosingProperty(
@@ -223,6 +276,7 @@ function expandSelfClosingProperty(
   property: XmlElement,
   descriptor: CoreTextPropertyDescriptor,
   value: string,
+  qualifiedTypeAttribute: XmlAttribute | undefined,
 ): string {
   const original = xml.original(property);
   const marker = original.lastIndexOf('/>');
@@ -231,29 +285,249 @@ function expandSelfClosingProperty(
       `Self-closing core-properties ${descriptor.label} is malformed`,
     );
   }
-  const open = `${original.slice(0, marker).replace(/\s+$/, '')}>`;
+  let startTag = original.slice(0, marker).replace(/\s+$/, '');
+  if (descriptor.qualifiedType) {
+    const bindings = inScopeNamespaces(property);
+    const declarations: NamespaceDeclaration[] = [];
+    if (qualifiedTypeAttribute) {
+      if (!qualifiedTypeValueMatches(property, qualifiedTypeAttribute, descriptor.qualifiedType)) {
+        const valuePrefix = selectNamespacePrefix(
+          bindings,
+          descriptor.qualifiedType.valueNamespace,
+          descriptor.qualifiedType.valuePreferredPrefix,
+          false,
+          declarations,
+        );
+        const relativeStart = qualifiedTypeAttribute.valueStart - property.start;
+        const relativeEnd = qualifiedTypeAttribute.valueEnd - property.start;
+        startTag = startTag.slice(0, relativeStart)
+          + escapeXmlAttribute(`${valuePrefix}:${descriptor.qualifiedType.valueLocalName}`)
+          + startTag.slice(relativeEnd);
+      }
+    } else {
+      const attributePrefix = selectNamespacePrefix(
+        bindings,
+        descriptor.qualifiedType.attributeNamespace,
+        descriptor.qualifiedType.attributePreferredPrefix,
+        false,
+        declarations,
+      );
+      const valuePrefix = selectNamespacePrefix(
+        bindings,
+        descriptor.qualifiedType.valueNamespace,
+        descriptor.qualifiedType.valuePreferredPrefix,
+        false,
+        declarations,
+      );
+      startTag += `${renderNamespaceDeclarations(declarations)} ${attributePrefix}:type="${escapeXmlAttribute(`${valuePrefix}:${descriptor.qualifiedType.valueLocalName}`)}"`;
+      declarations.length = 0;
+    }
+    startTag += renderNamespaceDeclarations(declarations);
+  }
+  const open = `${startTag}>`;
   return `${open}${escapeXmlText(value)}</${property.name}>`;
 }
 
-function namespaceUri(element: XmlElement): string | undefined {
-  const prefix = lexicalPrefix(element.name);
-  const declaration = prefix === '' ? 'xmlns' : `xmlns:${prefix}`;
-  for (let scope: XmlElement | undefined = element; scope; scope = scope.parent) {
-    const attribute = scope.attributes.find(({ name }) => name === declaration);
-    if (attribute) return attribute.value;
-  }
-  return undefined;
+interface NamespaceDeclaration {
+  readonly prefix: string;
+  readonly uri: string;
 }
 
-function prefixForNamespace(element: XmlElement, uri: string): string | undefined {
+interface RenderedNewProperty {
+  readonly elementName: string;
+  readonly typeAttribute: string;
+  readonly declarations: readonly NamespaceDeclaration[];
+}
+
+function renderNewProperty(
+  initialBindings: ReadonlyMap<string, string>,
+  descriptor: CoreTextPropertyDescriptor,
+): RenderedNewProperty {
+  const bindings = new Map(initialBindings);
+  const declarations: NamespaceDeclaration[] = [];
+  const elementPrefix = selectNamespacePrefix(
+    bindings,
+    descriptor.namespace,
+    descriptor.preferredPrefix,
+    true,
+    declarations,
+  );
+  const elementName = elementPrefix === ''
+    ? descriptor.localName
+    : `${elementPrefix}:${descriptor.localName}`;
+  if (!descriptor.qualifiedType) {
+    return { elementName, typeAttribute: '', declarations };
+  }
+  const attributePrefix = selectNamespacePrefix(
+    bindings,
+    descriptor.qualifiedType.attributeNamespace,
+    descriptor.qualifiedType.attributePreferredPrefix,
+    false,
+    declarations,
+  );
+  const valuePrefix = selectNamespacePrefix(
+    bindings,
+    descriptor.qualifiedType.valueNamespace,
+    descriptor.qualifiedType.valuePreferredPrefix,
+    false,
+    declarations,
+  );
+  return {
+    elementName,
+    typeAttribute: ` ${attributePrefix}:type="${escapeXmlAttribute(`${valuePrefix}:${descriptor.qualifiedType.valueLocalName}`)}"`,
+    declarations,
+  };
+}
+
+function ensureQualifiedType(
+  xml: LosslessXmlDocument,
+  property: XmlElement,
+  descriptor: CoreQualifiedTypeDescriptor,
+  attribute: XmlAttribute | undefined,
+): void {
+  const bindings = inScopeNamespaces(property);
+  const declarations: NamespaceDeclaration[] = [];
+  if (attribute) {
+    const valuePrefix = selectNamespacePrefix(
+      bindings,
+      descriptor.valueNamespace,
+      descriptor.valuePreferredPrefix,
+      false,
+      declarations,
+    );
+    xml.replaceAttribute(attribute, `${valuePrefix}:${descriptor.valueLocalName}`);
+  } else {
+    const attributePrefix = selectNamespacePrefix(
+      bindings,
+      descriptor.attributeNamespace,
+      descriptor.attributePreferredPrefix,
+      false,
+      declarations,
+    );
+    const valuePrefix = selectNamespacePrefix(
+      bindings,
+      descriptor.valueNamespace,
+      descriptor.valuePreferredPrefix,
+      false,
+      declarations,
+    );
+    const insertionPoint = property.startTagEnd - 1;
+    xml.replace(
+      insertionPoint,
+      insertionPoint,
+      `${renderNamespaceDeclarations(declarations)} ${attributePrefix}:type="${escapeXmlAttribute(`${valuePrefix}:${descriptor.valueLocalName}`)}"`,
+    );
+    return;
+  }
+  if (declarations.length > 0) {
+    const insertionPoint = property.startTagEnd - 1;
+    xml.replace(
+      insertionPoint,
+      insertionPoint,
+      renderNamespaceDeclarations(declarations),
+    );
+  }
+}
+
+function qualifiedTypeMatches(
+  property: XmlElement,
+  descriptor: CoreQualifiedTypeDescriptor,
+): boolean {
+  const attributes = attributesByExpandedName(
+    property,
+    descriptor.attributeNamespace,
+    'type',
+  );
+  return attributes.length === 1
+    && qualifiedTypeValueMatches(property, attributes[0]!, descriptor);
+}
+
+function qualifiedTypeValueMatches(
+  property: XmlElement,
+  attribute: XmlAttribute,
+  descriptor: CoreQualifiedTypeDescriptor,
+): boolean {
+  const separator = attribute.value.indexOf(':');
+  if (
+    separator <= 0
+    || separator !== attribute.value.lastIndexOf(':')
+    || separator === attribute.value.length - 1
+  ) return false;
+  const prefix = attribute.value.slice(0, separator);
+  const localName = attribute.value.slice(separator + 1);
+  return localName === descriptor.valueLocalName
+    && namespaceUriForPrefix(property, prefix) === descriptor.valueNamespace;
+}
+
+function attributesByExpandedName(
+  element: XmlElement,
+  namespace: string,
+  localName: string,
+): readonly XmlAttribute[] {
+  return element.attributes.filter(
+    (attribute) => attribute.localName === localName
+      && attributeNamespaceUri(element, attribute) === namespace,
+  );
+}
+
+function attributeNamespaceUri(
+  element: XmlElement,
+  attribute: XmlAttribute,
+): string | undefined {
+  const prefix = lexicalPrefix(attribute.name);
+  return prefix === '' ? undefined : namespaceUriForPrefix(element, prefix);
+}
+
+function namespaceUri(element: XmlElement): string | undefined {
+  return namespaceUriForPrefix(element, lexicalPrefix(element.name));
+}
+
+function namespaceUriForPrefix(element: XmlElement, prefix: string): string | undefined {
+  return inScopeNamespaces(element).get(prefix);
+}
+
+function inScopeNamespaces(element: XmlElement): Map<string, string> {
+  const bindings = new Map<string, string>();
   for (let scope: XmlElement | undefined = element; scope; scope = scope.parent) {
     for (const attribute of scope.attributes) {
-      if (attribute.value !== uri) continue;
-      if (attribute.name === 'xmlns') return '';
-      if (attribute.name.startsWith('xmlns:')) return attribute.name.slice('xmlns:'.length);
+      const prefix = attribute.name === 'xmlns'
+        ? ''
+        : attribute.name.startsWith('xmlns:')
+          ? attribute.name.slice('xmlns:'.length)
+          : undefined;
+      if (prefix !== undefined && !bindings.has(prefix)) {
+        bindings.set(prefix, attribute.value);
+      }
     }
   }
-  return undefined;
+  return bindings;
+}
+
+function selectNamespacePrefix(
+  bindings: Map<string, string>,
+  uri: string,
+  preferredPrefix: string,
+  allowDefault: boolean,
+  declarations: NamespaceDeclaration[],
+): string {
+  for (const [prefix, namespace] of bindings) {
+    if (namespace === uri && (allowDefault || prefix !== '')) return prefix;
+  }
+  let prefix = preferredPrefix;
+  for (let suffix = 1; bindings.has(prefix); suffix += 1) {
+    prefix = `${preferredPrefix}${suffix}`;
+  }
+  bindings.set(prefix, uri);
+  declarations.push({ prefix, uri });
+  return prefix;
+}
+
+function renderNamespaceDeclarations(
+  declarations: readonly NamespaceDeclaration[],
+): string {
+  return declarations
+    .map(({ prefix, uri }) => ` xmlns:${prefix}="${escapeXmlAttribute(uri)}"`)
+    .join('');
 }
 
 function lexicalPrefix(name: string): string {
