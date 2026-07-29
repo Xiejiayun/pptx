@@ -1063,6 +1063,65 @@ describe('table creation internals', () => {
     expect(combined).not.toMatch(/<a:bodyPr[^>]*\salgn=/);
   });
 
+  it('materializes strict table horizontal alignment onto uncovered cells', () => {
+    const rows = [[
+      'String',
+      { text: 'Object' },
+      { text: 'Empty', options: {} },
+      { text: 'Undefined', options: { align: undefined } },
+      { text: 'Left', options: { align: 'left' } },
+      { text: 'Right', options: { align: 'right' } },
+      { text: 'Justify', options: { align: 'justify' } },
+    ]];
+    const definition = normalizeTableDefinition(rows, { align: 'center' });
+    expect(definition.rows[0]!.map(({ alignment }) => alignment)).toEqual([
+      'center',
+      'center',
+      'center',
+      'center',
+      'left',
+      'right',
+      'justify',
+    ]);
+
+    const xml = renderTableGraphicFrame(33, definition);
+    expect([...xml.matchAll(/<a:pPr[^>]*\salgn="([^"]+)"/g)]
+      .map((match) => match[1])).toEqual([
+      'ctr',
+      'ctr',
+      'ctr',
+      'ctr',
+      'l',
+      'r',
+      'just',
+    ]);
+    expect(xml).not.toMatch(/<a:tcPr[^>]*\salgn=/);
+    expect(xml).not.toMatch(/<a:bodyPr[^>]*\salgn=/);
+
+    const tableValues = [
+      ['left', 'l'],
+      ['center', 'ctr'],
+      ['right', 'r'],
+      ['justify', 'just'],
+    ] as const;
+    for (const [align, token] of tableValues) {
+      const value = normalizeTableDefinition([['A']], { align });
+      expect(value.rows[0]![0]!.alignment).toBe(align);
+      expect(renderTableGraphicFrame(34, value)).toContain(`algn="${token}"`);
+    }
+
+    const omitted = renderTableGraphicFrame(
+      35,
+      normalizeTableDefinition([['Same']], {}),
+    );
+    const runtimeUndefined = renderTableGraphicFrame(
+      35,
+      normalizeTableDefinition([['Same']], { align: undefined }),
+    );
+    expect(runtimeUndefined).toBe(omitted);
+    expect(omitted).not.toMatch(/<a:pPr[^>]*\salgn=/);
+  });
+
   it('materializes strict table vertical alignment onto uncovered cells', () => {
     const rows = [[
       'String',
@@ -1625,6 +1684,16 @@ describe('table creation internals', () => {
       enumerable: true,
       configurable: true,
     });
+    const accessorTableAlignOptions: Record<string, unknown> = {};
+    let tableAlignAccessorCalls = 0;
+    Object.defineProperty(accessorTableAlignOptions, 'align', {
+      get() {
+        tableAlignAccessorCalls += 1;
+        return 'center';
+      },
+      enumerable: true,
+      configurable: true,
+    });
     const accessorTableMarginOptions: Record<string, unknown> = {};
     let tableMarginAccessorCalls = 0;
     Object.defineProperty(accessorTableMarginOptions, 'margin', {
@@ -1856,6 +1925,7 @@ describe('table creation internals', () => {
       symbolOptions,
       accessorOptions,
       accessorTableValignOptions,
+      accessorTableAlignOptions,
       accessorTableMarginOptions,
       accessorTableFillOptions,
       accessorTableBorderOptions,
@@ -1875,6 +1945,7 @@ describe('table creation internals', () => {
       ...invalidTableBorders.map((border) => ({ border })),
       ...invalidTableMargins.map((margin) => ({ margin })),
       ...invalidValigns.map((valign) => ({ valign })),
+      ...invalidAlignments.map((align) => ({ align })),
     ];
     for (const options of invalidOptions) {
       expect(() => normalizeTableDefinition([['A']], options)).toThrow();
@@ -1883,6 +1954,7 @@ describe('table creation internals', () => {
     expect(() => normalizeTableDefinition([['A'], ['B']], { height: 1 })).toThrow(RangeError);
     expect(optionAccessorCalls).toBe(0);
     expect(tableValignAccessorCalls).toBe(0);
+    expect(tableAlignAccessorCalls).toBe(0);
     expect(tableMarginAccessorCalls).toBe(0);
     expect(tableFillAccessorCalls).toBe(0);
     expect(tableBorderAccessorCalls).toBe(0);

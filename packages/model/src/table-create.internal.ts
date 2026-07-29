@@ -39,6 +39,7 @@ const OPTION_KEYS = [
   'height',
   'columnWidths',
   'rowHeights',
+  'align',
   'border',
   'fill',
   'margin',
@@ -81,13 +82,22 @@ export function normalizeTableDefinition(
   }
 
   const normalizedOptions = readOptions(options);
+  const tableAlignment = normalizedOptions.align === undefined
+    ? undefined
+    : normalizeTextAlignment(normalizedOptions.align, 'Table align');
+  const alignmentResolvedRows = tableAlignment === undefined
+    ? normalizedRows
+    : normalizedRows.map((row) => row.map((cell) =>
+      cell.alignment === undefined
+        ? { ...cell, alignment: tableAlignment }
+        : cell));
   const tableBorders = normalizeTableCellBorders(
     normalizedOptions.border,
     'Table border',
   );
   const borderResolvedRows = tableBorders === undefined
-    ? normalizedRows
-    : normalizedRows.map((row) => row.map((cell) =>
+    ? alignmentResolvedRows
+    : alignmentResolvedRows.map((row) => row.map((cell) =>
       cell.borders === undefined
         ? { ...cell, borders: tableBorders }
         : cell));
