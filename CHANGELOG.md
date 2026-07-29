@@ -21,6 +21,7 @@
 - Added strict table-level point-based margin creation that resolves canonical, table, and cell sides onto physical cells, preserves omitted bytes and cell overrides, and matches PptxGenJS 4.0.1 final direct state with paired units.
 - Added strict cell-level table vertical-alignment creation for top, middle, and bottom, with direct `tcPr@anchor` output, omitted-byte preservation, immediate editing, and PptxGenJS 4.0.1 final-state conformance coverage.
 - Added strict table-level vertical-alignment creation that materializes top, middle, or bottom onto uncovered cells, preserves cell overrides and omitted bytes, and matches PptxGenJS 4.0.1 final direct state.
+- Added strict table-cell horizontal-alignment creation for left, center, right, and justify, with direct `pPr@algn` output, omitted-byte preservation, edit/duplicate/reopen stability, and PptxGenJS 4.0.1 final-state conformance.
 - Added exact scalar or per-column EMU widths for native table creation, with derived total width and strict grid/transform consistency.
 - Added strict existing-table column-width snapshots and atomic lossless editing that synchronizes the table grid and transform width.
 - Added exact scalar or per-row EMU heights for native table creation, with derived total height and strict row/transform consistency.
