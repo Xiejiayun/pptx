@@ -21,6 +21,10 @@ import {
   replaceTableCellFill,
 } from './table-cell-fill.internal.js';
 import {
+  readTableCellHorizontalAlignment,
+  replaceTableCellHorizontalAlignment,
+} from './table-cell-horizontal-alignment.internal.js';
+import {
   readTableCellMargins,
   replaceTableCellMargins,
 } from './table-cell-margins.internal.js';
@@ -47,6 +51,7 @@ import {
   readTableCellVerticalAlignment,
   replaceTableCellVerticalAlignment,
 } from './table-cell-vertical-alignment.internal.js';
+import { normalizeTextAlignment } from './rich-text.internal.js';
 import { normalizeTextBoxFit } from './text-box-fit.internal.js';
 import { normalizeTextBoxMargins } from './text-box-margins.internal.js';
 import { normalizeTextBoxVerticalAlignment } from './text-box-vertical-alignment.internal.js';
@@ -58,6 +63,7 @@ import type {
   TextBoxMargins,
   TextBoxTextDirection,
   TextBoxVerticalAlignment,
+  TextAlignment,
 } from './text.js';
 import { type Emu, type OoxmlAngle, type Transform } from './units.js';
 
@@ -105,6 +111,7 @@ export interface TableCell {
   readonly text: string;
   readonly borders?: TableCellBorders;
   readonly fill?: TableCellFill;
+  readonly horizontalAlignment?: TextAlignment;
   readonly margins?: TextBoxMargins;
   readonly textDirection?: TableCellTextDirection;
   readonly textFit?: TextBoxFit;
@@ -279,6 +286,7 @@ export class TableModel extends BaseShapeModel {
       cells: xml.descendants(row, 'tc').map((cell) => {
         const borders = readTableCellBorders(xml, cell);
         const fill = readTableCellFill(xml, cell);
+        const horizontalAlignment = readTableCellHorizontalAlignment(xml, cell);
         const margins = readTableCellMargins(xml, cell);
         const textDirection = readTableCellTextDirection(xml, cell);
         const textFit = readTableCellTextFit(xml, cell, this.slide.partUri);
@@ -287,6 +295,7 @@ export class TableModel extends BaseShapeModel {
           text: xml.descendants(cell, 't').map((node) => xml.text(node)).join(''),
           ...(borders !== undefined ? { borders } : {}),
           ...(fill !== undefined ? { fill } : {}),
+          ...(horizontalAlignment !== undefined ? { horizontalAlignment } : {}),
           ...(margins !== undefined ? { margins } : {}),
           ...(textDirection !== undefined ? { textDirection } : {}),
           ...(textFit !== undefined ? { textFit } : {}),
@@ -439,6 +448,25 @@ export class TableModel extends BaseShapeModel {
       const cell = row ? xml.descendants(row, 'tc')[columnIndex] : undefined;
       if (!cell) throw new RangeError(`Table cell ${rowIndex},${columnIndex} was not found`);
       if (replaceTableCellVerticalAlignment(xml, cell, alignment, this.slide.partUri)) {
+        this.slide.setXml(xml.serialize());
+      }
+    });
+  }
+
+  setCellHorizontalAlignment(
+    rowIndex: number,
+    columnIndex: number,
+    value: TextAlignment | undefined,
+  ): void {
+    const alignment = value === undefined
+      ? undefined
+      : normalizeTextAlignment(value, 'Table cell horizontal alignment');
+    this.slide.presentation.opcPackage.transaction(() => {
+      const { xml, element } = this.resolve();
+      const row = xml.descendants(element, 'tr')[rowIndex];
+      const cell = row ? xml.descendants(row, 'tc')[columnIndex] : undefined;
+      if (!cell) throw new RangeError(`Table cell ${rowIndex},${columnIndex} was not found`);
+      if (replaceTableCellHorizontalAlignment(xml, cell, alignment, this.slide.partUri)) {
         this.slide.setXml(xml.serialize());
       }
     });
