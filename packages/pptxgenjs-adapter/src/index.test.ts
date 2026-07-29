@@ -884,6 +884,165 @@ describe('importPptxGenJS', () => {
     );
   });
 
+  it('matches native table-level margin creation to PptxGenJS final state', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    generated.layout = 'LAYOUT_WIDE';
+    generated.addSlide().addTable([[
+      { text: 'Inherited string', options: {} },
+      { text: 'Inherited object', options: {} },
+      { text: 'Zero', options: {
+        margin: 0,
+        border: { type: 'solid', color: '336699', pt: 1 },
+        fill: { color: 'DDEEFF' },
+      } },
+      { text: 'Points', options: {
+        margin: [1, 2, 3, 4],
+        border: { type: 'dash', color: 'CC3300', pt: 1.5 },
+        fill: { color: '112233', transparency: 25 },
+      } },
+    ]], {
+      x: 0.5,
+      y: 0.5,
+      w: 8,
+      h: 1,
+      colW: [2, 2, 2, 2],
+      rowH: [1],
+      margin: [0.05, 0.1, 0.15, 0.2],
+      valign: 'middle',
+    });
+    const imported = await importPptxGenJS(generated);
+    const importedTable = imported.slides[0]!.shapes[0] as TableModel;
+
+    const native = PptxDocument.create({ slideSize: 'wide' });
+    const nativeSlide = native.addSlide();
+    const nativeTable = nativeSlide.addTable([[
+      'Inherited string',
+      { text: 'Inherited object' },
+      { text: 'Zero', options: {
+        margin: 0,
+        border: {
+          kind: 'line',
+          color: { kind: 'srgb', value: '336699' },
+          width: 1,
+          style: 'solid',
+        },
+        fill: { kind: 'solid', color: { kind: 'srgb', value: 'DDEEFF' } },
+      } },
+      { text: 'Points', options: {
+        margin: [1, 2, 3, 4],
+        border: {
+          kind: 'line',
+          color: { kind: 'srgb', value: 'CC3300' },
+          width: 1.5,
+          style: 'dash',
+        },
+        fill: {
+          kind: 'solid',
+          color: { kind: 'srgb', value: '112233' },
+          transparency: 25,
+        },
+      } },
+    ]], {
+      x: inches(0.5),
+      y: inches(0.5),
+      columnWidths: inches(2),
+      rowHeights: inches(1),
+      margin: [3.6, 7.2, 10.8, 14.4],
+      valign: 'middle',
+    });
+    const expectedMargins = [
+      { top: 3.6, right: 7.2, bottom: 10.8, left: 14.4 },
+      { top: 3.6, right: 7.2, bottom: 10.8, left: 14.4 },
+      { top: 0, right: 0, bottom: 0, left: 0 },
+      { top: 1, right: 2, bottom: 3, left: 4 },
+    ];
+    const expectedText = ['Inherited string', 'Inherited object', 'Zero', 'Points'];
+    expect(nativeTable.rows[0]!.cells.map(({ margins }) => margins))
+      .toEqual(expectedMargins);
+    expect(importedTable.rows[0]!.cells.map(({ margins }) => margins))
+      .toEqual(expectedMargins);
+    expect(nativeTable.rows[0]!.cells.map(({ text }) => text)).toEqual(expectedText);
+    expect(importedTable.rows[0]!.cells.map(({ text }) => text)).toEqual(expectedText);
+    expect(nativeTable.rows[0]!.cells.map(
+      ({ verticalAlignment }) => verticalAlignment)).toEqual(Array(4).fill('middle'));
+    expect(importedTable.rows[0]!.cells.map(
+      ({ verticalAlignment }) => verticalAlignment)).toEqual(Array(4).fill('middle'));
+    expect(nativeTable.rows[0]!.cells.map(({ borders }) => borders)).toEqual(
+      importedTable.rows[0]!.cells.map(({ borders }) => borders),
+    );
+    expect(nativeTable.rows[0]!.cells.map(({ fill }) => fill)).toEqual(
+      importedTable.rows[0]!.cells.map(({ fill }) => fill),
+    );
+    expect(nativeTable.transform).toMatchObject(importedTable.transform);
+    expect(nativeTable.columnWidths).toEqual(importedTable.columnWidths);
+    expect(nativeTable.rowHeights).toEqual(importedTable.rowHeights);
+
+    const nativeXml = new TextDecoder().decode(
+      native.opcPackage.requirePart(nativeSlide.partUri).bytes,
+    );
+    const importedXml = new TextDecoder().decode(
+      imported.opcPackage.requirePart(imported.slides[0]!.partUri).bytes,
+    );
+    const directMarginVectors = (xml: string) => [...xml.matchAll(
+      /<a:tcPr marL="(-?\d+)" marR="(-?\d+)" marT="(-?\d+)" marB="(-?\d+)"/g,
+    )].map((match) => match.slice(1).map(Number));
+    const expectedMarginVectors = [
+      [182880, 91440, 45720, 137160],
+      [182880, 91440, 45720, 137160],
+      [0, 0, 0, 0],
+      [50800, 25400, 12700, 38100],
+    ];
+    expect(directMarginVectors(nativeXml)).toEqual(expectedMarginVectors);
+    expect(directMarginVectors(importedXml)).toEqual(expectedMarginVectors);
+    for (const xml of [nativeXml, importedXml]) {
+      expect([...xml.matchAll(/<a:tcPr[^>]* anchor="([^"]+)"/g)]
+        .map((match) => match[1])).toEqual(Array(4).fill('ctr'));
+      expect(xml).not.toMatch(/<a:bodyPr[^>]*(?:lIns|rIns|tIns|bIns|anchor)=/);
+    }
+
+    const reopenedNative = await PptxDocument.open(await native.write());
+    const reopenedImported = await PptxDocument.open(await imported.write());
+    expect((reopenedNative.slides[0]!.shapes[0] as TableModel).rows)
+      .toEqual(nativeTable.rows);
+    expect((reopenedImported.slides[0]!.shapes[0] as TableModel).rows)
+      .toEqual(importedTable.rows);
+
+    const generatedDifference = new PptxGenJS();
+    generatedDifference.addSlide().addTable(
+      [[{ text: 'PptxGenJS 0.1 table', options: {} }]],
+      { x: 1, y: 1, w: 2, h: 1, colW: [2], rowH: [1], margin: 0.1 },
+    );
+    const importedDifference = await importPptxGenJS(generatedDifference);
+    const nativeDifference = PptxDocument.create();
+    const nativeDifferenceTable = nativeDifference.addSlide().addTable(
+      [['Native 0.1 table']],
+      { margin: 0.1 },
+    );
+    expect((importedDifference.slides[0]!.shapes[0] as TableModel)
+      .rows[0]!.cells[0]!.margins).toEqual({
+      top: 7.2,
+      right: 7.2,
+      bottom: 7.2,
+      left: 7.2,
+    });
+    expect(nativeDifferenceTable.rows[0]!.cells[0]!.margins).toEqual({
+      top: 0.1,
+      right: 0.1,
+      bottom: 0.1,
+      left: 0.1,
+    });
+
+    const beforeInvalid = native.opcPackage.requirePart(nativeSlide.partUri).bytes.slice();
+    const invalidJournal = [...native.opcPackage.mutations];
+    expect(() => nativeSlide.addTable([['Invalid']], { margin: null as never }))
+      .toThrow(TypeError);
+    expect(() => nativeSlide.addTable([['Invalid']], { margin: [1, 2, 3] as never }))
+      .toThrow(RangeError);
+    expect(native.opcPackage.requirePart(nativeSlide.partUri).bytes).toEqual(beforeInvalid);
+    expect(native.opcPackage.mutations).toEqual(invalidJournal);
+  });
+
   it('imports PptxGenJS table-cell fills from direct cell properties', async () => {
     const generated = new PptxGenJS();
     expect(generated.version).toBe('4.0.1');
