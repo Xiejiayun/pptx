@@ -358,24 +358,75 @@ describe('PptxDocument vertical slice', () => {
       color: sourceColor,
       transparency: 33.3334,
     };
-    const sourceOptions: AddTableCellOptions = { fill: sourceFill };
+    const sourceBorderColor = { kind: 'srgb' as const, value: '#C00000' };
+    const sourceBorder = {
+      kind: 'line' as const,
+      color: sourceBorderColor,
+      width: 2,
+      style: 'solid' as const,
+    };
+    const sourceOptions: AddTableCellOptions = {
+      border: sourceBorder,
+      fill: sourceFill,
+    };
     const sourceCell = { text: 'Region', options: sourceOptions };
     const rows: readonly (readonly AddTableCellInput[])[] = [
       [
         sourceCell,
-        { text: 'Revenue', options: { fill: {
-          kind: 'solid',
-          color: { kind: 'scheme', value: 'accent2' },
-          transparency: 25,
-        } } },
-        { text: 'Growth', options: { fill: { kind: 'none' } } },
+        { text: 'Revenue', options: {
+          border: {
+            kind: 'line',
+            color: { kind: 'scheme', value: 'accent2' },
+            width: 2,
+            style: 'dash',
+          },
+          fill: {
+            kind: 'solid',
+            color: { kind: 'scheme', value: 'accent2' },
+            transparency: 25,
+          },
+        } },
+        { text: 'Growth', options: {
+          border: { kind: 'none' },
+          fill: { kind: 'none' },
+        } },
       ],
-      ['East', { text: '$1.2M', options: { fill: {
-        kind: 'solid',
-        color: { kind: 'srgb', value: '445566' },
-        transparency: 100,
-      } } }, '12%'],
-      [{ text: 'West' }, '$980K', { text: '' }],
+      ['East', { text: '$1.2M', options: {
+        border: {
+          kind: 'line',
+          color: { kind: 'srgb', value: '0000FF' },
+          width: 0,
+          style: 'solid',
+        },
+        fill: {
+          kind: 'solid',
+          color: { kind: 'srgb', value: '445566' },
+          transparency: 100,
+        },
+      } }, { text: '12%', options: { border: [
+        {
+          kind: 'line',
+          color: { kind: 'scheme', value: 'accent1' },
+          width: 1.5,
+          style: 'dash',
+        },
+        undefined,
+        {
+          kind: 'line',
+          color: { kind: 'srgb', value: '00FF00' },
+          width: 0,
+        },
+        { kind: 'none' },
+      ] } }],
+      [{ text: 'West', options: { border: {
+        top: {
+          kind: 'line',
+          color: { kind: 'scheme', value: 'accent3' },
+          width: 1,
+          style: 'dash',
+        },
+        left: { kind: 'none' },
+      } } }, '$980K', { text: '' }],
     ];
     const table = slide.addTable(
       rows,
@@ -401,6 +452,8 @@ describe('PptxDocument vertical slice', () => {
     sourceCell.text = 'MUTATED';
     sourceColor.value = '000000';
     sourceFill.transparency = 1;
+    sourceBorderColor.value = '000000';
+    sourceBorder.width = 9;
     expect(table.rows[0]!.cells[0]!.text).toBe('Region');
     expect(table.rows.map(({ cells }) => cells.map(({ fill }) => fill))).toEqual([
       [
@@ -427,6 +480,48 @@ describe('PptxDocument vertical slice', () => {
       ],
       [undefined, undefined, undefined],
     ]);
+    const borderLine = (
+      color: { kind: 'srgb' | 'scheme'; value: string },
+      width: number,
+      style?: 'solid' | 'dash',
+    ) => ({ kind: 'line' as const, color, width, ...(style ? { style } : {}) });
+    const noBorders = () => ({
+      top: { kind: 'none' as const },
+      right: { kind: 'none' as const },
+      bottom: { kind: 'none' as const },
+      left: { kind: 'none' as const },
+    });
+    expect(table.rows[0]!.cells[0]!.borders).toEqual({
+      top: borderLine({ kind: 'srgb', value: 'C00000' }, 2, 'solid'),
+      right: borderLine({ kind: 'srgb', value: 'C00000' }, 2, 'solid'),
+      bottom: borderLine({ kind: 'srgb', value: 'C00000' }, 2, 'solid'),
+      left: borderLine({ kind: 'srgb', value: 'C00000' }, 2, 'solid'),
+    });
+    expect(table.rows[0]!.cells[1]!.borders).toEqual({
+      top: borderLine({ kind: 'scheme', value: 'accent2' }, 2, 'dash'),
+      right: borderLine({ kind: 'scheme', value: 'accent2' }, 2, 'dash'),
+      bottom: borderLine({ kind: 'scheme', value: 'accent2' }, 2, 'dash'),
+      left: borderLine({ kind: 'scheme', value: 'accent2' }, 2, 'dash'),
+    });
+    expect(table.rows[0]!.cells[2]!.borders).toEqual(noBorders());
+    expect(table.rows[1]!.cells[1]!.borders).toEqual({
+      top: borderLine({ kind: 'srgb', value: '0000FF' }, 0, 'solid'),
+      right: borderLine({ kind: 'srgb', value: '0000FF' }, 0, 'solid'),
+      bottom: borderLine({ kind: 'srgb', value: '0000FF' }, 0, 'solid'),
+      left: borderLine({ kind: 'srgb', value: '0000FF' }, 0, 'solid'),
+    });
+    expect(table.rows[1]!.cells[2]!.borders).toEqual({
+      top: borderLine({ kind: 'scheme', value: 'accent1' }, 1.5, 'dash'),
+      right: { kind: 'none' },
+      bottom: borderLine({ kind: 'srgb', value: '00FF00' }, 0),
+      left: { kind: 'none' },
+    });
+    expect(table.rows[2]!.cells[0]!.borders).toEqual({
+      top: borderLine({ kind: 'scheme', value: 'accent3' }, 1, 'dash'),
+      right: { kind: 'none' },
+      bottom: { kind: 'none' },
+      left: { kind: 'none' },
+    });
     expect(table.transform).toMatchObject({
       x: inches(1),
       y: inches(1.25),
@@ -447,10 +542,10 @@ describe('PptxDocument vertical slice', () => {
       text: 'Region',
       margins: { top: 3.6, right: 7.2, bottom: 3.6, left: 7.2 },
       borders: {
-        top: { kind: 'none' },
-        right: { kind: 'none' },
-        bottom: { kind: 'none' },
-        left: { kind: 'none' },
+        top: borderLine({ kind: 'srgb', value: 'C00000' }, 2, 'solid'),
+        right: borderLine({ kind: 'srgb', value: 'C00000' }, 2, 'solid'),
+        bottom: borderLine({ kind: 'srgb', value: 'C00000' }, 2, 'solid'),
+        left: borderLine({ kind: 'srgb', value: 'C00000' }, 2, 'solid'),
       },
     });
     expect(table.rows[0]!.cells[0]!.fill).toEqual({
@@ -523,6 +618,18 @@ describe('PptxDocument vertical slice', () => {
       },
       { kind: 'none' },
     ]);
+    expect(duplicateTable.rows[0]!.cells[0]!.borders).toEqual({
+      top: borderLine({ kind: 'srgb', value: 'C00000' }, 2, 'solid'),
+      right: borderLine({ kind: 'srgb', value: 'C00000' }, 2, 'solid'),
+      bottom: borderLine({ kind: 'srgb', value: 'C00000' }, 2, 'solid'),
+      left: borderLine({ kind: 'srgb', value: 'C00000' }, 2, 'solid'),
+    });
+    expect(duplicateTable.rows[1]!.cells[2]!.borders).toEqual({
+      top: borderLine({ kind: 'scheme', value: 'accent1' }, 1.5, 'dash'),
+      right: { kind: 'none' },
+      bottom: borderLine({ kind: 'srgb', value: '00FF00' }, 0),
+      left: { kind: 'none' },
+    });
 
     table.setCellText(1, 0, 'Eastern');
     table.setCellText(2, 2, 'Now filled');
@@ -623,9 +730,16 @@ describe('PptxDocument vertical slice', () => {
     expect(() =>
       document.transaction(() => {
         table.setCellFill(0, 0, { kind: 'none' });
+        table.setCellBorders(0, 0, { kind: 'none' });
         table.setColumnWidths(inches(1));
         table.setRowHeights(0);
-        rolledBack = slide.addTable([['temporary']]);
+        rolledBack = slide.addTable([[{
+          text: 'temporary',
+          options: {
+            border: borderLine({ kind: 'scheme', value: 'accent1' }, 1, 'dash'),
+            fill: { kind: 'none' },
+          },
+        }]]);
         throw new Error('restore created table state');
       }),
     ).toThrow('restore created table state');
@@ -640,6 +754,12 @@ describe('PptxDocument vertical slice', () => {
     expect(table.transform.width).toBe(inches(8));
     expect(table.rowHeights).toEqual([0, inches(1), 0]);
     expect(table.transform.height).toBe(explicitTransformHeight);
+    expect(table.rows[0]!.cells[0]!.borders).toEqual({
+      top: borderLine({ kind: 'srgb', value: 'FFFFFF' }, 1, 'solid'),
+      right: borderLine({ kind: 'srgb', value: 'FFFFFF' }, 1, 'solid'),
+      bottom: borderLine({ kind: 'srgb', value: 'FFFFFF' }, 1, 'solid'),
+      left: borderLine({ kind: 'srgb', value: 'FFFFFF' }, 1, 'solid'),
+    });
     expect(() => rolledBack!.rows).toThrow(ModelParseError);
 
     const reopened = await PptxDocument.open(await document.write());
