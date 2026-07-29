@@ -187,10 +187,13 @@ function createCoreProperties(
     ? pkg.allocatePartUri('/docProps', 'core', '.xml')
     : canonicalUri;
   const qualifiedName = `${descriptor.preferredPrefix}:${descriptor.localName}`;
+  const preferredNamespaceDeclaration =
+    descriptor.preferredPrefix === 'cp' && descriptor.namespace === CORE_PROPERTIES_NAMESPACE
+      ? ''
+      : ` xmlns:${descriptor.preferredPrefix}="${descriptor.namespace}"`;
   const xml =
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`
-    + `<cp:coreProperties xmlns:cp="${CORE_PROPERTIES_NAMESPACE}" `
-    + `xmlns:${descriptor.preferredPrefix}="${descriptor.namespace}">`
+    + `<cp:coreProperties xmlns:cp="${CORE_PROPERTIES_NAMESPACE}"${preferredNamespaceDeclaration}>`
     + `<${qualifiedName}>${escapeXmlText(value)}</${qualifiedName}>`
     + '</cp:coreProperties>';
   pkg.setPart(partUri, xml, CORE_PROPERTIES_CONTENT_TYPE);
