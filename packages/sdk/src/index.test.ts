@@ -365,9 +365,11 @@ describe('PptxDocument vertical slice', () => {
       width: 2,
       style: 'solid' as const,
     };
+    const sourceMargin = { top: 4, left: 8 };
     const sourceOptions: AddTableCellOptions = {
       border: sourceBorder,
       fill: sourceFill,
+      margin: sourceMargin,
     };
     const sourceCell = { text: 'Region', options: sourceOptions };
     const rows: readonly (readonly AddTableCellInput[])[] = [
@@ -385,13 +387,15 @@ describe('PptxDocument vertical slice', () => {
             color: { kind: 'scheme', value: 'accent2' },
             transparency: 25,
           },
+          margin: [1, 2, 3, 4],
         } },
         { text: 'Growth', options: {
           border: { kind: 'none' },
           fill: { kind: 'none' },
+          margin: 0,
         } },
       ],
-      ['East', { text: '$1.2M', options: {
+      [{ text: 'East', options: { margin: { right: -2 } } }, { text: '$1.2M', options: {
         border: {
           kind: 'line',
           color: { kind: 'srgb', value: '0000FF' },
@@ -403,6 +407,7 @@ describe('PptxDocument vertical slice', () => {
           color: { kind: 'srgb', value: '445566' },
           transparency: 100,
         },
+        margin: {},
       } }, { text: '12%', options: { border: [
         {
           kind: 'line',
@@ -454,7 +459,26 @@ describe('PptxDocument vertical slice', () => {
     sourceFill.transparency = 1;
     sourceBorderColor.value = '000000';
     sourceBorder.width = 9;
+    sourceMargin.top = 99;
+    sourceMargin.left = 99;
     expect(table.rows[0]!.cells[0]!.text).toBe('Region');
+    expect(table.rows.map(({ cells }) => cells.map(({ margins }) => margins))).toEqual([
+      [
+        { top: 4, right: 7.2, bottom: 3.6, left: 8 },
+        { top: 1, right: 2, bottom: 3, left: 4 },
+        { top: 0, right: 0, bottom: 0, left: 0 },
+      ],
+      [
+        { top: 3.6, right: -2, bottom: 3.6, left: 7.2 },
+        { top: 3.6, right: 7.2, bottom: 3.6, left: 7.2 },
+        { top: 3.6, right: 7.2, bottom: 3.6, left: 7.2 },
+      ],
+      [
+        { top: 3.6, right: 7.2, bottom: 3.6, left: 7.2 },
+        { top: 3.6, right: 7.2, bottom: 3.6, left: 7.2 },
+        { top: 3.6, right: 7.2, bottom: 3.6, left: 7.2 },
+      ],
+    ]);
     expect(table.rows.map(({ cells }) => cells.map(({ fill }) => fill))).toEqual([
       [
         {
@@ -540,7 +564,7 @@ describe('PptxDocument vertical slice', () => {
     ]);
     expect(table.rows[0]!.cells[0]).toMatchObject({
       text: 'Region',
-      margins: { top: 3.6, right: 7.2, bottom: 3.6, left: 7.2 },
+      margins: { top: 4, right: 7.2, bottom: 3.6, left: 8 },
       borders: {
         top: borderLine({ kind: 'srgb', value: 'C00000' }, 2, 'solid'),
         right: borderLine({ kind: 'srgb', value: 'C00000' }, 2, 'solid'),
@@ -577,9 +601,17 @@ describe('PptxDocument vertical slice', () => {
       expect(document.opcPackage.requirePart(uri).bytes).toEqual(bytes);
     }
 
+    table.setCellMargins(0, 0, { bottom: 9 });
+    expect(table.rows[0]!.cells[0]!.margins).toEqual({ bottom: 9 });
     const duplicate = document.duplicateSlide(0);
     const duplicateTable = duplicate.shapes[0] as TableModel;
     const originalRows = duplicateTable.rows;
+    expect(duplicateTable.rows[0]!.cells[0]!.margins).toEqual({ bottom: 9 });
+    const nonTargetHashes = new Map(
+      document.opcPackage.parts
+        .filter(({ uri }) => uri !== slide.partUri)
+        .map(({ uri, bytes }) => [uri, hash(bytes)]),
+    );
     const duplicateTableXml = new TextDecoder().decode(
       document.opcPackage.requirePart(duplicate.partUri).bytes,
     );
@@ -636,6 +668,7 @@ describe('PptxDocument vertical slice', () => {
     table.setCellTextDirection(1, 1, 'vert270');
     table.setCellTextFit(1, 2, 'shrink');
     table.setCellVerticalAlignment(2, 0, 'bottom');
+    table.setCellMargins(0, 0, { top: 5 });
     table.setCellMargins(2, 1, [2, 4, 6, 8]);
     table.setCellFill(0, 0, {
       kind: 'solid',
@@ -672,6 +705,8 @@ describe('PptxDocument vertical slice', () => {
       bottom: 6,
       left: 8,
     });
+    expect(table.rows[0]!.cells[0]!.margins).toEqual({ top: 5 });
+    expect(duplicateTable.rows[0]!.cells[0]!.margins).toEqual({ bottom: 9 });
     expect(table.rows[0]!.cells[0]!.fill).toEqual({
       kind: 'solid',
       color: { kind: 'scheme', value: 'accent1' },
@@ -731,6 +766,7 @@ describe('PptxDocument vertical slice', () => {
       document.transaction(() => {
         table.setCellFill(0, 0, { kind: 'none' });
         table.setCellBorders(0, 0, { kind: 'none' });
+        table.setCellMargins(0, 0, { right: 1 });
         table.setColumnWidths(inches(1));
         table.setRowHeights(0);
         rolledBack = slide.addTable([[{
@@ -738,6 +774,7 @@ describe('PptxDocument vertical slice', () => {
           options: {
             border: borderLine({ kind: 'scheme', value: 'accent1' }, 1, 'dash'),
             fill: { kind: 'none' },
+            margin: { left: -2 },
           },
         }]]);
         throw new Error('restore created table state');
@@ -760,11 +797,19 @@ describe('PptxDocument vertical slice', () => {
       bottom: borderLine({ kind: 'srgb', value: 'FFFFFF' }, 1, 'solid'),
       left: borderLine({ kind: 'srgb', value: 'FFFFFF' }, 1, 'solid'),
     });
+    expect(table.rows[0]!.cells[0]!.margins).toEqual({ top: 5 });
     expect(() => rolledBack!.rows).toThrow(ModelParseError);
 
+    const editedMarginMatrix = table.rows.map(({ cells }) =>
+      cells.map(({ margins }) => margins));
+    const duplicateMarginMatrix = duplicateTable.rows.map(({ cells }) =>
+      cells.map(({ margins }) => margins));
     const reopened = await PptxDocument.open(await document.write());
     const reopenedTable = reopened.slides[0]!.shapes[0] as TableModel;
     const reopenedDuplicate = reopened.slides[1]!.shapes[0] as TableModel;
+    for (const [uri, expectedHash] of nonTargetHashes) {
+      expect(hash(reopened.opcPackage.requirePart(uri).bytes), uri).toBe(expectedHash);
+    }
     expect(reopenedTable.rows.map(({ cells }) => cells.map(({ text }) => text))).toEqual([
       ['Region', 'Revenue', 'Growth'],
       ['Eastern', '$1.2M', '12%'],
@@ -781,6 +826,10 @@ describe('PptxDocument vertical slice', () => {
       bottom: 6,
       left: 8,
     });
+    expect(reopenedTable.rows.map(({ cells }) =>
+      cells.map(({ margins }) => margins))).toEqual(editedMarginMatrix);
+    expect(reopenedDuplicate.rows.map(({ cells }) =>
+      cells.map(({ margins }) => margins))).toEqual(duplicateMarginMatrix);
     expect(reopenedTable.transform.x).toBe(inches(1.5));
     expect(reopenedTable.transform.width).toBe(inches(8));
     expect(reopenedTable.columnWidths).toEqual([
@@ -816,6 +865,69 @@ describe('PptxDocument vertical slice', () => {
       inches(1),
       0,
     ]);
+  });
+
+  it('rejects invalid public table margin creation before mutation', () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const table = slide.addTable([['Existing']]);
+    const before = document.opcPackage.requirePart(slide.partUri).bytes.slice();
+    const journal = [...document.opcPackage.mutations];
+    let sdkMarginGetterCalls = 0;
+    const accessorNamed = { left: 1 };
+    Object.defineProperty(accessorNamed, 'top', {
+      get() {
+        sdkMarginGetterCalls += 1;
+        return 2;
+      },
+      enumerable: true,
+    });
+    const accessorTuple = [1, 2, 3, 4];
+    Object.defineProperty(accessorTuple, '1', {
+      get() {
+        sdkMarginGetterCalls += 1;
+        return 2;
+      },
+      enumerable: true,
+    });
+    class SdkMarginClass {
+      top = 1;
+    }
+    const sparseTuple = [1, 2, 3, 4];
+    delete sparseTuple[2];
+    const invalidMargins: unknown[] = [
+      null,
+      false,
+      '1',
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+      Number.NEGATIVE_INFINITY,
+      accessorNamed,
+      accessorTuple,
+      new SdkMarginClass(),
+      Object.create({ top: 1 }),
+      { top: 1, [Symbol('margin')]: 2 },
+      Object.assign([1, 2, 3, 4], { extra: true }),
+      sparseTuple,
+      [1, 2, 3],
+      [1, 2, 3, 4, 5],
+      2_147_483_648 / 12_700 + 1,
+    ];
+
+    for (const margin of invalidMargins) {
+      expect(() => slide.addTable([[{
+        text: 'Invalid',
+        options: { margin } as unknown as AddTableCellOptions,
+      }]])).toThrow();
+    }
+
+    expect(sdkMarginGetterCalls).toBe(0);
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(before);
+    expect(document.opcPackage.mutations).toEqual(journal);
+    expect(document.slides).toHaveLength(1);
+    expect(document.slides[0]).toBe(slide);
+    expect(slide.shapes).toHaveLength(1);
+    expect(slide.shapes[0]).toBe(table);
   });
 
   it('edits table-cell text directions through duplicate, rollback, and reopen lifecycles', async () => {
