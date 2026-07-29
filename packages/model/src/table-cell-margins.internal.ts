@@ -11,6 +11,21 @@ const SIDES = [
   ['top', 'marT'],
   ['bottom', 'marB'],
 ] as const;
+const DEFAULT_MARGINS: Required<TextBoxMargins> = {
+  top: 3.6,
+  right: 7.2,
+  bottom: 3.6,
+  left: 7.2,
+};
+
+export function renderTableCellMarginAttributes(
+  margins: TextBoxMargins | undefined,
+): string {
+  return SIDES.map(([side, attribute]) => {
+    const points = margins?.[side] ?? DEFAULT_MARGINS[side];
+    return ` ${attribute}="${Math.round(points * EMU_PER_POINT)}"`;
+  }).join('');
+}
 
 export function readTableCellMargins(
   _xml: LosslessXmlDocument,

@@ -491,6 +491,99 @@ describe('table creation internals', () => {
     });
   });
 
+  it('normalizes detached cell margins and renders canonical defaults before border and fill', () => {
+    const sourceMargins = { top: 1.500004, left: -2 };
+    const nullMargins = Object.assign(Object.create(null), {
+      right: 5,
+      bottom: 6,
+    });
+    const rows = [[
+      'String',
+      { text: 'Empty options', options: {} },
+      { text: 'Undefined margin', options: { margin: undefined } },
+      { text: 'Empty margin', options: { margin: {} } },
+      { text: 'Zero', options: { margin: 0 } },
+      { text: 'Tuple', options: { margin: [1, 2, 3, 4] } },
+      { text: 'Named', options: { margin: sourceMargins } },
+      { text: 'Null prototype', options: { margin: nullMargins } },
+      { text: 'Combined', options: {
+        margin: { top: 4, left: 8 },
+        border: {
+          kind: 'line',
+          color: { kind: 'srgb', value: 'C00000' },
+          width: 2,
+        },
+        fill: {
+          kind: 'solid',
+          color: { kind: 'scheme', value: 'accent1' },
+        },
+      } },
+    ]];
+    const definition = normalizeTableDefinition(rows, undefined);
+
+    expect(definition.rows[0]!.map(({ text, margins }) => ({ text, margins }))).toEqual([
+      { text: 'String', margins: undefined },
+      { text: 'Empty options', margins: undefined },
+      { text: 'Undefined margin', margins: undefined },
+      { text: 'Empty margin', margins: {} },
+      { text: 'Zero', margins: { top: 0, right: 0, bottom: 0, left: 0 } },
+      { text: 'Tuple', margins: { top: 1, right: 2, bottom: 3, left: 4 } },
+      { text: 'Named', margins: { top: 1.5, left: -2 } },
+      { text: 'Null prototype', margins: { right: 5, bottom: 6 } },
+      { text: 'Combined', margins: { top: 4, left: 8 } },
+    ]);
+    expect(definition.rows[0]![8]).toMatchObject({
+      borders: {
+        top: { kind: 'line', color: { kind: 'srgb', value: 'C00000' }, width: 2 },
+        right: { kind: 'line', color: { kind: 'srgb', value: 'C00000' }, width: 2 },
+        bottom: { kind: 'line', color: { kind: 'srgb', value: 'C00000' }, width: 2 },
+        left: { kind: 'line', color: { kind: 'srgb', value: 'C00000' }, width: 2 },
+      },
+      fill: { kind: 'solid', color: { kind: 'scheme', value: 'accent1' } },
+    });
+
+    const equivalentRows = [
+      [['Same']],
+      [[{ text: 'Same' }]],
+      [[{ text: 'Same', options: {} }]],
+      [[{ text: 'Same', options: { margin: undefined } }]],
+      [[{ text: 'Same', options: { margin: {} } }]],
+      [[{ text: 'Same', options: {
+        margin: { top: undefined, right: undefined },
+      } }]],
+    ];
+    const equivalentXml = equivalentRows.map((inputRows) =>
+      renderTableGraphicFrame(12, normalizeTableDefinition(inputRows, undefined)));
+    expect(new Set(equivalentXml).size).toBe(1);
+    expect(equivalentXml[0]).toContain(
+      '<a:tcPr marL="91440" marR="91440" marT="45720" marB="45720">',
+    );
+
+    const renderCell = (cell: unknown): string => renderTableGraphicFrame(
+      13,
+      normalizeTableDefinition([[cell]], undefined),
+    );
+    expect(renderCell(rows[0]![4])).toContain(
+      '<a:tcPr marL="0" marR="0" marT="0" marB="0">',
+    );
+    expect(renderCell(rows[0]![5])).toContain(
+      '<a:tcPr marL="50800" marR="25400" marT="12700" marB="38100">',
+    );
+    expect(renderCell(rows[0]![6])).toContain(
+      '<a:tcPr marL="-25400" marR="91440" marT="19050" marB="45720">',
+    );
+    expect(renderCell(rows[0]![8])).toMatch(
+      /<a:tcPr marL="101600" marR="91440" marT="50800" marB="45720"><a:lnL[\s\S]*<\/a:lnB><a:solidFill>/,
+    );
+
+    sourceMargins.top = 99;
+    sourceMargins.left = 99;
+    nullMargins.right = 99;
+    nullMargins.bottom = 99;
+    expect(definition.rows[0]![6]!.margins).toEqual({ top: 1.5, left: -2 });
+    expect(definition.rows[0]![7]!.margins).toEqual({ right: 5, bottom: 6 });
+  });
+
   it('strictly rejects malformed matrices and options without invoking accessors', () => {
     const sparseOuter = Array(1);
     const sparseRow = [Array(2)];
@@ -572,6 +665,33 @@ describe('table creation internals', () => {
       enumerable: true,
       configurable: true,
     });
+    const accessorMarginOptions = {};
+    Object.defineProperty(accessorMarginOptions, 'margin', {
+      get() {
+        cellAccessorCalls += 1;
+        return 1;
+      },
+      enumerable: true,
+      configurable: true,
+    });
+    const accessorMargin = { left: 1 };
+    Object.defineProperty(accessorMargin, 'top', {
+      get() {
+        cellAccessorCalls += 1;
+        return 2;
+      },
+      enumerable: true,
+      configurable: true,
+    });
+    const accessorMarginTuple = [1, 2, 3, 4];
+    Object.defineProperty(accessorMarginTuple, '2', {
+      get() {
+        cellAccessorCalls += 1;
+        return 3;
+      },
+      enumerable: true,
+      configurable: true,
+    });
     const accessorBorder: Record<string, unknown> = {};
     Object.defineProperty(accessorBorder, 'kind', {
       get() {
@@ -645,6 +765,12 @@ describe('table creation internals', () => {
     class ExoticBorderTuple extends Array<unknown> {}
     const exoticBorderTuple = new ExoticBorderTuple();
     exoticBorderTuple.push({ kind: 'none' }, undefined, undefined, undefined);
+    class ExoticMargin {
+      top = 1;
+    }
+    class ExoticMarginTuple extends Array<number> {}
+    const exoticMarginTuple = new ExoticMarginTuple();
+    exoticMarginTuple.push(1, 2, 3, 4);
     const sparseBorderTuple = Array(4);
     sparseBorderTuple[0] = { kind: 'none' };
     const extraBorderTuple = Object.assign(
@@ -652,6 +778,11 @@ describe('table creation internals', () => {
       { extra: true },
     );
     const borderSymbol = Symbol('border extra');
+    const inheritedMargin = Object.create({ top: 1 });
+    const symbolMargin = { top: 1, [Symbol('margin extra')]: 2 };
+    const sparseMarginTuple = [1, 2, 3, 4];
+    delete sparseMarginTuple[2];
+    const extraMarginTuple = Object.assign([1, 2, 3, 4], { extra: true });
     const invalidCells = [
       null,
       1,
@@ -670,6 +801,7 @@ describe('table creation internals', () => {
       { text: 'A', options: Object.create({ fill: undefined }) },
       { text: 'A', options: accessorCellOptions },
       { text: 'A', options: accessorBorderOptions },
+      { text: 'A', options: accessorMarginOptions },
       { text: 'A', options: { unknown: true } },
       { text: 'A', options: Object.assign({}, { [Symbol('extra')]: true }) },
       { text: 'A', options: { fill: accessorFill } },
@@ -759,6 +891,27 @@ describe('table creation internals', () => {
         width: 1,
         style: 'dot',
       } } },
+      { text: 'A', options: { margin: accessorMargin } },
+      { text: 'A', options: { margin: accessorMarginTuple } },
+      { text: 'A', options: { margin: new ExoticMargin() } },
+      { text: 'A', options: { margin: inheritedMargin } },
+      { text: 'A', options: { margin: symbolMargin } },
+      { text: 'A', options: { margin: sparseMarginTuple } },
+      { text: 'A', options: { margin: [1, 2, 3] } },
+      { text: 'A', options: { margin: [1, 2, 3, 4, 5] } },
+      { text: 'A', options: { margin: extraMarginTuple } },
+      { text: 'A', options: { margin: exoticMarginTuple } },
+      { text: 'A', options: { margin: { top: null } } },
+      { text: 'A', options: { margin: { right: false } } },
+      { text: 'A', options: { margin: { bottom: '1' } } },
+      { text: 'A', options: { margin: { left: {} } } },
+      ...[
+        Number.NaN,
+        Number.NEGATIVE_INFINITY,
+        Number.POSITIVE_INFINITY,
+        2_147_483_648 / 12_700,
+        -2_147_483_649 / 12_700,
+      ].map((margin) => ({ text: 'A', options: { margin } })),
       { text: 'A', extra: true },
       Object.assign({ text: 'A' }, { [Symbol('extra')]: true }),
       { text: 1 },
