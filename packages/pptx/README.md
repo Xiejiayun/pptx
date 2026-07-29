@@ -16,10 +16,12 @@ npm install @jiayunxie/pptx@next
 import { inches, PptxDocument } from '@jiayunxie/pptx';
 
 const document = PptxDocument.create({
+  author: 'Presentation Team',
   rtlMode: true,
   slideSize: { width: inches(11.7), height: inches(8.3) },
   title: 'Quarterly Review',
 });
+document.author = 'Updated Author';
 document.title = 'Updated Review';
 const slide = document.addSlide();
 slide.addText('Quarterly results\nQ4 forecast', {
@@ -65,6 +67,8 @@ await document.writeFile('created.pptx');
 ```
 
 `CreatePresentationOptions.title` and live `document.title` use the direct core-properties title. Omitted creation input writes no title, `''` writes an explicit empty title, and `undefined` clears only the direct field. Values are strict XML-safe strings; reads follow the package-root core-properties relationship instead of assuming a part URI or prefix, same-value/absent-clear operations are exact no-ops, missing metadata can be created, and unrelated creator/revision/unknown content is preserved. Unsafe malformed or ambiguous ownership is rejected rather than guessed. PptxGenJS 4.0.1 defaults its own public `title` to `PptxGenJS Presentation`; native omitted creation intentionally remains `undefined`.
+
+`CreatePresentationOptions.author` and live `document.author` use only the direct Dublin Core creator. Native omitted creation preserves the canonical `@jiayunxie/pptx`, `''` writes an explicit empty creator, and `undefined` clears only creator. Strict XML-safe values, relationship-based lookup, alternate part URI/prefix support, same-value/absent-clear exact no-ops, missing-part creation, and malformed/ambiguous rejection match the title lifecycle. Author edits preserve `cp:lastModifiedBy`, title, subject, revision, timestamps, unknown children, relationships, and unrelated parts. PptxGenJS 4.0.1 instead defaults author to `PptxGenJS` and mirrors it into creator and lastModifiedBy; native intentionally keeps lastModifiedBy independent.
 
 `AddTableOptions.align` and `AddTableCellOptions.align` reuse the strict `TextAlignment` values `left`, `center`, `right`, and `justify`, mapped to each created cell paragraph's direct `a:pPr@algn` tokens `l`, `ctr`, `r`, and `just`, respectively. A table value is materialized onto every single-paragraph cell that omits cell alignment or supplies runtime `undefined`; a valid cell value wins. Omitted or runtime-`undefined` table alignment preserves current bytes and never synthesizes effective left. Final ownership is direct `a:pPr@algn`, not `tcPr`, `bodyPr`, or retained table metadata, so clearing a cell later does not reapply the creation default. `TableCell.horizontalAlignment` reads only one strict direct paragraph as the four public values; missing, malformed, ambiguous, or multi-paragraph state returns `undefined`. `TableModel.setCellHorizontalAlignment()` uses physical zero-based row/cell coordinates, writes `l`/`ctr`/`r`/`just`, and clears only the unqualified direct token with `undefined`. Same-value and absent-clear calls are exact no-ops; unsafe structure rejects without mutation, while unrelated paragraph/cell state remains preserved. PptxGenJS 4.0.1 materializes supported table/cell values and precedence into the same importable direct state; native existing-deck editing is a lossless extension because PptxGenJS has no existing-deck editor. PptxGenJS still silently drops an unknown table runtime value while native creation/editing rejects invalid values before mutation. Rich or multi-paragraph cell alignment remains pending.
 
