@@ -88,7 +88,7 @@ it('normalizes and renders strict table cell horizontal alignment', () => {
     normalizeTableDefinition(input, undefined),
   ));
   expect(new Set(equivalent).size).toBe(1);
-  expect(equivalent[0]).not.toContain(' algn=');
+  expect(equivalent[0]).not.toMatch(/<a:pPr[^>]*\salgn=/);
 
   const renderCell = (cell: unknown): string => renderTableGraphicFrame(
     21,
@@ -222,7 +222,7 @@ Pass only the normalized primitive to the existing paragraph renderer:
 ```ts
 const paragraphs = renderRichTextParagraphs(normalizeRichText([
   { runs: [{ text: cell.text, style: {} }] },
-]), { defaultAlign: cell.alignment });
+]), cell.alignment === undefined ? {} : { defaultAlign: cell.alignment });
 ```
 
 Do not add a new token map, codec file, or paragraph mutation path.
