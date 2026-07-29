@@ -1616,8 +1616,56 @@ describe('PresentationModel', () => {
     });
     expect(table.rows[0]!.cells[7]!.margins).toEqual({ bottom: 6 });
 
+    const nullMargins = Object.assign(Object.create(null), {
+      top: 1.500004,
+      left: -2,
+    });
+    table.setCellMargins(0, 3, nullMargins);
+    expect(table.rows[0]!.cells[3]!.margins).toEqual({ top: 1.5, left: -2 });
+    nullMargins.top = 99;
+    nullMargins.left = 99;
+    expect(table.rows[0]!.cells[3]!.margins).toEqual({ top: 1.5, left: -2 });
+    table.setCellMargins(0, 3, { top: 4, left: 8 });
+
+    let marginAccessorCalls = 0;
+    const accessorTuple = [1, 2, 3, 4];
+    Object.defineProperty(accessorTuple, '0', {
+      get() {
+        marginAccessorCalls += 1;
+        return 1;
+      },
+      enumerable: true,
+      configurable: true,
+    });
+    const accessorNamed = { right: 2 };
+    Object.defineProperty(accessorNamed, 'top', {
+      get() {
+        marginAccessorCalls += 1;
+        return 1;
+      },
+      enumerable: true,
+      configurable: true,
+    });
+    class MarginClass {
+      top = 1;
+    }
+    const inheritedMargin = Object.assign(Object.create({ right: 2 }), { top: 1 });
+    const symbolMargin = { top: 1, [Symbol('margin')]: 2 };
+    const arraySubclass = new (class extends Array<number> {})(1, 2, 3, 4);
+
     const beforeInvalid = pkg.requirePart(part.uri).bytes;
     const invalidJournal = [...pkg.mutations];
+    for (const value of [
+      accessorTuple,
+      accessorNamed,
+      new MarginClass(),
+      inheritedMargin,
+      symbolMargin,
+      arraySubclass,
+    ]) {
+      expect(() => table.setCellMargins(0, 0, value as never)).toThrow();
+    }
+    expect(marginAccessorCalls).toBe(0);
     for (const [row, column] of [[-1, 0], [0, -1], [0, 11], [1, 0]]) {
       expect(() => table.setCellMargins(row!, column!, 4)).toThrow(RangeError);
     }

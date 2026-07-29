@@ -25,26 +25,11 @@ export function normalizeTextBoxMargins(
     const margin = normalizeSide(value, context);
     return { top: margin, right: margin, bottom: margin, left: margin };
   }
-  if (Array.isArray(value)) {
-    if (value.length !== 4) throw new RangeError(`${context} tuple must contain exactly four values`);
-    return {
-      top: normalizeSide(value[0], `${context} top`),
-      right: normalizeSide(value[1], `${context} right`),
-      bottom: normalizeSide(value[2], `${context} bottom`),
-      left: normalizeSide(value[3], `${context} left`),
-    };
-  }
-  if (!value || typeof value !== 'object') {
-    throw new TypeError(`${context} must be a number, four-value tuple, or margin object`);
-  }
-  for (const key of Object.keys(value)) {
-    if (!SIDE_NAMES.has(key as keyof TextBoxMargins)) {
-      throw new TypeError(`${context} contains unsupported property ${key}`);
-    }
-  }
-  const candidate = value as TextBoxMargins;
+  if (Array.isArray(value)) return normalizeTuple(value, context);
+  const candidate = readMarginObject(value, context);
   const normalized: { top?: number; right?: number; bottom?: number; left?: number } = {};
   for (const [side] of SIDES) {
+    if (!Object.hasOwn(candidate, side)) continue;
     const margin = candidate[side];
     if (margin !== undefined) normalized[side] = normalizeSide(margin, `${context} ${side}`);
   }
@@ -104,6 +89,58 @@ function normalizeSide(value: unknown, context: string): number {
     throw new RangeError(`${context} must fit the OOXML signed Int32 coordinate range`);
   }
   return raw / EMU_PER_POINT;
+}
+
+function normalizeTuple(value: unknown[], context: string): TextBoxMargins {
+  if (Object.getPrototypeOf(value) !== Array.prototype) {
+    throw new TypeError(`${context} tuple must be an ordinary array`);
+  }
+  const length = Object.getOwnPropertyDescriptor(value, 'length');
+  if (!length || !Object.hasOwn(length, 'value') || length.value !== 4) {
+    throw new RangeError(`${context} tuple must contain exactly four values`);
+  }
+  const allowed = new Set(['0', '1', '2', '3', 'length']);
+  for (const key of Reflect.ownKeys(value)) {
+    if (typeof key !== 'string' || !allowed.has(key)) {
+      throw new TypeError(`${context} tuple contains unsupported property ${String(key)}`);
+    }
+  }
+  const values = Array.from({ length: 4 }, (_, index) => {
+    const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
+    if (!descriptor) throw new TypeError(`${context} tuple must not contain sparse values`);
+    if (!Object.hasOwn(descriptor, 'value')) {
+      throw new TypeError(`${context} tuple must contain only data values`);
+    }
+    return descriptor.value;
+  });
+  return {
+    top: normalizeSide(values[0], `${context} top`),
+    right: normalizeSide(values[1], `${context} right`),
+    bottom: normalizeSide(values[2], `${context} bottom`),
+    left: normalizeSide(values[3], `${context} left`),
+  };
+}
+
+function readMarginObject(value: unknown, context: string): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new TypeError(`${context} must be a number, four-value tuple, or margin object`);
+  }
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) {
+    throw new TypeError(`${context} must be an ordinary object`);
+  }
+  const result: Record<string, unknown> = {};
+  for (const key of Reflect.ownKeys(value)) {
+    if (typeof key !== 'string' || !SIDE_NAMES.has(key as keyof TextBoxMargins)) {
+      throw new TypeError(`${context} contains unsupported property ${String(key)}`);
+    }
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (!descriptor || !Object.hasOwn(descriptor, 'value')) {
+      throw new TypeError(`${context} property ${key} must be a data property`);
+    }
+    result[key] = descriptor.value;
+  }
+  return result;
 }
 
 function toRaw(value: number): number {
