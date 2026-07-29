@@ -9,6 +9,7 @@ const created = PptxDocument.create({
   author: 'Presentation Team',
   company: 'Acme & Partners',
   format: 'pptx',
+  revision: '7',
   rtlMode: true,
   slideSize: '16:9',
   subject: 'Revenue & Forecast',
@@ -24,6 +25,8 @@ created.company = undefined;
 created.subject = 'Updated Subject';
 created.subject = '';
 created.subject = undefined;
+created.revision = '008';
+created.revision = undefined;
 created.title = 'Updated Review';
 created.title = '';
 created.title = undefined;
@@ -54,6 +57,8 @@ await document.writeFile('output.pptx', {
 `CreatePresentationOptions.author` and `document.author` use the direct Dublin Core `dc:creator` and accept the same strict XML-safe strings. Omitted native creation preserves the canonical `@jiayunxie/pptx` creator, `''` writes an explicit empty creator, and assigning `undefined` removes only the direct creator. The getter never falls back to `cp:lastModifiedBy`; author edits preserve lastModifiedBy, title, subject, revision, timestamps, custom/unknown children, relationships, and unrelated parts. Relationship-based lookup, missing-part creation, exact same-value/absent-clear no-ops, prefix reuse, and malformed/ambiguous rejection match the title lifecycle. PptxGenJS 4.0.1 instead defaults author to `PptxGenJS` and mirrors every author value into both creator and lastModifiedBy; native intentionally keeps lastModifiedBy independently owned.
 
 `CreatePresentationOptions.subject` and `document.subject` own only direct Dublin Core `dc:subject`. Native omitted and runtime-`undefined` creation preserve the canonical core-properties bytes and return `undefined`; `''` writes an explicit empty subject, while assigning `undefined` removes only that direct field. Values use the same strict XML-safe string validation, relationship-based part discovery, alternate URI/prefix support, missing-part creation, same-value/absent-clear exact no-ops, and malformed/ambiguous rejection as title and author. Subject edits preserve title, creator, lastModifiedBy, revision, timestamps, unknown children, relationships, and unrelated parts. PptxGenJS 4.0.1 defaults subject to `PptxGenJS Presentation`; its custom and empty outputs import exactly, while native intentionally does not inject that brand default.
+
+`CreatePresentationOptions.revision` and `document.revision` own only direct core-properties `cp:revision`. Values are lexical `string | undefined`; a string must contain one or more ASCII digits, so `'0'`, `'7'`, and `'007'` are valid and leading zeros are preserved exactly, while empty, signed, decimal, exponent, Unicode-digit, and non-string inputs are rejected without coercion. Native zero-input and runtime-`undefined` creation preserve canonical `'1'`, matching PptxGenJS 4.0.1. Assigning `undefined` removes only direct revision and never updates timestamps or lastModifiedBy. Reads use the root core-properties relationship and namespace URI, return `undefined` for missing, malformed, ambiguous, or lexical-invalid existing state, and never synthesize a default; valid replacement or clear can repair simple lexical-invalid state while preserving title, subject, creator, lastModifiedBy, timestamps, unknown children, relationships, and unrelated parts. Same-value and absent-clear operations are exact no-ops, and missing metadata can be created with a single canonical `cp` binding. PptxGenJS runtime does not enforce its documented whole-number constraint; adapter round-trips those invalid bytes, but the strict native snapshot does not expose them as supported revision values.
 
 `CreatePresentationOptions.company` and `document.company` own only direct `Company` in the OOXML extended-properties part. Native omitted creation preserves the canonical app-properties bytes and returns `undefined`; `''` writes an explicit empty Company, and assigning `undefined` removes only that direct field. Values are strict XML-safe strings with correct metacharacter escaping. Reads and edits follow the package-root extended-properties relationship, accept any legal part URI plus default or prefixed namespace form, and create `/docProps/app.xml` or the next free URI when the relationship is absent. New Company is inserted before the first conventional following property without reordering existing children. Same-value and absent-clear calls are exact bytes/journal no-ops; Application, AppVersion, PresentationFormat, statistics, vectors, link state, unknown children, relationships, and unrelated parts remain unchanged. Dangling, external, wrong-type, malformed, duplicate-relationship, or duplicate-Company ownership is rejected before mutation. PptxGenJS 4.0.1 defaults company to `PptxGenJS` and its XML-safe custom/empty outputs import exactly, but it directly interpolates company without XML escaping; native intentionally escapes metacharacters instead of reproducing malformed output.
 

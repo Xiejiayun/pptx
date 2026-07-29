@@ -18,6 +18,7 @@ import { inches, PptxDocument } from '@jiayunxie/pptx';
 const document = PptxDocument.create({
   author: 'Presentation Team',
   company: 'Acme & Partners',
+  revision: '7',
   rtlMode: true,
   slideSize: { width: inches(11.7), height: inches(8.3) },
   subject: 'Revenue & Forecast',
@@ -30,6 +31,8 @@ document.company = undefined;
 document.subject = 'Updated Subject';
 document.subject = '';
 document.subject = undefined;
+document.revision = '008';
+document.revision = undefined;
 document.title = 'Updated Review';
 const slide = document.addSlide();
 slide.addText('Quarterly results\nQ4 forecast', {
@@ -79,6 +82,8 @@ await document.writeFile('created.pptx');
 `CreatePresentationOptions.author` and live `document.author` use only the direct Dublin Core creator. Native omitted creation preserves the canonical `@jiayunxie/pptx`, `''` writes an explicit empty creator, and `undefined` clears only creator. Strict XML-safe values, relationship-based lookup, alternate part URI/prefix support, same-value/absent-clear exact no-ops, missing-part creation, and malformed/ambiguous rejection match the title lifecycle. Author edits preserve `cp:lastModifiedBy`, title, subject, revision, timestamps, unknown children, relationships, and unrelated parts. PptxGenJS 4.0.1 instead defaults author to `PptxGenJS` and mirrors it into creator and lastModifiedBy; native intentionally keeps lastModifiedBy independent.
 
 `CreatePresentationOptions.subject` and live `document.subject` own only direct Dublin Core `dc:subject`. Native omitted and runtime-`undefined` creation remain `undefined`, `''` writes an explicit empty subject, and `undefined` clears only subject. Strict XML-safe values, relationship-based lookup, alternate part URI/prefix support, same-value/absent-clear exact no-ops, missing-part creation, and malformed/ambiguous rejection match the title lifecycle. Subject edits preserve title, creator, `cp:lastModifiedBy`, revision, timestamps, unknown children, relationships, and unrelated parts. PptxGenJS 4.0.1 defaults subject to `PptxGenJS Presentation`; custom and empty output imports exactly, while native intentionally keeps omitted state absent.
+
+`CreatePresentationOptions.revision` and live `document.revision` own only direct core-properties `cp:revision`. The lexical `string | undefined` value accepts one or more ASCII digits, preserves leading zeros, and rejects empty, signed, decimal, exponent, Unicode-digit, or non-string values without coercion. Native zero-input and runtime-`undefined` creation retain canonical `'1'`, matching PptxGenJS 4.0.1; assigning `undefined` clears only revision and never updates timestamps or lastModifiedBy. Relationship- and namespace-aware reads return `undefined` rather than inventing a default for missing, malformed, ambiguous, or lexical-invalid existing state. Valid replacement or clear can repair simple invalid text, missing metadata can be created with one canonical `cp` namespace binding, and same-value/absent-clear operations are exact no-ops while adjacent core properties, relationships, and unrelated parts remain unchanged. PptxGenJS runtime can emit values outside its documented whole-number contract; adapter preserves those bytes, but native does not expose or create them as supported revision state.
 
 `CreatePresentationOptions.company` and live `document.company` use only direct `Company` in the extended-properties part. Native omitted creation remains `undefined`, `''` writes an explicit empty Company, and `undefined` clears only that field. Strict XML-safe values are escaped; reads follow the root extended-properties relationship and namespace URI instead of assuming an app.xml URI or default namespace. Alternate URI/prefix state, same-value/absent-clear exact no-ops, missing-part creation, schema-friendly insertion, and malformed/ambiguous rejection are supported while Application, AppVersion, PresentationFormat, statistics, vectors, link state, unknown children, relationships, and unrelated parts remain unchanged. PptxGenJS 4.0.1 defaults company to `PptxGenJS`; its XML-safe custom/empty output imports exactly, but its runtime does not escape company metacharacters, while native always emits valid XML.
 
