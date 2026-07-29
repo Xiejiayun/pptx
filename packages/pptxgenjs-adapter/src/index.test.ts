@@ -17,6 +17,7 @@ interface PptxGenJSInstance {
     readonly accent1: 'accent1';
     readonly accent2: 'accent2';
   };
+  author: string;
   layout: string;
   rtlMode: unknown;
   title: string;
@@ -3936,6 +3937,76 @@ describe('importPptxGenJS', () => {
     )).toContain('<dc:title>Quarterly &amp; &lt;Review&gt;</dc:title>');
     const reopenedNative = await PptxDocument.open(await native.write());
     expect(reopenedNative.title).toBe('Quarterly & <Review>');
+  }, 20_000);
+
+  it('imports and reopens PptxGenJS presentation author metadata from public output', async () => {
+    const baseline = new PptxGenJS();
+    baseline.addSlide();
+    const custom = new PptxGenJS();
+    custom.author = 'Alice & <Bob>';
+    custom.addSlide();
+    const empty = new PptxGenJS();
+    empty.author = '';
+    empty.addSlide();
+    expect([baseline.version, custom.version, empty.version]).toEqual([
+      '4.0.1',
+      '4.0.1',
+      '4.0.1',
+    ]);
+
+    const expectedAuthors = [
+      'PptxGenJS',
+      'Alice & <Bob>',
+      '',
+    ] as const;
+    const imported = await Promise.all([
+      importPptxGenJS(baseline),
+      importPptxGenJS(custom),
+      importPptxGenJS(empty),
+    ]);
+    expect(imported.map(({ author }) => author)).toEqual(expectedAuthors);
+    for (const [index, document] of imported.entries()) {
+      const journal = [...document.opcPackage.mutations];
+      expect(document.author).toBe(expectedAuthors[index]);
+      expect(document.opcPackage.mutations).toEqual(journal);
+    }
+
+    const coreXml = imported.map((document) => new TextDecoder().decode(
+      document.opcPackage.requirePart('/docProps/core.xml').bytes,
+    ));
+    expect(coreXml[0]).toContain('<dc:creator>PptxGenJS</dc:creator>');
+    expect(coreXml[0]).toContain('<cp:lastModifiedBy>PptxGenJS</cp:lastModifiedBy>');
+    expect(coreXml[1]).toContain(
+      '<dc:creator>Alice &amp; &lt;Bob&gt;</dc:creator>',
+    );
+    expect(coreXml[1]).toContain(
+      '<cp:lastModifiedBy>Alice &amp; &lt;Bob&gt;</cp:lastModifiedBy>',
+    );
+    expect(coreXml[2]).toContain('<dc:creator></dc:creator>');
+    expect(coreXml[2]).toContain('<cp:lastModifiedBy></cp:lastModifiedBy>');
+
+    const reopened = await Promise.all(imported.map(async (document) =>
+      PptxDocument.open(await document.write())));
+    expect(reopened.map(({ author }) => author)).toEqual(expectedAuthors);
+
+    const native = PptxDocument.create({ author: 'Alice & <Bob>' });
+    const nativeOmitted = PptxDocument.create();
+    expect(native.author).toBe(imported[1]!.author);
+    expect(nativeOmitted.author).toBe('@jiayunxie/pptx');
+    const nativeCore = new TextDecoder().decode(
+      native.opcPackage.requirePart('/docProps/core.xml').bytes,
+    );
+    expect(nativeCore).toContain(
+      '<dc:creator>Alice &amp; &lt;Bob&gt;</dc:creator>',
+    );
+    expect(nativeCore).toContain(
+      '<cp:lastModifiedBy>@jiayunxie/pptx</cp:lastModifiedBy>',
+    );
+    const reopenedNative = await PptxDocument.open(await native.write());
+    expect(reopenedNative.author).toBe('Alice & <Bob>');
+    expect(new TextDecoder().decode(
+      reopenedNative.opcPackage.requirePart('/docProps/core.xml').bytes,
+    )).toContain('<cp:lastModifiedBy>@jiayunxie/pptx</cp:lastModifiedBy>');
   }, 20_000);
 
   it('imports PptxGenJS non-list zero margins and indents without aliasing bullet indentation', async () => {
