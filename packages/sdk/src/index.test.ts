@@ -426,6 +426,156 @@ describe('PptxDocument vertical slice', () => {
     }
   });
 
+  it('creates, edits, clears, rolls back, and reopens presentation last modified by metadata', async () => {
+    const readCoreXml = (document: PptxDocument): string => new TextDecoder().decode(
+      document.opcPackage.requirePart('/docProps/core.xml').bytes,
+    );
+    const omitted = PptxDocument.create();
+    const explicitUndefined = PptxDocument.create({ lastModifiedBy: undefined } as never);
+    const custom = PptxDocument.create({ lastModifiedBy: 'Editor & <Reviewer>' });
+    const empty = PptxDocument.create({ lastModifiedBy: '' });
+
+    expect([
+      omitted.lastModifiedBy,
+      explicitUndefined.lastModifiedBy,
+      custom.lastModifiedBy,
+      empty.lastModifiedBy,
+    ]).toEqual([
+      '@jiayunxie/pptx',
+      '@jiayunxie/pptx',
+      'Editor & <Reviewer>',
+      '',
+    ]);
+    expect(readCoreXml(explicitUndefined)).toBe(readCoreXml(omitted));
+    expect(readCoreXml(custom)).toContain(
+      '<cp:lastModifiedBy>Editor &amp; &lt;Reviewer&gt;</cp:lastModifiedBy>',
+    );
+    expect(readCoreXml(custom)).toContain(
+      '<dc:creator>@jiayunxie/pptx</dc:creator>',
+    );
+    expect(readCoreXml(empty)).toContain('<cp:lastModifiedBy></cp:lastModifiedBy>');
+    expect(readCoreXml(empty)).toContain(
+      '<dc:creator>@jiayunxie/pptx</dc:creator>',
+    );
+
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const created = PptxDocument.create({
+        format,
+        lastModifiedBy: `Editor ${format}`,
+      });
+      expect(created.lastModifiedBy).toBe(`Editor ${format}`);
+      expect(readCoreXml(created)).toContain(
+        `<cp:lastModifiedBy>Editor ${format}</cp:lastModifiedBy>`,
+      );
+      expect(validatePackage(created.opcPackage).filter(({ severity }) => severity === 'error'))
+        .toEqual([]);
+      const reopened = await PptxDocument.open(await created.write());
+      expect(reopened.lastModifiedBy).toBe(`Editor ${format}`);
+      expect(reopened.format).toBe(format);
+    }
+
+    const combined = PptxDocument.create({
+      author: 'Combined author',
+      lastModifiedBy: 'Combined editor',
+      revision: '8',
+      subject: 'Combined subject',
+      title: 'Combined title',
+    });
+    expect([
+      combined.author,
+      combined.lastModifiedBy,
+      combined.revision,
+      combined.subject,
+      combined.title,
+    ]).toEqual([
+      'Combined author',
+      'Combined editor',
+      '8',
+      'Combined subject',
+      'Combined title',
+    ]);
+    expect(readCoreXml(combined)).toContain('<dc:creator>Combined author</dc:creator>');
+    expect(readCoreXml(combined)).toContain(
+      '<cp:lastModifiedBy>Combined editor</cp:lastModifiedBy>',
+    );
+    expect(readCoreXml(combined)).toContain('<cp:revision>8</cp:revision>');
+
+    const beforeSame = custom.opcPackage.requirePart('/docProps/core.xml').bytes;
+    const sameJournal = [...custom.opcPackage.mutations];
+    custom.lastModifiedBy = 'Editor & <Reviewer>';
+    expect(custom.opcPackage.requirePart('/docProps/core.xml').bytes).toEqual(beforeSame);
+    expect(custom.opcPackage.mutations).toEqual(sameJournal);
+
+    const slide = custom.addSlide();
+    const otherParts = new Map(
+      custom.opcPackage.parts
+        .filter(({ uri }) => uri !== '/docProps/core.xml')
+        .map(({ uri, bytes }) => [uri, bytes]),
+    );
+    custom.lastModifiedBy = 'Edited editor';
+    expect(custom.lastModifiedBy).toBe('Edited editor');
+    expect(custom.author).toBe('@jiayunxie/pptx');
+    expect(custom.slides[0]).toBe(slide);
+    expect(readCoreXml(custom)).toContain(
+      '<cp:lastModifiedBy>Edited editor</cp:lastModifiedBy>',
+    );
+    expect(readCoreXml(custom)).toContain(
+      '<dc:creator>@jiayunxie/pptx</dc:creator>',
+    );
+    for (const [uri, bytes] of otherParts) {
+      expect(custom.opcPackage.requirePart(uri).bytes).toEqual(bytes);
+    }
+
+    custom.author = 'Edited author';
+    expect(custom.lastModifiedBy).toBe('Edited editor');
+    expect(custom.author).toBe('Edited author');
+
+    const beforeRollback = custom.opcPackage.requirePart('/docProps/core.xml').bytes;
+    const rollbackJournal = [...custom.opcPackage.mutations];
+    expect(() => custom.transaction(() => {
+      custom.lastModifiedBy = 'Temporary editor';
+      expect(custom.lastModifiedBy).toBe('Temporary editor');
+      throw new Error('restore presentation lastModifiedBy');
+    })).toThrow('restore presentation lastModifiedBy');
+    expect(custom.opcPackage.requirePart('/docProps/core.xml').bytes).toEqual(beforeRollback);
+    expect(custom.opcPackage.mutations).toEqual(rollbackJournal);
+    expect(custom.lastModifiedBy).toBe('Edited editor');
+    expect(custom.slides[0]).toBe(slide);
+
+    const reopenedEdited = await PptxDocument.open(await custom.write());
+    expect(reopenedEdited.lastModifiedBy).toBe('Edited editor');
+    expect(reopenedEdited.author).toBe('Edited author');
+    reopenedEdited.lastModifiedBy = '';
+    expect(reopenedEdited.lastModifiedBy).toBe('');
+    expect(reopenedEdited.author).toBe('Edited author');
+    reopenedEdited.lastModifiedBy = undefined;
+    expect(reopenedEdited.lastModifiedBy).toBeUndefined();
+    expect(readCoreXml(reopenedEdited)).not.toContain('<cp:lastModifiedBy');
+    expect(readCoreXml(reopenedEdited)).toContain('<dc:creator>Edited author</dc:creator>');
+    expect(readCoreXml(reopenedEdited)).toContain('<cp:revision>1</cp:revision>');
+    const reopenedCleared = await PptxDocument.open(await reopenedEdited.write());
+    expect(reopenedCleared.lastModifiedBy).toBeUndefined();
+    expect(reopenedCleared.author).toBe('Edited author');
+    expect(reopenedCleared.slides).toHaveLength(1);
+  });
+
+  it('rejects malformed presentation last modified by metadata during creation', () => {
+    for (const lastModifiedBy of [
+      null,
+      true,
+      false,
+      0,
+      1,
+      1n,
+      {},
+      [],
+      Symbol('lastModifiedBy'),
+      'bad\u0001editor',
+    ]) {
+      expect(() => PptxDocument.create({ lastModifiedBy } as never)).toThrow(TypeError);
+    }
+  });
+
   it('creates, edits, clears, rolls back, and reopens presentation subject metadata', async () => {
     const readCoreXml = (document: PptxDocument): string => new TextDecoder().decode(
       document.opcPackage.requirePart('/docProps/core.xml').bytes,
