@@ -106,6 +106,7 @@ export interface AddTextOptions extends Partial<Transform> {
 }
 
 export interface AddTableOptions {
+  readonly align?: TextAlignment;
   readonly name?: string;
   readonly x?: number;
   readonly y?: number;

@@ -322,18 +322,17 @@ describe('PresentationModel', () => {
       }, 'String'],
     ];
     const first = slide.addText('Before table', { name: 'Before' });
-    const table = slide.addTable(
-      tableRows,
-      {
-        name: 'Table "A"',
-        x: inches(1),
-        y: inches(1.5),
-        width: inches(4),
-        height: inches(2),
-        columnWidths: [inches(1), inches(1), inches(2)],
-        rowHeights: [inches(0.75), inches(1.25)],
-      },
-    );
+    const tableOptions: AddTableOptions = {
+      align: 'center',
+      name: 'Table "A"',
+      x: inches(1),
+      y: inches(1.5),
+      width: inches(4),
+      height: inches(2),
+      columnWidths: [inches(1), inches(1), inches(2)],
+      rowHeights: [inches(0.75), inches(1.25)],
+    };
+    const table = slide.addTable(tableRows, tableOptions);
     const last = slide.addText('After table', { name: 'After' });
     const directAlignments = (partBytes: Uint8Array): readonly (string | undefined)[] => {
       const xml = new TextDecoder().decode(partBytes);
@@ -394,7 +393,7 @@ describe('PresentationModel', () => {
       ['middle', 'top', 'bottom'],
       ['bottom', undefined, undefined],
     ]);
-    const expectedAlignments = ['ctr', 'l', 'r', 'just', undefined, undefined];
+    const expectedAlignments = ['ctr', 'l', 'r', 'just', 'ctr', 'ctr'];
     expect(directAlignments(pkg.requirePart(slide.partUri).bytes)).toEqual(
       expectedAlignments,
     );
@@ -652,7 +651,7 @@ describe('PresentationModel', () => {
     }
     expect(cellAccessorCalls).toBe(0);
     expect(borderAccessorCalls).toBe(0);
-    const invalidOptions = [
+    const invalidOptions: unknown[] = [
       null,
       [],
       { unknown: true },
@@ -665,6 +664,38 @@ describe('PresentationModel', () => {
       { rowHeights: [1, 2] },
       { height: 4, rowHeights: [1] },
     ];
+    const accessorTableAlign = {};
+    let tableAlignAccessorCalls = 0;
+    Object.defineProperty(accessorTableAlign, 'align', {
+      get() {
+        tableAlignAccessorCalls += 1;
+        return 'center';
+      },
+      enumerable: true,
+      configurable: true,
+    });
+    invalidOptions.push(accessorTableAlign);
+    for (const align of [
+      null,
+      false,
+      true,
+      0,
+      '',
+      'Left',
+      ' center ',
+      'l',
+      'ctr',
+      'r',
+      'just',
+      'dist',
+      'thaiDist',
+      'justLow',
+      [],
+      {},
+      Symbol('center'),
+    ]) {
+      invalidOptions.push({ align });
+    }
     const accessorColumnWidths = [1];
     let columnWidthAccessorCalls = 0;
     Object.defineProperty(accessorColumnWidths, '0', {
@@ -692,6 +723,7 @@ describe('PresentationModel', () => {
     }
     expect(columnWidthAccessorCalls).toBe(0);
     expect(rowHeightAccessorCalls).toBe(0);
+    expect(tableAlignAccessorCalls).toBe(0);
     expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeInvalid);
     expect(pkg.mutations).toEqual(invalidJournal);
 
