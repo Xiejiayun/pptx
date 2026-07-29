@@ -13,6 +13,7 @@ export interface CreatePresentationOptions {
   readonly format?: PresentationFormat;
   readonly rtlMode?: boolean;
   readonly slideSize?: BuiltInSlideSize | CustomSlideSize;
+  readonly title?: string;
 }
 
 const SLIDE_SIZES: Readonly<Record<BuiltInSlideSize, { readonly cx: number; readonly cy: number }>> = {

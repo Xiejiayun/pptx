@@ -62,7 +62,9 @@ export class PptxDocument extends PresentationModel {
   }
 
   static create(options: CreatePresentationOptions = {}): PptxDocument {
-    return new PptxDocument(createPresentationPackage(options));
+    const document = new PptxDocument(createPresentationPackage(options));
+    if (options.title !== undefined) document.title = options.title;
+    return document;
   }
 
   static async fromBuffer(input: Uint8Array | ArrayBuffer, options: PackageOpenOptions = {}): Promise<PptxDocument> {

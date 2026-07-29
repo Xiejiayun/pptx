@@ -223,6 +223,91 @@ describe('PptxDocument vertical slice', () => {
     );
   });
 
+  it('creates, edits, clears, rolls back, and reopens presentation title metadata', async () => {
+    const readCoreXml = (document: PptxDocument): string => new TextDecoder().decode(
+      document.opcPackage.requirePart('/docProps/core.xml').bytes,
+    );
+    const omitted = PptxDocument.create();
+    const explicitUndefined = PptxDocument.create({ title: undefined } as never);
+    const custom = PptxDocument.create({ title: 'Quarterly & <Review>' });
+    const empty = PptxDocument.create({ title: '' });
+
+    expect([omitted.title, explicitUndefined.title, custom.title, empty.title]).toEqual([
+      undefined,
+      undefined,
+      'Quarterly & <Review>',
+      '',
+    ]);
+    expect(readCoreXml(omitted)).not.toContain('<dc:title');
+    expect(readCoreXml(explicitUndefined)).not.toContain('<dc:title');
+    expect(readCoreXml(custom)).toContain(
+      '<dc:title>Quarterly &amp; &lt;Review&gt;</dc:title>',
+    );
+    expect(readCoreXml(empty)).toContain('<dc:title></dc:title>');
+
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const created = PptxDocument.create({ format, title: `Title ${format}` });
+      expect(created.title).toBe(`Title ${format}`);
+      expect(validatePackage(created.opcPackage).filter(({ severity }) => severity === 'error'))
+        .toEqual([]);
+      const reopened = await PptxDocument.open(await created.write());
+      expect(reopened.title).toBe(`Title ${format}`);
+      expect(reopened.format).toBe(format);
+    }
+
+    const beforeSame = custom.opcPackage.requirePart('/docProps/core.xml').bytes;
+    const sameJournal = [...custom.opcPackage.mutations];
+    custom.title = 'Quarterly & <Review>';
+    expect(custom.opcPackage.requirePart('/docProps/core.xml').bytes).toEqual(beforeSame);
+    expect(custom.opcPackage.mutations).toEqual(sameJournal);
+
+    const slide = custom.addSlide();
+    custom.title = 'Edited title';
+    expect(custom.title).toBe('Edited title');
+    expect(custom.slides[0]).toBe(slide);
+
+    const beforeRollback = custom.opcPackage.requirePart('/docProps/core.xml').bytes;
+    const rollbackJournal = [...custom.opcPackage.mutations];
+    expect(() => custom.transaction(() => {
+      custom.title = 'Temporary title';
+      expect(custom.title).toBe('Temporary title');
+      throw new Error('restore presentation title');
+    })).toThrow('restore presentation title');
+    expect(custom.opcPackage.requirePart('/docProps/core.xml').bytes).toEqual(beforeRollback);
+    expect(custom.opcPackage.mutations).toEqual(rollbackJournal);
+    expect(custom.title).toBe('Edited title');
+    expect(custom.slides[0]).toBe(slide);
+
+    const reopenedEdited = await PptxDocument.open(await custom.write());
+    expect(reopenedEdited.title).toBe('Edited title');
+    reopenedEdited.title = '';
+    expect(reopenedEdited.title).toBe('');
+    reopenedEdited.title = undefined;
+    expect(reopenedEdited.title).toBeUndefined();
+    expect(readCoreXml(reopenedEdited)).not.toContain('<dc:title');
+    expect(readCoreXml(reopenedEdited)).toContain('<dc:creator>@jiayunxie/pptx</dc:creator>');
+    expect(readCoreXml(reopenedEdited)).toContain('<cp:revision>1</cp:revision>');
+    const reopenedCleared = await PptxDocument.open(await reopenedEdited.write());
+    expect(reopenedCleared.title).toBeUndefined();
+    expect(reopenedCleared.slides).toHaveLength(1);
+  });
+
+  it('rejects malformed presentation title metadata during creation', () => {
+    for (const title of [
+      null,
+      true,
+      false,
+      0,
+      1,
+      {},
+      [],
+      Symbol('title'),
+      'bad\u0001title',
+    ]) {
+      expect(() => PptxDocument.create({ title: title as never })).toThrow(TypeError);
+    }
+  });
+
   it('creates, edits, clears, rolls back, and reopens presentation RTL independently', async () => {
     const readPresentationXml = (document: PptxDocument): string => new TextDecoder().decode(
       document.opcPackage.requirePart(document.presentationPartUri).bytes,
