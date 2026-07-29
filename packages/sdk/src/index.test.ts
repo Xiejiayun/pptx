@@ -977,6 +977,235 @@ describe('PptxDocument vertical slice', () => {
     expect(reopenedDuplicate.rowHeights).toEqual([inches(1)]);
   });
 
+  it('materializes public table fills through duplicate, rollback, and reopen', async () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const sourceColor = {
+      kind: 'scheme' as const,
+      value: 'accent1' as 'accent1' | 'accent6',
+    };
+    const sourceFill = {
+      kind: 'solid' as const,
+      color: sourceColor,
+      transparency: 33.3334,
+    };
+    const table = slide.addTable([[
+      'Inherited string',
+      { text: 'Inherited object', options: {} },
+      { text: 'None override', options: { fill: { kind: 'none' } } },
+      { text: 'Solid override', options: { fill: {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'FFFF00' },
+        transparency: 25,
+      } } },
+    ]], {
+      name: 'SDK table fill lifecycle',
+      fill: sourceFill,
+      columnWidths: inches(2),
+      rowHeights: inches(1),
+    });
+    const original = table.rows[0]!.cells.map(({ fill }) => fill);
+    expect(original).toEqual([
+      {
+        kind: 'solid',
+        color: { kind: 'scheme', value: 'accent1' },
+        transparency: 33.333,
+      },
+      {
+        kind: 'solid',
+        color: { kind: 'scheme', value: 'accent1' },
+        transparency: 33.333,
+      },
+      { kind: 'none' },
+      {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'FFFF00' },
+        transparency: 25,
+      },
+    ]);
+    sourceColor.value = 'accent6';
+    sourceFill.transparency = 1;
+    expect(table.rows[0]!.cells.map(({ fill }) => fill)).toEqual(original);
+
+    const duplicate = document.duplicateSlide(0);
+    const duplicateTable = duplicate.shapes[0] as TableModel;
+    expect(duplicateTable.rows[0]!.cells.map(({ fill }) => fill)).toEqual(original);
+
+    table.setCellFill(0, 0, undefined);
+    table.setCellFill(0, 1, {
+      kind: 'solid',
+      color: { kind: 'srgb', value: '00FF00' },
+      transparency: 0,
+    });
+    const edited = table.rows[0]!.cells.map(({ fill }) => fill);
+    expect(edited).toEqual([
+      undefined,
+      {
+        kind: 'solid',
+        color: { kind: 'srgb', value: '00FF00' },
+        transparency: 0,
+      },
+      { kind: 'none' },
+      {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'FFFF00' },
+        transparency: 25,
+      },
+    ]);
+
+    const beforeRollback = document.opcPackage.requirePart(slide.partUri).bytes.slice();
+    const rollbackJournal = [...document.opcPackage.mutations];
+    let rolledBack: TableModel | undefined;
+    expect(() => document.transaction(() => {
+      table.setCellFill(0, 2, {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'FF0000' },
+      });
+      rolledBack = slide.addTable([['Temporary']], { fill: { kind: 'none' } });
+      throw new Error('restore table fill defaults');
+    })).toThrow('restore table fill defaults');
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(beforeRollback);
+    expect(document.opcPackage.mutations).toEqual(rollbackJournal);
+    expect(slide.shapes).toHaveLength(1);
+    expect(slide.shapes[0]).toBe(table);
+    expect(table.rows[0]!.cells.map(({ fill }) => fill)).toEqual(edited);
+    expect(duplicateTable.rows[0]!.cells.map(({ fill }) => fill)).toEqual(original);
+    expect(() => rolledBack!.rows).toThrow(ModelParseError);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedTable = reopened.slides[0]!.shapes[0] as TableModel;
+    const reopenedDuplicate = reopened.slides[1]!.shapes[0] as TableModel;
+    expect(reopenedTable.rows[0]!.cells.map(({ fill }) => fill)).toEqual(edited);
+    expect(reopenedDuplicate.rows[0]!.cells.map(({ fill }) => fill)).toEqual(original);
+    expect(reopenedTable.columnWidths).toEqual(Array(4).fill(inches(2)));
+    expect(reopenedTable.rowHeights).toEqual([inches(1)]);
+    expect(reopenedDuplicate.columnWidths).toEqual(Array(4).fill(inches(2)));
+    expect(reopenedDuplicate.rowHeights).toEqual([inches(1)]);
+    expect(validatePackage(reopened.opcPackage)
+      .filter(({ severity }) => severity === 'error')).toEqual([]);
+  });
+
+  it('rejects invalid public table fill creation before mutation', () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const table = slide.addTable([['Existing']]);
+    const before = document.opcPackage.requirePart(slide.partUri).bytes.slice();
+    const journal = [...document.opcPackage.mutations];
+    let sdkFillGetterCalls = 0;
+    const accessorOptions = {};
+    Object.defineProperty(accessorOptions, 'fill', {
+      get() {
+        sdkFillGetterCalls += 1;
+        return { kind: 'none' };
+      },
+      enumerable: true,
+    });
+    const accessorFill = {};
+    Object.defineProperty(accessorFill, 'kind', {
+      get() {
+        sdkFillGetterCalls += 1;
+        return 'none';
+      },
+      enumerable: true,
+    });
+    const accessorColor = { kind: 'srgb' };
+    Object.defineProperty(accessorColor, 'value', {
+      get() {
+        sdkFillGetterCalls += 1;
+        return 'FF0000';
+      },
+      enumerable: true,
+    });
+    class SdkFillClass {
+      kind = 'none';
+    }
+    class SdkColorClass {
+      kind = 'srgb';
+      value = 'FF0000';
+    }
+    const invalidFills: unknown[] = [
+      null,
+      false,
+      true,
+      'FF0000',
+      [],
+      {},
+      accessorFill,
+      new SdkFillClass(),
+      Object.create({ kind: 'none' }),
+      { kind: 'none', color: { kind: 'srgb', value: 'FF0000' } },
+      { kind: 'none', transparency: 0 },
+      { kind: 'none', extra: true },
+      { kind: 'none', [Symbol('fill')]: true },
+      { kind: 'unknown' },
+      { kind: 'solid' },
+      { kind: 'solid', color: null },
+      { kind: 'solid', color: accessorColor },
+      { kind: 'solid', color: new SdkColorClass() },
+      { kind: 'solid', color: Object.create({ kind: 'srgb', value: 'FF0000' }) },
+      { kind: 'solid', color: { kind: 'srgb', value: 'FFF' } },
+      { kind: 'solid', color: { kind: 'srgb', value: 'GG0000' } },
+      { kind: 'solid', color: { kind: 'scheme', value: 'unknown' } },
+      { kind: 'solid', color: { kind: 'srgb', value: 'FF0000', extra: true } },
+      { kind: 'solid', color: {
+        kind: 'srgb',
+        value: 'FF0000',
+        [Symbol('color')]: true,
+      } },
+      {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'FF0000' },
+        transparency: -0.001,
+      },
+      {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'FF0000' },
+        transparency: 100.001,
+      },
+      {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'FF0000' },
+        transparency: Number.NaN,
+      },
+      {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'FF0000' },
+        transparency: Number.POSITIVE_INFINITY,
+      },
+      {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'FF0000' },
+        extra: true,
+      },
+      Symbol('table fill'),
+    ];
+
+    expect(() => slide.addTable(
+      [['Accessor table']],
+      accessorOptions as AddTableOptions,
+    )).toThrow();
+    for (const fill of invalidFills) {
+      expect(() => slide.addTable([[{
+        text: 'Invalid cell',
+        options: { fill } as unknown as AddTableCellOptions,
+      }]])).toThrow();
+      expect(() => slide.addTable(
+        [['Invalid table']],
+        { fill } as unknown as AddTableOptions,
+      )).toThrow();
+    }
+
+    expect(sdkFillGetterCalls).toBe(0);
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(before);
+    expect(document.opcPackage.mutations).toEqual(journal);
+    expect(document.slides).toHaveLength(1);
+    expect(document.slides[0]).toBe(slide);
+    expect(slide.shapes).toHaveLength(1);
+    expect(slide.shapes[0]).toBe(table);
+    expect(table.rows[0]!.cells[0]!.text).toBe('Existing');
+    expect(table.rows[0]!.cells[0]!.fill).toBeUndefined();
+  });
+
   it('rejects invalid public table margin creation before mutation', () => {
     const document = PptxDocument.create();
     const slide = document.addSlide();
