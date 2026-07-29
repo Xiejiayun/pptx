@@ -1,75 +1,26 @@
+import { type OpcPackage } from '@pptx/opc';
 import {
-  escapeXmlText,
-  LosslessXmlDocument,
-  type XmlElement,
-} from '@pptx/lossless-xml';
-import {
-  OpcPackage,
-  PackageError,
-  type PackagePart,
-  type Relationship,
-} from '@pptx/opc';
-import { ModelParseError } from './errors.js';
+  readCoreTextProperty,
+  replaceCoreTextProperty,
+  type CoreTextPropertyDescriptor,
+} from './presentation-core-properties.internal.js';
 
-const CORE_PROPERTIES_RELATIONSHIP =
-  'http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties';
-const CORE_PROPERTIES_CONTENT_TYPE =
-  'application/vnd.openxmlformats-package.core-properties+xml';
-const CORE_PROPERTIES_NAMESPACE =
-  'http://schemas.openxmlformats.org/package/2006/metadata/core-properties';
-const DUBLIN_CORE_NAMESPACE = 'http://purl.org/dc/elements/1.1/';
-
-interface CorePropertiesState {
-  readonly relationship: Relationship;
-  readonly part: PackagePart;
-  readonly xml: LosslessXmlDocument;
-  readonly root: XmlElement;
-  readonly titles: readonly XmlElement[];
-}
+const TITLE_PROPERTY: CoreTextPropertyDescriptor = {
+  label: 'title',
+  localName: 'title',
+  namespace: 'http://purl.org/dc/elements/1.1/',
+  preferredPrefix: 'dc',
+};
 
 export function readPresentationTitle(pkg: OpcPackage): string | undefined {
-  const state = readCorePropertiesState(pkg);
-  if (!state || state.titles.length !== 1) return undefined;
-  return readSimpleTitle(state.xml, state.titles[0]!);
+  return readCoreTextProperty(pkg, TITLE_PROPERTY);
 }
 
 export function replacePresentationTitle(
   pkg: OpcPackage,
   value: string | undefined,
 ): void {
-  const normalized = normalizePresentationTitle(value);
-  const relationships = corePropertiesRelationships(pkg);
-  if (relationships.length === 0) {
-    if (normalized === undefined) return;
-    createCoreProperties(pkg, normalized);
-    return;
-  }
-  if (relationships.length !== 1) {
-    throw new PackageError('Presentation has multiple core-properties relationships', '/');
-  }
-
-  const state = requireCorePropertiesState(pkg, relationships[0]!);
-  if (state.titles.length > 1) {
-    throw new ModelParseError('Core properties contain multiple direct titles', state.part.uri);
-  }
-  const title = state.titles[0];
-  const current = title ? readSimpleTitle(state.xml, title) : undefined;
-  if (title && current === undefined) {
-    throw new ModelParseError('Core properties title is not simple text', state.part.uri);
-  }
-  if (title && normalized !== undefined && current === normalized) return;
-  if (!title && normalized === undefined) return;
-
-  if (normalized === undefined) {
-    state.xml.removeElement(title!);
-  } else if (!title) {
-    state.xml.appendChildXml(state.root, renderInsertedTitle(state.root, normalized));
-  } else if (title.selfClosing) {
-    state.xml.replaceElement(title, expandSelfClosingTitle(state.xml, title, normalized));
-  } else {
-    state.xml.replaceText(title, normalized);
-  }
-  pkg.setPart(state.part.uri, state.xml.serialize(), state.part.contentType);
+  replaceCoreTextProperty(pkg, TITLE_PROPERTY, normalizePresentationTitle(value));
 }
 
 function normalizePresentationTitle(value: unknown): string | undefined {
@@ -81,150 +32,4 @@ function normalizePresentationTitle(value: unknown): string | undefined {
     throw new TypeError('Presentation title contains invalid XML characters');
   }
   return value;
-}
-
-function corePropertiesRelationships(pkg: OpcPackage): readonly Relationship[] {
-  return pkg.relationships('/').filter(
-    ({ type }) => type === CORE_PROPERTIES_RELATIONSHIP,
-  );
-}
-
-function readCorePropertiesState(pkg: OpcPackage): CorePropertiesState | undefined {
-  const relationships = corePropertiesRelationships(pkg);
-  if (relationships.length !== 1) return undefined;
-  const relationship = relationships[0]!;
-  if (relationship.targetMode !== 'Internal' || !relationship.resolvedTarget) return undefined;
-  const part = pkg.getPart(relationship.resolvedTarget);
-  if (!part || part.contentType !== CORE_PROPERTIES_CONTENT_TYPE) return undefined;
-  try {
-    return parseCorePropertiesState(relationship, part);
-  } catch {
-    return undefined;
-  }
-}
-
-function requireCorePropertiesState(
-  pkg: OpcPackage,
-  relationship: Relationship,
-): CorePropertiesState {
-  if (relationship.targetMode !== 'Internal' || !relationship.resolvedTarget) {
-    throw new PackageError('Core-properties relationship must be internal', '/');
-  }
-  const part = pkg.getPart(relationship.resolvedTarget);
-  if (!part) {
-    throw new PackageError('Core-properties relationship target is missing', relationship.resolvedTarget);
-  }
-  if (part.contentType !== CORE_PROPERTIES_CONTENT_TYPE) {
-    throw new PackageError('Core-properties part has an unsupported content type', part.uri);
-  }
-  try {
-    return parseCorePropertiesState(relationship, part);
-  } catch (error) {
-    if (error instanceof ModelParseError) throw error;
-    throw new ModelParseError(
-      error instanceof Error ? error.message : String(error),
-      part.uri,
-    );
-  }
-}
-
-function parseCorePropertiesState(
-  relationship: Relationship,
-  part: PackagePart,
-): CorePropertiesState {
-  const xml = LosslessXmlDocument.parse(part.bytes);
-  if (xml.roots.length !== 1) {
-    throw new ModelParseError('Core-properties part must have one root', part.uri);
-  }
-  const root = xml.roots[0]!;
-  if (
-    root.localName !== 'coreProperties'
-    || namespaceUri(root) !== CORE_PROPERTIES_NAMESPACE
-  ) {
-    throw new ModelParseError('Core-properties root is invalid', part.uri);
-  }
-  const titles = directChildren(root).filter(
-    (child) => child.localName === 'title' && namespaceUri(child) === DUBLIN_CORE_NAMESPACE,
-  );
-  return { relationship, part, xml, root, titles };
-}
-
-function readSimpleTitle(
-  xml: LosslessXmlDocument,
-  title: XmlElement,
-): string | undefined {
-  if (directChildren(title).length > 0) return undefined;
-  if (/<!\[CDATA\[/i.test(xml.original(title))) return undefined;
-  return xml.text(title);
-}
-
-function createCoreProperties(pkg: OpcPackage, value: string): void {
-  const canonicalUri = '/docProps/core.xml';
-  const partUri = pkg.hasPart(canonicalUri)
-    ? pkg.allocatePartUri('/docProps', 'core', '.xml')
-    : canonicalUri;
-  const xml =
-    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`
-    + `<cp:coreProperties xmlns:cp="${CORE_PROPERTIES_NAMESPACE}" `
-    + `xmlns:dc="${DUBLIN_CORE_NAMESPACE}">`
-    + `<dc:title>${escapeXmlText(value)}</dc:title>`
-    + '</cp:coreProperties>';
-  pkg.setPart(partUri, xml, CORE_PROPERTIES_CONTENT_TYPE);
-  pkg.addRelationship('/', {
-    type: CORE_PROPERTIES_RELATIONSHIP,
-    target: partUri.slice(1),
-  });
-}
-
-function renderInsertedTitle(root: XmlElement, value: string): string {
-  const prefix = prefixForNamespace(root, DUBLIN_CORE_NAMESPACE);
-  if (prefix === undefined) {
-    return `<dc:title xmlns:dc="${DUBLIN_CORE_NAMESPACE}">${escapeXmlText(value)}</dc:title>`;
-  }
-  const name = prefix === '' ? 'title' : `${prefix}:title`;
-  return `<${name}>${escapeXmlText(value)}</${name}>`;
-}
-
-function expandSelfClosingTitle(
-  xml: LosslessXmlDocument,
-  title: XmlElement,
-  value: string,
-): string {
-  const original = xml.original(title);
-  const marker = original.lastIndexOf('/>');
-  if (marker < 0) {
-    throw new ModelParseError('Self-closing core-properties title is malformed');
-  }
-  const open = `${original.slice(0, marker).replace(/\s+$/, '')}>`;
-  return `${open}${escapeXmlText(value)}</${title.name}>`;
-}
-
-function namespaceUri(element: XmlElement): string | undefined {
-  const prefix = lexicalPrefix(element.name);
-  const declaration = prefix === '' ? 'xmlns' : `xmlns:${prefix}`;
-  for (let scope: XmlElement | undefined = element; scope; scope = scope.parent) {
-    const attribute = scope.attributes.find(({ name }) => name === declaration);
-    if (attribute) return attribute.value;
-  }
-  return undefined;
-}
-
-function prefixForNamespace(element: XmlElement, uri: string): string | undefined {
-  for (let scope: XmlElement | undefined = element; scope; scope = scope.parent) {
-    for (const attribute of scope.attributes) {
-      if (attribute.value !== uri) continue;
-      if (attribute.name === 'xmlns') return '';
-      if (attribute.name.startsWith('xmlns:')) return attribute.name.slice('xmlns:'.length);
-    }
-  }
-  return undefined;
-}
-
-function lexicalPrefix(name: string): string {
-  const separator = name.indexOf(':');
-  return separator < 0 ? '' : name.slice(0, separator);
-}
-
-function directChildren(element: XmlElement): XmlElement[] {
-  return element.children.filter((child): child is XmlElement => child.type === 'element');
 }
