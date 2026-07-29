@@ -724,6 +724,7 @@ describe('importPptxGenJS', () => {
       valign: 'middle',
     });
     const expectedTokens = [undefined, 'l', 'ctr', 'r', 'just'];
+    const expectedAlignments = [undefined, 'left', 'center', 'right', 'justify'];
     const expectedText = ['Default', 'Left', 'Center', 'Right', 'Justify this sentence'];
     const directAlignmentTokens = (xml: string): (string | undefined)[] =>
       [...xml.matchAll(/<a:tc(?:\s[^>]*)?>[\s\S]*?<\/a:tc>/g)]
@@ -737,6 +738,10 @@ describe('importPptxGenJS', () => {
 
     expect(directAlignmentTokens(nativeXml)).toEqual(expectedTokens);
     expect(directAlignmentTokens(importedXml)).toEqual(expectedTokens);
+    expect(nativeTable.rows[0]!.cells.map(({ horizontalAlignment }) =>
+      horizontalAlignment)).toEqual(expectedAlignments);
+    expect(importedTable.rows[0]!.cells.map(({ horizontalAlignment }) =>
+      horizontalAlignment)).toEqual(expectedAlignments);
     expect(nativeTable.rows[0]!.cells.map(({ text }) => text)).toEqual(expectedText);
     expect(importedTable.rows[0]!.cells.map(({ text }) => text)).toEqual(expectedText);
     expect(nativeTable.transform).toMatchObject(importedTable.transform);
@@ -764,6 +769,10 @@ describe('importPptxGenJS', () => {
     const reopenedImported = await PptxDocument.open(await imported.write());
     expect(directAlignmentTokens(slideXml(reopenedNative))).toEqual(expectedTokens);
     expect(directAlignmentTokens(slideXml(reopenedImported))).toEqual(expectedTokens);
+    expect((reopenedNative.slides[0]!.shapes[0] as TableModel).rows[0]!.cells.map(
+      ({ horizontalAlignment }) => horizontalAlignment)).toEqual(expectedAlignments);
+    expect((reopenedImported.slides[0]!.shapes[0] as TableModel).rows[0]!.cells.map(
+      ({ horizontalAlignment }) => horizontalAlignment)).toEqual(expectedAlignments);
     expect((reopenedNative.slides[0]!.shapes[0] as TableModel).rows)
       .toEqual(nativeTable.rows);
     expect((reopenedImported.slides[0]!.shapes[0] as TableModel).rows)
@@ -783,6 +792,8 @@ describe('importPptxGenJS', () => {
     });
     const importedInvalid = await importPptxGenJS(generatedInvalid);
     expect(directAlignmentTokens(slideXml(importedInvalid))).toEqual([undefined]);
+    expect((importedInvalid.slides[0]!.shapes[0] as TableModel)
+      .rows[0]!.cells[0]!.horizontalAlignment).toBeUndefined();
 
     const beforeInvalid = native.opcPackage.requirePart(nativeSlide.partUri).bytes.slice();
     const invalidJournal = [...native.opcPackage.mutations];
@@ -841,6 +852,7 @@ describe('importPptxGenJS', () => {
       valign: 'middle',
     });
     const expectedTokens = ['ctr', 'ctr', 'ctr', 'l', 'r', 'just'];
+    const expectedAlignments = ['center', 'center', 'center', 'left', 'right', 'justify'];
     const expectedText = [
       'Inherited string',
       'Inherited object',
@@ -861,6 +873,10 @@ describe('importPptxGenJS', () => {
 
     expect(directAlignmentTokens(nativeXml)).toEqual(expectedTokens);
     expect(directAlignmentTokens(importedXml)).toEqual(expectedTokens);
+    expect(nativeTable.rows[0]!.cells.map(({ horizontalAlignment }) =>
+      horizontalAlignment)).toEqual(expectedAlignments);
+    expect(importedTable.rows[0]!.cells.map(({ horizontalAlignment }) =>
+      horizontalAlignment)).toEqual(expectedAlignments);
     expect(nativeTable.rows[0]!.cells.map(({ text }) => text)).toEqual(expectedText);
     expect(importedTable.rows[0]!.cells.map(({ text }) => text)).toEqual(expectedText);
     expect(nativeTable.transform).toMatchObject(importedTable.transform);
@@ -884,14 +900,53 @@ describe('importPptxGenJS', () => {
       expect(xml).not.toMatch(/<a:bodyPr[^>]*\salgn=/);
     }
 
+    const importedSlidePartUri = imported.slides[0]!.partUri;
+    const nonSlideParts = new Map(imported.opcPackage.parts
+      .filter(({ uri }) => uri !== importedSlidePartUri)
+      .map(({ uri, bytes }) => [uri, bytes.slice()]));
+    const importedText = importedTable.rows[0]!.cells.map(({ text }) => text);
+    const importedMargins = importedTable.rows[0]!.cells.map(({ margins }) => margins);
+    const importedVerticalAlignments = importedTable.rows[0]!.cells.map(
+      ({ verticalAlignment }) => verticalAlignment);
+    const importedBorders = importedTable.rows[0]!.cells.map(({ borders }) => borders);
+    const importedFills = importedTable.rows[0]!.cells.map(({ fill }) => fill);
+    const importedTransform = importedTable.transform;
+    const importedColumnWidths = importedTable.columnWidths;
+    const importedRowHeights = importedTable.rowHeights;
+
+    importedTable.setCellHorizontalAlignment(0, 0, 'right');
+    importedTable.setCellHorizontalAlignment(0, 3, undefined);
+    importedTable.setCellHorizontalAlignment(0, 5, 'center');
+    const editedTokens = ['r', 'ctr', 'ctr', undefined, 'r', 'ctr'];
+    const editedAlignments = ['right', 'center', 'center', undefined, 'right', 'center'];
+    expect(directAlignmentTokens(slideXml(imported))).toEqual(editedTokens);
+    expect(importedTable.rows[0]!.cells.map(({ horizontalAlignment }) =>
+      horizontalAlignment)).toEqual(editedAlignments);
+    expect(importedTable.rows[0]!.cells.map(({ text }) => text)).toEqual(importedText);
+    expect(importedTable.rows[0]!.cells.map(({ margins }) => margins)).toEqual(importedMargins);
+    expect(importedTable.rows[0]!.cells.map(({ verticalAlignment }) =>
+      verticalAlignment)).toEqual(importedVerticalAlignments);
+    expect(importedTable.rows[0]!.cells.map(({ borders }) => borders)).toEqual(importedBorders);
+    expect(importedTable.rows[0]!.cells.map(({ fill }) => fill)).toEqual(importedFills);
+    expect(importedTable.transform).toEqual(importedTransform);
+    expect(importedTable.columnWidths).toEqual(importedColumnWidths);
+    expect(importedTable.rowHeights).toEqual(importedRowHeights);
+    for (const [uri, bytes] of nonSlideParts) {
+      expect(imported.opcPackage.requirePart(uri).bytes).toEqual(bytes);
+    }
+
     const reopenedNative = await PptxDocument.open(await native.write());
     const reopenedImported = await PptxDocument.open(await imported.write());
     expect(directAlignmentTokens(slideXml(reopenedNative))).toEqual(expectedTokens);
-    expect(directAlignmentTokens(slideXml(reopenedImported))).toEqual(expectedTokens);
+    expect(directAlignmentTokens(slideXml(reopenedImported))).toEqual(editedTokens);
     expect((reopenedNative.slides[0]!.shapes[0] as TableModel).rows)
       .toEqual(nativeTable.rows);
     expect((reopenedImported.slides[0]!.shapes[0] as TableModel).rows)
       .toEqual(importedTable.rows);
+    expect((reopenedNative.slides[0]!.shapes[0] as TableModel).rows[0]!.cells.map(
+      ({ horizontalAlignment }) => horizontalAlignment)).toEqual(expectedAlignments);
+    expect((reopenedImported.slides[0]!.shapes[0] as TableModel).rows[0]!.cells.map(
+      ({ horizontalAlignment }) => horizontalAlignment)).toEqual(editedAlignments);
 
     const generatedInvalid = new PptxGenJS();
     generatedInvalid.addSlide().addTable([[
