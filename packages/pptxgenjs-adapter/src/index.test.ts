@@ -4012,6 +4012,87 @@ describe('importPptxGenJS', () => {
     )).toContain('<cp:lastModifiedBy>@jiayunxie/pptx</cp:lastModifiedBy>');
   }, 20_000);
 
+  it('imports and reopens PptxGenJS presentation last modified by metadata from public output', async () => {
+    const baseline = new PptxGenJS();
+    baseline.addSlide();
+    const custom = new PptxGenJS();
+    custom.author = 'Alice & <Bob>';
+    custom.addSlide();
+    const empty = new PptxGenJS();
+    empty.author = '';
+    empty.addSlide();
+    expect([baseline.version, custom.version, empty.version]).toEqual([
+      '4.0.1',
+      '4.0.1',
+      '4.0.1',
+    ]);
+
+    const expectedEditors = ['PptxGenJS', 'Alice & <Bob>', ''] as const;
+    const imported = await Promise.all([
+      importPptxGenJS(baseline),
+      importPptxGenJS(custom),
+      importPptxGenJS(empty),
+    ]);
+    expect(imported.map(({ lastModifiedBy }) => lastModifiedBy)).toEqual(expectedEditors);
+    expect(imported.map(({ author }) => author)).toEqual(expectedEditors);
+    for (const [index, document] of imported.entries()) {
+      const journal = [...document.opcPackage.mutations];
+      expect(document.lastModifiedBy).toBe(expectedEditors[index]);
+      expect(document.author).toBe(expectedEditors[index]);
+      expect(document.opcPackage.mutations).toEqual(journal);
+    }
+
+    const coreXml = imported.map((document) => new TextDecoder().decode(
+      document.opcPackage.requirePart('/docProps/core.xml').bytes,
+    ));
+    expect(coreXml[0]).toContain('<dc:creator>PptxGenJS</dc:creator>');
+    expect(coreXml[0]).toContain('<cp:lastModifiedBy>PptxGenJS</cp:lastModifiedBy>');
+    expect(coreXml[1]).toContain(
+      '<dc:creator>Alice &amp; &lt;Bob&gt;</dc:creator>',
+    );
+    expect(coreXml[1]).toContain(
+      '<cp:lastModifiedBy>Alice &amp; &lt;Bob&gt;</cp:lastModifiedBy>',
+    );
+    expect(coreXml[2]).toContain('<dc:creator></dc:creator>');
+    expect(coreXml[2]).toContain('<cp:lastModifiedBy></cp:lastModifiedBy>');
+
+    const reopened = await Promise.all(imported.map(async (document) =>
+      PptxDocument.open(await document.write())));
+    expect(reopened.map(({ lastModifiedBy }) => lastModifiedBy)).toEqual(expectedEditors);
+    expect(reopened.map(({ author }) => author)).toEqual(expectedEditors);
+
+    const nativeDefault = PptxDocument.create();
+    expect(nativeDefault.author).toBe('@jiayunxie/pptx');
+    expect(nativeDefault.lastModifiedBy).toBe('@jiayunxie/pptx');
+    expect(nativeDefault.lastModifiedBy).not.toBe(imported[0]!.lastModifiedBy);
+
+    const nativeMirror = PptxDocument.create({
+      author: 'Alice & <Bob>',
+      lastModifiedBy: 'Alice & <Bob>',
+    });
+    expect(nativeMirror.author).toBe(imported[1]!.author);
+    expect(nativeMirror.lastModifiedBy).toBe(imported[1]!.lastModifiedBy);
+    const nativeCore = new TextDecoder().decode(
+      nativeMirror.opcPackage.requirePart('/docProps/core.xml').bytes,
+    );
+    expect(nativeCore).toContain(
+      '<dc:creator>Alice &amp; &lt;Bob&gt;</dc:creator>',
+    );
+    expect(nativeCore).toContain(
+      '<cp:lastModifiedBy>Alice &amp; &lt;Bob&gt;</cp:lastModifiedBy>',
+    );
+
+    nativeMirror.author = 'Creator only';
+    expect(nativeMirror.author).toBe('Creator only');
+    expect(nativeMirror.lastModifiedBy).toBe('Alice & <Bob>');
+    nativeMirror.lastModifiedBy = 'Editor only';
+    expect(nativeMirror.author).toBe('Creator only');
+    expect(nativeMirror.lastModifiedBy).toBe('Editor only');
+    const reopenedNative = await PptxDocument.open(await nativeMirror.write());
+    expect(reopenedNative.author).toBe('Creator only');
+    expect(reopenedNative.lastModifiedBy).toBe('Editor only');
+  }, 20_000);
+
   it('imports and reopens PptxGenJS presentation subject metadata from public output', async () => {
     const baseline = new PptxGenJS();
     baseline.addSlide();
