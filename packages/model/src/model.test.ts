@@ -1088,6 +1088,190 @@ describe('PresentationModel', () => {
     expect(reopenedDuplicateTable!.rowHeights).toEqual([inches(1)]);
   });
 
+  it('materializes table borders through edit, duplicate, rollback, write, and reopen', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const sourceColor = {
+      kind: 'scheme' as const,
+      value: 'accent1' as 'accent1' | 'accent6',
+    };
+    const sourceBorder = {
+      kind: 'line' as const,
+      color: sourceColor,
+      width: 1.500004,
+      style: 'dash' as const,
+    };
+    const options: AddTableOptions = {
+      name: 'Table border lifecycle',
+      border: sourceBorder,
+      columnWidths: inches(2),
+      rowHeights: inches(1),
+    };
+    const table = slide.addTable([[
+      'Inherited string',
+      { text: 'Inherited object', options: {} },
+      { text: 'Partial override', options: { border: {
+        bottom: {
+          kind: 'line',
+          color: { kind: 'srgb', value: '70AD47' },
+          width: 3,
+          style: 'solid',
+        },
+      } } },
+      { text: 'None override', options: { border: { kind: 'none' } } },
+    ]], options);
+    const tableDefault = {
+      top: {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent1' },
+        width: 1.5,
+        style: 'dash',
+      },
+      right: {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent1' },
+        width: 1.5,
+        style: 'dash',
+      },
+      bottom: {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent1' },
+        width: 1.5,
+        style: 'dash',
+      },
+      left: {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent1' },
+        width: 1.5,
+        style: 'dash',
+      },
+    };
+    const noBorders = {
+      top: { kind: 'none' },
+      right: { kind: 'none' },
+      bottom: { kind: 'none' },
+      left: { kind: 'none' },
+    };
+    const materializedBorders = [
+      tableDefault,
+      tableDefault,
+      {
+        top: { kind: 'none' },
+        right: { kind: 'none' },
+        bottom: {
+          kind: 'line',
+          color: { kind: 'srgb', value: '70AD47' },
+          width: 3,
+          style: 'solid',
+        },
+        left: { kind: 'none' },
+      },
+      noBorders,
+    ];
+    expect(table.rows[0]!.cells.map(({ borders }) => borders))
+      .toEqual(materializedBorders);
+
+    sourceColor.value = 'accent6';
+    sourceBorder.width = 9;
+    expect(table.rows[0]!.cells.map(({ borders }) => borders))
+      .toEqual(materializedBorders);
+
+    const sourceIndex = model.slides.indexOf(slide);
+    const duplicate = model.duplicateSlide(sourceIndex);
+    const duplicateTable = duplicate.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    );
+    expect(duplicateTable).toBeInstanceOf(TableModel);
+    expect(duplicateTable!.rows[0]!.cells.map(({ borders }) => borders))
+      .toEqual(materializedBorders);
+
+    table.setCellBorders(0, 0, undefined);
+    table.setCellBorders(0, 1, {
+      right: {
+        kind: 'line',
+        color: { kind: 'srgb', value: '00FF00' },
+        width: 0,
+        style: 'solid',
+      },
+    });
+    const editedBorders = [
+      undefined,
+      {
+        right: {
+          kind: 'line',
+          color: { kind: 'srgb', value: '00FF00' },
+          width: 0,
+          style: 'solid',
+        },
+      },
+      {
+        top: { kind: 'none' },
+        right: { kind: 'none' },
+        bottom: {
+          kind: 'line',
+          color: { kind: 'srgb', value: '70AD47' },
+          width: 3,
+          style: 'solid',
+        },
+        left: { kind: 'none' },
+      },
+      noBorders,
+    ];
+    expect(table.rows[0]!.cells.map(({ borders }) => borders)).toEqual(editedBorders);
+    expect(duplicateTable!.rows[0]!.cells.map(({ borders }) => borders))
+      .toEqual(materializedBorders);
+
+    const beforeRollback = pkg.requirePart(slide.partUri).bytes.slice();
+    const rollbackJournal = [...pkg.mutations];
+    let rolledBack: TableModel | undefined;
+    expect(() => pkg.transaction(() => {
+      table.setCellBorders(0, 2, {
+        kind: 'line',
+        color: { kind: 'srgb', value: 'FF0000' },
+        width: 2,
+      });
+      rolledBack = slide.addTable(
+        [['Temporary']],
+        { border: { kind: 'none' } },
+      );
+      throw new Error('restore table border defaults');
+    })).toThrow('restore table border defaults');
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeRollback);
+    expect(pkg.mutations).toEqual(rollbackJournal);
+    expect(slide.shapes).toHaveLength(1);
+    expect(slide.shapes[0]).toBe(table);
+    expect(table.rows[0]!.cells.map(({ borders }) => borders)).toEqual(editedBorders);
+    expect(duplicateTable!.rows[0]!.cells.map(({ borders }) => borders))
+      .toEqual(materializedBorders);
+    expect(() => rolledBack!.rows).toThrow(ModelParseError);
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedSlide = reopened.slides.find(({ partUri }) => partUri === slide.partUri);
+    const reopenedTable = reopenedSlide?.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel
+        && shape.name === 'Table border lifecycle',
+    );
+    expect(reopenedTable).toBeInstanceOf(TableModel);
+    expect(reopenedTable!.rows[0]!.cells.map(({ borders }) => borders))
+      .toEqual(editedBorders);
+    expect(reopenedTable!.columnWidths).toEqual(Array(4).fill(inches(2)));
+    expect(reopenedTable!.rowHeights).toEqual([inches(1)]);
+
+    const reopenedDuplicateSlide = reopened.slides.find(
+      ({ partUri }) => partUri === duplicate.partUri,
+    );
+    const reopenedDuplicateTable = reopenedDuplicateSlide?.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel
+        && shape.name === 'Table border lifecycle',
+    );
+    expect(reopenedDuplicateTable).toBeInstanceOf(TableModel);
+    expect(reopenedDuplicateTable!.rows[0]!.cells.map(({ borders }) => borders))
+      .toEqual(materializedBorders);
+    expect(reopenedDuplicateTable!.columnWidths).toEqual(Array(4).fill(inches(2)));
+    expect(reopenedDuplicateTable!.rowHeights).toEqual([inches(1)]);
+  });
+
   it('reads and losslessly edits live table column widths through no-op, repair, merge, and rollback', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);
