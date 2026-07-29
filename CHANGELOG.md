@@ -59,6 +59,7 @@
 - Added all seven PptxGenJS text-box directions with strict creation plus direct lossless editing and clearing.
 - Added PptxGenJS-compatible four-value table-cell text-direction snapshots and physical-cell direct editing with explicit horizontal and clear operations.
 - Added strict table-cell text-fit snapshots and physical-cell direct editing for existing `noAutofit`, `normAutofit`, and `spAutoFit` choices.
+- Added strict table-cell text-fit creation for none, shrink, and resize, reusing direct body-properties snapshots/editing while documenting PptxGenJS 4.0.1's lack of a table fit API.
 - Added PptxGenJS-compatible table-cell top, middle, and bottom vertical-alignment snapshots plus physical-cell direct editing and clearing.
 - Added strict point-based table-cell margin snapshots plus physical-cell scalar, TRBL, partial, and clear editing.
 - Added strict table-cell solid/no-fill snapshots plus physical-cell sRGB, theme, transparency, and clear editing.
