@@ -584,6 +584,70 @@ describe('table creation internals', () => {
     expect(definition.rows[0]![7]!.margins).toEqual({ right: 5, bottom: 6 });
   });
 
+  it('normalizes and renders strict cell vertical alignment after margins', () => {
+    const nullOptions = Object.assign(Object.create(null), { valign: 'bottom' });
+    const rows = [[
+      'String',
+      { text: 'Empty options', options: {} },
+      { text: 'Undefined', options: { valign: undefined } },
+      { text: 'Top', options: { valign: 'top' } },
+      { text: 'Middle', options: { valign: 'middle' } },
+      { text: 'Bottom', options: { valign: 'bottom' } },
+      { text: 'Null prototype', options: nullOptions },
+      { text: 'Combined', options: {
+        valign: 'middle',
+        margin: { top: 4, left: 8 },
+        border: {
+          kind: 'line',
+          color: { kind: 'srgb', value: 'C00000' },
+          width: 2,
+        },
+        fill: {
+          kind: 'solid',
+          color: { kind: 'scheme', value: 'accent1' },
+        },
+      } },
+    ]];
+    const definition = normalizeTableDefinition(rows, undefined);
+
+    expect(definition.rows[0]!.map(
+      ({ verticalAlignment }) => verticalAlignment)).toEqual([
+      undefined,
+      undefined,
+      undefined,
+      'top',
+      'middle',
+      'bottom',
+      'bottom',
+      'middle',
+    ]);
+
+    const equivalent = [
+      [['Same']],
+      [[{ text: 'Same' }]],
+      [[{ text: 'Same', options: {} }]],
+      [[{ text: 'Same', options: { valign: undefined } }]],
+    ].map((input) => renderTableGraphicFrame(
+      20,
+      normalizeTableDefinition(input, undefined),
+    ));
+    expect(new Set(equivalent).size).toBe(1);
+    expect(equivalent[0]).not.toContain(' anchor=');
+
+    const renderCell = (cell: unknown): string => renderTableGraphicFrame(
+      21,
+      normalizeTableDefinition([[cell]], undefined),
+    );
+    expect(renderCell(rows[0]![3])).toContain(
+      '<a:tcPr marL="91440" marR="91440" marT="45720" marB="45720" anchor="t">',
+    );
+    expect(renderCell(rows[0]![4])).toContain(' marB="45720" anchor="ctr">');
+    expect(renderCell(rows[0]![5])).toContain(' marB="45720" anchor="b">');
+    expect(renderCell(rows[0]![7])).toMatch(
+      /<a:tcPr marL="101600" marR="91440" marT="50800" marB="45720" anchor="ctr"><a:lnL[\s\S]*<\/a:lnB><a:solidFill>/,
+    );
+  });
+
   it('strictly rejects malformed matrices and options without invoking accessors', () => {
     const sparseOuter = Array(1);
     const sparseRow = [Array(2)];
@@ -670,6 +734,15 @@ describe('table creation internals', () => {
       get() {
         cellAccessorCalls += 1;
         return 1;
+      },
+      enumerable: true,
+      configurable: true,
+    });
+    const accessorValignOptions = {};
+    Object.defineProperty(accessorValignOptions, 'valign', {
+      get() {
+        cellAccessorCalls += 1;
+        return 'top';
       },
       enumerable: true,
       configurable: true,
@@ -783,6 +856,23 @@ describe('table creation internals', () => {
     const sparseMarginTuple = [1, 2, 3, 4];
     delete sparseMarginTuple[2];
     const extraMarginTuple = Object.assign([1, 2, 3, 4], { extra: true });
+    const invalidValigns = [
+      null,
+      false,
+      true,
+      0,
+      '',
+      'Top',
+      ' top ',
+      'mid',
+      'center',
+      'just',
+      'dist',
+      'distributed',
+      [],
+      {},
+      Symbol('top'),
+    ];
     const invalidCells = [
       null,
       1,
@@ -802,6 +892,7 @@ describe('table creation internals', () => {
       { text: 'A', options: accessorCellOptions },
       { text: 'A', options: accessorBorderOptions },
       { text: 'A', options: accessorMarginOptions },
+      { text: 'A', options: accessorValignOptions },
       { text: 'A', options: { unknown: true } },
       { text: 'A', options: Object.assign({}, { [Symbol('extra')]: true }) },
       { text: 'A', options: { fill: accessorFill } },
@@ -912,6 +1003,7 @@ describe('table creation internals', () => {
         2_147_483_648 / 12_700,
         -2_147_483_649 / 12_700,
       ].map((margin) => ({ text: 'A', options: { margin } })),
+      ...invalidValigns.map((valign) => ({ text: 'A', options: { valign } })),
       { text: 'A', extra: true },
       Object.assign({ text: 'A' }, { [Symbol('extra')]: true }),
       { text: 1 },

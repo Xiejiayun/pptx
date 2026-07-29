@@ -18,6 +18,12 @@ const TO_OOXML: Readonly<Record<TextBoxVerticalAlignment, string>> = {
   bottom: 'b',
 };
 
+export function renderTableCellVerticalAlignmentAttribute(
+  value: TextBoxVerticalAlignment | undefined,
+): string {
+  return value === undefined ? '' : ` anchor="${TO_OOXML[value]}"`;
+}
+
 export function readTableCellVerticalAlignment(
   _xml: LosslessXmlDocument,
   cell: XmlElement,
