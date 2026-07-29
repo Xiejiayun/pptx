@@ -412,6 +412,228 @@ describe('table creation internals', () => {
     expect(runtimeUndefined).toBe(omitted);
   });
 
+  it('materializes detached strict table borders under whole cell border values', () => {
+    const sourceColor = { kind: 'scheme', value: 'accent1' };
+    const sourceBorder = {
+      kind: 'line',
+      color: sourceColor,
+      width: 1.500004,
+      style: 'dash',
+    };
+    const definition = normalizeTableDefinition([[
+      'String',
+      { text: 'Object' },
+      { text: 'Empty options', options: {} },
+      { text: 'Undefined', options: { border: undefined } },
+      { text: 'Empty border', options: { border: {} } },
+      { text: 'All undefined', options: {
+        border: [undefined, undefined, undefined, undefined],
+      } },
+      { text: 'Cell partial', options: {
+        border: { left: { kind: 'none' } },
+      } },
+      { text: 'Cell none', options: { border: { kind: 'none' } } },
+      { text: 'Cell tuple', options: { border: [
+        {
+          kind: 'line',
+          color: { kind: 'srgb', value: 'FF0000' },
+          width: 0,
+        },
+        undefined,
+        { kind: 'none' },
+        undefined,
+      ] } },
+    ]], {
+      border: sourceBorder,
+      fill: { kind: 'solid', color: { kind: 'srgb', value: 'D9EAF7' } },
+      margin: { top: 9 },
+      valign: 'middle',
+    });
+    const tableBorders = {
+      top: {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent1' },
+        width: 1.5,
+        style: 'dash',
+      },
+      right: {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent1' },
+        width: 1.5,
+        style: 'dash',
+      },
+      bottom: {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent1' },
+        width: 1.5,
+        style: 'dash',
+      },
+      left: {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent1' },
+        width: 1.5,
+        style: 'dash',
+      },
+    };
+    expect(definition.rows[0]!.slice(0, 6).map(({ borders }) => borders)).toEqual(
+      Array(6).fill(tableBorders),
+    );
+    expect(definition.rows[0]![6]!.borders).toEqual({ left: { kind: 'none' } });
+    expect(definition.rows[0]![7]!.borders).toEqual({
+      top: { kind: 'none' },
+      right: { kind: 'none' },
+      bottom: { kind: 'none' },
+      left: { kind: 'none' },
+    });
+    expect(definition.rows[0]![8]!.borders).toEqual({
+      top: {
+        kind: 'line',
+        color: { kind: 'srgb', value: 'FF0000' },
+        width: 0,
+      },
+      bottom: { kind: 'none' },
+    });
+
+    const xml = renderTableGraphicFrame(41, definition);
+    expect(xml.match(/<a:schemeClr val="accent1"\/>/g)).toHaveLength(24);
+    expect(xml).toContain(
+      '<a:tcPr marL="91440" marR="91440" marT="114300" marB="45720" anchor="ctr">'
+      + '<a:lnL w="19050" cap="flat" cmpd="sng" algn="ctr">'
+      + '<a:solidFill><a:schemeClr val="accent1"/></a:solidFill>'
+      + '<a:prstDash val="sysDash"/><a:round/>'
+      + '<a:headEnd type="none" w="med" len="med"/>'
+      + '<a:tailEnd type="none" w="med" len="med"/></a:lnL>'
+      + '<a:lnR w="19050" cap="flat" cmpd="sng" algn="ctr">',
+    );
+    expect(xml).toMatch(
+      /<a:lnL[\s\S]*<\/a:lnL><a:lnR[\s\S]*<\/a:lnR><a:lnT[\s\S]*<\/a:lnT><a:lnB[\s\S]*<\/a:lnB><a:solidFill>/,
+    );
+
+    sourceColor.value = 'accent6';
+    sourceBorder.width = 9;
+    expect(definition.rows[0]![0]!.borders).toEqual(tableBorders);
+
+    const tableNone = normalizeTableDefinition([[
+      'Inherited none',
+      { text: 'Line override', options: { border: {
+        kind: 'line',
+        color: { kind: 'srgb', value: '00FF00' },
+        width: 2,
+        style: 'solid',
+      } } },
+    ]], { border: { kind: 'none' } });
+    expect(tableNone.rows[0]!.map(({ borders }) => borders)).toEqual([
+      {
+        top: { kind: 'none' },
+        right: { kind: 'none' },
+        bottom: { kind: 'none' },
+        left: { kind: 'none' },
+      },
+      {
+        top: {
+          kind: 'line',
+          color: { kind: 'srgb', value: '00FF00' },
+          width: 2,
+          style: 'solid',
+        },
+        right: {
+          kind: 'line',
+          color: { kind: 'srgb', value: '00FF00' },
+          width: 2,
+          style: 'solid',
+        },
+        bottom: {
+          kind: 'line',
+          color: { kind: 'srgb', value: '00FF00' },
+          width: 2,
+          style: 'solid',
+        },
+        left: {
+          kind: 'line',
+          color: { kind: 'srgb', value: '00FF00' },
+          width: 2,
+          style: 'solid',
+        },
+      },
+    ]);
+
+    const tuple = normalizeTableDefinition([['Tuple']], { border: [
+      { kind: 'line', color: { kind: 'srgb', value: 'FF0000' }, width: 0 },
+      undefined,
+      {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent2' },
+        width: 0.5,
+      },
+      {
+        kind: 'line',
+        color: { kind: 'srgb', value: '00FF00' },
+        width: 1584,
+        style: 'solid',
+      },
+    ] });
+    expect(tuple.rows[0]![0]!.borders).toEqual({
+      top: {
+        kind: 'line',
+        color: { kind: 'srgb', value: 'FF0000' },
+        width: 0,
+      },
+      bottom: {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent2' },
+        width: 0.5,
+      },
+      left: {
+        kind: 'line',
+        color: { kind: 'srgb', value: '00FF00' },
+        width: 1584,
+        style: 'solid',
+      },
+    });
+    expect(renderTableGraphicFrame(42, tuple)).toContain(
+      '<a:lnT w="0" cap="flat" cmpd="sng" algn="ctr">'
+      + '<a:solidFill><a:srgbClr val="FF0000"/></a:solidFill><a:round/>',
+    );
+
+    const named = normalizeTableDefinition([['Named']], { border: {
+      right: { kind: 'none' },
+      bottom: {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent3' },
+        width: 2,
+        style: 'dash',
+      },
+    } });
+    expect(named.rows[0]![0]!.borders).toEqual({
+      right: { kind: 'none' },
+      bottom: {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent3' },
+        width: 2,
+        style: 'dash',
+      },
+    });
+
+    const omitted = renderTableGraphicFrame(
+      43,
+      normalizeTableDefinition([['Same']], {}),
+    );
+    expect(renderTableGraphicFrame(
+      43,
+      normalizeTableDefinition([['Same']], { border: undefined }),
+    )).toBe(omitted);
+    expect(renderTableGraphicFrame(
+      43,
+      normalizeTableDefinition([['Same']], { border: {} }),
+    )).toBe(omitted);
+    expect(renderTableGraphicFrame(
+      43,
+      normalizeTableDefinition([['Same']], {
+        border: [undefined, undefined, undefined, undefined],
+      }),
+    )).toBe(omitted);
+  });
+
   it('normalizes detached cell borders and renders canonical LRTB XML before fill', () => {
     const sourceColor = { kind: 'srgb' as const, value: '#ff0000' };
     const sourceLine = {
@@ -1343,6 +1565,57 @@ describe('table creation internals', () => {
       enumerable: true,
       configurable: true,
     });
+    const accessorTableBorderOptions: Record<string, unknown> = {};
+    const accessorTableBorder: Record<string, unknown> = {};
+    const accessorTableNamedBorder: Record<string, unknown> = {};
+    const accessorTableBorderTuple: unknown[] = [
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    ];
+    const accessorTableBorderColor: Record<string, unknown> = { kind: 'srgb' };
+    let tableBorderAccessorCalls = 0;
+    Object.defineProperty(accessorTableBorderOptions, 'border', {
+      get() {
+        tableBorderAccessorCalls += 1;
+        return { kind: 'none' };
+      },
+      enumerable: true,
+      configurable: true,
+    });
+    Object.defineProperty(accessorTableBorder, 'kind', {
+      get() {
+        tableBorderAccessorCalls += 1;
+        return 'none';
+      },
+      enumerable: true,
+      configurable: true,
+    });
+    Object.defineProperty(accessorTableNamedBorder, 'top', {
+      get() {
+        tableBorderAccessorCalls += 1;
+        return { kind: 'none' };
+      },
+      enumerable: true,
+      configurable: true,
+    });
+    Object.defineProperty(accessorTableBorderTuple, '0', {
+      get() {
+        tableBorderAccessorCalls += 1;
+        return { kind: 'none' };
+      },
+      enumerable: true,
+      configurable: true,
+    });
+    Object.defineProperty(accessorTableBorderColor, 'value', {
+      get() {
+        tableBorderAccessorCalls += 1;
+        return 'FF0000';
+      },
+      enumerable: true,
+      configurable: true,
+    });
     const inheritedTableFill = Object.create({ kind: 'none' });
     const symbolTableFill = { kind: 'none', [Symbol('fill extra')]: true };
     const invalidTableFills = [
@@ -1393,6 +1666,65 @@ describe('table creation internals', () => {
         extra: true,
       },
     ];
+    const invalidTableBorders = [
+      null,
+      false,
+      'FF0000',
+      [],
+      [{ kind: 'none' }],
+      [{ kind: 'none' }, undefined, undefined],
+      [{ kind: 'none' }, undefined, undefined, undefined, undefined],
+      sparseBorderTuple,
+      extraBorderTuple,
+      exoticBorderTuple,
+      accessorTableBorder,
+      accessorTableNamedBorder,
+      accessorTableBorderTuple,
+      new ExoticBorder(),
+      Object.create({ kind: 'none' }),
+      Object.create({ top: { kind: 'none' } }),
+      Object.assign({ kind: 'none' }, { [borderSymbol]: true }),
+      { top: Object.assign({ kind: 'none' }, { [borderSymbol]: true }) },
+      { kind: 'none', width: 0 },
+      { kind: 'none', extra: true },
+      { top: [{ kind: 'none' }] },
+      { kind: 'unknown' },
+      { kind: 'line' },
+      { kind: 'line', color: { kind: 'srgb', value: 'FF0000' } },
+      { kind: 'line', width: 1 },
+      {
+        kind: 'line',
+        color: accessorTableBorderColor,
+        width: 1,
+      },
+      {
+        kind: 'line',
+        color: Object.create({ kind: 'srgb', value: 'FF0000' }),
+        width: 1,
+      },
+      {
+        kind: 'line',
+        color: { kind: 'srgb', value: 'FFF' },
+        width: 1,
+      },
+      {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'Accent1' },
+        width: 1,
+      },
+      ...[-0.001, 1584.001, Number.NaN, Number.NEGATIVE_INFINITY, Number.POSITIVE_INFINITY]
+        .map((width) => ({
+          kind: 'line',
+          color: { kind: 'srgb', value: 'FF0000' },
+          width,
+        })),
+      {
+        kind: 'line',
+        color: { kind: 'srgb', value: 'FF0000' },
+        width: 1,
+        style: 'dot',
+      },
+    ];
     const invalidTableMargins = [
       null,
       false,
@@ -1428,6 +1760,7 @@ describe('table creation internals', () => {
       accessorTableValignOptions,
       accessorTableMarginOptions,
       accessorTableFillOptions,
+      accessorTableBorderOptions,
       { extra: true },
       { name: 1 },
       { name: 'bad\u0000name' },
@@ -1441,6 +1774,7 @@ describe('table creation internals', () => {
       { height: 0 },
       { height: -1 },
       ...invalidTableFills.map((fill) => ({ fill })),
+      ...invalidTableBorders.map((border) => ({ border })),
       ...invalidTableMargins.map((margin) => ({ margin })),
       ...invalidValigns.map((valign) => ({ valign })),
     ];
@@ -1453,6 +1787,7 @@ describe('table creation internals', () => {
     expect(tableValignAccessorCalls).toBe(0);
     expect(tableMarginAccessorCalls).toBe(0);
     expect(tableFillAccessorCalls).toBe(0);
+    expect(tableBorderAccessorCalls).toBe(0);
     expect(cellAccessorCalls).toBe(0);
 
     const sparseWidths = Array(3);
