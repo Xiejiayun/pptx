@@ -677,6 +677,116 @@ describe('importPptxGenJS', () => {
       table.rows[0]!.cells.map(({ margins }) => margins))).toEqual(snapshots);
   });
 
+  it('matches native table-cell margin creation to supported PptxGenJS output', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    generated.layout = 'LAYOUT_WIDE';
+    generated.addSlide().addTable([[
+      { text: 'Default', options: {} },
+      { text: 'Zero', options: { margin: 0 } },
+      { text: 'One point', options: { margin: 1 } },
+      { text: 'Seven point two', options: { margin: 0.1 } },
+      { text: 'TRBL', options: { margin: [0.05, 0.1, 0.15, 0.2] } },
+      { text: 'Negative', options: { margin: -0.1 } },
+    ]], {
+      x: 0.5,
+      y: 0.5,
+      w: 10.5,
+      h: 1,
+      colW: [1.75, 1.75, 1.75, 1.75, 1.75, 1.75],
+      rowH: 1,
+    });
+    const imported = await importPptxGenJS(generated);
+    const importedTable = imported.slides[0]!.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    );
+    expect(importedTable).toBeInstanceOf(TableModel);
+
+    const native = PptxDocument.create({ slideSize: 'wide' });
+    const nativeTable = native.addSlide().addTable([[
+      { text: 'Default' },
+      { text: 'Zero', options: { margin: 0 } },
+      { text: 'One point', options: { margin: 1 } },
+      { text: 'Seven point two', options: { margin: 7.2 } },
+      { text: 'TRBL', options: { margin: [3.6, 7.2, 10.8, 14.4] } },
+      { text: 'Negative', options: { margin: -7.2 } },
+    ]], {
+      x: inches(0.5),
+      y: inches(0.5),
+      columnWidths: inches(1.75),
+      rowHeights: inches(1),
+    });
+    const expectedMargins = [
+      { top: 3.6, right: 7.2, bottom: 3.6, left: 7.2 },
+      { top: 0, right: 0, bottom: 0, left: 0 },
+      { top: 1, right: 1, bottom: 1, left: 1 },
+      { top: 7.2, right: 7.2, bottom: 7.2, left: 7.2 },
+      { top: 3.6, right: 7.2, bottom: 10.8, left: 14.4 },
+      { top: -7.2, right: -7.2, bottom: -7.2, left: -7.2 },
+    ];
+    const expectedText = [
+      'Default',
+      'Zero',
+      'One point',
+      'Seven point two',
+      'TRBL',
+      'Negative',
+    ];
+    expect(nativeTable.rows[0]!.cells.map(({ margins }) => margins)).toEqual(expectedMargins);
+    expect(importedTable!.rows[0]!.cells.map(({ margins }) => margins)).toEqual(expectedMargins);
+    expect(nativeTable.rows[0]!.cells.map(({ text }) => text)).toEqual(expectedText);
+    expect(importedTable!.rows[0]!.cells.map(({ text }) => text)).toEqual(expectedText);
+    expect(nativeTable.transform).toMatchObject(importedTable!.transform);
+    expect(nativeTable.columnWidths).toEqual(importedTable!.columnWidths);
+    expect(nativeTable.rowHeights).toEqual(importedTable!.rowHeights);
+
+    const nativeXml = new TextDecoder().decode(
+      native.opcPackage.requirePart(native.slides[0]!.partUri).bytes,
+    );
+    const importedXml = new TextDecoder().decode(
+      imported.opcPackage.requirePart(imported.slides[0]!.partUri).bytes,
+    );
+    const directTokens = [
+      'marL="91440" marR="91440" marT="45720" marB="45720"',
+      'marL="0" marR="0" marT="0" marB="0"',
+      'marL="12700" marR="12700" marT="12700" marB="12700"',
+      'marL="91440" marR="91440" marT="91440" marB="91440"',
+      'marL="182880" marR="91440" marT="45720" marB="137160"',
+      'marL="-91440" marR="-91440" marT="-91440" marB="-91440"',
+    ];
+    for (const xml of [nativeXml, importedXml]) {
+      for (const token of directTokens) expect(xml).toContain(token);
+    }
+
+    const reopenedNative = await PptxDocument.open(await native.write());
+    const reopenedImported = await PptxDocument.open(await imported.write());
+    expect((reopenedNative.slides[0]!.shapes[0] as TableModel).rows).toEqual(nativeTable.rows);
+    expect((reopenedImported.slides[0]!.shapes[0] as TableModel).rows)
+      .toEqual(importedTable!.rows);
+
+    const nativeDifferences = PptxDocument.create({ slideSize: 'wide' });
+    const nativeDifferenceTable = nativeDifferences.addSlide().addTable([[
+      { text: 'Native 0.1 point', options: { margin: 0.1 } },
+      { text: 'Native partial', options: { margin: { top: 2, left: -2 } } },
+    ]]);
+    expect(nativeDifferenceTable.rows[0]!.cells.map(({ margins }) => margins)).toEqual([
+      { top: 0.1, right: 0.1, bottom: 0.1, left: 0.1 },
+      { top: 2, right: 7.2, bottom: 3.6, left: -2 },
+    ]);
+    const nativeDifferencesXml = new TextDecoder().decode(
+      nativeDifferences.opcPackage.requirePart(nativeDifferences.slides[0]!.partUri).bytes,
+    );
+    expect(nativeDifferencesXml).toContain(
+      '<a:tcPr marL="1270" marR="1270" marT="1270" marB="1270">',
+    );
+    expect(nativeDifferencesXml).toContain(
+      '<a:tcPr marL="-25400" marR="91440" marT="25400" marB="45720">',
+    );
+    expect(importedXml).toContain(
+      '<a:tcPr marL="91440" marR="91440" marT="91440" marB="91440">',
+    );
+  });
+
   it('imports PptxGenJS table-cell fills from direct cell properties', async () => {
     const generated = new PptxGenJS();
     expect(generated.version).toBe('4.0.1');
