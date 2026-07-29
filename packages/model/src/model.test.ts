@@ -305,6 +305,133 @@ describe('PresentationModel', () => {
     expect(reopenedCreated.title).toBe('Created metadata');
   });
 
+  it('reads, edits, clears, creates, and reopens presentation author metadata', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const coreXml =
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<c:coreProperties xmlns:c="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" ' +
+      'xmlns:d="http://purl.org/dc/elements/1.1/" xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties">' +
+      '<d:creator>Original &amp; author</d:creator><d:title>Quarterly</d:title>' +
+      '<cp:lastModifiedBy>Editor</cp:lastModifiedBy><cp:revision>7</cp:revision>' +
+      '<x:opaque xmlns:x="urn:test">KEEP</x:opaque></c:coreProperties>';
+    pkg.transaction(() => {
+      pkg.setPart('/metadata/properties.xml', coreXml, CORE_PROPERTIES_CONTENT_TYPE);
+      pkg.addRelationship('/', {
+        type: CORE_PROPERTIES_RELATIONSHIP,
+        target: 'metadata/properties.xml',
+      });
+    });
+    const model = new PresentationModel(pkg);
+    const slide = model.slides[0];
+    const readJournal = [...pkg.mutations];
+    expect(model.author).toBe('Original & author');
+    expect(pkg.mutations).toEqual(readJournal);
+
+    const beforeSame = pkg.requirePart('/metadata/properties.xml').bytes;
+    model.author = 'Original & author';
+    expect(pkg.requirePart('/metadata/properties.xml').bytes).toEqual(beforeSame);
+    expect(pkg.mutations).toEqual(readJournal);
+    expect(model.slides[0]).toBe(slide);
+
+    const beforeInvalid = pkg.requirePart('/metadata/properties.xml').bytes;
+    const invalidJournal = [...pkg.mutations];
+    for (const value of [null, false, 0, {}, [], Symbol('author'), 'bad\u0001author']) {
+      expect(() => {
+        model.author = value as never;
+      }).toThrow(TypeError);
+    }
+    expect(pkg.requirePart('/metadata/properties.xml').bytes).toEqual(beforeInvalid);
+    expect(pkg.mutations).toEqual(invalidJournal);
+    expect(model.slides[0]).toBe(slide);
+
+    const otherParts = new Map(
+      pkg.parts
+        .filter(({ uri }) => uri !== '/metadata/properties.xml')
+        .map(({ uri, bytes }) => [uri, bytes]),
+    );
+    model.author = 'Edited & <safe>';
+    expect(model.author).toBe('Edited & <safe>');
+    let updated = new TextDecoder().decode(pkg.requirePart('/metadata/properties.xml').bytes);
+    expect(updated).toContain('<d:creator>Edited &amp; &lt;safe&gt;</d:creator>');
+    expect(updated).toContain('<d:title>Quarterly</d:title>');
+    expect(updated).toContain('<cp:lastModifiedBy>Editor</cp:lastModifiedBy>');
+    expect(updated).toContain('<cp:revision>7</cp:revision>');
+    expect(updated).toContain('<x:opaque xmlns:x="urn:test">KEEP</x:opaque>');
+    for (const [uri, bytes] of otherParts) {
+      expect(pkg.requirePart(uri).bytes).toEqual(bytes);
+    }
+    expect(model.slides[0]).toBe(slide);
+
+    model.author = '';
+    expect(model.author).toBe('');
+    updated = new TextDecoder().decode(pkg.requirePart('/metadata/properties.xml').bytes);
+    expect(updated).toContain('<d:creator></d:creator>');
+    expect(updated).toContain('<cp:lastModifiedBy>Editor</cp:lastModifiedBy>');
+
+    const beforeRollback = pkg.requirePart('/metadata/properties.xml').bytes;
+    const rollbackJournal = [...pkg.mutations];
+    expect(() => pkg.transaction(() => {
+      model.author = 'Temporary';
+      expect(model.author).toBe('Temporary');
+      throw new Error('restore presentation author');
+    })).toThrow('restore presentation author');
+    expect(pkg.requirePart('/metadata/properties.xml').bytes).toEqual(beforeRollback);
+    expect(pkg.mutations).toEqual(rollbackJournal);
+    expect(model.author).toBe('');
+
+    model.author = undefined;
+    expect(model.author).toBeUndefined();
+    updated = new TextDecoder().decode(pkg.requirePart('/metadata/properties.xml').bytes);
+    expect(updated).not.toContain('<d:creator');
+    expect(updated).toContain('<d:title>Quarterly</d:title>');
+    expect(updated).toContain('<cp:lastModifiedBy>Editor</cp:lastModifiedBy>');
+    expect(updated).toContain('<cp:revision>7</cp:revision>');
+    expect(updated).toContain('<x:opaque xmlns:x="urn:test">KEEP</x:opaque>');
+    expect(pkg.hasPart('/metadata/properties.xml')).toBe(true);
+    expect(pkg.relationships('/').filter(
+      ({ type }) => type === CORE_PROPERTIES_RELATIONSHIP,
+    )).toHaveLength(1);
+
+    model.author = 'Reopened author';
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    expect(reopened.author).toBe('Reopened author');
+    expect(reopened.slides.map(({ partUri }) => partUri)).toEqual(
+      model.slides.map(({ partUri }) => partUri),
+    );
+    expect(new TextDecoder().decode(
+      reopened.opcPackage.requirePart('/metadata/properties.xml').bytes,
+    )).toContain('<cp:lastModifiedBy>Editor</cp:lastModifiedBy>');
+
+    const missingPkg = await OpcPackage.open(await modelFixture());
+    const missingModel = new PresentationModel(missingPkg);
+    const missingSlide = missingModel.slides[0];
+    const beforeAbsentClear = missingPkg.parts.map(({ uri, bytes }) => [uri, bytes] as const);
+    const absentJournal = [...missingPkg.mutations];
+    expect(missingModel.author).toBeUndefined();
+    missingModel.author = undefined;
+    expect(missingPkg.mutations).toEqual(absentJournal);
+    for (const [uri, bytes] of beforeAbsentClear) {
+      expect(missingPkg.requirePart(uri).bytes).toEqual(bytes);
+    }
+
+    missingModel.author = 'Created metadata';
+    expect(missingModel.author).toBe('Created metadata');
+    expect(missingModel.slides[0]).toBe(missingSlide);
+    const createdRelationship = missingPkg.relationships('/').find(
+      ({ type }) => type === CORE_PROPERTIES_RELATIONSHIP,
+    );
+    expect(createdRelationship?.resolvedTarget).toBe('/docProps/core.xml');
+    expect(missingPkg.requirePart('/docProps/core.xml').contentType)
+      .toBe(CORE_PROPERTIES_CONTENT_TYPE);
+    const createdXml = new TextDecoder().decode(
+      missingPkg.requirePart('/docProps/core.xml').bytes,
+    );
+    expect(createdXml).toContain('<dc:creator>Created metadata</dc:creator>');
+    expect(createdXml).not.toContain('lastModifiedBy');
+    const reopenedCreated = new PresentationModel(await OpcPackage.open(await missingPkg.write()));
+    expect(reopenedCreated.author).toBe('Created metadata');
+  });
+
   it('uses r:id order and exposes common semantic objects', async () => {
     const model = new PresentationModel(await OpcPackage.open(await modelFixture()));
     const initialSlides = model.slides;

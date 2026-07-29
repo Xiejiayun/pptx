@@ -23,6 +23,10 @@ import {
   readPresentationTitle,
   replacePresentationTitle,
 } from './presentation-title.internal.js';
+import {
+  readPresentationAuthor,
+  replacePresentationAuthor,
+} from './presentation-author.internal.js';
 import type { Emu, SlideSize } from './units.js';
 
 const SLIDE_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slide+xml';
@@ -93,6 +97,16 @@ export class PresentationModel {
     if (['1', 'true', 'on'].includes(value)) return true;
     if (['0', 'false', 'off'].includes(value)) return false;
     return undefined;
+  }
+
+  get author(): string | undefined {
+    return readPresentationAuthor(this.opcPackage);
+  }
+
+  set author(value: string | undefined) {
+    this.opcPackage.transaction(() => {
+      replacePresentationAuthor(this.opcPackage, value);
+    });
   }
 
   get title(): string | undefined {
