@@ -10,6 +10,7 @@ export type BuiltInSlideSize = '4:3' | '16:9' | '16:10' | 'wide';
 export type CustomSlideSize = SlideSize;
 
 export interface CreatePresentationOptions {
+  readonly author?: string;
   readonly format?: PresentationFormat;
   readonly rtlMode?: boolean;
   readonly slideSize?: BuiltInSlideSize | CustomSlideSize;

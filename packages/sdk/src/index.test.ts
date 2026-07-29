@@ -308,6 +308,124 @@ describe('PptxDocument vertical slice', () => {
     }
   });
 
+  it('creates, edits, clears, rolls back, and reopens presentation author metadata', async () => {
+    const readCoreXml = (document: PptxDocument): string => new TextDecoder().decode(
+      document.opcPackage.requirePart('/docProps/core.xml').bytes,
+    );
+    const omitted = PptxDocument.create();
+    const explicitUndefined = PptxDocument.create({ author: undefined } as never);
+    const custom = PptxDocument.create({ author: 'Alice & <Bob>' });
+    const empty = PptxDocument.create({ author: '' });
+
+    expect([omitted.author, explicitUndefined.author, custom.author, empty.author]).toEqual([
+      '@jiayunxie/pptx',
+      '@jiayunxie/pptx',
+      'Alice & <Bob>',
+      '',
+    ]);
+    expect(readCoreXml(explicitUndefined)).toBe(readCoreXml(omitted));
+    expect(readCoreXml(custom)).toContain(
+      '<dc:creator>Alice &amp; &lt;Bob&gt;</dc:creator>',
+    );
+    expect(readCoreXml(custom)).toContain(
+      '<cp:lastModifiedBy>@jiayunxie/pptx</cp:lastModifiedBy>',
+    );
+    expect(readCoreXml(empty)).toContain('<dc:creator></dc:creator>');
+    expect(readCoreXml(empty)).toContain(
+      '<cp:lastModifiedBy>@jiayunxie/pptx</cp:lastModifiedBy>',
+    );
+
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const created = PptxDocument.create({ format, author: `Author ${format}` });
+      expect(created.author).toBe(`Author ${format}`);
+      expect(readCoreXml(created)).toContain(
+        '<cp:lastModifiedBy>@jiayunxie/pptx</cp:lastModifiedBy>',
+      );
+      expect(validatePackage(created.opcPackage).filter(({ severity }) => severity === 'error'))
+        .toEqual([]);
+      const reopened = await PptxDocument.open(await created.write());
+      expect(reopened.author).toBe(`Author ${format}`);
+      expect(reopened.format).toBe(format);
+    }
+
+    const combined = PptxDocument.create({
+      author: 'Combined author',
+      title: 'Combined title',
+    });
+    expect([combined.author, combined.title]).toEqual(['Combined author', 'Combined title']);
+    expect(readCoreXml(combined)).toContain('<dc:creator>Combined author</dc:creator>');
+    expect(readCoreXml(combined)).toContain('<dc:title>Combined title</dc:title>');
+    expect(readCoreXml(combined)).toContain(
+      '<cp:lastModifiedBy>@jiayunxie/pptx</cp:lastModifiedBy>',
+    );
+
+    const beforeSame = custom.opcPackage.requirePart('/docProps/core.xml').bytes;
+    const sameJournal = [...custom.opcPackage.mutations];
+    custom.author = 'Alice & <Bob>';
+    expect(custom.opcPackage.requirePart('/docProps/core.xml').bytes).toEqual(beforeSame);
+    expect(custom.opcPackage.mutations).toEqual(sameJournal);
+
+    const slide = custom.addSlide();
+    const otherParts = new Map(
+      custom.opcPackage.parts
+        .filter(({ uri }) => uri !== '/docProps/core.xml')
+        .map(({ uri, bytes }) => [uri, bytes]),
+    );
+    custom.author = 'Edited author';
+    expect(custom.author).toBe('Edited author');
+    expect(custom.slides[0]).toBe(slide);
+    expect(readCoreXml(custom)).toContain('<dc:creator>Edited author</dc:creator>');
+    expect(readCoreXml(custom)).toContain(
+      '<cp:lastModifiedBy>@jiayunxie/pptx</cp:lastModifiedBy>',
+    );
+    for (const [uri, bytes] of otherParts) {
+      expect(custom.opcPackage.requirePart(uri).bytes).toEqual(bytes);
+    }
+
+    const beforeRollback = custom.opcPackage.requirePart('/docProps/core.xml').bytes;
+    const rollbackJournal = [...custom.opcPackage.mutations];
+    expect(() => custom.transaction(() => {
+      custom.author = 'Temporary author';
+      expect(custom.author).toBe('Temporary author');
+      throw new Error('restore presentation author');
+    })).toThrow('restore presentation author');
+    expect(custom.opcPackage.requirePart('/docProps/core.xml').bytes).toEqual(beforeRollback);
+    expect(custom.opcPackage.mutations).toEqual(rollbackJournal);
+    expect(custom.author).toBe('Edited author');
+    expect(custom.slides[0]).toBe(slide);
+
+    const reopenedEdited = await PptxDocument.open(await custom.write());
+    expect(reopenedEdited.author).toBe('Edited author');
+    reopenedEdited.author = '';
+    expect(reopenedEdited.author).toBe('');
+    reopenedEdited.author = undefined;
+    expect(reopenedEdited.author).toBeUndefined();
+    expect(readCoreXml(reopenedEdited)).not.toContain('<dc:creator');
+    expect(readCoreXml(reopenedEdited)).toContain(
+      '<cp:lastModifiedBy>@jiayunxie/pptx</cp:lastModifiedBy>',
+    );
+    expect(readCoreXml(reopenedEdited)).toContain('<cp:revision>1</cp:revision>');
+    const reopenedCleared = await PptxDocument.open(await reopenedEdited.write());
+    expect(reopenedCleared.author).toBeUndefined();
+    expect(reopenedCleared.slides).toHaveLength(1);
+  });
+
+  it('rejects malformed presentation author metadata during creation', () => {
+    for (const author of [
+      null,
+      true,
+      false,
+      0,
+      1,
+      {},
+      [],
+      Symbol('author'),
+      'bad\u0001author',
+    ]) {
+      expect(() => PptxDocument.create({ author: author as never })).toThrow(TypeError);
+    }
+  });
+
   it('creates, edits, clears, rolls back, and reopens presentation RTL independently', async () => {
     const readPresentationXml = (document: PptxDocument): string => new TextDecoder().decode(
       document.opcPackage.requirePart(document.presentationPartUri).bytes,
