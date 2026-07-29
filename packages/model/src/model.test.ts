@@ -20,6 +20,11 @@ import {
   type TextBoxMarginInput,
 } from './index.js';
 
+const CORE_PROPERTIES_RELATIONSHIP =
+  'http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties';
+const CORE_PROPERTIES_CONTENT_TYPE =
+  'application/vnd.openxmlformats-package.core-properties+xml';
+
 async function modelFixture(
   presentationContentType = PRESENTATION_FORMAT_PROFILES.pptx.presentationContentType,
 ): Promise<Uint8Array> {
@@ -185,6 +190,119 @@ describe('PresentationModel', () => {
     );
     expect(updated).not.toMatch(/<p:presentation[^>]*\srtl=/);
     expect(updated).toContain('<x:unknown xmlns:x="urn:test"/>');
+  });
+
+  it('reads, edits, clears, creates, and reopens presentation title metadata', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const coreXml =
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<c:coreProperties xmlns:c="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" ' +
+      'xmlns:d="http://purl.org/dc/elements/1.1/" xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties">' +
+      '<d:title>Original &amp; title</d:title><cp:revision>7</cp:revision>' +
+      '<x:opaque xmlns:x="urn:test">KEEP</x:opaque></c:coreProperties>';
+    pkg.transaction(() => {
+      pkg.setPart('/metadata/properties.xml', coreXml, CORE_PROPERTIES_CONTENT_TYPE);
+      pkg.addRelationship('/', {
+        type: CORE_PROPERTIES_RELATIONSHIP,
+        target: 'metadata/properties.xml',
+      });
+    });
+    const model = new PresentationModel(pkg);
+    const slide = model.slides[0];
+    const readJournal = [...pkg.mutations];
+    expect(model.title).toBe('Original & title');
+    expect(pkg.mutations).toEqual(readJournal);
+
+    const beforeSame = pkg.requirePart('/metadata/properties.xml').bytes;
+    model.title = 'Original & title';
+    expect(pkg.requirePart('/metadata/properties.xml').bytes).toEqual(beforeSame);
+    expect(pkg.mutations).toEqual(readJournal);
+    expect(model.slides[0]).toBe(slide);
+
+    const beforeInvalid = pkg.requirePart('/metadata/properties.xml').bytes;
+    const invalidJournal = [...pkg.mutations];
+    for (const value of [null, false, 0, {}, [], Symbol('title'), 'bad\u0001title']) {
+      expect(() => {
+        model.title = value as never;
+      }).toThrow(TypeError);
+    }
+    expect(pkg.requirePart('/metadata/properties.xml').bytes).toEqual(beforeInvalid);
+    expect(pkg.mutations).toEqual(invalidJournal);
+    expect(model.slides[0]).toBe(slide);
+
+    const otherParts = new Map(
+      pkg.parts
+        .filter(({ uri }) => uri !== '/metadata/properties.xml')
+        .map(({ uri, bytes }) => [uri, bytes]),
+    );
+    model.title = 'Edited & <safe>';
+    expect(model.title).toBe('Edited & <safe>');
+    let updated = new TextDecoder().decode(pkg.requirePart('/metadata/properties.xml').bytes);
+    expect(updated).toContain('<d:title>Edited &amp; &lt;safe&gt;</d:title>');
+    expect(updated).toContain('<cp:revision>7</cp:revision>');
+    expect(updated).toContain('<x:opaque xmlns:x="urn:test">KEEP</x:opaque>');
+    for (const [uri, bytes] of otherParts) {
+      expect(pkg.requirePart(uri).bytes).toEqual(bytes);
+    }
+    expect(model.slides[0]).toBe(slide);
+
+    model.title = '';
+    expect(model.title).toBe('');
+    updated = new TextDecoder().decode(pkg.requirePart('/metadata/properties.xml').bytes);
+    expect(updated).toContain('<d:title></d:title>');
+
+    const beforeRollback = pkg.requirePart('/metadata/properties.xml').bytes;
+    const rollbackJournal = [...pkg.mutations];
+    expect(() => pkg.transaction(() => {
+      model.title = 'Temporary';
+      expect(model.title).toBe('Temporary');
+      throw new Error('restore presentation title');
+    })).toThrow('restore presentation title');
+    expect(pkg.requirePart('/metadata/properties.xml').bytes).toEqual(beforeRollback);
+    expect(pkg.mutations).toEqual(rollbackJournal);
+    expect(model.title).toBe('');
+
+    model.title = undefined;
+    expect(model.title).toBeUndefined();
+    updated = new TextDecoder().decode(pkg.requirePart('/metadata/properties.xml').bytes);
+    expect(updated).not.toContain('<d:title');
+    expect(updated).toContain('<cp:revision>7</cp:revision>');
+    expect(updated).toContain('<x:opaque xmlns:x="urn:test">KEEP</x:opaque>');
+    expect(pkg.hasPart('/metadata/properties.xml')).toBe(true);
+    expect(pkg.relationships('/').filter(
+      ({ type }) => type === CORE_PROPERTIES_RELATIONSHIP,
+    )).toHaveLength(1);
+
+    model.title = 'Reopened title';
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    expect(reopened.title).toBe('Reopened title');
+    expect(reopened.slides.map(({ partUri }) => partUri)).toEqual(
+      model.slides.map(({ partUri }) => partUri),
+    );
+
+    const missingPkg = await OpcPackage.open(await modelFixture());
+    const missingModel = new PresentationModel(missingPkg);
+    const missingSlide = missingModel.slides[0];
+    const beforeAbsentClear = missingPkg.parts.map(({ uri, bytes }) => [uri, bytes] as const);
+    const absentJournal = [...missingPkg.mutations];
+    expect(missingModel.title).toBeUndefined();
+    missingModel.title = undefined;
+    expect(missingPkg.mutations).toEqual(absentJournal);
+    for (const [uri, bytes] of beforeAbsentClear) {
+      expect(missingPkg.requirePart(uri).bytes).toEqual(bytes);
+    }
+
+    missingModel.title = 'Created metadata';
+    expect(missingModel.title).toBe('Created metadata');
+    expect(missingModel.slides[0]).toBe(missingSlide);
+    const createdRelationship = missingPkg.relationships('/').find(
+      ({ type }) => type === CORE_PROPERTIES_RELATIONSHIP,
+    );
+    expect(createdRelationship?.resolvedTarget).toBe('/docProps/core.xml');
+    expect(missingPkg.requirePart('/docProps/core.xml').contentType)
+      .toBe(CORE_PROPERTIES_CONTENT_TYPE);
+    const reopenedCreated = new PresentationModel(await OpcPackage.open(await missingPkg.write()));
+    expect(reopenedCreated.title).toBe('Created metadata');
   });
 
   it('uses r:id order and exposes common semantic objects', async () => {

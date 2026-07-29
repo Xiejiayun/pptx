@@ -19,6 +19,10 @@ import {
   garbageCollectOwnedDependencies,
   ownedSlideDependencyRoots,
 } from './dependency.internal.js';
+import {
+  readPresentationTitle,
+  replacePresentationTitle,
+} from './presentation-title.internal.js';
 import type { Emu, SlideSize } from './units.js';
 
 const SLIDE_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slide+xml';
@@ -89,6 +93,16 @@ export class PresentationModel {
     if (['1', 'true', 'on'].includes(value)) return true;
     if (['0', 'false', 'off'].includes(value)) return false;
     return undefined;
+  }
+
+  get title(): string | undefined {
+    return readPresentationTitle(this.opcPackage);
+  }
+
+  set title(value: string | undefined) {
+    this.opcPackage.transaction(() => {
+      replacePresentationTitle(this.opcPackage, value);
+    });
   }
 
   set rtlMode(value: boolean | undefined) {
