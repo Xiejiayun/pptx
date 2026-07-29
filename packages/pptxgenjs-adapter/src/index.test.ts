@@ -1043,6 +1043,341 @@ describe('importPptxGenJS', () => {
     expect(native.opcPackage.mutations).toEqual(invalidJournal);
   });
 
+  it('matches native table-level solid fill creation to PptxGenJS final state', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    generated.layout = 'LAYOUT_WIDE';
+    const generatedSlide = generated.addSlide();
+    generatedSlide.addTable([[
+      { text: 'Inherited string', options: {} },
+      { text: 'Inherited object', options: {} },
+      { text: 'Cell yellow', options: {
+        fill: { color: 'FFFF00', transparency: 50 },
+        border: { type: 'solid', color: '336699', pt: 1 },
+      } },
+      { text: 'Cell full transparency', options: {
+        fill: { color: '445566', transparency: 100 },
+      } },
+    ]], {
+      x: 0.5,
+      y: 0.5,
+      w: 8,
+      h: 1,
+      colW: [2, 2, 2, 2],
+      rowH: [1],
+      fill: { color: generated.SchemeColor.accent1, transparency: 25 },
+      margin: 0.1,
+      valign: 'middle',
+    });
+    generatedSlide.addTable(
+      [[{ text: 'Table sRGB opaque', options: {} }]],
+      {
+        x: 0.5,
+        y: 2,
+        w: 2,
+        h: 0.5,
+        colW: [2],
+        rowH: [0.5],
+        fill: { color: 'FF0000' },
+      },
+    );
+    generatedSlide.addTable(
+      [[{ text: 'Table fractional', options: {} }]],
+      {
+        x: 0.5,
+        y: 2.8,
+        w: 2,
+        h: 0.5,
+        colW: [2],
+        rowH: [0.5],
+        fill: { color: '112233', transparency: 33.333 },
+      },
+    );
+    generatedSlide.addTable(
+      [[{ text: 'Table full transparency', options: {} }]],
+      {
+        x: 0.5,
+        y: 3.6,
+        w: 2,
+        h: 0.5,
+        colW: [2],
+        rowH: [0.5],
+        fill: { color: '445566', transparency: 100 },
+      },
+    );
+    const imported = await importPptxGenJS(generated);
+    const importedTables = imported.slides[0]!.shapes.filter(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    );
+
+    const native = PptxDocument.create({ slideSize: 'wide' });
+    const nativeSlide = native.addSlide();
+    const nativeTable = nativeSlide.addTable([[
+      'Inherited string',
+      { text: 'Inherited object' },
+      { text: 'Cell yellow', options: {
+        fill: {
+          kind: 'solid',
+          color: { kind: 'srgb', value: 'FFFF00' },
+          transparency: 50,
+        },
+        border: {
+          kind: 'line',
+          color: { kind: 'srgb', value: '336699' },
+          width: 1,
+          style: 'solid',
+        },
+      } },
+      { text: 'Cell full transparency', options: { fill: {
+        kind: 'solid',
+        color: { kind: 'srgb', value: '445566' },
+        transparency: 100,
+      } } },
+    ]], {
+      x: inches(0.5),
+      y: inches(0.5),
+      width: inches(8),
+      height: inches(1),
+      columnWidths: inches(2),
+      rowHeights: inches(1),
+      fill: {
+        kind: 'solid',
+        color: { kind: 'scheme', value: 'accent1' },
+        transparency: 25,
+      },
+      margin: 7.2,
+      valign: 'middle',
+    });
+    nativeSlide.addTable([['Table sRGB opaque']], {
+      x: inches(0.5),
+      y: inches(2),
+      width: inches(2),
+      height: inches(0.5),
+      columnWidths: [inches(2)],
+      rowHeights: [inches(0.5)],
+      fill: {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'FF0000' },
+      },
+    });
+    nativeSlide.addTable([['Table fractional']], {
+      x: inches(0.5),
+      y: inches(2.8),
+      width: inches(2),
+      height: inches(0.5),
+      columnWidths: [inches(2)],
+      rowHeights: [inches(0.5)],
+      fill: {
+        kind: 'solid',
+        color: { kind: 'srgb', value: '112233' },
+        transparency: 33.333,
+      },
+    });
+    nativeSlide.addTable([['Table full transparency']], {
+      x: inches(0.5),
+      y: inches(3.6),
+      width: inches(2),
+      height: inches(0.5),
+      columnWidths: [inches(2)],
+      rowHeights: [inches(0.5)],
+      fill: {
+        kind: 'solid',
+        color: { kind: 'srgb', value: '445566' },
+        transparency: 100,
+      },
+    });
+    const nativeTables = nativeSlide.shapes.filter(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    );
+
+    const expectedFills = [
+      [
+        {
+          kind: 'solid',
+          color: { kind: 'scheme', value: 'accent1' },
+          transparency: 25,
+        },
+        {
+          kind: 'solid',
+          color: { kind: 'scheme', value: 'accent1' },
+          transparency: 25,
+        },
+        {
+          kind: 'solid',
+          color: { kind: 'srgb', value: 'FFFF00' },
+          transparency: 50,
+        },
+        {
+          kind: 'solid',
+          color: { kind: 'srgb', value: '445566' },
+          transparency: 100,
+        },
+      ],
+      [{ kind: 'solid', color: { kind: 'srgb', value: 'FF0000' } }],
+      [{
+        kind: 'solid',
+        color: { kind: 'srgb', value: '112233' },
+        transparency: 33.333,
+      }],
+      [{
+        kind: 'solid',
+        color: { kind: 'srgb', value: '445566' },
+        transparency: 100,
+      }],
+    ];
+    expect(nativeTables.map((table) =>
+      table.rows[0]!.cells.map(({ fill }) => fill))).toEqual(expectedFills);
+    expect(importedTables.map((table) =>
+      table.rows[0]!.cells.map(({ fill }) => fill))).toEqual(expectedFills);
+    expect(nativeTable.rows[0]!.cells.map(({ text }) => text)).toEqual(
+      importedTables[0]!.rows[0]!.cells.map(({ text }) => text),
+    );
+    expect(nativeTable.rows[0]!.cells.map(({ margins }) => margins)).toEqual(
+      importedTables[0]!.rows[0]!.cells.map(({ margins }) => margins),
+    );
+    expect(nativeTable.rows[0]!.cells.map(
+      ({ verticalAlignment }) => verticalAlignment)).toEqual(
+      importedTables[0]!.rows[0]!.cells.map(
+        ({ verticalAlignment }) => verticalAlignment),
+    );
+    expect(nativeTable.rows[0]!.cells.map(({ borders }) => borders)).toEqual(
+      importedTables[0]!.rows[0]!.cells.map(({ borders }) => borders),
+    );
+    for (let index = 0; index < nativeTables.length; index += 1) {
+      expect(nativeTables[index]!.transform).toMatchObject(
+        importedTables[index]!.transform,
+      );
+      expect(nativeTables[index]!.columnWidths).toEqual(
+        importedTables[index]!.columnWidths,
+      );
+      expect(nativeTables[index]!.rowHeights).toEqual(
+        importedTables[index]!.rowHeights,
+      );
+    }
+
+    const nativeXml = new TextDecoder().decode(
+      native.opcPackage.requirePart(nativeSlide.partUri).bytes,
+    );
+    const importedXml = new TextDecoder().decode(
+      imported.opcPackage.requirePart(imported.slides[0]!.partUri).bytes,
+    );
+    for (const xml of [nativeXml, importedXml]) {
+      expect(xml.match(
+        /<a:solidFill><a:schemeClr val="accent1"><a:alpha val="75000"\/><\/a:schemeClr><\/a:solidFill>/g,
+      )).toHaveLength(2);
+      expect(xml).toContain(
+        '<a:solidFill><a:srgbClr val="FFFF00">'
+        + '<a:alpha val="50000"/></a:srgbClr></a:solidFill>',
+      );
+      expect(xml).toContain(
+        '<a:solidFill><a:srgbClr val="112233">'
+        + '<a:alpha val="66667"/></a:srgbClr></a:solidFill>',
+      );
+      expect(xml.match(
+        /<a:solidFill><a:srgbClr val="445566"><a:alpha val="0"\/><\/a:srgbClr><\/a:solidFill>/g,
+      )).toHaveLength(2);
+      for (const properties of xml.matchAll(
+        /<a:tcPr[^>]*>([\s\S]*?)<\/a:tcPr>/g,
+      )) {
+        const direct = properties[1]!;
+        const fill = Math.max(
+          direct.lastIndexOf('<a:noFill/>'),
+          direct.lastIndexOf('<a:solidFill>'),
+        );
+        expect(fill).toBeGreaterThan(direct.indexOf('</a:lnB>'));
+      }
+    }
+
+    const reopenedNative = await PptxDocument.open(await native.write());
+    const reopenedImported = await PptxDocument.open(await imported.write());
+    expect((reopenedNative.slides[0]!.shapes.filter(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    )).map((table) => table.rows[0]!.cells.map(({ fill }) => fill)))
+      .toEqual(expectedFills);
+    expect((reopenedImported.slides[0]!.shapes.filter(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    )).map((table) => table.rows[0]!.cells.map(({ fill }) => fill)))
+      .toEqual(expectedFills);
+
+    const generatedDifferences = new PptxGenJS();
+    generatedDifferences.addSlide().addTable([[
+      { text: 'Collapsed none', options: {} },
+      { text: 'Collapsed zero alpha', options: {
+        fill: { color: '00FF00', transparency: 0 },
+      } },
+    ]], {
+      x: 1,
+      y: 1,
+      w: 4,
+      h: 1,
+      colW: [2, 2],
+      rowH: [1],
+      fill: { type: 'none' },
+    });
+    const importedDifferences = await importPptxGenJS(generatedDifferences);
+    const importedDifferenceTable =
+      importedDifferences.slides[0]!.shapes[0] as TableModel;
+    expect(importedDifferenceTable.rows[0]!.cells.map(({ fill }) => fill)).toEqual([
+      undefined,
+      { kind: 'solid', color: { kind: 'srgb', value: '00FF00' } },
+    ]);
+
+    const nativeDifferences = PptxDocument.create();
+    const nativeDifferenceSlide = nativeDifferences.addSlide();
+    const nativeDifferenceTable = nativeDifferenceSlide.addTable([[
+      'Inherited none',
+      { text: 'Explicit zero override', options: { fill: {
+        kind: 'solid',
+        color: { kind: 'srgb', value: '00FF00' },
+        transparency: 0,
+      } } },
+    ]], { fill: { kind: 'none' } });
+    expect(nativeDifferenceTable.rows[0]!.cells.map(({ fill }) => fill)).toEqual([
+      { kind: 'none' },
+      {
+        kind: 'solid',
+        color: { kind: 'srgb', value: '00FF00' },
+        transparency: 0,
+      },
+    ]);
+    const nativeDifferenceXml = new TextDecoder().decode(
+      nativeDifferences.opcPackage.requirePart(nativeDifferenceSlide.partUri).bytes,
+    );
+    expect(nativeDifferenceXml).toContain('</a:lnB><a:noFill/></a:tcPr>');
+    expect(nativeDifferenceXml).toContain(
+      '<a:solidFill><a:srgbClr val="00FF00">'
+      + '<a:alpha val="100000"/></a:srgbClr></a:solidFill>',
+    );
+    const reopenedNativeDifference = await PptxDocument.open(
+      await nativeDifferences.write(),
+    );
+    expect((reopenedNativeDifference.slides[0]!.shapes[0] as TableModel)
+      .rows[0]!.cells.map(({ fill }) => fill)).toEqual([
+      { kind: 'none' },
+      {
+        kind: 'solid',
+        color: { kind: 'srgb', value: '00FF00' },
+        transparency: 0,
+      },
+    ]);
+    const reopenedImportedDifference = await PptxDocument.open(
+      await importedDifferences.write(),
+    );
+    expect((reopenedImportedDifference.slides[0]!.shapes[0] as TableModel)
+      .rows[0]!.cells.map(({ fill }) => fill)).toEqual([
+      undefined,
+      { kind: 'solid', color: { kind: 'srgb', value: '00FF00' } },
+    ]);
+
+    const beforeInvalid = native.opcPackage.requirePart(nativeSlide.partUri).bytes.slice();
+    const invalidJournal = [...native.opcPackage.mutations];
+    expect(() => nativeSlide.addTable([['Invalid']], { fill: {} as never }))
+      .toThrow(TypeError);
+    expect(native.opcPackage.requirePart(nativeSlide.partUri).bytes).toEqual(beforeInvalid);
+    expect(native.opcPackage.mutations).toEqual(invalidJournal);
+    expect(nativeSlide.shapes).toHaveLength(4);
+  });
+
   it('imports PptxGenJS table-cell fills from direct cell properties', async () => {
     const generated = new PptxGenJS();
     expect(generated.version).toBe('4.0.1');
