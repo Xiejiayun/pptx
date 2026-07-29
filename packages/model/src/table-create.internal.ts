@@ -14,13 +14,21 @@ import {
 } from './table-cell-borders.internal.js';
 import { renderTableCellMarginAttributes } from './table-cell-margins.internal.js';
 import {
+  normalizeTableCellTextDirection,
+  renderTableCellTextDirectionAttribute,
+} from './table-cell-text-direction.internal.js';
+import {
   renderTableCellVerticalAlignmentAttribute,
 } from './table-cell-vertical-alignment.internal.js';
 import { normalizeTextBoxMargins } from './text-box-margins.internal.js';
 import {
   normalizeTextBoxVerticalAlignment,
 } from './text-box-vertical-alignment.internal.js';
-import type { TableCellBorders, TableCellFill } from './shapes.js';
+import type {
+  TableCellBorders,
+  TableCellFill,
+  TableCellTextDirection,
+} from './shapes.js';
 import type {
   TextAlignment,
   TextBoxMarginInput,
@@ -51,6 +59,7 @@ interface NormalizedTableCell {
   readonly borders?: TableCellBorders;
   readonly fill?: TableCellFill;
   readonly margins?: TextBoxMargins;
+  readonly textDirection?: TableCellTextDirection;
   readonly verticalAlignment?: TextBoxVerticalAlignment;
 }
 
@@ -260,13 +269,18 @@ function normalizeTableCellOptions(
   context: string,
 ): Pick<
   NormalizedTableCell,
-  'alignment' | 'borders' | 'fill' | 'margins' | 'verticalAlignment'
+  | 'alignment'
+  | 'borders'
+  | 'fill'
+  | 'margins'
+  | 'textDirection'
+  | 'verticalAlignment'
 > {
   if (value === undefined) return {};
   const options = readDataObject(
     value,
     `${context} options`,
-    ['align', 'border', 'fill', 'margin', 'valign'],
+    ['align', 'border', 'fill', 'margin', 'textDirection', 'valign'],
   );
   const alignment = options.align === undefined
     ? undefined
@@ -277,6 +291,12 @@ function normalizeTableCellOptions(
     options.margin as TextBoxMarginInput | undefined,
     `${context} margin`,
   );
+  const textDirection = options.textDirection === undefined
+    ? undefined
+    : normalizeTableCellTextDirection(
+      options.textDirection,
+      `${context} textDirection`,
+    );
   const verticalAlignment = options.valign === undefined
     ? undefined
     : normalizeTextBoxVerticalAlignment(options.valign, `${context} valign`);
@@ -285,6 +305,7 @@ function normalizeTableCellOptions(
     ...(borders === undefined ? {} : { borders }),
     ...(fill === undefined ? {} : { fill }),
     ...(margins === undefined ? {} : { margins }),
+    ...(textDirection === undefined ? {} : { textDirection }),
     ...(verticalAlignment === undefined ? {} : { verticalAlignment }),
   };
 }
@@ -436,7 +457,10 @@ function renderTableCell(cell: NormalizedTableCell): string {
   const verticalAlignmentAttribute = renderTableCellVerticalAlignmentAttribute(
     cell.verticalAlignment,
   );
-  return `<a:tc><a:txBody><a:bodyPr/><a:lstStyle/>${paragraphs}</a:txBody><a:tcPr${marginAttributes}${verticalAlignmentAttribute}>${borders}${fill}</a:tcPr></a:tc>`;
+  const textDirectionAttribute = renderTableCellTextDirectionAttribute(
+    cell.textDirection,
+  );
+  return `<a:tc><a:txBody><a:bodyPr/><a:lstStyle/>${paragraphs}</a:txBody><a:tcPr${marginAttributes}${verticalAlignmentAttribute}${textDirectionAttribute}>${borders}${fill}</a:tcPr></a:tc>`;
 }
 
 function containsInvalidXmlCharacter(value: string): boolean {

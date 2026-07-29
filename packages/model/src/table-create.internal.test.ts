@@ -995,6 +995,81 @@ describe('table creation internals', () => {
     );
   });
 
+  it('normalizes and renders strict table cell text direction', () => {
+    const nullOptions = Object.assign(Object.create(null), {
+      textDirection: 'wordArtVert',
+    });
+    const rows = [[
+      'String',
+      { text: 'Empty', options: {} },
+      { text: 'Undefined', options: { textDirection: undefined } },
+      { text: 'Horizontal', options: { textDirection: 'horz' } },
+      { text: 'Vertical', options: { textDirection: 'vert' } },
+      { text: 'Rotate 270', options: { textDirection: 'vert270' } },
+      { text: 'Stacked', options: { textDirection: 'wordArtVert' } },
+      { text: 'Null prototype', options: nullOptions },
+      { text: 'Combined', options: {
+        align: 'center',
+        textDirection: 'vert270',
+        valign: 'middle',
+        margin: { top: 4, left: 8 },
+        border: {
+          kind: 'line',
+          color: { kind: 'srgb', value: 'C00000' },
+          width: 2,
+        },
+        fill: {
+          kind: 'solid',
+          color: { kind: 'scheme', value: 'accent1' },
+        },
+      } },
+    ]];
+    const definition = normalizeTableDefinition(rows, undefined);
+
+    expect(definition.rows[0]!.map(({ textDirection }) => textDirection)).toEqual([
+      undefined,
+      undefined,
+      undefined,
+      'horz',
+      'vert',
+      'vert270',
+      'wordArtVert',
+      'wordArtVert',
+      'vert270',
+    ]);
+
+    const equivalent = [
+      [['Same']],
+      [[{ text: 'Same' }]],
+      [[{ text: 'Same', options: {} }]],
+      [[{ text: 'Same', options: { textDirection: undefined } }]],
+      [[{ text: 'Same', options: { textDirection: 'horz' } }]],
+    ].map((input) => renderTableGraphicFrame(
+      50,
+      normalizeTableDefinition(input, undefined),
+    ));
+    expect(new Set(equivalent).size).toBe(1);
+    expect(equivalent[0]).not.toMatch(/<a:tcPr[^>]*\svert=/);
+
+    const xml = renderTableGraphicFrame(51, definition);
+    expect([...xml.matchAll(/<a:tcPr([^>]*)>/g)].map((match) =>
+      match[1]!.match(/\svert="([^"]+)"/)?.[1])).toEqual([
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      'vert',
+      'vert270',
+      'wordArtVert',
+      'wordArtVert',
+      'vert270',
+    ]);
+    expect(xml).toMatch(
+      /marB="45720" anchor="ctr" vert="vert270"><a:lnL[\s\S]*<\/a:lnB><a:solidFill>/,
+    );
+    expect(xml).not.toMatch(/<a:bodyPr[^>]*\svert=/);
+  });
+
   it('normalizes and renders strict table cell horizontal alignment', () => {
     const nullOptions = Object.assign(Object.create(null), { align: 'right' });
     const rows = [[
@@ -1362,6 +1437,15 @@ describe('table creation internals', () => {
       enumerable: true,
       configurable: true,
     });
+    const accessorTextDirectionOptions = {};
+    Object.defineProperty(accessorTextDirectionOptions, 'textDirection', {
+      get() {
+        cellAccessorCalls += 1;
+        return 'vert';
+      },
+      enumerable: true,
+      configurable: true,
+    });
     const accessorMargin = { left: 1 };
     Object.defineProperty(accessorMargin, 'top', {
       get() {
@@ -1507,6 +1591,21 @@ describe('table creation internals', () => {
       {},
       Symbol('center'),
     ];
+    const invalidTextDirections = [
+      null,
+      false,
+      true,
+      0,
+      '',
+      'Vert',
+      ' vert ',
+      'eaVert',
+      'mongolianVert',
+      'wordArtVertRtl',
+      [],
+      {},
+      Symbol('vert'),
+    ];
     const invalidCells = [
       null,
       1,
@@ -1528,6 +1627,7 @@ describe('table creation internals', () => {
       { text: 'A', options: accessorMarginOptions },
       { text: 'A', options: accessorValignOptions },
       { text: 'A', options: accessorAlignOptions },
+      { text: 'A', options: accessorTextDirectionOptions },
       { text: 'A', options: { unknown: true } },
       { text: 'A', options: Object.assign({}, { [Symbol('extra')]: true }) },
       { text: 'A', options: { fill: accessorFill } },
@@ -1640,6 +1740,10 @@ describe('table creation internals', () => {
       ].map((margin) => ({ text: 'A', options: { margin } })),
       ...invalidValigns.map((valign) => ({ text: 'A', options: { valign } })),
       ...invalidAlignments.map((align) => ({ text: 'A', options: { align } })),
+      ...invalidTextDirections.map((textDirection) => ({
+        text: 'A',
+        options: { textDirection },
+      })),
       { text: 'A', extra: true },
       Object.assign({ text: 'A' }, { [Symbol('extra')]: true }),
       { text: 1 },

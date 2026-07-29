@@ -37,6 +37,14 @@ export function normalizeTableCellTextDirection(
   return value as TableCellTextDirection;
 }
 
+export function renderTableCellTextDirectionAttribute(
+  value: TableCellTextDirection | undefined,
+): string {
+  return value === undefined || value === 'horz'
+    ? ''
+    : ` vert="${escapeXmlAttribute(value)}"`;
+}
+
 export function replaceTableCellTextDirection(
   xml: LosslessXmlDocument,
   cell: XmlElement,
