@@ -24,6 +24,10 @@ const CORE_PROPERTIES_RELATIONSHIP =
   'http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties';
 const CORE_PROPERTIES_CONTENT_TYPE =
   'application/vnd.openxmlformats-package.core-properties+xml';
+const EXTENDED_PROPERTIES_RELATIONSHIP =
+  'http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties';
+const EXTENDED_PROPERTIES_CONTENT_TYPE =
+  'application/vnd.openxmlformats-officedocument.extended-properties+xml';
 
 async function modelFixture(
   presentationContentType = PRESENTATION_FORMAT_PROFILES.pptx.presentationContentType,
@@ -430,6 +434,158 @@ describe('PresentationModel', () => {
     expect(createdXml).not.toContain('lastModifiedBy');
     const reopenedCreated = new PresentationModel(await OpcPackage.open(await missingPkg.write()));
     expect(reopenedCreated.author).toBe('Created metadata');
+  });
+
+  it('reads, edits, clears, creates, and reopens presentation company metadata', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const appXml =
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<ep:Properties xmlns:ep="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" ' +
+      'xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">' +
+      '<ep:Application>Microsoft Office PowerPoint</ep:Application>' +
+      '<ep:PresentationFormat>Custom</ep:PresentationFormat><ep:Slides>2</ep:Slides>' +
+      '<ep:HeadingPairs><vt:vector size="2" baseType="variant"><vt:variant>' +
+      '<vt:lpstr>Theme</vt:lpstr></vt:variant></vt:vector></ep:HeadingPairs>' +
+      '<ep:Company custom="KEEP">Original &amp; company</ep:Company>' +
+      '<x:opaque xmlns:x="urn:test">KEEP</x:opaque>' +
+      '<ep:AppVersion>16.0000</ep:AppVersion></ep:Properties>';
+    pkg.transaction(() => {
+      pkg.setPart(
+        '/metadata/application.xml',
+        appXml,
+        EXTENDED_PROPERTIES_CONTENT_TYPE,
+      );
+      pkg.addRelationship('/', {
+        type: EXTENDED_PROPERTIES_RELATIONSHIP,
+        target: 'metadata/application.xml',
+      });
+    });
+    const model = new PresentationModel(pkg);
+    const slide = model.slides[0];
+    const readJournal = [...pkg.mutations];
+    expect(model.company).toBe('Original & company');
+    expect(pkg.mutations).toEqual(readJournal);
+
+    const beforeSame = pkg.requirePart('/metadata/application.xml').bytes;
+    model.company = 'Original & company';
+    expect(pkg.requirePart('/metadata/application.xml').bytes).toEqual(beforeSame);
+    expect(pkg.mutations).toEqual(readJournal);
+    expect(model.slides[0]).toBe(slide);
+
+    const beforeInvalid = pkg.requirePart('/metadata/application.xml').bytes;
+    const invalidJournal = [...pkg.mutations];
+    for (const value of [
+      null,
+      true,
+      false,
+      0,
+      1,
+      {},
+      [],
+      Symbol('company'),
+      'bad\u0001company',
+    ]) {
+      expect(() => {
+        model.company = value as never;
+      }).toThrow(TypeError);
+    }
+    expect(pkg.requirePart('/metadata/application.xml').bytes).toEqual(beforeInvalid);
+    expect(pkg.mutations).toEqual(invalidJournal);
+    expect(model.slides[0]).toBe(slide);
+
+    const otherParts = new Map(
+      pkg.parts
+        .filter(({ uri }) => uri !== '/metadata/application.xml')
+        .map(({ uri, bytes }) => [uri, bytes]),
+    );
+    model.company = 'Edited & <safe>';
+    expect(model.company).toBe('Edited & <safe>');
+    let updated = new TextDecoder().decode(
+      pkg.requirePart('/metadata/application.xml').bytes,
+    );
+    expect(updated).toContain(
+      '<ep:Company custom="KEEP">Edited &amp; &lt;safe&gt;</ep:Company>',
+    );
+    expect(updated).toContain(
+      '<ep:Application>Microsoft Office PowerPoint</ep:Application>',
+    );
+    expect(updated).toContain('<ep:PresentationFormat>Custom</ep:PresentationFormat>');
+    expect(updated).toContain('<ep:Slides>2</ep:Slides>');
+    expect(updated).toContain('<vt:lpstr>Theme</vt:lpstr>');
+    expect(updated).toContain('<x:opaque xmlns:x="urn:test">KEEP</x:opaque>');
+    expect(updated).toContain('<ep:AppVersion>16.0000</ep:AppVersion>');
+    for (const [uri, bytes] of otherParts) {
+      expect(pkg.requirePart(uri).bytes).toEqual(bytes);
+    }
+    expect(model.slides[0]).toBe(slide);
+
+    model.company = '';
+    expect(model.company).toBe('');
+    updated = new TextDecoder().decode(pkg.requirePart('/metadata/application.xml').bytes);
+    expect(updated).toContain('<ep:Company custom="KEEP"></ep:Company>');
+
+    const beforeRollback = pkg.requirePart('/metadata/application.xml').bytes;
+    const rollbackJournal = [...pkg.mutations];
+    expect(() => pkg.transaction(() => {
+      model.company = 'Temporary';
+      expect(model.company).toBe('Temporary');
+      throw new Error('restore presentation company');
+    })).toThrow('restore presentation company');
+    expect(pkg.requirePart('/metadata/application.xml').bytes).toEqual(beforeRollback);
+    expect(pkg.mutations).toEqual(rollbackJournal);
+    expect(model.company).toBe('');
+
+    model.company = undefined;
+    expect(model.company).toBeUndefined();
+    updated = new TextDecoder().decode(pkg.requirePart('/metadata/application.xml').bytes);
+    expect(updated).not.toContain('<ep:Company');
+    expect(updated).toContain(
+      '<ep:Application>Microsoft Office PowerPoint</ep:Application>',
+    );
+    expect(updated).toContain('<ep:AppVersion>16.0000</ep:AppVersion>');
+    expect(pkg.hasPart('/metadata/application.xml')).toBe(true);
+    expect(pkg.relationships('/').filter(
+      ({ type }) => type === EXTENDED_PROPERTIES_RELATIONSHIP,
+    )).toHaveLength(1);
+
+    model.company = 'Reopened company';
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    expect(reopened.company).toBe('Reopened company');
+    expect(reopened.slides.map(({ partUri }) => partUri)).toEqual(
+      model.slides.map(({ partUri }) => partUri),
+    );
+    expect(new TextDecoder().decode(
+      reopened.opcPackage.requirePart('/metadata/application.xml').bytes,
+    )).toContain('<ep:AppVersion>16.0000</ep:AppVersion>');
+
+    const missingPkg = await OpcPackage.open(await modelFixture());
+    const missingModel = new PresentationModel(missingPkg);
+    const missingSlide = missingModel.slides[0];
+    const beforeAbsentClear = missingPkg.parts.map(({ uri, bytes }) => [uri, bytes] as const);
+    const absentJournal = [...missingPkg.mutations];
+    expect(missingModel.company).toBeUndefined();
+    missingModel.company = undefined;
+    expect(missingPkg.mutations).toEqual(absentJournal);
+    for (const [uri, bytes] of beforeAbsentClear) {
+      expect(missingPkg.requirePart(uri).bytes).toEqual(bytes);
+    }
+
+    missingModel.company = 'Created metadata';
+    expect(missingModel.company).toBe('Created metadata');
+    expect(missingModel.slides[0]).toBe(missingSlide);
+    const createdRelationship = missingPkg.relationships('/').find(
+      ({ type }) => type === EXTENDED_PROPERTIES_RELATIONSHIP,
+    );
+    expect(createdRelationship?.resolvedTarget).toBe('/docProps/app.xml');
+    expect(missingPkg.requirePart('/docProps/app.xml').contentType)
+      .toBe(EXTENDED_PROPERTIES_CONTENT_TYPE);
+    const createdXml = new TextDecoder().decode(
+      missingPkg.requirePart('/docProps/app.xml').bytes,
+    );
+    expect(createdXml).toContain('<Company>Created metadata</Company>');
+    expect(createdXml).not.toContain('Application');
+    const reopenedCreated = new PresentationModel(await OpcPackage.open(await missingPkg.write()));
+    expect(reopenedCreated.company).toBe('Created metadata');
   });
 
   it('uses r:id order and exposes common semantic objects', async () => {

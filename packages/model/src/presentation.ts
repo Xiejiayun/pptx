@@ -27,6 +27,10 @@ import {
   readPresentationAuthor,
   replacePresentationAuthor,
 } from './presentation-author.internal.js';
+import {
+  readPresentationCompany,
+  replacePresentationCompany,
+} from './presentation-company.internal.js';
 import type { Emu, SlideSize } from './units.js';
 
 const SLIDE_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slide+xml';
@@ -106,6 +110,16 @@ export class PresentationModel {
   set author(value: string | undefined) {
     this.opcPackage.transaction(() => {
       replacePresentationAuthor(this.opcPackage, value);
+    });
+  }
+
+  get company(): string | undefined {
+    return readPresentationCompany(this.opcPackage);
+  }
+
+  set company(value: string | undefined) {
+    this.opcPackage.transaction(() => {
+      replacePresentationCompany(this.opcPackage, value);
     });
   }
 
