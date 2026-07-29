@@ -130,6 +130,7 @@ const tableOptions: AddTableOptions = {
   y: inches(1.25),
   width: inches(8),
   height: inches(2.25),
+  columnWidths: [inches(2.5), inches(3.5), inches(2)],
 };
 const createdTable = document.addSlide().addTable([
   ['Region', 'Revenue', 'Growth'],
@@ -139,7 +140,7 @@ const createdTable = document.addSlide().addTable([
 createdTable.setCellText(2, 2, '8%');
 ```
 
-`addTable()` currently accepts a non-empty, dense, rectangular matrix of single-paragraph strings. Geometry uses EMU: x/y default to 0.5 inch, width defaults to one inch per column, and height defaults to one inch with automatic row heights; use `inches()` for inch-based inputs. Explicit width and height are distributed exactly across columns and rows. New cells materialize 7.2pt horizontal and 3.6pt vertical margins plus four direct no-fill borders, return a live `TableModel`, and can immediately use all existing cell and transform editors. Cell objects, rich/multi-paragraph text, `colW`/`rowH`, colspan/rowspan or merge editing, table/cell creation styles, auto-page/repeated headers, hyperlinks, and content measurement are not yet supported by native creation.
+`addTable()` currently accepts a non-empty, dense, rectangular matrix of single-paragraph strings. Geometry uses EMU: x/y default to 0.5 inch, width defaults to one inch per column, and height defaults to one inch with automatic row heights; use `inches()` for inch-based inputs. `columnWidths` accepts one positive EMU width repeated across all columns or a dense array whose length exactly matches the column count. Values are rounded to safe integers, the input array is detached, and the total table width is derived from their sum when `width` is omitted; when both are supplied, the rounded width must equal that sum. Without `columnWidths`, explicit width is distributed exactly across columns as before. The emitted transform width always equals the grid sum. New cells materialize 7.2pt horizontal and 3.6pt vertical margins plus four direct no-fill borders, return a live `TableModel`, and can immediately use all existing cell and transform editors. `TableModel` does not yet expose column-width snapshots or editing, and inherited `setTransform({ width })` changes only the transform rather than resizing the grid. Cell objects, rich/multi-paragraph text, independent row heights, colspan/rowspan or merge editing, table/cell creation styles, auto-page/repeated headers, hyperlinks, and content measurement are not yet supported by native creation.
 
 ```ts
 import {

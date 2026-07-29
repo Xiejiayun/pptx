@@ -9,7 +9,7 @@ const DEFAULT_OFFSET = EMU_PER_INCH / 2;
 const DEFAULT_HEIGHT = EMU_PER_INCH;
 const CELL_MARGIN_HORIZONTAL = 91_440;
 const CELL_MARGIN_VERTICAL = 45_720;
-const OPTION_KEYS = ['name', 'x', 'y', 'width', 'height'] as const;
+const OPTION_KEYS = ['name', 'x', 'y', 'width', 'height', 'columnWidths'] as const;
 const NO_BORDERS = ['lnL', 'lnR', 'lnT', 'lnB']
   .map((tag) => `<a:${tag} w="0" cap="flat" cmpd="sng" algn="ctr"><a:noFill/></a:${tag}>`)
   .join('');
@@ -22,6 +22,7 @@ export interface NormalizedTableDefinition {
   readonly width: number;
   readonly height: number;
   readonly autoRowHeight: boolean;
+  readonly columnWidths: readonly number[];
 }
 
 export function normalizeTableDefinition(
@@ -64,15 +65,32 @@ export function normalizeTableDefinition(
   const y = normalizedOptions.y === undefined
     ? DEFAULT_OFFSET
     : normalizeCoordinate(normalizedOptions.y, 'Table y');
-  const defaultWidth = columnCount * EMU_PER_INCH;
-  if (!Number.isSafeInteger(defaultWidth)) {
-    throw new RangeError('Table default width must fit a safe integer EMU value');
-  }
-  const width = normalizedOptions.width === undefined
-    ? defaultWidth
-    : normalizeCoordinate(normalizedOptions.width, 'Table width');
-  if (width < columnCount) {
-    throw new RangeError('Table width must provide at least one EMU per column');
+  const requestedColumnWidths = normalizedOptions.columnWidths;
+  let width: number;
+  let columnWidths: readonly number[];
+  if (requestedColumnWidths !== undefined) {
+    columnWidths = normalizeColumnWidths(requestedColumnWidths, columnCount);
+    const columnWidthSum = sumColumnWidths(columnWidths);
+    if (normalizedOptions.width === undefined) {
+      width = columnWidthSum;
+    } else {
+      width = normalizeCoordinate(normalizedOptions.width, 'Table width');
+      if (width !== columnWidthSum) {
+        throw new RangeError('Table width must equal the sum of columnWidths');
+      }
+    }
+  } else {
+    const defaultWidth = columnCount * EMU_PER_INCH;
+    if (!Number.isSafeInteger(defaultWidth)) {
+      throw new RangeError('Table default width must fit a safe integer EMU value');
+    }
+    width = normalizedOptions.width === undefined
+      ? defaultWidth
+      : normalizeCoordinate(normalizedOptions.width, 'Table width');
+    if (width < columnCount) {
+      throw new RangeError('Table width must provide at least one EMU per column');
+    }
+    columnWidths = distributeTableDimension(width, columnCount);
   }
 
   const autoRowHeight = normalizedOptions.height === undefined;
@@ -92,6 +110,7 @@ export function normalizeTableDefinition(
     width,
     height,
     autoRowHeight,
+    columnWidths,
   };
 }
 
@@ -108,11 +127,10 @@ export function renderTableGraphicFrame(
   id: number,
   definition: NormalizedTableDefinition,
 ): string {
-  const columnWidths = distributeTableDimension(definition.width, definition.rows[0]!.length);
   const rowHeights = definition.autoRowHeight
     ? definition.rows.map(() => 0)
     : distributeTableDimension(definition.height, definition.rows.length);
-  const grid = columnWidths.map((width) => `<a:gridCol w="${width}"/>`).join('');
+  const grid = definition.columnWidths.map((width) => `<a:gridCol w="${width}"/>`).join('');
   const rows = definition.rows.map((row, rowIndex) => {
     const cells = row.map(renderTableCell).join('');
     return `<a:tr h="${rowHeights[rowIndex]}">${cells}</a:tr>`;
@@ -177,6 +195,31 @@ function normalizeCoordinate(value: unknown, context: string): number {
     throw new RangeError(`${context} must round to a safe integer EMU value`);
   }
   return rounded;
+}
+
+function normalizeColumnWidths(value: unknown, columnCount: number): readonly number[] {
+  const values = Array.isArray(value)
+    ? readDenseArray(value, 'Table columnWidths')
+    : Array.from({ length: columnCount }, () => value);
+  if (values.length !== columnCount) {
+    throw new TypeError('Table columnWidths must match the table column count');
+  }
+  return values.map((item, index) => {
+    const width = normalizeCoordinate(item, `Table columnWidths ${index}`);
+    if (width <= 0) {
+      throw new RangeError(`Table columnWidths ${index} must be greater than zero`);
+    }
+    return width;
+  });
+}
+
+function sumColumnWidths(widths: readonly number[]): number {
+  return widths.reduce((sum, width) => {
+    if (width > Number.MAX_SAFE_INTEGER - sum) {
+      throw new RangeError('Table columnWidths sum must fit a safe integer EMU value');
+    }
+    return sum + width;
+  }, 0);
 }
 
 function renderTableCell(text: string): string {

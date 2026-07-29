@@ -283,6 +283,35 @@ describe('PresentationModel', () => {
     expect(updated.indexOf('name="After"')).toBeLessThan(updated.indexOf('<p:extLst>'));
     expect(updated).toContain('<x:opaque xmlns:x="urn:test">KEEP</x:opaque>');
 
+    const unequal = slide.addTable(
+      [['A', 'B', 'C'], ['D', 'E', 'F']],
+      {
+        name: 'Unequal columns',
+        columnWidths: [inches(1), inches(2), inches(3)],
+        height: inches(2),
+      },
+    );
+    expect(unequal.id).toBe(5);
+    expect(unequal.transform.width).toBe(inches(6));
+    const unequalSlideXml = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    const unequalNameOffset = unequalSlideXml.indexOf('name="Unequal columns"');
+    const unequalFrameStart = unequalSlideXml.lastIndexOf('<p:graphicFrame', unequalNameOffset);
+    const unequalFrameEnd = unequalSlideXml.indexOf('</p:graphicFrame>', unequalNameOffset);
+    const unequalFrame = unequalSlideXml.slice(
+      unequalFrameStart,
+      unequalFrameEnd + '</p:graphicFrame>'.length,
+    );
+    expect(unequalFrameStart).toBeGreaterThanOrEqual(0);
+    expect(unequalFrameEnd).toBeGreaterThan(unequalNameOffset);
+    expect([...unequalFrame.matchAll(/<a:gridCol w="(\d+)"\/>/g)]
+      .map((match) => Number(match[1]))).toEqual([
+      inches(1),
+      inches(2),
+      inches(3),
+    ]);
+    expect(unequalFrame).toContain('<a:ext cx="5486400" cy="1828800"/>');
+    expect(unequalFrame.match(/<a:tc>/g)).toHaveLength(6);
+
     const beforeInvalid = pkg.requirePart(slide.partUri).bytes;
     const invalidJournal = [...pkg.mutations];
     const invalidRows = [null, [], ['A'], [['A'], ['B', 'C']], [[1]], [['line\nbreak']]];
@@ -297,10 +326,24 @@ describe('PresentationModel', () => {
       { x: Number.NaN },
       { width: 0 },
       { height: Number.POSITIVE_INFINITY },
+      { columnWidths: [1, 2] },
+      { width: 4, columnWidths: [1] },
     ];
+    const accessorColumnWidths = [1];
+    let columnWidthAccessorCalls = 0;
+    Object.defineProperty(accessorColumnWidths, '0', {
+      get() {
+        columnWidthAccessorCalls += 1;
+        return 1;
+      },
+      enumerable: true,
+      configurable: true,
+    });
+    invalidOptions.push({ columnWidths: accessorColumnWidths });
     for (const options of invalidOptions) {
       expect(() => slide.addTable([['A']], options as never)).toThrow();
     }
+    expect(columnWidthAccessorCalls).toBe(0);
     expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeInvalid);
     expect(pkg.mutations).toEqual(invalidJournal);
 

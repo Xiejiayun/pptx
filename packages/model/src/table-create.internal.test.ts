@@ -32,6 +32,7 @@ describe('table creation internals', () => {
       width: 2_743_201,
       height: 1_371_601,
       autoRowHeight: false,
+      columnWidths: [914_401, 914_400, 914_400],
     });
     expect(distributeTableDimension(6, 3)).toEqual([2, 2, 2]);
     expect(distributeTableDimension(2_743_201, 3)).toEqual([914_401, 914_400, 914_400]);
@@ -67,11 +68,51 @@ describe('table creation internals', () => {
       width: 1_828_800,
       height: 914_400,
       autoRowHeight: true,
+      columnWidths: [914_400, 914_400],
     });
     expect(defaultXml).toContain('<a:off x="457200" y="457200"/>');
     expect(defaultXml).toContain('<a:ext cx="1828800" cy="914400"/>');
     expect(defaultXml).toContain('<a:gridCol w="914400"/><a:gridCol w="914400"/>');
     expect(defaultXml).toContain('<a:tr h="0">');
+  });
+
+  it('normalizes exact scalar and per-column widths without retaining input', () => {
+    const unequalSource = [914_400.2, 1_828_799.7, 2_743_200];
+    const unequal = normalizeTableDefinition(
+      [['A', 'B', 'C']],
+      { columnWidths: unequalSource },
+    );
+    expect(unequal).toMatchObject({
+      width: 5_486_400,
+      columnWidths: [914_400, 1_828_800, 2_743_200],
+    });
+    expect(renderTableGraphicFrame(4, unequal)).toContain(
+      '<a:gridCol w="914400"/><a:gridCol w="1828800"/><a:gridCol w="2743200"/>',
+    );
+    unequalSource[0] = 1;
+    expect(unequal.columnWidths[0]).toBe(914_400);
+
+    const scalar = normalizeTableDefinition(
+      [['A', 'B', 'C']],
+      { columnWidths: 1_143_000 },
+    );
+    expect(scalar.width).toBe(3_429_000);
+    expect(scalar.columnWidths).toEqual([1_143_000, 1_143_000, 1_143_000]);
+
+    const matching = normalizeTableDefinition(
+      [['A', 'B', 'C']],
+      {
+        width: 5_486_400,
+        columnWidths: [914_400, 1_828_800, 2_743_200],
+      },
+    );
+    expect(matching.width).toBe(5_486_400);
+    expect(matching.columnWidths).toEqual([914_400, 1_828_800, 2_743_200]);
+
+    expect(normalizeTableDefinition(
+      [['A', 'B']],
+      { columnWidths: undefined },
+    ).columnWidths).toEqual([914_400, 914_400]);
   });
 
   it('strictly rejects malformed matrices and options without invoking accessors', () => {
@@ -165,5 +206,59 @@ describe('table creation internals', () => {
     expect(() => normalizeTableDefinition([['A', 'B']], { width: 1 })).toThrow(RangeError);
     expect(() => normalizeTableDefinition([['A'], ['B']], { height: 1 })).toThrow(RangeError);
     expect(optionAccessorCalls).toBe(0);
+
+    const sparseWidths = Array(3);
+    sparseWidths[0] = 1;
+    sparseWidths[2] = 1;
+    const extraWidths = Object.assign([1, 1, 1], { extra: true });
+    const symbolWidths = Object.assign([1, 1, 1], { [Symbol('extra')]: true });
+    const accessorWidths = [1, 1, 1];
+    let widthAccessorCalls = 0;
+    Object.defineProperty(accessorWidths, '1', {
+      get() {
+        widthAccessorCalls += 1;
+        return 1;
+      },
+      enumerable: true,
+      configurable: true,
+    });
+    const invalidColumnWidths = [
+      null,
+      false,
+      '',
+      {},
+      new Uint32Array([1, 1, 1]),
+      [],
+      [1],
+      [1, 1],
+      [1, 1, 1, 1],
+      sparseWidths,
+      extraWidths,
+      symbolWidths,
+      accessorWidths,
+      [1, '2', 3],
+      [1, null, 3],
+      [1, [2], 3],
+      [1, Number.NaN, 3],
+      [1, Number.POSITIVE_INFINITY, 3],
+      [1, Number.MAX_SAFE_INTEGER + 2, 3],
+      [1, 0, 3],
+      [1, -1, 3],
+    ];
+    for (const columnWidths of invalidColumnWidths) {
+      expect(() => normalizeTableDefinition(
+        [['A', 'B', 'C']],
+        { columnWidths },
+      )).toThrow();
+    }
+    expect(widthAccessorCalls).toBe(0);
+    expect(() => normalizeTableDefinition(
+      [['A', 'B']],
+      { columnWidths: [Number.MAX_SAFE_INTEGER, 1] },
+    )).toThrow(RangeError);
+    expect(() => normalizeTableDefinition(
+      [['A', 'B']],
+      { width: 4, columnWidths: [1, 2] },
+    )).toThrow(RangeError);
   });
 });

@@ -362,6 +362,7 @@ describe('PptxDocument vertical slice', () => {
         y: inches(1.25),
         width: inches(8),
         height: inches(2.25),
+        columnWidths: [inches(2), inches(4), inches(2)],
       },
     );
 
@@ -393,6 +394,16 @@ describe('PptxDocument vertical slice', () => {
     expect(table.rows[0]!.cells[0]!.textDirection).toBeUndefined();
     expect(table.rows[0]!.cells[0]!.textFit).toBeUndefined();
     expect(table.rows[0]!.cells[0]!.verticalAlignment).toBeUndefined();
+    const createdTableXml = new TextDecoder().decode(
+      document.opcPackage.requirePart(slide.partUri).bytes,
+    );
+    expect([...createdTableXml.matchAll(/<a:gridCol w="(\d+)"\/>/g)]
+      .map((match) => Number(match[1]))).toEqual([
+      inches(2),
+      inches(4),
+      inches(2),
+    ]);
+    expect(createdTableXml).toContain('<a:ext cx="7315200" cy="2057400"/>');
     expect(validatePackage(document.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
     for (const [uri, bytes] of otherParts) {
       expect(document.opcPackage.requirePart(uri).bytes).toEqual(bytes);
@@ -401,6 +412,15 @@ describe('PptxDocument vertical slice', () => {
     const duplicate = document.duplicateSlide(0);
     const duplicateTable = duplicate.shapes[0] as TableModel;
     const originalRows = duplicateTable.rows;
+    const duplicateTableXml = new TextDecoder().decode(
+      document.opcPackage.requirePart(duplicate.partUri).bytes,
+    );
+    expect([...duplicateTableXml.matchAll(/<a:gridCol w="(\d+)"\/>/g)]
+      .map((match) => Number(match[1]))).toEqual([
+      inches(2),
+      inches(4),
+      inches(2),
+    ]);
 
     table.setCellText(1, 0, 'Eastern');
     table.setCellText(2, 2, 'Now filled');
@@ -503,6 +523,15 @@ describe('PptxDocument vertical slice', () => {
     });
     expect(reopenedTable.transform.x).toBe(inches(1.5));
     expect(reopenedDuplicate.rows).toEqual(originalRows);
+    const reopenedTableXml = new TextDecoder().decode(
+      reopened.opcPackage.requirePart(reopened.slides[0]!.partUri).bytes,
+    );
+    expect([...reopenedTableXml.matchAll(/<a:gridCol w="(\d+)"\/>/g)]
+      .map((match) => Number(match[1]))).toEqual([
+      inches(2),
+      inches(4),
+      inches(2),
+    ]);
   });
 
   it('edits table-cell text directions through duplicate, rollback, and reopen lifecycles', async () => {

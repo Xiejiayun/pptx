@@ -50,7 +50,7 @@ describe('importPptxGenJS', () => {
     ] as const;
     generatedSlide.addTable(
       rows.map((row) => row.map((text) => ({ text, options: {} }))),
-      { x: 1, y: 1.5, w: 6, h: 2 },
+      { x: 1, y: 1.5, w: 6, h: 2, colW: [1, 2, 3] },
     );
 
     const imported = await importPptxGenJS(generated);
@@ -61,6 +61,7 @@ describe('importPptxGenJS', () => {
       y: inches(1.5),
       width: inches(6),
       height: inches(2),
+      columnWidths: [inches(1), inches(2), inches(3)],
     });
 
     expect(importedTable).toBeInstanceOf(TableModel);
@@ -90,6 +91,7 @@ describe('importPptxGenJS', () => {
       const rowHeights = [...xml.matchAll(/<a:tr h="(\d+)">/g)]
         .map((match) => Number(match[1]));
       expect(columnWidths).toHaveLength(3);
+      expect(columnWidths).toEqual([inches(1), inches(2), inches(3)]);
       expect(columnWidths.reduce((sum, width) => sum + width, 0)).toBe(5_486_400);
       expect(rowHeights).toEqual([914_400, 914_400]);
       expect(xml.match(/<a:tc>/g)).toHaveLength(6);
@@ -117,6 +119,48 @@ describe('importPptxGenJS', () => {
     expect(reopenedImportedTable.rows).toEqual(importedTable.rows);
     expect(reopenedNativeTable.transform).toEqual(nativeTable.transform);
     expect(reopenedImportedTable.transform).toEqual(importedTable.transform);
+  });
+
+  it('repairs PptxGenJS scalar column-width floor while preserving public intent', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    generated.layout = 'LAYOUT_WIDE';
+    const rows = [['A', 'B', 'C']] as const;
+    generated.addSlide().addTable(
+      rows.map((row) => row.map((text) => ({ text, options: {} }))),
+      { x: 1, y: 1, h: 1, colW: 1.25 },
+    );
+    const imported = await importPptxGenJS(generated);
+
+    const native = PptxDocument.create({ slideSize: 'wide' });
+    const nativeTable = native.addSlide().addTable(rows, {
+      x: inches(1),
+      y: inches(1),
+      height: inches(1),
+      columnWidths: inches(1.25),
+    });
+
+    const importedXml = new TextDecoder().decode(
+      imported.opcPackage.requirePart(imported.slides[0]!.partUri).bytes,
+    );
+    const nativeXml = new TextDecoder().decode(
+      native.opcPackage.requirePart(native.slides[0]!.partUri).bytes,
+    );
+    const readColumnWidths = (xml: string): number[] =>
+      [...xml.matchAll(/<a:gridCol w="(\d+)"\/>/g)].map((match) => Number(match[1]));
+    expect(readColumnWidths(importedXml)).toEqual([
+      inches(1),
+      inches(1),
+      inches(1),
+    ]);
+    expect(readColumnWidths(nativeXml)).toEqual([
+      inches(1.25),
+      inches(1.25),
+      inches(1.25),
+    ]);
+    expect((imported.slides[0]!.shapes[0] as TableModel).transform.width).toBe(inches(3));
+    expect(nativeTable.transform.width).toBe(inches(3.75));
+    expect(nativeXml).toContain('<a:ext cx="3429000" cy="914400"/>');
   });
 
   it('imports PptxGenJS table-cell text directions with exact four-value semantics', async () => {
