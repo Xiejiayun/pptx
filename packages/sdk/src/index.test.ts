@@ -81,6 +81,29 @@ async function tableTextDirectionFixture(): Promise<Uint8Array> {
   return document.opcPackage.write();
 }
 
+async function tableHorizontalAlignmentFixture(): Promise<Uint8Array> {
+  const document = await PptxDocument.open(await tableTextDirectionFixture());
+  const slide = document.slides[0]!;
+  const part = document.opcPackage.requirePart(slide.partUri);
+  let source = new TextDecoder().decode(part.bytes);
+  for (const [text, properties] of [
+    ['Explicit none', '<a:pPr algn="l" keep="LEFT"/>'],
+    ['Calculated shrink', '<a:pPr algn="ctr" keep="CENTER"><a:buNone/></a:pPr>'],
+    ['Resize', '<a:pPr algn="r" keep="RIGHT"/>'],
+    ['Absent fit', '<a:pPr algn="just" keep="JUSTIFY"/>'],
+    ['Merged fit', '<a:pPr keep="ABSENT"/>'],
+  ] as const) {
+    const target = `<a:p><a:r><a:rPr lang="en-US"/><a:t>${text}</a:t>`;
+    expect(source.split(target)).toHaveLength(2);
+    source = source.replace(
+      target,
+      `<a:p>${properties}<a:r><a:rPr lang="en-US"/><a:t>${text}</a:t>`,
+    );
+  }
+  document.opcPackage.setPart(slide.partUri, source, part.contentType);
+  return document.write();
+}
+
 async function tableBordersFixture(): Promise<Uint8Array> {
   const document = await PptxDocument.open(await tableTextDirectionFixture());
   const slide = document.slides[0]!;
@@ -2291,6 +2314,203 @@ describe('PptxDocument vertical slice', () => {
     expect(slide.shapes[0]).toBe(table);
     expect(table.rows.map(({ cells }) => cells.map(({ textDirection }) => textDirection))).toEqual(directions);
     expect(table.rows.map(({ cells }) => cells.map((cell) => cell.text))).toEqual(text);
+  });
+
+  it('edits table-cell horizontal alignments through duplicate, rollback, and reopen lifecycles', async () => {
+    const document = await PptxDocument.open(await tableHorizontalAlignmentFixture());
+    expect(validatePackage(document.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+    const slide = document.slides[0]!;
+    const table = slide.shapes[0] as TableModel;
+    const originalAlignments = ['left', 'center', 'right', 'justify', undefined];
+    expect(table.rows[2]!.cells.map(({ horizontalAlignment }) => horizontalAlignment))
+      .toEqual(originalAlignments);
+    const duplicate = document.duplicateSlide(0);
+    const duplicateTable = duplicate.shapes[0] as TableModel;
+    const duplicateBefore = document.opcPackage.requirePart(duplicate.partUri).bytes.slice();
+
+    table.setCellHorizontalAlignment(2, 0, 'center');
+    table.setCellHorizontalAlignment(2, 1, 'right');
+    table.setCellHorizontalAlignment(2, 2, undefined);
+    table.setCellHorizontalAlignment(2, 3, 'left');
+    table.setCellHorizontalAlignment(2, 4, 'justify');
+    table.setCellText(2, 4, 'Edited merged alignment');
+    table.setCellTextFit(2, 0, 'resize');
+    table.setCellTextDirection(2, 3, 'horz');
+    table.setCellVerticalAlignment(2, 1, 'top');
+    table.setCellMargins(2, 2, { left: 9, right: 10 });
+    table.setCellBorders(2, 0, { kind: 'none' });
+    table.setCellFill(2, 3, { kind: 'none' });
+    table.setTransform({ x: inches(2) });
+    table.setColumnWidths([
+      inches(1),
+      inches(1.5),
+      inches(2),
+      inches(1.5),
+      inches(2),
+    ]);
+    table.setRowHeights([inches(1), inches(1.25), inches(0.75)]);
+    const snapshot = table.rows;
+    (snapshot[2]!.cells[1] as { horizontalAlignment?: string }).horizontalAlignment = 'left';
+
+    const editedAlignments = ['center', 'right', undefined, 'left', 'justify'];
+    expect(document.slides[0]).toBe(slide);
+    expect(slide.shapes[0]).toBe(table);
+    expect(table.rows[2]!.cells.map(({ horizontalAlignment }) => horizontalAlignment))
+      .toEqual(editedAlignments);
+    expect(table.rows[2]!.cells.map(({ textFit }) => textFit)).toEqual([
+      'resize',
+      'shrink',
+      'resize',
+      undefined,
+      undefined,
+    ]);
+    expect(table.rows[2]!.cells.map(({ textDirection }) => textDirection)).toEqual([
+      'horz',
+      'vert',
+      'vert270',
+      'horz',
+      'wordArtVert',
+    ]);
+    expect(table.rows[2]!.cells.map(({ verticalAlignment }) => verticalAlignment)).toEqual([
+      'top',
+      'top',
+      'bottom',
+      undefined,
+      'middle',
+    ]);
+    expect(table.rows[2]!.cells[2]!.margins).toEqual({ left: 9, right: 10 });
+    expect(table.rows[2]!.cells[0]!.borders).toEqual({
+      top: { kind: 'none' },
+      right: { kind: 'none' },
+      bottom: { kind: 'none' },
+      left: { kind: 'none' },
+    });
+    expect(table.rows[2]!.cells[3]!.fill).toEqual({ kind: 'none' });
+    expect(table.rows[2]!.cells[4]!.text).toBe('Edited merged alignment');
+    expect(table.columnWidths).toEqual([
+      inches(1),
+      inches(1.5),
+      inches(2),
+      inches(1.5),
+      inches(2),
+    ]);
+    expect(table.rowHeights).toEqual([inches(1), inches(1.25), inches(0.75)]);
+
+    const editedXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(editedXml).toContain('<a:pPr algn="ctr" keep="LEFT"/>');
+    expect(editedXml).toContain('<a:pPr algn="r" keep="CENTER"><a:buNone/></a:pPr>');
+    expect(editedXml).toContain('<a:pPr keep="RIGHT"/>');
+    expect(editedXml).toContain('<a:pPr algn="l" keep="JUSTIFY"/>');
+    expect(editedXml).toContain('<a:pPr keep="ABSENT" algn="just"/>');
+    expect(editedXml).toContain('<a:bodyPr custom="NONE"><a:spAutoFit/></a:bodyPr>');
+    expect(editedXml).toContain('keep="FIT-SHRINK"');
+    expect(editedXml).toContain('keep="FIT-RESIZE"');
+    expect(editedXml).toContain('keep="FIT-ABSENT"');
+    expect(editedXml).toContain('keep="FIT-MERGED"');
+    expect(editedXml).not.toMatch(/<a:tcPr[^>]*\salgn=/);
+    expect(document.opcPackage.requirePart(duplicate.partUri).bytes).toEqual(duplicateBefore);
+    expect(duplicateTable.rows[2]!.cells.map(({ horizontalAlignment }) => horizontalAlignment))
+      .toEqual(originalAlignments);
+
+    const beforeRollback = document.opcPackage.requirePart(slide.partUri).bytes.slice();
+    const rollbackJournal = [...document.opcPackage.mutations];
+    expect(() =>
+      document.transaction(() => {
+        table.setCellHorizontalAlignment(2, 0, 'left');
+        table.setCellHorizontalAlignment(2, 4, undefined);
+        throw new Error('restore public table horizontal alignment edits');
+      }),
+    ).toThrow('restore public table horizontal alignment edits');
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(beforeRollback);
+    expect(document.opcPackage.mutations).toEqual(rollbackJournal);
+    expect(document.slides[0]).toBe(slide);
+    expect(slide.shapes[0]).toBe(table);
+    expect(table.rows[2]!.cells.map(({ horizontalAlignment }) => horizontalAlignment))
+      .toEqual(editedAlignments);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedEdited = reopened.slides[0]!.shapes[0] as TableModel;
+    const reopenedDuplicate = reopened.slides[1]!.shapes[0] as TableModel;
+    expect(reopenedEdited.rows[2]!.cells.map(({ horizontalAlignment }) => horizontalAlignment))
+      .toEqual(editedAlignments);
+    expect(reopenedEdited.rows[2]!.cells[4]!.text).toBe('Edited merged alignment');
+    expect(reopenedEdited.columnWidths).toEqual(table.columnWidths);
+    expect(reopenedEdited.rowHeights).toEqual(table.rowHeights);
+    expect(reopenedDuplicate.rows[2]!.cells.map(({ horizontalAlignment }) => horizontalAlignment))
+      .toEqual(originalAlignments);
+  });
+
+  it('rejects invalid table-cell horizontal alignments and physical coordinates before mutation', async () => {
+    const document = await PptxDocument.open(await tableHorizontalAlignmentFixture());
+    const slide = document.slides[0]!;
+    const table = slide.shapes[0] as TableModel;
+    const before = document.opcPackage.requirePart(slide.partUri).bytes.slice();
+    const journal = [...document.opcPackage.mutations];
+    const snapshots = table.rows.map(({ cells }) => cells.map((cell) => ({
+      text: cell.text,
+      horizontalAlignment: cell.horizontalAlignment,
+      verticalAlignment: cell.verticalAlignment,
+      textDirection: cell.textDirection,
+      textFit: cell.textFit,
+      margins: cell.margins,
+      borders: cell.borders,
+      fill: cell.fill,
+    })));
+
+    const invalidValues = [
+      null,
+      false,
+      true,
+      0,
+      1,
+      '',
+      'Left',
+      ' center ',
+      'l',
+      'ctr',
+      'r',
+      'just',
+      'dist',
+      'thaiDist',
+      'justLow',
+      {},
+      [],
+      Symbol('horizontal alignment'),
+    ];
+    for (const value of invalidValues) {
+      expect(() => table.setCellHorizontalAlignment(2, 0, value as never)).toThrow(TypeError);
+    }
+    const invalidCoordinates = [
+      [-1, 0],
+      [0, -1],
+      [0.5, 0],
+      [0, 0.5],
+      [Number.NaN, 0],
+      [0, Number.NaN],
+      [Number.POSITIVE_INFINITY, 0],
+      [0, Number.NEGATIVE_INFINITY],
+      [3, 0],
+      [2, 5],
+    ];
+    for (const [row, column] of invalidCoordinates) {
+      expect(() => table.setCellHorizontalAlignment(row!, column!, 'center')).toThrow(RangeError);
+    }
+
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(before);
+    expect(document.opcPackage.mutations).toEqual(journal);
+    expect(document.slides).toHaveLength(1);
+    expect(document.slides[0]).toBe(slide);
+    expect(slide.shapes[0]).toBe(table);
+    expect(table.rows.map(({ cells }) => cells.map((cell) => ({
+      text: cell.text,
+      horizontalAlignment: cell.horizontalAlignment,
+      verticalAlignment: cell.verticalAlignment,
+      textDirection: cell.textDirection,
+      textFit: cell.textFit,
+      margins: cell.margins,
+      borders: cell.borders,
+      fill: cell.fill,
+    })))).toEqual(snapshots);
   });
 
   it('edits table-cell fits through duplicate, rollback, and reopen lifecycles', async () => {
