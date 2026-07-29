@@ -19,6 +19,7 @@ interface PptxGenJSInstance {
   };
   layout: string;
   rtlMode: unknown;
+  title: string;
   addSlide(): {
     addText(
       text: string | readonly { readonly text: string; readonly options?: Record<string, unknown> }[],
@@ -3877,6 +3878,64 @@ describe('importPptxGenJS', () => {
         expect(reopened.rtlMode).toBe(true);
       }
     }
+  }, 20_000);
+
+  it('imports and reopens PptxGenJS presentation title metadata from public output', async () => {
+    const baseline = new PptxGenJS();
+    baseline.addSlide();
+    const custom = new PptxGenJS();
+    custom.title = 'Quarterly & <Review>';
+    custom.addSlide();
+    const empty = new PptxGenJS();
+    empty.title = '';
+    empty.addSlide();
+    expect([baseline.version, custom.version, empty.version]).toEqual([
+      '4.0.1',
+      '4.0.1',
+      '4.0.1',
+    ]);
+
+    const expectedTitles = [
+      'PptxGenJS Presentation',
+      'Quarterly & <Review>',
+      '',
+    ] as const;
+    const imported = await Promise.all([
+      importPptxGenJS(baseline),
+      importPptxGenJS(custom),
+      importPptxGenJS(empty),
+    ]);
+    expect(imported.map(({ title }) => title)).toEqual(expectedTitles);
+    for (const [index, document] of imported.entries()) {
+      const journal = [...document.opcPackage.mutations];
+      expect(document.title).toBe(expectedTitles[index]);
+      expect(document.opcPackage.mutations).toEqual(journal);
+    }
+
+    const coreXml = imported.map((document) => new TextDecoder().decode(
+      document.opcPackage.requirePart('/docProps/core.xml').bytes,
+    ));
+    expect(coreXml[0]).toContain(
+      '<dc:title>PptxGenJS Presentation</dc:title>',
+    );
+    expect(coreXml[1]).toContain(
+      '<dc:title>Quarterly &amp; &lt;Review&gt;</dc:title>',
+    );
+    expect(coreXml[2]).toContain('<dc:title></dc:title>');
+
+    const reopened = await Promise.all(imported.map(async (document) =>
+      PptxDocument.open(await document.write())));
+    expect(reopened.map(({ title }) => title)).toEqual(expectedTitles);
+
+    const native = PptxDocument.create({ title: 'Quarterly & <Review>' });
+    const nativeOmitted = PptxDocument.create();
+    expect(native.title).toBe(imported[1]!.title);
+    expect(nativeOmitted.title).toBeUndefined();
+    expect(new TextDecoder().decode(
+      native.opcPackage.requirePart('/docProps/core.xml').bytes,
+    )).toContain('<dc:title>Quarterly &amp; &lt;Review&gt;</dc:title>');
+    const reopenedNative = await PptxDocument.open(await native.write());
+    expect(reopenedNative.title).toBe('Quarterly & <Review>');
   }, 20_000);
 
   it('imports PptxGenJS non-list zero margins and indents without aliasing bullet indentation', async () => {
