@@ -1070,6 +1070,83 @@ describe('table creation internals', () => {
     expect(xml).not.toMatch(/<a:bodyPr[^>]*\svert=/);
   });
 
+  it('materializes strict table text direction onto uncovered cells', () => {
+    const rows = [[
+      'String',
+      { text: 'Object' },
+      { text: 'Empty', options: {} },
+      { text: 'Undefined', options: { textDirection: undefined } },
+      { text: 'Horizontal', options: { textDirection: 'horz' } },
+      { text: 'Vertical', options: { textDirection: 'vert' } },
+      { text: 'Rotate 270', options: { textDirection: 'vert270' } },
+      { text: 'Stacked', options: { textDirection: 'wordArtVert' } },
+    ]];
+    const definition = normalizeTableDefinition(rows, {
+      textDirection: 'vert270',
+    });
+
+    expect(definition.rows[0]!.map(({ textDirection }) => textDirection)).toEqual([
+      'vert270',
+      'vert270',
+      'vert270',
+      'vert270',
+      'horz',
+      'vert',
+      'vert270',
+      'wordArtVert',
+    ]);
+
+    const xml = renderTableGraphicFrame(60, definition);
+    expect([...xml.matchAll(/<a:tcPr([^>]*)>/g)].map((match) =>
+      match[1]!.match(/\svert="([^"]+)"/)?.[1])).toEqual([
+      'vert270',
+      'vert270',
+      'vert270',
+      'vert270',
+      undefined,
+      'vert',
+      'vert270',
+      'wordArtVert',
+    ]);
+    expect(xml).not.toMatch(/<a:bodyPr[^>]*\svert=/);
+
+    const omitted = renderTableGraphicFrame(
+      61,
+      normalizeTableDefinition([['Same']], {}),
+    );
+    const runtimeUndefined = renderTableGraphicFrame(
+      61,
+      normalizeTableDefinition([['Same']], { textDirection: undefined }),
+    );
+    const horizontal = renderTableGraphicFrame(
+      61,
+      normalizeTableDefinition([['Same']], { textDirection: 'horz' }),
+    );
+    expect(runtimeUndefined).toBe(omitted);
+    expect(horizontal).toBe(omitted);
+    expect(omitted).not.toMatch(/<a:tcPr[^>]*\svert=/);
+
+    for (const textDirection of [
+      'horz',
+      'vert',
+      'vert270',
+      'wordArtVert',
+    ] as const) {
+      const nullPrototypeOptions = Object.assign(Object.create(null), {
+        textDirection,
+      });
+      const normalized = normalizeTableDefinition(
+        [['Detached']],
+        nullPrototypeOptions,
+      );
+      nullPrototypeOptions.textDirection = 'horz';
+      expect(normalized.rows[0]![0]!.textDirection).toBe(textDirection);
+      const rendered = renderTableGraphicFrame(62, normalized);
+      const direct = rendered.match(/<a:tcPr[^>]*\svert="([^"]+)"/)?.[1];
+      expect(direct).toBe(textDirection === 'horz' ? undefined : textDirection);
+    }
+  });
+
   it('normalizes and renders strict table cell horizontal alignment', () => {
     const nullOptions = Object.assign(Object.create(null), { align: 'right' });
     const rows = [[
@@ -1788,6 +1865,16 @@ describe('table creation internals', () => {
       enumerable: true,
       configurable: true,
     });
+    const accessorTableTextDirectionOptions: Record<string, unknown> = {};
+    let tableTextDirectionAccessorCalls = 0;
+    Object.defineProperty(accessorTableTextDirectionOptions, 'textDirection', {
+      get() {
+        tableTextDirectionAccessorCalls += 1;
+        return 'vert';
+      },
+      enumerable: true,
+      configurable: true,
+    });
     const accessorTableAlignOptions: Record<string, unknown> = {};
     let tableAlignAccessorCalls = 0;
     Object.defineProperty(accessorTableAlignOptions, 'align', {
@@ -2029,6 +2116,7 @@ describe('table creation internals', () => {
       symbolOptions,
       accessorOptions,
       accessorTableValignOptions,
+      accessorTableTextDirectionOptions,
       accessorTableAlignOptions,
       accessorTableMarginOptions,
       accessorTableFillOptions,
@@ -2049,6 +2137,7 @@ describe('table creation internals', () => {
       ...invalidTableBorders.map((border) => ({ border })),
       ...invalidTableMargins.map((margin) => ({ margin })),
       ...invalidValigns.map((valign) => ({ valign })),
+      ...invalidTextDirections.map((textDirection) => ({ textDirection })),
       ...invalidAlignments.map((align) => ({ align })),
     ];
     for (const options of invalidOptions) {
@@ -2058,6 +2147,7 @@ describe('table creation internals', () => {
     expect(() => normalizeTableDefinition([['A'], ['B']], { height: 1 })).toThrow(RangeError);
     expect(optionAccessorCalls).toBe(0);
     expect(tableValignAccessorCalls).toBe(0);
+    expect(tableTextDirectionAccessorCalls).toBe(0);
     expect(tableAlignAccessorCalls).toBe(0);
     expect(tableMarginAccessorCalls).toBe(0);
     expect(tableFillAccessorCalls).toBe(0);

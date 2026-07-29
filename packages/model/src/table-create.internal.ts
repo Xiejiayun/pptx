@@ -51,6 +51,7 @@ const OPTION_KEYS = [
   'border',
   'fill',
   'margin',
+  'textDirection',
   'valign',
 ] as const;
 interface NormalizedTableCell {
@@ -127,12 +128,24 @@ export function normalizeTableDefinition(
       ...cell,
       margins: { ...tableMargins, ...(cell.margins ?? {}) },
     })));
+  const tableTextDirection = normalizedOptions.textDirection === undefined
+    ? undefined
+    : normalizeTableCellTextDirection(
+      normalizedOptions.textDirection,
+      'Table textDirection',
+    );
+  const directionResolvedRows = tableTextDirection === undefined
+    ? marginResolvedRows
+    : marginResolvedRows.map((row) => row.map((cell) =>
+      cell.textDirection === undefined
+        ? { ...cell, textDirection: tableTextDirection }
+        : cell));
   const tableVerticalAlignment = normalizedOptions.valign === undefined
     ? undefined
     : normalizeTextBoxVerticalAlignment(normalizedOptions.valign, 'Table valign');
   const resolvedRows = tableVerticalAlignment === undefined
-    ? marginResolvedRows
-    : marginResolvedRows.map((row) => row.map((cell) =>
+    ? directionResolvedRows
+    : directionResolvedRows.map((row) => row.map((cell) =>
       cell.verticalAlignment === undefined
         ? { ...cell, verticalAlignment: tableVerticalAlignment }
         : cell));
