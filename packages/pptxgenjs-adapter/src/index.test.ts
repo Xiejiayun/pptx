@@ -416,7 +416,7 @@ describe('importPptxGenJS', () => {
     ]);
   });
 
-  it('matches native table-cell text direction creation to PptxGenJS final state', async () => {
+  it('matches native table text direction creation to PptxGenJS final state', async () => {
     const generated = new PptxGenJS();
     expect(generated.version).toBe('4.0.1');
     generated.layout = 'LAYOUT_WIDE';
@@ -434,6 +434,7 @@ describe('importPptxGenJS', () => {
       colW: [2, 2, 2, 2, 2],
       rowH: 1,
       margin: 0.1,
+      textDirection: 'vert270',
       valign: 'middle',
     });
     const imported = await importPptxGenJS(generated);
@@ -455,9 +456,10 @@ describe('importPptxGenJS', () => {
       columnWidths: inches(2),
       rowHeights: inches(1),
       margin: 7.2,
+      textDirection: 'vert270',
       valign: 'middle',
     });
-    const expectedTokens = [undefined, undefined, 'vert', 'vert270', 'wordArtVert'];
+    const expectedTokens = ['vert270', undefined, 'vert', 'vert270', 'wordArtVert'];
     const expectedText = ['Omitted', 'Horizontal', 'Vertical', 'Rotate 270', 'Stacked'];
     const directDirectionTokens = (xml: string): (string | undefined)[] =>
       [...xml.matchAll(/<a:tc(?:\s[^>]*)?>[\s\S]*?<\/a:tc>/g)]
@@ -523,6 +525,24 @@ describe('importPptxGenJS', () => {
     expect((importedInvalid.slides[0]!.shapes[0] as TableModel)
       .rows[0]!.cells[0]!.textDirection).toBeUndefined();
 
+    const generatedInvalidTable = new PptxGenJS();
+    generatedInvalidTable.addSlide().addTable([[{
+      text: 'PptxGenJS invalid table direction',
+      options: {},
+    }]], {
+      x: 0.5,
+      y: 0.5,
+      w: 2,
+      h: 1,
+      colW: [2],
+      rowH: 1,
+      textDirection: 'eaVert',
+    });
+    const importedInvalidTable = await importPptxGenJS(generatedInvalidTable);
+    expect(directDirectionTokens(slideXml(importedInvalidTable))).toEqual(['eaVert']);
+    expect((importedInvalidTable.slides[0]!.shapes[0] as TableModel)
+      .rows[0]!.cells[0]!.textDirection).toBeUndefined();
+
     const beforeInvalid = native.opcPackage.requirePart(nativeSlide.partUri).bytes.slice();
     const invalidJournal = [...native.opcPackage.mutations];
     const shapeCount = nativeSlide.shapes.length;
@@ -530,6 +550,13 @@ describe('importPptxGenJS', () => {
       text: 'Native invalid east Asian vertical',
       options: { textDirection: 'eaVert' as never },
     }]])).toThrow(TypeError);
+    expect(native.opcPackage.requirePart(nativeSlide.partUri).bytes).toEqual(beforeInvalid);
+    expect(native.opcPackage.mutations).toEqual(invalidJournal);
+    expect(nativeSlide.shapes).toHaveLength(shapeCount);
+    expect(nativeSlide.shapes[0]).toBe(nativeTable);
+    expect(() => nativeSlide.addTable([['Native invalid table direction']], {
+      textDirection: 'eaVert' as never,
+    })).toThrow(TypeError);
     expect(native.opcPackage.requirePart(nativeSlide.partUri).bytes).toEqual(beforeInvalid);
     expect(native.opcPackage.mutations).toEqual(invalidJournal);
     expect(nativeSlide.shapes).toHaveLength(shapeCount);
