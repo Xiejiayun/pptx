@@ -36,6 +36,10 @@ import {
   replacePresentationCompany,
 } from './presentation-company.internal.js';
 import {
+  readPresentationLastModifiedBy,
+  replacePresentationLastModifiedBy,
+} from './presentation-last-modified-by.internal.js';
+import {
   readPresentationRevision,
   replacePresentationRevision,
 } from './presentation-revision.internal.js';
@@ -128,6 +132,16 @@ export class PresentationModel {
   set company(value: string | undefined) {
     this.opcPackage.transaction(() => {
       replacePresentationCompany(this.opcPackage, value);
+    });
+  }
+
+  get lastModifiedBy(): string | undefined {
+    return readPresentationLastModifiedBy(this.opcPackage);
+  }
+
+  set lastModifiedBy(value: string | undefined) {
+    this.opcPackage.transaction(() => {
+      replacePresentationLastModifiedBy(this.opcPackage, value);
     });
   }
 
