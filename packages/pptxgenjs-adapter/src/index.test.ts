@@ -20,6 +20,7 @@ interface PptxGenJSInstance {
   author: string;
   company: string;
   layout: string;
+  revision: string;
   rtlMode: unknown;
   subject: string;
   title: string;
@@ -4073,6 +4074,80 @@ describe('importPptxGenJS', () => {
     expect(new TextDecoder().decode(
       reopenedNative.opcPackage.requirePart('/docProps/core.xml').bytes,
     )).toContain('<dc:subject>Revenue &amp; &lt;Forecast&gt;</dc:subject>');
+  }, 20_000);
+
+  it('imports and reopens PptxGenJS presentation revision metadata from public output', async () => {
+    const baseline = new PptxGenJS();
+    baseline.addSlide();
+    const zero = new PptxGenJS();
+    zero.revision = '0';
+    zero.addSlide();
+    const custom = new PptxGenJS();
+    custom.revision = '42';
+    custom.addSlide();
+    const leading = new PptxGenJS();
+    leading.revision = '007';
+    leading.addSlide();
+    expect([baseline.version, zero.version, custom.version, leading.version]).toEqual([
+      '4.0.1',
+      '4.0.1',
+      '4.0.1',
+      '4.0.1',
+    ]);
+
+    const expectedRevisions = ['1', '0', '42', '007'] as const;
+    const imported = await Promise.all([
+      importPptxGenJS(baseline),
+      importPptxGenJS(zero),
+      importPptxGenJS(custom),
+      importPptxGenJS(leading),
+    ]);
+    expect(imported.map(({ revision }) => revision)).toEqual(expectedRevisions);
+    for (const [index, document] of imported.entries()) {
+      const journal = [...document.opcPackage.mutations];
+      expect(document.revision).toBe(expectedRevisions[index]);
+      expect(document.opcPackage.mutations).toEqual(journal);
+    }
+
+    const coreXml = imported.map((document) => new TextDecoder().decode(
+      document.opcPackage.requirePart('/docProps/core.xml').bytes,
+    ));
+    expect(coreXml[0]).toContain('<cp:revision>1</cp:revision>');
+    expect(coreXml[1]).toContain('<cp:revision>0</cp:revision>');
+    expect(coreXml[2]).toContain('<cp:revision>42</cp:revision>');
+    expect(coreXml[3]).toContain('<cp:revision>007</cp:revision>');
+
+    const reopened = await Promise.all(imported.map(async (document) =>
+      PptxDocument.open(await document.write())));
+    expect(reopened.map(({ revision }) => revision)).toEqual(expectedRevisions);
+
+    const native = PptxDocument.create({ revision: '42' });
+    const nativeOmitted = PptxDocument.create();
+    expect(native.revision).toBe(imported[2]!.revision);
+    expect(nativeOmitted.revision).toBe(imported[0]!.revision);
+    expect(new TextDecoder().decode(
+      native.opcPackage.requirePart('/docProps/core.xml').bytes,
+    )).toContain('<cp:revision>42</cp:revision>');
+    const reopenedNative = await PptxDocument.open(await native.write());
+    expect(reopenedNative.revision).toBe('42');
+
+    const invalidValues = ['', '-1', '1.5', 'abc'] as const;
+    for (const value of invalidValues) {
+      const generated = new PptxGenJS();
+      generated.revision = value;
+      generated.addSlide();
+      const document = await importPptxGenJS(generated);
+      const before = document.opcPackage.requirePart('/docProps/core.xml').bytes;
+      expect(document.revision).toBeUndefined();
+      expect(new TextDecoder().decode(before)).toContain(
+        `<cp:revision>${value}</cp:revision>`,
+      );
+      const invalidReopened = await PptxDocument.open(await document.write());
+      expect(invalidReopened.revision).toBeUndefined();
+      expect(invalidReopened.opcPackage.requirePart('/docProps/core.xml').bytes)
+        .toEqual(before);
+      expect(() => PptxDocument.create({ revision: value })).toThrow(TypeError);
+    }
   }, 20_000);
 
   it('imports and reopens PptxGenJS presentation company metadata from public output', async () => {
