@@ -1,6 +1,7 @@
 import { escapeXmlAttribute } from '@pptx/lossless-xml';
 import {
   normalizeRichText,
+  normalizeTextAlignment,
   renderRichTextParagraphs,
 } from './rich-text.internal.js';
 import {
@@ -21,6 +22,7 @@ import {
 } from './text-box-vertical-alignment.internal.js';
 import type { TableCellBorders, TableCellFill } from './shapes.js';
 import type {
+  TextAlignment,
   TextBoxMarginInput,
   TextBoxMargins,
   TextBoxVerticalAlignment,
@@ -44,6 +46,7 @@ const OPTION_KEYS = [
 ] as const;
 interface NormalizedTableCell {
   readonly text: string;
+  readonly alignment?: TextAlignment;
   readonly borders?: TableCellBorders;
   readonly fill?: TableCellFill;
   readonly margins?: TextBoxMargins;
@@ -247,14 +250,17 @@ function normalizeTableCellOptions(
   context: string,
 ): Pick<
   NormalizedTableCell,
-  'borders' | 'fill' | 'margins' | 'verticalAlignment'
+  'alignment' | 'borders' | 'fill' | 'margins' | 'verticalAlignment'
 > {
   if (value === undefined) return {};
   const options = readDataObject(
     value,
     `${context} options`,
-    ['border', 'fill', 'margin', 'valign'],
+    ['align', 'border', 'fill', 'margin', 'valign'],
   );
+  const alignment = options.align === undefined
+    ? undefined
+    : normalizeTextAlignment(options.align, `${context} align`);
   const borders = normalizeTableCellBorders(options.border, `${context} border`);
   const fill = normalizeTableCellFill(options.fill, `${context} fill`);
   const margins = normalizeTextBoxMargins(
@@ -265,6 +271,7 @@ function normalizeTableCellOptions(
     ? undefined
     : normalizeTextBoxVerticalAlignment(options.valign, `${context} valign`);
   return {
+    ...(alignment === undefined ? {} : { alignment }),
     ...(borders === undefined ? {} : { borders }),
     ...(fill === undefined ? {} : { fill }),
     ...(margins === undefined ? {} : { margins }),
@@ -412,7 +419,7 @@ function sumDimensions(dimensions: readonly number[], context: string): number {
 function renderTableCell(cell: NormalizedTableCell): string {
   const paragraphs = renderRichTextParagraphs(normalizeRichText([
     { runs: [{ text: cell.text, style: {} }] },
-  ]));
+  ]), cell.alignment === undefined ? {} : { defaultAlign: cell.alignment });
   const borders = renderTableCellBorders(cell.borders, 'a:');
   const fill = cell.fill === undefined ? '' : renderTableCellFill(cell.fill, 'a:');
   const marginAttributes = renderTableCellMarginAttributes(cell.margins);

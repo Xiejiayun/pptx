@@ -995,6 +995,74 @@ describe('table creation internals', () => {
     );
   });
 
+  it('normalizes and renders strict table cell horizontal alignment', () => {
+    const nullOptions = Object.assign(Object.create(null), { align: 'right' });
+    const rows = [[
+      'String',
+      { text: 'Empty', options: {} },
+      { text: 'Undefined', options: { align: undefined } },
+      { text: 'Left', options: { align: 'left' } },
+      { text: 'Center', options: { align: 'center' } },
+      { text: 'Right', options: { align: 'right' } },
+      { text: 'Justify this sentence', options: { align: 'justify' } },
+      { text: 'Null prototype', options: nullOptions },
+      { text: 'Combined', options: {
+        align: 'center',
+        valign: 'bottom',
+        margin: { top: 4, left: 8 },
+        border: {
+          kind: 'line',
+          color: { kind: 'srgb', value: 'C00000' },
+          width: 2,
+        },
+        fill: {
+          kind: 'solid',
+          color: { kind: 'scheme', value: 'accent1' },
+        },
+      } },
+    ]];
+    const definition = normalizeTableDefinition(rows, undefined);
+    expect(definition.rows[0]!.map(({ alignment }) => alignment)).toEqual([
+      undefined,
+      undefined,
+      undefined,
+      'left',
+      'center',
+      'right',
+      'justify',
+      'right',
+      'center',
+    ]);
+
+    const equivalent = [
+      [['Same']],
+      [[{ text: 'Same' }]],
+      [[{ text: 'Same', options: {} }]],
+      [[{ text: 'Same', options: { align: undefined } }]],
+    ].map((input) => renderTableGraphicFrame(
+      20,
+      normalizeTableDefinition(input, undefined),
+    ));
+    expect(new Set(equivalent).size).toBe(1);
+    expect(equivalent[0]).not.toMatch(/<a:pPr[^>]*\salgn=/);
+
+    const renderCell = (cell: unknown): string => renderTableGraphicFrame(
+      21,
+      normalizeTableDefinition([[cell]], undefined),
+    );
+    expect(renderCell(rows[0]![3])).toContain('<a:pPr algn="l"');
+    expect(renderCell(rows[0]![4])).toContain('<a:pPr algn="ctr"');
+    expect(renderCell(rows[0]![5])).toContain('<a:pPr algn="r"');
+    expect(renderCell(rows[0]![6])).toContain('<a:pPr algn="just"');
+    const combined = renderCell(rows[0]![8]);
+    expect(combined).toContain(
+      '<a:p><a:pPr algn="ctr" indent="0" marL="0"><a:buNone/></a:pPr><a:r>',
+    );
+    expect(combined).toContain('marB="45720" anchor="b">');
+    expect(combined).not.toMatch(/<a:tcPr[^>]*\salgn=/);
+    expect(combined).not.toMatch(/<a:bodyPr[^>]*\salgn=/);
+  });
+
   it('materializes strict table vertical alignment onto uncovered cells', () => {
     const rows = [[
       'String',
@@ -1226,6 +1294,15 @@ describe('table creation internals', () => {
       enumerable: true,
       configurable: true,
     });
+    const accessorAlignOptions = {};
+    Object.defineProperty(accessorAlignOptions, 'align', {
+      get() {
+        cellAccessorCalls += 1;
+        return 'center';
+      },
+      enumerable: true,
+      configurable: true,
+    });
     const accessorMargin = { left: 1 };
     Object.defineProperty(accessorMargin, 'top', {
       get() {
@@ -1352,6 +1429,25 @@ describe('table creation internals', () => {
       {},
       Symbol('top'),
     ];
+    const invalidAlignments = [
+      null,
+      false,
+      true,
+      0,
+      '',
+      'Left',
+      ' center ',
+      'l',
+      'ctr',
+      'r',
+      'just',
+      'dist',
+      'thaiDist',
+      'justLow',
+      [],
+      {},
+      Symbol('center'),
+    ];
     const invalidCells = [
       null,
       1,
@@ -1372,6 +1468,7 @@ describe('table creation internals', () => {
       { text: 'A', options: accessorBorderOptions },
       { text: 'A', options: accessorMarginOptions },
       { text: 'A', options: accessorValignOptions },
+      { text: 'A', options: accessorAlignOptions },
       { text: 'A', options: { unknown: true } },
       { text: 'A', options: Object.assign({}, { [Symbol('extra')]: true }) },
       { text: 'A', options: { fill: accessorFill } },
@@ -1483,6 +1580,7 @@ describe('table creation internals', () => {
         -2_147_483_649 / 12_700,
       ].map((margin) => ({ text: 'A', options: { margin } })),
       ...invalidValigns.map((valign) => ({ text: 'A', options: { valign } })),
+      ...invalidAlignments.map((align) => ({ text: 'A', options: { align } })),
       { text: 'A', extra: true },
       Object.assign({ text: 'A' }, { [Symbol('extra')]: true }),
       { text: 1 },
