@@ -105,6 +105,7 @@ export interface AddTableOptions {
   readonly width?: number;
   readonly height?: number;
   readonly columnWidths?: number | readonly number[];
+  readonly rowHeights?: number | readonly number[];
 }
 
 export class SlideTitleModel {

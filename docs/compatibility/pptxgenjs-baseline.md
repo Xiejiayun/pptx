@@ -48,7 +48,7 @@ adapter 不读取 `_slides` 等私有字段。后续 peer-range conformance test
 | 文本框 `vert` 七种文本方向与 direct 编辑 | `AddTextOptions.vert` / `ShapeModel.textDirection` | 已支持 |
 | 文本框 `fit: none/shrink/resize` 与 direct 编辑 | `AddTextOptions.fit` / `ShapeModel.textFit` | 已支持 |
 | paragraph 左右 margin、first-line/hanging indent | `paragraphMarginLeft` / `paragraphMarginRight` / `paragraphIndent` 与 rich paragraph overrides | 已支持 direct 创建、读取、编辑与清除 |
-| `slide.addTable(string[][])` + name/x/y/w/h/colW | `slide.addTable(rows, options)` | 部分支持：strict rectangular single-paragraph strings、EMU geometry 与创建时 scalar/per-column widths |
+| `slide.addTable(string[][])` + name/x/y/w/h/colW/rowH | `slide.addTable(rows, options)` | 部分支持：strict rectangular single-paragraph strings、EMU geometry 与创建时 scalar/per-axis sizes |
 | table-cell `textDirection` | `TableCell.textDirection` / `TableModel.setCellTextDirection()` | 已支持 |
 | table-cell `valign: top/middle/bottom` | `TableCell.verticalAlignment` / `TableModel.setCellVerticalAlignment()` | 已支持 direct 编辑 |
 | table-cell `margin` scalar/TRBL | `TableCell.margins` / `TableModel.setCellMargins()` | 已支持 direct point snapshot 与编辑 |
@@ -56,7 +56,7 @@ adapter 不读取 `_slides` 等私有字段。后续 peer-range conformance test
 | table-cell `fill` solid/none/transparency | `TableCell.fill` / `TableModel.setCellFill()` | 已支持 direct 读取、编辑与清除 |
 | table-cell bodyPr autofit | `TableCell.textFit` / `TableModel.setCellTextFit()` | 原生编辑已支持；PptxGenJS 4.0.1 本身无 table fit API |
 
-基础 table creation 与 PptxGenJS 4.0.1 的 plain string table 输出在 table URI、geometry、grid/row 总尺寸、cell text、direct margins 和 direct no-fill borders 上对等。原生 API 返回 live `TableModel`，x/y 缺省为 0.5 inch、每列缺省 1 inch、总高缺省 1 inch，并修正 PptxGenJS 省略 width 时 xfrm width 为 0 而 grid 非零的不一致。`columnWidths` 以 EMU 接受 scalar 或严格等长数组：scalar 精确重复，数组按列保留，省略 width 时由列宽总和推导，显式 width 必须与总和一致。PptxGenJS 4.0.1 的 scalar `colW` 会先取整、单项数组被当作 scalar shortcut、数组长度不匹配会回退均分，且 array `colW` 可生成 xfrm/grid 总宽不一致；原生 API 对这些情况分别保留精度、要求精确列数并保持 transform/grid 一致。当前只接受严格非空矩形 `string[][]` 和 EMU name/x/y/width/height/columnWidths；cell objects、rich/multi-paragraph text、独立 row heights、已有表格列宽读取/编辑、merge/colspan/rowspan、table/cell creation styles、auto-page/repeated headers、hyperlinks 和内容测量仍未支持。
+基础 table creation 与 PptxGenJS 4.0.1 的 plain string table 输出在 table URI、geometry、grid/row 总尺寸、cell text、direct margins 和 direct no-fill borders 上对等。原生 API 返回 live `TableModel`，x/y 缺省为 0.5 inch、每列缺省 1 inch、总高缺省 1 inch，并修正 PptxGenJS 省略 width 时 xfrm width 为 0 而 grid 非零的不一致。`columnWidths` 以 EMU 接受 scalar 或严格等长数组：scalar 精确重复，数组按列保留，省略 width 时由列宽总和推导，显式 width 必须与总和一致。PptxGenJS 4.0.1 的 scalar `colW` 会先取整、单项数组被当作 scalar shortcut、数组长度不匹配会回退均分，且 array `colW` 可生成 xfrm/grid 总宽不一致；原生 API 对这些情况分别保留精度、要求精确列数并保持 transform/grid 一致。`rowHeights` 同样以 EMU 接受 scalar 或严格等长数组；省略 height 时由行高总和推导，显式 height 必须相等，而完全省略时仍保留 `tr@h=0` 自动行高。PptxGenJS `rowH` 会把单项数组隐式广播、对 short/falsy item 混入 overall height 回退、忽略 long array 多余项，并在省略或冲突的 `h` 下生成 xfrm/rows 总高不一致；原生 API 严格拒绝这些模糊输入并保持 explicit transform/rows 一致。当前只接受严格非空矩形 `string[][]` 和 EMU name/x/y/width/height/columnWidths/rowHeights；cell objects、rich/multi-paragraph text、已有表格列宽/行高读取与编辑、merge/colspan/rowspan、table/cell creation styles、auto-page/repeated headers、hyperlinks 和内容测量仍未支持。
 
 LibreOffice headless 可无修复打开 underline 文件，但当前会把 double/dash/wavy 和独立 underline color 降级显示为普通单实线；同一 PptxGenJS 4.0.1 对照文件表现一致。OOXML token 与颜色仍保持合法并可由支持这些样式的客户端读取。
 

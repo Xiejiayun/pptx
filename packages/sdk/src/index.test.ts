@@ -363,6 +363,7 @@ describe('PptxDocument vertical slice', () => {
         width: inches(8),
         height: inches(2.25),
         columnWidths: [inches(2), inches(4), inches(2)],
+        rowHeights: [inches(0.5), inches(0.75), inches(1)],
       },
     );
 
@@ -403,6 +404,12 @@ describe('PptxDocument vertical slice', () => {
       inches(4),
       inches(2),
     ]);
+    expect([...createdTableXml.matchAll(/<a:tr h="(\d+)">/g)]
+      .map((match) => Number(match[1]))).toEqual([
+      inches(0.5),
+      inches(0.75),
+      inches(1),
+    ]);
     expect(createdTableXml).toContain('<a:ext cx="7315200" cy="2057400"/>');
     expect(validatePackage(document.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
     for (const [uri, bytes] of otherParts) {
@@ -420,6 +427,12 @@ describe('PptxDocument vertical slice', () => {
       inches(2),
       inches(4),
       inches(2),
+    ]);
+    expect([...duplicateTableXml.matchAll(/<a:tr h="(\d+)">/g)]
+      .map((match) => Number(match[1]))).toEqual([
+      inches(0.5),
+      inches(0.75),
+      inches(1),
     ]);
 
     table.setCellText(1, 0, 'Eastern');
@@ -531,6 +544,12 @@ describe('PptxDocument vertical slice', () => {
       inches(2),
       inches(4),
       inches(2),
+    ]);
+    expect([...reopenedTableXml.matchAll(/<a:tr h="(\d+)">/g)]
+      .map((match) => Number(match[1]))).toEqual([
+      inches(0.5),
+      inches(0.75),
+      inches(1),
     ]);
   });
 

@@ -13,6 +13,7 @@
 - Added transactional single-paragraph text-box creation with stable shape identity, XML-safe content, unique IDs, and editable transforms.
 - Added native basic table creation from strict rectangular single-paragraph string matrices with deterministic geometry, stable identity, and immediate cell/transform editing.
 - Added exact scalar or per-column EMU widths for native table creation, with derived total width and strict grid/transform consistency.
+- Added exact scalar or per-row EMU heights for native table creation, with derived total height and strict row/transform consistency.
 - Added custom OOXML-valid slide dimensions at presentation creation, matching PptxGenJS custom-layout output semantics.
 - Added lossless slide-canvas size reading and editing without silently scaling shapes or changing the notes page.
 - Added PptxGenJS-compatible plain-text paragraphs with normalized line endings, empty-line preservation, and transactional text overwrite.

@@ -9,7 +9,15 @@ const DEFAULT_OFFSET = EMU_PER_INCH / 2;
 const DEFAULT_HEIGHT = EMU_PER_INCH;
 const CELL_MARGIN_HORIZONTAL = 91_440;
 const CELL_MARGIN_VERTICAL = 45_720;
-const OPTION_KEYS = ['name', 'x', 'y', 'width', 'height', 'columnWidths'] as const;
+const OPTION_KEYS = [
+  'name',
+  'x',
+  'y',
+  'width',
+  'height',
+  'columnWidths',
+  'rowHeights',
+] as const;
 const NO_BORDERS = ['lnL', 'lnR', 'lnT', 'lnB']
   .map((tag) => `<a:${tag} w="0" cap="flat" cmpd="sng" algn="ctr"><a:noFill/></a:${tag}>`)
   .join('');
@@ -23,6 +31,7 @@ export interface NormalizedTableDefinition {
   readonly height: number;
   readonly autoRowHeight: boolean;
   readonly columnWidths: readonly number[];
+  readonly rowHeights: readonly number[];
 }
 
 export function normalizeTableDefinition(
@@ -69,8 +78,13 @@ export function normalizeTableDefinition(
   let width: number;
   let columnWidths: readonly number[];
   if (requestedColumnWidths !== undefined) {
-    columnWidths = normalizeColumnWidths(requestedColumnWidths, columnCount);
-    const columnWidthSum = sumColumnWidths(columnWidths);
+    columnWidths = normalizeDimensionVector(
+      requestedColumnWidths,
+      columnCount,
+      'Table columnWidths',
+      'column count',
+    );
+    const columnWidthSum = sumDimensions(columnWidths, 'Table columnWidths');
     if (normalizedOptions.width === undefined) {
       width = columnWidthSum;
     } else {
@@ -93,13 +107,39 @@ export function normalizeTableDefinition(
     columnWidths = distributeTableDimension(width, columnCount);
   }
 
-  const autoRowHeight = normalizedOptions.height === undefined;
-  const height = autoRowHeight
-    ? DEFAULT_HEIGHT
-    : normalizeCoordinate(normalizedOptions.height, 'Table height');
-  if (height <= 0) throw new RangeError('Table height must be greater than zero');
-  if (!autoRowHeight && height < normalizedRows.length) {
-    throw new RangeError('Table height must provide at least one EMU per row');
+  const requestedRowHeights = normalizedOptions.rowHeights;
+  let height: number;
+  let autoRowHeight: boolean;
+  let rowHeights: readonly number[];
+  if (requestedRowHeights !== undefined) {
+    rowHeights = normalizeDimensionVector(
+      requestedRowHeights,
+      normalizedRows.length,
+      'Table rowHeights',
+      'row count',
+    );
+    const rowHeightSum = sumDimensions(rowHeights, 'Table rowHeights');
+    autoRowHeight = false;
+    if (normalizedOptions.height === undefined) {
+      height = rowHeightSum;
+    } else {
+      height = normalizeCoordinate(normalizedOptions.height, 'Table height');
+      if (height !== rowHeightSum) {
+        throw new RangeError('Table height must equal the sum of rowHeights');
+      }
+    }
+  } else {
+    autoRowHeight = normalizedOptions.height === undefined;
+    height = autoRowHeight
+      ? DEFAULT_HEIGHT
+      : normalizeCoordinate(normalizedOptions.height, 'Table height');
+    if (height <= 0) throw new RangeError('Table height must be greater than zero');
+    if (!autoRowHeight && height < normalizedRows.length) {
+      throw new RangeError('Table height must provide at least one EMU per row');
+    }
+    rowHeights = autoRowHeight
+      ? normalizedRows.map(() => 0)
+      : distributeTableDimension(height, normalizedRows.length);
   }
 
   return {
@@ -111,6 +151,7 @@ export function normalizeTableDefinition(
     height,
     autoRowHeight,
     columnWidths,
+    rowHeights,
   };
 }
 
@@ -127,13 +168,10 @@ export function renderTableGraphicFrame(
   id: number,
   definition: NormalizedTableDefinition,
 ): string {
-  const rowHeights = definition.autoRowHeight
-    ? definition.rows.map(() => 0)
-    : distributeTableDimension(definition.height, definition.rows.length);
   const grid = definition.columnWidths.map((width) => `<a:gridCol w="${width}"/>`).join('');
   const rows = definition.rows.map((row, rowIndex) => {
     const cells = row.map(renderTableCell).join('');
-    return `<a:tr h="${rowHeights[rowIndex]}">${cells}</a:tr>`;
+    return `<a:tr h="${definition.rowHeights[rowIndex]}">${cells}</a:tr>`;
   }).join('');
   const name = escapeXmlAttribute(definition.name ?? `Table ${id}`);
 
@@ -197,28 +235,33 @@ function normalizeCoordinate(value: unknown, context: string): number {
   return rounded;
 }
 
-function normalizeColumnWidths(value: unknown, columnCount: number): readonly number[] {
+function normalizeDimensionVector(
+  value: unknown,
+  count: number,
+  context: string,
+  countContext: string,
+): readonly number[] {
   const values = Array.isArray(value)
-    ? readDenseArray(value, 'Table columnWidths')
-    : Array.from({ length: columnCount }, () => value);
-  if (values.length !== columnCount) {
-    throw new TypeError('Table columnWidths must match the table column count');
+    ? readDenseArray(value, context)
+    : Array.from({ length: count }, () => value);
+  if (values.length !== count) {
+    throw new TypeError(`${context} must match the table ${countContext}`);
   }
   return values.map((item, index) => {
-    const width = normalizeCoordinate(item, `Table columnWidths ${index}`);
-    if (width <= 0) {
-      throw new RangeError(`Table columnWidths ${index} must be greater than zero`);
+    const dimension = normalizeCoordinate(item, `${context} ${index}`);
+    if (dimension <= 0) {
+      throw new RangeError(`${context} ${index} must be greater than zero`);
     }
-    return width;
+    return dimension;
   });
 }
 
-function sumColumnWidths(widths: readonly number[]): number {
-  return widths.reduce((sum, width) => {
-    if (width > Number.MAX_SAFE_INTEGER - sum) {
-      throw new RangeError('Table columnWidths sum must fit a safe integer EMU value');
+function sumDimensions(dimensions: readonly number[], context: string): number {
+  return dimensions.reduce((sum, dimension) => {
+    if (dimension > Number.MAX_SAFE_INTEGER - sum) {
+      throw new RangeError(`${context} sum must fit a safe integer EMU value`);
     }
-    return sum + width;
+    return sum + dimension;
   }, 0);
 }
 

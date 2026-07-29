@@ -288,11 +288,12 @@ describe('PresentationModel', () => {
       {
         name: 'Unequal columns',
         columnWidths: [inches(1), inches(2), inches(3)],
-        height: inches(2),
+        rowHeights: [inches(0.5), inches(1.5)],
       },
     );
     expect(unequal.id).toBe(5);
     expect(unequal.transform.width).toBe(inches(6));
+    expect(unequal.transform.height).toBe(inches(2));
     const unequalSlideXml = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
     const unequalNameOffset = unequalSlideXml.indexOf('name="Unequal columns"');
     const unequalFrameStart = unequalSlideXml.lastIndexOf('<p:graphicFrame', unequalNameOffset);
@@ -310,6 +311,11 @@ describe('PresentationModel', () => {
       inches(3),
     ]);
     expect(unequalFrame).toContain('<a:ext cx="5486400" cy="1828800"/>');
+    expect([...unequalFrame.matchAll(/<a:tr h="(\d+)">/g)]
+      .map((match) => Number(match[1]))).toEqual([
+      inches(0.5),
+      inches(1.5),
+    ]);
     expect(unequalFrame.match(/<a:tc>/g)).toHaveLength(6);
 
     const beforeInvalid = pkg.requirePart(slide.partUri).bytes;
@@ -328,6 +334,8 @@ describe('PresentationModel', () => {
       { height: Number.POSITIVE_INFINITY },
       { columnWidths: [1, 2] },
       { width: 4, columnWidths: [1] },
+      { rowHeights: [1, 2] },
+      { height: 4, rowHeights: [1] },
     ];
     const accessorColumnWidths = [1];
     let columnWidthAccessorCalls = 0;
@@ -340,10 +348,22 @@ describe('PresentationModel', () => {
       configurable: true,
     });
     invalidOptions.push({ columnWidths: accessorColumnWidths });
+    const accessorRowHeights = [1];
+    let rowHeightAccessorCalls = 0;
+    Object.defineProperty(accessorRowHeights, '0', {
+      get() {
+        rowHeightAccessorCalls += 1;
+        return 1;
+      },
+      enumerable: true,
+      configurable: true,
+    });
+    invalidOptions.push({ rowHeights: accessorRowHeights });
     for (const options of invalidOptions) {
       expect(() => slide.addTable([['A']], options as never)).toThrow();
     }
     expect(columnWidthAccessorCalls).toBe(0);
+    expect(rowHeightAccessorCalls).toBe(0);
     expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeInvalid);
     expect(pkg.mutations).toEqual(invalidJournal);
 
