@@ -94,12 +94,14 @@ it('normalizes and renders strict table cell horizontal alignment', () => {
     21,
     normalizeTableDefinition([[cell]], undefined),
   );
-  expect(renderCell(rows[0]![3])).toContain('<a:pPr algn="l"/>');
-  expect(renderCell(rows[0]![4])).toContain('<a:pPr algn="ctr"/>');
-  expect(renderCell(rows[0]![5])).toContain('<a:pPr algn="r"/>');
-  expect(renderCell(rows[0]![6])).toContain('<a:pPr algn="just"/>');
+  expect(renderCell(rows[0]![3])).toContain('<a:pPr algn="l"');
+  expect(renderCell(rows[0]![4])).toContain('<a:pPr algn="ctr"');
+  expect(renderCell(rows[0]![5])).toContain('<a:pPr algn="r"');
+  expect(renderCell(rows[0]![6])).toContain('<a:pPr algn="just"');
   const combined = renderCell(rows[0]![8]);
-  expect(combined).toContain('<a:p><a:pPr algn="ctr"/><a:r>');
+  expect(combined).toContain(
+    '<a:p><a:pPr algn="ctr" indent="0" marL="0"><a:buNone/></a:pPr><a:r>',
+  );
   expect(combined).toContain('marB="45720" anchor="b">');
   expect(combined).not.toMatch(/<a:tcPr[^>]*\salgn=/);
   expect(combined).not.toMatch(/<a:bodyPr[^>]*\salgn=/);
