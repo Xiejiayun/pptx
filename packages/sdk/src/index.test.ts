@@ -368,6 +368,90 @@ describe('PptxDocument vertical slice', () => {
     });
   });
 
+  it('creates, edits, duplicates, rolls back, and reopens table cell text fit', async () => {
+    const document = PptxDocument.create({ slideSize: 'wide' });
+    const slide = document.addSlide();
+    const table = slide.addTable([[
+      'String',
+      { text: 'Omitted' },
+      {
+        text: 'Undefined',
+        options: { fit: undefined } as unknown as AddTableCellOptions,
+      },
+      { text: 'None', options: { fit: 'none' } },
+      { text: 'Shrink', options: { fit: 'shrink' } },
+      { text: 'Resize', options: {
+        fit: 'resize',
+        textDirection: 'vert270',
+        valign: 'middle',
+        fill: { kind: 'solid', color: { kind: 'srgb', value: 'FFF2CC' } },
+      } },
+    ]], {
+      columnWidths: inches(1.5),
+      rowHeights: inches(1),
+    });
+
+    expect(table.rows[0]!.cells.map(({ textFit }) => textFit)).toEqual([
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      'shrink',
+      'resize',
+    ]);
+    expect(table.rows[0]!.cells[5]!.textDirection).toBe('vert270');
+    expect(table.rows[0]!.cells[5]!.verticalAlignment).toBe('middle');
+
+    const sourceBytes = document.opcPackage.requirePart(slide.partUri).bytes;
+    const sourceXml = new TextDecoder().decode(sourceBytes);
+    expect(sourceXml.match(/<a:normAutofit\/>/g)).toHaveLength(1);
+    expect(sourceXml.match(/<a:spAutoFit\/>/g)).toHaveLength(1);
+    expect(sourceXml).not.toContain('<a:noAutofit/>');
+
+    const duplicate = document.duplicateSlide(0);
+    const duplicateTable = duplicate.shapes[0] as TableModel;
+    expect(duplicateTable.rows[0]!.cells.map(({ textFit }) => textFit))
+      .toEqual([undefined, undefined, undefined, undefined, 'shrink', 'resize']);
+
+    table.setCellText(0, 4, 'Shrink edited');
+    table.setCellTextDirection(0, 5, 'wordArtVert');
+    table.setCellTextFit(0, 4, 'none');
+    table.setCellTextFit(0, 3, 'resize');
+    expect(table.rows[0]!.cells.map(({ textFit }) => textFit)).toEqual([
+      undefined,
+      undefined,
+      undefined,
+      'resize',
+      undefined,
+      'resize',
+    ]);
+
+    const beforeRollback = document.opcPackage.requirePart(slide.partUri).bytes;
+    const journal = [...document.opcPackage.mutations];
+    expect(() => document.transaction(() => {
+      table.setCellTextFit(0, 3, 'shrink');
+      table.setCellTextFit(0, 5, undefined);
+      throw new Error('restore created fits');
+    })).toThrow('restore created fits');
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(beforeRollback);
+    expect(document.opcPackage.mutations).toEqual(journal);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedTable = reopened.slides[0]!.shapes[0] as TableModel;
+    expect(reopenedTable.rows[0]!.cells.map(({ textFit }) => textFit)).toEqual([
+      undefined,
+      undefined,
+      undefined,
+      'resize',
+      undefined,
+      'resize',
+    ]);
+    expect(reopenedTable.rows[0]!.cells[4]!.text).toBe('Shrink edited');
+    expect(reopenedTable.rows[0]!.cells[5]!.textDirection).toBe('wordArtVert');
+    expect((reopened.slides[1]!.shapes[0] as TableModel).rows[0]!.cells[4]!.textFit)
+      .toBe('shrink');
+  });
+
   it('creates, edits, duplicates, rolls back, and reopens a basic table', async () => {
     const document = PptxDocument.create({ slideSize: 'wide' });
     const slide = document.addSlide();

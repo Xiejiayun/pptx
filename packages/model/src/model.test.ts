@@ -635,6 +635,7 @@ describe('PresentationModel', () => {
 
     const beforeInvalid = pkg.requirePart(slide.partUri).bytes;
     const invalidJournal = [...pkg.mutations];
+    const shapeCount = slide.shapes.length;
     const accessorCell = {};
     let cellAccessorCalls = 0;
     Object.defineProperty(accessorCell, 'text', {
@@ -689,6 +690,11 @@ describe('PresentationModel', () => {
     ];
     for (const rows of invalidRows) {
       expect(() => slide.addTable(rows as never)).toThrow();
+    }
+    for (const fit of [null, false, 0, '', 'Shrink', ' shrink', 'auto', [], {}]) {
+      expect(() => slide.addTable([[
+        { text: 'Invalid fit', options: { fit: fit as never } },
+      ]])).toThrow(TypeError);
     }
     expect(cellAccessorCalls).toBe(0);
     expect(borderAccessorCalls).toBe(0);
@@ -767,6 +773,8 @@ describe('PresentationModel', () => {
     expect(tableAlignAccessorCalls).toBe(0);
     expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeInvalid);
     expect(pkg.mutations).toEqual(invalidJournal);
+    expect(slide.shapes).toHaveLength(shapeCount);
+    expect(slide.shapes[1]).toBe(table);
 
     let rolledBack: TableModel | undefined;
     const beforeRollback = pkg.requirePart(slide.partUri).bytes;
