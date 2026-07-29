@@ -30,7 +30,13 @@ import {
   type NormalizedParagraphSpacingUpdate,
   type NormalizedParagraphTabStop,
 } from './rich-text.internal.js';
-import { decodeShape, ShapeModel, TableModel, type SemanticShape } from './shapes.js';
+import {
+  decodeShape,
+  ShapeModel,
+  TableModel,
+  type SemanticShape,
+  type TableCellFill,
+} from './shapes.js';
 import {
   normalizeTableDefinition,
   renderTableGraphicFrame,
@@ -108,8 +114,13 @@ export interface AddTableOptions {
   readonly rowHeights?: number | readonly number[];
 }
 
+export interface AddTableCellOptions {
+  readonly fill?: TableCellFill;
+}
+
 export interface AddTableCell {
   readonly text: string;
+  readonly options?: AddTableCellOptions;
 }
 
 export type AddTableCellInput = string | AddTableCell;

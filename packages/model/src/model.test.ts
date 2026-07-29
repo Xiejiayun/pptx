@@ -12,6 +12,7 @@ import {
   UnsupportedPresentationFormatError,
   emuToInches,
   inches,
+  type AddTableCellOptions,
   type AddTableCellInput,
   type PresentationFormat,
 } from './index.js';
@@ -232,10 +233,24 @@ describe('PresentationModel', () => {
       part.contentType,
     );
 
-    const objectCell = { text: 'A & <1>' };
+    const sourceColor = { kind: 'srgb' as const, value: '#ff0000' };
+    const sourceFill = {
+      kind: 'solid' as const,
+      color: sourceColor,
+      transparency: 33.3334,
+    };
+    const sourceCellOptions: AddTableCellOptions = { fill: sourceFill };
+    const objectCell = { text: 'A & <1>', options: sourceCellOptions };
     const tableRows: readonly (readonly AddTableCellInput[])[] = [
-      [objectCell, ''],
-      [{ text: 'A2' }, 'B2'],
+      [objectCell, { text: '', options: { fill: { kind: 'none' } } }],
+      [{
+        text: 'A2',
+        options: { fill: {
+          kind: 'solid',
+          color: { kind: 'scheme', value: 'accent2' },
+          transparency: 25,
+        } },
+      }, { text: 'B2', options: {} }],
     ];
     const first = slide.addText('Before table', { name: 'Before' });
     const table = slide.addTable(
@@ -257,8 +272,33 @@ describe('PresentationModel', () => {
       ['A & <1>', ''],
       ['A2', 'B2'],
     ]);
+    expect(table.rows.map(({ cells }) => cells.map(({ fill }) => fill))).toEqual([
+      [
+        {
+          kind: 'solid',
+          color: { kind: 'srgb', value: 'FF0000' },
+          transparency: 33.333,
+        },
+        { kind: 'none' },
+      ],
+      [
+        {
+          kind: 'solid',
+          color: { kind: 'scheme', value: 'accent2' },
+          transparency: 25,
+        },
+        undefined,
+      ],
+    ]);
     objectCell.text = 'MUTATED';
+    sourceColor.value = '000000';
+    sourceFill.transparency = 1;
     expect(table.rows[0]!.cells[0]!.text).toBe('A & <1>');
+    expect(table.rows[0]!.cells[0]!.fill).toEqual({
+      kind: 'solid',
+      color: { kind: 'srgb', value: 'FF0000' },
+      transparency: 33.333,
+    });
     expect(table.rows[0]!.cells[0]!.margins).toEqual({
       top: 3.6,
       right: 7.2,
@@ -277,13 +317,27 @@ describe('PresentationModel', () => {
       width: inches(4),
       height: inches(2),
     });
+    expect(table.columnWidths).toEqual([inches(2), inches(2)]);
+    expect(table.rowHeights).toEqual([inches(1), inches(1)]);
     expect(slide.shapes.find(({ id }) => id === table.id)).toBe(table);
 
+    table.setCellFill(0, 1, {
+      kind: 'solid',
+      color: { kind: 'srgb', value: '00FF00' },
+    });
+    expect(table.rows[0]!.cells[1]!.fill).toEqual({
+      kind: 'solid',
+      color: { kind: 'srgb', value: '00FF00' },
+    });
+    table.setCellFill(0, 1, undefined);
+    expect(table.rows[0]!.cells[1]!.fill).toBeUndefined();
     table.setCellText(0, 0, 'Edited');
     table.setTransform({ x: inches(2) });
     expect(slide.shapes.find(({ id }) => id === table.id)).toBe(table);
     expect(table.rows[0]!.cells[0]!.text).toBe('Edited');
     expect(table.transform.x).toBe(inches(2));
+    expect(table.columnWidths).toEqual([inches(2), inches(2)]);
+    expect(table.rowHeights).toEqual([inches(1), inches(1)]);
 
     const updated = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
     expect(updated.indexOf('name="Before"')).toBeLessThan(updated.indexOf('name="Table &quot;A&quot;"'));
@@ -345,7 +399,12 @@ describe('PresentationModel', () => {
       [['A'], ['B', 'C']],
       [[1]],
       [['line\nbreak']],
-      [[{ text: 'A', options: {} }]],
+      [[{ text: 'A', unknown: true }]],
+      [[{ text: 'A', options: { fill: {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'FF0000' },
+        transparency: 101,
+      } } }]],
       [[accessorCell]],
     ];
     for (const rows of invalidRows) {
@@ -400,7 +459,14 @@ describe('PresentationModel', () => {
     const rollbackJournal = [...pkg.mutations];
     expect(() =>
       pkg.transaction(() => {
-        rolledBack = slide.addTable([[{ text: 'rollback' }]]);
+        rolledBack = slide.addTable([[{
+          text: 'rollback',
+          options: { fill: {
+            kind: 'solid',
+            color: { kind: 'scheme', value: 'accent1' },
+            transparency: 25,
+          } },
+        }]]);
         throw new Error('restore table');
       }),
     ).toThrow('restore table');
@@ -416,6 +482,33 @@ describe('PresentationModel', () => {
       cells.map(({ text }) => text))).toEqual([
       ['Edited', ''],
       ['A2', 'B2'],
+    ]);
+    expect((reopenedTable as TableModel).rows.map(({ cells }) =>
+      cells.map(({ fill }) => fill))).toEqual([
+      [
+        {
+          kind: 'solid',
+          color: { kind: 'srgb', value: 'FF0000' },
+          transparency: 33.333,
+        },
+        undefined,
+      ],
+      [
+        {
+          kind: 'solid',
+          color: { kind: 'scheme', value: 'accent2' },
+          transparency: 25,
+        },
+        undefined,
+      ],
+    ]);
+    expect((reopenedTable as TableModel).columnWidths).toEqual([
+      inches(2),
+      inches(2),
+    ]);
+    expect((reopenedTable as TableModel).rowHeights).toEqual([
+      inches(1),
+      inches(1),
     ]);
     expect(reopenedTable!.transform).toMatchObject({
       x: inches(2),
@@ -1567,10 +1660,15 @@ describe('PresentationModel', () => {
       color: { kind: 'srgb', value: '0000FF' },
       transparency: 100,
     });
-    table.setCellFill(0, 11, {
-      kind: 'solid',
-      color: { kind: 'srgb', value: '445566' },
+    const nullPrototypeColor = Object.assign(Object.create(null), {
+      kind: 'srgb',
+      value: '#445566',
     });
+    const nullPrototypeFill = Object.assign(Object.create(null), {
+      kind: 'solid',
+      color: nullPrototypeColor,
+    });
+    table.setCellFill(0, 11, nullPrototypeFill);
     let updated = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
     expect(updated).toContain(
       '<q:tcPr xmlns:q="a" anchor="t"><q:solidFill><q:srgbClr val="FF0000"/></q:solidFill></q:tcPr>',
@@ -1656,6 +1754,28 @@ describe('PresentationModel', () => {
     for (const column of [8, 9, 10]) {
       expect(() => table.setCellFill(0, column, { kind: 'none' })).toThrow(ModelParseError);
     }
+    const accessorFill = {};
+    const accessorColor = { kind: 'srgb' };
+    let fillAccessorCalls = 0;
+    Object.defineProperty(accessorFill, 'kind', {
+      get() {
+        fillAccessorCalls += 1;
+        return 'none';
+      },
+      enumerable: true,
+      configurable: true,
+    });
+    Object.defineProperty(accessorColor, 'value', {
+      get() {
+        fillAccessorCalls += 1;
+        return 'FF0000';
+      },
+      enumerable: true,
+      configurable: true,
+    });
+    class ExoticFill {
+      kind = 'none';
+    }
     const invalidValues = [
       null,
       false,
@@ -1670,11 +1790,17 @@ describe('PresentationModel', () => {
       { kind: 'solid', color: { kind: 'srgb', value: 'FF0000' }, transparency: -1 },
       { kind: 'solid', color: { kind: 'srgb', value: 'FF0000' }, transparency: 101 },
       { kind: 'solid', color: { kind: 'srgb', value: 'FF0000' }, transparency: Number.NaN },
+      accessorFill,
+      Object.create({ kind: 'none' }),
+      new ExoticFill(),
+      Object.assign({ kind: 'none' }, { [Symbol('extra')]: true }),
+      { kind: 'solid', color: accessorColor },
       Symbol('table cell fill'),
     ];
     for (const value of invalidValues) {
       expect(() => table.setCellFill(0, 0, value as never)).toThrow();
     }
+    expect(fillAccessorCalls).toBe(0);
     expect(pkg.requirePart(part.uri).bytes).toEqual(beforeInvalid);
     expect(pkg.mutations).toEqual(invalidJournal);
 

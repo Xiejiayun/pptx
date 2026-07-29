@@ -23,6 +23,7 @@ import {
   ShapeModel,
   TableModel,
   ValidationError,
+  type AddTableCellOptions,
   type AddTableCellInput,
 } from './index.js';
 
@@ -351,10 +352,29 @@ describe('PptxDocument vertical slice', () => {
         .filter(({ uri }) => uri !== slide.partUri)
         .map(({ uri, bytes }) => [uri, bytes]),
     );
-    const sourceCell = { text: 'Region' };
+    const sourceColor = { kind: 'srgb' as const, value: '#D9EAF7' };
+    const sourceFill = {
+      kind: 'solid' as const,
+      color: sourceColor,
+      transparency: 33.3334,
+    };
+    const sourceOptions: AddTableCellOptions = { fill: sourceFill };
+    const sourceCell = { text: 'Region', options: sourceOptions };
     const rows: readonly (readonly AddTableCellInput[])[] = [
-      [sourceCell, 'Revenue', { text: 'Growth' }],
-      ['East', { text: '$1.2M' }, '12%'],
+      [
+        sourceCell,
+        { text: 'Revenue', options: { fill: {
+          kind: 'solid',
+          color: { kind: 'scheme', value: 'accent2' },
+          transparency: 25,
+        } } },
+        { text: 'Growth', options: { fill: { kind: 'none' } } },
+      ],
+      ['East', { text: '$1.2M', options: { fill: {
+        kind: 'solid',
+        color: { kind: 'srgb', value: '445566' },
+        transparency: 100,
+      } } }, '12%'],
       [{ text: 'West' }, '$980K', { text: '' }],
     ];
     const table = slide.addTable(
@@ -379,7 +399,34 @@ describe('PptxDocument vertical slice', () => {
       ['West', '$980K', ''],
     ]);
     sourceCell.text = 'MUTATED';
+    sourceColor.value = '000000';
+    sourceFill.transparency = 1;
     expect(table.rows[0]!.cells[0]!.text).toBe('Region');
+    expect(table.rows.map(({ cells }) => cells.map(({ fill }) => fill))).toEqual([
+      [
+        {
+          kind: 'solid',
+          color: { kind: 'srgb', value: 'D9EAF7' },
+          transparency: 33.333,
+        },
+        {
+          kind: 'solid',
+          color: { kind: 'scheme', value: 'accent2' },
+          transparency: 25,
+        },
+        { kind: 'none' },
+      ],
+      [
+        undefined,
+        {
+          kind: 'solid',
+          color: { kind: 'srgb', value: '445566' },
+          transparency: 100,
+        },
+        undefined,
+      ],
+      [undefined, undefined, undefined],
+    ]);
     expect(table.transform).toMatchObject({
       x: inches(1),
       y: inches(1.25),
@@ -406,7 +453,11 @@ describe('PptxDocument vertical slice', () => {
         left: { kind: 'none' },
       },
     });
-    expect(table.rows[0]!.cells[0]!.fill).toBeUndefined();
+    expect(table.rows[0]!.cells[0]!.fill).toEqual({
+      kind: 'solid',
+      color: { kind: 'srgb', value: 'D9EAF7' },
+      transparency: 33.333,
+    });
     expect(table.rows[0]!.cells[0]!.textDirection).toBeUndefined();
     expect(table.rows[0]!.cells[0]!.textFit).toBeUndefined();
     expect(table.rows[0]!.cells[0]!.verticalAlignment).toBeUndefined();
@@ -458,6 +509,19 @@ describe('PptxDocument vertical slice', () => {
       inches(0.5),
       inches(0.75),
       inches(1),
+    ]);
+    expect(duplicateTable.rows[0]!.cells.map(({ fill }) => fill)).toEqual([
+      {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'D9EAF7' },
+        transparency: 33.333,
+      },
+      {
+        kind: 'solid',
+        color: { kind: 'scheme', value: 'accent2' },
+        transparency: 25,
+      },
+      { kind: 'none' },
     ]);
 
     table.setCellText(1, 0, 'Eastern');

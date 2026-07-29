@@ -23,8 +23,8 @@ describe('table creation internals', () => {
 
     expect(definition).toEqual({
       rows: [
-        ['A & <1>', '', 'C1'],
-        ['A2', 'B2', 'C2'],
+        [{ text: 'A & <1>' }, { text: '' }, { text: 'C1' }],
+        [{ text: 'A2' }, { text: 'B2' }, { text: 'C2' }],
       ],
       name: 'Table "A"',
       x: 457_200,
@@ -57,13 +57,13 @@ describe('table creation internals', () => {
 
     sourceRows[0]![0] = 'MUTATED';
     sourceOptions.width = 1;
-    expect(definition.rows[0]![0]).toBe('A & <1>');
+    expect(definition.rows[0]![0]!.text).toBe('A & <1>');
     expect(definition.width).toBe(2_743_201);
 
     const defaults = normalizeTableDefinition([['A', 'B']], undefined);
     const defaultXml = renderTableGraphicFrame(2, defaults);
     expect(defaults).toEqual({
-      rows: [['A', 'B']],
+      rows: [[{ text: 'A' }, { text: 'B' }]],
       x: 457_200,
       y: 457_200,
       width: 1_828_800,
@@ -154,40 +154,137 @@ describe('table creation internals', () => {
     ).rowHeights).toEqual([0, 0]);
   });
 
-  it('normalizes detached plain-text cell objects to byte-identical string output', () => {
-    const objectCell = { text: 'A & <1>' };
-    const nullPrototype = Object.assign(Object.create(null), { text: 'B1' });
-    const objectRows = [
-      [objectCell, nullPrototype, { text: '' }],
-      ['A2', { text: 'B2' }, { text: 'C2' }],
-    ];
-    const stringRows = [
-      ['A & <1>', 'B1', ''],
-      ['A2', 'B2', 'C2'],
-    ];
-    const options = {
-      name: 'Object cells',
-      columnWidths: [914_400, 1_828_800, 914_400],
-      rowHeights: [457_200, 914_400],
+  it('normalizes detached cell fills while keeping empty options byte-identical', () => {
+    const objectCell = { text: 'Plain' };
+    const sourceColor = { kind: 'srgb' as const, value: '#ff0000' };
+    const sourceFill = {
+      kind: 'solid' as const,
+      color: sourceColor,
+      transparency: 33.3334,
     };
-    const objectDefinition = normalizeTableDefinition(objectRows, options);
-    const stringDefinition = normalizeTableDefinition(stringRows, options);
+    const nullColor = Object.assign(Object.create(null), {
+      kind: 'scheme',
+      value: 'accent2',
+    });
+    const nullFill = Object.assign(Object.create(null), {
+      kind: 'solid',
+      color: nullColor,
+      transparency: 25,
+    });
+    const nullOptions = Object.assign(Object.create(null), { fill: nullFill });
+    const nullCell = Object.assign(Object.create(null), {
+      text: 'Null prototype',
+      options: nullOptions,
+    });
+    const objectRows = [[
+      'String',
+      objectCell,
+      { text: 'Empty options', options: {} },
+      { text: 'Undefined fill', options: { fill: undefined } },
+      { text: 'None', options: { fill: { kind: 'none' as const } } },
+      { text: 'Solid', options: { fill: sourceFill } },
+      nullCell,
+      { text: 'Opaque', options: { fill: {
+        kind: 'solid' as const,
+        color: { kind: 'srgb' as const, value: '00FF00' },
+        transparency: 0,
+      } } },
+      { text: 'Invisible', options: { fill: {
+        kind: 'solid' as const,
+        color: { kind: 'srgb' as const, value: '445566' },
+        transparency: 100,
+      } } },
+    ]];
+    const definition = normalizeTableDefinition(objectRows, undefined);
 
-    expect(objectDefinition.rows).toEqual(stringRows);
-    expect(renderTableGraphicFrame(8, objectDefinition))
-      .toBe(renderTableGraphicFrame(8, stringDefinition));
-    const xml = renderTableGraphicFrame(8, objectDefinition);
-    expect(xml).toContain('<a:t xml:space="preserve">A &amp; &lt;1&gt;</a:t>');
-    expect(xml).toMatch(/<a:t xml:space="preserve"><\/a:t>/);
+    expect(definition.rows).toEqual([[
+      { text: 'String' },
+      { text: 'Plain' },
+      { text: 'Empty options' },
+      { text: 'Undefined fill' },
+      { text: 'None', fill: { kind: 'none' } },
+      {
+        text: 'Solid',
+        fill: {
+          kind: 'solid',
+          color: { kind: 'srgb', value: 'FF0000' },
+          transparency: 33.333,
+        },
+      },
+      {
+        text: 'Null prototype',
+        fill: {
+          kind: 'solid',
+          color: { kind: 'scheme', value: 'accent2' },
+          transparency: 25,
+        },
+      },
+      {
+        text: 'Opaque',
+        fill: {
+          kind: 'solid',
+          color: { kind: 'srgb', value: '00FF00' },
+          transparency: 0,
+        },
+      },
+      {
+        text: 'Invisible',
+        fill: {
+          kind: 'solid',
+          color: { kind: 'srgb', value: '445566' },
+          transparency: 100,
+        },
+      },
+    ]]);
+
+    const equivalentRows = [
+      [['Same']],
+      [[{ text: 'Same' }]],
+      [[{ text: 'Same', options: {} }]],
+      [[{ text: 'Same', options: { fill: undefined } }]],
+    ];
+    const equivalentXml = equivalentRows.map((rows) =>
+      renderTableGraphicFrame(8, normalizeTableDefinition(rows, undefined)));
+    expect(new Set(equivalentXml).size).toBe(1);
+
+    const xml = renderTableGraphicFrame(8, definition);
     expect(xml).toContain(
-      '<a:gridCol w="914400"/><a:gridCol w="1828800"/><a:gridCol w="914400"/>',
+      '</a:lnB><a:noFill/></a:tcPr>',
     );
-    expect(xml).toMatch(/<a:tr h="457200">[\s\S]*<a:tr h="914400">/);
+    expect(xml).toContain(
+      '<a:solidFill><a:srgbClr val="FF0000"><a:alpha val="66667"/></a:srgbClr></a:solidFill>',
+    );
+    expect(xml).toContain(
+      '<a:solidFill><a:schemeClr val="accent2"><a:alpha val="75000"/></a:schemeClr></a:solidFill>',
+    );
+    expect(xml).toContain(
+      '<a:solidFill><a:srgbClr val="00FF00"><a:alpha val="100000"/></a:srgbClr></a:solidFill>',
+    );
+    expect(xml).toContain(
+      '<a:solidFill><a:srgbClr val="445566"><a:alpha val="0"/></a:srgbClr></a:solidFill>',
+    );
 
     objectCell.text = 'MUTATED';
-    nullPrototype.text = 'MUTATED';
-    objectRows[1]![1] = { text: 'MUTATED' };
-    expect(objectDefinition.rows).toEqual(stringRows);
+    sourceColor.value = '000000';
+    sourceFill.transparency = 1;
+    nullColor.value = 'accent6';
+    nullFill.transparency = 50;
+    expect(definition.rows[0]![5]).toEqual({
+      text: 'Solid',
+      fill: {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'FF0000' },
+        transparency: 33.333,
+      },
+    });
+    expect(definition.rows[0]![6]).toEqual({
+      text: 'Null prototype',
+      fill: {
+        kind: 'solid',
+        color: { kind: 'scheme', value: 'accent2' },
+        transparency: 25,
+      },
+    });
   });
 
   it('strictly rejects malformed matrices and options without invoking accessors', () => {
@@ -244,8 +341,50 @@ describe('table creation internals', () => {
       enumerable: true,
       configurable: true,
     });
+    const optionsAccessorCell = { text: 'Accessor options' };
+    Object.defineProperty(optionsAccessorCell, 'options', {
+      get() {
+        cellAccessorCalls += 1;
+        return {};
+      },
+      enumerable: true,
+      configurable: true,
+    });
+    const accessorCellOptions = {};
+    Object.defineProperty(accessorCellOptions, 'fill', {
+      get() {
+        cellAccessorCalls += 1;
+        return { kind: 'none' };
+      },
+      enumerable: true,
+      configurable: true,
+    });
+    const accessorFill = {};
+    Object.defineProperty(accessorFill, 'kind', {
+      get() {
+        cellAccessorCalls += 1;
+        return 'none';
+      },
+      enumerable: true,
+      configurable: true,
+    });
+    const accessorColor = { kind: 'srgb' };
+    Object.defineProperty(accessorColor, 'value', {
+      get() {
+        cellAccessorCalls += 1;
+        return 'FF0000';
+      },
+      enumerable: true,
+      configurable: true,
+    });
     class ExoticCell {
       text = 'Class';
+    }
+    class ExoticCellOptions {
+      fill = undefined;
+    }
+    class ExoticFill {
+      kind = 'none';
     }
     const invalidCells = [
       null,
@@ -257,7 +396,26 @@ describe('table creation internals', () => {
       {},
       inheritedCell,
       accessorCell,
-      { text: 'A', options: {} },
+      optionsAccessorCell,
+      { text: 'A', options: null },
+      { text: 'A', options: [] },
+      { text: 'A', options: new Date(0) },
+      { text: 'A', options: new ExoticCellOptions() },
+      { text: 'A', options: Object.create({ fill: undefined }) },
+      { text: 'A', options: accessorCellOptions },
+      { text: 'A', options: { unknown: true } },
+      { text: 'A', options: Object.assign({}, { [Symbol('extra')]: true }) },
+      { text: 'A', options: { fill: accessorFill } },
+      { text: 'A', options: { fill: new ExoticFill() } },
+      { text: 'A', options: { fill: { kind: 'solid' } } },
+      { text: 'A', options: { fill: {
+        kind: 'solid',
+        color: accessorColor,
+      } } },
+      { text: 'A', options: { fill: {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'FFF' },
+      } } },
       { text: 'A', extra: true },
       Object.assign({ text: 'A' }, { [Symbol('extra')]: true }),
       { text: 1 },

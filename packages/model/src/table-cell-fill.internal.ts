@@ -40,10 +40,11 @@ export function normalizeTableCellFill(
   context: string,
 ): TableCellFill | undefined {
   if (value === undefined) return undefined;
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new TypeError(`${context} must be a fill object or undefined`);
-  }
-  const candidate = value as Record<string, unknown>;
+  const candidate = readDataObject(
+    value,
+    context,
+    ['kind', 'color', 'transparency'],
+  );
   if (candidate.kind === 'none') {
     assertKeys(candidate, ['kind'], context);
     return { kind: 'none' };
@@ -118,7 +119,7 @@ export function replaceTableCellFill(
   if (fill === undefined) {
     if (choice) properties.removeElement(choice);
   } else {
-    const encoded = renderFill(fill, prefix);
+    const encoded = renderTableCellFill(fill, prefix);
     if (choice) properties.replaceElement(choice, encoded);
     else {
       const extension = directChildren(root).find(
@@ -184,11 +185,7 @@ function readFillChoice(choice: XmlElement, prefix: string): TableCellFill | und
 }
 
 function normalizeColor(value: unknown, context: string): RichTextColor {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new TypeError(`${context} must be an object`);
-  }
-  const candidate = value as Record<string, unknown>;
-  assertKeys(candidate, ['kind', 'value'], context);
+  const candidate = readDataObject(value, context, ['kind', 'value']);
   if (candidate.kind === 'srgb') {
     if (typeof candidate.value !== 'string' || !/^#?[\da-f]{6}$/i.test(candidate.value)) {
       throw new TypeError(`${context} sRGB value must contain six hex digits`);
@@ -214,7 +211,7 @@ function normalizeTransparency(value: unknown, context: string): number {
   return (100_000 - Math.round((100 - value) * 1_000)) / 1_000;
 }
 
-function renderFill(fill: TableCellFill, prefix: string): string {
+export function renderTableCellFill(fill: TableCellFill, prefix: string): string {
   if (fill.kind === 'none') return `<${prefix}noFill/>`;
   const tag = fill.color.kind === 'srgb' ? 'srgbClr' : 'schemeClr';
   const value = escapeXmlAttribute(fill.color.value);
@@ -224,6 +221,33 @@ function renderFill(fill: TableCellFill, prefix: string): string {
         (100 - fill.transparency) * 1_000,
       )}"/></${prefix}${tag}>`;
   return `<${prefix}solidFill>${color}</${prefix}solidFill>`;
+}
+
+function readDataObject(
+  value: unknown,
+  context: string,
+  supported: readonly string[],
+): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new TypeError(`${context} must be an object`);
+  }
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) {
+    throw new TypeError(`${context} must be an ordinary object`);
+  }
+  const allowed = new Set(supported);
+  const result: Record<string, unknown> = {};
+  for (const key of Reflect.ownKeys(value)) {
+    if (typeof key !== 'string' || !allowed.has(key)) {
+      throw new TypeError(`${context} contains unsupported property ${String(key)}`);
+    }
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (!descriptor || !Object.hasOwn(descriptor, 'value')) {
+      throw new TypeError(`${context} property ${key} must be a data property`);
+    }
+    result[key] = descriptor.value;
+  }
+  return result;
 }
 
 function fillsEqual(

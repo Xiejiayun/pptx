@@ -3,6 +3,11 @@ import {
   normalizeRichText,
   renderRichTextParagraphs,
 } from './rich-text.internal.js';
+import {
+  normalizeTableCellFill,
+  renderTableCellFill,
+} from './table-cell-fill.internal.js';
+import type { TableCellFill } from './shapes.js';
 
 const EMU_PER_INCH = 914_400;
 const DEFAULT_OFFSET = EMU_PER_INCH / 2;
@@ -22,8 +27,13 @@ const NO_BORDERS = ['lnL', 'lnR', 'lnT', 'lnB']
   .map((tag) => `<a:${tag} w="0" cap="flat" cmpd="sng" algn="ctr"><a:noFill/></a:${tag}>`)
   .join('');
 
+interface NormalizedTableCell {
+  readonly text: string;
+  readonly fill?: TableCellFill;
+}
+
 export interface NormalizedTableDefinition {
-  readonly rows: readonly (readonly string[])[];
+  readonly rows: readonly (readonly NormalizedTableCell[])[];
   readonly name?: string;
   readonly x: number;
   readonly y: number;
@@ -149,25 +159,20 @@ function normalizeTableCell(
   cell: unknown,
   rowIndex: number,
   columnIndex: number,
-): string {
+): NormalizedTableCell {
   const context = `Table cell ${rowIndex},${columnIndex}`;
-  if (typeof cell === 'string') return normalizeTableCellText(cell, context);
+  if (typeof cell === 'string') {
+    return { text: normalizeTableCellText(cell, context) };
+  }
   if (!cell || typeof cell !== 'object' || Array.isArray(cell)) {
     throw new TypeError(`${context} must be a string or text object`);
   }
-  const prototype = Object.getPrototypeOf(cell);
-  if (prototype !== Object.prototype && prototype !== null) {
-    throw new TypeError(`${context} must be an ordinary text object`);
-  }
-  const keys = Reflect.ownKeys(cell);
-  if (keys.length !== 1 || keys[0] !== 'text') {
-    throw new TypeError(`${context} must contain only text`);
-  }
-  const descriptor = Object.getOwnPropertyDescriptor(cell, 'text');
-  if (!descriptor || !Object.hasOwn(descriptor, 'value')) {
-    throw new TypeError(`${context} text must be a data property`);
-  }
-  return normalizeTableCellText(descriptor.value, context);
+  const candidate = readDataObject(cell, context, ['text', 'options']);
+  const text = normalizeTableCellText(candidate.text, context);
+  return {
+    text,
+    ...normalizeTableCellOptions(candidate.options, context),
+  };
 }
 
 function normalizeTableCellText(value: unknown, context: string): string {
@@ -181,6 +186,16 @@ function normalizeTableCellText(value: unknown, context: string): string {
     throw new TypeError(`${context} contains invalid XML characters`);
   }
   return value;
+}
+
+function normalizeTableCellOptions(
+  value: unknown,
+  context: string,
+): Pick<NormalizedTableCell, 'fill'> {
+  if (value === undefined) return {};
+  const options = readDataObject(value, `${context} options`, ['fill']);
+  const fill = normalizeTableCellFill(options.fill, `${context} fill`);
+  return fill === undefined ? {} : { fill };
 }
 
 export function distributeTableDimension(total: number, count: number): readonly number[] {
@@ -226,6 +241,33 @@ function readDenseArray(value: unknown, context: string): readonly unknown[] {
     }
     return descriptor.value;
   });
+}
+
+function readDataObject(
+  value: unknown,
+  context: string,
+  supported: readonly string[],
+): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new TypeError(`${context} must be an object`);
+  }
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) {
+    throw new TypeError(`${context} must be an ordinary object`);
+  }
+  const allowed = new Set(supported);
+  const result: Record<string, unknown> = {};
+  for (const key of Reflect.ownKeys(value)) {
+    if (typeof key !== 'string' || !allowed.has(key)) {
+      throw new TypeError(`${context} contains unsupported property ${String(key)}`);
+    }
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (!descriptor || !Object.hasOwn(descriptor, 'value')) {
+      throw new TypeError(`${context} property ${key} must be a data property`);
+    }
+    result[key] = descriptor.value;
+  }
+  return result;
 }
 
 function readOptions(value: unknown): Record<string, unknown> {
@@ -293,11 +335,12 @@ function sumDimensions(dimensions: readonly number[], context: string): number {
   }, 0);
 }
 
-function renderTableCell(text: string): string {
+function renderTableCell(cell: NormalizedTableCell): string {
   const paragraphs = renderRichTextParagraphs(normalizeRichText([
-    { runs: [{ text, style: {} }] },
+    { runs: [{ text: cell.text, style: {} }] },
   ]));
-  return `<a:tc><a:txBody><a:bodyPr/><a:lstStyle/>${paragraphs}</a:txBody><a:tcPr marL="${CELL_MARGIN_HORIZONTAL}" marR="${CELL_MARGIN_HORIZONTAL}" marT="${CELL_MARGIN_VERTICAL}" marB="${CELL_MARGIN_VERTICAL}">${NO_BORDERS}</a:tcPr></a:tc>`;
+  const fill = cell.fill === undefined ? '' : renderTableCellFill(cell.fill, 'a:');
+  return `<a:tc><a:txBody><a:bodyPr/><a:lstStyle/>${paragraphs}</a:txBody><a:tcPr marL="${CELL_MARGIN_HORIZONTAL}" marR="${CELL_MARGIN_HORIZONTAL}" marT="${CELL_MARGIN_VERTICAL}" marB="${CELL_MARGIN_VERTICAL}">${NO_BORDERS}${fill}</a:tcPr></a:tc>`;
 }
 
 function containsInvalidXmlCharacter(value: string): boolean {

@@ -797,6 +797,87 @@ describe('importPptxGenJS', () => {
     );
     expect(reopenedTables.map((table) =>
       table.rows[0]!.cells.map(({ fill }) => fill))).toEqual(snapshots);
+
+    const conformanceGenerated = new PptxGenJS();
+    conformanceGenerated.layout = 'LAYOUT_WIDE';
+    conformanceGenerated.addSlide().addTable(
+      [[
+        { text: 'Opaque', options: { fill: { color: 'FF0000' } } },
+        { text: 'Theme alpha', options: {
+          fill: { color: conformanceGenerated.SchemeColor.accent1, transparency: 25 },
+        } },
+      ]],
+      { x: 1, y: 1, w: 4, h: 1, colW: [2, 2], rowH: [1] },
+    );
+    const conformanceImported = await importPptxGenJS(conformanceGenerated);
+    const importedConformanceTable = conformanceImported.slides[0]!.shapes[0] as TableModel;
+    const native = PptxDocument.create({ slideSize: 'wide' });
+    const nativeTable = native.addSlide().addTable(
+      [[
+        { text: 'Opaque', options: { fill: {
+          kind: 'solid',
+          color: { kind: 'srgb', value: 'FF0000' },
+        } } },
+        { text: 'Theme alpha', options: { fill: {
+          kind: 'solid',
+          color: { kind: 'scheme', value: 'accent1' },
+          transparency: 25,
+        } } },
+      ]],
+      {
+        x: inches(1),
+        y: inches(1),
+        width: inches(4),
+        height: inches(1),
+        columnWidths: [inches(2), inches(2)],
+        rowHeights: [inches(1)],
+      },
+    );
+    expect(nativeTable.transform).toMatchObject(importedConformanceTable.transform);
+    expect(nativeTable.columnWidths).toEqual(importedConformanceTable.columnWidths);
+    expect(nativeTable.rowHeights).toEqual(importedConformanceTable.rowHeights);
+    expect(nativeTable.rows.map(({ cells }) => cells.map(({ fill }) => fill))).toEqual(
+      importedConformanceTable.rows.map(({ cells }) => cells.map(({ fill }) => fill)),
+    );
+    expect(nativeTable.rows.map(({ cells }) => cells.map(({ margins }) => margins))).toEqual(
+      importedConformanceTable.rows.map(({ cells }) => cells.map(({ margins }) => margins)),
+    );
+    expect(nativeTable.rows.map(({ cells }) => cells.map(({ borders }) => borders))).toEqual(
+      importedConformanceTable.rows.map(({ cells }) => cells.map(({ borders }) => borders)),
+    );
+    const nativeXml = new TextDecoder().decode(
+      native.opcPackage.requirePart(native.slides[0]!.partUri).bytes,
+    );
+    expect(nativeXml).toContain(
+      '<a:solidFill><a:srgbClr val="FF0000"/></a:solidFill>',
+    );
+    expect(nativeXml).toContain(
+      '<a:solidFill><a:schemeClr val="accent1"><a:alpha val="75000"/></a:schemeClr></a:solidFill>',
+    );
+    const reopenedNative = await PptxDocument.open(await native.write());
+    const reopenedConformance = await PptxDocument.open(await conformanceImported.write());
+    expect((reopenedNative.slides[0]!.shapes[0] as TableModel).rows).toEqual(nativeTable.rows);
+    expect((reopenedConformance.slides[0]!.shapes[0] as TableModel).rows)
+      .toEqual(importedConformanceTable.rows);
+
+    const nativeDifferences = PptxDocument.create({ slideSize: 'wide' });
+    nativeDifferences.addSlide().addTable([[
+      { text: 'Explicit zero', options: { fill: {
+        kind: 'solid',
+        color: { kind: 'srgb', value: '00FF00' },
+        transparency: 0,
+      } } },
+      { text: 'Direct none', options: { fill: { kind: 'none' } } },
+    ]]);
+    const nativeDifferencesXml = new TextDecoder().decode(
+      nativeDifferences.opcPackage.requirePart(nativeDifferences.slides[0]!.partUri).bytes,
+    );
+    expect(nativeDifferencesXml).toContain(
+      '<a:solidFill><a:srgbClr val="00FF00"><a:alpha val="100000"/></a:srgbClr></a:solidFill>',
+    );
+    expect(nativeDifferencesXml).toContain('</a:lnB><a:noFill/></a:tcPr>');
+    expect(xml).toContain('<a:solidFill><a:srgbClr val="00FF00"/></a:solidFill>');
+    expect(directFillXml[1]).toBeUndefined();
   });
 
   it('imports PptxGenJS table-cell borders from materialized direct lines', async () => {
