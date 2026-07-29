@@ -82,6 +82,8 @@ const updatedTransparencies = transparencyText.richText[0].runs.map(({ style }) 
 const tableSlide = created.slides[0];
 const creationColor = { kind: 'srgb', value: '#D9EAF7' };
 const creationFill = { kind: 'solid', color: creationColor, transparency: 33.3334 };
+const tableCreationFillColor = { kind: 'scheme', value: 'accent4' };
+const tableCreationFill = { kind: 'solid', color: tableCreationFillColor, transparency: 40 };
 const creationBorderColor = { kind: 'srgb', value: '#C00000' };
 const creationBorder = { kind: 'line', color: creationBorderColor, width: 2, style: 'solid' };
 const creationMargin = { top: 4, left: 8 };
@@ -99,19 +101,24 @@ const createdTable = tableSlide.addTable([
     { text: 'East', options: { border: { top: { kind: 'line', color: { kind: 'scheme', value: 'accent3' }, width: 1, style: 'dash' }, left: { kind: 'none' } }, margin: 0, valign: 'bottom' } },
     { text: '', options: { border: { kind: 'none' }, fill: { kind: 'none' }, margin: {} } },
   ],
-], { name: 'Created smoke table', columnWidths: [inches(1), inches(3)], rowHeights: [inches(0.5), inches(1.5)], margin: { top: 9, left: 18 }, valign: 'middle' });
+], { name: 'Created smoke table', columnWidths: [inches(1), inches(3)], rowHeights: [inches(0.5), inches(1.5)], fill: tableCreationFill, margin: { top: 9, left: 18 }, valign: 'middle' });
 const tableCellObjectCreation = JSON.stringify(createdTable.rows.map(({ cells }) => cells.map(({ text }) => text))) === JSON.stringify([['Region', 'Revenue'], ['East', '']]);
 const initialCreatedFill = createdTable.rows[0].cells[0].fill;
+const initialTableDefaultFill = createdTable.rows[1].cells[0].fill;
+const initialTableNoneOverride = createdTable.rows[1].cells[1].fill;
 const initialCreatedBorders = createdTable.rows.map(({ cells }) => cells.map(({ borders }) => borders));
 const initialCreatedMargins = createdTable.rows.map(({ cells }) => cells.map(({ margins }) => margins));
 const initialCreatedAlignments = createdTable.rows.map(({ cells }) => cells.map(({ verticalAlignment }) => verticalAlignment));
 creationColor.value = '000000';
 creationFill.transparency = 1;
+tableCreationFillColor.value = 'accent6';
+tableCreationFill.transparency = 1;
 creationBorderColor.value = '000000';
 creationBorder.width = 9;
 creationMargin.top = 99;
 creationMargin.left = 99;
 const detachedCreatedFill = createdTable.rows[0].cells[0].fill;
+const detachedTableDefaultFill = createdTable.rows[1].cells[0].fill;
 const detachedCreatedBorders = createdTable.rows[0].cells[0].borders;
 const detachedCreatedMargins = createdTable.rows[0].cells[0].margins;
 const createdTableDefaults = createdTable instanceof TableModel && createdTable.transform.x === inches(0.5) && createdTable.transform.y === inches(0.5) && createdTable.rows[1].cells[1].margins?.top === 9 && createdTable.rows[1].cells[1].margins?.left === 18;
@@ -135,6 +142,7 @@ createdTable.setCellVerticalAlignment(0, 0, 'bottom');
 createdTable.setCellVerticalAlignment(1, 1, undefined);
 createdTable.setCellMargins(0, 0, { bottom: 9 });
 createdTable.setCellMargins(1, 1, undefined);
+createdTable.setCellFill(1, 1, undefined);
 const reopenedCreated = await PptxDocument.open(await created.write());
 const reopenedCreatedTable = reopenedCreated.slides[0].shapes.find((shape) => shape.name === 'Created smoke table');
 const tableCreation = createdTableDefaults && reopenedCreatedTable instanceof TableModel && reopenedCreatedTable.rows[1].cells[0].text === 'Edited East' && reopenedCreatedTable.rows[1].cells[1].text === '' && reopenedCreatedTable.rows[1].cells[1].verticalAlignment === undefined;
@@ -142,7 +150,28 @@ const tableColumnWidths = createdTable.transform.width === inches(4) && createdT
 const tableColumnWidthEditing = initialTableColumnWidths?.join(',') === [inches(1), inches(3)].join(',') && createdTable.columnWidths?.join(',') === [inches(1.5), inches(2.5)].join(',') && reopenedCreatedTable instanceof TableModel && reopenedCreatedTable.columnWidths?.join(',') === [inches(1.5), inches(2.5)].join(',');
 const tableRowHeights = createdTable.transform.height === inches(2) && createdTableRows.length === 2 && createdTableRows[0] === inches(0.5) && createdTableRows[1] === inches(1.5) && reopenedCreatedTable instanceof TableModel && reopenedCreatedTable.transform.height === inches(2);
 const tableRowHeightEditing = initialTableRowHeights?.join(',') === [inches(0.5), inches(1.5)].join(',') && automaticTableHeightPreserved && createdTable.rowHeights?.join(',') === [inches(0.75), inches(1.25)].join(',') && reopenedCreatedTable instanceof TableModel && reopenedCreatedTable.rowHeights?.join(',') === [inches(0.75), inches(1.25)].join(',');
-const tableCellFillCreation = initialCreatedFill?.kind === 'solid' && initialCreatedFill.color.kind === 'srgb' && initialCreatedFill.color.value === 'D9EAF7' && initialCreatedFill.transparency === 33.333 && detachedCreatedFill?.kind === 'solid' && detachedCreatedFill.color.kind === 'srgb' && detachedCreatedFill.color.value === 'D9EAF7' && detachedCreatedFill.transparency === 33.333 && createdTable.rows[0].cells[1].fill?.kind === 'solid' && createdTable.rows[0].cells[1].fill.color.kind === 'scheme' && createdTable.rows[0].cells[1].fill.color.value === 'accent2' && createdTable.rows[0].cells[1].fill.transparency === 25 && createdTable.rows[1].cells[1].fill?.kind === 'none' && reopenedCreatedTable instanceof TableModel && reopenedCreatedTable.rows[0].cells[0].fill?.kind === 'solid' && reopenedCreatedTable.rows[0].cells[0].fill.color.value === 'D9EAF7' && reopenedCreatedTable.rows[0].cells[0].fill.transparency === 33.333 && reopenedCreatedTable.rows[0].cells[1].fill?.kind === 'solid' && reopenedCreatedTable.rows[0].cells[1].fill.color.kind === 'scheme' && reopenedCreatedTable.rows[0].cells[1].fill.color.value === 'accent2' && reopenedCreatedTable.rows[0].cells[1].fill.transparency === 25 && reopenedCreatedTable.rows[1].cells[0].fill?.kind === 'solid' && reopenedCreatedTable.rows[1].cells[0].fill.color.kind === 'scheme' && reopenedCreatedTable.rows[1].cells[0].fill.color.value === 'accent1' && reopenedCreatedTable.rows[1].cells[0].fill.transparency === 50 && reopenedCreatedTable.rows[1].cells[1].fill?.kind === 'none';
+const tableCellFillCreation = initialCreatedFill?.kind === 'solid' && initialCreatedFill.color.kind === 'srgb' && initialCreatedFill.color.value === 'D9EAF7' && initialCreatedFill.transparency === 33.333 && detachedCreatedFill?.kind === 'solid' && detachedCreatedFill.color.kind === 'srgb' && detachedCreatedFill.color.value === 'D9EAF7' && detachedCreatedFill.transparency === 33.333 && createdTable.rows[0].cells[1].fill?.kind === 'solid' && createdTable.rows[0].cells[1].fill.color.kind === 'scheme' && createdTable.rows[0].cells[1].fill.color.value === 'accent2' && createdTable.rows[0].cells[1].fill.transparency === 25 && initialTableNoneOverride?.kind === 'none' && reopenedCreatedTable instanceof TableModel && reopenedCreatedTable.rows[0].cells[0].fill?.kind === 'solid' && reopenedCreatedTable.rows[0].cells[0].fill.color.value === 'D9EAF7' && reopenedCreatedTable.rows[0].cells[0].fill.transparency === 33.333 && reopenedCreatedTable.rows[0].cells[1].fill?.kind === 'solid' && reopenedCreatedTable.rows[0].cells[1].fill.color.kind === 'scheme' && reopenedCreatedTable.rows[0].cells[1].fill.color.value === 'accent2' && reopenedCreatedTable.rows[0].cells[1].fill.transparency === 25;
+const tableFillCreation = tableCellFillCreation &&
+  initialTableDefaultFill?.kind === 'solid' &&
+  initialTableDefaultFill.color.kind === 'scheme' &&
+  initialTableDefaultFill.color.value === 'accent4' &&
+  initialTableDefaultFill.transparency === 40 &&
+  detachedTableDefaultFill?.kind === 'solid' &&
+  detachedTableDefaultFill.color.kind === 'scheme' &&
+  detachedTableDefaultFill.color.value === 'accent4' &&
+  detachedTableDefaultFill.transparency === 40 &&
+  createdTableCells[2]?.includes('</a:lnB><a:solidFill><a:schemeClr val="accent4"><a:alpha val="60000"/></a:schemeClr></a:solidFill>') === true &&
+  createdTable.rows[1].cells[0].fill?.kind === 'solid' &&
+  createdTable.rows[1].cells[0].fill.color.kind === 'scheme' &&
+  createdTable.rows[1].cells[0].fill.color.value === 'accent1' &&
+  createdTable.rows[1].cells[0].fill.transparency === 50 &&
+  createdTable.rows[1].cells[1].fill === undefined &&
+  reopenedCreatedTable instanceof TableModel &&
+  reopenedCreatedTable.rows[1].cells[0].fill?.kind === 'solid' &&
+  reopenedCreatedTable.rows[1].cells[0].fill.color.kind === 'scheme' &&
+  reopenedCreatedTable.rows[1].cells[0].fill.color.value === 'accent1' &&
+  reopenedCreatedTable.rows[1].cells[0].fill.transparency === 50 &&
+  reopenedCreatedTable.rows[1].cells[1].fill === undefined;
 const creationSides = ['top', 'right', 'bottom', 'left'];
 const isCreationLine = (border, colorKind, colorValue, width, style) => border?.kind === 'line' && border.color.kind === colorKind && border.color.value === colorValue && border.width === width && border.style === style;
 const allCreationLines = (borders, colorKind, colorValue, width, style) => borders !== undefined && creationSides.every((side) => isCreationLine(borders[side], colorKind, colorValue, width, style));
@@ -295,6 +324,7 @@ const checks = {
   tableCreation,
   tableCellObjectCreation,
   tableCellFillCreation,
+  tableFillCreation,
   tableCellBorderCreation,
   tableCellMarginCreation,
   tableMarginCreation,
@@ -358,6 +388,8 @@ if (browserIndent.richText[0].indent !== undefined) throw new Error('Browser par
 const tableSlide = created.slides[0];
 const browserCreationColor = { kind: 'srgb', value: '#D9EAF7' };
 const browserCreationFill = { kind: 'solid', color: browserCreationColor, transparency: 33.3334 };
+const browserTableFillColor = { kind: 'scheme', value: 'accent4' };
+const browserTableFill = { kind: 'solid', color: browserTableFillColor, transparency: 40 };
 const browserCreationBorderColor = { kind: 'srgb', value: '#C00000' };
 const browserCreationBorder = { kind: 'line', color: browserCreationBorderColor, width: 2, style: 'solid' };
 const browserCreationMargin = { top: 4, left: 8 };
@@ -375,13 +407,14 @@ const createdTable = tableSlide.addTable([
     { text: 'West', options: { border: { top: { kind: 'line', color: { kind: 'scheme', value: 'accent3' }, width: 1, style: 'dash' }, left: { kind: 'none' } }, margin: 0, valign: 'bottom' } },
     { text: '', options: { border: { kind: 'none' }, fill: { kind: 'none' }, margin: {} } },
   ],
-], { name: 'Created browser table', columnWidths: inches(1.25), rowHeights: inches(0.75), margin: { top: 9, left: 18 }, valign: 'middle' });
+], { name: 'Created browser table', columnWidths: inches(1.25), rowHeights: inches(0.75), fill: browserTableFill, margin: { top: 9, left: 18 }, valign: 'middle' });
 if (JSON.stringify(createdTable.rows.map(({ cells }) => cells.map(({ text }) => text))) !== JSON.stringify([['Region', 'Revenue'], ['West', '']])) throw new Error('Browser table cell object creation failed');
 if (JSON.stringify(createdTable.rows.map(({ cells }) => cells.map(({ verticalAlignment }) => verticalAlignment))) !== JSON.stringify([['top', 'middle'], ['bottom', 'middle']])) throw new Error('Browser table vertical alignment creation failed');
 const browserMarginVector = (margins) => [margins?.top, margins?.right, margins?.bottom, margins?.left];
 const browserInitialMargins = createdTable.rows.map(({ cells }) => cells.map(({ margins }) => browserMarginVector(margins)));
 if (JSON.stringify(browserInitialMargins) !== JSON.stringify([[[4, 7.2, 3.6, 8], [1, 2, 3, 4]], [[0, 0, 0, 0], [9, 7.2, 3.6, 18]]])) throw new Error('Browser table cell margin creation failed');
 if (createdTable.rows[0].cells[0].fill?.kind !== 'solid' || createdTable.rows[0].cells[0].fill.color.kind !== 'srgb' || createdTable.rows[0].cells[0].fill.color.value !== 'D9EAF7' || createdTable.rows[0].cells[0].fill.transparency !== 33.333 || createdTable.rows[0].cells[1].fill?.kind !== 'solid' || createdTable.rows[0].cells[1].fill.color.kind !== 'scheme' || createdTable.rows[0].cells[1].fill.color.value !== 'accent2' || createdTable.rows[0].cells[1].fill.transparency !== 25 || createdTable.rows[1].cells[1].fill?.kind !== 'none') throw new Error('Browser table cell fill creation failed');
+if (createdTable.rows[1].cells[0].fill?.kind !== 'solid' || createdTable.rows[1].cells[0].fill.color.kind !== 'scheme' || createdTable.rows[1].cells[0].fill.color.value !== 'accent4' || createdTable.rows[1].cells[0].fill.transparency !== 40) throw new Error('Browser table fill inheritance failed');
 const browserCreationSides = ['top', 'right', 'bottom', 'left'];
 const browserIsCreationLine = (border, colorKind, colorValue, width, style) => border?.kind === 'line' && border.color.kind === colorKind && border.color.value === colorValue && border.width === width && border.style === style;
 const browserAllCreationLines = (borders, colorKind, colorValue, width, style) => borders !== undefined && browserCreationSides.every((side) => browserIsCreationLine(borders[side], colorKind, colorValue, width, style));
@@ -392,11 +425,14 @@ const browserNamedBorders = createdTable.rows[1].cells[0].borders;
 if (!browserAllCreationLines(browserScalarBorders, 'srgb', 'C00000', 2, 'solid') || !browserIsCreationLine(browserTupleBorders?.top, 'scheme', 'accent1', 1.5, 'dash') || browserTupleBorders?.right?.kind !== 'none' || !browserIsCreationLine(browserTupleBorders?.bottom, 'srgb', '00FF00', 0, undefined) || browserTupleBorders?.left?.kind !== 'none' || !browserIsCreationLine(browserNamedBorders?.top, 'scheme', 'accent3', 1, 'dash') || browserNamedBorders?.right?.kind !== 'none' || browserNamedBorders?.bottom?.kind !== 'none' || browserNamedBorders?.left?.kind !== 'none' || !browserAllCreationNone(createdTable.rows[1].cells[1].borders)) throw new Error('Browser table cell border creation failed');
 browserCreationColor.value = '000000';
 browserCreationFill.transparency = 1;
+browserTableFillColor.value = 'accent6';
+browserTableFill.transparency = 1;
 browserCreationBorderColor.value = '000000';
 browserCreationBorder.width = 9;
 browserCreationMargin.top = 99;
 browserCreationMargin.left = 99;
 if (createdTable.rows[0].cells[0].fill?.kind !== 'solid' || createdTable.rows[0].cells[0].fill.color.value !== 'D9EAF7' || createdTable.rows[0].cells[0].fill.transparency !== 33.333) throw new Error('Browser table cell fill creation retained source state');
+if (createdTable.rows[1].cells[0].fill?.kind !== 'solid' || createdTable.rows[1].cells[0].fill.color.kind !== 'scheme' || createdTable.rows[1].cells[0].fill.color.value !== 'accent4' || createdTable.rows[1].cells[0].fill.transparency !== 40) throw new Error('Browser table fill creation retained source state');
 if (!browserAllCreationLines(createdTable.rows[0].cells[0].borders, 'srgb', 'C00000', 2, 'solid')) throw new Error('Browser table cell border creation retained source state');
 if (JSON.stringify(browserMarginVector(createdTable.rows[0].cells[0].margins)) !== JSON.stringify([4, 7.2, 3.6, 8])) throw new Error('Browser table cell margin creation retained source state');
 const createdTablePartXml = new TextDecoder().decode(created.opcPackage.requirePart(tableSlide.partUri).bytes);
@@ -410,14 +446,18 @@ createdTable.setRowHeights([inches(0.5), inches(1)]);
 if (createdTable.rowHeights?.join(',') !== [inches(0.5), inches(1)].join(',') || createdTable.transform.height !== inches(1.5)) throw new Error('Browser table row-height editing failed');
 createdTable.setCellText(1, 0, 'Edited West');
 createdTable.setCellFill(1, 0, { kind: 'solid', color: { kind: 'scheme', value: 'accent1' }, transparency: 50 });
+if (createdTable.rows[1].cells[0].fill?.kind !== 'solid' || createdTable.rows[1].cells[0].fill.color.kind !== 'scheme' || createdTable.rows[1].cells[0].fill.color.value !== 'accent1' || createdTable.rows[1].cells[0].fill.transparency !== 50) throw new Error('Browser table fill override failed');
 createdTable.setCellBorders(1, 0, { kind: 'line', color: { kind: 'srgb', value: 'FFFFFF' }, width: 1, style: 'solid' });
 createdTable.setCellVerticalAlignment(0, 0, 'bottom');
 createdTable.setCellVerticalAlignment(1, 1, undefined);
 createdTable.setCellMargins(0, 0, { bottom: 9 });
 createdTable.setCellMargins(1, 1, undefined);
+createdTable.setCellFill(1, 1, undefined);
+if (createdTable.rows[1].cells[1].fill !== undefined) throw new Error('Browser table fill clear re-inherited');
 const reopenedCreated = await PptxDocument.open(await created.write());
 const reopenedCreatedTable = reopenedCreated.slides[0].shapes.find((shape) => shape.name === 'Created browser table');
-if (!(reopenedCreatedTable instanceof TableModel) || reopenedCreatedTable.columnWidths?.join(',') !== [inches(1), inches(1.5)].join(',') || reopenedCreatedTable.rowHeights?.join(',') !== [inches(0.5), inches(1)].join(',') || reopenedCreatedTable.transform.width !== inches(2.5) || reopenedCreatedTable.transform.height !== inches(1.5) || reopenedCreatedTable.rows[1].cells[0].text !== 'Edited West' || reopenedCreatedTable.rows[1].cells[1].text !== '' || reopenedCreatedTable.rows[0].cells[0].fill?.kind !== 'solid' || reopenedCreatedTable.rows[0].cells[0].fill.color.value !== 'D9EAF7' || reopenedCreatedTable.rows[0].cells[1].fill?.kind !== 'solid' || reopenedCreatedTable.rows[0].cells[1].fill.color.kind !== 'scheme' || reopenedCreatedTable.rows[0].cells[1].fill.transparency !== 25 || reopenedCreatedTable.rows[1].cells[0].fill?.kind !== 'solid' || reopenedCreatedTable.rows[1].cells[0].fill.color.value !== 'accent1' || reopenedCreatedTable.rows[1].cells[0].fill.transparency !== 50 || reopenedCreatedTable.rows[1].cells[1].fill?.kind !== 'none' || !browserAllCreationLines(reopenedCreatedTable.rows[0].cells[0].borders, 'srgb', 'C00000', 2, 'solid') || !browserIsCreationLine(reopenedCreatedTable.rows[0].cells[1].borders?.top, 'scheme', 'accent1', 1.5, 'dash') || reopenedCreatedTable.rows[0].cells[1].borders?.right?.kind !== 'none' || !browserIsCreationLine(reopenedCreatedTable.rows[0].cells[1].borders?.bottom, 'srgb', '00FF00', 0, undefined) || reopenedCreatedTable.rows[0].cells[1].borders?.left?.kind !== 'none' || !browserAllCreationLines(reopenedCreatedTable.rows[1].cells[0].borders, 'srgb', 'FFFFFF', 1, 'solid') || !browserAllCreationNone(reopenedCreatedTable.rows[1].cells[1].borders)) throw new Error('Browser table creation round trip failed');
+if (!(reopenedCreatedTable instanceof TableModel) || reopenedCreatedTable.columnWidths?.join(',') !== [inches(1), inches(1.5)].join(',') || reopenedCreatedTable.rowHeights?.join(',') !== [inches(0.5), inches(1)].join(',') || reopenedCreatedTable.transform.width !== inches(2.5) || reopenedCreatedTable.transform.height !== inches(1.5) || reopenedCreatedTable.rows[1].cells[0].text !== 'Edited West' || reopenedCreatedTable.rows[1].cells[1].text !== '' || reopenedCreatedTable.rows[0].cells[0].fill?.kind !== 'solid' || reopenedCreatedTable.rows[0].cells[0].fill.color.value !== 'D9EAF7' || reopenedCreatedTable.rows[0].cells[1].fill?.kind !== 'solid' || reopenedCreatedTable.rows[0].cells[1].fill.color.kind !== 'scheme' || reopenedCreatedTable.rows[0].cells[1].fill.transparency !== 25 || reopenedCreatedTable.rows[1].cells[0].fill?.kind !== 'solid' || reopenedCreatedTable.rows[1].cells[0].fill.color.value !== 'accent1' || reopenedCreatedTable.rows[1].cells[0].fill.transparency !== 50 || reopenedCreatedTable.rows[1].cells[1].fill !== undefined || !browserAllCreationLines(reopenedCreatedTable.rows[0].cells[0].borders, 'srgb', 'C00000', 2, 'solid') || !browserIsCreationLine(reopenedCreatedTable.rows[0].cells[1].borders?.top, 'scheme', 'accent1', 1.5, 'dash') || reopenedCreatedTable.rows[0].cells[1].borders?.right?.kind !== 'none' || !browserIsCreationLine(reopenedCreatedTable.rows[0].cells[1].borders?.bottom, 'srgb', '00FF00', 0, undefined) || reopenedCreatedTable.rows[0].cells[1].borders?.left?.kind !== 'none' || !browserAllCreationLines(reopenedCreatedTable.rows[1].cells[0].borders, 'srgb', 'FFFFFF', 1, 'solid') || !browserAllCreationNone(reopenedCreatedTable.rows[1].cells[1].borders)) throw new Error('Browser table creation round trip failed');
+if (reopenedCreatedTable.rows[1].cells[0].fill?.kind !== 'solid' || reopenedCreatedTable.rows[1].cells[0].fill.color.kind !== 'scheme' || reopenedCreatedTable.rows[1].cells[0].fill.color.value !== 'accent1' || reopenedCreatedTable.rows[1].cells[0].fill.transparency !== 50 || reopenedCreatedTable.rows[1].cells[1].fill !== undefined) throw new Error('Browser table fill round trip failed');
 if (reopenedCreatedTable.rows[0].cells[0].margins?.top !== undefined || reopenedCreatedTable.rows[0].cells[0].margins?.right !== undefined || reopenedCreatedTable.rows[0].cells[0].margins?.bottom !== 9 || reopenedCreatedTable.rows[0].cells[0].margins?.left !== undefined) throw new Error('Browser table cell margin creation round trip failed');
 if (reopenedCreatedTable.rows[1].cells[1].margins !== undefined) throw new Error('Browser table margin clear re-inherited');
 if (reopenedCreatedTable.rows[0].cells[0].verticalAlignment !== 'bottom' || reopenedCreatedTable.rows[0].cells[1].verticalAlignment !== 'middle' || reopenedCreatedTable.rows[1].cells[0].verticalAlignment !== 'bottom' || reopenedCreatedTable.rows[1].cells[1].verticalAlignment !== undefined) throw new Error('Browser table cell vertical alignment creation round trip failed');
@@ -589,7 +629,7 @@ const creationOptions: AddTableCellOptions = {
 };
 const objectCell: AddTableCell = { text: 'Revenue', options: creationOptions };
 const tableRows: readonly (readonly AddTableCellInput[])[] = [['Region', objectCell], [{ text: 'East' }, { text: '' }]];
-const tableOptions: AddTableOptions = { name: 'Typed table', x: inches(1), columnWidths: [inches(1), inches(3)], rowHeights: [inches(0.5), inches(1.5)], margin: cellMargins, valign: cellAlignment };
+const tableOptions: AddTableOptions = { name: 'Typed table', x: inches(1), columnWidths: [inches(1), inches(3)], rowHeights: [inches(0.5), inches(1.5)], fill: cellFill, margin: cellMargins, valign: cellAlignment };
 const typedTable: TableModel = createdDocument.slides[0].addTable(tableRows, tableOptions);
 const widthSnapshot: readonly number[] | undefined = typedTable.columnWidths;
 const heightSnapshot: readonly number[] | undefined = typedTable.rowHeights;
