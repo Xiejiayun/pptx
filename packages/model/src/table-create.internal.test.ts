@@ -287,6 +287,210 @@ describe('table creation internals', () => {
     });
   });
 
+  it('normalizes detached cell borders and renders canonical LRTB XML before fill', () => {
+    const sourceColor = { kind: 'srgb' as const, value: '#ff0000' };
+    const sourceLine = {
+      kind: 'line' as const,
+      color: sourceColor,
+      width: 1.500004,
+      style: 'solid' as const,
+    };
+    const rows = [[
+      'String',
+      { text: 'Empty options', options: {} },
+      { text: 'Undefined border', options: { border: undefined } },
+      { text: 'Empty border', options: { border: {} } },
+      { text: 'None', options: { border: { kind: 'none' as const } } },
+      { text: 'Scalar', options: { border: sourceLine } },
+      { text: 'Tuple', options: { border: [
+        {
+          kind: 'line' as const,
+          color: { kind: 'scheme' as const, value: 'accent1' },
+          width: 2,
+          style: 'dash' as const,
+        },
+        undefined,
+        {
+          kind: 'line' as const,
+          color: { kind: 'srgb' as const, value: '00FF00' },
+          width: 0,
+        },
+        { kind: 'none' as const },
+      ] } },
+      { text: 'Named + fill', options: {
+        border: { top: sourceLine, left: { kind: 'none' as const } },
+        fill: {
+          kind: 'solid' as const,
+          color: { kind: 'scheme' as const, value: 'accent2' },
+          transparency: 25,
+        },
+      } },
+      { text: 'Undefined tuple', options: {
+        border: [undefined, undefined, undefined, undefined],
+      } },
+    ]];
+    const definition = normalizeTableDefinition(rows, undefined);
+
+    expect(definition.rows).toEqual([[
+      { text: 'String' },
+      { text: 'Empty options' },
+      { text: 'Undefined border' },
+      { text: 'Empty border' },
+      {
+        text: 'None',
+        borders: {
+          top: { kind: 'none' },
+          right: { kind: 'none' },
+          bottom: { kind: 'none' },
+          left: { kind: 'none' },
+        },
+      },
+      {
+        text: 'Scalar',
+        borders: {
+          top: {
+            kind: 'line',
+            color: { kind: 'srgb', value: 'FF0000' },
+            width: 1.5,
+            style: 'solid',
+          },
+          right: {
+            kind: 'line',
+            color: { kind: 'srgb', value: 'FF0000' },
+            width: 1.5,
+            style: 'solid',
+          },
+          bottom: {
+            kind: 'line',
+            color: { kind: 'srgb', value: 'FF0000' },
+            width: 1.5,
+            style: 'solid',
+          },
+          left: {
+            kind: 'line',
+            color: { kind: 'srgb', value: 'FF0000' },
+            width: 1.5,
+            style: 'solid',
+          },
+        },
+      },
+      {
+        text: 'Tuple',
+        borders: {
+          top: {
+            kind: 'line',
+            color: { kind: 'scheme', value: 'accent1' },
+            width: 2,
+            style: 'dash',
+          },
+          bottom: {
+            kind: 'line',
+            color: { kind: 'srgb', value: '00FF00' },
+            width: 0,
+          },
+          left: { kind: 'none' },
+        },
+      },
+      {
+        text: 'Named + fill',
+        borders: {
+          top: {
+            kind: 'line',
+            color: { kind: 'srgb', value: 'FF0000' },
+            width: 1.5,
+            style: 'solid',
+          },
+          left: { kind: 'none' },
+        },
+        fill: {
+          kind: 'solid',
+          color: { kind: 'scheme', value: 'accent2' },
+          transparency: 25,
+        },
+      },
+      { text: 'Undefined tuple' },
+    ]]);
+
+    const equivalentRows = [
+      [['Same']],
+      [[{ text: 'Same' }]],
+      [[{ text: 'Same', options: {} }]],
+      [[{ text: 'Same', options: { border: undefined } }]],
+      [[{ text: 'Same', options: { border: {} } }]],
+      [[{ text: 'Same', options: {
+        border: [undefined, undefined, undefined, undefined],
+      } }]],
+      [[{ text: 'Same', options: { border: { kind: 'none' } } }]],
+    ];
+    const equivalentXml = equivalentRows.map((inputRows) =>
+      renderTableGraphicFrame(9, normalizeTableDefinition(inputRows, undefined)));
+    expect(new Set(equivalentXml).size).toBe(1);
+
+    const none = (tag: string): string =>
+      `<a:${tag} w="0" cap="flat" cmpd="sng" algn="ctr"><a:noFill/></a:${tag}>`;
+    const line = (
+      tag: string,
+      width: number,
+      color: string,
+      dash?: 'solid' | 'sysDash',
+    ): string => {
+      const dashXml = dash === undefined ? '' : `<a:prstDash val="${dash}"/>`;
+      return `<a:${tag} w="${width}" cap="flat" cmpd="sng" algn="ctr"><a:solidFill>${color}</a:solidFill>${dashXml}<a:round/><a:headEnd type="none" w="med" len="med"/><a:tailEnd type="none" w="med" len="med"/></a:${tag}>`;
+    };
+    const srgb = (value: string): string => `<a:srgbClr val="${value}"/>`;
+    const scheme = (value: string): string => `<a:schemeClr val="${value}"/>`;
+    const tupleXml = renderTableGraphicFrame(
+      10,
+      normalizeTableDefinition([[rows[0]![6]]], undefined),
+    );
+    expect(tupleXml).toContain([
+      none('lnL'),
+      none('lnR'),
+      line('lnT', 25_400, scheme('accent1'), 'sysDash'),
+      line('lnB', 0, srgb('00FF00')),
+    ].join(''));
+    const combinedXml = renderTableGraphicFrame(
+      11,
+      normalizeTableDefinition([[rows[0]![7]]], undefined),
+    );
+    expect(combinedXml).toContain([
+      none('lnL'),
+      none('lnR'),
+      line('lnT', 19_050, srgb('FF0000'), 'solid'),
+      none('lnB'),
+      '<a:solidFill><a:schemeClr val="accent2"><a:alpha val="75000"/></a:schemeClr></a:solidFill>',
+    ].join(''));
+
+    sourceColor.value = '000000';
+    sourceLine.width = 4;
+    expect(definition.rows[0]![5]!.borders).toEqual({
+      top: {
+        kind: 'line',
+        color: { kind: 'srgb', value: 'FF0000' },
+        width: 1.5,
+        style: 'solid',
+      },
+      right: {
+        kind: 'line',
+        color: { kind: 'srgb', value: 'FF0000' },
+        width: 1.5,
+        style: 'solid',
+      },
+      bottom: {
+        kind: 'line',
+        color: { kind: 'srgb', value: 'FF0000' },
+        width: 1.5,
+        style: 'solid',
+      },
+      left: {
+        kind: 'line',
+        color: { kind: 'srgb', value: 'FF0000' },
+        width: 1.5,
+        style: 'solid',
+      },
+    });
+  });
+
   it('strictly rejects malformed matrices and options without invoking accessors', () => {
     const sparseOuter = Array(1);
     const sparseRow = [Array(2)];
@@ -359,6 +563,51 @@ describe('table creation internals', () => {
       enumerable: true,
       configurable: true,
     });
+    const accessorBorderOptions = {};
+    Object.defineProperty(accessorBorderOptions, 'border', {
+      get() {
+        cellAccessorCalls += 1;
+        return { kind: 'none' };
+      },
+      enumerable: true,
+      configurable: true,
+    });
+    const accessorBorder: Record<string, unknown> = {};
+    Object.defineProperty(accessorBorder, 'kind', {
+      get() {
+        cellAccessorCalls += 1;
+        return 'none';
+      },
+      enumerable: true,
+      configurable: true,
+    });
+    const accessorNamedBorder: Record<string, unknown> = {};
+    Object.defineProperty(accessorNamedBorder, 'top', {
+      get() {
+        cellAccessorCalls += 1;
+        return { kind: 'none' };
+      },
+      enumerable: true,
+      configurable: true,
+    });
+    const accessorBorderTuple: unknown[] = [undefined, undefined, undefined, undefined];
+    Object.defineProperty(accessorBorderTuple, '0', {
+      get() {
+        cellAccessorCalls += 1;
+        return { kind: 'none' };
+      },
+      enumerable: true,
+      configurable: true,
+    });
+    const accessorBorderColor = { kind: 'srgb' };
+    Object.defineProperty(accessorBorderColor, 'value', {
+      get() {
+        cellAccessorCalls += 1;
+        return 'FF0000';
+      },
+      enumerable: true,
+      configurable: true,
+    });
     const accessorFill = {};
     Object.defineProperty(accessorFill, 'kind', {
       get() {
@@ -386,6 +635,23 @@ describe('table creation internals', () => {
     class ExoticFill {
       kind = 'none';
     }
+    class ExoticBorder {
+      kind = 'none';
+    }
+    class ExoticBorderColor {
+      kind = 'srgb';
+      value = 'FF0000';
+    }
+    class ExoticBorderTuple extends Array<unknown> {}
+    const exoticBorderTuple = new ExoticBorderTuple();
+    exoticBorderTuple.push({ kind: 'none' }, undefined, undefined, undefined);
+    const sparseBorderTuple = Array(4);
+    sparseBorderTuple[0] = { kind: 'none' };
+    const extraBorderTuple = Object.assign(
+      [{ kind: 'none' }, undefined, undefined, undefined],
+      { extra: true },
+    );
+    const borderSymbol = Symbol('border extra');
     const invalidCells = [
       null,
       1,
@@ -403,6 +669,7 @@ describe('table creation internals', () => {
       { text: 'A', options: new ExoticCellOptions() },
       { text: 'A', options: Object.create({ fill: undefined }) },
       { text: 'A', options: accessorCellOptions },
+      { text: 'A', options: accessorBorderOptions },
       { text: 'A', options: { unknown: true } },
       { text: 'A', options: Object.assign({}, { [Symbol('extra')]: true }) },
       { text: 'A', options: { fill: accessorFill } },
@@ -415,6 +682,82 @@ describe('table creation internals', () => {
       { text: 'A', options: { fill: {
         kind: 'solid',
         color: { kind: 'srgb', value: 'FFF' },
+      } } },
+      { text: 'A', options: { border: accessorBorder } },
+      { text: 'A', options: { border: accessorNamedBorder } },
+      { text: 'A', options: { border: accessorBorderTuple } },
+      { text: 'A', options: { border: {
+        kind: 'line',
+        color: accessorBorderColor,
+        width: 1,
+      } } },
+      { text: 'A', options: { border: Object.create({ kind: 'none' }) } },
+      { text: 'A', options: { border: Object.create({ top: { kind: 'none' } }) } },
+      { text: 'A', options: { border: new ExoticBorder() } },
+      { text: 'A', options: { border: exoticBorderTuple } },
+      { text: 'A', options: { border: [] } },
+      { text: 'A', options: { border: [{ kind: 'none' }] } },
+      { text: 'A', options: { border: [
+        { kind: 'none' },
+        undefined,
+        undefined,
+      ] } },
+      { text: 'A', options: { border: sparseBorderTuple } },
+      { text: 'A', options: { border: extraBorderTuple } },
+      { text: 'A', options: { border: { top: [{ kind: 'none' }] } } },
+      { text: 'A', options: { border: Object.assign(
+        { kind: 'none' },
+        { [borderSymbol]: true },
+      ) } },
+      { text: 'A', options: { border: { top: Object.assign(
+        { kind: 'none' },
+        { [borderSymbol]: true },
+      ) } } },
+      { text: 'A', options: { border: { kind: 'line', color: Object.create({
+        kind: 'srgb',
+        value: 'FF0000',
+      }), width: 1 } } },
+      { text: 'A', options: { border: {
+        kind: 'line',
+        color: new ExoticBorderColor(),
+        width: 1,
+      } } },
+      { text: 'A', options: { border: {
+        kind: 'line',
+        color: Object.assign(
+          { kind: 'srgb', value: 'FF0000' },
+          { [borderSymbol]: true },
+        ),
+        width: 1,
+      } } },
+      { text: 'A', options: { border: { kind: 'unknown' } } },
+      { text: 'A', options: { border: { kind: 'line' } } },
+      { text: 'A', options: { border: {
+        kind: 'line',
+        color: { kind: 'srgb', value: 'FF0000' },
+      } } },
+      { text: 'A', options: { border: { kind: 'line', width: 1 } } },
+      { text: 'A', options: { border: {
+        kind: 'line',
+        color: { kind: 'srgb', value: 'FFF' },
+        width: 1,
+      } } },
+      { text: 'A', options: { border: {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'unknown' },
+        width: 1,
+      } } },
+      ...[-0.001, 1584.001, Number.NaN, Number.NEGATIVE_INFINITY, Number.POSITIVE_INFINITY]
+        .map((width) => ({ text: 'A', options: { border: {
+          kind: 'line',
+          color: { kind: 'srgb', value: 'FF0000' },
+          width,
+        } } })),
+      { text: 'A', options: { border: {
+        kind: 'line',
+        color: { kind: 'srgb', value: 'FF0000' },
+        width: 1,
+        style: 'dot',
       } } },
       { text: 'A', extra: true },
       Object.assign({ text: 'A' }, { [Symbol('extra')]: true }),

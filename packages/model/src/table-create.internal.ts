@@ -7,7 +7,11 @@ import {
   normalizeTableCellFill,
   renderTableCellFill,
 } from './table-cell-fill.internal.js';
-import type { TableCellFill } from './shapes.js';
+import {
+  normalizeTableCellBorders,
+  renderTableCellBorders,
+} from './table-cell-borders.internal.js';
+import type { TableCellBorders, TableCellFill } from './shapes.js';
 
 const EMU_PER_INCH = 914_400;
 const DEFAULT_OFFSET = EMU_PER_INCH / 2;
@@ -23,12 +27,9 @@ const OPTION_KEYS = [
   'columnWidths',
   'rowHeights',
 ] as const;
-const NO_BORDERS = ['lnL', 'lnR', 'lnT', 'lnB']
-  .map((tag) => `<a:${tag} w="0" cap="flat" cmpd="sng" algn="ctr"><a:noFill/></a:${tag}>`)
-  .join('');
-
 interface NormalizedTableCell {
   readonly text: string;
+  readonly borders?: TableCellBorders;
   readonly fill?: TableCellFill;
 }
 
@@ -191,11 +192,15 @@ function normalizeTableCellText(value: unknown, context: string): string {
 function normalizeTableCellOptions(
   value: unknown,
   context: string,
-): Pick<NormalizedTableCell, 'fill'> {
+): Pick<NormalizedTableCell, 'borders' | 'fill'> {
   if (value === undefined) return {};
-  const options = readDataObject(value, `${context} options`, ['fill']);
+  const options = readDataObject(value, `${context} options`, ['border', 'fill']);
+  const borders = normalizeTableCellBorders(options.border, `${context} border`);
   const fill = normalizeTableCellFill(options.fill, `${context} fill`);
-  return fill === undefined ? {} : { fill };
+  return {
+    ...(borders === undefined ? {} : { borders }),
+    ...(fill === undefined ? {} : { fill }),
+  };
 }
 
 export function distributeTableDimension(total: number, count: number): readonly number[] {
@@ -339,8 +344,9 @@ function renderTableCell(cell: NormalizedTableCell): string {
   const paragraphs = renderRichTextParagraphs(normalizeRichText([
     { runs: [{ text: cell.text, style: {} }] },
   ]));
+  const borders = renderTableCellBorders(cell.borders, 'a:');
   const fill = cell.fill === undefined ? '' : renderTableCellFill(cell.fill, 'a:');
-  return `<a:tc><a:txBody><a:bodyPr/><a:lstStyle/>${paragraphs}</a:txBody><a:tcPr marL="${CELL_MARGIN_HORIZONTAL}" marR="${CELL_MARGIN_HORIZONTAL}" marT="${CELL_MARGIN_VERTICAL}" marB="${CELL_MARGIN_VERTICAL}">${NO_BORDERS}${fill}</a:tcPr></a:tc>`;
+  return `<a:tc><a:txBody><a:bodyPr/><a:lstStyle/>${paragraphs}</a:txBody><a:tcPr marL="${CELL_MARGIN_HORIZONTAL}" marR="${CELL_MARGIN_HORIZONTAL}" marT="${CELL_MARGIN_VERTICAL}" marB="${CELL_MARGIN_VERTICAL}">${borders}${fill}</a:tcPr></a:tc>`;
 }
 
 function containsInvalidXmlCharacter(value: string): boolean {
