@@ -113,6 +113,7 @@ export interface AddTableOptions {
   readonly height?: number;
   readonly columnWidths?: number | readonly number[];
   readonly rowHeights?: number | readonly number[];
+  readonly fill?: TableCellFill;
   readonly margin?: TextBoxMarginInput;
   readonly valign?: TextBoxVerticalAlignment;
 }

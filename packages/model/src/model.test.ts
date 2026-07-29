@@ -954,6 +954,140 @@ describe('PresentationModel', () => {
       .toEqual(materializedMargins);
   });
 
+  it('materializes table fill through edit, duplicate, rollback, write, and reopen', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const sourceColor = {
+      kind: 'scheme' as const,
+      value: 'accent1' as 'accent1' | 'accent6',
+    };
+    const sourceFill = {
+      kind: 'solid' as const,
+      color: sourceColor,
+      transparency: 33.3334,
+    };
+    const options: AddTableOptions = {
+      name: 'Table fill lifecycle',
+      fill: sourceFill,
+      columnWidths: inches(2),
+      rowHeights: inches(1),
+    };
+    const table = slide.addTable([[
+      'Inherited string',
+      { text: 'Inherited object', options: {} },
+      { text: 'None override', options: { fill: { kind: 'none' } } },
+      { text: 'Solid override', options: { fill: {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'FFFF00' },
+        transparency: 25,
+      } } },
+    ]], options);
+    const materializedFills = [
+      {
+        kind: 'solid',
+        color: { kind: 'scheme', value: 'accent1' },
+        transparency: 33.333,
+      },
+      {
+        kind: 'solid',
+        color: { kind: 'scheme', value: 'accent1' },
+        transparency: 33.333,
+      },
+      { kind: 'none' },
+      {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'FFFF00' },
+        transparency: 25,
+      },
+    ];
+    expect(table.rows[0]!.cells.map(({ fill }) => fill)).toEqual(materializedFills);
+
+    sourceColor.value = 'accent6';
+    sourceFill.transparency = 1;
+    expect(table.rows[0]!.cells.map(({ fill }) => fill)).toEqual(materializedFills);
+
+    const sourceIndex = model.slides.indexOf(slide);
+    const duplicate = model.duplicateSlide(sourceIndex);
+    const duplicateTable = duplicate.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    );
+    expect(duplicateTable).toBeInstanceOf(TableModel);
+    expect(duplicateTable!.rows[0]!.cells.map(({ fill }) => fill))
+      .toEqual(materializedFills);
+
+    table.setCellFill(0, 0, undefined);
+    table.setCellFill(0, 1, {
+      kind: 'solid',
+      color: { kind: 'srgb', value: '00FF00' },
+      transparency: 0,
+    });
+    const editedFills = [
+      undefined,
+      {
+        kind: 'solid',
+        color: { kind: 'srgb', value: '00FF00' },
+        transparency: 0,
+      },
+      { kind: 'none' },
+      {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'FFFF00' },
+        transparency: 25,
+      },
+    ];
+    expect(table.rows[0]!.cells.map(({ fill }) => fill)).toEqual(editedFills);
+    expect(duplicateTable!.rows[0]!.cells.map(({ fill }) => fill))
+      .toEqual(materializedFills);
+
+    const beforeRollback = pkg.requirePart(slide.partUri).bytes.slice();
+    const rollbackJournal = [...pkg.mutations];
+    let rolledBack: TableModel | undefined;
+    expect(() => pkg.transaction(() => {
+      table.setCellFill(0, 2, {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'FF0000' },
+      });
+      rolledBack = slide.addTable(
+        [['Temporary']],
+        { fill: { kind: 'none' } },
+      );
+      throw new Error('restore table fill defaults');
+    })).toThrow('restore table fill defaults');
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeRollback);
+    expect(pkg.mutations).toEqual(rollbackJournal);
+    expect(slide.shapes).toHaveLength(1);
+    expect(slide.shapes[0]).toBe(table);
+    expect(table.rows[0]!.cells.map(({ fill }) => fill)).toEqual(editedFills);
+    expect(duplicateTable!.rows[0]!.cells.map(({ fill }) => fill))
+      .toEqual(materializedFills);
+    expect(() => rolledBack!.rows).toThrow(ModelParseError);
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedSlide = reopened.slides.find(({ partUri }) => partUri === slide.partUri);
+    const reopenedTable = reopenedSlide?.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel
+        && shape.name === 'Table fill lifecycle',
+    );
+    expect(reopenedTable).toBeInstanceOf(TableModel);
+    expect(reopenedTable!.rows[0]!.cells.map(({ fill }) => fill)).toEqual(editedFills);
+    expect(reopenedTable!.columnWidths).toEqual(Array(4).fill(inches(2)));
+    expect(reopenedTable!.rowHeights).toEqual([inches(1)]);
+
+    const reopenedDuplicateSlide = reopened.slides.find(
+      ({ partUri }) => partUri === duplicate.partUri,
+    );
+    const reopenedDuplicateTable = reopenedDuplicateSlide?.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel
+        && shape.name === 'Table fill lifecycle',
+    );
+    expect(reopenedDuplicateTable).toBeInstanceOf(TableModel);
+    expect(reopenedDuplicateTable!.rows[0]!.cells.map(({ fill }) => fill))
+      .toEqual(materializedFills);
+    expect(reopenedDuplicateTable!.columnWidths).toEqual(Array(4).fill(inches(2)));
+    expect(reopenedDuplicateTable!.rowHeights).toEqual([inches(1)]);
+  });
+
   it('reads and losslessly edits live table column widths through no-op, repair, merge, and rollback', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);
