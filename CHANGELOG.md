@@ -16,6 +16,7 @@
 - Added direct no-fill and solid sRGB/theme fill options to native table-cell creation, including 0–100 transparency, descriptor-safe detached normalization, and immediate editing/reopen support.
 - Added native table-cell border creation with scalar, TRBL, and named sides; strict none/sRGB/theme/point/style values; descriptor-safe detached normalization; and PptxGenJS 4.0.1 conformance coverage.
 - Added native point-based table-cell margin creation with scalar, TRBL, and named sides; canonical missing-side defaults; descriptor-safe detached normalization; immediate whole-replacement editing; and PptxGenJS 4.0.1 final-state conformance coverage.
+- Added strict cell-level table vertical-alignment creation for top, middle, and bottom, with direct `tcPr@anchor` output, omitted-byte preservation, immediate editing, and PptxGenJS 4.0.1 final-state conformance coverage.
 - Added exact scalar or per-column EMU widths for native table creation, with derived total width and strict grid/transform consistency.
 - Added strict existing-table column-width snapshots and atomic lossless editing that synchronizes the table grid and transform width.
 - Added exact scalar or per-row EMU heights for native table creation, with derived total height and strict row/transform consistency.
