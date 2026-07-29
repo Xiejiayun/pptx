@@ -14,6 +14,7 @@
 - Added native basic table creation from strict rectangular single-paragraph string matrices with deterministic geometry, stable identity, and immediate cell/transform editing.
 - Added strict plain-text table cell objects (`{ text: string }`) mixed with strings, with detached normalization and byte-identical OOXML for equivalent text.
 - Added direct no-fill and solid sRGB/theme fill options to native table-cell creation, including 0–100 transparency, descriptor-safe detached normalization, and immediate editing/reopen support.
+- Added strict table-level no-fill and solid sRGB/theme fill creation with 0–100 transparency, whole-value cell overrides, physical-cell materialization, omitted-byte preservation, and PptxGenJS 4.0.1 solid-fill final-state conformance.
 - Added native table-cell border creation with scalar, TRBL, and named sides; strict none/sRGB/theme/point/style values; descriptor-safe detached normalization; and PptxGenJS 4.0.1 conformance coverage.
 - Added native point-based table-cell margin creation with scalar, TRBL, and named sides; canonical missing-side defaults; descriptor-safe detached normalization; immediate whole-replacement editing; and PptxGenJS 4.0.1 final-state conformance coverage.
 - Added strict table-level point-based margin creation that resolves canonical, table, and cell sides onto physical cells, preserves omitted bytes and cell overrides, and matches PptxGenJS 4.0.1 final direct state with paired units.
