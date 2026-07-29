@@ -21,6 +21,7 @@ interface PptxGenJSInstance {
   company: string;
   layout: string;
   rtlMode: unknown;
+  subject: string;
   title: string;
   addSlide(): {
     addText(
@@ -4008,6 +4009,70 @@ describe('importPptxGenJS', () => {
     expect(new TextDecoder().decode(
       reopenedNative.opcPackage.requirePart('/docProps/core.xml').bytes,
     )).toContain('<cp:lastModifiedBy>@jiayunxie/pptx</cp:lastModifiedBy>');
+  }, 20_000);
+
+  it('imports and reopens PptxGenJS presentation subject metadata from public output', async () => {
+    const baseline = new PptxGenJS();
+    baseline.addSlide();
+    const custom = new PptxGenJS();
+    custom.subject = 'Revenue & <Forecast>';
+    custom.addSlide();
+    const empty = new PptxGenJS();
+    empty.subject = '';
+    empty.addSlide();
+    expect([baseline.version, custom.version, empty.version]).toEqual([
+      '4.0.1',
+      '4.0.1',
+      '4.0.1',
+    ]);
+
+    const expectedSubjects = [
+      'PptxGenJS Presentation',
+      'Revenue & <Forecast>',
+      '',
+    ] as const;
+    const imported = await Promise.all([
+      importPptxGenJS(baseline),
+      importPptxGenJS(custom),
+      importPptxGenJS(empty),
+    ]);
+    expect(imported.map(({ subject }) => subject)).toEqual(expectedSubjects);
+    for (const [index, document] of imported.entries()) {
+      const journal = [...document.opcPackage.mutations];
+      expect(document.subject).toBe(expectedSubjects[index]);
+      expect(document.opcPackage.mutations).toEqual(journal);
+    }
+
+    const coreXml = imported.map((document) => new TextDecoder().decode(
+      document.opcPackage.requirePart('/docProps/core.xml').bytes,
+    ));
+    expect(coreXml[0]).toContain(
+      '<dc:subject>PptxGenJS Presentation</dc:subject>',
+    );
+    expect(coreXml[1]).toContain(
+      '<dc:subject>Revenue &amp; &lt;Forecast&gt;</dc:subject>',
+    );
+    expect(coreXml[2]).toContain('<dc:subject></dc:subject>');
+
+    const reopened = await Promise.all(imported.map(async (document) =>
+      PptxDocument.open(await document.write())));
+    expect(reopened.map(({ subject }) => subject)).toEqual(expectedSubjects);
+
+    const native = PptxDocument.create({ subject: 'Revenue & <Forecast>' });
+    const nativeOmitted = PptxDocument.create();
+    expect(native.subject).toBe(imported[1]!.subject);
+    expect(nativeOmitted.subject).toBeUndefined();
+    expect(new TextDecoder().decode(
+      nativeOmitted.opcPackage.requirePart('/docProps/core.xml').bytes,
+    )).not.toContain('<dc:subject');
+    expect(new TextDecoder().decode(
+      native.opcPackage.requirePart('/docProps/core.xml').bytes,
+    )).toContain('<dc:subject>Revenue &amp; &lt;Forecast&gt;</dc:subject>');
+    const reopenedNative = await PptxDocument.open(await native.write());
+    expect(reopenedNative.subject).toBe('Revenue & <Forecast>');
+    expect(new TextDecoder().decode(
+      reopenedNative.opcPackage.requirePart('/docProps/core.xml').bytes,
+    )).toContain('<dc:subject>Revenue &amp; &lt;Forecast&gt;</dc:subject>');
   }, 20_000);
 
   it('imports and reopens PptxGenJS presentation company metadata from public output', async () => {
