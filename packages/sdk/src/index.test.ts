@@ -370,6 +370,7 @@ describe('PptxDocument vertical slice', () => {
       border: sourceBorder,
       fill: sourceFill,
       margin: sourceMargin,
+      valign: 'top',
     };
     const sourceCell = { text: 'Region', options: sourceOptions };
     const rows: readonly (readonly AddTableCellInput[])[] = [
@@ -388,11 +389,13 @@ describe('PptxDocument vertical slice', () => {
             transparency: 25,
           },
           margin: [1, 2, 3, 4],
+          valign: 'middle',
         } },
         { text: 'Growth', options: {
           border: { kind: 'none' },
           fill: { kind: 'none' },
           margin: 0,
+          valign: 'bottom',
         } },
       ],
       [{ text: 'East', options: { margin: { right: -2 } } }, { text: '$1.2M', options: {
@@ -478,6 +481,12 @@ describe('PptxDocument vertical slice', () => {
         { top: 3.6, right: 7.2, bottom: 3.6, left: 7.2 },
         { top: 3.6, right: 7.2, bottom: 3.6, left: 7.2 },
       ],
+    ]);
+    expect(table.rows.map(({ cells }) =>
+      cells.map(({ verticalAlignment }) => verticalAlignment))).toEqual([
+      ['top', 'middle', 'bottom'],
+      [undefined, undefined, undefined],
+      [undefined, undefined, undefined],
     ]);
     expect(table.rows.map(({ cells }) => cells.map(({ fill }) => fill))).toEqual([
       [
@@ -579,7 +588,7 @@ describe('PptxDocument vertical slice', () => {
     });
     expect(table.rows[0]!.cells[0]!.textDirection).toBeUndefined();
     expect(table.rows[0]!.cells[0]!.textFit).toBeUndefined();
-    expect(table.rows[0]!.cells[0]!.verticalAlignment).toBeUndefined();
+    expect(table.rows[0]!.cells[0]!.verticalAlignment).toBe('top');
     const createdTableXml = new TextDecoder().decode(
       document.opcPackage.requirePart(slide.partUri).bytes,
     );
@@ -662,11 +671,20 @@ describe('PptxDocument vertical slice', () => {
       bottom: borderLine({ kind: 'srgb', value: '00FF00' }, 0),
       left: { kind: 'none' },
     });
+    expect(duplicateTable.rows.map(({ cells }) =>
+      cells.map(({ verticalAlignment }) => verticalAlignment))).toEqual([
+      ['top', 'middle', 'bottom'],
+      [undefined, undefined, undefined],
+      [undefined, undefined, undefined],
+    ]);
 
     table.setCellText(1, 0, 'Eastern');
     table.setCellText(2, 2, 'Now filled');
     table.setCellTextDirection(1, 1, 'vert270');
     table.setCellTextFit(1, 2, 'shrink');
+    table.setCellVerticalAlignment(0, 0, 'bottom');
+    table.setCellVerticalAlignment(0, 1, undefined);
+    table.setCellVerticalAlignment(1, 0, 'top');
     table.setCellVerticalAlignment(2, 0, 'bottom');
     table.setCellMargins(0, 0, { top: 5 });
     table.setCellMargins(2, 1, [2, 4, 6, 8]);
@@ -698,6 +716,12 @@ describe('PptxDocument vertical slice', () => {
     expect(table.rows[2]!.cells[2]!.text).toBe('Now filled');
     expect(table.rows[1]!.cells[1]!.textDirection).toBe('vert270');
     expect(table.rows[1]!.cells[2]!.textFit).toBe('shrink');
+    expect(table.rows.map(({ cells }) =>
+      cells.map(({ verticalAlignment }) => verticalAlignment))).toEqual([
+      ['bottom', undefined, 'bottom'],
+      ['top', undefined, undefined],
+      ['bottom', undefined, undefined],
+    ]);
     expect(table.rows[2]!.cells[0]!.verticalAlignment).toBe('bottom');
     expect(table.rows[2]!.cells[1]!.margins).toEqual({
       top: 2,
@@ -767,6 +791,8 @@ describe('PptxDocument vertical slice', () => {
         table.setCellFill(0, 0, { kind: 'none' });
         table.setCellBorders(0, 0, { kind: 'none' });
         table.setCellMargins(0, 0, { right: 1 });
+        table.setCellVerticalAlignment(0, 0, 'top');
+        table.setCellVerticalAlignment(0, 2, undefined);
         table.setColumnWidths(inches(1));
         table.setRowHeights(0);
         rolledBack = slide.addTable([[{
@@ -775,6 +801,7 @@ describe('PptxDocument vertical slice', () => {
             border: borderLine({ kind: 'scheme', value: 'accent1' }, 1, 'dash'),
             fill: { kind: 'none' },
             margin: { left: -2 },
+            valign: 'middle',
           },
         }]]);
         throw new Error('restore created table state');
@@ -798,12 +825,22 @@ describe('PptxDocument vertical slice', () => {
       left: borderLine({ kind: 'srgb', value: 'FFFFFF' }, 1, 'solid'),
     });
     expect(table.rows[0]!.cells[0]!.margins).toEqual({ top: 5 });
+    expect(table.rows.map(({ cells }) =>
+      cells.map(({ verticalAlignment }) => verticalAlignment))).toEqual([
+      ['bottom', undefined, 'bottom'],
+      ['top', undefined, undefined],
+      ['bottom', undefined, undefined],
+    ]);
     expect(() => rolledBack!.rows).toThrow(ModelParseError);
 
     const editedMarginMatrix = table.rows.map(({ cells }) =>
       cells.map(({ margins }) => margins));
     const duplicateMarginMatrix = duplicateTable.rows.map(({ cells }) =>
       cells.map(({ margins }) => margins));
+    const editedAlignmentMatrix = table.rows.map(({ cells }) =>
+      cells.map(({ verticalAlignment }) => verticalAlignment));
+    const duplicateAlignmentMatrix = duplicateTable.rows.map(({ cells }) =>
+      cells.map(({ verticalAlignment }) => verticalAlignment));
     const reopened = await PptxDocument.open(await document.write());
     const reopenedTable = reopened.slides[0]!.shapes[0] as TableModel;
     const reopenedDuplicate = reopened.slides[1]!.shapes[0] as TableModel;
@@ -830,6 +867,14 @@ describe('PptxDocument vertical slice', () => {
       cells.map(({ margins }) => margins))).toEqual(editedMarginMatrix);
     expect(reopenedDuplicate.rows.map(({ cells }) =>
       cells.map(({ margins }) => margins))).toEqual(duplicateMarginMatrix);
+    expect(reopenedTable.rows.map(({ cells }) =>
+      cells.map(({ verticalAlignment }) => verticalAlignment))).toEqual(
+      editedAlignmentMatrix,
+    );
+    expect(reopenedDuplicate.rows.map(({ cells }) =>
+      cells.map(({ verticalAlignment }) => verticalAlignment))).toEqual(
+      duplicateAlignmentMatrix,
+    );
     expect(reopenedTable.transform.x).toBe(inches(1.5));
     expect(reopenedTable.transform.width).toBe(inches(8));
     expect(reopenedTable.columnWidths).toEqual([
@@ -928,6 +973,61 @@ describe('PptxDocument vertical slice', () => {
     expect(document.slides[0]).toBe(slide);
     expect(slide.shapes).toHaveLength(1);
     expect(slide.shapes[0]).toBe(table);
+  });
+
+  it('rejects invalid public table valign creation before mutation', () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const table = slide.addTable([['Existing']]);
+    const before = document.opcPackage.requirePart(slide.partUri).bytes.slice();
+    const journal = [...document.opcPackage.mutations];
+    let sdkValignGetterCalls = 0;
+    const accessorOptions = {};
+    Object.defineProperty(accessorOptions, 'valign', {
+      get() {
+        sdkValignGetterCalls += 1;
+        return 'top';
+      },
+      enumerable: true,
+    });
+    const invalidValigns: unknown[] = [
+      null,
+      false,
+      true,
+      0,
+      '',
+      'Top',
+      ' top ',
+      'mid',
+      'center',
+      'just',
+      'dist',
+      'distributed',
+      [],
+      {},
+      Symbol('top'),
+    ];
+
+    expect(() => slide.addTable([[{
+      text: 'Accessor',
+      options: accessorOptions as AddTableCellOptions,
+    }]])).toThrow();
+    for (const valign of invalidValigns) {
+      expect(() => slide.addTable([[{
+        text: 'Invalid',
+        options: { valign } as unknown as AddTableCellOptions,
+      }]])).toThrow(TypeError);
+    }
+
+    expect(sdkValignGetterCalls).toBe(0);
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(before);
+    expect(document.opcPackage.mutations).toEqual(journal);
+    expect(document.slides).toHaveLength(1);
+    expect(document.slides[0]).toBe(slide);
+    expect(slide.shapes).toHaveLength(1);
+    expect(slide.shapes[0]).toBe(table);
+    expect(table.rows[0]!.cells[0]!.text).toBe('Existing');
+    expect(table.rows[0]!.cells[0]!.verticalAlignment).toBeUndefined();
   });
 
   it('edits table-cell text directions through duplicate, rollback, and reopen lifecycles', async () => {
