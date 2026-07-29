@@ -120,6 +120,7 @@ export interface AddTableOptions {
 }
 
 export interface AddTableCellOptions {
+  readonly align?: TextAlignment;
   readonly border?: TableCellBorderInput;
   readonly fill?: TableCellFill;
   readonly margin?: TextBoxMarginInput;

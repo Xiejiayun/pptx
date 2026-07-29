@@ -256,6 +256,7 @@ describe('PresentationModel', () => {
     const typedSourceMargin: TextBoxMarginInput = sourceTupleMargin;
     const typedSourceBorder: TableCellBorderInput = sourceBorder;
     const sourceCellOptions: AddTableCellOptions = {
+      align: 'center',
       border: typedSourceBorder,
       fill: sourceFill,
       margin: sourceNamedMargin,
@@ -284,8 +285,12 @@ describe('PresentationModel', () => {
           fill: { kind: 'none' },
           margin: typedSourceMargin,
           valign: 'top',
+          align: 'left',
         } },
-        { text: 'Empty margin', options: { margin: {}, valign: 'bottom' } },
+        {
+          text: 'Empty margin',
+          options: { align: 'right', margin: {}, valign: 'bottom' },
+        },
       ],
       [{
         text: 'A2',
@@ -305,10 +310,15 @@ describe('PresentationModel', () => {
           },
           margin: 6,
           valign: 'bottom',
+          align: 'justify',
         },
       }, {
         text: 'B2',
-        options: { border: { kind: 'none' }, margin: 0 },
+        options: {
+          align: undefined,
+          border: { kind: 'none' },
+          margin: 0,
+        } as unknown as AddTableCellOptions,
       }, 'String'],
     ];
     const first = slide.addText('Before table', { name: 'Before' });
@@ -325,6 +335,20 @@ describe('PresentationModel', () => {
       },
     );
     const last = slide.addText('After table', { name: 'After' });
+    const directAlignments = (partBytes: Uint8Array): readonly (string | undefined)[] => {
+      const xml = new TextDecoder().decode(partBytes);
+      const nameOffset = xml.indexOf('name="Table &quot;A&quot;"');
+      const frameStart = xml.lastIndexOf('<p:graphicFrame', nameOffset);
+      const frameEnd = xml.indexOf('</p:graphicFrame>', nameOffset);
+      expect(nameOffset).toBeGreaterThanOrEqual(0);
+      expect(frameStart).toBeGreaterThanOrEqual(0);
+      expect(frameEnd).toBeGreaterThan(nameOffset);
+      const frame = xml.slice(frameStart, frameEnd + '</p:graphicFrame>'.length);
+      return [...frame.matchAll(/<a:tc(?:\s[^>]*)?>[\s\S]*?<\/a:tc>/g)]
+        .map((match) => match[0].match(
+          /<a:pPr[^>]*\salgn="([^"]+)"/,
+        )?.[1]);
+    };
 
     expect([first.id, table.id, last.id]).toEqual([2, 3, 4]);
     expect(table).toBeInstanceOf(TableModel);
@@ -370,6 +394,19 @@ describe('PresentationModel', () => {
       ['middle', 'top', 'bottom'],
       ['bottom', undefined, undefined],
     ]);
+    const expectedAlignments = ['ctr', 'l', 'r', 'just', undefined, undefined];
+    expect(directAlignments(pkg.requirePart(slide.partUri).bytes)).toEqual(
+      expectedAlignments,
+    );
+    const sourceIndex = model.slides.findIndex(({ partUri }) => partUri === slide.partUri);
+    const duplicatedSlide = model.duplicateSlide(sourceIndex);
+    const duplicatedTable = duplicatedSlide.shapes.find(
+      (shape) => shape.name === table.name,
+    );
+    expect(duplicatedTable).toBeInstanceOf(TableModel);
+    expect(directAlignments(pkg.requirePart(duplicatedSlide.partUri).bytes)).toEqual(
+      expectedAlignments,
+    );
     const borderLine = (
       color: { kind: 'srgb' | 'scheme'; value: string },
       width: number,
@@ -508,6 +545,12 @@ describe('PresentationModel', () => {
     expect(table.transform.x).toBe(inches(2));
     expect(table.columnWidths).toEqual([inches(1), inches(1), inches(2)]);
     expect(table.rowHeights).toEqual([inches(0.75), inches(1.25)]);
+    expect(directAlignments(pkg.requirePart(slide.partUri).bytes)).toEqual(
+      expectedAlignments,
+    );
+    expect(directAlignments(pkg.requirePart(duplicatedSlide.partUri).bytes)).toEqual(
+      expectedAlignments,
+    );
 
     const updated = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
     expect(updated.indexOf('name="Before"')).toBeLessThan(updated.indexOf('name="Table &quot;A&quot;"'));
@@ -673,6 +716,7 @@ describe('PresentationModel', () => {
             },
             margin: { right: -2 },
             valign: 'top',
+            align: 'right',
           },
         }]]);
         throw new Error('restore table');
@@ -685,6 +729,9 @@ describe('PresentationModel', () => {
     const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
     const reopenedSlide = reopened.slides.find(({ partUri }) => partUri === slide.partUri);
     const reopenedTable = reopenedSlide?.shapes.find(({ id }) => id === table.id);
+    const reopenedDuplicatedSlide = reopened.slides.find(
+      ({ partUri }) => partUri === duplicatedSlide.partUri,
+    );
     expect(reopenedTable).toBeInstanceOf(TableModel);
     expect(reopenedSlide!.shapes.find(({ id }) => id === table.id)).toBe(reopenedTable);
     expect((reopenedTable as TableModel).rows.map(({ cells }) =>
@@ -769,6 +816,12 @@ describe('PresentationModel', () => {
       width: inches(4),
       height: inches(2),
     });
+    expect(directAlignments(
+      reopened.opcPackage.requirePart(reopenedSlide!.partUri).bytes,
+    )).toEqual(expectedAlignments);
+    expect(directAlignments(
+      reopened.opcPackage.requirePart(reopenedDuplicatedSlide!.partUri).bytes,
+    )).toEqual(expectedAlignments);
     expect(pkg.requirePart(untouchedPartUri).bytes).toEqual(untouchedBefore);
     expect(reopened.opcPackage.requirePart(untouchedPartUri).bytes).toEqual(untouchedBefore);
 
