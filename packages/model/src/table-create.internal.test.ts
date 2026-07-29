@@ -1070,6 +1070,85 @@ describe('table creation internals', () => {
     expect(xml).not.toMatch(/<a:bodyPr[^>]*\svert=/);
   });
 
+  it('normalizes and renders strict table cell text fit', () => {
+    const nullOptions = Object.assign(Object.create(null), { fit: 'resize' });
+    const rows = [[
+      'String',
+      { text: 'Object' },
+      { text: 'Empty', options: {} },
+      { text: 'Undefined', options: { fit: undefined } },
+      { text: 'None', options: { fit: 'none' } },
+      { text: 'Shrink', options: { fit: 'shrink' } },
+      { text: 'Resize', options: { fit: 'resize' } },
+      { text: 'Null prototype', options: nullOptions },
+      { text: 'Combined', options: {
+        align: 'center',
+        fit: 'shrink',
+        margin: { top: 4, left: 8 },
+        textDirection: 'vert270',
+        valign: 'middle',
+        border: { kind: 'none' },
+        fill: { kind: 'solid', color: { kind: 'srgb', value: 'FFF2CC' } },
+      } },
+    ]];
+    const definition = normalizeTableDefinition(rows, undefined);
+
+    expect(definition.rows[0]!.map(({ textFit }) => textFit)).toEqual([
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      'none',
+      'shrink',
+      'resize',
+      'resize',
+      'shrink',
+    ]);
+
+    const equivalent = [
+      [['Same']],
+      [[{ text: 'Same' }]],
+      [[{ text: 'Same', options: {} }]],
+      [[{ text: 'Same', options: { fit: undefined } }]],
+      [[{ text: 'Same', options: { fit: 'none' } }]],
+    ].map((input) => renderTableGraphicFrame(
+      70,
+      normalizeTableDefinition(input, undefined),
+    ));
+    expect(new Set(equivalent).size).toBe(1);
+    expect(equivalent[0]).toContain('<a:bodyPr/><a:lstStyle/>');
+
+    const xml = renderTableGraphicFrame(71, definition);
+    const cells = [...xml.matchAll(/<a:tc(?:\s[^>]*)?>[\s\S]*?<\/a:tc>/g)]
+      .map((match) => match[0]);
+    expect(cells.map((cell) =>
+      cell.match(/<a:(normAutofit|spAutoFit)\/>/)?.[1])).toEqual([
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      'normAutofit',
+      'spAutoFit',
+      'spAutoFit',
+      'normAutofit',
+    ]);
+    expect(cells[5]).toContain(
+      '<a:txBody><a:bodyPr><a:normAutofit/></a:bodyPr><a:lstStyle/>',
+    );
+    expect(cells[6]).toContain(
+      '<a:txBody><a:bodyPr><a:spAutoFit/></a:bodyPr><a:lstStyle/>',
+    );
+    expect(cells[8]).toMatch(
+      /<a:bodyPr><a:normAutofit\/><\/a:bodyPr><a:lstStyle\/>[\s\S]*<a:tcPr marL="101600" marR="91440" marT="50800" marB="45720" anchor="ctr" vert="vert270">/,
+    );
+    expect(xml).not.toMatch(/<a:tcPr[^>]*\sfit=/);
+    expect(xml).not.toContain('<a:noAutofit/>');
+
+    nullOptions.fit = 'none';
+    expect(definition.rows[0]![7]!.textFit).toBe('resize');
+  });
+
   it('materializes strict table text direction onto uncovered cells', () => {
     const rows = [[
       'String',
@@ -1683,6 +1762,29 @@ describe('table creation internals', () => {
       {},
       Symbol('vert'),
     ];
+    const invalidFits = [
+      null,
+      false,
+      true,
+      0,
+      '',
+      'None',
+      ' shrink',
+      'resize ',
+      'auto',
+      [],
+      {},
+      Symbol('fit'),
+    ];
+    let cellFitAccessorCalls = 0;
+    const accessorFitOptions: Record<string, unknown> = {};
+    Object.defineProperty(accessorFitOptions, 'fit', {
+      get() {
+        cellFitAccessorCalls += 1;
+        return 'shrink';
+      },
+      enumerable: true,
+    });
     const invalidCells = [
       null,
       1,
@@ -1705,6 +1807,7 @@ describe('table creation internals', () => {
       { text: 'A', options: accessorValignOptions },
       { text: 'A', options: accessorAlignOptions },
       { text: 'A', options: accessorTextDirectionOptions },
+      { text: 'A', options: accessorFitOptions },
       { text: 'A', options: { unknown: true } },
       { text: 'A', options: Object.assign({}, { [Symbol('extra')]: true }) },
       { text: 'A', options: { fill: accessorFill } },
@@ -1821,6 +1924,7 @@ describe('table creation internals', () => {
         text: 'A',
         options: { textDirection },
       })),
+      ...invalidFits.map((fit) => ({ text: 'A', options: { fit } })),
       { text: 'A', extra: true },
       Object.assign({ text: 'A' }, { [Symbol('extra')]: true }),
       { text: 1 },
@@ -1833,6 +1937,7 @@ describe('table creation internals', () => {
       expect(() => normalizeTableDefinition([[cell]], undefined)).toThrow();
     }
     expect(cellAccessorCalls).toBe(0);
+    expect(cellFitAccessorCalls).toBe(0);
 
     const nullPrototype = Object.assign(Object.create(null), {
       name: 'Null prototype',
@@ -2133,6 +2238,7 @@ describe('table creation internals', () => {
       { width: -1 },
       { height: 0 },
       { height: -1 },
+      { fit: 'shrink' },
       ...invalidTableFills.map((fill) => ({ fill })),
       ...invalidTableBorders.map((border) => ({ border })),
       ...invalidTableMargins.map((margin) => ({ margin })),

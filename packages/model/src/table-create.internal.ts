@@ -20,6 +20,10 @@ import {
 import {
   renderTableCellVerticalAlignmentAttribute,
 } from './table-cell-vertical-alignment.internal.js';
+import {
+  normalizeTextBoxFit,
+  renderTextBoxFitChild,
+} from './text-box-fit.internal.js';
 import { normalizeTextBoxMargins } from './text-box-margins.internal.js';
 import {
   normalizeTextBoxVerticalAlignment,
@@ -31,6 +35,7 @@ import type {
 } from './shapes.js';
 import type {
   TextAlignment,
+  TextBoxFit,
   TextBoxMarginInput,
   TextBoxMargins,
   TextBoxVerticalAlignment,
@@ -61,6 +66,7 @@ interface NormalizedTableCell {
   readonly fill?: TableCellFill;
   readonly margins?: TextBoxMargins;
   readonly textDirection?: TableCellTextDirection;
+  readonly textFit?: TextBoxFit;
   readonly verticalAlignment?: TextBoxVerticalAlignment;
 }
 
@@ -287,13 +293,14 @@ function normalizeTableCellOptions(
   | 'fill'
   | 'margins'
   | 'textDirection'
+  | 'textFit'
   | 'verticalAlignment'
 > {
   if (value === undefined) return {};
   const options = readDataObject(
     value,
     `${context} options`,
-    ['align', 'border', 'fill', 'margin', 'textDirection', 'valign'],
+    ['align', 'border', 'fill', 'fit', 'margin', 'textDirection', 'valign'],
   );
   const alignment = options.align === undefined
     ? undefined
@@ -310,6 +317,9 @@ function normalizeTableCellOptions(
       options.textDirection,
       `${context} textDirection`,
     );
+  const textFit = options.fit === undefined
+    ? undefined
+    : normalizeTextBoxFit(options.fit, `${context} fit`);
   const verticalAlignment = options.valign === undefined
     ? undefined
     : normalizeTextBoxVerticalAlignment(options.valign, `${context} valign`);
@@ -319,6 +329,7 @@ function normalizeTableCellOptions(
     ...(fill === undefined ? {} : { fill }),
     ...(margins === undefined ? {} : { margins }),
     ...(textDirection === undefined ? {} : { textDirection }),
+    ...(textFit === undefined ? {} : { textFit }),
     ...(verticalAlignment === undefined ? {} : { verticalAlignment }),
   };
 }
@@ -473,7 +484,13 @@ function renderTableCell(cell: NormalizedTableCell): string {
   const textDirectionAttribute = renderTableCellTextDirectionAttribute(
     cell.textDirection,
   );
-  return `<a:tc><a:txBody><a:bodyPr/><a:lstStyle/>${paragraphs}</a:txBody><a:tcPr${marginAttributes}${verticalAlignmentAttribute}${textDirectionAttribute}>${borders}${fill}</a:tcPr></a:tc>`;
+  const textFitChild = cell.textFit === undefined
+    ? ''
+    : renderTextBoxFitChild(cell.textFit);
+  const bodyProperties = textFitChild === ''
+    ? '<a:bodyPr/>'
+    : `<a:bodyPr>${textFitChild}</a:bodyPr>`;
+  return `<a:tc><a:txBody>${bodyProperties}<a:lstStyle/>${paragraphs}</a:txBody><a:tcPr${marginAttributes}${verticalAlignmentAttribute}${textDirectionAttribute}>${borders}${fill}</a:tcPr></a:tc>`;
 }
 
 function containsInvalidXmlCharacter(value: string): boolean {
