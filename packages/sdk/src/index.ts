@@ -65,6 +65,7 @@ export class PptxDocument extends PresentationModel {
     const document = new PptxDocument(createPresentationPackage(options));
     if (options.author !== undefined) document.author = options.author;
     if (options.company !== undefined) document.company = options.company;
+    if (options.revision !== undefined) document.revision = options.revision;
     if (options.title !== undefined) document.title = options.title;
     if (options.subject !== undefined) document.subject = options.subject;
     return document;

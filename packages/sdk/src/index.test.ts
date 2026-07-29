@@ -564,6 +564,148 @@ describe('PptxDocument vertical slice', () => {
     }
   });
 
+  it('creates, edits, clears, rolls back, and reopens presentation revision metadata', async () => {
+    const readCoreXml = (document: PptxDocument): string => new TextDecoder().decode(
+      document.opcPackage.requirePart('/docProps/core.xml').bytes,
+    );
+    const omitted = PptxDocument.create();
+    const explicitUndefined = PptxDocument.create({ revision: undefined } as never);
+    const custom = PptxDocument.create({ revision: '7' });
+    const leading = PptxDocument.create({ revision: '007' });
+
+    expect([
+      omitted.revision,
+      explicitUndefined.revision,
+      custom.revision,
+      leading.revision,
+    ]).toEqual(['1', '1', '7', '007']);
+    expect(readCoreXml(explicitUndefined)).toBe(readCoreXml(omitted));
+    expect(readCoreXml(custom)).toContain('<cp:revision>7</cp:revision>');
+    expect(readCoreXml(leading)).toContain('<cp:revision>007</cp:revision>');
+
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const created = PptxDocument.create({ format, revision: '42' });
+      expect(created.revision).toBe('42');
+      expect(readCoreXml(created)).toContain('<cp:revision>42</cp:revision>');
+      expect(validatePackage(created.opcPackage).filter(({ severity }) => severity === 'error'))
+        .toEqual([]);
+      const reopened = await PptxDocument.open(await created.write());
+      expect(reopened.revision).toBe('42');
+      expect(reopened.format).toBe(format);
+    }
+
+    const combined = PptxDocument.create({
+      author: 'Combined author',
+      company: 'Combined company',
+      revision: '8',
+      subject: 'Combined subject',
+      title: 'Combined title',
+    });
+    expect([
+      combined.author,
+      combined.company,
+      combined.revision,
+      combined.subject,
+      combined.title,
+    ]).toEqual([
+      'Combined author',
+      'Combined company',
+      '8',
+      'Combined subject',
+      'Combined title',
+    ]);
+    expect(readCoreXml(combined)).toContain('<dc:creator>Combined author</dc:creator>');
+    expect(readCoreXml(combined)).toContain('<dc:title>Combined title</dc:title>');
+    expect(readCoreXml(combined)).toContain('<dc:subject>Combined subject</dc:subject>');
+    expect(readCoreXml(combined)).toContain('<cp:revision>8</cp:revision>');
+    expect(readCoreXml(combined)).toContain(
+      '<cp:lastModifiedBy>@jiayunxie/pptx</cp:lastModifiedBy>',
+    );
+    expect(new TextDecoder().decode(
+      combined.opcPackage.requirePart('/docProps/app.xml').bytes,
+    )).toContain('<Company>Combined company</Company>');
+
+    const beforeSame = custom.opcPackage.requirePart('/docProps/core.xml').bytes;
+    const sameJournal = [...custom.opcPackage.mutations];
+    custom.revision = '7';
+    expect(custom.opcPackage.requirePart('/docProps/core.xml').bytes).toEqual(beforeSame);
+    expect(custom.opcPackage.mutations).toEqual(sameJournal);
+
+    const slide = custom.addSlide();
+    const otherParts = new Map(
+      custom.opcPackage.parts
+        .filter(({ uri }) => uri !== '/docProps/core.xml')
+        .map(({ uri, bytes }) => [uri, bytes]),
+    );
+    custom.revision = '42';
+    expect(custom.revision).toBe('42');
+    expect(custom.slides[0]).toBe(slide);
+    expect(readCoreXml(custom)).toContain('<cp:revision>42</cp:revision>');
+    expect(readCoreXml(custom)).toContain(
+      '<dc:creator>@jiayunxie/pptx</dc:creator>',
+    );
+    expect(readCoreXml(custom)).toContain(
+      '<cp:lastModifiedBy>@jiayunxie/pptx</cp:lastModifiedBy>',
+    );
+    for (const [uri, bytes] of otherParts) {
+      expect(custom.opcPackage.requirePart(uri).bytes).toEqual(bytes);
+    }
+
+    custom.revision = '0009';
+    expect(custom.revision).toBe('0009');
+    expect(readCoreXml(custom)).toContain('<cp:revision>0009</cp:revision>');
+
+    const beforeRollback = custom.opcPackage.requirePart('/docProps/core.xml').bytes;
+    const rollbackJournal = [...custom.opcPackage.mutations];
+    expect(() => custom.transaction(() => {
+      custom.revision = '99';
+      expect(custom.revision).toBe('99');
+      throw new Error('restore presentation revision');
+    })).toThrow('restore presentation revision');
+    expect(custom.opcPackage.requirePart('/docProps/core.xml').bytes).toEqual(beforeRollback);
+    expect(custom.opcPackage.mutations).toEqual(rollbackJournal);
+    expect(custom.revision).toBe('0009');
+    expect(custom.slides[0]).toBe(slide);
+
+    const reopenedEdited = await PptxDocument.open(await custom.write());
+    expect(reopenedEdited.revision).toBe('0009');
+    reopenedEdited.revision = undefined;
+    expect(reopenedEdited.revision).toBeUndefined();
+    expect(readCoreXml(reopenedEdited)).not.toContain('<cp:revision');
+    expect(readCoreXml(reopenedEdited)).toContain(
+      '<dc:creator>@jiayunxie/pptx</dc:creator>',
+    );
+    expect(readCoreXml(reopenedEdited)).toContain(
+      '<cp:lastModifiedBy>@jiayunxie/pptx</cp:lastModifiedBy>',
+    );
+    const reopenedCleared = await PptxDocument.open(await reopenedEdited.write());
+    expect(reopenedCleared.revision).toBeUndefined();
+    expect(reopenedCleared.slides).toHaveLength(1);
+  });
+
+  it('rejects malformed presentation revision metadata during creation', () => {
+    for (const revision of [
+      '',
+      ' ',
+      '+1',
+      '-1',
+      '1.0',
+      '1e3',
+      '１２',
+      null,
+      true,
+      false,
+      0,
+      1,
+      1n,
+      {},
+      [],
+      Symbol('revision'),
+    ]) {
+      expect(() => PptxDocument.create({ revision: revision as never })).toThrow(TypeError);
+    }
+  });
+
   it('creates, edits, clears, rolls back, and reopens presentation company metadata', async () => {
     const readAppXml = (document: PptxDocument): string => new TextDecoder().decode(
       document.opcPackage.requirePart('/docProps/app.xml').bytes,
