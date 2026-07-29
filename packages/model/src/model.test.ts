@@ -416,6 +416,210 @@ describe('PresentationModel', () => {
     expect(() => repeatedExtension.addTable([['A']])).toThrow(/repeated extension lists/);
   });
 
+  it('reads and losslessly edits live table column widths through no-op, repair, merge, and rollback', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const table = slide.addTable(
+      [
+        ['A', 'B', 'C'],
+        ['D', 'E', 'F'],
+      ],
+      {
+        columnWidths: [inches(1), inches(2), inches(3)],
+        height: inches(2),
+      },
+    );
+    const part = pkg.requirePart(slide.partUri);
+    pkg.setPart(
+      part.uri,
+      new TextDecoder().decode(part.bytes)
+        .replace(
+          '<a:tblGrid>',
+          '<a:tblGrid keep="GRID">' +
+            '<x:opaque xmlns:x="urn:test"><a:gridCol w="1"/></x:opaque>',
+        )
+        .replace('<a:tc>', '<a:tc gridSpan="2">')
+        .replace('<a:tc>', '<a:tc hMerge="1" vMerge="1">'),
+      part.contentType,
+    );
+
+    expect(table.columnWidths).toEqual([
+      inches(1),
+      inches(2),
+      inches(3),
+    ]);
+    const detached = table.columnWidths as number[];
+    detached[0] = 1;
+    expect(table.columnWidths).toEqual([
+      inches(1),
+      inches(2),
+      inches(3),
+    ]);
+
+    const beforeNoOp = pkg.requirePart(slide.partUri).bytes;
+    const noOpJournal = [...pkg.mutations];
+    table.setColumnWidths([inches(1), inches(2), inches(3)]);
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeNoOp);
+    expect(pkg.mutations).toEqual(noOpJournal);
+
+    table.setColumnWidths([inches(1.5), inches(2.5), inches(2)]);
+    expect(table.columnWidths).toEqual([
+      inches(1.5),
+      inches(2.5),
+      inches(2),
+    ]);
+    expect(table.transform.width).toBe(inches(6));
+    expect(slide.shapes.find(({ id }) => id === table.id)).toBe(table);
+    let updated = new TextDecoder().decode(
+      pkg.requirePart(slide.partUri).bytes,
+    );
+    expect(updated).toContain(
+      '<a:tblGrid keep="GRID">' +
+        '<x:opaque xmlns:x="urn:test"><a:gridCol w="1"/></x:opaque>',
+    );
+    expect(updated).toContain('gridSpan="2"');
+    expect(updated).toContain('hMerge="1" vMerge="1"');
+
+    const mismatchedPart = pkg.requirePart(slide.partUri);
+    pkg.setPart(
+      mismatchedPart.uri,
+      new TextDecoder().decode(mismatchedPart.bytes)
+        .replace('cx="5486400"', 'cx="914400"'),
+      mismatchedPart.contentType,
+    );
+    expect(table.columnWidths).toEqual([
+      inches(1.5),
+      inches(2.5),
+      inches(2),
+    ]);
+    expect(table.transform.width).toBe(inches(1));
+    table.setColumnWidths(table.columnWidths!);
+    expect(table.transform.width).toBe(inches(6));
+    updated = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect(updated).toContain('<a:ext cx="5486400" cy="1828800"/>');
+
+    const beforeRollback = pkg.requirePart(slide.partUri).bytes;
+    const rollbackJournal = [...pkg.mutations];
+    expect(() =>
+      pkg.transaction(() => {
+        table.setColumnWidths(inches(1));
+        expect(table.columnWidths).toEqual([
+          inches(1),
+          inches(1),
+          inches(1),
+        ]);
+        throw new Error('restore table column widths');
+      }),
+    ).toThrow('restore table column widths');
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeRollback);
+    expect(pkg.mutations).toEqual(rollbackJournal);
+    expect(table.columnWidths).toEqual([
+      inches(1.5),
+      inches(2.5),
+      inches(2),
+    ]);
+    expect(table.transform.width).toBe(inches(6));
+    expect(slide.shapes.find(({ id }) => id === table.id)).toBe(table);
+  });
+
+  it('rejects invalid table column-width inputs and malformed OOXML without mutation', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const table = slide.addTable(
+      [['A', 'B', 'C']],
+      { columnWidths: [inches(1), inches(2), inches(3)] },
+    );
+    const accessor = [1, 2, 3];
+    let accessorCalls = 0;
+    Object.defineProperty(accessor, '1', {
+      get() {
+        accessorCalls += 1;
+        return 2;
+      },
+      enumerable: true,
+      configurable: true,
+    });
+    const hole = [1, 2, 3];
+    delete hole[1];
+    const extra = [1, 2, 3];
+    Object.defineProperty(extra, 'extra', { value: true });
+    const symbol = [1, 2, 3];
+    Object.defineProperty(symbol, Symbol('width'), { value: true });
+    const invalid = [
+      undefined,
+      null,
+      [],
+      [1],
+      [1, 2],
+      [1, 2, 3, 4],
+      new Uint32Array([1, 2, 3]),
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+      0,
+      -1,
+      Number.MAX_SAFE_INTEGER,
+      accessor,
+      hole,
+      extra,
+      symbol,
+      [Number.MAX_SAFE_INTEGER, 1, 1],
+    ];
+    const beforeInvalid = pkg.requirePart(slide.partUri).bytes;
+    const invalidJournal = [...pkg.mutations];
+    for (const value of invalid) {
+      expect(() => table.setColumnWidths(value as never)).toThrow();
+    }
+    expect(accessorCalls).toBe(0);
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeInvalid);
+    expect(pkg.mutations).toEqual(invalidJournal);
+
+    const malformedGridPart = pkg.requirePart(slide.partUri);
+    pkg.setPart(
+      malformedGridPart.uri,
+      new TextDecoder().decode(malformedGridPart.bytes)
+        .replace('w="914400"', 'w="0"'),
+      malformedGridPart.contentType,
+    );
+    expect(table.columnWidths).toBeUndefined();
+    const beforeGridFailure = pkg.requirePart(slide.partUri).bytes;
+    const gridFailureJournal = [...pkg.mutations];
+    expect(() => table.setColumnWidths(inches(1))).toThrow(ModelParseError);
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeGridFailure);
+    expect(pkg.mutations).toEqual(gridFailureJournal);
+
+    const transformPkg = await OpcPackage.open(await modelFixture());
+    const transformModel = new PresentationModel(transformPkg);
+    const transformSlide = transformModel.addSlide();
+    const transformTable = transformSlide.addTable(
+      [['A', 'B']],
+      { columnWidths: [inches(1), inches(2)] },
+    );
+    const transformPart = transformPkg.requirePart(transformSlide.partUri);
+    transformPkg.setPart(
+      transformPart.uri,
+      new TextDecoder().decode(transformPart.bytes)
+        .replace('cx="2743200"', 'x:cx="2743200" xmlns:x="urn:test"'),
+      transformPart.contentType,
+    );
+    expect(transformTable.columnWidths).toEqual([inches(1), inches(2)]);
+    const beforeTransformFailure =
+      transformPkg.requirePart(transformSlide.partUri).bytes;
+    const transformFailureJournal = [...transformPkg.mutations];
+    let thrown: unknown;
+    try {
+      transformTable.setColumnWidths(inches(1));
+    } catch (error) {
+      thrown = error;
+    }
+    expect(thrown).toBeInstanceOf(ModelParseError);
+    expect(thrown).toMatchObject({ partUri: transformSlide.partUri });
+    expect(transformPkg.requirePart(transformSlide.partUri).bytes)
+      .toEqual(beforeTransformFailure);
+    expect(transformPkg.mutations).toEqual(transformFailureJournal);
+  });
+
   it('reads only exact direct table-cell text directions into detached snapshots', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const part = pkg.requirePart('/ppt/slides/slide1.xml');

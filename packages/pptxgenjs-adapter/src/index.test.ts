@@ -112,6 +112,23 @@ describe('importPptxGenJS', () => {
     expect(nativeXml).not.toContain('p14:modId');
     expect(nativeXml).toContain('<a:ext cx="5486400" cy="1828800"/>');
 
+    expect(importedTable.columnWidths).toEqual([
+      inches(1),
+      inches(2),
+      inches(3),
+    ]);
+    importedTable.setColumnWidths([
+      inches(1.5),
+      inches(1.5),
+      inches(3),
+    ]);
+    expect(importedTable.columnWidths).toEqual([
+      inches(1.5),
+      inches(1.5),
+      inches(3),
+    ]);
+    expect(importedTable.transform.width).toBe(inches(6));
+
     const reopenedNative = await PptxDocument.open(await native.write());
     const reopenedImported = await PptxDocument.open(await imported.write());
     const reopenedNativeTable = reopenedNative.slides[0]!.shapes[0] as TableModel;
@@ -120,6 +137,55 @@ describe('importPptxGenJS', () => {
     expect(reopenedImportedTable.rows).toEqual(importedTable.rows);
     expect(reopenedNativeTable.transform).toEqual(nativeTable.transform);
     expect(reopenedImportedTable.transform).toEqual(importedTable.transform);
+    expect(reopenedImportedTable.columnWidths).toEqual([
+      inches(1.5),
+      inches(1.5),
+      inches(3),
+    ]);
+  });
+
+  it('repairs a PptxGenJS transform and column-grid mismatch through the public model', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    generated.layout = 'LAYOUT_WIDE';
+    generated.addSlide().addTable(
+      [['A', 'B', 'C'].map((text) => ({ text, options: {} }))],
+      { x: 1, y: 1, w: 5, h: 1, colW: [1, 2, 3] },
+    );
+
+    const imported = await importPptxGenJS(generated);
+    const table = imported.slides[0]!.shapes[0] as TableModel;
+    expect(table).toBeInstanceOf(TableModel);
+    expect(table.columnWidths).toEqual([
+      inches(1),
+      inches(2),
+      inches(3),
+    ]);
+    expect(table.transform.width).toBe(inches(5));
+    const before = new TextDecoder().decode(
+      imported.opcPackage.requirePart(imported.slides[0]!.partUri).bytes,
+    );
+    const gridBefore = [...before.matchAll(/<a:gridCol w="(\d+)"\/>/g)]
+      .map((match) => match[1]);
+
+    table.setColumnWidths(table.columnWidths!);
+
+    expect(table.transform.width).toBe(inches(6));
+    const after = new TextDecoder().decode(
+      imported.opcPackage.requirePart(imported.slides[0]!.partUri).bytes,
+    );
+    expect([...after.matchAll(/<a:gridCol w="(\d+)"\/>/g)]
+      .map((match) => match[1])).toEqual(gridBefore);
+    expect(after).toContain('<a:ext cx="5486400" cy="914400"/>');
+
+    const reopened = await PptxDocument.open(await imported.write());
+    const reopenedTable = reopened.slides[0]!.shapes[0] as TableModel;
+    expect(reopenedTable.columnWidths).toEqual([
+      inches(1),
+      inches(2),
+      inches(3),
+    ]);
+    expect(reopenedTable.transform.width).toBe(inches(6));
   });
 
   it('repairs PptxGenJS scalar column-width floor while preserving public intent', async () => {

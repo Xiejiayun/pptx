@@ -34,6 +34,11 @@ import {
   replaceTableCellTextDirection,
 } from './table-cell-text-direction.internal.js';
 import {
+  normalizeTableColumnWidthInput,
+  readTableColumnWidths,
+  replaceTableColumnWidths,
+} from './table-column-widths.internal.js';
+import {
   readTableCellVerticalAlignment,
   replaceTableCellVerticalAlignment,
 } from './table-cell-vertical-alignment.internal.js';
@@ -284,6 +289,21 @@ export class TableModel extends BaseShapeModel {
         };
       }),
     }));
+  }
+
+  get columnWidths(): readonly number[] | undefined {
+    const { xml, element } = this.resolve();
+    return readTableColumnWidths(xml, element);
+  }
+
+  setColumnWidths(value: number | readonly number[]): void {
+    const input = normalizeTableColumnWidthInput(value);
+    this.slide.presentation.opcPackage.transaction(() => {
+      const { xml, element } = this.resolve();
+      if (replaceTableColumnWidths(xml, element, input, this.slide.partUri)) {
+        this.slide.setXml(xml.serialize());
+      }
+    });
   }
 
   setCellText(rowIndex: number, columnIndex: number, value: string): void {
