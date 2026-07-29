@@ -416,6 +416,126 @@ describe('importPptxGenJS', () => {
     ]);
   });
 
+  it('matches native table-cell text direction creation to PptxGenJS final state', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    generated.layout = 'LAYOUT_WIDE';
+    generated.addSlide().addTable([[
+      { text: 'Omitted', options: {} },
+      { text: 'Horizontal', options: { textDirection: 'horz' } },
+      { text: 'Vertical', options: { textDirection: 'vert' } },
+      { text: 'Rotate 270', options: { textDirection: 'vert270' } },
+      { text: 'Stacked', options: { textDirection: 'wordArtVert' } },
+    ]], {
+      x: 0.5,
+      y: 0.5,
+      w: 10,
+      h: 1,
+      colW: [2, 2, 2, 2, 2],
+      rowH: 1,
+      margin: 0.1,
+      valign: 'middle',
+    });
+    const imported = await importPptxGenJS(generated);
+    const importedTable = imported.slides[0]!.shapes[0] as TableModel;
+
+    const native = PptxDocument.create({ slideSize: 'wide' });
+    const nativeSlide = native.addSlide();
+    const nativeTable = nativeSlide.addTable([[
+      { text: 'Omitted' },
+      { text: 'Horizontal', options: { textDirection: 'horz' } },
+      { text: 'Vertical', options: { textDirection: 'vert' } },
+      { text: 'Rotate 270', options: { textDirection: 'vert270' } },
+      { text: 'Stacked', options: { textDirection: 'wordArtVert' } },
+    ]], {
+      x: inches(0.5),
+      y: inches(0.5),
+      width: inches(10),
+      height: inches(1),
+      columnWidths: inches(2),
+      rowHeights: inches(1),
+      margin: 7.2,
+      valign: 'middle',
+    });
+    const expectedTokens = [undefined, undefined, 'vert', 'vert270', 'wordArtVert'];
+    const expectedText = ['Omitted', 'Horizontal', 'Vertical', 'Rotate 270', 'Stacked'];
+    const directDirectionTokens = (xml: string): (string | undefined)[] =>
+      [...xml.matchAll(/<a:tc(?:\s[^>]*)?>[\s\S]*?<\/a:tc>/g)]
+        .map((match) => match[0]!
+          .match(/<a:tcPr[^>]*\svert="([^"]+)"/)?.[1]);
+    const slideXml = (document: PptxDocument): string => new TextDecoder().decode(
+      document.opcPackage.requirePart(document.slides[0]!.partUri).bytes,
+    );
+    const nativeXml = slideXml(native);
+    const importedXml = slideXml(imported);
+
+    expect(directDirectionTokens(nativeXml)).toEqual(expectedTokens);
+    expect(directDirectionTokens(importedXml)).toEqual(expectedTokens);
+    expect(nativeTable.rows[0]!.cells.map(({ textDirection }) => textDirection))
+      .toEqual(expectedTokens);
+    expect(importedTable.rows[0]!.cells.map(({ textDirection }) => textDirection))
+      .toEqual(expectedTokens);
+    expect(nativeTable.rows[0]!.cells.map(({ text }) => text)).toEqual(expectedText);
+    expect(importedTable.rows[0]!.cells.map(({ text }) => text)).toEqual(expectedText);
+    expect(nativeTable.transform).toMatchObject(importedTable.transform);
+    expect(nativeTable.columnWidths).toEqual(importedTable.columnWidths);
+    expect(nativeTable.rowHeights).toEqual(importedTable.rowHeights);
+    expect(nativeTable.rows[0]!.cells.map(({ margins }) => margins)).toEqual(
+      importedTable.rows[0]!.cells.map(({ margins }) => margins),
+    );
+    expect(nativeTable.rows[0]!.cells.map(
+      ({ verticalAlignment }) => verticalAlignment)).toEqual(
+      importedTable.rows[0]!.cells.map(({ verticalAlignment }) => verticalAlignment),
+    );
+    expect(nativeTable.rows[0]!.cells.map(({ borders }) => borders)).toEqual(
+      importedTable.rows[0]!.cells.map(({ borders }) => borders),
+    );
+    expect(nativeTable.rows[0]!.cells.map(({ fill }) => fill)).toEqual(
+      importedTable.rows[0]!.cells.map(({ fill }) => fill),
+    );
+    for (const xml of [nativeXml, importedXml]) {
+      expect(xml).not.toMatch(/<a:bodyPr[^>]*\svert=/);
+    }
+
+    const reopenedNative = await PptxDocument.open(await native.write());
+    const reopenedImported = await PptxDocument.open(await imported.write());
+    expect(directDirectionTokens(slideXml(reopenedNative))).toEqual(expectedTokens);
+    expect(directDirectionTokens(slideXml(reopenedImported))).toEqual(expectedTokens);
+    expect((reopenedNative.slides[0]!.shapes[0] as TableModel).rows)
+      .toEqual(nativeTable.rows);
+    expect((reopenedImported.slides[0]!.shapes[0] as TableModel).rows)
+      .toEqual(importedTable.rows);
+
+    const generatedInvalid = new PptxGenJS();
+    generatedInvalid.addSlide().addTable([[{
+      text: 'PptxGenJS invalid east Asian vertical',
+      options: { textDirection: 'eaVert' },
+    }]], {
+      x: 0.5,
+      y: 0.5,
+      w: 2,
+      h: 1,
+      colW: [2],
+      rowH: 1,
+    });
+    const importedInvalid = await importPptxGenJS(generatedInvalid);
+    expect(directDirectionTokens(slideXml(importedInvalid))).toEqual(['eaVert']);
+    expect((importedInvalid.slides[0]!.shapes[0] as TableModel)
+      .rows[0]!.cells[0]!.textDirection).toBeUndefined();
+
+    const beforeInvalid = native.opcPackage.requirePart(nativeSlide.partUri).bytes.slice();
+    const invalidJournal = [...native.opcPackage.mutations];
+    const shapeCount = nativeSlide.shapes.length;
+    expect(() => nativeSlide.addTable([[{
+      text: 'Native invalid east Asian vertical',
+      options: { textDirection: 'eaVert' as never },
+    }]])).toThrow(TypeError);
+    expect(native.opcPackage.requirePart(nativeSlide.partUri).bytes).toEqual(beforeInvalid);
+    expect(native.opcPackage.mutations).toEqual(invalidJournal);
+    expect(nativeSlide.shapes).toHaveLength(shapeCount);
+    expect(nativeSlide.shapes[0]).toBe(nativeTable);
+  });
+
   it('imports PptxGenJS table fit-like runtime options as fit-less cells', async () => {
     const generated = new PptxGenJS();
     expect(generated.version).toBe('4.0.1');
