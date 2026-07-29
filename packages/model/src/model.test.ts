@@ -1016,6 +1016,74 @@ describe('PresentationModel', () => {
     expect(reopenedTable!.rowHeights).toEqual([inches(1)]);
   });
 
+  it('materializes table text direction through edit, duplicate, write, and reopen', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const options: AddTableOptions = {
+      name: 'Table text direction lifecycle',
+      textDirection: 'vert270',
+      columnWidths: inches(2),
+      rowHeights: inches(1),
+    };
+    const table = slide.addTable([[
+      'Inherited string',
+      { text: 'Inherited object' },
+      { text: 'Horizontal override', options: { textDirection: 'horz' } },
+      { text: 'Vertical override', options: { textDirection: 'vert' } },
+      { text: 'Stacked override', options: { textDirection: 'wordArtVert' } },
+    ]], options);
+    const materializedDirections = [
+      'vert270',
+      'vert270',
+      undefined,
+      'vert',
+      'wordArtVert',
+    ];
+    expect(table.rows[0]!.cells.map(({ textDirection }) => textDirection))
+      .toEqual(materializedDirections);
+
+    const duplicate = model.duplicateSlide(model.slides.indexOf(slide));
+    const duplicateTable = duplicate.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    );
+    expect(duplicateTable).toBeInstanceOf(TableModel);
+    expect(duplicateTable!.rows[0]!.cells.map(
+      ({ textDirection }) => textDirection)).toEqual(materializedDirections);
+
+    table.setCellTextDirection(0, 0, undefined);
+    table.setCellTextDirection(0, 1, 'wordArtVert');
+    const editedDirections = [
+      undefined,
+      'wordArtVert',
+      undefined,
+      'vert',
+      'wordArtVert',
+    ];
+    expect(table.rows[0]!.cells.map(({ textDirection }) => textDirection))
+      .toEqual(editedDirections);
+    expect(duplicateTable!.rows[0]!.cells.map(
+      ({ textDirection }) => textDirection)).toEqual(materializedDirections);
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedSlide = reopened.slides.find(({ partUri }) => partUri === slide.partUri);
+    const reopenedTable = reopenedSlide?.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel
+        && shape.name === 'Table text direction lifecycle',
+    );
+    const reopenedDuplicate = reopened.slides
+      .find(({ partUri }) => partUri === duplicate.partUri)
+      ?.shapes.find((shape): shape is TableModel => shape instanceof TableModel);
+    expect(reopenedTable).toBeInstanceOf(TableModel);
+    expect(reopenedDuplicate).toBeInstanceOf(TableModel);
+    expect(reopenedTable!.rows[0]!.cells.map(
+      ({ textDirection }) => textDirection)).toEqual(editedDirections);
+    expect(reopenedDuplicate!.rows[0]!.cells.map(
+      ({ textDirection }) => textDirection)).toEqual(materializedDirections);
+    expect(reopenedTable!.columnWidths).toEqual(Array(5).fill(inches(2)));
+    expect(reopenedTable!.rowHeights).toEqual([inches(1)]);
+  });
+
   it('materializes table margin through edit, duplicate, write, and reopen', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);
