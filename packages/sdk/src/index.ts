@@ -64,6 +64,7 @@ export class PptxDocument extends PresentationModel {
   static create(options: CreatePresentationOptions = {}): PptxDocument {
     const document = new PptxDocument(createPresentationPackage(options));
     if (options.author !== undefined) document.author = options.author;
+    if (options.company !== undefined) document.company = options.company;
     if (options.title !== undefined) document.title = options.title;
     return document;
   }

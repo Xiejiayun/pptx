@@ -11,6 +11,7 @@ export type CustomSlideSize = SlideSize;
 
 export interface CreatePresentationOptions {
   readonly author?: string;
+  readonly company?: string;
   readonly format?: PresentationFormat;
   readonly rtlMode?: boolean;
   readonly slideSize?: BuiltInSlideSize | CustomSlideSize;

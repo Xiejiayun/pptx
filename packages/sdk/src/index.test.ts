@@ -426,6 +426,125 @@ describe('PptxDocument vertical slice', () => {
     }
   });
 
+  it('creates, edits, clears, rolls back, and reopens presentation company metadata', async () => {
+    const readAppXml = (document: PptxDocument): string => new TextDecoder().decode(
+      document.opcPackage.requirePart('/docProps/app.xml').bytes,
+    );
+    const omitted = PptxDocument.create();
+    const explicitUndefined = PptxDocument.create({ company: undefined } as never);
+    const custom = PptxDocument.create({ company: 'Acme & <Partners>' });
+    const empty = PptxDocument.create({ company: '' });
+
+    expect([
+      omitted.company,
+      explicitUndefined.company,
+      custom.company,
+      empty.company,
+    ]).toEqual([undefined, undefined, 'Acme & <Partners>', '']);
+    expect(readAppXml(explicitUndefined)).toBe(readAppXml(omitted));
+    expect(readAppXml(omitted)).not.toContain('<Company');
+    expect(readAppXml(custom)).toContain(
+      '<Company>Acme &amp; &lt;Partners&gt;</Company><AppVersion>1.0</AppVersion>',
+    );
+    expect(readAppXml(empty)).toContain(
+      '<Company></Company><AppVersion>1.0</AppVersion>',
+    );
+
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const created = PptxDocument.create({ format, company: `Company ${format}` });
+      expect(created.company).toBe(`Company ${format}`);
+      expect(readAppXml(created)).toContain(`<Company>Company ${format}</Company>`);
+      expect(validatePackage(created.opcPackage).filter(({ severity }) => severity === 'error'))
+        .toEqual([]);
+      const reopened = await PptxDocument.open(await created.write());
+      expect(reopened.company).toBe(`Company ${format}`);
+      expect(reopened.format).toBe(format);
+    }
+
+    const combined = PptxDocument.create({
+      author: 'Combined author',
+      company: 'Combined company',
+      rtlMode: true,
+      title: 'Combined title',
+    });
+    expect([
+      combined.author,
+      combined.company,
+      combined.rtlMode,
+      combined.title,
+    ]).toEqual(['Combined author', 'Combined company', true, 'Combined title']);
+    expect(readAppXml(combined)).toContain('<Company>Combined company</Company>');
+    expect(readAppXml(combined)).toContain('<Application>@jiayunxie/pptx</Application>');
+    expect(readAppXml(combined)).toContain('<PresentationFormat>Custom</PresentationFormat>');
+    expect(readAppXml(combined)).toContain('<AppVersion>1.0</AppVersion>');
+
+    const beforeSame = custom.opcPackage.requirePart('/docProps/app.xml').bytes;
+    const sameJournal = [...custom.opcPackage.mutations];
+    custom.company = 'Acme & <Partners>';
+    expect(custom.opcPackage.requirePart('/docProps/app.xml').bytes).toEqual(beforeSame);
+    expect(custom.opcPackage.mutations).toEqual(sameJournal);
+
+    const slide = custom.addSlide();
+    const otherParts = new Map(
+      custom.opcPackage.parts
+        .filter(({ uri }) => uri !== '/docProps/app.xml')
+        .map(({ uri, bytes }) => [uri, bytes]),
+    );
+    custom.company = 'Edited company';
+    expect(custom.company).toBe('Edited company');
+    expect(custom.slides[0]).toBe(slide);
+    expect(readAppXml(custom)).toContain('<Company>Edited company</Company>');
+    expect(readAppXml(custom)).toContain('<Application>@jiayunxie/pptx</Application>');
+    expect(readAppXml(custom)).toContain('<PresentationFormat>Custom</PresentationFormat>');
+    expect(readAppXml(custom)).toContain('<AppVersion>1.0</AppVersion>');
+    for (const [uri, bytes] of otherParts) {
+      expect(custom.opcPackage.requirePart(uri).bytes).toEqual(bytes);
+    }
+
+    const beforeRollback = custom.opcPackage.requirePart('/docProps/app.xml').bytes;
+    const rollbackJournal = [...custom.opcPackage.mutations];
+    expect(() => custom.transaction(() => {
+      custom.company = 'Temporary company';
+      expect(custom.company).toBe('Temporary company');
+      throw new Error('restore presentation company');
+    })).toThrow('restore presentation company');
+    expect(custom.opcPackage.requirePart('/docProps/app.xml').bytes).toEqual(beforeRollback);
+    expect(custom.opcPackage.mutations).toEqual(rollbackJournal);
+    expect(custom.company).toBe('Edited company');
+    expect(custom.slides[0]).toBe(slide);
+
+    const reopenedEdited = await PptxDocument.open(await custom.write());
+    expect(reopenedEdited.company).toBe('Edited company');
+    reopenedEdited.company = '';
+    expect(reopenedEdited.company).toBe('');
+    reopenedEdited.company = undefined;
+    expect(reopenedEdited.company).toBeUndefined();
+    expect(readAppXml(reopenedEdited)).not.toContain('<Company');
+    expect(readAppXml(reopenedEdited)).toContain(
+      '<Application>@jiayunxie/pptx</Application>',
+    );
+    expect(readAppXml(reopenedEdited)).toContain('<AppVersion>1.0</AppVersion>');
+    const reopenedCleared = await PptxDocument.open(await reopenedEdited.write());
+    expect(reopenedCleared.company).toBeUndefined();
+    expect(reopenedCleared.slides).toHaveLength(1);
+  });
+
+  it('rejects malformed presentation company metadata during creation', () => {
+    for (const company of [
+      null,
+      true,
+      false,
+      0,
+      1,
+      {},
+      [],
+      Symbol('company'),
+      'bad\u0001company',
+    ]) {
+      expect(() => PptxDocument.create({ company: company as never })).toThrow(TypeError);
+    }
+  });
+
   it('creates, edits, clears, rolls back, and reopens presentation RTL independently', async () => {
     const readPresentationXml = (document: PptxDocument): string => new TextDecoder().decode(
       document.opcPackage.requirePart(document.presentationPartUri).bytes,
