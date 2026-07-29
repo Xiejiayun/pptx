@@ -15,6 +15,7 @@ export interface CreatePresentationOptions {
   readonly format?: PresentationFormat;
   readonly rtlMode?: boolean;
   readonly slideSize?: BuiltInSlideSize | CustomSlideSize;
+  readonly subject?: string;
   readonly title?: string;
 }
 

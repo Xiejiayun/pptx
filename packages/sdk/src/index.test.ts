@@ -426,6 +426,144 @@ describe('PptxDocument vertical slice', () => {
     }
   });
 
+  it('creates, edits, clears, rolls back, and reopens presentation subject metadata', async () => {
+    const readCoreXml = (document: PptxDocument): string => new TextDecoder().decode(
+      document.opcPackage.requirePart('/docProps/core.xml').bytes,
+    );
+    const omitted = PptxDocument.create();
+    const explicitUndefined = PptxDocument.create({ subject: undefined } as never);
+    const custom = PptxDocument.create({ subject: 'Revenue & <Forecast>' });
+    const empty = PptxDocument.create({ subject: '' });
+
+    expect([
+      omitted.subject,
+      explicitUndefined.subject,
+      custom.subject,
+      empty.subject,
+    ]).toEqual([undefined, undefined, 'Revenue & <Forecast>', '']);
+    expect(readCoreXml(explicitUndefined)).toBe(readCoreXml(omitted));
+    expect(readCoreXml(omitted)).not.toContain('<dc:subject');
+    expect(readCoreXml(custom)).toContain(
+      '<dc:subject>Revenue &amp; &lt;Forecast&gt;</dc:subject>',
+    );
+    expect(readCoreXml(empty)).toContain('<dc:subject></dc:subject>');
+
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const created = PptxDocument.create({ format, subject: `Subject ${format}` });
+      expect(created.subject).toBe(`Subject ${format}`);
+      expect(readCoreXml(created)).toContain(
+        `<dc:subject>Subject ${format}</dc:subject>`,
+      );
+      expect(validatePackage(created.opcPackage).filter(({ severity }) => severity === 'error'))
+        .toEqual([]);
+      const reopened = await PptxDocument.open(await created.write());
+      expect(reopened.subject).toBe(`Subject ${format}`);
+      expect(reopened.format).toBe(format);
+    }
+
+    const combined = PptxDocument.create({
+      author: 'Combined author',
+      company: 'Combined company',
+      subject: 'Combined subject',
+      title: 'Combined title',
+    });
+    expect([
+      combined.author,
+      combined.company,
+      combined.subject,
+      combined.title,
+    ]).toEqual([
+      'Combined author',
+      'Combined company',
+      'Combined subject',
+      'Combined title',
+    ]);
+    expect(readCoreXml(combined)).toContain('<dc:creator>Combined author</dc:creator>');
+    expect(readCoreXml(combined)).toContain('<dc:title>Combined title</dc:title>');
+    expect(readCoreXml(combined)).toContain('<dc:subject>Combined subject</dc:subject>');
+    expect(readCoreXml(combined)).toContain(
+      '<cp:lastModifiedBy>@jiayunxie/pptx</cp:lastModifiedBy>',
+    );
+    expect(readCoreXml(combined)).toContain('<cp:revision>1</cp:revision>');
+    expect(new TextDecoder().decode(
+      combined.opcPackage.requirePart('/docProps/app.xml').bytes,
+    )).toContain('<Company>Combined company</Company>');
+
+    const beforeSame = custom.opcPackage.requirePart('/docProps/core.xml').bytes;
+    const sameJournal = [...custom.opcPackage.mutations];
+    custom.subject = 'Revenue & <Forecast>';
+    expect(custom.opcPackage.requirePart('/docProps/core.xml').bytes).toEqual(beforeSame);
+    expect(custom.opcPackage.mutations).toEqual(sameJournal);
+
+    const slide = custom.addSlide();
+    const otherParts = new Map(
+      custom.opcPackage.parts
+        .filter(({ uri }) => uri !== '/docProps/core.xml')
+        .map(({ uri, bytes }) => [uri, bytes]),
+    );
+    custom.subject = 'Edited subject';
+    expect(custom.subject).toBe('Edited subject');
+    expect(custom.slides[0]).toBe(slide);
+    expect(readCoreXml(custom)).toContain('<dc:subject>Edited subject</dc:subject>');
+    expect(readCoreXml(custom)).toContain(
+      '<dc:creator>@jiayunxie/pptx</dc:creator>',
+    );
+    expect(readCoreXml(custom)).toContain(
+      '<cp:lastModifiedBy>@jiayunxie/pptx</cp:lastModifiedBy>',
+    );
+    expect(readCoreXml(custom)).toContain('<cp:revision>1</cp:revision>');
+    for (const [uri, bytes] of otherParts) {
+      expect(custom.opcPackage.requirePart(uri).bytes).toEqual(bytes);
+    }
+
+    const beforeRollback = custom.opcPackage.requirePart('/docProps/core.xml').bytes;
+    const rollbackJournal = [...custom.opcPackage.mutations];
+    expect(() => custom.transaction(() => {
+      custom.subject = 'Temporary subject';
+      expect(custom.subject).toBe('Temporary subject');
+      throw new Error('restore presentation subject');
+    })).toThrow('restore presentation subject');
+    expect(custom.opcPackage.requirePart('/docProps/core.xml').bytes).toEqual(beforeRollback);
+    expect(custom.opcPackage.mutations).toEqual(rollbackJournal);
+    expect(custom.subject).toBe('Edited subject');
+    expect(custom.slides[0]).toBe(slide);
+
+    const reopenedEdited = await PptxDocument.open(await custom.write());
+    expect(reopenedEdited.subject).toBe('Edited subject');
+    reopenedEdited.subject = '';
+    expect(reopenedEdited.subject).toBe('');
+    expect(readCoreXml(reopenedEdited)).toContain('<dc:subject></dc:subject>');
+    reopenedEdited.subject = undefined;
+    expect(reopenedEdited.subject).toBeUndefined();
+    expect(readCoreXml(reopenedEdited)).not.toContain('<dc:subject');
+    expect(readCoreXml(reopenedEdited)).toContain(
+      '<dc:creator>@jiayunxie/pptx</dc:creator>',
+    );
+    expect(readCoreXml(reopenedEdited)).toContain(
+      '<cp:lastModifiedBy>@jiayunxie/pptx</cp:lastModifiedBy>',
+    );
+    expect(readCoreXml(reopenedEdited)).toContain('<cp:revision>1</cp:revision>');
+    const reopenedCleared = await PptxDocument.open(await reopenedEdited.write());
+    expect(reopenedCleared.subject).toBeUndefined();
+    expect(reopenedCleared.slides).toHaveLength(1);
+  });
+
+  it('rejects malformed presentation subject metadata during creation', () => {
+    for (const subject of [
+      null,
+      true,
+      false,
+      0,
+      1,
+      {},
+      [],
+      Symbol('subject'),
+      'bad\u0001subject',
+    ]) {
+      expect(() => PptxDocument.create({ subject: subject as never })).toThrow(TypeError);
+    }
+  });
+
   it('creates, edits, clears, rolls back, and reopens presentation company metadata', async () => {
     const readAppXml = (document: PptxDocument): string => new TextDecoder().decode(
       document.opcPackage.requirePart('/docProps/app.xml').bytes,

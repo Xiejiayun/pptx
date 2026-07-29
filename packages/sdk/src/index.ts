@@ -66,6 +66,7 @@ export class PptxDocument extends PresentationModel {
     if (options.author !== undefined) document.author = options.author;
     if (options.company !== undefined) document.company = options.company;
     if (options.title !== undefined) document.title = options.title;
+    if (options.subject !== undefined) document.subject = options.subject;
     return document;
   }
 
