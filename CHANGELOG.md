@@ -12,6 +12,7 @@
 - Added native zero-input presentation creation for all six formats, four PptxGenJS-compatible slide sizes, and blank slides linked to a canonical master/layout/theme chain.
 - Added transactional single-paragraph text-box creation with stable shape identity, XML-safe content, unique IDs, and editable transforms.
 - Added native basic table creation from strict rectangular single-paragraph string matrices with deterministic geometry, stable identity, and immediate cell/transform editing.
+- Added strict plain-text table cell objects (`{ text: string }`) mixed with strings, with detached normalization and byte-identical OOXML for equivalent text.
 - Added exact scalar or per-column EMU widths for native table creation, with derived total width and strict grid/transform consistency.
 - Added strict existing-table column-width snapshots and atomic lossless editing that synchronizes the table grid and transform width.
 - Added exact scalar or per-row EMU heights for native table creation, with derived total height and strict row/transform consistency.

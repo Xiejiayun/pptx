@@ -80,7 +80,8 @@ const initialTransparencies = transparencyText.richText[0].runs.map(({ style }) 
 transparencyText.richText = [{ runs: [{ text: 'Opaque', style: { transparency: 0 } }, { text: 'Mostly', style: { transparency: 75 } }, { text: 'Cleared' }] }];
 const updatedTransparencies = transparencyText.richText[0].runs.map(({ style }) => style?.transparency);
 const tableSlide = created.slides[0];
-const createdTable = tableSlide.addTable([['Region', 'Revenue'], ['East', '']], { name: 'Created smoke table', columnWidths: [inches(1), inches(3)], rowHeights: [inches(0.5), inches(1.5)] });
+const createdTable = tableSlide.addTable([[{ text: 'Region' }, 'Revenue'], ['East', { text: '' }]], { name: 'Created smoke table', columnWidths: [inches(1), inches(3)], rowHeights: [inches(0.5), inches(1.5)] });
+const tableCellObjectCreation = JSON.stringify(createdTable.rows.map(({ cells }) => cells.map(({ text }) => text))) === JSON.stringify([['Region', 'Revenue'], ['East', '']]);
 const createdTableDefaults = createdTable instanceof TableModel && createdTable.transform.x === inches(0.5) && createdTable.transform.y === inches(0.5) && createdTable.rows[0].cells[0].margins?.top === 3.6 && createdTable.rows[0].cells[0].margins?.left === 7.2 && createdTable.rows[0].cells[0].borders?.top?.kind === 'none';
 const createdTableXml = new TextDecoder().decode(created.opcPackage.requirePart(tableSlide.partUri).bytes);
 const createdTableGrid = [...createdTableXml.matchAll(/<a:gridCol w="(\\d+)"\\/>/g)].map((match) => Number(match[1]));
@@ -187,6 +188,7 @@ const checks = {
   paragraphIndent: initialParagraphIndents[0] === 24 && initialParagraphIndents[1] === -18 && initialParagraphIndents[2] === undefined && initialParagraphIndents[3] === undefined && bulletIndentIsolation && updatedParagraphIndents[0] === 6 && updatedParagraphIndents[1] === -6 && updatedParagraphIndents[2] === 0 && updatedParagraphIndents[3] === undefined && updatedParagraphIndents[4] === undefined,
   richTextTransparency: initialTransparencies[0] === 25 && initialTransparencies[1] === 50.555 && initialTransparencies[2] === 100 && initialTransparencies[3] === 60 && updatedTransparencies[0] === 0 && updatedTransparencies[1] === 75 && updatedTransparencies[2] === undefined,
   tableCreation,
+  tableCellObjectCreation,
   tableColumnWidths,
   tableColumnWidthEditing,
   tableRowHeights,
@@ -243,7 +245,8 @@ if (browserIndent.richText[0].indent !== -12 || browserIndent.richText[1].indent
 browserIndent.richText = [{ indent: false, runs: [{ text: 'Cleared' }] }];
 if (browserIndent.richText[0].indent !== undefined) throw new Error('Browser paragraph indent clear failed');
 const tableSlide = created.slides[0];
-const createdTable = tableSlide.addTable([['Region', 'Revenue'], ['West', '']], { name: 'Created browser table', columnWidths: inches(1.25), rowHeights: inches(0.75) });
+const createdTable = tableSlide.addTable([[{ text: 'Region' }, 'Revenue'], ['West', { text: '' }]], { name: 'Created browser table', columnWidths: inches(1.25), rowHeights: inches(0.75) });
+if (JSON.stringify(createdTable.rows.map(({ cells }) => cells.map(({ text }) => text))) !== JSON.stringify([['Region', 'Revenue'], ['West', '']])) throw new Error('Browser table cell object creation failed');
 const createdTablePartXml = new TextDecoder().decode(created.opcPackage.requirePart(tableSlide.partUri).bytes);
 const createdTableGrid = [...createdTablePartXml.matchAll(/<a:gridCol w="(\\d+)"\\/>/g)].map((match) => Number(match[1]));
 const createdTableRows = [...createdTablePartXml.matchAll(/<a:tr h="(\\d+)">/g)].map((match) => Number(match[1]));
@@ -355,6 +358,8 @@ process.stdout.write(resolved);
   type TextBoxMargins,
   type TextBoxFit,
   type TextBoxTextDirection,
+  type AddTableCell,
+  type AddTableCellInput,
   type AddTableOptions,
   type TableCellTextDirection,
   type TableCellBorder,
@@ -407,7 +412,8 @@ const cellBorder: TableCellBorder = { kind: 'line', color: { kind: 'scheme', val
 const cellBorderInput: TableCellBorderInput = [cellBorder, { kind: 'none' }, undefined, cellBorder];
 const cellFill: TableCellFill = { kind: 'solid', color: { kind: 'scheme', value: 'accent1' }, transparency: 25 };
 const createdText = createdDocument.addSlide().addText('Typed\\ntext', { align: alignment, fit, valign: verticalAlignment, vert: direction, wrap: true, bullet, level: 2, margin, spacing, tabStops });
-const tableRows: readonly (readonly string[])[] = [['Region', 'Revenue'], ['East', '']];
+const objectCell: AddTableCell = { text: 'Revenue' };
+const tableRows: readonly (readonly AddTableCellInput[])[] = [['Region', objectCell], [{ text: 'East' }, { text: '' }]];
 const tableOptions: AddTableOptions = { name: 'Typed table', x: inches(1), columnWidths: [inches(1), inches(3)], rowHeights: [inches(0.5), inches(1.5)] };
 const typedTable: TableModel = createdDocument.slides[0].addTable(tableRows, tableOptions);
 const widthSnapshot: readonly number[] | undefined = typedTable.columnWidths;
@@ -508,7 +514,7 @@ documentPromise.then((document) => {
   advancedCharts.installAdvancedChartPlugin(document);
   smartArt.installSmartArtPlugin(document);
 });
-void [documentPromise, createdDocument, globalRtl, globalRtlSnapshot, customDocument, createdText, tableRows, tableOptions, typedTable, widthSnapshot, heightSnapshot, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
+void [documentPromise, createdDocument, globalRtl, globalRtlSnapshot, customDocument, createdText, objectCell, tableRows, tableOptions, typedTable, widthSnapshot, heightSnapshot, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
 `,
   );
   run(

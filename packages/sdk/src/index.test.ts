@@ -23,6 +23,7 @@ import {
   ShapeModel,
   TableModel,
   ValidationError,
+  type AddTableCellInput,
 } from './index.js';
 
 async function titleFixture(): Promise<Uint8Array> {
@@ -350,12 +351,14 @@ describe('PptxDocument vertical slice', () => {
         .filter(({ uri }) => uri !== slide.partUri)
         .map(({ uri, bytes }) => [uri, bytes]),
     );
+    const sourceCell = { text: 'Region' };
+    const rows: readonly (readonly AddTableCellInput[])[] = [
+      [sourceCell, 'Revenue', { text: 'Growth' }],
+      ['East', { text: '$1.2M' }, '12%'],
+      [{ text: 'West' }, '$980K', { text: '' }],
+    ];
     const table = slide.addTable(
-      [
-        ['Region', 'Revenue', 'Growth'],
-        ['East', '$1.2M', '12%'],
-        ['West', '$980K', ''],
-      ],
+      rows,
       {
         name: 'Revenue table',
         x: inches(1),
@@ -375,6 +378,8 @@ describe('PptxDocument vertical slice', () => {
       ['East', '$1.2M', '12%'],
       ['West', '$980K', ''],
     ]);
+    sourceCell.text = 'MUTATED';
+    expect(table.rows[0]!.cells[0]!.text).toBe('Region');
     expect(table.transform).toMatchObject({
       x: inches(1),
       y: inches(1.25),

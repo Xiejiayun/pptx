@@ -12,6 +12,7 @@ import {
   UnsupportedPresentationFormatError,
   emuToInches,
   inches,
+  type AddTableCellInput,
   type PresentationFormat,
 } from './index.js';
 
@@ -231,9 +232,14 @@ describe('PresentationModel', () => {
       part.contentType,
     );
 
+    const objectCell = { text: 'A & <1>' };
+    const tableRows: readonly (readonly AddTableCellInput[])[] = [
+      [objectCell, ''],
+      [{ text: 'A2' }, 'B2'],
+    ];
     const first = slide.addText('Before table', { name: 'Before' });
     const table = slide.addTable(
-      [['A & <1>', ''], ['A2', 'B2']],
+      tableRows,
       {
         name: 'Table "A"',
         x: inches(1),
@@ -251,6 +257,8 @@ describe('PresentationModel', () => {
       ['A & <1>', ''],
       ['A2', 'B2'],
     ]);
+    objectCell.text = 'MUTATED';
+    expect(table.rows[0]!.cells[0]!.text).toBe('A & <1>');
     expect(table.rows[0]!.cells[0]!.margins).toEqual({
       top: 3.6,
       right: 7.2,
@@ -320,10 +328,30 @@ describe('PresentationModel', () => {
 
     const beforeInvalid = pkg.requirePart(slide.partUri).bytes;
     const invalidJournal = [...pkg.mutations];
-    const invalidRows = [null, [], ['A'], [['A'], ['B', 'C']], [[1]], [['line\nbreak']]];
+    const accessorCell = {};
+    let cellAccessorCalls = 0;
+    Object.defineProperty(accessorCell, 'text', {
+      get() {
+        cellAccessorCalls += 1;
+        return 'Accessor';
+      },
+      enumerable: true,
+      configurable: true,
+    });
+    const invalidRows = [
+      null,
+      [],
+      ['A'],
+      [['A'], ['B', 'C']],
+      [[1]],
+      [['line\nbreak']],
+      [[{ text: 'A', options: {} }]],
+      [[accessorCell]],
+    ];
     for (const rows of invalidRows) {
       expect(() => slide.addTable(rows as never)).toThrow();
     }
+    expect(cellAccessorCalls).toBe(0);
     const invalidOptions = [
       null,
       [],
@@ -372,13 +400,29 @@ describe('PresentationModel', () => {
     const rollbackJournal = [...pkg.mutations];
     expect(() =>
       pkg.transaction(() => {
-        rolledBack = slide.addTable([['rollback']]);
+        rolledBack = slide.addTable([[{ text: 'rollback' }]]);
         throw new Error('restore table');
       }),
     ).toThrow('restore table');
     expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeRollback);
     expect(pkg.mutations).toEqual(rollbackJournal);
     expect(() => rolledBack!.rows).toThrow(ModelParseError);
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedSlide = reopened.slides.find(({ partUri }) => partUri === slide.partUri);
+    const reopenedTable = reopenedSlide?.shapes.find(({ id }) => id === table.id);
+    expect(reopenedTable).toBeInstanceOf(TableModel);
+    expect((reopenedTable as TableModel).rows.map(({ cells }) =>
+      cells.map(({ text }) => text))).toEqual([
+      ['Edited', ''],
+      ['A2', 'B2'],
+    ]);
+    expect(reopenedTable!.transform).toMatchObject({
+      x: inches(2),
+      y: inches(1.5),
+      width: inches(4),
+      height: inches(2),
+    });
 
     const missingTree = model.addSlide();
     const missingPart = pkg.requirePart(missingTree.partUri);

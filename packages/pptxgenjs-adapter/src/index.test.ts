@@ -56,14 +56,20 @@ describe('importPptxGenJS', () => {
     const imported = await importPptxGenJS(generated);
     const importedTable = imported.slides[0]!.shapes[0] as TableModel;
     const native = PptxDocument.create({ slideSize: 'wide' });
-    const nativeTable = native.addSlide().addTable(rows, {
+    const nativeOptions = {
       x: inches(1),
       y: inches(1.5),
       width: inches(6),
       height: inches(2),
       columnWidths: [inches(1), inches(2), inches(3)],
       rowHeights: [inches(0.75), inches(1.25)],
-    });
+    };
+    const nativeTable = native.addSlide().addTable(
+      rows.map((row) => row.map((text) => ({ text }))),
+      nativeOptions,
+    );
+    const stringNative = PptxDocument.create({ slideSize: 'wide' });
+    stringNative.addSlide().addTable(rows, nativeOptions);
 
     expect(importedTable).toBeInstanceOf(TableModel);
     expect(nativeTable.transform).toMatchObject(importedTable.transform);
@@ -80,9 +86,13 @@ describe('importPptxGenJS', () => {
     const nativeXml = new TextDecoder().decode(
       native.opcPackage.requirePart(native.slides[0]!.partUri).bytes,
     );
+    const stringNativeXml = new TextDecoder().decode(
+      stringNative.opcPackage.requirePart(stringNative.slides[0]!.partUri).bytes,
+    );
     const importedXml = new TextDecoder().decode(
       imported.opcPackage.requirePart(imported.slides[0]!.partUri).bytes,
     );
+    expect(nativeXml).toBe(stringNativeXml);
     for (const xml of [nativeXml, importedXml]) {
       expect(xml).toContain(
         'uri="http://schemas.openxmlformats.org/drawingml/2006/table"',

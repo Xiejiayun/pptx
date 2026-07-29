@@ -122,7 +122,12 @@ Text-box `wrap` accepts a boolean; omission and true create explicit automatic w
 Text-box `vert` accepts `eaVert`, `horz`, `mongolianVert`, `vert`, `vert270`, `wordArtVert`, or `wordArtVertRtl`. Omission writes no direction, so it remains distinct from explicit `horz`. `shape.textDirection` reads or replaces only an exact valid direct `bodyPr@vert`; assigning `undefined` clears that override while preserving unknown direction tokens during unrelated edits. Table-cell direction is a separate capability.
 
 ```ts
-import { emuToInches, inches, type AddTableOptions } from '@pptx/sdk';
+import {
+  emuToInches,
+  inches,
+  type AddTableCellInput,
+  type AddTableOptions,
+} from '@pptx/sdk';
 
 const tableOptions: AddTableOptions = {
   name: 'Revenue table',
@@ -133,11 +138,12 @@ const tableOptions: AddTableOptions = {
   columnWidths: [inches(2.5), inches(3.5), inches(2)],
   rowHeights: [inches(0.5), inches(0.75), inches(1)],
 };
-const createdTable = document.addSlide().addTable([
-  ['Region', 'Revenue', 'Growth'],
-  ['East', '$1.2M', '12%'],
-  ['West', '$980K', ''],
-], tableOptions);
+const tableRows: readonly (readonly AddTableCellInput[])[] = [
+  [{ text: 'Region' }, 'Revenue', { text: 'Growth' }],
+  ['East', { text: '$1.2M' }, '12%'],
+  [{ text: 'West' }, '$980K', { text: '' }],
+];
+const createdTable = document.addSlide().addTable(tableRows, tableOptions);
 const currentWidthsInches = createdTable.columnWidths?.map(emuToInches);
 const currentHeightsInches = createdTable.rowHeights?.map(emuToInches);
 createdTable.setColumnWidths([
@@ -154,11 +160,11 @@ createdTable.setRowHeights([0, inches(1), 0]);
 createdTable.setCellText(2, 2, '8%');
 ```
 
-`addTable()` currently accepts a non-empty, dense, rectangular matrix of single-paragraph strings. Geometry uses EMU: x/y default to 0.5 inch, width defaults to one inch per column, and height defaults to one inch with automatic rows (`a:tr@h=0`); use `inches()` for inch-based inputs. `columnWidths` and `rowHeights` each accept one positive EMU value repeated across the corresponding axis or a dense array whose length exactly matches the column/row count. Values are rounded to safe integers, input arrays are detached, and overall width/height are derived from the vector sum when omitted; when both an overall dimension and its vector are supplied, their rounded values must match exactly. Without a vector, explicit width/height retain their existing exact distribution behavior. Emitted explicit transform dimensions always equal the grid/row sum, while omitted `rowHeights` preserve automatic zero-height rows. New cells materialize 7.2pt horizontal and 3.6pt vertical margins plus four direct no-fill borders, return a live `TableModel`, and can immediately use all existing cell and transform editors.
+`addTable()` accepts a non-empty, dense, rectangular matrix whose cells are single-paragraph strings or exact plain-text objects shaped as `{ text: string }`; both forms may be mixed. Cell objects must be ordinary or null-prototype objects with exactly one own data property named `text`. Accessors, inherited values, extra or symbol keys, non-string text, CR/LF, and invalid XML characters are rejected without invoking a property getter. Rows and objects are normalized immediately into detached strings, and equivalent string/object inputs produce byte-identical table OOXML. Geometry uses EMU: x/y default to 0.5 inch, width defaults to one inch per column, and height defaults to one inch with automatic rows (`a:tr@h=0`); use `inches()` for inch-based inputs. `columnWidths` and `rowHeights` each accept one positive EMU value repeated across the corresponding axis or a dense array whose length exactly matches the column/row count. Values are rounded to safe integers, input arrays are detached, and overall width/height are derived from the vector sum when omitted; when both an overall dimension and its vector are supplied, their rounded values must match exactly. Without a vector, explicit width/height retain their existing exact distribution behavior. Emitted explicit transform dimensions always equal the grid/row sum, while omitted `rowHeights` preserve automatic zero-height rows. New cells materialize 7.2pt horizontal and 3.6pt vertical margins plus four direct no-fill borders, return a live `TableModel`, and can immediately use all existing cell and transform editors. Cell-object `options`, rich-text arrays, multi-paragraph text, hyperlinks, merge/span properties, and creation styles remain unsupported and are rejected rather than ignored.
 
 `TableModel.columnWidths` reads the unique direct `tblGrid` as a detached exact-EMU snapshot. A malformed or ambiguous grid returns `undefined` instead of guessing from the transform or cells. `setColumnWidths()` accepts a positive scalar broadcast or a dense descriptor-safe exact-length array, rounds each item to a safe EMU integer, rejects unsafe sums, and atomically updates both `gridCol@w` and `ext@cx`. A valid grid/transform mismatch is repaired; a numeric no-op preserves the original slide bytes and mutation journal. Unsafe existing grid or transform XML raises `ModelParseError` without mutation. Inherited `setTransform({ width })` still changes only the transform, so use `setColumnWidths()` when changing table width distribution.
 
-`TableModel.rowHeights` reads all direct `tr@h` values as a detached exact-EMU snapshot; zero is a valid automatic row height. A malformed or ambiguous direct row vector returns `undefined` without guessing from transform height or cell content. `setRowHeights()` accepts a non-negative scalar broadcast or a dense descriptor-safe exact-length array, rejects raw negative values, and rounds each item to a safe EMU integer. When every target is positive, their safe exact sum is written to `ext@cy` and a valid rows/transform mismatch is repaired. When any target is zero, row tokens are updated but the already-valid transform height is preserved because the rendered automatic height cannot be derived from the numeric row sum. Numeric no-ops preserve original tokens, slide bytes, and the mutation journal; unsafe existing rows or transform XML raise `ModelParseError` without mutation. Creation remains stricter: explicit `addTable({ rowHeights })` values must be positive, while omitting `rowHeights` creates automatic rows. Inherited `setTransform({ height })` still changes only the transform, so use `setRowHeights()` to edit row tokens. Cell objects, rich/multi-paragraph text, colspan/rowspan or merge editing, row insertion/deletion, table/cell creation styles, auto-page/repeated headers, hyperlinks, and content measurement are not yet supported by native creation.
+`TableModel.rowHeights` reads all direct `tr@h` values as a detached exact-EMU snapshot; zero is a valid automatic row height. A malformed or ambiguous direct row vector returns `undefined` without guessing from transform height or cell content. `setRowHeights()` accepts a non-negative scalar broadcast or a dense descriptor-safe exact-length array, rejects raw negative values, and rounds each item to a safe EMU integer. When every target is positive, their safe exact sum is written to `ext@cy` and a valid rows/transform mismatch is repaired. When any target is zero, row tokens are updated but the already-valid transform height is preserved because the rendered automatic height cannot be derived from the numeric row sum. Numeric no-ops preserve original tokens, slide bytes, and the mutation journal; unsafe existing rows or transform XML raise `ModelParseError` without mutation. Creation remains stricter: explicit `addTable({ rowHeights })` values must be positive, while omitting `rowHeights` creates automatic rows. Inherited `setTransform({ height })` still changes only the transform, so use `setRowHeights()` to edit row tokens. Rich/multi-paragraph cell text, cell-object options, colspan/rowspan or merge editing, row insertion/deletion, table/cell creation styles, auto-page/repeated headers, hyperlinks, and content measurement are not yet supported by native creation.
 
 ```ts
 import {

@@ -40,18 +40,8 @@ export function normalizeTableDefinition(
 ): NormalizedTableDefinition {
   const outer = readDenseArray(rows, 'Table rows');
   const normalizedRows = outer.map((row, rowIndex) =>
-    readDenseArray(row, `Table row ${rowIndex}`).map((cell, columnIndex) => {
-      if (typeof cell !== 'string') {
-        throw new TypeError(`Table cell ${rowIndex},${columnIndex} must be a string`);
-      }
-      if (/\r|\n/.test(cell)) {
-        throw new TypeError(`Table cell ${rowIndex},${columnIndex} must contain one paragraph`);
-      }
-      if (containsInvalidXmlCharacter(cell)) {
-        throw new TypeError(`Table cell ${rowIndex},${columnIndex} contains invalid XML characters`);
-      }
-      return cell;
-    }));
+    readDenseArray(row, `Table row ${rowIndex}`).map((cell, columnIndex) =>
+      normalizeTableCell(cell, rowIndex, columnIndex)));
   const columnCount = normalizedRows[0]!.length;
   for (let rowIndex = 1; rowIndex < normalizedRows.length; rowIndex += 1) {
     if (normalizedRows[rowIndex]!.length !== columnCount) {
@@ -153,6 +143,44 @@ export function normalizeTableDefinition(
     columnWidths,
     rowHeights,
   };
+}
+
+function normalizeTableCell(
+  cell: unknown,
+  rowIndex: number,
+  columnIndex: number,
+): string {
+  const context = `Table cell ${rowIndex},${columnIndex}`;
+  if (typeof cell === 'string') return normalizeTableCellText(cell, context);
+  if (!cell || typeof cell !== 'object' || Array.isArray(cell)) {
+    throw new TypeError(`${context} must be a string or text object`);
+  }
+  const prototype = Object.getPrototypeOf(cell);
+  if (prototype !== Object.prototype && prototype !== null) {
+    throw new TypeError(`${context} must be an ordinary text object`);
+  }
+  const keys = Reflect.ownKeys(cell);
+  if (keys.length !== 1 || keys[0] !== 'text') {
+    throw new TypeError(`${context} must contain only text`);
+  }
+  const descriptor = Object.getOwnPropertyDescriptor(cell, 'text');
+  if (!descriptor || !Object.hasOwn(descriptor, 'value')) {
+    throw new TypeError(`${context} text must be a data property`);
+  }
+  return normalizeTableCellText(descriptor.value, context);
+}
+
+function normalizeTableCellText(value: unknown, context: string): string {
+  if (typeof value !== 'string') {
+    throw new TypeError(`${context} text must be a string`);
+  }
+  if (/\r|\n/.test(value)) {
+    throw new TypeError(`${context} must contain one paragraph`);
+  }
+  if (containsInvalidXmlCharacter(value)) {
+    throw new TypeError(`${context} contains invalid XML characters`);
+  }
+  return value;
 }
 
 export function distributeTableDimension(total: number, count: number): readonly number[] {

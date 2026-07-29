@@ -108,6 +108,12 @@ export interface AddTableOptions {
   readonly rowHeights?: number | readonly number[];
 }
 
+export interface AddTableCell {
+  readonly text: string;
+}
+
+export type AddTableCellInput = string | AddTableCell;
+
 export class SlideTitleModel {
   constructor(private readonly slide: SlideModel) {}
 
@@ -336,7 +342,7 @@ export class SlideModel {
   }
 
   addTable(
-    rows: readonly (readonly string[])[],
+    rows: readonly (readonly AddTableCellInput[])[],
     options: AddTableOptions = {},
   ): TableModel {
     return this.presentation.opcPackage.transaction(() => {

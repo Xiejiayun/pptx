@@ -154,6 +154,42 @@ describe('table creation internals', () => {
     ).rowHeights).toEqual([0, 0]);
   });
 
+  it('normalizes detached plain-text cell objects to byte-identical string output', () => {
+    const objectCell = { text: 'A & <1>' };
+    const nullPrototype = Object.assign(Object.create(null), { text: 'B1' });
+    const objectRows = [
+      [objectCell, nullPrototype, { text: '' }],
+      ['A2', { text: 'B2' }, { text: 'C2' }],
+    ];
+    const stringRows = [
+      ['A & <1>', 'B1', ''],
+      ['A2', 'B2', 'C2'],
+    ];
+    const options = {
+      name: 'Object cells',
+      columnWidths: [914_400, 1_828_800, 914_400],
+      rowHeights: [457_200, 914_400],
+    };
+    const objectDefinition = normalizeTableDefinition(objectRows, options);
+    const stringDefinition = normalizeTableDefinition(stringRows, options);
+
+    expect(objectDefinition.rows).toEqual(stringRows);
+    expect(renderTableGraphicFrame(8, objectDefinition))
+      .toBe(renderTableGraphicFrame(8, stringDefinition));
+    const xml = renderTableGraphicFrame(8, objectDefinition);
+    expect(xml).toContain('<a:t xml:space="preserve">A &amp; &lt;1&gt;</a:t>');
+    expect(xml).toMatch(/<a:t xml:space="preserve"><\/a:t>/);
+    expect(xml).toContain(
+      '<a:gridCol w="914400"/><a:gridCol w="1828800"/><a:gridCol w="914400"/>',
+    );
+    expect(xml).toMatch(/<a:tr h="457200">[\s\S]*<a:tr h="914400">/);
+
+    objectCell.text = 'MUTATED';
+    nullPrototype.text = 'MUTATED';
+    objectRows[1]![1] = { text: 'MUTATED' };
+    expect(objectDefinition.rows).toEqual(stringRows);
+  });
+
   it('strictly rejects malformed matrices and options without invoking accessors', () => {
     const sparseOuter = Array(1);
     const sparseRow = [Array(2)];
@@ -196,6 +232,44 @@ describe('table creation internals', () => {
       expect(() => normalizeTableDefinition(rows, undefined)).toThrow();
     }
     expect(rowAccessorCalls).toBe(0);
+
+    const inheritedCell = Object.create({ text: 'Inherited' });
+    const accessorCell = {};
+    let cellAccessorCalls = 0;
+    Object.defineProperty(accessorCell, 'text', {
+      get() {
+        cellAccessorCalls += 1;
+        return 'Accessor';
+      },
+      enumerable: true,
+      configurable: true,
+    });
+    class ExoticCell {
+      text = 'Class';
+    }
+    const invalidCells = [
+      null,
+      1,
+      true,
+      [],
+      new Date(0),
+      new ExoticCell(),
+      {},
+      inheritedCell,
+      accessorCell,
+      { text: 'A', options: {} },
+      { text: 'A', extra: true },
+      Object.assign({ text: 'A' }, { [Symbol('extra')]: true }),
+      { text: 1 },
+      { text: ['rich'] },
+      { text: 'line\nbreak' },
+      { text: 'carriage\rreturn' },
+      { text: 'bad\u0000xml' },
+    ];
+    for (const cell of invalidCells) {
+      expect(() => normalizeTableDefinition([[cell]], undefined)).toThrow();
+    }
+    expect(cellAccessorCalls).toBe(0);
 
     const nullPrototype = Object.assign(Object.create(null), {
       name: 'Null prototype',
