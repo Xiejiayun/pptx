@@ -968,13 +968,23 @@ describe('PptxDocument vertical slice', () => {
             margin: { top: 4, left: 8 },
             border: sourceBorder,
             fill: sourceFill,
+            textDirection: 'vert',
           },
         },
-        { text: 'Center', options: { align: 'center', valign: 'middle' } },
-        { text: 'Right', options: { align: 'right', valign: 'bottom' } },
+        {
+          text: 'Center',
+          options: { align: 'center', textDirection: 'vert270', valign: 'middle' },
+        },
+        {
+          text: 'Right',
+          options: { align: 'right', textDirection: 'wordArtVert', valign: 'bottom' },
+        },
       ],
       [
-        { text: 'Justify this longer sentence', options: { align: 'justify' } },
+        {
+          text: 'Justify this longer sentence',
+          options: { align: 'justify', textDirection: 'horz' },
+        },
         {
           text: 'Undefined',
           options: { align: undefined } as unknown as AddTableCellOptions,
@@ -993,6 +1003,16 @@ describe('PptxDocument vertical slice', () => {
     const originalTokens = ['l', 'ctr', 'r', 'just', undefined, undefined];
     expect(tableCellHorizontalAlignmentTokens(document, slide.partUri))
       .toEqual(originalTokens);
+    const originalDirections = [
+      'vert',
+      'vert270',
+      'wordArtVert',
+      undefined,
+      undefined,
+      undefined,
+    ];
+    expect(table.rows.flatMap(({ cells }) =>
+      cells.map(({ textDirection }) => textDirection))).toEqual(originalDirections);
     expect(table.rows[0]!.cells[0]).toMatchObject({
       text: 'Left',
       margins: { top: 4, right: 7.2, bottom: 3.6, left: 8 },
@@ -1023,6 +1043,8 @@ describe('PptxDocument vertical slice', () => {
     const duplicateTable = duplicate.shapes[0] as TableModel;
     expect(tableCellHorizontalAlignmentTokens(document, duplicate.partUri))
       .toEqual(originalTokens);
+    expect(duplicateTable.rows.flatMap(({ cells }) =>
+      cells.map(({ textDirection }) => textDirection))).toEqual(originalDirections);
 
     table.setCellText(0, 0, 'Left edited');
     table.setCellText(0, 1, 'Center edited');
@@ -1063,7 +1085,7 @@ describe('PptxDocument vertical slice', () => {
       table.setColumnWidths(inches(3));
       rolledBack = slide.addTable([[{
         text: 'Temporary aligned cell',
-        options: { align: 'center' },
+        options: { align: 'center', textDirection: 'vert' },
       }]], { name: 'Temporary aligned table' });
       throw new Error('restore table cell horizontal alignment creation');
     })).toThrow('restore table cell horizontal alignment creation');
@@ -1080,6 +1102,17 @@ describe('PptxDocument vertical slice', () => {
       .toEqual(originalTokens);
     expect(tableCellHorizontalAlignmentTokens(document, duplicate.partUri))
       .toEqual(originalTokens);
+    expect(table.rows.flatMap(({ cells }) =>
+      cells.map(({ textDirection }) => textDirection))).toEqual([
+      'vert270',
+      'vert270',
+      'wordArtVert',
+      undefined,
+      undefined,
+      undefined,
+    ]);
+    expect(duplicateTable.rows.flatMap(({ cells }) =>
+      cells.map(({ textDirection }) => textDirection))).toEqual(originalDirections);
     expect(() => rolledBack!.rows).toThrow(ModelParseError);
     expect(hash(document.opcPackage.requirePart(opaqueUri).bytes)).toBe(opaqueHash);
 
@@ -1100,6 +1133,17 @@ describe('PptxDocument vertical slice', () => {
         ['Left', 'Center', 'Right'],
         ['Justify this longer sentence', 'Undefined', 'Omitted'],
       ]);
+    expect(reopenedTable.rows.flatMap(({ cells }) =>
+      cells.map(({ textDirection }) => textDirection))).toEqual([
+      'vert270',
+      'vert270',
+      'wordArtVert',
+      undefined,
+      undefined,
+      undefined,
+    ]);
+    expect(reopenedDuplicate.rows.flatMap(({ cells }) =>
+      cells.map(({ textDirection }) => textDirection))).toEqual(originalDirections);
     expect(reopenedTable.rows[0]!.cells[0]!.margins).toEqual({ bottom: 9 });
     expect(reopenedTable.rows[0]!.cells[0]!.borders?.top).toEqual({
       kind: 'line',
@@ -2092,6 +2136,66 @@ describe('PptxDocument vertical slice', () => {
     expect(table.rows[0]!.cells[0]!.text).toBe('Existing');
     expect(tableCellHorizontalAlignmentTokens(document, slide.partUri))
       .toEqual(existingTokens);
+    expect(document.opcPackage.parts.map(({ uri }) => uri))
+      .toEqual([...beforeParts.keys()]);
+    for (const [uri, bytes] of beforeParts) {
+      expect(document.opcPackage.requirePart(uri).bytes, uri).toEqual(bytes);
+    }
+  });
+
+  it('rejects invalid public table-cell text direction creation before mutation', () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const table = slide.addTable([[{
+      text: 'Existing',
+      options: { textDirection: 'vert' },
+    }]]);
+    const beforeParts = new Map(
+      document.opcPackage.parts.map(({ uri, bytes }) => [uri, bytes.slice()]),
+    );
+    const journal = [...document.opcPackage.mutations];
+    let getterCalls = 0;
+    const accessorOptions = {};
+    Object.defineProperty(accessorOptions, 'textDirection', {
+      get() {
+        getterCalls += 1;
+        return 'vert';
+      },
+      enumerable: true,
+      configurable: true,
+    });
+    const invalidDirections: unknown[] = [
+      null,
+      false,
+      true,
+      0,
+      '',
+      'Vert',
+      ' vert ',
+      'eaVert',
+      'mongolianVert',
+      'wordArtVertRtl',
+      [],
+      {},
+      Symbol('table cell text direction'),
+    ];
+
+    expect(() => slide.addTable([[{
+      text: 'Accessor',
+      options: accessorOptions as AddTableCellOptions,
+    }]])).toThrow(TypeError);
+    for (const textDirection of invalidDirections) {
+      expect(() => slide.addTable([[{
+        text: 'Invalid',
+        options: { textDirection } as unknown as AddTableCellOptions,
+      }]])).toThrow(TypeError);
+    }
+
+    expect(getterCalls).toBe(0);
+    expect(document.opcPackage.mutations).toEqual(journal);
+    expect(slide.shapes).toHaveLength(1);
+    expect(slide.shapes[0]).toBe(table);
+    expect(table.rows[0]!.cells[0]!.textDirection).toBe('vert');
     expect(document.opcPackage.parts.map(({ uri }) => uri))
       .toEqual([...beforeParts.keys()]);
     for (const [uri, bytes] of beforeParts) {

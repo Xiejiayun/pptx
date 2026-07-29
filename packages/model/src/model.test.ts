@@ -260,6 +260,7 @@ describe('PresentationModel', () => {
       border: typedSourceBorder,
       fill: sourceFill,
       margin: sourceNamedMargin,
+      textDirection: 'vert',
       valign: 'middle',
     };
     const objectCell = { text: 'A & <1>', options: sourceCellOptions };
@@ -284,12 +285,18 @@ describe('PresentationModel', () => {
           ],
           fill: { kind: 'none' },
           margin: typedSourceMargin,
+          textDirection: 'vert270',
           valign: 'top',
           align: 'left',
         } },
         {
           text: 'Empty margin',
-          options: { align: 'right', margin: {}, valign: 'bottom' },
+          options: {
+            align: 'right',
+            margin: {},
+            textDirection: 'wordArtVert',
+            valign: 'bottom',
+          },
         },
       ],
       [{
@@ -309,6 +316,7 @@ describe('PresentationModel', () => {
             transparency: 25,
           },
           margin: 6,
+          textDirection: 'horz',
           valign: 'bottom',
           align: 'justify',
         },
@@ -346,6 +354,17 @@ describe('PresentationModel', () => {
       return [...frame.matchAll(/<a:tc(?:\s[^>]*)?>[\s\S]*?<\/a:tc>/g)]
         .map((match) => match[0].match(
           /<a:pPr[^>]*\salgn="([^"]+)"/,
+        )?.[1]);
+    };
+    const directDirections = (partBytes: Uint8Array): readonly (string | undefined)[] => {
+      const xml = new TextDecoder().decode(partBytes);
+      const nameOffset = xml.indexOf('name="Table &quot;A&quot;"');
+      const frameStart = xml.lastIndexOf('<p:graphicFrame', nameOffset);
+      const frameEnd = xml.indexOf('</p:graphicFrame>', nameOffset);
+      const frame = xml.slice(frameStart, frameEnd + '</p:graphicFrame>'.length);
+      return [...frame.matchAll(/<a:tc(?:\s[^>]*)?>[\s\S]*?<\/a:tc>/g)]
+        .map((match) => match[0].match(
+          /<a:tcPr[^>]*\svert="([^"]+)"/,
         )?.[1]);
     };
 
@@ -393,6 +412,19 @@ describe('PresentationModel', () => {
       ['middle', 'top', 'bottom'],
       ['bottom', undefined, undefined],
     ]);
+    const expectedDirections = [
+      'vert',
+      'vert270',
+      'wordArtVert',
+      undefined,
+      undefined,
+      undefined,
+    ];
+    expect(table.rows.flatMap(({ cells }) =>
+      cells.map(({ textDirection }) => textDirection))).toEqual(expectedDirections);
+    expect(directDirections(pkg.requirePart(slide.partUri).bytes)).toEqual(
+      expectedDirections,
+    );
     const expectedAlignments = ['ctr', 'l', 'r', 'just', 'ctr', 'ctr'];
     expect(directAlignments(pkg.requirePart(slide.partUri).bytes)).toEqual(
       expectedAlignments,
@@ -405,6 +437,9 @@ describe('PresentationModel', () => {
     expect(duplicatedTable).toBeInstanceOf(TableModel);
     expect(directAlignments(pkg.requirePart(duplicatedSlide.partUri).bytes)).toEqual(
       expectedAlignments,
+    );
+    expect(directDirections(pkg.requirePart(duplicatedSlide.partUri).bytes)).toEqual(
+      expectedDirections,
     );
     const borderLine = (
       color: { kind: 'srgb' | 'scheme'; value: string },
@@ -549,6 +584,12 @@ describe('PresentationModel', () => {
     );
     expect(directAlignments(pkg.requirePart(duplicatedSlide.partUri).bytes)).toEqual(
       expectedAlignments,
+    );
+    expect(directDirections(pkg.requirePart(slide.partUri).bytes)).toEqual(
+      expectedDirections,
+    );
+    expect(directDirections(pkg.requirePart(duplicatedSlide.partUri).bytes)).toEqual(
+      expectedDirections,
     );
 
     const updated = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
@@ -747,6 +788,7 @@ describe('PresentationModel', () => {
               transparency: 25,
             },
             margin: { right: -2 },
+            textDirection: 'wordArtVert',
             valign: 'top',
             align: 'right',
           },
@@ -789,6 +831,8 @@ describe('PresentationModel', () => {
       ['bottom', undefined, 'bottom'],
       ['bottom', undefined, undefined],
     ]);
+    expect((reopenedTable as TableModel).rows.flatMap(({ cells }) =>
+      cells.map(({ textDirection }) => textDirection))).toEqual(expectedDirections);
     expect((reopenedTable as TableModel).rows.map(({ cells }) =>
       cells.map(({ fill }) => fill))).toEqual([
       [
@@ -854,6 +898,12 @@ describe('PresentationModel', () => {
     expect(directAlignments(
       reopened.opcPackage.requirePart(reopenedDuplicatedSlide!.partUri).bytes,
     )).toEqual(expectedAlignments);
+    expect(directDirections(
+      reopened.opcPackage.requirePart(reopenedSlide!.partUri).bytes,
+    )).toEqual(expectedDirections);
+    expect(directDirections(
+      reopened.opcPackage.requirePart(reopenedDuplicatedSlide!.partUri).bytes,
+    )).toEqual(expectedDirections);
     expect(pkg.requirePart(untouchedPartUri).bytes).toEqual(untouchedBefore);
     expect(reopened.opcPackage.requirePart(untouchedPartUri).bytes).toEqual(untouchedBefore);
 

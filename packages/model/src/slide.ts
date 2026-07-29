@@ -37,6 +37,7 @@ import {
   type SemanticShape,
   type TableCellBorderInput,
   type TableCellFill,
+  type TableCellTextDirection,
 } from './shapes.js';
 import {
   normalizeTableDefinition,
@@ -125,6 +126,7 @@ export interface AddTableCellOptions {
   readonly border?: TableCellBorderInput;
   readonly fill?: TableCellFill;
   readonly margin?: TextBoxMarginInput;
+  readonly textDirection?: TableCellTextDirection;
   readonly valign?: TextBoxVerticalAlignment;
 }
 
