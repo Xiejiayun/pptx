@@ -462,6 +462,14 @@ subjectMatter.subject = '';
 const emptyPresentationSubject = subjectMatter.subject;
 subjectMatter.subject = undefined;
 const clearedPresentationSubject = subjectMatter.subject;
+const revisioned = PptxDocument.create({ revision: '007' });
+const createdPresentationRevision = revisioned.revision;
+revisioned.revision = '42';
+const editedPresentationRevision = revisioned.revision;
+const reopenedRevisioned = await PptxDocument.open(await revisioned.write());
+const reopenedPresentationRevision = reopenedRevisioned.revision;
+revisioned.revision = undefined;
+const clearedPresentationRevision = revisioned.revision;
 const organization = PptxDocument.create({ company: 'Packed & <Company>' });
 const createdPresentationCompany = organization.company;
 organization.company = 'Edited company';
@@ -482,6 +490,7 @@ const checks = {
   presentationTitle: createdPresentationTitle === 'Packed & <Title>' && editedPresentationTitle === 'Edited title' && reopenedPresentationTitle === 'Edited title' && emptyPresentationTitle === '' && clearedPresentationTitle === undefined,
   presentationAuthor: createdPresentationAuthor === 'Packed & <Author>' && editedPresentationAuthor === 'Edited author' && reopenedPresentationAuthor === 'Edited author' && emptyPresentationAuthor === '' && clearedPresentationAuthor === undefined,
   presentationSubject: createdPresentationSubject === 'Packed & <Subject>' && editedPresentationSubject === 'Edited subject' && reopenedPresentationSubject === 'Edited subject' && emptyPresentationSubject === '' && clearedPresentationSubject === undefined,
+  presentationRevision: createdPresentationRevision === '007' && editedPresentationRevision === '42' && reopenedPresentationRevision === '42' && clearedPresentationRevision === undefined,
   presentationCompany: createdPresentationCompany === 'Packed & <Company>' && editedPresentationCompany === 'Edited company' && reopenedPresentationCompany === 'Edited company' && emptyPresentationCompany === '' && clearedPresentationCompany === undefined,
   paragraphMarginLeft: initialParagraphMargins[0] === 12 && initialParagraphMargins[1] === undefined && initialParagraphMargins[2] === undefined && bulletMarginIsolation && updatedParagraphMargins[0] === 6 && updatedParagraphMargins[1] === 0 && updatedParagraphMargins[2] === undefined && updatedParagraphMargins[3] === undefined,
   paragraphMarginRight: initialParagraphRightMargins[0] === 12 && initialParagraphRightMargins[1] === 24 && initialParagraphRightMargins[2] === undefined && bulletRightMarginCoexistence && updatedParagraphRightMargins[0] === 6 && updatedParagraphRightMargins[1] === 0 && updatedParagraphRightMargins[2] === undefined && updatedParagraphRightMargins[3] === undefined && updatedParagraphRightMargins[4] === 9,
@@ -822,6 +831,14 @@ browserSubjectMatter.subject = '';
 if (browserSubjectMatter.subject !== '') throw new Error('Browser presentation subject empty failed');
 browserSubjectMatter.subject = undefined;
 if (browserSubjectMatter.subject !== undefined) throw new Error('Browser presentation subject clear failed');
+const browserRevisioned = PptxDocument.create({ revision: '007' });
+if (browserRevisioned.revision !== '007') throw new Error('Browser presentation revision create failed');
+browserRevisioned.revision = '42';
+if (browserRevisioned.revision !== '42') throw new Error('Browser presentation revision edit failed');
+const reopenedBrowserRevisioned = await PptxDocument.open(await browserRevisioned.write());
+if (reopenedBrowserRevisioned.revision !== '42') throw new Error('Browser presentation revision reopen failed');
+browserRevisioned.revision = undefined;
+if (browserRevisioned.revision !== undefined) throw new Error('Browser presentation revision clear failed');
 const browserOrganization = PptxDocument.create({ company: 'Browser company' });
 if (browserOrganization.company !== 'Browser company') throw new Error('Browser presentation company create failed');
 browserOrganization.company = 'Edited browser company';
@@ -905,6 +922,10 @@ const subjectSnapshot: string | undefined = subjectDocument.subject;
 subjectDocument.subject = 'Edited typed subject';
 subjectDocument.subject = '';
 subjectDocument.subject = undefined;
+const revisionDocument: PptxDocument = PptxDocument.create({ revision: '007' });
+const revisionSnapshot: string | undefined = revisionDocument.revision;
+revisionDocument.revision = '42';
+revisionDocument.revision = undefined;
 const companyDocument: PptxDocument = PptxDocument.create({ company: 'Typed company' });
 const companySnapshot: string | undefined = companyDocument.company;
 companyDocument.company = 'Edited typed company';
@@ -1064,7 +1085,7 @@ documentPromise.then((document) => {
   advancedCharts.installAdvancedChartPlugin(document);
   smartArt.installSmartArtPlugin(document);
 });
-void [documentPromise, createdDocument, globalRtl, globalRtlSnapshot, titledDocument, titleSnapshot, authoredDocument, authorSnapshot, subjectDocument, subjectSnapshot, companyDocument, companySnapshot, customDocument, createdText, creationBorder, creationMargin, creationOptions, objectCell, tableRows, tableOptions, typedTable, widthSnapshot, heightSnapshot, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotHorizontalAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellHorizontalAlignment, tableHorizontalAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
+void [documentPromise, createdDocument, globalRtl, globalRtlSnapshot, titledDocument, titleSnapshot, authoredDocument, authorSnapshot, subjectDocument, subjectSnapshot, revisionDocument, revisionSnapshot, companyDocument, companySnapshot, customDocument, createdText, creationBorder, creationMargin, creationOptions, objectCell, tableRows, tableOptions, typedTable, widthSnapshot, heightSnapshot, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotHorizontalAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellHorizontalAlignment, tableHorizontalAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
 `,
   );
   run(
