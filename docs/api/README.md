@@ -9,6 +9,7 @@ const created = PptxDocument.create({
   author: 'Presentation Team',
   company: 'Acme & Partners',
   format: 'pptx',
+  lastModifiedBy: 'Presentation Team',
   revision: '7',
   rtlMode: true,
   slideSize: '16:9',
@@ -22,6 +23,9 @@ created.author = undefined;
 created.company = 'Updated Company';
 created.company = '';
 created.company = undefined;
+created.lastModifiedBy = 'Updated Editor';
+created.lastModifiedBy = '';
+created.lastModifiedBy = undefined;
 created.subject = 'Updated Subject';
 created.subject = '';
 created.subject = undefined;
@@ -55,6 +59,8 @@ await document.writeFile('output.pptx', {
 `CreatePresentationOptions.title` and `document.title` accept only strings without invalid XML control characters. Omitting `title` creates no direct title, `''` creates a direct empty `dc:title`, and assigning `undefined` removes only that direct field while preserving the core-properties part and its subject, creator, revision, timestamps, unknown children, and lexical formatting. Reads and edits locate the part through the package-root core-properties relationship rather than a fixed URI or namespace prefix; editing an existing package with no such relationship creates `/docProps/core.xml` or the next free URI. Reading never mutates, assigning the decoded current value or clearing an absent title is an exact bytes/journal no-op, and unsafe dangling, external, wrong-type, malformed, or ambiguous ownership is rejected rather than guessed.
 
 `CreatePresentationOptions.author` and `document.author` use the direct Dublin Core `dc:creator` and accept the same strict XML-safe strings. Omitted native creation preserves the canonical `@jiayunxie/pptx` creator, `''` writes an explicit empty creator, and assigning `undefined` removes only the direct creator. The getter never falls back to `cp:lastModifiedBy`; author edits preserve lastModifiedBy, title, subject, revision, timestamps, custom/unknown children, relationships, and unrelated parts. Relationship-based lookup, missing-part creation, exact same-value/absent-clear no-ops, prefix reuse, and malformed/ambiguous rejection match the title lifecycle. PptxGenJS 4.0.1 instead defaults author to `PptxGenJS` and mirrors every author value into both creator and lastModifiedBy; native intentionally keeps lastModifiedBy independently owned.
+
+`CreatePresentationOptions.lastModifiedBy` and `document.lastModifiedBy` own only direct core-properties `cp:lastModifiedBy`. Native omitted and runtime-`undefined` creation preserve the canonical `@jiayunxie/pptx`; `''` writes an explicit empty property, while assigning `undefined` removes only lastModifiedBy. Values are strict XML-safe strings with no trimming, coercion, user lookup, save-time refresh, revision increment, or timestamp update. Reads use the package-root core-properties relationship and namespace URI, accept alternate legal part URIs and prefixes, never fall back to creator, and never mutate. Missing metadata can be created with one canonical `cp` namespace binding; same-value and absent-clear operations are exact bytes/journal no-ops, while creator, title, subject, revision, timestamps, unknown children, relationships, and unrelated parts remain unchanged. Malformed or ambiguous ownership is rejected before mutation. PptxGenJS 4.0.1 has no independent public lastModifiedBy field: its public `author` writes creator and lastModifiedBy as a mirrored pair, while native keeps both properties independently editable.
 
 `CreatePresentationOptions.subject` and `document.subject` own only direct Dublin Core `dc:subject`. Native omitted and runtime-`undefined` creation preserve the canonical core-properties bytes and return `undefined`; `''` writes an explicit empty subject, while assigning `undefined` removes only that direct field. Values use the same strict XML-safe string validation, relationship-based part discovery, alternate URI/prefix support, missing-part creation, same-value/absent-clear exact no-ops, and malformed/ambiguous rejection as title and author. Subject edits preserve title, creator, lastModifiedBy, revision, timestamps, unknown children, relationships, and unrelated parts. PptxGenJS 4.0.1 defaults subject to `PptxGenJS Presentation`; its custom and empty outputs import exactly, while native intentionally does not inject that brand default.
 

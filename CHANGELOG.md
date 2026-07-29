@@ -12,6 +12,7 @@
 - Added native zero-input presentation creation for all six formats, four PptxGenJS-compatible slide sizes, and blank slides linked to a canonical master/layout/theme chain.
 - Added strict presentation-title metadata creation plus namespace-aware direct core-property reading, lossless editing, empty/clear states, and missing-part lifecycle support.
 - Added strict presentation-author metadata creation plus namespace-aware direct creator reading, lossless editing, empty/clear states, and last-modified-by preservation.
+- Added strict presentation-lastModifiedBy metadata creation plus namespace-aware direct reading, independent creator ownership, lossless empty/clear editing, and PptxGenJS author-mirror conformance.
 - Added strict presentation-subject metadata creation plus namespace-aware direct subject reading, lossless editing, empty/clear states, and adjacent core-property preservation.
 - Added strict presentation-revision metadata creation plus namespace-aware direct revision reading, lexical digit preservation, lossless editing/clear, and PptxGenJS 4.0.1 safe-output conformance.
 - Added strict presentation-company metadata creation plus namespace-aware extended-properties reading, lossless editing, empty/clear states, and unrelated app-property preservation.
