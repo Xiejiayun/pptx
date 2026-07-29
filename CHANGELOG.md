@@ -23,6 +23,7 @@
 - Added strict table-level vertical-alignment creation that materializes top, middle, or bottom onto uncovered cells, preserves cell overrides and omitted bytes, and matches PptxGenJS 4.0.1 final direct state.
 - Added strict table-cell horizontal-alignment creation for left, center, right, and justify, with direct `pPr@algn` output, omitted-byte preservation, edit/duplicate/reopen stability, and PptxGenJS 4.0.1 final-state conformance.
 - Added strict table-level horizontal-alignment creation for left, center, right, and justify, with cell-value precedence, direct physical-cell `pPr@algn` materialization, omitted-byte preservation, and PptxGenJS 4.0.1 final-state conformance.
+- Added strict existing table-cell horizontal-alignment snapshots and physical-cell editing for direct single-paragraph `pPr@algn`, including exact no-ops, direct clear, rollback/reopen isolation, and PptxGenJS 4.0.1 materialized-state import compatibility.
 - Added exact scalar or per-column EMU widths for native table creation, with derived total width and strict grid/transform consistency.
 - Added strict existing-table column-width snapshots and atomic lossless editing that synchronizes the table grid and transform width.
 - Added exact scalar or per-row EMU heights for native table creation, with derived total height and strict row/transform consistency.
