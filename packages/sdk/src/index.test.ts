@@ -912,6 +912,71 @@ describe('PptxDocument vertical slice', () => {
     ]);
   });
 
+  it('materializes public table margins through duplicate, rollback, and reopen', async () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const table = slide.addTable([[
+      'Inherited string',
+      { text: 'Partial override', options: { margin: { bottom: 12 } } },
+      { text: 'Zero override', options: { margin: 0 } },
+      { text: 'Tuple override', options: { margin: [1, 2, 3, 4] } },
+    ]], {
+      name: 'SDK table margin lifecycle',
+      margin: { top: 9, left: 18 },
+      columnWidths: inches(2),
+      rowHeights: inches(1),
+    });
+    const original = table.rows[0]!.cells.map(({ margins }) => margins);
+    expect(original).toEqual([
+      { top: 9, right: 7.2, bottom: 3.6, left: 18 },
+      { top: 9, right: 7.2, bottom: 12, left: 18 },
+      { top: 0, right: 0, bottom: 0, left: 0 },
+      { top: 1, right: 2, bottom: 3, left: 4 },
+    ]);
+
+    const duplicate = document.duplicateSlide(0);
+    const duplicateTable = duplicate.shapes[0] as TableModel;
+    expect(duplicateTable.rows[0]!.cells.map(({ margins }) => margins))
+      .toEqual(original);
+
+    table.setCellMargins(0, 0, undefined);
+    table.setCellMargins(0, 1, { right: 5 });
+    const edited = table.rows[0]!.cells.map(({ margins }) => margins);
+    expect(edited).toEqual([
+      undefined,
+      { right: 5 },
+      { top: 0, right: 0, bottom: 0, left: 0 },
+      { top: 1, right: 2, bottom: 3, left: 4 },
+    ]);
+
+    const beforeRollback = document.opcPackage.requirePart(slide.partUri).bytes.slice();
+    const rollbackJournal = [...document.opcPackage.mutations];
+    expect(() => document.transaction(() => {
+      table.setCellMargins(0, 2, { left: 11 });
+      slide.addTable([['Temporary']], { margin: 6 });
+      throw new Error('restore table margin defaults');
+    })).toThrow('restore table margin defaults');
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(beforeRollback);
+    expect(document.opcPackage.mutations).toEqual(rollbackJournal);
+    expect(slide.shapes).toHaveLength(1);
+    expect(slide.shapes[0]).toBe(table);
+    expect(table.rows[0]!.cells.map(({ margins }) => margins)).toEqual(edited);
+    expect(duplicateTable.rows[0]!.cells.map(({ margins }) => margins))
+      .toEqual(original);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedTable = reopened.slides[0]!.shapes[0] as TableModel;
+    const reopenedDuplicate = reopened.slides[1]!.shapes[0] as TableModel;
+    expect(reopenedTable.rows[0]!.cells.map(({ margins }) => margins))
+      .toEqual(edited);
+    expect(reopenedDuplicate.rows[0]!.cells.map(({ margins }) => margins))
+      .toEqual(original);
+    expect(reopenedTable.columnWidths).toEqual(Array(4).fill(inches(2)));
+    expect(reopenedTable.rowHeights).toEqual([inches(1)]);
+    expect(reopenedDuplicate.columnWidths).toEqual(Array(4).fill(inches(2)));
+    expect(reopenedDuplicate.rowHeights).toEqual([inches(1)]);
+  });
+
   it('rejects invalid public table margin creation before mutation', () => {
     const document = PptxDocument.create();
     const slide = document.addSlide();
@@ -919,6 +984,14 @@ describe('PptxDocument vertical slice', () => {
     const before = document.opcPackage.requirePart(slide.partUri).bytes.slice();
     const journal = [...document.opcPackage.mutations];
     let sdkMarginGetterCalls = 0;
+    const accessorOptions = {};
+    Object.defineProperty(accessorOptions, 'margin', {
+      get() {
+        sdkMarginGetterCalls += 1;
+        return 1;
+      },
+      enumerable: true,
+    });
     const accessorNamed = { left: 1 };
     Object.defineProperty(accessorNamed, 'top', {
       get() {
@@ -959,11 +1032,19 @@ describe('PptxDocument vertical slice', () => {
       2_147_483_648 / 12_700 + 1,
     ];
 
+    expect(() => slide.addTable(
+      [['Accessor table']],
+      accessorOptions as AddTableOptions,
+    )).toThrow();
     for (const margin of invalidMargins) {
       expect(() => slide.addTable([[{
         text: 'Invalid',
         options: { margin } as unknown as AddTableCellOptions,
       }]])).toThrow();
+      expect(() => slide.addTable(
+        [['Invalid table']],
+        { margin } as unknown as AddTableOptions,
+      )).toThrow();
     }
 
     expect(sdkMarginGetterCalls).toBe(0);
@@ -973,6 +1054,13 @@ describe('PptxDocument vertical slice', () => {
     expect(document.slides[0]).toBe(slide);
     expect(slide.shapes).toHaveLength(1);
     expect(slide.shapes[0]).toBe(table);
+    expect(table.rows[0]!.cells[0]!.text).toBe('Existing');
+    expect(table.rows[0]!.cells[0]!.margins).toEqual({
+      top: 3.6,
+      right: 7.2,
+      bottom: 3.6,
+      left: 7.2,
+    });
   });
 
   it('rejects invalid public table valign creation before mutation', () => {
