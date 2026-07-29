@@ -37,6 +37,7 @@ const OPTION_KEYS = [
   'height',
   'columnWidths',
   'rowHeights',
+  'fill',
   'margin',
   'valign',
 ] as const;
@@ -76,13 +77,20 @@ export function normalizeTableDefinition(
   }
 
   const normalizedOptions = readOptions(options);
+  const tableFill = normalizeTableCellFill(normalizedOptions.fill, 'Table fill');
+  const fillResolvedRows = tableFill === undefined
+    ? normalizedRows
+    : normalizedRows.map((row) => row.map((cell) =>
+      cell.fill === undefined
+        ? { ...cell, fill: tableFill }
+        : cell));
   const tableMargins = normalizeTextBoxMargins(
     normalizedOptions.margin as TextBoxMarginInput | undefined,
     'Table margin',
   );
   const marginResolvedRows = tableMargins === undefined
-    ? normalizedRows
-    : normalizedRows.map((row) => row.map((cell) => ({
+    ? fillResolvedRows
+    : fillResolvedRows.map((row) => row.map((cell) => ({
       ...cell,
       margins: { ...tableMargins, ...(cell.margins ?? {}) },
     })));

@@ -287,6 +287,131 @@ describe('table creation internals', () => {
     });
   });
 
+  it('materializes detached strict table fills under cell fills', () => {
+    const sourceColor = { kind: 'scheme', value: 'accent1' };
+    const sourceFill = {
+      kind: 'solid',
+      color: sourceColor,
+      transparency: 33.3334,
+    };
+    const definition = normalizeTableDefinition([[
+      'String',
+      { text: 'Object' },
+      { text: 'Empty options', options: {} },
+      { text: 'Undefined', options: { fill: undefined } },
+      { text: 'Cell none', options: { fill: { kind: 'none' } } },
+      { text: 'Cell solid', options: { fill: {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'FFFF00' },
+        transparency: 25,
+      } } },
+    ]], {
+      fill: sourceFill,
+      margin: { top: 9 },
+      valign: 'middle',
+    });
+    const tableFill = {
+      kind: 'solid',
+      color: { kind: 'scheme', value: 'accent1' },
+      transparency: 33.333,
+    };
+
+    expect(definition.rows[0]!.map(({ fill }) => fill)).toEqual([
+      tableFill,
+      tableFill,
+      tableFill,
+      tableFill,
+      { kind: 'none' },
+      {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'FFFF00' },
+        transparency: 25,
+      },
+    ]);
+    const xml = renderTableGraphicFrame(9, definition);
+    expect(xml.match(/<a:schemeClr val="accent1">/g)).toHaveLength(4);
+    expect(xml).toContain(
+      '<a:tcPr marL="91440" marR="91440" marT="114300" marB="45720" anchor="ctr">'
+      + '<a:lnL w="0" cap="flat" cmpd="sng" algn="ctr"><a:noFill/></a:lnL>'
+      + '<a:lnR w="0" cap="flat" cmpd="sng" algn="ctr"><a:noFill/></a:lnR>'
+      + '<a:lnT w="0" cap="flat" cmpd="sng" algn="ctr"><a:noFill/></a:lnT>'
+      + '<a:lnB w="0" cap="flat" cmpd="sng" algn="ctr"><a:noFill/></a:lnB>'
+      + '<a:solidFill><a:schemeClr val="accent1">'
+      + '<a:alpha val="66667"/></a:schemeClr></a:solidFill></a:tcPr>',
+    );
+    expect(xml).toContain('</a:lnB><a:noFill/></a:tcPr>');
+
+    sourceColor.value = 'accent6';
+    sourceFill.transparency = 1;
+    expect(definition.rows[0]![0]!.fill).toEqual(tableFill);
+
+    const tableNone = normalizeTableDefinition(
+      [[
+        'Inherited none',
+        { text: 'Solid override', options: { fill: {
+          kind: 'solid',
+          color: { kind: 'srgb', value: '00FF00' },
+          transparency: 0,
+        } } },
+      ]],
+      { fill: { kind: 'none' } },
+    );
+    expect(tableNone.rows[0]!.map(({ fill }) => fill)).toEqual([
+      { kind: 'none' },
+      {
+        kind: 'solid',
+        color: { kind: 'srgb', value: '00FF00' },
+        transparency: 0,
+      },
+    ]);
+    const noneXml = renderTableGraphicFrame(10, tableNone);
+    expect(noneXml).toContain('</a:lnB><a:noFill/></a:tcPr>');
+    expect(noneXml).toContain(
+      '<a:solidFill><a:srgbClr val="00FF00">'
+      + '<a:alpha val="100000"/></a:srgbClr></a:solidFill>',
+    );
+
+    const explicitZero = normalizeTableDefinition([['Opaque']], { fill: {
+      kind: 'solid',
+      color: { kind: 'srgb', value: '00FF00' },
+      transparency: 0,
+    } });
+    expect(explicitZero.rows[0]![0]!.fill).toEqual({
+      kind: 'solid',
+      color: { kind: 'srgb', value: '00FF00' },
+      transparency: 0,
+    });
+    expect(renderTableGraphicFrame(11, explicitZero)).toContain(
+      '<a:solidFill><a:srgbClr val="00FF00">'
+      + '<a:alpha val="100000"/></a:srgbClr></a:solidFill>',
+    );
+
+    const transparent = normalizeTableDefinition([['Transparent']], { fill: {
+      kind: 'solid',
+      color: { kind: 'srgb', value: '445566' },
+      transparency: 100,
+    } });
+    expect(transparent.rows[0]![0]!.fill).toEqual({
+      kind: 'solid',
+      color: { kind: 'srgb', value: '445566' },
+      transparency: 100,
+    });
+    expect(renderTableGraphicFrame(12, transparent)).toContain(
+      '<a:solidFill><a:srgbClr val="445566">'
+      + '<a:alpha val="0"/></a:srgbClr></a:solidFill>',
+    );
+
+    const omitted = renderTableGraphicFrame(
+      13,
+      normalizeTableDefinition([['Same']], {}),
+    );
+    const runtimeUndefined = renderTableGraphicFrame(
+      13,
+      normalizeTableDefinition([['Same']], { fill: undefined }),
+    );
+    expect(runtimeUndefined).toBe(omitted);
+  });
+
   it('normalizes detached cell borders and renders canonical LRTB XML before fill', () => {
     const sourceColor = { kind: 'srgb' as const, value: '#ff0000' };
     const sourceLine = {
@@ -1190,6 +1315,84 @@ describe('table creation internals', () => {
       enumerable: true,
       configurable: true,
     });
+    const accessorTableFillOptions: Record<string, unknown> = {};
+    const accessorTableFill: Record<string, unknown> = {};
+    const accessorTableFillColor: Record<string, unknown> = { kind: 'srgb' };
+    let tableFillAccessorCalls = 0;
+    Object.defineProperty(accessorTableFillOptions, 'fill', {
+      get() {
+        tableFillAccessorCalls += 1;
+        return { kind: 'none' };
+      },
+      enumerable: true,
+      configurable: true,
+    });
+    Object.defineProperty(accessorTableFill, 'kind', {
+      get() {
+        tableFillAccessorCalls += 1;
+        return 'none';
+      },
+      enumerable: true,
+      configurable: true,
+    });
+    Object.defineProperty(accessorTableFillColor, 'value', {
+      get() {
+        tableFillAccessorCalls += 1;
+        return 'FF0000';
+      },
+      enumerable: true,
+      configurable: true,
+    });
+    const inheritedTableFill = Object.create({ kind: 'none' });
+    const symbolTableFill = { kind: 'none', [Symbol('fill extra')]: true };
+    const invalidTableFills = [
+      null,
+      false,
+      'FF0000',
+      [],
+      {},
+      accessorTableFill,
+      new ExoticFill(),
+      inheritedTableFill,
+      symbolTableFill,
+      { kind: 'none', transparency: 0 },
+      { kind: 'none', extra: true },
+      { kind: 'solid' },
+      { kind: 'solid', color: accessorTableFillColor },
+      { kind: 'solid', color: Object.create({ kind: 'srgb', value: 'FF0000' }) },
+      { kind: 'solid', color: { kind: 'srgb', value: 'FFF' } },
+      { kind: 'solid', color: { kind: 'scheme', value: 'Accent1' } },
+      {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'FF0000' },
+        transparency: Number.NaN,
+      },
+      {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'FF0000' },
+        transparency: Number.NEGATIVE_INFINITY,
+      },
+      {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'FF0000' },
+        transparency: Number.POSITIVE_INFINITY,
+      },
+      {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'FF0000' },
+        transparency: -1,
+      },
+      {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'FF0000' },
+        transparency: 101,
+      },
+      {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'FF0000' },
+        extra: true,
+      },
+    ];
     const invalidTableMargins = [
       null,
       false,
@@ -1224,6 +1427,7 @@ describe('table creation internals', () => {
       accessorOptions,
       accessorTableValignOptions,
       accessorTableMarginOptions,
+      accessorTableFillOptions,
       { extra: true },
       { name: 1 },
       { name: 'bad\u0000name' },
@@ -1236,6 +1440,7 @@ describe('table creation internals', () => {
       { width: -1 },
       { height: 0 },
       { height: -1 },
+      ...invalidTableFills.map((fill) => ({ fill })),
       ...invalidTableMargins.map((margin) => ({ margin })),
       ...invalidValigns.map((valign) => ({ valign })),
     ];
@@ -1247,6 +1452,7 @@ describe('table creation internals', () => {
     expect(optionAccessorCalls).toBe(0);
     expect(tableValignAccessorCalls).toBe(0);
     expect(tableMarginAccessorCalls).toBe(0);
+    expect(tableFillAccessorCalls).toBe(0);
     expect(cellAccessorCalls).toBe(0);
 
     const sparseWidths = Array(3);
