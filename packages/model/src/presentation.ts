@@ -36,6 +36,10 @@ import {
   replacePresentationCompany,
 } from './presentation-company.internal.js';
 import {
+  readPresentationCreatedAt,
+  replacePresentationCreatedAt,
+} from './presentation-created-at.internal.js';
+import {
   readPresentationLastModifiedBy,
   replacePresentationLastModifiedBy,
 } from './presentation-last-modified-by.internal.js';
@@ -132,6 +136,16 @@ export class PresentationModel {
   set company(value: string | undefined) {
     this.opcPackage.transaction(() => {
       replacePresentationCompany(this.opcPackage, value);
+    });
+  }
+
+  get createdAt(): string | undefined {
+    return readPresentationCreatedAt(this.opcPackage);
+  }
+
+  set createdAt(value: string | undefined) {
+    this.opcPackage.transaction(() => {
+      replacePresentationCreatedAt(this.opcPackage, value);
     });
   }
 
