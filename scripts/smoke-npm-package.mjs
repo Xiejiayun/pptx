@@ -271,7 +271,7 @@ const tableHorizontalAlignmentCreation = tableCellHorizontalAlignmentCreation &&
   createdTableHorizontalAlignments[1] === 'ctr' &&
   reopenedCreatedTableHorizontalAlignments[1] === 'ctr';
 const tablePart = created.opcPackage.requirePart(tableSlide.partUri);
-const tableXml = '<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="99" name="Smoke table"/></p:nvGraphicFramePr><a:graphic><a:graphicData><a:tbl><a:tr><a:tc><a:txBody><a:bodyPr custom="TARGET"><a:noAutofit/></a:bodyPr><a:p><a:r><a:t>Target</a:t></a:r></a:p></a:txBody><a:tcPr vert="horz" anchor="ctr" marL="12700" marR="25400" marT="38100" marB="50800"><a:lnL w="12700" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill><a:prstDash val="solid"/><a:round/><a:headEnd type="none" w="med" len="med"/><a:tailEnd type="none" w="med" len="med"/></a:lnL><a:lnR w="0" cap="flat" cmpd="sng" algn="ctr"><a:noFill/></a:lnR><a:lnT w="19050" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="accent2"/></a:solidFill><a:prstDash val="sysDash"/><a:round/><a:headEnd type="none" w="med" len="med"/><a:tailEnd type="none" w="med" len="med"/></a:lnT><a:lnB w="0" cap="flat" cmpd="sng" algn="ctr"><a:noFill/></a:lnB><a:solidFill><a:schemeClr val="accent1"><a:alpha val="75000"/></a:schemeClr></a:solidFill></a:tcPr></a:tc><a:tc><a:txBody><a:bodyPr custom="NEIGHBOR"><a:spAutoFit/></a:bodyPr><a:p><a:r><a:t>Neighbor</a:t></a:r></a:p></a:txBody><a:tcPr vert="vert" anchor="b" marL="63500" marR="76200" marT="88900" marB="101600" keep="ADJACENT"><a:lnL w="25400" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:srgbClr val="333333"/></a:solidFill><a:prstDash val="solid"/><a:round/><a:headEnd type="none" w="med" len="med"/><a:tailEnd type="none" w="med" len="med"/></a:lnL><a:solidFill><a:srgbClr val="70AD47"><a:alpha val="50000"/></a:srgbClr></a:solidFill></a:tcPr></a:tc></a:tr></a:tbl></a:graphicData></a:graphic></p:graphicFrame>';
+const tableXml = '<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="99" name="Smoke table"/></p:nvGraphicFramePr><a:graphic><a:graphicData><a:tbl><a:tr><a:tc><a:txBody><a:bodyPr custom="TARGET"><a:noAutofit/></a:bodyPr><a:p><a:pPr algn="ctr"/><a:r><a:t>Target</a:t></a:r></a:p></a:txBody><a:tcPr vert="horz" anchor="ctr" marL="12700" marR="25400" marT="38100" marB="50800"><a:lnL w="12700" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill><a:prstDash val="solid"/><a:round/><a:headEnd type="none" w="med" len="med"/><a:tailEnd type="none" w="med" len="med"/></a:lnL><a:lnR w="0" cap="flat" cmpd="sng" algn="ctr"><a:noFill/></a:lnR><a:lnT w="19050" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="accent2"/></a:solidFill><a:prstDash val="sysDash"/><a:round/><a:headEnd type="none" w="med" len="med"/><a:tailEnd type="none" w="med" len="med"/></a:lnT><a:lnB w="0" cap="flat" cmpd="sng" algn="ctr"><a:noFill/></a:lnB><a:solidFill><a:schemeClr val="accent1"><a:alpha val="75000"/></a:schemeClr></a:solidFill></a:tcPr></a:tc><a:tc><a:txBody><a:bodyPr custom="NEIGHBOR"><a:spAutoFit/></a:bodyPr><a:p><a:r><a:t>Neighbor</a:t></a:r></a:p></a:txBody><a:tcPr vert="vert" anchor="b" marL="63500" marR="76200" marT="88900" marB="101600" keep="ADJACENT"><a:lnL w="25400" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:srgbClr val="333333"/></a:solidFill><a:prstDash val="solid"/><a:round/><a:headEnd type="none" w="med" len="med"/><a:tailEnd type="none" w="med" len="med"/></a:lnL><a:solidFill><a:srgbClr val="70AD47"><a:alpha val="50000"/></a:srgbClr></a:solidFill></a:tcPr></a:tc></a:tr></a:tbl></a:graphicData></a:graphic></p:graphicFrame>';
 created.opcPackage.setPart(tableSlide.partUri, new TextDecoder().decode(tablePart.bytes).replace('</p:spTree>', tableXml + '</p:spTree>'), tablePart.contentType);
 const table = tableSlide.shapes.find((shape) => shape.name === 'Smoke table');
 const initialCellDirection = table?.rows[0]?.cells[0]?.textDirection;
@@ -280,6 +280,18 @@ const initialCellAlignment = table?.rows[0]?.cells[0]?.verticalAlignment;
 const initialCellMargins = table?.rows[0]?.cells[0]?.margins;
 const initialCellFill = table?.rows[0]?.cells[0]?.fill;
 const initialCellBorders = table?.rows[0]?.cells[0]?.borders;
+const initialHorizontalAlignment = table?.rows[0]?.cells[0]?.horizontalAlignment;
+const initialNeighborHorizontalAlignment = table?.rows[0]?.cells[1]?.horizontalAlignment;
+table?.setCellHorizontalAlignment(0, 0, 'left');
+const leftHorizontalAlignment = table?.rows[0]?.cells[0]?.horizontalAlignment;
+table?.setCellHorizontalAlignment(0, 0, 'center');
+const centerHorizontalAlignment = table?.rows[0]?.cells[0]?.horizontalAlignment;
+table?.setCellHorizontalAlignment(0, 0, 'right');
+const rightHorizontalAlignment = table?.rows[0]?.cells[0]?.horizontalAlignment;
+table?.setCellHorizontalAlignment(0, 0, 'justify');
+const justifyHorizontalAlignment = table?.rows[0]?.cells[0]?.horizontalAlignment;
+table?.setCellHorizontalAlignment(0, 0, undefined);
+const clearedHorizontalAlignment = table?.rows[0]?.cells[0]?.horizontalAlignment;
 table?.setCellBorders(0, 0, { kind: 'line', color: { kind: 'srgb', value: '#0000FF' }, width: 2, style: 'solid' });
 const scalarCellBorders = table?.rows[0]?.cells[0]?.borders;
 table?.setCellBorders(0, 0, [{ kind: 'line', color: { kind: 'scheme', value: 'accent1' }, width: 1.5, style: 'dash' }, { kind: 'line', color: { kind: 'srgb', value: '00FF00' }, width: 0 }, { kind: 'none' }, undefined]);
@@ -334,6 +346,16 @@ table?.setCellTextDirection(0, 0, 'horz');
 const horizontalCellDirection = table?.rows[0]?.cells[0]?.textDirection;
 table?.setCellTextDirection(0, 0, undefined);
 const clearedCellDirection = table?.rows[0]?.cells[0]?.textDirection;
+const reopenedEdited = await PptxDocument.open(await created.write());
+const reopenedEditedTable = reopenedEdited.slides[0].shapes.find(
+  (shape) => shape.name === 'Smoke table',
+);
+const reopenedClearedHorizontalAlignment = reopenedEditedTable instanceof TableModel
+  ? reopenedEditedTable.rows[0].cells[0].horizontalAlignment
+  : null;
+const reopenedNeighborHorizontalAlignment = reopenedEditedTable instanceof TableModel
+  ? reopenedEditedTable.rows[0].cells[1].horizontalAlignment
+  : null;
 const inheritedLanguage = richText.richText[0].runs[0].style.lang;
 const localLanguage = richText.richText[0].runs[1].style.lang;
 const initialRtl = richText.richText.map(({ rtl }) => rtl);
@@ -373,6 +395,7 @@ const checks = {
   tableCellTextDirection: table instanceof TableModel && initialCellDirection === 'horz' && rotatedCellDirection === 'vert270' && stackedCellDirection === 'wordArtVert' && horizontalCellDirection === 'horz' && clearedCellDirection === undefined && table.rows[0].cells[0].text === 'Target' && table.rows[0].cells[1].textDirection === 'vert' && table.rows[0].cells[1].text === 'Neighbor',
   tableCellTextFit: table instanceof TableModel && initialCellFit === 'none' && shrinkCellFit === 'shrink' && sameFitPreserved && resizeCellFit === 'resize' && noneClearedCellFit === undefined && undefinedClearedCellFit === undefined && table.rows[0].cells[0].textFit === undefined && table.rows[0].cells[0].text === 'Target' && table.rows[0].cells[1].textFit === 'resize' && table.rows[0].cells[1].text === 'Neighbor',
   tableCellVerticalAlignment: table instanceof TableModel && initialCellAlignment === 'middle' && topCellAlignment === 'top' && middleCellAlignment === 'middle' && bottomCellAlignment === 'bottom' && clearedCellAlignment === undefined && table.rows[0].cells[0].verticalAlignment === undefined && table.rows[0].cells[0].text === 'Target' && table.rows[0].cells[1].verticalAlignment === 'bottom' && table.rows[0].cells[1].text === 'Neighbor',
+  tableCellHorizontalAlignmentEditing: table instanceof TableModel && initialHorizontalAlignment === 'center' && initialNeighborHorizontalAlignment === undefined && leftHorizontalAlignment === 'left' && centerHorizontalAlignment === 'center' && rightHorizontalAlignment === 'right' && justifyHorizontalAlignment === 'justify' && clearedHorizontalAlignment === undefined && table.rows[0].cells[0].horizontalAlignment === undefined && table.rows[0].cells[1].horizontalAlignment === undefined && table.rows[0].cells[0].text === 'Target' && table.rows[0].cells[1].text === 'Neighbor' && reopenedClearedHorizontalAlignment === undefined && reopenedNeighborHorizontalAlignment === undefined,
   tableCellMargins: table instanceof TableModel && initialCellMargins?.top === 3 && initialCellMargins?.right === 2 && initialCellMargins?.bottom === 4 && initialCellMargins?.left === 1 && uniformCellMargins?.top === 4 && uniformCellMargins?.right === 4 && uniformCellMargins?.bottom === 4 && uniformCellMargins?.left === 4 && tupleCellMargins?.top === 1 && tupleCellMargins?.right === 2 && tupleCellMargins?.bottom === 3 && tupleCellMargins?.left === 4 && partialCellMargins?.top === 5 && partialCellMargins?.right === undefined && partialCellMargins?.bottom === undefined && partialCellMargins?.left === 7 && clearedCellMargins === undefined && table.rows[0].cells[0].margins === undefined && table.rows[0].cells[0].text === 'Target' && table.rows[0].cells[1].margins?.top === 7 && table.rows[0].cells[1].margins?.right === 6 && table.rows[0].cells[1].margins?.bottom === 8 && table.rows[0].cells[1].margins?.left === 5 && table.rows[0].cells[1].text === 'Neighbor',
   tableCellBorders: table instanceof TableModel && initialCellBorders?.top?.kind === 'line' && initialCellBorders.top.color.kind === 'scheme' && initialCellBorders.top.color.value === 'accent2' && initialCellBorders.top.width === 1.5 && initialCellBorders.top.style === 'dash' && initialCellBorders.right?.kind === 'none' && initialCellBorders.bottom?.kind === 'none' && initialCellBorders.left?.kind === 'line' && initialCellBorders.left.color.kind === 'srgb' && initialCellBorders.left.color.value === 'FF0000' && initialCellBorders.left.width === 1 && initialCellBorders.left.style === 'solid' && scalarCellBorders?.top?.kind === 'line' && scalarCellBorders.top.color.kind === 'srgb' && scalarCellBorders.top.color.value === '0000FF' && scalarCellBorders.top.width === 2 && scalarCellBorders.top.style === 'solid' && scalarCellBorders.right?.kind === 'line' && scalarCellBorders.bottom?.kind === 'line' && scalarCellBorders.left?.kind === 'line' && tupleCellBorders?.top?.kind === 'line' && tupleCellBorders.top.color.kind === 'scheme' && tupleCellBorders.top.color.value === 'accent1' && tupleCellBorders.top.width === 1.5 && tupleCellBorders.top.style === 'dash' && tupleCellBorders.right?.kind === 'line' && tupleCellBorders.right.color.kind === 'srgb' && tupleCellBorders.right.color.value === '00FF00' && tupleCellBorders.right.width === 0 && tupleCellBorders.right.style === undefined && tupleCellBorders.bottom?.kind === 'none' && tupleCellBorders.left === undefined && partialCellBorders?.left?.kind === 'none' && partialCellBorders.top === undefined && partialCellBorders.right === undefined && partialCellBorders.bottom === undefined && clearedCellBorders === undefined && table.rows[0].cells[0].borders === undefined && table.rows[0].cells[0].text === 'Target' && table.rows[0].cells[1].borders?.left?.kind === 'line' && table.rows[0].cells[1].borders.left.color.kind === 'srgb' && table.rows[0].cells[1].borders.left.color.value === '333333' && table.rows[0].cells[1].borders.left.width === 2 && table.rows[0].cells[1].borders.left.style === 'solid' && table.rows[0].cells[1].text === 'Neighbor',
   tableCellFill: table instanceof TableModel && initialCellFill?.kind === 'solid' && initialCellFill.color.kind === 'scheme' && initialCellFill.color.value === 'accent1' && initialCellFill.transparency === 25 && opaqueCellFill?.kind === 'solid' && opaqueCellFill.color.kind === 'srgb' && opaqueCellFill.color.value === 'FF0000' && opaqueCellFill.transparency === undefined && explicitOpaqueCellFill?.kind === 'solid' && explicitOpaqueCellFill.color.kind === 'scheme' && explicitOpaqueCellFill.color.value === 'accent2' && explicitOpaqueCellFill.transparency === 0 && fractionalCellFill?.kind === 'solid' && fractionalCellFill.color.kind === 'srgb' && fractionalCellFill.color.value === '112233' && fractionalCellFill.transparency === 33.333 && noneCellFill?.kind === 'none' && clearedCellFill === undefined && table.rows[0].cells[0].fill === undefined && table.rows[0].cells[0].text === 'Target' && table.rows[0].cells[1].fill?.kind === 'solid' && table.rows[0].cells[1].fill.color.kind === 'srgb' && table.rows[0].cells[1].fill.color.value === '70AD47' && table.rows[0].cells[1].fill.transparency === 50 && table.rows[0].cells[1].text === 'Neighbor',
@@ -525,6 +548,33 @@ const tableXml = '<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="99" name="Bro
 created.opcPackage.setPart(tableSlide.partUri, new TextDecoder().decode(tablePart.bytes).replace('</p:spTree>', tableXml + '</p:spTree>'), tablePart.contentType);
 const table = tableSlide.shapes.find((shape) => shape.name === 'Browser table');
 if (!(table instanceof TableModel) || table.rows[0].cells[0].textFit !== 'none' || table.rows[0].cells[1].textFit !== 'resize') throw new Error('Browser table-cell fit read failed');
+if (table.rows[0].cells[0].horizontalAlignment !== undefined ||
+    table.rows[0].cells[1].horizontalAlignment !== undefined) {
+  throw new Error('Browser table-cell horizontal alignment initial read failed');
+}
+table.setCellHorizontalAlignment(0, 0, 'left');
+if (table.rows[0].cells[0].horizontalAlignment !== 'left') {
+  throw new Error('Browser table-cell left alignment failed');
+}
+table.setCellHorizontalAlignment(0, 0, 'center');
+if (table.rows[0].cells[0].horizontalAlignment !== 'center') {
+  throw new Error('Browser table-cell center alignment failed');
+}
+table.setCellHorizontalAlignment(0, 0, 'right');
+if (table.rows[0].cells[0].horizontalAlignment !== 'right') {
+  throw new Error('Browser table-cell right alignment failed');
+}
+table.setCellHorizontalAlignment(0, 0, 'justify');
+if (table.rows[0].cells[0].horizontalAlignment !== 'justify') {
+  throw new Error('Browser table-cell justify alignment failed');
+}
+table.setCellHorizontalAlignment(0, 0, undefined);
+if (table.rows[0].cells[0].horizontalAlignment !== undefined ||
+    table.rows[0].cells[1].horizontalAlignment !== undefined ||
+    table.rows[0].cells[0].text !== 'Browser target' ||
+    table.rows[0].cells[1].text !== 'Browser neighbor') {
+  throw new Error('Browser table-cell horizontal alignment clear failed');
+}
 if (table.rows[0].cells[0].borders?.top?.kind !== 'line' || table.rows[0].cells[0].borders.top.color.kind !== 'scheme' || table.rows[0].cells[0].borders.top.color.value !== 'accent2' || table.rows[0].cells[0].borders.top.width !== 1.5 || table.rows[0].cells[0].borders.top.style !== 'dash' || table.rows[0].cells[0].borders.right?.kind !== 'none' || table.rows[0].cells[0].borders.bottom?.kind !== 'none' || table.rows[0].cells[0].borders.left?.kind !== 'line') throw new Error('Browser table-cell border read failed');
 table.setCellBorders(0, 0, { kind: 'line', color: { kind: 'srgb', value: '#0000FF' }, width: 2, style: 'solid' });
 if (table.rows[0].cells[0].borders?.top?.kind !== 'line' || table.rows[0].cells[0].borders.top.color.kind !== 'srgb' || table.rows[0].cells[0].borders.top.color.value !== '0000FF' || table.rows[0].cells[0].borders.top.width !== 2 || table.rows[0].cells[0].borders.top.style !== 'solid' || table.rows[0].cells[0].borders.right?.kind !== 'line' || table.rows[0].cells[0].borders.bottom?.kind !== 'line' || table.rows[0].cells[0].borders.left?.kind !== 'line') throw new Error('Browser table-cell scalar border failed');
@@ -580,6 +630,29 @@ table.setCellTextDirection(0, 0, 'wordArtVert');
 if (table.rows[0].cells[0].textDirection !== 'wordArtVert') throw new Error('Browser table-cell stacked direction edit failed');
 table.setCellTextDirection(0, 0, undefined);
 if (table.rows[0].cells[0].textDirection !== undefined || table.rows[0].cells[0].text !== 'Browser target' || table.rows[0].cells[1].text !== 'Browser neighbor') throw new Error('Browser table-cell direction clear failed');
+const reopenedBrowserEdited = await PptxDocument.open(await created.write());
+const reopenedBrowserTable = reopenedBrowserEdited.slides[0].shapes.find(
+  (shape) => shape.name === 'Browser table',
+);
+if (!(reopenedBrowserTable instanceof TableModel) ||
+    reopenedBrowserTable.rows[0].cells[0].horizontalAlignment !== undefined ||
+    reopenedBrowserTable.rows[0].cells[1].horizontalAlignment !== undefined ||
+    reopenedBrowserTable.rows[0].cells[0].text !== 'Browser target' ||
+    reopenedBrowserTable.rows[0].cells[1].text !== 'Browser neighbor' ||
+    reopenedBrowserTable.rows[0].cells[0].textDirection !== undefined ||
+    reopenedBrowserTable.rows[0].cells[1].textDirection !== 'vert' ||
+    reopenedBrowserTable.rows[0].cells[0].textFit !== undefined ||
+    reopenedBrowserTable.rows[0].cells[1].textFit !== 'resize' ||
+    reopenedBrowserTable.rows[0].cells[0].verticalAlignment !== undefined ||
+    reopenedBrowserTable.rows[0].cells[1].verticalAlignment !== 'bottom' ||
+    reopenedBrowserTable.rows[0].cells[0].margins !== undefined ||
+    reopenedBrowserTable.rows[0].cells[1].margins?.left !== 5 ||
+    reopenedBrowserTable.rows[0].cells[0].borders !== undefined ||
+    reopenedBrowserTable.rows[0].cells[1].borders?.left?.kind !== 'line' ||
+    reopenedBrowserTable.rows[0].cells[0].fill !== undefined ||
+    reopenedBrowserTable.rows[0].cells[1].fill?.kind !== 'solid') {
+  throw new Error('Browser table-cell horizontal alignment reopen failed');
+}
 if (created.rtlMode !== true) throw new Error('Browser presentation RTL create failed');
 created.rtlMode = false;
 if (created.rtlMode !== false || browserRich.rtl !== true) throw new Error('Browser presentation RTL edit failed');
@@ -707,6 +780,8 @@ const snapshotDirection: TableCellTextDirection | undefined =
 const snapshotFit: TextBoxFit | undefined = table?.rows[0]?.cells[0]?.textFit;
 const snapshotAlignment: TextBoxVerticalAlignment | undefined =
   table?.rows[0]?.cells[0]?.verticalAlignment;
+const snapshotHorizontalAlignment: TextAlignment | undefined =
+  table?.rows[0]?.cells[0]?.horizontalAlignment;
 const snapshotCellMargins: TextBoxMargins | undefined = table?.rows[0]?.cells[0]?.margins;
 const snapshotCellBorders: TableCellBorders | undefined = table?.rows[0]?.cells[0]?.borders;
 const snapshotCellFill: TableCellFill | undefined = table?.rows[0]?.cells[0]?.fill;
@@ -717,6 +792,8 @@ table?.setCellTextFit(0, 0, 'none');
 table?.setCellTextFit(0, 0, undefined);
 table?.setCellVerticalAlignment(0, 0, cellAlignment);
 table?.setCellVerticalAlignment(0, 0, undefined);
+table?.setCellHorizontalAlignment(0, 0, cellHorizontalAlignment);
+table?.setCellHorizontalAlignment(0, 0, undefined);
 table?.setCellMargins(0, 0, cellMargins);
 table?.setCellMargins(0, 0, [3.6, 7.2, 10.8, 14.4]);
 table?.setCellMargins(0, 0, undefined);
@@ -791,7 +868,7 @@ documentPromise.then((document) => {
   advancedCharts.installAdvancedChartPlugin(document);
   smartArt.installSmartArtPlugin(document);
 });
-void [documentPromise, createdDocument, globalRtl, globalRtlSnapshot, customDocument, createdText, creationBorder, creationMargin, creationOptions, objectCell, tableRows, tableOptions, typedTable, widthSnapshot, heightSnapshot, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, tableHorizontalAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
+void [documentPromise, createdDocument, globalRtl, globalRtlSnapshot, customDocument, createdText, creationBorder, creationMargin, creationOptions, objectCell, tableRows, tableOptions, typedTable, widthSnapshot, heightSnapshot, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotHorizontalAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellHorizontalAlignment, tableHorizontalAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
 `,
   );
   run(
