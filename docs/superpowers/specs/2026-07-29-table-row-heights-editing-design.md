@@ -49,7 +49,7 @@ graphicFrame -> graphic -> graphicData -> tbl -> tr@h
 
 setter 首先把输入复制为 detached normalized representation，再解析和修改 package：
 
-- scalar 必须是 finite number，`Math.round()` 后为 non-negative safe integer；随后按当前 valid physical row 数精确广播。scalar `0` 把所有行设为自动。
+- scalar 必须是 raw non-negative finite number，`Math.round()` 后为 non-negative safe integer；随后按当前 valid physical row 数精确广播。scalar `0` 把所有行设为自动。原始负小数即使会 round 为 `-0` 也必须拒绝。
 - array 必须通过 `Array.isArray()`、非空且 dense；只允许 `length` 和从 `0` 到 `length - 1` 的 own data properties。hole、accessor、symbol key、额外字符串 key、typed array 或继承取值都拒绝，且不得调用 getter。
 - array 每项使用与 scalar 相同的 finite、round、non-negative safe-integer 规则；数组可混合 zero 与正值。
 - array 长度必须严格等于当前 table 的 direct `tr` 数；不截断、不补齐、不把单项数组隐式广播。
@@ -102,7 +102,7 @@ PptxGenJS 4.0.1 能在创建时通过 `rowH` 写 `tr@h`，但没有读取和编�
 
 1. focused internal tests：valid unequal/zero rows、detached getter snapshot、positive/zero scalar broadcast、exact mixed array、rounding、all-positive safe sum、semantic no-op、positive mismatch repair、zero-path `cy` preservation 和 unknown XML preservation。
 2. malformed matrix：missing/repeated/nested-only `tbl`，zero direct rows，missing/repeated/namespaced-only `h`，negative/decimal/exponent/signed/unsafe `h`，missing/repeated/nested-only `xfrm` 或 `ext`，以及 invalid/repeated/namespaced-only `cy`。
-3. descriptor safety：hole、accessor、extra own key、symbol、typed array、wrong length、single-item array 和 all-positive overflow；accessor invocation count 必须为 zero。
+3. descriptor safety：hole、accessor、extra own key、symbol、typed array、negative fractional input、wrong length、single-item array 和 all-positive overflow；accessor invocation count 必须为 zero。
 4. public model integration：live identity、created auto/explicit table immediate edit、imported table edit、outer transaction rollback、no-op bytes/journal isolation 和 `setTransform({ height })` 行为不变。
 5. merge coverage：含 `rowSpan`、`hMerge`、`vMerge` 或其他 merge XML 的表格仍按 direct `tr` 数读取和编辑，不修改 cells 或 merge markup。
 6. SDK 与 packed Node/browser/declaration/CLI smoke：读取、scalar/array/zero 编辑、write/reopen 后保持 rows；全正目标同步 transform，含 zero 目标保留 transform。
