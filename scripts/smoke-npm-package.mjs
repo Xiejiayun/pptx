@@ -432,6 +432,16 @@ const presentationRtlDisabled = created.rtlMode;
 created.rtlMode = undefined;
 const presentationRtlCleared = created.rtlMode;
 const paragraphRtlAfterGlobalClear = richText.richText.map(({ rtl }) => rtl);
+const metadata = PptxDocument.create({ title: 'Packed & <Title>' });
+const createdPresentationTitle = metadata.title;
+metadata.title = 'Edited title';
+const editedPresentationTitle = metadata.title;
+const reopenedMetadata = await PptxDocument.open(await metadata.write());
+const reopenedPresentationTitle = reopenedMetadata.title;
+metadata.title = '';
+const emptyPresentationTitle = metadata.title;
+metadata.title = undefined;
+const clearedPresentationTitle = metadata.title;
 richText.richText = [{ align: 'justify', bullet: { kind: 'number', style: 'romanUcPeriod', startAt: 3, indent: 22 }, level: 3, spacing: { before: 5, after: 7, line: { kind: 'exact', points: 22 } }, tabStops: [{ position: 2.75, alignment: 'decimal' }], runs: [{ text: 'Updated rich', style: { lang: 'ja-JP', baseline: 'superscript', characterSpacing: 2.5, italic: true, glow: { color: { kind: 'scheme', value: 'accent3' }, opacity: 0.25, size: 6 }, highlight: { kind: 'srgb', value: '00ff00' }, outline: { color: { kind: 'scheme', value: 'accent1' }, size: 0.75 }, underline: { style: 'wavyHeavy', color: { kind: 'scheme', value: 'accent2' } }, strike: false } }] }];
 const custom = PptxDocument.create({ slideSize: { width: inches(11.7), height: inches(8.3) } });
 custom.slideSize = { width: inches(10), height: inches(7.5) };
@@ -439,6 +449,7 @@ const customXml = new TextDecoder().decode(custom.opcPackage.requirePart('/ppt/p
 const checks = {
   PptxDocument: typeof PptxDocument === 'function',
   presentationRtl: presentationRtlEnabled === true && presentationRtlDisabled === false && presentationRtlCleared === undefined && paragraphRtlAfterGlobalClear[0] === true && paragraphRtlAfterGlobalClear[1] === false,
+  presentationTitle: createdPresentationTitle === 'Packed & <Title>' && editedPresentationTitle === 'Edited title' && reopenedPresentationTitle === 'Edited title' && emptyPresentationTitle === '' && clearedPresentationTitle === undefined,
   paragraphMarginLeft: initialParagraphMargins[0] === 12 && initialParagraphMargins[1] === undefined && initialParagraphMargins[2] === undefined && bulletMarginIsolation && updatedParagraphMargins[0] === 6 && updatedParagraphMargins[1] === 0 && updatedParagraphMargins[2] === undefined && updatedParagraphMargins[3] === undefined,
   paragraphMarginRight: initialParagraphRightMargins[0] === 12 && initialParagraphRightMargins[1] === 24 && initialParagraphRightMargins[2] === undefined && bulletRightMarginCoexistence && updatedParagraphRightMargins[0] === 6 && updatedParagraphRightMargins[1] === 0 && updatedParagraphRightMargins[2] === undefined && updatedParagraphRightMargins[3] === undefined && updatedParagraphRightMargins[4] === 9,
   paragraphIndent: initialParagraphIndents[0] === 24 && initialParagraphIndents[1] === -18 && initialParagraphIndents[2] === undefined && initialParagraphIndents[3] === undefined && bulletIndentIsolation && updatedParagraphIndents[0] === 6 && updatedParagraphIndents[1] === -6 && updatedParagraphIndents[2] === 0 && updatedParagraphIndents[3] === undefined && updatedParagraphIndents[4] === undefined,
@@ -748,6 +759,16 @@ created.rtlMode = false;
 if (created.rtlMode !== false || browserRich.rtl !== true) throw new Error('Browser presentation RTL edit failed');
 created.rtlMode = undefined;
 if (created.rtlMode !== undefined || browserRich.rtl !== true) throw new Error('Browser presentation RTL clear failed');
+const browserMetadata = PptxDocument.create({ title: 'Browser title' });
+if (browserMetadata.title !== 'Browser title') throw new Error('Browser presentation title create failed');
+browserMetadata.title = 'Edited browser title';
+if (browserMetadata.title !== 'Edited browser title') throw new Error('Browser presentation title edit failed');
+const reopenedBrowserMetadata = await PptxDocument.open(await browserMetadata.write());
+if (reopenedBrowserMetadata.title !== 'Edited browser title') throw new Error('Browser presentation title reopen failed');
+browserMetadata.title = '';
+if (browserMetadata.title !== '') throw new Error('Browser presentation title empty failed');
+browserMetadata.title = undefined;
+if (browserMetadata.title !== undefined) throw new Error('Browser presentation title clear failed');
 PptxDocument.create({ slideSize: { width: inches(11.7), height: inches(8.3) } });
 created.slideSize = { width: inches(10), height: inches(7.5) };
 process.stdout.write(resolved);
@@ -806,6 +827,11 @@ const globalRtl: PptxDocument = PptxDocument.create({ rtlMode: true });
 const globalRtlSnapshot: boolean | undefined = globalRtl.rtlMode;
 globalRtl.rtlMode = false;
 globalRtl.rtlMode = undefined;
+const titledDocument: PptxDocument = PptxDocument.create({ title: 'Typed title' });
+const titleSnapshot: string | undefined = titledDocument.title;
+titledDocument.title = 'Edited typed title';
+titledDocument.title = '';
+titledDocument.title = undefined;
 const customSlideSize: CustomSlideSize = { width: inches(11.7), height: inches(8.3) };
 const customDocument: PptxDocument = PptxDocument.create({ slideSize: customSlideSize });
 customDocument.slideSize = { width: inches(10), height: inches(7.5) };
@@ -960,7 +986,7 @@ documentPromise.then((document) => {
   advancedCharts.installAdvancedChartPlugin(document);
   smartArt.installSmartArtPlugin(document);
 });
-void [documentPromise, createdDocument, globalRtl, globalRtlSnapshot, customDocument, createdText, creationBorder, creationMargin, creationOptions, objectCell, tableRows, tableOptions, typedTable, widthSnapshot, heightSnapshot, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotHorizontalAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellHorizontalAlignment, tableHorizontalAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
+void [documentPromise, createdDocument, globalRtl, globalRtlSnapshot, titledDocument, titleSnapshot, customDocument, createdText, creationBorder, creationMargin, creationOptions, objectCell, tableRows, tableOptions, typedTable, widthSnapshot, heightSnapshot, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotHorizontalAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellHorizontalAlignment, tableHorizontalAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
 `,
   );
   run(
