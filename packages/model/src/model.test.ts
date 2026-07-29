@@ -881,6 +881,79 @@ describe('PresentationModel', () => {
     expect(reopenedTable!.rowHeights).toEqual([inches(1)]);
   });
 
+  it('materializes table margin through edit, duplicate, write, and reopen', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const options: AddTableOptions = {
+      name: 'Table margin lifecycle',
+      margin: { top: 9, left: 18 },
+      columnWidths: inches(2),
+      rowHeights: inches(1),
+    };
+    const table = slide.addTable([[
+      'Inherited string',
+      { text: 'Partial override', options: { margin: { bottom: 12 } } },
+      { text: 'Zero override', options: { margin: 0 } },
+      { text: 'Tuple override', options: { margin: [1, 2, 3, 4] } },
+    ]], options);
+    const materializedMargins = [
+      { top: 9, right: 7.2, bottom: 3.6, left: 18 },
+      { top: 9, right: 7.2, bottom: 12, left: 18 },
+      { top: 0, right: 0, bottom: 0, left: 0 },
+      { top: 1, right: 2, bottom: 3, left: 4 },
+    ];
+    expect(table.rows[0]!.cells.map(({ margins }) => margins))
+      .toEqual(materializedMargins);
+
+    const sourceIndex = model.slides.indexOf(slide);
+    const duplicate = model.duplicateSlide(sourceIndex);
+    const duplicateTable = duplicate.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    );
+    expect(duplicateTable).toBeInstanceOf(TableModel);
+    expect(duplicateTable!.rows[0]!.cells.map(({ margins }) => margins))
+      .toEqual(materializedMargins);
+
+    table.setCellMargins(0, 0, undefined);
+    table.setCellMargins(0, 1, { right: 5 });
+    expect(table.rows[0]!.cells.map(({ margins }) => margins)).toEqual([
+      undefined,
+      { right: 5 },
+      { top: 0, right: 0, bottom: 0, left: 0 },
+      { top: 1, right: 2, bottom: 3, left: 4 },
+    ]);
+    expect(duplicateTable!.rows[0]!.cells.map(({ margins }) => margins))
+      .toEqual(materializedMargins);
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedSlide = reopened.slides.find(({ partUri }) => partUri === slide.partUri);
+    const reopenedTable = reopenedSlide?.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel
+        && shape.name === 'Table margin lifecycle',
+    );
+    expect(reopenedTable).toBeInstanceOf(TableModel);
+    expect(reopenedTable!.rows[0]!.cells.map(({ margins }) => margins)).toEqual([
+      undefined,
+      { right: 5 },
+      { top: 0, right: 0, bottom: 0, left: 0 },
+      { top: 1, right: 2, bottom: 3, left: 4 },
+    ]);
+    expect(reopenedTable!.columnWidths).toEqual(Array(4).fill(inches(2)));
+    expect(reopenedTable!.rowHeights).toEqual([inches(1)]);
+
+    const reopenedDuplicateSlide = reopened.slides.find(
+      ({ partUri }) => partUri === duplicate.partUri,
+    );
+    const reopenedDuplicateTable = reopenedDuplicateSlide?.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel
+        && shape.name === 'Table margin lifecycle',
+    );
+    expect(reopenedDuplicateTable).toBeInstanceOf(TableModel);
+    expect(reopenedDuplicateTable!.rows[0]!.cells.map(({ margins }) => margins))
+      .toEqual(materializedMargins);
+  });
+
   it('reads and losslessly edits live table column widths through no-op, repair, merge, and rollback', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);
