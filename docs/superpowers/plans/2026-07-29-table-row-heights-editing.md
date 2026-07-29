@@ -627,8 +627,8 @@ assert.deepEqual(table.rowHeights, targetHeights);
 assert.equal(table.transform.height, inches(2.4));
 
 const automaticTransformHeight = automatic.transform.height;
-automatic.setRowHeights([0, inches(0.8), 0]);
-assert.deepEqual(automatic.rowHeights, [0, inches(0.8), 0]);
+automatic.setRowHeights([0, inches(1.25), 0]);
+assert.deepEqual(automatic.rowHeights, [0, inches(1.25), 0]);
 assert.equal(automatic.transform.height, automaticTransformHeight);
 
 const editedBytes = await native.write();
@@ -645,7 +645,7 @@ assert.ok(reopenedExplicit instanceof TableModel);
 assert.ok(reopenedAutomatic instanceof TableModel);
 assert.deepEqual(reopenedExplicit.rowHeights, targetHeights);
 assert.equal(reopenedExplicit.transform.height, inches(2.4));
-assert.deepEqual(reopenedAutomatic.rowHeights, [0, inches(0.8), 0]);
+assert.deepEqual(reopenedAutomatic.rowHeights, [0, inches(1.25), 0]);
 assert.equal(reopenedAutomatic.transform.height, automaticTransformHeight);
 assert.equal(reopenedExplicit.rows[1].cells[2].textDirection, 'vert270');
 assert.equal(reopenedExplicit.rows[2].cells[2].text, '');
@@ -692,7 +692,7 @@ process.stdout.write(JSON.stringify({
 }));
 ~~~
 
-Run `node /tmp/pptx-table-row-height-editing-qa.mjs`. Expected explicit heights are `[457200,1143000,594360]`, explicit transform height is `2194560`, automatic heights are `[0,731520,0]`, automatic transform height is `2194560`, `emptyCell` is true, and `verticalCell` is `vert270`.
+Run `node /tmp/pptx-table-row-height-editing-qa.mjs`. Expected explicit heights are `[457200,1143000,594360]`, explicit transform height is `2194560`, automatic heights are `[0,1143000,0]`, automatic transform height is `2194560`, `emptyCell` is true, and `verticalCell` is `vert270`.
 
 - [ ] **Step 5: Validate packages and mutation isolation**
 
