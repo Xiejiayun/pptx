@@ -18,6 +18,7 @@ interface PptxGenJSInstance {
     readonly accent2: 'accent2';
   };
   author: string;
+  company: string;
   layout: string;
   rtlMode: unknown;
   title: string;
@@ -4007,6 +4008,79 @@ describe('importPptxGenJS', () => {
     expect(new TextDecoder().decode(
       reopenedNative.opcPackage.requirePart('/docProps/core.xml').bytes,
     )).toContain('<cp:lastModifiedBy>@jiayunxie/pptx</cp:lastModifiedBy>');
+  }, 20_000);
+
+  it('imports and reopens PptxGenJS presentation company metadata from public output', async () => {
+    const baseline = new PptxGenJS();
+    baseline.addSlide();
+    const custom = new PptxGenJS();
+    custom.company = 'Acme 国际';
+    custom.addSlide();
+    const empty = new PptxGenJS();
+    empty.company = '';
+    empty.addSlide();
+    expect([baseline.version, custom.version, empty.version]).toEqual([
+      '4.0.1',
+      '4.0.1',
+      '4.0.1',
+    ]);
+
+    const expectedCompanies = [
+      'PptxGenJS',
+      'Acme 国际',
+      '',
+    ] as const;
+    const imported = await Promise.all([
+      importPptxGenJS(baseline),
+      importPptxGenJS(custom),
+      importPptxGenJS(empty),
+    ]);
+    expect(imported.map(({ company }) => company)).toEqual(expectedCompanies);
+    for (const [index, document] of imported.entries()) {
+      const journal = [...document.opcPackage.mutations];
+      expect(document.company).toBe(expectedCompanies[index]);
+      expect(document.opcPackage.mutations).toEqual(journal);
+    }
+
+    const appXml = imported.map((document) => new TextDecoder().decode(
+      document.opcPackage.requirePart('/docProps/app.xml').bytes,
+    ));
+    expect(appXml[0]).toContain('<Company>PptxGenJS</Company>');
+    expect(appXml[1]).toContain('<Company>Acme 国际</Company>');
+    expect(appXml[2]).toContain('<Company></Company>');
+    for (const xml of appXml) {
+      expect(xml).toContain('<Application>Microsoft Office PowerPoint</Application>');
+      expect(xml).toContain('<AppVersion>16.0000</AppVersion>');
+    }
+
+    const reopened = await Promise.all(imported.map(async (document) =>
+      PptxDocument.open(await document.write())));
+    expect(reopened.map(({ company }) => company)).toEqual(expectedCompanies);
+
+    const native = PptxDocument.create({ company: 'Acme & <Partners>' });
+    const nativeOmitted = PptxDocument.create();
+    expect(native.company).toBe('Acme & <Partners>');
+    expect(nativeOmitted.company).toBeUndefined();
+    const nativeApp = new TextDecoder().decode(
+      native.opcPackage.requirePart('/docProps/app.xml').bytes,
+    );
+    expect(nativeApp).toContain(
+      '<Company>Acme &amp; &lt;Partners&gt;</Company>',
+    );
+    expect(nativeApp).toContain('<Application>@jiayunxie/pptx</Application>');
+    expect(nativeApp).toContain('<AppVersion>1.0</AppVersion>');
+    const reopenedNative = await PptxDocument.open(await native.write());
+    expect(reopenedNative.company).toBe('Acme & <Partners>');
+
+    const unsafe = new PptxGenJS();
+    unsafe.company = 'A & <B>';
+    unsafe.addSlide();
+    const importedUnsafe = await importPptxGenJS(unsafe);
+    const unsafeApp = new TextDecoder().decode(
+      importedUnsafe.opcPackage.requirePart('/docProps/app.xml').bytes,
+    );
+    expect(unsafeApp).toContain('<Company>A & <B></Company>');
+    expect(importedUnsafe.company).toBeUndefined();
   }, 20_000);
 
   it('imports PptxGenJS non-list zero margins and indents without aliasing bullet indentation', async () => {
