@@ -35,6 +35,7 @@ import {
   ShapeModel,
   TableModel,
   type SemanticShape,
+  type TableCellBorderInput,
   type TableCellFill,
 } from './shapes.js';
 import {
@@ -115,6 +116,7 @@ export interface AddTableOptions {
 }
 
 export interface AddTableCellOptions {
+  readonly border?: TableCellBorderInput;
   readonly fill?: TableCellFill;
 }
 

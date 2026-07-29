@@ -15,6 +15,7 @@ import {
   type AddTableCellOptions,
   type AddTableCellInput,
   type PresentationFormat,
+  type TableCellBorderInput,
 } from './index.js';
 
 async function modelFixture(
@@ -233,24 +234,68 @@ describe('PresentationModel', () => {
       part.contentType,
     );
 
-    const sourceColor = { kind: 'srgb' as const, value: '#ff0000' };
+    const untouchedPartUri = '/ppt/custom/opaque1.bin';
+    const untouchedBefore = pkg.requirePart(untouchedPartUri).bytes.slice();
+    const sourceFillColor = { kind: 'srgb' as const, value: '#ff0000' };
     const sourceFill = {
       kind: 'solid' as const,
-      color: sourceColor,
+      color: sourceFillColor,
       transparency: 33.3334,
     };
-    const sourceCellOptions: AddTableCellOptions = { fill: sourceFill };
+    const sourceBorderColor = { kind: 'srgb' as const, value: '#c00000' };
+    const sourceBorder = {
+      kind: 'line' as const,
+      color: sourceBorderColor,
+      width: 2,
+      style: 'solid' as const,
+    };
+    const typedSourceBorder: TableCellBorderInput = sourceBorder;
+    const sourceCellOptions: AddTableCellOptions = {
+      border: typedSourceBorder,
+      fill: sourceFill,
+    };
     const objectCell = { text: 'A & <1>', options: sourceCellOptions };
     const tableRows: readonly (readonly AddTableCellInput[])[] = [
-      [objectCell, { text: '', options: { fill: { kind: 'none' } } }],
+      [
+        objectCell,
+        { text: '', options: {
+          border: [
+            {
+              kind: 'line',
+              color: { kind: 'scheme', value: 'accent1' },
+              width: 1.5,
+              style: 'dash',
+            },
+            undefined,
+            {
+              kind: 'line',
+              color: { kind: 'srgb', value: '00FF00' },
+              width: 0,
+            },
+            { kind: 'none' },
+          ],
+          fill: { kind: 'none' },
+        } },
+        { text: 'Empty options', options: {} },
+      ],
       [{
         text: 'A2',
-        options: { fill: {
-          kind: 'solid',
-          color: { kind: 'scheme', value: 'accent2' },
-          transparency: 25,
-        } },
-      }, { text: 'B2', options: {} }],
+        options: {
+          border: {
+            top: {
+              kind: 'line',
+              color: { kind: 'scheme', value: 'accent3' },
+              width: 1584,
+            },
+            left: { kind: 'none' },
+          },
+          fill: {
+            kind: 'solid',
+            color: { kind: 'scheme', value: 'accent2' },
+            transparency: 25,
+          },
+        },
+      }, { text: 'B2', options: { border: { kind: 'none' } } }, 'String'],
     ];
     const first = slide.addText('Before table', { name: 'Before' });
     const table = slide.addTable(
@@ -261,6 +306,8 @@ describe('PresentationModel', () => {
         y: inches(1.5),
         width: inches(4),
         height: inches(2),
+        columnWidths: [inches(1), inches(1), inches(2)],
+        rowHeights: [inches(0.75), inches(1.25)],
       },
     );
     const last = slide.addText('After table', { name: 'After' });
@@ -269,8 +316,8 @@ describe('PresentationModel', () => {
     expect(table).toBeInstanceOf(TableModel);
     expect(table.name).toBe('Table "A"');
     expect(table.rows.map(({ cells }) => cells.map(({ text }) => text))).toEqual([
-      ['A & <1>', ''],
-      ['A2', 'B2'],
+      ['A & <1>', '', 'Empty options'],
+      ['A2', 'B2', 'String'],
     ]);
     expect(table.rows.map(({ cells }) => cells.map(({ fill }) => fill))).toEqual([
       [
@@ -280,6 +327,7 @@ describe('PresentationModel', () => {
           transparency: 33.333,
         },
         { kind: 'none' },
+        undefined,
       ],
       [
         {
@@ -288,11 +336,52 @@ describe('PresentationModel', () => {
           transparency: 25,
         },
         undefined,
+        undefined,
+      ],
+    ]);
+    const borderLine = (
+      color: { kind: 'srgb' | 'scheme'; value: string },
+      width: number,
+      style?: 'solid' | 'dash',
+    ) => ({ kind: 'line' as const, color, width, ...(style ? { style } : {}) });
+    const noBorders = () => ({
+      top: { kind: 'none' as const },
+      right: { kind: 'none' as const },
+      bottom: { kind: 'none' as const },
+      left: { kind: 'none' as const },
+    });
+    expect(table.rows.map(({ cells }) => cells.map(({ borders }) => borders))).toEqual([
+      [
+        {
+          top: borderLine({ kind: 'srgb', value: 'C00000' }, 2, 'solid'),
+          right: borderLine({ kind: 'srgb', value: 'C00000' }, 2, 'solid'),
+          bottom: borderLine({ kind: 'srgb', value: 'C00000' }, 2, 'solid'),
+          left: borderLine({ kind: 'srgb', value: 'C00000' }, 2, 'solid'),
+        },
+        {
+          top: borderLine({ kind: 'scheme', value: 'accent1' }, 1.5, 'dash'),
+          right: { kind: 'none' },
+          bottom: borderLine({ kind: 'srgb', value: '00FF00' }, 0),
+          left: { kind: 'none' },
+        },
+        noBorders(),
+      ],
+      [
+        {
+          top: borderLine({ kind: 'scheme', value: 'accent3' }, 1584),
+          right: { kind: 'none' },
+          bottom: { kind: 'none' },
+          left: { kind: 'none' },
+        },
+        noBorders(),
+        noBorders(),
       ],
     ]);
     objectCell.text = 'MUTATED';
-    sourceColor.value = '000000';
+    sourceFillColor.value = '000000';
     sourceFill.transparency = 1;
+    sourceBorderColor.value = '000000';
+    sourceBorder.width = 9;
     expect(table.rows[0]!.cells[0]!.text).toBe('A & <1>');
     expect(table.rows[0]!.cells[0]!.fill).toEqual({
       kind: 'solid',
@@ -306,10 +395,10 @@ describe('PresentationModel', () => {
       left: 7.2,
     });
     expect(table.rows[0]!.cells[0]!.borders).toEqual({
-      top: { kind: 'none' },
-      right: { kind: 'none' },
-      bottom: { kind: 'none' },
-      left: { kind: 'none' },
+      top: borderLine({ kind: 'srgb', value: 'C00000' }, 2, 'solid'),
+      right: borderLine({ kind: 'srgb', value: 'C00000' }, 2, 'solid'),
+      bottom: borderLine({ kind: 'srgb', value: 'C00000' }, 2, 'solid'),
+      left: borderLine({ kind: 'srgb', value: 'C00000' }, 2, 'solid'),
     });
     expect(table.transform).toMatchObject({
       x: inches(1),
@@ -317,10 +406,20 @@ describe('PresentationModel', () => {
       width: inches(4),
       height: inches(2),
     });
-    expect(table.columnWidths).toEqual([inches(2), inches(2)]);
-    expect(table.rowHeights).toEqual([inches(1), inches(1)]);
+    expect(table.columnWidths).toEqual([inches(1), inches(1), inches(2)]);
+    expect(table.rowHeights).toEqual([inches(0.75), inches(1.25)]);
     expect(slide.shapes.find(({ id }) => id === table.id)).toBe(table);
 
+    table.setCellBorders(0, 1, {
+      right: borderLine({ kind: 'scheme', value: 'accent6' }, 2.25, 'dash'),
+    });
+    expect(table.rows[0]!.cells[1]!.borders).toEqual({
+      right: borderLine({ kind: 'scheme', value: 'accent6' }, 2.25, 'dash'),
+    });
+    expect(table.rows[0]!.cells[1]!.fill).toEqual({ kind: 'none' });
+    table.setCellBorders(0, 1, undefined);
+    expect(table.rows[0]!.cells[1]!.borders).toBeUndefined();
+    expect(table.rows[0]!.cells[1]!.fill).toEqual({ kind: 'none' });
     table.setCellFill(0, 1, {
       kind: 'solid',
       color: { kind: 'srgb', value: '00FF00' },
@@ -336,8 +435,8 @@ describe('PresentationModel', () => {
     expect(slide.shapes.find(({ id }) => id === table.id)).toBe(table);
     expect(table.rows[0]!.cells[0]!.text).toBe('Edited');
     expect(table.transform.x).toBe(inches(2));
-    expect(table.columnWidths).toEqual([inches(2), inches(2)]);
-    expect(table.rowHeights).toEqual([inches(1), inches(1)]);
+    expect(table.columnWidths).toEqual([inches(1), inches(1), inches(2)]);
+    expect(table.rowHeights).toEqual([inches(0.75), inches(1.25)]);
 
     const updated = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
     expect(updated.indexOf('name="Before"')).toBeLessThan(updated.indexOf('name="Table &quot;A&quot;"'));
@@ -392,6 +491,16 @@ describe('PresentationModel', () => {
       enumerable: true,
       configurable: true,
     });
+    const accessorBorderOptions = {};
+    let borderAccessorCalls = 0;
+    Object.defineProperty(accessorBorderOptions, 'border', {
+      get() {
+        borderAccessorCalls += 1;
+        return { kind: 'none' };
+      },
+      enumerable: true,
+      configurable: true,
+    });
     const invalidRows = [
       null,
       [],
@@ -405,12 +514,30 @@ describe('PresentationModel', () => {
         color: { kind: 'srgb', value: 'FF0000' },
         transparency: 101,
       } } }]],
+      [[{ text: 'A', options: accessorBorderOptions }]],
+      [[{ text: 'A', options: { border: { kind: 'unknown' } } }]],
+      [[{ text: 'A', options: { border: {
+        kind: 'line',
+        color: { kind: 'srgb', value: 'FFF' },
+        width: 1,
+      } } }]],
+      [[{ text: 'A', options: { border: {
+        kind: 'line',
+        color: { kind: 'srgb', value: 'FF0000' },
+        width: -1,
+      } } }]],
+      [[{ text: 'A', options: { border: [
+        { kind: 'none' },
+        undefined,
+        undefined,
+      ] } }]],
       [[accessorCell]],
     ];
     for (const rows of invalidRows) {
       expect(() => slide.addTable(rows as never)).toThrow();
     }
     expect(cellAccessorCalls).toBe(0);
+    expect(borderAccessorCalls).toBe(0);
     const invalidOptions = [
       null,
       [],
@@ -461,11 +588,19 @@ describe('PresentationModel', () => {
       pkg.transaction(() => {
         rolledBack = slide.addTable([[{
           text: 'rollback',
-          options: { fill: {
-            kind: 'solid',
-            color: { kind: 'scheme', value: 'accent1' },
-            transparency: 25,
-          } },
+          options: {
+            border: {
+              kind: 'line',
+              color: { kind: 'scheme', value: 'accent1' },
+              width: 2,
+              style: 'dash',
+            },
+            fill: {
+              kind: 'solid',
+              color: { kind: 'scheme', value: 'accent1' },
+              transparency: 25,
+            },
+          },
         }]]);
         throw new Error('restore table');
       }),
@@ -478,10 +613,11 @@ describe('PresentationModel', () => {
     const reopenedSlide = reopened.slides.find(({ partUri }) => partUri === slide.partUri);
     const reopenedTable = reopenedSlide?.shapes.find(({ id }) => id === table.id);
     expect(reopenedTable).toBeInstanceOf(TableModel);
+    expect(reopenedSlide!.shapes.find(({ id }) => id === table.id)).toBe(reopenedTable);
     expect((reopenedTable as TableModel).rows.map(({ cells }) =>
       cells.map(({ text }) => text))).toEqual([
-      ['Edited', ''],
-      ['A2', 'B2'],
+      ['Edited', '', 'Empty options'],
+      ['A2', 'B2', 'String'],
     ]);
     expect((reopenedTable as TableModel).rows.map(({ cells }) =>
       cells.map(({ fill }) => fill))).toEqual([
@@ -492,6 +628,7 @@ describe('PresentationModel', () => {
           transparency: 33.333,
         },
         undefined,
+        undefined,
       ],
       [
         {
@@ -500,15 +637,40 @@ describe('PresentationModel', () => {
           transparency: 25,
         },
         undefined,
+        undefined,
+      ],
+    ]);
+    expect((reopenedTable as TableModel).rows.map(({ cells }) =>
+      cells.map(({ borders }) => borders))).toEqual([
+      [
+        {
+          top: borderLine({ kind: 'srgb', value: 'C00000' }, 2, 'solid'),
+          right: borderLine({ kind: 'srgb', value: 'C00000' }, 2, 'solid'),
+          bottom: borderLine({ kind: 'srgb', value: 'C00000' }, 2, 'solid'),
+          left: borderLine({ kind: 'srgb', value: 'C00000' }, 2, 'solid'),
+        },
+        undefined,
+        noBorders(),
+      ],
+      [
+        {
+          top: borderLine({ kind: 'scheme', value: 'accent3' }, 1584),
+          right: { kind: 'none' },
+          bottom: { kind: 'none' },
+          left: { kind: 'none' },
+        },
+        noBorders(),
+        noBorders(),
       ],
     ]);
     expect((reopenedTable as TableModel).columnWidths).toEqual([
-      inches(2),
+      inches(1),
+      inches(1),
       inches(2),
     ]);
     expect((reopenedTable as TableModel).rowHeights).toEqual([
-      inches(1),
-      inches(1),
+      inches(0.75),
+      inches(1.25),
     ]);
     expect(reopenedTable!.transform).toMatchObject({
       x: inches(2),
@@ -516,6 +678,8 @@ describe('PresentationModel', () => {
       width: inches(4),
       height: inches(2),
     });
+    expect(pkg.requirePart(untouchedPartUri).bytes).toEqual(untouchedBefore);
+    expect(reopened.opcPackage.requirePart(untouchedPartUri).bytes).toEqual(untouchedBefore);
 
     const missingTree = model.addSlide();
     const missingPart = pkg.requirePart(missingTree.partUri);
