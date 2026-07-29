@@ -1013,6 +1013,206 @@ describe('importPptxGenJS', () => {
       table.rows[0]!.cells.map(({ borders }) => borders))).toEqual(snapshots);
   });
 
+  it('matches native table-cell border creation to supported PptxGenJS output', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    generated.layout = 'LAYOUT_WIDE';
+    generated.addSlide().addTable(
+      [[
+        { text: 'Scalar', options: { border: {
+          type: 'solid',
+          color: 'FF0000',
+          pt: 2,
+        } } },
+        { text: 'Tuple', options: { border: [
+          { type: 'none' },
+          { type: 'dash', color: '00FF00', pt: 1.5 },
+          { type: 'solid', color: '0000FF', pt: 0 },
+          { type: 'solid', color: '666666', pt: 1 },
+        ] } },
+      ]],
+      { x: 1, y: 1, w: 4, h: 1, colW: [2, 2], rowH: [1] },
+    );
+    const imported = await importPptxGenJS(generated);
+    const importedTable = imported.slides[0]!.shapes[0] as TableModel;
+
+    const native = PptxDocument.create({ slideSize: 'wide' });
+    const nativeTable = native.addSlide().addTable(
+      [[
+        { text: 'Scalar', options: { border: {
+          kind: 'line',
+          color: { kind: 'srgb', value: 'FF0000' },
+          width: 2,
+          style: 'solid',
+        } } },
+        { text: 'Tuple', options: { border: [
+          { kind: 'none' },
+          {
+            kind: 'line',
+            color: { kind: 'srgb', value: '00FF00' },
+            width: 1.5,
+            style: 'dash',
+          },
+          {
+            kind: 'line',
+            color: { kind: 'srgb', value: '0000FF' },
+            width: 0,
+            style: 'solid',
+          },
+          {
+            kind: 'line',
+            color: { kind: 'srgb', value: '666666' },
+            width: 1,
+            style: 'solid',
+          },
+        ] } },
+      ]],
+      {
+        x: inches(1),
+        y: inches(1),
+        width: inches(4),
+        height: inches(1),
+        columnWidths: [inches(2), inches(2)],
+        rowHeights: [inches(1)],
+      },
+    );
+
+    const line = (
+      color: string,
+      width: number,
+      style: 'solid' | 'dash' = 'solid',
+    ) => ({
+      kind: 'line' as const,
+      color: { kind: 'srgb' as const, value: color },
+      width,
+      style,
+    });
+    const none = { kind: 'none' as const };
+    const four = <T>(value: T) => ({ top: value, right: value, bottom: value, left: value });
+    const expectedBorders = [
+      four(line('FF0000', 2)),
+      {
+        top: none,
+        right: line('00FF00', 1.5, 'dash'),
+        bottom: line('0000FF', 0),
+        left: line('666666', 1),
+      },
+    ];
+    expect(nativeTable.rows[0]!.cells.map(({ borders }) => borders)).toEqual(expectedBorders);
+    expect(importedTable.rows[0]!.cells.map(({ borders }) => borders)).toEqual(expectedBorders);
+    expect(nativeTable.rows[0]!.cells.map(({ margins }) => margins)).toEqual(
+      importedTable.rows[0]!.cells.map(({ margins }) => margins),
+    );
+    expect(nativeTable.rows[0]!.cells.map(({ fill }) => fill)).toEqual(
+      importedTable.rows[0]!.cells.map(({ fill }) => fill),
+    );
+    expect(nativeTable.transform).toMatchObject(importedTable.transform);
+    expect(nativeTable.columnWidths).toEqual(importedTable.columnWidths);
+    expect(nativeTable.rowHeights).toEqual(importedTable.rowHeights);
+
+    const nativeXml = new TextDecoder().decode(
+      native.opcPackage.requirePart(native.slides[0]!.partUri).bytes,
+    );
+    const importedXml = new TextDecoder().decode(
+      imported.opcPackage.requirePart(imported.slides[0]!.partUri).bytes,
+    );
+    for (const tableXml of [nativeXml, importedXml]) {
+      for (const properties of tableXml.matchAll(/<a:tcPr[^>]*>([\s\S]*?)<\/a:tcPr>/g)) {
+        const direct = properties[1]!;
+        const left = direct.indexOf('<a:lnL ');
+        const right = direct.indexOf('<a:lnR ');
+        const top = direct.indexOf('<a:lnT ');
+        const bottom = direct.indexOf('<a:lnB ');
+        expect(left).toBeGreaterThanOrEqual(0);
+        expect(left).toBeLessThan(right);
+        expect(right).toBeLessThan(top);
+        expect(top).toBeLessThan(bottom);
+      }
+      expect(tableXml).toContain('<a:lnR w="19050" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:srgbClr val="00FF00"/></a:solidFill><a:prstDash val="sysDash"/>');
+      expect(tableXml).toContain('<a:lnB w="0" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:srgbClr val="0000FF"/></a:solidFill><a:prstDash val="solid"/>');
+    }
+    const reopenedNative = await PptxDocument.open(await native.write());
+    const reopenedImported = await PptxDocument.open(await imported.write());
+    expect((reopenedNative.slides[0]!.shapes[0] as TableModel).rows)
+      .toEqual(nativeTable.rows);
+    expect((reopenedImported.slides[0]!.shapes[0] as TableModel).rows)
+      .toEqual(importedTable.rows);
+
+    const generatedDifferences = new PptxGenJS();
+    generatedDifferences.addSlide().addTable(
+      [[
+        { text: 'PptxGenJS empty', options: { border: {} } },
+        { text: 'PptxGenJS omitted type', options: { border: {
+          color: '112233',
+          pt: 2,
+        } } },
+      ]],
+      { x: 1, y: 1, w: 4, h: 1, colW: [2, 2], rowH: [1] },
+    );
+    const importedDifferences = await importPptxGenJS(generatedDifferences);
+    const importedDifferenceTable = importedDifferences.slides[0]!.shapes[0] as TableModel;
+    expect(importedDifferenceTable.rows[0]!.cells.map(({ borders }) => borders)).toEqual([
+      four(line('666666', 1)),
+      four(line('112233', 2)),
+    ]);
+
+    const nativeDifferences = PptxDocument.create();
+    const nativeDifferenceTable = nativeDifferences.addSlide().addTable([[
+      { text: 'Native empty', options: { border: {} } },
+      { text: 'Native omitted style', options: { border: {
+        kind: 'line',
+        color: { kind: 'srgb', value: '112233' },
+        width: 2,
+      } } },
+      { text: 'Native named theme', options: { border: {
+        top: {
+          kind: 'line',
+          color: { kind: 'scheme', value: 'accent1' },
+          width: 1,
+          style: 'dash',
+        },
+        left: { kind: 'none' },
+      } } },
+      { text: 'Native zero', options: { border: {
+        kind: 'line',
+        color: { kind: 'srgb', value: '0000FF' },
+        width: 0,
+        style: 'solid',
+      } } },
+    ]]);
+    expect(nativeDifferenceTable.rows[0]!.cells[0]!.borders).toEqual(four(none));
+    const omittedStyle = {
+      kind: 'line' as const,
+      color: { kind: 'srgb' as const, value: '112233' },
+      width: 2,
+    };
+    expect(nativeDifferenceTable.rows[0]!.cells[1]!.borders).toEqual(four(omittedStyle));
+    expect(nativeDifferenceTable.rows[0]!.cells[2]!.borders).toEqual({
+      top: {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent1' },
+        width: 1,
+        style: 'dash',
+      },
+      right: none,
+      bottom: none,
+      left: none,
+    });
+    expect(nativeDifferenceTable.rows[0]!.cells[3]!.borders).toEqual(
+      four(line('0000FF', 0)),
+    );
+    const nativeDifferencesXml = new TextDecoder().decode(
+      nativeDifferences.opcPackage.requirePart(nativeDifferences.slides[0]!.partUri).bytes,
+    );
+    const cells = [...nativeDifferencesXml.matchAll(/<a:tc>([\s\S]*?)<\/a:tc>/g)]
+      .map((match) => match[1]!);
+    expect(cells[0]!.match(/<a:noFill\/>/g)).toHaveLength(4);
+    expect(cells[1]).not.toContain('<a:prstDash');
+    expect(cells[2]).toContain('<a:schemeClr val="accent1"/>');
+    expect(cells[2]).toContain('<a:prstDash val="sysDash"/>');
+    expect(cells[3]).toContain('<a:lnL w="0" cap="flat" cmpd="sng" algn="ctr">');
+  });
+
   it('imports public PptxGenJS output and continues editing in the OOXML kernel', async () => {
     const generated = new PptxGenJS();
     expect(generated.version).toBe('4.0.1');
