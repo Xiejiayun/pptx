@@ -14,6 +14,7 @@ import {
   inches,
   type AddTableCellOptions,
   type AddTableCellInput,
+  type AddTableOptions,
   type PresentationFormat,
   type TableCellBorderInput,
   type TextBoxMarginInput,
@@ -805,6 +806,79 @@ describe('PresentationModel', () => {
       repeatedExtensionPart.contentType,
     );
     expect(() => repeatedExtension.addTable([['A']])).toThrow(/repeated extension lists/);
+  });
+
+  it('materializes table valign through edit, duplicate, write, and reopen', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const options: AddTableOptions = {
+      name: 'Table valign lifecycle',
+      valign: 'middle',
+      columnWidths: inches(2),
+      rowHeights: inches(1),
+    };
+    const table = slide.addTable([[
+      'Inherited string',
+      { text: 'Inherited object' },
+      { text: 'Top override', options: { valign: 'top' } },
+      { text: 'Bottom override', options: { valign: 'bottom' } },
+    ]], options);
+    expect(table.rows[0]!.cells.map(
+      ({ verticalAlignment }) => verticalAlignment)).toEqual([
+      'middle',
+      'middle',
+      'top',
+      'bottom',
+    ]);
+
+    const sourceIndex = model.slides.indexOf(slide);
+    const duplicate = model.duplicateSlide(sourceIndex);
+    const duplicateTable = duplicate.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    );
+    expect(duplicateTable).toBeInstanceOf(TableModel);
+    expect(duplicateTable!.rows[0]!.cells.map(
+      ({ verticalAlignment }) => verticalAlignment)).toEqual([
+      'middle',
+      'middle',
+      'top',
+      'bottom',
+    ]);
+
+    table.setCellVerticalAlignment(0, 0, undefined);
+    table.setCellVerticalAlignment(0, 1, 'bottom');
+    expect(table.rows[0]!.cells.map(
+      ({ verticalAlignment }) => verticalAlignment)).toEqual([
+      undefined,
+      'bottom',
+      'top',
+      'bottom',
+    ]);
+    expect(duplicateTable!.rows[0]!.cells.map(
+      ({ verticalAlignment }) => verticalAlignment)).toEqual([
+      'middle',
+      'middle',
+      'top',
+      'bottom',
+    ]);
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedSlide = reopened.slides.find(({ partUri }) => partUri === slide.partUri);
+    const reopenedTable = reopenedSlide?.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel
+        && shape.name === 'Table valign lifecycle',
+    );
+    expect(reopenedTable).toBeInstanceOf(TableModel);
+    expect(reopenedTable!.rows[0]!.cells.map(
+      ({ verticalAlignment }) => verticalAlignment)).toEqual([
+      undefined,
+      'bottom',
+      'top',
+      'bottom',
+    ]);
+    expect(reopenedTable!.columnWidths).toEqual(Array(4).fill(inches(2)));
+    expect(reopenedTable!.rowHeights).toEqual([inches(1)]);
   });
 
   it('reads and losslessly edits live table column widths through no-op, repair, merge, and rollback', async () => {
