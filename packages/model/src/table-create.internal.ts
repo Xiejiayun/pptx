@@ -37,6 +37,7 @@ const OPTION_KEYS = [
   'height',
   'columnWidths',
   'rowHeights',
+  'valign',
 ] as const;
 interface NormalizedTableCell {
   readonly text: string;
@@ -74,6 +75,15 @@ export function normalizeTableDefinition(
   }
 
   const normalizedOptions = readOptions(options);
+  const tableVerticalAlignment = normalizedOptions.valign === undefined
+    ? undefined
+    : normalizeTextBoxVerticalAlignment(normalizedOptions.valign, 'Table valign');
+  const resolvedRows = tableVerticalAlignment === undefined
+    ? normalizedRows
+    : normalizedRows.map((row) => row.map((cell) =>
+      cell.verticalAlignment === undefined
+        ? { ...cell, verticalAlignment: tableVerticalAlignment }
+        : cell));
   const name = normalizedOptions.name;
   if (name !== undefined) {
     if (typeof name !== 'string') throw new TypeError('Table name must be a string');
@@ -157,7 +167,7 @@ export function normalizeTableDefinition(
   }
 
   return {
-    rows: normalizedRows,
+    rows: resolvedRows,
     ...(name !== undefined ? { name } : {}),
     x,
     y,

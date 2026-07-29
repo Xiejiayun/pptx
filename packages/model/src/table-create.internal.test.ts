@@ -648,6 +648,54 @@ describe('table creation internals', () => {
     );
   });
 
+  it('materializes strict table vertical alignment onto uncovered cells', () => {
+    const rows = [[
+      'String',
+      { text: 'Object' },
+      { text: 'Empty', options: {} },
+      { text: 'Undefined', options: { valign: undefined } },
+      { text: 'Top', options: { valign: 'top' } },
+      { text: 'Bottom', options: { valign: 'bottom' } },
+    ]];
+    const definition = normalizeTableDefinition(rows, { valign: 'middle' });
+    expect(definition.rows[0]!.map(
+      ({ verticalAlignment }) => verticalAlignment)).toEqual([
+      'middle',
+      'middle',
+      'middle',
+      'middle',
+      'top',
+      'bottom',
+    ]);
+
+    const xml = renderTableGraphicFrame(31, definition);
+    const anchors = [...xml.matchAll(/<a:tcPr[^>]* anchor="([^"]+)"/g)]
+      .map((match) => match[1]);
+    expect(anchors).toEqual(['ctr', 'ctr', 'ctr', 'ctr', 't', 'b']);
+    expect(xml).not.toMatch(/<a:bodyPr[^>]* anchor=/);
+
+    const tableValues = ['top', 'middle', 'bottom'] as const;
+    expect(tableValues.map((valign) => normalizeTableDefinition(
+      [['Inherited']],
+      { valign },
+    ).rows[0]![0]!.verticalAlignment)).toEqual(tableValues);
+    expect(tableValues.map((valign) => renderTableGraphicFrame(
+      33,
+      normalizeTableDefinition([['Inherited']], { valign }),
+    ).match(/<a:tcPr[^>]* anchor="([^"]+)"/)?.[1])).toEqual(['t', 'ctr', 'b']);
+
+    const omitted = renderTableGraphicFrame(
+      32,
+      normalizeTableDefinition([['Same']], {}),
+    );
+    const runtimeUndefined = renderTableGraphicFrame(
+      32,
+      normalizeTableDefinition([['Same']], { valign: undefined }),
+    );
+    expect(runtimeUndefined).toBe(omitted);
+    expect(omitted).not.toContain(' anchor=');
+  });
+
   it('strictly rejects malformed matrices and options without invoking accessors', () => {
     const sparseOuter = Array(1);
     const sparseRow = [Array(2)];
@@ -1038,6 +1086,16 @@ describe('table creation internals', () => {
       enumerable: true,
       configurable: true,
     });
+    const accessorTableValignOptions: Record<string, unknown> = {};
+    let tableValignAccessorCalls = 0;
+    Object.defineProperty(accessorTableValignOptions, 'valign', {
+      get() {
+        tableValignAccessorCalls += 1;
+        return 'top';
+      },
+      enumerable: true,
+      configurable: true,
+    });
     const invalidOptions = [
       null,
       false,
@@ -1046,6 +1104,7 @@ describe('table creation internals', () => {
       new ExoticOptions(),
       symbolOptions,
       accessorOptions,
+      accessorTableValignOptions,
       { extra: true },
       { name: 1 },
       { name: 'bad\u0000name' },
@@ -1058,6 +1117,7 @@ describe('table creation internals', () => {
       { width: -1 },
       { height: 0 },
       { height: -1 },
+      ...invalidValigns.map((valign) => ({ valign })),
     ];
     for (const options of invalidOptions) {
       expect(() => normalizeTableDefinition([['A']], options)).toThrow();
@@ -1065,6 +1125,7 @@ describe('table creation internals', () => {
     expect(() => normalizeTableDefinition([['A', 'B']], { width: 1 })).toThrow(RangeError);
     expect(() => normalizeTableDefinition([['A'], ['B']], { height: 1 })).toThrow(RangeError);
     expect(optionAccessorCalls).toBe(0);
+    expect(tableValignAccessorCalls).toBe(0);
 
     const sparseWidths = Array(3);
     sparseWidths[0] = 1;
