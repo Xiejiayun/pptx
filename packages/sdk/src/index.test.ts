@@ -1147,6 +1147,130 @@ describe('PptxDocument vertical slice', () => {
       .filter(({ severity }) => severity === 'error')).toEqual([]);
   });
 
+  it('materializes table horizontal alignment through the SDK lifecycle', async () => {
+    const document = PptxDocument.create({ slideSize: 'wide' });
+    const slide = document.addSlide();
+    const opaqueUri = '/ppt/custom/table-horizontal-alignment.bin';
+    document.opcPackage.setPart(
+      opaqueUri,
+      new Uint8Array([119, 102, 85, 68, 51, 34, 17, 0]),
+      'application/octet-stream',
+    );
+    const opaqueHash = hash(document.opcPackage.requirePart(opaqueUri).bytes);
+    const table = slide.addTable([[
+      'Inherited string',
+      { text: 'Inherited object' },
+      {
+        text: 'Inherited undefined',
+        options: { align: undefined } as unknown as AddTableCellOptions,
+      },
+      { text: 'Left override', options: { align: 'left' } },
+      { text: 'Right override', options: { align: 'right' } },
+      { text: 'Justify override sentence', options: { align: 'justify' } },
+    ]], {
+      align: 'center',
+      name: 'Table horizontal alignment lifecycle',
+      columnWidths: inches(1.5),
+      rowHeights: inches(1),
+      margin: { top: 4, left: 8 },
+      valign: 'middle',
+    });
+    const originalTokens = ['ctr', 'ctr', 'ctr', 'l', 'r', 'just'];
+    expect(tableCellHorizontalAlignmentTokens(document, slide.partUri))
+      .toEqual(originalTokens);
+    expect(table.rows[0]!.cells.map(({ verticalAlignment }) => verticalAlignment))
+      .toEqual(Array(6).fill('middle'));
+    expect(table.rows[0]!.cells[0]!.margins).toEqual({
+      top: 4,
+      right: 7.2,
+      bottom: 3.6,
+      left: 8,
+    });
+
+    const duplicate = document.duplicateSlide(0);
+    const duplicateTable = duplicate.shapes[0] as TableModel;
+    expect(tableCellHorizontalAlignmentTokens(document, duplicate.partUri))
+      .toEqual(originalTokens);
+
+    table.setCellText(0, 0, 'Inherited edited');
+    table.setCellMargins(0, 1, { bottom: 9 });
+    table.setCellVerticalAlignment(0, 2, 'bottom');
+    table.setCellTextDirection(0, 3, 'vert270');
+    table.setCellTextFit(0, 4, 'shrink');
+    table.setCellBorders(0, 0, { kind: 'none' });
+    table.setCellFill(0, 5, {
+      kind: 'solid',
+      color: { kind: 'srgb', value: 'FFF2CC' },
+    });
+    table.setColumnWidths(inches(1.25));
+    table.setRowHeights(inches(1.25));
+    expect(tableCellHorizontalAlignmentTokens(document, slide.partUri))
+      .toEqual(originalTokens);
+    expect(tableCellHorizontalAlignmentTokens(document, duplicate.partUri))
+      .toEqual(originalTokens);
+    expect(duplicateTable.rows[0]!.cells[0]!.text).toBe('Inherited string');
+
+    const beforeRollback = document.opcPackage.requirePart(slide.partUri).bytes.slice();
+    const duplicateBeforeRollback = document.opcPackage
+      .requirePart(duplicate.partUri).bytes.slice();
+    const rollbackJournal = [...document.opcPackage.mutations];
+    const shapeCount = slide.shapes.length;
+    let rolledBack: TableModel | undefined;
+    expect(() => document.transaction(() => {
+      table.setCellText(0, 0, 'Rolled back');
+      rolledBack = slide.addTable([['Temporary']], { align: 'right' });
+      throw new Error('restore table horizontal alignment');
+    })).toThrow('restore table horizontal alignment');
+    expect(document.opcPackage.requirePart(slide.partUri).bytes)
+      .toEqual(beforeRollback);
+    expect(document.opcPackage.requirePart(duplicate.partUri).bytes)
+      .toEqual(duplicateBeforeRollback);
+    expect(document.opcPackage.mutations).toEqual(rollbackJournal);
+    expect(slide.shapes).toHaveLength(shapeCount);
+    expect(slide.shapes[0]).toBe(table);
+    expect(duplicate.shapes[0]).toBe(duplicateTable);
+    expect(() => rolledBack!.rows).toThrow(ModelParseError);
+    expect(hash(document.opcPackage.requirePart(opaqueUri).bytes)).toBe(opaqueHash);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedTable = reopened.slides[0]!.shapes[0] as TableModel;
+    const reopenedDuplicate = reopened.slides[1]!.shapes[0] as TableModel;
+    expect(tableCellHorizontalAlignmentTokens(reopened, reopened.slides[0]!.partUri))
+      .toEqual(originalTokens);
+    expect(tableCellHorizontalAlignmentTokens(reopened, reopened.slides[1]!.partUri))
+      .toEqual(originalTokens);
+    expect(reopenedTable.rows[0]!.cells.map(({ text }) => text)).toEqual([
+      'Inherited edited',
+      'Inherited object',
+      'Inherited undefined',
+      'Left override',
+      'Right override',
+      'Justify override sentence',
+    ]);
+    expect(reopenedTable.rows[0]!.cells[1]!.margins).toEqual({ bottom: 9 });
+    expect(reopenedTable.rows[0]!.cells[2]!.verticalAlignment).toBe('bottom');
+    expect(reopenedTable.rows[0]!.cells[3]!.textDirection).toBe('vert270');
+    expect(reopenedTable.rows[0]!.cells[4]!.textFit).toBe('shrink');
+    expect(reopenedTable.rows[0]!.cells[0]!.borders).toEqual({
+      top: { kind: 'none' },
+      right: { kind: 'none' },
+      bottom: { kind: 'none' },
+      left: { kind: 'none' },
+    });
+    expect(reopenedTable.rows[0]!.cells[5]!.fill).toEqual({
+      kind: 'solid',
+      color: { kind: 'srgb', value: 'FFF2CC' },
+    });
+    expect(reopenedTable.columnWidths).toEqual(Array(6).fill(inches(1.25)));
+    expect(reopenedTable.rowHeights).toEqual([inches(1.25)]);
+    expect(reopenedDuplicate.rows[0]!.cells[0]!.text).toBe('Inherited string');
+    expect(reopenedDuplicate.columnWidths).toEqual(Array(6).fill(inches(1.5)));
+    expect(reopenedDuplicate.rowHeights).toEqual([inches(1)]);
+    expect(hash(reopened.opcPackage.requirePart(opaqueUri).bytes)).toBe(opaqueHash);
+    expect(validatePackage(reopened.opcPackage)
+      .filter(({ severity }) => severity === 'error')).toEqual([]);
+  });
+
   it('materializes public table margins through duplicate, rollback, and reopen', async () => {
     const document = PptxDocument.create();
     const slide = document.addSlide();
@@ -1943,6 +2067,79 @@ describe('PptxDocument vertical slice', () => {
     expect(slide.shapes).toHaveLength(shapeCount);
     expect(slide.shapes[0]).toBe(table);
     expect(table.rows[0]!.cells[0]!.text).toBe('Existing');
+    expect(tableCellHorizontalAlignmentTokens(document, slide.partUri))
+      .toEqual(existingTokens);
+    expect(document.opcPackage.parts.map(({ uri }) => uri))
+      .toEqual([...beforeParts.keys()]);
+    for (const [uri, bytes] of beforeParts) {
+      expect(document.opcPackage.requirePart(uri).bytes, uri).toEqual(bytes);
+    }
+  });
+
+  it('rejects invalid public table horizontal alignment before mutation', () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const table = slide.addTable([
+      ['Inherited', { text: 'Right', options: { align: 'right' } }],
+    ], { align: 'center' });
+    const beforeParts = new Map(
+      document.opcPackage.parts.map(({ uri, bytes }) => [uri, bytes.slice()]),
+    );
+    const journal = [...document.opcPackage.mutations];
+    const slideCount = document.slides.length;
+    const shapeCount = slide.shapes.length;
+    const existingTokens = tableCellHorizontalAlignmentTokens(document, slide.partUri);
+    let sdkTableAlignGetterCalls = 0;
+    const accessorOptions = {};
+    Object.defineProperty(accessorOptions, 'align', {
+      get() {
+        sdkTableAlignGetterCalls += 1;
+        return 'center';
+      },
+      enumerable: true,
+      configurable: true,
+    });
+    const invalidAlignments: unknown[] = [
+      null,
+      false,
+      true,
+      0,
+      '',
+      'Left',
+      ' center ',
+      'l',
+      'ctr',
+      'r',
+      'just',
+      'dist',
+      'thaiDist',
+      'justLow',
+      [],
+      {},
+      Symbol('center'),
+    ];
+
+    expect(() => slide.addTable(
+      [['Accessor']],
+      accessorOptions as AddTableOptions,
+    )).toThrow(TypeError);
+    for (const align of invalidAlignments) {
+      expect(() => slide.addTable(
+        [['Invalid']],
+        { align } as unknown as AddTableOptions,
+      )).toThrow(TypeError);
+    }
+
+    expect(sdkTableAlignGetterCalls).toBe(0);
+    expect(document.opcPackage.mutations).toEqual(journal);
+    expect(document.slides).toHaveLength(slideCount);
+    expect(document.slides[0]).toBe(slide);
+    expect(slide.shapes).toHaveLength(shapeCount);
+    expect(slide.shapes[0]).toBe(table);
+    expect(table.rows[0]!.cells.map(({ text }) => text)).toEqual([
+      'Inherited',
+      'Right',
+    ]);
     expect(tableCellHorizontalAlignmentTokens(document, slide.partUri))
       .toEqual(existingTokens);
     expect(document.opcPackage.parts.map(({ uri }) => uri))
