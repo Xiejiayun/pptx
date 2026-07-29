@@ -589,7 +589,7 @@ baseline.addSlide().addTable(
       border: rowIndex === 0 && columnIndex === 0
         ? { type: 'solid', color: 'FFFFFF', pt: 1 }
         : { type: 'none' },
-      valign: rowIndex === 2 && columnIndex === 1 ? 'bottom' : 'mid',
+      valign: rowIndex === 2 && columnIndex === 1 ? 'bottom' : 'middle',
       textDirection: rowIndex === 1 && columnIndex === 2 ? 'vert270' : 'horz',
     },
   }))),
