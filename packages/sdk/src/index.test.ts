@@ -1085,6 +1085,298 @@ describe('PptxDocument vertical slice', () => {
       .filter(({ severity }) => severity === 'error')).toEqual([]);
   });
 
+  it('materializes public table borders through duplicate, rollback, and reopen', async () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const sourceColor = {
+      kind: 'scheme' as const,
+      value: 'accent1' as 'accent1' | 'accent6',
+    };
+    const sourceBorder = {
+      kind: 'line' as const,
+      color: sourceColor,
+      width: 1.500004,
+      style: 'dash' as const,
+    };
+    const table = slide.addTable([[
+      'Inherited string',
+      { text: 'Inherited empty', options: { border: {} } },
+      { text: 'Partial override', options: { border: {
+        bottom: {
+          kind: 'line',
+          color: { kind: 'srgb', value: '70AD47' },
+          width: 3,
+          style: 'solid',
+        },
+      } } },
+      { text: 'None override', options: { border: { kind: 'none' } } },
+    ]], {
+      name: 'SDK table border lifecycle',
+      border: sourceBorder,
+      columnWidths: inches(2),
+      rowHeights: inches(1),
+    });
+    const tableDefault = {
+      top: {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent1' },
+        width: 1.5,
+        style: 'dash',
+      },
+      right: {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent1' },
+        width: 1.5,
+        style: 'dash',
+      },
+      bottom: {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent1' },
+        width: 1.5,
+        style: 'dash',
+      },
+      left: {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent1' },
+        width: 1.5,
+        style: 'dash',
+      },
+    };
+    const noBorders = {
+      top: { kind: 'none' },
+      right: { kind: 'none' },
+      bottom: { kind: 'none' },
+      left: { kind: 'none' },
+    };
+    const original = [
+      tableDefault,
+      tableDefault,
+      {
+        top: { kind: 'none' },
+        right: { kind: 'none' },
+        bottom: {
+          kind: 'line',
+          color: { kind: 'srgb', value: '70AD47' },
+          width: 3,
+          style: 'solid',
+        },
+        left: { kind: 'none' },
+      },
+      noBorders,
+    ];
+    expect(table.rows[0]!.cells.map(({ borders }) => borders)).toEqual(original);
+    sourceColor.value = 'accent6';
+    sourceBorder.width = 9;
+    expect(table.rows[0]!.cells.map(({ borders }) => borders)).toEqual(original);
+
+    const duplicate = document.duplicateSlide(0);
+    const duplicateTable = duplicate.shapes[0] as TableModel;
+    expect(duplicateTable.rows[0]!.cells.map(({ borders }) => borders))
+      .toEqual(original);
+    const nonTargetHashes = new Map(
+      document.opcPackage.parts
+        .filter(({ uri }) => uri !== slide.partUri)
+        .map(({ uri, bytes }) => [uri, hash(bytes)]),
+    );
+
+    table.setCellBorders(0, 0, undefined);
+    table.setCellBorders(0, 1, {
+      right: {
+        kind: 'line',
+        color: { kind: 'srgb', value: '00FF00' },
+        width: 0,
+        style: 'solid',
+      },
+    });
+    const edited = [
+      undefined,
+      {
+        right: {
+          kind: 'line',
+          color: { kind: 'srgb', value: '00FF00' },
+          width: 0,
+          style: 'solid',
+        },
+      },
+      original[2],
+      noBorders,
+    ];
+    expect(table.rows[0]!.cells.map(({ borders }) => borders)).toEqual(edited);
+
+    const beforeRollback = document.opcPackage.requirePart(slide.partUri).bytes.slice();
+    const rollbackJournal = [...document.opcPackage.mutations];
+    let rolledBack: TableModel | undefined;
+    expect(() => document.transaction(() => {
+      table.setCellBorders(0, 2, {
+        kind: 'line',
+        color: { kind: 'srgb', value: 'FF0000' },
+        width: 2,
+      });
+      rolledBack = slide.addTable([['Temporary']], { border: { kind: 'none' } });
+      throw new Error('restore table border defaults');
+    })).toThrow('restore table border defaults');
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(beforeRollback);
+    expect(document.opcPackage.mutations).toEqual(rollbackJournal);
+    expect(slide.shapes).toHaveLength(1);
+    expect(slide.shapes[0]).toBe(table);
+    expect(table.rows[0]!.cells.map(({ borders }) => borders)).toEqual(edited);
+    expect(duplicateTable.rows[0]!.cells.map(({ borders }) => borders))
+      .toEqual(original);
+    expect(() => rolledBack!.rows).toThrow(ModelParseError);
+    for (const [uri, expectedHash] of nonTargetHashes) {
+      expect(hash(document.opcPackage.requirePart(uri).bytes), uri).toBe(expectedHash);
+    }
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedTable = reopened.slides[0]!.shapes[0] as TableModel;
+    const reopenedDuplicate = reopened.slides[1]!.shapes[0] as TableModel;
+    expect(reopenedTable.rows[0]!.cells.map(({ borders }) => borders)).toEqual(edited);
+    expect(reopenedDuplicate.rows[0]!.cells.map(({ borders }) => borders))
+      .toEqual(original);
+    expect(reopenedTable.columnWidths).toEqual(Array(4).fill(inches(2)));
+    expect(reopenedTable.rowHeights).toEqual([inches(1)]);
+    expect(reopenedDuplicate.columnWidths).toEqual(Array(4).fill(inches(2)));
+    expect(reopenedDuplicate.rowHeights).toEqual([inches(1)]);
+    for (const [uri, expectedHash] of nonTargetHashes) {
+      expect(hash(reopened.opcPackage.requirePart(uri).bytes), uri).toBe(expectedHash);
+    }
+    expect(validatePackage(reopened.opcPackage)
+      .filter(({ severity }) => severity === 'error')).toEqual([]);
+  });
+
+  it('rejects invalid public table border creation before mutation', () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const table = slide.addTable([['Existing']]);
+    const existingBorders = table.rows[0]!.cells[0]!.borders;
+    const beforeParts = new Map(
+      document.opcPackage.parts.map(({ uri, bytes }) => [uri, bytes.slice()]),
+    );
+    const journal = [...document.opcPackage.mutations];
+    let sdkBorderGetterCalls = 0;
+    const accessorOptions = {};
+    Object.defineProperty(accessorOptions, 'border', {
+      get() {
+        sdkBorderGetterCalls += 1;
+        return { kind: 'none' };
+      },
+      enumerable: true,
+    });
+    const accessorBorder = {};
+    Object.defineProperty(accessorBorder, 'kind', {
+      get() {
+        sdkBorderGetterCalls += 1;
+        return 'none';
+      },
+      enumerable: true,
+    });
+    const accessorNamed = {};
+    Object.defineProperty(accessorNamed, 'top', {
+      get() {
+        sdkBorderGetterCalls += 1;
+        return { kind: 'none' };
+      },
+      enumerable: true,
+    });
+    const accessorTuple = [undefined, undefined, undefined, undefined];
+    Object.defineProperty(accessorTuple, '0', {
+      get() {
+        sdkBorderGetterCalls += 1;
+        return { kind: 'none' };
+      },
+      enumerable: true,
+    });
+    const accessorColor = { kind: 'srgb' };
+    Object.defineProperty(accessorColor, 'value', {
+      get() {
+        sdkBorderGetterCalls += 1;
+        return 'FF0000';
+      },
+      enumerable: true,
+    });
+    class SdkBorderClass { kind = 'none'; }
+    class SdkColorClass { kind = 'srgb'; value = 'FF0000'; }
+    const sparse = Array(4);
+    sparse[0] = { kind: 'none' };
+    const extraTuple = Object.assign(
+      [{ kind: 'none' }, undefined, undefined, undefined],
+      { extra: true },
+    );
+    const invalidBorders: unknown[] = [
+      null,
+      false,
+      true,
+      'FF0000',
+      [],
+      [{ kind: 'none' }],
+      [{ kind: 'none' }, undefined, undefined],
+      [{ kind: 'none' }, undefined, undefined, undefined, undefined],
+      sparse,
+      extraTuple,
+      accessorBorder,
+      accessorNamed,
+      accessorTuple,
+      new SdkBorderClass(),
+      Object.create({ kind: 'none' }),
+      { top: undefined, extra: true },
+      { kind: 'none', width: 1 },
+      { kind: 'none', [Symbol('border')]: true },
+      { kind: 'unknown' },
+      { kind: 'line' },
+      { kind: 'line', color: null, width: 1 },
+      { kind: 'line', color: accessorColor, width: 1 },
+      { kind: 'line', color: new SdkColorClass(), width: 1 },
+      { kind: 'line', color: Object.create({
+        kind: 'srgb', value: 'FF0000',
+      }), width: 1 },
+      { kind: 'line', color: { kind: 'srgb', value: 'FFF' }, width: 1 },
+      { kind: 'line', color: { kind: 'srgb', value: 'GG0000' }, width: 1 },
+      { kind: 'line', color: { kind: 'scheme', value: 'unknown' }, width: 1 },
+      { kind: 'line', color: {
+        kind: 'srgb', value: 'FF0000', extra: true,
+      }, width: 1 },
+      { kind: 'line', color: { kind: 'srgb', value: 'FF0000' }, width: -0.001 },
+      { kind: 'line', color: { kind: 'srgb', value: 'FF0000' }, width: 1584.001 },
+      { kind: 'line', color: { kind: 'srgb', value: 'FF0000' }, width: Number.NaN },
+      { kind: 'line', color: {
+        kind: 'srgb', value: 'FF0000',
+      }, width: Number.POSITIVE_INFINITY },
+      { kind: 'line', color: {
+        kind: 'srgb', value: 'FF0000',
+      }, width: 1, style: 'dot' },
+      Symbol('table border'),
+    ];
+
+    expect(() => slide.addTable(
+      [['Accessor table']],
+      accessorOptions as AddTableOptions,
+    )).toThrow();
+    for (const border of invalidBorders) {
+      expect(() => slide.addTable([[{
+        text: 'Invalid cell',
+        options: { border } as unknown as AddTableCellOptions,
+      }]])).toThrow();
+      expect(() => slide.addTable(
+        [['Invalid table']],
+        { border } as unknown as AddTableOptions,
+      )).toThrow();
+    }
+
+    expect(sdkBorderGetterCalls).toBe(0);
+    expect(document.opcPackage.mutations).toEqual(journal);
+    expect(document.slides).toHaveLength(1);
+    expect(document.slides[0]).toBe(slide);
+    expect(slide.shapes).toHaveLength(1);
+    expect(slide.shapes[0]).toBe(table);
+    expect(table.rows[0]!.cells[0]!.text).toBe('Existing');
+    expect(table.rows[0]!.cells[0]!.borders).toEqual(existingBorders);
+    expect(document.opcPackage.parts.map(({ uri }) => uri))
+      .toEqual([...beforeParts.keys()]);
+    for (const [uri, bytes] of beforeParts) {
+      expect(document.opcPackage.requirePart(uri).bytes, uri).toEqual(bytes);
+    }
+  });
+
   it('rejects invalid public table fill creation before mutation', () => {
     const document = PptxDocument.create();
     const slide = document.addSlide();
