@@ -60,6 +60,7 @@ const SCHEME_COLORS = new Set([
 
 type TableCellSide = typeof PUBLIC_SIDES[number];
 type TableCellLineTag = typeof XML_SIDES[number][1];
+const NONE_BORDER: TableCellBorder = { kind: 'none' };
 
 export function normalizeTableCellBorders(
   value: unknown,
@@ -67,11 +68,11 @@ export function normalizeTableCellBorders(
 ): TableCellBorders | undefined {
   if (value === undefined) return undefined;
   if (Array.isArray(value)) return normalizeTuple(value, context);
-  if (!value || typeof value !== 'object') {
-    throw new TypeError(`${context} must be a border, TRBL tuple, side object, or undefined`);
-  }
-
-  const candidate = value as Record<string, unknown>;
+  const candidate = readDataObject(
+    value,
+    context,
+    [...PUBLIC_SIDES, 'kind', 'color', 'width', 'style'],
+  );
   if (Object.hasOwn(candidate, 'kind')) {
     const border = normalizeBorder(candidate, context);
     return {
@@ -89,6 +90,14 @@ export function normalizeTableCellBorders(
     result[side] = normalizeBorder(candidate[side], `${context} ${side}`);
   }
   return Object.keys(result).length > 0 ? result : undefined;
+}
+
+export function renderTableCellBorders(
+  borders: TableCellBorders | undefined,
+  prefix: string,
+): string {
+  return XML_SIDES.map(([side, tag]) =>
+    renderBorder(tag, borders?.[side] ?? NONE_BORDER, prefix)).join('');
 }
 
 export function readTableCellBorders(
@@ -156,7 +165,15 @@ export function replaceTableCellBorders(
 }
 
 function normalizeTuple(value: unknown[], context: string): TableCellBorders | undefined {
-  if (value.length !== 4) {
+  if (Object.getPrototypeOf(value) !== Array.prototype) {
+    throw new TypeError(`${context} TRBL tuple must be an ordinary array`);
+  }
+  const lengthDescriptor = Object.getOwnPropertyDescriptor(value, 'length');
+  if (
+    !lengthDescriptor
+    || !Object.hasOwn(lengthDescriptor, 'value')
+    || lengthDescriptor.value !== 4
+  ) {
     throw new TypeError(`${context} TRBL tuple must contain exactly four items`);
   }
   const allowed = new Set(['0', '1', '2', '3', 'length']);
@@ -168,10 +185,14 @@ function normalizeTuple(value: unknown[], context: string): TableCellBorders | u
 
   const result: Partial<Record<TableCellSide, TableCellBorder>> = {};
   for (let index = 0; index < PUBLIC_SIDES.length; index += 1) {
-    if (!Object.hasOwn(value, index)) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
+    if (!descriptor) {
       throw new TypeError(`${context} TRBL tuple must not contain sparse items`);
     }
-    const item = value[index];
+    if (!Object.hasOwn(descriptor, 'value')) {
+      throw new TypeError(`${context} TRBL tuple must contain only data items`);
+    }
+    const item = descriptor.value;
     if (item !== undefined) {
       const side = PUBLIC_SIDES[index]!;
       result[side] = normalizeBorder(item, `${context} ${side}`);
@@ -181,10 +202,7 @@ function normalizeTuple(value: unknown[], context: string): TableCellBorders | u
 }
 
 function normalizeBorder(value: unknown, context: string): TableCellBorder {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new TypeError(`${context} must be a border object`);
-  }
-  const candidate = value as Record<string, unknown>;
+  const candidate = readDataObject(value, context, ['kind', 'color', 'width', 'style']);
   if (candidate.kind === 'none') {
     assertKeys(candidate, ['kind'], context);
     return { kind: 'none' };
@@ -224,11 +242,7 @@ function normalizeBorder(value: unknown, context: string): TableCellBorder {
 }
 
 function normalizeColor(value: unknown, context: string): RichTextColor {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new TypeError(`${context} must be an object`);
-  }
-  const candidate = value as Record<string, unknown>;
-  assertKeys(candidate, ['kind', 'value'], context);
+  const candidate = readDataObject(value, context, ['kind', 'value']);
   if (candidate.kind === 'srgb') {
     if (typeof candidate.value !== 'string' || !/^#?[\da-f]{6}$/i.test(candidate.value)) {
       throw new TypeError(`${context} sRGB value must contain six hex digits`);
@@ -444,6 +458,33 @@ function assertKeys(value: object, supported: readonly string[], context: string
       throw new TypeError(`${context} contains unsupported property ${String(key)}`);
     }
   }
+}
+
+function readDataObject(
+  value: unknown,
+  context: string,
+  supported: readonly string[],
+): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new TypeError(`${context} must be an object`);
+  }
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) {
+    throw new TypeError(`${context} must be an ordinary object`);
+  }
+  const allowed = new Set(supported);
+  const result: Record<string, unknown> = {};
+  for (const key of Reflect.ownKeys(value)) {
+    if (typeof key !== 'string' || !allowed.has(key)) {
+      throw new TypeError(`${context} contains unsupported property ${String(key)}`);
+    }
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (!descriptor || !Object.hasOwn(descriptor, 'value')) {
+      throw new TypeError(`${context} property ${key} must be a data property`);
+    }
+    result[key] = descriptor.value;
+  }
+  return result;
 }
 
 function requirePropertiesRoot(

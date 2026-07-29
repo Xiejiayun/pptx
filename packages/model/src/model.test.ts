@@ -2199,6 +2199,32 @@ describe('PresentationModel', () => {
       },
     ]);
 
+    const nullPrototypeColor = Object.assign(Object.create(null) as Record<string, unknown>, {
+      kind: 'srgb',
+      value: '#112233',
+    });
+    const nullPrototypeLine = Object.assign(Object.create(null) as Record<string, unknown>, {
+      kind: 'line',
+      color: nullPrototypeColor,
+      width: 2,
+    });
+    const nullPrototypeNone = Object.assign(Object.create(null) as Record<string, unknown>, {
+      kind: 'none',
+    });
+    const nullPrototypeNamed = Object.assign(Object.create(null) as Record<string, unknown>, {
+      top: nullPrototypeLine,
+      left: nullPrototypeNone,
+    });
+    const beforeNullPrototype = pkg.requirePart(part.uri).bytes;
+    const nullPrototypeJournal = [...pkg.mutations];
+    table.setCellBorders(0, 2, nullPrototypeNamed as never);
+    expect(table.rows[0]!.cells[2]!.borders).toEqual({
+      top: line({ kind: 'srgb', value: '112233' }, 2),
+      left: { kind: 'none' },
+    });
+    expect(pkg.requirePart(part.uri).bytes).toEqual(beforeNullPrototype);
+    expect(pkg.mutations).toEqual(nullPrototypeJournal);
+
     const beforeInvalid = pkg.requirePart(part.uri).bytes;
     const invalidJournal = [...pkg.mutations];
     for (const [row, column] of [[-1, 0], [0, -1], [0, 12], [1, 0]]) {
@@ -2213,6 +2239,50 @@ describe('PresentationModel', () => {
       [{ kind: 'none' }, undefined, undefined, undefined],
       { extra: true },
     );
+    let borderAccessorCalls = 0;
+    const accessorBorder: Record<string, unknown> = {};
+    Object.defineProperty(accessorBorder, 'kind', {
+      get() {
+        borderAccessorCalls += 1;
+        return 'none';
+      },
+      enumerable: true,
+    });
+    const accessorNamed: Record<string, unknown> = {};
+    Object.defineProperty(accessorNamed, 'top', {
+      get() {
+        borderAccessorCalls += 1;
+        return { kind: 'none' };
+      },
+      enumerable: true,
+    });
+    const accessorTuple: unknown[] = [undefined, undefined, undefined, undefined];
+    Object.defineProperty(accessorTuple, '0', {
+      get() {
+        borderAccessorCalls += 1;
+        return { kind: 'none' };
+      },
+      enumerable: true,
+    });
+    const accessorColor: Record<string, unknown> = { kind: 'srgb' };
+    Object.defineProperty(accessorColor, 'value', {
+      get() {
+        borderAccessorCalls += 1;
+        return 'FF0000';
+      },
+      enumerable: true,
+    });
+    class BorderValue {
+      readonly kind = 'none';
+    }
+    class ColorValue {
+      readonly kind = 'srgb';
+      readonly value = 'FF0000';
+    }
+    class BorderTuple extends Array<unknown> {}
+    const subclassTuple = new BorderTuple();
+    subclassTuple.push({ kind: 'none' }, undefined, undefined, undefined);
+    const symbol = Symbol('extra');
     const invalidValues = [
       null,
       false,
@@ -2221,6 +2291,28 @@ describe('PresentationModel', () => {
       [{ kind: 'none' }, undefined, undefined],
       sparse,
       extraTuple,
+      accessorBorder,
+      accessorNamed,
+      accessorTuple,
+      { kind: 'line', color: accessorColor, width: 1 },
+      Object.create({ kind: 'none' }),
+      Object.create({ top: { kind: 'none' } }),
+      new BorderValue(),
+      subclassTuple,
+      { top: [{ kind: 'none' }] },
+      Object.assign({ kind: 'none' }, { [symbol]: true }),
+      { top: Object.assign({ kind: 'none' }, { [symbol]: true }) },
+      {
+        kind: 'line',
+        color: Object.create({ kind: 'srgb', value: 'FF0000' }),
+        width: 1,
+      },
+      { kind: 'line', color: new ColorValue(), width: 1 },
+      {
+        kind: 'line',
+        color: Object.assign({ kind: 'srgb', value: 'FF0000' }, { [symbol]: true }),
+        width: 1,
+      },
       { top: undefined, extra: true },
       { kind: 'none', width: 1 },
       { kind: 'unknown' },
@@ -2240,6 +2332,7 @@ describe('PresentationModel', () => {
     for (const value of invalidValues) {
       expect(() => table.setCellBorders(0, 0, value as never)).toThrow();
     }
+    expect(borderAccessorCalls).toBe(0);
     expect(pkg.requirePart(part.uri).bytes).toEqual(beforeInvalid);
     expect(pkg.mutations).toEqual(invalidJournal);
 
