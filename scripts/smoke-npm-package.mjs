@@ -99,7 +99,7 @@ const createdTable = tableSlide.addTable([
     { text: 'East', options: { border: { top: { kind: 'line', color: { kind: 'scheme', value: 'accent3' }, width: 1, style: 'dash' }, left: { kind: 'none' } }, margin: 0, valign: 'bottom' } },
     { text: '', options: { border: { kind: 'none' }, fill: { kind: 'none' }, margin: {} } },
   ],
-], { name: 'Created smoke table', columnWidths: [inches(1), inches(3)], rowHeights: [inches(0.5), inches(1.5)] });
+], { name: 'Created smoke table', columnWidths: [inches(1), inches(3)], rowHeights: [inches(0.5), inches(1.5)], valign: 'middle' });
 const tableCellObjectCreation = JSON.stringify(createdTable.rows.map(({ cells }) => cells.map(({ text }) => text))) === JSON.stringify([['Region', 'Revenue'], ['East', '']]);
 const initialCreatedFill = createdTable.rows[0].cells[0].fill;
 const initialCreatedBorders = createdTable.rows.map(({ cells }) => cells.map(({ borders }) => borders));
@@ -116,6 +116,8 @@ const detachedCreatedBorders = createdTable.rows[0].cells[0].borders;
 const detachedCreatedMargins = createdTable.rows[0].cells[0].margins;
 const createdTableDefaults = createdTable instanceof TableModel && createdTable.transform.x === inches(0.5) && createdTable.transform.y === inches(0.5) && createdTable.rows[1].cells[1].margins?.top === 3.6 && createdTable.rows[1].cells[1].margins?.left === 7.2;
 const createdTableXml = new TextDecoder().decode(created.opcPackage.requirePart(tableSlide.partUri).bytes);
+const createdTableCells = [...createdTableXml.matchAll(/<a:tc(?:\\s[^>]*)?>[\\s\\S]*?<\\/a:tc>/g)].map((match) => match[0]);
+const createdTableAnchors = createdTableCells.flatMap((cellXml) => [...cellXml.matchAll(/<a:tcPr[^>]* anchor="([^"]+)"/g)].map((match) => match[1]));
 const createdTableGrid = [...createdTableXml.matchAll(/<a:gridCol w="(\\d+)"\\/>/g)].map((match) => Number(match[1]));
 const createdTableRows = [...createdTableXml.matchAll(/<a:tr h="(\\d+)">/g)].map((match) => Number(match[1]));
 const initialTableColumnWidths = createdTable.columnWidths;
@@ -130,11 +132,11 @@ createdTable.setCellText(1, 0, 'Edited East');
 createdTable.setCellFill(1, 0, { kind: 'solid', color: { kind: 'scheme', value: 'accent1' }, transparency: 50 });
 createdTable.setCellBorders(1, 0, { kind: 'line', color: { kind: 'srgb', value: 'FFFFFF' }, width: 1, style: 'solid' });
 createdTable.setCellVerticalAlignment(0, 0, 'bottom');
-createdTable.setCellVerticalAlignment(1, 1, 'bottom');
+createdTable.setCellVerticalAlignment(1, 1, undefined);
 createdTable.setCellMargins(0, 0, { bottom: 9 });
 const reopenedCreated = await PptxDocument.open(await created.write());
 const reopenedCreatedTable = reopenedCreated.slides[0].shapes.find((shape) => shape.name === 'Created smoke table');
-const tableCreation = createdTableDefaults && reopenedCreatedTable instanceof TableModel && reopenedCreatedTable.rows[1].cells[0].text === 'Edited East' && reopenedCreatedTable.rows[1].cells[1].text === '' && reopenedCreatedTable.rows[1].cells[1].verticalAlignment === 'bottom';
+const tableCreation = createdTableDefaults && reopenedCreatedTable instanceof TableModel && reopenedCreatedTable.rows[1].cells[0].text === 'Edited East' && reopenedCreatedTable.rows[1].cells[1].text === '' && reopenedCreatedTable.rows[1].cells[1].verticalAlignment === undefined;
 const tableColumnWidths = createdTable.transform.width === inches(4) && createdTableGrid.length === 2 && createdTableGrid[0] === inches(1) && createdTableGrid[1] === inches(3) && reopenedCreatedTable instanceof TableModel && reopenedCreatedTable.transform.width === inches(4);
 const tableColumnWidthEditing = initialTableColumnWidths?.join(',') === [inches(1), inches(3)].join(',') && createdTable.columnWidths?.join(',') === [inches(1.5), inches(2.5)].join(',') && reopenedCreatedTable instanceof TableModel && reopenedCreatedTable.columnWidths?.join(',') === [inches(1.5), inches(2.5)].join(',');
 const tableRowHeights = createdTable.transform.height === inches(2) && createdTableRows.length === 2 && createdTableRows[0] === inches(0.5) && createdTableRows[1] === inches(1.5) && reopenedCreatedTable instanceof TableModel && reopenedCreatedTable.transform.height === inches(2);
@@ -186,17 +188,20 @@ const tableCellMarginCreation = tableCellBorderCreation &&
 const tableCellVerticalAlignmentCreation = tableCellMarginCreation &&
   JSON.stringify(initialCreatedAlignments) === JSON.stringify([
     ['top', 'middle'],
-    ['bottom', undefined],
+    ['bottom', 'middle'],
   ]) &&
   createdTable.rows[0].cells[0].verticalAlignment === 'bottom' &&
   createdTable.rows[0].cells[1].verticalAlignment === 'middle' &&
   createdTable.rows[1].cells[0].verticalAlignment === 'bottom' &&
-  createdTable.rows[1].cells[1].verticalAlignment === 'bottom' &&
+  createdTable.rows[1].cells[1].verticalAlignment === undefined &&
   reopenedCreatedTable instanceof TableModel &&
   reopenedCreatedTable.rows[0].cells[0].verticalAlignment === 'bottom' &&
   reopenedCreatedTable.rows[0].cells[1].verticalAlignment === 'middle' &&
   reopenedCreatedTable.rows[1].cells[0].verticalAlignment === 'bottom' &&
-  reopenedCreatedTable.rows[1].cells[1].verticalAlignment === 'bottom';
+  reopenedCreatedTable.rows[1].cells[1].verticalAlignment === undefined;
+const tableVerticalAlignmentCreation = tableCellVerticalAlignmentCreation &&
+  JSON.stringify(createdTableAnchors) === JSON.stringify(['t', 'ctr', 'b', 'ctr']) &&
+  createdTableCells.every((cellXml) => !/<a:bodyPr[^>]* anchor=/.test(cellXml));
 const tablePart = created.opcPackage.requirePart(tableSlide.partUri);
 const tableXml = '<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="99" name="Smoke table"/></p:nvGraphicFramePr><a:graphic><a:graphicData><a:tbl><a:tr><a:tc><a:txBody><a:bodyPr custom="TARGET"><a:noAutofit/></a:bodyPr><a:p><a:r><a:t>Target</a:t></a:r></a:p></a:txBody><a:tcPr vert="horz" anchor="ctr" marL="12700" marR="25400" marT="38100" marB="50800"><a:lnL w="12700" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill><a:prstDash val="solid"/><a:round/><a:headEnd type="none" w="med" len="med"/><a:tailEnd type="none" w="med" len="med"/></a:lnL><a:lnR w="0" cap="flat" cmpd="sng" algn="ctr"><a:noFill/></a:lnR><a:lnT w="19050" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="accent2"/></a:solidFill><a:prstDash val="sysDash"/><a:round/><a:headEnd type="none" w="med" len="med"/><a:tailEnd type="none" w="med" len="med"/></a:lnT><a:lnB w="0" cap="flat" cmpd="sng" algn="ctr"><a:noFill/></a:lnB><a:solidFill><a:schemeClr val="accent1"><a:alpha val="75000"/></a:schemeClr></a:solidFill></a:tcPr></a:tc><a:tc><a:txBody><a:bodyPr custom="NEIGHBOR"><a:spAutoFit/></a:bodyPr><a:p><a:r><a:t>Neighbor</a:t></a:r></a:p></a:txBody><a:tcPr vert="vert" anchor="b" marL="63500" marR="76200" marT="88900" marB="101600" keep="ADJACENT"><a:lnL w="25400" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:srgbClr val="333333"/></a:solidFill><a:prstDash val="solid"/><a:round/><a:headEnd type="none" w="med" len="med"/><a:tailEnd type="none" w="med" len="med"/></a:lnL><a:solidFill><a:srgbClr val="70AD47"><a:alpha val="50000"/></a:srgbClr></a:solidFill></a:tcPr></a:tc></a:tr></a:tbl></a:graphicData></a:graphic></p:graphicFrame>';
 created.opcPackage.setPart(tableSlide.partUri, new TextDecoder().decode(tablePart.bytes).replace('</p:spTree>', tableXml + '</p:spTree>'), tablePart.contentType);
@@ -287,6 +292,7 @@ const checks = {
   tableCellBorderCreation,
   tableCellMarginCreation,
   tableCellVerticalAlignmentCreation,
+  tableVerticalAlignmentCreation,
   tableColumnWidths,
   tableColumnWidthEditing,
   tableRowHeights,
@@ -362,9 +368,9 @@ const createdTable = tableSlide.addTable([
     { text: 'West', options: { border: { top: { kind: 'line', color: { kind: 'scheme', value: 'accent3' }, width: 1, style: 'dash' }, left: { kind: 'none' } }, margin: 0, valign: 'bottom' } },
     { text: '', options: { border: { kind: 'none' }, fill: { kind: 'none' }, margin: {} } },
   ],
-], { name: 'Created browser table', columnWidths: inches(1.25), rowHeights: inches(0.75) });
+], { name: 'Created browser table', columnWidths: inches(1.25), rowHeights: inches(0.75), valign: 'middle' });
 if (JSON.stringify(createdTable.rows.map(({ cells }) => cells.map(({ text }) => text))) !== JSON.stringify([['Region', 'Revenue'], ['West', '']])) throw new Error('Browser table cell object creation failed');
-if (JSON.stringify(createdTable.rows.map(({ cells }) => cells.map(({ verticalAlignment }) => verticalAlignment))) !== JSON.stringify([['top', 'middle'], ['bottom', undefined]])) throw new Error('Browser table cell vertical alignment creation failed');
+if (JSON.stringify(createdTable.rows.map(({ cells }) => cells.map(({ verticalAlignment }) => verticalAlignment))) !== JSON.stringify([['top', 'middle'], ['bottom', 'middle']])) throw new Error('Browser table vertical alignment creation failed');
 const browserMarginVector = (margins) => [margins?.top, margins?.right, margins?.bottom, margins?.left];
 const browserInitialMargins = createdTable.rows.map(({ cells }) => cells.map(({ margins }) => browserMarginVector(margins)));
 if (JSON.stringify(browserInitialMargins) !== JSON.stringify([[[4, 7.2, 3.6, 8], [1, 2, 3, 4]], [[0, 0, 0, 0], [3.6, 7.2, 3.6, 7.2]]])) throw new Error('Browser table cell margin creation failed');
@@ -398,6 +404,7 @@ createdTable.setCellText(1, 0, 'Edited West');
 createdTable.setCellFill(1, 0, { kind: 'solid', color: { kind: 'scheme', value: 'accent1' }, transparency: 50 });
 createdTable.setCellBorders(1, 0, { kind: 'line', color: { kind: 'srgb', value: 'FFFFFF' }, width: 1, style: 'solid' });
 createdTable.setCellVerticalAlignment(0, 0, 'bottom');
+createdTable.setCellVerticalAlignment(1, 1, undefined);
 createdTable.setCellMargins(0, 0, { bottom: 9 });
 const reopenedCreated = await PptxDocument.open(await created.write());
 const reopenedCreatedTable = reopenedCreated.slides[0].shapes.find((shape) => shape.name === 'Created browser table');
@@ -572,7 +579,7 @@ const creationOptions: AddTableCellOptions = {
 };
 const objectCell: AddTableCell = { text: 'Revenue', options: creationOptions };
 const tableRows: readonly (readonly AddTableCellInput[])[] = [['Region', objectCell], [{ text: 'East' }, { text: '' }]];
-const tableOptions: AddTableOptions = { name: 'Typed table', x: inches(1), columnWidths: [inches(1), inches(3)], rowHeights: [inches(0.5), inches(1.5)] };
+const tableOptions: AddTableOptions = { name: 'Typed table', x: inches(1), columnWidths: [inches(1), inches(3)], rowHeights: [inches(0.5), inches(1.5)], valign: cellAlignment };
 const typedTable: TableModel = createdDocument.slides[0].addTable(tableRows, tableOptions);
 const widthSnapshot: readonly number[] | undefined = typedTable.columnWidths;
 const heightSnapshot: readonly number[] | undefined = typedTable.rowHeights;
