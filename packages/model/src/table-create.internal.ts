@@ -37,6 +37,7 @@ const OPTION_KEYS = [
   'height',
   'columnWidths',
   'rowHeights',
+  'margin',
   'valign',
 ] as const;
 interface NormalizedTableCell {
@@ -75,12 +76,22 @@ export function normalizeTableDefinition(
   }
 
   const normalizedOptions = readOptions(options);
+  const tableMargins = normalizeTextBoxMargins(
+    normalizedOptions.margin as TextBoxMarginInput | undefined,
+    'Table margin',
+  );
+  const marginResolvedRows = tableMargins === undefined
+    ? normalizedRows
+    : normalizedRows.map((row) => row.map((cell) => ({
+      ...cell,
+      margins: { ...tableMargins, ...(cell.margins ?? {}) },
+    })));
   const tableVerticalAlignment = normalizedOptions.valign === undefined
     ? undefined
     : normalizeTextBoxVerticalAlignment(normalizedOptions.valign, 'Table valign');
   const resolvedRows = tableVerticalAlignment === undefined
-    ? normalizedRows
-    : normalizedRows.map((row) => row.map((cell) =>
+    ? marginResolvedRows
+    : marginResolvedRows.map((row) => row.map((cell) =>
       cell.verticalAlignment === undefined
         ? { ...cell, verticalAlignment: tableVerticalAlignment }
         : cell));

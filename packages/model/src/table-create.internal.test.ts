@@ -696,6 +696,90 @@ describe('table creation internals', () => {
     expect(omitted).not.toContain(' anchor=');
   });
 
+  it('materializes strict table margins under cell margin sides', () => {
+    const tableMargin = { top: 9, left: 18 };
+    const definition = normalizeTableDefinition([[
+      'String',
+      { text: 'Object' },
+      { text: 'Empty options', options: {} },
+      { text: 'Undefined', options: { margin: undefined } },
+      { text: 'Empty margin', options: { margin: {} } },
+      { text: 'Undefined sides', options: { margin: {
+        top: undefined,
+        right: undefined,
+        bottom: undefined,
+        left: undefined,
+      } } },
+      { text: 'Partial', options: { margin: { bottom: 12 } } },
+      { text: 'Zero', options: { margin: 0 } },
+      { text: 'Tuple', options: { margin: [1, 2, 3, 4] } },
+    ]], { margin: tableMargin, valign: 'middle' });
+    tableMargin.top = 99;
+    tableMargin.left = 99;
+
+    expect(definition.rows[0]!.map(({ margins }) => margins)).toEqual([
+      { top: 9, left: 18 },
+      { top: 9, left: 18 },
+      { top: 9, left: 18 },
+      { top: 9, left: 18 },
+      { top: 9, left: 18 },
+      { top: 9, left: 18 },
+      { top: 9, bottom: 12, left: 18 },
+      { top: 0, right: 0, bottom: 0, left: 0 },
+      { top: 1, right: 2, bottom: 3, left: 4 },
+    ]);
+
+    const xml = renderTableGraphicFrame(41, definition);
+    const margins = [...xml.matchAll(
+      /<a:tcPr marL="(-?\d+)" marR="(-?\d+)" marT="(-?\d+)" marB="(-?\d+)"/g,
+    )].map((match) => match.slice(1).map(Number));
+    expect(margins).toEqual([
+      [228600, 91440, 114300, 45720],
+      [228600, 91440, 114300, 45720],
+      [228600, 91440, 114300, 45720],
+      [228600, 91440, 114300, 45720],
+      [228600, 91440, 114300, 45720],
+      [228600, 91440, 114300, 45720],
+      [228600, 91440, 114300, 152400],
+      [0, 0, 0, 0],
+      [50800, 25400, 12700, 38100],
+    ]);
+    expect(xml).toMatch(/marB="45720" anchor="ctr"><a:lnL/);
+    expect(xml).not.toMatch(/<a:bodyPr[^>]*(?:lIns|rIns|tIns|bIns)=/);
+
+    expect(normalizeTableDefinition([['Scalar']], { margin: 0 })
+      .rows[0]![0]!.margins).toEqual({
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0,
+    });
+    const tableTuple = [1, 2, 3, 4] as [number, number, number, number];
+    const tupleDefinition = normalizeTableDefinition([['Tuple']], { margin: tableTuple });
+    tableTuple.fill(99);
+    expect(tupleDefinition.rows[0]![0]!.margins).toEqual({
+      top: 1,
+      right: 2,
+      bottom: 3,
+      left: 4,
+    });
+
+    const omitted = renderTableGraphicFrame(
+      42,
+      normalizeTableDefinition([['Same']], {}),
+    );
+    const runtimeUndefined = renderTableGraphicFrame(
+      42,
+      normalizeTableDefinition([['Same']], { margin: undefined }),
+    );
+    const empty = renderTableGraphicFrame(
+      42,
+      normalizeTableDefinition([['Same']], { margin: {} }),
+    );
+    expect(runtimeUndefined).toBe(omitted);
+    expect(empty).toBe(omitted);
+  });
+
   it('strictly rejects malformed matrices and options without invoking accessors', () => {
     const sparseOuter = Array(1);
     const sparseRow = [Array(2)];
@@ -1096,6 +1180,40 @@ describe('table creation internals', () => {
       enumerable: true,
       configurable: true,
     });
+    const accessorTableMarginOptions: Record<string, unknown> = {};
+    let tableMarginAccessorCalls = 0;
+    Object.defineProperty(accessorTableMarginOptions, 'margin', {
+      get() {
+        tableMarginAccessorCalls += 1;
+        return 1;
+      },
+      enumerable: true,
+      configurable: true,
+    });
+    const invalidTableMargins = [
+      null,
+      false,
+      '1',
+      Number.NaN,
+      Number.NEGATIVE_INFINITY,
+      Number.POSITIVE_INFINITY,
+      accessorMargin,
+      accessorMarginTuple,
+      new ExoticMargin(),
+      inheritedMargin,
+      symbolMargin,
+      sparseMarginTuple,
+      [1, 2, 3],
+      [1, 2, 3, 4, 5],
+      extraMarginTuple,
+      exoticMarginTuple,
+      { top: null },
+      { right: false },
+      { bottom: '1' },
+      { left: {} },
+      2_147_483_648 / 12_700,
+      -2_147_483_649 / 12_700,
+    ];
     const invalidOptions = [
       null,
       false,
@@ -1105,6 +1223,7 @@ describe('table creation internals', () => {
       symbolOptions,
       accessorOptions,
       accessorTableValignOptions,
+      accessorTableMarginOptions,
       { extra: true },
       { name: 1 },
       { name: 'bad\u0000name' },
@@ -1117,6 +1236,7 @@ describe('table creation internals', () => {
       { width: -1 },
       { height: 0 },
       { height: -1 },
+      ...invalidTableMargins.map((margin) => ({ margin })),
       ...invalidValigns.map((valign) => ({ valign })),
     ];
     for (const options of invalidOptions) {
@@ -1126,6 +1246,8 @@ describe('table creation internals', () => {
     expect(() => normalizeTableDefinition([['A'], ['B']], { height: 1 })).toThrow(RangeError);
     expect(optionAccessorCalls).toBe(0);
     expect(tableValignAccessorCalls).toBe(0);
+    expect(tableMarginAccessorCalls).toBe(0);
+    expect(cellAccessorCalls).toBe(0);
 
     const sparseWidths = Array(3);
     sparseWidths[0] = 1;
