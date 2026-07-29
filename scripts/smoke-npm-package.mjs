@@ -452,6 +452,16 @@ authorship.author = '';
 const emptyPresentationAuthor = authorship.author;
 authorship.author = undefined;
 const clearedPresentationAuthor = authorship.author;
+const editorship = PptxDocument.create({ lastModifiedBy: 'Packed & <Editor>' });
+const createdPresentationLastModifiedBy = editorship.lastModifiedBy;
+editorship.lastModifiedBy = 'Edited editor';
+const editedPresentationLastModifiedBy = editorship.lastModifiedBy;
+const reopenedEditorship = await PptxDocument.open(await editorship.write());
+const reopenedPresentationLastModifiedBy = reopenedEditorship.lastModifiedBy;
+editorship.lastModifiedBy = '';
+const emptyPresentationLastModifiedBy = editorship.lastModifiedBy;
+editorship.lastModifiedBy = undefined;
+const clearedPresentationLastModifiedBy = editorship.lastModifiedBy;
 const subjectMatter = PptxDocument.create({ subject: 'Packed & <Subject>' });
 const createdPresentationSubject = subjectMatter.subject;
 subjectMatter.subject = 'Edited subject';
@@ -489,6 +499,7 @@ const checks = {
   presentationRtl: presentationRtlEnabled === true && presentationRtlDisabled === false && presentationRtlCleared === undefined && paragraphRtlAfterGlobalClear[0] === true && paragraphRtlAfterGlobalClear[1] === false,
   presentationTitle: createdPresentationTitle === 'Packed & <Title>' && editedPresentationTitle === 'Edited title' && reopenedPresentationTitle === 'Edited title' && emptyPresentationTitle === '' && clearedPresentationTitle === undefined,
   presentationAuthor: createdPresentationAuthor === 'Packed & <Author>' && editedPresentationAuthor === 'Edited author' && reopenedPresentationAuthor === 'Edited author' && emptyPresentationAuthor === '' && clearedPresentationAuthor === undefined,
+  presentationLastModifiedBy: createdPresentationLastModifiedBy === 'Packed & <Editor>' && editedPresentationLastModifiedBy === 'Edited editor' && reopenedPresentationLastModifiedBy === 'Edited editor' && emptyPresentationLastModifiedBy === '' && clearedPresentationLastModifiedBy === undefined,
   presentationSubject: createdPresentationSubject === 'Packed & <Subject>' && editedPresentationSubject === 'Edited subject' && reopenedPresentationSubject === 'Edited subject' && emptyPresentationSubject === '' && clearedPresentationSubject === undefined,
   presentationRevision: createdPresentationRevision === '007' && editedPresentationRevision === '42' && reopenedPresentationRevision === '42' && clearedPresentationRevision === undefined,
   presentationCompany: createdPresentationCompany === 'Packed & <Company>' && editedPresentationCompany === 'Edited company' && reopenedPresentationCompany === 'Edited company' && emptyPresentationCompany === '' && clearedPresentationCompany === undefined,
@@ -821,6 +832,16 @@ browserAuthorship.author = '';
 if (browserAuthorship.author !== '') throw new Error('Browser presentation author empty failed');
 browserAuthorship.author = undefined;
 if (browserAuthorship.author !== undefined) throw new Error('Browser presentation author clear failed');
+const browserEditorship = PptxDocument.create({ lastModifiedBy: 'Browser editor' });
+if (browserEditorship.lastModifiedBy !== 'Browser editor') throw new Error('Browser presentation lastModifiedBy create failed');
+browserEditorship.lastModifiedBy = 'Edited browser editor';
+if (browserEditorship.lastModifiedBy !== 'Edited browser editor') throw new Error('Browser presentation lastModifiedBy edit failed');
+const reopenedBrowserEditorship = await PptxDocument.open(await browserEditorship.write());
+if (reopenedBrowserEditorship.lastModifiedBy !== 'Edited browser editor') throw new Error('Browser presentation lastModifiedBy reopen failed');
+browserEditorship.lastModifiedBy = '';
+if (browserEditorship.lastModifiedBy !== '') throw new Error('Browser presentation lastModifiedBy empty failed');
+browserEditorship.lastModifiedBy = undefined;
+if (browserEditorship.lastModifiedBy !== undefined) throw new Error('Browser presentation lastModifiedBy clear failed');
 const browserSubjectMatter = PptxDocument.create({ subject: 'Browser subject' });
 if (browserSubjectMatter.subject !== 'Browser subject') throw new Error('Browser presentation subject create failed');
 browserSubjectMatter.subject = 'Edited browser subject';
@@ -917,6 +938,13 @@ const authorSnapshot: string | undefined = authoredDocument.author;
 authoredDocument.author = 'Edited typed author';
 authoredDocument.author = '';
 authoredDocument.author = undefined;
+const lastModifiedDocument: PptxDocument = PptxDocument.create({
+  lastModifiedBy: 'Typed editor',
+});
+const lastModifiedSnapshot: string | undefined = lastModifiedDocument.lastModifiedBy;
+lastModifiedDocument.lastModifiedBy = 'Edited typed editor';
+lastModifiedDocument.lastModifiedBy = '';
+lastModifiedDocument.lastModifiedBy = undefined;
 const subjectDocument: PptxDocument = PptxDocument.create({ subject: 'Typed subject' });
 const subjectSnapshot: string | undefined = subjectDocument.subject;
 subjectDocument.subject = 'Edited typed subject';
@@ -1085,7 +1113,7 @@ documentPromise.then((document) => {
   advancedCharts.installAdvancedChartPlugin(document);
   smartArt.installSmartArtPlugin(document);
 });
-void [documentPromise, createdDocument, globalRtl, globalRtlSnapshot, titledDocument, titleSnapshot, authoredDocument, authorSnapshot, subjectDocument, subjectSnapshot, revisionDocument, revisionSnapshot, companyDocument, companySnapshot, customDocument, createdText, creationBorder, creationMargin, creationOptions, objectCell, tableRows, tableOptions, typedTable, widthSnapshot, heightSnapshot, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotHorizontalAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellHorizontalAlignment, tableHorizontalAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
+void [documentPromise, createdDocument, globalRtl, globalRtlSnapshot, titledDocument, titleSnapshot, authoredDocument, authorSnapshot, lastModifiedDocument, lastModifiedSnapshot, subjectDocument, subjectSnapshot, revisionDocument, revisionSnapshot, companyDocument, companySnapshot, customDocument, createdText, creationBorder, creationMargin, creationOptions, objectCell, tableRows, tableOptions, typedTable, widthSnapshot, heightSnapshot, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotHorizontalAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellHorizontalAlignment, tableHorizontalAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
 `,
   );
   run(
