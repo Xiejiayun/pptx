@@ -16,6 +16,7 @@ import {
   type AddTableCellInput,
   type PresentationFormat,
   type TableCellBorderInput,
+  type TextBoxMarginInput,
 } from './index.js';
 
 async function modelFixture(
@@ -249,10 +250,14 @@ describe('PresentationModel', () => {
       width: 2,
       style: 'solid' as const,
     };
+    const sourceNamedMargin = { top: 4, left: 8 };
+    const sourceTupleMargin: [number, number, number, number] = [1, 2, 3, 4];
+    const typedSourceMargin: TextBoxMarginInput = sourceTupleMargin;
     const typedSourceBorder: TableCellBorderInput = sourceBorder;
     const sourceCellOptions: AddTableCellOptions = {
       border: typedSourceBorder,
       fill: sourceFill,
+      margin: sourceNamedMargin,
     };
     const objectCell = { text: 'A & <1>', options: sourceCellOptions };
     const tableRows: readonly (readonly AddTableCellInput[])[] = [
@@ -275,8 +280,9 @@ describe('PresentationModel', () => {
             { kind: 'none' },
           ],
           fill: { kind: 'none' },
+          margin: typedSourceMargin,
         } },
-        { text: 'Empty options', options: {} },
+        { text: 'Empty margin', options: { margin: {} } },
       ],
       [{
         text: 'A2',
@@ -294,8 +300,9 @@ describe('PresentationModel', () => {
             color: { kind: 'scheme', value: 'accent2' },
             transparency: 25,
           },
+          margin: 6,
         },
-      }, { text: 'B2', options: { border: { kind: 'none' } } }, 'String'],
+      }, { text: 'B2', options: { border: { kind: 'none' }, margin: 0 } }, 'String'],
     ];
     const first = slide.addText('Before table', { name: 'Before' });
     const table = slide.addTable(
@@ -316,7 +323,7 @@ describe('PresentationModel', () => {
     expect(table).toBeInstanceOf(TableModel);
     expect(table.name).toBe('Table "A"');
     expect(table.rows.map(({ cells }) => cells.map(({ text }) => text))).toEqual([
-      ['A & <1>', '', 'Empty options'],
+      ['A & <1>', '', 'Empty margin'],
       ['A2', 'B2', 'String'],
     ]);
     expect(table.rows.map(({ cells }) => cells.map(({ fill }) => fill))).toEqual([
@@ -337,6 +344,18 @@ describe('PresentationModel', () => {
         },
         undefined,
         undefined,
+      ],
+    ]);
+    expect(table.rows.map(({ cells }) => cells.map(({ margins }) => margins))).toEqual([
+      [
+        { top: 4, right: 7.2, bottom: 3.6, left: 8 },
+        { top: 1, right: 2, bottom: 3, left: 4 },
+        { top: 3.6, right: 7.2, bottom: 3.6, left: 7.2 },
+      ],
+      [
+        { top: 6, right: 6, bottom: 6, left: 6 },
+        { top: 0, right: 0, bottom: 0, left: 0 },
+        { top: 3.6, right: 7.2, bottom: 3.6, left: 7.2 },
       ],
     ]);
     const borderLine = (
@@ -382,6 +401,10 @@ describe('PresentationModel', () => {
     sourceFill.transparency = 1;
     sourceBorderColor.value = '000000';
     sourceBorder.width = 9;
+    sourceNamedMargin.top = 99;
+    sourceNamedMargin.left = 99;
+    sourceTupleMargin[0] = 99;
+    sourceTupleMargin[3] = 99;
     expect(table.rows[0]!.cells[0]!.text).toBe('A & <1>');
     expect(table.rows[0]!.cells[0]!.fill).toEqual({
       kind: 'solid',
@@ -389,10 +412,16 @@ describe('PresentationModel', () => {
       transparency: 33.333,
     });
     expect(table.rows[0]!.cells[0]!.margins).toEqual({
-      top: 3.6,
+      top: 4,
       right: 7.2,
       bottom: 3.6,
-      left: 7.2,
+      left: 8,
+    });
+    expect(table.rows[0]!.cells[1]!.margins).toEqual({
+      top: 1,
+      right: 2,
+      bottom: 3,
+      left: 4,
     });
     expect(table.rows[0]!.cells[0]!.borders).toEqual({
       top: borderLine({ kind: 'srgb', value: 'C00000' }, 2, 'solid'),
@@ -409,6 +438,22 @@ describe('PresentationModel', () => {
     expect(table.columnWidths).toEqual([inches(1), inches(1), inches(2)]);
     expect(table.rowHeights).toEqual([inches(0.75), inches(1.25)]);
     expect(slide.shapes.find(({ id }) => id === table.id)).toBe(table);
+
+    table.setCellMargins(0, 0, { top: 2 });
+    expect(table.rows[0]!.cells[0]!.margins).toEqual({ top: 2 });
+    table.setCellMargins(0, 1, undefined);
+    expect(table.rows[0]!.cells[1]!.margins).toBeUndefined();
+    expect(table.rows[0]!.cells[0]!.fill).toEqual({
+      kind: 'solid',
+      color: { kind: 'srgb', value: 'FF0000' },
+      transparency: 33.333,
+    });
+    expect(table.rows[0]!.cells[0]!.borders).toEqual({
+      top: borderLine({ kind: 'srgb', value: 'C00000' }, 2, 'solid'),
+      right: borderLine({ kind: 'srgb', value: 'C00000' }, 2, 'solid'),
+      bottom: borderLine({ kind: 'srgb', value: 'C00000' }, 2, 'solid'),
+      left: borderLine({ kind: 'srgb', value: 'C00000' }, 2, 'solid'),
+    });
 
     table.setCellBorders(0, 1, {
       right: borderLine({ kind: 'scheme', value: 'accent6' }, 2.25, 'dash'),
@@ -600,6 +645,7 @@ describe('PresentationModel', () => {
               color: { kind: 'scheme', value: 'accent1' },
               transparency: 25,
             },
+            margin: { right: -2 },
           },
         }]]);
         throw new Error('restore table');
@@ -616,8 +662,21 @@ describe('PresentationModel', () => {
     expect(reopenedSlide!.shapes.find(({ id }) => id === table.id)).toBe(reopenedTable);
     expect((reopenedTable as TableModel).rows.map(({ cells }) =>
       cells.map(({ text }) => text))).toEqual([
-      ['Edited', '', 'Empty options'],
+      ['Edited', '', 'Empty margin'],
       ['A2', 'B2', 'String'],
+    ]);
+    expect((reopenedTable as TableModel).rows.map(({ cells }) =>
+      cells.map(({ margins }) => margins))).toEqual([
+      [
+        { top: 2 },
+        undefined,
+        { top: 3.6, right: 7.2, bottom: 3.6, left: 7.2 },
+      ],
+      [
+        { top: 6, right: 6, bottom: 6, left: 6 },
+        { top: 0, right: 0, bottom: 0, left: 0 },
+        { top: 3.6, right: 7.2, bottom: 3.6, left: 7.2 },
+      ],
     ]);
     expect((reopenedTable as TableModel).rows.map(({ cells }) =>
       cells.map(({ fill }) => fill))).toEqual([
