@@ -585,12 +585,13 @@ describe('importPptxGenJS', () => {
     ]);
   });
 
-  it('matches native cell-level table valign creation to supported PptxGenJS output', async () => {
+  it('matches native table-level valign creation to supported PptxGenJS output', async () => {
     const generated = new PptxGenJS();
     expect(generated.version).toBe('4.0.1');
     generated.layout = 'LAYOUT_WIDE';
     generated.addSlide().addTable([[
-      { text: 'Default', options: {} },
+      { text: 'Inherited string', options: {} },
+      { text: 'Inherited object', options: {} },
       { text: 'Top', options: { valign: 'top' } },
       { text: 'Middle', options: { valign: 'middle' } },
       { text: 'Bottom', options: { valign: 'bottom' } },
@@ -599,8 +600,9 @@ describe('importPptxGenJS', () => {
       y: 0.5,
       w: 8,
       h: 1,
-      colW: [2, 2, 2, 2],
+      colW: [1.6, 1.6, 1.6, 1.6, 1.6],
       rowH: 1,
+      valign: 'middle',
     });
     const imported = await importPptxGenJS(generated);
     const importedTable = imported.slides[0]!.shapes.find(
@@ -611,18 +613,20 @@ describe('importPptxGenJS', () => {
     const native = PptxDocument.create({ slideSize: 'wide' });
     const nativeSlide = native.addSlide();
     const nativeTable = nativeSlide.addTable([[
-      { text: 'Default' },
+      'Inherited string',
+      { text: 'Inherited object' },
       { text: 'Top', options: { valign: 'top' } },
       { text: 'Middle', options: { valign: 'middle' } },
       { text: 'Bottom', options: { valign: 'bottom' } },
     ]], {
       x: inches(0.5),
       y: inches(0.5),
-      columnWidths: inches(2),
+      columnWidths: inches(1.6),
       rowHeights: inches(1),
+      valign: 'middle',
     });
-    const expectedAlignments = [undefined, 'top', 'middle', 'bottom'];
-    const expectedText = ['Default', 'Top', 'Middle', 'Bottom'];
+    const expectedAlignments = ['middle', 'middle', 'top', 'middle', 'bottom'];
+    const expectedText = ['Inherited string', 'Inherited object', 'Top', 'Middle', 'Bottom'];
     expect(nativeTable.rows[0]!.cells.map(
       ({ verticalAlignment }) => verticalAlignment)).toEqual(expectedAlignments);
     expect(importedTable!.rows[0]!.cells.map(
@@ -645,10 +649,15 @@ describe('importPptxGenJS', () => {
     for (const xml of [nativeXml, importedXml]) {
       const properties = [...xml.matchAll(/<a:tcPr([^>]*)>/g)]
         .map((match) => match[1]!);
-      expect(properties).toHaveLength(4);
-      expect(properties[0]).not.toMatch(/\sanchor=/);
-      expect(properties.slice(1).map((attributes) =>
-        attributes.match(/\sanchor="([^"]+)"/)?.[1])).toEqual(['t', 'ctr', 'b']);
+      expect(properties).toHaveLength(5);
+      expect(properties.map((attributes) =>
+        attributes.match(/\sanchor="([^"]+)"/)?.[1])).toEqual([
+        'ctr',
+        'ctr',
+        't',
+        'ctr',
+        'b',
+      ]);
       expect(xml).not.toMatch(/<a:bodyPr[^>]*\sanchor=/);
     }
 
@@ -665,6 +674,10 @@ describe('importPptxGenJS', () => {
       text: 'Invalid mid',
       options: { valign: 'mid' as never },
     }]])).toThrow(TypeError);
+    expect(() => nativeSlide.addTable(
+      [['Invalid distributed']],
+      { valign: 'distributed' as never },
+    )).toThrow(TypeError);
     expect(native.opcPackage.requirePart(nativeSlide.partUri).bytes).toEqual(beforeInvalid);
     expect(native.opcPackage.mutations).toEqual(invalidJournal);
   });
