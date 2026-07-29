@@ -1338,6 +1338,148 @@ describe('PptxDocument vertical slice', () => {
       .filter(({ severity }) => severity === 'error')).toEqual([]);
   });
 
+  it('materializes table text direction through the SDK lifecycle', async () => {
+    const document = PptxDocument.create({ slideSize: 'wide' });
+    const slide = document.addSlide();
+    const opaqueUri = '/ppt/custom/table-text-direction.bin';
+    document.opcPackage.setPart(
+      opaqueUri,
+      new Uint8Array([13, 26, 39, 52, 65, 78, 91, 104]),
+      'application/octet-stream',
+    );
+    const opaqueHash = hash(document.opcPackage.requirePart(opaqueUri).bytes);
+    const table = slide.addTable([
+      [
+        'Inherited string',
+        {
+          text: 'Inherited undefined',
+          options: { textDirection: undefined } as unknown as AddTableCellOptions,
+        },
+        { text: 'Horizontal override', options: { textDirection: 'horz' } },
+      ],
+      [
+        { text: 'Vertical override', options: { textDirection: 'vert' } },
+        { text: 'Stacked override', options: { textDirection: 'wordArtVert' } },
+        { text: 'Inherited object', options: {} },
+      ],
+    ], {
+      name: 'Table text direction lifecycle',
+      textDirection: 'vert270',
+      columnWidths: inches(2),
+      rowHeights: inches(1),
+      margin: { top: 4, left: 8 },
+      valign: 'middle',
+    });
+    const original = [
+      'vert270',
+      'vert270',
+      undefined,
+      'vert',
+      'wordArtVert',
+      'vert270',
+    ];
+    const directDirections = (target: PptxDocument, partUri: string) => {
+      const xml = new TextDecoder().decode(target.opcPackage.requirePart(partUri).bytes);
+      return [...xml.matchAll(/<a:tc(?:\s[^>]*)?>[\s\S]*?<\/a:tc>/g)]
+        .map((match) => match[0]!
+          .match(/<a:tcPr[^>]*\svert="([^"]+)"/)?.[1]);
+    };
+    expect(table.rows.flatMap(({ cells }) =>
+      cells.map(({ textDirection }) => textDirection))).toEqual(original);
+    expect(directDirections(document, slide.partUri)).toEqual(original);
+
+    const duplicate = document.duplicateSlide(0);
+    const duplicateTable = duplicate.shapes[0] as TableModel;
+    expect(duplicateTable.rows.flatMap(({ cells }) =>
+      cells.map(({ textDirection }) => textDirection))).toEqual(original);
+    expect(directDirections(document, duplicate.partUri)).toEqual(original);
+
+    table.setCellTextDirection(0, 0, undefined);
+    table.setCellTextDirection(0, 1, 'wordArtVert');
+    table.setCellText(1, 2, 'Inherited object edited');
+    table.setCellMargins(0, 0, { bottom: 9 });
+    table.setCellVerticalAlignment(0, 1, 'bottom');
+    table.setCellBorders(1, 0, { kind: 'none' });
+    table.setCellFill(1, 1, {
+      kind: 'solid',
+      color: { kind: 'srgb', value: 'FFF2CC' },
+    });
+    table.setCellTextFit(1, 2, 'shrink');
+    table.setColumnWidths(inches(1.75));
+    table.setRowHeights(inches(1.25));
+    const edited = [
+      undefined,
+      'wordArtVert',
+      undefined,
+      'vert',
+      'wordArtVert',
+      'vert270',
+    ];
+    expect(table.rows.flatMap(({ cells }) =>
+      cells.map(({ textDirection }) => textDirection))).toEqual(edited);
+    expect(directDirections(document, slide.partUri)).toEqual(edited);
+    expect(duplicateTable.rows.flatMap(({ cells }) =>
+      cells.map(({ textDirection }) => textDirection))).toEqual(original);
+
+    const beforeRollback = document.opcPackage.requirePart(slide.partUri).bytes.slice();
+    const duplicateBeforeRollback = document.opcPackage
+      .requirePart(duplicate.partUri).bytes.slice();
+    const rollbackJournal = [...document.opcPackage.mutations];
+    const shapeCount = slide.shapes.length;
+    let rolledBack: TableModel | undefined;
+    expect(() => document.transaction(() => {
+      table.setCellTextDirection(0, 0, 'vert');
+      table.setCellText(0, 1, 'Rolled back');
+      rolledBack = slide.addTable([['Temporary']], {
+        textDirection: 'wordArtVert',
+      });
+      throw new Error('restore table text direction');
+    })).toThrow('restore table text direction');
+    expect(document.opcPackage.requirePart(slide.partUri).bytes)
+      .toEqual(beforeRollback);
+    expect(document.opcPackage.requirePart(duplicate.partUri).bytes)
+      .toEqual(duplicateBeforeRollback);
+    expect(document.opcPackage.mutations).toEqual(rollbackJournal);
+    expect(slide.shapes).toHaveLength(shapeCount);
+    expect(slide.shapes[0]).toBe(table);
+    expect(duplicate.shapes[0]).toBe(duplicateTable);
+    expect(() => rolledBack!.rows).toThrow(ModelParseError);
+    expect(table.rows.flatMap(({ cells }) =>
+      cells.map(({ textDirection }) => textDirection))).toEqual(edited);
+    expect(hash(document.opcPackage.requirePart(opaqueUri).bytes)).toBe(opaqueHash);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedTable = reopened.slides[0]!.shapes[0] as TableModel;
+    const reopenedDuplicate = reopened.slides[1]!.shapes[0] as TableModel;
+    expect(reopenedTable.rows.flatMap(({ cells }) =>
+      cells.map(({ textDirection }) => textDirection))).toEqual(edited);
+    expect(directDirections(reopened, reopened.slides[0]!.partUri)).toEqual(edited);
+    expect(reopenedDuplicate.rows.flatMap(({ cells }) =>
+      cells.map(({ textDirection }) => textDirection))).toEqual(original);
+    expect(directDirections(reopened, reopened.slides[1]!.partUri)).toEqual(original);
+    expect(reopenedTable.rows[1]!.cells[2]!.text).toBe('Inherited object edited');
+    expect(reopenedTable.rows[0]!.cells[0]!.margins).toEqual({ bottom: 9 });
+    expect(reopenedTable.rows[0]!.cells[1]!.verticalAlignment).toBe('bottom');
+    expect(reopenedTable.rows[1]!.cells[0]!.borders).toEqual({
+      top: { kind: 'none' },
+      right: { kind: 'none' },
+      bottom: { kind: 'none' },
+      left: { kind: 'none' },
+    });
+    expect(reopenedTable.rows[1]!.cells[1]!.fill).toEqual({
+      kind: 'solid',
+      color: { kind: 'srgb', value: 'FFF2CC' },
+    });
+    expect(reopenedTable.rows[1]!.cells[2]!.textFit).toBe('shrink');
+    expect(reopenedTable.columnWidths).toEqual(Array(3).fill(inches(1.75)));
+    expect(reopenedTable.rowHeights).toEqual(Array(2).fill(inches(1.25)));
+    expect(reopenedDuplicate.columnWidths).toEqual(Array(3).fill(inches(2)));
+    expect(reopenedDuplicate.rowHeights).toEqual(Array(2).fill(inches(1)));
+    expect(hash(reopened.opcPackage.requirePart(opaqueUri).bytes)).toBe(opaqueHash);
+    expect(validatePackage(reopened.opcPackage)
+      .filter(({ severity }) => severity === 'error')).toEqual([]);
+  });
+
   it('materializes public table margins through duplicate, rollback, and reopen', async () => {
     const document = PptxDocument.create();
     const slide = document.addSlide();
@@ -2143,7 +2285,7 @@ describe('PptxDocument vertical slice', () => {
     }
   });
 
-  it('rejects invalid public table-cell text direction creation before mutation', () => {
+  it('rejects invalid public table and table-cell text direction creation before mutation', () => {
     const document = PptxDocument.create();
     const slide = document.addSlide();
     const table = slide.addTable([[{
@@ -2184,11 +2326,19 @@ describe('PptxDocument vertical slice', () => {
       text: 'Accessor',
       options: accessorOptions as AddTableCellOptions,
     }]])).toThrow(TypeError);
+    expect(() => slide.addTable(
+      [['Accessor table']],
+      accessorOptions as AddTableOptions,
+    )).toThrow(TypeError);
     for (const textDirection of invalidDirections) {
       expect(() => slide.addTable([[{
         text: 'Invalid',
         options: { textDirection } as unknown as AddTableCellOptions,
       }]])).toThrow(TypeError);
+      expect(() => slide.addTable(
+        [['Invalid table']],
+        { textDirection } as unknown as AddTableOptions,
+      )).toThrow(TypeError);
     }
 
     expect(getterCalls).toBe(0);
