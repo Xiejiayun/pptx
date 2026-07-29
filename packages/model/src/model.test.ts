@@ -258,6 +258,7 @@ describe('PresentationModel', () => {
       border: typedSourceBorder,
       fill: sourceFill,
       margin: sourceNamedMargin,
+      valign: 'middle',
     };
     const objectCell = { text: 'A & <1>', options: sourceCellOptions };
     const tableRows: readonly (readonly AddTableCellInput[])[] = [
@@ -281,8 +282,9 @@ describe('PresentationModel', () => {
           ],
           fill: { kind: 'none' },
           margin: typedSourceMargin,
+          valign: 'top',
         } },
-        { text: 'Empty margin', options: { margin: {} } },
+        { text: 'Empty margin', options: { margin: {}, valign: 'bottom' } },
       ],
       [{
         text: 'A2',
@@ -301,8 +303,12 @@ describe('PresentationModel', () => {
             transparency: 25,
           },
           margin: 6,
+          valign: 'bottom',
         },
-      }, { text: 'B2', options: { border: { kind: 'none' }, margin: 0 } }, 'String'],
+      }, {
+        text: 'B2',
+        options: { border: { kind: 'none' }, margin: 0 },
+      }, 'String'],
     ];
     const first = slide.addText('Before table', { name: 'Before' });
     const table = slide.addTable(
@@ -357,6 +363,11 @@ describe('PresentationModel', () => {
         { top: 0, right: 0, bottom: 0, left: 0 },
         { top: 3.6, right: 7.2, bottom: 3.6, left: 7.2 },
       ],
+    ]);
+    expect(table.rows.map(({ cells }) =>
+      cells.map(({ verticalAlignment }) => verticalAlignment))).toEqual([
+      ['middle', 'top', 'bottom'],
+      ['bottom', undefined, undefined],
     ]);
     const borderLine = (
       color: { kind: 'srgb' | 'scheme'; value: string },
@@ -423,6 +434,12 @@ describe('PresentationModel', () => {
       bottom: 3,
       left: 4,
     });
+    expect(table.rows[0]!.cells.map(
+      ({ verticalAlignment }) => verticalAlignment)).toEqual([
+      'middle',
+      'top',
+      'bottom',
+    ]);
     expect(table.rows[0]!.cells[0]!.borders).toEqual({
       top: borderLine({ kind: 'srgb', value: 'C00000' }, 2, 'solid'),
       right: borderLine({ kind: 'srgb', value: 'C00000' }, 2, 'solid'),
@@ -443,6 +460,14 @@ describe('PresentationModel', () => {
     expect(table.rows[0]!.cells[0]!.margins).toEqual({ top: 2 });
     table.setCellMargins(0, 1, undefined);
     expect(table.rows[0]!.cells[1]!.margins).toBeUndefined();
+    table.setCellVerticalAlignment(0, 0, 'bottom');
+    table.setCellVerticalAlignment(0, 1, undefined);
+    expect(table.rows[0]!.cells.map(
+      ({ verticalAlignment }) => verticalAlignment)).toEqual([
+      'bottom',
+      undefined,
+      'bottom',
+    ]);
     expect(table.rows[0]!.cells[0]!.fill).toEqual({
       kind: 'solid',
       color: { kind: 'srgb', value: 'FF0000' },
@@ -646,6 +671,7 @@ describe('PresentationModel', () => {
               transparency: 25,
             },
             margin: { right: -2 },
+            valign: 'top',
           },
         }]]);
         throw new Error('restore table');
@@ -677,6 +703,11 @@ describe('PresentationModel', () => {
         { top: 0, right: 0, bottom: 0, left: 0 },
         { top: 3.6, right: 7.2, bottom: 3.6, left: 7.2 },
       ],
+    ]);
+    expect((reopenedTable as TableModel).rows.map(({ cells }) =>
+      cells.map(({ verticalAlignment }) => verticalAlignment))).toEqual([
+      ['bottom', undefined, 'bottom'],
+      ['bottom', undefined, undefined],
     ]);
     expect((reopenedTable as TableModel).rows.map(({ cells }) =>
       cells.map(({ fill }) => fill))).toEqual([

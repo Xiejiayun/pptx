@@ -119,6 +119,7 @@ export interface AddTableCellOptions {
   readonly border?: TableCellBorderInput;
   readonly fill?: TableCellFill;
   readonly margin?: TextBoxMarginInput;
+  readonly valign?: TextBoxVerticalAlignment;
 }
 
 export interface AddTableCell {
