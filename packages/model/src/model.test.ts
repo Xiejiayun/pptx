@@ -569,6 +569,163 @@ describe('PresentationModel', () => {
     expect(reopenedCreated.subject).toBe('Created metadata');
   });
 
+  it('reads, edits, clears, repairs, creates, and reopens presentation revision metadata', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const coreXml =
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<c:coreProperties xmlns:c="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" ' +
+      'xmlns:d="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" ' +
+      'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">' +
+      '<d:title>Quarterly</d:title><d:subject>Forecast</d:subject>' +
+      '<d:creator>Alice</d:creator><c:lastModifiedBy>Editor</c:lastModifiedBy>' +
+      '<c:revision>007</c:revision>' +
+      '<dcterms:created xsi:type="dcterms:W3CDTF">2026-07-30T00:00:00Z</dcterms:created>' +
+      '<dcterms:modified xsi:type="dcterms:W3CDTF">2026-07-30T01:00:00Z</dcterms:modified>' +
+      '<x:opaque xmlns:x="urn:test">KEEP</x:opaque></c:coreProperties>';
+    pkg.transaction(() => {
+      pkg.setPart('/metadata/properties.xml', coreXml, CORE_PROPERTIES_CONTENT_TYPE);
+      pkg.addRelationship('/', {
+        type: CORE_PROPERTIES_RELATIONSHIP,
+        target: 'metadata/properties.xml',
+      });
+    });
+    const model = new PresentationModel(pkg);
+    const slide = model.slides[0];
+    const readJournal = [...pkg.mutations];
+    expect(model.revision).toBe('007');
+    expect(pkg.mutations).toEqual(readJournal);
+
+    const beforeSame = pkg.requirePart('/metadata/properties.xml').bytes;
+    model.revision = '007';
+    expect(pkg.requirePart('/metadata/properties.xml').bytes).toEqual(beforeSame);
+    expect(pkg.mutations).toEqual(readJournal);
+    expect(model.slides[0]).toBe(slide);
+
+    const beforeInvalid = pkg.requirePart('/metadata/properties.xml').bytes;
+    const invalidJournal = [...pkg.mutations];
+    for (const value of [
+      '', ' ', '+1', '-1', '1.0', '1e3', '１２', null, false, 0, 1n, {}, [],
+      Symbol('revision'),
+    ]) {
+      expect(() => {
+        model.revision = value as never;
+      }).toThrow(TypeError);
+    }
+    expect(pkg.requirePart('/metadata/properties.xml').bytes).toEqual(beforeInvalid);
+    expect(pkg.mutations).toEqual(invalidJournal);
+    expect(model.slides[0]).toBe(slide);
+
+    const otherParts = new Map(
+      pkg.parts
+        .filter(({ uri }) => uri !== '/metadata/properties.xml')
+        .map(({ uri, bytes }) => [uri, bytes]),
+    );
+    model.revision = '42';
+    expect(model.revision).toBe('42');
+    let updated = new TextDecoder().decode(pkg.requirePart('/metadata/properties.xml').bytes);
+    expect(updated).toContain('<c:revision>42</c:revision>');
+    expect(updated).toContain('<d:title>Quarterly</d:title>');
+    expect(updated).toContain('<d:subject>Forecast</d:subject>');
+    expect(updated).toContain('<d:creator>Alice</d:creator>');
+    expect(updated).toContain('<c:lastModifiedBy>Editor</c:lastModifiedBy>');
+    expect(updated).toContain('2026-07-30T00:00:00Z');
+    expect(updated).toContain('2026-07-30T01:00:00Z');
+    expect(updated).toContain('<x:opaque xmlns:x="urn:test">KEEP</x:opaque>');
+    for (const [uri, bytes] of otherParts) {
+      expect(pkg.requirePart(uri).bytes).toEqual(bytes);
+    }
+    expect(model.slides[0]).toBe(slide);
+
+    model.revision = '0009';
+    expect(model.revision).toBe('0009');
+    updated = new TextDecoder().decode(pkg.requirePart('/metadata/properties.xml').bytes);
+    expect(updated).toContain('<c:revision>0009</c:revision>');
+
+    const beforeRollback = pkg.requirePart('/metadata/properties.xml').bytes;
+    const rollbackJournal = [...pkg.mutations];
+    expect(() => pkg.transaction(() => {
+      model.revision = '99';
+      expect(model.revision).toBe('99');
+      throw new Error('restore presentation revision');
+    })).toThrow('restore presentation revision');
+    expect(pkg.requirePart('/metadata/properties.xml').bytes).toEqual(beforeRollback);
+    expect(pkg.mutations).toEqual(rollbackJournal);
+    expect(model.revision).toBe('0009');
+
+    model.revision = undefined;
+    expect(model.revision).toBeUndefined();
+    updated = new TextDecoder().decode(pkg.requirePart('/metadata/properties.xml').bytes);
+    expect(updated).not.toContain('<c:revision');
+    expect(updated).toContain('<d:title>Quarterly</d:title>');
+    expect(updated).toContain('<d:subject>Forecast</d:subject>');
+    expect(updated).toContain('<d:creator>Alice</d:creator>');
+    expect(updated).toContain('<c:lastModifiedBy>Editor</c:lastModifiedBy>');
+    expect(updated).toContain('<x:opaque xmlns:x="urn:test">KEEP</x:opaque>');
+    expect(pkg.hasPart('/metadata/properties.xml')).toBe(true);
+
+    model.revision = '12345678901234567890';
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    expect(reopened.revision).toBe('12345678901234567890');
+    expect(reopened.slides.map(({ partUri }) => partUri)).toEqual(
+      model.slides.map(({ partUri }) => partUri),
+    );
+
+    const invalidPkg = await OpcPackage.open(await modelFixture());
+    invalidPkg.transaction(() => {
+      invalidPkg.setPart(
+        '/metadata/invalid-core.xml',
+        '<?xml version="1.0"?><c:coreProperties ' +
+          'xmlns:c="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" ' +
+          'xmlns:d="http://purl.org/dc/elements/1.1/"><c:revision>abc</c:revision>' +
+          '<d:title>KEEP</d:title></c:coreProperties>',
+        CORE_PROPERTIES_CONTENT_TYPE,
+      );
+      invalidPkg.addRelationship('/', {
+        type: CORE_PROPERTIES_RELATIONSHIP,
+        target: 'metadata/invalid-core.xml',
+      });
+    });
+    const invalidModel = new PresentationModel(invalidPkg);
+    expect(invalidModel.revision).toBeUndefined();
+    invalidModel.revision = '8';
+    expect(invalidModel.revision).toBe('8');
+    expect(new TextDecoder().decode(
+      invalidPkg.requirePart('/metadata/invalid-core.xml').bytes,
+    )).toContain('<c:revision>8</c:revision><d:title>KEEP</d:title>');
+    invalidModel.revision = undefined;
+    expect(invalidModel.revision).toBeUndefined();
+
+    const missingPkg = await OpcPackage.open(await modelFixture());
+    const missingModel = new PresentationModel(missingPkg);
+    const missingSlide = missingModel.slides[0];
+    const beforeAbsentClear = missingPkg.parts.map(({ uri, bytes }) => [uri, bytes] as const);
+    const absentJournal = [...missingPkg.mutations];
+    expect(missingModel.revision).toBeUndefined();
+    missingModel.revision = undefined;
+    expect(missingPkg.mutations).toEqual(absentJournal);
+    for (const [uri, bytes] of beforeAbsentClear) {
+      expect(missingPkg.requirePart(uri).bytes).toEqual(bytes);
+    }
+
+    missingModel.revision = '7';
+    expect(missingModel.revision).toBe('7');
+    expect(missingModel.slides[0]).toBe(missingSlide);
+    const createdRelationship = missingPkg.relationships('/').find(
+      ({ type }) => type === CORE_PROPERTIES_RELATIONSHIP,
+    );
+    expect(createdRelationship?.resolvedTarget).toBe('/docProps/core.xml');
+    expect(missingPkg.requirePart('/docProps/core.xml').contentType)
+      .toBe(CORE_PROPERTIES_CONTENT_TYPE);
+    const createdXml = new TextDecoder().decode(
+      missingPkg.requirePart('/docProps/core.xml').bytes,
+    );
+    expect(createdXml).toContain('<cp:revision>7</cp:revision>');
+    expect(createdXml.match(/xmlns:cp=/g)).toHaveLength(1);
+    expect(createdXml).not.toContain('creator');
+    const reopenedCreated = new PresentationModel(await OpcPackage.open(await missingPkg.write()));
+    expect(reopenedCreated.revision).toBe('7');
+  });
+
   it('reads, edits, clears, creates, and reopens presentation company metadata', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const appXml =
