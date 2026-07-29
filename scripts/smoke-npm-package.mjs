@@ -462,6 +462,16 @@ editorship.lastModifiedBy = '';
 const emptyPresentationLastModifiedBy = editorship.lastModifiedBy;
 editorship.lastModifiedBy = undefined;
 const clearedPresentationLastModifiedBy = editorship.lastModifiedBy;
+const chronology = PptxDocument.create({
+  createdAt: '2024-02-29T12:34:56.123+05:30',
+});
+const createdPresentationCreatedAt = chronology.createdAt;
+chronology.createdAt = '2026-07-30T00:00:00Z';
+const editedPresentationCreatedAt = chronology.createdAt;
+const reopenedChronology = await PptxDocument.open(await chronology.write());
+const reopenedPresentationCreatedAt = reopenedChronology.createdAt;
+chronology.createdAt = undefined;
+const clearedPresentationCreatedAt = chronology.createdAt;
 const subjectMatter = PptxDocument.create({ subject: 'Packed & <Subject>' });
 const createdPresentationSubject = subjectMatter.subject;
 subjectMatter.subject = 'Edited subject';
@@ -500,6 +510,7 @@ const checks = {
   presentationTitle: createdPresentationTitle === 'Packed & <Title>' && editedPresentationTitle === 'Edited title' && reopenedPresentationTitle === 'Edited title' && emptyPresentationTitle === '' && clearedPresentationTitle === undefined,
   presentationAuthor: createdPresentationAuthor === 'Packed & <Author>' && editedPresentationAuthor === 'Edited author' && reopenedPresentationAuthor === 'Edited author' && emptyPresentationAuthor === '' && clearedPresentationAuthor === undefined,
   presentationLastModifiedBy: createdPresentationLastModifiedBy === 'Packed & <Editor>' && editedPresentationLastModifiedBy === 'Edited editor' && reopenedPresentationLastModifiedBy === 'Edited editor' && emptyPresentationLastModifiedBy === '' && clearedPresentationLastModifiedBy === undefined,
+  presentationCreatedAt: createdPresentationCreatedAt === '2024-02-29T12:34:56.123+05:30' && editedPresentationCreatedAt === '2026-07-30T00:00:00Z' && reopenedPresentationCreatedAt === '2026-07-30T00:00:00Z' && clearedPresentationCreatedAt === undefined,
   presentationSubject: createdPresentationSubject === 'Packed & <Subject>' && editedPresentationSubject === 'Edited subject' && reopenedPresentationSubject === 'Edited subject' && emptyPresentationSubject === '' && clearedPresentationSubject === undefined,
   presentationRevision: createdPresentationRevision === '007' && editedPresentationRevision === '42' && reopenedPresentationRevision === '42' && clearedPresentationRevision === undefined,
   presentationCompany: createdPresentationCompany === 'Packed & <Company>' && editedPresentationCompany === 'Edited company' && reopenedPresentationCompany === 'Edited company' && emptyPresentationCompany === '' && clearedPresentationCompany === undefined,
@@ -842,6 +853,16 @@ browserEditorship.lastModifiedBy = '';
 if (browserEditorship.lastModifiedBy !== '') throw new Error('Browser presentation lastModifiedBy empty failed');
 browserEditorship.lastModifiedBy = undefined;
 if (browserEditorship.lastModifiedBy !== undefined) throw new Error('Browser presentation lastModifiedBy clear failed');
+const browserChronology = PptxDocument.create({
+  createdAt: '2024-02-29T12:34:56.123+05:30',
+});
+if (browserChronology.createdAt !== '2024-02-29T12:34:56.123+05:30') throw new Error('Browser presentation createdAt create failed');
+browserChronology.createdAt = '2026-07-30T00:00:00Z';
+if (browserChronology.createdAt !== '2026-07-30T00:00:00Z') throw new Error('Browser presentation createdAt edit failed');
+const reopenedBrowserChronology = await PptxDocument.open(await browserChronology.write());
+if (reopenedBrowserChronology.createdAt !== '2026-07-30T00:00:00Z') throw new Error('Browser presentation createdAt reopen failed');
+browserChronology.createdAt = undefined;
+if (browserChronology.createdAt !== undefined) throw new Error('Browser presentation createdAt clear failed');
 const browserSubjectMatter = PptxDocument.create({ subject: 'Browser subject' });
 if (browserSubjectMatter.subject !== 'Browser subject') throw new Error('Browser presentation subject create failed');
 browserSubjectMatter.subject = 'Edited browser subject';
@@ -945,6 +966,12 @@ const lastModifiedSnapshot: string | undefined = lastModifiedDocument.lastModifi
 lastModifiedDocument.lastModifiedBy = 'Edited typed editor';
 lastModifiedDocument.lastModifiedBy = '';
 lastModifiedDocument.lastModifiedBy = undefined;
+const createdAtDocument: PptxDocument = PptxDocument.create({
+  createdAt: '2026-07-30T00:00:00Z',
+});
+const createdAtSnapshot: string | undefined = createdAtDocument.createdAt;
+createdAtDocument.createdAt = '2024-02-29T12:34:56.123+05:30';
+createdAtDocument.createdAt = undefined;
 const subjectDocument: PptxDocument = PptxDocument.create({ subject: 'Typed subject' });
 const subjectSnapshot: string | undefined = subjectDocument.subject;
 subjectDocument.subject = 'Edited typed subject';
@@ -1113,7 +1140,7 @@ documentPromise.then((document) => {
   advancedCharts.installAdvancedChartPlugin(document);
   smartArt.installSmartArtPlugin(document);
 });
-void [documentPromise, createdDocument, globalRtl, globalRtlSnapshot, titledDocument, titleSnapshot, authoredDocument, authorSnapshot, lastModifiedDocument, lastModifiedSnapshot, subjectDocument, subjectSnapshot, revisionDocument, revisionSnapshot, companyDocument, companySnapshot, customDocument, createdText, creationBorder, creationMargin, creationOptions, objectCell, tableRows, tableOptions, typedTable, widthSnapshot, heightSnapshot, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotHorizontalAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellHorizontalAlignment, tableHorizontalAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
+void [documentPromise, createdDocument, globalRtl, globalRtlSnapshot, titledDocument, titleSnapshot, authoredDocument, authorSnapshot, lastModifiedDocument, lastModifiedSnapshot, createdAtDocument, createdAtSnapshot, subjectDocument, subjectSnapshot, revisionDocument, revisionSnapshot, companyDocument, companySnapshot, customDocument, createdText, creationBorder, creationMargin, creationOptions, objectCell, tableRows, tableOptions, typedTable, widthSnapshot, heightSnapshot, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotHorizontalAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellHorizontalAlignment, tableHorizontalAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
 `,
   );
   run(
