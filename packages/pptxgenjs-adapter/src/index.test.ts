@@ -640,6 +640,41 @@ describe('importPptxGenJS', () => {
       'vert270',
       'vert',
     ]);
+
+    const native = PptxDocument.create({ slideSize: 'wide' });
+    const nativeSlide = native.addSlide();
+    const nativeTable = nativeSlide.addTable([[
+      { text: 'Omitted' },
+      { text: 'None', options: { fit: 'none' } },
+      { text: 'Shrink', options: { fit: 'shrink' } },
+      { text: 'Resize', options: { fit: 'resize', textDirection: 'vert' } },
+    ]], {
+      columnWidths: inches(2),
+      rowHeights: inches(1),
+    });
+    expect(nativeTable.rows[0]!.cells.map(({ textFit }) => textFit)).toEqual([
+      undefined,
+      undefined,
+      'shrink',
+      'resize',
+    ]);
+    expect(nativeTable.rows[0]!.cells[3]!.textDirection).toBe('vert');
+
+    const nativeXml = new TextDecoder().decode(
+      native.opcPackage.requirePart(nativeSlide.partUri).bytes,
+    );
+    expect(nativeXml.match(/<a:normAutofit\/>/g)).toHaveLength(1);
+    expect(nativeXml.match(/<a:spAutoFit\/>/g)).toHaveLength(1);
+    expect(nativeXml).not.toContain('<a:noAutofit/>');
+
+    const beforeInvalid = native.opcPackage.requirePart(nativeSlide.partUri).bytes;
+    const invalidJournal = [...native.opcPackage.mutations];
+    expect(() => nativeSlide.addTable([[
+      { text: 'Invalid', options: { fit: 'SHRINK' as never } },
+    ]])).toThrow(TypeError);
+    expect(native.opcPackage.requirePart(nativeSlide.partUri).bytes).toEqual(beforeInvalid);
+    expect(native.opcPackage.mutations).toEqual(invalidJournal);
+    expect(nativeSlide.shapes[0]).toBe(nativeTable);
   });
 
   it('imports PptxGenJS table-cell vertical alignments from direct cell anchors', async () => {
