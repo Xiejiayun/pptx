@@ -3884,6 +3884,70 @@ describe('importPptxGenJS', () => {
     }
   }, 20_000);
 
+  it('imports, edits, and reopens PptxGenJS presentation created-at metadata from public output', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    generated.addSlide();
+    const bytes = await generated.write({ outputType: 'uint8array', compression: true });
+    const imported = await PptxDocument.open(bytes);
+    const journal = [...imported.opcPackage.mutations];
+
+    expect(imported.createdAt).toMatch(
+      /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$/,
+    );
+    expect(imported.opcPackage.mutations).toEqual(journal);
+    const createdAt = imported.createdAt!;
+    const coreBefore = new TextDecoder().decode(
+      imported.opcPackage.requirePart('/docProps/core.xml').bytes,
+    );
+    expect(coreBefore).toContain(
+      'xmlns:dcterms="http://purl.org/dc/terms/"',
+    );
+    expect(coreBefore).toContain(
+      'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"',
+    );
+    expect(coreBefore.match(
+      /<dcterms:created xsi:type="dcterms:W3CDTF">([^<]+)<\/dcterms:created>/,
+    )?.[1]).toBe(createdAt);
+    const modifiedBefore = coreBefore.match(
+      /<dcterms:modified xsi:type="dcterms:W3CDTF">[^<]+<\/dcterms:modified>/,
+    )?.[0];
+    expect(modifiedBefore).toMatch(
+      /^<dcterms:modified xsi:type="dcterms:W3CDTF">[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z<\/dcterms:modified>$/,
+    );
+    const nonCoreParts = new Map(
+      imported.opcPackage.parts
+        .filter(({ uri }) => uri !== '/docProps/core.xml')
+        .map(({ uri, bytes: partBytes }) => [uri, partBytes]),
+    );
+
+    const native = PptxDocument.create({ createdAt });
+    expect(native.createdAt).toBe(createdAt);
+    expect(PptxDocument.create().createdAt).toBeUndefined();
+
+    imported.createdAt = '2024-02-29T12:34:56.123+05:30';
+    expect(imported.createdAt).toBe('2024-02-29T12:34:56.123+05:30');
+    const coreAfter = new TextDecoder().decode(
+      imported.opcPackage.requirePart('/docProps/core.xml').bytes,
+    );
+    expect(coreAfter).not.toBe(coreBefore);
+    expect(coreAfter.match(
+      /<dcterms:modified xsi:type="dcterms:W3CDTF">[^<]+<\/dcterms:modified>/,
+    )?.[0]).toBe(modifiedBefore);
+    for (const [uri, partBytes] of nonCoreParts) {
+      expect(imported.opcPackage.requirePart(uri).bytes).toEqual(partBytes);
+    }
+
+    const reopened = await PptxDocument.open(await imported.write());
+    expect(reopened.createdAt).toBe('2024-02-29T12:34:56.123+05:30');
+    const reopenedCore = new TextDecoder().decode(
+      reopened.opcPackage.requirePart('/docProps/core.xml').bytes,
+    );
+    expect(reopenedCore.match(
+      /<dcterms:modified xsi:type="dcterms:W3CDTF">[^<]+<\/dcterms:modified>/,
+    )?.[0]).toBe(modifiedBefore);
+  }, 20_000);
+
   it('imports and reopens PptxGenJS presentation title metadata from public output', async () => {
     const baseline = new PptxGenJS();
     baseline.addSlide();
