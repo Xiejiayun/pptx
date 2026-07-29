@@ -452,6 +452,16 @@ authorship.author = '';
 const emptyPresentationAuthor = authorship.author;
 authorship.author = undefined;
 const clearedPresentationAuthor = authorship.author;
+const organization = PptxDocument.create({ company: 'Packed & <Company>' });
+const createdPresentationCompany = organization.company;
+organization.company = 'Edited company';
+const editedPresentationCompany = organization.company;
+const reopenedOrganization = await PptxDocument.open(await organization.write());
+const reopenedPresentationCompany = reopenedOrganization.company;
+organization.company = '';
+const emptyPresentationCompany = organization.company;
+organization.company = undefined;
+const clearedPresentationCompany = organization.company;
 richText.richText = [{ align: 'justify', bullet: { kind: 'number', style: 'romanUcPeriod', startAt: 3, indent: 22 }, level: 3, spacing: { before: 5, after: 7, line: { kind: 'exact', points: 22 } }, tabStops: [{ position: 2.75, alignment: 'decimal' }], runs: [{ text: 'Updated rich', style: { lang: 'ja-JP', baseline: 'superscript', characterSpacing: 2.5, italic: true, glow: { color: { kind: 'scheme', value: 'accent3' }, opacity: 0.25, size: 6 }, highlight: { kind: 'srgb', value: '00ff00' }, outline: { color: { kind: 'scheme', value: 'accent1' }, size: 0.75 }, underline: { style: 'wavyHeavy', color: { kind: 'scheme', value: 'accent2' } }, strike: false } }] }];
 const custom = PptxDocument.create({ slideSize: { width: inches(11.7), height: inches(8.3) } });
 custom.slideSize = { width: inches(10), height: inches(7.5) };
@@ -461,6 +471,7 @@ const checks = {
   presentationRtl: presentationRtlEnabled === true && presentationRtlDisabled === false && presentationRtlCleared === undefined && paragraphRtlAfterGlobalClear[0] === true && paragraphRtlAfterGlobalClear[1] === false,
   presentationTitle: createdPresentationTitle === 'Packed & <Title>' && editedPresentationTitle === 'Edited title' && reopenedPresentationTitle === 'Edited title' && emptyPresentationTitle === '' && clearedPresentationTitle === undefined,
   presentationAuthor: createdPresentationAuthor === 'Packed & <Author>' && editedPresentationAuthor === 'Edited author' && reopenedPresentationAuthor === 'Edited author' && emptyPresentationAuthor === '' && clearedPresentationAuthor === undefined,
+  presentationCompany: createdPresentationCompany === 'Packed & <Company>' && editedPresentationCompany === 'Edited company' && reopenedPresentationCompany === 'Edited company' && emptyPresentationCompany === '' && clearedPresentationCompany === undefined,
   paragraphMarginLeft: initialParagraphMargins[0] === 12 && initialParagraphMargins[1] === undefined && initialParagraphMargins[2] === undefined && bulletMarginIsolation && updatedParagraphMargins[0] === 6 && updatedParagraphMargins[1] === 0 && updatedParagraphMargins[2] === undefined && updatedParagraphMargins[3] === undefined,
   paragraphMarginRight: initialParagraphRightMargins[0] === 12 && initialParagraphRightMargins[1] === 24 && initialParagraphRightMargins[2] === undefined && bulletRightMarginCoexistence && updatedParagraphRightMargins[0] === 6 && updatedParagraphRightMargins[1] === 0 && updatedParagraphRightMargins[2] === undefined && updatedParagraphRightMargins[3] === undefined && updatedParagraphRightMargins[4] === 9,
   paragraphIndent: initialParagraphIndents[0] === 24 && initialParagraphIndents[1] === -18 && initialParagraphIndents[2] === undefined && initialParagraphIndents[3] === undefined && bulletIndentIsolation && updatedParagraphIndents[0] === 6 && updatedParagraphIndents[1] === -6 && updatedParagraphIndents[2] === 0 && updatedParagraphIndents[3] === undefined && updatedParagraphIndents[4] === undefined,
@@ -790,6 +801,16 @@ browserAuthorship.author = '';
 if (browserAuthorship.author !== '') throw new Error('Browser presentation author empty failed');
 browserAuthorship.author = undefined;
 if (browserAuthorship.author !== undefined) throw new Error('Browser presentation author clear failed');
+const browserOrganization = PptxDocument.create({ company: 'Browser company' });
+if (browserOrganization.company !== 'Browser company') throw new Error('Browser presentation company create failed');
+browserOrganization.company = 'Edited browser company';
+if (browserOrganization.company !== 'Edited browser company') throw new Error('Browser presentation company edit failed');
+const reopenedBrowserOrganization = await PptxDocument.open(await browserOrganization.write());
+if (reopenedBrowserOrganization.company !== 'Edited browser company') throw new Error('Browser presentation company reopen failed');
+browserOrganization.company = '';
+if (browserOrganization.company !== '') throw new Error('Browser presentation company empty failed');
+browserOrganization.company = undefined;
+if (browserOrganization.company !== undefined) throw new Error('Browser presentation company clear failed');
 PptxDocument.create({ slideSize: { width: inches(11.7), height: inches(8.3) } });
 created.slideSize = { width: inches(10), height: inches(7.5) };
 process.stdout.write(resolved);
@@ -858,6 +879,11 @@ const authorSnapshot: string | undefined = authoredDocument.author;
 authoredDocument.author = 'Edited typed author';
 authoredDocument.author = '';
 authoredDocument.author = undefined;
+const companyDocument: PptxDocument = PptxDocument.create({ company: 'Typed company' });
+const companySnapshot: string | undefined = companyDocument.company;
+companyDocument.company = 'Edited typed company';
+companyDocument.company = '';
+companyDocument.company = undefined;
 const customSlideSize: CustomSlideSize = { width: inches(11.7), height: inches(8.3) };
 const customDocument: PptxDocument = PptxDocument.create({ slideSize: customSlideSize });
 customDocument.slideSize = { width: inches(10), height: inches(7.5) };
@@ -1012,7 +1038,7 @@ documentPromise.then((document) => {
   advancedCharts.installAdvancedChartPlugin(document);
   smartArt.installSmartArtPlugin(document);
 });
-void [documentPromise, createdDocument, globalRtl, globalRtlSnapshot, titledDocument, titleSnapshot, authoredDocument, authorSnapshot, customDocument, createdText, creationBorder, creationMargin, creationOptions, objectCell, tableRows, tableOptions, typedTable, widthSnapshot, heightSnapshot, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotHorizontalAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellHorizontalAlignment, tableHorizontalAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
+void [documentPromise, createdDocument, globalRtl, globalRtlSnapshot, titledDocument, titleSnapshot, authoredDocument, authorSnapshot, companyDocument, companySnapshot, customDocument, createdText, creationBorder, creationMargin, creationOptions, objectCell, tableRows, tableOptions, typedTable, widthSnapshot, heightSnapshot, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotHorizontalAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellHorizontalAlignment, tableHorizontalAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
 `,
   );
   run(
