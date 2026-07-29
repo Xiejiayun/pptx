@@ -585,6 +585,90 @@ describe('importPptxGenJS', () => {
     ]);
   });
 
+  it('matches native cell-level table valign creation to supported PptxGenJS output', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    generated.layout = 'LAYOUT_WIDE';
+    generated.addSlide().addTable([[
+      { text: 'Default', options: {} },
+      { text: 'Top', options: { valign: 'top' } },
+      { text: 'Middle', options: { valign: 'middle' } },
+      { text: 'Bottom', options: { valign: 'bottom' } },
+    ]], {
+      x: 0.5,
+      y: 0.5,
+      w: 8,
+      h: 1,
+      colW: [2, 2, 2, 2],
+      rowH: 1,
+    });
+    const imported = await importPptxGenJS(generated);
+    const importedTable = imported.slides[0]!.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    );
+    expect(importedTable).toBeInstanceOf(TableModel);
+
+    const native = PptxDocument.create({ slideSize: 'wide' });
+    const nativeSlide = native.addSlide();
+    const nativeTable = nativeSlide.addTable([[
+      { text: 'Default' },
+      { text: 'Top', options: { valign: 'top' } },
+      { text: 'Middle', options: { valign: 'middle' } },
+      { text: 'Bottom', options: { valign: 'bottom' } },
+    ]], {
+      x: inches(0.5),
+      y: inches(0.5),
+      columnWidths: inches(2),
+      rowHeights: inches(1),
+    });
+    const expectedAlignments = [undefined, 'top', 'middle', 'bottom'];
+    const expectedText = ['Default', 'Top', 'Middle', 'Bottom'];
+    expect(nativeTable.rows[0]!.cells.map(
+      ({ verticalAlignment }) => verticalAlignment)).toEqual(expectedAlignments);
+    expect(importedTable!.rows[0]!.cells.map(
+      ({ verticalAlignment }) => verticalAlignment)).toEqual(expectedAlignments);
+    expect(nativeTable.rows[0]!.cells.map(({ text }) => text)).toEqual(expectedText);
+    expect(importedTable!.rows[0]!.cells.map(({ text }) => text)).toEqual(expectedText);
+    expect(nativeTable.rows[0]!.cells.map(({ margins }) => margins)).toEqual(
+      importedTable!.rows[0]!.cells.map(({ margins }) => margins),
+    );
+    expect(nativeTable.transform).toMatchObject(importedTable!.transform);
+    expect(nativeTable.columnWidths).toEqual(importedTable!.columnWidths);
+    expect(nativeTable.rowHeights).toEqual(importedTable!.rowHeights);
+
+    const nativeXml = new TextDecoder().decode(
+      native.opcPackage.requirePart(nativeSlide.partUri).bytes,
+    );
+    const importedXml = new TextDecoder().decode(
+      imported.opcPackage.requirePart(imported.slides[0]!.partUri).bytes,
+    );
+    for (const xml of [nativeXml, importedXml]) {
+      const properties = [...xml.matchAll(/<a:tcPr([^>]*)>/g)]
+        .map((match) => match[1]!);
+      expect(properties).toHaveLength(4);
+      expect(properties[0]).not.toMatch(/\sanchor=/);
+      expect(properties.slice(1).map((attributes) =>
+        attributes.match(/\sanchor="([^"]+)"/)?.[1])).toEqual(['t', 'ctr', 'b']);
+      expect(xml).not.toMatch(/<a:bodyPr[^>]*\sanchor=/);
+    }
+
+    const reopenedNative = await PptxDocument.open(await native.write());
+    const reopenedImported = await PptxDocument.open(await imported.write());
+    expect((reopenedNative.slides[0]!.shapes[0] as TableModel).rows[0]!.cells.map(
+      ({ verticalAlignment }) => verticalAlignment)).toEqual(expectedAlignments);
+    expect((reopenedImported.slides[0]!.shapes[0] as TableModel).rows[0]!.cells.map(
+      ({ verticalAlignment }) => verticalAlignment)).toEqual(expectedAlignments);
+
+    const beforeInvalid = native.opcPackage.requirePart(nativeSlide.partUri).bytes.slice();
+    const invalidJournal = [...native.opcPackage.mutations];
+    expect(() => nativeSlide.addTable([[{
+      text: 'Invalid mid',
+      options: { valign: 'mid' as never },
+    }]])).toThrow(TypeError);
+    expect(native.opcPackage.requirePart(nativeSlide.partUri).bytes).toEqual(beforeInvalid);
+    expect(native.opcPackage.mutations).toEqual(invalidJournal);
+  });
+
   it('imports PptxGenJS table-cell margins from direct cell properties', async () => {
     const generated = new PptxGenJS();
     expect(generated.version).toBe('4.0.1');
