@@ -28,6 +28,10 @@ import {
   replacePresentationAuthor,
 } from './presentation-author.internal.js';
 import {
+  readPresentationSubject,
+  replacePresentationSubject,
+} from './presentation-subject.internal.js';
+import {
   readPresentationCompany,
   replacePresentationCompany,
 } from './presentation-company.internal.js';
@@ -120,6 +124,16 @@ export class PresentationModel {
   set company(value: string | undefined) {
     this.opcPackage.transaction(() => {
       replacePresentationCompany(this.opcPackage, value);
+    });
+  }
+
+  get subject(): string | undefined {
+    return readPresentationSubject(this.opcPackage);
+  }
+
+  set subject(value: string | undefined) {
+    this.opcPackage.transaction(() => {
+      replacePresentationSubject(this.opcPackage, value);
     });
   }
 
