@@ -11,6 +11,7 @@
 - Added clone-on-write isolation for shared image payload and raw chart XML edits, including chart-owned workbook subgraphs and transaction rollback.
 - Added native zero-input presentation creation for all six formats, four PptxGenJS-compatible slide sizes, and blank slides linked to a canonical master/layout/theme chain.
 - Added PptxGenJS-compatible presentation section creation and slide assignment, strict detached section snapshots, ID-addressed lossless editing, automatic default sections, and transactional slide-lifecycle synchronization.
+- Added PptxGenJS-compatible hidden-slide creation plus strict direct-root reading, lossless repair/editing, duplicate/move preservation, six-format reopen support, and packed Node/browser/type coverage.
 - Added strict presentation-title metadata creation plus namespace-aware direct core-property reading, lossless editing, empty/clear states, and missing-part lifecycle support.
 - Added strict presentation-author metadata creation plus namespace-aware direct creator reading, lossless editing, empty/clear states, and last-modified-by preservation.
 - Added strict presentation-lastModifiedBy metadata creation plus namespace-aware direct reading, independent creator ownership, lossless empty/clear editing, and PptxGenJS author-mirror conformance.
