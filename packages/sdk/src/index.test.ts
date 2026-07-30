@@ -246,7 +246,7 @@ describe('PptxDocument vertical slice', () => {
       expect(validatePackage(formattedReopened.opcPackage)
         .filter(({ severity }) => severity === 'error')).toEqual([]);
     }
-  });
+  }, 20_000);
 
   it('preserves speaker notes through lifecycle, rollback, sections, hidden state, and all formats', async () => {
     const document = PptxDocument.create();

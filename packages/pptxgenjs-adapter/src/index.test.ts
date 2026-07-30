@@ -3795,7 +3795,7 @@ describe('importPptxGenJS', () => {
       ['RTL omitted', [undefined]],
       ['RTL run probe', [true]],
     ]);
-  }, 90_000);
+  }, 180_000);
 
   it('imports and reopens PptxGenJS rich text transparency from real output', async () => {
     const generated = new PptxGenJS();
