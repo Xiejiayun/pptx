@@ -3948,6 +3948,79 @@ describe('importPptxGenJS', () => {
     )?.[0]).toBe(modifiedBefore);
   }, 20_000);
 
+  it('imports, edits, and reopens PptxGenJS presentation modified-at metadata from public output', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    generated.addSlide().addText('PptxGenJS modified-at', {
+      x: 1,
+      y: 1,
+      w: 5,
+      h: 1,
+    });
+    const imported = await importPptxGenJS(generated);
+    const journal = [...imported.opcPackage.mutations];
+
+    expect(imported.modifiedAt).toMatch(
+      /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$/,
+    );
+    expect(imported.createdAt).toMatch(
+      /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$/,
+    );
+    expect(imported.opcPackage.mutations).toEqual(journal);
+    const modifiedAt = imported.modifiedAt!;
+    const createdAt = imported.createdAt!;
+    const coreBefore = new TextDecoder().decode(
+      imported.opcPackage.requirePart('/docProps/core.xml').bytes,
+    );
+    expect(coreBefore.match(
+      /<dcterms:modified xsi:type="dcterms:W3CDTF">([^<]+)<\/dcterms:modified>/,
+    )?.[1]).toBe(modifiedAt);
+    const createdBefore = coreBefore.match(
+      /<dcterms:created xsi:type="dcterms:W3CDTF">[^<]+<\/dcterms:created>/,
+    )?.[0];
+    expect(createdBefore).toBe(
+      `<dcterms:created xsi:type="dcterms:W3CDTF">${createdAt}</dcterms:created>`,
+    );
+    const nonCoreParts = new Map(
+      imported.opcPackage.parts
+        .filter(({ uri }) => uri !== '/docProps/core.xml')
+        .map(({ uri, bytes }) => [uri, bytes]),
+    );
+
+    const native = PptxDocument.create({ modifiedAt });
+    expect(native.modifiedAt).toBe(modifiedAt);
+    expect(native.createdAt).toBeUndefined();
+    expect(PptxDocument.create().modifiedAt).toBeUndefined();
+
+    imported.modifiedAt = '2024-03-01T01:02:03.456+08:00';
+    expect(imported.modifiedAt).toBe('2024-03-01T01:02:03.456+08:00');
+    expect(imported.createdAt).toBe(createdAt);
+    const coreAfter = new TextDecoder().decode(
+      imported.opcPackage.requirePart('/docProps/core.xml').bytes,
+    );
+    expect(coreAfter).not.toBe(coreBefore);
+    expect(coreAfter).toContain(
+      '<dcterms:modified xsi:type="dcterms:W3CDTF">2024-03-01T01:02:03.456+08:00</dcterms:modified>',
+    );
+    expect(coreAfter.match(
+      /<dcterms:created xsi:type="dcterms:W3CDTF">[^<]+<\/dcterms:created>/,
+    )?.[0]).toBe(createdBefore);
+    for (const [uri, bytes] of nonCoreParts) {
+      expect(imported.opcPackage.requirePart(uri).bytes).toEqual(bytes);
+    }
+
+    const reopened = await PptxDocument.open(await imported.write());
+    expect(reopened.modifiedAt).toBe('2024-03-01T01:02:03.456+08:00');
+    expect(reopened.createdAt).toBe(createdAt);
+    expect(reopened.slides[0]?.title.text).toBe('PptxGenJS modified-at');
+    const reopenedCore = new TextDecoder().decode(
+      reopened.opcPackage.requirePart('/docProps/core.xml').bytes,
+    );
+    expect(reopenedCore.match(
+      /<dcterms:created xsi:type="dcterms:W3CDTF">[^<]+<\/dcterms:created>/,
+    )?.[0]).toBe(createdBefore);
+  }, 20_000);
+
   it('imports and reopens PptxGenJS presentation title metadata from public output', async () => {
     const baseline = new PptxGenJS();
     baseline.addSlide();
