@@ -16,10 +16,16 @@ import {
   type Diagnostic,
 } from '@pptx/validator';
 import { createPresentationPackage, type CreatePresentationOptions } from './create.js';
+import {
+  normalizePresentationTheme,
+  type PresentationTheme,
+  type PresentationThemeOptions,
+} from './presentation-theme.js';
 
 export * from '@pptx/codecs';
 export * from '@pptx/model';
 export type { BuiltInSlideSize, CreatePresentationOptions, CustomSlideSize } from './create.js';
+export type { PresentationTheme, PresentationThemeOptions } from './presentation-theme.js';
 export { PackageError } from '@pptx/opc';
 export type { PackageOpenOptions } from '@pptx/opc';
 export { ValidationError } from '@pptx/validator';
@@ -144,6 +150,23 @@ export class PptxDocument extends PresentationModel {
 
   get themes() {
     return this.#masterLayoutTheme.themes;
+  }
+
+  get theme(): PresentationTheme | undefined {
+    const fonts = this.#masterLayoutTheme.presentationTheme?.fonts;
+    return fonts === undefined
+      ? undefined
+      : { headFontFace: fonts.majorLatin, bodyFontFace: fonts.minorLatin };
+  }
+
+  set theme(value: PresentationThemeOptions) {
+    const normalized = normalizePresentationTheme(value);
+    const theme = this.#masterLayoutTheme.presentationTheme;
+    if (!theme) throw new Error('Presentation does not have one editable direct theme');
+    theme.setFonts({
+      majorLatin: normalized.headFontFace,
+      minorLatin: normalized.bodyFontFace,
+    });
   }
 
   get masterLayoutTheme(): MasterLayoutThemeCodec {

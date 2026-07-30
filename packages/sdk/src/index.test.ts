@@ -223,6 +223,190 @@ describe('PptxDocument vertical slice', () => {
     );
   });
 
+  it('reads, replaces, rolls back, and reopens the presentation-direct theme fonts', async () => {
+    const document = PptxDocument.create();
+    const theme = document.masterLayoutTheme.presentationTheme!;
+    const initial = document.theme!;
+    expect(initial).toEqual({ headFontFace: 'Aptos Display', bodyFontFace: 'Aptos' });
+    expect(document.theme).not.toBe(initial);
+    expect(document.masterLayoutTheme.presentationTheme).toBe(theme);
+    (initial as { headFontFace: string }).headFontFace = 'Changed detached snapshot';
+    expect(document.theme).toEqual({ headFontFace: 'Aptos Display', bodyFontFace: 'Aptos' });
+
+    const unrelated = new Map(
+      document.opcPackage.parts
+        .filter(({ uri }) => uri !== theme.partUri)
+        .map(({ uri, bytes }) => [uri, bytes]),
+    );
+    document.theme = { headFontFace: 'Noto Sans Display' };
+    expect(document.theme).toEqual({
+      headFontFace: 'Noto Sans Display',
+      bodyFontFace: 'Calibri',
+    });
+    for (const [uri, bytes] of unrelated) {
+      expect(document.opcPackage.requirePart(uri).bytes).toEqual(bytes);
+    }
+
+    document.theme = { bodyFontFace: 'Noto Sans' };
+    expect(document.theme).toEqual({
+      headFontFace: 'Calibri Light',
+      bodyFontFace: 'Noto Sans',
+    });
+    document.theme = {};
+    expect(document.theme).toEqual({
+      headFontFace: 'Calibri Light',
+      bodyFontFace: 'Calibri',
+    });
+    document.theme = {
+      headFontFace: 'A&B <Display> "One"',
+      bodyFontFace: 'A&B <Body> "Two"',
+    };
+    expect(document.theme).toEqual({
+      headFontFace: 'A&B <Display> "One"',
+      bodyFontFace: 'A&B <Body> "Two"',
+    });
+    const themeXml = new TextDecoder().decode(
+      document.opcPackage.requirePart(theme.partUri).bytes,
+    );
+    expect(themeXml).toContain('typeface="A&amp;B &lt;Display&gt; &quot;One&quot;"');
+    expect(themeXml).toContain('typeface="A&amp;B &lt;Body&gt; &quot;Two&quot;"');
+
+    const beforeNoOp = document.opcPackage.requirePart(theme.partUri).bytes;
+    const noOpJournal = [...document.opcPackage.mutations];
+    document.theme = {
+      headFontFace: 'A&B <Display> "One"',
+      bodyFontFace: 'A&B <Body> "Two"',
+    };
+    expect(document.opcPackage.requirePart(theme.partUri).bytes).toEqual(beforeNoOp);
+    expect(document.opcPackage.mutations).toEqual(noOpJournal);
+
+    expect(() =>
+      document.transaction(() => {
+        document.theme = {
+          headFontFace: 'Temporary Display',
+          bodyFontFace: 'Temporary Body',
+        };
+        throw new Error('restore presentation theme fonts');
+      }),
+    ).toThrow('restore presentation theme fonts');
+    expect(document.opcPackage.requirePart(theme.partUri).bytes).toEqual(beforeNoOp);
+    expect(document.opcPackage.mutations).toEqual(noOpJournal);
+
+    const reopened = await PptxDocument.open(await document.write());
+    expect(reopened.theme).toEqual({
+      headFontFace: 'A&B <Display> "One"',
+      bodyFontFace: 'A&B <Body> "Two"',
+    });
+    expect(reopened.masterLayoutTheme.presentationTheme?.fonts).toEqual({
+      majorLatin: 'A&B <Display> "One"',
+      minorLatin: 'A&B <Body> "Two"',
+    });
+  });
+
+  it('rejects malformed live theme values and unsafe primary relationships without mutation', () => {
+    const document = PptxDocument.create();
+    const themePartUri = document.masterLayoutTheme.presentationTheme!.partUri;
+    const before = document.opcPackage.requirePart(themePartUri).bytes;
+    const journal = [...document.opcPackage.mutations];
+    const accessor = Object.create(null) as Record<string, unknown>;
+    let getterCalls = 0;
+    Object.defineProperty(accessor, 'headFontFace', {
+      enumerable: true,
+      get() {
+        getterCalls += 1;
+        return 'Never';
+      },
+    });
+    const symbol = { headFontFace: 'Aptos Display', [Symbol('extra')]: true };
+    const customPrototype = Object.create({ inherited: true }) as { headFontFace?: string };
+    customPrototype.headFontFace = 'Aptos Display';
+    for (const value of [
+      undefined,
+      null,
+      [],
+      'Aptos',
+      { unknown: 'Aptos' },
+      { headFontFace: '' },
+      { headFontFace: '   ' },
+      { headFontFace: 1 },
+      { bodyFontFace: 'bad\u0000font' },
+      accessor,
+      symbol,
+      customPrototype,
+    ]) {
+      expect(() => {
+        document.theme = value as never;
+      }).toThrow(TypeError);
+    }
+    expect(getterCalls).toBe(0);
+    expect(document.opcPackage.requirePart(themePartUri).bytes).toEqual(before);
+    expect(document.opcPackage.mutations).toEqual(journal);
+
+    const noDirect = PptxDocument.create();
+    noDirect.opcPackage.removeRelationship('/ppt/presentation.xml', 'rId6');
+    expect(noDirect.theme).toBeUndefined();
+    const noDirectJournal = [...noDirect.opcPackage.mutations];
+    expect(() => {
+      noDirect.theme = { headFontFace: 'Noto Sans Display' };
+    }).toThrow(/one editable direct theme/);
+    expect(noDirect.opcPackage.mutations).toEqual(noDirectJournal);
+
+    const duplicate = PptxDocument.create();
+    duplicate.opcPackage.addRelationship('/ppt/presentation.xml', {
+      type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme',
+      target: 'theme/theme1.xml',
+    });
+    expect(duplicate.theme).toBeUndefined();
+    const duplicateJournal = [...duplicate.opcPackage.mutations];
+    expect(() => {
+      duplicate.theme = { bodyFontFace: 'Noto Sans' };
+    }).toThrow(/one editable direct theme/);
+    expect(duplicate.opcPackage.mutations).toEqual(duplicateJournal);
+
+    const external = PptxDocument.create();
+    external.opcPackage.updateRelationship('/ppt/presentation.xml', 'rId6', {
+      target: 'https://example.com/theme.xml',
+      targetMode: 'External',
+    });
+    expect(external.theme).toBeUndefined();
+    const externalJournal = [...external.opcPackage.mutations];
+    expect(() => {
+      external.theme = {};
+    }).toThrow(/one editable direct theme/);
+    expect(external.opcPackage.mutations).toEqual(externalJournal);
+
+    const dangling = PptxDocument.create();
+    const relationshipPart = dangling.opcPackage.requirePart('/ppt/_rels/presentation.xml.rels');
+    dangling.opcPackage.setPart(
+      relationshipPart.uri,
+      new TextDecoder().decode(relationshipPart.bytes).replace(
+        'Target="theme/theme1.xml"',
+        'Target="theme/missing.xml"',
+      ),
+      relationshipPart.contentType,
+    );
+    expect(dangling.theme).toBeUndefined();
+    const danglingJournal = [...dangling.opcPackage.mutations];
+    expect(() => {
+      dangling.theme = {};
+    }).toThrow(/one editable direct theme/);
+    expect(dangling.opcPackage.mutations).toEqual(danglingJournal);
+
+    const wrongType = PptxDocument.create();
+    const wrongTypeTheme = wrongType.opcPackage.requirePart('/ppt/theme/theme1.xml');
+    wrongType.opcPackage.setPart(
+      wrongTypeTheme.uri,
+      wrongTypeTheme.bytes,
+      'application/xml',
+    );
+    expect(wrongType.theme).toBeUndefined();
+    const wrongTypeJournal = [...wrongType.opcPackage.mutations];
+    expect(() => {
+      wrongType.theme = {};
+    }).toThrow(/one editable direct theme/);
+    expect(wrongType.opcPackage.mutations).toEqual(wrongTypeJournal);
+  });
+
   it('creates, edits, clears, rolls back, and reopens presentation title metadata', async () => {
     const readCoreXml = (document: PptxDocument): string => new TextDecoder().decode(
       document.opcPackage.requirePart('/docProps/core.xml').bytes,
