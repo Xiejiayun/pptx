@@ -48,6 +48,11 @@ import {
   replaceSlideHidden,
 } from './slide-visibility.internal.js';
 import {
+  normalizeSlideNotes,
+  readSlideNotes,
+  replaceSlideNotes,
+} from './slide-notes.internal.js';
+import {
   normalizeTextBoxMargins,
   readTextBoxMargins,
   renderTextBoxMarginAttributes,
@@ -218,6 +223,34 @@ export class SlideModel {
       if (!replaceSlideHidden(xml, value)) return;
       this.setXml(xml.serialize());
     });
+  }
+
+  get notes(): string | undefined {
+    return readSlideNotes(
+      this.presentation.opcPackage,
+      this.presentation.presentationPartUri,
+      this.partUri,
+    );
+  }
+
+  set notes(value: string | undefined) {
+    replaceSlideNotes(
+      this.presentation.opcPackage,
+      this.presentation.presentationPartUri,
+      this.partUri,
+      value,
+    );
+  }
+
+  addNotes(value: string): this {
+    const normalized = normalizeSlideNotes(value, 'Slide notes');
+    replaceSlideNotes(
+      this.presentation.opcPackage,
+      this.presentation.presentationPartUri,
+      this.partUri,
+      normalized,
+    );
+    return this;
   }
 
   get relationships(): readonly Relationship[] {

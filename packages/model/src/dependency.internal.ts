@@ -32,6 +32,7 @@ const SHARED_RELATIONSHIPS = new Set([
   'media',
   'notesMaster',
   'person',
+  'slide',
   'slideLayout',
   'slideMaster',
   'theme',

@@ -161,6 +161,78 @@ describe('PresentationModel', () => {
     expect(model.slides.at(-1)).toBe(identity);
   });
 
+  it('creates, reads, edits, empties, and clears speaker notes through the live model', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const masterPart = pkg.requirePart('/ppt/notesMasters/notesMaster1.xml');
+    pkg.setPart(
+      masterPart.uri,
+      '<p:notesMaster xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree/></p:cSld></p:notesMaster>',
+      masterPart.contentType,
+    );
+    pkg.addRelationship('/ppt/presentation.xml', {
+      type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesMaster',
+      target: 'notesMasters/notesMaster1.xml',
+    });
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    expect(slide.notes).toBeUndefined();
+    expect(slide.addNotes('First\r\nSecond')).toBe(slide);
+    expect(slide.notes).toBe('First\nSecond');
+
+    const notesRelationship = slide.relationships.find(
+      ({ type }) => type.endsWith('/notesSlide'),
+    );
+    const notesUri = notesRelationship?.resolvedTarget;
+    expect(notesUri).toBeDefined();
+    expect(pkg.requirePart(notesUri!).contentType).toBe(
+      'application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml',
+    );
+    expect(pkg.relationships(notesUri!).find(
+      ({ type }) => type.endsWith('/slide'),
+    )?.resolvedTarget).toBe(slide.partUri);
+    expect(pkg.relationships(notesUri!).find(
+      ({ type }) => type.endsWith('/notesMaster'),
+    )?.resolvedTarget).toBe('/ppt/notesMasters/notesMaster1.xml');
+
+    const sameParts = pkg.parts.map(({ uri, bytes }) => ({ uri, bytes: bytes.slice() }));
+    const sameJournal = [...pkg.mutations];
+    slide.notes = 'First\nSecond';
+    expect(pkg.parts.map(({ uri, bytes }) => ({ uri, bytes }))).toEqual(sameParts);
+    expect(pkg.mutations).toEqual(sameJournal);
+
+    slide.notes = 'Edited';
+    expect(slide.notes).toBe('Edited');
+    slide.notes = '';
+    expect(slide.notes).toBe('');
+
+    const invalidParts = pkg.parts.map(({ uri, bytes }) => ({ uri, bytes: bytes.slice() }));
+    const invalidJournal = [...pkg.mutations];
+    for (const invalid of [null, 7, true, {}, [], Symbol('notes')]) {
+      expect(() => {
+        (slide as unknown as { notes: unknown }).notes = invalid;
+      }, String(invalid)).toThrow(TypeError);
+      expect(() => slide.addNotes(invalid as never), String(invalid)).toThrow(TypeError);
+    }
+    expect(() => slide.addNotes(undefined as never)).toThrow(TypeError);
+    expect(slide.notes).toBe('');
+    expect(pkg.parts.map(({ uri, bytes }) => ({ uri, bytes }))).toEqual(invalidParts);
+    expect(pkg.mutations).toEqual(invalidJournal);
+
+    slide.notes = 'Reopened';
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    expect(reopened.slides.at(-1)?.notes).toBe('Reopened');
+
+    slide.notes = undefined;
+    expect(slide.notes).toBeUndefined();
+    expect(pkg.hasPart(notesUri!)).toBe(false);
+    expect(pkg.hasPart('/ppt/notesMasters/notesMaster1.xml')).toBe(true);
+    const clearParts = pkg.parts.map(({ uri, bytes }) => ({ uri, bytes: bytes.slice() }));
+    const clearJournal = [...pkg.mutations];
+    slide.notes = undefined;
+    expect(pkg.parts.map(({ uri, bytes }) => ({ uri, bytes }))).toEqual(clearParts);
+    expect(pkg.mutations).toEqual(clearJournal);
+  });
+
   it('reads only recognized direct presentation RTL tokens without mutating the package', async () => {
     const cases: readonly [string | undefined, boolean | undefined][] = [
       ['1', true],

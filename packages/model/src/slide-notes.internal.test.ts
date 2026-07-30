@@ -3,12 +3,15 @@ import {
   LosslessXmlDocument,
   LosslessXmlError,
 } from '@pptx/lossless-xml';
+import { OpcPackage } from '@pptx/opc';
 import { ModelParseError } from './errors.js';
 import {
   createNotesSlideXml,
   normalizeSlideNotes,
   readNotesBody,
+  readSlideNotes,
   replaceNotesBody,
+  replaceSlideNotes,
 } from './slide-notes.internal.js';
 
 const PRESENTATION_NAMESPACE =
@@ -16,6 +19,26 @@ const PRESENTATION_NAMESPACE =
 const DRAWING_NAMESPACE =
   'http://schemas.openxmlformats.org/drawingml/2006/main';
 const PART_URI = '/ppt/notesSlides/notesSlide1.xml';
+const PRESENTATION_URI = '/ppt/presentation.xml';
+const SLIDE_ONE_URI = '/ppt/slides/slide1.xml';
+const SLIDE_TWO_URI = '/ppt/slides/slide2.xml';
+const NOTES_MASTER_URI = '/ppt/notesMasters/notesMaster1.xml';
+const NOTES_SLIDE_CONTENT_TYPE =
+  'application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml';
+const NOTES_MASTER_CONTENT_TYPE =
+  'application/vnd.openxmlformats-officedocument.presentationml.notesMaster+xml';
+const PRESENTATION_CONTENT_TYPE =
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml';
+const SLIDE_CONTENT_TYPE =
+  'application/vnd.openxmlformats-officedocument.presentationml.slide+xml';
+const RELATIONSHIP_CONTENT_TYPE =
+  'application/vnd.openxmlformats-package.relationships+xml';
+const NOTES_SLIDE_RELATIONSHIP =
+  'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide';
+const NOTES_MASTER_RELATIONSHIP =
+  'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesMaster';
+const SLIDE_RELATIONSHIP =
+  'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide';
 
 interface NotesXmlOptions {
   readonly paragraphs?: string;
@@ -85,6 +108,96 @@ function expectRejectedWithoutPatch(source: string): void {
   expect(() => replaceNotesBody(xml, 'Replacement', PART_URI)).toThrow(ModelParseError);
   expect(xml.changed).toBe(false);
   expect(xml.serialize()).toBe(source);
+}
+
+function packageWithNotesMaster(): OpcPackage {
+  const pkg = OpcPackage.create();
+  pkg.setPart(
+    PRESENTATION_URI,
+    `<p:presentation xmlns:p="${PRESENTATION_NAMESPACE}"/>`,
+    PRESENTATION_CONTENT_TYPE,
+  );
+  pkg.setPart(
+    SLIDE_ONE_URI,
+    `<p:sld xmlns:p="${PRESENTATION_NAMESPACE}"/>`,
+    SLIDE_CONTENT_TYPE,
+  );
+  pkg.setPart(
+    SLIDE_TWO_URI,
+    `<p:sld xmlns:p="${PRESENTATION_NAMESPACE}"/>`,
+    SLIDE_CONTENT_TYPE,
+  );
+  pkg.setPart(
+    NOTES_MASTER_URI,
+    `<p:notesMaster xmlns:p="${PRESENTATION_NAMESPACE}"><p:cSld><p:spTree/></p:cSld></p:notesMaster>`,
+    NOTES_MASTER_CONTENT_TYPE,
+  );
+  pkg.addRelationship(PRESENTATION_URI, {
+    type: NOTES_MASTER_RELATIONSHIP,
+    target: 'notesMasters/notesMaster1.xml',
+  });
+  return pkg;
+}
+
+function addNotesPart(
+  pkg: OpcPackage,
+  value: string,
+  options: {
+    readonly notesUri?: string;
+    readonly slideUri?: string;
+    readonly contentType?: string;
+    readonly xml?: string;
+  } = {},
+): string {
+  const notesUri = options.notesUri ?? PART_URI;
+  const slideUri = options.slideUri ?? SLIDE_ONE_URI;
+  pkg.setPart(
+    notesUri,
+    options.xml ?? createNotesSlideXml(value),
+    options.contentType ?? NOTES_SLIDE_CONTENT_TYPE,
+  );
+  pkg.addRelationship(notesUri, {
+    type: NOTES_MASTER_RELATIONSHIP,
+    target: '../notesMasters/notesMaster1.xml',
+  });
+  pkg.addRelationship(notesUri, {
+    type: SLIDE_RELATIONSHIP,
+    target: `../slides/${slideUri.slice(slideUri.lastIndexOf('/') + 1)}`,
+  });
+  pkg.addRelationship(slideUri, {
+    type: NOTES_SLIDE_RELATIONSHIP,
+    target: `../notesSlides/${notesUri.slice(notesUri.lastIndexOf('/') + 1)}`,
+  });
+  return notesUri;
+}
+
+function expectPackageReadNoOp(pkg: OpcPackage, expected: string | undefined): void {
+  const beforeParts = pkg.parts.map(({ uri, contentType, bytes }) => ({
+    uri,
+    contentType,
+    bytes: bytes.slice(),
+  }));
+  const beforeRelationships = pkg.graph.map(({ uri, outgoing, incoming }) => ({
+    uri,
+    outgoing: outgoing.map((relationship) => ({ ...relationship })),
+    incoming: incoming.map(({ sourceUri, relationship }) => ({
+      sourceUri,
+      relationship: { ...relationship },
+    })),
+  }));
+  const beforeJournal = [...pkg.mutations];
+  expect(readSlideNotes(pkg, PRESENTATION_URI, SLIDE_ONE_URI)).toBe(expected);
+  expect(pkg.parts.map(({ uri, contentType, bytes }) => ({
+    uri,
+    contentType,
+    bytes,
+  }))).toEqual(beforeParts);
+  expect(pkg.graph.map(({ uri, outgoing, incoming }) => ({
+    uri,
+    outgoing,
+    incoming,
+  }))).toEqual(beforeRelationships);
+  expect(pkg.mutations).toEqual(beforeJournal);
 }
 
 describe('slide speaker notes text codec', () => {
@@ -286,5 +399,110 @@ describe('slide speaker notes text codec', () => {
     expect(source).toContain('<p:cNvPr id="2" name="Notes Placeholder 2"/>');
     expect(source).toContain('<a:t xml:space="preserve">A &amp; &lt;B&gt;\nLine 2</a:t>');
     expect(createNotesSlideXml('A & <B>\r\nLine 2')).toBe(source);
+  });
+});
+
+describe('slide speaker notes package state', () => {
+  it('reads valid state and returns undefined for absent or unsafe relationships without mutation', () => {
+    const valid = packageWithNotesMaster();
+    addNotesPart(valid, 'Speaker note');
+    expectPackageReadNoOp(valid, 'Speaker note');
+
+    const absent = packageWithNotesMaster();
+    expectPackageReadNoOp(absent, undefined);
+
+    const duplicate = packageWithNotesMaster();
+    addNotesPart(duplicate, 'First');
+    addNotesPart(duplicate, 'Second', {
+      notesUri: '/ppt/notesSlides/notesSlide2.xml',
+    });
+    expectPackageReadNoOp(duplicate, undefined);
+
+    const external = packageWithNotesMaster();
+    external.addRelationship(SLIDE_ONE_URI, {
+      type: NOTES_SLIDE_RELATIONSHIP,
+      target: 'https://example.com/notes.xml',
+      targetMode: 'External',
+    });
+    expectPackageReadNoOp(external, undefined);
+
+    const unresolved = packageWithNotesMaster();
+    unresolved.setPart(
+      '/ppt/slides/_rels/slide1.xml.rels',
+      `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">`
+        + `<Relationship Id="rId1" Type="${NOTES_SLIDE_RELATIONSHIP}" Target="../notesSlides/missing.xml"/>`
+        + '</Relationships>',
+      RELATIONSHIP_CONTENT_TYPE,
+    );
+    expectPackageReadNoOp(unresolved, undefined);
+
+    const wrongContentType = packageWithNotesMaster();
+    addNotesPart(wrongContentType, 'Wrong type', {
+      contentType: 'application/octet-stream',
+    });
+    expectPackageReadNoOp(wrongContentType, undefined);
+
+    const wrongRoot = packageWithNotesMaster();
+    addNotesPart(wrongRoot, 'Wrong root', {
+      xml: `<p:notNotes xmlns:p="${PRESENTATION_NAMESPACE}"/>`,
+    });
+    expectPackageReadNoOp(wrongRoot, undefined);
+
+    const shared = packageWithNotesMaster();
+    addNotesPart(shared, 'Shared');
+    shared.addRelationship(SLIDE_TWO_URI, {
+      type: NOTES_SLIDE_RELATIONSHIP,
+      target: '../notesSlides/notesSlide1.xml',
+    });
+    expectPackageReadNoOp(shared, undefined);
+  });
+
+  it('edits, creates, clears, and rejects unsafe package state atomically', () => {
+    const pkg = packageWithNotesMaster();
+    addNotesPart(pkg, 'Before');
+    const untouched = new Map(
+      pkg.parts.map(({ uri, bytes }) => [uri, bytes.slice()]),
+    );
+    expect(replaceSlideNotes(pkg, PRESENTATION_URI, SLIDE_ONE_URI, 'After\r\nLine 2')).toBe(true);
+    expect(readSlideNotes(pkg, PRESENTATION_URI, SLIDE_ONE_URI)).toBe('After\nLine 2');
+    for (const { uri, bytes } of pkg.parts) {
+      if (uri !== PART_URI) expect(bytes).toEqual(untouched.get(uri));
+    }
+
+    const sameParts = pkg.parts.map(({ uri, bytes }) => ({ uri, bytes: bytes.slice() }));
+    const sameJournal = [...pkg.mutations];
+    expect(replaceSlideNotes(pkg, PRESENTATION_URI, SLIDE_ONE_URI, 'After\nLine 2')).toBe(false);
+    expect(pkg.parts.map(({ uri, bytes }) => ({ uri, bytes }))).toEqual(sameParts);
+    expect(pkg.mutations).toEqual(sameJournal);
+
+    expect(replaceSlideNotes(pkg, PRESENTATION_URI, SLIDE_ONE_URI, undefined)).toBe(true);
+    expect(readSlideNotes(pkg, PRESENTATION_URI, SLIDE_ONE_URI)).toBeUndefined();
+    expect(pkg.hasPart(PART_URI)).toBe(false);
+    expect(pkg.hasPart(SLIDE_ONE_URI)).toBe(true);
+    expect(pkg.hasPart(NOTES_MASTER_URI)).toBe(true);
+
+    const created = packageWithNotesMaster();
+    expect(replaceSlideNotes(created, PRESENTATION_URI, SLIDE_ONE_URI, '')).toBe(true);
+    expect(readSlideNotes(created, PRESENTATION_URI, SLIDE_ONE_URI)).toBe('');
+    expect(created.relationships(SLIDE_ONE_URI).filter(
+      ({ type }) => type === NOTES_SLIDE_RELATIONSHIP,
+    )).toHaveLength(1);
+
+    const unsafe = packageWithNotesMaster();
+    addNotesPart(unsafe, 'Unsafe');
+    unsafe.addRelationship(SLIDE_TWO_URI, {
+      type: NOTES_SLIDE_RELATIONSHIP,
+      target: '../notesSlides/notesSlide1.xml',
+    });
+    const unsafeParts = unsafe.parts.map(({ uri, bytes }) => ({ uri, bytes: bytes.slice() }));
+    const unsafeJournal = [...unsafe.mutations];
+    expect(() => replaceSlideNotes(
+      unsafe,
+      PRESENTATION_URI,
+      SLIDE_ONE_URI,
+      'Rejected',
+    )).toThrow(ModelParseError);
+    expect(unsafe.parts.map(({ uri, bytes }) => ({ uri, bytes }))).toEqual(unsafeParts);
+    expect(unsafe.mutations).toEqual(unsafeJournal);
   });
 });

@@ -4,6 +4,13 @@ import {
   LosslessXmlDocument,
   type XmlElement,
 } from '@pptx/lossless-xml';
+import {
+  relativeRelationshipTarget,
+  type OpcPackage,
+  type PackagePart,
+  type Relationship,
+} from '@pptx/opc';
+import { garbageCollectOwnedDependencies } from './dependency.internal.js';
 import { ModelParseError } from './errors.js';
 
 const PRESENTATION_NAMESPACE =
@@ -12,6 +19,13 @@ const DRAWING_NAMESPACE =
   'http://schemas.openxmlformats.org/drawingml/2006/main';
 const RELATIONSHIP_NAMESPACE =
   'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+const NOTES_SLIDE_RELATIONSHIP = `${RELATIONSHIP_NAMESPACE}/notesSlide`;
+const NOTES_MASTER_RELATIONSHIP = `${RELATIONSHIP_NAMESPACE}/notesMaster`;
+const SLIDE_RELATIONSHIP = `${RELATIONSHIP_NAMESPACE}/slide`;
+const NOTES_SLIDE_CONTENT_TYPE =
+  'application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml';
+const NOTES_MASTER_CONTENT_TYPE =
+  'application/vnd.openxmlformats-officedocument.presentationml.notesMaster+xml';
 const MAX_DRAWING_ELEMENT_ID = 4_294_967_295;
 
 interface NotesBodyState {
@@ -31,6 +45,23 @@ interface DrawingPrefix {
   readonly qualified: string;
   readonly declaration: string;
 }
+
+interface ValidNotesSlideState {
+  readonly kind: 'valid';
+  readonly relationship: Relationship;
+  readonly part: PackagePart;
+  readonly xml: LosslessXmlDocument;
+}
+
+type NotesSlideState =
+  | { readonly kind: 'absent' }
+  | { readonly kind: 'unsafe' }
+  | ValidNotesSlideState;
+
+type NotesMasterState =
+  | { readonly kind: 'absent' }
+  | { readonly kind: 'unsafe' }
+  | { readonly kind: 'valid'; readonly partUri: string };
 
 export function normalizeSlideNotes(value: unknown, context: string): string {
   if (typeof value !== 'string') throw new TypeError(`${context} must be a string`);
@@ -111,6 +142,169 @@ export function createNotesSlideXml(value: unknown): string {
     + '</p:spTree></p:cSld>'
     + '<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>'
     + '</p:notes>';
+}
+
+export function readSlideNotes(
+  pkg: OpcPackage,
+  presentationPartUri: string,
+  slidePartUri: string,
+): string | undefined {
+  const state = resolveNotesSlideState(
+    pkg,
+    presentationPartUri,
+    slidePartUri,
+  );
+  if (state.kind !== 'valid') return undefined;
+  return readNotesBody(state.xml);
+}
+
+export function replaceSlideNotes(
+  pkg: OpcPackage,
+  presentationPartUri: string,
+  slidePartUri: string,
+  value: string | undefined,
+): boolean {
+  const normalized = value === undefined
+    ? undefined
+    : normalizeSlideNotes(value, 'Slide notes');
+  const state = resolveNotesSlideState(
+    pkg,
+    presentationPartUri,
+    slidePartUri,
+  );
+
+  if (state.kind === 'unsafe') {
+    throw new ModelParseError('Slide speaker notes relationship is not safely editable', slidePartUri);
+  }
+  if (normalized === undefined) {
+    if (state.kind === 'absent') return false;
+    return pkg.transaction(() => {
+      pkg.removeRelationship(slidePartUri, state.relationship.id);
+      garbageCollectOwnedDependencies(pkg, [state.part.uri]);
+      return true;
+    });
+  }
+
+  if (state.kind === 'valid') {
+    if (!replaceNotesBody(state.xml, normalized, state.part.uri)) return false;
+    return pkg.transaction(() => {
+      pkg.setPart(state.part.uri, state.xml.serialize(), state.part.contentType);
+      return true;
+    });
+  }
+
+  const master = resolveNotesMasterState(pkg, presentationPartUri);
+  if (master.kind !== 'valid') {
+    throw new ModelParseError('Presentation does not contain one safe notes master', presentationPartUri);
+  }
+  const notesPartUri = pkg.allocatePartUri(
+    '/ppt/notesSlides',
+    'notesSlide',
+    '.xml',
+  );
+  const xml = createNotesSlideXml(normalized);
+  const notesMasterTarget = relativeRelationshipTarget(
+    notesPartUri,
+    master.partUri,
+  );
+  const slideTarget = relativeRelationshipTarget(notesPartUri, slidePartUri);
+  const notesTarget = relativeRelationshipTarget(slidePartUri, notesPartUri);
+  return pkg.transaction(() => {
+    pkg.setPart(notesPartUri, xml, NOTES_SLIDE_CONTENT_TYPE);
+    pkg.addRelationship(notesPartUri, {
+      type: NOTES_MASTER_RELATIONSHIP,
+      target: notesMasterTarget,
+    });
+    pkg.addRelationship(notesPartUri, {
+      type: SLIDE_RELATIONSHIP,
+      target: slideTarget,
+    });
+    pkg.addRelationship(slidePartUri, {
+      type: NOTES_SLIDE_RELATIONSHIP,
+      target: notesTarget,
+    });
+    return true;
+  });
+}
+
+function resolveNotesSlideState(
+  pkg: OpcPackage,
+  presentationPartUri: string,
+  slidePartUri: string,
+): NotesSlideState {
+  const relationships = pkg.relationships(slidePartUri).filter(
+    ({ type }) => type === NOTES_SLIDE_RELATIONSHIP,
+  );
+  if (relationships.length === 0) return { kind: 'absent' };
+  if (relationships.length !== 1) return { kind: 'unsafe' };
+  const relationship = relationships[0]!;
+  if (
+    relationship.targetMode !== 'Internal'
+    || !relationship.resolvedTarget
+  ) return { kind: 'unsafe' };
+  const part = pkg.getPart(relationship.resolvedTarget);
+  if (!part || part.contentType !== NOTES_SLIDE_CONTENT_TYPE) {
+    return { kind: 'unsafe' };
+  }
+  const incoming = pkg.graph.find(({ uri }) => uri === part.uri)?.incoming ?? [];
+  if (
+    incoming.length !== 1
+    || incoming[0]?.sourceUri !== slidePartUri
+    || incoming[0]?.relationship.id !== relationship.id
+    || incoming[0]?.relationship.type !== NOTES_SLIDE_RELATIONSHIP
+  ) return { kind: 'unsafe' };
+
+  const xml = LosslessXmlDocument.parse(part.bytes);
+  if (!resolveNotesBodyState(xml)) return { kind: 'unsafe' };
+
+  const slideRelationships = pkg.relationships(part.uri).filter(
+    ({ type }) => type === SLIDE_RELATIONSHIP,
+  );
+  if (
+    slideRelationships.length !== 1
+    || slideRelationships[0]?.targetMode !== 'Internal'
+    || slideRelationships[0]?.resolvedTarget !== slidePartUri
+  ) return { kind: 'unsafe' };
+
+  const master = resolveNotesMasterState(pkg, presentationPartUri);
+  if (master.kind !== 'valid') return { kind: 'unsafe' };
+  const masterRelationships = pkg.relationships(part.uri).filter(
+    ({ type }) => type === NOTES_MASTER_RELATIONSHIP,
+  );
+  if (
+    masterRelationships.length !== 1
+    || masterRelationships[0]?.targetMode !== 'Internal'
+    || masterRelationships[0]?.resolvedTarget !== master.partUri
+  ) return { kind: 'unsafe' };
+
+  return { kind: 'valid', relationship, part, xml };
+}
+
+function resolveNotesMasterState(
+  pkg: OpcPackage,
+  presentationPartUri: string,
+): NotesMasterState {
+  const relationships = pkg.relationships(presentationPartUri).filter(
+    ({ type }) => type === NOTES_MASTER_RELATIONSHIP,
+  );
+  if (relationships.length === 0) return { kind: 'absent' };
+  if (relationships.length !== 1) return { kind: 'unsafe' };
+  const relationship = relationships[0]!;
+  if (
+    relationship.targetMode !== 'Internal'
+    || !relationship.resolvedTarget
+  ) return { kind: 'unsafe' };
+  const part = pkg.getPart(relationship.resolvedTarget);
+  if (!part || part.contentType !== NOTES_MASTER_CONTENT_TYPE) {
+    return { kind: 'unsafe' };
+  }
+  const xml = LosslessXmlDocument.parse(part.bytes);
+  if (
+    xml.roots.length !== 1
+    || !xml.roots[0]
+    || !isElement(xml.roots[0], 'notesMaster', PRESENTATION_NAMESPACE)
+  ) return { kind: 'unsafe' };
+  return { kind: 'valid', partUri: part.uri };
 }
 
 function resolveNotesBodyState(

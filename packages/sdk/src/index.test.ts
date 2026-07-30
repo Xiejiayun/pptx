@@ -248,6 +248,120 @@ describe('PptxDocument vertical slice', () => {
     }
   });
 
+  it('preserves speaker notes through lifecycle, rollback, sections, hidden state, and all formats', async () => {
+    const document = PptxDocument.create();
+    const visible = document.addSlide().addNotes('Visible notes');
+    const hidden = document.addSlide().addNotes('Hidden notes');
+    hidden.hidden = true;
+    const empty = document.addSlide();
+    empty.notes = '';
+    const lazy = document.addSlide();
+    const section = document.addSection({ title: 'Noted section' });
+    document.assignSlideToSection(document.slides.indexOf(hidden), section.id);
+
+    const sourceNotesRelationship = hidden.relationships.find(
+      ({ type }) => type.endsWith('/notesSlide'),
+    )!;
+    const sourceNotesUri = sourceNotesRelationship.resolvedTarget!;
+    const sourceMasterUri = document.opcPackage.relationships(sourceNotesUri).find(
+      ({ type }) => type.endsWith('/notesMaster'),
+    )!.resolvedTarget!;
+
+    const duplicate = document.duplicateSlide(document.slides.indexOf(hidden));
+    expect(duplicate.notes).toBe('Hidden notes');
+    expect(duplicate.hidden).toBe(true);
+    const duplicateNotesUri = duplicate.relationships.find(
+      ({ type }) => type.endsWith('/notesSlide'),
+    )!.resolvedTarget!;
+    expect(duplicateNotesUri).not.toBe(sourceNotesUri);
+    expect(document.opcPackage.relationships(duplicateNotesUri).find(
+      ({ type }) => type.endsWith('/slide'),
+    )?.resolvedTarget).toBe(duplicate.partUri);
+    expect(document.opcPackage.relationships(duplicateNotesUri).find(
+      ({ type }) => type.endsWith('/notesMaster'),
+    )?.resolvedTarget).toBe(sourceMasterUri);
+    expect(document.sections).toEqual([
+      { ...section, slideIds: [hidden.slideId, duplicate.slideId] },
+    ]);
+
+    document.moveSlide(document.slides.indexOf(duplicate), 0);
+    duplicate.notes = 'Duplicate notes';
+    document.deleteSlide(document.slides.indexOf(hidden));
+    expect(document.slides).toEqual([duplicate, visible, empty, lazy]);
+    expect(document.slides.map(({ notes }) => notes)).toEqual([
+      'Duplicate notes',
+      'Visible notes',
+      '',
+      undefined,
+    ]);
+    expect(document.slides.map(({ hidden: state }) => state)).toEqual([true, false, false, false]);
+    expect(document.sections).toEqual([
+      { ...section, slideIds: [duplicate.slideId] },
+    ]);
+    expect(document.opcPackage.hasPart(sourceNotesUri)).toBe(false);
+    expect(document.opcPackage.hasPart(duplicateNotesUri)).toBe(true);
+    expect(document.opcPackage.hasPart(sourceMasterUri)).toBe(true);
+
+    const beforeRollback = new Map(
+      document.opcPackage.parts.map(({ uri, bytes }) => [uri, bytes.slice()]),
+    );
+    const rollbackJournal = [...document.opcPackage.mutations];
+    const rollbackSlides = [...document.slides];
+    const rollbackSections = document.sections;
+    expect(() => document.transaction((draft) => {
+      draft.slides[0]!.notes = 'Temporary edit';
+      draft.slides[1]!.notes = undefined;
+      draft.slides[2]!.addNotes('Temporary empty edit');
+      const temporary = draft.duplicateSlide(0);
+      temporary.notes = 'Temporary duplicate';
+      draft.moveSlide(draft.slides.indexOf(temporary), 0);
+      draft.deleteSlide(2);
+      throw new Error('rollback speaker notes lifecycle');
+    })).toThrow('rollback speaker notes lifecycle');
+    expect(document.opcPackage.parts.map(({ uri }) => uri)).toEqual([...beforeRollback.keys()]);
+    for (const { uri, bytes } of document.opcPackage.parts) {
+      expect(bytes).toEqual(beforeRollback.get(uri));
+    }
+    expect(document.opcPackage.mutations).toEqual(rollbackJournal);
+    expect(document.slides).toEqual(rollbackSlides);
+    expect(document.slides[0]).toBe(rollbackSlides[0]);
+    expect(document.slides[1]).toBe(rollbackSlides[1]);
+    expect(document.slides.map(({ notes }) => notes)).toEqual([
+      'Duplicate notes',
+      'Visible notes',
+      '',
+      undefined,
+    ]);
+    expect(document.sections).toEqual(rollbackSections);
+
+    const reopened = await PptxDocument.open(await document.write());
+    expect(reopened.slides.map(({ notes }) => notes)).toEqual([
+      'Duplicate notes',
+      'Visible notes',
+      '',
+      undefined,
+    ]);
+    expect(reopened.slides.map(({ hidden: state }) => state)).toEqual([true, false, false, false]);
+    expect(reopened.sections).toEqual(document.sections);
+    expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const formatted = PptxDocument.create({ format });
+      formatted.addSlide();
+      formatted.addSlide().notes = '';
+      formatted.addSlide().addNotes(`Notes ${format}`);
+      const formattedReopened = await PptxDocument.open(await formatted.write());
+      expect(formattedReopened.format).toBe(format);
+      expect(formattedReopened.slides.map(({ notes }) => notes)).toEqual([
+        undefined,
+        '',
+        `Notes ${format}`,
+      ]);
+      expect(validatePackage(formattedReopened.opcPackage)
+        .filter(({ severity }) => severity === 'error')).toEqual([]);
+    }
+  }, 20_000);
+
   it('creates, reads, and atomically edits detached presentation sections', async () => {
     const document = PptxDocument.create();
     const slides = [document.addSlide(), document.addSlide(), document.addSlide()];
