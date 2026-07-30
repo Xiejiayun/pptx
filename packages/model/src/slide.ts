@@ -44,6 +44,10 @@ import {
   renderTableGraphicFrame,
 } from './table-create.internal.js';
 import {
+  readSlideHidden,
+  replaceSlideHidden,
+} from './slide-visibility.internal.js';
+import {
   normalizeTextBoxMargins,
   readTextBoxMargins,
   renderTextBoxMarginAttributes,
@@ -198,6 +202,22 @@ export class SlideModel {
 
   set background(value: GradientFill) {
     new GradientCodec().setSlideBackground(this.presentation.opcPackage, this.partUri, value);
+  }
+
+  get hidden(): boolean | undefined {
+    const { xml } = this.parse();
+    return readSlideHidden(xml);
+  }
+
+  set hidden(value: boolean) {
+    if (typeof value !== 'boolean') {
+      throw new TypeError('Slide hidden state must be a boolean');
+    }
+    this.presentation.opcPackage.transaction(() => {
+      const { xml } = this.parse();
+      if (!replaceSlideHidden(xml, value)) return;
+      this.setXml(xml.serialize());
+    });
   }
 
   get relationships(): readonly Relationship[] {

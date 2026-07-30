@@ -90,6 +90,77 @@ describe('PresentationModel', () => {
     });
   });
 
+  it('reads and losslessly edits hidden slide state through the live model', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const identity = model.slides.at(-1);
+    expect(identity).toBe(slide);
+    expect(slide.hidden).toBe(false);
+
+    const visibleBytes = pkg.requirePart(slide.partUri).bytes.slice();
+    const visibleJournal = [...pkg.mutations];
+    slide.hidden = false;
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(visibleBytes);
+    expect(pkg.mutations).toEqual(visibleJournal);
+
+    const beforeHiddenParts = new Map(
+      pkg.parts.map(({ uri, bytes }) => [uri, bytes.slice()]),
+    );
+    slide.hidden = true;
+    expect(slide.hidden).toBe(true);
+    expect(model.slides.at(-1)).toBe(identity);
+    for (const { uri, bytes } of pkg.parts) {
+      if (uri !== slide.partUri) expect(bytes).toEqual(beforeHiddenParts.get(uri));
+    }
+    let source = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect(source).toContain('<p:sld ');
+    expect(source).toContain(' show="0">');
+
+    const hiddenBytes = pkg.requirePart(slide.partUri).bytes.slice();
+    const hiddenJournal = [...pkg.mutations];
+    slide.hidden = true;
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(hiddenBytes);
+    expect(pkg.mutations).toEqual(hiddenJournal);
+
+    const tokens: readonly (readonly [string, boolean | undefined])[] = [
+      ['0', true],
+      ['false', true],
+      ['off', true],
+      ['1', false],
+      ['true', false],
+      ['on', false],
+      ['maybe', undefined],
+    ];
+    for (const [token, expected] of tokens) {
+      const part = pkg.requirePart(slide.partUri);
+      source = new TextDecoder().decode(part.bytes).replace(/ show="[^"]*"/, ` show="${token}"`);
+      pkg.setPart(part.uri, source, part.contentType);
+      const journal = [...pkg.mutations];
+      expect(slide.hidden, token).toBe(expected);
+      expect(pkg.mutations).toEqual(journal);
+    }
+
+    slide.hidden = true;
+    source = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect(source).toContain(' show="0">');
+    expect(source).not.toContain('show="maybe"');
+    slide.hidden = false;
+    expect(slide.hidden).toBe(false);
+    expect(new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes)).not.toMatch(/\sshow=/);
+
+    const beforeInvalid = pkg.requirePart(slide.partUri).bytes.slice();
+    const invalidJournal = [...pkg.mutations];
+    for (const invalid of [undefined, null, 0, 1, 'true', {}, [], Symbol('hidden')]) {
+      expect(() => {
+        (slide as unknown as { hidden: unknown }).hidden = invalid;
+      }, String(invalid)).toThrow(TypeError);
+    }
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeInvalid);
+    expect(pkg.mutations).toEqual(invalidJournal);
+    expect(model.slides.at(-1)).toBe(identity);
+  });
+
   it('reads only recognized direct presentation RTL tokens without mutating the package', async () => {
     const cases: readonly [string | undefined, boolean | undefined][] = [
       ['1', true],

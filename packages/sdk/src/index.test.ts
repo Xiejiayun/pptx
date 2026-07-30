@@ -180,6 +180,74 @@ describe('PptxDocument vertical slice', () => {
     expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
   });
 
+  it('preserves hidden slide state through lifecycle, rollback, and all formats', async () => {
+    const document = PptxDocument.create();
+    const visible = document.addSlide();
+    const hidden = document.addSlide();
+    hidden.hidden = true;
+    const section = document.addSection({ title: 'Hidden section' });
+    document.assignSlideToSection(1, section.id);
+
+    const duplicate = document.duplicateSlide(1);
+    expect(duplicate.hidden).toBe(true);
+    expect(document.sections).toEqual([
+      { ...section, slideIds: [hidden.slideId, duplicate.slideId] },
+    ]);
+    document.moveSlide(document.slides.indexOf(duplicate), 0);
+    expect(document.slides.map(({ hidden: state }) => state)).toEqual([true, false, true]);
+    expect(document.sections).toEqual([
+      { ...section, slideIds: [duplicate.slideId, hidden.slideId] },
+    ]);
+    document.deleteSlide(document.slides.indexOf(hidden));
+    expect(document.slides.map(({ hidden: state }) => state)).toEqual([true, false]);
+    expect(document.slides[0]).toBe(duplicate);
+    expect(document.slides[1]).toBe(visible);
+    expect(document.sections).toEqual([
+      { ...section, slideIds: [duplicate.slideId] },
+    ]);
+
+    const beforeRollback = new Map(
+      document.opcPackage.parts.map(({ uri, bytes }) => [uri, bytes.slice()]),
+    );
+    const rollbackJournal = [...document.opcPackage.mutations];
+    const rollbackSlides = [...document.slides];
+    const rollbackSections = document.sections;
+    expect(() => document.transaction((draft) => {
+      draft.slides[0]!.hidden = false;
+      draft.slides[1]!.hidden = true;
+      const temporary = draft.duplicateSlide(0);
+      draft.moveSlide(draft.slides.indexOf(temporary), 0);
+      draft.deleteSlide(1);
+      throw new Error('rollback hidden slide lifecycle');
+    })).toThrow('rollback hidden slide lifecycle');
+    expect(document.opcPackage.parts.map(({ uri }) => uri)).toEqual([...beforeRollback.keys()]);
+    for (const { uri, bytes } of document.opcPackage.parts) {
+      expect(bytes).toEqual(beforeRollback.get(uri));
+    }
+    expect(document.opcPackage.mutations).toEqual(rollbackJournal);
+    expect(document.slides).toEqual(rollbackSlides);
+    expect(document.slides[0]).toBe(rollbackSlides[0]);
+    expect(document.slides[1]).toBe(rollbackSlides[1]);
+    expect(document.slides.map(({ hidden: state }) => state)).toEqual([true, false]);
+    expect(document.sections).toEqual(rollbackSections);
+
+    const reopened = await PptxDocument.open(await document.write());
+    expect(reopened.slides.map(({ hidden: state }) => state)).toEqual([true, false]);
+    expect(reopened.sections).toEqual(document.sections);
+    expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const formatted = PptxDocument.create({ format });
+      formatted.addSlide();
+      formatted.addSlide().hidden = true;
+      const formattedReopened = await PptxDocument.open(await formatted.write());
+      expect(formattedReopened.format).toBe(format);
+      expect(formattedReopened.slides.map(({ hidden: state }) => state)).toEqual([false, true]);
+      expect(validatePackage(formattedReopened.opcPackage)
+        .filter(({ severity }) => severity === 'error')).toEqual([]);
+    }
+  });
+
   it('creates, reads, and atomically edits detached presentation sections', async () => {
     const document = PptxDocument.create();
     const slides = [document.addSlide(), document.addSlide(), document.addSlide()];
