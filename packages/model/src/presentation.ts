@@ -54,15 +54,19 @@ import {
 } from './presentation-revision.internal.js';
 import {
   assignPresentationSlideToSection,
+  copyPresentationSlideSection,
   createPresentationSectionId,
   deletePresentationSection,
   insertPresentationSection,
   movePresentationSection,
   normalizeAddPresentationSectionOptions,
+  normalizeAddPresentationSlideOptions,
   normalizePresentationSectionId,
   normalizePresentationSectionTitle,
   readPresentationSections,
+  removePresentationSlideFromSections,
   renamePresentationSection,
+  sortPresentationSectionSlides,
 } from './presentation-sections.internal.js';
 import type { Emu, SlideSize } from './units.js';
 
@@ -72,6 +76,7 @@ const SLIDE_LAYOUT_RELATIONSHIP = 'http://schemas.openxmlformats.org/officeDocum
 const PRESENTATION_NAMESPACE = 'http://schemas.openxmlformats.org/presentationml/2006/main';
 const MIN_SLIDE_SIZE = 914_400;
 const MAX_SLIDE_SIZE = 51_206_400;
+const DEFAULT_SECTION_TITLE = /^Default-[1-9]\d*$/;
 
 export interface PresentationSection {
   readonly id: string;
@@ -110,8 +115,8 @@ export class PresentationModel {
   get slides(): readonly SlideModel[] {
     const { xml } = this.parsePresentation();
     const relationships = this.opcPackage.relationships(this.presentationPartUri);
-    const ordered = xml
-      .elements('sldId')
+    const ordered = this
+      .slideIdElements(xml)
       .map((element) => ({
         relationshipId: xml.attribute(element, 'r:id')?.value,
         slideId: Number.parseInt(xml.attribute(element, 'id')?.value ?? '', 10),
@@ -275,8 +280,7 @@ export class PresentationModel {
     return this.opcPackage.transaction(() => {
       const { xml } = this.parsePresentation();
       const slideIds = new Set(this.slides.map(({ slideId }) => slideId));
-      const sections = readPresentationSections(xml, slideIds);
-      if (!sections) throw new ModelParseError('Presentation sections are not safely editable', this.presentationPartUri);
+      const sections = this.requireEditableSections(xml, slideIds);
       const section = insertPresentationSection(
         xml,
         slideIds,
@@ -337,8 +341,39 @@ export class PresentationModel {
     });
   }
 
-  addSlide(): SlideModel {
+  addSlide(options: AddSlideOptions = {}): SlideModel {
+    const normalized = normalizeAddPresentationSlideOptions(options);
     return this.opcPackage.transaction(() => {
+      const initial = this.parsePresentation().xml;
+      const initialSlideIds = new Set(this.slides.map(({ slideId }) => slideId));
+      const sections = this.requireEditableSections(initial, initialSlideIds);
+      let targetSectionId: string | undefined;
+      if (normalized.sectionTitle !== undefined) {
+        const target = sections.find(({ title }) => title === normalized.sectionTitle);
+        if (!target) {
+          throw new RangeError(`Presentation section ${normalized.sectionTitle} was not found`);
+        }
+        targetSectionId = target.id;
+      } else if (sections.length > 0) {
+        const last = sections.at(-1)!;
+        if (DEFAULT_SECTION_TITLE.test(last.title)) {
+          targetSectionId = last.id;
+        } else {
+          const titles = new Set(sections.map(({ title }) => title));
+          let number = 1;
+          while (titles.has(`Default-${number}`)) number += 1;
+          const section = insertPresentationSection(
+            initial,
+            initialSlideIds,
+            `Default-${number}`,
+            sections.length,
+            createPresentationSectionId(),
+          );
+          targetSectionId = section.id;
+          this.setXmlPart(this.presentationPartUri, initial.serialize());
+        }
+      }
+
       const slideUri = this.opcPackage.allocatePartUri(
         joinPartUri(partUriDirname(this.presentationPartUri), 'slides'),
         'slide',
@@ -355,13 +390,26 @@ export class PresentationModel {
           target: relativeRelationshipTarget(slideUri, layoutPartUri),
         });
       }
-      return this.attachSlide(slideUri);
+      const slide = this.attachSlide(slideUri);
+      if (targetSectionId !== undefined) {
+        const { xml } = this.parsePresentation();
+        const slideIds = new Set(this.slides.map(({ slideId }) => slideId));
+        if (assignPresentationSlideToSection(xml, slideIds, slide.slideId, targetSectionId)) {
+          this.setXmlPart(this.presentationPartUri, xml.serialize());
+        }
+      }
+      return slide;
     });
   }
 
   duplicateSlide(index: number): SlideModel {
     return this.opcPackage.transaction(() => {
       const source = this.requireSlide(index);
+      const before = this.parsePresentation().xml;
+      this.requireEditableSections(
+        before,
+        new Set(this.slides.map(({ slideId }) => slideId)),
+      );
       const slideUri = this.opcPackage.allocatePartUri(
         joinPartUri(partUriDirname(this.presentationPartUri), 'slides'),
         'slide',
@@ -370,7 +418,13 @@ export class PresentationModel {
       const sourcePart = this.opcPackage.requirePart(source.partUri);
       this.opcPackage.setPart(slideUri, sourcePart.bytes, sourcePart.contentType);
       cloneSlideDependencies(this.opcPackage, source.partUri, slideUri);
-      return this.attachSlide(slideUri);
+      const duplicate = this.attachSlide(slideUri);
+      const { xml } = this.parsePresentation();
+      const slideIds = new Set(this.slides.map(({ slideId }) => slideId));
+      if (copyPresentationSlideSection(xml, slideIds, source.slideId, duplicate.slideId)) {
+        this.setXmlPart(this.presentationPartUri, xml.serialize());
+      }
+      return duplicate;
     });
   }
 
@@ -383,6 +437,11 @@ export class PresentationModel {
       );
       if (!entry) throw new PackageError(`Slide entry ${slide.relationshipId} is missing`, this.presentationPartUri);
       const ownedDependencies = ownedSlideDependencyRoots(this.opcPackage, slide.partUri);
+      removePresentationSlideFromSections(
+        xml,
+        new Set(this.slides.map(({ slideId }) => slideId)),
+        slide.slideId,
+      );
       xml.removeElement(entry);
       this.setXmlPart(this.presentationPartUri, xml.serialize());
       this.opcPackage.removeRelationship(this.presentationPartUri, slide.relationshipId);
@@ -394,14 +453,16 @@ export class PresentationModel {
   moveSlide(fromIndex: number, toIndex: number): void {
     this.opcPackage.transaction(() => {
       const { xml } = this.parsePresentation();
-      const list = xml.elements('sldIdLst')[0];
+      const validSlideIds = new Set(this.slides.map(({ slideId }) => slideId));
+      this.requireEditableSections(xml, validSlideIds);
+      const list = this.slideIdList(xml);
       if (!list) throw new PackageError('Presentation has no slide id list', this.presentationPartUri);
       const elements = this.slideIdElements(xml);
       if (!elements[fromIndex]) throw new RangeError(`Slide index ${fromIndex} is out of range`);
       const boundedTarget = Math.max(0, Math.min(toIndex, elements.length - 1));
       const [moved] = elements.splice(fromIndex, 1);
       elements.splice(boundedTarget, 0, moved!);
-      const known = new Set(this.slideIdElements(xml));
+      const known = new Set(elements);
       const opaqueChildren = list.children
         .filter((child): child is XmlElement => child.type === 'element' && !known.has(child))
         .map((child) => xml.original(child));
@@ -410,6 +471,14 @@ export class PresentationModel {
         list.endTagStart,
         [...elements.map((element) => xml.original(element)), ...opaqueChildren].join(''),
       );
+      const orderedSlideIds = elements.map((element) => {
+        const id = Number(xml.attribute(element, 'id')?.value);
+        if (!Number.isSafeInteger(id) || !validSlideIds.has(id)) {
+          throw new PackageError('Presentation slide ID is invalid', this.presentationPartUri);
+        }
+        return id;
+      });
+      sortPresentationSectionSlides(xml, validSlideIds, orderedSlideIds);
       this.setXmlPart(this.presentationPartUri, xml.serialize());
     });
   }
@@ -432,7 +501,7 @@ export class PresentationModel {
     const { xml } = this.parsePresentation();
     const root = xml.elements('presentation')[0];
     if (!root) throw new PackageError('Invalid presentation XML', this.presentationPartUri);
-    let list = xml.elements('sldIdLst')[0];
+    let list = this.slideIdList(xml);
     const slideId = Math.max(255, ...this.slides.map(({ slideId: id }) => id)) + 1;
     const entry = `<p:sldId id="${slideId}" r:id="${relationship.id}"/>`;
     if (list) {
@@ -469,7 +538,33 @@ export class PresentationModel {
   }
 
   private slideIdElements(xml: LosslessXmlDocument): XmlElement[] {
-    return xml.elements('sldId');
+    const list = this.slideIdList(xml);
+    if (!list) return [];
+    return list.children.filter(
+      (child): child is XmlElement => child.type === 'element' && child.localName === 'sldId',
+    );
+  }
+
+  private slideIdList(xml: LosslessXmlDocument): XmlElement | undefined {
+    const root = xml.elements('presentation').find(({ parent }) => !parent);
+    return root ? directChild(root, 'sldIdLst') : undefined;
+  }
+
+  private requireEditableSections(
+    xml: LosslessXmlDocument,
+    slideIds: ReadonlySet<number>,
+  ): readonly PresentationSection[] {
+    if (!xml.elements('presentation').some(({ parent }) => !parent)) {
+      throw new PackageError('Invalid presentation XML', this.presentationPartUri);
+    }
+    const sections = readPresentationSections(xml, slideIds);
+    if (!sections) {
+      throw new ModelParseError(
+        'Presentation sections are not safely editable',
+        this.presentationPartUri,
+      );
+    }
+    return sections;
   }
 
   private requireSlide(index: number): SlideModel {

@@ -32,7 +32,7 @@ async function titleFixture(): Promise<Uint8Array> {
   const zip = new JSZip();
   zip.file('[Content_Types].xml', '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/><Override PartName="/ppt/slides/slide1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/></Types>');
   zip.file('_rels/.rels', '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/></Relationships>');
-  zip.file('ppt/presentation.xml', '<p:presentation xmlns:p="p" xmlns:r="r"><p:sldIdLst><p:sldId id="256" r:id="rId7"/></p:sldIdLst></p:presentation>');
+  zip.file('ppt/presentation.xml', '<p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><p:sldIdLst><p:sldId id="256" r:id="rId7"/></p:sldIdLst></p:presentation>');
   zip.file('ppt/_rels/presentation.xml.rels', '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId7" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide1.xml"/></Relationships>');
   zip.file('ppt/slides/slide1.xml', '<p:sld xmlns:p="p" xmlns:a="a"><p:cSld><p:spTree><p:sp><p:nvSpPr><p:nvPr><p:ph type="title"/></p:nvPr></p:nvSpPr><p:txBody><a:p><a:r><a:t>Original</a:t></a:r></a:p></p:txBody><x:unknown xmlns:x="x" custom="keep"/></p:sp></p:spTree></p:cSld></p:sld>');
   zip.file('ppt/theme/theme1.xml', '<a:theme xmlns:a="a"><x:opaque xmlns:x="x">KEEP</x:opaque></a:theme>');
@@ -335,6 +335,200 @@ describe('PptxDocument vertical slice', () => {
         { id: section.id, title: `Section ${format}`, slideIds: [slide.slideId] },
       ]);
     }
+  });
+
+  it('assigns added slides to explicit and automatic presentation sections', async () => {
+    const document = PptxDocument.create();
+    const loose = document.addSlide();
+    expect(document.sections).toEqual([]);
+
+    const firstIntro = document.addSection({ title: 'Intro' });
+    const secondIntro = document.addSection({ title: 'Intro' });
+    const escaped = document.addSection({ title: 'Data & <One>' });
+    const explicitIntro = document.addSlide({ sectionTitle: 'Intro' });
+    const explicitEscaped = document.addSlide({ sectionTitle: 'Data & <One>' });
+    const automaticOne = document.addSlide();
+    const automaticTwo = document.addSlide();
+    const afterDefault = document.addSection({ title: 'After default' });
+    const automaticThree = document.addSlide({ sectionTitle: undefined } as never);
+
+    expect(document.sections).toEqual([
+      { ...firstIntro, slideIds: [explicitIntro.slideId] },
+      { ...secondIntro, slideIds: [] },
+      { ...escaped, slideIds: [explicitEscaped.slideId] },
+      expect.objectContaining({
+        title: 'Default-1',
+        slideIds: [automaticOne.slideId, automaticTwo.slideId],
+      }),
+      { ...afterDefault, slideIds: [] },
+      expect.objectContaining({ title: 'Default-2', slideIds: [automaticThree.slideId] }),
+    ]);
+    expect(document.sections?.flatMap(({ slideIds }) => slideIds)).not.toContain(loose.slideId);
+
+    let accessorCalls = 0;
+    const accessorOptions = Object.defineProperty({}, 'sectionTitle', {
+      enumerable: true,
+      get: () => {
+        accessorCalls += 1;
+        return 'Intro';
+      },
+    });
+    const beforeInvalid = new Map(
+      document.opcPackage.parts.map(({ uri, bytes }) => [uri, bytes.slice()]),
+    );
+    const beforeInvalidJournal = [...document.opcPackage.mutations];
+    const beforeInvalidSlides = [...document.slides];
+    expect(() => document.addSlide({ sectionTitle: 'Missing' })).toThrow(RangeError);
+    for (const options of [
+      null,
+      [],
+      { sectionTitle: 1 },
+      { sectionTitle: 'Intro', extra: true },
+      { sectionTitle: 'Intro', [Symbol('extra')]: true },
+      Object.create({ sectionTitle: 'Intro' }),
+      accessorOptions,
+    ]) {
+      expect(() => document.addSlide(options as never)).toThrow(TypeError);
+    }
+    expect(accessorCalls).toBe(0);
+    expect(document.opcPackage.parts.map(({ uri }) => uri)).toEqual([...beforeInvalid.keys()]);
+    for (const { uri, bytes } of document.opcPackage.parts) {
+      expect(bytes).toEqual(beforeInvalid.get(uri));
+    }
+    expect(document.opcPackage.mutations).toEqual(beforeInvalidJournal);
+    expect(document.slides).toEqual(beforeInvalidSlides);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const continued = reopened.addSlide();
+    expect(reopened.sections?.at(-1)).toMatchObject({
+      title: 'Default-2',
+      slideIds: [automaticThree.slideId, continued.slideId],
+    });
+    expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+  });
+
+  it('synchronizes duplicate, delete, and move slide presentation sections', async () => {
+    const document = PptxDocument.create();
+    const loose = document.addSlide();
+    const aOne = document.addSlide();
+    const bOne = document.addSlide();
+    const aTwo = document.addSlide();
+    const cOne = document.addSlide();
+    aOne.addText('Assigned source');
+
+    const a = document.addSection({ title: 'A' });
+    const b = document.addSection({ title: 'B' });
+    const c = document.addSection({ title: 'C' });
+    document.assignSlideToSection(1, a.id);
+    document.assignSlideToSection(2, b.id);
+    document.assignSlideToSection(3, a.id);
+    document.assignSlideToSection(4, c.id);
+
+    const assignedDuplicate = document.duplicateSlide(1);
+    const looseDuplicate = document.duplicateSlide(0);
+    expect(assignedDuplicate.shapes[0]).toMatchObject({ text: 'Assigned source' });
+    expect(document.sections).toEqual([
+      { ...a, slideIds: [aOne.slideId, aTwo.slideId, assignedDuplicate.slideId] },
+      { ...b, slideIds: [bOne.slideId] },
+      { ...c, slideIds: [cOne.slideId] },
+    ]);
+    expect(document.sections?.flatMap(({ slideIds }) => slideIds)).not.toContain(loose.slideId);
+    expect(document.sections?.flatMap(({ slideIds }) => slideIds)).not.toContain(looseDuplicate.slideId);
+
+    document.deleteSlide(2);
+    expect(document.sections?.find(({ id }) => id === b.id)).toEqual({ ...b, slideIds: [] });
+    document.moveSlide(2, 0);
+    document.moveSlide(document.slides.indexOf(assignedDuplicate), 1);
+    expect(document.slides.map(({ slideId }) => slideId)).toEqual([
+      aTwo.slideId,
+      assignedDuplicate.slideId,
+      loose.slideId,
+      aOne.slideId,
+      cOne.slideId,
+      looseDuplicate.slideId,
+    ]);
+    expect(document.sections).toEqual([
+      { ...a, slideIds: [aTwo.slideId, assignedDuplicate.slideId, aOne.slideId] },
+      { ...b, slideIds: [] },
+      { ...c, slideIds: [cOne.slideId] },
+    ]);
+
+    document.deleteSlide(document.slides.indexOf(aOne));
+    expect(document.sections).toEqual([
+      { ...a, slideIds: [aTwo.slideId, assignedDuplicate.slideId] },
+      { ...b, slideIds: [] },
+      { ...c, slideIds: [cOne.slideId] },
+    ]);
+    const reopened = await PptxDocument.open(await document.write());
+    expect(reopened.sections).toEqual(document.sections);
+    expect(reopened.slides.map(({ slideId }) => slideId)).toEqual(
+      document.slides.map(({ slideId }) => slideId),
+    );
+    expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+  });
+
+  it('rejects unsafe section slide lifecycles and rolls composite operations back', () => {
+    const unsafe = PptxDocument.create();
+    const unsafeSlide = unsafe.addSlide();
+    unsafe.addSlide();
+    const unsafeSection = unsafe.addSection({ title: 'Unsafe' });
+    unsafe.assignSlideToSection(0, unsafeSection.id);
+    const part = unsafe.opcPackage.requirePart(unsafe.presentationPartUri);
+    const member = `<p14:sldId id="${unsafeSlide.slideId}"/>`;
+    unsafe.opcPackage.setPart(
+      part.uri,
+      new TextDecoder().decode(part.bytes).replace(member, `${member}${member}`),
+      part.contentType,
+    );
+    expect(unsafe.sections).toBeUndefined();
+    const unsafeParts = new Map(
+      unsafe.opcPackage.parts.map(({ uri, bytes }) => [uri, bytes.slice()]),
+    );
+    const unsafeJournal = [...unsafe.opcPackage.mutations];
+    const unsafeSlides = [...unsafe.slides];
+    for (const operation of [
+      () => unsafe.addSlide({ sectionTitle: 'Unsafe' }),
+      () => unsafe.duplicateSlide(0),
+      () => unsafe.deleteSlide(0),
+      () => unsafe.moveSlide(0, 1),
+    ]) {
+      expect(operation).toThrow(ModelParseError);
+      expect(unsafe.opcPackage.parts.map(({ uri }) => uri)).toEqual([...unsafeParts.keys()]);
+      for (const { uri, bytes } of unsafe.opcPackage.parts) {
+        expect(bytes).toEqual(unsafeParts.get(uri));
+      }
+      expect(unsafe.opcPackage.mutations).toEqual(unsafeJournal);
+      expect(unsafe.slides).toEqual(unsafeSlides);
+    }
+
+    const document = PptxDocument.create();
+    const section = document.addSection({ title: 'Safe' });
+    const first = document.addSlide({ sectionTitle: 'Safe' });
+    const second = document.addSlide({ sectionTitle: 'Safe' });
+    first.addText('Rollback source');
+    const before = new Map(
+      document.opcPackage.parts.map(({ uri, bytes }) => [uri, bytes.slice()]),
+    );
+    const journal = [...document.opcPackage.mutations];
+    const identities = [...document.slides];
+    expect(() => document.transaction((draft) => {
+      draft.addSlide({ sectionTitle: 'Safe' });
+      draft.duplicateSlide(0);
+      draft.moveSlide(draft.slides.length - 1, 0);
+      draft.deleteSlide(1);
+      throw new Error('rollback section slide lifecycle');
+    })).toThrow('rollback section slide lifecycle');
+    expect(document.opcPackage.parts.map(({ uri }) => uri)).toEqual([...before.keys()]);
+    for (const { uri, bytes } of document.opcPackage.parts) {
+      expect(bytes).toEqual(before.get(uri));
+    }
+    expect(document.opcPackage.mutations).toEqual(journal);
+    expect(document.slides).toEqual(identities);
+    expect(document.slides[0]).toBe(first);
+    expect(document.slides[1]).toBe(second);
+    expect(document.sections).toEqual([
+      { ...section, slideIds: [first.slideId, second.slideId] },
+    ]);
   });
 
   it('creates all presentation formats and built-in PptxGenJS slide sizes', async () => {
