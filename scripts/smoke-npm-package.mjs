@@ -536,6 +536,19 @@ detachedSections[0].title = 'Detached caller title';
 detachedSections[0].slideIds.push(999);
 const currentSections = sectioned.sections;
 const reopenedSections = (await PptxDocument.open(await sectioned.write())).sections;
+const hiddenDeck = PptxDocument.create();
+const packedVisibleSlide = hiddenDeck.addSlide();
+const packedHiddenSlide = hiddenDeck.addSlide();
+packedHiddenSlide.hidden = true;
+const packedHiddenDuplicate = hiddenDeck.duplicateSlide(1);
+packedVisibleSlide.hidden = true;
+packedHiddenSlide.hidden = false;
+const reopenedHiddenDeck = await PptxDocument.open(await hiddenDeck.write());
+const reopenedHiddenStates = reopenedHiddenDeck.slides.map(({ hidden }) => hidden);
+const reopenedHiddenRootStates = reopenedHiddenDeck.slides.map(({ partUri }) =>
+  /<p:sld\\b[^>]*\\sshow="0"/.test(new TextDecoder().decode(
+    reopenedHiddenDeck.opcPackage.requirePart(partUri).bytes,
+  )));
 richText.richText = [{ align: 'justify', bullet: { kind: 'number', style: 'romanUcPeriod', startAt: 3, indent: 22 }, level: 3, spacing: { before: 5, after: 7, line: { kind: 'exact', points: 22 } }, tabStops: [{ position: 2.75, alignment: 'decimal' }], runs: [{ text: 'Updated rich', style: { lang: 'ja-JP', baseline: 'superscript', characterSpacing: 2.5, italic: true, glow: { color: { kind: 'scheme', value: 'accent3' }, opacity: 0.25, size: 6 }, highlight: { kind: 'srgb', value: '00ff00' }, outline: { color: { kind: 'scheme', value: 'accent1' }, size: 0.75 }, underline: { style: 'wavyHeavy', color: { kind: 'scheme', value: 'accent2' } }, strike: false } }] }];
 const custom = PptxDocument.create({ slideSize: { width: inches(11.7), height: inches(8.3) } });
 custom.slideSize = { width: inches(10), height: inches(7.5) };
@@ -553,6 +566,7 @@ const checks = {
   presentationCompany: createdPresentationCompany === 'Packed & <Company>' && editedPresentationCompany === 'Edited company' && reopenedPresentationCompany === 'Edited company' && emptyPresentationCompany === '' && clearedPresentationCompany === undefined,
   presentationThemeFonts: createdTheme?.headFontFace === 'Aptos Display' && createdTheme.bodyFontFace === 'Aptos' && replacedTheme?.headFontFace === 'Noto Sans Display' && replacedTheme.bodyFontFace === 'Calibri' && reopenedTheme?.headFontFace === 'Noto Sans Display' && reopenedTheme.bodyFontFace === 'Noto Sans',
   presentationSections: packedSectionEscaped && assignedSlide.slideId === 256 && automaticSlide.slideId === 257 && secondAssignedSlide.slideId === 258 && /^\{[0-9A-F]{8}(?:-[0-9A-F]{4}){3}-[0-9A-F]{12}\}$/.test(firstSection.id) && /^\{[0-9A-F]{8}(?:-[0-9A-F]{4}){3}-[0-9A-F]{12}\}$/.test(dataSection.id) && currentSections.length === 2 && currentSections[0].id === dataSection.id && currentSections[0].title === 'Data' && currentSections[0].slideIds.join(',') === String(automaticSlide.slideId) && currentSections[1].id === firstSection.id && currentSections[1].title === 'Edited intro' && currentSections[1].slideIds.join(',') === [assignedSlide.slideId, secondAssignedSlide.slideId].join(',') && reopenedSections?.length === 2 && reopenedSections[0].id === dataSection.id && reopenedSections[0].slideIds.join(',') === String(automaticSlide.slideId) && reopenedSections[1].id === firstSection.id && reopenedSections[1].title === 'Edited intro' && reopenedSections[1].slideIds.join(',') === [assignedSlide.slideId, secondAssignedSlide.slideId].join(','),
+  hiddenSlides: packedHiddenDuplicate.hidden === true && reopenedHiddenStates.join(',') === 'true,false,true' && reopenedHiddenRootStates.join(',') === 'true,false,true',
   paragraphMarginLeft: initialParagraphMargins[0] === 12 && initialParagraphMargins[1] === undefined && initialParagraphMargins[2] === undefined && bulletMarginIsolation && updatedParagraphMargins[0] === 6 && updatedParagraphMargins[1] === 0 && updatedParagraphMargins[2] === undefined && updatedParagraphMargins[3] === undefined,
   paragraphMarginRight: initialParagraphRightMargins[0] === 12 && initialParagraphRightMargins[1] === 24 && initialParagraphRightMargins[2] === undefined && bulletRightMarginCoexistence && updatedParagraphRightMargins[0] === 6 && updatedParagraphRightMargins[1] === 0 && updatedParagraphRightMargins[2] === undefined && updatedParagraphRightMargins[3] === undefined && updatedParagraphRightMargins[4] === 9,
   paragraphIndent: initialParagraphIndents[0] === 24 && initialParagraphIndents[1] === -18 && initialParagraphIndents[2] === undefined && initialParagraphIndents[3] === undefined && bulletIndentIsolation && updatedParagraphIndents[0] === 6 && updatedParagraphIndents[1] === -6 && updatedParagraphIndents[2] === 0 && updatedParagraphIndents[3] === undefined && updatedParagraphIndents[4] === undefined,
@@ -959,6 +973,11 @@ browserSectioned.renameSection(browserIntro.id, 'Browser edited');
 browserSectioned.moveSection(browserData.id, 0);
 const reopenedBrowserSections = (await PptxDocument.open(await browserSectioned.write())).sections;
 if (reopenedBrowserSections?.length !== 2 || reopenedBrowserSections[0].id !== browserData.id || reopenedBrowserSections[0].title !== 'Browser data' || reopenedBrowserSections[0].slideIds[0] !== browserSectionSlide.slideId || reopenedBrowserSections[1].id !== browserIntro.id || reopenedBrowserSections[1].title !== 'Browser edited' || reopenedBrowserSections[1].slideIds.length !== 0) throw new Error('Browser presentation sections failed');
+const browserHiddenDeck = PptxDocument.create();
+const browserHiddenSlide = browserHiddenDeck.addSlide();
+browserHiddenSlide.hidden = true;
+const reopenedBrowserHidden = await PptxDocument.open(await browserHiddenDeck.writeBlob());
+if (reopenedBrowserHidden.slides[0]?.hidden !== true) throw new Error('Browser hidden slide failed');
 PptxDocument.create({ slideSize: { width: inches(11.7), height: inches(8.3) } });
 created.slideSize = { width: inches(10), height: inches(7.5) };
 process.stdout.write(resolved);
@@ -1029,6 +1048,10 @@ createdDocument.renameSection(typedSection.id, 'Renamed');
 createdDocument.moveSection(typedSection.id, 0);
 createdDocument.assignSlideToSection(0, typedSection.id);
 createdDocument.deleteSection(typedSection.id);
+const typedVisibilitySlide = createdDocument.addSlide();
+const hiddenSnapshot: boolean | undefined = typedVisibilitySlide.hidden;
+typedVisibilitySlide.hidden = true;
+typedVisibilitySlide.hidden = false;
 const globalRtl: PptxDocument = PptxDocument.create({ rtlMode: true });
 const globalRtlSnapshot: boolean | undefined = globalRtl.rtlMode;
 globalRtl.rtlMode = false;
@@ -1239,7 +1262,7 @@ documentPromise.then((document) => {
   advancedCharts.installAdvancedChartPlugin(document);
   smartArt.installSmartArtPlugin(document);
 });
-void [documentPromise, createdDocument, addSectionOptions, typedSection, addSlideOptions, sectionSnapshot, globalRtl, globalRtlSnapshot, titledDocument, titleSnapshot, authoredDocument, authorSnapshot, lastModifiedDocument, lastModifiedSnapshot, createdAtDocument, createdAtSnapshot, modifiedAtDocument, modifiedAtSnapshot, subjectDocument, subjectSnapshot, revisionDocument, revisionSnapshot, companyDocument, companySnapshot, themedDocument, themeSnapshot, fontSnapshot, fontUpdate, customDocument, createdText, creationBorder, creationMargin, creationOptions, objectCell, tableRows, tableOptions, typedTable, widthSnapshot, heightSnapshot, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotHorizontalAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellHorizontalAlignment, tableHorizontalAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
+void [documentPromise, createdDocument, addSectionOptions, typedSection, addSlideOptions, sectionSnapshot, typedVisibilitySlide, hiddenSnapshot, globalRtl, globalRtlSnapshot, titledDocument, titleSnapshot, authoredDocument, authorSnapshot, lastModifiedDocument, lastModifiedSnapshot, createdAtDocument, createdAtSnapshot, modifiedAtDocument, modifiedAtSnapshot, subjectDocument, subjectSnapshot, revisionDocument, revisionSnapshot, companyDocument, companySnapshot, themedDocument, themeSnapshot, fontSnapshot, fontUpdate, customDocument, createdText, creationBorder, creationMargin, creationOptions, objectCell, tableRows, tableOptions, typedTable, widthSnapshot, heightSnapshot, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotHorizontalAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellHorizontalAlignment, tableHorizontalAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
 `,
   );
   run(
