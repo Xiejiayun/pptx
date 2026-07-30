@@ -23,6 +23,10 @@ interface PptxGenJSInstance {
   revision: string;
   rtlMode: unknown;
   subject: string;
+  theme: {
+    readonly headFontFace?: string;
+    readonly bodyFontFace?: string;
+  } | undefined;
   title: string;
   addSlide(): {
     addText(
@@ -3883,6 +3887,74 @@ describe('importPptxGenJS', () => {
       }
     }
   }, 20_000);
+
+  it('matches public PptxGenJS presentation theme fonts and reopens a partial edit', async () => {
+    const cases = [
+      {
+        name: 'default',
+        input: undefined,
+        expected: { headFontFace: 'Calibri Light', bodyFontFace: 'Calibri' },
+      },
+      {
+        name: 'empty',
+        input: {},
+        expected: { headFontFace: 'Calibri Light', bodyFontFace: 'Calibri' },
+      },
+      {
+        name: 'head only',
+        input: { headFontFace: 'Aptos Display' },
+        expected: { headFontFace: 'Aptos Display', bodyFontFace: 'Calibri' },
+      },
+      {
+        name: 'body only',
+        input: { bodyFontFace: 'Aptos' },
+        expected: { headFontFace: 'Calibri Light', bodyFontFace: 'Aptos' },
+      },
+      {
+        name: 'custom',
+        input: { headFontFace: 'Noto Sans Display', bodyFontFace: 'Noto Sans' },
+        expected: { headFontFace: 'Noto Sans Display', bodyFontFace: 'Noto Sans' },
+      },
+    ] as const;
+    const generated = cases.map(({ input }) => {
+      const presentation = new PptxGenJS();
+      if (input !== undefined) presentation.theme = input;
+      presentation.addSlide();
+      return presentation;
+    });
+    expect(generated.map(({ version }) => version)).toEqual(Array(5).fill('4.0.1'));
+
+    const imported = await Promise.all(
+      generated.map((presentation) => importPptxGenJS(presentation)),
+    );
+    for (const [index, document] of imported.entries()) {
+      const journal = [...document.opcPackage.mutations];
+      expect(document.theme, cases[index]!.name).toEqual(cases[index]!.expected);
+      expect(document.opcPackage.mutations, cases[index]!.name).toEqual(journal);
+
+      const native = PptxDocument.create({ theme: cases[index]!.input ?? {} });
+      expect(native.theme, cases[index]!.name).toEqual(document.theme);
+    }
+
+    const edited = imported[4]!;
+    const theme = edited.masterLayoutTheme.presentationTheme!;
+    const untouchedParts = new Map(
+      edited.opcPackage.parts
+        .filter(({ uri }) => uri !== theme.partUri)
+        .map(({ uri, bytes }) => [uri, bytes]),
+    );
+    theme.setFonts({ minorLatin: 'Noto Sans Edited' });
+    expect(edited.theme).toEqual({
+      headFontFace: 'Noto Sans Display',
+      bodyFontFace: 'Noto Sans Edited',
+    });
+    for (const [uri, bytes] of untouchedParts) {
+      expect(edited.opcPackage.requirePart(uri).bytes).toEqual(bytes);
+    }
+
+    const reopened = await PptxDocument.open(await edited.write());
+    expect(reopened.theme).toEqual(edited.theme);
+  }, 30_000);
 
   it('imports, edits, and reopens PptxGenJS presentation created-at metadata from public output', async () => {
     const generated = new PptxGenJS();
