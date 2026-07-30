@@ -727,6 +727,179 @@ describe('PptxDocument vertical slice', () => {
     }
   });
 
+  it('creates, edits, clears, rolls back, and reopens presentation modified-at metadata', async () => {
+    const readCoreXml = (document: PptxDocument): string => new TextDecoder().decode(
+      document.opcPackage.requirePart('/docProps/core.xml').bytes,
+    );
+    const omitted = PptxDocument.create();
+    const explicitUndefined = PptxDocument.create({ modifiedAt: undefined } as never);
+    const custom = PptxDocument.create({
+      modifiedAt: '2024-03-01T01:02:03.456+08:00',
+    });
+
+    expect([omitted.modifiedAt, explicitUndefined.modifiedAt, custom.modifiedAt]).toEqual([
+      undefined,
+      undefined,
+      '2024-03-01T01:02:03.456+08:00',
+    ]);
+    expect(readCoreXml(explicitUndefined)).toBe(readCoreXml(omitted));
+    expect(readCoreXml(omitted)).not.toContain('<dcterms:modified');
+    expect(readCoreXml(custom)).toMatch(
+      /<dcterms:modified\b[^>]*\bxsi:type="dcterms:W3CDTF"[^>]*>2024-03-01T01:02:03\.456\+08:00<\/dcterms:modified>/,
+    );
+    expect(readCoreXml(custom).match(/xmlns:dcterms=/g)).toHaveLength(1);
+    expect(readCoreXml(custom).match(/xmlns:xsi=/g)).toHaveLength(1);
+
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const created = PptxDocument.create({
+        format,
+        modifiedAt: '2026-07-30T01:02:03Z',
+      });
+      expect(created.modifiedAt).toBe('2026-07-30T01:02:03Z');
+      expect(readCoreXml(created)).toMatch(
+        /<dcterms:modified\b[^>]*\bxsi:type="dcterms:W3CDTF"[^>]*>2026-07-30T01:02:03Z<\/dcterms:modified>/,
+      );
+      expect(validatePackage(created.opcPackage).filter(({ severity }) => severity === 'error'))
+        .toEqual([]);
+      const reopened = await PptxDocument.open(await created.write());
+      expect(reopened.modifiedAt).toBe('2026-07-30T01:02:03Z');
+      expect(reopened.format).toBe(format);
+    }
+
+    const combined = PptxDocument.create({
+      author: 'Combined author',
+      company: 'Combined company',
+      createdAt: '2026-07-29T00:00:00Z',
+      lastModifiedBy: 'Combined editor',
+      modifiedAt: '2026-07-30T01:02:03.456+08:00',
+      revision: '8',
+      subject: 'Combined subject',
+      title: 'Combined title',
+    });
+    expect([
+      combined.author,
+      combined.company,
+      combined.createdAt,
+      combined.lastModifiedBy,
+      combined.modifiedAt,
+      combined.revision,
+      combined.subject,
+      combined.title,
+    ]).toEqual([
+      'Combined author',
+      'Combined company',
+      '2026-07-29T00:00:00Z',
+      'Combined editor',
+      '2026-07-30T01:02:03.456+08:00',
+      '8',
+      'Combined subject',
+      'Combined title',
+    ]);
+    expect(readCoreXml(combined)).toMatch(
+      /<dcterms:created\b[^>]*\bxsi:type="dcterms:W3CDTF"[^>]*>2026-07-29T00:00:00Z<\/dcterms:created>/,
+    );
+    expect(readCoreXml(combined)).toMatch(
+      /<dcterms:modified\b[^>]*\bxsi:type="dcterms:W3CDTF"[^>]*>2026-07-30T01:02:03\.456\+08:00<\/dcterms:modified>/,
+    );
+    expect(readCoreXml(combined)).toContain('<dc:creator>Combined author</dc:creator>');
+    expect(readCoreXml(combined)).toContain(
+      '<cp:lastModifiedBy>Combined editor</cp:lastModifiedBy>',
+    );
+    expect(readCoreXml(combined)).toContain('<cp:revision>8</cp:revision>');
+    expect(readCoreXml(combined)).toContain('<dc:subject>Combined subject</dc:subject>');
+    expect(readCoreXml(combined)).toContain('<dc:title>Combined title</dc:title>');
+    expect(new TextDecoder().decode(
+      combined.opcPackage.requirePart('/docProps/app.xml').bytes,
+    )).toContain('<Company>Combined company</Company>');
+
+    const beforeSame = custom.opcPackage.requirePart('/docProps/core.xml').bytes;
+    const sameJournal = [...custom.opcPackage.mutations];
+    custom.modifiedAt = '2024-03-01T01:02:03.456+08:00';
+    expect(custom.opcPackage.requirePart('/docProps/core.xml').bytes).toEqual(beforeSame);
+    expect(custom.opcPackage.mutations).toEqual(sameJournal);
+
+    const slide = custom.addSlide();
+    const otherParts = new Map(
+      custom.opcPackage.parts
+        .filter(({ uri }) => uri !== '/docProps/core.xml')
+        .map(({ uri, bytes }) => [uri, bytes]),
+    );
+    custom.createdAt = '2024-02-29T12:34:56Z';
+    custom.modifiedAt = '2026-07-30T01:02:03Z';
+    expect(custom.modifiedAt).toBe('2026-07-30T01:02:03Z');
+    expect(custom.createdAt).toBe('2024-02-29T12:34:56Z');
+    expect(custom.author).toBe('@jiayunxie/pptx');
+    expect(custom.lastModifiedBy).toBe('@jiayunxie/pptx');
+    expect(custom.revision).toBe('1');
+    expect(custom.slides[0]).toBe(slide);
+    for (const [uri, bytes] of otherParts) {
+      expect(custom.opcPackage.requirePart(uri).bytes).toEqual(bytes);
+    }
+
+    const firstWrite = await custom.write();
+    const firstCore = readCoreXml(custom);
+    const secondWrite = await custom.write();
+    expect(readCoreXml(custom)).toBe(firstCore);
+    expect(await PptxDocument.open(firstWrite).then(({ modifiedAt }) => modifiedAt))
+      .toBe('2026-07-30T01:02:03Z');
+    expect(await PptxDocument.open(secondWrite).then(({ modifiedAt }) => modifiedAt))
+      .toBe('2026-07-30T01:02:03Z');
+
+    const beforeRollback = custom.opcPackage.requirePart('/docProps/core.xml').bytes;
+    const rollbackJournal = [...custom.opcPackage.mutations];
+    expect(() => custom.transaction(() => {
+      custom.modifiedAt = '2025-01-01T00:00:00Z';
+      expect(custom.modifiedAt).toBe('2025-01-01T00:00:00Z');
+      throw new Error('restore presentation modifiedAt');
+    })).toThrow('restore presentation modifiedAt');
+    expect(custom.opcPackage.requirePart('/docProps/core.xml').bytes).toEqual(beforeRollback);
+    expect(custom.opcPackage.mutations).toEqual(rollbackJournal);
+    expect(custom.modifiedAt).toBe('2026-07-30T01:02:03Z');
+    expect(custom.createdAt).toBe('2024-02-29T12:34:56Z');
+    expect(custom.slides[0]).toBe(slide);
+
+    const reopenedEdited = await PptxDocument.open(await custom.write());
+    expect(reopenedEdited.modifiedAt).toBe('2026-07-30T01:02:03Z');
+    expect(reopenedEdited.createdAt).toBe('2024-02-29T12:34:56Z');
+    reopenedEdited.modifiedAt = undefined;
+    expect(reopenedEdited.modifiedAt).toBeUndefined();
+    expect(reopenedEdited.createdAt).toBe('2024-02-29T12:34:56Z');
+    expect(readCoreXml(reopenedEdited)).not.toContain('<dcterms:modified');
+    expect(readCoreXml(reopenedEdited)).toMatch(
+      /<dcterms:created\b[^>]*\bxsi:type="dcterms:W3CDTF"[^>]*>2024-02-29T12:34:56Z<\/dcterms:created>/,
+    );
+    expect(readCoreXml(reopenedEdited)).toContain(
+      '<cp:lastModifiedBy>@jiayunxie/pptx</cp:lastModifiedBy>',
+    );
+    expect(readCoreXml(reopenedEdited)).toContain('<cp:revision>1</cp:revision>');
+    const reopenedCleared = await PptxDocument.open(await reopenedEdited.write());
+    expect(reopenedCleared.modifiedAt).toBeUndefined();
+    expect(reopenedCleared.createdAt).toBe('2024-02-29T12:34:56Z');
+    expect(reopenedCleared.slides).toHaveLength(1);
+  });
+
+  it('rejects malformed presentation modified-at metadata during creation', () => {
+    for (const modifiedAt of [
+      '',
+      ' 2026-07-30T01:02:03Z',
+      '1900-02-29T01:02:03Z',
+      '2026-07-30T01:02:03',
+      '2026-07-30T01:02:03+14:01',
+      null,
+      true,
+      false,
+      0,
+      1n,
+      new Date(),
+      {},
+      [],
+      Symbol('modifiedAt'),
+    ]) {
+      expect(() => PptxDocument.create({ modifiedAt } as never)).toThrow(TypeError);
+    }
+    expect(PptxDocument.create().modifiedAt).toBeUndefined();
+  });
+
   it('creates, edits, clears, rolls back, and reopens presentation subject metadata', async () => {
     const readCoreXml = (document: PptxDocument): string => new TextDecoder().decode(
       document.opcPackage.requirePart('/docProps/core.xml').bytes,

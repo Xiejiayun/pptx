@@ -15,6 +15,7 @@ export interface CreatePresentationOptions {
   readonly createdAt?: string;
   readonly format?: PresentationFormat;
   readonly lastModifiedBy?: string;
+  readonly modifiedAt?: string;
   readonly revision?: string;
   readonly rtlMode?: boolean;
   readonly slideSize?: BuiltInSlideSize | CustomSlideSize;
