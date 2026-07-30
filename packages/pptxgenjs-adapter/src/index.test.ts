@@ -13,6 +13,7 @@ interface BorderProps {
 
 interface PptxGenJSSlide {
   hidden: unknown;
+  addNotes(notes: string): PptxGenJSSlide;
   addText(
     text: string | readonly { readonly text: string; readonly options?: Record<string, unknown> }[],
     options: Record<string, unknown>,
@@ -3955,6 +3956,149 @@ describe('importPptxGenJS', () => {
     }).toThrow(TypeError);
     expect(native.opcPackage.requirePart(nativeVisible.partUri).bytes).toEqual(beforeInvalid);
     expect(native.opcPackage.mutations).toEqual(invalidJournal);
+  }, 20_000);
+
+  it('imports and matches public PptxGenJS speaker notes output', async () => {
+    const cases = [
+      { name: 'omitted', input: undefined, expected: '' },
+      { name: 'empty', input: '', expected: '' },
+      { name: 'plain', input: 'Speaker & <notes>', expected: 'Speaker & <notes>' },
+      {
+        name: 'multiline',
+        input: 'Line 1\nLine 2\r\nLine 3',
+        expected: 'Line 1\nLine 2\nLine 3',
+      },
+    ] as const;
+    const generated = cases.map(({ input }) => {
+      const presentation = new PptxGenJS();
+      const slide = presentation.addSlide();
+      if (input !== undefined) slide.addNotes(input);
+      return presentation;
+    });
+    expect(generated.map(({ version }) => version)).toEqual(Array(4).fill('4.0.1'));
+
+    const imported = await Promise.all(
+      generated.map((presentation) => importPptxGenJS(presentation)),
+    );
+    expect(imported.map(({ slides }) => slides[0]?.notes)).toEqual(
+      cases.map(({ expected }) => expected),
+    );
+    for (const [index, document] of imported.entries()) {
+      const { name, expected } = cases[index]!;
+      const slide = document.slides[0]!;
+      const journal = [...document.opcPackage.mutations];
+      expect(slide.notes, name).toBe(expected);
+      expect(document.opcPackage.mutations, name).toEqual(journal);
+
+      const notesRelationships = slide.relationships.filter(
+        ({ type }) => type.endsWith('/notesSlide'),
+      );
+      expect(notesRelationships, name).toHaveLength(1);
+      const notesUri = notesRelationships[0]!.resolvedTarget!;
+      expect(document.opcPackage.requirePart(notesUri).contentType, name).toBe(
+        'application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml',
+      );
+      const slideBacklinks = document.opcPackage.relationships(notesUri).filter(
+        ({ type }) => type.endsWith('/slide'),
+      );
+      const masterRelationships = document.opcPackage.relationships(notesUri).filter(
+        ({ type }) => type.endsWith('/notesMaster'),
+      );
+      expect(slideBacklinks, name).toHaveLength(1);
+      expect(slideBacklinks[0]!.resolvedTarget, name).toBe(slide.partUri);
+      expect(masterRelationships, name).toHaveLength(1);
+      const masterUri = masterRelationships[0]!.resolvedTarget!;
+      expect(document.opcPackage.requirePart(masterUri).contentType, name).toBe(
+        'application/vnd.openxmlformats-officedocument.presentationml.notesMaster+xml',
+      );
+      const presentationMasterRelationships = document.opcPackage
+        .relationships(document.presentationPartUri)
+        .filter(({ type }) => type.endsWith('/notesMaster'));
+      expect(presentationMasterRelationships, name).toHaveLength(1);
+      expect(presentationMasterRelationships[0]!.resolvedTarget, name).toBe(masterUri);
+
+      const notesXml = new TextDecoder().decode(
+        document.opcPackage.requirePart(notesUri).bytes,
+      );
+      expect(notesXml.match(/<p:ph\b[^>]*\btype="body"/g), name).toHaveLength(1);
+      expect(notesXml.match(/<p:txBody>/g), name).toHaveLength(2);
+      if (name === 'plain') {
+        expect(notesXml).toContain('<a:t>Speaker &amp; &lt;notes&gt;</a:t>');
+      }
+
+      const reopened = await PptxDocument.open(await document.write());
+      expect(document.diagnostics.filter(({ severity }) => severity === 'error'), name)
+        .toEqual([]);
+      expect(reopened.slides[0]?.notes, name).toBe(expected);
+    }
+
+    const importedPlain = imported[2]!;
+    const importedSource = importedPlain.slides[0]!;
+    const importedSourceNotesUri = importedSource.relationships.find(
+      ({ type }) => type.endsWith('/notesSlide'),
+    )!.resolvedTarget!;
+    const importedDuplicate = importedPlain.duplicateSlide(0);
+    const importedDuplicateNotesUri = importedDuplicate.relationships.find(
+      ({ type }) => type.endsWith('/notesSlide'),
+    )!.resolvedTarget!;
+    expect(importedDuplicate.notes).toBe('Speaker & <notes>');
+    expect(importedDuplicateNotesUri).not.toBe(importedSourceNotesUri);
+    expect(importedPlain.opcPackage.relationships(importedDuplicateNotesUri).find(
+      ({ type }) => type.endsWith('/slide'),
+    )?.resolvedTarget).toBe(importedDuplicate.partUri);
+    importedDuplicate.notes = 'Edited duplicate';
+    expect([importedSource.notes, importedDuplicate.notes]).toEqual([
+      'Speaker & <notes>',
+      'Edited duplicate',
+    ]);
+    const reopenedDuplicate = await PptxDocument.open(await importedPlain.write());
+    expect(reopenedDuplicate.slides.map(({ notes }) => notes)).toEqual([
+      'Speaker & <notes>',
+      'Edited duplicate',
+    ]);
+
+    const native = [
+      PptxDocument.create(),
+      PptxDocument.create(),
+      PptxDocument.create(),
+      PptxDocument.create(),
+    ];
+    native[0]!.addSlide();
+    native[1]!.addSlide().notes = '';
+    native[2]!.addSlide().addNotes('Speaker & <notes>');
+    native[3]!.addSlide().addNotes('Line 1\nLine 2\r\nLine 3');
+    expect(native.map(({ slides }) => slides[0]?.notes)).toEqual([
+      undefined,
+      '',
+      'Speaker & <notes>',
+      'Line 1\nLine 2\nLine 3',
+    ]);
+    expect(native.slice(1).map(({ slides }) => slides[0]?.notes)).toEqual(
+      imported.slice(1).map(({ slides }) => slides[0]?.notes),
+    );
+    const nativePlain = native[2]!.slides[0]!;
+    const nativeNotesUri = nativePlain.relationships.find(
+      ({ type }) => type.endsWith('/notesSlide'),
+    )!.resolvedTarget!;
+    expect(new TextDecoder().decode(
+      native[2]!.opcPackage.requirePart(nativeNotesUri).bytes,
+    )).toContain('<a:t xml:space="preserve">Speaker &amp; &lt;notes&gt;</a:t>');
+
+    const invalidDocument = PptxDocument.create();
+    const invalidSlide = invalidDocument.addSlide();
+    const beforeParts = invalidDocument.opcPackage.parts.map(
+      ({ uri, bytes }) => ({ uri, bytes: bytes.slice() }),
+    );
+    const beforeJournal = [...invalidDocument.opcPackage.mutations];
+    for (const invalid of [7, {}, 'A\u0001B']) {
+      expect(() => {
+        (invalidSlide as unknown as { notes: unknown }).notes = invalid;
+      }, String(invalid)).toThrow(TypeError);
+      expect(() => invalidSlide.addNotes(invalid as never), String(invalid)).toThrow(TypeError);
+    }
+    expect(invalidDocument.opcPackage.parts.map(({ uri, bytes }) => ({ uri, bytes })))
+      .toEqual(beforeParts);
+    expect(invalidDocument.opcPackage.mutations).toEqual(beforeJournal);
   }, 20_000);
 
   it('imports and matches public PptxGenJS presentation sections', async () => {
