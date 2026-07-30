@@ -753,6 +753,191 @@ describe('PresentationModel', () => {
     expect(reopenedCreated.createdAt).toBe('2024-02-29T12:34:56.123+05:30');
   });
 
+  it('reads, edits, clears, repairs, creates, and reopens presentation modified-at metadata', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const coreXml =
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<c:coreProperties xmlns:c="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" ' +
+      'xmlns:d="http://purl.org/dc/elements/1.1/" xmlns:t="http://purl.org/dc/terms/" ' +
+      'xmlns:i="http://www.w3.org/2001/XMLSchema-instance">' +
+      '<d:creator>Alice</d:creator><c:lastModifiedBy>Editor</c:lastModifiedBy>' +
+      '<d:title>Quarterly</d:title><d:subject>Forecast</d:subject><c:revision>7</c:revision>' +
+      '<t:created i:type="t:W3CDTF">2024-02-29T12:34:56.123456+05:30</t:created>' +
+      '<t:modified i:type="t:W3CDTF">2026-07-30T01:00:00Z</t:modified>' +
+      '<x:opaque xmlns:x="urn:test">KEEP</x:opaque></c:coreProperties>';
+    pkg.transaction(() => {
+      pkg.setPart('/metadata/properties.xml', coreXml, CORE_PROPERTIES_CONTENT_TYPE);
+      pkg.addRelationship('/', {
+        type: CORE_PROPERTIES_RELATIONSHIP,
+        target: 'metadata/properties.xml',
+      });
+    });
+    const model = new PresentationModel(pkg);
+    const slide = model.slides[0];
+    const readJournal = [...pkg.mutations];
+    expect(model.createdAt).toBe('2024-02-29T12:34:56.123456+05:30');
+    expect(model.modifiedAt).toBe('2026-07-30T01:00:00Z');
+    expect(pkg.mutations).toEqual(readJournal);
+
+    const beforeSame = pkg.requirePart('/metadata/properties.xml').bytes;
+    model.modifiedAt = '2026-07-30T01:00:00Z';
+    expect(pkg.requirePart('/metadata/properties.xml').bytes).toEqual(beforeSame);
+    expect(pkg.mutations).toEqual(readJournal);
+    expect(model.slides[0]).toBe(slide);
+
+    const beforeInvalid = pkg.requirePart('/metadata/properties.xml').bytes;
+    const invalidJournal = [...pkg.mutations];
+    for (const value of [
+      '',
+      '1900-02-29T00:00:00Z',
+      '2026-07-30T00:00:00',
+      '2026-07-30T00:00:00+14:01',
+      null,
+      false,
+      0,
+      new Date(),
+      {},
+      [],
+      Symbol('modifiedAt'),
+    ]) {
+      expect(() => {
+        model.modifiedAt = value as never;
+      }).toThrow(TypeError);
+    }
+    expect(pkg.requirePart('/metadata/properties.xml').bytes).toEqual(beforeInvalid);
+    expect(pkg.mutations).toEqual(invalidJournal);
+    expect(model.slides[0]).toBe(slide);
+
+    const otherParts = new Map(
+      pkg.parts
+        .filter(({ uri }) => uri !== '/metadata/properties.xml')
+        .map(({ uri, bytes }) => [uri, bytes]),
+    );
+    model.modifiedAt = '2026-07-30T02:03:04.5+08:00';
+    expect(model.modifiedAt).toBe('2026-07-30T02:03:04.5+08:00');
+    expect(model.createdAt).toBe('2024-02-29T12:34:56.123456+05:30');
+    let updated = new TextDecoder().decode(pkg.requirePart('/metadata/properties.xml').bytes);
+    expect(updated).toContain(
+      '<t:modified i:type="t:W3CDTF">2026-07-30T02:03:04.5+08:00</t:modified>',
+    );
+    expect(updated).toContain(
+      '<t:created i:type="t:W3CDTF">2024-02-29T12:34:56.123456+05:30</t:created>',
+    );
+    expect(updated).toContain('<d:creator>Alice</d:creator>');
+    expect(updated).toContain('<c:lastModifiedBy>Editor</c:lastModifiedBy>');
+    expect(updated).toContain('<c:revision>7</c:revision>');
+    expect(updated).toContain('<x:opaque xmlns:x="urn:test">KEEP</x:opaque>');
+    for (const [uri, bytes] of otherParts) {
+      expect(pkg.requirePart(uri).bytes).toEqual(bytes);
+    }
+    expect(model.slides[0]).toBe(slide);
+
+    model.createdAt = '2024-02-29T12:34:56Z';
+    model.lastModifiedBy = 'Changed editor';
+    model.revision = '8';
+    expect(model.modifiedAt).toBe('2026-07-30T02:03:04.5+08:00');
+    expect(model.createdAt).toBe('2024-02-29T12:34:56Z');
+    expect(model.lastModifiedBy).toBe('Changed editor');
+    expect(model.revision).toBe('8');
+
+    const beforeRollback = pkg.requirePart('/metadata/properties.xml').bytes;
+    const rollbackJournal = [...pkg.mutations];
+    expect(() => pkg.transaction(() => {
+      model.modifiedAt = '2025-01-01T00:00:00Z';
+      expect(model.modifiedAt).toBe('2025-01-01T00:00:00Z');
+      throw new Error('restore presentation modifiedAt');
+    })).toThrow('restore presentation modifiedAt');
+    expect(pkg.requirePart('/metadata/properties.xml').bytes).toEqual(beforeRollback);
+    expect(pkg.mutations).toEqual(rollbackJournal);
+    expect(model.modifiedAt).toBe('2026-07-30T02:03:04.5+08:00');
+
+    model.modifiedAt = undefined;
+    expect(model.modifiedAt).toBeUndefined();
+    updated = new TextDecoder().decode(pkg.requirePart('/metadata/properties.xml').bytes);
+    expect(updated).not.toContain('<t:modified');
+    expect(updated).toContain(
+      '<t:created i:type="t:W3CDTF">2024-02-29T12:34:56Z</t:created>',
+    );
+    expect(updated).toContain('<c:lastModifiedBy>Changed editor</c:lastModifiedBy>');
+    expect(updated).toContain('<c:revision>8</c:revision>');
+
+    model.modifiedAt = '2024-03-01T01:02:03Z';
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    expect(reopened.modifiedAt).toBe('2024-03-01T01:02:03Z');
+    expect(reopened.createdAt).toBe('2024-02-29T12:34:56Z');
+    expect(reopened.lastModifiedBy).toBe('Changed editor');
+    expect(reopened.revision).toBe('8');
+    expect(reopened.slides.map(({ partUri }) => partUri)).toEqual(
+      model.slides.map(({ partUri }) => partUri),
+    );
+
+    const repairPkg = await OpcPackage.open(await modelFixture());
+    repairPkg.transaction(() => {
+      repairPkg.setPart(
+        '/metadata/repair-core.xml',
+        '<?xml version="1.0"?><c:coreProperties ' +
+          'xmlns:c="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" ' +
+          'xmlns:t="http://purl.org/dc/terms/" ' +
+          'xmlns:i="http://www.w3.org/2001/XMLSchema-instance">' +
+          '<t:created i:type="t:W3CDTF">2026-07-29T00:00:00Z</t:created>' +
+          '<t:modified i:type="t:Other">invalid</t:modified>' +
+          '</c:coreProperties>',
+        CORE_PROPERTIES_CONTENT_TYPE,
+      );
+      repairPkg.addRelationship('/', {
+        type: CORE_PROPERTIES_RELATIONSHIP,
+        target: 'metadata/repair-core.xml',
+      });
+    });
+    const repairModel = new PresentationModel(repairPkg);
+    expect(repairModel.modifiedAt).toBeUndefined();
+    repairModel.modifiedAt = '2026-07-30T01:02:03Z';
+    expect(repairModel.modifiedAt).toBe('2026-07-30T01:02:03Z');
+    expect(repairModel.createdAt).toBe('2026-07-29T00:00:00Z');
+    const repairedXml = new TextDecoder().decode(
+      repairPkg.requirePart('/metadata/repair-core.xml').bytes,
+    );
+    expect(repairedXml).toContain(
+      '<t:modified i:type="t:W3CDTF">2026-07-30T01:02:03Z</t:modified>',
+    );
+    expect(repairedXml).toContain(
+      '<t:created i:type="t:W3CDTF">2026-07-29T00:00:00Z</t:created>',
+    );
+
+    const missingPkg = await OpcPackage.open(await modelFixture());
+    const missingModel = new PresentationModel(missingPkg);
+    const missingSlide = missingModel.slides[0];
+    const beforeAbsentClear = missingPkg.parts.map(({ uri, bytes }) => [uri, bytes] as const);
+    const absentJournal = [...missingPkg.mutations];
+    expect(missingModel.modifiedAt).toBeUndefined();
+    missingModel.modifiedAt = undefined;
+    expect(missingPkg.mutations).toEqual(absentJournal);
+    for (const [uri, bytes] of beforeAbsentClear) {
+      expect(missingPkg.requirePart(uri).bytes).toEqual(bytes);
+    }
+
+    missingModel.modifiedAt = '2024-03-01T01:02:03.456+08:00';
+    expect(missingModel.modifiedAt).toBe('2024-03-01T01:02:03.456+08:00');
+    expect(missingModel.slides[0]).toBe(missingSlide);
+    const createdRelationship = missingPkg.relationships('/').find(
+      ({ type }) => type === CORE_PROPERTIES_RELATIONSHIP,
+    );
+    expect(createdRelationship?.resolvedTarget).toBe('/docProps/core.xml');
+    expect(missingPkg.requirePart('/docProps/core.xml').contentType)
+      .toBe(CORE_PROPERTIES_CONTENT_TYPE);
+    const createdXml = new TextDecoder().decode(
+      missingPkg.requirePart('/docProps/core.xml').bytes,
+    );
+    expect(createdXml).toContain(
+      '<dcterms:modified xsi:type="dcterms:W3CDTF">2024-03-01T01:02:03.456+08:00</dcterms:modified>',
+    );
+    expect(createdXml.match(/xmlns:dcterms=/g)).toHaveLength(1);
+    expect(createdXml.match(/xmlns:xsi=/g)).toHaveLength(1);
+    expect(createdXml).not.toContain('created');
+    const reopenedCreated = new PresentationModel(await OpcPackage.open(await missingPkg.write()));
+    expect(reopenedCreated.modifiedAt).toBe('2024-03-01T01:02:03.456+08:00');
+  });
+
   it('reads, edits, clears, creates, and reopens presentation subject metadata', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const coreXml =

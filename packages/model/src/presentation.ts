@@ -40,6 +40,10 @@ import {
   replacePresentationCreatedAt,
 } from './presentation-created-at.internal.js';
 import {
+  readPresentationModifiedAt,
+  replacePresentationModifiedAt,
+} from './presentation-modified-at.internal.js';
+import {
   readPresentationLastModifiedBy,
   replacePresentationLastModifiedBy,
 } from './presentation-last-modified-by.internal.js';
@@ -146,6 +150,16 @@ export class PresentationModel {
   set createdAt(value: string | undefined) {
     this.opcPackage.transaction(() => {
       replacePresentationCreatedAt(this.opcPackage, value);
+    });
+  }
+
+  get modifiedAt(): string | undefined {
+    return readPresentationModifiedAt(this.opcPackage);
+  }
+
+  set modifiedAt(value: string | undefined) {
+    this.opcPackage.transaction(() => {
+      replacePresentationModifiedAt(this.opcPackage, value);
     });
   }
 
