@@ -26,6 +26,12 @@ const NOTES_SLIDE_CONTENT_TYPE =
   'application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml';
 const NOTES_MASTER_CONTENT_TYPE =
   'application/vnd.openxmlformats-officedocument.presentationml.notesMaster+xml';
+const SLIDE_MASTER_CONTENT_TYPE =
+  'application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml';
+const THEME_CONTENT_TYPE =
+  'application/vnd.openxmlformats-officedocument.theme+xml';
+const SLIDE_MASTER_RELATIONSHIP = `${RELATIONSHIP_NAMESPACE}/slideMaster`;
+const THEME_RELATIONSHIP = `${RELATIONSHIP_NAMESPACE}/theme`;
 const MAX_DRAWING_ELEMENT_ID = 4_294_967_295;
 
 interface NotesBodyState {
@@ -59,6 +65,22 @@ type NotesSlideState =
   | ValidNotesSlideState;
 
 type NotesMasterState =
+  | { readonly kind: 'absent' }
+  | { readonly kind: 'unsafe' }
+  | { readonly kind: 'valid'; readonly partUri: string };
+
+type NotesMasterPlan =
+  | { readonly kind: 'existing'; readonly partUri: string }
+  | {
+      readonly kind: 'create';
+      readonly partUri: string;
+      readonly relationshipId: string;
+      readonly themePartUri: string;
+      readonly presentationPart: PackagePart;
+      readonly presentationXml: string;
+    };
+
+type ThemeState =
   | { readonly kind: 'absent' }
   | { readonly kind: 'unsafe' }
   | { readonly kind: 'valid'; readonly partUri: string };
@@ -193,10 +215,7 @@ export function replaceSlideNotes(
     });
   }
 
-  const master = resolveNotesMasterState(pkg, presentationPartUri);
-  if (master.kind !== 'valid') {
-    throw new ModelParseError('Presentation does not contain one safe notes master', presentationPartUri);
-  }
+  const master = prepareNotesMasterPlan(pkg, presentationPartUri);
   const notesPartUri = pkg.allocatePartUri(
     '/ppt/notesSlides',
     'notesSlide',
@@ -210,6 +229,7 @@ export function replaceSlideNotes(
   const slideTarget = relativeRelationshipTarget(notesPartUri, slidePartUri);
   const notesTarget = relativeRelationshipTarget(slidePartUri, notesPartUri);
   return pkg.transaction(() => {
+    materializeNotesMaster(pkg, presentationPartUri, master);
     pkg.setPart(notesPartUri, xml, NOTES_SLIDE_CONTENT_TYPE);
     pkg.addRelationship(notesPartUri, {
       type: NOTES_MASTER_RELATIONSHIP,
@@ -284,11 +304,27 @@ function resolveNotesMasterState(
   pkg: OpcPackage,
   presentationPartUri: string,
 ): NotesMasterState {
+  const presentationPart = pkg.getPart(presentationPartUri);
+  if (!presentationPart) return { kind: 'unsafe' };
+  const presentationXml = LosslessXmlDocument.parse(presentationPart.bytes);
+  const presentationRoot = resolvePresentationRoot(presentationXml);
+  if (!presentationRoot) return { kind: 'unsafe' };
+  const lists = directChildren(
+    presentationRoot,
+    'notesMasterIdLst',
+    PRESENTATION_NAMESPACE,
+  );
   const relationships = pkg.relationships(presentationPartUri).filter(
     ({ type }) => type === NOTES_MASTER_RELATIONSHIP,
   );
-  if (relationships.length === 0) return { kind: 'absent' };
-  if (relationships.length !== 1) return { kind: 'unsafe' };
+  if (relationships.length === 0 && lists.length === 0) {
+    return pkg.parts.some(({ contentType }) => contentType === NOTES_MASTER_CONTENT_TYPE)
+      ? { kind: 'unsafe' }
+      : { kind: 'absent' };
+  }
+  if (relationships.length !== 1 || lists.length !== 1) {
+    return { kind: 'unsafe' };
+  }
   const relationship = relationships[0]!;
   if (
     relationship.targetMode !== 'Internal'
@@ -298,6 +334,16 @@ function resolveNotesMasterState(
   if (!part || part.contentType !== NOTES_MASTER_CONTENT_TYPE) {
     return { kind: 'unsafe' };
   }
+  const identifiers = directChildren(
+    lists[0]!,
+    'notesMasterId',
+    PRESENTATION_NAMESPACE,
+  );
+  if (identifiers.length !== 1) return { kind: 'unsafe' };
+  const idAttributes = relationshipIdAttributes(identifiers[0]!);
+  if (idAttributes.length !== 1 || idAttributes[0]!.value !== relationship.id) {
+    return { kind: 'unsafe' };
+  }
   const xml = LosslessXmlDocument.parse(part.bytes);
   if (
     xml.roots.length !== 1
@@ -305,6 +351,209 @@ function resolveNotesMasterState(
     || !isElement(xml.roots[0], 'notesMaster', PRESENTATION_NAMESPACE)
   ) return { kind: 'unsafe' };
   return { kind: 'valid', partUri: part.uri };
+}
+
+function prepareNotesMasterPlan(
+  pkg: OpcPackage,
+  presentationPartUri: string,
+): NotesMasterPlan {
+  const state = resolveNotesMasterState(pkg, presentationPartUri);
+  if (state.kind === 'valid') {
+    return { kind: 'existing', partUri: state.partUri };
+  }
+  if (state.kind === 'unsafe') {
+    throw new ModelParseError('Presentation notes master state is not safely editable', presentationPartUri);
+  }
+
+  const presentationPart = pkg.requirePart(presentationPartUri);
+  const xml = LosslessXmlDocument.parse(presentationPart.bytes);
+  const root = resolvePresentationRoot(xml);
+  if (!root || root.selfClosing) {
+    throw new ModelParseError('Presentation root is not safely editable', presentationPartUri);
+  }
+  const theme = resolveReusableTheme(pkg, presentationPartUri, root);
+  if (theme.kind !== 'valid') {
+    throw new ModelParseError('Presentation does not contain one safely reusable theme', presentationPartUri);
+  }
+  const partUri = pkg.allocatePartUri(
+    '/ppt/notesMasters',
+    'notesMaster',
+    '.xml',
+  );
+  const relationshipId = pkg.allocateRelationshipId(presentationPartUri);
+  insertNotesMasterIdList(xml, root, relationshipId, presentationPartUri);
+  return {
+    kind: 'create',
+    partUri,
+    relationshipId,
+    themePartUri: theme.partUri,
+    presentationPart,
+    presentationXml: xml.serialize(),
+  };
+}
+
+function materializeNotesMaster(
+  pkg: OpcPackage,
+  presentationPartUri: string,
+  plan: NotesMasterPlan,
+): void {
+  if (plan.kind === 'existing') return;
+  pkg.setPart(plan.partUri, createNotesMasterXml(), NOTES_MASTER_CONTENT_TYPE);
+  pkg.addRelationship(plan.partUri, {
+    type: THEME_RELATIONSHIP,
+    target: relativeRelationshipTarget(plan.partUri, plan.themePartUri),
+  });
+  pkg.addRelationship(presentationPartUri, {
+    id: plan.relationshipId,
+    type: NOTES_MASTER_RELATIONSHIP,
+    target: relativeRelationshipTarget(presentationPartUri, plan.partUri),
+  });
+  pkg.setPart(
+    presentationPartUri,
+    plan.presentationXml,
+    plan.presentationPart.contentType,
+  );
+}
+
+function resolveReusableTheme(
+  pkg: OpcPackage,
+  presentationPartUri: string,
+  presentationRoot: XmlElement,
+): ThemeState {
+  const directThemes = pkg.relationships(presentationPartUri).filter(
+    ({ type }) => type === THEME_RELATIONSHIP,
+  );
+  if (directThemes.length > 1) return { kind: 'unsafe' };
+  if (directThemes.length === 1) {
+    return resolveThemeRelationship(pkg, directThemes[0]!);
+  }
+
+  const masterLists = directChildren(
+    presentationRoot,
+    'sldMasterIdLst',
+    PRESENTATION_NAMESPACE,
+  );
+  if (masterLists.length !== 1) return { kind: 'unsafe' };
+  const identifiers = directChildren(
+    masterLists[0]!,
+    'sldMasterId',
+    PRESENTATION_NAMESPACE,
+  );
+  const first = identifiers[0];
+  if (!first) return { kind: 'absent' };
+  const idAttributes = relationshipIdAttributes(first);
+  if (idAttributes.length !== 1) return { kind: 'unsafe' };
+  const masterRelationships = pkg.relationships(presentationPartUri).filter(
+    ({ id }) => id === idAttributes[0]!.value,
+  );
+  if (masterRelationships.length !== 1) return { kind: 'unsafe' };
+  const masterRelationship = masterRelationships[0]!;
+  if (
+    masterRelationship.type !== SLIDE_MASTER_RELATIONSHIP
+    || masterRelationship.targetMode !== 'Internal'
+    || !masterRelationship.resolvedTarget
+  ) return { kind: 'unsafe' };
+  const masterPart = pkg.getPart(masterRelationship.resolvedTarget);
+  if (!masterPart || masterPart.contentType !== SLIDE_MASTER_CONTENT_TYPE) {
+    return { kind: 'unsafe' };
+  }
+  const themes = pkg.relationships(masterPart.uri).filter(
+    ({ type }) => type === THEME_RELATIONSHIP,
+  );
+  if (themes.length !== 1) return themes.length === 0
+    ? { kind: 'absent' }
+    : { kind: 'unsafe' };
+  return resolveThemeRelationship(pkg, themes[0]!);
+}
+
+function resolveThemeRelationship(
+  pkg: OpcPackage,
+  relationship: Relationship,
+): ThemeState {
+  if (
+    relationship.targetMode !== 'Internal'
+    || !relationship.resolvedTarget
+  ) return { kind: 'unsafe' };
+  const part = pkg.getPart(relationship.resolvedTarget);
+  if (!part || part.contentType !== THEME_CONTENT_TYPE) return { kind: 'unsafe' };
+  const xml = LosslessXmlDocument.parse(part.bytes);
+  if (
+    xml.roots.length !== 1
+    || !xml.roots[0]
+    || !isElement(xml.roots[0], 'theme', DRAWING_NAMESPACE)
+  ) return { kind: 'unsafe' };
+  return { kind: 'valid', partUri: part.uri };
+}
+
+function insertNotesMasterIdList(
+  xml: LosslessXmlDocument,
+  presentationRoot: XmlElement,
+  relationshipId: string,
+  partUri: string,
+): void {
+  const slideIdLists = directChildren(
+    presentationRoot,
+    'sldIdLst',
+    PRESENTATION_NAMESPACE,
+  );
+  if (slideIdLists.length > 1) {
+    throw new ModelParseError('Presentation contains repeated slide ID lists', partUri);
+  }
+  const slideSizes = directChildren(
+    presentationRoot,
+    'sldSz',
+    PRESENTATION_NAMESPACE,
+  );
+  if (slideSizes.length !== 1) {
+    throw new ModelParseError('Presentation must contain one direct slide size', partUri);
+  }
+  const insertionPoint = slideIdLists[0]?.end ?? slideSizes[0]!.start;
+  const p = qualifiedPrefix(presentationRoot.name);
+  const relationshipPrefix = namespacePrefixFor(
+    presentationRoot,
+    RELATIONSHIP_NAMESPACE,
+    'r',
+  );
+  xml.replace(
+    insertionPoint,
+    insertionPoint,
+    `<${p}notesMasterIdLst><${p}notesMasterId${relationshipPrefix.declaration} `
+      + `${relationshipPrefix.qualified}id="${escapeXmlAttribute(relationshipId)}"/>`
+      + `</${p}notesMasterIdLst>`,
+  );
+}
+
+function createNotesMasterXml(): string {
+  const drawing: DrawingPrefix = { qualified: 'a:', declaration: '' };
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + `<p:notesMaster xmlns:a="${DRAWING_NAMESPACE}" xmlns:r="${RELATIONSHIP_NAMESPACE}" xmlns:p="${PRESENTATION_NAMESPACE}">`
+    + '<p:cSld><p:spTree>'
+    + renderGroupShapeProperties('p:', drawing)
+    + '</p:spTree></p:cSld>'
+    + '<p:clrMap accent1="accent1" accent2="accent2" accent3="accent3" accent4="accent4" '
+    + 'accent5="accent5" accent6="accent6" bg1="lt1" bg2="lt2" '
+    + 'folHlink="folHlink" hlink="hlink" tx1="dk1" tx2="dk2"/>'
+    + '<p:hf hdr="1" ftr="1" dt="1" sldNum="1"/><p:notesStyle/>'
+    + '</p:notesMaster>';
+}
+
+function resolvePresentationRoot(
+  xml: LosslessXmlDocument,
+): XmlElement | undefined {
+  if (xml.roots.length !== 1) return undefined;
+  const root = xml.roots[0];
+  return root && isElement(root, 'presentation', PRESENTATION_NAMESPACE)
+    ? root
+    : undefined;
+}
+
+function relationshipIdAttributes(element: XmlElement) {
+  return element.attributes.filter((attribute) => {
+    if (attribute.localName !== 'id') return false;
+    const prefix = lexicalPrefix(attribute.name);
+    return prefix !== ''
+      && namespaceUriForPrefix(element, prefix) === RELATIONSHIP_NAMESPACE;
+  });
 }
 
 function resolveNotesBodyState(
@@ -530,15 +779,29 @@ function renderNotesParagraph(
 }
 
 function drawingPrefixFor(element: XmlElement): DrawingPrefix {
-  const inScope = inScopePrefixForNamespace(element, DRAWING_NAMESPACE);
+  return namespacePrefixFor(element, DRAWING_NAMESPACE, 'a');
+}
+
+function namespacePrefixFor(
+  element: XmlElement,
+  namespace: string,
+  preferred: string,
+): DrawingPrefix {
+  const inScope = inScopePrefixForNamespace(element, namespace);
   if (inScope !== undefined && inScope !== '') {
     return { qualified: `${inScope}:`, declaration: '' };
   }
-  const presentationPrefix = lexicalPrefix(element.name);
-  const prefix = presentationPrefix === 'a' ? 'd' : 'a';
+  const fallback = preferred === 'a'
+    ? 'd'
+    : preferred === 'r'
+      ? 'rel'
+      : `${preferred}Ns`;
+  const prefix = lexicalPrefix(element.name) === preferred
+    ? fallback
+    : preferred;
   return {
     qualified: `${prefix}:`,
-    declaration: ` xmlns:${prefix}="${DRAWING_NAMESPACE}"`,
+    declaration: ` xmlns:${prefix}="${namespace}"`,
   };
 }
 

@@ -362,6 +362,55 @@ describe('PptxDocument vertical slice', () => {
     }
   }, 20_000);
 
+  it('repairs a fully missing notes master and rolls the repair back atomically', () => {
+    const removeNotesMaster = (document: PptxDocument): void => {
+      const presentationPart = document.opcPackage.requirePart('/ppt/presentation.xml');
+      document.opcPackage.setPart(
+        presentationPart.uri,
+        new TextDecoder().decode(presentationPart.bytes).replace(
+          /<p:notesMasterIdLst>.*?<\/p:notesMasterIdLst>/,
+          '',
+        ),
+        presentationPart.contentType,
+      );
+      document.opcPackage.deletePart('/ppt/notesMasters/notesMaster1.xml');
+    };
+
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    removeNotesMaster(document);
+    expect(document.opcPackage.parts.filter(
+      ({ contentType }) => contentType.endsWith('.notesMaster+xml'),
+    )).toHaveLength(0);
+    slide.addNotes('Repaired master');
+    expect(slide.notes).toBe('Repaired master');
+    const masterRelationships = document.opcPackage.relationships('/ppt/presentation.xml').filter(
+      ({ type }) => type.endsWith('/notesMaster'),
+    );
+    expect(masterRelationships).toHaveLength(1);
+    const masterUri = masterRelationships[0]!.resolvedTarget!;
+    expect(document.opcPackage.relationships(masterUri).find(
+      ({ type }) => type.endsWith('/theme'),
+    )?.resolvedTarget).toBe('/ppt/theme/theme1.xml');
+    expect(new TextDecoder().decode(
+      document.opcPackage.requirePart('/ppt/presentation.xml').bytes,
+    )).toContain(`<p:notesMasterId r:id="${masterRelationships[0]!.id}"/>`);
+    expect(validatePackage(document.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+
+    const rollback = PptxDocument.create();
+    const rollbackSlide = rollback.addSlide();
+    removeNotesMaster(rollback);
+    const before = rollback.opcPackage.parts.map(({ uri, bytes }) => ({ uri, bytes: bytes.slice() }));
+    const journal = [...rollback.opcPackage.mutations];
+    expect(() => rollback.transaction(() => {
+      rollbackSlide.addNotes('Temporary repair');
+      throw new Error('rollback notes master repair');
+    })).toThrow('rollback notes master repair');
+    expect(rollback.opcPackage.parts.map(({ uri, bytes }) => ({ uri, bytes }))).toEqual(before);
+    expect(rollback.opcPackage.mutations).toEqual(journal);
+    expect(rollbackSlide.notes).toBeUndefined();
+  });
+
   it('creates, reads, and atomically edits detached presentation sections', async () => {
     const document = PptxDocument.create();
     const slides = [document.addSlide(), document.addSlide(), document.addSlide()];

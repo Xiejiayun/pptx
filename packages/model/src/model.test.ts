@@ -170,9 +170,19 @@ describe('PresentationModel', () => {
       masterPart.contentType,
     );
     pkg.addRelationship('/ppt/presentation.xml', {
+      id: 'rIdNotesMaster',
       type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesMaster',
       target: 'notesMasters/notesMaster1.xml',
     });
+    const presentationPart = pkg.requirePart('/ppt/presentation.xml');
+    pkg.setPart(
+      presentationPart.uri,
+      new TextDecoder().decode(presentationPart.bytes).replace(
+        '</p:sldIdLst>',
+        '</p:sldIdLst><p:notesMasterIdLst><p:notesMasterId r:id="rIdNotesMaster"/></p:notesMasterIdLst>',
+      ),
+      presentationPart.contentType,
+    );
     const model = new PresentationModel(pkg);
     const slide = model.addSlide();
     expect(slide.notes).toBeUndefined();
@@ -231,6 +241,40 @@ describe('PresentationModel', () => {
     slide.notes = undefined;
     expect(pkg.parts.map(({ uri, bytes }) => ({ uri, bytes }))).toEqual(clearParts);
     expect(pkg.mutations).toEqual(clearJournal);
+  });
+
+  it('creates a missing notes master before adding speaker notes', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    pkg.deletePart('/ppt/notesSlides/notesSlide1.xml');
+    pkg.deletePart('/ppt/notesMasters/notesMaster1.xml');
+    pkg.setPart(
+      '/ppt/theme/theme1.xml',
+      '<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="Notes theme"/>',
+      'application/vnd.openxmlformats-officedocument.theme+xml',
+    );
+    pkg.addRelationship('/ppt/presentation.xml', {
+      type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme',
+      target: 'theme/theme1.xml',
+    });
+
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    slide.addNotes('Created with master');
+    expect(slide.notes).toBe('Created with master');
+    const masterRelationships = pkg.relationships('/ppt/presentation.xml').filter(
+      ({ type }) => type.endsWith('/notesMaster'),
+    );
+    expect(masterRelationships).toHaveLength(1);
+    const masterUri = masterRelationships[0]!.resolvedTarget!;
+    expect(pkg.requirePart(masterUri).contentType).toBe(
+      'application/vnd.openxmlformats-officedocument.presentationml.notesMaster+xml',
+    );
+    expect(pkg.relationships(masterUri).find(
+      ({ type }) => type.endsWith('/theme'),
+    )?.resolvedTarget).toBe('/ppt/theme/theme1.xml');
+    expect(new TextDecoder().decode(pkg.requirePart('/ppt/presentation.xml').bytes)).toContain(
+      `<p:notesMasterId r:id="${masterRelationships[0]!.id}"/>`,
+    );
   });
 
   it('reads only recognized direct presentation RTL tokens without mutating the package', async () => {

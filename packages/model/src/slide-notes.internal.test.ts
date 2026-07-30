@@ -18,6 +18,8 @@ const PRESENTATION_NAMESPACE =
   'http://schemas.openxmlformats.org/presentationml/2006/main';
 const DRAWING_NAMESPACE =
   'http://schemas.openxmlformats.org/drawingml/2006/main';
+const RELATIONSHIP_NAMESPACE =
+  'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
 const PART_URI = '/ppt/notesSlides/notesSlide1.xml';
 const PRESENTATION_URI = '/ppt/presentation.xml';
 const SLIDE_ONE_URI = '/ppt/slides/slide1.xml';
@@ -39,6 +41,14 @@ const NOTES_MASTER_RELATIONSHIP =
   'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesMaster';
 const SLIDE_RELATIONSHIP =
   'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide';
+const SLIDE_MASTER_RELATIONSHIP =
+  'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster';
+const THEME_RELATIONSHIP =
+  'http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme';
+const SLIDE_MASTER_CONTENT_TYPE =
+  'application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml';
+const THEME_CONTENT_TYPE =
+  'application/vnd.openxmlformats-officedocument.theme+xml';
 
 interface NotesXmlOptions {
   readonly paragraphs?: string;
@@ -114,7 +124,9 @@ function packageWithNotesMaster(): OpcPackage {
   const pkg = OpcPackage.create();
   pkg.setPart(
     PRESENTATION_URI,
-    `<p:presentation xmlns:p="${PRESENTATION_NAMESPACE}"/>`,
+    `<p:presentation xmlns:p="${PRESENTATION_NAMESPACE}" xmlns:r="${RELATIONSHIP_NAMESPACE}">`
+      + '<p:notesMasterIdLst><p:notesMasterId r:id="rId1"/></p:notesMasterIdLst>'
+      + '</p:presentation>',
     PRESENTATION_CONTENT_TYPE,
   );
   pkg.setPart(
@@ -136,6 +148,62 @@ function packageWithNotesMaster(): OpcPackage {
     type: NOTES_MASTER_RELATIONSHIP,
     target: 'notesMasters/notesMaster1.xml',
   });
+  return pkg;
+}
+
+function packageWithoutNotesMaster(options: {
+  readonly directTheme?: boolean;
+  readonly fallbackTheme?: boolean;
+} = {}): OpcPackage {
+  const directTheme = options.directTheme ?? true;
+  const fallbackTheme = options.fallbackTheme ?? true;
+  const pkg = OpcPackage.create();
+  pkg.setPart(
+    PRESENTATION_URI,
+    `<p:presentation xmlns:p="${PRESENTATION_NAMESPACE}" xmlns:r="${RELATIONSHIP_NAMESPACE}">`
+      + '<p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId1"/></p:sldMasterIdLst>'
+      + '<p:sldIdLst/><p:sldSz cx="9144000" cy="5143500"/><p:notesSz cx="5143500" cy="9144000"/>'
+      + '</p:presentation>',
+    PRESENTATION_CONTENT_TYPE,
+  );
+  pkg.setPart(
+    SLIDE_ONE_URI,
+    `<p:sld xmlns:p="${PRESENTATION_NAMESPACE}"/>`,
+    SLIDE_CONTENT_TYPE,
+  );
+  pkg.setPart(
+    '/ppt/slideMasters/slideMaster1.xml',
+    `<p:sldMaster xmlns:p="${PRESENTATION_NAMESPACE}"/>`,
+    SLIDE_MASTER_CONTENT_TYPE,
+  );
+  pkg.setPart(
+    '/ppt/theme/theme1.xml',
+    `<a:theme xmlns:a="${DRAWING_NAMESPACE}" name="Direct"/>`,
+    THEME_CONTENT_TYPE,
+  );
+  pkg.setPart(
+    '/ppt/theme/theme2.xml',
+    `<a:theme xmlns:a="${DRAWING_NAMESPACE}" name="Fallback"/>`,
+    THEME_CONTENT_TYPE,
+  );
+  pkg.addRelationship(PRESENTATION_URI, {
+    id: 'rId1',
+    type: SLIDE_MASTER_RELATIONSHIP,
+    target: 'slideMasters/slideMaster1.xml',
+  });
+  if (directTheme) {
+    pkg.addRelationship(PRESENTATION_URI, {
+      id: 'rId2',
+      type: THEME_RELATIONSHIP,
+      target: 'theme/theme1.xml',
+    });
+  }
+  if (fallbackTheme) {
+    pkg.addRelationship('/ppt/slideMasters/slideMaster1.xml', {
+      type: THEME_RELATIONSHIP,
+      target: '../theme/theme2.xml',
+    });
+  }
   return pkg;
 }
 
@@ -504,5 +572,285 @@ describe('slide speaker notes package state', () => {
     )).toThrow(ModelParseError);
     expect(unsafe.parts.map(({ uri, bytes }) => ({ uri, bytes }))).toEqual(unsafeParts);
     expect(unsafe.mutations).toEqual(unsafeJournal);
+  });
+
+  it('creates a missing notes master from the direct presentation theme', () => {
+    const pkg = packageWithoutNotesMaster();
+    const preserved = new Map(
+      pkg.parts.map(({ uri, bytes }) => [uri, bytes.slice()]),
+    );
+    expect(replaceSlideNotes(pkg, PRESENTATION_URI, SLIDE_ONE_URI, 'Created')).toBe(true);
+    expect(readSlideNotes(pkg, PRESENTATION_URI, SLIDE_ONE_URI)).toBe('Created');
+
+    const masterRelationship = pkg.relationships(PRESENTATION_URI).find(
+      ({ type }) => type === NOTES_MASTER_RELATIONSHIP,
+    );
+    const masterUri = masterRelationship?.resolvedTarget;
+    expect(masterUri).toBeDefined();
+    expect(pkg.requirePart(masterUri!).contentType).toBe(NOTES_MASTER_CONTENT_TYPE);
+    expect(pkg.relationships(masterUri!).find(
+      ({ type }) => type === THEME_RELATIONSHIP,
+    )?.resolvedTarget).toBe('/ppt/theme/theme1.xml');
+    const presentationXml = new TextDecoder().decode(pkg.requirePart(PRESENTATION_URI).bytes);
+    expect(presentationXml).toContain(
+      `<p:notesMasterIdLst><p:notesMasterId r:id="${masterRelationship?.id}"/></p:notesMasterIdLst>`,
+    );
+    expect(presentationXml.indexOf('</p:sldIdLst>')).toBeLessThan(
+      presentationXml.indexOf('<p:notesMasterIdLst>'),
+    );
+    expect(presentationXml.indexOf('</p:notesMasterIdLst>')).toBeLessThan(
+      presentationXml.indexOf('<p:sldSz'),
+    );
+    const notesUri = pkg.relationships(SLIDE_ONE_URI).find(
+      ({ type }) => type === NOTES_SLIDE_RELATIONSHIP,
+    )!.resolvedTarget!;
+    expect(pkg.relationships(notesUri).find(
+      ({ type }) => type === NOTES_MASTER_RELATIONSHIP,
+    )?.resolvedTarget).toBe(masterUri);
+    const masterXml = new TextDecoder().decode(pkg.requirePart(masterUri!).bytes);
+    expect(masterXml).toContain('<p:notesMaster');
+    expect(masterXml).toContain('<p:clrMap ');
+    expect(masterXml).toContain('<p:hf hdr="1" ftr="1" dt="1" sldNum="1"/>');
+    expect(masterXml).toContain('<p:notesStyle/>');
+    for (const [uri, bytes] of preserved) {
+      if (
+        uri !== PRESENTATION_URI
+        && uri !== '/ppt/_rels/presentation.xml.rels'
+        && uri !== '/[Content_Types].xml'
+      ) {
+        expect(pkg.requirePart(uri).bytes).toEqual(bytes);
+      }
+    }
+  });
+
+  it('falls back to the first slide master theme when no direct presentation theme exists', () => {
+    const pkg = packageWithoutNotesMaster({ directTheme: false });
+    pkg.setPart(
+      '/ppt/slideMasters/slideMaster2.xml',
+      `<p:sldMaster xmlns:p="${PRESENTATION_NAMESPACE}"/>`,
+      SLIDE_MASTER_CONTENT_TYPE,
+    );
+    pkg.addRelationship(PRESENTATION_URI, {
+      id: 'rId3',
+      type: SLIDE_MASTER_RELATIONSHIP,
+      target: 'slideMasters/slideMaster2.xml',
+    });
+    pkg.addRelationship('/ppt/slideMasters/slideMaster2.xml', {
+      type: THEME_RELATIONSHIP,
+      target: '../theme/theme1.xml',
+    });
+    const presentationPart = pkg.requirePart(PRESENTATION_URI);
+    pkg.setPart(
+      PRESENTATION_URI,
+      new TextDecoder().decode(presentationPart.bytes).replace(
+        '</p:sldMasterIdLst>',
+        '<p:sldMasterId id="2147483649" r:id="rId3"/></p:sldMasterIdLst>',
+      ),
+      presentationPart.contentType,
+    );
+    expect(replaceSlideNotes(pkg, PRESENTATION_URI, SLIDE_ONE_URI, 'Fallback')).toBe(true);
+    const masterUri = pkg.relationships(PRESENTATION_URI).find(
+      ({ type }) => type === NOTES_MASTER_RELATIONSHIP,
+    )!.resolvedTarget!;
+    expect(pkg.relationships(masterUri).find(
+      ({ type }) => type === THEME_RELATIONSHIP,
+    )?.resolvedTarget).toBe('/ppt/theme/theme2.xml');
+    expect(readSlideNotes(pkg, PRESENTATION_URI, SLIDE_ONE_URI)).toBe('Fallback');
+  });
+
+  it('inserts a missing master list before slide size with alternate namespace prefixes', () => {
+    const pkg = packageWithoutNotesMaster();
+    const presentationPart = pkg.requirePart(PRESENTATION_URI);
+    const source = new TextDecoder().decode(presentationPart.bytes)
+      .replace('<p:sldIdLst/>', '')
+      .replaceAll('<p:', '<q:')
+      .replaceAll('</p:', '</q:')
+      .replace('xmlns:p=', 'xmlns:q=')
+      .replaceAll('r:id', 'rel:id')
+      .replace('xmlns:r=', 'xmlns:rel=');
+    pkg.setPart(PRESENTATION_URI, source, presentationPart.contentType);
+    expect(replaceSlideNotes(pkg, PRESENTATION_URI, SLIDE_ONE_URI, 'Prefixes')).toBe(true);
+    const output = new TextDecoder().decode(pkg.requirePart(PRESENTATION_URI).bytes);
+    const relationship = pkg.relationships(PRESENTATION_URI).find(
+      ({ type }) => type === NOTES_MASTER_RELATIONSHIP,
+    )!;
+    expect(output).toContain(
+      `<q:notesMasterIdLst><q:notesMasterId rel:id="${relationship.id}"/></q:notesMasterIdLst>`,
+    );
+    expect(output.indexOf('<q:notesMasterIdLst>')).toBeLessThan(output.indexOf('<q:sldSz'));
+  });
+
+  it('rejects partial notes-master state and ambiguous or absent themes without mutation', () => {
+    const cases: OpcPackage[] = [];
+
+    const orphanMaster = packageWithoutNotesMaster();
+    orphanMaster.setPart(
+      NOTES_MASTER_URI,
+      `<p:notesMaster xmlns:p="${PRESENTATION_NAMESPACE}"/>`,
+      NOTES_MASTER_CONTENT_TYPE,
+    );
+    cases.push(orphanMaster);
+
+    const listOnly = packageWithoutNotesMaster();
+    const listPart = listOnly.requirePart(PRESENTATION_URI);
+    listOnly.setPart(
+      PRESENTATION_URI,
+      new TextDecoder().decode(listPart.bytes).replace(
+        '<p:sldSz',
+        '<p:notesMasterIdLst><p:notesMasterId r:id="rId9"/></p:notesMasterIdLst><p:sldSz',
+      ),
+      listPart.contentType,
+    );
+    cases.push(listOnly);
+
+    const relationshipOnly = packageWithoutNotesMaster();
+    relationshipOnly.setPart(
+      NOTES_MASTER_URI,
+      `<p:notesMaster xmlns:p="${PRESENTATION_NAMESPACE}"/>`,
+      NOTES_MASTER_CONTENT_TYPE,
+    );
+    relationshipOnly.addRelationship(PRESENTATION_URI, {
+      type: NOTES_MASTER_RELATIONSHIP,
+      target: 'notesMasters/notesMaster1.xml',
+    });
+    cases.push(relationshipOnly);
+
+    const duplicateRelationships = packageWithNotesMaster();
+    duplicateRelationships.setPart(
+      '/ppt/notesMasters/notesMaster2.xml',
+      `<p:notesMaster xmlns:p="${PRESENTATION_NAMESPACE}"/>`,
+      NOTES_MASTER_CONTENT_TYPE,
+    );
+    duplicateRelationships.addRelationship(PRESENTATION_URI, {
+      type: NOTES_MASTER_RELATIONSHIP,
+      target: 'notesMasters/notesMaster2.xml',
+    });
+    cases.push(duplicateRelationships);
+
+    const duplicateLists = packageWithNotesMaster();
+    const duplicateListsPart = duplicateLists.requirePart(PRESENTATION_URI);
+    duplicateLists.setPart(
+      PRESENTATION_URI,
+      new TextDecoder().decode(duplicateListsPart.bytes).replace(
+        '</p:presentation>',
+        '<p:notesMasterIdLst><p:notesMasterId r:id="rId1"/></p:notesMasterIdLst></p:presentation>',
+      ),
+      duplicateListsPart.contentType,
+    );
+    cases.push(duplicateLists);
+
+    const duplicateIdentifiers = packageWithNotesMaster();
+    const duplicateIdentifiersPart = duplicateIdentifiers.requirePart(PRESENTATION_URI);
+    duplicateIdentifiers.setPart(
+      PRESENTATION_URI,
+      new TextDecoder().decode(duplicateIdentifiersPart.bytes).replace(
+        '</p:notesMasterIdLst>',
+        '<p:notesMasterId r:id="rId1"/></p:notesMasterIdLst>',
+      ),
+      duplicateIdentifiersPart.contentType,
+    );
+    cases.push(duplicateIdentifiers);
+
+    const duplicateIdAttributes = packageWithNotesMaster();
+    const duplicateIdAttributesPart = duplicateIdAttributes.requirePart(PRESENTATION_URI);
+    duplicateIdAttributes.setPart(
+      PRESENTATION_URI,
+      new TextDecoder().decode(duplicateIdAttributesPart.bytes).replace(
+        'r:id="rId1"',
+        'r:id="rId1" r:id="rId1"',
+      ),
+      duplicateIdAttributesPart.contentType,
+    );
+    cases.push(duplicateIdAttributes);
+
+    const externalMaster = packageWithNotesMaster();
+    externalMaster.removeRelationship(PRESENTATION_URI, 'rId1');
+    externalMaster.addRelationship(PRESENTATION_URI, {
+      id: 'rId1',
+      type: NOTES_MASTER_RELATIONSHIP,
+      target: 'https://example.com/notesMaster.xml',
+      targetMode: 'External',
+    });
+    cases.push(externalMaster);
+
+    const missingMaster = packageWithoutNotesMaster();
+    const missingPresentationPart = missingMaster.requirePart(PRESENTATION_URI);
+    missingMaster.setPart(
+      PRESENTATION_URI,
+      new TextDecoder().decode(missingPresentationPart.bytes).replace(
+        '<p:sldSz',
+        '<p:notesMasterIdLst><p:notesMasterId r:id="rId9"/></p:notesMasterIdLst><p:sldSz',
+      ),
+      missingPresentationPart.contentType,
+    );
+    const missingRelationshipsPart = missingMaster.requirePart('/ppt/_rels/presentation.xml.rels');
+    missingMaster.setPart(
+      missingRelationshipsPart.uri,
+      new TextDecoder().decode(missingRelationshipsPart.bytes).replace(
+        '</Relationships>',
+        `<Relationship Id="rId9" Type="${NOTES_MASTER_RELATIONSHIP}" Target="notesMasters/missing.xml"/></Relationships>`,
+      ),
+      missingRelationshipsPart.contentType,
+    );
+    cases.push(missingMaster);
+
+    const wrongContentMaster = packageWithNotesMaster();
+    const wrongContentPart = wrongContentMaster.requirePart(NOTES_MASTER_URI);
+    wrongContentMaster.setPart(
+      NOTES_MASTER_URI,
+      wrongContentPart.bytes,
+      'application/octet-stream',
+    );
+    cases.push(wrongContentMaster);
+
+    const wrongRootMaster = packageWithNotesMaster();
+    wrongRootMaster.setPart(
+      NOTES_MASTER_URI,
+      `<p:notNotesMaster xmlns:p="${PRESENTATION_NAMESPACE}"/>`,
+      NOTES_MASTER_CONTENT_TYPE,
+    );
+    cases.push(wrongRootMaster);
+
+    const duplicateDirectThemes = packageWithoutNotesMaster();
+    duplicateDirectThemes.addRelationship(PRESENTATION_URI, {
+      type: THEME_RELATIONSHIP,
+      target: 'theme/theme2.xml',
+    });
+    cases.push(duplicateDirectThemes);
+
+    const duplicateFallbackThemes = packageWithoutNotesMaster({ directTheme: false });
+    duplicateFallbackThemes.addRelationship('/ppt/slideMasters/slideMaster1.xml', {
+      type: THEME_RELATIONSHIP,
+      target: '../theme/theme1.xml',
+    });
+    cases.push(duplicateFallbackThemes);
+
+    cases.push(packageWithoutNotesMaster({ directTheme: false, fallbackTheme: false }));
+
+    for (const pkg of cases) {
+      const before = pkg.parts.map(({ uri, bytes }) => ({ uri, bytes: bytes.slice() }));
+      const journal = [...pkg.mutations];
+      expect(() => replaceSlideNotes(
+        pkg,
+        PRESENTATION_URI,
+        SLIDE_ONE_URI,
+        'Rejected',
+      )).toThrow(ModelParseError);
+      expect(pkg.parts.map(({ uri, bytes }) => ({ uri, bytes }))).toEqual(before);
+      expect(pkg.mutations).toEqual(journal);
+    }
+  });
+
+  it('rolls missing-master and notes creation back as one transaction', () => {
+    const pkg = packageWithoutNotesMaster();
+    const before = pkg.parts.map(({ uri, bytes }) => ({ uri, bytes: bytes.slice() }));
+    const journal = [...pkg.mutations];
+    expect(() => pkg.transaction(() => {
+      replaceSlideNotes(pkg, PRESENTATION_URI, SLIDE_ONE_URI, 'Temporary');
+      throw new Error('rollback missing notes master');
+    })).toThrow('rollback missing notes master');
+    expect(pkg.parts.map(({ uri, bytes }) => ({ uri, bytes }))).toEqual(before);
+    expect(pkg.mutations).toEqual(journal);
+    expect(readSlideNotes(pkg, PRESENTATION_URI, SLIDE_ONE_URI)).toBeUndefined();
   });
 });
