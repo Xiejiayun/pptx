@@ -92,7 +92,7 @@ a:theme
       / a:minorFont / a:latin @typeface
 ```
 
-查找按 expanded namespace 与 direct-child 层级，不按固定 `a` prefix、固定 part URI 或任意 descendant 猜测。alternate prefix 和局部 namespace declaration 合法；wrong namespace、重复 direct 节点、descendant impostor、重复 unqualified `typeface` attribute、element child 或 malformed XML 都不被误读。
+查找按 expanded namespace 与 direct-child 层级，不按固定 `a` prefix、固定 part URI 或任意 descendant 猜测。alternate prefix 和局部 namespace declaration 合法；wrong namespace、重复 direct 节点、descendant impostor、重复 unqualified `typeface` attribute或 element child 都不被误读。Malformed XML 继续由 lossless parser 明确抛错，不被吞成“缺少字体”。
 
 setter 只替换唯一 direct Latin element 的 unqualified `typeface` 值；单纯缺少该 attribute 时可安全补上。wrong-namespace 同名 attribute 保留。major/minor 容器或 Latin element 缺失、重复或 namespace 错误时不创建大段 font scheme，而是拒绝 mutation，避免猜测 child order 与主题继承。未知 attributes、`panose`、`pitchFamily`、`charset`、`ea`、`cs`、script-specific `font`、color scheme、format scheme、object defaults、extensions、comments、whitespace 和其他 parts 均保持原字节。
 
@@ -121,7 +121,7 @@ setter 只替换唯一 direct Latin element 的 unqualified `typeface` 值；单
 ## 测试与验收
 
 1. Codec fixture 覆盖 canonical、alternate URI/prefix、局部 namespace、额外 theme parts、presentation direct relationship、master-only relationship和 detached theme part；只选择唯一 direct presentation theme。
-2. `ThemeModel.fonts` 覆盖 valid、missing/repeated/wrong-namespace chain、missing/duplicate typeface、descendant impostor、malformed XML，并返回 detached snapshot 或 `undefined`。
+2. `ThemeModel.fonts` 覆盖 valid、missing/repeated/wrong-namespace chain、missing/duplicate typeface和 descendant impostor，并返回 detached snapshot 或 `undefined`；malformed XML 明确抛出 parse error。
 3. `setFonts()` 覆盖 major-only、minor-only、both、missing-attribute repair、XML escaping、same-value no-op、empty-update rejection、invalid zero mutation、unknown-state preservation和外层 rollback。
 4. `PptxDocument.create()` 覆盖 omitted、runtime `undefined`、`{}`、head-only、body-only、both、冻结/null-prototype input、caller 后续 mutation及全部非法输入；默认 canonical bytes保持不变。
 5. `document.theme` 覆盖读取、整组替换、partial fallback、write/reopen、stable `ThemeModel` identity，以及缺失/重复/external/dangling/wrong-content-type relationship 的安全行为。
