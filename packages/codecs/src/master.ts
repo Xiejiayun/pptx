@@ -8,9 +8,18 @@ import {
   relationshipPartUri,
   type Relationship,
 } from '@pptx/opc';
+import {
+  readThemeFonts,
+  replaceThemeFonts,
+  type ThemeFontSnapshot,
+  type ThemeFontUpdate,
+} from './theme-fonts.internal.js';
+
+export type { ThemeFontSnapshot, ThemeFontUpdate } from './theme-fonts.internal.js';
 
 const REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/';
 const CONTENT = 'application/vnd.openxmlformats-officedocument.presentationml.';
+const THEME_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.theme+xml';
 
 export interface PlaceholderModel {
   readonly shapeId: number;
@@ -47,16 +56,16 @@ export class ThemeModel {
       });
   }
 
-  get fonts(): { majorLatin: string; minorLatin: string } {
-    const xml = this.codec.parse(this.partUri);
-    const major = xml.elements('majorFont')[0];
-    const minor = xml.elements('minorFont')[0];
-    const majorLatin = major ? xml.descendants(major, 'latin')[0] : undefined;
-    const minorLatin = minor ? xml.descendants(minor, 'latin')[0] : undefined;
-    return {
-      majorLatin: majorLatin ? xml.attribute(majorLatin, 'typeface')?.value ?? '' : '',
-      minorLatin: minorLatin ? xml.attribute(minorLatin, 'typeface')?.value ?? '' : '',
-    };
+  get fonts(): ThemeFontSnapshot | undefined {
+    return readThemeFonts(this.codec.parse(this.partUri));
+  }
+
+  setFonts(value: ThemeFontUpdate): void {
+    this.codec.pkg.transaction(() => {
+      const xml = this.codec.parse(this.partUri);
+      replaceThemeFonts(xml, value);
+      if (xml.changed) this.codec.save(this.partUri, xml);
+    });
   }
 
   setColor(name: string, value: string): void {
@@ -130,7 +139,7 @@ export class MasterLayoutThemeCodec {
   readonly priority = 100;
   readonly ownership = {
     relationshipTypes: [`${REL}slideLayout`, `${REL}slideMaster`, `${REL}theme`],
-    contentTypes: [`${CONTENT}slideMaster+xml`, `${CONTENT}slideLayout+xml`, 'application/vnd.openxmlformats-officedocument.theme+xml'],
+    contentTypes: [`${CONTENT}slideMaster+xml`, `${CONTENT}slideLayout+xml`, THEME_CONTENT_TYPE],
   } as const;
   readonly #masterModels = new Map<string, MasterModel>();
   readonly #layoutModels = new Map<string, LayoutModel>();
@@ -149,10 +158,29 @@ export class MasterLayoutThemeCodec {
     return this.masters.flatMap(({ layouts }) => layouts);
   }
 
+  get presentationTheme(): ThemeModel | undefined {
+    const relationships = this.pkg
+      .relationships(this.presentationPartUri)
+      .filter(({ type }) => type === `${REL}theme`);
+    if (relationships.length !== 1) return undefined;
+    const relationship = relationships[0];
+    if (
+      !relationship
+      || relationship.targetMode === 'External'
+      || !relationship.resolvedTarget
+    ) {
+      return undefined;
+    }
+    const part = this.pkg.getPart(relationship.resolvedTarget);
+    return part?.contentType === THEME_CONTENT_TYPE
+      ? this.modelForTheme(relationship.resolvedTarget)
+      : undefined;
+  }
+
   get themes(): readonly ThemeModel[] {
     const uris = new Set(
       this.pkg.parts
-        .filter(({ contentType }) => contentType === 'application/vnd.openxmlformats-officedocument.theme+xml')
+        .filter(({ contentType }) => contentType === THEME_CONTENT_TYPE)
         .map(({ uri }) => uri),
     );
     return [...uris].map((uri) => this.modelForTheme(uri));
@@ -193,7 +221,7 @@ export class MasterLayoutThemeCodec {
         'theme',
         '.xml',
       );
-      this.pkg.setPart(uri, xml, 'application/vnd.openxmlformats-officedocument.theme+xml');
+      this.pkg.setPart(uri, xml, THEME_CONTENT_TYPE);
       return this.modelForTheme(uri);
     });
   }

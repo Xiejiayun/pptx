@@ -1,7 +1,7 @@
 import JSZip from 'jszip';
 import { describe, expect, it } from 'vitest';
 import { LosslessXmlDocument } from '@pptx/lossless-xml';
-import { OpcPackage } from '@pptx/opc';
+import { OpcPackage, relativeRelationshipTarget } from '@pptx/opc';
 import {
   CodecOwnershipError,
   CodecRegistry,
@@ -17,14 +17,14 @@ async function featureFixture(): Promise<OpcPackage> {
   zip.file('[Content_Types].xml', '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/><Override PartName="/ppt/slides/slide1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/><Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/><Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/><Override PartName="/ppt/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/></Types>');
   zip.file('_rels/.rels', '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/></Relationships>');
   zip.file('ppt/presentation.xml', '<p:presentation xmlns:p="p" xmlns:r="r"><p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId1"/></p:sldMasterIdLst><p:sldIdLst><p:sldId id="256" r:id="rId2"/></p:sldIdLst></p:presentation>');
-  zip.file('ppt/_rels/presentation.xml.rels', '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="slideMasters/slideMaster1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide1.xml"/></Relationships>');
+  zip.file('ppt/_rels/presentation.xml.rels', '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="slideMasters/slideMaster1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide1.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="theme/theme1.xml"/></Relationships>');
   zip.file('ppt/slides/slide1.xml', '<p:sld xmlns:p="p" xmlns:a="a" xmlns:r="r"><p:cSld><p:spTree><p:sp><p:nvSpPr><p:cNvPr id="2" name="Title"/><p:nvPr><p:ph type="title" idx="1"/></p:nvPr></p:nvSpPr><p:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="100" cy="100"/></a:xfrm><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill></p:spPr><p:txBody><a:p><a:r><a:t>Slide title</a:t></a:r></a:p></p:txBody></p:sp></p:spTree></p:cSld></p:sld>');
   zip.file('ppt/slides/_rels/slide1.xml.rels', '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/></Relationships>');
   zip.file('ppt/slideLayouts/slideLayout1.xml', '<p:sldLayout xmlns:p="p" xmlns:a="a" name="Title"><p:cSld><p:spTree><p:sp><p:nvSpPr><p:cNvPr id="2" name="Layout title"/><p:nvPr><p:ph type="title" idx="1"/></p:nvPr></p:nvSpPr><p:txBody><a:p><a:r><a:t>Layout title</a:t></a:r></a:p></p:txBody></p:sp></p:spTree></p:cSld></p:sldLayout>');
   zip.file('ppt/slideLayouts/_rels/slideLayout1.xml.rels', '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="../slideMasters/slideMaster1.xml"/></Relationships>');
   zip.file('ppt/slideMasters/slideMaster1.xml', '<p:sldMaster xmlns:p="p" xmlns:a="a" xmlns:r="r"><p:cSld><p:spTree><p:sp><p:nvSpPr><p:cNvPr id="2" name="Master title"/><p:nvPr><p:ph type="title" idx="1"/></p:nvPr></p:nvSpPr><p:txBody><a:p><a:r><a:t>Master title</a:t></a:r></a:p></p:txBody></p:sp></p:spTree></p:cSld><p:sldLayoutIdLst><p:sldLayoutId id="1" r:id="rId1"/></p:sldLayoutIdLst></p:sldMaster>');
   zip.file('ppt/slideMasters/_rels/slideMaster1.xml.rels', '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="../theme/theme1.xml"/></Relationships>');
-  zip.file('ppt/theme/theme1.xml', '<a:theme xmlns:a="a"><a:themeElements><a:clrScheme name="Office"><a:dk1><a:sysClr val="windowText" lastClr="000000"/></a:dk1><a:accent1><a:srgbClr val="4472C4"/></a:accent1></a:clrScheme><a:fontScheme name="Office"><a:majorFont><a:latin typeface="Aptos Display"/></a:majorFont><a:minorFont><a:latin typeface="Aptos"/></a:minorFont></a:fontScheme><a:fmtScheme name="Office"/></a:themeElements></a:theme>');
+  zip.file('ppt/theme/theme1.xml', '<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:themeElements><a:clrScheme name="Office"><a:dk1><a:sysClr val="windowText" lastClr="000000"/></a:dk1><a:accent1><a:srgbClr val="4472C4"/></a:accent1></a:clrScheme><a:fontScheme name="Office"><a:majorFont><a:latin typeface="Aptos Display"/></a:majorFont><a:minorFont><a:latin typeface="Aptos"/></a:minorFont></a:fontScheme><a:fmtScheme name="Office"/></a:themeElements></a:theme>');
   return OpcPackage.open(await zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' }));
 }
 
@@ -87,10 +87,14 @@ describe('MasterLayoutThemeCodec', () => {
     expect(codec.layouts[0]).toBe(layout);
     expect(master.layouts[0]).toBe(layout);
     expect(codec.themes[0]).toBe(theme);
+    expect(codec.presentationTheme).toBe(theme);
+    expect(codec.presentationTheme).toBe(codec.presentationTheme);
     expect(master.theme).toBe(theme);
     expect(codec.masters).toHaveLength(1);
     expect(codec.layouts[0]?.placeholders[0]).toMatchObject({ type: 'title', index: 1 });
     expect(codec.themes[0]?.fonts).toEqual({ majorLatin: 'Aptos Display', minorLatin: 'Aptos' });
+    theme.setFonts({ minorLatin: 'Noto Sans' });
+    expect(theme.fonts).toEqual({ majorLatin: 'Aptos Display', minorLatin: 'Noto Sans' });
     codec.themes[0]!.setColor('accent1', '#2563EB');
     expect(codec.themes[0]?.colors.find(({ name }) => name === 'accent1')?.value).toBe('2563EB');
     expect(codec.materializeInheritedStyle('/ppt/slides/slide1.xml', 2)).toMatchObject({
@@ -103,7 +107,11 @@ describe('MasterLayoutThemeCodec', () => {
     const copiedTheme = codec.copyTheme('/ppt/theme/theme1.xml');
     expect(codec.themes.find(({ partUri }) => partUri === copiedTheme.partUri)).toBe(copiedTheme);
     codec.relinkMasterTheme('/ppt/slideMasters/slideMaster1.xml', copiedTheme.partUri);
+    pkg.updateRelationship('/ppt/presentation.xml', 'rId3', {
+      target: relativeRelationshipTarget('/ppt/presentation.xml', copiedTheme.partUri),
+    });
     expect(master.theme).toBe(copiedTheme);
+    expect(codec.presentationTheme).toBe(copiedTheme);
     codec.deleteTheme('/ppt/theme/theme1.xml');
     expect(pkg.hasPart('/ppt/theme/theme1.xml')).toBe(false);
     const copiedLayout = codec.copyLayout('/ppt/slideLayouts/slideLayout1.xml');
@@ -134,6 +142,90 @@ describe('MasterLayoutThemeCodec', () => {
     expect(createdLayout.masterPartUri).toBe(createdMaster.partUri);
     codec.deleteMaster(createdMaster.partUri);
     codec.deleteTheme(createdTheme.partUri);
+  });
+
+  it('resolves only one safe presentation-direct theme relationship', async () => {
+    const noDirectPackage = await featureFixture();
+    noDirectPackage.removeRelationship('/ppt/presentation.xml', 'rId3');
+    const noDirect = new MasterLayoutThemeCodec(noDirectPackage);
+    expect(noDirect.masters[0]?.theme?.partUri).toBe('/ppt/theme/theme1.xml');
+    expect(noDirect.presentationTheme).toBeUndefined();
+
+    const duplicatePackage = await featureFixture();
+    duplicatePackage.addRelationship('/ppt/presentation.xml', {
+      type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme',
+      target: 'theme/theme1.xml',
+    });
+    expect(new MasterLayoutThemeCodec(duplicatePackage).presentationTheme).toBeUndefined();
+
+    const externalPackage = await featureFixture();
+    externalPackage.updateRelationship('/ppt/presentation.xml', 'rId3', {
+      target: 'https://example.com/theme.xml',
+      targetMode: 'External',
+    });
+    expect(new MasterLayoutThemeCodec(externalPackage).presentationTheme).toBeUndefined();
+
+    const danglingPackage = await featureFixture();
+    const relationshipPart = danglingPackage.requirePart('/ppt/_rels/presentation.xml.rels');
+    danglingPackage.setPart(
+      relationshipPart.uri,
+      new TextDecoder().decode(relationshipPart.bytes).replace(
+        'Target="theme/theme1.xml"',
+        'Target="theme/missing.xml"',
+      ),
+      relationshipPart.contentType,
+    );
+    expect(new MasterLayoutThemeCodec(danglingPackage).presentationTheme).toBeUndefined();
+
+    const wrongTypePackage = await featureFixture();
+    const wrongTypeBytes = wrongTypePackage.requirePart('/ppt/theme/theme1.xml').bytes;
+    wrongTypePackage.setPart('/ppt/theme/theme1.xml', wrongTypeBytes, 'application/xml');
+    expect(new MasterLayoutThemeCodec(wrongTypePackage).presentationTheme).toBeUndefined();
+
+    const alternatePackage = await featureFixture();
+    const alternateBytes = alternatePackage.requirePart('/ppt/theme/theme1.xml').bytes;
+    alternatePackage.setPart(
+      '/ppt/customThemes/primary.xml',
+      alternateBytes,
+      'application/vnd.openxmlformats-officedocument.theme+xml',
+    );
+    alternatePackage.setPart(
+      '/ppt/theme/detached.xml',
+      alternateBytes,
+      'application/vnd.openxmlformats-officedocument.theme+xml',
+    );
+    alternatePackage.updateRelationship('/ppt/presentation.xml', 'rId3', {
+      target: 'customThemes/primary.xml',
+      targetMode: 'Internal',
+    });
+    const alternate = new MasterLayoutThemeCodec(alternatePackage);
+    expect(alternate.themes).toHaveLength(3);
+    expect(alternate.presentationTheme?.partUri).toBe('/ppt/customThemes/primary.xml');
+    expect(alternate.presentationTheme?.fonts).toEqual({
+      majorLatin: 'Aptos Display',
+      minorLatin: 'Aptos',
+    });
+  });
+
+  it('keeps theme font no-ops exact and rolls edits back with an outer transaction', async () => {
+    const pkg = await featureFixture();
+    const theme = new MasterLayoutThemeCodec(pkg).presentationTheme!;
+    const before = pkg.requirePart(theme.partUri).bytes;
+    const journal = [...pkg.mutations];
+
+    theme.setFonts({ majorLatin: 'Aptos Display' });
+    expect(pkg.requirePart(theme.partUri).bytes).toEqual(before);
+    expect(pkg.mutations).toEqual(journal);
+
+    expect(() =>
+      pkg.transaction(() => {
+        theme.setFonts({ majorLatin: 'Noto Sans Display', minorLatin: 'Noto Sans' });
+        throw new Error('rollback theme fonts');
+      }),
+    ).toThrow('rollback theme fonts');
+    expect(pkg.requirePart(theme.partUri).bytes).toEqual(before);
+    expect(pkg.mutations).toEqual(journal);
+    expect(theme.fonts).toEqual({ majorLatin: 'Aptos Display', minorLatin: 'Aptos' });
   });
 
   it('rolls back a master part when a dependent relationship cannot be created', async () => {
