@@ -10,26 +10,26 @@ import {
   W3CDTF_QUALIFIED_TYPE,
 } from './presentation-timestamp.internal.js';
 
-const CREATED_AT_PROPERTY: CoreTextPropertyDescriptor = {
-  label: 'created timestamp',
-  localName: 'created',
+const MODIFIED_AT_PROPERTY: CoreTextPropertyDescriptor = {
+  label: 'modified timestamp',
+  localName: 'modified',
   namespace: 'http://purl.org/dc/terms/',
   preferredPrefix: 'dcterms',
   qualifiedType: W3CDTF_QUALIFIED_TYPE,
 };
 
-export function readPresentationCreatedAt(pkg: OpcPackage): string | undefined {
-  const value = readCoreTextProperty(pkg, CREATED_AT_PROPERTY);
+export function readPresentationModifiedAt(pkg: OpcPackage): string | undefined {
+  const value = readCoreTextProperty(pkg, MODIFIED_AT_PROPERTY);
   return value !== undefined && isPresentationTimestamp(value) ? value : undefined;
 }
 
-export function replacePresentationCreatedAt(
+export function replacePresentationModifiedAt(
   pkg: OpcPackage,
   value: string | undefined,
 ): void {
   replaceCoreTextProperty(
     pkg,
-    CREATED_AT_PROPERTY,
-    normalizePresentationTimestamp(value, 'createdAt'),
+    MODIFIED_AT_PROPERTY,
+    normalizePresentationTimestamp(value, 'modifiedAt'),
   );
 }
