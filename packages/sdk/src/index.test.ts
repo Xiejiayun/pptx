@@ -180,6 +180,163 @@ describe('PptxDocument vertical slice', () => {
     expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
   });
 
+  it('creates, reads, and atomically edits detached presentation sections', async () => {
+    const document = PptxDocument.create();
+    const slides = [document.addSlide(), document.addSlide(), document.addSlide()];
+    expect(document.sections).toEqual([]);
+
+    const a = document.addSection({ title: 'A' });
+    const c = document.addSection({ title: 'C' });
+    const b = document.addSection({ title: 'B & <Two>', order: 1 });
+    expect(document.sections?.map(({ title }) => title)).toEqual(['A', 'B & <Two>', 'C']);
+    expect([a.id, b.id, c.id]).toEqual(expect.arrayContaining([
+      expect.stringMatching(/^\{[0-9A-F]{8}(?:-[0-9A-F]{4}){3}-[0-9A-F]{12}\}$/),
+      expect.stringMatching(/^\{[0-9A-F]{8}(?:-[0-9A-F]{4}){3}-[0-9A-F]{12}\}$/),
+      expect.stringMatching(/^\{[0-9A-F]{8}(?:-[0-9A-F]{4}){3}-[0-9A-F]{12}\}$/),
+    ]));
+    expect(new Set([a.id, b.id, c.id]).size).toBe(3);
+
+    const duplicateA = document.addSection({ title: 'A', order: 1 });
+    document.renameSection(duplicateA.id, 'Second A');
+    expect(document.sections?.map(({ title }) => title)).toEqual(['A', 'Second A', 'B & <Two>', 'C']);
+    document.deleteSection(duplicateA.id);
+    expect(document.sections?.map(({ title }) => title)).toEqual(['A', 'B & <Two>', 'C']);
+
+    const detached = document.sections! as unknown as { title: string; slideIds: number[] }[];
+    detached[0]!.title = 'Changed detached title';
+    detached[0]!.slideIds.push(999);
+    expect(document.sections?.[0]).toEqual({ id: a.id, title: 'A', slideIds: [] });
+
+    document.assignSlideToSection(0, a.id);
+    document.assignSlideToSection(1, b.id);
+    document.assignSlideToSection(2, c.id);
+    expect(document.sections?.map(({ slideIds }) => slideIds)).toEqual([
+      [slides[0]!.slideId],
+      [slides[1]!.slideId],
+      [slides[2]!.slideId],
+    ]);
+
+    document.assignSlideToSection(1, a.id);
+    document.assignSlideToSection(1, undefined);
+    document.renameSection(b.id, 'B & <Renamed> "Q"');
+    document.moveSection(c.id, 0);
+    document.deleteSection(b.id);
+    expect(document.sections).toEqual([
+      { id: c.id, title: 'C', slideIds: [slides[2]!.slideId] },
+      { id: a.id, title: 'A', slideIds: [slides[0]!.slideId] },
+    ]);
+    expect(document.slides).toEqual(slides);
+    expect(new TextDecoder().decode(
+      document.opcPackage.requirePart(document.presentationPartUri).bytes,
+    )).not.toContain('name="B &amp; &lt;Renamed&gt; &quot;Q&quot;"');
+
+    const beforeNoOp = document.opcPackage.requirePart(document.presentationPartUri).bytes;
+    const journal = [...document.opcPackage.mutations];
+    document.renameSection(c.id, 'C');
+    document.moveSection(c.id, 0);
+    document.assignSlideToSection(2, c.id);
+    document.assignSlideToSection(1, undefined);
+    expect(document.opcPackage.requirePart(document.presentationPartUri).bytes).toEqual(beforeNoOp);
+    expect(document.opcPackage.mutations).toEqual(journal);
+
+    const reopened = await PptxDocument.open(await document.write());
+    expect(reopened.sections).toEqual(document.sections);
+    expect(reopened.slides.map(({ slideId }) => slideId)).toEqual(slides.map(({ slideId }) => slideId));
+    expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+  });
+
+  it('rejects invalid and unsafe presentation section edits without mutation and rolls back', async () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const section = document.addSection({ title: 'Safe' });
+    document.assignSlideToSection(0, section.id);
+    const before = new Map(
+      document.opcPackage.parts.map(({ uri, bytes }) => [uri, new Uint8Array(bytes)]),
+    );
+    const beforeJournal = [...document.opcPackage.mutations];
+    const expectUnchanged = (): void => {
+      expect(document.opcPackage.parts.map(({ uri }) => uri)).toEqual([...before.keys()]);
+      for (const { uri, bytes } of document.opcPackage.parts) {
+        expect(bytes).toEqual(before.get(uri));
+      }
+      expect(document.opcPackage.mutations).toEqual(beforeJournal);
+    };
+    const identity = document.slides[0];
+    let accessorCalls = 0;
+    const accessorOptions = Object.defineProperty({}, 'title', {
+      enumerable: true,
+      get: () => {
+        accessorCalls += 1;
+        return 'Accessor';
+      },
+    });
+    const invalidOptions = [
+      null,
+      [],
+      {},
+      { title: '' },
+      { title: '   ' },
+      { title: 1 },
+      { title: 'Safe', order: 1.5 },
+      { title: 'Safe', order: 2 },
+      { title: 'Safe', extra: true },
+      { title: 'Safe', [Symbol('extra')]: true },
+      Object.create({ title: 'Inherited' }),
+      accessorOptions,
+    ];
+    for (const options of invalidOptions) {
+      expect(() => document.addSection(options as never)).toThrow();
+    }
+    expect(accessorCalls).toBe(0);
+    expect(() => document.renameSection('{00000000-0000-0000-0000-000000000099}', 'Missing')).toThrow(RangeError);
+    expect(() => document.renameSection('bad', 'Bad')).toThrow(TypeError);
+    expect(() => document.renameSection(section.id, '   ')).toThrow(TypeError);
+    expect(() => document.moveSection(section.id, 1)).toThrow(RangeError);
+    expect(() => document.deleteSection('{00000000-0000-0000-0000-000000000099}')).toThrow(RangeError);
+    expect(() => document.assignSlideToSection(1, section.id)).toThrow(RangeError);
+    expect(() => document.assignSlideToSection(0, '{00000000-0000-0000-0000-000000000099}')).toThrow(RangeError);
+    expectUnchanged();
+    expect(document.slides[0]).toBe(identity);
+    expect(document.sections?.[0]?.slideIds).toEqual([slide.slideId]);
+
+    expect(() => document.transaction((draft) => {
+      const temporary = draft.addSection({ title: 'Temporary', order: 0 });
+      draft.assignSlideToSection(0, temporary.id);
+      draft.renameSection(section.id, 'Changed');
+      throw new Error('rollback presentation sections');
+    })).toThrow('rollback presentation sections');
+    expectUnchanged();
+    expect(document.slides[0]).toBe(identity);
+
+    const part = document.opcPackage.requirePart(document.presentationPartUri);
+    const source = new TextDecoder().decode(part.bytes);
+    const member = `<p14:sldId id="${slide.slideId}"/>`;
+    document.opcPackage.setPart(
+      document.presentationPartUri,
+      source.replace(member, `${member}${member}`),
+      part.contentType,
+    );
+    const unsafe = document.opcPackage.requirePart(document.presentationPartUri).bytes;
+    expect(document.sections).toBeUndefined();
+    expect(() => document.renameSection(section.id, 'Unsafe')).toThrow(ModelParseError);
+    expect(() => document.addSection({ title: 'Unsafe' })).toThrow(ModelParseError);
+    expect(document.opcPackage.requirePart(document.presentationPartUri).bytes).toEqual(unsafe);
+  });
+
+  it('round-trips presentation section commands in all supported presentation formats', async () => {
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const document = PptxDocument.create({ format });
+      const slide = document.addSlide();
+      const section = document.addSection({ title: `Section ${format}` });
+      document.assignSlideToSection(0, section.id);
+      const reopened = await PptxDocument.open(await document.write());
+      expect(reopened.format).toBe(format);
+      expect(reopened.sections).toEqual([
+        { id: section.id, title: `Section ${format}`, slideIds: [slide.slideId] },
+      ]);
+    }
+  });
+
   it('creates all presentation formats and built-in PptxGenJS slide sizes', async () => {
     const sizes = {
       '4:3': [9_144_000, 6_858_000],

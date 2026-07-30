@@ -13,6 +13,7 @@ import {
   type PresentationFormat,
   type PresentationFormatProfile,
 } from './format.js';
+import { ModelParseError } from './errors.js';
 import { SlideModel } from './slide.js';
 import {
   cloneSlideDependencies,
@@ -51,6 +52,18 @@ import {
   readPresentationRevision,
   replacePresentationRevision,
 } from './presentation-revision.internal.js';
+import {
+  assignPresentationSlideToSection,
+  createPresentationSectionId,
+  deletePresentationSection,
+  insertPresentationSection,
+  movePresentationSection,
+  normalizeAddPresentationSectionOptions,
+  normalizePresentationSectionId,
+  normalizePresentationSectionTitle,
+  readPresentationSections,
+  renamePresentationSection,
+} from './presentation-sections.internal.js';
 import type { Emu, SlideSize } from './units.js';
 
 const SLIDE_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slide+xml';
@@ -59,6 +72,21 @@ const SLIDE_LAYOUT_RELATIONSHIP = 'http://schemas.openxmlformats.org/officeDocum
 const PRESENTATION_NAMESPACE = 'http://schemas.openxmlformats.org/presentationml/2006/main';
 const MIN_SLIDE_SIZE = 914_400;
 const MAX_SLIDE_SIZE = 51_206_400;
+
+export interface PresentationSection {
+  readonly id: string;
+  readonly title: string;
+  readonly slideIds: readonly number[];
+}
+
+export interface AddSectionOptions {
+  readonly title: string;
+  readonly order?: number;
+}
+
+export interface AddSlideOptions {
+  readonly sectionTitle?: string;
+}
 
 export class PresentationModel {
   readonly presentationPartUri: string;
@@ -100,6 +128,11 @@ export class PresentationModel {
       }
     }
     return slides;
+  }
+
+  get sections(): readonly PresentationSection[] | undefined {
+    const { xml } = this.parsePresentation();
+    return readPresentationSections(xml, new Set(this.slides.map(({ slideId }) => slideId)));
   }
 
   get slideSize(): SlideSize {
@@ -234,6 +267,73 @@ export class PresentationModel {
         );
       }
       this.setXmlPart(this.presentationPartUri, xml.serialize());
+    });
+  }
+
+  addSection(options: AddSectionOptions): PresentationSection {
+    const normalized = normalizeAddPresentationSectionOptions(options);
+    return this.opcPackage.transaction(() => {
+      const { xml } = this.parsePresentation();
+      const slideIds = new Set(this.slides.map(({ slideId }) => slideId));
+      const sections = readPresentationSections(xml, slideIds);
+      if (!sections) throw new ModelParseError('Presentation sections are not safely editable', this.presentationPartUri);
+      const section = insertPresentationSection(
+        xml,
+        slideIds,
+        normalized.title,
+        normalized.order ?? sections.length,
+        createPresentationSectionId(),
+      );
+      if (xml.changed) this.setXmlPart(this.presentationPartUri, xml.serialize());
+      return { ...section, slideIds: [...section.slideIds] };
+    });
+  }
+
+  renameSection(sectionId: string, title: string): void {
+    const normalizedId = normalizePresentationSectionId(sectionId);
+    const normalizedTitle = normalizePresentationSectionTitle(title);
+    this.opcPackage.transaction(() => {
+      const { xml } = this.parsePresentation();
+      const slideIds = new Set(this.slides.map(({ slideId }) => slideId));
+      if (renamePresentationSection(xml, slideIds, normalizedId, normalizedTitle)) {
+        this.setXmlPart(this.presentationPartUri, xml.serialize());
+      }
+    });
+  }
+
+  moveSection(sectionId: string, toIndex: number): void {
+    const normalizedId = normalizePresentationSectionId(sectionId);
+    this.opcPackage.transaction(() => {
+      const { xml } = this.parsePresentation();
+      const slideIds = new Set(this.slides.map(({ slideId }) => slideId));
+      if (movePresentationSection(xml, slideIds, normalizedId, toIndex)) {
+        this.setXmlPart(this.presentationPartUri, xml.serialize());
+      }
+    });
+  }
+
+  deleteSection(sectionId: string): void {
+    const normalizedId = normalizePresentationSectionId(sectionId);
+    this.opcPackage.transaction(() => {
+      const { xml } = this.parsePresentation();
+      const slideIds = new Set(this.slides.map(({ slideId }) => slideId));
+      if (deletePresentationSection(xml, slideIds, normalizedId)) {
+        this.setXmlPart(this.presentationPartUri, xml.serialize());
+      }
+    });
+  }
+
+  assignSlideToSection(slideIndex: number, sectionId: string | undefined): void {
+    const normalizedId = sectionId === undefined
+      ? undefined
+      : normalizePresentationSectionId(sectionId);
+    this.opcPackage.transaction(() => {
+      const slide = this.requireSlide(slideIndex);
+      const { xml } = this.parsePresentation();
+      const slideIds = new Set(this.slides.map(({ slideId }) => slideId));
+      if (assignPresentationSlideToSection(xml, slideIds, slide.slideId, normalizedId)) {
+        this.setXmlPart(this.presentationPartUri, xml.serialize());
+      }
     });
   }
 
