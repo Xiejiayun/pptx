@@ -94,6 +94,18 @@ document.moveSlide(1, 0);
 document.deleteSlide(2);
 ```
 
+Plain speaker notes can be created and edited through the live slide model:
+
+```ts
+const slide = document.addSlide();
+slide.addNotes('Opening context\nKey talking point');
+slide.notes = 'Revised talking point';
+slide.notes = '';
+slide.notes = undefined;
+```
+
+`SlideModel.notes` returns `string | undefined`: absence is lazy `undefined`, an explicit empty body is `''`, and `undefined` assignment clears only the selected slide's notes relationship and owned notes part. Both the property setter and chainable `addNotes(string)` accept only XML-safe strings, normalize CRLF/CR to LF, and preserve leading/trailing whitespace. Reads follow the unique internal slide→notesSlide relationship, validate its slide backlink and shared notes-master chain, and flatten the unique direct body placeholder to plain text without mutating the package. Same-value assignment and clearing an absent value are exact byte/journal no-ops. Creation repairs a safely missing body placeholder and can create one canonical notes master only from fully absent, unambiguous topology using the presentation theme or first ordered slide-master theme; partial or ambiguous ownership is rejected before mutation. Duplication clones and retargets the per-slide notes part while retaining the shared master, deletion garbage-collects only unreferenced per-slide notes, and move/sections/hidden state remain independent. PptxGenJS 4.0.1 public output eagerly materializes empty notes for an omitted call; native creation intentionally distinguishes that from lazy `undefined`. This API is plain-text only and does not edit rich notes, notes-page layout, comments, header/footer/date fields, or slide numbers.
+
 Shape kinds include `text`, `shape`, `image`, `table`, `chart`, `graphic-frame`, and `group`. Images expose embedded part URIs and replacement; tables support basic native creation plus rows/cells, cell text, borders, fill, margins, horizontal/vertical alignment, text-direction, and text-fit editing; charts expose cached series and lossless chart XML editing.
 
 ```ts
