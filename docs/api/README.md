@@ -11,6 +11,7 @@ const created = PptxDocument.create({
   createdAt: '2024-02-29T12:34:56.123+05:30',
   format: 'pptx',
   lastModifiedBy: 'Presentation Team',
+  modifiedAt: '2024-03-01T01:02:03.456+08:00',
   revision: '7',
   rtlMode: true,
   slideSize: '16:9',
@@ -29,6 +30,8 @@ created.createdAt = undefined;
 created.lastModifiedBy = 'Updated Editor';
 created.lastModifiedBy = '';
 created.lastModifiedBy = undefined;
+created.modifiedAt = '2026-07-30T01:02:03Z';
+created.modifiedAt = undefined;
 created.subject = 'Updated Subject';
 created.subject = '';
 created.subject = undefined;
@@ -66,6 +69,8 @@ await document.writeFile('output.pptx', {
 `CreatePresentationOptions.lastModifiedBy` and `document.lastModifiedBy` own only direct core-properties `cp:lastModifiedBy`. Native omitted and runtime-`undefined` creation preserve the canonical `@jiayunxie/pptx`; `''` writes an explicit empty property, while assigning `undefined` removes only lastModifiedBy. Values are strict XML-safe strings with no trimming, coercion, user lookup, save-time refresh, revision increment, or timestamp update. Reads use the package-root core-properties relationship and namespace URI, accept alternate legal part URIs and prefixes, never fall back to creator, and never mutate. Missing metadata can be created with one canonical `cp` namespace binding; same-value and absent-clear operations are exact bytes/journal no-ops, while creator, title, subject, revision, timestamps, unknown children, relationships, and unrelated parts remain unchanged. Malformed or ambiguous ownership is rejected before mutation. PptxGenJS 4.0.1 has no independent public lastModifiedBy field: its public `author` writes creator and lastModifiedBy as a mirrored pair, while native keeps both properties independently editable.
 
 `CreatePresentationOptions.createdAt` and `document.createdAt` own only the unique direct Dublin Core Terms `created` element with an XSI type QName resolving to `{http://purl.org/dc/terms/}W3CDTF`. Values are `string | undefined` and must match `YYYY-MM-DDTHH:mm:ss[.fraction](Z|±HH:mm)` exactly, use a valid Gregorian date in years 0001–9999, and use an offset no greater than ±14:00; empty, whitespace-padded, timezone-less, coercible, or calendar-invalid values are rejected before mutation. Omitted and runtime-`undefined` creation preserve canonical bytes and return `undefined`; assigning `undefined` removes only created. Reads follow the package-root core-properties relationship and resolve element, XSI attribute, and QName namespaces rather than assuming a part URI or lexical prefix. Missing metadata is created minimally, valid replacement repairs simple invalid text or missing/wrong unique type state, and identical valid assignment or absent clear is an exact bytes/journal no-op. Modified time, creator, lastModifiedBy, revision, other properties, unknown content, relationships, and unrelated parts remain unchanged. Native `write()` never reads the clock or refreshes timestamps; PptxGenJS 4.0.1 has no public created setter and emits a UTC seconds value during each public `write()`, whose final OOXML state imports through this same property.
+
+`CreatePresentationOptions.modifiedAt` and `document.modifiedAt` own only the unique direct Dublin Core Terms `modified` element with the same expanded-name-correct `W3CDTF` type and strict lexical/calendar/timezone contract as created-at. Omitted and runtime-`undefined` creation preserve canonical bytes and return `undefined`; assigning `undefined` removes only modified. Reads, minimal missing-part creation, type repair, exact same-value/absent-clear no-ops, unsafe ownership rejection, and alternate URI/prefix support use the same relationship- and QName-aware rules. Modified-at edits preserve created, creator, lastModifiedBy, revision, other properties, unknown content, relationships, and unrelated parts. Native `write()` is deterministic and never refreshes modified-at or derives it from another field. PptxGenJS 4.0.1 has no public modified setter and emits a UTC seconds value during each public `write()`; adapter imports that final typed state without reproducing the hidden clock side effect.
 
 `CreatePresentationOptions.subject` and `document.subject` own only direct Dublin Core `dc:subject`. Native omitted and runtime-`undefined` creation preserve the canonical core-properties bytes and return `undefined`; `''` writes an explicit empty subject, while assigning `undefined` removes only that direct field. Values use the same strict XML-safe string validation, relationship-based part discovery, alternate URI/prefix support, missing-part creation, same-value/absent-clear exact no-ops, and malformed/ambiguous rejection as title and author. Subject edits preserve title, creator, lastModifiedBy, revision, timestamps, unknown children, relationships, and unrelated parts. PptxGenJS 4.0.1 defaults subject to `PptxGenJS Presentation`; its custom and empty outputs import exactly, while native intentionally does not inject that brand default.
 
