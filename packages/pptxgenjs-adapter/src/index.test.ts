@@ -12,6 +12,7 @@ interface BorderProps {
 }
 
 interface PptxGenJSSlide {
+  hidden: unknown;
   addText(
     text: string | readonly { readonly text: string; readonly options?: Record<string, unknown> }[],
     options: Record<string, unknown>,
@@ -3891,6 +3892,69 @@ describe('importPptxGenJS', () => {
         expect(reopened.rtlMode).toBe(true);
       }
     }
+  }, 20_000);
+
+  it('imports and matches public PptxGenJS hidden slide output', async () => {
+    const cases: readonly (readonly [string, boolean, unknown, boolean])[] = [
+      ['omitted', false, undefined, false],
+      ['false', true, false, false],
+      ['true', true, true, true],
+      ['truthy invalid', true, 'yes', true],
+    ];
+    const generated = cases.map(([, assign, value]) => {
+      const presentation = new PptxGenJS();
+      const slide = presentation.addSlide();
+      if (assign) slide.hidden = value;
+      return presentation;
+    });
+    expect(generated.map(({ version }) => version)).toEqual(Array(4).fill('4.0.1'));
+
+    const imported = await Promise.all(
+      generated.map((presentation) => importPptxGenJS(presentation)),
+    );
+    expect(imported.map(({ slides }) => slides[0]?.hidden)).toEqual(
+      cases.map(([, , , expected]) => expected),
+    );
+    for (const [index, document] of imported.entries()) {
+      const [name, , , expected] = cases[index]!;
+      const journal = [...document.opcPackage.mutations];
+      const slide = document.slides[0]!;
+      const slideXml = new TextDecoder().decode(
+        document.opcPackage.requirePart(slide.partUri).bytes,
+      );
+      expect(document.slides[0]?.hidden, name).toBe(expected);
+      expect(document.opcPackage.mutations, name).toEqual(journal);
+      if (expected) {
+        expect(slideXml, name).toMatch(/<p:sld\b[^>]*\sshow="0"/);
+      } else {
+        expect(slideXml, name).not.toMatch(/<p:sld\b[^>]*\sshow=/);
+      }
+      const reopened = await PptxDocument.open(await document.write());
+      expect(reopened.slides[0]?.hidden, name).toBe(expected);
+    }
+
+    const native = PptxDocument.create();
+    const nativeVisible = native.addSlide();
+    const nativeHidden = native.addSlide();
+    nativeHidden.hidden = true;
+    expect([nativeVisible.hidden, nativeHidden.hidden]).toEqual([
+      imported[1]!.slides[0]!.hidden,
+      imported[2]!.slides[0]!.hidden,
+    ]);
+    const nativeXml = native.slides.map(({ partUri }) =>
+      new TextDecoder().decode(native.opcPackage.requirePart(partUri).bytes));
+    expect(nativeXml[0]).not.toMatch(/<p:sld\b[^>]*\sshow=/);
+    expect(nativeXml[1]).toMatch(/<p:sld\b[^>]*\sshow="0"/);
+    const reopenedNative = await PptxDocument.open(await native.write());
+    expect(reopenedNative.slides.map(({ hidden }) => hidden)).toEqual([false, true]);
+
+    const beforeInvalid = native.opcPackage.requirePart(nativeVisible.partUri).bytes.slice();
+    const invalidJournal = [...native.opcPackage.mutations];
+    expect(() => {
+      (nativeVisible as unknown as { hidden: unknown }).hidden = 'yes';
+    }).toThrow(TypeError);
+    expect(native.opcPackage.requirePart(nativeVisible.partUri).bytes).toEqual(beforeInvalid);
+    expect(native.opcPackage.mutations).toEqual(invalidJournal);
   }, 20_000);
 
   it('imports and matches public PptxGenJS presentation sections', async () => {
