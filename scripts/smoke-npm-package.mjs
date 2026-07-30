@@ -508,6 +508,14 @@ organization.company = '';
 const emptyPresentationCompany = organization.company;
 organization.company = undefined;
 const clearedPresentationCompany = organization.company;
+const themed = PptxDocument.create({
+  theme: { headFontFace: 'Aptos Display', bodyFontFace: 'Aptos' },
+});
+const createdTheme = themed.theme;
+themed.theme = { headFontFace: 'Noto Sans Display' };
+const replacedTheme = themed.theme;
+themed.masterLayoutTheme.presentationTheme.setFonts({ minorLatin: 'Noto Sans' });
+const reopenedTheme = (await PptxDocument.open(await themed.write())).theme;
 richText.richText = [{ align: 'justify', bullet: { kind: 'number', style: 'romanUcPeriod', startAt: 3, indent: 22 }, level: 3, spacing: { before: 5, after: 7, line: { kind: 'exact', points: 22 } }, tabStops: [{ position: 2.75, alignment: 'decimal' }], runs: [{ text: 'Updated rich', style: { lang: 'ja-JP', baseline: 'superscript', characterSpacing: 2.5, italic: true, glow: { color: { kind: 'scheme', value: 'accent3' }, opacity: 0.25, size: 6 }, highlight: { kind: 'srgb', value: '00ff00' }, outline: { color: { kind: 'scheme', value: 'accent1' }, size: 0.75 }, underline: { style: 'wavyHeavy', color: { kind: 'scheme', value: 'accent2' } }, strike: false } }] }];
 const custom = PptxDocument.create({ slideSize: { width: inches(11.7), height: inches(8.3) } });
 custom.slideSize = { width: inches(10), height: inches(7.5) };
@@ -523,6 +531,7 @@ const checks = {
   presentationSubject: createdPresentationSubject === 'Packed & <Subject>' && editedPresentationSubject === 'Edited subject' && reopenedPresentationSubject === 'Edited subject' && emptyPresentationSubject === '' && clearedPresentationSubject === undefined,
   presentationRevision: createdPresentationRevision === '007' && editedPresentationRevision === '42' && reopenedPresentationRevision === '42' && clearedPresentationRevision === undefined,
   presentationCompany: createdPresentationCompany === 'Packed & <Company>' && editedPresentationCompany === 'Edited company' && reopenedPresentationCompany === 'Edited company' && emptyPresentationCompany === '' && clearedPresentationCompany === undefined,
+  presentationThemeFonts: createdTheme?.headFontFace === 'Aptos Display' && createdTheme.bodyFontFace === 'Aptos' && replacedTheme?.headFontFace === 'Noto Sans Display' && replacedTheme.bodyFontFace === 'Calibri' && reopenedTheme?.headFontFace === 'Noto Sans Display' && reopenedTheme.bodyFontFace === 'Noto Sans',
   paragraphMarginLeft: initialParagraphMargins[0] === 12 && initialParagraphMargins[1] === undefined && initialParagraphMargins[2] === undefined && bulletMarginIsolation && updatedParagraphMargins[0] === 6 && updatedParagraphMargins[1] === 0 && updatedParagraphMargins[2] === undefined && updatedParagraphMargins[3] === undefined,
   paragraphMarginRight: initialParagraphRightMargins[0] === 12 && initialParagraphRightMargins[1] === 24 && initialParagraphRightMargins[2] === undefined && bulletRightMarginCoexistence && updatedParagraphRightMargins[0] === 6 && updatedParagraphRightMargins[1] === 0 && updatedParagraphRightMargins[2] === undefined && updatedParagraphRightMargins[3] === undefined && updatedParagraphRightMargins[4] === 9,
   paragraphIndent: initialParagraphIndents[0] === 24 && initialParagraphIndents[1] === -18 && initialParagraphIndents[2] === undefined && initialParagraphIndents[3] === undefined && bulletIndentIsolation && updatedParagraphIndents[0] === 6 && updatedParagraphIndents[1] === -6 && updatedParagraphIndents[2] === 0 && updatedParagraphIndents[3] === undefined && updatedParagraphIndents[4] === undefined,
@@ -908,6 +917,18 @@ browserOrganization.company = '';
 if (browserOrganization.company !== '') throw new Error('Browser presentation company empty failed');
 browserOrganization.company = undefined;
 if (browserOrganization.company !== undefined) throw new Error('Browser presentation company clear failed');
+const browserThemed = PptxDocument.create({
+  theme: { headFontFace: 'Aptos Display', bodyFontFace: 'Aptos' },
+});
+const browserCreatedTheme = browserThemed.theme;
+if (browserCreatedTheme?.headFontFace !== 'Aptos Display' || browserCreatedTheme.bodyFontFace !== 'Aptos') throw new Error('Browser presentation theme create failed');
+browserCreatedTheme.headFontFace = 'Detached caller value';
+if (browserThemed.theme?.headFontFace !== 'Aptos Display') throw new Error('Browser presentation theme snapshot was not detached');
+browserThemed.theme = { headFontFace: 'Noto Sans Display' };
+if (browserThemed.theme?.headFontFace !== 'Noto Sans Display' || browserThemed.theme.bodyFontFace !== 'Calibri') throw new Error('Browser presentation theme replacement failed');
+browserThemed.masterLayoutTheme.presentationTheme.setFonts({ minorLatin: 'Noto Sans' });
+const reopenedBrowserThemed = await PptxDocument.open(await browserThemed.writeBlob());
+if (reopenedBrowserThemed.theme?.headFontFace !== 'Noto Sans Display' || reopenedBrowserThemed.theme.bodyFontFace !== 'Noto Sans') throw new Error('Browser presentation theme reopen failed');
 PptxDocument.create({ slideSize: { width: inches(11.7), height: inches(8.3) } });
 created.slideSize = { width: inches(10), height: inches(7.5) };
 process.stdout.write(resolved);
@@ -922,6 +943,10 @@ process.stdout.write(resolved);
   TableModel,
   inches,
   type CustomSlideSize,
+  type PresentationTheme,
+  type PresentationThemeOptions,
+  type ThemeFontSnapshot,
+  type ThemeFontUpdate,
   type RichTextParagraph,
   type TextAlignment,
   type NumberingStyle,
@@ -1009,6 +1034,15 @@ const companySnapshot: string | undefined = companyDocument.company;
 companyDocument.company = 'Edited typed company';
 companyDocument.company = '';
 companyDocument.company = undefined;
+const themeOptions: PresentationThemeOptions = {
+  headFontFace: 'Aptos Display',
+};
+const themedDocument = PptxDocument.create({ theme: themeOptions });
+const themeSnapshot: PresentationTheme | undefined = themedDocument.theme;
+const fontSnapshot: ThemeFontSnapshot | undefined =
+  themedDocument.masterLayoutTheme.presentationTheme?.fonts;
+const fontUpdate: ThemeFontUpdate = { minorLatin: 'Aptos' };
+themedDocument.masterLayoutTheme.presentationTheme?.setFonts(fontUpdate);
 const customSlideSize: CustomSlideSize = { width: inches(11.7), height: inches(8.3) };
 const customDocument: PptxDocument = PptxDocument.create({ slideSize: customSlideSize });
 customDocument.slideSize = { width: inches(10), height: inches(7.5) };
@@ -1163,7 +1197,7 @@ documentPromise.then((document) => {
   advancedCharts.installAdvancedChartPlugin(document);
   smartArt.installSmartArtPlugin(document);
 });
-void [documentPromise, createdDocument, globalRtl, globalRtlSnapshot, titledDocument, titleSnapshot, authoredDocument, authorSnapshot, lastModifiedDocument, lastModifiedSnapshot, createdAtDocument, createdAtSnapshot, modifiedAtDocument, modifiedAtSnapshot, subjectDocument, subjectSnapshot, revisionDocument, revisionSnapshot, companyDocument, companySnapshot, customDocument, createdText, creationBorder, creationMargin, creationOptions, objectCell, tableRows, tableOptions, typedTable, widthSnapshot, heightSnapshot, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotHorizontalAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellHorizontalAlignment, tableHorizontalAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
+void [documentPromise, createdDocument, globalRtl, globalRtlSnapshot, titledDocument, titleSnapshot, authoredDocument, authorSnapshot, lastModifiedDocument, lastModifiedSnapshot, createdAtDocument, createdAtSnapshot, modifiedAtDocument, modifiedAtSnapshot, subjectDocument, subjectSnapshot, revisionDocument, revisionSnapshot, companyDocument, companySnapshot, themedDocument, themeSnapshot, fontSnapshot, fontUpdate, customDocument, createdText, creationBorder, creationMargin, creationOptions, objectCell, tableRows, tableOptions, typedTable, widthSnapshot, heightSnapshot, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotHorizontalAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellHorizontalAlignment, tableHorizontalAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
 `,
   );
   run(

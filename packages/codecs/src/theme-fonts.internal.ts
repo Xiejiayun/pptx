@@ -4,20 +4,13 @@ import {
   type XmlAttribute,
   type XmlElement,
 } from '@pptx/lossless-xml';
+import type { ThemeFontSnapshot, ThemeFontUpdate } from './theme-fonts.js';
+
+export type { ThemeFontSnapshot, ThemeFontUpdate } from './theme-fonts.js';
 
 const DRAWINGML_NAMESPACE = 'http://schemas.openxmlformats.org/drawingml/2006/main';
 const INVALID_XML_CHARACTERS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F]/;
 const UPDATE_KEYS = new Set(['majorLatin', 'minorLatin']);
-
-export interface ThemeFontSnapshot {
-  readonly majorLatin: string;
-  readonly minorLatin: string;
-}
-
-export interface ThemeFontUpdate {
-  readonly majorLatin?: string;
-  readonly minorLatin?: string;
-}
 
 interface ThemeFontTarget {
   readonly element: XmlElement;

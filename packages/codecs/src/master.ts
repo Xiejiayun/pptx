@@ -11,11 +11,10 @@ import {
 import {
   readThemeFonts,
   replaceThemeFonts,
-  type ThemeFontSnapshot,
-  type ThemeFontUpdate,
 } from './theme-fonts.internal.js';
+import type { ThemeFontSnapshot, ThemeFontUpdate } from './theme-fonts.js';
 
-export type { ThemeFontSnapshot, ThemeFontUpdate } from './theme-fonts.internal.js';
+export type { ThemeFontSnapshot, ThemeFontUpdate } from './theme-fonts.js';
 
 const REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/';
 const CONTENT = 'application/vnd.openxmlformats-officedocument.presentationml.';
