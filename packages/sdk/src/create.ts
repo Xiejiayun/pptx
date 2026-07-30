@@ -4,6 +4,7 @@ import {
   type SlideSize,
 } from '@pptx/model';
 import { OpcPackage } from '@pptx/opc';
+import type { PresentationThemeOptions } from './presentation-theme.js';
 
 export type BuiltInSlideSize = '4:3' | '16:9' | '16:10' | 'wide';
 
@@ -20,6 +21,7 @@ export interface CreatePresentationOptions {
   readonly rtlMode?: boolean;
   readonly slideSize?: BuiltInSlideSize | CustomSlideSize;
   readonly subject?: string;
+  readonly theme?: PresentationThemeOptions;
   readonly title?: string;
 }
 

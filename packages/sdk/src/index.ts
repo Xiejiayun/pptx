@@ -68,7 +68,12 @@ export class PptxDocument extends PresentationModel {
   }
 
   static create(options: CreatePresentationOptions = {}): PptxDocument {
+    const themeInput = options.theme;
+    const theme = themeInput === undefined
+      ? undefined
+      : normalizePresentationTheme(themeInput);
     const document = new PptxDocument(createPresentationPackage(options));
+    if (theme !== undefined) document.theme = theme;
     if (options.author !== undefined) document.author = options.author;
     if (options.company !== undefined) document.company = options.company;
     if (options.createdAt !== undefined) document.createdAt = options.createdAt;

@@ -407,6 +407,116 @@ describe('PptxDocument vertical slice', () => {
     expect(wrongType.opcPackage.mutations).toEqual(wrongTypeJournal);
   });
 
+  it('creates presentation theme fonts with explicit PptxGenJS partial fallbacks', async () => {
+    const omitted = PptxDocument.create();
+    const explicitUndefined = PptxDocument.create({ theme: undefined } as never);
+    const empty = PptxDocument.create({ theme: {} });
+    const headOnly = PptxDocument.create({
+      theme: { headFontFace: 'Noto Sans Display' },
+    });
+    const bodyOnly = PptxDocument.create({
+      theme: { bodyFontFace: 'Noto Sans' },
+    });
+    const both = PptxDocument.create({
+      theme: {
+        headFontFace: 'Aptos Display',
+        bodyFontFace: 'Aptos',
+      },
+    });
+
+    expect(omitted.theme).toEqual({ headFontFace: 'Aptos Display', bodyFontFace: 'Aptos' });
+    expect(explicitUndefined.theme).toEqual(omitted.theme);
+    expect(await explicitUndefined.write()).toEqual(await omitted.write());
+    expect(empty.theme).toEqual({ headFontFace: 'Calibri Light', bodyFontFace: 'Calibri' });
+    expect(headOnly.theme).toEqual({
+      headFontFace: 'Noto Sans Display',
+      bodyFontFace: 'Calibri',
+    });
+    expect(bodyOnly.theme).toEqual({
+      headFontFace: 'Calibri Light',
+      bodyFontFace: 'Noto Sans',
+    });
+    expect(both.theme).toEqual({ headFontFace: 'Aptos Display', bodyFontFace: 'Aptos' });
+
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const created = PptxDocument.create({
+        format,
+        theme: { headFontFace: `Display ${format}`, bodyFontFace: `Body ${format}` },
+      });
+      expect(created.theme).toEqual({
+        headFontFace: `Display ${format}`,
+        bodyFontFace: `Body ${format}`,
+      });
+      expect((await PptxDocument.open(await created.write())).theme).toEqual(created.theme);
+    }
+
+    const input = {
+      headFontFace: 'Detached Display',
+      bodyFontFace: 'Detached Body',
+    };
+    const detached = PptxDocument.create({ theme: input });
+    input.headFontFace = 'Changed Display';
+    input.bodyFontFace = 'Changed Body';
+    expect(detached.theme).toEqual({
+      headFontFace: 'Detached Display',
+      bodyFontFace: 'Detached Body',
+    });
+    expect(PptxDocument.create({
+      theme: Object.freeze({ headFontFace: 'Frozen Display' }),
+    }).theme).toEqual({ headFontFace: 'Frozen Display', bodyFontFace: 'Calibri' });
+    const nullPrototype = Object.assign(Object.create(null), {
+      bodyFontFace: 'Null Prototype Body',
+    });
+    expect(PptxDocument.create({ theme: nullPrototype }).theme).toEqual({
+      headFontFace: 'Calibri Light',
+      bodyFontFace: 'Null Prototype Body',
+    });
+    const escaped = PptxDocument.create({
+      theme: {
+        headFontFace: 'A&B <Display> "One"',
+        bodyFontFace: 'A&B <Body> "Two"',
+      },
+    });
+    expect(escaped.theme).toEqual({
+      headFontFace: 'A&B <Display> "One"',
+      bodyFontFace: 'A&B <Body> "Two"',
+    });
+    expect(new TextDecoder().decode(
+      escaped.opcPackage.requirePart('/ppt/theme/theme1.xml').bytes,
+    )).toContain('typeface="A&amp;B &lt;Display&gt; &quot;One&quot;"');
+  });
+
+  it('rejects malformed presentation theme creation input before returning a document', () => {
+    const accessor = Object.create(null) as Record<string, unknown>;
+    let getterCalls = 0;
+    Object.defineProperty(accessor, 'headFontFace', {
+      enumerable: true,
+      get() {
+        getterCalls += 1;
+        return 'Never';
+      },
+    });
+    const symbol = { headFontFace: 'Aptos Display', [Symbol('extra')]: true };
+    const customPrototype = Object.create({ inherited: true }) as { headFontFace?: string };
+    customPrototype.headFontFace = 'Aptos Display';
+    for (const theme of [
+      null,
+      [],
+      'Aptos',
+      { unknown: 'Aptos' },
+      { headFontFace: '' },
+      { headFontFace: '   ' },
+      { bodyFontFace: 1 },
+      { bodyFontFace: 'bad\u0000font' },
+      accessor,
+      symbol,
+      customPrototype,
+    ]) {
+      expect(() => PptxDocument.create({ theme: theme as never })).toThrow(TypeError);
+    }
+    expect(getterCalls).toBe(0);
+  });
+
   it('creates, edits, clears, rolls back, and reopens presentation title metadata', async () => {
     const readCoreXml = (document: PptxDocument): string => new TextDecoder().decode(
       document.opcPackage.requirePart('/docProps/core.xml').bytes,
