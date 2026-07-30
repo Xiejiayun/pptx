@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { inches, PptxDocument, ShapeModel, TableModel } from '@pptx/sdk';
 import { importPptxGenJS } from './index.js';
 
@@ -9,6 +9,20 @@ interface BorderProps {
   readonly type?: 'none' | 'dash' | 'solid';
   readonly color?: string;
   readonly pt?: number;
+}
+
+interface PptxGenJSSlide {
+  addText(
+    text: string | readonly { readonly text: string; readonly options?: Record<string, unknown> }[],
+    options: Record<string, unknown>,
+  ): void;
+  addTable(
+    rows: readonly (readonly {
+      readonly text?: string;
+      readonly options?: Record<string, unknown>;
+    }[])[],
+    options: Record<string, unknown>,
+  ): void;
 }
 
 interface PptxGenJSInstance {
@@ -28,24 +42,15 @@ interface PptxGenJSInstance {
     readonly bodyFontFace?: string;
   } | undefined;
   title: string;
-  addSlide(): {
-    addText(
-      text: string | readonly { readonly text: string; readonly options?: Record<string, unknown> }[],
-      options: Record<string, unknown>,
-    ): void;
-    addTable(
-      rows: readonly (readonly {
-        readonly text?: string;
-        readonly options?: Record<string, unknown>;
-      }[])[],
-      options: Record<string, unknown>,
-    ): void;
-  };
+  addSection(options: { readonly title: string; readonly order?: number }): void;
+  addSlide(options?: { readonly sectionTitle?: string }): PptxGenJSSlide;
   write(options: { outputType: 'uint8array'; compression: boolean }): Promise<Uint8Array>;
 }
 
 const require = createRequire(import.meta.url);
 const PptxGenJS = require('pptxgenjs') as new () => PptxGenJSInstance;
+const sectionState = (document: PptxDocument) =>
+  document.sections?.map(({ title, slideIds }) => ({ title, slideIds }));
 
 describe('importPptxGenJS', () => {
   it('matches native basic table creation to public PptxGenJS plain-table output', async () => {
@@ -3887,6 +3892,129 @@ describe('importPptxGenJS', () => {
       }
     }
   }, 20_000);
+
+  it('imports and matches public PptxGenJS presentation sections', async () => {
+    const none = new PptxGenJS();
+    none.addSlide();
+    none.addSlide();
+
+    const explicit = new PptxGenJS();
+    explicit.addSection({ title: 'Data & <One>' });
+    explicit.addSlide({ sectionTitle: 'Data & <One>' });
+    explicit.addSlide({ sectionTitle: 'Data & <One>' });
+
+    const empty = new PptxGenJS();
+    empty.addSlide();
+    empty.addSection({ title: 'Empty' });
+
+    const ordered = new PptxGenJS();
+    ordered.addSection({ title: 'A' });
+    ordered.addSection({ title: 'C' });
+    ordered.addSection({ title: 'B', order: 1 });
+
+    const defaults = new PptxGenJS();
+    defaults.addSection({ title: 'Intro' });
+    defaults.addSlide();
+    defaults.addSlide();
+
+    const looseBefore = new PptxGenJS();
+    looseBefore.addSlide();
+    looseBefore.addSection({ title: 'Later' });
+    looseBefore.addSlide({ sectionTitle: 'Later' });
+
+    const unknown = new PptxGenJS();
+    unknown.addSection({ title: 'Known' });
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      unknown.addSlide({ sectionTitle: 'Missing' });
+      expect(warning).toHaveBeenCalledTimes(1);
+    } finally {
+      warning.mockRestore();
+    }
+
+    const orderZero = new PptxGenJS();
+    orderZero.addSection({ title: 'A' });
+    orderZero.addSection({ title: 'Zero', order: 0 });
+
+    const generated = [
+      none,
+      explicit,
+      empty,
+      ordered,
+      defaults,
+      looseBefore,
+      unknown,
+      orderZero,
+    ];
+    expect(generated.map(({ version }) => version)).toEqual(Array(8).fill('4.0.1'));
+    const imported: PptxDocument[] = [];
+    for (const presentation of generated) imported.push(await importPptxGenJS(presentation));
+
+    expect(imported.map(sectionState)).toEqual([
+      [],
+      [{ title: 'Data & <One>', slideIds: [256, 257] }],
+      [{ title: 'Empty', slideIds: [] }],
+      [
+        { title: 'A', slideIds: [] },
+        { title: 'B', slideIds: [] },
+        { title: 'C', slideIds: [] },
+      ],
+      [
+        { title: 'Intro', slideIds: [] },
+        { title: 'Default-1', slideIds: [256, 257] },
+      ],
+      [{ title: 'Later', slideIds: [257] }],
+      [{ title: 'Known', slideIds: [] }],
+      [
+        { title: 'A', slideIds: [] },
+        { title: 'Zero', slideIds: [] },
+      ],
+    ]);
+    expect(imported.map(({ slides }) => slides.length)).toEqual([2, 2, 1, 0, 2, 2, 1, 0]);
+    for (const document of imported) {
+      for (const { id } of document.sections ?? []) {
+        expect(id).toMatch(/^\{[0-9A-F]{8}(?:-[0-9A-F]{4}){3}-[0-9A-F]{12}\}$/i);
+      }
+      const reopened = await PptxDocument.open(await document.write());
+      expect(sectionState(reopened)).toEqual(sectionState(document));
+    }
+
+    const nativeExplicit = PptxDocument.create();
+    nativeExplicit.addSection({ title: 'Data & <One>' });
+    nativeExplicit.addSlide({ sectionTitle: 'Data & <One>' });
+    nativeExplicit.addSlide({ sectionTitle: 'Data & <One>' });
+    expect(sectionState(nativeExplicit)).toEqual(sectionState(imported[1]!));
+
+    const nativeOrdered = PptxDocument.create();
+    nativeOrdered.addSection({ title: 'A' });
+    nativeOrdered.addSection({ title: 'C' });
+    nativeOrdered.addSection({ title: 'B', order: 1 });
+    expect(sectionState(nativeOrdered)).toEqual(sectionState(imported[3]!));
+
+    const nativeDefaults = PptxDocument.create();
+    nativeDefaults.addSection({ title: 'Intro' });
+    nativeDefaults.addSlide();
+    nativeDefaults.addSlide();
+    expect(sectionState(nativeDefaults)).toEqual(sectionState(imported[4]!));
+
+    const nativeLooseBefore = PptxDocument.create();
+    nativeLooseBefore.addSlide();
+    nativeLooseBefore.addSection({ title: 'Later' });
+    nativeLooseBefore.addSlide({ sectionTitle: 'Later' });
+    expect(sectionState(nativeLooseBefore)).toEqual(sectionState(imported[5]!));
+
+    const nativeUnknown = PptxDocument.create();
+    nativeUnknown.addSection({ title: 'Known' });
+    expect(() => nativeUnknown.addSlide({ sectionTitle: 'Missing' })).toThrow(RangeError);
+    expect(nativeUnknown.slides).toHaveLength(0);
+    expect(imported[6]!.slides).toHaveLength(1);
+
+    const nativeOrderZero = PptxDocument.create();
+    nativeOrderZero.addSection({ title: 'A' });
+    nativeOrderZero.addSection({ title: 'Zero', order: 0 });
+    expect(sectionState(nativeOrderZero)?.map(({ title }) => title)).toEqual(['Zero', 'A']);
+    expect(sectionState(imported[7]!)?.map(({ title }) => title)).toEqual(['A', 'Zero']);
+  }, 30_000);
 
   it('matches public PptxGenJS presentation theme fonts and reopens a partial edit', async () => {
     const cases = [
