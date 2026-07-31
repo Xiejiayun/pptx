@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   CustomGeometryEvaluationError,
+  type CustomGeometry,
   type CustomGeometryEvaluationContext,
   type CustomGeometryFormula,
   type EvaluatedCustomGeometry,
@@ -17,6 +18,7 @@ import {
 import {
   evaluateBuiltInGuide,
   evaluateFormulaValue,
+  evaluateGuideEnvironment,
 } from './custom-geometry-evaluator.internal.js';
 
 const OOXML_DEGREE = 60_000;
@@ -213,16 +215,138 @@ describe('custom geometry scalar evaluation', () => {
   });
 });
 
+describe('custom geometry guide environment', () => {
+  it('evaluates adjustments before guides in source order', () => {
+    const geometry = geometryWithGuides(
+      [{ name: 'adj', formula: { operator: 'val', operands: [25_000] } }],
+      [
+        { name: 'x1', formula: { operator: '*/', operands: ['w', 'adj', 100_000] } },
+        { name: 'w', formula: { operator: 'val', operands: ['w'] } },
+        { name: 'x2', formula: { operator: '+-', operands: ['w', 'x1', 0] } },
+      ],
+    );
+
+    const environment = evaluateGuideEnvironment(
+      geometry,
+      { width: 200_000, height: 100_000 },
+    );
+
+    expect(environment.adjustments).toEqual([{ name: 'adj', value: 25_000 }]);
+    expect(environment.guides).toEqual([
+      { name: 'x1', value: 50_000 },
+      { name: 'w', value: 200_000 },
+      { name: 'x2', value: 250_000 },
+    ]);
+    expect(environment.resolve('x2', 'test value')).toBe(250_000);
+    expect(environment.resolve('h', 'test value')).toBe(100_000);
+    expect(environment.resolve(12.5, 'test value')).toBe(12.5);
+    expect(Object.isFrozen(environment)).toBe(true);
+    expect(Object.isFrozen(environment.adjustments)).toBe(true);
+    expect(Object.isFrozen(environment.adjustments?.[0])).toBe(true);
+    expect(Object.isFrozen(environment.guides)).toBe(true);
+    expect(Object.isFrozen(environment.guides?.[0])).toBe(true);
+  });
+
+  it('lets an evaluated custom guide shadow a built-in for later formulas', () => {
+    const environment = evaluateGuideEnvironment(
+      geometryWithGuides(undefined, [
+        { name: 'w', formula: { operator: 'val', operands: [123] } },
+        { name: 'after', formula: { operator: 'val', operands: ['w'] } },
+      ]),
+      { width: 200_000, height: 100_000 },
+    );
+
+    expect(environment.guides).toEqual([
+      { name: 'w', value: 123 },
+      { name: 'after', value: 123 },
+    ]);
+    expect(environment.resolve('w', 'test value')).toBe(123);
+  });
+
+  it('uses a same-name built-in while defining its custom shadow', () => {
+    const environment = evaluateGuideEnvironment(
+      geometryWithGuides(undefined, [
+        { name: 'w', formula: { operator: '+-', operands: ['w', 1, 0] } },
+        { name: 'after', formula: { operator: 'val', operands: ['w'] } },
+      ]),
+      { width: 200_000, height: 100_000 },
+    );
+
+    expect(environment.guides).toEqual([
+      { name: 'w', value: 200_001 },
+      { name: 'after', value: 200_001 },
+    ]);
+  });
+
+  it('distinguishes cycles, forward references, and unknown tokens', () => {
+    const context: CustomGeometryEvaluationContext = { width: 100, height: 100 };
+    const selfCycle = (): unknown => evaluateGuideEnvironment(
+      geometryWithGuides(undefined, [
+        { name: 'g1', formula: { operator: 'val', operands: ['g1'] } },
+      ]),
+      context,
+    );
+    const multiNodeCycle = (): unknown => evaluateGuideEnvironment(
+      geometryWithGuides(undefined, [
+        { name: 'g1', formula: { operator: 'val', operands: ['g2'] } },
+        { name: 'g2', formula: { operator: 'val', operands: ['g3'] } },
+        { name: 'g3', formula: { operator: 'val', operands: ['g1'] } },
+      ]),
+      context,
+    );
+    const forwardReference = (): unknown => evaluateGuideEnvironment(
+      geometryWithGuides(undefined, [
+        { name: 'g1', formula: { operator: 'val', operands: ['g2'] } },
+        { name: 'g2', formula: { operator: 'val', operands: [1] } },
+      ]),
+      context,
+    );
+    const unknownToken = (): unknown => evaluateGuideEnvironment(
+      geometryWithGuides(undefined, [
+        { name: 'g1', formula: { operator: 'val', operands: ['missingGuide'] } },
+      ]),
+      context,
+    );
+
+    expectEvaluationError(selfCycle, 'cyclic-reference', 'g1', 'g1');
+    expectEvaluationError(multiNodeCycle, 'cyclic-reference', 'g1', 'g2');
+    expectEvaluationError(forwardReference, 'forward-reference', 'g1', 'g2');
+    expectEvaluationError(unknownToken, 'unknown-token', 'g1', 'missingGuide');
+  });
+
+  it('rejects unknown tokens resolved outside guide formulas', () => {
+    const environment = evaluateGuideEnvironment(
+      geometryWithGuides(undefined, undefined),
+      { width: 100, height: 100 },
+    );
+    const operation = (): number => environment.resolve('missing', 'Path point x');
+
+    expectEvaluationError(operation, 'unknown-token', undefined, 'missing');
+  });
+});
+
 function expectEvaluationError(
   operation: () => unknown,
   code: CustomGeometryEvaluationError['code'],
-  guideName: string,
+  guideName?: string,
+  token?: string,
 ): void {
   try {
     operation();
     throw new Error('Expected custom geometry evaluation to fail');
   } catch (error) {
     expect(error).toBeInstanceOf(CustomGeometryEvaluationError);
-    expect(error).toMatchObject({ code, guideName });
+    expect(error).toMatchObject({ code, guideName, token });
   }
+}
+
+function geometryWithGuides(
+  adjustments: CustomGeometry['adjustments'],
+  guides: CustomGeometry['guides'],
+): CustomGeometry {
+  return {
+    ...(adjustments ? { adjustments } : {}),
+    ...(guides ? { guides } : {}),
+    paths: [],
+  };
 }

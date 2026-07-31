@@ -1,8 +1,11 @@
 import {
   CustomGeometryEvaluationError,
+  type CustomGeometry,
   type CustomGeometryEvaluationContext,
   type CustomGeometryFormula,
+  type CustomGeometryGuide,
   type CustomGeometryValue,
+  type EvaluatedCustomGeometryGuide,
 } from './custom-geometry.js';
 
 const OOXML_DEGREE = 60_000;
@@ -97,6 +100,149 @@ export function evaluateFormulaValue(
     case 'sat2': result = x * Math.sin(Math.atan2(z, y)); break;
   }
   return normalizeFormulaResult(result, guideName);
+}
+
+export interface EvaluatedGuideEnvironment {
+  readonly adjustments?: readonly EvaluatedCustomGeometryGuide[];
+  readonly guides?: readonly EvaluatedCustomGeometryGuide[];
+  resolve(value: CustomGeometryValue, location: string): number;
+}
+
+export function evaluateGuideEnvironment(
+  geometry: Readonly<CustomGeometry>,
+  context: Readonly<CustomGeometryEvaluationContext>,
+): EvaluatedGuideEnvironment {
+  const adjustmentGuides = geometry.adjustments ?? [];
+  const shapeGuides = geometry.guides ?? [];
+  const guides = [...adjustmentGuides, ...shapeGuides];
+  auditGuideDependencies(guides, context);
+
+  const values = new Map<string, number>();
+  const resolve = (value: CustomGeometryValue, location: string): number => {
+    if (typeof value === 'number') return Object.is(value, -0) ? 0 : value;
+    if (values.has(value)) return values.get(value)!;
+    const builtIn = evaluateBuiltInGuide(value, context);
+    if (builtIn !== undefined) return builtIn;
+    throw new CustomGeometryEvaluationError(
+      'unknown-token',
+      `${location} references unknown token ${value}`,
+      undefined,
+      value,
+    );
+  };
+  const evaluateGuides = (
+    source: readonly Readonly<CustomGeometryGuide>[],
+  ): readonly EvaluatedCustomGeometryGuide[] | undefined => {
+    if (source.length === 0) return undefined;
+    return Object.freeze(source.map((guide) => {
+      const value = evaluateFormulaValue(guide.formula, resolve, guide.name);
+      values.set(guide.name, value);
+      return Object.freeze({ name: guide.name, value });
+    }));
+  };
+  const adjustments = evaluateGuides(adjustmentGuides);
+  const evaluatedGuides = evaluateGuides(shapeGuides);
+  return Object.freeze({
+    ...(adjustments ? { adjustments } : {}),
+    ...(evaluatedGuides ? { guides: evaluatedGuides } : {}),
+    resolve,
+  });
+}
+
+interface GuideDependency {
+  readonly target: number;
+  readonly token: string;
+}
+
+interface InvalidGuideReference {
+  readonly source: number;
+  readonly token: string;
+}
+
+function auditGuideDependencies(
+  guides: readonly Readonly<CustomGeometryGuide>[],
+  context: Readonly<CustomGeometryEvaluationContext>,
+): void {
+  const indexes = new Map(guides.map(({ name }, index) => [name, index]));
+  const edges: GuideDependency[][] = guides.map(() => []);
+  const forwardReferences: InvalidGuideReference[] = [];
+  const unknownTokens: InvalidGuideReference[] = [];
+  for (const [source, guide] of guides.entries()) {
+    for (const operand of guide.formula.operands) {
+      if (typeof operand !== 'string') continue;
+      const target = indexes.get(operand);
+      const isBuiltIn = evaluateBuiltInGuide(operand, context) !== undefined;
+      if (target === undefined) {
+        if (!isBuiltIn) unknownTokens.push({ source, token: operand });
+        continue;
+      }
+      if (target < source) {
+        edges[source]!.push({ target, token: operand });
+        continue;
+      }
+      if (isBuiltIn) continue;
+      edges[source]!.push({ target, token: operand });
+      if (target > source) forwardReferences.push({ source, token: operand });
+    }
+  }
+
+  const cycle = findDependencyCycle(edges);
+  if (cycle) {
+    const source = Math.min(...cycle);
+    const dependency = edges[source]!.find(({ target }) => cycle.has(target))!;
+    const guideName = guides[source]!.name;
+    throw new CustomGeometryEvaluationError(
+      'cyclic-reference',
+      `Custom geometry guide ${guideName} participates in a dependency cycle through ${dependency.token}`,
+      guideName,
+      dependency.token,
+    );
+  }
+  const forward = forwardReferences[0];
+  if (forward) {
+    const guideName = guides[forward.source]!.name;
+    throw new CustomGeometryEvaluationError(
+      'forward-reference',
+      `Custom geometry guide ${guideName} references later guide ${forward.token}`,
+      guideName,
+      forward.token,
+    );
+  }
+  const unknown = unknownTokens[0];
+  if (unknown) {
+    const guideName = guides[unknown.source]!.name;
+    throw new CustomGeometryEvaluationError(
+      'unknown-token',
+      `Custom geometry guide ${guideName} references unknown token ${unknown.token}`,
+      guideName,
+      unknown.token,
+    );
+  }
+}
+
+function findDependencyCycle(
+  edges: readonly (readonly GuideDependency[])[],
+): ReadonlySet<number> | undefined {
+  const states = new Uint8Array(edges.length);
+  const stack: number[] = [];
+  let cycle: ReadonlySet<number> | undefined;
+  const visit = (source: number): void => {
+    states[source] = 1;
+    stack.push(source);
+    for (const { target } of edges[source]!) {
+      if (states[target] === 0) visit(target);
+      else if (states[target] === 1 && !cycle) {
+        cycle = new Set(stack.slice(stack.lastIndexOf(target)));
+      }
+      if (cycle) return;
+    }
+    stack.pop();
+    states[source] = 2;
+  };
+  for (let index = 0; index < edges.length && !cycle; index += 1) {
+    if (states[index] === 0) visit(index);
+  }
+  return cycle;
 }
 
 function ooxmlAngleToRadians(value: number): number {
