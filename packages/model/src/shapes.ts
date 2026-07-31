@@ -61,6 +61,7 @@ import type {
   ShapeArrows,
   ShapeFill,
   ShapeLine,
+  ShapeShadow,
 } from './preset-shape.js';
 import type {
   RichTextParagraph,
@@ -269,6 +270,14 @@ export class ShapeModel extends BaseShapeModel {
 
   set arrows(value: ShapeArrows | undefined) {
     this.slide.setShapeArrows(this.id, value);
+  }
+
+  get shadow(): ShapeShadow | undefined {
+    return this.slide.getShapeShadow(this.id);
+  }
+
+  set shadow(value: ShapeShadow | undefined) {
+    this.slide.setShapeShadow(this.id, value);
   }
 
   get gradientFill(): GradientFill | undefined {

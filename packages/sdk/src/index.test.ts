@@ -653,6 +653,117 @@ describe('PptxDocument vertical slice', () => {
     void [invalidKind, invalidInnerRotate, invalidAlias, invalidOpacity, invalidUnknown];
   });
 
+  it('supports the shape shadow lifecycle across duplicate, move, rollback, reopen, and all formats', async () => {
+    const document = PptxDocument.create();
+    const source = document.addSlide();
+    const shape = source.addShape('rect', {
+      shadow: {
+        kind: 'outer',
+        color: { kind: 'srgb', value: 'AA0000' },
+        opacity: 0.4,
+        blur: 6,
+        angle: 90,
+        distance: 3,
+        rotateWithShape: true,
+      },
+    });
+    const initial = shape.shadow;
+    expect(initial).toEqual({
+      kind: 'outer',
+      color: { kind: 'srgb', value: 'AA0000' },
+      opacity: 0.4,
+      blur: 6,
+      angle: 90,
+      distance: 3,
+      rotateWithShape: true,
+    });
+    expect(Object.isFrozen(initial)).toBe(true);
+    expect(Object.isFrozen(initial?.color)).toBe(true);
+
+    const sourcePart = document.opcPackage.requirePart(source.partUri);
+    document.opcPackage.setPart(
+      source.partUri,
+      new TextDecoder().decode(sourcePart.bytes).replace(
+        '<a:effectLst><a:outerShdw',
+        '<a:effectLst><a:glow rad="12700"><a:srgbClr val="00FF00"/>' +
+        '</a:glow><a:outerShdw',
+      ),
+      sourcePart.contentType,
+    );
+
+    const duplicate = document.duplicateSlide(0);
+    const duplicateShape = duplicate.shapes[0] as ShapeModel;
+    duplicateShape.shadow = {
+      kind: 'inner',
+      color: { kind: 'scheme', value: 'accent2' },
+      opacity: 0,
+      blur: 0,
+      angle: 0,
+      distance: 0,
+    };
+    document.moveSlide(document.slides.indexOf(duplicate), 0);
+    expect(shape.shadow).toEqual(initial);
+    expect(duplicateShape.shadow?.kind).toBe('inner');
+    for (const slide of [source, duplicate]) {
+      expect(new TextDecoder().decode(
+        document.opcPackage.requirePart(slide.partUri).bytes,
+      )).toContain(
+        '<a:glow rad="12700"><a:srgbClr val="00FF00"/></a:glow>',
+      );
+    }
+
+    expect(() => document.transaction(() => {
+      shape.shadow = { kind: 'outer', color: { kind: 'scheme', value: 'accent6' } };
+      duplicateShape.shadow = undefined;
+      throw new Error('restore shadow lifecycle');
+    })).toThrow('restore shadow lifecycle');
+    expect(shape.shadow).toEqual(initial);
+    expect(duplicateShape.shadow?.kind).toBe('inner');
+    expect(source.shapes[0]).toBe(shape);
+    expect(duplicate.shapes[0]).toBe(duplicateShape);
+
+    const reopened = await PptxDocument.open(await document.write());
+    expect((reopened.slides[0]!.shapes[0] as ShapeModel).shadow).toEqual({
+      kind: 'inner',
+      color: { kind: 'scheme', value: 'accent2' },
+      opacity: 0,
+      blur: 0,
+      angle: 0,
+      distance: 0,
+    });
+    expect((reopened.slides[1]!.shapes[0] as ShapeModel).shadow).toEqual(initial);
+    const secondWrite = await PptxDocument.open(await reopened.write());
+    expect((secondWrite.slides[1]!.shapes[0] as ShapeModel).shadow).toEqual(initial);
+
+    document.deleteSlide(document.slides.indexOf(source));
+    expect(() => shape.shadow).toThrow();
+
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const formatted = PptxDocument.create({ format });
+      const formattedShape = formatted.addSlide().addShape('hexagon', {
+        shadow: { kind: 'outer' },
+      });
+      formattedShape.shadow = {
+        kind: 'inner',
+        color: { kind: 'scheme', value: 'accent4' },
+        opacity: 0.5,
+        blur: 2,
+        angle: 45,
+        distance: 1,
+      };
+      const formattedReopened = await PptxDocument.open(await formatted.write());
+      expect(formattedReopened.format).toBe(format);
+      expect((formattedReopened.slides[0]!.shapes[0] as ShapeModel).shadow).toEqual({
+        kind: 'inner',
+        color: { kind: 'scheme', value: 'accent4' },
+        opacity: 0.5,
+        blur: 2,
+        angle: 45,
+        distance: 1,
+      });
+    }
+  });
+
   it('preserves editable shape arrows across duplicate, rollback, reopen, and all formats', async () => {
     const document = PptxDocument.create();
     const source = document.addSlide();

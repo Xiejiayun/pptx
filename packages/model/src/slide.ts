@@ -69,6 +69,7 @@ import type {
   ShapeArrows,
   ShapeFill,
   ShapeLine,
+  ShapeShadow,
 } from './preset-shape.js';
 import {
   normalizeShapeArrows,
@@ -85,6 +86,11 @@ import {
   replaceShapeLine,
 } from './shape-line.internal.js';
 import { normalizeSimpleLine } from './simple-line.internal.js';
+import {
+  readShapeShadow,
+  replaceShapeShadow,
+} from './shape-shadow.internal.js';
+import { normalizeShapeShadow } from './simple-shadow.internal.js';
 import {
   HYPERLINK_RELATIONSHIP_TYPE,
   normalizeHyperlink,
@@ -421,6 +427,23 @@ export class SlideModel {
     this.presentation.opcPackage.transaction(() => {
       const { xml, element } = this.resolveShape(id);
       if (replaceShapeArrows(xml, element, arrows, this.partUri)) {
+        this.setXml(xml.serialize());
+      }
+    });
+  }
+
+  getShapeShadow(id: number): ShapeShadow | undefined {
+    const { xml, element } = this.resolveShape(id);
+    return readShapeShadow(xml, element);
+  }
+
+  setShapeShadow(id: number, value: ShapeShadow | undefined): void {
+    const shadow = value === undefined
+      ? undefined
+      : normalizeShapeShadow(value, 'Shape shadow');
+    this.presentation.opcPackage.transaction(() => {
+      const { xml, element } = this.resolveShape(id);
+      if (replaceShapeShadow(xml, element, shadow, this.partUri)) {
         this.setXml(xml.serialize());
       }
     });

@@ -319,6 +319,121 @@ describe('PresentationModel', () => {
     }
   });
 
+  it('supports the shape shadow lifecycle with exact no-ops, edits, clear, and rollback', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const shape = slide.addShape('rect', {
+      shadow: {
+        kind: 'outer',
+        color: { kind: 'srgb', value: '123ABC' },
+        opacity: 0.42,
+        blur: 7.25,
+        angle: 123.4,
+        distance: 5.5,
+        rotateWithShape: true,
+      },
+    });
+
+    const initial = shape.shadow;
+    expect(initial).toEqual({
+      kind: 'outer',
+      color: { kind: 'srgb', value: '123ABC' },
+      opacity: 0.42,
+      blur: 7.25,
+      angle: 123.4,
+      distance: 5.5,
+      rotateWithShape: true,
+    });
+    expect(Object.isFrozen(initial)).toBe(true);
+    expect(Object.isFrozen(initial?.color)).toBe(true);
+    expect(slide.getShapeShadow(shape.id)).toEqual(initial);
+
+    const noOp = packageSnapshot(pkg);
+    shape.shadow = {
+      kind: 'outer',
+      color: { kind: 'srgb', value: '123ABC' },
+      opacity: 0.42,
+      blur: 7.25,
+      angle: 123.4,
+      distance: 5.5,
+      rotateWithShape: true,
+    };
+    expect(packageSnapshot(pkg)).toEqual(noOp);
+    expect(slide.shapes[0]).toBe(shape);
+
+    const invalidBefore = packageSnapshot(pkg);
+    for (const invalid of [
+      { kind: 'none' },
+      { kind: 'inner', rotateWithShape: false },
+      { kind: 'outer', opacity: Number.NaN },
+      { kind: 'outer', angle: 360 },
+      { kind: 'outer', color: { kind: 'srgb', value: 'FFF' } },
+      { kind: 'outer', offset: 4 },
+    ]) {
+      expect(() => {
+        shape.shadow = invalid as never;
+      }).toThrow();
+      expect(packageSnapshot(pkg)).toEqual(invalidBefore);
+      expect(slide.shapes[0]).toBe(shape);
+    }
+
+    slide.setShapeShadow(shape.id, {
+      kind: 'inner',
+      color: { kind: 'scheme', value: 'accent3' },
+      opacity: 0,
+      blur: 0,
+      angle: 0,
+      distance: 0,
+    });
+    expect(shape.shadow).toEqual({
+      kind: 'inner',
+      color: { kind: 'scheme', value: 'accent3' },
+      opacity: 0,
+      blur: 0,
+      angle: 0,
+      distance: 0,
+    });
+
+    expect(() => pkg.transaction(() => {
+      shape.shadow = { kind: 'outer', color: { kind: 'scheme', value: 'accent5' } };
+      expect(shape.shadow?.kind).toBe('outer');
+      throw new Error('restore shape shadow');
+    })).toThrow('restore shape shadow');
+    expect(shape.shadow?.kind).toBe('inner');
+    expect(slide.shapes[0]).toBe(shape);
+
+    shape.shadow = undefined;
+    expect(shape.shadow).toBeUndefined();
+    const cleared = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect(cleared).toContain('<a:effectLst></a:effectLst>');
+    expect(cleared).not.toContain('innerShdw');
+    const clearedNoOp = packageSnapshot(pkg);
+    shape.shadow = undefined;
+    expect(packageSnapshot(pkg)).toEqual(clearedNoOp);
+  });
+
+  it('rejects malformed shape shadow lifecycle state without package or identity mutation', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const shape = slide.addShape('rect', { shadow: { kind: 'outer' } });
+    const part = pkg.requirePart(slide.partUri);
+    const malformed = new TextDecoder().decode(part.bytes).replace(
+      '<a:effectLst><a:outerShdw',
+      '<a:effectLst><a:reflection/><a:outerShdw',
+    );
+    pkg.setPart(slide.partUri, malformed, part.contentType);
+    const before = packageSnapshot(pkg);
+
+    expect(shape.shadow).toBeUndefined();
+    expect(() => {
+      shape.shadow = { kind: 'inner' };
+    }).toThrow(ModelParseError);
+    expect(packageSnapshot(pkg)).toEqual(before);
+    expect(slide.shapes[0]).toBe(shape);
+  });
+
   it('creates preset shape hyperlinks with exact URL, slide, self, and tooltip semantics', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);
