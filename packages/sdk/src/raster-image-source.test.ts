@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { inspectRasterImage } from './raster-image-source.js';
+import {
+  inspectRasterImage,
+  resolveRasterImageSource,
+  type RasterImageByteChunk,
+} from './raster-image-source.js';
 
 const PNG_SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10] as const;
 const JPEG_SOF_MARKERS = [
@@ -9,7 +13,7 @@ const JPEG_SOF_MARKERS = [
   0xcd, 0xce, 0xcf,
 ] as const;
 
-function pngHeader(width: number, height: number): Uint8Array {
+function pngHeader(width: number, height: number): Uint8Array<ArrayBuffer> {
   const bytes = new Uint8Array(24);
   bytes.set(PNG_SIGNATURE);
   writeUint32(bytes, 8, 13);
@@ -19,7 +23,11 @@ function pngHeader(width: number, height: number): Uint8Array {
   return bytes;
 }
 
-function gifHeader(version: 'GIF87a' | 'GIF89a', width: number, height: number): Uint8Array {
+function gifHeader(
+  version: 'GIF87a' | 'GIF89a',
+  width: number,
+  height: number,
+): Uint8Array<ArrayBuffer> {
   const bytes = new Uint8Array(10);
   bytes.set([...version].map((character) => character.charCodeAt(0)));
   bytes[6] = width & 0xff;
@@ -34,7 +42,7 @@ function jpegWithSof(
   width: number,
   height: number,
   prefix: readonly number[] = [],
-): Uint8Array {
+): Uint8Array<ArrayBuffer> {
   return Uint8Array.from([
     0xff, 0xd8,
     ...prefix,
@@ -132,5 +140,242 @@ describe('raster image inspection', () => {
   ])('rejects $name', ({ bytes, error }) => {
     expect(() => inspectRasterImage(bytes as Uint8Array)).toThrow(TypeError);
     expect(() => inspectRasterImage(bytes as Uint8Array)).toThrow(error);
+  });
+});
+
+describe('raster image in-memory source resolution', () => {
+  it('copies Uint8Array and ArrayBuffer sources before returning', async () => {
+    const uint8Source = pngHeader(640, 360);
+    const uint8Expected = new Uint8Array(uint8Source);
+    const uint8Promise = resolveRasterImageSource(uint8Source);
+    uint8Source.fill(0);
+    const uint8Resolved = await uint8Promise;
+    expect(uint8Resolved).toEqual({
+      bytes: uint8Expected,
+      info: { contentType: 'image/png', width: 640, height: 360 },
+    });
+    expect(uint8Resolved.bytes.buffer).not.toBe(uint8Source.buffer);
+
+    const arrayBufferSource = gifHeader('GIF89a', 320, 200).buffer;
+    const arrayBufferExpected = new Uint8Array(arrayBufferSource.slice(0));
+    const arrayBufferPromise = resolveRasterImageSource(arrayBufferSource);
+    new Uint8Array(arrayBufferSource).fill(0);
+    const arrayBufferResolved = await arrayBufferPromise;
+    expect(arrayBufferResolved).toEqual({
+      bytes: arrayBufferExpected,
+      info: { contentType: 'image/gif', width: 320, height: 200 },
+    });
+    expect(arrayBufferResolved.bytes.buffer).not.toBe(arrayBufferSource);
+  });
+
+  it('loads Blob and File sources while ignoring metadata hints', async () => {
+    const jpeg = jpegWithSof(0xc0, 1920, 1080);
+    const blob = new Blob([jpeg], { type: 'image/png' });
+    await expect(resolveRasterImageSource(blob)).resolves.toEqual({
+      bytes: jpeg,
+      info: { contentType: 'image/jpeg', width: 1920, height: 1080 },
+    });
+
+    if (typeof File !== 'undefined') {
+      const file = new File([jpeg], 'misleading.gif', { type: 'application/octet-stream' });
+      await expect(resolveRasterImageSource(file)).resolves.toMatchObject({
+        info: { contentType: 'image/jpeg', width: 1920, height: 1080 },
+      });
+    }
+  });
+
+  it('checks abort state around Blob reads and propagates Blob failures', async () => {
+    const before = new AbortController();
+    const beforeReason = new Error('abort before Blob');
+    before.abort(beforeReason);
+    await expect(resolveRasterImageSource(new Blob([pngHeader(1, 1)]), before.signal))
+      .rejects.toBe(beforeReason);
+
+    const after = new AbortController();
+    const afterReason = new Error('abort after Blob');
+    class AbortingBlob extends Blob {
+      override async arrayBuffer(): Promise<ArrayBuffer> {
+        const result = await super.arrayBuffer();
+        after.abort(afterReason);
+        return result;
+      }
+    }
+    await expect(resolveRasterImageSource(new AbortingBlob([pngHeader(1, 1)]), after.signal))
+      .rejects.toBe(afterReason);
+
+    const failure = new Error('Blob read failed');
+    class FailingBlob extends Blob {
+      override arrayBuffer(): Promise<ArrayBuffer> {
+        return Promise.reject(failure);
+      }
+    }
+    await expect(resolveRasterImageSource(new FailingBlob())).rejects.toBe(failure);
+  });
+
+  it('normalizes every supported Web stream chunk type and releases the reader', async () => {
+    const png = pngHeader(640, 360);
+    const paddedView = new Uint8Array(8);
+    paddedView.set(png.slice(12, 16), 2);
+    const chunks: RasterImageByteChunk[] = [
+      png[0]!,
+      png.slice(1, 8),
+      png.slice(8, 12).buffer,
+      new DataView(paddedView.buffer, 2, 4),
+      new Uint16Array(png.slice(16).buffer),
+    ];
+    const stream = new ReadableStream<RasterImageByteChunk>({
+      start(controller) {
+        for (const chunk of chunks) controller.enqueue(chunk);
+        controller.close();
+      },
+    });
+
+    const resolved = await resolveRasterImageSource(stream);
+    expect(resolved.bytes).toEqual(png);
+    expect(resolved.info).toEqual({ contentType: 'image/png', width: 640, height: 360 });
+    expect(stream.locked).toBe(false);
+  });
+
+  it('copies async iterable chunks before requesting the next chunk', async () => {
+    const png = pngHeader(640, 360);
+    const first = png.slice(0, 12);
+    let closed = false;
+    const source: AsyncIterable<RasterImageByteChunk> = {
+      async *[Symbol.asyncIterator]() {
+        try {
+          yield first;
+          first.fill(0);
+          yield png.slice(12);
+        } finally {
+          closed = true;
+        }
+      },
+    };
+
+    const resolved = await resolveRasterImageSource(source);
+    expect(resolved.bytes).toEqual(png);
+    expect(closed).toBe(true);
+  });
+
+  it('closes async iterators and releases Web readers on invalid chunks', async () => {
+    let closed = false;
+    const iterable: AsyncIterable<unknown> = {
+      async *[Symbol.asyncIterator]() {
+        try {
+          yield pngHeader(1, 1).slice(0, 8);
+          yield 'unsafe';
+        } finally {
+          closed = true;
+        }
+      },
+    };
+    await expect(resolveRasterImageSource(iterable as never)).rejects.toThrow(/streams must yield/i);
+    expect(closed).toBe(true);
+
+    const stream = new ReadableStream<unknown>({
+      start(controller) {
+        controller.enqueue('unsafe');
+      },
+    });
+    await expect(resolveRasterImageSource(stream as never)).rejects.toThrow(/streams must yield/i);
+    expect(stream.locked).toBe(false);
+  });
+
+  it('propagates read failures while closing the source', async () => {
+    const streamFailure = new Error('Web stream failed');
+    const stream = new ReadableStream<RasterImageByteChunk>({
+      pull() {
+        throw streamFailure;
+      },
+    });
+    await expect(resolveRasterImageSource(stream)).rejects.toBe(streamFailure);
+    expect(stream.locked).toBe(false);
+
+    const iteratorFailure = new Error('Async iterator failed');
+    let returned = false;
+    const source: AsyncIterable<RasterImageByteChunk> = {
+      [Symbol.asyncIterator]() {
+        return {
+          next: () => Promise.reject(iteratorFailure),
+          return: async () => {
+            returned = true;
+            return { done: true, value: undefined };
+          },
+        };
+      },
+    };
+    await expect(resolveRasterImageSource(source)).rejects.toBe(iteratorFailure);
+    expect(returned).toBe(true);
+  });
+
+  it('cancels a pending Web stream read when aborted', async () => {
+    const controller = new AbortController();
+    const reason = new Error('abort pending Web read');
+    let cancelledWith: unknown;
+    const stream = new ReadableStream<RasterImageByteChunk>({
+      pull() {},
+      cancel(value) {
+        cancelledWith = value;
+      },
+    });
+    const loading = resolveRasterImageSource(stream, controller.signal);
+    controller.abort(reason);
+
+    await expect(loading).rejects.toBe(reason);
+    expect(cancelledWith).toBe(reason);
+    expect(stream.locked).toBe(false);
+  });
+
+  it('stops and closes an async iterator when aborted between chunks', async () => {
+    const controller = new AbortController();
+    const reason = new Error('stop raster stream');
+    let calls = 0;
+    let returned = false;
+    const iterator: AsyncIterator<RasterImageByteChunk> = {
+      async next() {
+        calls += 1;
+        if (calls === 1) {
+          controller.abort(reason);
+          return { done: false, value: pngHeader(1, 1).slice(0, 8) };
+        }
+        return { done: false, value: pngHeader(1, 1).slice(8) };
+      },
+      async return() {
+        returned = true;
+        return { done: true, value: undefined };
+      },
+    };
+    const source: AsyncIterable<RasterImageByteChunk> = {
+      [Symbol.asyncIterator]: () => iterator,
+    };
+
+    await expect(resolveRasterImageSource(source, controller.signal)).rejects.toBe(reason);
+    expect(calls).toBe(1);
+    expect(returned).toBe(true);
+  });
+
+  it.each([
+    { name: 'fractional byte', chunk: 1.5 },
+    { name: 'negative byte', chunk: -1 },
+    { name: 'large byte', chunk: 256 },
+    { name: 'string', chunk: '1' },
+    { name: 'plain object', chunk: {} },
+  ])('rejects a $name stream chunk', async ({ chunk }) => {
+    const source: AsyncIterable<unknown> = {
+      async *[Symbol.asyncIterator]() {
+        yield chunk;
+      },
+    };
+    await expect(resolveRasterImageSource(source as never)).rejects.toThrow(/streams must yield/i);
+  });
+
+  it.each([
+    { name: 'empty bytes', source: new Uint8Array() },
+    { name: 'empty Blob', source: new Blob() },
+    { name: 'plain object', source: {} },
+    { name: 'sync iterable', source: [1, 2, 3] },
+    { name: 'null', source: null },
+  ])('rejects unsupported or invalid $name sources', async ({ source }) => {
+    await expect(resolveRasterImageSource(source as never)).rejects.toThrow(TypeError);
   });
 });
