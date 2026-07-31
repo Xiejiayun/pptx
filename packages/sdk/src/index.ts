@@ -26,6 +26,8 @@ export * from '@pptx/codecs';
 export * from '@pptx/model';
 export type { BuiltInSlideSize, CreatePresentationOptions, CustomSlideSize } from './create.js';
 export type { PresentationTheme, PresentationThemeOptions } from './presentation-theme.js';
+export { inspectRasterImage } from './raster-image-source.js';
+export type { RasterImageInfo } from './raster-image-source.js';
 export { PackageError } from '@pptx/opc';
 export type { PackageOpenOptions } from '@pptx/opc';
 export { ValidationError } from '@pptx/validator';
