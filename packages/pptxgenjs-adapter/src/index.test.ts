@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it, vi } from 'vitest';
 import {
   degrees,
+  ImageModel,
   inches,
   PRESET_SHAPE_TYPES,
   PptxDocument,
@@ -23,6 +24,7 @@ interface BorderProps {
 
 interface PptxGenJSSlide {
   hidden: unknown;
+  addImage(options: Record<string, unknown>): void;
   addNotes(notes: string): PptxGenJSSlide;
   addShape(type: string, options?: PptxGenJSShapeOptions): void;
   addText(
@@ -157,6 +159,12 @@ interface PptxGenJSInstance {
 
 const require = createRequire(import.meta.url);
 const PptxGenJS = require('pptxgenjs') as new () => PptxGenJSInstance;
+const PNG_DATA_URI =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAACXBIWXMAAAABAAAAAQBPJcTWAAAAEElEQVR4nGP8ywACLGCSAQANEQED1LYyQAAAAABJRU5ErkJggg==';
+const JPEG_DATA_URI =
+  'data:image/jpeg;base64,/9j/4AAQSkZJRgABAgAAAQABAAD//gAQTGF2YzYyLjI4LjEwMAD/2wBDAAgEBAQEBAUFBQUFBQYGBgYGBgYGBgYGBgYHBwcICAgHBwcGBgcHCAgICAkJCQgICAgJCQoKCgwMCwsODg4RERT/xABMAAEBAAAAAAAAAAAAAAAAAAAABgEBAQAAAAAAAAAAAAAAAAAABgcQAQAAAAAAAAAAAAAAAAAAAAARAQAAAAAAAAAAAAAAAAAAAAD/wAARCAACAAIDASIAAhEAAxEA/9oADAMBAAIRAxEAPwCLAE1/f//Z';
+const GIF_DATA_URI =
+  'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
 const sectionState = (document: PptxDocument) =>
   document.sections?.map(({ title, slideIds }) => ({ title, slideIds }));
 
@@ -182,6 +190,60 @@ function shapeXml(document: PptxDocument, slideIndex: number, id: number): strin
   return shape;
 }
 
+function pictureXml(document: PptxDocument, slideIndex: number, id: number): string {
+  const slide = document.slides[slideIndex];
+  if (!slide) throw new Error(`Slide ${slideIndex} was not found`);
+  const xml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+  const pictures = [...xml.matchAll(/<p:pic(?:\s[^>]*)?>[\s\S]*?<\/p:pic>/g)]
+    .map((match) => match[0]);
+  const picture = pictures.find((candidate) => new RegExp(
+    `<p:cNvPr\\b[^>]*\\bid="${id}"(?:\\s|/|>)`,
+  ).test(candidate));
+  if (!picture) throw new Error(`Image ${id} was not found on slide ${slideIndex}`);
+  return picture;
+}
+
+function embeddedRasterState(
+  document: PptxDocument,
+  slideIndex: number,
+  image: ImageModel,
+) {
+  const slide = document.slides[slideIndex]!;
+  const sourcePartUri = image.sourcePartUri!;
+  const part = document.opcPackage.requirePart(sourcePartUri);
+  const relationship = slide.relationships.find(
+    ({ type, resolvedTarget }) => type.endsWith('/image') && resolvedTarget === sourcePartUri,
+  );
+  const xml = pictureXml(document, slideIndex, image.id);
+  return {
+    kind: image.kind,
+    name: image.name,
+    altText: xml.match(/<p:cNvPr\b[^>]*\bdescr="([^"]*)"/)?.[1],
+    transform: image.transform,
+    contentType: part.contentType,
+    bytes: [...part.bytes],
+    relationshipType: relationship?.type,
+    targetMode: relationship?.targetMode,
+    embedded: relationship !== undefined && xml.includes(`r:embed="${relationship.id}"`),
+    rectGeometry: xml.includes('<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>'),
+    noChangeAspect: xml.includes('<a:picLocks noChangeAspect="1"/>'),
+    stretchFill: /<a:stretch>\s*<a:fillRect\/>\s*<\/a:stretch>/.test(xml),
+  };
+}
+
+function packageState(document: PptxDocument) {
+  return {
+    parts: document.opcPackage.parts.map(({ uri, contentType, bytes, relationships }) => ({
+      uri,
+      contentType,
+      bytes: [...bytes],
+      relationships,
+    })),
+    graph: document.opcPackage.graph,
+    mutations: [...document.opcPackage.mutations],
+  };
+}
+
 function directShapePaintState(xml: string): { fill: 'none'; line: 'empty' } {
   const properties = xml.match(/<p:spPr(?:\s[^>]*)?>([\s\S]*?)<\/p:spPr>/)?.[1];
   if (!properties) throw new Error('Shape properties were not found');
@@ -194,6 +256,169 @@ function directShapePaintState(xml: string): { fill: 'none'; line: 'empty' } {
 }
 
 describe('importPptxGenJS', () => {
+  it('matches PptxGenJS embedded raster image public output semantically', async () => {
+    const fixtures = [
+      { data: PNG_DATA_URI, contentType: 'image/png' as const, name: 'Raster PNG' },
+      { data: JPEG_DATA_URI, contentType: 'image/jpeg' as const, name: 'Raster JPEG' },
+      { data: GIF_DATA_URI, contentType: 'image/gif' as const, name: 'Raster GIF' },
+    ];
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    const generatedSlide = generated.addSlide();
+    for (const fixture of fixtures) {
+      generatedSlide.addImage({
+        data: fixture.data,
+        x: 1,
+        y: 2,
+        w: 3,
+        h: 2,
+        rotate: 45,
+        flipH: true,
+        flipV: false,
+        objectName: fixture.name,
+        altText: 'Raster alt',
+      });
+    }
+
+    const imported = await importPptxGenJS(generated);
+    const native = PptxDocument.create();
+    const nativeSlide = native.addSlide();
+    for (const fixture of fixtures) {
+      nativeSlide.addImage(
+        new Uint8Array(Buffer.from(fixture.data.split(',')[1]!, 'base64')),
+        {
+          contentType: fixture.contentType,
+          name: fixture.name,
+          altText: 'Raster alt',
+          x: inches(1),
+          y: inches(2),
+          width: inches(3),
+          height: inches(2),
+          rotation: degrees(45),
+          flipHorizontal: true,
+          flipVertical: false,
+        },
+      );
+    }
+
+    const importedImages = imported.slides[0]!.shapes.filter(
+      (shape): shape is ImageModel => shape instanceof ImageModel,
+    );
+    const nativeImages = nativeSlide.shapes.filter(
+      (shape): shape is ImageModel => shape instanceof ImageModel,
+    );
+    expect(imported.slides[0]!.shapes.map(({ kind }) => kind))
+      .toEqual(nativeSlide.shapes.map(({ kind }) => kind));
+    expect(importedImages).toHaveLength(fixtures.length);
+    expect(nativeImages).toHaveLength(fixtures.length);
+    for (const [index, importedImage] of importedImages.entries()) {
+      expect(embeddedRasterState(imported, 0, importedImage))
+        .toEqual(embeddedRasterState(native, 0, nativeImages[index]!));
+    }
+  }, 20_000);
+
+  it('preserves PptxGenJS embedded raster image divergences while native stays strict', async () => {
+    const zero = new PptxGenJS();
+    zero.addSlide().addImage({
+      data: PNG_DATA_URI,
+      x: 0,
+      y: 0,
+      w: 0,
+      h: 0,
+      rotate: 0,
+      flipH: false,
+      flipV: false,
+      objectName: 'Falsy transform',
+    });
+    const importedZero = await importPptxGenJS(zero);
+    const zeroImage = importedZero.slides[0]!.shapes[0] as ImageModel;
+    expect(zeroImage).toBeInstanceOf(ImageModel);
+    expect(zeroImage.transform).toEqual({
+      x: 0,
+      y: 0,
+      width: inches(1),
+      height: inches(1),
+      rotation: 0,
+      flipHorizontal: false,
+      flipVertical: false,
+    });
+
+    const rejected = new PptxGenJS();
+    const rejectedSlide = rejected.addSlide();
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    let importedRejected: PptxDocument;
+    try {
+      rejectedSlide.addImage({ data: 'not-a-base64-data-uri' });
+      rejectedSlide.addImage({ path: 42 });
+      rejectedSlide.addImage({ data: 42 });
+      rejectedSlide.addImage({});
+      expect(error).toHaveBeenCalledTimes(4);
+      importedRejected = await importPptxGenJS(rejected);
+    } finally {
+      error.mockRestore();
+    }
+    expect(importedRejected!.slides[0]!.shapes).toEqual([]);
+
+    const quirks = new PptxGenJS();
+    const quirksSlide = quirks.addSlide();
+    quirksSlide.addImage({
+      data: JPEG_DATA_URI.replace('image/jpeg', 'image/jpg'),
+      objectName: 'JPG MIME',
+    });
+    quirksSlide.addImage({
+      path: '/not-read/paired-source.jpeg',
+      data: PNG_DATA_URI,
+      objectName: 'Data and path',
+    });
+    const importedQuirks = await importPptxGenJS(quirks);
+    const quirkImages = importedQuirks.slides[0]!.shapes as readonly ImageModel[];
+    expect(quirkImages).toHaveLength(2);
+    expect(quirkImages[0]).toBeInstanceOf(ImageModel);
+    expect(quirkImages[0]!.sourcePartUri).toMatch(/\.jpg$/);
+    expect(importedQuirks.opcPackage.requirePart(quirkImages[0]!.sourcePartUri!))
+      .toMatchObject({ contentType: 'image/jpg' });
+    expect(quirkImages[1]!.sourcePartUri).toMatch(/\.png$/);
+    expect(importedQuirks.opcPackage.requirePart(quirkImages[1]!.sourcePartUri!).bytes)
+      .toEqual(new Uint8Array(Buffer.from(PNG_DATA_URI.split(',')[1]!, 'base64')));
+    expect(pictureXml(importedQuirks, 0, quirkImages[1]!.id))
+      .toContain('descr="/not-read/paired-source.jpeg"');
+    const reopenedQuirks = await PptxDocument.open(await importedQuirks.write());
+    expect(reopenedQuirks.slides[0]!.shapes.map((shape) => embeddedRasterState(
+      reopenedQuirks,
+      0,
+      shape as ImageModel,
+    ))).toEqual(quirkImages.map((image) => embeddedRasterState(importedQuirks, 0, image)));
+
+    const native = PptxDocument.create();
+    const nativeSlide = native.addSlide();
+    const before = packageState(native);
+    const shapes = nativeSlide.shapes;
+    const invalidCalls: readonly (() => unknown)[] = [
+      () => nativeSlide.addImage(
+        new Uint8Array([1]),
+        { contentType: 'image/png', width: 0 } as never,
+      ),
+      () => nativeSlide.addImage(PNG_DATA_URI as never, { contentType: 'image/png' }),
+      () => nativeSlide.addImage(
+        new Uint8Array([1]),
+        { contentType: 'image/jpg' } as never,
+      ),
+      () => nativeSlide.addImage(
+        new Uint8Array([1]),
+        { contentType: 'image/png', path: '/image.png' } as never,
+      ),
+      () => nativeSlide.addImage(
+        new Uint8Array([1]),
+        { contentType: 'image/png', data: PNG_DATA_URI } as never,
+      ),
+    ];
+    for (const invoke of invalidCalls) {
+      expect(invoke).toThrow();
+      expect(packageState(native)).toEqual(before);
+      expect(nativeSlide.shapes).toEqual(shapes);
+    }
+  }, 20_000);
+
   it('matches representative preset shape public output semantically', async () => {
     const generated = new PptxGenJS();
     expect(generated.version).toBe('4.0.1');

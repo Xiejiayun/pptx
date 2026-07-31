@@ -49,8 +49,106 @@ try {
 
   await writeFile(
     join(directory, 'smoke.mjs'),
-    `import { CustomGeometryEvaluationError, evaluateCustomGeometry, inches, PRESET_SHAPE_TYPES, PptxDocument, ShapeModel, TableModel, GradientCodec, importPptxGenJS, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
+    `import { CustomGeometryEvaluationError, evaluateCustomGeometry, ImageModel, inches, PRESET_SHAPE_TYPES, PptxDocument, ShapeModel, TableModel, GradientCodec, importPptxGenJS, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
 const created = PptxDocument.create({ rtlMode: true });
+const embeddedRasterDeck = PptxDocument.create();
+const embeddedRasterSlide = embeddedRasterDeck.addSlide();
+const embeddedRasterInputs = [
+  { contentType: 'image/png', bytes: new Uint8Array([1, 2, 3]), name: 'Packed PNG' },
+  { contentType: 'image/jpeg', bytes: new Uint8Array([4, 5, 6]), name: 'Packed JPEG' },
+  { contentType: 'image/gif', bytes: new Uint8Array([7, 8, 9]), name: 'Packed GIF' },
+];
+const embeddedRasterCreated = embeddedRasterInputs.map((input, index) =>
+  embeddedRasterSlide.addImage(input.bytes, {
+    contentType: input.contentType,
+    name: input.name,
+    altText: input.name + ' alt',
+    x: inches(index + 1),
+    y: inches(index + 2),
+    width: inches(2),
+    height: inches(1),
+  }));
+const packedBytesEqual = (left, right) => left.length === right.length &&
+  left.every((value, index) => value === right[index]);
+const embeddedRasterImmediate = embeddedRasterCreated.every((image, index) =>
+  image instanceof ImageModel &&
+  embeddedRasterSlide.shapes[index] === image &&
+  image.name === embeddedRasterInputs[index].name &&
+  embeddedRasterDeck.opcPackage.requirePart(image.sourcePartUri).contentType ===
+    embeddedRasterInputs[index].contentType &&
+  packedBytesEqual(
+    embeddedRasterDeck.opcPackage.requirePart(image.sourcePartUri).bytes,
+    embeddedRasterInputs[index].bytes,
+  ));
+const embeddedRasterPngUri = embeddedRasterCreated[0].sourcePartUri;
+embeddedRasterCreated[0].setTransform({ x: inches(4), rotation: 2_700_000 });
+embeddedRasterCreated[0].replaceData(new Uint8Array([10, 11]), 'image/png');
+const embeddedRasterExclusive = embeddedRasterCreated[0].sourcePartUri === embeddedRasterPngUri &&
+  packedBytesEqual(
+    embeddedRasterDeck.opcPackage.requirePart(embeddedRasterPngUri).bytes,
+    new Uint8Array([10, 11]),
+  );
+const embeddedRasterDuplicateSlide = embeddedRasterDeck.duplicateSlide(0);
+const embeddedRasterDuplicateImages = embeddedRasterDuplicateSlide.shapes.filter(
+  (shape) => shape instanceof ImageModel,
+);
+const embeddedRasterShared = embeddedRasterDuplicateImages.every(
+  (image, index) => image.sourcePartUri === embeddedRasterCreated[index].sourcePartUri,
+);
+embeddedRasterDuplicateImages[0].replaceData(new Uint8Array([12, 13]), 'image/png');
+const embeddedRasterDuplicateUri = embeddedRasterDuplicateImages[0].sourcePartUri;
+const embeddedRasterCloneOnWrite = embeddedRasterDuplicateUri !== embeddedRasterPngUri &&
+  packedBytesEqual(
+    embeddedRasterDeck.opcPackage.requirePart(embeddedRasterPngUri).bytes,
+    new Uint8Array([10, 11]),
+  ) &&
+  packedBytesEqual(
+    embeddedRasterDeck.opcPackage.requirePart(embeddedRasterDuplicateUri).bytes,
+    new Uint8Array([12, 13]),
+  );
+const reopenedEmbeddedRasterDeck = await PptxDocument.open(await embeddedRasterDeck.write());
+const reopenedEmbeddedRasterSource = reopenedEmbeddedRasterDeck.slides[0].shapes.filter(
+  (shape) => shape instanceof ImageModel,
+);
+const reopenedEmbeddedRasterDuplicate = reopenedEmbeddedRasterDeck.slides[1].shapes.filter(
+  (shape) => shape instanceof ImageModel,
+);
+const reopenedEmbeddedRasterSourceBytes = [
+  new Uint8Array([10, 11]),
+  embeddedRasterInputs[1].bytes,
+  embeddedRasterInputs[2].bytes,
+];
+const reopenedEmbeddedRasterDuplicateBytes = [
+  new Uint8Array([12, 13]),
+  embeddedRasterInputs[1].bytes,
+  embeddedRasterInputs[2].bytes,
+];
+const embeddedRasterReopened = reopenedEmbeddedRasterSource.length === 3 &&
+  reopenedEmbeddedRasterDuplicate.length === 3 &&
+  reopenedEmbeddedRasterDeck.slides[0].shapes[0] === reopenedEmbeddedRasterSource[0] &&
+  reopenedEmbeddedRasterDeck.slides[1].shapes[0] === reopenedEmbeddedRasterDuplicate[0] &&
+  reopenedEmbeddedRasterSource[0].sourcePartUri === embeddedRasterPngUri &&
+  reopenedEmbeddedRasterDuplicate[0].sourcePartUri === embeddedRasterDuplicateUri &&
+  reopenedEmbeddedRasterSource[0].transform.x === inches(4) &&
+  reopenedEmbeddedRasterSource[0].transform.rotation === 2_700_000 &&
+  embeddedRasterInputs.every((input, index) => {
+    const sourcePart = reopenedEmbeddedRasterDeck.opcPackage
+      .requirePart(reopenedEmbeddedRasterSource[index].sourcePartUri);
+    const duplicatePart = reopenedEmbeddedRasterDeck.opcPackage
+      .requirePart(reopenedEmbeddedRasterDuplicate[index].sourcePartUri);
+    return sourcePart.contentType === input.contentType &&
+      duplicatePart.contentType === input.contentType &&
+      packedBytesEqual(sourcePart.bytes, reopenedEmbeddedRasterSourceBytes[index]) &&
+      packedBytesEqual(duplicatePart.bytes, reopenedEmbeddedRasterDuplicateBytes[index]);
+  }) &&
+  reopenedEmbeddedRasterDeck.slides.every((slide) =>
+    slide.shapes.filter((shape) => shape instanceof ImageModel).every((image) =>
+      slide.relationships.some(({ type, targetMode, resolvedTarget }) =>
+        type.endsWith('/image') &&
+        targetMode === 'Internal' &&
+        resolvedTarget === image.sourcePartUri)));
+const embeddedRasterImages = embeddedRasterImmediate && embeddedRasterExclusive &&
+  embeddedRasterShared && embeddedRasterCloneOnWrite && embeddedRasterReopened;
 const shapeDeck = PptxDocument.create();
 const shapeSlide = shapeDeck.addSlide();
 const defaultShape = shapeSlide.addShape('rect');
@@ -2087,6 +2185,7 @@ const checks = {
   shapeLines,
   shapeArrows,
   shapeHyperlinks,
+  embeddedRasterImages,
   presentationRtl: presentationRtlEnabled === true && presentationRtlDisabled === false && presentationRtlCleared === undefined && paragraphRtlAfterGlobalClear[0] === true && paragraphRtlAfterGlobalClear[1] === false,
   presentationTitle: createdPresentationTitle === 'Packed & <Title>' && editedPresentationTitle === 'Edited title' && reopenedPresentationTitle === 'Edited title' && emptyPresentationTitle === '' && clearedPresentationTitle === undefined,
   presentationAuthor: createdPresentationAuthor === 'Packed & <Author>' && editedPresentationAuthor === 'Edited author' && reopenedPresentationAuthor === 'Edited author' && emptyPresentationAuthor === '' && clearedPresentationAuthor === undefined,
@@ -2149,13 +2248,40 @@ process.stdout.write(JSON.stringify(checks));
 
   await writeFile(
     join(directory, 'browser-smoke.mjs'),
-    `import { CustomGeometryEvaluationError, evaluateCustomGeometry, inches, PRESET_SHAPE_TYPES, PptxDocument, ShapeModel, TableModel, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
+    `import { CustomGeometryEvaluationError, evaluateCustomGeometry, ImageModel, inches, PRESET_SHAPE_TYPES, PptxDocument, ShapeModel, TableModel, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
 const resolved = import.meta.resolve('@jiayunxie/pptx');
 if (!resolved.endsWith('/dist/browser.js')) throw new Error('Browser condition resolved to ' + resolved);
 const checks = [PptxDocument, transitions.TransitionCodec, animations.AnimationTimingCodec, advancedCharts.AdvancedChartCodec, smartArt.SmartArtDiagramCodec];
 if (checks.some((value) => typeof value !== 'function')) throw new Error('Browser API surface is incomplete');
 if (PRESET_SHAPE_TYPES.length !== 178 || !Object.isFrozen(PRESET_SHAPE_TYPES)) {
   throw new Error('Browser preset catalog failed');
+}
+const browserRasterDeck = PptxDocument.create();
+const browserRasterBytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
+const browserRasterSlide = browserRasterDeck.addSlide();
+const browserRasterImage = browserRasterSlide.addImage(browserRasterBytes, {
+  contentType: 'image/png',
+  name: 'Browser PNG',
+  width: inches(2),
+  height: inches(1),
+});
+if (!(browserRasterImage instanceof ImageModel) ||
+    browserRasterSlide.shapes[0] !== browserRasterImage ||
+    browserRasterDeck.opcPackage.requirePart(browserRasterImage.sourcePartUri).contentType !==
+      'image/png') {
+  throw new Error('Browser embedded raster image creation failed');
+}
+browserRasterBytes.fill(0);
+const browserRasterBlob = await browserRasterDeck.writeBlob();
+if (!(browserRasterBlob instanceof Blob)) throw new Error('Browser raster writeBlob failed');
+const reopenedBrowserRasterDeck = await PptxDocument.open(browserRasterBlob);
+const reopenedBrowserRasterImage = reopenedBrowserRasterDeck.slides[0].shapes[0];
+if (!(reopenedBrowserRasterImage instanceof ImageModel) ||
+    reopenedBrowserRasterImage.name !== 'Browser PNG' ||
+    reopenedBrowserRasterImage.transform.width !== inches(2) ||
+    reopenedBrowserRasterDeck.opcPackage
+      .requirePart(reopenedBrowserRasterImage.sourcePartUri).bytes[0] !== 137) {
+  throw new Error('Browser embedded raster image round trip failed');
 }
 const browserShapeDeck = PptxDocument.create();
 const browserShape = browserShapeDeck.addSlide().addShape('foldedCorner');
@@ -3268,12 +3394,14 @@ process.stdout.write(resolved);
   CustomGeometryEvaluationError,
   degrees,
   evaluateCustomGeometry,
+  ImageModel,
   PRESET_SHAPE_TYPES,
   PptxDocument,
   ShapeModel,
   TableModel,
   inches,
   type AddCustomShapeOptions,
+  type AddImageOptions,
   type AddShapeOptions,
   type CustomGeometry,
   type CustomGeometryCommand,
@@ -3309,6 +3437,7 @@ process.stdout.write(resolved);
   type ShapeAdjustment,
   type ShapeShadow,
   type PresetShapeType,
+  type RasterImageContentType,
   type SlideModel,
   type CustomSlideSize,
   type AddSectionOptions,
@@ -3358,6 +3487,24 @@ process.stdout.write(resolved);
 
 const documentPromise: Promise<PptxDocument> = PptxDocument.open(new Uint8Array());
 const createdDocument: PptxDocument = PptxDocument.create({ format: 'pptx', slideSize: 'wide' });
+const typedRasterContentType: RasterImageContentType = 'image/png';
+const typedRasterOptions: AddImageOptions = {
+  contentType: typedRasterContentType,
+  width: inches(2),
+  height: inches(1),
+};
+const typedRasterImage: ImageModel = createdDocument.addSlide()
+  .addImage(new Uint8Array([1]), typedRasterOptions);
+typedRasterImage.setTransform({ x: inches(2) });
+typedRasterImage.replaceData(new Uint8Array([2]), 'image/png');
+// @ts-expect-error raster image content types exclude SVG
+const invalidRasterSvg: RasterImageContentType = 'image/svg+xml';
+// @ts-expect-error embedded raster image options require contentType
+const invalidRasterMissingType: AddImageOptions = {};
+// @ts-expect-error embedded raster creation excludes path loading
+const invalidRasterPath: AddImageOptions = { contentType: 'image/png', path: './image.png' };
+// @ts-expect-error embedded raster creation excludes data-URI loading
+const invalidRasterData: AddImageOptions = { contentType: 'image/png', data: 'data:image/png;base64,AQ==' };
 const typedPreset: PresetShapeType = 'foldedCorner';
 const typedCustomPoint: CustomGeometryPoint = { x: 1, y: 2 };
 const typedCustomCommand: CustomGeometryCommand = {
@@ -4015,7 +4162,7 @@ void [typedPreset, typedNoneShapeFill, typedSolidShapeFill, typedShapeOptions, t
   typedShapeShadowRead, invalidMissingShapeShadowKind, invalidNoneShapeShadowKind,
   invalidInnerShapeShadowRotate, invalidShapeShadowOffset, invalidShapeShadowType,
   invalidUnknownShapeShadow, invalidShapeShadowFieldType];
-void [documentPromise, createdDocument, addSectionOptions, typedSection, addSlideOptions, sectionSnapshot, typedVisibilitySlide, hiddenSnapshot, globalRtl, globalRtlSnapshot, titledDocument, titleSnapshot, authoredDocument, authorSnapshot, lastModifiedDocument, lastModifiedSnapshot, createdAtDocument, createdAtSnapshot, modifiedAtDocument, modifiedAtSnapshot, subjectDocument, subjectSnapshot, revisionDocument, revisionSnapshot, companyDocument, companySnapshot, themedDocument, themeSnapshot, fontSnapshot, fontUpdate, customDocument, createdText, creationBorder, creationMargin, creationOptions, objectCell, tableRows, tableOptions, typedTable, widthSnapshot, heightSnapshot, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotHorizontalAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellHorizontalAlignment, tableHorizontalAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
+void [documentPromise, createdDocument, typedRasterContentType, typedRasterOptions, typedRasterImage, invalidRasterSvg, invalidRasterMissingType, invalidRasterPath, invalidRasterData, addSectionOptions, typedSection, addSlideOptions, sectionSnapshot, typedVisibilitySlide, hiddenSnapshot, globalRtl, globalRtlSnapshot, titledDocument, titleSnapshot, authoredDocument, authorSnapshot, lastModifiedDocument, lastModifiedSnapshot, createdAtDocument, createdAtSnapshot, modifiedAtDocument, modifiedAtSnapshot, subjectDocument, subjectSnapshot, revisionDocument, revisionSnapshot, companyDocument, companySnapshot, themedDocument, themeSnapshot, fontSnapshot, fontUpdate, customDocument, createdText, creationBorder, creationMargin, creationOptions, objectCell, tableRows, tableOptions, typedTable, widthSnapshot, heightSnapshot, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotHorizontalAlignment, tableHorizontalAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellHorizontalAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
 `,
   );
   run(
@@ -4045,7 +4192,7 @@ void [documentPromise, createdDocument, addSectionOptions, typedSection, addSlid
   if (!doctor.ok || doctor.data?.version !== '0.1.0') throw new Error(`CLI smoke failed: ${cliResult.stdout}`);
 
   process.stdout.write(
-    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, types: true, cli: doctor.data.version })}\n`,
+    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, types: true, cli: doctor.data.version })}\n`,
   );
 } finally {
   await rm(directory, { recursive: true, force: true });
