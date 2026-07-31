@@ -65,6 +65,14 @@ const shape = slide.addShape('roundRect', {
     dash: 'dashDot',
   },
   arrows: { begin: 'triangle', end: 'arrow' },
+  shadow: {
+    kind: 'outer',
+    color: { kind: 'srgb', value: '000000' },
+    opacity: 0.35,
+    blur: 6,
+    angle: 45,
+    distance: 4,
+  },
   hyperlink: {
     url: 'https://example.com/docs',
     tooltip: 'Open documentation',
@@ -73,6 +81,15 @@ const shape = slide.addShape('roundRect', {
 shape.arrows = { begin: 'diamond' };
 shape.arrows = { begin: 'none', end: 'oval' };
 shape.arrows = undefined;
+shape.shadow = {
+  kind: 'inner',
+  color: { kind: 'scheme', value: 'accent2' },
+  opacity: 0.5,
+  blur: 3,
+  angle: 270,
+  distance: 2,
+};
+shape.shadow = undefined;
 document.addSlide(); // creates slide 2 as an internal-link target
 shape.hyperlink = { slide: 2, tooltip: 'Go to details' };
 shape.hyperlink = { url: 'mailto:team@example.com', tooltip: '' };
@@ -128,7 +145,7 @@ table.setCellFill(0, 0, { kind: 'solid', color: { kind: 'scheme', value: 'accent
 await document.writeFile('created.pptx');
 ```
 
-`PRESET_SHAPE_TYPES` is the frozen discovery catalog for all 178 canonical preset geometries accepted by `SlideModel.addShape()`. `AddShapeOptions` accepts `name`, strict `fill`, strict `line`, strict `arrows`, and native EMU/OOXML-angle transform fields; use `inches()` and `degrees()` for ergonomic conversion. Omitted geometry starts at x/y/width/height = 1 inch with zero rotation and no flips; omitted fill creates direct no-fill, and omitted line keeps the canonical empty line container. Inputs are strict, descriptor-safe, detached before mutation, and reject unknown fields. The catalog uses the valid OOXML `foldedCorner`; PptxGenJS 4.0.1's invalid `folderCorner` token and runtime-only `custGeom` value are not accepted as presets.
+`PRESET_SHAPE_TYPES` is the frozen discovery catalog for all 178 canonical preset geometries accepted by `SlideModel.addShape()`. `AddShapeOptions` accepts `name`, strict `fill`, strict `line`, strict `arrows`, strict `shadow`, strict `hyperlink`, and native EMU/OOXML-angle transform fields; use `inches()` and `degrees()` for ergonomic conversion. Omitted geometry starts at x/y/width/height = 1 inch with zero rotation and no flips; omitted fill creates direct no-fill, and omitted line keeps the canonical empty line container. Inputs are strict, descriptor-safe, detached before mutation, and reject unknown fields. The catalog uses the valid OOXML `foldedCorner`; PptxGenJS 4.0.1's invalid `folderCorner` token and runtime-only `custGeom` value are not accepted as presets.
 
 `ShapeModel.presetType` reads only one safe direct canonical preset geometry. Reassigning the same type is an exact no-op; changing the type replaces only the geometry and clears old adjustment handles while preserving transform, name, fill, line, arrows, effects, text, order, and model identity. Creation, duplicate isolation, rollback, write/reopen, Node/browser bundles, and PptxGenJS public output are covered.
 
@@ -138,7 +155,9 @@ await document.writeFile('created.pptx');
 
 `ShapeArrowType` is the closed `none | arrow | diamond | oval | stealth | triangle` union. `AddShapeOptions.arrows` and `ShapeModel.arrows` use a detached `ShapeArrows` snapshot with optional `begin` / `end`; assignment is a whole replacement, so an omitted side is cleared, explicit `none` remains a direct endpoint, and `undefined` or `{}` clears both endpoints. Arrow edits own only direct head/tail children: clearing arrows preserves line width/fill/dash, while clearing `ShapeModel.line` preserves arrows. Arrows-only creation writes no implicit line color, width, or dash. Existing legal endpoint `w` / `len` values (`sm | med | lg`) remain lossless during type edits but are not exposed as editable size state. PptxGenJS 4.0.1 instead materializes `333333`/1pt/solid for arrow-only input, ignores empty/nested deprecated aliases, maps top-level deprecated aliases, and can pass invalid runtime tokens through; native rejects aliases and invalid tokens before mutation.
 
-`Hyperlink` is a mutually exclusive `{ url, tooltip? } | { slide, tooltip? }` union used by `AddShapeOptions.hyperlink` and `ShapeModel.hyperlink`. URLs must be non-empty XML-safe strings; slide targets are one-based positive safe integers that must exist when assigned. Inputs and frozen getter snapshots are detached. Assignment is a whole replacement, so an omitted tooltip removes the direct attribute, an explicit empty tooltip preserves `tooltip=""`, and `undefined` clears the click link. Same-value assignment is an exact no-op. Internal relationships preserve target-slide identity across insert, delete, and reorder; duplicate self-links retarget to the duplicate, target deletion cleans click/hover references, and shared relationships use reference-aware clone-on-write and garbage collection. PptxGenJS 4.0.1 materializes an omitted tooltip as empty and can console-ignore or coerce invalid runtime values into duplicate or dangling links; native rejects those values before mutation. External links intentionally produce the validator's portability warning. Hover editing, text-run/table/image/chart/media hyperlink creation, action navigation, arrow size, cap/compound/alignment/join editing, advanced line fill/custom dash creation, shadow, adjustment editing, custom geometry, shape-text creation options, and percentage positions remain pending.
+`ShapeShadow` is the strict `kind: 'outer' | 'inner'` union used by `AddShapeOptions.shadow` and `ShapeModel.shadow`. Both kinds accept sRGB/theme color, finite `0..1` opacity, `0..100` point blur, `0 <= angle < 360` degrees, and `0..200` point distance; only outer accepts `rotateWithShape`. Defaults are black, 0.75 opacity, 8pt blur, 270°, 4pt distance, and outer rotate false. Explicit zero survives normalization. Inputs are deeply detached before mutation, getter snapshots are detached and deep-frozen, assignment is a whole replacement, same-value assignment is an exact bytes/journal no-op, and `undefined` removes only the direct inner/outer child while retaining `effectLst` and legal sibling effects. PptxGenJS 4.0.1 omission and `type: 'none'` map to native `undefined`, and its legacy `offset` maps conceptually to native `distance`; native deliberately rejects its zero-value fallback, ignored rotate flag, invalid passthrough, and malformed inner closing tag. Generic/advanced effects, preset shadow, custom shadow transforms, and non-shape shadow APIs remain outside this focused surface.
+
+`Hyperlink` is a mutually exclusive `{ url, tooltip? } | { slide, tooltip? }` union used by `AddShapeOptions.hyperlink` and `ShapeModel.hyperlink`. URLs must be non-empty XML-safe strings; slide targets are one-based positive safe integers that must exist when assigned. Inputs and frozen getter snapshots are detached. Assignment is a whole replacement, so an omitted tooltip removes the direct attribute, an explicit empty tooltip preserves `tooltip=""`, and `undefined` clears the click link. Same-value assignment is an exact no-op. Internal relationships preserve target-slide identity across insert, delete, and reorder; duplicate self-links retarget to the duplicate, target deletion cleans click/hover references, and shared relationships use reference-aware clone-on-write and garbage collection. PptxGenJS 4.0.1 materializes an omitted tooltip as empty and can console-ignore or coerce invalid runtime values into duplicate or dangling links; native rejects those values before mutation. External links intentionally produce the validator's portability warning. Hover editing, text-run/table/image/chart/media hyperlink creation, action navigation, arrow size, cap/compound/alignment/join editing, advanced line fill/custom dash creation, adjustment editing, custom geometry, shape-text creation options, and percentage positions remain pending.
 
 `CreatePresentationOptions.title` and live `document.title` use the direct core-properties title. Omitted creation input writes no title, `''` writes an explicit empty title, and `undefined` clears only the direct field. Values are strict XML-safe strings; reads follow the package-root core-properties relationship instead of assuming a part URI or prefix, same-value/absent-clear operations are exact no-ops, missing metadata can be created, and unrelated subject/creator/revision/unknown content is preserved. Unsafe malformed or ambiguous ownership is rejected rather than guessed. PptxGenJS 4.0.1 defaults its own public `title` to `PptxGenJS Presentation`; native omitted creation intentionally remains `undefined`.
 

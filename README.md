@@ -16,7 +16,7 @@ document.slides[0].title.text = 'Updated';
 await document.writeFile('output.pptx');
 ```
 
-## 创建和编辑形状填充、线条、箭头与链接
+## 创建和编辑形状填充、线条、箭头、阴影与链接
 
 ```ts
 import { PptxDocument } from '@jiayunxie/pptx';
@@ -37,6 +37,14 @@ const shape = slide.addShape('roundRect', {
     dash: 'dashDot',
   },
   arrows: { begin: 'triangle', end: 'arrow' },
+  shadow: {
+    kind: 'outer',
+    color: { kind: 'srgb', value: '000000' },
+    opacity: 0.35,
+    blur: 6,
+    angle: 45,
+    distance: 4,
+  },
   hyperlink: {
     url: 'https://example.com/docs',
     tooltip: '打开文档',
@@ -52,6 +60,15 @@ shape.line = undefined;
 shape.arrows = { begin: 'diamond' }; // 同时清除省略的 end
 shape.arrows = { begin: 'none', end: 'oval' };
 shape.arrows = undefined; // 清除两端，保留线条样式
+shape.shadow = {
+  kind: 'inner',
+  color: { kind: 'scheme', value: 'accent2' },
+  opacity: 0.5,
+  blur: 3,
+  angle: 270,
+  distance: 2,
+};
+shape.shadow = undefined;
 document.addSlide(); // 创建第 2 页作为内部链接目标
 shape.hyperlink = { slide: 2, tooltip: '前往详情' };
 shape.hyperlink = { url: 'mailto:team@example.com', tooltip: '' };
@@ -64,7 +81,9 @@ shape.hyperlink = undefined;
 
 `AddShapeOptions.arrows` 与 `ShapeModel.arrows` 支持 begin/end 的 `none | arrow | diamond | oval | stealth | triangle`。快照与输入脱离；赋值采用 whole replacement，缺失的一端会被清除，显式 `none` 则保留对应 direct endpoint。`undefined` 只清除两端而保留 line，反向的 `shape.line = undefined` 也保留 arrows。只创建 arrows 不会隐式生成颜色、宽度或 dash；已有合法 `w` / `len` size 会在类型编辑中无损保留，但 size 创建/读取/编辑尚未公开。
 
-`AddShapeOptions.hyperlink` 与 `ShapeModel.hyperlink` 支持整个 preset shape 的 click URL 或内部页链接。输入必须恰好包含一个非空 `url` 或一个当前文稿内的一基 `slide`；`tooltip` 可省略，也可显式为空。Getter 返回 detached frozen snapshot，setter 采用 whole replacement，同值赋值为 exact no-op，`undefined` 清除 click link。内部关系按目标页 identity 保存，移动或在目标前插删页面只更新 getter ordinal；复制 self-link 会指向副本自身，删除目标页会清理相关 click/hover，shared relationship 则按引用 clone-on-write 与回收。外部链接产生 validator 的预期可移植性 warning。Hover 编辑、text-run/table/image/chart/media 链接创建、action navigation、shadow、adjustment、custom geometry、advanced line fill/custom dash 和 percentage positions 仍待后续小项。
+`AddShapeOptions.shadow` 与 `ShapeModel.shadow` 支持 direct outer/inner shadow 的创建、读取、whole replacement 与清除，包括 sRGB/theme color、`0..1` opacity、`0..100pt` blur、`0..<360°` angle、`0..200pt` distance，以及 outer-only `rotateWithShape`。默认值为 black、0.75、8pt、270°、4pt 和 outer rotate false；显式 zero 会保留。输入在 mutation 前深度脱离，getter 的嵌套快照会 deep-freeze；同值赋值是 exact no-op，`undefined` 只移除 direct shadow 并保留 `effectLst` 与 glow/reflection 等 sibling effects。Generic/advanced effects、custom shadow transforms，以及 text/image/table/chart/media 等非 preset-shape shadow API 仍待后续小项。
+
+`AddShapeOptions.hyperlink` 与 `ShapeModel.hyperlink` 支持整个 preset shape 的 click URL 或内部页链接。输入必须恰好包含一个非空 `url` 或一个当前文稿内的一基 `slide`；`tooltip` 可省略，也可显式为空。Getter 返回 detached frozen snapshot，setter 采用 whole replacement，同值赋值为 exact no-op，`undefined` 清除 click link。内部关系按目标页 identity 保存，移动或在目标前插删页面只更新 getter ordinal；复制 self-link 会指向副本自身，删除目标页会清理相关 click/hover，shared relationship 则按引用 clone-on-write 与回收。外部链接产生 validator 的预期可移植性 warning。Hover 编辑、text-run/table/image/chart/media 链接创建、action navigation、adjustment、custom geometry、advanced line fill/custom dash 和 percentage positions 仍待后续小项。
 
 ## 开发
 

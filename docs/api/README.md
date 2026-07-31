@@ -106,8 +106,8 @@ slide.notes = undefined;
 
 `SlideModel.notes` returns `string | undefined`: absence is lazy `undefined`, an explicit empty body is `''`, and `undefined` assignment clears only the selected slide's notes relationship and owned notes part. Both the property setter and chainable `addNotes(string)` accept only XML-safe strings, normalize CRLF/CR to LF, and preserve leading/trailing whitespace. Reads follow the unique internal slide→notesSlide relationship, validate its slide backlink and shared notes-master chain, and flatten the unique direct body placeholder to plain text without mutating the package. Same-value assignment and clearing an absent value are exact byte/journal no-ops. Creation repairs a safely missing body placeholder and can create one canonical notes master only from fully absent, unambiguous topology using the presentation theme or first ordered slide-master theme; partial or ambiguous ownership is rejected before mutation. Duplication clones and retargets the per-slide notes part while retaining the shared master, deletion garbage-collects only unreferenced per-slide notes, and move/sections/hidden state remain independent. PptxGenJS 4.0.1 public output eagerly materializes empty notes for an omitted call; native creation intentionally distinguishes that from lazy `undefined`. This API is plain-text only and does not edit rich notes, notes-page layout, comments, header/footer/date fields, or slide numbers.
 
-Preset shapes can be created with direct fill and line state, and their direct geometry,
-fill, and line can be read or replaced:
+Preset shapes can be created with direct fill, line, arrow, shadow, and hyperlink state,
+and those direct values can be read or replaced:
 
 ```ts
 const slide = document.addSlide();
@@ -131,6 +131,14 @@ const shape = slide.addShape('roundRect', {
     dash: 'dashDot',
   },
   arrows: { begin: 'triangle', end: 'arrow' },
+  shadow: {
+    kind: 'outer',
+    color: { kind: 'srgb', value: '000000' },
+    opacity: 0.35,
+    blur: 6,
+    angle: 45,
+    distance: 4,
+  },
   hyperlink: {
     url: 'https://example.com/docs',
     tooltip: 'Open documentation',
@@ -142,6 +150,15 @@ shape.line = { kind: 'line', color: { kind: 'scheme', value: 'accent2' } };
 shape.arrows = { begin: 'diamond' }; // clears the omitted end
 shape.arrows = { begin: 'none', end: 'oval' };
 shape.arrows = undefined; // clears both endpoints, preserves line style
+shape.shadow = {
+  kind: 'inner',
+  color: { kind: 'scheme', value: 'accent2' },
+  opacity: 0.5,
+  blur: 3,
+  angle: 270,
+  distance: 2,
+};
+shape.shadow = undefined;
 document.addSlide(); // creates slide 2 as an internal-link target
 shape.hyperlink = { slide: 2, tooltip: 'Go to details' };
 shape.hyperlink = { url: 'mailto:team@example.com', tooltip: '' };
@@ -150,7 +167,7 @@ console.log(shape.presetType); // 'hexagon'
 console.log(PRESET_SHAPE_TYPES.length); // 178
 ```
 
-`PRESET_SHAPE_TYPES` is a runtime-frozen tuple of the 178 canonical preset tokens; `PresetShapeType` is derived from it. `SlideModel.addShape(type, options?)` accepts `name`, strict `fill`, strict `line`, strict `arrows`, strict `hyperlink`, and `Partial<Transform>` in native EMU and OOXML-angle units. Omitted x/y/width/height are each one inch, rotation is zero, both flips are false, the default name is `Shape ${id}`, omitted fill creates direct `a:noFill`, and omitted line keeps an empty direct `a:ln`. Options must be ordinary or null-prototype objects with supported own data properties; accessors, inherited/unknown/symbol keys, invalid XML strings, unsafe numbers, non-positive extents, invalid rotation, and non-boolean flips are rejected before package mutation.
+`PRESET_SHAPE_TYPES` is a runtime-frozen tuple of the 178 canonical preset tokens; `PresetShapeType` is derived from it. `SlideModel.addShape(type, options?)` accepts `name`, strict `fill`, strict `line`, strict `arrows`, strict `shadow`, strict `hyperlink`, and `Partial<Transform>` in native EMU and OOXML-angle units. Omitted x/y/width/height are each one inch, rotation is zero, both flips are false, the default name is `Shape ${id}`, omitted fill creates direct `a:noFill`, and omitted line keeps an empty direct `a:ln`. Options must be ordinary or null-prototype objects with supported own data properties; accessors, inherited/unknown/symbol keys, invalid XML strings, unsafe numbers, non-positive extents, invalid rotation, and non-boolean flips are rejected before package mutation.
 
 `ShapeModel.presetType` returns a canonical token only for one namespace-correct direct `p:spPr/a:prstGeom`; missing, unknown, nested, malformed, repeated, or qualified-lookalike geometry returns `undefined` without mutation. Assigning the current token preserves the exact geometry bytes, including adjustments. Assigning another canonical token whole-replaces only that direct geometry with one empty `a:avLst`, intentionally clearing stale adjustments while preserving non-visual identity, transform, fill, line, arrows, effects, extensions, text, shape order, and the live model object. Creation and replacement are transactional and remain isolated through duplication, rollback, all six formats, write, and reopen. PptxGenJS 4.0.1 public `ShapeType/addShape/write` output is compared semantically for every legal token. Its `folderCorner` value is invalid OOXML and reads as `undefined`; native uses valid `foldedCorner` and reserves `custGeom` for a future custom-geometry API.
 
@@ -160,9 +177,11 @@ console.log(PRESET_SHAPE_TYPES.length); // 178
 
 `ShapeArrowType` is `none | arrow | diamond | oval | stealth | triangle`. `ShapeArrows` has optional readonly `begin` / `end` fields and is used by `AddShapeOptions.arrows` and `ShapeModel.arrows`. Inputs and getter results are detached; the setter is a whole replacement, so a missing side clears that endpoint, explicit `none` stays distinguishable from absence, and `undefined` or an empty object clears both. Same-value assignment is an exact no-op. Arrow edits preserve line width/fill/dash, joins, extensions, advanced line state, and unrelated attributes; line clear/edit operations preserve arrows. Arrows-only creation writes a line container with endpoints but does not synthesize color, width, or dash. A unique safe existing endpoint may carry legal `w` / `len` values `sm | med | lg`; type replacement preserves them lexically, but size is not returned or editable. Malformed, duplicate, reversed, wrong-namespace, or unsupported endpoints read as `undefined` and reject arrow mutation without package changes.
 
+`ShapeShadow` is the strict outer/inner direct-state union used by `AddShapeOptions.shadow` and `ShapeModel.shadow`. Both branches accept optional `RichTextColor`, finite `0..1` opacity, `0..100` point blur, `0 <= angle < 360` degrees, and `0..200` point distance; only outer accepts `rotateWithShape`. Omitted fields normalize to black, 0.75, 8pt, 270°, 4pt, and outer rotate false, while every explicit zero remains zero. Inputs and nested colors are detached before mutation; getter snapshots are detached and deep-frozen. Assignment is a whole replacement, same-value assignment is an exact bytes/journal no-op, kind switches replace only the direct shadow child, and `undefined` removes only that child while retaining `effectLst` plus legal glow, preset-shadow, reflection, soft-edge, blur, or fill-overlay siblings. A malformed, ambiguous, wrong-namespace, `effectDag`, or unsafe schema-order state reads as `undefined` and rejects mutation without package changes. PptxGenJS 4.0.1 omitted shadow and `type: 'none'` map to native `undefined`; its `offset` is native `distance`. Native preserves explicit zero, honors outer rotation, emits legal inner XML, supports theme colors, and rejects invalid passthrough instead of copying PptxGenJS's falsy fallback, ignored rotate flag, malformed inner closing tag, or out-of-range output. Generic effect stacks, custom shadow transforms, preset-shadow editing, and shadow APIs for images, text creation, tables, charts, media, and other owners remain outside this focused shape API.
+
 `Hyperlink` is the mutually exclusive `{ readonly url: string; readonly tooltip?: string } | { readonly slide: number; readonly tooltip?: string }` value used by `AddShapeOptions.hyperlink` and `ShapeModel.hyperlink`. A URL must be a non-empty XML-safe string; a slide number must be a one-based positive safe integer resolving to a current presentation slide at assignment time. Inputs must be descriptor-safe ordinary or null-prototype objects with exactly one target and no unknown keys. Getter results are detached frozen direct-state snapshots. Tooltip absence remains property absence, while direct empty remains `tooltip: ''`; assignment is a whole replacement, omitted tooltip clears only that attribute, and `undefined` removes the supported click element. Same-value assignment is an exact bytes/journal no-op. URL/slide switching reuses an unshared relationship or clones on write when its ID is referenced elsewhere, and clear or replacement garbage-collects only unreferenced relationships. Internal links retain target-part identity while slide insert/delete/reorder changes the reported one-based ordinal; duplicate self-links retarget to the duplicate, and deleting a target removes incoming DrawingML click/hover elements before deleting their relationships. Unsupported hover editing, extra action/sound/history state, duplicate/malformed click ownership, or dangling/wrong-type relationships are never guessed: reads return `undefined`, and writes reject without package changes. PptxGenJS 4.0.1 materializes omitted tooltip as direct empty and may console-ignore, coerce, duplicate, or dangle invalid runtime targets; native supports the valid final semantics but rejects those defects before mutation. External hyperlinks produce the expected portability warning rather than a package error. Text-run, table, image, chart, media, group, and graphic-frame hyperlink creation, hover links, action-only navigation, and relative/file safety policy remain outside this shape-level API.
 
-Arrow size, cap/compound/alignment/join editing, shadows, adjustment editing, custom geometry, shape-text creation options, advanced line fill/custom dash creation, and percentage positions remain pending.
+Arrow size, cap/compound/alignment/join editing, generic/advanced effects, custom shadow transforms, non-shape shadow APIs, adjustment editing, custom geometry, shape-text creation options, advanced line fill/custom dash creation, and percentage positions remain pending.
 
 Shape kinds include `text`, `shape`, `image`, `table`, `chart`, `graphic-frame`, and `group`. Images expose embedded part URIs and replacement; tables support basic native creation plus rows/cells, cell text, borders, fill, margins, horizontal/vertical alignment, text-direction, and text-fit editing; charts expose cached series and lossless chart XML editing.
 
