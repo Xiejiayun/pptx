@@ -52,6 +52,11 @@ export const PRESET_SHAPE_TYPES = Object.freeze([
 
 export type PresetShapeType = (typeof PRESET_SHAPE_TYPES)[number];
 
+export interface ShapeAdjustment {
+  readonly name: string;
+  readonly value: number;
+}
+
 export type ShapeFill =
   | { readonly kind: 'none' }
   | {
