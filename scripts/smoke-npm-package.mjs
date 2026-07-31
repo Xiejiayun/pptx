@@ -218,6 +218,161 @@ const shapeFills = packedSrgbFill instanceof ShapeModel &&
     { kind: 'none' },
   ]);
 const createdText = created.addSlide().addText('Smoke\\n\\nParagraph', { align: 'center', fit: 'shrink', valign: 'top', vert: 'vert270', wrap: false, bullet: true, level: 2, margin: 10, rtlMode: true, spacing: { before: 4, after: 6, line: { kind: 'exact', points: 20 } }, tabStops: [{ position: 1.25 }, { position: 2.5, alignment: 'right' }] });
+const shapeLineDeck = PptxDocument.create();
+const shapeLineSlide = shapeLineDeck.addSlide();
+const shapeLineSourceColor = { kind: 'srgb', value: '#AA0000' };
+const shapeLineSource = {
+  kind: 'line',
+  color: shapeLineSourceColor,
+  transparency: 33.3334,
+  width: 2.50001,
+  dash: 'dashDot',
+};
+const packedSrgbLine = shapeLineSlide.addShape('rect', {
+  name: 'Packed sRGB line',
+  line: shapeLineSource,
+});
+const packedSchemeLine = shapeLineSlide.addShape('ellipse', {
+  name: 'Packed scheme line',
+  line: {
+    kind: 'line',
+    color: { kind: 'scheme', value: 'accent2' },
+    transparency: 25,
+  },
+});
+const packedNoneLine = shapeLineSlide.addShape('star5', {
+  name: 'Packed none line',
+  line: { kind: 'none' },
+});
+const packedZeroWidthLine = shapeLineSlide.addShape('diamond', {
+  name: 'Packed zero-width line',
+  line: {
+    kind: 'line',
+    color: { kind: 'srgb', value: '112233' },
+    width: 0,
+    dash: 'sysDot',
+  },
+});
+const packedLineDashes = [
+  'solid', 'dash', 'dashDot', 'lgDash',
+  'lgDashDot', 'lgDashDotDot', 'sysDash', 'sysDot',
+];
+const packedDashLines = packedLineDashes.map((dash) => shapeLineSlide.addShape('roundRect', {
+  name: 'Packed dash ' + dash,
+  line: {
+    kind: 'line',
+    color: { kind: 'srgb', value: '445566' },
+    dash,
+  },
+}));
+const initialPackedSrgbLine = packedSrgbLine.line;
+const initialPackedSrgbLineAgain = packedSrgbLine.line;
+shapeLineSourceColor.value = '000000';
+shapeLineSource.transparency = 1;
+shapeLineSource.width = 9;
+shapeLineSource.dash = 'solid';
+const detachedPackedSrgbLine = packedSrgbLine.line;
+const shapeLinePartCountBeforeEdit = shapeLineDeck.opcPackage.parts.length;
+const shapeLineRelationshipCountBeforeEdit = shapeLineSlide.relationships.length;
+const shapeLineNoOpBytes = shapeLineDeck.opcPackage.requirePart(shapeLineSlide.partUri).bytes.slice();
+const shapeLineNoOpJournalLength = shapeLineDeck.opcPackage.mutations.length;
+packedSrgbLine.line = {
+  kind: 'line',
+  color: { kind: 'srgb', value: 'AA0000' },
+  transparency: 33.333,
+  width: 31_750 / 12_700,
+  dash: 'dashDot',
+};
+const currentShapeLineNoOpBytes = shapeLineDeck.opcPackage.requirePart(shapeLineSlide.partUri).bytes;
+const shapeLineNoOp = shapeLineNoOpJournalLength === shapeLineDeck.opcPackage.mutations.length &&
+  shapeLineNoOpBytes.length === currentShapeLineNoOpBytes.length &&
+  shapeLineNoOpBytes.every((value, index) => value === currentShapeLineNoOpBytes[index]);
+const linePart = shapeLineDeck.opcPackage.requirePart(shapeLineSlide.partUri);
+const lineXml = new TextDecoder().decode(linePart.bytes);
+const lineXmlWithArrows = lineXml.replace(
+  '<a:prstDash val="dashDot"/></a:ln>',
+  '<a:prstDash val="dashDot"/><a:round/><a:headEnd type="triangle"/>' +
+  '<a:tailEnd type="arrow"/><a:extLst><a:ext uri="urn:packed-line">' +
+  '<x:keep xmlns:x="urn:packed-line"/></a:ext></a:extLst></a:ln>',
+);
+if (lineXmlWithArrows === lineXml) throw new Error('Packed line arrow injection failed');
+shapeLineDeck.opcPackage.setPart(shapeLineSlide.partUri, lineXmlWithArrows, linePart.contentType);
+packedSrgbLine.line = { kind: 'none' };
+const packedNoneLineReplacement = packedSrgbLine.line;
+packedSrgbLine.line = undefined;
+const packedClearedLine = packedSrgbLine.line;
+packedSrgbLine.line = {
+  kind: 'line',
+  color: { kind: 'scheme', value: 'accent4' },
+  transparency: 40,
+  width: 2,
+  dash: 'sysDash',
+};
+const shapeLineEditedXml = new TextDecoder().decode(
+  shapeLineDeck.opcPackage.requirePart(shapeLineSlide.partUri).bytes,
+);
+const shapeLinePreservedSiblings = shapeLineEditedXml.includes('<a:round/>') &&
+  shapeLineEditedXml.includes('<a:headEnd type="triangle"/>') &&
+  shapeLineEditedXml.includes('<a:tailEnd type="arrow"/>') &&
+  shapeLineEditedXml.includes('<x:keep xmlns:x="urn:packed-line"/>');
+const shapeLineEditIsolation = shapeLineDeck.opcPackage.parts.length ===
+  shapeLinePartCountBeforeEdit &&
+  shapeLineSlide.relationships.length === shapeLineRelationshipCountBeforeEdit;
+const duplicateShapeLineSlide = shapeLineDeck.duplicateSlide(0);
+const duplicatePackedLine = duplicateShapeLineSlide.shapes[0];
+if (!(duplicatePackedLine instanceof ShapeModel)) throw new Error('Packed duplicate line shape failed');
+duplicatePackedLine.line = { kind: 'none' };
+const reopenedShapeLineDeck = await PptxDocument.open(await shapeLineDeck.write());
+const reopenedSourceLines = reopenedShapeLineDeck.slides[0].shapes.map((shape) =>
+  shape instanceof ShapeModel ? shape.line : undefined);
+const reopenedDuplicateLines = reopenedShapeLineDeck.slides[1].shapes.map((shape) =>
+  shape instanceof ShapeModel ? shape.line : undefined);
+const shapeLines = packedSrgbLine instanceof ShapeModel &&
+  packedSchemeLine instanceof ShapeModel &&
+  packedNoneLine instanceof ShapeModel &&
+  packedZeroWidthLine instanceof ShapeModel &&
+  initialPackedSrgbLine !== initialPackedSrgbLineAgain &&
+  initialPackedSrgbLine?.kind === 'line' &&
+  initialPackedSrgbLineAgain?.kind === 'line' &&
+  initialPackedSrgbLine.color !== initialPackedSrgbLineAgain.color &&
+  JSON.stringify(initialPackedSrgbLine) === JSON.stringify({
+    kind: 'line',
+    color: { kind: 'srgb', value: 'AA0000' },
+    transparency: 33.333,
+    width: 31_750 / 12_700,
+    dash: 'dashDot',
+  }) &&
+  JSON.stringify(detachedPackedSrgbLine) === JSON.stringify(initialPackedSrgbLine) &&
+  packedNoneLineReplacement?.kind === 'none' &&
+  packedClearedLine === undefined &&
+  shapeLineNoOp &&
+  shapeLineEditIsolation &&
+  shapeLinePreservedSiblings &&
+  JSON.stringify(packedSrgbLine.line) === JSON.stringify({
+    kind: 'line',
+    color: { kind: 'scheme', value: 'accent4' },
+    transparency: 40,
+    width: 2,
+    dash: 'sysDash',
+  }) &&
+  JSON.stringify(packedSchemeLine.line) === JSON.stringify({
+    kind: 'line',
+    color: { kind: 'scheme', value: 'accent2' },
+    transparency: 25,
+    width: 1,
+    dash: 'solid',
+  }) &&
+  packedNoneLine.line?.kind === 'none' &&
+  packedZeroWidthLine.line?.kind === 'line' &&
+  packedZeroWidthLine.line.width === 0 &&
+  packedZeroWidthLine.line.dash === 'sysDot' &&
+  packedDashLines.every((shape, index) => shape.line?.kind === 'line' &&
+    shape.line.dash === packedLineDashes[index]) &&
+  duplicatePackedLine.line?.kind === 'none' &&
+  JSON.stringify(reopenedSourceLines[0]) === JSON.stringify(packedSrgbLine.line) &&
+  JSON.stringify(reopenedDuplicateLines[0]) === JSON.stringify({ kind: 'none' }) &&
+  reopenedSourceLines.slice(4).every((line, index) =>
+    line?.kind === 'line' && line.dash === packedLineDashes[index]);
 const initialTextWrap = createdText.textWrap;
 const initialTextDirection = createdText.textDirection;
 const initialTextFit = createdText.textFit;
@@ -763,6 +918,7 @@ const checks = {
   PptxDocument: typeof PptxDocument === 'function',
   presetShapes,
   shapeFills,
+  shapeLines,
   presentationRtl: presentationRtlEnabled === true && presentationRtlDisabled === false && presentationRtlCleared === undefined && paragraphRtlAfterGlobalClear[0] === true && paragraphRtlAfterGlobalClear[1] === false,
   presentationTitle: createdPresentationTitle === 'Packed & <Title>' && editedPresentationTitle === 'Edited title' && reopenedPresentationTitle === 'Edited title' && emptyPresentationTitle === '' && clearedPresentationTitle === undefined,
   presentationAuthor: createdPresentationAuthor === 'Packed & <Author>' && editedPresentationAuthor === 'Edited author' && reopenedPresentationAuthor === 'Edited author' && emptyPresentationAuthor === '' && clearedPresentationAuthor === undefined,
@@ -887,6 +1043,75 @@ if (Object.values(browserShapeFillChecks).some((value) => !value)) {
   throw new Error('Browser shape fill failed: ' + JSON.stringify({
     checks: browserShapeFillChecks,
     initial: browserInitialShapeFill,
+  }));
+}
+const browserLineDeck = PptxDocument.create();
+const browserLineSlide = browserLineDeck.addSlide();
+const browserLineColor = { kind: 'srgb', value: '#335577' };
+const browserLineSource = {
+  kind: 'line',
+  color: browserLineColor,
+  transparency: 12.3456,
+  width: 2.50001,
+  dash: 'dashDot',
+};
+const browserLinedShape = browserLineSlide.addShape('ellipse', {
+  line: browserLineSource,
+});
+const browserInitialLine = browserLinedShape.line;
+const browserInitialLineAgain = browserLinedShape.line;
+browserLineColor.value = 'FFFFFF';
+browserLineSource.transparency = 90;
+browserLineSource.width = 9;
+browserLineSource.dash = 'solid';
+const browserDetachedLine = browserLinedShape.line;
+const browserLinePartCount = browserLineDeck.opcPackage.parts.length;
+const browserLineRelationshipCount = browserLineSlide.relationships.length;
+browserLinedShape.line = { kind: 'none' };
+browserLinedShape.line = undefined;
+browserLinedShape.line = {
+  kind: 'line',
+  color: { kind: 'scheme', value: 'accent5' },
+  transparency: 50,
+  width: 0,
+  dash: 'sysDot',
+};
+const reopenedBrowserLineDeck = await PptxDocument.open(await browserLineDeck.writeBlob());
+const reopenedBrowserLine = reopenedBrowserLineDeck.slides[0]?.shapes[0]?.line;
+const browserLineChecks = {
+  initial: browserInitialLine?.kind === 'line' &&
+    browserInitialLine.color.kind === 'srgb' &&
+    browserInitialLine.color.value === '335577' &&
+    Math.abs((browserInitialLine.transparency ?? 0) - 12.346) < 1e-9 &&
+    browserInitialLine.width === 31_750 / 12_700 &&
+    browserInitialLine.dash === 'dashDot',
+  detached: browserInitialLine !== browserInitialLineAgain &&
+    browserInitialLine?.kind === 'line' &&
+    browserInitialLineAgain?.kind === 'line' &&
+    browserInitialLine.color !== browserInitialLineAgain.color &&
+    JSON.stringify(browserDetachedLine) === JSON.stringify(browserInitialLine),
+  partIsolation: browserLineDeck.opcPackage.parts.length === browserLinePartCount,
+  relationshipIsolation: browserLineSlide.relationships.length ===
+    browserLineRelationshipCount,
+  edited: JSON.stringify(browserLinedShape.line) === JSON.stringify({
+    kind: 'line',
+    color: { kind: 'scheme', value: 'accent5' },
+    transparency: 50,
+    width: 0,
+    dash: 'sysDot',
+  }),
+  reopened: JSON.stringify(reopenedBrowserLine) === JSON.stringify({
+    kind: 'line',
+    color: { kind: 'scheme', value: 'accent5' },
+    transparency: 50,
+    width: 0,
+    dash: 'sysDot',
+  }),
+};
+if (Object.values(browserLineChecks).some((value) => !value)) {
+  throw new Error('Browser shape line failed: ' + JSON.stringify({
+    checks: browserLineChecks,
+    initial: browserInitialLine,
   }));
 }
 const created = PptxDocument.create({ rtlMode: true, slideSize: '16:9' });
@@ -1271,6 +1496,8 @@ process.stdout.write(resolved);
   inches,
   type AddShapeOptions,
   type ShapeFill,
+  type ShapeLine,
+  type ShapeLineDash,
   type PresetShapeType,
   type SlideModel,
   type CustomSlideSize,
@@ -1328,6 +1555,15 @@ const typedSolidShapeFill: ShapeFill = {
   color: { kind: 'scheme', value: 'accent2' },
   transparency: 25,
 };
+const typedShapeLineDash: ShapeLineDash = 'lgDashDotDot';
+const typedNoneShapeLine: ShapeLine = { kind: 'none' };
+const typedSolidShapeLine: ShapeLine = {
+  kind: 'line',
+  color: { kind: 'scheme', value: 'accent3' },
+  transparency: 25,
+  width: 2.5,
+  dash: typedShapeLineDash,
+};
 const typedShapeOptions: AddShapeOptions = {
   x: inches(1),
   y: inches(2),
@@ -1337,6 +1573,7 @@ const typedShapeOptions: AddShapeOptions = {
   flipHorizontal: true,
   name: 'Typed shape',
   fill: typedSolidShapeFill,
+  line: typedSolidShapeLine,
 };
 const typedShape: ShapeModel = createdDocument.addSlide().addShape(
   typedPreset,
@@ -1348,6 +1585,10 @@ const typedShapeFillRead: ShapeFill | undefined = typedShape.fill;
 typedShape.fill = typedNoneShapeFill;
 typedShape.fill = typedSolidShapeFill;
 typedShape.fill = undefined;
+const typedShapeLineRead: ShapeLine | undefined = typedShape.line;
+typedShape.line = typedNoneShapeLine;
+typedShape.line = typedSolidShapeLine;
+typedShape.line = undefined;
 const typedPresetCatalog: readonly PresetShapeType[] = PRESET_SHAPE_TYPES;
 // @ts-expect-error folderCorner is not a canonical OOXML preset
 createdDocument.addSlide().addShape('folderCorner');
@@ -1363,6 +1604,18 @@ const invalidShapeFillKind: ShapeFill = { kind: 'gradient' };
 const invalidShapeFillColor: ShapeFill = { kind: 'solid', color: { kind: 'rgb', value: 'FF0000' } };
 // @ts-expect-error transparency is numeric
 const invalidShapeFillTransparency: ShapeFill = { kind: 'solid', color: { kind: 'srgb', value: 'FF0000' }, transparency: '50' };
+// @ts-expect-error solid is not the native shape-line discriminator
+const invalidShapeLineKind: ShapeLine = { kind: 'solid', color: { kind: 'srgb', value: 'FF0000' } };
+// @ts-expect-error shape line colors use srgb or scheme
+const invalidShapeLineColor: ShapeLine = { kind: 'line', color: { kind: 'rgb', value: 'FF0000' } };
+// @ts-expect-error shape line transparency is numeric
+const invalidShapeLineTransparency: ShapeLine = { kind: 'line', color: { kind: 'srgb', value: 'FF0000' }, transparency: '50' };
+// @ts-expect-error shape line width is numeric points
+const invalidShapeLineWidth: ShapeLine = { kind: 'line', color: { kind: 'srgb', value: 'FF0000' }, width: '2' };
+// @ts-expect-error shape line dash union is closed
+const invalidShapeLineDash: ShapeLineDash = 'dot';
+// @ts-expect-error PptxGenJS dashType is not a native alias
+const invalidShapeLineAlias: ShapeLine = { kind: 'line', color: { kind: 'srgb', value: 'FF0000' }, dashType: 'dash' };
 const addSectionOptions: AddSectionOptions = { title: 'Typed', order: 0 };
 const typedSection: PresentationSection = createdDocument.addSection(addSectionOptions);
 const addSlideOptions: AddSlideOptions = { sectionTitle: typedSection.title };
@@ -1595,7 +1848,10 @@ documentPromise.then((document) => {
 void [typedNotesSlide, notesSnapshot, returnedNotesSlide];
 void [typedPreset, typedNoneShapeFill, typedSolidShapeFill, typedShapeOptions, typedShape,
   typedPresetRead, typedShapeFillRead, typedPresetCatalog, invalidShapeFillKind,
-  invalidShapeFillColor, invalidShapeFillTransparency];
+  invalidShapeFillColor, invalidShapeFillTransparency, typedShapeLineDash,
+  typedNoneShapeLine, typedSolidShapeLine, typedShapeLineRead, invalidShapeLineKind,
+  invalidShapeLineColor, invalidShapeLineTransparency, invalidShapeLineWidth,
+  invalidShapeLineDash, invalidShapeLineAlias];
 void [documentPromise, createdDocument, addSectionOptions, typedSection, addSlideOptions, sectionSnapshot, typedVisibilitySlide, hiddenSnapshot, globalRtl, globalRtlSnapshot, titledDocument, titleSnapshot, authoredDocument, authorSnapshot, lastModifiedDocument, lastModifiedSnapshot, createdAtDocument, createdAtSnapshot, modifiedAtDocument, modifiedAtSnapshot, subjectDocument, subjectSnapshot, revisionDocument, revisionSnapshot, companyDocument, companySnapshot, themedDocument, themeSnapshot, fontSnapshot, fontUpdate, customDocument, createdText, creationBorder, creationMargin, creationOptions, objectCell, tableRows, tableOptions, typedTable, widthSnapshot, heightSnapshot, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotHorizontalAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellHorizontalAlignment, tableHorizontalAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
 `,
   );
@@ -1626,7 +1882,7 @@ void [documentPromise, createdDocument, addSectionOptions, typedSection, addSlid
   if (!doctor.ok || doctor.data?.version !== '0.1.0') throw new Error(`CLI smoke failed: ${cliResult.stdout}`);
 
   process.stdout.write(
-    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presetShapes: apiChecks.presetShapes, shapeFills: apiChecks.shapeFills, types: true, cli: doctor.data.version })}\n`,
+    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presetShapes: apiChecks.presetShapes, shapeFills: apiChecks.shapeFills, shapeLines: apiChecks.shapeLines, types: true, cli: doctor.data.version })}\n`,
   );
 } finally {
   await rm(directory, { recursive: true, force: true });
