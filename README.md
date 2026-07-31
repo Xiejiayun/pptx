@@ -16,7 +16,7 @@ document.slides[0].title.text = 'Updated';
 await document.writeFile('output.pptx');
 ```
 
-## 创建和编辑形状填充
+## 创建和编辑形状填充与线条
 
 ```ts
 import { PptxDocument } from '@jiayunxie/pptx';
@@ -29,14 +29,26 @@ const shape = slide.addShape('roundRect', {
     color: { kind: 'scheme', value: 'accent1' },
     transparency: 20,
   },
+  line: {
+    kind: 'line',
+    color: { kind: 'srgb', value: '1F4E78' },
+    transparency: 10,
+    width: 2.5,
+    dash: 'dashDot',
+  },
 });
 
 shape.fill = { kind: 'solid', color: { kind: 'srgb', value: 'FF0000' } };
 shape.fill = { kind: 'none' };
 shape.fill = undefined;
+shape.line = { kind: 'line', color: { kind: 'scheme', value: 'accent2' } };
+shape.line = { kind: 'none' };
+shape.line = undefined;
 ```
 
 `ShapeModel.fill` 支持 direct solid/no-fill 的创建、读取、编辑与清除。`{ kind: 'none' }` 写入明确的 direct no-fill，`undefined` 只清除 direct fill state；gradient、pattern、picture 和 group fill 不属于这个 simple-fill API。
+
+`ShapeModel.line` 支持 direct none/solid line 的创建、读取、编辑与清除，包括 sRGB/theme color、0–100% transparency、0–1584pt width 和 8 种 preset dash。省略 width/dash 默认 1pt/solid；`undefined` 只清除 line 的 width/fill/dash，同时保留 line 容器、箭头、join 和扩展节点。箭头创建/编辑、shadow、hyperlink、advanced line fill 与 custom dash 仍待后续小项。
 
 ## 开发
 
