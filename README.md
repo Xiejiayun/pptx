@@ -16,6 +16,48 @@ document.slides[0].title.text = 'Updated';
 await document.writeFile('output.pptx');
 ```
 
+## 从字节创建 PNG、JPEG 和 GIF 图片
+
+```ts
+import { readFile } from 'node:fs/promises';
+import {
+  degrees,
+  inches,
+  PptxDocument,
+  type AddImageOptions,
+  type RasterImageContentType,
+} from '@jiayunxie/pptx';
+
+const contentType: RasterImageContentType = 'image/png';
+const options: AddImageOptions = {
+  contentType,
+  name: 'Quarterly chart',
+  altText: 'Revenue by quarter',
+  x: inches(1),
+  y: inches(1.5),
+  width: inches(5),
+  height: inches(3),
+  rotation: degrees(10),
+};
+
+const document = PptxDocument.create();
+const image = document.addSlide().addImage(
+  new Uint8Array(await readFile('chart.png')),
+  options,
+);
+image.setTransform({ x: inches(1.5) });
+image.replaceData(new Uint8Array(await readFile('chart-updated.png')), 'image/png');
+await document.writeFile('images.pptx');
+```
+
+`RasterImageContentType` 当前严格限定为 `image/png | image/jpeg | image/gif`；`AddImageOptions.contentType` 必填，另可提供 `name`、`altText` 和 EMU/OOXML angle transform。输入必须是非空 `Uint8Array`，会立即复制并与 caller 脱离。省略 transform 时 x/y 为 0、width/height 为 1 inch、rotation 为 0、两个 flip 为 false；省略名称按当前页图片序号生成 `Image N`，省略 alt text 使用 `preencoded.png`，显式空字符串会保留。
+
+每次创建原子地拥有一个唯一 media part、一个 internal image relationship 和一个 canonical rectangular picture；任何验证或写入失败都会回滚 package、关系、slide XML 与 mutation journal。复制页面先共享图片 part，`ImageModel.replaceData()` 对独占 target 原位更新，对共享 target clone-on-write；六种 presentation format 都可创建、写出和重开。
+
+锁定 PptxGenJS 4.0.1 的公开 data-URI PNG/JPEG/GIF 输出可导入为相同最终语义。实际 npm tarball 的 Node/browser/types/CLI smoke 与 4 页、8 图片 gallery 已通过；原件和 LibreOffice 回存件均为 PowerPoint 2010 validation 0 errors / 0 warnings，180 DPI 无 overflow。LibreOffice 保留图片 bytes、content type、名称、顺序和内部关系，但会量化少量 EMU、把双 flip 合并进等价 rotation、重写 picture lock/fill markup，并把显式空 alt text 规范为缺省。
+
+当前仍未提供 path/URL/data-URI loader、格式或尺寸自动检测、contain/cover/crop sizing、SVG、rounding/transparency、alt-text 编辑、图片 hyperlink/shadow/placeholder，以及单图片删除与 media GC。
+
 ## 创建和编辑预设形状、调整值与样式
 
 ```ts

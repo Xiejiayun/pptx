@@ -160,6 +160,47 @@ table.setCellFill(0, 0, { kind: 'solid', color: { kind: 'scheme', value: 'accent
 await document.writeFile('created.pptx');
 ```
 
+## Create embedded raster images
+
+```ts
+import { readFile } from 'node:fs/promises';
+import {
+  degrees,
+  inches,
+  PptxDocument,
+  type AddImageOptions,
+  type RasterImageContentType,
+} from '@jiayunxie/pptx';
+
+const contentType: RasterImageContentType = 'image/png';
+const options: AddImageOptions = {
+  contentType,
+  name: 'Quarterly chart',
+  altText: 'Revenue by quarter',
+  x: inches(1),
+  y: inches(1.5),
+  width: inches(5),
+  height: inches(3),
+  rotation: degrees(10),
+};
+const imageDocument = PptxDocument.create();
+const image = imageDocument.addSlide().addImage(
+  new Uint8Array(await readFile('chart.png')),
+  options,
+);
+image.setTransform({ x: inches(1.5) });
+image.replaceData(new Uint8Array(await readFile('chart-updated.png')), 'image/png');
+await imageDocument.writeFile('images.pptx');
+```
+
+`RasterImageContentType` is the strict `image/png | image/jpeg | image/gif` union. `AddImageOptions` requires `contentType` and accepts `name`, `altText`, and native EMU/OOXML-angle transform fields. `SlideModel.addImage(bytes, options)` requires a non-empty `Uint8Array`, copies it before mutation, and returns the exact live `ImageModel` stored in `slide.shapes`. Omitted transforms are x/y 0, width/height one inch, rotation 0, and both flips false. Omitted names use the current slide image count as `Image N`; omitted alt text is `preencoded.png`, while an explicit empty string remains direct empty state.
+
+Creation atomically owns one unique media part, one internal image relationship, and one canonical rectangular picture with aspect lock and stretch fill. Validation or write failure rolls back the part, content type, relationship, slide XML, and mutation journal. Slide duplication initially shares media targets; `ImageModel.replaceData()` updates an exclusive target in place and redirects a shared shape to a private clone. Creation, transform editing, replacement, duplication, rollback, write/reopen, and all six presentation formats are covered.
+
+Valid PptxGenJS 4.0.1 public PNG/JPEG/GIF data input imports to the same supported final semantics; native deliberately requires bytes plus a canonical content type and does not copy PptxGenJS path/data precedence, console-only rejection, falsy sizing, or `image/jpg` quirks. The actual npm tarball passes Node, browser, declaration, and CLI smoke. Its four-slide gallery contains 16 shapes and 8 image targets; source and LibreOffice round-trip packages both strictly reopen, validate with 0 errors and 0 warnings, render at 2400×1350 without overflow, and were reviewed slide by slide. LibreOffice preserves all eight payload hashes, content types, names, ordering, and internal relationships, while normalizing transforms by at most 360 EMU, folding two flips into equivalent rotation, rewriting picture lock/fill markup, and changing explicit empty alt text to absence.
+
+Path/URL/data-URI loading, content-type and dimension detection, contain/cover/crop sizing, SVG, rounding/transparency, alt-text editing, image hyperlinks/shadows/placeholders, and public image deletion/media garbage collection remain pending.
+
 `PRESET_SHAPE_TYPES` is the frozen discovery catalog for all 178 canonical preset geometries accepted by `SlideModel.addShape()`. `AddShapeOptions` accepts `name`, strict `adjustments`, strict `fill`, strict `line`, strict `arrows`, strict `shadow`, strict `hyperlink`, and native EMU/OOXML-angle transform fields; use `inches()` and `degrees()` for ergonomic conversion. Omitted geometry starts at x/y/width/height = 1 inch with zero rotation and no flips; omitted fill creates direct no-fill, and omitted line keeps the canonical empty line container. Inputs are strict, descriptor-safe, detached before mutation, and reject unknown fields. The catalog uses the valid OOXML `foldedCorner`; PptxGenJS 4.0.1's invalid `folderCorner` token and runtime-only `custGeom` value are not accepted as presets.
 
 `ShapeModel.presetType` reads only one safe direct canonical preset geometry. Reassigning the same type is an exact no-op; changing the type replaces only the geometry and clears old adjustment guides while preserving transform, name, fill, line, arrows, effects, text, order, and model identity. Creation, duplicate isolation, rollback, write/reopen, Node/browser bundles, and PptxGenJS public output are covered.

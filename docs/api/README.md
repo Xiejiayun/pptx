@@ -80,6 +80,44 @@ await document.writeFile('output.pptx', {
 
 Inputs: `Uint8Array`, `ArrayBuffer`, `Blob`/`File`, Web `ReadableStream`, or async byte iterable. Node.js additionally accepts a file path or Node readable stream. `write()` returns `Uint8Array`; browsers can use `writeBlob()` or `download()`.
 
+## Embedded raster images
+
+```ts
+import {
+  degrees,
+  inches,
+  type AddImageOptions,
+  type RasterImageContentType,
+} from '@pptx/sdk';
+
+declare const pngBytes: Uint8Array;
+declare const updatedPngBytes: Uint8Array;
+const contentType: RasterImageContentType = 'image/png';
+const options: AddImageOptions = {
+  contentType,
+  name: 'Quarterly chart',
+  altText: 'Revenue by quarter',
+  x: inches(1),
+  y: inches(1.5),
+  width: inches(5),
+  height: inches(3),
+  rotation: degrees(10),
+};
+const image = created.addSlide().addImage(pngBytes, options);
+image.setTransform({ x: inches(1.5) });
+image.replaceData(updatedPngBytes, 'image/png');
+```
+
+`RasterImageContentType` is exactly `image/png | image/jpeg | image/gif`. `AddImageOptions` requires `contentType` and adds optional `name` and `altText` to `Partial<Transform>`. `SlideModel.addImage(bytes, options)` accepts only a non-empty `Uint8Array`, immediately copies it, validates descriptor-safe ordinary/null-prototype options without invoking getters, and returns the same live `ImageModel` found in `slide.shapes`. Defaults are x/y 0, width/height one inch, rotation 0, both flips false, name `Image N` where N is the current slide image count, and alt text `preencoded.png`; direct empty name and alt text remain empty.
+
+Each call allocates one unique `/ppt/media/imageN.{png|jpeg|gif}` part with the exact supplied content type and bytes, one internal image relationship from the slide, and canonical `p:pic` XML with rectangular geometry, `noChangeAspect`, and stretch/fillRect. Normalization happens before mutation, while part/relationship/XML writes run in one package transaction; any failure restores parts, content types, relationships, ZIP state, slide XML, shape IDs, object identity, and mutation journal. Unsupported or unknown options, empty/wrong-type bytes, noncanonical MIME values, unsafe transforms, invalid XML strings, and zero/nonpositive extents are rejected with no package change.
+
+The returned `ImageModel` exposes its inherited name/transform lifecycle plus `sourcePartUri`, `externalUrl`, and `replaceData()`. An exclusive embedded target is replaced in place; a shared target or relationship is cloned and only that image is retargeted. `duplicateSlide()` therefore starts with shared image parts and replacement isolates the edited duplicate. Creation and lifecycle are covered across pptx/pptm/ppsx/ppsm/potx/potm, Node and browser bundles, declarations, CLI smoke, and write/reopen.
+
+Valid PptxGenJS 4.0.1 public PNG/JPEG/GIF data input imports to the same supported final state. Native input is intentionally bytes-first and strict: it does not expose path/data options or preserve PptxGenJS's path/data precedence, invalid console-only behavior, falsy sizing fallback, and noncanonical `image/jpg` output. The actual-tarball four-slide gallery has 16 shapes and 8 image targets; source and LibreOffice round-trip packages both reopen strictly, validate against PowerPoint 2010 with 0 errors and 0 warnings, render at 180 DPI (2400×1350) without overflow, and were visually inspected. LibreOffice retains all image payload hashes, content types, names, order, and internal relationships, while quantizing transforms by at most 360 EMU, folding horizontal+vertical flips into equivalent rotation, rewriting picture lock/fill markup, and dropping explicit empty alt text.
+
+Path/URL/data-URI loaders, automatic content-type/signature/dimension detection, contain/cover/crop sizing, SVG, rounding/transparency, alt-text editing, image hyperlink/shadow/placeholder support, and public per-image deletion/media garbage collection are not part of this slice.
+
 ## Presentation format
 
 `document.format` is detected from the presentation part content type and is one of `pptx`, `pptm`, `ppsx`, `ppsm`, `potx`, or `potm`. `document.formatProfile` also reports whether the package is macro-enabled, a slideshow, or a template. Unknown presentation content types are rejected instead of being treated as `.pptx`.
