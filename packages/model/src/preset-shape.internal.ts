@@ -28,6 +28,11 @@ import {
   renderShapeHyperlink,
   type NormalizedHyperlink,
 } from './shape-hyperlink.internal.js';
+import {
+  normalizeShapeShadow,
+  renderSimpleShadow,
+  type NormalizedShapeShadow,
+} from './simple-shadow.internal.js';
 
 const PRESENTATION_NAMESPACE =
   'http://schemas.openxmlformats.org/presentationml/2006/main';
@@ -44,6 +49,7 @@ const OPTION_KEYS = new Set([
   'line',
   'arrows',
   'hyperlink',
+  'shadow',
   'x',
   'y',
   'width',
@@ -60,6 +66,7 @@ export interface NormalizedPresetShape {
   readonly line: NormalizedSimpleLine | undefined;
   readonly arrows: NormalizedShapeArrows | undefined;
   readonly hyperlink: NormalizedHyperlink | undefined;
+  readonly shadow: NormalizedShapeShadow | undefined;
   readonly x: number;
   readonly y: number;
   readonly width: number;
@@ -106,6 +113,9 @@ export function normalizePresetShape(
   const hyperlink = values.hyperlink === undefined
     ? undefined
     : normalizeHyperlink(values.hyperlink, 'Preset shape hyperlink');
+  const shadow = values.shadow === undefined
+    ? undefined
+    : normalizeShapeShadow(values.shadow, 'Preset shape shadow');
 
   return Object.freeze({
     type: type as PresetShapeType,
@@ -114,6 +124,7 @@ export function normalizePresetShape(
     line,
     arrows,
     hyperlink,
+    shadow,
     x: normalizeNumber(values.x, EMU_PER_INCH, 'x'),
     y: normalizeNumber(values.y, EMU_PER_INCH, 'y'),
     width,
@@ -145,12 +156,16 @@ export function renderPresetShapeXml(
     shape.flipHorizontal ? ' flipH="1"' : '',
     shape.flipVertical ? ' flipV="1"' : '',
   ].join('');
+  const effect = shape.shadow === undefined
+    ? ''
+    : `<a:effectLst>${renderSimpleShadow(shape.shadow, 'a:')}</a:effectLst>`;
   return `<p:sp xmlns:p="${PRESENTATION_NAMESPACE}" xmlns:a="${DRAWING_NAMESPACE}">` +
     `<p:nvSpPr>${nonVisualProperties}<p:cNvSpPr/><p:nvPr/></p:nvSpPr>` +
     `<p:spPr><a:xfrm${transformAttributes}><a:off x="${shape.x}" y="${shape.y}"/>` +
     `<a:ext cx="${shape.width}" cy="${shape.height}"/></a:xfrm>` +
     `<a:prstGeom prst="${type}"><a:avLst/></a:prstGeom>` +
     `${renderSimpleFill(shape.fill, 'a:')}${renderPresetLine(shape.line, shape.arrows)}` +
+    effect +
     '</p:spPr></p:sp>';
 }
 

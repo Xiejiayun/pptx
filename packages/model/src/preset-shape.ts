@@ -93,10 +93,29 @@ export interface ShapeArrows {
   readonly end?: ShapeArrowType;
 }
 
+export interface ShapeShadowBase {
+  readonly color?: RichTextColor;
+  readonly opacity?: number;
+  readonly blur?: number;
+  readonly angle?: number;
+  readonly distance?: number;
+}
+
+export type ShapeShadow =
+  | (ShapeShadowBase & {
+      readonly kind: 'outer';
+      readonly rotateWithShape?: boolean;
+    })
+  | (ShapeShadowBase & {
+      readonly kind: 'inner';
+      readonly rotateWithShape?: never;
+    });
+
 export interface AddShapeOptions extends Partial<Transform> {
   readonly name?: string;
   readonly fill?: ShapeFill;
   readonly line?: ShapeLine;
   readonly arrows?: ShapeArrows;
   readonly hyperlink?: Hyperlink;
+  readonly shadow?: ShapeShadow;
 }

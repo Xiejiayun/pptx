@@ -6,6 +6,7 @@ import {
   PRESET_SHAPE_TYPES,
   type ShapeArrowType,
   type ShapeLineDash,
+  type ShapeShadow,
 } from './preset-shape.js';
 import type { ShapeArrowTypeValue } from './shape-arrows.internal.js';
 import type { SimpleLineDash } from './simple-line.internal.js';
@@ -85,6 +86,7 @@ describe('normalizePresetShape', () => {
       line: undefined,
       arrows: undefined,
       hyperlink: undefined,
+      shadow: undefined,
       x: 914_400,
       y: 914_400,
       width: 914_400,
@@ -123,6 +125,7 @@ describe('normalizePresetShape', () => {
       line: undefined,
       arrows: undefined,
       hyperlink: undefined,
+      shadow: undefined,
       x: 1,
       y: -1,
       width: 3,
@@ -223,6 +226,61 @@ describe('normalizePresetShape', () => {
     expect(normalizePresetShape('actionButtonHome', {
       hyperlink: undefined,
     }).hyperlink).toBeUndefined();
+  });
+
+  it('normalizes detached preset shape shadows with exact defaults and explicit zeros', () => {
+    expect(normalizePresetShape('rect', { shadow: { kind: 'outer' } }).shadow).toEqual({
+      kind: 'outer',
+      color: { kind: 'srgb', value: '000000' },
+      opacity: 0.75,
+      blur: 8,
+      angle: 270,
+      distance: 4,
+      rotateWithShape: false,
+    });
+    const color: { kind: 'srgb'; value: string } = { kind: 'srgb', value: '#123abc' };
+    const shadow: ShapeShadow = {
+      kind: 'outer',
+      color,
+      opacity: 0.42,
+      blur: 7.25,
+      angle: 123.4,
+      distance: 5.5,
+      rotateWithShape: true,
+    };
+    const normalized = normalizePresetShape('roundRect', { shadow });
+    color.value = 'FFFFFF';
+
+    expect(normalized.shadow).toEqual({
+      kind: 'outer',
+      color: { kind: 'srgb', value: '123ABC' },
+      opacity: 0.42,
+      blur: 7.25,
+      angle: 123.4,
+      distance: 5.5,
+      rotateWithShape: true,
+    });
+    expect(normalized.shadow).not.toBe(shadow);
+    expect(Object.isFrozen(normalized.shadow)).toBe(true);
+    expect(Object.isFrozen(normalized.shadow?.color)).toBe(true);
+    expect(normalizePresetShape('ellipse', {
+      shadow: {
+        kind: 'inner',
+        color: { kind: 'scheme', value: 'accent2' },
+        opacity: 0,
+        blur: 0,
+        angle: 0,
+        distance: 0,
+      },
+    }).shadow).toEqual({
+      kind: 'inner',
+      color: { kind: 'scheme', value: 'accent2' },
+      opacity: 0,
+      blur: 0,
+      angle: 0,
+      distance: 0,
+    });
+    expect(normalizePresetShape('star5', { shadow: undefined }).shadow).toBeUndefined();
   });
 
   it('rejects unsafe hyperlink values and accessors without invoking them', () => {
@@ -378,6 +436,38 @@ describe('normalizePresetShape', () => {
     }
   });
 
+  it('rejects invalid preset shape shadows and PptxGenJS aliases without invoking accessors', () => {
+    let calls = 0;
+    const shadowGetter = Object.defineProperty({}, 'kind', {
+      enumerable: true,
+      get() {
+        calls += 1;
+        return 'outer';
+      },
+    });
+    for (const shadow of [
+      null,
+      [],
+      {},
+      { kind: 'none' },
+      { kind: 'Outer' },
+      { kind: 'inner', rotateWithShape: false },
+      { kind: 'outer', opacity: -1 },
+      { kind: 'outer', blur: 101 },
+      { kind: 'outer', angle: 360 },
+      { kind: 'outer', distance: 201 },
+      { kind: 'outer', color: { kind: 'srgb', value: 'FFF' } },
+      { kind: 'outer', color: { kind: 'scheme', value: 'unknown' } },
+      { kind: 'outer', type: 'outer' },
+      { kind: 'outer', offset: 4 },
+      { kind: 'outer', [Symbol('unsafe')]: true },
+      shadowGetter,
+    ]) {
+      expect(() => normalizePresetShape('rect', { shadow }), String(shadow)).toThrow();
+    }
+    expect(calls).toBe(0);
+  });
+
   it('rejects invalid preset shape arrows and PptxGenJS aliases', () => {
     class Arrows {
       begin = 'arrow';
@@ -407,13 +497,18 @@ describe('normalizePresetShape', () => {
 
 describe('preset shape XML codec', () => {
   it('renders the exact deterministic default skeleton', () => {
-    expect(renderPresetShapeXml(2, normalizePresetShape('rect', undefined))).toBe(
+    const omitted = renderPresetShapeXml(2, normalizePresetShape('rect', undefined));
+    expect(omitted).toBe(
       `<p:sp xmlns:p="${PRESENTATION_NAMESPACE}" xmlns:a="${DRAWING_NAMESPACE}">` +
       '<p:nvSpPr><p:cNvPr id="2" name="Shape 2"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>' +
       '<p:spPr><a:xfrm><a:off x="914400" y="914400"/>' +
       '<a:ext cx="914400" cy="914400"/></a:xfrm>' +
       '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln/></p:spPr></p:sp>',
     );
+    expect(renderPresetShapeXml(
+      2,
+      normalizePresetShape('rect', { shadow: undefined }),
+    )).toBe(omitted);
   });
 
   it('renders exact URL and internal hyperlinks and requires a paired relationship ID', () => {
@@ -578,6 +673,66 @@ describe('preset shape XML codec', () => {
     expect(renderPresetShapeXml(10, normalizePresetShape('line', {
       arrows: {},
     }))).toContain('<a:prstGeom prst="line"><a:avLst/></a:prstGeom><a:noFill/><a:ln/>');
+  });
+
+  it('renders exact outer and inner shadows after line state in one effect list', () => {
+    const outer = renderPresetShapeXml(7, normalizePresetShape('roundRect', {
+      fill: { kind: 'solid', color: { kind: 'srgb', value: 'EEEEEE' } },
+      line: {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent1' },
+        width: 2,
+      },
+      arrows: { begin: 'triangle', end: 'arrow' },
+      hyperlink: { url: 'https://example.com' },
+      shadow: {
+        kind: 'outer',
+        color: { kind: 'srgb', value: '123ABC' },
+        opacity: 0.42,
+        blur: 7.25,
+        angle: 123.4,
+        distance: 5.5,
+        rotateWithShape: true,
+      },
+    }), 'rId7');
+    expect(outer).toContain(
+      `r:id="rId7"`,
+    );
+    expect(outer).toContain(
+      '<a:ln w="25400"><a:solidFill><a:schemeClr val="accent1"/></a:solidFill>' +
+      '<a:prstDash val="solid"/><a:headEnd type="triangle"/>' +
+      '<a:tailEnd type="arrow"/></a:ln>' +
+      '<a:effectLst><a:outerShdw sx="100000" sy="100000" kx="0" ky="0" ' +
+      'algn="bl" rotWithShape="1" blurRad="92075" dist="69850" dir="7404000">' +
+      '<a:srgbClr val="123ABC"><a:alpha val="42000"/></a:srgbClr>' +
+      '</a:outerShdw></a:effectLst></p:spPr>',
+    );
+    expect(renderPresetShapeXml(8, normalizePresetShape('ellipse', {
+      shadow: {
+        kind: 'inner',
+        color: { kind: 'scheme', value: 'accent2' },
+        opacity: 0,
+        blur: 0,
+        angle: 0,
+        distance: 0,
+      },
+    }))).toContain(
+      '<a:ln/><a:effectLst><a:innerShdw blurRad="0" dist="0" dir="0">' +
+      '<a:schemeClr val="accent2"><a:alpha val="0"/></a:schemeClr>' +
+      '</a:innerShdw></a:effectLst></p:spPr>',
+    );
+  });
+
+  it('creates every canonical geometry with one parseable default outer shadow', () => {
+    for (const type of PRESET_SHAPE_TYPES) {
+      const { xml } = parseShape(renderPresetShapeXml(
+        7,
+        normalizePresetShape(type, { shadow: { kind: 'outer' } }),
+      ));
+      expect(xml.elements('effectLst'), type).toHaveLength(1);
+      expect(xml.elements('outerShdw'), type).toHaveLength(1);
+      expect(xml.elements('innerShdw'), type).toHaveLength(0);
+    }
   });
 
   it('round-trips every canonical token through parseable direct geometry', () => {

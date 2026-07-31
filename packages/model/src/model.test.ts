@@ -23,10 +23,12 @@ import {
   type ShapeFill,
   type ShapeLine,
   type ShapeLineDash,
+  type ShapeShadow,
   type TableCellBorderInput,
   type TextBoxMarginInput,
 } from './index.js';
 import { readShapeHyperlink } from './shape-hyperlink.internal.js';
+import { readSimpleShadow } from './simple-shadow.internal.js';
 
 const CORE_PROPERTIES_RELATIONSHIP =
   'http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties';
@@ -56,6 +58,24 @@ function readCreatedShapeHyperlink(
     relationships: slide.relationships,
     slidePartUris: model.slides.map(({ partUri }) => partUri),
   });
+}
+
+function readCreatedShapeShadow(
+  model: PresentationModel,
+  slide: ReturnType<PresentationModel['addSlide']>,
+  shapeId: number,
+) {
+  const xml = LosslessXmlDocument.parse(model.opcPackage.requirePart(slide.partUri).bytes);
+  const shape = xml.elements('sp').find((candidate) => {
+    const properties = xml.descendants(candidate, 'cNvPr')[0];
+    return properties && xml.attribute(properties, 'id')?.value === String(shapeId);
+  });
+  const shadow = shape
+    ? xml.descendants(shape).find(({ localName }) =>
+        localName === 'outerShdw' || localName === 'innerShdw')
+    : undefined;
+  if (!shadow) return undefined;
+  return readSimpleShadow(shadow, 'a:');
 }
 
 function packageSnapshot(pkg: OpcPackage) {
@@ -139,6 +159,164 @@ describe('PresentationModel', () => {
     expect(() => slide.addShape('ellipse')).toThrow(ModelParseError);
     expect(pkg.requirePart(slide.partUri).bytes).toEqual(before);
     expect(pkg.mutations).toEqual(journal);
+  });
+
+  it('creates preset shape shadows with exact detached outer, inner, omitted, and identity state', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const omittedSlide = model.addSlide();
+    const undefinedSlide = model.addSlide();
+    omittedSlide.addShape('rect');
+    undefinedSlide.addShape('rect', { shadow: undefined } as never);
+    expect(pkg.requirePart(undefinedSlide.partUri).bytes).toEqual(
+      pkg.requirePart(omittedSlide.partUri).bytes,
+    );
+
+    const slide = model.addSlide();
+    const relationships = slide.relationships;
+    const color: { kind: 'srgb'; value: string } = { kind: 'srgb', value: '#123abc' };
+    const shadow: ShapeShadow = {
+      kind: 'outer',
+      color,
+      opacity: 0.42,
+      blur: 7.25,
+      angle: 123.4,
+      distance: 5.5,
+      rotateWithShape: true,
+    };
+    const outer = slide.addShape('roundRect', { name: 'Outer shadow', shadow });
+    const inner = slide.addShape('ellipse', {
+      shadow: {
+        kind: 'inner',
+        color: { kind: 'scheme', value: 'accent2' },
+        opacity: 0,
+        blur: 0,
+        angle: 0,
+        distance: 0,
+      },
+    });
+    color.value = 'FFFFFF';
+
+    expect([outer.id, inner.id]).toEqual([2, 3]);
+    expect(slide.shapes).toEqual([outer, inner]);
+    expect(slide.shapes[0]).toBe(outer);
+    expect(slide.relationships).toEqual(relationships);
+    expect(readCreatedShapeShadow(model, slide, outer.id)).toEqual({
+      kind: 'outer',
+      color: { kind: 'srgb', value: '123ABC' },
+      opacity: 0.42,
+      blur: 7.25,
+      angle: 123.4,
+      distance: 5.5,
+      rotateWithShape: true,
+    });
+    expect(readCreatedShapeShadow(model, slide, inner.id)).toEqual({
+      kind: 'inner',
+      color: { kind: 'scheme', value: 'accent2' },
+      opacity: 0,
+      blur: 0,
+      angle: 0,
+      distance: 0,
+    });
+  });
+
+  it('rejects invalid preset shape shadows without any package, identity, or ID mutation', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const before = packageSnapshot(pkg);
+    const shapes = slide.shapes;
+    let calls = 0;
+    const optionsGetter = Object.defineProperty({}, 'shadow', {
+      enumerable: true,
+      get() {
+        calls += 1;
+        return { kind: 'outer' };
+      },
+    });
+    const shadowGetter = Object.defineProperty({}, 'kind', {
+      enumerable: true,
+      get() {
+        calls += 1;
+        return 'outer';
+      },
+    });
+    for (const shadow of [
+      null,
+      [],
+      {},
+      { kind: 'none' },
+      { kind: 'inner', rotateWithShape: false },
+      { kind: 'outer', opacity: Number.NaN },
+      { kind: 'outer', blur: 101 },
+      { kind: 'outer', angle: 360 },
+      { kind: 'outer', distance: 201 },
+      { kind: 'outer', color: { kind: 'srgb', value: 'FFF' } },
+      { kind: 'outer', type: 'outer' },
+      { kind: 'outer', offset: 4 },
+      { kind: 'outer', [Symbol('unsafe')]: true },
+      shadowGetter,
+    ]) {
+      expect(() => slide.addShape('rect', { shadow } as never)).toThrow();
+      expect(packageSnapshot(pkg)).toEqual(before);
+      expect(slide.shapes).toEqual(shapes);
+    }
+    expect(() => slide.addShape('rect', optionsGetter as never)).toThrow(/data property/);
+    expect(calls).toBe(0);
+    expect(packageSnapshot(pkg)).toEqual(before);
+    expect(slide.addShape('rect').id).toBe(2);
+  });
+
+  it('rolls back preset shape shadow bytes, journal, identity, and next ID', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const before = packageSnapshot(pkg);
+    let rolledBack: ShapeModel | undefined;
+
+    expect(() => pkg.transaction(() => {
+      rolledBack = slide.addShape('rect', { shadow: { kind: 'outer' } });
+      throw new Error('restore shadow creation');
+    })).toThrow('restore shadow creation');
+
+    expect(packageSnapshot(pkg)).toEqual(before);
+    expect(slide.shapes).toEqual([]);
+    expect(() => rolledBack!.name).toThrow(ModelParseError);
+    expect(slide.addShape('rect').id).toBe(2);
+  });
+
+  it('reopens preset shape shadows in all six OOXML presentation formats', async () => {
+    for (const profile of Object.values(PRESENTATION_FORMAT_PROFILES)) {
+      const pkg = await OpcPackage.open(await modelFixture(profile.presentationContentType));
+      const model = new PresentationModel(pkg);
+      const slide = model.addSlide();
+      const outer = slide.addShape('rect', {
+        shadow: { kind: 'outer', color: { kind: 'scheme', value: 'accent4' } },
+      });
+      const inner = slide.addShape('ellipse', {
+        shadow: { kind: 'inner', opacity: 0, blur: 0, angle: 0, distance: 0 },
+      });
+      const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+      const reopenedSlide = reopened.slides.find(({ partUri }) => partUri === slide.partUri)!;
+      expect(reopened.format).toBe(profile.format);
+      expect(readCreatedShapeShadow(reopened, reopenedSlide, outer.id)).toEqual({
+        kind: 'outer',
+        color: { kind: 'scheme', value: 'accent4' },
+        opacity: 0.75,
+        blur: 8,
+        angle: 270,
+        distance: 4,
+        rotateWithShape: false,
+      });
+      expect(readCreatedShapeShadow(reopened, reopenedSlide, inner.id)).toEqual({
+        kind: 'inner',
+        color: { kind: 'srgb', value: '000000' },
+        opacity: 0,
+        blur: 0,
+        angle: 0,
+        distance: 0,
+      });
+    }
   });
 
   it('creates preset shape hyperlinks with exact URL, slide, self, and tooltip semantics', async () => {

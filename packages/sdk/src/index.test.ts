@@ -33,6 +33,7 @@ import {
   type ShapeFill,
   type ShapeLine,
   type ShapeLineDash,
+  type ShapeShadow,
 } from './index.js';
 
 async function titleFixture(): Promise<Uint8Array> {
@@ -573,6 +574,83 @@ describe('PptxDocument vertical slice', () => {
     // @ts-expect-error public shape arrows expose begin/end, not PptxGenJS aliases
     const invalidAlias: ShapeArrows = { beginArrowType: 'arrow' };
     void [invalidType, invalidAlias];
+  });
+
+  it('creates preset shape shadows through the public SDK type and runtime surface', () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const relationships = slide.relationships.map(({ id, type, target, targetMode }) => ({
+      id,
+      type,
+      target,
+      targetMode,
+    }));
+    const runtimeUndefined: ShapeShadow | undefined = undefined;
+    const color: { kind: 'srgb'; value: string } = { kind: 'srgb', value: '#123abc' };
+    const shadow: ShapeShadow = {
+      kind: 'outer',
+      color,
+      opacity: 0.42,
+      blur: 7.25,
+      angle: 123.4,
+      distance: 5.5,
+      rotateWithShape: true,
+    };
+
+    const omitted = slide.addShape('rect');
+    const undefinedShadow = slide.addShape('ellipse', { shadow: runtimeUndefined } as never);
+    const outer = slide.addShape('roundRect', { shadow });
+    const inner = slide.addShape('star5', {
+      shadow: {
+        kind: 'inner',
+        color: { kind: 'scheme', value: 'accent2' },
+        opacity: 0,
+        blur: 0,
+        angle: 0,
+        distance: 0,
+      },
+    });
+    color.value = 'FFFFFF';
+
+    expect(slide.shapes).toEqual([omitted, undefinedShadow, outer, inner]);
+    expect(slide.shapes[2]).toBe(outer);
+    expect(slide.relationships.map(({ id, type, target, targetMode }) => ({
+      id,
+      type,
+      target,
+      targetMode,
+    }))).toEqual(relationships);
+    const xml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect((xml.match(/<a:effectLst>/g) ?? [])).toHaveLength(2);
+    expect(xml).toContain(
+      '<a:outerShdw sx="100000" sy="100000" kx="0" ky="0" algn="bl" ' +
+      'rotWithShape="1" blurRad="92075" dist="69850" dir="7404000">' +
+      '<a:srgbClr val="123ABC"><a:alpha val="42000"/></a:srgbClr>' +
+      '</a:outerShdw>',
+    );
+    expect(xml).toContain(
+      '<a:innerShdw blurRad="0" dist="0" dir="0">' +
+      '<a:schemeClr val="accent2"><a:alpha val="0"/></a:schemeClr>' +
+      '</a:innerShdw>',
+    );
+
+    // @ts-expect-error public shape shadow kind union excludes none
+    const invalidKind: ShapeShadow = { kind: 'none' };
+    // @ts-expect-error inner shadows cannot rotate with the shape
+    const invalidInnerRotate: ShapeShadow = { kind: 'inner', rotateWithShape: false };
+    // @ts-expect-error public shape shadow uses kind, not PptxGenJS type
+    const invalidAlias: ShapeShadow = { type: 'outer' };
+    const invalidOpacity: ShapeShadow = {
+      kind: 'outer',
+      // @ts-expect-error public shape shadow opacity is numeric
+      opacity: '0.5',
+    };
+    const invalidUnknown: ShapeShadow = {
+      kind: 'outer',
+      // @ts-expect-error public shape shadow union is closed
+      offset: 4,
+    };
+    void [invalidKind, invalidInnerRotate, invalidAlias, invalidOpacity, invalidUnknown];
   });
 
   it('preserves editable shape arrows across duplicate, rollback, reopen, and all formats', async () => {
