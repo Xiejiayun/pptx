@@ -62,6 +62,12 @@ function writeUint32(bytes: Uint8Array, offset: number, value: number): void {
   bytes[offset + 3] = value;
 }
 
+function dataUri(contentType: 'image/png' | 'image/jpeg' | 'image/gif', bytes: Uint8Array): string {
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return `data:${contentType};base64,${btoa(binary)}`;
+}
+
 describe('raster image inspection', () => {
   it('inspects PNG and GIF signatures without changing the input', () => {
     const png = pngHeader(640, 360);
@@ -377,5 +383,75 @@ describe('raster image in-memory source resolution', () => {
     { name: 'null', source: null },
   ])('rejects unsupported or invalid $name sources', async ({ source }) => {
     await expect(resolveRasterImageSource(source as never)).rejects.toThrow(TypeError);
+  });
+});
+
+describe('raster image data URI resolution', () => {
+  it('decodes canonical PNG, JPEG, and GIF data URIs', async () => {
+    const cases = [
+      { contentType: 'image/png' as const, bytes: pngHeader(640, 360), width: 640, height: 360 },
+      { contentType: 'image/jpeg' as const, bytes: jpegWithSof(0xc0, 1920, 1080), width: 1920, height: 1080 },
+      { contentType: 'image/gif' as const, bytes: gifHeader('GIF89a', 320, 200), width: 320, height: 200 },
+    ];
+    for (const fixture of cases) {
+      await expect(resolveRasterImageSource(dataUri(fixture.contentType, fixture.bytes))).resolves.toEqual({
+        bytes: fixture.bytes,
+        info: {
+          contentType: fixture.contentType,
+          width: fixture.width,
+          height: fixture.height,
+        },
+        assertedContentType: fixture.contentType,
+      });
+    }
+  });
+
+  it('accepts case-insensitive data URI media type and base64 tokens', async () => {
+    const source = dataUri('image/png', pngHeader(3, 2))
+      .replace('data:image/png;base64,', 'DATA:IMAGE/PNG;BASE64,');
+    await expect(resolveRasterImageSource(source)).resolves.toMatchObject({
+      info: { contentType: 'image/png', width: 3, height: 2 },
+      assertedContentType: 'image/png',
+    });
+  });
+
+  it.each([
+    { name: 'missing media type', source: 'data:;base64,AAAA' },
+    { name: 'empty media type', source: 'data:base64,AAAA' },
+    { name: 'JPG alias', source: 'data:image/jpg;base64,AAAA' },
+    { name: 'SVG media type', source: 'data:image/svg+xml;base64,AAAA' },
+    { name: 'missing base64 token', source: 'data:image/png,AAAA' },
+    { name: 'extra parameter', source: 'data:image/png;charset=utf-8;base64,AAAA' },
+    { name: 'raw percent encoding', source: 'data:image/png;base64,%89PNG' },
+    { name: 'empty payload', source: 'data:image/png;base64,' },
+    { name: 'payload whitespace', source: 'data:image/png;base64,AA==\n' },
+    { name: 'URL-safe alphabet', source: 'data:image/png;base64,____' },
+    { name: 'short group', source: 'data:image/png;base64,AAA' },
+    { name: 'too much padding', source: 'data:image/png;base64,A===' },
+    { name: 'unexpected padding', source: 'data:image/png;base64,AA=A' },
+    { name: 'extra padding', source: 'data:image/png;base64,AAAA=' },
+    { name: 'non-zero double-padding bits', source: 'data:image/png;base64,AB==' },
+    { name: 'non-zero single-padding bits', source: 'data:image/png;base64,AAB=' },
+    { name: 'trailing data', source: 'data:image/png;base64,AAAA,AAAA' },
+  ])('rejects $name', async ({ source }) => {
+    await expect(resolveRasterImageSource(source)).rejects.toThrow(TypeError);
+    await expect(resolveRasterImageSource(source)).rejects.toThrow(/data URI|signature/i);
+  });
+
+  it('rejects a declared MIME that disagrees with the detected signature', async () => {
+    const payload = dataUri('image/png', pngHeader(8, 6)).split(',')[1]!;
+    await expect(resolveRasterImageSource(`data:image/gif;base64,${payload}`))
+      .rejects.toThrow(/declares image\/gif.*signature.*image\/png/i);
+  });
+
+  it('does not expose a rejected data URI payload in errors', async () => {
+    const payload = 'UNIQUESECRETINVALIDPAYLOAD';
+    try {
+      await resolveRasterImageSource(`data:image/png;base64,${payload}`);
+      throw new Error('Expected data URI rejection');
+    } catch (error) {
+      expect(error).toBeInstanceOf(TypeError);
+      expect((error as Error).message).not.toContain(payload);
+    }
   });
 });

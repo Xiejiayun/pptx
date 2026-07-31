@@ -63,6 +63,12 @@ export async function resolveRasterImageSource(
   signal?: AbortSignal,
 ): Promise<ResolvedRasterImageSource> {
   throwIfAborted(signal);
+  if (typeof source === 'string') {
+    if (!/^data:/i.test(source)) throw new TypeError('Unsupported raster image string source');
+    const resolved = resolveDataUri(source);
+    throwIfAborted(signal);
+    return resolved;
+  }
   let bytes: Uint8Array;
   if (source instanceof Uint8Array) {
     bytes = new Uint8Array(source);
@@ -81,6 +87,84 @@ export async function resolveRasterImageSource(
   }
   throwIfAborted(signal);
   return { bytes, info: inspectRasterImage(bytes) };
+}
+
+function resolveDataUri(source: string): ResolvedRasterImageSource {
+  const match = /^data:(image\/(?:png|jpeg|gif));base64,([A-Za-z0-9+/]*={0,2})$/i.exec(source);
+  if (!match || match[0] !== source) {
+    throw new TypeError(
+      'Raster image data URI must use image/png, image/jpeg, or image/gif with canonical base64 data',
+    );
+  }
+  const assertedContentType = match[1]!.toLowerCase() as RasterImageContentType;
+  const bytes = decodeCanonicalBase64(match[2]!);
+  const info = inspectRasterImage(bytes);
+  if (assertedContentType !== info.contentType) {
+    throw new TypeError(
+      `Raster image data URI declares ${assertedContentType} but the signature is ${info.contentType}`,
+    );
+  }
+  return { bytes, info, assertedContentType };
+}
+
+function decodeCanonicalBase64(payload: string): Uint8Array {
+  if (payload.length === 0) throw new TypeError('Raster image data URI payload cannot be empty');
+  if (payload.length % 4 !== 0) {
+    throw new TypeError('Raster image data URI payload has invalid base64 length');
+  }
+  const firstPadding = payload.indexOf('=');
+  const padding = firstPadding === -1 ? 0 : payload.length - firstPadding;
+  if (padding > 2) throw new TypeError('Raster image data URI payload has invalid base64 padding');
+  const dataLength = payload.length - padding;
+  for (let index = 0; index < dataLength; index += 1) {
+    if (base64Value(payload.charCodeAt(index)) < 0) {
+      throw new TypeError('Raster image data URI payload contains an invalid base64 character');
+    }
+  }
+  for (let index = dataLength; index < payload.length; index += 1) {
+    if (payload[index] !== '=') {
+      throw new TypeError('Raster image data URI payload has invalid base64 padding');
+    }
+  }
+  if (padding === 2 && (base64Value(payload.charCodeAt(payload.length - 3)) & 0x0f) !== 0) {
+    throw new TypeError('Raster image data URI payload has non-canonical base64 padding bits');
+  }
+  if (padding === 1 && (base64Value(payload.charCodeAt(payload.length - 2)) & 0x03) !== 0) {
+    throw new TypeError('Raster image data URI payload has non-canonical base64 padding bits');
+  }
+
+  const output = new Uint8Array((payload.length / 4) * 3 - padding);
+  let outputOffset = 0;
+  for (let inputOffset = 0; inputOffset < payload.length; inputOffset += 4) {
+    const first = base64Value(payload.charCodeAt(inputOffset));
+    const second = base64Value(payload.charCodeAt(inputOffset + 1));
+    const third = payload[inputOffset + 2] === '='
+      ? 0
+      : base64Value(payload.charCodeAt(inputOffset + 2));
+    const fourth = payload[inputOffset + 3] === '='
+      ? 0
+      : base64Value(payload.charCodeAt(inputOffset + 3));
+    output[outputOffset] = (first << 2) | (second >>> 4);
+    outputOffset += 1;
+    if (outputOffset < output.length) {
+      output[outputOffset] = ((second & 0x0f) << 4) | (third >>> 2);
+      outputOffset += 1;
+    }
+    if (outputOffset < output.length) {
+      output[outputOffset] = ((third & 0x03) << 6) | fourth;
+      outputOffset += 1;
+    }
+  }
+  return output;
+}
+
+function base64Value(code: number): number {
+  if (code >= 65 && code <= 90) return code - 65;
+  if (code >= 97 && code <= 122) return code - 71;
+  if (code >= 48 && code <= 57) return code + 4;
+  if (code === 43) return 62;
+  if (code === 47) return 63;
+  return -1;
 }
 
 function inspectPng(bytes: Uint8Array): RasterImageInfo {
