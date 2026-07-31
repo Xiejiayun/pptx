@@ -12,6 +12,11 @@ import {
 } from '@pptx/opc';
 import { ModelParseError } from './errors.js';
 import type { Hyperlink } from './hyperlink.js';
+import type { AddImageOptions } from './image.js';
+import {
+  normalizeEmbeddedRasterImage,
+  renderEmbeddedRasterImageXml,
+} from './image-create.internal.js';
 import type { PresentationModel } from './presentation.js';
 import {
   normalizeParagraphBullet,
@@ -37,6 +42,7 @@ import {
 } from './rich-text.internal.js';
 import {
   decodeShape,
+  ImageModel,
   ShapeModel,
   TableModel,
   type SemanticShape,
@@ -162,6 +168,9 @@ import type {
   TextAlignment,
 } from './text.js';
 import { inches, type Transform } from './units.js';
+
+const IMAGE_RELATIONSHIP_TYPE =
+  'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image';
 
 export interface AddTextOptions extends Partial<Transform> {
   readonly name?: string;
@@ -707,6 +716,43 @@ export class SlideModel {
     if (changes.flipHorizontal !== undefined) setAttribute(xml, xfrm, 'flipH', changes.flipHorizontal ? 1 : 0);
     if (changes.flipVertical !== undefined) setAttribute(xml, xfrm, 'flipV', changes.flipVertical ? 1 : 0);
     this.setXml(xml.serialize());
+  }
+
+  addImage(bytes: Uint8Array, options: AddImageOptions): ImageModel {
+    const definition = normalizeEmbeddedRasterImage(bytes, options);
+    return this.presentation.opcPackage.transaction(() => {
+      const pkg = this.presentation.opcPackage;
+      const mediaPartUri = pkg.allocatePartUri(
+        '/ppt/media',
+        'image',
+        definition.extension,
+      );
+      pkg.setPart(mediaPartUri, definition.bytes, definition.contentType);
+      const relationship = pkg.addRelationship(this.partUri, {
+        type: IMAGE_RELATIONSHIP_TYPE,
+        target: relativeRelationshipTarget(this.partUri, mediaPartUri),
+        targetMode: 'Internal',
+      });
+      const { xml } = this.parse();
+      const shapeTree = requirePresetShapeTree(xml, this.partUri);
+      const nextId = allocatePresetShapeId(xml, shapeTree, this.partUri);
+      const imageCount = this.shapes.filter(({ kind }) => kind === 'image').length;
+      const pictureXml = renderEmbeddedRasterImageXml(
+        nextId,
+        definition,
+        relationship.id,
+        `Image ${imageCount}`,
+      );
+      const extensionList = directElementChildren(shapeTree, 'extLst')[0];
+      if (extensionList) xml.replace(extensionList.start, extensionList.start, pictureXml);
+      else xml.appendChildXml(shapeTree, pictureXml);
+      this.setXml(xml.serialize());
+      const image = this.shapes.find(({ id }) => id === nextId);
+      if (!(image instanceof ImageModel) || image.kind !== 'image') {
+        throw new ModelParseError(`Created image ${nextId} could not be resolved`, this.partUri);
+      }
+      return image;
+    });
   }
 
   addShape(

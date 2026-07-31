@@ -13,6 +13,7 @@ import {
   ShapeModel,
   TableModel,
   UnsupportedPresentationFormatError,
+  degrees,
   emuToInches,
   inches,
   type AddTableCellOptions,
@@ -47,6 +48,8 @@ const HYPERLINK_RELATIONSHIP =
   'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink';
 const SLIDE_RELATIONSHIP =
   'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide';
+const IMAGE_RELATIONSHIP =
+  'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image';
 
 const customTriangleGeometry: CustomGeometry = {
   paths: [{
@@ -332,6 +335,28 @@ function packageSnapshot(pkg: OpcPackage) {
   };
 }
 
+function emptyPresentationModel(): { pkg: OpcPackage; model: PresentationModel } {
+  const pkg = OpcPackage.create();
+  pkg.transaction(() => {
+    pkg.setPart(
+      '/ppt/presentation.xml',
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+        '<p:presentation xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" ' +
+        'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" ' +
+        'xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">' +
+        '<p:sldIdLst/><p:sldSz cx="9144000" cy="5143500"/>' +
+        '<p:notesSz cx="5143500" cy="9144000"/></p:presentation>',
+      PRESENTATION_FORMAT_PROFILES.pptx.presentationContentType,
+    );
+    pkg.addRelationship('/', {
+      id: 'rId1',
+      type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument',
+      target: 'ppt/presentation.xml',
+    });
+  });
+  return { pkg, model: new PresentationModel(pkg) };
+}
+
 async function modelFixture(
   presentationContentType = PRESENTATION_FORMAT_PROFILES.pptx.presentationContentType,
 ): Promise<Uint8Array> {
@@ -400,6 +425,246 @@ describe('PresentationModel', () => {
     expect(() => slide.addShape('ellipse')).toThrow(ModelParseError);
     expect(pkg.requirePart(slide.partUri).bytes).toEqual(before);
     expect(pkg.mutations).toEqual(journal);
+  });
+
+  it('creates embedded raster images from a zero-input package with immediate live state', () => {
+    const { pkg, model } = emptyPresentationModel();
+    const slide = model.addSlide();
+    const source = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
+    const image = slide.addImage(source, {
+      contentType: 'image/png',
+      name: 'Revenue & <logo>',
+      altText: 'Quarterly & annual',
+      x: inches(1),
+      y: inches(2),
+      width: inches(3),
+      height: inches(2),
+      rotation: degrees(45),
+      flipHorizontal: true,
+    });
+
+    expect(image).toBeInstanceOf(ImageModel);
+    expect(image.kind).toBe('image');
+    expect(slide.shapes).toEqual([image]);
+    expect(slide.shapes[0]).toBe(image);
+    expect(image.name).toBe('Revenue & <logo>');
+    expect(image.transform).toEqual({
+      x: 914_400,
+      y: 1_828_800,
+      width: 2_743_200,
+      height: 1_828_800,
+      rotation: 2_700_000,
+      flipHorizontal: true,
+      flipVertical: false,
+    });
+    expect(image.sourcePartUri).toBe('/ppt/media/image1.png');
+    const relationship = slide.relationships.find(({ type }) => type === IMAGE_RELATIONSHIP);
+    expect(relationship).toMatchObject({
+      type: IMAGE_RELATIONSHIP,
+      target: '../media/image1.png',
+      targetMode: 'Internal',
+      resolvedTarget: '/ppt/media/image1.png',
+    });
+
+    const slideSource = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect(slideSource).toContain(
+      '<p:cNvPr id="2" name="Revenue &amp; &lt;logo&gt;" ' +
+      'descr="Quarterly &amp; annual"/>',
+    );
+    expect(slideSource).toContain(`<a:blip r:embed="${relationship!.id}"/>`);
+    expect(slideSource).toContain('<a:xfrm rot="2700000" flipH="1">');
+    expect(slideSource).toContain('<a:picLocks noChangeAspect="1"/>');
+    expect(slideSource).toContain('<a:stretch><a:fillRect/></a:stretch>');
+
+    source.fill(0);
+    const part = pkg.requirePart('/ppt/media/image1.png');
+    expect(part.contentType).toBe('image/png');
+    expect(part.bytes).toEqual(new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]));
+  });
+
+  it('creates multiple embedded raster images before extensions without disturbing neighbors', () => {
+    const { pkg, model } = emptyPresentationModel();
+    const slide = model.addSlide();
+    const preset = slide.addShape('rect', { name: 'Keep shape' });
+    const slidePart = pkg.requirePart(slide.partUri);
+    pkg.setPart(
+      slide.partUri,
+      new TextDecoder().decode(slidePart.bytes).replace(
+        '</p:spTree>',
+        '<p:extLst><p:ext uri="urn:keep"><x:keep xmlns:x="urn:keep"/></p:ext>' +
+        '</p:extLst></p:spTree>',
+      ),
+      slidePart.contentType,
+    );
+    pkg.setPart('/ppt/custom/keep.bin', new Uint8Array([9, 8, 7]), 'application/octet-stream');
+    const keepRelationship = pkg.addRelationship(slide.partUri, {
+      type: 'urn:keep:relationship',
+      target: '../custom/keep.bin',
+      targetMode: 'Internal',
+    });
+
+    const png = slide.addImage(new Uint8Array([1]), { contentType: 'image/png' });
+    const jpeg = slide.addImage(new Uint8Array([2]), { contentType: 'image/jpeg' });
+    const gif = slide.addImage(new Uint8Array([3]), { contentType: 'image/gif' });
+
+    expect(slide.shapes).toEqual([preset, png, jpeg, gif]);
+    expect(slide.shapes.map(({ id }) => id)).toEqual([2, 3, 4, 5]);
+    expect([png.name, jpeg.name, gif.name]).toEqual(['Image 0', 'Image 1', 'Image 2']);
+    for (const image of [png, jpeg, gif]) {
+      expect(image.transform).toEqual({
+        x: 0,
+        y: 0,
+        width: 914_400,
+        height: 914_400,
+        rotation: 0,
+        flipHorizontal: false,
+        flipVertical: false,
+      });
+    }
+    expect([png.sourcePartUri, jpeg.sourcePartUri, gif.sourcePartUri]).toEqual([
+      '/ppt/media/image1.png',
+      '/ppt/media/image1.jpeg',
+      '/ppt/media/image1.gif',
+    ]);
+    expect(pkg.parts
+      .filter(({ uri }) => uri.startsWith('/ppt/media/'))
+      .map(({ uri, contentType, bytes }) => ({ uri, contentType, bytes })))
+      .toEqual([
+        { uri: '/ppt/media/image1.png', contentType: 'image/png', bytes: new Uint8Array([1]) },
+        { uri: '/ppt/media/image1.jpeg', contentType: 'image/jpeg', bytes: new Uint8Array([2]) },
+        { uri: '/ppt/media/image1.gif', contentType: 'image/gif', bytes: new Uint8Array([3]) },
+      ]);
+    expect(slide.relationships.find(({ id }) => id === keepRelationship.id))
+      .toEqual(keepRelationship);
+    expect(pkg.requirePart('/ppt/custom/keep.bin').bytes).toEqual(new Uint8Array([9, 8, 7]));
+    expect(slide.relationships
+      .filter(({ type }) => type === IMAGE_RELATIONSHIP)
+      .map(({ target }) => target))
+      .toEqual(['../media/image1.png', '../media/image1.jpeg', '../media/image1.gif']);
+
+    const xml = LosslessXmlDocument.parse(pkg.requirePart(slide.partUri).bytes);
+    const shapeTree = xml.elements('spTree')[0]!;
+    expect(shapeTree.children
+      .filter((child) => child.type === 'element')
+      .map(({ localName }) => localName)
+      .filter((name) => name === 'sp' || name === 'pic' || name === 'extLst'))
+      .toEqual(['sp', 'pic', 'pic', 'pic', 'extLst']);
+    expect(new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes))
+      .toContain('<x:keep xmlns:x="urn:keep"/>');
+  });
+
+  it('rejects invalid embedded raster image inputs without changing package or shape state', () => {
+    const { pkg, model } = emptyPresentationModel();
+    const slide = model.addSlide();
+    const before = packageSnapshot(pkg);
+    const shapes = slide.shapes;
+    let reads = 0;
+    const accessor = Object.defineProperty({ contentType: 'image/png' }, 'name', {
+      get() {
+        reads += 1;
+        return 'unsafe';
+      },
+    });
+    const invalidCalls: readonly (() => unknown)[] = [
+      () => slide.addImage([] as never, { contentType: 'image/png' }),
+      () => slide.addImage(new Uint8Array(), { contentType: 'image/png' }),
+      () => slide.addImage(new Uint8Array([1]), null as never),
+      () => slide.addImage(new Uint8Array([1]), Object.create({ contentType: 'image/png' })),
+      () => slide.addImage(new Uint8Array([1]), accessor as never),
+      () => slide.addImage(new Uint8Array([1]), {
+        contentType: 'image/png',
+        [Symbol('unsafe')]: true,
+      } as never),
+      () => slide.addImage(new Uint8Array([1]), {
+        contentType: 'image/png',
+        unknown: true,
+      } as never),
+      () => slide.addImage(new Uint8Array([1]), {} as never),
+      () => slide.addImage(new Uint8Array([1]), { contentType: undefined } as never),
+      () => slide.addImage(new Uint8Array([1]), { contentType: 'image/svg+xml' } as never),
+      () => slide.addImage(new Uint8Array([1]), {
+        contentType: 'image/png',
+        name: 'bad\u0000name',
+      }),
+      () => slide.addImage(new Uint8Array([1]), {
+        contentType: 'image/png',
+        altText: 1,
+      } as never),
+      () => slide.addImage(
+        new Uint8Array([1]),
+        { contentType: 'image/png', x: Number.NaN } as never,
+      ),
+      () => slide.addImage(
+        new Uint8Array([1]),
+        { contentType: 'image/png', width: 0 } as never,
+      ),
+      () => slide.addImage(new Uint8Array([1]), {
+        contentType: 'image/png',
+        rotation: 21_600_001,
+      } as never),
+      () => slide.addImage(new Uint8Array([1]), {
+        contentType: 'image/png',
+        flipVertical: 1,
+      } as never),
+    ];
+
+    for (const invoke of invalidCalls) {
+      expect(invoke).toThrow();
+      expect(packageSnapshot(pkg)).toEqual(before);
+      expect(slide.shapes).toEqual(shapes);
+    }
+    expect(reads).toBe(0);
+  });
+
+  it('rolls back embedded raster image resources for malformed slides and outer transactions', () => {
+    const malformedSources: readonly ((source: string) => string)[] = [
+      (source) => source
+        .replace('<p:sld ', '<x:sld xmlns:x="urn:unsafe" ')
+        .replace('</p:sld>', '</x:sld>'),
+      (source) => source.replace('</p:cSld>', '<p:spTree/></p:cSld>'),
+      (source) => source.replace(
+        '</p:spTree>',
+        '<p:extLst/><p:extLst/></p:spTree>',
+      ),
+      (source) => source.replace('</p:spTree>', '<p:cNvPr id="1"/></p:spTree>'),
+      (source) => source.replace('id="1"', 'id="not-an-id"'),
+      (source) => source.replace('id="1"', 'id="4294967296"'),
+      (source) => source.replace('id="1"', 'id="4294967295"'),
+    ];
+
+    for (const mutate of malformedSources) {
+      const { pkg, model } = emptyPresentationModel();
+      const slide = model.addSlide();
+      const part = pkg.requirePart(slide.partUri);
+      pkg.setPart(
+        slide.partUri,
+        mutate(new TextDecoder().decode(part.bytes)),
+        part.contentType,
+      );
+      const before = packageSnapshot(pkg);
+      const shapes = slide.shapes;
+      expect(() => slide.addImage(
+        new Uint8Array([1]),
+        { contentType: 'image/png' },
+      )).toThrow(ModelParseError);
+      expect(packageSnapshot(pkg)).toEqual(before);
+      expect(slide.shapes).toEqual(shapes);
+    }
+
+    const { pkg, model } = emptyPresentationModel();
+    const slide = model.addSlide();
+    const before = packageSnapshot(pkg);
+    let rolledBack: ImageModel | undefined;
+    expect(() => pkg.transaction(() => {
+      rolledBack = slide.addImage(new Uint8Array([1]), { contentType: 'image/png' });
+      throw new Error('restore embedded raster image');
+    })).toThrow('restore embedded raster image');
+    expect(packageSnapshot(pkg)).toEqual(before);
+    expect(slide.shapes).toEqual([]);
+    expect(() => rolledBack!.name).toThrow(ModelParseError);
+    const created = slide.addImage(new Uint8Array([2]), { contentType: 'image/png' });
+    expect(created.id).toBe(2);
+    expect(created.sourcePartUri).toBe('/ppt/media/image1.png');
   });
 
   it('creates detached styled, multi-path, and empty custom shapes before extensions', async () => {
