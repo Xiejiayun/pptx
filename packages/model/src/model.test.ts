@@ -492,7 +492,7 @@ describe('PresentationModel', () => {
       slide.partUri,
       new TextDecoder().decode(part.bytes).replace(
         '<a:gdLst/>',
-        '<a:gdLst><a:gd name="x" fmla="val 1"/></a:gdLst>',
+        '<a:gdLst><a:gd name="x" fmla="unknown 1"/></a:gdLst>',
       ),
       part.contentType,
     );

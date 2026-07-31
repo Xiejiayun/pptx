@@ -555,6 +555,48 @@ describe('custom geometry OOXML codec', () => {
     }
   });
 
+  it('reads guide formulas and token path values with semantic lexical normalization', () => {
+    const normalized = normalizeCustomGeometry(formulaGeometry, 'Custom geometry');
+    const formulaXml = renderCustomGeometry(normalized, 'a:');
+    const alternateXml = renderCustomGeometry(normalized, 'd:');
+    const lexicalXml = formulaXml
+      .replace('fmla="val 25000"', 'fmla="  val   +25000  "')
+      .replace('fmla="*/ w adj1 100000"', 'fmla="  */   w  adj1   +100000 "')
+      .replace('x="gMul" y="0"', 'x="gMul" y="+0"');
+    for (const source of [
+      fixture(formulaXml),
+      fixture(alternateXml, { drawingPrefix: 'd' }),
+      fixture(lexicalXml),
+    ]) {
+      const { xml, shape } = parseShape(source);
+      expect(readCustomGeometry(xml, shape)).toEqual(formulaGeometry);
+    }
+
+    const lexical = parseShape(fixture(lexicalXml));
+    const before = lexical.xml.serialize();
+    expect(replaceCustomGeometry(
+      lexical.xml,
+      lexical.shape,
+      normalized,
+      '/ppt/slides/slide1.xml',
+    )).toBe(false);
+    expect(lexical.xml.serialize()).toBe(before);
+
+    const escapedGeometry: CustomGeometry = {
+      guides: [{ name: 'x&1', formula: { operator: 'val', operands: ['x&1'] } }],
+      paths: [{
+        width: 1,
+        height: 1,
+        commands: [{ kind: 'moveTo', point: { x: 'x&1', y: 0 } }],
+      }],
+    };
+    const escaped = parseShape(fixture(renderCustomGeometry(
+      normalizeCustomGeometry(escapedGeometry, 'Custom geometry'),
+      'a:',
+    )));
+    expect(readCustomGeometry(escaped.xml, escaped.shape)).toEqual(escapedGeometry);
+  });
+
   it('distinguishes ordered paths, commands, values, flags, and optional absence', () => {
     const normalized = normalizeCustomGeometry(geometry, 'Custom geometry');
     expect(customGeometryEqual(normalized, normalized)).toBe(true);
@@ -624,7 +666,7 @@ describe('custom geometry OOXML codec', () => {
     }
   });
 
-  it('rejects malformed, ambiguous, formula, guide, handle, connection, and rect state', () => {
+  it('rejects malformed, ambiguous, guide, handle, connection, and rect state', () => {
     const valid = canonical();
     const cases = [
       fixture(valid).replace(PRESENTATION_NAMESPACE, 'urn:wrong'),
@@ -636,8 +678,28 @@ describe('custom geometry OOXML codec', () => {
       fixture(valid).replace('<a:pathLst>', '<a:pathLst/><a:pathLst>'),
       fixture(valid).replace('<a:pathLst>', '<a:pathLst unsafe="1">'),
       fixture(valid).replace('<a:custGeom>', '<a:custGeom unsafe="1">'),
-      fixture(valid).replace('<a:avLst/>', '<a:avLst><a:gd name="adj" fmla="val 1"/></a:avLst>'),
-      fixture(valid).replace('<a:gdLst/>', '<a:gdLst><a:gd name="x" fmla="*/ w 1 2"/></a:gdLst>'),
+      fixture(valid).replace('<a:avLst/>', '<a:avLst unsafe="1"/>'),
+      fixture(valid).replace('<a:gdLst/>', '<a:gdLst/><a:gdLst/>'),
+      fixture(valid).replace('<a:gdLst/>', '<a:gdLst><a:unknown/></a:gdLst>'),
+      fixture(valid).replace('<a:gdLst/>', '<a:gdLst><x:gd xmlns:x="urn:wrong" name="x" fmla="val 1"/></a:gdLst>'),
+      fixture(valid).replace('<a:gdLst/>', '<a:gdLst><a:gd fmla="val 1"/></a:gdLst>'),
+      fixture(valid).replace('<a:gdLst/>', '<a:gdLst><a:gd name="x"/></a:gdLst>'),
+      fixture(valid).replace('<a:gdLst/>', '<a:gdLst><a:gd name="x" fmla="val 1" extra="1"/></a:gdLst>'),
+      fixture(valid).replace('<a:gdLst/>', '<a:gdLst><a:gd x:name="x" xmlns:x="urn:wrong" fmla="val 1"/></a:gdLst>'),
+      fixture(valid).replace('<a:gdLst/>', '<a:gdLst><a:gd name="x" x:fmla="val 1" xmlns:x="urn:wrong"/></a:gdLst>'),
+      fixture(valid).replace('<a:gdLst/>', '<a:gdLst><a:gd name="x" fmla="unknown 1"/></a:gdLst>'),
+      fixture(valid).replace('<a:gdLst/>', '<a:gdLst><a:gd name="x" fmla="val"/></a:gdLst>'),
+      fixture(valid).replace('<a:gdLst/>', '<a:gdLst><a:gd name="x" fmla="val 1 2"/></a:gdLst>'),
+      fixture(valid).replace('<a:gdLst/>', '<a:gdLst><a:gd name="x" fmla="max 1"/></a:gdLst>'),
+      fixture(valid).replace('<a:gdLst/>', '<a:gdLst><a:gd name="x" fmla="pin 1 2"/></a:gdLst>'),
+      fixture(valid).replace('<a:gdLst/>', '<a:gdLst><a:gd name="x" fmla="val 9007199254740992"/></a:gdLst>'),
+      fixture(valid).replace('<a:gdLst/>', '<a:gdLst><a:gd name="x" fmla="val two words"/></a:gdLst>'),
+      fixture(valid).replace(
+        '<a:avLst/><a:gdLst/>',
+        '<a:avLst><a:gd name="same" fmla="val 1"/></a:avLst>' +
+        '<a:gdLst><a:gd name="same" fmla="val 2"/></a:gdLst>',
+      ),
+      fixture(valid).replace('<a:gdLst/>', '<a:gdLst><a:gd name="x" fmla="val 1"><a:gd/></a:gd></a:gdLst>'),
       fixture(valid).replace('<a:ahLst/>', '<a:ahLst><a:ahXY/></a:ahLst>'),
       fixture(valid).replace('<a:cxnLst/>', '<a:cxnLst><a:cxn ang="0"/></a:cxnLst>'),
       fixture(valid).replace('l="l"', 'l="0"'),
@@ -646,7 +708,7 @@ describe('custom geometry OOXML codec', () => {
       fixture(valid).replace('h="2743200"', 'h="unsafe"'),
       fixture(valid).replace('fill="norm"', 'fill="bad"'),
       fixture(valid).replace('stroke="1"', 'stroke="yes"'),
-      fixture(valid).replace('x="914400"', 'x="wd2"'),
+      fixture(valid).replace('x="914400"', 'x="two words"'),
       fixture(valid)
         .replace('<a:moveTo>', '<x:moveTo xmlns:x="urn:wrong">')
         .replace('</a:moveTo>', '</x:moveTo>'),

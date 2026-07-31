@@ -66,7 +66,7 @@ const CUSTOM_CHILD_STAGES = new Map([
   ['rect', 4],
   ['pathLst', 5],
 ]);
-const EMPTY_LIST_NAMES = ['avLst', 'gdLst', 'ahLst', 'cxnLst'] as const;
+const EMPTY_CUSTOM_LIST_NAMES = ['ahLst', 'cxnLst'] as const;
 const INTEGER_PATTERN = /^[+-]?\d+$/;
 const XML_WHITESPACE_PATTERN = /[ \t\r\n]/;
 const FORMULA_ARITIES: ReadonlyMap<string, number> = new Map([
@@ -494,13 +494,17 @@ function parseCustomGeometryElement(geometry: XmlElement): NormalizedCustomGeome
     previousStage = stage;
   }
 
-  for (const name of EMPTY_LIST_NAMES) {
+  for (const name of EMPTY_CUSTOM_LIST_NAMES) {
     const lists = children.filter(({ localName }) => localName === name);
     if (
       lists.length > 1
       || (lists[0] && !isEmptyElement(lists[0]))
     ) return undefined;
   }
+
+  const adjustments = parseGuideList(children, 'avLst');
+  const guides = parseGuideList(children, 'gdLst');
+  if (adjustments === undefined || guides === undefined) return undefined;
 
   const rectangles = children.filter(({ localName }) => localName === 'rect');
   if (rectangles.length > 1 || (rectangles[0] && !isDefaultRectangle(rectangles[0]))) {
@@ -530,9 +534,86 @@ function parseCustomGeometryElement(geometry: XmlElement): NormalizedCustomGeome
     paths.push(path);
   }
   try {
-    return normalizeCustomGeometry({ paths }, 'Custom geometry');
+    return normalizeCustomGeometry({
+      ...(adjustments.length ? { adjustments } : {}),
+      ...(guides.length ? { guides } : {}),
+      paths,
+    }, 'Custom geometry');
   } catch {
     return undefined;
+  }
+}
+
+function parseGuideList(
+  children: readonly XmlElement[],
+  name: 'avLst' | 'gdLst',
+): CustomGeometryGuide[] | undefined {
+  const lists = children.filter(({ localName }) => localName === name);
+  if (lists.length > 1) return undefined;
+  const list = lists[0];
+  if (!list) return [];
+  if (nonNamespaceAttributes(list).length !== 0 || hasNonWhitespaceText(list)) {
+    return undefined;
+  }
+
+  const guides: CustomGeometryGuide[] = [];
+  for (const element of directChildren(list)) {
+    if (
+      element.localName !== 'gd'
+      || namespaceUri(element) !== DRAWING_NAMESPACE
+      || directChildren(element).length !== 0
+      || hasNonWhitespaceText(element)
+    ) return undefined;
+    const attributes = readXmlAttributes(
+      element,
+      new Set(['name', 'fmla']),
+      new Set(['name', 'fmla']),
+    );
+    if (!attributes) return undefined;
+    const guideName = parseCustomGeometryToken(attributes.name);
+    const formula = parseFormulaAttribute(attributes.fmla);
+    if (guideName === undefined || formula === undefined) return undefined;
+    guides.push({ name: guideName, formula });
+  }
+  return guides;
+}
+
+function parseFormulaAttribute(value: string | undefined): CustomGeometryFormula | undefined {
+  if (value === undefined) return undefined;
+  const tokens = value.trim().split(/[ \t\r\n]+/);
+  const operator = tokens.shift();
+  if (!operator) return undefined;
+  const arity = FORMULA_ARITIES.get(operator);
+  if (arity === undefined || tokens.length !== arity) return undefined;
+  const operands: CustomGeometryValue[] = [];
+  for (const token of tokens) {
+    const operand = parseCustomGeometryValue(token, false);
+    if (operand === undefined) return undefined;
+    operands.push(operand);
+  }
+  switch (operator) {
+    case 'val':
+    case 'abs':
+    case 'sqrt':
+      return { operator, operands: [operands[0]!] };
+    case 'at2':
+    case 'cos':
+    case 'max':
+    case 'min':
+    case 'sin':
+    case 'tan':
+      return { operator, operands: [operands[0]!, operands[1]!] };
+    case '*/':
+    case '+-':
+    case '+/':
+    case '?:':
+    case 'cat2':
+    case 'mod':
+    case 'pin':
+    case 'sat2':
+      return { operator, operands: [operands[0]!, operands[1]!, operands[2]!] };
+    default:
+      return undefined;
   }
 }
 
@@ -604,10 +685,10 @@ function parseCommandElement(element: XmlElement): CustomGeometryCommand | undef
         new Set(['wR', 'hR', 'stAng', 'swAng']),
       );
       if (!attributes) return undefined;
-      const widthRadius = parseInteger(attributes.wR, true);
-      const heightRadius = parseInteger(attributes.hR, true);
-      const startAngle = parseInteger(attributes.stAng, false);
-      const sweepAngle = parseInteger(attributes.swAng, false);
+      const widthRadius = parseCustomGeometryValue(attributes.wR, true);
+      const heightRadius = parseCustomGeometryValue(attributes.hR, true);
+      const startAngle = parseCustomGeometryValue(attributes.stAng, false);
+      const sweepAngle = parseCustomGeometryValue(attributes.swAng, false);
       if (
         widthRadius === undefined
         || heightRadius === undefined
@@ -654,9 +735,27 @@ function parsePointElement(element: XmlElement): CustomGeometryPoint | undefined
   ) return undefined;
   const attributes = readXmlAttributes(element, POINT_KEYS, POINT_KEYS);
   if (!attributes) return undefined;
-  const x = parseInteger(attributes.x, false);
-  const y = parseInteger(attributes.y, false);
+  const x = parseCustomGeometryValue(attributes.x, false);
+  const y = parseCustomGeometryValue(attributes.y, false);
   return x === undefined || y === undefined ? undefined : { x, y };
+}
+
+function parseCustomGeometryValue(
+  value: string | undefined,
+  positive: boolean,
+): CustomGeometryValue | undefined {
+  if (value === undefined) return undefined;
+  if (INTEGER_PATTERN.test(value)) return parseInteger(value, positive);
+  return parseCustomGeometryToken(value);
+}
+
+function parseCustomGeometryToken(value: string | undefined): string | undefined {
+  if (value === undefined) return undefined;
+  try {
+    return normalizeCustomGeometryToken(value, 'Custom geometry token');
+  } catch {
+    return undefined;
+  }
 }
 
 function isEmptyElement(element: XmlElement): boolean {
