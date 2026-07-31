@@ -15,7 +15,9 @@ import {
 import { OpcPackage } from '@pptx/opc';
 import { validatePackage } from '@pptx/validator';
 import {
+  CustomGeometryEvaluationError,
   degrees,
+  evaluateCustomGeometry,
   inches,
   ModelParseError,
   openPptxStream,
@@ -28,6 +30,8 @@ import {
   type AddTableCellInput,
   type AddTableOptions,
   type CustomGeometry,
+  type CustomGeometryEvaluationContext,
+  type EvaluatedCustomGeometry,
   type Hyperlink,
   type ShapeArrows,
   type ShapeAdjustment,
@@ -388,6 +392,99 @@ describe('PptxDocument vertical slice', () => {
       });
       // Keep target live for the compile-time branch.
       void target;
+    }
+  });
+
+  it('exposes pure and live custom geometry evaluation through the public SDK', async () => {
+    const geometry: CustomGeometry = {
+      adjustments: [{ name: 'adj', formula: { operator: 'val', operands: [50_000] } }],
+      guides: [
+        { name: 'x1', formula: { operator: '*/', operands: ['w', 'adj', 100_000] } },
+        { name: 'y1', formula: { operator: '*/', operands: ['h', 'adj', 100_000] } },
+      ],
+      handles: [{
+        kind: 'xy',
+        position: { x: 'x1', y: 'y1' },
+        xGuide: 'adj',
+        minX: 'l',
+        maxX: 'r',
+      }],
+      connectionSites: [{ angle: 'cd4', position: { x: 'x1', y: 'y1' } }],
+      textRectangle: { left: 'x1', top: 'y1', right: 'r', bottom: 'b' },
+      paths: [{
+        width: 100_000,
+        height: 100_000,
+        commands: [
+          { kind: 'moveTo', point: { x: 'x1', y: 'y1' } },
+          { kind: 'lineTo', point: { x: 'r', y: 'b' } },
+        ],
+      }],
+    };
+    const context: CustomGeometryEvaluationContext = {
+      width: inches(2),
+      height: inches(1),
+    };
+    const pure: EvaluatedCustomGeometry = evaluateCustomGeometry(geometry, context);
+    expect(typeof evaluateCustomGeometry).toBe('function');
+    expect(pure.context).toEqual(context);
+    expect(pure.guides).toEqual([
+      { name: 'x1', value: inches(1) },
+      { name: 'y1', value: inches(0.5) },
+    ]);
+    expect(pure.textRectangle).toEqual({
+      left: inches(1),
+      top: inches(0.5),
+      right: inches(2),
+      bottom: inches(1),
+    });
+    expect(Object.isFrozen(pure)).toBe(true);
+    expect(Object.isFrozen(pure.context)).toBe(true);
+    expect(Object.isFrozen(pure.handles?.[0]?.position)).toBe(true);
+    expect(Object.isFrozen(pure.paths[0]?.commands[0])).toBe(true);
+
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const shape = slide.addCustomShape(geometry, {
+      width: inches(2),
+      height: inches(1),
+    });
+    const bytes = document.opcPackage.requirePart(slide.partUri).bytes.slice();
+    const journal = [...document.opcPackage.mutations];
+    const live = shape.evaluateCustomGeometry();
+    expect(live).toEqual(pure);
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(bytes);
+    expect(document.opcPackage.mutations).toEqual(journal);
+
+    shape.setTransform({ width: inches(3), height: inches(1.5) });
+    expect(shape.evaluateCustomGeometry()?.guides).toEqual([
+      { name: 'x1', value: inches(1.5) },
+      { name: 'y1', value: inches(0.75) },
+    ]);
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedShape = reopened.slides[0]!.shapes[0] as ShapeModel;
+    expect(reopenedShape.evaluateCustomGeometry()).toEqual(shape.evaluateCustomGeometry());
+
+    const unknownGeometry: CustomGeometry = {
+      paths: [{
+        width: 1,
+        height: 1,
+        commands: [{ kind: 'moveTo', point: { x: 'missing', y: 0 } }],
+      }],
+    };
+    const unknownSlide = document.addSlide();
+    const unknownShape = unknownSlide.addCustomShape(unknownGeometry);
+    expect(unknownShape.customGeometry).toEqual(unknownGeometry);
+    try {
+      unknownShape.evaluateCustomGeometry();
+      throw new Error('Expected custom geometry evaluation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(CustomGeometryEvaluationError);
+      expect(error).toMatchObject({ code: 'unknown-token', token: 'missing' });
+    }
+
+    if (false) {
+      // @ts-expect-error live evaluator reads its context from the shape transform
+      shape.evaluateCustomGeometry(context);
     }
   });
 

@@ -9,7 +9,8 @@ import {
   type Relationship,
 } from '@pptx/opc';
 import { cloneOwnedPartForMutation } from './dependency.internal.js';
-import type { CustomGeometry } from './custom-geometry.js';
+import { evaluateCustomGeometry as evaluateGeometry } from './custom-geometry-evaluator.js';
+import type { CustomGeometry, EvaluatedCustomGeometry } from './custom-geometry.js';
 import type { Hyperlink } from './hyperlink.js';
 import type { SlideModel } from './slide.js';
 import {
@@ -184,6 +185,13 @@ export class ShapeModel extends BaseShapeModel {
 
   set customGeometry(value: CustomGeometry) {
     this.slide.setShapeCustomGeometry(this.id, value);
+  }
+
+  evaluateCustomGeometry(): EvaluatedCustomGeometry | undefined {
+    const geometry = this.customGeometry;
+    if (!geometry) return undefined;
+    const { width, height } = this.transform;
+    return evaluateGeometry(geometry, { width, height });
   }
 
   get hyperlink(): Hyperlink | undefined {

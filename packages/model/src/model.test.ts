@@ -4,6 +4,7 @@ import { LosslessXmlDocument } from '@pptx/lossless-xml';
 import { OpcPackage, relationshipPartUri } from '@pptx/opc';
 import {
   ChartModel,
+  CustomGeometryEvaluationError,
   ImageModel,
   ModelParseError,
   PRESENTATION_FORMAT_PROFILES,
@@ -107,6 +108,39 @@ const customFormulaReplacement: CustomGeometry = {
     commands: [
       { kind: 'moveTo', point: { x: 'x1', y: 'y1' } },
       { kind: 'lineTo', point: { x: 'r', y: 0 } },
+      { kind: 'close' },
+    ],
+  }],
+};
+
+const customEvaluationGeometry: CustomGeometry = {
+  adjustments: [{ name: 'adj', formula: { operator: 'val', operands: [25_000] } }],
+  guides: [
+    { name: 'x1', formula: { operator: '*/', operands: ['w', 'adj', 100_000] } },
+    { name: 'y1', formula: { operator: '*/', operands: ['h', 'adj', 100_000] } },
+    { name: 'rad', formula: { operator: 'max', operands: ['x1', 1] } },
+  ],
+  handles: [{
+    kind: 'xy',
+    position: { x: 'x1', y: 'y1' },
+    xGuide: 'adj',
+    minX: 'l',
+    maxX: 'r',
+  }],
+  connectionSites: [{ angle: 'cd4', position: { x: 'x1', y: 'y1' } }],
+  textRectangle: { left: 'x1', top: 'y1', right: 'r', bottom: 'b' },
+  paths: [{
+    width: 100_000,
+    height: 100_000,
+    commands: [
+      { kind: 'moveTo', point: { x: 'x1', y: 'y1' } },
+      {
+        kind: 'arcTo',
+        widthRadius: 'rad',
+        heightRadius: 'hd2',
+        startAngle: 0,
+        sweepAngle: 'cd4',
+      },
       { kind: 'close' },
     ],
   }],
@@ -800,6 +834,147 @@ describe('PresentationModel', () => {
         url: `https://example.com/formula/${profile.format}`,
       });
       expect(reopenedShape.customGeometry).toEqual(customFormulaReplacement);
+    }
+  });
+
+  it('keeps live custom geometry evaluation read-only and observes transform changes', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const shape = slide.addCustomShape(customEvaluationGeometry, {
+      width: inches(2),
+      height: inches(1),
+    });
+    const before = pkg.requirePart(slide.partUri).bytes.slice();
+    const journal = [...pkg.mutations];
+
+    const evaluated = shape.evaluateCustomGeometry();
+
+    expect(evaluated).toMatchObject({
+      context: { width: inches(2), height: inches(1) },
+      adjustments: [{ name: 'adj', value: 25_000 }],
+      guides: [
+        { name: 'x1', value: inches(0.5) },
+        { name: 'y1', value: inches(0.25) },
+        { name: 'rad', value: inches(0.5) },
+      ],
+      handles: [{
+        kind: 'xy',
+        position: { x: inches(0.5), y: inches(0.25) },
+        xGuide: 'adj',
+        minX: 0,
+        maxX: inches(2),
+      }],
+      connectionSites: [{
+        angle: 5_400_000,
+        position: { x: inches(0.5), y: inches(0.25) },
+      }],
+      textRectangle: {
+        left: inches(0.5),
+        top: inches(0.25),
+        right: inches(2),
+        bottom: inches(1),
+      },
+    });
+    expect(evaluated?.paths[0]?.commands[1]).toEqual({
+      kind: 'arcTo',
+      widthRadius: inches(0.5),
+      heightRadius: inches(0.5),
+      startAngle: 0,
+      sweepAngle: 5_400_000,
+    });
+    expect(Object.isFrozen(evaluated)).toBe(true);
+    expect(Object.isFrozen(evaluated?.paths[0]?.commands[1])).toBe(true);
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(before);
+    expect(pkg.mutations).toEqual(journal);
+
+    shape.setTransform({ width: inches(3), height: inches(1.5) });
+    const resizedBytes = pkg.requirePart(slide.partUri).bytes.slice();
+    const resizedJournal = [...pkg.mutations];
+    const resized = shape.evaluateCustomGeometry();
+    expect(resized).not.toBe(evaluated);
+    expect(resized?.context).toEqual({ width: inches(3), height: inches(1.5) });
+    expect(resized?.guides).toEqual([
+      { name: 'x1', value: inches(0.75) },
+      { name: 'y1', value: inches(0.375) },
+      { name: 'rad', value: inches(0.75) },
+    ]);
+    expect(resized?.textRectangle).toEqual({
+      left: inches(0.75),
+      top: inches(0.375),
+      right: inches(3),
+      bottom: inches(1.5),
+    });
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(resizedBytes);
+    expect(pkg.mutations).toEqual(resizedJournal);
+  });
+
+  it('keeps custom geometry evaluation failures read-only and returns undefined when absent', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const preset = model.addSlide().addShape('rect');
+    expect(preset.evaluateCustomGeometry()).toBeUndefined();
+
+    const malformedSlide = model.addSlide();
+    const malformedShape = malformedSlide.addCustomShape(customEvaluationGeometry);
+    const malformedPart = pkg.requirePart(malformedSlide.partUri);
+    pkg.setPart(
+      malformedSlide.partUri,
+      new TextDecoder().decode(malformedPart.bytes).replace(
+        'fmla="val 25000"',
+        'fmla="unsupported 25000"',
+      ),
+      malformedPart.contentType,
+    );
+    const malformed = packageSnapshot(pkg);
+    expect(malformedShape.customGeometry).toBeUndefined();
+    expect(malformedShape.evaluateCustomGeometry()).toBeUndefined();
+    expect(packageSnapshot(pkg)).toEqual(malformed);
+
+    const unknownGeometry: CustomGeometry = {
+      paths: [{
+        width: 1,
+        height: 1,
+        commands: [{ kind: 'moveTo', point: { x: 'missing', y: 0 } }],
+      }],
+    };
+    const unknownSlide = model.addSlide();
+    const unknownShape = unknownSlide.addCustomShape(unknownGeometry);
+    expect(unknownShape.customGeometry).toEqual(unknownGeometry);
+    const before = packageSnapshot(pkg);
+    try {
+      unknownShape.evaluateCustomGeometry();
+      throw new Error('Expected custom geometry evaluation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(CustomGeometryEvaluationError);
+      expect(error).toMatchObject({ code: 'unknown-token', token: 'missing' });
+    }
+    expect(packageSnapshot(pkg)).toEqual(before);
+  });
+
+  it('preserves custom geometry evaluation through duplicate, move, and all formats', async () => {
+    for (const profile of Object.values(PRESENTATION_FORMAT_PROFILES)) {
+      const pkg = await OpcPackage.open(await modelFixture(profile.presentationContentType));
+      const model = new PresentationModel(pkg);
+      const slide = model.addSlide();
+      const shape = slide.addCustomShape(customEvaluationGeometry, {
+        name: `Evaluator ${profile.format}`,
+        width: inches(2),
+        height: inches(1),
+      });
+      const expected = shape.evaluateCustomGeometry();
+      const duplicate = model.duplicateSlide(model.slides.indexOf(slide));
+      const duplicateShape = duplicate.shapes.find(({ id }) => id === shape.id) as ShapeModel;
+      model.moveSlide(model.slides.indexOf(duplicate), 0);
+      expect(duplicateShape.evaluateCustomGeometry()).toEqual(expected);
+
+      const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+      for (const partUri of [slide.partUri, duplicate.partUri]) {
+        const reopenedSlide = reopened.slides.find((candidate) => candidate.partUri === partUri)!;
+        const reopenedShape = reopenedSlide.shapes.find(({ id }) => id === shape.id) as ShapeModel;
+        expect(reopenedShape.name).toBe(`Evaluator ${profile.format}`);
+        expect(reopenedShape.evaluateCustomGeometry()).toEqual(expected);
+      }
     }
   });
 
