@@ -5,6 +5,9 @@ import type {
   AddCustomShapeOptions,
   CustomGeometry,
   CustomGeometryCommand,
+  CustomGeometryFormula,
+  CustomGeometryGuide,
+  CustomGeometryValue,
 } from './custom-geometry.js';
 import { inches } from './units.js';
 import {
@@ -60,13 +63,66 @@ const geometry: CustomGeometry = {
   ],
 };
 
+const allFormulaGuides: readonly CustomGeometryGuide[] = [
+  { name: 'gVal', formula: { operator: 'val', operands: [25_000] } },
+  { name: 'gAbs', formula: { operator: 'abs', operands: [-25_000] } },
+  { name: 'gSqrt', formula: { operator: 'sqrt', operands: [100] } },
+  { name: 'gAt2', formula: { operator: 'at2', operands: ['h', 'w'] } },
+  { name: 'gCos', formula: { operator: 'cos', operands: ['w', 'gAt2'] } },
+  { name: 'gMax', formula: { operator: 'max', operands: ['w', 'h'] } },
+  { name: 'gMin', formula: { operator: 'min', operands: ['w', 'h'] } },
+  { name: 'gSin', formula: { operator: 'sin', operands: ['h', 'cd4'] } },
+  { name: 'gTan', formula: { operator: 'tan', operands: ['ss', 'cd8'] } },
+  { name: 'gMul', formula: { operator: '*/', operands: ['w', 'adj1', 100_000] } },
+  { name: 'gAdd', formula: { operator: '+-', operands: ['h', 0, 'gMul'] } },
+  { name: 'gDiv', formula: { operator: '+/', operands: ['w', 'h', 2] } },
+  { name: 'gIf', formula: { operator: '?:', operands: ['adj1', 'gMul', 'gAdd'] } },
+  { name: 'gCat', formula: { operator: 'cat2', operands: ['w', 'h', 'gAt2'] } },
+  { name: 'gMod', formula: { operator: 'mod', operands: ['w', 'h', 0] } },
+  { name: 'gPin', formula: { operator: 'pin', operands: [0, 'adj1', 100_000] } },
+  { name: 'gSat', formula: { operator: 'sat2', operands: ['h', 'w', 'gAt2'] } },
+];
+
+const formulaGeometry: CustomGeometry = {
+  adjustments: [{ name: 'adj1', formula: { operator: 'val', operands: [25_000] } }],
+  guides: allFormulaGuides,
+  paths: [{
+    width: 100_000,
+    height: 100_000,
+    commands: [
+      { kind: 'moveTo', point: { x: 'gMul', y: 0 } },
+      { kind: 'lineTo', point: { x: 'r', y: 'gAdd' } },
+      {
+        kind: 'quadraticBezierTo',
+        control: { x: 'gDiv', y: 'gMin' },
+        end: { x: 'gMax', y: 'b' },
+      },
+      {
+        kind: 'cubicBezierTo',
+        control1: { x: 'gCos', y: 'gSin' },
+        control2: { x: 'gCat', y: 'gSat' },
+        end: { x: 'gPin', y: 'gMod' },
+      },
+      {
+        kind: 'arcTo',
+        widthRadius: 'gMul',
+        heightRadius: 'hd2',
+        startAngle: 'gAt2',
+        sweepAngle: 'cd2',
+      },
+    ],
+  }],
+};
+
 const publicOptions: AddCustomShapeOptions = { name: 'Custom', x: inches(1) };
 void publicOptions;
 // @ts-expect-error preset-only adjustments are not custom-shape options
 const invalidOptions: AddCustomShapeOptions = { adjustments: [] };
 void invalidOptions;
-// @ts-expect-error custom geometry coordinates are numeric direct values
-const invalidCommand: CustomGeometryCommand = { kind: 'moveTo', point: { x: '1', y: 2 } };
+const tokenCommand: CustomGeometryCommand = { kind: 'moveTo', point: { x: 'x1', y: 2 } };
+void tokenCommand;
+// @ts-expect-error custom geometry coordinates are number or string values
+const invalidCommand: CustomGeometryCommand = { kind: 'moveTo', point: { x: false, y: 2 } };
 void invalidCommand;
 // @ts-expect-error custom geometry commands must use a supported kind
 const unknownCommand: CustomGeometryCommand = { kind: 'unknown' };
@@ -84,6 +140,16 @@ const arcEndpoint: CustomGeometryCommand = {
   end: { x: 1, y: 1 },
 };
 void arcEndpoint;
+const unaryFormula: CustomGeometryFormula = { operator: 'sqrt', operands: ['g1'] };
+const binaryFormula: CustomGeometryFormula = { operator: 'max', operands: [1, 'g1'] };
+const ternaryFormula: CustomGeometryFormula = { operator: 'pin', operands: [0, 'g1', 100_000] };
+void [unaryFormula, binaryFormula, ternaryFormula];
+// @ts-expect-error formula arity is encoded in the readonly tuple
+const invalidFormulaArity: CustomGeometryFormula = { operator: 'val', operands: [1, 2] };
+void invalidFormulaArity;
+// @ts-expect-error formula operators are closed
+const invalidFormulaOperator: CustomGeometryFormula = { operator: 'sum', operands: [1, 2, 3] };
+void invalidFormulaOperator;
 
 function parseShape(source: string) {
   const xml = LosslessXmlDocument.parse(source);
@@ -183,6 +249,58 @@ describe('normalizeCustomGeometry', () => {
       commands: [],
     }] });
     expect(normalizeCustomGeometry(root, 'Custom geometry')).toEqual(root);
+  });
+
+  it('copies and recursively freezes all guide formulas and token path values', () => {
+    const mutable = structuredClone(formulaGeometry) as unknown as {
+      adjustments: Array<{
+        name: string;
+        formula: { operator: string; operands: CustomGeometryValue[] };
+      }>;
+      guides: Array<{
+        name: string;
+        formula: { operator: string; operands: CustomGeometryValue[] };
+      }>;
+      paths: Array<{
+        width: number;
+        height: number;
+        commands: Array<CustomGeometryCommand>;
+      }>;
+    };
+    const normalized = normalizeCustomGeometry(mutable, 'Custom geometry');
+    expect(normalized).toEqual(formulaGeometry);
+    expect(Object.isFrozen(normalized)).toBe(true);
+    expect(Object.isFrozen(normalized.adjustments)).toBe(true);
+    expect(Object.isFrozen(normalized.adjustments?.[0])).toBe(true);
+    expect(Object.isFrozen(normalized.adjustments?.[0]?.formula)).toBe(true);
+    expect(Object.isFrozen(normalized.adjustments?.[0]?.formula.operands)).toBe(true);
+    expect(Object.isFrozen(normalized.guides)).toBe(true);
+    expect(normalized.guides?.every((guide) =>
+      Object.isFrozen(guide)
+      && Object.isFrozen(guide.formula)
+      && Object.isFrozen(guide.formula.operands))).toBe(true);
+
+    mutable.adjustments[0]!.name = 'changed';
+    mutable.adjustments[0]!.formula.operands[0] = 99;
+    mutable.guides.splice(0);
+    mutable.paths[0]!.commands.splice(0);
+    expect(normalized).toEqual(formulaGeometry);
+
+    const empty = normalizeCustomGeometry({
+      adjustments: [],
+      guides: [],
+      paths: [{ width: 1, height: 1, commands: [] }],
+    }, 'Custom geometry');
+    expect(Object.hasOwn(empty, 'adjustments')).toBe(false);
+    expect(Object.hasOwn(empty, 'guides')).toBe(false);
+  });
+
+  it('accepts every guide formula operator at its exact arity', () => {
+    const normalized = normalizeCustomGeometry(formulaGeometry, 'Custom geometry');
+    expect(normalized.guides?.map(({ formula }) => formula.operator)).toEqual([
+      'val', 'abs', 'sqrt', 'at2', 'cos', 'max', 'min', 'sin', 'tan',
+      '*/', '+-', '+/', '?:', 'cat2', 'mod', 'pin', 'sat2',
+    ]);
   });
 
   it('rejects unsafe containers, arrays, properties, and accessors without invoking them', () => {
@@ -295,6 +413,92 @@ describe('normalizeCustomGeometry', () => {
       }, 'Custom geometry')).toThrow();
     }
   });
+
+  it('rejects malformed guide formulas, duplicate names, and invalid value tokens', () => {
+    const wrapGuides = (guides: unknown, adjustments: unknown = undefined) => ({
+      ...(adjustments === undefined ? {} : { adjustments }),
+      guides,
+      paths: [{ width: 1, height: 1, commands: [] }],
+    });
+    for (const candidate of [
+      wrapGuides(null),
+      wrapGuides([null]),
+      wrapGuides([{ name: '', formula: { operator: 'val', operands: [1] } }]),
+      wrapGuides([{ name: 'two words', formula: { operator: 'val', operands: [1] } }]),
+      wrapGuides([{ name: '1', formula: { operator: 'val', operands: [1] } }]),
+      wrapGuides([{ name: 'bad\u0000', formula: { operator: 'val', operands: [1] } }]),
+      wrapGuides([{ name: 'g1', formula: { operator: 'unknown', operands: [1] } }]),
+      wrapGuides([{ name: 'g1', formula: { operator: 'val', operands: [] } }]),
+      wrapGuides([{ name: 'g1', formula: { operator: 'val', operands: [1, 2] } }]),
+      wrapGuides([{ name: 'g1', formula: { operator: 'max', operands: [1] } }]),
+      wrapGuides([{ name: 'g1', formula: { operator: 'pin', operands: [1, 2] } }]),
+      wrapGuides([{ name: 'g1', formula: { operator: 'val', operands: [1], extra: true } }]),
+      wrapGuides([{ name: 'g1', formula: { operator: 'val', operands: [''] } }]),
+      wrapGuides([{ name: 'g1', formula: { operator: 'val', operands: ['two words'] } }]),
+      wrapGuides([{ name: 'g1', formula: { operator: 'val', operands: ['+1'] } }]),
+      wrapGuides([{ name: 'g1', formula: { operator: 'val', operands: ['bad\u0000'] } }]),
+      wrapGuides([{ name: 'g1', formula: { operator: 'val', operands: [1.5] } }]),
+      wrapGuides([{ name: 'g1', formula: { operator: 'val', operands: [Number.MAX_SAFE_INTEGER + 1] } }]),
+      wrapGuides([
+        { name: 'g1', formula: { operator: 'val', operands: [1] } },
+        { name: 'g1', formula: { operator: 'val', operands: [2] } },
+      ]),
+      wrapGuides(
+        [{ name: 'g1', formula: { operator: 'val', operands: [1] } }],
+        [{ name: 'g1', formula: { operator: 'val', operands: [2] } }],
+      ),
+      {
+        paths: [{
+          width: 1,
+          height: 1,
+          commands: [{ kind: 'moveTo', point: { x: 'two words', y: 0 } }],
+        }],
+      },
+      {
+        paths: [{
+          width: 1,
+          height: 1,
+          commands: [{
+            kind: 'moveTo',
+            point: { x: 0, y: 0 },
+          }, {
+            kind: 'arcTo',
+            widthRadius: '1',
+            heightRadius: 'hd2',
+            startAngle: 0,
+            sweepAngle: 'cd2',
+          }],
+        }],
+      },
+    ]) expect(() => normalizeCustomGeometry(candidate, 'Custom geometry')).toThrow();
+
+    const sparseOperands = Array(1);
+    expect(() => normalizeCustomGeometry(wrapGuides([{
+      name: 'g1',
+      formula: { operator: 'val', operands: sparseOperands },
+    }]), 'Custom geometry')).toThrow(/dense array/);
+
+    class Operands<T> extends Array<T> {}
+    expect(() => normalizeCustomGeometry(wrapGuides([{
+      name: 'g1',
+      formula: { operator: 'val', operands: new Operands(1) },
+    }]), 'Custom geometry')).toThrow(/ordinary array/);
+
+    let calls = 0;
+    const formulaAccessor = Object.defineProperty({}, 'operator', {
+      enumerable: true,
+      get() {
+        calls += 1;
+        return 'val';
+      },
+    });
+    Object.defineProperty(formulaAccessor, 'operands', { enumerable: true, value: [1] });
+    expect(() => normalizeCustomGeometry(wrapGuides([{
+      name: 'g1',
+      formula: formulaAccessor,
+    }]), 'Custom geometry')).toThrow(/data property/);
+    expect(calls).toBe(0);
+  });
 });
 
 describe('custom geometry OOXML codec', () => {
@@ -302,6 +506,38 @@ describe('custom geometry OOXML codec', () => {
     const normalized = normalizeCustomGeometry(geometry, 'Custom geometry');
     expect(renderCustomGeometry(normalized, 'a:')).toBe(canonical());
     expect(renderCustomGeometry(normalized, '')).toBe(canonical(''));
+  });
+
+  it('renders guide formulas and token path values canonically with XML escaping', () => {
+    const normalized = normalizeCustomGeometry(formulaGeometry, 'Custom geometry');
+    const rendered = renderCustomGeometry(normalized, 'a:');
+    expect(rendered).toContain(
+      '<a:avLst><a:gd name="adj1" fmla="val 25000"/></a:avLst>',
+    );
+    expect(rendered).toContain(
+      '<a:gd name="gMul" fmla="*/ w adj1 100000"/>',
+    );
+    expect(rendered).toContain(
+      '<a:moveTo><a:pt x="gMul" y="0"/></a:moveTo>',
+    );
+    expect(rendered).toContain(
+      '<a:arcTo wR="gMul" hR="hd2" stAng="gAt2" swAng="cd2"/>',
+    );
+
+    const escaped = normalizeCustomGeometry({
+      guides: [{ name: 'x&1', formula: { operator: 'val', operands: ['x&1'] } }],
+      paths: [{
+        width: 1,
+        height: 1,
+        commands: [{ kind: 'moveTo', point: { x: 'x&1', y: 0 } }],
+      }],
+    }, 'Custom geometry');
+    expect(renderCustomGeometry(escaped, 'd:')).toContain(
+      '<d:gd name="x&amp;1" fmla="val x&amp;1"/>',
+    );
+    expect(renderCustomGeometry(escaped, 'd:')).toContain(
+      '<d:pt x="x&amp;1" y="0"/>',
+    );
   });
 
   it('reads canonical, alternate-prefix, absent-empty-list, and boolean lexical state', () => {
@@ -336,6 +572,49 @@ describe('custom geometry OOXML codec', () => {
       { paths: [{ ...geometry.paths[0]!, commands: [
         { kind: 'moveTo', point: { x: 1, y: 0 } },
       ] }] },
+    ];
+    for (const variant of variants) {
+      expect(customGeometryEqual(
+        normalized,
+        normalizeCustomGeometry(variant, 'Custom geometry'),
+      )).toBe(false);
+    }
+  });
+
+  it('distinguishes guide list presence, order, names, operators, and operands', () => {
+    const normalized = normalizeCustomGeometry(formulaGeometry, 'Custom geometry');
+    const { adjustments: _adjustments, ...withoutAdjustments } = formulaGeometry;
+    const variants: CustomGeometry[] = [
+      withoutAdjustments,
+      { ...formulaGeometry, guides: [...allFormulaGuides].reverse() },
+      {
+        ...formulaGeometry,
+        guides: [
+          { ...allFormulaGuides[0]!, name: 'renamed' },
+          ...allFormulaGuides.slice(1),
+        ],
+      },
+      {
+        ...formulaGeometry,
+        guides: [
+          { name: 'gVal', formula: { operator: 'abs', operands: [25_000] } },
+          ...allFormulaGuides.slice(1),
+        ],
+      },
+      {
+        ...formulaGeometry,
+        guides: [
+          { name: 'gVal', formula: { operator: 'val', operands: [25_001] } },
+          ...allFormulaGuides.slice(1),
+        ],
+      },
+      {
+        ...formulaGeometry,
+        paths: [{
+          ...formulaGeometry.paths[0]!,
+          commands: [{ kind: 'moveTo', point: { x: 'gAdd', y: 0 } }],
+        }],
+      },
     ];
     for (const variant of variants) {
       expect(customGeometryEqual(

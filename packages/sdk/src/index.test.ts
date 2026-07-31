@@ -381,8 +381,8 @@ describe('PptxDocument vertical slice', () => {
           height: 1,
           commands: [{
             kind: 'moveTo',
-            // @ts-expect-error custom geometry coordinates are numeric direct values
-            point: { x: '1', y: 2 },
+            // @ts-expect-error custom geometry coordinates are number or string values
+            point: { x: false, y: 2 },
           }],
         }],
       });

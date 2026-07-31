@@ -1,10 +1,17 @@
-import type { LosslessXmlDocument, XmlElement } from '@pptx/lossless-xml';
+import {
+  escapeXmlAttribute,
+  type LosslessXmlDocument,
+  type XmlElement,
+} from '@pptx/lossless-xml';
 import type {
   CustomGeometry,
   CustomGeometryCommand,
+  CustomGeometryFormula,
+  CustomGeometryGuide,
   CustomGeometryPath,
   CustomGeometryPathFill,
   CustomGeometryPoint,
+  CustomGeometryValue,
 } from './custom-geometry.js';
 import { ModelParseError } from './errors.js';
 import { PRESET_SHAPE_TYPES } from './preset-shape.js';
@@ -13,7 +20,10 @@ const PRESENTATION_NAMESPACE =
   'http://schemas.openxmlformats.org/presentationml/2006/main';
 const DRAWING_NAMESPACE =
   'http://schemas.openxmlformats.org/drawingml/2006/main';
-const ROOT_KEYS = new Set(['paths']);
+const ROOT_KEYS = new Set(['adjustments', 'guides', 'paths']);
+const ROOT_REQUIRED_KEYS = new Set(['paths']);
+const GUIDE_KEYS = new Set(['name', 'formula']);
+const FORMULA_KEYS = new Set(['operator', 'operands']);
 const PATH_KEYS = new Set([
   'width',
   'height',
@@ -58,6 +68,26 @@ const CUSTOM_CHILD_STAGES = new Map([
 ]);
 const EMPTY_LIST_NAMES = ['avLst', 'gdLst', 'ahLst', 'cxnLst'] as const;
 const INTEGER_PATTERN = /^[+-]?\d+$/;
+const XML_WHITESPACE_PATTERN = /[ \t\r\n]/;
+const FORMULA_ARITIES: ReadonlyMap<string, number> = new Map([
+  ['val', 1],
+  ['abs', 1],
+  ['sqrt', 1],
+  ['at2', 2],
+  ['cos', 2],
+  ['max', 2],
+  ['min', 2],
+  ['sin', 2],
+  ['tan', 2],
+  ['*/', 3],
+  ['+-', 3],
+  ['+/', 3],
+  ['?:', 3],
+  ['cat2', 3],
+  ['mod', 3],
+  ['pin', 3],
+  ['sat2', 3],
+]);
 const PRESET_SHAPE_TYPE_SET: ReadonlySet<string> = new Set(PRESET_SHAPE_TYPES);
 
 export type NormalizedCustomGeometry = Readonly<CustomGeometry>;
@@ -72,12 +102,23 @@ export function normalizeCustomGeometry(
   value: unknown,
   context: string,
 ): NormalizedCustomGeometry {
-  const root = readObject(value, ROOT_KEYS, ROOT_KEYS, context);
+  const root = readObject(value, ROOT_KEYS, ROOT_REQUIRED_KEYS, context);
+  const guideNames = new Set<string>();
+  const adjustments = Object.hasOwn(root, 'adjustments')
+    ? normalizeGuideList(root.adjustments, `${context} adjustments`, guideNames)
+    : undefined;
+  const guides = Object.hasOwn(root, 'guides')
+    ? normalizeGuideList(root.guides, `${context} guides`, guideNames)
+    : undefined;
   const paths = readArray(root.paths, `${context} paths`);
   if (paths.length === 0) throw new RangeError(`${context} paths must not be empty`);
   const normalizedPaths = paths.map((path, index) =>
     normalizePath(path, `${context} path ${index}`));
-  return Object.freeze({ paths: Object.freeze(normalizedPaths) });
+  return Object.freeze({
+    ...(adjustments?.length ? { adjustments } : {}),
+    ...(guides?.length ? { guides } : {}),
+    paths: Object.freeze(normalizedPaths),
+  });
 }
 
 export function renderCustomGeometry(
@@ -85,7 +126,8 @@ export function renderCustomGeometry(
   prefix: string,
 ): string {
   const paths = geometry.paths.map((path) => renderPath(path, prefix)).join('');
-  return `<${prefix}custGeom><${prefix}avLst/><${prefix}gdLst/>` +
+  return `<${prefix}custGeom>${renderGuideList('avLst', geometry.adjustments, prefix)}` +
+    `${renderGuideList('gdLst', geometry.guides, prefix)}` +
     `<${prefix}ahLst/><${prefix}cxnLst/>` +
     `<${prefix}rect l="l" t="t" r="r" b="b"/>` +
     `<${prefix}pathLst>${paths}</${prefix}pathLst></${prefix}custGeom>`;
@@ -134,6 +176,10 @@ export function customGeometryEqual(
   right: NormalizedCustomGeometry | undefined,
 ): boolean {
   if (left === undefined || right === undefined) return left === right;
+  if (
+    !guideListsEqual(left.adjustments, right.adjustments)
+    || !guideListsEqual(left.guides, right.guides)
+  ) return false;
   if (left.paths.length !== right.paths.length) return false;
   return left.paths.every((path, index) => {
     const other = right.paths[index];
@@ -149,6 +195,46 @@ export function customGeometryEqual(
     return path.commands.every((command, commandIndex) =>
       commandsEqual(command, other.commands[commandIndex]));
   });
+}
+
+function normalizeGuideList(
+  value: unknown,
+  context: string,
+  names: Set<string>,
+): readonly Readonly<CustomGeometryGuide>[] {
+  const guides = readArray(value, context).map((item, index) => {
+    const itemContext = `${context} item ${index}`;
+    const guide = readObject(item, GUIDE_KEYS, GUIDE_KEYS, itemContext);
+    const name = normalizeCustomGeometryToken(guide.name, `${itemContext} name`);
+    if (names.has(name)) throw new TypeError(`${itemContext} name must be unique`);
+    names.add(name);
+    return Object.freeze({
+      name,
+      formula: normalizeFormula(guide.formula, `${itemContext} formula`),
+    });
+  });
+  return Object.freeze(guides);
+}
+
+function normalizeFormula(
+  value: unknown,
+  context: string,
+): Readonly<CustomGeometryFormula> {
+  const formula = readObject(value, FORMULA_KEYS, FORMULA_KEYS, context);
+  if (typeof formula.operator !== 'string') {
+    throw new TypeError(`${context} operator must be a supported string`);
+  }
+  const arity = FORMULA_ARITIES.get(formula.operator);
+  if (arity === undefined) throw new TypeError(`${context} operator must be supported`);
+  const operands = readArray(formula.operands, `${context} operands`);
+  if (operands.length !== arity) {
+    throw new RangeError(`${context} operands must contain exactly ${arity} items`);
+  }
+  return Object.freeze({
+    operator: formula.operator,
+    operands: Object.freeze(operands.map((operand, index) =>
+      normalizeCustomGeometryValue(operand, `${context} operand ${index}`, false))),
+  }) as Readonly<CustomGeometryFormula>;
 }
 
 function normalizePath(value: unknown, context: string): Readonly<CustomGeometryPath> {
@@ -207,10 +293,26 @@ function normalizeCommand(value: unknown, context: string): Readonly<CustomGeome
     case 'arcTo':
       return Object.freeze({
         kind,
-        widthRadius: readSafeInteger(candidate.widthRadius, `${context} widthRadius`, true),
-        heightRadius: readSafeInteger(candidate.heightRadius, `${context} heightRadius`, true),
-        startAngle: readSafeInteger(candidate.startAngle, `${context} startAngle`, false),
-        sweepAngle: readSafeInteger(candidate.sweepAngle, `${context} sweepAngle`, false),
+        widthRadius: normalizeCustomGeometryValue(
+          candidate.widthRadius,
+          `${context} widthRadius`,
+          true,
+        ),
+        heightRadius: normalizeCustomGeometryValue(
+          candidate.heightRadius,
+          `${context} heightRadius`,
+          true,
+        ),
+        startAngle: normalizeCustomGeometryValue(
+          candidate.startAngle,
+          `${context} startAngle`,
+          false,
+        ),
+        sweepAngle: normalizeCustomGeometryValue(
+          candidate.sweepAngle,
+          `${context} sweepAngle`,
+          false,
+        ),
       });
     case 'quadraticBezierTo':
       return Object.freeze({
@@ -235,9 +337,47 @@ function normalizeCommand(value: unknown, context: string): Readonly<CustomGeome
 function normalizePoint(value: unknown, context: string): Readonly<CustomGeometryPoint> {
   const point = readObject(value, POINT_KEYS, POINT_KEYS, context);
   return Object.freeze({
-    x: readSafeInteger(point.x, `${context} x`, false),
-    y: readSafeInteger(point.y, `${context} y`, false),
+    x: normalizeCustomGeometryValue(point.x, `${context} x`, false),
+    y: normalizeCustomGeometryValue(point.y, `${context} y`, false),
   });
+}
+
+function normalizeCustomGeometryValue(
+  value: unknown,
+  context: string,
+  positive: boolean,
+): CustomGeometryValue {
+  if (typeof value === 'number') return readSafeInteger(value, context, positive);
+  return normalizeCustomGeometryToken(value, context);
+}
+
+function normalizeCustomGeometryToken(value: unknown, context: string): string {
+  if (typeof value !== 'string') throw new TypeError(`${context} must be a number or string`);
+  if (
+    value.length === 0
+    || XML_WHITESPACE_PATTERN.test(value)
+    || INTEGER_PATTERN.test(value)
+    || containsInvalidXmlCharacter(value)
+  ) {
+    throw new TypeError(`${context} must be a non-decimal XML-safe token`);
+  }
+  return value;
+}
+
+function renderGuideList(
+  name: 'avLst' | 'gdLst',
+  guides: readonly Readonly<CustomGeometryGuide>[] | undefined,
+  prefix: string,
+): string {
+  if (!guides?.length) return `<${prefix}${name}/>`;
+  const children = guides.map((guide) =>
+    `<${prefix}gd name="${escapeXmlAttribute(guide.name)}" ` +
+    `fmla="${escapeXmlAttribute(renderFormula(guide.formula))}"/>`).join('');
+  return `<${prefix}${name}>${children}</${prefix}${name}>`;
+}
+
+function renderFormula(formula: Readonly<CustomGeometryFormula>): string {
+  return [formula.operator, ...formula.operands.map(String)].join(' ');
 }
 
 function renderPath(path: Readonly<CustomGeometryPath>, prefix: string): string {
@@ -261,8 +401,10 @@ function renderCommand(command: Readonly<CustomGeometryCommand>, prefix: string)
     case 'lineTo':
       return `<${prefix}lnTo>${renderPoint(command.point, prefix)}</${prefix}lnTo>`;
     case 'arcTo':
-      return `<${prefix}arcTo wR="${command.widthRadius}" hR="${command.heightRadius}" ` +
-        `stAng="${command.startAngle}" swAng="${command.sweepAngle}"/>`;
+      return `<${prefix}arcTo wR="${renderCustomGeometryValue(command.widthRadius)}" ` +
+        `hR="${renderCustomGeometryValue(command.heightRadius)}" ` +
+        `stAng="${renderCustomGeometryValue(command.startAngle)}" ` +
+        `swAng="${renderCustomGeometryValue(command.sweepAngle)}"/>`;
     case 'quadraticBezierTo':
       return `<${prefix}quadBezTo>${renderPoint(command.control, prefix)}` +
         `${renderPoint(command.end, prefix)}</${prefix}quadBezTo>`;
@@ -276,7 +418,12 @@ function renderCommand(command: Readonly<CustomGeometryCommand>, prefix: string)
 }
 
 function renderPoint(point: Readonly<CustomGeometryPoint>, prefix: string): string {
-  return `<${prefix}pt x="${point.x}" y="${point.y}"/>`;
+  return `<${prefix}pt x="${renderCustomGeometryValue(point.x)}" ` +
+    `y="${renderCustomGeometryValue(point.y)}"/>`;
+}
+
+function renderCustomGeometryValue(value: CustomGeometryValue): string {
+  return escapeXmlAttribute(String(value));
 }
 
 function inspectCustomGeometryOwner(shape: XmlElement): CustomGeometryOwnerState | undefined {
@@ -649,6 +796,28 @@ function optionalPropertyEqual<T extends object>(
     && left[key] === right[key];
 }
 
+function guideListsEqual(
+  left: readonly Readonly<CustomGeometryGuide>[] | undefined,
+  right: readonly Readonly<CustomGeometryGuide>[] | undefined,
+): boolean {
+  if (left === undefined || right === undefined) return left === right;
+  return left.length === right.length && left.every((guide, index) => {
+    const other = right[index];
+    return other !== undefined
+      && guide.name === other.name
+      && formulasEqual(guide.formula, other.formula);
+  });
+}
+
+function formulasEqual(
+  left: Readonly<CustomGeometryFormula>,
+  right: Readonly<CustomGeometryFormula>,
+): boolean {
+  return left.operator === right.operator
+    && left.operands.length === right.operands.length
+    && left.operands.every((operand, index) => operand === right.operands[index]);
+}
+
 function commandsEqual(
   left: Readonly<CustomGeometryCommand>,
   right: Readonly<CustomGeometryCommand> | undefined,
@@ -731,4 +900,21 @@ function qualifiedPrefix(prefix: string): string {
 
 function normalizeNegativeZero(value: number): number {
   return Object.is(value, -0) ? 0 : value;
+}
+
+function containsInvalidXmlCharacter(value: string): boolean {
+  for (const character of value) {
+    const codePoint = character.codePointAt(0)!;
+    if (
+      codePoint !== 0x09
+      && codePoint !== 0x0a
+      && codePoint !== 0x0d
+      && (codePoint < 0x20
+        || codePoint > 0x10ffff
+        || (codePoint >= 0xd800 && codePoint <= 0xdfff)
+        || codePoint === 0xfffe
+        || codePoint === 0xffff)
+    ) return true;
+  }
+  return false;
 }

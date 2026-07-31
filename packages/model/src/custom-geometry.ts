@@ -1,8 +1,33 @@
 import type { AddShapeOptions } from './preset-shape.js';
 
+export type CustomGeometryValue = number | string;
+
+export type CustomGeometryFormula =
+  | {
+      readonly operator: 'val' | 'abs' | 'sqrt';
+      readonly operands: readonly [CustomGeometryValue];
+    }
+  | {
+      readonly operator: 'at2' | 'cos' | 'max' | 'min' | 'sin' | 'tan';
+      readonly operands: readonly [CustomGeometryValue, CustomGeometryValue];
+    }
+  | {
+      readonly operator: '*/' | '+-' | '+/' | '?:' | 'cat2' | 'mod' | 'pin' | 'sat2';
+      readonly operands: readonly [
+        CustomGeometryValue,
+        CustomGeometryValue,
+        CustomGeometryValue,
+      ];
+    };
+
+export interface CustomGeometryGuide {
+  readonly name: string;
+  readonly formula: CustomGeometryFormula;
+}
+
 export interface CustomGeometryPoint {
-  readonly x: number;
-  readonly y: number;
+  readonly x: CustomGeometryValue;
+  readonly y: CustomGeometryValue;
 }
 
 export type CustomGeometryCommand =
@@ -10,10 +35,10 @@ export type CustomGeometryCommand =
   | { readonly kind: 'lineTo'; readonly point: CustomGeometryPoint }
   | {
       readonly kind: 'arcTo';
-      readonly widthRadius: number;
-      readonly heightRadius: number;
-      readonly startAngle: number;
-      readonly sweepAngle: number;
+      readonly widthRadius: CustomGeometryValue;
+      readonly heightRadius: CustomGeometryValue;
+      readonly startAngle: CustomGeometryValue;
+      readonly sweepAngle: CustomGeometryValue;
     }
   | {
       readonly kind: 'quadraticBezierTo';
@@ -46,6 +71,8 @@ export interface CustomGeometryPath {
 }
 
 export interface CustomGeometry {
+  readonly adjustments?: readonly CustomGeometryGuide[];
+  readonly guides?: readonly CustomGeometryGuide[];
   readonly paths: readonly CustomGeometryPath[];
 }
 
