@@ -316,6 +316,126 @@ const customGeometryGuideFormulas =
   reopenedFormulaGeometryShape.name === 'Packed guide formulas' &&
   JSON.stringify(reopenedFormulaGeometryShape.customGeometry) ===
     JSON.stringify(formulaGeometryReplacement);
+const handleGeometrySource = {
+  adjustments: [
+    { name: 'adjX', formula: { operator: 'val', operands: [25_000] } },
+    { name: 'adjY', formula: { operator: 'val', operands: [50_000] } },
+    { name: 'adjR', formula: { operator: 'val', operands: [30_000] } },
+    { name: 'adjAng', formula: { operator: 'val', operands: [5_400_000] } },
+  ],
+  guides: [
+    { name: 'x1', formula: { operator: '*/', operands: ['w', 'adjR', 100_000] } },
+    { name: 'y1', formula: { operator: '*/', operands: ['h', 'adjR', 100_000] } },
+  ],
+  handles: [
+    {
+      kind: 'xy',
+      position: { x: 'adjX', y: 'adjY' },
+      xGuide: 'adjX',
+      minX: 0,
+      maxX: 100_000,
+      yGuide: 'adjY',
+      minY: 't',
+      maxY: 'b',
+    },
+    {
+      kind: 'polar',
+      position: { x: 'x1', y: 'y1' },
+      radiusGuide: 'adjR',
+      minRadius: 0,
+      maxRadius: 'ss',
+      angleGuide: 'adjAng',
+      minAngle: 0,
+      maxAngle: 'cd',
+    },
+  ],
+  paths: [{
+    width: 100_000,
+    height: 100_000,
+    commands: [
+      { kind: 'moveTo', point: { x: 'adjX', y: 0 } },
+      { kind: 'lineTo', point: { x: 'r', y: 'adjY' } },
+      { kind: 'close' },
+    ],
+  }],
+};
+const handleGeometryExpected = structuredClone(handleGeometrySource);
+const handleGeometryReplacement = {
+  ...handleGeometryExpected,
+  handles: [
+    {
+      kind: 'polar',
+      position: { x: 'hc', y: 'vc' },
+      radiusGuide: 'adjR',
+      minRadius: 1,
+      maxRadius: 'ss',
+      angleGuide: 'adjAng',
+      maxAngle: '3cd4',
+    },
+    {
+      kind: 'xy',
+      position: { x: 'x1', y: 'adjY' },
+      xGuide: 'adjX',
+      maxX: 90_000,
+      yGuide: 'adjY',
+      minY: 't',
+    },
+  ],
+};
+const handleGeometryDeck = PptxDocument.create();
+const handleGeometrySlide = handleGeometryDeck.addSlide();
+const handleGeometryShape = handleGeometrySlide.addCustomShape(handleGeometrySource, {
+  name: 'Packed adjustment handles',
+});
+handleGeometrySource.handles[0].position.x = 'changed';
+handleGeometrySource.handles[0].maxX = 1;
+handleGeometrySource.handles[1].maxAngle = 1;
+handleGeometrySource.handles.reverse();
+const initialHandleGeometry = handleGeometryShape.customGeometry;
+const handleNoOpBytes = handleGeometryDeck.opcPackage
+  .requirePart(handleGeometrySlide.partUri).bytes.slice();
+const handleNoOpJournal = handleGeometryDeck.opcPackage.mutations.length;
+handleGeometryShape.customGeometry = structuredClone(handleGeometryExpected);
+const handleNoOpCurrent = handleGeometryDeck.opcPackage
+  .requirePart(handleGeometrySlide.partUri).bytes;
+const handleNoOp = handleNoOpJournal === handleGeometryDeck.opcPackage.mutations.length &&
+  handleNoOpBytes.length === handleNoOpCurrent.length &&
+  handleNoOpBytes.every((value, index) => value === handleNoOpCurrent[index]);
+handleGeometryShape.customGeometry = handleGeometryReplacement;
+const editedHandleGeometry = handleGeometryShape.customGeometry;
+handleGeometryShape.presetType = 'diamond';
+const handleConvertedPreset = handleGeometryShape.presetType;
+const handleConvertedCustom = handleGeometryShape.customGeometry;
+handleGeometryShape.customGeometry = handleGeometryReplacement;
+const handleXml = new TextDecoder().decode(
+  handleGeometryDeck.opcPackage.requirePart(handleGeometrySlide.partUri).bytes,
+);
+const reopenedHandleGeometryShape = (await PptxDocument.open(
+  await handleGeometryDeck.write(),
+)).slides[0].shapes[0];
+const customGeometryAdjustmentHandles =
+  handleGeometryShape instanceof ShapeModel &&
+  Object.isFrozen(initialHandleGeometry) &&
+  Object.isFrozen(initialHandleGeometry?.handles) &&
+  initialHandleGeometry?.handles?.every((handle) =>
+    Object.isFrozen(handle) && Object.isFrozen(handle.position)) &&
+  JSON.stringify(initialHandleGeometry) === JSON.stringify(handleGeometryExpected) &&
+  handleNoOp &&
+  JSON.stringify(editedHandleGeometry) === JSON.stringify(handleGeometryReplacement) &&
+  handleConvertedPreset === 'diamond' &&
+  handleConvertedCustom === undefined &&
+  handleGeometryShape.presetType === undefined &&
+  handleXml.includes(
+    '<a:ahLst><a:ahPolar gdRefR="adjR" minR="1" maxR="ss" ' +
+    'gdRefAng="adjAng" maxAng="3cd4"><a:pos x="hc" y="vc"/></a:ahPolar>' +
+    '<a:ahXY gdRefX="adjX" maxX="90000" gdRefY="adjY" minY="t">' +
+    '<a:pos x="x1" y="adjY"/></a:ahXY></a:ahLst>',
+  ) &&
+  reopenedHandleGeometryShape instanceof ShapeModel &&
+  reopenedHandleGeometryShape.name === 'Packed adjustment handles' &&
+  JSON.stringify(reopenedHandleGeometryShape.customGeometry) ===
+    JSON.stringify(handleGeometryReplacement) &&
+  handleGeometryDeck.diagnostics.every(({ severity }) => severity !== 'error');
 const shapeAdjustmentDeck = PptxDocument.create();
 const shapeAdjustmentSlide = shapeAdjustmentDeck.addSlide();
 const shapeAdjustmentInput = [
@@ -1687,6 +1807,7 @@ const checks = {
   presetShapes,
   customGeometryPaths,
   customGeometryGuideFormulas,
+  customGeometryAdjustmentHandles,
   shapeAdjustments,
   shapeShadows,
   shapeFills,
@@ -1833,6 +1954,96 @@ if (!(reopenedBrowserCustomGeometryShape instanceof ShapeModel) ||
     reopenedBrowserCustomGeometryShape.customGeometry?.paths[0]?.commands[1]?.kind !== 'arcTo' ||
     reopenedBrowserCustomGeometryShape.customGeometry.paths[0].commands[1].sweepAngle !== 'cd4') {
   throw new Error('Browser custom geometry lifecycle failed');
+}
+const browserHandleSource = {
+  adjustments: [
+    { name: 'adjX', formula: { operator: 'val', operands: [25_000] } },
+    { name: 'adjY', formula: { operator: 'val', operands: [50_000] } },
+    { name: 'adjR', formula: { operator: 'val', operands: [30_000] } },
+    { name: 'adjAng', formula: { operator: 'val', operands: [5_400_000] } },
+  ],
+  handles: [
+    {
+      kind: 'xy',
+      position: { x: 'adjX', y: 'adjY' },
+      xGuide: 'adjX',
+      maxX: 100_000,
+    },
+    {
+      kind: 'polar',
+      position: { x: 'hc', y: 'vc' },
+      radiusGuide: 'adjR',
+      minRadius: 0,
+      angleGuide: 'adjAng',
+      maxAngle: 'cd',
+    },
+  ],
+  paths: [{
+    width: 100_000,
+    height: 100_000,
+    commands: [
+      { kind: 'moveTo', point: { x: 'adjX', y: 0 } },
+      { kind: 'lineTo', point: { x: 'r', y: 'adjY' } },
+    ],
+  }],
+};
+const browserHandleExpected = structuredClone(browserHandleSource);
+const browserHandleReplacement = {
+  ...browserHandleExpected,
+  handles: [
+    {
+      kind: 'polar',
+      position: { x: 'x1', y: 'y1' },
+      maxRadius: 'ss',
+      angleGuide: 'adjAng',
+      minAngle: 0,
+    },
+    {
+      kind: 'xy',
+      position: { x: 'adjX', y: 'adjY' },
+      xGuide: 'adjX',
+      minX: 0,
+      yGuide: 'adjY',
+      maxY: 'b',
+    },
+  ],
+};
+const browserHandleDeck = PptxDocument.create();
+const browserHandleShape = browserHandleDeck.addSlide().addCustomShape(browserHandleSource);
+browserHandleSource.handles[0].position.x = 'changed';
+browserHandleSource.handles.reverse();
+const initialBrowserHandleGeometry = browserHandleShape.customGeometry;
+if (!Object.isFrozen(initialBrowserHandleGeometry) ||
+    !Object.isFrozen(initialBrowserHandleGeometry?.handles) ||
+    !initialBrowserHandleGeometry?.handles?.every((handle) =>
+      Object.isFrozen(handle) && Object.isFrozen(handle.position)) ||
+    JSON.stringify(initialBrowserHandleGeometry) !== JSON.stringify(browserHandleExpected) ||
+    Object.hasOwn(initialBrowserHandleGeometry.handles[0], 'minX') ||
+    !Object.hasOwn(initialBrowserHandleGeometry.handles[0], 'maxX') ||
+    Object.hasOwn(initialBrowserHandleGeometry.handles[1], 'maxRadius') ||
+    !Object.hasOwn(initialBrowserHandleGeometry.handles[1], 'maxAngle')) {
+  throw new Error('Browser custom geometry adjustment handle snapshot failed');
+}
+browserHandleShape.customGeometry = browserHandleReplacement;
+const reopenedBrowserHandleShape = (await PptxDocument.open(
+  await browserHandleDeck.writeBlob(),
+)).slides[0].shapes[0];
+const reopenedBrowserHandles = reopenedBrowserHandleShape instanceof ShapeModel
+  ? reopenedBrowserHandleShape.customGeometry?.handles
+  : undefined;
+if (!(reopenedBrowserHandleShape instanceof ShapeModel) ||
+    !Object.isFrozen(reopenedBrowserHandles) ||
+    !reopenedBrowserHandles?.every((handle) =>
+      Object.isFrozen(handle) && Object.isFrozen(handle.position)) ||
+    JSON.stringify(reopenedBrowserHandleShape.customGeometry) !==
+      JSON.stringify(browserHandleReplacement) ||
+    reopenedBrowserHandles[0]?.kind !== 'polar' ||
+    reopenedBrowserHandles[1]?.kind !== 'xy' ||
+    Object.hasOwn(reopenedBrowserHandles[0], 'radiusGuide') ||
+    !Object.hasOwn(reopenedBrowserHandles[0], 'maxRadius') ||
+    Object.hasOwn(reopenedBrowserHandles[1], 'maxX') ||
+    !Object.hasOwn(reopenedBrowserHandles[1], 'maxY')) {
+  throw new Error('Browser custom geometry adjustment handle lifecycle failed');
 }
 const browserAdjustmentDeck = PptxDocument.create();
 const browserAdjustmentSlide = browserAdjustmentDeck.addSlide();
@@ -2630,10 +2841,13 @@ process.stdout.write(resolved);
   type CustomGeometryCommand,
   type CustomGeometryFormula,
   type CustomGeometryGuide,
+  type CustomGeometryHandle,
+  type CustomGeometryPolarHandle,
   type CustomGeometryPath,
   type CustomGeometryPathFill,
   type CustomGeometryPoint,
   type CustomGeometryValue,
+  type CustomGeometryXyHandle,
   type Hyperlink,
   type ShapeArrows,
   type ShapeArrowType,
@@ -2732,6 +2946,39 @@ const typedFormulaGeometry: CustomGeometry = {
       },
     ],
   }],
+};
+const typedXyHandle: CustomGeometryXyHandle = {
+  kind: 'xy',
+  position: { x: 'adjX', y: 'adjY' },
+  xGuide: 'adjX',
+  minX: 0,
+  maxX: 100_000,
+};
+const typedPolarHandle: CustomGeometryPolarHandle = {
+  kind: 'polar',
+  position: { x: 'hc', y: 'vc' },
+  radiusGuide: 'adjR',
+  minRadius: 0,
+  maxRadius: 'ss',
+  angleGuide: 'adjAng',
+  minAngle: 0,
+  maxAngle: 'cd',
+};
+const typedCustomHandles: readonly CustomGeometryHandle[] = [
+  typedXyHandle,
+  typedPolarHandle,
+];
+const typedHandleGeometry: CustomGeometry = {
+  handles: typedCustomHandles,
+  paths: [typedCustomPath],
+};
+// @ts-expect-error Adjustment handles require a position.
+const invalidMissingHandlePosition: CustomGeometryHandle = { kind: 'polar' };
+const invalidXyPolarField: CustomGeometryXyHandle = {
+  kind: 'xy',
+  position: { x: 0, y: 0 },
+  // @ts-expect-error XY handles do not expose polar guide fields.
+  radiusGuide: 'adjR',
 };
 // @ts-expect-error Custom geometry formulas reject unknown operators.
 const invalidCustomFormulaOperator: CustomGeometryFormula = { operator: 'unknown', operands: [1] };
@@ -3136,8 +3383,10 @@ void [typedNotesSlide, notesSnapshot, returnedNotesSlide];
 void [typedPreset, typedNoneShapeFill, typedSolidShapeFill, typedShapeOptions, typedShape,
   typedCustomPoint, typedCustomCommand, typedCustomFill, typedCustomPath, typedCustomGeometry,
   typedCustomValue, typedUnaryFormula, typedBinaryFormula, typedTernaryFormula,
-  typedCustomGuide, typedFormulaGeometry, invalidCustomFormulaOperator,
-  invalidCustomFormulaArity, typedCustomOptions, typedCustomShape, typedCustomGeometryRead,
+  typedCustomGuide, typedFormulaGeometry, typedXyHandle, typedPolarHandle,
+  typedCustomHandles, typedHandleGeometry, invalidMissingHandlePosition,
+  invalidXyPolarField, invalidCustomFormulaOperator, invalidCustomFormulaArity,
+  typedCustomOptions, typedCustomShape, typedCustomGeometryRead,
   typedPresetRead, typedShapeAdjustments, typedShapeAdjustmentsRead,
   invalidMissingShapeAdjustmentValue, invalidShapeAdjustmentValue,
   invalidShapeAdjustmentOptions, typedShapeFillRead, typedPresetCatalog, invalidShapeFillKind,
@@ -3181,7 +3430,7 @@ void [documentPromise, createdDocument, addSectionOptions, typedSection, addSlid
   if (!doctor.ok || doctor.data?.version !== '0.1.0') throw new Error(`CLI smoke failed: ${cliResult.stdout}`);
 
   process.stdout.write(
-    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, types: true, cli: doctor.data.version })}\n`,
+    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, types: true, cli: doctor.data.version })}\n`,
   );
 } finally {
   await rm(directory, { recursive: true, force: true });
