@@ -182,6 +182,26 @@ const customHandleReplacement: CustomGeometry = {
   ],
 };
 
+const customConnectionGeometry: CustomGeometry = {
+  ...customHandleGeometry,
+  connectionSites: [
+    { angle: 0, position: { x: 'hc', y: 't' } },
+    { angle: 'adjAng', position: { x: 'r', y: 'adjY' } },
+    { angle: -5_400_000, position: { x: 25_000, y: 100_000 } },
+    { angle: 0, position: { x: 'hc', y: 't' } },
+  ],
+};
+
+const customConnectionReplacement: CustomGeometry = {
+  ...customConnectionGeometry,
+  connectionSites: [
+    { angle: -5_400_000, position: { x: 25_000, y: 100_000 } },
+    { angle: 0, position: { x: 'hc', y: 't' } },
+    { angle: 'adjAng', position: { x: 'l', y: 'adjY' } },
+    { angle: 0, position: { x: 'hc', y: 't' } },
+  ],
+};
+
 function readCreatedShapeHyperlink(
   model: PresentationModel,
   slide: ReturnType<PresentationModel['addSlide']>,
@@ -943,43 +963,228 @@ describe('PresentationModel', () => {
     }
   });
 
-  it('keeps custom connections and text rectangles unsupported beside valid handles', async () => {
+  it('creates, freezes, edits, and rolls back live custom geometry connection sites', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);
-    const unsupported = [
-      {
-        name: 'connections',
-        from: '<a:cxnLst/>',
-        to: '<a:cxnLst><a:cxn ang="0"><a:pos x="0" y="0"/></a:cxn></a:cxnLst>',
-      },
-      {
-        name: 'text rectangle',
-        from: '<a:rect l="l" t="t" r="r" b="b"/>',
-        to: '<a:rect l="0" t="t" r="r" b="b"/>',
-      },
-    ] as const;
+    const slide = model.addSlide();
+    const mutable = structuredClone(customConnectionGeometry) as unknown as {
+      connectionSites: Array<{
+        angle: string | number;
+        position: { x: string | number; y: string | number };
+      }>;
+    };
+    let shape = slide.addCustomShape(mutable as unknown as CustomGeometry, {
+      name: 'Connection geometry',
+      x: inches(2),
+      fill: { kind: 'solid', color: { kind: 'scheme', value: 'accent2' } },
+      line: { kind: 'line', color: { kind: 'srgb', value: '123ABC' }, width: 2 },
+      arrows: { end: 'triangle' },
+      shadow: { kind: 'outer' },
+      hyperlink: { url: 'https://example.com/connections' },
+    });
+    const createdPart = pkg.requirePart(slide.partUri);
+    pkg.setPart(
+      slide.partUri,
+      new TextDecoder().decode(createdPart.bytes).replace(
+        '</p:spPr></p:sp>',
+        '<a:extLst><a:ext uri="urn:connections"><x:keep xmlns:x="urn:connections">' +
+        'EXTENSION</x:keep></a:ext></a:extLst></p:spPr>' +
+        '<p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r><a:t>CONNECTION TEXT</a:t>' +
+        '</a:r></a:p></p:txBody></p:sp>',
+      ),
+      createdPart.contentType,
+    );
+    const shapeId = shape.id;
+    shape = slide.shapes.find(({ id }) => id === shapeId) as ShapeModel;
+    const neighbor = slide.addShape('rect', { name: 'Connection neighbor' });
 
-    for (const fixture of unsupported) {
+    mutable.connectionSites[0]!.angle = 1;
+    mutable.connectionSites[0]!.position.x = 'changed';
+    mutable.connectionSites.reverse();
+
+    const first = shape.customGeometry;
+    const second = shape.customGeometry;
+    expect(first).toEqual(customConnectionGeometry);
+    expect(second).toEqual(first);
+    expect(second).not.toBe(first);
+    expect(Object.isFrozen(first)).toBe(true);
+    expect(Object.isFrozen(first?.connectionSites)).toBe(true);
+    expect(first?.connectionSites?.every((site) =>
+      Object.isFrozen(site) && Object.isFrozen(site.position))).toBe(true);
+    expect(readCreatedCustomGeometry(model, slide, shape.id)).toEqual(customConnectionGeometry);
+
+    const noOp = packageSnapshot(pkg);
+    shape.customGeometry = structuredClone(customConnectionGeometry);
+    expect(packageSnapshot(pkg)).toEqual(noOp);
+
+    const rollback = packageSnapshot(pkg);
+    expect(() => pkg.transaction(() => {
+      shape.customGeometry = customConnectionReplacement;
+      expect(shape.customGeometry).toEqual(customConnectionReplacement);
+      throw new Error('restore custom connection edit');
+    })).toThrow('restore custom connection edit');
+    expect(packageSnapshot(pkg)).toEqual(rollback);
+    expect(shape.customGeometry).toEqual(customConnectionGeometry);
+
+    const identity = shape;
+    const preserved = {
+      name: shape.name,
+      transform: shape.transform,
+      fill: shape.fill,
+      line: shape.line,
+      arrows: shape.arrows,
+      shadow: shape.shadow,
+      hyperlink: shape.hyperlink,
+      relationships: slide.relationships,
+    };
+    const beforeEdit = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    shape.customGeometry = customConnectionReplacement;
+    const afterEdit = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    const withoutGeometry = (source: string) => source.replace(
+      /<a:custGeom>[\s\S]*?<\/a:custGeom>/,
+      '<a:custGeom/>',
+    );
+    expect(shape).toBe(identity);
+    expect(slide.shapes[0]).toBe(identity);
+    expect(slide.shapes[1]).toBe(neighbor);
+    expect(shape.customGeometry).toEqual(customConnectionReplacement);
+    expect({
+      name: shape.name,
+      transform: shape.transform,
+      fill: shape.fill,
+      line: shape.line,
+      arrows: shape.arrows,
+      shadow: shape.shadow,
+      hyperlink: shape.hyperlink,
+      relationships: slide.relationships,
+    }).toEqual(preserved);
+    expect(withoutGeometry(afterEdit)).toBe(withoutGeometry(beforeEdit));
+    expect(afterEdit).toContain('<a:effectLst>');
+    expect(afterEdit).toContain('EXTENSION');
+    expect(afterEdit).toContain('<a:t>CONNECTION TEXT</a:t>');
+    expect(afterEdit.indexOf('<a:cxn ang="-5400000"')).toBeLessThan(
+      afterEdit.indexOf('<a:cxn ang="adjAng"'),
+    );
+  });
+
+  it('isolates, converts, and reopens custom geometry connection sites in all six formats', async () => {
+    for (const profile of Object.values(PRESENTATION_FORMAT_PROFILES)) {
+      const pkg = await OpcPackage.open(await modelFixture(profile.presentationContentType));
+      const model = new PresentationModel(pkg);
       const slide = model.addSlide();
-      const shape = slide.addCustomShape(customHandleGeometry, { name: fixture.name });
-      expect(shape.customGeometry).toEqual(customHandleGeometry);
-      const part = pkg.requirePart(slide.partUri);
-      const source = new TextDecoder().decode(part.bytes);
-      expect(source).toContain('<a:ahXY');
-      expect(source).toContain(fixture.from);
-      pkg.setPart(
-        slide.partUri,
-        source.replace(fixture.from, fixture.to),
-        part.contentType,
-      );
+      const beforeCreation = packageSnapshot(pkg);
+      let rolledBack: ShapeModel | undefined;
+      expect(() => pkg.transaction(() => {
+        rolledBack = slide.addCustomShape(customConnectionGeometry, {
+          hyperlink: { url: `https://example.com/connection-rollback/${profile.format}` },
+        });
+        throw new Error('restore custom connection creation');
+      })).toThrow('restore custom connection creation');
+      expect(packageSnapshot(pkg)).toEqual(beforeCreation);
+      expect(() => rolledBack!.name).toThrow(ModelParseError);
 
-      expect(shape.customGeometry, fixture.name).toBeUndefined();
-      const before = packageSnapshot(pkg);
-      expect(() => {
-        shape.customGeometry = customHandleReplacement;
-      }).toThrow(ModelParseError);
-      expect(packageSnapshot(pkg), fixture.name).toEqual(before);
+      const shape = slide.addCustomShape(customConnectionGeometry, {
+        name: `Connections ${profile.format}`,
+        fill: { kind: 'solid', color: { kind: 'scheme', value: 'accent1' } },
+        hyperlink: { url: `https://example.com/connections/${profile.format}` },
+      });
+      const beforeEdit = packageSnapshot(pkg);
+      expect(() => pkg.transaction(() => {
+        shape.customGeometry = customConnectionReplacement;
+        throw new Error('restore custom connection replacement');
+      })).toThrow('restore custom connection replacement');
+      expect(packageSnapshot(pkg)).toEqual(beforeEdit);
+      expect(shape.customGeometry).toEqual(customConnectionGeometry);
+
+      const duplicate = model.duplicateSlide(model.slides.indexOf(slide));
+      const duplicateShape = duplicate.shapes.find(({ id }) => id === shape.id) as ShapeModel;
+      duplicateShape.customGeometry = customConnectionReplacement;
+      expect(duplicateShape.customGeometry).toEqual(customConnectionReplacement);
+      expect(shape.customGeometry).toEqual(customConnectionGeometry);
+
+      const identity = shape;
+      shape.presetType = 'diamond';
+      expect(shape).toBe(identity);
+      expect(shape.presetType).toBe('diamond');
+      expect(shape.customGeometry).toBeUndefined();
+      shape.customGeometry = customConnectionReplacement;
+      expect(shape).toBe(identity);
+      expect(shape.presetType).toBeUndefined();
+      expect(shape.customGeometry).toEqual(customConnectionReplacement);
+      expect(shape.name).toBe(`Connections ${profile.format}`);
+      expect(shape.fill).toEqual({
+        kind: 'solid',
+        color: { kind: 'scheme', value: 'accent1' },
+      });
+      expect(shape.hyperlink).toEqual({
+        url: `https://example.com/connections/${profile.format}`,
+      });
+
+      model.moveSlide(model.slides.indexOf(duplicate), 0);
+      model.deleteSlide(model.slides.indexOf(duplicate));
+      const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+      const reopenedSlide = reopened.slides.find(({ partUri }) => partUri === slide.partUri)!;
+      const reopenedShape = reopenedSlide.shapes.find(({ id }) => id === shape.id) as ShapeModel;
+      expect(reopened.format).toBe(profile.format);
+      expect(reopenedShape.name).toBe(`Connections ${profile.format}`);
+      expect(reopenedShape.fill).toEqual({
+        kind: 'solid',
+        color: { kind: 'scheme', value: 'accent1' },
+      });
+      expect(reopenedShape.hyperlink).toEqual({
+        url: `https://example.com/connections/${profile.format}`,
+      });
+      expect(reopenedShape.customGeometry).toEqual(customConnectionReplacement);
     }
+  });
+
+  it('reads custom connections and keeps non-default text rectangles unsupported', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const connectionSlide = model.addSlide();
+    const connectionShape = connectionSlide.addCustomShape(customHandleGeometry, {
+      name: 'connections',
+    });
+    const connectionPart = pkg.requirePart(connectionSlide.partUri);
+    const connectionSource = new TextDecoder().decode(connectionPart.bytes);
+    expect(connectionSource).toContain('<a:ahXY');
+    expect(connectionSource).toContain('<a:cxnLst/>');
+    pkg.setPart(
+      connectionSlide.partUri,
+      connectionSource.replace(
+        '<a:cxnLst/>',
+        '<a:cxnLst><a:cxn ang="0"><a:pos x="0" y="0"/></a:cxn></a:cxnLst>',
+      ),
+      connectionPart.contentType,
+    );
+    expect(connectionShape.customGeometry).toEqual({
+      ...customHandleGeometry,
+      connectionSites: [{ angle: 0, position: { x: 0, y: 0 } }],
+    });
+    connectionShape.customGeometry = customConnectionReplacement;
+    expect(connectionShape.customGeometry).toEqual(customConnectionReplacement);
+
+    const rectangleSlide = model.addSlide();
+    const rectangleShape = rectangleSlide.addCustomShape(customHandleGeometry, {
+      name: 'text rectangle',
+    });
+    const rectanglePart = pkg.requirePart(rectangleSlide.partUri);
+    const rectangleSource = new TextDecoder().decode(rectanglePart.bytes);
+    expect(rectangleSource).toContain('<a:rect l="l" t="t" r="r" b="b"/>');
+    pkg.setPart(
+      rectangleSlide.partUri,
+      rectangleSource.replace(
+        '<a:rect l="l" t="t" r="r" b="b"/>',
+        '<a:rect l="0" t="t" r="r" b="b"/>',
+      ),
+      rectanglePart.contentType,
+    );
+    expect(rectangleShape.customGeometry).toBeUndefined();
+    const before = packageSnapshot(pkg);
+    expect(() => {
+      rectangleShape.customGeometry = customConnectionReplacement;
+    }).toThrow(ModelParseError);
+    expect(packageSnapshot(pkg)).toEqual(before);
   });
 
   it('converts preset and custom geometry without changing live identity or unrelated state', async () => {

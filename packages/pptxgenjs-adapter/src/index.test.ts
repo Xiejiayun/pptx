@@ -99,7 +99,19 @@ const unsupportedPublicHandleOptions: PptxGenJSPublicShapeOptions = {
   // @ts-expect-error PptxGenJS 4.0.1 exposes no arbitrary adjustment-handle input.
   handles: [],
 };
-void [publicCustomShapeOptions, unsupportedPublicHandleOptions];
+const unsupportedPublicConnectionSiteOptions: PptxGenJSPublicShapeOptions = {
+  x: 1,
+  y: 1,
+  w: 4,
+  h: 3,
+  // @ts-expect-error PptxGenJS 4.0.1 exposes no arbitrary connection-site input.
+  connectionSites: [],
+};
+void [
+  publicCustomShapeOptions,
+  unsupportedPublicHandleOptions,
+  unsupportedPublicConnectionSiteOptions,
+];
 
 interface PptxGenJSInstance {
   readonly version: string;
@@ -1586,6 +1598,33 @@ describe('importPptxGenJS', () => {
     expect(nativeSlide.addShape('blockArc', {
       adjustments: deliberateFinalList,
     }).adjustments).toEqual(deliberateFinalList);
+  });
+
+  it('keeps custom geometry connection sites at the PptxGenJS public boundary', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    generated.addSlide().addShape(generated.ShapeType.custGeom!, {
+      objectName: 'Public custom geometry',
+      x: 1,
+      y: 1,
+      w: 4,
+      h: 3,
+      points: [{ x: 0, y: 0 }, { x: 4, y: 3 }, { close: true }],
+    });
+
+    const imported = await openPptxGenJSPublicOutput(generated);
+    const importedShape = imported.slides[0]!.shapes[0] as ShapeModel;
+    expect(importedShape.name).toBe('Public custom geometry');
+    expect(importedShape.customGeometry).toBeDefined();
+    expect(Object.hasOwn(importedShape.customGeometry!, 'connectionSites')).toBe(false);
+    expect(shapeXml(imported, 0, importedShape.id)).toMatch(
+      /<a:cxnLst(?:\s*\/>|\s*>\s*<\/a:cxnLst>)/,
+    );
+
+    const adapterSource = await readFile(new URL('./index.ts', import.meta.url), 'utf8');
+    expect(adapterSource).toContain('presentation.write({');
+    expect(adapterSource).not.toMatch(/\.\s*_[A-Za-z]/);
+    expect(adapterSource).not.toMatch(/\[\s*['"]_[^'"]*['"]\s*\]/);
   });
 
   it('imports every legal PptxGenJS custom path command as native geometry', async () => {

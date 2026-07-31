@@ -686,6 +686,82 @@ describe('PptxDocument vertical slice', () => {
       .toEqual([]);
   });
 
+  it('creates, edits, converts, and reopens custom geometry connection sites through the SDK', async () => {
+    const geometry: CustomGeometry = {
+      adjustments: [{
+        name: 'adjAng',
+        formula: { operator: 'val', operands: [5_400_000] },
+      }],
+      connectionSites: [
+        { angle: 0, position: { x: 'hc', y: 't' } },
+        { angle: 'adjAng', position: { x: 'r', y: 'vc' } },
+        { angle: -5_400_000, position: { x: 25_000, y: 100_000 } },
+        { angle: 0, position: { x: 'hc', y: 't' } },
+      ],
+      paths: [{
+        width: 100_000,
+        height: 100_000,
+        commands: [
+          { kind: 'moveTo', point: { x: 0, y: 0 } },
+          { kind: 'lineTo', point: { x: 'r', y: 'b' } },
+        ],
+      }],
+    };
+    const replacement: CustomGeometry = {
+      ...geometry,
+      connectionSites: [
+        { angle: -5_400_000, position: { x: 25_000, y: 100_000 } },
+        { angle: 0, position: { x: 'hc', y: 't' } },
+        { angle: 'adjAng', position: { x: 'l', y: 'vc' } },
+        { angle: 0, position: { x: 'hc', y: 't' } },
+      ],
+    };
+    const mutable = structuredClone(geometry) as unknown as {
+      connectionSites: Array<{
+        angle: string | number;
+        position: { x: string | number; y: string | number };
+      }>;
+    };
+
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const shape = slide.addCustomShape(mutable as unknown as CustomGeometry, {
+      name: 'SDK connection geometry',
+    });
+    mutable.connectionSites[0]!.angle = 1;
+    mutable.connectionSites[0]!.position.x = 'changed';
+    mutable.connectionSites.reverse();
+    expect(shape.customGeometry).toEqual(geometry);
+    expect(Object.isFrozen(shape.customGeometry?.connectionSites)).toBe(true);
+    expect(shape.customGeometry?.connectionSites?.every((site) =>
+      Object.isFrozen(site) && Object.isFrozen(site.position))).toBe(true);
+
+    const before = document.opcPackage.requirePart(slide.partUri).bytes.slice();
+    const journal = [...document.opcPackage.mutations];
+    shape.customGeometry = structuredClone(geometry);
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(before);
+    expect(document.opcPackage.mutations).toEqual(journal);
+
+    shape.customGeometry = replacement;
+    expect(shape.customGeometry).toEqual(replacement);
+    shape.presetType = 'diamond';
+    expect(shape.presetType).toBe('diamond');
+    expect(shape.customGeometry).toBeUndefined();
+    shape.customGeometry = replacement;
+    expect(shape.presetType).toBeUndefined();
+    expect(shape.customGeometry).toEqual(replacement);
+    expect(shape.name).toBe('SDK connection geometry');
+    expect(validatePackage(document.opcPackage).filter(({ severity }) => severity === 'error'))
+      .toEqual([]);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedShape = reopened.slides[0]!.shapes[0] as ShapeModel;
+    expect(reopenedShape.name).toBe('SDK connection geometry');
+    expect(reopenedShape.customGeometry).toEqual(replacement);
+    expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error'))
+      .toEqual([]);
+  });
+
   it('creates preset shape hyperlinks through the public SDK type and runtime surface', () => {
     const document = PptxDocument.create();
     const first = document.addSlide();
