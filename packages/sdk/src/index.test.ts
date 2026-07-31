@@ -391,6 +391,139 @@ describe('PptxDocument vertical slice', () => {
     void [invalidWidth, invalidDash];
   });
 
+  it('preserves editable shape lines across duplicate, rollback, reopen, and all formats', async () => {
+    const document = PptxDocument.create();
+    const source = document.addSlide();
+    const relationships = source.relationships.map(({ id, type, target, targetMode }) => ({
+      id,
+      type,
+      target,
+      targetMode,
+    }));
+    const shape = source.addShape('rect', {
+      line: {
+        kind: 'line',
+        color: { kind: 'srgb', value: 'AA0000' },
+        transparency: 10,
+        width: 2.5,
+        dash: 'lgDashDot',
+      },
+    });
+    const text = source.addText('Shape line text');
+    expect(shape.line).toEqual({
+      kind: 'line',
+      color: { kind: 'srgb', value: 'AA0000' },
+      transparency: 10,
+      width: 2.5,
+      dash: 'lgDashDot',
+    });
+    expect(text.line).toEqual({ kind: 'none' });
+
+    text.line = {
+      kind: 'line',
+      color: { kind: 'scheme', value: 'accent2' },
+      transparency: 35,
+    };
+    const duplicate = document.duplicateSlide(0);
+    const duplicateShape = duplicate.shapes[0] as ShapeModel;
+    const duplicateText = duplicate.shapes[1] as ShapeModel;
+    duplicateShape.line = { kind: 'none' };
+    duplicateText.line = undefined;
+    expect(shape.line).toEqual({
+      kind: 'line',
+      color: { kind: 'srgb', value: 'AA0000' },
+      transparency: 10,
+      width: 2.5,
+      dash: 'lgDashDot',
+    });
+    expect(text.line).toEqual({
+      kind: 'line',
+      color: { kind: 'scheme', value: 'accent2' },
+      transparency: 35,
+      width: 1,
+      dash: 'solid',
+    });
+    expect(duplicateShape.line).toEqual({ kind: 'none' });
+    expect(duplicateText.line).toBeUndefined();
+
+    expect(() => document.transaction(() => {
+      shape.line = {
+        kind: 'line',
+        color: { kind: 'srgb', value: '00FF00' },
+        width: 0,
+        dash: 'sysDash',
+      };
+      expect(shape.line).toEqual({
+        kind: 'line',
+        color: { kind: 'srgb', value: '00FF00' },
+        width: 0,
+        dash: 'sysDash',
+      });
+      throw new Error('restore shape line');
+    })).toThrow('restore shape line');
+    expect(shape.line).toEqual({
+      kind: 'line',
+      color: { kind: 'srgb', value: 'AA0000' },
+      transparency: 10,
+      width: 2.5,
+      dash: 'lgDashDot',
+    });
+    expect(source.shapes[0]).toBe(shape);
+    expect(source.shapes[1]).toBe(text);
+    expect(source.relationships.map(({ id, type, target, targetMode }) => ({
+      id,
+      type,
+      target,
+      targetMode,
+    }))).toEqual(relationships);
+
+    const reopened = await PptxDocument.open(await document.write());
+    expect((reopened.slides[0]!.shapes[0] as ShapeModel).line).toEqual({
+      kind: 'line',
+      color: { kind: 'srgb', value: 'AA0000' },
+      transparency: 10,
+      width: 2.5,
+      dash: 'lgDashDot',
+    });
+    expect((reopened.slides[0]!.shapes[1] as ShapeModel).line).toEqual({
+      kind: 'line',
+      color: { kind: 'scheme', value: 'accent2' },
+      transparency: 35,
+      width: 1,
+      dash: 'solid',
+    });
+    expect((reopened.slides[1]!.shapes[0] as ShapeModel).line)
+      .toEqual({ kind: 'none' });
+    expect((reopened.slides[1]!.shapes[1] as ShapeModel).line).toBeUndefined();
+
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const formatted = PptxDocument.create({ format });
+      const formattedSlide = formatted.addSlide();
+      formattedSlide.addShape('hexagon', {
+        line: {
+          kind: 'line',
+          color: { kind: 'scheme', value: 'accent4' },
+          transparency: 50,
+          width: 3,
+          dash: 'lgDashDotDot',
+        },
+      });
+      const formattedText = formattedSlide.addText('Editable existing text line');
+      formattedText.line = { kind: 'none' };
+      const formattedReopened = await PptxDocument.open(await formatted.write());
+      expect(formattedReopened.format).toBe(format);
+      expect((formattedReopened.slides[0]!.shapes[0] as ShapeModel).line).toEqual({
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent4' },
+        transparency: 50,
+        width: 3,
+        dash: 'lgDashDotDot',
+      });
+      expect((formattedReopened.slides[0]!.shapes[1] as ShapeModel).line)
+        .toEqual({ kind: 'none' });
+    }
+  });
+
   it('preserves editable shape fills across duplicate, rollback, reopen, and all formats', async () => {
     const document = PptxDocument.create();
     const source = document.addSlide();

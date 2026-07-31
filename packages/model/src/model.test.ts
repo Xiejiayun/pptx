@@ -398,6 +398,113 @@ describe('PresentationModel', () => {
     expect(pkg.mutations).toEqual(journal);
   });
 
+  it('reads and edits direct shape lines through stable live models', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const shape = slide.addShape('rect', {
+      line: {
+        kind: 'line',
+        color: { kind: 'srgb', value: 'FF0000' },
+        transparency: 25,
+        width: 2.5,
+        dash: 'dashDot',
+      },
+    });
+    const text = slide.addText('Keep text line');
+
+    expect(shape.line).toEqual({
+      kind: 'line',
+      color: { kind: 'srgb', value: 'FF0000' },
+      transparency: 25,
+      width: 2.5,
+      dash: 'dashDot',
+    });
+    expect(text.line).toEqual({ kind: 'none' });
+    const first = shape.line;
+    const second = shape.line;
+    expect(first).not.toBe(second);
+    if (first?.kind === 'line' && second?.kind === 'line') {
+      expect(first.color).not.toBe(second.color);
+      (first.color as { value: string }).value = '000000';
+    }
+    expect(shape.line).toEqual({
+      kind: 'line',
+      color: { kind: 'srgb', value: 'FF0000' },
+      transparency: 25,
+      width: 2.5,
+      dash: 'dashDot',
+    });
+
+    const beforeNoOp = pkg.requirePart(slide.partUri).bytes.slice();
+    const noOpJournal = [...pkg.mutations];
+    shape.line = {
+      kind: 'line',
+      color: { kind: 'srgb', value: 'FF0000' },
+      transparency: 25,
+      width: 2.5,
+      dash: 'dashDot',
+    };
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeNoOp);
+    expect(pkg.mutations).toEqual(noOpJournal);
+
+    const part = pkg.requirePart(slide.partUri);
+    const withAdvancedLine = new TextDecoder().decode(part.bytes).replace(
+      '<a:solidFill><a:srgbClr val="FF0000"><a:alpha val="75000"/>' +
+      '</a:srgbClr></a:solidFill><a:prstDash val="dashDot"/></a:ln>',
+      '<a:gradFill><a:gsLst/></a:gradFill><a:custDash><a:ds d="1" sp="1"/>' +
+      '</a:custDash><a:round/><a:headEnd type="triangle"/>' +
+      '<a:tailEnd type="arrow"/><a:extLst><a:ext uri="urn:keep">' +
+      '<x:lineKeep xmlns:x="urn:test"/></a:ext></a:extLst></a:ln>',
+    );
+    expect(withAdvancedLine).not.toEqual(new TextDecoder().decode(part.bytes));
+    pkg.setPart(slide.partUri, withAdvancedLine, part.contentType);
+    expect(shape.line).toBeUndefined();
+
+    shape.line = {
+      kind: 'line',
+      color: { kind: 'scheme', value: 'accent3' },
+      transparency: 40,
+      width: 0,
+      dash: 'sysDot',
+    };
+    expect(shape.line).toEqual({
+      kind: 'line',
+      color: { kind: 'scheme', value: 'accent3' },
+      transparency: 40,
+      width: 0,
+      dash: 'sysDot',
+    });
+    let xml = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect(xml).toContain('<a:round/><a:headEnd type="triangle"/>');
+    expect(xml).toContain('<a:tailEnd type="arrow"/>');
+    expect(xml).toContain('<x:lineKeep xmlns:x="urn:test"/>');
+
+    shape.line = { kind: 'none' };
+    expect(shape.line).toEqual({ kind: 'none' });
+    shape.line = undefined;
+    expect(shape.line).toBeUndefined();
+    xml = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect(xml).toContain(
+      '<a:ln><a:round/><a:headEnd type="triangle"/><a:tailEnd type="arrow"/>',
+    );
+    expect(xml).toContain('<x:lineKeep xmlns:x="urn:test"/>');
+    expect(slide.shapes[0]).toBe(shape);
+    expect(slide.shapes[1]).toBe(text);
+
+    const invalidBytes = pkg.requirePart(slide.partUri).bytes.slice();
+    const invalidJournal = [...pkg.mutations];
+    expect(() => {
+      shape.line = {
+        kind: 'line',
+        color: { kind: 'srgb', value: 'FFFFFF' },
+        width: 1_585,
+      };
+    }).toThrow(RangeError);
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(invalidBytes);
+    expect(pkg.mutations).toEqual(invalidJournal);
+  });
+
   it('reads and edits direct shape fills through stable live models', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);

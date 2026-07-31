@@ -62,12 +62,18 @@ import type {
   AddShapeOptions,
   PresetShapeType,
   ShapeFill,
+  ShapeLine,
 } from './preset-shape.js';
 import {
   readShapeFill,
   replaceShapeFill,
 } from './shape-fill.internal.js';
 import { normalizeSimpleFill } from './simple-fill.internal.js';
+import {
+  readShapeLine,
+  replaceShapeLine,
+} from './shape-line.internal.js';
+import { normalizeSimpleLine } from './simple-line.internal.js';
 import {
   normalizeTextBoxMargins,
   readTextBoxMargins,
@@ -359,6 +365,23 @@ export class SlideModel {
     this.presentation.opcPackage.transaction(() => {
       const { xml, element } = this.resolveShape(id);
       if (replaceShapeFill(xml, element, fill, this.partUri)) {
+        this.setXml(xml.serialize());
+      }
+    });
+  }
+
+  getShapeLine(id: number): ShapeLine | undefined {
+    const { xml, element } = this.resolveShape(id);
+    return readShapeLine(xml, element);
+  }
+
+  setShapeLine(id: number, value: ShapeLine | undefined): void {
+    const line = value === undefined
+      ? undefined
+      : normalizeSimpleLine(value, 'Shape line');
+    this.presentation.opcPackage.transaction(() => {
+      const { xml, element } = this.resolveShape(id);
+      if (replaceShapeLine(xml, element, line, this.partUri)) {
         this.setXml(xml.serialize());
       }
     });
