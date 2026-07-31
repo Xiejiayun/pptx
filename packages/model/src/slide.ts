@@ -54,7 +54,9 @@ import {
 } from './slide-notes.internal.js';
 import {
   normalizePresetShape,
+  readPresetShapeType,
   renderPresetShapeXml,
+  replacePresetShapeType,
 } from './preset-shape.internal.js';
 import type {
   AddShapeOptions,
@@ -322,6 +324,21 @@ export class SlideModel {
   getShapeText(id: number): string {
     const { xml, element } = this.resolveShape(id);
     return readPlainText(xml, element);
+  }
+
+  getShapePresetType(id: number): PresetShapeType | undefined {
+    const { xml, element } = this.resolveShape(id);
+    return readPresetShapeType(xml, element);
+  }
+
+  setShapePresetType(id: number, value: PresetShapeType): void {
+    const type = normalizePresetShape(value, undefined).type;
+    this.presentation.opcPackage.transaction(() => {
+      const { xml, element } = this.resolveShape(id);
+      if (replacePresetShapeType(xml, element, type, this.partUri)) {
+        this.setXml(xml.serialize());
+      }
+    });
   }
 
   setShapeRichText(id: number, value: readonly RichTextParagraph[]): void {

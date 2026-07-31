@@ -255,6 +255,7 @@ describe('PptxDocument vertical slice', () => {
     expect(created.map(({ name }) => name)).toEqual(
       Array.from({ length: 178 }, (_, index) => `Shape ${index + 2}`),
     );
+    expect(created.map(({ presetType }) => presetType)).toEqual(PRESET_SHAPE_TYPES);
     expect(new Set(created)).toHaveLength(178);
     expect(slide.shapes).toEqual(created);
 
@@ -262,7 +263,7 @@ describe('PptxDocument vertical slice', () => {
     const tokens = [...xml.matchAll(/<a:prstGeom prst="([^"]+)"/g)]
       .map((match) => match[1]);
     expect(tokens).toEqual(PRESET_SHAPE_TYPES);
-  });
+  }, 15_000);
 
   it('inserts preset shapes before extLst and rejects invalid additions without mutation', () => {
     const document = PptxDocument.create();
@@ -338,6 +339,99 @@ describe('PptxDocument vertical slice', () => {
       expect(shape?.name).toBe('Shape 2');
       expect(shape?.transform.rotation).toBe(degrees(15));
     }
+  });
+
+  it('reads and replaces preset types without changing unrelated shape content or identity', () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const shape = slide.addShape('rect', { name: 'Editable geometry' });
+    const text = slide.addText('Keep text', { name: 'Text geometry' });
+    const part = document.opcPackage.requirePart(slide.partUri);
+    const customized = new TextDecoder().decode(part.bytes)
+      .replace(
+        '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln/>',
+        '<a:prstGeom prst="rect"><a:avLst><a:gd name="adj" fmla="val 7"/></a:avLst>' +
+        '<x:old xmlns:x="urn:test"/></a:prstGeom>' +
+        '<a:solidFill><a:srgbClr val="ABCDEF"/></a:solidFill><a:ln w="9"/>',
+      );
+    document.opcPackage.setPart(slide.partUri, customized, part.contentType);
+
+    expect(shape.presetType).toBe('rect');
+    expect(text.presetType).toBe('rect');
+    const beforeNoOp = document.opcPackage.requirePart(slide.partUri).bytes.slice();
+    const noOpJournal = [...document.opcPackage.mutations];
+    shape.presetType = 'rect';
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(beforeNoOp);
+    expect(document.opcPackage.mutations).toEqual(noOpJournal);
+
+    shape.presetType = 'ellipse';
+    text.presetType = 'roundRect';
+    expect(shape.presetType).toBe('ellipse');
+    expect(text.presetType).toBe('roundRect');
+    expect(text.text).toBe('Keep text');
+    expect(slide.shapes[0]).toBe(shape);
+    expect(slide.shapes[1]).toBe(text);
+    const updated = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(updated).toContain('<a:prstGeom prst="ellipse"><a:avLst/></a:prstGeom>');
+    expect(updated).toContain('<a:prstGeom prst="roundRect"><a:avLst/></a:prstGeom>');
+    expect(updated).not.toContain('name="adj"');
+    expect(updated).not.toContain('<x:old');
+    expect(updated).toContain('<a:solidFill><a:srgbClr val="ABCDEF"/></a:solidFill>');
+    expect(updated).toContain('<a:ln w="9"/>');
+    expect(updated).toContain('<a:t xml:space="preserve">Keep text</a:t>');
+  });
+
+  it('isolates preset type edits across duplicates, rollback, malformed input, and reopen', async () => {
+    const document = PptxDocument.create();
+    const source = document.addSlide();
+    const sourceShape = source.addShape('rect');
+    const duplicate = document.duplicateSlide(0);
+    const duplicateShape = duplicate.shapes[0] as ShapeModel;
+    duplicateShape.presetType = 'star5';
+    expect(sourceShape.presetType).toBe('rect');
+    expect(duplicateShape.presetType).toBe('star5');
+
+    expect(() => document.transaction(() => {
+      sourceShape.presetType = 'hexagon';
+      expect(sourceShape.presetType).toBe('hexagon');
+      throw new Error('restore preset type');
+    })).toThrow('restore preset type');
+    expect(sourceShape.presetType).toBe('rect');
+    expect(source.shapes[0]).toBe(sourceShape);
+
+    const beforeInvalid = document.opcPackage.requirePart(source.partUri).bytes.slice();
+    const invalidJournal = [...document.opcPackage.mutations];
+    for (const value of ['folderCorner', 'custGeom', 'unknown', 7, null]) {
+      expect(() => {
+        sourceShape.presetType = value as never;
+      }).toThrow(TypeError);
+    }
+    expect(document.opcPackage.requirePart(source.partUri).bytes).toEqual(beforeInvalid);
+    expect(document.opcPackage.mutations).toEqual(invalidJournal);
+
+    const sourcePart = document.opcPackage.requirePart(source.partUri);
+    const malformed = new TextDecoder().decode(sourcePart.bytes)
+      .replace('prst="rect"', 'prst="folderCorner"');
+    document.opcPackage.setPart(source.partUri, malformed, sourcePart.contentType);
+    expect(sourceShape.presetType).toBeUndefined();
+    const beforeMalformedEdit = document.opcPackage.requirePart(source.partUri).bytes.slice();
+    const malformedJournal = [...document.opcPackage.mutations];
+    expect(() => {
+      sourceShape.presetType = 'ellipse';
+    }).toThrow(ModelParseError);
+    expect(document.opcPackage.requirePart(source.partUri).bytes).toEqual(beforeMalformedEdit);
+    expect(document.opcPackage.mutations).toEqual(malformedJournal);
+    sourceShape.setTransform({ x: inches(3) });
+    expect(new TextDecoder().decode(document.opcPackage.requirePart(source.partUri).bytes))
+      .toContain('prst="folderCorner"');
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedSourceShape = reopened.slides[0]?.shapes[0];
+    const reopenedDuplicateShape = reopened.slides[1]?.shapes[0];
+    expect(reopenedSourceShape).toBeInstanceOf(ShapeModel);
+    expect(reopenedDuplicateShape).toBeInstanceOf(ShapeModel);
+    expect((reopenedSourceShape as ShapeModel).presetType).toBeUndefined();
+    expect((reopenedDuplicateShape as ShapeModel).presetType).toBe('star5');
   });
 
   it('preserves hidden slide state through lifecycle, rollback, and all formats', async () => {

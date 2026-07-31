@@ -55,6 +55,7 @@ import { normalizeTextAlignment } from './rich-text.internal.js';
 import { normalizeTextBoxFit } from './text-box-fit.internal.js';
 import { normalizeTextBoxMargins } from './text-box-margins.internal.js';
 import { normalizeTextBoxVerticalAlignment } from './text-box-vertical-alignment.internal.js';
+import type { PresetShapeType } from './preset-shape.js';
 import type {
   RichTextParagraph,
   RichTextColor,
@@ -168,6 +169,14 @@ export abstract class BaseShapeModel {
 }
 
 export class ShapeModel extends BaseShapeModel {
+  get presetType(): PresetShapeType | undefined {
+    return this.slide.getShapePresetType(this.id);
+  }
+
+  set presetType(value: PresetShapeType) {
+    this.slide.setShapePresetType(this.id, value);
+  }
+
   get text(): string {
     return this.slide.getShapeText(this.id);
   }

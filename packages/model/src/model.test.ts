@@ -143,6 +143,30 @@ describe('PresentationModel', () => {
     }
   });
 
+  it('reads canonical preset types and rejects ambiguous geometry edits atomically', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const shape = slide.addShape('rect');
+    expect(shape.presetType).toBe('rect');
+
+    const part = pkg.requirePart(slide.partUri);
+    const ambiguous = new TextDecoder().decode(part.bytes).replace(
+      '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>',
+      '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>' +
+      '<a:prstGeom prst="ellipse"><a:avLst/></a:prstGeom>',
+    );
+    pkg.setPart(slide.partUri, ambiguous, part.contentType);
+    expect(shape.presetType).toBeUndefined();
+    const before = pkg.requirePart(slide.partUri).bytes.slice();
+    const journal = [...pkg.mutations];
+    expect(() => {
+      shape.presetType = 'star5';
+    }).toThrow(ModelParseError);
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(before);
+    expect(pkg.mutations).toEqual(journal);
+  });
+
   it('rejects an unsupported presentation content type without guessing from a file name', async () => {
     const pkg = await OpcPackage.open(await modelFixture('application/vnd.example.presentation+xml'));
     let thrown: unknown;
