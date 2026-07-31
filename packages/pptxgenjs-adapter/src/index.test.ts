@@ -331,6 +331,273 @@ describe('importPptxGenJS', () => {
     }
   });
 
+  it('compares shape line public output and strict native divergences', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    const generatedSlide = generated.addSlide();
+    const dashes = [
+      'solid',
+      'dash',
+      'dashDot',
+      'lgDash',
+      'lgDashDot',
+      'lgDashDotDot',
+      'sysDash',
+      'sysDot',
+    ] as const;
+    const generatedCases: readonly {
+      readonly name: string;
+      readonly line?: Record<string, unknown>;
+    }[] = [
+      { name: 'Line omitted' },
+      { name: 'Line none', line: { type: 'none' } },
+      { name: 'Line empty', line: {} },
+      { name: 'Line missing color', line: { type: 'solid' } },
+      { name: 'Line sRGB', line: { color: 'FF0000' } },
+      { name: 'Line scheme', line: { color: generated.SchemeColor.accent2 } },
+      { name: 'Line transparency', line: { color: '00FF00', transparency: 50 } },
+      { name: 'Line zero transparency', line: { color: '0000FF', transparency: 0 } },
+      { name: 'Line zero width', line: { color: '112233', width: 0 } },
+      { name: 'Line positive width', line: { color: '223344', width: 2.5 } },
+      { name: 'Line deprecated alpha', line: { color: '334455', alpha: 40 } },
+      { name: 'Line deprecated dash', line: { color: '445566', lineDash: 'dash' } },
+      ...dashes.map((dash) => ({
+        name: `Line dash ${dash}`,
+        line: { color: '556677', dashType: dash },
+      })),
+      {
+        name: 'Line arrows',
+        line: {
+          color: '667788',
+          width: 3,
+          dashType: 'dashDot',
+          beginArrowType: 'triangle',
+          endArrowType: 'arrow',
+        },
+      },
+    ];
+    for (const fixture of generatedCases) {
+      const options: Record<string, unknown> = { objectName: fixture.name };
+      if (fixture.line !== undefined) options.line = fixture.line;
+      generatedSlide.addShape(generated.ShapeType.rect!, options);
+    }
+
+    const imported = await openPptxGenJSPublicOutput(generated);
+    const importedShapes = new Map(imported.slides[0]!.shapes.map((shape) => [
+      shape.name,
+      shape as ShapeModel,
+    ]));
+    expect(importedShapes.size).toBe(generatedCases.length);
+
+    const native = PptxDocument.create();
+    const nativeSlide = native.addSlide();
+    const nativeShapes = new Map<string, ShapeModel>([
+      ['Line omitted', nativeSlide.addShape('rect', { name: 'Line omitted' })],
+      ['Line none', nativeSlide.addShape('rect', {
+        name: 'Line none',
+        line: { kind: 'none' },
+      })],
+      ['Line sRGB', nativeSlide.addShape('rect', {
+        name: 'Line sRGB',
+        line: { kind: 'line', color: { kind: 'srgb', value: 'FF0000' } },
+      })],
+      ['Line scheme', nativeSlide.addShape('rect', {
+        name: 'Line scheme',
+        line: { kind: 'line', color: { kind: 'scheme', value: 'accent2' } },
+      })],
+      ['Line transparency', nativeSlide.addShape('rect', {
+        name: 'Line transparency',
+        line: {
+          kind: 'line',
+          color: { kind: 'srgb', value: '00FF00' },
+          transparency: 50,
+        },
+      })],
+      ['Line zero transparency', nativeSlide.addShape('rect', {
+        name: 'Line zero transparency',
+        line: {
+          kind: 'line',
+          color: { kind: 'srgb', value: '0000FF' },
+          transparency: 0,
+        },
+      })],
+      ['Line zero width', nativeSlide.addShape('rect', {
+        name: 'Line zero width',
+        line: {
+          kind: 'line',
+          color: { kind: 'srgb', value: '112233' },
+          width: 0,
+        },
+      })],
+      ['Line positive width', nativeSlide.addShape('rect', {
+        name: 'Line positive width',
+        line: {
+          kind: 'line',
+          color: { kind: 'srgb', value: '223344' },
+          width: 2.5,
+        },
+      })],
+      ...dashes.map((dash) => [
+        `Line dash ${dash}`,
+        nativeSlide.addShape('rect', {
+          name: `Line dash ${dash}`,
+          line: {
+            kind: 'line',
+            color: { kind: 'srgb', value: '556677' },
+            dash,
+          },
+        }),
+      ] as const),
+      ['Line arrows', nativeSlide.addShape('rect', {
+        name: 'Line arrows',
+        line: {
+          kind: 'line',
+          color: { kind: 'srgb', value: '667788' },
+          width: 3,
+          dash: 'dashDot',
+        },
+      })],
+    ] as const);
+
+    for (const name of [
+      'Line omitted',
+      'Line sRGB',
+      'Line scheme',
+      'Line transparency',
+      'Line positive width',
+      ...dashes.map((dash) => `Line dash ${dash}`),
+      'Line arrows',
+    ]) {
+      const importedShape = importedShapes.get(name)!;
+      const nativeShape = nativeShapes.get(name)!;
+      expect(importedShape, name).toBeInstanceOf(ShapeModel);
+      expect(importedShape.name, name).toBe(nativeShape.name);
+      expect(importedShape.presetType, name).toBe(nativeShape.presetType);
+      expect(importedShape.transform, name).toEqual(nativeShape.transform);
+      expect(importedShape.line, name).toEqual(nativeShape.line);
+    }
+
+    const generatedNone = importedShapes.get('Line none')!;
+    const nativeNone = nativeShapes.get('Line none')!;
+    expect(generatedNone.line).toBeUndefined();
+    expect(nativeNone.line).toEqual({ kind: 'none' });
+    expect(shapeXml(imported, 0, generatedNone.id)).toMatch(/<a:ln><\/a:ln>|<a:ln\/>/);
+    expect(shapeXml(native, 0, nativeNone.id)).toContain('<a:ln><a:noFill/></a:ln>');
+
+    for (const name of ['Line empty', 'Line missing color']) {
+      expect(importedShapes.get(name)!.line, name).toEqual({
+        kind: 'line',
+        color: { kind: 'srgb', value: '333333' },
+        width: 1,
+        dash: 'solid',
+      });
+    }
+
+    const generatedZeroTransparency = importedShapes.get('Line zero transparency')!;
+    const nativeZeroTransparency = nativeShapes.get('Line zero transparency')!;
+    expect(generatedZeroTransparency.line).toEqual({
+      kind: 'line',
+      color: { kind: 'srgb', value: '0000FF' },
+      width: 1,
+      dash: 'solid',
+    });
+    expect(nativeZeroTransparency.line).toEqual({
+      kind: 'line',
+      color: { kind: 'srgb', value: '0000FF' },
+      transparency: 0,
+      width: 1,
+      dash: 'solid',
+    });
+    expect(shapeXml(imported, 0, generatedZeroTransparency.id)).not.toContain('<a:alpha');
+    expect(shapeXml(native, 0, nativeZeroTransparency.id))
+      .toContain('<a:alpha val="100000"/>');
+
+    const generatedZeroWidth = importedShapes.get('Line zero width')!;
+    const nativeZeroWidth = nativeShapes.get('Line zero width')!;
+    expect(generatedZeroWidth.line).toEqual({
+      kind: 'line',
+      color: { kind: 'srgb', value: '112233' },
+      width: 1,
+      dash: 'solid',
+    });
+    expect(nativeZeroWidth.line).toEqual({
+      kind: 'line',
+      color: { kind: 'srgb', value: '112233' },
+      width: 0,
+      dash: 'solid',
+    });
+    expect(shapeXml(imported, 0, generatedZeroWidth.id)).toContain('<a:ln w="12700">');
+    expect(shapeXml(native, 0, nativeZeroWidth.id)).toContain('<a:ln w="0">');
+
+    expect(importedShapes.get('Line deprecated alpha')!.line).toEqual({
+      kind: 'line',
+      color: { kind: 'srgb', value: '334455' },
+      width: 1,
+      dash: 'solid',
+    });
+    expect(importedShapes.get('Line deprecated dash')!.line).toEqual({
+      kind: 'line',
+      color: { kind: 'srgb', value: '445566' },
+      width: 1,
+      dash: 'solid',
+    });
+
+    const arrows = importedShapes.get('Line arrows')!;
+    expect(shapeXml(imported, 0, arrows.id)).toContain('<a:headEnd type="triangle"');
+    expect(shapeXml(imported, 0, arrows.id)).toContain('<a:tailEnd type="arrow"');
+    arrows.line = {
+      kind: 'line',
+      color: { kind: 'scheme', value: 'accent4' },
+      transparency: 25,
+      width: 2,
+      dash: 'sysDash',
+    };
+    const editedArrowXml = shapeXml(imported, 0, arrows.id);
+    expect(editedArrowXml).toContain('<a:headEnd type="triangle"');
+    expect(editedArrowXml).toContain('<a:tailEnd type="arrow"');
+
+    const beforeInvalid = native.opcPackage.requirePart(nativeSlide.partUri).bytes.slice();
+    const invalidJournal = [...native.opcPackage.mutations];
+    for (const line of [
+      {},
+      { kind: 'line' },
+      { type: 'none' },
+      {
+        kind: 'line',
+        color: { kind: 'srgb', value: '334455' },
+        alpha: 40,
+      },
+      {
+        kind: 'line',
+        color: { kind: 'srgb', value: '445566' },
+        dashType: 'dash',
+      },
+      {
+        kind: 'line',
+        color: { kind: 'srgb', value: '445566' },
+        lineDash: 'dash',
+      },
+    ]) {
+      expect(() => nativeSlide.addShape('rect', { line } as never)).toThrow();
+    }
+    expect(native.opcPackage.requirePart(nativeSlide.partUri).bytes).toEqual(beforeInvalid);
+    expect(native.opcPackage.mutations).toEqual(invalidJournal);
+
+    const reopened = await PptxDocument.open(await imported.write());
+    const reopenedArrows = reopened.slides[0]!.shapes.find(
+      ({ name }) => name === 'Line arrows',
+    ) as ShapeModel;
+    expect(reopenedArrows.line).toEqual({
+      kind: 'line',
+      color: { kind: 'scheme', value: 'accent4' },
+      transparency: 25,
+      width: 2,
+      dash: 'sysDash',
+    });
+    expect(shapeXml(reopened, 0, reopenedArrows.id)).toContain('<a:headEnd type="triangle"');
+    expect(shapeXml(reopened, 0, reopenedArrows.id)).toContain('<a:tailEnd type="arrow"');
+  });
+
   it('reads every legal PptxGenJS preset shape public output', async () => {
     const generated = new PptxGenJS();
     expect(generated.version).toBe('4.0.1');
