@@ -59,6 +59,13 @@ export interface CustomGeometryConnectionSite {
   readonly angle: CustomGeometryValue;
 }
 
+export interface CustomGeometryTextRectangle {
+  readonly left: CustomGeometryValue;
+  readonly top: CustomGeometryValue;
+  readonly right: CustomGeometryValue;
+  readonly bottom: CustomGeometryValue;
+}
+
 export type CustomGeometryCommand =
   | { readonly kind: 'moveTo'; readonly point: CustomGeometryPoint }
   | { readonly kind: 'lineTo'; readonly point: CustomGeometryPoint }
@@ -104,6 +111,7 @@ export interface CustomGeometry {
   readonly guides?: readonly CustomGeometryGuide[];
   readonly handles?: readonly CustomGeometryHandle[];
   readonly connectionSites?: readonly CustomGeometryConnectionSite[];
+  readonly textRectangle?: CustomGeometryTextRectangle;
   readonly paths: readonly CustomGeometryPath[];
 }
 

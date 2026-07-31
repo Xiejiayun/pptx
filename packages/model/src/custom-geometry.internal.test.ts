@@ -10,6 +10,7 @@ import type {
   CustomGeometryGuide,
   CustomGeometryHandle,
   CustomGeometryPolarHandle,
+  CustomGeometryTextRectangle,
   CustomGeometryValue,
   CustomGeometryXyHandle,
 } from './custom-geometry.js';
@@ -178,6 +179,28 @@ const connectionGeometry: CustomGeometry = {
   }],
 };
 
+const textRectangleGeometry: CustomGeometry = {
+  guides: [
+    { name: 'textLeft', formula: { operator: 'val', operands: [20_000] } },
+    { name: 'textRight', formula: { operator: 'val', operands: [80_000] } },
+  ],
+  connectionSites: [{ angle: 0, position: { x: 'hc', y: 't' } }],
+  textRectangle: {
+    left: 'textLeft',
+    top: 10_000,
+    right: 'textRight',
+    bottom: 90_000,
+  },
+  paths: [{
+    width: 100_000,
+    height: 100_000,
+    commands: [
+      { kind: 'moveTo', point: { x: 0, y: 0 } },
+      { kind: 'lineTo', point: { x: 100_000, y: 100_000 } },
+    ],
+  }],
+};
+
 const publicOptions: AddCustomShapeOptions = { name: 'Custom', x: inches(1) };
 void publicOptions;
 // @ts-expect-error preset-only adjustments are not custom-shape options
@@ -244,6 +267,20 @@ void publicConnectionSite;
 // @ts-expect-error custom geometry connection sites require an angle
 const missingConnectionAngle: CustomGeometryConnectionSite = { position: { x: 0, y: 0 } };
 void missingConnectionAngle;
+const publicTextRectangle: CustomGeometryTextRectangle = {
+  left: 'l',
+  top: 0,
+  right: 'r',
+  bottom: 100_000,
+};
+void publicTextRectangle;
+// @ts-expect-error custom geometry text rectangles require all four sides
+const missingTextRectangleBottom: CustomGeometryTextRectangle = {
+  left: 'l',
+  top: 't',
+  right: 'r',
+};
+void missingTextRectangleBottom;
 
 function parseShape(source: string) {
   const xml = LosslessXmlDocument.parse(source);
@@ -463,6 +500,113 @@ describe('normalizeCustomGeometry', () => {
       paths: [{ width: 1, height: 1, commands: [] }],
     }, 'Custom geometry');
     expect(Object.hasOwn(empty, 'connectionSites')).toBe(false);
+  });
+
+  it('copies, freezes, and folds custom text rectangle defaults', () => {
+    const mutable = structuredClone(textRectangleGeometry) as unknown as {
+      textRectangle: {
+        left: CustomGeometryValue;
+        top: CustomGeometryValue;
+        right: CustomGeometryValue;
+        bottom: CustomGeometryValue;
+      };
+    };
+    const normalized = normalizeCustomGeometry(mutable, 'Custom geometry');
+    expect(normalized).toEqual(textRectangleGeometry);
+    expect(Object.isFrozen(normalized)).toBe(true);
+    expect(Object.isFrozen(normalized.textRectangle)).toBe(true);
+    mutable.textRectangle.left = 0;
+    mutable.textRectangle.top = -1;
+    expect(normalized).toEqual(textRectangleGeometry);
+
+    for (const candidate of [
+      { paths: [{ width: 1, height: 1, commands: [] }] },
+      {
+        textRectangle: { left: 'l', top: 't', right: 'r', bottom: 'b' },
+        paths: [{ width: 1, height: 1, commands: [] }],
+      },
+    ]) {
+      const result = normalizeCustomGeometry(candidate, 'Custom geometry');
+      expect(Object.hasOwn(result, 'textRectangle')).toBe(false);
+    }
+
+    const directValues: CustomGeometry = {
+      textRectangle: {
+        left: Number.MIN_SAFE_INTEGER,
+        top: 0,
+        right: Number.MAX_SAFE_INTEGER,
+        bottom: 'text&Bottom',
+      },
+      paths: [{ width: 1, height: 1, commands: [] }],
+    };
+    expect(normalizeCustomGeometry(directValues, 'Custom geometry')).toEqual(directValues);
+    const nullPrototype = Object.assign(Object.create(null), {
+      left: -1,
+      top: 't',
+      right: 1,
+      bottom: 'b',
+    });
+    expect(normalizeCustomGeometry({
+      textRectangle: nullPrototype,
+      paths: [{ width: 1, height: 1, commands: [] }],
+    }, 'Custom geometry'))
+      .toEqual({
+        textRectangle: { left: -1, top: 't', right: 1, bottom: 'b' },
+        paths: [{ width: 1, height: 1, commands: [] }],
+      });
+  });
+
+  it('rejects unsafe custom text rectangle state without semantic inference', () => {
+    const wrap = (textRectangle: unknown): unknown => ({
+      textRectangle,
+      paths: [{ width: 1, height: 1, commands: [] }],
+    });
+    for (const textRectangle of [
+      undefined,
+      null,
+      false,
+      {},
+      { top: 't', right: 'r', bottom: 'b' },
+      { left: 'l', right: 'r', bottom: 'b' },
+      { left: 'l', top: 't', bottom: 'b' },
+      { left: 'l', top: 't', right: 'r' },
+      { left: 'l', top: 't', right: 'r', bottom: 'b', extra: true },
+      { left: false, top: 't', right: 'r', bottom: 'b' },
+      { left: 0.5, top: 't', right: 'r', bottom: 'b' },
+      { left: Number.MAX_SAFE_INTEGER + 1, top: 't', right: 'r', bottom: 'b' },
+      { left: '', top: 't', right: 'r', bottom: 'b' },
+      { left: '1', top: 't', right: 'r', bottom: 'b' },
+      { left: 'two words', top: 't', right: 'r', bottom: 'b' },
+      { left: '\u0000', top: 't', right: 'r', bottom: 'b' },
+      { left: 'l', top: 't', right: 'r', bottom: undefined },
+      { left: 'l', top: 't', right: 'r', bottom: 'b', [Symbol('unsafe')]: true },
+    ]) expect(() => normalizeCustomGeometry(wrap(textRectangle), 'Custom geometry')).toThrow();
+
+    class TextRectangle {
+      left = 'l';
+      top = 't';
+      right = 'r';
+      bottom = 'b';
+    }
+    expect(() => normalizeCustomGeometry(wrap(new TextRectangle()), 'Custom geometry'))
+      .toThrow(/ordinary object/);
+
+    let calls = 0;
+    const accessor = Object.defineProperties({}, {
+      left: {
+        enumerable: true,
+        get() {
+          calls += 1;
+          return 'l';
+        },
+      },
+      top: { enumerable: true, value: 't' },
+      right: { enumerable: true, value: 'r' },
+      bottom: { enumerable: true, value: 'b' },
+    });
+    expect(() => normalizeCustomGeometry(wrap(accessor), 'Custom geometry'))
+      .toThrow(/data property/);
+    expect(calls).toBe(0);
   });
 
   it('rejects unsafe connection site state without semantic inference', () => {
@@ -847,6 +991,38 @@ describe('custom geometry OOXML codec', () => {
     );
   });
 
+  it('renders custom text rectangles and preserves canonical default bytes', () => {
+    const rendered = renderCustomGeometry(
+      normalizeCustomGeometry(textRectangleGeometry, 'Custom geometry'),
+      'a:',
+    );
+    expect(rendered).toContain(
+      '<a:rect l="textLeft" t="10000" r="textRight" b="90000"/>',
+    );
+    const escaped: CustomGeometry = {
+      textRectangle: {
+        left: 'left&1',
+        top: -1,
+        right: 'right&1',
+        bottom: Number.MAX_SAFE_INTEGER,
+      },
+      paths: [{ width: 1, height: 1, commands: [] }],
+    };
+    expect(renderCustomGeometry(
+      normalizeCustomGeometry(escaped, 'Custom geometry'),
+      'd:',
+    )).toContain(
+      '<d:rect l="left&amp;1" t="-1" r="right&amp;1" b="9007199254740991"/>',
+    );
+    expect(renderCustomGeometry(
+      normalizeCustomGeometry({
+        textRectangle: { left: 'l', top: 't', right: 'r', bottom: 'b' },
+        paths: [{ width: 1, height: 1, commands: [] }],
+      }, 'Custom geometry'),
+      'a:',
+    )).toContain('<a:rect l="l" t="t" r="r" b="b"/>');
+  });
+
   it('reads canonical, alternate-prefix, absent-empty-list, and boolean lexical state', () => {
     for (const source of [
       fixture(canonical()),
@@ -1131,6 +1307,34 @@ describe('custom geometry OOXML codec', () => {
         normalizeCustomGeometry(variant, 'Custom geometry'),
       )).toBe(false);
     }
+  });
+
+  it('distinguishes custom text rectangle presence and all four values', () => {
+    const normalized = normalizeCustomGeometry(textRectangleGeometry, 'Custom geometry');
+    const { textRectangle: _textRectangle, ...withoutTextRectangle } = textRectangleGeometry;
+    const rectangle = textRectangleGeometry.textRectangle!;
+    const variants: CustomGeometry[] = [
+      withoutTextRectangle,
+      { ...textRectangleGeometry, textRectangle: { ...rectangle, left: 0 } },
+      { ...textRectangleGeometry, textRectangle: { ...rectangle, top: 0 } },
+      { ...textRectangleGeometry, textRectangle: { ...rectangle, right: 100_000 } },
+      { ...textRectangleGeometry, textRectangle: { ...rectangle, bottom: 'b' } },
+    ];
+    for (const variant of variants) {
+      expect(customGeometryEqual(
+        normalized,
+        normalizeCustomGeometry(variant, 'Custom geometry'),
+      )).toBe(false);
+    }
+    expect(customGeometryEqual(
+      normalizeCustomGeometry({
+        textRectangle: { left: 'l', top: 't', right: 'r', bottom: 'b' },
+        paths: [{ width: 1, height: 1, commands: [] }],
+      }, 'Custom geometry'),
+      normalizeCustomGeometry({
+        paths: [{ width: 1, height: 1, commands: [] }],
+      }, 'Custom geometry'),
+    )).toBe(true);
   });
 
   it('rejects malformed, ambiguous, guide, handle, connection, and rect state', () => {

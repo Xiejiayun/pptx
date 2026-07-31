@@ -14,6 +14,7 @@ import type {
   CustomGeometryPathFill,
   CustomGeometryPoint,
   CustomGeometryPolarHandle,
+  CustomGeometryTextRectangle,
   CustomGeometryValue,
   CustomGeometryXyHandle,
 } from './custom-geometry.js';
@@ -24,7 +25,14 @@ const PRESENTATION_NAMESPACE =
   'http://schemas.openxmlformats.org/presentationml/2006/main';
 const DRAWING_NAMESPACE =
   'http://schemas.openxmlformats.org/drawingml/2006/main';
-const ROOT_KEYS = new Set(['adjustments', 'guides', 'handles', 'connectionSites', 'paths']);
+const ROOT_KEYS = new Set([
+  'adjustments',
+  'guides',
+  'handles',
+  'connectionSites',
+  'textRectangle',
+  'paths',
+]);
 const ROOT_REQUIRED_KEYS = new Set(['paths']);
 const GUIDE_KEYS = new Set(['name', 'formula']);
 const FORMULA_KEYS = new Set(['operator', 'operands']);
@@ -50,6 +58,13 @@ const POLAR_HANDLE_KEYS = new Set([
 ]);
 const HANDLE_REQUIRED_KEYS = new Set(['kind', 'position']);
 const CONNECTION_SITE_KEYS = new Set(['position', 'angle']);
+const TEXT_RECTANGLE_KEYS = new Set(['left', 'top', 'right', 'bottom']);
+const DEFAULT_TEXT_RECTANGLE: Readonly<CustomGeometryTextRectangle> = Object.freeze({
+  left: 'l',
+  top: 't',
+  right: 'r',
+  bottom: 'b',
+});
 const XY_HANDLE_ATTRIBUTE_KEYS = new Set([
   'gdRefX',
   'minX',
@@ -158,6 +173,9 @@ export function normalizeCustomGeometry(
   const connectionSites = Object.hasOwn(root, 'connectionSites')
     ? normalizeConnectionSiteList(root.connectionSites, `${context} connectionSites`)
     : undefined;
+  const textRectangle = Object.hasOwn(root, 'textRectangle')
+    ? normalizeTextRectangle(root.textRectangle, `${context} textRectangle`)
+    : undefined;
   const paths = readArray(root.paths, `${context} paths`);
   if (paths.length === 0) throw new RangeError(`${context} paths must not be empty`);
   const normalizedPaths = paths.map((path, index) =>
@@ -167,6 +185,7 @@ export function normalizeCustomGeometry(
     ...(guides?.length ? { guides } : {}),
     ...(handles?.length ? { handles } : {}),
     ...(connectionSites?.length ? { connectionSites } : {}),
+    ...(textRectangle ? { textRectangle } : {}),
     paths: Object.freeze(normalizedPaths),
   });
 }
@@ -180,7 +199,7 @@ export function renderCustomGeometry(
     `${renderGuideList('gdLst', geometry.guides, prefix)}` +
     `${renderHandleList(geometry.handles, prefix)}` +
     `${renderConnectionSiteList(geometry.connectionSites, prefix)}` +
-    `<${prefix}rect l="l" t="t" r="r" b="b"/>` +
+    `${renderTextRectangle(geometry.textRectangle, prefix)}` +
     `<${prefix}pathLst>${paths}</${prefix}pathLst></${prefix}custGeom>`;
 }
 
@@ -232,6 +251,7 @@ export function customGeometryEqual(
     || !guideListsEqual(left.guides, right.guides)
     || !handleListsEqual(left.handles, right.handles)
     || !connectionSiteListsEqual(left.connectionSites, right.connectionSites)
+    || !textRectanglesEqual(left.textRectangle, right.textRectangle)
   ) return false;
   if (left.paths.length !== right.paths.length) return false;
   return left.paths.every((path, index) => {
@@ -410,6 +430,29 @@ function normalizeConnectionSiteList(
     });
   });
   return Object.freeze(sites);
+}
+
+function normalizeTextRectangle(
+  value: unknown,
+  context: string,
+): Readonly<CustomGeometryTextRectangle> | undefined {
+  const rectangle = readObject(value, TEXT_RECTANGLE_KEYS, TEXT_RECTANGLE_KEYS, context);
+  const normalized = Object.freeze({
+    left: normalizeCustomGeometryValue(rectangle.left, `${context} left`, false),
+    top: normalizeCustomGeometryValue(rectangle.top, `${context} top`, false),
+    right: normalizeCustomGeometryValue(rectangle.right, `${context} right`, false),
+    bottom: normalizeCustomGeometryValue(rectangle.bottom, `${context} bottom`, false),
+  });
+  return isDefaultTextRectangle(normalized) ? undefined : normalized;
+}
+
+function isDefaultTextRectangle(
+  rectangle: Readonly<CustomGeometryTextRectangle>,
+): boolean {
+  return rectangle.left === DEFAULT_TEXT_RECTANGLE.left
+    && rectangle.top === DEFAULT_TEXT_RECTANGLE.top
+    && rectangle.right === DEFAULT_TEXT_RECTANGLE.right
+    && rectangle.bottom === DEFAULT_TEXT_RECTANGLE.bottom;
 }
 
 function normalizePath(value: unknown, context: string): Readonly<CustomGeometryPath> {
@@ -609,6 +652,17 @@ function renderConnectionSiteList(
     `<${prefix}cxn ang="${renderCustomGeometryValue(site.angle)}">` +
     `${renderPoint(site.position, prefix, 'pos')}</${prefix}cxn>`).join('');
   return `<${prefix}cxnLst>${children}</${prefix}cxnLst>`;
+}
+
+function renderTextRectangle(
+  rectangle: Readonly<CustomGeometryTextRectangle> | undefined,
+  prefix: string,
+): string {
+  const value = rectangle ?? DEFAULT_TEXT_RECTANGLE;
+  return `<${prefix}rect l="${renderCustomGeometryValue(value.left)}" ` +
+    `t="${renderCustomGeometryValue(value.top)}" ` +
+    `r="${renderCustomGeometryValue(value.right)}" ` +
+    `b="${renderCustomGeometryValue(value.bottom)}"/>`;
 }
 
 function renderPath(path: Readonly<CustomGeometryPath>, prefix: string): string {
@@ -1365,6 +1419,17 @@ function connectionSiteListsEqual(
       && site.angle === other.angle
       && pointsEqual(site.position, other.position);
   });
+}
+
+function textRectanglesEqual(
+  left: Readonly<CustomGeometryTextRectangle> | undefined,
+  right: Readonly<CustomGeometryTextRectangle> | undefined,
+): boolean {
+  if (left === undefined || right === undefined) return left === right;
+  return left.left === right.left
+    && left.top === right.top
+    && left.right === right.right
+    && left.bottom === right.bottom;
 }
 
 function commandsEqual(
