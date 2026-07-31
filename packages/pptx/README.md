@@ -13,7 +13,7 @@ npm install @jiayunxie/pptx@next
 ## Create a presentation
 
 ```ts
-import { inches, PptxDocument } from '@jiayunxie/pptx';
+import { degrees, inches, PRESET_SHAPE_TYPES, PptxDocument } from '@jiayunxie/pptx';
 
 const document = PptxDocument.create({
   author: 'Presentation Team',
@@ -45,6 +45,17 @@ document.revision = '008';
 document.revision = undefined;
 document.title = 'Updated Review';
 const slide = document.addSlide();
+const shape = slide.addShape('roundRect', {
+  x: inches(1),
+  y: inches(1),
+  width: inches(3),
+  height: inches(2),
+  rotation: degrees(15),
+  name: 'Feature card',
+});
+shape.presetType = 'hexagon';
+console.log(shape.presetType); // 'hexagon'
+console.log(PRESET_SHAPE_TYPES.length); // 178
 slide.addText('Quarterly results\nQ4 forecast', {
   x: inches(1),
   y: inches(1),
@@ -86,6 +97,10 @@ table.setCellBorders(0, 0, { bottom: { kind: 'line', color: { kind: 'srgb', valu
 table.setCellFill(0, 0, { kind: 'solid', color: { kind: 'scheme', value: 'accent1' } });
 await document.writeFile('created.pptx');
 ```
+
+`PRESET_SHAPE_TYPES` is the frozen discovery catalog for all 178 canonical preset geometries accepted by `SlideModel.addShape()`. `AddShapeOptions` accepts only `name` plus native EMU/OOXML-angle transform fields; use `inches()` and `degrees()` for ergonomic conversion. Omitted geometry starts at x/y/width/height = 1 inch with zero rotation, no flips, direct no-fill, and an empty line. Inputs are strict, descriptor-safe, detached before mutation, and reject unknown fields. The catalog uses the valid OOXML `foldedCorner`; PptxGenJS 4.0.1's invalid `folderCorner` token and runtime-only `custGeom` value are not accepted as presets.
+
+`ShapeModel.presetType` reads only one safe direct canonical preset geometry. Reassigning the same type is an exact no-op; changing the type replaces only the geometry and clears old adjustment handles while preserving transform, name, fill, line, effects, text, order, and model identity. Creation, duplicate isolation, rollback, write/reopen, Node/browser bundles, and PptxGenJS public output are covered. Shape fill/line styles, arrows, shadow, hyperlink, adjustment editing, custom geometry, and shape-text creation options remain separate pending capabilities.
 
 `CreatePresentationOptions.title` and live `document.title` use the direct core-properties title. Omitted creation input writes no title, `''` writes an explicit empty title, and `undefined` clears only the direct field. Values are strict XML-safe strings; reads follow the package-root core-properties relationship instead of assuming a part URI or prefix, same-value/absent-clear operations are exact no-ops, missing metadata can be created, and unrelated subject/creator/revision/unknown content is preserved. Unsafe malformed or ambiguous ownership is rejected rather than guessed. PptxGenJS 4.0.1 defaults its own public `title` to `PptxGenJS Presentation`; native omitted creation intentionally remains `undefined`.
 

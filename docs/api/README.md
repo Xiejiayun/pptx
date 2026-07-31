@@ -3,7 +3,7 @@
 ## Create, open, and save
 
 ```ts
-import { inches, PptxDocument } from '@pptx/sdk';
+import { degrees, inches, PRESET_SHAPE_TYPES, PptxDocument } from '@pptx/sdk';
 
 const created = PptxDocument.create({
   author: 'Presentation Team',
@@ -105,6 +105,27 @@ slide.notes = undefined;
 ```
 
 `SlideModel.notes` returns `string | undefined`: absence is lazy `undefined`, an explicit empty body is `''`, and `undefined` assignment clears only the selected slide's notes relationship and owned notes part. Both the property setter and chainable `addNotes(string)` accept only XML-safe strings, normalize CRLF/CR to LF, and preserve leading/trailing whitespace. Reads follow the unique internal slide→notesSlide relationship, validate its slide backlink and shared notes-master chain, and flatten the unique direct body placeholder to plain text without mutating the package. Same-value assignment and clearing an absent value are exact byte/journal no-ops. Creation repairs a safely missing body placeholder and can create one canonical notes master only from fully absent, unambiguous topology using the presentation theme or first ordered slide-master theme; partial or ambiguous ownership is rejected before mutation. Duplication clones and retargets the per-slide notes part while retaining the shared master, deletion garbage-collects only unreferenced per-slide notes, and move/sections/hidden state remain independent. PptxGenJS 4.0.1 public output eagerly materializes empty notes for an omitted call; native creation intentionally distinguishes that from lazy `undefined`. This API is plain-text only and does not edit rich notes, notes-page layout, comments, header/footer/date fields, or slide numbers.
+
+Preset shapes can be created and their direct geometry can be read or replaced:
+
+```ts
+const slide = document.addSlide();
+const shape = slide.addShape('roundRect', {
+  x: inches(1),
+  y: inches(1),
+  width: inches(3),
+  height: inches(2),
+  rotation: degrees(15),
+  name: 'Feature card',
+});
+shape.presetType = 'hexagon';
+console.log(shape.presetType); // 'hexagon'
+console.log(PRESET_SHAPE_TYPES.length); // 178
+```
+
+`PRESET_SHAPE_TYPES` is a runtime-frozen tuple of the 178 canonical preset tokens; `PresetShapeType` is derived from it. `SlideModel.addShape(type, options?)` accepts only `name` plus `Partial<Transform>` in native EMU and OOXML-angle units. Omitted x/y/width/height are each one inch, rotation is zero, both flips are false, the default name is `Shape ${id}`, and the emitted shape has direct `a:noFill` plus an empty direct `a:ln`. Options must be ordinary or null-prototype objects with supported own data properties; accessors, inherited/unknown/symbol keys, invalid XML strings, unsafe numbers, non-positive extents, invalid rotation, and non-boolean flips are rejected before package mutation.
+
+`ShapeModel.presetType` returns a canonical token only for one namespace-correct direct `p:spPr/a:prstGeom`; missing, unknown, nested, malformed, repeated, or qualified-lookalike geometry returns `undefined` without mutation. Assigning the current token preserves the exact geometry bytes, including adjustments. Assigning another canonical token whole-replaces only that direct geometry with one empty `a:avLst`, intentionally clearing stale adjustments while preserving non-visual identity, transform, fill, line, effects, extensions, text, shape order, and the live model object. Creation and replacement are transactional and remain isolated through duplication, rollback, all six formats, write, and reopen. PptxGenJS 4.0.1 public `ShapeType/addShape/write` output is compared semantically for every legal token. Its `folderCorner` value is invalid OOXML and reads as `undefined`; native uses valid `foldedCorner` and reserves `custGeom` for a future custom-geometry API. Shape fill/line configuration, arrowheads, shadows, hyperlinks, adjustment editing, custom geometry, and shape-text creation options are not yet supported by `addShape()`.
 
 Shape kinds include `text`, `shape`, `image`, `table`, `chart`, `graphic-frame`, and `group`. Images expose embedded part URIs and replacement; tables support basic native creation plus rows/cells, cell text, borders, fill, margins, horizontal/vertical alignment, text-direction, and text-fit editing; charts expose cached series and lossless chart XML editing.
 

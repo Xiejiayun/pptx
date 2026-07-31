@@ -30,6 +30,7 @@ adapter 不读取 `_slides` 等私有字段。后续 peer-range conformance test
 | 默认 `LAYOUT_16x9` | `create({ slideSize: '16:9' })` | 已支持 |
 | `LAYOUT_4x3` / `LAYOUT_16x10` / `LAYOUT_WIDE` | `create({ slideSize: '4:3' / '16:10' / 'wide' })` | 已支持 |
 | `addSlide()` 空白页 | `document.addSlide()` | 已支持 |
+| `slide.addShape(ShapeType, options)` | `SlideModel.addShape(type, options)` / `ShapeModel.presetType` | 已支持 178 个 canonical preset 的 create/read/replace/duplicate/reopen；native transform 使用 EMU/OOXML angle |
 | `slide.hidden` | `SlideModel.hidden` | 已支持 strict boolean create/edit、direct root read/repair、duplicate/move/reopen；native 拒绝 truthy coercion |
 | `slide.addNotes(string)` | `SlideModel.addNotes()` / `SlideModel.notes` | 已支持 plain string create/read/edit/empty/clear、lazy native state、notes-master repair、duplicate/move/reopen |
 | presentation `addSection({ title, order? })` / `addSlide({ sectionTitle })` | `document.sections` / `addSection()` / section editing commands / `addSlide({ sectionTitle })` | 已支持 strict section extension 创建、detached 读取、ID 寻址编辑与 slide lifecycle 同步；native 修复 unknown title 和 order 0，保留 empty section 与 loose slide |
@@ -77,7 +78,7 @@ adapter 不读取 `_slides` 等私有字段。后续 peer-range conformance test
 
 | PptxGenJS 4.0.1 public surface | 当前原生能力 | 尚缺能力 | 状态 / 顺序 |
 | --- | --- | --- | --- |
-| `version`、`presLayout`、`AlignH`、`AlignV`、`ChartType`、`OutputType`、`SchemeColor`、`ShapeType`、`PlaceholderType` | package manifest 提供版本，页面尺寸可读写，部分文本/颜色值有 focused native types | 完整稳定的 chart/shape/output/placeholder types 与 runtime helper constants；不要求复刻 PptxGenJS namespace 形状 | 部分支持；统一公开 API 收尾 |
+| `version`、`presLayout`、`AlignH`、`AlignV`、`ChartType`、`OutputType`、`SchemeColor`、`ShapeType`、`PlaceholderType` | package manifest 提供版本，页面尺寸可读写，`PRESET_SHAPE_TYPES` / `PresetShapeType` 覆盖 178 个 canonical preset，部分文本/颜色值有 focused native types | 完整稳定的 chart/output/placeholder types 与其他 runtime helper constants；不要求复刻 PptxGenJS namespace 形状 | 部分支持；统一公开 API 收尾 |
 | `stream()`、`write({ outputType, compression })`、`writeFile({ fileName, compression })` | `write(): Uint8Array`、Node `writeFile()`、browser `writeBlob()` / `download()`、path/stream 输入已支持 | Node readable 输出、六种 output type、显式 compression policy、返回值语义和跨 Node/browser conformance | 部分支持；输出阶段 |
 | `defineSlideMaster()`、`addSlide({ masterName })` / deprecated `addSlide(masterName)` | native create 会生成一条可用链；`masters`/`layouts`/`themes` 可列出，placeholder 可读，raw XML create/copy/delete/relink 生命周期可用 | PptxGenJS 风格的 declarative master definition：background、margin、slide number、chart/image/line/rect/text/placeholder objects，以及按名称选择 layout 的 `addSlide()` | 部分支持；形状/图片/图表后实施 |
 | `tableToSlides(eleId, options)` | 无 DOM table importer | HTML table 解析、CSS/column width 映射、分页、重复 header、master 和附加 image/shape/table/text | 未支持；高级表格阶段 |
@@ -85,7 +86,7 @@ adapter 不读取 `_slides` 等私有字段。后续 peer-range conformance test
 | `slide.color` | 新建文本已有 canonical theme color，单个 text/run color 可设置 | slide default text color 的 direct state、继承及对后续对象的默认值语义 | 未支持；文本收尾 |
 | `slide.slideNumber` | 无 | slide-number field 创建/读取/编辑/清除，position/text style/margin，以及 master-level slide number | 未支持；master 前置项 |
 | `slide.newAutoPagedSlides` | 无 | 表格分页产生的 slides 结果集合及稳定 identity | 未支持；高级表格阶段 |
-| `slide.addShape(shapeName, options)` | existing preset/custom shapes 可识别为 `ShapeModel`，transform/text/rich text/text-box state/gradient fill 可读取或编辑 | 178 个公开 preset token 的原生创建、solid/no fill、line/dash/arrows、shadow、hyperlink、arc/rounded adjustments、custom geometry、strict input 和 lifecycle | 未支持创建；下一优先级 |
+| `slide.addShape(shapeName, options)` | 178 个 canonical preset 可原生 create/read/replace/duplicate/reopen；strict transform/name 输入、stable identity、rollback、PptxGenJS public-output conformance 和 packed Node/browser/types 已覆盖 | configurable solid/no fill、line/dash/arrows、shadow、hyperlink、adjustment editing、custom geometry、shape text options 与 percentage positions | 部分支持；preset geometry 已完成，shape styles 下一优先级 |
 | `slide.addImage(options)` | existing image 可读取 embedded/external target、变换并 clone-on-write 替换 bytes | path/data/URL/SVG 原生创建、content-type/dimension detection、contain/cover/crop、rounding、transparency、alt text、hyperlink、shadow、placeholder、删除和 relationship GC | 未支持创建；形状之后 |
 | `slide.addMedia(options)` | `PptxDocument.addAudio()` / `addVideo()` 已支持 bytes/path/Blob/stream、embedded/external、poster、基础 playback、读取、删除、诊断和 GC | online video、PptxGenJS cover/extn/objectName 语义、SlideModel 入口、native timing 对等、完整 edit/duplicate 和 public conformance | 部分支持；图片之后 |
 | `slide.addChart(type, data, options)` | existing chart 可读取 part URI/series/cache，支持 clone-on-write raw XML replacement | 9 个公开 chart types、combo chart、series/category/value/bubble data、embedded workbook/cache 同步、axis/gridline/label/legend/title/data table、2D/3D/style、创建/语义编辑/删除 | 未支持创建；媒体之后 |
@@ -96,6 +97,8 @@ adapter 不读取 `_slides` 等私有字段。后续 peer-range conformance test
 ### 门禁与实施顺序
 
 每一行只有在 native `create/read/edit/delete/preserve/validate` 中适用的维度都有公开 API、单元测试、PptxGenJS public-output conformance、打包产物测试和真实 PPTX 兼容验证后才能标记完成。当前顺序固定为：preset shape → shape fill/line/link/shadow/custom geometry → image/SVG → media 收尾 → chart → slide background/number/default color → master/layout/placeholder → advanced text → advanced table/`tableToSlides` → output/runtime helpers → peer-range full-suite audit。
+
+Preset-shape geometry 通过 runtime-frozen `PRESET_SHAPE_TYPES` 和派生 `PresetShapeType` 暴露 178 个 canonical token。`SlideModel.addShape()` 默认 x/y/width/height 均为 1 inch，使用 direct `a:noFill` 与 empty `a:ln`；native transform 接受 EMU/OOXML angle，可通过 `inches()` / `degrees()` 转换。Options 只接受 ordinary 或 null-prototype object 的 own data properties，未知/inherited/symbol/accessor 字段和非法值在 mutation 前拒绝。新建 shape 与 live `ShapeModel` 保持 stable identity；same-value `presetType` assignment 是 exact no-op，type change 只 whole-replace direct geometry 并清除旧 adjustments，其他 transform/name/fill/line/effects/text/ext bytes 保留。Duplicate、rollback、六种格式、write/reopen、actual tarball Node/browser/types 以及锁定 PptxGenJS 4.0.1 的 public `ShapeType/addShape/write` 输出均有覆盖。PptxGenJS runtime 的 `folderCorner` 会写出不属于 OOXML `ST_ShapeType` 的无效 token；native 无损保留已有 bytes 但 strict preset snapshot 为 `undefined`，原生创建使用合法 `foldedCorner`。`custGeom` 保留给 custom-geometry 小项。Configurable fill/line/arrows/shadow/hyperlink、adjustment editing、custom geometry 和 shape-text creation options 仍未支持，不能作为当前 preset geometry 对等声明的一部分。
 
 PptxGenJS 4.0.1 的公开 `title` 默认值是 `PptxGenJS Presentation`，custom string 与显式 empty string 都写入 direct `dc:title`；adapter 通过公开 `write()` 输出可精确读取三种状态并在写出重开后保持。Native explicit custom/empty 生成相同语义与 XML escaping，但 native omitted 保持 `undefined`，不会注入 PptxGenJS 品牌默认值。Native 还可按 package-root core-properties relationship 读取、无损编辑或清除任意合法 part URI/prefix 的 direct title，并在 relationship 缺失时安全创建 part；same-value 与 absent clear 是 exact no-op，其他 core children 保留，malformed 或 ambiguous ownership 在写入时拒绝。
 
