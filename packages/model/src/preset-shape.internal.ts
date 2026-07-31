@@ -23,11 +23,18 @@ import {
   renderShapeArrows,
   type NormalizedShapeArrows,
 } from './shape-arrows.internal.js';
+import {
+  normalizeHyperlink,
+  renderShapeHyperlink,
+  type NormalizedHyperlink,
+} from './shape-hyperlink.internal.js';
 
 const PRESENTATION_NAMESPACE =
   'http://schemas.openxmlformats.org/presentationml/2006/main';
 const DRAWING_NAMESPACE =
   'http://schemas.openxmlformats.org/drawingml/2006/main';
+const RELATIONSHIP_NAMESPACE =
+  'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
 const EMU_PER_INCH = 914_400;
 const MAX_ROTATION = 21_600_000;
 const PRESET_SHAPE_TYPE_SET: ReadonlySet<string> = new Set(PRESET_SHAPE_TYPES);
@@ -36,6 +43,7 @@ const OPTION_KEYS = new Set([
   'fill',
   'line',
   'arrows',
+  'hyperlink',
   'x',
   'y',
   'width',
@@ -51,6 +59,7 @@ export interface NormalizedPresetShape {
   readonly fill: ShapeFill;
   readonly line: NormalizedSimpleLine | undefined;
   readonly arrows: NormalizedShapeArrows | undefined;
+  readonly hyperlink: NormalizedHyperlink | undefined;
   readonly x: number;
   readonly y: number;
   readonly width: number;
@@ -94,6 +103,9 @@ export function normalizePresetShape(
   const fill = normalizeSimpleFill(values.fill, 'Preset shape fill') ?? { kind: 'none' };
   const line = normalizeSimpleLine(values.line, 'Preset shape line');
   const arrows = normalizeShapeArrows(values.arrows, 'Preset shape arrows');
+  const hyperlink = values.hyperlink === undefined
+    ? undefined
+    : normalizeHyperlink(values.hyperlink, 'Preset shape hyperlink');
 
   return Object.freeze({
     type: type as PresetShapeType,
@@ -101,6 +113,7 @@ export function normalizePresetShape(
     fill,
     line,
     arrows,
+    hyperlink,
     x: normalizeNumber(values.x, EMU_PER_INCH, 'x'),
     y: normalizeNumber(values.y, EMU_PER_INCH, 'y'),
     width,
@@ -114,21 +127,46 @@ export function normalizePresetShape(
 export function renderPresetShapeXml(
   id: number,
   shape: NormalizedPresetShape,
+  hyperlinkRelationshipId?: string,
 ): string {
+  if ((shape.hyperlink === undefined) !== (hyperlinkRelationshipId === undefined)) {
+    throw new TypeError('Preset shape hyperlink and relationship ID must be supplied together');
+  }
   const name = escapeXmlAttribute(shape.name ?? `Shape ${id}`);
   const type = escapeXmlAttribute(shape.type);
+  const hyperlink = shape.hyperlink === undefined
+    ? ''
+    : renderPresetShapeHyperlink(shape.hyperlink, hyperlinkRelationshipId!);
+  const nonVisualProperties = hyperlink === ''
+    ? `<p:cNvPr id="${id}" name="${name}"/>`
+    : `<p:cNvPr id="${id}" name="${name}">${hyperlink}</p:cNvPr>`;
   const transformAttributes = [
     shape.rotation === 0 ? '' : ` rot="${shape.rotation}"`,
     shape.flipHorizontal ? ' flipH="1"' : '',
     shape.flipVertical ? ' flipV="1"' : '',
   ].join('');
   return `<p:sp xmlns:p="${PRESENTATION_NAMESPACE}" xmlns:a="${DRAWING_NAMESPACE}">` +
-    `<p:nvSpPr><p:cNvPr id="${id}" name="${name}"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>` +
+    `<p:nvSpPr>${nonVisualProperties}<p:cNvSpPr/><p:nvPr/></p:nvSpPr>` +
     `<p:spPr><a:xfrm${transformAttributes}><a:off x="${shape.x}" y="${shape.y}"/>` +
     `<a:ext cx="${shape.width}" cy="${shape.height}"/></a:xfrm>` +
     `<a:prstGeom prst="${type}"><a:avLst/></a:prstGeom>` +
     `${renderSimpleFill(shape.fill, 'a:')}${renderPresetLine(shape.line, shape.arrows)}` +
     '</p:spPr></p:sp>';
+}
+
+function renderPresetShapeHyperlink(
+  hyperlink: NormalizedHyperlink,
+  relationshipId: string,
+): string {
+  const rendered = renderShapeHyperlink(
+    hyperlink,
+    relationshipId,
+    { drawing: 'a', relationship: 'r' },
+  );
+  const insertionPoint = rendered.indexOf(' ');
+  return rendered.slice(0, insertionPoint) +
+    ` xmlns:r="${RELATIONSHIP_NAMESPACE}"` +
+    rendered.slice(insertionPoint);
 }
 
 function renderPresetLine(

@@ -1,6 +1,7 @@
 import JSZip from 'jszip';
 import { describe, expect, it } from 'vitest';
-import { OpcPackage } from '@pptx/opc';
+import { LosslessXmlDocument } from '@pptx/lossless-xml';
+import { OpcPackage, relationshipPartUri } from '@pptx/opc';
 import {
   ChartModel,
   ImageModel,
@@ -25,6 +26,7 @@ import {
   type TableCellBorderInput,
   type TextBoxMarginInput,
 } from './index.js';
+import { readShapeHyperlink } from './shape-hyperlink.internal.js';
 
 const CORE_PROPERTIES_RELATIONSHIP =
   'http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties';
@@ -34,6 +36,40 @@ const EXTENDED_PROPERTIES_RELATIONSHIP =
   'http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties';
 const EXTENDED_PROPERTIES_CONTENT_TYPE =
   'application/vnd.openxmlformats-officedocument.extended-properties+xml';
+const HYPERLINK_RELATIONSHIP =
+  'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink';
+const SLIDE_RELATIONSHIP =
+  'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide';
+
+function readCreatedShapeHyperlink(
+  model: PresentationModel,
+  slide: ReturnType<PresentationModel['addSlide']>,
+  shapeId: number,
+) {
+  const xml = LosslessXmlDocument.parse(model.opcPackage.requirePart(slide.partUri).bytes);
+  const shape = xml.elements('sp').find((candidate) => {
+    const properties = xml.descendants(candidate, 'cNvPr')[0];
+    return properties && xml.attribute(properties, 'id')?.value === String(shapeId);
+  });
+  if (!shape) throw new Error(`Shape ${shapeId} was not found`);
+  return readShapeHyperlink(xml, shape, {
+    relationships: slide.relationships,
+    slidePartUris: model.slides.map(({ partUri }) => partUri),
+  });
+}
+
+function packageSnapshot(pkg: OpcPackage) {
+  return {
+    parts: pkg.parts.map(({ uri, contentType, bytes, relationships }) => ({
+      uri,
+      contentType,
+      bytes: bytes.slice(),
+      relationships,
+    })),
+    graph: pkg.graph,
+    mutations: [...pkg.mutations],
+  };
+}
 
 async function modelFixture(
   presentationContentType = PRESENTATION_FORMAT_PROFILES.pptx.presentationContentType,
@@ -103,6 +139,174 @@ describe('PresentationModel', () => {
     expect(() => slide.addShape('ellipse')).toThrow(ModelParseError);
     expect(pkg.requirePart(slide.partUri).bytes).toEqual(before);
     expect(pkg.mutations).toEqual(journal);
+  });
+
+  it('creates preset shape hyperlinks with exact URL, slide, self, and tooltip semantics', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const first = model.addSlide();
+    const second = model.addSlide();
+    pkg.addRelationship(first.partUri, {
+      id: 'rId2',
+      type: 'urn:example:relationships/opaque',
+      target: 'https://opaque.example/two',
+      targetMode: 'External',
+    });
+    pkg.addRelationship(first.partUri, {
+      id: 'rId4',
+      type: 'urn:example:relationships/opaque',
+      target: 'https://opaque.example/four',
+      targetMode: 'External',
+    });
+    const websiteInput = {
+      url: 'https://example.com?a=1&b=2',
+      tooltip: 'Visit & learn',
+    };
+    const nextInput: { slide: number; tooltip?: string } = {
+      slide: model.slides.length,
+      tooltip: '',
+    };
+
+    const website = first.addShape('rect', {
+      name: 'Website',
+      hyperlink: websiteInput,
+    });
+    const next = first.addShape('actionButtonForwardNext', {
+      name: 'Next slide',
+      hyperlink: nextInput,
+    });
+    const self = first.addShape('actionButtonHome', {
+      hyperlink: { slide: model.slides.indexOf(first) + 1 },
+    });
+    websiteInput.url = 'https://changed.example';
+    websiteInput.tooltip = 'Changed';
+    nextInput.slide = 1;
+    delete nextInput.tooltip;
+
+    expect([website.id, next.id, self.id]).toEqual([2, 3, 4]);
+    expect(first.shapes).toEqual([website, next, self]);
+    expect(first.shapes[0]).toBe(website);
+    expect(readCreatedShapeHyperlink(model, first, website.id)).toEqual({
+      url: 'https://example.com?a=1&b=2',
+      tooltip: 'Visit & learn',
+    });
+    expect(readCreatedShapeHyperlink(model, first, next.id)).toEqual({
+      slide: model.slides.indexOf(second) + 1,
+      tooltip: '',
+    });
+    const selfLink = readCreatedShapeHyperlink(model, first, self.id);
+    expect(selfLink).toEqual({ slide: model.slides.indexOf(first) + 1 });
+    expect(Object.hasOwn(selfLink!, 'tooltip')).toBe(false);
+
+    const relationships = first.relationships;
+    expect(relationships.find(({ type }) => type === HYPERLINK_RELATIONSHIP)).toMatchObject({
+      target: 'https://example.com?a=1&b=2',
+      targetMode: 'External',
+    });
+    expect(relationships.filter(({ type }) => type === SLIDE_RELATIONSHIP)).toEqual([
+      expect.objectContaining({
+        targetMode: 'Internal',
+        resolvedTarget: second.partUri,
+      }),
+      expect.objectContaining({
+        targetMode: 'Internal',
+        resolvedTarget: first.partUri,
+      }),
+    ]);
+    const source = new TextDecoder().decode(pkg.requirePart(first.partUri).bytes);
+    const relationshipSource = new TextDecoder().decode(
+      pkg.requirePart(relationshipPartUri(first.partUri)).bytes,
+    );
+    expect(source).toContain('r:id="rId1" tooltip="Visit &amp; learn"');
+    expect(source).toContain('r:id="rId3" tooltip="" action="ppaction://hlinksldjump"');
+    expect(source).toContain('r:id="rId5" action="ppaction://hlinksldjump"');
+    expect(source).toContain('tooltip="Visit &amp; learn"');
+    expect(source).toContain('tooltip="" action="ppaction://hlinksldjump"');
+    expect(source.match(/ppaction:\/\/hlinksldjump/g)).toHaveLength(2);
+    expect(relationshipSource).toContain(
+      'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" ' +
+      'Target="https://example.com?a=1&amp;b=2" TargetMode="External"',
+    );
+  });
+
+  it('preserves omitted bytes and rejects invalid preset shape hyperlinks without mutation', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const omittedSlide = model.addSlide();
+    const undefinedSlide = model.addSlide();
+    omittedSlide.addShape('rect');
+    undefinedSlide.addShape('rect', { hyperlink: undefined } as never);
+    expect(pkg.requirePart(undefinedSlide.partUri).bytes).toEqual(
+      pkg.requirePart(omittedSlide.partUri).bytes,
+    );
+    expect(undefinedSlide.relationships).toEqual(omittedSlide.relationships);
+
+    const slide = model.addSlide();
+    const before = packageSnapshot(pkg);
+    const shapes = [...slide.shapes];
+    let calls = 0;
+    const hyperlinkAccessors = (['url', 'slide', 'tooltip'] as const).map((key) =>
+      Object.defineProperty({}, key, {
+        enumerable: true,
+        get() {
+          calls += 1;
+          return key === 'slide' ? 1 : 'https://example.com';
+        },
+      }));
+    const optionsGetter = Object.defineProperty({}, 'hyperlink', {
+      enumerable: true,
+      get() {
+        calls += 1;
+        return { url: 'https://example.com' };
+      },
+    });
+    for (const hyperlink of [
+      null,
+      false,
+      [],
+      {},
+      { url: 'https://example.com', slide: 1 },
+      { url: '' },
+      { url: 42 },
+      { slide: 0 },
+      { slide: -1 },
+      { slide: 1.5 },
+      { slide: Number.MAX_SAFE_INTEGER + 1 },
+      { slide: model.slides.length + 1 },
+      { url: 'bad\u0000url' },
+      { url: 'https://example.com', tooltip: 'bad\u0000tooltip' },
+      { url: 'https://example.com', _rId: 'rId9' },
+      { url: 'https://example.com', [Symbol('unsafe')]: true },
+      ...hyperlinkAccessors,
+    ]) {
+      expect(() => slide.addShape('rect', { hyperlink } as never)).toThrow();
+      expect(packageSnapshot(pkg)).toEqual(before);
+      expect(slide.shapes).toEqual(shapes);
+    }
+    expect(() => slide.addShape('rect', optionsGetter as never)).toThrow(/data property/);
+    expect(calls).toBe(0);
+    expect(packageSnapshot(pkg)).toEqual(before);
+    expect(slide.addShape('rect').id).toBe(2);
+  });
+
+  it('rolls back preset shape hyperlink XML, relationship graph, journal, identity, and next ID', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const before = packageSnapshot(pkg);
+    let rolledBack: ShapeModel | undefined;
+
+    expect(() => pkg.transaction(() => {
+      rolledBack = slide.addShape('rect', {
+        hyperlink: { url: 'https://example.com' },
+      });
+      throw new Error('restore hyperlink creation');
+    })).toThrow('restore hyperlink creation');
+
+    expect(packageSnapshot(pkg)).toEqual(before);
+    expect(slide.shapes).toEqual([]);
+    expect(() => rolledBack!.name).toThrow(ModelParseError);
+    expect(slide.addShape('rect').id).toBe(2);
   });
 
   it('creates preset shape fills with detached strict values through the live model', async () => {

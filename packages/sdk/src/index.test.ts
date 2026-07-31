@@ -27,6 +27,7 @@ import {
   type AddTableCellOptions,
   type AddTableCellInput,
   type AddTableOptions,
+  type Hyperlink,
   type ShapeArrows,
   type ShapeArrowType,
   type ShapeFill,
@@ -246,6 +247,53 @@ describe('PptxDocument vertical slice', () => {
     expect(xml).toContain('<a:xfrm rot="2700000" flipH="1" flipV="1">');
     expect(xml).toContain('name="A &amp; &lt;Line&gt;"');
     expect(xml).not.toContain('<p:txBody>');
+  });
+
+  it('creates preset shape hyperlinks through the public SDK type and runtime surface', () => {
+    const document = PptxDocument.create();
+    const first = document.addSlide();
+    const second = document.addSlide();
+    const websiteTarget: Hyperlink = {
+      url: 'https://example.com?a=1&b=2',
+      tooltip: 'Visit & learn',
+    };
+    const slideTarget: Hyperlink = { slide: 2, tooltip: '' };
+
+    const website = first.addShape('rect', { hyperlink: websiteTarget });
+    const next = first.addShape('actionButtonForwardNext', { hyperlink: slideTarget });
+    const self = first.addShape('actionButtonHome', { hyperlink: { slide: 1 } });
+
+    expect(first.shapes).toEqual([website, next, self]);
+    expect(first.shapes[0]).toBe(website);
+    expect(first.relationships.find(({ type }) => type.endsWith('/hyperlink'))).toMatchObject({
+      target: 'https://example.com?a=1&b=2',
+      targetMode: 'External',
+    });
+    expect(first.relationships.filter(({ type }) => type.endsWith('/slide'))).toEqual([
+      expect.objectContaining({ targetMode: 'Internal', resolvedTarget: second.partUri }),
+      expect.objectContaining({ targetMode: 'Internal', resolvedTarget: first.partUri }),
+    ]);
+    const xml = new TextDecoder().decode(document.opcPackage.requirePart(first.partUri).bytes);
+    expect(xml).toContain('tooltip="Visit &amp; learn"');
+    expect(xml).toContain('tooltip="" action="ppaction://hlinksldjump"');
+    expect(xml.match(/<a:hlinkClick/g)).toHaveLength(3);
+    expect(validatePackage(document.opcPackage).filter(({ severity }) => severity === 'error'))
+      .toEqual([]);
+
+    if (false) {
+      // @ts-expect-error shape hyperlink requires exactly one target
+      first.addShape('rect', { hyperlink: {} });
+      // @ts-expect-error shape hyperlink target branches are mutually exclusive
+      first.addShape('rect', { hyperlink: { url: 'https://example.com', slide: 2 } });
+      // @ts-expect-error shape hyperlink URL must be a string
+      first.addShape('rect', { hyperlink: { url: 42 } });
+      // @ts-expect-error shape hyperlink slide must be numeric
+      first.addShape('rect', { hyperlink: { slide: '2' } });
+      // @ts-expect-error shape hyperlink public value has no relationship ID escape hatch
+      first.addShape('rect', { hyperlink: { url: 'https://example.com', _rId: 'rId9' } });
+      // @ts-expect-error shape hyperlink tooltip must be a string
+      first.addShape('rect', { hyperlink: { slide: 2, tooltip: 7 } });
+    }
   });
 
   it('creates preset shape fills through the public SDK surface', () => {

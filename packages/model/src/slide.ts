@@ -5,7 +5,7 @@ import {
   type XmlElement,
 } from '@pptx/lossless-xml';
 import { GradientCodec, type GradientFill } from '@pptx/codecs';
-import type { Relationship } from '@pptx/opc';
+import { relativeRelationshipTarget, type Relationship } from '@pptx/opc';
 import { ModelParseError } from './errors.js';
 import type { PresentationModel } from './presentation.js';
 import {
@@ -80,6 +80,10 @@ import {
   replaceShapeLine,
 } from './shape-line.internal.js';
 import { normalizeSimpleLine } from './simple-line.internal.js';
+import {
+  HYPERLINK_RELATIONSHIP_TYPE,
+  SLIDE_RELATIONSHIP_TYPE,
+} from './shape-hyperlink.internal.js';
 import {
   normalizeTextBoxMargins,
   readTextBoxMargins,
@@ -519,10 +523,33 @@ export class SlideModel {
   ): ShapeModel {
     return this.presentation.opcPackage.transaction(() => {
       const normalized = normalizePresetShape(type, options);
+      let targetSlide: SlideModel | undefined;
+      if (normalized.hyperlink?.slide !== undefined) {
+        targetSlide = this.presentation.slides[normalized.hyperlink.slide - 1];
+        if (!targetSlide) {
+          throw new RangeError(
+            `Preset shape hyperlink slide ${normalized.hyperlink.slide} is out of range`,
+          );
+        }
+      }
       const { xml } = this.parse();
       const shapeTree = requirePresetShapeTree(xml, this.partUri);
       const nextId = allocatePresetShapeId(xml, shapeTree, this.partUri);
-      const shapeXml = renderPresetShapeXml(nextId, normalized);
+      let hyperlinkRelationshipId: string | undefined;
+      if (normalized.hyperlink?.url !== undefined) {
+        hyperlinkRelationshipId = this.presentation.opcPackage.addRelationship(this.partUri, {
+          type: HYPERLINK_RELATIONSHIP_TYPE,
+          target: normalized.hyperlink.url,
+          targetMode: 'External',
+        }).id;
+      } else if (targetSlide) {
+        hyperlinkRelationshipId = this.presentation.opcPackage.addRelationship(this.partUri, {
+          type: SLIDE_RELATIONSHIP_TYPE,
+          target: relativeRelationshipTarget(this.partUri, targetSlide.partUri),
+          targetMode: 'Internal',
+        }).id;
+      }
+      const shapeXml = renderPresetShapeXml(nextId, normalized, hyperlinkRelationshipId);
       const extensionList = directChildren(shapeTree, 'extLst')[0];
       if (extensionList) xml.replace(extensionList.start, extensionList.start, shapeXml);
       else xml.appendChildXml(shapeTree, shapeXml);

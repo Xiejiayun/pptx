@@ -1,5 +1,6 @@
 import type { RichTextColor } from './text.js';
 import type { Transform } from './units.js';
+import type { Hyperlink } from './hyperlink.js';
 
 export const PRESET_SHAPE_TYPES = Object.freeze([
   'accentBorderCallout1', 'accentBorderCallout2', 'accentBorderCallout3',
@@ -97,4 +98,5 @@ export interface AddShapeOptions extends Partial<Transform> {
   readonly fill?: ShapeFill;
   readonly line?: ShapeLine;
   readonly arrows?: ShapeArrows;
+  readonly hyperlink?: Hyperlink;
 }

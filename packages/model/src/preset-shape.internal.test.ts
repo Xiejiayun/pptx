@@ -20,6 +20,8 @@ const PRESENTATION_NAMESPACE =
   'http://schemas.openxmlformats.org/presentationml/2006/main';
 const DRAWING_NAMESPACE =
   'http://schemas.openxmlformats.org/drawingml/2006/main';
+const RELATIONSHIP_NAMESPACE =
+  'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
 type PublicDashMatchesInternal =
   [ShapeLineDash] extends [SimpleLineDash]
     ? [SimpleLineDash] extends [ShapeLineDash]
@@ -82,6 +84,7 @@ describe('normalizePresetShape', () => {
       fill: { kind: 'none' },
       line: undefined,
       arrows: undefined,
+      hyperlink: undefined,
       x: 914_400,
       y: 914_400,
       width: 914_400,
@@ -119,6 +122,7 @@ describe('normalizePresetShape', () => {
       },
       line: undefined,
       arrows: undefined,
+      hyperlink: undefined,
       x: 1,
       y: -1,
       width: 3,
@@ -196,6 +200,55 @@ describe('normalizePresetShape', () => {
     const exactArrowUnion: PublicArrowMatchesInternal = true;
     expect(publicAgain).toBe('stealth');
     expect(exactArrowUnion).toBe(true);
+  });
+
+  it('normalizes detached URL and slide hyperlinks with direct tooltip state', () => {
+    const hyperlink: { url: string; tooltip?: string } = {
+      url: 'https://example.com?a=1&b=2',
+      tooltip: 'Visit & learn',
+    };
+    const normalized = normalizePresetShape('rect', { hyperlink });
+    hyperlink.url = 'https://changed.example';
+    delete hyperlink.tooltip;
+
+    expect(normalized.hyperlink).toEqual({
+      url: 'https://example.com?a=1&b=2',
+      tooltip: 'Visit & learn',
+    });
+    expect(normalized.hyperlink).not.toBe(hyperlink);
+    expect(Object.isFrozen(normalized.hyperlink)).toBe(true);
+    expect(normalizePresetShape('actionButtonForwardNext', {
+      hyperlink: { slide: 2, tooltip: '' },
+    }).hyperlink).toEqual({ slide: 2, tooltip: '' });
+    expect(normalizePresetShape('actionButtonHome', {
+      hyperlink: undefined,
+    }).hyperlink).toBeUndefined();
+  });
+
+  it('rejects unsafe hyperlink values and accessors without invoking them', () => {
+    let calls = 0;
+    const hyperlinkGetter = Object.defineProperty({}, 'url', {
+      enumerable: true,
+      get() {
+        calls += 1;
+        return 'https://example.com';
+      },
+    });
+    for (const hyperlink of [
+      null,
+      'https://example.com',
+      {},
+      { url: 'https://example.com', slide: 1 },
+      { url: '' },
+      { slide: 0 },
+      { slide: 1.5 },
+      { url: 'https://example.com', target: '_blank' },
+      { url: 'https://example.com', [Symbol('unsafe')]: true },
+      hyperlinkGetter,
+    ]) {
+      expect(() => normalizePresetShape('rect', { hyperlink })).toThrow();
+    }
+    expect(calls).toBe(0);
   });
 
   it('rejects unknown types and non-ordinary option containers', () => {
@@ -361,6 +414,43 @@ describe('preset shape XML codec', () => {
       '<a:ext cx="914400" cy="914400"/></a:xfrm>' +
       '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln/></p:spPr></p:sp>',
     );
+  });
+
+  it('renders exact URL and internal hyperlinks and requires a paired relationship ID', () => {
+    const external = renderPresetShapeXml(7, normalizePresetShape('rect', {
+      hyperlink: {
+        url: 'https://example.com?a=1&b=2',
+        tooltip: 'Visit & learn',
+      },
+    }), 'rId7');
+    expect(external).toContain(
+      `<p:cNvPr id="7" name="Shape 7"><a:hlinkClick ` +
+      `xmlns:r="${RELATIONSHIP_NAMESPACE}" r:id="rId7" ` +
+      'tooltip="Visit &amp; learn"/></p:cNvPr>',
+    );
+    expect(external).not.toContain('ppaction://hlinksldjump');
+
+    const internal = renderPresetShapeXml(
+      8,
+      normalizePresetShape('actionButtonForwardNext', {
+        hyperlink: { slide: 2, tooltip: '' },
+      }),
+      'rId8',
+    );
+    expect(internal).toContain(
+      'r:id="rId8" tooltip="" action="ppaction://hlinksldjump"',
+    );
+    expect(internal).toContain('<p:cNvPr id="8" name="Shape 8">');
+
+    expect(() => renderPresetShapeXml(
+      9,
+      normalizePresetShape('rect', { hyperlink: { url: 'https://example.com' } }),
+    )).toThrow(TypeError);
+    expect(() => renderPresetShapeXml(
+      10,
+      normalizePresetShape('rect'),
+      'rId10',
+    )).toThrow(TypeError);
   });
 
   it('renders escaped names and only non-default transform attributes', () => {
