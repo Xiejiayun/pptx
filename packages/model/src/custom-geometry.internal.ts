@@ -8,10 +8,13 @@ import type {
   CustomGeometryCommand,
   CustomGeometryFormula,
   CustomGeometryGuide,
+  CustomGeometryHandle,
   CustomGeometryPath,
   CustomGeometryPathFill,
   CustomGeometryPoint,
+  CustomGeometryPolarHandle,
   CustomGeometryValue,
+  CustomGeometryXyHandle,
 } from './custom-geometry.js';
 import { ModelParseError } from './errors.js';
 import { PRESET_SHAPE_TYPES } from './preset-shape.js';
@@ -20,10 +23,31 @@ const PRESENTATION_NAMESPACE =
   'http://schemas.openxmlformats.org/presentationml/2006/main';
 const DRAWING_NAMESPACE =
   'http://schemas.openxmlformats.org/drawingml/2006/main';
-const ROOT_KEYS = new Set(['adjustments', 'guides', 'paths']);
+const ROOT_KEYS = new Set(['adjustments', 'guides', 'handles', 'paths']);
 const ROOT_REQUIRED_KEYS = new Set(['paths']);
 const GUIDE_KEYS = new Set(['name', 'formula']);
 const FORMULA_KEYS = new Set(['operator', 'operands']);
+const XY_HANDLE_KEYS = new Set([
+  'kind',
+  'position',
+  'xGuide',
+  'minX',
+  'maxX',
+  'yGuide',
+  'minY',
+  'maxY',
+]);
+const POLAR_HANDLE_KEYS = new Set([
+  'kind',
+  'position',
+  'radiusGuide',
+  'minRadius',
+  'maxRadius',
+  'angleGuide',
+  'minAngle',
+  'maxAngle',
+]);
+const HANDLE_REQUIRED_KEYS = new Set(['kind', 'position']);
 const PATH_KEYS = new Set([
   'width',
   'height',
@@ -110,6 +134,9 @@ export function normalizeCustomGeometry(
   const guides = Object.hasOwn(root, 'guides')
     ? normalizeGuideList(root.guides, `${context} guides`, guideNames)
     : undefined;
+  const handles = Object.hasOwn(root, 'handles')
+    ? normalizeHandleList(root.handles, `${context} handles`)
+    : undefined;
   const paths = readArray(root.paths, `${context} paths`);
   if (paths.length === 0) throw new RangeError(`${context} paths must not be empty`);
   const normalizedPaths = paths.map((path, index) =>
@@ -117,6 +144,7 @@ export function normalizeCustomGeometry(
   return Object.freeze({
     ...(adjustments?.length ? { adjustments } : {}),
     ...(guides?.length ? { guides } : {}),
+    ...(handles?.length ? { handles } : {}),
     paths: Object.freeze(normalizedPaths),
   });
 }
@@ -128,7 +156,7 @@ export function renderCustomGeometry(
   const paths = geometry.paths.map((path) => renderPath(path, prefix)).join('');
   return `<${prefix}custGeom>${renderGuideList('avLst', geometry.adjustments, prefix)}` +
     `${renderGuideList('gdLst', geometry.guides, prefix)}` +
-    `<${prefix}ahLst/><${prefix}cxnLst/>` +
+    `${renderHandleList(geometry.handles, prefix)}<${prefix}cxnLst/>` +
     `<${prefix}rect l="l" t="t" r="r" b="b"/>` +
     `<${prefix}pathLst>${paths}</${prefix}pathLst></${prefix}custGeom>`;
 }
@@ -179,6 +207,7 @@ export function customGeometryEqual(
   if (
     !guideListsEqual(left.adjustments, right.adjustments)
     || !guideListsEqual(left.guides, right.guides)
+    || !handleListsEqual(left.handles, right.handles)
   ) return false;
   if (left.paths.length !== right.paths.length) return false;
   return left.paths.every((path, index) => {
@@ -235,6 +264,113 @@ function normalizeFormula(
     operands: Object.freeze(operands.map((operand, index) =>
       normalizeCustomGeometryValue(operand, `${context} operand ${index}`, false))),
   }) as Readonly<CustomGeometryFormula>;
+}
+
+function normalizeHandleList(
+  value: unknown,
+  context: string,
+): readonly Readonly<CustomGeometryHandle>[] {
+  const handles = readArray(value, context).map((item, index) =>
+    normalizeHandle(item, `${context} item ${index}`));
+  return Object.freeze(handles);
+}
+
+function normalizeHandle(value: unknown, context: string): Readonly<CustomGeometryHandle> {
+  const handle = readObjectData(value, context);
+  const kind = handle.kind;
+  if (kind !== 'xy' && kind !== 'polar') {
+    throw new TypeError(`${context} kind must be xy or polar`);
+  }
+  requireKeys(
+    handle,
+    kind === 'xy' ? XY_HANDLE_KEYS : POLAR_HANDLE_KEYS,
+    HANDLE_REQUIRED_KEYS,
+    context,
+  );
+  const position = normalizePoint(handle.position, `${context} position`);
+  if (kind === 'xy') {
+    const result: {
+      kind: 'xy';
+      position: Readonly<CustomGeometryPoint>;
+      xGuide?: string;
+      minX?: CustomGeometryValue;
+      maxX?: CustomGeometryValue;
+      yGuide?: string;
+      minY?: CustomGeometryValue;
+      maxY?: CustomGeometryValue;
+    } = { kind, position };
+    if (Object.hasOwn(handle, 'xGuide')) {
+      result.xGuide = normalizeCustomGeometryToken(handle.xGuide, `${context} xGuide`);
+    }
+    if (Object.hasOwn(handle, 'minX')) {
+      result.minX = normalizeCustomGeometryValue(handle.minX, `${context} minX`, false);
+    }
+    if (Object.hasOwn(handle, 'maxX')) {
+      result.maxX = normalizeCustomGeometryValue(handle.maxX, `${context} maxX`, false);
+    }
+    if (Object.hasOwn(handle, 'yGuide')) {
+      result.yGuide = normalizeCustomGeometryToken(handle.yGuide, `${context} yGuide`);
+    }
+    if (Object.hasOwn(handle, 'minY')) {
+      result.minY = normalizeCustomGeometryValue(handle.minY, `${context} minY`, false);
+    }
+    if (Object.hasOwn(handle, 'maxY')) {
+      result.maxY = normalizeCustomGeometryValue(handle.maxY, `${context} maxY`, false);
+    }
+    return Object.freeze(result);
+  }
+
+  const result: {
+    kind: 'polar';
+    position: Readonly<CustomGeometryPoint>;
+    radiusGuide?: string;
+    minRadius?: CustomGeometryValue;
+    maxRadius?: CustomGeometryValue;
+    angleGuide?: string;
+    minAngle?: CustomGeometryValue;
+    maxAngle?: CustomGeometryValue;
+  } = { kind, position };
+  if (Object.hasOwn(handle, 'radiusGuide')) {
+    result.radiusGuide = normalizeCustomGeometryToken(
+      handle.radiusGuide,
+      `${context} radiusGuide`,
+    );
+  }
+  if (Object.hasOwn(handle, 'minRadius')) {
+    result.minRadius = normalizeCustomGeometryValue(
+      handle.minRadius,
+      `${context} minRadius`,
+      false,
+    );
+  }
+  if (Object.hasOwn(handle, 'maxRadius')) {
+    result.maxRadius = normalizeCustomGeometryValue(
+      handle.maxRadius,
+      `${context} maxRadius`,
+      false,
+    );
+  }
+  if (Object.hasOwn(handle, 'angleGuide')) {
+    result.angleGuide = normalizeCustomGeometryToken(
+      handle.angleGuide,
+      `${context} angleGuide`,
+    );
+  }
+  if (Object.hasOwn(handle, 'minAngle')) {
+    result.minAngle = normalizeCustomGeometryValue(
+      handle.minAngle,
+      `${context} minAngle`,
+      false,
+    );
+  }
+  if (Object.hasOwn(handle, 'maxAngle')) {
+    result.maxAngle = normalizeCustomGeometryValue(
+      handle.maxAngle,
+      `${context} maxAngle`,
+      false,
+    );
+  }
+  return Object.freeze(result);
 }
 
 function normalizePath(value: unknown, context: string): Readonly<CustomGeometryPath> {
@@ -380,6 +516,51 @@ function renderFormula(formula: Readonly<CustomGeometryFormula>): string {
   return [formula.operator, ...formula.operands.map(String)].join(' ');
 }
 
+function renderHandleList(
+  handles: readonly Readonly<CustomGeometryHandle>[] | undefined,
+  prefix: string,
+): string {
+  if (!handles?.length) return `<${prefix}ahLst/>`;
+  const children = handles.map((handle) => renderHandle(handle, prefix)).join('');
+  return `<${prefix}ahLst>${children}</${prefix}ahLst>`;
+}
+
+function renderHandle(handle: Readonly<CustomGeometryHandle>, prefix: string): string {
+  if (handle.kind === 'xy') {
+    const attributes = [
+      renderHandleAttribute(handle, 'xGuide', 'gdRefX', handle.xGuide),
+      renderHandleAttribute(handle, 'minX', 'minX', handle.minX),
+      renderHandleAttribute(handle, 'maxX', 'maxX', handle.maxX),
+      renderHandleAttribute(handle, 'yGuide', 'gdRefY', handle.yGuide),
+      renderHandleAttribute(handle, 'minY', 'minY', handle.minY),
+      renderHandleAttribute(handle, 'maxY', 'maxY', handle.maxY),
+    ].filter((value) => value !== undefined).join(' ');
+    return `<${prefix}ahXY${attributes ? ` ${attributes}` : ''}>` +
+      `${renderPoint(handle.position, prefix, 'pos')}</${prefix}ahXY>`;
+  }
+  const attributes = [
+    renderHandleAttribute(handle, 'radiusGuide', 'gdRefR', handle.radiusGuide),
+    renderHandleAttribute(handle, 'minRadius', 'minR', handle.minRadius),
+    renderHandleAttribute(handle, 'maxRadius', 'maxR', handle.maxRadius),
+    renderHandleAttribute(handle, 'angleGuide', 'gdRefAng', handle.angleGuide),
+    renderHandleAttribute(handle, 'minAngle', 'minAng', handle.minAngle),
+    renderHandleAttribute(handle, 'maxAngle', 'maxAng', handle.maxAngle),
+  ].filter((value) => value !== undefined).join(' ');
+  return `<${prefix}ahPolar${attributes ? ` ${attributes}` : ''}>` +
+    `${renderPoint(handle.position, prefix, 'pos')}</${prefix}ahPolar>`;
+}
+
+function renderHandleAttribute(
+  handle: Readonly<CustomGeometryHandle>,
+  property: string,
+  attribute: string,
+  value: CustomGeometryValue | undefined,
+): string | undefined {
+  return Object.hasOwn(handle, property)
+    ? `${attribute}="${renderCustomGeometryValue(value!)}"`
+    : undefined;
+}
+
 function renderPath(path: Readonly<CustomGeometryPath>, prefix: string): string {
   const attributes = [
     `w="${path.width}"`,
@@ -417,8 +598,12 @@ function renderCommand(command: Readonly<CustomGeometryCommand>, prefix: string)
   }
 }
 
-function renderPoint(point: Readonly<CustomGeometryPoint>, prefix: string): string {
-  return `<${prefix}pt x="${renderCustomGeometryValue(point.x)}" ` +
+function renderPoint(
+  point: Readonly<CustomGeometryPoint>,
+  prefix: string,
+  elementName = 'pt',
+): string {
+  return `<${prefix}${elementName} x="${renderCustomGeometryValue(point.x)}" ` +
     `y="${renderCustomGeometryValue(point.y)}"/>`;
 }
 
@@ -915,6 +1100,40 @@ function formulasEqual(
   return left.operator === right.operator
     && left.operands.length === right.operands.length
     && left.operands.every((operand, index) => operand === right.operands[index]);
+}
+
+function handleListsEqual(
+  left: readonly Readonly<CustomGeometryHandle>[] | undefined,
+  right: readonly Readonly<CustomGeometryHandle>[] | undefined,
+): boolean {
+  if (left === undefined || right === undefined) return left === right;
+  return left.length === right.length && left.every((handle, index) =>
+    handlesEqual(handle, right[index]));
+}
+
+function handlesEqual(
+  left: Readonly<CustomGeometryHandle>,
+  right: Readonly<CustomGeometryHandle> | undefined,
+): boolean {
+  if (!right || left.kind !== right.kind || !pointsEqual(left.position, right.position)) {
+    return false;
+  }
+  if (left.kind === 'xy') {
+    if (right.kind !== 'xy') return false;
+    return optionalPropertyEqual(left, right, 'xGuide')
+      && optionalPropertyEqual(left, right, 'minX')
+      && optionalPropertyEqual(left, right, 'maxX')
+      && optionalPropertyEqual(left, right, 'yGuide')
+      && optionalPropertyEqual(left, right, 'minY')
+      && optionalPropertyEqual(left, right, 'maxY');
+  }
+  if (right.kind !== 'polar') return false;
+  return optionalPropertyEqual(left, right, 'radiusGuide')
+    && optionalPropertyEqual(left, right, 'minRadius')
+    && optionalPropertyEqual(left, right, 'maxRadius')
+    && optionalPropertyEqual(left, right, 'angleGuide')
+    && optionalPropertyEqual(left, right, 'minAngle')
+    && optionalPropertyEqual(left, right, 'maxAngle');
 }
 
 function commandsEqual(

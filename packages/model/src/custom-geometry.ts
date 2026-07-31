@@ -30,6 +30,30 @@ export interface CustomGeometryPoint {
   readonly y: CustomGeometryValue;
 }
 
+export interface CustomGeometryXyHandle {
+  readonly kind: 'xy';
+  readonly position: CustomGeometryPoint;
+  readonly xGuide?: string;
+  readonly minX?: CustomGeometryValue;
+  readonly maxX?: CustomGeometryValue;
+  readonly yGuide?: string;
+  readonly minY?: CustomGeometryValue;
+  readonly maxY?: CustomGeometryValue;
+}
+
+export interface CustomGeometryPolarHandle {
+  readonly kind: 'polar';
+  readonly position: CustomGeometryPoint;
+  readonly radiusGuide?: string;
+  readonly minRadius?: CustomGeometryValue;
+  readonly maxRadius?: CustomGeometryValue;
+  readonly angleGuide?: string;
+  readonly minAngle?: CustomGeometryValue;
+  readonly maxAngle?: CustomGeometryValue;
+}
+
+export type CustomGeometryHandle = CustomGeometryXyHandle | CustomGeometryPolarHandle;
+
 export type CustomGeometryCommand =
   | { readonly kind: 'moveTo'; readonly point: CustomGeometryPoint }
   | { readonly kind: 'lineTo'; readonly point: CustomGeometryPoint }
@@ -73,6 +97,7 @@ export interface CustomGeometryPath {
 export interface CustomGeometry {
   readonly adjustments?: readonly CustomGeometryGuide[];
   readonly guides?: readonly CustomGeometryGuide[];
+  readonly handles?: readonly CustomGeometryHandle[];
   readonly paths: readonly CustomGeometryPath[];
 }
 

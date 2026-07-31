@@ -7,7 +7,10 @@ import type {
   CustomGeometryCommand,
   CustomGeometryFormula,
   CustomGeometryGuide,
+  CustomGeometryHandle,
+  CustomGeometryPolarHandle,
   CustomGeometryValue,
+  CustomGeometryXyHandle,
 } from './custom-geometry.js';
 import { inches } from './units.js';
 import {
@@ -114,6 +117,50 @@ const formulaGeometry: CustomGeometry = {
   }],
 };
 
+const handleGeometry: CustomGeometry = {
+  adjustments: [
+    { name: 'adjX', formula: { operator: 'val', operands: [25_000] } },
+    { name: 'adjY', formula: { operator: 'val', operands: [50_000] } },
+    { name: 'adjR', formula: { operator: 'val', operands: [30_000] } },
+    { name: 'adjAng', formula: { operator: 'val', operands: [5_400_000] } },
+  ],
+  guides: [
+    { name: 'x1', formula: { operator: '*/', operands: ['w', 'adjR', 100_000] } },
+    { name: 'y1', formula: { operator: '*/', operands: ['h', 'adjR', 100_000] } },
+  ],
+  handles: [
+    {
+      kind: 'xy',
+      position: { x: 'adjX', y: 'adjY' },
+      xGuide: 'adjX',
+      minX: 0,
+      maxX: 100_000,
+      yGuide: 'adjY',
+      minY: 't',
+      maxY: 'b',
+    },
+    {
+      kind: 'polar',
+      position: { x: 'x1', y: 'y1' },
+      radiusGuide: 'adjR',
+      minRadius: 0,
+      maxRadius: 'ss',
+      angleGuide: 'adjAng',
+      minAngle: 0,
+      maxAngle: 'cd',
+    },
+  ],
+  paths: [{
+    width: 100_000,
+    height: 100_000,
+    commands: [
+      { kind: 'moveTo', point: { x: 'adjX', y: 0 } },
+      { kind: 'lineTo', point: { x: 'r', y: 'adjY' } },
+      { kind: 'close' },
+    ],
+  }],
+};
+
 const publicOptions: AddCustomShapeOptions = { name: 'Custom', x: inches(1) };
 void publicOptions;
 // @ts-expect-error preset-only adjustments are not custom-shape options
@@ -150,6 +197,28 @@ void invalidFormulaArity;
 // @ts-expect-error formula operators are closed
 const invalidFormulaOperator: CustomGeometryFormula = { operator: 'sum', operands: [1, 2, 3] };
 void invalidFormulaOperator;
+const xyHandle: CustomGeometryXyHandle = {
+  kind: 'xy',
+  position: { x: 0, y: 'vc' },
+  xGuide: 'adjX',
+};
+const polarHandle: CustomGeometryPolarHandle = {
+  kind: 'polar',
+  position: { x: 'x1', y: 'y1' },
+  angleGuide: 'adjAng',
+};
+const publicHandles: readonly CustomGeometryHandle[] = [xyHandle, polarHandle];
+void publicHandles;
+// @ts-expect-error adjustment handles require a position
+const missingHandlePosition: CustomGeometryHandle = { kind: 'polar' };
+void missingHandlePosition;
+const invalidXyHandle: CustomGeometryXyHandle = {
+  kind: 'xy',
+  position: { x: 0, y: 0 },
+  // @ts-expect-error XY handles do not accept polar guide fields
+  radiusGuide: 'adjR',
+};
+void invalidXyHandle;
 
 function parseShape(source: string) {
   const xml = LosslessXmlDocument.parse(source);
@@ -301,6 +370,100 @@ describe('normalizeCustomGeometry', () => {
       'val', 'abs', 'sqrt', 'at2', 'cos', 'max', 'min', 'sin', 'tan',
       '*/', '+-', '+/', '?:', 'cat2', 'mod', 'pin', 'sat2',
     ]);
+  });
+
+  it('copies and recursively freezes ordered XY and polar handles', () => {
+    const mutable = structuredClone(handleGeometry) as unknown as {
+      handles: Array<{
+        kind: string;
+        position: { x: CustomGeometryValue; y: CustomGeometryValue };
+        minX?: CustomGeometryValue;
+        maxAngle?: CustomGeometryValue;
+      }>;
+      paths: Array<{ commands: CustomGeometryCommand[] }>;
+    };
+    const normalized = normalizeCustomGeometry(mutable, 'Custom geometry');
+    expect(normalized).toEqual(handleGeometry);
+    expect(Object.isFrozen(normalized)).toBe(true);
+    expect(Object.isFrozen(normalized.handles)).toBe(true);
+    expect(normalized.handles?.every((handle) =>
+      Object.isFrozen(handle) && Object.isFrozen(handle.position))).toBe(true);
+
+    mutable.handles[0]!.position.x = 99;
+    mutable.handles[0]!.minX = -1;
+    mutable.handles[1]!.maxAngle = 1;
+    mutable.handles.reverse();
+    mutable.paths[0]!.commands.splice(0);
+    expect(normalized).toEqual(handleGeometry);
+
+    const empty = normalizeCustomGeometry({
+      handles: [],
+      paths: [{ width: 1, height: 1, commands: [] }],
+    }, 'Custom geometry');
+    expect(Object.hasOwn(empty, 'handles')).toBe(false);
+  });
+
+  it('preserves independent optional handle fields without semantic inference', () => {
+    const candidate: CustomGeometry = {
+      handles: [
+        { kind: 'xy', position: { x: -1, y: 0 }, minX: 10, maxX: -10 },
+        { kind: 'xy', position: { x: 'l', y: 'b' }, yGuide: 'adjY', maxY: 'h' },
+        { kind: 'polar', position: { x: 'hc', y: 'vc' }, minRadius: -1 },
+        { kind: 'polar', position: { x: 0, y: 0 }, angleGuide: 'adjAng', maxAngle: 'cd' },
+      ],
+      paths: [{ width: 1, height: 1, commands: [] }],
+    };
+    expect(normalizeCustomGeometry(candidate, 'Custom geometry')).toEqual(candidate);
+  });
+
+  it('rejects unsafe handle containers, kinds, fields, values, and accessors', () => {
+    const wrap = (handles: unknown): unknown => ({
+      handles,
+      paths: [{ width: 1, height: 1, commands: [] }],
+    });
+    for (const handle of [
+      null,
+      false,
+      {},
+      { kind: 'xy' },
+      { kind: 'unknown', position: { x: 0, y: 0 } },
+      { kind: 'xy', position: { x: 0, y: 0 }, radiusGuide: 'adjR' },
+      { kind: 'polar', position: { x: 0, y: 0 }, xGuide: 'adjX' },
+      { kind: 'xy', position: { x: 0, y: 0 }, xGuide: '' },
+      { kind: 'xy', position: { x: 0, y: 0 }, xGuide: 'two words' },
+      { kind: 'xy', position: { x: 0, y: 0 }, xGuide: '1' },
+      { kind: 'polar', position: { x: 0, y: 0 }, angleGuide: '\u0000' },
+      { kind: 'xy', position: { x: 0, y: 0 }, maxX: Number.MAX_SAFE_INTEGER + 1 },
+      { kind: 'polar', position: { x: 0.5, y: 0 } },
+    ]) expect(() => normalizeCustomGeometry(wrap([handle]), 'Custom geometry')).toThrow();
+
+    const sparse: unknown[] = [];
+    sparse.length = 1;
+    expect(() => normalizeCustomGeometry(wrap(sparse), 'Custom geometry')).toThrow(/dense/);
+    class Handles extends Array<unknown> {}
+    expect(() => normalizeCustomGeometry(wrap(new Handles()), 'Custom geometry'))
+      .toThrow(/ordinary array/);
+
+    let calls = 0;
+    const accessor = Object.defineProperties({}, {
+      kind: {
+        enumerable: true,
+        get() {
+          calls += 1;
+          return 'xy';
+        },
+      },
+      position: { enumerable: true, value: { x: 0, y: 0 } },
+    });
+    expect(() => normalizeCustomGeometry(wrap([accessor]), 'Custom geometry'))
+      .toThrow(/data property/);
+    expect(calls).toBe(0);
+
+    expect(() => normalizeCustomGeometry(wrap([{
+      kind: 'xy',
+      position: { x: 0, y: 0 },
+      [Symbol('unsafe')]: true,
+    }]), 'Custom geometry')).toThrow(/unsupported property/);
   });
 
   it('rejects unsafe containers, arrays, properties, and accessors without invoking them', () => {
@@ -540,6 +703,38 @@ describe('custom geometry OOXML codec', () => {
     );
   });
 
+  it('renders ordered XY and polar handles with exact optional attributes', () => {
+    const rendered = renderCustomGeometry(
+      normalizeCustomGeometry(handleGeometry, 'Custom geometry'),
+      'a:',
+    );
+    expect(rendered).toContain(
+      '<a:ahLst>' +
+      '<a:ahXY gdRefX="adjX" minX="0" maxX="100000" gdRefY="adjY" minY="t" maxY="b">' +
+      '<a:pos x="adjX" y="adjY"/></a:ahXY>' +
+      '<a:ahPolar gdRefR="adjR" minR="0" maxR="ss" gdRefAng="adjAng" minAng="0" maxAng="cd">' +
+      '<a:pos x="x1" y="y1"/></a:ahPolar>' +
+      '</a:ahLst>',
+    );
+
+    const escaped: CustomGeometry = {
+      handles: [{
+        kind: 'xy',
+        position: { x: 'x&1', y: 'y&1' },
+        xGuide: 'x&1',
+        maxX: 'r&1',
+      }],
+      paths: [{ width: 1, height: 1, commands: [] }],
+    };
+    expect(renderCustomGeometry(
+      normalizeCustomGeometry(escaped, 'Custom geometry'),
+      'd:',
+    )).toContain(
+      '<d:ahXY gdRefX="x&amp;1" maxX="r&amp;1">' +
+      '<d:pos x="x&amp;1" y="y&amp;1"/></d:ahXY>',
+    );
+  });
+
   it('reads canonical, alternate-prefix, absent-empty-list, and boolean lexical state', () => {
     for (const source of [
       fixture(canonical()),
@@ -656,6 +851,34 @@ describe('custom geometry OOXML codec', () => {
           ...formulaGeometry.paths[0]!,
           commands: [{ kind: 'moveTo', point: { x: 'gAdd', y: 0 } }],
         }],
+      },
+    ];
+    for (const variant of variants) {
+      expect(customGeometryEqual(
+        normalized,
+        normalizeCustomGeometry(variant, 'Custom geometry'),
+      )).toBe(false);
+    }
+  });
+
+  it('distinguishes handle presence, order, kind, position, and optional fields', () => {
+    const normalized = normalizeCustomGeometry(handleGeometry, 'Custom geometry');
+    const { handles: _handles, ...withoutHandles } = handleGeometry;
+    const xy = handleGeometry.handles?.[0];
+    const polar = handleGeometry.handles?.[1];
+    if (!xy || xy.kind !== 'xy' || !polar || polar.kind !== 'polar') {
+      throw new Error('Handle fixture is invalid');
+    }
+    const { minX: _minX, ...xyWithoutMin } = xy;
+    const variants: CustomGeometry[] = [
+      withoutHandles,
+      { ...handleGeometry, handles: [...handleGeometry.handles!].reverse() },
+      { ...handleGeometry, handles: [{ ...xy, position: { x: 'adjY', y: 'adjY' } }, polar] },
+      { ...handleGeometry, handles: [xyWithoutMin, polar] },
+      { ...handleGeometry, handles: [{ ...xy, maxX: 99_999 }, polar] },
+      {
+        ...handleGeometry,
+        handles: [{ kind: 'polar', position: xy.position }, polar],
       },
     ];
     for (const variant of variants) {
