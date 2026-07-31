@@ -79,6 +79,28 @@ interface PptxGenJSShapeOptions extends Record<string, unknown> {
   readonly points?: readonly PptxGenJSCustomPoint[];
 }
 
+type PptxGenJSPublicInstance = InstanceType<typeof import('pptxgenjs').default>;
+type PptxGenJSPublicShapeOptions = NonNullable<
+  Parameters<ReturnType<PptxGenJSPublicInstance['addSlide']>['addShape']>[1]
+>;
+
+const publicCustomShapeOptions: PptxGenJSPublicShapeOptions = {
+  x: 1,
+  y: 1,
+  w: 4,
+  h: 3,
+  points: [{ x: 0, y: 0 }],
+};
+const unsupportedPublicHandleOptions: PptxGenJSPublicShapeOptions = {
+  x: 1,
+  y: 1,
+  w: 4,
+  h: 3,
+  // @ts-expect-error PptxGenJS 4.0.1 exposes no arbitrary adjustment-handle input.
+  handles: [],
+};
+void [publicCustomShapeOptions, unsupportedPublicHandleOptions];
+
 interface PptxGenJSInstance {
   readonly version: string;
   readonly ShapeType: Readonly<Record<string, string>>;
@@ -1645,6 +1667,7 @@ describe('importPptxGenJS', () => {
     expect(importedShape.customGeometry).toEqual(expected);
     expect(Object.hasOwn(importedShape.customGeometry!, 'adjustments')).toBe(false);
     expect(Object.hasOwn(importedShape.customGeometry!, 'guides')).toBe(false);
+    expect(Object.hasOwn(importedShape.customGeometry!, 'handles')).toBe(false);
     expect(shapeXml(imported, 0, importedShape.id)).not.toContain('x="999"');
     expect(shapeXml(imported, 0, importedShape.id)).not.toContain('y="999"');
 
@@ -1795,6 +1818,7 @@ describe('importPptxGenJS', () => {
       expect(snapshot, fixture.name).toEqual(fixture.expected);
       expect(Object.hasOwn(snapshot!, 'adjustments'), fixture.name).toBe(false);
       expect(Object.hasOwn(snapshot!, 'guides'), fixture.name).toBe(false);
+      expect(Object.hasOwn(snapshot!, 'handles'), fixture.name).toBe(false);
     }
     expect(imported.slideSize).toEqual({ width: 12_192_000, height: 6_858_000 });
 

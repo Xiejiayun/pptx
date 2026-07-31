@@ -585,6 +585,107 @@ describe('PptxDocument vertical slice', () => {
     expect(editedShape.customGeometry).toEqual(replacement);
   });
 
+  it('creates, reopens, and edits custom geometry adjustment handles through the public SDK', async () => {
+    const geometry: CustomGeometry = {
+      adjustments: [
+        { name: 'adjX', formula: { operator: 'val', operands: [25_000] } },
+        { name: 'adjY', formula: { operator: 'val', operands: [50_000] } },
+        { name: 'adjR', formula: { operator: 'val', operands: [30_000] } },
+        { name: 'adjAng', formula: { operator: 'val', operands: [5_400_000] } },
+      ],
+      guides: [
+        { name: 'x1', formula: { operator: '*/', operands: ['w', 'adjR', 100_000] } },
+        { name: 'y1', formula: { operator: '*/', operands: ['h', 'adjR', 100_000] } },
+      ],
+      handles: [
+        {
+          kind: 'xy',
+          position: { x: 'adjX', y: 'adjY' },
+          xGuide: 'adjX',
+          minX: 0,
+          maxX: 100_000,
+          yGuide: 'adjY',
+          minY: 't',
+          maxY: 'b',
+        },
+        {
+          kind: 'polar',
+          position: { x: 'x1', y: 'y1' },
+          radiusGuide: 'adjR',
+          minRadius: 0,
+          maxRadius: 'ss',
+          angleGuide: 'adjAng',
+          minAngle: 0,
+          maxAngle: 'cd',
+        },
+      ],
+      paths: [{
+        width: 100_000,
+        height: 100_000,
+        commands: [
+          { kind: 'moveTo', point: { x: 'adjX', y: 0 } },
+          { kind: 'lineTo', point: { x: 'r', y: 'adjY' } },
+          { kind: 'close' },
+        ],
+      }],
+    };
+    const replacement: CustomGeometry = {
+      ...geometry,
+      handles: [
+        {
+          kind: 'polar',
+          position: { x: 'hc', y: 'vc' },
+          radiusGuide: 'adjR',
+          minRadius: 1,
+          maxRadius: 'ss',
+          angleGuide: 'adjAng',
+          minAngle: 0,
+          maxAngle: '3cd4',
+        },
+        {
+          kind: 'xy',
+          position: { x: 'x1', y: 'adjY' },
+          xGuide: 'adjX',
+          minX: 0,
+          maxX: 90_000,
+          yGuide: 'adjY',
+          minY: 't',
+          maxY: 'b',
+        },
+      ],
+    };
+
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const shape = slide.addCustomShape(geometry, { name: 'SDK handle geometry' });
+    expect(shape.customGeometry).toEqual(geometry);
+    expect(Object.isFrozen(shape.customGeometry?.handles)).toBe(true);
+    expect(shape.customGeometry?.handles?.every((handle) =>
+      Object.isFrozen(handle) && Object.isFrozen(handle.position))).toBe(true);
+    expect(validatePackage(document.opcPackage).filter(({ severity }) => severity === 'error'))
+      .toEqual([]);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedShape = reopened.slides[0]!.shapes[0] as ShapeModel;
+    expect(reopenedShape.customGeometry).toEqual(geometry);
+    reopenedShape.customGeometry = replacement;
+    expect(reopenedShape.customGeometry).toEqual(replacement);
+    expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error'))
+      .toEqual([]);
+
+    const edited = await PptxDocument.open(await reopened.write());
+    const editedSlide = edited.slides[0]!;
+    const editedShape = editedSlide.shapes[0] as ShapeModel;
+    const xml = new TextDecoder().decode(
+      edited.opcPackage.requirePart(editedSlide.partUri).bytes,
+    );
+    expect(editedShape.name).toBe('SDK handle geometry');
+    expect(editedShape.customGeometry).toEqual(replacement);
+    expect(xml.indexOf('<a:ahPolar')).toBeLessThan(xml.indexOf('<a:ahXY'));
+    expect(validatePackage(edited.opcPackage).filter(({ severity }) => severity === 'error'))
+      .toEqual([]);
+  });
+
   it('creates preset shape hyperlinks through the public SDK type and runtime surface', () => {
     const document = PptxDocument.create();
     const first = document.addSlide();

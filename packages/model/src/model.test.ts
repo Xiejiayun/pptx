@@ -112,6 +112,76 @@ const customFormulaReplacement: CustomGeometry = {
   }],
 };
 
+const customHandleGeometry: CustomGeometry = {
+  adjustments: [
+    { name: 'adjX', formula: { operator: 'val', operands: [25_000] } },
+    { name: 'adjY', formula: { operator: 'val', operands: [50_000] } },
+    { name: 'adjR', formula: { operator: 'val', operands: [30_000] } },
+    { name: 'adjAng', formula: { operator: 'val', operands: [5_400_000] } },
+  ],
+  guides: [
+    { name: 'x1', formula: { operator: '*/', operands: ['w', 'adjR', 100_000] } },
+    { name: 'y1', formula: { operator: '*/', operands: ['h', 'adjR', 100_000] } },
+  ],
+  handles: [
+    {
+      kind: 'xy',
+      position: { x: 'adjX', y: 'adjY' },
+      xGuide: 'adjX',
+      minX: 0,
+      maxX: 100_000,
+      yGuide: 'adjY',
+      minY: 't',
+      maxY: 'b',
+    },
+    {
+      kind: 'polar',
+      position: { x: 'x1', y: 'y1' },
+      radiusGuide: 'adjR',
+      minRadius: 0,
+      maxRadius: 'ss',
+      angleGuide: 'adjAng',
+      minAngle: 0,
+      maxAngle: 'cd',
+    },
+  ],
+  paths: [{
+    width: 100_000,
+    height: 100_000,
+    commands: [
+      { kind: 'moveTo', point: { x: 'adjX', y: 0 } },
+      { kind: 'lineTo', point: { x: 'r', y: 'adjY' } },
+      { kind: 'close' },
+    ],
+  }],
+};
+
+const customHandleReplacement: CustomGeometry = {
+  ...customHandleGeometry,
+  handles: [
+    {
+      kind: 'polar',
+      position: { x: 'hc', y: 'vc' },
+      radiusGuide: 'adjR',
+      minRadius: 1,
+      maxRadius: 'ss',
+      angleGuide: 'adjAng',
+      minAngle: 0,
+      maxAngle: '3cd4',
+    },
+    {
+      kind: 'xy',
+      position: { x: 'x1', y: 'adjY' },
+      xGuide: 'adjX',
+      minX: 0,
+      maxX: 90_000,
+      yGuide: 'adjY',
+      minY: 't',
+      maxY: 'b',
+    },
+  ],
+};
+
 function readCreatedShapeHyperlink(
   model: PresentationModel,
   slide: ReturnType<PresentationModel['addSlide']>,
@@ -690,6 +760,225 @@ describe('PresentationModel', () => {
         url: `https://example.com/formula/${profile.format}`,
       });
       expect(reopenedShape.customGeometry).toEqual(customFormulaReplacement);
+    }
+  });
+
+  it('creates, freezes, edits, and rolls back live custom geometry adjustment handles', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const mutable = structuredClone(customHandleGeometry) as unknown as {
+      handles: [
+        { position: { x: string | number; y: string | number }; minX: number },
+        { position: { x: string | number; y: string | number }; maxAngle: string | number },
+      ];
+    };
+    let shape = slide.addCustomShape(mutable as unknown as CustomGeometry, {
+      name: 'Handle geometry',
+      x: inches(2),
+      fill: { kind: 'solid', color: { kind: 'scheme', value: 'accent2' } },
+      line: { kind: 'line', color: { kind: 'srgb', value: '123ABC' }, width: 2 },
+      arrows: { end: 'triangle' },
+      shadow: { kind: 'outer' },
+      hyperlink: { url: 'https://example.com/handles' },
+    });
+    const createdPart = pkg.requirePart(slide.partUri);
+    pkg.setPart(
+      slide.partUri,
+      new TextDecoder().decode(createdPart.bytes).replace(
+        '</p:spPr></p:sp>',
+        '<a:extLst><a:ext uri="urn:handles"><x:keep xmlns:x="urn:handles">' +
+        'EXTENSION</x:keep></a:ext></a:extLst></p:spPr>' +
+        '<p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r><a:t>HANDLE TEXT</a:t>' +
+        '</a:r></a:p></p:txBody></p:sp>',
+      ),
+      createdPart.contentType,
+    );
+    const shapeId = shape.id;
+    shape = slide.shapes.find(({ id }) => id === shapeId) as ShapeModel;
+    const neighbor = slide.addShape('rect', { name: 'Handle neighbor' });
+
+    mutable.handles[0].position.x = 'changed';
+    mutable.handles[0].minX = -1;
+    mutable.handles[1].maxAngle = 1;
+    mutable.handles.reverse();
+
+    const first = shape.customGeometry;
+    const second = shape.customGeometry;
+    expect(first).toEqual(customHandleGeometry);
+    expect(second).toEqual(first);
+    expect(second).not.toBe(first);
+    expect(Object.isFrozen(first)).toBe(true);
+    expect(Object.isFrozen(first?.handles)).toBe(true);
+    expect(first?.handles?.every((handle) =>
+      Object.isFrozen(handle) && Object.isFrozen(handle.position))).toBe(true);
+    expect(readCreatedCustomGeometry(model, slide, shape.id)).toEqual(customHandleGeometry);
+
+    const noOp = packageSnapshot(pkg);
+    shape.customGeometry = structuredClone(customHandleGeometry);
+    expect(packageSnapshot(pkg)).toEqual(noOp);
+
+    const rollback = packageSnapshot(pkg);
+    expect(() => pkg.transaction(() => {
+      shape.customGeometry = customHandleReplacement;
+      expect(shape.customGeometry).toEqual(customHandleReplacement);
+      throw new Error('restore custom handle edit');
+    })).toThrow('restore custom handle edit');
+    expect(packageSnapshot(pkg)).toEqual(rollback);
+    expect(shape.customGeometry).toEqual(customHandleGeometry);
+
+    const identity = shape;
+    const preserved = {
+      name: shape.name,
+      transform: shape.transform,
+      fill: shape.fill,
+      line: shape.line,
+      arrows: shape.arrows,
+      shadow: shape.shadow,
+      hyperlink: shape.hyperlink,
+      relationships: slide.relationships,
+    };
+    const beforeEdit = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    shape.customGeometry = customHandleReplacement;
+    const afterEdit = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    const withoutGeometry = (source: string) => source.replace(
+      /<a:custGeom>[\s\S]*?<\/a:custGeom>/,
+      '<a:custGeom/>',
+    );
+    expect(shape).toBe(identity);
+    expect(slide.shapes[0]).toBe(identity);
+    expect(slide.shapes[1]).toBe(neighbor);
+    expect(shape.customGeometry).toEqual(customHandleReplacement);
+    expect({
+      name: shape.name,
+      transform: shape.transform,
+      fill: shape.fill,
+      line: shape.line,
+      arrows: shape.arrows,
+      shadow: shape.shadow,
+      hyperlink: shape.hyperlink,
+      relationships: slide.relationships,
+    }).toEqual(preserved);
+    expect(withoutGeometry(afterEdit)).toBe(withoutGeometry(beforeEdit));
+    expect(afterEdit).toContain('<a:effectLst>');
+    expect(afterEdit).toContain('EXTENSION');
+    expect(afterEdit).toContain('<a:t>HANDLE TEXT</a:t>');
+    expect(afterEdit.indexOf('<a:ahPolar')).toBeLessThan(afterEdit.indexOf('<a:ahXY'));
+  });
+
+  it('isolates, converts, and reopens custom geometry adjustment handles in all six formats', async () => {
+    for (const profile of Object.values(PRESENTATION_FORMAT_PROFILES)) {
+      const pkg = await OpcPackage.open(await modelFixture(profile.presentationContentType));
+      const model = new PresentationModel(pkg);
+      const slide = model.addSlide();
+      const beforeCreation = packageSnapshot(pkg);
+      let rolledBack: ShapeModel | undefined;
+      expect(() => pkg.transaction(() => {
+        rolledBack = slide.addCustomShape(customHandleGeometry, {
+          hyperlink: { url: `https://example.com/handle-rollback/${profile.format}` },
+        });
+        throw new Error('restore custom handle creation');
+      })).toThrow('restore custom handle creation');
+      expect(packageSnapshot(pkg)).toEqual(beforeCreation);
+      expect(() => rolledBack!.name).toThrow(ModelParseError);
+
+      const shape = slide.addCustomShape(customHandleGeometry, {
+        name: `Handles ${profile.format}`,
+        hyperlink: { url: `https://example.com/handles/${profile.format}` },
+      });
+      expect(shape.id).toBe(2);
+      const beforeEdit = packageSnapshot(pkg);
+      expect(() => pkg.transaction(() => {
+        shape.customGeometry = customHandleReplacement;
+        throw new Error('restore custom handle replacement');
+      })).toThrow('restore custom handle replacement');
+      expect(packageSnapshot(pkg)).toEqual(beforeEdit);
+      expect(shape.customGeometry).toEqual(customHandleGeometry);
+
+      const duplicate = model.duplicateSlide(model.slides.indexOf(slide));
+      const duplicateShape = duplicate.shapes.find(({ id }) => id === shape.id) as ShapeModel;
+      shape.customGeometry = customHandleReplacement;
+      expect(shape.customGeometry).toEqual(customHandleReplacement);
+      expect(duplicateShape.customGeometry).toEqual(customHandleGeometry);
+
+      const convertible = slide.addShape('diamond', {
+        name: `Handle conversion ${profile.format}`,
+        fill: { kind: 'solid', color: { kind: 'scheme', value: 'accent1' } },
+        hyperlink: { url: `https://example.com/handle-conversion/${profile.format}` },
+      });
+      const convertibleIdentity = convertible;
+      convertible.customGeometry = customHandleGeometry;
+      expect(convertible).toBe(convertibleIdentity);
+      expect(convertible.customGeometry).toEqual(customHandleGeometry);
+      convertible.presetType = 'ellipse';
+      expect(convertible).toBe(convertibleIdentity);
+      expect(convertible.presetType).toBe('ellipse');
+      expect(convertible.customGeometry).toBeUndefined();
+      expect(convertible.name).toBe(`Handle conversion ${profile.format}`);
+      expect(convertible.fill).toEqual({
+        kind: 'solid',
+        color: { kind: 'scheme', value: 'accent1' },
+      });
+      expect(convertible.hyperlink).toEqual({
+        url: `https://example.com/handle-conversion/${profile.format}`,
+      });
+
+      model.moveSlide(model.slides.indexOf(duplicate), 0);
+      model.deleteSlide(model.slides.indexOf(duplicate));
+      const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+      const reopenedSlide = reopened.slides.find(({ partUri }) => partUri === slide.partUri)!;
+      const reopenedShape = reopenedSlide.shapes.find(({ id }) => id === shape.id) as ShapeModel;
+      const reopenedConvertible = reopenedSlide.shapes.find(
+        ({ id }) => id === convertible.id,
+      ) as ShapeModel;
+      expect(reopened.format).toBe(profile.format);
+      expect(reopenedShape.name).toBe(`Handles ${profile.format}`);
+      expect(reopenedShape.hyperlink).toEqual({
+        url: `https://example.com/handles/${profile.format}`,
+      });
+      expect(reopenedShape.customGeometry).toEqual(customHandleReplacement);
+      expect(reopenedConvertible.presetType).toBe('ellipse');
+      expect(reopenedConvertible.customGeometry).toBeUndefined();
+      expect(reopenedConvertible.name).toBe(`Handle conversion ${profile.format}`);
+    }
+  });
+
+  it('keeps custom connections and text rectangles unsupported beside valid handles', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const unsupported = [
+      {
+        name: 'connections',
+        from: '<a:cxnLst/>',
+        to: '<a:cxnLst><a:cxn ang="0"><a:pos x="0" y="0"/></a:cxn></a:cxnLst>',
+      },
+      {
+        name: 'text rectangle',
+        from: '<a:rect l="l" t="t" r="r" b="b"/>',
+        to: '<a:rect l="0" t="t" r="r" b="b"/>',
+      },
+    ] as const;
+
+    for (const fixture of unsupported) {
+      const slide = model.addSlide();
+      const shape = slide.addCustomShape(customHandleGeometry, { name: fixture.name });
+      expect(shape.customGeometry).toEqual(customHandleGeometry);
+      const part = pkg.requirePart(slide.partUri);
+      const source = new TextDecoder().decode(part.bytes);
+      expect(source).toContain('<a:ahXY');
+      expect(source).toContain(fixture.from);
+      pkg.setPart(
+        slide.partUri,
+        source.replace(fixture.from, fixture.to),
+        part.contentType,
+      );
+
+      expect(shape.customGeometry, fixture.name).toBeUndefined();
+      const before = packageSnapshot(pkg);
+      expect(() => {
+        shape.customGeometry = customHandleReplacement;
+      }).toThrow(ModelParseError);
+      expect(packageSnapshot(pkg), fixture.name).toEqual(before);
     }
   });
 
