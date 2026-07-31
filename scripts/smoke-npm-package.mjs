@@ -518,6 +518,98 @@ const customGeometryConnectionSites =
   JSON.stringify(reopenedConnectionGeometryShape.customGeometry) ===
     JSON.stringify(connectionGeometryReplacement) &&
   connectionGeometryDeck.diagnostics.every(({ severity }) => severity !== 'error');
+const textRectangleGeometrySource = {
+  guides: [
+    { name: 'textLeft', formula: { operator: 'val', operands: [20_000] } },
+    { name: 'textRight', formula: { operator: 'val', operands: [80_000] } },
+  ],
+  connectionSites: [{ position: { x: 'hc', y: 't' }, angle: 0 }],
+  textRectangle: {
+    left: 'textLeft',
+    top: 12_500,
+    right: 'textRight',
+    bottom: 87_500,
+  },
+  paths: [{
+    width: 100_000,
+    height: 100_000,
+    commands: [
+      { kind: 'moveTo', point: { x: 0, y: 0 } },
+      { kind: 'lineTo', point: { x: 'r', y: 'b' } },
+    ],
+  }],
+};
+const textRectangleGeometryExpected = structuredClone(textRectangleGeometrySource);
+const textRectangleGeometryReplacement = {
+  ...textRectangleGeometryExpected,
+  textRectangle: {
+    left: 0,
+    top: 't',
+    right: 90_000,
+    bottom: 'b',
+  },
+};
+const textRectangleGeometryDeck = PptxDocument.create();
+const textRectangleGeometrySlide = textRectangleGeometryDeck.addSlide();
+const textRectangleGeometryShape = textRectangleGeometrySlide.addCustomShape(
+  textRectangleGeometrySource,
+  { name: 'Packed text rectangle' },
+);
+textRectangleGeometrySource.textRectangle.left = 'changed';
+textRectangleGeometrySource.textRectangle.top = 1;
+textRectangleGeometrySource.textRectangle.right = 2;
+textRectangleGeometrySource.textRectangle.bottom = 3;
+const initialTextRectangleGeometry = textRectangleGeometryShape.customGeometry;
+const textRectangleNoOpBytes = textRectangleGeometryDeck.opcPackage
+  .requirePart(textRectangleGeometrySlide.partUri).bytes.slice();
+const textRectangleNoOpJournal = textRectangleGeometryDeck.opcPackage.mutations.length;
+textRectangleGeometryShape.customGeometry = structuredClone(textRectangleGeometryExpected);
+const textRectangleNoOpCurrent = textRectangleGeometryDeck.opcPackage
+  .requirePart(textRectangleGeometrySlide.partUri).bytes;
+const textRectangleNoOp =
+  textRectangleNoOpJournal === textRectangleGeometryDeck.opcPackage.mutations.length &&
+  textRectangleNoOpBytes.length === textRectangleNoOpCurrent.length &&
+  textRectangleNoOpBytes.every(
+    (value, index) => value === textRectangleNoOpCurrent[index],
+  );
+textRectangleGeometryShape.customGeometry = textRectangleGeometryReplacement;
+const editedTextRectangleGeometry = textRectangleGeometryShape.customGeometry;
+const { textRectangle: ignoredTextRectangle, ...defaultTextRectangleGeometry } =
+  textRectangleGeometryReplacement;
+textRectangleGeometryShape.customGeometry = defaultTextRectangleGeometry;
+const resetTextRectangleGeometry = textRectangleGeometryShape.customGeometry;
+textRectangleGeometryShape.customGeometry = textRectangleGeometryReplacement;
+textRectangleGeometryShape.presetType = 'diamond';
+const textRectangleConvertedPreset = textRectangleGeometryShape.presetType;
+const textRectangleConvertedCustom = textRectangleGeometryShape.customGeometry;
+textRectangleGeometryShape.customGeometry = textRectangleGeometryReplacement;
+const textRectangleXml = new TextDecoder().decode(
+  textRectangleGeometryDeck.opcPackage.requirePart(textRectangleGeometrySlide.partUri).bytes,
+);
+const reopenedTextRectangleGeometryShape = (await PptxDocument.open(
+  await textRectangleGeometryDeck.write(),
+)).slides[0].shapes[0];
+const customGeometryTextRectangles =
+  textRectangleGeometryShape instanceof ShapeModel &&
+  Object.isFrozen(initialTextRectangleGeometry) &&
+  Object.isFrozen(initialTextRectangleGeometry?.textRectangle) &&
+  JSON.stringify(initialTextRectangleGeometry) ===
+    JSON.stringify(textRectangleGeometryExpected) &&
+  textRectangleNoOp &&
+  JSON.stringify(editedTextRectangleGeometry) ===
+    JSON.stringify(textRectangleGeometryReplacement) &&
+  !Object.hasOwn(resetTextRectangleGeometry, 'textRectangle') &&
+  ignoredTextRectangle !== undefined &&
+  textRectangleConvertedPreset === 'diamond' &&
+  textRectangleConvertedCustom === undefined &&
+  textRectangleGeometryShape.presetType === undefined &&
+  textRectangleXml.includes('<a:rect l="0" t="t" r="90000" b="b"/>') &&
+  reopenedTextRectangleGeometryShape instanceof ShapeModel &&
+  reopenedTextRectangleGeometryShape.name === 'Packed text rectangle' &&
+  Object.isFrozen(reopenedTextRectangleGeometryShape.customGeometry?.textRectangle) &&
+  JSON.stringify(reopenedTextRectangleGeometryShape.customGeometry) ===
+    JSON.stringify(textRectangleGeometryReplacement) &&
+  textRectangleGeometryDeck.diagnostics.every(({ severity }) => severity !== 'error');
 const shapeAdjustmentDeck = PptxDocument.create();
 const shapeAdjustmentSlide = shapeAdjustmentDeck.addSlide();
 const shapeAdjustmentInput = [
@@ -1891,6 +1983,7 @@ const checks = {
   customGeometryGuideFormulas,
   customGeometryAdjustmentHandles,
   customGeometryConnectionSites,
+  customGeometryTextRectangles,
   shapeAdjustments,
   shapeShadows,
   shapeFills,
@@ -2191,6 +2284,74 @@ if (!(reopenedBrowserConnectionShape instanceof ShapeModel) ||
     reopenedBrowserConnections[2]?.angle !== 'adjAng' ||
     reopenedBrowserConnections[2]?.position.x !== 'l') {
   throw new Error('Browser custom geometry connection site lifecycle failed');
+}
+const browserTextRectangleSource = {
+  guides: [
+    { name: 'textLeft', formula: { operator: 'val', operands: [20_000] } },
+    { name: 'textRight', formula: { operator: 'val', operands: [80_000] } },
+  ],
+  connectionSites: [{ position: { x: 'hc', y: 't' }, angle: 0 }],
+  textRectangle: {
+    left: 'textLeft',
+    top: 12_500,
+    right: 'textRight',
+    bottom: 87_500,
+  },
+  paths: [{
+    width: 100_000,
+    height: 100_000,
+    commands: [
+      { kind: 'moveTo', point: { x: 0, y: 0 } },
+      { kind: 'lineTo', point: { x: 'r', y: 'b' } },
+    ],
+  }],
+};
+const browserTextRectangleExpected = structuredClone(browserTextRectangleSource);
+const browserTextRectangleReplacement = {
+  ...browserTextRectangleExpected,
+  textRectangle: {
+    left: 0,
+    top: 't',
+    right: 90_000,
+    bottom: 'b',
+  },
+};
+const browserTextRectangleDeck = PptxDocument.create();
+const browserTextRectangleShape = browserTextRectangleDeck.addSlide()
+  .addCustomShape(browserTextRectangleSource, { name: 'Browser text rectangle' });
+browserTextRectangleSource.textRectangle.left = 'changed';
+browserTextRectangleSource.textRectangle.top = 1;
+browserTextRectangleSource.textRectangle.right = 2;
+browserTextRectangleSource.textRectangle.bottom = 3;
+const initialBrowserTextRectangleGeometry = browserTextRectangleShape.customGeometry;
+if (!Object.isFrozen(initialBrowserTextRectangleGeometry) ||
+    !Object.isFrozen(initialBrowserTextRectangleGeometry?.textRectangle) ||
+    JSON.stringify(initialBrowserTextRectangleGeometry) !==
+      JSON.stringify(browserTextRectangleExpected)) {
+  throw new Error('Browser custom geometry text rectangle snapshot failed');
+}
+browserTextRectangleShape.customGeometry = browserTextRectangleReplacement;
+const { textRectangle: ignoredBrowserTextRectangle, ...browserDefaultTextRectangleGeometry } =
+  browserTextRectangleReplacement;
+browserTextRectangleShape.customGeometry = browserDefaultTextRectangleGeometry;
+if (Object.hasOwn(browserTextRectangleShape.customGeometry, 'textRectangle') ||
+    ignoredBrowserTextRectangle === undefined) {
+  throw new Error('Browser custom geometry text rectangle reset failed');
+}
+browserTextRectangleShape.customGeometry = browserTextRectangleReplacement;
+browserTextRectangleShape.presetType = 'diamond';
+browserTextRectangleShape.customGeometry = browserTextRectangleReplacement;
+const reopenedBrowserTextRectangleShape = (await PptxDocument.open(
+  await browserTextRectangleDeck.writeBlob(),
+)).slides[0].shapes[0];
+if (!(reopenedBrowserTextRectangleShape instanceof ShapeModel) ||
+    reopenedBrowserTextRectangleShape.name !== 'Browser text rectangle' ||
+    reopenedBrowserTextRectangleShape.presetType !== undefined ||
+    !Object.isFrozen(reopenedBrowserTextRectangleShape.customGeometry) ||
+    !Object.isFrozen(reopenedBrowserTextRectangleShape.customGeometry?.textRectangle) ||
+    JSON.stringify(reopenedBrowserTextRectangleShape.customGeometry) !==
+      JSON.stringify(browserTextRectangleReplacement)) {
+  throw new Error('Browser custom geometry text rectangle lifecycle failed');
 }
 const browserAdjustmentDeck = PptxDocument.create();
 const browserAdjustmentSlide = browserAdjustmentDeck.addSlide();
@@ -2987,6 +3148,7 @@ process.stdout.write(resolved);
   type CustomGeometry,
   type CustomGeometryCommand,
   type CustomGeometryConnectionSite,
+  type CustomGeometryTextRectangle,
   type CustomGeometryFormula,
   type CustomGeometryGuide,
   type CustomGeometryHandle,
@@ -3076,8 +3238,21 @@ const typedTokenConnectionSite: CustomGeometryConnectionSite = {
   angle: 'adjAng',
   position: { x: 'hc', y: 't' },
 };
+const typedNumericTextRectangle: CustomGeometryTextRectangle = {
+  left: 0,
+  top: 12_500,
+  right: 100_000,
+  bottom: 87_500,
+};
+const typedTokenTextRectangle: CustomGeometryTextRectangle = {
+  left: 'textLeft',
+  top: 't',
+  right: 'textRight',
+  bottom: 'b',
+};
 const typedCustomGeometry: CustomGeometry = {
   connectionSites: [typedNumericConnectionSite, typedTokenConnectionSite],
+  textRectangle: typedTokenTextRectangle,
   paths: [typedCustomPath],
 };
 const typedCustomValue: CustomGeometryValue = 'x1';
@@ -3149,6 +3324,20 @@ const invalidExtraConnectionField: CustomGeometryConnectionSite = { angle: 0, po
 const invalidConnectionAngleType: CustomGeometryConnectionSite = { angle: false, position: { x: 0, y: 0 } };
 // @ts-expect-error Connection-site entries cannot be undefined.
 const invalidUndefinedConnectionSite: CustomGeometryConnectionSite = undefined;
+// @ts-expect-error Text rectangles require left.
+const invalidMissingTextRectangleLeft: CustomGeometryTextRectangle = { top: 0, right: 1, bottom: 1 };
+// @ts-expect-error Text rectangles require top.
+const invalidMissingTextRectangleTop: CustomGeometryTextRectangle = { left: 0, right: 1, bottom: 1 };
+// @ts-expect-error Text rectangles require right.
+const invalidMissingTextRectangleRight: CustomGeometryTextRectangle = { left: 0, top: 0, bottom: 1 };
+// @ts-expect-error Text rectangles require bottom.
+const invalidMissingTextRectangleBottom: CustomGeometryTextRectangle = { left: 0, top: 0, right: 1 };
+// @ts-expect-error Text rectangles reject extra fields.
+const invalidExtraTextRectangleField: CustomGeometryTextRectangle = { left: 0, top: 0, right: 1, bottom: 1, extra: true };
+// @ts-expect-error Text rectangle values are numeric or token values.
+const invalidTextRectangleValue: CustomGeometryTextRectangle = { left: false, top: 0, right: 1, bottom: 1 };
+// @ts-expect-error Text rectangles cannot be undefined.
+const invalidUndefinedTextRectangle: CustomGeometryTextRectangle = undefined;
 // @ts-expect-error Custom geometry formulas reject unknown operators.
 const invalidCustomFormulaOperator: CustomGeometryFormula = { operator: 'unknown', operands: [1] };
 // @ts-expect-error The val operator requires exactly one operand.
@@ -3555,8 +3744,12 @@ void [typedPreset, typedNoneShapeFill, typedSolidShapeFill, typedShapeOptions, t
   typedCustomGuide, typedFormulaGeometry, typedXyHandle, typedPolarHandle,
   typedCustomHandles, typedHandleGeometry, invalidMissingHandlePosition,
   invalidXyPolarField, typedNumericConnectionSite, typedTokenConnectionSite,
+  typedNumericTextRectangle, typedTokenTextRectangle,
   invalidMissingConnectionAngle, invalidMissingConnectionPosition,
   invalidExtraConnectionField, invalidConnectionAngleType, invalidUndefinedConnectionSite,
+  invalidMissingTextRectangleLeft, invalidMissingTextRectangleTop,
+  invalidMissingTextRectangleRight, invalidMissingTextRectangleBottom,
+  invalidExtraTextRectangleField, invalidTextRectangleValue, invalidUndefinedTextRectangle,
   invalidCustomFormulaOperator, invalidCustomFormulaArity,
   typedCustomOptions, typedCustomShape, typedCustomGeometryRead,
   typedPresetRead, typedShapeAdjustments, typedShapeAdjustmentsRead,
@@ -3602,7 +3795,7 @@ void [documentPromise, createdDocument, addSectionOptions, typedSection, addSlid
   if (!doctor.ok || doctor.data?.version !== '0.1.0') throw new Error(`CLI smoke failed: ${cliResult.stdout}`);
 
   process.stdout.write(
-    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, types: true, cli: doctor.data.version })}\n`,
+    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, types: true, cli: doctor.data.version })}\n`,
   );
 } finally {
   await rm(directory, { recursive: true, force: true });
