@@ -598,6 +598,231 @@ describe('importPptxGenJS', () => {
     expect(shapeXml(reopened, 0, reopenedArrows.id)).toContain('<a:tailEnd type="arrow"');
   });
 
+  it('compares shape arrow public output and strict native divergences', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    const generatedSlide = generated.addSlide();
+    const arrowTypes = [
+      'none',
+      'arrow',
+      'diamond',
+      'oval',
+      'stealth',
+      'triangle',
+    ] as const;
+    const generatedCases: Record<string, Record<string, unknown>> = {};
+    for (const type of arrowTypes) {
+      generatedCases[`Arrow begin ${type}`] = {
+        objectName: `Arrow begin ${type}`,
+        line: { color: '112233', beginArrowType: type },
+      };
+      generatedCases[`Arrow end ${type}`] = {
+        objectName: `Arrow end ${type}`,
+        line: { color: '112233', endArrowType: type },
+      };
+    }
+    Object.assign(generatedCases, {
+      'Arrow both': {
+        objectName: 'Arrow both',
+        line: {
+          color: '112233',
+          beginArrowType: 'triangle',
+          endArrowType: 'arrow',
+        },
+      },
+      'Arrow only defaults': {
+        objectName: 'Arrow only defaults',
+        line: { beginArrowType: 'diamond' },
+      },
+      'Arrow none line': {
+        objectName: 'Arrow none line',
+        line: { type: 'none', beginArrowType: 'triangle' },
+      },
+      'Arrow empty ignored': {
+        objectName: 'Arrow empty ignored',
+        line: { color: '112233', beginArrowType: '', endArrowType: '' },
+      },
+      'Arrow nested aliases ignored': {
+        objectName: 'Arrow nested aliases ignored',
+        line: { color: '112233', lineHead: 'triangle', lineTail: 'arrow' },
+      },
+      'Arrow invalid passthrough': {
+        objectName: 'Arrow invalid passthrough',
+        line: { color: '112233', beginArrowType: 'bogus' },
+      },
+      'Arrow top aliases mapped': {
+        objectName: 'Arrow top aliases mapped',
+        line: { color: '112233' },
+        lineHead: 'stealth',
+        lineTail: 'oval',
+      },
+    });
+    for (const options of Object.values(generatedCases)) {
+      generatedSlide.addShape(generated.ShapeType.line!, options);
+    }
+
+    const imported = await openPptxGenJSPublicOutput(generated);
+    const importedShapes = new Map(imported.slides[0]!.shapes.map((shape) => [
+      shape.name,
+      shape as ShapeModel,
+    ]));
+    expect(importedShapes.size).toBe(Object.keys(generatedCases).length);
+
+    const native = PptxDocument.create();
+    const nativeSlide = native.addSlide();
+    const nativeShapes = new Map<string, ShapeModel>();
+    for (const type of arrowTypes) {
+      nativeShapes.set(`Arrow begin ${type}`, nativeSlide.addShape('line', {
+        name: `Arrow begin ${type}`,
+        line: {
+          kind: 'line',
+          color: { kind: 'srgb', value: '112233' },
+        },
+        arrows: { begin: type },
+      }));
+      nativeShapes.set(`Arrow end ${type}`, nativeSlide.addShape('line', {
+        name: `Arrow end ${type}`,
+        line: {
+          kind: 'line',
+          color: { kind: 'srgb', value: '112233' },
+        },
+        arrows: { end: type },
+      }));
+    }
+    nativeShapes.set('Arrow both', nativeSlide.addShape('line', {
+      name: 'Arrow both',
+      line: {
+        kind: 'line',
+        color: { kind: 'srgb', value: '112233' },
+      },
+      arrows: { begin: 'triangle', end: 'arrow' },
+    }));
+    nativeShapes.set('Arrow only defaults', nativeSlide.addShape('line', {
+      name: 'Arrow only defaults',
+      line: {
+        kind: 'line',
+        color: { kind: 'srgb', value: '333333' },
+      },
+      arrows: { begin: 'diamond' },
+    }));
+    nativeShapes.set('Arrow none line', nativeSlide.addShape('line', {
+      name: 'Arrow none line',
+      arrows: { begin: 'triangle' },
+    }));
+    nativeShapes.set('Arrow top aliases mapped', nativeSlide.addShape('line', {
+      name: 'Arrow top aliases mapped',
+      line: {
+        kind: 'line',
+        color: { kind: 'srgb', value: '112233' },
+      },
+      arrows: { begin: 'stealth', end: 'oval' },
+    }));
+
+    for (const [name, nativeShape] of nativeShapes) {
+      const importedShape = importedShapes.get(name)!;
+      expect(importedShape, name).toBeInstanceOf(ShapeModel);
+      expect(importedShape.name, name).toBe(nativeShape.name);
+      expect(importedShape.presetType, name).toBe(nativeShape.presetType);
+      expect(importedShape.transform, name).toEqual(nativeShape.transform);
+      expect(importedShape.line, name).toEqual(nativeShape.line);
+      expect(importedShape.arrows, name).toEqual(nativeShape.arrows);
+      const xml = shapeXml(imported, 0, importedShape.id);
+      if (importedShape.arrows?.begin !== undefined) {
+        expect(xml, name).toContain(
+          `<a:headEnd type="${importedShape.arrows.begin}"/>`,
+        );
+      }
+      if (importedShape.arrows?.end !== undefined) {
+        expect(xml, name).toContain(
+          `<a:tailEnd type="${importedShape.arrows.end}"/>`,
+        );
+      }
+      if (
+        importedShape.arrows?.begin !== undefined
+        && importedShape.arrows.end !== undefined
+      ) {
+        expect(xml.indexOf('<a:headEnd'), name).toBeLessThan(xml.indexOf('<a:tailEnd'));
+      }
+    }
+
+    const generatedArrowOnly = importedShapes.get('Arrow only defaults')!;
+    const nativeArrowOnly = nativeShapes.get('Arrow only defaults')!;
+    expect(generatedArrowOnly.line).toEqual({
+      kind: 'line',
+      color: { kind: 'srgb', value: '333333' },
+      width: 1,
+      dash: 'solid',
+    });
+    expect(nativeArrowOnly.line).toEqual(generatedArrowOnly.line);
+    expect(shapeXml(imported, 0, generatedArrowOnly.id)).toContain('<a:ln w="12700">');
+
+    const generatedNoneLine = importedShapes.get('Arrow none line')!;
+    const nativeNoneLine = nativeShapes.get('Arrow none line')!;
+    expect(generatedNoneLine.line).toBeUndefined();
+    expect(nativeNoneLine.line).toBeUndefined();
+    expect(generatedNoneLine.arrows).toEqual({ begin: 'triangle' });
+    expect(nativeNoneLine.arrows).toEqual({ begin: 'triangle' });
+    expect(shapeXml(imported, 0, generatedNoneLine.id))
+      .toContain('<a:ln><a:headEnd type="triangle"/></a:ln>');
+    expect(shapeXml(native, 0, nativeNoneLine.id))
+      .toContain('<a:ln><a:headEnd type="triangle"/></a:ln>');
+    const nativeExplicitNone = nativeSlide.addShape('line', {
+      name: 'Arrow native explicit none',
+      line: { kind: 'none' },
+      arrows: { begin: 'triangle' },
+    });
+    expect(nativeExplicitNone.line).toEqual({ kind: 'none' });
+    expect(nativeExplicitNone.arrows).toEqual({ begin: 'triangle' });
+    expect(shapeXml(native, 0, nativeExplicitNone.id))
+      .toContain('<a:ln><a:noFill/><a:headEnd type="triangle"/></a:ln>');
+
+    for (const name of ['Arrow empty ignored', 'Arrow nested aliases ignored']) {
+      expect(importedShapes.get(name)!.arrows, name).toBeUndefined();
+      expect(shapeXml(imported, 0, importedShapes.get(name)!.id), name)
+        .not.toMatch(/<a:(?:headEnd|tailEnd)\b/);
+    }
+    expect(importedShapes.get('Arrow invalid passthrough')!.arrows).toBeUndefined();
+    expect(shapeXml(imported, 0, importedShapes.get('Arrow invalid passthrough')!.id))
+      .toContain('<a:headEnd type="bogus"/>');
+    expect(importedShapes.get('Arrow top aliases mapped')!.arrows)
+      .toEqual({ begin: 'stealth', end: 'oval' });
+
+    const beforeInvalid = native.opcPackage.requirePart(nativeSlide.partUri).bytes.slice();
+    const invalidJournal = [...native.opcPackage.mutations];
+    for (const arrows of [
+      { begin: '' },
+      { begin: 'bogus' },
+      { beginArrowType: 'arrow' },
+      { endArrowType: 'arrow' },
+      { lineHead: 'arrow' },
+      { lineTail: 'arrow' },
+    ]) {
+      expect(() => nativeSlide.addShape('line', { arrows } as never)).toThrow(TypeError);
+    }
+    expect(native.opcPackage.requirePart(nativeSlide.partUri).bytes).toEqual(beforeInvalid);
+    expect(native.opcPackage.mutations).toEqual(invalidJournal);
+
+    const editable = importedShapes.get('Arrow both')!;
+    const importedLine = editable.line;
+    editable.arrows = { begin: 'diamond' };
+    expect(editable.arrows).toEqual({ begin: 'diamond' });
+    expect(editable.line).toEqual(importedLine);
+    editable.arrows = undefined;
+    expect(editable.arrows).toBeUndefined();
+    expect(editable.line).toEqual(importedLine);
+    editable.arrows = { end: 'stealth' };
+
+    const reopened = await PptxDocument.open(await imported.write());
+    const reopenedEditable = reopened.slides[0]!.shapes.find(
+      ({ name }) => name === 'Arrow both',
+    ) as ShapeModel;
+    expect(reopenedEditable.arrows).toEqual({ end: 'stealth' });
+    expect(reopenedEditable.line).toEqual(importedLine);
+    const reopenedXml = shapeXml(reopened, 0, reopenedEditable.id);
+    expect(reopenedXml).not.toContain('<a:headEnd');
+    expect(reopenedXml).toContain('<a:tailEnd type="stealth"/>');
+  });
+
   it('reads every legal PptxGenJS preset shape public output', async () => {
     const generated = new PptxGenJS();
     expect(generated.version).toBe('4.0.1');
