@@ -167,6 +167,170 @@ describe('importPptxGenJS', () => {
     }
   });
 
+  it('compares shape fill public output and strict native divergences', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    const generatedSlide = generated.addSlide();
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      const generatedCases: readonly {
+        readonly name: string;
+        readonly fill?: Record<string, unknown>;
+      }[] = [
+        { name: 'Fill omitted' },
+        { name: 'Fill none', fill: { type: 'none' } },
+        { name: 'Fill sRGB', fill: { color: 'FF0000' } },
+        { name: 'Fill scheme', fill: { color: generated.SchemeColor.accent2 } },
+        { name: 'Fill transparency', fill: { color: '00FF00', transparency: 50 } },
+        { name: 'Fill zero', fill: { color: '0000FF', transparency: 0 } },
+        { name: 'Fill deprecated alpha', fill: { color: '112233', alpha: 40 } },
+        { name: 'Fill empty', fill: {} },
+        { name: 'Fill missing color', fill: { type: 'solid' } },
+      ];
+      for (const fixture of generatedCases) {
+        const options: Record<string, unknown> = { objectName: fixture.name };
+        if (fixture.fill !== undefined) options.fill = fixture.fill;
+        generatedSlide.addShape(generated.ShapeType.rect!, options);
+      }
+
+      const imported = await openPptxGenJSPublicOutput(generated);
+      const importedShapes = new Map(imported.slides[0]!.shapes.map((shape) => [
+        shape.name,
+        shape as ShapeModel,
+      ]));
+      expect(importedShapes.size).toBe(generatedCases.length);
+
+      const native = PptxDocument.create();
+      const nativeSlide = native.addSlide();
+      const nativeShapes = new Map([
+        ['Fill omitted', nativeSlide.addShape('rect', { name: 'Fill omitted' })],
+        ['Fill none', nativeSlide.addShape('rect', {
+          name: 'Fill none',
+          fill: { kind: 'none' },
+        })],
+        ['Fill sRGB', nativeSlide.addShape('rect', {
+          name: 'Fill sRGB',
+          fill: { kind: 'solid', color: { kind: 'srgb', value: 'FF0000' } },
+        })],
+        ['Fill scheme', nativeSlide.addShape('rect', {
+          name: 'Fill scheme',
+          fill: { kind: 'solid', color: { kind: 'scheme', value: 'accent2' } },
+        })],
+        ['Fill transparency', nativeSlide.addShape('rect', {
+          name: 'Fill transparency',
+          fill: {
+            kind: 'solid',
+            color: { kind: 'srgb', value: '00FF00' },
+            transparency: 50,
+          },
+        })],
+        ['Fill zero', nativeSlide.addShape('rect', {
+          name: 'Fill zero',
+          fill: {
+            kind: 'solid',
+            color: { kind: 'srgb', value: '0000FF' },
+            transparency: 0,
+          },
+        })],
+      ] as const);
+
+      for (const name of [
+        'Fill omitted',
+        'Fill sRGB',
+        'Fill scheme',
+        'Fill transparency',
+      ] as const) {
+        const importedShape = importedShapes.get(name)!;
+        const nativeShape = nativeShapes.get(name)!;
+        expect(importedShape).toBeInstanceOf(ShapeModel);
+        expect(importedShape.name).toBe(nativeShape.name);
+        expect(importedShape.presetType).toBe(nativeShape.presetType);
+        expect(importedShape.transform).toEqual(nativeShape.transform);
+        expect(importedShape.fill).toEqual(nativeShape.fill);
+      }
+
+      const generatedNone = importedShapes.get('Fill none')!;
+      const nativeNone = nativeShapes.get('Fill none')!;
+      expect(generatedNone.fill).toBeUndefined();
+      expect(nativeNone.fill).toEqual({ kind: 'none' });
+      expect(shapeXml(imported, 0, generatedNone.id)).toMatch(
+        /<\/a:prstGeom><a:ln(?:\/>|>)/,
+      );
+      expect(shapeXml(native, 0, nativeNone.id)).toContain(
+        '</a:prstGeom><a:noFill/><a:ln/>',
+      );
+
+      const generatedZero = importedShapes.get('Fill zero')!;
+      const nativeZero = nativeShapes.get('Fill zero')!;
+      expect(generatedZero.fill).toEqual({
+        kind: 'solid',
+        color: { kind: 'srgb', value: '0000FF' },
+      });
+      expect(nativeZero.fill).toEqual({
+        kind: 'solid',
+        color: { kind: 'srgb', value: '0000FF' },
+        transparency: 0,
+      });
+      expect(shapeXml(imported, 0, generatedZero.id)).not.toContain('<a:alpha');
+      expect(shapeXml(native, 0, nativeZero.id)).toContain('<a:alpha val="100000"/>');
+      expect(100 - (generatedZero.fill?.kind === 'solid'
+        ? generatedZero.fill.transparency ?? 0
+        : 100)).toBe(100);
+      expect(100 - (nativeZero.fill?.kind === 'solid'
+        ? nativeZero.fill.transparency ?? 0
+        : 100)).toBe(100);
+
+      expect(importedShapes.get('Fill empty')!.fill).toEqual({
+        kind: 'solid',
+        color: { kind: 'srgb', value: '000000' },
+      });
+      expect(importedShapes.get('Fill missing color')!.fill).toEqual({
+        kind: 'solid',
+        color: { kind: 'srgb', value: '000000' },
+      });
+      expect(importedShapes.get('Fill deprecated alpha')!.fill).toEqual({
+        kind: 'solid',
+        color: { kind: 'srgb', value: '112233' },
+        transparency: 40,
+      });
+      expect(warning).toHaveBeenCalled();
+
+      const beforeInvalid = native.opcPackage.requirePart(nativeSlide.partUri).bytes.slice();
+      const invalidJournal = [...native.opcPackage.mutations];
+      for (const fill of [
+        {},
+        { kind: 'solid' },
+        {
+          kind: 'solid',
+          color: { kind: 'srgb', value: '112233' },
+          alpha: 40,
+        },
+      ]) {
+        expect(() => nativeSlide.addShape('rect', { fill } as never)).toThrow();
+      }
+      expect(native.opcPackage.requirePart(nativeSlide.partUri).bytes).toEqual(beforeInvalid);
+      expect(native.opcPackage.mutations).toEqual(invalidJournal);
+
+      const editable = importedShapes.get('Fill sRGB')!;
+      editable.fill = {
+        kind: 'solid',
+        color: { kind: 'scheme', value: 'accent4' },
+        transparency: 25,
+      };
+      const reopened = await PptxDocument.open(await imported.write());
+      const reopenedEditable = reopened.slides[0]!.shapes.find(
+        ({ name }) => name === 'Fill sRGB',
+      ) as ShapeModel;
+      expect(reopenedEditable.fill).toEqual({
+        kind: 'solid',
+        color: { kind: 'scheme', value: 'accent4' },
+        transparency: 25,
+      });
+    } finally {
+      warning.mockRestore();
+    }
+  });
+
   it('reads every legal PptxGenJS preset shape public output', async () => {
     const generated = new PptxGenJS();
     expect(generated.version).toBe('4.0.1');
