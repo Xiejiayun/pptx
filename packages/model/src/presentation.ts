@@ -14,6 +14,7 @@ import {
   type PresentationFormatProfile,
 } from './format.js';
 import { ModelParseError } from './errors.js';
+import { removeDrawingHyperlinkReferences } from './shape-hyperlink.internal.js';
 import { SlideModel } from './slide.js';
 import {
   cloneSlideDependencies,
@@ -437,6 +438,22 @@ export class PresentationModel {
       );
       if (!entry) throw new PackageError(`Slide entry ${slide.relationshipId} is missing`, this.presentationPartUri);
       const ownedDependencies = ownedSlideDependencyRoots(this.opcPackage, slide.partUri);
+      for (const source of this.slides) {
+        if (source.partUri === slide.partUri) continue;
+        const relationshipIds = new Set(
+          source.relationships
+            .filter(({ type, targetMode, resolvedTarget }) =>
+              type === SLIDE_RELATIONSHIP
+              && targetMode === 'Internal'
+              && resolvedTarget === slide.partUri)
+            .map(({ id }) => id),
+        );
+        if (relationshipIds.size === 0) continue;
+        const sourceXml = source.parse().xml;
+        if (removeDrawingHyperlinkReferences(sourceXml, relationshipIds)) {
+          source.setXml(sourceXml.serialize());
+        }
+      }
       removePresentationSlideFromSections(
         xml,
         new Set(this.slides.map(({ slideId }) => slideId)),

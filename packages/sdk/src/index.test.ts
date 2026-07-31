@@ -296,6 +296,89 @@ describe('PptxDocument vertical slice', () => {
     }
   });
 
+  it('preserves the shape hyperlink lifecycle through duplicate, move, delete, and all formats', async () => {
+    const document = PptxDocument.create();
+    const source = document.addSlide();
+    const target = document.addSlide();
+    const external = source.addShape('rect', {
+      hyperlink: { url: 'https://example.com', tooltip: 'Visit' },
+    });
+    const internal = source.addShape('actionButtonForwardNext', {
+      hyperlink: { slide: 2 },
+    });
+    const self = source.addShape('actionButtonHome', {
+      hyperlink: { slide: 1, tooltip: '' },
+    });
+    const duplicate = document.duplicateSlide(document.slides.indexOf(source));
+    const [duplicateExternal, duplicateInternal, duplicateSelf] = duplicate.shapes as ShapeModel[];
+
+    expect(duplicateExternal!.hyperlink).toEqual(external.hyperlink);
+    expect(duplicateInternal!.hyperlink).toEqual({
+      slide: document.slides.indexOf(target) + 1,
+    });
+    expect(duplicateSelf!.hyperlink).toEqual({
+      slide: document.slides.indexOf(duplicate) + 1,
+      tooltip: '',
+    });
+    document.moveSlide(document.slides.indexOf(target), 0);
+    expect(internal.hyperlink).toEqual({ slide: 1 });
+    expect(duplicateInternal!.hyperlink).toEqual({ slide: 1 });
+    expect(self.hyperlink).toEqual({
+      slide: document.slides.indexOf(source) + 1,
+      tooltip: '',
+    });
+
+    const beforeTarget = document.addSlide();
+    document.moveSlide(document.slides.indexOf(beforeTarget), 0);
+    expect(internal.hyperlink).toEqual({ slide: 2 });
+    expect(duplicateInternal!.hyperlink).toEqual({ slide: 2 });
+    document.deleteSlide(document.slides.indexOf(beforeTarget));
+    expect(internal.hyperlink).toEqual({ slide: 1 });
+    expect(duplicateInternal!.hyperlink).toEqual({ slide: 1 });
+
+    document.deleteSlide(document.slides.indexOf(target));
+    expect(internal.hyperlink).toBeUndefined();
+    expect(duplicateInternal!.hyperlink).toBeUndefined();
+    expect(external.hyperlink).toEqual({ url: 'https://example.com', tooltip: 'Visit' });
+    expect(duplicateExternal!.hyperlink).toEqual(external.hyperlink);
+    expect(self.hyperlink).toEqual({
+      slide: document.slides.indexOf(source) + 1,
+      tooltip: '',
+    });
+    expect(duplicateSelf!.hyperlink).toEqual({
+      slide: document.slides.indexOf(duplicate) + 1,
+      tooltip: '',
+    });
+    expect(validatePackage(document.opcPackage).filter(({ severity }) => severity === 'error'))
+      .toEqual([]);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedSource = reopened.slides.find(({ partUri }) => partUri === source.partUri)!;
+    const reopenedShapes = reopenedSource.shapes as ShapeModel[];
+    expect(reopenedShapes.map(({ hyperlink }) => hyperlink)).toEqual([
+      { url: 'https://example.com', tooltip: 'Visit' },
+      undefined,
+      { slide: reopened.slides.indexOf(reopenedSource) + 1, tooltip: '' },
+    ]);
+    await reopened.write();
+
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const formatted = PptxDocument.create({ format });
+      const first = formatted.addSlide();
+      formatted.addSlide();
+      const shape = first.addShape('actionButtonForwardNext', {
+        hyperlink: { slide: 2, tooltip: '' },
+      });
+      shape.hyperlink = { url: `https://example.com/${format}` };
+      shape.hyperlink = { slide: 2, tooltip: '' };
+      const formattedReopened = await PptxDocument.open(await formatted.write());
+      expect(formattedReopened.format).toBe(format);
+      expect((formattedReopened.slides[0]!.shapes[0] as ShapeModel).hyperlink)
+        .toEqual({ slide: 2, tooltip: '' });
+      await formattedReopened.write();
+    }
+  });
+
   it('creates preset shape fills through the public SDK surface', () => {
     const document = PptxDocument.create();
     const slide = document.addSlide();

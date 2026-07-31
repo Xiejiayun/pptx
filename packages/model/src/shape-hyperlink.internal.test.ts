@@ -7,6 +7,7 @@ import {
   readShapeHyperlink,
   relationshipReferenceCount,
   removeDrawingHyperlinkReferences,
+  requireShapeHyperlinkRelationshipId,
   renderShapeHyperlink,
   replaceShapeHyperlinkElement,
   shapeHyperlinksEqual,
@@ -195,6 +196,24 @@ describe('shape hyperlink normalization', () => {
 });
 
 describe('shape hyperlink reader', () => {
+  it('requires a structurally safe container and exposes the direct relationship ID', () => {
+    const linked = parse(fixture('<a:hlinkClick r:id="rId7"/>'));
+    expect(requireShapeHyperlinkRelationshipId(linked.shape, PART_URI)).toBe('rId7');
+
+    const absent = parse(fixture());
+    expect(requireShapeHyperlinkRelationshipId(absent.shape, PART_URI)).toBeUndefined();
+
+    for (const source of [
+      fixture('<a:hlinkClick x:id="rId7"/>'),
+      fixture('<a:hlinkClick r:id="rId7"/><a:hlinkClick r:id="rId8"/>'),
+      fixture('', { cNvPr: '<p:cNvPr id="7"/><p:cNvPr id="8"/>' }),
+    ]) {
+      const malformed = parse(source);
+      expect(() => requireShapeHyperlinkRelationshipId(malformed.shape, PART_URI))
+        .toThrow(ModelParseError);
+    }
+  });
+
   it('reads detached external URL snapshots with absent, empty, and custom tooltips', () => {
     const cases = [
       {

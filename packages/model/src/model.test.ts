@@ -309,6 +309,208 @@ describe('PresentationModel', () => {
     expect(slide.addShape('rect').id).toBe(2);
   });
 
+  it('supports the shape hyperlink lifecycle with exact no-ops and relationship reuse', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const source = model.addSlide();
+    const target = model.addSlide();
+    const other = model.addSlide();
+    const shape = source.addShape('rect', {
+      hyperlink: { url: 'https://example.com', tooltip: 'Visit' },
+    });
+
+    const initial = shape.hyperlink;
+    expect(initial).toEqual({ url: 'https://example.com', tooltip: 'Visit' });
+    expect(Object.isFrozen(initial)).toBe(true);
+    expect(source.getShapeHyperlink(shape.id)).toEqual(initial);
+    const noOp = packageSnapshot(pkg);
+    shape.hyperlink = { url: 'https://example.com', tooltip: 'Visit' };
+    expect(packageSnapshot(pkg)).toEqual(noOp);
+    expect(source.shapes[0]).toBe(shape);
+
+    const relationshipUri = relationshipPartUri(source.partUri);
+    const relationshipBytes = pkg.requirePart(relationshipUri).bytes.slice();
+    const initialRelationship = source.relationships.find(
+      ({ type }) => type === HYPERLINK_RELATIONSHIP,
+    )!;
+    shape.hyperlink = { url: 'https://example.com', tooltip: '' };
+    expect(shape.hyperlink).toEqual({ url: 'https://example.com', tooltip: '' });
+    expect(pkg.requirePart(relationshipUri).bytes).toEqual(relationshipBytes);
+
+    shape.hyperlink = { url: 'mailto:test@example.com' };
+    expect(source.relationships.find(({ id }) => id === initialRelationship.id)).toMatchObject({
+      type: HYPERLINK_RELATIONSHIP,
+      target: 'mailto:test@example.com',
+      targetMode: 'External',
+    });
+    shape.hyperlink = { slide: model.slides.indexOf(target) + 1, tooltip: '' };
+    expect(shape.hyperlink).toEqual({
+      slide: model.slides.indexOf(target) + 1,
+      tooltip: '',
+    });
+    expect(source.relationships.find(({ id }) => id === initialRelationship.id)).toMatchObject({
+      type: SLIDE_RELATIONSHIP,
+      targetMode: 'Internal',
+      resolvedTarget: target.partUri,
+    });
+
+    model.moveSlide(model.slides.indexOf(target), 0);
+    expect(shape.hyperlink).toEqual({ slide: 1, tooltip: '' });
+    expect(source.relationships.find(({ id }) => id === initialRelationship.id)?.resolvedTarget)
+      .toBe(target.partUri);
+    shape.hyperlink = { slide: model.slides.indexOf(other) + 1 };
+    expect(shape.hyperlink).toEqual({ slide: model.slides.indexOf(other) + 1 });
+    shape.hyperlink = { slide: model.slides.indexOf(source) + 1 };
+    expect(shape.hyperlink).toEqual({ slide: model.slides.indexOf(source) + 1 });
+
+    const beforeRollback = packageSnapshot(pkg);
+    expect(() => pkg.transaction(() => {
+      shape.hyperlink = { url: 'https://rollback.example', tooltip: 'Rollback' };
+      shape.hyperlink = undefined;
+      throw new Error('restore shape hyperlink lifecycle');
+    })).toThrow('restore shape hyperlink lifecycle');
+    expect(packageSnapshot(pkg)).toEqual(beforeRollback);
+    expect(shape.hyperlink).toEqual({ slide: model.slides.indexOf(source) + 1 });
+
+    shape.hyperlink = undefined;
+    expect(shape.hyperlink).toBeUndefined();
+    expect(source.getShapeHyperlink(shape.id)).toBeUndefined();
+    expect(source.relationships.some(({ id }) => id === initialRelationship.id)).toBe(false);
+    expect(source.shapes[0]).toBe(shape);
+  });
+
+  it('clone-on-writes and garbage-collects shared shape hyperlink relationships', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const source = model.addSlide();
+    const first = source.addShape('rect', {
+      hyperlink: { url: 'https://shared.example' },
+    });
+    const second = source.addShape('ellipse', {
+      hyperlink: { url: 'https://temporary.example' },
+    });
+    const [sharedRelationship, temporaryRelationship] = source.relationships.filter(
+      ({ type }) => type === HYPERLINK_RELATIONSHIP,
+    );
+    expect(sharedRelationship).toBeDefined();
+    expect(temporaryRelationship).toBeDefined();
+    const part = pkg.requirePart(source.partUri);
+    const sharedTextClick = `<a:hlinkClick r:id="${sharedRelationship!.id}"/>`;
+    const sharedSource = new TextDecoder().decode(part.bytes)
+      .replace(`r:id="${temporaryRelationship!.id}"`, `r:id="${sharedRelationship!.id}"`)
+      .replace(
+        '</p:spTree>',
+        `<x:opaque xmlns:x="urn:test"><a:rPr>${sharedTextClick}</a:rPr></x:opaque>` +
+        '</p:spTree>',
+      );
+    pkg.setPart(source.partUri, sharedSource, part.contentType);
+    pkg.removeRelationship(source.partUri, temporaryRelationship!.id);
+
+    expect(first.hyperlink).toEqual({ url: 'https://shared.example' });
+    expect(second.hyperlink).toEqual({ url: 'https://shared.example' });
+    first.hyperlink = { url: 'https://first.example', tooltip: 'First' };
+    expect(first.hyperlink).toEqual({ url: 'https://first.example', tooltip: 'First' });
+    expect(second.hyperlink).toEqual({ url: 'https://shared.example' });
+    expect(source.relationships.filter(({ type }) => type === HYPERLINK_RELATIONSHIP))
+      .toHaveLength(2);
+
+    const oldRelationshipBytes = pkg.requirePart(relationshipPartUri(source.partUri)).bytes.slice();
+    first.hyperlink = { url: 'https://first.example', tooltip: '' };
+    expect(pkg.requirePart(relationshipPartUri(source.partUri)).bytes)
+      .toEqual(oldRelationshipBytes);
+    first.hyperlink = undefined;
+    expect(source.relationships.filter(({ type }) => type === HYPERLINK_RELATIONSHIP))
+      .toHaveLength(1);
+    second.hyperlink = undefined;
+    expect(source.relationships.find(({ id }) => id === sharedRelationship!.id)).toBeDefined();
+
+    const withoutTextReference = new TextDecoder().decode(pkg.requirePart(source.partUri).bytes)
+      .replace(sharedTextClick, '');
+    pkg.setPart(source.partUri, withoutTextReference, part.contentType);
+    second.hyperlink = { url: 'https://unique.example' };
+    const uniqueRelationship = source.relationships.find(
+      ({ type, target }) => type === HYPERLINK_RELATIONSHIP && target === 'https://unique.example',
+    )!;
+    second.hyperlink = undefined;
+    expect(source.relationships.some(({ id }) => id === uniqueRelationship.id)).toBe(false);
+  });
+
+  it('rejects unsupported shape hyperlink state and cleans target-slide DrawingML references', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const source = model.addSlide();
+    const target = model.addSlide();
+    const linked = source.addShape('rect', {
+      hyperlink: { slide: model.slides.indexOf(target) + 1 },
+    });
+    const external = source.addShape('ellipse', {
+      hyperlink: { url: 'https://keep.example' },
+    });
+    const targetRelationship = source.relationships.find(
+      ({ type, resolvedTarget }) => type === SLIDE_RELATIONSHIP && resolvedTarget === target.partUri,
+    )!;
+    const part = pkg.requirePart(source.partUri);
+    const decorated = new TextDecoder().decode(part.bytes)
+      .replace(
+        '</p:cNvPr>',
+        `<a:hlinkHover r:id="${targetRelationship.id}"/></p:cNvPr>`,
+      )
+      .replace(
+        '</p:spTree>',
+        `<x:opaque xmlns:x="urn:test"><a:rPr><a:hlinkClick r:id="${
+          targetRelationship.id
+        }"/></a:rPr></x:opaque></p:spTree>`,
+      );
+    pkg.setPart(source.partUri, decorated, part.contentType);
+
+    const beforeRollback = packageSnapshot(pkg);
+    expect(() => pkg.transaction(() => {
+      model.deleteSlide(model.slides.indexOf(target));
+      throw new Error('restore hyperlink target');
+    })).toThrow('restore hyperlink target');
+    expect(packageSnapshot(pkg)).toEqual(beforeRollback);
+    expect(linked.hyperlink).toEqual({ slide: model.slides.indexOf(target) + 1 });
+
+    model.deleteSlide(model.slides.indexOf(target));
+    const cleaned = new TextDecoder().decode(pkg.requirePart(source.partUri).bytes);
+    expect(cleaned).not.toContain(targetRelationship.id);
+    expect(cleaned).not.toContain('<a:hlinkHover');
+    expect(linked.hyperlink).toBeUndefined();
+    expect(external.hyperlink).toEqual({ url: 'https://keep.example' });
+    expect(source.relationships.some(({ id }) => id === targetRelationship.id)).toBe(false);
+
+    const dangling = source.addShape('diamond', {
+      hyperlink: { url: 'https://dangling.example' },
+    });
+    const danglingRelationship = source.relationships.find(
+      ({ type, target: relationshipTarget }) =>
+        type === HYPERLINK_RELATIONSHIP && relationshipTarget === 'https://dangling.example',
+    )!;
+    pkg.removeRelationship(source.partUri, danglingRelationship.id);
+    expect(dangling.hyperlink).toBeUndefined();
+    const unsupported = packageSnapshot(pkg);
+    expect(() => {
+      dangling.hyperlink = { url: 'https://replacement.example' };
+    }).toThrow(ModelParseError);
+    expect(() => {
+      dangling.hyperlink = undefined;
+    }).toThrow(ModelParseError);
+    expect(packageSnapshot(pkg)).toEqual(unsupported);
+
+    expect(() => {
+      external.hyperlink = { slide: model.slides.length + 1 };
+    }).toThrow(RangeError);
+    expect(packageSnapshot(pkg)).toEqual(unsupported);
+
+    const currentPart = pkg.requirePart(source.partUri);
+    pkg.setPart(source.partUri, '<broken', currentPart.contentType);
+    const malformed = packageSnapshot(pkg);
+    expect(() => {
+      source.setShapeHyperlink(dangling.id, { slide: 0 } as never);
+    }).toThrow(TypeError);
+    expect(packageSnapshot(pkg)).toEqual(malformed);
+  });
+
   it('creates preset shape fills with detached strict values through the live model', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);

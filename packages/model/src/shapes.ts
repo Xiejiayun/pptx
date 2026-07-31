@@ -9,6 +9,7 @@ import {
   type Relationship,
 } from '@pptx/opc';
 import { cloneOwnedPartForMutation } from './dependency.internal.js';
+import type { Hyperlink } from './hyperlink.js';
 import type { SlideModel } from './slide.js';
 import {
   normalizeTableCellBorders,
@@ -174,6 +175,14 @@ export abstract class BaseShapeModel {
 }
 
 export class ShapeModel extends BaseShapeModel {
+  get hyperlink(): Hyperlink | undefined {
+    return this.slide.getShapeHyperlink(this.id);
+  }
+
+  set hyperlink(value: Hyperlink | undefined) {
+    this.slide.setShapeHyperlink(this.id, value);
+  }
+
   get presetType(): PresetShapeType | undefined {
     return this.slide.getShapePresetType(this.id);
   }

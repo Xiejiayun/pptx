@@ -5,8 +5,13 @@ import {
   type XmlElement,
 } from '@pptx/lossless-xml';
 import { GradientCodec, type GradientFill } from '@pptx/codecs';
-import { relativeRelationshipTarget, type Relationship } from '@pptx/opc';
+import {
+  relativeRelationshipTarget,
+  type Relationship,
+  type RelationshipInput,
+} from '@pptx/opc';
 import { ModelParseError } from './errors.js';
+import type { Hyperlink } from './hyperlink.js';
 import type { PresentationModel } from './presentation.js';
 import {
   normalizeParagraphBullet,
@@ -82,7 +87,14 @@ import {
 import { normalizeSimpleLine } from './simple-line.internal.js';
 import {
   HYPERLINK_RELATIONSHIP_TYPE,
+  normalizeHyperlink,
+  readShapeHyperlink,
+  relationshipReferenceCount,
+  replaceShapeHyperlinkElement,
+  requireShapeHyperlinkRelationshipId,
+  shapeHyperlinksEqual,
   SLIDE_RELATIONSHIP_TYPE,
+  type NormalizedHyperlink,
 } from './shape-hyperlink.internal.js';
 import {
   normalizeTextBoxMargins,
@@ -414,6 +426,116 @@ export class SlideModel {
     });
   }
 
+  getShapeHyperlink(id: number): Hyperlink | undefined {
+    const { xml, element } = this.resolveShape(id);
+    return readShapeHyperlink(xml, element, {
+      relationships: this.relationships,
+      slidePartUris: this.presentation.slides.map(({ partUri }) => partUri),
+    });
+  }
+
+  setShapeHyperlink(id: number, value: Hyperlink | undefined): void {
+    const hyperlink = value === undefined
+      ? undefined
+      : normalizeHyperlink(value, 'Shape hyperlink');
+    let targetSlide: SlideModel | undefined;
+    if (hyperlink?.slide !== undefined) {
+      targetSlide = this.presentation.slides[hyperlink.slide - 1];
+      if (!targetSlide) {
+        throw new RangeError(`Shape hyperlink slide ${hyperlink.slide} is out of range`);
+      }
+    }
+
+    this.presentation.opcPackage.transaction(() => {
+      const { xml, element } = this.resolveShape(id);
+      const relationshipId = requireShapeHyperlinkRelationshipId(element, this.partUri);
+      const current = readShapeHyperlink(xml, element, {
+        relationships: this.relationships,
+        slidePartUris: this.presentation.slides.map(({ partUri }) => partUri),
+      });
+      if (relationshipId !== undefined && current === undefined) {
+        throw new ModelParseError('Shape hyperlink state is not safely editable', this.partUri);
+      }
+      if (shapeHyperlinksEqual(current, hyperlink)) return;
+
+      if (hyperlink === undefined) {
+        replaceShapeHyperlinkElement(xml, element, undefined, undefined, this.partUri);
+        const updated = xml.serialize();
+        this.setXml(updated);
+        if (
+          relationshipId !== undefined
+          && relationshipReferenceCount(
+            LosslessXmlDocument.parse(updated),
+            relationshipId,
+          ) === 0
+        ) {
+          this.presentation.opcPackage.removeRelationship(this.partUri, relationshipId);
+        }
+        return;
+      }
+
+      if (
+        current !== undefined
+        && relationshipId !== undefined
+        && shapeHyperlinkTargetsEqual(current, hyperlink)
+      ) {
+        replaceShapeHyperlinkElement(
+          xml,
+          element,
+          hyperlink,
+          relationshipId,
+          this.partUri,
+        );
+        this.setXml(xml.serialize());
+        return;
+      }
+
+      const relationshipInput: RelationshipInput = hyperlink.url !== undefined
+        ? {
+            type: HYPERLINK_RELATIONSHIP_TYPE,
+            target: hyperlink.url,
+            targetMode: 'External',
+          }
+        : {
+            type: SLIDE_RELATIONSHIP_TYPE,
+            target: relativeRelationshipTarget(this.partUri, targetSlide!.partUri),
+            targetMode: 'Internal',
+          };
+      const canUpdateRelationship = current !== undefined
+        && relationshipId !== undefined
+        && relationshipReferenceCount(xml, relationshipId) === 1;
+      const nextRelationshipId = canUpdateRelationship
+        ? this.presentation.opcPackage.updateRelationship(
+            this.partUri,
+            relationshipId,
+            relationshipInput,
+          ).id
+        : this.presentation.opcPackage.addRelationship(
+            this.partUri,
+            relationshipInput,
+          ).id;
+      replaceShapeHyperlinkElement(
+        xml,
+        element,
+        hyperlink,
+        nextRelationshipId,
+        this.partUri,
+      );
+      const updated = xml.serialize();
+      this.setXml(updated);
+      if (
+        relationshipId !== undefined
+        && relationshipId !== nextRelationshipId
+        && relationshipReferenceCount(
+          LosslessXmlDocument.parse(updated),
+          relationshipId,
+        ) === 0
+      ) {
+        this.presentation.opcPackage.removeRelationship(this.partUri, relationshipId);
+      }
+    });
+  }
+
   setShapeRichText(id: number, value: readonly RichTextParagraph[]): void {
     this.presentation.opcPackage.transaction(() => {
       const paragraphs = normalizeRichText(value);
@@ -686,6 +808,18 @@ export class SlideModel {
     }
     return shape;
   }
+}
+
+function shapeHyperlinkTargetsEqual(
+  left: NormalizedHyperlink,
+  right: NormalizedHyperlink,
+): boolean {
+  if (left.url !== undefined || right.url !== undefined) {
+    return left.url !== undefined
+      && right.url !== undefined
+      && left.url === right.url;
+  }
+  return left.slide === right.slide;
 }
 
 export function findTitleShape(xml: LosslessXmlDocument): XmlElement | undefined {

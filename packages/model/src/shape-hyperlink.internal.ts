@@ -133,6 +133,17 @@ export function readShapeHyperlink(
   });
 }
 
+export function requireShapeHyperlinkRelationshipId(
+  shape: XmlElement,
+  partUri: string,
+): string | undefined {
+  const container = inspectHyperlinkContainer(shape);
+  if (!container) {
+    throw new ModelParseError('Shape hyperlink container is not safely editable', partUri);
+  }
+  return container.click?.relationshipId.value;
+}
+
 export function renderShapeHyperlink(
   hyperlink: NormalizedHyperlink,
   relationshipId: string,
