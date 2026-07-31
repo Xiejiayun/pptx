@@ -202,6 +202,26 @@ const customConnectionReplacement: CustomGeometry = {
   ],
 };
 
+const customTextRectangleGeometry: CustomGeometry = {
+  ...customConnectionGeometry,
+  textRectangle: {
+    left: 'x1',
+    top: 10_000,
+    right: 'r',
+    bottom: 90_000,
+  },
+};
+
+const customTextRectangleReplacement: CustomGeometry = {
+  ...customConnectionReplacement,
+  textRectangle: {
+    left: 0,
+    top: 't',
+    right: 80_000,
+    bottom: 'b',
+  },
+};
+
 function readCreatedShapeHyperlink(
   model: PresentationModel,
   slide: ReturnType<PresentationModel['addSlide']>,
@@ -1135,6 +1155,202 @@ describe('PresentationModel', () => {
         url: `https://example.com/connections/${profile.format}`,
       });
       expect(reopenedShape.customGeometry).toEqual(customConnectionReplacement);
+    }
+  });
+
+  it('creates, freezes, edits, resets, and rolls back live custom geometry text rectangles', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const mutable = structuredClone(customTextRectangleGeometry) as unknown as {
+      textRectangle: {
+        left: string | number;
+        top: string | number;
+        right: string | number;
+        bottom: string | number;
+      };
+    };
+    let shape = slide.addCustomShape(mutable as unknown as CustomGeometry, {
+      name: 'Text rectangle geometry',
+      x: inches(2),
+      fill: { kind: 'solid', color: { kind: 'scheme', value: 'accent2' } },
+      line: { kind: 'line', color: { kind: 'srgb', value: '123ABC' }, width: 2 },
+      arrows: { end: 'triangle' },
+      shadow: { kind: 'outer' },
+      hyperlink: { url: 'https://example.com/text-rectangle' },
+    });
+    const createdPart = pkg.requirePart(slide.partUri);
+    pkg.setPart(
+      slide.partUri,
+      new TextDecoder().decode(createdPart.bytes).replace(
+        '</p:spPr></p:sp>',
+        '<a:extLst><a:ext uri="urn:text-rectangle">' +
+        '<x:keep xmlns:x="urn:text-rectangle">EXTENSION</x:keep></a:ext>' +
+        '</a:extLst></p:spPr><p:txBody><a:bodyPr/><a:lstStyle/><a:p>' +
+        '<a:r><a:t>TEXT RECTANGLE TEXT</a:t></a:r></a:p></p:txBody></p:sp>',
+      ),
+      createdPart.contentType,
+    );
+    const shapeId = shape.id;
+    shape = slide.shapes.find(({ id }) => id === shapeId) as ShapeModel;
+    const neighbor = slide.addShape('rect', { name: 'Text rectangle neighbor' });
+
+    mutable.textRectangle.left = 'changed';
+    mutable.textRectangle.top = 1;
+    mutable.textRectangle.right = 2;
+    mutable.textRectangle.bottom = 3;
+
+    const first = shape.customGeometry;
+    const second = shape.customGeometry;
+    expect(first).toEqual(customTextRectangleGeometry);
+    expect(second).toEqual(first);
+    expect(second).not.toBe(first);
+    expect(Object.isFrozen(first)).toBe(true);
+    expect(Object.isFrozen(first?.textRectangle)).toBe(true);
+    expect(readCreatedCustomGeometry(model, slide, shape.id)).toEqual(
+      customTextRectangleGeometry,
+    );
+
+    const noOp = packageSnapshot(pkg);
+    shape.customGeometry = structuredClone(customTextRectangleGeometry);
+    expect(packageSnapshot(pkg)).toEqual(noOp);
+
+    const rollback = packageSnapshot(pkg);
+    expect(() => pkg.transaction(() => {
+      shape.customGeometry = customTextRectangleReplacement;
+      expect(shape.customGeometry).toEqual(customTextRectangleReplacement);
+      throw new Error('restore custom text rectangle edit');
+    })).toThrow('restore custom text rectangle edit');
+    expect(packageSnapshot(pkg)).toEqual(rollback);
+    expect(shape.customGeometry).toEqual(customTextRectangleGeometry);
+
+    const identity = shape;
+    const preserved = {
+      name: shape.name,
+      transform: shape.transform,
+      fill: shape.fill,
+      line: shape.line,
+      arrows: shape.arrows,
+      shadow: shape.shadow,
+      hyperlink: shape.hyperlink,
+      relationships: slide.relationships,
+    };
+    const beforeEdit = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    shape.customGeometry = customTextRectangleReplacement;
+    const afterEdit = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    const withoutGeometry = (source: string) => source.replace(
+      /<a:custGeom>[\s\S]*?<\/a:custGeom>/,
+      '<a:custGeom/>',
+    );
+    expect(shape).toBe(identity);
+    expect(slide.shapes[0]).toBe(identity);
+    expect(slide.shapes[1]).toBe(neighbor);
+    expect(shape.customGeometry).toEqual(customTextRectangleReplacement);
+    expect({
+      name: shape.name,
+      transform: shape.transform,
+      fill: shape.fill,
+      line: shape.line,
+      arrows: shape.arrows,
+      shadow: shape.shadow,
+      hyperlink: shape.hyperlink,
+      relationships: slide.relationships,
+    }).toEqual(preserved);
+    expect(withoutGeometry(afterEdit)).toBe(withoutGeometry(beforeEdit));
+    expect(afterEdit).toContain('<a:effectLst>');
+    expect(afterEdit).toContain('EXTENSION');
+    expect(afterEdit).toContain('<a:t>TEXT RECTANGLE TEXT</a:t>');
+    expect(afterEdit).toContain('<a:rect l="0" t="t" r="80000" b="b"/>');
+
+    const { textRectangle: _textRectangle, ...defaultTextRectangleGeometry } =
+      customTextRectangleReplacement;
+    const beforeReset = packageSnapshot(pkg);
+    expect(() => pkg.transaction(() => {
+      shape.customGeometry = defaultTextRectangleGeometry;
+      expect(Object.hasOwn(shape.customGeometry!, 'textRectangle')).toBe(false);
+      throw new Error('restore custom text rectangle reset');
+    })).toThrow('restore custom text rectangle reset');
+    expect(packageSnapshot(pkg)).toEqual(beforeReset);
+    expect(shape.customGeometry).toEqual(customTextRectangleReplacement);
+
+    shape.customGeometry = defaultTextRectangleGeometry;
+    expect(Object.hasOwn(shape.customGeometry!, 'textRectangle')).toBe(false);
+    expect(new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes))
+      .toContain('<a:rect l="l" t="t" r="r" b="b"/>');
+  });
+
+  it('isolates, converts, and reopens custom geometry text rectangles in all six formats', async () => {
+    for (const profile of Object.values(PRESENTATION_FORMAT_PROFILES)) {
+      const pkg = await OpcPackage.open(await modelFixture(profile.presentationContentType));
+      const model = new PresentationModel(pkg);
+      const slide = model.addSlide();
+      const beforeCreation = packageSnapshot(pkg);
+      let rolledBack: ShapeModel | undefined;
+      expect(() => pkg.transaction(() => {
+        rolledBack = slide.addCustomShape(customTextRectangleGeometry, {
+          hyperlink: { url: `https://example.com/text-rectangle-rollback/${profile.format}` },
+        });
+        throw new Error('restore custom text rectangle creation');
+      })).toThrow('restore custom text rectangle creation');
+      expect(packageSnapshot(pkg)).toEqual(beforeCreation);
+      expect(() => rolledBack!.name).toThrow(ModelParseError);
+
+      const shape = slide.addCustomShape(customTextRectangleGeometry, {
+        name: `Text rectangle ${profile.format}`,
+        fill: { kind: 'solid', color: { kind: 'scheme', value: 'accent1' } },
+        hyperlink: { url: `https://example.com/text-rectangles/${profile.format}` },
+      });
+      expect(shape.id).toBe(2);
+      const duplicate = model.duplicateSlide(model.slides.indexOf(slide));
+      const duplicateShape = duplicate.shapes.find(({ id }) => id === shape.id) as ShapeModel;
+      duplicateShape.customGeometry = customTextRectangleReplacement;
+      expect(duplicateShape.customGeometry).toEqual(customTextRectangleReplacement);
+      expect(shape.customGeometry).toEqual(customTextRectangleGeometry);
+
+      const identity = shape;
+      shape.presetType = 'diamond';
+      expect(shape).toBe(identity);
+      expect(shape.presetType).toBe('diamond');
+      expect(shape.customGeometry).toBeUndefined();
+      shape.customGeometry = customTextRectangleReplacement;
+      expect(shape).toBe(identity);
+      expect(shape.presetType).toBeUndefined();
+      expect(shape.customGeometry).toEqual(customTextRectangleReplacement);
+
+      const { textRectangle: _textRectangle, ...defaultTextRectangleGeometry } =
+        customTextRectangleReplacement;
+      const beforeReset = packageSnapshot(pkg);
+      expect(() => pkg.transaction(() => {
+        shape.customGeometry = defaultTextRectangleGeometry;
+        expect(Object.hasOwn(shape.customGeometry!, 'textRectangle')).toBe(false);
+        throw new Error('restore custom text rectangle reset');
+      })).toThrow('restore custom text rectangle reset');
+      expect(packageSnapshot(pkg)).toEqual(beforeReset);
+      expect(shape.customGeometry).toEqual(customTextRectangleReplacement);
+      expect(shape.name).toBe(`Text rectangle ${profile.format}`);
+      expect(shape.fill).toEqual({
+        kind: 'solid',
+        color: { kind: 'scheme', value: 'accent1' },
+      });
+      expect(shape.hyperlink).toEqual({
+        url: `https://example.com/text-rectangles/${profile.format}`,
+      });
+
+      model.moveSlide(model.slides.indexOf(duplicate), 0);
+      model.deleteSlide(model.slides.indexOf(duplicate));
+      const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+      const reopenedSlide = reopened.slides.find(({ partUri }) => partUri === slide.partUri)!;
+      const reopenedShape = reopenedSlide.shapes.find(({ id }) => id === shape.id) as ShapeModel;
+      expect(reopened.format).toBe(profile.format);
+      expect(reopenedShape.name).toBe(`Text rectangle ${profile.format}`);
+      expect(reopenedShape.fill).toEqual({
+        kind: 'solid',
+        color: { kind: 'scheme', value: 'accent1' },
+      });
+      expect(reopenedShape.hyperlink).toEqual({
+        url: `https://example.com/text-rectangles/${profile.format}`,
+      });
+      expect(reopenedShape.customGeometry).toEqual(customTextRectangleReplacement);
     }
   });
 

@@ -762,6 +762,113 @@ describe('PptxDocument vertical slice', () => {
       .toEqual([]);
   });
 
+  it('creates, edits, resets, converts, and reopens custom geometry text rectangles through the SDK', async () => {
+    const geometry: CustomGeometry = {
+      guides: [
+        { name: 'textLeft', formula: { operator: 'val', operands: [20_000] } },
+        { name: 'textRight', formula: { operator: 'val', operands: [80_000] } },
+      ],
+      connectionSites: [{ angle: 0, position: { x: 'hc', y: 't' } }],
+      textRectangle: {
+        left: 'textLeft',
+        top: 10_000,
+        right: 'textRight',
+        bottom: 90_000,
+      },
+      paths: [{
+        width: 100_000,
+        height: 100_000,
+        commands: [
+          { kind: 'moveTo', point: { x: 0, y: 0 } },
+          { kind: 'lineTo', point: { x: 'r', y: 'b' } },
+        ],
+      }],
+    };
+    const replacement: CustomGeometry = {
+      ...geometry,
+      textRectangle: {
+        left: 0,
+        top: 't',
+        right: 85_000,
+        bottom: 'b',
+      },
+    };
+    const mutable = structuredClone(geometry) as unknown as {
+      textRectangle: {
+        left: string | number;
+        top: string | number;
+        right: string | number;
+        bottom: string | number;
+      };
+    };
+
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const shape = slide.addCustomShape(mutable as unknown as CustomGeometry, {
+      name: 'SDK text rectangle geometry',
+      fill: { kind: 'solid', color: { kind: 'scheme', value: 'accent1' } },
+      line: { kind: 'line', color: { kind: 'srgb', value: '112233' }, width: 2 },
+      hyperlink: { url: 'https://example.com/sdk-text-rectangle' },
+    });
+    mutable.textRectangle.left = 'changed';
+    mutable.textRectangle.top = 1;
+    mutable.textRectangle.right = 2;
+    mutable.textRectangle.bottom = 3;
+
+    const first = shape.customGeometry;
+    expect(first).toEqual(geometry);
+    expect(shape.customGeometry).not.toBe(first);
+    expect(Object.isFrozen(first)).toBe(true);
+    expect(Object.isFrozen(first?.textRectangle)).toBe(true);
+    const before = document.opcPackage.requirePart(slide.partUri).bytes.slice();
+    const journal = [...document.opcPackage.mutations];
+    shape.customGeometry = structuredClone(geometry);
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(before);
+    expect(document.opcPackage.mutations).toEqual(journal);
+
+    const identity = shape;
+    shape.customGeometry = replacement;
+    expect(shape).toBe(identity);
+    expect(slide.shapes[0]).toBe(identity);
+    expect(shape.customGeometry).toEqual(replacement);
+    expect(shape.name).toBe('SDK text rectangle geometry');
+    expect(shape.fill).toEqual({
+      kind: 'solid',
+      color: { kind: 'scheme', value: 'accent1' },
+    });
+    expect(shape.line).toEqual({
+      kind: 'line',
+      color: { kind: 'srgb', value: '112233' },
+      width: 2,
+      dash: 'solid',
+    });
+    expect(shape.hyperlink).toEqual({ url: 'https://example.com/sdk-text-rectangle' });
+
+    const { textRectangle: _textRectangle, ...defaultTextRectangleGeometry } = replacement;
+    shape.customGeometry = defaultTextRectangleGeometry;
+    expect(Object.hasOwn(shape.customGeometry!, 'textRectangle')).toBe(false);
+    expect(new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes))
+      .toContain('<a:rect l="l" t="t" r="r" b="b"/>');
+
+    shape.customGeometry = replacement;
+    shape.presetType = 'diamond';
+    expect(shape.presetType).toBe('diamond');
+    expect(shape.customGeometry).toBeUndefined();
+    shape.customGeometry = replacement;
+    expect(shape.presetType).toBeUndefined();
+    expect(shape.customGeometry).toEqual(replacement);
+    expect(validatePackage(document.opcPackage).filter(({ severity }) => severity === 'error'))
+      .toEqual([]);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedShape = reopened.slides[0]!.shapes[0] as ShapeModel;
+    expect(reopenedShape.name).toBe('SDK text rectangle geometry');
+    expect(reopenedShape.customGeometry).toEqual(replacement);
+    expect(Object.isFrozen(reopenedShape.customGeometry?.textRectangle)).toBe(true);
+    expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error'))
+      .toEqual([]);
+  });
+
   it('creates preset shape hyperlinks through the public SDK type and runtime surface', () => {
     const document = PptxDocument.create();
     const first = document.addSlide();

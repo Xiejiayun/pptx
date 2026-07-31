@@ -1617,8 +1617,12 @@ describe('importPptxGenJS', () => {
     expect(importedShape.name).toBe('Public custom geometry');
     expect(importedShape.customGeometry).toBeDefined();
     expect(Object.hasOwn(importedShape.customGeometry!, 'connectionSites')).toBe(false);
+    expect(Object.hasOwn(importedShape.customGeometry!, 'textRectangle')).toBe(false);
     expect(shapeXml(imported, 0, importedShape.id)).toMatch(
       /<a:cxnLst(?:\s*\/>|\s*>\s*<\/a:cxnLst>)/,
+    );
+    expect(shapeXml(imported, 0, importedShape.id)).toMatch(
+      /<a:rect\s+l="l"\s+t="t"\s+r="r"\s+b="b"\s*\/>/,
     );
 
     const adapterSource = await readFile(new URL('./index.ts', import.meta.url), 'utf8');
