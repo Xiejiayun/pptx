@@ -1072,6 +1072,241 @@ describe('importPptxGenJS', () => {
       .toEqual({ slide: 4, tooltip: '' });
   });
 
+  it('compares shape shadow public output and strict native divergences', async () => {
+    expect(new PptxGenJS().version).toBe('4.0.1');
+    const generate = async (name: string, shadow: unknown) => {
+      const generated = new PptxGenJS();
+      const slide = generated.addSlide();
+      const options: Record<string, unknown> = {
+        objectName: name,
+        x: 1,
+        y: 1,
+        w: 2,
+        h: 1,
+      };
+      if (shadow !== undefined) options.shadow = shadow;
+      slide.addShape(generated.ShapeType.roundRect!, options);
+      const bytes = await generated.write({
+        outputType: 'nodebuffer',
+        compression: true,
+      });
+      const document = await PptxDocument.open(bytes);
+      const partUri = document.slides[0]!.partUri;
+      const xml = new TextDecoder().decode(document.opcPackage.requirePart(partUri).bytes);
+      return { document, xml };
+    };
+
+    const omitted = await generate('Omitted', undefined);
+    const none = await generate('None', { type: 'none' });
+    for (const fixture of [omitted, none]) {
+      expect(fixture.xml).not.toContain('<a:effectLst>');
+      expect(fixture.xml).not.toMatch(/<(?:a:)?(?:inner|outer)Shdw/);
+      expect((fixture.document.slides[0]!.shapes[0] as ShapeModel).shadow).toBeUndefined();
+    }
+
+    const defaults = await generate('Outer defaults', { type: 'outer' });
+    expect(defaults.xml).toContain(
+      '<a:outerShdw sx="100000" sy="100000" kx="0" ky="0" algn="bl" ' +
+      'rotWithShape="0" blurRad="101600" dist="50800" dir="16200000"> ' +
+      '<a:srgbClr val="000000"> <a:alpha val="75000"/></a:srgbClr> ' +
+      '</a:outerShdw>',
+    );
+    expect((defaults.document.slides[0]!.shapes[0] as ShapeModel).shadow).toEqual({
+      kind: 'outer',
+      color: { kind: 'srgb', value: '000000' },
+      opacity: 0.75,
+      blur: 8,
+      angle: 270,
+      distance: 4,
+      rotateWithShape: false,
+    });
+
+    const custom = await generate('Outer custom', {
+      type: 'outer',
+      color: '123ABC',
+      opacity: 0.42,
+      blur: 7.25,
+      angle: 123.4,
+      offset: 5.5,
+      rotateWithShape: true,
+    });
+    expect(custom.xml).toContain(
+      'rotWithShape="0" blurRad="92075" dist="69850" dir="7404000"> ' +
+      '<a:srgbClr val="123ABC"> <a:alpha val="42000"/>',
+    );
+    const generatedCustom = (custom.document.slides[0]!.shapes[0] as ShapeModel).shadow;
+    expect(generatedCustom).toEqual({
+      kind: 'outer',
+      color: { kind: 'srgb', value: '123ABC' },
+      opacity: 0.42,
+      blur: 7.25,
+      angle: 123.4,
+      distance: 5.5,
+      rotateWithShape: false,
+    });
+
+    const zero = await generate('Outer zero', {
+      type: 'outer',
+      color: '000000',
+      opacity: 0,
+      blur: 0,
+      angle: 0,
+      offset: 0,
+      rotateWithShape: false,
+    });
+    expect((zero.document.slides[0]!.shapes[0] as ShapeModel).shadow).toEqual({
+      kind: 'outer',
+      color: { kind: 'srgb', value: '000000' },
+      opacity: 0.75,
+      blur: 8,
+      angle: 270,
+      distance: 4,
+      rotateWithShape: false,
+    });
+
+    const malformedInner = await generate('Inner', { type: 'inner' });
+    expect(malformedInner.xml).toContain('<a:innerShdw  blurRad="101600"');
+    expect(malformedInner.xml).toContain('</a:outerShdw></a:effectLst>');
+    expect(() => malformedInner.document.slides[0]!.shapes).toThrow();
+    await expect(malformedInner.document.write()).rejects.toThrow();
+
+    const hashColor = await generate('Hash color', {
+      type: 'outer',
+      color: '#ABCDEF',
+    });
+    expect(hashColor.xml).toContain('<a:srgbClr val="#ABCDEF">');
+    expect((hashColor.document.slides[0]!.shapes[0] as ShapeModel).shadow).toBeUndefined();
+
+    const unknownType = await generate('Unknown type', {
+      type: 'bogus',
+      color: 'FF0000',
+    });
+    expect(unknownType.xml).toContain('<a:bogusShdw  blurRad="101600"');
+    expect(unknownType.xml).toContain('</a:outerShdw></a:effectLst>');
+    expect(() => unknownType.document.slides[0]!.shapes).toThrow();
+
+    const invalidRanges = await generate('Invalid ranges', {
+      type: 'outer',
+      color: '00FF00',
+      opacity: 2,
+      blur: -1,
+      angle: 400,
+      offset: 201,
+    });
+    expect(invalidRanges.xml).toContain(
+      'blurRad="-12700" dist="2552700" dir="24000000"> ' +
+      '<a:srgbClr val="00FF00"> <a:alpha val="200000"/>',
+    );
+    expect((invalidRanges.document.slides[0]!.shapes[0] as ShapeModel).shadow)
+      .toBeUndefined();
+
+    const native = PptxDocument.create();
+    const nativeSlide = native.addSlide();
+    const nativeDefaults = nativeSlide.addShape('roundRect', {
+      shadow: { kind: 'outer' },
+    });
+    const nativeCustom = nativeSlide.addShape('roundRect', {
+      shadow: {
+        kind: 'outer',
+        color: { kind: 'srgb', value: '123ABC' },
+        opacity: 0.42,
+        blur: 7.25,
+        angle: 123.4,
+        distance: 5.5,
+        rotateWithShape: true,
+      },
+    });
+    const nativeZero = nativeSlide.addShape('roundRect', {
+      shadow: {
+        kind: 'outer',
+        color: { kind: 'scheme', value: 'accent2' },
+        opacity: 0,
+        blur: 0,
+        angle: 0,
+        distance: 0,
+        rotateWithShape: false,
+      },
+    });
+    const nativeInner = nativeSlide.addShape('roundRect', {
+      shadow: { kind: 'inner', color: { kind: 'scheme', value: 'accent3' } },
+    });
+    expect(nativeDefaults.shadow).toEqual(
+      (defaults.document.slides[0]!.shapes[0] as ShapeModel).shadow,
+    );
+    expect(nativeCustom.shadow).toMatchObject({
+      kind: generatedCustom?.kind,
+      color: generatedCustom?.color,
+      opacity: generatedCustom?.opacity,
+      blur: generatedCustom?.blur,
+      angle: generatedCustom?.angle,
+      distance: generatedCustom?.distance,
+      rotateWithShape: true,
+    });
+    expect(generatedCustom?.kind === 'outer' && generatedCustom.rotateWithShape).toBe(false);
+    expect(nativeZero.shadow).toEqual({
+      kind: 'outer',
+      color: { kind: 'scheme', value: 'accent2' },
+      opacity: 0,
+      blur: 0,
+      angle: 0,
+      distance: 0,
+      rotateWithShape: false,
+    });
+    expect(nativeInner.shadow?.kind).toBe('inner');
+    expect(shapeXml(native, 0, nativeInner.id)).toContain(
+      '<a:innerShdw blurRad="101600" dist="50800" dir="16200000">',
+    );
+    expect(shapeXml(native, 0, nativeInner.id)).toContain('</a:innerShdw>');
+    const reopenedNative = await PptxDocument.open(await native.write());
+    expect((reopenedNative.slides[0]!.shapes[3] as ShapeModel).shadow)
+      .toEqual(nativeInner.shadow);
+
+    const beforeInvalid = {
+      parts: native.opcPackage.parts.map(({ uri, contentType, bytes, relationships }) => ({
+        uri,
+        contentType,
+        bytes: bytes.slice(),
+        relationships,
+      })),
+      mutations: [...native.opcPackage.mutations],
+      shapes: [...nativeSlide.shapes],
+    };
+    let accessorCalls = 0;
+    const accessor = Object.defineProperty({}, 'kind', {
+      enumerable: true,
+      get() {
+        accessorCalls += 1;
+        return 'outer';
+      },
+    });
+    for (const shadow of [
+      {},
+      { kind: 'none' },
+      { type: 'outer' },
+      { kind: 'outer', offset: 4 },
+      { kind: 'inner', rotateWithShape: false },
+      { kind: 'outer', opacity: 2 },
+      { kind: 'outer', blur: -1 },
+      { kind: 'outer', angle: 400 },
+      { kind: 'outer', distance: 201 },
+      { kind: 'outer', color: { kind: 'srgb', value: '#ABC' } },
+      accessor,
+    ]) {
+      expect(() => nativeSlide.addShape('rect', { shadow } as never)).toThrow();
+    }
+    expect(accessorCalls).toBe(0);
+    expect({
+      parts: native.opcPackage.parts.map(({ uri, contentType, bytes, relationships }) => ({
+        uri,
+        contentType,
+        bytes,
+        relationships,
+      })),
+      mutations: native.opcPackage.mutations,
+      shapes: nativeSlide.shapes,
+    }).toEqual(beforeInvalid);
+  });
+
   it('reads every legal PptxGenJS preset shape public output', async () => {
     const generated = new PptxGenJS();
     expect(generated.version).toBe('4.0.1');

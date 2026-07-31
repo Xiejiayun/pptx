@@ -264,6 +264,192 @@ if (!shapeHyperlinks) {
     packedHyperlinkRelationships,
   }));
 }
+const shapeShadowDeck = PptxDocument.create();
+const shapeShadowSlide = shapeShadowDeck.addSlide();
+const shapeShadowColor = { kind: 'srgb', value: '#123abc' };
+const shapeShadowInput = {
+  kind: 'outer',
+  color: shapeShadowColor,
+  opacity: 0.42,
+  blur: 7.25,
+  angle: 123.4,
+  distance: 5.5,
+  rotateWithShape: true,
+};
+const packedOuterShadow = shapeShadowSlide.addShape('roundRect', {
+  name: 'Packed outer shadow',
+  shadow: shapeShadowInput,
+});
+const packedDefaultShadow = shapeShadowSlide.addShape('rect', {
+  name: 'Packed default shadow',
+  shadow: { kind: 'outer' },
+});
+const packedInnerShadow = shapeShadowSlide.addShape('ellipse', {
+  name: 'Packed inner shadow',
+  shadow: { kind: 'inner', color: { kind: 'scheme', value: 'accent3' } },
+});
+const packedZeroThemeShadow = shapeShadowSlide.addShape('star5', {
+  name: 'Packed zero theme shadow',
+  shadow: {
+    kind: 'outer',
+    color: { kind: 'scheme', value: 'accent2' },
+    opacity: 0,
+    blur: 0,
+    angle: 0,
+    distance: 0,
+    rotateWithShape: false,
+  },
+});
+const initialPackedShadow = packedOuterShadow.shadow;
+const initialPackedShadowAgain = packedOuterShadow.shadow;
+shapeShadowColor.value = 'FFFFFF';
+shapeShadowInput.opacity = 1;
+shapeShadowInput.blur = 20;
+shapeShadowInput.angle = 90;
+shapeShadowInput.distance = 10;
+shapeShadowInput.rotateWithShape = false;
+const detachedPackedShadow = packedOuterShadow.shadow;
+const shapeShadowNoOpBytes = shapeShadowDeck.opcPackage
+  .requirePart(shapeShadowSlide.partUri).bytes.slice();
+const shapeShadowNoOpJournal = shapeShadowDeck.opcPackage.mutations.length;
+packedOuterShadow.shadow = {
+  kind: 'outer',
+  color: { kind: 'srgb', value: '123ABC' },
+  opacity: 0.42,
+  blur: 7.25,
+  angle: 123.4,
+  distance: 5.5,
+  rotateWithShape: true,
+};
+const shapeShadowNoOpCurrent = shapeShadowDeck.opcPackage
+  .requirePart(shapeShadowSlide.partUri).bytes;
+const shapeShadowNoOp = shapeShadowNoOpJournal === shapeShadowDeck.opcPackage.mutations.length &&
+  shapeShadowNoOpBytes.length === shapeShadowNoOpCurrent.length &&
+  shapeShadowNoOpBytes.every((value, index) => value === shapeShadowNoOpCurrent[index]);
+const shapeShadowPart = shapeShadowDeck.opcPackage.requirePart(shapeShadowSlide.partUri);
+const shapeShadowXml = new TextDecoder().decode(shapeShadowPart.bytes);
+const shapeShadowWithGlow = shapeShadowXml.replace(
+  '<a:effectLst><a:outerShdw',
+  '<a:effectLst><a:glow rad="12700"><a:srgbClr val="00FF00"/>' +
+    '</a:glow><a:outerShdw',
+);
+if (shapeShadowWithGlow === shapeShadowXml) {
+  throw new Error('Packed shape shadow glow fixture failed');
+}
+shapeShadowDeck.opcPackage.setPart(
+  shapeShadowSlide.partUri,
+  shapeShadowWithGlow,
+  shapeShadowPart.contentType,
+);
+packedOuterShadow.shadow = {
+  kind: 'outer',
+  color: { kind: 'scheme', value: 'accent5' },
+  opacity: 0.6,
+  blur: 3,
+  angle: 45,
+  distance: 2,
+  rotateWithShape: false,
+};
+packedDefaultShadow.shadow = {
+  kind: 'inner',
+  color: { kind: 'srgb', value: '445566' },
+  opacity: 0.5,
+  blur: 2,
+  angle: 30,
+  distance: 1,
+};
+packedInnerShadow.shadow = undefined;
+const duplicateShapeShadowSlide = shapeShadowDeck.duplicateSlide(0);
+const duplicatePackedShadow = duplicateShapeShadowSlide.shapes[0];
+if (!(duplicatePackedShadow instanceof ShapeModel)) {
+  throw new Error('Packed duplicate shadow shape failed');
+}
+duplicatePackedShadow.shadow = undefined;
+const writtenShapeShadowDeck = await shapeShadowDeck.write();
+const reopenedShapeShadowDeck = await PptxDocument.open(writtenShapeShadowDeck);
+const reopenedSourceShadows = reopenedShapeShadowDeck.slides[0].shapes.map((shape) =>
+  shape instanceof ShapeModel ? shape.shadow : undefined);
+const reopenedDuplicateShadows = reopenedShapeShadowDeck.slides[1].shapes.map((shape) =>
+  shape instanceof ShapeModel ? shape.shadow : undefined);
+const reopenedShapeShadowXml = reopenedShapeShadowDeck.slides.map(({ partUri }) =>
+  new TextDecoder().decode(reopenedShapeShadowDeck.opcPackage.requirePart(partUri).bytes));
+const shapeShadows = packedOuterShadow instanceof ShapeModel &&
+  packedDefaultShadow instanceof ShapeModel &&
+  packedInnerShadow instanceof ShapeModel &&
+  packedZeroThemeShadow instanceof ShapeModel &&
+  initialPackedShadow !== initialPackedShadowAgain &&
+  initialPackedShadow?.color !== initialPackedShadowAgain?.color &&
+  Object.isFrozen(initialPackedShadow) &&
+  Object.isFrozen(initialPackedShadow?.color) &&
+  JSON.stringify(initialPackedShadow) === JSON.stringify({
+    kind: 'outer',
+    color: { kind: 'srgb', value: '123ABC' },
+    opacity: 0.42,
+    blur: 7.25,
+    angle: 123.4,
+    distance: 5.5,
+    rotateWithShape: true,
+  }) &&
+  JSON.stringify(detachedPackedShadow) === JSON.stringify(initialPackedShadow) &&
+  shapeShadowNoOp &&
+  packedInnerShadow.shadow === undefined &&
+  JSON.stringify(packedZeroThemeShadow.shadow) === JSON.stringify({
+    kind: 'outer',
+    color: { kind: 'scheme', value: 'accent2' },
+    opacity: 0,
+    blur: 0,
+    angle: 0,
+    distance: 0,
+    rotateWithShape: false,
+  }) &&
+  reopenedShapeShadowXml[0].includes(
+    '<a:glow rad="12700"><a:srgbClr val="00FF00"/></a:glow>',
+  ) &&
+  reopenedShapeShadowXml[1].includes(
+    '<a:glow rad="12700"><a:srgbClr val="00FF00"/></a:glow>',
+  ) &&
+  JSON.stringify(reopenedSourceShadows) === JSON.stringify([
+    {
+      kind: 'outer',
+      color: { kind: 'scheme', value: 'accent5' },
+      opacity: 0.6,
+      blur: 3,
+      angle: 45,
+      distance: 2,
+      rotateWithShape: false,
+    },
+    {
+      kind: 'inner',
+      color: { kind: 'srgb', value: '445566' },
+      opacity: 0.5,
+      blur: 2,
+      angle: 30,
+      distance: 1,
+    },
+    undefined,
+    {
+      kind: 'outer',
+      color: { kind: 'scheme', value: 'accent2' },
+      opacity: 0,
+      blur: 0,
+      angle: 0,
+      distance: 0,
+      rotateWithShape: false,
+    },
+  ]) &&
+  reopenedDuplicateShadows[0] === undefined &&
+  JSON.stringify(reopenedDuplicateShadows.slice(1)) ===
+    JSON.stringify(reopenedSourceShadows.slice(1)) &&
+  shapeShadowDeck.diagnostics.every(({ severity }) => severity !== 'error');
+if (!shapeShadows) {
+  throw new Error('Packed shape shadows failed: ' + JSON.stringify({
+    initialPackedShadow,
+    detachedPackedShadow,
+    reopenedSourceShadows,
+    reopenedDuplicateShadows,
+    diagnostics: shapeShadowDeck.diagnostics,
+  }));
+}
 const shapeFillDeck = PptxDocument.create();
 const shapeFillSlide = shapeFillDeck.addSlide();
 const shapeFillSourceColor = { kind: 'srgb', value: '#AA0000' };
@@ -1229,6 +1415,7 @@ const customXml = new TextDecoder().decode(custom.opcPackage.requirePart('/ppt/p
 const checks = {
   PptxDocument: typeof PptxDocument === 'function',
   presetShapes,
+  shapeShadows,
   shapeFills,
   shapeLines,
   shapeArrows,
@@ -1354,6 +1541,112 @@ if (JSON.stringify(reopenedBrowserHyperlinks) !== JSON.stringify([
 ])) {
   throw new Error('Browser shape hyperlink edit/reopen failed: ' +
     JSON.stringify(reopenedBrowserHyperlinks));
+}
+const browserShadowDeck = PptxDocument.create();
+const browserShadowSlide = browserShadowDeck.addSlide();
+const browserShadowColor = { kind: 'srgb', value: '#123abc' };
+const browserShadowInput = {
+  kind: 'outer',
+  color: browserShadowColor,
+  opacity: 0.42,
+  blur: 7.25,
+  angle: 123.4,
+  distance: 5.5,
+  rotateWithShape: true,
+};
+const browserOuterShadow = browserShadowSlide.addShape('roundRect', {
+  shadow: browserShadowInput,
+});
+const browserInnerShadow = browserShadowSlide.addShape('ellipse', {
+  shadow: { kind: 'inner', color: { kind: 'scheme', value: 'accent2' } },
+});
+const browserClearedShadow = browserShadowSlide.addShape('rect', {
+  shadow: { kind: 'outer' },
+});
+const browserInitialShadow = browserOuterShadow.shadow;
+const browserInitialShadowAgain = browserOuterShadow.shadow;
+browserShadowColor.value = 'FFFFFF';
+browserShadowInput.opacity = 1;
+browserShadowInput.blur = 20;
+browserOuterShadow.shadow = {
+  kind: 'inner',
+  color: { kind: 'scheme', value: 'accent5' },
+  opacity: 0,
+  blur: 0,
+  angle: 0,
+  distance: 0,
+};
+browserInnerShadow.shadow = {
+  kind: 'outer',
+  color: { kind: 'srgb', value: '445566' },
+  opacity: 0.5,
+  blur: 2,
+  angle: 45,
+  distance: 1,
+  rotateWithShape: false,
+};
+browserClearedShadow.shadow = undefined;
+const reopenedBrowserShadowDeck = await PptxDocument.open(await browserShadowDeck.writeBlob());
+const reopenedBrowserShadows = reopenedBrowserShadowDeck.slides[0]?.shapes.map((shape) =>
+  shape instanceof ShapeModel ? shape.shadow : undefined);
+const browserShadowChecks = {
+  initial: JSON.stringify(browserInitialShadow) === JSON.stringify({
+    kind: 'outer',
+    color: { kind: 'srgb', value: '123ABC' },
+    opacity: 0.42,
+    blur: 7.25,
+    angle: 123.4,
+    distance: 5.5,
+    rotateWithShape: true,
+  }),
+  detached: browserInitialShadow !== browserInitialShadowAgain &&
+    browserInitialShadow?.color !== browserInitialShadowAgain?.color &&
+    Object.isFrozen(browserInitialShadow) &&
+    Object.isFrozen(browserInitialShadow?.color),
+  edited: JSON.stringify(browserOuterShadow.shadow) === JSON.stringify({
+    kind: 'inner',
+    color: { kind: 'scheme', value: 'accent5' },
+    opacity: 0,
+    blur: 0,
+    angle: 0,
+    distance: 0,
+  }) && JSON.stringify(browserInnerShadow.shadow) === JSON.stringify({
+    kind: 'outer',
+    color: { kind: 'srgb', value: '445566' },
+    opacity: 0.5,
+    blur: 2,
+    angle: 45,
+    distance: 1,
+    rotateWithShape: false,
+  }),
+  cleared: browserClearedShadow.shadow === undefined,
+  reopened: JSON.stringify(reopenedBrowserShadows) === JSON.stringify([
+    {
+      kind: 'inner',
+      color: { kind: 'scheme', value: 'accent5' },
+      opacity: 0,
+      blur: 0,
+      angle: 0,
+      distance: 0,
+    },
+    {
+      kind: 'outer',
+      color: { kind: 'srgb', value: '445566' },
+      opacity: 0.5,
+      blur: 2,
+      angle: 45,
+      distance: 1,
+      rotateWithShape: false,
+    },
+    undefined,
+  ]),
+};
+if (Object.values(browserShadowChecks).some((value) => !value)) {
+  throw new Error('Browser shape shadow failed: ' + JSON.stringify({
+    checks: browserShadowChecks,
+    initial: browserInitialShadow,
+    reopened: reopenedBrowserShadows,
+  }));
 }
 const browserShapeFillColor = { kind: 'srgb', value: '#224466' };
 const browserShapeFillSource = {
@@ -1931,6 +2224,7 @@ process.stdout.write(resolved);
   type ShapeFill,
   type ShapeLine,
   type ShapeLineDash,
+  type ShapeShadow,
   type PresetShapeType,
   type SlideModel,
   type CustomSlideSize,
@@ -2002,6 +2296,23 @@ const typedShapeArrows: ShapeArrows = {
   begin: typedShapeArrowType,
   end: 'arrow',
 };
+const typedOuterShapeShadow: ShapeShadow = {
+  kind: 'outer',
+  color: { kind: 'srgb', value: '123ABC' },
+  opacity: 0,
+  blur: 0,
+  angle: 0,
+  distance: 0,
+  rotateWithShape: true,
+};
+const typedInnerShapeShadow: ShapeShadow = {
+  kind: 'inner',
+  color: { kind: 'scheme', value: 'accent2' },
+  opacity: 0.5,
+  blur: 3,
+  angle: 270,
+  distance: 2,
+};
 const typedUrlHyperlink: Hyperlink = {
   url: 'https://example.com',
   tooltip: 'Typed URL',
@@ -2019,6 +2330,7 @@ const typedShapeOptions: AddShapeOptions = {
   line: typedSolidShapeLine,
   arrows: typedShapeArrows,
   hyperlink: typedUrlHyperlink,
+  shadow: typedOuterShapeShadow,
 };
 const typedShape: ShapeModel = createdDocument.addSlide().addShape(
   typedPreset,
@@ -2042,6 +2354,10 @@ const typedShapeHyperlinkRead: Hyperlink | undefined = typedShape.hyperlink;
 typedShape.hyperlink = typedSlideHyperlink;
 typedShape.hyperlink = typedUrlHyperlink;
 typedShape.hyperlink = undefined;
+const typedShapeShadowRead: ShapeShadow | undefined = typedShape.shadow;
+typedShape.shadow = typedInnerShapeShadow;
+typedShape.shadow = typedOuterShapeShadow;
+typedShape.shadow = undefined;
 const typedPresetCatalog: readonly PresetShapeType[] = PRESET_SHAPE_TYPES;
 // @ts-expect-error folderCorner is not a canonical OOXML preset
 createdDocument.addSlide().addShape('folderCorner');
@@ -2087,6 +2403,20 @@ const invalidSlideHyperlink: Hyperlink = { slide: '2' };
 const invalidTooltipHyperlink: Hyperlink = { slide: 2, tooltip: 7 };
 // @ts-expect-error shape hyperlink public value has no relationship ID escape hatch
 const invalidUnknownHyperlink: Hyperlink = { url: 'https://example.com', _rId: 'rId9' };
+// @ts-expect-error shape shadow requires an outer or inner kind
+const invalidMissingShapeShadowKind: ShapeShadow = {};
+// @ts-expect-error none is represented by undefined, not a shadow kind
+const invalidNoneShapeShadowKind: ShapeShadow = { kind: 'none' };
+// @ts-expect-error rotateWithShape is outer-only
+const invalidInnerShapeShadowRotate: ShapeShadow = { kind: 'inner', rotateWithShape: false };
+// @ts-expect-error PptxGenJS offset is not a native alias
+const invalidShapeShadowOffset: ShapeShadow = { kind: 'outer', offset: 4 };
+// @ts-expect-error PptxGenJS type is not a native alias
+const invalidShapeShadowType: ShapeShadow = { kind: 'outer', type: 'outer' };
+// @ts-expect-error unknown shape shadow fields are rejected
+const invalidUnknownShapeShadow: ShapeShadow = { kind: 'outer', size: 2 };
+// @ts-expect-error shape shadow opacity is numeric
+const invalidShapeShadowFieldType: ShapeShadow = { kind: 'outer', opacity: '0.5' };
 const addSectionOptions: AddSectionOptions = { title: 'Typed', order: 0 };
 const typedSection: PresentationSection = createdDocument.addSection(addSectionOptions);
 const addSlideOptions: AddSlideOptions = { sectionTitle: typedSection.title };
@@ -2325,7 +2655,10 @@ void [typedPreset, typedNoneShapeFill, typedSolidShapeFill, typedShapeOptions, t
   invalidShapeLineDash, invalidShapeLineAlias, typedUrlHyperlink, typedSlideHyperlink,
   typedShapeHyperlinkRead, invalidMissingHyperlink, invalidBothHyperlink,
   invalidUrlHyperlink, invalidSlideHyperlink, invalidTooltipHyperlink,
-  invalidUnknownHyperlink];
+  invalidUnknownHyperlink, typedOuterShapeShadow, typedInnerShapeShadow,
+  typedShapeShadowRead, invalidMissingShapeShadowKind, invalidNoneShapeShadowKind,
+  invalidInnerShapeShadowRotate, invalidShapeShadowOffset, invalidShapeShadowType,
+  invalidUnknownShapeShadow, invalidShapeShadowFieldType];
 void [documentPromise, createdDocument, addSectionOptions, typedSection, addSlideOptions, sectionSnapshot, typedVisibilitySlide, hiddenSnapshot, globalRtl, globalRtlSnapshot, titledDocument, titleSnapshot, authoredDocument, authorSnapshot, lastModifiedDocument, lastModifiedSnapshot, createdAtDocument, createdAtSnapshot, modifiedAtDocument, modifiedAtSnapshot, subjectDocument, subjectSnapshot, revisionDocument, revisionSnapshot, companyDocument, companySnapshot, themedDocument, themeSnapshot, fontSnapshot, fontUpdate, customDocument, createdText, creationBorder, creationMargin, creationOptions, objectCell, tableRows, tableOptions, typedTable, widthSnapshot, heightSnapshot, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotHorizontalAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellHorizontalAlignment, tableHorizontalAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
 `,
   );
@@ -2356,7 +2689,7 @@ void [documentPromise, createdDocument, addSectionOptions, typedSection, addSlid
   if (!doctor.ok || doctor.data?.version !== '0.1.0') throw new Error(`CLI smoke failed: ${cliResult.stdout}`);
 
   process.stdout.write(
-    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presetShapes: apiChecks.presetShapes, shapeFills: apiChecks.shapeFills, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, types: true, cli: doctor.data.version })}\n`,
+    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presetShapes: apiChecks.presetShapes, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, types: true, cli: doctor.data.version })}\n`,
   );
 } finally {
   await rm(directory, { recursive: true, force: true });
