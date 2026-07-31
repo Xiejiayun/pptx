@@ -79,8 +79,22 @@ export type ShapeLine =
       readonly dash?: ShapeLineDash;
     };
 
+export type ShapeArrowType =
+  | 'none'
+  | 'arrow'
+  | 'diamond'
+  | 'oval'
+  | 'stealth'
+  | 'triangle';
+
+export interface ShapeArrows {
+  readonly begin?: ShapeArrowType;
+  readonly end?: ShapeArrowType;
+}
+
 export interface AddShapeOptions extends Partial<Transform> {
   readonly name?: string;
   readonly fill?: ShapeFill;
   readonly line?: ShapeLine;
+  readonly arrows?: ShapeArrows;
 }

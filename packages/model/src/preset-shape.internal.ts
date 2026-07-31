@@ -18,6 +18,11 @@ import {
   renderSimpleLine,
   type NormalizedSimpleLine,
 } from './simple-line.internal.js';
+import {
+  normalizeShapeArrows,
+  renderShapeArrows,
+  type NormalizedShapeArrows,
+} from './shape-arrows.internal.js';
 
 const PRESENTATION_NAMESPACE =
   'http://schemas.openxmlformats.org/presentationml/2006/main';
@@ -30,6 +35,7 @@ const OPTION_KEYS = new Set([
   'name',
   'fill',
   'line',
+  'arrows',
   'x',
   'y',
   'width',
@@ -44,6 +50,7 @@ export interface NormalizedPresetShape {
   readonly name: string | undefined;
   readonly fill: ShapeFill;
   readonly line: NormalizedSimpleLine | undefined;
+  readonly arrows: NormalizedShapeArrows | undefined;
   readonly x: number;
   readonly y: number;
   readonly width: number;
@@ -86,12 +93,14 @@ export function normalizePresetShape(
   }
   const fill = normalizeSimpleFill(values.fill, 'Preset shape fill') ?? { kind: 'none' };
   const line = normalizeSimpleLine(values.line, 'Preset shape line');
+  const arrows = normalizeShapeArrows(values.arrows, 'Preset shape arrows');
 
   return Object.freeze({
     type: type as PresetShapeType,
     name: name as string | undefined,
     fill,
     line,
+    arrows,
     x: normalizeNumber(values.x, EMU_PER_INCH, 'x'),
     y: normalizeNumber(values.y, EMU_PER_INCH, 'y'),
     width,
@@ -118,15 +127,23 @@ export function renderPresetShapeXml(
     `<p:spPr><a:xfrm${transformAttributes}><a:off x="${shape.x}" y="${shape.y}"/>` +
     `<a:ext cx="${shape.width}" cy="${shape.height}"/></a:xfrm>` +
     `<a:prstGeom prst="${type}"><a:avLst/></a:prstGeom>` +
-    `${renderSimpleFill(shape.fill, 'a:')}${renderPresetLine(shape.line)}` +
+    `${renderSimpleFill(shape.fill, 'a:')}${renderPresetLine(shape.line, shape.arrows)}` +
     '</p:spPr></p:sp>';
 }
 
-function renderPresetLine(line: NormalizedSimpleLine | undefined): string {
-  if (line === undefined) return '<a:ln/>';
-  if (line.kind === 'none') return `<a:ln>${renderSimpleLine(line, 'a:')}</a:ln>`;
+function renderPresetLine(
+  line: NormalizedSimpleLine | undefined,
+  arrows: NormalizedShapeArrows | undefined,
+): string {
+  const arrowXml = renderShapeArrows(arrows, 'a:');
+  if (line === undefined) {
+    return arrowXml === '' ? '<a:ln/>' : `<a:ln>${arrowXml}</a:ln>`;
+  }
+  if (line.kind === 'none') {
+    return `<a:ln>${renderSimpleLine(line, 'a:')}${arrowXml}</a:ln>`;
+  }
   return `<a:ln w="${Math.round(line.width * 12_700)}">` +
-    `${renderSimpleLine(line, 'a:')}</a:ln>`;
+    `${renderSimpleLine(line, 'a:')}${arrowXml}</a:ln>`;
 }
 
 export function readPresetShapeType(

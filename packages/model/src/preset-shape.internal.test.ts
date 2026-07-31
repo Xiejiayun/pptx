@@ -4,8 +4,10 @@ import { LosslessXmlDocument } from '@pptx/lossless-xml';
 import { ModelParseError } from './errors.js';
 import {
   PRESET_SHAPE_TYPES,
+  type ShapeArrowType,
   type ShapeLineDash,
 } from './preset-shape.js';
+import type { ShapeArrowTypeValue } from './shape-arrows.internal.js';
 import type { SimpleLineDash } from './simple-line.internal.js';
 import {
   normalizePresetShape,
@@ -21,6 +23,12 @@ const DRAWING_NAMESPACE =
 type PublicDashMatchesInternal =
   [ShapeLineDash] extends [SimpleLineDash]
     ? [SimpleLineDash] extends [ShapeLineDash]
+      ? true
+      : false
+    : false;
+type PublicArrowMatchesInternal =
+  [ShapeArrowType] extends [ShapeArrowTypeValue]
+    ? [ShapeArrowTypeValue] extends [ShapeArrowType]
       ? true
       : false
     : false;
@@ -73,6 +81,7 @@ describe('normalizePresetShape', () => {
       name: undefined,
       fill: { kind: 'none' },
       line: undefined,
+      arrows: undefined,
       x: 914_400,
       y: 914_400,
       width: 914_400,
@@ -109,6 +118,7 @@ describe('normalizePresetShape', () => {
         transparency: 33.333,
       },
       line: undefined,
+      arrows: undefined,
       x: 1,
       y: -1,
       width: 3,
@@ -161,6 +171,31 @@ describe('normalizePresetShape', () => {
     const exactDashUnion: PublicDashMatchesInternal = true;
     expect(publicAgain).toBe('lgDashDotDot');
     expect(exactDashUnion).toBe(true);
+  });
+
+  it('normalizes detached preset shape arrows with an exact public token union', () => {
+    const arrows: { begin: ShapeArrowType; end: ShapeArrowType | undefined } = {
+      begin: 'triangle',
+      end: 'arrow',
+    };
+    const normalized = normalizePresetShape('line', { arrows });
+    arrows.begin = 'diamond';
+    arrows.end = undefined;
+
+    expect(normalized.arrows).toEqual({ begin: 'triangle', end: 'arrow' });
+    expect(normalized.arrows).not.toBe(arrows);
+    expect(Object.isFrozen(normalized.arrows)).toBe(true);
+    expect(normalizePresetShape('lineInv', { arrows: {} }).arrows).toEqual({});
+    expect(normalizePresetShape('line', {
+      arrows: { begin: undefined, end: 'none' },
+    }).arrows).toEqual({ end: 'none' });
+
+    const publicType: ShapeArrowType = 'stealth';
+    const internalType: ShapeArrowTypeValue = publicType;
+    const publicAgain: ShapeArrowType = internalType;
+    const exactArrowUnion: PublicArrowMatchesInternal = true;
+    expect(publicAgain).toBe('stealth');
+    expect(exactArrowUnion).toBe(true);
   });
 
   it('rejects unknown types and non-ordinary option containers', () => {
@@ -289,6 +324,32 @@ describe('normalizePresetShape', () => {
       expect(() => normalizePresetShape('rect', { line }), JSON.stringify(line)).toThrow();
     }
   });
+
+  it('rejects invalid preset shape arrows and PptxGenJS aliases', () => {
+    class Arrows {
+      begin = 'arrow';
+    }
+    for (const arrows of [
+      null,
+      false,
+      [],
+      new Date(),
+      new Arrows(),
+      Object.create({ begin: 'arrow' }),
+      { begin: null },
+      { begin: '' },
+      { begin: 'Arrow' },
+      { begin: 'bogus' },
+      { end: 'TRIANGLE' },
+      { beginArrowType: 'arrow' },
+      { endArrowType: 'arrow' },
+      { lineHead: 'arrow' },
+      { lineTail: 'arrow' },
+      { begin: 'arrow', [Symbol('unsafe')]: true },
+    ]) {
+      expect(() => normalizePresetShape('line', { arrows }), JSON.stringify(arrows)).toThrow();
+    }
+  });
 });
 
 describe('preset shape XML codec', () => {
@@ -396,6 +457,37 @@ describe('preset shape XML codec', () => {
       '<a:alpha val="100000"/></a:srgbClr></a:solidFill>' +
       '<a:prstDash val="solid"/></a:ln>',
     );
+  });
+
+  it('renders strict arrows after line state without synthesizing line defaults', () => {
+    expect(renderPresetShapeXml(7, normalizePresetShape('line', {
+      arrows: { begin: 'triangle', end: 'arrow' },
+    }))).toContain(
+      '<a:prstGeom prst="line"><a:avLst/></a:prstGeom><a:noFill/>' +
+      '<a:ln><a:headEnd type="triangle"/><a:tailEnd type="arrow"/></a:ln>',
+    );
+    expect(renderPresetShapeXml(8, normalizePresetShape('lineInv', {
+      line: { kind: 'none' },
+      arrows: { end: 'none' },
+    }))).toContain(
+      '<a:ln><a:noFill/><a:tailEnd type="none"/></a:ln>',
+    );
+    expect(renderPresetShapeXml(9, normalizePresetShape('line', {
+      line: {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent2' },
+        width: 2.5,
+        dash: 'dashDot',
+      },
+      arrows: { begin: 'stealth', end: 'oval' },
+    }))).toContain(
+      '<a:ln w="31750"><a:solidFill><a:schemeClr val="accent2"/>' +
+      '</a:solidFill><a:prstDash val="dashDot"/>' +
+      '<a:headEnd type="stealth"/><a:tailEnd type="oval"/></a:ln>',
+    );
+    expect(renderPresetShapeXml(10, normalizePresetShape('line', {
+      arrows: {},
+    }))).toContain('<a:prstGeom prst="line"><a:avLst/></a:prstGeom><a:noFill/><a:ln/>');
   });
 
   it('round-trips every canonical token through parseable direct geometry', () => {

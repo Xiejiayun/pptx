@@ -27,6 +27,8 @@ import {
   type AddTableCellOptions,
   type AddTableCellInput,
   type AddTableOptions,
+  type ShapeArrows,
+  type ShapeArrowType,
   type ShapeFill,
   type ShapeLine,
   type ShapeLineDash,
@@ -389,6 +391,57 @@ describe('PptxDocument vertical slice', () => {
     // @ts-expect-error public shape line dash union is closed
     const invalidDash: ShapeLineDash = 'dot';
     void [invalidWidth, invalidDash];
+  });
+
+  it('creates preset shape arrows through the public SDK surface', () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const relationships = slide.relationships.map(({ id, type, target, targetMode }) => ({
+      id,
+      type,
+      target,
+      targetMode,
+    }));
+    const begin: ShapeArrowType = 'triangle';
+    const arrows: ShapeArrows = { begin, end: 'arrow' };
+    const omitted = slide.addShape('line');
+    const arrowOnly = slide.addShape('line', { arrows });
+    const styled = slide.addShape('lineInv', {
+      line: {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent3' },
+        width: 2.5,
+        dash: 'sysDash',
+      },
+      arrows: { begin: 'none', end: 'stealth' },
+    });
+
+    expect(slide.shapes).toEqual([omitted, arrowOnly, styled]);
+    expect(slide.shapes[1]).toBe(arrowOnly);
+    expect([omitted, arrowOnly, styled].every((shape) => shape instanceof ShapeModel)).toBe(true);
+    expect(slide.relationships.map(({ id, type, target, targetMode }) => ({
+      id,
+      type,
+      target,
+      targetMode,
+    }))).toEqual(relationships);
+
+    const xml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(xml).toContain(
+      '<a:ln><a:headEnd type="triangle"/><a:tailEnd type="arrow"/></a:ln>',
+    );
+    expect(xml).toContain(
+      '<a:ln w="31750"><a:solidFill><a:schemeClr val="accent3"/>' +
+      '</a:solidFill><a:prstDash val="sysDash"/>' +
+      '<a:headEnd type="none"/><a:tailEnd type="stealth"/></a:ln>',
+    );
+    expect(xml).not.toContain('333333');
+
+    // @ts-expect-error public shape arrow type union is closed
+    const invalidType: ShapeArrowType = 'open';
+    // @ts-expect-error public shape arrows expose begin/end, not PptxGenJS aliases
+    const invalidAlias: ShapeArrows = { beginArrowType: 'arrow' };
+    void [invalidType, invalidAlias];
   });
 
   it('preserves editable shape lines across duplicate, rollback, reopen, and all formats', async () => {

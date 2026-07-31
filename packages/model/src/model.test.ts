@@ -17,6 +17,8 @@ import {
   type AddTableCellInput,
   type AddTableOptions,
   type PresentationFormat,
+  type ShapeArrows,
+  type ShapeArrowType,
   type ShapeFill,
   type ShapeLine,
   type ShapeLineDash,
@@ -388,6 +390,140 @@ describe('PresentationModel', () => {
       contentType,
       bytes,
     }))).toEqual(parts);
+    expect(slide.relationships.map(({ id, type, target, targetMode }) => ({
+      id,
+      type,
+      target,
+      targetMode,
+    }))).toEqual(relationships);
+    expect(slide.shapes).toEqual(shapes);
+    expect(pkg.mutations).toEqual(journal);
+  });
+
+  it('creates preset shape arrows with detached strict values through the live model', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const runtimeUndefined: ShapeArrows | undefined = undefined;
+    const mutableArrows: { begin: ShapeArrowType; end: ShapeArrowType } = {
+      begin: 'triangle',
+      end: 'arrow',
+    };
+
+    const omitted = slide.addShape('line');
+    const undefinedArrows = slide.addShape('lineInv', {
+      arrows: runtimeUndefined,
+    } as never);
+    const empty = slide.addShape('line', { arrows: {} });
+    const both = slide.addShape('line', { arrows: mutableArrows });
+    const arrowOnly = slide.addShape('lineInv', { arrows: { end: 'stealth' } });
+    const noneLine = slide.addShape('line', {
+      line: { kind: 'none' },
+      arrows: { begin: 'none', end: 'oval' },
+    });
+    const styled = slide.addShape('line', {
+      line: {
+        kind: 'line',
+        color: { kind: 'srgb', value: '112233' },
+        width: 2.5,
+        dash: 'dashDot',
+      },
+      arrows: { begin: 'diamond', end: 'triangle' },
+    });
+    mutableArrows.begin = 'none';
+    mutableArrows.end = 'none';
+
+    expect([omitted, undefinedArrows, empty, both, arrowOnly, noneLine, styled].every(
+      (shape) => shape instanceof ShapeModel,
+    )).toBe(true);
+    expect(slide.shapes).toEqual([
+      omitted,
+      undefinedArrows,
+      empty,
+      both,
+      arrowOnly,
+      noneLine,
+      styled,
+    ]);
+    expect(slide.shapes[3]).toBe(both);
+
+    const xml = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect((xml.match(/<a:ln\/>/g) ?? [])).toHaveLength(3);
+    expect(xml).toContain(
+      '<a:ln><a:headEnd type="triangle"/><a:tailEnd type="arrow"/></a:ln>',
+    );
+    expect(xml).toContain('<a:ln><a:tailEnd type="stealth"/></a:ln>');
+    expect(xml).toContain(
+      '<a:ln><a:noFill/><a:headEnd type="none"/><a:tailEnd type="oval"/></a:ln>',
+    );
+    expect(xml).toContain(
+      '<a:ln w="31750"><a:solidFill><a:srgbClr val="112233"/>' +
+      '</a:solidFill><a:prstDash val="dashDot"/>' +
+      '<a:headEnd type="diamond"/><a:tailEnd type="triangle"/></a:ln>',
+    );
+    expect(xml).not.toContain('333333');
+  });
+
+  it('rejects invalid preset shape arrows before mutating package state', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const partBytes = pkg.requirePart(slide.partUri).bytes.slice();
+    const parts = pkg.parts.map(({ uri, contentType, bytes }) => ({
+      uri,
+      contentType,
+      bytes: bytes.slice(),
+    }));
+    const relationships = slide.relationships.map(({ id, type, target, targetMode }) => ({
+      id,
+      type,
+      target,
+      targetMode,
+    }));
+    const shapes = [...slide.shapes];
+    const journal = [...pkg.mutations];
+    let accessorCalls = 0;
+    const arrowsGetter = Object.defineProperty({}, 'begin', {
+      enumerable: true,
+      get() {
+        accessorCalls += 1;
+        return 'arrow';
+      },
+    });
+    const optionsGetter = Object.defineProperty({}, 'arrows', {
+      enumerable: true,
+      get() {
+        accessorCalls += 1;
+        return { begin: 'arrow' };
+      },
+    });
+    for (const arrows of [
+      null,
+      false,
+      [],
+      new Date(),
+      Object.create({ begin: 'arrow' }),
+      arrowsGetter,
+      { begin: '' },
+      { begin: 'Arrow' },
+      { begin: 'bogus' },
+      { end: null },
+      { beginArrowType: 'arrow' },
+      { endArrowType: 'arrow' },
+      { lineHead: 'arrow' },
+      { lineTail: 'arrow' },
+      { begin: 'arrow', [Symbol('unsafe')]: true },
+    ]) {
+      expect(() => slide.addShape('line', { arrows } as never)).toThrow();
+    }
+    expect(() => slide.addShape('line', optionsGetter as never)).toThrow(/data property/);
+    expect(() => slide.addShape('line', { beginArrowType: 'arrow' } as never))
+      .toThrow(/unsupported property/);
+
+    expect(accessorCalls).toBe(0);
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(partBytes);
+    expect(pkg.parts.map(({ uri, contentType, bytes }) => ({ uri, contentType, bytes })))
+      .toEqual(parts);
     expect(slide.relationships.map(({ id, type, target, targetMode }) => ({
       id,
       type,
