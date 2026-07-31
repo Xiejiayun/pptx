@@ -107,10 +107,28 @@ const unsupportedPublicConnectionSiteOptions: PptxGenJSPublicShapeOptions = {
   // @ts-expect-error PptxGenJS 4.0.1 exposes no arbitrary connection-site input.
   connectionSites: [],
 };
+const unsupportedPublicGuideOptions: PptxGenJSPublicShapeOptions = {
+  x: 1,
+  y: 1,
+  w: 4,
+  h: 3,
+  // @ts-expect-error PptxGenJS 4.0.1 exposes no arbitrary guide-formula input.
+  guides: [],
+};
+const unsupportedPublicEvaluatorOptions: PptxGenJSPublicShapeOptions = {
+  x: 1,
+  y: 1,
+  w: 4,
+  h: 3,
+  // @ts-expect-error PptxGenJS 4.0.1 exposes no geometry-evaluator input.
+  evaluateCustomGeometry: true,
+};
 void [
   publicCustomShapeOptions,
   unsupportedPublicHandleOptions,
   unsupportedPublicConnectionSiteOptions,
+  unsupportedPublicGuideOptions,
+  unsupportedPublicEvaluatorOptions,
 ];
 
 interface PptxGenJSInstance {
@@ -1713,6 +1731,23 @@ describe('importPptxGenJS', () => {
     expect(Object.hasOwn(importedShape.customGeometry!, 'handles')).toBe(false);
     expect(shapeXml(imported, 0, importedShape.id)).not.toContain('x="999"');
     expect(shapeXml(imported, 0, importedShape.id)).not.toContain('y="999"');
+    const beforeEvaluation = imported.opcPackage.requirePart(
+      imported.slides[0]!.partUri,
+    ).bytes.slice();
+    const evaluationJournal = [...imported.opcPackage.mutations];
+    const evaluated = importedShape.evaluateCustomGeometry();
+    expect(evaluated?.paths).toEqual(importedShape.customGeometry?.paths);
+    expect(evaluated?.textRectangle).toEqual({
+      left: 0,
+      top: 0,
+      right: inches(4),
+      bottom: inches(3),
+    });
+    expect(Object.isFrozen(evaluated)).toBe(true);
+    expect(Object.isFrozen(evaluated?.paths[0]?.commands[2])).toBe(true);
+    expect(imported.opcPackage.requirePart(imported.slides[0]!.partUri).bytes)
+      .toEqual(beforeEvaluation);
+    expect(imported.opcPackage.mutations).toEqual(evaluationJournal);
 
     const native = PptxDocument.create();
     const nativeShape = native.addSlide().addCustomShape(expected, {

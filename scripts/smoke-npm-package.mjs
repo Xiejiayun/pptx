@@ -49,7 +49,7 @@ try {
 
   await writeFile(
     join(directory, 'smoke.mjs'),
-    `import { inches, PRESET_SHAPE_TYPES, PptxDocument, ShapeModel, TableModel, GradientCodec, importPptxGenJS, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
+    `import { CustomGeometryEvaluationError, evaluateCustomGeometry, inches, PRESET_SHAPE_TYPES, PptxDocument, ShapeModel, TableModel, GradientCodec, importPptxGenJS, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
 const created = PptxDocument.create({ rtlMode: true });
 const shapeDeck = PptxDocument.create();
 const shapeSlide = shapeDeck.addSlide();
@@ -610,6 +610,102 @@ const customGeometryTextRectangles =
   JSON.stringify(reopenedTextRectangleGeometryShape.customGeometry) ===
     JSON.stringify(textRectangleGeometryReplacement) &&
   textRectangleGeometryDeck.diagnostics.every(({ severity }) => severity !== 'error');
+const evaluatorGeometry = {
+  adjustments: [{ name: 'adj', formula: { operator: 'val', operands: [25_000] } }],
+  guides: [
+    { name: 'x1', formula: { operator: '*/', operands: ['w', 'adj', 100_000] } },
+    { name: 'y1', formula: { operator: '*/', operands: ['h', 'adj', 100_000] } },
+    { name: 'rad', formula: { operator: 'max', operands: ['x1', 1] } },
+  ],
+  handles: [{
+    kind: 'xy',
+    position: { x: 'x1', y: 'y1' },
+    xGuide: 'adj',
+    minX: 'l',
+    maxX: 'r',
+  }],
+  connectionSites: [{ angle: 'cd4', position: { x: 'x1', y: 'y1' } }],
+  paths: [{
+    width: 100_000,
+    height: 100_000,
+    commands: [
+      { kind: 'moveTo', point: { x: 'x1', y: 'y1' } },
+      {
+        kind: 'arcTo',
+        widthRadius: 'rad',
+        heightRadius: 'hd2',
+        startAngle: 0,
+        sweepAngle: 'cd4',
+      },
+      { kind: 'close' },
+    ],
+  }],
+};
+const evaluatorContext = { width: inches(2), height: inches(1) };
+const pureEvaluatorResult = evaluateCustomGeometry(evaluatorGeometry, evaluatorContext);
+const evaluatorDeck = PptxDocument.create();
+const evaluatorSlide = evaluatorDeck.addSlide();
+const evaluatorShape = evaluatorSlide.addCustomShape(evaluatorGeometry, {
+  name: 'Packed custom geometry evaluator',
+  width: inches(2),
+  height: inches(1),
+});
+const evaluatorBefore = evaluatorDeck.opcPackage.requirePart(evaluatorSlide.partUri).bytes.slice();
+const evaluatorJournal = evaluatorDeck.opcPackage.mutations.length;
+const liveEvaluatorResult = evaluatorShape.evaluateCustomGeometry();
+const evaluatorCurrent = evaluatorDeck.opcPackage.requirePart(evaluatorSlide.partUri).bytes;
+const evaluatorReadOnly = evaluatorJournal === evaluatorDeck.opcPackage.mutations.length &&
+  evaluatorBefore.length === evaluatorCurrent.length &&
+  evaluatorBefore.every((value, index) => value === evaluatorCurrent[index]);
+evaluatorShape.setTransform({ width: inches(3), height: inches(1.5) });
+const resizedEvaluatorResult = evaluatorShape.evaluateCustomGeometry();
+let typedEvaluatorFailure = false;
+try {
+  evaluateCustomGeometry({
+    paths: [{
+      width: 1,
+      height: 1,
+      commands: [{ kind: 'moveTo', point: { x: 'missing', y: 0 } }],
+    }],
+  }, { width: 1, height: 1 });
+} catch (error) {
+  typedEvaluatorFailure = error instanceof CustomGeometryEvaluationError &&
+    error.code === 'unknown-token' && error.token === 'missing';
+}
+const evaluatorBytes = await evaluatorDeck.write();
+const reopenedEvaluatorShape = (await PptxDocument.open(evaluatorBytes)).slides[0].shapes[0];
+const reopenedEvaluatorResult = reopenedEvaluatorShape instanceof ShapeModel
+  ? reopenedEvaluatorShape.evaluateCustomGeometry()
+  : undefined;
+const customGeometryEvaluator =
+  evaluatorShape instanceof ShapeModel &&
+  JSON.stringify(pureEvaluatorResult.guides) === JSON.stringify([
+    { name: 'x1', value: inches(0.5) },
+    { name: 'y1', value: inches(0.25) },
+    { name: 'rad', value: inches(0.5) },
+  ]) &&
+  JSON.stringify(pureEvaluatorResult.textRectangle) === JSON.stringify({
+    left: 0,
+    top: 0,
+    right: inches(2),
+    bottom: inches(1),
+  }) &&
+  JSON.stringify(liveEvaluatorResult) === JSON.stringify(pureEvaluatorResult) &&
+  Object.isFrozen(pureEvaluatorResult) &&
+  Object.isFrozen(pureEvaluatorResult.context) &&
+  Object.isFrozen(pureEvaluatorResult.handles?.[0]?.position) &&
+  Object.isFrozen(pureEvaluatorResult.connectionSites?.[0]?.position) &&
+  Object.isFrozen(pureEvaluatorResult.textRectangle) &&
+  Object.isFrozen(pureEvaluatorResult.paths[0]?.commands[1]) &&
+  evaluatorReadOnly &&
+  resizedEvaluatorResult?.context.width === inches(3) &&
+  resizedEvaluatorResult.context.height === inches(1.5) &&
+  resizedEvaluatorResult.guides?.[0]?.value === inches(0.75) &&
+  resizedEvaluatorResult.guides?.[1]?.value === inches(0.375) &&
+  typedEvaluatorFailure &&
+  reopenedEvaluatorShape instanceof ShapeModel &&
+  JSON.stringify(reopenedEvaluatorResult) === JSON.stringify(resizedEvaluatorResult) &&
+  evaluatorDeck.diagnostics.every(({ severity }) => severity !== 'error');
 const shapeAdjustmentDeck = PptxDocument.create();
 const shapeAdjustmentSlide = shapeAdjustmentDeck.addSlide();
 const shapeAdjustmentInput = [
@@ -1984,6 +2080,7 @@ const checks = {
   customGeometryAdjustmentHandles,
   customGeometryConnectionSites,
   customGeometryTextRectangles,
+  customGeometryEvaluator,
   shapeAdjustments,
   shapeShadows,
   shapeFills,
@@ -2052,7 +2149,7 @@ process.stdout.write(JSON.stringify(checks));
 
   await writeFile(
     join(directory, 'browser-smoke.mjs'),
-    `import { inches, PRESET_SHAPE_TYPES, PptxDocument, ShapeModel, TableModel, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
+    `import { CustomGeometryEvaluationError, evaluateCustomGeometry, inches, PRESET_SHAPE_TYPES, PptxDocument, ShapeModel, TableModel, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
 const resolved = import.meta.resolve('@jiayunxie/pptx');
 if (!resolved.endsWith('/dist/browser.js')) throw new Error('Browser condition resolved to ' + resolved);
 const checks = [PptxDocument, transitions.TransitionCodec, animations.AnimationTimingCodec, advancedCharts.AdvancedChartCodec, smartArt.SmartArtDiagramCodec];
@@ -2119,16 +2216,47 @@ if (!Object.isFrozen(initialBrowserFormulaGeometry) ||
 browserCustomGeometryShape.customGeometry = browserFormulaReplacement;
 browserCustomGeometryShape.presetType = 'ellipse';
 browserCustomGeometryShape.customGeometry = browserFormulaReplacement;
+const browserEvaluatorContext = { width: inches(1), height: inches(1) };
+const browserPureEvaluatorResult = evaluateCustomGeometry(
+  browserFormulaReplacement,
+  browserEvaluatorContext,
+);
+const browserLiveEvaluatorResult = browserCustomGeometryShape.evaluateCustomGeometry();
+let browserTypedEvaluatorFailure = false;
+try {
+  evaluateCustomGeometry({
+    paths: [{
+      width: 1,
+      height: 1,
+      commands: [{ kind: 'moveTo', point: { x: 'missing', y: 0 } }],
+    }],
+  }, { width: 1, height: 1 });
+} catch (error) {
+  browserTypedEvaluatorFailure = error instanceof CustomGeometryEvaluationError &&
+    error.code === 'unknown-token' && error.token === 'missing';
+}
 const reopenedBrowserCustomGeometryShape = (await PptxDocument.open(
   await browserCustomGeometryDeck.writeBlob(),
 )).slides[0].shapes[0];
+const reopenedBrowserEvaluatorResult = reopenedBrowserCustomGeometryShape instanceof ShapeModel
+  ? reopenedBrowserCustomGeometryShape.evaluateCustomGeometry()
+  : undefined;
 if (!(reopenedBrowserCustomGeometryShape instanceof ShapeModel) ||
     reopenedBrowserCustomGeometryShape.presetType !== undefined ||
     !Object.isFrozen(reopenedBrowserCustomGeometryShape.customGeometry?.guides?.[0]?.formula.operands) ||
     JSON.stringify(reopenedBrowserCustomGeometryShape.customGeometry) !==
       JSON.stringify(browserFormulaReplacement) ||
     reopenedBrowserCustomGeometryShape.customGeometry?.paths[0]?.commands[1]?.kind !== 'arcTo' ||
-    reopenedBrowserCustomGeometryShape.customGeometry.paths[0].commands[1].sweepAngle !== 'cd4') {
+    reopenedBrowserCustomGeometryShape.customGeometry.paths[0].commands[1].sweepAngle !== 'cd4' ||
+    JSON.stringify(browserLiveEvaluatorResult) !== JSON.stringify(browserPureEvaluatorResult) ||
+    JSON.stringify(reopenedBrowserEvaluatorResult) !== JSON.stringify(browserPureEvaluatorResult) ||
+    browserPureEvaluatorResult.guides?.[0]?.value !== 50_000 ||
+    browserPureEvaluatorResult.textRectangle.right !== inches(1) ||
+    browserPureEvaluatorResult.textRectangle.bottom !== inches(1) ||
+    !Object.isFrozen(browserPureEvaluatorResult) ||
+    !Object.isFrozen(browserPureEvaluatorResult.context) ||
+    !Object.isFrozen(browserPureEvaluatorResult.paths[0]?.commands[1]) ||
+    !browserTypedEvaluatorFailure) {
   throw new Error('Browser custom geometry lifecycle failed');
 }
 const browserHandleSource = {
@@ -3137,7 +3265,9 @@ process.stdout.write(resolved);
   await writeFile(
     join(directory, 'smoke.ts'),
     `import {
+  CustomGeometryEvaluationError,
   degrees,
+  evaluateCustomGeometry,
   PRESET_SHAPE_TYPES,
   PptxDocument,
   ShapeModel,
@@ -3148,6 +3278,8 @@ process.stdout.write(resolved);
   type CustomGeometry,
   type CustomGeometryCommand,
   type CustomGeometryConnectionSite,
+  type CustomGeometryEvaluationContext,
+  type CustomGeometryEvaluationErrorCode,
   type CustomGeometryTextRectangle,
   type CustomGeometryFormula,
   type CustomGeometryGuide,
@@ -3158,6 +3290,16 @@ process.stdout.write(resolved);
   type CustomGeometryPoint,
   type CustomGeometryValue,
   type CustomGeometryXyHandle,
+  type EvaluatedCustomGeometry,
+  type EvaluatedCustomGeometryCommand,
+  type EvaluatedCustomGeometryConnectionSite,
+  type EvaluatedCustomGeometryGuide,
+  type EvaluatedCustomGeometryHandle,
+  type EvaluatedCustomGeometryPath,
+  type EvaluatedCustomGeometryPoint,
+  type EvaluatedCustomGeometryPolarHandle,
+  type EvaluatedCustomGeometryTextRectangle,
+  type EvaluatedCustomGeometryXyHandle,
   type Hyperlink,
   type ShapeArrows,
   type ShapeArrowType,
@@ -3306,6 +3448,106 @@ const typedHandleGeometry: CustomGeometry = {
   handles: typedCustomHandles,
   paths: [typedCustomPath],
 };
+const typedEvaluationContext: CustomGeometryEvaluationContext = { width: 200, height: 100 };
+const typedEvaluatedGuide: EvaluatedCustomGeometryGuide = { name: 'x1', value: 50 };
+const typedEvaluatedPoint: EvaluatedCustomGeometryPoint = { x: 50, y: 25 };
+const typedEvaluatedXyHandle: EvaluatedCustomGeometryXyHandle = {
+  kind: 'xy',
+  position: typedEvaluatedPoint,
+  xGuide: 'adjX',
+  minX: 0,
+  maxX: 200,
+};
+const typedEvaluatedPolarHandle: EvaluatedCustomGeometryPolarHandle = {
+  kind: 'polar',
+  position: typedEvaluatedPoint,
+  radiusGuide: 'adjR',
+  minRadius: 1,
+  maxRadius: 100,
+  angleGuide: 'adjAng',
+  minAngle: 0,
+  maxAngle: 5_400_000,
+};
+const typedEvaluatedHandles: readonly EvaluatedCustomGeometryHandle[] = [
+  typedEvaluatedXyHandle,
+  typedEvaluatedPolarHandle,
+];
+const typedEvaluatedConnectionSite: EvaluatedCustomGeometryConnectionSite = {
+  position: typedEvaluatedPoint,
+  angle: 5_400_000,
+};
+const typedEvaluatedTextRectangle: EvaluatedCustomGeometryTextRectangle = {
+  left: 0,
+  top: 0,
+  right: 200,
+  bottom: 100,
+};
+const typedEvaluatedCommand: EvaluatedCustomGeometryCommand = {
+  kind: 'lineTo',
+  point: typedEvaluatedPoint,
+};
+const typedEvaluatedPath: EvaluatedCustomGeometryPath = {
+  width: 100,
+  height: 100,
+  commands: [typedEvaluatedCommand],
+};
+const typedEvaluatedGeometry: EvaluatedCustomGeometry = {
+  context: typedEvaluationContext,
+  guides: [typedEvaluatedGuide],
+  handles: typedEvaluatedHandles,
+  connectionSites: [typedEvaluatedConnectionSite],
+  textRectangle: typedEvaluatedTextRectangle,
+  paths: [typedEvaluatedPath],
+};
+const typedPureEvaluation: EvaluatedCustomGeometry = evaluateCustomGeometry(
+  typedCustomGeometry,
+  typedEvaluationContext,
+);
+const typedEvaluationShape: ShapeModel = createdDocument.addSlide()
+  .addCustomShape(typedCustomGeometry);
+const typedLiveEvaluation: EvaluatedCustomGeometry | undefined =
+  typedEvaluationShape.evaluateCustomGeometry();
+const typedEvaluationErrorCode: CustomGeometryEvaluationErrorCode = 'unknown-token';
+const typedEvaluationError = new CustomGeometryEvaluationError(
+  typedEvaluationErrorCode,
+  'Typed evaluator error',
+  'x1',
+  'missing',
+);
+// @ts-expect-error Evaluation context requires height.
+const invalidMissingEvaluationHeight: CustomGeometryEvaluationContext = { width: 1 };
+const invalidStringEvaluationWidth: CustomGeometryEvaluationContext = {
+  // @ts-expect-error Evaluation context width is numeric.
+  width: '1',
+  height: 1,
+};
+const invalidExtraEvaluationContext: CustomGeometryEvaluationContext = {
+  width: 1,
+  height: 1,
+  // @ts-expect-error Evaluation context rejects extra fields.
+  extra: true,
+};
+const invalidStringEvaluatedPoint: EvaluatedCustomGeometryPoint = {
+  // @ts-expect-error Evaluated coordinates are numeric.
+  x: 'x1',
+  y: 0,
+};
+// @ts-expect-error Evaluation error codes use a closed union.
+const invalidEvaluationErrorCode: CustomGeometryEvaluationErrorCode = 'invalid';
+const invalidTokenEvaluatedPath: EvaluatedCustomGeometryPath = {
+  width: 1,
+  height: 1,
+  commands: [{
+    kind: 'moveTo',
+    point: {
+      // @ts-expect-error Evaluated paths cannot retain guide tokens.
+      x: 'x1',
+      y: 0,
+    },
+  }],
+};
+// @ts-expect-error Live shape evaluation accepts no explicit context argument.
+const invalidShapeEvaluationArguments = typedEvaluationShape.evaluateCustomGeometry(typedEvaluationContext);
 // @ts-expect-error Adjustment handles require a position.
 const invalidMissingHandlePosition: CustomGeometryHandle = { kind: 'polar' };
 const invalidXyPolarField: CustomGeometryXyHandle = {
@@ -3752,6 +3994,14 @@ void [typedPreset, typedNoneShapeFill, typedSolidShapeFill, typedShapeOptions, t
   invalidExtraTextRectangleField, invalidTextRectangleValue, invalidUndefinedTextRectangle,
   invalidCustomFormulaOperator, invalidCustomFormulaArity,
   typedCustomOptions, typedCustomShape, typedCustomGeometryRead,
+  typedEvaluationContext, typedEvaluatedGuide, typedEvaluatedPoint,
+  typedEvaluatedXyHandle, typedEvaluatedPolarHandle, typedEvaluatedHandles,
+  typedEvaluatedConnectionSite, typedEvaluatedTextRectangle, typedEvaluatedCommand,
+  typedEvaluatedPath, typedEvaluatedGeometry, typedPureEvaluation, typedEvaluationShape,
+  typedLiveEvaluation,
+  typedEvaluationErrorCode, typedEvaluationError, invalidMissingEvaluationHeight,
+  invalidStringEvaluationWidth, invalidExtraEvaluationContext, invalidStringEvaluatedPoint,
+  invalidEvaluationErrorCode, invalidTokenEvaluatedPath, invalidShapeEvaluationArguments,
   typedPresetRead, typedShapeAdjustments, typedShapeAdjustmentsRead,
   invalidMissingShapeAdjustmentValue, invalidShapeAdjustmentValue,
   invalidShapeAdjustmentOptions, typedShapeFillRead, typedPresetCatalog, invalidShapeFillKind,
@@ -3795,7 +4045,7 @@ void [documentPromise, createdDocument, addSectionOptions, typedSection, addSlid
   if (!doctor.ok || doctor.data?.version !== '0.1.0') throw new Error(`CLI smoke failed: ${cliResult.stdout}`);
 
   process.stdout.write(
-    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, types: true, cli: doctor.data.version })}\n`,
+    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, types: true, cli: doctor.data.version })}\n`,
   );
 } finally {
   await rm(directory, { recursive: true, force: true });
