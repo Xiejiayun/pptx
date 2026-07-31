@@ -790,6 +790,63 @@ describe('custom geometry OOXML codec', () => {
       'a:',
     )));
     expect(readCustomGeometry(escaped.xml, escaped.shape)).toEqual(escapedGeometry);
+
+    const positionOnlyGeometry: CustomGeometry = {
+      handles: [
+        { kind: 'xy', position: { x: 0, y: 'vc' } },
+        { kind: 'polar', position: { x: 'hc', y: 0 } },
+      ],
+      paths: [{ width: 1, height: 1, commands: [] }],
+    };
+    const positionOnly = parseShape(fixture(renderCustomGeometry(
+      normalizeCustomGeometry(positionOnlyGeometry, 'Custom geometry'),
+      'a:',
+    )));
+    expect(readCustomGeometry(positionOnly.xml, positionOnly.shape))
+      .toEqual(positionOnlyGeometry);
+  });
+
+  it('reads ordered XY and polar handles with semantic lexical normalization', () => {
+    const normalized = normalizeCustomGeometry(handleGeometry, 'Custom geometry');
+    const handleXml = renderCustomGeometry(normalized, 'a:');
+    const alternateXml = renderCustomGeometry(normalized, 'd:');
+    const lexicalXml = handleXml
+      .replace('minX="0"', 'minX="+0"')
+      .replace('maxX="100000"', 'maxX="+100000"')
+      .replace('minAng="0"', 'minAng="+0"');
+    for (const source of [
+      fixture(handleXml),
+      fixture(alternateXml, { drawingPrefix: 'd' }),
+      fixture(lexicalXml),
+    ]) {
+      const { xml, shape } = parseShape(source);
+      expect(readCustomGeometry(xml, shape)).toEqual(handleGeometry);
+    }
+
+    const lexical = parseShape(fixture(lexicalXml));
+    const before = lexical.xml.serialize();
+    expect(replaceCustomGeometry(
+      lexical.xml,
+      lexical.shape,
+      normalized,
+      '/ppt/slides/slide1.xml',
+    )).toBe(false);
+    expect(lexical.xml.serialize()).toBe(before);
+
+    const escapedGeometry: CustomGeometry = {
+      handles: [{
+        kind: 'polar',
+        position: { x: 'x&1', y: 'y&1' },
+        radiusGuide: 'r&1',
+        maxRadius: 'ss&1',
+      }],
+      paths: [{ width: 1, height: 1, commands: [] }],
+    };
+    const escaped = parseShape(fixture(renderCustomGeometry(
+      normalizeCustomGeometry(escapedGeometry, 'Custom geometry'),
+      'a:',
+    )));
+    expect(readCustomGeometry(escaped.xml, escaped.shape)).toEqual(escapedGeometry);
   });
 
   it('distinguishes ordered paths, commands, values, flags, and optional absence', () => {
@@ -891,6 +948,11 @@ describe('custom geometry OOXML codec', () => {
 
   it('rejects malformed, ambiguous, guide, handle, connection, and rect state', () => {
     const valid = canonical();
+    const validHandles = renderCustomGeometry(
+      normalizeCustomGeometry(handleGeometry, 'Custom geometry'),
+      'a:',
+    );
+    const xyPosition = '<a:pos x="adjX" y="adjY"/>';
     const cases = [
       fixture(valid).replace(PRESENTATION_NAMESPACE, 'urn:wrong'),
       fixture(valid)
@@ -940,6 +1002,37 @@ describe('custom geometry OOXML codec', () => {
       fixture(valid).replace('<a:moveTo><a:pt x="0" y="0"/></a:moveTo>', '<a:lnTo><a:pt x="0" y="0"/></a:lnTo>'),
       fixture(valid).replace('</a:pathLst>', '<a:unknown/></a:pathLst>'),
       fixture(valid).replace('</a:path>', 'TEXT</a:path>'),
+      fixture(validHandles).replace('<a:ahLst>', '<a:ahLst/><a:ahLst>'),
+      fixture(validHandles).replace('<a:ahLst>', '<a:ahLst unsafe="1">'),
+      fixture(validHandles).replace('<a:ahLst>', '<a:ahLst>TEXT'),
+      fixture(validHandles)
+        .replace('<a:ahXY ', '<x:ahXY xmlns:x="urn:wrong" ')
+        .replace('</a:ahXY>', '</x:ahXY>'),
+      fixture(validHandles).replaceAll('a:ahXY', 'a:unknown'),
+      fixture(validHandles).replace(xyPosition, ''),
+      fixture(validHandles).replace(xyPosition, `${xyPosition}${xyPosition}`),
+      fixture(validHandles).replace(
+        xyPosition,
+        '<x:pos xmlns:x="urn:wrong" x="adjX" y="adjY"/>',
+      ),
+      fixture(validHandles).replace('</a:ahXY>', '<a:pt x="0" y="0"/></a:ahXY>'),
+      fixture(validHandles).replace('</a:ahXY>', 'TEXT</a:ahXY>'),
+      fixture(validHandles).replace('<a:ahXY ', '<a:ahXY unsafe="1" '),
+      fixture(validHandles).replace(
+        '<a:ahXY gdRefX="adjX"',
+        '<a:ahXY xmlns:x="urn:wrong" x:gdRefX="adjX"',
+      ),
+      fixture(validHandles).replace(xyPosition, '<a:pos y="adjY"/>'),
+      fixture(validHandles).replace(
+        xyPosition,
+        '<a:pos xmlns:x="urn:wrong" x:x="adjX" y="adjY"/>',
+      ),
+      fixture(validHandles).replace(xyPosition, '<a:pos x="adjX" y="adjY" extra="1"/>'),
+      fixture(validHandles).replace('minX="0"', 'minX="9007199254740992"'),
+      fixture(validHandles).replace('minX="0"', 'minX="two words"'),
+      fixture(validHandles).replace('gdRefX="adjX"', 'gdRefX=""'),
+      fixture(validHandles).replace('minAng="0"', 'minAng="two words"'),
+      fixture(validHandles).replace('gdRefR="adjR"', 'gdRefR=""'),
     ];
     for (const source of cases) {
       const { xml, shape } = parseShape(source);

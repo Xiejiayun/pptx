@@ -48,6 +48,23 @@ const POLAR_HANDLE_KEYS = new Set([
   'maxAngle',
 ]);
 const HANDLE_REQUIRED_KEYS = new Set(['kind', 'position']);
+const XY_HANDLE_ATTRIBUTE_KEYS = new Set([
+  'gdRefX',
+  'minX',
+  'maxX',
+  'gdRefY',
+  'minY',
+  'maxY',
+]);
+const POLAR_HANDLE_ATTRIBUTE_KEYS = new Set([
+  'gdRefR',
+  'minR',
+  'maxR',
+  'gdRefAng',
+  'minAng',
+  'maxAng',
+]);
+const NO_REQUIRED_KEYS = new Set<string>();
 const PATH_KEYS = new Set([
   'width',
   'height',
@@ -90,7 +107,7 @@ const CUSTOM_CHILD_STAGES = new Map([
   ['rect', 4],
   ['pathLst', 5],
 ]);
-const EMPTY_CUSTOM_LIST_NAMES = ['ahLst', 'cxnLst'] as const;
+const EMPTY_CUSTOM_LIST_NAMES = ['cxnLst'] as const;
 const INTEGER_PATTERN = /^[+-]?\d+$/;
 const XML_WHITESPACE_PATTERN = /[ \t\r\n]/;
 const FORMULA_ARITIES: ReadonlyMap<string, number> = new Map([
@@ -689,7 +706,12 @@ function parseCustomGeometryElement(geometry: XmlElement): NormalizedCustomGeome
 
   const adjustments = parseGuideList(children, 'avLst');
   const guides = parseGuideList(children, 'gdLst');
-  if (adjustments === undefined || guides === undefined) return undefined;
+  const handles = parseHandleList(children);
+  if (
+    adjustments === undefined
+    || guides === undefined
+    || handles === undefined
+  ) return undefined;
 
   const rectangles = children.filter(({ localName }) => localName === 'rect');
   if (rectangles.length > 1 || (rectangles[0] && !isDefaultRectangle(rectangles[0]))) {
@@ -722,6 +744,7 @@ function parseCustomGeometryElement(geometry: XmlElement): NormalizedCustomGeome
     return normalizeCustomGeometry({
       ...(adjustments.length ? { adjustments } : {}),
       ...(guides.length ? { guides } : {}),
+      ...(handles.length ? { handles } : {}),
       paths,
     }, 'Custom geometry');
   } catch {
@@ -761,6 +784,147 @@ function parseGuideList(
     guides.push({ name: guideName, formula });
   }
   return guides;
+}
+
+function parseHandleList(children: readonly XmlElement[]): CustomGeometryHandle[] | undefined {
+  const lists = children.filter(({ localName }) => localName === 'ahLst');
+  if (lists.length > 1) return undefined;
+  const list = lists[0];
+  if (!list) return [];
+  if (nonNamespaceAttributes(list).length !== 0 || hasNonWhitespaceText(list)) {
+    return undefined;
+  }
+
+  const handles: CustomGeometryHandle[] = [];
+  for (const element of directChildren(list)) {
+    if (namespaceUri(element) !== DRAWING_NAMESPACE) return undefined;
+    const handle = parseHandleElement(element);
+    if (!handle) return undefined;
+    handles.push(handle);
+  }
+  return handles;
+}
+
+function parseHandleElement(element: XmlElement): CustomGeometryHandle | undefined {
+  if (hasNonWhitespaceText(element)) return undefined;
+  const positions = directChildren(element);
+  if (positions.length !== 1) return undefined;
+  const position = parsePointElement(positions[0]!, 'pos');
+  if (!position) return undefined;
+  switch (element.localName) {
+    case 'ahXY':
+      return parseXyHandle(element, position);
+    case 'ahPolar':
+      return parsePolarHandle(element, position);
+    default:
+      return undefined;
+  }
+}
+
+function parseXyHandle(
+  element: XmlElement,
+  position: CustomGeometryPoint,
+): CustomGeometryXyHandle | undefined {
+  const attributes = readXmlAttributes(
+    element,
+    XY_HANDLE_ATTRIBUTE_KEYS,
+    NO_REQUIRED_KEYS,
+  );
+  if (!attributes) return undefined;
+  const result: {
+    kind: 'xy';
+    position: CustomGeometryPoint;
+    xGuide?: string;
+    minX?: CustomGeometryValue;
+    maxX?: CustomGeometryValue;
+    yGuide?: string;
+    minY?: CustomGeometryValue;
+    maxY?: CustomGeometryValue;
+  } = { kind: 'xy', position };
+  if (Object.hasOwn(attributes, 'gdRefX')) {
+    const value = parseCustomGeometryToken(attributes.gdRefX);
+    if (value === undefined) return undefined;
+    result.xGuide = value;
+  }
+  if (Object.hasOwn(attributes, 'minX')) {
+    const value = parseCustomGeometryValue(attributes.minX, false);
+    if (value === undefined) return undefined;
+    result.minX = value;
+  }
+  if (Object.hasOwn(attributes, 'maxX')) {
+    const value = parseCustomGeometryValue(attributes.maxX, false);
+    if (value === undefined) return undefined;
+    result.maxX = value;
+  }
+  if (Object.hasOwn(attributes, 'gdRefY')) {
+    const value = parseCustomGeometryToken(attributes.gdRefY);
+    if (value === undefined) return undefined;
+    result.yGuide = value;
+  }
+  if (Object.hasOwn(attributes, 'minY')) {
+    const value = parseCustomGeometryValue(attributes.minY, false);
+    if (value === undefined) return undefined;
+    result.minY = value;
+  }
+  if (Object.hasOwn(attributes, 'maxY')) {
+    const value = parseCustomGeometryValue(attributes.maxY, false);
+    if (value === undefined) return undefined;
+    result.maxY = value;
+  }
+  return result;
+}
+
+function parsePolarHandle(
+  element: XmlElement,
+  position: CustomGeometryPoint,
+): CustomGeometryPolarHandle | undefined {
+  const attributes = readXmlAttributes(
+    element,
+    POLAR_HANDLE_ATTRIBUTE_KEYS,
+    NO_REQUIRED_KEYS,
+  );
+  if (!attributes) return undefined;
+  const result: {
+    kind: 'polar';
+    position: CustomGeometryPoint;
+    radiusGuide?: string;
+    minRadius?: CustomGeometryValue;
+    maxRadius?: CustomGeometryValue;
+    angleGuide?: string;
+    minAngle?: CustomGeometryValue;
+    maxAngle?: CustomGeometryValue;
+  } = { kind: 'polar', position };
+  if (Object.hasOwn(attributes, 'gdRefR')) {
+    const value = parseCustomGeometryToken(attributes.gdRefR);
+    if (value === undefined) return undefined;
+    result.radiusGuide = value;
+  }
+  if (Object.hasOwn(attributes, 'minR')) {
+    const value = parseCustomGeometryValue(attributes.minR, false);
+    if (value === undefined) return undefined;
+    result.minRadius = value;
+  }
+  if (Object.hasOwn(attributes, 'maxR')) {
+    const value = parseCustomGeometryValue(attributes.maxR, false);
+    if (value === undefined) return undefined;
+    result.maxRadius = value;
+  }
+  if (Object.hasOwn(attributes, 'gdRefAng')) {
+    const value = parseCustomGeometryToken(attributes.gdRefAng);
+    if (value === undefined) return undefined;
+    result.angleGuide = value;
+  }
+  if (Object.hasOwn(attributes, 'minAng')) {
+    const value = parseCustomGeometryValue(attributes.minAng, false);
+    if (value === undefined) return undefined;
+    result.minAngle = value;
+  }
+  if (Object.hasOwn(attributes, 'maxAng')) {
+    const value = parseCustomGeometryValue(attributes.maxAng, false);
+    if (value === undefined) return undefined;
+    result.maxAngle = value;
+  }
+  return result;
 }
 
 function parseFormulaAttribute(value: string | undefined): CustomGeometryFormula | undefined {
@@ -911,9 +1075,12 @@ function parseCommandElement(element: XmlElement): CustomGeometryCommand | undef
   }
 }
 
-function parsePointElement(element: XmlElement): CustomGeometryPoint | undefined {
+function parsePointElement(
+  element: XmlElement,
+  expectedName = 'pt',
+): CustomGeometryPoint | undefined {
   if (
-    element.localName !== 'pt'
+    element.localName !== expectedName
     || namespaceUri(element) !== DRAWING_NAMESPACE
     || directChildren(element).length !== 0
     || hasNonWhitespaceText(element)
