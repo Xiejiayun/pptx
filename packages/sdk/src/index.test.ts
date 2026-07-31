@@ -20,6 +20,7 @@ import {
   evaluateCustomGeometry,
   ImageModel,
   inches,
+  inspectRasterImage,
   ModelParseError,
   openPptxStream,
   PRESET_SHAPE_TYPES,
@@ -28,6 +29,7 @@ import {
   TableModel,
   ValidationError,
   type AddImageOptions,
+  type AddImageSourceOptions,
   type AddTableCellOptions,
   type AddTableCellInput,
   type AddTableOptions,
@@ -36,6 +38,9 @@ import {
   type EvaluatedCustomGeometry,
   type Hyperlink,
   type RasterImageContentType,
+  type RasterImageByteStream,
+  type RasterImageInfo,
+  type RasterImageSource,
   type ShapeArrows,
   type ShapeAdjustment,
   type ShapeArrowType,
@@ -44,6 +49,24 @@ import {
   type ShapeLineDash,
   type ShapeShadow,
 } from './index.js';
+
+function sdkPngHeader(width: number, height: number): Uint8Array<ArrayBuffer> {
+  const bytes = new Uint8Array(24);
+  bytes.set([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82]);
+  bytes[16] = width >>> 24;
+  bytes[17] = width >>> 16;
+  bytes[18] = width >>> 8;
+  bytes[19] = width;
+  bytes[20] = height >>> 24;
+  bytes[21] = height >>> 16;
+  bytes[22] = height >>> 8;
+  bytes[23] = height;
+  return bytes;
+}
+
+function sdkPngDataUri(bytes: Uint8Array): string {
+  return `data:image/png;base64,${Buffer.from(bytes).toString('base64')}`;
+}
 
 async function titleFixture(): Promise<Uint8Array> {
   const zip = new JSZip();
@@ -250,6 +273,189 @@ describe('PptxDocument vertical slice', () => {
       // @ts-expect-error model image creation excludes data-URI loading
       const dataOptions: AddImageOptions = { contentType, data: 'data:image/png;base64,AQ==' };
       void [svgType, missingType, pathOptions, dataOptions];
+    }
+  });
+
+  it('adds detected raster image sources with immediate live model state', async () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    slide.addShape('rect', { name: 'Before source image' });
+    const source = sdkPngHeader(640, 360);
+    const expected = new Uint8Array(source);
+    const options: AddImageSourceOptions = {
+      name: 'Loaded & image',
+      altText: 'Detected source',
+      x: inches(1),
+      y: inches(2),
+      width: inches(3),
+      height: inches(2),
+      rotation: degrees(45),
+      flipHorizontal: true,
+    };
+    const pending: Promise<ImageModel> = document.addImage(0, source, options);
+    source.fill(0);
+    const image = await pending;
+
+    expect(image).toBeInstanceOf(ImageModel);
+    expect(slide.shapes[1]).toBe(image);
+    expect(image.name).toBe('Loaded & image');
+    expect(image.transform).toEqual({
+      x: inches(1),
+      y: inches(2),
+      width: inches(3),
+      height: inches(2),
+      rotation: degrees(45),
+      flipHorizontal: true,
+      flipVertical: false,
+    });
+    expect(image.sourcePartUri).toMatch(/\/ppt\/media\/image\d+\.png$/);
+    expect(document.opcPackage.requirePart(image.sourcePartUri!)).toMatchObject({
+      bytes: expected,
+      contentType: 'image/png',
+    });
+    const slideXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(slideXml).toContain('name="Loaded &amp; image" descr="Detected source"');
+    expect(slide.relationships.find(({ resolvedTarget }) => resolvedTarget === image.sourcePartUri))
+      .toMatchObject({
+        type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image',
+        targetMode: 'Internal',
+      });
+    expect(inspectRasterImage(expected)).toEqual({
+      contentType: 'image/png',
+      width: 640,
+      height: 360,
+    });
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedImage = reopened.slides[0]!.shapes[1] as ImageModel;
+    expect(reopenedImage).toBeInstanceOf(ImageModel);
+    expect(reopenedImage.name).toBe('Loaded & image');
+    expect(reopened.opcPackage.requirePart(reopenedImage.sourcePartUri!).bytes).toEqual(expected);
+  });
+
+  it('adds every portable in-memory source form and round-trips all formats', async () => {
+    const png = sdkPngHeader(16, 9);
+    const stream: RasterImageByteStream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(png.slice(0, 12));
+        controller.enqueue(png.slice(12));
+        controller.close();
+      },
+    });
+    const iterable: RasterImageByteStream = {
+      async *[Symbol.asyncIterator]() {
+        yield png;
+      },
+    };
+    const sources: RasterImageSource[] = [
+      png,
+      png.buffer.slice(0),
+      new Blob([png], { type: 'text/plain' }),
+      stream,
+      iterable,
+      sdkPngDataUri(png),
+    ];
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    for (const source of sources) await document.addImage(0, source);
+    expect(slide.shapes).toHaveLength(sources.length);
+    for (const [index, shape] of slide.shapes.entries()) {
+      expect(shape).toBeInstanceOf(ImageModel);
+      expect(shape.name).toBe(`Image ${index}`);
+      expect(shape.transform).toEqual({
+        x: 0,
+        y: 0,
+        width: inches(1),
+        height: inches(1),
+        rotation: 0,
+        flipHorizontal: false,
+        flipVertical: false,
+      });
+      expect(document.opcPackage.requirePart((shape as ImageModel).sourcePartUri!)).toMatchObject({
+        bytes: png,
+        contentType: 'image/png',
+      });
+    }
+
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const formatted = PptxDocument.create({ format });
+      formatted.addSlide();
+      const formattedImage = await formatted.addImage(0, sdkPngDataUri(png));
+      expect(formattedImage).toBeInstanceOf(ImageModel);
+      const reopened = await PptxDocument.open(await formatted.write());
+      expect(reopened.format).toBe(format);
+      expect(reopened.slides[0]!.shapes[0]).toBeInstanceOf(ImageModel);
+      expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error'))
+        .toEqual([]);
+    }
+
+    if (false) {
+      const info: RasterImageInfo = inspectRasterImage(png);
+      const typedSource: RasterImageSource = new Blob([png]);
+      const typedOptions: AddImageSourceOptions = { contentType: 'image/png' };
+      const typedResult: Promise<ImageModel> = document.addImage(0, typedSource, typedOptions);
+      // @ts-expect-error source image options exclude SVG
+      const svgOptions: AddImageSourceOptions = { contentType: 'image/svg+xml' };
+      // @ts-expect-error plain objects are not raster image sources
+      const invalidSource: RasterImageSource = { bytes: png };
+      void [info, typedResult, svgOptions, invalidSource];
+    }
+  });
+
+  it('rejects invalid document image additions without consuming unsafe input or mutating the package', async () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const before = () => ({
+      parts: document.opcPackage.parts.map(({ uri, contentType, bytes }) => ({
+        uri,
+        contentType,
+        bytes: new Uint8Array(bytes),
+      })),
+      graph: document.opcPackage.graph,
+      mutations: [...document.opcPackage.mutations],
+      shapeIds: slide.shapes.map(({ id }) => id),
+    });
+    const expected = before();
+    let sourceReads = 0;
+    const countedSource: RasterImageSource = {
+      async *[Symbol.asyncIterator]() {
+        sourceReads += 1;
+        yield sdkPngHeader(1, 1);
+      },
+    };
+    let accessorReads = 0;
+    const accessor = Object.defineProperty({}, 'name', {
+      enumerable: true,
+      get() {
+        accessorReads += 1;
+        return 'unsafe';
+      },
+    });
+    const invalidPreIo: readonly (() => Promise<unknown>)[] = [
+      () => document.addImage(1, countedSource),
+      () => document.addImage(0, countedSource, null as never),
+      () => document.addImage(0, countedSource, accessor as never),
+      () => document.addImage(0, countedSource, Object.create({ name: 'inherited' })),
+      () => document.addImage(0, countedSource, { unknown: true } as never),
+      () => document.addImage(0, countedSource, { contentType: 'image/svg+xml' } as never),
+      () => document.addImage(0, countedSource, { signal: {} } as never),
+    ];
+    for (const invoke of invalidPreIo) {
+      await expect(invoke()).rejects.toBeInstanceOf(Error);
+      expect(before()).toEqual(expected);
+    }
+    expect(sourceReads).toBe(0);
+    expect(accessorReads).toBe(0);
+
+    const invalidAfterResolve: readonly (() => Promise<unknown>)[] = [
+      () => document.addImage(0, sdkPngHeader(1, 1), { contentType: 'image/gif' }),
+      () => document.addImage(0, sdkPngHeader(1, 1), { width: 0 } as never),
+      () => document.addImage(0, Uint8Array.of(1, 2, 3)),
+      () => document.addImage(0, 'data:image/png;base64,AAAA'),
+    ];
+    for (const invoke of invalidAfterResolve) {
+      await expect(invoke()).rejects.toBeInstanceOf(Error);
+      expect(before()).toEqual(expected);
     }
   });
 

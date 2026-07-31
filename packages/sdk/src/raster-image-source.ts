@@ -1,4 +1,4 @@
-import type { RasterImageContentType } from '@pptx/model';
+import type { AddImageOptions, RasterImageContentType } from '@pptx/model';
 
 const PNG_SIGNATURE = Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10]);
 const GIF87A_SIGNATURE = Uint8Array.from([71, 73, 70, 56, 55, 97]);
@@ -9,11 +9,38 @@ const JPEG_SOF_MARKERS = new Set([
   0xc9, 0xca, 0xcb,
   0xcd, 0xce, 0xcf,
 ]);
+const MODEL_IMAGE_OPTION_KEYS = new Set([
+  'name',
+  'altText',
+  'x',
+  'y',
+  'width',
+  'height',
+  'rotation',
+  'flipHorizontal',
+  'flipVertical',
+]);
+const ADD_IMAGE_SOURCE_OPTION_KEYS = new Set([
+  'contentType',
+  'signal',
+  ...MODEL_IMAGE_OPTION_KEYS,
+]);
 
 export interface RasterImageInfo {
   readonly contentType: RasterImageContentType;
   readonly width: number;
   readonly height: number;
+}
+
+export interface AddImageSourceOptions extends Omit<AddImageOptions, 'contentType'> {
+  readonly contentType?: RasterImageContentType;
+  readonly signal?: AbortSignal;
+}
+
+export interface NormalizedAddImageSourceOptions {
+  readonly contentType?: RasterImageContentType;
+  readonly signal?: AbortSignal;
+  readonly imageOptions: Readonly<Omit<AddImageOptions, 'contentType'>>;
 }
 
 export type RasterImageByteChunk = number | Uint8Array | ArrayBuffer | ArrayBufferView;
@@ -56,6 +83,63 @@ export function inspectRasterImage(bytes: Uint8Array): RasterImageInfo {
     throw new TypeError('Truncated JPEG signature');
   }
   throw new TypeError('Unsupported raster image signature');
+}
+
+export function normalizeAddImageSourceOptions(
+  options: unknown,
+): NormalizedAddImageSourceOptions {
+  if (!options || typeof options !== 'object' || Array.isArray(options)) {
+    throw new TypeError('Raster image source options must be an object');
+  }
+  const prototype = Object.getPrototypeOf(options);
+  if (prototype !== Object.prototype && prototype !== null) {
+    throw new TypeError('Raster image source options must be an ordinary object');
+  }
+  const values = Object.create(null) as Record<string, unknown>;
+  for (const key of Reflect.ownKeys(options)) {
+    if (typeof key !== 'string' || !ADD_IMAGE_SOURCE_OPTION_KEYS.has(key)) {
+      throw new TypeError(
+        `Raster image source options contain unsupported property ${String(key)}`,
+      );
+    }
+    const descriptor = Object.getOwnPropertyDescriptor(options, key);
+    if (!descriptor || !Object.hasOwn(descriptor, 'value')) {
+      throw new TypeError(`Raster image source option ${key} must be a data property`);
+    }
+    values[key] = descriptor.value;
+  }
+
+  const contentType = normalizeOptionalContentType(values.contentType);
+  const signal = normalizeOptionalAbortSignal(values.signal);
+  const imageOptions = Object.create(null) as Record<string, unknown>;
+  for (const key of MODEL_IMAGE_OPTION_KEYS) {
+    if (Object.hasOwn(values, key)) imageOptions[key] = values[key];
+  }
+  Object.freeze(imageOptions);
+  return Object.freeze({
+    imageOptions: imageOptions as Omit<AddImageOptions, 'contentType'>,
+    ...(contentType === undefined ? {} : { contentType }),
+    ...(signal === undefined ? {} : { signal }),
+  });
+}
+
+export function assertRasterImageContentType(
+  expected: RasterImageContentType | undefined,
+  resolved: Readonly<ResolvedRasterImageSource>,
+): void {
+  if (expected !== undefined && expected !== resolved.info.contentType) {
+    throw new TypeError(
+      `Raster image contentType expected ${expected} but the signature is ${resolved.info.contentType}`,
+    );
+  }
+  if (
+    resolved.assertedContentType !== undefined &&
+    resolved.assertedContentType !== resolved.info.contentType
+  ) {
+    throw new TypeError(
+      `Raster image source declares ${resolved.assertedContentType} but the signature is ${resolved.info.contentType}`,
+    );
+  }
 }
 
 export async function resolveRasterImageSource(
@@ -228,6 +312,18 @@ function base64Value(code: number): number {
   if (code === 43) return 62;
   if (code === 47) return 63;
   return -1;
+}
+
+function normalizeOptionalContentType(value: unknown): RasterImageContentType | undefined {
+  if (value === undefined) return undefined;
+  if (value === 'image/png' || value === 'image/jpeg' || value === 'image/gif') return value;
+  throw new TypeError('Raster image source contentType is unsupported');
+}
+
+function normalizeOptionalAbortSignal(value: unknown): AbortSignal | undefined {
+  if (value === undefined) return undefined;
+  if (typeof AbortSignal !== 'undefined' && value instanceof AbortSignal) return value;
+  throw new TypeError('Raster image source signal must be an AbortSignal');
 }
 
 interface NodeFsPromises {

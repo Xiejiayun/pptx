@@ -4,7 +4,9 @@ import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  assertRasterImageContentType,
   inspectRasterImage,
+  normalizeAddImageSourceOptions,
   resolveRasterImageSource,
   type RasterImageByteChunk,
 } from './raster-image-source.js';
@@ -609,5 +611,101 @@ describe('raster image path and URL resolution', () => {
       '/assets/root.png',
       '/assets/missing.png',
     ]);
+  });
+});
+
+describe('raster image document options', () => {
+  it('detaches image fields, optional content type, and AbortSignal', () => {
+    const controller = new AbortController();
+    const options = {
+      contentType: 'image/png' as const,
+      signal: controller.signal,
+      name: 'Source image',
+      altText: '',
+      x: -1,
+      y: 2,
+      width: 3,
+      height: 4,
+      rotation: 5,
+      flipHorizontal: true,
+      flipVertical: false,
+    };
+    const normalized = normalizeAddImageSourceOptions(options);
+    options.name = 'Changed';
+
+    expect(normalized.contentType).toBe('image/png');
+    expect(normalized.signal).toBe(controller.signal);
+    expect(normalized.imageOptions).toEqual({
+      name: 'Source image',
+      altText: '',
+      x: -1,
+      y: 2,
+      width: 3,
+      height: 4,
+      rotation: 5,
+      flipHorizontal: true,
+      flipVertical: false,
+    });
+    expect(Object.getPrototypeOf(normalized.imageOptions)).toBeNull();
+    expect(Object.isFrozen(normalized.imageOptions)).toBe(true);
+    expect(Object.isFrozen(normalized)).toBe(true);
+  });
+
+  it('accepts omitted, explicit undefined, and null-prototype options', () => {
+    expect(normalizeAddImageSourceOptions({})).toMatchObject({ imageOptions: {} });
+    expect(normalizeAddImageSourceOptions({ contentType: undefined, signal: undefined }))
+      .toMatchObject({ imageOptions: {} });
+    const options = Object.assign(Object.create(null) as Record<string, unknown>, {
+      contentType: 'image/gif',
+      name: 'Null prototype',
+    });
+    expect(normalizeAddImageSourceOptions(options)).toMatchObject({
+      contentType: 'image/gif',
+      imageOptions: { name: 'Null prototype' },
+    });
+  });
+
+  it('rejects unsafe options without invoking accessors', () => {
+    let reads = 0;
+    const accessor = Object.defineProperty({}, 'name', {
+      enumerable: true,
+      get() {
+        reads += 1;
+        return 'unsafe';
+      },
+    });
+    const symbol = { [Symbol('unsafe')]: true };
+    class Options {}
+    const invalid: unknown[] = [
+      null,
+      [],
+      new Options(),
+      Object.create({ contentType: 'image/png' }),
+      accessor,
+      symbol,
+      { unknown: true },
+      { contentType: 'image/svg+xml' },
+      { signal: {} },
+    ];
+    for (const value of invalid) {
+      expect(() => normalizeAddImageSourceOptions(value)).toThrow(TypeError);
+    }
+    expect(reads).toBe(0);
+  });
+
+  it('checks explicit and source-declared MIME assertions', () => {
+    const resolved = {
+      bytes: pngHeader(1, 1),
+      info: { contentType: 'image/png' as const, width: 1, height: 1 },
+      assertedContentType: 'image/png' as const,
+    };
+    expect(() => assertRasterImageContentType(undefined, resolved)).not.toThrow();
+    expect(() => assertRasterImageContentType('image/png', resolved)).not.toThrow();
+    expect(() => assertRasterImageContentType('image/gif', resolved))
+      .toThrow(/expected image\/gif.*signature.*image\/png/i);
+    expect(() => assertRasterImageContentType(undefined, {
+      ...resolved,
+      assertedContentType: 'image/jpeg',
+    })).toThrow(/declares image\/jpeg.*signature.*image\/png/i);
   });
 });

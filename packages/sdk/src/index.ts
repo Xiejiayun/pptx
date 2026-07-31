@@ -7,7 +7,7 @@ import {
   type MediaModel,
   type MediaSource,
 } from '@pptx/codecs';
-import { PresentationModel } from '@pptx/model';
+import { PresentationModel, type ImageModel } from '@pptx/model';
 import { OpcPackage, type PackageOpenOptions } from '@pptx/opc';
 import {
   ValidationError,
@@ -21,6 +21,13 @@ import {
   type PresentationTheme,
   type PresentationThemeOptions,
 } from './presentation-theme.js';
+import {
+  assertRasterImageContentType,
+  normalizeAddImageSourceOptions,
+  resolveRasterImageSource,
+  type AddImageSourceOptions,
+  type RasterImageSource,
+} from './raster-image-source.js';
 
 export * from '@pptx/codecs';
 export * from '@pptx/model';
@@ -28,6 +35,7 @@ export type { BuiltInSlideSize, CreatePresentationOptions, CustomSlideSize } fro
 export type { PresentationTheme, PresentationThemeOptions } from './presentation-theme.js';
 export { inspectRasterImage } from './raster-image-source.js';
 export type {
+  AddImageSourceOptions,
   RasterImageByteChunk,
   RasterImageByteStream,
   RasterImageInfo,
@@ -183,6 +191,22 @@ export class PptxDocument extends PresentationModel {
 
   get masterLayoutTheme(): MasterLayoutThemeCodec {
     return this.#masterLayoutTheme;
+  }
+
+  async addImage(
+    slideIndex: number,
+    source: RasterImageSource,
+    options: AddImageSourceOptions = {},
+  ): Promise<ImageModel> {
+    const slide = this.slides[slideIndex];
+    if (!slide) throw new RangeError(`Slide index ${slideIndex} is out of range`);
+    const normalized = normalizeAddImageSourceOptions(options);
+    const resolved = await resolveRasterImageSource(source, normalized.signal);
+    assertRasterImageContentType(normalized.contentType, resolved);
+    return slide.addImage(resolved.bytes, {
+      ...normalized.imageOptions,
+      contentType: resolved.info.contentType,
+    });
   }
 
   async addAudio(slideIndex: number, source: MediaSource, options: AddMediaOptions = {}): Promise<MediaModel> {
