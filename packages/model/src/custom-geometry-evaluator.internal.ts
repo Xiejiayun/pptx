@@ -1,11 +1,24 @@
 import {
   CustomGeometryEvaluationError,
   type CustomGeometry,
+  type CustomGeometryCommand,
+  type CustomGeometryConnectionSite,
   type CustomGeometryEvaluationContext,
   type CustomGeometryFormula,
   type CustomGeometryGuide,
+  type CustomGeometryHandle,
+  type CustomGeometryPath,
+  type CustomGeometryPoint,
+  type CustomGeometryTextRectangle,
   type CustomGeometryValue,
+  type EvaluatedCustomGeometry,
+  type EvaluatedCustomGeometryCommand,
+  type EvaluatedCustomGeometryConnectionSite,
   type EvaluatedCustomGeometryGuide,
+  type EvaluatedCustomGeometryHandle,
+  type EvaluatedCustomGeometryPath,
+  type EvaluatedCustomGeometryPoint,
+  type EvaluatedCustomGeometryTextRectangle,
 } from './custom-geometry.js';
 
 const OOXML_DEGREE = 60_000;
@@ -147,6 +160,199 @@ export function evaluateGuideEnvironment(
     ...(evaluatedGuides ? { guides: evaluatedGuides } : {}),
     resolve,
   });
+}
+
+export function evaluateCustomGeometryTree(
+  geometry: Readonly<CustomGeometry>,
+  context: Readonly<CustomGeometryEvaluationContext>,
+): EvaluatedCustomGeometry {
+  const environment = evaluateGuideEnvironment(geometry, context);
+  const handles = evaluateOptionalList(geometry.handles, (handle, index) =>
+    evaluateHandle(handle, environment.resolve, `Custom geometry handle ${index}`));
+  const connectionSites = evaluateOptionalList(
+    geometry.connectionSites,
+    (site, index) => evaluateConnectionSite(
+      site,
+      environment.resolve,
+      `Custom geometry connection site ${index}`,
+    ),
+  );
+  const textRectangle = evaluateTextRectangle(
+    geometry.textRectangle ?? { left: 'l', top: 't', right: 'r', bottom: 'b' },
+    environment.resolve,
+  );
+  const paths = Object.freeze(geometry.paths.map((path, index) =>
+    evaluatePath(path, environment.resolve, `Custom geometry path ${index}`)));
+  return Object.freeze({
+    context,
+    ...(environment.adjustments ? { adjustments: environment.adjustments } : {}),
+    ...(environment.guides ? { guides: environment.guides } : {}),
+    ...(handles ? { handles } : {}),
+    ...(connectionSites ? { connectionSites } : {}),
+    textRectangle,
+    paths,
+  });
+}
+
+type ValueResolver = EvaluatedGuideEnvironment['resolve'];
+
+function evaluateOptionalList<TSource, TResult>(
+  source: readonly TSource[] | undefined,
+  evaluate: (value: TSource, index: number) => TResult,
+): readonly TResult[] | undefined {
+  return source?.length ? Object.freeze(source.map(evaluate)) : undefined;
+}
+
+function evaluatePoint(
+  point: Readonly<CustomGeometryPoint>,
+  resolve: ValueResolver,
+  location: string,
+): EvaluatedCustomGeometryPoint {
+  return Object.freeze({
+    x: resolve(point.x, `${location} x`),
+    y: resolve(point.y, `${location} y`),
+  });
+}
+
+function evaluateHandle(
+  handle: Readonly<CustomGeometryHandle>,
+  resolve: ValueResolver,
+  location: string,
+): EvaluatedCustomGeometryHandle {
+  const position = evaluatePoint(handle.position, resolve, `${location} position`);
+  if (handle.kind === 'xy') {
+    return Object.freeze({
+      kind: handle.kind,
+      position,
+      ...(Object.hasOwn(handle, 'xGuide') ? { xGuide: handle.xGuide } : {}),
+      ...(Object.hasOwn(handle, 'minX')
+        ? { minX: resolve(handle.minX!, `${location} minX`) }
+        : {}),
+      ...(Object.hasOwn(handle, 'maxX')
+        ? { maxX: resolve(handle.maxX!, `${location} maxX`) }
+        : {}),
+      ...(Object.hasOwn(handle, 'yGuide') ? { yGuide: handle.yGuide } : {}),
+      ...(Object.hasOwn(handle, 'minY')
+        ? { minY: resolve(handle.minY!, `${location} minY`) }
+        : {}),
+      ...(Object.hasOwn(handle, 'maxY')
+        ? { maxY: resolve(handle.maxY!, `${location} maxY`) }
+        : {}),
+    });
+  }
+  return Object.freeze({
+    kind: handle.kind,
+    position,
+    ...(Object.hasOwn(handle, 'radiusGuide') ? { radiusGuide: handle.radiusGuide } : {}),
+    ...(Object.hasOwn(handle, 'minRadius')
+      ? { minRadius: resolve(handle.minRadius!, `${location} minRadius`) }
+      : {}),
+    ...(Object.hasOwn(handle, 'maxRadius')
+      ? { maxRadius: resolve(handle.maxRadius!, `${location} maxRadius`) }
+      : {}),
+    ...(Object.hasOwn(handle, 'angleGuide') ? { angleGuide: handle.angleGuide } : {}),
+    ...(Object.hasOwn(handle, 'minAngle')
+      ? { minAngle: resolve(handle.minAngle!, `${location} minAngle`) }
+      : {}),
+    ...(Object.hasOwn(handle, 'maxAngle')
+      ? { maxAngle: resolve(handle.maxAngle!, `${location} maxAngle`) }
+      : {}),
+  });
+}
+
+function evaluateConnectionSite(
+  site: Readonly<CustomGeometryConnectionSite>,
+  resolve: ValueResolver,
+  location: string,
+): EvaluatedCustomGeometryConnectionSite {
+  return Object.freeze({
+    position: evaluatePoint(site.position, resolve, `${location} position`),
+    angle: resolve(site.angle, `${location} angle`),
+  });
+}
+
+function evaluateTextRectangle(
+  rectangle: Readonly<CustomGeometryTextRectangle>,
+  resolve: ValueResolver,
+): EvaluatedCustomGeometryTextRectangle {
+  return Object.freeze({
+    left: resolve(rectangle.left, 'Custom geometry text rectangle left'),
+    top: resolve(rectangle.top, 'Custom geometry text rectangle top'),
+    right: resolve(rectangle.right, 'Custom geometry text rectangle right'),
+    bottom: resolve(rectangle.bottom, 'Custom geometry text rectangle bottom'),
+  });
+}
+
+function evaluatePath(
+  path: Readonly<CustomGeometryPath>,
+  resolve: ValueResolver,
+  location: string,
+): EvaluatedCustomGeometryPath {
+  return Object.freeze({
+    width: path.width,
+    height: path.height,
+    ...(Object.hasOwn(path, 'fill') ? { fill: path.fill } : {}),
+    ...(Object.hasOwn(path, 'stroke') ? { stroke: path.stroke } : {}),
+    ...(Object.hasOwn(path, 'extrusionOk') ? { extrusionOk: path.extrusionOk } : {}),
+    commands: Object.freeze(path.commands.map((command, index) =>
+      evaluateCommand(command, resolve, `${location} command ${index}`))),
+  });
+}
+
+function evaluateCommand(
+  command: Readonly<CustomGeometryCommand>,
+  resolve: ValueResolver,
+  location: string,
+): EvaluatedCustomGeometryCommand {
+  switch (command.kind) {
+    case 'moveTo':
+    case 'lineTo':
+      return Object.freeze({
+        kind: command.kind,
+        point: evaluatePoint(command.point, resolve, `${location} point`),
+      });
+    case 'arcTo': {
+      const widthRadius = resolve(command.widthRadius, `${location} widthRadius`);
+      const heightRadius = resolve(command.heightRadius, `${location} heightRadius`);
+      assertPositiveRadius(widthRadius, command.widthRadius, `${location} widthRadius`);
+      assertPositiveRadius(heightRadius, command.heightRadius, `${location} heightRadius`);
+      return Object.freeze({
+        kind: command.kind,
+        widthRadius,
+        heightRadius,
+        startAngle: resolve(command.startAngle, `${location} startAngle`),
+        sweepAngle: resolve(command.sweepAngle, `${location} sweepAngle`),
+      });
+    }
+    case 'quadraticBezierTo':
+      return Object.freeze({
+        kind: command.kind,
+        control: evaluatePoint(command.control, resolve, `${location} control`),
+        end: evaluatePoint(command.end, resolve, `${location} end`),
+      });
+    case 'cubicBezierTo':
+      return Object.freeze({
+        kind: command.kind,
+        control1: evaluatePoint(command.control1, resolve, `${location} control1`),
+        control2: evaluatePoint(command.control2, resolve, `${location} control2`),
+        end: evaluatePoint(command.end, resolve, `${location} end`),
+      });
+    case 'close': return Object.freeze({ kind: command.kind });
+  }
+}
+
+function assertPositiveRadius(
+  value: number,
+  source: CustomGeometryValue,
+  location: string,
+): void {
+  if (value > 0) return;
+  throw new CustomGeometryEvaluationError(
+    'invalid-domain',
+    `${location} must evaluate to a positive number`,
+    undefined,
+    typeof source === 'string' ? source : undefined,
+  );
 }
 
 interface GuideDependency {

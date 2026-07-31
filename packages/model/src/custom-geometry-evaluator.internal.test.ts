@@ -20,6 +20,7 @@ import {
   evaluateFormulaValue,
   evaluateGuideEnvironment,
 } from './custom-geometry-evaluator.internal.js';
+import { evaluateCustomGeometry } from './custom-geometry-evaluator.js';
 
 const OOXML_DEGREE = 60_000;
 
@@ -325,6 +326,297 @@ describe('custom geometry guide environment', () => {
   });
 });
 
+describe('custom geometry tree evaluation', () => {
+  it('resolves the complete custom geometry tree without scaling path coordinates', () => {
+    const geometry: CustomGeometry = {
+      adjustments: [{ name: 'adj', formula: { operator: 'val', operands: [25_000] } }],
+      guides: [
+        { name: 'x1', formula: { operator: '*/', operands: ['w', 'adj', 100_000] } },
+        { name: 'y1', formula: { operator: '+-', operands: ['h', 0, 'adj'] } },
+        { name: 'rad', formula: { operator: 'val', operands: [10_000] } },
+      ],
+      handles: [
+        {
+          kind: 'xy',
+          position: { x: 'x1', y: 'vc' },
+          xGuide: 'adj',
+          minX: 0,
+          maxX: 'r',
+          minY: 't',
+        },
+        {
+          kind: 'polar',
+          position: { x: 'hc', y: 'vc' },
+          radiusGuide: 'adj',
+          minRadius: 1,
+          maxRadius: 'ss',
+          angleGuide: 'adj',
+          minAngle: 0,
+          maxAngle: 'cd2',
+        },
+      ],
+      connectionSites: [
+        { angle: 0, position: { x: 'l', y: 't' } },
+        { angle: 0, position: { x: 'l', y: 't' } },
+      ],
+      textRectangle: { left: 'x1', top: 1_000, right: 'r', bottom: 'y1' },
+      paths: [
+        {
+          width: 100_000,
+          height: 100_000,
+          fill: 'norm',
+          stroke: false,
+          extrusionOk: true,
+          commands: [
+            { kind: 'moveTo', point: { x: 'x1', y: 0 } },
+            { kind: 'lineTo', point: { x: 'r', y: 'b' } },
+            {
+              kind: 'quadraticBezierTo',
+              control: { x: 'hc', y: 't' },
+              end: { x: 'r', y: 'vc' },
+            },
+            {
+              kind: 'cubicBezierTo',
+              control1: { x: 1, y: 2 },
+              control2: { x: 'x1', y: 'y1' },
+              end: { x: 'r', y: 'b' },
+            },
+            {
+              kind: 'arcTo',
+              widthRadius: 'rad',
+              heightRadius: 'hd2',
+              startAngle: 'cd4',
+              sweepAngle: 'cd2',
+            },
+            { kind: 'close' },
+          ],
+        },
+        { width: 1, height: 1, commands: [] },
+      ],
+    };
+
+    const evaluated = evaluateCustomGeometry(
+      geometry,
+      { width: 200_000, height: 100_000 },
+    );
+
+    expect(evaluated).toEqual({
+      context: { width: 200_000, height: 100_000 },
+      adjustments: [{ name: 'adj', value: 25_000 }],
+      guides: [
+        { name: 'x1', value: 50_000 },
+        { name: 'y1', value: 75_000 },
+        { name: 'rad', value: 10_000 },
+      ],
+      handles: [
+        {
+          kind: 'xy',
+          position: { x: 50_000, y: 50_000 },
+          xGuide: 'adj',
+          minX: 0,
+          maxX: 200_000,
+          minY: 0,
+        },
+        {
+          kind: 'polar',
+          position: { x: 100_000, y: 50_000 },
+          radiusGuide: 'adj',
+          minRadius: 1,
+          maxRadius: 100_000,
+          angleGuide: 'adj',
+          minAngle: 0,
+          maxAngle: 180 * OOXML_DEGREE,
+        },
+      ],
+      connectionSites: [
+        { angle: 0, position: { x: 0, y: 0 } },
+        { angle: 0, position: { x: 0, y: 0 } },
+      ],
+      textRectangle: { left: 50_000, top: 1_000, right: 200_000, bottom: 75_000 },
+      paths: [
+        {
+          width: 100_000,
+          height: 100_000,
+          fill: 'norm',
+          stroke: false,
+          extrusionOk: true,
+          commands: [
+            { kind: 'moveTo', point: { x: 50_000, y: 0 } },
+            { kind: 'lineTo', point: { x: 200_000, y: 100_000 } },
+            {
+              kind: 'quadraticBezierTo',
+              control: { x: 100_000, y: 0 },
+              end: { x: 200_000, y: 50_000 },
+            },
+            {
+              kind: 'cubicBezierTo',
+              control1: { x: 1, y: 2 },
+              control2: { x: 50_000, y: 75_000 },
+              end: { x: 200_000, y: 100_000 },
+            },
+            {
+              kind: 'arcTo',
+              widthRadius: 10_000,
+              heightRadius: 50_000,
+              startAngle: 90 * OOXML_DEGREE,
+              sweepAngle: 180 * OOXML_DEGREE,
+            },
+            { kind: 'close' },
+          ],
+        },
+        { width: 1, height: 1, commands: [] },
+      ],
+    });
+    expect(evaluated.paths[0]?.commands[1]).toEqual({
+      kind: 'lineTo',
+      point: { x: 200_000, y: 100_000 },
+    });
+  });
+
+  it('materializes the default text rectangle and preserves omitted lists', () => {
+    const evaluated = evaluateCustomGeometry(
+      { paths: [{ width: 101, height: 67, commands: [] }] },
+      { width: 200_000, height: 100_000 },
+    );
+
+    expect(evaluated.textRectangle).toEqual({
+      left: 0,
+      top: 0,
+      right: 200_000,
+      bottom: 100_000,
+    });
+    expect(Object.hasOwn(evaluated, 'adjustments')).toBe(false);
+    expect(Object.hasOwn(evaluated, 'guides')).toBe(false);
+    expect(Object.hasOwn(evaluated, 'handles')).toBe(false);
+    expect(Object.hasOwn(evaluated, 'connectionSites')).toBe(false);
+  });
+
+  it('detaches inputs and recursively freezes every output branch', () => {
+    const source = structuredClone({
+      guides: [{ name: 'g1', formula: { operator: 'val' as const, operands: [10] as [number] } }],
+      handles: [{ kind: 'xy' as const, position: { x: 'g1', y: 0 }, minX: 0 }],
+      connectionSites: [{ angle: 0, position: { x: 'g1', y: 0 } }],
+      textRectangle: { left: 0, top: 0, right: 'g1', bottom: 'b' },
+      paths: [{
+        width: 10,
+        height: 10,
+        commands: [{ kind: 'moveTo' as const, point: { x: 'g1', y: 0 } }],
+      }],
+    });
+    const context = { width: 100, height: 50 };
+    const evaluated = evaluateCustomGeometry(source, context);
+
+    source.guides[0]!.name = 'changed';
+    source.handles[0]!.position.x = 'changed';
+    source.paths[0]!.commands[0]!.point.x = 'changed';
+    context.width = 999;
+
+    expect(evaluated.context.width).toBe(100);
+    expect(evaluated.guides?.[0]).toEqual({ name: 'g1', value: 10 });
+    expect(evaluated.handles?.[0]?.position.x).toBe(10);
+    expect(evaluated.paths[0]?.commands[0]).toEqual({
+      kind: 'moveTo',
+      point: { x: 10, y: 0 },
+    });
+    expectDeepFrozen(evaluated);
+  });
+
+  it('strictly validates evaluation context and geometry input', () => {
+    const geometry: CustomGeometry = { paths: [{ width: 1, height: 1, commands: [] }] };
+    const inherited = Object.create({ width: 1, height: 1 }) as CustomGeometryEvaluationContext;
+    const accessor = Object.defineProperty({ height: 1 }, 'width', { get: () => 1 });
+    const symbol = { width: 1, height: 1, [Symbol('unsafe')]: true };
+    const invalidContexts: unknown[] = [
+      null,
+      [],
+      inherited,
+      accessor,
+      symbol,
+      { width: 1 },
+      { width: 1, height: 1, extra: true },
+      { width: '1', height: 1 },
+      { width: Number.POSITIVE_INFINITY, height: 1 },
+      { width: 1.5, height: 1 },
+      { width: Number.MAX_SAFE_INTEGER + 1, height: 1 },
+      { width: 0, height: 1 },
+      { width: 1, height: -1 },
+    ];
+
+    for (const context of invalidContexts) {
+      expect(() => evaluateCustomGeometry(
+        geometry,
+        context as CustomGeometryEvaluationContext,
+      ), JSON.stringify(context)).toThrow();
+    }
+    expect(() => evaluateCustomGeometry(
+      { paths: [{ width: 1, height: 1, commands: [] }], unknown: true } as never,
+      { width: 1, height: 1 },
+    )).toThrow(TypeError);
+  });
+
+  it('rejects unknown tokens and non-positive evaluated arc radii', () => {
+    const unknown = (): unknown => evaluateCustomGeometry(
+      {
+        paths: [{
+          width: 1,
+          height: 1,
+          commands: [{ kind: 'moveTo', point: { x: 'missing', y: 0 } }],
+        }],
+      },
+      { width: 100, height: 100 },
+    );
+    const invalidRadius = (radius: number): (() => unknown) => () => evaluateCustomGeometry(
+      {
+        guides: [{ name: 'rad', formula: { operator: 'val', operands: [radius] } }],
+        paths: [{
+          width: 1,
+          height: 1,
+          commands: [
+            { kind: 'moveTo', point: { x: 0, y: 0 } },
+            {
+              kind: 'arcTo',
+              widthRadius: 'rad',
+              heightRadius: 1,
+              startAngle: 0,
+              sweepAngle: 1,
+            },
+          ],
+        }],
+      },
+      { width: 100, height: 100 },
+    );
+
+    expectEvaluationError(unknown, 'unknown-token', undefined, 'missing');
+    expectEvaluationError(invalidRadius(0), 'invalid-domain', undefined, 'rad');
+    expectEvaluationError(invalidRadius(-1), 'invalid-domain', undefined, 'rad');
+  });
+
+  it('rejects non-finite results propagated through public guide evaluation', () => {
+    const square = (
+      name: string,
+      operand: number | string,
+    ): NonNullable<CustomGeometry['guides']>[number] => ({
+      name,
+      formula: { operator: '*/', operands: [operand, operand, 1] },
+    });
+    const operation = (): unknown => evaluateCustomGeometry(
+      {
+        guides: [
+          square('g1', Number.MAX_SAFE_INTEGER),
+          square('g2', 'g1'),
+          square('g3', 'g2'),
+          square('g4', 'g3'),
+          square('g5', 'g4'),
+        ],
+        paths: [{ width: 1, height: 1, commands: [] }],
+      },
+      { width: 100, height: 100 },
+    );
+
+    expectEvaluationError(operation, 'non-finite-result', 'g5');
+  });
+});
+
 function expectEvaluationError(
   operation: () => unknown,
   code: CustomGeometryEvaluationError['code'],
@@ -349,4 +641,13 @@ function geometryWithGuides(
     ...(guides ? { guides } : {}),
     paths: [],
   };
+}
+
+function expectDeepFrozen(value: unknown, seen = new Set<unknown>()): void {
+  if (!value || (typeof value !== 'object' && typeof value !== 'function') || seen.has(value)) {
+    return;
+  }
+  seen.add(value);
+  expect(Object.isFrozen(value)).toBe(true);
+  for (const nested of Object.values(value)) expectDeepFrozen(nested, seen);
 }
