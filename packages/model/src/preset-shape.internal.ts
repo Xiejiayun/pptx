@@ -10,6 +10,11 @@ import {
   type ShapeFill,
 } from './preset-shape.js';
 import {
+  normalizeShapeAdjustments,
+  renderShapeAdjustmentList,
+  type NormalizedShapeAdjustments,
+} from './shape-adjustments.internal.js';
+import {
   normalizeSimpleFill,
   renderSimpleFill,
 } from './simple-fill.internal.js';
@@ -45,6 +50,7 @@ const MAX_ROTATION = 21_600_000;
 const PRESET_SHAPE_TYPE_SET: ReadonlySet<string> = new Set(PRESET_SHAPE_TYPES);
 const OPTION_KEYS = new Set([
   'name',
+  'adjustments',
   'fill',
   'line',
   'arrows',
@@ -62,6 +68,7 @@ const OPTION_KEYS = new Set([
 export interface NormalizedPresetShape {
   readonly type: PresetShapeType;
   readonly name: string | undefined;
+  readonly adjustments: NormalizedShapeAdjustments;
   readonly fill: ShapeFill;
   readonly line: NormalizedSimpleLine | undefined;
   readonly arrows: NormalizedShapeArrows | undefined;
@@ -116,10 +123,15 @@ export function normalizePresetShape(
   const shadow = values.shadow === undefined
     ? undefined
     : normalizeShapeShadow(values.shadow, 'Preset shape shadow');
+  const adjustments = normalizeShapeAdjustments(
+    values.adjustments === undefined ? [] : values.adjustments,
+    'Preset shape adjustments',
+  );
 
   return Object.freeze({
     type: type as PresetShapeType,
     name: name as string | undefined,
+    adjustments,
     fill,
     line,
     arrows,
@@ -163,7 +175,8 @@ export function renderPresetShapeXml(
     `<p:nvSpPr>${nonVisualProperties}<p:cNvSpPr/><p:nvPr/></p:nvSpPr>` +
     `<p:spPr><a:xfrm${transformAttributes}><a:off x="${shape.x}" y="${shape.y}"/>` +
     `<a:ext cx="${shape.width}" cy="${shape.height}"/></a:xfrm>` +
-    `<a:prstGeom prst="${type}"><a:avLst/></a:prstGeom>` +
+    `<a:prstGeom prst="${type}">` +
+    `${renderShapeAdjustmentList(shape.adjustments, 'a:')}</a:prstGeom>` +
     `${renderSimpleFill(shape.fill, 'a:')}${renderPresetLine(shape.line, shape.arrows)}` +
     effect +
     '</p:spPr></p:sp>';

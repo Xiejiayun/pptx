@@ -118,6 +118,7 @@ export type ShapeShadow =
 
 export interface AddShapeOptions extends Partial<Transform> {
   readonly name?: string;
+  readonly adjustments?: readonly ShapeAdjustment[];
   readonly fill?: ShapeFill;
   readonly line?: ShapeLine;
   readonly arrows?: ShapeArrows;

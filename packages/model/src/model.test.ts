@@ -19,6 +19,7 @@ import {
   type AddTableOptions,
   type PresentationFormat,
   type ShapeArrows,
+  type ShapeAdjustment,
   type ShapeArrowType,
   type ShapeFill,
   type ShapeLine,
@@ -28,6 +29,7 @@ import {
   type TextBoxMarginInput,
 } from './index.js';
 import { readShapeHyperlink } from './shape-hyperlink.internal.js';
+import { readShapeAdjustments } from './shape-adjustments.internal.js';
 import { readSimpleShadow } from './simple-shadow.internal.js';
 
 const CORE_PROPERTIES_RELATIONSHIP =
@@ -76,6 +78,20 @@ function readCreatedShapeShadow(
     : undefined;
   if (!shadow) return undefined;
   return readSimpleShadow(shadow, 'a:');
+}
+
+function readCreatedShapeAdjustments(
+  model: PresentationModel,
+  slide: ReturnType<PresentationModel['addSlide']>,
+  shapeId: number,
+) {
+  const xml = LosslessXmlDocument.parse(model.opcPackage.requirePart(slide.partUri).bytes);
+  const shape = xml.elements('sp').find((candidate) => {
+    const properties = xml.descendants(candidate, 'cNvPr')[0];
+    return properties && xml.attribute(properties, 'id')?.value === String(shapeId);
+  });
+  if (!shape) throw new Error(`Shape ${shapeId} was not found`);
+  return readShapeAdjustments(xml, shape);
 }
 
 function packageSnapshot(pkg: OpcPackage) {
@@ -159,6 +175,151 @@ describe('PresentationModel', () => {
     expect(() => slide.addShape('ellipse')).toThrow(ModelParseError);
     expect(pkg.requirePart(slide.partUri).bytes).toEqual(before);
     expect(pkg.mutations).toEqual(journal);
+  });
+
+  it('creates preset shape adjustments with detached ordered values and unchanged empty bytes', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const omittedSlide = model.addSlide();
+    const undefinedSlide = model.addSlide();
+    const emptySlide = model.addSlide();
+    omittedSlide.addShape('rect');
+    undefinedSlide.addShape('rect', { adjustments: undefined } as never);
+    emptySlide.addShape('rect', { adjustments: [] });
+    expect(pkg.requirePart(undefinedSlide.partUri).bytes).toEqual(
+      pkg.requirePart(omittedSlide.partUri).bytes,
+    );
+    expect(pkg.requirePart(emptySlide.partUri).bytes).toEqual(
+      pkg.requirePart(omittedSlide.partUri).bytes,
+    );
+
+    const slide = model.addSlide();
+    const relationships = slide.relationships;
+    const adjustments: { name: string; value: number }[] = [
+      { name: 'adj1', value: 16_200_000 },
+      { name: 'adj2', value: 0 },
+      { name: 'adj3', value: 25_000 },
+    ];
+    const blockArc = slide.addShape('blockArc', {
+      name: 'Adjusted block arc',
+      adjustments,
+      fill: { kind: 'solid', color: { kind: 'scheme', value: 'accent2' } },
+      line: { kind: 'line', color: { kind: 'srgb', value: '123ABC' } },
+      arrows: { end: 'triangle' },
+      shadow: { kind: 'outer' },
+      x: inches(2),
+    });
+    adjustments[0]!.value = 1;
+
+    expect(slide.shapes).toEqual([blockArc]);
+    expect(slide.shapes[0]).toBe(blockArc);
+    expect(slide.relationships).toEqual(relationships);
+    expect(readCreatedShapeAdjustments(model, slide, blockArc.id)).toEqual([
+      { name: 'adj1', value: 16_200_000 },
+      { name: 'adj2', value: 0 },
+      { name: 'adj3', value: 25_000 },
+    ]);
+    const xml = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect(xml).toContain(
+      '<a:prstGeom prst="blockArc"><a:avLst>' +
+      '<a:gd name="adj1" fmla="val 16200000"/>' +
+      '<a:gd name="adj2" fmla="val 0"/>' +
+      '<a:gd name="adj3" fmla="val 25000"/></a:avLst></a:prstGeom>',
+    );
+
+    const publicValue: readonly ShapeAdjustment[] = readCreatedShapeAdjustments(
+      model,
+      slide,
+      blockArc.id,
+    )!;
+    expect(publicValue).toHaveLength(3);
+  });
+
+  it('rejects invalid preset shape adjustment creation without package, identity, or ID mutation', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const before = packageSnapshot(pkg);
+    const shapes = slide.shapes;
+    let calls = 0;
+    const optionsGetter = Object.defineProperty({}, 'adjustments', {
+      enumerable: true,
+      get() {
+        calls += 1;
+        return [];
+      },
+    });
+    const entryGetter = Object.defineProperty({ name: 'adj' }, 'value', {
+      enumerable: true,
+      get() {
+        calls += 1;
+        return 1;
+      },
+    });
+    const sparse = new Array(2);
+    sparse[1] = { name: 'adj', value: 1 };
+    for (const adjustments of [
+      null,
+      {},
+      sparse,
+      [entryGetter],
+      [{ name: '', value: 1 }],
+      [{ name: 'adj', value: 1.5 }],
+      [{ name: 'adj', value: 1 }, { name: 'adj', value: 2 }],
+      [{ name: 'adj', value: 1, extra: true }],
+    ]) {
+      expect(() => slide.addShape('rect', { adjustments } as never)).toThrow();
+      expect(packageSnapshot(pkg)).toEqual(before);
+      expect(slide.shapes).toEqual(shapes);
+    }
+    expect(() => slide.addShape('rect', optionsGetter as never)).toThrow(/data property/);
+    expect(calls).toBe(0);
+    expect(packageSnapshot(pkg)).toEqual(before);
+    expect(slide.addShape('rect').id).toBe(2);
+  });
+
+  it('rolls back and reopens preset shape adjustment creation in all six formats', async () => {
+    for (const profile of Object.values(PRESENTATION_FORMAT_PROFILES)) {
+      const pkg = await OpcPackage.open(await modelFixture(profile.presentationContentType));
+      const model = new PresentationModel(pkg);
+      const slide = model.addSlide();
+      const before = packageSnapshot(pkg);
+      let rolledBack: ShapeModel | undefined;
+      expect(() => pkg.transaction(() => {
+        rolledBack = slide.addShape('pie', {
+          adjustments: [
+            { name: 'adj1', value: 16_200_000 },
+            { name: 'adj2', value: 0 },
+          ],
+        });
+        throw new Error('restore adjustment creation');
+      })).toThrow('restore adjustment creation');
+      expect(packageSnapshot(pkg)).toEqual(before);
+      expect(() => rolledBack!.name).toThrow(ModelParseError);
+
+      const created = slide.addShape('blockArc', {
+        adjustments: [
+          { name: 'adj1', value: 16_200_000 },
+          { name: 'adj2', value: 0 },
+          { name: 'adj3', value: 25_000 },
+        ],
+      });
+      const duplicate = model.duplicateSlide(model.slides.indexOf(slide));
+      expect(readCreatedShapeAdjustments(model, duplicate, created.id)).toEqual([
+        { name: 'adj1', value: 16_200_000 },
+        { name: 'adj2', value: 0 },
+        { name: 'adj3', value: 25_000 },
+      ]);
+
+      const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+      const reopenedSlide = reopened.slides.find(({ partUri }) => partUri === slide.partUri)!;
+      expect(reopened.format).toBe(profile.format);
+      expect(readCreatedShapeAdjustments(reopened, reopenedSlide, created.id)).toEqual([
+        { name: 'adj1', value: 16_200_000 },
+        { name: 'adj2', value: 0 },
+        { name: 'adj3', value: 25_000 },
+      ]);
+    }
   });
 
   it('creates preset shape shadows with exact detached outer, inner, omitted, and identity state', async () => {

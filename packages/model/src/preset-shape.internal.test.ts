@@ -4,6 +4,7 @@ import { LosslessXmlDocument } from '@pptx/lossless-xml';
 import { ModelParseError } from './errors.js';
 import {
   PRESET_SHAPE_TYPES,
+  type ShapeAdjustment,
   type ShapeArrowType,
   type ShapeLineDash,
   type ShapeShadow,
@@ -87,6 +88,7 @@ describe('normalizePresetShape', () => {
       arrows: undefined,
       hyperlink: undefined,
       shadow: undefined,
+      adjustments: [],
       x: 914_400,
       y: 914_400,
       width: 914_400,
@@ -126,6 +128,7 @@ describe('normalizePresetShape', () => {
       arrows: undefined,
       hyperlink: undefined,
       shadow: undefined,
+      adjustments: [],
       x: 1,
       y: -1,
       width: 3,
@@ -281,6 +284,31 @@ describe('normalizePresetShape', () => {
       distance: 0,
     });
     expect(normalizePresetShape('star5', { shadow: undefined }).shadow).toBeUndefined();
+  });
+
+  it('normalizes detached ordered preset shape adjustments and preserves explicit zero', () => {
+    const adjustments: { name: string; value: number }[] = [
+      { name: 'adj1', value: 16_200_000 },
+      { name: 'adj2', value: 0 },
+      { name: 'adj3', value: 25_000 },
+    ];
+    const normalized = normalizePresetShape('blockArc', { adjustments });
+    adjustments[0]!.name = 'changed';
+    adjustments[0]!.value = 1;
+
+    expect(normalized.adjustments).toEqual([
+      { name: 'adj1', value: 16_200_000 },
+      { name: 'adj2', value: 0 },
+      { name: 'adj3', value: 25_000 },
+    ]);
+    expect(Object.isFrozen(normalized.adjustments)).toBe(true);
+    expect(normalized.adjustments.every(Object.isFrozen)).toBe(true);
+    expect(normalizePresetShape('rect', { adjustments: [] }).adjustments).toEqual([]);
+    expect(normalizePresetShape('rect', { adjustments: undefined } as never).adjustments)
+      .toEqual([]);
+
+    const publicValue: readonly ShapeAdjustment[] = normalized.adjustments;
+    expect(publicValue[1]?.value).toBe(0);
   });
 
   it('rejects unsafe hyperlink values and accessors without invoking them', () => {
@@ -721,6 +749,30 @@ describe('preset shape XML codec', () => {
       '<a:schemeClr val="accent2"><a:alpha val="0"/></a:schemeClr>' +
       '</a:innerShdw></a:effectLst></p:spPr>',
     );
+  });
+
+  it('renders ordered preset shape adjustments inside the existing geometry list', () => {
+    const rendered = renderPresetShapeXml(7, normalizePresetShape('blockArc', {
+      adjustments: [
+        { name: 'adj1', value: 16_200_000 },
+        { name: 'adj2', value: 0 },
+        { name: 'adj3', value: 25_000 },
+      ],
+      fill: { kind: 'solid', color: { kind: 'scheme', value: 'accent2' } },
+      shadow: { kind: 'outer' },
+    }));
+    expect(rendered).toContain(
+      '<a:prstGeom prst="blockArc"><a:avLst>' +
+      '<a:gd name="adj1" fmla="val 16200000"/>' +
+      '<a:gd name="adj2" fmla="val 0"/>' +
+      '<a:gd name="adj3" fmla="val 25000"/></a:avLst></a:prstGeom>' +
+      '<a:solidFill><a:schemeClr val="accent2"/></a:solidFill><a:ln/>' +
+      '<a:effectLst>',
+    );
+    expect(renderPresetShapeXml(
+      8,
+      normalizePresetShape('roundRect', { adjustments: [] }),
+    )).toContain('<a:prstGeom prst="roundRect"><a:avLst/></a:prstGeom>');
   });
 
   it('creates every canonical geometry with one parseable default outer shadow', () => {

@@ -29,6 +29,7 @@ import {
   type AddTableOptions,
   type Hyperlink,
   type ShapeArrows,
+  type ShapeAdjustment,
   type ShapeArrowType,
   type ShapeFill,
   type ShapeLine,
@@ -651,6 +652,36 @@ describe('PptxDocument vertical slice', () => {
       offset: 4,
     };
     void [invalidKind, invalidInnerRotate, invalidAlias, invalidOpacity, invalidUnknown];
+  });
+
+  it('creates preset shape adjustments through the public SDK type and runtime surface', () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const adjustments: ShapeAdjustment[] = [
+      { name: 'adj1', value: 16_200_000 },
+      { name: 'adj2', value: 0 },
+      { name: 'adj3', value: 25_000 },
+    ];
+    const shape = slide.addShape('blockArc', { adjustments });
+    adjustments[0] = { name: 'changed', value: 1 };
+
+    expect(slide.shapes).toEqual([shape]);
+    expect(slide.shapes[0]).toBe(shape);
+    const xml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(xml).toContain(
+      '<a:prstGeom prst="blockArc"><a:avLst>' +
+      '<a:gd name="adj1" fmla="val 16200000"/>' +
+      '<a:gd name="adj2" fmla="val 0"/>' +
+      '<a:gd name="adj3" fmla="val 25000"/></a:avLst></a:prstGeom>',
+    );
+
+    // @ts-expect-error adjustment value must be numeric
+    const invalidValue: ShapeAdjustment = { name: 'adj', value: '1' };
+    // @ts-expect-error adjustment requires a name
+    const missingName: ShapeAdjustment = { value: 1 };
+    // @ts-expect-error adjustment values do not expose raw formulas
+    const invalidFormula: ShapeAdjustment = { name: 'adj', value: 1, formula: 'val 1' };
+    void [invalidValue, missingName, invalidFormula];
   });
 
   it('supports the shape shadow lifecycle across duplicate, move, rollback, reopen, and all formats', async () => {
