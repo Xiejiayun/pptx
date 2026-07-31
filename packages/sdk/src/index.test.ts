@@ -444,6 +444,94 @@ describe('PptxDocument vertical slice', () => {
     void [invalidType, invalidAlias];
   });
 
+  it('preserves editable shape arrows across duplicate, rollback, reopen, and all formats', async () => {
+    const document = PptxDocument.create();
+    const source = document.addSlide();
+    const relationships = source.relationships.map(({ id, type, target, targetMode }) => ({
+      id,
+      type,
+      target,
+      targetMode,
+    }));
+    const shape = source.addShape('line', {
+      line: {
+        kind: 'line',
+        color: { kind: 'srgb', value: 'AA0000' },
+        width: 2.5,
+        dash: 'lgDashDot',
+      },
+      arrows: { begin: 'triangle', end: 'arrow' },
+    });
+    const text = source.addText('Shape arrow text');
+    text.arrows = { end: 'stealth' };
+    expect(shape.arrows).toEqual({ begin: 'triangle', end: 'arrow' });
+    expect(text.arrows).toEqual({ end: 'stealth' });
+
+    const duplicate = document.duplicateSlide(0);
+    const duplicateShape = duplicate.shapes[0] as ShapeModel;
+    const duplicateText = duplicate.shapes[1] as ShapeModel;
+    duplicateShape.arrows = { begin: 'diamond' };
+    duplicateShape.line = undefined;
+    duplicateText.arrows = undefined;
+    expect(shape.arrows).toEqual({ begin: 'triangle', end: 'arrow' });
+    expect(text.arrows).toEqual({ end: 'stealth' });
+    expect(duplicateShape.arrows).toEqual({ begin: 'diamond' });
+    expect(duplicateShape.line).toBeUndefined();
+    expect(duplicateText.arrows).toBeUndefined();
+
+    expect(() => document.transaction(() => {
+      shape.arrows = { begin: 'none', end: 'oval' };
+      expect(shape.arrows).toEqual({ begin: 'none', end: 'oval' });
+      throw new Error('restore shape arrows');
+    })).toThrow('restore shape arrows');
+    expect(shape.arrows).toEqual({ begin: 'triangle', end: 'arrow' });
+    expect(source.shapes[0]).toBe(shape);
+    expect(source.shapes[1]).toBe(text);
+    expect(source.relationships.map(({ id, type, target, targetMode }) => ({
+      id,
+      type,
+      target,
+      targetMode,
+    }))).toEqual(relationships);
+
+    const reopened = await PptxDocument.open(await document.write());
+    expect((reopened.slides[0]!.shapes[0] as ShapeModel).arrows)
+      .toEqual({ begin: 'triangle', end: 'arrow' });
+    expect((reopened.slides[0]!.shapes[1] as ShapeModel).arrows)
+      .toEqual({ end: 'stealth' });
+    expect((reopened.slides[1]!.shapes[0] as ShapeModel).arrows)
+      .toEqual({ begin: 'diamond' });
+    expect((reopened.slides[1]!.shapes[1] as ShapeModel).arrows).toBeUndefined();
+
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const formatted = PptxDocument.create({ format });
+      const formattedSlide = formatted.addSlide();
+      const formattedShape = formattedSlide.addShape('line', {
+        line: {
+          kind: 'line',
+          color: { kind: 'scheme', value: 'accent4' },
+          width: 3,
+          dash: 'lgDashDotDot',
+        },
+        arrows: { begin: 'none', end: 'triangle' },
+      });
+      const formattedText = formattedSlide.addText('Editable existing text arrows');
+      formattedText.arrows = { begin: 'oval', end: 'stealth' };
+      const formattedReopened = await PptxDocument.open(await formatted.write());
+      expect(formattedReopened.format).toBe(format);
+      expect((formattedReopened.slides[0]!.shapes[0] as ShapeModel).arrows)
+        .toEqual({ begin: 'none', end: 'triangle' });
+      expect((formattedReopened.slides[0]!.shapes[1] as ShapeModel).arrows)
+        .toEqual({ begin: 'oval', end: 'stealth' });
+      expect(formattedShape.line).toEqual({
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent4' },
+        width: 3,
+        dash: 'lgDashDotDot',
+      });
+    }
+  });
+
   it('preserves editable shape lines across duplicate, rollback, reopen, and all formats', async () => {
     const document = PptxDocument.create();
     const source = document.addSlide();

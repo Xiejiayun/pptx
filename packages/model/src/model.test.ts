@@ -534,6 +534,160 @@ describe('PresentationModel', () => {
     expect(pkg.mutations).toEqual(journal);
   });
 
+  it('reads and edits direct shape arrows through stable live models', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const shape = slide.addShape('line', {
+      line: {
+        kind: 'line',
+        color: { kind: 'srgb', value: '112233' },
+        width: 2.5,
+        dash: 'dashDot',
+      },
+      arrows: { begin: 'triangle', end: 'arrow' },
+    });
+    const text = slide.addText('Editable text arrows');
+
+    expect(shape.arrows).toEqual({ begin: 'triangle', end: 'arrow' });
+    expect(text.arrows).toBeUndefined();
+    const first = shape.arrows;
+    const second = shape.arrows;
+    expect(first).not.toBe(second);
+    expect(Object.isFrozen(first)).toBe(true);
+    expect(() => {
+      if (first) (first as { begin?: ShapeArrowType }).begin = 'none';
+    }).toThrow(TypeError);
+    expect(shape.arrows).toEqual({ begin: 'triangle', end: 'arrow' });
+
+    const noOpBytes = pkg.requirePart(slide.partUri).bytes.slice();
+    const noOpJournal = [...pkg.mutations];
+    shape.arrows = { begin: 'triangle', end: 'arrow' };
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(noOpBytes);
+    expect(pkg.mutations).toEqual(noOpJournal);
+
+    const part = pkg.requirePart(slide.partUri);
+    const sourceXml = new TextDecoder().decode(part.bytes);
+    const advancedXml = sourceXml.replace(
+      '<a:solidFill><a:srgbClr val="112233"/></a:solidFill>' +
+      '<a:prstDash val="dashDot"/><a:headEnd type="triangle"/>' +
+      '<a:tailEnd type="arrow"/></a:ln>',
+      '<a:gradFill><a:gsLst/></a:gradFill>' +
+      '<a:custDash><a:ds d="1" sp="1"/></a:custDash><a:round/>' +
+      '<a:headEnd type="triangle" w="lg" len="sm"/>' +
+      '<a:tailEnd type="arrow" w="med" len="med"/>' +
+      '<a:extLst><a:ext uri="urn:arrows"><x:keep xmlns:x="urn:arrows"/>' +
+      '</a:ext></a:extLst></a:ln>',
+    );
+    expect(advancedXml).not.toBe(sourceXml);
+    pkg.setPart(slide.partUri, advancedXml, part.contentType);
+    expect(shape.line).toBeUndefined();
+    expect(shape.arrows).toEqual({ begin: 'triangle', end: 'arrow' });
+
+    shape.arrows = { begin: 'diamond', end: 'oval' };
+    let xml = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect(xml).toContain('<a:gradFill><a:gsLst/></a:gradFill>');
+    expect(xml).toContain('<a:custDash><a:ds d="1" sp="1"/></a:custDash><a:round/>');
+    expect(xml).toContain('<a:headEnd type="diamond" w="lg" len="sm"/>');
+    expect(xml).toContain('<a:tailEnd type="oval" w="med" len="med"/>');
+    expect(xml).toContain('<x:keep xmlns:x="urn:arrows"/>');
+
+    shape.arrows = { begin: 'stealth' };
+    expect(shape.arrows).toEqual({ begin: 'stealth' });
+    xml = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect(xml).toContain('<a:headEnd type="stealth" w="lg" len="sm"/>');
+    expect(xml).not.toContain('<a:tailEnd');
+
+    shape.arrows = { begin: 'none', end: 'triangle' };
+    shape.line = undefined;
+    expect(shape.line).toBeUndefined();
+    expect(shape.arrows).toEqual({ begin: 'none', end: 'triangle' });
+    xml = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect(xml).toContain(
+      '<a:ln><a:round/><a:headEnd type="none" w="lg" len="sm"/>' +
+      '<a:tailEnd type="triangle"/>',
+    );
+    expect(xml).toContain('<x:keep xmlns:x="urn:arrows"/>');
+
+    shape.arrows = undefined;
+    expect(shape.arrows).toBeUndefined();
+    xml = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect(xml).not.toContain('<a:headEnd');
+    expect(xml).not.toContain('<a:tailEnd');
+    expect(xml).toContain('<a:round/><a:extLst>');
+
+    text.arrows = { begin: 'diamond', end: 'oval' };
+    expect(text.arrows).toEqual({ begin: 'diamond', end: 'oval' });
+    expect(text.line).toEqual({ kind: 'none' });
+    expect(slide.shapes[0]).toBe(shape);
+    expect(slide.shapes[1]).toBe(text);
+
+    const invalidBytes = pkg.requirePart(slide.partUri).bytes.slice();
+    const invalidJournal = [...pkg.mutations];
+    let getterInvoked = false;
+    const accessor = Object.defineProperty({}, 'begin', {
+      enumerable: true,
+      get() {
+        getterInvoked = true;
+        return 'arrow';
+      },
+    });
+    expect(() => {
+      shape.arrows = accessor as never;
+    }).toThrow(TypeError);
+    expect(() => {
+      shape.arrows = { begin: 'open' } as never;
+    }).toThrow(TypeError);
+    expect(getterInvoked).toBe(false);
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(invalidBytes);
+    expect(pkg.mutations).toEqual(invalidJournal);
+  });
+
+  it('rejects malformed existing arrows through the live editor with zero mutation', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const shape = slide.addShape('line', { arrows: { begin: 'triangle' } });
+    const part = pkg.requirePart(slide.partUri);
+    const malformed = new TextDecoder().decode(part.bytes).replace(
+      '<a:headEnd type="triangle"/>',
+      '<a:headEnd type="triangle" w="xl"/>',
+    );
+    pkg.setPart(slide.partUri, malformed, part.contentType);
+    expect(shape.arrows).toBeUndefined();
+
+    const bytes = pkg.requirePart(slide.partUri).bytes.slice();
+    const parts = pkg.parts.map(({ uri, contentType, bytes: value }) => ({
+      uri,
+      contentType,
+      bytes: value.slice(),
+    }));
+    const relationships = slide.relationships.map(({ id, type, target, targetMode }) => ({
+      id,
+      type,
+      target,
+      targetMode,
+    }));
+    const journal = [...pkg.mutations];
+    expect(() => {
+      shape.arrows = { begin: 'arrow' };
+    }).toThrow(ModelParseError);
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(bytes);
+    expect(pkg.parts.map(({ uri, contentType, bytes: value }) => ({
+      uri,
+      contentType,
+      bytes: value,
+    }))).toEqual(parts);
+    expect(slide.relationships.map(({ id, type, target, targetMode }) => ({
+      id,
+      type,
+      target,
+      targetMode,
+    }))).toEqual(relationships);
+    expect(pkg.mutations).toEqual(journal);
+    expect(slide.shapes[0]).toBe(shape);
+  });
+
   it('reads and edits direct shape lines through stable live models', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);

@@ -61,9 +61,15 @@ import {
 import type {
   AddShapeOptions,
   PresetShapeType,
+  ShapeArrows,
   ShapeFill,
   ShapeLine,
 } from './preset-shape.js';
+import {
+  normalizeShapeArrows,
+  readShapeArrows,
+  replaceShapeArrows,
+} from './shape-arrows.internal.js';
 import {
   readShapeFill,
   replaceShapeFill,
@@ -382,6 +388,23 @@ export class SlideModel {
     this.presentation.opcPackage.transaction(() => {
       const { xml, element } = this.resolveShape(id);
       if (replaceShapeLine(xml, element, line, this.partUri)) {
+        this.setXml(xml.serialize());
+      }
+    });
+  }
+
+  getShapeArrows(id: number): ShapeArrows | undefined {
+    const { xml, element } = this.resolveShape(id);
+    return readShapeArrows(xml, element);
+  }
+
+  setShapeArrows(id: number, value: ShapeArrows | undefined): void {
+    const arrows = value === undefined
+      ? undefined
+      : normalizeShapeArrows(value, 'Shape arrows');
+    this.presentation.opcPackage.transaction(() => {
+      const { xml, element } = this.resolveShape(id);
+      if (replaceShapeArrows(xml, element, arrows, this.partUri)) {
         this.setXml(xml.serialize());
       }
     });
