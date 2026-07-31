@@ -115,6 +115,108 @@ const presetShapes = PRESET_SHAPE_TYPES.length === 178 &&
     ['Shape 2', 'Packed folded corner'],
     ['Shape 2', 'Packed folded corner'],
   ]);
+const shapeFillDeck = PptxDocument.create();
+const shapeFillSlide = shapeFillDeck.addSlide();
+const shapeFillSourceColor = { kind: 'srgb', value: '#AA0000' };
+const shapeFillSource = {
+  kind: 'solid',
+  color: shapeFillSourceColor,
+  transparency: 33.3334,
+};
+const packedSrgbFill = shapeFillSlide.addShape('rect', {
+  name: 'Packed sRGB fill',
+  fill: shapeFillSource,
+});
+const packedSchemeFill = shapeFillSlide.addShape('ellipse', {
+  name: 'Packed scheme fill',
+  fill: {
+    kind: 'solid',
+    color: { kind: 'scheme', value: 'accent2' },
+    transparency: 25,
+  },
+});
+const packedNoneFill = shapeFillSlide.addShape('star5', {
+  name: 'Packed none fill',
+  fill: { kind: 'none' },
+});
+const initialPackedSrgbFill = packedSrgbFill.fill;
+const initialPackedSrgbFillAgain = packedSrgbFill.fill;
+shapeFillSourceColor.value = '000000';
+shapeFillSource.transparency = 1;
+const detachedPackedSrgbFill = packedSrgbFill.fill;
+const shapeFillPartCountBeforeEdit = shapeFillDeck.opcPackage.parts.length;
+const shapeFillRelationshipCountBeforeEdit = shapeFillSlide.relationships.length;
+const shapeFillNoOpBytes = shapeFillDeck.opcPackage.requirePart(shapeFillSlide.partUri).bytes.slice();
+const shapeFillNoOpJournalLength = shapeFillDeck.opcPackage.mutations.length;
+packedSrgbFill.fill = {
+  kind: 'solid',
+  color: { kind: 'srgb', value: 'AA0000' },
+  transparency: 33.333,
+};
+const currentShapeFillNoOpBytes = shapeFillDeck.opcPackage.requirePart(shapeFillSlide.partUri).bytes;
+const shapeFillNoOp = shapeFillNoOpJournalLength === shapeFillDeck.opcPackage.mutations.length &&
+  shapeFillNoOpBytes.length === currentShapeFillNoOpBytes.length &&
+  shapeFillNoOpBytes.every((value, index) => value === currentShapeFillNoOpBytes[index]);
+packedSrgbFill.fill = { kind: 'none' };
+const packedNoneReplacement = packedSrgbFill.fill;
+packedSrgbFill.fill = undefined;
+const packedClearedFill = packedSrgbFill.fill;
+packedSrgbFill.fill = {
+  kind: 'solid',
+  color: { kind: 'scheme', value: 'accent4' },
+  transparency: 40,
+};
+const shapeFillEditIsolation = shapeFillDeck.opcPackage.parts.length ===
+  shapeFillPartCountBeforeEdit &&
+  shapeFillSlide.relationships.length === shapeFillRelationshipCountBeforeEdit;
+const duplicateShapeFillSlide = shapeFillDeck.duplicateSlide(0);
+const duplicatePackedFill = duplicateShapeFillSlide.shapes[0];
+if (!(duplicatePackedFill instanceof ShapeModel)) throw new Error('Packed duplicate fill shape failed');
+duplicatePackedFill.fill = { kind: 'none' };
+const reopenedShapeFillDeck = await PptxDocument.open(await shapeFillDeck.write());
+const reopenedSourceFills = reopenedShapeFillDeck.slides[0].shapes.map((shape) =>
+  shape instanceof ShapeModel ? shape.fill : undefined);
+const reopenedDuplicateFills = reopenedShapeFillDeck.slides[1].shapes.map((shape) =>
+  shape instanceof ShapeModel ? shape.fill : undefined);
+const shapeFills = packedSrgbFill instanceof ShapeModel &&
+  packedSchemeFill instanceof ShapeModel &&
+  packedNoneFill instanceof ShapeModel &&
+  initialPackedSrgbFill !== initialPackedSrgbFillAgain &&
+  initialPackedSrgbFill?.kind === 'solid' &&
+  initialPackedSrgbFillAgain?.kind === 'solid' &&
+  initialPackedSrgbFill.color !== initialPackedSrgbFillAgain.color &&
+  JSON.stringify(initialPackedSrgbFill) === JSON.stringify({
+    kind: 'solid',
+    color: { kind: 'srgb', value: 'AA0000' },
+    transparency: 33.333,
+  }) &&
+  JSON.stringify(detachedPackedSrgbFill) === JSON.stringify(initialPackedSrgbFill) &&
+  packedNoneReplacement?.kind === 'none' &&
+  packedClearedFill === undefined &&
+  shapeFillNoOp &&
+  shapeFillEditIsolation &&
+  JSON.stringify(packedSrgbFill.fill) === JSON.stringify({
+    kind: 'solid',
+    color: { kind: 'scheme', value: 'accent4' },
+    transparency: 40,
+  }) &&
+  JSON.stringify(packedSchemeFill.fill) === JSON.stringify({
+    kind: 'solid',
+    color: { kind: 'scheme', value: 'accent2' },
+    transparency: 25,
+  }) &&
+  packedNoneFill.fill?.kind === 'none' &&
+  duplicatePackedFill.fill?.kind === 'none' &&
+  JSON.stringify(reopenedSourceFills) === JSON.stringify([
+    { kind: 'solid', color: { kind: 'scheme', value: 'accent4' }, transparency: 40 },
+    { kind: 'solid', color: { kind: 'scheme', value: 'accent2' }, transparency: 25 },
+    { kind: 'none' },
+  ]) &&
+  JSON.stringify(reopenedDuplicateFills) === JSON.stringify([
+    { kind: 'none' },
+    { kind: 'solid', color: { kind: 'scheme', value: 'accent2' }, transparency: 25 },
+    { kind: 'none' },
+  ]);
 const createdText = created.addSlide().addText('Smoke\\n\\nParagraph', { align: 'center', fit: 'shrink', valign: 'top', vert: 'vert270', wrap: false, bullet: true, level: 2, margin: 10, rtlMode: true, spacing: { before: 4, after: 6, line: { kind: 'exact', points: 20 } }, tabStops: [{ position: 1.25 }, { position: 2.5, alignment: 'right' }] });
 const initialTextWrap = createdText.textWrap;
 const initialTextDirection = createdText.textDirection;
@@ -660,6 +762,7 @@ const customXml = new TextDecoder().decode(custom.opcPackage.requirePart('/ppt/p
 const checks = {
   PptxDocument: typeof PptxDocument === 'function',
   presetShapes,
+  shapeFills,
   presentationRtl: presentationRtlEnabled === true && presentationRtlDisabled === false && presentationRtlCleared === undefined && paragraphRtlAfterGlobalClear[0] === true && paragraphRtlAfterGlobalClear[1] === false,
   presentationTitle: createdPresentationTitle === 'Packed & <Title>' && editedPresentationTitle === 'Edited title' && reopenedPresentationTitle === 'Edited title' && emptyPresentationTitle === '' && clearedPresentationTitle === undefined,
   presentationAuthor: createdPresentationAuthor === 'Packed & <Author>' && editedPresentationAuthor === 'Edited author' && reopenedPresentationAuthor === 'Edited author' && emptyPresentationAuthor === '' && clearedPresentationAuthor === undefined,
@@ -733,9 +836,58 @@ if (PRESET_SHAPE_TYPES.length !== 178 || !Object.isFrozen(PRESET_SHAPE_TYPES)) {
 const browserShapeDeck = PptxDocument.create();
 const browserShape = browserShapeDeck.addSlide().addShape('foldedCorner');
 browserShape.presetType = 'star5';
+const browserShapeFillColor = { kind: 'srgb', value: '#224466' };
+const browserShapeFillSource = {
+  kind: 'solid',
+  color: browserShapeFillColor,
+  transparency: 12.3456,
+};
+const browserFilledShape = browserShapeDeck.slides[0].addShape('rect', {
+  fill: browserShapeFillSource,
+});
+const browserInitialShapeFill = browserFilledShape.fill;
+browserShapeFillColor.value = 'FFFFFF';
+browserShapeFillSource.transparency = 90;
+const browserDetachedShapeFill = browserFilledShape.fill;
+const browserShapeFillPartCount = browserShapeDeck.opcPackage.parts.length;
+const browserShapeFillRelationshipCount = browserShapeDeck.slides[0].relationships.length;
+browserFilledShape.fill = { kind: 'none' };
+browserFilledShape.fill = undefined;
+browserFilledShape.fill = {
+  kind: 'solid',
+  color: { kind: 'scheme', value: 'accent5' },
+  transparency: 50,
+};
 const reopenedBrowserShape = await PptxDocument.open(await browserShapeDeck.writeBlob());
 if (reopenedBrowserShape.slides[0]?.shapes[0]?.presetType !== 'star5') {
   throw new Error('Browser preset shape failed');
+}
+const reopenedBrowserFill = reopenedBrowserShape.slides[0]?.shapes[1]?.fill;
+const browserShapeFillChecks = {
+  initial: browserInitialShapeFill?.kind === 'solid' &&
+    browserInitialShapeFill.color.kind === 'srgb' &&
+    browserInitialShapeFill.color.value === '224466' &&
+    Math.abs((browserInitialShapeFill.transparency ?? 0) - 12.346) < 1e-9,
+  detached: JSON.stringify(browserDetachedShapeFill) === JSON.stringify(browserInitialShapeFill),
+  partIsolation: browserShapeDeck.opcPackage.parts.length === browserShapeFillPartCount,
+  relationshipIsolation: browserShapeDeck.slides[0].relationships.length ===
+    browserShapeFillRelationshipCount,
+  edited: JSON.stringify(browserFilledShape.fill) === JSON.stringify({
+    kind: 'solid',
+    color: { kind: 'scheme', value: 'accent5' },
+    transparency: 50,
+  }),
+  reopened: JSON.stringify(reopenedBrowserFill) === JSON.stringify({
+    kind: 'solid',
+    color: { kind: 'scheme', value: 'accent5' },
+    transparency: 50,
+  }),
+};
+if (Object.values(browserShapeFillChecks).some((value) => !value)) {
+  throw new Error('Browser shape fill failed: ' + JSON.stringify({
+    checks: browserShapeFillChecks,
+    initial: browserInitialShapeFill,
+  }));
 }
 const created = PptxDocument.create({ rtlMode: true, slideSize: '16:9' });
 const browserText = created.addSlide().addText('Browser\\nText', { align: 'center', fit: 'resize', valign: 'bottom', vert: 'vert', wrap: false, bullet: true, level: 2, margin: [0, 0, 0, 0], rtlMode: true, spacing: { line: { kind: 'multiple', factor: 1.25 } }, tabStops: [{ position: 1.25 }] });
@@ -1118,6 +1270,7 @@ process.stdout.write(resolved);
   TableModel,
   inches,
   type AddShapeOptions,
+  type ShapeFill,
   type PresetShapeType,
   type SlideModel,
   type CustomSlideSize,
@@ -1169,6 +1322,12 @@ process.stdout.write(resolved);
 const documentPromise: Promise<PptxDocument> = PptxDocument.open(new Uint8Array());
 const createdDocument: PptxDocument = PptxDocument.create({ format: 'pptx', slideSize: 'wide' });
 const typedPreset: PresetShapeType = 'foldedCorner';
+const typedNoneShapeFill: ShapeFill = { kind: 'none' };
+const typedSolidShapeFill: ShapeFill = {
+  kind: 'solid',
+  color: { kind: 'scheme', value: 'accent2' },
+  transparency: 25,
+};
 const typedShapeOptions: AddShapeOptions = {
   x: inches(1),
   y: inches(2),
@@ -1177,6 +1336,7 @@ const typedShapeOptions: AddShapeOptions = {
   rotation: degrees(45),
   flipHorizontal: true,
   name: 'Typed shape',
+  fill: typedSolidShapeFill,
 };
 const typedShape: ShapeModel = createdDocument.addSlide().addShape(
   typedPreset,
@@ -1184,6 +1344,10 @@ const typedShape: ShapeModel = createdDocument.addSlide().addShape(
 );
 const typedPresetRead: PresetShapeType | undefined = typedShape.presetType;
 typedShape.presetType = 'rect';
+const typedShapeFillRead: ShapeFill | undefined = typedShape.fill;
+typedShape.fill = typedNoneShapeFill;
+typedShape.fill = typedSolidShapeFill;
+typedShape.fill = undefined;
 const typedPresetCatalog: readonly PresetShapeType[] = PRESET_SHAPE_TYPES;
 // @ts-expect-error folderCorner is not a canonical OOXML preset
 createdDocument.addSlide().addShape('folderCorner');
@@ -1193,6 +1357,12 @@ createdDocument.addSlide().addShape('custGeom');
 createdDocument.addSlide().addShape('rect', { color: 'FF0000' });
 // @ts-expect-error transforms use numeric native units
 createdDocument.addSlide().addShape('rect', { width: '3', rotation: '45' });
+// @ts-expect-error gradient is not a simple shape fill kind
+const invalidShapeFillKind: ShapeFill = { kind: 'gradient' };
+// @ts-expect-error shape fill colors use srgb or scheme
+const invalidShapeFillColor: ShapeFill = { kind: 'solid', color: { kind: 'rgb', value: 'FF0000' } };
+// @ts-expect-error transparency is numeric
+const invalidShapeFillTransparency: ShapeFill = { kind: 'solid', color: { kind: 'srgb', value: 'FF0000' }, transparency: '50' };
 const addSectionOptions: AddSectionOptions = { title: 'Typed', order: 0 };
 const typedSection: PresentationSection = createdDocument.addSection(addSectionOptions);
 const addSlideOptions: AddSlideOptions = { sectionTitle: typedSection.title };
@@ -1423,7 +1593,9 @@ documentPromise.then((document) => {
   smartArt.installSmartArtPlugin(document);
 });
 void [typedNotesSlide, notesSnapshot, returnedNotesSlide];
-void [typedPreset, typedShapeOptions, typedShape, typedPresetRead, typedPresetCatalog];
+void [typedPreset, typedNoneShapeFill, typedSolidShapeFill, typedShapeOptions, typedShape,
+  typedPresetRead, typedShapeFillRead, typedPresetCatalog, invalidShapeFillKind,
+  invalidShapeFillColor, invalidShapeFillTransparency];
 void [documentPromise, createdDocument, addSectionOptions, typedSection, addSlideOptions, sectionSnapshot, typedVisibilitySlide, hiddenSnapshot, globalRtl, globalRtlSnapshot, titledDocument, titleSnapshot, authoredDocument, authorSnapshot, lastModifiedDocument, lastModifiedSnapshot, createdAtDocument, createdAtSnapshot, modifiedAtDocument, modifiedAtSnapshot, subjectDocument, subjectSnapshot, revisionDocument, revisionSnapshot, companyDocument, companySnapshot, themedDocument, themeSnapshot, fontSnapshot, fontUpdate, customDocument, createdText, creationBorder, creationMargin, creationOptions, objectCell, tableRows, tableOptions, typedTable, widthSnapshot, heightSnapshot, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotHorizontalAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellHorizontalAlignment, tableHorizontalAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
 `,
   );
@@ -1454,7 +1626,7 @@ void [documentPromise, createdDocument, addSectionOptions, typedSection, addSlid
   if (!doctor.ok || doctor.data?.version !== '0.1.0') throw new Error(`CLI smoke failed: ${cliResult.stdout}`);
 
   process.stdout.write(
-    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presetShapes: apiChecks.presetShapes, types: true, cli: doctor.data.version })}\n`,
+    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presetShapes: apiChecks.presetShapes, shapeFills: apiChecks.shapeFills, types: true, cli: doctor.data.version })}\n`,
   );
 } finally {
   await rm(directory, { recursive: true, force: true });
