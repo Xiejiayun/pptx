@@ -55,7 +55,7 @@ import { normalizeTextAlignment } from './rich-text.internal.js';
 import { normalizeTextBoxFit } from './text-box-fit.internal.js';
 import { normalizeTextBoxMargins } from './text-box-margins.internal.js';
 import { normalizeTextBoxVerticalAlignment } from './text-box-vertical-alignment.internal.js';
-import type { PresetShapeType } from './preset-shape.js';
+import type { PresetShapeType, ShapeFill } from './preset-shape.js';
 import type {
   RichTextParagraph,
   RichTextColor,
@@ -231,6 +231,14 @@ export class ShapeModel extends BaseShapeModel {
 
   set textFit(value: TextBoxFit | undefined) {
     this.slide.setShapeTextFit(this.id, value);
+  }
+
+  get fill(): ShapeFill | undefined {
+    return this.slide.getShapeFill(this.id);
+  }
+
+  set fill(value: ShapeFill | undefined) {
+    this.slide.setShapeFill(this.id, value);
   }
 
   get gradientFill(): GradientFill | undefined {

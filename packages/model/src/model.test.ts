@@ -249,6 +249,163 @@ describe('PresentationModel', () => {
     expect(pkg.mutations).toEqual(journal);
   });
 
+  it('reads and edits direct shape fills through stable live models', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const shape = slide.addShape('rect', {
+      fill: {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'FF0000' },
+        transparency: 25,
+      },
+    });
+    const text = slide.addText('Keep text');
+
+    expect(shape.fill).toEqual({
+      kind: 'solid',
+      color: { kind: 'srgb', value: 'FF0000' },
+      transparency: 25,
+    });
+    expect(text.fill).toEqual({ kind: 'none' });
+    const first = shape.fill;
+    const second = shape.fill;
+    expect(first).not.toBe(second);
+    if (first?.kind === 'solid' && second?.kind === 'solid') {
+      expect(first.color).not.toBe(second.color);
+    }
+
+    const beforeNoOp = pkg.requirePart(slide.partUri).bytes.slice();
+    const noOpJournal = [...pkg.mutations];
+    shape.fill = {
+      kind: 'solid',
+      color: { kind: 'srgb', value: 'FF0000' },
+      transparency: 25,
+    };
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeNoOp);
+    expect(pkg.mutations).toEqual(noOpJournal);
+
+    shape.fill = { kind: 'none' };
+    expect(shape.fill).toEqual({ kind: 'none' });
+    shape.fill = undefined;
+    expect(shape.fill).toBeUndefined();
+    shape.fill = {
+      kind: 'solid',
+      color: { kind: 'scheme', value: 'accent3' },
+      transparency: 40,
+    };
+    text.fill = {
+      kind: 'solid',
+      color: { kind: 'srgb', value: '112233' },
+    };
+    expect(shape.fill).toEqual({
+      kind: 'solid',
+      color: { kind: 'scheme', value: 'accent3' },
+      transparency: 40,
+    });
+    expect(text.fill).toEqual({
+      kind: 'solid',
+      color: { kind: 'srgb', value: '112233' },
+    });
+    expect(slide.shapes[0]).toBe(shape);
+    expect(slide.shapes[1]).toBe(text);
+    expect(text.text).toBe('Keep text');
+  });
+
+  it('replaces and clears unique gradient shape fills and rejects unsafe edits atomically', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const shape = slide.addShape('rect');
+    const part = pkg.requirePart(slide.partUri);
+    const gradient = new TextDecoder().decode(part.bytes).replace(
+      '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln/>',
+      '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>' +
+      '<a:gradFill><a:gsLst/></a:gradFill><a:ln/>',
+    );
+    pkg.setPart(slide.partUri, gradient, part.contentType);
+    expect(shape.fill).toBeUndefined();
+    shape.fill = { kind: 'none' };
+    expect(shape.fill).toEqual({ kind: 'none' });
+
+    const nonePart = pkg.requirePart(slide.partUri);
+    const gradientAgain = new TextDecoder().decode(nonePart.bytes).replace(
+      '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln/>',
+      '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>' +
+      '<a:gradFill><a:gsLst/></a:gradFill><a:ln/>',
+    );
+    pkg.setPart(slide.partUri, gradientAgain, nonePart.contentType);
+    shape.fill = undefined;
+    expect(shape.fill).toBeUndefined();
+    expect(new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes))
+      .not.toContain('<a:gradFill>');
+
+    const ambiguousPart = pkg.requirePart(slide.partUri);
+    const ambiguous = new TextDecoder().decode(ambiguousPart.bytes).replace(
+      '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:ln/>',
+      '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>' +
+      '<a:noFill/><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill><a:ln/>',
+    );
+    pkg.setPart(slide.partUri, ambiguous, ambiguousPart.contentType);
+    const before = pkg.requirePart(slide.partUri).bytes.slice();
+    const parts = pkg.parts.map(({ uri, contentType, bytes }) => ({
+      uri,
+      contentType,
+      bytes: bytes.slice(),
+    }));
+    const relationships = slide.relationships.map(({ id, type, target, targetMode }) => ({
+      id,
+      type,
+      target,
+      targetMode,
+    }));
+    const journal = [...pkg.mutations];
+    expect(shape.fill).toBeUndefined();
+    expect(() => {
+      shape.fill = { kind: 'none' };
+    }).toThrow(ModelParseError);
+
+    let calls = 0;
+    const getter = Object.defineProperty({}, 'kind', {
+      enumerable: true,
+      get() {
+        calls += 1;
+        return 'none';
+      },
+    });
+    for (const value of [
+      null,
+      getter,
+      { kind: 'solid' },
+      { kind: 'solid', color: { kind: 'srgb', value: 'FFF' } },
+      {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'FFFFFF' },
+        transparency: 101,
+      },
+      { kind: 'none', alpha: 20 },
+    ]) {
+      expect(() => {
+        shape.fill = value as never;
+      }).toThrow();
+    }
+    expect(calls).toBe(0);
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(before);
+    expect(pkg.parts.map(({ uri, contentType, bytes }) => ({
+      uri,
+      contentType,
+      bytes,
+    }))).toEqual(parts);
+    expect(slide.relationships.map(({ id, type, target, targetMode }) => ({
+      id,
+      type,
+      target,
+      targetMode,
+    }))).toEqual(relationships);
+    expect(slide.shapes[0]).toBe(shape);
+    expect(pkg.mutations).toEqual(journal);
+  });
+
   it('rejects unsafe preset shape trees and id allocation states without mutation', async () => {
     const presentationNamespace =
       'http://schemas.openxmlformats.org/presentationml/2006/main';

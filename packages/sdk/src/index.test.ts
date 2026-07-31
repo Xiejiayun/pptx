@@ -304,6 +304,116 @@ describe('PptxDocument vertical slice', () => {
     );
   });
 
+  it('preserves editable shape fills across duplicate, rollback, reopen, and all formats', async () => {
+    const document = PptxDocument.create();
+    const source = document.addSlide();
+    const relationships = source.relationships.map(({ id, type, target, targetMode }) => ({
+      id,
+      type,
+      target,
+      targetMode,
+    }));
+    const shape = source.addShape('rect', {
+      fill: {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'AA0000' },
+        transparency: 10,
+      },
+    });
+    const text = source.addText('Shape fill text');
+    expect(shape.fill).toEqual({
+      kind: 'solid',
+      color: { kind: 'srgb', value: 'AA0000' },
+      transparency: 10,
+    });
+    expect(text.fill).toEqual({ kind: 'none' });
+
+    text.fill = {
+      kind: 'solid',
+      color: { kind: 'scheme', value: 'accent2' },
+      transparency: 35,
+    };
+    const duplicate = document.duplicateSlide(0);
+    const duplicateShape = duplicate.shapes[0] as ShapeModel;
+    const duplicateText = duplicate.shapes[1] as ShapeModel;
+    duplicateShape.fill = { kind: 'none' };
+    duplicateText.fill = undefined;
+    expect(shape.fill).toEqual({
+      kind: 'solid',
+      color: { kind: 'srgb', value: 'AA0000' },
+      transparency: 10,
+    });
+    expect(text.fill).toEqual({
+      kind: 'solid',
+      color: { kind: 'scheme', value: 'accent2' },
+      transparency: 35,
+    });
+    expect(duplicateShape.fill).toEqual({ kind: 'none' });
+    expect(duplicateText.fill).toBeUndefined();
+
+    expect(() => document.transaction(() => {
+      shape.fill = {
+        kind: 'solid',
+        color: { kind: 'srgb', value: '00FF00' },
+      };
+      expect(shape.fill).toEqual({
+        kind: 'solid',
+        color: { kind: 'srgb', value: '00FF00' },
+      });
+      throw new Error('restore shape fill');
+    })).toThrow('restore shape fill');
+    expect(shape.fill).toEqual({
+      kind: 'solid',
+      color: { kind: 'srgb', value: 'AA0000' },
+      transparency: 10,
+    });
+    expect(source.shapes[0]).toBe(shape);
+    expect(source.shapes[1]).toBe(text);
+    expect(source.relationships.map(({ id, type, target, targetMode }) => ({
+      id,
+      type,
+      target,
+      targetMode,
+    }))).toEqual(relationships);
+
+    const reopened = await PptxDocument.open(await document.write());
+    expect((reopened.slides[0]!.shapes[0] as ShapeModel).fill).toEqual({
+      kind: 'solid',
+      color: { kind: 'srgb', value: 'AA0000' },
+      transparency: 10,
+    });
+    expect((reopened.slides[0]!.shapes[1] as ShapeModel).fill).toEqual({
+      kind: 'solid',
+      color: { kind: 'scheme', value: 'accent2' },
+      transparency: 35,
+    });
+    expect((reopened.slides[1]!.shapes[0] as ShapeModel).fill).toEqual({ kind: 'none' });
+    expect((reopened.slides[1]!.shapes[1] as ShapeModel).fill).toBeUndefined();
+
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const formatted = PptxDocument.create({ format });
+      const formattedSlide = formatted.addSlide();
+      formattedSlide.addShape('hexagon', {
+        fill: {
+          kind: 'solid',
+          color: { kind: 'scheme', value: 'accent4' },
+          transparency: 50,
+        },
+      });
+      const formattedText = formattedSlide.addText('Editable existing text');
+      formattedText.fill = { kind: 'none' };
+      const formattedReopened = await PptxDocument.open(await formatted.write());
+      expect(formattedReopened.format).toBe(format);
+      expect((formattedReopened.slides[0]!.shapes[0] as ShapeModel).fill).toEqual({
+        kind: 'solid',
+        color: { kind: 'scheme', value: 'accent4' },
+        transparency: 50,
+      });
+      expect((formattedReopened.slides[0]!.shapes[1] as ShapeModel).fill)
+        .toEqual({ kind: 'none' });
+    }
+  });
+
   it('creates all 178 canonical preset shapes in catalog order', () => {
     const document = PptxDocument.create();
     const slide = document.addSlide();

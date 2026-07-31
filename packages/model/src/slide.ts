@@ -61,7 +61,13 @@ import {
 import type {
   AddShapeOptions,
   PresetShapeType,
+  ShapeFill,
 } from './preset-shape.js';
+import {
+  readShapeFill,
+  replaceShapeFill,
+} from './shape-fill.internal.js';
+import { normalizeSimpleFill } from './simple-fill.internal.js';
 import {
   normalizeTextBoxMargins,
   readTextBoxMargins,
@@ -336,6 +342,23 @@ export class SlideModel {
     this.presentation.opcPackage.transaction(() => {
       const { xml, element } = this.resolveShape(id);
       if (replacePresetShapeType(xml, element, type, this.partUri)) {
+        this.setXml(xml.serialize());
+      }
+    });
+  }
+
+  getShapeFill(id: number): ShapeFill | undefined {
+    const { xml, element } = this.resolveShape(id);
+    return readShapeFill(xml, element);
+  }
+
+  setShapeFill(id: number, value: ShapeFill | undefined): void {
+    const fill = value === undefined
+      ? undefined
+      : normalizeSimpleFill(value, 'Shape fill');
+    this.presentation.opcPackage.transaction(() => {
+      const { xml, element } = this.resolveShape(id);
+      if (replaceShapeFill(xml, element, fill, this.partUri)) {
         this.setXml(xml.serialize());
       }
     });
