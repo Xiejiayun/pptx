@@ -1307,6 +1307,223 @@ describe('importPptxGenJS', () => {
     }).toEqual(beforeInvalid);
   });
 
+  it('reads and round-trips PptxGenJS preset shape adjustment output', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    const generatedSlide = generated.addSlide();
+    const fixtures = [
+      {
+        name: 'Round radius',
+        type: 'roundRect',
+        options: { rectRadius: 0.5, w: 4, h: 2 },
+        expected: [{ name: 'adj', value: 25_000 }],
+      },
+      {
+        name: 'Pie angles',
+        type: 'pie',
+        options: { angleRange: [270, 0] },
+        expected: [
+          { name: 'adj1', value: 16_200_000 },
+          { name: 'adj2', value: 0 },
+        ],
+      },
+      {
+        name: 'Fractional arc angles',
+        type: 'arc',
+        options: { angleRange: [12.34567, 89.99999] },
+        expected: [
+          { name: 'adj1', value: 740_740 },
+          { name: 'adj2', value: 5_399_999 },
+        ],
+      },
+      {
+        name: 'Block arc angles and thickness',
+        type: 'blockArc',
+        options: { angleRange: [270, 0], arcThicknessRatio: 0.5 },
+        expected: [
+          { name: 'adj1', value: 16_200_000 },
+          { name: 'adj2', value: 0 },
+          { name: 'adj3', value: 25_000 },
+        ],
+      },
+      {
+        name: 'Omitted shortcuts',
+        type: 'roundRect',
+        options: {},
+        expected: [],
+      },
+      {
+        name: 'Zero radius shortcut',
+        type: 'roundRect',
+        options: { rectRadius: 0, w: 4, h: 2 },
+        expected: [],
+      },
+      {
+        name: 'Zero thickness shortcut',
+        type: 'blockArc',
+        options: { angleRange: [270, 0], arcThicknessRatio: 0 },
+        expected: [
+          { name: 'adj1', value: 16_200_000 },
+          { name: 'adj2', value: 0 },
+        ],
+      },
+    ] as const;
+
+    for (const fixture of fixtures) {
+      generatedSlide.addShape(generated.ShapeType[fixture.type]!, {
+        objectName: fixture.name,
+        ...fixture.options,
+      });
+    }
+
+    const imported = await importPptxGenJS(generated);
+    const importedShapes = new Map(imported.slides[0]!.shapes.map((shape) => [
+      shape.name,
+      shape as ShapeModel,
+    ]));
+    const native = PptxDocument.create();
+    const nativeSlide = native.addSlide();
+    for (const fixture of fixtures) {
+      const importedShape = importedShapes.get(fixture.name);
+      expect(importedShape, fixture.name).toBeInstanceOf(ShapeModel);
+      expect(importedShape?.adjustments, fixture.name).toEqual(fixture.expected);
+      const nativeShape = nativeSlide.addShape(fixture.type, {
+        name: fixture.name,
+        adjustments: fixture.expected,
+      });
+      expect(nativeShape.adjustments, fixture.name).toEqual(importedShape?.adjustments);
+    }
+
+    const reopenedImported = await PptxDocument.open(await imported.write());
+    const reopenedNative = await PptxDocument.open(await native.write());
+    const expected = fixtures.map((fixture) => fixture.expected);
+    expect(reopenedImported.slides[0]!.shapes.map((shape) =>
+      (shape as ShapeModel).adjustments)).toEqual(expected);
+    expect(reopenedNative.slides[0]!.shapes.map((shape) =>
+      (shape as ShapeModel).adjustments)).toEqual(expected);
+  });
+
+  it('records PptxGenJS adjustment shortcut divergences from native lists', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    const generatedSlide = generated.addSlide();
+    const generatedCases = [
+      {
+        name: 'Dropped zero radius',
+        type: 'roundRect',
+        options: { rectRadius: 0, w: 4, h: 2 },
+      },
+      {
+        name: 'Dropped zero thickness',
+        type: 'blockArc',
+        options: { angleRange: [270, 0], arcThicknessRatio: 0 },
+      },
+      {
+        name: 'String coercion',
+        type: 'blockArc',
+        options: { angleRange: ['12.5', '90'], arcThicknessRatio: '0.25' },
+      },
+      {
+        name: 'Radius precedence',
+        type: 'blockArc',
+        options: {
+          rectRadius: 0.5,
+          angleRange: [270, 0],
+          arcThicknessRatio: 0.5,
+          w: 4,
+          h: 2,
+        },
+      },
+      {
+        name: 'Thickness without angles',
+        type: 'blockArc',
+        options: { arcThicknessRatio: 0.5 },
+      },
+      {
+        name: 'Out of range angles',
+        type: 'arc',
+        options: { angleRange: [-1, 361] },
+      },
+      {
+        name: 'Malformed coerced angles',
+        type: 'arc',
+        options: { angleRange: ['not-an-angle', 'also-not-an-angle'] },
+      },
+      {
+        name: 'Unsafe coerced angles',
+        type: 'arc',
+        options: { angleRange: [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER] },
+      },
+    ] as const;
+    for (const fixture of generatedCases) {
+      generatedSlide.addShape(generated.ShapeType[fixture.type]!, {
+        objectName: fixture.name,
+        ...fixture.options,
+      });
+    }
+
+    const imported = await importPptxGenJS(generated);
+    const importedShapes = new Map(imported.slides[0]!.shapes.map((shape) => [
+      shape.name,
+      shape as ShapeModel,
+    ]));
+    expect(importedShapes.get('Dropped zero radius')?.adjustments).toEqual([]);
+    expect(importedShapes.get('Dropped zero thickness')?.adjustments).toEqual([
+      { name: 'adj1', value: 16_200_000 },
+      { name: 'adj2', value: 0 },
+    ]);
+    expect(importedShapes.get('String coercion')?.adjustments).toEqual([
+      { name: 'adj1', value: 750_000 },
+      { name: 'adj2', value: 5_400_000 },
+      { name: 'adj3', value: 12_500 },
+    ]);
+    expect(importedShapes.get('Radius precedence')?.adjustments).toEqual([
+      { name: 'adj', value: 25_000 },
+    ]);
+    expect(importedShapes.get('Thickness without angles')?.adjustments).toEqual([]);
+    expect(importedShapes.get('Out of range angles')?.adjustments).toEqual([
+      { name: 'adj1', value: -60_000 },
+      { name: 'adj2', value: 60_000 },
+    ]);
+    const malformed = importedShapes.get('Malformed coerced angles')!;
+    expect(malformed.adjustments).toBeUndefined();
+    const malformedXml = shapeXml(imported, 0, malformed.id);
+    expect(malformedXml).toContain('fmla="val NaN"');
+    const unsafe = importedShapes.get('Unsafe coerced angles')!;
+    expect(unsafe.adjustments).toBeUndefined();
+    const unsafeXml = shapeXml(imported, 0, unsafe.id);
+    expect(unsafeXml).toContain('fmla="val 540431955284437800000"');
+    const reopened = await PptxDocument.open(await imported.write());
+    const reopenedMalformed = reopened.slides[0]!.shapes.find(
+      ({ name }) => name === 'Malformed coerced angles',
+    ) as ShapeModel;
+    const reopenedUnsafe = reopened.slides[0]!.shapes.find(
+      ({ name }) => name === 'Unsafe coerced angles',
+    ) as ShapeModel;
+    expect(reopenedMalformed.adjustments).toBeUndefined();
+    expect(reopenedUnsafe.adjustments).toBeUndefined();
+    expect(shapeXml(reopened, 0, reopenedMalformed.id)).toBe(malformedXml);
+    expect(shapeXml(reopened, 0, reopenedUnsafe.id)).toBe(unsafeXml);
+
+    const native = PptxDocument.create();
+    const nativeSlide = native.addSlide();
+    expect(nativeSlide.addShape('roundRect', {
+      adjustments: [{ name: 'adj', value: 0 }],
+    }).adjustments).toEqual([{ name: 'adj', value: 0 }]);
+    expect(() => nativeSlide.addShape('roundRect', {
+      adjustments: [{ name: 'adj', value: '0' }],
+    } as never)).toThrow(TypeError);
+    const deliberateFinalList = [
+      { name: 'adj', value: 25_000 },
+      { name: 'adj1', value: 16_200_000 },
+      { name: 'adj2', value: 0 },
+      { name: 'adj3', value: 25_000 },
+    ];
+    expect(nativeSlide.addShape('blockArc', {
+      adjustments: deliberateFinalList,
+    }).adjustments).toEqual(deliberateFinalList);
+  });
+
   it('reads every legal PptxGenJS preset shape public output', async () => {
     const generated = new PptxGenJS();
     expect(generated.version).toBe('4.0.1');

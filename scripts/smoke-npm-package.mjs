@@ -115,6 +115,75 @@ const presetShapes = PRESET_SHAPE_TYPES.length === 178 &&
     ['Shape 2', 'Packed folded corner'],
     ['Shape 2', 'Packed folded corner'],
   ]);
+const shapeAdjustmentDeck = PptxDocument.create();
+const shapeAdjustmentSlide = shapeAdjustmentDeck.addSlide();
+const shapeAdjustmentInput = [
+  { name: 'adj1', value: 16_200_000 },
+  { name: 'adj2', value: 0 },
+  { name: 'adj3', value: 25_000 },
+];
+const packedAdjustedShape = shapeAdjustmentSlide.addShape('blockArc', {
+  name: 'Packed adjusted block arc',
+  adjustments: shapeAdjustmentInput,
+});
+const initialPackedAdjustments = packedAdjustedShape.adjustments;
+const initialPackedAdjustmentsAgain = packedAdjustedShape.adjustments;
+shapeAdjustmentInput[0].value = 0;
+const adjustmentNoOpBytes = shapeAdjustmentDeck.opcPackage
+  .requirePart(shapeAdjustmentSlide.partUri).bytes.slice();
+const adjustmentNoOpJournal = shapeAdjustmentDeck.opcPackage.mutations.length;
+packedAdjustedShape.adjustments = [
+  { name: 'adj1', value: 16_200_000 },
+  { name: 'adj2', value: 0 },
+  { name: 'adj3', value: 25_000 },
+];
+const adjustmentNoOpCurrent = shapeAdjustmentDeck.opcPackage
+  .requirePart(shapeAdjustmentSlide.partUri).bytes;
+const shapeAdjustmentNoOp =
+  adjustmentNoOpJournal === shapeAdjustmentDeck.opcPackage.mutations.length &&
+  adjustmentNoOpBytes.length === adjustmentNoOpCurrent.length &&
+  adjustmentNoOpBytes.every((value, index) => value === adjustmentNoOpCurrent[index]);
+packedAdjustedShape.adjustments = [
+  { name: 'adj1', value: 10_800_000 },
+  { name: 'adj2', value: 0 },
+  { name: 'adj3', value: 20_000 },
+];
+const editedPackedAdjustments = packedAdjustedShape.adjustments;
+packedAdjustedShape.adjustments = [];
+const clearedPackedAdjustments = packedAdjustedShape.adjustments;
+packedAdjustedShape.adjustments = [
+  { name: 'adj1', value: 16_200_000 },
+  { name: 'adj2', value: 0 },
+  { name: 'adj3', value: 25_000 },
+];
+const reopenedShapeAdjustmentDeck = await PptxDocument.open(await shapeAdjustmentDeck.write());
+const reopenedPackedAdjustedShape = reopenedShapeAdjustmentDeck.slides[0].shapes[0];
+const reopenedPackedAdjustments = reopenedPackedAdjustedShape.adjustments;
+const shapeAdjustments =
+  packedAdjustedShape instanceof ShapeModel &&
+  Array.isArray(initialPackedAdjustments) &&
+  Object.isFrozen(initialPackedAdjustments) &&
+  initialPackedAdjustments.every((adjustment) => Object.isFrozen(adjustment)) &&
+  initialPackedAdjustments !== initialPackedAdjustmentsAgain &&
+  JSON.stringify(initialPackedAdjustments) === JSON.stringify([
+    { name: 'adj1', value: 16_200_000 },
+    { name: 'adj2', value: 0 },
+    { name: 'adj3', value: 25_000 },
+  ]) &&
+  shapeAdjustmentNoOp &&
+  JSON.stringify(editedPackedAdjustments) === JSON.stringify([
+    { name: 'adj1', value: 10_800_000 },
+    { name: 'adj2', value: 0 },
+    { name: 'adj3', value: 20_000 },
+  ]) &&
+  Array.isArray(clearedPackedAdjustments) &&
+  Object.isFrozen(clearedPackedAdjustments) &&
+  clearedPackedAdjustments.length === 0 &&
+  reopenedPackedAdjustedShape instanceof ShapeModel &&
+  Array.isArray(reopenedPackedAdjustments) &&
+  Object.isFrozen(reopenedPackedAdjustments) &&
+  reopenedPackedAdjustments.every((adjustment) => Object.isFrozen(adjustment)) &&
+  JSON.stringify(reopenedPackedAdjustments) === JSON.stringify(initialPackedAdjustments);
 const shapeHyperlinkDeck = PptxDocument.create();
 const shapeHyperlinkSource = shapeHyperlinkDeck.addSlide();
 const shapeHyperlinkTarget = shapeHyperlinkDeck.addSlide();
@@ -1415,6 +1484,7 @@ const customXml = new TextDecoder().decode(custom.opcPackage.requirePart('/ppt/p
 const checks = {
   PptxDocument: typeof PptxDocument === 'function',
   presetShapes,
+  shapeAdjustments,
   shapeShadows,
   shapeFills,
   shapeLines,
@@ -1493,6 +1563,72 @@ if (PRESET_SHAPE_TYPES.length !== 178 || !Object.isFrozen(PRESET_SHAPE_TYPES)) {
 const browserShapeDeck = PptxDocument.create();
 const browserShape = browserShapeDeck.addSlide().addShape('foldedCorner');
 browserShape.presetType = 'star5';
+const browserAdjustmentDeck = PptxDocument.create();
+const browserAdjustmentSlide = browserAdjustmentDeck.addSlide();
+const browserAdjustedShape = browserAdjustmentSlide.addShape('blockArc', {
+  adjustments: [
+    { name: 'adj1', value: 16_200_000 },
+    { name: 'adj2', value: 0 },
+    { name: 'adj3', value: 25_000 },
+  ],
+});
+const browserInitialAdjustments = browserAdjustedShape.adjustments;
+const browserInitialAdjustmentsAgain = browserAdjustedShape.adjustments;
+if (!Array.isArray(browserInitialAdjustments) ||
+    !Object.isFrozen(browserInitialAdjustments) ||
+    !browserInitialAdjustments.every((adjustment) => Object.isFrozen(adjustment)) ||
+    browserInitialAdjustments === browserInitialAdjustmentsAgain) {
+  throw new Error('Browser shape adjustment snapshot immutability failed');
+}
+const browserAdjustmentNoOpBytes = browserAdjustmentDeck.opcPackage
+  .requirePart(browserAdjustmentSlide.partUri).bytes.slice();
+const browserAdjustmentNoOpJournal = browserAdjustmentDeck.opcPackage.mutations.length;
+browserAdjustedShape.adjustments = [
+  { name: 'adj1', value: 16_200_000 },
+  { name: 'adj2', value: 0 },
+  { name: 'adj3', value: 25_000 },
+];
+const browserAdjustmentNoOpCurrent = browserAdjustmentDeck.opcPackage
+  .requirePart(browserAdjustmentSlide.partUri).bytes;
+if (browserAdjustmentNoOpJournal !== browserAdjustmentDeck.opcPackage.mutations.length ||
+    browserAdjustmentNoOpBytes.length !== browserAdjustmentNoOpCurrent.length ||
+    !browserAdjustmentNoOpBytes.every(
+      (value, index) => value === browserAdjustmentNoOpCurrent[index],
+    )) {
+  throw new Error('Browser shape adjustment no-op failed');
+}
+browserAdjustedShape.adjustments = [
+  { name: 'adj1', value: 10_800_000 },
+  { name: 'adj2', value: 0 },
+  { name: 'adj3', value: 20_000 },
+];
+if (JSON.stringify(browserAdjustedShape.adjustments) !== JSON.stringify([
+  { name: 'adj1', value: 10_800_000 },
+  { name: 'adj2', value: 0 },
+  { name: 'adj3', value: 20_000 },
+])) {
+  throw new Error('Browser shape adjustment edit failed');
+}
+browserAdjustedShape.adjustments = [];
+if (!Array.isArray(browserAdjustedShape.adjustments) ||
+    !Object.isFrozen(browserAdjustedShape.adjustments) ||
+    browserAdjustedShape.adjustments.length !== 0) {
+  throw new Error('Browser shape adjustment clear failed');
+}
+browserAdjustedShape.adjustments = browserInitialAdjustments;
+const reopenedBrowserAdjustmentDeck = await PptxDocument.open(
+  await browserAdjustmentDeck.writeBlob(),
+);
+const reopenedBrowserAdjustedShape = reopenedBrowserAdjustmentDeck.slides[0].shapes[0];
+const reopenedBrowserAdjustments = reopenedBrowserAdjustedShape.adjustments;
+if (!(reopenedBrowserAdjustedShape instanceof ShapeModel) ||
+    !Array.isArray(reopenedBrowserAdjustments) ||
+    !Object.isFrozen(reopenedBrowserAdjustments) ||
+    !reopenedBrowserAdjustments.every((adjustment) => Object.isFrozen(adjustment)) ||
+    JSON.stringify(reopenedBrowserAdjustments) !==
+    JSON.stringify(browserInitialAdjustments)) {
+  throw new Error('Browser shape adjustment reopen failed');
+}
 const browserHyperlinkDeck = PptxDocument.create();
 const browserHyperlinkSlide = browserHyperlinkDeck.addSlide();
 browserHyperlinkDeck.addSlide();
@@ -2224,6 +2360,7 @@ process.stdout.write(resolved);
   type ShapeFill,
   type ShapeLine,
   type ShapeLineDash,
+  type ShapeAdjustment,
   type ShapeShadow,
   type PresetShapeType,
   type SlideModel,
@@ -2296,6 +2433,11 @@ const typedShapeArrows: ShapeArrows = {
   begin: typedShapeArrowType,
   end: 'arrow',
 };
+const typedShapeAdjustments: readonly ShapeAdjustment[] = [
+  { name: 'adj1', value: 16_200_000 },
+  { name: 'adj2', value: 0 },
+  { name: 'adj3', value: 25_000 },
+];
 const typedOuterShapeShadow: ShapeShadow = {
   kind: 'outer',
   color: { kind: 'srgb', value: '123ABC' },
@@ -2329,6 +2471,7 @@ const typedShapeOptions: AddShapeOptions = {
   fill: typedSolidShapeFill,
   line: typedSolidShapeLine,
   arrows: typedShapeArrows,
+  adjustments: typedShapeAdjustments,
   hyperlink: typedUrlHyperlink,
   shadow: typedOuterShapeShadow,
 };
@@ -2338,6 +2481,10 @@ const typedShape: ShapeModel = createdDocument.addSlide().addShape(
 );
 const typedPresetRead: PresetShapeType | undefined = typedShape.presetType;
 typedShape.presetType = 'rect';
+const typedShapeAdjustmentsRead: readonly ShapeAdjustment[] | undefined =
+  typedShape.adjustments;
+typedShape.adjustments = typedShapeAdjustments;
+typedShape.adjustments = [];
 const typedShapeFillRead: ShapeFill | undefined = typedShape.fill;
 typedShape.fill = typedNoneShapeFill;
 typedShape.fill = typedSolidShapeFill;
@@ -2367,6 +2514,14 @@ createdDocument.addSlide().addShape('custGeom');
 createdDocument.addSlide().addShape('rect', { color: 'FF0000' });
 // @ts-expect-error transforms use numeric native units
 createdDocument.addSlide().addShape('rect', { width: '3', rotation: '45' });
+// @ts-expect-error shape adjustments require both name and value
+const invalidMissingShapeAdjustmentValue: ShapeAdjustment = { name: 'adj' };
+// @ts-expect-error shape adjustment values are numeric direct OOXML integers
+const invalidShapeAdjustmentValue: ShapeAdjustment = { name: 'adj', value: '25000' };
+const invalidShapeAdjustmentOptions: AddShapeOptions = {
+  // @ts-expect-error shape adjustments are supplied as a list
+  adjustments: { name: 'adj', value: 25_000 },
+};
 // @ts-expect-error gradient is not a simple shape fill kind
 const invalidShapeFillKind: ShapeFill = { kind: 'gradient' };
 // @ts-expect-error shape fill colors use srgb or scheme
@@ -2648,7 +2803,9 @@ documentPromise.then((document) => {
 });
 void [typedNotesSlide, notesSnapshot, returnedNotesSlide];
 void [typedPreset, typedNoneShapeFill, typedSolidShapeFill, typedShapeOptions, typedShape,
-  typedPresetRead, typedShapeFillRead, typedPresetCatalog, invalidShapeFillKind,
+  typedPresetRead, typedShapeAdjustments, typedShapeAdjustmentsRead,
+  invalidMissingShapeAdjustmentValue, invalidShapeAdjustmentValue,
+  invalidShapeAdjustmentOptions, typedShapeFillRead, typedPresetCatalog, invalidShapeFillKind,
   invalidShapeFillColor, invalidShapeFillTransparency, typedShapeLineDash,
   typedNoneShapeLine, typedSolidShapeLine, typedShapeLineRead, invalidShapeLineKind,
   invalidShapeLineColor, invalidShapeLineTransparency, invalidShapeLineWidth,
@@ -2689,7 +2846,7 @@ void [documentPromise, createdDocument, addSectionOptions, typedSection, addSlid
   if (!doctor.ok || doctor.data?.version !== '0.1.0') throw new Error(`CLI smoke failed: ${cliResult.stdout}`);
 
   process.stdout.write(
-    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presetShapes: apiChecks.presetShapes, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, types: true, cli: doctor.data.version })}\n`,
+    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presetShapes: apiChecks.presetShapes, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, types: true, cli: doctor.data.version })}\n`,
   );
 } finally {
   await rm(directory, { recursive: true, force: true });
