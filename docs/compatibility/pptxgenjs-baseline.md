@@ -71,6 +71,32 @@ adapter 不读取 `_slides` 等私有字段。后续 peer-range conformance test
 | table/table-cell `fill` solid/none/transparency | `AddTableOptions.fill` / `AddTableCellOptions.fill` / `TableCell.fill` / `TableModel.setCellFill()` | 已支持 table/cell 创建、direct cell 读取/编辑/清除；table getter/editor 尚未支持 |
 | table-cell bodyPr autofit | `AddTableCellOptions.fit` / `TableCell.textFit` / `TableModel.setCellTextFit()` | 原生 cell 创建与 direct 编辑已支持；PptxGenJS 4.0.1 本身无 table fit API |
 
+## 剩余公开表面审计
+
+审计权威来源是锁定依赖 `pptxgenjs@4.0.1/types/index.d.ts`，并以当前聚合包公开导出和真实 OOXML 行为交叉核对。这里的“对等”指新高层 API 覆盖相同能力，不要求现有 PptxGenJS 调用只替换 import 后原样运行。Deprecated alias 只需由对应 canonical 能力覆盖，不另建兼容 facade。
+
+| PptxGenJS 4.0.1 public surface | 当前原生能力 | 尚缺能力 | 状态 / 顺序 |
+| --- | --- | --- | --- |
+| `version`、`presLayout`、`AlignH`、`AlignV`、`ChartType`、`OutputType`、`SchemeColor`、`ShapeType`、`PlaceholderType` | package manifest 提供版本，页面尺寸可读写，部分文本/颜色值有 focused native types | 完整稳定的 chart/shape/output/placeholder types 与 runtime helper constants；不要求复刻 PptxGenJS namespace 形状 | 部分支持；统一公开 API 收尾 |
+| `stream()`、`write({ outputType, compression })`、`writeFile({ fileName, compression })` | `write(): Uint8Array`、Node `writeFile()`、browser `writeBlob()` / `download()`、path/stream 输入已支持 | Node readable 输出、六种 output type、显式 compression policy、返回值语义和跨 Node/browser conformance | 部分支持；输出阶段 |
+| `defineSlideMaster()`、`addSlide({ masterName })` / deprecated `addSlide(masterName)` | native create 会生成一条可用链；`masters`/`layouts`/`themes` 可列出，placeholder 可读，raw XML create/copy/delete/relink 生命周期可用 | PptxGenJS 风格的 declarative master definition：background、margin、slide number、chart/image/line/rect/text/placeholder objects，以及按名称选择 layout 的 `addSlide()` | 部分支持；形状/图片/图表后实施 |
+| `tableToSlides(eleId, options)` | 无 DOM table importer | HTML table 解析、CSS/column width 映射、分页、重复 header、master 和附加 image/shape/table/text | 未支持；高级表格阶段 |
+| `slide.background` / deprecated `slide.bkgd` | native gradient background 可读、写、诊断；未知背景无损保留 | PptxGenJS solid/no-fill/image background 的创建、读取、编辑、清除和 relationship 生命周期 | 部分支持；形状后实施 |
+| `slide.color` | 新建文本已有 canonical theme color，单个 text/run color 可设置 | slide default text color 的 direct state、继承及对后续对象的默认值语义 | 未支持；文本收尾 |
+| `slide.slideNumber` | 无 | slide-number field 创建/读取/编辑/清除，position/text style/margin，以及 master-level slide number | 未支持；master 前置项 |
+| `slide.newAutoPagedSlides` | 无 | 表格分页产生的 slides 结果集合及稳定 identity | 未支持；高级表格阶段 |
+| `slide.addShape(shapeName, options)` | existing preset/custom shapes 可识别为 `ShapeModel`，transform/text/rich text/text-box state/gradient fill 可读取或编辑 | 178 个公开 preset token 的原生创建、solid/no fill、line/dash/arrows、shadow、hyperlink、arc/rounded adjustments、custom geometry、strict input 和 lifecycle | 未支持创建；下一优先级 |
+| `slide.addImage(options)` | existing image 可读取 embedded/external target、变换并 clone-on-write 替换 bytes | path/data/URL/SVG 原生创建、content-type/dimension detection、contain/cover/crop、rounding、transparency、alt text、hyperlink、shadow、placeholder、删除和 relationship GC | 未支持创建；形状之后 |
+| `slide.addMedia(options)` | `PptxDocument.addAudio()` / `addVideo()` 已支持 bytes/path/Blob/stream、embedded/external、poster、基础 playback、读取、删除、诊断和 GC | online video、PptxGenJS cover/extn/objectName 语义、SlideModel 入口、native timing 对等、完整 edit/duplicate 和 public conformance | 部分支持；图片之后 |
+| `slide.addChart(type, data, options)` | existing chart 可读取 part URI/series/cache，支持 clone-on-write raw XML replacement | 9 个公开 chart types、combo chart、series/category/value/bubble data、embedded workbook/cache 同步、axis/gridline/label/legend/title/data table、2D/3D/style、创建/语义编辑/删除 | 未支持创建；媒体之后 |
+| `slide.addText(text, options)` | plain/rich text、核心 run/paragraph/text-box layout 已覆盖，existing shape 可语义编辑 | outer `fill`、`line`/arrows、`shadow`、`hyperlink`、`shape`/`rectRadius`、placeholder/isTextBox、breakLine 组合语义和 shape-level style editing | 部分支持；与形状能力复用 |
+| `slide.addTable(rows, options)` | rectangular plain single-paragraph table、基础 geometry/size、cell align/border/fill/margin/direction/fit 和 existing direct edits 已覆盖 | nested/rich/multi-paragraph cell text、font/text styles、hyperlink、colspan/rowspan、row/column CRUD、table-level getters/editors、auto-page/repeated headers、content measurement/layout recomputation | 部分支持；图表之后 |
+| shared `PositionProps` percentage coordinates and object metadata | 原生 public API 使用明确 EMU，支持 absolute transform、rotation、flip 和部分 object names | percentage coordinate normalization，以及所有新建 object 一致的 name/alt text/hyperlink/shadow/placeholder contracts | 部分支持；随各 object creator 落地 |
+
+### 门禁与实施顺序
+
+每一行只有在 native `create/read/edit/delete/preserve/validate` 中适用的维度都有公开 API、单元测试、PptxGenJS public-output conformance、打包产物测试和真实 PPTX 兼容验证后才能标记完成。当前顺序固定为：preset shape → shape fill/line/link/shadow/custom geometry → image/SVG → media 收尾 → chart → slide background/number/default color → master/layout/placeholder → advanced text → advanced table/`tableToSlides` → output/runtime helpers → peer-range full-suite audit。
+
 PptxGenJS 4.0.1 的公开 `title` 默认值是 `PptxGenJS Presentation`，custom string 与显式 empty string 都写入 direct `dc:title`；adapter 通过公开 `write()` 输出可精确读取三种状态并在写出重开后保持。Native explicit custom/empty 生成相同语义与 XML escaping，但 native omitted 保持 `undefined`，不会注入 PptxGenJS 品牌默认值。Native 还可按 package-root core-properties relationship 读取、无损编辑或清除任意合法 part URI/prefix 的 direct title，并在 relationship 缺失时安全创建 part；same-value 与 absent clear 是 exact no-op，其他 core children 保留，malformed 或 ambiguous ownership 在写入时拒绝。
 
 PptxGenJS 4.0.1 的公开 `author` 默认值是 `PptxGenJS`；default、custom `Alice & <Bob>` 和 explicit empty 都同时写入 direct `dc:creator` 与 `cp:lastModifiedBy`，并可由 adapter 精确读取、写出和重开。Native omitted creation 保留 canonical `@jiayunxie/pptx` creator；explicit custom/empty 对等 creator 的字符串语义与 XML escaping，但 native author 只拥有 direct creator，绝不覆盖独立 lastModifiedBy。`document.author = undefined` 只清除 creator；合法 existing deck 可按 root relationship 和 namespace URI 读取、编辑或创建 metadata part，same-value/absent-clear exact no-op，title、subject、revision、timestamps、unknown children 与其他 parts 保留。
