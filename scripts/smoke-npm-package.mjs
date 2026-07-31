@@ -11,7 +11,16 @@ const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const directory = await mkdtemp(join(tmpdir(), 'jiayunxie-pptx-smoke-'));
 try {
   await writeFile(join(directory, 'package.json'), JSON.stringify({ private: true, type: 'module' }));
-  run('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund', '--package-lock=false', tarball], directory);
+  run('npm', [
+    'install',
+    '--ignore-scripts',
+    '--no-audit',
+    '--no-fund',
+    '--package-lock=false',
+    '--cache',
+    join(directory, '.npm-cache'),
+    tarball,
+  ], directory);
 
   const installed = join(directory, 'node_modules', '@jiayunxie', 'pptx');
   const manifest = JSON.parse(await readFile(join(installed, 'package.json'), 'utf8'));
@@ -40,8 +49,72 @@ try {
 
   await writeFile(
     join(directory, 'smoke.mjs'),
-    `import { inches, PptxDocument, TableModel, GradientCodec, importPptxGenJS, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
+    `import { inches, PRESET_SHAPE_TYPES, PptxDocument, ShapeModel, TableModel, GradientCodec, importPptxGenJS, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
 const created = PptxDocument.create({ rtlMode: true });
+const shapeDeck = PptxDocument.create();
+const shapeSlide = shapeDeck.addSlide();
+const defaultShape = shapeSlide.addShape('rect');
+const customShape = shapeSlide.addShape('foldedCorner', {
+  name: 'Packed folded corner',
+  x: inches(2),
+  y: inches(3),
+  width: inches(4),
+  height: inches(2),
+  rotation: 2_700_000,
+  flipHorizontal: true,
+  flipVertical: true,
+});
+const initialDefaultPreset = defaultShape.presetType;
+const initialCustomPreset = customShape.presetType;
+const shapeIdentity = shapeSlide.shapes[0] === defaultShape && shapeSlide.shapes[1] === customShape;
+const shapePartCountBeforeEdit = shapeDeck.opcPackage.parts.length;
+const shapeRelationshipCountBeforeEdit = shapeSlide.relationships.length;
+defaultShape.presetType = 'ellipse';
+customShape.presetType = 'roundRect';
+const shapeEditIsolation = shapeDeck.opcPackage.parts.length === shapePartCountBeforeEdit &&
+  shapeSlide.relationships.length === shapeRelationshipCountBeforeEdit;
+const duplicateShapeSlide = shapeDeck.duplicateSlide(0);
+const duplicateDefaultShape = duplicateShapeSlide.shapes[0];
+if (!(duplicateDefaultShape instanceof ShapeModel)) throw new Error('Packed duplicate shape failed');
+duplicateDefaultShape.presetType = 'star5';
+const reopenedShapeDeck = await PptxDocument.open(await shapeDeck.write());
+const reopenedShapeTypes = reopenedShapeDeck.slides.map((slide) =>
+  slide.shapes.map((shape) => shape instanceof ShapeModel ? shape.presetType : undefined));
+const reopenedShapeNames = reopenedShapeDeck.slides.map((slide) =>
+  slide.shapes.map(({ name }) => name));
+const presetShapes = PRESET_SHAPE_TYPES.length === 178 &&
+  Object.isFrozen(PRESET_SHAPE_TYPES) &&
+  PRESET_SHAPE_TYPES.includes('foldedCorner') &&
+  !PRESET_SHAPE_TYPES.includes('folderCorner') &&
+  defaultShape instanceof ShapeModel &&
+  customShape instanceof ShapeModel &&
+  initialDefaultPreset === 'rect' &&
+  initialCustomPreset === 'foldedCorner' &&
+  shapeIdentity &&
+  shapeEditIsolation &&
+  defaultShape.transform.x === inches(1) &&
+  defaultShape.transform.y === inches(1) &&
+  defaultShape.transform.width === inches(1) &&
+  defaultShape.transform.height === inches(1) &&
+  defaultShape.presetType === 'ellipse' &&
+  customShape.name === 'Packed folded corner' &&
+  customShape.transform.x === inches(2) &&
+  customShape.transform.y === inches(3) &&
+  customShape.transform.width === inches(4) &&
+  customShape.transform.height === inches(2) &&
+  customShape.transform.rotation === 2_700_000 &&
+  customShape.transform.flipHorizontal === true &&
+  customShape.transform.flipVertical === true &&
+  customShape.presetType === 'roundRect' &&
+  duplicateDefaultShape.presetType === 'star5' &&
+  JSON.stringify(reopenedShapeTypes) === JSON.stringify([
+    ['ellipse', 'roundRect'],
+    ['star5', 'roundRect'],
+  ]) &&
+  JSON.stringify(reopenedShapeNames) === JSON.stringify([
+    ['Shape 2', 'Packed folded corner'],
+    ['Shape 2', 'Packed folded corner'],
+  ]);
 const createdText = created.addSlide().addText('Smoke\\n\\nParagraph', { align: 'center', fit: 'shrink', valign: 'top', vert: 'vert270', wrap: false, bullet: true, level: 2, margin: 10, rtlMode: true, spacing: { before: 4, after: 6, line: { kind: 'exact', points: 20 } }, tabStops: [{ position: 1.25 }, { position: 2.5, alignment: 'right' }] });
 const initialTextWrap = createdText.textWrap;
 const initialTextDirection = createdText.textDirection;
@@ -586,6 +659,7 @@ custom.slideSize = { width: inches(10), height: inches(7.5) };
 const customXml = new TextDecoder().decode(custom.opcPackage.requirePart('/ppt/presentation.xml').bytes);
 const checks = {
   PptxDocument: typeof PptxDocument === 'function',
+  presetShapes,
   presentationRtl: presentationRtlEnabled === true && presentationRtlDisabled === false && presentationRtlCleared === undefined && paragraphRtlAfterGlobalClear[0] === true && paragraphRtlAfterGlobalClear[1] === false,
   presentationTitle: createdPresentationTitle === 'Packed & <Title>' && editedPresentationTitle === 'Edited title' && reopenedPresentationTitle === 'Edited title' && emptyPresentationTitle === '' && clearedPresentationTitle === undefined,
   presentationAuthor: createdPresentationAuthor === 'Packed & <Author>' && editedPresentationAuthor === 'Edited author' && reopenedPresentationAuthor === 'Edited author' && emptyPresentationAuthor === '' && clearedPresentationAuthor === undefined,
@@ -648,11 +722,21 @@ process.stdout.write(JSON.stringify(checks));
 
   await writeFile(
     join(directory, 'browser-smoke.mjs'),
-    `import { inches, PptxDocument, TableModel, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
+    `import { inches, PRESET_SHAPE_TYPES, PptxDocument, TableModel, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
 const resolved = import.meta.resolve('@jiayunxie/pptx');
 if (!resolved.endsWith('/dist/browser.js')) throw new Error('Browser condition resolved to ' + resolved);
 const checks = [PptxDocument, transitions.TransitionCodec, animations.AnimationTimingCodec, advancedCharts.AdvancedChartCodec, smartArt.SmartArtDiagramCodec];
 if (checks.some((value) => typeof value !== 'function')) throw new Error('Browser API surface is incomplete');
+if (PRESET_SHAPE_TYPES.length !== 178 || !Object.isFrozen(PRESET_SHAPE_TYPES)) {
+  throw new Error('Browser preset catalog failed');
+}
+const browserShapeDeck = PptxDocument.create();
+const browserShape = browserShapeDeck.addSlide().addShape('foldedCorner');
+browserShape.presetType = 'star5';
+const reopenedBrowserShape = await PptxDocument.open(await browserShapeDeck.writeBlob());
+if (reopenedBrowserShape.slides[0]?.shapes[0]?.presetType !== 'star5') {
+  throw new Error('Browser preset shape failed');
+}
 const created = PptxDocument.create({ rtlMode: true, slideSize: '16:9' });
 const browserText = created.addSlide().addText('Browser\\nText', { align: 'center', fit: 'resize', valign: 'bottom', vert: 'vert', wrap: false, bullet: true, level: 2, margin: [0, 0, 0, 0], rtlMode: true, spacing: { line: { kind: 'multiple', factor: 1.25 } }, tabStops: [{ position: 1.25 }] });
 if (browserText.textWrap !== false || browserText.verticalAlignment !== 'bottom' || browserText.textDirection !== 'vert' || browserText.textFit !== 'resize' || browserText.richText.some(({ rtl }) => rtl !== true) || browserText.richText[0].tabStops[0].position !== 1.25 || browserText.textMargins.top !== 0 || browserText.textMargins.right !== 0 || browserText.textMargins.bottom !== 0 || browserText.textMargins.left !== 0) throw new Error('Browser create-text API failed');
@@ -1027,9 +1111,14 @@ process.stdout.write(resolved);
   await writeFile(
     join(directory, 'smoke.ts'),
     `import {
+  degrees,
+  PRESET_SHAPE_TYPES,
   PptxDocument,
+  ShapeModel,
   TableModel,
   inches,
+  type AddShapeOptions,
+  type PresetShapeType,
   type SlideModel,
   type CustomSlideSize,
   type AddSectionOptions,
@@ -1079,6 +1168,31 @@ process.stdout.write(resolved);
 
 const documentPromise: Promise<PptxDocument> = PptxDocument.open(new Uint8Array());
 const createdDocument: PptxDocument = PptxDocument.create({ format: 'pptx', slideSize: 'wide' });
+const typedPreset: PresetShapeType = 'foldedCorner';
+const typedShapeOptions: AddShapeOptions = {
+  x: inches(1),
+  y: inches(2),
+  width: inches(3),
+  height: inches(4),
+  rotation: degrees(45),
+  flipHorizontal: true,
+  name: 'Typed shape',
+};
+const typedShape: ShapeModel = createdDocument.addSlide().addShape(
+  typedPreset,
+  typedShapeOptions,
+);
+const typedPresetRead: PresetShapeType | undefined = typedShape.presetType;
+typedShape.presetType = 'rect';
+const typedPresetCatalog: readonly PresetShapeType[] = PRESET_SHAPE_TYPES;
+// @ts-expect-error folderCorner is not a canonical OOXML preset
+createdDocument.addSlide().addShape('folderCorner');
+// @ts-expect-error custGeom belongs to the custom-geometry API
+createdDocument.addSlide().addShape('custGeom');
+// @ts-expect-error unknown preset-shape options are rejected
+createdDocument.addSlide().addShape('rect', { color: 'FF0000' });
+// @ts-expect-error transforms use numeric native units
+createdDocument.addSlide().addShape('rect', { width: '3', rotation: '45' });
 const addSectionOptions: AddSectionOptions = { title: 'Typed', order: 0 };
 const typedSection: PresentationSection = createdDocument.addSection(addSectionOptions);
 const addSlideOptions: AddSlideOptions = { sectionTitle: typedSection.title };
@@ -1309,6 +1423,7 @@ documentPromise.then((document) => {
   smartArt.installSmartArtPlugin(document);
 });
 void [typedNotesSlide, notesSnapshot, returnedNotesSlide];
+void [typedPreset, typedShapeOptions, typedShape, typedPresetRead, typedPresetCatalog];
 void [documentPromise, createdDocument, addSectionOptions, typedSection, addSlideOptions, sectionSnapshot, typedVisibilitySlide, hiddenSnapshot, globalRtl, globalRtlSnapshot, titledDocument, titleSnapshot, authoredDocument, authorSnapshot, lastModifiedDocument, lastModifiedSnapshot, createdAtDocument, createdAtSnapshot, modifiedAtDocument, modifiedAtSnapshot, subjectDocument, subjectSnapshot, revisionDocument, revisionSnapshot, companyDocument, companySnapshot, themedDocument, themeSnapshot, fontSnapshot, fontUpdate, customDocument, createdText, creationBorder, creationMargin, creationOptions, objectCell, tableRows, tableOptions, typedTable, widthSnapshot, heightSnapshot, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotHorizontalAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellHorizontalAlignment, tableHorizontalAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
 `,
   );
@@ -1339,7 +1454,7 @@ void [documentPromise, createdDocument, addSectionOptions, typedSection, addSlid
   if (!doctor.ok || doctor.data?.version !== '0.1.0') throw new Error(`CLI smoke failed: ${cliResult.stdout}`);
 
   process.stdout.write(
-    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, types: true, cli: doctor.data.version })}\n`,
+    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presetShapes: apiChecks.presetShapes, types: true, cli: doctor.data.version })}\n`,
   );
 } finally {
   await rm(directory, { recursive: true, force: true });
