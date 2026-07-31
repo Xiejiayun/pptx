@@ -40,6 +40,7 @@ import {
 } from './simple-shadow.internal.js';
 import {
   normalizeCustomGeometry,
+  readCustomGeometry,
   renderCustomGeometry,
   type NormalizedCustomGeometry,
 } from './custom-geometry.internal.js';
@@ -311,11 +312,12 @@ export function replacePresetShapeType(
   type: PresetShapeType,
   partUri: string,
 ): boolean {
-  const state = resolvePresetGeometry(shape);
+  const presetState = resolvePresetGeometry(shape);
+  const state = presetState ?? resolveSupportedCustomGeometry(xml, shape);
   if (!state) {
     throw new ModelParseError('Shape preset geometry is not safely editable', partUri);
   }
-  if (state.type === type) return false;
+  if (presetState?.type === type) return false;
   const prefix = state.prefix === '' ? '' : `${state.prefix}:`;
   const parentBinding = state.geometry.parent
     ? namespaceUriForPrefix(state.geometry.parent, state.prefix)
@@ -334,23 +336,8 @@ export function replacePresetShapeType(
 }
 
 function resolvePresetGeometry(shape: XmlElement): ResolvedPresetGeometry | undefined {
-  if (
-    shape.localName !== 'sp'
-    || namespaceUri(shape) !== PRESENTATION_NAMESPACE
-  ) return undefined;
-  const properties = directChildren(shape).filter(({ localName }) => localName === 'spPr');
-  if (
-    properties.length !== 1
-    || namespaceUri(properties[0]!) !== PRESENTATION_NAMESPACE
-  ) return undefined;
-  const geometries = directChildren(properties[0]!)
-    .filter(({ localName }) => localName === 'prstGeom');
-  const geometry = geometries[0];
-  if (
-    geometries.length !== 1
-    || !geometry
-    || namespaceUri(geometry) !== DRAWING_NAMESPACE
-  ) return undefined;
+  const geometry = resolveGeometryChoice(shape);
+  if (!geometry || geometry.localName !== 'prstGeom') return undefined;
   const attributes = geometry.attributes.filter(
     ({ name, localName }) => localName === 'prst' && !name.startsWith('xmlns:'),
   );
@@ -366,6 +353,41 @@ function resolvePresetGeometry(shape: XmlElement): ResolvedPresetGeometry | unde
     type: attribute.value as PresetShapeType,
     prefix: lexicalPrefix(geometry.name),
   };
+}
+
+function resolveSupportedCustomGeometry(
+  xml: LosslessXmlDocument,
+  shape: XmlElement,
+): Omit<ResolvedPresetGeometry, 'type'> | undefined {
+  const geometry = resolveGeometryChoice(shape);
+  if (
+    !geometry
+    || geometry.localName !== 'custGeom'
+    || readCustomGeometry(xml, shape) === undefined
+  ) return undefined;
+  return { geometry, prefix: lexicalPrefix(geometry.name) };
+}
+
+function resolveGeometryChoice(shape: XmlElement): XmlElement | undefined {
+  if (
+    shape.localName !== 'sp'
+    || namespaceUri(shape) !== PRESENTATION_NAMESPACE
+  ) return undefined;
+  const properties = directChildren(shape).filter(({ localName }) => localName === 'spPr');
+  if (
+    properties.length !== 1
+    || namespaceUri(properties[0]!) !== PRESENTATION_NAMESPACE
+  ) return undefined;
+  const geometries = directChildren(properties[0]!).filter(
+    ({ localName }) => localName === 'prstGeom' || localName === 'custGeom',
+  );
+  const geometry = geometries[0];
+  if (
+    geometries.length !== 1
+    || !geometry
+    || namespaceUri(geometry) !== DRAWING_NAMESPACE
+  ) return undefined;
+  return geometry;
 }
 
 function readOptions(

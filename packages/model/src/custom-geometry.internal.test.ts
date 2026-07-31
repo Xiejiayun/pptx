@@ -436,6 +436,47 @@ describe('custom geometry OOXML codec', () => {
     expect(updated).toContain('<d:bodyPr/><d:p/>');
   });
 
+  it('converts supported preset geometry and rejects malformed preset ownership', () => {
+    const normalized = normalizeCustomGeometry(geometry, 'Custom geometry');
+    const source = fixture(
+      '<d:prstGeom prst="blockArc"><d:avLst>' +
+      '<d:gd name="adj1" fmla="val 16200000"/></d:avLst></d:prstGeom>',
+      { drawingPrefix: 'd' },
+    );
+    const converted = parseShape(source);
+    expect(replaceCustomGeometry(
+      converted.xml,
+      converted.shape,
+      normalized,
+      '/ppt/slides/slide1.xml',
+    )).toBe(true);
+    const updated = converted.xml.serialize();
+    expect(updated).toContain(canonical('d:'));
+    expect(updated).not.toContain('<d:prstGeom');
+    expect(updated).not.toContain('name="adj1"');
+    expect(updated).toContain('<d:xfrm/><d:solidFill/>');
+    expect(updated).toContain('<d:ln/><d:effectLst/><d:extLst/>');
+    expect(updated).toContain('<p:cNvPr id="2" name="Keep"/>');
+
+    for (const malformed of [
+      '<a:prstGeom/>',
+      '<a:prstGeom prst="folderCorner"/>',
+      '<a:prstGeom x:prst="rect" xmlns:x="urn:wrong"/>',
+      '<a:prstGeom prst="rect"/><a:custGeom/>',
+      '<a:prstGeom prst="rect"/><a:prstGeom prst="ellipse"/>',
+    ]) {
+      const candidate = parseShape(fixture(malformed));
+      const before = candidate.xml.serialize();
+      expect(() => replaceCustomGeometry(
+        candidate.xml,
+        candidate.shape,
+        normalized,
+        '/ppt/slides/slide1.xml',
+      )).toThrow(ModelParseError);
+      expect(candidate.xml.serialize()).toBe(before);
+    }
+  });
+
   it('adds a local namespace declaration when the geometry owns its prefix binding', () => {
     const source = fixture(canonical()).replace(
       ` xmlns:a="${DRAWING_NAMESPACE}"`,

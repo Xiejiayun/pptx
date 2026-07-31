@@ -69,6 +69,11 @@ import type {
   AddCustomShapeOptions,
   CustomGeometry,
 } from './custom-geometry.js';
+import {
+  normalizeCustomGeometry,
+  readCustomGeometry,
+  replaceCustomGeometry,
+} from './custom-geometry.internal.js';
 import type {
   AddShapeOptions,
   PresetShapeType,
@@ -381,6 +386,21 @@ export class SlideModel {
   getShapePresetType(id: number): PresetShapeType | undefined {
     const { xml, element } = this.resolveShape(id);
     return readPresetShapeType(xml, element);
+  }
+
+  getShapeCustomGeometry(id: number): CustomGeometry | undefined {
+    const { xml, element } = this.resolveShape(id);
+    return readCustomGeometry(xml, element);
+  }
+
+  setShapeCustomGeometry(id: number, value: CustomGeometry): void {
+    const geometry = normalizeCustomGeometry(value, 'Custom geometry');
+    this.presentation.opcPackage.transaction(() => {
+      const { xml, element } = this.resolveShape(id);
+      if (replaceCustomGeometry(xml, element, geometry, this.partUri)) {
+        this.setXml(xml.serialize());
+      }
+    });
   }
 
   setShapePresetType(id: number, value: PresetShapeType): void {

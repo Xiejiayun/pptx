@@ -404,6 +404,202 @@ describe('PresentationModel', () => {
     }
   });
 
+  it('reads and whole-replaces live custom geometry with exact no-op semantics', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const shape = slide.addCustomShape(customTriangleGeometry, {
+      name: 'Editable custom geometry',
+      x: inches(2),
+      fill: { kind: 'solid', color: { kind: 'scheme', value: 'accent1' } },
+      line: { kind: 'line', color: { kind: 'srgb', value: '123456' }, width: 2 },
+      arrows: { end: 'triangle' },
+      shadow: { kind: 'outer' },
+      hyperlink: { url: 'https://example.com/custom-edit' },
+    });
+
+    const first = shape.customGeometry;
+    const second = shape.customGeometry;
+    expect(first).toEqual(customTriangleGeometry);
+    expect(second).toEqual(first);
+    expect(second).not.toBe(first);
+    expect(Object.isFrozen(first)).toBe(true);
+    expect(Object.isFrozen(first?.paths)).toBe(true);
+    expect(Object.isFrozen(first?.paths[0])).toBe(true);
+    expect(Object.isFrozen(first?.paths[0]?.commands)).toBe(true);
+    expect(first?.paths[0]?.commands.every(Object.isFrozen)).toBe(true);
+    expect(slide.getShapeCustomGeometry(shape.id)).toEqual(first);
+
+    const noOp = packageSnapshot(pkg);
+    shape.customGeometry = structuredClone(customTriangleGeometry);
+    expect(packageSnapshot(pkg)).toEqual(noOp);
+    expect(slide.shapes[0]).toBe(shape);
+
+    for (const invalid of [
+      undefined,
+      null,
+      { paths: [] },
+      { paths: [{ width: 1, height: 1, commands: [{ kind: 'close' }] }] },
+    ]) {
+      expect(() => {
+        shape.customGeometry = invalid as never;
+      }).toThrow();
+      expect(packageSnapshot(pkg)).toEqual(noOp);
+    }
+
+    const replacement: CustomGeometry = {
+      paths: [
+        {
+          width: 200,
+          height: 300,
+          fill: 'none',
+          stroke: false,
+          commands: [
+            { kind: 'moveTo', point: { x: 1, y: 2 } },
+            {
+              kind: 'cubicBezierTo',
+              control1: { x: 3, y: 4 },
+              control2: { x: 5, y: 6 },
+              end: { x: 7, y: 8 },
+            },
+          ],
+        },
+        { width: 10, height: 20, extrusionOk: false, commands: [] },
+      ],
+    };
+    const identity = shape;
+    const transform = shape.transform;
+    const fill = shape.fill;
+    const line = shape.line;
+    const arrows = shape.arrows;
+    const shadow = shape.shadow;
+    const hyperlink = shape.hyperlink;
+    const relationships = slide.relationships;
+    shape.customGeometry = replacement;
+    expect(shape).toBe(identity);
+    expect(slide.shapes[0]).toBe(identity);
+    expect(shape.customGeometry).toEqual(replacement);
+    expect(shape.transform).toEqual(transform);
+    expect(shape.fill).toEqual(fill);
+    expect(shape.line).toEqual(line);
+    expect(shape.arrows).toEqual(arrows);
+    expect(shape.shadow).toEqual(shadow);
+    expect(shape.hyperlink).toEqual(hyperlink);
+    expect(slide.relationships).toEqual(relationships);
+
+    const part = pkg.requirePart(slide.partUri);
+    pkg.setPart(
+      slide.partUri,
+      new TextDecoder().decode(part.bytes).replace(
+        '<a:gdLst/>',
+        '<a:gdLst><a:gd name="x" fmla="val 1"/></a:gdLst>',
+      ),
+      part.contentType,
+    );
+    expect(shape.customGeometry).toBeUndefined();
+    const unsupported = packageSnapshot(pkg);
+    expect(() => {
+      shape.customGeometry = customTriangleGeometry;
+    }).toThrow(ModelParseError);
+    expect(packageSnapshot(pkg)).toEqual(unsupported);
+  });
+
+  it('converts preset and custom geometry without changing live identity or unrelated state', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const shape = slide.addShape('blockArc', {
+      name: 'Convertible geometry',
+      adjustments: [
+        { name: 'adj1', value: 16_200_000 },
+        { name: 'adj2', value: 0 },
+      ],
+      x: inches(2),
+      fill: { kind: 'solid', color: { kind: 'scheme', value: 'accent2' } },
+      line: { kind: 'line', color: { kind: 'srgb', value: '123ABC' } },
+      arrows: { end: 'triangle' },
+      shadow: { kind: 'outer' },
+      hyperlink: { url: 'https://example.com/convert' },
+    });
+    const text = slide.addText('Keep text', { name: 'Convertible text' });
+    const identity = shape;
+    const preserved = {
+      name: shape.name,
+      transform: shape.transform,
+      fill: shape.fill,
+      line: shape.line,
+      arrows: shape.arrows,
+      shadow: shape.shadow,
+      hyperlink: shape.hyperlink,
+    };
+
+    shape.customGeometry = customTriangleGeometry;
+    expect(shape).toBe(identity);
+    expect(slide.shapes[0]).toBe(identity);
+    expect(shape.presetType).toBeUndefined();
+    expect(shape.adjustments).toBeUndefined();
+    expect(shape.customGeometry).toEqual(customTriangleGeometry);
+    expect({
+      name: shape.name,
+      transform: shape.transform,
+      fill: shape.fill,
+      line: shape.line,
+      arrows: shape.arrows,
+      shadow: shape.shadow,
+      hyperlink: shape.hyperlink,
+    }).toEqual(preserved);
+
+    text.customGeometry = customTriangleGeometry;
+    expect(text.text).toBe('Keep text');
+    expect(text.customGeometry).toEqual(customTriangleGeometry);
+    text.presetType = 'ellipse';
+    expect(text.text).toBe('Keep text');
+    expect(text.customGeometry).toBeUndefined();
+    expect(text.presetType).toBe('ellipse');
+
+    const customSnapshot = packageSnapshot(pkg);
+    expect(() => pkg.transaction(() => {
+      shape.presetType = 'star5';
+      expect(shape.customGeometry).toBeUndefined();
+      throw new Error('restore custom conversion');
+    })).toThrow('restore custom conversion');
+    expect(packageSnapshot(pkg)).toEqual(customSnapshot);
+    expect(shape.customGeometry).toEqual(customTriangleGeometry);
+
+    const duplicate = model.duplicateSlide(model.slides.indexOf(slide));
+    const duplicateShape = duplicate.shapes.find(({ id }) => id === shape.id) as ShapeModel;
+    shape.presetType = 'ellipse';
+    expect(shape.presetType).toBe('ellipse');
+    expect(shape.adjustments).toEqual([]);
+    expect(shape.customGeometry).toBeUndefined();
+    expect(duplicateShape.customGeometry).toEqual(customTriangleGeometry);
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedSlide = reopened.slides.find(({ partUri }) => partUri === slide.partUri)!;
+    const reopenedShape = reopenedSlide.shapes.find(({ id }) => id === shape.id) as ShapeModel;
+    expect(reopenedShape.presetType).toBe('ellipse');
+    expect(reopenedShape.customGeometry).toBeUndefined();
+    expect(reopenedShape.name).toBe('Convertible geometry');
+    expect(reopenedShape.hyperlink).toEqual({ url: 'https://example.com/convert' });
+
+    const malformedSlide = model.addSlide();
+    const malformedShape = malformedSlide.addShape('rect');
+    const part = pkg.requirePart(malformedSlide.partUri);
+    pkg.setPart(
+      malformedSlide.partUri,
+      new TextDecoder().decode(part.bytes).replace(
+        '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>',
+        '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:custGeom/>',
+      ),
+      part.contentType,
+    );
+    const malformed = packageSnapshot(pkg);
+    expect(() => {
+      malformedShape.customGeometry = customTriangleGeometry;
+    }).toThrow(ModelParseError);
+    expect(packageSnapshot(pkg)).toEqual(malformed);
+  });
+
   it('creates preset shape adjustments with detached ordered values and unchanged empty bytes', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);

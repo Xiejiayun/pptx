@@ -391,6 +391,128 @@ describe('PptxDocument vertical slice', () => {
     }
   });
 
+  it('edits and converts custom geometry through the public SDK lifecycle', async () => {
+    const geometry: CustomGeometry = {
+      paths: [{
+        width: inches(4),
+        height: inches(3),
+        commands: [
+          { kind: 'moveTo', point: { x: 0, y: 0 } },
+          { kind: 'lineTo', point: { x: inches(4), y: 0 } },
+          { kind: 'lineTo', point: { x: inches(2), y: inches(3) } },
+          { kind: 'close' },
+        ],
+      }],
+    };
+    const replacement: CustomGeometry = {
+      paths: [
+        {
+          width: 100,
+          height: 200,
+          fill: 'none',
+          stroke: false,
+          commands: [
+            { kind: 'moveTo', point: { x: 1, y: 2 } },
+            {
+              kind: 'quadraticBezierTo',
+              control: { x: 3, y: 4 },
+              end: { x: 5, y: 6 },
+            },
+          ],
+        },
+        { width: 300, height: 400, extrusionOk: false, commands: [] },
+      ],
+    };
+    const document = PptxDocument.create();
+    const source = document.addSlide();
+    const shape = source.addCustomShape(geometry, {
+      name: 'Editable SDK custom',
+      fill: { kind: 'solid', color: { kind: 'scheme', value: 'accent1' } },
+      line: { kind: 'line', color: { kind: 'srgb', value: '112233' }, width: 2 },
+      shadow: { kind: 'outer' },
+      hyperlink: { url: 'https://example.com/sdk-custom' },
+    });
+    const first: CustomGeometry | undefined = shape.customGeometry;
+    expect(first).toEqual(geometry);
+    expect(Object.isFrozen(first)).toBe(true);
+    expect(Object.isFrozen(first?.paths[0]?.commands)).toBe(true);
+    expect(shape.customGeometry).not.toBe(first);
+
+    const before = document.opcPackage.requirePart(source.partUri).bytes.slice();
+    const journal = [...document.opcPackage.mutations];
+    shape.customGeometry = structuredClone(geometry);
+    expect(document.opcPackage.requirePart(source.partUri).bytes).toEqual(before);
+    expect(document.opcPackage.mutations).toEqual(journal);
+
+    const identity = shape;
+    shape.customGeometry = replacement;
+    expect(shape).toBe(identity);
+    expect(source.shapes[0]).toBe(identity);
+    expect(shape.customGeometry).toEqual(replacement);
+    expect(shape.name).toBe('Editable SDK custom');
+    expect(shape.fill).toEqual({
+      kind: 'solid',
+      color: { kind: 'scheme', value: 'accent1' },
+    });
+    expect(shape.hyperlink).toEqual({ url: 'https://example.com/sdk-custom' });
+
+    const duplicate = document.duplicateSlide(document.slides.indexOf(source));
+    const duplicateShape = duplicate.shapes[0] as ShapeModel;
+    shape.presetType = 'ellipse';
+    expect(shape.presetType).toBe('ellipse');
+    expect(shape.customGeometry).toBeUndefined();
+    expect(duplicateShape.presetType).toBeUndefined();
+    expect(duplicateShape.customGeometry).toEqual(replacement);
+
+    const rollbackBytes = document.opcPackage.requirePart(duplicate.partUri).bytes.slice();
+    const rollbackJournal = [...document.opcPackage.mutations];
+    expect(() => document.transaction(() => {
+      duplicateShape.presetType = 'star5';
+      expect(duplicateShape.customGeometry).toBeUndefined();
+      throw new Error('restore SDK geometry conversion');
+    })).toThrow('restore SDK geometry conversion');
+    expect(document.opcPackage.requirePart(duplicate.partUri).bytes).toEqual(rollbackBytes);
+    expect(document.opcPackage.mutations).toEqual(rollbackJournal);
+    expect(duplicateShape.customGeometry).toEqual(replacement);
+
+    duplicateShape.presetType = 'star5';
+    duplicateShape.customGeometry = geometry;
+    expect(duplicateShape.presetType).toBeUndefined();
+    expect(duplicateShape.customGeometry).toEqual(geometry);
+    expect(validatePackage(document.opcPackage).filter(({ severity }) => severity === 'error'))
+      .toEqual([]);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedSource = reopened.slides.find(({ partUri }) => partUri === source.partUri)!;
+    const reopenedDuplicate = reopened.slides.find(({ partUri }) => partUri === duplicate.partUri)!;
+    const reopenedPreset = reopenedSource.shapes[0] as ShapeModel;
+    const reopenedCustom = reopenedDuplicate.shapes[0] as ShapeModel;
+    expect(reopenedPreset.presetType).toBe('ellipse');
+    expect(reopenedPreset.customGeometry).toBeUndefined();
+    expect(reopenedCustom.presetType).toBeUndefined();
+    expect(reopenedCustom.customGeometry).toEqual(geometry);
+    expect(reopenedCustom.name).toBe('Editable SDK custom');
+    expect(reopenedCustom.hyperlink).toEqual({ url: 'https://example.com/sdk-custom' });
+
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const formatted = PptxDocument.create({ format });
+      const formattedShape = formatted.addSlide().addCustomShape(geometry);
+      formattedShape.customGeometry = replacement;
+      formattedShape.presetType = 'diamond';
+      formattedShape.customGeometry = geometry;
+      const formattedReopened = await PptxDocument.open(await formatted.write());
+      const reopenedShape = formattedReopened.slides[0]!.shapes[0] as ShapeModel;
+      expect(formattedReopened.format).toBe(format);
+      expect(reopenedShape.presetType).toBeUndefined();
+      expect(reopenedShape.customGeometry).toEqual(geometry);
+    }
+
+    if (false) {
+      // @ts-expect-error custom geometry cannot be cleared from a shape
+      shape.customGeometry = undefined;
+    }
+  });
+
   it('creates preset shape hyperlinks through the public SDK type and runtime surface', () => {
     const document = PptxDocument.create();
     const first = document.addSlide();

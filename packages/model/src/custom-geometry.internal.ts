@@ -7,6 +7,7 @@ import type {
   CustomGeometryPoint,
 } from './custom-geometry.js';
 import { ModelParseError } from './errors.js';
+import { PRESET_SHAPE_TYPES } from './preset-shape.js';
 
 const PRESENTATION_NAMESPACE =
   'http://schemas.openxmlformats.org/presentationml/2006/main';
@@ -57,6 +58,7 @@ const CUSTOM_CHILD_STAGES = new Map([
 ]);
 const EMPTY_LIST_NAMES = ['avLst', 'gdLst', 'ahLst', 'cxnLst'] as const;
 const INTEGER_PATTERN = /^[+-]?\d+$/;
+const PRESET_SHAPE_TYPE_SET: ReadonlySet<string> = new Set(PRESET_SHAPE_TYPES);
 
 export type NormalizedCustomGeometry = Readonly<CustomGeometry>;
 
@@ -102,11 +104,12 @@ export function replaceCustomGeometry(
   geometry: NormalizedCustomGeometry,
   partUri: string,
 ): boolean {
-  const state = inspectCustomGeometryOwner(shape);
+  const customState = inspectCustomGeometryOwner(shape);
+  const state = customState ?? inspectPresetGeometryOwner(shape);
   if (!state) {
     throw new ModelParseError('Shape custom geometry is not safely editable', partUri);
   }
-  if (customGeometryEqual(state.snapshot, geometry)) return false;
+  if (customState && customGeometryEqual(customState.snapshot, geometry)) return false;
 
   const qualified = qualifiedPrefix(state.prefix);
   let replacement = renderCustomGeometry(geometry, qualified);
@@ -288,7 +291,30 @@ function inspectCustomGeometryOwner(shape: XmlElement): CustomGeometryOwnerState
   };
 }
 
+function inspectPresetGeometryOwner(
+  shape: XmlElement,
+): Omit<CustomGeometryOwnerState, 'snapshot'> | undefined {
+  const geometry = resolveGeometryChoice(shape);
+  if (!geometry || geometry.localName !== 'prstGeom') return undefined;
+  const attributes = geometry.attributes.filter(
+    ({ name, localName }) => localName === 'prst' && !name.startsWith('xmlns:'),
+  );
+  const attribute = attributes[0];
+  if (
+    attributes.length !== 1
+    || !attribute
+    || attribute.name !== 'prst'
+    || !PRESET_SHAPE_TYPE_SET.has(attribute.value)
+  ) return undefined;
+  return { geometry, prefix: lexicalPrefix(geometry.name) };
+}
+
 function resolveCustomGeometryElement(shape: XmlElement): XmlElement | undefined {
+  const geometry = resolveGeometryChoice(shape);
+  return geometry?.localName === 'custGeom' ? geometry : undefined;
+}
+
+function resolveGeometryChoice(shape: XmlElement): XmlElement | undefined {
   if (shape.localName !== 'sp' || namespaceUri(shape) !== PRESENTATION_NAMESPACE) {
     return undefined;
   }
@@ -303,7 +329,6 @@ function resolveCustomGeometryElement(shape: XmlElement): XmlElement | undefined
   if (
     geometries.length !== 1
     || !geometry
-    || geometry.localName !== 'custGeom'
     || namespaceUri(geometry) !== DRAWING_NAMESPACE
   ) return undefined;
   return geometry;

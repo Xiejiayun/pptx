@@ -966,6 +966,7 @@ describe('preset shape XML codec', () => {
       shapeFixture(undefined, { properties: '<x:spPr xmlns:x="urn:wrong"/>' }),
       shapeFixture('', { properties: '<p:spPr/>' }),
       shapeFixture('<a:prstGeom prst="rect"/><a:prstGeom prst="ellipse"/>'),
+      shapeFixture('<a:prstGeom prst="rect"/><a:custGeom/>'),
       shapeFixture('<x:prstGeom xmlns:x="urn:wrong" prst="rect"/>'),
       shapeFixture('<a:prstGeom/>'),
       shapeFixture('<a:prstGeom x:prst="rect" xmlns:x="urn:qualified"/>'),
@@ -1019,6 +1020,35 @@ describe('preset shape XML codec', () => {
     expect(updated).toContain('<a:t>KEEP</a:t>');
   });
 
+  it('converts supported custom geometry to a canonical preset geometry', () => {
+    const source = renderCustomShapeXml(
+      7,
+      normalizeCustomShape(customGeometry, {
+        name: 'Keep custom style',
+        fill: { kind: 'solid', color: { kind: 'srgb', value: 'ABCDEF' } },
+        line: { kind: 'line', color: { kind: 'scheme', value: 'accent1' } },
+        shadow: { kind: 'outer' },
+      }),
+    );
+    const { xml, shape } = parseShape(source);
+    expect(readPresetShapeType(xml, shape)).toBeUndefined();
+    expect(replacePresetShapeType(
+      xml,
+      shape,
+      'ellipse',
+      '/ppt/slides/slide1.xml',
+    )).toBe(true);
+    const updated = xml.serialize();
+    const reparsed = parseShape(updated);
+    expect(readPresetShapeType(reparsed.xml, reparsed.shape)).toBe('ellipse');
+    expect(updated).toContain('<a:prstGeom prst="ellipse"><a:avLst/></a:prstGeom>');
+    expect(updated).not.toContain('<a:custGeom>');
+    expect(updated).toContain('name="Keep custom style"');
+    expect(updated).toContain('<a:solidFill><a:srgbClr val="ABCDEF"/></a:solidFill>');
+    expect(updated).toContain('<a:ln w="12700"><a:solidFill><a:schemeClr val="accent1"/>');
+    expect(updated).toContain('<a:effectLst>');
+  });
+
   it('uses the existing DrawingML prefix when replacing geometry', () => {
     const source =
       `<q:sp xmlns:q="${PRESENTATION_NAMESPACE}" xmlns:d="${DRAWING_NAMESPACE}">` +
@@ -1047,6 +1077,12 @@ describe('preset shape XML codec', () => {
       shapeFixture('', { properties: '<p:spPr/>' }),
       shapeFixture('<a:prstGeom prst="folderCorner"/>'),
       shapeFixture('<a:prstGeom prst="rect"/><a:prstGeom prst="ellipse"/>'),
+      shapeFixture('<a:prstGeom prst="rect"/><a:custGeom/>'),
+      shapeFixture(
+        '<a:custGeom><a:avLst/><a:gdLst><a:gd name="x" fmla="val 1"/></a:gdLst>' +
+        '<a:ahLst/><a:cxnLst/><a:rect l="l" t="t" r="r" b="b"/>' +
+        '<a:pathLst><a:path w="1" h="1"/></a:pathLst></a:custGeom>',
+      ),
     ]) {
       const { xml, shape } = parseShape(source);
       expect(() => replacePresetShapeType(
