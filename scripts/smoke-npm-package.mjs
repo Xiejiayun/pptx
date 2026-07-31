@@ -115,6 +115,155 @@ const presetShapes = PRESET_SHAPE_TYPES.length === 178 &&
     ['Shape 2', 'Packed folded corner'],
     ['Shape 2', 'Packed folded corner'],
   ]);
+const shapeHyperlinkDeck = PptxDocument.create();
+const shapeHyperlinkSource = shapeHyperlinkDeck.addSlide();
+const shapeHyperlinkTarget = shapeHyperlinkDeck.addSlide();
+shapeHyperlinkDeck.addSlide();
+const shapeHyperlinkInput = {
+  url: 'https://example.com?a=1&b=2',
+  tooltip: 'Visit & learn',
+};
+const packedUrlHyperlink = shapeHyperlinkSource.addShape('rect', {
+  name: 'Packed URL hyperlink',
+  hyperlink: shapeHyperlinkInput,
+});
+const packedInternalHyperlink = shapeHyperlinkSource.addShape('actionButtonForwardNext', {
+  name: 'Packed internal hyperlink',
+  hyperlink: { slide: 2 },
+});
+const packedSelfHyperlink = shapeHyperlinkSource.addShape('actionButtonHome', {
+  name: 'Packed self hyperlink',
+  hyperlink: { slide: 1, tooltip: '' },
+});
+const packedSharedA = shapeHyperlinkSource.addShape('rect', {
+  name: 'Packed shared A',
+  hyperlink: { url: 'https://shared.example' },
+});
+const packedSharedB = shapeHyperlinkSource.addShape('ellipse', {
+  name: 'Packed shared B',
+  hyperlink: { url: 'https://temporary.example' },
+});
+const initialPackedUrlHyperlink = packedUrlHyperlink.hyperlink;
+const initialPackedUrlHyperlinkAgain = packedUrlHyperlink.hyperlink;
+shapeHyperlinkInput.url = 'https://changed.example';
+shapeHyperlinkInput.tooltip = 'Changed';
+const detachedPackedUrlHyperlink = packedUrlHyperlink.hyperlink;
+const hyperlinkNoOpBytes = shapeHyperlinkDeck.opcPackage
+  .requirePart(shapeHyperlinkSource.partUri).bytes.slice();
+const hyperlinkNoOpJournal = shapeHyperlinkDeck.opcPackage.mutations.length;
+packedUrlHyperlink.hyperlink = {
+  url: 'https://example.com?a=1&b=2',
+  tooltip: 'Visit & learn',
+};
+const hyperlinkNoOpCurrent = shapeHyperlinkDeck.opcPackage
+  .requirePart(shapeHyperlinkSource.partUri).bytes;
+const shapeHyperlinkNoOp = hyperlinkNoOpJournal === shapeHyperlinkDeck.opcPackage.mutations.length &&
+  hyperlinkNoOpBytes.length === hyperlinkNoOpCurrent.length &&
+  hyperlinkNoOpBytes.every((value, index) => value === hyperlinkNoOpCurrent[index]);
+const sharedRelationship = shapeHyperlinkSource.relationships.find(
+  ({ type, target }) => type.endsWith('/hyperlink') && target === 'https://shared.example',
+);
+const temporaryRelationship = shapeHyperlinkSource.relationships.find(
+  ({ type, target }) => type.endsWith('/hyperlink') && target === 'https://temporary.example',
+);
+if (!sharedRelationship || !temporaryRelationship) {
+  throw new Error('Packed hyperlink sharing fixture failed');
+}
+const shapeHyperlinkPart = shapeHyperlinkDeck.opcPackage.requirePart(shapeHyperlinkSource.partUri);
+const sharedShapeHyperlinkXml = new TextDecoder().decode(shapeHyperlinkPart.bytes)
+  .replace('r:id="' + temporaryRelationship.id + '"', 'r:id="' + sharedRelationship.id + '"');
+shapeHyperlinkDeck.opcPackage.setPart(
+  shapeHyperlinkSource.partUri,
+  sharedShapeHyperlinkXml,
+  shapeHyperlinkPart.contentType,
+);
+shapeHyperlinkDeck.opcPackage.removeRelationship(
+  shapeHyperlinkSource.partUri,
+  temporaryRelationship.id,
+);
+packedSharedA.hyperlink = { url: 'https://clone.example', tooltip: 'Clone' };
+const shapeHyperlinkCloneOnWrite = JSON.stringify(packedSharedA.hyperlink) ===
+  JSON.stringify({ url: 'https://clone.example', tooltip: 'Clone' }) &&
+  JSON.stringify(packedSharedB.hyperlink) === JSON.stringify({ url: 'https://shared.example' }) &&
+  shapeHyperlinkSource.relationships.filter(({ type }) => type.endsWith('/hyperlink')).length === 3;
+packedSharedA.hyperlink = undefined;
+const shapeHyperlinkCloneGc = shapeHyperlinkSource.relationships.every(
+  ({ target }) => target !== 'https://clone.example',
+);
+packedUrlHyperlink.hyperlink = {
+  url: 'mailto:test@example.com',
+  tooltip: '',
+};
+packedInternalHyperlink.hyperlink = { slide: 3, tooltip: '' };
+packedInternalHyperlink.hyperlink = { slide: 2 };
+const duplicateShapeHyperlinkSlide = shapeHyperlinkDeck.duplicateSlide(0);
+const duplicatePackedSelfHyperlink = duplicateShapeHyperlinkSlide.shapes[2];
+const shapeHyperlinkDuplicateSelf = duplicatePackedSelfHyperlink instanceof ShapeModel &&
+  JSON.stringify(duplicatePackedSelfHyperlink.hyperlink) === JSON.stringify({ slide: 4, tooltip: '' });
+shapeHyperlinkDeck.moveSlide(shapeHyperlinkDeck.slides.indexOf(shapeHyperlinkTarget), 0);
+const shapeHyperlinkMovedTarget = JSON.stringify(packedInternalHyperlink.hyperlink) ===
+  JSON.stringify({ slide: 1 });
+shapeHyperlinkDeck.deleteSlide(shapeHyperlinkDeck.slides.indexOf(shapeHyperlinkTarget));
+const shapeHyperlinkTargetCleanup = packedInternalHyperlink.hyperlink === undefined &&
+  duplicateShapeHyperlinkSlide.shapes[1] instanceof ShapeModel &&
+  duplicateShapeHyperlinkSlide.shapes[1].hyperlink === undefined;
+const reopenedShapeHyperlinkDeck = await PptxDocument.open(await shapeHyperlinkDeck.write());
+const reopenedShapeHyperlinkSource = reopenedShapeHyperlinkDeck.slides[0];
+const reopenedShapeHyperlinkDuplicate = reopenedShapeHyperlinkDeck.slides[2];
+const reopenedSourceHyperlinks = reopenedShapeHyperlinkSource.shapes.map((shape) =>
+  shape instanceof ShapeModel ? shape.hyperlink : undefined);
+const reopenedDuplicateHyperlinks = reopenedShapeHyperlinkDuplicate.shapes.map((shape) =>
+  shape instanceof ShapeModel ? shape.hyperlink : undefined);
+const packedHyperlinkRelationships = reopenedShapeHyperlinkDeck.slides.flatMap(
+  ({ relationships }) => relationships,
+);
+const packedHyperlinkDangling = packedHyperlinkRelationships.some(
+  ({ targetMode, resolvedTarget }) => targetMode === 'Internal' &&
+    resolvedTarget !== undefined &&
+    !reopenedShapeHyperlinkDeck.opcPackage.hasPart(resolvedTarget),
+);
+const shapeHyperlinks = packedUrlHyperlink instanceof ShapeModel &&
+  packedInternalHyperlink instanceof ShapeModel &&
+  packedSelfHyperlink instanceof ShapeModel &&
+  initialPackedUrlHyperlink !== initialPackedUrlHyperlinkAgain &&
+  Object.isFrozen(initialPackedUrlHyperlink) &&
+  JSON.stringify(initialPackedUrlHyperlink) === JSON.stringify({
+    url: 'https://example.com?a=1&b=2',
+    tooltip: 'Visit & learn',
+  }) &&
+  JSON.stringify(detachedPackedUrlHyperlink) === JSON.stringify(initialPackedUrlHyperlink) &&
+  shapeHyperlinkNoOp &&
+  shapeHyperlinkCloneOnWrite &&
+  shapeHyperlinkCloneGc &&
+  shapeHyperlinkDuplicateSelf &&
+  shapeHyperlinkMovedTarget &&
+  shapeHyperlinkTargetCleanup &&
+  JSON.stringify(reopenedSourceHyperlinks) === JSON.stringify([
+    { url: 'mailto:test@example.com', tooltip: '' },
+    undefined,
+    { slide: 1, tooltip: '' },
+    undefined,
+    { url: 'https://shared.example' },
+  ]) &&
+  JSON.stringify(reopenedDuplicateHyperlinks) === JSON.stringify([
+    { url: 'mailto:test@example.com', tooltip: '' },
+    undefined,
+    { slide: 3, tooltip: '' },
+    undefined,
+    { url: 'https://shared.example' },
+  ]) &&
+  packedHyperlinkRelationships.filter(({ type }) => type.endsWith('/hyperlink')).length === 4 &&
+  packedHyperlinkRelationships.filter(({ type }) => type.endsWith('/slide')).length === 2 &&
+  !packedHyperlinkDangling;
+if (!shapeHyperlinks) {
+  throw new Error('Packed shape hyperlinks failed: ' + JSON.stringify({
+    initialPackedUrlHyperlink,
+    detachedPackedUrlHyperlink,
+    reopenedSourceHyperlinks,
+    reopenedDuplicateHyperlinks,
+    packedHyperlinkRelationships,
+  }));
+}
 const shapeFillDeck = PptxDocument.create();
 const shapeFillSlide = shapeFillDeck.addSlide();
 const shapeFillSourceColor = { kind: 'srgb', value: '#AA0000' };
@@ -1083,6 +1232,7 @@ const checks = {
   shapeFills,
   shapeLines,
   shapeArrows,
+  shapeHyperlinks,
   presentationRtl: presentationRtlEnabled === true && presentationRtlDisabled === false && presentationRtlCleared === undefined && paragraphRtlAfterGlobalClear[0] === true && paragraphRtlAfterGlobalClear[1] === false,
   presentationTitle: createdPresentationTitle === 'Packed & <Title>' && editedPresentationTitle === 'Edited title' && reopenedPresentationTitle === 'Edited title' && emptyPresentationTitle === '' && clearedPresentationTitle === undefined,
   presentationAuthor: createdPresentationAuthor === 'Packed & <Author>' && editedPresentationAuthor === 'Edited author' && reopenedPresentationAuthor === 'Edited author' && emptyPresentationAuthor === '' && clearedPresentationAuthor === undefined,
@@ -1145,7 +1295,7 @@ process.stdout.write(JSON.stringify(checks));
 
   await writeFile(
     join(directory, 'browser-smoke.mjs'),
-    `import { inches, PRESET_SHAPE_TYPES, PptxDocument, TableModel, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
+    `import { inches, PRESET_SHAPE_TYPES, PptxDocument, ShapeModel, TableModel, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
 const resolved = import.meta.resolve('@jiayunxie/pptx');
 if (!resolved.endsWith('/dist/browser.js')) throw new Error('Browser condition resolved to ' + resolved);
 const checks = [PptxDocument, transitions.TransitionCodec, animations.AnimationTimingCodec, advancedCharts.AdvancedChartCodec, smartArt.SmartArtDiagramCodec];
@@ -1156,6 +1306,55 @@ if (PRESET_SHAPE_TYPES.length !== 178 || !Object.isFrozen(PRESET_SHAPE_TYPES)) {
 const browserShapeDeck = PptxDocument.create();
 const browserShape = browserShapeDeck.addSlide().addShape('foldedCorner');
 browserShape.presetType = 'star5';
+const browserHyperlinkDeck = PptxDocument.create();
+const browserHyperlinkSlide = browserHyperlinkDeck.addSlide();
+browserHyperlinkDeck.addSlide();
+const browserHyperlinkInput = {
+  url: 'https://browser.example',
+  tooltip: 'Browser link',
+};
+const browserUrlHyperlink = browserHyperlinkSlide.addShape('rect', {
+  hyperlink: browserHyperlinkInput,
+});
+const browserInternalHyperlink = browserHyperlinkSlide.addShape('actionButtonForwardNext', {
+  hyperlink: { slide: 2 },
+});
+const browserClearedHyperlink = browserHyperlinkSlide.addShape('ellipse', {
+  hyperlink: { url: 'https://clear.browser.example' },
+});
+const browserInitialHyperlink = browserUrlHyperlink.hyperlink;
+browserHyperlinkInput.url = 'https://changed.browser.example';
+browserHyperlinkInput.tooltip = 'Changed';
+if (!(browserUrlHyperlink instanceof ShapeModel) ||
+    !Object.isFrozen(browserInitialHyperlink) ||
+    JSON.stringify(browserInitialHyperlink) !== JSON.stringify({
+      url: 'https://browser.example',
+      tooltip: 'Browser link',
+    }) ||
+    JSON.stringify(browserUrlHyperlink.hyperlink) !== JSON.stringify(browserInitialHyperlink) ||
+    JSON.stringify(browserInternalHyperlink.hyperlink) !== JSON.stringify({ slide: 2 })) {
+  throw new Error('Browser shape hyperlink create/read failed');
+}
+browserUrlHyperlink.hyperlink = { url: 'mailto:browser@example.com', tooltip: '' };
+browserInternalHyperlink.hyperlink = { url: 'https://temporary.browser.example' };
+browserInternalHyperlink.hyperlink = { slide: 2, tooltip: '' };
+browserClearedHyperlink.hyperlink = undefined;
+if (browserClearedHyperlink.hyperlink !== undefined) {
+  throw new Error('Browser shape hyperlink clear failed');
+}
+const reopenedBrowserHyperlinkDeck = await PptxDocument.open(
+  await browserHyperlinkDeck.writeBlob(),
+);
+const reopenedBrowserHyperlinks = reopenedBrowserHyperlinkDeck.slides[0]?.shapes.map((shape) =>
+  shape instanceof ShapeModel ? shape.hyperlink : undefined);
+if (JSON.stringify(reopenedBrowserHyperlinks) !== JSON.stringify([
+  { url: 'mailto:browser@example.com', tooltip: '' },
+  { slide: 2, tooltip: '' },
+  undefined,
+])) {
+  throw new Error('Browser shape hyperlink edit/reopen failed: ' +
+    JSON.stringify(reopenedBrowserHyperlinks));
+}
 const browserShapeFillColor = { kind: 'srgb', value: '#224466' };
 const browserShapeFillSource = {
   kind: 'solid',
@@ -1726,6 +1925,7 @@ process.stdout.write(resolved);
   TableModel,
   inches,
   type AddShapeOptions,
+  type Hyperlink,
   type ShapeArrows,
   type ShapeArrowType,
   type ShapeFill,
@@ -1802,6 +2002,11 @@ const typedShapeArrows: ShapeArrows = {
   begin: typedShapeArrowType,
   end: 'arrow',
 };
+const typedUrlHyperlink: Hyperlink = {
+  url: 'https://example.com',
+  tooltip: 'Typed URL',
+};
+const typedSlideHyperlink: Hyperlink = { slide: 2, tooltip: '' };
 const typedShapeOptions: AddShapeOptions = {
   x: inches(1),
   y: inches(2),
@@ -1813,6 +2018,7 @@ const typedShapeOptions: AddShapeOptions = {
   fill: typedSolidShapeFill,
   line: typedSolidShapeLine,
   arrows: typedShapeArrows,
+  hyperlink: typedUrlHyperlink,
 };
 const typedShape: ShapeModel = createdDocument.addSlide().addShape(
   typedPreset,
@@ -1832,6 +2038,10 @@ const typedShapeArrowsRead: ShapeArrows | undefined = typedShape.arrows;
 typedShape.arrows = { begin: 'diamond' };
 typedShape.arrows = typedShapeArrows;
 typedShape.arrows = undefined;
+const typedShapeHyperlinkRead: Hyperlink | undefined = typedShape.hyperlink;
+typedShape.hyperlink = typedSlideHyperlink;
+typedShape.hyperlink = typedUrlHyperlink;
+typedShape.hyperlink = undefined;
 const typedPresetCatalog: readonly PresetShapeType[] = PRESET_SHAPE_TYPES;
 // @ts-expect-error folderCorner is not a canonical OOXML preset
 createdDocument.addSlide().addShape('folderCorner');
@@ -1865,6 +2075,18 @@ const invalidShapeArrowType: ShapeArrowType = 'open';
 const invalidShapeArrowValue: ShapeArrows = { begin: '' };
 // @ts-expect-error PptxGenJS beginArrowType is not a native alias
 const invalidShapeArrowAlias: ShapeArrows = { beginArrowType: 'arrow' };
+// @ts-expect-error shape hyperlink requires exactly one target
+const invalidMissingHyperlink: Hyperlink = {};
+// @ts-expect-error shape hyperlink targets are mutually exclusive
+const invalidBothHyperlink: Hyperlink = { url: 'https://example.com', slide: 2 };
+// @ts-expect-error shape hyperlink URL must be a string
+const invalidUrlHyperlink: Hyperlink = { url: 42 };
+// @ts-expect-error shape hyperlink slide must be numeric
+const invalidSlideHyperlink: Hyperlink = { slide: '2' };
+// @ts-expect-error shape hyperlink tooltip must be a string
+const invalidTooltipHyperlink: Hyperlink = { slide: 2, tooltip: 7 };
+// @ts-expect-error shape hyperlink public value has no relationship ID escape hatch
+const invalidUnknownHyperlink: Hyperlink = { url: 'https://example.com', _rId: 'rId9' };
 const addSectionOptions: AddSectionOptions = { title: 'Typed', order: 0 };
 const typedSection: PresentationSection = createdDocument.addSection(addSectionOptions);
 const addSlideOptions: AddSlideOptions = { sectionTitle: typedSection.title };
@@ -2100,7 +2322,10 @@ void [typedPreset, typedNoneShapeFill, typedSolidShapeFill, typedShapeOptions, t
   invalidShapeFillColor, invalidShapeFillTransparency, typedShapeLineDash,
   typedNoneShapeLine, typedSolidShapeLine, typedShapeLineRead, invalidShapeLineKind,
   invalidShapeLineColor, invalidShapeLineTransparency, invalidShapeLineWidth,
-  invalidShapeLineDash, invalidShapeLineAlias];
+  invalidShapeLineDash, invalidShapeLineAlias, typedUrlHyperlink, typedSlideHyperlink,
+  typedShapeHyperlinkRead, invalidMissingHyperlink, invalidBothHyperlink,
+  invalidUrlHyperlink, invalidSlideHyperlink, invalidTooltipHyperlink,
+  invalidUnknownHyperlink];
 void [documentPromise, createdDocument, addSectionOptions, typedSection, addSlideOptions, sectionSnapshot, typedVisibilitySlide, hiddenSnapshot, globalRtl, globalRtlSnapshot, titledDocument, titleSnapshot, authoredDocument, authorSnapshot, lastModifiedDocument, lastModifiedSnapshot, createdAtDocument, createdAtSnapshot, modifiedAtDocument, modifiedAtSnapshot, subjectDocument, subjectSnapshot, revisionDocument, revisionSnapshot, companyDocument, companySnapshot, themedDocument, themeSnapshot, fontSnapshot, fontUpdate, customDocument, createdText, creationBorder, creationMargin, creationOptions, objectCell, tableRows, tableOptions, typedTable, widthSnapshot, heightSnapshot, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotHorizontalAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellHorizontalAlignment, tableHorizontalAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
 `,
   );
@@ -2131,7 +2356,7 @@ void [documentPromise, createdDocument, addSectionOptions, typedSection, addSlid
   if (!doctor.ok || doctor.data?.version !== '0.1.0') throw new Error(`CLI smoke failed: ${cliResult.stdout}`);
 
   process.stdout.write(
-    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presetShapes: apiChecks.presetShapes, shapeFills: apiChecks.shapeFills, shapeLines: apiChecks.shapeLines, types: true, cli: doctor.data.version })}\n`,
+    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presetShapes: apiChecks.presetShapes, shapeFills: apiChecks.shapeFills, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, types: true, cli: doctor.data.version })}\n`,
   );
 } finally {
   await rm(directory, { recursive: true, force: true });

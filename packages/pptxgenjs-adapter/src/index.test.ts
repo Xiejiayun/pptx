@@ -823,6 +823,255 @@ describe('importPptxGenJS', () => {
     expect(reopenedXml).toContain('<a:tailEnd type="stealth"/>');
   });
 
+  it('compares shape hyperlink public output and strict native divergences', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    const generatedSlide = generated.addSlide();
+    const cases: readonly {
+      readonly name: string;
+      readonly hyperlink: unknown;
+    }[] = [
+      { name: 'URL', hyperlink: { url: 'https://example.com?a=1&b=2' } },
+      {
+        name: 'URL tooltip',
+        hyperlink: { url: 'mailto:test@example.com', tooltip: 'Mail & help' },
+      },
+      { name: 'Slide', hyperlink: { slide: 2 } },
+      { name: 'Slide tooltip', hyperlink: { slide: 3, tooltip: '' } },
+      { name: 'Self', hyperlink: { slide: 1 } },
+      { name: 'Empty', hyperlink: {} },
+      { name: 'Both', hyperlink: { url: 'https://example.com', slide: 2 } },
+      { name: 'Zero', hyperlink: { slide: 0 } },
+      { name: 'Negative', hyperlink: { slide: -1 } },
+      { name: 'Fraction', hyperlink: { slide: 1.5 } },
+      { name: 'Out of range', hyperlink: { slide: 99 } },
+      { name: 'Numeric URL', hyperlink: { url: 42 } },
+      { name: 'String value', hyperlink: 'https://example.com' },
+    ];
+    const consoleOutput = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    let generatedBytes: Uint8Array;
+    try {
+      for (const { name, hyperlink } of cases) {
+        generatedSlide.addShape(generated.ShapeType.rect!, {
+          objectName: name,
+          x: 1,
+          y: 1,
+          w: 1,
+          h: 1,
+          hyperlink,
+        });
+      }
+      generated.addSlide();
+      generated.addSlide();
+      generatedBytes = await generated.write({
+        outputType: 'nodebuffer',
+        compression: true,
+      });
+      expect(consoleOutput).toHaveBeenCalledTimes(3);
+      expect(consoleOutput.mock.calls.map(([message]) => String(message)).join('\n'))
+        .toContain('hyperlink requires either');
+      expect(consoleOutput.mock.calls.map(([message]) => String(message)).join('\n'))
+        .toContain('should be an object');
+    } finally {
+      consoleOutput.mockRestore();
+    }
+
+    const imported = await PptxDocument.open(generatedBytes!);
+    const importedShapes = new Map(imported.slides[0]!.shapes.map((shape) => [
+      shape.name,
+      shape as ShapeModel,
+    ]));
+    expect(importedShapes.get('URL')!.hyperlink).toEqual({
+      url: 'https://example.com?a=1&b=2',
+      tooltip: '',
+    });
+    expect(importedShapes.get('URL tooltip')!.hyperlink).toEqual({
+      url: 'mailto:test@example.com',
+      tooltip: 'Mail & help',
+    });
+    expect(importedShapes.get('Slide')!.hyperlink).toEqual({ slide: 2, tooltip: '' });
+    expect(importedShapes.get('Slide tooltip')!.hyperlink)
+      .toEqual({ slide: 3, tooltip: '' });
+    expect(importedShapes.get('Self')!.hyperlink).toEqual({ slide: 1, tooltip: '' });
+    expect(importedShapes.get('Numeric URL')!.hyperlink)
+      .toEqual({ url: '42', tooltip: '' });
+    for (const name of [
+      'Empty',
+      'Both',
+      'Zero',
+      'Negative',
+      'Fraction',
+      'Out of range',
+      'String value',
+    ]) {
+      expect(importedShapes.get(name)!.hyperlink, name).toBeUndefined();
+    }
+
+    const firstSlideXml = new TextDecoder().decode(
+      imported.opcPackage.requirePart(imported.slides[0]!.partUri).bytes,
+    );
+    expect(shapeXml(imported, 0, importedShapes.get('URL')!.id))
+      .toContain('tooltip=""');
+    expect(shapeXml(imported, 0, importedShapes.get('URL')!.id))
+      .not.toContain('ppaction://hlinksldjump');
+    expect(shapeXml(imported, 0, importedShapes.get('Slide')!.id))
+      .toContain('action="ppaction://hlinksldjump"');
+    expect(shapeXml(imported, 0, importedShapes.get('Both')!.id).match(/<a:hlinkClick/g))
+      .toHaveLength(2);
+    for (const name of ['Empty', 'Zero', 'String value']) {
+      expect(shapeXml(imported, 0, importedShapes.get(name)!.id), name)
+        .not.toContain('<a:hlinkClick');
+    }
+    expect(firstSlideXml).toContain('tooltip="Mail &amp; help"');
+
+    const generatedRelationships = imported.slides[0]!.relationships.filter(
+      ({ type }) => type.endsWith('/hyperlink') || type.endsWith('/slide'),
+    );
+    expect(generatedRelationships.map(({ type, target, targetMode }) => ({
+      type: type.slice(type.lastIndexOf('/') + 1),
+      target,
+      targetMode,
+    }))).toEqual([
+      { type: 'hyperlink', target: 'https://example.com?a=1&b=2', targetMode: 'External' },
+      { type: 'hyperlink', target: 'mailto:test@example.com', targetMode: 'External' },
+      { type: 'slide', target: 'slide2.xml', targetMode: 'Internal' },
+      { type: 'slide', target: 'slide3.xml', targetMode: 'Internal' },
+      { type: 'slide', target: 'slide1.xml', targetMode: 'Internal' },
+      { type: 'slide', target: 'slidehttps://example.com.xml', targetMode: 'Internal' },
+      { type: 'slide', target: 'slide-1.xml', targetMode: 'Internal' },
+      { type: 'slide', target: 'slide1.5.xml', targetMode: 'Internal' },
+      { type: 'slide', target: 'slide99.xml', targetMode: 'Internal' },
+      { type: 'hyperlink', target: '42', targetMode: 'External' },
+    ]);
+    for (const target of [
+      '/ppt/slides/slidehttps:/example.com.xml',
+      '/ppt/slides/slide-1.xml',
+      '/ppt/slides/slide1.5.xml',
+      '/ppt/slides/slide99.xml',
+    ]) {
+      expect(imported.opcPackage.hasPart(target), target).toBe(false);
+    }
+
+    const native = PptxDocument.create();
+    const nativeSlide = native.addSlide();
+    native.addSlide();
+    native.addSlide();
+    const nativeShapes = [
+      nativeSlide.addShape('rect', {
+        name: 'URL',
+        hyperlink: { url: 'https://example.com?a=1&b=2' },
+      }),
+      nativeSlide.addShape('rect', {
+        name: 'URL tooltip',
+        hyperlink: { url: 'mailto:test@example.com', tooltip: 'Mail & help' },
+      }),
+      nativeSlide.addShape('rect', { name: 'Slide', hyperlink: { slide: 2 } }),
+      nativeSlide.addShape('rect', {
+        name: 'Slide tooltip',
+        hyperlink: { slide: 3, tooltip: '' },
+      }),
+      nativeSlide.addShape('rect', { name: 'Self', hyperlink: { slide: 1 } }),
+    ];
+    expect(nativeShapes.map(({ hyperlink }) => hyperlink)).toEqual([
+      { url: 'https://example.com?a=1&b=2' },
+      { url: 'mailto:test@example.com', tooltip: 'Mail & help' },
+      { slide: 2 },
+      { slide: 3, tooltip: '' },
+      { slide: 1 },
+    ]);
+    expect(nativeSlide.relationships.filter(
+      ({ type }) => type.endsWith('/hyperlink') || type.endsWith('/slide'),
+    ).map(({ type, target, targetMode }) => ({
+      type: type.slice(type.lastIndexOf('/') + 1),
+      target,
+      targetMode,
+    }))).toEqual(generatedRelationships.slice(0, 5).map(({ type, target, targetMode }) => ({
+      type: type.slice(type.lastIndexOf('/') + 1),
+      target,
+      targetMode,
+    })));
+
+    const beforeInvalid = {
+      parts: native.opcPackage.parts.map(({ uri, contentType, bytes, relationships }) => ({
+        uri,
+        contentType,
+        bytes: bytes.slice(),
+        relationships,
+      })),
+      mutations: [...native.opcPackage.mutations],
+      shapes: [...nativeSlide.shapes],
+    };
+    let accessorCalls = 0;
+    const accessors = (['url', 'slide', 'tooltip'] as const).map((key) =>
+      Object.defineProperty({}, key, {
+        enumerable: true,
+        get() {
+          accessorCalls += 1;
+          return key === 'slide' ? 1 : 'https://example.com';
+        },
+      }));
+    for (const hyperlink of [
+      {},
+      { url: '' },
+      { url: 42 },
+      { url: 'https://example.com', slide: 2 },
+      { slide: 0 },
+      { slide: -1 },
+      { slide: 1.5 },
+      { slide: 99 },
+      'https://example.com',
+      { url: 'https://example.com', _rId: 'rId9' },
+      { target: 'https://example.com' },
+      { kind: 'url', url: 'https://example.com' },
+      { url: 'https://example.com', [Symbol('unsafe')]: true },
+      ...accessors,
+    ]) {
+      expect(() => nativeSlide.addShape('rect', { hyperlink } as never)).toThrow();
+    }
+    expect(accessorCalls).toBe(0);
+    expect({
+      parts: native.opcPackage.parts.map(({ uri, contentType, bytes, relationships }) => ({
+        uri,
+        contentType,
+        bytes,
+        relationships,
+      })),
+      mutations: native.opcPackage.mutations,
+      shapes: nativeSlide.shapes,
+    }).toEqual(beforeInvalid);
+
+    const validGenerated = new PptxGenJS();
+    const validSlide = validGenerated.addSlide();
+    for (const { name, hyperlink } of cases.slice(0, 5)) {
+      validSlide.addShape(validGenerated.ShapeType.rect!, {
+        objectName: name,
+        x: 1,
+        y: 1,
+        w: 1,
+        h: 1,
+        hyperlink,
+      });
+    }
+    validGenerated.addSlide();
+    validGenerated.addSlide();
+    const validImported = await openPptxGenJSPublicOutput(validGenerated);
+    const duplicate = validImported.duplicateSlide(0);
+    expect((duplicate.shapes[4] as ShapeModel).hyperlink).toEqual({
+      slide: validImported.slides.indexOf(duplicate) + 1,
+      tooltip: '',
+    });
+    validImported.moveSlide(1, 0);
+    expect((validImported.slides[1]!.shapes[2] as ShapeModel).hyperlink)
+      .toEqual({ slide: 1, tooltip: '' });
+    expect((validImported.slides[1]!.shapes[4] as ShapeModel).hyperlink)
+      .toEqual({ slide: 2, tooltip: '' });
+    const reopened = await PptxDocument.open(await validImported.write());
+    expect((reopened.slides[1]!.shapes[0] as ShapeModel).hyperlink)
+      .toEqual({ url: 'https://example.com?a=1&b=2', tooltip: '' });
+    expect((reopened.slides[3]!.shapes[4] as ShapeModel).hyperlink)
+      .toEqual({ slide: 4, tooltip: '' });
+  });
+
   it('reads every legal PptxGenJS preset shape public output', async () => {
     const generated = new PptxGenJS();
     expect(generated.version).toBe('4.0.1');
