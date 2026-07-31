@@ -109,7 +109,6 @@ const CUSTOM_CHILD_STAGES = new Map([
   ['rect', 4],
   ['pathLst', 5],
 ]);
-const EMPTY_CUSTOM_LIST_NAMES = ['cxnLst'] as const;
 const INTEGER_PATTERN = /^[+-]?\d+$/;
 const XML_WHITESPACE_PATTERN = /[ \t\r\n]/;
 const FORMULA_ARITIES: ReadonlyMap<string, number> = new Map([
@@ -730,21 +729,15 @@ function parseCustomGeometryElement(geometry: XmlElement): NormalizedCustomGeome
     previousStage = stage;
   }
 
-  for (const name of EMPTY_CUSTOM_LIST_NAMES) {
-    const lists = children.filter(({ localName }) => localName === name);
-    if (
-      lists.length > 1
-      || (lists[0] && !isEmptyElement(lists[0]))
-    ) return undefined;
-  }
-
   const adjustments = parseGuideList(children, 'avLst');
   const guides = parseGuideList(children, 'gdLst');
   const handles = parseHandleList(children);
+  const connectionSites = parseConnectionSiteList(children);
   if (
     adjustments === undefined
     || guides === undefined
     || handles === undefined
+    || connectionSites === undefined
   ) return undefined;
 
   const rectangles = children.filter(({ localName }) => localName === 'rect');
@@ -779,6 +772,7 @@ function parseCustomGeometryElement(geometry: XmlElement): NormalizedCustomGeome
       ...(adjustments.length ? { adjustments } : {}),
       ...(guides.length ? { guides } : {}),
       ...(handles.length ? { handles } : {}),
+      ...(connectionSites.length ? { connectionSites } : {}),
       paths,
     }, 'Custom geometry');
   } catch {
@@ -837,6 +831,35 @@ function parseHandleList(children: readonly XmlElement[]): CustomGeometryHandle[
     handles.push(handle);
   }
   return handles;
+}
+
+function parseConnectionSiteList(
+  children: readonly XmlElement[],
+): CustomGeometryConnectionSite[] | undefined {
+  const lists = children.filter(({ localName }) => localName === 'cxnLst');
+  if (lists.length > 1) return undefined;
+  const list = lists[0];
+  if (!list) return [];
+  if (nonNamespaceAttributes(list).length !== 0 || hasNonWhitespaceText(list)) {
+    return undefined;
+  }
+
+  const sites: CustomGeometryConnectionSite[] = [];
+  for (const element of directChildren(list)) {
+    if (
+      element.localName !== 'cxn'
+      || namespaceUri(element) !== DRAWING_NAMESPACE
+      || hasNonWhitespaceText(element)
+    ) return undefined;
+    const attributes = readXmlAttributes(element, new Set(['ang']), new Set(['ang']));
+    const positions = directChildren(element);
+    if (!attributes || positions.length !== 1) return undefined;
+    const angle = parseCustomGeometryValue(attributes.ang, false);
+    const position = parsePointElement(positions[0]!, 'pos');
+    if (angle === undefined || !position) return undefined;
+    sites.push({ position, angle });
+  }
+  return sites;
 }
 
 function parseHandleElement(element: XmlElement): CustomGeometryHandle | undefined {
@@ -1142,12 +1165,6 @@ function parseCustomGeometryToken(value: string | undefined): string | undefined
   } catch {
     return undefined;
   }
-}
-
-function isEmptyElement(element: XmlElement): boolean {
-  return nonNamespaceAttributes(element).length === 0
-    && directChildren(element).length === 0
-    && !hasNonWhitespaceText(element);
 }
 
 function isDefaultRectangle(element: XmlElement): boolean {

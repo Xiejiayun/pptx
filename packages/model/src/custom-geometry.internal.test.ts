@@ -961,6 +961,56 @@ describe('custom geometry OOXML codec', () => {
     expect(readCustomGeometry(escaped.xml, escaped.shape)).toEqual(escapedGeometry);
   });
 
+  it('reads ordered connection sites with semantic lexical normalization', () => {
+    const normalized = normalizeCustomGeometry(connectionGeometry, 'Custom geometry');
+    const connectionXml = renderCustomGeometry(normalized, 'a:');
+    const alternateXml = renderCustomGeometry(normalized, 'd:');
+    const lexicalXml = connectionXml
+      .replace('ang="0"', 'ang="+0"')
+      .replace('x="25000" y="100000"', 'x="+25000" y="+100000"');
+    for (const source of [
+      fixture(connectionXml),
+      fixture(alternateXml, { drawingPrefix: 'd' }),
+      fixture(lexicalXml),
+    ]) {
+      const { xml, shape } = parseShape(source);
+      expect(readCustomGeometry(xml, shape)).toEqual(connectionGeometry);
+    }
+
+    const lexical = parseShape(fixture(lexicalXml));
+    const before = lexical.xml.serialize();
+    expect(replaceCustomGeometry(
+      lexical.xml,
+      lexical.shape,
+      normalized,
+      '/ppt/slides/slide1.xml',
+    )).toBe(false);
+    expect(lexical.xml.serialize()).toBe(before);
+
+    const edited = normalizeCustomGeometry({
+      ...connectionGeometry,
+      connectionSites: [...connectionGeometry.connectionSites!].reverse(),
+    }, 'Custom geometry');
+    expect(replaceCustomGeometry(
+      lexical.xml,
+      lexical.shape,
+      edited,
+      '/ppt/slides/slide1.xml',
+    )).toBe(true);
+    const reparsed = parseShape(lexical.xml.serialize());
+    expect(readCustomGeometry(reparsed.xml, reparsed.shape)).toEqual(edited);
+
+    const escapedGeometry: CustomGeometry = {
+      connectionSites: [{ angle: 'a&1', position: { x: 'x&1', y: 'y&1' } }],
+      paths: [{ width: 1, height: 1, commands: [] }],
+    };
+    const escaped = parseShape(fixture(renderCustomGeometry(
+      normalizeCustomGeometry(escapedGeometry, 'Custom geometry'),
+      'a:',
+    )));
+    expect(readCustomGeometry(escaped.xml, escaped.shape)).toEqual(escapedGeometry);
+  });
+
   it('distinguishes ordered paths, commands, values, flags, and optional absence', () => {
     const normalized = normalizeCustomGeometry(geometry, 'Custom geometry');
     expect(customGeometryEqual(normalized, normalized)).toBe(true);
@@ -1090,6 +1140,12 @@ describe('custom geometry OOXML codec', () => {
       'a:',
     );
     const xyPosition = '<a:pos x="adjX" y="adjY"/>';
+    const validConnections = renderCustomGeometry(
+      normalizeCustomGeometry(connectionGeometry, 'Custom geometry'),
+      'a:',
+    );
+    const firstConnection = '<a:cxn ang="0"><a:pos x="hc" y="t"/></a:cxn>';
+    const firstConnectionPosition = '<a:pos x="hc" y="t"/>';
     const cases = [
       fixture(valid).replace(PRESENTATION_NAMESPACE, 'urn:wrong'),
       fixture(valid)
@@ -1170,6 +1226,41 @@ describe('custom geometry OOXML codec', () => {
       fixture(validHandles).replace('gdRefX="adjX"', 'gdRefX=""'),
       fixture(validHandles).replace('minAng="0"', 'minAng="two words"'),
       fixture(validHandles).replace('gdRefR="adjR"', 'gdRefR=""'),
+      fixture(validConnections).replace('<a:cxnLst>', '<a:cxnLst/><a:cxnLst>'),
+      fixture(validConnections).replace('<a:cxnLst>', '<a:cxnLst unsafe="1">'),
+      fixture(validConnections).replace('<a:cxnLst>', '<a:cxnLst>TEXT'),
+      fixture(validConnections)
+        .replace('<a:cxn ang="0">', '<x:cxn xmlns:x="urn:wrong" ang="0">')
+        .replace('</a:cxn>', '</x:cxn>'),
+      fixture(validConnections).replace(firstConnection, '<a:unknown/>'),
+      fixture(validConnections).replace(' ang="0"', ''),
+      fixture(validConnections).replace('ang="0"', 'ang="0" extra="1"'),
+      fixture(validConnections).replace('ang="0"', 'xmlns:x="urn:wrong" x:ang="0"'),
+      fixture(validConnections).replace('ang="0"', 'ang="9007199254740992"'),
+      fixture(validConnections).replace('ang="0"', 'ang="two words"'),
+      fixture(validConnections).replace(firstConnectionPosition, ''),
+      fixture(validConnections).replace(
+        firstConnectionPosition,
+        `${firstConnectionPosition}${firstConnectionPosition}`,
+      ),
+      fixture(validConnections).replace(
+        firstConnectionPosition,
+        '<x:pos xmlns:x="urn:wrong" x="hc" y="t"/>',
+      ),
+      fixture(validConnections).replace(firstConnectionPosition, '<a:pos x="hc"/>'),
+      fixture(validConnections).replace(
+        firstConnectionPosition,
+        '<a:pos x="hc" y="t" extra="1"/>',
+      ),
+      fixture(validConnections).replace(
+        firstConnectionPosition,
+        '<a:pos x="hc" y="t"><a:pt x="0" y="0"/></a:pos>',
+      ),
+      fixture(validConnections).replace(
+        '</a:cxn>',
+        '<a:pt x="0" y="0"/></a:cxn>',
+      ),
+      fixture(validConnections).replace('</a:cxn>', 'TEXT</a:cxn>'),
     ];
     for (const source of cases) {
       const { xml, shape } = parseShape(source);
