@@ -17,6 +17,7 @@ import {
   type AddTableCellOptions,
   type AddTableCellInput,
   type AddTableOptions,
+  type CustomGeometry,
   type PresentationFormat,
   type ShapeArrows,
   type ShapeAdjustment,
@@ -31,6 +32,7 @@ import {
 import { readShapeHyperlink } from './shape-hyperlink.internal.js';
 import { readShapeAdjustments } from './shape-adjustments.internal.js';
 import { readSimpleShadow } from './simple-shadow.internal.js';
+import { readCustomGeometry } from './custom-geometry.internal.js';
 
 const CORE_PROPERTIES_RELATIONSHIP =
   'http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties';
@@ -44,6 +46,19 @@ const HYPERLINK_RELATIONSHIP =
   'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink';
 const SLIDE_RELATIONSHIP =
   'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide';
+
+const customTriangleGeometry: CustomGeometry = {
+  paths: [{
+    width: inches(4),
+    height: inches(3),
+    commands: [
+      { kind: 'moveTo', point: { x: 0, y: 0 } },
+      { kind: 'lineTo', point: { x: inches(4), y: 0 } },
+      { kind: 'lineTo', point: { x: inches(2), y: inches(3) } },
+      { kind: 'close' },
+    ],
+  }],
+};
 
 function readCreatedShapeHyperlink(
   model: PresentationModel,
@@ -92,6 +107,20 @@ function readCreatedShapeAdjustments(
   });
   if (!shape) throw new Error(`Shape ${shapeId} was not found`);
   return readShapeAdjustments(xml, shape);
+}
+
+function readCreatedCustomGeometry(
+  model: PresentationModel,
+  slide: ReturnType<PresentationModel['addSlide']>,
+  shapeId: number,
+) {
+  const xml = LosslessXmlDocument.parse(model.opcPackage.requirePart(slide.partUri).bytes);
+  const shape = xml.elements('sp').find((candidate) => {
+    const properties = xml.descendants(candidate, 'cNvPr')[0];
+    return properties && xml.attribute(properties, 'id')?.value === String(shapeId);
+  });
+  if (!shape) throw new Error(`Shape ${shapeId} was not found`);
+  return readCustomGeometry(xml, shape);
 }
 
 function packageSnapshot(pkg: OpcPackage) {
@@ -175,6 +204,204 @@ describe('PresentationModel', () => {
     expect(() => slide.addShape('ellipse')).toThrow(ModelParseError);
     expect(pkg.requirePart(slide.partUri).bytes).toEqual(before);
     expect(pkg.mutations).toEqual(journal);
+  });
+
+  it('creates detached styled, multi-path, and empty custom shapes before extensions', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const part = pkg.requirePart(slide.partUri);
+    pkg.setPart(
+      slide.partUri,
+      new TextDecoder().decode(part.bytes).replace(
+        '</p:spTree>',
+        '<p:extLst><p:ext uri="urn:test"><x:keep xmlns:x="urn:test"/>' +
+        '</p:ext></p:extLst></p:spTree>',
+      ),
+      part.contentType,
+    );
+    const mutableGeometry = structuredClone(customTriangleGeometry) as {
+      paths: Array<{
+        width: number;
+        height: number;
+        commands: Array<CustomGeometry['paths'][number]['commands'][number]>;
+      }>;
+    };
+    const options = {
+      name: 'Custom triangle',
+      x: inches(1),
+      y: inches(1),
+      width: inches(4),
+      height: inches(3),
+      fill: { kind: 'solid' as const, color: { kind: 'scheme' as const, value: 'accent1' as const } },
+      line: {
+        kind: 'line' as const,
+        color: { kind: 'srgb' as const, value: '112233' },
+        width: 2,
+      },
+      arrows: { end: 'triangle' as const },
+      shadow: { kind: 'outer' as const },
+      hyperlink: { url: 'https://example.com/custom' },
+    };
+    const custom = slide.addCustomShape(mutableGeometry, options);
+    mutableGeometry.paths[0]!.width = 1;
+    mutableGeometry.paths[0]!.commands.splice(0);
+    options.name = 'Changed';
+    options.line.color.value = 'FFFFFF';
+
+    const multiPath: CustomGeometry = {
+      paths: [
+        {
+          width: 100,
+          height: 100,
+          fill: 'none',
+          stroke: false,
+          commands: [{ kind: 'moveTo', point: { x: 0, y: 0 } }],
+        },
+        { width: 200, height: 300, extrusionOk: false, commands: [] },
+      ],
+    };
+    const multi = slide.addCustomShape(multiPath, { name: 'Multiple paths' });
+    const emptyGeometry: CustomGeometry = {
+      paths: [{ width: 1, height: 1, commands: [] }],
+    };
+    const empty = slide.addCustomShape(emptyGeometry, { name: 'Empty path' });
+
+    expect([custom.id, multi.id, empty.id]).toEqual([2, 3, 4]);
+    expect(slide.shapes).toEqual([custom, multi, empty]);
+    expect(slide.shapes[0]).toBe(custom);
+    expect(custom.kind).toBe('shape');
+    expect(custom.presetType).toBeUndefined();
+    expect(custom.name).toBe('Custom triangle');
+    expect(custom.transform).toEqual({
+      x: inches(1),
+      y: inches(1),
+      width: inches(4),
+      height: inches(3),
+      rotation: 0,
+      flipHorizontal: false,
+      flipVertical: false,
+    });
+    expect(custom.fill).toEqual({
+      kind: 'solid',
+      color: { kind: 'scheme', value: 'accent1' },
+    });
+    expect(custom.line).toMatchObject({
+      kind: 'line',
+      color: { kind: 'srgb', value: '112233' },
+      width: 2,
+    });
+    expect(custom.arrows).toEqual({ end: 'triangle' });
+    expect(custom.shadow).toMatchObject({ kind: 'outer' });
+    expect(custom.hyperlink).toEqual({ url: 'https://example.com/custom' });
+    expect(readCreatedCustomGeometry(model, slide, custom.id)).toEqual(customTriangleGeometry);
+    expect(readCreatedCustomGeometry(model, slide, multi.id)).toEqual(multiPath);
+    expect(readCreatedCustomGeometry(model, slide, empty.id)).toEqual(emptyGeometry);
+
+    const xml = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect(xml.indexOf('<a:custGeom>')).toBeLessThan(xml.indexOf('<p:extLst>'));
+    expect(xml).toContain('<x:keep xmlns:x="urn:test"/>');
+  });
+
+  it('rejects invalid custom shape inputs and targets without package or ID mutation', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const before = packageSnapshot(pkg);
+    const shapes = slide.shapes;
+    let calls = 0;
+    const optionsAccessor = Object.defineProperty({}, 'name', {
+      enumerable: true,
+      get() {
+        calls += 1;
+        return 'Unsafe';
+      },
+    });
+    const pointAccessor = Object.defineProperty({ y: 0 }, 'x', {
+      enumerable: true,
+      get() {
+        calls += 1;
+        return 0;
+      },
+    });
+
+    for (const operation of [
+      () => slide.addCustomShape({ paths: [] }),
+      () => slide.addCustomShape({ paths: [{ width: 0, height: 1, commands: [] }] }),
+      () => slide.addCustomShape({
+        paths: [{
+          width: 1,
+          height: 1,
+          commands: [{ kind: 'lineTo', point: { x: 0, y: 0 } }],
+        }],
+      }),
+      () => slide.addCustomShape({
+        paths: [{
+          width: 1,
+          height: 1,
+          commands: [{ kind: 'moveTo', point: pointAccessor as never }],
+        }],
+      }),
+      () => slide.addCustomShape(customTriangleGeometry, optionsAccessor),
+      () => slide.addCustomShape(customTriangleGeometry, { adjustments: undefined } as never),
+      () => slide.addCustomShape(customTriangleGeometry, { hyperlink: { slide: 99 } }),
+    ]) {
+      expect(operation).toThrow();
+      expect(packageSnapshot(pkg)).toEqual(before);
+      expect(slide.shapes).toEqual(shapes);
+    }
+    expect(calls).toBe(0);
+    expect(slide.addCustomShape(customTriangleGeometry).id).toBe(2);
+  });
+
+  it('rolls back, duplicates, moves, deletes, and reopens custom shapes in all six formats', async () => {
+    for (const profile of Object.values(PRESENTATION_FORMAT_PROFILES)) {
+      const pkg = await OpcPackage.open(await modelFixture(profile.presentationContentType));
+      const model = new PresentationModel(pkg);
+      const slide = model.addSlide();
+      const before = packageSnapshot(pkg);
+      let rolledBack: ShapeModel | undefined;
+      expect(() => pkg.transaction(() => {
+        rolledBack = slide.addCustomShape(customTriangleGeometry, {
+          hyperlink: { url: `https://example.com/rollback/${profile.format}` },
+        });
+        throw new Error('restore custom shape creation');
+      })).toThrow('restore custom shape creation');
+      expect(packageSnapshot(pkg)).toEqual(before);
+      expect(() => rolledBack!.name).toThrow(ModelParseError);
+
+      const created = slide.addCustomShape(customTriangleGeometry, {
+        name: `Custom ${profile.format}`,
+        fill: { kind: 'solid', color: { kind: 'scheme', value: 'accent1' } },
+        hyperlink: { url: `https://example.com/${profile.format}` },
+      });
+      const duplicate = model.duplicateSlide(model.slides.indexOf(slide));
+      expect(readCreatedCustomGeometry(model, duplicate, created.id)).toEqual(
+        customTriangleGeometry,
+      );
+      created.setTransform({ x: inches(2) });
+      created.fill = { kind: 'solid', color: { kind: 'srgb', value: '445566' } };
+      expect(readCreatedCustomGeometry(model, slide, created.id)).toEqual(customTriangleGeometry);
+      expect(readCreatedCustomGeometry(model, duplicate, created.id)).toEqual(
+        customTriangleGeometry,
+      );
+      model.moveSlide(model.slides.indexOf(duplicate), 0);
+      model.deleteSlide(model.slides.indexOf(duplicate));
+
+      const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+      const reopenedSlide = reopened.slides.find(({ partUri }) => partUri === slide.partUri)!;
+      const reopenedShape = reopenedSlide.shapes.find(({ id }) => id === created.id) as ShapeModel;
+      expect(reopened.format).toBe(profile.format);
+      expect(reopenedShape.name).toBe(`Custom ${profile.format}`);
+      expect(reopenedShape.transform.x).toBe(inches(2));
+      expect(reopenedShape.fill).toEqual({
+        kind: 'solid',
+        color: { kind: 'srgb', value: '445566' },
+      });
+      expect(readCreatedCustomGeometry(reopened, reopenedSlide, created.id)).toEqual(
+        customTriangleGeometry,
+      );
+    }
   });
 
   it('creates preset shape adjustments with detached ordered values and unchanged empty bytes', async () => {

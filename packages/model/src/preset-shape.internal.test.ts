@@ -11,9 +11,12 @@ import {
 } from './preset-shape.js';
 import type { ShapeArrowTypeValue } from './shape-arrows.internal.js';
 import type { SimpleLineDash } from './simple-line.internal.js';
+import type { CustomGeometry } from './custom-geometry.js';
 import {
+  normalizeCustomShape,
   normalizePresetShape,
   readPresetShapeType,
+  renderCustomShapeXml,
   renderPresetShapeXml,
   replacePresetShapeType,
 } from './preset-shape.internal.js';
@@ -36,6 +39,19 @@ type PublicArrowMatchesInternal =
       ? true
       : false
     : false;
+
+const customGeometry: CustomGeometry = {
+  paths: [{
+    width: 3_657_600,
+    height: 2_743_200,
+    commands: [
+      { kind: 'moveTo', point: { x: 0, y: 0 } },
+      { kind: 'lineTo', point: { x: 3_657_600, y: 0 } },
+      { kind: 'lineTo', point: { x: 1_828_800, y: 2_743_200 } },
+      { kind: 'close' },
+    ],
+  }],
+};
 
 function parseShape(source: string) {
   const xml = LosslessXmlDocument.parse(source);
@@ -523,7 +539,136 @@ describe('normalizePresetShape', () => {
   });
 });
 
+describe('normalizeCustomShape', () => {
+  it('shares detached defaults and every styled option with preset creation', () => {
+    expect(normalizeCustomShape(customGeometry)).toEqual({
+      geometry: customGeometry,
+      name: undefined,
+      fill: { kind: 'none' },
+      line: undefined,
+      arrows: undefined,
+      hyperlink: undefined,
+      shadow: undefined,
+      x: 914_400,
+      y: 914_400,
+      width: 914_400,
+      height: 914_400,
+      rotation: 0,
+      flipHorizontal: false,
+      flipVertical: false,
+    });
+
+    const mutableGeometry = structuredClone(customGeometry) as {
+      paths: Array<{
+        width: number;
+        height: number;
+        commands: Array<CustomGeometry['paths'][number]['commands'][number]>;
+      }>;
+    };
+    const options = {
+      name: 'A & <Custom>',
+      fill: { kind: 'solid' as const, color: { kind: 'scheme' as const, value: 'accent2' as const } },
+      line: {
+        kind: 'line' as const,
+        color: { kind: 'srgb' as const, value: '123ABC' },
+        width: 2,
+      },
+      arrows: { begin: 'stealth' as const, end: 'triangle' as const },
+      hyperlink: { url: 'https://example.com/custom', tooltip: 'Custom' },
+      shadow: { kind: 'outer' as const },
+      x: 1.4,
+      y: -1.5,
+      width: 3.6,
+      height: 4.5,
+      rotation: 2.5,
+      flipHorizontal: true,
+      flipVertical: true,
+    };
+    const normalized = normalizeCustomShape(mutableGeometry, options);
+    const { type: _type, adjustments: _adjustments, ...presetOptions } =
+      normalizePresetShape('rect', options);
+    expect(normalized).toEqual({ geometry: customGeometry, ...presetOptions });
+    expect(Object.isFrozen(normalized)).toBe(true);
+    expect(Object.isFrozen(normalized.geometry.paths[0]?.commands)).toBe(true);
+
+    mutableGeometry.paths[0]!.width = 1;
+    mutableGeometry.paths[0]!.commands.splice(0);
+    options.name = 'Changed';
+    options.line.color.value = 'FFFFFF';
+    expect(normalized.geometry).toEqual(customGeometry);
+    expect(normalized.name).toBe('A & <Custom>');
+    expect(normalized.line).toEqual({
+      kind: 'line',
+      color: { kind: 'srgb', value: '123ABC' },
+      transparency: undefined,
+      width: 2,
+      dash: 'solid',
+    });
+  });
+
+  it('rejects preset-only, unknown, symbol, and accessor options without invoking getters', () => {
+    expect(() => normalizeCustomShape(customGeometry, { adjustments: undefined } as never))
+      .toThrow(/unsupported property adjustments/);
+    expect(() => normalizeCustomShape(customGeometry, { unknown: true } as never))
+      .toThrow(/unsupported property unknown/);
+    expect(() => normalizeCustomShape(customGeometry, { [Symbol('unsafe')]: true } as never))
+      .toThrow(/unsupported property/);
+    let calls = 0;
+    const accessor = Object.defineProperty({}, 'name', {
+      enumerable: true,
+      get() {
+        calls += 1;
+        return 'Unsafe';
+      },
+    });
+    expect(() => normalizeCustomShape(customGeometry, accessor)).toThrow(/data property/);
+    expect(calls).toBe(0);
+  });
+});
+
 describe('preset shape XML codec', () => {
+  it('renders custom geometry through the byte-identical shared shape skeleton', () => {
+    const options = {
+      name: 'Custom triangle',
+      fill: { kind: 'solid' as const, color: { kind: 'scheme' as const, value: 'accent1' as const } },
+      line: {
+        kind: 'line' as const,
+        color: { kind: 'srgb' as const, value: '112233' },
+        width: 2,
+      },
+      arrows: { end: 'triangle' as const },
+      shadow: { kind: 'outer' as const },
+      hyperlink: { url: 'https://example.com/custom' },
+      x: 914_400,
+      y: 1_828_800,
+      width: 3_657_600,
+      height: 2_743_200,
+      rotation: 2_700_000,
+      flipHorizontal: true,
+    };
+    const preset = renderPresetShapeXml(7, normalizePresetShape('rect', options), 'rId7');
+    const custom = renderCustomShapeXml(7, normalizeCustomShape(customGeometry, options), 'rId7');
+    expect(custom).toBe(preset.replace(
+      '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>',
+      '<a:custGeom><a:avLst/><a:gdLst/><a:ahLst/><a:cxnLst/>' +
+      '<a:rect l="l" t="t" r="r" b="b"/><a:pathLst>' +
+      '<a:path w="3657600" h="2743200">' +
+      '<a:moveTo><a:pt x="0" y="0"/></a:moveTo>' +
+      '<a:lnTo><a:pt x="3657600" y="0"/></a:lnTo>' +
+      '<a:lnTo><a:pt x="1828800" y="2743200"/></a:lnTo>' +
+      '<a:close/></a:path></a:pathLst></a:custGeom>',
+    ));
+    expect(() => renderCustomShapeXml(
+      8,
+      normalizeCustomShape(customGeometry, { hyperlink: { url: 'https://example.com' } }),
+    )).toThrow(TypeError);
+    expect(() => renderCustomShapeXml(
+      9,
+      normalizeCustomShape(customGeometry),
+      'rId9',
+    )).toThrow(TypeError);
+  });
+
   it('renders the exact deterministic default skeleton', () => {
     const omitted = renderPresetShapeXml(2, normalizePresetShape('rect', undefined));
     expect(omitted).toBe(

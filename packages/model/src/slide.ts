@@ -58,11 +58,17 @@ import {
   replaceSlideNotes,
 } from './slide-notes.internal.js';
 import {
+  normalizeCustomShape,
   normalizePresetShape,
   readPresetShapeType,
+  renderCustomShapeXml,
   renderPresetShapeXml,
   replacePresetShapeType,
 } from './preset-shape.internal.js';
+import type {
+  AddCustomShapeOptions,
+  CustomGeometry,
+} from './custom-geometry.js';
 import type {
   AddShapeOptions,
   PresetShapeType,
@@ -723,6 +729,51 @@ export class SlideModel {
       const shape = this.shapes.find((candidate) => candidate.id === nextId);
       if (!(shape instanceof ShapeModel) || shape.kind !== 'shape') {
         throw new ModelParseError(`Created preset shape ${nextId} could not be resolved`, this.partUri);
+      }
+      return shape;
+    });
+  }
+
+  addCustomShape(
+    geometry: CustomGeometry,
+    options: AddCustomShapeOptions = {},
+  ): ShapeModel {
+    return this.presentation.opcPackage.transaction(() => {
+      const normalized = normalizeCustomShape(geometry, options);
+      let targetSlide: SlideModel | undefined;
+      if (normalized.hyperlink?.slide !== undefined) {
+        targetSlide = this.presentation.slides[normalized.hyperlink.slide - 1];
+        if (!targetSlide) {
+          throw new RangeError(
+            `Custom shape hyperlink slide ${normalized.hyperlink.slide} is out of range`,
+          );
+        }
+      }
+      const { xml } = this.parse();
+      const shapeTree = requirePresetShapeTree(xml, this.partUri);
+      const nextId = allocatePresetShapeId(xml, shapeTree, this.partUri);
+      let hyperlinkRelationshipId: string | undefined;
+      if (normalized.hyperlink?.url !== undefined) {
+        hyperlinkRelationshipId = this.presentation.opcPackage.addRelationship(this.partUri, {
+          type: HYPERLINK_RELATIONSHIP_TYPE,
+          target: normalized.hyperlink.url,
+          targetMode: 'External',
+        }).id;
+      } else if (targetSlide) {
+        hyperlinkRelationshipId = this.presentation.opcPackage.addRelationship(this.partUri, {
+          type: SLIDE_RELATIONSHIP_TYPE,
+          target: relativeRelationshipTarget(this.partUri, targetSlide.partUri),
+          targetMode: 'Internal',
+        }).id;
+      }
+      const shapeXml = renderCustomShapeXml(nextId, normalized, hyperlinkRelationshipId);
+      const extensionList = directChildren(shapeTree, 'extLst')[0];
+      if (extensionList) xml.replace(extensionList.start, extensionList.start, shapeXml);
+      else xml.appendChildXml(shapeTree, shapeXml);
+      this.setXml(xml.serialize());
+      const shape = this.shapes.find((candidate) => candidate.id === nextId);
+      if (!(shape instanceof ShapeModel) || shape.kind !== 'shape') {
+        throw new ModelParseError(`Created custom shape ${nextId} could not be resolved`, this.partUri);
       }
       return shape;
     });

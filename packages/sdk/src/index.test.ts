@@ -27,6 +27,7 @@ import {
   type AddTableCellOptions,
   type AddTableCellInput,
   type AddTableOptions,
+  type CustomGeometry,
   type Hyperlink,
   type ShapeArrows,
   type ShapeAdjustment,
@@ -249,6 +250,145 @@ describe('PptxDocument vertical slice', () => {
     expect(xml).toContain('<a:xfrm rot="2700000" flipH="1" flipV="1">');
     expect(xml).toContain('name="A &amp; &lt;Line&gt;"');
     expect(xml).not.toContain('<p:txBody>');
+  });
+
+  it('creates and reopens styled custom geometry shapes through the public SDK', async () => {
+    const document = PptxDocument.create();
+    const source = document.addSlide();
+    const target = document.addSlide();
+    const geometry: CustomGeometry = {
+      paths: [{
+        width: inches(4),
+        height: inches(3),
+        commands: [
+          { kind: 'moveTo', point: { x: 0, y: 0 } },
+          { kind: 'lineTo', point: { x: inches(4), y: 0 } },
+          { kind: 'lineTo', point: { x: inches(2), y: inches(3) } },
+          { kind: 'close' },
+        ],
+      }],
+    };
+    const mutable = structuredClone(geometry) as {
+      paths: Array<{
+        width: number;
+        height: number;
+        commands: Array<CustomGeometry['paths'][number]['commands'][number]>;
+      }>;
+    };
+    const custom = source.addCustomShape(mutable, {
+      name: 'SDK custom triangle',
+      x: inches(1),
+      y: inches(1),
+      width: inches(4),
+      height: inches(3),
+      rotation: degrees(15),
+      flipVertical: true,
+      fill: { kind: 'solid', color: { kind: 'scheme', value: 'accent1' } },
+      line: { kind: 'line', color: { kind: 'srgb', value: '112233' }, width: 2 },
+      arrows: { end: 'triangle' },
+      shadow: { kind: 'outer' },
+      hyperlink: { slide: 2, tooltip: 'Target' },
+    });
+    const multi = source.addCustomShape({
+      paths: [
+        {
+          width: 100,
+          height: 200,
+          fill: 'none',
+          stroke: false,
+          commands: [{ kind: 'moveTo', point: { x: 0, y: 0 } }],
+        },
+        { width: 300, height: 400, commands: [] },
+      ],
+    }, { name: 'SDK multiple paths' });
+    mutable.paths[0]!.width = 1;
+    mutable.paths[0]!.commands.splice(0);
+
+    expect([custom.id, multi.id]).toEqual([2, 3]);
+    expect(source.shapes).toEqual([custom, multi]);
+    expect(source.shapes[0]).toBe(custom);
+    expect(custom).toBeInstanceOf(ShapeModel);
+    expect(custom.kind).toBe('shape');
+    expect(custom.presetType).toBeUndefined();
+    expect(custom.name).toBe('SDK custom triangle');
+    expect(custom.transform).toEqual({
+      x: inches(1),
+      y: inches(1),
+      width: inches(4),
+      height: inches(3),
+      rotation: degrees(15),
+      flipHorizontal: false,
+      flipVertical: true,
+    });
+    expect(custom.fill).toEqual({
+      kind: 'solid',
+      color: { kind: 'scheme', value: 'accent1' },
+    });
+    expect(custom.line).toMatchObject({
+      kind: 'line',
+      color: { kind: 'srgb', value: '112233' },
+      width: 2,
+    });
+    expect(custom.arrows).toEqual({ end: 'triangle' });
+    expect(custom.shadow).toMatchObject({ kind: 'outer' });
+    expect(custom.hyperlink).toEqual({ slide: 2, tooltip: 'Target' });
+
+    const sourceXml = new TextDecoder().decode(
+      document.opcPackage.requirePart(source.partUri).bytes,
+    );
+    expect(sourceXml).toContain('<a:path w="3657600" h="2743200">');
+    expect(sourceXml).toContain('<a:lnTo><a:pt x="3657600" y="0"/></a:lnTo>');
+    expect(sourceXml).toContain('<a:path w="300" h="400"></a:path>');
+    expect(sourceXml.match(/<a:custGeom>/g)).toHaveLength(2);
+    expect(validatePackage(document.opcPackage).filter(({ severity }) => severity === 'error'))
+      .toEqual([]);
+
+    const duplicate = document.duplicateSlide(document.slides.indexOf(source));
+    document.moveSlide(document.slides.indexOf(duplicate), 0);
+    expect(new TextDecoder().decode(
+      document.opcPackage.requirePart(duplicate.partUri).bytes,
+    ).match(/<a:custGeom>/g)).toHaveLength(2);
+    document.deleteSlide(document.slides.indexOf(duplicate));
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedSource = reopened.slides.find(({ partUri }) => partUri === source.partUri)!;
+    const reopenedShape = reopenedSource.shapes[0] as ShapeModel;
+    expect(reopenedShape.name).toBe('SDK custom triangle');
+    expect(reopenedShape.presetType).toBeUndefined();
+    expect(reopenedShape.hyperlink).toEqual({ slide: 2, tooltip: 'Target' });
+    expect(new TextDecoder().decode(
+      reopened.opcPackage.requirePart(reopenedSource.partUri).bytes,
+    ).match(/<a:custGeom>/g)).toHaveLength(2);
+    expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error'))
+      .toEqual([]);
+
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const formatted = PptxDocument.create({ format });
+      formatted.addSlide().addCustomShape(geometry, { name: `Custom ${format}` });
+      const formattedReopened = await PptxDocument.open(await formatted.write());
+      expect(formattedReopened.format).toBe(format);
+      expect(formattedReopened.slides[0]!.shapes[0]!.name).toBe(`Custom ${format}`);
+      expect(new TextDecoder().decode(
+        formattedReopened.opcPackage.requirePart(formattedReopened.slides[0]!.partUri).bytes,
+      )).toContain('<a:custGeom>');
+    }
+
+    if (false) {
+      // @ts-expect-error custom shape options exclude preset-only adjustments
+      source.addCustomShape(geometry, { adjustments: [] });
+      source.addCustomShape({
+        paths: [{
+          width: 1,
+          height: 1,
+          commands: [{
+            kind: 'moveTo',
+            // @ts-expect-error custom geometry coordinates are numeric direct values
+            point: { x: '1', y: 2 },
+          }],
+        }],
+      });
+      // Keep target live for the compile-time branch.
+      void target;
+    }
   });
 
   it('creates preset shape hyperlinks through the public SDK type and runtime surface', () => {

@@ -38,6 +38,11 @@ import {
   renderSimpleShadow,
   type NormalizedShapeShadow,
 } from './simple-shadow.internal.js';
+import {
+  normalizeCustomGeometry,
+  renderCustomGeometry,
+  type NormalizedCustomGeometry,
+} from './custom-geometry.internal.js';
 
 const PRESENTATION_NAMESPACE =
   'http://schemas.openxmlformats.org/presentationml/2006/main';
@@ -48,9 +53,8 @@ const RELATIONSHIP_NAMESPACE =
 const EMU_PER_INCH = 914_400;
 const MAX_ROTATION = 21_600_000;
 const PRESET_SHAPE_TYPE_SET: ReadonlySet<string> = new Set(PRESET_SHAPE_TYPES);
-const OPTION_KEYS = new Set([
+const COMMON_OPTION_KEYS = new Set([
   'name',
-  'adjustments',
   'fill',
   'line',
   'arrows',
@@ -64,11 +68,45 @@ const OPTION_KEYS = new Set([
   'flipHorizontal',
   'flipVertical',
 ]);
+const PRESET_OPTION_KEYS = new Set([...COMMON_OPTION_KEYS, 'adjustments']);
 
 export interface NormalizedPresetShape {
   readonly type: PresetShapeType;
   readonly name: string | undefined;
   readonly adjustments: NormalizedShapeAdjustments;
+  readonly fill: ShapeFill;
+  readonly line: NormalizedSimpleLine | undefined;
+  readonly arrows: NormalizedShapeArrows | undefined;
+  readonly hyperlink: NormalizedHyperlink | undefined;
+  readonly shadow: NormalizedShapeShadow | undefined;
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+  readonly rotation: number;
+  readonly flipHorizontal: boolean;
+  readonly flipVertical: boolean;
+}
+
+export interface NormalizedCustomShape {
+  readonly geometry: NormalizedCustomGeometry;
+  readonly name: string | undefined;
+  readonly fill: ShapeFill;
+  readonly line: NormalizedSimpleLine | undefined;
+  readonly arrows: NormalizedShapeArrows | undefined;
+  readonly hyperlink: NormalizedHyperlink | undefined;
+  readonly shadow: NormalizedShapeShadow | undefined;
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+  readonly rotation: number;
+  readonly flipHorizontal: boolean;
+  readonly flipVertical: boolean;
+}
+
+interface NormalizedShapeOptions {
+  readonly name: string | undefined;
   readonly fill: ShapeFill;
   readonly line: NormalizedSimpleLine | undefined;
   readonly arrows: NormalizedShapeArrows | undefined;
@@ -96,33 +134,8 @@ export function normalizePresetShape(
   if (typeof type !== 'string' || !PRESET_SHAPE_TYPE_SET.has(type)) {
     throw new TypeError('Preset shape type must be a canonical preset shape string');
   }
-  const values = readOptions(options);
-  const name = values.name;
-  if (name !== undefined) {
-    if (typeof name !== 'string') {
-      throw new TypeError('Preset shape name must be a string');
-    }
-    if (containsInvalidXmlCharacter(name)) {
-      throw new TypeError('Preset shape name contains invalid XML characters');
-    }
-  }
-  const width = normalizeNumber(values.width, EMU_PER_INCH, 'width');
-  const height = normalizeNumber(values.height, EMU_PER_INCH, 'height');
-  if (width <= 0) throw new RangeError('Preset shape width must be greater than zero');
-  if (height <= 0) throw new RangeError('Preset shape height must be greater than zero');
-  const rotation = normalizeNumber(values.rotation, 0, 'rotation');
-  if (rotation < -MAX_ROTATION || rotation > MAX_ROTATION) {
-    throw new RangeError('Preset shape rotation must be between -21600000 and 21600000');
-  }
-  const fill = normalizeSimpleFill(values.fill, 'Preset shape fill') ?? { kind: 'none' };
-  const line = normalizeSimpleLine(values.line, 'Preset shape line');
-  const arrows = normalizeShapeArrows(values.arrows, 'Preset shape arrows');
-  const hyperlink = values.hyperlink === undefined
-    ? undefined
-    : normalizeHyperlink(values.hyperlink, 'Preset shape hyperlink');
-  const shadow = values.shadow === undefined
-    ? undefined
-    : normalizeShapeShadow(values.shadow, 'Preset shape shadow');
+  const values = readOptions(options, PRESET_OPTION_KEYS, 'Preset shape');
+  const normalizedOptions = normalizeShapeOptions(values, 'Preset shape');
   const adjustments = normalizeShapeAdjustments(
     values.adjustments === undefined ? [] : values.adjustments,
     'Preset shape adjustments',
@@ -130,21 +143,69 @@ export function normalizePresetShape(
 
   return Object.freeze({
     type: type as PresetShapeType,
-    name: name as string | undefined,
+    ...normalizedOptions,
     adjustments,
+  });
+}
+
+export function normalizeCustomShape(
+  geometry: unknown,
+  options: unknown = undefined,
+): NormalizedCustomShape {
+  const normalizedGeometry = normalizeCustomGeometry(geometry, 'Custom geometry');
+  const values = readOptions(options, COMMON_OPTION_KEYS, 'Custom shape');
+  return Object.freeze({
+    geometry: normalizedGeometry,
+    ...normalizeShapeOptions(values, 'Custom shape'),
+  });
+}
+
+function normalizeShapeOptions(
+  values: Record<string, unknown>,
+  context: string,
+): NormalizedShapeOptions {
+  const name = values.name;
+  if (name !== undefined) {
+    if (typeof name !== 'string') {
+      throw new TypeError(`${context} name must be a string`);
+    }
+    if (containsInvalidXmlCharacter(name)) {
+      throw new TypeError(`${context} name contains invalid XML characters`);
+    }
+  }
+  const width = normalizeNumber(values.width, EMU_PER_INCH, 'width', context);
+  const height = normalizeNumber(values.height, EMU_PER_INCH, 'height', context);
+  if (width <= 0) throw new RangeError(`${context} width must be greater than zero`);
+  if (height <= 0) throw new RangeError(`${context} height must be greater than zero`);
+  const rotation = normalizeNumber(values.rotation, 0, 'rotation', context);
+  if (rotation < -MAX_ROTATION || rotation > MAX_ROTATION) {
+    throw new RangeError(`${context} rotation must be between -21600000 and 21600000`);
+  }
+  const fill = normalizeSimpleFill(values.fill, `${context} fill`) ?? { kind: 'none' };
+  const line = normalizeSimpleLine(values.line, `${context} line`);
+  const arrows = normalizeShapeArrows(values.arrows, `${context} arrows`);
+  const hyperlink = values.hyperlink === undefined
+    ? undefined
+    : normalizeHyperlink(values.hyperlink, `${context} hyperlink`);
+  const shadow = values.shadow === undefined
+    ? undefined
+    : normalizeShapeShadow(values.shadow, `${context} shadow`);
+
+  return {
+    name: name as string | undefined,
     fill,
     line,
     arrows,
     hyperlink,
     shadow,
-    x: normalizeNumber(values.x, EMU_PER_INCH, 'x'),
-    y: normalizeNumber(values.y, EMU_PER_INCH, 'y'),
+    x: normalizeNumber(values.x, EMU_PER_INCH, 'x', context),
+    y: normalizeNumber(values.y, EMU_PER_INCH, 'y', context),
     width,
     height,
     rotation,
-    flipHorizontal: normalizeBoolean(values.flipHorizontal, false, 'flipHorizontal'),
-    flipVertical: normalizeBoolean(values.flipVertical, false, 'flipVertical'),
-  });
+    flipHorizontal: normalizeBoolean(values.flipHorizontal, false, 'flipHorizontal', context),
+    flipVertical: normalizeBoolean(values.flipVertical, false, 'flipVertical', context),
+  };
 }
 
 export function renderPresetShapeXml(
@@ -152,11 +213,37 @@ export function renderPresetShapeXml(
   shape: NormalizedPresetShape,
   hyperlinkRelationshipId?: string,
 ): string {
+  const type = escapeXmlAttribute(shape.type);
+  const geometry = `<a:prstGeom prst="${type}">` +
+    `${renderShapeAdjustmentList(shape.adjustments, 'a:')}</a:prstGeom>`;
+  return renderShapeXml(id, shape, geometry, hyperlinkRelationshipId, 'Preset shape');
+}
+
+export function renderCustomShapeXml(
+  id: number,
+  shape: NormalizedCustomShape,
+  hyperlinkRelationshipId?: string,
+): string {
+  return renderShapeXml(
+    id,
+    shape,
+    renderCustomGeometry(shape.geometry, 'a:'),
+    hyperlinkRelationshipId,
+    'Custom shape',
+  );
+}
+
+function renderShapeXml(
+  id: number,
+  shape: NormalizedShapeOptions,
+  geometry: string,
+  hyperlinkRelationshipId: string | undefined,
+  context: string,
+): string {
   if ((shape.hyperlink === undefined) !== (hyperlinkRelationshipId === undefined)) {
-    throw new TypeError('Preset shape hyperlink and relationship ID must be supplied together');
+    throw new TypeError(`${context} hyperlink and relationship ID must be supplied together`);
   }
   const name = escapeXmlAttribute(shape.name ?? `Shape ${id}`);
-  const type = escapeXmlAttribute(shape.type);
   const hyperlink = shape.hyperlink === undefined
     ? ''
     : renderPresetShapeHyperlink(shape.hyperlink, hyperlinkRelationshipId!);
@@ -175,8 +262,7 @@ export function renderPresetShapeXml(
     `<p:nvSpPr>${nonVisualProperties}<p:cNvSpPr/><p:nvPr/></p:nvSpPr>` +
     `<p:spPr><a:xfrm${transformAttributes}><a:off x="${shape.x}" y="${shape.y}"/>` +
     `<a:ext cx="${shape.width}" cy="${shape.height}"/></a:xfrm>` +
-    `<a:prstGeom prst="${type}">` +
-    `${renderShapeAdjustmentList(shape.adjustments, 'a:')}</a:prstGeom>` +
+    geometry +
     `${renderSimpleFill(shape.fill, 'a:')}${renderPresetLine(shape.line, shape.arrows)}` +
     effect +
     '</p:spPr></p:sp>';
@@ -282,23 +368,27 @@ function resolvePresetGeometry(shape: XmlElement): ResolvedPresetGeometry | unde
   };
 }
 
-function readOptions(value: unknown): Record<string, unknown> {
+function readOptions(
+  value: unknown,
+  allowedKeys: ReadonlySet<string>,
+  context: string,
+): Record<string, unknown> {
   if (value === undefined) return {};
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new TypeError('Preset shape options must be an object');
+    throw new TypeError(`${context} options must be an object`);
   }
   const prototype = Object.getPrototypeOf(value);
   if (prototype !== Object.prototype && prototype !== null) {
-    throw new TypeError('Preset shape options must be an ordinary object');
+    throw new TypeError(`${context} options must be an ordinary object`);
   }
   const result: Record<string, unknown> = {};
   for (const key of Reflect.ownKeys(value)) {
-    if (typeof key !== 'string' || !OPTION_KEYS.has(key)) {
-      throw new TypeError(`Preset shape options contain unsupported property ${String(key)}`);
+    if (typeof key !== 'string' || !allowedKeys.has(key)) {
+      throw new TypeError(`${context} options contain unsupported property ${String(key)}`);
     }
     const descriptor = Object.getOwnPropertyDescriptor(value, key);
     if (!descriptor || !Object.hasOwn(descriptor, 'value')) {
-      throw new TypeError(`Preset shape option ${key} must be a data property`);
+      throw new TypeError(`${context} option ${key} must be a data property`);
     }
     result[key] = descriptor.value;
   }
@@ -309,14 +399,15 @@ function normalizeNumber(
   value: unknown,
   defaultValue: number,
   name: string,
+  context: string,
 ): number {
   if (value === undefined) return defaultValue;
   if (typeof value !== 'number' || !Number.isFinite(value)) {
-    throw new TypeError(`Preset shape ${name} must be finite`);
+    throw new TypeError(`${context} ${name} must be finite`);
   }
   const rounded = Math.round(value);
   if (!Number.isSafeInteger(rounded)) {
-    throw new RangeError(`Preset shape ${name} must round to a safe integer`);
+    throw new RangeError(`${context} ${name} must round to a safe integer`);
   }
   return rounded;
 }
@@ -325,10 +416,11 @@ function normalizeBoolean(
   value: unknown,
   defaultValue: boolean,
   name: string,
+  context: string,
 ): boolean {
   if (value === undefined) return defaultValue;
   if (typeof value !== 'boolean') {
-    throw new TypeError(`Preset shape ${name} must be a boolean`);
+    throw new TypeError(`${context} ${name} must be a boolean`);
   }
   return value;
 }
