@@ -2,7 +2,16 @@ import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it, vi } from 'vitest';
-import { inches, PptxDocument, ShapeModel, TableModel } from '@pptx/sdk';
+import {
+  degrees,
+  inches,
+  PRESET_SHAPE_TYPES,
+  PptxDocument,
+  ShapeModel,
+  TableModel,
+  type AddShapeOptions,
+  type PresetShapeType,
+} from '@pptx/sdk';
 import { importPptxGenJS } from './index.js';
 
 interface BorderProps {
@@ -14,6 +23,7 @@ interface BorderProps {
 interface PptxGenJSSlide {
   hidden: unknown;
   addNotes(notes: string): PptxGenJSSlide;
+  addShape(type: string, options?: Record<string, unknown>): void;
   addText(
     text: string | readonly { readonly text: string; readonly options?: Record<string, unknown> }[],
     options: Record<string, unknown>,
@@ -29,6 +39,7 @@ interface PptxGenJSSlide {
 
 interface PptxGenJSInstance {
   readonly version: string;
+  readonly ShapeType: Readonly<Record<string, string>>;
   readonly SchemeColor: {
     readonly accent1: 'accent1';
     readonly accent2: 'accent2';
@@ -46,6 +57,7 @@ interface PptxGenJSInstance {
   title: string;
   addSection(options: { readonly title: string; readonly order?: number }): void;
   addSlide(options?: { readonly sectionTitle?: string }): PptxGenJSSlide;
+  write(options: { outputType: 'nodebuffer'; compression: boolean }): Promise<Uint8Array>;
   write(options: { outputType: 'uint8array'; compression: boolean }): Promise<Uint8Array>;
 }
 
@@ -54,7 +66,151 @@ const PptxGenJS = require('pptxgenjs') as new () => PptxGenJSInstance;
 const sectionState = (document: PptxDocument) =>
   document.sections?.map(({ title, slideIds }) => ({ title, slideIds }));
 
+async function openPptxGenJSPublicOutput(
+  presentation: PptxGenJSInstance,
+): Promise<PptxDocument> {
+  return PptxDocument.open(await presentation.write({
+    outputType: 'nodebuffer',
+    compression: true,
+  }));
+}
+
+function shapeXml(document: PptxDocument, slideIndex: number, id: number): string {
+  const slide = document.slides[slideIndex];
+  if (!slide) throw new Error(`Slide ${slideIndex} was not found`);
+  const xml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+  const shapes = [...xml.matchAll(/<p:sp(?:\s[^>]*)?>[\s\S]*?<\/p:sp>/g)]
+    .map((match) => match[0]);
+  const shape = shapes.find((candidate) => new RegExp(
+    `<p:cNvPr\\b[^>]*\\bid="${id}"(?:\\s|/|>)`,
+  ).test(candidate));
+  if (!shape) throw new Error(`Shape ${id} was not found on slide ${slideIndex}`);
+  return shape;
+}
+
+function directShapePaintState(xml: string): { fill: 'none'; line: 'empty' } {
+  const properties = xml.match(/<p:spPr(?:\s[^>]*)?>([\s\S]*?)<\/p:spPr>/)?.[1];
+  if (!properties) throw new Error('Shape properties were not found');
+  const afterGeometry = properties.match(/<\/a:prstGeom>([\s\S]*)$/)?.[1];
+  if (afterGeometry === undefined) throw new Error('Preset geometry was not found');
+  if (!/^<a:noFill\/><a:ln(?:\/>|><\/a:ln>)/.test(afterGeometry)) {
+    throw new Error('Expected direct no-fill and empty line state');
+  }
+  return { fill: 'none', line: 'empty' };
+}
+
 describe('importPptxGenJS', () => {
+  it('matches representative preset shape public output semantically', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    const cases: readonly {
+      readonly type: PresetShapeType;
+      readonly generatedOptions?: Record<string, unknown>;
+      readonly nativeOptions?: AddShapeOptions;
+      readonly expectedGeneratedName: string;
+    }[] = [
+      { type: 'rect', expectedGeneratedName: 'Shape 0' },
+      { type: 'ellipse', generatedOptions: {}, nativeOptions: {}, expectedGeneratedName: 'Shape 0' },
+      { type: 'line', expectedGeneratedName: 'Shape 0' },
+      { type: 'lineInv', expectedGeneratedName: 'Shape 0' },
+      { type: 'flowChartDecision', expectedGeneratedName: 'Shape 0' },
+      { type: 'star5', expectedGeneratedName: 'Shape 0' },
+      { type: 'actionButtonHome', expectedGeneratedName: 'Shape 0' },
+      {
+        type: 'roundRect',
+        generatedOptions: {
+          objectName: 'Public shape',
+          x: 1.25,
+          y: 2.5,
+          w: 3.75,
+          h: 4.5,
+          rotate: 45,
+          flipH: true,
+          flipV: true,
+        },
+        nativeOptions: {
+          name: 'Public shape',
+          x: inches(1.25),
+          y: inches(2.5),
+          width: inches(3.75),
+          height: inches(4.5),
+          rotation: degrees(45),
+          flipHorizontal: true,
+          flipVertical: true,
+        },
+        expectedGeneratedName: 'Public shape',
+      },
+    ];
+
+    for (const fixture of cases) {
+      const publicType = generated.ShapeType[fixture.type];
+      expect(publicType, fixture.type).toBe(fixture.type);
+      const slide = generated.addSlide();
+      if (Object.prototype.hasOwnProperty.call(fixture, 'generatedOptions')) {
+        slide.addShape(publicType!, fixture.generatedOptions);
+      } else {
+        slide.addShape(publicType!);
+      }
+    }
+
+    const imported = await openPptxGenJSPublicOutput(generated);
+    const native = PptxDocument.create();
+    for (const [index, fixture] of cases.entries()) {
+      const importedShape = imported.slides[index]?.shapes[0];
+      const nativeShape = native.addSlide().addShape(fixture.type, fixture.nativeOptions);
+      expect(importedShape, fixture.type).toBeInstanceOf(ShapeModel);
+      expect(importedShape?.name, fixture.type).toBe(fixture.expectedGeneratedName);
+      expect((importedShape as ShapeModel).presetType, fixture.type).toBe(fixture.type);
+      expect(importedShape?.transform, fixture.type).toEqual(nativeShape.transform);
+      expect(directShapePaintState(shapeXml(imported, index, importedShape!.id)))
+        .toEqual(directShapePaintState(shapeXml(native, index, nativeShape.id)));
+    }
+  });
+
+  it('reads every legal PptxGenJS preset shape public output', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    const legalPublicTypes = PRESET_SHAPE_TYPES.filter((type) => type !== 'foldedCorner');
+    const slide = generated.addSlide();
+    for (const type of legalPublicTypes) {
+      const publicType = generated.ShapeType[type];
+      expect(publicType, type).toBe(type);
+      slide.addShape(publicType!);
+    }
+
+    const imported = await openPptxGenJSPublicOutput(generated);
+    expect(imported.slides[0]?.shapes).toHaveLength(177);
+    expect(imported.slides[0]?.shapes.map((shape) => {
+      expect(shape).toBeInstanceOf(ShapeModel);
+      return (shape as ShapeModel).presetType;
+    })).toEqual(legalPublicTypes);
+  }, 30_000);
+
+  it('isolates the folderCorner defect from valid preset shape public output', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    expect(generated.ShapeType.folderCorner).toBe('folderCorner');
+    expect(generated.ShapeType.foldedCorner).toBeUndefined();
+    expect(generated.ShapeType.custGeom).toBe('custGeom');
+    generated.addSlide().addShape(generated.ShapeType.folderCorner!);
+
+    const imported = await openPptxGenJSPublicOutput(generated);
+    const malformedShape = imported.slides[0]?.shapes[0];
+    expect(malformedShape).toBeInstanceOf(ShapeModel);
+    expect((malformedShape as ShapeModel).presetType).toBeUndefined();
+    expect(shapeXml(imported, 0, malformedShape!.id)).toContain('prst="folderCorner"');
+
+    expect(PRESET_SHAPE_TYPES).toContain('foldedCorner');
+    expect(PRESET_SHAPE_TYPES).not.toContain('folderCorner');
+    expect(PRESET_SHAPE_TYPES).not.toContain('custGeom');
+    const native = PptxDocument.create();
+    const foldedCorner = native.addSlide().addShape('foldedCorner');
+    const reopened = await PptxDocument.open(await native.write());
+    expect(foldedCorner.presetType).toBe('foldedCorner');
+    expect((reopened.slides[0]?.shapes[0] as ShapeModel).presetType).toBe('foldedCorner');
+    expect(() => native.slides[0]!.addShape('folderCorner' as never)).toThrow(TypeError);
+  });
+
   it('matches native basic table creation to public PptxGenJS plain-table output', async () => {
     const generated = new PptxGenJS();
     expect(generated.version).toBe('4.0.1');
