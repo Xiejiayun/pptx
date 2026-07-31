@@ -115,6 +115,103 @@ const presetShapes = PRESET_SHAPE_TYPES.length === 178 &&
     ['Shape 2', 'Packed folded corner'],
     ['Shape 2', 'Packed folded corner'],
   ]);
+const allCommandGeometry = {
+  paths: [{
+    width: 400,
+    height: 300,
+    commands: [
+      { kind: 'moveTo', point: { x: 0, y: 0 } },
+      { kind: 'lineTo', point: { x: 100, y: 0 } },
+      {
+        kind: 'arcTo',
+        widthRadius: 50,
+        heightRadius: 25,
+        startAngle: 1_800_000,
+        sweepAngle: 7_200_000,
+      },
+      {
+        kind: 'quadraticBezierTo',
+        control: { x: 150, y: 50 },
+        end: { x: 200, y: 100 },
+      },
+      {
+        kind: 'cubicBezierTo',
+        control1: { x: 225, y: 125 },
+        control2: { x: 275, y: 175 },
+        end: { x: 300, y: 200 },
+      },
+      { kind: 'close' },
+    ],
+    fill: 'none',
+    stroke: false,
+    extrusionOk: false,
+  }],
+};
+const multiPathGeometry = {
+  paths: [
+    { width: 20, height: 10, commands: [] },
+    {
+      width: 40,
+      height: 30,
+      commands: [{ kind: 'moveTo', point: { x: 5, y: 6 } }],
+      fill: 'lightenLess',
+    },
+  ],
+};
+const editedGeometry = {
+  paths: [{
+    width: 40,
+    height: 30,
+    commands: [
+      { kind: 'moveTo', point: { x: 1, y: 2 } },
+      { kind: 'lineTo', point: { x: 3, y: 4 } },
+    ],
+    fill: 'darkenLess',
+  }],
+};
+const customGeometryDeck = PptxDocument.create();
+const customGeometrySlide = customGeometryDeck.addSlide();
+const customGeometryShape = customGeometrySlide.addCustomShape(allCommandGeometry, {
+  name: 'Packed custom geometry',
+  x: inches(1),
+  y: inches(2),
+  width: inches(4),
+  height: inches(3),
+});
+const multiPathShape = customGeometrySlide.addCustomShape(multiPathGeometry, {
+  name: 'Packed multi-path geometry',
+});
+const initialCustomGeometry = customGeometryShape.customGeometry;
+const initialMultiPathGeometry = multiPathShape.customGeometry;
+customGeometryShape.customGeometry = editedGeometry;
+const editedCustomGeometry = customGeometryShape.customGeometry;
+customGeometryShape.presetType = 'diamond';
+const convertedPreset = customGeometryShape.presetType;
+const clearedCustomGeometry = customGeometryShape.customGeometry;
+customGeometryShape.customGeometry = allCommandGeometry;
+const reopenedCustomGeometryDeck = await PptxDocument.open(await customGeometryDeck.write());
+const reopenedCustomGeometryShape = reopenedCustomGeometryDeck.slides[0].shapes[0];
+const reopenedMultiPathShape = reopenedCustomGeometryDeck.slides[0].shapes[1];
+const customGeometryPaths =
+  customGeometryShape instanceof ShapeModel &&
+  Object.isFrozen(initialCustomGeometry) &&
+  Object.isFrozen(initialCustomGeometry?.paths) &&
+  Object.isFrozen(initialCustomGeometry?.paths[0]?.commands) &&
+  JSON.stringify(initialCustomGeometry) === JSON.stringify(allCommandGeometry) &&
+  Object.isFrozen(initialMultiPathGeometry) &&
+  Object.isFrozen(initialMultiPathGeometry?.paths) &&
+  JSON.stringify(initialMultiPathGeometry) === JSON.stringify(multiPathGeometry) &&
+  JSON.stringify(editedCustomGeometry) === JSON.stringify(editedGeometry) &&
+  convertedPreset === 'diamond' &&
+  clearedCustomGeometry === undefined &&
+  customGeometryShape.presetType === undefined &&
+  reopenedCustomGeometryShape instanceof ShapeModel &&
+  reopenedCustomGeometryShape.name === 'Packed custom geometry' &&
+  reopenedCustomGeometryShape.presetType === undefined &&
+  JSON.stringify(reopenedCustomGeometryShape.customGeometry) === JSON.stringify(allCommandGeometry) &&
+  reopenedMultiPathShape instanceof ShapeModel &&
+  reopenedMultiPathShape.name === 'Packed multi-path geometry' &&
+  JSON.stringify(reopenedMultiPathShape.customGeometry) === JSON.stringify(multiPathGeometry);
 const shapeAdjustmentDeck = PptxDocument.create();
 const shapeAdjustmentSlide = shapeAdjustmentDeck.addSlide();
 const shapeAdjustmentInput = [
@@ -1484,6 +1581,7 @@ const customXml = new TextDecoder().decode(custom.opcPackage.requirePart('/ppt/p
 const checks = {
   PptxDocument: typeof PptxDocument === 'function',
   presetShapes,
+  customGeometryPaths,
   shapeAdjustments,
   shapeShadows,
   shapeFills,
@@ -1563,6 +1661,43 @@ if (PRESET_SHAPE_TYPES.length !== 178 || !Object.isFrozen(PRESET_SHAPE_TYPES)) {
 const browserShapeDeck = PptxDocument.create();
 const browserShape = browserShapeDeck.addSlide().addShape('foldedCorner');
 browserShape.presetType = 'star5';
+const browserCustomGeometryDeck = PptxDocument.create();
+const browserCustomGeometryShape = browserCustomGeometryDeck.addSlide().addCustomShape({
+  paths: [{
+    width: 100,
+    height: 100,
+    commands: [
+      { kind: 'moveTo', point: { x: 0, y: 0 } },
+      { kind: 'lineTo', point: { x: 100, y: 0 } },
+      { kind: 'close' },
+    ],
+  }],
+});
+browserCustomGeometryShape.customGeometry = {
+  paths: [{
+    width: 200,
+    height: 100,
+    fill: 'lighten',
+    commands: [{ kind: 'moveTo', point: { x: 1, y: 2 } }],
+  }],
+};
+browserCustomGeometryShape.presetType = 'ellipse';
+browserCustomGeometryShape.customGeometry = {
+  paths: [{
+    width: 300,
+    height: 200,
+    commands: [{ kind: 'moveTo', point: { x: 3, y: 4 } }],
+  }],
+};
+const reopenedBrowserCustomGeometryShape = (await PptxDocument.open(
+  await browserCustomGeometryDeck.writeBlob(),
+)).slides[0].shapes[0];
+if (!(reopenedBrowserCustomGeometryShape instanceof ShapeModel) ||
+    reopenedBrowserCustomGeometryShape.presetType !== undefined ||
+    reopenedBrowserCustomGeometryShape.customGeometry?.paths[0]?.width !== 300 ||
+    reopenedBrowserCustomGeometryShape.customGeometry.paths[0]?.commands[0]?.kind !== 'moveTo') {
+  throw new Error('Browser custom geometry lifecycle failed');
+}
 const browserAdjustmentDeck = PptxDocument.create();
 const browserAdjustmentSlide = browserAdjustmentDeck.addSlide();
 const browserAdjustedShape = browserAdjustmentSlide.addShape('blockArc', {
@@ -2353,7 +2488,13 @@ process.stdout.write(resolved);
   ShapeModel,
   TableModel,
   inches,
+  type AddCustomShapeOptions,
   type AddShapeOptions,
+  type CustomGeometry,
+  type CustomGeometryCommand,
+  type CustomGeometryPath,
+  type CustomGeometryPathFill,
+  type CustomGeometryPoint,
   type Hyperlink,
   type ShapeArrows,
   type ShapeArrowType,
@@ -2413,6 +2554,27 @@ process.stdout.write(resolved);
 const documentPromise: Promise<PptxDocument> = PptxDocument.open(new Uint8Array());
 const createdDocument: PptxDocument = PptxDocument.create({ format: 'pptx', slideSize: 'wide' });
 const typedPreset: PresetShapeType = 'foldedCorner';
+const typedCustomPoint: CustomGeometryPoint = { x: 1, y: 2 };
+const typedCustomCommand: CustomGeometryCommand = {
+  kind: 'quadraticBezierTo',
+  control: typedCustomPoint,
+  end: { x: 3, y: 4 },
+};
+const typedCustomFill: CustomGeometryPathFill = 'darken';
+const typedCustomPath: CustomGeometryPath = {
+  width: 100,
+  height: 200,
+  fill: typedCustomFill,
+  commands: [typedCustomCommand],
+};
+const typedCustomGeometry: CustomGeometry = { paths: [typedCustomPath] };
+const typedCustomOptions: AddCustomShapeOptions = { name: 'Typed custom geometry' };
+const typedCustomShape: ShapeModel = createdDocument.addSlide().addCustomShape(
+  typedCustomGeometry,
+  typedCustomOptions,
+);
+const typedCustomGeometryRead: CustomGeometry | undefined = typedCustomShape.customGeometry;
+typedCustomShape.customGeometry = typedCustomGeometry;
 const typedNoneShapeFill: ShapeFill = { kind: 'none' };
 const typedSolidShapeFill: ShapeFill = {
   kind: 'solid',
@@ -2803,6 +2965,8 @@ documentPromise.then((document) => {
 });
 void [typedNotesSlide, notesSnapshot, returnedNotesSlide];
 void [typedPreset, typedNoneShapeFill, typedSolidShapeFill, typedShapeOptions, typedShape,
+  typedCustomPoint, typedCustomCommand, typedCustomFill, typedCustomPath, typedCustomGeometry,
+  typedCustomOptions, typedCustomShape, typedCustomGeometryRead,
   typedPresetRead, typedShapeAdjustments, typedShapeAdjustmentsRead,
   invalidMissingShapeAdjustmentValue, invalidShapeAdjustmentValue,
   invalidShapeAdjustmentOptions, typedShapeFillRead, typedPresetCatalog, invalidShapeFillKind,
@@ -2846,7 +3010,7 @@ void [documentPromise, createdDocument, addSectionOptions, typedSection, addSlid
   if (!doctor.ok || doctor.data?.version !== '0.1.0') throw new Error(`CLI smoke failed: ${cliResult.stdout}`);
 
   process.stdout.write(
-    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presetShapes: apiChecks.presetShapes, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, types: true, cli: doctor.data.version })}\n`,
+    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, types: true, cli: doctor.data.version })}\n`,
   );
 } finally {
   await rm(directory, { recursive: true, force: true });

@@ -10,6 +10,7 @@ import {
   ShapeModel,
   TableModel,
   type AddShapeOptions,
+  type CustomGeometry,
   type PresetShapeType,
 } from '@pptx/sdk';
 import { importPptxGenJS } from './index.js';
@@ -23,7 +24,7 @@ interface BorderProps {
 interface PptxGenJSSlide {
   hidden: unknown;
   addNotes(notes: string): PptxGenJSSlide;
-  addShape(type: string, options?: Record<string, unknown>): void;
+  addShape(type: string, options?: PptxGenJSShapeOptions): void;
   addText(
     text: string | readonly { readonly text: string; readonly options?: Record<string, unknown> }[],
     options: Record<string, unknown>,
@@ -35,6 +36,47 @@ interface PptxGenJSSlide {
     }[])[],
     options: Record<string, unknown>,
   ): void;
+}
+
+type PptxGenJSCoord = number | string;
+
+type PptxGenJSCustomPoint =
+  | { readonly x: PptxGenJSCoord; readonly y: PptxGenJSCoord; readonly moveTo?: boolean }
+  | {
+      readonly x: PptxGenJSCoord;
+      readonly y: PptxGenJSCoord;
+      readonly curve: {
+        readonly type: 'arc';
+        readonly hR: PptxGenJSCoord;
+        readonly wR: PptxGenJSCoord;
+        readonly stAng: number;
+        readonly swAng: number;
+      };
+    }
+  | {
+      readonly x: PptxGenJSCoord;
+      readonly y: PptxGenJSCoord;
+      readonly curve: {
+        readonly type: 'cubic';
+        readonly x1: PptxGenJSCoord;
+        readonly y1: PptxGenJSCoord;
+        readonly x2: PptxGenJSCoord;
+        readonly y2: PptxGenJSCoord;
+      };
+    }
+  | {
+      readonly x: PptxGenJSCoord;
+      readonly y: PptxGenJSCoord;
+      readonly curve: {
+        readonly type: 'quadratic';
+        readonly x1: PptxGenJSCoord;
+        readonly y1: PptxGenJSCoord;
+      };
+    }
+  | { readonly close: true };
+
+interface PptxGenJSShapeOptions extends Record<string, unknown> {
+  readonly points?: readonly PptxGenJSCustomPoint[];
 }
 
 interface PptxGenJSInstance {
@@ -1522,6 +1564,364 @@ describe('importPptxGenJS', () => {
     expect(nativeSlide.addShape('blockArc', {
       adjustments: deliberateFinalList,
     }).adjustments).toEqual(deliberateFinalList);
+  });
+
+  it('imports every legal PptxGenJS custom path command as native geometry', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    expect(generated.ShapeType.custGeom).toBe('custGeom');
+    const points: readonly PptxGenJSCustomPoint[] = [
+      { x: 0, y: 0 },
+      { x: 1, y: 0 },
+      { x: 2, y: 1, curve: { type: 'quadratic', x1: 1.5, y1: 0 } },
+      {
+        x: 3,
+        y: 2,
+        curve: { type: 'cubic', x1: 2.25, y1: 1, x2: 2.75, y2: 2 },
+      },
+      {
+        x: 999,
+        y: 999,
+        curve: { type: 'arc', wR: 1, hR: 0.5, stAng: 30, swAng: 120 },
+      },
+      { x: 0.5, y: 0.5, moveTo: true },
+      { x: 1.25, y: 1.25 },
+      { close: true },
+    ];
+    generated.addSlide().addShape(generated.ShapeType.custGeom!, {
+      objectName: 'All custom commands',
+      x: 1,
+      y: 1,
+      w: 4,
+      h: 3,
+      points,
+    });
+
+    const expected: CustomGeometry = {
+      paths: [{
+        width: inches(4),
+        height: inches(3),
+        commands: [
+          { kind: 'moveTo', point: { x: 0, y: 0 } },
+          { kind: 'lineTo', point: { x: inches(1), y: 0 } },
+          {
+            kind: 'quadraticBezierTo',
+            control: { x: inches(1.5), y: 0 },
+            end: { x: inches(2), y: inches(1) },
+          },
+          {
+            kind: 'cubicBezierTo',
+            control1: { x: inches(2.25), y: inches(1) },
+            control2: { x: inches(2.75), y: inches(2) },
+            end: { x: inches(3), y: inches(2) },
+          },
+          {
+            kind: 'arcTo',
+            widthRadius: inches(1),
+            heightRadius: inches(0.5),
+            startAngle: degrees(30),
+            sweepAngle: degrees(120),
+          },
+          { kind: 'moveTo', point: { x: inches(0.5), y: inches(0.5) } },
+          { kind: 'lineTo', point: { x: inches(1.25), y: inches(1.25) } },
+          { kind: 'close' },
+        ],
+      }],
+    };
+    const imported = await openPptxGenJSPublicOutput(generated);
+    const importedShape = imported.slides[0]!.shapes[0] as ShapeModel;
+    expect(importedShape).toBeInstanceOf(ShapeModel);
+    expect(importedShape.name).toBe('All custom commands');
+    expect(importedShape.presetType).toBeUndefined();
+    expect(importedShape.transform).toEqual({
+      x: inches(1),
+      y: inches(1),
+      width: inches(4),
+      height: inches(3),
+      rotation: 0,
+      flipHorizontal: false,
+      flipVertical: false,
+    });
+    expect(importedShape.customGeometry).toEqual(expected);
+    expect(shapeXml(imported, 0, importedShape.id)).not.toContain('x="999"');
+    expect(shapeXml(imported, 0, importedShape.id)).not.toContain('y="999"');
+
+    const native = PptxDocument.create();
+    const nativeShape = native.addSlide().addCustomShape(expected, {
+      name: 'All custom commands',
+      x: inches(1),
+      y: inches(1),
+      width: inches(4),
+      height: inches(3),
+    });
+    expect(nativeShape.customGeometry).toEqual(importedShape.customGeometry);
+    const reopened = await PptxDocument.open(await imported.write());
+    expect((reopened.slides[0]!.shapes[0] as ShapeModel).customGeometry).toEqual(expected);
+  });
+
+  it('classifies PptxGenJS custom path unit heuristics and malformed runtime output', async () => {
+    const generated = new PptxGenJS();
+    generated.layout = 'LAYOUT_WIDE';
+    const slide = generated.addSlide();
+    const validCases: readonly {
+      readonly name: string;
+      readonly points: readonly PptxGenJSCustomPoint[];
+      readonly expected: CustomGeometry;
+    }[] = [
+      {
+        name: 'Custom empty',
+        points: [],
+        expected: { paths: [{ width: inches(4), height: inches(3), commands: [] }] },
+      },
+      {
+        name: 'Custom direct numeric',
+        points: [{ x: 100, y: 200 }, { x: 300, y: 400 }],
+        expected: {
+          paths: [{
+            width: inches(4),
+            height: inches(3),
+            commands: [
+              { kind: 'moveTo', point: { x: 100, y: 200 } },
+              { kind: 'lineTo', point: { x: 300, y: 400 } },
+            ],
+          }],
+        },
+      },
+      {
+        name: 'Custom numeric strings',
+        points: [{ x: '1', y: '2' }, { x: '100', y: '200' }],
+        expected: {
+          paths: [{
+            width: inches(4),
+            height: inches(3),
+            commands: [
+              { kind: 'moveTo', point: { x: inches(1), y: inches(2) } },
+              { kind: 'lineTo', point: { x: 100, y: 200 } },
+            ],
+          }],
+        },
+      },
+      {
+        name: 'Custom percentages',
+        points: [{ x: '10%', y: '20%' }, { x: '50%', y: '60%' }],
+        expected: {
+          paths: [{
+            width: inches(4),
+            height: inches(3),
+            commands: [
+              { kind: 'moveTo', point: { x: 1_219_200, y: 1_371_600 } },
+              { kind: 'lineTo', point: { x: 6_096_000, y: 4_114_800 } },
+            ],
+          }],
+        },
+      },
+      {
+        name: 'Custom later move',
+        points: [
+          { x: 0, y: 0 },
+          { x: 1, y: 1 },
+          { x: 2, y: 2, moveTo: true },
+          { x: 3, y: 3 },
+        ],
+        expected: {
+          paths: [{
+            width: inches(4),
+            height: inches(3),
+            commands: [
+              { kind: 'moveTo', point: { x: 0, y: 0 } },
+              { kind: 'lineTo', point: { x: inches(1), y: inches(1) } },
+              { kind: 'moveTo', point: { x: inches(2), y: inches(2) } },
+              { kind: 'lineTo', point: { x: inches(3), y: inches(3) } },
+            ],
+          }],
+        },
+      },
+      {
+        name: 'Custom invalid kind omitted',
+        points: [
+          { x: 0, y: 0 },
+          { x: 1, y: 1, curve: { type: 'bogus', x1: 0, y1: 0 } } as never,
+        ],
+        expected: {
+          paths: [{
+            width: inches(4),
+            height: inches(3),
+            commands: [{ kind: 'moveTo', point: { x: 0, y: 0 } }],
+          }],
+        },
+      },
+      {
+        name: 'Custom missing cubic defaults',
+        points: [
+          { x: 0, y: 0 },
+          { x: 1, y: 1, curve: { type: 'cubic', x1: 0, y1: 0 } } as never,
+        ],
+        expected: {
+          paths: [{
+            width: inches(4),
+            height: inches(3),
+            commands: [
+              { kind: 'moveTo', point: { x: 0, y: 0 } },
+              {
+                kind: 'cubicBezierTo',
+                control1: { x: 0, y: 0 },
+                control2: { x: 0, y: 0 },
+                end: { x: inches(1), y: inches(1) },
+              },
+            ],
+          }],
+        },
+      },
+    ];
+    for (const fixture of validCases) {
+      slide.addShape(generated.ShapeType.custGeom!, {
+        objectName: fixture.name,
+        x: 1,
+        y: 1,
+        w: 4,
+        h: 3,
+        points: fixture.points,
+      });
+    }
+    const imported = await openPptxGenJSPublicOutput(generated);
+    const importedShapes = new Map(imported.slides[0]!.shapes.map((shape) => [
+      shape.name,
+      shape as ShapeModel,
+    ]));
+    for (const fixture of validCases) {
+      expect(importedShapes.get(fixture.name)?.customGeometry, fixture.name)
+        .toEqual(fixture.expected);
+    }
+    expect(imported.slideSize).toEqual({ width: 12_192_000, height: 6_858_000 });
+
+    const unsupported = new PptxGenJS();
+    unsupported.layout = 'LAYOUT_WIDE';
+    const unsupportedSlide = unsupported.addSlide();
+    const unsupportedCases: readonly {
+      readonly name: string;
+      readonly points: readonly PptxGenJSCustomPoint[];
+      readonly malformedXml: string;
+    }[] = [
+      {
+        name: 'Custom first arc',
+        points: [{
+          x: 0,
+          y: 0,
+          curve: { type: 'arc', wR: 1, hR: 1, stAng: 0, swAng: 90 },
+        }],
+        malformedXml: '<a:arcTo hR="914400" wR="914400"',
+      },
+      {
+        name: 'Custom zero radius',
+        points: [
+          { x: 0, y: 0 },
+          { x: 1, y: 1, curve: { type: 'arc', wR: 0, hR: 1, stAng: 0, swAng: 90 } },
+        ],
+        malformedXml: 'wR="0"',
+      },
+      {
+        name: 'Custom negative radius',
+        points: [
+          { x: 0, y: 0 },
+          { x: 1, y: 1, curve: { type: 'arc', wR: -1, hR: 1, stAng: 0, swAng: 90 } },
+        ],
+        malformedXml: 'wR="-914400"',
+      },
+      {
+        name: 'Custom unsafe coordinate',
+        points: [{ x: 0, y: 0 }, { x: Number.MAX_SAFE_INTEGER + 1, y: 1 }],
+        malformedXml: 'x="9007199254740992"',
+      },
+    ];
+    for (const fixture of unsupportedCases) {
+      unsupportedSlide.addShape(unsupported.ShapeType.custGeom!, {
+        objectName: fixture.name,
+        x: 1,
+        y: 1,
+        w: 4,
+        h: 3,
+        points: fixture.points,
+      });
+    }
+    const unsupportedImported = await openPptxGenJSPublicOutput(unsupported);
+    const unsupportedShapes = unsupportedImported.slides[0]!.shapes as ShapeModel[];
+    const unsupportedXml = unsupportedShapes.map((shape) =>
+      shapeXml(unsupportedImported, 0, shape.id));
+    for (const [index, fixture] of unsupportedCases.entries()) {
+      expect(unsupportedShapes[index]?.name).toBe(fixture.name);
+      expect(unsupportedShapes[index]?.customGeometry, fixture.name).toBeUndefined();
+      expect(unsupportedXml[index], fixture.name).toContain(fixture.malformedXml);
+    }
+    const unsupportedReopened = await PptxDocument.open(await unsupportedImported.write());
+    for (const [index, source] of unsupportedXml.entries()) {
+      const reopenedShape = unsupportedReopened.slides[0]!.shapes[index] as ShapeModel;
+      expect(reopenedShape.customGeometry).toBeUndefined();
+      expect(shapeXml(unsupportedReopened, 0, reopenedShape.id)).toBe(source);
+    }
+
+    const native = PptxDocument.create();
+    const nativeSlide = native.addSlide();
+    const directNative = nativeSlide.addCustomShape({
+      paths: [{
+        width: 1,
+        height: 1,
+        commands: [{ kind: 'moveTo', point: { x: 1, y: 2 } }],
+      }],
+    });
+    expect(directNative.customGeometry?.paths[0]?.commands[0]).toEqual({
+      kind: 'moveTo',
+      point: { x: 1, y: 2 },
+    });
+    const beforeInvalid = native.opcPackage.requirePart(nativeSlide.partUri).bytes.slice();
+    const invalidJournal = [...native.opcPackage.mutations];
+    for (const geometry of [
+      {
+        paths: [{
+          width: 1,
+          height: 1,
+          commands: [{ kind: 'moveTo', point: { x: '10%', y: 0 } }],
+        }],
+      },
+      {
+        paths: [{
+          width: 1,
+          height: 1,
+          commands: [{ kind: 'arcTo', widthRadius: 1, heightRadius: 1, startAngle: 0, sweepAngle: 1 }],
+        }],
+      },
+      {
+        paths: [{
+          width: 1,
+          height: 1,
+          commands: [
+            { kind: 'moveTo', point: { x: 0, y: 0 } },
+            { kind: 'arcTo', widthRadius: 0, heightRadius: 1, startAngle: 0, sweepAngle: 1 },
+          ],
+        }],
+      },
+      {
+        paths: [{
+          width: 1,
+          height: 1,
+          commands: [
+            { kind: 'moveTo', point: { x: 0, y: 0 } },
+            { kind: 'unknown' },
+          ],
+        }],
+      },
+      {
+        paths: [{
+          width: 1,
+          height: 1,
+          commands: [
+            { kind: 'moveTo', point: { x: 0, y: 0 } },
+            { kind: 'lineTo', point: { x: Number.MAX_SAFE_INTEGER + 1, y: 0 } },
+          ],
+        }],
+      },
+    ]) expect(() => nativeSlide.addCustomShape(geometry as never)).toThrow();
+    expect(native.opcPackage.requirePart(nativeSlide.partUri).bytes).toEqual(beforeInvalid);
+    expect(native.opcPackage.mutations).toEqual(invalidJournal);
   });
 
   it('reads every legal PptxGenJS preset shape public output', async () => {
