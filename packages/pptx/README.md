@@ -160,21 +160,19 @@ table.setCellFill(0, 0, { kind: 'solid', color: { kind: 'scheme', value: 'accent
 await document.writeFile('created.pptx');
 ```
 
-## Create embedded raster images
+## Load and create embedded raster images
 
 ```ts
 import { readFile } from 'node:fs/promises';
 import {
   degrees,
   inches,
+  inspectRasterImage,
   PptxDocument,
-  type AddImageOptions,
-  type RasterImageContentType,
+  type AddImageSourceOptions,
 } from '@jiayunxie/pptx';
 
-const contentType: RasterImageContentType = 'image/png';
-const options: AddImageOptions = {
-  contentType,
+const options: AddImageSourceOptions = {
   name: 'Quarterly chart',
   altText: 'Revenue by quarter',
   x: inches(1),
@@ -184,22 +182,24 @@ const options: AddImageOptions = {
   rotation: degrees(10),
 };
 const imageDocument = PptxDocument.create();
-const image = imageDocument.addSlide().addImage(
-  new Uint8Array(await readFile('chart.png')),
-  options,
-);
+imageDocument.addSlide();
+const image = await imageDocument.addImage(0, 'chart.png', options);
+const info = inspectRasterImage(new Uint8Array(await readFile('chart.png')));
+console.log(info); // { contentType: 'image/png', width, height }
 image.setTransform({ x: inches(1.5) });
 image.replaceData(new Uint8Array(await readFile('chart-updated.png')), 'image/png');
 await imageDocument.writeFile('images.pptx');
 ```
 
-`RasterImageContentType` is the strict `image/png | image/jpeg | image/gif` union. `AddImageOptions` requires `contentType` and accepts `name`, `altText`, and native EMU/OOXML-angle transform fields. `SlideModel.addImage(bytes, options)` requires a non-empty `Uint8Array`, copies it before mutation, and returns the exact live `ImageModel` stored in `slide.shapes`. Omitted transforms are x/y 0, width/height one inch, rotation 0, and both flips false. Omitted names use the current slide image count as `Image N`; omitted alt text is `preencoded.png`, while an explicit empty string remains direct empty state.
+`PptxDocument.addImage()` accepts Node file paths, HTTP/HTTPS URLs, browser-relative URLs, strict base64 data URIs, `Uint8Array`, `ArrayBuffer`, `Blob`/`File`, Web `ReadableStream`, and async byte iterables. Byte signatures are the only source of truth for PNG/JPEG/GIF format; optional `AddImageSourceOptions.contentType` is an assertion rejected before package mutation when it disagrees. `signal` aborts file, Fetch, Blob, and stream loading. File extensions, `Blob.type`, HTTP `Content-Type`, and `File.name` are not trusted for format detection.
+
+`inspectRasterImage()` returns the canonical content type plus raw pixel width and height detected from the signature and format structure. The high-level loader retains the PptxGenJS-compatible one-inch default transform and does not convert intrinsic pixels into layout size. The synchronous lower-level `SlideModel.addImage(bytes, { contentType, ... })` remains available when callers already hold strict bytes and a canonical content type; it copies the bytes before mutation and returns the exact live `ImageModel` stored in `slide.shapes`.
 
 Creation atomically owns one unique media part, one internal image relationship, and one canonical rectangular picture with aspect lock and stretch fill. Validation or write failure rolls back the part, content type, relationship, slide XML, and mutation journal. Slide duplication initially shares media targets; `ImageModel.replaceData()` updates an exclusive target in place and redirects a shared shape to a private clone. Creation, transform editing, replacement, duplication, rollback, write/reopen, and all six presentation formats are covered.
 
-Valid PptxGenJS 4.0.1 public PNG/JPEG/GIF data input imports to the same supported final semantics; native deliberately requires bytes plus a canonical content type and does not copy PptxGenJS path/data precedence, console-only rejection, falsy sizing, or `image/jpg` quirks. The actual npm tarball passes Node, browser, declaration, and CLI smoke. Its four-slide gallery contains 16 shapes and 8 image targets; source and LibreOffice round-trip packages both strictly reopen, validate with 0 errors and 0 warnings, render at 2400×1350 without overflow, and were reviewed slide by slide. LibreOffice preserves all eight payload hashes, content types, names, ordering, and internal relationships, while normalizing transforms by at most 360 EMU, folding two flips into equivalent rotation, rewriting picture lock/fill markup, and changing explicit empty alt text to absence.
+Valid PptxGenJS 4.0.1 public path/data PNG/JPEG/GIF output reaches the same supported final semantics through the high-level loader. The actual npm tarball passes Node, browser, declaration, and CLI smoke. Its four-slide gallery contains 32 shapes and 12 images covering path, bytes, `ArrayBuffer`, data URI, `Blob`, Web stream, async iterable, and HTTP URL sources. Source and LibreOffice round-trip packages both strictly reopen, validate with 0 errors and 0 warnings, render at 2400×1350 without overflow, and were reviewed slide by slide. LibreOffice preserves 12/12 payload hashes, content types, names, non-empty alt text, ordering, and internal relationships; it deduplicates 12 repeated payload targets to three, quantizes transforms by at most 432 EMU, and rewrites all 12 picture markup blocks.
 
-Path/URL/data-URI loading, content-type and dimension detection, contain/cover/crop sizing, SVG, rounding/transparency, alt-text editing, image hyperlinks/shadows/placeholders, and public image deletion/media garbage collection remain pending.
+Contain/cover/crop sizing, SVG, rounding/transparency, alt-text editing, image hyperlinks/shadows/placeholders, and public image deletion/media garbage collection remain pending.
 
 `PRESET_SHAPE_TYPES` is the frozen discovery catalog for all 178 canonical preset geometries accepted by `SlideModel.addShape()`. `AddShapeOptions` accepts `name`, strict `adjustments`, strict `fill`, strict `line`, strict `arrows`, strict `shadow`, strict `hyperlink`, and native EMU/OOXML-angle transform fields; use `inches()` and `degrees()` for ergonomic conversion. Omitted geometry starts at x/y/width/height = 1 inch with zero rotation and no flips; omitted fill creates direct no-fill, and omitted line keeps the canonical empty line container. Inputs are strict, descriptor-safe, detached before mutation, and reject unknown fields. The catalog uses the valid OOXML `foldedCorner`; PptxGenJS 4.0.1's invalid `folderCorner` token and runtime-only `custGeom` value are not accepted as presets.
 

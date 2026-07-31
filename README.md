@@ -16,21 +16,19 @@ document.slides[0].title.text = 'Updated';
 await document.writeFile('output.pptx');
 ```
 
-## 从字节创建 PNG、JPEG 和 GIF 图片
+## 从路径、URL、data URI、Blob、stream 或 bytes 添加图片
 
 ```ts
 import { readFile } from 'node:fs/promises';
 import {
   degrees,
   inches,
+  inspectRasterImage,
   PptxDocument,
-  type AddImageOptions,
-  type RasterImageContentType,
+  type AddImageSourceOptions,
 } from '@jiayunxie/pptx';
 
-const contentType: RasterImageContentType = 'image/png';
-const options: AddImageOptions = {
-  contentType,
+const options: AddImageSourceOptions = {
   name: 'Quarterly chart',
   altText: 'Revenue by quarter',
   x: inches(1),
@@ -41,22 +39,24 @@ const options: AddImageOptions = {
 };
 
 const document = PptxDocument.create();
-const image = document.addSlide().addImage(
-  new Uint8Array(await readFile('chart.png')),
-  options,
-);
+document.addSlide();
+const image = await document.addImage(0, 'chart.png', options);
+const info = inspectRasterImage(new Uint8Array(await readFile('chart.png')));
+console.log(info); // { contentType: 'image/png', width, height }
 image.setTransform({ x: inches(1.5) });
 image.replaceData(new Uint8Array(await readFile('chart-updated.png')), 'image/png');
 await document.writeFile('images.pptx');
 ```
 
-`RasterImageContentType` 当前严格限定为 `image/png | image/jpeg | image/gif`；`AddImageOptions.contentType` 必填，另可提供 `name`、`altText` 和 EMU/OOXML angle transform。输入必须是非空 `Uint8Array`，会立即复制并与 caller 脱离。省略 transform 时 x/y 为 0、width/height 为 1 inch、rotation 为 0、两个 flip 为 false；省略名称按当前页图片序号生成 `Image N`，省略 alt text 使用 `preencoded.png`，显式空字符串会保留。
+`PptxDocument.addImage()` 接受 Node 本地路径、HTTP/HTTPS URL、浏览器相对 URL、strict base64 data URI、`Uint8Array`、`ArrayBuffer`、`Blob`/`File`、Web `ReadableStream` 和 async byte iterable。格式只以 bytes signature 为准，支持 PNG/JPEG/GIF；`AddImageSourceOptions.contentType` 是可选 assertion，不一致会在 package mutation 前拒绝。`signal` 可中止文件、Fetch、Blob 和 stream 加载。文件扩展名、`Blob.type`、HTTP `Content-Type` 和 `File.name` 不参与格式判断。
+
+`inspectRasterImage()` 返回 signature 检测出的 canonical content type 与 raw pixel width/height；PNG 读取 direct IHDR，GIF 读取 logical screen，JPEG 安全遍历所有尺寸型 SOF marker。当前仍保留 PptxGenJS 的 1-inch 默认 transform，不会自动把 intrinsic pixels 转为布局尺寸。底层同步 `SlideModel.addImage(bytes, { contentType, ... })` 仍用于调用方已持有 bytes 的严格原子创建。
 
 每次创建原子地拥有一个唯一 media part、一个 internal image relationship 和一个 canonical rectangular picture；任何验证或写入失败都会回滚 package、关系、slide XML 与 mutation journal。复制页面先共享图片 part，`ImageModel.replaceData()` 对独占 target 原位更新，对共享 target clone-on-write；六种 presentation format 都可创建、写出和重开。
 
-锁定 PptxGenJS 4.0.1 的公开 data-URI PNG/JPEG/GIF 输出可导入为相同最终语义。实际 npm tarball 的 Node/browser/types/CLI smoke 与 4 页、8 图片 gallery 已通过；原件和 LibreOffice 回存件均为 PowerPoint 2010 validation 0 errors / 0 warnings，180 DPI 无 overflow。LibreOffice 保留图片 bytes、content type、名称、顺序和内部关系，但会量化少量 EMU、把双 flip 合并进等价 rotation、重写 picture lock/fill markup，并把显式空 alt text 规范为缺省。
+锁定 PptxGenJS 4.0.1 的公开 path/data PNG/JPEG/GIF 输出与高层 loader 形成相同最终语义。实际 npm tarball 的 Node/browser/types/CLI smoke 与 4 页、32 shapes、12 图片 gallery 已通过；原件和 LibreOffice 回存件均为 PowerPoint 2010 validation 0 errors / 0 warnings，2400×1350 渲染无 overflow，并逐页检查。LibreOffice 保留 12/12 图片的 payload SHA、content type、名称、非空 alt text、顺序和 internal relationship，transform 最大量化 432 EMU；它会把 12 个重复 payload target 去重为 3 个并重写全部 picture markup。
 
-当前仍未提供 path/URL/data-URI loader、格式或尺寸自动检测、contain/cover/crop sizing、SVG、rounding/transparency、alt-text 编辑、图片 hyperlink/shadow/placeholder，以及单图片删除与 media GC。
+当前仍未提供 contain/cover/crop sizing、SVG、rounding/transparency、alt-text 编辑、图片 hyperlink/shadow/placeholder，以及单图片删除与 media GC。
 
 ## 创建和编辑预设形状、调整值与样式
 

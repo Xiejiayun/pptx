@@ -1,5 +1,7 @@
-import { readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it, vi } from 'vitest';
 import {
@@ -314,6 +316,72 @@ describe('importPptxGenJS', () => {
     for (const [index, importedImage] of importedImages.entries()) {
       expect(embeddedRasterState(imported, 0, importedImage))
         .toEqual(embeddedRasterState(native, 0, nativeImages[index]!));
+    }
+  }, 20_000);
+
+  it('matches PptxGenJS path and data images through the document source loader', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'pptxgenjs-raster-source-'));
+    try {
+      const fixtures: readonly {
+        readonly data: string;
+        readonly path?: string;
+        readonly name: string;
+      }[] = [
+        { data: PNG_DATA_URI, path: join(directory, 'source.png'), name: 'Path PNG' },
+        { data: JPEG_DATA_URI, name: 'Data JPEG' },
+        { data: GIF_DATA_URI, path: join(directory, 'source.gif'), name: 'Path GIF' },
+      ];
+      for (const fixture of fixtures) {
+        if (fixture.path) {
+          await writeFile(fixture.path, Buffer.from(fixture.data.split(',')[1]!, 'base64'));
+        }
+      }
+
+      const generated = new PptxGenJS();
+      expect(generated.version).toBe('4.0.1');
+      const generatedSlide = generated.addSlide();
+      for (const fixture of fixtures) {
+        generatedSlide.addImage({
+          ...(fixture.path ? { path: fixture.path } : { data: fixture.data }),
+          x: 1,
+          y: 2,
+          w: 3,
+          h: 2,
+          rotate: 45,
+          flipH: true,
+          flipV: false,
+          objectName: fixture.name,
+          altText: 'Portable source',
+        });
+      }
+
+      const imported = await importPptxGenJS(generated);
+      const native = PptxDocument.create();
+      native.addSlide();
+      for (const fixture of fixtures) {
+        await native.addImage(0, fixture.path ?? fixture.data, {
+          name: fixture.name,
+          altText: 'Portable source',
+          x: inches(1),
+          y: inches(2),
+          width: inches(3),
+          height: inches(2),
+          rotation: degrees(45),
+          flipHorizontal: true,
+          flipVertical: false,
+        });
+      }
+
+      const importedImages = imported.slides[0]!.shapes as readonly ImageModel[];
+      const nativeImages = native.slides[0]!.shapes as readonly ImageModel[];
+      expect(importedImages).toHaveLength(fixtures.length);
+      expect(nativeImages).toHaveLength(fixtures.length);
+      for (const [index, importedImage] of importedImages.entries()) {
+        expect(embeddedRasterState(imported, 0, importedImage))
+          .toEqual(embeddedRasterState(native, 0, nativeImages[index]!));
+      }
+    } finally {
+      await rm(directory, { recursive: true, force: true });
     }
   }, 20_000);
 

@@ -1,6 +1,6 @@
 # PPTX 双向编辑库实施进度
 
-最后更新：2026-07-25
+最后更新：2026-08-01
 
 ## WP0：基线与技术验证
 
@@ -251,7 +251,26 @@ $ pptx-inspect --json package inspect output.pptx
 - ZIP integrity 与 LibreOffice headless open/export：通过，diagnostics 为空。
 - 插件使用文档：[docs/plugins.md](./plugins.md)。
 
-## 最终验收
+## PptxGenJS 全功能对等：Raster source loader
+
+状态：完成
+
+### 本阶段 change
+
+- 新增 PNG/JPEG/GIF signature 与 raw pixel dimensions inspector；格式检测不信任扩展名、Blob/HTTP MIME 或文件名。
+- 新增统一 raster source resolver，覆盖 Node path、HTTP/HTTPS URL、browser-relative URL、strict canonical base64 data URI、`Uint8Array`、`ArrayBuffer`、`Blob`/`File`、Web stream 与 async byte iterable，并支持 AbortSignal。
+- 新增 `PptxDocument.addImage(slideIndex, source, options?)`，在所有异步加载、signature 检测与 MIME assertion 完成后才进入原有 atomic picture mutation。
+- 保留 `SlideModel.addImage(bytes, options)` 作为 strict 同步底层 API，并保持 1-inch 默认 transform；intrinsic pixel dimensions 暂不自动决定布局尺寸。
+- 新增 PptxGenJS 4.0.1 path/data 高层 loader 最终语义对等测试，下一项转入 contain/cover/crop 与 `srcRect`。
+
+### 验证结果
+
+- Raster source resolver：78 项测试通过；SDK focused suites：216 项测试通过。
+- Actual npm tarball 的 Node/browser/declaration/CLI smoke 通过，连续两次 dist build SHA 一致，browser bundle 无 static Node import。
+- 4 页、32 shapes、12 images gallery 覆盖全部公开来源；原件和 LibreOffice round-trip 均为 PowerPoint 2010 validation 0 errors / 0 warnings，2400×1350 render 无 overflow，并已逐页视觉检查。
+- LibreOffice 保留 12/12 payload SHA、content type、name、non-empty alt text、顺序与 internal relationship；把 12 个重复 payload targets 去重为 3 个，transform 最大量化 432 EMU，并重写 12/12 picture markup。
+
+## 0.1.0 初始验收
 
 - `pnpm check`：TypeScript strict build 通过；14 个测试文件、34 项测试全部通过。
 - 独立性能门禁：1,000-part package 在 596ms 打开，低于 5s 预算。
