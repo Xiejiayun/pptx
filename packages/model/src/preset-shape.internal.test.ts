@@ -1,0 +1,320 @@
+import { describe, expect, it } from 'vitest';
+import { createHash } from 'node:crypto';
+import { LosslessXmlDocument } from '@pptx/lossless-xml';
+import { ModelParseError } from './errors.js';
+import { PRESET_SHAPE_TYPES } from './preset-shape.js';
+import {
+  normalizePresetShape,
+  readPresetShapeType,
+  renderPresetShapeXml,
+  replacePresetShapeType,
+} from './preset-shape.internal.js';
+
+const PRESENTATION_NAMESPACE =
+  'http://schemas.openxmlformats.org/presentationml/2006/main';
+const DRAWING_NAMESPACE =
+  'http://schemas.openxmlformats.org/drawingml/2006/main';
+
+function parseShape(source: string) {
+  const xml = LosslessXmlDocument.parse(source);
+  const shape = xml.roots[0];
+  if (!shape) throw new Error('Fixture has no shape root');
+  return { xml, shape };
+}
+
+function shapeFixture(
+  geometry = '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>',
+  options: { readonly rootName?: string; readonly namespace?: string; readonly properties?: string } = {},
+): string {
+  const rootName = options.rootName ?? 'p:sp';
+  const namespace = options.namespace ?? PRESENTATION_NAMESPACE;
+  const properties = options.properties ?? `<p:spPr>${geometry}<a:noFill/><a:ln/></p:spPr>`;
+  return `<${rootName} xmlns:p="${namespace}" xmlns:a="${DRAWING_NAMESPACE}">` +
+    '<p:nvSpPr><p:cNvPr id="7" name="Keep"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>' +
+    `${properties}<p:txBody><a:bodyPr/><a:p><a:r><a:t>KEEP</a:t></a:r></a:p></p:txBody>` +
+    `</${rootName}>`;
+}
+
+describe('preset shape catalog', () => {
+  it('publishes the exact frozen canonical PptxGenJS 4.0.1 shape set', () => {
+    expect(PRESET_SHAPE_TYPES).toHaveLength(178);
+    expect(new Set(PRESET_SHAPE_TYPES)).toHaveLength(178);
+    expect(Object.isFrozen(PRESET_SHAPE_TYPES)).toBe(true);
+    expect(PRESET_SHAPE_TYPES[0]).toBe('accentBorderCallout1');
+    expect(PRESET_SHAPE_TYPES.at(-1)).toBe('wedgeRoundRectCallout');
+    expect(PRESET_SHAPE_TYPES).toContain('foldedCorner');
+    expect(PRESET_SHAPE_TYPES).not.toContain('folderCorner' as never);
+    expect(PRESET_SHAPE_TYPES).not.toContain('custGeom' as never);
+    expect(createHash('sha256').update(PRESET_SHAPE_TYPES.join('\n')).digest('hex')).toBe(
+      '4b2d864583049a8eb02457e93504f608b76d8e04723e45eb4ec62b1bbb129c3d',
+    );
+
+    expect(() => {
+      (PRESET_SHAPE_TYPES as unknown as string[]).push('rect');
+    }).toThrow(TypeError);
+    expect(PRESET_SHAPE_TYPES).toHaveLength(178);
+  });
+});
+
+describe('normalizePresetShape', () => {
+  it('uses one-inch defaults and detaches rounded primitive values', () => {
+    expect(normalizePresetShape('rect', undefined)).toEqual({
+      type: 'rect',
+      name: undefined,
+      x: 914_400,
+      y: 914_400,
+      width: 914_400,
+      height: 914_400,
+      rotation: 0,
+      flipHorizontal: false,
+      flipVertical: false,
+    });
+
+    const options = Object.create(null) as Record<string, unknown>;
+    options.name = 'A & <B>';
+    options.x = 1.4;
+    options.y = -1.5;
+    options.width = 2.6;
+    options.height = 3.5;
+    options.rotation = 2.5;
+    options.flipHorizontal = true;
+    options.flipVertical = true;
+    const normalized = normalizePresetShape('ellipse', options);
+    options.name = 'Changed';
+    options.x = 99;
+
+    expect(normalized).toEqual({
+      type: 'ellipse',
+      name: 'A & <B>',
+      x: 1,
+      y: -1,
+      width: 3,
+      height: 4,
+      rotation: 3,
+      flipHorizontal: true,
+      flipVertical: true,
+    });
+    expect(Object.isFrozen(normalized)).toBe(true);
+  });
+
+  it('rejects unknown types and non-ordinary option containers', () => {
+    for (const type of [undefined, null, 7, '', 'folderCorner', 'custGeom', 'RECT']) {
+      expect(() => normalizePresetShape(type, undefined)).toThrow(TypeError);
+    }
+    class Options {
+      x = 1;
+    }
+    for (const options of [null, false, 1, 'x', [], new Date(), new Options()]) {
+      expect(() => normalizePresetShape('rect', options)).toThrow(TypeError);
+    }
+    const inherited = Object.create({ x: 1 });
+    expect(() => normalizePresetShape('rect', inherited)).toThrow(TypeError);
+  });
+
+  it('rejects unsupported, symbolic, and accessor properties without invoking accessors', () => {
+    expect(() => normalizePresetShape('rect', { opacity: 1 })).toThrow(/unsupported property opacity/);
+    expect(() => normalizePresetShape('rect', { [Symbol('unsafe')]: true })).toThrow(/unsupported property/);
+
+    let calls = 0;
+    const getter = Object.defineProperty({}, 'x', {
+      enumerable: true,
+      get() {
+        calls += 1;
+        return 1;
+      },
+    });
+    const setter = Object.defineProperty({}, 'y', {
+      enumerable: true,
+      set(_value: unknown) {
+        calls += 1;
+      },
+    });
+    expect(() => normalizePresetShape('rect', getter)).toThrow(/data property/);
+    expect(() => normalizePresetShape('rect', setter)).toThrow(/data property/);
+    expect(calls).toBe(0);
+  });
+
+  it('rejects unsafe names, coordinates, extents, rotation, and flips', () => {
+    for (const name of [1, false, 'bad\u0000xml']) {
+      expect(() => normalizePresetShape('rect', { name })).toThrow(TypeError);
+    }
+    for (const key of ['x', 'y', 'width', 'height', 'rotation'] as const) {
+      for (const value of ['1', Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+        expect(() => normalizePresetShape('rect', { [key]: value })).toThrow(TypeError);
+      }
+      for (const value of [Number.MAX_SAFE_INTEGER + 1, Number.MIN_SAFE_INTEGER - 1]) {
+        expect(() => normalizePresetShape('rect', { [key]: value })).toThrow(RangeError);
+      }
+    }
+    for (const key of ['width', 'height'] as const) {
+      for (const value of [0, -1, 0.49]) {
+        expect(() => normalizePresetShape('rect', { [key]: value })).toThrow(RangeError);
+      }
+    }
+    for (const rotation of [-21_600_001, 21_600_001]) {
+      expect(() => normalizePresetShape('rect', { rotation })).toThrow(RangeError);
+    }
+    for (const key of ['flipHorizontal', 'flipVertical'] as const) {
+      for (const value of [0, 1, '', 'false', null]) {
+        expect(() => normalizePresetShape('rect', { [key]: value })).toThrow(TypeError);
+      }
+    }
+  });
+});
+
+describe('preset shape XML codec', () => {
+  it('renders the exact deterministic default skeleton', () => {
+    expect(renderPresetShapeXml(2, normalizePresetShape('rect', undefined))).toBe(
+      `<p:sp xmlns:p="${PRESENTATION_NAMESPACE}" xmlns:a="${DRAWING_NAMESPACE}">` +
+      '<p:nvSpPr><p:cNvPr id="2" name="Shape 2"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>' +
+      '<p:spPr><a:xfrm><a:off x="914400" y="914400"/>' +
+      '<a:ext cx="914400" cy="914400"/></a:xfrm>' +
+      '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln/></p:spPr></p:sp>',
+    );
+  });
+
+  it('renders escaped names and only non-default transform attributes', () => {
+    const rendered = renderPresetShapeXml(7, normalizePresetShape('lineInv', {
+      name: 'A & <"B">',
+      x: -3,
+      y: 4,
+      width: 5,
+      height: 6,
+      rotation: -2,
+      flipHorizontal: true,
+      flipVertical: true,
+    }));
+    expect(rendered).toContain('id="7" name="A &amp; &lt;&quot;B&quot;&gt;"');
+    expect(rendered).toContain('<a:xfrm rot="-2" flipH="1" flipV="1">');
+    expect(rendered).toContain('<a:off x="-3" y="4"/><a:ext cx="5" cy="6"/>');
+    expect(rendered).toContain('<a:prstGeom prst="lineInv"><a:avLst/></a:prstGeom>');
+  });
+
+  it('round-trips every canonical token through parseable direct geometry', () => {
+    for (const type of PRESET_SHAPE_TYPES) {
+      const { xml, shape } = parseShape(renderPresetShapeXml(7, normalizePresetShape(type, {})));
+      expect(readPresetShapeType(xml, shape), type).toBe(type);
+      expect(xml.elements('prstGeom')).toHaveLength(1);
+      expect(xml.elements('avLst')).toHaveLength(1);
+      expect(xml.elements('noFill')).toHaveLength(1);
+      expect(xml.elements('ln')).toHaveLength(1);
+      expect(xml.elements('txBody')).toHaveLength(0);
+      expect(xml.elements('extLst')).toHaveLength(0);
+      expect(xml.source).not.toContain('r:id');
+    }
+  });
+
+  it('reads alternate valid prefixes without changing source', () => {
+    const source =
+      `<q:sp xmlns:q="${PRESENTATION_NAMESPACE}" xmlns:d="${DRAWING_NAMESPACE}">` +
+      '<q:spPr><d:prstGeom xmlns:prst="urn:unrelated" prst="star5">' +
+      '<d:avLst/></d:prstGeom></q:spPr></q:sp>';
+    const { xml, shape } = parseShape(source);
+    expect(readPresetShapeType(xml, shape)).toBe('star5');
+    expect(xml.changed).toBe(false);
+    expect(xml.serialize()).toBe(source);
+  });
+
+  it('returns undefined for unsafe or ambiguous geometry without mutation', () => {
+    const fixtures = [
+      shapeFixture(undefined, { namespace: 'urn:wrong' }),
+      shapeFixture(undefined, { rootName: 'p:pic' }),
+      shapeFixture(undefined, { properties: '' }),
+      shapeFixture(undefined, { properties: '<p:spPr/><p:spPr/>' }),
+      shapeFixture(undefined, { properties: '<x:spPr xmlns:x="urn:wrong"/>' }),
+      shapeFixture('', { properties: '<p:spPr/>' }),
+      shapeFixture('<a:prstGeom prst="rect"/><a:prstGeom prst="ellipse"/>'),
+      shapeFixture('<x:prstGeom xmlns:x="urn:wrong" prst="rect"/>'),
+      shapeFixture('<a:prstGeom/>'),
+      shapeFixture('<a:prstGeom x:prst="rect" xmlns:x="urn:qualified"/>'),
+      shapeFixture('<a:prstGeom prst="rect" x:prst="ellipse" xmlns:x="urn:qualified"/>'),
+      shapeFixture('<a:prstGeom prst="folderCorner"/>'),
+      shapeFixture('<a:prstGeom prst="custGeom"/>'),
+      shapeFixture('<a:solidFill><a:prstGeom prst="rect"/></a:solidFill>'),
+    ];
+    for (const source of fixtures) {
+      const { xml, shape } = parseShape(source);
+      expect(readPresetShapeType(xml, shape), source).toBeUndefined();
+      expect(xml.changed).toBe(false);
+      expect(xml.serialize()).toBe(source);
+    }
+  });
+
+  it('preserves same-value geometry exactly, including adjustments', () => {
+    const source = shapeFixture(
+      '<a:prstGeom prst="ellipse"><a:avLst><a:gd name="adj" fmla="val 1"/></a:avLst>' +
+      '<x:keep xmlns:x="urn:test"/></a:prstGeom>',
+    );
+    const { xml, shape } = parseShape(source);
+    expect(replacePresetShapeType(xml, shape, 'ellipse', '/ppt/slides/slide1.xml')).toBe(false);
+    expect(xml.changed).toBe(false);
+    expect(xml.serialize()).toBe(source);
+  });
+
+  it('whole-replaces changed geometry and preserves every unrelated byte', () => {
+    const source = shapeFixture(
+      '<a:prstGeom prst="rect"><a:avLst><a:gd name="adj" fmla="val 1"/></a:avLst>' +
+      '<x:old xmlns:x="urn:test"/></a:prstGeom>',
+      {
+        properties:
+          '<p:spPr data-keep="yes"><a:xfrm><a:off x="1" y="2"/><a:ext cx="3" cy="4"/></a:xfrm>' +
+          '<a:prstGeom prst="rect"><a:avLst><a:gd name="adj" fmla="val 1"/></a:avLst>' +
+          '<x:old xmlns:x="urn:test"/></a:prstGeom><a:solidFill><a:srgbClr val="ABCDEF"/></a:solidFill>' +
+          '<a:ln w="9"/><a:effectLst/><p:extLst><p:ext uri="urn:keep"/></p:extLst></p:spPr>',
+      },
+    );
+    const { xml, shape } = parseShape(source);
+    expect(replacePresetShapeType(xml, shape, 'star5', '/ppt/slides/slide1.xml')).toBe(true);
+    const updated = xml.serialize();
+    expect(updated).toContain('<a:prstGeom prst="star5"><a:avLst/></a:prstGeom>');
+    expect(updated).not.toContain('name="adj"');
+    expect(updated).not.toContain('<x:old');
+    expect(updated).toContain('<p:cNvPr id="7" name="Keep"/>');
+    expect(updated).toContain('<a:off x="1" y="2"/><a:ext cx="3" cy="4"/>');
+    expect(updated).toContain('<a:solidFill><a:srgbClr val="ABCDEF"/></a:solidFill>');
+    expect(updated).toContain('<a:ln w="9"/><a:effectLst/>');
+    expect(updated).toContain('<p:extLst><p:ext uri="urn:keep"/></p:extLst>');
+    expect(updated).toContain('<a:t>KEEP</a:t>');
+  });
+
+  it('uses the existing DrawingML prefix when replacing geometry', () => {
+    const source =
+      `<q:sp xmlns:q="${PRESENTATION_NAMESPACE}" xmlns:d="${DRAWING_NAMESPACE}">` +
+      '<q:spPr><d:prstGeom prst="rect"><d:avLst/></d:prstGeom></q:spPr></q:sp>';
+    const { xml, shape } = parseShape(source);
+    expect(replacePresetShapeType(xml, shape, 'ellipse', '/ppt/slides/slide1.xml')).toBe(true);
+    expect(xml.serialize()).toContain('<d:prstGeom prst="ellipse"><d:avLst/></d:prstGeom>');
+  });
+
+  it('retains a DrawingML binding declared on the replaced geometry itself', () => {
+    for (const geometry of [
+      `<d:prstGeom xmlns:d="${DRAWING_NAMESPACE}" prst="rect"><d:avLst/></d:prstGeom>`,
+      `<prstGeom xmlns="${DRAWING_NAMESPACE}" prst="rect"><avLst/></prstGeom>`,
+    ]) {
+      const source = `<p:sp xmlns:p="${PRESENTATION_NAMESPACE}"><p:spPr>` +
+        `${geometry}</p:spPr></p:sp>`;
+      const { xml, shape } = parseShape(source);
+      expect(replacePresetShapeType(xml, shape, 'ellipse', '/ppt/slides/slide1.xml')).toBe(true);
+      const reparsed = parseShape(xml.serialize());
+      expect(readPresetShapeType(reparsed.xml, reparsed.shape)).toBe('ellipse');
+    }
+  });
+
+  it('rejects unsafe replacement before patching', () => {
+    for (const source of [
+      shapeFixture('', { properties: '<p:spPr/>' }),
+      shapeFixture('<a:prstGeom prst="folderCorner"/>'),
+      shapeFixture('<a:prstGeom prst="rect"/><a:prstGeom prst="ellipse"/>'),
+    ]) {
+      const { xml, shape } = parseShape(source);
+      expect(() => replacePresetShapeType(
+        xml,
+        shape,
+        'star5',
+        '/ppt/slides/slide1.xml',
+      )).toThrow(ModelParseError);
+      expect(xml.changed).toBe(false);
+      expect(xml.serialize()).toBe(source);
+    }
+  });
+});
