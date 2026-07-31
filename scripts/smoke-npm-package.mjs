@@ -212,6 +212,110 @@ const customGeometryPaths =
   reopenedMultiPathShape instanceof ShapeModel &&
   reopenedMultiPathShape.name === 'Packed multi-path geometry' &&
   JSON.stringify(reopenedMultiPathShape.customGeometry) === JSON.stringify(multiPathGeometry);
+const formulaGeometrySource = {
+  adjustments: [
+    { name: 'adj1', formula: { operator: 'val', operands: [25_000] } },
+    { name: 'adj2', formula: { operator: 'pin', operands: [0, 75_000, 100_000] } },
+  ],
+  guides: [
+    { name: 'x1', formula: { operator: '*/', operands: ['w', 'adj1', 100_000] } },
+    { name: 'y1', formula: { operator: '+-', operands: ['h', 0, 'x1'] } },
+    { name: 'a1', formula: { operator: 'at2', operands: ['y1', 'x1'] } },
+  ],
+  paths: [{
+    width: 100_000,
+    height: 100_000,
+    commands: [
+      { kind: 'moveTo', point: { x: 'x1', y: 0 } },
+      {
+        kind: 'arcTo',
+        widthRadius: 'x1',
+        heightRadius: 'hd2',
+        startAngle: 'a1',
+        sweepAngle: 'cd2',
+      },
+      { kind: 'close' },
+    ],
+  }],
+};
+const formulaGeometryExpected = structuredClone(formulaGeometrySource);
+const formulaGeometryReplacement = {
+  adjustments: [{ name: 'adj1', formula: { operator: 'val', operands: [50_000] } }],
+  guides: [
+    { name: 'x1', formula: { operator: 'pin', operands: [0, 'adj1', 100_000] } },
+    { name: 'y1', formula: { operator: 'min', operands: ['h', 'x1'] } },
+  ],
+  paths: [{
+    width: 100_000,
+    height: 100_000,
+    commands: [
+      { kind: 'moveTo', point: { x: 'x1', y: 'y1' } },
+      {
+        kind: 'arcTo',
+        widthRadius: 'x1',
+        heightRadius: 'hd2',
+        startAngle: 0,
+        sweepAngle: 'cd2',
+      },
+      { kind: 'close' },
+    ],
+  }],
+};
+const formulaGeometryDeck = PptxDocument.create();
+const formulaGeometrySlide = formulaGeometryDeck.addSlide();
+const formulaGeometryShape = formulaGeometrySlide.addCustomShape(formulaGeometrySource, {
+  name: 'Packed guide formulas',
+});
+formulaGeometrySource.adjustments[0].name = 'changed';
+formulaGeometrySource.adjustments[0].formula.operands[0] = 1;
+formulaGeometrySource.guides.splice(0);
+formulaGeometrySource.paths[0].commands.splice(0);
+const initialFormulaGeometry = formulaGeometryShape.customGeometry;
+const formulaNoOpBytes = formulaGeometryDeck.opcPackage
+  .requirePart(formulaGeometrySlide.partUri).bytes.slice();
+const formulaNoOpJournal = formulaGeometryDeck.opcPackage.mutations.length;
+formulaGeometryShape.customGeometry = structuredClone(formulaGeometryExpected);
+const formulaNoOpCurrent = formulaGeometryDeck.opcPackage
+  .requirePart(formulaGeometrySlide.partUri).bytes;
+const formulaNoOp = formulaNoOpJournal === formulaGeometryDeck.opcPackage.mutations.length &&
+  formulaNoOpBytes.length === formulaNoOpCurrent.length &&
+  formulaNoOpBytes.every((value, index) => value === formulaNoOpCurrent[index]);
+formulaGeometryShape.customGeometry = formulaGeometryReplacement;
+const editedFormulaGeometry = formulaGeometryShape.customGeometry;
+formulaGeometryShape.presetType = 'diamond';
+const formulaConvertedPreset = formulaGeometryShape.presetType;
+const formulaConvertedCustom = formulaGeometryShape.customGeometry;
+formulaGeometryShape.customGeometry = formulaGeometryReplacement;
+const formulaXml = new TextDecoder().decode(
+  formulaGeometryDeck.opcPackage.requirePart(formulaGeometrySlide.partUri).bytes,
+);
+const reopenedFormulaGeometryShape = (await PptxDocument.open(
+  await formulaGeometryDeck.write(),
+)).slides[0].shapes[0];
+const customGeometryGuideFormulas =
+  formulaGeometryShape instanceof ShapeModel &&
+  Object.isFrozen(initialFormulaGeometry) &&
+  Object.isFrozen(initialFormulaGeometry?.adjustments) &&
+  Object.isFrozen(initialFormulaGeometry?.adjustments?.[0]) &&
+  Object.isFrozen(initialFormulaGeometry?.adjustments?.[0]?.formula) &&
+  Object.isFrozen(initialFormulaGeometry?.adjustments?.[0]?.formula.operands) &&
+  Object.isFrozen(initialFormulaGeometry?.guides) &&
+  Object.isFrozen(initialFormulaGeometry?.guides?.[0]?.formula.operands) &&
+  Object.isFrozen(initialFormulaGeometry?.paths) &&
+  Object.isFrozen(initialFormulaGeometry?.paths[0]?.commands) &&
+  JSON.stringify(initialFormulaGeometry) === JSON.stringify(formulaGeometryExpected) &&
+  formulaNoOp &&
+  JSON.stringify(editedFormulaGeometry) === JSON.stringify(formulaGeometryReplacement) &&
+  formulaConvertedPreset === 'diamond' &&
+  formulaConvertedCustom === undefined &&
+  formulaGeometryShape.presetType === undefined &&
+  formulaXml.includes('<a:avLst><a:gd name="adj1" fmla="val 50000"/></a:avLst>') &&
+  formulaXml.includes('<a:gdLst><a:gd name="x1" fmla="pin 0 adj1 100000"/><a:gd name="y1" fmla="min h x1"/></a:gdLst>') &&
+  formulaXml.includes('<a:arcTo wR="x1" hR="hd2" stAng="0" swAng="cd2"/>') &&
+  reopenedFormulaGeometryShape instanceof ShapeModel &&
+  reopenedFormulaGeometryShape.name === 'Packed guide formulas' &&
+  JSON.stringify(reopenedFormulaGeometryShape.customGeometry) ===
+    JSON.stringify(formulaGeometryReplacement);
 const shapeAdjustmentDeck = PptxDocument.create();
 const shapeAdjustmentSlide = shapeAdjustmentDeck.addSlide();
 const shapeAdjustmentInput = [
@@ -1582,6 +1686,7 @@ const checks = {
   PptxDocument: typeof PptxDocument === 'function',
   presetShapes,
   customGeometryPaths,
+  customGeometryGuideFormulas,
   shapeAdjustments,
   shapeShadows,
   shapeFills,
@@ -1662,40 +1767,71 @@ const browserShapeDeck = PptxDocument.create();
 const browserShape = browserShapeDeck.addSlide().addShape('foldedCorner');
 browserShape.presetType = 'star5';
 const browserCustomGeometryDeck = PptxDocument.create();
-const browserCustomGeometryShape = browserCustomGeometryDeck.addSlide().addCustomShape({
+const browserFormulaGeometry = {
+  adjustments: [{ name: 'adj1', formula: { operator: 'val', operands: [25_000] } }],
+  guides: [
+    { name: 'x1', formula: { operator: '*/', operands: ['w', 'adj1', 100_000] } },
+    { name: 'a1', formula: { operator: 'at2', operands: ['h', 'x1'] } },
+  ],
   paths: [{
-    width: 100,
-    height: 100,
+    width: 100_000,
+    height: 100_000,
     commands: [
-      { kind: 'moveTo', point: { x: 0, y: 0 } },
-      { kind: 'lineTo', point: { x: 100, y: 0 } },
+      { kind: 'moveTo', point: { x: 'x1', y: 0 } },
+      {
+        kind: 'arcTo',
+        widthRadius: 'x1',
+        heightRadius: 'hd2',
+        startAngle: 'a1',
+        sweepAngle: 'cd2',
+      },
       { kind: 'close' },
     ],
   }],
-});
-browserCustomGeometryShape.customGeometry = {
+};
+const browserFormulaReplacement = {
+  adjustments: [{ name: 'adj1', formula: { operator: 'val', operands: [50_000] } }],
+  guides: [{ name: 'x1', formula: { operator: 'pin', operands: [0, 'adj1', 100_000] } }],
   paths: [{
-    width: 200,
-    height: 100,
-    fill: 'lighten',
-    commands: [{ kind: 'moveTo', point: { x: 1, y: 2 } }],
+    width: 100_000,
+    height: 100_000,
+    commands: [
+      { kind: 'moveTo', point: { x: 'x1', y: 't' } },
+      {
+        kind: 'arcTo',
+        widthRadius: 'x1',
+        heightRadius: 'hd2',
+        startAngle: 0,
+        sweepAngle: 'cd4',
+      },
+    ],
   }],
 };
+const browserCustomGeometryShape = browserCustomGeometryDeck.addSlide()
+  .addCustomShape(browserFormulaGeometry);
+const initialBrowserFormulaGeometry = browserCustomGeometryShape.customGeometry;
+if (!Object.isFrozen(initialBrowserFormulaGeometry) ||
+    !Object.isFrozen(initialBrowserFormulaGeometry?.adjustments) ||
+    !Object.isFrozen(initialBrowserFormulaGeometry?.adjustments?.[0]?.formula.operands) ||
+    !Object.isFrozen(initialBrowserFormulaGeometry?.guides) ||
+    !Object.isFrozen(initialBrowserFormulaGeometry?.guides?.[0]?.formula.operands) ||
+    !Object.isFrozen(initialBrowserFormulaGeometry?.paths[0]?.commands) ||
+    JSON.stringify(initialBrowserFormulaGeometry) !== JSON.stringify(browserFormulaGeometry)) {
+  throw new Error('Browser custom geometry guide formula snapshot failed');
+}
+browserCustomGeometryShape.customGeometry = browserFormulaReplacement;
 browserCustomGeometryShape.presetType = 'ellipse';
-browserCustomGeometryShape.customGeometry = {
-  paths: [{
-    width: 300,
-    height: 200,
-    commands: [{ kind: 'moveTo', point: { x: 3, y: 4 } }],
-  }],
-};
+browserCustomGeometryShape.customGeometry = browserFormulaReplacement;
 const reopenedBrowserCustomGeometryShape = (await PptxDocument.open(
   await browserCustomGeometryDeck.writeBlob(),
 )).slides[0].shapes[0];
 if (!(reopenedBrowserCustomGeometryShape instanceof ShapeModel) ||
     reopenedBrowserCustomGeometryShape.presetType !== undefined ||
-    reopenedBrowserCustomGeometryShape.customGeometry?.paths[0]?.width !== 300 ||
-    reopenedBrowserCustomGeometryShape.customGeometry.paths[0]?.commands[0]?.kind !== 'moveTo') {
+    !Object.isFrozen(reopenedBrowserCustomGeometryShape.customGeometry?.guides?.[0]?.formula.operands) ||
+    JSON.stringify(reopenedBrowserCustomGeometryShape.customGeometry) !==
+      JSON.stringify(browserFormulaReplacement) ||
+    reopenedBrowserCustomGeometryShape.customGeometry?.paths[0]?.commands[1]?.kind !== 'arcTo' ||
+    reopenedBrowserCustomGeometryShape.customGeometry.paths[0].commands[1].sweepAngle !== 'cd4') {
   throw new Error('Browser custom geometry lifecycle failed');
 }
 const browserAdjustmentDeck = PptxDocument.create();
@@ -2492,9 +2628,12 @@ process.stdout.write(resolved);
   type AddShapeOptions,
   type CustomGeometry,
   type CustomGeometryCommand,
+  type CustomGeometryFormula,
+  type CustomGeometryGuide,
   type CustomGeometryPath,
   type CustomGeometryPathFill,
   type CustomGeometryPoint,
+  type CustomGeometryValue,
   type Hyperlink,
   type ShapeArrows,
   type ShapeArrowType,
@@ -2568,6 +2707,36 @@ const typedCustomPath: CustomGeometryPath = {
   commands: [typedCustomCommand],
 };
 const typedCustomGeometry: CustomGeometry = { paths: [typedCustomPath] };
+const typedCustomValue: CustomGeometryValue = 'x1';
+const typedUnaryFormula: CustomGeometryFormula = { operator: 'val', operands: [25_000] };
+const typedBinaryFormula: CustomGeometryFormula = { operator: 'at2', operands: ['h', 'x1'] };
+const typedTernaryFormula: CustomGeometryFormula = {
+  operator: '*/',
+  operands: ['w', 'adj1', 100_000],
+};
+const typedCustomGuide: CustomGeometryGuide = { name: 'x1', formula: typedTernaryFormula };
+const typedFormulaGeometry: CustomGeometry = {
+  adjustments: [{ name: 'adj1', formula: typedUnaryFormula }],
+  guides: [typedCustomGuide, { name: 'a1', formula: typedBinaryFormula }],
+  paths: [{
+    width: 100_000,
+    height: 100_000,
+    commands: [
+      { kind: 'moveTo', point: { x: typedCustomValue, y: 't' } },
+      {
+        kind: 'arcTo',
+        widthRadius: 'x1',
+        heightRadius: 'hd2',
+        startAngle: 'a1',
+        sweepAngle: 'cd2',
+      },
+    ],
+  }],
+};
+// @ts-expect-error Custom geometry formulas reject unknown operators.
+const invalidCustomFormulaOperator: CustomGeometryFormula = { operator: 'unknown', operands: [1] };
+// @ts-expect-error The val operator requires exactly one operand.
+const invalidCustomFormulaArity: CustomGeometryFormula = { operator: 'val', operands: [1, 2] };
 const typedCustomOptions: AddCustomShapeOptions = { name: 'Typed custom geometry' };
 const typedCustomShape: ShapeModel = createdDocument.addSlide().addCustomShape(
   typedCustomGeometry,
@@ -2966,7 +3135,9 @@ documentPromise.then((document) => {
 void [typedNotesSlide, notesSnapshot, returnedNotesSlide];
 void [typedPreset, typedNoneShapeFill, typedSolidShapeFill, typedShapeOptions, typedShape,
   typedCustomPoint, typedCustomCommand, typedCustomFill, typedCustomPath, typedCustomGeometry,
-  typedCustomOptions, typedCustomShape, typedCustomGeometryRead,
+  typedCustomValue, typedUnaryFormula, typedBinaryFormula, typedTernaryFormula,
+  typedCustomGuide, typedFormulaGeometry, invalidCustomFormulaOperator,
+  invalidCustomFormulaArity, typedCustomOptions, typedCustomShape, typedCustomGeometryRead,
   typedPresetRead, typedShapeAdjustments, typedShapeAdjustmentsRead,
   invalidMissingShapeAdjustmentValue, invalidShapeAdjustmentValue,
   invalidShapeAdjustmentOptions, typedShapeFillRead, typedPresetCatalog, invalidShapeFillKind,
@@ -3010,7 +3181,7 @@ void [documentPromise, createdDocument, addSectionOptions, typedSection, addSlid
   if (!doctor.ok || doctor.data?.version !== '0.1.0') throw new Error(`CLI smoke failed: ${cliResult.stdout}`);
 
   process.stdout.write(
-    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, types: true, cli: doctor.data.version })}\n`,
+    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, types: true, cli: doctor.data.version })}\n`,
   );
 } finally {
   await rm(directory, { recursive: true, force: true });
