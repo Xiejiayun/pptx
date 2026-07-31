@@ -373,6 +373,169 @@ const shapeLines = packedSrgbLine instanceof ShapeModel &&
   JSON.stringify(reopenedDuplicateLines[0]) === JSON.stringify({ kind: 'none' }) &&
   reopenedSourceLines.slice(4).every((line, index) =>
     line?.kind === 'line' && line.dash === packedLineDashes[index]);
+const shapeArrowDeck = PptxDocument.create();
+const shapeArrowSlide = shapeArrowDeck.addSlide();
+const shapeArrowSource = { begin: 'triangle', end: 'arrow' };
+const packedBothArrows = shapeArrowSlide.addShape('line', {
+  name: 'Packed both arrows',
+  line: {
+    kind: 'line',
+    color: { kind: 'srgb', value: '112233' },
+    width: 2.5,
+    dash: 'dashDot',
+  },
+  arrows: shapeArrowSource,
+});
+const packedArrowOnly = shapeArrowSlide.addShape('lineInv', {
+  name: 'Packed arrow only',
+  arrows: { begin: 'diamond' },
+});
+const packedArrowTypes = ['none', 'arrow', 'diamond', 'oval', 'stealth', 'triangle'];
+const packedTypedArrows = packedArrowTypes.map((type, index) =>
+  shapeArrowSlide.addShape(index % 2 === 0 ? 'line' : 'lineInv', {
+    name: 'Packed arrow ' + type,
+    arrows: index % 2 === 0 ? { begin: type } : { end: type },
+  }));
+const initialPackedArrows = packedBothArrows.arrows;
+const initialPackedArrowsAgain = packedBothArrows.arrows;
+shapeArrowSource.begin = 'none';
+shapeArrowSource.end = 'none';
+const detachedPackedArrows = packedBothArrows.arrows;
+const shapeArrowPartCountBeforeEdit = shapeArrowDeck.opcPackage.parts.length;
+const shapeArrowRelationshipCountBeforeEdit = shapeArrowSlide.relationships.length;
+const shapeArrowNoOpBytes = shapeArrowDeck.opcPackage.requirePart(shapeArrowSlide.partUri).bytes.slice();
+const shapeArrowNoOpJournalLength = shapeArrowDeck.opcPackage.mutations.length;
+packedBothArrows.arrows = { begin: 'triangle', end: 'arrow' };
+const currentShapeArrowNoOpBytes = shapeArrowDeck.opcPackage.requirePart(shapeArrowSlide.partUri).bytes;
+const shapeArrowNoOp = shapeArrowNoOpJournalLength === shapeArrowDeck.opcPackage.mutations.length &&
+  shapeArrowNoOpBytes.length === currentShapeArrowNoOpBytes.length &&
+  shapeArrowNoOpBytes.every((value, index) => value === currentShapeArrowNoOpBytes[index]);
+const arrowPart = shapeArrowDeck.opcPackage.requirePart(shapeArrowSlide.partUri);
+const arrowXml = new TextDecoder().decode(arrowPart.bytes);
+const arrowXmlWithAdvancedLine = arrowXml.replace(
+  '<a:solidFill><a:srgbClr val="112233"/></a:solidFill>' +
+    '<a:prstDash val="dashDot"/><a:headEnd type="triangle"/>' +
+    '<a:tailEnd type="arrow"/></a:ln>',
+  '<a:gradFill><a:gsLst/></a:gradFill>' +
+    '<a:custDash><a:ds d="1" sp="1"/></a:custDash><a:round/>' +
+    '<a:headEnd type="triangle" w="lg" len="sm"/>' +
+    '<a:tailEnd type="arrow" w="med" len="med"/>' +
+    '<a:extLst><a:ext uri="urn:packed-arrows">' +
+    '<x:keep xmlns:x="urn:packed-arrows"/></a:ext></a:extLst></a:ln>',
+);
+if (arrowXmlWithAdvancedLine === arrowXml) throw new Error('Packed arrow injection failed');
+shapeArrowDeck.opcPackage.setPart(
+  shapeArrowSlide.partUri,
+  arrowXmlWithAdvancedLine,
+  arrowPart.contentType,
+);
+const packedAdvancedLineBeforeArrowEdit = packedBothArrows.line;
+packedBothArrows.arrows = { begin: 'diamond', end: 'oval' };
+const shapeArrowSizedEditXml = new TextDecoder().decode(
+  shapeArrowDeck.opcPackage.requirePart(shapeArrowSlide.partUri).bytes,
+);
+const shapeArrowSizesPreserved =
+  shapeArrowSizedEditXml.includes('<a:headEnd type="diamond" w="lg" len="sm"/>') &&
+  shapeArrowSizedEditXml.includes('<a:tailEnd type="oval" w="med" len="med"/>');
+packedBothArrows.arrows = { begin: 'stealth' };
+const packedPartialArrows = packedBothArrows.arrows;
+packedBothArrows.arrows = undefined;
+const packedClearedArrows = packedBothArrows.arrows;
+const shapeArrowClearedXml = new TextDecoder().decode(
+  shapeArrowDeck.opcPackage.requirePart(shapeArrowSlide.partUri).bytes,
+);
+const shapeArrowAdvancedLinePreserved =
+  packedAdvancedLineBeforeArrowEdit === undefined &&
+  shapeArrowClearedXml.includes('<a:gradFill><a:gsLst/></a:gradFill>') &&
+  shapeArrowClearedXml.includes('<a:custDash><a:ds d="1" sp="1"/></a:custDash>') &&
+  shapeArrowClearedXml.includes('<a:round/><a:extLst>') &&
+  shapeArrowClearedXml.includes('<x:keep xmlns:x="urn:packed-arrows"/>') &&
+  !shapeArrowClearedXml.includes('<a:headEnd type="stealth" w="lg" len="sm"') &&
+  !shapeArrowClearedXml.includes('<a:tailEnd type="oval" w="med" len="med"');
+packedBothArrows.arrows = { end: 'triangle' };
+packedBothArrows.line = {
+  kind: 'line',
+  color: { kind: 'scheme', value: 'accent4' },
+  transparency: 40,
+  width: 2,
+  dash: 'sysDash',
+};
+const shapeArrowLineEditPreservedArrows =
+  JSON.stringify(packedBothArrows.arrows) === JSON.stringify({ end: 'triangle' });
+packedBothArrows.arrows = undefined;
+const packedLineAfterArrowClear = packedBothArrows.line;
+packedBothArrows.arrows = { begin: 'none', end: 'arrow' };
+const shapeArrowEditIsolation = shapeArrowDeck.opcPackage.parts.length ===
+  shapeArrowPartCountBeforeEdit &&
+  shapeArrowSlide.relationships.length === shapeArrowRelationshipCountBeforeEdit;
+const duplicateShapeArrowSlide = shapeArrowDeck.duplicateSlide(0);
+const duplicatePackedArrows = duplicateShapeArrowSlide.shapes[0];
+if (!(duplicatePackedArrows instanceof ShapeModel)) {
+  throw new Error('Packed duplicate arrow shape failed');
+}
+duplicatePackedArrows.arrows = { begin: 'diamond' };
+duplicatePackedArrows.line = undefined;
+const reopenedShapeArrowDeck = await PptxDocument.open(await shapeArrowDeck.write());
+const reopenedSourceArrows = reopenedShapeArrowDeck.slides[0].shapes.map((shape) =>
+  shape instanceof ShapeModel ? shape.arrows : undefined);
+const reopenedDuplicateArrows = reopenedShapeArrowDeck.slides[1].shapes.map((shape) =>
+  shape instanceof ShapeModel ? shape.arrows : undefined);
+const reopenedSourceArrowLines = reopenedShapeArrowDeck.slides[0].shapes.map((shape) =>
+  shape instanceof ShapeModel ? shape.line : undefined);
+const shapeArrowInitialXml = new TextDecoder().decode(
+  shapeArrowDeck.opcPackage.requirePart(shapeArrowSlide.partUri).bytes,
+);
+const shapeArrowChecks = {
+  models: packedBothArrows instanceof ShapeModel && packedArrowOnly instanceof ShapeModel,
+  detached: initialPackedArrows !== initialPackedArrowsAgain &&
+    Object.isFrozen(initialPackedArrows) &&
+    JSON.stringify(initialPackedArrows) === JSON.stringify({ begin: 'triangle', end: 'arrow' }) &&
+    JSON.stringify(detachedPackedArrows) === JSON.stringify(initialPackedArrows),
+  noOp: shapeArrowNoOp,
+  sizePreservation: shapeArrowSizesPreserved,
+  partial: JSON.stringify(packedPartialArrows) === JSON.stringify({ begin: 'stealth' }),
+  clear: packedClearedArrows === undefined,
+  advancedLinePreservation: shapeArrowAdvancedLinePreserved,
+  lineEditPreservation: shapeArrowLineEditPreservedArrows,
+  arrowClearPreservesLine: JSON.stringify(packedLineAfterArrowClear) === JSON.stringify({
+      kind: 'line',
+      color: { kind: 'scheme', value: 'accent4' },
+      transparency: 40,
+      width: 2,
+      dash: 'sysDash',
+    }),
+  editIsolation: shapeArrowEditIsolation,
+  finalSource: JSON.stringify(packedBothArrows.arrows) ===
+    JSON.stringify({ begin: 'none', end: 'arrow' }),
+  arrowOnly: JSON.stringify(packedArrowOnly.arrows) === JSON.stringify({ begin: 'diamond' }),
+  allTypes: packedTypedArrows.every((shape, index) => {
+    const expected = index % 2 === 0
+      ? { begin: packedArrowTypes[index] }
+      : { end: packedArrowTypes[index] };
+    return JSON.stringify(shape.arrows) === JSON.stringify(expected);
+  }),
+  duplicate: duplicatePackedArrows.line === undefined &&
+    JSON.stringify(duplicatePackedArrows.arrows) === JSON.stringify({ begin: 'diamond' }),
+  reopenedSource: JSON.stringify(reopenedSourceArrows[0]) ===
+    JSON.stringify({ begin: 'none', end: 'arrow' }),
+  reopenedDuplicate: JSON.stringify(reopenedDuplicateArrows[0]) ===
+    JSON.stringify({ begin: 'diamond' }),
+  reopenedLine: JSON.stringify(reopenedSourceArrowLines[0]) ===
+    JSON.stringify(packedBothArrows.line),
+  noImplicitLineDefault: !shapeArrowInitialXml.includes('333333'),
+};
+const shapeArrows = Object.values(shapeArrowChecks).every((value) => value);
+if (!shapeArrows) {
+  throw new Error('Packed shape arrows failed: ' + JSON.stringify({
+    checks: shapeArrowChecks,
+    initial: initialPackedArrows,
+    partial: packedPartialArrows,
+    source: packedBothArrows.arrows,
+    duplicate: duplicatePackedArrows.arrows,
+    reopenedSource: reopenedSourceArrows[0],
+    reopenedDuplicate: reopenedDuplicateArrows[0],
+  }));
+}
 const initialTextWrap = createdText.textWrap;
 const initialTextDirection = createdText.textDirection;
 const initialTextFit = createdText.textFit;
@@ -919,6 +1082,7 @@ const checks = {
   presetShapes,
   shapeFills,
   shapeLines,
+  shapeArrows,
   presentationRtl: presentationRtlEnabled === true && presentationRtlDisabled === false && presentationRtlCleared === undefined && paragraphRtlAfterGlobalClear[0] === true && paragraphRtlAfterGlobalClear[1] === false,
   presentationTitle: createdPresentationTitle === 'Packed & <Title>' && editedPresentationTitle === 'Edited title' && reopenedPresentationTitle === 'Edited title' && emptyPresentationTitle === '' && clearedPresentationTitle === undefined,
   presentationAuthor: createdPresentationAuthor === 'Packed & <Author>' && editedPresentationAuthor === 'Edited author' && reopenedPresentationAuthor === 'Edited author' && emptyPresentationAuthor === '' && clearedPresentationAuthor === undefined,
@@ -1112,6 +1276,73 @@ if (Object.values(browserLineChecks).some((value) => !value)) {
   throw new Error('Browser shape line failed: ' + JSON.stringify({
     checks: browserLineChecks,
     initial: browserInitialLine,
+  }));
+}
+const browserArrowDeck = PptxDocument.create();
+const browserArrowSlide = browserArrowDeck.addSlide();
+const browserArrowSource = { begin: 'triangle', end: 'arrow' };
+const browserArrowShape = browserArrowSlide.addShape('line', {
+  line: {
+    kind: 'line',
+    color: { kind: 'srgb', value: '224466' },
+    width: 2.5,
+    dash: 'dashDot',
+  },
+  arrows: browserArrowSource,
+});
+const browserInitialArrows = browserArrowShape.arrows;
+const browserInitialArrowsAgain = browserArrowShape.arrows;
+browserArrowSource.begin = 'none';
+browserArrowSource.end = 'none';
+const browserDetachedArrows = browserArrowShape.arrows;
+const browserArrowPartCount = browserArrowDeck.opcPackage.parts.length;
+const browserArrowRelationshipCount = browserArrowSlide.relationships.length;
+const browserArrowNoOpBytes = browserArrowDeck.opcPackage
+  .requirePart(browserArrowSlide.partUri).bytes.slice();
+const browserArrowNoOpJournal = browserArrowDeck.opcPackage.mutations.length;
+browserArrowShape.arrows = { begin: 'triangle', end: 'arrow' };
+const browserArrowCurrentBytes = browserArrowDeck.opcPackage
+  .requirePart(browserArrowSlide.partUri).bytes;
+const browserArrowNoOp = browserArrowNoOpJournal === browserArrowDeck.opcPackage.mutations.length &&
+  browserArrowNoOpBytes.length === browserArrowCurrentBytes.length &&
+  browserArrowNoOpBytes.every((value, index) => value === browserArrowCurrentBytes[index]);
+browserArrowShape.arrows = { begin: 'diamond' };
+const browserPartialArrows = browserArrowShape.arrows;
+browserArrowShape.arrows = undefined;
+const browserClearedArrows = browserArrowShape.arrows;
+const browserLineAfterArrowClear = browserArrowShape.line;
+browserArrowShape.arrows = { begin: 'none', end: 'stealth' };
+browserArrowShape.line = undefined;
+const browserArrowsAfterLineClear = browserArrowShape.arrows;
+const reopenedBrowserArrowDeck = await PptxDocument.open(await browserArrowDeck.writeBlob());
+const reopenedBrowserArrows = reopenedBrowserArrowDeck.slides[0]?.shapes[0]?.arrows;
+const browserArrowChecks = {
+  initial: JSON.stringify(browserInitialArrows) ===
+    JSON.stringify({ begin: 'triangle', end: 'arrow' }),
+  detached: browserInitialArrows !== browserInitialArrowsAgain &&
+    Object.isFrozen(browserInitialArrows) &&
+    JSON.stringify(browserDetachedArrows) === JSON.stringify(browserInitialArrows),
+  noOp: browserArrowNoOp,
+  partial: JSON.stringify(browserPartialArrows) === JSON.stringify({ begin: 'diamond' }),
+  clearPreservesLine: browserClearedArrows === undefined &&
+    JSON.stringify(browserLineAfterArrowClear) === JSON.stringify({
+      kind: 'line',
+      color: { kind: 'srgb', value: '224466' },
+      width: 2.5,
+      dash: 'dashDot',
+    }),
+  lineClearPreservesArrows: JSON.stringify(browserArrowsAfterLineClear) ===
+    JSON.stringify({ begin: 'none', end: 'stealth' }),
+  partIsolation: browserArrowDeck.opcPackage.parts.length === browserArrowPartCount,
+  relationshipIsolation: browserArrowSlide.relationships.length ===
+    browserArrowRelationshipCount,
+  reopened: JSON.stringify(reopenedBrowserArrows) ===
+    JSON.stringify({ begin: 'none', end: 'stealth' }),
+};
+if (Object.values(browserArrowChecks).some((value) => !value)) {
+  throw new Error('Browser shape arrows failed: ' + JSON.stringify({
+    checks: browserArrowChecks,
+    initial: browserInitialArrows,
   }));
 }
 const created = PptxDocument.create({ rtlMode: true, slideSize: '16:9' });
@@ -1495,6 +1726,8 @@ process.stdout.write(resolved);
   TableModel,
   inches,
   type AddShapeOptions,
+  type ShapeArrows,
+  type ShapeArrowType,
   type ShapeFill,
   type ShapeLine,
   type ShapeLineDash,
@@ -1564,6 +1797,11 @@ const typedSolidShapeLine: ShapeLine = {
   width: 2.5,
   dash: typedShapeLineDash,
 };
+const typedShapeArrowType: ShapeArrowType = 'triangle';
+const typedShapeArrows: ShapeArrows = {
+  begin: typedShapeArrowType,
+  end: 'arrow',
+};
 const typedShapeOptions: AddShapeOptions = {
   x: inches(1),
   y: inches(2),
@@ -1574,6 +1812,7 @@ const typedShapeOptions: AddShapeOptions = {
   name: 'Typed shape',
   fill: typedSolidShapeFill,
   line: typedSolidShapeLine,
+  arrows: typedShapeArrows,
 };
 const typedShape: ShapeModel = createdDocument.addSlide().addShape(
   typedPreset,
@@ -1589,6 +1828,10 @@ const typedShapeLineRead: ShapeLine | undefined = typedShape.line;
 typedShape.line = typedNoneShapeLine;
 typedShape.line = typedSolidShapeLine;
 typedShape.line = undefined;
+const typedShapeArrowsRead: ShapeArrows | undefined = typedShape.arrows;
+typedShape.arrows = { begin: 'diamond' };
+typedShape.arrows = typedShapeArrows;
+typedShape.arrows = undefined;
 const typedPresetCatalog: readonly PresetShapeType[] = PRESET_SHAPE_TYPES;
 // @ts-expect-error folderCorner is not a canonical OOXML preset
 createdDocument.addSlide().addShape('folderCorner');
@@ -1616,6 +1859,12 @@ const invalidShapeLineWidth: ShapeLine = { kind: 'line', color: { kind: 'srgb', 
 const invalidShapeLineDash: ShapeLineDash = 'dot';
 // @ts-expect-error PptxGenJS dashType is not a native alias
 const invalidShapeLineAlias: ShapeLine = { kind: 'line', color: { kind: 'srgb', value: 'FF0000' }, dashType: 'dash' };
+// @ts-expect-error shape arrow type union is closed
+const invalidShapeArrowType: ShapeArrowType = 'open';
+// @ts-expect-error shape arrow values use the closed canonical token union
+const invalidShapeArrowValue: ShapeArrows = { begin: '' };
+// @ts-expect-error PptxGenJS beginArrowType is not a native alias
+const invalidShapeArrowAlias: ShapeArrows = { beginArrowType: 'arrow' };
 const addSectionOptions: AddSectionOptions = { title: 'Typed', order: 0 };
 const typedSection: PresentationSection = createdDocument.addSection(addSectionOptions);
 const addSlideOptions: AddSlideOptions = { sectionTitle: typedSection.title };
