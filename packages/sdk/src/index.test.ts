@@ -18,6 +18,7 @@ import {
   CustomGeometryEvaluationError,
   degrees,
   evaluateCustomGeometry,
+  ImageModel,
   inches,
   ModelParseError,
   openPptxStream,
@@ -26,6 +27,7 @@ import {
   ShapeModel,
   TableModel,
   ValidationError,
+  type AddImageOptions,
   type AddTableCellOptions,
   type AddTableCellInput,
   type AddTableOptions,
@@ -33,6 +35,7 @@ import {
   type CustomGeometryEvaluationContext,
   type EvaluatedCustomGeometry,
   type Hyperlink,
+  type RasterImageContentType,
   type ShapeArrows,
   type ShapeAdjustment,
   type ShapeArrowType,
@@ -192,6 +195,62 @@ describe('PptxDocument vertical slice', () => {
     expect(reopened.slides).toHaveLength(2);
     expect(reopened.slides.map(({ slideId }) => slideId)).toEqual([256, 257]);
     expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+  });
+
+  it('exports the embedded raster image API with strict public types', async () => {
+    const document = PptxDocument.create();
+    const contentType: RasterImageContentType = 'image/png';
+    const options: AddImageOptions = {
+      contentType,
+      width: inches(2),
+      height: inches(1),
+    };
+    const slide = document.addSlide();
+    const image: ImageModel = slide.addImage(new Uint8Array([1]), options);
+
+    expect(image).toBeInstanceOf(ImageModel);
+    expect(image.sourcePartUri).toMatch(/\/ppt\/media\/image\d+\.png$/);
+    expect(slide.shapes[0]).toBe(image);
+    expect(document.opcPackage.requirePart(image.sourcePartUri!)).toMatchObject({
+      contentType: 'image/png',
+      bytes: new Uint8Array([1]),
+    });
+    expect(validatePackage(document.opcPackage).filter(({ severity }) => severity === 'error'))
+      .toEqual([]);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedImage = reopened.slides[0]!.shapes[0] as ImageModel;
+    expect(reopenedImage).toBeInstanceOf(ImageModel);
+    expect(reopenedImage.transform).toMatchObject({
+      width: inches(2),
+      height: inches(1),
+    });
+    expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error'))
+      .toEqual([]);
+
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const formatted = PptxDocument.create({ format });
+      const formattedSlide = formatted.addSlide();
+      formattedSlide.addImage(new Uint8Array([1]), { contentType: 'image/png' });
+      formattedSlide.addImage(new Uint8Array([2]), { contentType: 'image/jpeg' });
+      formattedSlide.addImage(new Uint8Array([3]), { contentType: 'image/gif' });
+      const formattedReopened = await PptxDocument.open(await formatted.write());
+      expect(formattedReopened.format).toBe(format);
+      expect(validatePackage(formattedReopened.opcPackage)
+        .filter(({ severity }) => severity === 'error')).toEqual([]);
+    }
+
+    if (false) {
+      // @ts-expect-error raster image content types exclude SVG
+      const svgType: RasterImageContentType = 'image/svg+xml';
+      // @ts-expect-error embedded raster image options require contentType
+      const missingType: AddImageOptions = {};
+      // @ts-expect-error model image creation excludes path loading
+      const pathOptions: AddImageOptions = { contentType, path: './image.png' };
+      // @ts-expect-error model image creation excludes data-URI loading
+      const dataOptions: AddImageOptions = { contentType, data: 'data:image/png;base64,AQ==' };
+      void [svgType, missingType, pathOptions, dataOptions];
+    }
   });
 
   it('creates preset shapes with deterministic defaults, transforms, order, and identity', () => {

@@ -667,6 +667,230 @@ describe('PresentationModel', () => {
     expect(created.sourcePartUri).toBe('/ppt/media/image1.png');
   });
 
+  it('preserves embedded raster image edits and clone-on-write state through reopen', async () => {
+    const { pkg, model } = emptyPresentationModel();
+    const sourceSlide = model.addSlide();
+    const sourceImage = sourceSlide.addImage(new Uint8Array([1, 2, 3]), {
+      contentType: 'image/png',
+      name: 'Lifecycle image',
+      altText: 'Lifecycle alt text',
+    });
+    const originalUri = sourceImage.sourcePartUri!;
+
+    sourceImage.setTransform({
+      x: inches(2),
+      y: inches(1),
+      width: inches(4),
+      height: inches(3),
+      rotation: degrees(30),
+      flipVertical: true,
+    });
+    sourceImage.replaceData(new Uint8Array([4, 5, 6]), 'image/png');
+    expect(sourceImage.sourcePartUri).toBe(originalUri);
+    expect(sourceSlide.shapes[0]).toBe(sourceImage);
+    expect(pkg.requirePart(originalUri)).toMatchObject({
+      contentType: 'image/png',
+      bytes: new Uint8Array([4, 5, 6]),
+    });
+
+    const duplicateSlide = model.duplicateSlide(model.slides.indexOf(sourceSlide));
+    const duplicateImage = duplicateSlide.shapes[0] as ImageModel;
+    expect(duplicateImage).toBeInstanceOf(ImageModel);
+    expect(duplicateImage.sourcePartUri).toBe(originalUri);
+    expect(duplicateImage.name).toBe('Lifecycle image');
+    expect(duplicateImage.transform).toEqual(sourceImage.transform);
+
+    duplicateImage.replaceData(new Uint8Array([7, 8, 9]), 'image/png');
+    const duplicateUri = duplicateImage.sourcePartUri!;
+    expect(duplicateUri).not.toBe(originalUri);
+    expect(duplicateSlide.shapes[0]).toBe(duplicateImage);
+    expect(pkg.requirePart(originalUri).bytes).toEqual(new Uint8Array([4, 5, 6]));
+    expect(pkg.requirePart(duplicateUri)).toMatchObject({
+      contentType: 'image/png',
+      bytes: new Uint8Array([7, 8, 9]),
+    });
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedSourceSlide = reopened.slides.find(
+      ({ partUri }) => partUri === sourceSlide.partUri,
+    )!;
+    const reopenedDuplicateSlide = reopened.slides.find(
+      ({ partUri }) => partUri === duplicateSlide.partUri,
+    )!;
+    const reopenedSource = reopenedSourceSlide.shapes[0] as ImageModel;
+    const reopenedDuplicate = reopenedDuplicateSlide.shapes[0] as ImageModel;
+    expect(reopenedSource).toBeInstanceOf(ImageModel);
+    expect(reopenedDuplicate).toBeInstanceOf(ImageModel);
+    expect(reopenedSourceSlide.shapes[0]).toBe(reopenedSource);
+    expect(reopenedDuplicateSlide.shapes[0]).toBe(reopenedDuplicate);
+    expect([reopenedSource.name, reopenedDuplicate.name]).toEqual([
+      'Lifecycle image',
+      'Lifecycle image',
+    ]);
+    expect(reopenedSource.transform).toEqual({
+      x: inches(2),
+      y: inches(1),
+      width: inches(4),
+      height: inches(3),
+      rotation: degrees(30),
+      flipHorizontal: false,
+      flipVertical: true,
+    });
+    expect(reopenedDuplicate.transform).toEqual(reopenedSource.transform);
+    expect(reopenedSource.sourcePartUri).toBe(originalUri);
+    expect(reopenedDuplicate.sourcePartUri).toBe(duplicateUri);
+    expect(reopened.opcPackage.requirePart(originalUri)).toMatchObject({
+      contentType: 'image/png',
+      bytes: new Uint8Array([4, 5, 6]),
+    });
+    expect(reopened.opcPackage.requirePart(duplicateUri)).toMatchObject({
+      contentType: 'image/png',
+      bytes: new Uint8Array([7, 8, 9]),
+    });
+    for (const [slide, uri] of [
+      [reopenedSourceSlide, originalUri],
+      [reopenedDuplicateSlide, duplicateUri],
+    ] as const) {
+      expect(slide.relationships.some(({ type, targetMode, resolvedTarget }) =>
+        type === IMAGE_RELATIONSHIP
+        && targetMode === 'Internal'
+        && resolvedTarget === uri)).toBe(true);
+    }
+  });
+
+  it('rolls back, moves, and deletes embedded raster image slides by shared policy', () => {
+    const { pkg, model } = emptyPresentationModel();
+    const slide = model.addSlide();
+    const before = packageSnapshot(pkg);
+    let rolledBack: ImageModel | undefined;
+    expect(() => pkg.transaction(() => {
+      rolledBack = slide.addImage(new Uint8Array([1]), {
+        contentType: 'image/png',
+        name: 'Temporary image',
+      });
+      rolledBack.setTransform({ x: inches(3), rotation: degrees(15) });
+      rolledBack.replaceData(new Uint8Array([2, 3]), 'image/png');
+      throw new Error('restore complete image lifecycle');
+    })).toThrow('restore complete image lifecycle');
+    expect(packageSnapshot(pkg)).toEqual(before);
+    expect(slide.shapes).toEqual([]);
+    expect(() => rolledBack!.name).toThrow(ModelParseError);
+
+    const image = slide.addImage(new Uint8Array([4, 5]), {
+      contentType: 'image/png',
+      name: 'Persistent image',
+    });
+    const mediaPartUri = image.sourcePartUri!;
+    const slidePartUri = slide.partUri;
+    const slideRelationshipId = slide.relationshipId;
+    const neighbor = model.addSlide();
+    model.moveSlide(model.slides.indexOf(slide), model.slides.length - 1);
+    expect(model.slides).toEqual([neighbor, slide]);
+    expect(model.slides[1]).toBe(slide);
+    expect(slide.shapes[0]).toBe(image);
+    expect(image.sourcePartUri).toBe(mediaPartUri);
+
+    model.deleteSlide(model.slides.indexOf(slide));
+    expect(model.slides).toEqual([neighbor]);
+    expect(pkg.hasPart(slidePartUri)).toBe(false);
+    expect(pkg.relationships(model.presentationPartUri)
+      .some(({ id }) => id === slideRelationshipId)).toBe(false);
+    expect(pkg.hasPart(mediaPartUri)).toBe(true);
+    expect(pkg.requirePart(mediaPartUri)).toMatchObject({
+      contentType: 'image/png',
+      bytes: new Uint8Array([4, 5]),
+    });
+    expect(pkg.graph.find(({ uri }) => uri === mediaPartUri)?.incoming).toEqual([]);
+    expect(() => image.name).toThrow(/Missing package part/);
+  });
+
+  it('round-trips embedded raster image lifecycle in all six presentation formats', async () => {
+    const definitions = [
+      { contentType: 'image/png' as const, bytes: new Uint8Array([1]), name: 'PNG image' },
+      { contentType: 'image/jpeg' as const, bytes: new Uint8Array([2]), name: 'JPEG image' },
+      { contentType: 'image/gif' as const, bytes: new Uint8Array([3]), name: 'GIF image' },
+    ];
+
+    for (const profile of Object.values(PRESENTATION_FORMAT_PROFILES)) {
+      const pkg = await OpcPackage.open(await modelFixture(profile.presentationContentType));
+      const model = new PresentationModel(pkg);
+      const slide = model.addSlide();
+      for (const definition of definitions) {
+        slide.addImage(definition.bytes, {
+          contentType: definition.contentType,
+          name: definition.name,
+          altText: `${definition.name} description`,
+        });
+      }
+
+      const first = new PresentationModel(await OpcPackage.open(await pkg.write()));
+      const firstSlide = first.slides.find(({ partUri }) => partUri === slide.partUri)!;
+      const firstImages = firstSlide.shapes.filter(
+        (shape): shape is ImageModel => shape instanceof ImageModel,
+      );
+      expect(first.format).toBe(profile.format);
+      expect(firstImages.map(({ name }) => name)).toEqual(definitions.map(({ name }) => name));
+      expect(firstSlide.shapes.filter(
+        (shape): shape is ImageModel => shape instanceof ImageModel,
+      )).toEqual(firstImages);
+      for (const [index, image] of firstImages.entries()) {
+        const definition = definitions[index]!;
+        const uri = image.sourcePartUri!;
+        expect(first.opcPackage.requirePart(uri)).toMatchObject({
+          contentType: definition.contentType,
+          bytes: definition.bytes,
+        });
+        expect(firstSlide.relationships.some(({ type, targetMode, resolvedTarget }) =>
+          type === IMAGE_RELATIONSHIP
+          && targetMode === 'Internal'
+          && resolvedTarget === uri)).toBe(true);
+        image.setTransform({
+          x: inches(index + 1),
+          y: inches(index + 2),
+          rotation: degrees((index + 1) * 15),
+          flipHorizontal: index === 1,
+        });
+        image.replaceData(
+          new Uint8Array([10 + index, 20 + index]),
+          definition.contentType,
+        );
+      }
+
+      const second = new PresentationModel(
+        await OpcPackage.open(await first.opcPackage.write()),
+      );
+      const secondSlide = second.slides.find(({ partUri }) => partUri === slide.partUri)!;
+      const secondImages = secondSlide.shapes.filter(
+        (shape): shape is ImageModel => shape instanceof ImageModel,
+      );
+      expect(second.format).toBe(profile.format);
+      expect(secondImages.map(({ name }) => name)).toEqual(definitions.map(({ name }) => name));
+      expect(secondSlide.shapes.filter(
+        (shape): shape is ImageModel => shape instanceof ImageModel,
+      )).toEqual(secondImages);
+      for (const [index, image] of secondImages.entries()) {
+        const uri = image.sourcePartUri!;
+        expect(image.transform).toEqual({
+          x: inches(index + 1),
+          y: inches(index + 2),
+          width: inches(1),
+          height: inches(1),
+          rotation: degrees((index + 1) * 15),
+          flipHorizontal: index === 1,
+          flipVertical: false,
+        });
+        expect(second.opcPackage.requirePart(uri)).toMatchObject({
+          contentType: definitions[index]!.contentType,
+          bytes: new Uint8Array([10 + index, 20 + index]),
+        });
+        expect(secondSlide.relationships.some(({ type, targetMode, resolvedTarget }) =>
+          type === IMAGE_RELATIONSHIP
+          && targetMode === 'Internal'
+          && resolvedTarget === uri)).toBe(true);
+      }
+    }
+  });
+
   it('creates detached styled, multi-path, and empty custom shapes before extensions', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);
