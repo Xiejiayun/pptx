@@ -61,6 +61,7 @@ describe('normalizePresetShape', () => {
     expect(normalizePresetShape('rect', undefined)).toEqual({
       type: 'rect',
       name: undefined,
+      fill: { kind: 'none' },
       x: 914_400,
       y: 914_400,
       width: 914_400,
@@ -79,13 +80,23 @@ describe('normalizePresetShape', () => {
     options.rotation = 2.5;
     options.flipHorizontal = true;
     options.flipVertical = true;
+    const color = { kind: 'srgb', value: '#ff0000' };
+    const fill = { kind: 'solid', color, transparency: 33.3334 };
+    options.fill = fill;
     const normalized = normalizePresetShape('ellipse', options);
     options.name = 'Changed';
     options.x = 99;
+    color.value = '000000';
+    fill.transparency = 1;
 
     expect(normalized).toEqual({
       type: 'ellipse',
       name: 'A & <B>',
+      fill: {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'FF0000' },
+        transparency: 33.333,
+      },
       x: 1,
       y: -1,
       width: 3,
@@ -160,6 +171,36 @@ describe('normalizePresetShape', () => {
       }
     }
   });
+
+  it('rejects invalid preset shape fills', () => {
+    for (const fill of [
+      null,
+      [],
+      { kind: 'gradient' },
+      { kind: 'solid' },
+      { kind: 'none', color: undefined },
+      { kind: 'solid', color: { kind: 'srgb', value: 'FFF' } },
+      { kind: 'solid', color: { kind: 'scheme', value: 'unknown' } },
+      {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'FFFFFF' },
+        transparency: Number.NaN,
+      },
+      {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'FFFFFF' },
+        transparency: 101,
+      },
+      {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'FFFFFF' },
+        alpha: 40,
+      },
+      { kind: 'none', type: 'none' },
+    ]) {
+      expect(() => normalizePresetShape('rect', { fill }), JSON.stringify(fill)).toThrow();
+    }
+  });
 });
 
 describe('preset shape XML codec', () => {
@@ -188,6 +229,45 @@ describe('preset shape XML codec', () => {
     expect(rendered).toContain('<a:xfrm rot="-2" flipH="1" flipV="1">');
     expect(rendered).toContain('<a:off x="-3" y="4"/><a:ext cx="5" cy="6"/>');
     expect(rendered).toContain('<a:prstGeom prst="lineInv"><a:avLst/></a:prstGeom>');
+  });
+
+  it('renders strict shape fills immediately after geometry and before the empty line', () => {
+    expect(renderPresetShapeXml(7, normalizePresetShape('rect', {
+      fill: {
+        kind: 'solid',
+        color: { kind: 'srgb', value: '#ff0000' },
+      },
+    }))).toContain(
+      '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>' +
+      '<a:solidFill><a:srgbClr val="FF0000"/></a:solidFill><a:ln/>',
+    );
+    expect(renderPresetShapeXml(8, normalizePresetShape('ellipse', {
+      fill: {
+        kind: 'solid',
+        color: { kind: 'scheme', value: 'accent2' },
+        transparency: 25,
+      },
+    }))).toContain(
+      '<a:prstGeom prst="ellipse"><a:avLst/></a:prstGeom>' +
+      '<a:solidFill><a:schemeClr val="accent2"><a:alpha val="75000"/>' +
+      '</a:schemeClr></a:solidFill><a:ln/>',
+    );
+    expect(renderPresetShapeXml(9, normalizePresetShape('star5', {
+      fill: {
+        kind: 'solid',
+        color: { kind: 'srgb', value: '00FF00' },
+        transparency: 0,
+      },
+    }))).toContain(
+      '<a:prstGeom prst="star5"><a:avLst/></a:prstGeom>' +
+      '<a:solidFill><a:srgbClr val="00FF00"><a:alpha val="100000"/>' +
+      '</a:srgbClr></a:solidFill><a:ln/>',
+    );
+    expect(renderPresetShapeXml(10, normalizePresetShape('diamond', {
+      fill: { kind: 'none' },
+    }))).toContain(
+      '<a:prstGeom prst="diamond"><a:avLst/></a:prstGeom><a:noFill/><a:ln/>',
+    );
   });
 
   it('round-trips every canonical token through parseable direct geometry', () => {

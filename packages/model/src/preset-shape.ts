@@ -1,3 +1,4 @@
+import type { RichTextColor } from './text.js';
 import type { Transform } from './units.js';
 
 export const PRESET_SHAPE_TYPES = Object.freeze([
@@ -50,6 +51,15 @@ export const PRESET_SHAPE_TYPES = Object.freeze([
 
 export type PresetShapeType = (typeof PRESET_SHAPE_TYPES)[number];
 
+export type ShapeFill =
+  | { readonly kind: 'none' }
+  | {
+      readonly kind: 'solid';
+      readonly color: RichTextColor;
+      readonly transparency?: number;
+    };
+
 export interface AddShapeOptions extends Partial<Transform> {
   readonly name?: string;
+  readonly fill?: ShapeFill;
 }

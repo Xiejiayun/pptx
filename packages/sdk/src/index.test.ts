@@ -27,6 +27,7 @@ import {
   type AddTableCellOptions,
   type AddTableCellInput,
   type AddTableOptions,
+  type ShapeFill,
 } from './index.js';
 
 async function titleFixture(): Promise<Uint8Array> {
@@ -241,6 +242,66 @@ describe('PptxDocument vertical slice', () => {
     expect(xml).toContain('<a:xfrm rot="2700000" flipH="1" flipV="1">');
     expect(xml).toContain('name="A &amp; &lt;Line&gt;"');
     expect(xml).not.toContain('<p:txBody>');
+  });
+
+  it('creates preset shape fills through the public SDK surface', () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const relationships = slide.relationships.map(({ id, type, target, targetMode }) => ({
+      id,
+      type,
+      target,
+      targetMode,
+    }));
+    const runtimeUndefined: ShapeFill | undefined = undefined;
+    const fill: {
+      kind: 'solid';
+      color: { kind: 'srgb'; value: string };
+      transparency: number;
+    } = {
+      kind: 'solid',
+      color: { kind: 'srgb', value: '#112233' },
+      transparency: 50,
+    };
+
+    const omitted = slide.addShape('rect');
+    const undefinedFill = slide.addShape('ellipse', { fill: runtimeUndefined } as never);
+    const none = slide.addShape('star5', { fill: { kind: 'none' } });
+    const solid = slide.addShape('diamond', { fill });
+    const themed = slide.addShape('hexagon', {
+      fill: {
+        kind: 'solid',
+        color: { kind: 'scheme', value: 'accent3' },
+        transparency: 25,
+      },
+    });
+    fill.color.value = 'FFFFFF';
+    fill.transparency = 0;
+
+    expect(slide.shapes).toEqual([omitted, undefinedFill, none, solid, themed]);
+    expect(slide.shapes[3]).toBe(solid);
+    expect([omitted, undefinedFill, none, solid, themed].every(
+      (shape) => shape instanceof ShapeModel,
+    )).toBe(true);
+    expect(slide.relationships.map(({ id, type, target, targetMode }) => ({
+      id,
+      type,
+      target,
+      targetMode,
+    }))).toEqual(relationships);
+
+    const xml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect((xml.match(/<a:noFill\/>/g) ?? [])).toHaveLength(3);
+    expect(xml).toContain(
+      '<a:prstGeom prst="diamond"><a:avLst/></a:prstGeom>' +
+      '<a:solidFill><a:srgbClr val="112233"><a:alpha val="50000"/>' +
+      '</a:srgbClr></a:solidFill><a:ln/>',
+    );
+    expect(xml).toContain(
+      '<a:prstGeom prst="hexagon"><a:avLst/></a:prstGeom>' +
+      '<a:solidFill><a:schemeClr val="accent3"><a:alpha val="75000"/>' +
+      '</a:schemeClr></a:solidFill><a:ln/>',
+    );
   });
 
   it('creates all 178 canonical preset shapes in catalog order', () => {

@@ -17,6 +17,7 @@ import {
   type AddTableCellInput,
   type AddTableOptions,
   type PresentationFormat,
+  type ShapeFill,
   type TableCellBorderInput,
   type TextBoxMarginInput,
 } from './index.js';
@@ -97,6 +98,154 @@ describe('PresentationModel', () => {
     const journal = [...pkg.mutations];
     expect(() => slide.addShape('ellipse')).toThrow(ModelParseError);
     expect(pkg.requirePart(slide.partUri).bytes).toEqual(before);
+    expect(pkg.mutations).toEqual(journal);
+  });
+
+  it('creates preset shape fills with detached strict values through the live model', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const runtimeUndefined: ShapeFill | undefined = undefined;
+    const mutableFill: {
+      kind: 'solid';
+      color: { kind: 'srgb'; value: string };
+      transparency: number;
+    } = {
+      kind: 'solid',
+      color: { kind: 'srgb', value: '#ff0000' },
+      transparency: 50,
+    };
+
+    const omitted = slide.addShape('rect');
+    const undefinedFill = slide.addShape('ellipse', { fill: runtimeUndefined } as never);
+    const none = slide.addShape('star5', { fill: { kind: 'none' } });
+    const red = slide.addShape('diamond', { fill: mutableFill });
+    const themed = slide.addShape('hexagon', {
+      fill: {
+        kind: 'solid',
+        color: { kind: 'scheme', value: 'accent2' },
+        transparency: 25,
+      },
+    });
+    mutableFill.color.value = '000000';
+    mutableFill.transparency = 1;
+
+    expect([omitted, undefinedFill, none, red, themed].every(
+      (shape) => shape instanceof ShapeModel,
+    )).toBe(true);
+    expect(slide.shapes).toEqual([omitted, undefinedFill, none, red, themed]);
+    expect(slide.shapes[3]).toBe(red);
+
+    const xml = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect(xml).toContain(
+      '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln/>',
+    );
+    expect(xml).toContain(
+      '<a:prstGeom prst="ellipse"><a:avLst/></a:prstGeom><a:noFill/><a:ln/>',
+    );
+    expect(xml).toContain(
+      '<a:prstGeom prst="star5"><a:avLst/></a:prstGeom><a:noFill/><a:ln/>',
+    );
+    expect(xml).toContain(
+      '<a:prstGeom prst="diamond"><a:avLst/></a:prstGeom>' +
+      '<a:solidFill><a:srgbClr val="FF0000"><a:alpha val="50000"/>' +
+      '</a:srgbClr></a:solidFill><a:ln/>',
+    );
+    expect(xml).toContain(
+      '<a:prstGeom prst="hexagon"><a:avLst/></a:prstGeom>' +
+      '<a:solidFill><a:schemeClr val="accent2"><a:alpha val="75000"/>' +
+      '</a:schemeClr></a:solidFill><a:ln/>',
+    );
+  });
+
+  it('rejects invalid preset shape fills before mutating package state', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const partBytes = pkg.requirePart(slide.partUri).bytes.slice();
+    const parts = pkg.parts.map(({ uri, contentType, bytes }) => ({
+      uri,
+      contentType,
+      bytes: bytes.slice(),
+    }));
+    const relationships = slide.relationships.map(({ id, type, target, targetMode }) => ({
+      id,
+      type,
+      target,
+      targetMode,
+    }));
+    const shapes = [...slide.shapes];
+    const journal = [...pkg.mutations];
+    let accessorCalls = 0;
+    const inherited = Object.create({ kind: 'none' });
+    const fillGetter = Object.defineProperty({}, 'kind', {
+      enumerable: true,
+      get() {
+        accessorCalls += 1;
+        return 'none';
+      },
+    });
+    const optionsGetter = Object.defineProperty({}, 'fill', {
+      enumerable: true,
+      get() {
+        accessorCalls += 1;
+        return { kind: 'none' };
+      },
+    });
+    const invalidFills = [
+      null,
+      false,
+      [],
+      new Date(),
+      inherited,
+      fillGetter,
+      { kind: 'gradient' },
+      { kind: 'none', color: undefined },
+      { kind: 'solid' },
+      { kind: 'solid', color: { kind: 'srgb', value: 'FFF' } },
+      { kind: 'solid', color: { kind: 'scheme', value: 'unknown' } },
+      {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'FFFFFF' },
+        transparency: Number.NaN,
+      },
+      {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'FFFFFF' },
+        transparency: -1,
+      },
+      {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'FFFFFF' },
+        transparency: 101,
+      },
+      {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'FFFFFF' },
+        alpha: 40,
+      },
+      { kind: 'none', type: 'none' },
+      { kind: 'none', [Symbol('unsafe')]: true },
+    ];
+    for (const fill of invalidFills) {
+      expect(() => slide.addShape('rect', { fill } as never)).toThrow();
+    }
+    expect(() => slide.addShape('rect', optionsGetter as never)).toThrow(/data property/);
+
+    expect(accessorCalls).toBe(0);
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(partBytes);
+    expect(pkg.parts.map(({ uri, contentType, bytes }) => ({
+      uri,
+      contentType,
+      bytes,
+    }))).toEqual(parts);
+    expect(slide.relationships.map(({ id, type, target, targetMode }) => ({
+      id,
+      type,
+      target,
+      targetMode,
+    }))).toEqual(relationships);
+    expect(slide.shapes).toEqual(shapes);
     expect(pkg.mutations).toEqual(journal);
   });
 

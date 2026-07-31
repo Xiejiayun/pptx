@@ -7,7 +7,12 @@ import { ModelParseError } from './errors.js';
 import {
   PRESET_SHAPE_TYPES,
   type PresetShapeType,
+  type ShapeFill,
 } from './preset-shape.js';
+import {
+  normalizeSimpleFill,
+  renderSimpleFill,
+} from './simple-fill.internal.js';
 
 const PRESENTATION_NAMESPACE =
   'http://schemas.openxmlformats.org/presentationml/2006/main';
@@ -18,6 +23,7 @@ const MAX_ROTATION = 21_600_000;
 const PRESET_SHAPE_TYPE_SET: ReadonlySet<string> = new Set(PRESET_SHAPE_TYPES);
 const OPTION_KEYS = new Set([
   'name',
+  'fill',
   'x',
   'y',
   'width',
@@ -30,6 +36,7 @@ const OPTION_KEYS = new Set([
 export interface NormalizedPresetShape {
   readonly type: PresetShapeType;
   readonly name: string | undefined;
+  readonly fill: ShapeFill;
   readonly x: number;
   readonly y: number;
   readonly width: number;
@@ -70,10 +77,12 @@ export function normalizePresetShape(
   if (rotation < -MAX_ROTATION || rotation > MAX_ROTATION) {
     throw new RangeError('Preset shape rotation must be between -21600000 and 21600000');
   }
+  const fill = normalizeSimpleFill(values.fill, 'Preset shape fill') ?? { kind: 'none' };
 
   return Object.freeze({
     type: type as PresetShapeType,
     name: name as string | undefined,
+    fill,
     x: normalizeNumber(values.x, EMU_PER_INCH, 'x'),
     y: normalizeNumber(values.y, EMU_PER_INCH, 'y'),
     width,
@@ -99,7 +108,8 @@ export function renderPresetShapeXml(
     `<p:nvSpPr><p:cNvPr id="${id}" name="${name}"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>` +
     `<p:spPr><a:xfrm${transformAttributes}><a:off x="${shape.x}" y="${shape.y}"/>` +
     `<a:ext cx="${shape.width}" cy="${shape.height}"/></a:xfrm>` +
-    `<a:prstGeom prst="${type}"><a:avLst/></a:prstGeom><a:noFill/><a:ln/></p:spPr></p:sp>`;
+    `<a:prstGeom prst="${type}"><a:avLst/></a:prstGeom>` +
+    `${renderSimpleFill(shape.fill, 'a:')}<a:ln/></p:spPr></p:sp>`;
 }
 
 export function readPresetShapeType(
