@@ -6,6 +6,7 @@ import {
 import type {
   CustomGeometry,
   CustomGeometryCommand,
+  CustomGeometryConnectionSite,
   CustomGeometryFormula,
   CustomGeometryGuide,
   CustomGeometryHandle,
@@ -23,7 +24,7 @@ const PRESENTATION_NAMESPACE =
   'http://schemas.openxmlformats.org/presentationml/2006/main';
 const DRAWING_NAMESPACE =
   'http://schemas.openxmlformats.org/drawingml/2006/main';
-const ROOT_KEYS = new Set(['adjustments', 'guides', 'handles', 'paths']);
+const ROOT_KEYS = new Set(['adjustments', 'guides', 'handles', 'connectionSites', 'paths']);
 const ROOT_REQUIRED_KEYS = new Set(['paths']);
 const GUIDE_KEYS = new Set(['name', 'formula']);
 const FORMULA_KEYS = new Set(['operator', 'operands']);
@@ -48,6 +49,7 @@ const POLAR_HANDLE_KEYS = new Set([
   'maxAngle',
 ]);
 const HANDLE_REQUIRED_KEYS = new Set(['kind', 'position']);
+const CONNECTION_SITE_KEYS = new Set(['position', 'angle']);
 const XY_HANDLE_ATTRIBUTE_KEYS = new Set([
   'gdRefX',
   'minX',
@@ -154,6 +156,9 @@ export function normalizeCustomGeometry(
   const handles = Object.hasOwn(root, 'handles')
     ? normalizeHandleList(root.handles, `${context} handles`)
     : undefined;
+  const connectionSites = Object.hasOwn(root, 'connectionSites')
+    ? normalizeConnectionSiteList(root.connectionSites, `${context} connectionSites`)
+    : undefined;
   const paths = readArray(root.paths, `${context} paths`);
   if (paths.length === 0) throw new RangeError(`${context} paths must not be empty`);
   const normalizedPaths = paths.map((path, index) =>
@@ -162,6 +167,7 @@ export function normalizeCustomGeometry(
     ...(adjustments?.length ? { adjustments } : {}),
     ...(guides?.length ? { guides } : {}),
     ...(handles?.length ? { handles } : {}),
+    ...(connectionSites?.length ? { connectionSites } : {}),
     paths: Object.freeze(normalizedPaths),
   });
 }
@@ -173,7 +179,8 @@ export function renderCustomGeometry(
   const paths = geometry.paths.map((path) => renderPath(path, prefix)).join('');
   return `<${prefix}custGeom>${renderGuideList('avLst', geometry.adjustments, prefix)}` +
     `${renderGuideList('gdLst', geometry.guides, prefix)}` +
-    `${renderHandleList(geometry.handles, prefix)}<${prefix}cxnLst/>` +
+    `${renderHandleList(geometry.handles, prefix)}` +
+    `${renderConnectionSiteList(geometry.connectionSites, prefix)}` +
     `<${prefix}rect l="l" t="t" r="r" b="b"/>` +
     `<${prefix}pathLst>${paths}</${prefix}pathLst></${prefix}custGeom>`;
 }
@@ -225,6 +232,7 @@ export function customGeometryEqual(
     !guideListsEqual(left.adjustments, right.adjustments)
     || !guideListsEqual(left.guides, right.guides)
     || !handleListsEqual(left.handles, right.handles)
+    || !connectionSiteListsEqual(left.connectionSites, right.connectionSites)
   ) return false;
   if (left.paths.length !== right.paths.length) return false;
   return left.paths.every((path, index) => {
@@ -388,6 +396,21 @@ function normalizeHandle(value: unknown, context: string): Readonly<CustomGeomet
     );
   }
   return Object.freeze(result);
+}
+
+function normalizeConnectionSiteList(
+  value: unknown,
+  context: string,
+): readonly Readonly<CustomGeometryConnectionSite>[] {
+  const sites = readArray(value, context).map((item, index) => {
+    const itemContext = `${context} item ${index}`;
+    const site = readObject(item, CONNECTION_SITE_KEYS, CONNECTION_SITE_KEYS, itemContext);
+    return Object.freeze({
+      position: normalizePoint(site.position, `${itemContext} position`),
+      angle: normalizeCustomGeometryValue(site.angle, `${itemContext} angle`, false),
+    });
+  });
+  return Object.freeze(sites);
 }
 
 function normalizePath(value: unknown, context: string): Readonly<CustomGeometryPath> {
@@ -576,6 +599,17 @@ function renderHandleAttribute(
   return Object.hasOwn(handle, property)
     ? `${attribute}="${renderCustomGeometryValue(value!)}"`
     : undefined;
+}
+
+function renderConnectionSiteList(
+  sites: readonly Readonly<CustomGeometryConnectionSite>[] | undefined,
+  prefix: string,
+): string {
+  if (!sites?.length) return `<${prefix}cxnLst/>`;
+  const children = sites.map((site) =>
+    `<${prefix}cxn ang="${renderCustomGeometryValue(site.angle)}">` +
+    `${renderPoint(site.position, prefix, 'pos')}</${prefix}cxn>`).join('');
+  return `<${prefix}cxnLst>${children}</${prefix}cxnLst>`;
 }
 
 function renderPath(path: Readonly<CustomGeometryPath>, prefix: string): string {
@@ -1301,6 +1335,19 @@ function handlesEqual(
     && optionalPropertyEqual(left, right, 'angleGuide')
     && optionalPropertyEqual(left, right, 'minAngle')
     && optionalPropertyEqual(left, right, 'maxAngle');
+}
+
+function connectionSiteListsEqual(
+  left: readonly Readonly<CustomGeometryConnectionSite>[] | undefined,
+  right: readonly Readonly<CustomGeometryConnectionSite>[] | undefined,
+): boolean {
+  if (left === undefined || right === undefined) return left === right;
+  return left.length === right.length && left.every((site, index) => {
+    const other = right[index];
+    return other !== undefined
+      && site.angle === other.angle
+      && pointsEqual(site.position, other.position);
+  });
 }
 
 function commandsEqual(

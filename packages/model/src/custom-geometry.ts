@@ -54,6 +54,11 @@ export interface CustomGeometryPolarHandle {
 
 export type CustomGeometryHandle = CustomGeometryXyHandle | CustomGeometryPolarHandle;
 
+export interface CustomGeometryConnectionSite {
+  readonly position: CustomGeometryPoint;
+  readonly angle: CustomGeometryValue;
+}
+
 export type CustomGeometryCommand =
   | { readonly kind: 'moveTo'; readonly point: CustomGeometryPoint }
   | { readonly kind: 'lineTo'; readonly point: CustomGeometryPoint }
@@ -98,6 +103,7 @@ export interface CustomGeometry {
   readonly adjustments?: readonly CustomGeometryGuide[];
   readonly guides?: readonly CustomGeometryGuide[];
   readonly handles?: readonly CustomGeometryHandle[];
+  readonly connectionSites?: readonly CustomGeometryConnectionSite[];
   readonly paths: readonly CustomGeometryPath[];
 }
 

@@ -4,6 +4,7 @@ import { ModelParseError } from './errors.js';
 import type {
   AddCustomShapeOptions,
   CustomGeometry,
+  CustomGeometryConnectionSite,
   CustomGeometryCommand,
   CustomGeometryFormula,
   CustomGeometryGuide,
@@ -161,6 +162,22 @@ const handleGeometry: CustomGeometry = {
   }],
 };
 
+const connectionGeometry: CustomGeometry = {
+  connectionSites: [
+    { angle: 0, position: { x: 'hc', y: 't' } },
+    { angle: 'adjAng', position: { x: 'r', y: 60_000 } },
+    { angle: -5_400_000, position: { x: 25_000, y: 100_000 } },
+  ],
+  paths: [{
+    width: 100_000,
+    height: 100_000,
+    commands: [
+      { kind: 'moveTo', point: { x: 0, y: 0 } },
+      { kind: 'lineTo', point: { x: 100_000, y: 100_000 } },
+    ],
+  }],
+};
+
 const publicOptions: AddCustomShapeOptions = { name: 'Custom', x: inches(1) };
 void publicOptions;
 // @ts-expect-error preset-only adjustments are not custom-shape options
@@ -219,6 +236,14 @@ const invalidXyHandle: CustomGeometryXyHandle = {
   radiusGuide: 'adjR',
 };
 void invalidXyHandle;
+const publicConnectionSite: CustomGeometryConnectionSite = {
+  angle: 'cd4',
+  position: { x: 'r', y: 'vc' },
+};
+void publicConnectionSite;
+// @ts-expect-error custom geometry connection sites require an angle
+const missingConnectionAngle: CustomGeometryConnectionSite = { position: { x: 0, y: 0 } };
+void missingConnectionAngle;
 
 function parseShape(source: string) {
   const xml = LosslessXmlDocument.parse(source);
@@ -414,6 +439,79 @@ describe('normalizeCustomGeometry', () => {
       paths: [{ width: 1, height: 1, commands: [] }],
     };
     expect(normalizeCustomGeometry(candidate, 'Custom geometry')).toEqual(candidate);
+  });
+
+  it('copies and recursively freezes ordered connection sites', () => {
+    const mutable = structuredClone(connectionGeometry) as unknown as {
+      connectionSites: Array<{
+        angle: CustomGeometryValue;
+        position: { x: CustomGeometryValue; y: CustomGeometryValue };
+      }>;
+    };
+    const normalized = normalizeCustomGeometry(mutable, 'Custom geometry');
+    expect(normalized).toEqual(connectionGeometry);
+    expect(Object.isFrozen(normalized.connectionSites)).toBe(true);
+    expect(normalized.connectionSites?.every((site) =>
+      Object.isFrozen(site) && Object.isFrozen(site.position))).toBe(true);
+    mutable.connectionSites[0]!.angle = 1;
+    mutable.connectionSites[0]!.position.x = 1;
+    mutable.connectionSites.reverse();
+    expect(normalized).toEqual(connectionGeometry);
+
+    const empty = normalizeCustomGeometry({
+      connectionSites: [],
+      paths: [{ width: 1, height: 1, commands: [] }],
+    }, 'Custom geometry');
+    expect(Object.hasOwn(empty, 'connectionSites')).toBe(false);
+  });
+
+  it('rejects unsafe connection site state without semantic inference', () => {
+    const wrap = (connectionSites: unknown): unknown => ({
+      connectionSites,
+      paths: [{ width: 1, height: 1, commands: [] }],
+    });
+    for (const site of [
+      null,
+      {},
+      { position: { x: 0, y: 0 } },
+      { angle: 0 },
+      { angle: 0.5, position: { x: 0, y: 0 } },
+      { angle: Number.MAX_SAFE_INTEGER + 1, position: { x: 0, y: 0 } },
+      { angle: '', position: { x: 0, y: 0 } },
+      { angle: '1', position: { x: 0, y: 0 } },
+      { angle: 'two words', position: { x: 0, y: 0 } },
+      { angle: '\u0000', position: { x: 0, y: 0 } },
+      { angle: 0, position: { x: 0, y: 0 }, extra: true },
+      { angle: 0, position: { x: 0, y: 0 }, [Symbol('unsafe')]: true },
+    ]) expect(() => normalizeCustomGeometry(wrap([site]), 'Custom geometry')).toThrow();
+    const sparse: unknown[] = [];
+    sparse.length = 1;
+    expect(() => normalizeCustomGeometry(wrap(sparse), 'Custom geometry')).toThrow(/dense/);
+    class ConnectionSites extends Array<unknown> {}
+    expect(() => normalizeCustomGeometry(wrap(new ConnectionSites()), 'Custom geometry'))
+      .toThrow(/ordinary array/);
+    let calls = 0;
+    const accessor = Object.defineProperties({}, {
+      angle: {
+        enumerable: true,
+        get() {
+          calls += 1;
+          return 0;
+        },
+      },
+      position: { enumerable: true, value: { x: 0, y: 0 } },
+    });
+    expect(() => normalizeCustomGeometry(wrap([accessor]), 'Custom geometry'))
+      .toThrow(/data property/);
+    expect(calls).toBe(0);
+    expect(normalizeCustomGeometry({
+      connectionSites: [
+        { angle: -1, position: { x: -1, y: 0 } },
+        { angle: 'cd', position: { x: 'hc', y: 'vc' } },
+        { angle: -1, position: { x: -1, y: 0 } },
+      ],
+      paths: [{ width: 1, height: 1, commands: [] }],
+    }, 'Custom geometry').connectionSites).toHaveLength(3);
   });
 
   it('rejects unsafe handle containers, kinds, fields, values, and accessors', () => {
@@ -735,6 +833,20 @@ describe('custom geometry OOXML codec', () => {
     );
   });
 
+  it('renders ordered custom geometry connection sites', () => {
+    const rendered = renderCustomGeometry(
+      normalizeCustomGeometry(connectionGeometry, 'Custom geometry'),
+      'a:',
+    );
+    expect(rendered).toContain(
+      '<a:cxnLst>' +
+      '<a:cxn ang="0"><a:pos x="hc" y="t"/></a:cxn>' +
+      '<a:cxn ang="adjAng"><a:pos x="r" y="60000"/></a:cxn>' +
+      '<a:cxn ang="-5400000"><a:pos x="25000" y="100000"/></a:cxn>' +
+      '</a:cxnLst>',
+    );
+  });
+
   it('reads canonical, alternate-prefix, absent-empty-list, and boolean lexical state', () => {
     for (const source of [
       fixture(canonical()),
@@ -936,6 +1048,31 @@ describe('custom geometry OOXML codec', () => {
       {
         ...handleGeometry,
         handles: [{ kind: 'polar', position: xy.position }, polar],
+      },
+    ];
+    for (const variant of variants) {
+      expect(customGeometryEqual(
+        normalized,
+        normalizeCustomGeometry(variant, 'Custom geometry'),
+      )).toBe(false);
+    }
+  });
+
+  it('distinguishes connection site presence, order, angle, and position', () => {
+    const normalized = normalizeCustomGeometry(connectionGeometry, 'Custom geometry');
+    const { connectionSites: _sites, ...withoutSites } = connectionGeometry;
+    const sites = connectionGeometry.connectionSites!;
+    const variants: CustomGeometry[] = [
+      withoutSites,
+      { ...connectionGeometry, connectionSites: [...sites].reverse() },
+      { ...connectionGeometry, connectionSites: sites.slice(0, 2) },
+      { ...connectionGeometry, connectionSites: [{ ...sites[0]!, angle: 1 }, ...sites.slice(1)] },
+      {
+        ...connectionGeometry,
+        connectionSites: [
+          { ...sites[0]!, position: { ...sites[0]!.position, x: 'l' } },
+          ...sites.slice(1),
+        ],
       },
     ];
     for (const variant of variants) {
