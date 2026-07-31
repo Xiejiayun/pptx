@@ -1138,7 +1138,7 @@ describe('PresentationModel', () => {
     }
   });
 
-  it('reads custom connections and keeps non-default text rectangles unsupported', async () => {
+  it('reads and whole-replaces custom connections and text rectangles', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);
     const connectionSlide = model.addSlide();
@@ -1179,12 +1179,26 @@ describe('PresentationModel', () => {
       ),
       rectanglePart.contentType,
     );
-    expect(rectangleShape.customGeometry).toBeUndefined();
-    const before = packageSnapshot(pkg);
-    expect(() => {
-      rectangleShape.customGeometry = customConnectionReplacement;
-    }).toThrow(ModelParseError);
-    expect(packageSnapshot(pkg)).toEqual(before);
+    expect(rectangleShape.customGeometry).toEqual({
+      ...customHandleGeometry,
+      textRectangle: { left: 0, top: 't', right: 'r', bottom: 'b' },
+    });
+    const rectangleReplacement: CustomGeometry = {
+      ...customConnectionReplacement,
+      textRectangle: { left: 'x1', top: 10_000, right: 'r', bottom: 90_000 },
+    };
+    rectangleShape.customGeometry = rectangleReplacement;
+    expect(rectangleShape.customGeometry).toEqual(rectangleReplacement);
+    const beforeNoOp = packageSnapshot(pkg);
+    rectangleShape.customGeometry = structuredClone(rectangleReplacement);
+    expect(packageSnapshot(pkg)).toEqual(beforeNoOp);
+
+    const { textRectangle: _textRectangle, ...resetRectangle } = rectangleReplacement;
+    rectangleShape.customGeometry = resetRectangle;
+    expect(rectangleShape.customGeometry).toEqual(resetRectangle);
+    expect(Object.hasOwn(rectangleShape.customGeometry!, 'textRectangle')).toBe(false);
+    expect(new TextDecoder().decode(pkg.requirePart(rectangleSlide.partUri).bytes))
+      .toContain('<a:rect l="l" t="t" r="r" b="b"/>');
   });
 
   it('converts preset and custom geometry without changing live identity or unrelated state', async () => {

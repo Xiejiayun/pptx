@@ -1187,6 +1187,70 @@ describe('custom geometry OOXML codec', () => {
     expect(readCustomGeometry(escaped.xml, escaped.shape)).toEqual(escapedGeometry);
   });
 
+  it('reads, no-ops, and resets custom text rectangles', () => {
+    const normalized = normalizeCustomGeometry(textRectangleGeometry, 'Custom geometry');
+    const rectangleXml = renderCustomGeometry(normalized, 'a:');
+    const alternateXml = renderCustomGeometry(normalized, 'd:');
+    const lexicalXml = rectangleXml
+      .replace('t="10000"', 't="+10000"')
+      .replace('b="90000"', 'b="+90000"');
+    for (const source of [
+      fixture(rectangleXml),
+      fixture(alternateXml, { drawingPrefix: 'd' }),
+      fixture(lexicalXml),
+    ]) {
+      const { xml, shape } = parseShape(source);
+      expect(readCustomGeometry(xml, shape)).toEqual(textRectangleGeometry);
+    }
+
+    for (const source of [
+      fixture(canonical()),
+      fixture(canonical().replace('<a:rect l="l" t="t" r="r" b="b"/>', '')),
+    ]) {
+      const { xml, shape } = parseShape(source);
+      const snapshot = readCustomGeometry(xml, shape);
+      expect(snapshot).toEqual(geometry);
+      expect(Object.hasOwn(snapshot!, 'textRectangle')).toBe(false);
+    }
+
+    const lexical = parseShape(fixture(lexicalXml));
+    const before = lexical.xml.serialize();
+    expect(replaceCustomGeometry(
+      lexical.xml,
+      lexical.shape,
+      normalized,
+      '/ppt/slides/slide1.xml',
+    )).toBe(false);
+    expect(lexical.xml.serialize()).toBe(before);
+
+    const { textRectangle: _textRectangle, ...withoutTextRectangle } = textRectangleGeometry;
+    const reset = normalizeCustomGeometry(withoutTextRectangle, 'Custom geometry');
+    expect(replaceCustomGeometry(
+      lexical.xml,
+      lexical.shape,
+      reset,
+      '/ppt/slides/slide1.xml',
+    )).toBe(true);
+    expect(lexical.xml.serialize()).toContain('<a:rect l="l" t="t" r="r" b="b"/>');
+    const reparsed = parseShape(lexical.xml.serialize());
+    expect(readCustomGeometry(reparsed.xml, reparsed.shape)).toEqual(reset);
+
+    const escapedGeometry: CustomGeometry = {
+      textRectangle: {
+        left: 'left&1',
+        top: -1,
+        right: 'right&1',
+        bottom: Number.MAX_SAFE_INTEGER,
+      },
+      paths: [{ width: 1, height: 1, commands: [] }],
+    };
+    const escaped = parseShape(fixture(renderCustomGeometry(
+      normalizeCustomGeometry(escapedGeometry, 'Custom geometry'),
+      'a:',
+    )));
+    expect(readCustomGeometry(escaped.xml, escaped.shape)).toEqual(escapedGeometry);
+  });
+
   it('distinguishes ordered paths, commands, values, flags, and optional absence', () => {
     const normalized = normalizeCustomGeometry(geometry, 'Custom geometry');
     expect(customGeometryEqual(normalized, normalized)).toBe(true);
@@ -1350,6 +1414,7 @@ describe('custom geometry OOXML codec', () => {
     );
     const firstConnection = '<a:cxn ang="0"><a:pos x="hc" y="t"/></a:cxn>';
     const firstConnectionPosition = '<a:pos x="hc" y="t"/>';
+    const defaultRectangle = '<a:rect l="l" t="t" r="r" b="b"/>';
     const cases = [
       fixture(valid).replace(PRESENTATION_NAMESPACE, 'urn:wrong'),
       fixture(valid)
@@ -1384,7 +1449,6 @@ describe('custom geometry OOXML codec', () => {
       fixture(valid).replace('<a:gdLst/>', '<a:gdLst><a:gd name="x" fmla="val 1"><a:gd/></a:gd></a:gdLst>'),
       fixture(valid).replace('<a:ahLst/>', '<a:ahLst><a:ahXY/></a:ahLst>'),
       fixture(valid).replace('<a:cxnLst/>', '<a:cxnLst><a:cxn ang="0"/></a:cxnLst>'),
-      fixture(valid).replace('l="l"', 'l="0"'),
       fixture(valid).replace('w="3657600"', 'w="0"'),
       fixture(valid).replace('w="3657600"', 'x:w="3657600" xmlns:x="urn:wrong"'),
       fixture(valid).replace('h="2743200"', 'h="unsafe"'),
@@ -1465,6 +1529,32 @@ describe('custom geometry OOXML codec', () => {
         '<a:pt x="0" y="0"/></a:cxn>',
       ),
       fixture(validConnections).replace('</a:cxn>', 'TEXT</a:cxn>'),
+      fixture(valid).replace(defaultRectangle, `${defaultRectangle}${defaultRectangle}`),
+      fixture(valid).replace(
+        defaultRectangle,
+        '<x:rect xmlns:x="urn:wrong" l="l" t="t" r="r" b="b"/>',
+      ),
+      fixture(valid).replace(defaultRectangle, '<a:rect t="t" r="r" b="b"/>'),
+      fixture(valid).replace(defaultRectangle, '<a:rect l="l" r="r" b="b"/>'),
+      fixture(valid).replace(defaultRectangle, '<a:rect l="l" t="t" b="b"/>'),
+      fixture(valid).replace(defaultRectangle, '<a:rect l="l" t="t" r="r"/>'),
+      fixture(valid).replace(
+        defaultRectangle,
+        '<a:rect xmlns:x="urn:wrong" x:l="l" t="t" r="r" b="b"/>',
+      ),
+      fixture(valid).replace(defaultRectangle, '<a:rect l="l" t="t" r="r" b="b" extra="1"/>'),
+      fixture(valid).replace(defaultRectangle, '<a:rect l="l" l="0" t="t" r="r" b="b"/>'),
+      fixture(valid).replace(defaultRectangle, '<a:rect l="9007199254740992" t="t" r="r" b="b"/>'),
+      fixture(valid).replace(defaultRectangle, '<a:rect l="" t="t" r="r" b="b"/>'),
+      fixture(valid).replace(defaultRectangle, '<a:rect l="two words" t="t" r="r" b="b"/>'),
+      fixture(valid).replace(
+        defaultRectangle,
+        '<a:rect l="l" t="t" r="r" b="b"><a:pt x="0" y="0"/></a:rect>',
+      ),
+      fixture(valid).replace(defaultRectangle, '<a:rect l="l" t="t" r="r" b="b">TEXT</a:rect>'),
+      fixture(valid)
+        .replace(defaultRectangle, '')
+        .replace('</a:pathLst>', `</a:pathLst>${defaultRectangle}`),
     ];
     for (const source of cases) {
       const { xml, shape } = parseShape(source);

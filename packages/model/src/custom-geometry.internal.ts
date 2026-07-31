@@ -787,17 +787,14 @@ function parseCustomGeometryElement(geometry: XmlElement): NormalizedCustomGeome
   const guides = parseGuideList(children, 'gdLst');
   const handles = parseHandleList(children);
   const connectionSites = parseConnectionSiteList(children);
+  const textRectangle = parseTextRectangle(children);
   if (
     adjustments === undefined
     || guides === undefined
     || handles === undefined
     || connectionSites === undefined
+    || textRectangle === undefined
   ) return undefined;
-
-  const rectangles = children.filter(({ localName }) => localName === 'rect');
-  if (rectangles.length > 1 || (rectangles[0] && !isDefaultRectangle(rectangles[0]))) {
-    return undefined;
-  }
 
   const pathLists = children.filter(({ localName }) => localName === 'pathLst');
   const pathList = pathLists[0];
@@ -827,6 +824,7 @@ function parseCustomGeometryElement(geometry: XmlElement): NormalizedCustomGeome
       ...(guides.length ? { guides } : {}),
       ...(handles.length ? { handles } : {}),
       ...(connectionSites.length ? { connectionSites } : {}),
+      ...(textRectangle ? { textRectangle } : {}),
       paths,
     }, 'Custom geometry');
   } catch {
@@ -914,6 +912,36 @@ function parseConnectionSiteList(
     sites.push({ position, angle });
   }
   return sites;
+}
+
+function parseTextRectangle(
+  children: readonly XmlElement[],
+): CustomGeometryTextRectangle | null | undefined {
+  const rectangles = children.filter(({ localName }) => localName === 'rect');
+  if (rectangles.length > 1) return undefined;
+  const rectangle = rectangles[0];
+  if (!rectangle) return null;
+  if (directChildren(rectangle).length !== 0 || hasNonWhitespaceText(rectangle)) {
+    return undefined;
+  }
+  const attributes = readXmlAttributes(
+    rectangle,
+    new Set(['l', 't', 'r', 'b']),
+    new Set(['l', 't', 'r', 'b']),
+  );
+  if (!attributes) return undefined;
+  const left = parseCustomGeometryValue(attributes.l, false);
+  const top = parseCustomGeometryValue(attributes.t, false);
+  const right = parseCustomGeometryValue(attributes.r, false);
+  const bottom = parseCustomGeometryValue(attributes.b, false);
+  if (
+    left === undefined
+    || top === undefined
+    || right === undefined
+    || bottom === undefined
+  ) return undefined;
+  const result: CustomGeometryTextRectangle = { left, top, right, bottom };
+  return isDefaultTextRectangle(result) ? null : result;
 }
 
 function parseHandleElement(element: XmlElement): CustomGeometryHandle | undefined {
@@ -1219,20 +1247,6 @@ function parseCustomGeometryToken(value: string | undefined): string | undefined
   } catch {
     return undefined;
   }
-}
-
-function isDefaultRectangle(element: XmlElement): boolean {
-  if (directChildren(element).length !== 0 || hasNonWhitespaceText(element)) return false;
-  const attributes = readXmlAttributes(
-    element,
-    new Set(['l', 't', 'r', 'b']),
-    new Set(['l', 't', 'r', 'b']),
-  );
-  return attributes !== undefined
-    && attributes.l === 'l'
-    && attributes.t === 't'
-    && attributes.r === 'r'
-    && attributes.b === 'b';
 }
 
 function readObject(
