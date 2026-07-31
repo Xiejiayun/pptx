@@ -52,8 +52,16 @@ const shape = slide.addShape('roundRect', {
   height: inches(2),
   rotation: degrees(15),
   name: 'Feature card',
+  fill: {
+    kind: 'solid',
+    color: { kind: 'scheme', value: 'accent1' },
+    transparency: 20,
+  },
 });
 shape.presetType = 'hexagon';
+shape.fill = { kind: 'solid', color: { kind: 'srgb', value: 'FF0000' } };
+shape.fill = { kind: 'none' };
+shape.fill = undefined;
 console.log(shape.presetType); // 'hexagon'
 console.log(PRESET_SHAPE_TYPES.length); // 178
 slide.addText('Quarterly results\nQ4 forecast', {
@@ -98,9 +106,11 @@ table.setCellFill(0, 0, { kind: 'solid', color: { kind: 'scheme', value: 'accent
 await document.writeFile('created.pptx');
 ```
 
-`PRESET_SHAPE_TYPES` is the frozen discovery catalog for all 178 canonical preset geometries accepted by `SlideModel.addShape()`. `AddShapeOptions` accepts only `name` plus native EMU/OOXML-angle transform fields; use `inches()` and `degrees()` for ergonomic conversion. Omitted geometry starts at x/y/width/height = 1 inch with zero rotation, no flips, direct no-fill, and an empty line. Inputs are strict, descriptor-safe, detached before mutation, and reject unknown fields. The catalog uses the valid OOXML `foldedCorner`; PptxGenJS 4.0.1's invalid `folderCorner` token and runtime-only `custGeom` value are not accepted as presets.
+`PRESET_SHAPE_TYPES` is the frozen discovery catalog for all 178 canonical preset geometries accepted by `SlideModel.addShape()`. `AddShapeOptions` accepts `name`, strict `fill`, and native EMU/OOXML-angle transform fields; use `inches()` and `degrees()` for ergonomic conversion. Omitted geometry starts at x/y/width/height = 1 inch with zero rotation and no flips; omitted fill creates direct no-fill, and the line remains empty. Inputs are strict, descriptor-safe, detached before mutation, and reject unknown fields. The catalog uses the valid OOXML `foldedCorner`; PptxGenJS 4.0.1's invalid `folderCorner` token and runtime-only `custGeom` value are not accepted as presets.
 
-`ShapeModel.presetType` reads only one safe direct canonical preset geometry. Reassigning the same type is an exact no-op; changing the type replaces only the geometry and clears old adjustment handles while preserving transform, name, fill, line, effects, text, order, and model identity. Creation, duplicate isolation, rollback, write/reopen, Node/browser bundles, and PptxGenJS public output are covered. Shape fill/line styles, arrows, shadow, hyperlink, adjustment editing, custom geometry, and shape-text creation options remain separate pending capabilities.
+`ShapeModel.presetType` reads only one safe direct canonical preset geometry. Reassigning the same type is an exact no-op; changing the type replaces only the geometry and clears old adjustment handles while preserving transform, name, fill, line, effects, text, order, and model identity. Creation, duplicate isolation, rollback, write/reopen, Node/browser bundles, and PptxGenJS public output are covered.
+
+`ShapeFill` supports `{ kind: 'none' }` or a solid six-digit sRGB/theme color with optional finite 0–100 transparency rounded to 0.001%. `ShapeModel.fill` returns a detached direct-state snapshot and supports same-value no-op, whole replacement, and clear: none writes direct `a:noFill`, while assigning `undefined` removes the direct fill choice. It does not calculate inherited/effective color. Existing gradient, picture, pattern, and group fills remain lossless during unrelated edits and can be explicitly replaced or cleared, but advanced fill creation remains outside this simple-fill API. PptxGenJS 4.0.1's explicit none and zero transparency omit direct fill/alpha state where native preserves explicit intent; effective rendering is equivalent, not byte-identical. PptxGenJS also turns an empty or missing-color fill into black and accepts deprecated `alpha`, while native rejects both forms before mutation and uses `transparency`. Line/dash/arrows, shadow, hyperlink, adjustment editing, custom geometry, shape-text creation options, and percentage positions remain pending.
 
 `CreatePresentationOptions.title` and live `document.title` use the direct core-properties title. Omitted creation input writes no title, `''` writes an explicit empty title, and `undefined` clears only the direct field. Values are strict XML-safe strings; reads follow the package-root core-properties relationship instead of assuming a part URI or prefix, same-value/absent-clear operations are exact no-ops, missing metadata can be created, and unrelated subject/creator/revision/unknown content is preserved. Unsafe malformed or ambiguous ownership is rejected rather than guessed. PptxGenJS 4.0.1 defaults its own public `title` to `PptxGenJS Presentation`; native omitted creation intentionally remains `undefined`.
 

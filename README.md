@@ -16,6 +16,28 @@ document.slides[0].title.text = 'Updated';
 await document.writeFile('output.pptx');
 ```
 
+## 创建和编辑形状填充
+
+```ts
+import { PptxDocument } from '@jiayunxie/pptx';
+
+const document = PptxDocument.create();
+const slide = document.addSlide();
+const shape = slide.addShape('roundRect', {
+  fill: {
+    kind: 'solid',
+    color: { kind: 'scheme', value: 'accent1' },
+    transparency: 20,
+  },
+});
+
+shape.fill = { kind: 'solid', color: { kind: 'srgb', value: 'FF0000' } };
+shape.fill = { kind: 'none' };
+shape.fill = undefined;
+```
+
+`ShapeModel.fill` 支持 direct solid/no-fill 的创建、读取、编辑与清除。`{ kind: 'none' }` 写入明确的 direct no-fill，`undefined` 只清除 direct fill state；gradient、pattern、picture 和 group fill 不属于这个 simple-fill API。
+
 ## 开发
 
 ```sh
