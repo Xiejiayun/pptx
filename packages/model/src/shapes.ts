@@ -58,6 +58,7 @@ import { normalizeTextBoxMargins } from './text-box-margins.internal.js';
 import { normalizeTextBoxVerticalAlignment } from './text-box-vertical-alignment.internal.js';
 import type {
   PresetShapeType,
+  ShapeAdjustment,
   ShapeArrows,
   ShapeFill,
   ShapeLine,
@@ -190,6 +191,14 @@ export class ShapeModel extends BaseShapeModel {
 
   set presetType(value: PresetShapeType) {
     this.slide.setShapePresetType(this.id, value);
+  }
+
+  get adjustments(): readonly ShapeAdjustment[] | undefined {
+    return this.slide.getShapeAdjustments(this.id);
+  }
+
+  set adjustments(value: readonly ShapeAdjustment[]) {
+    this.slide.setShapeAdjustments(this.id, value);
   }
 
   get text(): string {

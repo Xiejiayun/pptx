@@ -66,11 +66,17 @@ import {
 import type {
   AddShapeOptions,
   PresetShapeType,
+  ShapeAdjustment,
   ShapeArrows,
   ShapeFill,
   ShapeLine,
   ShapeShadow,
 } from './preset-shape.js';
+import {
+  normalizeShapeAdjustments,
+  readShapeAdjustments,
+  replaceShapeAdjustments,
+} from './shape-adjustments.internal.js';
 import {
   normalizeShapeArrows,
   readShapeArrows,
@@ -376,6 +382,21 @@ export class SlideModel {
     this.presentation.opcPackage.transaction(() => {
       const { xml, element } = this.resolveShape(id);
       if (replacePresetShapeType(xml, element, type, this.partUri)) {
+        this.setXml(xml.serialize());
+      }
+    });
+  }
+
+  getShapeAdjustments(id: number): readonly ShapeAdjustment[] | undefined {
+    const { xml, element } = this.resolveShape(id);
+    return readShapeAdjustments(xml, element);
+  }
+
+  setShapeAdjustments(id: number, value: readonly ShapeAdjustment[]): void {
+    const adjustments = normalizeShapeAdjustments(value, 'Shape adjustments');
+    this.presentation.opcPackage.transaction(() => {
+      const { xml, element } = this.resolveShape(id);
+      if (replaceShapeAdjustments(xml, element, adjustments, this.partUri)) {
         this.setXml(xml.serialize());
       }
     });

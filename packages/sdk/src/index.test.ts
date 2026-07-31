@@ -684,6 +684,83 @@ describe('PptxDocument vertical slice', () => {
     void [invalidValue, missingName, invalidFormula];
   });
 
+  it('edits preset shape adjustments across duplicate, rollback, type reset, reopen, and all formats', async () => {
+    const document = PptxDocument.create();
+    const source = document.addSlide();
+    const shape = source.addShape('blockArc', {
+      adjustments: [
+        { name: 'adj1', value: 16_200_000 },
+        { name: 'adj2', value: 0 },
+        { name: 'adj3', value: 25_000 },
+      ],
+    });
+    expect(shape.adjustments).toEqual([
+      { name: 'adj1', value: 16_200_000 },
+      { name: 'adj2', value: 0 },
+      { name: 'adj3', value: 25_000 },
+    ]);
+    expect(Object.isFrozen(shape.adjustments)).toBe(true);
+    expect(shape.adjustments?.every(Object.isFrozen)).toBe(true);
+
+    const duplicate = document.duplicateSlide(0);
+    const duplicateShape = duplicate.shapes[0] as ShapeModel;
+    duplicateShape.adjustments = [
+      { name: 'adj1', value: 10_800_000 },
+      { name: 'adj2', value: 5_400_000 },
+    ];
+    expect(shape.adjustments).toEqual([
+      { name: 'adj1', value: 16_200_000 },
+      { name: 'adj2', value: 0 },
+      { name: 'adj3', value: 25_000 },
+    ]);
+    expect(duplicateShape.adjustments).toEqual([
+      { name: 'adj1', value: 10_800_000 },
+      { name: 'adj2', value: 5_400_000 },
+    ]);
+
+    expect(() => document.transaction(() => {
+      shape.adjustments = [{ name: 'adj', value: 7 }];
+      duplicateShape.adjustments = [];
+      throw new Error('restore adjustment lifecycle');
+    })).toThrow('restore adjustment lifecycle');
+    expect(shape.adjustments?.[0]?.value).toBe(16_200_000);
+    expect(duplicateShape.adjustments?.[0]?.value).toBe(10_800_000);
+    expect(source.shapes[0]).toBe(shape);
+    expect(duplicate.shapes[0]).toBe(duplicateShape);
+
+    shape.presetType = 'blockArc';
+    expect(shape.adjustments?.[2]?.value).toBe(25_000);
+    shape.presetType = 'pie';
+    expect(shape.adjustments).toEqual([]);
+
+    const reopened = await PptxDocument.open(await document.write());
+    expect((reopened.slides[0]!.shapes[0] as ShapeModel).adjustments).toEqual([]);
+    expect((reopened.slides[1]!.shapes[0] as ShapeModel).adjustments).toEqual([
+      { name: 'adj1', value: 10_800_000 },
+      { name: 'adj2', value: 5_400_000 },
+    ]);
+
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const formatted = PptxDocument.create({ format });
+      const formattedShape = formatted.addSlide().addShape('pie', {
+        adjustments: [
+          { name: 'adj1', value: 16_200_000 },
+          { name: 'adj2', value: 0 },
+        ],
+      });
+      formattedShape.adjustments = [
+        { name: 'adj1', value: 10_800_000 },
+        { name: 'adj2', value: 5_400_000 },
+      ];
+      const formattedReopened = await PptxDocument.open(await formatted.write());
+      expect(formattedReopened.format).toBe(format);
+      expect((formattedReopened.slides[0]!.shapes[0] as ShapeModel).adjustments).toEqual([
+        { name: 'adj1', value: 10_800_000 },
+        { name: 'adj2', value: 5_400_000 },
+      ]);
+    }
+  });
+
   it('supports the shape shadow lifecycle across duplicate, move, rollback, reopen, and all formats', async () => {
     const document = PptxDocument.create();
     const source = document.addSlide();
