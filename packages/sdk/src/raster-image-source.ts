@@ -64,8 +64,7 @@ export async function resolveRasterImageSource(
 ): Promise<ResolvedRasterImageSource> {
   throwIfAborted(signal);
   if (typeof source === 'string') {
-    if (!/^data:/i.test(source)) throw new TypeError('Unsupported raster image string source');
-    const resolved = resolveDataUri(source);
+    const resolved = await resolveStringSource(source, signal);
     throwIfAborted(signal);
     return resolved;
   }
@@ -86,6 +85,70 @@ export async function resolveRasterImageSource(
     throw new TypeError('Unsupported raster image source type');
   }
   throwIfAborted(signal);
+  return { bytes, info: inspectRasterImage(bytes) };
+}
+
+async function resolveStringSource(
+  source: string,
+  signal?: AbortSignal,
+): Promise<ResolvedRasterImageSource> {
+  if (source.length === 0) throw new TypeError('Raster image source string cannot be empty');
+  if (/^data:/i.test(source)) return resolveDataUri(source);
+  if (/^https?:\/\//i.test(source)) return resolveFetchSource(source, signal);
+  if (hasUriScheme(source) && !isWindowsDrivePath(source)) {
+    throw new TypeError('Unsupported raster image URL scheme');
+  }
+  return isNodeRuntime()
+    ? resolveNodePath(source, signal)
+    : resolveFetchSource(source, signal);
+}
+
+async function resolveNodePath(
+  path: string,
+  signal?: AbortSignal,
+): Promise<ResolvedRasterImageSource> {
+  throwIfAborted(signal);
+  const fs = await loadNodeModule<NodeFsPromises>(['node:fs', 'promises'].join('/'));
+  let input: Uint8Array;
+  try {
+    input = await fs.readFile(path, signal ? { signal } : undefined);
+  } catch (error) {
+    throwIfAborted(signal);
+    throw error;
+  }
+  throwIfAborted(signal);
+  const bytes = new Uint8Array(input);
+  return { bytes, info: inspectRasterImage(bytes) };
+}
+
+async function resolveFetchSource(
+  url: string,
+  signal?: AbortSignal,
+): Promise<ResolvedRasterImageSource> {
+  if (typeof globalThis.fetch !== 'function') {
+    throw new Error('Raster image URL loading requires the Fetch API');
+  }
+  throwIfAborted(signal);
+  let response: Response;
+  try {
+    response = await globalThis.fetch(url, signal ? { signal } : undefined);
+  } catch (error) {
+    throwIfAborted(signal);
+    throw error;
+  }
+  throwIfAborted(signal);
+  if (!response.ok) {
+    throw new TypeError(`Raster image request failed with HTTP ${response.status}`);
+  }
+  let input: ArrayBuffer;
+  try {
+    input = await response.arrayBuffer();
+  } catch (error) {
+    throwIfAborted(signal);
+    throw error;
+  }
+  throwIfAborted(signal);
+  const bytes = new Uint8Array(new Uint8Array(input));
   return { bytes, info: inspectRasterImage(bytes) };
 }
 
@@ -165,6 +228,26 @@ function base64Value(code: number): number {
   if (code === 43) return 62;
   if (code === 47) return 63;
   return -1;
+}
+
+interface NodeFsPromises {
+  readFile(path: string, options?: { readonly signal?: AbortSignal }): Promise<Uint8Array>;
+}
+
+async function loadNodeModule<T>(specifier: string): Promise<T> {
+  return import(specifier) as Promise<T>;
+}
+
+function isNodeRuntime(): boolean {
+  return typeof process !== 'undefined' && Boolean(process.versions?.node);
+}
+
+function hasUriScheme(value: string): boolean {
+  return /^[A-Za-z][A-Za-z0-9+.-]*:/.test(value);
+}
+
+function isWindowsDrivePath(value: string): boolean {
+  return /^[A-Za-z]:/.test(value);
 }
 
 function inspectPng(bytes: Uint8Array): RasterImageInfo {

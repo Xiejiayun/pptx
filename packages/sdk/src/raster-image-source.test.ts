@@ -1,4 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { createServer } from 'node:http';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, relative } from 'node:path';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   inspectRasterImage,
   resolveRasterImageSource,
@@ -453,5 +457,157 @@ describe('raster image data URI resolution', () => {
       expect(error).toBeInstanceOf(TypeError);
       expect((error as Error).message).not.toContain(payload);
     }
+  });
+});
+
+describe('raster image path and URL resolution', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('loads relative and absolute Node paths using signature detection', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'pptx-raster-source-'));
+    try {
+      const fixtures = [
+        { name: 'misleading.bin', bytes: pngHeader(640, 360), contentType: 'image/png' },
+        { name: 'photo.data', bytes: jpegWithSof(0xc0, 1920, 1080), contentType: 'image/jpeg' },
+        { name: 'animation.unknown', bytes: gifHeader('GIF89a', 320, 200), contentType: 'image/gif' },
+      ] as const;
+      for (const fixture of fixtures) {
+        const path = join(directory, fixture.name);
+        await writeFile(path, fixture.bytes);
+        const absolute = await resolveRasterImageSource(path);
+        expect(absolute.bytes).toEqual(fixture.bytes);
+        expect(absolute.info.contentType).toBe(fixture.contentType);
+        const relativePath = relative(process.cwd(), path);
+        expect((await resolveRasterImageSource(relativePath)).bytes).toEqual(fixture.bytes);
+      }
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('propagates local path errors, parser failures, and aborts', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'pptx-raster-source-error-'));
+    try {
+      const truncated = join(directory, 'truncated.png');
+      await writeFile(truncated, Uint8Array.from(PNG_SIGNATURE));
+      await expect(resolveRasterImageSource(truncated)).rejects.toThrow(/truncated PNG IHDR/i);
+      await expect(resolveRasterImageSource(join(directory, 'missing.png'))).rejects.toMatchObject({
+        code: 'ENOENT',
+      });
+      await expect(resolveRasterImageSource(directory)).rejects.toBeInstanceOf(Error);
+
+      const controller = new AbortController();
+      const reason = new Error('abort local raster path');
+      controller.abort(reason);
+      await expect(resolveRasterImageSource(truncated, controller.signal)).rejects.toBe(reason);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('treats Windows drive strings as paths and rejects unsupported URL schemes', async () => {
+    let windowsPathError: unknown;
+    try {
+      await resolveRasterImageSource('C:\\missing\\image.png');
+    } catch (error) {
+      windowsPathError = error;
+    }
+    expect(windowsPathError).toBeInstanceOf(Error);
+    expect((windowsPathError as Error).message).not.toMatch(/unsupported.*scheme/i);
+    for (const source of ['', 'ftp://example.com/image.png', 'file:///tmp/image.png', 'mailto:image@example.com']) {
+      await expect(resolveRasterImageSource(source)).rejects.toThrow(TypeError);
+      if (source) await expect(resolveRasterImageSource(source)).rejects.toThrow(/unsupported.*scheme/i);
+    }
+  });
+
+  it('downloads HTTP images, follows redirects, ignores response MIME, and supports abort', async () => {
+    const png = pngHeader(800, 450);
+    let slowRequestedResolve!: () => void;
+    const slowRequested = new Promise<void>((resolve) => {
+      slowRequestedResolve = resolve;
+    });
+    const server = createServer((request, response) => {
+      const url = new URL(request.url ?? '/', 'http://127.0.0.1');
+      if (url.pathname === '/redirect') {
+        response.writeHead(302, { location: '/image.png?from=redirect' });
+        response.end();
+        return;
+      }
+      if (url.pathname === '/image.png') {
+        response.writeHead(200, { 'content-type': 'application/octet-stream' });
+        response.end(png);
+        return;
+      }
+      if (url.pathname === '/truncated') {
+        response.writeHead(200, { 'content-type': 'image/png' });
+        response.end(png.slice(0, 8));
+        return;
+      }
+      if (url.pathname === '/slow') {
+        slowRequestedResolve();
+        return;
+      }
+      response.writeHead(404, { 'content-type': 'image/png' });
+      response.end('missing');
+    });
+    await new Promise<void>((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(0, '127.0.0.1', resolve);
+    });
+    const address = server.address();
+    if (!address || typeof address === 'string') throw new Error('HTTP test server has no port');
+    const baseUrl = `http://127.0.0.1:${address.port}`;
+    try {
+      await expect(resolveRasterImageSource(`${baseUrl}/image.png?cache=1`)).resolves.toEqual({
+        bytes: png,
+        info: { contentType: 'image/png', width: 800, height: 450 },
+      });
+      await expect(resolveRasterImageSource(`${baseUrl}/redirect`)).resolves.toMatchObject({
+        info: { contentType: 'image/png', width: 800, height: 450 },
+      });
+      await expect(resolveRasterImageSource(`${baseUrl}/missing`)).rejects.toThrow(/HTTP 404/i);
+      await expect(resolveRasterImageSource(`${baseUrl}/truncated`)).rejects.toThrow(/truncated PNG IHDR/i);
+
+      const controller = new AbortController();
+      const reason = new Error('abort HTTP raster source');
+      const loading = resolveRasterImageSource(`${baseUrl}/slow`, controller.signal);
+      await slowRequested;
+      controller.abort(reason);
+      await expect(loading).rejects.toBe(reason);
+    } finally {
+      server.closeAllConnections();
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => error ? reject(error) : resolve());
+      });
+    }
+    await expect(resolveRasterImageSource(`${baseUrl}/image.png`)).rejects.toBeInstanceOf(Error);
+  });
+
+  it('uses Fetch for browser-relative URLs and preserves the request string', async () => {
+    const png = pngHeader(16, 9);
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).includes('missing')) return new Response(null, { status: 404 });
+      return new Response(png, {
+        status: 200,
+        headers: { 'content-type': 'text/plain' },
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    vi.stubGlobal('process', undefined);
+
+    await expect(resolveRasterImageSource('./assets/image%20one.png?version=1')).resolves.toMatchObject({
+      info: { contentType: 'image/png', width: 16, height: 9 },
+    });
+    await expect(resolveRasterImageSource('/assets/root.png')).resolves.toMatchObject({
+      info: { contentType: 'image/png', width: 16, height: 9 },
+    });
+    await expect(resolveRasterImageSource('/assets/missing.png')).rejects.toThrow(/HTTP 404/i);
+    expect(fetchMock.mock.calls.map(([input]) => input)).toEqual([
+      './assets/image%20one.png?version=1',
+      '/assets/root.png',
+      '/assets/missing.png',
+    ]);
   });
 });
