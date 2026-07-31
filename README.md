@@ -144,23 +144,29 @@ formulaShape.customGeometry = {
   ...formulaShape.customGeometry!,
   adjustments: [{ name: 'adj1', formula: { operator: 'val', operands: [50_000] } }],
 };
+const evaluated = formulaShape.evaluateCustomGeometry();
+console.log(evaluated?.guides); // [{ name: 'x1', value: ... }]
 ```
 
 `SlideModel.addCustomShape()` 与 `ShapeModel.customGeometry` 使用 direct OOXML values：path extent 固定为 positive safe-integer EMU；point、arc radius、arc angle 和 formula operand 使用 `CustomGeometryValue`，可为 safe integer 或单个 guide/built-in token。数值坐标和半径按 EMU，数值角度按 `1/60000°`；可用 `inches()` / `degrees()` 显式换算。路径支持 `moveTo`、`lineTo`、`arcTo`、`quadraticBezierTo`、`cubicBezierTo`、`close`，也支持多个 subpath、多个 path、empty path，以及 `fill`、`stroke`、`extrusionOk` path flags。
 
-`CustomGeometryGuide` 将 `adjustments` / `guides` 分别映射到 `a:avLst` / `a:gdLst`；`CustomGeometryFormula` 支持全部 17 个 DrawingML operators：一元 `val/abs/sqrt`，二元 `at2/cos/max/min/sin/tan`，三元 `*/`、`+-`、`+/`、`?:`、`cat2`、`mod`、`pin`、`sat2`。Guide 名称在两个列表中全局唯一；string value 必须是非空、无 XML whitespace、XML-safe 且非十进制整数的 token。当前只校验 lexical contract、operator 和 arity，不执行 dependency/domain evaluation。
+`CustomGeometryGuide` 将 `adjustments` / `guides` 分别映射到 `a:avLst` / `a:gdLst`；`CustomGeometryFormula` 支持全部 17 个 DrawingML operators：一元 `val/abs/sqrt`，二元 `at2/cos/max/min/sin/tan`，三元 `*/`、`+-`、`+/`、`?:`、`cat2`、`mod`、`pin`、`sat2`。Guide 名称在两个列表中全局唯一；string value 必须是非空、无 XML whitespace、XML-safe 且非十进制整数的 token。Strict codec 负责 lexical/arity/tree validation；独立 evaluator 会先按 source order 计算全部 adjustments，再按 source order 计算 guides，拒绝 cycle、forward reference 和 unknown token。已完成的 custom guide 会覆盖同名 built-in，但定义该 shadow guide 的公式仍可引用原 built-in。
 
 `CustomGeometryXyHandle` 与 `CustomGeometryPolarHandle` 组成有序的 `CustomGeometryHandle` union，并由 `CustomGeometry.handles` 映射到 `a:ahLst` 中的 `a:ahXY` / `a:ahPolar`。两类都要求 `position`（direct `a:pos`）；XY 的 `xGuide/yGuide/minX/maxX/minY/maxY` 对应 `gdRefX/gdRefY/minX/maxX/minY/maxY`，polar 的 `radiusGuide/angleGuide/minRadius/maxRadius/minAngle/maxAngle` 对应 `gdRefR/gdRefAng/minR/maxR/minAng/maxAng`。位置、XY/radius bounds 接受 shape coordinate-space safe integer 或 token，angle bounds 的数字使用 direct `1/60000°`；每个 optional 字段都可独立出现，跨 kind 顺序原样保留，省略或 `[]` 不产生 own `handles` property。
 
-`CustomGeometryConnectionSite` 通过有序的 `CustomGeometry.connectionSites` 映射 `a:cxnLst`；每项要求 `angle`（`a:cxn@ang`）与 `position`（direct `a:pos`）。数值 position 是 custom-geometry coordinate-space direct safe integer，数值 angle 是 direct `1/60000°`，两者也接受 guide/built-in token；API 不求值 token、不归一化角度，也不判断 site 是否位于 path 上。顺序和重复项原样保留，省略或 `[]` 不产生 own `connectionSites` property。
+`CustomGeometryConnectionSite` 通过有序的 `CustomGeometry.connectionSites` 映射 `a:cxnLst`；每项要求 `angle`（`a:cxn@ang`）与 `position`（direct `a:pos`）。数值 position 是 custom-geometry coordinate-space direct safe integer，数值 angle 是 direct `1/60000°`，两者也接受 guide/built-in token；codec 保留 direct token，evaluator 可将其解析成 number，但不归一化角度或判断 site 是否位于 path 上。顺序和重复项原样保留，省略或 `[]` 不产生 own `connectionSites` property。
 
 `CustomGeometryTextRectangle` 由 `CustomGeometry.textRectangle?` 公开，其 required `left/top/right/bottom` 分别映射 `a:rect@l/t/r/b`。每个边都接受 direct safe integer 或 guide/DrawingML built-in token。省略该属性或显式传入 `{ left: 'l', top: 't', right: 'r', bottom: 'b' }` 都折叠为 canonical default，snapshot 不产生 own `textRectangle` property。LibreOffice 保存时常生成的 `textAreaLeft/Top/Right/Bottom` guides 及对应 rect token 可严格读取。
 
 输入会立即脱离 caller，getter 返回 detached deep-frozen snapshot；setter whole-replace 整个 geometry，同值赋值是 exact bytes/journal no-op，不接受 `undefined` 清除。Strict reader 要求 namespace、属性、child order、handle/site 唯一合法 direct `position`，以及 optional text rectangle 在存在时为唯一 direct `a:rect` 且具有完整合法四边；malformed state 保留原包 bytes，但返回 `undefined` 并在任何更改前拒绝 replacement。给 `presetType` 赋值会转成 preset geometry；给 preset shape 设置 `customGeometry` 会转回 custom geometry，并保留 shape identity 与样式。
 
+`evaluateCustomGeometry(geometry, { width, height })` 是不修改输入或 package 的 pure API；`ShapeModel.evaluateCustomGeometry()` 使用当前 live transform 的 width/height，非 custom 或 strict snapshot 不可读时返回 `undefined`。Evaluator 支持 37 个 DrawingML built-ins：`3cd4/3cd8/5cd8/7cd8/b/cd2/cd4/cd8/h/hc/hd2/hd3/hd4/hd5/hd6/hd8/l/ls/r/ss/ssd2/ssd4/ssd6/ssd8/ssd16/ssd32/t/vc/w/wd2/wd3/wd4/wd5/wd6/wd8/wd10/wd32`，并把 guide、handle、connection site、text rectangle 与全部 path command token 解析为 number。合法有限小数会保留，`-0` 规范为 `0`，`*/` 与 `+/` 除零按 DrawingML 返回 `0`，缺省 text rectangle 会实体化为 `{ left: 0, top: 0, right: width, bottom: height }`。结果与所有嵌套分支都 detached 且 recursively frozen。
+
+公开类型包括 `CustomGeometryEvaluationContext`、`CustomGeometryEvaluationErrorCode`、`CustomGeometryEvaluationError`、`EvaluatedCustomGeometryGuide/Point/TextRectangle/Command/XyHandle/PolarHandle/Handle/ConnectionSite/Path` 与 `EvaluatedCustomGeometry`。求值失败通过 `unknown-token`、`forward-reference`、`cyclic-reference`、`invalid-domain`、`non-finite-result` 区分，并在适用时提供 `guideName` / `token`。
+
 PptxGenJS 4.0.1 的合法 `ShapeType.custGeom` points 最终输出可导入为相同 native snapshot，包括后续 `moveTo`、arc/quadratic/cubic 与 close。其 `<100` 数字和数字字符串按 inch、`>=100` 数字按 direct value、百分比按整张 slide 计算，arc point 的 `x/y` 被忽略；native API 不复制这些启发式或 coercion，只接受显式 direct values。PptxGenJS 4.0.1 没有公开的 guide-formula、arbitrary adjustment-handle、connection-site 或 text-rectangle 输入，只生成 empty `a:cxnLst` 与 canonical default `a:rect`；formulas、handles、connection sites 与 arbitrary text rectangles 是完整 DrawingML 创建/编辑所需的 native extensions。
 
-Geometry evaluation、handle drag behavior、resolved bounds 与 connector snapping/creation 仍未实现。
+PptxGenJS 对等范围是其合法最终 numeric path 与 canonical default text rectangle；native formula/guide/handle/site 求值属于扩展。Evaluator 不进行 path coordinate scaling，不计算 arc endpoint 或 resolved bounds，也不实现 handle dragging、connector snapping/creation。实际 tarball 生成的 4 页 gallery 含 22 个 evaluator 目标，原件与 LibreOffice round-trip 均为 22/22 strict evaluable、PowerPoint 2010 validation 0 errors/0 warnings；LibreOffice 会把 22/22 direct expressions 改写成 numeric paths/text-area guides，其中 21/22 numeric path/text-rectangle 匹配，唯一差异是 `sqrt` 样例终点从 `600000` 改为 `0`，且它会重写全部 guide arrays，并改写一项 handle/site metadata。
 
 ### 预设形状调整值
 
@@ -178,7 +184,7 @@ arc.adjustments = [];
 
 `ShapeAdjustment.value` 是 `a:gd@fmla="val N"` 的 direct safe integer，不执行形状专属单位换算。列表有序且名称唯一；输入会立即脱离 caller，getter 返回 detached deep-frozen snapshot，赋相同列表是 exact bytes/journal no-op。赋值采用 whole replacement，`[]` 清空 `a:avLst`，setter 不接受 `undefined`。复杂公式、重复或歧义结构读取为 `undefined`，编辑会在 package 变化前拒绝；改变 `presetType` 会重置调整值，同类型赋值保留原 bytes。
 
-PptxGenJS 4.0.1 的合法 `rectRadius`、`angleRange` 与 `arcThicknessRatio` 最终输出可直接导入。原生 API 接受最终整数 guide 列表，因此保留显式 zero，也不会复制 PptxGenJS 的 zero truthiness 丢失、字符串转换、`rectRadius` 快捷字段优先级、无 angles 时忽略 thickness 或 malformed/unsafe passthrough。Custom geometry paths、guide formulas、handles、connection sites 和 text rectangle 已由独立 API 支持；geometry evaluation 仍待后续实现。
+PptxGenJS 4.0.1 的合法 `rectRadius`、`angleRange` 与 `arcThicknessRatio` 最终输出可直接导入。原生 API 接受最终整数 guide 列表，因此保留显式 zero，也不会复制 PptxGenJS 的 zero truthiness 丢失、字符串转换、`rectRadius` 快捷字段优先级、无 angles 时忽略 thickness 或 malformed/unsafe passthrough。Custom geometry paths、guide formulas、handles、connection sites、text rectangle 与 numeric evaluation 已由独立 API 支持。
 
 ## 开发
 
