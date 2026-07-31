@@ -6,6 +6,7 @@ import {
   ImageModel,
   ModelParseError,
   PRESENTATION_FORMAT_PROFILES,
+  PRESET_SHAPE_TYPES,
   PresentationModel,
   ShapeModel,
   TableModel,
@@ -72,6 +73,73 @@ describe('PresentationModel', () => {
         model.formatProfile.slideshow,
         model.formatProfile.template,
       ]).toEqual(expectedFlags[profile.format]);
+    }
+  });
+
+  it('creates preset shapes through the live model and rejects unsafe shape ids atomically', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const rectangle = slide.addShape('rect');
+    const star = slide.addShape('star5', {
+      name: 'Model star',
+      x: inches(2),
+      width: inches(3),
+    });
+    expect([rectangle.id, star.id]).toEqual([2, 3]);
+    expect(slide.shapes).toEqual([rectangle, star]);
+    expect(PRESET_SHAPE_TYPES).toContain('star5');
+
+    const part = pkg.requirePart(slide.partUri);
+    const malformed = new TextDecoder().decode(part.bytes).replace('id="1"', 'id="not-an-id"');
+    pkg.setPart(slide.partUri, malformed, part.contentType);
+    const before = pkg.requirePart(slide.partUri).bytes.slice();
+    const journal = [...pkg.mutations];
+    expect(() => slide.addShape('ellipse')).toThrow(ModelParseError);
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(before);
+    expect(pkg.mutations).toEqual(journal);
+  });
+
+  it('rejects unsafe preset shape trees and id allocation states without mutation', async () => {
+    const presentationNamespace =
+      'http://schemas.openxmlformats.org/presentationml/2006/main';
+    const invalidSources = [
+      `<p:sld xmlns:p="${presentationNamespace}"><p:cSld/></p:sld>`,
+      `<p:sld xmlns:p="${presentationNamespace}"><p:cSld><p:spTree/>` +
+        '<p:spTree/></p:cSld></p:sld>',
+      `<p:sld xmlns:p="${presentationNamespace}"><p:cSld><p:spTree>` +
+        '<p:extLst/><p:extLst/></p:spTree></p:cSld></p:sld>',
+    ];
+    for (const id of ['-1', '1.5', '9007199254740992', '4294967295']) {
+      invalidSources.push(
+        `<p:sld xmlns:p="${presentationNamespace}"><p:cSld><p:spTree>` +
+        `<p:nvGrpSpPr><p:cNvPr id="${id}"/></p:nvGrpSpPr>` +
+        '</p:spTree></p:cSld></p:sld>',
+      );
+    }
+    invalidSources.push(
+      `<p:sld xmlns:p="${presentationNamespace}"><p:cSld><p:spTree>` +
+      '<p:nvGrpSpPr><p:cNvPr id="1"/></p:nvGrpSpPr>' +
+      '<p:sp><p:nvSpPr><p:cNvPr id="1"/></p:nvSpPr></p:sp>' +
+      '</p:spTree></p:cSld></p:sld>',
+    );
+    invalidSources.push(
+      `<p:sld xmlns:p="${presentationNamespace}" xmlns:x="urn:unsafe"><p:cSld><p:spTree>` +
+      '<p:nvGrpSpPr><p:cNvPr id="1" x:id="2"/></p:nvGrpSpPr>' +
+      '</p:spTree></p:cSld></p:sld>',
+    );
+
+    for (const source of invalidSources) {
+      const pkg = await OpcPackage.open(await modelFixture());
+      const model = new PresentationModel(pkg);
+      const slide = model.addSlide();
+      const part = pkg.requirePart(slide.partUri);
+      pkg.setPart(slide.partUri, source, part.contentType);
+      const before = pkg.requirePart(slide.partUri).bytes.slice();
+      const journal = [...pkg.mutations];
+      expect(() => slide.addShape('ellipse'), source).toThrow(ModelParseError);
+      expect(pkg.requirePart(slide.partUri).bytes, source).toEqual(before);
+      expect(pkg.mutations, source).toEqual(journal);
     }
   });
 

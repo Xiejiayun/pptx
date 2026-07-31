@@ -53,6 +53,14 @@ import {
   replaceSlideNotes,
 } from './slide-notes.internal.js';
 import {
+  normalizePresetShape,
+  renderPresetShapeXml,
+} from './preset-shape.internal.js';
+import type {
+  AddShapeOptions,
+  PresetShapeType,
+} from './preset-shape.js';
+import {
   normalizeTextBoxMargins,
   readTextBoxMargins,
   renderTextBoxMarginAttributes,
@@ -419,6 +427,28 @@ export class SlideModel {
     this.setXml(xml.serialize());
   }
 
+  addShape(
+    type: PresetShapeType,
+    options: AddShapeOptions = {},
+  ): ShapeModel {
+    return this.presentation.opcPackage.transaction(() => {
+      const normalized = normalizePresetShape(type, options);
+      const { xml } = this.parse();
+      const shapeTree = requirePresetShapeTree(xml, this.partUri);
+      const nextId = allocatePresetShapeId(xml, shapeTree, this.partUri);
+      const shapeXml = renderPresetShapeXml(nextId, normalized);
+      const extensionList = directChildren(shapeTree, 'extLst')[0];
+      if (extensionList) xml.replace(extensionList.start, extensionList.start, shapeXml);
+      else xml.appendChildXml(shapeTree, shapeXml);
+      this.setXml(xml.serialize());
+      const shape = this.shapes.find((candidate) => candidate.id === nextId);
+      if (!(shape instanceof ShapeModel) || shape.kind !== 'shape') {
+        throw new ModelParseError(`Created preset shape ${nextId} could not be resolved`, this.partUri);
+      }
+      return shape;
+    });
+  }
+
   addTable(
     rows: readonly (readonly AddTableCellInput[])[],
     options: AddTableOptions = {},
@@ -760,6 +790,108 @@ function allocateShapeId(xml: LosslessXmlDocument): number {
     const value = Number.parseInt(xml.attribute(element, 'id')?.value ?? '', 10);
     return Number.isFinite(value) ? Math.max(maximum, value) : maximum;
   }, 1) + 1;
+}
+
+function allocatePresetShapeId(
+  xml: LosslessXmlDocument,
+  shapeTree: XmlElement,
+  partUri: string,
+): number {
+  const identifiers = new Set<number>();
+  let maximum = 0;
+  for (const properties of xml.descendants(shapeTree, 'cNvPr')) {
+    if (namespaceUri(properties) !== PRESENTATION_NAMESPACE) {
+      throw new ModelParseError('Slide shape tree contains an unsafe non-visual property', partUri);
+    }
+    const attributes = properties.attributes.filter(
+      ({ name, localName }) => localName === 'id' && !name.startsWith('xmlns:'),
+    );
+    const attribute = attributes[0];
+    if (
+      attributes.length !== 1
+      || !attribute
+      || attribute.name !== 'id'
+      || !/^\d+$/.test(attribute.value)
+    ) {
+      throw new ModelParseError('Slide shape tree contains an invalid shape id', partUri);
+    }
+    const id = Number(attribute.value);
+    if (!Number.isSafeInteger(id) || id > 4_294_967_295) {
+      throw new ModelParseError('Slide shape tree contains an unsafe shape id', partUri);
+    }
+    if (identifiers.has(id)) {
+      throw new ModelParseError(`Slide shape tree contains duplicate shape id ${id}`, partUri);
+    }
+    identifiers.add(id);
+    maximum = Math.max(maximum, id);
+  }
+  if (maximum >= 4_294_967_295) {
+    throw new ModelParseError('Slide shape ids are exhausted', partUri);
+  }
+  return maximum + 1;
+}
+
+function requirePresetShapeTree(
+  xml: LosslessXmlDocument,
+  partUri: string,
+): XmlElement {
+  const root = xml.roots.length === 1 ? xml.roots[0] : undefined;
+  if (!root || root.localName !== 'sld' || namespaceUri(root) !== PRESENTATION_NAMESPACE) {
+    throw new ModelParseError('Slide does not have a safe presentation root', partUri);
+  }
+  const commonSlideData = directElementChildren(root, 'cSld');
+  if (
+    commonSlideData.length !== 1
+    || namespaceUri(commonSlideData[0]!) !== PRESENTATION_NAMESPACE
+  ) {
+    throw new ModelParseError('Slide must contain exactly one direct common slide data element', partUri);
+  }
+  const shapeTrees = directElementChildren(commonSlideData[0]!, 'spTree');
+  if (shapeTrees.length !== 1 || namespaceUri(shapeTrees[0]!) !== PRESENTATION_NAMESPACE) {
+    throw new ModelParseError('Slide must contain exactly one direct shape tree', partUri);
+  }
+  const extensionLists = directElementChildren(shapeTrees[0]!, 'extLst');
+  if (
+    extensionLists.length > 1
+    || (extensionLists[0] && namespaceUri(extensionLists[0]) !== PRESENTATION_NAMESPACE)
+  ) {
+    throw new ModelParseError('Slide shape tree contains an unsafe extension list', partUri);
+  }
+  return shapeTrees[0]!;
+}
+
+const PRESENTATION_NAMESPACE =
+  'http://schemas.openxmlformats.org/presentationml/2006/main';
+
+function namespaceUri(element: XmlElement): string | undefined {
+  return namespaceUriForPrefix(element, lexicalPrefix(element.name));
+}
+
+function namespaceUriForPrefix(
+  element: XmlElement,
+  prefix: string,
+): string | undefined {
+  const declarationName = prefix === '' ? 'xmlns' : `xmlns:${prefix}`;
+  for (let current: XmlElement | undefined = element; current; current = current.parent) {
+    const declarations = current.attributes.filter(({ name }) => name === declarationName);
+    if (declarations.length > 1) return undefined;
+    if (declarations[0]) return declarations[0].value;
+  }
+  return undefined;
+}
+
+function lexicalPrefix(name: string): string {
+  const separator = name.indexOf(':');
+  return separator < 0 ? '' : name.slice(0, separator);
+}
+
+function directElementChildren(
+  element: XmlElement,
+  localName: string,
+): XmlElement[] {
+  return element.children.filter(
+    (child): child is XmlElement => child.type === 'element' && child.localName === localName,
+  );
 }
 
 function requireTableShapeTree(

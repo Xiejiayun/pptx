@@ -19,6 +19,7 @@ import {
   inches,
   ModelParseError,
   openPptxStream,
+  PRESET_SHAPE_TYPES,
   PptxDocument,
   ShapeModel,
   TableModel,
@@ -178,6 +179,165 @@ describe('PptxDocument vertical slice', () => {
     expect(reopened.slides).toHaveLength(2);
     expect(reopened.slides.map(({ slideId }) => slideId)).toEqual([256, 257]);
     expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+  });
+
+  it('creates preset shapes with deterministic defaults, transforms, order, and identity', () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const relationships = slide.relationships.map(({ id, type, target, targetMode }) => ({
+      id,
+      type,
+      target,
+      targetMode,
+    }));
+
+    const rectangle = slide.addShape('rect');
+    const line = slide.addShape('lineInv', {
+      name: 'A & <Line>',
+      x: inches(2),
+      y: inches(3),
+      width: inches(4),
+      height: inches(0.5),
+      rotation: degrees(45),
+      flipHorizontal: true,
+      flipVertical: true,
+    });
+
+    expect([rectangle.id, line.id]).toEqual([2, 3]);
+    expect([rectangle.kind, line.kind]).toEqual(['shape', 'shape']);
+    expect(rectangle).toBeInstanceOf(ShapeModel);
+    expect(rectangle.name).toBe('Shape 2');
+    expect(rectangle.transform).toEqual({
+      x: inches(1),
+      y: inches(1),
+      width: inches(1),
+      height: inches(1),
+      rotation: 0,
+      flipHorizontal: false,
+      flipVertical: false,
+    });
+    expect(line.name).toBe('A & <Line>');
+    expect(line.transform).toEqual({
+      x: inches(2),
+      y: inches(3),
+      width: inches(4),
+      height: inches(0.5),
+      rotation: degrees(45),
+      flipHorizontal: true,
+      flipVertical: true,
+    });
+    expect(slide.shapes).toEqual([rectangle, line]);
+    expect(slide.shapes[0]).toBe(rectangle);
+    expect(slide.shapes[1]).toBe(line);
+    expect(slide.relationships.map(({ id, type, target, targetMode }) => ({
+      id,
+      type,
+      target,
+      targetMode,
+    }))).toEqual(relationships);
+
+    const xml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(xml).toContain('<a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln/>');
+    expect(xml).toContain('<a:xfrm rot="2700000" flipH="1" flipV="1">');
+    expect(xml).toContain('name="A &amp; &lt;Line&gt;"');
+    expect(xml).not.toContain('<p:txBody>');
+  });
+
+  it('creates all 178 canonical preset shapes in catalog order', () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const created = PRESET_SHAPE_TYPES.map((type) => slide.addShape(type));
+
+    expect(created).toHaveLength(178);
+    expect(created.map(({ id }) => id)).toEqual(
+      Array.from({ length: 178 }, (_, index) => index + 2),
+    );
+    expect(created.map(({ name }) => name)).toEqual(
+      Array.from({ length: 178 }, (_, index) => `Shape ${index + 2}`),
+    );
+    expect(new Set(created)).toHaveLength(178);
+    expect(slide.shapes).toEqual(created);
+
+    const xml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    const tokens = [...xml.matchAll(/<a:prstGeom prst="([^"]+)"/g)]
+      .map((match) => match[1]);
+    expect(tokens).toEqual(PRESET_SHAPE_TYPES);
+  });
+
+  it('inserts preset shapes before extLst and rejects invalid additions without mutation', () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const part = document.opcPackage.requirePart(slide.partUri);
+    const withExtension = new TextDecoder().decode(part.bytes).replace(
+      '</p:spTree>',
+      '<p:extLst><p:ext uri="urn:test"><x:opaque xmlns:x="urn:test">KEEP</x:opaque>' +
+      '</p:ext></p:extLst></p:spTree>',
+    );
+    document.opcPackage.setPart(slide.partUri, withExtension, part.contentType);
+
+    slide.addShape('flowChartDecision');
+    slide.addShape('actionButtonHome');
+    const updated = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(updated.indexOf('prst="actionButtonHome"')).toBeLessThan(updated.indexOf('<p:extLst>'));
+    expect(updated).toContain('<x:opaque xmlns:x="urn:test">KEEP</x:opaque>');
+
+    const before = document.opcPackage.requirePart(slide.partUri).bytes.slice();
+    const journal = [...document.opcPackage.mutations];
+    for (const operation of [
+      () => slide.addShape('folderCorner' as never),
+      () => slide.addShape('custGeom' as never),
+      () => slide.addShape('rect', { width: 0 as never }),
+      () => slide.addShape('rect', { rotation: degrees(361) as never }),
+      () => slide.addShape('rect', { flipHorizontal: 1 as never }),
+      () => slide.addShape('rect', { unknown: true } as never),
+    ]) expect(operation).toThrow();
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(before);
+    expect(document.opcPackage.mutations).toEqual(journal);
+  });
+
+  it('preserves preset shapes through duplicate, move, rollback, reopen, and all formats', async () => {
+    const document = PptxDocument.create();
+    document.addSection({ title: 'Shapes' });
+    const source = document.addSlide({ sectionTitle: 'Shapes' });
+    source.hidden = true;
+    const rectangle = source.addShape('rect', { name: 'Source rectangle' });
+    source.addShape('foldedCorner', { x: inches(2), rotation: degrees(-30) });
+    const duplicate = document.duplicateSlide(0);
+    document.moveSlide(1, 0);
+
+    let rolledBack: ShapeModel | undefined;
+    expect(() => document.transaction(() => {
+      rolledBack = source.addShape('star5');
+      throw new Error('restore preset shape');
+    })).toThrow('restore preset shape');
+    expect(source.shapes).toHaveLength(2);
+    expect(source.shapes[0]).toBe(rectangle);
+    expect(() => rolledBack!.name).toThrow(ModelParseError);
+
+    const reopened = await PptxDocument.open(await document.write());
+    expect(reopened.slides.map(({ hidden }) => hidden)).toEqual([true, true]);
+    const reopenedSection = reopened.sections?.[0];
+    expect(reopenedSection).toBeDefined();
+    expect(reopenedSection!.slideIds).toEqual(
+      reopened.slides.map(({ slideId }) => slideId),
+    );
+    for (const slide of reopened.slides) {
+      const xml = new TextDecoder().decode(reopened.opcPackage.requirePart(slide.partUri).bytes);
+      expect([...xml.matchAll(/<a:prstGeom prst="([^"]+)"/g)].map((match) => match[1]))
+        .toEqual(['rect', 'foldedCorner']);
+      expect(slide.shapes.map(({ name }) => name)).toEqual(['Source rectangle', 'Shape 3']);
+    }
+    expect(duplicate.partUri).not.toBe(source.partUri);
+
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const formatted = PptxDocument.create({ format });
+      formatted.addSlide().addShape('hexagon', { rotation: degrees(15) });
+      const formattedReopened = await PptxDocument.open(await formatted.write());
+      expect(formattedReopened.format).toBe(format);
+      const shape = formattedReopened.slides[0]?.shapes[0];
+      expect(shape?.name).toBe('Shape 2');
+      expect(shape?.transform.rotation).toBe(degrees(15));
+    }
   });
 
   it('preserves hidden slide state through lifecycle, rollback, and all formats', async () => {
