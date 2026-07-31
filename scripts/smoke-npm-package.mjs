@@ -436,6 +436,88 @@ const customGeometryAdjustmentHandles =
   JSON.stringify(reopenedHandleGeometryShape.customGeometry) ===
     JSON.stringify(handleGeometryReplacement) &&
   handleGeometryDeck.diagnostics.every(({ severity }) => severity !== 'error');
+const connectionGeometrySource = {
+  adjustments: [{ name: 'adjAng', formula: { operator: 'val', operands: [5_400_000] } }],
+  connectionSites: [
+    { position: { x: 'hc', y: 't' }, angle: 0 },
+    { position: { x: 'r', y: 'vc' }, angle: 'adjAng' },
+    { position: { x: 25_000, y: 100_000 }, angle: -5_400_000 },
+    { position: { x: 'hc', y: 't' }, angle: 0 },
+  ],
+  paths: [{
+    width: 100_000,
+    height: 100_000,
+    commands: [
+      { kind: 'moveTo', point: { x: 0, y: 0 } },
+      { kind: 'lineTo', point: { x: 'r', y: 'b' } },
+    ],
+  }],
+};
+const connectionGeometryExpected = structuredClone(connectionGeometrySource);
+const connectionGeometryReplacement = {
+  ...connectionGeometryExpected,
+  connectionSites: [
+    { position: { x: 25_000, y: 100_000 }, angle: -5_400_000 },
+    { position: { x: 'hc', y: 't' }, angle: 0 },
+    { position: { x: 'l', y: 'vc' }, angle: 'adjAng' },
+    { position: { x: 'hc', y: 't' }, angle: 0 },
+  ],
+};
+const connectionGeometryDeck = PptxDocument.create();
+const connectionGeometrySlide = connectionGeometryDeck.addSlide();
+const connectionGeometryShape = connectionGeometrySlide.addCustomShape(
+  connectionGeometrySource,
+  { name: 'Packed connection sites' },
+);
+connectionGeometrySource.connectionSites[0].angle = 1;
+connectionGeometrySource.connectionSites[0].position.x = 'changed';
+connectionGeometrySource.connectionSites.reverse();
+const initialConnectionGeometry = connectionGeometryShape.customGeometry;
+const connectionNoOpBytes = connectionGeometryDeck.opcPackage
+  .requirePart(connectionGeometrySlide.partUri).bytes.slice();
+const connectionNoOpJournal = connectionGeometryDeck.opcPackage.mutations.length;
+connectionGeometryShape.customGeometry = structuredClone(connectionGeometryExpected);
+const connectionNoOpCurrent = connectionGeometryDeck.opcPackage
+  .requirePart(connectionGeometrySlide.partUri).bytes;
+const connectionNoOp =
+  connectionNoOpJournal === connectionGeometryDeck.opcPackage.mutations.length &&
+  connectionNoOpBytes.length === connectionNoOpCurrent.length &&
+  connectionNoOpBytes.every((value, index) => value === connectionNoOpCurrent[index]);
+connectionGeometryShape.customGeometry = connectionGeometryReplacement;
+const editedConnectionGeometry = connectionGeometryShape.customGeometry;
+connectionGeometryShape.presetType = 'diamond';
+const connectionConvertedPreset = connectionGeometryShape.presetType;
+const connectionConvertedCustom = connectionGeometryShape.customGeometry;
+connectionGeometryShape.customGeometry = connectionGeometryReplacement;
+const connectionXml = new TextDecoder().decode(
+  connectionGeometryDeck.opcPackage.requirePart(connectionGeometrySlide.partUri).bytes,
+);
+const reopenedConnectionGeometryShape = (await PptxDocument.open(
+  await connectionGeometryDeck.write(),
+)).slides[0].shapes[0];
+const customGeometryConnectionSites =
+  connectionGeometryShape instanceof ShapeModel &&
+  Object.isFrozen(initialConnectionGeometry) &&
+  Object.isFrozen(initialConnectionGeometry?.connectionSites) &&
+  initialConnectionGeometry?.connectionSites?.every((site) =>
+    Object.isFrozen(site) && Object.isFrozen(site.position)) &&
+  JSON.stringify(initialConnectionGeometry) === JSON.stringify(connectionGeometryExpected) &&
+  connectionNoOp &&
+  JSON.stringify(editedConnectionGeometry) === JSON.stringify(connectionGeometryReplacement) &&
+  connectionConvertedPreset === 'diamond' &&
+  connectionConvertedCustom === undefined &&
+  connectionGeometryShape.presetType === undefined &&
+  connectionXml.includes(
+    '<a:cxnLst><a:cxn ang="-5400000"><a:pos x="25000" y="100000"/></a:cxn>' +
+    '<a:cxn ang="0"><a:pos x="hc" y="t"/></a:cxn>' +
+    '<a:cxn ang="adjAng"><a:pos x="l" y="vc"/></a:cxn>' +
+    '<a:cxn ang="0"><a:pos x="hc" y="t"/></a:cxn></a:cxnLst>',
+  ) &&
+  reopenedConnectionGeometryShape instanceof ShapeModel &&
+  reopenedConnectionGeometryShape.name === 'Packed connection sites' &&
+  JSON.stringify(reopenedConnectionGeometryShape.customGeometry) ===
+    JSON.stringify(connectionGeometryReplacement) &&
+  connectionGeometryDeck.diagnostics.every(({ severity }) => severity !== 'error');
 const shapeAdjustmentDeck = PptxDocument.create();
 const shapeAdjustmentSlide = shapeAdjustmentDeck.addSlide();
 const shapeAdjustmentInput = [
@@ -1808,6 +1890,7 @@ const checks = {
   customGeometryPaths,
   customGeometryGuideFormulas,
   customGeometryAdjustmentHandles,
+  customGeometryConnectionSites,
   shapeAdjustments,
   shapeShadows,
   shapeFills,
@@ -2044,6 +2127,70 @@ if (!(reopenedBrowserHandleShape instanceof ShapeModel) ||
     Object.hasOwn(reopenedBrowserHandles[1], 'maxX') ||
     !Object.hasOwn(reopenedBrowserHandles[1], 'maxY')) {
   throw new Error('Browser custom geometry adjustment handle lifecycle failed');
+}
+const browserConnectionSource = {
+  adjustments: [{ name: 'adjAng', formula: { operator: 'val', operands: [5_400_000] } }],
+  connectionSites: [
+    { position: { x: 'hc', y: 't' }, angle: 0 },
+    { position: { x: 'r', y: 'vc' }, angle: 'adjAng' },
+    { position: { x: 25_000, y: 100_000 }, angle: -5_400_000 },
+    { position: { x: 'hc', y: 't' }, angle: 0 },
+  ],
+  paths: [{
+    width: 100_000,
+    height: 100_000,
+    commands: [
+      { kind: 'moveTo', point: { x: 0, y: 0 } },
+      { kind: 'lineTo', point: { x: 'r', y: 'b' } },
+    ],
+  }],
+};
+const browserConnectionExpected = structuredClone(browserConnectionSource);
+const browserConnectionReplacement = {
+  ...browserConnectionExpected,
+  connectionSites: [
+    { position: { x: 25_000, y: 100_000 }, angle: -5_400_000 },
+    { position: { x: 'hc', y: 't' }, angle: 0 },
+    { position: { x: 'l', y: 'vc' }, angle: 'adjAng' },
+    { position: { x: 'hc', y: 't' }, angle: 0 },
+  ],
+};
+const browserConnectionDeck = PptxDocument.create();
+const browserConnectionShape = browserConnectionDeck.addSlide()
+  .addCustomShape(browserConnectionSource, { name: 'Browser connection sites' });
+browserConnectionSource.connectionSites[0].angle = 1;
+browserConnectionSource.connectionSites[0].position.x = 'changed';
+browserConnectionSource.connectionSites.reverse();
+const initialBrowserConnectionGeometry = browserConnectionShape.customGeometry;
+if (!Object.isFrozen(initialBrowserConnectionGeometry) ||
+    !Object.isFrozen(initialBrowserConnectionGeometry?.connectionSites) ||
+    !initialBrowserConnectionGeometry?.connectionSites?.every((site) =>
+      Object.isFrozen(site) && Object.isFrozen(site.position)) ||
+    JSON.stringify(initialBrowserConnectionGeometry) !==
+      JSON.stringify(browserConnectionExpected)) {
+  throw new Error('Browser custom geometry connection site snapshot failed');
+}
+browserConnectionShape.customGeometry = browserConnectionReplacement;
+browserConnectionShape.presetType = 'diamond';
+browserConnectionShape.customGeometry = browserConnectionReplacement;
+const reopenedBrowserConnectionShape = (await PptxDocument.open(
+  await browserConnectionDeck.writeBlob(),
+)).slides[0].shapes[0];
+const reopenedBrowserConnections = reopenedBrowserConnectionShape instanceof ShapeModel
+  ? reopenedBrowserConnectionShape.customGeometry?.connectionSites
+  : undefined;
+if (!(reopenedBrowserConnectionShape instanceof ShapeModel) ||
+    reopenedBrowserConnectionShape.name !== 'Browser connection sites' ||
+    reopenedBrowserConnectionShape.presetType !== undefined ||
+    !Object.isFrozen(reopenedBrowserConnections) ||
+    !reopenedBrowserConnections?.every((site) =>
+      Object.isFrozen(site) && Object.isFrozen(site.position)) ||
+    JSON.stringify(reopenedBrowserConnectionShape.customGeometry) !==
+      JSON.stringify(browserConnectionReplacement) ||
+    reopenedBrowserConnections[0]?.angle !== -5_400_000 ||
+    reopenedBrowserConnections[2]?.angle !== 'adjAng' ||
+    reopenedBrowserConnections[2]?.position.x !== 'l') {
+  throw new Error('Browser custom geometry connection site lifecycle failed');
 }
 const browserAdjustmentDeck = PptxDocument.create();
 const browserAdjustmentSlide = browserAdjustmentDeck.addSlide();
@@ -2839,6 +2986,7 @@ process.stdout.write(resolved);
   type AddShapeOptions,
   type CustomGeometry,
   type CustomGeometryCommand,
+  type CustomGeometryConnectionSite,
   type CustomGeometryFormula,
   type CustomGeometryGuide,
   type CustomGeometryHandle,
@@ -2920,7 +3068,18 @@ const typedCustomPath: CustomGeometryPath = {
   fill: typedCustomFill,
   commands: [typedCustomCommand],
 };
-const typedCustomGeometry: CustomGeometry = { paths: [typedCustomPath] };
+const typedNumericConnectionSite: CustomGeometryConnectionSite = {
+  angle: -5_400_000,
+  position: { x: 25_000, y: 100_000 },
+};
+const typedTokenConnectionSite: CustomGeometryConnectionSite = {
+  angle: 'adjAng',
+  position: { x: 'hc', y: 't' },
+};
+const typedCustomGeometry: CustomGeometry = {
+  connectionSites: [typedNumericConnectionSite, typedTokenConnectionSite],
+  paths: [typedCustomPath],
+};
 const typedCustomValue: CustomGeometryValue = 'x1';
 const typedUnaryFormula: CustomGeometryFormula = { operator: 'val', operands: [25_000] };
 const typedBinaryFormula: CustomGeometryFormula = { operator: 'at2', operands: ['h', 'x1'] };
@@ -2980,6 +3139,16 @@ const invalidXyPolarField: CustomGeometryXyHandle = {
   // @ts-expect-error XY handles do not expose polar guide fields.
   radiusGuide: 'adjR',
 };
+// @ts-expect-error Connection sites require an angle.
+const invalidMissingConnectionAngle: CustomGeometryConnectionSite = { position: { x: 0, y: 0 } };
+// @ts-expect-error Connection sites require a position.
+const invalidMissingConnectionPosition: CustomGeometryConnectionSite = { angle: 0 };
+// @ts-expect-error Connection sites reject extra fields.
+const invalidExtraConnectionField: CustomGeometryConnectionSite = { angle: 0, position: { x: 0, y: 0 }, extra: true };
+// @ts-expect-error Connection-site angles are numeric or token values.
+const invalidConnectionAngleType: CustomGeometryConnectionSite = { angle: false, position: { x: 0, y: 0 } };
+// @ts-expect-error Connection-site entries cannot be undefined.
+const invalidUndefinedConnectionSite: CustomGeometryConnectionSite = undefined;
 // @ts-expect-error Custom geometry formulas reject unknown operators.
 const invalidCustomFormulaOperator: CustomGeometryFormula = { operator: 'unknown', operands: [1] };
 // @ts-expect-error The val operator requires exactly one operand.
@@ -3385,7 +3554,10 @@ void [typedPreset, typedNoneShapeFill, typedSolidShapeFill, typedShapeOptions, t
   typedCustomValue, typedUnaryFormula, typedBinaryFormula, typedTernaryFormula,
   typedCustomGuide, typedFormulaGeometry, typedXyHandle, typedPolarHandle,
   typedCustomHandles, typedHandleGeometry, invalidMissingHandlePosition,
-  invalidXyPolarField, invalidCustomFormulaOperator, invalidCustomFormulaArity,
+  invalidXyPolarField, typedNumericConnectionSite, typedTokenConnectionSite,
+  invalidMissingConnectionAngle, invalidMissingConnectionPosition,
+  invalidExtraConnectionField, invalidConnectionAngleType, invalidUndefinedConnectionSite,
+  invalidCustomFormulaOperator, invalidCustomFormulaArity,
   typedCustomOptions, typedCustomShape, typedCustomGeometryRead,
   typedPresetRead, typedShapeAdjustments, typedShapeAdjustmentsRead,
   invalidMissingShapeAdjustmentValue, invalidShapeAdjustmentValue,
@@ -3430,7 +3602,7 @@ void [documentPromise, createdDocument, addSectionOptions, typedSection, addSlid
   if (!doctor.ok || doctor.data?.version !== '0.1.0') throw new Error(`CLI smoke failed: ${cliResult.stdout}`);
 
   process.stdout.write(
-    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, types: true, cli: doctor.data.version })}\n`,
+    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, types: true, cli: doctor.data.version })}\n`,
   );
 } finally {
   await rm(directory, { recursive: true, force: true });
