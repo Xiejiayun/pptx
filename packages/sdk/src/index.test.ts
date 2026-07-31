@@ -28,6 +28,8 @@ import {
   type AddTableCellInput,
   type AddTableOptions,
   type ShapeFill,
+  type ShapeLine,
+  type ShapeLineDash,
 } from './index.js';
 
 async function titleFixture(): Promise<Uint8Array> {
@@ -302,6 +304,91 @@ describe('PptxDocument vertical slice', () => {
       '<a:solidFill><a:schemeClr val="accent3"><a:alpha val="75000"/>' +
       '</a:schemeClr></a:solidFill><a:ln/>',
     );
+  });
+
+  it('creates preset shape lines through the public SDK surface', () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const relationships = slide.relationships.map(({ id, type, target, targetMode }) => ({
+      id,
+      type,
+      target,
+      targetMode,
+    }));
+    const runtimeUndefined: ShapeLine | undefined = undefined;
+    const dash: ShapeLineDash = 'lgDashDotDot';
+    const line: {
+      kind: 'line';
+      color: { kind: 'srgb'; value: string };
+      transparency: number;
+      width: number;
+      dash: ShapeLineDash;
+    } = {
+      kind: 'line',
+      color: { kind: 'srgb', value: '#112233' },
+      transparency: 50,
+      width: 2.5,
+      dash,
+    };
+
+    const omitted = slide.addShape('rect');
+    const undefinedLine = slide.addShape('ellipse', { line: runtimeUndefined } as never);
+    const none = slide.addShape('star5', { line: { kind: 'none' } });
+    const solid = slide.addShape('diamond', { line });
+    const themed = slide.addShape('hexagon', {
+      line: {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent3' },
+        transparency: 25,
+        width: 0,
+        dash: 'sysDash',
+      },
+    });
+    line.color.value = 'FFFFFF';
+    line.transparency = 0;
+    line.width = 10;
+    line.dash = 'solid';
+
+    expect(slide.shapes).toEqual([omitted, undefinedLine, none, solid, themed]);
+    expect(slide.shapes[3]).toBe(solid);
+    expect([omitted, undefinedLine, none, solid, themed].every(
+      (shape) => shape instanceof ShapeModel,
+    )).toBe(true);
+    expect(slide.relationships.map(({ id, type, target, targetMode }) => ({
+      id,
+      type,
+      target,
+      targetMode,
+    }))).toEqual(relationships);
+
+    const xml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect((xml.match(/<a:ln\/>/g) ?? [])).toHaveLength(2);
+    expect(xml).toContain(
+      '<a:prstGeom prst="star5"><a:avLst/></a:prstGeom>' +
+      '<a:noFill/><a:ln><a:noFill/></a:ln>',
+    );
+    expect(xml).toContain(
+      '<a:prstGeom prst="diamond"><a:avLst/></a:prstGeom><a:noFill/>' +
+      '<a:ln w="31750"><a:solidFill><a:srgbClr val="112233">' +
+      '<a:alpha val="50000"/></a:srgbClr></a:solidFill>' +
+      '<a:prstDash val="lgDashDotDot"/></a:ln>',
+    );
+    expect(xml).toContain(
+      '<a:prstGeom prst="hexagon"><a:avLst/></a:prstGeom><a:noFill/>' +
+      '<a:ln w="0"><a:solidFill><a:schemeClr val="accent3">' +
+      '<a:alpha val="75000"/></a:schemeClr></a:solidFill>' +
+      '<a:prstDash val="sysDash"/></a:ln>',
+    );
+
+    const invalidWidth: ShapeLine = {
+      kind: 'line',
+      color: { kind: 'srgb', value: 'FFFFFF' },
+      // @ts-expect-error public shape line width is numeric points
+      width: '2',
+    };
+    // @ts-expect-error public shape line dash union is closed
+    const invalidDash: ShapeLineDash = 'dot';
+    void [invalidWidth, invalidDash];
   });
 
   it('preserves editable shape fills across duplicate, rollback, reopen, and all formats', async () => {

@@ -59,7 +59,28 @@ export type ShapeFill =
       readonly transparency?: number;
     };
 
+export type ShapeLineDash =
+  | 'solid'
+  | 'dash'
+  | 'dashDot'
+  | 'lgDash'
+  | 'lgDashDot'
+  | 'lgDashDotDot'
+  | 'sysDash'
+  | 'sysDot';
+
+export type ShapeLine =
+  | { readonly kind: 'none' }
+  | {
+      readonly kind: 'line';
+      readonly color: RichTextColor;
+      readonly transparency?: number;
+      readonly width?: number;
+      readonly dash?: ShapeLineDash;
+    };
+
 export interface AddShapeOptions extends Partial<Transform> {
   readonly name?: string;
   readonly fill?: ShapeFill;
+  readonly line?: ShapeLine;
 }

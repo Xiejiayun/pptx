@@ -18,6 +18,8 @@ import {
   type AddTableOptions,
   type PresentationFormat,
   type ShapeFill,
+  type ShapeLine,
+  type ShapeLineDash,
   type TableCellBorderInput,
   type TextBoxMarginInput,
 } from './index.js';
@@ -229,6 +231,153 @@ describe('PresentationModel', () => {
     ];
     for (const fill of invalidFills) {
       expect(() => slide.addShape('rect', { fill } as never)).toThrow();
+    }
+    expect(() => slide.addShape('rect', optionsGetter as never)).toThrow(/data property/);
+
+    expect(accessorCalls).toBe(0);
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(partBytes);
+    expect(pkg.parts.map(({ uri, contentType, bytes }) => ({
+      uri,
+      contentType,
+      bytes,
+    }))).toEqual(parts);
+    expect(slide.relationships.map(({ id, type, target, targetMode }) => ({
+      id,
+      type,
+      target,
+      targetMode,
+    }))).toEqual(relationships);
+    expect(slide.shapes).toEqual(shapes);
+    expect(pkg.mutations).toEqual(journal);
+  });
+
+  it('creates preset shape lines with detached strict values through the live model', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const runtimeUndefined: ShapeLine | undefined = undefined;
+    const dash: ShapeLineDash = 'dashDot';
+    const mutableLine: {
+      kind: 'line';
+      color: { kind: 'srgb'; value: string };
+      transparency: number;
+      width: number;
+      dash: ShapeLineDash;
+    } = {
+      kind: 'line',
+      color: { kind: 'srgb', value: '#ff0000' },
+      transparency: 50,
+      width: 2.5,
+      dash,
+    };
+
+    const omitted = slide.addShape('rect');
+    const undefinedLine = slide.addShape('ellipse', { line: runtimeUndefined } as never);
+    const none = slide.addShape('star5', { line: { kind: 'none' } });
+    const red = slide.addShape('diamond', { line: mutableLine });
+    const themed = slide.addShape('hexagon', {
+      line: {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent2' },
+        transparency: 25,
+        width: 0,
+        dash: 'sysDot',
+      },
+    });
+    mutableLine.color.value = '000000';
+    mutableLine.transparency = 1;
+    mutableLine.width = 9;
+    mutableLine.dash = 'solid';
+
+    expect([omitted, undefinedLine, none, red, themed].every(
+      (shape) => shape instanceof ShapeModel,
+    )).toBe(true);
+    expect(slide.shapes).toEqual([omitted, undefinedLine, none, red, themed]);
+    expect(slide.shapes[3]).toBe(red);
+
+    const xml = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect((xml.match(/<a:ln\/>/g) ?? [])).toHaveLength(2);
+    expect(xml).toContain(
+      '<a:prstGeom prst="star5"><a:avLst/></a:prstGeom>' +
+      '<a:noFill/><a:ln><a:noFill/></a:ln>',
+    );
+    expect(xml).toContain(
+      '<a:prstGeom prst="diamond"><a:avLst/></a:prstGeom><a:noFill/>' +
+      '<a:ln w="31750"><a:solidFill><a:srgbClr val="FF0000">' +
+      '<a:alpha val="50000"/></a:srgbClr></a:solidFill>' +
+      '<a:prstDash val="dashDot"/></a:ln>',
+    );
+    expect(xml).toContain(
+      '<a:prstGeom prst="hexagon"><a:avLst/></a:prstGeom><a:noFill/>' +
+      '<a:ln w="0"><a:solidFill><a:schemeClr val="accent2">' +
+      '<a:alpha val="75000"/></a:schemeClr></a:solidFill>' +
+      '<a:prstDash val="sysDot"/></a:ln>',
+    );
+
+    // @ts-expect-error preset shape line dash excludes arbitrary DrawingML tokens
+    const invalidDash: ShapeLineDash = 'dot';
+    // @ts-expect-error a solid line must use the native kind discriminator
+    const invalidLine: ShapeLine = { kind: 'solid', color: { kind: 'srgb', value: 'FFFFFF' } };
+    void [invalidDash, invalidLine];
+  });
+
+  it('rejects invalid preset shape lines before mutating package state', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const partBytes = pkg.requirePart(slide.partUri).bytes.slice();
+    const parts = pkg.parts.map(({ uri, contentType, bytes }) => ({
+      uri,
+      contentType,
+      bytes: bytes.slice(),
+    }));
+    const relationships = slide.relationships.map(({ id, type, target, targetMode }) => ({
+      id,
+      type,
+      target,
+      targetMode,
+    }));
+    const shapes = [...slide.shapes];
+    const journal = [...pkg.mutations];
+    let accessorCalls = 0;
+    const inherited = Object.create({ kind: 'none' });
+    const lineGetter = Object.defineProperty({}, 'kind', {
+      enumerable: true,
+      get() {
+        accessorCalls += 1;
+        return 'none';
+      },
+    });
+    const optionsGetter = Object.defineProperty({}, 'line', {
+      enumerable: true,
+      get() {
+        accessorCalls += 1;
+        return { kind: 'none' };
+      },
+    });
+    const invalidLines = [
+      null,
+      false,
+      [],
+      new Date(),
+      inherited,
+      lineGetter,
+      { kind: 'solid' },
+      { kind: 'none', width: undefined },
+      { kind: 'line' },
+      { kind: 'line', color: { kind: 'srgb', value: 'FFF' } },
+      { kind: 'line', color: { kind: 'scheme', value: 'unknown' } },
+      { kind: 'line', color: { kind: 'srgb', value: 'FFFFFF' }, transparency: -1 },
+      { kind: 'line', color: { kind: 'srgb', value: 'FFFFFF' }, width: 1_585 },
+      { kind: 'line', color: { kind: 'srgb', value: 'FFFFFF' }, dash: 'dot' },
+      { type: 'none' },
+      { color: 'FFFFFF', dashType: 'dash' },
+      { kind: 'line', color: { kind: 'srgb', value: 'FFFFFF' }, alpha: 40 },
+      { kind: 'line', color: { kind: 'srgb', value: 'FFFFFF' }, lineDash: 'dash' },
+      { kind: 'none', [Symbol('unsafe')]: true },
+    ];
+    for (const line of invalidLines) {
+      expect(() => slide.addShape('rect', { line } as never)).toThrow();
     }
     expect(() => slide.addShape('rect', optionsGetter as never)).toThrow(/data property/);
 

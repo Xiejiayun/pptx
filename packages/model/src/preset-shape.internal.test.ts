@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { createHash } from 'node:crypto';
 import { LosslessXmlDocument } from '@pptx/lossless-xml';
 import { ModelParseError } from './errors.js';
-import { PRESET_SHAPE_TYPES } from './preset-shape.js';
+import {
+  PRESET_SHAPE_TYPES,
+  type ShapeLineDash,
+} from './preset-shape.js';
+import type { SimpleLineDash } from './simple-line.internal.js';
 import {
   normalizePresetShape,
   readPresetShapeType,
@@ -14,6 +18,12 @@ const PRESENTATION_NAMESPACE =
   'http://schemas.openxmlformats.org/presentationml/2006/main';
 const DRAWING_NAMESPACE =
   'http://schemas.openxmlformats.org/drawingml/2006/main';
+type PublicDashMatchesInternal =
+  [ShapeLineDash] extends [SimpleLineDash]
+    ? [SimpleLineDash] extends [ShapeLineDash]
+      ? true
+      : false
+    : false;
 
 function parseShape(source: string) {
   const xml = LosslessXmlDocument.parse(source);
@@ -62,6 +72,7 @@ describe('normalizePresetShape', () => {
       type: 'rect',
       name: undefined,
       fill: { kind: 'none' },
+      line: undefined,
       x: 914_400,
       y: 914_400,
       width: 914_400,
@@ -97,6 +108,7 @@ describe('normalizePresetShape', () => {
         color: { kind: 'srgb', value: 'FF0000' },
         transparency: 33.333,
       },
+      line: undefined,
       x: 1,
       y: -1,
       width: 3,
@@ -106,6 +118,49 @@ describe('normalizePresetShape', () => {
       flipVertical: true,
     });
     expect(Object.isFrozen(normalized)).toBe(true);
+  });
+
+  it('normalizes detached preset shape lines with exact width and dash defaults', () => {
+    const color = { kind: 'srgb', value: '#123456' };
+    const line = {
+      kind: 'line' as const,
+      color,
+      transparency: 12.3456,
+      width: 2.50001,
+      dash: 'dashDot' as const,
+    };
+    const normalized = normalizePresetShape('roundRect', { line });
+    color.value = 'FFFFFF';
+    line.transparency = 90;
+    line.width = 9;
+
+    expect(normalized.line).toEqual({
+      kind: 'line',
+      color: { kind: 'srgb', value: '123456' },
+      transparency: 12.346,
+      width: 31_750 / 12_700,
+      dash: 'dashDot',
+    });
+    expect(normalized.line).not.toBe(line);
+    if (normalized.line?.kind === 'line') expect(normalized.line.color).not.toBe(color);
+
+    expect(normalizePresetShape('ellipse', {
+      line: { kind: 'line', color: { kind: 'scheme', value: 'accent3' } },
+    }).line).toEqual({
+      kind: 'line',
+      color: { kind: 'scheme', value: 'accent3' },
+      width: 1,
+      dash: 'solid',
+    });
+    expect(normalizePresetShape('star5', { line: { kind: 'none' } }).line)
+      .toEqual({ kind: 'none' });
+
+    const publicDash: ShapeLineDash = 'lgDashDotDot';
+    const internalDash: SimpleLineDash = publicDash;
+    const publicAgain: ShapeLineDash = internalDash;
+    const exactDashUnion: PublicDashMatchesInternal = true;
+    expect(publicAgain).toBe('lgDashDotDot');
+    expect(exactDashUnion).toBe(true);
   });
 
   it('rejects unknown types and non-ordinary option containers', () => {
@@ -201,6 +256,39 @@ describe('normalizePresetShape', () => {
       expect(() => normalizePresetShape('rect', { fill }), JSON.stringify(fill)).toThrow();
     }
   });
+
+  it('rejects invalid preset shape lines and PptxGenJS aliases', () => {
+    for (const line of [
+      null,
+      [],
+      { kind: 'solid' },
+      { kind: 'line' },
+      { kind: 'none', width: undefined },
+      { kind: 'line', color: { kind: 'srgb', value: 'FFF' } },
+      { kind: 'line', color: { kind: 'scheme', value: 'unknown' } },
+      {
+        kind: 'line',
+        color: { kind: 'srgb', value: 'FFFFFF' },
+        transparency: 101,
+      },
+      {
+        kind: 'line',
+        color: { kind: 'srgb', value: 'FFFFFF' },
+        width: 1_584.001,
+      },
+      {
+        kind: 'line',
+        color: { kind: 'srgb', value: 'FFFFFF' },
+        dash: 'dot',
+      },
+      { type: 'none' },
+      { color: 'FFFFFF', dashType: 'dash' },
+      { kind: 'line', color: { kind: 'srgb', value: 'FFFFFF' }, alpha: 40 },
+      { kind: 'line', color: { kind: 'srgb', value: 'FFFFFF' }, lineDash: 'dash' },
+    ]) {
+      expect(() => normalizePresetShape('rect', { line }), JSON.stringify(line)).toThrow();
+    }
+  });
 });
 
 describe('preset shape XML codec', () => {
@@ -267,6 +355,46 @@ describe('preset shape XML codec', () => {
       fill: { kind: 'none' },
     }))).toContain(
       '<a:prstGeom prst="diamond"><a:avLst/></a:prstGeom><a:noFill/><a:ln/>',
+    );
+  });
+
+  it('renders strict shape lines without changing the default shape skeleton', () => {
+    expect(renderPresetShapeXml(7, normalizePresetShape('rect', {
+      line: { kind: 'none' },
+    }))).toContain(
+      '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>' +
+      '<a:noFill/><a:ln><a:noFill/></a:ln>',
+    );
+    expect(renderPresetShapeXml(8, normalizePresetShape('ellipse', {
+      fill: {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'EEEEEE' },
+      },
+      line: {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent2' },
+        transparency: 25,
+        width: 2.5,
+        dash: 'dashDot',
+      },
+    }))).toContain(
+      '<a:prstGeom prst="ellipse"><a:avLst/></a:prstGeom>' +
+      '<a:solidFill><a:srgbClr val="EEEEEE"/></a:solidFill>' +
+      '<a:ln w="31750"><a:solidFill><a:schemeClr val="accent2">' +
+      '<a:alpha val="75000"/></a:schemeClr></a:solidFill>' +
+      '<a:prstDash val="dashDot"/></a:ln>',
+    );
+    expect(renderPresetShapeXml(9, normalizePresetShape('diamond', {
+      line: {
+        kind: 'line',
+        color: { kind: 'srgb', value: 'FF0000' },
+        transparency: 0,
+        width: 0,
+      },
+    }))).toContain(
+      '<a:ln w="0"><a:solidFill><a:srgbClr val="FF0000">' +
+      '<a:alpha val="100000"/></a:srgbClr></a:solidFill>' +
+      '<a:prstDash val="solid"/></a:ln>',
     );
   });
 

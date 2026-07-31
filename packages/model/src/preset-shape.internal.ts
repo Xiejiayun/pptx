@@ -13,6 +13,11 @@ import {
   normalizeSimpleFill,
   renderSimpleFill,
 } from './simple-fill.internal.js';
+import {
+  normalizeSimpleLine,
+  renderSimpleLine,
+  type NormalizedSimpleLine,
+} from './simple-line.internal.js';
 
 const PRESENTATION_NAMESPACE =
   'http://schemas.openxmlformats.org/presentationml/2006/main';
@@ -24,6 +29,7 @@ const PRESET_SHAPE_TYPE_SET: ReadonlySet<string> = new Set(PRESET_SHAPE_TYPES);
 const OPTION_KEYS = new Set([
   'name',
   'fill',
+  'line',
   'x',
   'y',
   'width',
@@ -37,6 +43,7 @@ export interface NormalizedPresetShape {
   readonly type: PresetShapeType;
   readonly name: string | undefined;
   readonly fill: ShapeFill;
+  readonly line: NormalizedSimpleLine | undefined;
   readonly x: number;
   readonly y: number;
   readonly width: number;
@@ -78,11 +85,13 @@ export function normalizePresetShape(
     throw new RangeError('Preset shape rotation must be between -21600000 and 21600000');
   }
   const fill = normalizeSimpleFill(values.fill, 'Preset shape fill') ?? { kind: 'none' };
+  const line = normalizeSimpleLine(values.line, 'Preset shape line');
 
   return Object.freeze({
     type: type as PresetShapeType,
     name: name as string | undefined,
     fill,
+    line,
     x: normalizeNumber(values.x, EMU_PER_INCH, 'x'),
     y: normalizeNumber(values.y, EMU_PER_INCH, 'y'),
     width,
@@ -109,7 +118,15 @@ export function renderPresetShapeXml(
     `<p:spPr><a:xfrm${transformAttributes}><a:off x="${shape.x}" y="${shape.y}"/>` +
     `<a:ext cx="${shape.width}" cy="${shape.height}"/></a:xfrm>` +
     `<a:prstGeom prst="${type}"><a:avLst/></a:prstGeom>` +
-    `${renderSimpleFill(shape.fill, 'a:')}<a:ln/></p:spPr></p:sp>`;
+    `${renderSimpleFill(shape.fill, 'a:')}${renderPresetLine(shape.line)}` +
+    '</p:spPr></p:sp>';
+}
+
+function renderPresetLine(line: NormalizedSimpleLine | undefined): string {
+  if (line === undefined) return '<a:ln/>';
+  if (line.kind === 'none') return `<a:ln>${renderSimpleLine(line, 'a:')}</a:ln>`;
+  return `<a:ln w="${Math.round(line.width * 12_700)}">` +
+    `${renderSimpleLine(line, 'a:')}</a:ln>`;
 }
 
 export function readPresetShapeType(
