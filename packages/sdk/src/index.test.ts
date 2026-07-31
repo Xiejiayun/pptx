@@ -513,6 +513,78 @@ describe('PptxDocument vertical slice', () => {
     }
   });
 
+  it('creates and edits custom geometry guide formulas through the public SDK', async () => {
+    const geometry: CustomGeometry = {
+      adjustments: [{
+        name: 'adj1',
+        formula: { operator: 'val', operands: [25_000] },
+      }],
+      guides: [
+        { name: 'x1', formula: { operator: '*/', operands: ['w', 'adj1', 100_000] } },
+        { name: 'y1', formula: { operator: '+-', operands: ['h', 0, 'x1'] } },
+        { name: 'a1', formula: { operator: 'at2', operands: ['y1', 'x1'] } },
+      ],
+      paths: [{
+        width: 100_000,
+        height: 100_000,
+        commands: [
+          { kind: 'moveTo', point: { x: 'x1', y: 0 } },
+          { kind: 'lineTo', point: { x: 'r', y: 'y1' } },
+          {
+            kind: 'arcTo',
+            widthRadius: 'x1',
+            heightRadius: 'hd2',
+            startAngle: 'a1',
+            sweepAngle: 'cd2',
+          },
+        ],
+      }],
+    };
+    const replacement: CustomGeometry = {
+      adjustments: [{
+        name: 'adj1',
+        formula: { operator: 'val', operands: [50_000] },
+      }],
+      guides: [{
+        name: 'x1',
+        formula: { operator: 'pin', operands: [0, 'adj1', 100_000] },
+      }],
+      paths: [{
+        width: 100_000,
+        height: 100_000,
+        fill: 'none',
+        commands: [
+          { kind: 'moveTo', point: { x: 'x1', y: 't' } },
+          { kind: 'lineTo', point: { x: 'r', y: 'b' } },
+        ],
+      }],
+    };
+
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const shape = slide.addCustomShape(geometry, { name: 'SDK formula geometry' });
+    expect(shape.customGeometry).toEqual(geometry);
+    expect(Object.isFrozen(shape.customGeometry?.adjustments?.[0]?.formula.operands)).toBe(true);
+    expect(validatePackage(document.opcPackage).filter(({ severity }) => severity === 'error'))
+      .toEqual([]);
+    const xml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(xml).toContain('<a:gd name="x1" fmla="*/ w adj1 100000"/>');
+    expect(xml).toContain('<a:arcTo wR="x1" hR="hd2" stAng="a1" swAng="cd2"/>');
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedShape = reopened.slides[0]!.shapes[0] as ShapeModel;
+    expect(reopenedShape.customGeometry).toEqual(geometry);
+    reopenedShape.customGeometry = replacement;
+    expect(reopenedShape.customGeometry).toEqual(replacement);
+    expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error'))
+      .toEqual([]);
+
+    const edited = await PptxDocument.open(await reopened.write());
+    const editedShape = edited.slides[0]!.shapes[0] as ShapeModel;
+    expect(editedShape.name).toBe('SDK formula geometry');
+    expect(editedShape.customGeometry).toEqual(replacement);
+  });
+
   it('creates preset shape hyperlinks through the public SDK type and runtime surface', () => {
     const document = PptxDocument.create();
     const first = document.addSlide();

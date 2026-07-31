@@ -1643,6 +1643,8 @@ describe('importPptxGenJS', () => {
       flipVertical: false,
     });
     expect(importedShape.customGeometry).toEqual(expected);
+    expect(Object.hasOwn(importedShape.customGeometry!, 'adjustments')).toBe(false);
+    expect(Object.hasOwn(importedShape.customGeometry!, 'guides')).toBe(false);
     expect(shapeXml(imported, 0, importedShape.id)).not.toContain('x="999"');
     expect(shapeXml(imported, 0, importedShape.id)).not.toContain('y="999"');
 
@@ -1789,8 +1791,10 @@ describe('importPptxGenJS', () => {
       shape as ShapeModel,
     ]));
     for (const fixture of validCases) {
-      expect(importedShapes.get(fixture.name)?.customGeometry, fixture.name)
-        .toEqual(fixture.expected);
+      const snapshot = importedShapes.get(fixture.name)?.customGeometry;
+      expect(snapshot, fixture.name).toEqual(fixture.expected);
+      expect(Object.hasOwn(snapshot!, 'adjustments'), fixture.name).toBe(false);
+      expect(Object.hasOwn(snapshot!, 'guides'), fixture.name).toBe(false);
     }
     expect(imported.slideSize).toEqual({ width: 12_192_000, height: 6_858_000 });
 
@@ -1872,6 +1876,25 @@ describe('importPptxGenJS', () => {
       kind: 'moveTo',
       point: { x: 1, y: 2 },
     });
+    // PptxGenJS 4.0.1 has no public guide-formula input; this is a native extension.
+    const formulaNative = nativeSlide.addCustomShape({
+      adjustments: [{ name: 'adj1', formula: { operator: 'val', operands: [25_000] } }],
+      guides: [{ name: 'x1', formula: { operator: '*/', operands: ['w', 'adj1', 100_000] } }],
+      paths: [{
+        width: 100_000,
+        height: 100_000,
+        commands: [{ kind: 'moveTo', point: { x: 'x1', y: 0 } }],
+      }],
+    });
+    expect(formulaNative.customGeometry).toEqual({
+      adjustments: [{ name: 'adj1', formula: { operator: 'val', operands: [25_000] } }],
+      guides: [{ name: 'x1', formula: { operator: '*/', operands: ['w', 'adj1', 100_000] } }],
+      paths: [{
+        width: 100_000,
+        height: 100_000,
+        commands: [{ kind: 'moveTo', point: { x: 'x1', y: 0 } }],
+      }],
+    });
     const beforeInvalid = native.opcPackage.requirePart(nativeSlide.partUri).bytes.slice();
     const invalidJournal = [...native.opcPackage.mutations];
     for (const geometry of [
@@ -1879,7 +1902,7 @@ describe('importPptxGenJS', () => {
         paths: [{
           width: 1,
           height: 1,
-          commands: [{ kind: 'moveTo', point: { x: '10%', y: 0 } }],
+          commands: [{ kind: 'moveTo', point: { x: '10 %', y: 0 } }],
         }],
       },
       {

@@ -1079,7 +1079,7 @@ describe('preset shape XML codec', () => {
       shapeFixture('<a:prstGeom prst="rect"/><a:prstGeom prst="ellipse"/>'),
       shapeFixture('<a:prstGeom prst="rect"/><a:custGeom/>'),
       shapeFixture(
-        '<a:custGeom><a:avLst/><a:gdLst><a:gd name="x" fmla="val 1"/></a:gdLst>' +
+        '<a:custGeom><a:avLst/><a:gdLst><a:gd name="x" fmla="unknown 1"/></a:gdLst>' +
         '<a:ahLst/><a:cxnLst/><a:rect l="l" t="t" r="r" b="b"/>' +
         '<a:pathLst><a:path w="1" h="1"/></a:pathLst></a:custGeom>',
       ),

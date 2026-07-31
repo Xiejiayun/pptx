@@ -60,6 +60,58 @@ const customTriangleGeometry: CustomGeometry = {
   }],
 };
 
+const customFormulaGeometry: CustomGeometry = {
+  adjustments: [
+    { name: 'adj1', formula: { operator: 'val', operands: [25_000] } },
+    { name: 'adj2', formula: { operator: 'pin', operands: [0, 75_000, 100_000] } },
+  ],
+  guides: [
+    { name: 'x1', formula: { operator: '*/', operands: ['w', 'adj1', 100_000] } },
+    { name: 'y1', formula: { operator: '+-', operands: ['h', 0, 'x1'] } },
+    { name: 'a1', formula: { operator: 'at2', operands: ['y1', 'x1'] } },
+    { name: 'r1', formula: { operator: 'max', operands: ['x1', 1] } },
+  ],
+  paths: [{
+    width: 100_000,
+    height: 100_000,
+    fill: 'norm',
+    commands: [
+      { kind: 'moveTo', point: { x: 'x1', y: 0 } },
+      {
+        kind: 'quadraticBezierTo',
+        control: { x: 'wd2', y: 'y1' },
+        end: { x: 'r', y: 'b' },
+      },
+      {
+        kind: 'arcTo',
+        widthRadius: 'r1',
+        heightRadius: 'hd2',
+        startAngle: 'a1',
+        sweepAngle: 'cd2',
+      },
+      { kind: 'close' },
+    ],
+  }],
+};
+
+const customFormulaReplacement: CustomGeometry = {
+  adjustments: [{ name: 'adj1', formula: { operator: 'val', operands: [50_000] } }],
+  guides: [
+    { name: 'x1', formula: { operator: '*/', operands: ['w', 'adj1', 100_000] } },
+    { name: 'y1', formula: { operator: 'min', operands: ['h', 'x1'] } },
+  ],
+  paths: [{
+    width: 100_000,
+    height: 100_000,
+    fill: 'none',
+    commands: [
+      { kind: 'moveTo', point: { x: 'x1', y: 'y1' } },
+      { kind: 'lineTo', point: { x: 'r', y: 0 } },
+      { kind: 'close' },
+    ],
+  }],
+};
+
 function readCreatedShapeHyperlink(
   model: PresentationModel,
   slide: ReturnType<PresentationModel['addSlide']>,
@@ -502,6 +554,143 @@ describe('PresentationModel', () => {
       shape.customGeometry = customTriangleGeometry;
     }).toThrow(ModelParseError);
     expect(packageSnapshot(pkg)).toEqual(unsupported);
+  });
+
+  it('creates, freezes, edits, and rolls back live custom geometry guide formulas', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const mutable = structuredClone(customFormulaGeometry) as unknown as {
+      adjustments: Array<{
+        name: string;
+        formula: { operator: string; operands: Array<number | string> };
+      }>;
+      guides: Array<{
+        name: string;
+        formula: { operator: string; operands: Array<number | string> };
+      }>;
+      paths: Array<{
+        width: number;
+        height: number;
+        fill?: string;
+        commands: Array<CustomGeometry['paths'][number]['commands'][number]>;
+      }>;
+    };
+    const shape = slide.addCustomShape(mutable as unknown as CustomGeometry, {
+      name: 'Formula geometry',
+      x: inches(2),
+      fill: { kind: 'solid', color: { kind: 'scheme', value: 'accent2' } },
+      line: { kind: 'line', color: { kind: 'srgb', value: '123ABC' }, width: 2 },
+      arrows: { end: 'triangle' },
+      shadow: { kind: 'outer' },
+      hyperlink: { url: 'https://example.com/formula' },
+    });
+    const neighbor = slide.addShape('rect', { name: 'Formula neighbor' });
+    const neighborBefore = neighbor.presetType;
+
+    mutable.adjustments[0]!.name = 'changed';
+    mutable.adjustments[0]!.formula.operands[0] = 1;
+    mutable.guides.splice(0);
+    mutable.paths[0]!.commands.splice(0);
+
+    const first = shape.customGeometry;
+    const second = shape.customGeometry;
+    expect(first).toEqual(customFormulaGeometry);
+    expect(second).toEqual(first);
+    expect(second).not.toBe(first);
+    expect(Object.isFrozen(first)).toBe(true);
+    expect(Object.isFrozen(first?.adjustments)).toBe(true);
+    expect(Object.isFrozen(first?.adjustments?.[0])).toBe(true);
+    expect(Object.isFrozen(first?.adjustments?.[0]?.formula)).toBe(true);
+    expect(Object.isFrozen(first?.adjustments?.[0]?.formula.operands)).toBe(true);
+    expect(Object.isFrozen(first?.guides)).toBe(true);
+    expect(first?.guides?.every((guide) =>
+      Object.isFrozen(guide)
+      && Object.isFrozen(guide.formula)
+      && Object.isFrozen(guide.formula.operands))).toBe(true);
+    expect(readCreatedCustomGeometry(model, slide, shape.id)).toEqual(customFormulaGeometry);
+
+    const noOp = packageSnapshot(pkg);
+    shape.customGeometry = structuredClone(customFormulaGeometry);
+    expect(packageSnapshot(pkg)).toEqual(noOp);
+
+    const rollback = packageSnapshot(pkg);
+    expect(() => pkg.transaction(() => {
+      shape.customGeometry = customFormulaReplacement;
+      expect(shape.customGeometry).toEqual(customFormulaReplacement);
+      throw new Error('restore custom formula edit');
+    })).toThrow('restore custom formula edit');
+    expect(packageSnapshot(pkg)).toEqual(rollback);
+    expect(shape.customGeometry).toEqual(customFormulaGeometry);
+
+    const preserved = {
+      name: shape.name,
+      transform: shape.transform,
+      fill: shape.fill,
+      line: shape.line,
+      arrows: shape.arrows,
+      shadow: shape.shadow,
+      hyperlink: shape.hyperlink,
+      relationships: slide.relationships,
+    };
+    shape.customGeometry = customFormulaReplacement;
+    expect(shape.customGeometry).toEqual(customFormulaReplacement);
+    expect({
+      name: shape.name,
+      transform: shape.transform,
+      fill: shape.fill,
+      line: shape.line,
+      arrows: shape.arrows,
+      shadow: shape.shadow,
+      hyperlink: shape.hyperlink,
+      relationships: slide.relationships,
+    }).toEqual(preserved);
+    expect(slide.shapes[0]).toBe(shape);
+    expect(slide.shapes[1]).toBe(neighbor);
+    expect(neighbor.presetType).toBe(neighborBefore);
+    const xml = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect(xml).toContain('<a:gd name="adj1" fmla="val 50000"/>');
+    expect(xml).toContain('<a:gd name="y1" fmla="min h x1"/>');
+    expect(xml).toContain('<a:pt x="x1" y="y1"/>');
+  });
+
+  it('isolates, converts, and reopens custom geometry guide formulas in all six formats', async () => {
+    for (const profile of Object.values(PRESENTATION_FORMAT_PROFILES)) {
+      const pkg = await OpcPackage.open(await modelFixture(profile.presentationContentType));
+      const model = new PresentationModel(pkg);
+      const slide = model.addSlide();
+      const shape = slide.addCustomShape(customFormulaGeometry, {
+        name: `Formula ${profile.format}`,
+        hyperlink: { url: `https://example.com/formula/${profile.format}` },
+      });
+      const duplicate = model.duplicateSlide(model.slides.indexOf(slide));
+      const duplicateShape = duplicate.shapes.find(({ id }) => id === shape.id) as ShapeModel;
+      expect(duplicateShape.customGeometry).toEqual(customFormulaGeometry);
+
+      shape.customGeometry = customFormulaReplacement;
+      expect(shape.customGeometry).toEqual(customFormulaReplacement);
+      expect(duplicateShape.customGeometry).toEqual(customFormulaGeometry);
+
+      shape.presetType = 'diamond';
+      expect(shape.customGeometry).toBeUndefined();
+      expect(shape.presetType).toBe('diamond');
+      shape.customGeometry = customFormulaReplacement;
+      expect(shape.presetType).toBeUndefined();
+      expect(shape.customGeometry).toEqual(customFormulaReplacement);
+      expect(duplicateShape.customGeometry).toEqual(customFormulaGeometry);
+
+      model.moveSlide(model.slides.indexOf(duplicate), 0);
+      model.deleteSlide(model.slides.indexOf(duplicate));
+      const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+      const reopenedSlide = reopened.slides.find(({ partUri }) => partUri === slide.partUri)!;
+      const reopenedShape = reopenedSlide.shapes.find(({ id }) => id === shape.id) as ShapeModel;
+      expect(reopened.format).toBe(profile.format);
+      expect(reopenedShape.name).toBe(`Formula ${profile.format}`);
+      expect(reopenedShape.hyperlink).toEqual({
+        url: `https://example.com/formula/${profile.format}`,
+      });
+      expect(reopenedShape.customGeometry).toEqual(customFormulaReplacement);
+    }
   });
 
   it('converts preset and custom geometry without changing live identity or unrelated state', async () => {
