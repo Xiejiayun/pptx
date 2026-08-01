@@ -13,6 +13,12 @@ import { evaluateCustomGeometry as evaluateGeometry } from './custom-geometry-ev
 import type { CustomGeometry, EvaluatedCustomGeometry } from './custom-geometry.js';
 import type { Hyperlink } from './hyperlink.js';
 import type { ImageSourceRectangle } from './image.js';
+import {
+  hasSvgImageExtensionCandidate,
+  readSvgImageState,
+  relationshipReferenceCount,
+  type SvgImageState,
+} from './svg-image-state.internal.js';
 import type { SlideModel } from './slide.js';
 import {
   normalizeTableCellBorders,
@@ -327,9 +333,28 @@ export class ImageModel extends BaseShapeModel {
 
   get sourcePartUri(): string | undefined {
     const { xml, element } = this.resolve();
+    const svgState = readSvgImageState(
+      xml,
+      element,
+      this.slide.relationships,
+      this.slide.presentation.opcPackage,
+    );
+    if (svgState) return svgState.fallbackPartUri;
     const blip = xml.descendants(element, 'blip')[0];
     const id = blip ? xml.attribute(blip, 'r:embed')?.value ?? xml.attribute(blip, 'r:link')?.value : undefined;
     return id ? this.relationship(id)?.resolvedTarget : undefined;
+  }
+
+  get isSvg(): boolean {
+    return this.svgState() !== undefined;
+  }
+
+  get fallbackPartUri(): string | undefined {
+    return this.svgState()?.fallbackPartUri;
+  }
+
+  get svgPartUri(): string | undefined {
+    return this.svgState()?.svgPartUri;
   }
 
   get externalUrl(): string | undefined {
@@ -344,6 +369,9 @@ export class ImageModel extends BaseShapeModel {
     const pkg = this.slide.presentation.opcPackage;
     pkg.transaction(() => {
       const { xml, element } = this.resolve();
+      if (hasSvgImageExtensionCandidate(xml, element)) {
+        throw new Error('Use replaceSvgData() for SVG images');
+      }
       const blip = xml.descendants(element, 'blip')[0];
       const reference = blip
         ? xml.attribute(blip, 'r:embed') ?? xml.attribute(blip, 'r:link')
@@ -363,6 +391,57 @@ export class ImageModel extends BaseShapeModel {
       pkg.setPart(cloneUri, bytes, nextContentType);
       retargetShapeRelationship(this.slide, xml, reference, relationship, cloneUri);
     });
+  }
+
+  replaceSvgData(svgBytes: Uint8Array, fallbackPngBytes: Uint8Array): void {
+    const detachedSvgBytes = normalizeReplacementBytes(svgBytes, 'SVG');
+    const detachedFallbackPngBytes = normalizeReplacementBytes(
+      fallbackPngBytes,
+      'SVG fallback PNG',
+    );
+    const pkg = this.slide.presentation.opcPackage;
+    pkg.transaction(() => {
+      const { xml, element } = this.resolve();
+      const state = readSvgImageState(
+        xml,
+        element,
+        this.slide.relationships,
+        pkg,
+      );
+      if (!state) {
+        throw new Error(`Image ${this.id} is not a safely editable SVG image`);
+      }
+      replaceSvgImagePart(
+        this.slide,
+        xml,
+        state.fallbackReference,
+        state.fallbackRelationship,
+        state.fallbackPartUri,
+        detachedFallbackPngBytes,
+        'image/png',
+        '.png',
+      );
+      replaceSvgImagePart(
+        this.slide,
+        xml,
+        state.svgReference,
+        state.svgRelationship,
+        state.svgPartUri,
+        detachedSvgBytes,
+        'image/svg+xml',
+        '.svg',
+      );
+    });
+  }
+
+  private svgState(): SvgImageState | undefined {
+    const { xml, element } = this.resolve();
+    return readSvgImageState(
+      xml,
+      element,
+      this.slide.relationships,
+      this.slide.presentation.opcPackage,
+    );
   }
 
   private relationship(id: string): Relationship | undefined {
@@ -675,14 +754,30 @@ function isSharedTarget(
   const incoming = relationship.resolvedTarget
     ? pkg.graph.find(({ uri }) => uri === relationship.resolvedTarget)?.incoming.length ?? 0
     : 0;
-  return incoming > 1 || relationshipReferenceCount(xml, relationship.id) > 1;
+  return incoming > 1 || imageRelationshipReferenceCount(xml, relationship.id) > 1;
 }
 
-function relationshipReferenceCount(xml: LosslessXmlDocument, id: string): number {
-  return xml
-    .elements()
-    .flatMap(({ attributes }) => attributes)
-    .filter(({ name, value }) => name.startsWith('r:') && value === id).length;
+function replaceSvgImagePart(
+  slide: SlideModel,
+  xml: LosslessXmlDocument,
+  reference: XmlAttribute,
+  relationship: Relationship,
+  targetPartUri: string,
+  bytes: Uint8Array,
+  contentType: 'image/png' | 'image/svg+xml',
+  extension: '.png' | '.svg',
+): void {
+  const pkg = slide.presentation.opcPackage;
+  if (
+    partUriExtension(targetPartUri) === extension
+    && !isSharedTarget(pkg, xml, relationship)
+  ) {
+    pkg.setPart(targetPartUri, bytes, contentType);
+    return;
+  }
+  const cloneUri = allocateSiblingPartUri(pkg, targetPartUri, extension);
+  pkg.setPart(cloneUri, bytes, contentType);
+  retargetShapeRelationship(slide, xml, reference, relationship, cloneUri);
 }
 
 function retargetShapeRelationship(
@@ -694,7 +789,7 @@ function retargetShapeRelationship(
 ): void {
   const pkg = slide.presentation.opcPackage;
   const target = relativeRelationshipTarget(slide.partUri, targetPartUri);
-  if (relationshipReferenceCount(xml, relationship.id) > 1) {
+  if (imageRelationshipReferenceCount(xml, relationship.id) > 1) {
     const cloneRelationship = pkg.addRelationship(slide.partUri, { type: relationship.type, target });
     xml.replaceAttribute(reference, cloneRelationship.id);
     slide.setXml(xml.serialize());
@@ -703,9 +798,36 @@ function retargetShapeRelationship(
   }
 }
 
-function allocateSiblingPartUri(pkg: OpcPackage, sourcePartUri: string): string {
-  const extension = partUriExtension(sourcePartUri) || '.bin';
-  const basename = partUriBasename(sourcePartUri, partUriExtension(sourcePartUri));
+function imageRelationshipReferenceCount(
+  xml: LosslessXmlDocument,
+  id: string,
+): number {
+  const namespaceAwareCount = relationshipReferenceCount(xml, id);
+  if (namespaceAwareCount > 0) return namespaceAwareCount;
+  return xml
+    .elements()
+    .flatMap(({ attributes }) => attributes)
+    .filter(({ name, value }) => name.startsWith('r:') && value === id).length;
+}
+
+function allocateSiblingPartUri(
+  pkg: OpcPackage,
+  sourcePartUri: string,
+  requestedExtension?: string,
+): string {
+  const sourceExtension = partUriExtension(sourcePartUri);
+  const extension = requestedExtension ?? (sourceExtension || '.bin');
+  const basename = partUriBasename(sourcePartUri, sourceExtension);
   const stem = basename.replace(/\d+$/, '') || 'part';
   return pkg.allocatePartUri(partUriDirname(sourcePartUri), stem, extension);
+}
+
+function normalizeReplacementBytes(value: unknown, name: string): Uint8Array {
+  if (!(value instanceof Uint8Array)) {
+    throw new TypeError(`${name} bytes must be a Uint8Array`);
+  }
+  if (value.length === 0) {
+    throw new RangeError(`${name} bytes must not be empty`);
+  }
+  return new Uint8Array(value);
 }

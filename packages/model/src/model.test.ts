@@ -758,6 +758,281 @@ describe('PresentationModel', () => {
     }
   });
 
+  it('reads and atomically replaces an exclusive SVG pair without changing appearance', async () => {
+    const { pkg, model } = emptyPresentationModel();
+    const slide = model.addSlide();
+    const raster = slide.addImage(new Uint8Array([1]), { contentType: 'image/png' });
+    const image = slide.addSvgImage(
+      new Uint8Array([2, 3]),
+      new Uint8Array([4, 5]),
+      {
+        name: 'Editable vector',
+        altText: 'Keep SVG metadata',
+        x: inches(1),
+        y: inches(2),
+        width: inches(3),
+        height: inches(4),
+        rotation: degrees(15),
+        flipVertical: true,
+        sourceRectangle: { left: 10, top: 5, right: 20, bottom: -5 },
+      },
+    );
+    const fallbackUri = image.sourcePartUri!;
+    const svgUri = slide.relationships.find(
+      ({ resolvedTarget }) => resolvedTarget?.endsWith('.svg'),
+    )!.resolvedTarget!;
+    const part = pkg.requirePart(slide.partUri);
+    pkg.setPart(
+      slide.partUri,
+      new TextDecoder().decode(part.bytes).replace(
+        '</a:extLst>',
+        '<a:ext uri="urn:keep"><x:keep xmlns:x="urn:keep"/></a:ext></a:extLst>',
+      ),
+      part.contentType,
+    );
+
+    expect(raster.isSvg).toBe(false);
+    expect(raster.fallbackPartUri).toBeUndefined();
+    expect(raster.svgPartUri).toBeUndefined();
+    expect(image.isSvg).toBe(true);
+    expect(image.fallbackPartUri).toBe(fallbackUri);
+    expect(image.svgPartUri).toBe(svgUri);
+    expect(image.sourcePartUri).toBe(fallbackUri);
+    const appearance = {
+      name: image.name,
+      transform: image.transform,
+      sourceRectangle: image.sourceRectangle,
+    };
+    const nextSvg = new Uint8Array([6, 7, 8]);
+    const nextFallback = new Uint8Array([9, 10, 11]);
+
+    image.replaceSvgData(nextSvg, nextFallback);
+
+    expect(image.fallbackPartUri).toBe(fallbackUri);
+    expect(image.svgPartUri).toBe(svgUri);
+    expect(pkg.requirePart(fallbackUri)).toMatchObject({
+      contentType: 'image/png',
+      bytes: new Uint8Array([9, 10, 11]),
+    });
+    expect(pkg.requirePart(svgUri)).toMatchObject({
+      contentType: 'image/svg+xml',
+      bytes: new Uint8Array([6, 7, 8]),
+    });
+    nextSvg.fill(0);
+    nextFallback.fill(0);
+    expect(pkg.requirePart(fallbackUri).bytes).toEqual(new Uint8Array([9, 10, 11]));
+    expect(pkg.requirePart(svgUri).bytes).toEqual(new Uint8Array([6, 7, 8]));
+    expect({
+      name: image.name,
+      transform: image.transform,
+      sourceRectangle: image.sourceRectangle,
+    }).toEqual(appearance);
+    const source = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect(source).toContain('descr="Keep SVG metadata"');
+    expect(source).toContain('<x:keep xmlns:x="urn:keep"/>');
+    expect(() => image.replaceData(new Uint8Array([12]), 'image/png')).toThrow(
+      'Use replaceSvgData() for SVG images',
+    );
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedImage = reopened.slides[0]!.shapes[1] as ImageModel;
+    expect(reopenedImage.isSvg).toBe(true);
+    expect(reopenedImage.sourcePartUri).toBe(fallbackUri);
+    expect(reopenedImage.fallbackPartUri).toBe(fallbackUri);
+    expect(reopenedImage.svgPartUri).toBe(svgUri);
+  });
+
+  it('clones both SVG targets for a duplicate and supports reopen-edit-again', async () => {
+    const { pkg, model } = emptyPresentationModel();
+    const sourceSlide = model.addSlide();
+    const sourceImage = sourceSlide.addSvgImage(
+      new Uint8Array([1, 2]),
+      new Uint8Array([3, 4]),
+      { name: 'Shared vector' },
+    );
+    const sourceFallbackUri = sourceImage.fallbackPartUri!;
+    const sourceSvgUri = sourceImage.svgPartUri!;
+    const duplicateSlide = model.duplicateSlide(0);
+    const duplicateImage = duplicateSlide.shapes[0] as ImageModel;
+
+    expect(duplicateImage.fallbackPartUri).toBe(sourceFallbackUri);
+    expect(duplicateImage.svgPartUri).toBe(sourceSvgUri);
+    duplicateImage.replaceSvgData(new Uint8Array([5, 6]), new Uint8Array([7, 8]));
+    const duplicateFallbackUri = duplicateImage.fallbackPartUri!;
+    const duplicateSvgUri = duplicateImage.svgPartUri!;
+
+    expect(duplicateSlide.shapes[0]).toBe(duplicateImage);
+    expect(duplicateFallbackUri).not.toBe(sourceFallbackUri);
+    expect(duplicateSvgUri).not.toBe(sourceSvgUri);
+    expect(pkg.requirePart(sourceFallbackUri).bytes).toEqual(new Uint8Array([3, 4]));
+    expect(pkg.requirePart(sourceSvgUri).bytes).toEqual(new Uint8Array([1, 2]));
+    expect(pkg.requirePart(duplicateFallbackUri)).toMatchObject({
+      contentType: 'image/png',
+      bytes: new Uint8Array([7, 8]),
+    });
+    expect(pkg.requirePart(duplicateSvgUri)).toMatchObject({
+      contentType: 'image/svg+xml',
+      bytes: new Uint8Array([5, 6]),
+    });
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedDuplicateSlide = reopened.slides.find(
+      ({ partUri }) => partUri === duplicateSlide.partUri,
+    )!;
+    const reopenedDuplicate = reopenedDuplicateSlide.shapes[0] as ImageModel;
+    reopenedDuplicate.replaceSvgData(new Uint8Array([9]), new Uint8Array([10]));
+    expect(reopenedDuplicate.fallbackPartUri).toBe(duplicateFallbackUri);
+    expect(reopenedDuplicate.svgPartUri).toBe(duplicateSvgUri);
+    expect(reopened.opcPackage.requirePart(duplicateFallbackUri).bytes)
+      .toEqual(new Uint8Array([10]));
+    expect(reopened.opcPackage.requirePart(duplicateSvgUri).bytes)
+      .toEqual(new Uint8Array([9]));
+  });
+
+  it('isolates two SVG pictures that share both relationship ids on one slide', () => {
+    const { pkg, model } = emptyPresentationModel();
+    const slide = model.addSlide();
+    const first = slide.addSvgImage(new Uint8Array([1]), new Uint8Array([2]));
+    const part = pkg.requirePart(slide.partUri);
+    const source = new TextDecoder().decode(part.bytes);
+    const picture = source.match(/<p:pic>.*?<\/p:pic>/)?.[0];
+    expect(picture).toBeTruthy();
+    pkg.setPart(
+      slide.partUri,
+      source.replace(
+        '</p:spTree>',
+        `${picture!.replace('id="2"', 'id="3"').replace('name="Image 0"', 'name="Image 1"')}</p:spTree>`,
+      ),
+      part.contentType,
+    );
+    const second = slide.shapes.find(({ id }) => id === 3) as ImageModel;
+    const sharedFallbackUri = first.fallbackPartUri!;
+    const sharedSvgUri = first.svgPartUri!;
+
+    second.replaceSvgData(new Uint8Array([3]), new Uint8Array([4]));
+
+    expect(first.fallbackPartUri).toBe(sharedFallbackUri);
+    expect(first.svgPartUri).toBe(sharedSvgUri);
+    expect(second.fallbackPartUri).not.toBe(sharedFallbackUri);
+    expect(second.svgPartUri).not.toBe(sharedSvgUri);
+    expect(pkg.requirePart(sharedFallbackUri).bytes).toEqual(new Uint8Array([2]));
+    expect(pkg.requirePart(sharedSvgUri).bytes).toEqual(new Uint8Array([1]));
+    expect(slide.relationships.filter(({ type }) => type === IMAGE_RELATIONSHIP))
+      .toHaveLength(4);
+  });
+
+  it('handles independently shared and noncanonical SVG targets', () => {
+    const { pkg, model } = emptyPresentationModel();
+    const slide = model.addSlide();
+    const image = slide.addSvgImage(new Uint8Array([1]), new Uint8Array([2]));
+    const neighbor = model.addSlide();
+    const originalFallbackUri = image.fallbackPartUri!;
+    const originalSvgUri = image.svgPartUri!;
+    pkg.addRelationship(neighbor.partUri, {
+      type: IMAGE_RELATIONSHIP,
+      target: '../media/image1.png',
+      targetMode: 'Internal',
+    });
+
+    image.replaceSvgData(new Uint8Array([3]), new Uint8Array([4]));
+
+    expect(image.fallbackPartUri).not.toBe(originalFallbackUri);
+    expect(image.svgPartUri).toBe(originalSvgUri);
+    expect(pkg.requirePart(originalFallbackUri).bytes).toEqual(new Uint8Array([2]));
+    expect(pkg.requirePart(originalSvgUri).bytes).toEqual(new Uint8Array([3]));
+
+    const fallbackRelationship = slide.relationships.find(
+      ({ resolvedTarget }) => resolvedTarget === image.fallbackPartUri,
+    )!;
+    pkg.setPart('/ppt/media/noncanonical.bin', new Uint8Array([5]), 'application/octet-stream');
+    pkg.updateRelationship(slide.partUri, fallbackRelationship.id, {
+      target: '../media/noncanonical.bin',
+    });
+    pkg.setPart(originalSvgUri, new Uint8Array([6]), 'image/svg');
+    expect(image.fallbackPartUri).toBe('/ppt/media/noncanonical.bin');
+    expect(image.svgPartUri).toBe(originalSvgUri);
+
+    image.replaceSvgData(new Uint8Array([7]), new Uint8Array([8]));
+
+    expect(image.fallbackPartUri).toMatch(/\.png$/);
+    expect(image.fallbackPartUri).not.toBe('/ppt/media/noncanonical.bin');
+    expect(image.svgPartUri).toBe(originalSvgUri);
+    expect(pkg.requirePart(image.fallbackPartUri!)).toMatchObject({
+      contentType: 'image/png',
+      bytes: new Uint8Array([8]),
+    });
+    expect(pkg.requirePart(originalSvgUri)).toMatchObject({
+      contentType: 'image/svg+xml',
+      bytes: new Uint8Array([7]),
+    });
+    expect(pkg.requirePart('/ppt/media/noncanonical.bin').bytes)
+      .toEqual(new Uint8Array([5]));
+  });
+
+  it('rejects malformed SVG state and rolls paired replacements back exactly', () => {
+    const malformedFixture = emptyPresentationModel();
+    const malformedSlide = malformedFixture.model.addSlide();
+    const malformedImage = malformedSlide.addSvgImage(
+      new Uint8Array([1]),
+      new Uint8Array([2]),
+    );
+    const svgRelationship = malformedSlide.relationships.find(
+      ({ resolvedTarget }) => resolvedTarget?.endsWith('.svg'),
+    )!;
+    malformedFixture.pkg.updateRelationship(malformedSlide.partUri, svgRelationship.id, {
+      type: 'urn:wrong',
+    });
+    const malformedBefore = packageSnapshot(malformedFixture.pkg);
+
+    expect(malformedImage.isSvg).toBe(false);
+    expect(malformedImage.fallbackPartUri).toBeUndefined();
+    expect(malformedImage.svgPartUri).toBeUndefined();
+    expect(() => malformedImage.replaceSvgData(
+      new Uint8Array([3]),
+      new Uint8Array([4]),
+    )).toThrow('Image 2 is not a safely editable SVG image');
+    expect(() => malformedImage.replaceData(new Uint8Array([5]), 'image/png'))
+      .toThrow('Use replaceSvgData() for SVG images');
+    expect(packageSnapshot(malformedFixture.pkg)).toEqual(malformedBefore);
+
+    const rollbackFixture = emptyPresentationModel();
+    const rollbackSlide = rollbackFixture.model.addSlide();
+    const rollbackImage = rollbackSlide.addSvgImage(
+      new Uint8Array([6]),
+      new Uint8Array([7]),
+    );
+    const rollbackBefore = packageSnapshot(rollbackFixture.pkg);
+    expect(() => rollbackFixture.pkg.transaction(() => {
+      rollbackImage.replaceSvgData(new Uint8Array([8]), new Uint8Array([9]));
+      throw new Error('restore SVG pair');
+    })).toThrow('restore SVG pair');
+    expect(packageSnapshot(rollbackFixture.pkg)).toEqual(rollbackBefore);
+    expect(rollbackImage.isSvg).toBe(true);
+
+    const failureFixture = emptyPresentationModel();
+    const failureSlide = failureFixture.model.addSlide();
+    const failureImage = failureSlide.addSvgImage(
+      new Uint8Array([10]),
+      new Uint8Array([11]),
+    );
+    const failureSvgUri = failureImage.svgPartUri!;
+    failureFixture.pkg.setPart(failureSvgUri, new Uint8Array([10]), 'image/svg');
+    failureFixture.pkg.setPart('/[Content_Types].xml', '<invalid/>');
+    const failureBefore = packageSnapshot(failureFixture.pkg);
+    for (const invoke of [
+      () => failureImage.replaceSvgData([] as never, new Uint8Array([12])),
+      () => failureImage.replaceSvgData(new Uint8Array([12]), new Uint8Array()),
+    ]) {
+      expect(invoke).toThrow();
+      expect(packageSnapshot(failureFixture.pkg)).toEqual(failureBefore);
+    }
+    expect(() => failureImage.replaceSvgData(
+      new Uint8Array([12]),
+      new Uint8Array([13]),
+    )).toThrow(/Invalid \[Content_Types\]\.xml/);
+    expect(packageSnapshot(failureFixture.pkg)).toEqual(failureBefore);
+  });
+
   it('creates multiple embedded raster images before extensions without disturbing neighbors', () => {
     const { pkg, model } = emptyPresentationModel();
     const slide = model.addSlide();
