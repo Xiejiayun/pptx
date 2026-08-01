@@ -255,7 +255,7 @@ PptxGenJS 4.0.1 的九种公开图表和 bar+line 主/次轴组合已通过真�
 
 LibreOffice 26.8 能显示八种 2D 图表及组合图；`bar3D` 在 native 与独立 PptxGenJS 控制文件中都只显示标题。保存时 LibreOffice 保留全部 10 个图表的类型和 cache 数据，但移除内嵌 workbook 并把公式改成客户端占位符；reader 将其识别为可编辑的 `cache-only` 状态并报告 `CHART_WORKBOOK_MISSING` warning，首次语义替换会重新生成同步 XLSX。本机 PowerPoint 16.112 对 gallery 与独立控制文件自动打开均返回同一 `-9074`，本轮不声明 PowerPoint 往返通过。
 
-仍未支持 Office 2016 `cx:*` modern chart 创建/语义编辑、external workbook 编辑、chart animations、内建趋势线/error bar 创建以及更广泛 Keynote/Google Slides 认证；高级插件继续处理 modern inspection、trendline、error bar 与显式 fallback。Slide background 已在下一节完成；PptxGenJS 全功能对等的下一项是 slide number，随后是 default color。
+仍未支持 Office 2016 `cx:*` modern chart 创建/语义编辑、external workbook 编辑、chart animations、内建趋势线/error bar 创建以及更广泛 Keynote/Google Slides 认证；高级插件继续处理 modern inspection、trendline、error bar 与显式 fallback。Slide background 与 slide number 均已完成；PptxGenJS 全功能对等的下一项是 default color。
 
 ## 创建和编辑页面背景
 
@@ -283,6 +283,50 @@ slide.background = undefined;        // 删除 direct p:bg，恢复 layout/maste
 PptxGenJS 4.0.1 的合法 solid、transparency 与 PNG background 最终结构已对等。它的 `{ type: 'none' }` 实际不写 direct background，而 `{ type: 'none', color }` 会产生空 `p:bgPr`；native 不复制这个缺陷，显式 none 始终写合法 `a:noFill`。实际 npm tarball 的 Node、real-Chrome、declaration 与 installed CLI smoke 均报告 `slideBackgrounds: true`。两次 clean build 的 48 个 dist 文件 SHA-256 manifest 完全一致；11 页 native gallery 含 41 parts、39 relationships 和 3 个背景媒体部件，PowerPoint 2010 profile 为 0 errors / 0 warnings，全部 11 页与 7 页 PptxGenJS 对照均已逐页渲染检查且 overflow 为 0。
 
 LibreOffice 26.8 回存后保留 11 页顺序、solid/gradient/image 类型和全部图片 payload hash，但把 explicit noFill 规范化为继承、把两种 gradient 的 `rotateWithShape` 改为 false，并为 path gradient 写入全幅 fill rectangle；回存件仍为 0 errors / 0 warnings。本机 PowerPoint 16.112 自动打开返回 `-9074`，因此本轮不声明 PowerPoint 往返通过。
+
+## 创建、编辑和同步页码
+
+```ts
+import { inches, PptxDocument } from '@jiayunxie/pptx';
+
+const document = PptxDocument.create({ firstSlideNumber: 5 });
+const slide = document.addSlide();
+
+slide.slideNumber = {
+  x: inches(8.1),
+  y: inches(5),
+  width: inches(1.4),
+  height: inches(0.35),
+  align: 'center',
+  rtl: true,
+  valign: 'middle',
+  margin: [1, 2, 3, 4],
+  style: {
+    fontFamily: 'Aptos',
+    fontSize: 18,
+    lang: 'zh-CN',
+    bold: true,
+    italic: true,
+    color: { kind: 'scheme', value: 'accent1' },
+    transparency: 25,
+  },
+};
+
+document.layouts[0].slideNumber = { x: inches(0.5), align: 'left' };
+document.masters[0].slideNumber = { x: inches(4.5), align: 'center' };
+const duplicate = document.duplicateSlide(0);
+document.moveSlide(document.slides.indexOf(duplicate), 0);
+document.firstSlideNumber = 10; // 同步所有安全识别的 direct slide cache
+slide.slideNumber = undefined; // 只清除该页的 direct 页码
+```
+
+`SlideModel.slideNumber`、`LayoutModel.slideNumber` 与 `MasterModel.slideNumber` 分别只拥有对应 part 的 direct `p:ph type="sldNum"` 字段；master setter 还同步 direct `p:hf@sldNum`。直接设置 slide 不会暗写唯一 master 或默认 layout。位置和尺寸使用 EMU，margin/font size 使用 point，transparency 使用百分比。Getter 返回 detached、deep-frozen 的 `SlideNumber`；相同值赋值和 absent clear 是 exact no-op。严格 reader 对 wrong namespace、重复 owner、普通 field、无效 style/geometry、shape-id collision 或歧义结构返回 `undefined`，危险 setter 在 mutation 前拒绝。
+
+`CreatePresentationOptions.firstSlideNumber` / `document.firstSlideNumber` 接受 signed Int32 safe integer；`undefined` 删除 `firstSlideNum` 并恢复 OOXML 默认 1。直接 slide cache 始终为起始值加当前零基索引，layout/master cache 为 `‹#›`；修改起始值以及 duplicate/move/delete 都在同一 transaction 内同步安全识别的 cache。Diagnostics 报告 fixed-id collision、disabled master 和 noncanonical cache。PptxGenJS 4.0.1 的公开 slide-number variants 可严格导入；native 不复制它固定 shape id 25、layout/master 随机 cache、disabled master 或 zero-size fallback 等缺陷。
+
+实际 54-file tarball（51 个 `dist` 文件）的 Node、real-Chrome、browser conditional export、declaration 与 installed CLI smoke 均报告 `slideNumbers: true`；两次 package build 的 51-file manifest 完全一致，SHA-256 为 `3d77e6f56b8f299f2d580112fd0ebe77d0a98c38c07764259a3735064d5f9bea`。Focused suite 为 448/448；全量 Vitest 为 1194 passed、1 performance 默认 skipped，独立 performance 1/1。16 页 native gallery 为 48 parts、45 relationships、PowerPoint 2010 profile 0/0；16 页 PptxGenJS control 为 82 parts、95 relationships、0 errors 和 4 条已锁定 warning。32 页均以 180 DPI 渲染、逐页检查，最小非空像素边距分别为 50px/81px。
+
+LibreOffice 26.8 渲染全部 direct slide 页码，但按自身页序显示 1..16；保存后保留 16 页标题顺序、15 个 direct owner、clear 状态、field type、对齐和主要显式样式，同时移除 `firstSlideNum`、重写 cache/default font/language 与 layout/master placeholder。需要跨 LibreOffice 可见性时应优先创建 direct slide field，而不是只依赖 layout/master placeholder。回存件可重开且为 0 errors、15 条 cache-normalization warning。本机 PowerPoint 16.112 自动化启动了应用但未形成 active presentation、PDF 或回存 PPTX，因此不声明 PowerPoint 往返通过。
 
 ## 创建和编辑预设形状、调整值与样式
 

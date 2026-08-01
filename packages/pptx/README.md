@@ -396,7 +396,7 @@ All nine PptxGenJS 4.0.1 public chart types plus a bar+line primary/secondary co
 
 LibreOffice 26.8 renders the eight 2D types and the combination; `bar3D` is title-only for both the native gallery and an independent PptxGenJS control. On save, LibreOffice retains every chart object's group types and cached data but removes embedded workbooks and rewrites formulas to client placeholders. The reader treats those charts as editable `cache-only` state with `CHART_WORKBOOK_MISSING` warnings, and the first semantic replacement recreates a synchronized XLSX. Local PowerPoint 16.112 automation returned the same `-9074` for the gallery and independent control, so this environment does not establish a PowerPoint round-trip pass.
 
-Office 2016 `cx:*` chart creation/semantic editing, external-workbook editing, chart animations, built-in trendline/error-bar creation, and broad Keynote/Google Slides certification remain pending. The advanced-charts plugin continues to cover modern inspection, trendlines, error bars, and explicit fallback. Slide backgrounds are complete below; the next PptxGenJS parity slice is slide number, followed by default color.
+Office 2016 `cx:*` chart creation/semantic editing, external-workbook editing, chart animations, built-in trendline/error-bar creation, and broad Keynote/Google Slides certification remain pending. The advanced-charts plugin continues to cover modern inspection, trendlines, error bars, and explicit fallback. Slide backgrounds and slide numbers are complete; the next PptxGenJS parity slice is default color.
 
 ## Create and edit slide backgrounds
 
@@ -424,6 +424,50 @@ High-level `setSlideBackgroundImage()` accepts the raster loader's Node path, HT
 Valid PptxGenJS 4.0.1 solid, transparency, and PNG backgrounds reach the same final supported structure. Its `{ type: 'none' }` writes no direct background, while `{ type: 'none', color }` emits an empty `p:bgPr`; native intentionally corrects that defect and always writes legal `a:noFill` for explicit none. The actual npm tarball passes Node, real-Chrome, declaration, and installed-CLI smoke with `slideBackgrounds: true`. Two clean builds produce an identical SHA-256 manifest for all 48 dist files. The 11-slide native gallery contains 41 parts, 39 relationships, and three background media parts; PowerPoint 2010 validation is 0 errors / 0 warnings. All 11 native and seven PptxGenJS control slides render without overflow and were reviewed individually.
 
 LibreOffice 26.8 preserves the 11-slide order, solid/gradient/image kinds, and every image payload hash on save. It normalizes explicit no-fill to inheritance, changes both gradient `rotateWithShape` flags to false, and adds a full fill rectangle to the path gradient; the saved package still validates 0/0. Local PowerPoint 16.112 automation returned `-9074`, so this environment does not establish a PowerPoint round-trip pass.
+
+## Create, edit, and synchronize slide numbers
+
+```ts
+import { inches, PptxDocument } from '@jiayunxie/pptx';
+
+const numberedDocument = PptxDocument.create({ firstSlideNumber: 5 });
+const numberedSlide = numberedDocument.addSlide();
+
+numberedSlide.slideNumber = {
+  x: inches(8.1),
+  y: inches(5),
+  width: inches(1.4),
+  height: inches(0.35),
+  align: 'center',
+  rtl: true,
+  valign: 'middle',
+  margin: [1, 2, 3, 4],
+  style: {
+    fontFamily: 'Aptos',
+    fontSize: 18,
+    lang: 'zh-CN',
+    bold: true,
+    italic: true,
+    color: { kind: 'scheme', value: 'accent1' },
+    transparency: 25,
+  },
+};
+
+numberedDocument.layouts[0].slideNumber = { x: inches(0.5), align: 'left' };
+numberedDocument.masters[0].slideNumber = { x: inches(4.5), align: 'center' };
+const numberedDuplicate = numberedDocument.duplicateSlide(0);
+numberedDocument.moveSlide(numberedDocument.slides.indexOf(numberedDuplicate), 0);
+numberedDocument.firstSlideNumber = 10;
+numberedSlide.slideNumber = undefined;
+```
+
+`SlideModel.slideNumber`, `LayoutModel.slideNumber`, and `MasterModel.slideNumber` own only the direct `p:ph type="sldNum"` field in their respective parts; the master setter also synchronizes direct `p:hf@sldNum`. Assigning a slide never writes hidden fields into the unique master or default layout. Position and size use EMU, margins and font size use points, and transparency uses percent. Getters return detached, deeply frozen `SlideNumber` snapshots. Equal assignment and clearing an absent field are exact no-ops. The strict reader returns `undefined` for wrong namespaces, duplicate owners, ordinary fields, invalid geometry/style, shape-id collisions, or ambiguous structures, and unsafe setters fail before mutation.
+
+`CreatePresentationOptions.firstSlideNumber` and `document.firstSlideNumber` accept signed Int32 safe integers; `undefined` removes `firstSlideNum` and restores the OOXML default of 1. Direct slide caches equal the start plus the current zero-based index, while layout/master caches are `‹#›`. Start changes and duplicate/move/delete operations synchronize safely recognized caches transactionally. Diagnostics cover fixed-id collisions, disabled masters, and noncanonical caches. PptxGenJS 4.0.1 public slide-number variants import strictly; native intentionally avoids its fixed shape id 25, random layout/master caches, disabled master, and zero-size fallback defects.
+
+The actual 54-file tarball contains 51 `dist` files and passes Node, real-Chrome, browser conditional-export, declaration, and installed-CLI smoke with `slideNumbers: true`. Two package builds produce an identical 51-file manifest with SHA-256 `3d77e6f56b8f299f2d580112fd0ebe77d0a98c38c07764259a3735064d5f9bea`. The focused suite is 448/448. Full Vitest reports 1194 passed with one performance test skipped by default; its separate gate is 1/1. The 16-slide native gallery has 48 parts and 45 relationships and validates 0/0 against PowerPoint 2010. The 16-slide PptxGenJS control has 82 parts and 95 relationships with zero errors and four locked warnings. All 32 pages render at 180 DPI, were reviewed individually, and have minimum ink margins of 50px/81px.
+
+LibreOffice 26.8 renders all direct slide fields but displays its own 1..16 sequence. On save it preserves 16-slide title order, 15 direct owners, the cleared field, field types, alignment, and principal explicit styles, while removing `firstSlideNum` and rewriting caches, default fonts/languages, and layout/master placeholders. Prefer direct slide fields when LibreOffice-visible portability matters instead of relying only on layout/master placeholders. The reopened package has zero errors and 15 cache-normalization warnings. Local PowerPoint 16.112 automation launched the application but produced no active presentation, PDF, or saved PPTX, so no PowerPoint round-trip pass is claimed.
 
 `PRESET_SHAPE_TYPES` is the frozen discovery catalog for all 178 canonical preset geometries accepted by `SlideModel.addShape()`. `AddShapeOptions` accepts `name`, strict `adjustments`, strict `fill`, strict `line`, strict `arrows`, strict `shadow`, strict `hyperlink`, and native EMU/OOXML-angle transform fields; use `inches()` and `degrees()` for ergonomic conversion. Omitted geometry starts at x/y/width/height = 1 inch with zero rotation and no flips; omitted fill creates direct no-fill, and omitted line keeps the canonical empty line container. Inputs are strict, descriptor-safe, detached before mutation, and reject unknown fields. The catalog uses the valid OOXML `foldedCorner`; PptxGenJS 4.0.1's invalid `folderCorner` token and runtime-only `custGeom` value are not accepted as presets.
 

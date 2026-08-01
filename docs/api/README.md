@@ -666,6 +666,50 @@ PptxGenJS 4.0.1 solid, transparency, and PNG background output imports to the sa
 
 Packed Node, real-Chrome, declaration, and installed-CLI smoke report `slideBackgrounds: true`. Two clean builds have an identical 48-file dist manifest (`e42633dfd50e9f8731e780f6b911f691845c530f5c1a0b9e5f356f93a1a0f423`). Full Vitest is 1156 passed with one performance test skipped by default; its separate performance gate is 1/1. The native gallery has 11 slides, 41 parts, 39 relationships, and three background media parts; both native and the seven-slide PptxGenJS control validate 0/0 and render without overflow. LibreOffice preserves slide order and every image payload hash but normalizes explicit no-fill to inheritance and gradient rotation/fill-rectangle metadata. Local PowerPoint automation returned `-9074`, so no PowerPoint round-trip pass is claimed.
 
+## Slide numbers and presentation start number
+
+```ts
+import { inches, type SlideNumberOptions } from '@pptx/sdk';
+
+const options: SlideNumberOptions = {
+  x: inches(8.1),
+  y: inches(5),
+  width: inches(1.4),
+  height: inches(0.35),
+  align: 'justify',
+  rtl: true,
+  valign: 'middle',
+  margin: [1, 2, 3, 4],
+  style: {
+    fontFamily: 'Aptos',
+    fontSize: 18,
+    lang: 'zh-CN',
+    bold: true,
+    italic: true,
+    color: { kind: 'scheme', value: 'accent1' },
+    transparency: 25,
+  },
+};
+
+document.firstSlideNumber = 5;
+document.slides[0].slideNumber = options;
+document.layouts[0].slideNumber = { x: inches(0.5), align: 'left' };
+document.masters[0].slideNumber = { x: inches(4.5), align: 'center' };
+document.slides[0].slideNumber = undefined;
+```
+
+The public value types are `SlideNumber`, `SlideNumberOptions`, `SlideNumberColor`, `SlideNumberMargins`, `SlideNumberMarginInput`, `SlideNumberTextStyle`, and `SlideNumberTextStyleOptions`. Geometry uses integer EMU; margins and font size use points; transparency uses `0..100` percent. The default normalized field is x/y 0, width 800000, height 300000, left aligned, LTR, and `en-US` non-bold/non-italic text. sRGB values are six-digit uppercase hex; scheme colors use supported DrawingML tokens. Inputs are closed, descriptor-safe, fully validated before package access, copied, and deeply frozen on read.
+
+`SlideModel.slideNumber`, `LayoutModel.slideNumber`, and `MasterModel.slideNumber` project only one namespace-correct direct `p:ph type="sldNum"` field in the owner part. Layout and master values do not mutate child slides, and slide assignment does not create hidden fields in the unique master or default layout; the master setter additionally owns direct `p:hf@sldNum`. Equal semantic assignment, absent clear, and same start-number assignment are exact part/relationship/graph/journal no-ops. A unique recognized supported value is patched locally; one unambiguous opaque placeholder may be canonicalized by explicit assignment. Multiple placeholders, duplicate shape IDs, malformed fields, wrong namespaces, extra runs/paragraphs, or unsupported lexical values read as `undefined` and are rejected before unsafe mutation.
+
+`CreatePresentationOptions.firstSlideNumber` and `PresentationModel.firstSlideNumber` accept only signed Int32 safe integers. `undefined` removes direct `p:presentation@firstSlideNum`, whose OOXML default is 1. Slide cached text is `(firstSlideNumber ?? 1) + zeroBasedIndex`; layout/master cached text is `‹#›`. Start changes and slide duplicate/move/delete synchronously update safely recognized direct slide caches inside the lifecycle transaction. The three warning diagnostics are `SLIDE_NUMBER_SHAPE_ID_COLLISION`, `SLIDE_NUMBER_MASTER_DISABLED`, and `SLIDE_NUMBER_CACHE_NONCANONICAL`.
+
+PptxGenJS 4.0.1 public output imports its default/full style, sRGB/scheme color, left/center/right/justify alignment, top/middle/bottom vertical alignment, scalar/four-side margin, font, language, bold, italic, and transparency cases. Native corrects several observed defects instead of imitating them: fixed shape id 25 can collide, zero width/height fall back truthily, RTL and transparency are not faithfully emitted in some cases, layout/master use noncanonical caches, and the generated master placeholder is disabled. Native uses unique IDs, legal positive extents, canonical caches, and an enabled master flag.
+
+The actual 54-file tarball contains 51 `dist` files and passes installed Node, real-Chrome, browser conditional-export, declaration, and CLI checks with `slideNumbers: true`. Two package builds produce an identical 51-file manifest (`3d77e6f56b8f299f2d580112fd0ebe77d0a98c38c07764259a3735064d5f9bea`). The focused suite is 448/448; full Vitest is 1194 passed with one performance test skipped by default, and the separate performance gate is 1/1. The 16-slide native gallery contains 48 parts and 45 relationships and validates 0/0; the 16-slide PptxGenJS control contains 82 parts and 95 relationships and validates with zero errors plus four expected warnings. All 32 pages render at 180 DPI without edge contact and were inspected individually.
+
+LibreOffice 26.8 renders direct slide fields but displays its own 1..16 sequence instead of the native start 5. Its saved package retains slide order/titles, 15 direct slide owners, the cleared direct field, field types, alignment, and principal explicit styling. It removes `firstSlideNum` and rewrites cached text, default fonts/languages, and layout/master placeholder state, producing zero errors and 15 normalization warnings. Prefer direct slide fields when LibreOffice-visible portability matters instead of relying only on layout/master placeholders. Local PowerPoint 16.112 automation started the application but yielded no active presentation or saved/rendered output, so this environment does not establish a PowerPoint round-trip pass.
+
 ## Master, layout, and theme
 
 ```ts
@@ -751,7 +795,7 @@ PptxGenJS 4.0.1 valid public embedded-media cases are semantically covered, incl
 
 The actual 45-file tarball passes Node/real-Chrome/declaration/installed-CLI smoke with `nativeMediaTiming: true`; two clean builds have identical SHA-256 manifests for all 42 dist files. All six presentation formats pass native timing create/edit/duplicate/delete/reopen. The nine-slide playable gallery contains 12 media objects across MP3/M4A/WAV/OGG and MP4/MOV/WebM, all three poster MIME types, ten deduplicated media/poster parts, and zero orphans. It strictly reopens, renders at 180 DPI without overflow, passes slide-by-slide visual inspection, and validates against PowerPoint 2010 with 0 errors plus only the expected OGG/WebM warnings. LibreOffice 26.8 preserves nine slides and text but removes all media, posters, media relationships, and timing on save; its output still strictly reopens and validates 0/0. Local PowerPoint 16.112 automation returned `-9074` for this gallery and both independent control files, so it is not reported as a successful round trip.
 
-Trim/bookmarks, finite repeats, narration/cross-slide audio, captions/subtitles, online video, remote-fetch embedding, media crop/rounding/shadow/hyperlink/placeholder styles, a built-in transcoding engine, and broad client certification remain pending. Native standard-chart creation, semantic editing, and direct slide backgrounds are complete; the next PptxGenJS parity slice is slide number, followed by default color.
+Trim/bookmarks, finite repeats, narration/cross-slide audio, captions/subtitles, online video, remote-fetch embedding, media crop/rounding/shadow/hyperlink/placeholder styles, a built-in transcoding engine, and broad client certification remain pending. Native standard-chart creation, semantic editing, direct slide backgrounds, and slide numbers are complete; the next PptxGenJS parity slice is default color.
 
 ## Diagnostics and errors
 

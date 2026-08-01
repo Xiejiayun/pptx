@@ -357,7 +357,7 @@ $ pptx-inspect --json package inspect output.pptx
 ### 剩余媒体与全功能路线
 
 - 媒体后续：online video、remote-fetch embedding、trim/bookmarks、有限重复、narration/cross-slide audio、captions/subtitles、crop/rounding/shadow/hyperlink/placeholder styles、内建转码引擎与更广泛 PowerPoint/Keynote/Google Slides 客户端认证。
-- Native timing、标准 native chart 与 direct slide background 专项均已完成。PptxGenJS 全功能对等仍未完成，后续路线从 slide number、default color 开始。
+- Native timing、标准 native chart、direct slide background 与 slide number 专项均已完成。PptxGenJS 全功能对等仍未完成，后续路线从 default color 开始。
 
 ## PptxGenJS 全功能对等：Native chart creation and semantic editing
 
@@ -383,7 +383,7 @@ $ pptx-inspect --json package inspect output.pptx
 ### 剩余图表与全功能路线
 
 - 图表后续：Office 2016 `cx:*` modern chart 创建/语义编辑、external workbook 编辑、chart animations、内建 trendline/error-bar 创建，以及更广泛 PowerPoint/Keynote/Google Slides 客户端认证。
-- 下一小项：slide number，随后为 default color、master/layout/placeholder、advanced text、advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
+- Slide number 已完成；下一小项为 default color，随后为 master/layout/placeholder、advanced text、advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
 
 ## PptxGenJS 全功能对等：Direct slide backgrounds
 
@@ -410,7 +410,35 @@ $ pptx-inspect --json package inspect output.pptx
 ### 剩余背景与全功能路线
 
 - Background 后续：layout/master background 编辑、`p:bgRef` semantic editing、pattern/group fill、image crop/tile/effects 与更广泛客户端认证。
-- 下一小项是 slide number，随后为 default color、master/layout/placeholder、advanced text、advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
+- Slide number 已完成；下一小项是 default color，随后为 master/layout/placeholder、advanced text、advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
+
+## PptxGenJS 全功能对等：Slide number
+
+状态：完成；实施与证据 9/9
+
+### 本阶段 change
+
+- 新增 public `SlideNumber` / `SlideNumberOptions` / color/margin/text-style 类型。x/y/width/height 使用 EMU，margin/font size 使用 point，transparency 使用 percent；strict descriptor-safe input 在 package access 前完成完整校验，getter 返回 detached deep-frozen snapshot。
+- `SlideModel.slideNumber`、`LayoutModel.slideNumber` 与 `MasterModel.slideNumber` 分别只投影和编辑 owner part 的唯一 direct `p:ph type="sldNum"`；master 同时管理 direct `p:hf@sldNum`。Equal assignment、absent clear 与 same start 是 parts/relationships/graph/journal exact no-op。
+- 新增 `CreatePresentationOptions.firstSlideNumber` 与 live `PresentationModel.firstSlideNumber`，只接受 signed Int32 safe integer；`undefined` 删除 direct attribute 并恢复 OOXML 默认 1。Direct slide cache 为 start + zero-based index，layout/master cache 为 `‹#›`。
+- Duplicate/move/delete 与 start edit 在 lifecycle transaction 内同步安全识别的 direct slide caches；unsupported/ambiguous state 保持原 bytes，任一失败完整 rollback。Slide-number placeholder 已从 title fallback 排除。
+- 新增 shape-id collision、master disabled 与 noncanonical cache 三类 compatibility diagnostics。PptxGenJS 4.0.1 public default/full style、sRGB/scheme、alignment/justify、valign、margin、font/lang/bold/italic/transparency、named-master output 与 fixed-id collision 均有永久 conformance evidence；native 不复制其 fixed id 25、zero-size fallback、丢失 RTL/transparency、random cache 或 disabled master 缺陷。
+- Create/read/edit/clear/no-op/canonicalize/rollback、stable identity、copy/relink、duplicate/move/delete、write/reopen、所有五种 compatibility profile 和 `pptx/pptm/potx/potm/ppsx/ppsm` 均已覆盖。
+
+### 验证结果
+
+- Focused suite 为 448/448；最终全量 Vitest 为 1194 passed、1 performance 默认 skipped；独立 performance 1/1、TypeScript strict typecheck 与全仓 build 通过。
+- Actual 54-file tarball 含 51 个 `dist` 文件，installed Node、real-Chrome、browser conditional export、declaration 与 CLI 均报告 `slideNumbers: true`。Browser 覆盖 create/style/layout/master/duplicate/move/writeBlob/reopen，cache 为 `-2,-1`，owner counts `1,1,1,1`，0 diagnostics/console/page/network errors。
+- 两次 package build 的 51-file manifest 完全一致，SHA-256 为 `3d77e6f56b8f299f2d580112fd0ebe77d0a98c38c07764259a3735064d5f9bea`；monorepo 两次 clean build 的 727-file dist manifest 也完全一致。
+- 16 页 native gallery 覆盖 start/style/四种 alignment/三种 valign/scalar+TRBL margin/sRGB/theme+transparency/RTL/font/lang/layout/master/lifecycle/clear，含 48 parts、45 relationships，PowerPoint 2010 profile 0/0。16 页 PptxGenJS control 含 82 parts、95 relationships、0 errors 与 4 条预期 warning。
+- 32 页均以 180 DPI 渲染、逐页视觉检查；native/control minimum ink margin 为 50px/81px，无 clipping/overflow。Native custom start 的 package cache 为 5..19，LibreOffice 26.8 视觉按自身页序显示 1..16。
+- LibreOffice 回存保留 16 页标题顺序、15 个 direct owners、clear 状态、field type、alignment 与主要显式样式；移除 `firstSlideNum`，重写 direct cache、default font/language 与 layout/master placeholder。回存件 45 parts、42 relationships、0 errors 和 15 条 cache-normalization warning，可由 library 严格重开。
+- 本机 PowerPoint 16.112 自动化启动应用，但没有形成 active presentation、PDF 或回存 PPTX；进程已清理，本轮不声明 PowerPoint 往返通过。
+
+### 剩余页码与全功能路线
+
+- Slide number direct owner 能力已完成；declarative named-master integration、percentage position 与更广泛 PowerPoint/Keynote/Google Slides 认证并入 master/layout/placeholder 和 client 阶段。
+- 下一小项是 default color，随后为 master/layout/placeholder、advanced text、advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
 
 ## 0.1.0 初始验收
 
