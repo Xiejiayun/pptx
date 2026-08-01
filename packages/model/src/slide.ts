@@ -116,6 +116,7 @@ import {
 import {
   readSlideBackground,
   replaceSlideBackground,
+  type BackgroundOwnerKind,
 } from './slide-background.internal.js';
 import type { SlideBackground } from './slide-background.js';
 import {
@@ -322,6 +323,7 @@ export class SlideModel {
     readonly partUri: string,
     relationshipId: string,
     slideId: number,
+    private readonly backgroundOwnerKind: BackgroundOwnerKind = 'slide',
   ) {
     this.#relationshipId = relationshipId;
     this.#slideId = slideId;
@@ -342,11 +344,20 @@ export class SlideModel {
   }
 
   get background(): SlideBackground | undefined {
-    return readSlideBackground(this.presentation.opcPackage, this.partUri);
+    return readSlideBackground(
+      this.presentation.opcPackage,
+      this.partUri,
+      this.backgroundOwnerKind,
+    );
   }
 
   set background(value: SlideBackground | undefined) {
-    replaceSlideBackground(this.presentation.opcPackage, this.partUri, value);
+    replaceSlideBackground(
+      this.presentation.opcPackage,
+      this.partUri,
+      value,
+      this.backgroundOwnerKind,
+    );
   }
 
   get color(): Readonly<RichTextColor> | undefined {

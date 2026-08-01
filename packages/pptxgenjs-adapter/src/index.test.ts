@@ -229,7 +229,16 @@ interface PptxGenJSInstance {
   addSlide(options?: { readonly masterName?: string; readonly sectionTitle?: string }): PptxGenJSSlide;
   defineSlideMaster(options: {
     readonly title: string;
-    readonly background?: { readonly color?: string };
+    readonly background?: {
+      readonly color?: string;
+      readonly data?: string;
+      readonly transparency?: number;
+    };
+    readonly bkgd?: string | {
+      readonly color?: string;
+      readonly data?: string;
+      readonly transparency?: number;
+    };
     readonly margin?: number | readonly [number, number, number, number];
     readonly slideNumber?: PptxGenJSSlideNumberProps;
     readonly objects?: readonly unknown[];
@@ -1035,6 +1044,53 @@ describe('importPptxGenJS', () => {
       expect(reopened.diagnostics.filter(({ code }) => code.startsWith('SLIDE_NUMBER_')))
         .toEqual([]);
     }
+  });
+
+  it('imports the supported PptxGenJS layout master background matrix', async () => {
+    const source = new PptxGenJS();
+    const definitions = [
+      { title: 'BACKGROUND_SOLID', background: { color: '4472C4' } },
+      {
+        title: 'BACKGROUND_TRANSPARENT',
+        background: { color: 'FF3399', transparency: 50 },
+      },
+      { title: 'BACKGROUND_IMAGE', background: { data: PNG_DATA_URI } },
+      { title: 'BACKGROUND_INHERITED' },
+      { title: 'BACKGROUND_DEPRECATED', bkgd: { color: '112233' } },
+      { title: 'BACKGROUND_EMPTY', background: {} },
+      { title: 'BACKGROUND_INVALID', background: { color: '' } },
+    ] as const;
+    for (const definition of definitions) {
+      source.defineSlideMaster({ ...definition, objects: [] });
+      source.addSlide({ masterName: definition.title });
+    }
+    const imported = await importPptxGenJS(source);
+    const layout = (name: string) => imported.layouts.find(({ name: value }) =>
+      value === name)!;
+    const before = imported.opcPackage.mutations.map((mutation) => ({ ...mutation }));
+
+    expect(layout('BACKGROUND_SOLID').background).toEqual({
+      kind: 'solid',
+      color: { kind: 'srgb', value: '4472C4' },
+    });
+    expect(layout('BACKGROUND_TRANSPARENT').background).toEqual({
+      kind: 'solid',
+      color: { kind: 'srgb', value: 'FF3399' },
+      transparency: 50,
+    });
+    const image = layout('BACKGROUND_IMAGE').background;
+    expect(image).toMatchObject({ kind: 'image', contentType: 'image/png' });
+    if (image?.kind !== 'image') throw new Error('Expected layout image background');
+    expect(inspectRasterImage(image.bytes)).toMatchObject({ width: 2, height: 2 });
+    for (const name of [
+      'BACKGROUND_INHERITED',
+      'BACKGROUND_DEPRECATED',
+      'BACKGROUND_EMPTY',
+      'BACKGROUND_INVALID',
+    ]) {
+      expect(layout(name).background, name).toBeUndefined();
+    }
+    expect(imported.opcPackage.mutations).toEqual(before);
   });
 
   it('reports a real fixed-id collision created only through PptxGenJS public APIs', async () => {

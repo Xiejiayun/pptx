@@ -230,6 +230,32 @@ async function tableBordersFixture(): Promise<Uint8Array> {
 }
 
 describe('PptxDocument vertical slice', () => {
+  it('edits and reopens direct layout master backgrounds', async () => {
+    const document = PptxDocument.create();
+    const layout = document.layouts[0]!;
+    const master = document.masters[0]!;
+    layout.background = {
+      kind: 'solid',
+      color: { kind: 'scheme', value: 'accent1' },
+      transparency: 20,
+    };
+    master.background = { kind: 'none' };
+    expect(layout.background).toEqual({
+      kind: 'solid',
+      color: { kind: 'scheme', value: 'accent1' },
+      transparency: 20,
+    });
+    expect(master.background).toEqual({ kind: 'none' });
+
+    const reopened = await PptxDocument.open(await document.write());
+    expect(reopened.layouts[0]?.background).toEqual(layout.background);
+    expect(reopened.masters[0]?.background).toEqual(master.background);
+    reopened.layouts[0]!.background = undefined;
+    reopened.masters[0]!.background = undefined;
+    expect(reopened.layouts[0]?.background).toBeUndefined();
+    expect(reopened.masters[0]?.background).toBeUndefined();
+  });
+
   it('exposes stable semantic master layout models with editable content', async () => {
     const document = PptxDocument.create();
     const layout = document.layouts[0]!;

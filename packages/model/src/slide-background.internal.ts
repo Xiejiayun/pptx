@@ -38,6 +38,14 @@ const RELATIONSHIP_NAMESPACE =
   'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
 const IMAGE_RELATIONSHIP = `${RELATIONSHIP_NAMESPACE}/image`;
 
+export type BackgroundOwnerKind = 'slide' | 'layout' | 'master';
+
+const OWNER_ROOTS = {
+  slide: 'sld',
+  layout: 'sldLayout',
+  master: 'sldMaster',
+} as const satisfies Record<BackgroundOwnerKind, string>;
+
 const BACKGROUND_KEYS = [
   'kind',
   'color',
@@ -152,11 +160,12 @@ export function normalizeSlideBackground(value: unknown): SlideBackground | unde
 export function readSlideBackground(
   pkg: OpcPackage,
   slidePartUri: string,
+  ownerKind: BackgroundOwnerKind = 'slide',
 ): SlideBackground | undefined {
   const part = pkg.requirePart(slidePartUri);
   const xml = LosslessXmlDocument.parse(part.bytes);
   const roots = xml.roots.filter((root) =>
-    isElement(root, 'sld', PRESENTATION_NAMESPACE));
+    isElement(root, OWNER_ROOTS[ownerKind], PRESENTATION_NAMESPACE));
   if (roots.length !== 1) return undefined;
   const slide = roots[0]!;
   const commonSlides = directChildren(slide).filter((element) =>
@@ -213,16 +222,17 @@ export function replaceSlideBackground(
   pkg: OpcPackage,
   slidePartUri: string,
   value: unknown,
+  ownerKind: BackgroundOwnerKind = 'slide',
 ): void {
   const normalized = normalizeSlideBackground(value);
-  const current = readSlideBackground(pkg, slidePartUri);
+  const current = readSlideBackground(pkg, slidePartUri, ownerKind);
   if (normalized !== undefined && backgroundsEqual(current, normalized)) return;
 
   pkg.transaction(() => {
     const part = pkg.requirePart(slidePartUri);
     const xml = LosslessXmlDocument.parse(part.bytes);
     const roots = xml.roots.filter((root) =>
-      isElement(root, 'sld', PRESENTATION_NAMESPACE));
+      isElement(root, OWNER_ROOTS[ownerKind], PRESENTATION_NAMESPACE));
     const commonSlides = roots.length === 1
       ? directChildren(roots[0]!).filter((element) =>
           isElement(element, 'cSld', PRESENTATION_NAMESPACE))
@@ -312,10 +322,11 @@ export function replaceSlideBackground(
 export function slideBackgroundMediaTargets(
   pkg: OpcPackage,
   slidePartUri: string,
+  ownerKind: BackgroundOwnerKind = 'slide',
 ): readonly string[] {
   const xml = LosslessXmlDocument.parse(pkg.requirePart(slidePartUri).bytes);
   const roots = xml.roots.filter((root) =>
-    isElement(root, 'sld', PRESENTATION_NAMESPACE));
+    isElement(root, OWNER_ROOTS[ownerKind], PRESENTATION_NAMESPACE));
   const commonSlides = roots.length === 1
     ? directChildren(roots[0]!).filter((element) =>
         isElement(element, 'cSld', PRESENTATION_NAMESPACE))

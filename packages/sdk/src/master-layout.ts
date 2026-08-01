@@ -21,6 +21,7 @@ import {
   type RichTextParagraph,
   type SemanticShape,
   type ShapeModel,
+  type SlideBackground,
 } from '@pptx/model';
 
 abstract class CommonSlideOwnerModel {
@@ -29,8 +30,17 @@ abstract class CommonSlideOwnerModel {
   protected constructor(
     document: PresentationModel,
     readonly partUri: string,
+    ownerKind: 'layout' | 'master',
   ) {
-    this.content = new SlideModel(document, partUri, '', 0);
+    this.content = new SlideModel(document, partUri, '', 0, ownerKind);
+  }
+
+  get background(): SlideBackground | undefined {
+    return this.content.background;
+  }
+
+  set background(value: SlideBackground | undefined) {
+    this.content.background = value;
   }
 
   get shapes(): readonly SemanticShape[] {
@@ -93,7 +103,7 @@ export class SlideLayoutModel extends CommonSlideOwnerModel {
     document: PresentationModel,
     private readonly raw: RawLayoutModel,
   ) {
-    super(document, raw.partUri);
+    super(document, raw.partUri, 'layout');
   }
 
   get name(): string {
@@ -120,7 +130,7 @@ export class SlideMasterModel extends CommonSlideOwnerModel {
     private readonly raw: RawMasterModel,
     private readonly layoutModel: (raw: RawLayoutModel) => SlideLayoutModel,
   ) {
-    super(document, raw.partUri);
+    super(document, raw.partUri, 'master');
   }
 
   get layouts(): readonly SlideLayoutModel[] {

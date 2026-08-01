@@ -19,6 +19,21 @@ const SLIDE_CONTENT_TYPE =
   'application/vnd.openxmlformats-officedocument.presentationml.slide+xml';
 const SLIDE_URI = '/ppt/slides/slide1.xml';
 
+const BACKGROUND_OWNER_FIXTURES = [
+  {
+    kind: 'layout' as const,
+    root: 'sldLayout',
+    uri: '/ppt/slideLayouts/slideLayout1.xml',
+    contentType: 'application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml',
+  },
+  {
+    kind: 'master' as const,
+    root: 'sldMaster',
+    uri: '/ppt/slideMasters/slideMaster1.xml',
+    contentType: 'application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml',
+  },
+] as const;
+
 describe('slide background normalization', () => {
   it('normalizes simple fills and detached raster image bytes', () => {
     expect(normalizeSlideBackground(undefined)).toBeUndefined();
@@ -235,6 +250,37 @@ describe('slide background normalization', () => {
 });
 
 describe('strict direct slide background reader', () => {
+  it('reads and edits strict direct layout master backgrounds', () => {
+    for (const owner of BACKGROUND_OWNER_FIXTURES) {
+      const pkg = OpcPackage.create();
+      pkg.setPart(
+        owner.uri,
+        `<p:${owner.root} xmlns:p="${PRESENTATION_NAMESPACE}" xmlns:a="${DRAWING_NAMESPACE}">`
+          + '<p:cSld><p:spTree/></p:cSld>'
+          + `</p:${owner.root}>`,
+        owner.contentType,
+      );
+      expect(readSlideBackground(pkg, owner.uri, owner.kind)).toBeUndefined();
+
+      replaceSlideBackground(pkg, owner.uri, {
+        kind: 'solid',
+        color: { kind: 'scheme', value: 'accent1' },
+        transparency: 20,
+      }, owner.kind);
+      expect(readSlideBackground(pkg, owner.uri, owner.kind)).toEqual({
+        kind: 'solid',
+        color: { kind: 'scheme', value: 'accent1' },
+        transparency: 20,
+      });
+      expect(readSlideBackground(pkg, owner.uri)).toBeUndefined();
+
+      replaceSlideBackground(pkg, owner.uri, { kind: 'none' }, owner.kind);
+      expect(readSlideBackground(pkg, owner.uri, owner.kind)).toEqual({ kind: 'none' });
+      replaceSlideBackground(pkg, owner.uri, undefined, owner.kind);
+      expect(readSlideBackground(pkg, owner.uri, owner.kind)).toBeUndefined();
+    }
+  });
+
   it.each([
     ['no fill', '<a:noFill/>', { kind: 'none' }],
     [
@@ -481,6 +527,192 @@ describe('strict direct slide background reader', () => {
     );
     expect(readSlideBackground(single, SLIDE_URI)).toBeUndefined();
   });
+});
+
+describe('layout master background owner parity', () => {
+  it.each(BACKGROUND_OWNER_FIXTURES)(
+    'reads, edits, and cleans $kind background values',
+    (owner) => {
+      const pkg = ownerBackgroundPackage(owner, '');
+
+      replaceSlideBackground(pkg, owner.uri, { kind: 'none' }, owner.kind);
+      expect(readSlideBackground(pkg, owner.uri, owner.kind)).toEqual({ kind: 'none' });
+
+      const solid = {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'FF3399' },
+        transparency: 50,
+      } as const;
+      replaceSlideBackground(pkg, owner.uri, solid, owner.kind);
+      expect(readSlideBackground(pkg, owner.uri, owner.kind)).toEqual(solid);
+      const solidSnapshot = snapshot(pkg, owner.uri);
+      replaceSlideBackground(pkg, owner.uri, solid, owner.kind);
+      expect(snapshot(pkg, owner.uri)).toEqual(solidSnapshot);
+
+      replaceSlideBackground(pkg, owner.uri, {
+        kind: 'linear-gradient',
+        angle: 45,
+        scaled: false,
+        stops: validStops(),
+      }, owner.kind);
+      expect(readSlideBackground(pkg, owner.uri, owner.kind)).toMatchObject({
+        kind: 'linear-gradient',
+        angle: 45,
+        scaled: false,
+      });
+
+      replaceSlideBackground(pkg, owner.uri, {
+        kind: 'path-gradient',
+        path: 'circle',
+        fillRectangle: { left: 0.1, top: 0.2, right: 0.3, bottom: 0.4 },
+        stops: validStops(),
+      }, owner.kind);
+      expect(readSlideBackground(pkg, owner.uri, owner.kind)).toMatchObject({
+        kind: 'path-gradient',
+        path: 'circle',
+        fillRectangle: { left: 0.1, top: 0.2, right: 0.3, bottom: 0.4 },
+      });
+
+      const bytes = Uint8Array.of(1, 2, 3);
+      replaceSlideBackground(pkg, owner.uri, {
+        kind: 'image',
+        contentType: 'image/png',
+        bytes,
+      }, owner.kind);
+      bytes[0] = 9;
+      const target = slideBackgroundMediaTargets(pkg, owner.uri, owner.kind)[0]!;
+      expect(target).toMatch(/\/ppt\/media\/background\d+\.png$/);
+      expect(readSlideBackground(pkg, owner.uri, owner.kind)).toEqual({
+        kind: 'image',
+        contentType: 'image/png',
+        bytes: Uint8Array.of(1, 2, 3),
+      });
+      expect(pkg.requirePart(target).bytes).toEqual(Uint8Array.of(1, 2, 3));
+
+      const imageSnapshot = snapshot(pkg, owner.uri);
+      replaceSlideBackground(pkg, owner.uri, {
+        kind: 'image',
+        contentType: 'image/png',
+        bytes: Uint8Array.of(1, 2, 3),
+      }, owner.kind);
+      expect(snapshot(pkg, owner.uri)).toEqual(imageSnapshot);
+
+      replaceSlideBackground(pkg, owner.uri, undefined, owner.kind);
+      expect(readSlideBackground(pkg, owner.uri, owner.kind)).toBeUndefined();
+      expect(pkg.hasPart(target)).toBe(false);
+      expect(slideBackgroundMediaTargets(pkg, owner.uri, owner.kind)).toEqual([]);
+
+      const clearSnapshot = snapshot(pkg, owner.uri);
+      replaceSlideBackground(pkg, owner.uri, undefined, owner.kind);
+      expect(snapshot(pkg, owner.uri)).toEqual(clearSnapshot);
+      expect(() => pkg.transaction(() => {
+        replaceSlideBackground(pkg, owner.uri, {
+          kind: 'solid',
+          color: { kind: 'scheme', value: 'accent1' },
+        }, owner.kind);
+        throw new Error('rollback owner background');
+      })).toThrow('rollback owner background');
+      expect(snapshot(pkg, owner.uri)).toEqual(clearSnapshot);
+    },
+  );
+
+  it.each(BACKGROUND_OWNER_FIXTURES)(
+    'preserves or replaces ambiguous $kind background state atomically',
+    (owner) => {
+      const reference = ownerBackgroundPackage(
+        owner,
+        '<p:bg><p:bgRef idx="1001"><a:schemeClr val="bg1"/></p:bgRef></p:bg>',
+      );
+      const referenceBefore = snapshot(reference, owner.uri);
+      expect(readSlideBackground(reference, owner.uri, owner.kind)).toBeUndefined();
+      expect(snapshot(reference, owner.uri)).toEqual(referenceBefore);
+      replaceSlideBackground(reference, owner.uri, { kind: 'none' }, owner.kind);
+      expect(readSlideBackground(reference, owner.uri, owner.kind)).toEqual({ kind: 'none' });
+      expect((ownerXml(reference, owner).match(/<p:bg>/g) ?? [])).toHaveLength(1);
+
+      const opaque = ownerBackgroundPackage(
+        owner,
+        '<p:bg><p:bgPr><a:pattFill prst="pct5"/></p:bgPr></p:bg>',
+      );
+      replaceSlideBackground(opaque, owner.uri, {
+        kind: 'solid',
+        color: { kind: 'scheme', value: 'accent1' },
+        transparency: 20,
+      }, owner.kind);
+      expect(readSlideBackground(opaque, owner.uri, owner.kind)).toEqual({
+        kind: 'solid',
+        color: { kind: 'scheme', value: 'accent1' },
+        transparency: 20,
+      });
+
+      const wrongNamespace = ownerBackgroundPackage(
+        owner,
+        '<x:bg><x:keep/></x:bg>',
+      );
+      expect(readSlideBackground(wrongNamespace, owner.uri, owner.kind)).toBeUndefined();
+      replaceSlideBackground(wrongNamespace, owner.uri, { kind: 'none' }, owner.kind);
+      expect(ownerXml(wrongNamespace, owner)).toContain('<x:bg><x:keep/></x:bg>');
+      expect(readSlideBackground(wrongNamespace, owner.uri, owner.kind)).toEqual({ kind: 'none' });
+
+      const duplicateCommonSlide = packageFromBackgroundOwner(
+        owner,
+        `<p:${owner.root} xmlns:p="${PRESENTATION_NAMESPACE}" `
+          + `xmlns:a="${DRAWING_NAMESPACE}"><p:cSld><p:spTree/></p:cSld>`
+          + `<p:cSld><p:spTree/></p:cSld></p:${owner.root}>`,
+      );
+      const duplicateBefore = snapshot(duplicateCommonSlide, owner.uri);
+      expect(readSlideBackground(duplicateCommonSlide, owner.uri, owner.kind)).toBeUndefined();
+      expect(() => replaceSlideBackground(
+        duplicateCommonSlide,
+        owner.uri,
+        { kind: 'none' },
+        owner.kind,
+      )).toThrow(/editable cSld/);
+      expect(snapshot(duplicateCommonSlide, owner.uri)).toEqual(duplicateBefore);
+    },
+  );
+
+  it.each(BACKGROUND_OWNER_FIXTURES)(
+    'copy-on-writes shared $kind background media and garbage-collects only its copy',
+    (owner) => {
+      const target = '/ppt/media/shared-owner.png';
+      const pkg = packageFromBackgroundOwner(
+        owner,
+        `<p:${owner.root} xmlns:p="${PRESENTATION_NAMESPACE}" `
+          + `xmlns:a="${DRAWING_NAMESPACE}" xmlns:r="${RELATIONSHIP_NAMESPACE}">`
+          + '<p:cSld><p:bg><p:bgPr><a:blipFill><a:blip r:embed="rId7"/>'
+          + '</a:blipFill></p:bgPr></p:bg><p:spTree><p:pic><p:blipFill>'
+          + '<a:blip r:embed="rId8"/></p:blipFill></p:pic></p:spTree></p:cSld>'
+          + `</p:${owner.root}>`,
+        {
+          parts: [{ uri: target, contentType: 'image/png', bytes: Uint8Array.of(1) }],
+          relationships: [
+            { id: 'rId7', type: IMAGE_RELATIONSHIP, target },
+            { id: 'rId8', type: IMAGE_RELATIONSHIP, target },
+          ],
+        },
+      );
+
+      replaceSlideBackground(pkg, owner.uri, {
+        kind: 'image',
+        contentType: 'image/png',
+        bytes: Uint8Array.of(2),
+      }, owner.kind);
+      const backgroundRelationship = pkg.relationships(owner.uri).find(({ id }) =>
+        id === 'rId7')!;
+      expect(backgroundRelationship.resolvedTarget).not.toBe(target);
+      expect(pkg.relationships(owner.uri).find(({ id }) => id === 'rId8')?.resolvedTarget)
+        .toBe(target);
+      expect(pkg.requirePart(target).bytes).toEqual(Uint8Array.of(1));
+      expect(pkg.requirePart(backgroundRelationship.resolvedTarget!).bytes)
+        .toEqual(Uint8Array.of(2));
+
+      replaceSlideBackground(pkg, owner.uri, undefined, owner.kind);
+      expect(pkg.hasPart(backgroundRelationship.resolvedTarget!)).toBe(false);
+      expect(pkg.hasPart(target)).toBe(true);
+      expect(pkg.relationships(owner.uri).map(({ id }) => id)).toEqual(['rId8']);
+    },
+  );
 });
 
 describe('atomic non-image slide background editing', () => {
@@ -945,6 +1177,54 @@ function backgroundPackage(background: string, options: FixtureOptions = {}): Op
   );
 }
 
+function ownerBackgroundPackage(
+  owner: (typeof BACKGROUND_OWNER_FIXTURES)[number],
+  background: string,
+  options: FixtureOptions = {},
+): OpcPackage {
+  return packageFromBackgroundOwner(
+    owner,
+    `<p:${owner.root} xmlns:p="${PRESENTATION_NAMESPACE}" `
+      + `xmlns:a="${DRAWING_NAMESPACE}" xmlns:r="${RELATIONSHIP_NAMESPACE}" `
+      + 'xmlns:x="urn:not-presentation"><p:cSld>'
+      + `${background}<p:spTree/></p:cSld></p:${owner.root}>`,
+    options,
+  );
+}
+
+function packageFromBackgroundOwner(
+  owner: (typeof BACKGROUND_OWNER_FIXTURES)[number],
+  xml: string,
+  options: FixtureOptions = {},
+): OpcPackage {
+  const pkg = OpcPackage.create();
+  pkg.setPart(owner.uri, xml, owner.contentType);
+  for (const part of options.parts ?? []) {
+    pkg.setPart(part.uri, part.bytes, part.contentType);
+  }
+  const relationships = options.relationships ?? [];
+  if (relationships.length > 0) {
+    const entries = relationships.map((relationship) => {
+      const targetMode = relationship.targetMode ?? 'Internal';
+      const target = targetMode === 'External'
+        ? relationship.target
+        : relativeRelationshipTarget(owner.uri, relationship.target);
+      return `<Relationship Id="${relationship.id}" Type="${relationship.type}" `
+        + `Target="${target}"${targetMode === 'External' ? ' TargetMode="External"' : ''}/>`;
+    }).join('');
+    const nameStart = owner.uri.lastIndexOf('/') + 1;
+    const relationshipsUri = `${owner.uri.slice(0, nameStart)}_rels/`
+      + `${owner.uri.slice(nameStart)}.rels`;
+    pkg.setPart(
+      relationshipsUri,
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+        + `${entries}</Relationships>`,
+      'application/vnd.openxmlformats-package.relationships+xml',
+    );
+  }
+  return pkg;
+}
+
 function packageFromSlide(slideXml: string, options: FixtureOptions = {}): OpcPackage {
   const pkg = OpcPackage.create();
   pkg.setPart(SLIDE_URI, slideXml, SLIDE_CONTENT_TYPE);
@@ -971,14 +1251,14 @@ function packageFromSlide(slideXml: string, options: FixtureOptions = {}): OpcPa
   return pkg;
 }
 
-function snapshot(pkg: OpcPackage) {
+function snapshot(pkg: OpcPackage, partUri = SLIDE_URI) {
   return {
     parts: pkg.parts.map(({ uri, contentType, bytes }) => ({
       uri,
       contentType,
       bytes: [...bytes],
     })),
-    relationships: pkg.relationships(SLIDE_URI).map((relationship) => ({ ...relationship })),
+    relationships: pkg.relationships(partUri).map((relationship) => ({ ...relationship })),
     graph: pkg.graph.map((node) => ({
       uri: node.uri,
       contentType: node.contentType,
@@ -990,6 +1270,13 @@ function snapshot(pkg: OpcPackage) {
     })),
     mutations: pkg.mutations.map((mutation) => ({ ...mutation })),
   };
+}
+
+function ownerXml(
+  pkg: OpcPackage,
+  owner: (typeof BACKGROUND_OWNER_FIXTURES)[number],
+): string {
+  return new TextDecoder().decode(pkg.requirePart(owner.uri).bytes);
 }
 
 function slideXml(pkg: OpcPackage): string {
