@@ -28,6 +28,7 @@ interface BorderProps {
 interface PptxGenJSSlide {
   hidden: unknown;
   addImage(options: Record<string, unknown>): void;
+  addMedia(options: PptxGenJSMediaOptions): void;
   addNotes(notes: string): PptxGenJSSlide;
   addShape(type: string, options?: PptxGenJSShapeOptions): void;
   addText(
@@ -88,6 +89,9 @@ type PptxGenJSPublicInstance = InstanceType<typeof import('pptxgenjs').default>;
 type PptxGenJSPublicShapeOptions = NonNullable<
   Parameters<ReturnType<PptxGenJSPublicInstance['addSlide']>['addShape']>[1]
 >;
+type PptxGenJSMediaOptions = Parameters<
+  ReturnType<PptxGenJSPublicInstance['addSlide']>['addMedia']
+>[0];
 
 const publicCustomShapeOptions: PptxGenJSPublicShapeOptions = {
   x: 1,
@@ -177,6 +181,9 @@ const SVG_EXTENSION_URI = '{96DAC541-7B7A-43D3-8B79-37D633B846F1}';
 const SVG_NAMESPACE = 'http://schemas.microsoft.com/office/drawing/2016/SVG/main';
 const IMAGE_RELATIONSHIP =
   'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image';
+const OFFICE_MEDIA_RELATIONSHIP =
+  'http://schemas.microsoft.com/office/2007/relationships/media';
+const OFFICE_MEDIA_EXTENSION_URI = '{DAA4B4D4-6D71-4841-9C94-3DE7FCFB9230}';
 const sectionState = (document: PptxDocument) =>
   document.sections?.map(({ title, slideIds }) => ({ title, slideIds }));
 
@@ -357,6 +364,140 @@ function packageState(document: PptxDocument) {
   };
 }
 
+interface EmbeddedMediaState {
+  readonly shapeId: number;
+  readonly fileElement: 'audioFile' | 'videoFile';
+  readonly nameXml: string;
+  readonly transform: Readonly<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }>;
+  readonly clickAction: boolean;
+  readonly aspectLocked: boolean;
+  readonly officeMediaExtension: boolean;
+  readonly mediaPartUri: string;
+  readonly mediaContentType: string;
+  readonly mediaExtension: string;
+  readonly mediaBytes: readonly number[];
+  readonly posterPartUri: string;
+  readonly posterContentType: string;
+  readonly posterExtension: string;
+  readonly posterBytes: readonly number[];
+  readonly relationshipRoles: Readonly<{
+    kind: Readonly<{
+      type: string | undefined;
+      targetMode: string | undefined;
+      resolvesToMedia: boolean;
+    }>;
+    media: Readonly<{
+      type: string | undefined;
+      targetMode: string | undefined;
+      resolvesToMedia: boolean;
+    }>;
+    poster: Readonly<{
+      type: string | undefined;
+      targetMode: string | undefined;
+      resolvesToPoster: boolean;
+    }>;
+  }>;
+}
+
+function embeddedMediaStates(
+  document: PptxDocument,
+  slideIndex: number,
+): EmbeddedMediaState[] {
+  const slide = document.slides[slideIndex]!;
+  const xml = new TextDecoder().decode(
+    document.opcPackage.requirePart(slide.partUri).bytes,
+  );
+  return [...xml.matchAll(/<p:pic(?:\s[^>]*)?>[\s\S]*?<\/p:pic>/g)]
+    .map((match) => match[0]!)
+    .filter((picture) => /<a:(?:audioFile|videoFile)\b/.test(picture))
+    .map((picture) => {
+      const properties = picture.match(/<p:cNvPr\b([^>]*)>/)?.[1];
+      const shapeId = Number(properties?.match(/\bid="([0-9]+)"/)?.[1]);
+      const nameXml = properties?.match(/\bname="([^"]*)"/)?.[1];
+      const file = picture.match(/<a:(audioFile|videoFile)\b[^>]*\br:link="([^"]+)"/);
+      const mediaRelationshipId = picture.match(
+        /<p14:media\b[^>]*\br:embed="([^"]+)"/,
+      )?.[1];
+      const posterRelationshipId = picture.match(
+        /<a:blip\b[^>]*\br:embed="([^"]+)"/,
+      )?.[1];
+      const offset = picture.match(/<a:off\b[^>]*\bx="(-?[0-9]+)"[^>]*\by="(-?[0-9]+)"/);
+      const extent = picture.match(/<a:ext\b[^>]*\bcx="([0-9]+)"[^>]*\bcy="([0-9]+)"/);
+      if (!properties || !Number.isSafeInteger(shapeId) || nameXml === undefined || !file || !offset || !extent) {
+        throw new Error('Embedded media picture is malformed');
+      }
+      const kindRelationship = slide.relationships.find(({ id }) => id === file[2]);
+      const mediaRelationship = slide.relationships.find(({ id }) => id === mediaRelationshipId);
+      const posterRelationship = slide.relationships.find(({ id }) => id === posterRelationshipId);
+      const mediaPartUri = mediaRelationship?.resolvedTarget ?? kindRelationship?.resolvedTarget;
+      const posterPartUri = posterRelationship?.resolvedTarget;
+      if (!mediaPartUri || !posterPartUri) throw new Error('Embedded media relationship target is missing');
+      const mediaPart = document.opcPackage.requirePart(mediaPartUri);
+      const posterPart = document.opcPackage.requirePart(posterPartUri);
+      return {
+        shapeId,
+        fileElement: file[1] as 'audioFile' | 'videoFile',
+        nameXml,
+        transform: {
+          x: Number(offset[1]),
+          y: Number(offset[2]),
+          width: Number(extent[1]),
+          height: Number(extent[2]),
+        },
+        clickAction: picture.includes('action="ppaction://media"'),
+        aspectLocked: picture.includes('<a:picLocks noChangeAspect="1"/>'),
+        officeMediaExtension: picture.includes(
+          `<p:ext uri="${OFFICE_MEDIA_EXTENSION_URI}">`,
+        ),
+        mediaPartUri,
+        mediaContentType: mediaPart.contentType,
+        mediaExtension: mediaPartUri.slice(mediaPartUri.lastIndexOf('.')),
+        mediaBytes: [...mediaPart.bytes],
+        posterPartUri,
+        posterContentType: posterPart.contentType,
+        posterExtension: posterPartUri.slice(posterPartUri.lastIndexOf('.')),
+        posterBytes: [...posterPart.bytes],
+        relationshipRoles: {
+          kind: {
+            type: kindRelationship?.type,
+            targetMode: kindRelationship?.targetMode,
+            resolvesToMedia: kindRelationship?.resolvedTarget === mediaPartUri,
+          },
+          media: {
+            type: mediaRelationship?.type,
+            targetMode: mediaRelationship?.targetMode,
+            resolvesToMedia: mediaRelationship?.resolvedTarget === mediaPartUri,
+          },
+          poster: {
+            type: posterRelationship?.type,
+            targetMode: posterRelationship?.targetMode,
+            resolvesToPoster: posterRelationship?.resolvedTarget === posterPartUri,
+          },
+        },
+      };
+    });
+}
+
+function comparableEmbeddedMediaState(state: EmbeddedMediaState) {
+  return {
+    nameXml: state.nameXml,
+    transform: state.transform,
+    clickAction: state.clickAction,
+    aspectLocked: state.aspectLocked,
+    officeMediaExtension: state.officeMediaExtension,
+    mediaExtension: state.mediaExtension,
+    mediaBytes: state.mediaBytes,
+    posterContentType: state.posterContentType,
+    posterExtension: state.posterExtension,
+    posterBytes: state.posterBytes,
+  };
+}
+
 function directShapePaintState(xml: string): { fill: 'none'; line: 'empty' } {
   const properties = xml.match(/<p:spPr(?:\s[^>]*)?>([\s\S]*?)<\/p:spPr>/)?.[1];
   if (!properties) throw new Error('Shape properties were not found');
@@ -369,6 +510,344 @@ function directShapePaintState(xml: string): { fill: 'none'; line: 'empty' } {
 }
 
 describe('importPptxGenJS', () => {
+  it('matches valid PptxGenJS public audio and video media output semantically', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'pptxgenjs-media-'));
+    const audioPath = join(directory, 'path-audio.mp3');
+    const pathBytes = Uint8Array.of(9, 10, 11, 12);
+    await writeFile(audioPath, pathBytes);
+    try {
+      const generated = new PptxGenJS();
+      expect(generated.version).toBe('4.0.1');
+      const generatedSlide = generated.addSlide();
+      const publicAudioOptions: PptxGenJSMediaOptions = {
+        type: 'audio',
+        data: 'data:audio/mpeg;base64,AQIDBA==',
+        cover: PNG_DATA_URI,
+        extn: 'mp3',
+        objectName: 'Audio & narration',
+        x: 1,
+        y: 1,
+        w: 2,
+        h: 1,
+      };
+      generatedSlide.addMedia(publicAudioOptions);
+      generatedSlide.addMedia({
+        type: 'video',
+        data: 'data:video/mp4;base64,BQYHCA==',
+        cover: PNG_DATA_URI,
+        extn: 'mp4',
+        objectName: 'Video overview',
+        x: 2,
+        y: 2,
+        w: 3,
+        h: 2,
+      });
+      generatedSlide.addMedia({
+        type: 'audio',
+        path: audioPath,
+        cover: PNG_DATA_URI,
+        objectName: 'Path audio',
+        x: 3,
+        y: 3,
+        w: 2,
+        h: 1,
+      });
+      generatedSlide.addMedia({
+        type: 'audio',
+        path: audioPath,
+        cover: PNG_DATA_URI,
+        objectName: 'Duplicate path audio',
+        x: 4,
+        y: 4,
+        w: 2,
+        h: 1,
+      });
+
+      const imported = await openPptxGenJSPublicOutput(generated);
+      const native = PptxDocument.create();
+      native.addSlide();
+      await native.addAudio(0, 'data:audio/mpeg;base64,AQIDBA==', {
+        name: 'Audio & narration',
+        poster: PNG_DATA_URI,
+        x: inches(1),
+        y: inches(1),
+        width: inches(2),
+        height: inches(1),
+      });
+      await native.addVideo(0, 'data:video/mp4;base64,BQYHCA==', {
+        name: 'Video overview',
+        poster: PNG_DATA_URI,
+        x: inches(2),
+        y: inches(2),
+        width: inches(3),
+        height: inches(2),
+      });
+      await native.addAudio(0, audioPath, {
+        name: 'Path audio',
+        poster: PNG_DATA_URI,
+        x: inches(3),
+        y: inches(3),
+        width: inches(2),
+        height: inches(1),
+      });
+      await native.addAudio(0, audioPath, {
+        name: 'Duplicate path audio',
+        poster: PNG_DATA_URI,
+        x: inches(4),
+        y: inches(4),
+        width: inches(2),
+        height: inches(1),
+      });
+
+      const importedStates = embeddedMediaStates(imported, 0);
+      const nativeStates = embeddedMediaStates(native, 0);
+      expect(importedStates).toHaveLength(4);
+      expect(nativeStates).toHaveLength(4);
+      expect(importedStates.map(comparableEmbeddedMediaState))
+        .toEqual(nativeStates.map(comparableEmbeddedMediaState));
+      expect(importedStates.map(({ nameXml }) => nameXml)).toEqual([
+        'Audio &amp; narration',
+        'Video overview',
+        'Path audio',
+        'Duplicate path audio',
+      ]);
+      expect(importedStates[2]!.mediaPartUri).toBe(importedStates[3]!.mediaPartUri);
+      expect(nativeStates[2]!.mediaPartUri).toBe(nativeStates[3]!.mediaPartUri);
+      for (const index of [0, 1, 2]) {
+        expect(importedStates[index]!.relationshipRoles)
+          .toEqual(nativeStates[index]!.relationshipRoles);
+      }
+      expect(importedStates[0]!.relationshipRoles).toEqual({
+        kind: {
+          type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/audio',
+          targetMode: 'Internal',
+          resolvesToMedia: true,
+        },
+        media: {
+          type: OFFICE_MEDIA_RELATIONSHIP,
+          targetMode: 'Internal',
+          resolvesToMedia: true,
+        },
+        poster: {
+          type: IMAGE_RELATIONSHIP,
+          targetMode: 'Internal',
+          resolvesToPoster: true,
+        },
+      });
+      expect(importedStates[1]!.relationshipRoles.kind.type)
+        .toBe('http://schemas.openxmlformats.org/officeDocument/2006/relationships/video');
+      expect(importedStates[3]!.relationshipRoles.kind.type).toBe(OFFICE_MEDIA_RELATIONSHIP);
+      expect(nativeStates[3]!.relationshipRoles.kind.type)
+        .toBe('http://schemas.openxmlformats.org/officeDocument/2006/relationships/audio');
+      expect(importedStates.map(({ fileElement }) => fileElement))
+        .toEqual(['videoFile', 'videoFile', 'videoFile', 'videoFile']);
+      expect(nativeStates.map(({ fileElement }) => fileElement))
+        .toEqual(['audioFile', 'videoFile', 'audioFile', 'audioFile']);
+      expect(importedStates.map(({ mediaContentType }) => mediaContentType))
+        .toEqual(['audio/mp3', 'video/mp4', 'audio/mp3', 'audio/mp3']);
+      expect(nativeStates.map(({ mediaContentType }) => mediaContentType))
+        .toEqual(['audio/mpeg', 'video/mp4', 'audio/mpeg', 'audio/mpeg']);
+
+      await imported.write();
+      await native.write();
+      expect(imported.diagnostics.filter(({ severity }) => severity === 'error')).toEqual([]);
+      expect(native.diagnostics.filter(({ severity }) => severity === 'error')).toEqual([]);
+      const reopenedImported = await PptxDocument.open(await imported.write());
+      const reopenedNative = await PptxDocument.open(await native.write());
+      expect(embeddedMediaStates(reopenedImported, 0).map(comparableEmbeddedMediaState))
+        .toEqual(importedStates.map(comparableEmbeddedMediaState));
+      expect(embeddedMediaStates(reopenedNative, 0).map(comparableEmbeddedMediaState))
+        .toEqual(nativeStates.map(comparableEmbeddedMediaState));
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  }, 20_000);
+
+  it('locks PptxGenJS media defects while native creation remains strict', async () => {
+    const generated = new PptxGenJS();
+    const generatedSlide = generated.addSlide();
+    generatedSlide.addMedia({
+      type: 'audio',
+      data: 'data:audio/mpeg;base64,AQIDBA==',
+      cover: PNG_DATA_URI,
+      extn: 'mp3',
+      objectName: 'PptxGenJS audio',
+    });
+    const imported = await openPptxGenJSPublicOutput(generated);
+    const native = PptxDocument.create();
+    native.addSlide();
+    await native.addAudio(0, 'data:audio/mpeg;base64,AQIDBA==', {
+      name: 'Native audio',
+      poster: PNG_DATA_URI,
+    });
+    const importedAudio = embeddedMediaStates(imported, 0)[0]!;
+    const nativeAudio = embeddedMediaStates(native, 0)[0]!;
+
+    expect(importedAudio.fileElement).toBe('videoFile');
+    expect(nativeAudio.fileElement).toBe('audioFile');
+    expect(importedAudio.mediaContentType).toBe('audio/mp3');
+    expect(nativeAudio.mediaContentType).toBe('audio/mpeg');
+    expect(importedAudio.mediaExtension).toBe('.mp3');
+    expect(nativeAudio.mediaExtension).toBe('.mp3');
+
+    const rejected = new PptxGenJS().addSlide();
+    expect(() => rejected.addMedia({ type: 'audio' } as PptxGenJSMediaOptions))
+      .toThrow(/data.*path.*required/i);
+    expect(() => rejected.addMedia({
+      type: 'audio',
+      data: 'not-base64',
+      cover: PNG_DATA_URI,
+    })).toThrow(/base64 header/i);
+    expect(() => rejected.addMedia({
+      type: 'audio',
+      data: 'data:audio/mpeg;base64,AQ==',
+      cover: 'not-base64',
+    })).toThrow(/cover.*base64 header/i);
+
+    const coerced = new PptxGenJS().addSlide();
+    expect(() => coerced.addMedia({
+      type: 'audio',
+      data: 'data:audio/mpeg;base64,A===',
+      cover: PNG_DATA_URI,
+      extn: 'mp3',
+    })).not.toThrow();
+    expect(() => coerced.addMedia({
+      type: 'audio',
+      data: 'data:audio/mpeg;base64,AQ==',
+      cover: PNG_DATA_URI,
+      extn: 'wav',
+    })).not.toThrow();
+    expect(() => coerced.addMedia({
+      type: 'audio',
+      data: 'data:audio/mpeg;base64,AQ==',
+      cover: PNG_DATA_URI,
+      extn: 'mp3',
+      x: Number.NaN,
+    })).not.toThrow();
+    expect(() => coerced.addMedia({
+      type: 'music' as never,
+      data: 'data:audio/mpeg;base64,AQ==',
+      cover: PNG_DATA_URI,
+      extn: 'mp3',
+    })).not.toThrow();
+    expect(() => (coerced.addMedia as (options: unknown) => void)(null)).toThrow();
+
+    const before = packageState(native);
+    const invalidNativeCalls: Array<() => Promise<unknown>> = [
+      () => native.addAudio(0, ''),
+      () => native.addAudio(0, new Uint8Array()),
+      () => native.addAudio(0, 'data:audio/mpeg;base64,A===', {}),
+      () => native.addAudio(0, Uint8Array.of(1), {
+        poster: 'data:image/png;base64,A===',
+      }),
+      () => native.addAudio(0, 'data:video/mp4;base64,AQ==', {}),
+      () => native.addAudio(0, Uint8Array.of(1), {
+        contentType: 'audio/mpeg',
+        fileName: 'voice.wav',
+      }),
+      () => native.addAudio(0, Uint8Array.of(1), { name: 1 } as never),
+    ];
+    for (const call of invalidNativeCalls) {
+      await expect(call()).rejects.toThrow();
+      expect(packageState(native)).toEqual(before);
+    }
+  }, 20_000);
+
+  it('opens PptxGenJS media and appends canonical native media without changing it', async () => {
+    const generated = new PptxGenJS();
+    const generatedSlide = generated.addSlide();
+    generatedSlide.addMedia({
+      type: 'audio',
+      data: 'data:audio/mpeg;base64,AQID',
+      cover: PNG_DATA_URI,
+      extn: 'mp3',
+      objectName: 'Existing audio',
+      x: 1,
+      y: 1,
+      w: 2,
+      h: 1,
+    });
+    generatedSlide.addMedia({
+      type: 'video',
+      data: 'data:video/mp4;base64,BAUG',
+      cover: PNG_DATA_URI,
+      extn: 'mp4',
+      objectName: 'Existing video',
+      x: 2,
+      y: 2,
+      w: 3,
+      h: 2,
+    });
+    const imported = await importPptxGenJS(generated);
+    expect(imported.media(0)).toHaveLength(2);
+    const existingStates = embeddedMediaStates(imported, 0);
+    const existingPictures = existingStates.map(({ shapeId }) => pictureXml(imported, 0, shapeId));
+    const existingParts = new Map(existingStates.flatMap(({ mediaPartUri, posterPartUri }) => [
+      [mediaPartUri, [...imported.opcPackage.requirePart(mediaPartUri).bytes]] as const,
+      [posterPartUri, [...imported.opcPackage.requirePart(posterPartUri).bytes]] as const,
+    ]));
+    const existingRelationships = imported.slides[0]!.relationships.map(
+      (relationship) => ({ ...relationship }),
+    );
+
+    const created = await imported.addAudio(0, Uint8Array.of(17, 18, 19), {
+      name: 'Strict & native',
+      altText: 'Canonical addition',
+      contentType: 'audio/mpeg',
+      poster: 'data:image/jpeg;base64,FRYX',
+      x: inches(3),
+      y: inches(3),
+      width: inches(2),
+      height: inches(1),
+    });
+    const reopened = await PptxDocument.open(await imported.write());
+    expect(reopened.media(0)).toHaveLength(3);
+    const reopenedStates = embeddedMediaStates(reopened, 0);
+    expect(reopenedStates).toHaveLength(3);
+    for (const [index, source] of existingStates.entries()) {
+      expect(pictureXml(reopened, 0, source.shapeId)).toBe(existingPictures[index]);
+    }
+    for (const [uri, bytes] of existingParts) {
+      expect([...reopened.opcPackage.requirePart(uri).bytes]).toEqual(bytes);
+    }
+    for (const relationship of existingRelationships) {
+      expect(reopened.slides[0]!.relationships.find(({ id }) => id === relationship.id))
+        .toEqual(relationship);
+    }
+
+    const strict = reopenedStates[2]!;
+    expect(strict).toMatchObject({
+      fileElement: 'audioFile',
+      nameXml: 'Strict &amp; native',
+      mediaPartUri: created.mediaPartUri,
+      mediaContentType: 'audio/mpeg',
+      mediaExtension: '.mp3',
+      posterPartUri: created.posterPartUri,
+      posterContentType: 'image/jpeg',
+      posterExtension: '.jpg',
+      relationshipRoles: {
+        kind: {
+          type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/audio',
+          targetMode: 'Internal',
+          resolvesToMedia: true,
+        },
+        media: {
+          type: OFFICE_MEDIA_RELATIONSHIP,
+          targetMode: 'Internal',
+          resolvesToMedia: true,
+        },
+        poster: {
+          type: IMAGE_RELATIONSHIP,
+          targetMode: 'Internal',
+          resolvesToPoster: true,
+        },
+      },
+    });
+    expect(pictureXml(reopened, 0, strict.shapeId)).toContain('descr="Canonical addition"');
+    await reopened.write();
+    expect(reopened.diagnostics.filter(({ severity }) => severity === 'error')).toEqual([]);
+  }, 20_000);
+
   it('matches PptxGenJS embedded raster image public output semantically', async () => {
     const fixtures = [
       { data: PNG_DATA_URI, contentType: 'image/png' as const, name: 'Raster PNG' },
