@@ -565,6 +565,7 @@ describe('PresentationModel', () => {
 
     const kindRelationship = slide.relationships.find(({ type }) => type.endsWith('/audio'))!;
     const mediaUri = audio.mediaPartUri!;
+    audio.settings = undefined;
     const slidePart = pkg.requirePart(slide.partUri);
     pkg.transaction(() => {
       pkg.setPart(
@@ -598,13 +599,9 @@ describe('PresentationModel', () => {
       contentType: 'audio/mpeg',
       play: 'click',
     });
-    const originalPart = pkg.requirePart(slide.partUri);
-    pkg.setPart(
-      slide.partUri,
-      new TextDecoder().decode(originalPart.bytes)
-        .replace('</p:sld>', '<p:timing><p:tnLst/></p:timing></p:sld>'),
-      originalPart.contentType,
-    );
+    const createdSource = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect(createdSource).toContain('nativeVersion="1"');
+    expect(createdSource).toContain('cmd="playFrom(0.0)"');
 
     const noOp = packageSnapshot(pkg);
     media.name = 'Original';
@@ -649,7 +646,9 @@ describe('PresentationModel', () => {
     expect(slide.media[0]).toBe(media);
     const editedSource = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
     expect(editedSource).toContain('name="Audio &amp; &lt;narration&gt;" descr=""');
-    expect(editedSource).toContain('<p:timing><p:tnLst/></p:timing>');
+    expect(editedSource).toContain('repeatCount="indefinite"');
+    expect(editedSource).toContain('showWhenStopped="0"');
+    expect(editedSource).toContain('vol="12500"');
 
     media.altText = undefined;
     media.settings = undefined;
@@ -658,7 +657,7 @@ describe('PresentationModel', () => {
     const clearedSource = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
     expect(clearedSource).not.toContain(' descr=');
     expect(clearedSource).not.toContain('px:playback');
-    expect(clearedSource).toContain('<p:timing><p:tnLst/></p:timing>');
+    expect(clearedSource).not.toContain('<p:timing>');
 
     const beforeInvalid = packageSnapshot(pkg);
     let reads = 0;

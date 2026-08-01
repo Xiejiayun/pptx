@@ -11,6 +11,8 @@ import {
   type FeatureCodec,
   type GradientFill,
 } from './index.js';
+import { readMediaPlaybackExtension } from './media-edit.internal.js';
+import { readNativeMediaTiming } from './media-timing-state.internal.js';
 
 async function featureFixture(): Promise<OpcPackage> {
   const zip = new JSZip();
@@ -348,7 +350,24 @@ describe('MediaCodec', () => {
         'http://schemas.microsoft.com/office/2007/relationships/media',
         'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image',
       ]);
+      const preference = readMediaPlaybackExtension(xml, picture);
+      expect(preference).toMatchObject({
+        settings: model.settings,
+        ownership: { version: 1 },
+        malformed: false,
+      });
+      expect(readNativeMediaTiming(
+        xml,
+        model.shapeId,
+        model.kind,
+        preference.ownership,
+      )).toMatchObject({
+        status: 'owned-healthy',
+        settings: model.settings,
+      });
     }
+    const timingIds = xml.elements('cTn').map((node) => Number(xml.attribute(node, 'id')?.value));
+    expect(new Set(timingIds).size).toBe(timingIds.length);
 
     const listed = [...codec.list('/ppt/slides/slide1.xml')]
       .sort((left, right) => left.shapeId - right.shapeId);
@@ -374,6 +393,83 @@ describe('MediaCodec', () => {
         posterPartUri: named.posterPartUri,
       },
     ]);
+  });
+
+  it('adopts native-only timing, repairs stale ownership, and rejects unsafe live edits', async () => {
+    const pkg = await featureFixture();
+    const codec = new MediaCodec(pkg);
+    const media = await codec.addAudio('/ppt/slides/slide1.xml', Uint8Array.of(1), {
+      contentType: 'audio/mpeg',
+      play: 'auto',
+      loop: true,
+      hideWhenStopped: true,
+      volume: 0.5,
+    });
+    const part = pkg.requirePart(media.slidePartUri);
+    const nativeOnly = LosslessXmlDocument.parse(part.bytes);
+    const picture = nativeOnly.elements('pic').find((candidate) => {
+      const properties = nativeOnly.descendants(candidate, 'cNvPr')[0];
+      return Number(properties ? nativeOnly.attribute(properties, 'id')?.value : -1) === media.shapeId;
+    })!;
+    const extension = nativeOnly.descendants(picture, 'ext').find(
+      (candidate) => nativeOnly.attribute(candidate, 'uri')?.value
+        === '{C13D3E4A-5148-4B6D-A7E7-505054582D4F}',
+    )!;
+    nativeOnly.removeElement(extension);
+    pkg.setPart(part.uri, nativeOnly.serialize(), part.contentType);
+
+    expect(codec.list(part.uri)[0]?.settings).toEqual({
+      play: 'auto',
+      loop: true,
+      hideWhenStopped: true,
+      volume: 0.5,
+    });
+    const nativeSource = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    const nativeXml = LosslessXmlDocument.parse(nativeSource);
+    const timingBytes = nativeXml.original(nativeXml.elements('timing')[0]!);
+    codec.setSettings(part.uri, media.shapeId, media.settings);
+    const adoptedSource = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    const adoptedXml = LosslessXmlDocument.parse(adoptedSource);
+    expect(adoptedXml.original(adoptedXml.elements('timing')[0]!)).toBe(timingBytes);
+    const adoptedPicture = adoptedXml.elements('pic').find((candidate) => {
+      const properties = adoptedXml.descendants(candidate, 'cNvPr')[0];
+      return Number(properties ? adoptedXml.attribute(properties, 'id')?.value : -1) === media.shapeId;
+    })!;
+    const adopted = readMediaPlaybackExtension(adoptedXml, adoptedPicture);
+    expect(adopted.ownership).toBeDefined();
+
+    pkg.setPart(
+      part.uri,
+      adoptedSource.replace(
+        `playTnId="${adopted.ownership!.playTnId}"`,
+        'playTnId="99"',
+      ),
+      part.contentType,
+    );
+    codec.setSettings(part.uri, media.shapeId, media.settings);
+    const repaired = new TextDecoder().decode(pkg.requirePart(part.uri).bytes);
+    expect(repaired).toContain(`playTnId="${adopted.ownership!.playTnId}"`);
+    expect(repaired).not.toContain('playTnId="99"');
+
+    pkg.setPart(
+      part.uri,
+      repaired.replace('play="auto"', 'play="auto" play="click"'),
+      part.contentType,
+    );
+    const malformedBefore = await packageSnapshot(pkg);
+    expect(() => codec.setSettings(part.uri, media.shapeId, media.settings))
+      .toThrow(/malformed playback/i);
+    expect(await packageSnapshot(pkg)).toEqual(malformedBefore);
+
+    pkg.setPart(
+      part.uri,
+      repaired.replace('repeatCount="indefinite"', 'repeatCount="2000"'),
+      part.contentType,
+    );
+    const unsupportedBefore = await packageSnapshot(pkg);
+    expect(() => codec.setSettings(part.uri, media.shapeId, media.settings))
+      .toThrow(/timing.*unsupported/i);
+    expect(await packageSnapshot(pkg)).toEqual(unsupportedBefore);
   });
 
   it('deduplicates by bytes and exact content type and collects only final references', async () => {
@@ -476,6 +572,27 @@ describe('MediaCodec', () => {
       { contentType: 'audio/mpeg' },
     )).rejects.toThrow(/shape tree/i);
     expect(await packageSnapshot(missingTree)).toEqual(missingTreeBefore);
+
+    for (const timing of [
+      '<p:timing><p:tnLst/></p:timing>',
+      '<p:timing><p:tnLst><p:par><p:cTn id="4294967295" nodeType="tmRoot">'
+        + '<p:childTnLst/></p:cTn></p:par></p:tnLst></p:timing>',
+    ]) {
+      const timingFailure = await featureFixture();
+      const slide = timingFailure.requirePart('/ppt/slides/slide1.xml');
+      timingFailure.setPart(
+        slide.uri,
+        new TextDecoder().decode(slide.bytes).replace('</p:sld>', timing + '</p:sld>'),
+        slide.contentType,
+      );
+      const before = await packageSnapshot(timingFailure);
+      await expect(new MediaCodec(timingFailure).addAudio(
+        '/ppt/slides/slide1.xml',
+        Uint8Array.of(1, 2, 3),
+        { contentType: 'audio/mpeg' },
+      )).rejects.toThrow(/timing|exhausted/i);
+      expect(await packageSnapshot(timingFailure)).toEqual(before);
+    }
 
     const allocation = await featureFixture();
     const allocationBefore = await packageSnapshot(allocation);

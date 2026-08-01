@@ -4,7 +4,6 @@ import {
   type XmlAttribute,
   type XmlElement,
 } from '@pptx/lossless-xml';
-import type { MediaPlaybackSettings } from './media.js';
 import type { NativeMediaTimingOwnership } from './media-timing-state.internal.js';
 
 const PLAYBACK_EXTENSION_URI = '{C13D3E4A-5148-4B6D-A7E7-505054582D4F}';
@@ -172,16 +171,6 @@ export function readMediaPlaybackExtension(
     unknownState || malformedOwnership ? undefined : ownership,
     unknownState || malformedOwnership,
   );
-}
-
-export function mediaPlaybackSettingsEqual(
-  left: Readonly<MediaPlaybackSettings>,
-  right: Readonly<NormalizedMediaPlaybackSettings>,
-): boolean {
-  return left.play === right.play
-    && left.loop === right.loop
-    && left.hideWhenStopped === right.hideWhenStopped
-    && left.volume === right.volume;
 }
 
 function renderPlaybackExtension(

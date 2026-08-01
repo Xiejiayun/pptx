@@ -6,10 +6,10 @@ import {
   renderMediaPictureXml,
 } from './media-create.internal.js';
 import {
-  mediaPlaybackSettingsEqual,
   normalizeMediaAltText,
   normalizeMediaName,
   normalizeMediaPlaybackSettings,
+  readMediaPlaybackExtension,
   replaceMediaMetadataAttribute,
   replaceMediaPlaybackExtension,
 } from './media-edit.internal.js';
@@ -24,6 +24,10 @@ import {
   resolveMediaReplacementPoster,
   resolveMediaReplacementSource,
 } from './media-replace.internal.js';
+import {
+  clearNativeMediaTiming,
+  syncNativeMediaTiming,
+} from './media-timing-edit.internal.js';
 import type { CodecDiagnostic } from './registry.js';
 
 export {
@@ -135,8 +139,33 @@ export class MediaCodec {
     const normalized = normalizeMediaPlaybackSettings(value);
     this.editPicture(slidePartUri, shapeId, (xml, picture) => {
       const state = readMediaState(this.pkg, slidePartUri, xml, picture)!;
-      if (normalized && mediaPlaybackSettingsEqual(state.settings, normalized)) return false;
-      return replaceMediaPlaybackExtension(xml, picture, normalized);
+      const preference = readMediaPlaybackExtension(xml, picture);
+      if (preference.malformed) {
+        throw new Error(`Media shape ${shapeId} has a malformed playback extension`);
+      }
+      if (normalized) {
+        const sync = syncNativeMediaTiming(
+          xml,
+          shapeId,
+          state.kind,
+          normalized,
+          preference.ownership,
+        );
+        const preferenceChanged = replaceMediaPlaybackExtension(
+          xml,
+          picture,
+          normalized,
+          sync.ownership,
+        );
+        return sync.changed || preferenceChanged;
+      }
+      const timingChanged = clearNativeMediaTiming(
+        xml,
+        shapeId,
+        state.kind,
+        preference.ownership,
+      );
+      return replaceMediaPlaybackExtension(xml, picture, undefined) || timingChanged;
     });
   }
 
@@ -188,9 +217,11 @@ export class MediaCodec {
         const properties = xml.descendants(candidate, 'cNvPr')[0];
         return Number(properties ? xml.attribute(properties, 'id')?.value : -1) === shapeId;
       });
-      if (!picture || !readMediaState(this.pkg, slidePartUri, xml, picture)) {
+      const state = picture ? readMediaState(this.pkg, slidePartUri, xml, picture) : undefined;
+      if (!picture || !state) {
         throw new Error(`Media shape ${shapeId} was not found on ${slidePartUri}`);
       }
+      const preference = readMediaPlaybackExtension(xml, picture);
       const ids = new Set(
         xml
           .descendants(picture)
@@ -209,6 +240,7 @@ export class MediaCodec {
         ))
         .map(({ resolvedTarget }) => resolvedTarget)
         .filter((target): target is string => Boolean(target));
+      clearNativeMediaTiming(xml, shapeId, state.kind, preference.ownership);
       xml.removeElement(picture);
       const updated = xml.serialize();
       this.pkg.setPart(slidePartUri, updated, part.contentType);
@@ -347,7 +379,20 @@ export class MediaCodec {
       const extensionList = directElementChildren(shapeTree, 'extLst')[0];
       if (extensionList) xml.replace(extensionList.start, extensionList.start, pictureXml);
       else xml.appendChildXml(shapeTree, pictureXml);
-      this.pkg.setPart(slidePartUri, xml.serialize(), slidePart.contentType);
+      const updatedXml = LosslessXmlDocument.parse(xml.serialize());
+      const picture = updatedXml.elements('pic').find((candidate) => {
+        const properties = updatedXml.descendants(candidate, 'cNvPr')[0];
+        return Number(properties ? updatedXml.attribute(properties, 'id')?.value : -1) === shapeId;
+      });
+      if (!picture) throw new Error(`Created media shape ${shapeId} is missing`);
+      const sync = syncNativeMediaTiming(
+        updatedXml,
+        shapeId,
+        definition.kind,
+        definition,
+      );
+      replaceMediaPlaybackExtension(updatedXml, picture, definition, sync.ownership);
+      this.pkg.setPart(slidePartUri, updatedXml.serialize(), slidePart.contentType);
       return {
         kind: definition.kind,
         shapeId,

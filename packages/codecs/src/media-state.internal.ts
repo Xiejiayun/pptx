@@ -1,10 +1,11 @@
 import { type LosslessXmlDocument, type XmlElement } from '@pptx/lossless-xml';
 import { type OpcPackage, type Relationship } from '@pptx/opc';
+import { readMediaPlaybackExtension } from './media-edit.internal.js';
+import { readNativeMediaTiming } from './media-timing-state.internal.js';
 
 const REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/';
 const MEDIA_REL = 'http://schemas.microsoft.com/office/2007/relationships/media';
 const IMAGE_REL = `${REL}image`;
-const PLAYBACK_EXTENSION_URI = '{C13D3E4A-5148-4B6D-A7E7-505054582D4F}';
 
 export type MediaStateKind = 'audio' | 'video';
 
@@ -77,7 +78,15 @@ export function readMediaState(
   const blip = xml.descendants(picture, 'blip')[0];
   const poster = relationshipForAttribute(pkg, slidePartUri, xml, blip, 'r:embed');
   const altText = xml.attribute(properties, 'descr')?.value;
-  const settings = readPlaybackSettings(xml, picture);
+  const preference = readMediaPlaybackExtension(xml, picture);
+  const native = preference.settings
+    ? undefined
+    : readNativeMediaTiming(xml, shapeId, kind, preference.ownership);
+  const settings = preference.settings
+    ?? (native?.status === 'recognized-imported' || native?.status === 'owned-healthy'
+      ? native.settings
+      : undefined)
+    ?? Object.freeze({});
   const state: MediaState = {
     kind,
     shapeId,
@@ -152,38 +161,4 @@ function choosePrimaryRelationship(
   });
   if (typed) return typed;
   return relationships.find(({ type }) => type === MEDIA_REL) ?? relationships[0];
-}
-
-function readPlaybackSettings(
-  xml: LosslessXmlDocument,
-  picture: XmlElement,
-): Readonly<MediaStatePlaybackSettings> {
-  const extension = xml.descendants(picture, 'ext').find(
-    (candidate) => xml.attribute(candidate, 'uri')?.value === PLAYBACK_EXTENSION_URI,
-  );
-  const playback = extension
-    ? xml.descendants(extension, 'playback')[0]
-    : undefined;
-  if (!playback) return Object.freeze({});
-  const playValue = xml.attribute(playback, 'play')?.value;
-  const loopValue = booleanToken(xml.attribute(playback, 'loop')?.value);
-  const hideValue = booleanToken(xml.attribute(playback, 'hideWhenStopped')?.value);
-  const volumeValue = xml.attribute(playback, 'volume')?.value;
-  const volume = volumeValue && /^\d+$/.test(volumeValue)
-    ? Number(volumeValue) / 100_000
-    : undefined;
-  return Object.freeze({
-    ...(playValue === 'click' || playValue === 'auto' ? { play: playValue } : {}),
-    ...(loopValue !== undefined ? { loop: loopValue } : {}),
-    ...(hideValue !== undefined ? { hideWhenStopped: hideValue } : {}),
-    ...(volume !== undefined && Number.isFinite(volume) && volume >= 0 && volume <= 1
-      ? { volume }
-      : {}),
-  });
-}
-
-function booleanToken(value: string | undefined): boolean | undefined {
-  if (value === '1' || value === 'true' || value === 'on') return true;
-  if (value === '0' || value === 'false' || value === 'off') return false;
-  return undefined;
 }
