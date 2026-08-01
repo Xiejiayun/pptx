@@ -70,23 +70,20 @@ export interface ResolvedMediaCreationInputs {
   readonly poster: ResolvedEmbeddedMedia;
 }
 
+export interface NormalizedMediaSourceInput {
+  readonly kind: MediaKind;
+  readonly source: NormalizedMediaSourceReference;
+  readonly contentType?: string;
+  readonly fileName?: string;
+  readonly transcode?: NormalizedMediaCreateRequest['transcode'];
+}
+
 export async function resolveMediaCreationInputs(
   request: Readonly<NormalizedMediaCreateRequest>,
 ): Promise<Readonly<ResolvedMediaCreationInputs>> {
-  const preparedMedia = prepareSource(request.source, 'media', true);
   const preparedPoster = request.poster
     ? prepareSource(request.poster, 'poster', false)
     : undefined;
-  if (preparedMedia.externalUrl && request.transcode) {
-    throw new TypeError('External media cannot be transcoded');
-  }
-
-  const mediaDescriptor = resolveDescriptor(
-    request.kind,
-    request.contentType,
-    preparedMedia.dataUri?.contentType,
-    request.fileName ?? preparedMedia.name,
-  );
   const posterDescriptor = resolveDescriptor(
     'poster',
     request.posterContentType,
@@ -94,17 +91,32 @@ export async function resolveMediaCreationInputs(
     preparedPoster?.name,
   );
 
-  let media: ResolvedEmbeddedMedia | ResolvedExternalMedia;
-  if (preparedMedia.externalUrl) {
-    media = Object.freeze({ type: 'external', url: preparedMedia.externalUrl });
-  } else {
-    media = createEmbedded(await loadPreparedBytes(preparedMedia, 'media'), mediaDescriptor);
-    if (request.transcode) media = await applyTranscode(media, request);
-  }
+  const media = await resolveMediaSourceInput(request);
   const poster = preparedPoster
     ? createEmbedded(await loadPreparedBytes(preparedPoster, 'poster'), posterDescriptor)
     : createEmbedded(ONE_PIXEL_PNG, posterDescriptor);
   return Object.freeze({ media, poster });
+}
+
+export async function resolveMediaSourceInput(
+  request: Readonly<NormalizedMediaSourceInput>,
+): Promise<ResolvedEmbeddedMedia | ResolvedExternalMedia> {
+  const prepared = prepareSource(request.source, 'media', true);
+  if (prepared.externalUrl && request.transcode) {
+    throw new TypeError('External media cannot be transcoded');
+  }
+  const descriptor = resolveDescriptor(
+    request.kind,
+    request.contentType,
+    prepared.dataUri?.contentType,
+    request.fileName ?? prepared.name,
+  );
+  if (prepared.externalUrl) {
+    return Object.freeze({ type: 'external', url: prepared.externalUrl });
+  }
+  let media = createEmbedded(await loadPreparedBytes(prepared, 'media'), descriptor);
+  if (request.transcode) media = await applyTranscode(media, request);
+  return media;
 }
 
 function prepareSource(
@@ -200,7 +212,7 @@ async function loadPreparedBytes(
 
 async function applyTranscode(
   media: Readonly<ResolvedEmbeddedMedia>,
-  request: Readonly<NormalizedMediaCreateRequest>,
+  request: Readonly<NormalizedMediaSourceInput>,
 ): Promise<ResolvedEmbeddedMedia> {
   const result = await request.transcode!(
     new Uint8Array(media.bytes),

@@ -15,6 +15,12 @@ import {
 } from './media-edit.internal.js';
 import { resolveMediaCreationInputs } from './media-source.internal.js';
 import { readMediaState } from './media-state.internal.js';
+import {
+  findMatchingMediaPart,
+  normalizeMediaReplaceRequest,
+  replaceResolvedMediaSource,
+  resolveMediaReplacementSource,
+} from './media-replace.internal.js';
 import type { CodecDiagnostic } from './registry.js';
 
 export {
@@ -55,6 +61,12 @@ export interface AddMediaOptions extends MediaPlaybackSettings {
     contentType: string,
     kind: MediaKind,
   ) => Promise<{ bytes: Uint8Array; contentType: string; extension?: string }>;
+}
+
+export interface ReplaceMediaSourceOptions {
+  readonly contentType?: string;
+  readonly fileName?: string;
+  readonly transcode?: AddMediaOptions['transcode'];
 }
 
 export interface MediaDescriptor {
@@ -118,6 +130,31 @@ export class MediaCodec {
       if (normalized && mediaPlaybackSettingsEqual(state.settings, normalized)) return false;
       return replaceMediaPlaybackExtension(xml, picture, normalized);
     });
+  }
+
+  async replaceSource(
+    slidePartUri: string,
+    shapeId: number,
+    kind: MediaKind,
+    source: MediaSource,
+    options: ReplaceMediaSourceOptions = {},
+  ): Promise<MediaDescriptor> {
+    const request = normalizeMediaReplaceRequest(kind, source, options);
+    const resolved = await resolveMediaReplacementSource(request);
+    const matching = resolved.type === 'embedded'
+      ? await findMatchingMediaPart(this.pkg, resolved)
+      : undefined;
+    replaceResolvedMediaSource(
+      this.pkg,
+      slidePartUri,
+      shapeId,
+      kind,
+      resolved,
+      matching,
+    );
+    const descriptor = this.list(slidePartUri).find((candidate) => candidate.shapeId === shapeId);
+    if (!descriptor) throw new Error(`Media shape ${shapeId} was not found on ${slidePartUri}`);
+    return descriptor;
   }
 
   delete(slidePartUri: string, shapeId: number): void {

@@ -698,6 +698,157 @@ describe('PresentationModel', () => {
     expect(reopenedMedia.settings).toEqual({});
   });
 
+  it('replaces live media sources across embedded and external modes with COW isolation', async () => {
+    const { pkg, model } = emptyPresentationModel();
+    const slide = model.addSlide();
+    const media = await slide.addAudio(Uint8Array.of(1, 2, 3), {
+      name: 'Replace me',
+      altText: 'Keep metadata',
+      contentType: 'audio/mpeg',
+      poster: Uint8Array.of(9),
+      posterContentType: 'image/png',
+      play: 'auto',
+      x: inches(1),
+      y: inches(2),
+      width: inches(3),
+      height: inches(1),
+    });
+    const identity = media;
+    const originalUri = media.mediaPartUri!;
+    const posterUri = media.posterPartUri;
+    const appearance = {
+      name: media.name,
+      altText: media.altText,
+      transform: media.transform,
+      settings: media.settings,
+    };
+
+    expect(await media.replaceSource(Uint8Array.of(4, 5, 6), {
+      contentType: 'audio/mpeg',
+    })).toBe(media);
+    expect(media.mediaPartUri).toBe(originalUri);
+    expect(pkg.requirePart(originalUri).bytes).toEqual(Uint8Array.of(4, 5, 6));
+
+    await media.replaceSource('https://example.com/narration.mp3');
+    expect(media).toBe(identity);
+    expect(media.mediaPartUri).toBeUndefined();
+    expect(media.externalUrl).toBe('https://example.com/narration.mp3');
+    expect(pkg.hasPart(originalUri)).toBe(false);
+    expect(media.posterPartUri).toBe(posterUri);
+    expect({
+      name: media.name,
+      altText: media.altText,
+      transform: media.transform,
+      settings: media.settings,
+    }).toEqual(appearance);
+
+    await media.replaceSource('data:audio/wav;base64,BwgJ', { fileName: 'voice.wav' });
+    expect(media.externalUrl).toBeUndefined();
+    expect(media.mediaPartUri).toMatch(/\.wav$/);
+    expect(pkg.requirePart(media.mediaPartUri!)).toMatchObject({
+      contentType: 'audio/wav',
+      bytes: Uint8Array.of(7, 8, 9),
+    });
+    const sharedWav = media.mediaPartUri!;
+    const duplicate = model.duplicateSlide(0);
+    const duplicateMedia = duplicate.media[0]!;
+    expect(duplicateMedia.mediaPartUri).toBe(sharedWav);
+    await duplicateMedia.replaceSource(Uint8Array.of(10, 11), {
+      contentType: 'audio/wav',
+      fileName: 'changed.wav',
+    });
+    expect(duplicateMedia.mediaPartUri).not.toBe(sharedWav);
+    expect(pkg.requirePart(sharedWav).bytes).toEqual(Uint8Array.of(7, 8, 9));
+    expect(pkg.requirePart(duplicateMedia.mediaPartUri!).bytes).toEqual(Uint8Array.of(10, 11));
+    expect(media.mediaPartUri).toBe(sharedWav);
+
+    const dedup = await slide.addAudio(Uint8Array.of(12, 13), {
+      contentType: 'audio/wav',
+      fileName: 'dedup.wav',
+    });
+    await duplicateMedia.replaceSource(Uint8Array.of(12, 13), {
+      contentType: 'audio/wav',
+      fileName: 'dedup.wav',
+    });
+    expect(duplicateMedia.mediaPartUri).toBe(dedup.mediaPartUri);
+
+    const beforeInvalid = packageSnapshot(pkg);
+    await expect(duplicateMedia.replaceSource('data:video/mp4;base64,AQ=='))
+      .rejects.toThrow(/Unsupported audio content type/);
+    await expect(duplicateMedia.replaceSource(Uint8Array.of(1), { x: 1 } as never))
+      .rejects.toThrow(/unsupported property/);
+    expect(packageSnapshot(pkg)).toEqual(beforeInvalid);
+    expect(duplicate.media[0]).toBe(duplicateMedia);
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedDuplicate = reopened.slides.find(({ partUri }) => partUri === duplicate.partUri)!.media[0]!;
+    expect(reopenedDuplicate.mediaPartUri).toBe(dedup.mediaPartUri);
+    expect(reopenedDuplicate.name).toBe('Replace me');
+    expect(reopenedDuplicate.posterPartUri).toBe(posterUri);
+  });
+
+  it('isolates shared media relationship ids and canonicalizes legacy primary roles', async () => {
+    const { pkg, model } = emptyPresentationModel();
+    const slide = model.addSlide();
+    const first = await slide.addAudio(Uint8Array.of(1, 2), {
+      name: 'Shared first',
+      contentType: 'audio/mpeg',
+      poster: Uint8Array.of(3),
+      posterContentType: 'image/png',
+    });
+    const originalTarget = first.mediaPartUri!;
+    const part = pkg.requirePart(slide.partUri);
+    const source = new TextDecoder().decode(part.bytes);
+    const picture = source.match(/<p:pic>.*?<\/p:pic>/)?.[0];
+    expect(picture).toBeTruthy();
+    pkg.setPart(
+      slide.partUri,
+      source.replace(
+        '</p:spTree>',
+        `${picture!.replace('id="2"', 'id="3"').replace('name="Shared first"', 'name="Shared second"')}</p:spTree>`,
+      ),
+      part.contentType,
+    );
+    const second = slide.media.find(({ id }) => id === 3)!;
+    expect(second.mediaPartUri).toBe(originalTarget);
+    await second.replaceSource(Uint8Array.of(4, 5), { contentType: 'audio/mpeg' });
+    expect(first.mediaPartUri).toBe(originalTarget);
+    expect(second.mediaPartUri).not.toBe(originalTarget);
+    expect(pkg.requirePart(originalTarget).bytes).toEqual(Uint8Array.of(1, 2));
+    expect(pkg.requirePart(second.mediaPartUri!).bytes).toEqual(Uint8Array.of(4, 5));
+    expect(slide.relationships.filter(({ type }) => type.endsWith('/audio'))).toHaveLength(2);
+    expect(slide.relationships.filter(
+      ({ type }) => type === 'http://schemas.microsoft.com/office/2007/relationships/media',
+    )).toHaveLength(2);
+
+    const kindRelationship = slide.relationships.find(
+      ({ id, type }) => id !== undefined && type.endsWith('/audio'),
+    )!;
+    const firstPart = pkg.requirePart(first.mediaPartUri!);
+    pkg.transaction(() => {
+      const slideBytes = pkg.requirePart(slide.partUri);
+      pkg.setPart(
+        slide.partUri,
+        new TextDecoder().decode(slideBytes.bytes).replace('<a:audioFile ', '<a:videoFile '),
+        slideBytes.contentType,
+      );
+      pkg.updateRelationship(slide.partUri, kindRelationship.id, {
+        type: 'http://schemas.microsoft.com/office/2007/relationships/media',
+      });
+      pkg.setPart(firstPart.uri, firstPart.bytes, 'audio/mp3');
+    });
+    expect(first.kind).toBe('audio');
+    await first.replaceSource(Uint8Array.of(6, 7), { contentType: 'audio/mpeg' });
+    const canonical = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect(canonical).toContain('<a:audioFile ');
+    expect(slide.relationships.some(({ type, resolvedTarget }) =>
+      type.endsWith('/audio') && resolvedTarget === first.mediaPartUri)).toBe(true);
+    expect(slide.relationships.some(({ type, resolvedTarget }) =>
+      type === 'http://schemas.microsoft.com/office/2007/relationships/media'
+      && resolvedTarget === first.mediaPartUri)).toBe(true);
+    expect(second.mediaPartUri).not.toBe(first.mediaPartUri);
+  });
+
   it('creates embedded SVG images atomically before shape-tree extensions', () => {
     const { pkg, model } = emptyPresentationModel();
     const slide = model.addSlide();

@@ -5,7 +5,9 @@ import {
   type GradientFill,
   type MediaKind,
   type MediaPlaybackSettings,
+  type MediaSource,
   type MediaState,
+  type ReplaceMediaSourceOptions,
 } from '@pptx/codecs';
 import {
   partUriBasename,
@@ -384,6 +386,14 @@ export class MediaModel extends BaseShapeModel {
 
   set settings(value: MediaPlaybackSettings | undefined) {
     this.slide.setMediaSettings(this.id, value);
+  }
+
+  async replaceSource(
+    source: MediaSource,
+    options: ReplaceMediaSourceOptions = {},
+  ): Promise<this> {
+    await this.slide.replaceMediaSource(this.id, this.kind, source, options);
+    return this;
   }
 
   private state(): Readonly<MediaState> {

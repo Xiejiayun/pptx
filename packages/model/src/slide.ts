@@ -10,7 +10,9 @@ import {
   type AddMediaOptions,
   type GradientFill,
   type MediaPlaybackSettings,
+  type MediaKind,
   type MediaSource,
+  type ReplaceMediaSourceOptions,
 } from '@pptx/codecs';
 import {
   relativeRelationshipTarget,
@@ -403,6 +405,16 @@ export class SlideModel {
     value: MediaPlaybackSettings | undefined,
   ): void {
     new MediaCodec(this.presentation.opcPackage).setSettings(this.partUri, shapeId, value);
+  }
+
+  async replaceMediaSource(
+    shapeId: number,
+    kind: MediaKind,
+    source: MediaSource,
+    options: ReplaceMediaSourceOptions = {},
+  ): Promise<void> {
+    await new MediaCodec(this.presentation.opcPackage)
+      .replaceSource(this.partUri, shapeId, kind, source, options);
   }
 
   get opaqueExtensionCount(): number {

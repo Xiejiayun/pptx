@@ -278,6 +278,10 @@ describe('PptxDocument vertical slice', () => {
     media.altText = undefined;
     media.settings = { play: 'click', volume: 1 };
     media.setTransform({ x: inches(1), y: inches(2), width: inches(3), height: inches(4) });
+    expect(await media.replaceSource('https://example.com/typed.mp3')).toBe(media);
+    expect(media.externalUrl).toBe('https://example.com/typed.mp3');
+    await media.replaceSource(Uint8Array.of(9), { contentType: 'audio/mpeg' });
+    expect(media.mediaPartUri).toMatch(/\.mp3$/);
     expect(document.media(0)[0]).toBe(media);
     expect(media.name).toBe('Typed narration edited');
     expect(media.altText).toBeUndefined();

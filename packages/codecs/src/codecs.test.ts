@@ -538,6 +538,39 @@ describe('MediaCodec', () => {
     })).toThrow('outer rollback');
     expect(await packageSnapshot(outer)).toEqual(outerBefore);
   });
+
+  it('rolls back media source replacement after relationship and payload mutation', async () => {
+    const pkg = await featureFixture();
+    const codec = new MediaCodec(pkg);
+    const media = await codec.addAudio(
+      '/ppt/slides/slide1.xml',
+      Uint8Array.of(1, 2, 3),
+      { contentType: 'audio/mpeg' },
+    );
+    const before = await packageSnapshot(pkg);
+    const originalSetPart = pkg.setPart.bind(pkg);
+    const setPart = vi.spyOn(pkg, 'setPart').mockImplementation((uri, bytes, contentType) => {
+      if (uri === '/ppt/slides/slide1.xml') throw new Error('replacement slide write failed');
+      return originalSetPart(uri, bytes, contentType);
+    });
+    await expect(codec.replaceSource(
+      '/ppt/slides/slide1.xml',
+      media.shapeId,
+      'audio',
+      Uint8Array.of(4, 5, 6),
+      { contentType: 'audio/mpeg' },
+    )).rejects.toThrow('replacement slide write failed');
+    setPart.mockRestore();
+    expect(await packageSnapshot(pkg)).toEqual(before);
+    await expect(codec.replaceSource(
+      '/ppt/slides/slide1.xml',
+      media.shapeId,
+      'video',
+      Uint8Array.of(7, 8),
+      { contentType: 'video/mp4' },
+    )).rejects.toThrow(/is not video/);
+    expect(await packageSnapshot(pkg)).toEqual(before);
+  });
 });
 
 async function packageSnapshot(pkg: OpcPackage): Promise<unknown> {
