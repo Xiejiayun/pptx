@@ -22,6 +22,10 @@ export interface PackageOpenOptions {
   readonly signal?: AbortSignal;
 }
 
+export interface PackageCreateOptions {
+  readonly entryDate?: Date;
+}
+
 export interface Relationship {
   readonly id: string;
   readonly type: string;
@@ -80,20 +84,23 @@ interface PackageSavepoint {
 export class OpcPackage {
   readonly #original: Uint8Array;
   readonly #zip: JSZip;
+  readonly #entryDate: Date | undefined;
   readonly #parts = new Map<string, MutablePart>();
   readonly #journal: MutationRecord[] = [];
   readonly #defaults = new Map<string, string>();
   readonly #overrides = new Map<string, string>();
   #transactionDepth = 0;
 
-  private constructor(original: Uint8Array, zip: JSZip) {
+  private constructor(original: Uint8Array, zip: JSZip, entryDate?: Date) {
     this.#original = original;
     this.#zip = zip;
+    this.#entryDate = entryDate;
   }
 
-  static create(): OpcPackage {
+  static create(options: PackageCreateOptions = {}): OpcPackage {
     const zip = new JSZip();
-    const pkg = new OpcPackage(new Uint8Array(), zip);
+    const entryDate = normalizeEntryDate(options.entryDate);
+    const pkg = new OpcPackage(new Uint8Array(), zip, entryDate);
     const uri = '/[Content_Types].xml';
     const bytes = new TextEncoder().encode(
       `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/></Types>`,
@@ -101,7 +108,7 @@ export class OpcPackage {
     pkg.#defaults.set('rels', 'application/vnd.openxmlformats-package.relationships+xml');
     pkg.#defaults.set('xml', 'application/xml');
     pkg.#parts.set(uri, { uri, contentType: 'application/xml', bytes, relationships: [] });
-    pkg.#zip.file('[Content_Types].xml', bytes);
+    pkg.#writeZipFile('[Content_Types].xml', bytes);
     pkg.#journal.push({ kind: 'add', uri });
     return pkg;
   }
@@ -244,7 +251,7 @@ export class OpcPackage {
       bytes: encoded,
       relationships: existing?.relationships ?? [],
     });
-    this.#zip.file(normalized.slice(1), encoded);
+    this.#writeZipFile(normalized.slice(1), encoded);
     this.#journal.push({ kind: existing ? 'update' : 'add', uri: normalized });
     if (!existing || contentTypeChanged) {
       this.#overrides.set(normalized, type);
@@ -484,7 +491,7 @@ export class OpcPackage {
     }
     const bytes = new TextEncoder().encode(document.serialize());
     part.bytes = bytes;
-    this.#zip.file('[Content_Types].xml', bytes);
+    this.#writeZipFile('[Content_Types].xml', bytes);
     if (!this.#journal.some(({ uri }) => uri === '/[Content_Types].xml')) {
       this.#journal.push({ kind: 'update', uri: '/[Content_Types].xml' });
     }
@@ -512,13 +519,21 @@ export class OpcPackage {
     for (const saved of savepoint.parts) {
       const part = cloneMutablePart(saved);
       this.#parts.set(part.uri, part);
-      this.#zip.file(part.uri.slice(1), part.bytes);
+      this.#writeZipFile(part.uri.slice(1), part.bytes);
     }
     this.#defaults.clear();
     for (const [extension, contentType] of savepoint.defaults) this.#defaults.set(extension, contentType);
     this.#overrides.clear();
     for (const [uri, contentType] of savepoint.overrides) this.#overrides.set(uri, contentType);
     this.#journal.splice(0, this.#journal.length, ...savepoint.journal.map((record) => ({ ...record })));
+  }
+
+  #writeZipFile(name: string, bytes: Uint8Array): void {
+    if (this.#entryDate) {
+      this.#zip.file(name, bytes, { date: new Date(this.#entryDate.getTime()) });
+    } else {
+      this.#zip.file(name, bytes);
+    }
   }
 }
 
@@ -597,6 +612,14 @@ function validateEntryName(name: string): void {
   if (name.startsWith('/') || name.includes('\\') || name.split('/').includes('..')) {
     throw new PackageError('ZIP path traversal is not allowed', name);
   }
+}
+
+function normalizeEntryDate(value: Date | undefined): Date | undefined {
+  if (value === undefined) return undefined;
+  if (!(value instanceof Date)) throw new TypeError('Package entryDate must be a valid Date');
+  const time = Date.prototype.getTime.call(value);
+  if (!Number.isFinite(time)) throw new TypeError('Package entryDate must be a valid Date');
+  return new Date(time);
 }
 
 function compressedSizeOf(entry: JSZip.JSZipObject): number {
