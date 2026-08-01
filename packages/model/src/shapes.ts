@@ -21,12 +21,16 @@ import {
 import type {
   ChartDefinition,
   ChartDefinitionInput,
+  ChartGroupInput,
   ChartSeries,
   ChartSeriesInput,
   ChartState,
 } from './chart.js';
 import { normalizeChartDefinition } from './chart-definition.internal.js';
-import { chartDefinitionsEqual } from './chart-edit.internal.js';
+import {
+  chartDefinitionDataEqual,
+  chartDefinitionsEqual,
+} from './chart-edit.internal.js';
 import { readChartState } from './chart-state.internal.js';
 import {
   buildChartWorkbook,
@@ -796,19 +800,27 @@ export class ChartModel extends BaseShapeModel {
   async replaceDefinition(value: ChartDefinitionInput): Promise<this> {
     const next = normalizeChartDefinition(value);
     const current = this.editableState();
-    if (
-      current.status === 'recognized'
-      && current.definition
-      && current.workbookPartUri
-      && chartDefinitionsEqual(current.definition, next)
+    const workbookSynchronized = current.status === 'recognized'
+      && current.workbookPartUri !== undefined
       && await chartWorkbookMatches(
         this.slide.presentation.opcPackage.requirePart(current.workbookPartUri).bytes,
-        next,
-      )
+        current.definition!,
+      );
+    const definitionsEqual = current.status === 'recognized'
+      && chartDefinitionsEqual(current.definition!, next);
+    const dataEqual = chartDefinitionDataEqual(current.definition!, next);
+    if (
+      definitionsEqual
+      && current.workbookPartUri
+      && workbookSynchronized
     ) {
       return this;
     }
-    const workbookBytes = await buildChartWorkbook(next);
+    const workbookBytes = current.status !== 'recognized'
+      || !dataEqual
+      || (definitionsEqual && !workbookSynchronized)
+      ? await buildChartWorkbook(next)
+      : undefined;
     this.slide.replaceChartDefinition(this.id, current, next, workbookBytes);
     return this;
   }
@@ -820,12 +832,15 @@ export class ChartModel extends BaseShapeModel {
       throw new Error('replaceSeries() requires a chart with exactly one group');
     }
     const group = definition.groups[0]!;
+    const replacementGroup = {
+      type: group.type,
+      series: value,
+      ...(group.axis === undefined ? {} : { axis: group.axis }),
+      ...(group.options === undefined ? {} : { options: group.options }),
+    } as ChartGroupInput;
     return this.replaceDefinition({
-      groups: [{
-        type: group.type,
-        series: value,
-        ...(group.axis === undefined ? {} : { axis: group.axis }),
-      }],
+      groups: [replacementGroup],
+      options: definition.options,
     });
   }
 

@@ -14,6 +14,7 @@ import type {
   ChartSeries,
   ChartState,
 } from './chart.js';
+import { chartOptionValuesEqual } from './chart-options.internal.js';
 import { cloneOwnedPartForMutation } from './dependency.internal.js';
 import { renderChartPart } from './chart-render.internal.js';
 import { readChartState } from './chart-state.internal.js';
@@ -47,7 +48,7 @@ export function replaceChartDefinition(
   shapeId: number,
   current: Readonly<ChartState>,
   next: Readonly<ChartDefinition>,
-  workbookBytes: Uint8Array,
+  workbookBytes: Uint8Array | undefined,
 ): void {
   pkg.transaction(() => {
     const resolved = resolveChartReference(pkg, slide, shapeId);
@@ -65,12 +66,9 @@ export function replaceChartDefinition(
     const isolated = isolateSharedChart(pkg, slide, resolved);
     const isolatedState = readChartState(pkg, isolated.chartPartUri);
     requireEditableState(isolatedState);
-    const workbook = replaceWorkbook(
-      pkg,
-      isolated.chartPartUri,
-      isolatedState,
-      workbookBytes,
-    );
+    const workbook = workbookBytes === undefined
+      ? retainWorkbook(pkg, isolated.chartPartUri, isolatedState)
+      : replaceWorkbook(pkg, isolated.chartPartUri, isolatedState, workbookBytes);
     const plan = planChartWorkbook(next);
     const canonical = renderChartPart(next, plan.formulas, workbook.relationshipId);
     const chartPart = pkg.requirePart(isolated.chartPartUri);
@@ -90,12 +88,22 @@ export function replaceChartDefinition(
       || !chartDefinitionsEqual(result.definition, next)
       || result.workbookPartUri !== workbook.partUri
     ) {
-      throw new Error('Chart semantic replacement did not produce the requested state');
+      throw new Error(
+        `Chart semantic replacement did not produce the requested state: ${result.status} ${result.reason ?? ''}`.trim(),
+      );
     }
   });
 }
 
 export function chartDefinitionsEqual(
+  left: Readonly<ChartDefinition>,
+  right: Readonly<ChartDefinition>,
+): boolean {
+  return chartDefinitionDataEqual(left, right)
+    && renderDefinitionForComparison(left) === renderDefinitionForComparison(right);
+}
+
+export function chartDefinitionDataEqual(
   left: Readonly<ChartDefinition>,
   right: Readonly<ChartDefinition>,
 ): boolean {
@@ -228,6 +236,24 @@ function replaceWorkbook(
   return { relationshipId: relationship.id, partUri };
 }
 
+function retainWorkbook(
+  pkg: OpcPackage,
+  chartPartUri: string,
+  state: Readonly<ChartState>,
+): { readonly relationshipId: string; readonly partUri: string } {
+  if (state.status !== 'recognized' || !state.workbookPartUri) {
+    throw new Error('Option-only chart editing requires a synchronized workbook');
+  }
+  const relationships = pkg.relationships(chartPartUri).filter(
+    ({ type, targetMode, resolvedTarget }) =>
+      type === PACKAGE_RELATIONSHIP
+      && targetMode === 'Internal'
+      && resolvedTarget === state.workbookPartUri,
+  );
+  if (relationships.length !== 1) throw new Error('Chart workbook relationship is ambiguous');
+  return { relationshipId: relationships[0]!.id, partUri: state.workbookPartUri };
+}
+
 function patchChartPart(
   source: Uint8Array,
   canonicalSource: string,
@@ -235,17 +261,179 @@ function patchChartPart(
   next: Readonly<ChartDefinition>,
   addExternalData: boolean,
 ): string {
-  const xml = LosslessXmlDocument.parse(source);
+  let xml = LosslessXmlDocument.parse(source);
   const canonical = LosslessXmlDocument.parse(canonicalSource);
-  const plotArea = requirePlotArea(xml);
   const canonicalPlotArea = requirePlotArea(canonical);
-  if (sameStructure(current, next)) {
-    patchSeriesData(xml, plotArea, canonical, canonicalPlotArea);
+  const structureMatches = sameStructure(current, next);
+  const optionsMatch = chartOptionsEqual(current, next);
+  if (structureMatches) {
+    if (!optionsMatch) {
+      patchChartOptions(xml, canonical, true);
+      xml = LosslessXmlDocument.parse(xml.serialize());
+    }
+    patchSeriesData(xml, requirePlotArea(xml), canonical, canonicalPlotArea);
   } else {
-    replaceOwnedPlotSpans(xml, plotArea, canonical, canonicalPlotArea);
+    replaceOwnedPlotSpans(xml, requirePlotArea(xml), canonical, canonicalPlotArea);
+    if (!optionsMatch) {
+      xml = LosslessXmlDocument.parse(xml.serialize());
+      patchChartOptions(xml, canonical, false);
+    }
   }
-  if (addExternalData) insertExternalData(xml, canonical);
+  if (addExternalData) {
+    xml = LosslessXmlDocument.parse(xml.serialize());
+    insertExternalData(xml, canonical);
+  }
   return xml.serialize();
+}
+
+function patchChartOptions(
+  xml: LosslessXmlDocument,
+  canonical: LosslessXmlDocument,
+  patchPlotStructures: boolean,
+): void {
+  const root = xml.roots[0]!;
+  const canonicalRoot = canonical.roots[0]!;
+  syncChartChildren(xml, root, canonical, canonicalRoot, ['lang', 'roundedCorners', 'style', 'spPr']);
+  const chart = exactlyOneDirectChartChild(root, 'chart');
+  const canonicalChart = exactlyOneDirectChartChild(canonicalRoot, 'chart');
+  syncChartChildren(xml, chart, canonical, canonicalChart, [
+    'title',
+    'autoTitleDeleted',
+    'view3D',
+    'legend',
+    'dispBlanksAs',
+  ]);
+  const plotArea = exactlyOneDirectChartChild(chart, 'plotArea');
+  const canonicalPlotArea = exactlyOneDirectChartChild(canonicalChart, 'plotArea');
+  syncChartChildren(xml, plotArea, canonical, canonicalPlotArea, ['dTable', 'spPr']);
+  if (!patchPlotStructures) return;
+
+  const groups = directChartChildren(plotArea).filter(({ localName }) => GROUP_NAMES.has(localName));
+  const canonicalGroups = directChartChildren(canonicalPlotArea)
+    .filter(({ localName }) => GROUP_NAMES.has(localName));
+  groups.forEach((group, groupIndex) => {
+    const canonicalGroup = canonicalGroups[groupIndex]!;
+    syncChartChildren(xml, group, canonical, canonicalGroup, groupOptionElementNames(group.localName));
+    const series = directChartChildren(group).filter(({ localName }) => localName === 'ser');
+    const canonicalSeries = directChartChildren(canonicalGroup).filter(({ localName }) => localName === 'ser');
+    series.forEach((entry, seriesIndex) => {
+      syncChartChildren(xml, entry, canonical, canonicalSeries[seriesIndex]!, [
+        'spPr',
+        'marker',
+        'smooth',
+      ]);
+    });
+  });
+
+  const axes = directChartChildren(plotArea).filter(({ localName }) => AXIS_NAMES.has(localName));
+  const canonicalAxes = directChartChildren(canonicalPlotArea)
+    .filter(({ localName }) => AXIS_NAMES.has(localName));
+  axes.forEach((axis, index) => syncChartChildren(
+    xml,
+    axis,
+    canonical,
+    canonicalAxes[index]!,
+    [
+      'scaling',
+      'delete',
+      'axPos',
+      'majorGridlines',
+      'minorGridlines',
+      'title',
+      'numFmt',
+      'majorTickMark',
+      'minorTickMark',
+      'tickLblPos',
+      'spPr',
+      'txPr',
+      'majorUnit',
+      'minorUnit',
+    ],
+  ));
+}
+
+function syncChartChildren(
+  xml: LosslessXmlDocument,
+  parent: XmlElement,
+  canonical: LosslessXmlDocument,
+  canonicalParent: XmlElement,
+  localNames: readonly string[],
+): void {
+  for (const localName of localNames) {
+    const existing = directChartChildren(parent).filter((child) => child.localName === localName);
+    const replacements = directChartChildren(canonicalParent)
+      .filter((child) => child.localName === localName);
+    if (replacements.length > 1) throw new Error(`Canonical chart ${localName} is ambiguous`);
+    const replacement = replacements[0];
+    if (replacement && existing[0]) {
+      xml.replaceElement(existing[0], canonical.original(replacement));
+      for (const duplicate of existing.slice(1)) xml.removeElement(duplicate);
+      continue;
+    }
+    if (!replacement) {
+      for (const entry of existing) xml.removeElement(entry);
+      continue;
+    }
+    insertCanonicalChild(xml, parent, canonical, canonicalParent, replacement);
+  }
+}
+
+function insertCanonicalChild(
+  xml: LosslessXmlDocument,
+  parent: XmlElement,
+  canonical: LosslessXmlDocument,
+  canonicalParent: XmlElement,
+  replacement: XmlElement,
+): void {
+  const canonicalSiblings = directChartChildren(canonicalParent);
+  const replacementIndex = canonicalSiblings.indexOf(replacement);
+  for (const sibling of canonicalSiblings.slice(replacementIndex + 1)) {
+    const anchor = directChartChildren(parent).find(({ localName }) =>
+      localName === sibling.localName);
+    if (anchor) {
+      xml.replace(anchor.start, anchor.start, canonical.original(replacement));
+      return;
+    }
+  }
+  const extension = directChartChildren(parent).find(({ localName }) => localName === 'extLst');
+  if (extension) {
+    xml.replace(extension.start, extension.start, canonical.original(replacement));
+    return;
+  }
+  xml.appendChildXml(parent, canonical.original(replacement));
+}
+
+function groupOptionElementNames(localName: string): readonly string[] {
+  switch (localName) {
+    case 'areaChart': return ['grouping', 'varyColors', 'dLbls'];
+    case 'barChart': return ['barDir', 'grouping', 'varyColors', 'dLbls', 'gapWidth', 'overlap'];
+    case 'bar3DChart': return ['barDir', 'grouping', 'varyColors', 'dLbls', 'gapWidth', 'gapDepth'];
+    case 'bubbleChart': return ['varyColors', 'dLbls', 'bubbleScale', 'showNegBubbles', 'sizeRepresents'];
+    case 'doughnutChart': return ['varyColors', 'dLbls', 'firstSliceAng', 'holeSize'];
+    case 'lineChart': return ['grouping', 'varyColors', 'dLbls'];
+    case 'pieChart': return ['varyColors', 'dLbls', 'firstSliceAng'];
+    case 'radarChart': return ['radarStyle', 'varyColors', 'dLbls'];
+    case 'scatterChart': return ['scatterStyle', 'varyColors', 'dLbls'];
+    default: return [];
+  }
+}
+
+function chartOptionsEqual(
+  left: Readonly<ChartDefinition>,
+  right: Readonly<ChartDefinition>,
+): boolean {
+  if (chartDefinitionDataEqual(left, right)) {
+    return renderDefinitionForComparison(left) === renderDefinitionForComparison(right);
+  }
+  return chartOptionValuesEqual(left.options, right.options)
+    && left.groups.length === right.groups.length
+    && left.groups.every((group, index) =>
+      chartOptionValuesEqual(group.options, right.groups[index]?.options));
+}
+
+function renderDefinitionForComparison(definition: Readonly<ChartDefinition>): string {
+  const plan = planChartWorkbook(definition);
+  return renderChartPart(definition, plan.formulas, 'rIdWorkbook');
 }
 
 function patchSeriesData(

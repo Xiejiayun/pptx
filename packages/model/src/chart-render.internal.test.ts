@@ -203,6 +203,191 @@ describe('combination chart rendering', () => {
   });
 });
 
+describe('chart option rendering', () => {
+  it('renders root, title, legend, area, axes, labels, table, palette, and series options', () => {
+    const definition = normalizeChartDefinition({
+      groups: [{
+        type: 'bar',
+        series: [{ name: 'Revenue', categories: ['Q1', 'Q2'], values: [10, 20] }],
+        options: {
+          direction: 'bar',
+          grouping: 'stacked',
+          gapWidth: 0,
+          overlap: -25,
+          varyColors: false,
+          dataLabels: {
+            showValue: true,
+            showCategoryName: false,
+            showSeriesName: true,
+            position: 'insideEnd',
+            numberFormat: '0.0%',
+            showLeaderLines: false,
+            face: 'Aptos',
+            size: 9,
+            bold: true,
+            italic: false,
+            color: { kind: 'scheme', value: 'tx1' },
+          },
+          series: [{
+            fill: {
+              kind: 'solid',
+              color: { kind: 'srgb', value: '112233' },
+              transparency: 25,
+            },
+            line: {
+              kind: 'line',
+              color: { kind: 'scheme', value: 'accent1' },
+              width: 2,
+              dash: 'dash',
+            },
+          }],
+        },
+      }],
+      options: {
+        language: 'zh-CN',
+        style: 48,
+        roundedCorners: true,
+        displayBlanksAs: 'zero',
+        title: {
+          visible: true,
+          text: 'Revenue & Cost',
+          overlay: true,
+          rotation: -30,
+          position: { x: 0.1, y: 0.2 },
+          face: 'Aptos Display',
+          size: 18,
+          bold: true,
+          italic: false,
+          color: { kind: 'srgb', value: '445566' },
+        } as never,
+        legend: {
+          visible: true,
+          position: 'topRight',
+          overlay: false,
+          face: 'Aptos',
+          size: 10,
+          color: { kind: 'scheme', value: 'tx2' },
+        },
+        chartArea: {
+          fill: { kind: 'solid', color: { kind: 'srgb', value: 'FFFFFF' } },
+          line: { kind: 'none' },
+        },
+        plotArea: {
+          fill: { kind: 'none' },
+          line: { kind: 'line', color: { kind: 'srgb', value: '999999' }, width: 1 },
+        },
+        categoryAxis: {
+          visible: false,
+          position: 'top',
+          title: { text: 'Quarter', rotation: 0, size: 11 },
+          minimum: 0,
+          maximum: 10,
+          majorUnit: 2,
+          minorUnit: 1,
+          numberFormat: '0',
+          orientation: 'maxMin',
+          labelPosition: 'high',
+          labelRotation: -45,
+          line: { kind: 'none' },
+          majorGridLine: {
+            kind: 'line',
+            color: { kind: 'srgb', value: 'CCCCCC' },
+            width: 0.5,
+            dash: 'sysDot',
+          },
+          minorGridLine: { kind: 'none' },
+          majorTickMark: 'inside',
+          minorTickMark: 'cross',
+          face: 'Aptos Narrow',
+          size: 8,
+        },
+        valueAxis: {
+          position: 'right',
+          minimum: -5,
+          maximum: 100,
+          logarithmicBase: 10,
+          numberFormat: '#,##0.00',
+          majorTickMark: 'outside',
+          minorTickMark: 'none',
+        },
+        dataTable: {
+          visible: true,
+          showHorizontalBorder: false,
+          showVerticalBorder: true,
+          showOutline: false,
+          showLegendKeys: true,
+          numberFormat: '#,##0.00',
+          size: 9,
+        },
+        colors: [{ kind: 'srgb', value: '4472C4' }],
+      },
+    });
+    const xml = renderChartPart(definition, planChartWorkbook(definition).formulas, 'rId1');
+
+    expect(xml).toContain('<c:lang val="zh-CN"/>');
+    expect(xml).toContain('<c:roundedCorners val="1"/><c:style val="48"/>');
+    expect(xml).toContain('<a:t>Revenue &amp; Cost</a:t>');
+    expect(xml).toContain(
+      '<c:layout><c:manualLayout><c:xMode val="edge"/><c:yMode val="edge"/>'
+      + '<c:x val="0.1"/><c:y val="0.2"/></c:manualLayout></c:layout>',
+    );
+    expect(xml).toContain('<c:legendPos val="tr"/>');
+    expect(xml).toContain('<c:barDir val="bar"/><c:grouping val="stacked"/>');
+    expect(xml).toContain('<c:gapWidth val="0"/><c:overlap val="-25"/>');
+    expect(xml).toContain('<a:alpha val="75000"/>');
+    expect(xml).toContain('<a:prstDash val="dash"/>');
+    expect(xml).toContain('<c:dLblPos val="inEnd"/>');
+    expect(xml).toContain('<c:showVal val="1"/>');
+    expect(xml).toContain('<c:showSerName val="1"/>');
+    expect(xml).toContain('<c:delete val="1"/><c:axPos val="t"/>');
+    expect(xml).toContain('<c:logBase val="10"/>');
+    expect(xml).toContain('<c:orientation val="maxMin"/>');
+    expect(xml).toContain('<c:majorUnit val="2"/><c:minorUnit val="1"/>');
+    expect(xml).toContain('<c:showHorzBorder val="0"/><c:showVertBorder val="1"/>');
+    expect(xml).toContain('<c:showOutline val="0"/><c:showKeys val="1"/>');
+    expect(xml).toContain('<c:numCache><c:formatCode>#,##0.00</c:formatCode>');
+    expect(xml).not.toMatch(/<c:dTable>[\s\S]*?<c:numFmt[\s\S]*?<\/c:dTable>/);
+    expect(xml).toContain('<c:dispBlanksAs val="zero"/>');
+  });
+
+  it.each([
+    ['area', { grouping: 'percentStacked' }, '<c:grouping val="percentStacked"/>'],
+    ['bar3D', { direction: 'column', grouping: 'stacked', gapDepth: 25 }, '<c:gapDepth val="25"/>'],
+    ['bubble', { scale: 80, showNegativeBubbles: true, sizeRepresents: 'width' }, '<c:sizeRepresents val="width"/>'],
+    ['doughnut', { firstSliceAngle: 45, holeSize: 60 }, '<c:holeSize val="60"/>'],
+    ['line', { grouping: 'stacked', smooth: true, marker: { shape: 'diamond', size: 8 } }, '<c:symbol val="diamond"/>'],
+    ['pie', { firstSliceAngle: 90 }, '<c:firstSliceAng val="90"/>'],
+    ['radar', { style: 'filled' }, '<c:radarStyle val="filled"/>'],
+    ['scatter', { style: 'smoothMarker', smooth: true, marker: { shape: 'triangle', size: 7 } }, '<c:scatterStyle val="smoothMarker"/>'],
+  ] as const)('renders %s type-specific options', (type, options, expected) => {
+    const series = type === 'scatter'
+      ? [{ name: 'S', xValues: [1], values: [2] }]
+      : type === 'bubble'
+        ? [{ name: 'S', xValues: [1], values: [2], sizes: [3] }]
+        : [{ name: 'S', categories: ['A'], values: [2] }];
+    const definition = normalizeChartDefinition({
+      groups: [{ type, series, options }],
+    } as never);
+    const xml = renderChartPart(definition, planChartWorkbook(definition).formulas, 'rId1');
+    expect(xml).toContain(expected);
+  });
+
+  it('renders explicit 3D view options for bar3D charts', () => {
+    const definition = normalizeChartDefinition({
+      groups: [{
+        type: 'bar3D',
+        series: [{ name: 'S', categories: ['A'], values: [1] }],
+      }],
+      options: { rotationX: -30, rotationY: 360, rightAngleAxes: false, perspective: 0 },
+    });
+    const xml = renderChartPart(definition, planChartWorkbook(definition).formulas, 'rId1');
+    expect(xml).toContain(
+      '<c:view3D><c:rotX val="-30"/><c:rotY val="360"/>'
+      + '<c:rAngAx val="0"/><c:perspective val="0"/></c:view3D>',
+    );
+  });
+});
+
 describe('chart graphic frame rendering', () => {
   it('normalizes, freezes, escapes, and renders exact frame placement', () => {
     const options = normalizeAddChartOptions({

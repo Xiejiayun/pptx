@@ -54,6 +54,7 @@ describe('chart definition normalization', () => {
           }],
         },
       ],
+      options: {},
     });
     expect(normalized.groups[0]?.series[0]?.values[1]).toBe(0);
     expect(Object.isFrozen(normalized)).toBe(true);
@@ -103,10 +104,143 @@ describe('chart definition normalization', () => {
     const group = Object.assign(Object.create(null), { type: 'bar', series: [series] });
     const input = Object.assign(Object.create(null), { groups: [group] });
 
-    expect(normalizeChartDefinition(input)).toEqual({ groups: [{
-      type: 'bar',
-      series: [{ name: 'Revenue', categories: ['Q1'], values: [10] }],
-    }] });
+    expect(normalizeChartDefinition(input)).toEqual({
+      groups: [{
+        type: 'bar',
+        series: [{ name: 'Revenue', categories: ['Q1'], values: [10] }],
+      }],
+      options: {},
+    });
+  });
+
+  it('normalizes, detaches, and freezes chart, axis, label, series, and type options', () => {
+    const input: ChartDefinitionInput = {
+      groups: [{
+        type: 'bar',
+        series: [categoricalSeries() as never],
+        options: {
+          direction: 'bar',
+          grouping: 'stacked',
+          gapWidth: 0,
+          overlap: -25,
+          varyColors: false,
+          dataLabels: {
+            showValue: true,
+            showCategoryName: false,
+            position: 'insideEnd',
+            numberFormat: '#,##0.00',
+            color: { kind: 'scheme', value: 'tx1' },
+          },
+          series: [{
+            fill: { kind: 'solid', color: { kind: 'srgb', value: '#112233' }, transparency: 25 },
+            line: { kind: 'line', color: { kind: 'scheme', value: 'accent1' }, width: 0 },
+          }],
+        },
+      }],
+      options: {
+        language: 'zh-CN',
+        style: 48,
+        roundedCorners: false,
+        displayBlanksAs: 'zero',
+        title: { visible: true, text: 'Revenue', overlay: false, rotation: 0, size: 18 },
+        legend: { visible: true, position: 'topRight', overlay: true, bold: false },
+        chartArea: { fill: { kind: 'none' }, line: { kind: 'none' } },
+        plotArea: { fill: { kind: 'solid', color: { kind: 'srgb', value: 'FFFFFF' } } },
+        categoryAxis: {
+          visible: true,
+          position: 'bottom',
+          minimum: 0,
+          maximum: 10,
+          majorUnit: 2,
+          minorUnit: 1,
+          labelRotation: -45,
+          line: { kind: 'line', color: { kind: 'srgb', value: '000000' }, dash: 'dash' },
+        },
+        valueAxis: { logarithmicBase: 10, numberFormat: '0%', orientation: 'maxMin' },
+        dataTable: { visible: true, showHorizontalBorder: false, size: 9 },
+        colors: [{ kind: 'srgb', value: '4472C4' }, { kind: 'scheme', value: 'accent2' }],
+        rightAngleAxes: true,
+        rotationX: -30,
+        rotationY: 360,
+        perspective: 0,
+      },
+    };
+    const normalized = normalizeChartDefinition(input);
+
+    expect(normalized.options).toMatchObject({
+      language: 'zh-CN',
+      style: 48,
+      displayBlanksAs: 'zero',
+      title: { text: 'Revenue', size: 18, rotation: 0 },
+      categoryAxis: { minimum: 0, maximum: 10, labelRotation: -45 },
+      colors: [{ kind: 'srgb', value: '4472C4' }, { kind: 'scheme', value: 'accent2' }],
+      rotationY: 360,
+      perspective: 0,
+    });
+    expect(normalized.groups[0]?.options).toMatchObject({
+      direction: 'bar', grouping: 'stacked', gapWidth: 0, overlap: -25,
+    });
+    expect(normalized.groups[0]?.options?.series?.[0]?.fill).toEqual({
+      kind: 'solid',
+      color: { kind: 'srgb', value: '112233' },
+      transparency: 25,
+    });
+    expect(Object.isFrozen(normalized.options)).toBe(true);
+    expect(Object.isFrozen(normalized.options.categoryAxis)).toBe(true);
+    expect(Object.isFrozen(normalized.options.colors)).toBe(true);
+    expect(Object.isFrozen(normalized.groups[0]?.options?.series?.[0]?.fill)).toBe(true);
+
+    (input.options!.colors as { kind: 'srgb'; value: string }[])[0]!.value = 'FFFFFF';
+    expect(normalized.options.colors?.[0]).toEqual({ kind: 'srgb', value: '4472C4' });
+  });
+
+  it('rejects unsafe chart option values before mutation planning', () => {
+    const invalidOptions = [
+      { style: 0 },
+      { colors: [] },
+      { title: { rotation: 91 } },
+      { legend: { position: 'center' } },
+      { categoryAxis: { minimum: 2, maximum: 1 } },
+      { valueAxis: { logarithmicBase: 1 } },
+      { dataTable: { visible: 1 } },
+      { rotationX: Number.NaN },
+      { perspective: 241 },
+      { unknown: true },
+    ];
+    for (const options of invalidOptions) {
+      expect(() => normalizeChartDefinition({
+        groups: [{ type: 'bar', series: [categoricalSeries() as never] }],
+        options,
+      } as never)).toThrow();
+    }
+
+    for (const options of [
+      { gapWidth: 501 },
+      { overlap: -101 },
+      { firstSliceAngle: 1 },
+      { marker: { shape: 'circle' } },
+      { dataLabels: { position: 'top' } },
+      { series: [{ marker: { shape: 'circle' } }] },
+    ]) {
+      expect(() => normalizeChartDefinition({
+        groups: [{ type: 'bar', series: [categoricalSeries() as never], options }],
+      } as never)).toThrow();
+    }
+
+    expect(() => normalizeChartDefinition({
+      groups: [{
+        type: 'bar3D',
+        series: [categoricalSeries() as never],
+        options: { overlap: 10 },
+      }],
+    } as never)).toThrow(/unsupported property overlap/);
+
+    const accessor = {};
+    Object.defineProperty(accessor, 'style', { get: () => 1, enumerable: true });
+    expect(() => normalizeChartDefinition({
+      groups: [{ type: 'bar', series: [categoricalSeries() as never] }],
+      options: accessor,
+    } as never)).toThrow(/data property/);
   });
 
   it('accepts compatible primary-only, primary-secondary, same-type, and scatter combinations', () => {

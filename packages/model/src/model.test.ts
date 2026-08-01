@@ -6874,6 +6874,7 @@ describe('PresentationModel', () => {
         axis: 'primary',
         series: [{ name: 'Sales', categories: ['Q1', 'Q2'], values: [10, 20] }],
       }],
+      options: {},
     });
     expect((shapes[3] as ChartModel).series).toEqual([
       { name: 'Sales', categories: ['Q1', 'Q2'], values: [10, 20] },

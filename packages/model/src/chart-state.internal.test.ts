@@ -32,6 +32,7 @@ describe('strict chart semantic state', () => {
           axis: 'primary',
           series: [{ name: 'Revenue', categories: ['Q1', 'Q2'], values: [10, 20] }],
         }],
+        options: {},
       },
     });
     expect(Object.isFrozen(state)).toBe(true);
@@ -110,6 +111,7 @@ describe('strict chart semantic state', () => {
             ...definition.groups[0],
             axis: 'primary',
           }],
+          options: {},
         },
         workbookPartUri: WORKBOOK_URI,
       });
@@ -136,9 +138,131 @@ describe('strict chart semantic state', () => {
           { ...definition.groups[0], axis: 'primary' },
           definition.groups[1],
         ],
+        options: {},
       },
       workbookPartUri: WORKBOOK_URI,
     });
+  });
+
+  it('strictly reads renderer-produced chart and group options', () => {
+    const definition = normalizeChartDefinition({
+      groups: [{
+        type: 'bar',
+        series: [{ name: 'Revenue', categories: ['Q1', 'Q2'], values: [10, 20] }],
+        options: {
+          direction: 'bar',
+          grouping: 'stacked',
+          gapWidth: 0,
+          overlap: -25,
+          varyColors: true,
+          dataLabels: {
+            showValue: true,
+            showSeriesName: true,
+            position: 'insideEnd',
+            numberFormat: '0.0%',
+            face: 'Aptos',
+            size: 9,
+            bold: true,
+            color: { kind: 'scheme', value: 'tx1' },
+          },
+          series: [{
+            fill: {
+              kind: 'solid',
+              color: { kind: 'srgb', value: '112233' },
+              transparency: 25,
+            },
+            line: {
+              kind: 'line',
+              color: { kind: 'scheme', value: 'accent1' },
+              width: 2,
+              dash: 'dash',
+            },
+          }],
+        },
+      }],
+      options: {
+        language: 'zh-CN',
+        style: 48,
+        roundedCorners: true,
+        displayBlanksAs: 'zero',
+        title: {
+          text: 'Revenue',
+          overlay: true,
+          rotation: -30,
+          position: { x: 0.1, y: 0.2 },
+          face: 'Aptos Display',
+          size: 18,
+          bold: true,
+          color: { kind: 'srgb', value: '445566' },
+        },
+        legend: {
+          position: 'topRight',
+          overlay: true,
+          face: 'Aptos',
+          size: 10,
+          color: { kind: 'scheme', value: 'tx2' },
+        },
+        chartArea: {
+          fill: { kind: 'solid', color: { kind: 'srgb', value: 'FFFFFF' } },
+          line: { kind: 'none' },
+        },
+        plotArea: {
+          fill: { kind: 'none' },
+          line: { kind: 'line', color: { kind: 'srgb', value: '999999' }, width: 1 },
+        },
+        categoryAxis: {
+          visible: false,
+          position: 'top',
+          title: { text: 'Quarter', rotation: 30, size: 11 },
+          minimum: 0,
+          maximum: 10,
+          majorUnit: 2,
+          minorUnit: 1,
+          numberFormat: '0',
+          orientation: 'maxMin',
+          labelPosition: 'high',
+          labelRotation: -45,
+          line: { kind: 'none' },
+          majorGridLine: {
+            kind: 'line',
+            color: { kind: 'srgb', value: 'CCCCCC' },
+            width: 0.5,
+            dash: 'sysDot',
+          },
+          minorGridLine: { kind: 'none' },
+          majorTickMark: 'inside',
+          minorTickMark: 'cross',
+          face: 'Aptos Narrow',
+          size: 8,
+        },
+        valueAxis: {
+          position: 'right',
+          minimum: -5,
+          maximum: 100,
+          logarithmicBase: 10,
+          numberFormat: '#,##0.00',
+        },
+        dataTable: {
+          showHorizontalBorder: false,
+          showLegendKeys: false,
+          numberFormat: '#,##0.00',
+          size: 9,
+        },
+      },
+    });
+    const xml = renderChartPart(definition, planChartWorkbook(definition).formulas, 'rId1');
+    const state = readChartState(chartPackage(xml), CHART_URI);
+
+    expect(state).toEqual({
+      status: 'recognized',
+      definition: {
+        groups: [{ ...definition.groups[0], axis: 'primary' }],
+        options: definition.options,
+      },
+      workbookPartUri: WORKBOOK_URI,
+    });
+    expect(Object.isFrozen(state.definition?.options.categoryAxis?.majorGridLine)).toBe(true);
+    expect(Object.isFrozen(state.definition?.groups[0]?.options?.series?.[0]?.fill)).toBe(true);
   });
 
   it('normalizes the single trailing dangling categorical axis emitted by PptxGenJS', () => {

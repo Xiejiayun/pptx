@@ -1,17 +1,31 @@
 import { LosslessXmlDocument, type XmlAttribute, type XmlElement } from '@pptx/lossless-xml';
 import type { OpcPackage } from '@pptx/opc';
 import type {
+  ChartAreaOptions,
+  ChartAxisOptions,
   ChartCategories,
+  ChartDataLabelOptions,
+  ChartDataTableOptions,
   ChartDefinitionInput,
+  ChartFontOptions,
   ChartGroupInput,
+  ChartGroupOptions,
+  ChartLegendOptions,
+  ChartMarkerOptions,
+  ChartOptions,
   ChartSeriesInput,
+  ChartSeriesOptions,
   ChartState,
+  ChartTitleOptions,
   ChartType,
 } from './chart.js';
 import { normalizeChartDefinition } from './chart-definition.internal.js';
+import { readSimpleFillChoice, type SimpleFill } from './simple-fill.internal.js';
+import { readSimpleLine, type NormalizedSimpleLine } from './simple-line.internal.js';
 
 const CHART_NAMESPACE = 'http://schemas.openxmlformats.org/drawingml/2006/chart';
 const MODERN_CHART_NAMESPACE = 'http://schemas.microsoft.com/office/drawing/2014/chartex';
+const DRAWING_NAMESPACE = 'http://schemas.openxmlformats.org/drawingml/2006/main';
 const RELATIONSHIP_NAMESPACE =
   'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
 const PACKAGE_RELATIONSHIP =
@@ -35,16 +49,43 @@ const AXIS_ELEMENTS = new Set(['catAx', 'dateAx', 'serAx', 'valAx']);
 const FORMULA_PATTERN = /^(?:Sheet1|'Sheet1')!\$[A-Z]{1,3}\$[1-9]\d*(?::\$[A-Z]{1,3}\$[1-9]\d*)?$/;
 const DECIMAL_PATTERN = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[Ee][+-]?\d+)?$/;
 const CANONICAL_INDEX_PATTERN = /^(?:0|[1-9]\d*)$/;
+const LEGEND_POSITIONS = Object.freeze({
+  b: 'bottom',
+  l: 'left',
+  r: 'right',
+  t: 'top',
+  tr: 'topRight',
+} as const);
+const AXIS_POSITIONS = Object.freeze({
+  b: 'bottom',
+  l: 'left',
+  r: 'right',
+  t: 'top',
+} as const);
+const LABEL_POSITIONS = Object.freeze({
+  high: 'high',
+  low: 'low',
+  nextTo: 'nextTo',
+  none: 'none',
+} as const);
 
 interface ParsedGroup {
   readonly type: ChartType;
   readonly series: readonly ChartSeriesInput[];
   readonly axisIds: readonly number[];
+  readonly options?: ChartGroupOptions;
 }
 
 interface ParsedAxis {
   readonly id: number;
   readonly crossId: number;
+  readonly element: XmlElement;
+}
+
+interface AxisAssignment {
+  readonly groups: readonly ChartGroupInput[];
+  readonly axisSets: readonly (readonly number[])[];
+  readonly axesById: ReadonlyMap<number, ParsedAxis>;
 }
 
 class ChartStateError extends Error {
@@ -111,10 +152,19 @@ function readStandardChartState(
   if (groupElements.length === 0) unsupported('Chart plotArea has no supported chart groups');
 
   const parsedGroups = groupElements.map((group) => readGroup(xml, group));
-  const groups = assignAxes(xml, plotArea, parsedGroups);
+  const assignment = assignAxes(xml, plotArea, parsedGroups);
+  const options = readRootChartOptions(
+    xml,
+    root,
+    chart,
+    plotArea,
+    groupElements,
+    assignment,
+    parsedGroups[0]!.type,
+  );
   let definition;
   try {
-    definition = normalizeChartDefinition({ groups });
+    definition = normalizeChartDefinition({ groups: assignment.groups, options });
   } catch (error) {
     unsupported(error instanceof Error ? error.message : 'Chart definition is unsupported');
   }
@@ -139,9 +189,10 @@ function readGroup(xml: LosslessXmlDocument, group: XmlElement): ParsedGroup {
   }));
   requireUnique(indexed.map(({ index }) => index), `${group.localName} series indexes`);
   requireUnique(indexed.map(({ order }) => order), `${group.localName} series order values`);
-  const series = indexed
+  const orderedSeries = indexed
     .sort((left, right) => left.order - right.order)
-    .map(({ element }) => readSeries(xml, element, type));
+    .map(({ element }) => element);
+  const series = orderedSeries.map((element) => readSeries(xml, element, type));
   const axisIds = chartChildren(group, 'axId').map((element) =>
     readUnsignedVal(xml, element, `${group.localName} axis reference`, true));
   requireUnique(axisIds, `${group.localName} axis references`);
@@ -155,7 +206,13 @@ function readGroup(xml: LosslessXmlDocument, group: XmlElement): ParsedGroup {
   if (!expectedAxes.includes(axisIds.length)) {
     unsupported(`${group.localName} has an unsupported axis reference count`);
   }
-  return { type, series, axisIds: Object.freeze(axisIds) };
+  const options = readGroupOptions(xml, group, orderedSeries, type);
+  return {
+    type,
+    series,
+    axisIds: Object.freeze(axisIds),
+    ...(options === undefined ? {} : { options }),
+  };
 }
 
 function readSeries(
@@ -327,12 +384,13 @@ function assignAxes(
   xml: LosslessXmlDocument,
   plotArea: XmlElement,
   groups: readonly ParsedGroup[],
-): readonly ChartGroupInput[] {
+): AxisAssignment {
   const axisElements = elementChildren(plotArea).filter((child) =>
     elementNamespaceUri(child) === CHART_NAMESPACE && AXIS_ELEMENTS.has(child.localName));
   const axes = axisElements.map((axis): ParsedAxis => ({
     id: readRequiredUnsignedChild(xml, axis, 'axId', `${axis.localName} axis id`),
     crossId: readRequiredUnsignedChild(xml, axis, 'crossAx', `${axis.localName} cross axis id`),
+    element: axis,
   }));
   requireUnique(axes.map(({ id }) => id), 'Chart axis ids');
   const axesById = new Map(axes.map((axis) => [axis.id, axis]));
@@ -366,8 +424,14 @@ function assignAxes(
   }
 
   const axisSets: string[] = [];
-  return Object.freeze(normalizedGroups.map((group): ChartGroupInput => {
-    if (group.axisIds.length === 0) return { type: group.type, series: group.series };
+  const assignedGroups = Object.freeze(normalizedGroups.map((group): ChartGroupInput => {
+    if (group.axisIds.length === 0) {
+      return {
+        type: group.type,
+        series: group.series,
+        ...(group.options === undefined ? {} : { options: group.options }),
+      } as ChartGroupInput;
+    }
     const key = [...group.axisIds].sort((left, right) => left - right).join(',');
     let index = axisSets.indexOf(key);
     if (index < 0) {
@@ -379,8 +443,15 @@ function assignAxes(
       type: group.type,
       series: group.series,
       axis: index === 0 ? 'primary' : 'secondary',
-    };
+      ...(group.options === undefined ? {} : { options: group.options }),
+    } as ChartGroupInput;
   }));
+  return Object.freeze({
+    groups: assignedGroups,
+    axisSets: Object.freeze(axisSets.map((key) =>
+      Object.freeze(key.split(',').map(Number)))),
+    axesById,
+  });
 }
 
 function normalizePptxGenJsTrailingAxisReference(
@@ -400,6 +471,487 @@ function normalizePptxGenJsTrailingAxisReference(
     ...group,
     axisIds: Object.freeze(group.axisIds.slice(0, 2)),
   };
+}
+
+function readRootChartOptions(
+  xml: LosslessXmlDocument,
+  root: XmlElement,
+  chart: XmlElement,
+  plotArea: XmlElement,
+  groupElements: readonly XmlElement[],
+  assignment: AxisAssignment,
+  firstType: ChartType,
+): ChartOptions {
+  const result: Record<string, unknown> = {};
+  const language = readChildStringValue(root, 'lang');
+  if (language !== undefined) result.language = language;
+  const style = readChildNumberValue(root, 'style');
+  if (style !== undefined) result.style = style;
+  if (readChildBooleanValue(root, 'roundedCorners') === true) result.roundedCorners = true;
+
+  const title = optionalChartChild(chart, 'title');
+  if (title) result.title = readTitleOptions(xml, title);
+  const legend = optionalChartChild(chart, 'legend');
+  if (legend) result.legend = readLegendOptions(legend);
+  const blanks = readChildStringValue(chart, 'dispBlanksAs');
+  if (blanks !== undefined && blanks !== 'gap') result.displayBlanksAs = blanks;
+
+  const chartArea = optionalChartChild(root, 'spPr');
+  const chartAreaOptions = chartArea ? readAreaOptions(chartArea) : undefined;
+  if (
+    chartAreaOptions
+    && !(chartAreaOptions.fill?.kind === 'none' && chartAreaOptions.line?.kind === 'none')
+  ) result.chartArea = chartAreaOptions;
+  const plotAreaShape = optionalChartChild(plotArea, 'spPr');
+  const plotAreaOptions = plotAreaShape ? readAreaOptions(plotAreaShape) : undefined;
+  if (plotAreaOptions) result.plotArea = plotAreaOptions;
+
+  const primary = assignment.axisSets[0];
+  if (primary) {
+    const { category, value } = resolveAxisRoles(assignment, primary, firstType, false);
+    const categoryOptions = category
+      ? readAxisOptions(xml, category, 'bottom', firstType === 'scatter' || firstType === 'bubble')
+      : undefined;
+    const valueOptions = value ? readAxisOptions(xml, value, 'left', false) : undefined;
+    if (categoryOptions) result.categoryAxis = categoryOptions;
+    if (valueOptions) result.valueAxis = valueOptions;
+  }
+  const secondary = assignment.axisSets[1];
+  if (secondary) {
+    const { category, value } = resolveAxisRoles(assignment, secondary, firstType, true);
+    const categoryOptions = category
+      ? readAxisOptions(xml, category, 'top', firstType === 'scatter' || firstType === 'bubble')
+      : undefined;
+    const valueOptions = value ? readAxisOptions(xml, value, 'right', false) : undefined;
+    if (categoryOptions) result.secondaryCategoryAxis = categoryOptions;
+    if (valueOptions) result.secondaryValueAxis = valueOptions;
+  }
+
+  const dataTable = optionalChartChild(plotArea, 'dTable');
+  if (dataTable) result.dataTable = readDataTableOptions(xml, dataTable, groupElements);
+  const view3D = optionalChartChild(chart, 'view3D');
+  if (view3D) readView3DOptions(view3D, firstType, result);
+  return result as ChartOptions;
+}
+
+function resolveAxisRoles(
+  assignment: AxisAssignment,
+  ids: readonly number[],
+  type: ChartType,
+  secondary: boolean,
+): {
+  readonly category: XmlElement | undefined;
+  readonly value: XmlElement | undefined;
+} {
+  const elements = ids.map((id) => assignment.axesById.get(id)?.element).filter(
+    (element): element is XmlElement => element !== undefined,
+  );
+  if (type !== 'scatter' && type !== 'bubble') {
+    return {
+      category: elements.find(({ localName }) => localName === 'catAx' || localName === 'dateAx'),
+      value: elements.find(({ localName }) => localName === 'valAx'),
+    };
+  }
+  const horizontalPosition = secondary ? 't' : 'b';
+  const category = elements.find((element) =>
+    readChildStringValue(element, 'axPos') === horizontalPosition) ?? elements[0];
+  return { category, value: elements.find((element) => element !== category) };
+}
+
+function readGroupOptions(
+  xml: LosslessXmlDocument,
+  group: XmlElement,
+  seriesElements: readonly XmlElement[],
+  type: ChartType,
+): ChartGroupOptions | undefined {
+  const result: Record<string, unknown> = {};
+  const varyColors = readChildBooleanValue(group, 'varyColors');
+  const defaultVaryColors = type === 'pie' || type === 'doughnut';
+  if (varyColors !== undefined && varyColors !== defaultVaryColors) result.varyColors = varyColors;
+
+  const dataLabels = optionalChartChild(group, 'dLbls');
+  if (dataLabels) result.dataLabels = readDataLabelOptions(dataLabels);
+  const seriesOptions = seriesElements.map((series) => readSeriesOptions(series));
+  if (seriesOptions.some((options) => Object.keys(options).length > 0)) {
+    result.series = seriesOptions;
+  }
+
+  switch (type) {
+    case 'area':
+    case 'line': {
+      const grouping = readChildStringValue(group, 'grouping');
+      if (grouping !== undefined && grouping !== 'standard') result.grouping = grouping;
+      if (type === 'line' && allSeriesBoolean(seriesElements, 'smooth', true)) result.smooth = true;
+      break;
+    }
+    case 'bar':
+    case 'bar3D': {
+      const direction = readChildStringValue(group, 'barDir');
+      if (direction === 'bar') result.direction = 'bar';
+      const grouping = readChildStringValue(group, 'grouping');
+      const defaultGrouping = type === 'bar3D' ? 'standard' : 'clustered';
+      if (grouping !== undefined && grouping !== defaultGrouping) result.grouping = grouping;
+      const gapWidth = readChildNumberValue(group, 'gapWidth');
+      if (gapWidth !== undefined && gapWidth !== 150) result.gapWidth = gapWidth;
+      if (type === 'bar') {
+        const overlap = readChildNumberValue(group, 'overlap');
+        if (overlap !== undefined && overlap !== 0) result.overlap = overlap;
+      } else {
+        const gapDepth = readChildNumberValue(group, 'gapDepth');
+        if (gapDepth !== undefined && gapDepth !== 150) result.gapDepth = gapDepth;
+      }
+      break;
+    }
+    case 'bubble': {
+      const scale = readChildNumberValue(group, 'bubbleScale');
+      if (scale !== undefined && scale !== 100) result.scale = scale;
+      if (readChildBooleanValue(group, 'showNegBubbles') === true) {
+        result.showNegativeBubbles = true;
+      }
+      const represents = readChildStringValue(group, 'sizeRepresents');
+      if (represents !== undefined && represents !== 'area') result.sizeRepresents = represents;
+      break;
+    }
+    case 'doughnut': {
+      const angle = readChildNumberValue(group, 'firstSliceAng');
+      if (angle !== undefined && angle !== 0) result.firstSliceAngle = angle;
+      const hole = readChildNumberValue(group, 'holeSize');
+      if (hole !== undefined && hole !== 50) result.holeSize = hole;
+      break;
+    }
+    case 'pie': {
+      const angle = readChildNumberValue(group, 'firstSliceAng');
+      if (angle !== undefined && angle !== 0) result.firstSliceAngle = angle;
+      break;
+    }
+    case 'radar': {
+      const style = readChildStringValue(group, 'radarStyle');
+      if (style !== undefined && style !== 'standard') result.style = style;
+      break;
+    }
+    case 'scatter': {
+      const style = readChildStringValue(group, 'scatterStyle');
+      if (style !== undefined && style !== 'lineMarker') result.style = style;
+      if (allSeriesBoolean(seriesElements, 'smooth', true)) result.smooth = true;
+      break;
+    }
+  }
+  return Object.keys(result).length === 0 ? undefined : result as ChartGroupOptions;
+}
+
+function readSeriesOptions(series: XmlElement): ChartSeriesOptions {
+  const result: Record<string, unknown> = {};
+  const shape = optionalChartChild(series, 'spPr');
+  if (shape) Object.assign(result, readAreaOptions(shape));
+  const marker = optionalChartChild(series, 'marker');
+  if (marker) result.marker = readMarkerOptions(marker);
+  return result as ChartSeriesOptions;
+}
+
+function readMarkerOptions(marker: XmlElement): ChartMarkerOptions {
+  const result: Record<string, unknown> = {};
+  const shape = readChildStringValue(marker, 'symbol');
+  if (shape !== undefined && shape !== 'circle') result.shape = shape;
+  const size = readChildNumberValue(marker, 'size');
+  if (size !== undefined && size !== 5) result.size = size;
+  const properties = optionalChartChild(marker, 'spPr');
+  if (properties) Object.assign(result, readAreaOptions(properties));
+  return result as ChartMarkerOptions;
+}
+
+function readTitleOptions(
+  xml: LosslessXmlDocument,
+  title: XmlElement,
+): ChartTitleOptions {
+  const result: Record<string, unknown> = { ...readFontOptions(title, true) };
+  const text = drawingDescendants(title, 't').map((element) => xml.text(element)).join('');
+  if (text.length > 0) result.text = text;
+  if (readChildBooleanValue(title, 'overlay') === true) result.overlay = true;
+  const body = drawingDescendants(title, 'bodyPr')[0];
+  const rotation = body ? readNumberAttribute(body, 'rot') : undefined;
+  if (rotation !== undefined && rotation !== 0) result.rotation = rotation / 60_000;
+  const layout = optionalChartChild(title, 'layout');
+  const manual = layout ? optionalChartChild(layout, 'manualLayout') : undefined;
+  const x = manual ? readChildNumberValue(manual, 'x') : undefined;
+  const y = manual ? readChildNumberValue(manual, 'y') : undefined;
+  if (x !== undefined && y !== undefined) result.position = { x, y };
+  return result as ChartTitleOptions;
+}
+
+function readLegendOptions(legend: XmlElement): ChartLegendOptions {
+  const result: Record<string, unknown> = { ...readFontOptions(legend, false) };
+  const position = readChildStringValue(legend, 'legendPos');
+  const mappedPosition = position === undefined
+    ? undefined
+    : (LEGEND_POSITIONS as Readonly<Record<string, ChartLegendOptions['position']>>)[position];
+  if (mappedPosition !== undefined && mappedPosition !== 'right') result.position = mappedPosition;
+  if (readChildBooleanValue(legend, 'overlay') === true) result.overlay = true;
+  return result as ChartLegendOptions;
+}
+
+function readAxisOptions(
+  xml: LosslessXmlDocument,
+  axis: XmlElement,
+  defaultPosition: 'bottom' | 'left' | 'right' | 'top',
+  horizontalValueAxis: boolean,
+): ChartAxisOptions | undefined {
+  const result: Record<string, unknown> = { ...readFontOptions(axis, false) };
+  if (readChildBooleanValue(axis, 'delete') === true) result.visible = false;
+  const rawPosition = readChildStringValue(axis, 'axPos');
+  const position = rawPosition === undefined
+    ? undefined
+    : (AXIS_POSITIONS as Readonly<Record<string, ChartAxisOptions['position']>>)[rawPosition];
+  if (position !== undefined && position !== defaultPosition) result.position = position;
+  const title = optionalChartChild(axis, 'title');
+  if (title) result.title = readTitleOptions(xml, title);
+
+  const scaling = optionalChartChild(axis, 'scaling');
+  if (scaling) {
+    const minimum = readChildNumberValue(scaling, 'min');
+    const maximum = readChildNumberValue(scaling, 'max');
+    const logBase = readChildNumberValue(scaling, 'logBase');
+    const orientation = readChildStringValue(scaling, 'orientation');
+    if (minimum !== undefined) result.minimum = minimum;
+    if (maximum !== undefined) result.maximum = maximum;
+    if (logBase !== undefined) result.logarithmicBase = logBase;
+    if (orientation !== undefined && orientation !== 'minMax') result.orientation = orientation;
+  }
+  const majorUnit = readChildNumberValue(axis, 'majorUnit');
+  const minorUnit = readChildNumberValue(axis, 'minorUnit');
+  if (majorUnit !== undefined) result.majorUnit = majorUnit;
+  if (minorUnit !== undefined) result.minorUnit = minorUnit;
+  const format = optionalChartChild(axis, 'numFmt');
+  const formatCode = format ? readStringAttribute(format, 'formatCode') : undefined;
+  if (formatCode !== undefined && formatCode !== 'General') result.numberFormat = formatCode;
+  const labelPosition = readChildStringValue(axis, 'tickLblPos');
+  const mappedLabel = labelPosition === undefined
+    ? undefined
+    : (LABEL_POSITIONS as Readonly<Record<string, ChartAxisOptions['labelPosition']>>)[labelPosition];
+  if (mappedLabel !== undefined && mappedLabel !== 'nextTo') result.labelPosition = mappedLabel;
+  const textProperties = optionalChartChild(axis, 'txPr');
+  const body = textProperties ? drawingDescendants(textProperties, 'bodyPr')[0] : undefined;
+  const rotation = body ? readNumberAttribute(body, 'rot') : undefined;
+  if (rotation !== undefined && rotation !== 0) result.labelRotation = rotation / 60_000;
+  const shape = optionalChartChild(axis, 'spPr');
+  if (shape) {
+    const line = readLineFromProperties(shape);
+    if (line) result.line = line;
+  }
+  const majorGridLine = optionalChartChild(axis, 'majorGridlines');
+  const majorGridProperties = majorGridLine ? optionalChartChild(majorGridLine, 'spPr') : undefined;
+  const majorGrid = majorGridProperties ? readLineFromProperties(majorGridProperties) : undefined;
+  if (majorGrid) result.majorGridLine = majorGrid;
+  const minorGridLine = optionalChartChild(axis, 'minorGridlines');
+  const minorGridProperties = minorGridLine ? optionalChartChild(minorGridLine, 'spPr') : undefined;
+  const minorGrid = minorGridProperties ? readLineFromProperties(minorGridProperties) : undefined;
+  if (minorGrid) result.minorGridLine = minorGrid;
+  const defaultMajorTick = horizontalValueAxis ? 'none' : 'out';
+  const majorTick = readChildStringValue(axis, 'majorTickMark');
+  const minorTick = readChildStringValue(axis, 'minorTickMark');
+  const mappedMajor = mapTickMark(majorTick);
+  const mappedMinor = mapTickMark(minorTick);
+  if (mappedMajor !== undefined && majorTick !== defaultMajorTick) result.majorTickMark = mappedMajor;
+  if (mappedMinor !== undefined && minorTick !== 'none') result.minorTickMark = mappedMinor;
+  return Object.keys(result).length === 0 ? undefined : result as ChartAxisOptions;
+}
+
+function readDataLabelOptions(labels: XmlElement): ChartDataLabelOptions {
+  const result: Record<string, unknown> = { ...readFontOptions(labels, false) };
+  const flags: readonly [string, keyof ChartDataLabelOptions][] = [
+    ['showVal', 'showValue'],
+    ['showCatName', 'showCategoryName'],
+    ['showSerName', 'showSeriesName'],
+    ['showPercent', 'showPercent'],
+    ['showBubbleSize', 'showBubbleSize'],
+    ['showLeaderLines', 'showLeaderLines'],
+  ];
+  for (const [elementName, property] of flags) {
+    if (readChildBooleanValue(labels, elementName) === true) result[property] = true;
+  }
+  const position = readChildStringValue(labels, 'dLblPos');
+  const mappedPosition = position === undefined
+    ? undefined
+    : ({
+        bestFit: 'bestFit',
+        b: 'bottom',
+        ctr: 'center',
+        inBase: 'insideBase',
+        inEnd: 'insideEnd',
+        l: 'left',
+        outEnd: 'outsideEnd',
+        r: 'right',
+        t: 'top',
+      } as Readonly<Record<string, ChartDataLabelOptions['position']>>)[position];
+  if (mappedPosition !== undefined) result.position = mappedPosition;
+  const format = optionalChartChild(labels, 'numFmt');
+  const formatCode = format ? readStringAttribute(format, 'formatCode') : undefined;
+  if (formatCode !== undefined) result.numberFormat = formatCode;
+  return result as ChartDataLabelOptions;
+}
+
+function readDataTableOptions(
+  xml: LosslessXmlDocument,
+  table: XmlElement,
+  groupElements: readonly XmlElement[],
+): ChartDataTableOptions {
+  const result: Record<string, unknown> = { ...readFontOptions(table, false) };
+  if (readChildBooleanValue(table, 'showHorzBorder') === false) result.showHorizontalBorder = false;
+  if (readChildBooleanValue(table, 'showVertBorder') === false) result.showVerticalBorder = false;
+  if (readChildBooleanValue(table, 'showOutline') === false) result.showOutline = false;
+  if (readChildBooleanValue(table, 'showKeys') === false) result.showLegendKeys = false;
+  const formats = groupElements.flatMap((group) =>
+    chartChildren(group, 'ser').map((series) => readSeriesValueFormat(xml, series)).filter(
+      (value): value is string => value !== undefined,
+    ));
+  if (formats.length > 0 && formats.every((value) => value === formats[0]) && formats[0] !== 'General') {
+    result.numberFormat = formats[0];
+  }
+  return result as ChartDataTableOptions;
+}
+
+function readView3DOptions(
+  view: XmlElement,
+  type: ChartType,
+  result: Record<string, unknown>,
+): void {
+  const rotationX = readChildNumberValue(view, 'rotX');
+  const rotationY = readChildNumberValue(view, 'rotY');
+  const rightAngleAxes = readChildBooleanValue(view, 'rAngAx');
+  const perspective = readChildNumberValue(view, 'perspective');
+  const defaults = type === 'bar3D'
+    ? { rotationX: 15, rotationY: 20, rightAngleAxes: true, perspective: 30 }
+    : {};
+  if (rotationX !== undefined && rotationX !== defaults.rotationX) result.rotationX = rotationX;
+  if (rotationY !== undefined && rotationY !== defaults.rotationY) result.rotationY = rotationY;
+  if (rightAngleAxes !== undefined && rightAngleAxes !== defaults.rightAngleAxes) {
+    result.rightAngleAxes = rightAngleAxes;
+  }
+  if (perspective !== undefined && perspective !== defaults.perspective) result.perspective = perspective;
+}
+
+function readAreaOptions(properties: XmlElement): ChartAreaOptions | undefined {
+  const result: Record<string, unknown> = {};
+  const fill = readFillFromProperties(properties);
+  const line = readLineFromProperties(properties);
+  if (fill) result.fill = fill;
+  if (line) result.line = line;
+  return Object.keys(result).length === 0 ? undefined : result as ChartAreaOptions;
+}
+
+function readFillFromProperties(properties: XmlElement): SimpleFill | undefined {
+  const fills = elementChildren(properties).filter((child) =>
+    elementNamespaceUri(child) === DRAWING_NAMESPACE
+      && (child.localName === 'noFill' || child.localName === 'solidFill'));
+  return fills.length === 1 ? readSimpleFillChoice(fills[0]!, 'a:') : undefined;
+}
+
+function readLineFromProperties(properties: XmlElement): NormalizedSimpleLine | undefined {
+  const lines = elementChildren(properties).filter((child) =>
+    elementNamespaceUri(child) === DRAWING_NAMESPACE && child.localName === 'ln');
+  return lines.length === 1 ? readSimpleLine(lines[0]!, 'a:') : undefined;
+}
+
+function readFontOptions(parent: XmlElement, preferRun: boolean): ChartFontOptions {
+  const runs = drawingDescendants(parent, preferRun ? 'rPr' : 'defRPr');
+  const fallback = drawingDescendants(parent, preferRun ? 'defRPr' : 'rPr');
+  const properties = runs[0] ?? fallback[0];
+  if (!properties) return {};
+  const result: Record<string, unknown> = {};
+  const size = readNumberAttribute(properties, 'sz');
+  if (size !== undefined && size > 0) result.size = size / 100;
+  if (readBooleanAttribute(properties, 'b') === true) result.bold = true;
+  if (readBooleanAttribute(properties, 'i') === true) result.italic = true;
+  const fill = elementChildren(properties).find((child) =>
+    elementNamespaceUri(child) === DRAWING_NAMESPACE && child.localName === 'solidFill');
+  const parsedFill = fill ? readSimpleFillChoice(fill, 'a:') : undefined;
+  if (parsedFill?.kind === 'solid') result.color = parsedFill.color;
+  const latin = elementChildren(properties).find((child) =>
+    elementNamespaceUri(child) === DRAWING_NAMESPACE && child.localName === 'latin');
+  const face = latin ? readStringAttribute(latin, 'typeface') : undefined;
+  if (face !== undefined && face.length > 0) result.face = face;
+  return result as ChartFontOptions;
+}
+
+function readSeriesValueFormat(xml: LosslessXmlDocument, series: XmlElement): string | undefined {
+  const container = optionalChartChild(series, 'val') ?? optionalChartChild(series, 'yVal');
+  const reference = container ? optionalChartChild(container, 'numRef') : undefined;
+  const cache = reference ? optionalChartChild(reference, 'numCache') : undefined;
+  const format = cache ? optionalChartChild(cache, 'formatCode') : undefined;
+  return format ? xml.text(format) : undefined;
+}
+
+function allSeriesBoolean(
+  series: readonly XmlElement[],
+  localName: string,
+  value: boolean,
+): boolean {
+  return series.length > 0 && series.every((entry) => readChildBooleanValue(entry, localName) === value);
+}
+
+function mapTickMark(value: string | undefined): ChartAxisOptions['majorTickMark'] | undefined {
+  if (value === undefined) return undefined;
+  return ({ cross: 'cross', in: 'inside', none: 'none', out: 'outside' } as const)[value as 'cross'];
+}
+
+function optionalChartChild(parent: XmlElement, localName: string): XmlElement | undefined {
+  const children = chartChildren(parent, localName);
+  return children.length === 1 ? children[0] : undefined;
+}
+
+function readChildStringValue(parent: XmlElement, localName: string): string | undefined {
+  const child = optionalChartChild(parent, localName);
+  return child ? readStringAttribute(child, 'val') : undefined;
+}
+
+function readChildNumberValue(parent: XmlElement, localName: string): number | undefined {
+  const value = readChildStringValue(parent, localName);
+  if (value === undefined || !DECIMAL_PATTERN.test(value)) return undefined;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : undefined;
+}
+
+function readChildBooleanValue(parent: XmlElement, localName: string): boolean | undefined {
+  const value = readChildStringValue(parent, localName);
+  return value === '1' || value === 'true'
+    ? true
+    : value === '0' || value === 'false'
+      ? false
+      : undefined;
+}
+
+function readStringAttribute(element: XmlElement, name: string): string | undefined {
+  const attributes = element.attributes.filter((attribute) => attribute.name === name);
+  return attributes.length === 1 ? attributes[0]!.value : undefined;
+}
+
+function readNumberAttribute(element: XmlElement, name: string): number | undefined {
+  const value = readStringAttribute(element, name);
+  if (value === undefined || !/^[+-]?\d+$/.test(value)) return undefined;
+  const number = Number(value);
+  return Number.isSafeInteger(number) ? number : undefined;
+}
+
+function readBooleanAttribute(element: XmlElement, name: string): boolean | undefined {
+  const value = readStringAttribute(element, name);
+  return value === '1' || value === 'true'
+    ? true
+    : value === '0' || value === 'false'
+      ? false
+      : undefined;
+}
+
+function drawingDescendants(parent: XmlElement, localName: string): XmlElement[] {
+  const result: XmlElement[] = [];
+  const visit = (element: XmlElement): void => {
+    for (const child of elementChildren(element)) {
+      if (elementNamespaceUri(child) === DRAWING_NAMESPACE && child.localName === localName) {
+        result.push(child);
+      }
+      visit(child);
+    }
+  };
+  visit(parent);
+  return result;
 }
 
 function readWorkbookPartUri(

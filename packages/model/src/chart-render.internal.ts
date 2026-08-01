@@ -1,15 +1,31 @@
 import { escapeXmlAttribute, escapeXmlText } from '@pptx/lossless-xml';
 import type {
   AddChartOptions,
+  ChartAreaOptions,
+  ChartAxisOptions,
   ChartCategories,
+  ChartDataLabelOptions,
+  ChartDataTableOptions,
   ChartDefinition,
+  ChartFontOptions,
+  ChartGroupOptions,
+  ChartLegendOptions,
+  ChartMarkerOptions,
   ChartSeries,
+  ChartSeriesOptions,
+  ChartTitleOptions,
   ChartType,
 } from './chart.js';
 import type {
   ChartWorkbookFormula,
   ChartWorkbookPlan,
 } from './chart-workbook.internal.js';
+import { renderSimpleFill, type SimpleFill } from './simple-fill.internal.js';
+import {
+  renderSimpleLine,
+  type NormalizedSimpleLine,
+} from './simple-line.internal.js';
+import type { RichTextColor } from './text.js';
 import { inches, type Emu, type OoxmlAngle } from './units.js';
 
 const CHART_NAMESPACE = 'http://schemas.openxmlformats.org/drawingml/2006/chart';
@@ -20,6 +36,7 @@ const RELATIONSHIP_NAMESPACE =
   'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
 const CHART_GRAPHIC_DATA_URI = 'http://schemas.openxmlformats.org/drawingml/2006/chart';
 const MAX_ROTATION = 21_600_000;
+const EMU_PER_POINT = 12_700;
 const OPTION_KEYS = new Set([
   'name',
   'altText',
@@ -81,6 +98,7 @@ export function renderChartPart(
   workbookRelationshipId: string,
 ): string {
   const allocation = allocateAxes(definition);
+  const chartOptions = definition.options;
   let globalSeriesIndex = 0;
   const groupXml = definition.groups.map((group, groupIndex) => {
     const axisIds = (group.axis ?? 'primary') === 'secondary'
@@ -95,22 +113,57 @@ export function renderChartPart(
       }
       const index = globalSeriesIndex;
       globalSeriesIndex += 1;
+      const seriesOptions = group.options?.series?.[seriesIndex];
       return group.type === 'scatter' || group.type === 'bubble'
-        ? renderXySeries(series, formula, index, group.type)
-        : renderCategoricalSeries(series, formula, index);
+        ? renderXySeries(
+            series,
+            formula,
+            index,
+            group.type,
+            seriesOptions,
+            group.options,
+            chartOptions.colors,
+            chartOptions.dataTable?.numberFormat,
+          )
+        : renderCategoricalSeries(
+            series,
+            formula,
+            index,
+            group.type,
+            seriesOptions,
+            group.options,
+            chartOptions.colors,
+            chartOptions.dataTable?.numberFormat,
+          );
     }).join('');
     return group.type === 'scatter' || group.type === 'bubble'
-      ? renderXyGroup(group.type, renderedSeries, axisIds)
-      : renderCategoricalGroup(group.type, renderedSeries, axisIds);
+      ? renderXyGroup(group.type, renderedSeries, axisIds, group.options)
+      : renderCategoricalGroup(group.type, renderedSeries, axisIds, group.options);
   }).join('');
   const axes = renderAllocatedAxes(definition, allocation);
+  const title = renderChartTitle(chartOptions.title, chartOptions.language);
+  const legend = renderLegend(chartOptions.legend, chartOptions.language);
+  const view3D = renderView3D(definition);
+  const plotAreaShape = renderAreaShapeProperties(chartOptions.plotArea, false);
+  const dataTable = renderDataTable(chartOptions.dataTable, chartOptions.language);
+  const style = chartOptions.style === undefined ? '' : `<c:style val="${chartOptions.style}"/>`;
+  const language = chartOptions.language === undefined
+    ? ''
+    : `<c:lang val="${escapeXmlAttribute(chartOptions.language)}"/>`;
+  const roundedCorners = chartOptions.roundedCorners ? 1 : 0;
+  const autoTitleDeleted = chartOptions.title?.visible === false || !chartOptions.title
+    ? 1
+    : 0;
+  const blanks = chartOptions.displayBlanksAs ?? 'gap';
+  const chartAreaShape = renderAreaShapeProperties(chartOptions.chartArea, true);
   return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
     + `<c:chartSpace xmlns:c="${CHART_NAMESPACE}" xmlns:a="${DRAWING_NAMESPACE}" `
     + `xmlns:r="${RELATIONSHIP_NAMESPACE}">`
-    + '<c:date1904 val="0"/><c:roundedCorners val="0"/><c:chart><c:autoTitleDeleted val="1"/>'
-    + `<c:plotArea><c:layout/>${groupXml}${axes}</c:plotArea>`
-    + '<c:plotVisOnly val="1"/><c:dispBlanksAs val="gap"/></c:chart>'
-    + '<c:spPr><a:noFill/><a:ln><a:noFill/></a:ln></c:spPr>'
+    + `<c:date1904 val="0"/>${language}<c:roundedCorners val="${roundedCorners}"/>${style}`
+    + `<c:chart>${title}<c:autoTitleDeleted val="${autoTitleDeleted}"/>${view3D}`
+    + `<c:plotArea><c:layout/>${groupXml}${axes}${dataTable}${plotAreaShape}</c:plotArea>`
+    + `${legend}<c:plotVisOnly val="1"/><c:dispBlanksAs val="${blanks}"/></c:chart>`
+    + chartAreaShape
     + `<c:externalData r:id="${escapeXmlAttribute(workbookRelationshipId)}">`
     + '<c:autoUpdate val="0"/></c:externalData></c:chartSpace>';
 }
@@ -138,8 +191,21 @@ function renderAllocatedAxes(
   allocation: AxisAllocation,
 ): string {
   const type = definition.groups[0]!.type;
-  return renderAxes(type, allocation.primary, false)
-    + (allocation.secondary ? renderAxes(type, allocation.secondary, true) : '');
+  return renderAxes(
+    type,
+    allocation.primary,
+    false,
+    definition.options.categoryAxis,
+    definition.options.valueAxis,
+  ) + (allocation.secondary
+    ? renderAxes(
+        type,
+        allocation.secondary,
+        true,
+        definition.options.secondaryCategoryAxis,
+        definition.options.secondaryValueAxis,
+      )
+    : '');
 }
 
 export function renderChartGraphicFrame(
@@ -172,23 +238,41 @@ function renderCategoricalGroup(
   type: Exclude<ChartType, 'scatter' | 'bubble'>,
   series: string,
   axisIds: readonly number[],
+  options: Readonly<ChartGroupOptions> | undefined,
 ): string {
   const axes = axisIds.map((id) => `<c:axId val="${id}"/>`).join('');
+  const dataLabels = renderDataLabels(options?.dataLabels);
+  const varyColors = groupOption<boolean>(options, 'varyColors')
+    ?? (type === 'pie' || type === 'doughnut');
   switch (type) {
     case 'area':
-      return `<c:areaChart><c:grouping val="standard"/><c:varyColors val="0"/>${series}${axes}</c:areaChart>`;
+      return `<c:areaChart><c:grouping val="${groupOption<string>(options, 'grouping') ?? 'standard'}"/>`
+        + `<c:varyColors val="${varyColors ? 1 : 0}"/>${series}${dataLabels}${axes}</c:areaChart>`;
     case 'bar':
-      return `<c:barChart><c:barDir val="col"/><c:grouping val="clustered"/><c:varyColors val="0"/>${series}<c:gapWidth val="150"/><c:overlap val="0"/>${axes}</c:barChart>`;
+      return `<c:barChart><c:barDir val="${groupOption<string>(options, 'direction') === 'bar' ? 'bar' : 'col'}"/>`
+        + `<c:grouping val="${groupOption<string>(options, 'grouping') ?? 'clustered'}"/>`
+        + `<c:varyColors val="${varyColors ? 1 : 0}"/>${series}${dataLabels}`
+        + `<c:gapWidth val="${groupOption<number>(options, 'gapWidth') ?? 150}"/>`
+        + `<c:overlap val="${groupOption<number>(options, 'overlap') ?? 0}"/>${axes}</c:barChart>`;
     case 'bar3D':
-      return `<c:bar3DChart><c:barDir val="col"/><c:grouping val="clustered"/><c:varyColors val="0"/>${series}<c:gapWidth val="150"/><c:gapDepth val="150"/>${axes}</c:bar3DChart>`;
+      return `<c:bar3DChart><c:barDir val="${groupOption<string>(options, 'direction') === 'bar' ? 'bar' : 'col'}"/>`
+        + `<c:grouping val="${groupOption<string>(options, 'grouping') ?? 'standard'}"/>`
+        + `<c:varyColors val="${varyColors ? 1 : 0}"/>${series}${dataLabels}`
+        + `<c:gapWidth val="${groupOption<number>(options, 'gapWidth') ?? 150}"/>`
+        + `<c:gapDepth val="${groupOption<number>(options, 'gapDepth') ?? 150}"/>${axes}</c:bar3DChart>`;
     case 'doughnut':
-      return `<c:doughnutChart><c:varyColors val="1"/>${series}<c:firstSliceAng val="0"/><c:holeSize val="50"/></c:doughnutChart>`;
+      return `<c:doughnutChart><c:varyColors val="${varyColors ? 1 : 0}"/>${series}${dataLabels}`
+        + `<c:firstSliceAng val="${groupOption<number>(options, 'firstSliceAngle') ?? 0}"/>`
+        + `<c:holeSize val="${groupOption<number>(options, 'holeSize') ?? 50}"/></c:doughnutChart>`;
     case 'line':
-      return `<c:lineChart><c:grouping val="standard"/><c:varyColors val="0"/>${series}${axes}</c:lineChart>`;
+      return `<c:lineChart><c:grouping val="${groupOption<string>(options, 'grouping') ?? 'standard'}"/>`
+        + `<c:varyColors val="${varyColors ? 1 : 0}"/>${series}${dataLabels}${axes}</c:lineChart>`;
     case 'pie':
-      return `<c:pieChart><c:varyColors val="1"/>${series}<c:firstSliceAng val="0"/></c:pieChart>`;
+      return `<c:pieChart><c:varyColors val="${varyColors ? 1 : 0}"/>${series}${dataLabels}`
+        + `<c:firstSliceAng val="${groupOption<number>(options, 'firstSliceAngle') ?? 0}"/></c:pieChart>`;
     case 'radar':
-      return `<c:radarChart><c:radarStyle val="standard"/><c:varyColors val="0"/>${series}${axes}</c:radarChart>`;
+      return `<c:radarChart><c:radarStyle val="${groupOption<string>(options, 'style') ?? 'standard'}"/>`
+        + `<c:varyColors val="${varyColors ? 1 : 0}"/>${series}${dataLabels}${axes}</c:radarChart>`;
   }
 }
 
@@ -196,29 +280,48 @@ function renderCategoricalSeries(
   series: Readonly<ChartSeries>,
   formula: Readonly<ChartWorkbookFormula>,
   index: number,
+  type: Exclude<ChartType, 'scatter' | 'bubble'>,
+  options: Readonly<ChartSeriesOptions> | undefined,
+  groupOptions: Readonly<ChartGroupOptions> | undefined,
+  colors: readonly RichTextColor[] | undefined,
+  valueNumberFormat: string | undefined,
 ): string {
+  const style = renderSeriesShapeProperties(type, index, options, colors);
+  const marker = type === 'line' || type === 'radar'
+    ? renderMarker(options?.marker ?? groupOption<ChartMarkerOptions>(groupOptions, 'marker'))
+    : '';
+  const smooth = type === 'line'
+    ? `<c:smooth val="${groupOption<boolean>(groupOptions, 'smooth') ? 1 : 0}"/>`
+    : '';
   return '<c:ser>'
     + `<c:idx val="${index}"/><c:order val="${index}"/>`
     + renderSeriesName(series.name, formula.name)
+    + style
+    + marker
     + renderCategories(series.categories!, formula.categories!)
     + '<c:val><c:numRef>'
-    + `<c:f>${escapeXmlText(formula.values)}</c:f>${renderNumericCache(series.values)}`
-    + '</c:numRef></c:val></c:ser>';
+    + `<c:f>${escapeXmlText(formula.values)}</c:f>${renderNumericCache(series.values, valueNumberFormat)}`
+    + `</c:numRef></c:val>${smooth}</c:ser>`;
 }
 
 function renderXyGroup(
   type: 'scatter' | 'bubble',
   series: string,
   axisIds: readonly number[],
+  options: Readonly<ChartGroupOptions> | undefined,
 ): string {
   const axes = axisIds.map((id) => `<c:axId val="${id}"/>`).join('');
+  const dataLabels = renderDataLabels(options?.dataLabels);
+  const varyColors = groupOption<boolean>(options, 'varyColors') ?? false;
   if (type === 'scatter') {
-    return '<c:scatterChart><c:scatterStyle val="lineMarker"/><c:varyColors val="0"/>'
-      + `${series}${axes}</c:scatterChart>`;
+    return `<c:scatterChart><c:scatterStyle val="${groupOption<string>(options, 'style') ?? 'lineMarker'}"/>`
+      + `<c:varyColors val="${varyColors ? 1 : 0}"/>${series}${dataLabels}${axes}</c:scatterChart>`;
   }
-  return '<c:bubbleChart><c:varyColors val="0"/>'
-    + `${series}<c:bubbleScale val="100"/><c:showNegBubbles val="0"/>`
-    + `<c:sizeRepresents val="area"/>${axes}</c:bubbleChart>`;
+  return `<c:bubbleChart><c:varyColors val="${varyColors ? 1 : 0}"/>${series}${dataLabels}`
+    + `<c:bubbleScale val="${groupOption<number>(options, 'scale') ?? 100}"/>`
+    + `<c:showNegBubbles val="${groupOption<boolean>(options, 'showNegativeBubbles') ? 1 : 0}"/>`
+    + `<c:sizeRepresents val="${groupOption<string>(options, 'sizeRepresents') ?? 'area'}"/>`
+    + `${axes}</c:bubbleChart>`;
 }
 
 function renderXySeries(
@@ -226,24 +329,35 @@ function renderXySeries(
   formula: Readonly<ChartWorkbookFormula>,
   index: number,
   type: 'scatter' | 'bubble',
+  options: Readonly<ChartSeriesOptions> | undefined,
+  groupOptions: Readonly<ChartGroupOptions> | undefined,
+  colors: readonly RichTextColor[] | undefined,
+  valueNumberFormat: string | undefined,
 ): string {
   if (!formula.xValues || (type === 'bubble' && !formula.sizes)) {
     throw new Error(`Chart ${type} series ${index} has an incomplete workbook formula plan`);
   }
+  const style = renderSeriesShapeProperties(type, index, options, colors);
+  const marker = type === 'scatter'
+    ? renderMarker(options?.marker ?? groupOption<ChartMarkerOptions>(groupOptions, 'marker'))
+    : '';
+  const smooth = groupOption<boolean>(groupOptions, 'smooth') ?? false;
   return '<c:ser>'
     + `<c:idx val="${index}"/><c:order val="${index}"/>`
     + renderSeriesName(series.name, formula.name)
+    + style
+    + marker
     + '<c:xVal><c:numRef>'
     + `<c:f>${escapeXmlText(formula.xValues)}</c:f>${renderNumericCache(series.xValues!)}`
     + '</c:numRef></c:xVal>'
     + '<c:yVal><c:numRef>'
-    + `<c:f>${escapeXmlText(formula.values)}</c:f>${renderNumericCache(series.values)}`
+    + `<c:f>${escapeXmlText(formula.values)}</c:f>${renderNumericCache(series.values, valueNumberFormat)}`
     + '</c:numRef></c:yVal>'
     + (type === 'bubble'
       ? '<c:bubbleSize><c:numRef>'
         + `<c:f>${escapeXmlText(formula.sizes!)}</c:f>${renderNumericCache(series.sizes!)}`
         + '</c:numRef></c:bubbleSize><c:bubble3D val="0"/>'
-      : '<c:smooth val="0"/>')
+      : `<c:smooth val="${smooth ? 1 : 0}"/>`)
     + '</c:ser>';
 }
 
@@ -282,8 +396,8 @@ function renderStringPoints(values: readonly string[]): string {
     `<c:pt idx="${index}"><c:v>${escapeXmlText(value)}</c:v></c:pt>`).join('');
 }
 
-function renderNumericCache(values: readonly number[]): string {
-  return '<c:numCache><c:formatCode>General</c:formatCode>'
+function renderNumericCache(values: readonly number[], formatCode = 'General'): string {
+  return `<c:numCache><c:formatCode>${escapeXmlText(formatCode)}</c:formatCode>`
     + `<c:ptCount val="${values.length}"/>`
     + values.map((value, index) => `<c:pt idx="${index}"><c:v>${value}</c:v></c:pt>`).join('')
     + '</c:numCache>';
@@ -314,25 +428,47 @@ function formulaCoordinates(value: string): {
   };
 }
 
-function renderAxes(type: ChartType, ids: readonly number[], secondary: boolean): string {
+function renderAxes(
+  type: ChartType,
+  ids: readonly number[],
+  secondary: boolean,
+  categoryOptions: Readonly<ChartAxisOptions> | undefined,
+  valueOptions: Readonly<ChartAxisOptions> | undefined,
+): string {
   if (ids.length === 0) return '';
   if (type === 'scatter' || type === 'bubble') {
-    return renderHorizontalValueAxis(ids[0]!, ids[1]!, secondary)
-      + renderValueAxis(ids[1]!, ids[0]!, 'midCat', secondary);
+    return renderHorizontalValueAxis(ids[0]!, ids[1]!, secondary, categoryOptions)
+      + renderValueAxis(ids[1]!, ids[0]!, 'midCat', secondary, valueOptions);
   }
-  const category = renderCategoryAxis(ids[0]!, ids[1]!, secondary);
-  const value = renderValueAxis(ids[1]!, ids[0]!, 'between', secondary);
+  const category = renderCategoryAxis(ids[0]!, ids[1]!, secondary, categoryOptions);
+  const value = renderValueAxis(ids[1]!, ids[0]!, 'between', secondary, valueOptions);
   if (type !== 'bar3D') return category + value;
   return category + value + renderSeriesAxis(ids[2]!, ids[1]!);
 }
 
-function renderCategoryAxis(id: number, crossId: number, secondary: boolean): string {
-  return `<c:catAx><c:axId val="${id}"/><c:scaling><c:orientation val="minMax"/></c:scaling>`
-    + `<c:delete val="0"/><c:axPos val="${secondary ? 't' : 'b'}"/>`
-    + '<c:numFmt formatCode="General" sourceLinked="1"/>'
-    + '<c:majorTickMark val="out"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/>'
+function renderCategoryAxis(
+  id: number,
+  crossId: number,
+  secondary: boolean,
+  options: Readonly<ChartAxisOptions> | undefined,
+): string {
+  const position = axisPosition(options?.position, secondary ? 'top' : 'bottom');
+  return `<c:catAx><c:axId val="${id}"/>${renderScaling(options)}`
+    + `<c:delete val="${options?.visible === false ? 1 : 0}"/><c:axPos val="${position}"/>`
+    + renderGridLine('majorGridlines', options?.majorGridLine, false)
+    + renderGridLine('minorGridlines', options?.minorGridLine, false)
+    + renderAxisTitle(options?.title)
+    + renderNumberFormat(options?.numberFormat, true)
+    + `<c:majorTickMark val="${tickMark(options?.majorTickMark, 'out')}"/>`
+    + `<c:minorTickMark val="${tickMark(options?.minorTickMark, 'none')}"/>`
+    + `<c:tickLblPos val="${labelPosition(options?.labelPosition)}"/>`
+    + renderAxisShapeProperties(options?.line)
+    + renderTextProperties(options, options?.labelRotation)
     + `<c:crossAx val="${crossId}"/><c:crosses val="autoZero"/><c:auto val="1"/>`
-    + '<c:lblAlgn val="ctr"/><c:lblOffset val="100"/></c:catAx>';
+    + '<c:lblAlgn val="ctr"/><c:lblOffset val="100"/>'
+    + (options?.majorUnit === undefined ? '' : `<c:majorUnit val="${options.majorUnit}"/>`)
+    + (options?.minorUnit === undefined ? '' : `<c:minorUnit val="${options.minorUnit}"/>`)
+    + '</c:catAx>';
 }
 
 function renderValueAxis(
@@ -340,21 +476,47 @@ function renderValueAxis(
   crossId: number,
   crossBetween: 'between' | 'midCat' = 'between',
   secondary = false,
+  options: Readonly<ChartAxisOptions> | undefined = undefined,
 ): string {
-  return `<c:valAx><c:axId val="${id}"/><c:scaling><c:orientation val="minMax"/></c:scaling>`
-    + `<c:delete val="0"/><c:axPos val="${secondary ? 'r' : 'l'}"/><c:majorGridlines/>`
-    + '<c:numFmt formatCode="General" sourceLinked="0"/><c:majorTickMark val="out"/>'
-    + '<c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/>'
+  const position = axisPosition(options?.position, secondary ? 'right' : 'left');
+  return `<c:valAx><c:axId val="${id}"/>${renderScaling(options)}`
+    + `<c:delete val="${options?.visible === false ? 1 : 0}"/><c:axPos val="${position}"/>`
+    + renderGridLine('majorGridlines', options?.majorGridLine, true)
+    + renderGridLine('minorGridlines', options?.minorGridLine, false)
+    + renderAxisTitle(options?.title)
+    + renderNumberFormat(options?.numberFormat, false)
+    + `<c:majorTickMark val="${tickMark(options?.majorTickMark, 'out')}"/>`
+    + `<c:minorTickMark val="${tickMark(options?.minorTickMark, 'none')}"/>`
+    + `<c:tickLblPos val="${labelPosition(options?.labelPosition)}"/>`
+    + renderAxisShapeProperties(options?.line)
+    + renderTextProperties(options, options?.labelRotation)
     + `<c:crossAx val="${crossId}"/><c:crosses val="autoZero"/><c:crossBetween val="${crossBetween}"/>`
+    + (options?.majorUnit === undefined ? '' : `<c:majorUnit val="${options.majorUnit}"/>`)
+    + (options?.minorUnit === undefined ? '' : `<c:minorUnit val="${options.minorUnit}"/>`)
     + '</c:valAx>';
 }
 
-function renderHorizontalValueAxis(id: number, crossId: number, secondary: boolean): string {
-  return `<c:valAx><c:axId val="${id}"/><c:scaling><c:orientation val="minMax"/></c:scaling>`
-    + `<c:delete val="0"/><c:axPos val="${secondary ? 't' : 'b'}"/>`
-    + '<c:numFmt formatCode="General" sourceLinked="0"/>'
-    + '<c:majorTickMark val="none"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/>'
+function renderHorizontalValueAxis(
+  id: number,
+  crossId: number,
+  secondary: boolean,
+  options: Readonly<ChartAxisOptions> | undefined,
+): string {
+  const position = axisPosition(options?.position, secondary ? 'top' : 'bottom');
+  return `<c:valAx><c:axId val="${id}"/>${renderScaling(options)}`
+    + `<c:delete val="${options?.visible === false ? 1 : 0}"/><c:axPos val="${position}"/>`
+    + renderGridLine('majorGridlines', options?.majorGridLine, false)
+    + renderGridLine('minorGridlines', options?.minorGridLine, false)
+    + renderAxisTitle(options?.title)
+    + renderNumberFormat(options?.numberFormat, false)
+    + `<c:majorTickMark val="${tickMark(options?.majorTickMark, 'none')}"/>`
+    + `<c:minorTickMark val="${tickMark(options?.minorTickMark, 'none')}"/>`
+    + `<c:tickLblPos val="${labelPosition(options?.labelPosition)}"/>`
+    + renderAxisShapeProperties(options?.line)
+    + renderTextProperties(options, options?.labelRotation)
     + `<c:crossAx val="${crossId}"/><c:crosses val="autoZero"/><c:crossBetween val="midCat"/>`
+    + (options?.majorUnit === undefined ? '' : `<c:majorUnit val="${options.majorUnit}"/>`)
+    + (options?.minorUnit === undefined ? '' : `<c:minorUnit val="${options.minorUnit}"/>`)
     + '</c:valAx>';
 }
 
@@ -363,6 +525,274 @@ function renderSeriesAxis(id: number, crossId: number): string {
     + '<c:delete val="0"/><c:axPos val="b"/><c:majorTickMark val="none"/>'
     + '<c:minorTickMark val="none"/><c:tickLblPos val="none"/>'
     + `<c:crossAx val="${crossId}"/><c:crosses val="autoZero"/></c:serAx>`;
+}
+
+function renderChartTitle(
+  options: Readonly<ChartTitleOptions> | undefined,
+  language: string | undefined,
+): string {
+  if (!options || options.visible === false) return '';
+  const text = options.text ?? 'Chart Title';
+  const layout = options.position === undefined
+    ? '<c:layout/>'
+    : '<c:layout><c:manualLayout><c:xMode val="edge"/><c:yMode val="edge"/>'
+      + `<c:x val="${options.position.x}"/><c:y val="${options.position.y}"/>`
+      + '</c:manualLayout></c:layout>';
+  return '<c:title><c:tx><c:rich>'
+    + `<a:bodyPr${options.rotation === undefined ? '' : ` rot="${Math.round(options.rotation * 60_000)}"`}/>`
+    + '<a:lstStyle/><a:p><a:r>'
+    + renderRunProperties(options, language)
+    + `<a:t>${escapeXmlText(text)}</a:t></a:r></a:p></c:rich></c:tx>`
+    + `${layout}<c:overlay val="${options.overlay ? 1 : 0}"/></c:title>`;
+}
+
+function renderLegend(
+  options: Readonly<ChartLegendOptions> | undefined,
+  language: string | undefined,
+): string {
+  if (!options || options.visible === false) return '';
+  const position = {
+    bottom: 'b',
+    left: 'l',
+    right: 'r',
+    top: 't',
+    topRight: 'tr',
+  }[options.position ?? 'right'];
+  return `<c:legend><c:legendPos val="${position}"/><c:layout/>`
+    + `<c:overlay val="${options.overlay ? 1 : 0}"/>`
+    + renderTextProperties(options, undefined, language)
+    + '</c:legend>';
+}
+
+function renderView3D(definition: Readonly<ChartDefinition>): string {
+  const options = definition.options;
+  const is3D = definition.groups[0]?.type === 'bar3D';
+  if (
+    !is3D
+    && options.rotationX === undefined
+    && options.rotationY === undefined
+    && options.rightAngleAxes === undefined
+    && options.perspective === undefined
+  ) return '';
+  return '<c:view3D>'
+    + `<c:rotX val="${options.rotationX ?? 15}"/>`
+    + `<c:rotY val="${options.rotationY ?? 20}"/>`
+    + `<c:rAngAx val="${options.rightAngleAxes === false ? 0 : 1}"/>`
+    + `<c:perspective val="${options.perspective ?? 30}"/>`
+    + '</c:view3D>';
+}
+
+function renderAreaShapeProperties(
+  options: Readonly<ChartAreaOptions> | undefined,
+  renderDefault: boolean,
+): string {
+  if (!options) {
+    return renderDefault
+      ? '<c:spPr><a:noFill/><a:ln><a:noFill/></a:ln></c:spPr>'
+      : '';
+  }
+  return '<c:spPr>'
+    + (options.fill ? renderSimpleFill(options.fill as SimpleFill, 'a:') : '')
+    + (options.line ? renderShapeLine(options.line as NormalizedSimpleLine) : '')
+    + '</c:spPr>';
+}
+
+function renderDataTable(
+  options: Readonly<ChartDataTableOptions> | undefined,
+  language: string | undefined,
+): string {
+  if (!options || options.visible === false) return '';
+  return '<c:dTable>'
+    + `<c:showHorzBorder val="${options.showHorizontalBorder === false ? 0 : 1}"/>`
+    + `<c:showVertBorder val="${options.showVerticalBorder === false ? 0 : 1}"/>`
+    + `<c:showOutline val="${options.showOutline === false ? 0 : 1}"/>`
+    + `<c:showKeys val="${options.showLegendKeys === false ? 0 : 1}"/>`
+    + renderTextProperties(options, undefined, language)
+    + '</c:dTable>';
+}
+
+function renderDataLabels(options: Readonly<ChartDataLabelOptions> | undefined): string {
+  if (!options) return '';
+  const position = options.position === undefined
+    ? ''
+    : `<c:dLblPos val="${dataLabelPosition(options.position)}"/>`;
+  return '<c:dLbls>'
+    + (options.numberFormat === undefined
+      ? ''
+      : `<c:numFmt formatCode="${escapeXmlAttribute(options.numberFormat)}" sourceLinked="0"/>`)
+    + renderTextProperties(options)
+    + position
+    + `<c:showLegendKey val="0"/><c:showVal val="${options.showValue ? 1 : 0}"/>`
+    + `<c:showCatName val="${options.showCategoryName ? 1 : 0}"/>`
+    + `<c:showSerName val="${options.showSeriesName ? 1 : 0}"/>`
+    + `<c:showPercent val="${options.showPercent ? 1 : 0}"/>`
+    + `<c:showBubbleSize val="${options.showBubbleSize ? 1 : 0}"/>`
+    + `<c:showLeaderLines val="${options.showLeaderLines ? 1 : 0}"/>`
+    + '</c:dLbls>';
+}
+
+function renderSeriesShapeProperties(
+  type: ChartType,
+  index: number,
+  options: Readonly<ChartSeriesOptions> | undefined,
+  colors: readonly RichTextColor[] | undefined,
+): string {
+  let fill = options?.fill as SimpleFill | undefined;
+  let line = options?.line as NormalizedSimpleLine | undefined;
+  const color = colors?.[index % colors.length];
+  if (color && !fill && !line) {
+    if (type === 'line' || type === 'radar' || type === 'scatter') {
+      line = { kind: 'line', color, width: 2, dash: 'solid' };
+    } else {
+      fill = { kind: 'solid', color };
+    }
+  }
+  if (!fill && !line) return '';
+  return '<c:spPr>'
+    + (fill ? renderSimpleFill(fill, 'a:') : '')
+    + (line ? renderShapeLine(line) : '')
+    + '</c:spPr>';
+}
+
+function renderMarker(options: Readonly<ChartMarkerOptions> | undefined): string {
+  if (!options) return '';
+  const fill = options.fill as SimpleFill | undefined;
+  const line = options.line as NormalizedSimpleLine | undefined;
+  const properties = !fill && !line
+    ? ''
+    : '<c:spPr>'
+      + (fill ? renderSimpleFill(fill, 'a:') : '')
+      + (line ? renderShapeLine(line) : '')
+      + '</c:spPr>';
+  return `<c:marker><c:symbol val="${options.shape ?? 'circle'}"/>`
+    + `<c:size val="${options.size ?? 5}"/>${properties}</c:marker>`;
+}
+
+function renderShapeLine(line: NormalizedSimpleLine): string {
+  if (line.kind === 'none') return '<a:ln><a:noFill/></a:ln>';
+  return `<a:ln w="${Math.round(line.width * EMU_PER_POINT)}">`
+    + renderSimpleLine(line, 'a:')
+    + '</a:ln>';
+}
+
+function renderAxisTitle(options: Readonly<ChartTitleOptions> | undefined): string {
+  if (!options || options.visible === false) return '';
+  return renderChartTitle(options, undefined);
+}
+
+function renderScaling(options: Readonly<ChartAxisOptions> | undefined): string {
+  return '<c:scaling>'
+    + (options?.logarithmicBase === undefined
+      ? ''
+      : `<c:logBase val="${options.logarithmicBase}"/>`)
+    + `<c:orientation val="${options?.orientation ?? 'minMax'}"/>`
+    + (options?.maximum === undefined ? '' : `<c:max val="${options.maximum}"/>`)
+    + (options?.minimum === undefined ? '' : `<c:min val="${options.minimum}"/>`)
+    + '</c:scaling>';
+}
+
+function renderGridLine(
+  name: 'majorGridlines' | 'minorGridlines',
+  line: import('./preset-shape.js').ShapeLine | undefined,
+  renderDefault: boolean,
+): string {
+  if (!line) return renderDefault ? `<c:${name}/>` : '';
+  return `<c:${name}><c:spPr>${renderShapeLine(line as NormalizedSimpleLine)}</c:spPr></c:${name}>`;
+}
+
+function renderNumberFormat(value: string | undefined, sourceLinked: boolean): string {
+  return `<c:numFmt formatCode="${escapeXmlAttribute(value ?? 'General')}" sourceLinked="${sourceLinked ? 1 : 0}"/>`;
+}
+
+function renderAxisShapeProperties(
+  line: import('./preset-shape.js').ShapeLine | undefined,
+): string {
+  return line ? `<c:spPr>${renderShapeLine(line as NormalizedSimpleLine)}</c:spPr>` : '';
+}
+
+function renderTextProperties(
+  options: Readonly<ChartFontOptions> | undefined,
+  rotation: number | undefined = undefined,
+  language: string | undefined = undefined,
+): string {
+  if (!options || (!hasFont(options) && rotation === undefined)) return '';
+  return '<c:txPr>'
+    + `<a:bodyPr${rotation === undefined ? '' : ` rot="${Math.round(rotation * 60_000)}"`}/>`
+    + '<a:lstStyle/><a:p><a:pPr><a:defRPr'
+    + renderFontAttributes(options)
+    + '>'
+    + renderFontChildren(options)
+    + '</a:defRPr></a:pPr>'
+    + `<a:endParaRPr${language ? ` lang="${escapeXmlAttribute(language)}"` : ''}/>`
+    + '</a:p></c:txPr>';
+}
+
+function renderRunProperties(options: Readonly<ChartFontOptions>, language: string | undefined): string {
+  return `<a:rPr${language ? ` lang="${escapeXmlAttribute(language)}"` : ''}${renderFontAttributes(options)}>`
+    + renderFontChildren(options)
+    + '</a:rPr>';
+}
+
+function renderFontAttributes(options: Readonly<ChartFontOptions>): string {
+  return (options.size === undefined ? '' : ` sz="${Math.round(options.size * 100)}"`)
+    + (options.bold === undefined ? '' : ` b="${options.bold ? 1 : 0}"`)
+    + (options.italic === undefined ? '' : ` i="${options.italic ? 1 : 0}"`);
+}
+
+function renderFontChildren(options: Readonly<ChartFontOptions>): string {
+  return (options.color ? renderSimpleFill({ kind: 'solid', color: options.color }, 'a:') : '')
+    + (options.face ? `<a:latin typeface="${escapeXmlAttribute(options.face)}"/>` : '');
+}
+
+function hasFont(options: Readonly<ChartFontOptions>): boolean {
+  return options.face !== undefined
+    || options.size !== undefined
+    || options.bold !== undefined
+    || options.italic !== undefined
+    || options.color !== undefined;
+}
+
+function axisPosition(
+  value: ChartAxisOptions['position'] | undefined,
+  fallback: NonNullable<ChartAxisOptions['position']>,
+): string {
+  return { bottom: 'b', left: 'l', right: 'r', top: 't' }[value ?? fallback];
+}
+
+function tickMark(
+  value: ChartAxisOptions['majorTickMark'] | undefined,
+  fallback: 'none' | 'out',
+): string {
+  return value === undefined
+    ? fallback
+    : { cross: 'cross', inside: 'in', none: 'none', outside: 'out' }[value];
+}
+
+function labelPosition(value: ChartAxisOptions['labelPosition'] | undefined): string {
+  return value === undefined
+    ? 'nextTo'
+    : { high: 'high', low: 'low', nextTo: 'nextTo', none: 'none' }[value];
+}
+
+function dataLabelPosition(value: NonNullable<ChartDataLabelOptions['position']>): string {
+  return {
+    bestFit: 'bestFit',
+    bottom: 'b',
+    center: 'ctr',
+    insideBase: 'inBase',
+    insideEnd: 'inEnd',
+    left: 'l',
+    outsideEnd: 'outEnd',
+    right: 'r',
+    top: 't',
+  }[value];
+}
+
+function groupOption<T>(
+  options: Readonly<ChartGroupOptions> | undefined,
+  key: string,
+): T | undefined {
+  return options ? (options as Record<string, unknown>)[key] as T | undefined : undefined;
 }
 
 function readOptions(value: AddChartOptions | undefined): Record<string, unknown> {

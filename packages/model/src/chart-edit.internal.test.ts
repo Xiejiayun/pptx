@@ -47,12 +47,21 @@ describe('chart semantic editing', () => {
       groups: [{
         type: 'bar',
         axis: 'primary',
+        options: {
+          series: [{
+            fill: {
+              kind: 'solid',
+              color: { kind: 'srgb', value: 'ABCDEF' },
+            },
+          }],
+        },
         series: [{
           name: 'Net revenue',
           categories: ['Q1', 'Q2', 'Q3'],
           values: [12, 24, 36],
         }],
       }],
+      options: {},
     });
     expect(chart.xml).toContain('<a:srgbClr val="ABCDEF"/>');
     expect(chart.xml).toContain('<x:keep xmlns:x="urn:test">KEEP</x:keep>');
@@ -73,6 +82,128 @@ describe('chart semantic editing', () => {
     )).toBe(true);
   });
 
+  it('replaces chart options without rewriting workbook data or unowned extensions', async () => {
+    const { pkg, slide } = emptyPresentation();
+    const chart = await slide.addChart('bar', [{
+      name: 'Revenue',
+      categories: ['Q1', 'Q2'],
+      values: [10, 20],
+    }]);
+    updateChartXml(pkg, chart, (xml) => xml
+      .replace('</c:ser>', '<c:extLst><c:ext uri="urn:series-keep"/></c:extLst></c:ser>')
+      .replace(
+        '</c:chartSpace>',
+        '<c:extLst><c:ext uri="urn:root-keep"/></c:extLst></c:chartSpace>',
+      ));
+    const workbookPartUri = chart.workbookPartUri!;
+    const workbookBefore = pkg.requirePart(workbookPartUri).bytes.slice();
+
+    await chart.replaceDefinition({
+      groups: [{
+        type: 'bar',
+        axis: 'primary',
+        series: chart.definition!.groups[0]!.series,
+        options: {
+          direction: 'bar',
+          grouping: 'stacked',
+          gapWidth: 0,
+          overlap: -25,
+          dataLabels: { showValue: true, position: 'insideEnd' },
+          series: [{
+            fill: { kind: 'solid', color: { kind: 'srgb', value: '4472C4' } },
+          }],
+        },
+      }],
+      options: {
+        language: 'zh-CN',
+        roundedCorners: true,
+        title: {
+          text: 'Revenue',
+          overlay: true,
+          position: { x: 0.1, y: 0.2 },
+          size: 18,
+        },
+        legend: { position: 'topRight', overlay: true },
+        categoryAxis: { labelRotation: -45 },
+        valueAxis: { minimum: 0, maximum: 100, numberFormat: '#,##0' },
+        dataTable: { showHorizontalBorder: false, showLegendKeys: false },
+      },
+    });
+
+    expect(pkg.requirePart(workbookPartUri).bytes).toEqual(workbookBefore);
+    expect(chart.definition).toMatchObject({
+      groups: [{
+        options: {
+          direction: 'bar',
+          grouping: 'stacked',
+          gapWidth: 0,
+          overlap: -25,
+          dataLabels: { showValue: true, position: 'insideEnd' },
+        },
+      }],
+      options: {
+        language: 'zh-CN',
+        roundedCorners: true,
+        title: { text: 'Revenue', overlay: true, position: { x: 0.1, y: 0.2 }, size: 18 },
+        legend: { position: 'topRight', overlay: true },
+        categoryAxis: { labelRotation: -45 },
+        valueAxis: { minimum: 0, maximum: 100, numberFormat: '#,##0' },
+        dataTable: { showHorizontalBorder: false, showLegendKeys: false },
+      },
+    });
+    expect(chart.xml).toContain('uri="urn:series-keep"');
+    expect(chart.xml).toContain('uri="urn:root-keep"');
+
+    const beforeNoOp = packageSnapshot(pkg);
+    await chart.replaceDefinition(chart.definition!);
+    expect(packageSnapshot(pkg)).toEqual(beforeNoOp);
+
+    await chart.replaceDefinition({
+      groups: [{
+        type: 'bar',
+        axis: 'primary',
+        series: chart.definition!.groups[0]!.series,
+      }],
+    });
+    expect(pkg.requirePart(workbookPartUri).bytes).toEqual(workbookBefore);
+    expect(chart.definition?.options).toEqual({});
+    expect(chart.definition?.groups[0]?.options).toBeUndefined();
+    expect(chart.xml).toContain('uri="urn:series-keep"');
+    expect(chart.xml).toContain('uri="urn:root-keep"');
+  });
+
+  it('treats explicit chart option defaults as exact semantic no-ops', async () => {
+    const { pkg, slide } = emptyPresentation();
+    const chart = await slide.addChart('bar', [{
+      name: 'Revenue', categories: ['Q1'], values: [10],
+    }]);
+    const before = packageSnapshot(pkg);
+
+    await chart.replaceDefinition({
+      groups: [{
+        type: 'bar',
+        axis: 'primary',
+        series: chart.definition!.groups[0]!.series,
+        options: {
+          direction: 'column',
+          grouping: 'clustered',
+          gapWidth: 150,
+          overlap: 0,
+          varyColors: false,
+        },
+      }],
+      options: {
+        roundedCorners: false,
+        displayBlanksAs: 'gap',
+        title: { visible: false },
+        legend: { visible: false },
+        dataTable: { visible: false },
+      },
+    });
+
+    expect(packageSnapshot(pkg)).toEqual(before);
+  });
+
   it('converts chart structures while preserving unowned plot and chart-space children', async () => {
     const { pkg, slide } = emptyPresentation();
     const chart = await slide.addChart('bar', [{
@@ -81,7 +212,7 @@ describe('chart semantic editing', () => {
     updateChartXml(pkg, chart, (xml) => xml
       .replace(
         '</c:plotArea>',
-        '<c:dTable><c:showHorzBorder val="1"/></c:dTable></c:plotArea>',
+        '<c:extLst><c:ext uri="urn:plot-keep"/></c:extLst></c:plotArea>',
       )
       .replace(
         '</c:chartSpace>',
@@ -96,7 +227,7 @@ describe('chart semantic editing', () => {
     expect(chart.definition?.groups.map(({ type, axis }) => [type, axis])).toEqual([
       ['scatter', 'primary'],
     ]);
-    expect(chart.xml).toContain('<c:dTable><c:showHorzBorder val="1"/></c:dTable>');
+    expect(chart.xml).toContain('<c:ext uri="urn:plot-keep"/>');
     expect(chart.xml).toContain('<x:keep xmlns:x="urn:test"/>');
 
     await chart.replaceDefinition({ groups: [{
@@ -120,7 +251,7 @@ describe('chart semantic editing', () => {
       ['bar', 'primary'],
       ['line', 'secondary'],
     ]);
-    expect(chart.xml).toContain('<c:dTable><c:showHorzBorder val="1"/></c:dTable>');
+    expect(chart.xml).toContain('<c:ext uri="urn:plot-keep"/>');
     expect(await chartWorkbookMatches(
       pkg.requirePart(chart.workbookPartUri!).bytes,
       chart.definition!,

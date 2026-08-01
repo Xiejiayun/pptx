@@ -1116,7 +1116,7 @@ export class SlideModel {
     shapeId: number,
     current: Readonly<ChartState>,
     next: Readonly<ChartDefinition>,
-    workbookBytes: Uint8Array,
+    workbookBytes: Uint8Array | undefined,
   ): void {
     replaceChartDefinition(
       this.presentation.opcPackage,

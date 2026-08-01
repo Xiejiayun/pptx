@@ -7,9 +7,13 @@ import {
   type ChartSeries,
   type ChartType,
 } from './chart.js';
+import {
+  normalizeChartGroupOptions,
+  normalizeChartOptions,
+} from './chart-options.internal.js';
 
-const ROOT_KEYS = new Set(['groups']);
-const GROUP_KEYS = new Set(['type', 'series', 'axis']);
+const ROOT_KEYS = new Set(['groups', 'options']);
+const GROUP_KEYS = new Set(['type', 'series', 'axis', 'options']);
 const SERIES_KEYS = new Set(['name', 'categories', 'values', 'xValues', 'sizes']);
 const CHART_TYPE_SET = new Set<string>(CHART_TYPES);
 const CATEGORICAL_TYPES = new Set<ChartType>([
@@ -33,7 +37,10 @@ export function normalizeChartDefinition(
     throw new RangeError('Chart definition requires at least one group');
   }
   validateGroupCompatibility(groups);
-  return Object.freeze({ groups: Object.freeze(groups) });
+  return Object.freeze({
+    groups: Object.freeze(groups),
+    options: normalizeChartOptions(root.options),
+  });
 }
 
 function normalizeGroup(value: unknown, groupIndex: number): Readonly<ChartGroup> {
@@ -52,11 +59,13 @@ function normalizeGroup(value: unknown, groupIndex: number): Readonly<ChartGroup
   if ((type === 'pie' || type === 'doughnut') && axis !== undefined) {
     throw new TypeError(`${context} ${type} charts do not use an axis assignment`);
   }
+  const options = normalizeChartGroupOptions(type, group.options, series.length);
   return Object.freeze({
     type,
     series: Object.freeze(series),
     ...(axis === undefined ? {} : { axis }),
-  });
+    ...(options === undefined ? {} : { options }),
+  }) as Readonly<ChartGroup>;
 }
 
 function normalizeSeries(

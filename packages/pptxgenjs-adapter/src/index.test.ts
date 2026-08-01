@@ -576,21 +576,21 @@ describe('importPptxGenJS', () => {
     const [bar, scatter, bubble, combo] = charts as [
       ChartModel, ChartModel, ChartModel, ChartModel,
     ];
-    expect(bar.definition).toEqual({
+    expect(bar.definition).toMatchObject({
       groups: [{
         type: 'bar',
         axis: 'primary',
         series: [{ name: 'Revenue', categories: [['Q1', 'Q2']], values: [10, 20] }],
       }],
     });
-    expect(scatter.definition).toEqual({
+    expect(scatter.definition).toMatchObject({
       groups: [{
         type: 'scatter',
         axis: 'primary',
         series: [{ name: 'Points', xValues: [1, 2], values: [3, 4] }],
       }],
     });
-    expect(bubble.definition).toEqual({
+    expect(bubble.definition).toMatchObject({
       groups: [{
         type: 'bubble',
         axis: 'primary',
@@ -601,6 +601,8 @@ describe('importPptxGenJS', () => {
       ['bar', 'primary'],
       ['line', 'primary'],
     ]);
+    expect(Object.isFrozen(bar.definition?.options)).toBe(true);
+    expect(bar.definition?.groups[0]?.options?.series?.[0]?.fill).toBeDefined();
     const importedStyle = /<c:ser>[\s\S]*?(<c:spPr>[\s\S]*?<\/c:spPr>)/
       .exec(bar.xml)?.[1];
     expect(importedStyle).toBeDefined();
@@ -647,6 +649,227 @@ describe('importPptxGenJS', () => {
       charts.map(({ definition }) => definition),
     );
     expect(reopenedCharts.every(({ workbookPartUri }) => workbookPartUri !== undefined)).toBe(true);
+  });
+
+  it('projects and edits representative PptxGenJS chart options semantically', async () => {
+    const generated = new PptxGenJS();
+    const slide = generated.addSlide();
+    slide.addChart(generated.ChartType.bar!, [{
+      name: 'Revenue', labels: ['Q1', 'Q2'], values: [10, 20],
+    }], {
+      x: 0.5,
+      y: 0.5,
+      w: 5,
+      h: 3,
+      lang: 'zh-CN',
+      displayBlanksAs: 'zero',
+      showTitle: true,
+      title: 'Revenue',
+      titleBold: true,
+      titleColor: '112233',
+      titleFontFace: 'Aptos Display',
+      titleFontSize: 20,
+      titleRotate: 30,
+      titlePos: { x: 0.2, y: 0.1 },
+      showLegend: true,
+      legendPos: 'tr',
+      legendColor: '445566',
+      legendFontFace: 'Aptos',
+      legendFontSize: 10,
+      chartArea: {
+        roundedCorners: false,
+        fill: { color: 'F0F0F0' },
+        border: { color: '111111', pt: 2 },
+      },
+      plotArea: {
+        fill: { color: 'FFFFFF' },
+        border: { color: '999999', pt: 1 },
+      },
+      chartColors: ['4472C4'],
+      chartColorsOpacity: 75,
+      showValue: true,
+      showLabel: true,
+      showSerName: true,
+      showLeaderLines: true,
+      dataLabelPosition: 'inEnd',
+      dataLabelColor: '223344',
+      dataLabelFontBold: true,
+      dataLabelFontFace: 'Aptos',
+      dataLabelFontSize: 9,
+      dataLabelFormatCode: '0.0%',
+      catAxisHidden: true,
+      catAxisLabelColor: '334455',
+      catAxisLabelFontFace: 'Aptos Narrow',
+      catAxisLabelFontSize: 8,
+      catAxisLabelRotate: -45,
+      catAxisMajorTickMark: 'inside',
+      catAxisLineColor: '556677',
+      catAxisLineShow: true,
+      catAxisLineSize: 1,
+      catGridLine: { color: 'CCCCCC', size: 0.5, style: 'dash' },
+      valAxisMinVal: 0,
+      valAxisMaxVal: 100,
+      valAxisMajorUnit: 20,
+      valAxisLogScaleBase: 10,
+      valAxisLabelFormatCode: '#,##0',
+      valAxisMajorTickMark: 'outside',
+      valGridLine: { color: 'DDDDDD', size: 0.5, style: 'dot' },
+      showDataTable: true,
+      showDataTableHorzBorder: false,
+      showDataTableVertBorder: true,
+      showDataTableOutline: false,
+      showDataTableKeys: false,
+      dataTableFontSize: 9,
+      dataTableFormatCode: '#,##0.00',
+      barDir: 'bar',
+      barGrouping: 'stacked',
+      barGapWidthPct: 25,
+      barOverlapPct: -25,
+    });
+    slide.addChart(generated.ChartType.line!, [{
+      name: 'Trend', labels: ['Q1', 'Q2'], values: [11, 21],
+    }], {
+      x: 0.5,
+      y: 0.5,
+      w: 5,
+      h: 3,
+      chartColors: ['70AD47'],
+      lineSmooth: true,
+      lineDataSymbol: 'diamond',
+      lineDataSymbolSize: 8,
+      lineDataSymbolLineColor: 'FF0000',
+      lineDataSymbolLineSize: 1.5,
+      lineSize: 3,
+      lineDash: 'dash',
+    });
+    slide.addChart(generated.ChartType.doughnut!, [{
+      name: 'Share', labels: ['A', 'B'], values: [60, 40],
+    }], { x: 0.5, y: 0.5, w: 5, h: 3, holeSize: 65, firstSliceAng: 45 });
+    slide.addChart(generated.ChartType.radar!, [{
+      name: 'Score', labels: ['A', 'B'], values: [60, 40],
+    }], { x: 0.5, y: 0.5, w: 5, h: 3, radarStyle: 'filled' });
+    slide.addChart(generated.ChartType.bar3d!, [{
+      name: '3D', labels: ['A', 'B'], values: [1, 2],
+    }], {
+      x: 0.5,
+      y: 0.5,
+      w: 5,
+      h: 3,
+      barGapDepthPct: 25,
+      v3DRotX: -30,
+      v3DRotY: 120,
+      v3DRAngAx: true,
+      v3DPerspective: 20,
+    });
+
+    const imported = await importPptxGenJS(generated);
+    const charts = imported.slides[0]!.shapes.filter(
+      (shape): shape is ChartModel => shape instanceof ChartModel,
+    );
+    expect(charts).toHaveLength(5);
+    const [bar, line, doughnut, radar, bar3D] = charts as [
+      ChartModel, ChartModel, ChartModel, ChartModel, ChartModel,
+    ];
+
+    expect(bar.definition).toMatchObject({
+      groups: [{
+        type: 'bar',
+        options: {
+          direction: 'bar',
+          grouping: 'stacked',
+          gapWidth: 25,
+          overlap: 100,
+          dataLabels: {
+            showValue: true,
+            showSeriesName: true,
+            showLeaderLines: true,
+            position: 'insideEnd',
+            numberFormat: '0.0%',
+            face: 'Aptos',
+            size: 9,
+            bold: true,
+            color: { kind: 'srgb', value: '223344' },
+          },
+          series: [{
+            fill: {
+              kind: 'solid',
+              color: { kind: 'srgb', value: '4472C4' },
+              transparency: 25,
+            },
+          }],
+        },
+      }],
+      options: {
+        displayBlanksAs: 'span',
+        title: {
+          text: 'Revenue',
+          rotation: 30,
+          face: 'Aptos Display',
+          size: 20,
+          bold: true,
+          color: { kind: 'srgb', value: '112233' },
+        },
+        legend: {
+          position: 'topRight',
+          face: 'Aptos',
+          size: 10,
+          color: { kind: 'srgb', value: '445566' },
+        },
+        chartArea: {
+          fill: { kind: 'solid', color: { kind: 'srgb', value: 'F0F0F0' } },
+        },
+        plotArea: {
+          fill: { kind: 'solid', color: { kind: 'srgb', value: 'FFFFFF' } },
+        },
+        categoryAxis: {
+          visible: false,
+          labelRotation: -45,
+        },
+        valueAxis: {
+          minimum: 0,
+          maximum: 100,
+          majorUnit: 20,
+          logarithmicBase: 10,
+          numberFormat: '#,##0',
+        },
+        dataTable: {
+          showHorizontalBorder: false,
+          showOutline: false,
+          showLegendKeys: false,
+          numberFormat: '#,##0.00',
+          size: 9,
+        },
+      },
+    });
+    expect(bar.definition?.options.title?.position).toBeDefined();
+    expect(line.definition).toMatchObject({
+      groups: [{
+        type: 'line',
+        options: {
+          smooth: true,
+          series: [{ marker: { shape: 'diamond', size: 8 } }],
+        },
+      }],
+    });
+    expect(doughnut.definition).toMatchObject({
+      groups: [{ options: { holeSize: 65, firstSliceAngle: 45 } }],
+    });
+    expect(radar.definition).toMatchObject({ groups: [{ options: { style: 'filled' } }] });
+    expect(bar3D.definition).toMatchObject({
+      groups: [{ options: { gapDepth: 25 } }],
+      options: { rotationX: -30, rotationY: 120, perspective: 20 },
+    });
+
+    const workbookBefore = imported.opcPackage.requirePart(bar.workbookPartUri!).bytes.slice();
+    await bar.replaceDefinition({
+      groups: bar.definition!.groups,
+      options: {
+        ...bar.definition!.options,
+        title: { ...bar.definition!.options.title, text: 'Revenue edited' },
+      },
+    });
+    expect(bar.definition?.options.title?.text).toBe('Revenue edited');
+    expect(imported.opcPackage.requirePart(bar.workbookPartUri!).bytes).toEqual(workbookBefore);
   });
 
   it('matches valid PptxGenJS public audio and video media output semantically', async () => {
