@@ -472,6 +472,166 @@ describe('MediaCodec', () => {
     expect(await packageSnapshot(pkg)).toEqual(unsupportedBefore);
   });
 
+  it('reports precise native timing states without mutation', async () => {
+    const create = async (): Promise<{
+      readonly pkg: OpcPackage;
+      readonly codec: MediaCodec;
+      readonly model: ReturnType<MediaCodec['list']>[number];
+    }> => {
+      const pkg = await featureFixture();
+      const codec = new MediaCodec(pkg);
+      const model = await codec.addAudio('/ppt/slides/slide1.xml', Uint8Array.of(1), {
+        contentType: 'audio/mpeg',
+        play: 'auto',
+        loop: true,
+        volume: 0.5,
+      });
+      return { pkg, codec, model };
+    };
+    const healthy = await create();
+    await healthy.codec.addVideo(healthy.model.slidePartUri, Uint8Array.of(2), {
+      contentType: 'video/mp4',
+    });
+    const healthyBefore = await packageSnapshot(healthy.pkg);
+    expect(healthy.codec.diagnostics(healthy.model, 'powerpoint-2010').map(({ code }) => code))
+      .not.toContain('MEDIA_PLAYBACK_TIMING_EXTENSION');
+    expect(healthy.codec.diagnostics(healthy.model, 'powerpoint-2010').map(({ code }) => code))
+      .not.toContain('MEDIA_TIMING_STALE');
+    expect(healthy.codec.diagnostics(healthy.model, 'powerpoint-2010').map(({ code }) => code))
+      .not.toContain('MEDIA_TIMING_DANGLING_TARGET');
+    expect(await packageSnapshot(healthy.pkg)).toEqual(healthyBefore);
+
+    const cases = [
+      {
+        code: 'MEDIA_TIMING_MISSING',
+        target: 3,
+        mutate(source: string): string {
+          const xml = LosslessXmlDocument.parse(source);
+          xml.removeElement(xml.elements('timing')[0]!);
+          return xml.serialize();
+        },
+      },
+      {
+        code: 'MEDIA_TIMING_STALE',
+        target: 3,
+        mutate: (source: string) => source.replace('playTnId="5"', 'playTnId="99"'),
+      },
+      {
+        code: 'MEDIA_TIMING_UNSUPPORTED',
+        target: 3,
+        mutate: (source: string) => source.replace(
+          'repeatCount="indefinite"',
+          'repeatCount="2000"',
+        ),
+      },
+      {
+        code: 'MEDIA_TIMING_AMBIGUOUS',
+        target: 3,
+        mutate: (source: string) => source.replace('<p:cTn id="7"', '<p:cTn id="6"'),
+      },
+      {
+        code: 'MEDIA_TIMING_DANGLING_TARGET',
+        target: 99,
+        mutate: (source: string) => source.replaceAll('spid="3"', 'spid="99"'),
+      },
+      {
+        code: 'MEDIA_TIMING_KIND_MISMATCH',
+        target: 3,
+        mutate: (source: string) => source
+          .replace('<p:audio>', '<p:video>')
+          .replace('</p:audio>', '</p:video>'),
+      },
+    ] as const;
+    for (const diagnosticCase of cases) {
+      const { pkg, codec, model } = await create();
+      const part = pkg.requirePart(model.slidePartUri);
+      pkg.setPart(
+        part.uri,
+        diagnosticCase.mutate(new TextDecoder().decode(part.bytes)),
+        part.contentType,
+      );
+      const before = await packageSnapshot(pkg);
+      const diagnostic = codec.diagnostics(model, 'powerpoint-2010')
+        .find(({ code }) => code === diagnosticCase.code);
+      expect(diagnostic).toMatchObject({
+        code: diagnosticCase.code,
+        partUri: model.slidePartUri,
+      });
+      expect(diagnostic?.message).toContain(String(diagnosticCase.target));
+      expect(await packageSnapshot(pkg)).toEqual(before);
+    }
+  });
+
+  it('clears imported timing on delete, preserves ordinary animation, and rejects unsafe graphs', async () => {
+    const importedPackage = await featureFixture();
+    const importedCodec = new MediaCodec(importedPackage);
+    const imported = await importedCodec.addAudio(
+      '/ppt/slides/slide1.xml',
+      Uint8Array.of(1),
+      { contentType: 'audio/mpeg' },
+    );
+    const importedPart = importedPackage.requirePart(imported.slidePartUri);
+    const importedXml = LosslessXmlDocument.parse(importedPart.bytes);
+    const importedPicture = importedXml.elements('pic').find((candidate) => {
+      const properties = importedXml.descendants(candidate, 'cNvPr')[0];
+      return Number(properties ? importedXml.attribute(properties, 'id')?.value : -1)
+        === imported.shapeId;
+    })!;
+    const privateExtension = importedXml.descendants(importedPicture, 'ext').find(
+      (candidate) => importedXml.attribute(candidate, 'uri')?.value
+        === '{C13D3E4A-5148-4B6D-A7E7-505054582D4F}',
+    )!;
+    importedXml.removeElement(privateExtension);
+    importedPackage.setPart(importedPart.uri, importedXml.serialize(), importedPart.contentType);
+    importedCodec.delete(importedPart.uri, imported.shapeId);
+    const deletedSource = new TextDecoder().decode(importedPackage.requirePart(importedPart.uri).bytes);
+    expect(deletedSource).not.toContain('<p:pic>');
+    expect(deletedSource).not.toContain('<p:timing>');
+
+    const animatedPackage = await featureFixture();
+    const animatedCodec = new MediaCodec(animatedPackage);
+    const animated = await animatedCodec.addVideo(
+      '/ppt/slides/slide1.xml',
+      Uint8Array.of(2),
+      { contentType: 'video/mp4' },
+    );
+    const animatedPart = animatedPackage.requirePart(animated.slidePartUri);
+    const ordinary = '<p:par><p:cTn id="100" fill="hold"><p:childTnLst>'
+      + '<p:animEffect transition="in" filter="fade"><p:cBhvr><p:cTn id="101" dur="500"/>'
+      + '<p:tgtEl><p:spTgt spid="2"/></p:tgtEl></p:cBhvr></p:animEffect>'
+      + '</p:childTnLst></p:cTn></p:par>';
+    animatedPackage.setPart(
+      animatedPart.uri,
+      new TextDecoder().decode(animatedPart.bytes).replace(
+        '</p:childTnLst></p:cTn></p:par></p:tnLst></p:timing>',
+        ordinary + '</p:childTnLst></p:cTn></p:par></p:tnLst></p:timing>',
+      ),
+      animatedPart.contentType,
+    );
+    animatedCodec.delete(animatedPart.uri, animated.shapeId);
+    const preserved = new TextDecoder().decode(animatedPackage.requirePart(animatedPart.uri).bytes);
+    expect(preserved).toContain(ordinary);
+    expect(preserved).not.toContain('playFrom(0.0)');
+    expect(preserved).not.toContain('togglePause');
+
+    for (const mutate of [
+      (source: string) => source.replace('repeatCount="indefinite"', 'repeatCount="2000"'),
+      (source: string) => source.replace('<p:cTn id="7"', '<p:cTn id="6"'),
+    ]) {
+      const pkg = await featureFixture();
+      const codec = new MediaCodec(pkg);
+      const media = await codec.addAudio('/ppt/slides/slide1.xml', Uint8Array.of(3), {
+        contentType: 'audio/mpeg',
+        loop: true,
+      });
+      const part = pkg.requirePart(media.slidePartUri);
+      pkg.setPart(part.uri, mutate(new TextDecoder().decode(part.bytes)), part.contentType);
+      const before = await packageSnapshot(pkg);
+      expect(() => codec.delete(part.uri, media.shapeId)).toThrow(/timing/i);
+      expect(await packageSnapshot(pkg)).toEqual(before);
+    }
+  });
+
   it('deduplicates by bytes and exact content type and collects only final references', async () => {
     const pkg = await featureFixture();
     const codec = new MediaCodec(pkg);

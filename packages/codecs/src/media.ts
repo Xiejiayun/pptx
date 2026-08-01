@@ -28,6 +28,7 @@ import {
   clearNativeMediaTiming,
   syncNativeMediaTiming,
 } from './media-timing-edit.internal.js';
+import { readNativeMediaTiming } from './media-timing-state.internal.js';
 import type { CodecDiagnostic } from './registry.js';
 
 export {
@@ -258,55 +259,25 @@ export class MediaCodec {
   }
 
   diagnostics(model: MediaDescriptor, profile: string): CodecDiagnostic[] {
-    const diagnostics: CodecDiagnostic[] = [];
-    if (model.externalUrl) {
-      diagnostics.push({
-        severity: 'warning',
-        code: 'MEDIA_EXTERNAL_NOT_PORTABLE',
-        message: `External ${model.kind} may be unavailable when the presentation moves`,
-        partUri: model.slidePartUri,
-      });
-    }
-    if (model.settings.play === 'auto' && profile === 'google-slides-import') {
-      diagnostics.push({
-        severity: 'warning',
-        code: 'MEDIA_AUTOPLAY_MAY_DEGRADE',
-        message: 'Google Slides import may change autoplay behavior',
-        partUri: model.slidePartUri,
-      });
-    }
-    if (
-      model.settings.play === 'auto' ||
-      model.settings.loop ||
-      model.settings.hideWhenStopped ||
-      (model.settings.volume !== undefined && model.settings.volume !== 1)
-    ) {
-      const xml = LosslessXmlDocument.parse(this.pkg.requirePart(model.slidePartUri).bytes);
-      const hasNativeTiming = xml.elements('spTgt').some(
-        (target) =>
-          Number(xml.attribute(target, 'spid')?.value) === model.shapeId && Boolean(ancestor(target, 'cMediaNode')),
-      );
-      if (!hasNativeTiming) {
-        diagnostics.push({
-          severity: 'info',
-          code: 'MEDIA_PLAYBACK_TIMING_EXTENSION',
-          message: 'Playback preferences are preserved and require the timing codec for native client behavior',
-          partUri: model.slidePartUri,
-        });
-      }
-    }
-    if (model.mediaPartUri) {
-      const contentType = this.pkg.getPart(model.mediaPartUri)?.contentType;
-      if (profile === 'powerpoint-2010' && (contentType === 'video/webm' || contentType === 'audio/ogg')) {
-        diagnostics.push({
-          severity: 'warning',
-          code: 'MEDIA_CODEC_MAY_BE_UNSUPPORTED',
-          message: `${contentType} is not a reliable PowerPoint 2010 media format`,
-          partUri: model.mediaPartUri,
-        });
-      }
-    }
-    return diagnostics;
+    const xml = LosslessXmlDocument.parse(this.pkg.requirePart(model.slidePartUri).bytes);
+    const slideModels = xml.elements('pic')
+      .map((picture) => readMediaState(this.pkg, model.slidePartUri, xml, picture))
+      .filter((candidate): candidate is NonNullable<typeof candidate> => candidate !== undefined);
+    return [
+      ...mediaProfileDiagnostics(this.pkg, model, profile),
+      ...nativeMediaTimingDiagnostics(this.pkg, model.slidePartUri, xml, slideModels, [model]),
+    ];
+  }
+
+  diagnosticsForSlide(slidePartUri: string, profile: string): CodecDiagnostic[] {
+    const xml = LosslessXmlDocument.parse(this.pkg.requirePart(slidePartUri).bytes);
+    const models = xml.elements('pic')
+      .map((picture) => readMediaState(this.pkg, slidePartUri, xml, picture))
+      .filter((model): model is NonNullable<typeof model> => model !== undefined);
+    return [
+      ...models.flatMap((model) => mediaProfileDiagnostics(this.pkg, model, profile)),
+      ...nativeMediaTimingDiagnostics(this.pkg, slidePartUri, xml, models),
+    ];
   }
 
   private async add(
@@ -444,6 +415,199 @@ export class MediaCodec {
     }
     return undefined;
   }
+}
+
+function mediaProfileDiagnostics(
+  pkg: OpcPackage,
+  model: MediaDescriptor,
+  profile: string,
+): CodecDiagnostic[] {
+  const diagnostics: CodecDiagnostic[] = [];
+  if (model.externalUrl) {
+    diagnostics.push({
+      severity: 'warning',
+      code: 'MEDIA_EXTERNAL_NOT_PORTABLE',
+      message: `External ${model.kind} may be unavailable when the presentation moves`,
+      partUri: model.slidePartUri,
+    });
+  }
+  if (model.settings.play === 'auto' && profile === 'google-slides-import') {
+    diagnostics.push({
+      severity: 'warning',
+      code: 'MEDIA_AUTOPLAY_MAY_DEGRADE',
+      message: 'Google Slides import may change autoplay behavior',
+      partUri: model.slidePartUri,
+    });
+  }
+  if (model.mediaPartUri) {
+    const contentType = pkg.getPart(model.mediaPartUri)?.contentType;
+    if (profile === 'powerpoint-2010' && (contentType === 'video/webm' || contentType === 'audio/ogg')) {
+      diagnostics.push({
+        severity: 'warning',
+        code: 'MEDIA_CODEC_MAY_BE_UNSUPPORTED',
+        message: `${contentType} is not a reliable PowerPoint 2010 media format`,
+        partUri: model.mediaPartUri,
+      });
+    }
+  }
+  return diagnostics;
+}
+
+interface MediaTimingTargetIssue {
+  readonly diagnostic: CodecDiagnostic;
+  readonly shapeId: number;
+  readonly mediaTnId?: number;
+}
+
+function nativeMediaTimingDiagnostics(
+  pkg: OpcPackage,
+  slidePartUri: string,
+  xml: LosslessXmlDocument,
+  slideModels: readonly MediaDescriptor[],
+  diagnosedModels: readonly MediaDescriptor[] = slideModels,
+): CodecDiagnostic[] {
+  const targetIssues = mediaTimingTargetIssues(xml, slidePartUri, slideModels);
+  const diagnostics = targetIssues.map(({ diagnostic }) => diagnostic);
+  for (const model of diagnosedModels) {
+    const picture = xml.elements('pic').find((candidate) => {
+      const properties = xml.descendants(candidate, 'cNvPr')[0];
+      return Number(properties ? xml.attribute(properties, 'id')?.value : -1) === model.shapeId;
+    });
+    if (!picture || !readMediaState(pkg, slidePartUri, xml, picture)) continue;
+    const preference = readMediaPlaybackExtension(xml, picture);
+    const native = readNativeMediaTiming(
+      xml,
+      model.shapeId,
+      model.kind,
+      preference.ownership,
+    );
+    const hasTargetIssue = targetIssues.some((issue) =>
+      issue.shapeId === model.shapeId
+      || (
+        issue.mediaTnId !== undefined
+        && issue.mediaTnId === preference.ownership?.mediaTnId
+      ));
+    if (hasTargetIssue) continue;
+
+    if (preference.malformed) {
+      diagnostics.push(timingDiagnostic(
+        'MEDIA_TIMING_STALE',
+        `Media shape ${model.shapeId} has malformed playback ownership`,
+        slidePartUri,
+      ));
+      continue;
+    }
+    if (native.status === 'unsupported') {
+      diagnostics.push(timingDiagnostic(
+        'MEDIA_TIMING_UNSUPPORTED',
+        `Media shape ${model.shapeId} uses unsupported native timing: ${native.reason ?? 'unknown structure'}`,
+        slidePartUri,
+      ));
+      continue;
+    }
+    if (native.status === 'ambiguous') {
+      diagnostics.push(timingDiagnostic(
+        'MEDIA_TIMING_AMBIGUOUS',
+        `Media shape ${model.shapeId} has ambiguous native timing: ${native.reason ?? 'unknown structure'}`,
+        slidePartUri,
+      ));
+      continue;
+    }
+    if (
+      native.status === 'absent'
+      || (native.status === 'owned-stale' && native.reason?.includes('missing'))
+    ) {
+      if (preference.settings) {
+        diagnostics.push(timingDiagnostic(
+          'MEDIA_TIMING_MISSING',
+          `Media shape ${model.shapeId} has playback preferences but no native timing graph`,
+          slidePartUri,
+        ));
+      }
+      continue;
+    }
+    if (
+      native.status === 'owned-stale'
+      || (native.status === 'recognized-imported' && Boolean(preference.settings))
+      || (preference.settings && native.settings
+        && !mediaTimingSettingsEqual(preference.settings, native.settings))
+    ) {
+      diagnostics.push(timingDiagnostic(
+        'MEDIA_TIMING_STALE',
+        `Media shape ${model.shapeId} playback ownership or settings do not match native timing`,
+        slidePartUri,
+      ));
+    }
+  }
+  return diagnostics;
+}
+
+function mediaTimingTargetIssues(
+  xml: LosslessXmlDocument,
+  slidePartUri: string,
+  models: readonly MediaDescriptor[],
+): readonly MediaTimingTargetIssue[] {
+  const modelsByShapeId = new Map<number, MediaDescriptor>();
+  for (const model of models) modelsByShapeId.set(model.shapeId, model);
+  const issues: MediaTimingTargetIssue[] = [];
+  const seen = new Set<string>();
+  for (const mediaNode of xml.elements('cMediaNode')) {
+    if (!ancestor(mediaNode, 'timing')) continue;
+    const mediaKind = mediaNode.parent?.localName === 'audio' || mediaNode.parent?.localName === 'video'
+      ? mediaNode.parent.localName
+      : undefined;
+    const mediaTnId = directElementChildren(mediaNode, 'cTn').length === 1
+      ? positiveInteger(xml.attribute(directElementChildren(mediaNode, 'cTn')[0]!, 'id')?.value)
+      : undefined;
+    for (const target of xml.descendants(mediaNode, 'spTgt')) {
+      const shapeId = positiveInteger(xml.attribute(target, 'spid')?.value);
+      if (shapeId === undefined) continue;
+      const model = modelsByShapeId.get(shapeId);
+      const code = !model
+        ? 'MEDIA_TIMING_DANGLING_TARGET'
+        : mediaKind && mediaKind !== model.kind
+          ? 'MEDIA_TIMING_KIND_MISMATCH'
+          : undefined;
+      if (!code || seen.has(`${code}:${shapeId}`)) continue;
+      seen.add(`${code}:${shapeId}`);
+      issues.push({
+        diagnostic: timingDiagnostic(
+          code,
+          code === 'MEDIA_TIMING_DANGLING_TARGET'
+            ? `Native media timing targets missing media shape ${shapeId}`
+            : `Native ${mediaKind} timing does not match media shape ${shapeId} kind ${model!.kind}`,
+          slidePartUri,
+        ),
+        shapeId,
+        ...(mediaTnId === undefined ? {} : { mediaTnId }),
+      });
+    }
+  }
+  return issues;
+}
+
+function mediaTimingSettingsEqual(
+  left: Readonly<Required<MediaPlaybackSettings>>,
+  right: Readonly<Required<MediaPlaybackSettings>>,
+): boolean {
+  return left.play === right.play
+    && left.loop === right.loop
+    && left.hideWhenStopped === right.hideWhenStopped
+    && left.volume === right.volume;
+}
+
+function timingDiagnostic(
+  code: string,
+  message: string,
+  partUri: string,
+): CodecDiagnostic {
+  return { severity: 'warning', code, message, partUri };
+}
+
+function positiveInteger(value: string | undefined): number | undefined {
+  if (!value || !/^[1-9]\d*$/.test(value)) return undefined;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed <= 0xFFFF_FFFF ? parsed : undefined;
 }
 
 async function hash(bytes: Uint8Array): Promise<string> {

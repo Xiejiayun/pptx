@@ -697,6 +697,55 @@ describe('PresentationModel', () => {
     expect(reopenedMedia.settings).toEqual({});
   });
 
+  it('isolates native media timing through duplicate, move, replacement, and removal', async () => {
+    const { pkg, model } = emptyPresentationModel();
+    const slide = model.addSlide();
+    const media = await slide.addVideo(Uint8Array.of(1, 2, 3), {
+      contentType: 'video/mp4',
+      poster: Uint8Array.of(4, 5),
+      posterContentType: 'image/png',
+      play: 'auto',
+      loop: true,
+      volume: 0.5,
+    });
+    const timing = (partUri: string): string => {
+      const xml = LosslessXmlDocument.parse(pkg.requirePart(partUri).bytes);
+      return xml.original(xml.elements('timing')[0]!);
+    };
+    const sourceTiming = timing(slide.partUri);
+    const sourceMedia = media.mediaPartUri!;
+    const sourcePoster = media.posterPartUri!;
+    const sourceMediaBytes = pkg.requirePart(sourceMedia).bytes.slice();
+    const duplicate = model.duplicateSlide(0);
+    const duplicateMedia = duplicate.media[0]!;
+
+    expect(timing(duplicate.partUri)).toBe(sourceTiming);
+    model.moveSlide(1, 0);
+    expect(model.slides[0]).toBe(duplicate);
+    expect(timing(duplicate.partUri)).toBe(sourceTiming);
+    expect(timing(slide.partUri)).toBe(sourceTiming);
+
+    duplicateMedia.settings = {
+      play: 'click',
+      loop: false,
+      hideWhenStopped: true,
+      volume: 0.25,
+    };
+    expect(timing(duplicate.partUri)).not.toBe(sourceTiming);
+    expect(timing(slide.partUri)).toBe(sourceTiming);
+    await duplicateMedia.replaceSource(Uint8Array.of(6, 7), { contentType: 'video/mp4' });
+    await duplicateMedia.replacePoster(Uint8Array.of(8, 9), { contentType: 'image/gif' });
+    expect(timing(slide.partUri)).toBe(sourceTiming);
+    expect(pkg.requirePart(sourceMedia).bytes).toEqual(sourceMediaBytes);
+    expect(media.posterPartUri).toBe(sourcePoster);
+
+    duplicateMedia.remove();
+    expect(timing(slide.partUri)).toBe(sourceTiming);
+    expect(pkg.hasPart(sourceMedia)).toBe(true);
+    media.remove();
+    expect(new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes)).not.toContain('<p:timing>');
+  });
+
   it('replaces live media sources across embedded and external modes with COW isolation', async () => {
     const { pkg, model } = emptyPresentationModel();
     const slide = model.addSlide();

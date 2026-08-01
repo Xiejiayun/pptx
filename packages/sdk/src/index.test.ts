@@ -612,6 +612,28 @@ describe('PptxDocument vertical slice', () => {
     }
   });
 
+  it('surfaces native media timing diagnostics through public writes', async () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const media = await document.addAudio(0, Uint8Array.of(1), {
+      contentType: 'audio/mpeg',
+      play: 'auto',
+    });
+    const part = document.opcPackage.requirePart(slide.partUri);
+    const xml = LosslessXmlDocument.parse(part.bytes);
+    xml.removeElement(xml.elements('timing')[0]!);
+    document.opcPackage.setPart(part.uri, xml.serialize(), part.contentType);
+
+    await document.write({ mode: 'permissive', compatibility: 'powerpoint-2010' });
+    expect(document.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'MEDIA_TIMING_MISSING',
+        partUri: slide.partUri,
+        message: expect.stringContaining(String(media.shapeId)),
+      }),
+    ]));
+  });
+
   it('round-trips canonical audio and video twice in all six presentation formats', async () => {
     for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
       const document = PptxDocument.create({ format });
