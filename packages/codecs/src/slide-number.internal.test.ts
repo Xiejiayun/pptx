@@ -3,6 +3,8 @@ import { OpcPackage } from '@pptx/opc';
 import {
   normalizeSlideNumberOptions,
   readSlideNumber,
+  replaceSlideNumber,
+  replaceSlideNumberCachedText,
 } from './slide-number.internal.js';
 import type { SlideNumberOptions } from './slide-number.js';
 
@@ -338,6 +340,226 @@ describe('slide number reader', () => {
   });
 });
 
+describe('slide number writer', () => {
+  it('creates canonical XML with minimum-free ids before extLst', () => {
+    const uri = '/ppt/slides/slide1.xml';
+    const pkg = packageWith(blankOwnerXml({ occupiedPreferredIndex: true }));
+    replaceSlideNumber(pkg, uri, 'slide', {
+      x: 0,
+      y: 10,
+      width: 900_000,
+      height: 400_000,
+      align: 'justify',
+      rtl: true,
+      valign: 'bottom',
+      margin: [1, 2, 3, 4],
+      style: {
+        fontFamily: 'Aptos',
+        fontSize: 20,
+        lang: 'zh-CN',
+        bold: true,
+        italic: true,
+        color: { kind: 'scheme', value: 'accent2' },
+        transparency: 12.5,
+      },
+    }, '7');
+
+    expect(readSlideNumber(pkg, uri, 'slide')).toEqual({
+      x: 0,
+      y: 10,
+      width: 900_000,
+      height: 400_000,
+      align: 'justify',
+      rtl: true,
+      valign: 'bottom',
+      margin: { top: 1, right: 2, bottom: 3, left: 4 },
+      style: {
+        fontFamily: 'Aptos',
+        fontSize: 20,
+        lang: 'zh-CN',
+        bold: true,
+        italic: true,
+        color: { kind: 'scheme', value: 'accent2' },
+        transparency: 12.5,
+      },
+    });
+    const xml = partText(pkg, uri);
+    expect(xml).toContain('<p:cNvPr id="2" name="Slide Number 2"/>');
+    expect(xml).toContain('<p:ph type="sldNum" sz="quarter" idx="0"/>');
+    expect(xml).toContain('<a:fld id="{F7021451-1387-4CA6-816F-3879F97B5CBC}" type="slidenum">');
+    expect(xml).toContain('<a:t>7</a:t>');
+    expect(xml).toContain('<a:alpha val="87500"/>');
+    expect(xml).toContain('<a:latin typeface="Aptos"/><a:ea typeface="Aptos"/><a:cs typeface="Aptos"/>');
+    expect(xml.indexOf('name="Slide Number 2"')).toBeLessThan(xml.indexOf('<p:extLst>'));
+    expect(xml).not.toContain('id="25" name="Slide Number');
+  });
+
+  it('patches supported spans and PptxGenJS defaults while preserving opaque state', () => {
+    const uri = '/ppt/slides/slide1.xml';
+    const source = slideXml({
+      bodyProperties: ' anchor="ctr" data-body="keep"',
+      paragraphProperties: ' algn="ctr" data-paragraph="keep"',
+      listStyle: '<a:lvl1pPr data-level="keep"><a:defRPr sz="2400" lang="en-US" b="1" data-default="keep"><a:solidFill><a:schemeClr val="accent2"/></a:solidFill><a:latin typeface="Old"/><a:extLst><a:ext uri="default-opaque"/></a:extLst></a:defRPr></a:lvl1pPr>',
+      fieldProperties: ' lang="en-US" b="0" data-field="keep"',
+      fieldStyle: '<a:extLst><a:ext uri="field-opaque"/></a:extLst>',
+      cachedText: '3',
+    })
+      .replace('<a:off x="0" y="0"/>', '<a:off x="0" y="0" data-off="keep"/>')
+      .replace('<a:ext cx="800000" cy="300000"/>', '<a:ext cx="800000" cy="300000" data-ext="keep"/>')
+      .replace('<p:cNvPr id="2" name="Slide Number 2"/>', '<p:cNvPr id="2" name="Imported Number" data-id="keep"/>')
+      .replace('<p:ph type="sldNum" sz="quarter" idx="4294967295"/>', '<p:ph type="sldNum" sz="quarter" idx="42" data-ph="keep"/>')
+      .replace('</p:sp>', '<p:extLst><p:ext uri="shape-opaque"/></p:extLst></p:sp>');
+    const pkg = packageWith(source);
+    replaceSlideNumber(pkg, uri, 'slide', {
+      x: 100,
+      y: 200,
+      width: 300,
+      height: 400,
+      align: 'right',
+      rtl: true,
+      margin: { left: 5 },
+      style: {
+        fontFamily: 'New',
+        fontSize: 12,
+        lang: 'fr-FR',
+        italic: true,
+        color: { kind: 'srgb', value: '00FF00' },
+      },
+    }, '9');
+
+    const output = partText(pkg, uri);
+    for (const fragment of [
+      'name="Imported Number" data-id="keep"',
+      'idx="42" data-ph="keep"',
+      'data-off="keep"',
+      'data-ext="keep"',
+      'data-body="keep"',
+      'data-paragraph="keep"',
+      'data-default="keep"',
+      'data-field="keep"',
+      'uri="default-opaque"',
+      'uri="field-opaque"',
+      'uri="shape-opaque"',
+    ]) expect(output).toContain(fragment);
+    expect(output).not.toContain('typeface="Old"');
+    expect(readSlideNumber(pkg, uri, 'slide')).toMatchObject({
+      x: 100,
+      y: 200,
+      width: 300,
+      height: 400,
+      align: 'right',
+      rtl: true,
+      margin: { left: 5 },
+      style: {
+        fontFamily: 'New',
+        fontSize: 12,
+        lang: 'fr-FR',
+        bold: false,
+        italic: true,
+        color: { kind: 'srgb', value: '00FF00' },
+      },
+    });
+    expect(output).toContain('<a:t>9</a:t>');
+    expect(output).toContain(`id="{F7021451-1387-4CA6-816F-3879F97B5CBC}" type="slidenum"`);
+  });
+
+  it('keeps same values and absent clears exact, updates only cache, and clears a unique field', () => {
+    const uri = '/ppt/slides/slide1.xml';
+    const pkg = packageWith(slideXml());
+    const value = readSlideNumber(pkg, uri, 'slide');
+    if (!value) throw new Error('Expected slide number');
+    const before = packageSnapshot(pkg);
+    replaceSlideNumber(pkg, uri, 'slide', value, '1');
+    expect(packageSnapshot(pkg)).toEqual(before);
+
+    expect(replaceSlideNumberCachedText(pkg, uri, '2')).toBe(true);
+    const afterCache = partText(pkg, uri);
+    expect(afterCache).toBe(partText(packageWith(slideXml({ cachedText: '2' })), uri));
+    expect(replaceSlideNumberCachedText(pkg, uri, '2')).toBe(false);
+
+    replaceSlideNumber(pkg, uri, 'slide', undefined, '2');
+    expect(readSlideNumber(pkg, uri, 'slide')).toBeUndefined();
+    expect(partText(pkg, uri)).not.toContain('type="sldNum"');
+    const cleared = packageSnapshot(pkg);
+    replaceSlideNumber(pkg, uri, 'slide', undefined, '2');
+    expect(packageSnapshot(pkg)).toEqual(cleared);
+  });
+
+  it('canonicalizes one opaque placeholder but rejects ambiguous identity before mutation', () => {
+    const uri = '/ppt/slides/slide1.xml';
+    const opaque = packageWith(slideXml().replace('type="slidenum"', 'type="datetime"'));
+    expect(readSlideNumber(opaque, uri, 'slide')).toBeUndefined();
+    replaceSlideNumber(opaque, uri, 'slide', { align: 'center' }, '4');
+    expect(readSlideNumber(opaque, uri, 'slide')).toMatchObject({ align: 'center' });
+    expect(partText(opaque, uri)).toContain('id="2" name="Slide Number 2"');
+    expect(partText(opaque, uri)).toContain('idx="4294967295"');
+
+    const ambiguous = packageWith(
+      slideXml().replace('type="slidenum"', 'type="datetime"').replace(
+        '<p:cNvPr id="1"',
+        '<p:cNvPr id="2"',
+      ),
+    );
+    const before = packageSnapshot(ambiguous);
+    expect(() => replaceSlideNumber(ambiguous, uri, 'slide', {}, '1')).toThrow(/identity|ambiguous/i);
+    expect(packageSnapshot(ambiguous)).toEqual(before);
+  });
+
+  it('rejects multiple direct placeholders for assignment and clear without mutation', () => {
+    const uri = '/ppt/slides/slide1.xml';
+    const source = slideXml().replace(
+      '</p:spTree>',
+      `<p:sp>${shapeXml().replace('id="2"', 'id="3"').replace('idx="4294967295"', 'idx="8"')}</p:sp></p:spTree>`,
+    );
+    const pkg = packageWith(source);
+    const before = packageSnapshot(pkg);
+    expect(() => replaceSlideNumber(pkg, uri, 'slide', {}, '1')).toThrow(/ambiguous/i);
+    expect(packageSnapshot(pkg)).toEqual(before);
+    expect(() => replaceSlideNumber(pkg, uri, 'slide', undefined, '1')).toThrow(/ambiguous/i);
+    expect(packageSnapshot(pkg)).toEqual(before);
+  });
+
+  it('enables, inserts, preserves, and disables the master header-footer flag in schema order', () => {
+    const uri = '/ppt/slideMasters/slideMaster1.xml';
+    const pkg = packageWith(blankOwnerXml({
+      root: 'sldMaster',
+      rootTail: '<p:sldLayoutIdLst/><p:txStyles data-styles="keep"/>',
+    }), uri);
+    replaceSlideNumber(pkg, uri, 'master', {}, '‹#›');
+    let output = partText(pkg, uri);
+    expect(output).toContain('<p:hf sldNum="1"/>');
+    expect(output.indexOf('<p:sldLayoutIdLst/>')).toBeLessThan(output.indexOf('<p:hf'));
+    expect(output.indexOf('<p:hf')).toBeLessThan(output.indexOf('<p:txStyles'));
+
+    output = output.replace('<p:hf sldNum="1"/>', '<p:hf hdr="1" ftr="0" data-hf="keep" sldNum="1"/>');
+    pkg.setPart(uri, output, SLIDE_CONTENT_TYPE);
+    replaceSlideNumber(pkg, uri, 'master', undefined, '‹#›');
+    output = partText(pkg, uri);
+    expect(output).toContain('<p:hf hdr="1" ftr="0" data-hf="keep" sldNum="0"/>');
+    expect(output).not.toContain('type="sldNum"');
+  });
+
+  it('validates before package access and rolls every edit back with an outer transaction', () => {
+    const empty = OpcPackage.create();
+    expect(() => replaceSlideNumber(
+      empty,
+      '/missing.xml',
+      'slide',
+      { width: 0 },
+      '1',
+    )).toThrow(/width/i);
+
+    const uri = '/ppt/slides/slide1.xml';
+    const pkg = packageWith(blankOwnerXml());
+    const before = packageSnapshot(pkg);
+    expect(() => pkg.transaction(() => {
+      replaceSlideNumber(pkg, uri, 'slide', { style: { bold: true } }, '1');
+      throw new Error('injected outer failure');
+    })).toThrow('injected outer failure');
+    expect(packageSnapshot(pkg)).toEqual(before);
+  });
+});
+
 interface SlideXmlOptions {
   readonly root?: 'sld' | 'sldLayout' | 'sldMaster';
   readonly prefixP?: string;
@@ -397,6 +619,36 @@ function packageWith(
   const pkg = OpcPackage.create();
   pkg.setPart(uri, xml, SLIDE_CONTENT_TYPE);
   return pkg;
+}
+
+function blankOwnerXml(options: {
+  readonly root?: 'sld' | 'sldLayout' | 'sldMaster';
+  readonly occupiedPreferredIndex?: boolean;
+  readonly rootTail?: string;
+} = {}): string {
+  const occupied = options.occupiedPreferredIndex
+    ? '<p:sp><p:nvSpPr><p:cNvPr id="3" name="Body"/><p:cNvSpPr/><p:nvPr><p:ph type="body" idx="4294967295"/></p:nvPr></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:endParaRPr lang="en-US"/></a:p></p:txBody></p:sp>'
+    : '';
+  return `<?xml version="1.0"?><p:${options.root ?? 'sld'} xmlns:p="${P}" xmlns:a="${A}"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/>${occupied}<p:extLst><p:ext uri="tree-opaque"/></p:extLst></p:spTree></p:cSld>${options.rootTail ?? ''}</p:${options.root ?? 'sld'}>`;
+}
+
+function partText(pkg: OpcPackage, uri: string): string {
+  return new TextDecoder().decode(pkg.requirePart(uri).bytes);
+}
+
+function packageSnapshot(pkg: OpcPackage): unknown {
+  return {
+    parts: pkg.parts.map(({ uri, contentType, bytes }) => ({
+      uri,
+      contentType,
+      bytes: [...bytes],
+    })),
+    relationships: pkg.parts.map(({ uri }) => ({
+      uri,
+      relationships: pkg.relationships(uri).map((relationship) => ({ ...relationship })),
+    })),
+    mutations: pkg.mutations.map((mutation) => ({ ...mutation })),
+  };
 }
 
 const _compileOnly: SlideNumberOptions = {

@@ -6,5 +6,7 @@ export * from './slide-number.js';
 export {
   normalizeSlideNumberOptions,
   readSlideNumber,
+  replaceSlideNumber,
+  replaceSlideNumberCachedText,
 } from './slide-number.internal.js';
 export { allocateNativeTimingIds } from './media-timing-state.internal.js';

@@ -1,9 +1,15 @@
-import { LosslessXmlDocument, type XmlElement } from '@pptx/lossless-xml';
+import {
+  escapeXmlAttribute,
+  escapeXmlText,
+  LosslessXmlDocument,
+  type XmlElement,
+} from '@pptx/lossless-xml';
 import type { OpcPackage } from '@pptx/opc';
 import type {
   SlideNumber,
   SlideNumberColor,
   SlideNumberMargins,
+  SlideNumberOptions,
   SlideNumberOwnerKind,
   SlideNumberTextStyle,
 } from './slide-number.js';
@@ -17,6 +23,7 @@ const MIN_INT32 = -2_147_483_648;
 const MAX_INT32 = 2_147_483_647;
 const MAX_UINT32 = 4_294_967_295;
 const EMU_PER_POINT = 12_700;
+const FIELD_ID = '{F7021451-1387-4CA6-816F-3879F97B5CBC}';
 const INVALID = Symbol('invalid slide number value');
 const OPTION_KEYS = new Set([
   'x',
@@ -84,6 +91,19 @@ interface PartialSlideNumberStyle {
   readonly italic?: boolean;
   readonly color?: SlideNumberColor;
   readonly transparency?: number;
+}
+
+interface SupportedSlideNumberTarget {
+  readonly shape: XmlElement;
+  readonly offset: XmlElement;
+  readonly extent: XmlElement;
+  readonly bodyProperties: XmlElement;
+  readonly paragraph: XmlElement;
+  readonly paragraphProperties?: XmlElement;
+  readonly field: XmlElement;
+  readonly fieldProperties?: XmlElement;
+  readonly text: XmlElement;
+  readonly defaultProperties?: XmlElement;
 }
 
 export function normalizeSlideNumberOptions(value: unknown): Readonly<SlideNumber> {
@@ -221,6 +241,548 @@ export function readSlideNumber(
     ...(margin === undefined ? {} : { margin }),
     style,
   });
+}
+
+export function replaceSlideNumber(
+  pkg: OpcPackage,
+  ownerPartUri: string,
+  ownerKind: SlideNumberOwnerKind,
+  value: SlideNumberOptions | undefined,
+  cachedText: string,
+): void {
+  const normalized = value === undefined
+    ? undefined
+    : normalizeSlideNumberOptions(value);
+  assertCachedText(cachedText);
+
+  pkg.transaction(() => {
+    const part = pkg.requirePart(ownerPartUri);
+    const xml = LosslessXmlDocument.parse(part.bytes);
+    const root = editableOwnerRoot(xml, ownerKind, ownerPartUri);
+    const commonSlide = uniqueDirectChild(root, 'cSld', PRESENTATION_NAMESPACE);
+    const shapeTree = commonSlide
+      ? uniqueDirectChild(commonSlide, 'spTree', PRESENTATION_NAMESPACE)
+      : undefined;
+    if (!shapeTree) {
+      throw new Error(`Slide-number owner has no unique editable shape tree: ${ownerPartUri}`);
+    }
+    const candidates = directSlideNumberShapes(shapeTree);
+
+    if (normalized === undefined) {
+      if (candidates.length === 0) return;
+      if (candidates.length !== 1) {
+        throw new Error(`Slide-number owner has ambiguous direct placeholders: ${ownerPartUri}`);
+      }
+      xml.removeElement(candidates[0]!);
+      if (ownerKind === 'master') updateMasterFlag(xml, root, false);
+      pkg.setPart(ownerPartUri, xml.serialize(), part.contentType);
+      return;
+    }
+
+    if (candidates.length > 1) {
+      throw new Error(`Slide-number owner has ambiguous direct placeholders: ${ownerPartUri}`);
+    }
+    const current = readSlideNumber(pkg, ownerPartUri, ownerKind);
+    const candidate = candidates[0];
+    const target = candidate && current
+      ? supportedTarget(candidate)
+      : undefined;
+    if (target && current && slideNumbersEqual(current, normalized)) {
+      const currentCache = textValue(target.text);
+      const masterAlreadyEnabled = ownerKind !== 'master' || masterFlagValue(root) === true;
+      if (currentCache === cachedText && masterAlreadyEnabled) return;
+    }
+
+    if (target) {
+      patchSupportedTarget(xml, target, normalized, cachedText);
+    } else if (candidate) {
+      const identity = opaqueShapeIdentity(root, candidate);
+      if (!identity) {
+        throw new Error(`Slide-number placeholder identity is ambiguous: ${ownerPartUri}`);
+      }
+      xml.replaceElement(
+        candidate,
+        renderSlideNumberShape(normalized, identity.shapeId, identity.placeholderIndex, cachedText),
+      );
+    } else {
+      const shapeId = allocateShapeId(root);
+      const placeholderIndex = allocatePlaceholderIndex(root);
+      const rendered = renderSlideNumberShape(
+        normalized,
+        shapeId,
+        placeholderIndex,
+        cachedText,
+      );
+      const extensions = directChildren(shapeTree).filter(
+        (child) => isElement(child, 'extLst', PRESENTATION_NAMESPACE),
+      );
+      if (extensions[0]) xml.replace(extensions[0].start, extensions[0].start, rendered);
+      else xml.appendChildXml(shapeTree, rendered);
+    }
+    if (ownerKind === 'master') updateMasterFlag(xml, root, true);
+    pkg.setPart(ownerPartUri, xml.serialize(), part.contentType);
+  });
+}
+
+export function replaceSlideNumberCachedText(
+  pkg: OpcPackage,
+  slidePartUri: string,
+  cachedText: string,
+): boolean {
+  assertCachedText(cachedText);
+  if (!readSlideNumber(pkg, slidePartUri, 'slide')) return false;
+  return pkg.transaction(() => {
+    const part = pkg.requirePart(slidePartUri);
+    const xml = LosslessXmlDocument.parse(part.bytes);
+    const root = uniqueRoot(xml, ROOT_NAMES.slide, PRESENTATION_NAMESPACE);
+    const commonSlide = root
+      ? uniqueDirectChild(root, 'cSld', PRESENTATION_NAMESPACE)
+      : undefined;
+    const shapeTree = commonSlide
+      ? uniqueDirectChild(commonSlide, 'spTree', PRESENTATION_NAMESPACE)
+      : undefined;
+    const candidates = shapeTree ? directSlideNumberShapes(shapeTree) : [];
+    const target = candidates.length === 1 ? supportedTarget(candidates[0]!) : undefined;
+    if (!target || textValue(target.text) === cachedText) return false;
+    xml.replaceElement(target.text, rewriteTextElement(xml, target.text, cachedText));
+    pkg.setPart(slidePartUri, xml.serialize(), part.contentType);
+    return true;
+  });
+}
+
+function editableOwnerRoot(
+  xml: LosslessXmlDocument,
+  ownerKind: SlideNumberOwnerKind,
+  ownerPartUri: string,
+): XmlElement {
+  const root = uniqueRoot(xml, ROOT_NAMES[ownerKind], PRESENTATION_NAMESPACE);
+  if (!root) {
+    throw new Error(`Slide-number owner root is missing or ambiguous: ${ownerPartUri}`);
+  }
+  return root;
+}
+
+function directSlideNumberShapes(shapeTree: XmlElement): XmlElement[] {
+  return directChildren(shapeTree).filter(
+    (child) => isElement(child, 'sp', PRESENTATION_NAMESPACE)
+      && containsDirectSlideNumberPlaceholder(child),
+  );
+}
+
+function supportedTarget(shape: XmlElement): SupportedSlideNumberTarget | undefined {
+  const shapeProperties = uniqueDirectChild(shape, 'spPr', PRESENTATION_NAMESPACE);
+  const transform = shapeProperties
+    ? uniqueDirectChild(shapeProperties, 'xfrm', DRAWING_NAMESPACE)
+    : undefined;
+  const offset = transform
+    ? uniqueDirectChild(transform, 'off', DRAWING_NAMESPACE)
+    : undefined;
+  const extent = transform
+    ? uniqueDirectChild(transform, 'ext', DRAWING_NAMESPACE)
+    : undefined;
+  const textBody = uniqueDirectChild(shape, 'txBody', PRESENTATION_NAMESPACE);
+  const bodyProperties = textBody
+    ? uniqueDirectChild(textBody, 'bodyPr', DRAWING_NAMESPACE)
+    : undefined;
+  const paragraphs = textBody
+    ? directChildren(textBody).filter((child) => isElement(child, 'p', DRAWING_NAMESPACE))
+    : [];
+  if (!offset || !extent || !textBody || !bodyProperties || paragraphs.length !== 1) {
+    return undefined;
+  }
+  const paragraph = paragraphs[0]!;
+  const paragraphProperties = optionalUniqueDirectChild(paragraph, 'pPr', DRAWING_NAMESPACE);
+  if (paragraphProperties === INVALID) return undefined;
+  const field = readUniqueSlideNumberField(paragraph);
+  if (!field) return undefined;
+  const fieldProperties = optionalUniqueDirectChild(field, 'rPr', DRAWING_NAMESPACE);
+  if (fieldProperties === INVALID) return undefined;
+  const texts = directChildren(field).filter((child) => isElement(child, 't', DRAWING_NAMESPACE));
+  if (texts.length !== 1) return undefined;
+  const defaultProperties = defaultRunProperties(textBody);
+  return {
+    shape,
+    offset,
+    extent,
+    bodyProperties,
+    paragraph,
+    ...(paragraphProperties ? { paragraphProperties } : {}),
+    field,
+    ...(fieldProperties ? { fieldProperties } : {}),
+    text: texts[0]!,
+    ...(defaultProperties ? { defaultProperties } : {}),
+  };
+}
+
+function defaultRunProperties(textBody: XmlElement): XmlElement | undefined {
+  const listStyle = uniqueDirectChild(textBody, 'lstStyle', DRAWING_NAMESPACE);
+  const level = listStyle
+    ? uniqueDirectChild(listStyle, 'lvl1pPr', DRAWING_NAMESPACE)
+    : undefined;
+  return level ? uniqueDirectChild(level, 'defRPr', DRAWING_NAMESPACE) : undefined;
+}
+
+function patchSupportedTarget(
+  xml: LosslessXmlDocument,
+  target: SupportedSlideNumberTarget,
+  value: SlideNumber,
+  cachedText: string,
+): void {
+  xml.replaceElement(target.offset, rewriteElement(xml, target.offset, {
+    x: String(value.x),
+    y: String(value.y),
+  }));
+  xml.replaceElement(target.extent, rewriteElement(xml, target.extent, {
+    cx: String(value.width),
+    cy: String(value.height),
+  }));
+  xml.replaceElement(target.bodyProperties, rewriteElement(xml, target.bodyProperties, {
+    anchor: value.valign === undefined
+      ? undefined
+      : { top: 't', middle: 'ctr', bottom: 'b' }[value.valign],
+    lIns: marginRaw(value.margin?.left),
+    tIns: marginRaw(value.margin?.top),
+    rIns: marginRaw(value.margin?.right),
+    bIns: marginRaw(value.margin?.bottom),
+  }));
+  const paragraphAttributes = {
+    algn: { left: 'l', center: 'ctr', right: 'r', justify: 'just' }[value.align],
+    rtl: value.rtl ? '1' : '0',
+  };
+  if (target.paragraphProperties) {
+    xml.replaceElement(
+      target.paragraphProperties,
+      rewriteElement(xml, target.paragraphProperties, paragraphAttributes),
+    );
+  } else {
+    xml.replace(
+      target.field.start,
+      target.field.start,
+      `<a:pPr xmlns:a="${DRAWING_NAMESPACE}" algn="${paragraphAttributes.algn}" rtl="${paragraphAttributes.rtl}"/>`,
+    );
+  }
+  if (target.defaultProperties) {
+    xml.replaceElement(target.defaultProperties, rewriteElement(
+      xml,
+      target.defaultProperties,
+      { sz: undefined, lang: undefined, b: undefined, i: undefined },
+      new Set(['solidFill', 'latin', 'ea', 'cs']),
+      '',
+    ));
+  }
+  const runAttributes = {
+    lang: value.style.lang,
+    b: value.style.bold ? '1' : '0',
+    i: value.style.italic ? '1' : '0',
+    sz: value.style.fontSize === undefined
+      ? undefined
+      : String(Math.round(value.style.fontSize * 100)),
+  };
+  const runChildren = renderStyleChildren(value.style);
+  if (target.fieldProperties) {
+    xml.replaceElement(target.fieldProperties, rewriteElement(
+      xml,
+      target.fieldProperties,
+      runAttributes,
+      new Set(['solidFill', 'latin', 'ea', 'cs']),
+      runChildren,
+    ));
+  } else {
+    xml.replace(
+      target.text.start,
+      target.text.start,
+      renderRunProperties(value.style, true),
+    );
+  }
+  xml.replaceElement(target.text, rewriteTextElement(xml, target.text, cachedText));
+}
+
+function rewriteElement(
+  xml: LosslessXmlDocument,
+  element: XmlElement,
+  attributes: Readonly<Record<string, string | undefined>>,
+  ownedChildren: ReadonlySet<string> = new Set(),
+  newChildren = '',
+): string {
+  let startTag = xml.source.slice(element.start, element.startTagEnd);
+  const removals = element.attributes
+    .filter((attribute) => Object.hasOwn(attributes, attribute.name))
+    .map((attribute) => ({
+      start: attribute.start - element.start,
+      end: attribute.end - element.start,
+    }));
+  for (const removal of removals.sort((left, right) => right.start - left.start)) {
+    let start = removal.start;
+    while (start > 0 && /\s/.test(startTag[start - 1]!)) start -= 1;
+    startTag = startTag.slice(0, start) + startTag.slice(removal.end);
+  }
+  const renderedAttributes = Object.entries(attributes)
+    .filter((entry): entry is [string, string] => entry[1] !== undefined)
+    .map(([name, entryValue]) => ` ${name}="${escapeXmlAttribute(entryValue)}"`)
+    .join('');
+  const marker = element.selfClosing ? startTag.lastIndexOf('/>') : startTag.lastIndexOf('>');
+  if (marker < 0) throw new Error(`Invalid XML start tag for ${element.name}`);
+  startTag = startTag.slice(0, marker).replace(/\s+$/u, '')
+    + renderedAttributes
+    + startTag.slice(marker);
+
+  const removedChildren = directChildren(element).filter(
+    (child) => elementNamespaceUri(child) === DRAWING_NAMESPACE
+      && ownedChildren.has(child.localName),
+  );
+  if (element.selfClosing) {
+    if (newChildren.length === 0) return startTag;
+    return `${startTag.slice(0, startTag.lastIndexOf('/>'))}>${newChildren}</${element.name}>`;
+  }
+  const extension = directChildren(element).find(
+    (child) => isElement(child, 'extLst', DRAWING_NAMESPACE),
+  );
+  const insertion = removedChildren[0]?.start ?? extension?.start ?? element.endTagStart;
+  const content = rewriteContent(
+    xml.source,
+    element.startTagEnd,
+    element.endTagStart,
+    removedChildren,
+    insertion,
+    newChildren,
+  );
+  return startTag + content + xml.source.slice(element.endTagStart, element.end);
+}
+
+function rewriteContent(
+  source: string,
+  start: number,
+  end: number,
+  removals: readonly XmlElement[],
+  insertion: number,
+  inserted: string,
+): string {
+  let output = '';
+  let cursor = start;
+  let didInsert = false;
+  for (const removal of [...removals].sort((left, right) => left.start - right.start)) {
+    if (!didInsert && insertion >= cursor && insertion <= removal.start) {
+      output += source.slice(cursor, insertion) + inserted + source.slice(insertion, removal.start);
+      didInsert = true;
+    } else {
+      output += source.slice(cursor, removal.start);
+    }
+    cursor = removal.end;
+  }
+  if (!didInsert) {
+    output += source.slice(cursor, insertion) + inserted;
+    cursor = insertion;
+  }
+  return output + source.slice(cursor, end);
+}
+
+function rewriteTextElement(
+  xml: LosslessXmlDocument,
+  element: XmlElement,
+  value: string,
+): string {
+  const startTag = xml.source.slice(element.start, element.startTagEnd);
+  if (element.selfClosing) {
+    const marker = startTag.lastIndexOf('/>');
+    return `${startTag.slice(0, marker).replace(/\s+$/u, '')}>${escapeXmlText(value)}</${element.name}>`;
+  }
+  return startTag
+    + escapeXmlText(value)
+    + xml.source.slice(element.endTagStart, element.end);
+}
+
+function renderSlideNumberShape(
+  value: SlideNumber,
+  shapeId: number,
+  placeholderIndex: number,
+  cachedText: string,
+): string {
+  const bodyAttributes = [
+    value.valign === undefined
+      ? ''
+      : ` anchor="${{ top: 't', middle: 'ctr', bottom: 'b' }[value.valign]}"`,
+    renderMarginAttribute('lIns', value.margin?.left),
+    renderMarginAttribute('tIns', value.margin?.top),
+    renderMarginAttribute('rIns', value.margin?.right),
+    renderMarginAttribute('bIns', value.margin?.bottom),
+  ].join('');
+  const align = { left: 'l', center: 'ctr', right: 'r', justify: 'just' }[value.align];
+  return `<p:sp xmlns:p="${PRESENTATION_NAMESPACE}" xmlns:a="${DRAWING_NAMESPACE}">`
+    + `<p:nvSpPr><p:cNvPr id="${shapeId}" name="Slide Number ${shapeId}"/>`
+    + '<p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr>'
+    + `<p:ph type="sldNum" sz="quarter" idx="${placeholderIndex}"/></p:nvPr></p:nvSpPr>`
+    + `<p:spPr><a:xfrm><a:off x="${value.x}" y="${value.y}"/>`
+    + `<a:ext cx="${value.width}" cy="${value.height}"/></a:xfrm>`
+    + '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></p:spPr>'
+    + `<p:txBody><a:bodyPr${bodyAttributes}/><a:lstStyle/><a:p>`
+    + `<a:pPr algn="${align}" rtl="${value.rtl ? 1 : 0}"/>`
+    + `<a:fld id="${FIELD_ID}" type="slidenum">${renderRunProperties(value.style, false)}`
+    + `<a:t>${escapeXmlText(cachedText)}</a:t></a:fld>`
+    + `<a:endParaRPr lang="${escapeXmlAttribute(value.style.lang)}"/></a:p></p:txBody></p:sp>`;
+}
+
+function renderRunProperties(style: SlideNumberTextStyle, includeNamespace: boolean): string {
+  const attributes = [
+    includeNamespace ? ` xmlns:a="${DRAWING_NAMESPACE}"` : '',
+    ` lang="${escapeXmlAttribute(style.lang)}"`,
+    ` b="${style.bold ? 1 : 0}"`,
+    ` i="${style.italic ? 1 : 0}"`,
+    style.fontSize === undefined ? '' : ` sz="${Math.round(style.fontSize * 100)}"`,
+  ].join('');
+  const children = renderStyleChildren(style);
+  return children.length === 0
+    ? `<a:rPr${attributes}/>`
+    : `<a:rPr${attributes}>${children}</a:rPr>`;
+}
+
+function renderStyleChildren(style: SlideNumberTextStyle): string {
+  const fill = style.color === undefined
+    ? ''
+    : renderColor(style.color, style.transparency);
+  const family = style.fontFamily === undefined
+    ? ''
+    : `<a:latin typeface="${escapeXmlAttribute(style.fontFamily)}"/>`
+      + `<a:ea typeface="${escapeXmlAttribute(style.fontFamily)}"/>`
+      + `<a:cs typeface="${escapeXmlAttribute(style.fontFamily)}"/>`;
+  return fill + family;
+}
+
+function renderColor(color: SlideNumberColor, transparency: number | undefined): string {
+  const name = color.kind === 'srgb' ? 'srgbClr' : 'schemeClr';
+  const alpha = transparency === undefined
+    ? ''
+    : `<a:alpha val="${Math.round((100 - transparency) * 1_000)}"/>`;
+  const encoded = escapeXmlAttribute(color.value);
+  return alpha.length === 0
+    ? `<a:solidFill><a:${name} val="${encoded}"/></a:solidFill>`
+    : `<a:solidFill><a:${name} val="${encoded}">${alpha}</a:${name}></a:solidFill>`;
+}
+
+function renderMarginAttribute(name: string, value: number | undefined): string {
+  const raw = marginRaw(value);
+  return raw === undefined ? '' : ` ${name}="${raw}"`;
+}
+
+function marginRaw(value: number | undefined): string | undefined {
+  return value === undefined ? undefined : String(Math.round(value * EMU_PER_POINT));
+}
+
+function allocateShapeId(root: XmlElement): number {
+  const used = new Set(descendantsAndSelf(root)
+    .filter((element) => isElement(element, 'cNvPr', PRESENTATION_NAMESPACE))
+    .map((element) => readUnsignedInteger(element, 'id', 1, MAX_UINT32))
+    .filter((value): value is number => value !== INVALID));
+  let candidate = 1;
+  while (used.has(candidate)) candidate += 1;
+  return candidate;
+}
+
+function allocatePlaceholderIndex(root: XmlElement): number {
+  const used = placeholderIndexes(root);
+  if (!used.has(MAX_UINT32)) return MAX_UINT32;
+  let candidate = 0;
+  while (used.has(candidate)) candidate += 1;
+  return candidate;
+}
+
+function placeholderIndexes(root: XmlElement): Set<number> {
+  return new Set(descendantsAndSelf(root)
+    .filter((element) => isElement(element, 'ph', PRESENTATION_NAMESPACE))
+    .map((element) => readUnsignedInteger(element, 'idx', 0, MAX_UINT32))
+    .filter((value): value is number => value !== INVALID));
+}
+
+function opaqueShapeIdentity(
+  root: XmlElement,
+  shape: XmlElement,
+): { readonly shapeId: number; readonly placeholderIndex: number } | undefined {
+  const nonVisual = uniqueDirectChild(shape, 'nvSpPr', PRESENTATION_NAMESPACE);
+  const properties = nonVisual
+    ? uniqueDirectChild(nonVisual, 'cNvPr', PRESENTATION_NAMESPACE)
+    : undefined;
+  const application = nonVisual
+    ? uniqueDirectChild(nonVisual, 'nvPr', PRESENTATION_NAMESPACE)
+    : undefined;
+  const placeholder = application
+    ? uniqueDirectChild(application, 'ph', PRESENTATION_NAMESPACE)
+    : undefined;
+  if (!properties || !placeholder) return undefined;
+  const shapeId = readUnsignedInteger(properties, 'id', 1, MAX_UINT32);
+  const placeholderIndex = readUnsignedInteger(placeholder, 'idx', 0, MAX_UINT32);
+  if (shapeId === INVALID || placeholderIndex === INVALID) return undefined;
+  const matchingIds = descendantsAndSelf(root)
+    .filter((element) => isElement(element, 'cNvPr', PRESENTATION_NAMESPACE))
+    .filter((element) => readUnsignedInteger(element, 'id', 1, MAX_UINT32) === shapeId);
+  const matchingIndexes = descendantsAndSelf(root)
+    .filter((element) => isElement(element, 'ph', PRESENTATION_NAMESPACE))
+    .filter((element) => readUnsignedInteger(element, 'idx', 0, MAX_UINT32) === placeholderIndex);
+  return matchingIds.length === 1 && matchingIndexes.length === 1
+    ? { shapeId, placeholderIndex }
+    : undefined;
+}
+
+function updateMasterFlag(
+  xml: LosslessXmlDocument,
+  root: XmlElement,
+  enabled: boolean,
+): void {
+  const headers = directChildren(root).filter(
+    (child) => isElement(child, 'hf', PRESENTATION_NAMESPACE),
+  );
+  if (headers.length > 1) throw new Error('Slide master has ambiguous header-footer state');
+  if (headers[0]) {
+    xml.replaceElement(headers[0], rewriteElement(xml, headers[0], {
+      sldNum: enabled ? '1' : '0',
+    }));
+    return;
+  }
+  if (!enabled) return;
+  const rootSeparator = root.name.indexOf(':');
+  const rootPrefix = rootSeparator < 0 ? '' : root.name.slice(0, rootSeparator);
+  const headerName = rootPrefix.length === 0 ? 'hf' : `${rootPrefix}:hf`;
+  const rendered = `<${headerName} sldNum="1"/>`;
+  const follower = directChildren(root).find(
+    (child) => isElement(child, 'txStyles', PRESENTATION_NAMESPACE)
+      || isElement(child, 'extLst', PRESENTATION_NAMESPACE),
+  );
+  if (follower) {
+    xml.replace(follower.start, follower.start, rendered);
+    return;
+  }
+  const layoutList = directChildren(root).find(
+    (child) => isElement(child, 'sldLayoutIdLst', PRESENTATION_NAMESPACE),
+  );
+  if (layoutList) xml.replace(layoutList.end, layoutList.end, rendered);
+  else xml.appendChildXml(root, rendered);
+}
+
+function masterFlagValue(root: XmlElement): boolean | undefined {
+  const headers = directChildren(root).filter(
+    (child) => isElement(child, 'hf', PRESENTATION_NAMESPACE),
+  );
+  if (headers.length !== 1) return headers.length === 0 ? undefined : false;
+  const value = directAttribute(headers[0]!, 'sldNum');
+  if (value === undefined) return undefined;
+  if (value === INVALID) return false;
+  const parsed = parseBoolean(value);
+  return parsed === INVALID ? false : parsed;
+}
+
+function slideNumbersEqual(left: SlideNumber, right: SlideNumber): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function textValue(element: XmlElement): string {
+  return element.children
+    .filter((child) => child.type === 'text')
+    .map((child) => child.value)
+    .join('');
+}
+
+function assertCachedText(value: unknown): asserts value is string {
+  if (typeof value !== 'string' || !isXmlSafe(value)) {
+    throw new TypeError('Slide-number cached text must be an XML-safe string');
+  }
 }
 
 function normalizeCoordinate(
@@ -475,7 +1037,9 @@ function containsDirectSlideNumberPlaceholder(shape: XmlElement): boolean {
       .filter((child) => isElement(child, 'nvPr', PRESENTATION_NAMESPACE))
       .some((application) => directChildren(application)
         .filter((child) => isElement(child, 'ph', PRESENTATION_NAMESPACE))
-        .some((placeholder) => directAttribute(placeholder, 'type') === 'sldNum')));
+        .some((placeholder) => placeholder.attributes.some(
+          (attribute) => attribute.name === 'type' && attribute.value === 'sldNum',
+        ))));
 }
 
 function validUniqueShapeId(
