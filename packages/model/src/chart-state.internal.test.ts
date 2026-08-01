@@ -141,6 +141,24 @@ describe('strict chart semantic state', () => {
     });
   });
 
+  it('normalizes the single trailing dangling categorical axis emitted by PptxGenJS', () => {
+    const series = categoricalSeriesXml('Revenue', ['Q1', 'Q2'], [10, 20]);
+    const normalized = readChartState(chartPackage(chartXml(
+      groupXml('barChart', series, [10, 20, 30]),
+      axisXml([10, 20]),
+    )), CHART_URI);
+    expect(normalized).toMatchObject({
+      status: 'recognized',
+      definition: { groups: [{ type: 'bar', axis: 'primary' }] },
+    });
+
+    const unsafe = readChartState(chartPackage(chartXml(
+      groupXml('barChart', series, [10, 30, 20]),
+      axisXml([10, 20]),
+    )), CHART_URI);
+    expect(unsafe).toMatchObject({ status: 'unsupported' });
+  });
+
   it('orders cache points by canonical idx and reads numeric and multi-level categories', () => {
     const series = '<c:ser><c:idx val="0"/><c:order val="0"/>'
       + stringReference('tx', 'Revenue', 'Sheet1!$B$1')

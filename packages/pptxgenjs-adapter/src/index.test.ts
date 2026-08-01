@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  ChartModel,
   degrees,
   ImageModel,
   inches,
@@ -26,8 +27,24 @@ interface BorderProps {
   readonly pt?: number;
 }
 
+interface PptxGenJSChartData {
+  readonly name?: string;
+  readonly labels?: readonly string[] | readonly (readonly string[])[];
+  readonly values?: readonly number[];
+  readonly sizes?: readonly number[];
+}
+
 interface PptxGenJSSlide {
   hidden: unknown;
+  addChart(
+    type: string | readonly {
+      readonly type: string;
+      readonly data: readonly PptxGenJSChartData[];
+      readonly options: Record<string, unknown>;
+    }[],
+    data: readonly PptxGenJSChartData[] | Record<string, unknown>,
+    options?: Record<string, unknown>,
+  ): void;
   addImage(options: Record<string, unknown>): void;
   addMedia(options: PptxGenJSMediaOptions): void;
   addNotes(notes: string): PptxGenJSSlide;
@@ -143,6 +160,7 @@ void [
 
 interface PptxGenJSInstance {
   readonly version: string;
+  readonly ChartType: Readonly<Record<string, string>>;
   readonly ShapeType: Readonly<Record<string, string>>;
   readonly SchemeColor: {
     readonly accent1: 'accent1';
@@ -517,6 +535,120 @@ function directShapePaintState(xml: string): { fill: 'none'; line: 'empty' } {
 }
 
 describe('importPptxGenJS', () => {
+  it('normalizes and semantically replaces imported PptxGenJS chart families', async () => {
+    const generated = new PptxGenJS();
+    const generatedSlide = generated.addSlide();
+    generatedSlide.addChart(generated.ChartType.bar!, [{
+      name: 'Revenue', labels: ['Q1', 'Q2'], values: [10, 20],
+    }], {
+      x: 1,
+      y: 1,
+      w: 6,
+      h: 4,
+      showLegend: false,
+    });
+    generatedSlide.addChart(generated.ChartType.scatter!, [
+      { name: 'X', values: [1, 2] },
+      { name: 'Points', values: [3, 4] },
+    ], { x: 1, y: 1, w: 6, h: 4 });
+    generatedSlide.addChart(generated.ChartType.bubble!, [
+      { name: 'X', values: [1, 2] },
+      { name: 'Bubbles', values: [3, 4], sizes: [5, 6] },
+    ], { x: 1, y: 1, w: 6, h: 4 });
+    generatedSlide.addChart([
+      {
+        type: generated.ChartType.bar!,
+        data: [{ name: 'Revenue', labels: ['Q1', 'Q2'], values: [10, 20] }],
+        options: {},
+      },
+      {
+        type: generated.ChartType.line!,
+        data: [{ name: 'Trend', labels: ['Q1', 'Q2'], values: [11, 21] }],
+        options: {},
+      },
+    ], { x: 1, y: 1, w: 6, h: 4 });
+
+    const imported = await importPptxGenJS(generated);
+    const charts = imported.slides[0]!.shapes.filter(
+      (shape): shape is ChartModel => shape instanceof ChartModel,
+    );
+    expect(charts).toHaveLength(4);
+    const [bar, scatter, bubble, combo] = charts as [
+      ChartModel, ChartModel, ChartModel, ChartModel,
+    ];
+    expect(bar.definition).toEqual({
+      groups: [{
+        type: 'bar',
+        axis: 'primary',
+        series: [{ name: 'Revenue', categories: [['Q1', 'Q2']], values: [10, 20] }],
+      }],
+    });
+    expect(scatter.definition).toEqual({
+      groups: [{
+        type: 'scatter',
+        axis: 'primary',
+        series: [{ name: 'Points', xValues: [1, 2], values: [3, 4] }],
+      }],
+    });
+    expect(bubble.definition).toEqual({
+      groups: [{
+        type: 'bubble',
+        axis: 'primary',
+        series: [{ name: 'Bubbles', xValues: [1, 2], values: [3, 4], sizes: [5, 6] }],
+      }],
+    });
+    expect(combo.definition?.groups.map(({ type, axis }) => [type, axis])).toEqual([
+      ['bar', 'primary'],
+      ['line', 'primary'],
+    ]);
+    const importedStyle = /<c:ser>[\s\S]*?(<c:spPr>[\s\S]*?<\/c:spPr>)/
+      .exec(bar.xml)?.[1];
+    expect(importedStyle).toBeDefined();
+
+    await bar.replaceSeries([{
+      name: 'Revenue edited',
+      categories: ['Q1', 'Q2', 'Q3'],
+      values: [12, 24, 36],
+    }]);
+    await scatter.replaceSeries([{
+      name: 'Points edited', xValues: [2, 4], values: [6, 8],
+    }]);
+    await bubble.replaceSeries([{
+      name: 'Bubbles edited', xValues: [2, 4], values: [6, 8], sizes: [10, 12],
+    }]);
+    await combo.replaceDefinition({ groups: [
+      {
+        type: 'bar',
+        series: [{ name: 'Revenue edited', categories: ['Q1', 'Q2'], values: [12, 22] }],
+      },
+      {
+        type: 'line',
+        series: [{ name: 'Trend edited', categories: ['Q1', 'Q2'], values: [13, 23] }],
+      },
+    ] });
+    expect(bar.series).toEqual([{
+      name: 'Revenue edited',
+      categories: ['Q1', 'Q2', 'Q3'],
+      values: [12, 24, 36],
+    }]);
+    expect(bar.xml).toContain(importedStyle!);
+    expect(scatter.series[0]).toMatchObject({ xValues: [2, 4], values: [6, 8] });
+    expect(bubble.series[0]).toMatchObject({ sizes: [10, 12] });
+    expect(combo.series.map(({ name, values }) => ({ name, values }))).toEqual([
+      { name: 'Revenue edited', values: [12, 22] },
+      { name: 'Trend edited', values: [13, 23] },
+    ]);
+
+    const reopened = await PptxDocument.open(await imported.write());
+    const reopenedCharts = reopened.slides[0]!.shapes.filter(
+      (shape): shape is ChartModel => shape instanceof ChartModel,
+    );
+    expect(reopenedCharts.map(({ definition }) => definition)).toEqual(
+      charts.map(({ definition }) => definition),
+    );
+    expect(reopenedCharts.every(({ workbookPartUri }) => workbookPartUri !== undefined)).toBe(true);
+  });
+
   it('matches valid PptxGenJS public audio and video media output semantically', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'pptxgenjs-media-'));
     const audioPath = join(directory, 'path-audio.mp3');

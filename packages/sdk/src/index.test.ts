@@ -4047,6 +4047,29 @@ describe('PptxDocument vertical slice', () => {
         ['bar', 'primary'],
         ['line', 'secondary'],
       ]);
+      await created[1]!.replaceSeries([{
+        name: 'bar edited', categories: ['Q1', 'Q2'], values: [30, 40],
+      }]);
+      await created[3]!.replaceDefinition({ groups: [{
+        type: 'bubble',
+        series: [{
+          name: 'bubble edited', xValues: [3, 4], values: [50, 60], sizes: [7, 8],
+        }],
+      }] });
+      await created[8]!.replaceSeries([{
+        name: 'scatter edited', xValues: [5, 6], values: [70, 80],
+      }]);
+      await combo.replaceDefinition({ groups: [
+        {
+          type: 'bar',
+          series: [{ name: 'Revenue edited', categories: ['Q1', 'Q2'], values: [15, 25] }],
+        },
+        {
+          type: 'line',
+          axis: 'secondary',
+          series: [{ name: 'Trend edited', categories: ['Q1', 'Q2'], values: [16, 26] }],
+        },
+      ] });
       const duplicate = document.duplicateSlide(0);
       const duplicateCombo = duplicate.shapes.filter(
         (shape): shape is ChartModel => shape instanceof ChartModel,
@@ -4065,14 +4088,25 @@ describe('PptxDocument vertical slice', () => {
       const reopenedCombo = charts.at(-1)!;
       expect(reopened.format).toBe(format);
       expect(singleCharts.map((chart) => chart.definition?.groups[0]?.type)).toEqual(types);
-      expect(singleCharts.map((chart) => chart.series[0]?.values)).toEqual(types.map(() => [10, 20]));
+      expect(singleCharts.map((chart) => chart.series[0]?.values)).toEqual(types.map((type) =>
+        type === 'bar'
+          ? [30, 40]
+          : type === 'bubble'
+            ? [50, 60]
+            : type === 'scatter'
+              ? [70, 80]
+              : [10, 20]));
       expect(singleCharts.find((chart) => chart.definition?.groups[0]?.type === 'scatter')
-        ?.series[0]?.xValues).toEqual([1, 2]);
+        ?.series[0]?.xValues).toEqual([5, 6]);
       expect(singleCharts.find((chart) => chart.definition?.groups[0]?.type === 'bubble')
-        ?.series[0]?.sizes).toEqual([5, 6]);
+        ?.series[0]?.sizes).toEqual([7, 8]);
       expect(reopenedCombo.definition?.groups.map(({ type, axis }) => [type, axis])).toEqual([
         ['bar', 'primary'],
         ['line', 'secondary'],
+      ]);
+      expect(reopenedCombo.series.map(({ name, values }) => ({ name, values }))).toEqual([
+        { name: 'Revenue edited', values: [15, 25] },
+        { name: 'Trend edited', values: [16, 26] },
       ]);
       const reopenedDuplicateCombo = reopened.slides[1]!.shapes.filter(
         (shape): shape is ChartModel => shape instanceof ChartModel,

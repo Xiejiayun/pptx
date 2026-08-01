@@ -18,8 +18,20 @@ import {
   type OpcPackage,
   type Relationship,
 } from '@pptx/opc';
-import type { ChartDefinition, ChartSeries } from './chart.js';
+import type {
+  ChartDefinition,
+  ChartDefinitionInput,
+  ChartSeries,
+  ChartSeriesInput,
+  ChartState,
+} from './chart.js';
+import { normalizeChartDefinition } from './chart-definition.internal.js';
+import { chartDefinitionsEqual } from './chart-edit.internal.js';
 import { readChartState } from './chart-state.internal.js';
+import {
+  buildChartWorkbook,
+  chartWorkbookMatches,
+} from './chart-workbook.internal.js';
 import { cloneOwnedPartForMutation } from './dependency.internal.js';
 import { evaluateCustomGeometry as evaluateGeometry } from './custom-geometry-evaluator.js';
 import type { CustomGeometry, EvaluatedCustomGeometry } from './custom-geometry.js';
@@ -781,6 +793,42 @@ export class ChartModel extends BaseShapeModel {
     return uri ? new TextDecoder().decode(this.slide.presentation.opcPackage.requirePart(uri).bytes) : '';
   }
 
+  async replaceDefinition(value: ChartDefinitionInput): Promise<this> {
+    const next = normalizeChartDefinition(value);
+    const current = this.editableState();
+    if (
+      current.status === 'recognized'
+      && current.definition
+      && current.workbookPartUri
+      && chartDefinitionsEqual(current.definition, next)
+      && await chartWorkbookMatches(
+        this.slide.presentation.opcPackage.requirePart(current.workbookPartUri).bytes,
+        next,
+      )
+    ) {
+      return this;
+    }
+    const workbookBytes = await buildChartWorkbook(next);
+    this.slide.replaceChartDefinition(this.id, current, next, workbookBytes);
+    return this;
+  }
+
+  async replaceSeries(value: readonly ChartSeriesInput[]): Promise<this> {
+    const current = this.editableState();
+    const definition = current.definition!;
+    if (definition.groups.length !== 1) {
+      throw new Error('replaceSeries() requires a chart with exactly one group');
+    }
+    const group = definition.groups[0]!;
+    return this.replaceDefinition({
+      groups: [{
+        type: group.type,
+        series: value,
+        ...(group.axis === undefined ? {} : { axis: group.axis }),
+      }],
+    });
+  }
+
   setXml(value: string): void {
     LosslessXmlDocument.parse(value);
     const pkg = this.slide.presentation.opcPackage;
@@ -802,6 +850,19 @@ export class ChartModel extends BaseShapeModel {
       retargetShapeRelationship(this.slide, xml, reference, relationship, cloneUri);
       pkg.setPart(cloneUri, value, current.contentType);
     });
+  }
+
+  private editableState(): Readonly<ChartState> {
+    const uri = this.chartPartUri;
+    if (!uri) throw new Error(`Chart ${this.id} has no chart part`);
+    const state = readChartState(this.slide.presentation.opcPackage, uri);
+    if (
+      (state.status !== 'recognized' && state.status !== 'cache-only')
+      || !state.definition
+    ) {
+      throw new Error(`Chart semantic editing is unavailable for ${state.status} state`);
+    }
+    return state;
   }
 }
 

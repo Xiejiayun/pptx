@@ -149,7 +149,9 @@ function readGroup(xml: LosslessXmlDocument, group: XmlElement): ParsedGroup {
     ? [0]
     : type === 'bar3D'
       ? [2, 3]
-      : [2];
+      : type === 'area' || type === 'bar' || type === 'line' || type === 'radar'
+        ? [2, 3]
+        : [2];
   if (!expectedAxes.includes(axisIds.length)) {
     unsupported(`${group.localName} has an unsupported axis reference count`);
   }
@@ -334,14 +336,26 @@ function assignAxes(
   }));
   requireUnique(axes.map(({ id }) => id), 'Chart axis ids');
   const axesById = new Map(axes.map((axis) => [axis.id, axis]));
+  const normalizedGroups = groups.map((group) =>
+    normalizePptxGenJsTrailingAxisReference(group, axesById));
+  for (const group of normalizedGroups) {
+    const expected = group.type === 'pie' || group.type === 'doughnut'
+      ? 0
+      : group.type === 'bar3D'
+        ? 3
+        : 2;
+    if (group.axisIds.length !== expected) {
+      unsupported(`${group.type} chart has an unsupported axis reference count`);
+    }
+  }
   for (const axis of axes) {
     if (axis.id === axis.crossId || !axesById.has(axis.crossId)) {
       unsupported(`Chart axis ${axis.id} has a dangling cross-axis reference`);
     }
   }
-  const usedAxes = new Set(groups.flatMap(({ axisIds }) => axisIds));
+  const usedAxes = new Set(normalizedGroups.flatMap(({ axisIds }) => axisIds));
   if (axes.some(({ id }) => !usedAxes.has(id))) unsupported('Chart contains an unreferenced axis');
-  for (const group of groups) {
+  for (const group of normalizedGroups) {
     for (const id of group.axisIds) {
       const axis = axesById.get(id);
       if (!axis) unsupported(`${group.type} chart has a dangling axis reference`);
@@ -352,7 +366,7 @@ function assignAxes(
   }
 
   const axisSets: string[] = [];
-  return Object.freeze(groups.map((group): ChartGroupInput => {
+  return Object.freeze(normalizedGroups.map((group): ChartGroupInput => {
     if (group.axisIds.length === 0) return { type: group.type, series: group.series };
     const key = [...group.axisIds].sort((left, right) => left - right).join(',');
     let index = axisSets.indexOf(key);
@@ -367,6 +381,25 @@ function assignAxes(
       axis: index === 0 ? 'primary' : 'secondary',
     };
   }));
+}
+
+function normalizePptxGenJsTrailingAxisReference(
+  group: ParsedGroup,
+  axesById: ReadonlyMap<number, ParsedAxis>,
+): ParsedGroup {
+  if (
+    !['area', 'bar', 'line', 'radar'].includes(group.type)
+    || group.axisIds.length !== 3
+    || !axesById.has(group.axisIds[0]!)
+    || !axesById.has(group.axisIds[1]!)
+    || axesById.has(group.axisIds[2]!)
+  ) {
+    return group;
+  }
+  return {
+    ...group,
+    axisIds: Object.freeze(group.axisIds.slice(0, 2)),
+  };
 }
 
 function readWorkbookPartUri(

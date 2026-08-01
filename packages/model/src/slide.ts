@@ -22,11 +22,14 @@ import {
 } from '@pptx/opc';
 import type {
   AddChartOptions,
+  ChartDefinition,
   ChartGroupInput,
   ChartSeriesInput,
+  ChartState,
   ChartType,
 } from './chart.js';
 import { normalizeChartDefinition } from './chart-definition.internal.js';
+import { replaceChartDefinition } from './chart-edit.internal.js';
 import {
   normalizeAddChartOptions,
   renderChartGraphicFrame,
@@ -1107,6 +1110,22 @@ export class SlideModel {
       }
       return chart;
     });
+  }
+
+  replaceChartDefinition(
+    shapeId: number,
+    current: Readonly<ChartState>,
+    next: Readonly<ChartDefinition>,
+    workbookBytes: Uint8Array,
+  ): void {
+    replaceChartDefinition(
+      this.presentation.opcPackage,
+      this,
+      shapeId,
+      current,
+      next,
+      workbookBytes,
+    );
   }
 
   addText(value: string, options: AddTextOptions = {}): ShapeModel {

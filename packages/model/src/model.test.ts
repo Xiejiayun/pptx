@@ -7202,6 +7202,50 @@ describe('PresentationModel', () => {
     ]);
   });
 
+  it('edits and reopens synchronized chart semantics through the live model', async () => {
+    const { pkg, model } = emptyPresentationModel();
+    const slide = model.addSlide();
+    const chart = await slide.addChart('bar', [{
+      name: 'Revenue', categories: ['Q1', 'Q2'], values: [10, 20],
+    }]);
+    const identity = chart;
+    const invalidBefore = packageSnapshot(pkg);
+    await expect(chart.replaceDefinition({
+      groups: [{
+        type: 'bar',
+        series: [{
+          name: 'Invalid', categories: ['Q1'], values: [1], extra: true,
+        }],
+      }],
+    } as never)).rejects.toThrow(/unsupported property/);
+    expect(packageSnapshot(pkg)).toEqual(invalidBefore);
+
+    await chart.replaceSeries([{
+      name: 'Revenue edited', categories: ['Q1', 'Q2', 'Q3'], values: [12, 24, 36],
+    }]);
+    expect(slide.shapes.find(({ id }) => id === chart.id)).toBe(identity);
+    expect(chart.series[0]?.values).toEqual([12, 24, 36]);
+    expect(await chartWorkbookMatches(
+      pkg.requirePart(chart.workbookPartUri!).bytes,
+      chart.definition!,
+    )).toBe(true);
+
+    await chart.replaceDefinition({ groups: [{
+      type: 'scatter',
+      series: [{ name: 'Points', xValues: [1, 2], values: [3, 4] }],
+    }] });
+    expect(chart.definition?.groups[0]?.type).toBe('scatter');
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedChart = reopened.slides[0]!.shapes.find(
+      (shape): shape is ChartModel => shape instanceof ChartModel,
+    )!;
+    expect(reopenedChart.definition).toEqual(chart.definition);
+    expect(await chartWorkbookMatches(
+      reopened.opcPackage.requirePart(reopenedChart.workbookPartUri!).bytes,
+      reopenedChart.definition!,
+    )).toBe(true);
+  });
+
   it('creates strict basic tables with stable identity, ordering, and atomic failure', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);
