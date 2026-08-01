@@ -724,7 +724,17 @@ describe('PptxDocument vertical slice', () => {
   it('leaves the document unchanged when background source loading or assignment fails', async () => {
     const document = PptxDocument.create();
     const slide = document.addSlide();
-    const expected = await sdkPackageSnapshot(document);
+    const snapshot = () => ({
+      parts: document.opcPackage.parts.map(({ uri, contentType, bytes }) => ({
+        uri,
+        contentType,
+        bytes: new Uint8Array(bytes),
+      })),
+      graph: document.opcPackage.graph,
+      journal: document.opcPackage.mutations.map((mutation) => ({ ...mutation })),
+      background: slide.background,
+    });
+    const expected = snapshot();
     let sourceReads = 0;
     const countedSource: RasterImageSource = {
       async *[Symbol.asyncIterator]() {
@@ -754,7 +764,7 @@ describe('PptxDocument vertical slice', () => {
     ];
     for (const call of invalidBeforeRead) {
       await expect(call()).rejects.toBeInstanceOf(Error);
-      expect(await sdkPackageSnapshot(document)).toEqual(expected);
+      expect(snapshot()).toEqual(expected);
     }
     expect(sourceReads).toBe(0);
     expect(accessorReads).toBe(0);
@@ -773,7 +783,7 @@ describe('PptxDocument vertical slice', () => {
     ];
     for (const call of invalidAfterRead) {
       await expect(call()).rejects.toBeInstanceOf(Error);
-      expect(await sdkPackageSnapshot(document)).toEqual(expected);
+      expect(snapshot()).toEqual(expected);
     }
 
     const part = document.opcPackage.requirePart(slide.partUri);
@@ -782,10 +792,10 @@ describe('PptxDocument vertical slice', () => {
       new TextDecoder().decode(part.bytes).replace('<p:cSld>', '<p:cSld/><p:cSld>'),
       part.contentType,
     );
-    const malformed = await sdkPackageSnapshot(document);
+    const malformed = snapshot();
     await expect(document.setSlideBackgroundImage(0, sdkPngHeader(1, 1)))
       .rejects.toThrow(ModelParseError);
-    expect(await sdkPackageSnapshot(document)).toEqual(malformed);
+    expect(snapshot()).toEqual(malformed);
   });
 
   it('round-trips image, none, solid, and gradient backgrounds twice in all six formats', async () => {
@@ -842,6 +852,37 @@ describe('PptxDocument vertical slice', () => {
       expect(second.slides[3]!.background?.kind).toBe('linear-gradient');
       expect(validatePackage(second.opcPackage).filter(({ severity }) => severity === 'error'))
         .toEqual([]);
+    }
+  });
+
+  it('validates every native slide background across all compatibility profiles', async () => {
+    const document = PptxDocument.create();
+    document.addSlide();
+    await document.setSlideBackgroundImage(0, sdkPngHeader(32, 18));
+    document.addSlide().background = { kind: 'none' };
+    document.addSlide().background = {
+      kind: 'solid',
+      color: { kind: 'srgb', value: 'FF3399' },
+      transparency: 50,
+    };
+    document.addSlide().background = {
+      kind: 'linear-gradient',
+      angle: 45,
+      stops: [
+        { offset: 0, color: 'FFFFFF' },
+        { offset: 1, color: '000000' },
+      ],
+    };
+
+    for (const compatibility of [
+      'powerpoint-2010',
+      'powerpoint-current',
+      'keynote-current',
+      'google-slides-import',
+      'libreoffice-current',
+    ] as const) {
+      await document.write({ mode: 'permissive', compatibility });
+      expect(document.diagnostics.filter(({ severity }) => severity === 'error')).toEqual([]);
     }
   });
 

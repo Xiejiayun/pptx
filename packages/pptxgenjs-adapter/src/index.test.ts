@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
@@ -36,6 +37,13 @@ interface PptxGenJSChartData {
 }
 
 interface PptxGenJSSlide {
+  background?: {
+    readonly color?: string;
+    readonly data?: string;
+    readonly fill?: string;
+    readonly transparency?: number;
+    readonly type?: 'none' | 'solid';
+  };
   hidden: unknown;
   addChart(
     type: string | readonly {
@@ -264,6 +272,43 @@ function slideXml(document: PptxDocument, slideIndex: number): string {
   const slide = document.slides[slideIndex];
   if (!slide) throw new Error(`Slide ${slideIndex} was not found`);
   return new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+}
+
+function slideBackgroundStructuralState(document: PptxDocument, slideIndex: number) {
+  const slide = document.slides[slideIndex];
+  if (!slide) throw new Error(`Slide ${slideIndex} was not found`);
+  const xml = slideXml(document, slideIndex);
+  const directBackground = xml.match(/<p:bg(?:\s[^>]*)?>[\s\S]*?<\/p:bg>/)?.[0];
+  const background = slide.background;
+  const relationship = background?.kind === 'image'
+    ? slide.relationships.find(({ type }) => type === IMAGE_RELATIONSHIP)
+    : undefined;
+  const part = relationship?.resolvedTarget
+    ? document.opcPackage.requirePart(relationship.resolvedTarget)
+    : undefined;
+  return {
+    kind: background?.kind,
+    color: background?.kind === 'solid' ? background.color : undefined,
+    transparency: background?.kind === 'solid' ? background.transparency : undefined,
+    direct: {
+      present: directBackground !== undefined,
+      noFill: directBackground?.includes('<a:noFill/>') ?? false,
+      solidFill: directBackground?.includes('<a:solidFill>') ?? false,
+      blipFill: directBackground?.includes('<a:blipFill') ?? false,
+      stretchFillRect: /<a:stretch>\s*<a:fillRect\s*\/>\s*<\/a:stretch>/.test(
+        directBackground ?? '',
+      ),
+    },
+    image: part && relationship
+      ? {
+          relationshipType: relationship.type,
+          targetMode: relationship.targetMode,
+          contentType: part.contentType,
+          extension: relationship.resolvedTarget?.match(/\.[^/.]+$/)?.[0],
+          sha256: createHash('sha256').update(part.bytes).digest('hex'),
+        }
+      : undefined,
+  };
 }
 
 function embeddedRasterState(
@@ -536,6 +581,155 @@ function directShapePaintState(xml: string): { fill: 'none'; line: 'empty' } {
 }
 
 describe('importPptxGenJS', () => {
+  it('matches supported public PptxGenJS slide backgrounds and locks none divergences', async () => {
+    const generated = new PptxGenJS();
+    generated.addSlide();
+    generated.addSlide().background = { type: 'none' };
+    generated.addSlide().background = { color: 'FF3399' };
+    generated.addSlide().background = { color: 'FF3399', transparency: 50 };
+    generated.addSlide().background = { data: PNG_DATA_URI };
+    generated.addSlide().background = { fill: '00FF00' };
+    generated.addSlide().background = { type: 'none', color: 'FF3399' };
+    const imported = await openPptxGenJSPublicOutput(generated);
+
+    expect(imported.slides.map(({ background }) => background?.kind)).toEqual([
+      undefined,
+      undefined,
+      'solid',
+      'solid',
+      'image',
+      'solid',
+      undefined,
+    ]);
+    expect(imported.slides[2]!.background).toEqual({
+      kind: 'solid',
+      color: { kind: 'srgb', value: 'FF3399' },
+    });
+    expect(imported.slides[3]!.background).toEqual({
+      kind: 'solid',
+      color: { kind: 'srgb', value: 'FF3399' },
+      transparency: 50,
+    });
+    expect(imported.slides[5]!.background).toEqual({
+      kind: 'solid',
+      color: { kind: 'srgb', value: '00FF00' },
+    });
+
+    const native = PptxDocument.create();
+    native.addSlide();
+    native.addSlide().background = { kind: 'none' };
+    native.addSlide().background = {
+      kind: 'solid',
+      color: { kind: 'srgb', value: 'FF3399' },
+    };
+    native.addSlide().background = {
+      kind: 'solid',
+      color: { kind: 'srgb', value: 'FF3399' },
+      transparency: 50,
+    };
+    native.addSlide();
+    await native.setSlideBackgroundImage(4, PNG_DATA_URI);
+    native.addSlide().background = {
+      kind: 'solid',
+      color: { kind: 'srgb', value: '00FF00' },
+    };
+
+    expect(slideBackgroundStructuralState(imported, 0))
+      .toEqual(slideBackgroundStructuralState(native, 0));
+    for (const index of [2, 3, 4, 5]) {
+      expect(slideBackgroundStructuralState(imported, index))
+        .toEqual(slideBackgroundStructuralState(native, index));
+    }
+    expect(slideBackgroundStructuralState(imported, 1)).toMatchObject({
+      kind: undefined,
+      direct: { present: false, noFill: false },
+    });
+    expect(slideBackgroundStructuralState(native, 1)).toMatchObject({
+      kind: 'none',
+      direct: { present: true, noFill: true },
+    });
+    expect(slideBackgroundStructuralState(imported, 6)).toMatchObject({
+      kind: undefined,
+      direct: {
+        present: true,
+        noFill: false,
+        solidFill: false,
+        blipFill: false,
+      },
+    });
+    expect(slideXml(imported, 6)).toContain('<p:bg><p:bgPr></p:bgPr></p:bg>');
+  });
+
+  it('edits and validates imported PptxGenJS backgrounds without disturbing neighbors', async () => {
+    const generated = new PptxGenJS();
+    const solidSlide = generated.addSlide();
+    solidSlide.background = { color: 'FF3399', transparency: 50 };
+    solidSlide.addText('Keep solid neighbor', { x: 1, y: 1, w: 4, h: 1 });
+    const imageSlide = generated.addSlide();
+    imageSlide.background = { data: PNG_DATA_URI };
+    imageSlide.addText('Keep image neighbor', { x: 1, y: 1, w: 4, h: 1 });
+
+    let imported = await importPptxGenJS(generated);
+    const unrelatedRelationships = imported.slides.map((slide) =>
+      slide.relationships
+        .filter(({ type }) => type !== IMAGE_RELATIONSHIP)
+        .map(({ id, type, target, targetMode }) => ({ id, type, target, targetMode })));
+    const originalImageTarget = imported.slides[1]!.relationships.find(({ type }) =>
+      type === IMAGE_RELATIONSHIP)!.resolvedTarget!;
+
+    await imported.setSlideBackgroundImage(0, PNG_DATA_URI);
+    imported = await PptxDocument.open(await imported.write());
+    const firstImageTarget = imported.slides[0]!.relationships.find(({ type }) =>
+      type === IMAGE_RELATIONSHIP)!.resolvedTarget!;
+    expect(imported.slides[0]!.background?.kind).toBe('image');
+    expect(slideXml(imported, 0)).toContain('Keep solid neighbor');
+
+    imported.slides[0]!.background = {
+      kind: 'linear-gradient',
+      angle: 45,
+      stops: [
+        { offset: 0, color: 'FFFFFF' },
+        { offset: 1, color: '000000' },
+      ],
+    };
+    imported = await PptxDocument.open(await imported.write());
+    expect(imported.slides[0]!.background?.kind).toBe('linear-gradient');
+    expect(imported.opcPackage.hasPart(firstImageTarget)).toBe(false);
+
+    imported.slides[0]!.background = undefined;
+    imported = await PptxDocument.open(await imported.write());
+    expect(imported.slides[0]!.background).toBeUndefined();
+    expect(slideXml(imported, 0)).toContain('Keep solid neighbor');
+
+    imported.slides[1]!.background = {
+      kind: 'solid',
+      color: { kind: 'srgb', value: '00FF00' },
+    };
+    imported = await PptxDocument.open(await imported.write());
+    expect(imported.slides[1]!.background).toEqual({
+      kind: 'solid',
+      color: { kind: 'srgb', value: '00FF00' },
+    });
+    expect(imported.opcPackage.hasPart(originalImageTarget)).toBe(false);
+    expect(slideXml(imported, 1)).toContain('Keep image neighbor');
+    expect(imported.slides.map((slide) =>
+      slide.relationships
+        .filter(({ type }) => type !== IMAGE_RELATIONSHIP)
+        .map(({ id, type, target, targetMode }) => ({ id, type, target, targetMode }))))
+      .toEqual(unrelatedRelationships);
+
+    for (const compatibility of [
+      'powerpoint-2010',
+      'powerpoint-current',
+      'keynote-current',
+      'google-slides-import',
+      'libreoffice-current',
+    ] as const) {
+      await imported.write({ mode: 'permissive', compatibility });
+      expect(imported.diagnostics.filter(({ severity }) => severity === 'error')).toEqual([]);
+    }
+  });
+
   it('normalizes and semantically replaces imported PptxGenJS chart families', async () => {
     const generated = new PptxGenJS();
     const generatedSlide = generated.addSlide();

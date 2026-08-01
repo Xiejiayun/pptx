@@ -10,6 +10,44 @@ async function invalidFixture(): Promise<Uint8Array> {
   return zip.generateAsync({ type: 'uint8array' });
 }
 
+function validImageBackgroundPackage(): OpcPackage {
+  const pkg = OpcPackage.create();
+  return pkg.transaction(() => {
+    pkg.setPart(
+      '/ppt/presentation.xml',
+      '<p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"/>',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml',
+    );
+    pkg.setPart(
+      '/ppt/slides/slide1.xml',
+      '<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" '
+        + 'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" '
+        + 'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+        + '<p:cSld><p:bg><p:bgPr><a:blipFill><a:blip r:embed="rId1"/>'
+        + '<a:stretch><a:fillRect/></a:stretch></a:blipFill><a:effectLst/>'
+        + '</p:bgPr></p:bg><p:spTree/></p:cSld></p:sld>',
+      'application/vnd.openxmlformats-officedocument.presentationml.slide+xml',
+    );
+    pkg.setPart('/ppt/media/background1.png', Uint8Array.of(1, 2, 3), 'image/png');
+    pkg.addRelationship('/', {
+      id: 'rId1',
+      type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument',
+      target: 'ppt/presentation.xml',
+    });
+    pkg.addRelationship('/ppt/presentation.xml', {
+      id: 'rId1',
+      type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide',
+      target: 'slides/slide1.xml',
+    });
+    pkg.addRelationship('/ppt/slides/slide1.xml', {
+      id: 'rId1',
+      type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image',
+      target: '../media/background1.png',
+    });
+    return pkg;
+  });
+}
+
 describe('validatePackage', () => {
   it('reports duplicate ids, invalid ids, dangling targets, and external resources', async () => {
     const diagnostics = validatePackage(await OpcPackage.open(await invalidFixture()));
@@ -18,5 +56,9 @@ describe('validatePackage', () => {
     expect(codes).toContain('OPC_INVALID_RELATIONSHIP_ID');
     expect(codes).toContain('OPC_DANGLING_RELATIONSHIP');
     expect(codes).toContain('OPC_EXTERNAL_RELATIONSHIP');
+  });
+
+  it('accepts a valid internal slide background image relationship graph', () => {
+    expect(validatePackage(validImageBackgroundPackage())).toEqual([]);
   });
 });

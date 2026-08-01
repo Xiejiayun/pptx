@@ -509,6 +509,56 @@ describe('PresentationModel', () => {
     expect(pkg.hasPart(target)).toBe(false);
   });
 
+  it('edits a PptxGenJS-style image background without rewriting unrelated slide XML', () => {
+    const { pkg, model } = emptyPresentationModel();
+    const slide = model.addSlide();
+    slide.addShape('rect', { name: 'Keep neighbor' });
+    slide.background = {
+      kind: 'image',
+      contentType: 'image/png',
+      bytes: Uint8Array.of(1, 2, 3),
+    };
+    const relationship = slide.relationships.find(({ type }) =>
+      type === IMAGE_RELATIONSHIP)!;
+    const target = relationship.resolvedTarget!;
+    const part = pkg.requirePart(slide.partUri);
+    const source = new TextDecoder().decode(part.bytes);
+    const canonical = `<a:blipFill><a:blip r:embed="${relationship.id}"/>`
+      + '<a:stretch><a:fillRect/></a:stretch></a:blipFill>';
+    const pptxGenJS = `<a:blipFill dpi="0" rotWithShape="1">`
+      + `<a:blip r:embed="${relationship.id}"><a:lum/></a:blip>`
+      + '<a:srcRect/><a:stretch><a:fillRect/></a:stretch></a:blipFill>';
+    expect(source).toContain(canonical);
+    pkg.setPart(
+      slide.partUri,
+      source.replace(canonical, pptxGenJS).replace(
+        '</p:sld>',
+        '<p:extLst><p:ext uri="urn:keep"><x:keep xmlns:x="urn:keep">UNCHANGED</x:keep>'
+          + '</p:ext></p:extLst></p:sld>',
+      ),
+      part.contentType,
+    );
+
+    expect(slide.background).toEqual({
+      kind: 'image',
+      contentType: 'image/png',
+      bytes: Uint8Array.of(1, 2, 3),
+    });
+    slide.background = {
+      kind: 'solid',
+      color: { kind: 'srgb', value: 'FF3399' },
+      transparency: 50,
+    };
+
+    expect(pkg.hasPart(target)).toBe(false);
+    expect(slide.relationships.some(({ id }) => id === relationship.id)).toBe(false);
+    const updated = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect(updated).toContain('name="Keep neighbor"');
+    expect(updated).toContain('<a:effectLst/>');
+    expect(updated).toContain('<x:keep xmlns:x="urn:keep">UNCHANGED</x:keep>');
+    expect(updated).not.toContain('dpi="0"');
+  });
+
   it('creates preset shapes through the live model and rejects unsafe shape ids atomically', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);
