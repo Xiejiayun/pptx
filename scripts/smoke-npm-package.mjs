@@ -40,7 +40,9 @@ try {
   const distFiles = (await listFiles(join(installed, 'dist'))).filter((name) => /\.(?:js|d\.ts)$/.test(name));
   for (const file of distFiles) {
     const source = await readFile(file, 'utf8');
-    if (source.includes('@pptx/')) throw new Error(`Bundled output contains internal import: ${file}`);
+    if (/(?:\bfrom\s*|\bimport\s*(?:\(\s*)?|\brequire\s*\(\s*)["']@pptx\//.test(source)) {
+      throw new Error(`Bundled output contains internal import: ${file}`);
+    }
   }
   const browserSource = await readFile(join(installed, 'dist/browser.js'), 'utf8');
   if (/\b(?:from|import)\s*['"]node:/.test(browserSource)) {
@@ -49,7 +51,7 @@ try {
 
   await writeFile(
     join(directory, 'smoke.mjs'),
-    `import { calculateImageSizing, CustomGeometryEvaluationError, evaluateCustomGeometry, ImageModel, inches, inspectImage, inspectRasterImage, inspectSvgImage, MediaCodec, PRESET_SHAPE_TYPES, PptxDocument, ShapeModel, TableModel, GradientCodec, importPptxGenJS, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
+    `import { calculateImageSizing, CustomGeometryEvaluationError, evaluateCustomGeometry, ImageModel, inches, inspectImage, inspectRasterImage, inspectSvgImage, MediaCodec, MediaModel, PRESET_SHAPE_TYPES, PptxDocument, ShapeModel, TableModel, GradientCodec, importPptxGenJS, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
 const created = PptxDocument.create({ rtlMode: true });
 const embeddedRasterDeck = PptxDocument.create();
 const embeddedRasterSlide = embeddedRasterDeck.addSlide();
@@ -441,6 +443,135 @@ if (!embeddedMedia) {
     mediaXml,
     reopenedMediaXml,
     reopenedMedia,
+  }));
+}
+const stableMediaDeck = PptxDocument.create();
+const stableMediaSlide = stableMediaDeck.addSlide();
+const stableAudio = await stableMediaDeck.addAudio(0, 'data:audio/mpeg;base64,AQIDBA==', {
+  name: 'Stable packed audio',
+  altText: 'Stable packed narration',
+  poster: mediaPngPoster,
+  posterContentType: 'image/png',
+});
+const stableVideo = await stableMediaDeck.addVideo(
+  0,
+  new Blob([Uint8Array.of(5, 6, 7, 8)], { type: 'video/mp4' }),
+  {
+    name: 'Stable packed video',
+    contentType: 'video/mp4',
+    poster: mediaJpegPoster,
+    posterContentType: 'image/jpeg',
+  },
+);
+const stableIdentity = stableAudio instanceof MediaModel && stableVideo instanceof MediaModel &&
+  stableMediaDeck.media(0)[0] === stableAudio && stableMediaSlide.media[0] === stableAudio &&
+  stableMediaSlide.shapes[0] === stableAudio;
+const initialStableAudioTarget = stableAudio.mediaPartUri;
+stableAudio.name = 'Stable packed audio edited';
+stableAudio.altText = undefined;
+stableAudio.settings = { play: 'auto', loop: true, hideWhenStopped: true, volume: 0.5 };
+stableAudio.setTransform({
+  x: inches(1),
+  y: inches(2),
+  width: inches(3),
+  height: inches(1),
+});
+await stableAudio.replaceSource('https://example.com/stable-audio.wav');
+const stableExternalTransition = stableAudio.externalUrl ===
+  'https://example.com/stable-audio.wav' && !stableMediaDeck.opcPackage.hasPart(initialStableAudioTarget);
+await stableAudio.replaceSource(
+  new ReadableStream({
+    start(controller) {
+      controller.enqueue(Uint8Array.of(21));
+      controller.enqueue(Uint8Array.of(22));
+      controller.close();
+    },
+  }),
+  { contentType: 'audio/wav' },
+);
+await stableAudio.replacePoster(
+  new Blob([Uint8Array.of(71, 73, 70, 56, 57, 97)], { type: 'image/gif' }),
+  { contentType: 'image/gif' },
+);
+const replacedStablePoster = stableAudio.posterPartUri;
+const stablePosterReplacement = stableMediaDeck.opcPackage
+  .requirePart(replacedStablePoster).contentType === 'image/gif';
+await stableAudio.replacePoster();
+const stablePosterReset = stableAudio.posterPartUri.endsWith('.png') &&
+  stableMediaDeck.opcPackage.requirePart(stableAudio.posterPartUri).contentType === 'image/png' &&
+  !stableMediaDeck.opcPackage.hasPart(replacedStablePoster);
+const stableDuplicate = stableMediaDeck.duplicateSlide(0);
+const stableDuplicateAudio = stableDuplicate.media[0];
+const stableDuplicateVideo = stableDuplicate.media[1];
+const stableSharedBeforeWrite = stableDuplicateAudio.mediaPartUri === stableAudio.mediaPartUri &&
+  stableDuplicateAudio.posterPartUri === stableAudio.posterPartUri &&
+  stableDuplicateVideo.mediaPartUri === stableVideo.mediaPartUri;
+await stableDuplicateAudio.replaceSource(mediaPath);
+await stableDuplicateAudio.replacePoster(mediaJpegPoster, { contentType: 'image/jpeg' });
+const stableDuplicateMediaTarget = stableDuplicateAudio.mediaPartUri;
+const stableDuplicatePosterTarget = stableDuplicateAudio.posterPartUri;
+const stableCloneOnWrite = stableDuplicateMediaTarget !== stableAudio.mediaPartUri &&
+  stableDuplicatePosterTarget !== stableAudio.posterPartUri;
+const stablePosterDedup = stableDuplicatePosterTarget === stableVideo.posterPartUri;
+const sharedVideoTarget = stableVideo.mediaPartUri;
+stableDuplicateVideo.remove();
+const stableObjectIsolation = stableMediaDeck.opcPackage.hasPart(sharedVideoTarget) &&
+  stableMediaDeck.media(0)[1] === stableVideo && stableDuplicate.media.length === 1;
+stableMediaDeck.moveSlide(1, 0);
+const stableMoveIdentity = stableMediaDeck.slides[0] === stableDuplicate &&
+  stableDuplicate.media[0] === stableDuplicateAudio;
+stableMediaDeck.moveSlide(0, 1);
+stableMediaDeck.deleteSlide(1);
+const stableSlideGc = !stableMediaDeck.opcPackage.hasPart(stableDuplicateMediaTarget) &&
+  stableMediaDeck.opcPackage.hasPart(stableDuplicatePosterTarget);
+const stableVideoPosterTarget = stableVideo.posterPartUri;
+stableVideo.remove();
+const stableObjectGc = !stableMediaDeck.opcPackage.hasPart(sharedVideoTarget) &&
+  !stableMediaDeck.opcPackage.hasPart(stableVideoPosterTarget);
+await stableMediaDeck.writeFile('stable-media-smoke.pptx');
+const reopenedStableMediaDeck = await PptxDocument.open(await stableMediaDeck.write());
+const reopenedStableAudio = reopenedStableMediaDeck.media(0)[0];
+const stableNoOrphans = reopenedStableMediaDeck.opcPackage.parts
+  .filter(({ uri }) => uri.startsWith('/ppt/media/'))
+  .every(({ uri }) =>
+    (reopenedStableMediaDeck.opcPackage.graph.find((node) => node.uri === uri)?.incoming.length ?? 0) > 0);
+const stableMediaLifecycle = stableIdentity && stableExternalTransition && stablePosterReplacement &&
+  stablePosterReset && stableSharedBeforeWrite && stableCloneOnWrite && stablePosterDedup &&
+  stableObjectIsolation &&
+  stableMoveIdentity && stableSlideGc && stableObjectGc && stableNoOrphans &&
+  reopenedStableMediaDeck.slides.length === 1 && reopenedStableMediaDeck.media(0).length === 1 &&
+  reopenedStableAudio instanceof MediaModel && reopenedStableAudio.name === 'Stable packed audio edited' &&
+  reopenedStableAudio.altText === undefined && reopenedStableAudio.mediaPartUri.endsWith('.wav') &&
+  reopenedStableMediaDeck.opcPackage.requirePart(reopenedStableAudio.mediaPartUri).contentType ===
+    'audio/wav' && reopenedStableAudio.posterPartUri.endsWith('.png') &&
+  reopenedStableAudio.settings.play === 'auto' && reopenedStableAudio.settings.loop === true &&
+  reopenedStableAudio.settings.hideWhenStopped === true && reopenedStableAudio.settings.volume === 0.5 &&
+  reopenedStableAudio.transform.x === inches(1) && reopenedStableAudio.transform.y === inches(2) &&
+  reopenedStableMediaDeck.diagnostics.every(({ severity }) => severity !== 'error');
+if (!stableMediaLifecycle) {
+  throw new Error(JSON.stringify({
+    stableIdentity,
+    stableExternalTransition,
+    stablePosterReplacement,
+    stablePosterReset,
+    stableSharedBeforeWrite,
+    stableCloneOnWrite,
+    stablePosterDedup,
+    stableObjectIsolation,
+    stableMoveIdentity,
+    stableSlideGc,
+    stableObjectGc,
+    stableNoOrphans,
+    reopenedSlideCount: reopenedStableMediaDeck.slides.length,
+    reopenedMediaCount: reopenedStableMediaDeck.media(0).length,
+    reopenedKind: reopenedStableAudio?.kind,
+    reopenedName: reopenedStableAudio?.name,
+    reopenedAltText: reopenedStableAudio?.altText,
+    reopenedMediaPartUri: reopenedStableAudio?.mediaPartUri,
+    reopenedPosterPartUri: reopenedStableAudio?.posterPartUri,
+    reopenedSettings: reopenedStableAudio?.settings,
+    reopenedTransform: reopenedStableAudio?.transform,
+    diagnostics: reopenedStableMediaDeck.diagnostics,
   }));
 }
 const shapeDeck = PptxDocument.create();
@@ -2482,6 +2613,7 @@ const checks = {
   embeddedRasterImages,
   svgImages,
   embeddedMedia,
+  stableMediaLifecycle,
   presentationRtl: presentationRtlEnabled === true && presentationRtlDisabled === false && presentationRtlCleared === undefined && paragraphRtlAfterGlobalClear[0] === true && paragraphRtlAfterGlobalClear[1] === false,
   presentationTitle: createdPresentationTitle === 'Packed & <Title>' && editedPresentationTitle === 'Edited title' && reopenedPresentationTitle === 'Edited title' && emptyPresentationTitle === '' && clearedPresentationTitle === undefined,
   presentationAuthor: createdPresentationAuthor === 'Packed & <Author>' && editedPresentationAuthor === 'Edited author' && reopenedPresentationAuthor === 'Edited author' && emptyPresentationAuthor === '' && clearedPresentationAuthor === undefined,
@@ -3770,6 +3902,8 @@ process.stdout.write(resolved);
   type MediaModel,
   type MediaPlaybackSettings,
   type MediaSource,
+  type ReplaceMediaPosterOptions,
+  type ReplaceMediaSourceOptions,
   type ResolvedImageSource,
   type ShapeArrows,
   type ShapeArrowType,
@@ -3947,6 +4081,32 @@ const typedVideoPromise: Promise<MediaModel> = createdDocument.addVideo(
   new Blob([Uint8Array.of(4)], { type: 'video/mp4' }),
   { contentType: 'video/mp4', poster: typedMediaStream },
 );
+const typedReplaceMediaSourceOptions: ReplaceMediaSourceOptions = {
+  contentType: 'audio/wav',
+  fileName: 'typed-replacement.wav',
+};
+const typedReplaceMediaPosterOptions: ReplaceMediaPosterOptions = {
+  contentType: 'image/gif',
+  fileName: 'typed-poster.gif',
+};
+const typedMediaLifecycle: Promise<void> = typedMediaPromise.then(async (media) => {
+  media.name = 'Typed media edited';
+  media.altText = undefined;
+  media.settings = typedPlayback;
+  media.setTransform({ x: inches(2) });
+  const sourceResult: MediaModel = await media.replaceSource(
+    Uint8Array.of(5),
+    typedReplaceMediaSourceOptions,
+  );
+  const posterResult: MediaModel = await media.replacePoster(
+    Uint8Array.of(6),
+    typedReplaceMediaPosterOptions,
+  );
+  await media.replacePoster();
+  media.remove();
+  createdDocument.slides[0].deleteMedia(sourceResult.shapeId);
+  void posterResult;
+});
 // @ts-expect-error media kind accepts only audio or video
 const invalidMediaKind: MediaKind = 'online';
 // @ts-expect-error media name must be a string
@@ -3961,6 +4121,10 @@ const invalidMediaTranscode: AddMediaOptions = {
 };
 // @ts-expect-error media source must be a supported source
 const invalidMediaSource: MediaSource = {};
+// @ts-expect-error media source replacement excludes placement
+const invalidMediaSourceReplacement: ReplaceMediaSourceOptions = { x: inches(1) };
+// @ts-expect-error media poster replacement excludes transcoders
+const invalidMediaPosterReplacement: ReplaceMediaPosterOptions = { transcode: async () => undefined };
 // @ts-expect-error low-level raster image options exclude SVG
 const invalidLowLevelSvgOptions: AddImageOptions = { contentType: 'image/svg+xml' };
 const invalidSvgFallback: AddImageSourceOptions = {
@@ -4624,7 +4788,7 @@ void [typedPreset, typedNoneShapeFill, typedSolidShapeFill, typedShapeOptions, t
   typedShapeShadowRead, invalidMissingShapeShadowKind, invalidNoneShapeShadowKind,
   invalidInnerShapeShadowRotate, invalidShapeShadowOffset, invalidShapeShadowType,
   invalidUnknownShapeShadow, invalidShapeShadowFieldType];
-void [documentPromise, createdDocument, typedRasterContentType, typedRasterOptions, typedRasterImage, invalidRasterSvg, invalidRasterMissingType, invalidRasterPath, invalidRasterData, typedSvgContentType, typedImageContentType, typedSvgInfo, typedImageInfo, typedCropRegion, typedImageSizing, typedImageSizingResult, typedImageSource, typedImageChunk, typedImageStream, typedImageSourceOptions, typedResolvedImage, typedSvgOptions, typedSvgImage, typedHighLevelSvgImage, typedMediaKind, typedMediaChunk, typedMediaStream, typedMediaSources, typedPlayback, typedMediaOptions, typedMediaPromise, typedVideoPromise, invalidMediaKind, invalidMediaName, invalidMediaPoster, invalidMediaPlayback, invalidMediaTranscode, invalidMediaSource, invalidLowLevelSvgOptions, invalidSvgFallback, addSectionOptions, typedSection, addSlideOptions, sectionSnapshot, typedVisibilitySlide, hiddenSnapshot, globalRtl, globalRtlSnapshot, titledDocument, titleSnapshot, authoredDocument, authorSnapshot, lastModifiedDocument, lastModifiedSnapshot, createdAtDocument, createdAtSnapshot, modifiedAtDocument, modifiedAtSnapshot, subjectDocument, subjectSnapshot, revisionDocument, revisionSnapshot, companyDocument, companySnapshot, themedDocument, themeSnapshot, fontSnapshot, fontUpdate, customDocument, createdText, creationBorder, creationMargin, creationOptions, objectCell, tableRows, tableOptions, typedTable, widthSnapshot, heightSnapshot, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotHorizontalAlignment, tableHorizontalAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellHorizontalAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
+void [documentPromise, createdDocument, typedRasterContentType, typedRasterOptions, typedRasterImage, invalidRasterSvg, invalidRasterMissingType, invalidRasterPath, invalidRasterData, typedSvgContentType, typedImageContentType, typedSvgInfo, typedImageInfo, typedCropRegion, typedImageSizing, typedImageSizingResult, typedImageSource, typedImageChunk, typedImageStream, typedImageSourceOptions, typedResolvedImage, typedSvgOptions, typedSvgImage, typedHighLevelSvgImage, typedMediaKind, typedMediaChunk, typedMediaStream, typedMediaSources, typedPlayback, typedMediaOptions, typedMediaPromise, typedVideoPromise, typedReplaceMediaSourceOptions, typedReplaceMediaPosterOptions, typedMediaLifecycle, invalidMediaKind, invalidMediaName, invalidMediaPoster, invalidMediaPlayback, invalidMediaTranscode, invalidMediaSource, invalidMediaSourceReplacement, invalidMediaPosterReplacement, invalidLowLevelSvgOptions, invalidSvgFallback, addSectionOptions, typedSection, addSlideOptions, sectionSnapshot, typedVisibilitySlide, hiddenSnapshot, globalRtl, globalRtlSnapshot, titledDocument, titleSnapshot, authoredDocument, authorSnapshot, lastModifiedDocument, lastModifiedSnapshot, createdAtDocument, createdAtSnapshot, modifiedAtDocument, modifiedAtSnapshot, subjectDocument, subjectSnapshot, revisionDocument, revisionSnapshot, companyDocument, companySnapshot, themedDocument, themeSnapshot, fontSnapshot, fontUpdate, customDocument, createdText, creationBorder, creationMargin, creationOptions, objectCell, tableRows, tableOptions, typedTable, widthSnapshot, heightSnapshot, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotHorizontalAlignment, tableHorizontalAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellHorizontalAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
 `,
   );
   run(
@@ -4689,9 +4853,31 @@ void [documentPromise, createdDocument, typedRasterContentType, typedRasterOptio
       mediaValidated.data.errorCount !== 0 || mediaValidated.data.warningCount !== 0) {
     throw new Error(`CLI media validation failed: ${mediaValidateResult.stdout}`);
   }
+  const stableMediaDeckPath = join(directory, 'stable-media-smoke.pptx');
+  const stableMediaInspectResult = run(
+    bin,
+    ['--json', 'package', 'inspect', stableMediaDeckPath],
+    directory,
+  );
+  const stableMediaInspected = JSON.parse(stableMediaInspectResult.stdout);
+  const stableMediaContentTypes = stableMediaInspected.data?.contentTypes ?? {};
+  if (!stableMediaInspected.ok || stableMediaContentTypes['audio/wav'] !== 1 ||
+      stableMediaContentTypes['image/png'] !== 1) {
+    throw new Error(`CLI stable media inspect failed: ${stableMediaInspectResult.stdout}`);
+  }
+  const stableMediaValidateResult = run(
+    bin,
+    ['--json', 'package', 'validate', stableMediaDeckPath, '--profile', 'powerpoint-2010'],
+    directory,
+  );
+  const stableMediaValidated = JSON.parse(stableMediaValidateResult.stdout);
+  if (!stableMediaValidated.ok || !stableMediaValidated.data?.valid ||
+      stableMediaValidated.data.errorCount !== 0 || stableMediaValidated.data.warningCount !== 0) {
+    throw new Error(`CLI stable media validation failed: ${stableMediaValidateResult.stdout}`);
+  }
 
   process.stdout.write(
-    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, types: true, cli: doctor.data.version, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true })}\n`,
+    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, types: true, cli: doctor.data.version, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true })}\n`,
   );
 } finally {
   await rm(directory, { recursive: true, force: true });

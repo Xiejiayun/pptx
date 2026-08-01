@@ -52,7 +52,7 @@ async (page) => {
           controller.close();
         },
       });
-      await mediaDocument.addAudio(0, 'data:audio/mpeg;base64,AQIDBA==', {
+      const browserAudio = await mediaDocument.addAudio(0, 'data:audio/mpeg;base64,AQIDBA==', {
         name: 'Browser MP3 narration',
         altText: 'Browser data URI audio',
         poster: posterStream,
@@ -66,7 +66,7 @@ async (page) => {
         hideWhenStopped: true,
         volume: 0.5,
       });
-      await mediaDocument.addVideo(
+      const browserVideo = await mediaDocument.addVideo(
         0,
         new Blob([Uint8Array.of(5, 6, 7, 8)], { type: 'video/mp4' }),
         {
@@ -80,6 +80,60 @@ async (page) => {
           height: api.inches(2.25),
         },
       );
+      const browserMediaIdentity = mediaDocument.media(0)[0] === browserAudio
+        && mediaDocument.slides[0].media[0] === browserAudio
+        && mediaDocument.slides[0].shapes[0] === browserAudio;
+      browserAudio.name = 'Browser MP3 narration edited';
+      browserAudio.altText = undefined;
+      browserAudio.settings = { play: 'click', loop: false, volume: 1 };
+      browserAudio.setTransform({
+        x: api.inches(2),
+        y: api.inches(1),
+        width: api.inches(3),
+        height: api.inches(1),
+      });
+      await browserAudio.replaceSource('https://example.com/browser-audio.mp3');
+      await browserAudio.replaceSource(
+        new Blob([Uint8Array.of(9, 10)], { type: 'audio/mpeg' }),
+        { contentType: 'audio/mpeg', fileName: 'browser-replaced.mp3' },
+      );
+      await browserAudio.replacePoster(
+        new Blob([Uint8Array.of(71, 73, 70, 56, 57, 97)], { type: 'image/gif' }),
+        { contentType: 'image/gif' },
+      );
+      const browserPosterReplacement = mediaDocument.opcPackage
+        .requirePart(browserAudio.posterPartUri).contentType === 'image/gif';
+      await browserAudio.replacePoster();
+      const browserDuplicate = mediaDocument.duplicateSlide(0);
+      const browserDuplicateAudio = browserDuplicate.media[0];
+      const browserDuplicateVideo = browserDuplicate.media[1];
+      const browserMediaShared = browserDuplicateAudio.mediaPartUri === browserAudio.mediaPartUri
+        && browserDuplicateAudio.posterPartUri === browserAudio.posterPartUri
+        && browserDuplicateVideo.mediaPartUri === browserVideo.mediaPartUri;
+      await browserDuplicateAudio.replaceSource(
+        new ReadableStream({
+          start(controller) {
+            controller.enqueue(Uint8Array.of(11));
+            controller.enqueue(Uint8Array.of(12));
+            controller.close();
+          },
+        }),
+        { contentType: 'audio/wav' },
+      );
+      await browserDuplicateAudio.replacePoster(
+        new Blob([Uint8Array.of(255, 216, 255, 217)], { type: 'image/jpeg' }),
+        { contentType: 'image/jpeg' },
+      );
+      const browserMediaCloneOnWrite = browserDuplicateAudio.mediaPartUri !== browserAudio.mediaPartUri
+        && browserDuplicateAudio.posterPartUri !== browserAudio.posterPartUri;
+      const browserVideoTarget = browserVideo.mediaPartUri;
+      browserDuplicateVideo.remove();
+      const browserMediaRemovalIsolation = mediaDocument.opcPackage.hasPart(browserVideoTarget)
+        && mediaDocument.media(0)[1] === browserVideo && browserDuplicate.media.length === 1;
+      mediaDocument.moveSlide(1, 0);
+      const browserMediaMoveIdentity = mediaDocument.slides[0] === browserDuplicate
+        && browserDuplicate.media[0] === browserDuplicateAudio;
+      mediaDocument.moveSlide(0, 1);
       const output = await document.writeBlob();
       const reopened = await api.PptxDocument.open(output);
       const reopenedSvgDocument = await api.PptxDocument.open(await svgDocument.writeBlob());
@@ -104,6 +158,7 @@ async (page) => {
       const reopenedMediaDocument = await api.PptxDocument.open(mediaOutput);
       const reopenedMediaSlide = reopenedMediaDocument.slides[0];
       const reopenedMedia = reopenedMediaDocument.media(0);
+      const reopenedDuplicateMedia = reopenedMediaDocument.media(1);
       const mediaXml = new TextDecoder().decode(
         reopenedMediaDocument.opcPackage.requirePart(reopenedMediaSlide.partUri).bytes,
       );
@@ -137,6 +192,17 @@ async (page) => {
         ));
         return match?.[1];
       });
+      const mediaOrphanCount = reopenedMediaDocument.opcPackage.parts
+        .filter(({ uri }) => uri.startsWith('/ppt/media/'))
+        .filter(({ uri }) =>
+          (reopenedMediaDocument.opcPackage.graph.find((node) => node.uri === uri)?.incoming.length ?? 0) === 0)
+        .length;
+      const stableMediaLifecycle = browserMediaIdentity && browserPosterReplacement
+        && browserMediaShared && browserMediaCloneOnWrite && browserMediaRemovalIsolation
+        && browserMediaMoveIdentity && reopenedDuplicateMedia.length === 1
+        && reopenedDuplicateMedia[0].mediaPartUri.endsWith('.wav')
+        && reopenedDuplicateMedia[0].posterPartUri.endsWith('.jpg')
+        && mediaOrphanCount === 0;
       return {
         format: reopened.format,
         title: reopened.slides[0].title.text,
@@ -157,6 +223,9 @@ async (page) => {
         mediaValidationErrors: mediaDocument.diagnostics.filter(
           ({ severity }) => severity === 'error',
         ).length,
+        stableMediaLifecycle,
+        mediaTargetIsolation: browserMediaCloneOnWrite,
+        mediaOrphanCount,
       };
     },
     {
@@ -204,7 +273,7 @@ async (page) => {
       },
     ],
     mediaMime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-    mediaNames: ['Browser MP3 narration', 'Browser Blob video'],
+    mediaNames: ['Browser MP3 narration edited', 'Browser Blob video'],
     mediaElementCounts: { audio: 1, video: 1 },
     mediaState: [
       {
@@ -227,6 +296,9 @@ async (page) => {
       },
     ],
     mediaValidationErrors: 0,
+    stableMediaLifecycle: true,
+    mediaTargetIsolation: true,
+    mediaOrphanCount: 0,
     downloadFileName: 'browser-smoke.pptx',
   };
   if (JSON.stringify(result) !== JSON.stringify(expected)) {

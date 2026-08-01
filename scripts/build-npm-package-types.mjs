@@ -53,7 +53,8 @@ async function copyDeclarations(sourceDirectory, outputDirectory) {
       await copyDeclarations(sourcePath, outputPath);
       continue;
     }
-    if (!entry.name.endsWith('.d.ts') || entry.name.includes('.test.') || entry.name.includes('.internal.')) continue;
+    if (!entry.name.endsWith('.d.ts') || entry.name.includes('.test.') ||
+        (entry.name.includes('.internal.') && entry.name !== 'media-state.internal.d.ts')) continue;
     const source = await readFile(sourcePath, 'utf8');
     const rewritten = source.replace(/(['"])@pptx\/([a-z0-9-]+)\1/g, (match, quote, dependency) => {
       const dependencyOutput = packages.get(dependency);

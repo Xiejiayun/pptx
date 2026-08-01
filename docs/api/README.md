@@ -642,7 +642,7 @@ import { inches } from '@pptx/sdk';
 const poster =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAACXBIWXMAAAABAAAAAQBPJcTWAAAAEElEQVR4nGP8ywACLGCSAQANEQED1LYyQAAAAABJRU5ErkJggg==';
 
-await document.addAudio(0, 'data:audio/mpeg;base64,AQIDBA==', {
+const audio = await document.addAudio(0, 'data:audio/mpeg;base64,AQIDBA==', {
   name: 'Opening narration',
   altText: 'Opening narration audio',
   poster,
@@ -663,23 +663,45 @@ await document.addVideo(0, videoBytes, {
   fileName: 'overview.mp4',
   poster,
 });
+
+audio.name = 'Opening narration edited';
+audio.altText = undefined;
+audio.settings = { play: 'click', loop: false, volume: 0.75 };
+audio.setTransform({ x: inches(2), y: inches(1.5) });
+await audio.replaceSource('https://example.com/narration.wav');
+await audio.replaceSource('narration.wav', {
+  contentType: 'audio/wav',
+  fileName: 'narration.wav',
+});
+await audio.replacePoster('poster.gif', {
+  contentType: 'image/gif',
+});
+await audio.replacePoster(); // reset to the built-in PNG
 ```
 
 `MediaSource` is a Node path, strict base64 data URI, `Uint8Array`, `ArrayBuffer`, Blob/File, Web `ReadableStream<MediaByteChunk>`, or async iterable of byte chunks. A string beginning with HTTP/HTTPS is an external media relationship and is never fetched; other URL schemes are rejected. Posters use the same embedded-source union except that HTTP/HTTPS poster URLs are rejected. Omitted posters use a built-in one-pixel PNG.
 
 `AddMediaOptions` contains optional `name`, `altText`, `contentType`, `fileName`, `poster`, `posterContentType`, EMU `x`/`y`/`width`/`height`, `play: 'click' | 'auto'`, `loop`, `hideWhenStopped`, `volume: 0..1`, and an async `transcode(bytes, contentType, kind)` hook. Audio supports `audio/mpeg` (`.mp3`), `audio/mp4` (`.m4a`), `audio/wav` (`.wav`), and `audio/ogg` (`.ogg`). Video supports `video/mp4` (`.mp4`/`.m4v`), `video/quicktime` (`.mov`), and `video/webm` (`.webm`). Posters support `image/png` (`.png`), `image/jpeg` (`.jpg`/`.jpeg`), and `image/gif` (`.gif`).
 
+`addAudio()` and `addVideo()` return a runtime `MediaModel`. Within one document, the result is identical by reference to the corresponding member of `document.media(slideIndex)`, `slide.media`, and `slide.shapes`; collection reads and slide moves preserve that identity. Its live getters are `kind`, `shapeId`/`id`, `slidePartUri`, `name`, `altText`, `settings`, `mediaPartUri`, `externalUrl`, `posterPartUri`, and the inherited `transform`. Set `name`, `altText`, `settings`, or transform directly. `settings = undefined` clears only the private playback extension. Returned settings and transform snapshots are detached and frozen.
+
+`MediaModel.replaceSource(source, options?)` preserves kind and returns the same model. `ReplaceMediaSourceOptions` accepts only `contentType`, `fileName`, and `transcode`; all creation source forms are supported, including embedded↔external transitions. `replacePoster(source?, options?)` accepts only `contentType` and `fileName`; PNG/JPEG/GIF sources are supported, and omitted source resets the built-in PNG. `remove()` delegates to `slide.deleteMedia(shapeId)`. A removed or semantically changed picture invalidates the old live handle through the normal shape-resolution error path.
+
 Descriptor resolution is explicit MIME assertion → data-URI MIME → known extension from `fileName`, path, URL path, or `File.name` → canonical domain default (`audio/mpeg`, `video/mp4`, or `image/png`). Explicit and declared MIME must match. A recognized extension must belong to the correct domain and match the resolved MIME; `.m4v` and `.jpeg` are preserved when explicitly inferred, otherwise the first canonical extension is used. Unknown extensions are ignored as evidence. `Blob.type` is not used. A transcode result must be an ordinary `{ bytes: Uint8Array, contentType, extension? }` object, and any explicit extension must be lowercase and exactly compatible with its output MIME.
 
 Media data URIs require the exact `data:<supported-mime>;base64,<payload>` form. Payloads must use the standard alphabet, complete padding, and canonical padding bits; empty data, whitespace, percent encoding, URL-safe characters, extra commas, and malformed or noncanonical padding are rejected.
 
-Request objects are descriptor-safe, getter-free, and reject unknown properties. Options, byte arrays, ArrayBuffers, transcode inputs/results, and final embedded payloads are detached from the caller. All asynchronous path/Blob/stream I/O, transcode work, poster loading, descriptor resolution, SHA-256 lookup, and XML-definition work completes before mutation. Part, content-type, relationship, and slide XML writes then run inside one synchronous package transaction; any failure leaves the package graph, ZIP state, shape IDs, and mutation journal unchanged.
+Request objects are descriptor-safe, getter-free, and reject unknown properties. Options, byte arrays, ArrayBuffers, transcode inputs/results, and final embedded payloads are detached from the caller. All asynchronous path/Blob/stream I/O, transcode work, poster loading, descriptor resolution, SHA-256 lookup, and XML-definition work completes before mutation. Part, content-type, relationship, and slide XML writes then run inside one synchronous package transaction; any create, replacement, or deletion failure leaves the package graph, ZIP state, model identity, and mutation journal unchanged.
 
-Embedded payloads deduplicate only when SHA-256 and exact MIME both match. Every embedded media picture uses a canonical `a:audioFile` or `a:videoFile`, a standard kind relationship, a Microsoft media relationship, an internal poster image relationship, a media click action, and a rectangular `p:pic`. `document.media(slideIndex)` returns the current direct media snapshots, including kind, shape ID, embedded part or external URL, poster part, and playback settings. The lower-level `@pptx/codecs` `MediaCodec.delete(slidePartUri, shapeId)` removes a picture and its relationships and garbage-collects only unreferenced `/ppt/media` targets; a document-level stable live deletion/editing surface remains pending.
+Embedded payloads deduplicate only when SHA-256 and exact MIME both match. Every embedded media picture uses a canonical `a:audioFile` or `a:videoFile`, a standard kind relationship, a Microsoft media relationship, an internal poster image relationship, a media click action, and a rectangular `p:pic`. Duplicated slides initially share media and poster targets. Source/poster replacement updates an exclusive compatible target in place or uses content-aware deduplication/clone-on-write, allocating relationships when an rId is shared by multiple XML nodes and retargeting only the edited picture. Superseded relationships are removed only after their XML reference count reaches zero; media/poster parts are collected only after package-graph incoming reaches zero. Object and slide deletion follow the same reference-aware GC rule.
 
 Playback preferences currently live in the private `px:playback` extension. They round-trip through this library but `addAudio()` / `addVideo()` do not yet synthesize a native PowerPoint timing tree. External media emits portability diagnostics. Under the PowerPoint 2010 profile, `audio/ogg` and `video/webm` emit expected codec warnings.
 
-PptxGenJS 4.0.1 valid public embedded-media cases are semantically covered, including data/path, audio/video, cover, extension, object name, transform, and repeated-path deduplication. Native deliberately uses `a:audioFile`, canonical `audio/mpeg`, and the standard audio relationship for every audio reference instead of copying PptxGenJS's invalid alternatives. Online video, remote-fetch embedding, stable live media identity/editing, complete duplicate/move/delete isolation, native timing-tree playback, captions/subtitles, and advanced media appearance remain pending.
+PptxGenJS 4.0.1 valid public embedded-media cases are semantically covered, including data/path, audio/video, cover, extension, object name, transform, and repeated-path deduplication. Import accepts its audio `a:videoFile`, `audio/mp3`, and duplicate-audio Microsoft-media relationship defects. Reads and non-source edits preserve those legacy primary roles; `replaceSource()` canonicalizes only the selected picture. Native creation always uses `a:audioFile`, canonical `audio/mpeg`, and the standard audio relationship.
+
+The actual tarball passes Node/browser/declaration/installed-CLI lifecycle smoke, and two clean builds have identical SHA-256 manifests for all 44 dist files. The four-slide all-format gallery has six audio objects, four video objects, 30 media-role relationships, seven unique media payloads, four poster payloads, 11 `/ppt/media` parts, and zero orphans. It strictly reopens, renders at 180 DPI without overflow, and was visually inspected slide by slide. PowerPoint 2010 validation has 0 errors and only the expected OGG/WebM warnings; the eight-object portable subset has 0 errors and 0 warnings. LibreOffice 26.8 preserves the four slides and wide canvas but removes all ten media pictures, 30 media-role relationships, and 11 media/poster parts, leaving blank slides; the saved package still strictly reopens and validates 0/0.
+
+Native timing-tree playback is the next media slice. Online video, remote-fetch embedding, captions/subtitles, crop/rounding/shadow/hyperlink/placeholder styles, a built-in transcoding engine, and broad client certification remain pending.
 
 ## Diagnostics and errors
 

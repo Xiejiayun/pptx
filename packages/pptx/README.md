@@ -280,7 +280,7 @@ mediaDocument.addSlide();
 const poster =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAACXBIWXMAAAABAAAAAQBPJcTWAAAAEElEQVR4nGP8ywACLGCSAQANEQED1LYyQAAAAABJRU5ErkJggg==';
 
-await mediaDocument.addAudio(0, 'data:audio/mpeg;base64,AQIDBA==', {
+const audio = await mediaDocument.addAudio(0, 'data:audio/mpeg;base64,AQIDBA==', {
   name: 'Opening narration',
   altText: 'Opening narration audio',
   poster,
@@ -300,24 +300,40 @@ await mediaDocument.addVideo(0, videoBytes, {
   fileName: 'overview.mp4',
   poster,
 });
+
+audio.name = 'Opening narration edited';
+audio.altText = undefined;
+audio.settings = { play: 'click', loop: false, volume: 0.75 };
+audio.setTransform({ x: inches(2), y: inches(1.5) });
+await audio.replaceSource('https://example.com/narration.wav');
+await audio.replaceSource(new Uint8Array(await readFile('narration.wav')), {
+  contentType: 'audio/wav',
+  fileName: 'narration.wav',
+});
+await audio.replacePoster(new Uint8Array(await readFile('poster.gif')), {
+  contentType: 'image/gif',
+});
+await audio.replacePoster(); // reset to the built-in PNG
 await mediaDocument.writeFile('media.pptx');
 ```
 
 `PptxDocument.addAudio()` and `addVideo()` accept Node paths, strict base64 data URIs, `Uint8Array`, `ArrayBuffer`, Blob/File, Web `ReadableStream`, and async byte iterables. Supported audio is `audio/mpeg` (`.mp3`), `audio/mp4` (`.m4a`), `audio/wav` (`.wav`), and `audio/ogg` (`.ogg`). Supported video is `video/mp4` (`.mp4`/`.m4v`), `video/quicktime` (`.mov`), and `video/webm` (`.webm`). Posters support `image/png`, `image/jpeg`, and `image/gif`; omission uses a built-in PNG. HTTP/HTTPS media remains external and is never fetched, while an HTTP/HTTPS poster is rejected.
 
+Creation returns a live `MediaModel`; within one document, `document.media(slideIndex)`, `slide.media`, and `slide.shapes` return the same object. `name`, `altText`, `settings`, and the inherited transform are editable. `replaceSource()` preserves audio/video kind and object identity across embedded↔external transitions. `replacePoster()` accepts PNG/JPEG/GIF, and an omitted source resets the built-in PNG. Source replacement accepts only `contentType`, `fileName`, and `transcode`; poster replacement accepts only `contentType` and `fileName`. Both return the original model. Remove media with `media.remove()` or `slide.deleteMedia(shapeId)`.
+
 Descriptor priority is explicit `contentType` assertion, data-URI declaration, a known `fileName` or path/`File.name` extension, then the audio/video default. Conflicting assertions, declarations, or known extensions reject before package mutation. An unknown extension is not format evidence and the selected MIME receives its canonical extension. Data URIs require a supported MIME plus standard, fully padded canonical base64; whitespace, URL-safe alphabets, percent encoding, and noncanonical padding bits are rejected. `Blob.type` is not trusted.
 
-Options and memory byte sources detach before asynchronous work. Paths, Blobs, streams, optional transcoding, posters, descriptor resolution, and hashing all finish before one synchronous package transaction. Any failure leaves parts, content types, relationships, slide XML, ZIP state, shape IDs, and the mutation journal unchanged. Payloads deduplicate only when both SHA-256 and exact MIME match; deleting one reference preserves any still-referenced shared payload.
+Options and memory byte sources detach before asynchronous work. Paths, Blobs, streams, optional transcoding, posters, descriptor resolution, and hashing all finish before one synchronous package transaction. Any create, source/poster replacement, or delete failure leaves parts, content types, relationships, slide XML, ZIP state, model identity, and the mutation journal unchanged. Payloads deduplicate only when both SHA-256 and exact MIME match. Duplicates initially share targets; the first different edit uses clone-on-write and retargets only the selected picture. Object and slide deletion collect only targets with no incoming package-graph reference.
 
 Creation emits canonical `a:audioFile` or `a:videoFile`, the kind relationship, Microsoft media relationship, poster image relationship, media click action, and a rectangular poster picture. `name`, `altText`, EMU transforms, and playback preferences are strict; use `inches()` for placement. `play`, `loop`, `hideWhenStopped`, and `volume` currently round-trip through the library's private playback extension and do not yet materialize a native timing tree.
 
-Four of four valid public PptxGenJS 4.0.1 data/path, audio/video, cover, `extn`, `objectName`, and transform cases match final semantics. Native intentionally fixes three PptxGenJS defects: audio uses `a:audioFile`, MP3 uses canonical `audio/mpeg`, and duplicate audio retains the standard audio kind relationship.
+Four of four valid public PptxGenJS 4.0.1 data/path, audio/video, cover, `extn`, `objectName`, and transform cases match final semantics. The reader accepts its audio `a:videoFile`, `audio/mp3`, and duplicate-audio relationship defects. Read-only, metadata, settings, and transform work preserves those legacy primary roles; `replaceSource()` canonicalizes only the edited picture. Native creation always uses `a:audioFile`, canonical `audio/mpeg`, and the standard audio relationship.
 
-The actual npm tarball passes Node, browser, declaration, and CLI smoke, and two clean builds produce identical SHA-256 manifests for all 40 dist files. The five-slide all-format gallery has five audio objects, three video objects, seven unique media payloads, and 11 media/poster parts. It strictly reopens and passes 180-DPI rendering, overflow, and slide-by-slide visual inspection. The PowerPoint 2010 profile reports only the two expected OGG/WebM warnings; the portable subset excluding them has 0 errors and 0 warnings.
+The actual npm tarball passes Node, browser, declaration, and CLI smoke for live identity, every edit surface, embedded↔external transitions, poster replacement/reset, duplicate COW, object/slide deletion, GC, and reopen. Two clean builds produce identical SHA-256 manifests for all 44 dist files. The four-slide all-format lifecycle gallery has six audio objects, four video objects, 30 media-role relationships, seven unique media payloads, four poster payloads, 11 `/ppt/media` parts, and zero orphans. It strictly reopens and passes 180-DPI rendering, overflow, and slide-by-slide visual inspection. Its PowerPoint 2010 profile has 0 errors and only the two expected OGG/WebM warnings; the eight-object portable subset excluding them has 0 errors and 0 warnings. The external control deck emits four expected portability warnings.
 
-LibreOffice currently removes all eight media objects, 24 media-role relationships, seven media payloads, four posters, eight alt-text values, and eight playback extensions when it saves the gallery. It preserves the five-slide order and 17 ordinary text objects with a maximum ordinary-transform delta of 360 EMU; the saved package still strictly reopens and validates with 0 errors and 0 warnings. This is a documented client degradation, not a native round-trip guarantee.
+LibreOffice 26.8 currently preserves the four-slide order and wide canvas but removes all ten media objects, 30 media-role relationships, and 11 media/poster parts when it saves the lifecycle gallery. The four saved slides are blank; the package still strictly reopens, validates with 0 errors and 0 warnings, and has no overflow. This is a documented client degradation, not a native round-trip guarantee.
 
-The next media slice is stable live media identity, existing-media editing, and complete duplicate/move/delete isolation. Online video, remote-fetch embedding, native timing-tree playback, captions/subtitles, crop/rounding/shadow/hyperlink/placeholder styles, and broad client certification remain pending.
+The next media slice is native PowerPoint timing-tree playback. Online video, remote-fetch embedding, captions/subtitles, crop/rounding/shadow/hyperlink/placeholder styles, a built-in transcoding engine, and broad PowerPoint/Keynote/Google Slides certification remain pending, so the overall PptxGenJS full-parity roadmap is not yet complete.
 
 `PRESET_SHAPE_TYPES` is the frozen discovery catalog for all 178 canonical preset geometries accepted by `SlideModel.addShape()`. `AddShapeOptions` accepts `name`, strict `adjustments`, strict `fill`, strict `line`, strict `arrows`, strict `shadow`, strict `hyperlink`, and native EMU/OOXML-angle transform fields; use `inches()` and `degrees()` for ergonomic conversion. Omitted geometry starts at x/y/width/height = 1 inch with zero rotation and no flips; omitted fill creates direct no-fill, and omitted line keeps the canonical empty line container. Inputs are strict, descriptor-safe, detached before mutation, and reject unknown fields. The catalog uses the valid OOXML `foldedCorner`; PptxGenJS 4.0.1's invalid `folderCorner` token and runtime-only `custGeom` value are not accepted as presets.
 
