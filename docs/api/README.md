@@ -662,7 +662,7 @@ Only the direct `p:sld/p:cSld/p:bg/p:bgPr` state is projected. `undefined` remov
 
 `setSlideBackgroundImage(slideIndex, source, options?)` accepts `RasterImageSource`. `SetSlideBackgroundImageOptions` contains only optional `contentType` assertion and `AbortSignal`. The resolver accepts Node path, HTTP/HTTPS and browser-relative URL, strict data URI, `Uint8Array`, `ArrayBuffer`, Blob/File, Web stream, and async byte iterable; signature validation and all async I/O finish before mutation. Duplicates initially share an internal image target, a different write clones on first mutation, and replacement/clear/slide deletion remove only relationships and media parts that have no remaining incoming reference.
 
-PptxGenJS 4.0.1 solid, transparency, and PNG background output imports to the same supported state. PptxGenJS `{ type: 'none' }` writes no direct background, so it imports as inherited; `{ type: 'none', color }` emits an empty `p:bgPr`, which the strict reader treats as unsupported. Native explicit none intentionally writes legal `a:noFill` instead of reproducing either behavior. Layout/master background editing, `p:bgRef` semantic editing, pattern/group fill, image crop/tile/effects, and slide default color remain outside this API.
+PptxGenJS 4.0.1 solid, transparency, and PNG background output imports to the same supported state. PptxGenJS `{ type: 'none' }` writes no direct background, so it imports as inherited; `{ type: 'none', color }` emits an empty `p:bgPr`, which the strict reader treats as unsupported. Native explicit none intentionally writes legal `a:noFill` instead of reproducing either behavior. Layout/master background editing, `p:bgRef` semantic editing, pattern/group fill, and image crop/tile/effects remain outside this API. The separate transient slide default text color is documented below.
 
 Packed Node, real-Chrome, declaration, and installed-CLI smoke report `slideBackgrounds: true`. Two clean builds have an identical 48-file dist manifest (`e42633dfd50e9f8731e780f6b911f691845c530f5c1a0b9e5f356f93a1a0f423`). Full Vitest is 1156 passed with one performance test skipped by default; its separate performance gate is 1/1. The native gallery has 11 slides, 41 parts, 39 relationships, and three background media parts; both native and the seven-slide PptxGenJS control validate 0/0 and render without overflow. LibreOffice preserves slide order and every image payload hash but normalizes explicit no-fill to inheritance and gradient rotation/fill-rectangle metadata. Local PowerPoint automation returned `-9074`, so no PowerPoint round-trip pass is claimed.
 
@@ -709,6 +709,30 @@ PptxGenJS 4.0.1 public output imports its default/full style, sRGB/scheme color,
 The actual 54-file tarball contains 51 `dist` files and passes installed Node, real-Chrome, browser conditional-export, declaration, and CLI checks with `slideNumbers: true`. Two package builds produce an identical 51-file manifest (`3d77e6f56b8f299f2d580112fd0ebe77d0a98c38c07764259a3735064d5f9bea`). The focused suite is 448/448; full Vitest is 1194 passed with one performance test skipped by default, and the separate performance gate is 1/1. The 16-slide native gallery contains 48 parts and 45 relationships and validates 0/0; the 16-slide PptxGenJS control contains 82 parts and 95 relationships and validates with zero errors plus four expected warnings. All 32 pages render at 180 DPI without edge contact and were inspected individually.
 
 LibreOffice 26.8 renders direct slide fields but displays its own 1..16 sequence instead of the native start 5. Its saved package retains slide order/titles, 15 direct slide owners, the cleared direct field, field types, alignment, and principal explicit styling. It removes `firstSlideNum` and rewrites cached text, default fonts/languages, and layout/master placeholder state, producing zero errors and 15 normalization warnings. Prefer direct slide fields when LibreOffice-visible portability matters instead of relying only on layout/master placeholders. Local PowerPoint 16.112 automation started the application but yielded no active presentation or saved/rendered output, so this environment does not establish a PowerPoint round-trip pass.
+
+## Slide default text color
+
+```ts
+slide.color = { kind: 'scheme', value: 'accent1' };
+slide.addText('Uses accent1');
+slide.addRichText([{
+  runs: [
+    { text: 'Inherited' },
+    { text: ' override', style: { color: { kind: 'srgb', value: '00AA00' } } },
+  ],
+}]);
+slide.color = undefined;
+```
+
+`SlideModel.color` has type `Readonly<RichTextColor> | undefined`. The setter accepts only the closed sRGB/theme union used by rich text: sRGB is normalized to uppercase six-digit hex without `#`, and scheme values must be supported DrawingML tokens. Inputs are descriptor-safe and detached; getters are frozen snapshots. Equal assignment is an exact package/journal no-op. `undefined` clears the transient state.
+
+The value affects only subsequently created `addText()` / `addRichText()` runs. A run's explicit `style.color` takes precedence, while a run with transparency but no local color inherits the slide default. Changing or clearing `slide.color` does not scan or recolor existing shapes or tables. Tables, masters, layouts, and placeholders do not inherit this state; their integration belongs to the master/layout/placeholder and advanced-table specialties.
+
+The transient default is not serialized because OOXML has no legal direct slide-level default-text-color field. Creation materializes the chosen color into each run's standard `a:solidFill`. Reopened documents therefore have `slide.color === undefined`, while materialized run colors remain readable and visually unchanged. Duplicate copies the current state, move retains it, delete removes it, URI reuse cannot leak it, and all operations preserve sibling isolation and transaction rollback.
+
+All six presentation formats, valid PptxGenJS 4.0.1 sRGB/theme/override output, Node, browser, declarations, and CLI are covered. The focused run is 10 passed / 409 skipped; full Vitest is 1205 passed / 1 skipped, performance is 1/1 at 998ms, and typecheck/build pass. The actual tarball contains 54 files and 51 `dist` files; its dist manifest SHA-256 is `467d87ffea6994355c357dbad3b1ea18afa8538b1bacb85b6de43de90ad16829` and tarball SHA-256 is `6812000a83247fdf2d63eddf81ec6ffb43c721d478e4cdcbbf4c4a3ce2b65ad1`.
+
+The real-Chrome result exactly matches live inherited/override/transparency/duplicate state, reopened defaults are absent, and console/page/network errors are zero. Native and PptxGenJS galleries contain 11/9 slides, 38/52 parts, and 35/58 relationships; both validate with 0 errors / 0 warnings under the PowerPoint 2010 profile. All 20 pages were inspected at 180 DPI with zero overflow and 106px minimum margins. LibreOffice 26.8 retains slide and text order, custom sRGB, theme, override, and 40% transparency, while normalizing native `tx1` to equivalent `dk1`; the saved file remains 0/0. Local PowerPoint 16.112 returned `-9074` for both native and control inputs without loading or producing PPTX/PDF output, so no PowerPoint round-trip pass is claimed.
 
 ## Master, layout, and theme
 
@@ -795,7 +819,7 @@ PptxGenJS 4.0.1 valid public embedded-media cases are semantically covered, incl
 
 The actual 45-file tarball passes Node/real-Chrome/declaration/installed-CLI smoke with `nativeMediaTiming: true`; two clean builds have identical SHA-256 manifests for all 42 dist files. All six presentation formats pass native timing create/edit/duplicate/delete/reopen. The nine-slide playable gallery contains 12 media objects across MP3/M4A/WAV/OGG and MP4/MOV/WebM, all three poster MIME types, ten deduplicated media/poster parts, and zero orphans. It strictly reopens, renders at 180 DPI without overflow, passes slide-by-slide visual inspection, and validates against PowerPoint 2010 with 0 errors plus only the expected OGG/WebM warnings. LibreOffice 26.8 preserves nine slides and text but removes all media, posters, media relationships, and timing on save; its output still strictly reopens and validates 0/0. Local PowerPoint 16.112 automation returned `-9074` for this gallery and both independent control files, so it is not reported as a successful round trip.
 
-Trim/bookmarks, finite repeats, narration/cross-slide audio, captions/subtitles, online video, remote-fetch embedding, media crop/rounding/shadow/hyperlink/placeholder styles, a built-in transcoding engine, and broad client certification remain pending. Native standard-chart creation, semantic editing, direct slide backgrounds, and slide numbers are complete; the next PptxGenJS parity slice is default color.
+Trim/bookmarks, finite repeats, narration/cross-slide audio, captions/subtitles, online video, remote-fetch embedding, media crop/rounding/shadow/hyperlink/placeholder styles, a built-in transcoding engine, and broad client certification remain pending. Native standard-chart creation, semantic editing, direct slide backgrounds, slide numbers, and slide default text color are complete; the next PptxGenJS parity slice is master/layout/placeholder.
 
 ## Diagnostics and errors
 

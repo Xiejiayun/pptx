@@ -396,7 +396,7 @@ All nine PptxGenJS 4.0.1 public chart types plus a bar+line primary/secondary co
 
 LibreOffice 26.8 renders the eight 2D types and the combination; `bar3D` is title-only for both the native gallery and an independent PptxGenJS control. On save, LibreOffice retains every chart object's group types and cached data but removes embedded workbooks and rewrites formulas to client placeholders. The reader treats those charts as editable `cache-only` state with `CHART_WORKBOOK_MISSING` warnings, and the first semantic replacement recreates a synchronized XLSX. Local PowerPoint 16.112 automation returned the same `-9074` for the gallery and independent control, so this environment does not establish a PowerPoint round-trip pass.
 
-Office 2016 `cx:*` chart creation/semantic editing, external-workbook editing, chart animations, built-in trendline/error-bar creation, and broad Keynote/Google Slides certification remain pending. The advanced-charts plugin continues to cover modern inspection, trendlines, error bars, and explicit fallback. Slide backgrounds and slide numbers are complete; the next PptxGenJS parity slice is default color.
+Office 2016 `cx:*` chart creation/semantic editing, external-workbook editing, chart animations, built-in trendline/error-bar creation, and broad Keynote/Google Slides certification remain pending. The advanced-charts plugin continues to cover modern inspection, trendlines, error bars, and explicit fallback. Slide backgrounds, slide numbers, and default text color are complete; the next PptxGenJS parity slice is master/layout/placeholder.
 
 ## Create and edit slide backgrounds
 
@@ -468,6 +468,26 @@ numberedSlide.slideNumber = undefined;
 The actual 54-file tarball contains 51 `dist` files and passes Node, real-Chrome, browser conditional-export, declaration, and installed-CLI smoke with `slideNumbers: true`. Two package builds produce an identical 51-file manifest with SHA-256 `3d77e6f56b8f299f2d580112fd0ebe77d0a98c38c07764259a3735064d5f9bea`. The focused suite is 448/448. Full Vitest reports 1194 passed with one performance test skipped by default; its separate gate is 1/1. The 16-slide native gallery has 48 parts and 45 relationships and validates 0/0 against PowerPoint 2010. The 16-slide PptxGenJS control has 82 parts and 95 relationships with zero errors and four locked warnings. All 32 pages render at 180 DPI, were reviewed individually, and have minimum ink margins of 50px/81px.
 
 LibreOffice 26.8 renders all direct slide fields but displays its own 1..16 sequence. On save it preserves 16-slide title order, 15 direct owners, the cleared field, field types, alignment, and principal explicit styles, while removing `firstSlideNum` and rewriting caches, default fonts/languages, and layout/master placeholders. Prefer direct slide fields when LibreOffice-visible portability matters instead of relying only on layout/master placeholders. The reopened package has zero errors and 15 cache-normalization warnings. Local PowerPoint 16.112 automation launched the application but produced no active presentation, PDF, or saved PPTX, so no PowerPoint round-trip pass is claimed.
+
+## Set a slide default text color
+
+```ts
+slide.color = { kind: 'scheme', value: 'accent1' };
+slide.addText('Uses accent1');
+slide.addRichText([{
+  runs: [
+    { text: 'Inherited' },
+    { text: ' override', style: { color: { kind: 'srgb', value: '00AA00' } } },
+  ],
+}]);
+slide.color = undefined;
+```
+
+`SlideModel.color` is a strict, transient default text color supporting six-digit sRGB and DrawingML theme tokens. It applies only to `addText()` / `addRichText()` runs created after the assignment, and an explicit run color wins. Changing or clearing the default never recolors existing shapes or tables; tables, masters, layouts, and placeholders do not inherit it. Getter snapshots are normalized, detached, and frozen. Duplication copies the current default, moving retains it, deletion cleans it up, and sibling slides remain isolated.
+
+There is no legal direct slide-level default-text-color field in OOXML, so the transient default itself is never serialized. Each inherited color is materialized as standard run-level `a:solidFill` when the run is created. After write and reopen, the materialized colors remain but `slide.color === undefined`. The behavior is covered across `pptx/pptm/potx/potm/ppsx/ppsm`, valid PptxGenJS 4.0.1 output, Node, real Chrome, TypeScript declarations, and the installed CLI.
+
+The focused Default Color run reports 10 passed / 409 skipped; full Vitest reports 1205 passed / 1 skipped, the separate performance gate is 1/1 at 998ms, and typecheck/build pass. The actual tarball has 54 files, 51 under `dist`, manifest SHA-256 `467d87ffea6994355c357dbad3b1ea18afa8538b1bacb85b6de43de90ad16829`, and tarball SHA-256 `6812000a83247fdf2d63eddf81ec6ffb43c721d478e4cdcbbf4c4a3ce2b65ad1`. Native/PptxGenJS galleries contain 11/9 slides, 38/52 parts, and 35/58 relationships; both validate 0/0 under the PowerPoint 2010 profile. All 20 pages were inspected at 180 DPI with zero overflow and 106px minimum margins. LibreOffice 26.8 retains slide/text order, custom sRGB, theme, override, and 40% transparency, normalizing only native `tx1` to equivalent `dk1`; its saved package still validates 0/0. Local PowerPoint 16.112 returned `-9074` for both native and control files without loading or producing output, so no PowerPoint round-trip pass is claimed.
 
 `PRESET_SHAPE_TYPES` is the frozen discovery catalog for all 178 canonical preset geometries accepted by `SlideModel.addShape()`. `AddShapeOptions` accepts `name`, strict `adjustments`, strict `fill`, strict `line`, strict `arrows`, strict `shadow`, strict `hyperlink`, and native EMU/OOXML-angle transform fields; use `inches()` and `degrees()` for ergonomic conversion. Omitted geometry starts at x/y/width/height = 1 inch with zero rotation and no flips; omitted fill creates direct no-fill, and omitted line keeps the canonical empty line container. Inputs are strict, descriptor-safe, detached before mutation, and reject unknown fields. The catalog uses the valid OOXML `foldedCorner`; PptxGenJS 4.0.1's invalid `folderCorner` token and runtime-only `custGeom` value are not accepted as presets.
 

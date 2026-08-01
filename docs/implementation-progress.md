@@ -357,7 +357,7 @@ $ pptx-inspect --json package inspect output.pptx
 ### 剩余媒体与全功能路线
 
 - 媒体后续：online video、remote-fetch embedding、trim/bookmarks、有限重复、narration/cross-slide audio、captions/subtitles、crop/rounding/shadow/hyperlink/placeholder styles、内建转码引擎与更广泛 PowerPoint/Keynote/Google Slides 客户端认证。
-- Native timing、标准 native chart、direct slide background 与 slide number 专项均已完成。PptxGenJS 全功能对等仍未完成，后续路线从 default color 开始。
+- Native timing、标准 native chart、direct slide background、slide number 与 default text color 专项均已完成。PptxGenJS 全功能对等仍未完成，后续路线从 master/layout/placeholder 开始。
 
 ## PptxGenJS 全功能对等：Native chart creation and semantic editing
 
@@ -383,7 +383,7 @@ $ pptx-inspect --json package inspect output.pptx
 ### 剩余图表与全功能路线
 
 - 图表后续：Office 2016 `cx:*` modern chart 创建/语义编辑、external workbook 编辑、chart animations、内建 trendline/error-bar 创建，以及更广泛 PowerPoint/Keynote/Google Slides 客户端认证。
-- Slide number 已完成；下一小项为 default color，随后为 master/layout/placeholder、advanced text、advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
+- Slide number 与 default text color 已完成；下一小项为 master/layout/placeholder，随后为 advanced text、advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
 
 ## PptxGenJS 全功能对等：Direct slide backgrounds
 
@@ -410,7 +410,7 @@ $ pptx-inspect --json package inspect output.pptx
 ### 剩余背景与全功能路线
 
 - Background 后续：layout/master background 编辑、`p:bgRef` semantic editing、pattern/group fill、image crop/tile/effects 与更广泛客户端认证。
-- Slide number 已完成；下一小项是 default color，随后为 master/layout/placeholder、advanced text、advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
+- Slide number 与 default text color 已完成；下一小项是 master/layout/placeholder，随后为 advanced text、advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
 
 ## PptxGenJS 全功能对等：Slide number
 
@@ -438,7 +438,33 @@ $ pptx-inspect --json package inspect output.pptx
 ### 剩余页码与全功能路线
 
 - Slide number direct owner 能力已完成；declarative named-master integration、percentage position 与更广泛 PowerPoint/Keynote/Google Slides 认证并入 master/layout/placeholder 和 client 阶段。
-- 下一小项是 default color，随后为 master/layout/placeholder、advanced text、advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
+- Default text color 已完成；下一小项是 master/layout/placeholder，随后为 advanced text、advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
+
+## PptxGenJS 全功能对等：Slide default text color
+
+状态：完成；实施与证据 7/7
+
+### 本阶段 change
+
+- 新增 public `SlideModel.color: Readonly<RichTextColor> | undefined` transient state，strict 归一化六位 sRGB/theme color，input detached，getter frozen，equal assignment 是 package/journal exact no-op，`undefined` 清除。
+- `addText()` / `addRichText()` 在 run 创建时捕获当前 default；local run color 优先，transparency-only run 继承 default。变更 default 不扫描或重染已有 shape/table，table/master/layout/placeholder 不继承。
+- Transient default 不写入 OOXML，颜色在创建时物化到标准 run-level `a:solidFill`；reopen 后 run 颜色保持且 `slide.color === undefined`。
+- Presentation lifecycle 明确处理 duplicate copy、move retain、delete cleanup、rollback 和 part-URI reuse，不泄漏 sibling 或已删除页面的 transient state。
+- PptxGenJS 4.0.1 public-output conformance 覆盖 sRGB/theme、plain/rich inherited、override、transparency、temporal clear 和 table isolation；native 保留 strict setter 与 theme-aware `tx1` zero-input default，不复制非法字符串 delayed fallback。
+
+### 验证结果
+
+- 定向运行为 10 passed / 409 skipped；最终全量 Vitest 为 1205 passed / 1 skipped，独立 performance 1/1 为 998ms，TypeScript strict typecheck 与全仓 build 通过。
+- Actual npm tarball 为 54 files / 51 dist files，installed Node、真实 Chrome、browser conditional export、declaration 与 CLI 均返回 `slideDefaultColor: true`。Dist manifest SHA-256 为 `467d87ffea6994355c357dbad3b1ea18afa8538b1bacb85b6de43de90ad16829`，tarball SHA-256 为 `6812000a83247fdf2d63eddf81ec6ffb43c721d478e4cdcbbf4c4a3ce2b65ad1`。
+- Real-Chrome live default、override、transparency、duplicate identity、materialized state 与 reopen `undefined` 结果完全匹配，validation/console/page/network errors 为 0。
+- Native gallery 为 11 slides、38 parts、35 relationships；PptxGenJS control 为 9 slides、52 parts、58 relationships。两者 PowerPoint 2010 profile 均为 0 errors / 0 warnings。20 页全部以 180 DPI 逐页检查，overflow 0，minimum margin 均为 106px。
+- LibreOffice 26.8 回存保留页数、文字顺序、custom sRGB/theme/override/40% transparency，仅把 native `tx1` 规范化为等价 `dk1`；回存件仍为 0 errors / 0 warnings。
+- 本机 PowerPoint 16.112 对 native/control 均返回 `-9074`，未加载 presentation 或产生 PPTX/PDF；本轮不声明 PowerPoint 往返通过。
+
+### 剩余文本与全功能路线
+
+- Slide default text color direct transient 语义已完成；table 默认颜色、master/layout/placeholder theme inheritance 与 advanced text 仍按独立专项实施。
+- 后续顺序固定为 master/layout/placeholder → advanced text → advanced table/`tableToSlides` → output/runtime helpers → peer-range full-suite audit。
 
 ## 0.1.0 初始验收
 

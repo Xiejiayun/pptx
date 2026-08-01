@@ -255,7 +255,7 @@ PptxGenJS 4.0.1 的九种公开图表和 bar+line 主/次轴组合已通过真�
 
 LibreOffice 26.8 能显示八种 2D 图表及组合图；`bar3D` 在 native 与独立 PptxGenJS 控制文件中都只显示标题。保存时 LibreOffice 保留全部 10 个图表的类型和 cache 数据，但移除内嵌 workbook 并把公式改成客户端占位符；reader 将其识别为可编辑的 `cache-only` 状态并报告 `CHART_WORKBOOK_MISSING` warning，首次语义替换会重新生成同步 XLSX。本机 PowerPoint 16.112 对 gallery 与独立控制文件自动打开均返回同一 `-9074`，本轮不声明 PowerPoint 往返通过。
 
-仍未支持 Office 2016 `cx:*` modern chart 创建/语义编辑、external workbook 编辑、chart animations、内建趋势线/error bar 创建以及更广泛 Keynote/Google Slides 认证；高级插件继续处理 modern inspection、trendline、error bar 与显式 fallback。Slide background 与 slide number 均已完成；PptxGenJS 全功能对等的下一项是 default color。
+仍未支持 Office 2016 `cx:*` modern chart 创建/语义编辑、external workbook 编辑、chart animations、内建趋势线/error bar 创建以及更广泛 Keynote/Google Slides 认证；高级插件继续处理 modern inspection、trendline、error bar 与显式 fallback。Slide background、slide number 与 default text color 均已完成；PptxGenJS 全功能对等的下一项是 master/layout/placeholder。
 
 ## 创建和编辑页面背景
 
@@ -327,6 +327,26 @@ slide.slideNumber = undefined; // 只清除该页的 direct 页码
 实际 54-file tarball（51 个 `dist` 文件）的 Node、real-Chrome、browser conditional export、declaration 与 installed CLI smoke 均报告 `slideNumbers: true`；两次 package build 的 51-file manifest 完全一致，SHA-256 为 `3d77e6f56b8f299f2d580112fd0ebe77d0a98c38c07764259a3735064d5f9bea`。Focused suite 为 448/448；全量 Vitest 为 1194 passed、1 performance 默认 skipped，独立 performance 1/1。16 页 native gallery 为 48 parts、45 relationships、PowerPoint 2010 profile 0/0；16 页 PptxGenJS control 为 82 parts、95 relationships、0 errors 和 4 条已锁定 warning。32 页均以 180 DPI 渲染、逐页检查，最小非空像素边距分别为 50px/81px。
 
 LibreOffice 26.8 渲染全部 direct slide 页码，但按自身页序显示 1..16；保存后保留 16 页标题顺序、15 个 direct owner、clear 状态、field type、对齐和主要显式样式，同时移除 `firstSlideNum`、重写 cache/default font/language 与 layout/master placeholder。需要跨 LibreOffice 可见性时应优先创建 direct slide field，而不是只依赖 layout/master placeholder。回存件可重开且为 0 errors、15 条 cache-normalization warning。本机 PowerPoint 16.112 自动化启动了应用但未形成 active presentation、PDF 或回存 PPTX，因此不声明 PowerPoint 往返通过。
+
+## 设置页面默认文字颜色
+
+```ts
+slide.color = { kind: 'scheme', value: 'accent1' };
+slide.addText('Uses accent1');
+slide.addRichText([{
+  runs: [
+    { text: 'Inherited' },
+    { text: ' override', style: { color: { kind: 'srgb', value: '00AA00' } } },
+  ],
+}]);
+slide.color = undefined;
+```
+
+`SlideModel.color` 是 strict、transient 的 default text color，支持六位 sRGB 与 DrawingML theme token。它只影响设置之后新建的 `addText()` / `addRichText()` run，显式 run color 优先；改变或清除 default 不会重染已有 shape 或 table，table、master、layout 与 placeholder 也不继承该状态。Getter 返回 normalized、detached、frozen 快照；duplicate 复制当前 default，move 保留，delete 清理，且 sibling slide 彼此隔离。
+
+OOXML 没有合法的 direct slide-level default text color 字段，因此 transient default 本身不序列化；写出时颜色已物化到每个 run 的标准 `a:solidFill`。重开后文字颜色与显示保持，但 `slide.color === undefined`。该语义覆盖 `pptx/pptm/potx/potm/ppsx/ppsm`，并通过 PptxGenJS 4.0.1 合法输出、Node、真实 Chrome、TypeScript declarations 与 installed CLI 验证。
+
+Default Color 定向验证为 10 passed / 409 skipped，全量 Vitest 为 1205 passed / 1 skipped，独立 performance gate 为 1/1（998ms），typecheck 与 build 通过。Actual tarball 含 54 个文件、51 个 `dist` 文件，dist manifest SHA-256 为 `467d87ffea6994355c357dbad3b1ea18afa8538b1bacb85b6de43de90ad16829`，tarball SHA-256 为 `6812000a83247fdf2d63eddf81ec6ffb43c721d478e4cdcbbf4c4a3ce2b65ad1`。Native/PptxGenJS gallery 分别为 11/9 slides、38/52 parts、35/58 relationships，PowerPoint 2010 profile 均为 0 errors / 0 warnings；20 页 180-DPI 渲染全部逐页检查，overflow 为 0，最小边距均为 106px。LibreOffice 26.8 回存保留页序、文字顺序、自定义 sRGB/theme/override/40% transparency，仅将 native `tx1` 规范化为等价 `dk1`；回存件仍为 0/0。本机 PowerPoint 16.112 对 native/control 都返回 `-9074`，未加载 presentation 也未产生输出，因此不声明 PowerPoint 往返通过。
 
 ## 创建和编辑预设形状、调整值与样式
 
