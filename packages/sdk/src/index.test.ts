@@ -53,6 +53,7 @@ import {
   type RasterImageByteStream,
   type RasterImageInfo,
   type RasterImageSource,
+  type SetSlideBackgroundImageOptions,
   type SvgImageContentType,
   type ShapeArrows,
   type ShapeAdjustment,
@@ -665,6 +666,183 @@ describe('PptxDocument vertical slice', () => {
         code: 'GRADIENT_PATH_MAY_DEGRADE',
         partUri: gradientSlide.partUri,
       })]);
+  });
+
+  it('sets a live image background from a detached raster source', async () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const png = sdkPngHeader(16, 9);
+    const pending: Promise<void> = document.setSlideBackgroundImage(0, png, {
+      contentType: 'image/png',
+    });
+    png.fill(0);
+    await expect(pending).resolves.toBeUndefined();
+
+    expect(slide.background).toEqual({
+      kind: 'image',
+      contentType: 'image/png',
+      bytes: sdkPngHeader(16, 9),
+    });
+    expect(slide.shapes).toEqual([]);
+    expect(slide.relationships.filter(({ type }) => type.endsWith('/image'))).toHaveLength(1);
+
+    slide.background = { kind: 'none' };
+    expect(slide.background).toEqual({ kind: 'none' });
+    slide.background = {
+      kind: 'solid',
+      color: { kind: 'srgb', value: '112233' },
+      transparency: 25,
+    };
+    expect(slide.background).toEqual({
+      kind: 'solid',
+      color: { kind: 'srgb', value: '112233' },
+      transparency: 25,
+    });
+    slide.background = {
+      kind: 'linear-gradient',
+      angle: 45,
+      stops: [
+        { offset: 0, color: 'FFFFFF' },
+        { offset: 1, color: '000000' },
+      ],
+    };
+    expect(slide.background?.kind).toBe('linear-gradient');
+    slide.background = undefined;
+    expect(slide.background).toBeUndefined();
+
+    if (false) {
+      const source: RasterImageSource = sdkPngHeader(1, 1);
+      const options: SetSlideBackgroundImageOptions = {
+        contentType: 'image/png',
+        signal: new AbortController().signal,
+      };
+      const result: Promise<void> = document.setSlideBackgroundImage(0, source, options);
+      void result;
+    }
+  });
+
+  it('leaves the document unchanged when background source loading or assignment fails', async () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const expected = await sdkPackageSnapshot(document);
+    let sourceReads = 0;
+    const countedSource: RasterImageSource = {
+      async *[Symbol.asyncIterator]() {
+        sourceReads += 1;
+        yield sdkPngHeader(1, 1);
+      },
+    };
+    let accessorReads = 0;
+    const accessor = Object.defineProperty({}, 'contentType', {
+      enumerable: true,
+      get() {
+        accessorReads += 1;
+        return 'image/png';
+      },
+    });
+    const invalidBeforeRead: readonly (() => Promise<void>)[] = [
+      () => document.setSlideBackgroundImage(1, countedSource),
+      () => document.setSlideBackgroundImage(0, countedSource, null as never),
+      () => document.setSlideBackgroundImage(0, countedSource, accessor as never),
+      () => document.setSlideBackgroundImage(
+        0,
+        countedSource,
+        Object.create({ contentType: 'image/png' }),
+      ),
+      () => document.setSlideBackgroundImage(0, countedSource, { unknown: true } as never),
+      () => document.setSlideBackgroundImage(0, countedSource, { signal: {} } as never),
+    ];
+    for (const call of invalidBeforeRead) {
+      await expect(call()).rejects.toBeInstanceOf(Error);
+      expect(await sdkPackageSnapshot(document)).toEqual(expected);
+    }
+    expect(sourceReads).toBe(0);
+    expect(accessorReads).toBe(0);
+
+    const controller = new AbortController();
+    const reason = new Error('abort background image');
+    controller.abort(reason);
+    const invalidAfterRead: readonly (() => Promise<void>)[] = [
+      () => document.setSlideBackgroundImage(0, Uint8Array.of(1, 2, 3)),
+      () => document.setSlideBackgroundImage(0, sdkPngHeader(1, 1), {
+        contentType: 'image/gif',
+      }),
+      () => document.setSlideBackgroundImage(0, sdkPngHeader(1, 1), {
+        signal: controller.signal,
+      }),
+    ];
+    for (const call of invalidAfterRead) {
+      await expect(call()).rejects.toBeInstanceOf(Error);
+      expect(await sdkPackageSnapshot(document)).toEqual(expected);
+    }
+
+    const part = document.opcPackage.requirePart(slide.partUri);
+    document.opcPackage.setPart(
+      slide.partUri,
+      new TextDecoder().decode(part.bytes).replace('<p:cSld>', '<p:cSld/><p:cSld>'),
+      part.contentType,
+    );
+    const malformed = await sdkPackageSnapshot(document);
+    await expect(document.setSlideBackgroundImage(0, sdkPngHeader(1, 1)))
+      .rejects.toThrow(ModelParseError);
+    expect(await sdkPackageSnapshot(document)).toEqual(malformed);
+  });
+
+  it('round-trips image, none, solid, and gradient backgrounds twice in all six formats', async () => {
+    const png = sdkPngHeader(32, 18);
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const document = PptxDocument.create({ format });
+      document.addSlide();
+      await document.setSlideBackgroundImage(0, png);
+      document.addSlide().background = { kind: 'none' };
+      document.addSlide().background = {
+        kind: 'solid',
+        color: { kind: 'scheme', value: 'accent1' },
+        transparency: 25,
+      };
+      document.addSlide().background = {
+        kind: 'linear-gradient',
+        angle: 45,
+        stops: [
+          { offset: 0, color: 'FFFFFF' },
+          { offset: 1, color: '000000' },
+        ],
+      };
+
+      const first = await PptxDocument.open(await document.write());
+      const second = await PptxDocument.open(await first.write());
+      expect(first.formatProfile).toEqual(PRESENTATION_FORMAT_PROFILES[format]);
+      expect(second.formatProfile).toEqual(PRESENTATION_FORMAT_PROFILES[format]);
+      expect(second.slides[0]!.background).toEqual({
+        kind: 'image',
+        contentType: 'image/png',
+        bytes: png,
+      });
+      expect(second.slides[0]!.shapes).toEqual([]);
+      const imageRelationships = second.slides[0]!.relationships.filter(({ type }) =>
+        type.endsWith('/image'));
+      expect(imageRelationships).toHaveLength(1);
+      expect(second.opcPackage.requirePart(imageRelationships[0]!.resolvedTarget!)).toMatchObject({
+        contentType: 'image/png',
+        bytes: png,
+      });
+      const xml = new TextDecoder().decode(
+        second.opcPackage.requirePart(second.slides[0]!.partUri).bytes,
+      );
+      expect(xml).toContain(
+        `<a:blipFill><a:blip r:embed="${imageRelationships[0]!.id}"/>`
+          + '<a:stretch><a:fillRect/></a:stretch></a:blipFill>',
+      );
+      expect(second.slides[1]!.background).toEqual({ kind: 'none' });
+      expect(second.slides[2]!.background).toEqual({
+        kind: 'solid',
+        color: { kind: 'scheme', value: 'accent1' },
+        transparency: 25,
+      });
+      expect(second.slides[3]!.background?.kind).toBe('linear-gradient');
+      expect(validatePackage(second.opcPackage).filter(({ severity }) => severity === 'error'))
+        .toEqual([]);
+    }
   });
 
   it('round-trips canonical audio and video twice in all six presentation formats', async () => {

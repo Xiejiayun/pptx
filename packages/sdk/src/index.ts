@@ -37,8 +37,13 @@ import {
   resolveImageSource,
   type AddImageSourceOptions,
   type ImageSource,
+  type RasterImageSource,
 } from './raster-image-source.js';
 import { calculateImageSizing } from './raster-image-sizing.js';
+import {
+  resolveSlideBackgroundImage,
+  type SetSlideBackgroundImageOptions,
+} from './slide-background-source.js';
 import { resolveSvgFallback } from './svg-image-fallback.js';
 
 export * from '@pptx/codecs';
@@ -76,6 +81,7 @@ export type {
   RasterImageSizing,
   RasterImageSizingResult,
 } from './raster-image-sizing.js';
+export type { SetSlideBackgroundImageOptions } from './slide-background-source.js';
 export { PackageError } from '@pptx/opc';
 export type { PackageOpenOptions } from '@pptx/opc';
 export { ValidationError } from '@pptx/validator';
@@ -264,6 +270,16 @@ export class PptxDocument extends PresentationModel {
       ...normalized.imageOptions,
       ...(placement ?? {}),
     });
+  }
+
+  async setSlideBackgroundImage(
+    slideIndex: number,
+    source: RasterImageSource,
+    options: SetSlideBackgroundImageOptions = {},
+  ): Promise<void> {
+    const slide = this.slides[slideIndex];
+    if (!slide) throw new RangeError(`Slide index ${slideIndex} is out of range`);
+    slide.background = await resolveSlideBackgroundImage(source, options);
   }
 
   addChart(
