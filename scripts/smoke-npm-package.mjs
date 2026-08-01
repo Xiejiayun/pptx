@@ -132,6 +132,55 @@ const slideNumbers = reopenedSlideNumberDeck.firstSlideNumber === 5 &&
   packedMasterXml.includes('sldNum="1"') &&
   reopenedSlideNumberDeck.diagnostics.filter(({ code }) => code.startsWith('SLIDE_NUMBER_')).length === 0;
 await reopenedSlideNumberDeck.writeFile('slide-number-smoke.pptx');
+const slideDefaultColorDeck = PptxDocument.create();
+const packedDefaultColorSource = slideDefaultColorDeck.addSlide();
+packedDefaultColorSource.color = { kind: 'srgb', value: 'ff3399' };
+packedDefaultColorSource.addText('Packed sRGB');
+packedDefaultColorSource.color = { kind: 'scheme', value: 'accent1' };
+packedDefaultColorSource.addRichText([{
+  runs: [
+    { text: 'Packed inherited' },
+    { text: 'Packed override', style: { color: { kind: 'srgb', value: '00AA00' } } },
+    { text: 'Packed alpha', style: { transparency: 25 } },
+  ],
+}]);
+const packedDefaultColorDuplicate = slideDefaultColorDeck.duplicateSlide(0);
+const packedDefaultIdentity = packedDefaultColorDuplicate.color === packedDefaultColorSource.color;
+packedDefaultColorDuplicate.addText('Packed duplicate inherited');
+const packedDefaultLiveValues = slideDefaultColorDeck.slides.map(({ color }) => color);
+const reopenedSlideDefaultColorDeck = await PptxDocument.open(await slideDefaultColorDeck.write());
+await reopenedSlideDefaultColorDeck.write({ compatibility: 'powerpoint-2010' });
+const packedDefaultRunState = reopenedSlideDefaultColorDeck.slides.map((slide) => slide.shapes
+  .filter((shape) => shape instanceof ShapeModel)
+  .map(({ richText }) => richText.flatMap(({ runs }) => runs.map(({ style }) => ({
+    color: style?.color,
+    transparency: style?.transparency,
+  })))));
+const slideDefaultColor = packedDefaultIdentity &&
+  packedDefaultLiveValues.every((color) =>
+    color?.kind === 'scheme' && color.value === 'accent1') &&
+  reopenedSlideDefaultColorDeck.slides.every(({ color }) => color === undefined) &&
+  JSON.stringify(packedDefaultRunState) === JSON.stringify([
+    [
+      [{ color: { kind: 'srgb', value: 'FF3399' } }],
+      [
+        { color: { kind: 'scheme', value: 'accent1' } },
+        { color: { kind: 'srgb', value: '00AA00' } },
+        { color: { kind: 'scheme', value: 'accent1' }, transparency: 25 },
+      ],
+    ],
+    [
+      [{ color: { kind: 'srgb', value: 'FF3399' } }],
+      [
+        { color: { kind: 'scheme', value: 'accent1' } },
+        { color: { kind: 'srgb', value: '00AA00' } },
+        { color: { kind: 'scheme', value: 'accent1' }, transparency: 25 },
+      ],
+      [{ color: { kind: 'scheme', value: 'accent1' } }],
+    ],
+  ]) &&
+  reopenedSlideDefaultColorDeck.diagnostics.filter(({ severity }) => severity === 'error').length === 0;
+await reopenedSlideDefaultColorDeck.writeFile('slide-default-color-smoke.pptx');
 const embeddedRasterDeck = PptxDocument.create();
 const embeddedRasterSlide = embeddedRasterDeck.addSlide();
 const embeddedRasterInputs = [
@@ -2898,6 +2947,7 @@ const nativeCharts = reopenedNativeChartModels.length === 10
 await reopenedNativeCharts.writeFile('native-charts-smoke.pptx');
 const checks = {
   slideNumbers,
+  slideDefaultColor,
   PptxDocument: typeof PptxDocument === 'function',
   presetShapes,
   customGeometryPaths,
@@ -4281,6 +4331,7 @@ process.stdout.write(resolved);
   type PresentationThemeOptions,
   type ThemeFontSnapshot,
   type ThemeFontUpdate,
+  type RichTextColor,
   type RichTextParagraph,
   type TextAlignment,
   type NumberingStyle,
@@ -4325,6 +4376,13 @@ process.stdout.write(resolved);
 
 const documentPromise: Promise<PptxDocument> = PptxDocument.open(new Uint8Array());
 const createdDocument: PptxDocument = PptxDocument.create({ format: 'pptx', slideSize: 'wide' });
+const typedDefaultColor: RichTextColor = { kind: 'scheme', value: 'accent1' };
+const typedDefaultColorSlide = createdDocument.addSlide();
+typedDefaultColorSlide.color = typedDefaultColor;
+const currentDefaultColor: Readonly<RichTextColor> | undefined = typedDefaultColorSlide.color;
+// @ts-expect-error slide default colors require structured RichTextColor values
+typedDefaultColorSlide.color = 'accent1';
+void [currentDefaultColor, typedDefaultColorSlide];
 const typedSlideNumberColor: SlideNumberColor = { kind: 'scheme', value: 'accent1' };
 const typedSlideNumberMargin: SlideNumberMarginInput = [1, 2, 3, 4];
 const typedSlideNumberMargins: SlideNumberMargins = { top: 1, left: 4 };
@@ -5437,6 +5495,56 @@ void [documentPromise, createdDocument, typedChartDefinition, typedChartPromise,
       !slideNumberMasterXml.includes('sldNum="1"')) {
     throw new Error('CLI slide-number part inspection failed');
   }
+  const slideDefaultColorDeckPath = join(directory, 'slide-default-color-smoke.pptx');
+  const slideDefaultColorInspectResult = run(
+    bin,
+    ['--json', 'package', 'inspect', slideDefaultColorDeckPath],
+    directory,
+  );
+  const slideDefaultColorInspected = JSON.parse(slideDefaultColorInspectResult.stdout);
+  if (!slideDefaultColorInspected.ok ||
+      slideDefaultColorInspected.data?.contentTypes?.[
+        'application/vnd.openxmlformats-officedocument.presentationml.slide+xml'
+      ] !== 2) {
+    throw new Error(`CLI slide-default-color inspect failed: ${slideDefaultColorInspectResult.stdout}`);
+  }
+  const slideDefaultColorValidateResult = run(
+    bin,
+    ['--json', 'package', 'validate', slideDefaultColorDeckPath, '--profile', 'powerpoint-2010'],
+    directory,
+  );
+  const slideDefaultColorValidated = JSON.parse(slideDefaultColorValidateResult.stdout);
+  if (!slideDefaultColorValidated.ok || !slideDefaultColorValidated.data?.valid ||
+      slideDefaultColorValidated.data.errorCount !== 0 ||
+      slideDefaultColorValidated.data.warningCount !== 0) {
+    throw new Error(`CLI slide-default-color validation failed: ${slideDefaultColorValidateResult.stdout}`);
+  }
+  const slideDefaultColorSlidesResult = run(
+    bin,
+    ['--json', 'slides', 'list', slideDefaultColorDeckPath],
+    directory,
+  );
+  const slideDefaultColorSlides = JSON.parse(slideDefaultColorSlidesResult.stdout);
+  if (!slideDefaultColorSlides.ok || slideDefaultColorSlides.data?.length !== 2 ||
+      slideDefaultColorSlides.data[0]?.shapeCount !== 2 ||
+      slideDefaultColorSlides.data[1]?.shapeCount !== 3) {
+    throw new Error(`CLI slide-default-color slide listing failed: ${slideDefaultColorSlidesResult.stdout}`);
+  }
+  const slideDefaultColorPartResult = run(
+    bin,
+    ['--json', 'part', 'read', slideDefaultColorDeckPath, slideDefaultColorSlides.data[0].partUri],
+    directory,
+  );
+  const slideDefaultColorPart = JSON.parse(slideDefaultColorPartResult.stdout);
+  const slideDefaultColorXml = slideDefaultColorPart.data?.content ?? '';
+  if (!slideDefaultColorPart.ok ||
+      !slideDefaultColorXml.includes('<a:srgbClr val="FF3399"/>') ||
+      !slideDefaultColorXml.includes('<a:schemeClr val="accent1"/>') ||
+      !slideDefaultColorXml.includes(
+        '<a:schemeClr val="accent1"><a:alpha val="75000"/></a:schemeClr>',
+      )) {
+    throw new Error(`CLI slide-default-color part inspection failed: ${slideDefaultColorPartResult.stdout}`);
+  }
   if (process.env.PPTX_SLIDE_BACKGROUND_GALLERY_OUT) {
     const galleryOutput = resolve(process.env.PPTX_SLIDE_BACKGROUND_GALLERY_OUT);
     await mkdir(dirname(galleryOutput), { recursive: true });
@@ -5452,9 +5560,14 @@ void [documentPromise, createdDocument, typedChartDefinition, typedChartPromise,
     await mkdir(dirname(galleryOutput), { recursive: true });
     await writeFile(galleryOutput, await readFile(slideNumberDeckPath));
   }
+  if (process.env.PPTX_SLIDE_DEFAULT_COLOR_GALLERY_OUT) {
+    const galleryOutput = resolve(process.env.PPTX_SLIDE_DEFAULT_COLOR_GALLERY_OUT);
+    await mkdir(dirname(galleryOutput), { recursive: true });
+    await writeFile(galleryOutput, await readFile(slideDefaultColorDeckPath));
+  }
 
   process.stdout.write(
-    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, slideNumbers: apiChecks.slideNumbers, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, slideBackgrounds: apiChecks.slideBackgrounds, types: true, cli: doctor.data.version, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true, slideBackgroundInspect: true, slideBackgroundValidate: true, slideNumberInspect: true, slideNumberValidate: true, slideNumberSlides: true, slideNumberPartRead: true })}\n`,
+    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, slideNumbers: apiChecks.slideNumbers, slideDefaultColor: apiChecks.slideDefaultColor, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, slideBackgrounds: apiChecks.slideBackgrounds, types: true, cli: doctor.data.version, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true, slideBackgroundInspect: true, slideBackgroundValidate: true, slideNumberInspect: true, slideNumberValidate: true, slideNumberSlides: true, slideNumberPartRead: true, slideDefaultColorInspect: true, slideDefaultColorValidate: true, slideDefaultColorSlides: true, slideDefaultColorPartRead: true })}\n`,
   );
 } finally {
   await rm(directory, { recursive: true, force: true });

@@ -80,6 +80,39 @@ async (page) => {
           .filter(({ code }) => code.startsWith('SLIDE_NUMBER_'))
           .map(({ code }) => code),
       };
+      const slideDefaultColorDocument = api.PptxDocument.create();
+      const slideDefaultColorSource = slideDefaultColorDocument.addSlide();
+      slideDefaultColorSource.color = { kind: 'scheme', value: 'accent1' };
+      slideDefaultColorSource.addRichText([{
+        runs: [
+          { text: 'Browser inherited' },
+          { text: 'Browser override', style: { color: { kind: 'srgb', value: '00AA00' } } },
+          { text: 'Browser alpha', style: { transparency: 25 } },
+        ],
+      }]);
+      const slideDefaultColorDuplicate = slideDefaultColorDocument.duplicateSlide(0);
+      const slideDefaultColorDuplicateIdentity =
+        slideDefaultColorDuplicate.color === slideDefaultColorSource.color;
+      slideDefaultColorDuplicate.addText('Browser duplicate inherited');
+      const slideDefaultColorLive = slideDefaultColorDocument.slides.map(({ color }) => color);
+      const slideDefaultColorOutput = await slideDefaultColorDocument.writeBlob();
+      const reopenedSlideDefaultColors = await api.PptxDocument.open(slideDefaultColorOutput);
+      await reopenedSlideDefaultColors.write({ compatibility: 'powerpoint-current' });
+      const slideDefaultColorState = {
+        mime: slideDefaultColorOutput.type,
+        live: slideDefaultColorLive,
+        duplicateIdentity: slideDefaultColorDuplicateIdentity,
+        materialized: reopenedSlideDefaultColors.slides.map((slide) => slide.shapes
+          .filter((shape) => shape instanceof api.ShapeModel)
+          .map(({ richText }) => richText.flatMap(({ runs }) => runs.map(({ style }) => ({
+            color: style?.color,
+            transparency: style?.transparency,
+          }))))),
+        reopened: reopenedSlideDefaultColors.slides.map(({ color }) => color ?? null),
+        validationErrors: reopenedSlideDefaultColors.diagnostics.filter(
+          ({ severity }) => severity === 'error',
+        ).length,
+      };
       const svgDocument = api.PptxDocument.create();
       svgDocument.addSlide();
       const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360">'
@@ -458,6 +491,7 @@ async (page) => {
         smartArt: typeof api.smartArt.SmartArtDiagramCodec,
         blobInputTitle: fromBlob.slides[0].title.text,
         slideNumbers: slideNumberState,
+        slideDefaultColor: slideDefaultColorState,
         svgCreatedLive: svgDocument.slides[0].shapes.includes(blobSvg)
           && svgDocument.slides[0].shapes.includes(dataSvg),
         svgState,
@@ -559,6 +593,31 @@ async (page) => {
       masterEnabled: true,
       ownerCounts: [1, 1, 1, 1],
       diagnostics: [],
+    },
+    slideDefaultColor: {
+      mime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      live: [
+        { kind: 'scheme', value: 'accent1' },
+        { kind: 'scheme', value: 'accent1' },
+      ],
+      duplicateIdentity: true,
+      materialized: [
+        [[
+          { color: { kind: 'scheme', value: 'accent1' } },
+          { color: { kind: 'srgb', value: '00AA00' } },
+          { color: { kind: 'scheme', value: 'accent1' }, transparency: 25 },
+        ]],
+        [
+          [
+            { color: { kind: 'scheme', value: 'accent1' } },
+            { color: { kind: 'srgb', value: '00AA00' } },
+            { color: { kind: 'scheme', value: 'accent1' }, transparency: 25 },
+          ],
+          [{ color: { kind: 'scheme', value: 'accent1' } }],
+        ],
+      ],
+      reopened: [null, null],
+      validationErrors: 0,
     },
     svgCreatedLive: true,
     svgState: [

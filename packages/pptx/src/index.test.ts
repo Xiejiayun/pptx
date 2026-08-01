@@ -4,15 +4,58 @@ import {
   ChartModel,
   MediaModel,
   PptxDocument,
+  ShapeModel,
   chartWorkbookMatches,
   inches,
   slideNumberDiagnostics,
   type ReplaceMediaPosterOptions,
   type ReplaceMediaSourceOptions,
+  type RichTextColor,
   type SlideNumberOptions,
 } from './index.js';
 
 describe('@jiayunxie/pptx stable exports', () => {
+  it('exports transient slide default colors and materializes them through the root', async () => {
+    const defaultColor: RichTextColor = { kind: 'scheme', value: 'accent1' };
+    const document = PptxDocument.create();
+    const source = document.addSlide();
+    source.color = defaultColor;
+    source.addText('Inherited plain');
+    source.addRichText([{
+      runs: [
+        { text: 'Inherited rich' },
+        { text: 'Override', style: { color: { kind: 'srgb', value: '00AA00' } } },
+      ],
+    }]);
+    const duplicate = document.duplicateSlide(0);
+    expect(duplicate.color).toBe(source.color);
+    duplicate.addText('Duplicate inherited');
+
+    const reopened = await PptxDocument.open(await document.write());
+    expect(reopened.slides.map(({ color }) => color)).toEqual([undefined, undefined]);
+    const colors = reopened.slides.map((slide) => slide.shapes
+      .filter((shape): shape is ShapeModel => shape instanceof ShapeModel)
+      .map(({ richText }) => richText.flatMap(({ runs }) =>
+        runs.map(({ style }) => style?.color))));
+    expect(colors).toEqual([
+      [
+        [{ kind: 'scheme', value: 'accent1' }],
+        [
+          { kind: 'scheme', value: 'accent1' },
+          { kind: 'srgb', value: '00AA00' },
+        ],
+      ],
+      [
+        [{ kind: 'scheme', value: 'accent1' }],
+        [
+          { kind: 'scheme', value: 'accent1' },
+          { kind: 'srgb', value: '00AA00' },
+        ],
+        [{ kind: 'scheme', value: 'accent1' }],
+      ],
+    ]);
+  });
+
   it('exports slide-number creation, editing, and compatibility diagnostics from the root', async () => {
     const options: SlideNumberOptions = {
       align: 'justify',
