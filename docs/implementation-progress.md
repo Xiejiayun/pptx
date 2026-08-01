@@ -357,7 +357,7 @@ $ pptx-inspect --json package inspect output.pptx
 ### 剩余媒体与全功能路线
 
 - 媒体后续：online video、remote-fetch embedding、trim/bookmarks、有限重复、narration/cross-slide audio、captions/subtitles、crop/rounding/shadow/hyperlink/placeholder styles、内建转码引擎与更广泛 PowerPoint/Keynote/Google Slides 客户端认证。
-- Native timing 专项已完成；标准 native chart 专项也已在下一节完成。PptxGenJS 全功能对等仍未完成，后续路线从 slide background/number/default color 开始。
+- Native timing、标准 native chart 与 direct slide background 专项均已完成。PptxGenJS 全功能对等仍未完成，后续路线从 slide number、default color 开始。
 
 ## PptxGenJS 全功能对等：Native chart creation and semantic editing
 
@@ -383,7 +383,34 @@ $ pptx-inspect --json package inspect output.pptx
 ### 剩余图表与全功能路线
 
 - 图表后续：Office 2016 `cx:*` modern chart 创建/语义编辑、external workbook 编辑、chart animations、内建 trendline/error-bar 创建，以及更广泛 PowerPoint/Keynote/Google Slides 客户端认证。
-- 下一小项：slide background、slide number 与 default color；随后为 master/layout/placeholder、advanced text、advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
+- 下一小项：slide number，随后为 default color、master/layout/placeholder、advanced text、advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
+
+## PptxGenJS 全功能对等：Direct slide backgrounds
+
+状态：完成；实施与证据 9/9
+
+### 本阶段 change
+
+- 新增 public `SimpleFill`、`SlideBackgroundImage` 与 `SlideBackground`，支持 direct inherited clear、legal noFill、sRGB/theme solid+transparency、linear/path gradient 和 PNG/JPEG/GIF image。
+- `SlideModel.background` 只读取唯一 namespace-correct `p:sld/p:cSld/p:bg/p:bgPr`；unsupported/ambiguous `p:bgRef`、pattern/group fill、wrong namespace、multiple choice 或 unsafe image relationship 返回 `undefined` 且不修复 bytes。Equal value 和 absent clear 是 exact no-op。
+- Non-image replacement 局部 patch owned fill choice；opaque direct background 由 explicit supported assignment canonicalize。`undefined` 删除 direct `p:bg` 恢复继承，`{ kind: 'none' }` 写合法 `a:noFill`。
+- Image background 原子管理 fill、internal relationship 与 PNG/JPEG/GIF part。Duplicate 初始共享 target，首次不同写入 clone-on-write；shared relationship id/target isolation、replacement、clear、slide delete 与 rollback 都按 graph incoming 安全回收。
+- 新增 `PptxDocument.setSlideBackgroundImage()`，复用 Node/browser raster source loader 与 signature-first MIME assertion；全部 async I/O 完成后才进入同步 transaction。六种 presentation format 均覆盖 create/read/edit/clear/duplicate/delete/reopen。
+- PptxGenJS 4.0.1 合法 solid/transparency/PNG final state 达到语义与结构对等。其 `{ type: 'none' }` 实际继承，`{ type: 'none', color }` 会写空 `p:bgPr`；native explicit none 始终写合法 `a:noFill`，不复制无效输出。
+
+### 验证结果
+
+- Focused model/lifecycle 226/226、SDK six-format/source 296/296、PptxGenJS/validator/root 393/393；最终全量 Vitest 1156 passed、1 performance 默认 skipped，独立 performance 1/1、TypeScript typecheck 与全仓 build 通过。
+- Packed Node、real-Chrome、declaration 与 installed CLI smoke 均报告 `slideBackgrounds: true`。Browser 覆盖 Blob/data URI、solid/gradient、writeBlob/reopen，得到 kinds `image,image,solid,linear-gradient`、relationship counts `1,1,0,0`、两个相同 PNG SHA-256 和 0 diagnostics/console/page/network errors。
+- 两次 clean build 的 48 个 dist 文件 manifest 完全一致，SHA-256 为 `e42633dfd50e9f8731e780f6b911f691845c530f5c1a0b9e5f356f93a1a0f423`；第二构建 tarball 在无 workspace link 的全新 consumer 中完成 Node/types/browser/CLI 验证。
+- 11 页 native gallery 覆盖 inherited/noFill/sRGB/scheme+transparency/linear/path/PNG/JPEG/GIF/duplicate/clear，含 41 parts、39 relationships 和 3 个 background media parts；7 页 PptxGenJS control 含 47 parts、51 relationships。两者 PowerPoint 2010 profile 均为 0 errors / 0 warnings，18 页逐页 render 与 overflow 0 全部通过。
+- LibreOffice 26.8 回存保留 11 页顺序、solid/gradient/image kinds 和全部 image payload hashes；explicit noFill 被规范化为 inherited，linear/path `rotateWithShape` 变为 false，path gradient 新增 full fill rectangle。回存件 38 parts、36 relationships，validation 0/0。
+- 本机 PowerPoint 16.112 自动打开返回 `-9074` 且未加载 presentation；进程已清理，本轮不声明 PowerPoint 往返通过。
+
+### 剩余背景与全功能路线
+
+- Background 后续：layout/master background 编辑、`p:bgRef` semantic editing、pattern/group fill、image crop/tile/effects 与更广泛客户端认证。
+- 下一小项是 slide number，随后为 default color、master/layout/placeholder、advanced text、advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
 
 ## 0.1.0 初始验收
 

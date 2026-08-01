@@ -626,10 +626,18 @@ document.transaction((draft) => {
 
 Transactions are synchronous and nestable. A thrown error or package validation failure restores parts, content types, relationships, ZIP entries, and the mutation journal to the transaction savepoint. Complete asynchronous preparation before entering the callback.
 
-## Gradients and transparency
+## Slide backgrounds, gradients, and transparency
 
 ```ts
-document.slides[0].background = {
+import type {
+  SetSlideBackgroundImageOptions,
+  SimpleFill,
+  SlideBackground,
+  SlideBackgroundImage,
+} from '@pptx/sdk';
+
+const slide = document.slides[0];
+slide.background = {
   kind: 'linear-gradient',
   angle: 45,
   stops: [
@@ -637,9 +645,26 @@ document.slides[0].background = {
     { offset: 1, color: '#7C3AED', alpha: 0.65 },
   ],
 };
+
+slide.background = {
+  kind: 'solid',
+  color: { kind: 'scheme', value: 'accent1' },
+  transparency: 20,
+};
+await document.setSlideBackgroundImage(0, './background.png');
+slide.background = { kind: 'none' };
+slide.background = undefined;
 ```
 
-Colors can use sRGB, scRGB, scheme, system, or preset sources. OOXML transforms retain their original order.
+`SlideBackground` is `SimpleFill | GradientFill | SlideBackgroundImage`. `SimpleFill` is explicit `{ kind: 'none' }` or a solid sRGB/theme `RichTextColor` with optional `0..100` transparency. Gradients retain sRGB, scRGB, scheme, system, or preset sources and their ordered OOXML transforms. An image contains `kind: 'image'`, `image/png | image/jpeg | image/gif`, and detached `Uint8Array` bytes. Getter results are detached and frozen where applicable; image bytes are copied on each read.
+
+Only the direct `p:sld/p:cSld/p:bg/p:bgPr` state is projected. `undefined` removes direct `p:bg` and restores layout/master inheritance; `{ kind: 'none' }` writes legal direct `a:noFill`. The reader returns `undefined` for unsupported or ambiguous `p:bgRef`, pattern/group fill, wrong namespaces, multiple choices, external/dangling image relationships, or malformed content without modifying the package. Explicit supported replacement canonicalizes an opaque direct background while preserving unrelated slide content. Same-value supported assignment and clearing an absent direct background are exact no-ops.
+
+`setSlideBackgroundImage(slideIndex, source, options?)` accepts `RasterImageSource`. `SetSlideBackgroundImageOptions` contains only optional `contentType` assertion and `AbortSignal`. The resolver accepts Node path, HTTP/HTTPS and browser-relative URL, strict data URI, `Uint8Array`, `ArrayBuffer`, Blob/File, Web stream, and async byte iterable; signature validation and all async I/O finish before mutation. Duplicates initially share an internal image target, a different write clones on first mutation, and replacement/clear/slide deletion remove only relationships and media parts that have no remaining incoming reference.
+
+PptxGenJS 4.0.1 solid, transparency, and PNG background output imports to the same supported state. PptxGenJS `{ type: 'none' }` writes no direct background, so it imports as inherited; `{ type: 'none', color }` emits an empty `p:bgPr`, which the strict reader treats as unsupported. Native explicit none intentionally writes legal `a:noFill` instead of reproducing either behavior. Layout/master background editing, `p:bgRef` semantic editing, pattern/group fill, image crop/tile/effects, and slide default color remain outside this API.
+
+Packed Node, real-Chrome, declaration, and installed-CLI smoke report `slideBackgrounds: true`. Two clean builds have an identical 48-file dist manifest (`e42633dfd50e9f8731e780f6b911f691845c530f5c1a0b9e5f356f93a1a0f423`). Full Vitest is 1156 passed with one performance test skipped by default; its separate performance gate is 1/1. The native gallery has 11 slides, 41 parts, 39 relationships, and three background media parts; both native and the seven-slide PptxGenJS control validate 0/0 and render without overflow. LibreOffice preserves slide order and every image payload hash but normalizes explicit no-fill to inheritance and gradient rotation/fill-rectangle metadata. Local PowerPoint automation returned `-9074`, so no PowerPoint round-trip pass is claimed.
 
 ## Master, layout, and theme
 
@@ -726,7 +751,7 @@ PptxGenJS 4.0.1 valid public embedded-media cases are semantically covered, incl
 
 The actual 45-file tarball passes Node/real-Chrome/declaration/installed-CLI smoke with `nativeMediaTiming: true`; two clean builds have identical SHA-256 manifests for all 42 dist files. All six presentation formats pass native timing create/edit/duplicate/delete/reopen. The nine-slide playable gallery contains 12 media objects across MP3/M4A/WAV/OGG and MP4/MOV/WebM, all three poster MIME types, ten deduplicated media/poster parts, and zero orphans. It strictly reopens, renders at 180 DPI without overflow, passes slide-by-slide visual inspection, and validates against PowerPoint 2010 with 0 errors plus only the expected OGG/WebM warnings. LibreOffice 26.8 preserves nine slides and text but removes all media, posters, media relationships, and timing on save; its output still strictly reopens and validates 0/0. Local PowerPoint 16.112 automation returned `-9074` for this gallery and both independent control files, so it is not reported as a successful round trip.
 
-Trim/bookmarks, finite repeats, narration/cross-slide audio, captions/subtitles, online video, remote-fetch embedding, media crop/rounding/shadow/hyperlink/placeholder styles, a built-in transcoding engine, and broad client certification remain pending. Native standard-chart creation and semantic editing are complete; the next PptxGenJS parity slice is slide background, slide number, and default color.
+Trim/bookmarks, finite repeats, narration/cross-slide audio, captions/subtitles, online video, remote-fetch embedding, media crop/rounding/shadow/hyperlink/placeholder styles, a built-in transcoding engine, and broad client certification remain pending. Native standard-chart creation, semantic editing, and direct slide backgrounds are complete; the next PptxGenJS parity slice is slide number, followed by default color.
 
 ## Diagnostics and errors
 

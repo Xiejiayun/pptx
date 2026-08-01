@@ -255,7 +255,34 @@ PptxGenJS 4.0.1 的九种公开图表和 bar+line 主/次轴组合已通过真�
 
 LibreOffice 26.8 能显示八种 2D 图表及组合图；`bar3D` 在 native 与独立 PptxGenJS 控制文件中都只显示标题。保存时 LibreOffice 保留全部 10 个图表的类型和 cache 数据，但移除内嵌 workbook 并把公式改成客户端占位符；reader 将其识别为可编辑的 `cache-only` 状态并报告 `CHART_WORKBOOK_MISSING` warning，首次语义替换会重新生成同步 XLSX。本机 PowerPoint 16.112 对 gallery 与独立控制文件自动打开均返回同一 `-9074`，本轮不声明 PowerPoint 往返通过。
 
-仍未支持 Office 2016 `cx:*` modern chart 创建/语义编辑、external workbook 编辑、chart animations、内建趋势线/error bar 创建以及更广泛 Keynote/Google Slides 认证；高级插件继续处理 modern inspection、trendline、error bar 与显式 fallback。PptxGenJS 全功能对等的下一项是 slide background、slide number 和 default color，整体路线尚未完成。
+仍未支持 Office 2016 `cx:*` modern chart 创建/语义编辑、external workbook 编辑、chart animations、内建趋势线/error bar 创建以及更广泛 Keynote/Google Slides 认证；高级插件继续处理 modern inspection、trendline、error bar 与显式 fallback。Slide background 已在下一节完成；PptxGenJS 全功能对等的下一项是 slide number，随后是 default color。
+
+## 创建和编辑页面背景
+
+```ts
+import { PptxDocument } from '@jiayunxie/pptx';
+
+const document = PptxDocument.create();
+const slide = document.addSlide();
+
+slide.background = {
+  kind: 'solid',
+  color: { kind: 'scheme', value: 'accent1' },
+  transparency: 20,
+};
+
+await document.setSlideBackgroundImage(0, './background.png');
+slide.background = { kind: 'none' }; // 显式写入合法 a:noFill
+slide.background = undefined;        // 删除 direct p:bg，恢复 layout/master 继承
+```
+
+`SlideModel.background` 支持 direct `p:cSld/p:bg/p:bgPr` 的 `none`、sRGB/theme solid、linear/path gradient 和 PNG/JPEG/GIF image。读取严格且不修复原包；返回的颜色、stops、rectangles 与图片 bytes 都会脱离 caller。相同值赋值是 exact no-op。图片背景拥有 internal image relationship；duplicate 初始共享 target，首次不同写入 clone-on-write，替换、清除和删除页面只回收 package graph 中已无 incoming reference 的媒体部件。
+
+高层 `setSlideBackgroundImage()` 接受与 raster loader 相同的 Node path、HTTP/HTTPS 或 browser-relative URL、strict data URI、bytes/ArrayBuffer、Blob/File、Web stream 和 async iterable，并在 source、signature 与可选 MIME assertion 全部通过后才进入同步 transaction。`undefined` 与 `{ kind: 'none' }` 不等价：前者恢复继承，后者保留显式无填充意图。当前不创建 layout/master background、`p:bgRef`、pattern/group fill，也不提供图片 crop/tile/effects；这些不受支持状态在无关编辑中保持原字节。
+
+PptxGenJS 4.0.1 的合法 solid、transparency 与 PNG background 最终结构已对等。它的 `{ type: 'none' }` 实际不写 direct background，而 `{ type: 'none', color }` 会产生空 `p:bgPr`；native 不复制这个缺陷，显式 none 始终写合法 `a:noFill`。实际 npm tarball 的 Node、real-Chrome、declaration 与 installed CLI smoke 均报告 `slideBackgrounds: true`。两次 clean build 的 48 个 dist 文件 SHA-256 manifest 完全一致；11 页 native gallery 含 41 parts、39 relationships 和 3 个背景媒体部件，PowerPoint 2010 profile 为 0 errors / 0 warnings，全部 11 页与 7 页 PptxGenJS 对照均已逐页渲染检查且 overflow 为 0。
+
+LibreOffice 26.8 回存后保留 11 页顺序、solid/gradient/image 类型和全部图片 payload hash，但把 explicit noFill 规范化为继承、把两种 gradient 的 `rotateWithShape` 改为 false，并为 path gradient 写入全幅 fill rectangle；回存件仍为 0 errors / 0 warnings。本机 PowerPoint 16.112 自动打开返回 `-9074`，因此本轮不声明 PowerPoint 往返通过。
 
 ## 创建和编辑预设形状、调整值与样式
 

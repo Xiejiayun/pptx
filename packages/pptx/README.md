@@ -396,7 +396,34 @@ All nine PptxGenJS 4.0.1 public chart types plus a bar+line primary/secondary co
 
 LibreOffice 26.8 renders the eight 2D types and the combination; `bar3D` is title-only for both the native gallery and an independent PptxGenJS control. On save, LibreOffice retains every chart object's group types and cached data but removes embedded workbooks and rewrites formulas to client placeholders. The reader treats those charts as editable `cache-only` state with `CHART_WORKBOOK_MISSING` warnings, and the first semantic replacement recreates a synchronized XLSX. Local PowerPoint 16.112 automation returned the same `-9074` for the gallery and independent control, so this environment does not establish a PowerPoint round-trip pass.
 
-Office 2016 `cx:*` chart creation/semantic editing, external-workbook editing, chart animations, built-in trendline/error-bar creation, and broad Keynote/Google Slides certification remain pending. The advanced-charts plugin continues to cover modern inspection, trendlines, error bars, and explicit fallback. The next PptxGenJS parity slice is slide background, slide number, and default color.
+Office 2016 `cx:*` chart creation/semantic editing, external-workbook editing, chart animations, built-in trendline/error-bar creation, and broad Keynote/Google Slides certification remain pending. The advanced-charts plugin continues to cover modern inspection, trendlines, error bars, and explicit fallback. Slide backgrounds are complete below; the next PptxGenJS parity slice is slide number, followed by default color.
+
+## Create and edit slide backgrounds
+
+```ts
+import { PptxDocument } from '@jiayunxie/pptx';
+
+const backgroundDocument = PptxDocument.create();
+const backgroundSlide = backgroundDocument.addSlide();
+
+backgroundSlide.background = {
+  kind: 'solid',
+  color: { kind: 'scheme', value: 'accent1' },
+  transparency: 20,
+};
+
+await backgroundDocument.setSlideBackgroundImage(0, './background.png');
+backgroundSlide.background = { kind: 'none' }; // explicit legal a:noFill
+backgroundSlide.background = undefined;        // remove direct p:bg and inherit again
+```
+
+`SlideModel.background` supports direct `p:cSld/p:bg/p:bgPr` none, sRGB/theme solid, linear/path gradient, and PNG/JPEG/GIF image state. Reads are strict and non-repairing; returned colors, stops, rectangles, and image bytes are detached. Equal assignments are exact no-ops. Image backgrounds own an internal image relationship. Duplicated slides initially share its target, the first different write uses clone-on-write, and replacement, clear, or slide deletion collects only media parts with no remaining package-graph incoming reference.
+
+High-level `setSlideBackgroundImage()` accepts the raster loader's Node path, HTTP/HTTPS or browser-relative URL, strict data URI, bytes/ArrayBuffer, Blob/File, Web stream, and async iterable sources. Source resolution, signature inspection, and an optional MIME assertion complete before the synchronous transaction. `undefined` restores inheritance; `{ kind: 'none' }` preserves explicit no-fill intent. Layout/master background creation, `p:bgRef`, pattern/group fill, and image crop/tile/effects are outside this slice and remain byte-preserved when unrelated content is edited.
+
+Valid PptxGenJS 4.0.1 solid, transparency, and PNG backgrounds reach the same final supported structure. Its `{ type: 'none' }` writes no direct background, while `{ type: 'none', color }` emits an empty `p:bgPr`; native intentionally corrects that defect and always writes legal `a:noFill` for explicit none. The actual npm tarball passes Node, real-Chrome, declaration, and installed-CLI smoke with `slideBackgrounds: true`. Two clean builds produce an identical SHA-256 manifest for all 48 dist files. The 11-slide native gallery contains 41 parts, 39 relationships, and three background media parts; PowerPoint 2010 validation is 0 errors / 0 warnings. All 11 native and seven PptxGenJS control slides render without overflow and were reviewed individually.
+
+LibreOffice 26.8 preserves the 11-slide order, solid/gradient/image kinds, and every image payload hash on save. It normalizes explicit no-fill to inheritance, changes both gradient `rotateWithShape` flags to false, and adds a full fill rectangle to the path gradient; the saved package still validates 0/0. Local PowerPoint 16.112 automation returned `-9074`, so this environment does not establish a PowerPoint round-trip pass.
 
 `PRESET_SHAPE_TYPES` is the frozen discovery catalog for all 178 canonical preset geometries accepted by `SlideModel.addShape()`. `AddShapeOptions` accepts `name`, strict `adjustments`, strict `fill`, strict `line`, strict `arrows`, strict `shadow`, strict `hyperlink`, and native EMU/OOXML-angle transform fields; use `inches()` and `degrees()` for ergonomic conversion. Omitted geometry starts at x/y/width/height = 1 inch with zero rotation and no flips; omitted fill creates direct no-fill, and omitted line keeps the canonical empty line container. Inputs are strict, descriptor-safe, detached before mutation, and reject unknown fields. The catalog uses the valid OOXML `foldedCorner`; PptxGenJS 4.0.1's invalid `folderCorner` token and runtime-only `custGeom` value are not accepted as presets.
 
