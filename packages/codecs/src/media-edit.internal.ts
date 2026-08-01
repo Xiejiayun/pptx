@@ -5,6 +5,7 @@ import {
   type XmlElement,
 } from '@pptx/lossless-xml';
 import type { MediaPlaybackSettings } from './media.js';
+import type { NativeMediaTimingOwnership } from './media-timing-state.internal.js';
 
 const PLAYBACK_EXTENSION_URI = '{C13D3E4A-5148-4B6D-A7E7-505054582D4F}';
 const PLAYBACK_KEYS = new Set(['play', 'loop', 'hideWhenStopped', 'volume']);
@@ -14,6 +15,12 @@ export interface NormalizedMediaPlaybackSettings {
   readonly loop: boolean;
   readonly hideWhenStopped: boolean;
   readonly volume: number;
+}
+
+export interface MediaPlaybackExtensionRecord {
+  readonly settings?: Readonly<NormalizedMediaPlaybackSettings>;
+  readonly ownership?: Readonly<NativeMediaTimingOwnership>;
+  readonly malformed: boolean;
 }
 
 export function normalizeMediaName(value: unknown): string {
@@ -80,6 +87,7 @@ export function replaceMediaPlaybackExtension(
   xml: LosslessXmlDocument,
   picture: XmlElement,
   value: Readonly<NormalizedMediaPlaybackSettings> | undefined,
+  ownership?: Readonly<NativeMediaTimingOwnership>,
 ): boolean {
   const applicationProperties = xml.descendants(picture, 'nvPr')[0];
   if (!applicationProperties) throw new Error('Media picture has no application properties');
@@ -98,12 +106,72 @@ export function replaceMediaPlaybackExtension(
     xml.removeElement(current);
     return true;
   }
-  const rendered = renderPlaybackExtension(value);
+  const rendered = renderPlaybackExtension(value, ownership);
   if (current && xml.original(current) === rendered) return false;
   if (current) xml.replace(current.start, current.end, rendered);
   else if (extensionList) xml.appendChildXml(extensionList, rendered);
   else xml.appendChildXml(applicationProperties, `<p:extLst>${rendered}</p:extLst>`);
   return true;
+}
+
+export function readMediaPlaybackExtension(
+  xml: LosslessXmlDocument,
+  picture: XmlElement,
+): Readonly<MediaPlaybackExtensionRecord> {
+  const nonVisualProperties = directChildren(picture, 'nvPicPr');
+  const applicationProperties = nonVisualProperties.length === 1
+    ? directChildren(nonVisualProperties[0]!, 'nvPr')
+    : [];
+  if (applicationProperties.length !== 1) return extensionRecord(undefined, undefined, true);
+  const extensionLists = directChildren(applicationProperties[0]!, 'extLst');
+  if (extensionLists.length === 0) return extensionRecord(undefined, undefined, false);
+  if (extensionLists.length > 1) return extensionRecord(undefined, undefined, true);
+
+  const extensions = directChildren(extensionLists[0]!, 'ext').filter((extension) =>
+    extension.attributes.some(
+      (attribute) => attribute.localName === 'uri' && attribute.value === PLAYBACK_EXTENSION_URI,
+    ));
+  if (extensions.length === 0) return extensionRecord(undefined, undefined, false);
+  if (extensions.length > 1) return extensionRecord(undefined, undefined, true);
+
+  const extension = extensions[0]!;
+  const uriAttributes = attributes(extension, 'uri');
+  const playbackChildren = directChildren(extension, 'playback');
+  if (
+    uriAttributes.length !== 1
+    || uriAttributes[0]!.value !== PLAYBACK_EXTENSION_URI
+    || playbackChildren.length !== 1
+    || directElementChildren(extension).length !== 1
+    || hasNonWhitespaceText(extension)
+  ) {
+    return extensionRecord(undefined, undefined, true);
+  }
+  const playback = playbackChildren[0]!;
+  const parsedSettings = parsePlaybackSettings(playback);
+  if (!parsedSettings) return extensionRecord(undefined, undefined, true);
+
+  const allowed = new Set([
+    'play',
+    'loop',
+    'hideWhenStopped',
+    'volume',
+    'nativeVersion',
+    'mediaTnId',
+    'playTnId',
+    'pauseTnId',
+  ]);
+  const unknownState = playback.attributes.some(
+    (attribute) => !attribute.name.startsWith('xmlns') && !allowed.has(attribute.localName),
+  ) || directElementChildren(playback).length > 0 || hasNonWhitespaceText(playback);
+  const ownership = parsePlaybackOwnership(playback);
+  const ownershipAttributes = ['nativeVersion', 'mediaTnId', 'playTnId', 'pauseTnId']
+    .flatMap((name) => attributes(playback, name));
+  const malformedOwnership = ownershipAttributes.length > 0 && !ownership;
+  return extensionRecord(
+    parsedSettings,
+    unknownState || malformedOwnership ? undefined : ownership,
+    unknownState || malformedOwnership,
+  );
 }
 
 export function mediaPlaybackSettingsEqual(
@@ -116,12 +184,112 @@ export function mediaPlaybackSettingsEqual(
     && left.volume === right.volume;
 }
 
-function renderPlaybackExtension(value: Readonly<NormalizedMediaPlaybackSettings>): string {
+function renderPlaybackExtension(
+  value: Readonly<NormalizedMediaPlaybackSettings>,
+  ownership?: Readonly<NativeMediaTimingOwnership>,
+): string {
+  const native = ownership
+    ? ` nativeVersion="1" mediaTnId="${ownership.mediaTnId}" playTnId="${ownership.playTnId}"`
+      + (ownership.pauseTnId === undefined ? '' : ` pauseTnId="${ownership.pauseTnId}"`)
+    : '';
   return `<p:ext uri="${PLAYBACK_EXTENSION_URI}">`
     + '<px:playback xmlns:px="urn:pptx-ooxml:media" '
     + `play="${value.play}" loop="${value.loop ? 1 : 0}" `
     + `hideWhenStopped="${value.hideWhenStopped ? 1 : 0}" `
-    + `volume="${Math.round(value.volume * 100_000)}"/></p:ext>`;
+    + `volume="${Math.round(value.volume * 100_000)}"${native}/></p:ext>`;
+}
+
+function parsePlaybackSettings(
+  playback: XmlElement,
+): Readonly<NormalizedMediaPlaybackSettings> | undefined {
+  const play = singleAttributeValue(playback, 'play');
+  const loop = singleAttributeValue(playback, 'loop');
+  const hidden = singleAttributeValue(playback, 'hideWhenStopped');
+  const volume = singleAttributeValue(playback, 'volume');
+  if (
+    (play !== 'click' && play !== 'auto')
+    || (loop !== '0' && loop !== '1')
+    || (hidden !== '0' && hidden !== '1')
+    || volume === undefined
+    || !/^\d+$/.test(volume)
+  ) return undefined;
+  const numericVolume = Number(volume);
+  if (!Number.isSafeInteger(numericVolume) || numericVolume > 100_000) return undefined;
+  return Object.freeze({
+    play,
+    loop: loop === '1',
+    hideWhenStopped: hidden === '1',
+    volume: numericVolume / 100_000,
+  });
+}
+
+function parsePlaybackOwnership(
+  playback: XmlElement,
+): Readonly<NativeMediaTimingOwnership> | undefined {
+  const version = singleAttributeValue(playback, 'nativeVersion');
+  const mediaTnId = positiveTimingId(singleAttributeValue(playback, 'mediaTnId'));
+  const playTnId = positiveTimingId(singleAttributeValue(playback, 'playTnId'));
+  const pauseAttributes = attributes(playback, 'pauseTnId');
+  const pauseTnId = pauseAttributes.length === 0
+    ? undefined
+    : pauseAttributes.length === 1
+      ? positiveTimingId(pauseAttributes[0]!.value)
+      : undefined;
+  if (
+    version === undefined
+    && mediaTnId === undefined
+    && playTnId === undefined
+    && pauseAttributes.length === 0
+  ) return undefined;
+  if (
+    version !== '1'
+    || mediaTnId === undefined
+    || playTnId === undefined
+    || (pauseAttributes.length > 0 && pauseTnId === undefined)
+  ) return undefined;
+  const ids = pauseTnId === undefined ? [mediaTnId, playTnId] : [mediaTnId, playTnId, pauseTnId];
+  if (new Set(ids).size !== ids.length) return undefined;
+  return Object.freeze({
+    version: 1,
+    mediaTnId,
+    playTnId,
+    ...(pauseTnId === undefined ? {} : { pauseTnId }),
+  });
+}
+
+function positiveTimingId(value: string | undefined): number | undefined {
+  if (!value || !/^[1-9]\d*$/.test(value)) return undefined;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed <= 0xFFFF_FFFF ? parsed : undefined;
+}
+
+function singleAttributeValue(element: XmlElement, localName: string): string | undefined {
+  const candidates = attributes(element, localName);
+  return candidates.length === 1 ? candidates[0]!.value : undefined;
+}
+
+function attributes(element: XmlElement, localName: string): readonly XmlAttribute[] {
+  return element.attributes.filter((attribute) => attribute.localName === localName);
+}
+
+function directElementChildren(element: XmlElement): XmlElement[] {
+  return element.children.filter((child): child is XmlElement => child.type === 'element');
+}
+
+function hasNonWhitespaceText(element: XmlElement): boolean {
+  return element.children.some((child) => child.type === 'text' && child.value.trim().length > 0);
+}
+
+function extensionRecord(
+  settings: Readonly<NormalizedMediaPlaybackSettings> | undefined,
+  ownership: Readonly<NativeMediaTimingOwnership> | undefined,
+  malformed: boolean,
+): Readonly<MediaPlaybackExtensionRecord> {
+  return Object.freeze({
+    ...(settings ? { settings } : {}),
+    ...(ownership ? { ownership } : {}),
+    malformed,
+  });
 }
 
 function normalizeXmlString(
