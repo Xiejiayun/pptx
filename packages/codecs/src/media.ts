@@ -23,6 +23,8 @@ export interface MediaPlaybackSettings {
 }
 
 export interface AddMediaOptions extends MediaPlaybackSettings {
+  readonly name?: string;
+  readonly altText?: string;
   readonly contentType?: string;
   readonly fileName?: string;
   readonly poster?: MediaSource;
