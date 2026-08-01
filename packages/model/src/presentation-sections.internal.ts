@@ -26,6 +26,7 @@ export interface NormalizedAddPresentationSectionOptions {
 }
 
 export interface NormalizedAddPresentationSlideOptions {
+  readonly masterName?: string;
   readonly sectionTitle?: string;
 }
 
@@ -284,19 +285,29 @@ export function normalizeAddPresentationSlideOptions(
   value: unknown,
 ): NormalizedAddPresentationSlideOptions {
   if (value === undefined) return {};
-  const data = readDataObject(value, 'Add slide options', ['sectionTitle']);
+  const data = readDataObject(value, 'Add slide options', ['masterName', 'sectionTitle']);
+  const masterName = data.masterName === undefined
+    ? undefined
+    : normalizeNonWhitespaceXmlString(data.masterName, 'Slide master name');
   const sectionTitle = data.sectionTitle === undefined
     ? undefined
     : normalizePresentationSectionTitle(data.sectionTitle);
-  return sectionTitle === undefined ? {} : { sectionTitle };
+  return {
+    ...(masterName !== undefined ? { masterName } : {}),
+    ...(sectionTitle !== undefined ? { sectionTitle } : {}),
+  };
 }
 
 export function normalizePresentationSectionTitle(value: unknown): string {
+  return normalizeNonWhitespaceXmlString(value, 'Presentation section title');
+}
+
+function normalizeNonWhitespaceXmlString(value: unknown, label: string): string {
   if (typeof value !== 'string' || !/\S/u.test(value)) {
-    throw new TypeError('Presentation section title must be a non-whitespace string');
+    throw new TypeError(`${label} must be a non-whitespace string`);
   }
   if (!isValidXmlString(value)) {
-    throw new TypeError('Presentation section title contains invalid XML characters');
+    throw new TypeError(`${label} contains invalid XML characters`);
   }
   return value;
 }

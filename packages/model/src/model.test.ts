@@ -38,6 +38,7 @@ import { readShapeAdjustments } from './shape-adjustments.internal.js';
 import { readSimpleShadow } from './simple-shadow.internal.js';
 import { readCustomGeometry } from './custom-geometry.internal.js';
 import { chartWorkbookMatches } from './chart-workbook.internal.js';
+import { resolveSlideLayoutPartUri } from './presentation-layout.internal.js';
 
 const CORE_PROPERTIES_RELATIONSHIP =
   'http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties';
@@ -53,6 +54,14 @@ const SLIDE_RELATIONSHIP =
   'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide';
 const IMAGE_RELATIONSHIP =
   'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image';
+const SLIDE_LAYOUT_RELATIONSHIP =
+  'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout';
+const SLIDE_MASTER_RELATIONSHIP =
+  'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster';
+const SLIDE_LAYOUT_CONTENT_TYPE =
+  'application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml';
+const SLIDE_MASTER_CONTENT_TYPE =
+  'application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml';
 
 const customTriangleGeometry: CustomGeometry = {
   paths: [{
@@ -392,6 +401,171 @@ async function modelFixture(
 }
 
 describe('PresentationModel', () => {
+  it('resolves named slide layouts strictly without package mutation', () => {
+    const { pkg, model } = emptyPresentationModel();
+    const masterPartUri = '/ppt/slideMasters/slideMaster1.xml';
+    const defaultLayoutPartUri = '/ppt/slideLayouts/slideLayout1.xml';
+    const brandLayoutPartUri = '/ppt/slideLayouts/slideLayout2.xml';
+    pkg.transaction(() => {
+      pkg.setPart(
+        masterPartUri,
+        '<p:sldMaster xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld/></p:sldMaster>',
+        SLIDE_MASTER_CONTENT_TYPE,
+      );
+      pkg.setPart(
+        defaultLayoutPartUri,
+        '<p:sldLayout xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld name="DEFAULT"/></p:sldLayout>',
+        SLIDE_LAYOUT_CONTENT_TYPE,
+      );
+      pkg.setPart(
+        brandLayoutPartUri,
+        '<p:sldLayout xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld name="BRAND"/></p:sldLayout>',
+        SLIDE_LAYOUT_CONTENT_TYPE,
+      );
+      pkg.addRelationship(model.presentationPartUri, {
+        type: SLIDE_MASTER_RELATIONSHIP,
+        target: 'slideMasters/slideMaster1.xml',
+      });
+      pkg.addRelationship(masterPartUri, {
+        type: SLIDE_LAYOUT_RELATIONSHIP,
+        target: '../slideLayouts/slideLayout1.xml',
+      });
+      pkg.addRelationship(masterPartUri, {
+        type: SLIDE_LAYOUT_RELATIONSHIP,
+        target: '../slideLayouts/slideLayout2.xml',
+      });
+    });
+
+    const wrongNamespacePartUri = '/ppt/slideLayouts/slideLayout-wrong-namespace.xml';
+    const qualifiedNamePartUri = '/ppt/slideLayouts/slideLayout-qualified-name.xml';
+    const wrongContentPartUri = '/ppt/slideLayouts/slideLayout-wrong-content.xml';
+    pkg.transaction(() => {
+      pkg.setPart(
+        wrongNamespacePartUri,
+        '<x:sldLayout xmlns:x="urn:not-presentation"><x:cSld name="WRONG_NAMESPACE"/></x:sldLayout>',
+        SLIDE_LAYOUT_CONTENT_TYPE,
+      );
+      pkg.setPart(
+        qualifiedNamePartUri,
+        '<p:sldLayout xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:x="urn:not-presentation"><p:cSld x:name="QUALIFIED_NAME"/></p:sldLayout>',
+        SLIDE_LAYOUT_CONTENT_TYPE,
+      );
+      pkg.setPart(
+        wrongContentPartUri,
+        '<p:sldLayout xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld name="WRONG_CONTENT"/></p:sldLayout>',
+        'application/xml',
+      );
+      for (const target of [
+        '../slideLayouts/slideLayout-wrong-namespace.xml',
+        '../slideLayouts/slideLayout-qualified-name.xml',
+        '../slideLayouts/slideLayout-wrong-content.xml',
+      ]) {
+        pkg.addRelationship(masterPartUri, {
+          type: SLIDE_LAYOUT_RELATIONSHIP,
+          target,
+        });
+      }
+      pkg.addRelationship(masterPartUri, {
+        type: SLIDE_LAYOUT_RELATIONSHIP,
+        target: 'https://example.com/external-layout.xml',
+        targetMode: 'External',
+      });
+      const relationshipsPartUri = relationshipPartUri(masterPartUri);
+      const relationshipsPart = pkg.requirePart(relationshipsPartUri);
+      const relationshipsXml = new TextDecoder().decode(relationshipsPart.bytes).replace(
+        '</Relationships>',
+        `<Relationship Id="rIdDangling" Type="${SLIDE_LAYOUT_RELATIONSHIP}" Target="../slideLayouts/missing.xml"/></Relationships>`,
+      );
+      pkg.setPart(
+        relationshipsPartUri,
+        relationshipsXml,
+        relationshipsPart.contentType,
+      );
+    });
+
+    expect(resolveSlideLayoutPartUri(
+      pkg,
+      model.presentationPartUri,
+      'BRAND',
+      undefined,
+    )).toBe(brandLayoutPartUri);
+    expect(resolveSlideLayoutPartUri(
+      pkg,
+      model.presentationPartUri,
+      undefined,
+      brandLayoutPartUri,
+    )).toBe(brandLayoutPartUri);
+    expect(resolveSlideLayoutPartUri(
+      pkg,
+      model.presentationPartUri,
+      undefined,
+      undefined,
+    )).toBe(defaultLayoutPartUri);
+
+    const before = packageSnapshot(pkg);
+    expect(() => resolveSlideLayoutPartUri(
+      pkg,
+      model.presentationPartUri,
+      'MISSING',
+      undefined,
+    )).toThrow(RangeError);
+    for (const ignoredName of [
+      'WRONG_NAMESPACE',
+      'QUALIFIED_NAME',
+      'WRONG_CONTENT',
+    ]) {
+      expect(() => resolveSlideLayoutPartUri(
+        pkg,
+        model.presentationPartUri,
+        ignoredName,
+        undefined,
+      )).toThrow(RangeError);
+    }
+    expect(packageSnapshot(pkg)).toEqual(before);
+
+    const duplicatePartUri = '/ppt/slideLayouts/slideLayout3.xml';
+    pkg.transaction(() => {
+      pkg.setPart(
+        duplicatePartUri,
+        '<p:sldLayout xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld name="BRAND"/></p:sldLayout>',
+        SLIDE_LAYOUT_CONTENT_TYPE,
+      );
+      pkg.addRelationship(masterPartUri, {
+        type: SLIDE_LAYOUT_RELATIONSHIP,
+        target: '../slideLayouts/slideLayout3.xml',
+      });
+    });
+    const duplicateBefore = packageSnapshot(pkg);
+    expect(() => resolveSlideLayoutPartUri(
+      pkg,
+      model.presentationPartUri,
+      'BRAND',
+      undefined,
+    )).toThrow(ModelParseError);
+    expect(packageSnapshot(pkg)).toEqual(duplicateBefore);
+
+    const malformedPartUri = '/ppt/slideLayouts/slideLayout-malformed.xml';
+    pkg.transaction(() => {
+      pkg.setPart(
+        malformedPartUri,
+        '<p:sldLayout xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">',
+        SLIDE_LAYOUT_CONTENT_TYPE,
+      );
+      pkg.addRelationship(masterPartUri, {
+        type: SLIDE_LAYOUT_RELATIONSHIP,
+        target: '../slideLayouts/slideLayout-malformed.xml',
+      });
+    });
+    const malformedBefore = packageSnapshot(pkg);
+    expect(() => resolveSlideLayoutPartUri(
+      pkg,
+      model.presentationPartUri,
+      'DEFAULT',
+      undefined,
+    )).toThrow(ModelParseError);
+    expect(packageSnapshot(pkg)).toEqual(malformedBefore);
+  });
+
   it('detects all six OOXML presentation formats from the package content type', async () => {
     const expectedFlags: Record<PresentationFormat, readonly [boolean, boolean, boolean]> = {
       pptx: [false, false, false],

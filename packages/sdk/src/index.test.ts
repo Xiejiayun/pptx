@@ -228,6 +228,91 @@ async function tableBordersFixture(): Promise<Uint8Array> {
 }
 
 describe('PptxDocument vertical slice', () => {
+  it('selects named slide layouts with sections in all six presentation formats', async () => {
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const document = PptxDocument.create({ format });
+      const rawMaster = document.masterLayoutTheme.masters[0]!;
+      const defaultLayout = document.masterLayoutTheme.layouts[0]!;
+      const defaultXml = new TextDecoder().decode(
+        document.opcPackage.requirePart(defaultLayout.partUri).bytes,
+      );
+      const brand = document.masterLayoutTheme.createLayout(
+        rawMaster.partUri,
+        defaultXml.replace('name="DEFAULT"', `name="BRAND-${format}"`),
+      );
+      const section = document.addSection({ title: `Named ${format}` });
+
+      const slide = document.addSlide({
+        masterName: `BRAND-${format}`,
+        sectionTitle: section.title,
+      });
+      const inherited = document.addSlide({ sectionTitle: section.title });
+      expect(slide.relationships.find(
+        ({ type }) => type.endsWith('/slideLayout'),
+      )?.resolvedTarget).toBe(brand.partUri);
+      expect(inherited.relationships.find(
+        ({ type }) => type.endsWith('/slideLayout'),
+      )?.resolvedTarget).toBe(brand.partUri);
+      expect(document.sections?.[0]?.slideIds).toEqual([slide.slideId, inherited.slideId]);
+
+      const reopened = await PptxDocument.open(await document.write());
+      const reopenedSlide = reopened.slides[0]!;
+      expect(reopened.format).toBe(format);
+      expect(reopenedSlide.relationships.find(
+        ({ type }) => type.endsWith('/slideLayout'),
+      )?.resolvedTarget).toBe(brand.partUri);
+      expect(reopened.masterLayoutTheme.layouts.find(
+        ({ partUri }) => partUri === brand.partUri,
+      )?.name).toBe(`BRAND-${format}`);
+      expect(reopened.slides[1]?.relationships.find(
+        ({ type }) => type.endsWith('/slideLayout'),
+      )?.resolvedTarget).toBe(brand.partUri);
+      expect(reopened.sections?.[0]?.slideIds).toEqual(
+        reopened.slides.map(({ slideId }) => slideId),
+      );
+    }
+  });
+
+  it('rejects unsafe named slide layout selection without mutation', async () => {
+    const document = PptxDocument.create();
+    const rawMaster = document.masterLayoutTheme.masters[0]!;
+    const defaultLayout = document.masterLayoutTheme.layouts[0]!;
+    const defaultXml = new TextDecoder().decode(
+      document.opcPackage.requirePart(defaultLayout.partUri).bytes,
+    );
+    document.masterLayoutTheme.createLayout(
+      rawMaster.partUri,
+      defaultXml.replace('name="DEFAULT"', 'name="DUPLICATE"'),
+    );
+    document.masterLayoutTheme.createLayout(
+      rawMaster.partUri,
+      defaultXml.replace('name="DEFAULT"', 'name="DUPLICATE"'),
+    );
+    let accessorCalls = 0;
+    const accessor = Object.defineProperty({}, 'masterName', {
+      enumerable: true,
+      get: () => {
+        accessorCalls += 1;
+        return 'DEFAULT';
+      },
+    });
+    const before = await sdkPackageSnapshot(document);
+
+    expect(() => document.addSlide({ masterName: 'MISSING' })).toThrow(RangeError);
+    expect(() => document.addSlide({ masterName: 'DUPLICATE' })).toThrow(ModelParseError);
+    for (const options of [
+      { masterName: '   ' },
+      { masterName: 'BAD\u0000NAME' },
+      { masterName: 'DEFAULT', extra: true },
+      { masterName: 'DEFAULT', [Symbol('extra')]: true },
+      accessor,
+    ]) {
+      expect(() => document.addSlide(options as never)).toThrow(TypeError);
+    }
+    expect(accessorCalls).toBe(0);
+    expect(await sdkPackageSnapshot(document)).toEqual(before);
+  });
+
   it('creates slide numbers from strict public options and rejects invalid starts', () => {
     const createOptions: CreatePresentationOptions = { firstSlideNumber: 0 };
     const numberOptions: SlideNumberOptions = {

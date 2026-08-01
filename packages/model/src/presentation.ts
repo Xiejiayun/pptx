@@ -79,6 +79,7 @@ import {
   synchronizeSlideNumberCaches,
 } from './presentation-slide-number.internal.js';
 import type { RichTextColor } from './text.js';
+import { resolveSlideLayoutPartUri } from './presentation-layout.internal.js';
 
 const SLIDE_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slide+xml';
 const SLIDE_RELATIONSHIP = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide';
@@ -100,6 +101,7 @@ export interface AddSectionOptions {
 }
 
 export interface AddSlideOptions {
+  readonly masterName?: string;
   readonly sectionTitle?: string;
 }
 
@@ -397,6 +399,15 @@ export class PresentationModel {
 
   addSlide(options: AddSlideOptions = {}): SlideModel {
     const normalized = normalizeAddPresentationSlideOptions(options);
+    const inheritedLayoutPartUri = normalized.masterName === undefined
+      ? this.inheritedLayoutPartUri()
+      : undefined;
+    const layoutPartUri = resolveSlideLayoutPartUri(
+      this.opcPackage,
+      this.presentationPartUri,
+      normalized.masterName,
+      inheritedLayoutPartUri,
+    );
     const slide = this.opcPackage.transaction(() => {
       const initial = this.parsePresentation().xml;
       const initialSlideIds = new Set(this.slides.map(({ slideId }) => slideId));
@@ -434,10 +445,6 @@ export class PresentationModel {
         '.xml',
       );
       this.opcPackage.setPart(slideUri, blankSlideXml(), SLIDE_CONTENT_TYPE);
-      const template = this.slides[0];
-      const layoutPartUri =
-        template?.relationships.find(({ type }) => type === SLIDE_LAYOUT_RELATIONSHIP)?.resolvedTarget ??
-        this.defaultLayoutPartUri();
       if (layoutPartUri) {
         this.opcPackage.addRelationship(slideUri, {
           type: SLIDE_LAYOUT_RELATIONSHIP,
@@ -619,16 +626,22 @@ export class PresentationModel {
     return this.slideModel(slideUri, relationship.id, slideId);
   }
 
-  private defaultLayoutPartUri(): string | undefined {
-    for (const master of this.opcPackage
-      .relationships(this.presentationPartUri)
-      .filter(({ type, resolvedTarget }) => type.endsWith('/slideMaster') && resolvedTarget)) {
-      const layout = this.opcPackage
-        .relationships(master.resolvedTarget!)
-        .find(({ type, resolvedTarget }) => type === SLIDE_LAYOUT_RELATIONSHIP && resolvedTarget);
-      if (layout?.resolvedTarget) return layout.resolvedTarget;
+  private inheritedLayoutPartUri(): string | undefined {
+    const template = this.slides[0];
+    if (!template) return undefined;
+    const layouts = template.relationships.filter((relationship) => {
+      if (
+        relationship.type !== SLIDE_LAYOUT_RELATIONSHIP
+        || relationship.targetMode !== 'Internal'
+        || !relationship.resolvedTarget
+      ) return false;
+      return this.opcPackage.getPart(relationship.resolvedTarget)?.contentType ===
+        'application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml';
+    });
+    if (layouts.length > 1) {
+      throw new ModelParseError('Source slide layout is ambiguous', template.partUri);
     }
-    return undefined;
+    return layouts[0]?.resolvedTarget;
   }
 
   private slideModel(partUri: string, relationshipId: string, slideId: number): SlideModel {
