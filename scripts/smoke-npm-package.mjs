@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -51,7 +51,7 @@ try {
 
   await writeFile(
     join(directory, 'smoke.mjs'),
-    `import { calculateImageSizing, CustomGeometryEvaluationError, evaluateCustomGeometry, ImageModel, inches, inspectImage, inspectRasterImage, inspectSvgImage, MediaCodec, MediaModel, PRESET_SHAPE_TYPES, PptxDocument, ShapeModel, TableModel, GradientCodec, importPptxGenJS, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
+    `import { CHART_TYPES, ChartModel, calculateImageSizing, chartWorkbookMatches, CustomGeometryEvaluationError, evaluateCustomGeometry, ImageModel, inches, inspectImage, inspectRasterImage, inspectSvgImage, MediaCodec, MediaModel, PRESET_SHAPE_TYPES, PptxDocument, ShapeModel, TableModel, GradientCodec, importPptxGenJS, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
 const created = PptxDocument.create({ rtlMode: true });
 const embeddedRasterDeck = PptxDocument.create();
 const embeddedRasterSlide = embeddedRasterDeck.addSlide();
@@ -2646,6 +2646,104 @@ richText.richText = [{ align: 'justify', bullet: { kind: 'number', style: 'roman
 const custom = PptxDocument.create({ slideSize: { width: inches(11.7), height: inches(8.3) } });
 custom.slideSize = { width: inches(10), height: inches(7.5) };
 const customXml = new TextDecoder().decode(custom.opcPackage.requirePart('/ppt/presentation.xml').bytes);
+const nativeChartDeck = PptxDocument.create();
+const nativeChartModels = [];
+for (const type of CHART_TYPES) {
+  const slide = nativeChartDeck.addSlide();
+  const series = type === 'scatter'
+    ? [{ name: 'Forecast', xValues: [1, 2, 3], values: [120, 150, 135] }]
+    : type === 'bubble'
+      ? [{ name: 'Portfolio', xValues: [1, 2, 3], values: [120, 150, 135], sizes: [8, 12, 10] }]
+      : [{ name: 'Revenue', categories: ['North', 'South', 'West'], values: [120, 150, 135] }];
+  const chart = await slide.addChart(type, series, {
+    name: 'Packed ' + type + ' chart',
+    altText: type + ' chart with regional business data',
+    x: inches(1),
+    y: inches(1),
+    width: inches(8),
+    height: inches(4.5),
+  });
+  await chart.replaceDefinition({
+    groups: chart.definition.groups,
+    options: { ...chart.definition.options, title: { text: 'Native ' + type + ' chart' } },
+  });
+  nativeChartModels.push(chart);
+}
+const nativeComboSlide = nativeChartDeck.addSlide();
+const nativeCombo = await nativeComboSlide.addChart([
+  {
+    type: 'bar',
+    series: [{ name: 'Revenue', categories: ['Q1', 'Q2', 'Q3'], values: [100, 130, 160] }],
+  },
+  {
+    type: 'line',
+    axis: 'secondary',
+    series: [{ name: 'Margin', categories: ['Q1', 'Q2', 'Q3'], values: [24, 28, 31] }],
+  },
+], {
+  name: 'Packed primary-secondary combination chart',
+  x: inches(1),
+  y: inches(1),
+  width: inches(8),
+  height: inches(4.5),
+});
+await nativeCombo.replaceDefinition({
+  groups: nativeCombo.definition.groups,
+  options: { ...nativeCombo.definition.options, title: { text: 'Revenue and margin' } },
+});
+await nativeChartModels[0].replaceSeries([{
+  name: 'Revenue edited',
+  categories: ['North', 'South', 'West'],
+  values: [125, 155, 140],
+}]);
+await nativeChartModels[1].replaceDefinition({
+  groups: [{
+    type: 'line',
+    series: [{ name: 'Converted', categories: ['Q1', 'Q2', 'Q3'], values: [10, 20, 30] }],
+  }],
+  options: { title: { text: 'Bar converted to line' } },
+});
+const nativeDuplicateSlide = nativeChartDeck.duplicateSlide(nativeChartDeck.slides.length - 1);
+const nativeDuplicate = nativeDuplicateSlide.shapes.find((shape) => shape instanceof ChartModel);
+const nativeDuplicatePartUri = nativeDuplicate.chartPartUri;
+const nativeComboPartUri = nativeCombo.chartPartUri;
+nativeDuplicate.remove();
+nativeDuplicateSlide.addText('Duplicate chart removed; source remains intact', {
+  x: inches(1), y: inches(3), width: inches(8), height: inches(1), align: 'center',
+});
+const nativeChartBytes = await nativeChartDeck.write();
+const reopenedNativeCharts = await PptxDocument.open(nativeChartBytes);
+await reopenedNativeCharts.write();
+const reopenedNativeChartModels = reopenedNativeCharts.slides.flatMap(({ shapes }) => shapes)
+  .filter((shape) => shape instanceof ChartModel);
+const nativeChartWorkbookResults = await Promise.all(reopenedNativeChartModels.map((chart) =>
+  chartWorkbookMatches(
+    reopenedNativeCharts.opcPackage.requirePart(chart.workbookPartUri).bytes,
+    chart.definition,
+    chart.xml,
+  )));
+const nativeChartWorkbooksMatch = nativeChartWorkbookResults.every(Boolean);
+const nativeChartTypes = new Set(reopenedNativeChartModels.flatMap(({ definition }) =>
+  definition.groups.map(({ type }) => type)));
+const nativeChartIdsUnique = reopenedNativeCharts.slides.every((slide) => {
+  const ids = slide.shapes.map(({ id }) => id);
+  return new Set(ids).size === ids.length;
+});
+const nativeChartOrphans = reopenedNativeCharts.opcPackage.parts
+  .filter(({ contentType }) =>
+    contentType === 'application/vnd.openxmlformats-officedocument.drawingml.chart+xml'
+    || contentType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  .filter(({ uri }) =>
+    (reopenedNativeCharts.opcPackage.graph.find((node) => node.uri === uri)?.incoming.length ?? 0) === 0);
+const nativeCharts = reopenedNativeChartModels.length === 10
+  && CHART_TYPES.every((type) => nativeChartTypes.has(type))
+  && nativeChartWorkbooksMatch
+  && nativeChartIdsUnique
+  && nativeChartOrphans.length === 0
+  && !nativeChartDeck.opcPackage.hasPart(nativeDuplicatePartUri)
+  && nativeChartDeck.opcPackage.hasPart(nativeComboPartUri)
+  && reopenedNativeCharts.diagnostics.filter(({ code }) => code.startsWith('CHART_')).length === 0;
+await reopenedNativeCharts.writeFile('native-charts-smoke.pptx');
 const checks = {
   PptxDocument: typeof PptxDocument === 'function',
   presetShapes,
@@ -2666,6 +2764,7 @@ const checks = {
   embeddedMedia,
   stableMediaLifecycle,
   nativeMediaTiming,
+  nativeCharts,
   presentationRtl: presentationRtlEnabled === true && presentationRtlDisabled === false && presentationRtlCleared === undefined && paragraphRtlAfterGlobalClear[0] === true && paragraphRtlAfterGlobalClear[1] === false,
   presentationTitle: createdPresentationTitle === 'Packed & <Title>' && editedPresentationTitle === 'Edited title' && reopenedPresentationTitle === 'Edited title' && emptyPresentationTitle === '' && clearedPresentationTitle === undefined,
   presentationAuthor: createdPresentationAuthor === 'Packed & <Author>' && editedPresentationAuthor === 'Edited author' && reopenedPresentationAuthor === 'Edited author' && emptyPresentationAuthor === '' && clearedPresentationAuthor === undefined,
@@ -3900,6 +3999,8 @@ process.stdout.write(resolved);
     join(directory, 'smoke.ts'),
     `import {
   CustomGeometryEvaluationError,
+  ChartModel,
+  chartWorkbookMatches,
   degrees,
   evaluateCustomGeometry,
   ImageModel,
@@ -3909,6 +4010,11 @@ process.stdout.write(resolved);
   TableModel,
   inches,
   type AddCustomShapeOptions,
+  type ChartDefinitionInput,
+  type ChartDiagnostic,
+  type ChartGroupInput,
+  type ChartSeriesInput,
+  type ChartType,
   type AddImageSourceOptions,
   type AddImageOptions,
   type AddSvgImageOptions,
@@ -4021,6 +4127,38 @@ process.stdout.write(resolved);
 
 const documentPromise: Promise<PptxDocument> = PptxDocument.open(new Uint8Array());
 const createdDocument: PptxDocument = PptxDocument.create({ format: 'pptx', slideSize: 'wide' });
+const typedChartType: ChartType = 'bar';
+const typedChartSeries: readonly ChartSeriesInput[] = [{
+  name: 'Revenue', categories: ['Q1', 'Q2'], values: [10, 20],
+}];
+const typedChartGroups: readonly ChartGroupInput[] = [{
+  type: typedChartType,
+  series: typedChartSeries,
+}, {
+  type: 'line',
+  axis: 'secondary',
+  series: [{ name: 'Margin', categories: ['Q1', 'Q2'], values: [25, 30] }],
+}];
+const typedChartDefinition: ChartDefinitionInput = { groups: typedChartGroups };
+const typedChartPromise: Promise<ChartModel> = createdDocument.addChart(0, typedChartGroups);
+const typedChartDiagnostics: Promise<readonly ChartDiagnostic[]> = typedChartPromise.then(
+  (chart) => chart.diagnostics(),
+);
+const typedChartWorkbookCheck: Promise<boolean> = typedChartPromise.then((chart) =>
+  chartWorkbookMatches(new Uint8Array(), chart.definition!, chart.xml));
+// @ts-expect-error native chart types exclude PptxGenJS aliases
+const invalidChartType: ChartType = 'column';
+const invalidChartAxis: ChartGroupInput = {
+  type: 'line',
+  // @ts-expect-error chart groups support only primary or secondary axes
+  axis: 'tertiary',
+  series: typedChartSeries,
+};
+const invalidChartValues: ChartSeriesInput = {
+  name: 'Invalid',
+  // @ts-expect-error chart values must be numeric
+  values: ['10'],
+};
 const typedRasterContentType: RasterImageContentType = 'image/png';
 const typedRasterOptions: AddImageOptions = {
   contentType: typedRasterContentType,
@@ -4840,7 +4978,10 @@ void [typedPreset, typedNoneShapeFill, typedSolidShapeFill, typedShapeOptions, t
   typedShapeShadowRead, invalidMissingShapeShadowKind, invalidNoneShapeShadowKind,
   invalidInnerShapeShadowRotate, invalidShapeShadowOffset, invalidShapeShadowType,
   invalidUnknownShapeShadow, invalidShapeShadowFieldType];
-void [documentPromise, createdDocument, typedRasterContentType, typedRasterOptions, typedRasterImage, invalidRasterSvg, invalidRasterMissingType, invalidRasterPath, invalidRasterData, typedSvgContentType, typedImageContentType, typedSvgInfo, typedImageInfo, typedCropRegion, typedImageSizing, typedImageSizingResult, typedImageSource, typedImageChunk, typedImageStream, typedImageSourceOptions, typedResolvedImage, typedSvgOptions, typedSvgImage, typedHighLevelSvgImage, typedMediaKind, typedMediaChunk, typedMediaStream, typedMediaSources, typedPlayback, typedMediaOptions, typedMediaPromise, typedVideoPromise, typedReplaceMediaSourceOptions, typedReplaceMediaPosterOptions, typedMediaLifecycle, invalidMediaKind, invalidMediaName, invalidMediaPoster, invalidMediaPlayback, invalidMediaTranscode, invalidMediaSource, invalidMediaSourceReplacement, invalidMediaPosterReplacement, invalidLowLevelSvgOptions, invalidSvgFallback, addSectionOptions, typedSection, addSlideOptions, sectionSnapshot, typedVisibilitySlide, hiddenSnapshot, globalRtl, globalRtlSnapshot, titledDocument, titleSnapshot, authoredDocument, authorSnapshot, lastModifiedDocument, lastModifiedSnapshot, createdAtDocument, createdAtSnapshot, modifiedAtDocument, modifiedAtSnapshot, subjectDocument, subjectSnapshot, revisionDocument, revisionSnapshot, companyDocument, companySnapshot, themedDocument, themeSnapshot, fontSnapshot, fontUpdate, customDocument, createdText, creationBorder, creationMargin, creationOptions, objectCell, tableRows, tableOptions, typedTable, widthSnapshot, heightSnapshot, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotHorizontalAlignment, tableHorizontalAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellHorizontalAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
+void [documentPromise, createdDocument, typedChartDefinition, typedChartPromise,
+  typedChartDiagnostics, typedChartWorkbookCheck, invalidChartType, invalidChartAxis,
+  invalidChartValues, typedRasterContentType, typedRasterOptions, typedRasterImage,
+  invalidRasterSvg, invalidRasterMissingType, invalidRasterPath, invalidRasterData, typedSvgContentType, typedImageContentType, typedSvgInfo, typedImageInfo, typedCropRegion, typedImageSizing, typedImageSizingResult, typedImageSource, typedImageChunk, typedImageStream, typedImageSourceOptions, typedResolvedImage, typedSvgOptions, typedSvgImage, typedHighLevelSvgImage, typedMediaKind, typedMediaChunk, typedMediaStream, typedMediaSources, typedPlayback, typedMediaOptions, typedMediaPromise, typedVideoPromise, typedReplaceMediaSourceOptions, typedReplaceMediaPosterOptions, typedMediaLifecycle, invalidMediaKind, invalidMediaName, invalidMediaPoster, invalidMediaPlayback, invalidMediaTranscode, invalidMediaSource, invalidMediaSourceReplacement, invalidMediaPosterReplacement, invalidLowLevelSvgOptions, invalidSvgFallback, addSectionOptions, typedSection, addSlideOptions, sectionSnapshot, typedVisibilitySlide, hiddenSnapshot, globalRtl, globalRtlSnapshot, titledDocument, titleSnapshot, authoredDocument, authorSnapshot, lastModifiedDocument, lastModifiedSnapshot, createdAtDocument, createdAtSnapshot, modifiedAtDocument, modifiedAtSnapshot, subjectDocument, subjectSnapshot, revisionDocument, revisionSnapshot, companyDocument, companySnapshot, themedDocument, themeSnapshot, fontSnapshot, fontUpdate, customDocument, createdText, creationBorder, creationMargin, creationOptions, objectCell, tableRows, tableOptions, typedTable, widthSnapshot, heightSnapshot, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotHorizontalAlignment, tableHorizontalAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellHorizontalAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
 `,
   );
   run(
@@ -4927,9 +5068,56 @@ void [documentPromise, createdDocument, typedRasterContentType, typedRasterOptio
       stableMediaValidated.data.errorCount !== 0 || stableMediaValidated.data.warningCount !== 0) {
     throw new Error(`CLI stable media validation failed: ${stableMediaValidateResult.stdout}`);
   }
+  const nativeChartDeckPath = join(directory, 'native-charts-smoke.pptx');
+  const nativeChartInspectResult = run(
+    bin,
+    ['--json', 'package', 'inspect', nativeChartDeckPath],
+    directory,
+  );
+  const nativeChartInspected = JSON.parse(nativeChartInspectResult.stdout);
+  const nativeChartContentTypes = nativeChartInspected.data?.contentTypes ?? {};
+  if (!nativeChartInspected.ok ||
+      nativeChartContentTypes['application/vnd.openxmlformats-officedocument.drawingml.chart+xml'] !== 10 ||
+      nativeChartContentTypes['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'] !== 10) {
+    throw new Error(`CLI native chart inspect failed: ${nativeChartInspectResult.stdout}`);
+  }
+  const nativeChartValidateResult = run(
+    bin,
+    ['--json', 'package', 'validate', nativeChartDeckPath, '--profile', 'powerpoint-2010'],
+    directory,
+  );
+  const nativeChartValidated = JSON.parse(nativeChartValidateResult.stdout);
+  if (!nativeChartValidated.ok || !nativeChartValidated.data?.valid ||
+      nativeChartValidated.data.errorCount !== 0 || nativeChartValidated.data.warningCount !== 0) {
+    throw new Error(`CLI native chart validation failed: ${nativeChartValidateResult.stdout}`);
+  }
+  const nativeChartSlidesResult = run(
+    bin,
+    ['--json', 'slides', 'list', nativeChartDeckPath],
+    directory,
+  );
+  const nativeChartSlides = JSON.parse(nativeChartSlidesResult.stdout);
+  if (!nativeChartSlides.ok || nativeChartSlides.data?.length !== 11 ||
+      nativeChartSlides.data[10]?.shapeCount !== 1) {
+    throw new Error(`CLI native chart slide listing failed: ${nativeChartSlidesResult.stdout}`);
+  }
+  const nativeChartPartResult = run(
+    bin,
+    ['--json', 'part', 'read', nativeChartDeckPath, '/ppt/charts/chart1.xml'],
+    directory,
+  );
+  const nativeChartPart = JSON.parse(nativeChartPartResult.stdout);
+  if (!nativeChartPart.ok || !nativeChartPart.data?.content?.includes('<c:chartSpace')) {
+    throw new Error(`CLI native chart part read failed: ${nativeChartPartResult.stdout}`);
+  }
+  if (process.env.PPTX_CHART_GALLERY_OUT) {
+    const galleryOutput = resolve(process.env.PPTX_CHART_GALLERY_OUT);
+    await mkdir(dirname(galleryOutput), { recursive: true });
+    await writeFile(galleryOutput, await readFile(nativeChartDeckPath));
+  }
 
   process.stdout.write(
-    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, types: true, cli: doctor.data.version, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true })}\n`,
+    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, types: true, cli: doctor.data.version, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true })}\n`,
   );
 } finally {
   await rm(directory, { recursive: true, force: true });

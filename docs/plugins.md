@@ -26,7 +26,9 @@ Decode the timing tree, add appear/fade/wipe/fly or motion-path effects, model t
 
 ## Advanced charts
 
-Inspect combination/modern chart types, axes, series, trendlines, error bars, and data labels. Cached values can be edited; when an embedded workbook exists, divergence produces a diagnostic until `replaceEmbeddedWorkbook()` is called. Image fallback is only created by an explicit method call.
+Core now creates, reads, semantically edits, duplicates, and deletes all nine standard PptxGenJS chart types plus compatible primary/secondary combinations while keeping caches, A1 formulas, and embedded workbooks synchronized. For recognized standard charts, the plugin delegates series-value changes to `ChartModel.replaceDefinition()` so the core synchronization and clone-on-write rules remain authoritative.
+
+The plugin adds inspection for modern charts and advanced series state such as trendlines, error bars, and data labels. Raw or advanced XML edits can intentionally diverge from an embedded workbook; diagnostics remain until a semantic core replacement or explicit `replaceEmbeddedWorkbook()` proves equality. Image fallback is created only by an explicit method call. Office 2016 `cx:*` creation/editing, external-workbook editing, and chart animations remain preservation-only.
 
 ## SmartArt
 

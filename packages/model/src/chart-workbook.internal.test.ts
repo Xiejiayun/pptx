@@ -247,7 +247,7 @@ describe('chart workbook generation and strict readback', () => {
         '<c r="B2"><v>10</v></c>',
         '<c r="B2"><f>1+1</f><v>10</v></c>',
       ),
-      (xml: string) => xml.replace('</sheetData>', '</sheetData><mergeCells count="1"/>'),
+      (xml: string) => xml.replace('</sheetData>', '</sheetData><sheetData/>'),
     ];
     for (const mutate of malformedXml) {
       const malformed = await replaceWorksheet(bytes, mutate);
@@ -255,14 +255,64 @@ describe('chart workbook generation and strict readback', () => {
       expect(await chartWorkbookMatches(malformed, definition)).toBe(false);
     }
 
-    const sharedStrings = await OpcPackage.open(bytes);
-    sharedStrings.setPart(
+    const orphanSharedStrings = await OpcPackage.open(bytes);
+    orphanSharedStrings.setPart(
       '/xl/sharedStrings.xml',
       '<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"/>',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml',
     );
-    const sharedStringBytes = await sharedStrings.write();
-    await expect(readChartWorkbookCells(sharedStringBytes)).rejects.toThrow(/shared strings/);
+    await expect(readChartWorkbookCells(await orphanSharedStrings.write()))
+      .rejects.toThrow(/shared strings relationship/);
+  });
+
+  it('reads formatted workbooks with shared strings without weakening data checks', async () => {
+    const bytes = await buildChartWorkbook(definition);
+    const workbook = await OpcPackage.open(bytes);
+    const workbookPart = workbook.requirePart('/xl/workbook.xml');
+    workbook.setPart(
+      workbookPart.uri,
+      new TextDecoder().decode(workbookPart.bytes)
+        .replace('<sheets>', '<workbookPr/><bookViews/><sheets>')
+        .replace('</sheets>', '</sheets><calcPr calcId="0"/>'),
+      workbookPart.contentType,
+    );
+    const worksheet = workbook.requirePart('/xl/worksheets/sheet1.xml');
+    const shared = ['', 'Revenue', 'Cost', 'Q1', 'Q2'];
+    let worksheetXml = new TextDecoder().decode(worksheet.bytes);
+    for (const [reference, value, index] of [
+      ['A1', '', 0],
+      ['B1', 'Revenue', 1],
+      ['C1', 'Cost', 2],
+      ['A2', 'Q1', 3],
+      ['A3', 'Q2', 4],
+    ] as const) {
+      worksheetXml = worksheetXml.replaceAll(
+        `<c r="${reference}" t="inlineStr"><is><t>${value}</t></is></c>`,
+        `<c r="${reference}" t="s"><v>${index}</v></c>`,
+      );
+    }
+    worksheetXml = worksheetXml
+      .replace('<sheetData>', '<dimension ref="A1:C3"/><sheetViews/><sheetData>')
+      .replace('</sheetData>', '</sheetData><pageMargins left="0.7" right="0.7"/>');
+    workbook.setPart(worksheet.uri, worksheetXml, worksheet.contentType);
+    workbook.setPart(
+      '/xl/sharedStrings.xml',
+      `<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">${shared
+        .map((value) => `<si><t>${value}</t></si>`).join('')}</sst>`,
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml',
+    );
+    workbook.addRelationship('/xl/workbook.xml', {
+      type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings',
+      target: 'sharedStrings.xml',
+    });
+
+    const formatted = await workbook.write();
+    expect(await readChartWorkbookCells(formatted)).toEqual([
+      ['', 'Revenue', 'Cost'],
+      ['Q1', 10, 7],
+      ['Q2', 20, 12],
+    ]);
+    expect(await chartWorkbookMatches(formatted, definition)).toBe(true);
   });
 });
 

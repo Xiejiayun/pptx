@@ -194,7 +194,68 @@ PptxGenJS 4.0.1 的 4/4 个公开有效 data/path、audio/video、cover、`extn`
 
 LibreOffice 26.8 当前会在 save/reopen 时保留 9 页顺序与文案，但删除全部媒体、poster、media relationships 和 timing；回存件仍可 strict reopen 且为 0 errors / 0 warnings。这是已记录的客户端降级，不是 native 写出或 round-trip 保留承诺。本机 PowerPoint 16.112 自动打开对 gallery、LibreOffice 回存件与最小控制文件都返回同一 `-9074`，因此没有把该环境的 PowerPoint 往返误记为通过。
 
-媒体 timing 的下一层仍未支持 trim/bookmarks、有限重复、narration/cross-slide audio、captions/subtitles、online video、remote-fetch embedding、crop/rounding/shadow/hyperlink/placeholder styles、内建转码引擎与更广泛 PowerPoint/Keynote/Google Slides 认证。PptxGenJS 全功能对等的下一最高价值小项是 chart 创建与语义编辑；整体路线尚未完成。
+媒体 timing 的下一层仍未支持 trim/bookmarks、有限重复、narration/cross-slide audio、captions/subtitles、online video、remote-fetch embedding、crop/rounding/shadow/hyperlink/placeholder styles、内建转码引擎与更广泛 PowerPoint/Keynote/Google Slides 认证。
+
+## 创建和语义编辑原生图表
+
+```ts
+import { inches, PptxDocument } from '@jiayunxie/pptx';
+
+const document = PptxDocument.create({ slideSize: 'wide' });
+const slide = document.addSlide();
+const revenue = [{
+  name: 'Revenue',
+  categories: ['Q1', 'Q2', 'Q3'],
+  values: [100, 130, 160],
+}];
+
+const chart = await slide.addChart('bar', revenue, {
+  name: 'Quarterly revenue',
+  altText: 'Revenue by quarter',
+  x: inches(1),
+  y: inches(1),
+  width: inches(8),
+  height: inches(4.5),
+});
+await chart.replaceDefinition({
+  groups: [{
+    type: 'bar',
+    series: revenue,
+    options: {
+      grouping: 'clustered',
+      dataLabels: { showValue: true, position: 'outsideEnd' },
+    },
+  }],
+  options: {
+    title: { text: 'Quarterly revenue' },
+    legend: { position: 'bottom' },
+    valueAxis: { minimum: 0, numberFormat: '#,##0' },
+  },
+});
+
+await slide.addChart([
+  { type: 'bar', series: revenue },
+  {
+    type: 'line',
+    axis: 'secondary',
+    series: [{ name: 'Margin', categories: ['Q1', 'Q2', 'Q3'], values: [24, 28, 31] }],
+  },
+], { x: inches(1), y: inches(1), width: inches(8), height: inches(4.5) });
+
+await chart.replaceSeries([{ ...revenue[0], values: [105, 136, 172] }]);
+console.log(chart.definition, await chart.diagnostics());
+await document.writeFile('native-charts.pptx');
+```
+
+`CHART_TYPES` 覆盖 `area`、`bar`、`bar3D`、`bubble`、`doughnut`、`line`、`pie`、`radar`、`scatter`。分类图使用 `categories`/`values`，scatter 使用 `xValues`/`values`，bubble 另带正数 `sizes`；bar/area/line 可组成主轴/次轴组合图。每个原生图表都同步创建内嵌 XLSX、A1 formulas 和 display caches，workbook bytes 在同步 OPC transaction 前生成。
+
+`ChartModel.definition` 是 detached frozen 语义快照；`replaceDefinition()` 可替换类型、组合、数据和受支持选项，`replaceSeries()` 更新单组图表数据，`remove()` / `slide.deleteChart()` 删除并按引用回收 chart/workbook/style/color 子图。导入的共享目标在首次编辑时采用 clone-on-write；`setXml()` 保留为显式 raw escape hatch。标题、图例、chart/plot area、主/次轴、gridlines、labels、data table、series fill/line/marker、颜色以及各类型 grouping/gap/hole/angle/radar/scatter/bubble/3D 选项均有 strict read/create/edit。Diagnostics 区分关系、结构、cache、axis、workbook 缺失/分歧和 modern chart。
+
+PptxGenJS 4.0.1 的九种公开图表和 bar+line 主/次轴组合已通过真实输出导入、编辑、公式/cache/XLSX/relationship 和选项对照。实际 npm tarball 的 Node、real-Chrome、declaration 与 installed CLI smoke 均报告 `nativeCharts: true`；11 页 gallery 包含 10 个 chart parts、10 个 XLSX、零孤儿，PowerPoint 2010 profile 为 0 errors / 0 warnings，180 DPI overflow 为 0，并已逐页检查。
+
+LibreOffice 26.8 能显示八种 2D 图表及组合图；`bar3D` 在 native 与独立 PptxGenJS 控制文件中都只显示标题。保存时 LibreOffice 保留全部 10 个图表的类型和 cache 数据，但移除内嵌 workbook 并把公式改成客户端占位符；reader 将其识别为可编辑的 `cache-only` 状态并报告 `CHART_WORKBOOK_MISSING` warning，首次语义替换会重新生成同步 XLSX。本机 PowerPoint 16.112 对 gallery 与独立控制文件自动打开均返回同一 `-9074`，本轮不声明 PowerPoint 往返通过。
+
+仍未支持 Office 2016 `cx:*` modern chart 创建/语义编辑、external workbook 编辑、chart animations、内建趋势线/error bar 创建以及更广泛 Keynote/Google Slides 认证；高级插件继续处理 modern inspection、trendline、error bar 与显式 fallback。PptxGenJS 全功能对等的下一项是 slide background、slide number 和 default color，整体路线尚未完成。
 
 ## 创建和编辑预设形状、调整值与样式
 

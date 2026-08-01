@@ -1,13 +1,103 @@
 import { describe, expect, it } from 'vitest';
 import {
+  CHART_TYPES,
+  ChartModel,
   MediaModel,
   PptxDocument,
+  chartWorkbookMatches,
   inches,
   type ReplaceMediaPosterOptions,
   type ReplaceMediaSourceOptions,
 } from './index.js';
 
 describe('@jiayunxie/pptx stable media exports', () => {
+  it('runs the complete native chart lifecycle through the root package', async () => {
+    const document = PptxDocument.create();
+    const charts: ChartModel[] = [];
+    for (const type of CHART_TYPES) {
+      const slide = document.addSlide();
+      const series = type === 'scatter'
+        ? [{ name: 'Points', xValues: [1, 2, 3], values: [4, 6, 5] }]
+        : type === 'bubble'
+          ? [{ name: 'Bubbles', xValues: [1, 2, 3], values: [4, 6, 5], sizes: [8, 12, 10] }]
+          : [{ name: 'Revenue', categories: ['North', 'South', 'West'], values: [120, 150, 135] }];
+      charts.push(await slide.addChart(type, series, {
+        name: `Root ${type} chart`,
+        altText: `${type} chart lifecycle evidence`,
+        x: inches(0.5),
+        y: inches(0.5),
+        width: inches(9),
+        height: inches(6.5),
+      }));
+    }
+    const comboSlide = document.addSlide();
+    const combo = await comboSlide.addChart([
+      {
+        type: 'bar',
+        series: [{ name: 'Revenue', categories: ['Q1', 'Q2'], values: [10, 20] }],
+      },
+      {
+        type: 'line',
+        axis: 'secondary',
+        series: [{ name: 'Margin', categories: ['Q1', 'Q2'], values: [25, 30] }],
+      },
+    ], { name: 'Root combination chart' });
+    expect(combo.definition?.groups.map(({ type, axis }) => [type, axis])).toEqual([
+      ['bar', 'primary'],
+      ['line', 'secondary'],
+    ]);
+
+    await charts[0]!.replaceSeries([{
+      name: 'Revenue edited',
+      categories: ['North', 'South', 'West'],
+      values: [125, 155, 140],
+    }]);
+    await charts[1]!.replaceDefinition({
+      groups: [{
+        type: 'line',
+        series: [{ name: 'Converted', categories: ['Q1', 'Q2'], values: [11, 22] }],
+      }],
+    });
+
+    const duplicate = document.duplicateSlide(document.slides.length - 1);
+    const duplicateChart = duplicate.shapes.find(
+      (shape): shape is ChartModel => shape instanceof ChartModel,
+    )!;
+    expect(duplicateChart.chartPartUri).not.toBe(combo.chartPartUri);
+    const duplicatePartUri = duplicateChart.chartPartUri!;
+    duplicateChart.remove();
+    expect(document.opcPackage.hasPart(duplicatePartUri)).toBe(false);
+    expect(document.opcPackage.hasPart(combo.chartPartUri!)).toBe(true);
+
+    const reopened = await PptxDocument.open(await document.write());
+    expect(document.diagnostics.filter(({ code }) => code.startsWith('CHART_'))).toEqual([]);
+    const reopenedCharts = reopened.slides.flatMap(({ shapes }) => shapes).filter(
+      (shape): shape is ChartModel => shape instanceof ChartModel,
+    );
+    expect(reopenedCharts).toHaveLength(10);
+    expect(new Set(reopenedCharts.flatMap(({ definition }) =>
+      definition?.groups.map(({ type }) => type) ?? []))).toEqual(new Set(CHART_TYPES));
+    for (const chart of reopenedCharts) {
+      expect(chart.workbookPartUri).toBeDefined();
+      expect(await chartWorkbookMatches(
+        reopened.opcPackage.requirePart(chart.workbookPartUri!).bytes,
+        chart.definition!,
+      )).toBe(true);
+      expect(await chart.diagnostics()).toEqual([]);
+    }
+    for (const slide of reopened.slides) {
+      const ids = slide.shapes.map(({ id }) => id);
+      expect(new Set(ids).size).toBe(ids.length);
+    }
+    expect(reopened.opcPackage.parts
+      .filter(({ contentType }) =>
+        contentType === 'application/vnd.openxmlformats-officedocument.drawingml.chart+xml'
+        || contentType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+      .every(({ uri }) =>
+        (reopened.opcPackage.graph.find((node) => node.uri === uri)?.incoming.length ?? 0) > 0))
+      .toBe(true);
+  });
+
   it('runs the complete live media lifecycle through the root package', async () => {
     const document = PptxDocument.create();
     const slide = document.addSlide();

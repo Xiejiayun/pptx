@@ -122,7 +122,11 @@ async function diagnosticsForState(
   const matches = state.definition
     && state.workbookPartUri
     && pkg.hasPart(state.workbookPartUri)
-    && await chartWorkbookMatches(pkg.requirePart(state.workbookPartUri).bytes, state.definition);
+    && await chartWorkbookMatches(
+      pkg.requirePart(state.workbookPartUri).bytes,
+      state.definition,
+      new TextDecoder().decode(pkg.requirePart(chartPartUri).bytes),
+    );
   return matches
     ? []
     : [diagnostic(

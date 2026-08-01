@@ -10,6 +10,8 @@ import type { ChartCategories, ChartDefinition, ChartSeries } from './chart.js';
 const FIXED_ZIP_DATE = new Date('1980-01-01T00:00:00.000Z');
 const SPREADSHEET_NAMESPACE =
   'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+const CHART_NAMESPACE =
+  'http://schemas.openxmlformats.org/drawingml/2006/chart';
 const RELATIONSHIP_NAMESPACE =
   'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
 const OFFICE_DOCUMENT_RELATIONSHIP =
@@ -18,14 +20,19 @@ const WORKSHEET_RELATIONSHIP =
   'http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet';
 const STYLES_RELATIONSHIP =
   'http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles';
+const SHARED_STRINGS_RELATIONSHIP =
+  'http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings';
 const WORKBOOK_CONTENT_TYPE =
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml';
 const WORKSHEET_CONTENT_TYPE =
   'application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml';
 const STYLES_CONTENT_TYPE =
   'application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml';
+const SHARED_STRINGS_CONTENT_TYPE =
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml';
 const DECIMAL_PATTERN = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[Ee][+-]?\d+)?$/;
 const CELL_REFERENCE_PATTERN = /^([A-Z]+)([1-9]\d*)$/;
+const CANONICAL_INDEX_PATTERN = /^(?:0|[1-9]\d*)$/;
 
 const WORKBOOK_XML =
   '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
@@ -46,6 +53,13 @@ const STYLES_XML =
   + '</styleSheet>';
 
 type WorkbookCell = string | number;
+
+interface FormulaRange {
+  readonly startColumn: number;
+  readonly startRow: number;
+  readonly endColumn: number;
+  readonly endRow: number;
+}
 
 export interface ChartWorkbookFormula {
   readonly groupIndex: number;
@@ -111,9 +125,7 @@ export async function readChartWorkbookCells(
 ): Promise<readonly (readonly WorkbookCell[])[]> {
   const workbook = await OpcPackage.open(bytes);
   const sheetUri = readSheetUri(workbook);
-  if (workbook.hasPart('/xl/sharedStrings.xml')) {
-    throw new Error('Chart workbook shared strings are unsupported');
-  }
+  const sharedStrings = readSharedStrings(workbook, '/xl/workbook.xml');
   if (workbook.parts.some(({ uri }) => uri.startsWith('/xl/externalLinks/'))) {
     throw new Error('Chart workbook external links are unsupported');
   }
@@ -121,19 +133,132 @@ export async function readChartWorkbookCells(
   if (sheetPart.contentType !== WORKSHEET_CONTENT_TYPE) {
     throw new Error('Chart workbook worksheet content type is unsupported');
   }
-  return readWorksheetCells(LosslessXmlDocument.parse(sheetPart.bytes));
+  return readWorksheetCells(LosslessXmlDocument.parse(sheetPart.bytes), sharedStrings);
 }
 
 export async function chartWorkbookMatches(
   bytes: Uint8Array,
   definition: Readonly<ChartDefinition>,
+  chartXml?: string,
 ): Promise<boolean> {
   try {
     const actual = await readChartWorkbookCells(bytes);
+    if (chartXml !== undefined) return chartReferencesMatchWorkbook(chartXml, actual);
     return equalCells(actual, createWorkbookPlan(definition).cells);
   } catch {
     return false;
   }
+}
+
+function chartReferencesMatchWorkbook(
+  source: string,
+  cells: readonly (readonly WorkbookCell[])[],
+): boolean {
+  const xml = LosslessXmlDocument.parse(source);
+  const references = xml.elements().filter((element) => {
+    const container = element.parent;
+    return elementNamespaceUri(element) === CHART_NAMESPACE
+      && ['strRef', 'numRef', 'multiLvlStrRef'].includes(element.localName)
+      && container?.parent?.localName === 'ser'
+      && elementNamespaceUri(container.parent) === CHART_NAMESPACE;
+  });
+  if (references.length === 0) return false;
+  return references.every((reference) => {
+    const formula = oneChartChildOrUndefined(reference, 'f');
+    const range = formula ? parseChartFormula(xml.text(formula)) : undefined;
+    const block = range ? workbookBlock(cells, range) : undefined;
+    if (!block || block.length === 0 || block[0]?.length === 0) return false;
+    if (reference.localName === 'multiLvlStrRef') {
+      const cache = oneChartChildOrUndefined(reference, 'multiLvlStrCache');
+      if (!cache) return false;
+      const levels = elementChildren(cache).filter((child) =>
+        child.localName === 'lvl' && elementNamespaceUri(child) === CHART_NAMESPACE);
+      if (levels.length !== block[0]!.length) return false;
+      return levels.every((level, columnIndex) => {
+        const values = chartCacheValues(xml, level, false);
+        return values !== undefined
+          && values.length === block.length
+          && values.every((value, rowIndex) => value === block[rowIndex]?.[columnIndex]);
+      });
+    }
+    if (block.length > 1 && block[0]!.length > 1) return false;
+    const cache = oneChartChildOrUndefined(
+      reference,
+      reference.localName === 'strRef' ? 'strCache' : 'numCache',
+    );
+    if (!cache) return false;
+    const values = chartCacheValues(xml, cache, reference.localName === 'numRef');
+    const workbookValues = block.length === 1 ? block[0]! : block.map((row) => row[0]!);
+    return values !== undefined
+      && values.length === workbookValues.length
+      && values.every((value, index) => value === workbookValues[index]);
+  });
+}
+
+function oneChartChildOrUndefined(parent: XmlElement, localName: string): XmlElement | undefined {
+  const children = elementChildren(parent).filter((child) =>
+    child.localName === localName && elementNamespaceUri(child) === CHART_NAMESPACE);
+  return children.length === 1 ? children[0] : undefined;
+}
+
+function chartCacheValues(
+  xml: LosslessXmlDocument,
+  cache: XmlElement,
+  numeric: boolean,
+): readonly WorkbookCell[] | undefined {
+  const entries = elementChildren(cache)
+    .filter((child) => child.localName === 'pt' && elementNamespaceUri(child) === CHART_NAMESPACE)
+    .map((point): { readonly index: number; readonly value: WorkbookCell } | undefined => {
+      const lexicalIndex = unqualifiedAttribute(point, 'idx')?.value;
+      const value = oneChartChildOrUndefined(point, 'v');
+      if (!lexicalIndex || !CANONICAL_INDEX_PATTERN.test(lexicalIndex) || !value) return undefined;
+      const lexicalValue = xml.text(value);
+      if (!numeric) return { index: Number(lexicalIndex), value: lexicalValue };
+      if (!DECIMAL_PATTERN.test(lexicalValue)) return undefined;
+      const number = Number(lexicalValue);
+      return Number.isFinite(number)
+        ? { index: Number(lexicalIndex), value: Object.is(number, -0) ? 0 : number }
+        : undefined;
+    });
+  if (entries.some((entry) => entry === undefined)) return undefined;
+  const ordered = (entries as { readonly index: number; readonly value: WorkbookCell }[])
+    .sort((left, right) => left.index - right.index);
+  if (
+    new Set(ordered.map(({ index }) => index)).size !== ordered.length
+    || ordered.some(({ index }, expected) => index !== expected)
+  ) return undefined;
+  return ordered.map(({ value }) => value);
+}
+
+function parseChartFormula(value: string): FormulaRange | undefined {
+  const match = /^(?:Sheet1|'Sheet1')!\$([A-Z]{1,3})\$([1-9]\d*)(?::\$([A-Z]{1,3})\$([1-9]\d*))?$/.exec(value);
+  if (!match) return undefined;
+  return {
+    startColumn: excelColumnIndex(match[1]!),
+    startRow: Number(match[2]),
+    endColumn: excelColumnIndex(match[3] ?? match[1]!),
+    endRow: Number(match[4] ?? match[2]),
+  };
+}
+
+function workbookBlock(
+  cells: readonly (readonly WorkbookCell[])[],
+  range: FormulaRange,
+): readonly (readonly WorkbookCell[])[] | undefined {
+  if (range.endColumn < range.startColumn || range.endRow < range.startRow) return undefined;
+  const block: WorkbookCell[][] = [];
+  for (let row = range.startRow; row <= range.endRow; row += 1) {
+    const source = cells[row - 1];
+    if (!source) return undefined;
+    const values: WorkbookCell[] = [];
+    for (let column = range.startColumn; column <= range.endColumn; column += 1) {
+      const value = source[column - 1];
+      if (value === undefined) return undefined;
+      values.push(value);
+    }
+    block.push(values);
+  }
+  return block;
 }
 
 function createWorkbookPlan(definition: Readonly<ChartDefinition>): InternalWorkbookPlan {
@@ -276,8 +401,7 @@ function readSheetUri(workbook: OpcPackage): string {
     ({ type }) => type === OFFICE_DOCUMENT_RELATIONSHIP,
   );
   if (
-    rootRelationships.length !== 1
-    || officeRelationships.length !== 1
+    officeRelationships.length !== 1
     || officeRelationships[0]!.targetMode !== 'Internal'
     || !officeRelationships[0]!.resolvedTarget
   ) {
@@ -290,9 +414,6 @@ function readSheetUri(workbook: OpcPackage): string {
   }
   const xml = LosslessXmlDocument.parse(workbookPart.bytes);
   const root = requireSingleRoot(xml, 'workbook');
-  if (elementChildren(root).length !== 1) {
-    throw new Error('Chart workbook contains unsupported structures');
-  }
   const sheets = oneDirectChild(root, 'sheets');
   if (elementChildren(sheets).length !== 1) {
     throw new Error('Chart workbook sheets collection is unsupported');
@@ -311,8 +432,7 @@ function readSheetUri(workbook: OpcPackage): string {
   const worksheetRelationships = relationships.filter(({ type }) => type === WORKSHEET_RELATIONSHIP);
   const styleRelationships = relationships.filter(({ type }) => type === STYLES_RELATIONSHIP);
   if (
-    relationships.length !== 2
-    || worksheetRelationships.length !== 1
+    worksheetRelationships.length !== 1
     || styleRelationships.length !== 1
     || worksheetRelationships[0]!.id !== ids[0]!.value
     || worksheetRelationships[0]!.targetMode !== 'Internal'
@@ -329,14 +449,49 @@ function readSheetUri(workbook: OpcPackage): string {
   return worksheetRelationships[0]!.resolvedTarget;
 }
 
+function readSharedStrings(
+  workbook: OpcPackage,
+  workbookUri: string,
+): readonly string[] | undefined {
+  const relationships = workbook.relationships(workbookUri).filter(
+    ({ type }) => type === SHARED_STRINGS_RELATIONSHIP,
+  );
+  if (relationships.length === 0) {
+    if (workbook.hasPart('/xl/sharedStrings.xml')) {
+      throw new Error('Chart workbook shared strings relationship is missing');
+    }
+    return undefined;
+  }
+  if (
+    relationships.length !== 1
+    || relationships[0]!.targetMode !== 'Internal'
+    || !relationships[0]!.resolvedTarget
+  ) {
+    throw new Error('Chart workbook shared strings relationship is invalid');
+  }
+  const part = workbook.requirePart(relationships[0]!.resolvedTarget);
+  if (part.contentType !== SHARED_STRINGS_CONTENT_TYPE) {
+    throw new Error('Chart workbook shared strings content type is unsupported');
+  }
+  const xml = LosslessXmlDocument.parse(part.bytes);
+  const root = requireSingleRoot(xml, 'sst');
+  return Object.freeze(elementChildren(root).map((item) => {
+    if (item.localName !== 'si' || elementNamespaceUri(item) !== SPREADSHEET_NAMESPACE) {
+      throw new Error('Chart workbook shared strings collection is invalid');
+    }
+    const text = oneDirectChild(item, 't');
+    if (elementChildren(item).length !== 1 || elementChildren(text).length > 0) {
+      throw new Error('Chart workbook rich shared strings are unsupported');
+    }
+    return xml.text(text);
+  }));
+}
+
 function readWorksheetCells(
   xml: LosslessXmlDocument,
+  sharedStrings: readonly string[] | undefined,
 ): readonly (readonly WorkbookCell[])[] {
   const root = requireSingleRoot(xml, 'worksheet');
-  const rootChildren = elementChildren(root);
-  if (rootChildren.length !== 1 || rootChildren[0]!.localName !== 'sheetData') {
-    throw new Error('Chart worksheet contains unsupported structures');
-  }
   const sheetData = oneDirectChild(root, 'sheetData');
   const rows = elementChildren(sheetData);
   if (
@@ -363,7 +518,7 @@ function readWorksheetCells(
     if (columnCount === undefined) columnCount = cells.length;
     if (cells.length !== columnCount) throw new Error('Chart worksheet has missing cells');
     result.push(cells.map((cell, columnIndex) =>
-      readCell(xml, cell, columnIndex + 1, rowNumber)));
+      readCell(xml, cell, columnIndex + 1, rowNumber, sharedStrings)));
   });
   return freezeCells(result);
 }
@@ -373,6 +528,7 @@ function readCell(
   cell: XmlElement,
   expectedColumn: number,
   expectedRow: number,
+  sharedStrings: readonly string[] | undefined,
 ): WorkbookCell {
   const reference = unqualifiedAttribute(cell, 'r')?.value;
   const match = reference ? CELL_REFERENCE_PATTERN.exec(reference) : undefined;
@@ -388,6 +544,23 @@ function readCell(
     throw new Error('Chart worksheet formulas are unsupported');
   }
   const type = unqualifiedAttribute(cell, 't')?.value;
+  if (type === 's') {
+    if (
+      children.length !== 1
+      || children[0]!.localName !== 'v'
+      || elementNamespaceUri(children[0]!) !== SPREADSHEET_NAMESPACE
+      || sharedStrings === undefined
+    ) {
+      throw new Error('Chart worksheet shared string cell is invalid');
+    }
+    const lexical = xml.text(children[0]!);
+    if (!CANONICAL_INDEX_PATTERN.test(lexical)) {
+      throw new Error('Chart worksheet shared string index is invalid');
+    }
+    const value = sharedStrings[Number(lexical)];
+    if (value === undefined) throw new Error('Chart worksheet shared string index is dangling');
+    return value;
+  }
   if (type === 'inlineStr') {
     if (
       children.length !== 1

@@ -6,6 +6,9 @@ const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const outputRoot = join(repositoryRoot, 'packages/pptx/dist');
 const typesRoot = join(outputRoot, 'types');
 const publicInternalDeclarations = new Set([
+  'chart-diagnostics.internal.d.ts',
+  'chart-state.internal.d.ts',
+  'chart-workbook.internal.d.ts',
   'media-state.internal.d.ts',
   'media-timing-state.internal.d.ts',
 ]);

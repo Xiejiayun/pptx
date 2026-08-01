@@ -1,6 +1,6 @@
 # PPTX 双向编辑库实施进度
 
-最后更新：2026-08-01
+最后更新：2026-08-02
 
 ## WP0：基线与技术验证
 
@@ -357,7 +357,33 @@ $ pptx-inspect --json package inspect output.pptx
 ### 剩余媒体与全功能路线
 
 - 媒体后续：online video、remote-fetch embedding、trim/bookmarks、有限重复、narration/cross-slide audio、captions/subtitles、crop/rounding/shadow/hyperlink/placeholder styles、内建转码引擎与更广泛 PowerPoint/Keynote/Google Slides 客户端认证。
-- Native timing 专项已完成，但 PptxGenJS 全功能对等仍未完成；总体路线继续为 chart → slide background/number/default color → master/layout/placeholder → advanced text → advanced table/`tableToSlides` → output/runtime helpers → peer-range full-suite audit。
+- Native timing 专项已完成；标准 native chart 专项也已在下一节完成。PptxGenJS 全功能对等仍未完成，后续路线从 slide background/number/default color 开始。
+
+## PptxGenJS 全功能对等：Native chart creation and semantic editing
+
+状态：完成；实施与证据 9/9
+
+### 本阶段 change
+
+- 新增 frozen `CHART_TYPES` 与 strict chart definition，覆盖 `area`、`bar`、`bar3D`、`bubble`、`doughnut`、`line`、`pie`、`radar`、`scatter`，以及兼容的 bar/area/line 主轴/次轴组合。
+- `SlideModel.addChart()` / `PptxDocument.addChart()` 原子创建 chart part、internal relationship 和 deterministic embedded XLSX；同一 workbook plan 驱动 worksheet cells、A1 formulas 与 string/numeric caches，六种 presentation format 使用同一路径。
+- `ChartModel.definition` 返回 detached deep-frozen 语义快照；`replaceDefinition()` 支持类型、组合、数据和 options 的整体替换，`replaceSeries()` 更新单组数据，`remove()` / `slide.deleteChart()` 按引用回收 chart/workbook/style/color 子图。
+- 语义编辑同步更新 chart-owned XML、formulas、caches 与 workbook；option-only edit 保持 workbook bytes，等值 recognized state 为 exact no-op。共享 targets 在首次编辑时 relationship-aware clone-on-write，raw `setXml()` 继续作为显式 escape hatch。
+- 支持 title、legend、chart/plot area、主/次轴、gridlines、data labels、data table、series fill/line/marker、colors，以及 grouping/gap/overlap/hole/angle/radar/scatter/bubble/3D 等类型选项。Diagnostics 覆盖 relationship、structure、cache、axis、workbook 缺失/分歧和 modern chart。
+- PptxGenJS 4.0.1 public-output conformance 覆盖九种标准类型、bar+line 组合、数据 vectors、formula/cache/XLSX relationships 和代表性 options。Modern `cx:*`、external workbook 和 chart animation 保留原始 bytes，不宣称语义编辑。
+
+### 验证结果
+
+- Focused chart state/workbook/diagnostic/model/SDK/adapter/root-package/plugin suites、TypeScript strict typecheck、全量 Vitest、performance、全仓 build 与 package build 均通过。
+- Actual npm tarball 的 Node、real-Chrome、declaration 与 installed CLI smoke 通过，顶层 `nativeCharts: true`。
+- 11 页 gallery 包含 10 个 chart parts、10 个 XLSX、唯一 shape IDs 与零 orphan；strict reopen、`pptx-inspect` inspect/validate/slides/part-read、PowerPoint 2010 profile 0 errors / 0 warnings、180 DPI overflow 0 和逐页视觉检查全部通过。
+- LibreOffice 26.8 显示八种 2D 类型与组合图；`bar3D` 只显示标题，独立 PptxGenJS 4.0.1 控制文件表现相同。回存后全部十个图表对象的 group types 与 cache 数据保留，内嵌 XLSX 被移除，公式改为客户端占位符；library 以 cache-only 状态重开，报告十条 `CHART_WORKBOOK_MISSING` warning，首次语义替换为目标图表重新生成 canonical XLSX。
+- 本机 PowerPoint 16.112 对 native gallery 和独立 PptxGenJS control 均返回同一 `-9074`；本轮不声明 PowerPoint 往返通过。
+
+### 剩余图表与全功能路线
+
+- 图表后续：Office 2016 `cx:*` modern chart 创建/语义编辑、external workbook 编辑、chart animations、内建 trendline/error-bar 创建，以及更广泛 PowerPoint/Keynote/Google Slides 客户端认证。
+- 下一小项：slide background、slide number 与 default color；随后为 master/layout/placeholder、advanced text、advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
 
 ## 0.1.0 初始验收
 

@@ -165,6 +165,7 @@ export class AdvancedChartCodec {
       && !await chartWorkbookMatches(
         this.pkg.requirePart(state.workbookPartUri).bytes,
         state.definition,
+        new TextDecoder().decode(this.pkg.requirePart(chartPartUri).bytes),
       )
     ) {
       return [{

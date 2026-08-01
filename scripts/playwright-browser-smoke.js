@@ -256,6 +256,83 @@ async (page) => {
         && reopenedDuplicateMedia[0].mediaPartUri.endsWith('.wav')
         && reopenedDuplicateMedia[0].posterPartUri.endsWith('.jpg')
         && mediaOrphanCount === 0;
+      const chartDocument = api.PptxDocument.create();
+      const chartModels = [];
+      for (const type of api.CHART_TYPES) {
+        const slide = chartDocument.addSlide();
+        const series = type === 'scatter'
+          ? [{ name: 'Forecast', xValues: [1, 2, 3], values: [120, 150, 135] }]
+          : type === 'bubble'
+            ? [{ name: 'Portfolio', xValues: [1, 2, 3], values: [120, 150, 135], sizes: [8, 12, 10] }]
+            : [{ name: 'Revenue', categories: ['North', 'South', 'West'], values: [120, 150, 135] }];
+        chartModels.push(await slide.addChart(type, series, {
+          name: `Browser ${type} chart`,
+          x: api.inches(0.5),
+          y: api.inches(0.5),
+          width: api.inches(9),
+          height: api.inches(6.5),
+        }));
+      }
+      const comboSlide = chartDocument.addSlide();
+      const combo = await comboSlide.addChart([
+        {
+          type: 'bar',
+          series: [{ name: 'Revenue', categories: ['Q1', 'Q2'], values: [100, 130] }],
+        },
+        {
+          type: 'line',
+          axis: 'secondary',
+          series: [{ name: 'Margin', categories: ['Q1', 'Q2'], values: [24, 28] }],
+        },
+      ]);
+      await chartModels[0].replaceSeries([{
+        name: 'Revenue edited',
+        categories: ['North', 'South', 'West'],
+        values: [125, 155, 140],
+      }]);
+      await chartModels[1].replaceDefinition({ groups: [{
+        type: 'line',
+        series: [{ name: 'Converted', categories: ['Q1', 'Q2'], values: [11, 22] }],
+      }] });
+      const duplicateChartSlide = chartDocument.duplicateSlide(chartDocument.slides.length - 1);
+      const duplicateChart = duplicateChartSlide.shapes.find(
+        (shape) => shape instanceof api.ChartModel,
+      );
+      const duplicateChartPartUri = duplicateChart.chartPartUri;
+      const comboChartPartUri = combo.chartPartUri;
+      duplicateChart.remove();
+      const chartOutput = await chartDocument.writeBlob({ compatibility: 'powerpoint-2010' });
+      const reopenedChartDocument = await api.PptxDocument.open(chartOutput);
+      await reopenedChartDocument.write({ compatibility: 'powerpoint-2010' });
+      const reopenedCharts = reopenedChartDocument.slides.flatMap(({ shapes }) => shapes)
+        .filter((shape) => shape instanceof api.ChartModel);
+      const chartWorkbookResults = await Promise.all(reopenedCharts.map((chart) =>
+        api.chartWorkbookMatches(
+          reopenedChartDocument.opcPackage.requirePart(chart.workbookPartUri).bytes,
+          chart.definition,
+          chart.xml,
+        )));
+      const reopenedChartTypes = new Set(reopenedCharts.flatMap(({ definition }) =>
+        definition.groups.map(({ type }) => type)));
+      const chartIdsUnique = reopenedChartDocument.slides.every((slide) => {
+        const ids = slide.shapes.map(({ id }) => id);
+        return new Set(ids).size === ids.length;
+      });
+      const chartOrphanCount = reopenedChartDocument.opcPackage.parts
+        .filter(({ contentType }) =>
+          contentType === 'application/vnd.openxmlformats-officedocument.drawingml.chart+xml'
+          || contentType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        .filter(({ uri }) =>
+          (reopenedChartDocument.opcPackage.graph.find((node) => node.uri === uri)?.incoming.length ?? 0) === 0)
+        .length;
+      const nativeCharts = reopenedCharts.length === 10
+        && api.CHART_TYPES.every((type) => reopenedChartTypes.has(type))
+        && chartWorkbookResults.every(Boolean)
+        && chartIdsUnique
+        && chartOrphanCount === 0
+        && !chartDocument.opcPackage.hasPart(duplicateChartPartUri)
+        && chartDocument.opcPackage.hasPart(comboChartPartUri)
+        && reopenedChartDocument.diagnostics.filter(({ code }) => code.startsWith('CHART_')).length === 0;
       return {
         format: reopened.format,
         title: reopened.slides[0].title.text,
@@ -286,6 +363,7 @@ async (page) => {
         settingsAfterReopen,
         timingDiagnostics,
         nativeMediaTiming,
+        nativeCharts,
         stableMediaLifecycle,
         mediaTargetIsolation: browserMediaCloneOnWrite,
         mediaOrphanCount,
@@ -375,6 +453,7 @@ async (page) => {
     ],
     timingDiagnostics: [],
     nativeMediaTiming: true,
+    nativeCharts: true,
     stableMediaLifecycle: true,
     mediaTargetIsolation: true,
     mediaOrphanCount: 0,

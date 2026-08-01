@@ -806,6 +806,7 @@ export class ChartModel extends BaseShapeModel {
       && await chartWorkbookMatches(
         this.slide.presentation.opcPackage.requirePart(current.workbookPartUri).bytes,
         current.definition!,
+        this.xml,
       );
     const definitionsEqual = current.status === 'recognized'
       && chartDefinitionsEqual(current.definition!, next);

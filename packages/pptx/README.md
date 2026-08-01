@@ -335,7 +335,68 @@ The actual 45-file npm tarball passes Node, real-Chrome browser, declaration, an
 
 LibreOffice 26.8 preserves the nine-slide order and text but removes every media object, poster, media relationship, and timing branch when it saves the gallery; the package still strictly reopens and validates with 0 errors and 0 warnings. This is a documented client degradation, not a native round-trip guarantee. Local PowerPoint 16.112 automation returned the same `-9074` for the gallery, the LibreOffice output, and a minimal control file, so no PowerPoint round-trip pass is claimed from this environment.
 
-Trim/bookmarks, finite repeats, narration/cross-slide audio, captions/subtitles, online video, remote-fetch embedding, crop/rounding/shadow/hyperlink/placeholder styles, a built-in transcoding engine, and broad PowerPoint/Keynote/Google Slides certification remain pending. The next highest-value PptxGenJS parity slice is chart creation and semantic editing, so the overall full-parity roadmap is not yet complete.
+Trim/bookmarks, finite repeats, narration/cross-slide audio, captions/subtitles, online video, remote-fetch embedding, crop/rounding/shadow/hyperlink/placeholder styles, a built-in transcoding engine, and broad PowerPoint/Keynote/Google Slides certification remain pending.
+
+## Create and semantically edit native charts
+
+```ts
+import { inches, PptxDocument } from '@jiayunxie/pptx';
+
+const chartDocument = PptxDocument.create({ slideSize: 'wide' });
+const chartSlide = chartDocument.addSlide();
+const revenue = [{
+  name: 'Revenue',
+  categories: ['Q1', 'Q2', 'Q3'],
+  values: [100, 130, 160],
+}];
+
+const chart = await chartSlide.addChart('bar', revenue, {
+  name: 'Quarterly revenue',
+  altText: 'Revenue by quarter',
+  x: inches(1),
+  y: inches(1),
+  width: inches(8),
+  height: inches(4.5),
+});
+await chart.replaceDefinition({
+  groups: [{
+    type: 'bar',
+    series: revenue,
+    options: {
+      grouping: 'clustered',
+      dataLabels: { showValue: true, position: 'outsideEnd' },
+    },
+  }],
+  options: {
+    title: { text: 'Quarterly revenue' },
+    legend: { position: 'bottom' },
+    valueAxis: { minimum: 0, numberFormat: '#,##0' },
+  },
+});
+
+await chartSlide.addChart([
+  { type: 'bar', series: revenue },
+  {
+    type: 'line',
+    axis: 'secondary',
+    series: [{ name: 'Margin', categories: ['Q1', 'Q2', 'Q3'], values: [24, 28, 31] }],
+  },
+], { x: inches(1), y: inches(1), width: inches(8), height: inches(4.5) });
+
+await chart.replaceSeries([{ ...revenue[0], values: [105, 136, 172] }]);
+console.log(chart.definition, await chart.diagnostics());
+await chartDocument.writeFile('native-charts.pptx');
+```
+
+`CHART_TYPES` contains `area`, `bar`, `bar3D`, `bubble`, `doughnut`, `line`, `pie`, `radar`, and `scatter`. Categorical charts use `categories` and `values`; scatter uses `xValues` and `values`; bubble additionally requires positive `sizes`. Compatible bar/area/line groups can share primary axes or add secondary axes. Every native chart owns an embedded XLSX whose cells, A1 formulas, and display caches are generated from one normalized definition before the synchronous OPC transaction.
+
+`ChartModel.definition` is a detached frozen semantic snapshot. `replaceDefinition()` replaces supported types, groups, data, and options; `replaceSeries()` updates a single-group chart; `remove()` and `slide.deleteChart()` remove the frame and garbage-collect only unreferenced chart/workbook/style/color dependencies. Duplication initially shares nothing mutable and semantic edits retain stable identity with relationship-aware clone-on-write. `setXml()` remains the explicit raw escape hatch. Strict options cover title, legend, chart/plot areas, primary/secondary axes, gridlines, labels, data tables, series fill/line/marker, colors, and type-specific grouping/gap/hole/angle/radar/scatter/bubble/3D state. Diagnostics distinguish relationship, structure, cache, axis, missing/divergent workbook, and modern-chart states.
+
+All nine PptxGenJS 4.0.1 public chart types plus a bar+line primary/secondary combination pass real-output import, semantic edit, formula/cache/XLSX/relationship, and representative option conformance. The actual package tarball passes Node, real-Chrome, declaration, and installed-CLI smoke with `nativeCharts: true`. Its 11-slide gallery contains ten chart parts, ten embedded workbooks, and no orphan owned parts; PowerPoint 2010 validation reports 0 errors / 0 warnings, 180-DPI overflow is zero, and every page was inspected.
+
+LibreOffice 26.8 renders the eight 2D types and the combination; `bar3D` is title-only for both the native gallery and an independent PptxGenJS control. On save, LibreOffice retains every chart object's group types and cached data but removes embedded workbooks and rewrites formulas to client placeholders. The reader treats those charts as editable `cache-only` state with `CHART_WORKBOOK_MISSING` warnings, and the first semantic replacement recreates a synchronized XLSX. Local PowerPoint 16.112 automation returned the same `-9074` for the gallery and independent control, so this environment does not establish a PowerPoint round-trip pass.
+
+Office 2016 `cx:*` chart creation/semantic editing, external-workbook editing, chart animations, built-in trendline/error-bar creation, and broad Keynote/Google Slides certification remain pending. The advanced-charts plugin continues to cover modern inspection, trendlines, error bars, and explicit fallback. The next PptxGenJS parity slice is slide background, slide number, and default color.
 
 `PRESET_SHAPE_TYPES` is the frozen discovery catalog for all 178 canonical preset geometries accepted by `SlideModel.addShape()`. `AddShapeOptions` accepts `name`, strict `adjustments`, strict `fill`, strict `line`, strict `arrows`, strict `shadow`, strict `hyperlink`, and native EMU/OOXML-angle transform fields; use `inches()` and `degrees()` for ergonomic conversion. Omitted geometry starts at x/y/width/height = 1 inch with zero rotation and no flips; omitted fill creates direct no-fill, and omitted line keeps the canonical empty line container. Inputs are strict, descriptor-safe, detached before mutation, and reject unknown fields. The catalog uses the valid OOXML `foldedCorner`; PptxGenJS 4.0.1's invalid `folderCorner` token and runtime-only `custGeom` value are not accepted as presets.
 

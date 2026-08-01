@@ -326,6 +326,22 @@ describe('strict chart semantic state', () => {
       definition: { groups: [{ type: 'pie' }] },
     });
 
+    const libreOfficeCacheOnly = chartPackage(chartXml(
+      groupXml('pieChart', categoricalSeriesXml('Share', ['A'], [100])),
+    )
+      .replace('Sheet1!$B$1', 'label 0')
+      .replace('Sheet1!$A$2:$A$2', 'categories')
+      .replace('Sheet1!$B$2:$B$2', '0'), { externalData: false });
+    expect(readChartState(libreOfficeCacheOnly, CHART_URI)).toMatchObject({
+      status: 'cache-only',
+      definition: {
+        groups: [{
+          type: 'pie',
+          series: [{ name: 'Share', categories: ['A'], values: [100] }],
+        }],
+      },
+    });
+
     const modern = chartPackage(
       '<cx:chartSpace xmlns:cx="http://schemas.microsoft.com/office/drawing/2014/chartex">'
         + '<cx:chart/></cx:chartSpace>',

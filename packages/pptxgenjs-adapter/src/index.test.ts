@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it, vi } from 'vitest';
 import {
   ChartModel,
+  chartWorkbookMatches,
   degrees,
   ImageModel,
   inches,
@@ -547,6 +548,12 @@ describe('importPptxGenJS', () => {
       h: 4,
       showLegend: false,
     });
+    generatedSlide.addChart(generated.ChartType.area!, [{
+      name: 'Pipeline', labels: ['Q1', 'Q2'], values: [8, 16],
+    }], { x: 1, y: 1, w: 6, h: 4 });
+    generatedSlide.addChart(generated.ChartType.pie!, [{
+      name: 'Share', labels: ['A', 'B'], values: [60, 40],
+    }], { x: 1, y: 1, w: 6, h: 4 });
     generatedSlide.addChart(generated.ChartType.scatter!, [
       { name: 'X', values: [1, 2] },
       { name: 'Points', values: [3, 4] },
@@ -564,17 +571,24 @@ describe('importPptxGenJS', () => {
       {
         type: generated.ChartType.line!,
         data: [{ name: 'Trend', labels: ['Q1', 'Q2'], values: [11, 21] }],
-        options: {},
+        options: { secondaryCatAxis: true, secondaryValAxis: true },
       },
-    ], { x: 1, y: 1, w: 6, h: 4 });
+    ], {
+      x: 1,
+      y: 1,
+      w: 6,
+      h: 4,
+      catAxes: [{}, {}],
+      valAxes: [{}, {}],
+    });
 
     const imported = await importPptxGenJS(generated);
     const charts = imported.slides[0]!.shapes.filter(
       (shape): shape is ChartModel => shape instanceof ChartModel,
     );
-    expect(charts).toHaveLength(4);
-    const [bar, scatter, bubble, combo] = charts as [
-      ChartModel, ChartModel, ChartModel, ChartModel,
+    expect(charts).toHaveLength(6);
+    const [bar, area, pie, scatter, bubble, combo] = charts as [
+      ChartModel, ChartModel, ChartModel, ChartModel, ChartModel, ChartModel,
     ];
     expect(bar.definition).toMatchObject({
       groups: [{
@@ -582,6 +596,12 @@ describe('importPptxGenJS', () => {
         axis: 'primary',
         series: [{ name: 'Revenue', categories: [['Q1', 'Q2']], values: [10, 20] }],
       }],
+    });
+    expect(area.definition).toMatchObject({
+      groups: [{ type: 'area', series: [{ name: 'Pipeline', values: [8, 16] }] }],
+    });
+    expect(pie.definition).toMatchObject({
+      groups: [{ type: 'pie', series: [{ name: 'Share', values: [60, 40] }] }],
     });
     expect(scatter.definition).toMatchObject({
       groups: [{
@@ -599,18 +619,41 @@ describe('importPptxGenJS', () => {
     });
     expect(combo.definition?.groups.map(({ type, axis }) => [type, axis])).toEqual([
       ['bar', 'primary'],
-      ['line', 'primary'],
+      ['line', 'secondary'],
     ]);
     expect(Object.isFrozen(bar.definition?.options)).toBe(true);
     expect(bar.definition?.groups[0]?.options?.series?.[0]?.fill).toBeDefined();
     const importedStyle = /<c:ser>[\s\S]*?(<c:spPr>[\s\S]*?<\/c:spPr>)/
       .exec(bar.xml)?.[1];
     expect(importedStyle).toBeDefined();
+    for (const chart of charts) {
+      expect(chart.xml).toMatch(/<c:f>[^<]*Sheet1!/);
+      expect(await chartWorkbookMatches(
+        imported.opcPackage.requirePart(chart.workbookPartUri!).bytes,
+        chart.definition!,
+        chart.xml,
+      )).toBe(true);
+      expect(imported.slides[0]!.relationships.filter(
+        ({ resolvedTarget }) => resolvedTarget === chart.chartPartUri,
+      )).toHaveLength(1);
+      expect(imported.opcPackage.relationships(chart.chartPartUri!).filter(
+        ({ type, resolvedTarget }) =>
+          type.endsWith('/package') && resolvedTarget === chart.workbookPartUri,
+      )).toHaveLength(1);
+    }
+    await expect(imported.write()).resolves.toBeInstanceOf(Uint8Array);
+    expect(imported.diagnostics.filter(({ code }) => code.startsWith('CHART_'))).toEqual([]);
 
     await bar.replaceSeries([{
       name: 'Revenue edited',
       categories: ['Q1', 'Q2', 'Q3'],
       values: [12, 24, 36],
+    }]);
+    await area.replaceSeries([{
+      name: 'Pipeline edited', categories: ['Q1', 'Q2'], values: [9, 18],
+    }]);
+    await pie.replaceSeries([{
+      name: 'Share edited', categories: ['A', 'B'], values: [55, 45],
     }]);
     await scatter.replaceSeries([{
       name: 'Points edited', xValues: [2, 4], values: [6, 8],
@@ -618,22 +661,33 @@ describe('importPptxGenJS', () => {
     await bubble.replaceSeries([{
       name: 'Bubbles edited', xValues: [2, 4], values: [6, 8], sizes: [10, 12],
     }]);
+    const comboDefinition = combo.definition!;
+    const comboBarGroup = comboDefinition.groups[0];
+    const comboLineGroup = comboDefinition.groups[1];
+    if (comboBarGroup?.type !== 'bar' || comboLineGroup?.type !== 'line') {
+      throw new Error('Expected imported bar-line combination chart');
+    }
     await combo.replaceDefinition({ groups: [
       {
         type: 'bar',
         series: [{ name: 'Revenue edited', categories: ['Q1', 'Q2'], values: [12, 22] }],
+        ...(comboBarGroup.options === undefined ? {} : { options: comboBarGroup.options }),
       },
       {
         type: 'line',
+        axis: 'secondary',
         series: [{ name: 'Trend edited', categories: ['Q1', 'Q2'], values: [13, 23] }],
+        ...(comboLineGroup.options === undefined ? {} : { options: comboLineGroup.options }),
       },
-    ] });
+    ], options: comboDefinition.options });
     expect(bar.series).toEqual([{
       name: 'Revenue edited',
       categories: ['Q1', 'Q2', 'Q3'],
       values: [12, 24, 36],
     }]);
     expect(bar.xml).toContain(importedStyle!);
+    expect(area.series[0]).toMatchObject({ name: 'Pipeline edited', values: [9, 18] });
+    expect(pie.series[0]).toMatchObject({ name: 'Share edited', values: [55, 45] });
     expect(scatter.series[0]).toMatchObject({ xValues: [2, 4], values: [6, 8] });
     expect(bubble.series[0]).toMatchObject({ sizes: [10, 12] });
     expect(combo.series.map(({ name, values }) => ({ name, values }))).toEqual([
@@ -649,6 +703,12 @@ describe('importPptxGenJS', () => {
       charts.map(({ definition }) => definition),
     );
     expect(reopenedCharts.every(({ workbookPartUri }) => workbookPartUri !== undefined)).toBe(true);
+    for (const chart of reopenedCharts) {
+      expect(await chartWorkbookMatches(
+        reopened.opcPackage.requirePart(chart.workbookPartUri!).bytes,
+        chart.definition!,
+      )).toBe(true);
+    }
   });
 
   it('projects and edits representative PptxGenJS chart options semantically', async () => {

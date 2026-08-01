@@ -151,7 +151,11 @@ function readStandardChartState(
   if (unknownGroups.length > 0) unsupported(`Unsupported chart group ${unknownGroups[0]!.localName}`);
   if (groupElements.length === 0) unsupported('Chart plotArea has no supported chart groups');
 
-  const parsedGroups = groupElements.map((group) => readGroup(xml, group));
+  const externalData = chartChildren(root, 'externalData');
+  if (externalData.length > 1) ambiguous('Chart has multiple externalData elements');
+  const requireWorkbookFormulas = externalData.length === 1;
+  const parsedGroups = groupElements.map((group) =>
+    readGroup(xml, group, requireWorkbookFormulas));
   const assignment = assignAxes(xml, plotArea, parsedGroups);
   const options = readRootChartOptions(
     xml,
@@ -169,8 +173,6 @@ function readStandardChartState(
     unsupported(error instanceof Error ? error.message : 'Chart definition is unsupported');
   }
 
-  const externalData = chartChildren(root, 'externalData');
-  if (externalData.length > 1) ambiguous('Chart has multiple externalData elements');
   if (externalData.length === 0) {
     return Object.freeze({ status: 'cache-only', definition });
   }
@@ -178,7 +180,11 @@ function readStandardChartState(
   return Object.freeze({ status: 'recognized', definition, workbookPartUri });
 }
 
-function readGroup(xml: LosslessXmlDocument, group: XmlElement): ParsedGroup {
+function readGroup(
+  xml: LosslessXmlDocument,
+  group: XmlElement,
+  requireWorkbookFormulas: boolean,
+): ParsedGroup {
   const type = GROUP_TYPES[group.localName]!;
   const seriesElements = chartChildren(group, 'ser');
   if (seriesElements.length === 0) unsupported(`${group.localName} has no series`);
@@ -192,7 +198,8 @@ function readGroup(xml: LosslessXmlDocument, group: XmlElement): ParsedGroup {
   const orderedSeries = indexed
     .sort((left, right) => left.order - right.order)
     .map(({ element }) => element);
-  const series = orderedSeries.map((element) => readSeries(xml, element, type));
+  const series = orderedSeries.map((element) =>
+    readSeries(xml, element, type, requireWorkbookFormulas));
   const axisIds = chartChildren(group, 'axId').map((element) =>
     readUnsignedVal(xml, element, `${group.localName} axis reference`, true));
   requireUnique(axisIds, `${group.localName} axis references`);
@@ -219,17 +226,18 @@ function readSeries(
   xml: LosslessXmlDocument,
   series: XmlElement,
   type: ChartType,
+  requireWorkbookFormulas: boolean,
 ): ChartSeriesInput {
-  const nameValues = readStringReference(xml, series, 'tx');
+  const nameValues = readStringReference(xml, series, 'tx', requireWorkbookFormulas);
   if (nameValues.length !== 1 || nameValues[0]!.length === 0) {
     unsupported('Chart series name cache must contain one non-empty point');
   }
   const name = nameValues[0]!;
   if (type === 'scatter' || type === 'bubble') {
-    const xValues = readNumericReference(xml, series, 'xVal');
-    const values = readNumericReference(xml, series, 'yVal');
+    const xValues = readNumericReference(xml, series, 'xVal', requireWorkbookFormulas);
+    const values = readNumericReference(xml, series, 'yVal', requireWorkbookFormulas);
     const sizes = type === 'bubble'
-      ? readNumericReference(xml, series, 'bubbleSize')
+      ? readNumericReference(xml, series, 'bubbleSize', requireWorkbookFormulas)
       : undefined;
     return {
       name,
@@ -240,12 +248,16 @@ function readSeries(
   }
   return {
     name,
-    categories: readCategories(xml, series),
-    values: readNumericReference(xml, series, 'val'),
+    categories: readCategories(xml, series, requireWorkbookFormulas),
+    values: readNumericReference(xml, series, 'val', requireWorkbookFormulas),
   };
 }
 
-function readCategories(xml: LosslessXmlDocument, series: XmlElement): ChartCategories {
+function readCategories(
+  xml: LosslessXmlDocument,
+  series: XmlElement,
+  requireWorkbookFormulas: boolean,
+): ChartCategories {
   const category = oneChartChild(series, 'cat', 'Chart series must contain exactly one cat element');
   const references = elementChildren(category).filter((child) =>
     elementNamespaceUri(child) === CHART_NAMESPACE
@@ -255,7 +267,7 @@ function readCategories(xml: LosslessXmlDocument, series: XmlElement): ChartCate
   if (references.length > 1) ambiguous('Chart category has multiple cache references');
   if (references.length === 0) unsupported('Chart category has no supported cache reference');
   const reference = references[0]!;
-  validateFormula(xml, reference);
+  validateFormula(xml, reference, requireWorkbookFormulas);
   if (reference.localName === 'strRef') {
     return readCache(xml, oneChartChild(
       reference,
@@ -286,6 +298,7 @@ function readStringReference(
   xml: LosslessXmlDocument,
   parent: XmlElement,
   containerName: string,
+  requireWorkbookFormula: boolean,
 ): readonly string[] {
   const container = oneChartChild(
     parent,
@@ -297,7 +310,7 @@ function readStringReference(
     'strRef',
     `${containerName} must contain exactly one strRef`,
   );
-  validateFormula(xml, reference);
+  validateFormula(xml, reference, requireWorkbookFormula);
   const cache = oneChartChild(
     reference,
     'strCache',
@@ -310,6 +323,7 @@ function readNumericReference(
   xml: LosslessXmlDocument,
   parent: XmlElement,
   containerName: string,
+  requireWorkbookFormula: boolean,
 ): readonly number[] {
   const container = oneChartChild(
     parent,
@@ -321,7 +335,7 @@ function readNumericReference(
     'numRef',
     `${containerName} must contain exactly one numRef`,
   );
-  validateFormula(xml, reference);
+  validateFormula(xml, reference, requireWorkbookFormula);
   const cache = oneChartChild(
     reference,
     'numCache',
@@ -370,12 +384,19 @@ function readPoints(
   return points.sort((left, right) => left.index - right.index).map(({ value }) => value);
 }
 
-function validateFormula(xml: LosslessXmlDocument, reference: XmlElement): void {
+function validateFormula(
+  xml: LosslessXmlDocument,
+  reference: XmlElement,
+  requireWorkbookFormula: boolean,
+): void {
   const formulas = chartChildren(reference, 'f');
   if (formulas.length > 1) ambiguous('Chart cache reference has multiple formulas');
   if (formulas.length === 0) return;
   const formula = formulas[0]!;
-  if (elementChildren(formula).length > 0 || !FORMULA_PATTERN.test(xml.text(formula))) {
+  if (
+    elementChildren(formula).length > 0
+    || (requireWorkbookFormula && !FORMULA_PATTERN.test(xml.text(formula)))
+  ) {
     unsupported('Chart cache formula is unsupported');
   }
 }
