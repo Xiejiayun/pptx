@@ -16,6 +16,8 @@ import type {
   ChartTitleOptions,
   ChartType,
 } from './chart.js';
+import { normalizePlaceholderSelector } from './placeholder.internal.js';
+import type { PlaceholderIdentity, PlaceholderSelector } from './placeholder.js';
 import type {
   ChartWorkbookFormula,
   ChartWorkbookPlan,
@@ -40,6 +42,7 @@ const EMU_PER_POINT = 12_700;
 const OPTION_KEYS = new Set([
   'name',
   'altText',
+  'placeholder',
   'x',
   'y',
   'width',
@@ -52,6 +55,7 @@ const OPTION_KEYS = new Set([
 export interface NormalizedAddChartOptions {
   readonly name: string;
   readonly altText?: string;
+  readonly placeholder?: PlaceholderSelector;
   readonly x: Emu;
   readonly y: Emu;
   readonly width: Emu;
@@ -69,6 +73,9 @@ export function normalizeAddChartOptions(
   const altText = options.altText === undefined
     ? undefined
     : readXmlString(options.altText, 'Chart altText');
+  const placeholder = options.placeholder === undefined
+    ? undefined
+    : normalizePlaceholderSelector(options.placeholder);
   const x = readCoordinate(options.x, inches(1), 'Chart x') as Emu;
   const y = readCoordinate(options.y, inches(1), 'Chart y') as Emu;
   const width = readCoordinate(options.width, inches(6), 'Chart width') as Emu;
@@ -82,6 +89,7 @@ export function normalizeAddChartOptions(
   return Object.freeze({
     name,
     ...(altText === undefined ? {} : { altText }),
+    ...(placeholder === undefined ? {} : { placeholder }),
     x,
     y,
     width,
@@ -212,6 +220,7 @@ export function renderChartGraphicFrame(
   shapeId: number,
   relationshipId: string,
   options: Readonly<NormalizedAddChartOptions>,
+  placeholder?: Readonly<PlaceholderIdentity>,
 ): string {
   const transformAttributes = [
     options.rotation === 0 ? '' : ` rot="${options.rotation}"`,
@@ -221,11 +230,15 @@ export function renderChartGraphicFrame(
   const description = options.altText === undefined
     ? ''
     : ` descr="${escapeXmlAttribute(options.altText)}"`;
+  const applicationProperties = placeholder === undefined
+    ? '<p:nvPr/>'
+    : `<p:nvPr><p:ph type="${placeholder.type}" idx="${placeholder.index}"/></p:nvPr>`;
   return `<p:graphicFrame xmlns:p="${PRESENTATION_NAMESPACE}" xmlns:a="${DRAWING_NAMESPACE}" `
     + `xmlns:c="${CHART_NAMESPACE}" xmlns:r="${RELATIONSHIP_NAMESPACE}">`
     + '<p:nvGraphicFramePr>'
     + `<p:cNvPr id="${shapeId}" name="${escapeXmlAttribute(options.name)}"${description}/>`
-    + '<p:cNvGraphicFramePr><a:graphicFrameLocks noGrp="1"/></p:cNvGraphicFramePr><p:nvPr/>'
+    + '<p:cNvGraphicFramePr><a:graphicFrameLocks noGrp="1"/></p:cNvGraphicFramePr>'
+    + applicationProperties
     + '</p:nvGraphicFramePr>'
     + `<p:xfrm${transformAttributes}><a:off x="${options.x}" y="${options.y}"/>`
     + `<a:ext cx="${options.width}" cy="${options.height}"/></p:xfrm>`

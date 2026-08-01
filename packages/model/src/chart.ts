@@ -1,4 +1,5 @@
 import type { ShapeFill, ShapeLine } from './preset-shape.js';
+import type { PlaceholderSelector } from './placeholder.js';
 import type { RichTextColor } from './text.js';
 
 export const CHART_TYPES = Object.freeze([
@@ -307,6 +308,7 @@ export interface ChartDiagnostic {
 export interface AddChartOptions {
   readonly name?: string;
   readonly altText?: string;
+  readonly placeholder?: PlaceholderSelector;
   readonly x?: import('./units.js').Emu;
   readonly y?: import('./units.js').Emu;
   readonly width?: import('./units.js').Emu;

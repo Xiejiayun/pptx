@@ -31,17 +31,11 @@ import type {
   ChartState,
   ChartType,
 } from './chart.js';
-import { normalizeChartDefinition } from './chart-definition.internal.js';
+import {
+  commitPreparedChart,
+  prepareChartCreation,
+} from './chart-create.internal.js';
 import { replaceChartDefinition } from './chart-edit.internal.js';
-import {
-  normalizeAddChartOptions,
-  renderChartGraphicFrame,
-  renderChartPart,
-} from './chart-render.internal.js';
-import {
-  buildChartWorkbook,
-  planChartWorkbook,
-} from './chart-workbook.internal.js';
 import { ModelParseError } from './errors.js';
 import { garbageCollectOwnedDependencies } from './dependency.internal.js';
 import type { Hyperlink } from './hyperlink.js';
@@ -241,12 +235,6 @@ const IMAGE_RELATIONSHIP_TYPE =
   'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image';
 const CHART_RELATIONSHIP_TYPE =
   'http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart';
-const PACKAGE_RELATIONSHIP_TYPE =
-  'http://schemas.openxmlformats.org/officeDocument/2006/relationships/package';
-const CHART_CONTENT_TYPE =
-  'application/vnd.openxmlformats-officedocument.drawingml.chart+xml';
-const WORKBOOK_CONTENT_TYPE =
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
 export interface AddTextOptions extends Partial<Transform> {
   readonly name?: string;
@@ -927,6 +915,21 @@ export class SlideModel {
     const definition = normalizeEmbeddedRasterImage(bytes, options);
     return this.presentation.opcPackage.transaction(() => {
       const pkg = this.presentation.opcPackage;
+      const owner = definition.placeholder === undefined
+        ? undefined
+        : resolvePlaceholderOwner(
+            pkg,
+            this.partUri,
+            definition.placeholder,
+            'image',
+          );
+      const rendered = owner === undefined
+        ? definition
+        : Object.freeze({
+            ...definition,
+            name: owner.name,
+            ...owner.transform,
+          });
       const mediaPartUri = pkg.allocatePartUri(
         '/ppt/media',
         'image',
@@ -940,18 +943,23 @@ export class SlideModel {
       });
       const { xml } = this.parse();
       const shapeTree = requirePresetShapeTree(xml, this.partUri);
-      const nextId = allocatePresetShapeId(xml, shapeTree, this.partUri);
+      const nextId = owner?.shapeId ?? allocatePresetShapeId(xml, shapeTree, this.partUri);
       const imageCount = this.shapes.filter(({ kind }) => kind === 'image').length;
       const pictureXml = renderEmbeddedRasterImageXml(
         nextId,
-        definition,
+        rendered,
         relationship.id,
         `Image ${imageCount}`,
+        owner?.identity,
       );
-      const extensionList = directElementChildren(shapeTree, 'extLst')[0];
-      if (extensionList) xml.replace(extensionList.start, extensionList.start, pictureXml);
-      else xml.appendChildXml(shapeTree, pictureXml);
+      if (owner) xml.replace(owner.slideElement.start, owner.slideElement.end, pictureXml);
+      else {
+        const extensionList = directElementChildren(shapeTree, 'extLst')[0];
+        if (extensionList) xml.replace(extensionList.start, extensionList.start, pictureXml);
+        else xml.appendChildXml(shapeTree, pictureXml);
+      }
       this.setXml(xml.serialize());
+      if (owner) this.invalidateShapeModel(nextId);
       const image = this.shapes.find(({ id }) => id === nextId);
       if (!(image instanceof ImageModel) || image.kind !== 'image') {
         throw new ModelParseError(`Created image ${nextId} could not be resolved`, this.partUri);
@@ -968,6 +976,21 @@ export class SlideModel {
     const definition = normalizeEmbeddedSvgImage(svgBytes, fallbackPngBytes, options);
     return this.presentation.opcPackage.transaction(() => {
       const pkg = this.presentation.opcPackage;
+      const owner = definition.placeholder === undefined
+        ? undefined
+        : resolvePlaceholderOwner(
+            pkg,
+            this.partUri,
+            definition.placeholder,
+            'image',
+          );
+      const rendered = owner === undefined
+        ? definition
+        : Object.freeze({
+            ...definition,
+            name: owner.name,
+            ...owner.transform,
+          });
       const fallbackPartUri = pkg.allocatePartUri('/ppt/media', 'image', '.png');
       const svgPartUri = pkg.allocatePartUri('/ppt/media', 'image', '.svg');
       pkg.setPart(fallbackPartUri, definition.fallbackPngBytes, 'image/png');
@@ -984,19 +1007,24 @@ export class SlideModel {
       });
       const { xml } = this.parse();
       const shapeTree = requirePresetShapeTree(xml, this.partUri);
-      const nextId = allocatePresetShapeId(xml, shapeTree, this.partUri);
+      const nextId = owner?.shapeId ?? allocatePresetShapeId(xml, shapeTree, this.partUri);
       const imageCount = this.shapes.filter(({ kind }) => kind === 'image').length;
       const pictureXml = renderEmbeddedSvgImageXml(
         nextId,
-        definition,
+        rendered,
         fallbackRelationship.id,
         svgRelationship.id,
         `Image ${imageCount}`,
+        owner?.identity,
       );
-      const extensionList = directElementChildren(shapeTree, 'extLst')[0];
-      if (extensionList) xml.replace(extensionList.start, extensionList.start, pictureXml);
-      else xml.appendChildXml(shapeTree, pictureXml);
+      if (owner) xml.replace(owner.slideElement.start, owner.slideElement.end, pictureXml);
+      else {
+        const extensionList = directElementChildren(shapeTree, 'extLst')[0];
+        if (extensionList) xml.replace(extensionList.start, extensionList.start, pictureXml);
+        else xml.appendChildXml(shapeTree, pictureXml);
+      }
       this.setXml(xml.serialize());
+      if (owner) this.invalidateShapeModel(nextId);
       const image = this.shapes.find(({ id }) => id === nextId);
       if (!(image instanceof ImageModel) || image.kind !== 'image') {
         throw new ModelParseError(`Created image ${nextId} could not be resolved`, this.partUri);
@@ -1179,59 +1207,17 @@ export class SlideModel {
     seriesOrOptions?: readonly ChartSeriesInput[] | AddChartOptions,
     options: AddChartOptions = {},
   ): Promise<ChartModel> {
-    const definition = Array.isArray(typeOrGroups)
-      ? normalizeChartDefinition({ groups: typeOrGroups })
-      : normalizeChartDefinition({
-          groups: [{
-            type: typeOrGroups as ChartType,
-            series: seriesOrOptions as readonly ChartSeriesInput[],
-          }],
-        });
-    const normalizedOptions = normalizeAddChartOptions(
+    const groups = Array.isArray(typeOrGroups)
+      ? typeOrGroups
+      : [{
+          type: typeOrGroups as ChartType,
+          series: seriesOrOptions as readonly ChartSeriesInput[],
+        }];
+    const prepared = await prepareChartCreation(
+      groups,
       Array.isArray(typeOrGroups) ? seriesOrOptions as AddChartOptions | undefined : options,
     );
-    const workbookBytes = await buildChartWorkbook(definition);
-    const plan = planChartWorkbook(definition);
-    return this.presentation.opcPackage.transaction(() => {
-      const pkg = this.presentation.opcPackage;
-      const chartPartUri = pkg.allocatePartUri('/ppt/charts', 'chart', '.xml');
-      const workbookPartUri = pkg.allocatePartUri(
-        '/ppt/embeddings',
-        'Microsoft_Excel_Worksheet',
-        '.xlsx',
-      );
-      pkg.setPart(workbookPartUri, workbookBytes, WORKBOOK_CONTENT_TYPE);
-      const workbookRelationshipId = pkg.allocateRelationshipId(chartPartUri);
-      pkg.setPart(
-        chartPartUri,
-        renderChartPart(definition, plan.formulas, workbookRelationshipId),
-        CHART_CONTENT_TYPE,
-      );
-      pkg.addRelationship(chartPartUri, {
-        id: workbookRelationshipId,
-        type: PACKAGE_RELATIONSHIP_TYPE,
-        target: relativeRelationshipTarget(chartPartUri, workbookPartUri),
-        targetMode: 'Internal',
-      });
-      const chartRelationship = pkg.addRelationship(this.partUri, {
-        type: CHART_RELATIONSHIP_TYPE,
-        target: relativeRelationshipTarget(this.partUri, chartPartUri),
-        targetMode: 'Internal',
-      });
-      const { xml } = this.parse();
-      const shapeTree = requirePresetShapeTree(xml, this.partUri);
-      const nextId = allocatePresetShapeId(xml, shapeTree, this.partUri);
-      const frame = renderChartGraphicFrame(nextId, chartRelationship.id, normalizedOptions);
-      const extensionList = directElementChildren(shapeTree, 'extLst')[0];
-      if (extensionList) xml.replace(extensionList.start, extensionList.start, frame);
-      else xml.appendChildXml(shapeTree, frame);
-      this.setXml(xml.serialize());
-      const chart = this.shapes.find((candidate) => candidate.id === nextId);
-      if (!(chart instanceof ChartModel) || chart.kind !== 'chart') {
-        throw new ModelParseError(`Created chart ${nextId} could not be resolved`, this.partUri);
-      }
-      return chart;
-    });
+    return this.presentation.opcPackage.transaction(() => commitPreparedChart(this, prepared));
   }
 
   replaceChartDefinition(
@@ -1531,7 +1517,8 @@ export class SlideModel {
     return shape;
   }
 
-  private invalidateShapeModel(id: number): void {
+  /** @internal */
+  invalidateShapeModel(id: number): void {
     const existing = this.#shapeModels.get(id);
     if (existing) this.#staleShapeModels.add(existing);
     this.#shapeModels.delete(id);
@@ -1785,7 +1772,7 @@ function allocateShapeId(xml: LosslessXmlDocument): number {
   }, 1) + 1;
 }
 
-function allocatePresetShapeId(
+export function allocatePresetShapeId(
   xml: LosslessXmlDocument,
   shapeTree: XmlElement,
   partUri: string,
@@ -1824,7 +1811,7 @@ function allocatePresetShapeId(
   return maximum + 1;
 }
 
-function requirePresetShapeTree(
+export function requirePresetShapeTree(
   xml: LosslessXmlDocument,
   partUri: string,
   missingTreeMessage = 'Slide must contain exactly one direct shape tree',
@@ -1904,7 +1891,7 @@ function chartRelationshipReferenceCount(
     )).length, 0);
 }
 
-function directElementChildren(
+export function directElementChildren(
   element: XmlElement,
   localName: string,
 ): XmlElement[] {

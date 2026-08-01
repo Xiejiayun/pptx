@@ -1,5 +1,7 @@
 import { escapeXmlAttribute } from '@pptx/lossless-xml';
 import type { RasterImageContentType } from './image.js';
+import { normalizePlaceholderSelector } from './placeholder.internal.js';
+import type { PlaceholderIdentity, PlaceholderSelector } from './placeholder.js';
 import {
   normalizeImageSourceRectangle,
   renderImageSourceRectangle,
@@ -12,6 +14,7 @@ const OPTION_KEYS = new Set([
   'contentType',
   'name',
   'altText',
+  'placeholder',
   'x',
   'y',
   'width',
@@ -25,6 +28,7 @@ const OPTION_KEYS = new Set([
 export interface NormalizedEmbeddedImageAppearance {
   readonly name: string | undefined;
   readonly altText: string;
+  readonly placeholder?: PlaceholderSelector;
   readonly x: number;
   readonly y: number;
   readonly width: number;
@@ -57,6 +61,9 @@ export function normalizeEmbeddedRasterImage(
   const contentType = normalizeContentType(values.contentType);
   const name = normalizeXmlString(values.name, undefined, 'name');
   const altText = normalizeXmlString(values.altText, 'preencoded.png', 'altText');
+  const placeholder = values.placeholder === undefined
+    ? undefined
+    : normalizePlaceholderSelector(values.placeholder);
   const width = normalizeInteger(values.width, EMU_PER_INCH, 'width');
   const height = normalizeInteger(values.height, EMU_PER_INCH, 'height');
   if (width <= 0) throw new RangeError('Embedded raster image width must be positive');
@@ -80,6 +87,7 @@ export function normalizeEmbeddedRasterImage(
     extension: extensionFor(contentType),
     name,
     altText,
+    ...(placeholder === undefined ? {} : { placeholder }),
     x: normalizeInteger(values.x, 0, 'x'),
     y: normalizeInteger(values.y, 0, 'y'),
     width,
@@ -96,6 +104,7 @@ export function renderEmbeddedRasterImageXml(
   definition: Readonly<NormalizedEmbeddedRasterImage>,
   relationshipId: string,
   defaultName: string,
+  placeholder?: Readonly<PlaceholderIdentity>,
 ): string {
   const embed = escapeXmlAttribute(relationshipId);
   return renderEmbeddedImageXml(
@@ -103,6 +112,7 @@ export function renderEmbeddedRasterImageXml(
     definition,
     `<a:blip r:embed="${embed}"/>`,
     defaultName,
+    placeholder,
   );
 }
 
@@ -111,6 +121,7 @@ export function renderEmbeddedImageXml(
   definition: Readonly<NormalizedEmbeddedImageAppearance>,
   blipXml: string,
   defaultName: string,
+  placeholder?: Readonly<PlaceholderIdentity>,
 ): string {
   const name = escapeXmlAttribute(definition.name ?? defaultName);
   const altText = escapeXmlAttribute(definition.altText);
@@ -122,10 +133,14 @@ export function renderEmbeddedImageXml(
   const sourceRectangle = definition.sourceRectangle
     ? renderImageSourceRectangle(definition.sourceRectangle)
     : '';
+  const applicationProperties = placeholder === undefined
+    ? '<p:nvPr/>'
+    : `<p:nvPr><p:ph type="${placeholder.type}" idx="${placeholder.index}"/></p:nvPr>`;
 
   return '<p:pic>'
     + `<p:nvPicPr><p:cNvPr id="${id}" name="${name}" descr="${altText}"/>`
-    + '<p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr>'
+    + `<p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr>${applicationProperties}`
+    + '</p:nvPicPr>'
     + `<p:blipFill>${blipXml}${sourceRectangle}`
     + '<a:stretch><a:fillRect/></a:stretch></p:blipFill>'
     + `<p:spPr><a:xfrm${transformAttributes}>`

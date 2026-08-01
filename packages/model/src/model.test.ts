@@ -461,6 +461,173 @@ describe('PresentationModel', () => {
     }
   });
 
+  it('populate image chart placeholder owners in place through the model API', async () => {
+    const { pkg, model } = emptyPresentationModel();
+    const slide = model.addSlide();
+    const layoutPartUri = '/ppt/slideLayouts/slideLayout1.xml';
+    const placeholder = (
+      id: number,
+      name: string,
+      type: 'pic' | 'chart',
+      index: number,
+      x: number,
+      y: number,
+      width: number,
+      height: number,
+    ) => '<p:sp><p:nvSpPr>'
+      + `<p:cNvPr id="${id}" name="${name}"/><p:cNvSpPr/><p:nvPr>`
+      + `<p:ph type="${type}" idx="${index}"/></p:nvPr></p:nvSpPr><p:spPr>`
+      + `<a:xfrm><a:off x="${x}" y="${y}"/><a:ext cx="${width}" cy="${height}"/>`
+      + '</a:xfrm></p:spPr><p:txBody><a:bodyPr/><a:lstStyle/><a:p/></p:txBody></p:sp>';
+    const pictureOwner = placeholder(
+      2,
+      'hero_image',
+      'pic',
+      104,
+      inches(1),
+      inches(2),
+      inches(3),
+      inches(4),
+    );
+    const chartOwner = placeholder(
+      3,
+      'revenue_chart',
+      'chart',
+      105,
+      inches(5),
+      inches(1),
+      inches(2),
+      inches(3),
+    );
+    pkg.setPart(
+      layoutPartUri,
+      '<p:sldLayout xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" '
+        + 'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">'
+        + `<p:cSld name="DEFAULT"><p:spTree>${pictureOwner}${chartOwner}`
+        + '</p:spTree></p:cSld></p:sldLayout>',
+      SLIDE_LAYOUT_CONTENT_TYPE,
+    );
+    pkg.addRelationship(slide.partUri, {
+      type: SLIDE_LAYOUT_RELATIONSHIP,
+      target: '../slideLayouts/slideLayout1.xml',
+    });
+    pkg.setPart(
+      slide.partUri,
+      '<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" '
+        + 'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" '
+        + 'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+        + `<p:cSld><p:spTree>${pictureOwner}${chartOwner}</p:spTree></p:cSld></p:sld>`,
+      pkg.requirePart(slide.partUri).contentType,
+    );
+    const emptyPicture = slide.shapes[0]!;
+    const emptyChart = slide.shapes[1]!;
+
+    const picture = slide.addImage(Uint8Array.of(137, 80, 78, 71), {
+      contentType: 'image/png',
+      placeholder: 'hero_image',
+      x: inches(9),
+      width: inches(9),
+      sourceRectangle: { left: 10, top: 5, right: 10, bottom: 5 },
+    });
+    const chart = await slide.addChart('bar', [{
+      name: 'Revenue', categories: ['Q1', 'Q2'], values: [10, 20],
+    }], {
+      placeholder: { type: 'chart', index: 105 },
+      x: inches(9),
+      width: inches(9),
+    });
+
+    expect(picture).toBeInstanceOf(ImageModel);
+    expect(picture).toMatchObject({
+      id: emptyPicture.id,
+      name: 'hero_image',
+      placeholder: { type: 'pic', index: 104 },
+      transform: {
+        x: inches(1),
+        y: inches(2),
+        width: inches(3),
+        height: inches(4),
+        rotation: 0,
+        flipHorizontal: false,
+        flipVertical: false,
+      },
+      sourceRectangle: { left: 10, top: 5, right: 10, bottom: 5 },
+    });
+    expect(chart).toBeInstanceOf(ChartModel);
+    expect(chart).toMatchObject({
+      id: emptyChart.id,
+      name: 'revenue_chart',
+      placeholder: { type: 'chart', index: 105 },
+      transform: {
+        x: inches(5),
+        y: inches(1),
+        width: inches(2),
+        height: inches(3),
+        rotation: 0,
+        flipHorizontal: false,
+        flipVertical: false,
+      },
+    });
+    expect(() => emptyPicture.name).toThrow(/stale/i);
+    expect(() => emptyChart.name).toThrow(/stale/i);
+    expect(slide.shapes).toEqual([picture, chart]);
+    expect(new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes)).toMatch(
+      /<p:pic>[\s\S]*<p:ph type="pic" idx="104"\/>[\s\S]*<p:graphicFrame[\s\S]*<p:ph type="chart" idx="105"\/>/,
+    );
+    expect(pkg.parts.filter(({ uri }) => uri.startsWith('/ppt/media/'))).toHaveLength(1);
+    expect(pkg.parts.filter(({ contentType }) =>
+      contentType === 'application/vnd.openxmlformats-officedocument.drawingml.chart+xml'))
+      .toHaveLength(1);
+    expect(pkg.parts.filter(({ contentType }) =>
+      contentType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'))
+      .toHaveLength(1);
+
+    const duplicate = model.duplicateSlide(model.slides.indexOf(slide));
+    const duplicatePicture = duplicate.shapes[0] as ImageModel;
+    const duplicateChart = duplicate.shapes[1] as ChartModel;
+    expect(duplicatePicture.sourcePartUri).toBe(picture.sourcePartUri);
+    expect(duplicateChart.chartPartUri).not.toBe(chart.chartPartUri);
+    expect(duplicateChart.workbookPartUri).not.toBe(chart.workbookPartUri);
+    duplicatePicture.replaceData(Uint8Array.of(1, 2, 3), 'image/png');
+    expect(duplicatePicture.sourcePartUri).not.toBe(picture.sourcePartUri);
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    expect(reopened.slides[0]?.shapes.map(({ placeholder: identity }) => identity)).toEqual([
+      { type: 'pic', index: 104 },
+      { type: 'chart', index: 105 },
+    ]);
+
+    const rollbackFixture = emptyPresentationModel();
+    const rollbackSlide = rollbackFixture.model.addSlide();
+    rollbackFixture.pkg.setPart(
+      layoutPartUri,
+      '<p:sldLayout xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" '
+        + 'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">'
+        + `<p:cSld><p:spTree>${pictureOwner}</p:spTree></p:cSld></p:sldLayout>`,
+      SLIDE_LAYOUT_CONTENT_TYPE,
+    );
+    rollbackFixture.pkg.addRelationship(rollbackSlide.partUri, {
+      type: SLIDE_LAYOUT_RELATIONSHIP,
+      target: '../slideLayouts/slideLayout1.xml',
+    });
+    rollbackFixture.pkg.setPart(
+      rollbackSlide.partUri,
+      '<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" '
+        + 'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">'
+        + `<p:cSld><p:spTree>${pictureOwner}</p:spTree></p:cSld></p:sld>`,
+      rollbackFixture.pkg.requirePart(rollbackSlide.partUri).contentType,
+    );
+    const beforeRollback = packageSnapshot(rollbackFixture.pkg);
+    expect(() => rollbackFixture.pkg.transaction(() => {
+      rollbackSlide.addImage(Uint8Array.of(1), {
+        contentType: 'image/png',
+        placeholder: 'hero_image',
+      });
+      throw new Error('rollback placeholder image');
+    })).toThrow('rollback placeholder image');
+    expect(packageSnapshot(rollbackFixture.pkg)).toEqual(beforeRollback);
+  });
+
   it('resolves named slide layouts strictly without package mutation', () => {
     const { pkg, model } = emptyPresentationModel();
     const masterPartUri = '/ppt/slideMasters/slideMaster1.xml';

@@ -21,6 +21,8 @@ import {
   type ChartSeriesInput,
   type ChartType,
   type ImageModel,
+  type PlaceholderSelector,
+  type SlideModel,
 } from '@pptx/model';
 import { OpcPackage, type PackageOpenOptions } from '@pptx/opc';
 import {
@@ -43,7 +45,7 @@ import {
   type ImageSource,
   type RasterImageSource,
 } from './raster-image-source.js';
-import { calculateImageSizing } from './raster-image-sizing.js';
+import { calculateImageSizing, type ImageSizing } from './raster-image-sizing.js';
 import {
   resolveSlideBackgroundImage,
   type SetSlideBackgroundImageOptions,
@@ -300,7 +302,14 @@ export class PptxDocument extends PresentationModel {
     const resolved = await resolveImageSource(source, normalized.signal);
     assertImageContentType(normalized.contentType, resolved);
     const placement = normalized.sizing
-      ? calculateImageSizing(resolved.info, normalized.sizing) as Pick<
+      ? calculateImageSizing(
+          resolved.info,
+          imageSizingForPlaceholder(
+            slide,
+            normalized.imageOptions.placeholder,
+            normalized.sizing,
+          ),
+        ) as Pick<
           AddSvgImageOptions,
           'width' | 'height' | 'sourceRectangle'
         >
@@ -381,6 +390,26 @@ export class PptxDocument extends PresentationModel {
     if (!slide) throw new RangeError(`Slide index ${slideIndex} is out of range`);
     return slide.media;
   }
+}
+
+function imageSizingForPlaceholder(
+  slide: SlideModel,
+  selector: PlaceholderSelector | undefined,
+  sizing: Readonly<ImageSizing>,
+): Readonly<ImageSizing> {
+  if (selector === undefined) return sizing;
+  const owner = slide.placeholders.find((shape) => {
+    const identity = shape.placeholder;
+    return typeof selector === 'string'
+      ? shape.name === selector
+      : identity?.type === selector.type && identity.index === selector.index;
+  });
+  if (owner?.placeholder?.type !== 'pic') return sizing;
+  return Object.freeze({
+    ...sizing,
+    width: owner.transform.width,
+    height: owner.transform.height,
+  });
 }
 
 function appendCodecDiagnostics(

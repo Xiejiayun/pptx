@@ -4,6 +4,7 @@ import {
   renderEmbeddedImageXml,
   type NormalizedEmbeddedImageAppearance,
 } from './image-create.internal.js';
+import type { PlaceholderIdentity } from './placeholder.js';
 
 export const SVG_IMAGE_EXTENSION_URI =
   '{96DAC541-7B7A-43D3-8B79-37D633B846F1}';
@@ -13,6 +14,7 @@ export const SVG_IMAGE_NAMESPACE =
 const OPTION_KEYS = new Set([
   'name',
   'altText',
+  'placeholder',
   'x',
   'y',
   'width',
@@ -56,6 +58,7 @@ export function renderEmbeddedSvgImageXml(
   fallbackRelationshipId: string,
   svgRelationshipId: string,
   defaultName: string,
+  placeholder?: Readonly<PlaceholderIdentity>,
 ): string {
   const fallbackEmbed = escapeXmlAttribute(fallbackRelationshipId);
   const svgEmbed = escapeXmlAttribute(svgRelationshipId);
@@ -63,7 +66,7 @@ export function renderEmbeddedSvgImageXml(
     + `<a:ext uri="${SVG_IMAGE_EXTENSION_URI}">`
     + `<asvg:svgBlip xmlns:asvg="${SVG_IMAGE_NAMESPACE}" r:embed="${svgEmbed}"/>`
     + '</a:ext></a:extLst></a:blip>';
-  return renderEmbeddedImageXml(id, definition, blip, defaultName);
+  return renderEmbeddedImageXml(id, definition, blip, defaultName, placeholder);
 }
 
 function normalizeSvgBytes(value: unknown): Uint8Array {

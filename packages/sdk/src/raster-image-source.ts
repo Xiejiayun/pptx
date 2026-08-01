@@ -21,6 +21,7 @@ const JPEG_SOF_MARKERS = new Set([
 const MODEL_IMAGE_OPTION_KEYS = new Set([
   'name',
   'altText',
+  'placeholder',
   'x',
   'y',
   'width',

@@ -616,6 +616,165 @@ describe('PptxDocument vertical slice', () => {
     expect(ambiguousDocument.opcPackage.mutations).toEqual(ambiguousBefore);
   });
 
+  it('populate image chart placeholders from high-level sources and chart groups', async () => {
+    const document = PptxDocument.create();
+    const layout = document.layouts[0]!;
+    const rasterPrompt = layout.addPlaceholder('Raster prompt', {
+      name: 'raster_image',
+      type: 'pic',
+      index: 201,
+      x: inches(1),
+      y: inches(1),
+      width: inches(3),
+      height: inches(2),
+    });
+    const svgPrompt = layout.addPlaceholder('SVG prompt', {
+      name: 'vector_image',
+      type: 'pic',
+      index: 202,
+      x: inches(4),
+      y: inches(1),
+      width: inches(2),
+      height: inches(2),
+    });
+    const singlePrompt = layout.addPlaceholder('Single chart prompt', {
+      name: 'single_chart',
+      type: 'chart',
+      index: 203,
+      x: inches(1),
+      y: inches(3),
+      width: inches(3),
+      height: inches(2),
+    });
+    const comboPrompt = layout.addPlaceholder('Combo chart prompt', {
+      name: 'combo_chart',
+      type: 'chart',
+      index: 204,
+      x: inches(4),
+      y: inches(3),
+      width: inches(3),
+      height: inches(2),
+    });
+    const slide = document.addSlide({ masterName: 'DEFAULT' });
+    const empty = [...slide.shapes];
+
+    const raster = await document.addImage(0, sdkPngDataUri(sdkPngHeader(16, 9)), {
+      placeholder: 'raster_image',
+      sizing: { type: 'cover', width: inches(9), height: inches(9) },
+    });
+    const vector = await document.addImage(
+      0,
+      new Blob([sdkSvg(640, 360)], { type: 'image/svg+xml' }),
+      {
+        placeholder: { type: 'pic', index: 202 },
+        fallback: new Blob([sdkPngHeader(1, 1)], { type: 'image/png' }),
+        width: inches(9),
+        height: inches(9),
+      },
+    );
+    const single = await document.addChart(0, 'bar', [{
+      name: 'Revenue', categories: ['Q1', 'Q2'], values: [10, 20],
+    }], {
+      placeholder: 'single_chart',
+      x: inches(9),
+      width: inches(9),
+    });
+    const combo = await document.addChart(0, [
+      {
+        type: 'bar',
+        series: [{ name: 'Revenue', categories: ['Q1', 'Q2'], values: [10, 20] }],
+      },
+      {
+        type: 'line',
+        axis: 'secondary',
+        series: [{ name: 'Trend', categories: ['Q1', 'Q2'], values: [11, 21] }],
+      },
+    ], {
+      placeholder: { type: 'chart', index: 204 },
+      height: inches(9),
+    });
+
+    expect([raster.id, vector.id, single.id, combo.id]).toEqual(empty.map(({ id }) => id));
+    expect([raster.name, vector.name, single.name, combo.name]).toEqual([
+      'raster_image',
+      'vector_image',
+      'single_chart',
+      'combo_chart',
+    ]);
+    expect([raster.placeholder, vector.placeholder, single.placeholder, combo.placeholder]).toEqual([
+      { type: 'pic', index: 201 },
+      { type: 'pic', index: 202 },
+      { type: 'chart', index: 203 },
+      { type: 'chart', index: 204 },
+    ]);
+    expect([raster.transform, vector.transform, single.transform, combo.transform]).toEqual([
+      rasterPrompt.transform,
+      svgPrompt.transform,
+      singlePrompt.transform,
+      comboPrompt.transform,
+    ]);
+    expect(raster.sourceRectangle).toEqual({
+      left: 7.813,
+      top: 0,
+      right: 7.813,
+      bottom: 0,
+    });
+    expect(vector.isSvg).toBe(true);
+    expect(vector.fallbackPartUri).toBeDefined();
+    expect(vector.svgPartUri).toBeDefined();
+    expect(single.definition?.groups.map(({ type }) => type)).toEqual(['bar']);
+    expect(combo.definition?.groups.map(({ type, axis }) => [type, axis])).toEqual([
+      ['bar', 'primary'],
+      ['line', 'secondary'],
+    ]);
+    for (const owner of empty) expect(() => owner.name).toThrow(/stale/i);
+    expect(slide.shapes).toEqual([raster, vector, single, combo]);
+    expect(slide.placeholders).toEqual([raster, vector, single, combo]);
+    const source = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(source.match(/<p:ph type="pic" idx="20[12]"\/>/g)).toHaveLength(2);
+    expect(source.match(/<p:ph type="chart" idx="20[34]"\/>/g)).toHaveLength(2);
+
+    const { output: _beforeOutput, ...before } = await sdkPackageSnapshot(document) as {
+      readonly output: Uint8Array;
+      readonly [key: string]: unknown;
+    };
+    await expect(document.addImage(0, sdkPngHeader(1, 1), {
+      placeholder: 'raster_image',
+    })).rejects.toThrow(/empty|filled/i);
+    await expect(document.addChart(0, 'bar', [{
+      name: 'Wrong domain', categories: ['Q1'], values: [1],
+    }], { placeholder: 'vector_image' })).rejects.toThrow(/domain|type/i);
+    const { output: _afterOutput, ...after } = await sdkPackageSnapshot(document) as {
+      readonly output: Uint8Array;
+      readonly [key: string]: unknown;
+    };
+    expect(after).toEqual(before);
+
+    const reopened = await PptxDocument.open(await document.write());
+    expect(reopened.slides[0]?.shapes.map(({ placeholder }) => placeholder)).toEqual([
+      { type: 'pic', index: 201 },
+      { type: 'pic', index: 202 },
+      { type: 'chart', index: 203 },
+      { type: 'chart', index: 204 },
+    ]);
+    expect((reopened.slides[0]?.shapes[1] as ImageModel).isSvg).toBe(true);
+    expect((reopened.slides[0]?.shapes[3] as ChartModel).definition?.groups).toHaveLength(2);
+
+    const duplicate = document.duplicateSlide(0);
+    expect(duplicate.shapes.map(({ placeholder }) => placeholder)).toEqual(
+      slide.shapes.map(({ placeholder }) => placeholder),
+    );
+    document.deleteSlide(document.slides.indexOf(slide));
+    expect(document.opcPackage.parts.some(({ uri }) => uri.startsWith('/ppt/media/'))).toBe(true);
+    document.deleteSlide(document.slides.indexOf(duplicate));
+    expect(document.opcPackage.parts.filter(({ uri }) =>
+      uri.startsWith('/ppt/charts/') || uri.startsWith('/ppt/embeddings/'))).toEqual([]);
+    expect(document.opcPackage.parts.filter(({ uri }) => uri.startsWith('/ppt/media/')))
+      .toHaveLength(3);
+    expect(document.opcPackage.graph.filter(({ uri }) => uri.startsWith('/ppt/media/'))
+      .every(({ incoming }) => incoming.length === 0)).toBe(true);
+  });
+
   it('edits and reopens direct layout master backgrounds', async () => {
     const document = PptxDocument.create();
     const layout = document.layouts[0]!;
