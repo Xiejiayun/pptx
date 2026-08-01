@@ -1,5 +1,10 @@
 import { escapeXmlAttribute } from '@pptx/lossless-xml';
 import type { RasterImageContentType } from './image.js';
+import {
+  normalizeImageSourceRectangle,
+  renderImageSourceRectangle,
+  type NormalizedImageSourceRectangle,
+} from './image-source-rectangle.internal.js';
 import { EMU_PER_INCH } from './units.js';
 
 const MAX_ROTATION = 21_600_000;
@@ -14,6 +19,7 @@ const OPTION_KEYS = new Set([
   'rotation',
   'flipHorizontal',
   'flipVertical',
+  'sourceRectangle',
 ]);
 
 export interface NormalizedEmbeddedRasterImage {
@@ -29,6 +35,7 @@ export interface NormalizedEmbeddedRasterImage {
   readonly rotation: number;
   readonly flipHorizontal: boolean;
   readonly flipVertical: boolean;
+  readonly sourceRectangle?: Readonly<NormalizedImageSourceRectangle>;
 }
 
 export function normalizeEmbeddedRasterImage(
@@ -56,6 +63,12 @@ export function normalizeEmbeddedRasterImage(
       'Embedded raster image rotation must be between -21600000 and 21600000',
     );
   }
+  const sourceRectangle = values.sourceRectangle === undefined
+    ? undefined
+    : normalizeImageSourceRectangle(
+        values.sourceRectangle,
+        'Embedded raster image sourceRectangle',
+      );
 
   return Object.freeze({
     bytes: new Uint8Array(bytes),
@@ -70,6 +83,7 @@ export function normalizeEmbeddedRasterImage(
     rotation,
     flipHorizontal: normalizeBoolean(values.flipHorizontal, false, 'flipHorizontal'),
     flipVertical: normalizeBoolean(values.flipVertical, false, 'flipVertical'),
+    ...(sourceRectangle === undefined ? {} : { sourceRectangle }),
   });
 }
 
@@ -87,11 +101,15 @@ export function renderEmbeddedRasterImageXml(
     definition.flipHorizontal ? ' flipH="1"' : '',
     definition.flipVertical ? ' flipV="1"' : '',
   ].join('');
+  const sourceRectangle = definition.sourceRectangle
+    ? renderImageSourceRectangle(definition.sourceRectangle)
+    : '';
 
   return '<p:pic>'
     + `<p:nvPicPr><p:cNvPr id="${id}" name="${name}" descr="${altText}"/>`
     + '<p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr>'
-    + `<p:blipFill><a:blip r:embed="${embed}"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>`
+    + `<p:blipFill><a:blip r:embed="${embed}"/>${sourceRectangle}`
+    + '<a:stretch><a:fillRect/></a:stretch></p:blipFill>'
     + `<p:spPr><a:xfrm${transformAttributes}>`
     + `<a:off x="${definition.x}" y="${definition.y}"/>`
     + `<a:ext cx="${definition.width}" cy="${definition.height}"/>`

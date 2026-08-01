@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { LosslessXmlDocument, type XmlElement } from '@pptx/lossless-xml';
-import type { AddImageOptions, RasterImageContentType } from './image.js';
+import type {
+  AddImageOptions,
+  ImageSourceRectangle,
+  RasterImageContentType,
+} from './image.js';
 import {
   normalizeEmbeddedRasterImage,
   renderEmbeddedRasterImageXml,
@@ -72,11 +76,19 @@ describe('embedded raster image normalization', () => {
     options.rotation = -2_700_000;
     options.flipHorizontal = true;
     options.flipVertical = true;
+    const sourceRectangle = {
+      left: 25.0004,
+      top: -10.0004,
+      right: 5,
+      bottom: 0,
+    };
+    options.sourceRectangle = sourceRectangle;
 
     const normalized = normalizeEmbeddedRasterImage(new Uint8Array([1, 2]), options);
     options.name = 'changed';
     options.altText = 'changed';
     options.x = 999;
+    sourceRectangle.left = 99;
 
     expect(normalized).toEqual({
       bytes: new Uint8Array([1, 2]),
@@ -91,7 +103,14 @@ describe('embedded raster image normalization', () => {
       rotation: -2_700_000,
       flipHorizontal: true,
       flipVertical: true,
+      sourceRectangle: {
+        left: 25,
+        top: -10,
+        right: 5,
+        bottom: 0,
+      },
     });
+    expect(Object.isFrozen(normalized.sourceRectangle)).toBe(true);
   });
 
   it('accepts ergonomic converter output through the public options type', () => {
@@ -197,6 +216,30 @@ describe('embedded raster image normalization', () => {
       ), `${property}=${String(value)}`).toThrow();
     }
   });
+
+  it('publishes and validates the source rectangle creation type', () => {
+    const sourceRectangle: ImageSourceRectangle = {
+      left: 25,
+      top: -10,
+      right: 5,
+      bottom: 0,
+    };
+    expect(normalizeEmbeddedRasterImage(new Uint8Array([1]), {
+      contentType: 'image/png',
+      sourceRectangle,
+    })).toMatchObject({ sourceRectangle });
+
+    for (const invalid of [
+      null,
+      { left: 0, top: 0, right: 0 },
+      { left: 60, top: 0, right: 40, bottom: 0 },
+    ]) {
+      expect(() => normalizeEmbeddedRasterImage(new Uint8Array([1]), {
+        contentType: 'image/png',
+        sourceRectangle: invalid,
+      })).toThrow();
+    }
+  });
 });
 
 describe('embedded raster picture rendering', () => {
@@ -212,6 +255,12 @@ describe('embedded raster picture rendering', () => {
       rotation: 2_700_000,
       flipHorizontal: true,
       flipVertical: true,
+      sourceRectangle: {
+        left: 25,
+        top: -10,
+        right: 5,
+        bottom: 0,
+      },
     });
     const source = renderEmbeddedRasterImageXml(7, definition, 'rId4', 'Image 0');
     const { xml, picture } = parsePicture(source);
@@ -240,6 +289,15 @@ describe('embedded raster picture rendering', () => {
     const blip = xml.descendants(picture, 'blip');
     expect(blip).toHaveLength(1);
     expect(xml.attribute(blip[0]!, 'r:embed')?.value).toBe('rId4');
+    const blipFill = xml.descendants(picture, 'blipFill')[0]!;
+    expect(directChildren(blipFill).map(({ localName }) => localName)).toEqual([
+      'blip',
+      'srcRect',
+      'stretch',
+    ]);
+    const sourceRectangle = xml.descendants(picture, 'srcRect')[0]!;
+    expect(['l', 't', 'r', 'b'].map((name) => xml.attribute(sourceRectangle, name)?.value))
+      .toEqual(['25000', '-10000', '5000', '0']);
     expect(xml.descendants(picture, 'stretch')).toHaveLength(1);
     expect(xml.descendants(picture, 'fillRect')).toHaveLength(1);
     expect(xml.descendants(picture, 'off')).toHaveLength(1);
@@ -257,6 +315,7 @@ describe('embedded raster picture rendering', () => {
     expect(omittedSource).not.toContain(' rot=');
     expect(omittedSource).not.toContain(' flipH=');
     expect(omittedSource).not.toContain(' flipV=');
+    expect(omittedSource).not.toContain('srcRect');
 
     const empty = normalizeEmbeddedRasterImage(
       new Uint8Array([1]),

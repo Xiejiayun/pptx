@@ -441,6 +441,12 @@ describe('PresentationModel', () => {
       height: inches(2),
       rotation: degrees(45),
       flipHorizontal: true,
+      sourceRectangle: {
+        left: 25,
+        top: -10,
+        right: 5,
+        bottom: 0,
+      },
     });
 
     expect(image).toBeInstanceOf(ImageModel);
@@ -472,6 +478,13 @@ describe('PresentationModel', () => {
       'descr="Quarterly &amp; annual"/>',
     );
     expect(slideSource).toContain(`<a:blip r:embed="${relationship!.id}"/>`);
+    expect(slideSource).toContain(
+      '<a:srcRect l="25000" t="-10000" r="5000" b="0"/>',
+    );
+    expect(slideSource.indexOf('<a:blip ')).toBeLessThan(slideSource.indexOf('<a:srcRect '));
+    expect(slideSource.indexOf('<a:srcRect ')).toBeLessThan(
+      slideSource.indexOf('<a:stretch>'),
+    );
     expect(slideSource).toContain('<a:xfrm rot="2700000" flipH="1">');
     expect(slideSource).toContain('<a:picLocks noChangeAspect="1"/>');
     expect(slideSource).toContain('<a:stretch><a:fillRect/></a:stretch>');
@@ -606,6 +619,10 @@ describe('PresentationModel', () => {
         contentType: 'image/png',
         flipVertical: 1,
       } as never),
+      () => slide.addImage(new Uint8Array([1]), {
+        contentType: 'image/png',
+        sourceRectangle: { left: 60, top: 0, right: 40, bottom: 0 },
+      }),
     ];
 
     for (const invoke of invalidCalls) {
@@ -820,6 +837,9 @@ describe('PresentationModel', () => {
           contentType: definition.contentType,
           name: definition.name,
           altText: `${definition.name} description`,
+          ...(definition.contentType === 'image/png'
+            ? { sourceRectangle: { left: 25, top: -10, right: 5, bottom: 0 } }
+            : {}),
         });
       }
 
@@ -833,6 +853,12 @@ describe('PresentationModel', () => {
       expect(firstSlide.shapes.filter(
         (shape): shape is ImageModel => shape instanceof ImageModel,
       )).toEqual(firstImages);
+      const firstSlideXml = new TextDecoder().decode(
+        first.opcPackage.requirePart(firstSlide.partUri).bytes,
+      );
+      expect(firstSlideXml).toContain(
+        '<a:srcRect l="25000" t="-10000" r="5000" b="0"/>',
+      );
       for (const [index, image] of firstImages.entries()) {
         const definition = definitions[index]!;
         const uri = image.sourcePartUri!;
