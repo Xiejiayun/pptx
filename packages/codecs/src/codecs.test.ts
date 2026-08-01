@@ -8,6 +8,8 @@ import {
   GradientCodec,
   MasterLayoutThemeCodec,
   MediaCodec,
+  readSlideNumber,
+  replaceSlideNumber,
   type FeatureCodec,
   type GradientFill,
 } from './index.js';
@@ -79,6 +81,93 @@ describe('GradientCodec', () => {
 });
 
 describe('MasterLayoutThemeCodec', () => {
+  it('keeps slide, layout, and master slide-number owners explicit and live', async () => {
+    const pkg = await featureFixture();
+    for (const uri of [
+      '/ppt/slides/slide1.xml',
+      '/ppt/slideLayouts/slideLayout1.xml',
+      '/ppt/slideMasters/slideMaster1.xml',
+    ]) {
+      const part = pkg.requirePart(uri);
+      pkg.setPart(
+        uri,
+        new TextDecoder().decode(part.bytes)
+          .replace('xmlns:p="p"', 'xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"')
+          .replace('xmlns:a="a"', 'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"'),
+        part.contentType,
+      );
+    }
+    const codec = new MasterLayoutThemeCodec(pkg);
+    const layout = codec.layouts[0]!;
+    const master = codec.masters[0]!;
+    replaceSlideNumber(pkg, '/ppt/slides/slide1.xml', 'slide', { x: 100 }, '1');
+    layout.slideNumber = {
+      x: 200,
+      align: 'center',
+      margin: { left: 1 },
+      style: { color: { kind: 'srgb', value: '112233' } },
+    };
+    master.slideNumber = { x: 300, align: 'right' };
+
+    expect(readSlideNumber(pkg, '/ppt/slides/slide1.xml', 'slide')?.x).toBe(100);
+    expect(layout.slideNumber).toMatchObject({ x: 200, align: 'center' });
+    expect(master.slideNumber).toMatchObject({ x: 300, align: 'right' });
+    const detachedLayoutValue = layout.slideNumber!;
+    expect(detachedLayoutValue).not.toBe(layout.slideNumber);
+    expect(Object.isFrozen(detachedLayoutValue)).toBe(true);
+    expect(Object.isFrozen(detachedLayoutValue.margin)).toBe(true);
+    expect(Object.isFrozen(detachedLayoutValue.style)).toBe(true);
+    expect(Object.isFrozen(detachedLayoutValue.style.color)).toBe(true);
+    expect(codec.layouts[0]).toBe(layout);
+    expect(codec.masters[0]).toBe(master);
+    expect(new TextDecoder().decode(pkg.requirePart(layout.partUri).bytes))
+      .toContain('<a:t>‹#›</a:t>');
+    const masterXml = new TextDecoder().decode(pkg.requirePart(master.partUri).bytes);
+    expect(masterXml).toContain('sldNum="1"');
+    expect(masterXml).toContain('<a:t>‹#›</a:t>');
+
+    const noOpJournal = [...pkg.mutations];
+    const layoutBytes = pkg.requirePart(layout.partUri).bytes;
+    const masterBytes = pkg.requirePart(master.partUri).bytes;
+    layout.slideNumber = layout.slideNumber;
+    master.slideNumber = master.slideNumber;
+    expect(pkg.requirePart(layout.partUri).bytes).toEqual(layoutBytes);
+    expect(pkg.requirePart(master.partUri).bytes).toEqual(masterBytes);
+    expect(pkg.mutations).toEqual(noOpJournal);
+
+    const copiedLayout = codec.copyLayout(layout.partUri);
+    expect(copiedLayout.slideNumber).toEqual(layout.slideNumber);
+    codec.relinkSlideLayout('/ppt/slides/slide1.xml', copiedLayout.partUri);
+    copiedLayout.slideNumber = { x: 250 };
+    expect(copiedLayout.slideNumber?.x).toBe(250);
+    expect(layout.slideNumber?.x).toBe(200);
+    expect(readSlideNumber(pkg, '/ppt/slides/slide1.xml', 'slide')?.x).toBe(100);
+    const copiedMaster = codec.copyMaster(master.partUri);
+    expect(copiedMaster.slideNumber).toEqual(master.slideNumber);
+    expect(copiedMaster.layouts.some(({ slideNumber }) => slideNumber?.x === 200)).toBe(true);
+    expect(copiedMaster.layouts.some(({ slideNumber }) => slideNumber?.x === 250)).toBe(true);
+    copiedMaster.slideNumber = { x: 350 };
+    expect(copiedMaster.slideNumber?.x).toBe(350);
+    expect(master.slideNumber?.x).toBe(300);
+    codec.deleteMaster(copiedMaster.partUri);
+    expect(pkg.hasPart(copiedMaster.partUri)).toBe(false);
+    codec.deleteLayout(copiedLayout.partUri, layout.partUri);
+    expect(pkg.hasPart(copiedLayout.partUri)).toBe(false);
+    expect(pkg.relationships('/ppt/slides/slide1.xml').find(
+      ({ type }) => type.endsWith('/slideLayout'),
+    )?.resolvedTarget).toBe(layout.partUri);
+
+    layout.slideNumber = undefined;
+    expect(layout.slideNumber).toBeUndefined();
+    expect(readSlideNumber(pkg, '/ppt/slides/slide1.xml', 'slide')?.x).toBe(100);
+    expect(master.slideNumber?.x).toBe(300);
+    master.slideNumber = undefined;
+    expect(master.slideNumber).toBeUndefined();
+    expect(new TextDecoder().decode(pkg.requirePart(master.partUri).bytes))
+      .toContain('sldNum="0"');
+    expect(readSlideNumber(pkg, '/ppt/slides/slide1.xml', 'slide')?.x).toBe(100);
+  });
+
   it('decodes, edits, copies, and relinks the inheritance chain', async () => {
     const pkg = await featureFixture();
     const codec = new MasterLayoutThemeCodec(pkg);

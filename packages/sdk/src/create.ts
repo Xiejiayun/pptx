@@ -1,5 +1,6 @@
 import {
   PRESENTATION_FORMAT_PROFILES,
+  normalizeFirstSlideNumber,
   type PresentationFormat,
   type SlideSize,
 } from '@pptx/model';
@@ -15,6 +16,7 @@ export interface CreatePresentationOptions {
   readonly company?: string;
   readonly createdAt?: string;
   readonly format?: PresentationFormat;
+  readonly firstSlideNumber?: number;
   readonly lastModifiedBy?: string;
   readonly modifiedAt?: string;
   readonly revision?: string;
@@ -40,6 +42,9 @@ const MAX_SLIDE_SIZE = 51_206_400;
 export function createPresentationPackage(options: CreatePresentationOptions = {}): OpcPackage {
   const format = options.format ?? 'pptx';
   const rtlMode = options.rtlMode;
+  const firstSlideNumber = options.firstSlideNumber === undefined
+    ? undefined
+    : normalizeFirstSlideNumber(options.firstSlideNumber);
   const slideSize = options.slideSize === undefined ? '16:9' : options.slideSize;
   if (!Object.hasOwn(PRESENTATION_FORMAT_PROFILES, format)) {
     throw new TypeError(`Unsupported presentation format: ${String(format)}`);
@@ -56,7 +61,7 @@ export function createPresentationPackage(options: CreatePresentationOptions = {
     pkg.setPart('/docProps/app.xml', APP_PROPERTIES_XML, 'application/vnd.openxmlformats-officedocument.extended-properties+xml');
     pkg.setPart(
       '/ppt/presentation.xml',
-      presentationXml(size.cx, size.cy, rtlMode),
+      presentationXml(size.cx, size.cy, rtlMode, firstSlideNumber),
       profile.presentationContentType,
     );
     pkg.setPart('/ppt/slideMasters/slideMaster1.xml', SLIDE_MASTER_XML, `${CONTENT}slideMaster+xml`);
@@ -165,9 +170,17 @@ function normalizeSlideSizeCoordinate(value: unknown, name: 'width' | 'height'):
   return rounded;
 }
 
-function presentationXml(cx: number, cy: number, rtlMode: boolean | undefined): string {
+function presentationXml(
+  cx: number,
+  cy: number,
+  rtlMode: boolean | undefined,
+  firstSlideNumber: number | undefined,
+): string {
   const rtlAttribute = rtlMode === undefined ? '' : ` rtl="${rtlMode ? '1' : '0'}"`;
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:presentation xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"${rtlAttribute} saveSubsetFonts="1" autoCompressPictures="0"><p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId1"/></p:sldMasterIdLst><p:sldIdLst/><p:notesMasterIdLst><p:notesMasterId r:id="rId3"/></p:notesMasterIdLst><p:sldSz cx="${cx}" cy="${cy}"/><p:notesSz cx="${cy}" cy="${cx}"/><p:defaultTextStyle><a:defPPr><a:defRPr lang="en-US"/></a:defPPr></p:defaultTextStyle></p:presentation>`;
+  const firstSlideAttribute = firstSlideNumber === undefined
+    ? ''
+    : ` firstSlideNum="${firstSlideNumber}"`;
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:presentation xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"${rtlAttribute}${firstSlideAttribute} saveSubsetFonts="1" autoCompressPictures="0"><p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId1"/></p:sldMasterIdLst><p:sldIdLst/><p:notesMasterIdLst><p:notesMasterId r:id="rId3"/></p:notesMasterIdLst><p:sldSz cx="${cx}" cy="${cy}"/><p:notesSz cx="${cy}" cy="${cx}"/><p:defaultTextStyle><a:defPPr><a:defRPr lang="en-US"/></a:defPPr></p:defaultTextStyle></p:presentation>`;
 }
 
 const CORE_PROPERTIES_XML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:creator>@jiayunxie/pptx</dc:creator><cp:lastModifiedBy>@jiayunxie/pptx</cp:lastModifiedBy><cp:revision>1</cp:revision></cp:coreProperties>`;

@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
 import JSZip from 'jszip';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { LosslessXmlDocument, type XmlElement } from '@pptx/lossless-xml';
 import {
   PRESENTATION_FORMAT_PROFILES,
@@ -62,6 +62,14 @@ import {
   type ShapeLine,
   type ShapeLineDash,
   type ShapeShadow,
+  type CreatePresentationOptions,
+  type SlideNumber,
+  type SlideNumberColor,
+  type SlideNumberMarginInput,
+  type SlideNumberMargins,
+  type SlideNumberOptions,
+  type SlideNumberTextStyle,
+  type SlideNumberTextStyleOptions,
 } from './index.js';
 
 function sdkPngHeader(width: number, height: number): Uint8Array<ArrayBuffer> {
@@ -86,6 +94,15 @@ function sdkSvg(width = 640, height = 360): Uint8Array<ArrayBuffer> {
 
 function sdkPngDataUri(bytes: Uint8Array): string {
   return `data:image/png;base64,${Buffer.from(bytes).toString('base64')}`;
+}
+
+function sdkSlideNumberCache(document: PptxDocument, ownerPartUri: string): string | undefined {
+  const xml = LosslessXmlDocument.parse(document.opcPackage.requirePart(ownerPartUri).bytes);
+  const field = xml.elements('fld').find(
+    (candidate) => xml.attribute(candidate, 'type')?.value === 'slidenum',
+  );
+  const texts = field ? xml.descendants(field, 't') : [];
+  return texts.length === 1 ? xml.text(texts[0]!) : undefined;
 }
 
 async function titleFixture(): Promise<Uint8Array> {
@@ -211,6 +228,119 @@ async function tableBordersFixture(): Promise<Uint8Array> {
 }
 
 describe('PptxDocument vertical slice', () => {
+  it('creates slide numbers from strict public options and rejects invalid starts', () => {
+    const createOptions: CreatePresentationOptions = { firstSlideNumber: 0 };
+    const numberOptions: SlideNumberOptions = {
+      x: 0,
+      y: 0,
+      width: 800_000,
+      height: 300_000,
+      align: 'justify',
+      rtl: true,
+      valign: 'middle',
+      margin: [1, 2, 3, 4],
+      style: {
+        fontFamily: 'Aptos',
+        fontSize: 18,
+        lang: 'zh-CN',
+        bold: true,
+        italic: true,
+        color: { kind: 'scheme', value: 'accent1' },
+        transparency: 20,
+      },
+    };
+    const margin: SlideNumberMarginInput = 0;
+    const margins: SlideNumberMargins = { left: 1 };
+    const color: SlideNumberColor = { kind: 'srgb', value: 'FF3399' };
+    const styleOptions: SlideNumberTextStyleOptions = { color };
+    const style: SlideNumberTextStyle = {
+      lang: 'en-US', bold: false, italic: false, ...styleOptions,
+    };
+    const document = PptxDocument.create(createOptions);
+    const control = PptxDocument.create();
+    const slide = document.addSlide();
+    slide.slideNumber = { ...numberOptions, margin };
+    const value: Readonly<SlideNumber> | undefined = slide.slideNumber;
+    expect(document.firstSlideNumber).toBe(0);
+    expect(value).toMatchObject({ align: 'justify', rtl: true });
+    expect([margins, style]).toHaveLength(2);
+    const presentationXml = new TextDecoder().decode(
+      document.opcPackage.requirePart(document.presentationPartUri).bytes,
+    );
+    expect(presentationXml).toContain(' firstSlideNum="0"');
+    expect(presentationXml.match(/\bfirstSlideNum=/g)).toHaveLength(1);
+    expect(document.opcPackage.mutations.slice(0, control.opcPackage.mutations.length))
+      .toEqual(control.opcPackage.mutations);
+
+    const createSpy = vi.spyOn(OpcPackage, 'create');
+    try {
+      for (const invalid of [1.5, Number.NaN, 2_147_483_648, -2_147_483_649]) {
+        expect(() => PptxDocument.create({ firstSlideNumber: invalid })).toThrow();
+      }
+      expect(createSpy).not.toHaveBeenCalled();
+    } finally {
+      createSpy.mockRestore();
+    }
+  });
+
+  it('round-trips all three slide-number owners twice in all six formats', async () => {
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const created = PptxDocument.create({ format, firstSlideNumber: 5 });
+      const firstSlide = created.addSlide();
+      const secondSlide = created.addSlide();
+      firstSlide.slideNumber = { align: 'left' };
+      secondSlide.slideNumber = {
+        align: 'justify',
+        rtl: true,
+        style: {
+          italic: true,
+          color: { kind: 'srgb', value: 'FF3399' },
+          transparency: 25,
+        },
+      };
+      created.layouts[0]!.slideNumber = { x: 200, align: 'center' };
+      created.masters[0]!.slideNumber = { x: 300, align: 'right' };
+      const presentationContentType = created.opcPackage
+        .requirePart(created.presentationPartUri).contentType;
+
+      const first = await PptxDocument.open(await created.write());
+      expect(first.slides[0]?.slideNumber?.align).toBe('left');
+      expect(first.slides[1]?.slideNumber?.align).toBe('justify');
+      expect(first.layouts[0]?.slideNumber?.x).toBe(200);
+      expect(first.masters[0]?.slideNumber?.x).toBe(300);
+      first.layouts[0]!.slideNumber = undefined;
+      first.masters[0]!.slideNumber = undefined;
+      expect(first.layouts[0]?.slideNumber).toBeUndefined();
+      expect(first.masters[0]?.slideNumber).toBeUndefined();
+      first.layouts[0]!.slideNumber = { x: 250, align: 'center' };
+      first.masters[0]!.slideNumber = { x: 350, align: 'right' };
+      const duplicate = first.duplicateSlide(0);
+      first.moveSlide(first.slides.indexOf(duplicate), 0);
+      first.deleteSlide(first.slides.indexOf(first.slides.find(
+        ({ partUri }) => partUri === firstSlide.partUri,
+      )!));
+
+      const second = await PptxDocument.open(await first.write());
+      expect(second.format).toBe(format);
+      expect(second.formatProfile).toEqual(PRESENTATION_FORMAT_PROFILES[format]);
+      expect(second.opcPackage.requirePart(second.presentationPartUri).contentType)
+        .toBe(presentationContentType);
+      expect(second.firstSlideNumber).toBe(5);
+      expect(second.slides).toHaveLength(2);
+      expect(second.slides.map((slide) => sdkSlideNumberCache(second, slide.partUri)))
+        .toEqual(['5', '6']);
+      expect(second.layouts[0]?.slideNumber).toMatchObject({ x: 250, align: 'center' });
+      expect(second.masters[0]?.slideNumber).toMatchObject({ x: 350, align: 'right' });
+      expect(sdkSlideNumberCache(second, second.layouts[0]!.partUri)).toBe('‹#›');
+      expect(sdkSlideNumberCache(second, second.masters[0]!.partUri)).toBe('‹#›');
+      expect(new TextDecoder().decode(
+        second.opcPackage.requirePart(second.masters[0]!.partUri).bytes,
+      )).toContain('sldNum="1"');
+      expect(validatePackage(second.opcPackage).filter(({ severity }) => severity === 'error'))
+        .toEqual([]);
+    }
+  });
+
   it('creates a zero-slide presentation and adds blank slides with the default layout', async () => {
     const document = PptxDocument.create();
     expect(document.format).toBe('pptx');

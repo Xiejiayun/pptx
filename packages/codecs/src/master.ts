@@ -13,6 +13,14 @@ import {
   replaceThemeFonts,
 } from './theme-fonts.internal.js';
 import type { ThemeFontSnapshot, ThemeFontUpdate } from './theme-fonts.js';
+import {
+  readSlideNumber,
+  replaceSlideNumber,
+} from './slide-number.internal.js';
+import type {
+  SlideNumber,
+  SlideNumberOptions,
+} from './slide-number.js';
 
 export type { ThemeFontSnapshot, ThemeFontUpdate } from './theme-fonts.js';
 
@@ -103,6 +111,14 @@ export class LayoutModel {
   get placeholders(): readonly PlaceholderModel[] {
     return this.codec.placeholders(this.partUri);
   }
+
+  get slideNumber(): Readonly<SlideNumber> | undefined {
+    return readSlideNumber(this.codec.pkg, this.partUri, 'layout');
+  }
+
+  set slideNumber(value: SlideNumberOptions | undefined) {
+    replaceSlideNumber(this.codec.pkg, this.partUri, 'layout', value, '‹#›');
+  }
 }
 
 export class MasterModel {
@@ -122,6 +138,14 @@ export class MasterModel {
 
   get placeholders(): readonly PlaceholderModel[] {
     return this.codec.placeholders(this.partUri);
+  }
+
+  get slideNumber(): Readonly<SlideNumber> | undefined {
+    return readSlideNumber(this.codec.pkg, this.partUri, 'master');
+  }
+
+  set slideNumber(value: SlideNumberOptions | undefined) {
+    replaceSlideNumber(this.codec.pkg, this.partUri, 'master', value, '‹#›');
   }
 }
 
