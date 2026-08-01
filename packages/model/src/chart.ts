@@ -64,3 +64,15 @@ export interface ChartState {
   readonly workbookPartUri?: string;
   readonly reason?: string;
 }
+
+export interface AddChartOptions {
+  readonly name?: string;
+  readonly altText?: string;
+  readonly x?: import('./units.js').Emu;
+  readonly y?: import('./units.js').Emu;
+  readonly width?: import('./units.js').Emu;
+  readonly height?: import('./units.js').Emu;
+  readonly rotation?: import('./units.js').OoxmlAngle;
+  readonly flipHorizontal?: boolean;
+  readonly flipVertical?: boolean;
+}

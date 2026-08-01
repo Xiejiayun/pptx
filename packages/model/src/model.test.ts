@@ -1,5 +1,5 @@
 import JSZip from 'jszip';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { MediaCodec } from '@pptx/codecs';
 import { LosslessXmlDocument } from '@pptx/lossless-xml';
 import { OpcPackage, relativeRelationshipTarget, relationshipPartUri } from '@pptx/opc';
@@ -6891,6 +6891,138 @@ describe('PresentationModel', () => {
     (shapes[3] as ChartModel).setXml('<c:chartSpace xmlns:c="c"><c:chart><c:plotArea/></c:chart></c:chartSpace>');
     expect((shapes[3] as ChartModel).chartPartUri).toBe(chartPartUri);
     expect((model.slides[1]!.shapes[3] as ChartModel).xml).toContain('<c:plotArea/>');
+  });
+
+  it('creates and reopens all categorical and axis-free chart types atomically', async () => {
+    const { pkg, model } = emptyPresentationModel();
+    const slide = model.addSlide();
+    const slidePart = pkg.requirePart(slide.partUri);
+    pkg.setPart(
+      slide.partUri,
+      new TextDecoder().decode(slidePart.bytes).replace(
+        '</p:spTree>',
+        '<p:extLst><p:ext uri="urn:test"><x:opaque xmlns:x="urn:test">KEEP</x:opaque>'
+          + '</p:ext></p:extLst></p:spTree>',
+      ),
+      slidePart.contentType,
+    );
+    const types = ['area', 'bar', 'bar3D', 'doughnut', 'line', 'pie', 'radar'] as const;
+    const created: ChartModel[] = [];
+    for (const [index, type] of types.entries()) {
+      const chart = await slide.addChart(type, [{
+        name: `${type} series`,
+        categories: ['Q1', 'Q2'],
+        values: [10, 20],
+      }], index === 0 ? {
+        name: 'Revenue & Cost',
+        altText: 'Quarterly chart',
+        x: inches(2),
+        y: inches(1.5),
+        width: inches(7),
+        height: inches(3),
+        rotation: degrees(15),
+        flipHorizontal: true,
+      } : {});
+      created.push(chart);
+      expect(slide.shapes.find(({ id }) => id === chart.id)).toBe(chart);
+      expect(chart.definition?.groups[0]?.type).toBe(type);
+      expect(chart.series).toEqual([{
+        name: `${type} series`,
+        categories: ['Q1', 'Q2'],
+        values: [10, 20],
+      }]);
+      expect(chart.workbookPartUri).toMatch(/^\/ppt\/embeddings\/Microsoft_Excel_Worksheet\d+\.xlsx$/);
+      expect(pkg.relationships(chart.chartPartUri!)).toMatchObject([{
+        type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/package',
+        targetMode: 'Internal',
+        resolvedTarget: chart.workbookPartUri,
+      }]);
+    }
+    expect(created[0]?.name).toBe('Revenue & Cost');
+    expect(created[0]?.altText).toBe('Quarterly chart');
+    expect(created[0]?.transform).toMatchObject({
+      x: inches(2),
+      y: inches(1.5),
+      width: inches(7),
+      height: inches(3),
+      rotation: degrees(15),
+      flipHorizontal: true,
+      flipVertical: false,
+    });
+    const slideXml = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect(slideXml.indexOf('name="Chart"')).toBeLessThan(slideXml.indexOf('<p:extLst>'));
+    expect(slideXml).toContain('<x:opaque xmlns:x="urn:test">KEEP</x:opaque>');
+    expect(pkg.parts.filter(({ contentType }) =>
+      contentType === 'application/vnd.openxmlformats-officedocument.drawingml.chart+xml'))
+      .toHaveLength(7);
+    expect(pkg.parts.filter(({ contentType }) =>
+      contentType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'))
+      .toHaveLength(7);
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedCharts = reopened.slides[0]!.shapes.filter(
+      (shape): shape is ChartModel => shape instanceof ChartModel,
+    );
+    expect(reopenedCharts.map((chart) => chart.definition?.groups[0]?.type)).toEqual(types);
+    expect(reopenedCharts.map((chart) => chart.series[0]?.values)).toEqual(
+      types.map(() => [10, 20]),
+    );
+  });
+
+  it('rolls back every native chart creation failure boundary', async () => {
+    const stages = [
+      'workbook part',
+      'chart part',
+      'workbook relationship',
+      'slide relationship',
+      'slide XML',
+      'outer transaction',
+    ] as const;
+    for (const stage of stages) {
+      const { pkg, model } = emptyPresentationModel();
+      const slide = model.addSlide();
+      const before = packageSnapshot(pkg);
+      const restores: (() => void)[] = [];
+      if (stage === 'workbook part' || stage === 'chart part' || stage === 'slide XML') {
+        const failAt = stage === 'workbook part' ? 1 : stage === 'chart part' ? 2 : 3;
+        const original = pkg.setPart.bind(pkg);
+        let calls = 0;
+        const spy = vi.spyOn(pkg, 'setPart').mockImplementation((uri, bytes, contentType) => {
+          calls += 1;
+          if (calls === failAt) throw new Error(`injected ${stage}`);
+          return original(uri, bytes, contentType);
+        });
+        restores.push(() => spy.mockRestore());
+      } else if (stage === 'workbook relationship' || stage === 'slide relationship') {
+        const failAt = stage === 'workbook relationship' ? 1 : 2;
+        const original = pkg.addRelationship.bind(pkg);
+        let calls = 0;
+        const spy = vi.spyOn(pkg, 'addRelationship').mockImplementation((sourceUri, input) => {
+          calls += 1;
+          if (calls === failAt) throw new Error(`injected ${stage}`);
+          return original(sourceUri, input);
+        });
+        restores.push(() => spy.mockRestore());
+      } else {
+        const original = pkg.transaction.bind(pkg);
+        const spy = vi.spyOn(pkg, 'transaction').mockImplementation(((operation: () => unknown) =>
+          original(() => {
+            operation();
+            throw new Error('injected outer transaction');
+          })) as typeof pkg.transaction);
+        restores.push(() => spy.mockRestore());
+      }
+      try {
+        await expect(slide.addChart('bar', [{
+          name: 'Revenue',
+          categories: ['Q1', 'Q2'],
+          values: [10, 20],
+        }])).rejects.toThrow(`injected ${stage}`);
+        expect(packageSnapshot(pkg)).toEqual(before);
+      } finally {
+        restores.forEach((restore) => restore());
+      }
+    }
   });
 
   it('creates strict basic tables with stable identity, ordering, and atomic failure', async () => {

@@ -7,9 +7,13 @@ import {
   type MediaSource,
 } from '@pptx/codecs';
 import {
+  ChartModel,
   MediaModel,
   PresentationModel,
+  type AddChartOptions,
   type AddSvgImageOptions,
+  type ChartSeriesInput,
+  type ChartType,
   type ImageModel,
 } from '@pptx/model';
 import { OpcPackage, type PackageOpenOptions } from '@pptx/opc';
@@ -255,6 +259,17 @@ export class PptxDocument extends PresentationModel {
       ...normalized.imageOptions,
       ...(placement ?? {}),
     });
+  }
+
+  async addChart(
+    slideIndex: number,
+    type: ChartType,
+    series: readonly ChartSeriesInput[],
+    options: AddChartOptions = {},
+  ): Promise<ChartModel> {
+    const slide = this.slides[slideIndex];
+    if (!slide) throw new RangeError(`Slide index ${slideIndex} is out of range`);
+    return slide.addChart(type, series, options);
   }
 
   async addAudio(slideIndex: number, source: MediaSource, options: AddMediaOptions = {}): Promise<MediaModel> {

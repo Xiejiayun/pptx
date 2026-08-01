@@ -20,6 +20,21 @@ import {
   type Relationship,
   type RelationshipInput,
 } from '@pptx/opc';
+import type {
+  AddChartOptions,
+  ChartSeriesInput,
+  ChartType,
+} from './chart.js';
+import { normalizeChartDefinition } from './chart-definition.internal.js';
+import {
+  normalizeAddChartOptions,
+  renderChartGraphicFrame,
+  renderChartPart,
+} from './chart-render.internal.js';
+import {
+  buildChartWorkbook,
+  planChartWorkbook,
+} from './chart-workbook.internal.js';
 import { ModelParseError } from './errors.js';
 import type { Hyperlink } from './hyperlink.js';
 import type {
@@ -64,6 +79,7 @@ import {
   type NormalizedParagraphTabStop,
 } from './rich-text.internal.js';
 import {
+  ChartModel,
   decodeShape,
   ImageModel,
   MediaModel,
@@ -195,6 +211,14 @@ import { inches, type Transform } from './units.js';
 
 const IMAGE_RELATIONSHIP_TYPE =
   'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image';
+const CHART_RELATIONSHIP_TYPE =
+  'http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart';
+const PACKAGE_RELATIONSHIP_TYPE =
+  'http://schemas.openxmlformats.org/officeDocument/2006/relationships/package';
+const CHART_CONTENT_TYPE =
+  'application/vnd.openxmlformats-officedocument.drawingml.chart+xml';
+const WORKBOOK_CONTENT_TYPE =
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
 export interface AddTextOptions extends Partial<Transform> {
   readonly name?: string;
@@ -1012,6 +1036,57 @@ export class SlideModel {
         throw new ModelParseError(`Created table ${nextId} could not be resolved`, this.partUri);
       }
       return table;
+    });
+  }
+
+  async addChart(
+    type: ChartType,
+    series: readonly ChartSeriesInput[],
+    options: AddChartOptions = {},
+  ): Promise<ChartModel> {
+    const definition = normalizeChartDefinition({ groups: [{ type, series }] });
+    const normalizedOptions = normalizeAddChartOptions(options);
+    const workbookBytes = await buildChartWorkbook(definition);
+    const plan = planChartWorkbook(definition);
+    return this.presentation.opcPackage.transaction(() => {
+      const pkg = this.presentation.opcPackage;
+      const chartPartUri = pkg.allocatePartUri('/ppt/charts', 'chart', '.xml');
+      const workbookPartUri = pkg.allocatePartUri(
+        '/ppt/embeddings',
+        'Microsoft_Excel_Worksheet',
+        '.xlsx',
+      );
+      pkg.setPart(workbookPartUri, workbookBytes, WORKBOOK_CONTENT_TYPE);
+      const workbookRelationshipId = pkg.allocateRelationshipId(chartPartUri);
+      pkg.setPart(
+        chartPartUri,
+        renderChartPart(definition, plan.formulas, workbookRelationshipId),
+        CHART_CONTENT_TYPE,
+      );
+      pkg.addRelationship(chartPartUri, {
+        id: workbookRelationshipId,
+        type: PACKAGE_RELATIONSHIP_TYPE,
+        target: relativeRelationshipTarget(chartPartUri, workbookPartUri),
+        targetMode: 'Internal',
+      });
+      const chartRelationship = pkg.addRelationship(this.partUri, {
+        type: CHART_RELATIONSHIP_TYPE,
+        target: relativeRelationshipTarget(this.partUri, chartPartUri),
+        targetMode: 'Internal',
+      });
+      const { xml } = this.parse();
+      const shapeTree = requirePresetShapeTree(xml, this.partUri);
+      const nextId = allocatePresetShapeId(xml, shapeTree, this.partUri);
+      const frame = renderChartGraphicFrame(nextId, chartRelationship.id, normalizedOptions);
+      const extensionList = directElementChildren(shapeTree, 'extLst')[0];
+      if (extensionList) xml.replace(extensionList.start, extensionList.start, frame);
+      else xml.appendChildXml(shapeTree, frame);
+      this.setXml(xml.serialize());
+      const chart = this.shapes.find((candidate) => candidate.id === nextId);
+      if (!(chart instanceof ChartModel) || chart.kind !== 'chart') {
+        throw new ModelParseError(`Created chart ${nextId} could not be resolved`, this.partUri);
+      }
+      return chart;
     });
   }
 

@@ -742,6 +742,12 @@ export class TableModel extends BaseShapeModel {
 }
 
 export class ChartModel extends BaseShapeModel {
+  get altText(): string | undefined {
+    const { xml, element } = this.resolve();
+    const properties = xml.descendants(element, 'cNvPr')[0];
+    return properties ? xml.attribute(properties, 'descr')?.value : undefined;
+  }
+
   get chartPartUri(): string | undefined {
     const { xml, element } = this.resolve();
     const chart = xml.descendants(element, 'chart')[0];

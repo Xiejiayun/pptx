@@ -16,6 +16,7 @@ import {
 import { OpcPackage } from '@pptx/opc';
 import { validatePackage } from '@pptx/validator';
 import {
+  ChartModel,
   CustomGeometryEvaluationError,
   degrees,
   evaluateCustomGeometry,
@@ -31,6 +32,7 @@ import {
   TableModel,
   ValidationError,
   type AddImageOptions,
+  type AddChartOptions,
   type AddImageSourceOptions,
   type AddMediaOptions,
   type AddSvgImageOptions,
@@ -38,6 +40,7 @@ import {
   type AddTableCellInput,
   type AddTableOptions,
   type CustomGeometry,
+  type ChartType,
   type CustomGeometryEvaluationContext,
   type EvaluatedCustomGeometry,
   type Hyperlink,
@@ -3995,6 +3998,66 @@ describe('PptxDocument vertical slice', () => {
     expect(document.sections).toEqual([
       { ...section, slideIds: [first.slideId, second.slideId] },
     ]);
+  });
+
+  it('creates and reopens categorical native charts through the public SDK in all six formats', async () => {
+    const types = ['area', 'bar', 'bar3D', 'doughnut', 'line', 'pie', 'radar'] as const;
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const document = PptxDocument.create({ format });
+      const slide = document.addSlide();
+      const created: ChartModel[] = [];
+      for (const [index, type] of types.entries()) {
+        created.push(await document.addChart(0, type, [{
+          name: `${type} series`,
+          categories: ['Q1', 'Q2'],
+          values: [10, 20],
+        }], index === 0 ? {
+          name: `${format} chart`,
+          altText: 'Quarterly chart',
+          x: inches(2),
+          width: inches(7),
+        } : {}));
+      }
+      expect(slide.shapes.filter((shape) => shape instanceof ChartModel)).toEqual(created);
+      expect(created[0]).toBeInstanceOf(ChartModel);
+      expect(created[0]?.name).toBe(`${format} chart`);
+      expect(created[0]?.altText).toBe('Quarterly chart');
+      expect(created[0]?.transform).toMatchObject({ x: inches(2), width: inches(7) });
+      expect(created.every((chart) => chart.workbookPartUri !== undefined)).toBe(true);
+      expect(validatePackage(document.opcPackage).filter(({ severity }) => severity === 'error'))
+        .toEqual([]);
+
+      const reopened = await PptxDocument.open(await document.write());
+      const charts = reopened.slides[0]!.shapes.filter(
+        (shape): shape is ChartModel => shape instanceof ChartModel,
+      );
+      expect(reopened.format).toBe(format);
+      expect(charts.map((chart) => chart.definition?.groups[0]?.type)).toEqual(types);
+      expect(charts.map((chart) => chart.series[0]?.values)).toEqual(types.map(() => [10, 20]));
+      for (const chart of charts) {
+        expect(reopened.opcPackage.requirePart(chart.workbookPartUri!).contentType)
+          .toBe('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        expect(reopened.opcPackage.graph.find(({ uri }) => uri === chart.chartPartUri)?.incoming)
+          .toHaveLength(1);
+        expect(reopened.opcPackage.graph.find(({ uri }) => uri === chart.workbookPartUri)?.incoming)
+          .toHaveLength(1);
+      }
+    }
+
+    const empty = PptxDocument.create();
+    await expect(empty.addChart(0, 'bar', [{
+      name: 'Revenue', categories: ['Q1'], values: [1],
+    }])).rejects.toThrow(/out of range/);
+
+    if (false) {
+      const type: ChartType = 'bar';
+      const options: AddChartOptions = { width: inches(6) };
+      // @ts-expect-error chart types are a closed catalog
+      const invalidType: ChartType = 'stock';
+      // @ts-expect-error chart width uses EMU values
+      const invalidOptions: AddChartOptions = { width: '6in' };
+      void [type, options, invalidType, invalidOptions];
+    }
   });
 
   it('creates all presentation formats and built-in PptxGenJS slide sizes', async () => {
