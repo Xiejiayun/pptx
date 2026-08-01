@@ -451,6 +451,12 @@ describe('PresentationModel', () => {
 
     expect(image).toBeInstanceOf(ImageModel);
     expect(image.kind).toBe('image');
+    expect(image.sourceRectangle).toEqual({
+      left: 25,
+      top: -10,
+      right: 5,
+      bottom: 0,
+    });
     expect(slide.shapes).toEqual([image]);
     expect(slide.shapes[0]).toBe(image);
     expect(image.name).toBe('Revenue & <logo>');
@@ -682,6 +688,124 @@ describe('PresentationModel', () => {
     const created = slide.addImage(new Uint8Array([2]), { contentType: 'image/png' });
     expect(created.id).toBe(2);
     expect(created.sourcePartUri).toBe('/ppt/media/image1.png');
+  });
+
+  it('reads, edits, clears, rolls back, and duplicates image source rectangles', async () => {
+    const { pkg, model } = emptyPresentationModel();
+    const slide = model.addSlide();
+    const image = slide.addImage(new Uint8Array([1, 2, 3]), {
+      contentType: 'image/png',
+      sourceRectangle: { left: 25, top: -10, right: 5, bottom: 0 },
+    });
+    const first = image.sourceRectangle;
+    const second = image.sourceRectangle;
+    expect(first).toEqual({ left: 25, top: -10, right: 5, bottom: 0 });
+    expect(second).toEqual(first);
+    expect(second).not.toBe(first);
+    expect(Object.isFrozen(first)).toBe(true);
+
+    const beforeNoOp = pkg.requirePart(slide.partUri).bytes.slice();
+    const noOpJournal = [...pkg.mutations];
+    image.sourceRectangle = { left: 25, top: -10, right: 5, bottom: 0 };
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeNoOp);
+    expect(pkg.mutations).toEqual(noOpJournal);
+
+    image.sourceRectangle = { left: 10, top: 20, right: 30, bottom: 0 };
+    expect(image.sourceRectangle).toEqual({ left: 10, top: 20, right: 30, bottom: 0 });
+    expect(slide.shapes[0]).toBe(image);
+    expect(pkg.requirePart(image.sourcePartUri!).bytes).toEqual(new Uint8Array([1, 2, 3]));
+
+    const rollbackBytes = pkg.requirePart(slide.partUri).bytes.slice();
+    const rollbackJournal = [...pkg.mutations];
+    expect(() => pkg.transaction(() => {
+      image.sourceRectangle = { left: -25, top: 0, right: -25, bottom: 0 };
+      throw new Error('restore image source rectangle');
+    })).toThrow('restore image source rectangle');
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(rollbackBytes);
+    expect(pkg.mutations).toEqual(rollbackJournal);
+    expect(image.sourceRectangle).toEqual({ left: 10, top: 20, right: 30, bottom: 0 });
+
+    const duplicate = model.duplicateSlide(0);
+    const duplicateImage = duplicate.shapes[0] as ImageModel;
+    expect(duplicateImage).toBeInstanceOf(ImageModel);
+    expect(duplicateImage.sourceRectangle).toEqual(image.sourceRectangle);
+    duplicateImage.sourceRectangle = { left: -25, top: 0, right: -25, bottom: 0 };
+    expect(duplicateImage.sourceRectangle).toEqual({
+      left: -25,
+      top: 0,
+      right: -25,
+      bottom: 0,
+    });
+    expect(image.sourceRectangle).toEqual({ left: 10, top: 20, right: 30, bottom: 0 });
+    expect(duplicateImage.sourcePartUri).toBe(image.sourcePartUri);
+
+    image.sourceRectangle = undefined;
+    expect(image.sourceRectangle).toBeUndefined();
+    const clearBytes = pkg.requirePart(slide.partUri).bytes.slice();
+    const clearJournal = [...pkg.mutations];
+    image.sourceRectangle = undefined;
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(clearBytes);
+    expect(pkg.mutations).toEqual(clearJournal);
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedSource = reopened.slides[0]!.shapes[0] as ImageModel;
+    const reopenedDuplicate = reopened.slides[1]!.shapes[0] as ImageModel;
+    expect(reopenedSource.sourceRectangle).toBeUndefined();
+    expect(reopenedDuplicate.sourceRectangle).toEqual({
+      left: -25,
+      top: 0,
+      right: -25,
+      bottom: 0,
+    });
+  });
+
+  it('repairs one malformed image source rectangle and rejects ambiguous ownership', () => {
+    const { pkg, model } = emptyPresentationModel();
+    const slide = model.addSlide();
+    const image = slide.addImage(new Uint8Array([1, 2, 3]), {
+      contentType: 'image/png',
+    });
+    const mediaPartUri = image.sourcePartUri!;
+    const relationships = slide.relationships;
+    const part = pkg.requirePart(slide.partUri);
+    pkg.setPart(
+      slide.partUri,
+      new TextDecoder().decode(part.bytes).replace(
+        '<a:stretch>',
+        '<a:srcRect l="bad" custom="remove"/><x:keep xmlns:x="urn:keep"/>' +
+        '<a:stretch>',
+      ),
+      part.contentType,
+    );
+    expect(image.sourceRectangle).toBeUndefined();
+
+    image.sourceRectangle = { left: 25, top: -10, right: 5, bottom: 0 };
+    expect(image.sourceRectangle).toEqual({ left: 25, top: -10, right: 5, bottom: 0 });
+    let source = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect(source).toContain(
+      '<a:srcRect l="25000" t="-10000" r="5000" b="0"/>',
+    );
+    expect(source).not.toContain('custom="remove"');
+    expect(source).toContain('<x:keep xmlns:x="urn:keep"/>');
+    expect(image.sourcePartUri).toBe(mediaPartUri);
+    expect(slide.relationships).toEqual(relationships);
+    expect(pkg.requirePart(mediaPartUri).bytes).toEqual(new Uint8Array([1, 2, 3]));
+
+    const current = '<a:srcRect l="25000" t="-10000" r="5000" b="0"/>';
+    const duplicate = `${current}<a:srcRect l="0" t="0" r="0" b="0"/>`;
+    const updated = pkg.requirePart(slide.partUri);
+    source = new TextDecoder().decode(updated.bytes).replace(current, duplicate);
+    pkg.setPart(slide.partUri, source, updated.contentType);
+    expect(image.sourceRectangle).toBeUndefined();
+    const before = packageSnapshot(pkg);
+    expect(() => {
+      image.sourceRectangle = { left: 0, top: 0, right: 0, bottom: 0 };
+    }).toThrow(ModelParseError);
+    expect(() => {
+      image.sourceRectangle = undefined;
+    }).toThrow(ModelParseError);
+    expect(packageSnapshot(pkg)).toEqual(before);
+    expect(slide.shapes[0]).toBe(image);
   });
 
   it('preserves embedded raster image edits and clone-on-write state through reopen', async () => {

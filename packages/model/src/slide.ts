@@ -12,11 +12,16 @@ import {
 } from '@pptx/opc';
 import { ModelParseError } from './errors.js';
 import type { Hyperlink } from './hyperlink.js';
-import type { AddImageOptions } from './image.js';
+import type { AddImageOptions, ImageSourceRectangle } from './image.js';
 import {
   normalizeEmbeddedRasterImage,
   renderEmbeddedRasterImageXml,
 } from './image-create.internal.js';
+import {
+  normalizeImageSourceRectangle,
+  readImageSourceRectangle,
+  replaceImageSourceRectangle,
+} from './image-source-rectangle.internal.js';
 import type { PresentationModel } from './presentation.js';
 import {
   normalizeParagraphBullet,
@@ -716,6 +721,23 @@ export class SlideModel {
     if (changes.flipHorizontal !== undefined) setAttribute(xml, xfrm, 'flipH', changes.flipHorizontal ? 1 : 0);
     if (changes.flipVertical !== undefined) setAttribute(xml, xfrm, 'flipV', changes.flipVertical ? 1 : 0);
     this.setXml(xml.serialize());
+  }
+
+  getImageSourceRectangle(id: number): Readonly<ImageSourceRectangle> | undefined {
+    const { xml, element } = this.resolveShape(id);
+    return readImageSourceRectangle(xml, element);
+  }
+
+  setImageSourceRectangle(id: number, value: ImageSourceRectangle | undefined): void {
+    const normalized = value === undefined
+      ? undefined
+      : normalizeImageSourceRectangle(value, 'Image source rectangle');
+    this.presentation.opcPackage.transaction(() => {
+      const { xml, element } = this.resolveShape(id);
+      if (replaceImageSourceRectangle(xml, element, normalized, this.partUri)) {
+        this.setXml(xml.serialize());
+      }
+    });
   }
 
   addImage(bytes: Uint8Array, options: AddImageOptions): ImageModel {

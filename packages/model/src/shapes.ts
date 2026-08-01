@@ -12,6 +12,7 @@ import { cloneOwnedPartForMutation } from './dependency.internal.js';
 import { evaluateCustomGeometry as evaluateGeometry } from './custom-geometry-evaluator.js';
 import type { CustomGeometry, EvaluatedCustomGeometry } from './custom-geometry.js';
 import type { Hyperlink } from './hyperlink.js';
+import type { ImageSourceRectangle } from './image.js';
 import type { SlideModel } from './slide.js';
 import {
   normalizeTableCellBorders,
@@ -316,6 +317,14 @@ export class ShapeModel extends BaseShapeModel {
 }
 
 export class ImageModel extends BaseShapeModel {
+  get sourceRectangle(): Readonly<ImageSourceRectangle> | undefined {
+    return this.slide.getImageSourceRectangle(this.id);
+  }
+
+  set sourceRectangle(value: ImageSourceRectangle | undefined) {
+    this.slide.setImageSourceRectangle(this.id, value);
+  }
+
   get sourcePartUri(): string | undefined {
     const { xml, element } = this.resolve();
     const blip = xml.descendants(element, 'blip')[0];
