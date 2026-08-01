@@ -1,4 +1,8 @@
 import type { AddImageOptions, RasterImageContentType } from '@pptx/model';
+import {
+  normalizeRasterImageSizing,
+  type RasterImageSizing,
+} from './raster-image-sizing.js';
 
 const PNG_SIGNATURE = Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10]);
 const GIF87A_SIGNATURE = Uint8Array.from([71, 73, 70, 56, 55, 97]);
@@ -23,6 +27,7 @@ const MODEL_IMAGE_OPTION_KEYS = new Set([
 const ADD_IMAGE_SOURCE_OPTION_KEYS = new Set([
   'contentType',
   'signal',
+  'sizing',
   ...MODEL_IMAGE_OPTION_KEYS,
 ]);
 
@@ -32,15 +37,34 @@ export interface RasterImageInfo {
   readonly height: number;
 }
 
-export interface AddImageSourceOptions extends Omit<AddImageOptions, 'contentType'> {
+type AddImageSourceBaseOptions = Omit<
+  AddImageOptions,
+  'contentType' | 'sourceRectangle' | 'width' | 'height'
+> & {
   readonly contentType?: RasterImageContentType;
   readonly signal?: AbortSignal;
-}
+};
+
+export type AddImageSourceOptions = AddImageSourceBaseOptions & (
+  | {
+      readonly sizing?: undefined;
+      readonly width?: number;
+      readonly height?: number;
+    }
+  | {
+      readonly sizing: RasterImageSizing;
+      readonly width?: never;
+      readonly height?: never;
+    }
+);
 
 export interface NormalizedAddImageSourceOptions {
   readonly contentType?: RasterImageContentType;
   readonly signal?: AbortSignal;
-  readonly imageOptions: Readonly<Omit<AddImageOptions, 'contentType'>>;
+  readonly imageOptions: Readonly<
+    Omit<AddImageOptions, 'contentType' | 'sourceRectangle'>
+  >;
+  readonly sizing?: Readonly<RasterImageSizing>;
 }
 
 export type RasterImageByteChunk = number | Uint8Array | ArrayBuffer | ArrayBufferView;
@@ -111,15 +135,25 @@ export function normalizeAddImageSourceOptions(
 
   const contentType = normalizeOptionalContentType(values.contentType);
   const signal = normalizeOptionalAbortSignal(values.signal);
+  const sizing = values.sizing === undefined
+    ? undefined
+    : normalizeRasterImageSizing(values.sizing);
+  if (
+    sizing !== undefined
+    && (Object.hasOwn(values, 'width') || Object.hasOwn(values, 'height'))
+  ) {
+    throw new TypeError('Raster image sizing cannot be combined with top-level width or height');
+  }
   const imageOptions = Object.create(null) as Record<string, unknown>;
   for (const key of MODEL_IMAGE_OPTION_KEYS) {
     if (Object.hasOwn(values, key)) imageOptions[key] = values[key];
   }
   Object.freeze(imageOptions);
   return Object.freeze({
-    imageOptions: imageOptions as Omit<AddImageOptions, 'contentType'>,
+    imageOptions: imageOptions as Omit<AddImageOptions, 'contentType' | 'sourceRectangle'>,
     ...(contentType === undefined ? {} : { contentType }),
     ...(signal === undefined ? {} : { signal }),
+    ...(sizing === undefined ? {} : { sizing }),
   });
 }
 

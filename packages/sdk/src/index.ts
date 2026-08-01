@@ -7,7 +7,7 @@ import {
   type MediaModel,
   type MediaSource,
 } from '@pptx/codecs';
-import { PresentationModel, type ImageModel } from '@pptx/model';
+import { PresentationModel, type AddImageOptions, type ImageModel } from '@pptx/model';
 import { OpcPackage, type PackageOpenOptions } from '@pptx/opc';
 import {
   ValidationError,
@@ -28,6 +28,7 @@ import {
   type AddImageSourceOptions,
   type RasterImageSource,
 } from './raster-image-source.js';
+import { calculateRasterImageSizing } from './raster-image-sizing.js';
 
 export * from '@pptx/codecs';
 export * from '@pptx/model';
@@ -209,8 +210,15 @@ export class PptxDocument extends PresentationModel {
     const normalized = normalizeAddImageSourceOptions(options);
     const resolved = await resolveRasterImageSource(source, normalized.signal);
     assertRasterImageContentType(normalized.contentType, resolved);
+    const placement = normalized.sizing
+      ? calculateRasterImageSizing(resolved.info, normalized.sizing) as Pick<
+          AddImageOptions,
+          'width' | 'height' | 'sourceRectangle'
+        >
+      : undefined;
     return slide.addImage(resolved.bytes, {
       ...normalized.imageOptions,
+      ...(placement ?? {}),
       contentType: resolved.info.contentType,
     });
   }

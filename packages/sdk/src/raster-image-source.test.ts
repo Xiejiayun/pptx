@@ -651,6 +651,35 @@ describe('raster image document options', () => {
     expect(Object.isFrozen(normalized)).toBe(true);
   });
 
+  it('detaches and deeply freezes explicit sizing while keeping placement separate', () => {
+    const source = { x: 400, y: 225, width: 800, height: 450 };
+    const sizing = {
+      type: 'crop' as const,
+      width: 3,
+      height: 2,
+      source,
+    };
+    const normalized = normalizeAddImageSourceOptions({
+      x: 10,
+      y: 20,
+      rotation: 30,
+      sizing,
+    });
+    sizing.width = 999;
+    source.x = 999;
+
+    expect(normalized.imageOptions).toEqual({ x: 10, y: 20, rotation: 30 });
+    expect(normalized.sizing).toEqual({
+      type: 'crop',
+      width: 3,
+      height: 2,
+      source: { x: 400, y: 225, width: 800, height: 450 },
+    });
+    expect(Object.isFrozen(normalized.sizing)).toBe(true);
+    if (normalized.sizing?.type !== 'crop') throw new Error('Expected normalized crop sizing');
+    expect(Object.isFrozen(normalized.sizing.source)).toBe(true);
+  });
+
   it('accepts omitted, explicit undefined, and null-prototype options', () => {
     expect(normalizeAddImageSourceOptions({})).toMatchObject({ imageOptions: {} });
     expect(normalizeAddImageSourceOptions({ contentType: undefined, signal: undefined }))
@@ -686,6 +715,10 @@ describe('raster image document options', () => {
       { unknown: true },
       { contentType: 'image/svg+xml' },
       { signal: {} },
+      { sizing: { type: 'cover', width: 1, height: 1 }, width: 1 },
+      { sizing: { type: 'contain', width: 1, height: 1 }, height: undefined },
+      { sizing: { type: 'crop', width: 1, height: 1, source: null } },
+      { sourceRectangle: { left: 0, top: 0, right: 0, bottom: 0 } },
     ];
     for (const value of invalid) {
       expect(() => normalizeAddImageSourceOptions(value)).toThrow(TypeError);

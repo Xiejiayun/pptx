@@ -333,6 +333,138 @@ describe('PptxDocument vertical slice', () => {
     expect(reopened.opcPackage.requirePart(reopenedImage.sourcePartUri!).bytes).toEqual(expected);
   });
 
+  it('sizes every raster source form from intrinsic dimensions and round-trips all formats', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'pptx-image-sizing-'));
+    const path = join(directory, 'landscape.png');
+    const png = sdkPngHeader(1600, 900);
+    await writeFile(path, png);
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(png.slice(0, 12));
+        controller.enqueue(png.slice(12));
+        controller.close();
+      },
+    });
+    const iterable: RasterImageByteStream = {
+      async *[Symbol.asyncIterator]() {
+        yield png;
+      },
+    };
+    const sources: RasterImageSource[] = [
+      path,
+      sdkPngDataUri(png),
+      png,
+      png.buffer.slice(0),
+      new Blob([png], { type: 'text/plain' }),
+      stream,
+      iterable,
+    ];
+    const sizings = [
+      {
+        value: { type: 'cover' as const, width: inches(4), height: inches(3) },
+        rectangle: { left: 12.5, top: 0, right: 12.5, bottom: 0 },
+        raw: '<a:srcRect l="12500" t="0" r="12500" b="0"/>',
+      },
+      {
+        value: { type: 'contain' as const, width: inches(4), height: inches(3) },
+        rectangle: { left: 0, top: -16.667, right: 0, bottom: -16.667 },
+        raw: '<a:srcRect l="0" t="-16667" r="0" b="-16667"/>',
+      },
+      {
+        value: {
+          type: 'crop' as const,
+          width: inches(4),
+          height: inches(3),
+          source: { x: 400, y: 225, width: 800, height: 450 },
+        },
+        rectangle: { left: 25, top: 25, right: 25, bottom: 25 },
+        raw: '<a:srcRect l="25000" t="25000" r="25000" b="25000"/>',
+      },
+    ];
+    try {
+      const document = PptxDocument.create();
+      const slide = document.addSlide();
+      for (const [index, source] of sources.entries()) {
+        const sizing = sizings[index % sizings.length]!;
+        const image = await document.addImage(0, source, {
+          name: `Sized image ${index}`,
+          altText: `Sizing mode ${sizing.value.type}`,
+          x: inches(index),
+          y: inches(index + 1),
+          rotation: degrees(15),
+          flipHorizontal: true,
+          flipVertical: true,
+          sizing: sizing.value,
+        });
+        expect(slide.shapes[index]).toBe(image);
+        expect(image.transform).toEqual({
+          x: inches(index),
+          y: inches(index + 1),
+          width: inches(4),
+          height: inches(3),
+          rotation: degrees(15),
+          flipHorizontal: true,
+          flipVertical: true,
+        });
+        expect(image.sourceRectangle).toEqual(sizing.rectangle);
+      }
+
+      const slideXml = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+      for (const sizing of sizings) expect(slideXml).toContain(sizing.raw);
+      expect(slideXml).toContain('name="Sized image 0" descr="Sizing mode cover"');
+      const reopened = await PptxDocument.open(await document.write());
+      expect(reopened.slides[0]!.shapes).toHaveLength(sources.length);
+      for (const [index, shape] of reopened.slides[0]!.shapes.entries()) {
+        const image = shape as ImageModel;
+        expect(image).toBeInstanceOf(ImageModel);
+        expect(image.name).toBe(`Sized image ${index}`);
+        expect(image.sourceRectangle).toEqual(sizings[index % sizings.length]!.rectangle);
+        expect(image.transform).toMatchObject({ width: inches(4), height: inches(3) });
+      }
+
+      for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+        const formatted = PptxDocument.create({ format });
+        formatted.addSlide();
+        await formatted.addImage(0, png, {
+          sizing: { type: 'cover', width: inches(4), height: inches(3) },
+        });
+        const formattedReopened = await PptxDocument.open(await formatted.write());
+        const image = formattedReopened.slides[0]!.shapes[0] as ImageModel;
+        expect(formattedReopened.format).toBe(format);
+        expect(image.sourceRectangle).toEqual(sizings[0]!.rectangle);
+        expect(image.transform).toMatchObject({ width: inches(4), height: inches(3) });
+      }
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('detaches sizing before awaiting raster source input', async () => {
+    const document = PptxDocument.create();
+    document.addSlide();
+    const png = sdkPngHeader(1600, 900);
+    const source = {
+      async *[Symbol.asyncIterator]() {
+        await Promise.resolve();
+        yield png;
+      },
+    };
+    const crop = { x: 400, y: 225, width: 800, height: 450 };
+    const sizing = {
+      type: 'crop' as const,
+      width: inches(4),
+      height: inches(3),
+      source: crop,
+    };
+    const pending = document.addImage(0, source, { sizing });
+    sizing.width = inches(1);
+    crop.x = 0;
+
+    const image = await pending;
+    expect(image.transform).toMatchObject({ width: inches(4), height: inches(3) });
+    expect(image.sourceRectangle).toEqual({ left: 25, top: 25, right: 25, bottom: 25 });
+  });
+
   it('adds every portable in-memory source form and round-trips all formats', async () => {
     const png = sdkPngHeader(16, 9);
     const stream: RasterImageByteStream = new ReadableStream({
@@ -394,11 +526,49 @@ describe('PptxDocument vertical slice', () => {
       const typedSource: RasterImageSource = new Blob([png]);
       const typedOptions: AddImageSourceOptions = { contentType: 'image/png' };
       const typedResult: Promise<ImageModel> = document.addImage(0, typedSource, typedOptions);
+      const containResult: Promise<ImageModel> = document.addImage(0, typedSource, {
+        sizing: { type: 'contain', width: inches(4), height: inches(3) },
+      });
+      const coverResult: Promise<ImageModel> = document.addImage(0, typedSource, {
+        sizing: { type: 'cover', width: inches(4), height: inches(3) },
+      });
+      const cropResult: Promise<ImageModel> = document.addImage(0, typedSource, {
+        sizing: {
+          type: 'crop',
+          width: inches(4),
+          height: inches(3),
+          source: { x: 0, y: 0, width: 16, height: 9 },
+        },
+      });
       // @ts-expect-error source image options exclude SVG
       const svgOptions: AddImageSourceOptions = { contentType: 'image/svg+xml' };
+      // @ts-expect-error sizing owns final width and cannot be combined with top-level width
+      const conflictingWidth: AddImageSourceOptions = {
+        width: inches(4),
+        sizing: { type: 'cover', width: inches(4), height: inches(3) },
+      };
+      const directRectangle: AddImageSourceOptions = {
+        // @ts-expect-error sourceRectangle belongs to the low-level model API
+        sourceRectangle: { left: 0, top: 0, right: 0, bottom: 0 },
+      };
+      const malformedCrop: AddImageSourceOptions = {
+        // @ts-expect-error crop sizing requires a source pixel region
+        sizing: { type: 'crop', width: inches(4), height: inches(3) },
+      };
       // @ts-expect-error plain objects are not raster image sources
       const invalidSource: RasterImageSource = { bytes: png };
-      void [info, typedResult, svgOptions, invalidSource];
+      void [
+        info,
+        typedResult,
+        containResult,
+        coverResult,
+        cropResult,
+        svgOptions,
+        conflictingWidth,
+        directRectangle,
+        malformedCrop,
+        invalidSource,
+      ];
     }
   });
 
@@ -413,9 +583,12 @@ describe('PptxDocument vertical slice', () => {
       })),
       graph: document.opcPackage.graph,
       mutations: [...document.opcPackage.mutations],
+      relationships: slide.relationships,
+      shapes: slide.shapes,
       shapeIds: slide.shapes.map(({ id }) => id),
     });
     const expected = before();
+    const expectedZip = await document.write();
     let sourceReads = 0;
     const countedSource: RasterImageSource = {
       async *[Symbol.asyncIterator]() {
@@ -431,6 +604,28 @@ describe('PptxDocument vertical slice', () => {
         return 'unsafe';
       },
     });
+    const sizingAccessor = Object.defineProperty(
+      { type: 'cover', height: 1 },
+      'width',
+      {
+        enumerable: true,
+        get() {
+          accessorReads += 1;
+          return 1;
+        },
+      },
+    );
+    const cropSourceAccessor = Object.defineProperty(
+      { x: 0, y: 0, height: 1 },
+      'width',
+      {
+        enumerable: true,
+        get() {
+          accessorReads += 1;
+          return 1;
+        },
+      },
+    );
     const invalidPreIo: readonly (() => Promise<unknown>)[] = [
       () => document.addImage(1, countedSource),
       () => document.addImage(0, countedSource, null as never),
@@ -439,10 +634,34 @@ describe('PptxDocument vertical slice', () => {
       () => document.addImage(0, countedSource, { unknown: true } as never),
       () => document.addImage(0, countedSource, { contentType: 'image/svg+xml' } as never),
       () => document.addImage(0, countedSource, { signal: {} } as never),
+      () => document.addImage(0, countedSource, { sizing: [] } as never),
+      () => document.addImage(0, countedSource, {
+        sizing: { type: 'fit', width: 1, height: 1 },
+      } as never),
+      () => document.addImage(0, countedSource, { sizing: sizingAccessor } as never),
+      () => document.addImage(0, countedSource, {
+        sizing: {
+          type: 'crop',
+          width: 1,
+          height: 1,
+          source: cropSourceAccessor,
+        },
+      } as never),
+      () => document.addImage(0, countedSource, {
+        sizing: { type: 'cover', width: 1, height: 1 },
+        width: 1,
+      } as never),
+      () => document.addImage(0, countedSource, {
+        sizing: { type: 'crop', width: 1, height: 1, source: null },
+      } as never),
+      () => document.addImage(0, countedSource, {
+        sourceRectangle: { left: 0, top: 0, right: 0, bottom: 0 },
+      } as never),
     ];
     for (const invoke of invalidPreIo) {
       await expect(invoke()).rejects.toBeInstanceOf(Error);
       expect(before()).toEqual(expected);
+      expect(await document.write()).toEqual(expectedZip);
     }
     expect(sourceReads).toBe(0);
     expect(accessorReads).toBe(0);
@@ -452,10 +671,22 @@ describe('PptxDocument vertical slice', () => {
       () => document.addImage(0, sdkPngHeader(1, 1), { width: 0 } as never),
       () => document.addImage(0, Uint8Array.of(1, 2, 3)),
       () => document.addImage(0, 'data:image/png;base64,AAAA'),
+      () => document.addImage(0, sdkPngHeader(100, 80), {
+        sizing: {
+          type: 'crop',
+          width: 1,
+          height: 1,
+          source: { x: 90, y: 0, width: 11, height: 1 },
+        },
+      }),
+      () => document.addImage(0, sdkPngHeader(0xffff_ffff, 1), {
+        sizing: { type: 'contain', width: 1, height: Number.MAX_SAFE_INTEGER },
+      }),
     ];
     for (const invoke of invalidAfterResolve) {
       await expect(invoke()).rejects.toBeInstanceOf(Error);
       expect(before()).toEqual(expected);
+      expect(await document.write()).toEqual(expectedZip);
     }
   });
 
