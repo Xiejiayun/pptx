@@ -188,7 +188,7 @@ PptxGenJS 4.0.1 conformance covers three public cases: data-contain, path-cover,
 
 The packed Node/browser/type/CLI smoke covers explicit/default fallbacks, sizing, duplicate sharing, paired clone-on-write, replacement/reopen, Canvas fallback, two internal relationships, and PowerPoint 2010 validation. Two clean builds have identical SHA-256 manifests for all 38 dist files. The five-slide gallery contains 13 shapes, eight SVG pictures, seven SVG parts, seven PNG fallbacks, and 16 image relationships. Source and LibreOffice round-trip packages strictly reopen and validate with 0 errors and 0 warnings. LibreOffice preserves shape order, names, alt text, SVG hashes, relationship roles, and 7+7 targets, normalizes `image/svg+xml` to `image/svg`, quantizes position/size by at most 360 EMU and `srcRect` by at most 0.003%, and may render the PNG fallback after save.
 
-SVG DOM editing, external SVG relationships, image rounding/transparency, alt-text editing, image hyperlink/shadow/placeholder support, and public per-image deletion/media garbage collection remain outside this slice. Media parity is next.
+SVG DOM editing, external SVG relationships, image rounding/transparency, alt-text editing, image hyperlink/shadow/placeholder support, and public per-image deletion/media garbage collection remain outside this slice. Strict embedded media creation is documented in the Media section below.
 
 ## Presentation format
 
@@ -637,16 +637,49 @@ const chain = document.masterLayoutTheme.materializeInheritedStyle(
 ## Media
 
 ```ts
-await document.addAudio(0, audioBuffer, {
+import { inches } from '@pptx/sdk';
+
+const poster =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAACXBIWXMAAAABAAAAAQBPJcTWAAAAEElEQVR4nGP8ywACLGCSAQANEQED1LYyQAAAAABJRU5ErkJggg==';
+
+await document.addAudio(0, 'data:audio/mpeg;base64,AQIDBA==', {
+  name: 'Opening narration',
+  altText: 'Opening narration audio',
+  poster,
+  x: inches(1),
+  y: inches(1),
+  width: inches(3),
+  height: inches(2),
   contentType: 'audio/mpeg',
-  play: 'click',
-  volume: 0.8,
+  play: 'auto',
+  loop: true,
+  hideWhenStopped: true,
+  volume: 0.5,
 });
 
-await document.addVideo(0, 'https://example.com/video.mp4');
+declare const videoBytes: Uint8Array;
+await document.addVideo(0, videoBytes, {
+  contentType: 'video/mp4',
+  fileName: 'overview.mp4',
+  poster,
+});
 ```
 
-Local media can come from paths, bytes, ArrayBuffers, or streams. External URLs are never fetched automatically and produce portability diagnostics.
+`MediaSource` is a Node path, strict base64 data URI, `Uint8Array`, `ArrayBuffer`, Blob/File, Web `ReadableStream<MediaByteChunk>`, or async iterable of byte chunks. A string beginning with HTTP/HTTPS is an external media relationship and is never fetched; other URL schemes are rejected. Posters use the same embedded-source union except that HTTP/HTTPS poster URLs are rejected. Omitted posters use a built-in one-pixel PNG.
+
+`AddMediaOptions` contains optional `name`, `altText`, `contentType`, `fileName`, `poster`, `posterContentType`, EMU `x`/`y`/`width`/`height`, `play: 'click' | 'auto'`, `loop`, `hideWhenStopped`, `volume: 0..1`, and an async `transcode(bytes, contentType, kind)` hook. Audio supports `audio/mpeg` (`.mp3`), `audio/mp4` (`.m4a`), `audio/wav` (`.wav`), and `audio/ogg` (`.ogg`). Video supports `video/mp4` (`.mp4`/`.m4v`), `video/quicktime` (`.mov`), and `video/webm` (`.webm`). Posters support `image/png` (`.png`), `image/jpeg` (`.jpg`/`.jpeg`), and `image/gif` (`.gif`).
+
+Descriptor resolution is explicit MIME assertion → data-URI MIME → known extension from `fileName`, path, URL path, or `File.name` → canonical domain default (`audio/mpeg`, `video/mp4`, or `image/png`). Explicit and declared MIME must match. A recognized extension must belong to the correct domain and match the resolved MIME; `.m4v` and `.jpeg` are preserved when explicitly inferred, otherwise the first canonical extension is used. Unknown extensions are ignored as evidence. `Blob.type` is not used. A transcode result must be an ordinary `{ bytes: Uint8Array, contentType, extension? }` object, and any explicit extension must be lowercase and exactly compatible with its output MIME.
+
+Media data URIs require the exact `data:<supported-mime>;base64,<payload>` form. Payloads must use the standard alphabet, complete padding, and canonical padding bits; empty data, whitespace, percent encoding, URL-safe characters, extra commas, and malformed or noncanonical padding are rejected.
+
+Request objects are descriptor-safe, getter-free, and reject unknown properties. Options, byte arrays, ArrayBuffers, transcode inputs/results, and final embedded payloads are detached from the caller. All asynchronous path/Blob/stream I/O, transcode work, poster loading, descriptor resolution, SHA-256 lookup, and XML-definition work completes before mutation. Part, content-type, relationship, and slide XML writes then run inside one synchronous package transaction; any failure leaves the package graph, ZIP state, shape IDs, and mutation journal unchanged.
+
+Embedded payloads deduplicate only when SHA-256 and exact MIME both match. Every embedded media picture uses a canonical `a:audioFile` or `a:videoFile`, a standard kind relationship, a Microsoft media relationship, an internal poster image relationship, a media click action, and a rectangular `p:pic`. `document.media(slideIndex)` returns the current direct media snapshots, including kind, shape ID, embedded part or external URL, poster part, and playback settings. The lower-level `@pptx/codecs` `MediaCodec.delete(slidePartUri, shapeId)` removes a picture and its relationships and garbage-collects only unreferenced `/ppt/media` targets; a document-level stable live deletion/editing surface remains pending.
+
+Playback preferences currently live in the private `px:playback` extension. They round-trip through this library but `addAudio()` / `addVideo()` do not yet synthesize a native PowerPoint timing tree. External media emits portability diagnostics. Under the PowerPoint 2010 profile, `audio/ogg` and `video/webm` emit expected codec warnings.
+
+PptxGenJS 4.0.1 valid public embedded-media cases are semantically covered, including data/path, audio/video, cover, extension, object name, transform, and repeated-path deduplication. Native deliberately uses `a:audioFile`, canonical `audio/mpeg`, and the standard audio relationship for every audio reference instead of copying PptxGenJS's invalid alternatives. Online video, remote-fetch embedding, stable live media identity/editing, complete duplicate/move/delete isolation, native timing-tree playback, captions/subtitles, and advanced media appearance remain pending.
 
 ## Diagnostics and errors
 

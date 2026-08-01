@@ -267,7 +267,57 @@ Three PptxGenJS 4.0.1 public conformance cases cover data-contain, path-cover, a
 
 The actual tarball passes Node, browser, declaration, and CLI SVG smoke, and two clean builds produce identical SHA-256 manifests for all 38 dist files. The five-slide gallery contains 13 shapes, eight SVG pictures, seven SVG parts, seven PNG fallbacks, and 16 image relationships. Source and LibreOffice round-trip packages strictly reopen and validate against PowerPoint 2010 with 0 errors and 0 warnings. LibreOffice preserves shape order, names, alt text, SVG hashes, relationship roles, and all 7+7 targets, while normalizing `image/svg+xml` to `image/svg`; maximum position/size quantization is 360 EMU and maximum `srcRect` quantization is 0.003%. After save it may render the PNG fallback, so fallback fidelity remains observable client behavior.
 
-External SVG relationships, SVG DOM-level editing, image rounding/transparency, alt-text editing, hyperlinks/shadows/placeholders, and public per-image deletion/media garbage collection remain pending. Media parity is the next image-adjacent slice.
+External SVG relationships, SVG DOM-level editing, image rounding/transparency, alt-text editing, hyperlinks/shadows/placeholders, and public per-image deletion/media garbage collection remain pending. Embedded media creation is documented next.
+
+## Create embedded audio and video
+
+```ts
+import { readFile } from 'node:fs/promises';
+import { inches, PptxDocument } from '@jiayunxie/pptx';
+
+const mediaDocument = PptxDocument.create();
+mediaDocument.addSlide();
+const poster =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAACXBIWXMAAAABAAAAAQBPJcTWAAAAEElEQVR4nGP8ywACLGCSAQANEQED1LYyQAAAAABJRU5ErkJggg==';
+
+await mediaDocument.addAudio(0, 'data:audio/mpeg;base64,AQIDBA==', {
+  name: 'Opening narration',
+  altText: 'Opening narration audio',
+  poster,
+  x: inches(1),
+  y: inches(1),
+  width: inches(3),
+  height: inches(2),
+  play: 'auto',
+  loop: true,
+  hideWhenStopped: true,
+  volume: 0.5,
+});
+
+const videoBytes = new Uint8Array(await readFile('overview.mp4'));
+await mediaDocument.addVideo(0, videoBytes, {
+  contentType: 'video/mp4',
+  fileName: 'overview.mp4',
+  poster,
+});
+await mediaDocument.writeFile('media.pptx');
+```
+
+`PptxDocument.addAudio()` and `addVideo()` accept Node paths, strict base64 data URIs, `Uint8Array`, `ArrayBuffer`, Blob/File, Web `ReadableStream`, and async byte iterables. Supported audio is `audio/mpeg` (`.mp3`), `audio/mp4` (`.m4a`), `audio/wav` (`.wav`), and `audio/ogg` (`.ogg`). Supported video is `video/mp4` (`.mp4`/`.m4v`), `video/quicktime` (`.mov`), and `video/webm` (`.webm`). Posters support `image/png`, `image/jpeg`, and `image/gif`; omission uses a built-in PNG. HTTP/HTTPS media remains external and is never fetched, while an HTTP/HTTPS poster is rejected.
+
+Descriptor priority is explicit `contentType` assertion, data-URI declaration, a known `fileName` or path/`File.name` extension, then the audio/video default. Conflicting assertions, declarations, or known extensions reject before package mutation. An unknown extension is not format evidence and the selected MIME receives its canonical extension. Data URIs require a supported MIME plus standard, fully padded canonical base64; whitespace, URL-safe alphabets, percent encoding, and noncanonical padding bits are rejected. `Blob.type` is not trusted.
+
+Options and memory byte sources detach before asynchronous work. Paths, Blobs, streams, optional transcoding, posters, descriptor resolution, and hashing all finish before one synchronous package transaction. Any failure leaves parts, content types, relationships, slide XML, ZIP state, shape IDs, and the mutation journal unchanged. Payloads deduplicate only when both SHA-256 and exact MIME match; deleting one reference preserves any still-referenced shared payload.
+
+Creation emits canonical `a:audioFile` or `a:videoFile`, the kind relationship, Microsoft media relationship, poster image relationship, media click action, and a rectangular poster picture. `name`, `altText`, EMU transforms, and playback preferences are strict; use `inches()` for placement. `play`, `loop`, `hideWhenStopped`, and `volume` currently round-trip through the library's private playback extension and do not yet materialize a native timing tree.
+
+Four of four valid public PptxGenJS 4.0.1 data/path, audio/video, cover, `extn`, `objectName`, and transform cases match final semantics. Native intentionally fixes three PptxGenJS defects: audio uses `a:audioFile`, MP3 uses canonical `audio/mpeg`, and duplicate audio retains the standard audio kind relationship.
+
+The actual npm tarball passes Node, browser, declaration, and CLI smoke, and two clean builds produce identical SHA-256 manifests for all 40 dist files. The five-slide all-format gallery has five audio objects, three video objects, seven unique media payloads, and 11 media/poster parts. It strictly reopens and passes 180-DPI rendering, overflow, and slide-by-slide visual inspection. The PowerPoint 2010 profile reports only the two expected OGG/WebM warnings; the portable subset excluding them has 0 errors and 0 warnings.
+
+LibreOffice currently removes all eight media objects, 24 media-role relationships, seven media payloads, four posters, eight alt-text values, and eight playback extensions when it saves the gallery. It preserves the five-slide order and 17 ordinary text objects with a maximum ordinary-transform delta of 360 EMU; the saved package still strictly reopens and validates with 0 errors and 0 warnings. This is a documented client degradation, not a native round-trip guarantee.
+
+The next media slice is stable live media identity, existing-media editing, and complete duplicate/move/delete isolation. Online video, remote-fetch embedding, native timing-tree playback, captions/subtitles, crop/rounding/shadow/hyperlink/placeholder styles, and broad client certification remain pending.
 
 `PRESET_SHAPE_TYPES` is the frozen discovery catalog for all 178 canonical preset geometries accepted by `SlideModel.addShape()`. `AddShapeOptions` accepts `name`, strict `adjustments`, strict `fill`, strict `line`, strict `arrows`, strict `shadow`, strict `hyperlink`, and native EMU/OOXML-angle transform fields; use `inches()` and `degrees()` for ergonomic conversion. Omitted geometry starts at x/y/width/height = 1 inch with zero rotation and no flips; omitted fill creates direct no-fill, and omitted line keeps the canonical empty line container. Inputs are strict, descriptor-safe, detached before mutation, and reject unknown fields. The catalog uses the valid OOXML `foldedCorner`; PptxGenJS 4.0.1's invalid `folderCorner` token and runtime-only `custGeom` value are not accepted as presets.
 

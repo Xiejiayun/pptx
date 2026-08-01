@@ -153,7 +153,7 @@ await document.writeFile('output.pptx');
 - Gradient/Transparency codec 支持 linear/path、任意 stop、角度、scaled、rotate-with-shape、flip、fill rectangle，以及 srgb/scrgb/scheme/system/preset color。
 - `alpha`、`alphaMod`、`alphaOff`、`alphaModFix` 和其他 color transforms 按原顺序 round-trip；`SlideModel.background` 与 shape `gradientFill` 可直接编辑。
 - Media codec 支持文件、Buffer、ArrayBuffer、stream、外链 URL、poster、内容哈希去重、Audio/Video 关系、复制引用和删除引用计数。
-- 媒体 click action 使用 Office 原生表达；autoplay/loop/hide/volume 偏好通过 opaque extension round-trip，并由 Timing codec 转为原生时间树。
+- 媒体 click action 使用 Office 原生表达；autoplay/loop/hide/volume 偏好通过 opaque extension round-trip。当前 `addAudio()` / `addVideo()` 不自动生成原生 timing tree，相关对接保留到后续 media lifecycle/timing 小项。
 - SDK 写入时汇总渐变、媒体和 external relationship 的 compatibility diagnostics。
 
 ### 新增功能演示
@@ -301,7 +301,7 @@ $ pptx-inspect --json package inspect output.pptx
 - 统一 `ImageSource` / `ImageContentType` / `ImageInfo` 与 `inspectImage()`、`inspectSvgImage()`、`calculateImageSizing()`；高层 `PptxDocument.addImage()` 覆盖 path、HTTP/HTTPS、browser-relative URL、strict data URI、bytes/ArrayBuffer、Blob/File、Web stream 与 async iterable 的 SVG，支持 optional MIME assertion、AbortSignal、contain/cover/crop 和 source-rectangle edit。
 - 高层 fallback 优先级固定为 explicit signature-valid PNG、browser Canvas rasterization、built-in transparent PNG；release evidence 中所有 `.png` part 都有真实 PNG signature。同步底层 API 只复制 non-empty bytes，由调用方保证 payload 正确。需要 fallback-only client 保持完整视觉时，调用方必须显式提供高质量 PNG。
 - PptxGenJS 4.0.1 data-contain、path-cover、data-crop 3/3 public conformance case 已匹配 picture order、transform、direct `srcRect`、extension URI/namespace、relationship roles、SVG payload 与 metadata；native 不复制其 path SVG 把 SVG bytes 写入 `.png` fallback 的缺陷。
-- external SVG relationship、SVG DOM 局部编辑、script execution、external-resource fetching、任意 SVG rasterization fidelity、image rounding/transparency、alt-text 编辑、hyperlink/shadow/placeholder、单图片删除与 media GC 保留在后续列表；下一对等小项为 media 收尾。
+- external SVG relationship、SVG DOM 局部编辑、script execution、external-resource fetching、任意 SVG rasterization fidelity、image rounding/transparency、alt-text 编辑、hyperlink/shadow/placeholder、单图片删除与 media GC 保留在后续列表；strict embedded media creation 已在下一节完成。
 
 ### 验证结果
 
@@ -310,6 +310,33 @@ $ pptx-inspect --json package inspect output.pptx
 - 5 页 gallery 为 13 shapes、8 SVG pictures、7 SVG parts、7 PNG fallbacks、16 image relationships，覆盖全部 source forms、explicit/default fallback、contain/cover/crop、live source-rectangle edit、rotation/flips、duplicate/replacement、特殊名称和 non-empty alt text。原件 strict reopen，PowerPoint 2010 validation 0 errors / 0 warnings，180 DPI overflow 0，已逐页视觉检查。
 - LibreOffice save/reopen 保留 shape order、names、alt text、SVG payload hashes、relationship roles、extension URI/namespace 与 7+7 targets，没有新增 dedup；将 `image/svg+xml` 规范化为 `image/svg`。最大 position/size delta 360 EMU，最大 `srcRect` delta 0.003%，raw rotation delta 10,800,000 来自 flip/rotation 等价规范化；PowerPoint 2010 validation 仍为 0 errors / 0 warnings。
 - LibreOffice 回存后可能选择 PNG fallback 渲染，而不是 retained SVG；结构与 SVG payload 未丢失，但 fallback-only 视觉质量由 PNG 决定。这一 client behavior 已写入公开文档，不误报为 SVG 视觉等同。
+
+## PptxGenJS 全功能对等：Embedded media creation
+
+状态：完成（创建与公开有效用例）；媒体专项 8/8
+
+### 本阶段 change
+
+- 新增 strict `PptxDocument.addAudio()` / `addVideo()` 创建链，覆盖 Node path、canonical base64 data URI、`Uint8Array`、`ArrayBuffer`、Blob/File、Web `ReadableStream`、async byte iterable 与 HTTP/HTTPS external relationship；HTTP/HTTPS 内容不抓取，poster URL 拒绝。
+- 支持 `audio/mpeg`、`audio/mp4`、`audio/wav`、`audio/ogg`，`video/mp4`、`video/quicktime`、`video/webm`，以及 PNG/JPEG/GIF poster；省略 poster 时使用 built-in PNG。MIME 决策固定为 explicit assertion → data URI declaration → known `fileName`/path/`File.name` extension → domain default，并严格拒绝 assertion/declaration/known-extension 冲突。
+- Data URI 只接受 supported MIME 与 canonical standard base64；Blob MIME 不作为事实。Options、in-memory byte sources 与 transcode input/result descriptor-safe、getter-free 并脱离 caller，所有异步 I/O、transcode、poster、MIME/extension、hash 与 XML definition 均在一个同步 package transaction 之前完成。
+- 创建 canonical `a:audioFile` / `a:videoFile` picture、standard kind relationship、Microsoft media relationship、poster image relationship、click action、name/alt text、EMU transform 与 private playback extension。相同 SHA-256 + exact MIME 的媒体或 poster target 会去重；delete-one 保留仍被引用的共享载荷；任何失败完整回滚 package graph、ZIP state、shape id 与 mutation journal。
+- PptxGenJS 4.0.1 public valid media conformance 为 4/4，覆盖 data/path、audio/video、cover、`extn`、`objectName`、transform 与重复路径。Native 不复制三个缺陷：audio 使用 `a:audioFile`，MP3 使用 canonical `audio/mpeg`，duplicate audio kind relationship 仍使用 standard audio relationship。
+- Data URI、cover/poster、MIME/extension mapping、object name、alt-text 创建、strict embedded audio/video creation 与 public conformance 已移入支持项。Playback preferences 仍在 private extension；native timing tree 不属于本阶段。
+
+### 验证结果
+
+- Focused media/codecs/SDK/PptxGenJS adapter suites 通过；全量 Vitest 为 895 项通过、1 项 performance 默认跳过，独立 performance gate、TypeScript strict typecheck、全仓 build 与 `@jiayunxie/pptx` build 通过。
+- Actual npm tarball 的 Node/browser/declaration/CLI media smoke 通过。Browser 覆盖 MP3 data URI、Blob video、Web Stream poster、Blob write/reopen、MIME/extension/name、三类 relationship、audio/video element count 与 poster signature。连续两次 clean build 的 40 个 dist 文件 SHA-256 manifest 完全一致。
+- 5 页全格式 gallery 含 5 audio、3 video、7 unique media payload、4 poster payload、11 个 `/ppt/media` parts、24 条 media-role relationships、8 个 non-empty alt text 与 8 个 playback extensions；覆盖 WAV/MP3/OGG/M4A、MP4/MOV/WebM、PNG/JPEG/GIF/default poster、全部 portable memory source、path、dedup 与 delete-one preservation。
+- Gallery 原件 strict reopen，180 DPI render、overflow 与逐页视觉检查通过。PowerPoint 2010 全格式 profile 只有 OGG 与 WebM 两条预期 warning；排除两种格式的可移植子集为 0 errors / 0 warnings。External deck 产生预期 portability diagnostics。
+- LibreOffice save/reopen 保留 5 页顺序与 17 个普通文本对象，最大普通 transform delta 为 360 EMU；同时删除全部 8 个 media pictures、24 条 media-role relationships、7 个 media payload、4 个 posters、8 个 alt text 与 8 个 playback extensions。回存文件仍可 strict reopen，validator 为 0 errors / 0 warnings；该结果明确记录为 client degradation。
+
+### 剩余媒体路线
+
+- 下一项：stable live media identity、已有媒体编辑与完整 duplicate/move/delete isolation。
+- 后续：online video、remote-fetch embedding、native timing-tree playback、captions/subtitles、crop/rounding/shadow/hyperlink/placeholder styles 与更广泛 PowerPoint/Keynote/Google Slides 客户端认证。
+- Embedded media creation 专项已完成，但 PptxGenJS 全功能对等仍未完成；总体路线继续为 media lifecycle → chart → slide background/number/default color → master/layout/placeholder → advanced text → advanced table/`tableToSlides` → output/runtime helpers → peer-range full-suite audit。
 
 ## 0.1.0 初始验收
 

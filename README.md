@@ -124,7 +124,57 @@ PptxGenJS 4.0.1 的 data-contain、path-cover、data-crop 3 个公开 case 已�
 
 实际 tarball 的 Node/browser/declaration/CLI smoke 通过，两次 clean build 的 38 个 dist 文件 SHA-256 完全一致。5 页 gallery 含 13 个 shapes、8 张 SVG picture、7 个 SVG parts、7 个 PNG fallbacks 和 16 条 image relationships；原件和 LibreOffice 回存件均 strict reopen，PowerPoint 2010 validation 为 0 errors / 0 warnings。LibreOffice 保留 shape order、名称、alt text、SVG hashes、关系角色和 7+7 targets，将 MIME 从 `image/svg+xml` 规范化为 `image/svg`；最大 position/size 量化 360 EMU、最大 `srcRect` 量化 0.003%，flip/rotation 采用等价规范化。它回存后可能选择 PNG fallback 渲染，所以旧客户端视觉仍以 fallback 质量为准。
 
-当前仍未提供 external SVG relationship、SVG DOM 局部编辑、rounding/transparency、alt-text 编辑、图片 hyperlink/shadow/placeholder，以及单图片删除与 media GC。下一对等小项是 media 收尾。
+当前仍未提供 external SVG relationship、SVG DOM 局部编辑、rounding/transparency、alt-text 编辑、图片 hyperlink/shadow/placeholder，以及单图片删除与 media GC。嵌入媒体创建能力见下一节。
+
+## 创建嵌入式音频与视频
+
+```ts
+import { readFile } from 'node:fs/promises';
+import { inches, PptxDocument } from '@jiayunxie/pptx';
+
+const document = PptxDocument.create();
+document.addSlide();
+const poster =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAACXBIWXMAAAABAAAAAQBPJcTWAAAAEElEQVR4nGP8ywACLGCSAQANEQED1LYyQAAAAABJRU5ErkJggg==';
+
+await document.addAudio(0, 'data:audio/mpeg;base64,AQIDBA==', {
+  name: 'Opening narration',
+  altText: 'Opening narration audio',
+  poster,
+  x: inches(1),
+  y: inches(1),
+  width: inches(3),
+  height: inches(2),
+  play: 'auto',
+  loop: true,
+  hideWhenStopped: true,
+  volume: 0.5,
+});
+
+const videoBytes = new Uint8Array(await readFile('overview.mp4'));
+await document.addVideo(0, videoBytes, {
+  contentType: 'video/mp4',
+  fileName: 'overview.mp4',
+  poster,
+});
+await document.writeFile('media.pptx');
+```
+
+`PptxDocument.addAudio()` 与 `addVideo()` 接受 Node path、strict base64 data URI、`Uint8Array`、`ArrayBuffer`、`Blob`/`File`、Web `ReadableStream` 和 async byte iterable。音频支持 `audio/mpeg` (`.mp3`)、`audio/mp4` (`.m4a`)、`audio/wav` (`.wav`) 与 `audio/ogg` (`.ogg`)；视频支持 `video/mp4` (`.mp4`/`.m4v`)、`video/quicktime` (`.mov`) 与 `video/webm` (`.webm`)；海报支持 `image/png`、`image/jpeg` 与 `image/gif`。省略海报时使用内建 PNG。HTTP/HTTPS 媒体保持 external relationship，库不会下载；HTTP/HTTPS 海报会被拒绝。
+
+MIME/扩展名解析优先级是显式 `contentType` assertion → data URI 声明 → `fileName` 或 path/`File.name` 的已知扩展名 → audio/video 默认值。Assertion 与 data URI MIME 不一致、已知扩展名与最终 MIME 不一致都会在 package mutation 前拒绝；未知扩展名不作为格式事实，输出使用所选 MIME 的 canonical extension。Data URI 必须包含受支持 MIME 和标准、完整 padding、canonical padding bits 的 base64，不能含空白、URL-safe alphabet 或 percent encoding。`Blob.type` 不参与判断。
+
+Options 和内存 bytes 会在异步读取前脱离 caller；path、Blob、stream、可选 `transcode` 与海报全部解析后，才进入一个同步 package transaction。任何验证、I/O、transcode、hash、relationship、part 或 XML 失败都会保持 parts、content types、关系、slide XML、ZIP state、shape id 与 mutation journal 不变。相同 SHA-256 且 MIME 完全相同的 media/poster payload 会复用同一 `/ppt/media` part；删除一个引用不会删除仍被其他对象引用的载荷。
+
+创建会写 canonical `a:audioFile` / `a:videoFile`、kind relationship、Microsoft media relationship、poster image relationship、media click action 与矩形海报 picture。`name`、`altText`、EMU transform 和 playback preferences 均受严格验证；使用 `inches()` 把布局尺寸转为 EMU。`play`、`loop`、`hideWhenStopped` 与 `volume` 当前保存在库的私有 playback extension 中，尚未自动生成 PowerPoint native timing tree。
+
+PptxGenJS 4.0.1 的 4/4 个公开有效 data/path、audio/video、cover、`extn`、`objectName` 与 transform 用例已达到最终语义对等。Native 有意修复其三个缺陷：音频使用 `a:audioFile` 而不是 `a:videoFile`，MP3 使用 canonical `audio/mpeg` 而不是 `audio/mp3`，重复音频的 kind relationship 仍使用标准 audio relationship 而不是 Microsoft media relationship。
+
+实际 npm tarball 的 Node、browser、declaration 与 CLI smoke 全部通过，连续两次 clean build 的 40 个 dist 文件 SHA-256 manifest 完全一致。5 页全格式 gallery 包含 5 个音频、3 个视频、7 个唯一媒体载荷和 11 个 media/poster parts；原件 strict reopen，180 DPI 渲染、overflow 与逐页视觉检查通过。全格式文件的 PowerPoint 2010 profile 只有 OGG/WebM 两条预期 warning，排除这两种格式的可移植子集为 0 errors / 0 warnings。
+
+LibreOffice 当前会在 save/reopen 时删除全部 8 个媒体对象、24 条媒体角色关系、7 个媒体载荷、4 个海报、8 个 alt text 和 8 个 playback extensions；它仍保留 5 页顺序与 17 个普通文本对象，最大普通 transform 差值为 360 EMU，回存文件可 strict reopen 且 validator 为 0 errors / 0 warnings。这是已记录的客户端降级，不是 native 写出或 round-trip 保留承诺。
+
+下一媒体小项是 stable live media lifecycle：稳定对象 identity、已有媒体编辑，以及完整 duplicate/move/delete isolation。之后仍需 online video、remote-fetch embedding、native timing-tree playback、captions/subtitles、crop/rounding/shadow/hyperlink/placeholder styles 与更广泛客户端认证。
 
 ## 创建和编辑预设形状、调整值与样式
 
