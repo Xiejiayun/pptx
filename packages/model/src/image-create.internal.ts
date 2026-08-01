@@ -22,10 +22,7 @@ const OPTION_KEYS = new Set([
   'sourceRectangle',
 ]);
 
-export interface NormalizedEmbeddedRasterImage {
-  readonly bytes: Uint8Array;
-  readonly contentType: RasterImageContentType;
-  readonly extension: '.png' | '.jpeg' | '.gif';
+export interface NormalizedEmbeddedImageAppearance {
   readonly name: string | undefined;
   readonly altText: string;
   readonly x: number;
@@ -36,6 +33,13 @@ export interface NormalizedEmbeddedRasterImage {
   readonly flipHorizontal: boolean;
   readonly flipVertical: boolean;
   readonly sourceRectangle?: Readonly<NormalizedImageSourceRectangle>;
+}
+
+export interface NormalizedEmbeddedRasterImage
+  extends NormalizedEmbeddedImageAppearance {
+  readonly bytes: Uint8Array;
+  readonly contentType: RasterImageContentType;
+  readonly extension: '.png' | '.jpeg' | '.gif';
 }
 
 export function normalizeEmbeddedRasterImage(
@@ -93,9 +97,23 @@ export function renderEmbeddedRasterImageXml(
   relationshipId: string,
   defaultName: string,
 ): string {
+  const embed = escapeXmlAttribute(relationshipId);
+  return renderEmbeddedImageXml(
+    id,
+    definition,
+    `<a:blip r:embed="${embed}"/>`,
+    defaultName,
+  );
+}
+
+export function renderEmbeddedImageXml(
+  id: number,
+  definition: Readonly<NormalizedEmbeddedImageAppearance>,
+  blipXml: string,
+  defaultName: string,
+): string {
   const name = escapeXmlAttribute(definition.name ?? defaultName);
   const altText = escapeXmlAttribute(definition.altText);
-  const embed = escapeXmlAttribute(relationshipId);
   const transformAttributes = [
     definition.rotation === 0 ? '' : ` rot="${definition.rotation}"`,
     definition.flipHorizontal ? ' flipH="1"' : '',
@@ -108,7 +126,7 @@ export function renderEmbeddedRasterImageXml(
   return '<p:pic>'
     + `<p:nvPicPr><p:cNvPr id="${id}" name="${name}" descr="${altText}"/>`
     + '<p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr>'
-    + `<p:blipFill><a:blip r:embed="${embed}"/>${sourceRectangle}`
+    + `<p:blipFill>${blipXml}${sourceRectangle}`
     + '<a:stretch><a:fillRect/></a:stretch></p:blipFill>'
     + `<p:spPr><a:xfrm${transformAttributes}>`
     + `<a:off x="${definition.x}" y="${definition.y}"/>`

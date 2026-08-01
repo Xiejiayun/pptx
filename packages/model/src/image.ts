@@ -1,6 +1,7 @@
 import type { Transform } from './units.js';
 
 export type RasterImageContentType = 'image/png' | 'image/jpeg' | 'image/gif';
+export type SvgImageContentType = 'image/svg+xml';
 
 export interface ImageSourceRectangle {
   readonly left: number;
@@ -11,6 +12,12 @@ export interface ImageSourceRectangle {
 
 export interface AddImageOptions extends Partial<Transform> {
   readonly contentType: RasterImageContentType;
+  readonly name?: string;
+  readonly altText?: string;
+  readonly sourceRectangle?: ImageSourceRectangle;
+}
+
+export interface AddSvgImageOptions extends Partial<Transform> {
   readonly name?: string;
   readonly altText?: string;
   readonly sourceRectangle?: ImageSourceRectangle;
