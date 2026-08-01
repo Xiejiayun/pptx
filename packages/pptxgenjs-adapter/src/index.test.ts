@@ -8,6 +8,7 @@ import {
   degrees,
   ImageModel,
   inches,
+  inspectRasterImage,
   PRESET_SHAPE_TYPES,
   PptxDocument,
   ShapeModel,
@@ -167,6 +168,15 @@ const JPEG_DATA_URI =
   'data:image/jpeg;base64,/9j/4AAQSkZJRgABAgAAAQABAAD//gAQTGF2YzYyLjI4LjEwMAD/2wBDAAgEBAQEBAUFBQUFBQYGBgYGBgYGBgYGBgYHBwcICAgHBwcGBgcHCAgICAkJCQgICAgJCQoKCgwMCwsODg4RERT/xABMAAEBAAAAAAAAAAAAAAAAAAAABgEBAQAAAAAAAAAAAAAAAAAABgcQAQAAAAAAAAAAAAAAAAAAAAARAQAAAAAAAAAAAAAAAAAAAAD/wAARCAACAAIDASIAAhEAAxEA/9oADAMBAAIRAxEAPwCLAE1/f//Z';
 const GIF_DATA_URI =
   'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
+const SVG_BYTES = new TextEncoder().encode(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900">'
+  + '<rect width="1600" height="900" fill="#4472C4"/></svg>',
+);
+const SVG_DATA_URI = `data:image/svg+xml;base64,${Buffer.from(SVG_BYTES).toString('base64')}`;
+const SVG_EXTENSION_URI = '{96DAC541-7B7A-43D3-8B79-37D633B846F1}';
+const SVG_NAMESPACE = 'http://schemas.microsoft.com/office/drawing/2016/SVG/main';
+const IMAGE_RELATIONSHIP =
+  'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image';
 const sectionState = (document: PptxDocument) =>
   document.sections?.map(({ title, slideIds }) => ({ title, slideIds }));
 
@@ -266,6 +276,61 @@ function embeddedRasterSizingState(
     image,
   );
   return state;
+}
+
+function embeddedSvgState(
+  document: PptxDocument,
+  slideIndex: number,
+  image: ImageModel,
+) {
+  const slide = document.slides[slideIndex]!;
+  const xml = pictureXml(document, slideIndex, image.id);
+  const fallbackRelationshipId = xml.match(
+    /<a:blip\b[^>]*\br:embed="([^"]+)"/,
+  )?.[1];
+  const svgRelationshipId = xml.match(
+    /<asvg:svgBlip\b[^>]*\br:embed="([^"]+)"/,
+  )?.[1];
+  const fallbackRelationship = slide.relationships.find(
+    ({ id }) => id === fallbackRelationshipId,
+  );
+  const svgRelationship = slide.relationships.find(
+    ({ id }) => id === svgRelationshipId,
+  );
+  const fallbackPartUri = image.fallbackPartUri!;
+  const svgPartUri = image.svgPartUri!;
+  const fallbackPart = document.opcPackage.requirePart(fallbackPartUri);
+  const svgPart = document.opcPackage.requirePart(svgPartUri);
+  return {
+    kind: image.kind,
+    isSvg: image.isSvg,
+    name: image.name,
+    altText: xml.match(/<p:cNvPr\b[^>]*\bdescr="([^"]*)"/)?.[1],
+    transform: image.transform,
+    sourceRectangle: image.sourceRectangle,
+    sourceRectangleRaw: directSourceRectangleRaw(xml),
+    fallbackContentType: fallbackPart.contentType,
+    svgContentType: svgPart.contentType,
+    svgBytes: [...svgPart.bytes],
+    extensionUri: xml.match(
+      /<a:ext\b[^>]*\buri="([^"]+)"[^>]*>[\s\S]*?<asvg:svgBlip/,
+    )?.[1],
+    extensionNamespace: xml.match(
+      /<asvg:svgBlip\b[^>]*\bxmlns:asvg="([^"]+)"/,
+    )?.[1],
+    relationshipRoles: {
+      fallback: {
+        type: fallbackRelationship?.type,
+        targetMode: fallbackRelationship?.targetMode,
+        resolvesToExpectedPart: fallbackRelationship?.resolvedTarget === fallbackPartUri,
+      },
+      svg: {
+        type: svgRelationship?.type,
+        targetMode: svgRelationship?.targetMode,
+        resolvesToExpectedPart: svgRelationship?.resolvedTarget === svgPartUri,
+      },
+    },
+  };
 }
 
 function directSourceRectangleRaw(xml: string) {
@@ -548,6 +613,209 @@ describe('importPptxGenJS', () => {
       await rm(directory, { recursive: true, force: true });
     }
   }, 20_000);
+
+  it('matches PptxGenJS SVG data/path pictures, sizing, and OOXML roles', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'pptxgenjs-svg-conformance-'));
+    try {
+      const svgPath = join(directory, 'source.svg');
+      await writeFile(svgPath, SVG_BYTES);
+      const fallback = new Uint8Array(Buffer.from(PNG_DATA_URI.split(',')[1]!, 'base64'));
+      const cases = [
+        {
+          name: 'Data contain SVG',
+          generatedSource: { data: SVG_DATA_URI },
+          nativeSource: SVG_DATA_URI,
+          generatedSizing: { type: 'contain', w: 4, h: 3 },
+          nativeSizing: { type: 'contain', width: inches(4), height: inches(3) },
+          raw: { left: 0, top: -16_667, right: 0, bottom: -16_667 },
+        },
+        {
+          name: 'Path cover SVG',
+          generatedSource: { path: svgPath },
+          nativeSource: svgPath,
+          generatedSizing: { type: 'cover', w: 4, h: 3 },
+          nativeSizing: { type: 'cover', width: inches(4), height: inches(3) },
+          raw: { left: 12_500, top: 0, right: 12_500, bottom: 0 },
+        },
+        {
+          name: 'Data crop SVG',
+          generatedSource: { data: SVG_DATA_URI },
+          nativeSource: SVG_DATA_URI,
+          generatedSizing: { type: 'crop', x: 4, y: 2.25, w: 8, h: 4.5 },
+          nativeSizing: {
+            type: 'crop',
+            width: inches(8),
+            height: inches(4.5),
+            source: { x: 400, y: 225, width: 800, height: 450 },
+          },
+          raw: { left: 25_000, top: 25_000, right: 25_000, bottom: 25_000 },
+        },
+      ] as const;
+
+      const generated = new PptxGenJS();
+      expect(generated.version).toBe('4.0.1');
+      const generatedSlide = generated.addSlide();
+      const native = PptxDocument.create();
+      native.addSlide();
+      for (const [index, entry] of cases.entries()) {
+        const x = index + 1;
+        const y = index + 0.5;
+        const rotation = 15 * (index + 1);
+        const flipHorizontal = index !== 1;
+        const flipVertical = index !== 0;
+        generatedSlide.addImage({
+          ...entry.generatedSource,
+          x,
+          y,
+          w: 16,
+          h: 9,
+          sizing: entry.generatedSizing,
+          rotate: rotation,
+          flipH: flipHorizontal,
+          flipV: flipVertical,
+          objectName: entry.name,
+          altText: `${entry.name} alt`,
+        });
+        await native.addImage(0, entry.nativeSource, {
+          fallback,
+          x: inches(x),
+          y: inches(y),
+          sizing: entry.nativeSizing,
+          rotation: degrees(rotation),
+          flipHorizontal,
+          flipVertical,
+          name: entry.name,
+          altText: `${entry.name} alt`,
+        });
+      }
+
+      const imported = await importPptxGenJS(generated);
+      const importedImages = imported.slides[0]!.shapes as readonly ImageModel[];
+      const nativeImages = native.slides[0]!.shapes as readonly ImageModel[];
+      expect(importedImages.map(({ name }) => name)).toEqual(cases.map(({ name }) => name));
+      expect(nativeImages.map(({ name }) => name)).toEqual(cases.map(({ name }) => name));
+      for (const [index, entry] of cases.entries()) {
+        const importedImage = importedImages[index]!;
+        const nativeImage = nativeImages[index]!;
+        expect(embeddedSvgState(imported, 0, importedImage))
+          .toEqual(embeddedSvgState(native, 0, nativeImage));
+        expect(embeddedSvgState(native, 0, nativeImage)).toMatchObject({
+          extensionUri: SVG_EXTENSION_URI,
+          extensionNamespace: SVG_NAMESPACE,
+          sourceRectangleRaw: entry.raw,
+          fallbackContentType: 'image/png',
+          svgContentType: 'image/svg+xml',
+          svgBytes: [...SVG_BYTES],
+          relationshipRoles: {
+            fallback: {
+              type: IMAGE_RELATIONSHIP,
+              targetMode: 'Internal',
+              resolvesToExpectedPart: true,
+            },
+            svg: {
+              type: IMAGE_RELATIONSHIP,
+              targetMode: 'Internal',
+              resolvesToExpectedPart: true,
+            },
+          },
+        });
+        const nativeFallback = native.opcPackage.requirePart(nativeImage.fallbackPartUri!).bytes;
+        expect(nativeFallback.byteLength).toBeGreaterThan(24);
+        expect(inspectRasterImage(nativeFallback).contentType).toBe('image/png');
+        const importedFallback = imported.opcPackage
+          .requirePart(importedImage.fallbackPartUri!).bytes;
+        if ('path' in entry.generatedSource) {
+          expect(importedFallback).toEqual(SVG_BYTES);
+          expect(() => inspectRasterImage(importedFallback)).toThrow();
+        } else {
+          expect(inspectRasterImage(importedFallback).contentType).toBe('image/png');
+        }
+      }
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  }, 30_000);
+
+  it('imports and atomically edits PptxGenJS SVG pairs without disturbing neighbors', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'pptxgenjs-svg-edit-'));
+    try {
+      const svgPath = join(directory, 'editable.svg');
+      await writeFile(svgPath, SVG_BYTES);
+      const generated = new PptxGenJS();
+      const generatedSlide = generated.addSlide();
+      for (const [index, source] of [
+        { data: SVG_DATA_URI },
+        { path: svgPath },
+        { data: SVG_DATA_URI },
+      ].entries()) {
+        generatedSlide.addImage({
+          ...source,
+          x: index,
+          y: index,
+          w: 4,
+          h: 2.25,
+          objectName: `Imported SVG ${index + 1}`,
+          altText: `Neighbor ${index + 1}`,
+        });
+      }
+
+      const imported = await openPptxGenJSPublicOutput(generated);
+      const images = imported.slides[0]!.shapes as readonly ImageModel[];
+      expect(images).toHaveLength(3);
+      expect(images.every(({ isSvg, fallbackPartUri, svgPartUri }) =>
+        isSvg && fallbackPartUri !== undefined && svgPartUri !== undefined)).toBe(true);
+      const neighborParts = [images[0]!, images[2]!].map((image) => ({
+        fallbackPartUri: image.fallbackPartUri!,
+        fallbackBytes: new Uint8Array(
+          imported.opcPackage.requirePart(image.fallbackPartUri!).bytes,
+        ),
+        svgPartUri: image.svgPartUri!,
+        svgBytes: new Uint8Array(imported.opcPackage.requirePart(image.svgPartUri!).bytes),
+      }));
+      const edited = images[1]!;
+      const editedFallbackPartUri = edited.fallbackPartUri!;
+      const editedSvgPartUri = edited.svgPartUri!;
+      const replacementSvg = new TextEncoder().encode(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"/>',
+      );
+      const replacementFallback = new Uint8Array(
+        Buffer.from(PNG_DATA_URI.split(',')[1]!, 'base64'),
+      );
+
+      edited.replaceSvgData(replacementSvg, replacementFallback);
+
+      expect(edited.fallbackPartUri).toBe(editedFallbackPartUri);
+      expect(edited.svgPartUri).toBe(editedSvgPartUri);
+      for (const neighbor of neighborParts) {
+        expect(imported.opcPackage.requirePart(neighbor.fallbackPartUri).bytes)
+          .toEqual(neighbor.fallbackBytes);
+        expect(imported.opcPackage.requirePart(neighbor.svgPartUri).bytes)
+          .toEqual(neighbor.svgBytes);
+      }
+
+      const reopened = await PptxDocument.open(await imported.write());
+      const reopenedImages = reopened.slides[0]!.shapes as readonly ImageModel[];
+      expect(reopenedImages.map(({ name }) => name)).toEqual([
+        'Imported SVG 1',
+        'Imported SVG 2',
+        'Imported SVG 3',
+      ]);
+      expect(reopenedImages.every(({ isSvg, fallbackPartUri, svgPartUri }) =>
+        isSvg && fallbackPartUri !== undefined && svgPartUri !== undefined)).toBe(true);
+      expect(reopened.opcPackage.requirePart(reopenedImages[1]!.fallbackPartUri!).bytes)
+        .toEqual(replacementFallback);
+      expect(reopened.opcPackage.requirePart(reopenedImages[1]!.svgPartUri!).bytes)
+        .toEqual(replacementSvg);
+      for (const neighbor of neighborParts) {
+        expect(reopened.opcPackage.requirePart(neighbor.fallbackPartUri).bytes)
+          .toEqual(neighbor.fallbackBytes);
+        expect(reopened.opcPackage.requirePart(neighbor.svgPartUri).bytes)
+          .toEqual(neighbor.svgBytes);
+      }
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  }, 30_000);
 
   it('records PptxGenJS sizing fallbacks while native rejects ambiguous or unsafe state', async () => {
     const landscape = pngHeader(1600, 900);

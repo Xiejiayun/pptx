@@ -447,6 +447,53 @@ describe('PptxDocument vertical slice', () => {
     expect(reopenedImage.sourceRectangle).toEqual(image.sourceRectangle);
   });
 
+  it('imports arbitrary SVG and relationship prefixes without rewriting unrelated XML', async () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const image = slide.addSvgImage(sdkSvg(640, 360), sdkPngHeader(1, 1), {
+      name: 'Alternate prefix SVG',
+    });
+    const part = document.opcPackage.requirePart(slide.partUri);
+    const source = new TextDecoder().decode(part.bytes);
+    const prefixed = source
+      .replace(
+        '<asvg:svgBlip xmlns:asvg="http://schemas.microsoft.com/office/drawing/2016/SVG/main" r:embed="',
+        '<vector:svgBlip xmlns:vector="http://schemas.microsoft.com/office/drawing/2016/SVG/main" '
+        + 'xmlns:rel="http://schemas.openxmlformats.org/officeDocument/2006/relationships" '
+        + 'rel:embed="',
+      )
+      .replace(
+        '</a:extLst>',
+        '<a:ext uri="urn:keep"><keep:opaque xmlns:keep="urn:keep">UNCHANGED</keep:opaque>'
+        + '</a:ext></a:extLst>',
+      );
+    expect(prefixed).not.toBe(source);
+    document.opcPackage.setPart(slide.partUri, prefixed, part.contentType);
+
+    const imported = await PptxDocument.open(await document.write());
+    const importedSlide = imported.slides[0]!;
+    const importedImage = importedSlide.shapes[0] as ImageModel;
+    expect(importedImage.isSvg).toBe(true);
+    expect(importedImage.fallbackPartUri).toBe(image.fallbackPartUri);
+    expect(importedImage.svgPartUri).toBe(image.svgPartUri);
+    const before = new Uint8Array(imported.opcPackage.requirePart(importedSlide.partUri).bytes);
+
+    importedImage.replaceSvgData(sdkSvg(800, 600), sdkPngHeader(2, 2));
+
+    expect(imported.opcPackage.requirePart(importedSlide.partUri).bytes).toEqual(before);
+    const unchanged = new TextDecoder().decode(before);
+    expect(unchanged).toContain('<vector:svgBlip');
+    expect(unchanged).toContain('rel:embed=');
+    expect(unchanged).toContain('<keep:opaque xmlns:keep="urn:keep">UNCHANGED</keep:opaque>');
+    const reopened = await PptxDocument.open(await imported.write());
+    const reopenedImage = reopened.slides[0]!.shapes[0] as ImageModel;
+    expect(reopenedImage.isSvg).toBe(true);
+    expect(reopened.opcPackage.requirePart(reopenedImage.svgPartUri!).bytes)
+      .toEqual(sdkSvg(800, 600));
+    expect(reopened.opcPackage.requirePart(reopenedImage.fallbackPartUri!).bytes)
+      .toEqual(sdkPngHeader(2, 2));
+  });
+
   it('rejects raster fallback without reading it and leaves failed SVG additions unchanged', async () => {
     const document = PptxDocument.create();
     const slide = document.addSlide();

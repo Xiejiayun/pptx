@@ -921,6 +921,73 @@ describe('PresentationModel', () => {
       .toHaveLength(4);
   });
 
+  it('imports LibreOffice-normalized shared SVG targets and isolates one pair', async () => {
+    const { pkg, model } = emptyPresentationModel();
+    const slide = model.addSlide();
+    const created = slide.addSvgImage(new Uint8Array([1]), new Uint8Array([2]));
+    const sharedFallbackPartUri = created.fallbackPartUri!;
+    const sharedSvgPartUri = created.svgPartUri!;
+    pkg.setPart(sharedSvgPartUri, new Uint8Array([1]), 'image/svg');
+    const part = pkg.requirePart(slide.partUri);
+    const source = new TextDecoder().decode(part.bytes);
+    const picture = source.match(/<p:pic>.*?<\/p:pic>/)?.[0];
+    expect(picture).toBeTruthy();
+    const second = picture!
+      .replace('id="2"', 'id="3"')
+      .replace('name="Image 0"', 'name="LibreOffice SVG 2"');
+    const third = picture!
+      .replace('id="2"', 'id="4"')
+      .replace('name="Image 0"', 'name="LibreOffice SVG 3"');
+    pkg.setPart(
+      slide.partUri,
+      source.replace('</p:spTree>', `${second}${third}</p:spTree>`),
+      part.contentType,
+    );
+    const [firstImage, editedImage, thirdImage] = slide.shapes as readonly ImageModel[];
+
+    for (const image of [firstImage!, editedImage!, thirdImage!]) {
+      expect(image.isSvg).toBe(true);
+      expect(image.fallbackPartUri).toBe(sharedFallbackPartUri);
+      expect(image.svgPartUri).toBe(sharedSvgPartUri);
+    }
+
+    editedImage!.replaceSvgData(new Uint8Array([3]), new Uint8Array([4]));
+
+    expect(firstImage!.fallbackPartUri).toBe(sharedFallbackPartUri);
+    expect(firstImage!.svgPartUri).toBe(sharedSvgPartUri);
+    expect(thirdImage!.fallbackPartUri).toBe(sharedFallbackPartUri);
+    expect(thirdImage!.svgPartUri).toBe(sharedSvgPartUri);
+    expect(editedImage!.fallbackPartUri).not.toBe(sharedFallbackPartUri);
+    expect(editedImage!.svgPartUri).not.toBe(sharedSvgPartUri);
+    expect(pkg.requirePart(sharedFallbackPartUri)).toMatchObject({
+      contentType: 'image/png',
+      bytes: new Uint8Array([2]),
+    });
+    expect(pkg.requirePart(sharedSvgPartUri)).toMatchObject({
+      contentType: 'image/svg',
+      bytes: new Uint8Array([1]),
+    });
+    expect(pkg.requirePart(editedImage!.fallbackPartUri!)).toMatchObject({
+      contentType: 'image/png',
+      bytes: new Uint8Array([4]),
+    });
+    expect(pkg.requirePart(editedImage!.svgPartUri!)).toMatchObject({
+      contentType: 'image/svg+xml',
+      bytes: new Uint8Array([3]),
+    });
+    expect(slide.relationships.filter(({ type }) => type === IMAGE_RELATIONSHIP))
+      .toHaveLength(4);
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedImages = reopened.slides[0]!.shapes as readonly ImageModel[];
+    expect(reopenedImages).toHaveLength(3);
+    expect(reopenedImages.every(({ isSvg }) => isSvg)).toBe(true);
+    expect(reopenedImages[0]!.fallbackPartUri).toBe(sharedFallbackPartUri);
+    expect(reopenedImages[2]!.svgPartUri).toBe(sharedSvgPartUri);
+    expect(reopenedImages[1]!.fallbackPartUri).toBe(editedImage!.fallbackPartUri);
+    expect(reopenedImages[1]!.svgPartUri).toBe(editedImage!.svgPartUri);
+  });
+
   it('handles independently shared and noncanonical SVG targets', () => {
     const { pkg, model } = emptyPresentationModel();
     const slide = model.addSlide();
