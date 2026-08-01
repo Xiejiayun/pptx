@@ -1,8 +1,13 @@
-import type { AddImageOptions, RasterImageContentType } from '@pptx/model';
+import type {
+  AddImageOptions,
+  RasterImageContentType,
+  SvgImageContentType,
+} from '@pptx/model';
 import {
   normalizeRasterImageSizing,
   type RasterImageSizing,
 } from './raster-image-sizing.js';
+import { inspectSvgImage, type SvgImageInfo } from './svg-image-source.js';
 
 const PNG_SIGNATURE = Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10]);
 const GIF87A_SIGNATURE = Uint8Array.from([71, 73, 70, 56, 55, 97]);
@@ -84,6 +89,23 @@ export interface ResolvedRasterImageSource {
   readonly assertedContentType?: RasterImageContentType;
 }
 
+export type ImageContentType = RasterImageContentType | SvgImageContentType;
+export type ImageByteChunk = RasterImageByteChunk;
+export type ImageByteStream = RasterImageByteStream;
+export type ImageSource = RasterImageSource;
+export type ImageInfo = RasterImageInfo | SvgImageInfo;
+
+export interface ResolvedImageSource {
+  readonly bytes: Uint8Array;
+  readonly info: ImageInfo;
+  readonly assertedContentType?: ImageContentType;
+}
+
+interface LoadedImageSource {
+  readonly bytes: Uint8Array;
+  readonly assertedContentType?: ImageContentType;
+}
+
 export function inspectRasterImage(bytes: Uint8Array): RasterImageInfo {
   if (!(bytes instanceof Uint8Array)) {
     throw new TypeError('Raster image bytes must be a Uint8Array');
@@ -107,6 +129,16 @@ export function inspectRasterImage(bytes: Uint8Array): RasterImageInfo {
     throw new TypeError('Truncated JPEG signature');
   }
   throw new TypeError('Unsupported raster image signature');
+}
+
+export function inspectImage(bytes: Uint8Array): ImageInfo {
+  if (!(bytes instanceof Uint8Array)) {
+    throw new TypeError('Image bytes must be a Uint8Array');
+  }
+  if (bytes.byteLength === 0) throw new TypeError('Image bytes cannot be empty');
+  return isRasterImageCandidate(bytes)
+    ? inspectRasterImage(bytes)
+    : inspectSvgImage(bytes);
 }
 
 export function normalizeAddImageSourceOptions(
@@ -176,10 +208,64 @@ export function assertRasterImageContentType(
   }
 }
 
+export function assertImageContentType(
+  expected: ImageContentType | undefined,
+  resolved: Readonly<ResolvedImageSource>,
+): void {
+  if (expected !== undefined && expected !== resolved.info.contentType) {
+    throw new TypeError(
+      `Image contentType expected ${expected} but the detected type is ${resolved.info.contentType}`,
+    );
+  }
+  if (
+    resolved.assertedContentType !== undefined
+    && resolved.assertedContentType !== resolved.info.contentType
+  ) {
+    throw new TypeError(
+      `Image source declares ${resolved.assertedContentType} but the detected type is ${resolved.info.contentType}`,
+    );
+  }
+}
+
 export async function resolveRasterImageSource(
   source: RasterImageSource,
   signal?: AbortSignal,
 ): Promise<ResolvedRasterImageSource> {
+  const loaded = await loadImageSource(source, signal);
+  if (loaded.assertedContentType === 'image/svg+xml') {
+    throw new TypeError('Raster image data URI cannot declare image/svg+xml');
+  }
+  const resolved: ResolvedRasterImageSource = {
+    bytes: loaded.bytes,
+    info: inspectRasterImage(loaded.bytes),
+    ...(loaded.assertedContentType === undefined
+      ? {}
+      : { assertedContentType: loaded.assertedContentType }),
+  };
+  assertRasterImageContentType(undefined, resolved);
+  return resolved;
+}
+
+export async function resolveImageSource(
+  source: ImageSource,
+  signal?: AbortSignal,
+): Promise<ResolvedImageSource> {
+  const loaded = await loadImageSource(source, signal);
+  const resolved: ResolvedImageSource = {
+    bytes: loaded.bytes,
+    info: inspectImage(loaded.bytes),
+    ...(loaded.assertedContentType === undefined
+      ? {}
+      : { assertedContentType: loaded.assertedContentType }),
+  };
+  assertImageContentType(undefined, resolved);
+  return resolved;
+}
+
+async function loadImageSource(
+  source: ImageSource,
+  signal?: AbortSignal,
+): Promise<LoadedImageSource> {
   throwIfAborted(signal);
   if (typeof source === 'string') {
     const resolved = await resolveStringSource(source, signal);
@@ -200,21 +286,21 @@ export async function resolveRasterImageSource(
   } else if (isAsyncIterable(source)) {
     bytes = await readAsyncIterable(source, signal);
   } else {
-    throw new TypeError('Unsupported raster image source type');
+    throw new TypeError('Unsupported image source type');
   }
   throwIfAborted(signal);
-  return { bytes, info: inspectRasterImage(bytes) };
+  return { bytes };
 }
 
 async function resolveStringSource(
   source: string,
   signal?: AbortSignal,
-): Promise<ResolvedRasterImageSource> {
-  if (source.length === 0) throw new TypeError('Raster image source string cannot be empty');
+): Promise<LoadedImageSource> {
+  if (source.length === 0) throw new TypeError('Image source string cannot be empty');
   if (/^data:/i.test(source)) return resolveDataUri(source);
   if (/^https?:\/\//i.test(source)) return resolveFetchSource(source, signal);
   if (hasUriScheme(source) && !isWindowsDrivePath(source)) {
-    throw new TypeError('Unsupported raster image URL scheme');
+    throw new TypeError('Unsupported image URL scheme');
   }
   return isNodeRuntime()
     ? resolveNodePath(source, signal)
@@ -224,7 +310,7 @@ async function resolveStringSource(
 async function resolveNodePath(
   path: string,
   signal?: AbortSignal,
-): Promise<ResolvedRasterImageSource> {
+): Promise<LoadedImageSource> {
   throwIfAborted(signal);
   const fs = await loadNodeModule<NodeFsPromises>(['node:fs', 'promises'].join('/'));
   let input: Uint8Array;
@@ -236,15 +322,15 @@ async function resolveNodePath(
   }
   throwIfAborted(signal);
   const bytes = new Uint8Array(input);
-  return { bytes, info: inspectRasterImage(bytes) };
+  return { bytes };
 }
 
 async function resolveFetchSource(
   url: string,
   signal?: AbortSignal,
-): Promise<ResolvedRasterImageSource> {
+): Promise<LoadedImageSource> {
   if (typeof globalThis.fetch !== 'function') {
-    throw new Error('Raster image URL loading requires the Fetch API');
+    throw new Error('Image URL loading requires the Fetch API');
   }
   throwIfAborted(signal);
   let response: Response;
@@ -256,7 +342,7 @@ async function resolveFetchSource(
   }
   throwIfAborted(signal);
   if (!response.ok) {
-    throw new TypeError(`Raster image request failed with HTTP ${response.status}`);
+    throw new TypeError(`Image request failed with HTTP ${response.status}`);
   }
   let input: ArrayBuffer;
   try {
@@ -267,51 +353,45 @@ async function resolveFetchSource(
   }
   throwIfAborted(signal);
   const bytes = new Uint8Array(new Uint8Array(input));
-  return { bytes, info: inspectRasterImage(bytes) };
+  return { bytes };
 }
 
-function resolveDataUri(source: string): ResolvedRasterImageSource {
-  const match = /^data:(image\/(?:png|jpeg|gif));base64,([A-Za-z0-9+/]*={0,2})$/i.exec(source);
+function resolveDataUri(source: string): LoadedImageSource {
+  const match = /^data:(image\/(?:png|jpeg|gif|svg\+xml));base64,([A-Za-z0-9+/]*={0,2})$/i.exec(source);
   if (!match || match[0] !== source) {
     throw new TypeError(
-      'Raster image data URI must use image/png, image/jpeg, or image/gif with canonical base64 data',
+      'Image data URI must use image/png, image/jpeg, image/gif, or image/svg+xml with canonical base64 data',
     );
   }
-  const assertedContentType = match[1]!.toLowerCase() as RasterImageContentType;
+  const assertedContentType = match[1]!.toLowerCase() as ImageContentType;
   const bytes = decodeCanonicalBase64(match[2]!);
-  const info = inspectRasterImage(bytes);
-  if (assertedContentType !== info.contentType) {
-    throw new TypeError(
-      `Raster image data URI declares ${assertedContentType} but the signature is ${info.contentType}`,
-    );
-  }
-  return { bytes, info, assertedContentType };
+  return { bytes, assertedContentType };
 }
 
 function decodeCanonicalBase64(payload: string): Uint8Array {
-  if (payload.length === 0) throw new TypeError('Raster image data URI payload cannot be empty');
+  if (payload.length === 0) throw new TypeError('Image data URI payload cannot be empty');
   if (payload.length % 4 !== 0) {
-    throw new TypeError('Raster image data URI payload has invalid base64 length');
+    throw new TypeError('Image data URI payload has invalid base64 length');
   }
   const firstPadding = payload.indexOf('=');
   const padding = firstPadding === -1 ? 0 : payload.length - firstPadding;
-  if (padding > 2) throw new TypeError('Raster image data URI payload has invalid base64 padding');
+  if (padding > 2) throw new TypeError('Image data URI payload has invalid base64 padding');
   const dataLength = payload.length - padding;
   for (let index = 0; index < dataLength; index += 1) {
     if (base64Value(payload.charCodeAt(index)) < 0) {
-      throw new TypeError('Raster image data URI payload contains an invalid base64 character');
+      throw new TypeError('Image data URI payload contains an invalid base64 character');
     }
   }
   for (let index = dataLength; index < payload.length; index += 1) {
     if (payload[index] !== '=') {
-      throw new TypeError('Raster image data URI payload has invalid base64 padding');
+      throw new TypeError('Image data URI payload has invalid base64 padding');
     }
   }
   if (padding === 2 && (base64Value(payload.charCodeAt(payload.length - 3)) & 0x0f) !== 0) {
-    throw new TypeError('Raster image data URI payload has non-canonical base64 padding bits');
+    throw new TypeError('Image data URI payload has non-canonical base64 padding bits');
   }
   if (padding === 1 && (base64Value(payload.charCodeAt(payload.length - 2)) & 0x03) !== 0) {
-    throw new TypeError('Raster image data URI payload has non-canonical base64 padding bits');
+    throw new TypeError('Image data URI payload has non-canonical base64 padding bits');
   }
 
   const output = new Uint8Array((payload.length / 4) * 3 - padding);
@@ -439,6 +519,16 @@ function startsWith(bytes: Uint8Array, signature: Uint8Array): boolean {
   return true;
 }
 
+function isRasterImageCandidate(bytes: Uint8Array): boolean {
+  return startsWith(bytes, PNG_SIGNATURE)
+    || startsWith(bytes, GIF87A_SIGNATURE)
+    || startsWith(bytes, GIF89A_SIGNATURE)
+    || isTruncatedPrefix(bytes, PNG_SIGNATURE)
+    || isTruncatedPrefix(bytes, GIF87A_SIGNATURE)
+    || isTruncatedPrefix(bytes, GIF89A_SIGNATURE)
+    || bytes[0] === 0xff;
+}
+
 function isTruncatedPrefix(bytes: Uint8Array, signature: Uint8Array): boolean {
   if (bytes.byteLength >= signature.byteLength) return false;
   for (let index = 0; index < bytes.byteLength; index += 1) {
@@ -548,7 +638,7 @@ function normalizeByteChunk(chunk: unknown): Uint8Array {
     return new Uint8Array(new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength));
   }
   throw new TypeError(
-    'Raster image streams must yield byte numbers, Uint8Array, ArrayBuffer, or ArrayBufferView chunks',
+    'Image streams must yield byte numbers, Uint8Array, ArrayBuffer, or ArrayBufferView chunks',
   );
 }
 
@@ -567,5 +657,5 @@ function throwIfAborted(signal?: AbortSignal): void {
   if (!signal?.aborted) return;
   throw signal.reason instanceof Error
     ? signal.reason
-    : new DOMException('Raster image loading was aborted', 'AbortError');
+    : new DOMException('Image loading was aborted', 'AbortError');
 }

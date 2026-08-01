@@ -34,14 +34,27 @@ export * from '@pptx/codecs';
 export * from '@pptx/model';
 export type { BuiltInSlideSize, CreatePresentationOptions, CustomSlideSize } from './create.js';
 export type { PresentationTheme, PresentationThemeOptions } from './presentation-theme.js';
-export { inspectRasterImage } from './raster-image-source.js';
+export {
+  assertImageContentType,
+  inspectImage,
+  inspectRasterImage,
+  resolveImageSource,
+} from './raster-image-source.js';
 export type {
   AddImageSourceOptions,
+  ImageByteChunk,
+  ImageByteStream,
+  ImageContentType,
+  ImageInfo,
+  ImageSource,
   RasterImageByteChunk,
   RasterImageByteStream,
   RasterImageInfo,
   RasterImageSource,
+  ResolvedImageSource,
 } from './raster-image-source.js';
+export { inspectSvgImage } from './svg-image-source.js';
+export type { SvgImageInfo } from './svg-image-source.js';
 export { calculateRasterImageSizing } from './raster-image-sizing.js';
 export type {
   RasterImageCropRegion,
