@@ -560,6 +560,140 @@ describe('PresentationModel', () => {
     expect(slideNumberCache(pkg, retry.partUri)).toBe('2');
   });
 
+  it('stores strict frozen slide default text colors without package mutation', () => {
+    const { pkg, model } = emptyPresentationModel();
+    const slide = model.addSlide();
+    const input = { kind: 'srgb' as const, value: '#ff3399' };
+    const before = packageSnapshot(pkg);
+
+    slide.color = input;
+    expect(slide.color).toEqual({ kind: 'srgb', value: 'FF3399' });
+    expect(slide.color).not.toBe(input);
+    expect(Object.isFrozen(slide.color)).toBe(true);
+    expect(packageSnapshot(pkg)).toEqual(before);
+
+    const snapshot = slide.color;
+    slide.color = { kind: 'srgb', value: 'FF3399' };
+    expect(slide.color).toBe(snapshot);
+    expect(packageSnapshot(pkg)).toEqual(before);
+
+    slide.color = { kind: 'scheme', value: 'accent2' };
+    expect(slide.color).toEqual({ kind: 'scheme', value: 'accent2' });
+    expect(Object.isFrozen(slide.color)).toBe(true);
+    slide.color = undefined;
+    expect(slide.color).toBeUndefined();
+    slide.color = undefined;
+    expect(packageSnapshot(pkg)).toEqual(before);
+  });
+
+  it('rejects unsafe slide default text colors without changing prior state', () => {
+    const { pkg, model } = emptyPresentationModel();
+    const slide = model.addSlide();
+    slide.color = { kind: 'scheme', value: 'accent1' };
+    const snapshot = slide.color;
+    const before = packageSnapshot(pkg);
+    const inherited = Object.create({ kind: 'srgb', value: 'FF3399' }) as object;
+    const accessor = Object.defineProperty({ kind: 'srgb' }, 'value', {
+      enumerable: true,
+      get: () => 'FF3399',
+    });
+    const nullPrototype = Object.assign(Object.create(null) as object, {
+      kind: 'srgb',
+      value: '#112233',
+    });
+    slide.color = nullPrototype as never;
+    expect(slide.color).toEqual({ kind: 'srgb', value: '112233' });
+    slide.color = snapshot;
+    const restored = slide.color;
+
+    const invalid = [
+      null,
+      'FF3399',
+      [],
+      { kind: 'srgb' },
+      { kind: 'srgb', value: 'FFF' },
+      { kind: 'scheme', value: 'unknown' },
+      { kind: 'srgb', value: 'FF3399', extra: true },
+      inherited,
+      accessor,
+      { kind: 'srgb', value: 'FF3399', [Symbol('extra')]: true },
+    ];
+    for (const candidate of invalid) {
+      expect(() => {
+        slide.color = candidate as never;
+      }).toThrow();
+      expect(slide.color).toBe(restored);
+      expect(packageSnapshot(pkg)).toEqual(before);
+    }
+
+    const { proxy, revoke } = Proxy.revocable({ kind: 'srgb', value: 'FF3399' }, {});
+    revoke();
+    expect(() => {
+      slide.color = proxy as never;
+    }).toThrow();
+    expect(slide.color).toBe(restored);
+    expect(packageSnapshot(pkg)).toEqual(before);
+  });
+
+  it('copies, retains, and clears slide default text colors through lifecycle operations', () => {
+    const { model } = emptyPresentationModel();
+    const source = model.addSlide();
+    const sibling = model.addSlide();
+    source.color = { kind: 'scheme', value: 'accent2' };
+    expect(sibling.color).toBeUndefined();
+
+    const duplicate = model.duplicateSlide(model.slides.indexOf(source));
+    expect(duplicate.color).toEqual(source.color);
+    expect(duplicate.color).toBe(source.color);
+    model.moveSlide(model.slides.indexOf(duplicate), 0);
+    expect(model.slides[0]).toBe(duplicate);
+    expect(duplicate.color).toEqual({ kind: 'scheme', value: 'accent2' });
+
+    const sourcePartUri = source.partUri;
+    model.deleteSlide(model.slides.indexOf(source));
+    expect(source.color).toBeUndefined();
+    const replacement = model.addSlide();
+    expect(replacement.partUri).toBe(sourcePartUri);
+    expect(replacement.color).toBeUndefined();
+    expect(duplicate.color).toEqual({ kind: 'scheme', value: 'accent2' });
+  });
+
+  it('commits transient color lifecycle only after package transactions succeed', () => {
+    const { pkg, model } = emptyPresentationModel();
+    const source = model.addSlide();
+    source.color = { kind: 'srgb', value: 'FF3399' };
+    const originalSetPart = pkg.setPart.bind(pkg);
+    const duplicateFailure = vi.spyOn(pkg, 'setPart').mockImplementation(
+      (uri, bytes, contentType) => {
+        if (uri === '/ppt/presentation.xml' && pkg.hasPart('/ppt/slides/slide2.xml')) {
+          throw new Error('injected transient duplicate failure');
+        }
+        return originalSetPart(uri, bytes, contentType);
+      },
+    );
+    expect(() => model.duplicateSlide(0)).toThrow('injected transient duplicate failure');
+    duplicateFailure.mockRestore();
+    expect(model.slides).toEqual([source]);
+    expect(source.color).toEqual({ kind: 'srgb', value: 'FF3399' });
+
+    const duplicate = model.duplicateSlide(0);
+    expect(duplicate.color).toBe(source.color);
+    const originalDeletePart = pkg.deletePart.bind(pkg);
+    const deleteFailure = vi.spyOn(pkg, 'deletePart').mockImplementation((uri) => {
+      if (uri === source.partUri) throw new Error('injected transient delete failure');
+      return originalDeletePart(uri);
+    });
+    expect(() => model.deleteSlide(model.slides.indexOf(source)))
+      .toThrow('injected transient delete failure');
+    deleteFailure.mockRestore();
+    expect(model.slides.includes(source)).toBe(true);
+    expect(source.color).toEqual({ kind: 'srgb', value: 'FF3399' });
+
+    model.deleteSlide(model.slides.indexOf(source));
+    expect(source.color).toBeUndefined();
+    expect(duplicate.color).toEqual({ kind: 'srgb', value: 'FF3399' });
+  });
+
   it('creates, reads, edits, clears, no-ops, and rolls back live slide backgrounds', () => {
     const { pkg, model } = emptyPresentationModel();
     const slide = model.addSlide();

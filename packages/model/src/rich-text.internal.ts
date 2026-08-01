@@ -960,7 +960,7 @@ function normalizeStyle(value: unknown, paragraphIndex: number, runIndex: number
     : normalizeCharacterSpacing(candidate.characterSpacing, `${context} characterSpacing`);
   const color = candidate.color === undefined
     ? undefined
-    : normalizeColor(candidate.color, `${context} color`);
+    : normalizeRichTextColor(candidate.color, `${context} color`);
   const transparency = candidate.transparency === undefined
     ? undefined
     : normalizeTextTransparency(candidate.transparency, `${context} transparency`);
@@ -969,7 +969,7 @@ function normalizeStyle(value: unknown, paragraphIndex: number, runIndex: number
     : normalizeGlow(candidate.glow, `${context} glow`);
   const highlight = candidate.highlight === undefined
     ? undefined
-    : normalizeColor(candidate.highlight, `${context} highlight`);
+    : normalizeRichTextColor(candidate.highlight, `${context} highlight`);
   const outline = candidate.outline === undefined
     ? undefined
     : normalizeOutline(candidate.outline, `${context} outline`);
@@ -1068,7 +1068,7 @@ function normalizeGlow(value: unknown, context: string): RichTextGlow {
   return {
     color: candidate.color === undefined
       ? { kind: 'srgb', value: 'FFFFFF' }
-      : normalizeColor(candidate.color, `${context} color`),
+      : normalizeRichTextColor(candidate.color, `${context} color`),
     opacity: Math.round(candidate.opacity * PERCENT_SCALE) / PERCENT_SCALE,
     size: radiusEmu / EMU_PER_POINT,
   };
@@ -1091,7 +1091,7 @@ function normalizeOutline(value: unknown, context: string): RichTextOutline {
     throw new RangeError(`${context} size must fit the OOXML 0 to 1584 point range`);
   }
   return {
-    color: normalizeColor(candidate.color, `${context} color`),
+    color: normalizeRichTextColor(candidate.color, `${context} color`),
     size: widthEmu / EMU_PER_POINT,
   };
 }
@@ -1122,32 +1122,62 @@ function normalizeUnderline(value: unknown, context: string): RichTextUnderline 
   }
   const color = candidate.color === undefined
     ? undefined
-    : normalizeColor(candidate.color, `${context} color`);
+    : normalizeRichTextColor(candidate.color, `${context} color`);
   return {
     style: (candidate.style as RichTextUnderlineStyle | undefined) ?? 'sng',
     ...(color ? { color } : {}),
   };
 }
 
-function normalizeColor(value: unknown, context: string): RichTextColor {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new TypeError(`${context} must be an object`);
-  }
-  assertSupportedKeys(value, ['kind', 'value'], context);
-  const candidate = value as { kind?: unknown; value?: unknown };
+export function normalizeRichTextColor(
+  value: unknown,
+  context: string,
+): Readonly<RichTextColor> {
+  const candidate = readColorDataObject(value, context);
   if (candidate.kind === 'srgb') {
     if (typeof candidate.value !== 'string' || !/^#?[\da-f]{6}$/i.test(candidate.value)) {
       throw new TypeError(`${context} sRGB value must contain six hex digits`);
     }
-    return { kind: 'srgb', value: candidate.value.replace(/^#/, '').toUpperCase() };
+    return Object.freeze({
+      kind: 'srgb',
+      value: candidate.value.replace(/^#/, '').toUpperCase(),
+    });
   }
   if (candidate.kind === 'scheme') {
     if (typeof candidate.value !== 'string' || !SCHEME_COLORS.has(candidate.value)) {
       throw new TypeError(`${context} scheme value is unsupported`);
     }
-    return { kind: 'scheme', value: candidate.value };
+    return Object.freeze({ kind: 'scheme', value: candidate.value });
   }
   throw new TypeError(`${context} kind must be srgb or scheme`);
+}
+
+function readColorDataObject(
+  value: unknown,
+  context: string,
+): { readonly kind: unknown; readonly value: unknown } {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new TypeError(`${context} must be an object`);
+  }
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) {
+    throw new TypeError(`${context} must be an ordinary object`);
+  }
+  const keys = Reflect.ownKeys(value);
+  if (keys.some((key) => typeof key !== 'string' || !['kind', 'value'].includes(key))) {
+    throw new TypeError(`${context} contains unsupported properties`);
+  }
+  const kind = Object.getOwnPropertyDescriptor(value, 'kind');
+  const colorValue = Object.getOwnPropertyDescriptor(value, 'value');
+  if (
+    !kind
+    || !Object.hasOwn(kind, 'value')
+    || !colorValue
+    || !Object.hasOwn(colorValue, 'value')
+  ) {
+    throw new TypeError(`${context} must contain kind and value data properties`);
+  }
+  return { kind: kind.value, value: colorValue.value };
 }
 
 function renderRun(run: RichTextRun, prefix: string, defaultLanguage?: string): string {

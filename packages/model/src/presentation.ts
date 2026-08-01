@@ -78,6 +78,7 @@ import {
   replaceFirstSlideNumber,
   synchronizeSlideNumberCaches,
 } from './presentation-slide-number.internal.js';
+import type { RichTextColor } from './text.js';
 
 const SLIDE_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slide+xml';
 const SLIDE_RELATIONSHIP = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide';
@@ -107,6 +108,7 @@ export class PresentationModel {
   readonly format: PresentationFormat;
   readonly formatProfile: PresentationFormatProfile;
   readonly #slideModels = new Map<string, SlideModel>();
+  readonly #slideDefaultColors = new Map<string, Readonly<RichTextColor>>();
 
   constructor(readonly opcPackage: OpcPackage) {
     const rootRelationship = opcPackage.relationships('/').find(({ type }) => type.endsWith('/officeDocument'));
@@ -195,6 +197,22 @@ export class PresentationModel {
       throw new RangeError('Effective slide number exceeds the JavaScript safe integer range');
     }
     return effective;
+  }
+
+  /** @internal */
+  getSlideDefaultColor(partUri: string): Readonly<RichTextColor> | undefined {
+    return this.#slideDefaultColors.get(partUri);
+  }
+
+  /** @internal */
+  setSlideDefaultColor(
+    partUri: string,
+    value: Readonly<RichTextColor> | undefined,
+  ): void {
+    const current = this.#slideDefaultColors.get(partUri);
+    if (richTextColorsEqual(current, value)) return;
+    if (value === undefined) this.#slideDefaultColors.delete(partUri);
+    else this.#slideDefaultColors.set(partUri, value);
   }
 
   get author(): string | undefined {
@@ -379,7 +397,7 @@ export class PresentationModel {
 
   addSlide(options: AddSlideOptions = {}): SlideModel {
     const normalized = normalizeAddPresentationSlideOptions(options);
-    return this.opcPackage.transaction(() => {
+    const slide = this.opcPackage.transaction(() => {
       const initial = this.parsePresentation().xml;
       const initialSlideIds = new Set(this.slides.map(({ slideId }) => slideId));
       const sections = this.requireEditableSections(initial, initialSlideIds);
@@ -436,14 +454,19 @@ export class PresentationModel {
       }
       return slide;
     });
+    this.#slideDefaultColors.delete(slide.partUri);
+    return slide;
   }
 
   duplicateSlide(index: number): SlideModel {
     let allocatedPartUri: string | undefined;
     let previousModel: SlideModel | undefined;
+    let previousDefaultColor: Readonly<RichTextColor> | undefined;
+    let sourceDefaultColor: Readonly<RichTextColor> | undefined;
     try {
-      return this.opcPackage.transaction(() => {
+      const duplicate = this.opcPackage.transaction(() => {
         const source = this.requireSlide(index);
+        sourceDefaultColor = this.#slideDefaultColors.get(source.partUri);
         const before = this.parsePresentation().xml;
         this.requireEditableSections(
           before,
@@ -456,6 +479,7 @@ export class PresentationModel {
         );
         allocatedPartUri = slideUri;
         previousModel = this.#slideModels.get(slideUri);
+        previousDefaultColor = this.#slideDefaultColors.get(slideUri);
         const sourcePart = this.opcPackage.requirePart(source.partUri);
         this.opcPackage.setPart(slideUri, sourcePart.bytes, sourcePart.contentType);
         cloneSlideDependencies(this.opcPackage, source.partUri, slideUri);
@@ -468,18 +492,29 @@ export class PresentationModel {
         synchronizeSlideNumberCaches(this);
         return duplicate;
       });
+      if (sourceDefaultColor === undefined) {
+        this.#slideDefaultColors.delete(duplicate.partUri);
+      } else {
+        this.#slideDefaultColors.set(duplicate.partUri, sourceDefaultColor);
+      }
+      return duplicate;
     } catch (error) {
       if (allocatedPartUri) {
         if (previousModel) this.#slideModels.set(allocatedPartUri, previousModel);
         else this.#slideModels.delete(allocatedPartUri);
+        if (previousDefaultColor === undefined) {
+          this.#slideDefaultColors.delete(allocatedPartUri);
+        } else {
+          this.#slideDefaultColors.set(allocatedPartUri, previousDefaultColor);
+        }
       }
       throw error;
     }
   }
 
   deleteSlide(index: number): void {
+    const slide = this.requireSlide(index);
     this.opcPackage.transaction(() => {
-      const slide = this.requireSlide(index);
       const { xml } = this.parsePresentation();
       const entry = this.slideIdElements(xml).find(
         (element) => xml.attribute(element, 'r:id')?.value === slide.relationshipId,
@@ -516,6 +551,7 @@ export class PresentationModel {
       garbageCollectMediaDependencies(this.opcPackage, mediaDependencies);
       synchronizeSlideNumberCaches(this);
     });
+    this.#slideDefaultColors.delete(slide.partUri);
   }
 
   moveSlide(fromIndex: number, toIndex: number): void {
@@ -641,6 +677,19 @@ export class PresentationModel {
     if (!slide) throw new RangeError(`Slide index ${index} is out of range`);
     return slide;
   }
+}
+
+function richTextColorsEqual(
+  left: Readonly<RichTextColor> | undefined,
+  right: Readonly<RichTextColor> | undefined,
+): boolean {
+  return left === right
+    || (
+      left !== undefined
+      && right !== undefined
+      && left.kind === right.kind
+      && left.value === right.value
+    );
 }
 
 function blankSlideXml(): string {

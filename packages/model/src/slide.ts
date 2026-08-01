@@ -74,6 +74,7 @@ import {
   normalizeParagraphSpacing,
   normalizeParagraphTabStops,
   normalizeRichText,
+  normalizeRichTextColor,
   normalizeTextAlignment,
   normalizeTextLanguage,
   readRichText,
@@ -212,6 +213,7 @@ import type {
   ParagraphBullet,
   ParagraphSpacing,
   ParagraphTabStop,
+  RichTextColor,
   RichTextParagraph,
   TextBoxFit,
   TextBoxMarginInput,
@@ -344,6 +346,17 @@ export class SlideModel {
 
   set background(value: SlideBackground | undefined) {
     replaceSlideBackground(this.presentation.opcPackage, this.partUri, value);
+  }
+
+  get color(): Readonly<RichTextColor> | undefined {
+    return this.presentation.getSlideDefaultColor(this.partUri);
+  }
+
+  set color(value: RichTextColor | undefined) {
+    const normalized = value === undefined
+      ? undefined
+      : normalizeRichTextColor(value, 'Slide default text color');
+    this.presentation.setSlideDefaultColor(this.partUri, normalized);
   }
 
   get slideNumber(): Readonly<SlideNumber> | undefined {
