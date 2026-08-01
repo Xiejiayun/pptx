@@ -41,6 +41,12 @@ export type {
   RasterImageInfo,
   RasterImageSource,
 } from './raster-image-source.js';
+export { calculateRasterImageSizing } from './raster-image-sizing.js';
+export type {
+  RasterImageCropRegion,
+  RasterImageSizing,
+  RasterImageSizingResult,
+} from './raster-image-sizing.js';
 export { PackageError } from '@pptx/opc';
 export type { PackageOpenOptions } from '@pptx/opc';
 export { ValidationError } from '@pptx/validator';
