@@ -48,6 +48,39 @@ function validImageBackgroundPackage(): OpcPackage {
   });
 }
 
+function validSlideDefaultColorPackage(): OpcPackage {
+  const pkg = OpcPackage.create();
+  return pkg.transaction(() => {
+    pkg.setPart(
+      '/ppt/presentation.xml',
+      '<p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"/>',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml',
+    );
+    pkg.setPart(
+      '/ppt/slides/slide1.xml',
+      '<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" '
+        + 'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><p:cSld><p:spTree>'
+        + '<p:sp><p:txBody><a:p><a:r><a:rPr><a:solidFill>'
+        + '<a:srgbClr val="FF3399"/></a:solidFill></a:rPr><a:t>sRGB</a:t></a:r>'
+        + '<a:r><a:rPr><a:solidFill><a:schemeClr val="accent1"><a:alpha val="75000"/>'
+        + '</a:schemeClr></a:solidFill></a:rPr><a:t>Theme alpha</a:t></a:r>'
+        + '</a:p></p:txBody></p:sp></p:spTree></p:cSld></p:sld>',
+      'application/vnd.openxmlformats-officedocument.presentationml.slide+xml',
+    );
+    pkg.addRelationship('/', {
+      id: 'rId1',
+      type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument',
+      target: 'ppt/presentation.xml',
+    });
+    pkg.addRelationship('/ppt/presentation.xml', {
+      id: 'rId1',
+      type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide',
+      target: 'slides/slide1.xml',
+    });
+    return pkg;
+  });
+}
+
 describe('validatePackage', () => {
   it('retains compatibility metadata for feature diagnostics', () => {
     const diagnostic: Diagnostic = {
@@ -71,5 +104,9 @@ describe('validatePackage', () => {
 
   it('accepts a valid internal slide background image relationship graph', () => {
     expect(validatePackage(validImageBackgroundPackage())).toEqual([]);
+  });
+
+  it('accepts canonical materialized slide default color runs', () => {
+    expect(validatePackage(validSlideDefaultColorPackage())).toEqual([]);
   });
 });

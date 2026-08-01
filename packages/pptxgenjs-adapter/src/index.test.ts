@@ -45,6 +45,7 @@ interface PptxGenJSSlide {
     readonly transparency?: number;
     readonly type?: 'none' | 'solid';
   };
+  color?: string | undefined;
   hidden: unknown;
   slideNumber?: PptxGenJSSlideNumberProps;
   addChart(
@@ -651,6 +652,165 @@ function directShapePaintState(xml: string): { fill: 'none'; line: 'empty' } {
 }
 
 describe('importPptxGenJS', () => {
+  it('matches public PptxGenJS slide default colors and locks intentional differences', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+
+    const srgb = generated.addSlide();
+    srgb.color = 'ff3399';
+    srgb.addText('sRGB inherited', { x: 1, y: 1, w: 5, h: 0.5 });
+
+    const scheme = generated.addSlide();
+    scheme.color = generated.SchemeColor.accent1;
+    scheme.addText('Scheme inherited', { x: 1, y: 1, w: 5, h: 0.5 });
+
+    const rich = generated.addSlide();
+    rich.color = generated.SchemeColor.accent1;
+    rich.addText([
+      { text: 'Rich inherited' },
+      { text: 'Rich override', options: { color: '00aa00' } },
+      { text: 'Transparent inherited', options: { transparency: 25 } },
+    ], { x: 1, y: 1, w: 5, h: 0.5 });
+
+    const temporal = generated.addSlide();
+    temporal.color = 'ff3399';
+    temporal.addText('First default', { x: 1, y: 1, w: 5, h: 0.5 });
+    temporal.color = generated.SchemeColor.accent2;
+    temporal.addText('Second default', { x: 1, y: 2, w: 5, h: 0.5 });
+    temporal.color = undefined;
+    temporal.addText('Cleared default', { x: 1, y: 3, w: 5, h: 0.5 });
+
+    const cleared = generated.addSlide();
+    cleared.color = 'ff3399';
+    cleared.color = undefined;
+    cleared.addText('Cleared control', { x: 1, y: 1, w: 5, h: 0.5 });
+
+    const tableSlide = generated.addSlide();
+    tableSlide.color = generated.SchemeColor.accent2;
+    tableSlide.addTable([[{ text: 'Table default', options: {} }]], {
+      x: 1,
+      y: 1,
+      w: 5,
+      h: 1,
+    });
+
+    const imported = await importPptxGenJS(generated);
+    const native = PptxDocument.create();
+    const nativeSrgb = native.addSlide();
+    nativeSrgb.color = { kind: 'srgb', value: 'ff3399' };
+    nativeSrgb.addText('sRGB inherited');
+    const nativeScheme = native.addSlide();
+    nativeScheme.color = { kind: 'scheme', value: 'accent1' };
+    nativeScheme.addText('Scheme inherited');
+    const nativeRich = native.addSlide();
+    nativeRich.color = { kind: 'scheme', value: 'accent1' };
+    nativeRich.addRichText([{
+      runs: [
+        { text: 'Rich inherited' },
+        { text: 'Rich override', style: { color: { kind: 'srgb', value: '00AA00' } } },
+        { text: 'Transparent inherited', style: { transparency: 25 } },
+      ],
+    }]);
+    const nativeTemporal = native.addSlide();
+    nativeTemporal.color = { kind: 'srgb', value: 'FF3399' };
+    nativeTemporal.addText('First default');
+    nativeTemporal.color = { kind: 'scheme', value: 'accent2' };
+    nativeTemporal.addText('Second default');
+    nativeTemporal.color = undefined;
+    nativeTemporal.addText('Cleared default');
+    const nativeCleared = native.addSlide();
+    nativeCleared.color = { kind: 'srgb', value: 'FF3399' };
+    nativeCleared.color = undefined;
+    nativeCleared.addText('Cleared control');
+    const nativeTableSlide = native.addSlide();
+    nativeTableSlide.color = { kind: 'scheme', value: 'accent2' };
+    nativeTableSlide.addTable([['Table default']]);
+    const reopenedNative = await PptxDocument.open(await native.write());
+
+    const runState = (document: PptxDocument, slideIndex: number) => document.slides[slideIndex]!
+      .shapes
+      .filter((shape): shape is ShapeModel => shape instanceof ShapeModel)
+      .map(({ richText }) => richText.flatMap(({ runs }) => runs.map(({ style }) => ({
+        color: style?.color,
+        transparency: style?.transparency,
+      }))));
+    const customExpected = [
+      [[{ color: { kind: 'srgb', value: 'FF3399' }, transparency: undefined }]],
+      [[{ color: { kind: 'scheme', value: 'accent1' }, transparency: undefined }]],
+      [[
+        { color: { kind: 'scheme', value: 'accent1' }, transparency: undefined },
+        { color: { kind: 'srgb', value: '00AA00' }, transparency: undefined },
+        { color: { kind: 'scheme', value: 'accent1' }, transparency: 25 },
+      ]],
+    ];
+    expect([0, 1, 2].map((index) => runState(imported, index))).toEqual(customExpected);
+    expect([0, 1, 2].map((index) => runState(reopenedNative, index))).toEqual(customExpected);
+    expect(runState(imported, 3)).toEqual([
+      [{ color: { kind: 'srgb', value: 'FF3399' }, transparency: undefined }],
+      [{ color: { kind: 'scheme', value: 'accent2' }, transparency: undefined }],
+      [{ color: { kind: 'srgb', value: '000000' }, transparency: undefined }],
+    ]);
+    expect(runState(reopenedNative, 3)).toEqual([
+      [{ color: { kind: 'srgb', value: 'FF3399' }, transparency: undefined }],
+      [{ color: { kind: 'scheme', value: 'accent2' }, transparency: undefined }],
+      [{ color: { kind: 'scheme', value: 'tx1' }, transparency: undefined }],
+    ]);
+    expect(runState(imported, 4)[0]?.[0]?.color)
+      .toEqual({ kind: 'srgb', value: '000000' });
+    expect(runState(reopenedNative, 4)[0]?.[0]?.color)
+      .toEqual({ kind: 'scheme', value: 'tx1' });
+
+    const importedTable = imported.slides[5]!.shapes[0] as TableModel;
+    const nativeTable = reopenedNative.slides[5]!.shapes[0] as TableModel;
+    const importedTableXml = imported.slides[5]!.resolveShape(importedTable.id);
+    const nativeTableXml = reopenedNative.slides[5]!.resolveShape(nativeTable.id);
+    expect(importedTableXml.xml.original(importedTableXml.element))
+      .toContain('<a:srgbClr val="000000"/>');
+    expect(nativeTableXml.xml.original(nativeTableXml.element))
+      .toContain('<a:schemeClr val="tx1"/>');
+    for (const { xml, element } of [importedTableXml, nativeTableXml]) {
+      expect(xml.original(element)).not.toContain('<a:schemeClr val="accent2"/>');
+    }
+
+    for (const compatibility of ['powerpoint-2010', 'powerpoint-current'] as const) {
+      await imported.write({ compatibility });
+      await native.write({ compatibility });
+      expect(imported.diagnostics.filter(({ severity }) => severity === 'error')).toEqual([]);
+      expect(native.diagnostics.filter(({ severity }) => severity === 'error')).toEqual([]);
+    }
+  });
+
+  it('contrasts PptxGenJS slide default color fallback with strict native rejection', async () => {
+    const generated = new PptxGenJS();
+    const generatedSlide = generated.addSlide();
+    generatedSlide.color = 'BAD';
+    generatedSlide.addText('Invalid fallback', { x: 1, y: 1, w: 5, h: 0.5 });
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      const imported = await importPptxGenJS(generated);
+      expect(warning).toHaveBeenCalled();
+      expect((imported.slides[0]!.shapes[0] as ShapeModel).richText[0]?.runs[0]?.style?.color)
+        .toEqual({ kind: 'srgb', value: '000000' });
+
+      warning.mockClear();
+      const native = PptxDocument.create();
+      const nativeSlide = native.addSlide();
+      nativeSlide.color = { kind: 'scheme', value: 'accent1' };
+      const beforeBytes = native.opcPackage.requirePart(nativeSlide.partUri).bytes;
+      const beforeJournal = [...native.opcPackage.mutations];
+      expect(() => {
+        nativeSlide.color = 'BAD' as never;
+      }).toThrow(TypeError);
+      expect(warning).not.toHaveBeenCalled();
+      expect(nativeSlide.color).toEqual({ kind: 'scheme', value: 'accent1' });
+      expect(nativeSlide.shapes).toHaveLength(0);
+      expect(native.opcPackage.requirePart(nativeSlide.partUri).bytes).toEqual(beforeBytes);
+      expect(native.opcPackage.mutations).toEqual(beforeJournal);
+    } finally {
+      warning.mockRestore();
+    }
+  });
+
   it('imports public slide-number variants and locks PptxGenJS 4.0.1 differences', async () => {
     const source = new PptxGenJS();
     source.layout = 'LAYOUT_WIDE';
