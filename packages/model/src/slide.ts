@@ -12,11 +12,19 @@ import {
 } from '@pptx/opc';
 import { ModelParseError } from './errors.js';
 import type { Hyperlink } from './hyperlink.js';
-import type { AddImageOptions, ImageSourceRectangle } from './image.js';
+import type {
+  AddImageOptions,
+  AddSvgImageOptions,
+  ImageSourceRectangle,
+} from './image.js';
 import {
   normalizeEmbeddedRasterImage,
   renderEmbeddedRasterImageXml,
 } from './image-create.internal.js';
+import {
+  normalizeEmbeddedSvgImage,
+  renderEmbeddedSvgImageXml,
+} from './svg-image-create.internal.js';
 import {
   normalizeImageSourceRectangle,
   readImageSourceRectangle,
@@ -763,6 +771,51 @@ export class SlideModel {
         nextId,
         definition,
         relationship.id,
+        `Image ${imageCount}`,
+      );
+      const extensionList = directElementChildren(shapeTree, 'extLst')[0];
+      if (extensionList) xml.replace(extensionList.start, extensionList.start, pictureXml);
+      else xml.appendChildXml(shapeTree, pictureXml);
+      this.setXml(xml.serialize());
+      const image = this.shapes.find(({ id }) => id === nextId);
+      if (!(image instanceof ImageModel) || image.kind !== 'image') {
+        throw new ModelParseError(`Created image ${nextId} could not be resolved`, this.partUri);
+      }
+      return image;
+    });
+  }
+
+  addSvgImage(
+    svgBytes: Uint8Array,
+    fallbackPngBytes: Uint8Array,
+    options: AddSvgImageOptions = {},
+  ): ImageModel {
+    const definition = normalizeEmbeddedSvgImage(svgBytes, fallbackPngBytes, options);
+    return this.presentation.opcPackage.transaction(() => {
+      const pkg = this.presentation.opcPackage;
+      const fallbackPartUri = pkg.allocatePartUri('/ppt/media', 'image', '.png');
+      const svgPartUri = pkg.allocatePartUri('/ppt/media', 'image', '.svg');
+      pkg.setPart(fallbackPartUri, definition.fallbackPngBytes, 'image/png');
+      pkg.setPart(svgPartUri, definition.svgBytes, 'image/svg+xml');
+      const fallbackRelationship = pkg.addRelationship(this.partUri, {
+        type: IMAGE_RELATIONSHIP_TYPE,
+        target: relativeRelationshipTarget(this.partUri, fallbackPartUri),
+        targetMode: 'Internal',
+      });
+      const svgRelationship = pkg.addRelationship(this.partUri, {
+        type: IMAGE_RELATIONSHIP_TYPE,
+        target: relativeRelationshipTarget(this.partUri, svgPartUri),
+        targetMode: 'Internal',
+      });
+      const { xml } = this.parse();
+      const shapeTree = requirePresetShapeTree(xml, this.partUri);
+      const nextId = allocatePresetShapeId(xml, shapeTree, this.partUri);
+      const imageCount = this.shapes.filter(({ kind }) => kind === 'image').length;
+      const pictureXml = renderEmbeddedSvgImageXml(
+        nextId,
+        definition,
+        fallbackRelationship.id,
+        svgRelationship.id,
         `Image ${imageCount}`,
       );
       const extensionList = directElementChildren(shapeTree, 'extLst')[0];

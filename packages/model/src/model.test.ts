@@ -501,6 +501,263 @@ describe('PresentationModel', () => {
     expect(part.bytes).toEqual(new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]));
   });
 
+  it('creates embedded SVG images atomically before shape-tree extensions', () => {
+    const { pkg, model } = emptyPresentationModel();
+    const slide = model.addSlide();
+    const neighbor = slide.addShape('rect', { name: 'Keep neighbor' });
+    const slidePart = pkg.requirePart(slide.partUri);
+    pkg.setPart(
+      slide.partUri,
+      new TextDecoder().decode(slidePart.bytes).replace(
+        '</p:spTree>',
+        '<p:extLst><p:ext uri="urn:keep"><x:keep xmlns:x="urn:keep"/></p:ext>'
+          + '</p:extLst></p:spTree>',
+      ),
+      slidePart.contentType,
+    );
+    const svgBytes = new Uint8Array([60, 115, 118, 103, 47, 62]);
+    const fallbackPngBytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
+    const image = slide.addSvgImage(svgBytes, fallbackPngBytes, {
+      name: 'Vector & <logo>',
+      altText: 'SVG & fallback',
+      x: inches(1),
+      y: inches(2),
+      width: inches(3),
+      height: inches(2),
+      rotation: degrees(45),
+      flipHorizontal: true,
+      sourceRectangle: { left: 25, top: -10, right: 5, bottom: 0 },
+    });
+
+    expect(image).toBeInstanceOf(ImageModel);
+    expect(slide.shapes).toEqual([neighbor, image]);
+    expect(slide.shapes[1]).toBe(image);
+    expect([neighbor.id, image.id]).toEqual([2, 3]);
+    expect(image.name).toBe('Vector & <logo>');
+    expect(image.transform).toEqual({
+      x: inches(1),
+      y: inches(2),
+      width: inches(3),
+      height: inches(2),
+      rotation: degrees(45),
+      flipHorizontal: true,
+      flipVertical: false,
+    });
+    expect(image.sourceRectangle).toEqual({ left: 25, top: -10, right: 5, bottom: 0 });
+    expect(image.sourcePartUri).toBe('/ppt/media/image1.png');
+
+    expect(pkg.parts
+      .filter(({ uri }) => uri.startsWith('/ppt/media/'))
+      .map(({ uri, contentType, bytes }) => ({ uri, contentType, bytes })))
+      .toEqual([
+        {
+          uri: '/ppt/media/image1.png',
+          contentType: 'image/png',
+          bytes: new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]),
+        },
+        {
+          uri: '/ppt/media/image1.svg',
+          contentType: 'image/svg+xml',
+          bytes: new Uint8Array([60, 115, 118, 103, 47, 62]),
+        },
+      ]);
+    const imageRelationships = slide.relationships.filter(
+      ({ type }) => type === IMAGE_RELATIONSHIP,
+    );
+    expect(imageRelationships).toHaveLength(2);
+    expect(imageRelationships.map(({ target, targetMode, resolvedTarget }) => ({
+      target,
+      targetMode,
+      resolvedTarget,
+    }))).toEqual([
+      {
+        target: '../media/image1.png',
+        targetMode: 'Internal',
+        resolvedTarget: '/ppt/media/image1.png',
+      },
+      {
+        target: '../media/image1.svg',
+        targetMode: 'Internal',
+        resolvedTarget: '/ppt/media/image1.svg',
+      },
+    ]);
+
+    const source = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect(source).toContain(
+      '<p:cNvPr id="3" name="Vector &amp; &lt;logo&gt;" descr="SVG &amp; fallback"/>',
+    );
+    expect(source).toContain(
+      `<a:blip r:embed="${imageRelationships[0]!.id}"><a:extLst>`
+        + '<a:ext uri="{96DAC541-7B7A-43D3-8B79-37D633B846F1}">'
+        + '<asvg:svgBlip xmlns:asvg="http://schemas.microsoft.com/office/drawing/2016/SVG/main" '
+        + `r:embed="${imageRelationships[1]!.id}"/></a:ext></a:extLst></a:blip>`,
+    );
+    expect(source).toContain('<a:srcRect l="25000" t="-10000" r="5000" b="0"/>');
+    expect(source.indexOf('name="Keep neighbor"')).toBeLessThan(source.indexOf('name="Vector'));
+    expect(source.indexOf('name="Vector')).toBeLessThan(source.indexOf('<p:extLst>'));
+    expect(source).toContain('<x:keep xmlns:x="urn:keep"/>');
+
+    svgBytes.fill(0);
+    fallbackPngBytes.fill(0);
+    expect(pkg.requirePart('/ppt/media/image1.svg').bytes)
+      .toEqual(new Uint8Array([60, 115, 118, 103, 47, 62]));
+    expect(pkg.requirePart('/ppt/media/image1.png').bytes)
+      .toEqual(new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]));
+  });
+
+  it('rejects and rolls back embedded SVG image creation without package changes', () => {
+    const { pkg, model } = emptyPresentationModel();
+    const slide = model.addSlide();
+    const before = packageSnapshot(pkg);
+    const shapes = slide.shapes;
+    let reads = 0;
+    const accessor = Object.defineProperty({}, 'name', {
+      get() {
+        reads += 1;
+        return 'unsafe';
+      },
+    });
+    const invalidCalls: readonly (() => unknown)[] = [
+      () => slide.addSvgImage([] as never, new Uint8Array([2])),
+      () => slide.addSvgImage(new Uint8Array(), new Uint8Array([2])),
+      () => slide.addSvgImage(new Uint8Array([1]), [] as never),
+      () => slide.addSvgImage(new Uint8Array([1]), new Uint8Array()),
+      () => slide.addSvgImage(new Uint8Array([1]), new Uint8Array([2]), null as never),
+      () => slide.addSvgImage(
+        new Uint8Array([1]),
+        new Uint8Array([2]),
+        Object.create({ name: 'unsafe' }),
+      ),
+      () => slide.addSvgImage(new Uint8Array([1]), new Uint8Array([2]), accessor),
+      () => slide.addSvgImage(new Uint8Array([1]), new Uint8Array([2]), {
+        contentType: 'image/svg+xml',
+      } as never),
+      () => slide.addSvgImage(new Uint8Array([1]), new Uint8Array([2]), {
+        width: 0,
+      } as never),
+      () => slide.addSvgImage(new Uint8Array([1]), new Uint8Array([2]), {
+        sourceRectangle: { left: 60, top: 0, right: 40, bottom: 0 },
+      }),
+    ];
+    for (const invoke of invalidCalls) {
+      expect(invoke).toThrow();
+      expect(packageSnapshot(pkg)).toEqual(before);
+      expect(slide.shapes).toEqual(shapes);
+    }
+    expect(reads).toBe(0);
+
+    const malformedSources: readonly ((source: string) => string)[] = [
+      (source) => source
+        .replace('<p:sld ', '<x:sld xmlns:x="urn:unsafe" ')
+        .replace('</p:sld>', '</x:sld>'),
+      (source) => source.replace('</p:cSld>', '<p:spTree/></p:cSld>'),
+      (source) => source.replace('</p:spTree>', '<p:extLst/><p:extLst/></p:spTree>'),
+      (source) => source.replace('id="1"', 'id="not-an-id"'),
+    ];
+    for (const mutate of malformedSources) {
+      const fixture = emptyPresentationModel();
+      const malformedSlide = fixture.model.addSlide();
+      const part = fixture.pkg.requirePart(malformedSlide.partUri);
+      fixture.pkg.setPart(
+        malformedSlide.partUri,
+        mutate(new TextDecoder().decode(part.bytes)),
+        part.contentType,
+      );
+      const malformedBefore = packageSnapshot(fixture.pkg);
+      expect(() => malformedSlide.addSvgImage(
+        new Uint8Array([1]),
+        new Uint8Array([2]),
+      )).toThrow(ModelParseError);
+      expect(packageSnapshot(fixture.pkg)).toEqual(malformedBefore);
+      expect(malformedSlide.shapes).toEqual([]);
+    }
+
+    let rolledBack: ImageModel | undefined;
+    expect(() => pkg.transaction(() => {
+      rolledBack = slide.addSvgImage(new Uint8Array([1]), new Uint8Array([2]));
+      throw new Error('restore embedded SVG image');
+    })).toThrow('restore embedded SVG image');
+    expect(packageSnapshot(pkg)).toEqual(before);
+    expect(slide.shapes).toEqual([]);
+    expect(() => rolledBack!.name).toThrow(ModelParseError);
+
+    const created = slide.addSvgImage(new Uint8Array([3]), new Uint8Array([4]));
+    expect(created.id).toBe(2);
+    expect(created.sourcePartUri).toBe('/ppt/media/image1.png');
+    expect(pkg.requirePart('/ppt/media/image1.svg').bytes).toEqual(new Uint8Array([3]));
+  });
+
+  it('round-trips embedded SVG image creation in all six presentation formats', async () => {
+    for (const profile of Object.values(PRESENTATION_FORMAT_PROFILES)) {
+      const pkg = await OpcPackage.open(await modelFixture(profile.presentationContentType));
+      const model = new PresentationModel(pkg);
+      const slide = model.addSlide();
+      const image = slide.addSvgImage(
+        new Uint8Array([60, 115, 118, 103, 47, 62]),
+        new Uint8Array([137, 80, 78, 71]),
+        {
+          name: `${profile.format} SVG`,
+          altText: `${profile.format} vector`,
+          x: inches(1),
+          width: inches(4),
+          height: inches(3),
+          sourceRectangle: { left: 12.5, top: 0, right: 12.5, bottom: 0 },
+        },
+      );
+      expect(slide.shapes[0]).toBe(image);
+      const fallbackUri = image.sourcePartUri!;
+      const svgUri = slide.relationships.find(
+        ({ type, resolvedTarget }) =>
+          type === IMAGE_RELATIONSHIP && resolvedTarget?.endsWith('.svg'),
+      )!.resolvedTarget!;
+
+      const first = new PresentationModel(await OpcPackage.open(await pkg.write()));
+      const firstSlide = first.slides.find(({ partUri }) => partUri === slide.partUri)!;
+      const firstImage = firstSlide.shapes[0] as ImageModel;
+      expect(first.format).toBe(profile.format);
+      expect(firstImage).toBeInstanceOf(ImageModel);
+      expect(firstImage.name).toBe(`${profile.format} SVG`);
+      expect(firstImage.sourcePartUri).toBe(fallbackUri);
+      expect(firstImage.sourceRectangle).toEqual({
+        left: 12.5,
+        top: 0,
+        right: 12.5,
+        bottom: 0,
+      });
+      expect(first.opcPackage.requirePart(fallbackUri)).toMatchObject({
+        contentType: 'image/png',
+        bytes: new Uint8Array([137, 80, 78, 71]),
+      });
+      expect(first.opcPackage.requirePart(svgUri)).toMatchObject({
+        contentType: 'image/svg+xml',
+        bytes: new Uint8Array([60, 115, 118, 103, 47, 62]),
+      });
+      const firstSource = new TextDecoder().decode(
+        first.opcPackage.requirePart(firstSlide.partUri).bytes,
+      );
+      expect(firstSource).toContain(
+        '<a:ext uri="{96DAC541-7B7A-43D3-8B79-37D633B846F1}">',
+      );
+      expect(firstSlide.relationships.filter(({ type }) => type === IMAGE_RELATIONSHIP))
+        .toHaveLength(2);
+
+      const second = new PresentationModel(
+        await OpcPackage.open(await first.opcPackage.write()),
+      );
+      const secondSlide = second.slides.find(({ partUri }) => partUri === slide.partUri)!;
+      const secondImage = secondSlide.shapes[0] as ImageModel;
+      expect(second.format).toBe(profile.format);
+      expect(secondImage.name).toBe(`${profile.format} SVG`);
+      expect(secondImage.transform).toMatchObject({
+        x: inches(1),
+        width: inches(4),
+        height: inches(3),
+      });
+      expect(second.opcPackage.requirePart(svgUri).bytes)
+        .toEqual(new Uint8Array([60, 115, 118, 103, 47, 62]));
+    }
+  });
+
   it('creates multiple embedded raster images before extensions without disturbing neighbors', () => {
     const { pkg, model } = emptyPresentationModel();
     const slide = model.addSlide();

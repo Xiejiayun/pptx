@@ -30,6 +30,7 @@ import {
   ValidationError,
   type AddImageOptions,
   type AddImageSourceOptions,
+  type AddSvgImageOptions,
   type AddTableCellOptions,
   type AddTableCellInput,
   type AddTableOptions,
@@ -41,6 +42,7 @@ import {
   type RasterImageByteStream,
   type RasterImageInfo,
   type RasterImageSource,
+  type SvgImageContentType,
   type ShapeArrows,
   type ShapeAdjustment,
   type ShapeArrowType,
@@ -273,6 +275,43 @@ describe('PptxDocument vertical slice', () => {
       // @ts-expect-error model image creation excludes data-URI loading
       const dataOptions: AddImageOptions = { contentType, data: 'data:image/png;base64,AQ==' };
       void [svgType, missingType, pathOptions, dataOptions];
+    }
+  });
+
+  it('exports the low-level embedded SVG image creation types', async () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const contentType: SvgImageContentType = 'image/svg+xml';
+    const options: AddSvgImageOptions = {
+      name: 'Typed SVG',
+      width: inches(2),
+      height: inches(1),
+    };
+    const image: ImageModel = slide.addSvgImage(
+      new Uint8Array([60, 115, 118, 103, 47, 62]),
+      sdkPngHeader(1, 1),
+      options,
+    );
+
+    expect(contentType).toBe('image/svg+xml');
+    expect(slide.shapes[0]).toBe(image);
+    expect(image.sourcePartUri).toMatch(/\/ppt\/media\/image\d+\.png$/);
+    expect(document.opcPackage.parts.some(({ uri, contentType: type }) =>
+      uri.endsWith('.svg') && type === contentType)).toBe(true);
+    expect(validatePackage(document.opcPackage).filter(({ severity }) => severity === 'error'))
+      .toEqual([]);
+
+    const reopened = await PptxDocument.open(await document.write());
+    expect(reopened.slides[0]!.shapes[0]).toBeInstanceOf(ImageModel);
+    expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error'))
+      .toEqual([]);
+
+    if (false) {
+      // @ts-expect-error low-level SVG options have a fixed content type
+      const selectedType: AddSvgImageOptions = { contentType };
+      // @ts-expect-error canonical SVG content type excludes LibreOffice's import spelling
+      const invalidType: SvgImageContentType = 'image/svg';
+      void [selectedType, invalidType];
     }
   });
 
