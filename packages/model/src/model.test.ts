@@ -820,6 +820,17 @@ describe('PresentationModel', () => {
     expect(slide.relationships.filter(
       ({ type }) => type === 'http://schemas.microsoft.com/office/2007/relationships/media',
     )).toHaveLength(2);
+    const firstPoster = first.posterPartUri!;
+    expect(second.posterPartUri).toBe(firstPoster);
+    await second.replacePoster(Uint8Array.of(6), {
+      contentType: 'image/gif',
+      fileName: 'shared.gif',
+    });
+    expect(first.posterPartUri).toBe(firstPoster);
+    expect(second.posterPartUri).not.toBe(firstPoster);
+    expect(pkg.requirePart(firstPoster).bytes).toEqual(Uint8Array.of(3));
+    expect(pkg.requirePart(second.posterPartUri!).bytes).toEqual(Uint8Array.of(6));
+    expect(slide.relationships.filter(({ type }) => type.endsWith('/image'))).toHaveLength(2);
 
     const kindRelationship = slide.relationships.find(
       ({ id, type }) => id !== undefined && type.endsWith('/audio'),
@@ -847,6 +858,87 @@ describe('PresentationModel', () => {
       type === 'http://schemas.microsoft.com/office/2007/relationships/media'
       && resolvedTarget === first.mediaPartUri)).toBe(true);
     expect(second.mediaPartUri).not.toBe(first.mediaPartUri);
+  });
+
+  it('replaces and resets live media posters with COW and dedup isolation', async () => {
+    const { pkg, model } = emptyPresentationModel();
+    const slide = model.addSlide();
+    const media = await slide.addVideo(Uint8Array.of(1, 2), {
+      name: 'Poster lifecycle',
+      altText: 'Keep poster metadata',
+      contentType: 'video/mp4',
+      poster: Uint8Array.of(3, 4),
+      posterContentType: 'image/png',
+      play: 'auto',
+    });
+    const mediaUri = media.mediaPartUri;
+    const identity = media;
+    const originalPoster = media.posterPartUri!;
+    await media.replacePoster(Uint8Array.of(4, 5), {
+      contentType: 'image/png',
+      fileName: 'cover.png',
+    });
+    expect(media.posterPartUri).toBe(originalPoster);
+    expect(pkg.requirePart(originalPoster).bytes).toEqual(Uint8Array.of(4, 5));
+    expect(await media.replacePoster('data:image/jpeg;base64,BQYH', {
+      fileName: 'cover.jpeg',
+    })).toBe(media);
+    expect(media).toBe(identity);
+    expect(media.posterPartUri).toMatch(/\.jpeg$/);
+    expect(media.posterPartUri).not.toBe(originalPoster);
+    expect(pkg.hasPart(originalPoster)).toBe(false);
+    expect(pkg.requirePart(media.posterPartUri!)).toMatchObject({
+      contentType: 'image/jpeg',
+      bytes: Uint8Array.of(5, 6, 7),
+    });
+    expect(media.mediaPartUri).toBe(mediaUri);
+    expect(media.name).toBe('Poster lifecycle');
+    expect(media.altText).toBe('Keep poster metadata');
+    expect(media.settings.play).toBe('auto');
+
+    await media.replacePoster();
+    expect(media.posterPartUri).toMatch(/\.png$/);
+    expect(pkg.requirePart(media.posterPartUri!).bytes.slice(0, 8))
+      .toEqual(Uint8Array.of(137, 80, 78, 71, 13, 10, 26, 10));
+    const sharedDefault = media.posterPartUri!;
+    const beforeRepeatedReset = packageSnapshot(pkg);
+    await media.replacePoster();
+    expect(media.posterPartUri).toBe(sharedDefault);
+    expect(packageSnapshot(pkg)).toEqual(beforeRepeatedReset);
+    const duplicate = model.duplicateSlide(0);
+    const duplicateMedia = duplicate.media[0]!;
+    expect(duplicateMedia.posterPartUri).toBe(sharedDefault);
+    await duplicateMedia.replacePoster(Uint8Array.of(8, 9), {
+      contentType: 'image/gif',
+      fileName: 'cover.gif',
+    });
+    expect(duplicateMedia.posterPartUri).not.toBe(sharedDefault);
+    expect(media.posterPartUri).toBe(sharedDefault);
+    expect(pkg.requirePart(sharedDefault).bytes.slice(0, 8))
+      .toEqual(Uint8Array.of(137, 80, 78, 71, 13, 10, 26, 10));
+
+    const dedup = await slide.addVideo(Uint8Array.of(10), {
+      contentType: 'video/mp4',
+      poster: Uint8Array.of(11, 12),
+      posterContentType: 'image/gif',
+    });
+    await duplicateMedia.replacePoster(Uint8Array.of(11, 12), {
+      contentType: 'image/gif',
+    });
+    expect(duplicateMedia.posterPartUri).toBe(dedup.posterPartUri);
+
+    const beforeInvalid = packageSnapshot(pkg);
+    await expect(duplicateMedia.replacePoster('https://example.com/poster.png'))
+      .rejects.toThrow(/External poster URLs/);
+    await expect(duplicateMedia.replacePoster(Uint8Array.of(1), { contentType: 'video/mp4' }))
+      .rejects.toThrow(/Unsupported poster content type/);
+    expect(packageSnapshot(pkg)).toEqual(beforeInvalid);
+    expect(duplicate.media[0]).toBe(duplicateMedia);
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedDuplicate = reopened.slides.find(({ partUri }) => partUri === duplicate.partUri)!.media[0]!;
+    expect(reopenedDuplicate.posterPartUri).toBe(dedup.posterPartUri);
+    expect(reopenedDuplicate.mediaPartUri).toBe(mediaUri);
   });
 
   it('creates embedded SVG images atomically before shape-tree extensions', () => {

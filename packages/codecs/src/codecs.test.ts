@@ -570,10 +570,31 @@ describe('MediaCodec', () => {
       { contentType: 'video/mp4' },
     )).rejects.toThrow(/is not video/);
     expect(await packageSnapshot(pkg)).toEqual(before);
+    const posterSetPart = vi.spyOn(pkg, 'setPart').mockImplementation((uri, bytes, contentType) => {
+      if (uri === '/ppt/slides/slide1.xml') throw new Error('poster slide write failed');
+      return originalSetPart(uri, bytes, contentType);
+    });
+    await expect(codec.replacePoster(
+      '/ppt/slides/slide1.xml',
+      media.shapeId,
+      Uint8Array.of(9, 10),
+      { contentType: 'image/gif' },
+    )).rejects.toThrow('poster slide write failed');
+    posterSetPart.mockRestore();
+    expect(await packageSnapshot(pkg)).toEqual(before);
   });
 });
 
 async function packageSnapshot(pkg: OpcPackage): Promise<unknown> {
+  const output = await OpcPackage.open(await pkg.write());
+  return {
+    ...packageState(pkg),
+    output: packageState(output),
+    journal: pkg.mutations.map((mutation) => ({ ...mutation })),
+  };
+}
+
+function packageState(pkg: OpcPackage) {
   const partSources = pkg.parts
     .filter(({ uri }) => !uri.endsWith('.rels'))
     .map(({ uri }) => uri);
@@ -589,7 +610,5 @@ async function packageSnapshot(pkg: OpcPackage): Promise<unknown> {
     ]),
     graph: pkg.graph,
     slide: new Uint8Array(pkg.requirePart('/ppt/slides/slide1.xml').bytes),
-    output: new Uint8Array(await pkg.write()),
-    journal: pkg.mutations.map((mutation) => ({ ...mutation })),
   };
 }

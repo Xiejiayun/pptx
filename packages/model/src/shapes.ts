@@ -8,6 +8,7 @@ import {
   type MediaSource,
   type MediaState,
   type ReplaceMediaSourceOptions,
+  type ReplaceMediaPosterOptions,
 } from '@pptx/codecs';
 import {
   partUriBasename,
@@ -393,6 +394,14 @@ export class MediaModel extends BaseShapeModel {
     options: ReplaceMediaSourceOptions = {},
   ): Promise<this> {
     await this.slide.replaceMediaSource(this.id, this.kind, source, options);
+    return this;
+  }
+
+  async replacePoster(
+    source?: MediaSource,
+    options: ReplaceMediaPosterOptions = {},
+  ): Promise<this> {
+    await this.slide.replaceMediaPoster(this.id, source, options);
     return this;
   }
 

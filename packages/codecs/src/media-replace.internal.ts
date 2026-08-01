@@ -12,16 +12,23 @@ import {
 import { normalizeMediaCreateRequest, type NormalizedMediaSourceReference } from './media-create.internal.js';
 import {
   resolveMediaSourceInput,
+  resolveMediaPosterInput,
   type ResolvedEmbeddedMedia,
   type ResolvedExternalMedia,
 } from './media-source.internal.js';
 import { readMediaState } from './media-state.internal.js';
-import type { MediaKind, MediaSource, ReplaceMediaSourceOptions } from './media.js';
+import type {
+  MediaKind,
+  MediaSource,
+  ReplaceMediaPosterOptions,
+  ReplaceMediaSourceOptions,
+} from './media.js';
 
 const REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/';
 const MEDIA_REL = 'http://schemas.microsoft.com/office/2007/relationships/media';
 const OFFICE_MEDIA_EXTENSION_URI = '{DAA4B4D4-6D71-4841-9C94-3DE7FCFB9230}';
 const OPTION_KEYS = new Set(['contentType', 'fileName', 'transcode']);
+const POSTER_OPTION_KEYS = new Set(['contentType', 'fileName']);
 
 export interface NormalizedMediaReplaceRequest {
   readonly kind: MediaKind;
@@ -29,6 +36,12 @@ export interface NormalizedMediaReplaceRequest {
   readonly contentType?: string;
   readonly fileName?: string;
   readonly transcode?: NonNullable<ReplaceMediaSourceOptions['transcode']>;
+}
+
+export interface NormalizedMediaPosterReplaceRequest {
+  readonly source?: NormalizedMediaSourceReference;
+  readonly contentType?: string;
+  readonly fileName?: string;
 }
 
 export function normalizeMediaReplaceRequest(
@@ -55,6 +68,29 @@ export async function resolveMediaReplacementSource(
   request: Readonly<NormalizedMediaReplaceRequest>,
 ): Promise<ResolvedEmbeddedMedia | ResolvedExternalMedia> {
   return resolveMediaSourceInput(request);
+}
+
+export function normalizeMediaPosterReplaceRequest(
+  source: MediaSource | undefined,
+  options: ReplaceMediaPosterOptions = {},
+): Readonly<NormalizedMediaPosterReplaceRequest> {
+  const values = readOptions(options, POSTER_OPTION_KEYS, 'poster replacement');
+  const creation = normalizeMediaCreateRequest('audio', Uint8Array.of(1), {
+    ...(source === undefined ? {} : { poster: source }),
+    ...(values.contentType === undefined ? {} : { posterContentType: values.contentType }),
+    ...(values.fileName === undefined ? {} : { fileName: values.fileName }),
+  });
+  return Object.freeze({
+    ...(creation.poster ? { source: creation.poster } : {}),
+    ...(creation.posterContentType ? { contentType: creation.posterContentType } : {}),
+    ...(creation.fileName ? { fileName: creation.fileName } : {}),
+  });
+}
+
+export async function resolveMediaReplacementPoster(
+  request: Readonly<NormalizedMediaPosterReplaceRequest>,
+): Promise<ResolvedEmbeddedMedia> {
+  return resolveMediaPosterInput(request);
 }
 
 export async function findMatchingMediaPart(
@@ -151,6 +187,59 @@ export function replaceResolvedMediaSource(
   });
 }
 
+export function replaceResolvedMediaPoster(
+  pkg: OpcPackage,
+  slidePartUri: string,
+  shapeId: number,
+  resolved: Readonly<ResolvedEmbeddedMedia>,
+  matchingPartUri?: string,
+): void {
+  pkg.transaction(() => {
+    const slidePart = pkg.requirePart(slidePartUri);
+    const xml = LosslessXmlDocument.parse(slidePart.bytes);
+    const picture = requirePicture(xml, shapeId, slidePartUri);
+    if (!readMediaState(pkg, slidePartUri, xml, picture)) {
+      throw new Error(`Media shape ${shapeId} was not found on ${slidePartUri}`);
+    }
+    const blips = xml.descendants(picture, 'blip');
+    if (blips.length !== 1) throw new Error(`Media shape ${shapeId} must contain one poster blip`);
+    const blip = blips[0]!;
+    const reference = xml.attribute(blip, 'r:embed');
+    const current = reference
+      ? pkg.relationships(slidePartUri).find(({ id }) => id === reference.value)
+      : undefined;
+    const currentTarget = current?.targetMode === 'Internal' ? current.resolvedTarget : undefined;
+    const canMutate = currentTarget !== undefined
+      && matchingPartUri === undefined
+      && partUriExtension(currentTarget) === resolved.extension
+      && targetOwnedByRelationship(pkg, slidePartUri, xml, currentTarget, current!);
+    const targetUri = matchingPartUri ?? (canMutate ? currentTarget : undefined)
+      ?? pkg.allocatePartUri('/ppt/media', 'poster', resolved.extension);
+    if (!pkg.hasPart(targetUri) || targetUri === currentTarget) {
+      pkg.setPart(targetUri, resolved.bytes, resolved.contentType);
+    }
+    const relationship = upsertRoleRelationship(pkg, slidePartUri, xml, current, {
+      type: `${REL}image`,
+      target: relativeRelationshipTarget(slidePartUri, targetUri),
+      targetMode: 'Internal',
+    });
+    if (reference) xml.replaceAttribute(reference, relationship.id);
+    else insertAttribute(xml, blip, 'r:embed', relationship.id);
+    const updated = xml.serialize();
+    pkg.setPart(slidePartUri, updated, slidePart.contentType);
+    if (current && current.id !== relationship.id) {
+      const reparsed = LosslessXmlDocument.parse(updated);
+      if (relationshipReferenceCount(reparsed, current.id) === 0) {
+        pkg.removeRelationship(slidePartUri, current.id);
+      }
+    }
+    if (currentTarget && currentTarget !== targetUri && currentTarget.startsWith('/ppt/media/')) {
+      const incoming = pkg.graph.find(({ uri }) => uri === currentTarget)?.incoming ?? [];
+      if (incoming.length === 0) pkg.deletePart(currentTarget);
+    }
+  });
+}
+
 interface PrimaryRoles {
   readonly marker?: XmlElement;
   readonly kindId?: string;
@@ -217,6 +306,20 @@ function targetOwnedByPicture(
       && roleIds.has(relationship.id)
       && relationshipReferenceCount(xml, relationship.id) === 1,
   );
+}
+
+function targetOwnedByRelationship(
+  pkg: OpcPackage,
+  slidePartUri: string,
+  xml: LosslessXmlDocument,
+  target: string,
+  relationship: Relationship,
+): boolean {
+  const incoming = pkg.graph.find(({ uri }) => uri === target)?.incoming ?? [];
+  return incoming.length === 1
+    && incoming[0]!.sourceUri === slidePartUri
+    && incoming[0]!.relationship.id === relationship.id
+    && relationshipReferenceCount(xml, relationship.id) === 1;
 }
 
 function replaceMarker(
@@ -312,22 +415,26 @@ function directChildren(element: XmlElement, localName: string): XmlElement[] {
   );
 }
 
-function readOptions(value: unknown): Record<string, unknown> {
+function readOptions(
+  value: unknown,
+  allowed = OPTION_KEYS,
+  label = 'replacement',
+): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new TypeError('Media replacement options must be an object');
+    throw new TypeError(`Media ${label} options must be an object`);
   }
   const prototype = Object.getPrototypeOf(value);
   if (prototype !== Object.prototype && prototype !== null) {
-    throw new TypeError('Media replacement options must be an ordinary object');
+    throw new TypeError(`Media ${label} options must be an ordinary object`);
   }
   const result = Object.create(null) as Record<string, unknown>;
   for (const key of Reflect.ownKeys(value)) {
-    if (typeof key !== 'string' || !OPTION_KEYS.has(key)) {
-      throw new TypeError(`Media replacement options contain unsupported property ${String(key)}`);
+    if (typeof key !== 'string' || !allowed.has(key)) {
+      throw new TypeError(`Media ${label} options contain unsupported property ${String(key)}`);
     }
     const descriptor = Object.getOwnPropertyDescriptor(value, key);
     if (!descriptor || !Object.hasOwn(descriptor, 'value')) {
-      throw new TypeError(`Media replacement option ${key} must be a data property`);
+      throw new TypeError(`Media ${label} option ${key} must be a data property`);
     }
     result[key] = descriptor.value;
   }

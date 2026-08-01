@@ -17,8 +17,11 @@ import { resolveMediaCreationInputs } from './media-source.internal.js';
 import { readMediaState } from './media-state.internal.js';
 import {
   findMatchingMediaPart,
+  normalizeMediaPosterReplaceRequest,
   normalizeMediaReplaceRequest,
+  replaceResolvedMediaPoster,
   replaceResolvedMediaSource,
+  resolveMediaReplacementPoster,
   resolveMediaReplacementSource,
 } from './media-replace.internal.js';
 import type { CodecDiagnostic } from './registry.js';
@@ -67,6 +70,11 @@ export interface ReplaceMediaSourceOptions {
   readonly contentType?: string;
   readonly fileName?: string;
   readonly transcode?: AddMediaOptions['transcode'];
+}
+
+export interface ReplaceMediaPosterOptions {
+  readonly contentType?: string;
+  readonly fileName?: string;
 }
 
 export interface MediaDescriptor {
@@ -152,6 +160,21 @@ export class MediaCodec {
       resolved,
       matching,
     );
+    const descriptor = this.list(slidePartUri).find((candidate) => candidate.shapeId === shapeId);
+    if (!descriptor) throw new Error(`Media shape ${shapeId} was not found on ${slidePartUri}`);
+    return descriptor;
+  }
+
+  async replacePoster(
+    slidePartUri: string,
+    shapeId: number,
+    source?: MediaSource,
+    options: ReplaceMediaPosterOptions = {},
+  ): Promise<MediaDescriptor> {
+    const request = normalizeMediaPosterReplaceRequest(source, options);
+    const resolved = await resolveMediaReplacementPoster(request);
+    const matching = await findMatchingMediaPart(this.pkg, resolved);
+    replaceResolvedMediaPoster(this.pkg, slidePartUri, shapeId, resolved, matching);
     const descriptor = this.list(slidePartUri).find((candidate) => candidate.shapeId === shapeId);
     if (!descriptor) throw new Error(`Media shape ${shapeId} was not found on ${slidePartUri}`);
     return descriptor;

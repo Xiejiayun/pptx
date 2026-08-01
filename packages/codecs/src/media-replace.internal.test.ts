@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  normalizeMediaPosterReplaceRequest,
   normalizeMediaReplaceRequest,
+  resolveMediaReplacementPoster,
   resolveMediaReplacementSource,
 } from './media-replace.internal.js';
 
@@ -55,5 +57,26 @@ describe('media source replacement inputs', () => {
       'https://example.com/audio.mp3',
       { transcode: async (value, contentType) => ({ bytes: value, contentType }) },
     ))).rejects.toThrow(/External media cannot be transcoded/);
+  });
+
+  it('resolves strict poster replacements and the built-in default reset', async () => {
+    expect(await resolveMediaReplacementPoster(normalizeMediaPosterReplaceRequest(
+      'data:image/jpeg;base64,AQID',
+      { fileName: 'poster.jpeg' },
+    ))).toEqual({
+      type: 'embedded',
+      bytes: Uint8Array.of(1, 2, 3),
+      contentType: 'image/jpeg',
+      extension: '.jpeg',
+    });
+    const reset = await resolveMediaReplacementPoster(normalizeMediaPosterReplaceRequest(undefined));
+    expect(reset.contentType).toBe('image/png');
+    expect(reset.extension).toBe('.png');
+    expect(reset.bytes.slice(0, 8)).toEqual(Uint8Array.of(137, 80, 78, 71, 13, 10, 26, 10));
+    await expect(resolveMediaReplacementPoster(normalizeMediaPosterReplaceRequest(
+      'https://example.com/poster.png',
+    ))).rejects.toThrow(/External poster URLs/);
+    expect(() => normalizeMediaPosterReplaceRequest(Uint8Array.of(1), { transcode: true } as never))
+      .toThrow(/unsupported property/);
   });
 });

@@ -78,20 +78,41 @@ export interface NormalizedMediaSourceInput {
   readonly transcode?: NormalizedMediaCreateRequest['transcode'];
 }
 
+export interface NormalizedMediaPosterInput {
+  readonly source?: NormalizedMediaSourceReference;
+  readonly contentType?: string;
+  readonly fileName?: string;
+}
+
 export async function resolveMediaCreationInputs(
   request: Readonly<NormalizedMediaCreateRequest>,
 ): Promise<Readonly<ResolvedMediaCreationInputs>> {
+  const preparedMedia = prepareSource(request.source, 'media', true);
   const preparedPoster = request.poster
     ? prepareSource(request.poster, 'poster', false)
     : undefined;
+  if (preparedMedia.externalUrl && request.transcode) {
+    throw new TypeError('External media cannot be transcoded');
+  }
+  const mediaDescriptor = resolveDescriptor(
+    request.kind,
+    request.contentType,
+    preparedMedia.dataUri?.contentType,
+    request.fileName ?? preparedMedia.name,
+  );
   const posterDescriptor = resolveDescriptor(
     'poster',
     request.posterContentType,
     preparedPoster?.dataUri?.contentType ?? (preparedPoster ? undefined : 'image/png'),
     preparedPoster?.name,
   );
-
-  const media = await resolveMediaSourceInput(request);
+  let media: ResolvedEmbeddedMedia | ResolvedExternalMedia;
+  if (preparedMedia.externalUrl) {
+    media = Object.freeze({ type: 'external', url: preparedMedia.externalUrl });
+  } else {
+    media = createEmbedded(await loadPreparedBytes(preparedMedia, 'media'), mediaDescriptor);
+    if (request.transcode) media = await applyTranscode(media, request);
+  }
   const poster = preparedPoster
     ? createEmbedded(await loadPreparedBytes(preparedPoster, 'poster'), posterDescriptor)
     : createEmbedded(ONE_PIXEL_PNG, posterDescriptor);
@@ -117,6 +138,23 @@ export async function resolveMediaSourceInput(
   let media = createEmbedded(await loadPreparedBytes(prepared, 'media'), descriptor);
   if (request.transcode) media = await applyTranscode(media, request);
   return media;
+}
+
+export async function resolveMediaPosterInput(
+  request: Readonly<NormalizedMediaPosterInput>,
+): Promise<ResolvedEmbeddedMedia> {
+  const prepared = request.source
+    ? prepareSource(request.source, 'poster', false)
+    : undefined;
+  const descriptor = resolveDescriptor(
+    'poster',
+    request.contentType,
+    prepared?.dataUri?.contentType ?? (prepared ? undefined : 'image/png'),
+    request.fileName ?? prepared?.name,
+  );
+  return prepared
+    ? createEmbedded(await loadPreparedBytes(prepared, 'poster'), descriptor)
+    : createEmbedded(ONE_PIXEL_PNG, descriptor);
 }
 
 function prepareSource(

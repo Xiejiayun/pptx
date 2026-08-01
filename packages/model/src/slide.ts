@@ -13,6 +13,7 @@ import {
   type MediaKind,
   type MediaSource,
   type ReplaceMediaSourceOptions,
+  type ReplaceMediaPosterOptions,
 } from '@pptx/codecs';
 import {
   relativeRelationshipTarget,
@@ -415,6 +416,15 @@ export class SlideModel {
   ): Promise<void> {
     await new MediaCodec(this.presentation.opcPackage)
       .replaceSource(this.partUri, shapeId, kind, source, options);
+  }
+
+  async replaceMediaPoster(
+    shapeId: number,
+    source?: MediaSource,
+    options: ReplaceMediaPosterOptions = {},
+  ): Promise<void> {
+    await new MediaCodec(this.presentation.opcPackage)
+      .replacePoster(this.partUri, shapeId, source, options);
   }
 
   get opaqueExtensionCount(): number {

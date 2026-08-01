@@ -282,6 +282,13 @@ describe('PptxDocument vertical slice', () => {
     expect(media.externalUrl).toBe('https://example.com/typed.mp3');
     await media.replaceSource(Uint8Array.of(9), { contentType: 'audio/mpeg' });
     expect(media.mediaPartUri).toMatch(/\.mp3$/);
+    expect(await media.replacePoster(Uint8Array.of(8), {
+      contentType: 'image/gif',
+      fileName: 'typed.gif',
+    })).toBe(media);
+    expect(media.posterPartUri).toMatch(/\.gif$/);
+    await media.replacePoster();
+    expect(media.posterPartUri).toMatch(/\.png$/);
     expect(document.media(0)[0]).toBe(media);
     expect(media.name).toBe('Typed narration edited');
     expect(media.altText).toBeUndefined();
