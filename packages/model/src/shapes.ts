@@ -405,6 +405,10 @@ export class MediaModel extends BaseShapeModel {
     return this;
   }
 
+  remove(): void {
+    this.slide.deleteMedia(this.id);
+  }
+
   private state(): Readonly<MediaState> {
     const { xml, element } = this.resolve();
     const state = readMediaState(

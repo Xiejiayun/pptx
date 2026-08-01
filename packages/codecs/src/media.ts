@@ -188,22 +188,36 @@ export class MediaCodec {
         const properties = xml.descendants(candidate, 'cNvPr')[0];
         return Number(properties ? xml.attribute(properties, 'id')?.value : -1) === shapeId;
       });
-      if (!picture) throw new Error(`Media shape ${shapeId} was not found on ${slidePartUri}`);
+      if (!picture || !readMediaState(this.pkg, slidePartUri, xml, picture)) {
+        throw new Error(`Media shape ${shapeId} was not found on ${slidePartUri}`);
+      }
       const ids = new Set(
         xml
           .descendants(picture)
           .flatMap((element) => element.attributes)
-          .filter(({ name }) => name === 'r:embed' || name === 'r:link')
+          .filter(({ name, value }) => name.startsWith('r:') && value.length > 0)
           .map(({ value }) => value),
       );
+      const targetIds = mediaRelationshipIds(xml, picture);
       const targets = this.pkg
         .relationships(slidePartUri)
-        .filter(({ id }) => ids.has(id))
+        .filter(({ id, type }) => targetIds.has(id) && (
+          type === `${REL}audio`
+          || type === `${REL}video`
+          || type === `${REL}image`
+          || type === MEDIA_REL
+        ))
         .map(({ resolvedTarget }) => resolvedTarget)
         .filter((target): target is string => Boolean(target));
       xml.removeElement(picture);
-      this.pkg.setPart(slidePartUri, xml.serialize(), part.contentType);
-      for (const id of ids) this.pkg.removeRelationship(slidePartUri, id);
+      const updated = xml.serialize();
+      this.pkg.setPart(slidePartUri, updated, part.contentType);
+      const remaining = LosslessXmlDocument.parse(updated);
+      for (const id of ids) {
+        if (relationshipReferenceCount(remaining, id) === 0) {
+          this.pkg.removeRelationship(slidePartUri, id);
+        }
+      }
       for (const target of new Set(targets)) {
         const incoming = this.pkg.graph.find(({ uri }) => uri === target)?.incoming ?? [];
         if (incoming.length === 0 && target.startsWith('/ppt/media/')) this.pkg.deletePart(target);
@@ -466,4 +480,27 @@ function ancestor(element: XmlElement, localName: string): XmlElement | undefine
     current = current.parent;
   }
   return undefined;
+}
+
+function relationshipReferenceCount(xml: LosslessXmlDocument, id: string): number {
+  return xml.elements().flatMap(({ attributes }) => attributes)
+    .filter(({ name, value }) => name.startsWith('r:') && value === id).length;
+}
+
+function mediaRelationshipIds(xml: LosslessXmlDocument, picture: XmlElement): ReadonlySet<string> {
+  const ids = new Set<string>();
+  for (const element of xml.descendants(picture)) {
+    let attribute: 'r:embed' | 'r:link' | undefined;
+    if (element.localName === 'audioFile' || element.localName === 'videoFile') {
+      attribute = 'r:link';
+    } else if (
+      element.localName === 'media'
+      || (element.localName === 'blip' && element.parent?.localName === 'blipFill')
+    ) {
+      attribute = 'r:embed';
+    }
+    const id = attribute ? xml.attribute(element, attribute)?.value : undefined;
+    if (id) ids.add(id);
+  }
+  return ids;
 }

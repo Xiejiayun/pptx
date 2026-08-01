@@ -537,6 +537,27 @@ describe('MediaCodec', () => {
       throw new Error('outer rollback');
     })).toThrow('outer rollback');
     expect(await packageSnapshot(outer)).toEqual(outerBefore);
+
+    const deletion = await featureFixture();
+    const deletionCodec = new MediaCodec(deletion);
+    const removable = await deletionCodec.addAudio(
+      '/ppt/slides/slide1.xml',
+      Uint8Array.of(4, 5, 6),
+      { contentType: 'audio/mpeg' },
+    );
+    const deletionBefore = await packageSnapshot(deletion);
+    const originalRemoveRelationship = deletion.removeRelationship.bind(deletion);
+    let removalCalls = 0;
+    const removeRelationship = vi.spyOn(deletion, 'removeRelationship')
+      .mockImplementation((sourcePartUri, id) => {
+        removalCalls += 1;
+        if (removalCalls === 2) throw new Error('relationship removal failed');
+        return originalRemoveRelationship(sourcePartUri, id);
+      });
+    expect(() => deletionCodec.delete('/ppt/slides/slide1.xml', removable.shapeId))
+      .toThrow('relationship removal failed');
+    removeRelationship.mockRestore();
+    expect(await packageSnapshot(deletion)).toEqual(deletionBefore);
   });
 
   it('rolls back media source replacement after relationship and payload mutation', async () => {

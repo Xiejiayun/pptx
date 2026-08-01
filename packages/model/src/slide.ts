@@ -427,6 +427,10 @@ export class SlideModel {
       .replacePoster(this.partUri, shapeId, source, options);
   }
 
+  deleteMedia(shapeId: number): void {
+    new MediaCodec(this.presentation.opcPackage).delete(this.partUri, shapeId);
+  }
+
   get opaqueExtensionCount(): number {
     const { xml } = this.parse();
     return xml.elements('extLst').length + xml.elements('AlternateContent').length;

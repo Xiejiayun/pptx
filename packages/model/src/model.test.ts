@@ -2,7 +2,7 @@ import JSZip from 'jszip';
 import { describe, expect, it } from 'vitest';
 import { MediaCodec } from '@pptx/codecs';
 import { LosslessXmlDocument } from '@pptx/lossless-xml';
-import { OpcPackage, relationshipPartUri } from '@pptx/opc';
+import { OpcPackage, relativeRelationshipTarget, relationshipPartUri } from '@pptx/opc';
 import {
   ChartModel,
   CustomGeometryEvaluationError,
@@ -939,6 +939,134 @@ describe('PresentationModel', () => {
     const reopenedDuplicate = reopened.slides.find(({ partUri }) => partUri === duplicate.partUri)!.media[0]!;
     expect(reopenedDuplicate.posterPartUri).toBe(dedup.posterPartUri);
     expect(reopenedDuplicate.mediaPartUri).toBe(mediaUri);
+  });
+
+  it('removes live media without breaking shared relationships or payloads', async () => {
+    const { pkg, model } = emptyPresentationModel();
+    const slide = model.addSlide();
+    const first = await slide.addAudio(Uint8Array.of(1, 2), {
+      name: 'Shared removal',
+      contentType: 'audio/mpeg',
+      poster: Uint8Array.of(3),
+      posterContentType: 'image/png',
+    });
+    const mediaUri = first.mediaPartUri!;
+    const posterUri = first.posterPartUri!;
+    const slidePart = pkg.requirePart(slide.partUri);
+    const source = new TextDecoder().decode(slidePart.bytes);
+    const picture = source.match(/<p:pic>.*?<\/p:pic>/)?.[0];
+    expect(picture).toBeTruthy();
+    pkg.setPart(
+      slide.partUri,
+      source.replace(
+        '</p:spTree>',
+        `${picture!.replace('id="2"', 'id="3"').replace('name="Shared removal"', 'name="Remove second"')}</p:spTree>`,
+      ),
+      slidePart.contentType,
+    );
+    const second = slide.media.find(({ id }) => id === 3)!;
+    const roleCount = slide.relationships.length;
+
+    expect(second.remove()).toBeUndefined();
+    expect(slide.media).toEqual([first]);
+    expect(slide.relationships).toHaveLength(roleCount);
+    expect(pkg.hasPart(mediaUri)).toBe(true);
+    expect(pkg.hasPart(posterUri)).toBe(true);
+    expect(() => second.name).toThrow(/Shape 3 was not found/);
+    expect(() => { second.name = 'Do not recreate'; }).toThrow(/not found/);
+    expect(() => second.setTransform({ x: inches(1) })).toThrow(/not found/);
+    await expect(second.replacePoster()).rejects.toThrow(/not found/);
+
+    const beforeRemovalRollback = packageSnapshot(pkg);
+    expect(() => pkg.transaction(() => {
+      first.remove();
+      throw new Error('rollback media removal');
+    })).toThrow('rollback media removal');
+    expect(packageSnapshot(pkg)).toEqual(beforeRemovalRollback);
+    expect(slide.media[0]).toBe(first);
+    expect(first.name).toBe('Shared removal');
+
+    const hyperlink = pkg.addRelationship(slide.partUri, {
+      type: HYPERLINK_RELATIONSHIP,
+      target: 'https://example.com/media-details',
+      targetMode: 'External',
+    });
+    const kindRelationship = slide.relationships.find(({ type }) => type.endsWith('/audio'))!;
+    pkg.transaction(() => {
+      const currentSlide = pkg.requirePart(slide.partUri);
+      pkg.setPart(
+        slide.partUri,
+        new TextDecoder().decode(currentSlide.bytes)
+          .replace('r:id=""', `r:id="${hyperlink.id}"`)
+          .replace('<a:audioFile ', '<a:videoFile '),
+        currentSlide.contentType,
+      );
+      pkg.updateRelationship(slide.partUri, kindRelationship.id, {
+        type: 'http://schemas.microsoft.com/office/2007/relationships/media',
+      });
+      const mediaPart = pkg.requirePart(mediaUri);
+      pkg.setPart(mediaUri, mediaPart.bytes, 'audio/mp3');
+    });
+    expect(first.mediaPartUri).toBe(mediaUri);
+    first.remove();
+    expect(slide.media).toHaveLength(0);
+    expect(pkg.hasPart(mediaUri)).toBe(false);
+    expect(pkg.hasPart(posterUri)).toBe(false);
+    expect(slide.relationships.some(({ id }) => id === hyperlink.id)).toBe(false);
+    expect(slide.relationships.some(({ type }) =>
+      type.endsWith('/audio') || type.endsWith('/media') || type.endsWith('/image'))).toBe(false);
+
+    const external = await slide.addVideo('https://example.com/video.mp4', {
+      poster: Uint8Array.of(4),
+      posterContentType: 'image/gif',
+    });
+    const externalPoster = external.posterPartUri!;
+    external.remove();
+    expect(pkg.hasPart(externalPoster)).toBe(false);
+    expect(slide.relationships.some(({ targetMode }) => targetMode === 'External')).toBe(false);
+  });
+
+  it('garbage-collects slide media only after the final package reference is deleted', async () => {
+    const { pkg, model } = emptyPresentationModel();
+    const source = model.addSlide();
+    const audio = await source.addAudio(Uint8Array.of(1), {
+      contentType: 'audio/mpeg',
+      poster: Uint8Array.of(2),
+      posterContentType: 'image/png',
+    });
+    await source.addVideo('https://example.com/video.mp4');
+    const image = source.addImage(Uint8Array.of(3), { contentType: 'image/png' });
+    const mediaUri = audio.mediaPartUri!;
+    const posterUri = audio.posterPartUri!;
+    const imageUri = image.sourcePartUri!;
+    const duplicate = model.duplicateSlide(0);
+    const duplicateMedia = duplicate.media[0]!;
+    const keeper = pkg.addRelationship(model.presentationPartUri, {
+      type: 'urn:test:retained-media',
+      target: relativeRelationshipTarget(model.presentationPartUri, posterUri),
+      targetMode: 'Internal',
+    });
+
+    model.moveSlide(model.slides.indexOf(duplicate), 0);
+    expect(model.slides[0]).toBe(duplicate);
+    expect(duplicate.media[0]).toBe(duplicateMedia);
+    const beforeRollback = packageSnapshot(pkg);
+    expect(() => pkg.transaction(() => {
+      model.deleteSlide(model.slides.indexOf(duplicate));
+      throw new Error('rollback media slide deletion');
+    })).toThrow('rollback media slide deletion');
+    expect(packageSnapshot(pkg)).toEqual(beforeRollback);
+    expect(model.slides[0]).toBe(duplicate);
+    expect(duplicate.media[0]).toBe(duplicateMedia);
+
+    model.deleteSlide(model.slides.indexOf(duplicate));
+    expect(pkg.hasPart(mediaUri)).toBe(true);
+    expect(pkg.hasPart(posterUri)).toBe(true);
+    model.deleteSlide(model.slides.indexOf(source));
+    expect(pkg.hasPart(mediaUri)).toBe(false);
+    expect(pkg.hasPart(posterUri)).toBe(true);
+    expect(pkg.hasPart(imageUri)).toBe(true);
+    expect(pkg.relationships(model.presentationPartUri)).toContainEqual(keeper);
   });
 
   it('creates embedded SVG images atomically before shape-tree extensions', () => {

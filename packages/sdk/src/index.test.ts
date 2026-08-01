@@ -307,6 +307,14 @@ describe('PptxDocument vertical slice', () => {
         height: inches(4),
       },
     });
+    const removedBySlide = await document.addVideo(0, 'https://example.com/remove-by-slide.mp4');
+    document.slides[0]!.deleteMedia(removedBySlide.id);
+    expect(document.media(0)).not.toContain(removedBySlide);
+    expect(() => removedBySlide.name).toThrow(/not found/);
+    const removedByModel = await document.addVideo(0, 'https://example.com/remove-by-model.mp4');
+    removedByModel.remove();
+    expect(document.media(0)).not.toContain(removedByModel);
+    expect(() => removedByModel.setTransform({ x: inches(1) })).toThrow(/not found/);
 
     if (false) {
       // @ts-expect-error media name must be a string

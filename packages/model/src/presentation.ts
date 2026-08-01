@@ -18,7 +18,9 @@ import { removeDrawingHyperlinkReferences } from './shape-hyperlink.internal.js'
 import { SlideModel } from './slide.js';
 import {
   cloneSlideDependencies,
+  garbageCollectMediaDependencies,
   garbageCollectOwnedDependencies,
+  mediaSlideDependencyTargets,
   ownedSlideDependencyRoots,
 } from './dependency.internal.js';
 import {
@@ -438,6 +440,7 @@ export class PresentationModel {
       );
       if (!entry) throw new PackageError(`Slide entry ${slide.relationshipId} is missing`, this.presentationPartUri);
       const ownedDependencies = ownedSlideDependencyRoots(this.opcPackage, slide.partUri);
+      const mediaDependencies = mediaSlideDependencyTargets(this.opcPackage, slide.partUri);
       for (const source of this.slides) {
         if (source.partUri === slide.partUri) continue;
         const relationshipIds = new Set(
@@ -464,6 +467,7 @@ export class PresentationModel {
       this.opcPackage.removeRelationship(this.presentationPartUri, slide.relationshipId);
       this.opcPackage.deletePart(slide.partUri);
       garbageCollectOwnedDependencies(this.opcPackage, ownedDependencies);
+      garbageCollectMediaDependencies(this.opcPackage, mediaDependencies);
     });
   }
 

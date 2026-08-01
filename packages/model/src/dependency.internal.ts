@@ -1,3 +1,5 @@
+import { LosslessXmlDocument, type XmlElement } from '@pptx/lossless-xml';
+import { readMediaState } from '@pptx/codecs';
 import {
   partUriBasename,
   partUriDirname,
@@ -39,6 +41,13 @@ const SHARED_RELATIONSHIPS = new Set([
   'video',
 ]);
 
+const MEDIA_RELATIONSHIPS = new Set([
+  'http://schemas.openxmlformats.org/officeDocument/2006/relationships/audio',
+  'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image',
+  'http://schemas.openxmlformats.org/officeDocument/2006/relationships/video',
+  'http://schemas.microsoft.com/office/2007/relationships/media',
+]);
+
 export function cloneSlideDependencies(pkg: OpcPackage, sourceSlideUri: string, cloneSlideUri: string): void {
   const clones = new Map<string, string>([[sourceSlideUri, cloneSlideUri]]);
   for (const relationship of pkg.relationships(sourceSlideUri)) {
@@ -66,6 +75,35 @@ export function ownedSlideDependencyRoots(pkg: OpcPackage, slidePartUri: string)
 
 export function garbageCollectOwnedDependencies(pkg: OpcPackage, roots: readonly string[]): void {
   for (const root of new Set(roots)) garbageCollectOwnedRoot(pkg, root);
+}
+
+export function mediaSlideDependencyTargets(pkg: OpcPackage, slidePartUri: string): readonly string[] {
+  const xml = LosslessXmlDocument.parse(pkg.requirePart(slidePartUri).bytes);
+  const relationships = new Map(pkg.relationships(slidePartUri).map((relationship) => [relationship.id, relationship]));
+  const targets = new Set<string>();
+  for (const picture of xml.elements('pic')) {
+    if (!readMediaState(pkg, slidePartUri, xml, picture)) continue;
+    for (const { element, attribute } of mediaRelationshipReferences(xml, picture)) {
+      const id = xml.attribute(element, attribute)?.value;
+      const relationship = id ? relationships.get(id) : undefined;
+      if (
+        relationship?.targetMode === 'Internal'
+        && relationship.resolvedTarget?.startsWith('/ppt/media/')
+        && MEDIA_RELATIONSHIPS.has(relationship.type)
+      ) {
+        targets.add(relationship.resolvedTarget);
+      }
+    }
+  }
+  return [...targets];
+}
+
+export function garbageCollectMediaDependencies(pkg: OpcPackage, targets: readonly string[]): void {
+  for (const target of new Set(targets)) {
+    if (!pkg.hasPart(target) || !target.startsWith('/ppt/media/')) continue;
+    const incoming = pkg.graph.find(({ uri }) => uri === target)?.incoming ?? [];
+    if (incoming.length === 0) pkg.deletePart(target);
+  }
 }
 
 export function cloneOwnedPartForMutation(pkg: OpcPackage, sourcePartUri: string): string {
@@ -173,6 +211,22 @@ function lifecycleOf(relationship: Relationship, insideOwnedSubgraph: boolean): 
   if (SHARED_RELATIONSHIPS.has(suffix)) return 'shared';
   if (OWNED_RELATIONSHIPS.has(suffix) || insideOwnedSubgraph) return 'owned';
   return 'opaque';
+}
+
+function mediaRelationshipReferences(
+  xml: LosslessXmlDocument,
+  picture: XmlElement,
+): readonly { readonly element: XmlElement; readonly attribute: 'r:embed' | 'r:link' }[] {
+  return xml.descendants(picture)
+    .filter(({ localName, parent }) =>
+      ['audioFile', 'videoFile', 'media'].includes(localName)
+      || (localName === 'blip' && parent?.localName === 'blipFill'))
+    .map((element) => ({
+      element,
+      attribute: element.localName === 'audioFile' || element.localName === 'videoFile'
+        ? 'r:link' as const
+        : 'r:embed' as const,
+    }));
 }
 
 function allocateCloneUri(pkg: OpcPackage, sourcePartUri: string): string {
