@@ -1,13 +1,8 @@
 import { escapeXmlAttribute, type XmlElement } from '@pptx/lossless-xml';
+import type { SimpleFill } from './slide-background.js';
 import type { RichTextColor } from './text.js';
 
-export type SimpleFill =
-  | { readonly kind: 'none' }
-  | {
-      readonly kind: 'solid';
-      readonly color: RichTextColor;
-      readonly transparency?: number;
-    };
+export type { SimpleFill } from './slide-background.js';
 
 export const SIMPLE_FILL_CHOICE_NAMES = Object.freeze([
   'noFill',

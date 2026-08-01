@@ -13,5 +13,6 @@ export * from './presentation.js';
 export * from './preset-shape.js';
 export * from './shapes.js';
 export * from './slide.js';
+export * from './slide-background.js';
 export * from './text.js';
 export * from './units.js';
