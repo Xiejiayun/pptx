@@ -1,5 +1,5 @@
 import type { ImageSourceRectangle } from '@pptx/model';
-import type { RasterImageInfo } from './raster-image-source.js';
+import type { ImageInfo, RasterImageInfo } from './raster-image-source.js';
 
 const INFO_KEYS = new Set(['contentType', 'width', 'height']);
 const FRAME_KEYS = new Set(['type', 'width', 'height']);
@@ -36,6 +36,10 @@ export interface RasterImageSizingResult {
   readonly sourceRectangle: Readonly<ImageSourceRectangle>;
 }
 
+export type ImageCropRegion = RasterImageCropRegion;
+export type ImageSizing = RasterImageSizing;
+export type ImageSizingResult = RasterImageSizingResult;
+
 export function normalizeRasterImageSizing(
   value: unknown,
 ): Readonly<RasterImageSizing> {
@@ -65,19 +69,61 @@ export function normalizeRasterImageSizing(
   return Object.freeze({ type, width, height, source });
 }
 
+export function normalizeImageSizing(value: unknown): Readonly<ImageSizing> {
+  return normalizeRasterImageSizing(value);
+}
+
 export function calculateRasterImageSizing(
   info: RasterImageInfo,
   sizing: RasterImageSizing,
 ): Readonly<RasterImageSizingResult> {
   const image = normalizeRasterImageInfo(info);
   const normalized = normalizeRasterImageSizing(sizing);
+  return calculateNormalizedImageSizing(image, normalized, 'Raster image sizing');
+}
+
+export function calculateImageSizing(
+  info: ImageInfo,
+  sizing: ImageSizing,
+): Readonly<ImageSizingResult> {
+  const image = normalizeImageInfo(info);
+  const normalized = normalizeRasterImageSizing(sizing);
+  return calculateNormalizedImageSizing(image, normalized, 'Image sizing');
+}
+
+function calculateNormalizedImageSizing(
+  image: Readonly<ImageInfo>,
+  normalized: Readonly<ImageSizing>,
+  context: string,
+): Readonly<ImageSizingResult> {
   const sourceRectangle = normalized.type === 'crop'
-    ? calculateCrop(image, normalized.source)
-    : calculateFit(image, normalized);
+    ? calculateCrop(image, normalized.source, context)
+    : calculateFit(image, normalized, context);
   return Object.freeze({
     width: normalized.width,
     height: normalized.height,
     sourceRectangle,
+  });
+}
+
+function normalizeImageInfo(value: unknown): ImageInfo {
+  const input = readClosedObject(value, INFO_KEYS, 'Image info');
+  requireExactKeys(input, INFO_KEYS, 'Image info');
+  const contentType = input.contentType;
+  if (contentType === 'image/svg+xml') {
+    return Object.freeze({
+      contentType,
+      width: positiveFinite(input.width, 'SVG image info width'),
+      height: positiveFinite(input.height, 'SVG image info height'),
+    });
+  }
+  if (contentType !== 'image/png' && contentType !== 'image/jpeg' && contentType !== 'image/gif') {
+    throw new TypeError('Image info contentType is unsupported');
+  }
+  return Object.freeze({
+    contentType,
+    width: positiveSafeInteger(input.width, 'Raster image info width'),
+    height: positiveSafeInteger(input.height, 'Raster image info height'),
   });
 }
 
@@ -96,45 +142,48 @@ function normalizeRasterImageInfo(value: unknown): RasterImageInfo {
 }
 
 function calculateFit(
-  image: RasterImageInfo,
-  sizing: Extract<RasterImageSizing, { type: 'contain' | 'cover' }>,
+  image: Readonly<Pick<ImageInfo, 'width' | 'height'>>,
+  sizing: Extract<ImageSizing, { type: 'contain' | 'cover' }>,
+  context: string,
 ): Readonly<ImageSourceRectangle> {
   const imageRatio = image.height / image.width;
   const frameRatio = sizing.height / sizing.width;
-  if (frameRatio === imageRatio) return normalizeRectangle(0, 0, 0, 0);
+  if (frameRatio === imageRatio) return normalizeRectangle(0, 0, 0, 0, context);
 
   if (sizing.type === 'cover') {
     if (frameRatio > imageRatio) {
       const horizontal = 50 * (1 - sizing.width / (sizing.height / imageRatio));
-      return normalizeRectangle(horizontal, 0, horizontal, 0);
+      return normalizeRectangle(horizontal, 0, horizontal, 0, context);
     }
     const vertical = 50 * (1 - sizing.height / (sizing.width * imageRatio));
-    return normalizeRectangle(0, vertical, 0, vertical);
+    return normalizeRectangle(0, vertical, 0, vertical, context);
   }
 
   if (frameRatio > imageRatio) {
     const vertical = 50 * (1 - sizing.height / (sizing.width * imageRatio));
-    return normalizeRectangle(0, vertical, 0, vertical);
+    return normalizeRectangle(0, vertical, 0, vertical, context);
   }
   const horizontal = 50 * (1 - sizing.width / (sizing.height / imageRatio));
-  return normalizeRectangle(horizontal, 0, horizontal, 0);
+  return normalizeRectangle(horizontal, 0, horizontal, 0, context);
 }
 
 function calculateCrop(
-  image: RasterImageInfo,
-  source: Readonly<RasterImageCropRegion>,
+  image: Readonly<Pick<ImageInfo, 'width' | 'height'>>,
+  source: Readonly<ImageCropRegion>,
+  context: string,
 ): Readonly<ImageSourceRectangle> {
   if (source.x > image.width || source.width > image.width - source.x) {
-    throw new RangeError('Raster image crop must fit within the intrinsic width');
+    throw new RangeError(`${context} crop must fit within the intrinsic width`);
   }
   if (source.y > image.height || source.height > image.height - source.y) {
-    throw new RangeError('Raster image crop must fit within the intrinsic height');
+    throw new RangeError(`${context} crop must fit within the intrinsic height`);
   }
   return normalizeRectangle(
     100 * source.x / image.width,
     100 * source.y / image.height,
     100 * (image.width - source.x - source.width) / image.width,
     100 * (image.height - source.y - source.height) / image.height,
+    context,
   );
 }
 
@@ -143,18 +192,19 @@ function normalizeRectangle(
   top: number,
   right: number,
   bottom: number,
+  context: string,
 ): Readonly<ImageSourceRectangle> {
   const raw = {
-    left: normalizePercentage(left, 'left'),
-    top: normalizePercentage(top, 'top'),
-    right: normalizePercentage(right, 'right'),
-    bottom: normalizePercentage(bottom, 'bottom'),
+    left: normalizePercentage(left, 'left', context),
+    top: normalizePercentage(top, 'top', context),
+    right: normalizePercentage(right, 'right', context),
+    bottom: normalizePercentage(bottom, 'bottom', context),
   };
   if (raw.left + raw.right >= FULL_PERCENT) {
-    throw new RangeError('Raster image sizing must leave a positive source width');
+    throw new RangeError(`${context} must leave a positive source width`);
   }
   if (raw.top + raw.bottom >= FULL_PERCENT) {
-    throw new RangeError('Raster image sizing must leave a positive source height');
+    throw new RangeError(`${context} must leave a positive source height`);
   }
   return Object.freeze({
     left: percentage(raw.left),
@@ -164,13 +214,13 @@ function normalizeRectangle(
   });
 }
 
-function normalizePercentage(value: number, edge: string): number {
+function normalizePercentage(value: number, edge: string, context: string): number {
   const raw = Math.round(value * PERCENT_SCALE);
   if (!Number.isSafeInteger(raw) || raw < INT32_MIN || raw > INT32_MAX) {
-    throw new RangeError(`Raster image sizing ${edge} must fit the OOXML Int32 percentage range`);
+    throw new RangeError(`${context} ${edge} must fit the OOXML Int32 percentage range`);
   }
   if (raw >= FULL_PERCENT) {
-    throw new RangeError(`Raster image sizing ${edge} must be less than 100 percent`);
+    throw new RangeError(`${context} ${edge} must be less than 100 percent`);
   }
   return raw === 0 ? 0 : raw;
 }

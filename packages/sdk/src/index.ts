@@ -7,7 +7,11 @@ import {
   type MediaModel,
   type MediaSource,
 } from '@pptx/codecs';
-import { PresentationModel, type AddImageOptions, type ImageModel } from '@pptx/model';
+import {
+  PresentationModel,
+  type AddSvgImageOptions,
+  type ImageModel,
+} from '@pptx/model';
 import { OpcPackage, type PackageOpenOptions } from '@pptx/opc';
 import {
   ValidationError,
@@ -22,13 +26,14 @@ import {
   type PresentationThemeOptions,
 } from './presentation-theme.js';
 import {
-  assertRasterImageContentType,
+  assertImageContentType,
   normalizeAddImageSourceOptions,
-  resolveRasterImageSource,
+  resolveImageSource,
   type AddImageSourceOptions,
-  type RasterImageSource,
+  type ImageSource,
 } from './raster-image-source.js';
-import { calculateRasterImageSizing } from './raster-image-sizing.js';
+import { calculateImageSizing } from './raster-image-sizing.js';
+import { resolveSvgFallback } from './svg-image-fallback.js';
 
 export * from '@pptx/codecs';
 export * from '@pptx/model';
@@ -55,8 +60,11 @@ export type {
 } from './raster-image-source.js';
 export { inspectSvgImage } from './svg-image-source.js';
 export type { SvgImageInfo } from './svg-image-source.js';
-export { calculateRasterImageSizing } from './raster-image-sizing.js';
+export { calculateImageSizing, calculateRasterImageSizing } from './raster-image-sizing.js';
 export type {
+  ImageCropRegion,
+  ImageSizing,
+  ImageSizingResult,
   RasterImageCropRegion,
   RasterImageSizing,
   RasterImageSizingResult,
@@ -215,24 +223,38 @@ export class PptxDocument extends PresentationModel {
 
   async addImage(
     slideIndex: number,
-    source: RasterImageSource,
+    source: ImageSource,
     options: AddImageSourceOptions = {},
   ): Promise<ImageModel> {
     const slide = this.slides[slideIndex];
     if (!slide) throw new RangeError(`Slide index ${slideIndex} is out of range`);
     const normalized = normalizeAddImageSourceOptions(options);
-    const resolved = await resolveRasterImageSource(source, normalized.signal);
-    assertRasterImageContentType(normalized.contentType, resolved);
+    const resolved = await resolveImageSource(source, normalized.signal);
+    assertImageContentType(normalized.contentType, resolved);
     const placement = normalized.sizing
-      ? calculateRasterImageSizing(resolved.info, normalized.sizing) as Pick<
-          AddImageOptions,
+      ? calculateImageSizing(resolved.info, normalized.sizing) as Pick<
+          AddSvgImageOptions,
           'width' | 'height' | 'sourceRectangle'
         >
       : undefined;
-    return slide.addImage(resolved.bytes, {
+    if (resolved.info.contentType !== 'image/svg+xml') {
+      if (normalized.fallback !== undefined) {
+        throw new TypeError('fallback is only valid for SVG images');
+      }
+      return slide.addImage(resolved.bytes, {
+        ...normalized.imageOptions,
+        ...(placement ?? {}),
+        contentType: resolved.info.contentType,
+      });
+    }
+    const fallback = await resolveSvgFallback(
+      resolved,
+      normalized.fallback,
+      normalized.signal,
+    );
+    return slide.addSvgImage(resolved.bytes, fallback, {
       ...normalized.imageOptions,
       ...(placement ?? {}),
-      contentType: resolved.info.contentType,
     });
   }
 

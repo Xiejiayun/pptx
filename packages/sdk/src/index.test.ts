@@ -38,6 +38,8 @@ import {
   type CustomGeometryEvaluationContext,
   type EvaluatedCustomGeometry,
   type Hyperlink,
+  type ImageSource,
+  type ImageSizing,
   type RasterImageContentType,
   type RasterImageByteStream,
   type RasterImageInfo,
@@ -64,6 +66,12 @@ function sdkPngHeader(width: number, height: number): Uint8Array<ArrayBuffer> {
   bytes[22] = height >>> 8;
   bytes[23] = height;
   return bytes;
+}
+
+function sdkSvg(width = 640, height = 360): Uint8Array<ArrayBuffer> {
+  return new TextEncoder().encode(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}"/>`,
+  );
 }
 
 function sdkPngDataUri(bytes: Uint8Array): string {
@@ -372,6 +380,120 @@ describe('PptxDocument vertical slice', () => {
     expect(reopened.opcPackage.requirePart(reopenedImage.sourcePartUri!).bytes).toEqual(expected);
   });
 
+  it('adds SVG sources with explicit and built-in PNG fallbacks through one live mutation', async () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const svg = sdkSvg(640, 360);
+    const explicitFallback = sdkPngHeader(32, 18);
+    const sizing: ImageSizing = {
+      type: 'cover',
+      width: inches(4),
+      height: inches(3),
+    };
+    const source: ImageSource = svg;
+    const pending = document.addImage(0, source, {
+      contentType: 'image/svg+xml',
+      fallback: explicitFallback,
+      sizing,
+      name: 'High-level SVG',
+      altText: 'Vector with explicit fallback',
+      x: inches(1),
+      y: inches(2),
+      rotation: degrees(15),
+      flipHorizontal: true,
+    });
+    svg.fill(0);
+    explicitFallback.fill(0);
+    const image = await pending;
+
+    expect(slide.shapes[0]).toBe(image);
+    expect(image.isSvg).toBe(true);
+    expect(image.name).toBe('High-level SVG');
+    expect(image.transform).toEqual({
+      x: inches(1),
+      y: inches(2),
+      width: inches(4),
+      height: inches(3),
+      rotation: degrees(15),
+      flipHorizontal: true,
+      flipVertical: false,
+    });
+    expect(image.sourceRectangle).toEqual({
+      left: 12.5,
+      top: 0,
+      right: 12.5,
+      bottom: 0,
+    });
+    expect(document.opcPackage.requirePart(image.fallbackPartUri!)).toMatchObject({
+      contentType: 'image/png',
+      bytes: sdkPngHeader(32, 18),
+    });
+    expect(document.opcPackage.requirePart(image.svgPartUri!)).toMatchObject({
+      contentType: 'image/svg+xml',
+      bytes: sdkSvg(640, 360),
+    });
+
+    const automatic = await document.addImage(0, sdkSvg(300, 150));
+    expect(automatic.isSvg).toBe(true);
+    expect(inspectRasterImage(
+      document.opcPackage.requirePart(automatic.fallbackPartUri!).bytes,
+    )).toEqual({ contentType: 'image/png', width: 1, height: 1 });
+    expect(slide.shapes[1]).toBe(automatic);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedImage = reopened.slides[0]!.shapes[0] as ImageModel;
+    expect(reopenedImage.isSvg).toBe(true);
+    expect(reopenedImage.name).toBe('High-level SVG');
+    expect(reopenedImage.sourceRectangle).toEqual(image.sourceRectangle);
+  });
+
+  it('rejects raster fallback without reading it and leaves failed SVG additions unchanged', async () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const snapshot = () => ({
+      parts: document.opcPackage.parts.map(({ uri, contentType, bytes }) => ({
+        uri,
+        contentType,
+        bytes: new Uint8Array(bytes),
+      })),
+      graph: document.opcPackage.graph,
+      mutations: [...document.opcPackage.mutations],
+      shapes: slide.shapes,
+    });
+    const before = snapshot();
+    let fallbackReads = 0;
+    const fallback: ImageSource = {
+      async *[Symbol.asyncIterator]() {
+        fallbackReads += 1;
+        yield sdkPngHeader(1, 1);
+      },
+    };
+
+    await expect(document.addImage(0, sdkPngHeader(10, 10), { fallback }))
+      .rejects.toThrow(/fallback is only valid for SVG/i);
+    expect(fallbackReads).toBe(0);
+    expect(snapshot()).toEqual(before);
+
+    await expect(document.addImage(0, sdkSvg(), {
+      fallback: new TextEncoder().encode('GIF89a\x01\x00\x01\x00'),
+    })).rejects.toThrow(/fallback.*PNG/i);
+    expect(snapshot()).toEqual(before);
+
+    const controller = new AbortController();
+    const reason = new Error('abort explicit SVG fallback');
+    const pending = document.addImage(0, sdkSvg(), {
+      fallback: {
+        async *[Symbol.asyncIterator]() {
+          controller.abort(reason);
+          yield sdkPngHeader(1, 1);
+        },
+      },
+      signal: controller.signal,
+    });
+    await expect(pending).rejects.toBe(reason);
+    expect(snapshot()).toEqual(before);
+  });
+
   it('sizes every raster source form from intrinsic dimensions and round-trips all formats', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'pptx-image-sizing-'));
     const path = join(directory, 'landscape.png');
@@ -579,8 +701,11 @@ describe('PptxDocument vertical slice', () => {
           source: { x: 0, y: 0, width: 16, height: 9 },
         },
       });
-      // @ts-expect-error source image options exclude SVG
       const svgOptions: AddImageSourceOptions = { contentType: 'image/svg+xml' };
+      const svgFallbackOptions: AddImageSourceOptions = {
+        contentType: 'image/svg+xml',
+        fallback: typedSource,
+      };
       // @ts-expect-error sizing owns final width and cannot be combined with top-level width
       const conflictingWidth: AddImageSourceOptions = {
         width: inches(4),
@@ -603,6 +728,7 @@ describe('PptxDocument vertical slice', () => {
         coverResult,
         cropResult,
         svgOptions,
+        svgFallbackOptions,
         conflictingWidth,
         directRectangle,
         malformedCrop,
@@ -671,7 +797,8 @@ describe('PptxDocument vertical slice', () => {
       () => document.addImage(0, countedSource, accessor as never),
       () => document.addImage(0, countedSource, Object.create({ name: 'inherited' })),
       () => document.addImage(0, countedSource, { unknown: true } as never),
-      () => document.addImage(0, countedSource, { contentType: 'image/svg+xml' } as never),
+      () => document.addImage(0, countedSource, { fallback: {} } as never),
+      () => document.addImage(0, countedSource, { fallback: '' } as never),
       () => document.addImage(0, countedSource, { signal: {} } as never),
       () => document.addImage(0, countedSource, { sizing: [] } as never),
       () => document.addImage(0, countedSource, {

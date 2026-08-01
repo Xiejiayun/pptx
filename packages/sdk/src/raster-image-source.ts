@@ -1,11 +1,11 @@
 import type {
-  AddImageOptions,
+  AddSvgImageOptions,
   RasterImageContentType,
   SvgImageContentType,
 } from '@pptx/model';
 import {
-  normalizeRasterImageSizing,
-  type RasterImageSizing,
+  normalizeImageSizing,
+  type ImageSizing,
 } from './raster-image-sizing.js';
 import { inspectSvgImage, type SvgImageInfo } from './svg-image-source.js';
 
@@ -31,6 +31,7 @@ const MODEL_IMAGE_OPTION_KEYS = new Set([
 ]);
 const ADD_IMAGE_SOURCE_OPTION_KEYS = new Set([
   'contentType',
+  'fallback',
   'signal',
   'sizing',
   ...MODEL_IMAGE_OPTION_KEYS,
@@ -43,10 +44,11 @@ export interface RasterImageInfo {
 }
 
 type AddImageSourceBaseOptions = Omit<
-  AddImageOptions,
-  'contentType' | 'sourceRectangle' | 'width' | 'height'
+  AddSvgImageOptions,
+  'sourceRectangle' | 'width' | 'height'
 > & {
-  readonly contentType?: RasterImageContentType;
+  readonly contentType?: ImageContentType;
+  readonly fallback?: ImageSource;
   readonly signal?: AbortSignal;
 };
 
@@ -57,19 +59,20 @@ export type AddImageSourceOptions = AddImageSourceBaseOptions & (
       readonly height?: number;
     }
   | {
-      readonly sizing: RasterImageSizing;
+      readonly sizing: ImageSizing;
       readonly width?: never;
       readonly height?: never;
     }
 );
 
 export interface NormalizedAddImageSourceOptions {
-  readonly contentType?: RasterImageContentType;
+  readonly contentType?: ImageContentType;
+  readonly fallback?: ImageSource;
   readonly signal?: AbortSignal;
   readonly imageOptions: Readonly<
-    Omit<AddImageOptions, 'contentType' | 'sourceRectangle'>
+    Omit<AddSvgImageOptions, 'sourceRectangle'>
   >;
-  readonly sizing?: Readonly<RasterImageSizing>;
+  readonly sizing?: Readonly<ImageSizing>;
 }
 
 export type RasterImageByteChunk = number | Uint8Array | ArrayBuffer | ArrayBufferView;
@@ -166,10 +169,13 @@ export function normalizeAddImageSourceOptions(
   }
 
   const contentType = normalizeOptionalContentType(values.contentType);
+  const fallback = values.fallback === undefined
+    ? undefined
+    : normalizeImageSourceOption(values.fallback, 'SVG fallback');
   const signal = normalizeOptionalAbortSignal(values.signal);
   const sizing = values.sizing === undefined
     ? undefined
-    : normalizeRasterImageSizing(values.sizing);
+    : normalizeImageSizing(values.sizing);
   if (
     sizing !== undefined
     && (Object.hasOwn(values, 'width') || Object.hasOwn(values, 'height'))
@@ -182,8 +188,9 @@ export function normalizeAddImageSourceOptions(
   }
   Object.freeze(imageOptions);
   return Object.freeze({
-    imageOptions: imageOptions as Omit<AddImageOptions, 'contentType' | 'sourceRectangle'>,
+    imageOptions: imageOptions as Omit<AddSvgImageOptions, 'sourceRectangle'>,
     ...(contentType === undefined ? {} : { contentType }),
+    ...(fallback === undefined ? {} : { fallback }),
     ...(signal === undefined ? {} : { signal }),
     ...(sizing === undefined ? {} : { sizing }),
   });
@@ -428,10 +435,42 @@ function base64Value(code: number): number {
   return -1;
 }
 
-function normalizeOptionalContentType(value: unknown): RasterImageContentType | undefined {
+function normalizeOptionalContentType(value: unknown): ImageContentType | undefined {
   if (value === undefined) return undefined;
-  if (value === 'image/png' || value === 'image/jpeg' || value === 'image/gif') return value;
-  throw new TypeError('Raster image source contentType is unsupported');
+  if (
+    value === 'image/png'
+    || value === 'image/jpeg'
+    || value === 'image/gif'
+    || value === 'image/svg+xml'
+  ) return value;
+  throw new TypeError('Image source contentType is unsupported');
+}
+
+function normalizeImageSourceOption(value: unknown, context: string): ImageSource {
+  if (typeof value === 'string') {
+    if (value.length === 0) throw new TypeError(`${context} source string cannot be empty`);
+    return value;
+  }
+  if (value instanceof Uint8Array) return new Uint8Array(value);
+  if (value instanceof ArrayBuffer) return value.slice(0);
+  if (
+    isBlob(value)
+    || hasDataMethod(value, 'getReader')
+    || hasDataMethod(value, Symbol.asyncIterator)
+  ) return value as Blob | RasterImageByteStream;
+  throw new TypeError(`${context} source type is unsupported`);
+}
+
+function hasDataMethod(value: unknown, key: PropertyKey): boolean {
+  if (!value || (typeof value !== 'object' && typeof value !== 'function')) return false;
+  let current: object | null = value as object;
+  while (current) {
+    const descriptor = Object.getOwnPropertyDescriptor(current, key);
+    if (descriptor) return Object.hasOwn(descriptor, 'value')
+      && typeof descriptor.value === 'function';
+    current = Object.getPrototypeOf(current) as object | null;
+  }
+  return false;
 }
 
 function normalizeOptionalAbortSignal(value: unknown): AbortSignal | undefined {

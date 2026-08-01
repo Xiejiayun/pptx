@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { inches } from '@pptx/model';
 import {
+  calculateImageSizing,
   calculateRasterImageSizing,
+  type ImageCropRegion,
+  type ImageSizing,
+  type ImageSizingResult,
   type RasterImageCropRegion,
   type RasterImageSizing,
   type RasterImageSizingResult,
@@ -25,6 +29,77 @@ const SQUARE = Object.freeze({
 });
 
 describe('raster image sizing calculation', () => {
+  it('publishes format-neutral aliases and sizes fractional SVG dimensions', () => {
+    const source: ImageCropRegion = { x: 10.25, y: 5.5, width: 80.5, height: 40.25 };
+    const sizing: ImageSizing = {
+      type: 'crop',
+      width: inches(4),
+      height: inches(3),
+      source,
+    };
+    const result: Readonly<ImageSizingResult> = calculateImageSizing(
+      {
+        contentType: 'image/svg+xml',
+        width: 101.25,
+        height: 50.625,
+      },
+      sizing,
+    );
+
+    expect(result).toEqual({
+      width: inches(4),
+      height: inches(3),
+      sourceRectangle: {
+        left: 10.123,
+        top: 10.864,
+        right: 10.37,
+        bottom: 9.63,
+      },
+    });
+    expect(Object.isFrozen(result)).toBe(true);
+    expect(Object.isFrozen(result.sourceRectangle)).toBe(true);
+  });
+
+  it('matches raster contain, cover, and equal-ratio sizing for equivalent SVG ratios', () => {
+    const cases: readonly ImageSizing[] = [
+      { type: 'contain', width: inches(4), height: inches(3) },
+      { type: 'cover', width: inches(4), height: inches(3) },
+      { type: 'cover', width: inches(16), height: inches(9) },
+    ];
+    for (const sizing of cases) {
+      const raster = calculateImageSizing(LANDSCAPE, sizing);
+      const svg = calculateImageSizing({
+        contentType: 'image/svg+xml',
+        width: 17.6,
+        height: 9.9,
+      }, sizing);
+      expect(svg).toEqual(raster);
+    }
+  });
+
+  it('rejects unsafe generic image info while retaining strict raster validation', () => {
+    const sizing = { type: 'contain' as const, width: 1, height: 1 };
+    const invalid: unknown[] = [
+      { contentType: 'image/svg+xml', width: 0, height: 1 },
+      { contentType: 'image/svg+xml', width: Number.POSITIVE_INFINITY, height: 1 },
+      { contentType: 'image/svg+xml', width: 1, height: Number.NaN },
+      { contentType: 'image/svg+xml', width: 1, height: 1, extra: true },
+      { contentType: 'image/svg', width: 1, height: 1 },
+      Object.create({ contentType: 'image/svg+xml', width: 1, height: 1 }),
+    ];
+    for (const info of invalid) {
+      expect(() => calculateImageSizing(info as never, sizing)).toThrow();
+    }
+    expect(() => calculateRasterImageSizing(
+      { contentType: 'image/png', width: 1.5, height: 1 },
+      sizing,
+    )).toThrow(/safe integer/i);
+    expect(calculateImageSizing(
+      { contentType: 'image/svg+xml', width: 1.5, height: 1 },
+      sizing,
+    ).sourceRectangle).toEqual({ left: 0, top: -25, right: 0, bottom: -25 });
+  });
+
   it('publishes the calculator and sizing types from the SDK root', () => {
     const source: RasterImageCropRegion = { x: 0, y: 0, width: 1600, height: 900 };
     const sizing: RasterImageSizing = {

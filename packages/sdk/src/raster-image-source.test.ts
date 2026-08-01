@@ -617,8 +617,10 @@ describe('raster image path and URL resolution', () => {
 describe('raster image document options', () => {
   it('detaches image fields, optional content type, and AbortSignal', () => {
     const controller = new AbortController();
+    const fallback = pngHeader(1, 1);
     const options = {
-      contentType: 'image/png' as const,
+      contentType: 'image/svg+xml' as const,
+      fallback,
       signal: controller.signal,
       name: 'Source image',
       altText: '',
@@ -632,8 +634,11 @@ describe('raster image document options', () => {
     };
     const normalized = normalizeAddImageSourceOptions(options);
     options.name = 'Changed';
+    fallback.fill(0);
 
-    expect(normalized.contentType).toBe('image/png');
+    expect(normalized.contentType).toBe('image/svg+xml');
+    expect(normalized.fallback).toEqual(pngHeader(1, 1));
+    expect((normalized.fallback as Uint8Array).buffer).not.toBe(fallback.buffer);
     expect(normalized.signal).toBe(controller.signal);
     expect(normalized.imageOptions).toEqual({
       name: 'Source image',
@@ -713,7 +718,9 @@ describe('raster image document options', () => {
       accessor,
       symbol,
       { unknown: true },
-      { contentType: 'image/svg+xml' },
+      { contentType: 'image/svg' },
+      { fallback: {} },
+      { fallback: '' },
       { signal: {} },
       { sizing: { type: 'cover', width: 1, height: 1 }, width: 1 },
       { sizing: { type: 'contain', width: 1, height: 1 }, height: undefined },
