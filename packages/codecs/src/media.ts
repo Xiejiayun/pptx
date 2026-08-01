@@ -258,6 +258,42 @@ export class MediaCodec {
     });
   }
 
+  materializePlayback(slidePartUri: string, shapeId?: number): number {
+    return this.pkg.transaction(() => {
+      const part = this.pkg.requirePart(slidePartUri);
+      let xml = LosslessXmlDocument.parse(part.bytes);
+      const shapeIds = directMediaPictures(xml, shapeId)
+        .map((picture) => mediaPictureShapeId(xml, picture))
+        .filter((id): id is number => id !== undefined);
+      let changed = 0;
+      for (const id of shapeIds) {
+        const picture = directMediaPictures(xml, id)[0]!;
+        const state = readMediaState(this.pkg, slidePartUri, xml, picture);
+        const preference = readMediaPlaybackExtension(xml, picture);
+        if (!state || !preference.settings || preference.malformed) continue;
+        const sync = syncNativeMediaTiming(
+          xml,
+          state.shapeId,
+          state.kind,
+          preference.settings,
+          preference.ownership,
+        );
+        const preferenceChanged = replaceMediaPlaybackExtension(
+          xml,
+          picture,
+          preference.settings,
+          sync.ownership,
+        );
+        if (sync.changed || preferenceChanged) {
+          changed += 1;
+          xml = LosslessXmlDocument.parse(xml.serialize());
+        }
+      }
+      if (changed > 0) this.pkg.setPart(slidePartUri, xml.serialize(), part.contentType);
+      return changed;
+    });
+  }
+
   diagnostics(model: MediaDescriptor, profile: string): CodecDiagnostic[] {
     const xml = LosslessXmlDocument.parse(this.pkg.requirePart(model.slidePartUri).bytes);
     const slideModels = xml.elements('pic')
@@ -630,6 +666,37 @@ function requireMediaShapeTree(
     throw new Error(`Slide ${slidePartUri} contains repeated shape-tree extension lists`);
   }
   return candidates[0]!;
+}
+
+function directMediaPictures(
+  xml: LosslessXmlDocument,
+  shapeId?: number,
+): readonly XmlElement[] {
+  const slides = xml.roots.filter(({ localName }) => localName === 'sld');
+  const commonSlides = slides.length === 1
+    ? directElementChildren(slides[0]!, 'cSld')
+    : [];
+  const shapeTrees = commonSlides.length === 1
+    ? directElementChildren(commonSlides[0]!, 'spTree')
+    : [];
+  if (shapeTrees.length !== 1) return [];
+  return directElementChildren(shapeTrees[0]!, 'pic').filter((picture) => {
+    const value = mediaPictureShapeId(xml, picture);
+    return value !== undefined && (shapeId === undefined || value === shapeId);
+  });
+}
+
+function mediaPictureShapeId(
+  xml: LosslessXmlDocument,
+  picture: XmlElement,
+): number | undefined {
+  const nonVisual = directElementChildren(picture, 'nvPicPr');
+  const properties = nonVisual.length === 1
+    ? directElementChildren(nonVisual[0]!, 'cNvPr')
+    : [];
+  return properties.length === 1
+    ? positiveInteger(xml.attribute(properties[0]!, 'id')?.value)
+    : undefined;
 }
 
 function countDirectMediaPictures(shapeTree: XmlElement): number {

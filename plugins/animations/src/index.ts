@@ -1,4 +1,9 @@
-import type { CodecDiagnostic, CodecRegistry } from '@pptx/codecs';
+import {
+  allocateNativeTimingIds,
+  MediaCodec,
+  type CodecDiagnostic,
+  type CodecRegistry,
+} from '@pptx/codecs';
 import { LosslessXmlDocument, type XmlElement } from '@pptx/lossless-xml';
 import type { OpcPackage } from '@pptx/opc';
 
@@ -107,37 +112,7 @@ export class AnimationTimingCodec {
   }
 
   materializeMediaPlayback(slidePartUri: string): number {
-    const part = this.pkg.requirePart(slidePartUri);
-    const xml = LosslessXmlDocument.parse(part.bytes);
-    const timing = ensureTimingRoot(xml);
-    let created = 0;
-    let nextId = nextTimingId(timing.document);
-    for (const playback of xml.elements('playback')) {
-      const picture = ancestor(playback, 'pic');
-      const properties = picture ? xml.descendants(picture, 'cNvPr')[0] : undefined;
-      const shapeId = Number(properties ? xml.attribute(properties, 'id')?.value ?? -1 : -1);
-      if (
-        shapeId < 0 ||
-        xml.elements('spTgt').some(
-          (target) =>
-            Number(xml.attribute(target, 'spid')?.value) === shapeId && Boolean(ancestor(target, 'cMediaNode')),
-        )
-      ) {
-        continue;
-      }
-      const isAudio = Boolean(picture && xml.descendants(picture, 'audioFile')[0]);
-      const play = xml.attribute(playback, 'play')?.value === 'auto' ? 'auto' : 'click';
-      const loop = xml.attribute(playback, 'loop')?.value === '1';
-      const volume = Number(xml.attribute(playback, 'volume')?.value ?? 100_000);
-      timing.document.appendChildXml(
-        timing.list,
-        encodeMediaTiming(isAudio ? 'audio' : 'video', shapeId, nextId, play, loop, volume),
-      );
-      nextId += 2;
-      created += 1;
-    }
-    if (created > 0) this.pkg.setPart(slidePartUri, timing.document.serialize(), part.contentType);
-    return created;
+    return new MediaCodec(this.pkg).materializePlayback(slidePartUri);
   }
 
   private parse(partUri: string): LosslessXmlDocument {
@@ -192,19 +167,6 @@ function encodeAnimation(spec: AnimationSpec, id: number): string {
   return `<p:par><p:cTn id="${id}" fill="hold"><p:stCondLst><p:cond delay="${delay}"${trigger}/></p:stCondLst><p:childTnLst>${effect}</p:childTnLst></p:cTn></p:par>`;
 }
 
-function encodeMediaTiming(
-  kind: 'audio' | 'video',
-  shapeId: number,
-  id: number,
-  play: 'click' | 'auto',
-  loop: boolean,
-  volume: number,
-): string {
-  const trigger = play === 'click' ? ' evt="onClick"' : '';
-  const repeat = loop ? ' repeatCount="indefinite"' : '';
-  return `<p:par><p:cTn id="${id}" fill="hold"><p:stCondLst><p:cond delay="0"${trigger}/></p:stCondLst><p:childTnLst><p:${kind}><p:cMediaNode vol="${Math.max(0, Math.min(100000, volume))}"><p:cTn id="${id + 1}" dur="indefinite"${repeat}/><p:tgtEl><p:spTgt spid="${shapeId}"/></p:tgtEl></p:cMediaNode></p:${kind}></p:childTnLst></p:cTn></p:par>`;
-}
-
 function decodeNode(xml: LosslessXmlDocument, element: XmlElement): TimingNode {
   const cTn = element.localName === 'cTn' ? element : xml.descendants(element, 'cTn')[0];
   const target = xml.descendants(element, 'spTgt')[0];
@@ -247,7 +209,7 @@ function decodeNode(xml: LosslessXmlDocument, element: XmlElement): TimingNode {
 }
 
 function nextTimingId(xml: LosslessXmlDocument): number {
-  return Math.max(1, ...xml.elements('cTn').map((element) => Number(xml.attribute(element, 'id')?.value ?? 0))) + 1;
+  return allocateNativeTimingIds(xml, 2)[0]!;
 }
 
 function shapeIds(xml: LosslessXmlDocument): Set<number> {
