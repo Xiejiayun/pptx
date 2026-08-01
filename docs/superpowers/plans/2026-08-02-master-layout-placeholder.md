@@ -190,9 +190,8 @@ Add a loop over `pptx/pptm/potx/potm/ppsx/ppsm`: create, add a raw named layout,
 
 ```bash
 pnpm --config.verify-deps-before-run=false exec vitest run packages/model/src/model.test.ts packages/sdk/src/index.test.ts -t "named slide layout"
-pnpm typecheck
-pnpm --filter @pptx/model build
-pnpm --filter @pptx/sdk build
+pnpm --config.verify-deps-before-run=false typecheck
+pnpm --config.verify-deps-before-run=false build
 git diff --check
 ```
 
@@ -327,9 +326,8 @@ Keep `masterLayoutTheme`, raw `LayoutModel`, raw `MasterModel`, and raw codec te
 
 ```bash
 pnpm --config.verify-deps-before-run=false exec vitest run packages/codecs/src/codecs.test.ts packages/sdk/src/index.test.ts packages/pptx/src/index.test.ts -t "master|layout"
-pnpm typecheck
-pnpm --filter @pptx/sdk build
-pnpm --filter @jiayunxie/pptx build
+pnpm --config.verify-deps-before-run=false typecheck
+pnpm --config.verify-deps-before-run=false build
 git diff --check
 ```
 
@@ -432,9 +430,8 @@ Generate public `defineSlideMaster()` solid, transparency, PNG data, inherited, 
 
 ```bash
 pnpm --config.verify-deps-before-run=false exec vitest run packages/model/src/slide-background.internal.test.ts packages/sdk/src/index.test.ts packages/pptxgenjs-adapter/src/index.test.ts -t "layout master background"
-pnpm typecheck
-pnpm --filter @pptx/model build
-pnpm --filter @pptx/sdk build
+pnpm --config.verify-deps-before-run=false typecheck
+pnpm --config.verify-deps-before-run=false build
 git diff --check
 git add packages/model/src/slide-background.internal.ts packages/model/src/slide.ts packages/sdk/src/master-layout.ts packages/model/src/slide-background.internal.test.ts packages/sdk/src/index.test.ts packages/pptxgenjs-adapter/src/index.test.ts
 git diff --cached --check
@@ -547,9 +544,8 @@ The helper validates the complete supported layout placeholder set first, alloca
 
 ```bash
 pnpm --config.verify-deps-before-run=false exec vitest run packages/model/src/model.test.ts packages/sdk/src/index.test.ts -t "placeholder"
-pnpm typecheck
-pnpm --filter @pptx/model build
-pnpm --filter @pptx/sdk build
+pnpm --config.verify-deps-before-run=false typecheck
+pnpm --config.verify-deps-before-run=false build
 git diff --check
 git add packages/model/src/placeholder.ts packages/model/src/placeholder.internal.ts packages/model/src/index.ts packages/model/src/shapes.ts packages/model/src/slide.ts packages/model/src/presentation.ts packages/sdk/src/master-layout.ts packages/model/src/model.test.ts packages/sdk/src/index.test.ts
 git diff --cached --check
@@ -638,8 +634,8 @@ Add an optional resolved owner to text and preset-shape internal insertion. Rend
 
 ```bash
 pnpm --config.verify-deps-before-run=false exec vitest run packages/model/src/model.test.ts packages/sdk/src/index.test.ts -t "placeholder"
-pnpm typecheck
-pnpm --filter @pptx/model build
+pnpm --config.verify-deps-before-run=false typecheck
+pnpm --config.verify-deps-before-run=false build
 git diff --check
 git add packages/model/src/placeholder.internal.ts packages/model/src/slide.ts packages/model/src/preset-shape.ts packages/model/src/model.test.ts packages/sdk/src/index.test.ts
 git diff --cached --check
@@ -730,9 +726,8 @@ Add `placeholder?: PlaceholderSelector` to raster/SVG image and chart options an
 
 ```bash
 pnpm --config.verify-deps-before-run=false exec vitest run packages/model/src/model.test.ts packages/model/src/chart-render.internal.test.ts packages/model/src/chart-edit.internal.test.ts packages/sdk/src/index.test.ts -t "image|chart|placeholder"
-pnpm typecheck
-pnpm --filter @pptx/model build
-pnpm --filter @pptx/sdk build
+pnpm --config.verify-deps-before-run=false typecheck
+pnpm --config.verify-deps-before-run=false build
 git diff --check
 git add packages/model/src/chart-create.internal.ts packages/model/src/chart.ts packages/model/src/image.ts packages/model/src/slide.ts packages/sdk/src/raster-image-source.ts packages/sdk/src/index.ts packages/model/src/model.test.ts packages/sdk/src/index.test.ts
 git diff --cached --check
@@ -801,9 +796,8 @@ Lock `tbl`→table and `media`→audio/video. Reject title/body/pic/chart select
 
 ```bash
 pnpm --config.verify-deps-before-run=false exec vitest run packages/model/src/model.test.ts packages/sdk/src/index.test.ts packages/codecs/src/codecs.test.ts -t "table|media|placeholder"
-pnpm typecheck
-pnpm --filter @pptx/codecs build
-pnpm --filter @pptx/model build
+pnpm --config.verify-deps-before-run=false typecheck
+pnpm --config.verify-deps-before-run=false build
 git diff --check
 git add packages/model/src/slide.ts packages/model/src/table-create.internal.ts packages/codecs/src/media.ts packages/model/src/model.test.ts packages/sdk/src/index.test.ts
 git diff --cached --check
@@ -896,10 +890,8 @@ When `addSlide()` selects a layout with a supported direct slide number, materia
 
 ```bash
 pnpm --config.verify-deps-before-run=false exec vitest run packages/codecs/src/codecs.test.ts packages/sdk/src/index.test.ts packages/pptx/src/index.test.ts -t "define slide master|named slide layout"
-pnpm typecheck
-pnpm --filter @pptx/codecs build
-pnpm --filter @pptx/sdk build
-pnpm --filter @jiayunxie/pptx build
+pnpm --config.verify-deps-before-run=false typecheck
+pnpm --config.verify-deps-before-run=false build
 git diff --check
 git add packages/codecs/src/master.ts packages/sdk/src/master-layout.ts packages/sdk/src/index.ts packages/codecs/src/codecs.test.ts packages/sdk/src/index.test.ts packages/pptx/src/index.test.ts
 git diff --cached --check
@@ -980,9 +972,8 @@ Inside the existing definition transaction, route raster/SVG bytes to wrapper im
 
 ```bash
 pnpm --config.verify-deps-before-run=false exec vitest run packages/sdk/src/index.test.ts packages/model/src/model.test.ts -t "slide master definition|chart|image"
-pnpm typecheck
-pnpm --filter @pptx/model build
-pnpm --filter @pptx/sdk build
+pnpm --config.verify-deps-before-run=false typecheck
+pnpm --config.verify-deps-before-run=false build
 git diff --check
 git add packages/sdk/src/master-layout.ts packages/sdk/src/index.ts packages/model/src/chart-create.internal.ts packages/sdk/src/index.test.ts packages/model/src/model.test.ts
 git diff --cached --check
@@ -1058,9 +1049,8 @@ Use low-level `deleteLayout()` after validating replacement. Retarget every inco
 
 ```bash
 pnpm --config.verify-deps-before-run=false exec vitest run packages/codecs/src/codecs.test.ts packages/sdk/src/index.test.ts -t "slide master|layout lifecycle"
-pnpm typecheck
-pnpm --filter @pptx/codecs build
-pnpm --filter @pptx/sdk build
+pnpm --config.verify-deps-before-run=false typecheck
+pnpm --config.verify-deps-before-run=false build
 git diff --check
 git add packages/codecs/src/master.ts packages/sdk/src/master-layout.ts packages/sdk/src/index.ts packages/codecs/src/codecs.test.ts packages/sdk/src/index.test.ts
 git diff --cached --check
@@ -1112,9 +1102,8 @@ Construct each unsafe package state directly, run all five compatibility profile
 
 ```bash
 pnpm --config.verify-deps-before-run=false exec vitest run packages/pptxgenjs-adapter/src/index.test.ts packages/validator/src/index.test.ts packages/sdk/src/index.test.ts -t "slide master|layout|placeholder"
-pnpm typecheck
-pnpm --filter @pptx/pptxgenjs-adapter build
-pnpm --filter @pptx/validator build
+pnpm --config.verify-deps-before-run=false typecheck
+pnpm --config.verify-deps-before-run=false build
 git diff --check
 git add packages/pptxgenjs-adapter/src/index.test.ts packages/validator/src/index.test.ts packages/sdk/src/index.ts packages/sdk/src/index.test.ts
 git diff --cached --check
@@ -1163,15 +1152,15 @@ Use Blob/data URI/Uint8Array sources and one chart. Return a JSON state containi
 pnpm --config.verify-deps-before-run=false exec vitest run packages/codecs/src/codecs.test.ts packages/model/src/model.test.ts packages/sdk/src/index.test.ts packages/pptxgenjs-adapter/src/index.test.ts packages/validator/src/index.test.ts packages/pptx/src/index.test.ts -t "slide master|layout|placeholder"
 pnpm --config.verify-deps-before-run=false exec vitest run
 RUN_PERF=1 pnpm --config.verify-deps-before-run=false exec vitest run packages/testkit/src/performance.test.ts
-pnpm typecheck
-pnpm build
+pnpm --config.verify-deps-before-run=false typecheck
+pnpm --config.verify-deps-before-run=false build
 ```
 
 Record exact passed/skipped counts and performance duration from output.
 
 - [ ] **Step 6: Pack twice and prove determinism**
 
-Run `pnpm --filter @jiayunxie/pptx pack` in two clean temporary copies. For each tarball, list files, hash every `package/dist` file in sorted order, hash the manifest, and hash the tarball. Require equal dist file sets/manifests; record actual file counts and hashes verbatim.
+Run `pnpm --config.verify-deps-before-run=false --filter @jiayunxie/pptx pack` in two clean temporary copies. For each tarball, list files, hash every `package/dist` file in sorted order, hash the manifest, and hash the tarball. Require equal dist file sets/manifests; record actual file counts and hashes verbatim.
 
 Install the second tarball into a fresh consumer with no workspace links, run Node/type/browser/CLI smoke, and require every new boolean plus all existing booleans to be true.
 
