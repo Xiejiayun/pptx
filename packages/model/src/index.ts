@@ -1,4 +1,5 @@
 export * from './color.js';
+export * from './chart.js';
 export * from './custom-geometry.js';
 export * from './custom-geometry-evaluator.js';
 export * from './errors.js';

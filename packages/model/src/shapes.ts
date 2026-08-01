@@ -18,6 +18,8 @@ import {
   type OpcPackage,
   type Relationship,
 } from '@pptx/opc';
+import type { ChartDefinition, ChartSeries } from './chart.js';
+import { readChartState } from './chart-state.internal.js';
 import { cloneOwnedPartForMutation } from './dependency.internal.js';
 import { evaluateCustomGeometry as evaluateGeometry } from './custom-geometry-evaluator.js';
 import type { CustomGeometry, EvaluatedCustomGeometry } from './custom-geometry.js';
@@ -158,12 +160,6 @@ export interface TableCell {
 
 export interface TableRow {
   readonly cells: readonly TableCell[];
-}
-
-export interface ChartSeries {
-  readonly name: string;
-  readonly categories: readonly string[];
-  readonly values: readonly number[];
 }
 
 export abstract class BaseShapeModel {
@@ -753,22 +749,25 @@ export class ChartModel extends BaseShapeModel {
     return id ? this.slide.relationships.find((relationship) => relationship.id === id)?.resolvedTarget : undefined;
   }
 
-  get series(): readonly ChartSeries[] {
+  get definition(): Readonly<ChartDefinition> | undefined {
     const uri = this.chartPartUri;
-    if (!uri) return [];
-    const xml = LosslessXmlDocument.parse(this.slide.presentation.opcPackage.requirePart(uri).bytes);
-    return xml.elements('ser').map((series) => {
-      const nameContainer = xml.descendants(series, 'tx')[0];
-      const categoryContainer = xml.descendants(series, 'cat')[0];
-      const valueContainer = xml.descendants(series, 'val')[0];
-      return {
-        name: nameContainer ? lastValue(xml, nameContainer) : '',
-        categories: categoryContainer ? pointValues(xml, categoryContainer) : [],
-        values: valueContainer
-          ? pointValues(xml, valueContainer).map((value) => Number(value)).filter(Number.isFinite)
-          : [],
-      };
-    });
+    return uri
+      ? readChartState(this.slide.presentation.opcPackage, uri).definition
+      : undefined;
+  }
+
+  get series(): readonly Readonly<ChartSeries>[] {
+    const definition = this.definition;
+    return definition
+      ? Object.freeze(definition.groups.flatMap(({ series }) => series))
+      : EMPTY_CHART_SERIES;
+  }
+
+  get workbookPartUri(): string | undefined {
+    const uri = this.chartPartUri;
+    return uri
+      ? readChartState(this.slide.presentation.opcPackage, uri).workbookPartUri
+      : undefined;
   }
 
   get xml(): string {
@@ -844,25 +843,6 @@ function numberAttribute(
   return Number.isFinite(value) ? value : 0;
 }
 
-function pointValues(xml: LosslessXmlDocument, element: XmlElement): string[] {
-  const points = xml.descendants(element, 'pt');
-  if (points.length > 0) {
-    return points
-      .sort(
-        (left, right) =>
-          Number(xml.attribute(left, 'idx')?.value ?? 0) - Number(xml.attribute(right, 'idx')?.value ?? 0),
-      )
-      .map((point) => lastValue(xml, point));
-  }
-  return xml.descendants(element, 'v').map((value) => xml.text(value));
-}
-
-function lastValue(xml: LosslessXmlDocument, element: XmlElement): string {
-  const values = xml.descendants(element, 'v');
-  const value = values.at(-1);
-  return value ? xml.text(value) : '';
-}
-
 function isSharedTarget(
   pkg: OpcPackage,
   xml: LosslessXmlDocument,
@@ -873,6 +853,8 @@ function isSharedTarget(
     : 0;
   return incoming > 1 || imageRelationshipReferenceCount(xml, relationship.id) > 1;
 }
+
+const EMPTY_CHART_SERIES: readonly Readonly<ChartSeries>[] = Object.freeze([]);
 
 function replaceSvgImagePart(
   slide: SlideModel,
