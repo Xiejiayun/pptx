@@ -170,6 +170,24 @@ const GIF_DATA_URI =
 const sectionState = (document: PptxDocument) =>
   document.sections?.map(({ title, slideIds }) => ({ title, slideIds }));
 
+function pngHeader(width: number, height: number): Uint8Array<ArrayBuffer> {
+  const bytes = new Uint8Array(24);
+  bytes.set([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82]);
+  bytes[16] = width >>> 24;
+  bytes[17] = width >>> 16;
+  bytes[18] = width >>> 8;
+  bytes[19] = width;
+  bytes[20] = height >>> 24;
+  bytes[21] = height >>> 16;
+  bytes[22] = height >>> 8;
+  bytes[23] = height;
+  return bytes;
+}
+
+function pngDataUri(bytes: Uint8Array): string {
+  return `data:image/png;base64,${Buffer.from(bytes).toString('base64')}`;
+}
+
 async function openPptxGenJSPublicOutput(
   presentation: PptxGenJSInstance,
 ): Promise<PptxDocument> {
@@ -213,10 +231,11 @@ function embeddedRasterState(
   const slide = document.slides[slideIndex]!;
   const sourcePartUri = image.sourcePartUri!;
   const part = document.opcPackage.requirePart(sourcePartUri);
-  const relationship = slide.relationships.find(
-    ({ type, resolvedTarget }) => type.endsWith('/image') && resolvedTarget === sourcePartUri,
-  );
   const xml = pictureXml(document, slideIndex, image.id);
+  const embeddedRelationshipId = xml.match(/\br:embed="([^"]+)"/)?.[1];
+  const relationship = slide.relationships.find(
+    ({ id }) => id === embeddedRelationshipId,
+  );
   return {
     kind: image.kind,
     name: image.name,
@@ -226,11 +245,38 @@ function embeddedRasterState(
     bytes: [...part.bytes],
     relationshipType: relationship?.type,
     targetMode: relationship?.targetMode,
-    embedded: relationship !== undefined && xml.includes(`r:embed="${relationship.id}"`),
+    embedded: relationship?.type.endsWith('/image') === true
+      && relationship.resolvedTarget === sourcePartUri,
+    sourceRectangle: image.sourceRectangle,
+    sourceRectangleRaw: directSourceRectangleRaw(xml),
     rectGeometry: xml.includes('<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>'),
     noChangeAspect: xml.includes('<a:picLocks noChangeAspect="1"/>'),
     stretchFill: /<a:stretch>\s*<a:fillRect\/>\s*<\/a:stretch>/.test(xml),
   };
+}
+
+function embeddedRasterSizingState(
+  document: PptxDocument,
+  slideIndex: number,
+  image: ImageModel,
+) {
+  const { stretchFill: _stretchSyntax, ...state } = embeddedRasterState(
+    document,
+    slideIndex,
+    image,
+  );
+  return state;
+}
+
+function directSourceRectangleRaw(xml: string) {
+  const attributes = xml.match(/<a:srcRect\b([^>]*)\/>/)?.[1];
+  if (attributes === undefined) return undefined;
+  const read = (name: 'l' | 't' | 'r' | 'b'): number => {
+    const lexical = attributes.match(new RegExp(`(?:^|\\s)${name}="(-?[0-9]+)"`))?.[1];
+    if (lexical === undefined) throw new Error(`Source rectangle ${name} was not found`);
+    return Number(lexical);
+  };
+  return { left: read('l'), top: read('t'), right: read('r'), bottom: read('b') };
 }
 
 function packageState(document: PptxDocument) {
@@ -382,6 +428,193 @@ describe('importPptxGenJS', () => {
       }
     } finally {
       await rm(directory, { recursive: true, force: true });
+    }
+  }, 20_000);
+
+  it('matches PptxGenJS contain, cover, and crop sizing final state', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'pptxgenjs-raster-sizing-'));
+    try {
+      const landscape = pngHeader(1600, 900);
+      const portrait = pngHeader(900, 1600);
+      const square = pngHeader(1000, 1000);
+      const landscapePath = join(directory, 'landscape.png');
+      await writeFile(landscapePath, landscape);
+      const cases = [
+        {
+          name: 'Contain landscape',
+          generatedSource: { path: landscapePath },
+          nativeSource: landscapePath,
+          outer: { w: 16, h: 9 },
+          generatedSizing: { type: 'contain', w: 4, h: 3 },
+          nativeSizing: { type: 'contain', width: inches(4), height: inches(3) },
+          raw: { left: 0, top: -16_667, right: 0, bottom: -16_667 },
+        },
+        {
+          name: 'Contain portrait',
+          generatedSource: { data: pngDataUri(portrait) },
+          nativeSource: pngDataUri(portrait),
+          outer: { w: 9, h: 16 },
+          generatedSizing: { type: 'contain', w: 4, h: 3 },
+          nativeSizing: { type: 'contain', width: inches(4), height: inches(3) },
+          raw: { left: -68_519, top: 0, right: -68_519, bottom: 0 },
+        },
+        {
+          name: 'Cover landscape',
+          generatedSource: { data: pngDataUri(landscape) },
+          nativeSource: pngDataUri(landscape),
+          outer: { w: 16, h: 9 },
+          generatedSizing: { type: 'cover', w: 4, h: 3 },
+          nativeSizing: { type: 'cover', width: inches(4), height: inches(3) },
+          raw: { left: 12_500, top: 0, right: 12_500, bottom: 0 },
+        },
+        {
+          name: 'Cover portrait',
+          generatedSource: { data: pngDataUri(portrait) },
+          nativeSource: pngDataUri(portrait),
+          outer: { w: 9, h: 16 },
+          generatedSizing: { type: 'cover', w: 4, h: 3 },
+          nativeSizing: { type: 'cover', width: inches(4), height: inches(3) },
+          raw: { left: 0, top: 28_906, right: 0, bottom: 28_906 },
+        },
+        {
+          name: 'Equal square',
+          generatedSource: { data: pngDataUri(square) },
+          nativeSource: pngDataUri(square),
+          outer: { w: 10, h: 10 },
+          generatedSizing: { type: 'cover', w: 4, h: 4 },
+          nativeSizing: { type: 'cover', width: inches(4), height: inches(4) },
+          raw: { left: 0, top: 0, right: 0, bottom: 0 },
+        },
+        {
+          name: 'Crop landscape center',
+          generatedSource: { path: landscapePath },
+          nativeSource: landscapePath,
+          outer: { w: 16, h: 9 },
+          generatedSizing: { type: 'crop', x: 4, y: 2.25, w: 8, h: 4.5 },
+          nativeSizing: {
+            type: 'crop',
+            width: inches(8),
+            height: inches(4.5),
+            source: { x: 400, y: 225, width: 800, height: 450 },
+          },
+          raw: { left: 25_000, top: 25_000, right: 25_000, bottom: 25_000 },
+        },
+      ] as const;
+
+      const generated = new PptxGenJS();
+      expect(generated.version).toBe('4.0.1');
+      const generatedSlide = generated.addSlide();
+      const native = PptxDocument.create();
+      native.addSlide();
+      for (const entry of cases) {
+        generatedSlide.addImage({
+          ...entry.generatedSource,
+          x: 1,
+          y: 0.5,
+          w: entry.outer.w,
+          h: entry.outer.h,
+          sizing: entry.generatedSizing,
+          rotate: 45,
+          flipH: true,
+          flipV: true,
+          objectName: entry.name,
+          altText: `${entry.name} alt`,
+        });
+        await native.addImage(0, entry.nativeSource, {
+          x: inches(1),
+          y: inches(0.5),
+          sizing: entry.nativeSizing,
+          rotation: degrees(45),
+          flipHorizontal: true,
+          flipVertical: true,
+          name: entry.name,
+          altText: `${entry.name} alt`,
+        });
+      }
+
+      const imported = await importPptxGenJS(generated);
+      const importedImages = imported.slides[0]!.shapes as readonly ImageModel[];
+      const nativeImages = native.slides[0]!.shapes as readonly ImageModel[];
+      expect(importedImages).toHaveLength(cases.length);
+      expect(nativeImages).toHaveLength(cases.length);
+      expect(importedImages.map(({ name }) => name)).toEqual(cases.map(({ name }) => name));
+      for (const [index, entry] of cases.entries()) {
+        expect(embeddedRasterSizingState(imported, 0, importedImages[index]!))
+          .toEqual(embeddedRasterSizingState(native, 0, nativeImages[index]!));
+        expect(embeddedRasterSizingState(native, 0, nativeImages[index]!).sourceRectangleRaw)
+          .toEqual(entry.raw);
+      }
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  }, 20_000);
+
+  it('records PptxGenJS sizing fallbacks while native rejects ambiguous or unsafe state', async () => {
+    const landscape = pngHeader(1600, 900);
+    const generated = new PptxGenJS();
+    generated.addSlide().addImage({
+      data: pngDataUri(landscape),
+      x: 0,
+      y: 0,
+      w: 16,
+      h: 9,
+      sizing: { type: 'cover', w: 0, h: 3 },
+      objectName: 'Falsy sizing width',
+    });
+    const imported = await importPptxGenJS(generated);
+    const importedImage = imported.slides[0]!.shapes[0] as ImageModel;
+    expect(importedImage.transform).toMatchObject({ width: inches(16), height: inches(3) });
+    expect(importedImage.sourceRectangle).toEqual({
+      left: 0,
+      top: 33.333,
+      right: 0,
+      bottom: 33.333,
+    });
+
+    const native = PptxDocument.create();
+    native.addSlide();
+    const before = packageState(native);
+    const invalid: readonly {
+      readonly source: string;
+      readonly options: Record<string, unknown>;
+    }[] = [
+      {
+        source: pngDataUri(landscape),
+        options: {
+          width: inches(16),
+          height: inches(9),
+          sizing: { type: 'cover', width: inches(4), height: inches(3) },
+        },
+      },
+      {
+        source: pngDataUri(landscape),
+        options: { sourceRectangle: { left: 0, top: 0, right: 0, bottom: 0 } },
+      },
+      {
+        source: pngDataUri(landscape),
+        options: { sizing: { type: 'cover', width: 1.5, height: 1 } },
+      },
+      {
+        source: pngDataUri(landscape),
+        options: {
+          sizing: {
+            type: 'crop',
+            width: 1,
+            height: 1,
+            source: { x: 1590, y: 0, width: 11, height: 1 },
+          },
+        },
+      },
+      {
+        source: pngDataUri(pngHeader(0xffff_ffff, 1)),
+        options: {
+          sizing: { type: 'contain', width: 1, height: Number.MAX_SAFE_INTEGER },
+        },
+      },
+    ];
+    for (const entry of invalid) {
+      await expect(native.addImage(0, entry.source, entry.options as never)).rejects.toThrow();
+      expect(packageState(native)).toEqual(before);
     }
   }, 20_000);
 
