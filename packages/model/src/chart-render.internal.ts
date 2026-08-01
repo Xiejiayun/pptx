@@ -81,12 +81,9 @@ export function renderChartPart(
   workbookRelationshipId: string,
 ): string {
   if (definition.groups.length !== 1) {
-    throw new TypeError('Categorical chart rendering requires exactly one group');
+    throw new TypeError('Chart rendering requires exactly one group');
   }
   const group = definition.groups[0]!;
-  if (group.type === 'scatter' || group.type === 'bubble') {
-    throw new TypeError(`${group.type} chart rendering is not available in the categorical renderer`);
-  }
   const axisIds = group.type === 'pie' || group.type === 'doughnut'
     ? []
     : group.type === 'bar3D'
@@ -96,9 +93,13 @@ export function renderChartPart(
     const formula = formulas.find((candidate) =>
       candidate.groupIndex === 0 && candidate.seriesIndex === seriesIndex);
     if (!formula) throw new Error(`Chart series ${seriesIndex} has no workbook formula plan`);
-    return renderCategoricalSeries(series, formula, seriesIndex);
+    return group.type === 'scatter' || group.type === 'bubble'
+      ? renderXySeries(series, formula, seriesIndex, group.type)
+      : renderCategoricalSeries(series, formula, seriesIndex);
   }).join('');
-  const groupXml = renderCategoricalGroup(group.type, renderedSeries, axisIds);
+  const groupXml = group.type === 'scatter' || group.type === 'bubble'
+    ? renderXyGroup(group.type, renderedSeries, axisIds)
+    : renderCategoricalGroup(group.type, renderedSeries, axisIds);
   const axes = renderAxes(group.type, axisIds);
   return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
     + `<c:chartSpace xmlns:c="${CHART_NAMESPACE}" xmlns:a="${DRAWING_NAMESPACE}" `
@@ -168,14 +169,59 @@ function renderCategoricalSeries(
 ): string {
   return '<c:ser>'
     + `<c:idx val="${index}"/><c:order val="${index}"/>`
-    + '<c:tx><c:strRef>'
-    + `<c:f>${escapeXmlText(formula.name)}</c:f><c:strCache><c:ptCount val="1"/>`
-    + `<c:pt idx="0"><c:v>${escapeXmlText(series.name)}</c:v></c:pt>`
-    + '</c:strCache></c:strRef></c:tx>'
+    + renderSeriesName(series.name, formula.name)
     + renderCategories(series.categories!, formula.categories!)
     + '<c:val><c:numRef>'
     + `<c:f>${escapeXmlText(formula.values)}</c:f>${renderNumericCache(series.values)}`
     + '</c:numRef></c:val></c:ser>';
+}
+
+function renderXyGroup(
+  type: 'scatter' | 'bubble',
+  series: string,
+  axisIds: readonly number[],
+): string {
+  const axes = axisIds.map((id) => `<c:axId val="${id}"/>`).join('');
+  if (type === 'scatter') {
+    return '<c:scatterChart><c:scatterStyle val="lineMarker"/><c:varyColors val="0"/>'
+      + `${series}${axes}</c:scatterChart>`;
+  }
+  return '<c:bubbleChart><c:varyColors val="0"/>'
+    + `${series}<c:bubbleScale val="100"/><c:showNegBubbles val="0"/>`
+    + `<c:sizeRepresents val="area"/>${axes}</c:bubbleChart>`;
+}
+
+function renderXySeries(
+  series: Readonly<ChartSeries>,
+  formula: Readonly<ChartWorkbookFormula>,
+  index: number,
+  type: 'scatter' | 'bubble',
+): string {
+  if (!formula.xValues || (type === 'bubble' && !formula.sizes)) {
+    throw new Error(`Chart ${type} series ${index} has an incomplete workbook formula plan`);
+  }
+  return '<c:ser>'
+    + `<c:idx val="${index}"/><c:order val="${index}"/>`
+    + renderSeriesName(series.name, formula.name)
+    + '<c:xVal><c:numRef>'
+    + `<c:f>${escapeXmlText(formula.xValues)}</c:f>${renderNumericCache(series.xValues!)}`
+    + '</c:numRef></c:xVal>'
+    + '<c:yVal><c:numRef>'
+    + `<c:f>${escapeXmlText(formula.values)}</c:f>${renderNumericCache(series.values)}`
+    + '</c:numRef></c:yVal>'
+    + (type === 'bubble'
+      ? '<c:bubbleSize><c:numRef>'
+        + `<c:f>${escapeXmlText(formula.sizes!)}</c:f>${renderNumericCache(series.sizes!)}`
+        + '</c:numRef></c:bubbleSize><c:bubble3D val="0"/>'
+      : '<c:smooth val="0"/>')
+    + '</c:ser>';
+}
+
+function renderSeriesName(name: string, formula: string): string {
+  return '<c:tx><c:strRef>'
+    + `<c:f>${escapeXmlText(formula)}</c:f><c:strCache><c:ptCount val="1"/>`
+    + `<c:pt idx="0"><c:v>${escapeXmlText(name)}</c:v></c:pt>`
+    + '</c:strCache></c:strRef></c:tx>';
 }
 
 function renderCategories(categories: ChartCategories, formulas: readonly string[]): string {
@@ -240,6 +286,10 @@ function formulaCoordinates(value: string): {
 
 function renderAxes(type: ChartType, ids: readonly number[]): string {
   if (ids.length === 0) return '';
+  if (type === 'scatter' || type === 'bubble') {
+    return renderHorizontalValueAxis(ids[0]!, ids[1]!)
+      + renderValueAxis(ids[1]!, ids[0]!, 'midCat');
+  }
   const category = renderCategoryAxis(ids[0]!, ids[1]!);
   const value = renderValueAxis(ids[1]!, ids[0]!);
   if (type !== 'bar3D') return category + value;
@@ -254,12 +304,24 @@ function renderCategoryAxis(id: number, crossId: number): string {
     + '<c:lblAlgn val="ctr"/><c:lblOffset val="100"/></c:catAx>';
 }
 
-function renderValueAxis(id: number, crossId: number): string {
+function renderValueAxis(
+  id: number,
+  crossId: number,
+  crossBetween: 'between' | 'midCat' = 'between',
+): string {
   return `<c:valAx><c:axId val="${id}"/><c:scaling><c:orientation val="minMax"/></c:scaling>`
     + '<c:delete val="0"/><c:axPos val="l"/><c:majorGridlines/>'
     + '<c:numFmt formatCode="General" sourceLinked="0"/><c:majorTickMark val="out"/>'
     + '<c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/>'
-    + `<c:crossAx val="${crossId}"/><c:crosses val="autoZero"/><c:crossBetween val="between"/>`
+    + `<c:crossAx val="${crossId}"/><c:crosses val="autoZero"/><c:crossBetween val="${crossBetween}"/>`
+    + '</c:valAx>';
+}
+
+function renderHorizontalValueAxis(id: number, crossId: number): string {
+  return `<c:valAx><c:axId val="${id}"/><c:scaling><c:orientation val="minMax"/></c:scaling>`
+    + '<c:delete val="0"/><c:axPos val="b"/><c:numFmt formatCode="General" sourceLinked="0"/>'
+    + '<c:majorTickMark val="none"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/>'
+    + `<c:crossAx val="${crossId}"/><c:crosses val="autoZero"/><c:crossBetween val="midCat"/>`
     + '</c:valAx>';
 }
 

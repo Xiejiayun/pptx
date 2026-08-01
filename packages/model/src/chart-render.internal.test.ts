@@ -91,6 +91,49 @@ describe('categorical chart rendering', () => {
   });
 });
 
+describe('scatter and bubble chart rendering', () => {
+  it('renders independent scatter X/Y formulas, caches, zeroes, and value axes', () => {
+    const definition = normalizeChartDefinition({ groups: [{
+      type: 'scatter',
+      series: [
+        { name: 'First', xValues: [0, 2, 4], values: [1, 3, 5] },
+        { name: 'Second', xValues: [10, 20, 30], values: [6, 7, 8] },
+      ],
+    }] });
+    const xml = renderChartPart(definition, planChartWorkbook(definition).formulas, 'rId1');
+
+    expect(xml).toContain('<c:scatterChart><c:scatterStyle val="lineMarker"/>');
+    expect(xml).toContain('<c:xVal><c:numRef><c:f>Sheet1!$A$2:$A$4</c:f>');
+    expect(xml).toContain('<c:yVal><c:numRef><c:f>Sheet1!$B$2:$B$4</c:f>');
+    expect(xml).toContain('<c:xVal><c:numRef><c:f>Sheet1!$C$2:$C$4</c:f>');
+    expect(xml).toContain('<c:yVal><c:numRef><c:f>Sheet1!$D$2:$D$4</c:f>');
+    expect(xml).toContain('<c:pt idx="0"><c:v>0</c:v></c:pt>');
+    expect(xml.match(/<c:valAx>/g)).toHaveLength(2);
+    expect(xml).not.toContain('<c:catAx>');
+  });
+
+  it('renders bubble X/Y/size formulas and positive numeric caches', () => {
+    const definition = normalizeChartDefinition({ groups: [{
+      type: 'bubble',
+      series: [{
+        name: 'Bubbles',
+        xValues: [1, 2, 3],
+        values: [4, 5, 6],
+        sizes: [7, 8, 9],
+      }],
+    }] });
+    const xml = renderChartPart(definition, planChartWorkbook(definition).formulas, 'rId1');
+
+    expect(xml).toContain('<c:bubbleChart><c:varyColors val="0"/>');
+    expect(xml).toContain('<c:xVal><c:numRef><c:f>Sheet1!$A$2:$A$4</c:f>');
+    expect(xml).toContain('<c:yVal><c:numRef><c:f>Sheet1!$B$2:$B$4</c:f>');
+    expect(xml).toContain('<c:bubbleSize><c:numRef><c:f>Sheet1!$C$2:$C$4</c:f>');
+    expect(xml).toContain('<c:bubble3D val="0"/>');
+    expect(xml).toContain('<c:sizeRepresents val="area"/>');
+    expect(xml.match(/<c:valAx>/g)).toHaveLength(2);
+  });
+});
+
 describe('chart graphic frame rendering', () => {
   it('normalizes, freezes, escapes, and renders exact frame placement', () => {
     const options = normalizeAddChartOptions({

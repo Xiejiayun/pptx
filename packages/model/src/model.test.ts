@@ -37,6 +37,7 @@ import { readShapeHyperlink } from './shape-hyperlink.internal.js';
 import { readShapeAdjustments } from './shape-adjustments.internal.js';
 import { readSimpleShadow } from './simple-shadow.internal.js';
 import { readCustomGeometry } from './custom-geometry.internal.js';
+import { chartWorkbookMatches } from './chart-workbook.internal.js';
 
 const CORE_PROPERTIES_RELATIONSHIP =
   'http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties';
@@ -7023,6 +7024,74 @@ describe('PresentationModel', () => {
         restores.forEach((restore) => restore());
       }
     }
+  });
+
+  it('creates, duplicates, and reopens independent scatter and bubble vectors', async () => {
+    const { pkg, model } = emptyPresentationModel();
+    const slide = model.addSlide();
+    const scatter = await slide.addChart('scatter', [
+      { name: 'First', xValues: [0, 2, 4], values: [1, 3, 5] },
+      { name: 'Second', xValues: [10, 20, 30], values: [11, 21, 31] },
+    ]);
+    const bubble = await slide.addChart('bubble', [{
+      name: 'Bubbles',
+      xValues: [1, 2, 3],
+      values: [4, 5, 6],
+      sizes: [7, 8, 9],
+    }]);
+    expect(scatter.series).toEqual([
+      { name: 'First', values: [1, 3, 5], xValues: [0, 2, 4] },
+      { name: 'Second', values: [11, 21, 31], xValues: [10, 20, 30] },
+    ]);
+    expect(bubble.series).toEqual([{
+      name: 'Bubbles', values: [4, 5, 6], xValues: [1, 2, 3], sizes: [7, 8, 9],
+    }]);
+    expect(await chartWorkbookMatches(
+      pkg.requirePart(scatter.workbookPartUri!).bytes,
+      scatter.definition!,
+    )).toBe(true);
+    expect(await chartWorkbookMatches(
+      pkg.requirePart(bubble.workbookPartUri!).bytes,
+      bubble.definition!,
+    )).toBe(true);
+
+    const duplicate = model.duplicateSlide(0);
+    const duplicateCharts = duplicate.shapes.filter(
+      (shape): shape is ChartModel => shape instanceof ChartModel,
+    );
+    expect(duplicateCharts.map(({ series }) => series)).toEqual([scatter.series, bubble.series]);
+    expect(duplicateCharts[0]?.chartPartUri).not.toBe(scatter.chartPartUri);
+    expect(duplicateCharts[0]?.workbookPartUri).not.toBe(scatter.workbookPartUri);
+    expect(duplicateCharts[1]?.chartPartUri).not.toBe(bubble.chartPartUri);
+    expect(duplicateCharts[1]?.workbookPartUri).not.toBe(bubble.workbookPartUri);
+
+    const invalid = [
+      ['scatter', [{ name: 'Bad', xValues: [1], values: [Number.NaN] }]],
+      ['scatter', [{ name: 'Bad', xValues: [1], values: [Number.POSITIVE_INFINITY] }]],
+      ['scatter', [{ name: 'Bad', xValues: [1, 2], values: [3] }]],
+      ['scatter', [{ name: 'Bad', xValues: [], values: [] }]],
+      ['scatter', [{ name: 'Bad', categories: ['A'], xValues: [1], values: [2] }]],
+      ['bubble', [{ name: 'Bad', xValues: [1], values: [2], sizes: [0] }]],
+      ['bubble', [{ name: 'Bad', xValues: [1], values: [2], sizes: [-1] }]],
+    ] as const;
+    for (const [type, series] of invalid) {
+      const before = packageSnapshot(pkg);
+      await expect(slide.addChart(type, series as never)).rejects.toThrow();
+      expect(packageSnapshot(pkg)).toEqual(before);
+    }
+    const valid = await slide.addChart('scatter', [{
+      name: 'Still next', xValues: [1], values: [2],
+    }]);
+    expect(valid.id).toBe(bubble.id + 1);
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedCharts = reopened.slides.flatMap(({ shapes }) => shapes).filter(
+      (shape): shape is ChartModel => shape instanceof ChartModel,
+    );
+    expect(reopenedCharts.filter((chart) => chart.definition?.groups[0]?.type === 'scatter'))
+      .toHaveLength(3);
+    expect(reopenedCharts.filter((chart) => chart.definition?.groups[0]?.type === 'bubble'))
+      .toHaveLength(2);
   });
 
   it('creates strict basic tables with stable identity, ordering, and atomic failure', async () => {

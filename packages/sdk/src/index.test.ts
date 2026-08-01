@@ -4000,18 +4000,26 @@ describe('PptxDocument vertical slice', () => {
     ]);
   });
 
-  it('creates and reopens categorical native charts through the public SDK in all six formats', async () => {
-    const types = ['area', 'bar', 'bar3D', 'doughnut', 'line', 'pie', 'radar'] as const;
+  it('creates and reopens all native chart types through the public SDK in all six formats', async () => {
+    const types = [
+      'area', 'bar', 'bar3D', 'bubble', 'doughnut', 'line', 'pie', 'radar', 'scatter',
+    ] as const;
     for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
       const document = PptxDocument.create({ format });
       const slide = document.addSlide();
       const created: ChartModel[] = [];
       for (const [index, type] of types.entries()) {
-        created.push(await document.addChart(0, type, [{
-          name: `${type} series`,
-          categories: ['Q1', 'Q2'],
-          values: [10, 20],
-        }], index === 0 ? {
+        const series = type === 'scatter'
+          ? [{ name: `${type} series`, xValues: [1, 2], values: [10, 20] }]
+          : type === 'bubble'
+            ? [{
+                name: `${type} series`,
+                xValues: [1, 2],
+                values: [10, 20],
+                sizes: [5, 6],
+              }]
+            : [{ name: `${type} series`, categories: ['Q1', 'Q2'], values: [10, 20] }];
+        created.push(await document.addChart(0, type, series, index === 0 ? {
           name: `${format} chart`,
           altText: 'Quarterly chart',
           x: inches(2),
@@ -4034,6 +4042,10 @@ describe('PptxDocument vertical slice', () => {
       expect(reopened.format).toBe(format);
       expect(charts.map((chart) => chart.definition?.groups[0]?.type)).toEqual(types);
       expect(charts.map((chart) => chart.series[0]?.values)).toEqual(types.map(() => [10, 20]));
+      expect(charts.find((chart) => chart.definition?.groups[0]?.type === 'scatter')
+        ?.series[0]?.xValues).toEqual([1, 2]);
+      expect(charts.find((chart) => chart.definition?.groups[0]?.type === 'bubble')
+        ?.series[0]?.sizes).toEqual([5, 6]);
       for (const chart of charts) {
         expect(reopened.opcPackage.requirePart(chart.workbookPartUri!).contentType)
           .toBe('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');

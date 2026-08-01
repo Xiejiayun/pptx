@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { OpcPackage } from '@pptx/opc';
+import { normalizeChartDefinition } from './chart-definition.internal.js';
+import { renderChartPart } from './chart-render.internal.js';
 import { readChartState } from './chart-state.internal.js';
+import { planChartWorkbook } from './chart-workbook.internal.js';
 
 const CHART_NS = 'http://schemas.openxmlformats.org/drawingml/2006/chart';
 const REL_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
@@ -82,6 +85,35 @@ describe('strict chart semantic state', () => {
         series: [{ name: 'Trend', categories: ['Q1', 'Q2'], values: [11, 21] }],
       },
     ]);
+  });
+
+  it('strictly reads renderer-produced scatter and bubble vectors', () => {
+    const inputs = [
+      normalizeChartDefinition({ groups: [{
+        type: 'scatter',
+        series: [
+          { name: 'First', xValues: [0, 2], values: [1, 3] },
+          { name: 'Second', xValues: [10, 20], values: [11, 21] },
+        ],
+      }] }),
+      normalizeChartDefinition({ groups: [{
+        type: 'bubble',
+        series: [{ name: 'Bubbles', xValues: [1, 2], values: [3, 4], sizes: [5, 6] }],
+      }] }),
+    ];
+    for (const definition of inputs) {
+      const xml = renderChartPart(definition, planChartWorkbook(definition).formulas, 'rId1');
+      expect(readChartState(chartPackage(xml), CHART_URI)).toEqual({
+        status: 'recognized',
+        definition: {
+          groups: [{
+            ...definition.groups[0],
+            axis: 'primary',
+          }],
+        },
+        workbookPartUri: WORKBOOK_URI,
+      });
+    }
   });
 
   it('orders cache points by canonical idx and reads numeric and multi-level categories', () => {
