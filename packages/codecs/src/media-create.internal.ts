@@ -1,8 +1,17 @@
+import { escapeXmlAttribute } from '@pptx/lossless-xml';
 import type {
   AddMediaOptions,
   MediaByteStream,
   MediaKind,
 } from './media.js';
+import type {
+  ResolvedEmbeddedMedia,
+  ResolvedExternalMedia,
+  ResolvedMediaCreationInputs,
+} from './media-source.internal.js';
+
+const OFFICE_MEDIA_EXTENSION_URI = '{DAA4B4D4-6D71-4841-9C94-3DE7FCFB9230}';
+const PLAYBACK_EXTENSION_URI = '{C13D3E4A-5148-4B6D-A7E7-505054582D4F}';
 
 const OPTION_KEYS = new Set([
   'name',
@@ -46,6 +55,28 @@ export interface NormalizedMediaCreateRequest {
   readonly hideWhenStopped: boolean;
   readonly volume: number;
   readonly transcode?: NonNullable<AddMediaOptions['transcode']>;
+}
+
+export interface NormalizedMediaCreationDefinition {
+  readonly kind: MediaKind;
+  readonly name: string;
+  readonly altText?: string;
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+  readonly play: 'click' | 'auto';
+  readonly loop: boolean;
+  readonly hideWhenStopped: boolean;
+  readonly volume: number;
+  readonly media: ResolvedEmbeddedMedia | ResolvedExternalMedia;
+  readonly poster: ResolvedEmbeddedMedia;
+}
+
+export interface MediaRelationshipIds {
+  readonly kind: string;
+  readonly media?: string;
+  readonly poster: string;
 }
 
 export function normalizeMediaCreateRequest(
@@ -99,6 +130,102 @@ export function normalizeMediaCreateRequest(
     volume: normalizeVolume(values.volume),
     ...(transcode === undefined ? {} : { transcode }),
   });
+}
+
+export function finalizeMediaCreationDefinition(
+  request: Readonly<NormalizedMediaCreateRequest>,
+  resolved: Readonly<ResolvedMediaCreationInputs>,
+  defaultName: string,
+): Readonly<NormalizedMediaCreationDefinition> {
+  const name = request.name ?? normalizeRequiredXmlString(defaultName, 'default name');
+  const media = resolved.media.type === 'embedded'
+    ? cloneEmbeddedMedia(resolved.media)
+    : Object.freeze({ type: 'external' as const, url: resolved.media.url });
+  return Object.freeze({
+    kind: request.kind,
+    name,
+    ...(request.altText === undefined ? {} : { altText: request.altText }),
+    x: request.x,
+    y: request.y,
+    width: request.width,
+    height: request.height,
+    play: request.play,
+    loop: request.loop,
+    hideWhenStopped: request.hideWhenStopped,
+    volume: request.volume,
+    media,
+    poster: cloneEmbeddedMedia(resolved.poster),
+  });
+}
+
+export function renderMediaPictureXml(
+  shapeId: number,
+  definition: Readonly<NormalizedMediaCreationDefinition>,
+  relationships: Readonly<MediaRelationshipIds>,
+): string {
+  if (!Number.isSafeInteger(shapeId) || shapeId <= 0) {
+    throw new RangeError('Media shape id must be a positive safe integer');
+  }
+  const kindRelationshipId = normalizeRelationshipId(relationships.kind, 'kind');
+  const posterRelationshipId = normalizeRelationshipId(relationships.poster, 'poster');
+  let mediaExtension = '';
+  if (definition.media.type === 'embedded') {
+    const mediaRelationshipId = normalizeRelationshipId(relationships.media, 'media');
+    mediaExtension = `<p:ext uri="${OFFICE_MEDIA_EXTENSION_URI}">`
+      + '<p14:media xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" '
+      + `r:embed="${escapeXmlAttribute(mediaRelationshipId)}"/></p:ext>`;
+  } else if (relationships.media !== undefined) {
+    throw new TypeError('External media must not have an embedded media relationship');
+  }
+
+  const name = escapeXmlAttribute(definition.name);
+  const description = definition.altText === undefined
+    ? ''
+    : ` descr="${escapeXmlAttribute(definition.altText)}"`;
+  const playbackExtension = `<p:ext uri="${PLAYBACK_EXTENSION_URI}">`
+    + '<px:playback xmlns:px="urn:pptx-ooxml:media" '
+    + `play="${definition.play}" loop="${definition.loop ? 1 : 0}" `
+    + `hideWhenStopped="${definition.hideWhenStopped ? 1 : 0}" `
+    + `volume="${Math.round(definition.volume * 100_000)}"/></p:ext>`;
+
+  return '<p:pic><p:nvPicPr>'
+    + `<p:cNvPr id="${shapeId}" name="${name}"${description}>`
+    + '<a:hlinkClick r:id="" action="ppaction://media"/></p:cNvPr>'
+    + '<p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr>'
+    + `<a:${definition.kind}File r:link="${escapeXmlAttribute(kindRelationshipId)}"/>`
+    + `<p:extLst>${mediaExtension}${playbackExtension}</p:extLst></p:nvPr></p:nvPicPr>`
+    + `<p:blipFill><a:blip r:embed="${escapeXmlAttribute(posterRelationshipId)}"/>`
+    + '<a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr><a:xfrm>'
+    + `<a:off x="${definition.x}" y="${definition.y}"/>`
+    + `<a:ext cx="${definition.width}" cy="${definition.height}"/></a:xfrm>`
+    + '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>';
+}
+
+function cloneEmbeddedMedia(
+  value: Readonly<ResolvedEmbeddedMedia>,
+): ResolvedEmbeddedMedia {
+  return Object.freeze({
+    type: 'embedded',
+    bytes: new Uint8Array(value.bytes),
+    contentType: value.contentType,
+    extension: value.extension,
+  });
+}
+
+function normalizeRequiredXmlString(value: unknown, name: string): string {
+  if (typeof value !== 'string') throw new TypeError(`Media ${name} must be a string`);
+  if (!isValidXmlString(value)) {
+    throw new TypeError(`Media ${name} contains invalid XML characters`);
+  }
+  return value;
+}
+
+function normalizeRelationshipId(value: unknown, name: string): string {
+  const normalized = normalizeRequiredXmlString(value, `${name} relationship id`);
+  if (normalized.length === 0) {
+    throw new TypeError(`Media ${name} relationship id must be a non-empty string`);
+  }
+  return normalized;
 }
 
 function readOptions(value: unknown): Record<string, unknown> {

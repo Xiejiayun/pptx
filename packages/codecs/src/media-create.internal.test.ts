@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { AddMediaOptions, MediaByteStream } from './media.js';
-import { normalizeMediaCreateRequest } from './media-create.internal.js';
+import {
+  finalizeMediaCreationDefinition,
+  normalizeMediaCreateRequest,
+  renderMediaPictureXml,
+} from './media-create.internal.js';
+import { resolveMediaCreationInputs } from './media-source.internal.js';
 
 describe('media creation request normalization', () => {
   it('publishes strict name and alt-text option types', () => {
@@ -210,5 +215,209 @@ describe('media creation request normalization', () => {
       expect(() => normalizeMediaCreateRequest('audio', source, {})).toThrow();
     }
     expect(() => normalizeMediaCreateRequest('music' as never, Uint8Array.of(1), {})).toThrow(TypeError);
+  });
+});
+
+describe('media creation definition and XML', () => {
+  it('finalizes a detached frozen embedded definition', async () => {
+    const mediaBytes = Uint8Array.of(1, 2, 3);
+    const posterBytes = Uint8Array.of(4, 5, 6);
+    const request = normalizeMediaCreateRequest('audio', mediaBytes, {
+      name: 'Narration',
+      altText: 'Spoken overview',
+      contentType: 'audio/mpeg',
+      poster: posterBytes,
+      posterContentType: 'image/png',
+      x: -1,
+      y: 0,
+      width: 1,
+      height: 2,
+      play: 'auto',
+      loop: true,
+      hideWhenStopped: true,
+      volume: 0.25,
+    });
+    const resolved = await resolveMediaCreationInputs(request);
+    const definition = finalizeMediaCreationDefinition(request, resolved, 'Media 0');
+
+    mediaBytes[0] = 9;
+    posterBytes[0] = 9;
+    if (resolved.media.type === 'embedded') resolved.media.bytes[0] = 8;
+    resolved.poster.bytes[0] = 8;
+    expect(definition).toEqual({
+      kind: 'audio',
+      name: 'Narration',
+      altText: 'Spoken overview',
+      x: -1,
+      y: 0,
+      width: 1,
+      height: 2,
+      play: 'auto',
+      loop: true,
+      hideWhenStopped: true,
+      volume: 0.25,
+      media: {
+        type: 'embedded',
+        bytes: Uint8Array.of(1, 2, 3),
+        contentType: 'audio/mpeg',
+        extension: '.mp3',
+      },
+      poster: {
+        type: 'embedded',
+        bytes: Uint8Array.of(4, 5, 6),
+        contentType: 'image/png',
+        extension: '.png',
+      },
+    });
+    expect(Object.isFrozen(definition)).toBe(true);
+    expect(Object.isFrozen(definition.media)).toBe(true);
+    expect(Object.isFrozen(definition.poster)).toBe(true);
+    expect(Object.isFrozen(definition.poster.bytes)).toBe(false);
+  });
+
+  it('uses a validated default name and preserves omitted alt text', async () => {
+    const request = normalizeMediaCreateRequest(
+      'video',
+      'https://example.com/video.mp4',
+      {},
+    );
+    const resolved = await resolveMediaCreationInputs(request);
+    const definition = finalizeMediaCreationDefinition(request, resolved, 'Media 1');
+
+    expect(definition.name).toBe('Media 1');
+    expect(definition.altText).toBeUndefined();
+    expect(definition.media).toEqual({
+      type: 'external',
+      url: 'https://example.com/video.mp4',
+    });
+    expect(() => finalizeMediaCreationDefinition(request, resolved, 'bad\u0000name'))
+      .toThrow(/XML/i);
+  });
+
+  it('renders exact canonical embedded audio picture XML', async () => {
+    const request = normalizeMediaCreateRequest('audio', Uint8Array.of(1), {
+      name: 'Audio & narration',
+      altText: 'Spoken "overview"',
+      contentType: 'audio/mpeg',
+      poster: Uint8Array.of(2),
+      posterContentType: 'image/png',
+      x: -1,
+      y: 0,
+      width: 1,
+      height: 2,
+    });
+    const definition = finalizeMediaCreationDefinition(
+      request,
+      await resolveMediaCreationInputs(request),
+      'Media 0',
+    );
+    const xml = renderMediaPictureXml(2, definition, {
+      kind: 'rId2',
+      media: 'rId3',
+      poster: 'rId4',
+    });
+
+    expect(xml).toBe(
+      '<p:pic><p:nvPicPr><p:cNvPr id="2" name="Audio &amp; narration" descr="Spoken &quot;overview&quot;">'
+      + '<a:hlinkClick r:id="" action="ppaction://media"/></p:cNvPr>'
+      + '<p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr>'
+      + '<a:audioFile r:link="rId2"/><p:extLst>'
+      + '<p:ext uri="{DAA4B4D4-6D71-4841-9C94-3DE7FCFB9230}">'
+      + '<p14:media xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" r:embed="rId3"/>'
+      + '</p:ext><p:ext uri="{C13D3E4A-5148-4B6D-A7E7-505054582D4F}">'
+      + '<px:playback xmlns:px="urn:pptx-ooxml:media" play="click" loop="0" '
+      + 'hideWhenStopped="0" volume="100000"/></p:ext></p:extLst></p:nvPr></p:nvPicPr>'
+      + '<p:blipFill><a:blip r:embed="rId4"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>'
+      + '<p:spPr><a:xfrm><a:off x="-1" y="0"/><a:ext cx="1" cy="2"/></a:xfrm>'
+      + '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>',
+    );
+  });
+
+  it('renders video, external media, escaped ids, and alt-text presence exactly', async () => {
+    const embeddedRequest = normalizeMediaCreateRequest('video', Uint8Array.of(1), {
+      name: '',
+      altText: '',
+      contentType: 'video/mp4',
+    });
+    const embedded = finalizeMediaCreationDefinition(
+      embeddedRequest,
+      await resolveMediaCreationInputs(embeddedRequest),
+      'Media 0',
+    );
+    const embeddedXml = renderMediaPictureXml(3, embedded, {
+      kind: 'kind&1',
+      media: 'media"1',
+      poster: 'poster<1',
+    });
+    expect(embeddedXml).toContain('<p:cNvPr id="3" name="" descr="">');
+    expect(embeddedXml).toContain('<a:videoFile r:link="kind&amp;1"/>');
+    expect(embeddedXml).toContain('r:embed="media&quot;1"');
+    expect(embeddedXml).toContain('<a:blip r:embed="poster&lt;1"/>');
+
+    const externalRequest = normalizeMediaCreateRequest(
+      'video',
+      'https://example.com/video.mp4',
+      { play: 'auto', loop: true, hideWhenStopped: true, volume: 0 },
+    );
+    const external = finalizeMediaCreationDefinition(
+      externalRequest,
+      await resolveMediaCreationInputs(externalRequest),
+      'Media 1',
+    );
+    const externalXml = renderMediaPictureXml(4, external, {
+      kind: 'rId5',
+      poster: 'rId6',
+    });
+    expect(externalXml).toContain('<p:cNvPr id="4" name="Media 1">');
+    expect(externalXml).not.toContain(' descr=');
+    expect(externalXml).toContain('<a:videoFile r:link="rId5"/>');
+    expect(externalXml).not.toContain('p14:media');
+    expect(externalXml).toContain(
+      'play="auto" loop="1" hideWhenStopped="1" volume="0"',
+    );
+    expect(externalXml).toContain('<a:picLocks noChangeAspect="1"/>');
+  });
+
+  it('rejects inconsistent relationship ids and shape ids', async () => {
+    const embeddedRequest = normalizeMediaCreateRequest(
+      'audio',
+      Uint8Array.of(1),
+      { contentType: 'audio/mpeg' },
+    );
+    const embedded = finalizeMediaCreationDefinition(
+      embeddedRequest,
+      await resolveMediaCreationInputs(embeddedRequest),
+      'Media 0',
+    );
+    expect(() => renderMediaPictureXml(0, embedded, {
+      kind: 'rId1',
+      media: 'rId2',
+      poster: 'rId3',
+    })).toThrow(/shape id/i);
+    expect(() => renderMediaPictureXml(2, embedded, {
+      kind: 'rId1',
+      poster: 'rId3',
+    })).toThrow(/media relationship/i);
+    expect(() => renderMediaPictureXml(2, embedded, {
+      kind: 'bad\u0000id',
+      media: 'rId2',
+      poster: 'rId3',
+    })).toThrow(/XML/i);
+
+    const externalRequest = normalizeMediaCreateRequest(
+      'video',
+      'https://example.com/video.mp4',
+      {},
+    );
+    const external = finalizeMediaCreationDefinition(
+      externalRequest,
+      await resolveMediaCreationInputs(externalRequest),
+      'Media 1',
+    );
+    expect(() => renderMediaPictureXml(2, external, {
+      kind: 'rId1',
+      media: 'rId2',
+      poster: 'rId3',
+    })).toThrow(/external/i);
   });
 });
