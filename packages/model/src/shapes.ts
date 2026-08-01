@@ -219,7 +219,7 @@ export abstract class BaseShapeModel {
   }
 
   protected resolve(): { xml: LosslessXmlDocument; element: XmlElement } {
-    return this.slide.resolveShape(this.id);
+    return this.slide.resolveShape(this.id, this);
   }
 }
 

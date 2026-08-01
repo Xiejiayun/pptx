@@ -18,7 +18,7 @@ export interface PlaceholderIdentity {
 
 export type PlaceholderSelector = string | PlaceholderIdentity;
 
-export interface AddPlaceholderOptions extends Omit<AddTextOptions, 'name'> {
+export interface AddPlaceholderOptions extends Omit<AddTextOptions, 'name' | 'placeholder'> {
   readonly name: string;
   readonly type: PlaceholderType;
   readonly index?: number;

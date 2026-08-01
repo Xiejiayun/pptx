@@ -44,6 +44,10 @@ import {
   renderCustomGeometry,
   type NormalizedCustomGeometry,
 } from './custom-geometry.internal.js';
+import {
+  normalizePlaceholderSelector,
+} from './placeholder.internal.js';
+import type { PlaceholderIdentity, PlaceholderSelector } from './placeholder.js';
 
 const PRESENTATION_NAMESPACE =
   'http://schemas.openxmlformats.org/presentationml/2006/main';
@@ -56,6 +60,7 @@ const MAX_ROTATION = 21_600_000;
 const PRESET_SHAPE_TYPE_SET: ReadonlySet<string> = new Set(PRESET_SHAPE_TYPES);
 const COMMON_OPTION_KEYS = new Set([
   'name',
+  'placeholder',
   'fill',
   'line',
   'arrows',
@@ -74,6 +79,7 @@ const PRESET_OPTION_KEYS = new Set([...COMMON_OPTION_KEYS, 'adjustments']);
 export interface NormalizedPresetShape {
   readonly type: PresetShapeType;
   readonly name: string | undefined;
+  readonly placeholder?: PlaceholderSelector;
   readonly adjustments: NormalizedShapeAdjustments;
   readonly fill: ShapeFill;
   readonly line: NormalizedSimpleLine | undefined;
@@ -92,6 +98,7 @@ export interface NormalizedPresetShape {
 export interface NormalizedCustomShape {
   readonly geometry: NormalizedCustomGeometry;
   readonly name: string | undefined;
+  readonly placeholder?: PlaceholderSelector;
   readonly fill: ShapeFill;
   readonly line: NormalizedSimpleLine | undefined;
   readonly arrows: NormalizedShapeArrows | undefined;
@@ -108,6 +115,7 @@ export interface NormalizedCustomShape {
 
 interface NormalizedShapeOptions {
   readonly name: string | undefined;
+  readonly placeholder?: PlaceholderSelector;
   readonly fill: ShapeFill;
   readonly line: NormalizedSimpleLine | undefined;
   readonly arrows: NormalizedShapeArrows | undefined;
@@ -191,9 +199,13 @@ function normalizeShapeOptions(
   const shadow = values.shadow === undefined
     ? undefined
     : normalizeShapeShadow(values.shadow, `${context} shadow`);
+  const placeholder = values.placeholder === undefined
+    ? undefined
+    : normalizePlaceholderSelector(values.placeholder);
 
   return {
     name: name as string | undefined,
+    ...(placeholder === undefined ? {} : { placeholder }),
     fill,
     line,
     arrows,
@@ -213,17 +225,26 @@ export function renderPresetShapeXml(
   id: number,
   shape: NormalizedPresetShape,
   hyperlinkRelationshipId?: string,
+  placeholder?: Readonly<PlaceholderIdentity>,
 ): string {
   const type = escapeXmlAttribute(shape.type);
   const geometry = `<a:prstGeom prst="${type}">` +
     `${renderShapeAdjustmentList(shape.adjustments, 'a:')}</a:prstGeom>`;
-  return renderShapeXml(id, shape, geometry, hyperlinkRelationshipId, 'Preset shape');
+  return renderShapeXml(
+    id,
+    shape,
+    geometry,
+    hyperlinkRelationshipId,
+    'Preset shape',
+    placeholder,
+  );
 }
 
 export function renderCustomShapeXml(
   id: number,
   shape: NormalizedCustomShape,
   hyperlinkRelationshipId?: string,
+  placeholder?: Readonly<PlaceholderIdentity>,
 ): string {
   return renderShapeXml(
     id,
@@ -231,6 +252,7 @@ export function renderCustomShapeXml(
     renderCustomGeometry(shape.geometry, 'a:'),
     hyperlinkRelationshipId,
     'Custom shape',
+    placeholder,
   );
 }
 
@@ -240,6 +262,7 @@ function renderShapeXml(
   geometry: string,
   hyperlinkRelationshipId: string | undefined,
   context: string,
+  placeholder?: Readonly<PlaceholderIdentity>,
 ): string {
   if ((shape.hyperlink === undefined) !== (hyperlinkRelationshipId === undefined)) {
     throw new TypeError(`${context} hyperlink and relationship ID must be supplied together`);
@@ -259,8 +282,11 @@ function renderShapeXml(
   const effect = shape.shadow === undefined
     ? ''
     : `<a:effectLst>${renderSimpleShadow(shape.shadow, 'a:')}</a:effectLst>`;
+  const applicationProperties = placeholder === undefined
+    ? '<p:nvPr/>'
+    : `<p:nvPr><p:ph type="${placeholder.type}" idx="${placeholder.index}"/></p:nvPr>`;
   return `<p:sp xmlns:p="${PRESENTATION_NAMESPACE}" xmlns:a="${DRAWING_NAMESPACE}">` +
-    `<p:nvSpPr>${nonVisualProperties}<p:cNvSpPr/><p:nvPr/></p:nvSpPr>` +
+    `<p:nvSpPr>${nonVisualProperties}<p:cNvSpPr/>${applicationProperties}</p:nvSpPr>` +
     `<p:spPr><a:xfrm${transformAttributes}><a:off x="${shape.x}" y="${shape.y}"/>` +
     `<a:ext cx="${shape.width}" cy="${shape.height}"/></a:xfrm>` +
     geometry +

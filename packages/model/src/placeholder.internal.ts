@@ -9,8 +9,10 @@ import { ModelParseError } from './errors.js';
 import {
   PLACEHOLDER_TYPES,
   type PlaceholderIdentity,
+  type PlaceholderSelector,
   type PlaceholderType,
 } from './placeholder.js';
+import type { Transform } from './units.js';
 
 const PRESENTATION_NAMESPACE =
   'http://schemas.openxmlformats.org/presentationml/2006/main';
@@ -19,6 +21,10 @@ const DRAWING_NAMESPACE =
 const MAX_PLACEHOLDER_INDEX = 4_294_967_294;
 const MAX_SHAPE_ID = 4_294_967_295;
 const PLACEHOLDER_TYPE_SET = new Set<string>(PLACEHOLDER_TYPES);
+const SLIDE_LAYOUT_RELATIONSHIP =
+  'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout';
+const SLIDE_LAYOUT_CONTENT_TYPE =
+  'application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml';
 
 type PlaceholderState =
   | { readonly kind: 'none' | 'unsupported' | 'unsafe' }
@@ -30,11 +36,25 @@ type PlaceholderState =
 
 interface MaterializedPlaceholderDescriptor {
   readonly name: string;
+  readonly shapeId: number;
   readonly identity: Readonly<PlaceholderIdentity>;
+  readonly element: XmlElement;
+  readonly transform: Transform;
   readonly namespaceAttributes: string;
   readonly transformXml?: string;
   readonly bodyPropertiesXml?: string;
   readonly listStyleXml?: string;
+}
+
+export type PlaceholderDomain = 'text-shape' | 'image' | 'chart' | 'table' | 'media';
+
+export interface ResolvedPlaceholderOwner {
+  readonly identity: Readonly<PlaceholderIdentity>;
+  readonly name: string;
+  readonly shapeId: number;
+  readonly transform: Transform;
+  readonly slideElement: XmlElement;
+  readonly layoutElement: XmlElement;
 }
 
 export function normalizePlaceholderIdentity(
@@ -60,12 +80,100 @@ export function normalizePlaceholderIdentity(
   });
 }
 
+export function normalizePlaceholderSelector(
+  value: unknown,
+): PlaceholderSelector {
+  if (typeof value === 'string') {
+    if (value.length === 0) throw new TypeError('Placeholder selector name must not be empty');
+    if (/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/.test(value)) {
+      throw new TypeError('Placeholder selector name contains invalid XML characters');
+    }
+    return value;
+  }
+  return normalizePlaceholderIdentity(value, 'Placeholder selector');
+}
+
 export function readShapePlaceholder(
   xml: LosslessXmlDocument,
   shape: XmlElement,
 ): Readonly<PlaceholderIdentity> | undefined {
   const state = readPlaceholderState(shape);
   return state.kind === 'supported' ? state.identity : undefined;
+}
+
+export function resolvePlaceholderOwner(
+  pkg: OpcPackage,
+  slidePartUri: string,
+  selector: PlaceholderSelector,
+  domain: PlaceholderDomain,
+): ResolvedPlaceholderOwner {
+  const normalizedSelector = normalizePlaceholderSelector(selector);
+  const layoutRelationships = pkg.relationships(slidePartUri).filter(({ type }) =>
+    type === SLIDE_LAYOUT_RELATIONSHIP);
+  if (layoutRelationships.length !== 1) {
+    throw new ModelParseError('Slide layout relationship is missing or ambiguous', slidePartUri);
+  }
+  const layoutRelationship = layoutRelationships[0]!;
+  const layoutPartUri = layoutRelationship.targetMode === 'Internal'
+    ? layoutRelationship.resolvedTarget
+    : undefined;
+  if (
+    !layoutPartUri
+    || pkg.getPart(layoutPartUri)?.contentType !== SLIDE_LAYOUT_CONTENT_TYPE
+  ) {
+    throw new ModelParseError('Slide layout relationship is invalid', slidePartUri);
+  }
+  const layoutXml = LosslessXmlDocument.parse(pkg.requirePart(layoutPartUri).bytes);
+  const layoutTree = requireShapeTree(layoutXml, layoutPartUri, 'sldLayout');
+  const layoutPlaceholders = readLayoutPlaceholderDescriptors(
+    layoutXml,
+    layoutTree,
+    layoutPartUri,
+    false,
+  );
+  const layoutMatches = layoutPlaceholders.filter((placeholder) =>
+    typeof normalizedSelector === 'string'
+      ? placeholder.name === normalizedSelector
+      : identitiesEqual(placeholder.identity, normalizedSelector));
+  if (layoutMatches.length === 0) {
+    throw new RangeError('Placeholder selector was not found in the slide layout');
+  }
+  if (layoutMatches.length !== 1) {
+    throw new ModelParseError('Placeholder selector is ambiguous in the slide layout', layoutPartUri);
+  }
+  const layout = layoutMatches[0]!;
+  if (!domainAccepts(domain, layout.identity.type)) {
+    throw new TypeError(
+      `Placeholder type ${layout.identity.type} is not valid for ${domain} content`,
+    );
+  }
+
+  const slideXml = LosslessXmlDocument.parse(pkg.requirePart(slidePartUri).bytes);
+  const slideTree = requireShapeTree(slideXml, slidePartUri, 'sld');
+  const slidePlaceholders = readLayoutPlaceholderDescriptors(
+    slideXml,
+    slideTree,
+    slidePartUri,
+    false,
+  );
+  const slideMatches = slidePlaceholders.filter((placeholder) =>
+    placeholder.name === layout.name
+    && identitiesEqual(placeholder.identity, layout.identity));
+  if (slideMatches.length !== 1) {
+    throw new ModelParseError('Slide placeholder owner is missing or ambiguous', slidePartUri);
+  }
+  const slide = slideMatches[0]!;
+  if (!isEmptyPlaceholderOwner(slide.element)) {
+    throw new ModelParseError('Slide placeholder owner is already filled or not empty', slidePartUri);
+  }
+  return {
+    identity: layout.identity,
+    name: layout.name,
+    shapeId: slide.shapeId,
+    transform: layout.transform,
+    slideElement: slide.element,
+    layoutElement: layout.element,
+  };
 }
 
 export function materializeLayoutPlaceholders(
@@ -183,11 +291,66 @@ function readDescriptor(
   }
   return {
     name,
+    shapeId: id,
     identity: state.identity,
+    element: shape,
+    transform: readTransform(shape, partUri),
     namespaceAttributes: inScopeNamespaceAttributes(shape),
     ...(transforms[0] ? { transformXml: xml.original(transforms[0]) } : {}),
     ...(bodyProperties[0] ? { bodyPropertiesXml: xml.original(bodyProperties[0]) } : {}),
     ...(listStyles[0] ? { listStyleXml: xml.original(listStyles[0]) } : {}),
+  };
+}
+
+function readTransform(shape: XmlElement, partUri: string): Transform {
+  const shapeProperties = directChildren(shape, 'spPr', PRESENTATION_NAMESPACE);
+  const transforms = shapeProperties.length === 1
+    ? directChildren(shapeProperties[0]!, 'xfrm', DRAWING_NAMESPACE)
+    : [];
+  if (transforms.length === 0) {
+    return {
+      x: 0 as Transform['x'],
+      y: 0 as Transform['y'],
+      width: 0 as Transform['width'],
+      height: 0 as Transform['height'],
+      rotation: 0 as Transform['rotation'],
+      flipHorizontal: false,
+      flipVertical: false,
+    };
+  }
+  const transform = transforms[0]!;
+  const offsets = directChildren(transform, 'off', DRAWING_NAMESPACE);
+  const extents = directChildren(transform, 'ext', DRAWING_NAMESPACE);
+  const x = offsets.length === 1 ? strictSignedAttribute(offsets[0]!, 'x') : undefined;
+  const y = offsets.length === 1 ? strictSignedAttribute(offsets[0]!, 'y') : undefined;
+  const width = extents.length === 1
+    ? strictUnsignedAttribute(extents[0]!, 'cx', Number.MAX_SAFE_INTEGER)
+    : undefined;
+  const height = extents.length === 1
+    ? strictUnsignedAttribute(extents[0]!, 'cy', Number.MAX_SAFE_INTEGER)
+    : undefined;
+  const rotation = strictSignedAttribute(transform, 'rot', 0);
+  const flipHorizontal = strictBooleanAttribute(transform, 'flipH', false);
+  const flipVertical = strictBooleanAttribute(transform, 'flipV', false);
+  if (
+    x === undefined
+    || y === undefined
+    || width === undefined
+    || height === undefined
+    || rotation === undefined
+    || flipHorizontal === undefined
+    || flipVertical === undefined
+  ) {
+    throw new ModelParseError('Placeholder has an invalid transform', partUri);
+  }
+  return {
+    x: x as Transform['x'],
+    y: y as Transform['y'],
+    width: width as Transform['width'],
+    height: height as Transform['height'],
+    rotation: rotation as Transform['rotation'],
+    flipHorizontal,
+    flipVertical,
   };
 }
 
@@ -312,6 +475,32 @@ function strictUnsignedAttribute(
   return Number.isSafeInteger(parsed) && parsed <= maximum ? parsed : undefined;
 }
 
+function strictSignedAttribute(
+  element: XmlElement,
+  name: string,
+  defaultValue?: number,
+): number | undefined {
+  const attributes = semanticAttributes(element, name);
+  if (attributes.length === 0) return defaultValue;
+  if (attributes.length !== 1 || attributes[0]!.name !== name) return undefined;
+  if (!/^-?(0|[1-9]\d*)$/.test(attributes[0]!.value)) return undefined;
+  const parsed = Number(attributes[0]!.value);
+  return Number.isSafeInteger(parsed) ? parsed : undefined;
+}
+
+function strictBooleanAttribute(
+  element: XmlElement,
+  name: string,
+  defaultValue: boolean,
+): boolean | undefined {
+  const attributes = semanticAttributes(element, name);
+  if (attributes.length === 0) return defaultValue;
+  if (attributes.length !== 1 || attributes[0]!.name !== name) return undefined;
+  if (attributes[0]!.value === '1' || attributes[0]!.value === 'true') return true;
+  if (attributes[0]!.value === '0' || attributes[0]!.value === 'false') return false;
+  return undefined;
+}
+
 function hasAmbiguousAttribute(element: XmlElement, name: string): boolean {
   const attributes = semanticAttributes(element, name);
   return attributes.length > 1 || (attributes[0] !== undefined && attributes[0].name !== name);
@@ -325,6 +514,33 @@ function semanticAttributes(element: XmlElement, name: string): XmlAttribute[] {
 function containsPresentationPlaceholder(element: XmlElement): boolean {
   return descendants(element).some((candidate) =>
     candidate.localName === 'ph' && elementNamespaceUri(candidate) === PRESENTATION_NAMESPACE);
+}
+
+function identitiesEqual(
+  left: Readonly<PlaceholderIdentity>,
+  right: Readonly<PlaceholderIdentity>,
+): boolean {
+  return left.type === right.type && left.index === right.index;
+}
+
+function domainAccepts(domain: PlaceholderDomain, type: PlaceholderType): boolean {
+  return domain === 'text-shape'
+    ? type === 'title' || type === 'body'
+    : (domain === 'image' && type === 'pic')
+      || (domain === 'chart' && type === 'chart')
+      || (domain === 'table' && type === 'tbl')
+      || (domain === 'media' && type === 'media');
+}
+
+function isEmptyPlaceholderOwner(shape: XmlElement): boolean {
+  if (shape.localName !== 'sp' || elementNamespaceUri(shape) !== PRESENTATION_NAMESPACE) {
+    return false;
+  }
+  const properties = directChildren(shape, 'spPr', PRESENTATION_NAMESPACE);
+  if (properties.length !== 1) return false;
+  return properties[0]!.children.every((child) =>
+    child.type !== 'element'
+    || (child.localName === 'xfrm' && elementNamespaceUri(child) === DRAWING_NAMESPACE));
 }
 
 function inScopeNamespaceAttributes(element: XmlElement): string {

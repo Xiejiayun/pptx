@@ -67,10 +67,13 @@ import type { PresentationModel } from './presentation.js';
 import type {
   AddPlaceholderOptions,
   PlaceholderIdentity,
+  PlaceholderSelector,
 } from './placeholder.js';
 import {
   normalizePlaceholderIdentity,
   readShapePlaceholder,
+  resolvePlaceholderOwner,
+  type ResolvedPlaceholderOwner,
 } from './placeholder.internal.js';
 import {
   normalizeParagraphBullet,
@@ -247,6 +250,7 @@ const WORKBOOK_CONTENT_TYPE =
 
 export interface AddTextOptions extends Partial<Transform> {
   readonly name?: string;
+  readonly placeholder?: PlaceholderSelector;
   readonly align?: TextAlignment;
   readonly bullet?: ParagraphBullet;
   readonly fit?: TextBoxFit;
@@ -323,6 +327,7 @@ export class SlideTitleModel {
 export class SlideModel {
   readonly title = new SlideTitleModel(this);
   readonly #shapeModels = new Map<number, SemanticShape>();
+  readonly #staleShapeModels = new WeakSet<SemanticShape>();
   #relationshipId: string;
   #slideId: number;
 
@@ -544,7 +549,13 @@ export class SlideModel {
     }
   }
 
-  resolveShape(id: number): { xml: LosslessXmlDocument; element: XmlElement } {
+  resolveShape(
+    id: number,
+    handle?: SemanticShape,
+  ): { xml: LosslessXmlDocument; element: XmlElement } {
+    if (handle && this.#staleShapeModels.has(handle)) {
+      throw new ModelParseError(`Shape ${id} handle is stale`, this.partUri);
+    }
     const { xml } = this.parse();
     const element = xml
       .elements()
@@ -1000,23 +1011,38 @@ export class SlideModel {
   ): ShapeModel {
     return this.presentation.opcPackage.transaction(() => {
       const normalized = normalizePresetShape(type, options);
+      const owner = normalized.placeholder === undefined
+        ? undefined
+        : resolvePlaceholderOwner(
+            this.presentation.opcPackage,
+            this.partUri,
+            normalized.placeholder,
+            'text-shape',
+          );
+      const rendered = owner === undefined
+        ? normalized
+        : Object.freeze({
+            ...normalized,
+            name: owner.name,
+            ...owner.transform,
+          });
       let targetSlide: SlideModel | undefined;
-      if (normalized.hyperlink?.slide !== undefined) {
-        targetSlide = this.presentation.slides[normalized.hyperlink.slide - 1];
+      if (rendered.hyperlink?.slide !== undefined) {
+        targetSlide = this.presentation.slides[rendered.hyperlink.slide - 1];
         if (!targetSlide) {
           throw new RangeError(
-            `Preset shape hyperlink slide ${normalized.hyperlink.slide} is out of range`,
+            `Preset shape hyperlink slide ${rendered.hyperlink.slide} is out of range`,
           );
         }
       }
       const { xml } = this.parse();
       const shapeTree = requirePresetShapeTree(xml, this.partUri);
-      const nextId = allocatePresetShapeId(xml, shapeTree, this.partUri);
+      const nextId = owner?.shapeId ?? allocatePresetShapeId(xml, shapeTree, this.partUri);
       let hyperlinkRelationshipId: string | undefined;
-      if (normalized.hyperlink?.url !== undefined) {
+      if (rendered.hyperlink?.url !== undefined) {
         hyperlinkRelationshipId = this.presentation.opcPackage.addRelationship(this.partUri, {
           type: HYPERLINK_RELATIONSHIP_TYPE,
-          target: normalized.hyperlink.url,
+          target: rendered.hyperlink.url,
           targetMode: 'External',
         }).id;
       } else if (targetSlide) {
@@ -1026,11 +1052,20 @@ export class SlideModel {
           targetMode: 'Internal',
         }).id;
       }
-      const shapeXml = renderPresetShapeXml(nextId, normalized, hyperlinkRelationshipId);
-      const extensionList = directChildren(shapeTree, 'extLst')[0];
-      if (extensionList) xml.replace(extensionList.start, extensionList.start, shapeXml);
-      else xml.appendChildXml(shapeTree, shapeXml);
+      const shapeXml = renderPresetShapeXml(
+        nextId,
+        rendered,
+        hyperlinkRelationshipId,
+        owner?.identity,
+      );
+      if (owner) xml.replace(owner.slideElement.start, owner.slideElement.end, shapeXml);
+      else {
+        const extensionList = directChildren(shapeTree, 'extLst')[0];
+        if (extensionList) xml.replace(extensionList.start, extensionList.start, shapeXml);
+        else xml.appendChildXml(shapeTree, shapeXml);
+      }
       this.setXml(xml.serialize());
+      if (owner) this.invalidateShapeModel(nextId);
       const shape = this.shapes.find((candidate) => candidate.id === nextId);
       if (!(shape instanceof ShapeModel) || shape.kind !== 'shape') {
         throw new ModelParseError(`Created preset shape ${nextId} could not be resolved`, this.partUri);
@@ -1045,23 +1080,38 @@ export class SlideModel {
   ): ShapeModel {
     return this.presentation.opcPackage.transaction(() => {
       const normalized = normalizeCustomShape(geometry, options);
+      const owner = normalized.placeholder === undefined
+        ? undefined
+        : resolvePlaceholderOwner(
+            this.presentation.opcPackage,
+            this.partUri,
+            normalized.placeholder,
+            'text-shape',
+          );
+      const rendered = owner === undefined
+        ? normalized
+        : Object.freeze({
+            ...normalized,
+            name: owner.name,
+            ...owner.transform,
+          });
       let targetSlide: SlideModel | undefined;
-      if (normalized.hyperlink?.slide !== undefined) {
-        targetSlide = this.presentation.slides[normalized.hyperlink.slide - 1];
+      if (rendered.hyperlink?.slide !== undefined) {
+        targetSlide = this.presentation.slides[rendered.hyperlink.slide - 1];
         if (!targetSlide) {
           throw new RangeError(
-            `Custom shape hyperlink slide ${normalized.hyperlink.slide} is out of range`,
+            `Custom shape hyperlink slide ${rendered.hyperlink.slide} is out of range`,
           );
         }
       }
       const { xml } = this.parse();
       const shapeTree = requirePresetShapeTree(xml, this.partUri);
-      const nextId = allocatePresetShapeId(xml, shapeTree, this.partUri);
+      const nextId = owner?.shapeId ?? allocatePresetShapeId(xml, shapeTree, this.partUri);
       let hyperlinkRelationshipId: string | undefined;
-      if (normalized.hyperlink?.url !== undefined) {
+      if (rendered.hyperlink?.url !== undefined) {
         hyperlinkRelationshipId = this.presentation.opcPackage.addRelationship(this.partUri, {
           type: HYPERLINK_RELATIONSHIP_TYPE,
-          target: normalized.hyperlink.url,
+          target: rendered.hyperlink.url,
           targetMode: 'External',
         }).id;
       } else if (targetSlide) {
@@ -1071,11 +1121,20 @@ export class SlideModel {
           targetMode: 'Internal',
         }).id;
       }
-      const shapeXml = renderCustomShapeXml(nextId, normalized, hyperlinkRelationshipId);
-      const extensionList = directChildren(shapeTree, 'extLst')[0];
-      if (extensionList) xml.replace(extensionList.start, extensionList.start, shapeXml);
-      else xml.appendChildXml(shapeTree, shapeXml);
+      const shapeXml = renderCustomShapeXml(
+        nextId,
+        rendered,
+        hyperlinkRelationshipId,
+        owner?.identity,
+      );
+      if (owner) xml.replace(owner.slideElement.start, owner.slideElement.end, shapeXml);
+      else {
+        const extensionList = directChildren(shapeTree, 'extLst')[0];
+        if (extensionList) xml.replace(extensionList.start, extensionList.start, shapeXml);
+        else xml.appendChildXml(shapeTree, shapeXml);
+      }
       this.setXml(xml.serialize());
+      if (owner) this.invalidateShapeModel(nextId);
       const shape = this.shapes.find((candidate) => candidate.id === nextId);
       if (!(shape instanceof ShapeModel) || shape.kind !== 'shape') {
         throw new ModelParseError(`Created custom shape ${nextId} could not be resolved`, this.partUri);
@@ -1245,6 +1304,14 @@ export class SlideModel {
     return this.presentation.opcPackage.transaction(() => {
       const defaultColor = this.color;
       const normalized = validateTextInput(value, options);
+      const owner = options.placeholder === undefined
+        ? undefined
+        : resolvePlaceholderOwner(
+            this.presentation.opcPackage,
+            this.partUri,
+            options.placeholder,
+            'text-shape',
+          );
       const bullet = normalized.bullet === false ? undefined : normalized.bullet;
       const spacing = resolveParagraphSpacing(normalized.spacing);
       const paragraphs = normalized.value
@@ -1267,12 +1334,14 @@ export class SlideModel {
         .join('');
       return this.addTextShape(
         paragraphs,
-        options,
+        owner ? placeholderTextOptions(owner) : options,
         normalized.margin,
         normalized.verticalAlignment,
         normalized.textDirection,
         normalized.textFit,
         normalized.textWrap,
+        owner?.identity,
+        owner,
       );
     });
   }
@@ -1373,6 +1442,14 @@ export class SlideModel {
       const defaultColor = this.color;
       const paragraphs = normalizeRichText(value);
       const defaults = validateAddTextOptions(options);
+      const owner = options.placeholder === undefined
+        ? undefined
+        : resolvePlaceholderOwner(
+            this.presentation.opcPackage,
+            this.partUri,
+            options.placeholder,
+            'text-shape',
+          );
       return this.addTextShape(
         renderRichTextParagraphs(paragraphs, {
           ...(defaultColor !== undefined ? { defaultColor } : {}),
@@ -1387,12 +1464,14 @@ export class SlideModel {
           ...(defaults.spacing !== undefined ? { defaultSpacing: defaults.spacing } : {}),
           ...(defaults.tabStops !== undefined ? { defaultTabStops: defaults.tabStops } : {}),
         }),
-        options,
+        owner ? placeholderTextOptions(owner) : options,
         defaults.margin,
         defaults.verticalAlignment,
         defaults.textDirection,
         defaults.textFit,
         defaults.textWrap,
+        owner?.identity,
+        owner,
       );
     });
   }
@@ -1415,6 +1494,7 @@ export class SlideModel {
     textFit: TextBoxFit | undefined,
     textWrap: boolean,
     placeholder?: Readonly<PlaceholderIdentity>,
+    owner?: ResolvedPlaceholderOwner,
   ): ShapeModel {
     const { xml } = this.parse();
     const shapeTree = requirePresetShapeTree(
@@ -1422,7 +1502,7 @@ export class SlideModel {
       this.partUri,
       'Slide does not contain a shape tree',
     );
-    const nextId = allocateShapeId(xml);
+    const nextId = owner?.shapeId ?? allocateShapeId(xml);
     const shapeXml = textShapeXml(
       nextId,
       paragraphs,
@@ -1434,18 +1514,41 @@ export class SlideModel {
       textWrap,
       placeholder,
     );
-    const extensionList = shapeTree.children.find(
-      (child): child is XmlElement => child.type === 'element' && child.localName === 'extLst',
-    );
-    if (extensionList) xml.replace(extensionList.start, extensionList.start, shapeXml);
-    else xml.appendChildXml(shapeTree, shapeXml);
+    if (owner) xml.replace(owner.slideElement.start, owner.slideElement.end, shapeXml);
+    else {
+      const extensionList = shapeTree.children.find(
+        (child): child is XmlElement => child.type === 'element' && child.localName === 'extLst',
+      );
+      if (extensionList) xml.replace(extensionList.start, extensionList.start, shapeXml);
+      else xml.appendChildXml(shapeTree, shapeXml);
+    }
     this.setXml(xml.serialize());
+    if (owner) this.invalidateShapeModel(nextId);
     const shape = this.shapes.find((candidate) => candidate.id === nextId);
     if (!(shape instanceof ShapeModel) || shape.kind !== 'text') {
       throw new ModelParseError(`Created text shape ${nextId} could not be resolved`, this.partUri);
     }
     return shape;
   }
+
+  private invalidateShapeModel(id: number): void {
+    const existing = this.#shapeModels.get(id);
+    if (existing) this.#staleShapeModels.add(existing);
+    this.#shapeModels.delete(id);
+  }
+}
+
+function placeholderTextOptions(owner: ResolvedPlaceholderOwner): AddTextOptions {
+  return {
+    name: owner.name,
+    x: owner.transform.x,
+    y: owner.transform.y,
+    width: owner.transform.width,
+    height: owner.transform.height,
+    rotation: owner.transform.rotation,
+    flipHorizontal: owner.transform.flipHorizontal,
+    flipVertical: owner.transform.flipVertical,
+  };
 }
 
 function shapeHyperlinkTargetsEqual(

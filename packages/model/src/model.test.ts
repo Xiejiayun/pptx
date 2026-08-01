@@ -41,6 +41,7 @@ import { chartWorkbookMatches } from './chart-workbook.internal.js';
 import { resolveSlideLayoutPartUri } from './presentation-layout.internal.js';
 import {
   normalizePlaceholderIdentity,
+  normalizePlaceholderSelector,
   readShapePlaceholder,
 } from './placeholder.internal.js';
 
@@ -413,6 +414,14 @@ describe('PresentationModel', () => {
       .toEqual({ type: 'body', index: 0 });
     expect(normalizePlaceholderIdentity({ type: 'media', index: 4_294_967_294 }))
       .toEqual({ type: 'media', index: 4_294_967_294 });
+    expect(normalizePlaceholderSelector('title_box')).toBe('title_box');
+    expect(normalizePlaceholderSelector({ type: 'body', index: 7 }))
+      .toEqual({ type: 'body', index: 7 });
+    expect(() => normalizePlaceholderSelector('')).toThrow();
+    expect(() => normalizePlaceholderSelector(Object.defineProperty({}, 'type', {
+      enumerable: true,
+      get: () => 'title',
+    }))).toThrow();
 
     const inherited = Object.create({ type: 'title', index: 1 });
     for (const invalid of [

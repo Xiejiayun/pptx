@@ -423,6 +423,199 @@ describe('PptxDocument vertical slice', () => {
     }
   });
 
+  it('populate text shape placeholder owners in place with layout geometry', async () => {
+    const document = PptxDocument.create();
+    const layout = document.layouts[0]!;
+    const titlePrompt = layout.addPlaceholder('Title prompt', {
+      name: 'title_box',
+      type: 'title',
+      index: 103,
+      x: inches(1),
+      y: inches(2),
+      width: inches(3),
+      height: inches(1),
+    });
+    const richPrompt = layout.addPlaceholder('Rich prompt', {
+      name: 'rich_box',
+      type: 'body',
+      index: 104,
+      x: inches(1),
+      y: inches(3),
+      width: inches(4),
+      height: inches(2),
+    });
+    const rectPrompt = layout.addPlaceholder('Rect prompt', {
+      name: 'rect_box',
+      type: 'body',
+      index: 105,
+      x: inches(5),
+      y: inches(1),
+      width: inches(2),
+      height: inches(2),
+    });
+    const linePrompt = layout.addPlaceholder('Line prompt', {
+      name: 'line_box',
+      type: 'body',
+      index: 106,
+      x: inches(5),
+      y: inches(4),
+      width: inches(2),
+      height: inches(1),
+    });
+    layout.addPlaceholder('Picture prompt', {
+      name: 'pic_box',
+      type: 'pic',
+      index: 107,
+    });
+    const slide = document.addSlide({ masterName: 'DEFAULT' });
+    const titleEmpty = slide.placeholders.find(({ name }) => name === 'title_box')!;
+    const richEmpty = slide.placeholders.find(({ name }) => name === 'rich_box')!;
+    const rectEmpty = slide.placeholders.find(({ name }) => name === 'rect_box')!;
+    const lineEmpty = slide.placeholders.find(({ name }) => name === 'line_box')!;
+
+    const title = slide.addText('Filled title', {
+      placeholder: 'title_box',
+      x: inches(9),
+      y: inches(9),
+      width: inches(9),
+      height: inches(9),
+    });
+    expect(title.id).toBe(titleEmpty.id);
+    expect(title.name).toBe('title_box');
+    expect(title.placeholder).toEqual({ type: 'title', index: 103 });
+    expect(title.transform).toEqual(titlePrompt.transform);
+    expect(title.richText[0]?.runs[0]?.text).toBe('Filled title');
+    expect(() => titleEmpty.transform).toThrow(/stale/i);
+
+    const rich = slide.addRichText([{
+      runs: [{ text: 'Filled rich', style: { bold: true } }],
+    }], {
+      placeholder: { type: 'body', index: 104 },
+    });
+    expect(rich.id).toBe(richEmpty.id);
+    expect(rich.placeholder).toEqual({ type: 'body', index: 104 });
+    expect(rich.transform).toEqual(richPrompt.transform);
+    expect(rich.richText[0]?.runs[0]).toMatchObject({
+      text: 'Filled rich',
+      style: { bold: true },
+    });
+
+    const rect = slide.addShape('rect', {
+      placeholder: 'rect_box',
+      x: inches(9),
+      y: inches(9),
+      width: inches(9),
+      height: inches(9),
+      fill: { kind: 'solid', color: { kind: 'srgb', value: '4472C4' } },
+    });
+    expect(rect.id).toBe(rectEmpty.id);
+    expect(rect.placeholder).toEqual({ type: 'body', index: 105 });
+    expect(rect.transform).toEqual(rectPrompt.transform);
+
+    const line = slide.addShape('line', {
+      placeholder: { type: 'body', index: 106 },
+      line: { kind: 'line', color: { kind: 'srgb', value: 'FF3399' } },
+    });
+    expect(line.id).toBe(lineEmpty.id);
+    expect(line.placeholder).toEqual({ type: 'body', index: 106 });
+    expect(line.transform).toEqual(linePrompt.transform);
+    expect(slide.placeholders.find(({ name }) => name === 'pic_box')).toBeDefined();
+    expect(slide.placeholders.map(({ name }) => name)).toEqual([
+      'title_box',
+      'rich_box',
+      'rect_box',
+      'line_box',
+      'pic_box',
+    ]);
+
+    const { output: _beforeOutput, ...before } = await sdkPackageSnapshot(document) as {
+      readonly output: Uint8Array;
+      readonly [key: string]: unknown;
+    };
+    expect(() => slide.addText('Unknown', { placeholder: 'missing' })).toThrow(/placeholder/i);
+    expect(() => slide.addText('Second fill', { placeholder: 'title_box' }))
+      .toThrow(/empty|filled/i);
+    expect(() => slide.addText('Wrong domain', { placeholder: 'pic_box' }))
+      .toThrow(/domain|type/i);
+    const { output: _afterOutput, ...after } = await sdkPackageSnapshot(document) as {
+      readonly output: Uint8Array;
+      readonly [key: string]: unknown;
+    };
+    expect(after).toEqual(before);
+
+    const duplicate = document.duplicateSlide(document.slides.indexOf(slide));
+    document.moveSlide(document.slides.indexOf(duplicate), 0);
+    expect(duplicate.placeholders.find(({ name }) => name === 'title_box')).toMatchObject({
+      id: title.id,
+      placeholder: { type: 'title', index: 103 },
+    });
+    document.deleteSlide(document.slides.indexOf(slide));
+    expect(document.slides).toContain(duplicate);
+    const reopened = await PptxDocument.open(await document.write());
+    expect(reopened.slides[0]?.placeholders.find(({ name }) => name === 'title_box'))
+      .toMatchObject({
+        id: title.id,
+        placeholder: { type: 'title', index: 103 },
+      });
+
+    const malformed = document.addSlide({ masterName: 'DEFAULT' });
+    const layoutRelationship = malformed.relationships.find(({ type }) =>
+      type.endsWith('/slideLayout'))!;
+    document.opcPackage.addRelationship(malformed.partUri, {
+      type: layoutRelationship.type,
+      target: layoutRelationship.target,
+      targetMode: 'Internal',
+    });
+    const malformedBefore = document.opcPackage.mutations.map((mutation) => ({ ...mutation }));
+    expect(() => malformed.addShape('line', { placeholder: 'line_box' }))
+      .toThrow(/layout relationship/i);
+    expect(document.opcPackage.mutations).toEqual(malformedBefore);
+
+    const missingOwner = document.addSlide({ masterName: 'DEFAULT' });
+    const missingShape = missingOwner.placeholders.find(({ name }) => name === 'line_box')!;
+    const { xml: missingXml, element: missingElement } = missingOwner.resolveShape(missingShape.id);
+    missingXml.removeElement(missingElement);
+    document.opcPackage.setPart(
+      missingOwner.partUri,
+      missingXml.serialize(),
+      document.opcPackage.requirePart(missingOwner.partUri).contentType,
+    );
+    const missingBefore = document.opcPackage.mutations.map((mutation) => ({ ...mutation }));
+    expect(() => missingOwner.addShape('line', { placeholder: 'line_box' }))
+      .toThrow(/owner.*missing|missing.*owner/i);
+    expect(document.opcPackage.mutations).toEqual(missingBefore);
+
+    const ambiguousDocument = PptxDocument.create();
+    const ambiguousLayout = ambiguousDocument.layouts[0]!;
+    const ambiguousPrompt = ambiguousLayout.addPlaceholder('Ambiguous', {
+      name: 'ambiguous_box',
+      type: 'body',
+      index: 10,
+    });
+    const ambiguousSlide = ambiguousDocument.addSlide({ masterName: 'DEFAULT' });
+    const ambiguousPart = ambiguousDocument.opcPackage.requirePart(ambiguousLayout.partUri);
+    const ambiguousXml = LosslessXmlDocument.parse(ambiguousPart.bytes);
+    const ambiguousElement = ambiguousXml.elements('sp').find((shape) => {
+      const properties = ambiguousXml.descendants(shape, 'cNvPr')[0];
+      return ambiguousXml.attribute(properties!, 'id')?.value === String(ambiguousPrompt.id);
+    })!;
+    const clone = ambiguousXml.original(ambiguousElement)
+      .replace(`id="${ambiguousPrompt.id}"`, `id="${ambiguousPrompt.id + 1}"`)
+      .replace('idx="10"', 'idx="11"');
+    const tree = ambiguousXml.elements('spTree')[0]!;
+    ambiguousXml.appendChildXml(tree, clone);
+    ambiguousDocument.opcPackage.setPart(
+      ambiguousLayout.partUri,
+      ambiguousXml.serialize(),
+      ambiguousPart.contentType,
+    );
+    const ambiguousBefore = ambiguousDocument.opcPackage.mutations
+      .map((mutation) => ({ ...mutation }));
+    expect(() => ambiguousSlide.addText('Ambiguous', { placeholder: 'ambiguous_box' }))
+      .toThrow(/duplicate|ambiguous/i);
+    expect(ambiguousDocument.opcPackage.mutations).toEqual(ambiguousBefore);
+  });
+
   it('edits and reopens direct layout master backgrounds', async () => {
     const document = PptxDocument.create();
     const layout = document.layouts[0]!;
