@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { Readable } from 'node:stream';
 import JSZip from 'jszip';
 import { describe, expect, it } from 'vitest';
+import { LosslessXmlDocument, type XmlElement } from '@pptx/lossless-xml';
 import {
   PRESENTATION_FORMAT_PROFILES,
   type NumberingStyle,
@@ -30,6 +31,7 @@ import {
   ValidationError,
   type AddImageOptions,
   type AddImageSourceOptions,
+  type AddMediaOptions,
   type AddSvgImageOptions,
   type AddTableCellOptions,
   type AddTableCellInput,
@@ -40,6 +42,10 @@ import {
   type Hyperlink,
   type ImageSource,
   type ImageSizing,
+  type MediaKind,
+  type MediaModel,
+  type MediaPlaybackSettings,
+  type MediaSource,
   type RasterImageContentType,
   type RasterImageByteStream,
   type RasterImageInfo,
@@ -228,6 +234,455 @@ describe('PptxDocument vertical slice', () => {
     expect(reopened.slides).toHaveLength(2);
     expect(reopened.slides.map(({ slideId }) => slideId)).toEqual([256, 257]);
     expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+  });
+
+  it('exports the complete embedded media API with strict public types', async () => {
+    const document = PptxDocument.create();
+    document.addSlide();
+    const kind: MediaKind = 'audio';
+    const source: MediaSource = Uint8Array.of(1, 2, 3);
+    const methodSource: Parameters<PptxDocument['addAudio']>[1] = source;
+    const exportedSource: MediaSource = methodSource;
+    const playback: MediaPlaybackSettings = {
+      play: 'auto',
+      loop: true,
+      hideWhenStopped: true,
+      volume: 0.25,
+    };
+    const options: AddMediaOptions = {
+      name: 'Typed narration',
+      altText: 'Spoken overview',
+      contentType: 'audio/mpeg',
+      fileName: 'voice.mp3',
+      poster: Uint8Array.of(4, 5, 6),
+      posterContentType: 'image/png',
+      x: -1,
+      y: 0,
+      width: 1,
+      height: 2,
+      ...playback,
+      transcode: async (bytes, contentType, mediaKind) => ({
+        bytes,
+        contentType,
+        extension: mediaKind === 'audio' ? '.mp3' : '.mp4',
+      }),
+    };
+    const media: MediaModel = await document.addAudio(0, exportedSource, options);
+
+    expect(kind).toBe('audio');
+    expect(media).toMatchObject({
+      kind: 'audio',
+      settings: { play: 'auto', loop: true, hideWhenStopped: true, volume: 0.25 },
+    });
+
+    if (false) {
+      // @ts-expect-error media name must be a string
+      const invalidName: AddMediaOptions = { name: 1 };
+      // @ts-expect-error media alt text must be a string
+      const invalidAlt: AddMediaOptions = { altText: false };
+      // @ts-expect-error media play accepts only click or auto
+      const invalidPlay: AddMediaOptions = { play: 'hover' };
+      // @ts-expect-error media playback flags must be booleans
+      const invalidLoop: AddMediaOptions = { loop: 1 };
+      // @ts-expect-error media playback flags must be booleans
+      const invalidHide: AddMediaOptions = { hideWhenStopped: 'yes' };
+      const invalidTranscode: AddMediaOptions = {
+        // @ts-expect-error transcoder output bytes must be a Uint8Array
+        transcode: async () => ({ bytes: 'bad', contentType: 'audio/mpeg' }),
+      };
+      void [invalidName, invalidAlt, invalidPlay, invalidLoop, invalidHide, invalidTranscode];
+    }
+  });
+
+  it('creates every public media source, MIME family, poster family, and external mode', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'pptx-sdk-media-'));
+    const audioPath = join(directory, 'path-audio.mp3');
+    await writeFile(audioPath, Uint8Array.of(1, 2, 3));
+    try {
+      const document = PptxDocument.create();
+      document.addSlide();
+      const created: Array<{
+        readonly model: MediaModel;
+        readonly media?: readonly [string, string, Uint8Array];
+        readonly poster: readonly [string, string, Uint8Array];
+        readonly external?: string;
+      }> = [];
+      const add = (
+        model: MediaModel,
+        media: readonly [string, string, Uint8Array] | undefined,
+        poster: readonly [string, string, Uint8Array],
+        external?: string,
+      ): void => {
+        created.push({ model, ...(media ? { media } : {}), poster, ...(external ? { external } : {}) });
+      };
+
+      add(
+        await document.addAudio(0, audioPath, {
+          name: 'Audio & "path"',
+          poster: Uint8Array.of(31, 32),
+          posterContentType: 'image/png',
+        }),
+        ['audio/mpeg', '.mp3', Uint8Array.of(1, 2, 3)],
+        ['image/png', '.png', Uint8Array.of(31, 32)],
+      );
+      add(
+        await document.addAudio(0, 'data:audio/mp4;base64,BAUG', {
+          name: 'Data <audio>',
+          altText: '',
+          poster: new File([Uint8Array.of(33, 34)], 'cover.jpeg', { type: 'image/jpeg' }),
+          posterContentType: 'image/jpeg',
+        }),
+        ['audio/mp4', '.m4a', Uint8Array.of(4, 5, 6)],
+        ['image/jpeg', '.jpeg', Uint8Array.of(33, 34)],
+      );
+      add(
+        await document.addAudio(0, Uint8Array.of(7, 8), {
+          altText: 'Wave > overview',
+          contentType: 'audio/wav',
+          poster: 'data:image/gif;base64,IyQ=',
+        }),
+        ['audio/wav', '.wav', Uint8Array.of(7, 8)],
+        ['image/gif', '.gif', Uint8Array.of(35, 36)],
+      );
+      const oggBuffer = Uint8Array.of(9, 10).buffer;
+      add(
+        await document.addAudio(0, oggBuffer, { contentType: 'audio/ogg' }),
+        ['audio/ogg', '.ogg', Uint8Array.of(9, 10)],
+        ['image/png', '.png', SDK_DEFAULT_POSTER_BYTES],
+      );
+      add(
+        await document.addAudio(0, Uint8Array.of(11), {
+          contentType: 'audio/mpeg',
+          transcode: async () => ({
+            bytes: Uint8Array.of(12, 13),
+            contentType: 'audio/ogg',
+            extension: 'ogg',
+          }),
+        }),
+        ['audio/ogg', '.ogg', Uint8Array.of(12, 13)],
+        ['image/png', '.png', SDK_DEFAULT_POSTER_BYTES],
+      );
+      add(
+        await document.addVideo(0, new Blob([Uint8Array.of(14, 15)]), {
+          contentType: 'video/mp4',
+        }),
+        ['video/mp4', '.mp4', Uint8Array.of(14, 15)],
+        ['image/png', '.png', SDK_DEFAULT_POSTER_BYTES],
+      );
+      add(
+        await document.addVideo(
+          0,
+          new File([Uint8Array.of(16, 17)], 'named-video.m4v', { type: 'video/mp4' }),
+          { contentType: 'video/mp4' },
+        ),
+        ['video/mp4', '.m4v', Uint8Array.of(16, 17)],
+        ['image/png', '.png', SDK_DEFAULT_POSTER_BYTES],
+      );
+      add(
+        await document.addVideo(
+          0,
+          new ReadableStream<Uint8Array>({
+            start(controller) {
+              controller.enqueue(Uint8Array.of(18));
+              controller.enqueue(Uint8Array.of(19));
+              controller.close();
+            },
+          }),
+          { contentType: 'video/quicktime' },
+        ),
+        ['video/quicktime', '.mov', Uint8Array.of(18, 19)],
+        ['image/png', '.png', SDK_DEFAULT_POSTER_BYTES],
+      );
+      add(
+        await document.addVideo(
+          0,
+          {
+            async *[Symbol.asyncIterator]() {
+              yield Uint8Array.of(20);
+              yield 21;
+            },
+          },
+          { contentType: 'video/webm' },
+        ),
+        ['video/webm', '.webm', Uint8Array.of(20, 21)],
+        ['image/png', '.png', SDK_DEFAULT_POSTER_BYTES],
+      );
+      add(
+        await document.addAudio(0, 'http://example.com/external.mp3'),
+        undefined,
+        ['image/png', '.png', SDK_DEFAULT_POSTER_BYTES],
+        'http://example.com/external.mp3',
+      );
+      add(
+        await document.addVideo(0, 'https://example.com/external.mp4'),
+        undefined,
+        ['image/png', '.png', SDK_DEFAULT_POSTER_BYTES],
+        'https://example.com/external.mp4',
+      );
+
+      const immediate = [...document.media(0)].sort((left, right) => left.shapeId - right.shapeId);
+      expect(immediate).toEqual(created.map(({ model }) => model));
+      const pictureStates = sdkMediaPictureStates(document, 0);
+      expect(pictureStates[0]).toMatchObject({
+        name: 'Audio & "path"',
+        altText: undefined,
+      });
+      expect(pictureStates[1]).toMatchObject({ name: 'Data <audio>', altText: '' });
+      expect(pictureStates[2]).toMatchObject({ altText: 'Wave > overview' });
+
+      for (const [index, expected] of created.entries()) {
+        const { model } = expected;
+        if (expected.media) {
+          expect(model.mediaPartUri?.endsWith(expected.media[1])).toBe(true);
+          expect(document.opcPackage.requirePart(model.mediaPartUri!)).toMatchObject({
+            contentType: expected.media[0],
+            bytes: expected.media[2],
+          });
+        } else {
+          expect(model.mediaPartUri).toBeUndefined();
+          expect(model.externalUrl).toBe(expected.external);
+        }
+        expect(model.posterPartUri?.endsWith(expected.poster[1])).toBe(true);
+        expect(document.opcPackage.requirePart(model.posterPartUri!)).toMatchObject({
+          contentType: expected.poster[0],
+          bytes: expected.poster[2],
+        });
+        expect(pictureStates[index]?.relationshipTypes).toEqual(expected.external
+          ? [
+              `http://schemas.openxmlformats.org/officeDocument/2006/relationships/${model.kind}`,
+              'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image',
+            ]
+          : [
+              `http://schemas.openxmlformats.org/officeDocument/2006/relationships/${model.kind}`,
+              'http://schemas.microsoft.com/office/2007/relationships/media',
+              'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image',
+            ]);
+        expect(pictureStates[index]?.kindTargetMode).toBe(expected.external ? 'External' : 'Internal');
+        expect(pictureStates[index]?.kindTarget).toBe(expected.external
+          ? expected.external
+          : `../media/${model.mediaPartUri!.split('/').at(-1)}`);
+        expect(pictureStates[index]?.kindResolvedTarget).toBe(expected.external
+          ? undefined
+          : model.mediaPartUri);
+      }
+      expect(validatePackage(document.opcPackage).filter(({ severity }) => severity === 'error'))
+        .toEqual([]);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('detaches paused media work and leaves invalid SDK calls completely unchanged', async () => {
+    const document = PptxDocument.create();
+    document.addSlide();
+    const sourceChunk = Uint8Array.of(1, 2, 3);
+    const posterBytes = Uint8Array.of(4, 5, 6);
+    const transcodeResult = {
+      bytes: Uint8Array.of(7, 8, 9),
+      contentType: 'audio/ogg',
+      extension: '.ogg',
+    };
+    let streamPaused!: () => void;
+    const reachedStreamPause = new Promise<void>((resolve) => { streamPaused = resolve; });
+    let resumeStream!: () => void;
+    const streamGate = new Promise<void>((resolve) => { resumeStream = resolve; });
+    let transcodePaused!: () => void;
+    const reachedTranscodePause = new Promise<void>((resolve) => { transcodePaused = resolve; });
+    let resumeTranscode!: () => void;
+    const transcodeGate = new Promise<void>((resolve) => { resumeTranscode = resolve; });
+    const source: AsyncIterable<Uint8Array> = {
+      async *[Symbol.asyncIterator]() {
+        yield sourceChunk;
+        streamPaused();
+        await streamGate;
+      },
+    };
+    const options: AddMediaOptions = {
+      name: 'Detached media',
+      altText: 'Original description',
+      contentType: 'audio/mpeg',
+      poster: posterBytes,
+      posterContentType: 'image/png',
+      transcode: async (bytes, contentType, kind) => {
+        expect(bytes).toEqual(Uint8Array.of(1, 2, 3));
+        expect(contentType).toBe('audio/mpeg');
+        expect(kind).toBe('audio');
+        transcodePaused();
+        await transcodeGate;
+        return transcodeResult;
+      },
+    };
+    const pending = document.addAudio(0, source, options);
+
+    await reachedStreamPause;
+    sourceChunk[0] = 99;
+    posterBytes[0] = 99;
+    (options as { name?: string }).name = 'Changed media';
+    (options as { altText?: string }).altText = 'Changed description';
+    resumeStream();
+    await reachedTranscodePause;
+    resumeTranscode();
+    const created = await pending;
+    transcodeResult.bytes[0] = 99;
+    transcodeResult.contentType = 'audio/mpeg';
+    transcodeResult.extension = '.mp3';
+
+    expect(document.opcPackage.requirePart(created.mediaPartUri!)).toMatchObject({
+      bytes: Uint8Array.of(7, 8, 9),
+      contentType: 'audio/ogg',
+    });
+    expect(document.opcPackage.requirePart(created.posterPartUri!)).toMatchObject({
+      bytes: Uint8Array.of(4, 5, 6),
+      contentType: 'image/png',
+    });
+    expect(sdkMediaPictureStates(document, 0)[0]).toMatchObject({
+      name: 'Detached media',
+      altText: 'Original description',
+    });
+
+    const before = await sdkPackageSnapshot(document);
+    let consumed = false;
+    const unconsumed: AsyncIterable<Uint8Array> = {
+      async *[Symbol.asyncIterator]() {
+        consumed = true;
+        yield Uint8Array.of(1);
+      },
+    };
+    const unsafeOptions = {};
+    Object.defineProperty(unsafeOptions, 'name', {
+      get() {
+        throw new Error('unsafe getter');
+      },
+    });
+    await expect(document.addAudio(99, unconsumed, unsafeOptions)).rejects.toThrow(/out of range/);
+    expect(consumed).toBe(false);
+    const invalidCalls: Array<() => Promise<unknown>> = [
+      () => document.addAudio(0, null as never),
+      () => document.addAudio(0, Uint8Array.of(1), { play: 'hover' } as never),
+      () => document.addAudio(0, 'data:audio/mpeg;base64,A===', {}),
+      () => document.addVideo(0, Uint8Array.of(1), { poster: 'https://example.com/poster.png' }),
+      () => document.addVideo(0, 'https://example.com/video.mp4', {
+        transcode: async () => ({ bytes: Uint8Array.of(1), contentType: 'video/mp4' }),
+      }),
+    ];
+    for (const call of invalidCalls) {
+      await expect(call()).rejects.toThrow();
+      expect(await sdkPackageSnapshot(document)).toEqual(before);
+    }
+  });
+
+  it('round-trips canonical audio and video twice in all six presentation formats', async () => {
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const document = PptxDocument.create({ format });
+      document.addSlide();
+      const audio = await document.addAudio(0, 'data:audio/mpeg;base64,AQIDBA==', {
+        name: 'Audio & narration',
+        altText: 'Spoken overview',
+        poster: 'data:image/png;base64,BQYH',
+        x: -1,
+        y: 0,
+        width: 1,
+        height: 2,
+        play: 'auto',
+        loop: true,
+        hideWhenStopped: true,
+        volume: 0.25,
+      });
+      const video = await document.addVideo(0, Uint8Array.of(8, 9, 10), {
+        name: 'Video "overview"',
+        altText: '',
+        contentType: 'video/mp4',
+        fileName: 'overview.m4v',
+        poster: 'data:image/jpeg;base64,CwwN',
+        x: 3,
+        y: 4,
+        width: 5,
+        height: 6,
+      });
+      const reopened = await PptxDocument.open(await document.write());
+      const second = await PptxDocument.open(await reopened.write());
+
+      expect(reopened.format).toBe(format);
+      expect(second.format).toBe(format);
+      expect(second.formatProfile).toEqual(PRESENTATION_FORMAT_PROFILES[format]);
+      const media = [...second.media(0)].sort((left, right) => left.shapeId - right.shapeId);
+      expect(media).toMatchObject([
+        {
+          kind: 'audio',
+          mediaPartUri: audio.mediaPartUri,
+          posterPartUri: audio.posterPartUri,
+          settings: { play: 'auto', loop: true, hideWhenStopped: true, volume: 0.25 },
+        },
+        {
+          kind: 'video',
+          mediaPartUri: video.mediaPartUri,
+          posterPartUri: video.posterPartUri,
+          settings: { play: 'click', loop: false, hideWhenStopped: false, volume: 1 },
+        },
+      ]);
+      expect(second.opcPackage.requirePart(media[0]!.mediaPartUri!)).toMatchObject({
+        contentType: 'audio/mpeg',
+        bytes: Uint8Array.of(1, 2, 3, 4),
+      });
+      expect(media[0]!.mediaPartUri).toMatch(/\.mp3$/);
+      expect(second.opcPackage.requirePart(media[0]!.posterPartUri!)).toMatchObject({
+        contentType: 'image/png',
+        bytes: Uint8Array.of(5, 6, 7),
+      });
+      expect(media[0]!.posterPartUri).toMatch(/\.png$/);
+      expect(second.opcPackage.requirePart(media[1]!.mediaPartUri!)).toMatchObject({
+        contentType: 'video/mp4',
+        bytes: Uint8Array.of(8, 9, 10),
+      });
+      expect(media[1]!.mediaPartUri).toMatch(/\.m4v$/);
+      expect(second.opcPackage.requirePart(media[1]!.posterPartUri!)).toMatchObject({
+        contentType: 'image/jpeg',
+        bytes: Uint8Array.of(11, 12, 13),
+      });
+      expect(media[1]!.posterPartUri).toMatch(/\.jpg$/);
+      expect(sdkMediaPictureStates(second, 0)).toEqual([
+        {
+          shapeId: media[0]!.shapeId,
+          kind: 'audio',
+          name: 'Audio & narration',
+          altText: 'Spoken overview',
+          x: -1,
+          y: 0,
+          width: 1,
+          height: 2,
+          hasOfficeMedia: true,
+          relationshipTypes: [
+            'http://schemas.openxmlformats.org/officeDocument/2006/relationships/audio',
+            'http://schemas.microsoft.com/office/2007/relationships/media',
+            'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image',
+          ],
+          kindTargetMode: 'Internal',
+          kindTarget: `../media/${media[0]!.mediaPartUri!.split('/').at(-1)}`,
+          kindResolvedTarget: media[0]!.mediaPartUri,
+        },
+        {
+          shapeId: media[1]!.shapeId,
+          kind: 'video',
+          name: 'Video "overview"',
+          altText: '',
+          x: 3,
+          y: 4,
+          width: 5,
+          height: 6,
+          hasOfficeMedia: true,
+          relationshipTypes: [
+            'http://schemas.openxmlformats.org/officeDocument/2006/relationships/video',
+            'http://schemas.microsoft.com/office/2007/relationships/media',
+            'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image',
+          ],
+          kindTargetMode: 'Internal',
+          kindTarget: `../media/${media[1]!.mediaPartUri!.split('/').at(-1)}`,
+          kindResolvedTarget: media[1]!.mediaPartUri,
+        },
+      ]);
+      expect(validatePackage(second.opcPackage).filter(({ severity }) => severity === 'error'))
+        .toEqual([]);
+    }
   });
 
   it('exports the embedded raster image API with strict public types', async () => {
@@ -11384,6 +11839,97 @@ describe('PptxDocument vertical slice', () => {
 
 function hash(bytes: Uint8Array): string {
   return createHash('sha256').update(bytes).digest('hex');
+}
+
+const SDK_DEFAULT_POSTER_BYTES = Uint8Array.from([
+  137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1,
+  0, 0, 0, 1, 8, 4, 0, 0, 0, 181, 28, 12, 2, 0, 0, 0, 11, 73, 68, 65, 84,
+  120, 218, 99, 252, 255, 31, 0, 2, 235, 1, 245, 143, 89, 213, 153, 0, 0, 0,
+  0, 73, 69, 78, 68, 174, 66, 96, 130,
+]);
+
+interface SdkMediaPictureState {
+  readonly shapeId: number;
+  readonly kind: MediaKind;
+  readonly name: string | undefined;
+  readonly altText: string | undefined;
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+  readonly hasOfficeMedia: boolean;
+  readonly relationshipTypes: readonly string[];
+  readonly kindTargetMode: 'Internal' | 'External' | undefined;
+  readonly kindTarget: string | undefined;
+  readonly kindResolvedTarget: string | undefined;
+}
+
+function sdkMediaPictureStates(
+  document: PptxDocument,
+  slideIndex: number,
+): SdkMediaPictureState[] {
+  const slide = document.slides[slideIndex]!;
+  const xml = LosslessXmlDocument.parse(document.opcPackage.requirePart(slide.partUri).bytes);
+  const relationships = document.opcPackage.relationships(slide.partUri);
+  return xml.elements('pic').flatMap((picture) => {
+    const kindElement = xml.descendants(picture).find(({ localName }) =>
+      localName === 'audioFile' || localName === 'videoFile');
+    if (!kindElement) return [];
+    const properties = xml.descendants(picture, 'cNvPr')[0]!;
+    const transform = xml.descendants(picture, 'xfrm')[0]!;
+    const offset = directSdkElementChildren(transform, 'off')[0]!;
+    const extent = directSdkElementChildren(transform, 'ext')[0]!;
+    const relationshipIds = xml.descendants(picture)
+      .flatMap(({ attributes }) => attributes)
+      .filter(({ name, value }) => (name === 'r:link' || name === 'r:embed') && value.length > 0)
+      .map(({ value }) => value);
+    const kindRelationshipId = xml.attribute(kindElement, 'r:link')?.value;
+    const kindRelationship = relationships.find(({ id }) => id === kindRelationshipId);
+    return [{
+      shapeId: Number(xml.attribute(properties, 'id')?.value),
+      kind: kindElement.localName === 'audioFile' ? 'audio' : 'video',
+      name: xml.attribute(properties, 'name')?.value,
+      altText: xml.attribute(properties, 'descr')?.value,
+      x: Number(xml.attribute(offset, 'x')?.value),
+      y: Number(xml.attribute(offset, 'y')?.value),
+      width: Number(xml.attribute(extent, 'cx')?.value),
+      height: Number(xml.attribute(extent, 'cy')?.value),
+      hasOfficeMedia: xml.descendants(picture, 'media').length === 1,
+      relationshipTypes: relationships
+        .filter(({ id }) => relationshipIds.includes(id))
+        .map(({ type }) => type),
+      kindTargetMode: kindRelationship?.targetMode,
+      kindTarget: kindRelationship?.target,
+      kindResolvedTarget: kindRelationship?.resolvedTarget,
+    }];
+  });
+}
+
+function directSdkElementChildren(element: XmlElement, localName: string): XmlElement[] {
+  return element.children.filter(
+    (child): child is XmlElement => child.type === 'element' && child.localName === localName,
+  );
+}
+
+async function sdkPackageSnapshot(document: PptxDocument): Promise<unknown> {
+  const pkg = document.opcPackage;
+  const sources = pkg.parts
+    .filter(({ uri }) => !uri.endsWith('.rels'))
+    .map(({ uri }) => uri);
+  return {
+    parts: pkg.parts.map(({ uri, contentType, bytes }) => ({
+      uri,
+      contentType,
+      bytes: new Uint8Array(bytes),
+    })),
+    relationships: ['/', ...sources].map((uri) => [
+      uri,
+      pkg.relationships(uri).map((relationship) => ({ ...relationship })),
+    ]),
+    graph: pkg.graph,
+    output: new Uint8Array(await pkg.write()),
+    journal: pkg.mutations.map((mutation) => ({ ...mutation })),
+  };
 }
 
 function tableCellHorizontalAlignmentTokens(
