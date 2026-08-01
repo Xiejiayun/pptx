@@ -37,6 +37,57 @@ async (page) => {
         height: api.inches(2),
         flipVertical: true,
       });
+      const backgroundDocument = api.PptxDocument.create();
+      const backgroundPngBytes = Uint8Array.from([
+        137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82,
+        0, 0, 0, 1, 0, 0, 0, 1, 8, 4, 0, 0, 0, 181, 28, 12, 2, 0, 0,
+        0, 11, 73, 68, 65, 84, 120, 218, 99, 100, 248, 15, 0, 1, 5, 1, 1,
+        39, 24, 227, 102, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130,
+      ]);
+      backgroundDocument.addSlide();
+      backgroundDocument.addSlide();
+      const solidBackgroundSlide = backgroundDocument.addSlide();
+      const gradientBackgroundSlide = backgroundDocument.addSlide();
+      await backgroundDocument.setSlideBackgroundImage(
+        0,
+        new Blob([backgroundPngBytes], { type: 'image/png' }),
+      );
+      await backgroundDocument.setSlideBackgroundImage(
+        1,
+        'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+      );
+      solidBackgroundSlide.background = {
+        kind: 'solid',
+        color: { kind: 'scheme', value: 'accent1' },
+        transparency: 20,
+      };
+      gradientBackgroundSlide.background = {
+        kind: 'linear-gradient',
+        angle: 45,
+        stops: [
+          { offset: 0, color: 'FF0000' },
+          { offset: 1, color: '0000FF', alpha: 0.5 },
+        ],
+      };
+      const backgroundOutput = await backgroundDocument.writeBlob({
+        compatibility: 'powerpoint-2010',
+      });
+      const reopenedBackgroundDocument = await api.PptxDocument.open(backgroundOutput);
+      await reopenedBackgroundDocument.write({ compatibility: 'powerpoint-2010' });
+      const hexDigest = async (payload) => Array.from(
+        new Uint8Array(await crypto.subtle.digest('SHA-256', payload)),
+        (value) => value.toString(16).padStart(2, '0'),
+      ).join('');
+      const backgroundPayloadHashes = await Promise.all(
+        reopenedBackgroundDocument.slides
+          .map(({ background }) => background)
+          .filter((background) => background?.kind === 'image')
+          .map(({ bytes: payload }) => hexDigest(payload)),
+      );
+      const backgroundRelationshipCounts = reopenedBackgroundDocument.slides.map((slide) =>
+        slide.relationships.filter(
+          ({ type, targetMode }) => type.endsWith('/image') && targetMode === 'Internal',
+        ).length);
       const mediaDocument = api.PptxDocument.create();
       mediaDocument.addSlide();
       const mediaPngPoster = Uint8Array.from([
@@ -343,6 +394,15 @@ async (page) => {
         svgCreatedLive: svgDocument.slides[0].shapes.includes(blobSvg)
           && svgDocument.slides[0].shapes.includes(dataSvg),
         svgState,
+        backgroundMime: backgroundOutput.type,
+        slideBackgroundKinds: reopenedBackgroundDocument.slides.map(
+          ({ background }) => background?.kind,
+        ),
+        backgroundPayloadHashes,
+        backgroundRelationshipCounts,
+        backgroundValidationErrors: reopenedBackgroundDocument.diagnostics.filter(
+          ({ severity }) => severity === 'error',
+        ).length,
         mediaMime: mediaOutput.type,
         mediaNames,
         mediaElementCounts: {
@@ -413,6 +473,14 @@ async (page) => {
         internalTargets: 2,
       },
     ],
+    backgroundMime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    slideBackgroundKinds: ['image', 'image', 'solid', 'linear-gradient'],
+    backgroundPayloadHashes: [
+      '431ced6916a2a21a156e38701afe55bbd7f88969fbbfc56d7fe099d47f265460',
+      '431ced6916a2a21a156e38701afe55bbd7f88969fbbfc56d7fe099d47f265460',
+    ],
+    backgroundRelationshipCounts: [1, 1, 0, 0],
+    backgroundValidationErrors: 0,
     mediaMime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
     mediaNames: ['Browser MP3 narration edited', 'Browser Blob video'],
     mediaElementCounts: { audio: 1, video: 1 },

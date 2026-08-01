@@ -2646,6 +2646,79 @@ richText.richText = [{ align: 'justify', bullet: { kind: 'number', style: 'roman
 const custom = PptxDocument.create({ slideSize: { width: inches(11.7), height: inches(8.3) } });
 custom.slideSize = { width: inches(10), height: inches(7.5) };
 const customXml = new TextDecoder().decode(custom.opcPackage.requirePart('/ppt/presentation.xml').bytes);
+const slideBackgroundDeck = PptxDocument.create();
+const noFillBackgroundSlide = slideBackgroundDeck.addSlide();
+noFillBackgroundSlide.background = { kind: 'none' };
+const clearedSolidBackgroundSlide = slideBackgroundDeck.addSlide();
+clearedSolidBackgroundSlide.background = {
+  kind: 'solid',
+  color: { kind: 'scheme', value: 'accent1' },
+  transparency: 25,
+};
+const gradientBackgroundSlide = slideBackgroundDeck.addSlide();
+gradientBackgroundSlide.background = {
+  kind: 'linear-gradient',
+  angle: 45,
+  stops: [
+    { offset: 0, color: 'FF0000' },
+    { offset: 1, color: '0000FF', alpha: 0.5 },
+  ],
+};
+const packedBackgroundPngDataUri =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+const imageBackgroundSlide = slideBackgroundDeck.addSlide();
+await slideBackgroundDeck.setSlideBackgroundImage(3, packedBackgroundPngDataUri);
+const duplicateImageBackgroundSlide = slideBackgroundDeck.duplicateSlide(3);
+const backgroundImageTarget = (slide) => slide.relationships.find(
+  ({ type, targetMode }) => type.endsWith('/image') && targetMode === 'Internal',
+)?.resolvedTarget;
+const sharedBackgroundTarget = backgroundImageTarget(imageBackgroundSlide);
+const packedBackgroundSharedBeforeReplace = sharedBackgroundTarget !== undefined &&
+  backgroundImageTarget(duplicateImageBackgroundSlide) === sharedBackgroundTarget;
+duplicateImageBackgroundSlide.background = {
+  kind: 'image',
+  contentType: 'image/jpeg',
+  bytes: Uint8Array.of(255, 216, 255, 224, 0, 16, 74, 70, 73, 70, 255, 217),
+};
+const duplicateBackgroundTarget = backgroundImageTarget(duplicateImageBackgroundSlide);
+const packedBackgroundCloneOnWrite = duplicateBackgroundTarget !== undefined &&
+  duplicateBackgroundTarget !== sharedBackgroundTarget &&
+  backgroundImageTarget(imageBackgroundSlide) === sharedBackgroundTarget &&
+  slideBackgroundDeck.opcPackage.hasPart(sharedBackgroundTarget) &&
+  slideBackgroundDeck.opcPackage.hasPart(duplicateBackgroundTarget);
+const clearedImageBackgroundSlide = slideBackgroundDeck.addSlide();
+await slideBackgroundDeck.setSlideBackgroundImage(5, packedBackgroundPngDataUri);
+const clearedBackgroundTarget = backgroundImageTarget(clearedImageBackgroundSlide);
+clearedImageBackgroundSlide.background = undefined;
+clearedSolidBackgroundSlide.background = undefined;
+const packedBackgroundCleanup = clearedBackgroundTarget !== undefined &&
+  !slideBackgroundDeck.opcPackage.hasPart(clearedBackgroundTarget) &&
+  backgroundImageTarget(clearedImageBackgroundSlide) === undefined;
+const reopenedSlideBackgroundDeck = await PptxDocument.open(await slideBackgroundDeck.write());
+await reopenedSlideBackgroundDeck.write({ compatibility: 'powerpoint-2010' });
+const reopenedBackgroundKinds = reopenedSlideBackgroundDeck.slides.map(
+  ({ background }) => background?.kind,
+);
+const reopenedBackgroundTargets = reopenedSlideBackgroundDeck.slides
+  .map(backgroundImageTarget)
+  .filter((target) => target !== undefined);
+const reopenedBackgroundMediaParts = reopenedSlideBackgroundDeck.opcPackage.parts.filter(
+  ({ uri }) => uri.startsWith('/ppt/media/background'),
+);
+const reopenedBackgroundOrphans = reopenedBackgroundMediaParts.filter(({ uri }) =>
+  (reopenedSlideBackgroundDeck.opcPackage.graph.find((node) => node.uri === uri)?.incoming.length ?? 0) === 0);
+const slideBackgrounds = packedBackgroundSharedBeforeReplace && packedBackgroundCloneOnWrite &&
+  packedBackgroundCleanup &&
+  JSON.stringify(reopenedBackgroundKinds) ===
+    JSON.stringify(['none', undefined, 'linear-gradient', 'image', 'image', undefined]) &&
+  reopenedBackgroundTargets.length === 2 &&
+  new Set(reopenedBackgroundTargets).size === 2 &&
+  reopenedBackgroundMediaParts.length === 2 &&
+  reopenedBackgroundMediaParts.some(({ contentType }) => contentType === 'image/png') &&
+  reopenedBackgroundMediaParts.some(({ contentType }) => contentType === 'image/jpeg') &&
+  reopenedBackgroundOrphans.length === 0 &&
+  reopenedSlideBackgroundDeck.diagnostics.filter(({ severity }) => severity === 'error').length === 0;
+await reopenedSlideBackgroundDeck.writeFile('slide-background-smoke.pptx');
 const nativeChartDeck = PptxDocument.create();
 const nativeChartModels = [];
 for (const type of CHART_TYPES) {
@@ -2765,6 +2838,7 @@ const checks = {
   stableMediaLifecycle,
   nativeMediaTiming,
   nativeCharts,
+  slideBackgrounds,
   presentationRtl: presentationRtlEnabled === true && presentationRtlDisabled === false && presentationRtlCleared === undefined && paragraphRtlAfterGlobalClear[0] === true && paragraphRtlAfterGlobalClear[1] === false,
   presentationTitle: createdPresentationTitle === 'Packed & <Title>' && editedPresentationTitle === 'Edited title' && reopenedPresentationTitle === 'Edited title' && emptyPresentationTitle === '' && clearedPresentationTitle === undefined,
   presentationAuthor: createdPresentationAuthor === 'Packed & <Author>' && editedPresentationAuthor === 'Edited author' && reopenedPresentationAuthor === 'Edited author' && emptyPresentationAuthor === '' && clearedPresentationAuthor === undefined,
@@ -4072,6 +4146,10 @@ process.stdout.write(resolved);
   type ShapeShadow,
   type PresetShapeType,
   type RasterImageContentType,
+  type SetSlideBackgroundImageOptions,
+  type SimpleFill,
+  type SlideBackground,
+  type SlideBackgroundImage,
   type SvgImageContentType,
   type SvgImageInfo,
   type SlideModel,
@@ -4159,6 +4237,28 @@ const invalidChartValues: ChartSeriesInput = {
   // @ts-expect-error chart values must be numeric
   values: ['10'],
 };
+const typedSimpleBackground: SimpleFill = {
+  kind: 'solid',
+  color: { kind: 'scheme', value: 'accent1' },
+  transparency: 20,
+};
+const typedImageBackground: SlideBackgroundImage = {
+  kind: 'image',
+  contentType: 'image/png',
+  bytes: Uint8Array.of(137, 80, 78, 71),
+};
+const typedSlideBackground: SlideBackground = typedImageBackground;
+const typedSlideBackgroundOptions: SetSlideBackgroundImageOptions = {
+  contentType: 'image/png',
+  signal: new AbortController().signal,
+};
+const typedBackgroundSlide: SlideModel = createdDocument.addSlide();
+typedBackgroundSlide.background = typedSimpleBackground;
+const typedBackgroundPromise: Promise<void> = createdDocument.setSlideBackgroundImage(
+  createdDocument.slides.length - 1,
+  typedImageBackground.bytes,
+  typedSlideBackgroundOptions,
+);
 const typedRasterContentType: RasterImageContentType = 'image/png';
 const typedRasterOptions: AddImageOptions = {
   contentType: typedRasterContentType,
@@ -4980,7 +5080,9 @@ void [typedPreset, typedNoneShapeFill, typedSolidShapeFill, typedShapeOptions, t
   invalidUnknownShapeShadow, invalidShapeShadowFieldType];
 void [documentPromise, createdDocument, typedChartDefinition, typedChartPromise,
   typedChartDiagnostics, typedChartWorkbookCheck, invalidChartType, invalidChartAxis,
-  invalidChartValues, typedRasterContentType, typedRasterOptions, typedRasterImage,
+  invalidChartValues, typedSimpleBackground, typedImageBackground, typedSlideBackground,
+  typedSlideBackgroundOptions, typedBackgroundSlide, typedBackgroundPromise,
+  typedRasterContentType, typedRasterOptions, typedRasterImage,
   invalidRasterSvg, invalidRasterMissingType, invalidRasterPath, invalidRasterData, typedSvgContentType, typedImageContentType, typedSvgInfo, typedImageInfo, typedCropRegion, typedImageSizing, typedImageSizingResult, typedImageSource, typedImageChunk, typedImageStream, typedImageSourceOptions, typedResolvedImage, typedSvgOptions, typedSvgImage, typedHighLevelSvgImage, typedMediaKind, typedMediaChunk, typedMediaStream, typedMediaSources, typedPlayback, typedMediaOptions, typedMediaPromise, typedVideoPromise, typedReplaceMediaSourceOptions, typedReplaceMediaPosterOptions, typedMediaLifecycle, invalidMediaKind, invalidMediaName, invalidMediaPoster, invalidMediaPlayback, invalidMediaTranscode, invalidMediaSource, invalidMediaSourceReplacement, invalidMediaPosterReplacement, invalidLowLevelSvgOptions, invalidSvgFallback, addSectionOptions, typedSection, addSlideOptions, sectionSnapshot, typedVisibilitySlide, hiddenSnapshot, globalRtl, globalRtlSnapshot, titledDocument, titleSnapshot, authoredDocument, authorSnapshot, lastModifiedDocument, lastModifiedSnapshot, createdAtDocument, createdAtSnapshot, modifiedAtDocument, modifiedAtSnapshot, subjectDocument, subjectSnapshot, revisionDocument, revisionSnapshot, companyDocument, companySnapshot, themedDocument, themeSnapshot, fontSnapshot, fontUpdate, customDocument, createdText, creationBorder, creationMargin, creationOptions, objectCell, tableRows, tableOptions, typedTable, widthSnapshot, heightSnapshot, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotHorizontalAlignment, tableHorizontalAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellHorizontalAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
 `,
   );
@@ -5110,6 +5212,34 @@ void [documentPromise, createdDocument, typedChartDefinition, typedChartPromise,
   if (!nativeChartPart.ok || !nativeChartPart.data?.content?.includes('<c:chartSpace')) {
     throw new Error(`CLI native chart part read failed: ${nativeChartPartResult.stdout}`);
   }
+  const slideBackgroundDeckPath = join(directory, 'slide-background-smoke.pptx');
+  const slideBackgroundInspectResult = run(
+    bin,
+    ['--json', 'package', 'inspect', slideBackgroundDeckPath],
+    directory,
+  );
+  const slideBackgroundInspected = JSON.parse(slideBackgroundInspectResult.stdout);
+  if (!slideBackgroundInspected.ok ||
+      slideBackgroundInspected.data?.contentTypes?.['image/png'] !== 1 ||
+      slideBackgroundInspected.data?.contentTypes?.['image/jpeg'] !== 1) {
+    throw new Error(`CLI slide background inspect failed: ${slideBackgroundInspectResult.stdout}`);
+  }
+  const slideBackgroundValidateResult = run(
+    bin,
+    ['--json', 'package', 'validate', slideBackgroundDeckPath, '--profile', 'powerpoint-2010'],
+    directory,
+  );
+  const slideBackgroundValidated = JSON.parse(slideBackgroundValidateResult.stdout);
+  if (!slideBackgroundValidated.ok || !slideBackgroundValidated.data?.valid ||
+      slideBackgroundValidated.data.errorCount !== 0 ||
+      slideBackgroundValidated.data.warningCount !== 0) {
+    throw new Error(`CLI slide background validation failed: ${slideBackgroundValidateResult.stdout}`);
+  }
+  if (process.env.PPTX_SLIDE_BACKGROUND_GALLERY_OUT) {
+    const galleryOutput = resolve(process.env.PPTX_SLIDE_BACKGROUND_GALLERY_OUT);
+    await mkdir(dirname(galleryOutput), { recursive: true });
+    await writeFile(galleryOutput, await readFile(slideBackgroundDeckPath));
+  }
   if (process.env.PPTX_CHART_GALLERY_OUT) {
     const galleryOutput = resolve(process.env.PPTX_CHART_GALLERY_OUT);
     await mkdir(dirname(galleryOutput), { recursive: true });
@@ -5117,7 +5247,7 @@ void [documentPromise, createdDocument, typedChartDefinition, typedChartPromise,
   }
 
   process.stdout.write(
-    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, types: true, cli: doctor.data.version, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true })}\n`,
+    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, slideBackgrounds: apiChecks.slideBackgrounds, types: true, cli: doctor.data.version, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true, slideBackgroundInspect: true, slideBackgroundValidate: true })}\n`,
   );
 } finally {
   await rm(directory, { recursive: true, force: true });
