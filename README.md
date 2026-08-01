@@ -182,15 +182,19 @@ MIME/扩展名解析优先级是显式 `contentType` assertion → data URI 声�
 
 Options 和内存 bytes 会在异步读取前脱离 caller；path、Blob、stream、可选 `transcode` 与海报全部解析后，才进入一个同步 package transaction。创建、source/poster 替换与删除的任何验证、I/O、transcode、hash、relationship、part 或 XML 失败都会保持 parts、content types、关系、slide XML、ZIP state、对象 identity 与 mutation journal 不变。相同 SHA-256 且 MIME 完全相同的 media/poster payload 会复用同一 `/ppt/media` part；duplicate 初始共享 target，首次不同写入 clone-on-write，只 retarget 被编辑的 picture。对象或幻灯片删除只 GC package graph 中无 incoming reference 的 target。
 
-创建会写 canonical `a:audioFile` / `a:videoFile`、kind relationship、Microsoft media relationship、poster image relationship、media click action 与矩形海报 picture。`name`、`altText`、EMU transform 和 playback preferences 均受严格验证；使用 `inches()` 把布局尺寸转为 EMU。`play`、`loop`、`hideWhenStopped` 与 `volume` 当前保存在库的私有 playback extension 中，尚未自动生成 PowerPoint native timing tree。
+创建会写 canonical `a:audioFile` / `a:videoFile`、kind relationship、Microsoft media relationship、poster image relationship、media click action、矩形海报 picture，以及可直接被 PowerPoint 执行的原生 `p:timing` 播放树。`play: 'click' | 'auto'`、`loop`、`hideWhenStopped` 与 `volume: 0..1` 同时写入精确偏好/ownership `px:playback` 和 native `cMediaNode`/play/pause command；无需安装动画插件。`settings` whole-replace 会原子同步两处状态，`settings = undefined` 只清除该媒体的私有偏好和库拥有的原生播放 graph，不改普通动画或未知 timing 分支。
+
+读取顺序固定为：合法 `px:playback` 精确偏好 → 没有私有偏好时严格识别唯一、直接、完整的 native media graph → 空设置。Native-only PowerPoint 文件因此可读取并在首次设置时安全 adoption；已有 ownership 过期时会重建当前媒体 graph。库只认领唯一匹配的 direct graph，unsupported/ambiguous timing 保持原字节并拒绝危险编辑。创建、设置、清除、复制、删除与 timing ID 分配都在同一 OPC transaction 内；普通动画和媒体共用全页 ID 空间。
+
+`MEDIA_TIMING_MISSING`、`MEDIA_TIMING_STALE`、`MEDIA_TIMING_UNSUPPORTED`、`MEDIA_TIMING_AMBIGUOUS`、`MEDIA_TIMING_DANGLING_TARGET` 与 `MEDIA_TIMING_KIND_MISMATCH` 会报告缺失、陈旧、不支持、歧义或悬空状态。动画插件仍兼容旧版只含 `px:playback` 的文件，并通过共享 codec 幂等补写 native graph；健康 native timing 不会被重复生成。
 
 PptxGenJS 4.0.1 的 4/4 个公开有效 data/path、audio/video、cover、`extn`、`objectName` 与 transform 用例已达到最终语义对等。Reader 兼容其 audio `a:videoFile`、`audio/mp3` 与 duplicate-audio relationship 缺陷；只读、metadata、settings 与 transform 编辑不会重写这些 legacy primary roles，`replaceSource()` 才把当前 picture 的 primary roles canonicalize 为 native audio/video 结构。Native 创建始终使用 `a:audioFile`、canonical `audio/mpeg` 和标准 audio relationship。
 
-实际 npm tarball 的 Node、browser、declaration 与 CLI smoke 全部通过，覆盖 live identity、全部编辑面、embedded↔external、poster replacement/reset、duplicate COW、对象/幻灯片删除、GC 与 reopen；连续两次 clean build 的 44 个 dist 文件 SHA-256 manifest 完全一致。4 页全格式 lifecycle gallery 包含 6 个音频、4 个视频、30 条媒体角色关系、7 个唯一媒体载荷、4 个 poster payload 和 11 个 `/ppt/media` parts，零孤儿；原件 strict reopen、180 DPI 渲染、overflow 与逐页视觉检查通过。全格式文件的 PowerPoint 2010 profile 为 0 errors，只有 OGG/WebM 两条预期 warning；排除这两种格式的 8-object 可移植子集为 0 errors / 0 warnings。External 对照文件产生 4 条预期 portability warnings。
+实际 45-file npm tarball 的 Node、Chrome browser、declaration 与 CLI smoke 全部通过，`nativeMediaTiming: true`，覆盖 clear、duplicate isolation、delete、唯一 ID、目标隔离、诊断和 reopen；连续两次 clean build 的 42 个 dist 文件 SHA-256 manifest 完全一致。六种 presentation format 均通过 native timing 创建/编辑/复制/删除/重开。9 页真实媒体 gallery 含 12 个媒体对象、7 种媒体 MIME、3 种 poster MIME、10 个去重后的 `/ppt/media` parts 和零孤儿；原件 strict reopen、180 DPI 渲染、overflow 与逐页视觉检查通过。PowerPoint 2010 profile 为 0 errors，仅 OGG/WebM 两条预期 warning。
 
-LibreOffice 26.8 当前会在 save/reopen 时保留 4 页顺序与 wide 画布，但删除全部 10 个媒体对象、30 条媒体角色关系和 11 个媒体/海报 parts；回存四页为空白，仍可 strict reopen、0 errors / 0 warnings、零 overflow。这是已记录的客户端降级，不是 native 写出或 round-trip 保留承诺。
+LibreOffice 26.8 当前会在 save/reopen 时保留 9 页顺序与文案，但删除全部媒体、poster、media relationships 和 timing；回存件仍可 strict reopen 且为 0 errors / 0 warnings。这是已记录的客户端降级，不是 native 写出或 round-trip 保留承诺。本机 PowerPoint 16.112 自动打开对 gallery、LibreOffice 回存件与最小控制文件都返回同一 `-9074`，因此没有把该环境的 PowerPoint 往返误记为通过。
 
-下一媒体小项是 native PowerPoint timing tree。仍未支持 online video、remote-fetch embedding、captions/subtitles、crop/rounding/shadow/hyperlink/placeholder styles、内建转码引擎与更广泛 PowerPoint/Keynote/Google Slides 认证；因此整体 PptxGenJS 全功能对等路线尚未完成。
+媒体 timing 的下一层仍未支持 trim/bookmarks、有限重复、narration/cross-slide audio、captions/subtitles、online video、remote-fetch embedding、crop/rounding/shadow/hyperlink/placeholder styles、内建转码引擎与更广泛 PowerPoint/Keynote/Google Slides 认证。PptxGenJS 全功能对等的下一最高价值小项是 chart 创建与语义编辑；整体路线尚未完成。
 
 ## 创建和编辑预设形状、调整值与样式
 

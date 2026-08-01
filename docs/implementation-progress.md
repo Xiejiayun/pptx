@@ -323,7 +323,7 @@ $ pptx-inspect --json package inspect output.pptx
 - 创建 canonical `a:audioFile` / `a:videoFile` picture、standard kind relationship、Microsoft media relationship、poster image relationship、click action、name/alt text、EMU transform 与 private playback extension。Live `MediaModel` 在创建结果、`document.media()`、`slide.media` 与 `slide.shapes` 中保持同一 identity，getter 始终读取当前 OOXML。
 - 已支持 `name`、`altText`、detached frozen playback settings 与 transform 编辑；source 支持 embedded↔external replacement，poster 支持 PNG/JPEG/GIF replacement 与 built-in PNG reset。Duplicate 初始共享 targets，replacement 使用 SHA-256+MIME dedup 或 clone-on-write；共享 rId、对象/幻灯片删除、move、GC 与 rollback 均引用安全。
 - PptxGenJS 4.0.1 public valid media conformance 为 4/4，覆盖 data/path、audio/video、cover、`extn`、`objectName`、transform 与重复路径。Import 兼容其 `a:videoFile` audio、`audio/mp3` 与 duplicate-audio relationship 缺陷；非 source 编辑保留 legacy roles，source replacement 才 canonicalize 当前 picture。
-- Data URI、cover/poster、MIME/extension mapping、object name、alt-text 创建、strict embedded audio/video creation、stable live identity/editing 与完整 duplicate/move/delete isolation 已移入支持项。Playback preferences 仍在 private extension；native timing tree 不属于本阶段。
+- Data URI、cover/poster、MIME/extension mapping、object name、alt-text 创建、strict embedded audio/video creation、stable live identity/editing 与完整 duplicate/move/delete isolation 已移入支持项。后续 native timing tree 已在下一节完成。
 
 ### 验证结果
 
@@ -333,11 +333,31 @@ $ pptx-inspect --json package inspect output.pptx
 - Gallery 原件 strict reopen，180 DPI render、overflow 与逐页视觉检查通过。PowerPoint 2010 全格式 profile 为 0 errors，只有 OGG 与 WebM 两条预期 warning；8-object 可移植子集为 0 errors / 0 warnings。External deck 产生 4 条预期 portability warnings。
 - LibreOffice 26.8 save/reopen 保留 4 页顺序与 wide canvas，但删除全部 10 个 media pictures、30 条 media-role relationships 与 11 个 media/poster parts，回存四页为空白。文件仍可 strict reopen，validator 为 0 errors / 0 warnings，overflow 为零；该结果明确记录为 client degradation。
 
-### 剩余媒体路线
+## PptxGenJS 全功能对等：Native PowerPoint media timing
 
-- 下一项：native PowerPoint timing-tree playback。
-- 后续：online video、remote-fetch embedding、captions/subtitles、crop/rounding/shadow/hyperlink/placeholder styles、内建转码引擎与更广泛 PowerPoint/Keynote/Google Slides 客户端认证。
-- Stable media lifecycle 专项已完成，但 PptxGenJS 全功能对等仍未完成；总体路线继续为 native media timing → chart → slide background/number/default color → master/layout/placeholder → advanced text → advanced table/`tableToSlides` → output/runtime helpers → peer-range full-suite audit。
+状态：完成；实施与证据 7/7
+
+### 本阶段 change
+
+- Core `MediaCodec` 直接创建、读取、同步和清除 native `p:timing`，无需动画插件。支持 `play: click|auto`、`loop`、`hideWhenStopped` 与 `volume`；`px:playback` 保存精确偏好和 media/play/optional-pause timing ownership ID，native graph 表达 PowerPoint 播放行为。
+- Read order 固定为合法 private preference → private 缺失时唯一/直接/完整的 native graph → empty settings。Native-only import 可 strict read/adopt；stale ownership 可修复；unsupported/ambiguous timing 保持 bytes 并拒绝危险编辑。
+- Create、settings whole-replace、clear、legacy materialization、duplicate、delete 与 target cleanup 使用同一 OPC transaction。Media 与 ordinary animations 共用全页 timing ID allocator；普通动画、未知 timing branches、peer media 和非目标 shape 保持不变。
+- Animation plugin 改为复用 `MediaCodec.materializePlayback()`，只幂等升级 legacy preference-only 文件；healthy、native-only 与 unsafe imports 不被重复生成。
+- 新增 `MEDIA_TIMING_MISSING`、`MEDIA_TIMING_STALE`、`MEDIA_TIMING_UNSUPPORTED`、`MEDIA_TIMING_AMBIGUOUS`、`MEDIA_TIMING_DANGLING_TARGET`、`MEDIA_TIMING_KIND_MISMATCH` 精确诊断。
+
+### 验证结果
+
+- Public SDK、六种 presentation format、PptxGenJS 4.0.1 import/adoption 与 animation coexistence 专项已覆盖 create/read/edit/clear/materialize/duplicate/delete/reopen、唯一 ID、target isolation、ordinary-animation preservation 和 rollback。
+- Actual 45-file npm tarball 的 Node、real-Chrome browser、declaration 与 installed CLI smoke 通过，`nativeMediaTiming: true`；打包声明包含 public API 依赖的 `media-timing-state.internal.d.ts`。连续两次 clean build 的 42 个 dist 文件 SHA-256 manifest 完全一致。
+- 9 页真实媒体 gallery 由安装后的 tarball 创建，包含 12 个媒体对象、MP3/M4A/WAV/OGG、MP4/MOV/WebM、PNG/JPEG/GIF poster、10 个去重 `/ppt/media` parts 和零 orphan；覆盖 click/auto、loop、hideWhenStopped、volume 0/0.25/0.5/1、同页双媒体、普通动画共存、legacy materialization、native-only adoption 与 duplicate/edit/clear/delete。
+- Gallery strict reopen 与 `pptx-inspect` doctor/inspect/validate/part-read/diff 均通过；PowerPoint 2010 profile 为 0 errors，仅 OGG/WebM 两条预期 warning。180 DPI 全页 render、overflow 与逐页视觉检查通过。
+- LibreOffice 26.8 save/reopen 保留 9 页顺序与文案，但删除全部 media、poster、media relationships 与 timing；回存件仍可 strict reopen，0 errors / 0 warnings。该结果记录为 client degradation。
+- 本机 PowerPoint 16.112 自动打开对 gallery、LibreOffice 回存件与最小控制文件均返回 `-9074`；没有将该环境的结果记为 PowerPoint 往返通过。
+
+### 剩余媒体与全功能路线
+
+- 媒体后续：online video、remote-fetch embedding、trim/bookmarks、有限重复、narration/cross-slide audio、captions/subtitles、crop/rounding/shadow/hyperlink/placeholder styles、内建转码引擎与更广泛 PowerPoint/Keynote/Google Slides 客户端认证。
+- Native timing 专项已完成，但 PptxGenJS 全功能对等仍未完成；总体路线继续为 chart → slide background/number/default color → master/layout/placeholder → advanced text → advanced table/`tableToSlides` → output/runtime helpers → peer-range full-suite audit。
 
 ## 0.1.0 初始验收
 
@@ -348,4 +368,4 @@ $ pptx-inspect --json package inspect output.pptx
 - 依赖边界：只有 `@pptx/pptxgenjs-adapter` 直接依赖 `pptxgenjs:^4.0.1`；core、SDK 和插件保持边界。
 - 计划审计：WP0–WP6 的代码、测试、文档、截图、CLI、CI 与可选插件交付物均已落库。
 
-正式 npm 发布仍按 [0.1.0 release checklist](./release/0.1.0.md) 保持 gated：Windows PowerPoint corpus、macOS Keynote corpus 与受控 Google Slides 导入需要在具备非交互授权的专用环境完成。本机安装的 PowerPoint/Keynote 在自动化验证中被首次启动或系统权限模态窗口阻塞，未将超时结果误记为通过。
+正式 npm 发布仍按 [0.1.0 release checklist](./release/0.1.0.md) 保持 gated：Windows PowerPoint corpus、macOS Keynote corpus 与受控 Google Slides 导入需要在专用环境完成。本机 PowerPoint 16.112 的统一 `-9074` 结果未被误记为通过。

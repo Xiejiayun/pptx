@@ -5,6 +5,10 @@ import { fileURLToPath } from 'node:url';
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const outputRoot = join(repositoryRoot, 'packages/pptx/dist');
 const typesRoot = join(outputRoot, 'types');
+const publicInternalDeclarations = new Set([
+  'media-state.internal.d.ts',
+  'media-timing-state.internal.d.ts',
+]);
 
 const packages = new Map([
   ['lossless-xml', 'lossless-xml'],
@@ -54,7 +58,7 @@ async function copyDeclarations(sourceDirectory, outputDirectory) {
       continue;
     }
     if (!entry.name.endsWith('.d.ts') || entry.name.includes('.test.') ||
-        (entry.name.includes('.internal.') && entry.name !== 'media-state.internal.d.ts')) continue;
+        (entry.name.includes('.internal.') && !publicInternalDeclarations.has(entry.name))) continue;
     const source = await readFile(sourcePath, 'utf8');
     const rewritten = source.replace(/(['"])@pptx\/([a-z0-9-]+)\1/g, (match, quote, dependency) => {
       const dependencyOutput = packages.get(dependency);

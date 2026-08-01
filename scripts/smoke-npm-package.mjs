@@ -463,6 +463,18 @@ const stableVideo = await stableMediaDeck.addVideo(
     posterContentType: 'image/jpeg',
   },
 );
+stableVideo.settings = { play: 'auto', loop: true, hideWhenStopped: true, volume: 0.25 };
+stableVideo.settings = undefined;
+const stableClearedVideoXml = new TextDecoder().decode(
+  stableMediaDeck.opcPackage.requirePart(stableMediaSlide.partUri).bytes,
+);
+const stableClearedVideoPicture = [...stableClearedVideoXml.matchAll(
+  /<p:pic(?:\\s[^>]*)?>[\\s\\S]*?<\\/p:pic>/g,
+)].find((match) => match[0].includes('id="' + stableVideo.shapeId + '"'))?.[0] ?? '';
+const stableVideoSettingsCleared = Object.keys(stableVideo.settings).length === 0 &&
+  !stableClearedVideoPicture.includes('<px:playback') &&
+  ![...stableClearedVideoXml.matchAll(/<p:video>[\\s\\S]*?<\\/p:video>/g)]
+    .some((match) => match[0].includes('spid="' + stableVideo.shapeId + '"'));
 const stableIdentity = stableAudio instanceof MediaModel && stableVideo instanceof MediaModel &&
   stableMediaDeck.media(0)[0] === stableAudio && stableMediaSlide.media[0] === stableAudio &&
   stableMediaSlide.shapes[0] === stableAudio;
@@ -506,6 +518,19 @@ const stableDuplicateVideo = stableDuplicate.media[1];
 const stableSharedBeforeWrite = stableDuplicateAudio.mediaPartUri === stableAudio.mediaPartUri &&
   stableDuplicateAudio.posterPartUri === stableAudio.posterPartUri &&
   stableDuplicateVideo.mediaPartUri === stableVideo.mediaPartUri;
+const stableSourceBeforeDuplicateSettings = new TextDecoder().decode(
+  stableMediaDeck.opcPackage.requirePart(stableMediaSlide.partUri).bytes,
+);
+stableDuplicateAudio.settings = {
+  play: 'click',
+  loop: false,
+  hideWhenStopped: false,
+  volume: 0.25,
+};
+const stableDuplicateTimingIsolation = new TextDecoder().decode(
+  stableMediaDeck.opcPackage.requirePart(stableMediaSlide.partUri).bytes,
+) === stableSourceBeforeDuplicateSettings && stableDuplicateAudio.settings.play === 'click' &&
+  stableDuplicateAudio.settings.volume === 0.25;
 await stableDuplicateAudio.replaceSource(mediaPath);
 await stableDuplicateAudio.replacePoster(mediaJpegPoster, { contentType: 'image/jpeg' });
 const stableDuplicateMediaTarget = stableDuplicateAudio.mediaPartUri;
@@ -531,12 +556,35 @@ const stableObjectGc = !stableMediaDeck.opcPackage.hasPart(sharedVideoTarget) &&
 await stableMediaDeck.writeFile('stable-media-smoke.pptx');
 const reopenedStableMediaDeck = await PptxDocument.open(await stableMediaDeck.write());
 const reopenedStableAudio = reopenedStableMediaDeck.media(0)[0];
+await reopenedStableMediaDeck.write({ mode: 'permissive', compatibility: 'powerpoint-2010' });
+const reopenedStableXml = new TextDecoder().decode(
+  reopenedStableMediaDeck.opcPackage.requirePart(reopenedStableMediaDeck.slides[0].partUri).bytes,
+);
+const reopenedStableTimingIds = [...reopenedStableXml.matchAll(
+  /<p:cTn\\b[^>]*\\bid="([0-9]+)"/g,
+)].map((match) => Number(match[1]));
+const reopenedStableTargets = [...reopenedStableXml.matchAll(
+  /<p:spTgt\\b[^>]*\\bspid="([0-9]+)"/g,
+)].map((match) => Number(match[1]));
+const nativeMediaTiming = stableVideoSettingsCleared && stableDuplicateTimingIsolation &&
+  reopenedStableXml.includes('<px:playback xmlns:px="urn:pptx-ooxml:media" ' +
+    'play="auto" loop="1" hideWhenStopped="1" volume="50000"') &&
+  reopenedStableXml.includes('<p:cMediaNode vol="50000" showWhenStopped="0">') &&
+  reopenedStableXml.includes('repeatCount="indefinite"') &&
+  reopenedStableXml.includes('cmd="playFrom(0.0)"') &&
+  new Set(reopenedStableTimingIds).size === reopenedStableTimingIds.length &&
+  reopenedStableTargets.length > 0 && reopenedStableTargets.every(
+    (target) => target === reopenedStableAudio.shapeId,
+  ) && reopenedStableMediaDeck.diagnostics.every(
+    ({ code }) => !code.startsWith('MEDIA_TIMING_'),
+  );
 const stableNoOrphans = reopenedStableMediaDeck.opcPackage.parts
   .filter(({ uri }) => uri.startsWith('/ppt/media/'))
   .every(({ uri }) =>
     (reopenedStableMediaDeck.opcPackage.graph.find((node) => node.uri === uri)?.incoming.length ?? 0) > 0);
 const stableMediaLifecycle = stableIdentity && stableExternalTransition && stablePosterReplacement &&
-  stablePosterReset && stableSharedBeforeWrite && stableCloneOnWrite && stablePosterDedup &&
+  stablePosterReset && stableVideoSettingsCleared && stableSharedBeforeWrite &&
+  stableDuplicateTimingIsolation && stableCloneOnWrite && stablePosterDedup &&
   stableObjectIsolation &&
   stableMoveIdentity && stableSlideGc && stableObjectGc && stableNoOrphans &&
   reopenedStableMediaDeck.slides.length === 1 && reopenedStableMediaDeck.media(0).length === 1 &&
@@ -554,7 +602,9 @@ if (!stableMediaLifecycle) {
     stableExternalTransition,
     stablePosterReplacement,
     stablePosterReset,
+    stableVideoSettingsCleared,
     stableSharedBeforeWrite,
+    stableDuplicateTimingIsolation,
     stableCloneOnWrite,
     stablePosterDedup,
     stableObjectIsolation,
@@ -572,6 +622,7 @@ if (!stableMediaLifecycle) {
     reopenedSettings: reopenedStableAudio?.settings,
     reopenedTransform: reopenedStableAudio?.transform,
     diagnostics: reopenedStableMediaDeck.diagnostics,
+    nativeMediaTiming,
   }));
 }
 const shapeDeck = PptxDocument.create();
@@ -2614,6 +2665,7 @@ const checks = {
   svgImages,
   embeddedMedia,
   stableMediaLifecycle,
+  nativeMediaTiming,
   presentationRtl: presentationRtlEnabled === true && presentationRtlDisabled === false && presentationRtlCleared === undefined && paragraphRtlAfterGlobalClear[0] === true && paragraphRtlAfterGlobalClear[1] === false,
   presentationTitle: createdPresentationTitle === 'Packed & <Title>' && editedPresentationTitle === 'Edited title' && reopenedPresentationTitle === 'Edited title' && emptyPresentationTitle === '' && clearedPresentationTitle === undefined,
   presentationAuthor: createdPresentationAuthor === 'Packed & <Author>' && editedPresentationAuthor === 'Edited author' && reopenedPresentationAuthor === 'Edited author' && emptyPresentationAuthor === '' && clearedPresentationAuthor === undefined,
@@ -4877,7 +4929,7 @@ void [documentPromise, createdDocument, typedRasterContentType, typedRasterOptio
   }
 
   process.stdout.write(
-    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, types: true, cli: doctor.data.version, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true })}\n`,
+    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, types: true, cli: doctor.data.version, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true })}\n`,
   );
 } finally {
   await rm(directory, { recursive: true, force: true });

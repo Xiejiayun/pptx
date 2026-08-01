@@ -80,6 +80,14 @@ async (page) => {
           height: api.inches(2.25),
         },
       );
+      browserVideo.settings = {
+        play: 'auto',
+        loop: true,
+        hideWhenStopped: true,
+        volume: 0.25,
+      };
+      browserVideo.settings = undefined;
+      const browserVideoSettingsCleared = Object.keys(browserVideo.settings).length === 0;
       const browserMediaIdentity = mediaDocument.media(0)[0] === browserAudio
         && mediaDocument.slides[0].media[0] === browserAudio
         && mediaDocument.slides[0].shapes[0] === browserAudio;
@@ -110,6 +118,12 @@ async (page) => {
       const browserMediaShared = browserDuplicateAudio.mediaPartUri === browserAudio.mediaPartUri
         && browserDuplicateAudio.posterPartUri === browserAudio.posterPartUri
         && browserDuplicateVideo.mediaPartUri === browserVideo.mediaPartUri;
+      browserDuplicateAudio.settings = {
+        play: 'auto',
+        loop: true,
+        hideWhenStopped: true,
+        volume: 0.25,
+      };
       await browserDuplicateAudio.replaceSource(
         new ReadableStream({
           start(controller) {
@@ -156,6 +170,7 @@ async (page) => {
       });
       const mediaOutput = await mediaDocument.writeBlob({ compatibility: 'powerpoint-2010' });
       const reopenedMediaDocument = await api.PptxDocument.open(mediaOutput);
+      await reopenedMediaDocument.write({ mode: 'permissive', compatibility: 'powerpoint-2010' });
       const reopenedMediaSlide = reopenedMediaDocument.slides[0];
       const reopenedMedia = reopenedMediaDocument.media(0);
       const reopenedDuplicateMedia = reopenedMediaDocument.media(1);
@@ -197,6 +212,44 @@ async (page) => {
         .filter(({ uri }) =>
           (reopenedMediaDocument.opcPackage.graph.find((node) => node.uri === uri)?.incoming.length ?? 0) === 0)
         .length;
+      const timingSummaries = reopenedMediaDocument.slides.map((slide, slideIndex) => {
+        const source = new TextDecoder().decode(
+          reopenedMediaDocument.opcPackage.requirePart(slide.partUri).bytes,
+        );
+        const ids = [...source.matchAll(/<p:cTn\b[^>]*\bid="([0-9]+)"/g)]
+          .map((match) => Number(match[1]));
+        const targets = [...source.matchAll(/<p:spTgt\b[^>]*\bspid="([0-9]+)"/g)]
+          .map((match) => Number(match[1]));
+        const configured = reopenedMediaDocument.media(slideIndex)
+          .filter((model) => Object.keys(model.settings).length > 0)
+          .map(({ shapeId }) => shapeId);
+        return {
+          timing: (source.match(/<p:timing>/g) ?? []).length,
+          media: (source.match(/<p:cMediaNode\b/g) ?? []).length,
+          commands: (source.match(/<p:cmd\b/g) ?? []).length,
+          playback: (source.match(/<px:playback\b/g) ?? []).length,
+          ids: ids.length,
+          uniqueIds: new Set(ids).size,
+          isolatedTargets: targets.length > 0 && targets.every((target) => configured.includes(target))
+            && new Set(targets).size === configured.length,
+        };
+      });
+      const settingsAfterReopen = reopenedMediaDocument.slides.map((_slide, slideIndex) =>
+        reopenedMediaDocument.media(slideIndex).map(({ settings }) => settings));
+      const timingDiagnostics = reopenedMediaDocument.diagnostics
+        .filter(({ code }) => code.startsWith('MEDIA_TIMING_'))
+        .map(({ code }) => code);
+      const nativeMediaTiming = browserVideoSettingsCleared
+        && timingSummaries.every((summary) => summary.timing === 1
+          && summary.media === 1 && summary.commands === 1 && summary.playback === 1
+          && summary.ids === summary.uniqueIds && summary.isolatedTargets)
+        && timingDiagnostics.length === 0
+        && settingsAfterReopen[0][0].play === 'click'
+        && Object.keys(settingsAfterReopen[0][1]).length === 0
+        && settingsAfterReopen[1][0].play === 'auto'
+        && settingsAfterReopen[1][0].loop === true
+        && settingsAfterReopen[1][0].hideWhenStopped === true
+        && settingsAfterReopen[1][0].volume === 0.25;
       const stableMediaLifecycle = browserMediaIdentity && browserPosterReplacement
         && browserMediaShared && browserMediaCloneOnWrite && browserMediaRemovalIsolation
         && browserMediaMoveIdentity && reopenedDuplicateMedia.length === 1
@@ -223,6 +276,16 @@ async (page) => {
         mediaValidationErrors: mediaDocument.diagnostics.filter(
           ({ severity }) => severity === 'error',
         ).length,
+        mediaTimingElementCounts: timingSummaries.map(({ timing, media, commands, playback }) => ({
+          timing,
+          media,
+          commands,
+          playback,
+        })),
+        mediaTimingUniqueIdCount: timingSummaries.map(({ uniqueIds }) => uniqueIds),
+        settingsAfterReopen,
+        timingDiagnostics,
+        nativeMediaTiming,
         stableMediaLifecycle,
         mediaTargetIsolation: browserMediaCloneOnWrite,
         mediaOrphanCount,
@@ -296,6 +359,22 @@ async (page) => {
       },
     ],
     mediaValidationErrors: 0,
+    mediaTimingElementCounts: [
+      { timing: 1, media: 1, commands: 1, playback: 1 },
+      { timing: 1, media: 1, commands: 1, playback: 1 },
+    ],
+    mediaTimingUniqueIdCount: [7, 7],
+    settingsAfterReopen: [
+      [
+        { play: 'click', loop: false, hideWhenStopped: false, volume: 1 },
+        {},
+      ],
+      [
+        { play: 'auto', loop: true, hideWhenStopped: true, volume: 0.25 },
+      ],
+    ],
+    timingDiagnostics: [],
+    nativeMediaTiming: true,
     stableMediaLifecycle: true,
     mediaTargetIsolation: true,
     mediaOrphanCount: 0,

@@ -22,7 +22,7 @@ Read/write common `<p:transition>` effects, speed, duration, click/automatic adv
 
 ## Animation and timing
 
-Decode the timing tree, add appear/fade/wipe/fly or motion-path effects, model triggers/delay/duration/repeat/text ranges, validate shape targets, and retarget shape ids. Installation converts Media codec autoplay/loop/volume preferences into native `cMediaNode` timing nodes.
+Decode the timing tree, add appear/fade/wipe/fly or motion-path effects, model triggers/delay/duration/repeat/text ranges, validate shape targets, and retarget shape ids. Core media creation and `MediaModel.settings` now write native timing directly without this plugin. Installation remains backward-compatible: it uses the shared media timing codec to materialize legacy preference-only files once, leaves healthy/native-only or unsafe imports unchanged, and shares the slide-wide timing ID allocator with ordinary animations.
 
 ## Advanced charts
 
@@ -31,4 +31,3 @@ Inspect combination/modern chart types, axes, series, trendlines, error bars, an
 ## SmartArt
 
 Resolve data/layout/quick-style/colors/fallback-drawing parts, read/replace text, and add/delete nodes plus parent connections. Editing data with a fallback drawing produces `SMARTART_RELAYOUT_REQUIRED`; style/color/drawing parts are not silently rebuilt or removed.
-
