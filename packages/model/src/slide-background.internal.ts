@@ -6,11 +6,17 @@ import {
   type OoxmlColorSource,
 } from '@pptx/codecs';
 import {
+  escapeXmlAttribute,
   LosslessXmlDocument,
   type XmlAttribute,
   type XmlElement,
 } from '@pptx/lossless-xml';
-import type { OpcPackage, Relationship } from '@pptx/opc';
+import {
+  partUriExtension,
+  relativeRelationshipTarget,
+  type OpcPackage,
+  type Relationship,
+} from '@pptx/opc';
 import { ModelParseError } from './errors.js';
 import type { RasterImageContentType } from './image.js';
 import {
@@ -107,6 +113,17 @@ const FILL_NAMES = new Set([
   'grpFill',
 ]);
 
+interface ImageBackgroundState {
+  readonly value: SlideBackgroundImage;
+  readonly reference: XmlAttribute;
+  readonly relationship: Relationship & { readonly resolvedTarget: string };
+}
+
+interface BackgroundImageRelationship {
+  readonly relationship: Relationship & { readonly resolvedTarget: string };
+  readonly targetPartUri: string;
+}
+
 export function normalizeSlideBackground(value: unknown): SlideBackground | undefined {
   if (value === undefined) return undefined;
   const input = readDataObject(value, BACKGROUND_KEYS, 'Slide background');
@@ -187,7 +204,7 @@ export function readSlideBackground(
     }
   }
   if (choice.localName === 'blipFill') {
-    return readImageBackground(pkg, slidePartUri, choice);
+    return readImageBackgroundState(pkg, slidePartUri, choice)?.value;
   }
   return undefined;
 }
@@ -198,13 +215,7 @@ export function replaceSlideBackground(
   value: unknown,
 ): void {
   const normalized = normalizeSlideBackground(value);
-  if (normalized?.kind === 'image') {
-    throw new Error('Slide background image editing is not implemented');
-  }
   const current = readSlideBackground(pkg, slidePartUri);
-  if (current?.kind === 'image') {
-    throw new Error('Slide background image replacement is not implemented');
-  }
   if (normalized !== undefined && backgroundsEqual(current, normalized)) return;
 
   pkg.transaction(() => {
@@ -222,22 +233,63 @@ export function replaceSlideBackground(
     const commonSlide = commonSlides[0]!;
     const backgrounds = directChildren(commonSlide).filter((element) =>
       isElement(element, 'bg', PRESENTATION_NAMESPACE));
+    const oldImageRelationships = collectBackgroundImageRelationships(
+      pkg,
+      slidePartUri,
+      xml,
+      backgrounds,
+    );
+    const localChoice = backgrounds.length === 1
+      ? editableFillChoice(backgrounds[0]!)
+      : undefined;
+    const currentImage = localChoice?.localName === 'blipFill'
+      ? readImageBackgroundState(pkg, slidePartUri, localChoice)
+      : undefined;
+    let changedXml = false;
 
     if (normalized === undefined) {
       if (backgrounds.length === 0) return;
       for (const background of backgrounds) xml.removeElement(background);
-      pkg.setPart(slidePartUri, xml.serialize(), part.contentType);
-      return;
-    }
-
-    const localChoice = backgrounds.length === 1
-      ? editableFillChoice(backgrounds[0]!)
-      : undefined;
-    if (localChoice) {
+      changedXml = true;
+    } else if (normalized.kind === 'image') {
+      const relationshipId = replaceImageResource(
+        pkg,
+        slidePartUri,
+        xml,
+        currentImage,
+        normalized,
+      );
+      if (currentImage) {
+        if (relationshipId !== currentImage.relationship.id) {
+          xml.replaceAttribute(currentImage.reference, relationshipId);
+          changedXml = true;
+        }
+      } else if (localChoice) {
+        xml.replaceElement(
+          localChoice,
+          renderLocalFill(normalized, localChoice, relationshipId),
+        );
+        changedXml = true;
+      } else {
+        const encoded = renderCanonicalBackground(
+          normalized,
+          commonSlide,
+          relationshipId,
+        );
+        if (backgrounds.length === 0) {
+          xml.replace(commonSlide.startTagEnd, commonSlide.startTagEnd, encoded);
+        } else {
+          xml.replaceElement(backgrounds[0]!, encoded);
+          for (const background of backgrounds.slice(1)) xml.removeElement(background);
+        }
+        changedXml = true;
+      }
+    } else if (localChoice) {
       xml.replaceElement(
         localChoice,
         renderLocalFill(normalized, localChoice),
       );
+      changedXml = true;
     } else {
       const encoded = renderCanonicalBackground(normalized, commonSlide);
       if (backgrounds.length === 0) {
@@ -246,9 +298,41 @@ export function replaceSlideBackground(
         xml.replaceElement(backgrounds[0]!, encoded);
         for (const background of backgrounds.slice(1)) xml.removeElement(background);
       }
+      changedXml = true;
     }
-    pkg.setPart(slidePartUri, xml.serialize(), part.contentType);
+    if (changedXml) pkg.setPart(slidePartUri, xml.serialize(), part.contentType);
+    cleanupBackgroundImageRelationships(
+      pkg,
+      slidePartUri,
+      oldImageRelationships,
+    );
   });
+}
+
+export function slideBackgroundMediaTargets(
+  pkg: OpcPackage,
+  slidePartUri: string,
+): readonly string[] {
+  const xml = LosslessXmlDocument.parse(pkg.requirePart(slidePartUri).bytes);
+  const roots = xml.roots.filter((root) =>
+    isElement(root, 'sld', PRESENTATION_NAMESPACE));
+  const commonSlides = roots.length === 1
+    ? directChildren(roots[0]!).filter((element) =>
+        isElement(element, 'cSld', PRESENTATION_NAMESPACE))
+    : [];
+  if (commonSlides.length !== 1) return [];
+  const backgrounds = directChildren(commonSlides[0]!).filter((element) =>
+    isElement(element, 'bg', PRESENTATION_NAMESPACE));
+  return [...new Set(
+    collectBackgroundImageRelationships(
+      pkg,
+      slidePartUri,
+      xml,
+      backgrounds,
+    )
+      .map(({ targetPartUri }) => targetPartUri)
+      .filter((target) => target.startsWith('/ppt/media/')),
+  )];
 }
 
 function backgroundsEqual(
@@ -256,7 +340,12 @@ function backgroundsEqual(
   right: SlideBackground | undefined,
 ): boolean {
   if (left === undefined || right === undefined) return left === right;
-  if (left.kind === 'image' || right.kind === 'image') return false;
+  if (left.kind === 'image' || right.kind === 'image') {
+    return left.kind === 'image'
+      && right.kind === 'image'
+      && left.contentType === right.contentType
+      && equalBytes(left.bytes, right.bytes);
+  }
   const leftGradient = left.kind === 'linear-gradient' || left.kind === 'path-gradient';
   const rightGradient = right.kind === 'linear-gradient' || right.kind === 'path-gradient';
   if (leftGradient || rightGradient) {
@@ -280,14 +369,15 @@ function editableFillChoice(background: XmlElement): XmlElement | undefined {
     && FILL_NAMES.has(element.localName));
   if (
     choices.length !== 1
-    || !['noFill', 'solidFill', 'gradFill'].includes(choices[0]!.localName)
+    || !['noFill', 'solidFill', 'gradFill', 'blipFill'].includes(choices[0]!.localName)
   ) return undefined;
   return choices[0];
 }
 
 function renderCanonicalBackground(
-  background: Exclude<SlideBackground, SlideBackgroundImage>,
+  background: SlideBackground,
   commonSlide: XmlElement,
+  relationshipId?: string,
 ): string {
   const namespaceAttributes = [
     namespaceUriForPrefix(commonSlide, 'p') === PRESENTATION_NAMESPACE
@@ -296,26 +386,199 @@ function renderCanonicalBackground(
     namespaceUriForPrefix(commonSlide, 'a') === DRAWING_NAMESPACE
       ? ''
       : ` xmlns:a="${DRAWING_NAMESPACE}"`,
+    background.kind !== 'image'
+      || namespaceUriForPrefix(commonSlide, 'r') === RELATIONSHIP_NAMESPACE
+      ? ''
+      : ` xmlns:r="${RELATIONSHIP_NAMESPACE}"`,
   ].join('');
-  return `<p:bg${namespaceAttributes}><p:bgPr>${renderBackgroundFill(background)}`
+  return `<p:bg${namespaceAttributes}><p:bgPr>${renderBackgroundFill(background, relationshipId)}`
     + '<a:effectLst/></p:bgPr></p:bg>';
 }
 
 function renderLocalFill(
-  background: Exclude<SlideBackground, SlideBackgroundImage>,
+  background: SlideBackground,
   existing: XmlElement,
+  relationshipId?: string,
 ): string {
-  const encoded = renderBackgroundFill(background);
-  if (namespaceUriForPrefix(existing, 'a') === DRAWING_NAMESPACE) return encoded;
-  return encoded.replace(/^<a:([\w]+)/, `<a:$1 xmlns:a="${DRAWING_NAMESPACE}"`);
+  let encoded = renderBackgroundFill(background, relationshipId);
+  const attributes = [
+    namespaceUriForPrefix(existing, 'a') === DRAWING_NAMESPACE
+      ? ''
+      : ` xmlns:a="${DRAWING_NAMESPACE}"`,
+    background.kind !== 'image'
+      || namespaceUriForPrefix(existing, 'r') === RELATIONSHIP_NAMESPACE
+      ? ''
+      : ` xmlns:r="${RELATIONSHIP_NAMESPACE}"`,
+  ].join('');
+  if (attributes.length > 0) {
+    encoded = encoded.replace(/^<a:([\w]+)/, `<a:$1${attributes}`);
+  }
+  return encoded;
 }
 
 function renderBackgroundFill(
-  background: Exclude<SlideBackground, SlideBackgroundImage>,
+  background: SlideBackground,
+  relationshipId?: string,
 ): string {
+  if (background.kind === 'image') {
+    if (!relationshipId) throw new Error('Slide background image relationship is missing');
+    return '<a:blipFill>'
+      + `<a:blip r:embed="${escapeXmlAttribute(relationshipId)}"/>`
+      + '<a:stretch><a:fillRect/></a:stretch></a:blipFill>';
+  }
   return background.kind === 'linear-gradient' || background.kind === 'path-gradient'
     ? new GradientCodec().encode(background)
     : renderSimpleFill(background, 'a:');
+}
+
+function replaceImageResource(
+  pkg: OpcPackage,
+  slidePartUri: string,
+  xml: LosslessXmlDocument,
+  current: ImageBackgroundState | undefined,
+  image: SlideBackgroundImage,
+): string {
+  const extension = imageExtension(image.contentType);
+  if (current) {
+    const referenceCount = relationshipReferenceCount(
+      xml,
+      current.relationship.id,
+    );
+    const incoming = pkg.graph.find(({ uri }) =>
+      uri === current.relationship.resolvedTarget)?.incoming ?? [];
+    const exclusiveTarget = current.relationship.resolvedTarget.startsWith('/ppt/media/')
+      && partUriExtension(current.relationship.resolvedTarget) === extension
+      && referenceCount === 1
+      && incoming.length === 1
+      && incoming[0]?.sourceUri === slidePartUri
+      && incoming[0]?.relationship.id === current.relationship.id;
+    if (exclusiveTarget) {
+      pkg.setPart(
+        current.relationship.resolvedTarget,
+        image.bytes,
+        image.contentType,
+      );
+      return current.relationship.id;
+    }
+
+    const targetPartUri = allocateBackgroundImagePart(pkg, image);
+    if (referenceCount === 1) {
+      pkg.updateRelationship(slidePartUri, current.relationship.id, {
+        target: relativeRelationshipTarget(slidePartUri, targetPartUri),
+        targetMode: 'Internal',
+      });
+      return current.relationship.id;
+    }
+    return pkg.addRelationship(slidePartUri, {
+      type: IMAGE_RELATIONSHIP,
+      target: relativeRelationshipTarget(slidePartUri, targetPartUri),
+      targetMode: 'Internal',
+    }).id;
+  }
+
+  const targetPartUri = allocateBackgroundImagePart(pkg, image);
+  return pkg.addRelationship(slidePartUri, {
+    type: IMAGE_RELATIONSHIP,
+    target: relativeRelationshipTarget(slidePartUri, targetPartUri),
+    targetMode: 'Internal',
+  }).id;
+}
+
+function allocateBackgroundImagePart(
+  pkg: OpcPackage,
+  image: SlideBackgroundImage,
+): string {
+  const targetPartUri = pkg.allocatePartUri(
+    '/ppt/media',
+    'background',
+    imageExtension(image.contentType),
+  );
+  pkg.setPart(targetPartUri, image.bytes, image.contentType);
+  return targetPartUri;
+}
+
+function imageExtension(contentType: RasterImageContentType): '.png' | '.jpeg' | '.gif' {
+  if (contentType === 'image/png') return '.png';
+  if (contentType === 'image/jpeg') return '.jpeg';
+  return '.gif';
+}
+
+function collectBackgroundImageRelationships(
+  pkg: OpcPackage,
+  slidePartUri: string,
+  xml: LosslessXmlDocument,
+  backgrounds: readonly XmlElement[],
+): readonly BackgroundImageRelationship[] {
+  const relationships = pkg.relationships(slidePartUri);
+  const collected = new Map<string, BackgroundImageRelationship>();
+  for (const background of backgrounds) {
+    for (const element of [background, ...xml.descendants(background)]) {
+      for (const attribute of element.attributes) {
+        if (attributeNamespaceUri(element, attribute) !== RELATIONSHIP_NAMESPACE) {
+          continue;
+        }
+        const matches = relationships.filter(({ id }) => id === attribute.value);
+        if (matches.length !== 1 || !isInternalImageRelationship(pkg, matches[0]!)) {
+          continue;
+        }
+        const relationship = matches[0]!;
+        collected.set(relationship.id, {
+          relationship,
+          targetPartUri: relationship.resolvedTarget,
+        });
+      }
+    }
+  }
+  return [...collected.values()];
+}
+
+function cleanupBackgroundImageRelationships(
+  pkg: OpcPackage,
+  slidePartUri: string,
+  candidates: readonly BackgroundImageRelationship[],
+): void {
+  const xml = LosslessXmlDocument.parse(pkg.requirePart(slidePartUri).bytes);
+  for (const { relationship } of candidates) {
+    if (relationshipReferenceCount(xml, relationship.id) > 0) continue;
+    const current = pkg.relationships(slidePartUri).filter(({ id }) =>
+      id === relationship.id);
+    if (current.length === 1 && current[0]?.type === IMAGE_RELATIONSHIP) {
+      pkg.removeRelationship(slidePartUri, relationship.id);
+    }
+  }
+  for (const targetPartUri of new Set(
+    candidates.map(({ targetPartUri }) => targetPartUri),
+  )) {
+    if (!targetPartUri.startsWith('/ppt/media/') || !pkg.hasPart(targetPartUri)) {
+      continue;
+    }
+    const incoming = pkg.graph.find(({ uri }) => uri === targetPartUri)?.incoming ?? [];
+    if (incoming.length === 0) pkg.deletePart(targetPartUri);
+  }
+}
+
+function relationshipReferenceCount(
+  xml: LosslessXmlDocument,
+  relationshipId: string,
+): number {
+  let count = 0;
+  for (const element of xml.elements()) {
+    for (const attribute of element.attributes) {
+      if (
+        attribute.value === relationshipId
+        && attributeNamespaceUri(element, attribute) === RELATIONSHIP_NAMESPACE
+      ) count += 1;
+    }
+  }
+  return count;
+}
+
+function equalBytes(left: Uint8Array, right: Uint8Array): boolean {
+  if (left.length !== right.length) return false;
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) return false;
+  }
+  return true;
 }
 
 function normalizeImage(input: Record<string, unknown>): SlideBackgroundImage {
@@ -517,11 +780,11 @@ function normalizeFillRectangle(value: unknown) {
   });
 }
 
-function readImageBackground(
+function readImageBackgroundState(
   pkg: OpcPackage,
   slidePartUri: string,
   choice: XmlElement,
-): SlideBackgroundImage | undefined {
+): ImageBackgroundState | undefined {
   const blips = directChildren(choice).filter((element) =>
     isElement(element, 'blip', DRAWING_NAMESPACE));
   if (blips.length !== 1) return undefined;
@@ -544,9 +807,13 @@ function readImageBackground(
   const contentType = rasterContentType(part.contentType);
   if (!contentType) return undefined;
   return Object.freeze({
-    kind: 'image',
-    contentType,
-    bytes: new Uint8Array(part.bytes),
+    value: Object.freeze({
+      kind: 'image',
+      contentType,
+      bytes: new Uint8Array(part.bytes),
+    }),
+    reference: embedAttributes[0]!,
+    relationship,
   });
 }
 

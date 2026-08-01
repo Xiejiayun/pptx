@@ -5,6 +5,7 @@ import {
   normalizeSlideBackground,
   readSlideBackground,
   replaceSlideBackground,
+  slideBackgroundMediaTargets,
 } from './slide-background.internal.js';
 
 const PRESENTATION_NAMESPACE =
@@ -625,18 +626,13 @@ describe('atomic non-image slide background editing', () => {
     );
   });
 
-  it('rejects invalid and image values before mutation and rolls back outer transactions', () => {
+  it('rejects invalid values before mutation and rolls back outer transactions', () => {
     const pkg = backgroundPackage('');
     const before = snapshot(pkg);
     expect(() => replaceSlideBackground(pkg, SLIDE_URI, {
       kind: 'solid',
       color: { kind: 'srgb', value: 'FFF' },
     })).toThrow(TypeError);
-    expect(() => replaceSlideBackground(pkg, SLIDE_URI, {
-      kind: 'image',
-      contentType: 'image/png',
-      bytes: Uint8Array.of(1),
-    })).toThrow(/not implemented/);
     expect(snapshot(pkg)).toEqual(before);
 
     expect(() => pkg.transaction(() => {
@@ -652,6 +648,271 @@ describe('atomic non-image slide background editing', () => {
     expect(() => replaceSlideBackground(malformed, SLIDE_URI, { kind: 'none' }))
       .toThrow(/editable cSld/);
     expect(snapshot(malformed)).toEqual(malformedBefore);
+  });
+});
+
+describe('raster slide background lifecycle', () => {
+  it.each([
+    ['image/png', '.png'],
+    ['image/jpeg', '.jpeg'],
+    ['image/gif', '.gif'],
+  ] as const)('creates a detached canonical %s background', async (contentType, extension) => {
+    const pkg = backgroundPackage('');
+    const bytes = Uint8Array.of(1, 2, 3);
+    replaceSlideBackground(pkg, SLIDE_URI, {
+      kind: 'image',
+      contentType,
+      bytes,
+    });
+    bytes[0] = 9;
+
+    const relationships = pkg.relationships(SLIDE_URI).filter(({ type }) =>
+      type === IMAGE_RELATIONSHIP);
+    expect(relationships).toHaveLength(1);
+    expect(relationships[0]).toMatchObject({ targetMode: 'Internal' });
+    const target = relationships[0]!.resolvedTarget!;
+    expect(target).toMatch(new RegExp(`/ppt/media/background\\d+\\${extension}$`));
+    expect(pkg.requirePart(target)).toMatchObject({ contentType });
+    expect(pkg.requirePart(target).bytes).toEqual(Uint8Array.of(1, 2, 3));
+    expect(slideXml(pkg)).toContain(
+      `<a:blipFill><a:blip r:embed="${relationships[0]!.id}"/>`
+        + '<a:stretch><a:fillRect/></a:stretch></a:blipFill>',
+    );
+    const read = readSlideBackground(pkg, SLIDE_URI);
+    expect(read).toEqual({
+      kind: 'image',
+      contentType,
+      bytes: Uint8Array.of(1, 2, 3),
+    });
+    if (read?.kind !== 'image') throw new Error('Expected image background');
+    read.bytes[0] = 8;
+    expect(pkg.requirePart(target).bytes).toEqual(Uint8Array.of(1, 2, 3));
+    expect(slideBackgroundMediaTargets(pkg, SLIDE_URI)).toEqual([target]);
+
+    const reopened = await OpcPackage.open(await pkg.write());
+    expect(readSlideBackground(reopened, SLIDE_URI)).toEqual({
+      kind: 'image',
+      contentType,
+      bytes: Uint8Array.of(1, 2, 3),
+    });
+  });
+
+  it('no-ops exact image values, updates exclusive targets, and preserves the relationship id across MIME changes', () => {
+    const pkg = backgroundPackage('');
+    replaceSlideBackground(pkg, SLIDE_URI, {
+      kind: 'image',
+      contentType: 'image/png',
+      bytes: Uint8Array.of(1, 2, 3),
+    });
+    const relationship = pkg.relationships(SLIDE_URI).find(({ type }) =>
+      type === IMAGE_RELATIONSHIP)!;
+    const originalTarget = relationship.resolvedTarget!;
+    const exactSnapshot = snapshot(pkg);
+    replaceSlideBackground(pkg, SLIDE_URI, {
+      kind: 'image',
+      contentType: 'image/png',
+      bytes: Uint8Array.of(1, 2, 3),
+    });
+    expect(snapshot(pkg)).toEqual(exactSnapshot);
+
+    replaceSlideBackground(pkg, SLIDE_URI, {
+      kind: 'image',
+      contentType: 'image/png',
+      bytes: Uint8Array.of(4, 5, 6),
+    });
+    expect(pkg.relationships(SLIDE_URI).find(({ id }) => id === relationship.id)?.resolvedTarget)
+      .toBe(originalTarget);
+    expect(pkg.requirePart(originalTarget).bytes).toEqual(Uint8Array.of(4, 5, 6));
+
+    replaceSlideBackground(pkg, SLIDE_URI, {
+      kind: 'image',
+      contentType: 'image/jpeg',
+      bytes: Uint8Array.of(7, 8),
+    });
+    const changed = pkg.relationships(SLIDE_URI).find(({ id }) => id === relationship.id)!;
+    expect(changed.resolvedTarget).toMatch(/\.jpeg$/);
+    expect(changed.resolvedTarget).not.toBe(originalTarget);
+    expect(pkg.hasPart(originalTarget)).toBe(false);
+
+    replaceSlideBackground(pkg, SLIDE_URI, {
+      kind: 'solid',
+      color: { kind: 'srgb', value: '112233' },
+    });
+    expect(pkg.relationships(SLIDE_URI).some(({ id }) => id === relationship.id)).toBe(false);
+    expect(pkg.hasPart(changed.resolvedTarget!)).toBe(false);
+  });
+
+  it.each([
+    ['inherited background', undefined],
+    ['no fill', { kind: 'none' }],
+    ['solid fill', { kind: 'solid', color: { kind: 'srgb', value: '112233' } }],
+    ['gradient fill', {
+      kind: 'linear-gradient',
+      angle: 45,
+      stops: [
+        { offset: 0, color: 'FFFFFF' },
+        { offset: 1, color: '000000' },
+      ],
+    }],
+  ] as const)('cleans image resources when replacing with %s', (_name, replacement) => {
+    const pkg = backgroundPackage('');
+    replaceSlideBackground(pkg, SLIDE_URI, {
+      kind: 'solid',
+      color: { kind: 'scheme', value: 'accent1' },
+    });
+    replaceSlideBackground(pkg, SLIDE_URI, {
+      kind: 'image',
+      contentType: 'image/png',
+      bytes: Uint8Array.of(1, 2, 3),
+    });
+    const relationship = pkg.relationships(SLIDE_URI).find(({ type }) =>
+      type === IMAGE_RELATIONSHIP)!;
+    const target = relationship.resolvedTarget!;
+
+    replaceSlideBackground(pkg, SLIDE_URI, replacement);
+
+    expect(pkg.relationships(SLIDE_URI).some(({ id }) => id === relationship.id)).toBe(false);
+    expect(pkg.hasPart(target)).toBe(false);
+    const read = readSlideBackground(pkg, SLIDE_URI);
+    if (replacement === undefined) {
+      expect(read).toBeUndefined();
+    } else {
+      expect(read?.kind).toBe(replacement.kind);
+    }
+  });
+
+  it('isolates a relationship id shared by the background and a picture', () => {
+    const oldTarget = '/ppt/media/shared.png';
+    const pkg = packageFromSlide(
+      `<p:sld xmlns:p="${PRESENTATION_NAMESPACE}" xmlns:a="${DRAWING_NAMESPACE}" `
+        + `xmlns:r="${RELATIONSHIP_NAMESPACE}"><p:cSld><p:bg><p:bgPr>`
+        + '<a:blipFill><a:blip r:embed="rId7"/></a:blipFill></p:bgPr></p:bg>'
+        + '<p:spTree><p:pic><p:blipFill><a:blip r:embed="rId7"/></p:blipFill>'
+        + '</p:pic></p:spTree></p:cSld></p:sld>',
+      {
+        parts: [{
+          uri: oldTarget,
+          contentType: 'image/png',
+          bytes: Uint8Array.of(1),
+        }],
+        relationships: [{ id: 'rId7', type: IMAGE_RELATIONSHIP, target: oldTarget }],
+      },
+    );
+
+    replaceSlideBackground(pkg, SLIDE_URI, {
+      kind: 'image',
+      contentType: 'image/png',
+      bytes: Uint8Array.of(2),
+    });
+    const relationships = pkg.relationships(SLIDE_URI).filter(({ type }) =>
+      type === IMAGE_RELATIONSHIP);
+    expect(relationships).toHaveLength(2);
+    expect(pkg.requirePart(oldTarget).bytes).toEqual(Uint8Array.of(1));
+    expect(slideXml(pkg)).toContain('<p:blipFill><a:blip r:embed="rId7"/></p:blipFill>');
+    const replacement = relationships.find(({ id }) => id !== 'rId7')!;
+    expect(slideXml(pkg)).toContain(`<a:blipFill><a:blip r:embed="${replacement.id}"/>`);
+    expect(pkg.requirePart(replacement.resolvedTarget!).bytes).toEqual(Uint8Array.of(2));
+
+    replaceSlideBackground(pkg, SLIDE_URI, undefined);
+    expect(pkg.hasPart(replacement.resolvedTarget!)).toBe(false);
+    expect(pkg.hasPart(oldTarget)).toBe(true);
+    expect(pkg.relationships(SLIDE_URI).map(({ id }) => id)).toEqual(['rId7']);
+    expect(slideXml(pkg)).toContain('<p:blipFill><a:blip r:embed="rId7"/></p:blipFill>');
+  });
+
+  it('isolates a media target shared by separate background and picture relationships', () => {
+    const oldTarget = '/ppt/media/shared.png';
+    const pkg = packageFromSlide(
+      `<p:sld xmlns:p="${PRESENTATION_NAMESPACE}" xmlns:a="${DRAWING_NAMESPACE}" `
+        + `xmlns:r="${RELATIONSHIP_NAMESPACE}"><p:cSld><p:bg><p:bgPr>`
+        + '<a:blipFill><a:blip r:embed="rId7"/></a:blipFill></p:bgPr></p:bg>'
+        + '<p:spTree><p:pic><p:blipFill><a:blip r:embed="rId8"/></p:blipFill>'
+        + '</p:pic></p:spTree></p:cSld></p:sld>',
+      {
+        parts: [{
+          uri: oldTarget,
+          contentType: 'image/png',
+          bytes: Uint8Array.of(1),
+        }],
+        relationships: [
+          { id: 'rId7', type: IMAGE_RELATIONSHIP, target: oldTarget },
+          { id: 'rId8', type: IMAGE_RELATIONSHIP, target: oldTarget },
+        ],
+      },
+    );
+
+    replaceSlideBackground(pkg, SLIDE_URI, {
+      kind: 'image',
+      contentType: 'image/png',
+      bytes: Uint8Array.of(2),
+    });
+
+    const backgroundRelationship = pkg.relationships(SLIDE_URI).find(({ id }) =>
+      id === 'rId7')!;
+    const pictureRelationship = pkg.relationships(SLIDE_URI).find(({ id }) =>
+      id === 'rId8')!;
+    expect(backgroundRelationship.resolvedTarget).not.toBe(oldTarget);
+    expect(pictureRelationship.resolvedTarget).toBe(oldTarget);
+    expect(pkg.requirePart(oldTarget).bytes).toEqual(Uint8Array.of(1));
+    expect(pkg.requirePart(backgroundRelationship.resolvedTarget!).bytes).toEqual(Uint8Array.of(2));
+    expect(slideXml(pkg)).toContain('<a:blip r:embed="rId7"/>');
+    expect(slideXml(pkg)).toContain('<a:blip r:embed="rId8"/>');
+
+    replaceSlideBackground(pkg, SLIDE_URI, undefined);
+    expect(pkg.hasPart(backgroundRelationship.resolvedTarget!)).toBe(false);
+    expect(pkg.hasPart(oldTarget)).toBe(true);
+    expect(pkg.relationships(SLIDE_URI).map(({ id }) => id)).toEqual(['rId8']);
+  });
+
+  it('cleans image relationships hidden inside an opaque direct background', () => {
+    const target = '/ppt/media/opaque.png';
+    const pkg = backgroundPackage(
+      '<p:bg><p:bgPr><a:pattFill><a:fgClr><a:schemeClr val="accent1" '
+        + 'r:embed="rId7"/></a:fgClr></a:pattFill></p:bgPr></p:bg>',
+      {
+        parts: [{ uri: target, contentType: 'image/png', bytes: Uint8Array.of(1) }],
+        relationships: [{ id: 'rId7', type: IMAGE_RELATIONSHIP, target }],
+      },
+    );
+    expect(readSlideBackground(pkg, SLIDE_URI)).toBeUndefined();
+
+    replaceSlideBackground(pkg, SLIDE_URI, {
+      kind: 'solid',
+      color: { kind: 'srgb', value: '112233' },
+    });
+
+    expect(pkg.relationships(SLIDE_URI)).toEqual([]);
+    expect(pkg.hasPart(target)).toBe(false);
+    expect(readSlideBackground(pkg, SLIDE_URI)).toEqual({
+      kind: 'solid',
+      color: { kind: 'srgb', value: '112233' },
+    });
+  });
+
+  it('cleans only unreferenced background resources and restores all state on rollback', () => {
+    const pkg = backgroundPackage('');
+    replaceSlideBackground(pkg, SLIDE_URI, {
+      kind: 'image',
+      contentType: 'image/gif',
+      bytes: Uint8Array.of(1, 2),
+    });
+    const target = slideBackgroundMediaTargets(pkg, SLIDE_URI)[0]!;
+    const before = snapshot(pkg);
+    expect(() => pkg.transaction(() => {
+      replaceSlideBackground(pkg, SLIDE_URI, {
+        kind: 'image',
+        contentType: 'image/png',
+        bytes: Uint8Array.of(9),
+      });
+      throw new Error('rollback image background');
+    })).toThrow('rollback image background');
+    expect(snapshot(pkg)).toEqual(before);
+
+    replaceSlideBackground(pkg, SLIDE_URI, undefined);
+    expect(pkg.hasPart(target)).toBe(false);
+    expect(pkg.relationships(SLIDE_URI).filter(({ type }) => type === IMAGE_RELATIONSHIP))
+      .toEqual([]);
+    expect(slideBackgroundMediaTargets(pkg, SLIDE_URI)).toEqual([]);
   });
 });
 

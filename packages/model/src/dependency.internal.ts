@@ -1,5 +1,6 @@
 import { LosslessXmlDocument, type XmlElement } from '@pptx/lossless-xml';
 import { readMediaState } from '@pptx/codecs';
+import { slideBackgroundMediaTargets } from './slide-background.internal.js';
 import {
   partUriBasename,
   partUriDirname,
@@ -81,6 +82,9 @@ export function mediaSlideDependencyTargets(pkg: OpcPackage, slidePartUri: strin
   const xml = LosslessXmlDocument.parse(pkg.requirePart(slidePartUri).bytes);
   const relationships = new Map(pkg.relationships(slidePartUri).map((relationship) => [relationship.id, relationship]));
   const targets = new Set<string>();
+  for (const target of slideBackgroundMediaTargets(pkg, slidePartUri)) {
+    targets.add(target);
+  }
   for (const picture of xml.elements('pic')) {
     if (!readMediaState(pkg, slidePartUri, xml, picture)) continue;
     for (const { element, attribute } of mediaRelationshipReferences(xml, picture)) {

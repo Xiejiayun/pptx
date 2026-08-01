@@ -455,6 +455,60 @@ describe('PresentationModel', () => {
     expect(slide.background).toBeUndefined();
   });
 
+  it('isolates duplicated image backgrounds and garbage-collects only the final target', () => {
+    const { pkg, model } = emptyPresentationModel();
+    const source = model.addSlide();
+    source.background = {
+      kind: 'image',
+      contentType: 'image/png',
+      bytes: Uint8Array.of(1, 2, 3),
+    };
+    const sourceRelationship = source.relationships.find(({ type }) =>
+      type === IMAGE_RELATIONSHIP)!;
+    const sharedTarget = sourceRelationship.resolvedTarget!;
+
+    const duplicate = model.duplicateSlide(0);
+    expect(duplicate.relationships.find(({ type }) => type === IMAGE_RELATIONSHIP)?.resolvedTarget)
+      .toBe(sharedTarget);
+    duplicate.background = {
+      kind: 'image',
+      contentType: 'image/png',
+      bytes: Uint8Array.of(9, 8, 7),
+    };
+    const duplicateTarget = duplicate.relationships.find(({ type }) =>
+      type === IMAGE_RELATIONSHIP)!.resolvedTarget!;
+    expect(duplicateTarget).not.toBe(sharedTarget);
+    expect(source.background).toMatchObject({ bytes: Uint8Array.of(1, 2, 3) });
+    expect(duplicate.background).toMatchObject({ bytes: Uint8Array.of(9, 8, 7) });
+
+    model.deleteSlide(1);
+    expect(pkg.hasPart(duplicateTarget)).toBe(false);
+    expect(pkg.hasPart(sharedTarget)).toBe(true);
+    model.deleteSlide(0);
+    expect(pkg.hasPart(sharedTarget)).toBe(false);
+  });
+
+  it.each([
+    ['source then duplicate', 0],
+    ['duplicate then source', 1],
+  ] as const)('retains a shared image background when deleting %s', (_name, firstIndex) => {
+    const { pkg, model } = emptyPresentationModel();
+    const source = model.addSlide();
+    source.background = {
+      kind: 'image',
+      contentType: 'image/png',
+      bytes: Uint8Array.of(1, 2, 3),
+    };
+    const target = source.relationships.find(({ type }) =>
+      type === IMAGE_RELATIONSHIP)!.resolvedTarget!;
+    model.duplicateSlide(0);
+
+    model.deleteSlide(firstIndex);
+    expect(pkg.hasPart(target)).toBe(true);
+    model.deleteSlide(0);
+    expect(pkg.hasPart(target)).toBe(false);
+  });
+
   it('creates preset shapes through the live model and rejects unsafe shape ids atomically', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);
