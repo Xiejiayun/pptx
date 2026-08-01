@@ -84,40 +84,61 @@ Inputs: `Uint8Array`, `ArrayBuffer`, `Blob`/`File`, Web `ReadableStream`, or asy
 
 ```ts
 import {
+  calculateRasterImageSizing,
   degrees,
   inches,
   inspectRasterImage,
   type AddImageSourceOptions,
+  type RasterImageSizing,
 } from '@pptx/sdk';
 
 declare const updatedPngBytes: Uint8Array;
+const sizing: RasterImageSizing = {
+  type: 'cover',
+  width: inches(5),
+  height: inches(3),
+};
 const options: AddImageSourceOptions = {
   name: 'Quarterly chart',
   altText: 'Revenue by quarter',
   x: inches(1),
   y: inches(1.5),
-  width: inches(5),
-  height: inches(3),
+  sizing,
   rotation: degrees(10),
 };
 const image = await created.addImage(0, 'chart.png', options);
 const info = inspectRasterImage(updatedPngBytes);
 console.log(info); // { contentType: 'image/png', width, height }
+const crop = calculateRasterImageSizing(info, {
+  type: 'crop',
+  width: inches(3),
+  height: inches(2),
+  source: { x: 400, y: 225, width: 800, height: 450 },
+});
+console.log(crop); // target width/height plus four-edge sourceRectangle
 image.setTransform({ x: inches(1.5) });
+image.sourceRectangle = { left: 10, top: -5, right: 5, bottom: 0 };
+image.sourceRectangle = undefined;
 image.replaceData(updatedPngBytes, 'image/png');
 ```
 
 `PptxDocument.addImage(slideIndex, source, options?)` returns `Promise<ImageModel>`. `RasterImageSource` accepts Node file paths, HTTP/HTTPS URLs, browser-relative URLs, strict base64 data URIs, `Uint8Array`, `ArrayBuffer`, `Blob`/`File`, Web `ReadableStream`, and async byte iterables. PNG/JPEG/GIF content type and raw pixel dimensions are detected exclusively from byte signatures and format structure. `AddImageSourceOptions.contentType` is an optional canonical MIME assertion, and `signal` aborts file, Fetch, Blob, or stream loading. A source assertion mismatch, unsupported/truncated bytes, failed load, invalid slide index, or invalid options rejects before package mutation. File extensions and transport metadata are intentionally ignored.
 
-`inspectRasterImage(bytes)` exposes the same canonical `{ contentType, width, height }` inspection without mutation. Omitted transforms remain x/y 0, width/height one inch, rotation 0, and both flips false; intrinsic pixels do not automatically determine slide size. Omitted names use the current slide image count as `Image N`; omitted alt text is `preencoded.png`, while direct empty name and alt text remain empty. The synchronous lower-level `SlideModel.addImage(bytes, options)` continues to require a non-empty `Uint8Array` plus canonical `RasterImageContentType`, immediately copies bytes, validates descriptor-safe options without invoking getters, and returns the same live `ImageModel` found in `slide.shapes`.
+`inspectRasterImage(bytes)` exposes the same canonical `{ contentType, width, height }` inspection without mutation. Pure `calculateRasterImageSizing(info, sizing)` accepts a positive-safe-integer EMU target frame. `contain` preserves the complete source and may produce negative source-rectangle edges; `cover` fills the frame with symmetric crop; `crop` maps an explicit finite source-pixel region. Results and nested source rectangles are detached and frozen, with each edge quantized once to 0.001%. Omitted transforms remain x/y 0, width/height one inch, rotation 0, and both flips false; intrinsic pixels do not automatically determine slide size.
+
+When `AddImageSourceOptions.sizing` is present, top-level `width` or `height` is a type and runtime error. High-level direct `sourceRectangle` is not accepted. The complete options/sizing tree is normalized and detached before source I/O, and the sizing calculation completes before package mutation; invalid sizing, source failure, MIME mismatch, extreme contain, or out-of-bounds crop leaves the package unchanged. Omitted names use the current slide image count as `Image N`; omitted alt text is `preencoded.png`, while direct empty name and alt text remain empty.
 
 Each call allocates one unique `/ppt/media/imageN.{png|jpeg|gif}` part with the exact supplied content type and bytes, one internal image relationship from the slide, and canonical `p:pic` XML with rectangular geometry, `noChangeAspect`, and stretch/fillRect. Normalization happens before mutation, while part/relationship/XML writes run in one package transaction; any failure restores parts, content types, relationships, ZIP state, slide XML, shape IDs, object identity, and mutation journal. Unsupported or unknown options, empty/wrong-type bytes, noncanonical MIME values, unsafe transforms, invalid XML strings, and zero/nonpositive extents are rejected with no package change.
 
-The returned `ImageModel` exposes its inherited name/transform lifecycle plus `sourcePartUri`, `externalUrl`, and `replaceData()`. An exclusive embedded target is replaced in place; a shared target or relationship is cloned and only that image is retargeted. `duplicateSlide()` therefore starts with shared image parts and replacement isolates the edited duplicate. Creation and lifecycle are covered across pptx/pptm/ppsx/ppsm/potx/potm, Node and browser bundles, declarations, CLI smoke, and write/reopen.
+The synchronous lower-level `SlideModel.addImage(bytes, options)` requires a non-empty copied `Uint8Array` plus canonical `RasterImageContentType`, and may accept direct `sourceRectangle`. `ImageSourceRectangle.left/top/right/bottom` are percentages where `1` means 1%; every edge must be less than 100, horizontal and vertical pair sums must each leave positive source area, and negative values support contain. The direct value is quantized to 0.001% DrawingML integer percentages. The returned live `ImageModel.sourceRectangle` getter provides a detached frozen snapshot; assignment whole-replaces or repairs the single direct `a:srcRect`, same-value assignment is an exact no-op, and `undefined` clears it while preserving the image payload, relationship, transform, effects, and neighboring fill state.
 
-Valid PptxGenJS 4.0.1 public path/data PNG/JPEG/GIF output reaches the same supported final state through the high-level loader. Native remains strict instead of reproducing PptxGenJS's path/data precedence, invalid console-only behavior, falsy sizing fallback, or noncanonical `image/jpg` output. The actual-tarball four-slide gallery has 32 shapes and 12 images covering path, bytes, `ArrayBuffer`, data URI, `Blob`, Web stream, async iterable, and HTTP URL sources. Source and LibreOffice round-trip packages both reopen strictly, validate against PowerPoint 2010 with 0 errors and 0 warnings, render at 180 DPI (2400×1350) without overflow, and were visually inspected. LibreOffice retains 12/12 image payload hashes, content types, names, non-empty alt text, order, and internal relationships; it deduplicates 12 repeated payload targets to three, quantizes transforms by at most 432 EMU, and rewrites all 12 picture markup blocks.
+The returned `ImageModel` also exposes its inherited name/transform lifecycle plus `sourcePartUri`, `externalUrl`, and `replaceData()`. An exclusive embedded target is replaced in place; a shared target or relationship is cloned and only that image is retargeted. `duplicateSlide()` therefore starts with shared image parts and replacement isolates the edited duplicate. Creation and lifecycle are covered across pptx/pptm/ppsx/ppsm/potx/potm, Node and browser bundles, declarations, CLI smoke, and write/reopen.
 
-Contain/cover/crop sizing, SVG, rounding/transparency, alt-text editing, image hyperlink/shadow/placeholder support, and public per-image deletion/media garbage collection are not part of this slice.
+Valid PptxGenJS 4.0.1 public path/data PNG/JPEG/GIF output reaches the same loader state. Six public contain/cover/equal-ratio/crop cases also match native final transform and direct `srcRect` integer percentages exactly. Native stays strict instead of reproducing PptxGenJS path/data precedence, console-only invalid handling, truthy sizing fallback, ambiguous outer/nested dimensions, or noncanonical `image/jpg` output. The actual tarball passes Node/browser/declaration/CLI smoke, and two clean builds produce identical SHA-256 manifests for all 38 dist files.
+
+The sizing gallery has four slides, 40 shapes, and 12 images. Source and LibreOffice round-trip packages reopen strictly, validate against PowerPoint 2010 with 0 errors and 0 warnings, report zero overflow, and were visually inspected page by page. LibreOffice retains 12/12 payload hashes, content types, names, non-empty alt text, order, and internal relationships; it deduplicates the 12 repeated payload targets to three and rewrites all 12 picture blocks. The maximum transform quantization is 360 EMU, the maximum source-rectangle quantization is 0.007%, and two flips normalize equivalently to an added 180-degree rotation. Source 180-DPI pages are 2400×1350. The round-trip page width is client-normalized, producing 2401×1350 directly at 180 DPI and a proportional 2400×1350 inspection raster.
+
+SVG is the next image item. Rounding/transparency, alt-text editing, image hyperlink/shadow/placeholder support, and public per-image deletion/media garbage collection remain outside this slice.
 
 ## Presentation format
 

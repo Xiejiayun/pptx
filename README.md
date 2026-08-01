@@ -21,20 +21,26 @@ await document.writeFile('output.pptx');
 ```ts
 import { readFile } from 'node:fs/promises';
 import {
+  calculateRasterImageSizing,
   degrees,
   inches,
   inspectRasterImage,
   PptxDocument,
   type AddImageSourceOptions,
+  type RasterImageSizing,
 } from '@jiayunxie/pptx';
 
+const sizing: RasterImageSizing = {
+  type: 'cover',
+  width: inches(5),
+  height: inches(3),
+};
 const options: AddImageSourceOptions = {
   name: 'Quarterly chart',
   altText: 'Revenue by quarter',
   x: inches(1),
   y: inches(1.5),
-  width: inches(5),
-  height: inches(3),
+  sizing,
   rotation: degrees(10),
 };
 
@@ -43,20 +49,27 @@ document.addSlide();
 const image = await document.addImage(0, 'chart.png', options);
 const info = inspectRasterImage(new Uint8Array(await readFile('chart.png')));
 console.log(info); // { contentType: 'image/png', width, height }
+console.log(calculateRasterImageSizing(info, sizing));
 image.setTransform({ x: inches(1.5) });
+image.sourceRectangle = { left: 10, top: -5, right: 5, bottom: 0 };
+image.sourceRectangle = undefined;
 image.replaceData(new Uint8Array(await readFile('chart-updated.png')), 'image/png');
 await document.writeFile('images.pptx');
 ```
 
 `PptxDocument.addImage()` 接受 Node 本地路径、HTTP/HTTPS URL、浏览器相对 URL、strict base64 data URI、`Uint8Array`、`ArrayBuffer`、`Blob`/`File`、Web `ReadableStream` 和 async byte iterable。格式只以 bytes signature 为准，支持 PNG/JPEG/GIF；`AddImageSourceOptions.contentType` 是可选 assertion，不一致会在 package mutation 前拒绝。`signal` 可中止文件、Fetch、Blob 和 stream 加载。文件扩展名、`Blob.type`、HTTP `Content-Type` 和 `File.name` 不参与格式判断。
 
-`inspectRasterImage()` 返回 signature 检测出的 canonical content type 与 raw pixel width/height；PNG 读取 direct IHDR，GIF 读取 logical screen，JPEG 安全遍历所有尺寸型 SOF marker。当前仍保留 PptxGenJS 的 1-inch 默认 transform，不会自动把 intrinsic pixels 转为布局尺寸。底层同步 `SlideModel.addImage(bytes, { contentType, ... })` 仍用于调用方已持有 bytes 的严格原子创建。
+`inspectRasterImage()` 返回 signature 检测出的 canonical content type 与 raw pixel width/height；PNG 读取 direct IHDR，GIF 读取 logical screen，JPEG 安全遍历所有尺寸型 SOF marker。`calculateRasterImageSizing()` 是不读取 package 的纯计算器，接受 EMU target frame，并为 `contain`、`cover` 或 source-pixel `crop` 返回同尺寸 transform 与四边 `sourceRectangle`。高层 `sizing` 与 top-level `width`/`height` 互斥；省略 `sizing` 时仍保留 PptxGenJS 的 1-inch 默认 transform，不会自动把 intrinsic pixels 转为布局尺寸。
+
+底层同步 `SlideModel.addImage(bytes, { contentType, sourceRectangle, ... })` 用于调用方已持有 bytes 的严格原子创建。`ImageSourceRectangle` 的 `left/top/right/bottom` 单位为百分比，`1` 表示 1%，精度为 0.001%；负值用于 contain 扩展可见源区域。`ImageModel.sourceRectangle` 返回 detached frozen snapshot，可 whole-replace，赋 `undefined` 清除 direct `a:srcRect`。高层 `PptxDocument.addImage()` 不接受 direct `sourceRectangle`，调用方应使用 `sizing`；options/sizing 会在任何异步 source I/O 前脱离 caller，计算也在 package mutation 前完成。
 
 每次创建原子地拥有一个唯一 media part、一个 internal image relationship 和一个 canonical rectangular picture；任何验证或写入失败都会回滚 package、关系、slide XML 与 mutation journal。复制页面先共享图片 part，`ImageModel.replaceData()` 对独占 target 原位更新，对共享 target clone-on-write；六种 presentation format 都可创建、写出和重开。
 
-锁定 PptxGenJS 4.0.1 的公开 path/data PNG/JPEG/GIF 输出与高层 loader 形成相同最终语义。实际 npm tarball 的 Node/browser/types/CLI smoke 与 4 页、32 shapes、12 图片 gallery 已通过；原件和 LibreOffice 回存件均为 PowerPoint 2010 validation 0 errors / 0 warnings，2400×1350 渲染无 overflow，并逐页检查。LibreOffice 保留 12/12 图片的 payload SHA、content type、名称、非空 alt text、顺序和 internal relationship，transform 最大量化 432 EMU；它会把 12 个重复 payload target 去重为 3 个并重写全部 picture markup。
+锁定 PptxGenJS 4.0.1 的公开 path/data PNG/JPEG/GIF loader 语义，并对 contain/cover/equal-ratio/crop 的 6 个 sizing case 精确匹配最终 transform 与 direct `srcRect`。实际 npm tarball 的 Node/browser/types/CLI smoke 通过，连续两次构建的 38 个 dist 文件 SHA-256 完全一致。4 页、40 shapes、12 图片 sizing gallery 的原件和 LibreOffice 回存件均可严格重开，PowerPoint 2010 validation 为 0 errors / 0 warnings，overflow 为 0，并已逐页检查。
 
-当前仍未提供 contain/cover/crop sizing、SVG、rounding/transparency、alt-text 编辑、图片 hyperlink/shadow/placeholder，以及单图片删除与 media GC。
+LibreOffice 保留 12/12 图片的 payload SHA、content type、名称、非空 alt text、顺序和 internal relationship；它把 12 个重复 payload target 去重为 3 个并重写全部 picture markup。最大 transform 量化为 360 EMU，最大 `srcRect` 量化为 0.007%，双翻转被等价规范化为旋转增加 180°。原件 180 DPI 输出为 2400×1350；回存件把页面宽度规范化后直接输出为 2401×1350，逐页检查使用等比例 2400×1350 raster。
+
+下一图片小项是 SVG。当前仍未提供 rounding/transparency、alt-text 编辑、图片 hyperlink/shadow/placeholder，以及单图片删除与 media GC。
 
 ## 创建和编辑预设形状、调整值与样式
 

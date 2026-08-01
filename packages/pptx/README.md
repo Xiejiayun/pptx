@@ -165,20 +165,26 @@ await document.writeFile('created.pptx');
 ```ts
 import { readFile } from 'node:fs/promises';
 import {
+  calculateRasterImageSizing,
   degrees,
   inches,
   inspectRasterImage,
   PptxDocument,
   type AddImageSourceOptions,
+  type RasterImageSizing,
 } from '@jiayunxie/pptx';
 
+const sizing: RasterImageSizing = {
+  type: 'cover',
+  width: inches(5),
+  height: inches(3),
+};
 const options: AddImageSourceOptions = {
   name: 'Quarterly chart',
   altText: 'Revenue by quarter',
   x: inches(1),
   y: inches(1.5),
-  width: inches(5),
-  height: inches(3),
+  sizing,
   rotation: degrees(10),
 };
 const imageDocument = PptxDocument.create();
@@ -186,20 +192,27 @@ imageDocument.addSlide();
 const image = await imageDocument.addImage(0, 'chart.png', options);
 const info = inspectRasterImage(new Uint8Array(await readFile('chart.png')));
 console.log(info); // { contentType: 'image/png', width, height }
+console.log(calculateRasterImageSizing(info, sizing));
 image.setTransform({ x: inches(1.5) });
+image.sourceRectangle = { left: 10, top: -5, right: 5, bottom: 0 };
+image.sourceRectangle = undefined;
 image.replaceData(new Uint8Array(await readFile('chart-updated.png')), 'image/png');
 await imageDocument.writeFile('images.pptx');
 ```
 
 `PptxDocument.addImage()` accepts Node file paths, HTTP/HTTPS URLs, browser-relative URLs, strict base64 data URIs, `Uint8Array`, `ArrayBuffer`, `Blob`/`File`, Web `ReadableStream`, and async byte iterables. Byte signatures are the only source of truth for PNG/JPEG/GIF format; optional `AddImageSourceOptions.contentType` is an assertion rejected before package mutation when it disagrees. `signal` aborts file, Fetch, Blob, and stream loading. File extensions, `Blob.type`, HTTP `Content-Type`, and `File.name` are not trusted for format detection.
 
-`inspectRasterImage()` returns the canonical content type plus raw pixel width and height detected from the signature and format structure. The high-level loader retains the PptxGenJS-compatible one-inch default transform and does not convert intrinsic pixels into layout size. The synchronous lower-level `SlideModel.addImage(bytes, { contentType, ... })` remains available when callers already hold strict bytes and a canonical content type; it copies the bytes before mutation and returns the exact live `ImageModel` stored in `slide.shapes`.
+`inspectRasterImage()` returns the canonical content type plus raw pixel width and height detected from the signature and format structure. Pure `calculateRasterImageSizing()` accepts an EMU target frame and returns the same transform size plus a four-edge source rectangle for `contain`, `cover`, or a source-pixel `crop` region. High-level `sizing` is mutually exclusive with top-level `width`/`height`; when sizing is omitted, the loader retains the PptxGenJS-compatible one-inch default transform and does not infer layout size from intrinsic pixels.
+
+The synchronous lower-level `SlideModel.addImage(bytes, { contentType, sourceRectangle, ... })` remains available when callers already hold strict bytes and a canonical content type. `ImageSourceRectangle.left/top/right/bottom` use percent units where `1` means 1%, quantized to 0.001%; negative values extend the visible source area for contain. Live `ImageModel.sourceRectangle` returns a detached frozen snapshot, whole-replaces on assignment, and clears direct `a:srcRect` when assigned `undefined`. High-level `PptxDocument.addImage()` rejects direct `sourceRectangle`; callers use `sizing`. Options detach before asynchronous source I/O, and sizing finishes before package mutation.
 
 Creation atomically owns one unique media part, one internal image relationship, and one canonical rectangular picture with aspect lock and stretch fill. Validation or write failure rolls back the part, content type, relationship, slide XML, and mutation journal. Slide duplication initially shares media targets; `ImageModel.replaceData()` updates an exclusive target in place and redirects a shared shape to a private clone. Creation, transform editing, replacement, duplication, rollback, write/reopen, and all six presentation formats are covered.
 
-Valid PptxGenJS 4.0.1 public path/data PNG/JPEG/GIF output reaches the same supported final semantics through the high-level loader. The actual npm tarball passes Node, browser, declaration, and CLI smoke. Its four-slide gallery contains 32 shapes and 12 images covering path, bytes, `ArrayBuffer`, data URI, `Blob`, Web stream, async iterable, and HTTP URL sources. Source and LibreOffice round-trip packages both strictly reopen, validate with 0 errors and 0 warnings, render at 2400×1350 without overflow, and were reviewed slide by slide. LibreOffice preserves 12/12 payload hashes, content types, names, non-empty alt text, ordering, and internal relationships; it deduplicates 12 repeated payload targets to three, quantizes transforms by at most 432 EMU, and rewrites all 12 picture markup blocks.
+Valid PptxGenJS 4.0.1 public path/data PNG/JPEG/GIF output reaches the same supported loader semantics, and six contain/cover/equal-ratio/crop cases match final transforms and direct source rectangles exactly. The actual npm tarball passes Node, browser, declaration, and CLI smoke; two clean builds produce identical SHA-256 manifests for all 38 dist files. The sizing gallery has four slides, 40 shapes, and 12 images. Source and LibreOffice round-trip packages strictly reopen, validate with 0 errors and 0 warnings, report zero overflow, and were reviewed slide by slide.
 
-Contain/cover/crop sizing, SVG, rounding/transparency, alt-text editing, image hyperlinks/shadows/placeholders, and public image deletion/media garbage collection remain pending.
+LibreOffice preserves 12/12 payload hashes, content types, names, non-empty alt text, ordering, and internal relationships; it deduplicates 12 repeated payload targets to three and rewrites all 12 picture blocks. Its largest transform quantization is 360 EMU, its largest source-rectangle quantization is 0.007%, and two flips normalize equivalently to an added 180-degree rotation. The source renders at 2400×1350 at 180 DPI. LibreOffice normalizes the round-trip page width, so its direct 180-DPI raster is 2401×1350; the inspected proportional raster is 2400×1350.
+
+SVG is the next image item. Rounding/transparency, alt-text editing, image hyperlinks/shadows/placeholders, and public image deletion/media garbage collection remain pending.
 
 `PRESET_SHAPE_TYPES` is the frozen discovery catalog for all 178 canonical preset geometries accepted by `SlideModel.addShape()`. `AddShapeOptions` accepts `name`, strict `adjustments`, strict `fill`, strict `line`, strict `arrows`, strict `shadow`, strict `hyperlink`, and native EMU/OOXML-angle transform fields; use `inches()` and `degrees()` for ergonomic conversion. Omitted geometry starts at x/y/width/height = 1 inch with zero rotation and no flips; omitted fill creates direct no-fill, and omitted line keeps the canonical empty line container. Inputs are strict, descriptor-safe, detached before mutation, and reject unknown fields. The catalog uses the valid OOXML `foldedCorner`; PptxGenJS 4.0.1's invalid `folderCorner` token and runtime-only `custGeom` value are not accepted as presets.
 
