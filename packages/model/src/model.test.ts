@@ -589,6 +589,115 @@ describe('PresentationModel', () => {
     expect(() => video.name).toThrow(/was not found/);
   });
 
+  it('edits live media metadata, transform, and playback preferences atomically', async () => {
+    const { pkg, model } = emptyPresentationModel();
+    const slide = model.addSlide();
+    const media = await slide.addAudio(Uint8Array.of(1, 2, 3), {
+      name: 'Original',
+      altText: 'Original description',
+      contentType: 'audio/mpeg',
+      play: 'click',
+    });
+    const originalPart = pkg.requirePart(slide.partUri);
+    pkg.setPart(
+      slide.partUri,
+      new TextDecoder().decode(originalPart.bytes)
+        .replace('</p:sld>', '<p:timing><p:tnLst/></p:timing></p:sld>'),
+      originalPart.contentType,
+    );
+
+    const noOp = packageSnapshot(pkg);
+    media.name = 'Original';
+    media.altText = 'Original description';
+    media.settings = { play: 'click', loop: false, hideWhenStopped: false, volume: 1 };
+    expect(packageSnapshot(pkg)).toEqual(noOp);
+
+    media.name = 'Audio & <narration>';
+    media.altText = '';
+    media.setTransform({
+      x: inches(1),
+      y: inches(2),
+      width: inches(3),
+      height: inches(4),
+      rotation: degrees(90),
+      flipHorizontal: true,
+      flipVertical: true,
+    });
+    media.settings = {
+      play: 'auto',
+      loop: true,
+      hideWhenStopped: true,
+      volume: 0.125,
+    };
+    expect(media.name).toBe('Audio & <narration>');
+    expect(media.altText).toBe('');
+    expect(media.transform).toEqual({
+      x: inches(1),
+      y: inches(2),
+      width: inches(3),
+      height: inches(4),
+      rotation: degrees(90),
+      flipHorizontal: true,
+      flipVertical: true,
+    });
+    expect(media.settings).toEqual({
+      play: 'auto',
+      loop: true,
+      hideWhenStopped: true,
+      volume: 0.125,
+    });
+    expect(slide.media[0]).toBe(media);
+    const editedSource = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect(editedSource).toContain('name="Audio &amp; &lt;narration&gt;" descr=""');
+    expect(editedSource).toContain('<p:timing><p:tnLst/></p:timing>');
+
+    media.altText = undefined;
+    media.settings = undefined;
+    expect(media.altText).toBeUndefined();
+    expect(media.settings).toEqual({});
+    const clearedSource = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect(clearedSource).not.toContain(' descr=');
+    expect(clearedSource).not.toContain('px:playback');
+    expect(clearedSource).toContain('<p:timing><p:tnLst/></p:timing>');
+
+    const beforeInvalid = packageSnapshot(pkg);
+    let reads = 0;
+    const unsafe = Object.defineProperty({}, 'play', {
+      enumerable: true,
+      get() { reads += 1; return 'auto'; },
+    });
+    expect(() => { media.settings = unsafe as never; }).toThrow(/data property/);
+    expect(() => { media.name = '\u0001'; }).toThrow(/invalid XML/);
+    expect(reads).toBe(0);
+    expect(packageSnapshot(pkg)).toEqual(beforeInvalid);
+
+    expect(() => pkg.transaction(() => {
+      media.name = 'Rolled back';
+      media.altText = 'Rolled back';
+      media.settings = { play: 'auto', loop: true };
+      throw new Error('rollback media editing');
+    })).toThrow('rollback media editing');
+    expect(media.name).toBe('Audio & <narration>');
+    expect(media.altText).toBeUndefined();
+    expect(media.settings).toEqual({});
+
+    const duplicate = model.duplicateSlide(0);
+    const duplicateMedia = duplicate.media[0]!;
+    duplicateMedia.name = 'Duplicate only';
+    duplicateMedia.altText = 'Duplicate description';
+    duplicateMedia.settings = { play: 'auto', volume: 0.5 };
+    expect(duplicateMedia.name).toBe('Duplicate only');
+    expect(media.name).toBe('Audio & <narration>');
+    expect(media.altText).toBeUndefined();
+    expect(media.settings).toEqual({});
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedMedia = reopened.slides.find(({ partUri }) => partUri === slide.partUri)!.media[0]!;
+    expect(reopenedMedia.name).toBe('Audio & <narration>');
+    expect(reopenedMedia.transform).toEqual(media.transform);
+    expect(reopenedMedia.settings).toEqual({});
+  });
+
   it('creates embedded SVG images atomically before shape-tree extensions', () => {
     const { pkg, model } = emptyPresentationModel();
     const slide = model.addSlide();

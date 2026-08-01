@@ -9,6 +9,7 @@ import {
   MediaCodec,
   type AddMediaOptions,
   type GradientFill,
+  type MediaPlaybackSettings,
   type MediaSource,
 } from '@pptx/codecs';
 import {
@@ -387,6 +388,21 @@ export class SlideModel {
     const descriptor = await new MediaCodec(this.presentation.opcPackage)
       .addVideo(this.partUri, source, options);
     return this.requireMedia(descriptor.shapeId);
+  }
+
+  setMediaName(shapeId: number, value: string): void {
+    new MediaCodec(this.presentation.opcPackage).setName(this.partUri, shapeId, value);
+  }
+
+  setMediaAltText(shapeId: number, value: string | undefined): void {
+    new MediaCodec(this.presentation.opcPackage).setAltText(this.partUri, shapeId, value);
+  }
+
+  setMediaSettings(
+    shapeId: number,
+    value: MediaPlaybackSettings | undefined,
+  ): void {
+    new MediaCodec(this.presentation.opcPackage).setSettings(this.partUri, shapeId, value);
   }
 
   get opaqueExtensionCount(): number {

@@ -342,6 +342,14 @@ export class ShapeModel extends BaseShapeModel {
 export class MediaModel extends BaseShapeModel {
   declare readonly kind: MediaKind;
 
+  override get name(): string {
+    return super.name;
+  }
+
+  override set name(value: string) {
+    this.slide.setMediaName(this.id, value);
+  }
+
   get shapeId(): number {
     return this.id;
   }
@@ -352,6 +360,10 @@ export class MediaModel extends BaseShapeModel {
 
   get altText(): string | undefined {
     return this.state().altText;
+  }
+
+  set altText(value: string | undefined) {
+    this.slide.setMediaAltText(this.id, value);
   }
 
   get mediaPartUri(): string | undefined {
@@ -368,6 +380,10 @@ export class MediaModel extends BaseShapeModel {
 
   get settings(): Readonly<MediaPlaybackSettings> {
     return this.state().settings;
+  }
+
+  set settings(value: MediaPlaybackSettings | undefined) {
+    this.slide.setMediaSettings(this.id, value);
   }
 
   private state(): Readonly<MediaState> {

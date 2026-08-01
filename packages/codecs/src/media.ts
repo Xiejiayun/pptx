@@ -5,6 +5,14 @@ import {
   normalizeMediaCreateRequest,
   renderMediaPictureXml,
 } from './media-create.internal.js';
+import {
+  mediaPlaybackSettingsEqual,
+  normalizeMediaAltText,
+  normalizeMediaName,
+  normalizeMediaPlaybackSettings,
+  replaceMediaMetadataAttribute,
+  replaceMediaPlaybackExtension,
+} from './media-edit.internal.js';
 import { resolveMediaCreationInputs } from './media-source.internal.js';
 import { readMediaState } from './media-state.internal.js';
 import type { CodecDiagnostic } from './registry.js';
@@ -85,6 +93,31 @@ export class MediaCodec {
     return xml.elements('pic')
       .map((picture) => readMediaState(this.pkg, slidePartUri, xml, picture))
       .filter((state): state is NonNullable<typeof state> => state !== undefined);
+  }
+
+  setName(slidePartUri: string, shapeId: number, value: string): void {
+    const normalized = normalizeMediaName(value);
+    this.editPicture(slidePartUri, shapeId, (xml, picture) =>
+      replaceMediaMetadataAttribute(xml, picture, 'name', normalized));
+  }
+
+  setAltText(slidePartUri: string, shapeId: number, value: string | undefined): void {
+    const normalized = normalizeMediaAltText(value);
+    this.editPicture(slidePartUri, shapeId, (xml, picture) =>
+      replaceMediaMetadataAttribute(xml, picture, 'descr', normalized));
+  }
+
+  setSettings(
+    slidePartUri: string,
+    shapeId: number,
+    value: MediaPlaybackSettings | undefined,
+  ): void {
+    const normalized = normalizeMediaPlaybackSettings(value);
+    this.editPicture(slidePartUri, shapeId, (xml, picture) => {
+      const state = readMediaState(this.pkg, slidePartUri, xml, picture)!;
+      if (normalized && mediaPlaybackSettingsEqual(state.settings, normalized)) return false;
+      return replaceMediaPlaybackExtension(xml, picture, normalized);
+    });
   }
 
   delete(slidePartUri: string, shapeId: number): void {
@@ -255,6 +288,27 @@ export class MediaCodec {
           volume: definition.volume,
         },
       };
+    });
+  }
+
+  private editPicture(
+    slidePartUri: string,
+    shapeId: number,
+    edit: (xml: LosslessXmlDocument, picture: XmlElement) => boolean,
+  ): void {
+    this.pkg.transaction(() => {
+      const part = this.pkg.requirePart(slidePartUri);
+      const xml = LosslessXmlDocument.parse(part.bytes);
+      const picture = xml.elements('pic').find((candidate) => {
+        const properties = xml.descendants(candidate, 'cNvPr')[0];
+        return Number(properties ? xml.attribute(properties, 'id')?.value : -1) === shapeId;
+      });
+      if (!picture || !readMediaState(this.pkg, slidePartUri, xml, picture)) {
+        throw new Error(`Media shape ${shapeId} was not found on ${slidePartUri}`);
+      }
+      if (edit(xml, picture)) {
+        this.pkg.setPart(slidePartUri, xml.serialize(), part.contentType);
+      }
     });
   }
 

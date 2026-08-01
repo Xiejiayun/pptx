@@ -274,9 +274,27 @@ describe('PptxDocument vertical slice', () => {
     expect(document.media(0)[0]).toBe(media);
     expect(document.slides[0]!.media[0]).toBe(media);
     expect(document.slides[0]!.shapes[0]).toBe(media);
+    media.name = 'Typed narration edited';
+    media.altText = undefined;
+    media.settings = { play: 'click', volume: 1 };
+    media.setTransform({ x: inches(1), y: inches(2), width: inches(3), height: inches(4) });
+    expect(document.media(0)[0]).toBe(media);
+    expect(media.name).toBe('Typed narration edited');
+    expect(media.altText).toBeUndefined();
+    expect(media.settings).toEqual({
+      play: 'click',
+      loop: false,
+      hideWhenStopped: false,
+      volume: 1,
+    });
     expect(media).toMatchObject({
       kind: 'audio',
-      settings: { play: 'auto', loop: true, hideWhenStopped: true, volume: 0.25 },
+      transform: {
+        x: inches(1),
+        y: inches(2),
+        width: inches(3),
+        height: inches(4),
+      },
     });
 
     if (false) {
