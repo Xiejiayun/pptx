@@ -9,6 +9,7 @@
   "dependencies": {
     "@pptx/codecs": "workspace:*",
     "@pptx/lossless-xml": "workspace:*",
+    "@pptx/model": "workspace:*",
     "@pptx/opc": "workspace:*"
   },
   "devDependencies": {

@@ -167,6 +167,9 @@ importers:
       '@pptx/lossless-xml':
         specifier: workspace:*
         version: link:../../packages/lossless-xml
+      '@pptx/model':
+        specifier: workspace:*
+        version: link:../../packages/model
       '@pptx/opc':
         specifier: workspace:*
         version: link:../../packages/opc

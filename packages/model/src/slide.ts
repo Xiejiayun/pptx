@@ -40,6 +40,7 @@ import {
   planChartWorkbook,
 } from './chart-workbook.internal.js';
 import { ModelParseError } from './errors.js';
+import { garbageCollectOwnedDependencies } from './dependency.internal.js';
 import type { Hyperlink } from './hyperlink.js';
 import type {
   AddImageOptions,
@@ -1128,6 +1129,56 @@ export class SlideModel {
     );
   }
 
+  deleteChart(shapeId: number): void {
+    this.presentation.opcPackage.transaction(() => {
+      const pkg = this.presentation.opcPackage;
+      const { xml, element } = this.resolveShape(shapeId);
+      if (element.localName !== 'graphicFrame') {
+        throw new ModelParseError(`Chart shape ${shapeId} was not found`, this.partUri);
+      }
+      const references = xml.descendants(element, 'chart');
+      if (references.length !== 1) {
+        throw new ModelParseError(
+          `Chart shape ${shapeId} must contain exactly one chart reference`,
+          this.partUri,
+        );
+      }
+      const ids = references[0]!.attributes.filter((attribute) =>
+        attribute.name.slice(attribute.name.lastIndexOf(':') + 1) === 'id'
+        && (
+          attribute.name === 'r:id'
+          || relationshipAttributeNamespace(references[0]!, attribute.name)
+            === 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+        ));
+      if (ids.length !== 1) {
+        throw new ModelParseError(`Chart shape ${shapeId} has an invalid relationship id`, this.partUri);
+      }
+      const relationshipId = ids[0]!.value;
+      const relationships = this.relationships.filter(({ id }) => id === relationshipId);
+      const relationship = relationships.length === 1 ? relationships[0] : undefined;
+      if (
+        !relationship
+        || (
+          relationship.type !== CHART_RELATIONSHIP_TYPE
+          && !relationship.type.endsWith('/chartEx')
+        )
+        || relationship.targetMode !== 'Internal'
+        || !relationship.resolvedTarget
+      ) {
+        throw new ModelParseError(
+          `Chart shape ${shapeId} has an invalid chart relationship`,
+          this.partUri,
+        );
+      }
+      const chartPartUri = relationship.resolvedTarget;
+      const removeRelationship = chartRelationshipReferenceCount(xml, relationshipId) === 1;
+      xml.removeElement(element);
+      this.setXml(xml.serialize());
+      if (removeRelationship) pkg.removeRelationship(this.partUri, relationshipId);
+      garbageCollectOwnedDependencies(pkg, [chartPartUri]);
+    });
+  }
+
   addText(value: string, options: AddTextOptions = {}): ShapeModel {
     return this.presentation.opcPackage.transaction(() => {
       const normalized = validateTextInput(value, options);
@@ -1552,6 +1603,27 @@ function namespaceUriForPrefix(
 function lexicalPrefix(name: string): string {
   const separator = name.indexOf(':');
   return separator < 0 ? '' : name.slice(0, separator);
+}
+
+function relationshipAttributeNamespace(
+  element: XmlElement,
+  attributeName: string,
+): string | undefined {
+  return namespaceUriForPrefix(element, lexicalPrefix(attributeName));
+}
+
+function chartRelationshipReferenceCount(
+  xml: LosslessXmlDocument,
+  relationshipId: string,
+): number {
+  return xml.elements().reduce((count, element) => count + element.attributes.filter((attribute) =>
+    attribute.value === relationshipId
+    && attribute.name.slice(attribute.name.lastIndexOf(':') + 1) === 'id'
+    && (
+      attribute.name === 'r:id'
+      || relationshipAttributeNamespace(element, attribute.name)
+        === 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+    )).length, 0);
 }
 
 function directElementChildren(

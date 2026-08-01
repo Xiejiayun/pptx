@@ -286,6 +286,24 @@ export interface ChartState {
   readonly reason?: string;
 }
 
+export type ChartDiagnosticCode =
+  | 'CHART_RELATIONSHIP_INVALID'
+  | 'CHART_STRUCTURE_UNSUPPORTED'
+  | 'CHART_STRUCTURE_AMBIGUOUS'
+  | 'CHART_CACHE_INVALID'
+  | 'CHART_AXIS_INVALID'
+  | 'CHART_WORKBOOK_MISSING'
+  | 'CHART_WORKBOOK_CACHE_DIVERGENCE'
+  | 'MODERN_CHART_EXTENSION';
+
+export interface ChartDiagnostic {
+  readonly severity: 'info' | 'warning' | 'error';
+  readonly code: ChartDiagnosticCode;
+  readonly message: string;
+  readonly partUri?: string;
+  readonly objectId?: string;
+}
+
 export interface AddChartOptions {
   readonly name?: string;
   readonly altText?: string;

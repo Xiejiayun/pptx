@@ -10,6 +10,7 @@ import {
   ChartModel,
   MediaModel,
   PresentationModel,
+  chartDiagnostics,
   type AddChartOptions,
   type AddSvgImageOptions,
   type ChartGroupInput,
@@ -156,6 +157,7 @@ export class PptxDocument extends PresentationModel {
       const background = gradients.getSlideBackground(this.opcPackage, slide.partUri);
       if (background) diagnostics.push(...gradients.diagnostics(background, compatibility, slide.partUri));
       diagnostics.push(...media.diagnosticsForSlide(slide.partUri, compatibility));
+      diagnostics.push(...await chartDiagnostics(this.opcPackage, slide.partUri));
     }
     this.diagnostics.splice(0, this.diagnostics.length, ...diagnostics);
     if ((options.mode ?? 'strict') === 'strict' && diagnostics.some(({ severity }) => severity === 'error')) {

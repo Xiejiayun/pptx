@@ -1,5 +1,12 @@
 import type { CodecDiagnostic, CodecRegistry } from '@pptx/codecs';
 import { LosslessXmlDocument, type XmlElement } from '@pptx/lossless-xml';
+import {
+  ChartModel,
+  PresentationModel,
+  chartWorkbookMatches,
+  readChartState,
+  type ChartGroupInput,
+} from '@pptx/model';
 import type { OpcPackage } from '@pptx/opc';
 
 export interface AdvancedChartSeries {
@@ -37,7 +44,6 @@ export class AdvancedChartCodec {
       'application/vnd.ms-office.chartex+xml',
     ],
   } as const;
-  readonly #cacheMutations = new Set<string>();
 
   constructor(readonly pkg: OpcPackage) {}
 
@@ -51,7 +57,7 @@ export class AdvancedChartCodec {
     const part = this.pkg.requirePart(chartPartUri);
     const xml = LosslessXmlDocument.parse(part.bytes);
     const plotArea = xml.elements('plotArea')[0];
-    const chartTypes = plotArea
+    const rawChartTypes = plotArea
       ? plotArea.children
           .filter(
             (child): child is XmlElement =>
@@ -59,39 +65,58 @@ export class AdvancedChartCodec {
           )
           .map(({ localName }) => localName)
       : [];
-    const workbook = this.pkg
+    const state = readChartState(this.pkg, chartPartUri);
+    const chartTypes = state.definition
+      ? state.definition.groups.map(({ type }) => chartElementName(type))
+      : rawChartTypes;
+    const workbook = state.workbookPartUri ?? this.pkg
       .relationships(chartPartUri)
       .find(({ type }) => type.endsWith('/package'))?.resolvedTarget;
+    const modern = state.status === 'modern'
+      || part.contentType.includes('chartex')
+      || xml.elements().some(({ name }) => name.startsWith('cx:'));
     return {
       partUri: chartPartUri,
       chartTypes,
       combination: chartTypes.length > 1,
-      modern: part.contentType.includes('chartex') || xml.elements().some(({ name }) => name.startsWith('cx:')),
+      modern,
       axisIds: xml.elements('axId').map((element) => Number(xml.attribute(element, 'val')?.value ?? 0)),
       ...(workbook ? { embeddedWorkbookPartUri: workbook } : {}),
-      series: xml.elements('ser').map((series, index) => decodeSeries(xml, series, index)),
+      series: state.definition
+        ? projectStrictSeries(xml, state.definition.groups)
+        : modern
+          ? xml.elements('ser').map((series, index) => decodeSeries(xml, series, index))
+          : [],
     };
   }
 
-  setSeriesValues(chartPartUri: string, seriesIndex: number, values: readonly number[]): void {
-    const part = this.pkg.requirePart(chartPartUri);
-    const xml = LosslessXmlDocument.parse(part.bytes);
-    const series = xml.elements('ser')[seriesIndex];
-    const valueContainer = series ? xml.descendants(series, 'val')[0] : undefined;
-    const cache = valueContainer ? xml.descendants(valueContainer, 'numCache')[0] : undefined;
-    if (!cache) throw new Error(`Chart series ${seriesIndex} has no numeric cache`);
-    for (const point of xml.descendants(cache, 'pt')) xml.removeElement(point);
-    const pointCount = xml.descendants(cache, 'ptCount')[0];
-    if (pointCount) {
-      const value = xml.attribute(pointCount, 'val');
-      if (value) xml.replaceAttribute(value, String(values.length));
-    }
-    xml.appendChildXml(
-      cache,
-      values.map((value, index) => `<c:pt idx="${index}"><c:v>${finite(value)}</c:v></c:pt>`).join(''),
-    );
-    this.pkg.setPart(chartPartUri, xml.serialize(), part.contentType);
-    this.#cacheMutations.add(chartPartUri);
+  async setSeriesValues(
+    chartPartUri: string,
+    seriesIndex: number,
+    values: readonly number[],
+  ): Promise<void> {
+    const chart = this.resolveChart(chartPartUri);
+    const definition = chart.definition;
+    if (!definition) throw new Error(`Chart ${chartPartUri} is not semantically editable`);
+    const normalizedValues = values.map(finite);
+    let currentIndex = 0;
+    let replaced = false;
+    const groups = definition.groups.map((group) => ({
+      type: group.type,
+      series: group.series.map((series) => {
+        if (currentIndex !== seriesIndex) {
+          currentIndex += 1;
+          return series;
+        }
+        currentIndex += 1;
+        replaced = true;
+        return { ...series, values: normalizedValues };
+      }),
+      ...(group.axis === undefined ? {} : { axis: group.axis }),
+      ...(group.options === undefined ? {} : { options: group.options }),
+    })) as readonly ChartGroupInput[];
+    if (!replaced) throw new RangeError(`Chart series ${seriesIndex} was not found`);
+    await chart.replaceDefinition({ groups, options: definition.options });
   }
 
   addTrendline(chartPartUri: string, seriesIndex: number, type: 'linear' | 'exp' | 'log' | 'poly' | 'power' | 'movingAvg' = 'linear'): void {
@@ -120,7 +145,6 @@ export class AdvancedChartCodec {
       bytes,
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     );
-    this.#cacheMutations.delete(chartPartUri);
   }
 
   createImageFallback(chartPartUri: string, bytes: Uint8Array, contentType = 'image/png'): string {
@@ -131,13 +155,22 @@ export class AdvancedChartCodec {
     return uri;
   }
 
-  diagnostics(chartPartUri: string): CodecDiagnostic[] {
+  async diagnostics(chartPartUri: string): Promise<CodecDiagnostic[]> {
     const chart = this.inspect(chartPartUri);
-    if (this.#cacheMutations.has(chartPartUri) && chart.embeddedWorkbookPartUri) {
+    const state = readChartState(this.pkg, chartPartUri);
+    if (
+      state.status === 'recognized'
+      && state.definition
+      && state.workbookPartUri
+      && !await chartWorkbookMatches(
+        this.pkg.requirePart(state.workbookPartUri).bytes,
+        state.definition,
+      )
+    ) {
       return [{
         severity: 'warning',
         code: 'CHART_WORKBOOK_CACHE_DIVERGENCE',
-        message: 'Chart cache changed without replacing the embedded workbook',
+        message: 'Chart caches/formulas and embedded workbook cells disagree',
         partUri: chartPartUri,
       }];
     }
@@ -150,6 +183,20 @@ export class AdvancedChartCodec {
       }];
     }
     return [];
+  }
+
+  private resolveChart(chartPartUri: string): ChartModel {
+    const presentation = new PresentationModel(this.pkg);
+    const matches = presentation.slides.flatMap(({ shapes }) => shapes).filter(
+      (shape): shape is ChartModel =>
+        shape instanceof ChartModel && shape.chartPartUri === chartPartUri,
+    );
+    if (matches.length !== 1) {
+      throw new Error(
+        `Chart ${chartPartUri} must have exactly one slide reference for semantic editing`,
+      );
+    }
+    return matches[0]!;
   }
 
   private appendToSeries(chartPartUri: string, seriesIndex: number, childXml: string): void {
@@ -181,6 +228,38 @@ function decodeSeries(xml: LosslessXmlDocument, series: XmlElement, index: numbe
     hasErrorBars: xml.descendants(series, 'errBars').length > 0,
     hasDataLabels: xml.descendants(series, 'dLbls').length > 0,
   };
+}
+
+function projectStrictSeries(
+  xml: LosslessXmlDocument,
+  groups: readonly ChartGroupInput[],
+): readonly AdvancedChartSeries[] {
+  const seriesElements = xml.elements('ser');
+  let index = 0;
+  return groups.flatMap((group) => group.series.map((series): AdvancedChartSeries => {
+    const element = seriesElements[index];
+    const categories = series.categories;
+    const projectedCategories = categories === undefined
+      ? []
+      : Array.isArray(categories[0])
+        ? (categories.at(-1) as readonly string[]).map(String)
+        : (categories as readonly (string | number)[]).map(String);
+    const result = {
+      index,
+      name: series.name,
+      values: series.values,
+      categories: projectedCategories,
+      hasTrendline: Boolean(element && xml.descendants(element, 'trendline').length > 0),
+      hasErrorBars: Boolean(element && xml.descendants(element, 'errBars').length > 0),
+      hasDataLabels: Boolean(element && xml.descendants(element, 'dLbls').length > 0),
+    };
+    index += 1;
+    return result;
+  }));
+}
+
+function chartElementName(type: ChartGroupInput['type']): string {
+  return `${type === 'bar3D' ? 'bar3D' : type}Chart`;
 }
 
 function pointValues(xml: LosslessXmlDocument, element: XmlElement): string[] {

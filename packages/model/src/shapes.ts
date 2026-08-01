@@ -27,6 +27,7 @@ import type {
   ChartState,
 } from './chart.js';
 import { normalizeChartDefinition } from './chart-definition.internal.js';
+import { chartDiagnostics } from './chart-diagnostics.internal.js';
 import {
   chartDefinitionDataEqual,
   chartDefinitionsEqual,
@@ -842,6 +843,17 @@ export class ChartModel extends BaseShapeModel {
       groups: [replacementGroup],
       options: definition.options,
     });
+  }
+
+  async diagnostics(): Promise<readonly import('./chart.js').ChartDiagnostic[]> {
+    return (await chartDiagnostics(
+      this.slide.presentation.opcPackage,
+      this.slide.partUri,
+    )).filter(({ objectId }) => objectId === String(this.id));
+  }
+
+  remove(): void {
+    this.slide.deleteChart(this.id);
   }
 
   setXml(value: string): void {

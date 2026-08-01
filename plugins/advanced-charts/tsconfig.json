@@ -5,6 +5,7 @@
   "references": [
     { "path": "../../packages/codecs" },
     { "path": "../../packages/lossless-xml" },
+    { "path": "../../packages/model" },
     { "path": "../../packages/opc" },
     { "path": "../../packages/testkit" }
   ]

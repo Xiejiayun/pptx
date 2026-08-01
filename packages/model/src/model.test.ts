@@ -7247,6 +7247,114 @@ describe('PresentationModel', () => {
     )).toBe(true);
   });
 
+  it('deletes exclusive and shared chart dependency roots atomically without renumbering peers', async () => {
+    const { pkg, model } = emptyPresentationModel();
+    const slide = model.addSlide();
+    const source = await slide.addChart('bar', [{
+      name: 'Revenue', categories: ['Q1'], values: [10],
+    }]);
+    const peer = await slide.addChart('line', [{
+      name: 'Trend', categories: ['Q1'], values: [11],
+    }]);
+    const sourceChartUri = source.chartPartUri!;
+    const sourceWorkbookUri = source.workbookPartUri!;
+    pkg.setPart('/ppt/charts/style1.xml', '<style/>', 'application/vnd.test.chart-style+xml');
+    pkg.setPart('/ppt/charts/colors1.xml', '<colors/>', 'application/vnd.test.chart-colors+xml');
+    pkg.setPart('/ppt/media/shared-chart.png', Uint8Array.of(137, 80, 78, 71), 'image/png');
+    pkg.addRelationship(sourceChartUri, {
+      type: 'http://schemas.microsoft.com/office/2011/relationships/chartStyle',
+      target: 'style1.xml',
+    });
+    pkg.addRelationship('/ppt/charts/style1.xml', {
+      type: 'http://schemas.microsoft.com/office/2011/relationships/chartColorStyle',
+      target: 'colors1.xml',
+    });
+    pkg.addRelationship(sourceChartUri, {
+      type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image',
+      target: '../media/shared-chart.png',
+    });
+    pkg.addRelationship(sourceChartUri, {
+      type: 'https://example.com/relationships/externalData',
+      target: 'https://example.com/chart-data',
+      targetMode: 'External',
+    });
+
+    const duplicateSlide = model.duplicateSlide(0);
+    const duplicate = duplicateSlide.shapes.find(
+      (shape): shape is ChartModel => shape instanceof ChartModel && shape.name === source.name,
+    )!;
+    const duplicateChartUri = duplicate.chartPartUri!;
+    const duplicateWorkbookUri = duplicate.workbookPartUri!;
+    const duplicateRelationship = duplicateSlide.relationships.find(
+      ({ resolvedTarget }) => resolvedTarget === duplicateChartUri,
+    )!;
+    pkg.updateRelationship(duplicateSlide.partUri, duplicateRelationship.id, {
+      target: relativeRelationshipTarget(duplicateSlide.partUri, sourceChartUri),
+    });
+    pkg.deletePart(duplicateChartUri);
+    pkg.deletePart(duplicateWorkbookUri);
+
+    const peerIdentity = peer;
+    const nextExpectedId = Math.max(...slide.shapes.map(({ id }) => id)) + 1;
+    source.remove();
+    expect(slide.shapes.find(({ id }) => id === peer.id)).toBe(peerIdentity);
+    expect(pkg.hasPart(sourceChartUri)).toBe(true);
+    expect(pkg.hasPart(sourceWorkbookUri)).toBe(true);
+    expect(pkg.hasPart('/ppt/charts/style1.xml')).toBe(true);
+    expect(pkg.hasPart('/ppt/charts/colors1.xml')).toBe(true);
+    expect(pkg.hasPart('/ppt/media/shared-chart.png')).toBe(true);
+
+    const next = await slide.addChart('pie', [{
+      name: 'Share', categories: ['A'], values: [1],
+    }]);
+    expect(next.id).toBe(nextExpectedId);
+
+    duplicate.remove();
+    expect(pkg.hasPart(sourceChartUri)).toBe(false);
+    expect(pkg.hasPart(sourceWorkbookUri)).toBe(false);
+    expect(pkg.hasPart('/ppt/charts/style1.xml')).toBe(false);
+    expect(pkg.hasPart('/ppt/charts/colors1.xml')).toBe(false);
+    expect(pkg.hasPart('/ppt/media/shared-chart.png')).toBe(true);
+
+    const rollback = await slide.addChart('bar', [{
+      name: 'Rollback', categories: ['Q1'], values: [1],
+    }]);
+    const before = packageSnapshot(pkg);
+    const rollbackUri = rollback.chartPartUri!;
+    const originalDelete = pkg.deletePart.bind(pkg);
+    const spy = vi.spyOn(pkg, 'deletePart').mockImplementation((uri) => {
+      if (uri === rollbackUri) throw new Error('injected chart delete');
+      originalDelete(uri);
+    });
+    try {
+      expect(() => rollback.remove()).toThrow('injected chart delete');
+      expect(packageSnapshot(pkg)).toEqual(before);
+      expect(slide.shapes.find(({ id }) => id === rollback.id)).toBe(rollback);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('deletes imported chart roots and reopens every presentation format', async () => {
+    for (const profile of Object.values(PRESENTATION_FORMAT_PROFILES)) {
+      const model = new PresentationModel(await OpcPackage.open(
+        await modelFixture(profile.presentationContentType),
+      ));
+      const slide = model.slides[1]!;
+      const chart = slide.shapes.find(
+        (shape): shape is ChartModel => shape instanceof ChartModel,
+      )!;
+      chart.remove();
+      expect(slide.shapes.some((shape) => shape instanceof ChartModel)).toBe(false);
+      expect(model.opcPackage.hasPart('/ppt/charts/chart1.xml')).toBe(false);
+      expect(model.opcPackage.hasPart('/ppt/embeddings/workbook1.xlsx')).toBe(false);
+      const reopened = new PresentationModel(await OpcPackage.open(await model.opcPackage.write()));
+      expect(reopened.format).toBe(profile.format);
+      expect(reopened.slides.flatMap(({ shapes }) => shapes)
+        .some((shape) => shape instanceof ChartModel)).toBe(false);
+    }
+  });
+
   it('creates strict basic tables with stable identity, ordering, and atomic failure', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);

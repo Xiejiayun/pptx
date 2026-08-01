@@ -4142,6 +4142,48 @@ describe('PptxDocument vertical slice', () => {
     }
   });
 
+  it('validates chart caches and workbooks on strict writes without mutating the package', async () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const chart = await document.addChart(0, 'bar', [{
+      name: 'Revenue', categories: ['Q1', 'Q2'], values: [10, 20],
+    }]);
+    await document.write();
+    expect(document.diagnostics.filter(({ code }) => code.startsWith('CHART_'))).toEqual([]);
+
+    chart.setXml(chart.xml.replace('<c:v>20</c:v>', '<c:v>21</c:v>'));
+    const before = new Map(document.opcPackage.parts.map(({ uri, bytes }) => [uri, bytes.slice()]));
+    const journal = [...document.opcPackage.mutations];
+    await expect(document.write()).rejects.toBeInstanceOf(ValidationError);
+    expect(document.diagnostics).toMatchObject([{
+      severity: 'error',
+      code: 'CHART_WORKBOOK_CACHE_DIVERGENCE',
+      partUri: chart.chartPartUri,
+      objectId: String(chart.id),
+    }]);
+    expect(document.opcPackage.parts.map(({ uri }) => uri)).toEqual([...before.keys()]);
+    for (const { uri, bytes } of document.opcPackage.parts) expect(bytes).toEqual(before.get(uri));
+    expect(document.opcPackage.mutations).toEqual(journal);
+    await expect(document.write({ mode: 'permissive' })).resolves.toBeInstanceOf(Uint8Array);
+
+    const cacheOnly = PptxDocument.create();
+    const cacheOnlySlide = cacheOnly.addSlide();
+    const cacheOnlyChart = await cacheOnly.addChart(0, 'line', [{
+      name: 'Trend', categories: ['Q1'], values: [1],
+    }]);
+    cacheOnlyChart.setXml(
+      cacheOnlyChart.xml.replace(/<c:externalData[\s\S]*?<\/c:externalData>/, ''),
+    );
+    await expect(cacheOnly.write()).resolves.toBeInstanceOf(Uint8Array);
+    expect(cacheOnly.diagnostics).toMatchObject([{
+      severity: 'warning',
+      code: 'CHART_WORKBOOK_MISSING',
+      partUri: cacheOnlyChart.chartPartUri,
+      objectId: String(cacheOnlyChart.id),
+    }]);
+    expect(cacheOnlySlide.shapes[0]).toBe(cacheOnlyChart);
+  });
+
   it('creates all presentation formats and built-in PptxGenJS slide sizes', async () => {
     const sizes = {
       '4:3': [9_144_000, 6_858_000],
