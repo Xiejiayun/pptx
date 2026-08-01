@@ -49,7 +49,7 @@ try {
 
   await writeFile(
     join(directory, 'smoke.mjs'),
-    `import { CustomGeometryEvaluationError, evaluateCustomGeometry, ImageModel, inches, PRESET_SHAPE_TYPES, PptxDocument, ShapeModel, TableModel, GradientCodec, importPptxGenJS, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
+    `import { calculateImageSizing, CustomGeometryEvaluationError, evaluateCustomGeometry, ImageModel, inches, inspectImage, inspectRasterImage, inspectSvgImage, PRESET_SHAPE_TYPES, PptxDocument, ShapeModel, TableModel, GradientCodec, importPptxGenJS, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
 const created = PptxDocument.create({ rtlMode: true });
 const embeddedRasterDeck = PptxDocument.create();
 const embeddedRasterSlide = embeddedRasterDeck.addSlide();
@@ -149,6 +149,120 @@ const embeddedRasterReopened = reopenedEmbeddedRasterSource.length === 3 &&
         resolvedTarget === image.sourcePartUri)));
 const embeddedRasterImages = embeddedRasterImmediate && embeddedRasterExclusive &&
   embeddedRasterShared && embeddedRasterCloneOnWrite && embeddedRasterReopened;
+const packedSvgDeck = PptxDocument.create();
+const packedSvgSlide = packedSvgDeck.addSlide();
+const packedSvgBytes = new TextEncoder().encode(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360">' +
+  '<rect width="640" height="360" fill="#4472C4"/></svg>',
+);
+const packedFallbackPng = Uint8Array.from(Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+  'base64',
+));
+const packedSvgInfo = inspectSvgImage(packedSvgBytes);
+const packedGenericSvgInfo = inspectImage(packedSvgBytes);
+const packedSvgSizing = calculateImageSizing(packedSvgInfo, {
+  type: 'cover',
+  width: inches(4),
+  height: inches(3),
+});
+const packedExplicitSvg = await packedSvgDeck.addImage(0, packedSvgBytes, {
+  fallback: packedFallbackPng,
+  sizing: {
+    type: 'cover',
+    width: inches(4),
+    height: inches(3),
+  },
+  name: 'Packed explicit SVG',
+  altText: 'Explicit PNG fallback',
+  x: inches(1),
+  y: inches(1),
+  rotation: 900_000,
+  flipHorizontal: true,
+});
+const packedSvgDataUri = 'data:image/svg+xml;base64,' + Buffer.from(packedSvgBytes).toString('base64');
+const packedDefaultSvg = await packedSvgDeck.addImage(0, packedSvgDataUri, {
+  name: 'Packed default SVG',
+  altText: 'Automatic PNG fallback',
+  x: inches(5),
+  y: inches(1),
+  width: inches(3),
+  height: inches(2),
+});
+const packedSvgPairIsValid = (deck, slide, image) => {
+  if (!(image instanceof ImageModel) || !image.isSvg ||
+      image.fallbackPartUri === undefined || image.svgPartUri === undefined ||
+      image.sourcePartUri !== image.fallbackPartUri) return false;
+  const fallbackPart = deck.opcPackage.requirePart(image.fallbackPartUri);
+  const svgPart = deck.opcPackage.requirePart(image.svgPartUri);
+  const targetUris = [image.fallbackPartUri, image.svgPartUri];
+  return fallbackPart.contentType === 'image/png' &&
+    inspectRasterImage(fallbackPart.bytes).contentType === 'image/png' &&
+    svgPart.contentType === 'image/svg+xml' &&
+    targetUris.every((target) => slide.relationships.some(
+      ({ type, targetMode, resolvedTarget }) => type.endsWith('/image') &&
+        targetMode === 'Internal' && resolvedTarget === target,
+    ));
+};
+const packedSvgImmediate = packedSvgSlide.shapes[0] === packedExplicitSvg &&
+  packedSvgSlide.shapes[1] === packedDefaultSvg &&
+  packedSvgInfo.contentType === 'image/svg+xml' && packedSvgInfo.width === 640 &&
+  packedSvgInfo.height === 360 && packedGenericSvgInfo.contentType === 'image/svg+xml' &&
+  packedSvgSizing.sourceRectangle.left === 12.5 &&
+  packedSvgPairIsValid(packedSvgDeck, packedSvgSlide, packedExplicitSvg) &&
+  packedSvgPairIsValid(packedSvgDeck, packedSvgSlide, packedDefaultSvg);
+let packedLowLevelSvgRejected = false;
+try {
+  packedSvgSlide.addImage(packedSvgBytes, { contentType: 'image/svg+xml' });
+} catch {
+  packedLowLevelSvgRejected = true;
+}
+let packedInvalidFallbackRejected = false;
+try {
+  await packedSvgDeck.addImage(0, packedSvgBytes, {
+    fallback: Uint8Array.from([71, 73, 70, 56, 57, 97, 1, 0, 1, 0]),
+  });
+} catch {
+  packedInvalidFallbackRejected = true;
+}
+const packedSvgUnchangedAfterFailures = packedSvgSlide.shapes.length === 2;
+const packedSvgDuplicateSlide = packedSvgDeck.duplicateSlide(0);
+const packedSvgDuplicateImages = packedSvgDuplicateSlide.shapes.filter(
+  (shape) => shape instanceof ImageModel,
+);
+const packedSvgShared = packedSvgDuplicateImages.length === 2 &&
+  packedSvgDuplicateImages.every((image, index) =>
+    image.fallbackPartUri === packedSvgSlide.shapes[index].fallbackPartUri &&
+    image.svgPartUri === packedSvgSlide.shapes[index].svgPartUri);
+const packedSourceFallbackUri = packedExplicitSvg.fallbackPartUri;
+const packedSourceSvgUri = packedExplicitSvg.svgPartUri;
+const packedReplacementSvg = new TextEncoder().encode(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"/>',
+);
+packedSvgDuplicateImages[0].replaceSvgData(packedReplacementSvg, packedFallbackPng);
+const packedSvgCloneOnWrite = packedSvgDuplicateImages[0].fallbackPartUri !== packedSourceFallbackUri &&
+  packedSvgDuplicateImages[0].svgPartUri !== packedSourceSvgUri &&
+  packedBytesEqual(packedSvgDeck.opcPackage.requirePart(packedSourceSvgUri).bytes, packedSvgBytes) &&
+  packedBytesEqual(
+    packedSvgDeck.opcPackage.requirePart(packedSvgDuplicateImages[0].svgPartUri).bytes,
+    packedReplacementSvg,
+  ) && packedSvgPairIsValid(packedSvgDeck, packedSvgDuplicateSlide, packedSvgDuplicateImages[0]);
+const reopenedPackedSvgDeck = await PptxDocument.open(await packedSvgDeck.write());
+const reopenedPackedSvgImages = reopenedPackedSvgDeck.slides.flatMap((slide) =>
+  slide.shapes.filter((shape) => shape instanceof ImageModel));
+const packedSvgReopened = reopenedPackedSvgImages.length === 4 &&
+  reopenedPackedSvgDeck.slides.every((slide) => slide.shapes.every((shape) =>
+    !(shape instanceof ImageModel) || packedSvgPairIsValid(reopenedPackedSvgDeck, slide, shape))) &&
+  packedBytesEqual(
+    reopenedPackedSvgDeck.opcPackage.requirePart(
+      reopenedPackedSvgDeck.slides[1].shapes[0].svgPartUri,
+    ).bytes,
+    packedReplacementSvg,
+  );
+await packedSvgDeck.writeFile('svg-smoke.pptx');
+const svgImages = packedSvgImmediate && packedLowLevelSvgRejected &&
+  packedInvalidFallbackRejected && packedSvgUnchangedAfterFailures && packedSvgShared &&
+  packedSvgCloneOnWrite && packedSvgReopened;
 const shapeDeck = PptxDocument.create();
 const shapeSlide = shapeDeck.addSlide();
 const defaultShape = shapeSlide.addShape('rect');
@@ -2186,6 +2300,7 @@ const checks = {
   shapeArrows,
   shapeHyperlinks,
   embeddedRasterImages,
+  svgImages,
   presentationRtl: presentationRtlEnabled === true && presentationRtlDisabled === false && presentationRtlCleared === undefined && paragraphRtlAfterGlobalClear[0] === true && paragraphRtlAfterGlobalClear[1] === false,
   presentationTitle: createdPresentationTitle === 'Packed & <Title>' && editedPresentationTitle === 'Edited title' && reopenedPresentationTitle === 'Edited title' && emptyPresentationTitle === '' && clearedPresentationTitle === undefined,
   presentationAuthor: createdPresentationAuthor === 'Packed & <Author>' && editedPresentationAuthor === 'Edited author' && reopenedPresentationAuthor === 'Edited author' && emptyPresentationAuthor === '' && clearedPresentationAuthor === undefined,
@@ -2282,6 +2397,34 @@ if (!(reopenedBrowserRasterImage instanceof ImageModel) ||
     reopenedBrowserRasterDeck.opcPackage
       .requirePart(reopenedBrowserRasterImage.sourcePartUri).bytes[0] !== 137) {
   throw new Error('Browser embedded raster image round trip failed');
+}
+const browserSvgDeck = PptxDocument.create();
+browserSvgDeck.addSlide();
+const browserSvgBytes = new TextEncoder().encode(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360"/>',
+);
+const browserFallbackPng = Uint8Array.from([
+  137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82,
+  0, 0, 0, 1, 0, 0, 0, 1, 8, 4, 0, 0, 0, 181, 28, 12, 2, 0, 0,
+  0, 11, 73, 68, 65, 84, 120, 218, 99, 100, 248, 15, 0, 1, 5, 1, 1,
+  39, 24, 227, 102, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130,
+]);
+const browserSvgImage = await browserSvgDeck.addImage(0, browserSvgBytes, {
+  fallback: browserFallbackPng,
+  sizing: { type: 'cover', width: inches(4), height: inches(3) },
+  name: 'Browser bundle SVG',
+});
+const reopenedBrowserSvgDeck = await PptxDocument.open(await browserSvgDeck.writeBlob());
+const reopenedBrowserSvgImage = reopenedBrowserSvgDeck.slides[0].shapes[0];
+if (!(reopenedBrowserSvgImage instanceof ImageModel) || !reopenedBrowserSvgImage.isSvg ||
+    reopenedBrowserSvgImage.name !== 'Browser bundle SVG' ||
+    reopenedBrowserSvgImage.sourceRectangle?.left !== 12.5 ||
+    reopenedBrowserSvgDeck.opcPackage
+      .requirePart(reopenedBrowserSvgImage.fallbackPartUri).contentType !== 'image/png' ||
+    reopenedBrowserSvgDeck.opcPackage
+      .requirePart(reopenedBrowserSvgImage.svgPartUri).contentType !== 'image/svg+xml' ||
+    browserSvgImage !== browserSvgDeck.slides[0].shapes[0]) {
+  throw new Error('Browser SVG image round trip failed');
 }
 const browserShapeDeck = PptxDocument.create();
 const browserShape = browserShapeDeck.addSlide().addShape('foldedCorner');
@@ -3401,7 +3544,9 @@ process.stdout.write(resolved);
   TableModel,
   inches,
   type AddCustomShapeOptions,
+  type AddImageSourceOptions,
   type AddImageOptions,
+  type AddSvgImageOptions,
   type AddShapeOptions,
   type CustomGeometry,
   type CustomGeometryCommand,
@@ -3429,6 +3574,15 @@ process.stdout.write(resolved);
   type EvaluatedCustomGeometryTextRectangle,
   type EvaluatedCustomGeometryXyHandle,
   type Hyperlink,
+  type ImageByteChunk,
+  type ImageByteStream,
+  type ImageContentType,
+  type ImageCropRegion,
+  type ImageInfo,
+  type ImageSizing,
+  type ImageSizingResult,
+  type ImageSource,
+  type ResolvedImageSource,
   type ShapeArrows,
   type ShapeArrowType,
   type ShapeFill,
@@ -3438,6 +3592,8 @@ process.stdout.write(resolved);
   type ShapeShadow,
   type PresetShapeType,
   type RasterImageContentType,
+  type SvgImageContentType,
+  type SvgImageInfo,
   type SlideModel,
   type CustomSlideSize,
   type AddSectionOptions,
@@ -3483,6 +3639,10 @@ process.stdout.write(resolved);
   animations,
   advancedCharts,
   smartArt,
+  calculateImageSizing,
+  inspectImage,
+  inspectSvgImage,
+  resolveImageSource,
 } from '@jiayunxie/pptx';
 
 const documentPromise: Promise<PptxDocument> = PptxDocument.open(new Uint8Array());
@@ -3505,6 +3665,56 @@ const invalidRasterMissingType: AddImageOptions = {};
 const invalidRasterPath: AddImageOptions = { contentType: 'image/png', path: './image.png' };
 // @ts-expect-error embedded raster creation excludes data-URI loading
 const invalidRasterData: AddImageOptions = { contentType: 'image/png', data: 'data:image/png;base64,AQ==' };
+const typedSvgContentType: SvgImageContentType = 'image/svg+xml';
+const typedImageContentType: ImageContentType = typedSvgContentType;
+const typedSvgBytes = new TextEncoder().encode(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360"/>',
+);
+const typedSvgInfo: SvgImageInfo = inspectSvgImage(typedSvgBytes);
+const typedImageInfo: ImageInfo = inspectImage(typedSvgBytes);
+const typedCropRegion: ImageCropRegion = { x: 0, y: 0, width: 640, height: 360 };
+const typedImageSizing: ImageSizing = {
+  type: 'crop',
+  width: inches(4),
+  height: inches(3),
+  source: typedCropRegion,
+};
+const typedImageSizingResult: Readonly<ImageSizingResult> = calculateImageSizing(
+  typedImageInfo,
+  typedImageSizing,
+);
+const typedImageSource: ImageSource = typedSvgBytes;
+const typedImageChunk: ImageByteChunk = typedSvgBytes;
+const typedImageStream: ImageByteStream = new ReadableStream<ImageByteChunk>({
+  start(controller) {
+    controller.enqueue(typedImageChunk);
+    controller.close();
+  },
+});
+const typedImageSourceOptions: AddImageSourceOptions = {
+  contentType: typedImageContentType,
+  fallback: typedImageSource,
+  sizing: typedImageSizing,
+};
+const typedResolvedImage: Promise<ResolvedImageSource> = resolveImageSource(typedImageStream);
+const typedSvgOptions: AddSvgImageOptions = { name: 'Typed SVG' };
+const typedSvgSlide = createdDocument.addSlide();
+const typedSvgImage: ImageModel = typedSvgSlide.addSvgImage(
+  typedSvgBytes,
+  new Uint8Array([1]),
+  typedSvgOptions,
+);
+const typedHighLevelSvgImage: Promise<ImageModel> = createdDocument.addImage(
+  createdDocument.slides.length - 1,
+  typedImageSource,
+  typedImageSourceOptions,
+);
+// @ts-expect-error low-level raster image options exclude SVG
+const invalidLowLevelSvgOptions: AddImageOptions = { contentType: 'image/svg+xml' };
+const invalidSvgFallback: AddImageSourceOptions = {
+  // @ts-expect-error SVG fallback must be a supported image source
+  fallback: {},
+};
 const typedPreset: PresetShapeType = 'foldedCorner';
 const typedCustomPoint: CustomGeometryPoint = { x: 1, y: 2 };
 const typedCustomCommand: CustomGeometryCommand = {
@@ -4162,7 +4372,7 @@ void [typedPreset, typedNoneShapeFill, typedSolidShapeFill, typedShapeOptions, t
   typedShapeShadowRead, invalidMissingShapeShadowKind, invalidNoneShapeShadowKind,
   invalidInnerShapeShadowRotate, invalidShapeShadowOffset, invalidShapeShadowType,
   invalidUnknownShapeShadow, invalidShapeShadowFieldType];
-void [documentPromise, createdDocument, typedRasterContentType, typedRasterOptions, typedRasterImage, invalidRasterSvg, invalidRasterMissingType, invalidRasterPath, invalidRasterData, addSectionOptions, typedSection, addSlideOptions, sectionSnapshot, typedVisibilitySlide, hiddenSnapshot, globalRtl, globalRtlSnapshot, titledDocument, titleSnapshot, authoredDocument, authorSnapshot, lastModifiedDocument, lastModifiedSnapshot, createdAtDocument, createdAtSnapshot, modifiedAtDocument, modifiedAtSnapshot, subjectDocument, subjectSnapshot, revisionDocument, revisionSnapshot, companyDocument, companySnapshot, themedDocument, themeSnapshot, fontSnapshot, fontUpdate, customDocument, createdText, creationBorder, creationMargin, creationOptions, objectCell, tableRows, tableOptions, typedTable, widthSnapshot, heightSnapshot, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotHorizontalAlignment, tableHorizontalAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellHorizontalAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
+void [documentPromise, createdDocument, typedRasterContentType, typedRasterOptions, typedRasterImage, invalidRasterSvg, invalidRasterMissingType, invalidRasterPath, invalidRasterData, typedSvgContentType, typedImageContentType, typedSvgInfo, typedImageInfo, typedCropRegion, typedImageSizing, typedImageSizingResult, typedImageSource, typedImageChunk, typedImageStream, typedImageSourceOptions, typedResolvedImage, typedSvgOptions, typedSvgImage, typedHighLevelSvgImage, invalidLowLevelSvgOptions, invalidSvgFallback, addSectionOptions, typedSection, addSlideOptions, sectionSnapshot, typedVisibilitySlide, hiddenSnapshot, globalRtl, globalRtlSnapshot, titledDocument, titleSnapshot, authoredDocument, authorSnapshot, lastModifiedDocument, lastModifiedSnapshot, createdAtDocument, createdAtSnapshot, modifiedAtDocument, modifiedAtSnapshot, subjectDocument, subjectSnapshot, revisionDocument, revisionSnapshot, companyDocument, companySnapshot, themedDocument, themeSnapshot, fontSnapshot, fontUpdate, customDocument, createdText, creationBorder, creationMargin, creationOptions, objectCell, tableRows, tableOptions, typedTable, widthSnapshot, heightSnapshot, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotHorizontalAlignment, tableHorizontalAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellHorizontalAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
 `,
   );
   run(
@@ -4190,9 +4400,26 @@ void [documentPromise, createdDocument, typedRasterContentType, typedRasterOptio
   const cliResult = run(bin, ['--json', 'doctor'], directory);
   const doctor = JSON.parse(cliResult.stdout);
   if (!doctor.ok || doctor.data?.version !== '0.1.0') throw new Error(`CLI smoke failed: ${cliResult.stdout}`);
+  const svgDeckPath = join(directory, 'svg-smoke.pptx');
+  const inspectResult = run(bin, ['--json', 'package', 'inspect', svgDeckPath], directory);
+  const inspected = JSON.parse(inspectResult.stdout);
+  if (!inspected.ok || inspected.data?.contentTypes?.['image/svg+xml'] < 1 ||
+      inspected.data?.contentTypes?.['image/png'] < 1) {
+    throw new Error(`CLI SVG inspect failed: ${inspectResult.stdout}`);
+  }
+  const validateResult = run(
+    bin,
+    ['--json', 'package', 'validate', svgDeckPath, '--profile', 'powerpoint-2010'],
+    directory,
+  );
+  const validated = JSON.parse(validateResult.stdout);
+  if (!validated.ok || !validated.data?.valid || validated.data.errorCount !== 0 ||
+      validated.data.warningCount !== 0) {
+    throw new Error(`CLI SVG validation failed: ${validateResult.stdout}`);
+  }
 
   process.stdout.write(
-    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, types: true, cli: doctor.data.version })}\n`,
+    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, types: true, cli: doctor.data.version, svgInspect: true, svgValidate: true })}\n`,
   );
 } finally {
   await rm(directory, { recursive: true, force: true });

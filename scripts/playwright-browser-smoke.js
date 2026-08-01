@@ -14,8 +14,49 @@ async (page) => {
       });
       const document = await api.PptxDocument.open(stream);
       document.slides[0].title.text = 'Browser updated';
+      const svgDocument = api.PptxDocument.create();
+      svgDocument.addSlide();
+      const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360">'
+        + '<rect width="640" height="360" fill="#4472C4"/></svg>';
+      const svgDataUri = 'data:image/svg+xml;base64,' + btoa(svg);
+      const blobSvg = await svgDocument.addImage(0, new Blob([svg], { type: 'image/svg+xml' }), {
+        name: 'Browser Blob SVG',
+        altText: 'Canvas fallback from Blob',
+        x: api.inches(1),
+        y: api.inches(1),
+        sizing: { type: 'cover', width: api.inches(4), height: api.inches(3) },
+        rotation: api.degrees(15),
+        flipHorizontal: true,
+      });
+      const dataSvg = await svgDocument.addImage(0, svgDataUri, {
+        name: 'Browser data SVG',
+        altText: 'Canvas fallback from data URI',
+        x: api.inches(5.5),
+        y: api.inches(1),
+        width: api.inches(3),
+        height: api.inches(2),
+        flipVertical: true,
+      });
       const output = await document.writeBlob();
       const reopened = await api.PptxDocument.open(output);
+      const reopenedSvgDocument = await api.PptxDocument.open(await svgDocument.writeBlob());
+      const reopenedSlide = reopenedSvgDocument.slides[0];
+      const reopenedSvgImages = reopenedSlide.shapes.filter((shape) => shape.isSvg);
+      const svgState = reopenedSvgImages.map((image) => {
+        const fallback = reopenedSvgDocument.opcPackage.requirePart(image.fallbackPartUri);
+        const vector = reopenedSvgDocument.opcPackage.requirePart(image.svgPartUri);
+        const targets = [image.fallbackPartUri, image.svgPartUri];
+        return {
+          name: image.name,
+          fallbackType: fallback.contentType,
+          svgType: vector.contentType,
+          pngSignature: Array.from(fallback.bytes.slice(0, 8)),
+          internalTargets: targets.filter((target) => reopenedSlide.relationships.some(
+            ({ type, targetMode, resolvedTarget }) => type.endsWith('/image')
+              && targetMode === 'Internal' && resolvedTarget === target,
+          )).length,
+        };
+      });
       return {
         format: reopened.format,
         title: reopened.slides[0].title.text,
@@ -23,6 +64,9 @@ async (page) => {
         transition: typeof api.transitions.TransitionCodec,
         smartArt: typeof api.smartArt.SmartArtDiagramCodec,
         blobInputTitle: fromBlob.slides[0].title.text,
+        svgCreatedLive: svgDocument.slides[0].shapes.includes(blobSvg)
+          && svgDocument.slides[0].shapes.includes(dataSvg),
+        svgState,
       };
     },
     {
@@ -52,6 +96,23 @@ async (page) => {
     transition: 'function',
     smartArt: 'function',
     blobInputTitle: 'Browser fixture',
+    svgCreatedLive: true,
+    svgState: [
+      {
+        name: 'Browser Blob SVG',
+        fallbackType: 'image/png',
+        svgType: 'image/svg+xml',
+        pngSignature: [137, 80, 78, 71, 13, 10, 26, 10],
+        internalTargets: 2,
+      },
+      {
+        name: 'Browser data SVG',
+        fallbackType: 'image/png',
+        svgType: 'image/svg+xml',
+        pngSignature: [137, 80, 78, 71, 13, 10, 26, 10],
+        internalTargets: 2,
+      },
+    ],
     downloadFileName: 'browser-smoke.pptx',
   };
   if (JSON.stringify(result) !== JSON.stringify(expected)) {
