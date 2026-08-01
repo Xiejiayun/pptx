@@ -8,5 +8,6 @@ export {
   readSlideNumber,
   replaceSlideNumber,
   replaceSlideNumberCachedText,
+  slideNumberDiagnostics,
 } from './slide-number.internal.js';
 export { allocateNativeTimingIds } from './media-timing-state.internal.js';

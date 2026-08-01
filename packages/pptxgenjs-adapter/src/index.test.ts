@@ -17,6 +17,7 @@ import {
   PptxDocument,
   ShapeModel,
   TableModel,
+  ValidationError,
   type AddShapeOptions,
   type CustomGeometry,
   type PresetShapeType,
@@ -45,6 +46,7 @@ interface PptxGenJSSlide {
     readonly type?: 'none' | 'solid';
   };
   hidden: unknown;
+  slideNumber?: PptxGenJSSlideNumberProps;
   addChart(
     type: string | readonly {
       readonly type: string;
@@ -69,6 +71,23 @@ interface PptxGenJSSlide {
     }[])[],
     options: Record<string, unknown>,
   ): void;
+}
+
+interface PptxGenJSSlideNumberProps {
+  readonly x?: number;
+  readonly y?: number;
+  readonly w?: number;
+  readonly h?: number;
+  readonly align?: 'left' | 'center' | 'right' | 'justify';
+  readonly valign?: 'top' | 'middle' | 'bottom';
+  readonly margin?: number | readonly [number, number, number, number];
+  readonly fontFace?: string;
+  readonly fontSize?: number;
+  readonly lang?: string;
+  readonly bold?: boolean;
+  readonly italic?: boolean;
+  readonly color?: string;
+  readonly transparency?: number;
 }
 
 type PptxGenJSCoord = number | string;
@@ -116,6 +135,8 @@ type PptxGenJSPublicInstance = InstanceType<typeof import('pptxgenjs').default>;
 type PptxGenJSPublicShapeOptions = NonNullable<
   Parameters<ReturnType<PptxGenJSPublicInstance['addSlide']>['addShape']>[1]
 >;
+type PptxGenJSPublicSlideNumberOptions =
+  ReturnType<PptxGenJSPublicInstance['addSlide']>['slideNumber'];
 type PptxGenJSMediaOptions = Parameters<
   ReturnType<PptxGenJSPublicInstance['addSlide']>['addMedia']
 >[0];
@@ -126,6 +147,22 @@ const publicCustomShapeOptions: PptxGenJSPublicShapeOptions = {
   w: 4,
   h: 3,
   points: [{ x: 0, y: 0 }],
+};
+const publicSlideNumberOptions: PptxGenJSPublicSlideNumberOptions = {
+  x: 0,
+  y: 0,
+  w: 1,
+  h: 0.3,
+  align: 'center',
+  valign: 'middle',
+  fontFace: 'Aptos',
+  fontSize: 18,
+  lang: 'zh-CN',
+  bold: true,
+  italic: true,
+  color: 'FF3399',
+  transparency: 25,
+  margin: [1, 2, 3, 4],
 };
 const unsupportedPublicHandleOptions: PptxGenJSPublicShapeOptions = {
   x: 1,
@@ -161,6 +198,7 @@ const unsupportedPublicEvaluatorOptions: PptxGenJSPublicShapeOptions = {
 };
 void [
   publicCustomShapeOptions,
+  publicSlideNumberOptions,
   unsupportedPublicHandleOptions,
   unsupportedPublicConnectionSiteOptions,
   unsupportedPublicGuideOptions,
@@ -187,7 +225,14 @@ interface PptxGenJSInstance {
   } | undefined;
   title: string;
   addSection(options: { readonly title: string; readonly order?: number }): void;
-  addSlide(options?: { readonly sectionTitle?: string }): PptxGenJSSlide;
+  addSlide(options?: { readonly masterName?: string; readonly sectionTitle?: string }): PptxGenJSSlide;
+  defineSlideMaster(options: {
+    readonly title: string;
+    readonly background?: { readonly color?: string };
+    readonly margin?: number | readonly [number, number, number, number];
+    readonly slideNumber?: PptxGenJSSlideNumberProps;
+    readonly objects?: readonly unknown[];
+  }): void;
   write(options: { outputType: 'nodebuffer'; compression: boolean }): Promise<Uint8Array>;
   write(options: { outputType: 'uint8array'; compression: boolean }): Promise<Uint8Array>;
 }
@@ -272,6 +317,31 @@ function slideXml(document: PptxDocument, slideIndex: number): string {
   const slide = document.slides[slideIndex];
   if (!slide) throw new Error(`Slide ${slideIndex} was not found`);
   return new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+}
+
+function slideNumberOwnerState(document: PptxDocument, partUri: string) {
+  const xml = new TextDecoder().decode(document.opcPackage.requirePart(partUri).bytes);
+  const shapes = [...xml.matchAll(/<p:sp(?:\s[^>]*)?>[\s\S]*?<\/p:sp>/g)]
+    .map((match) => match[0])
+    .filter((shape) => /<p:ph\b[^>]*\btype="sldNum"/.test(shape));
+  const shape = shapes[0];
+  const shapeId = shape?.match(/<p:cNvPr\b[^>]*\bid="([0-9]+)"/)?.[1];
+  const field = shape?.match(/<a:fld\b[^>]*\btype="slidenum"[^>]*>[\s\S]*?<\/a:fld>/)?.[0];
+  const cache = field?.match(/<a:t>([\s\S]*?)<\/a:t>/)?.[1];
+  const ids = [...xml.matchAll(/<p:cNvPr\b[^>]*\bid="([0-9]+)"/g)]
+    .map((match) => match[1]);
+  const masterFlag = xml.match(/<p:hf\b[^>]*\bsldNum="([^"]+)"/)?.[1];
+  return {
+    ownerCount: shapes.length,
+    shapeId: shapeId === undefined ? undefined : Number(shapeId),
+    shapeIdOccurrences: shapeId === undefined
+      ? 0
+      : ids.filter((id) => id === shapeId).length,
+    fieldType: field?.match(/\btype="([^"]+)"/)?.[1],
+    cache,
+    masterFlag,
+    xml,
+  };
 }
 
 function slideBackgroundStructuralState(document: PptxDocument, slideIndex: number) {
@@ -581,6 +651,253 @@ function directShapePaintState(xml: string): { fill: 'none'; line: 'empty' } {
 }
 
 describe('importPptxGenJS', () => {
+  it('imports public slide-number variants and locks PptxGenJS 4.0.1 differences', async () => {
+    const source = new PptxGenJS();
+    source.layout = 'LAYOUT_WIDE';
+    source.rtlMode = true;
+    source.addSlide();
+    const options: readonly PptxGenJSSlideNumberProps[] = [
+      {},
+      {
+        x: 0,
+        y: 0,
+        w: 1,
+        h: 0.3,
+        align: 'center',
+        fontFace: 'Aptos',
+        fontSize: 18,
+        lang: 'zh-CN',
+        bold: true,
+        italic: true,
+        color: 'FF3399',
+        transparency: 25,
+        margin: [1, 2, 3, 4],
+      },
+      { color: source.SchemeColor.accent1 },
+      { align: 'left' },
+      { align: 'center' },
+      { align: 'right' },
+      { margin: 7 },
+      { margin: [1, 2, 3, 4] },
+      { valign: 'top' },
+      { valign: 'middle' },
+      { valign: 'bottom' },
+      { align: 'justify' },
+      { w: 0, h: 0 },
+      { italic: true, transparency: 25, color: 'FF3399', lang: 'zh-CN' },
+    ];
+    for (const value of options) source.addSlide().slideNumber = value;
+
+    const imported = await importPptxGenJS(source);
+    expect(imported.slides).toHaveLength(options.length + 1);
+    expect(imported.slides[0]?.slideNumber).toBeUndefined();
+    expect(imported.slides[1]?.slideNumber).toEqual({
+      x: 0,
+      y: 0,
+      width: 800_000,
+      height: 300_000,
+      align: 'left',
+      rtl: false,
+      style: { lang: 'en-US', bold: false, italic: false },
+    });
+    expect(imported.slides[2]?.slideNumber).toMatchObject({
+      x: 0,
+      y: 0,
+      width: 914_400,
+      height: 274_320,
+      align: 'center',
+      rtl: false,
+      margin: { top: 1, right: 2, bottom: 3, left: 4 },
+      style: {
+        fontFamily: 'Aptos',
+        fontSize: 18,
+        lang: 'en-US',
+        bold: true,
+        italic: false,
+        color: { kind: 'srgb', value: 'FF3399' },
+      },
+    });
+    expect(imported.slides[3]?.slideNumber?.style.color)
+      .toEqual({ kind: 'scheme', value: 'accent1' });
+    expect(imported.slides.slice(4, 7).map(({ slideNumber }) => slideNumber?.align))
+      .toEqual(['left', 'center', 'right']);
+    expect(imported.slides[7]?.slideNumber?.margin)
+      .toEqual({ top: 7, right: 7, bottom: 7, left: 7 });
+    expect(imported.slides[8]?.slideNumber?.margin)
+      .toEqual({ top: 1, right: 2, bottom: 3, left: 4 });
+    expect(imported.slides[9]?.slideNumber?.valign).toBe('top');
+    expect(imported.slides[10]?.slideNumber?.valign).toBe('middle');
+    expect(slideNumberOwnerState(imported, imported.slides[10]!.partUri).xml)
+      .toContain(' anchor="ctr"');
+    expect(imported.slides[11]?.slideNumber?.valign).toBe('bottom');
+    expect(imported.slides[12]?.slideNumber?.align).toBe('left');
+    expect(imported.slides[13]?.slideNumber).toMatchObject({
+      width: 800_000,
+      height: 300_000,
+    });
+    expect(imported.slides[14]?.slideNumber).toMatchObject({
+      rtl: false,
+      style: { lang: 'en-US', italic: false, color: { kind: 'srgb', value: 'FF3399' } },
+    });
+    expect(imported.slides[14]?.slideNumber?.style.transparency).toBeUndefined();
+
+    for (const [index, slide] of imported.slides.entries()) {
+      const state = slideNumberOwnerState(imported, slide.partUri);
+      expect(state.ownerCount).toBe(index === 0 ? 0 : 1);
+      if (index === 0) continue;
+      expect(state).toMatchObject({
+        shapeId: 25,
+        shapeIdOccurrences: 1,
+        fieldType: 'slidenum',
+        cache: String(index + 1),
+      });
+    }
+    const layoutState = slideNumberOwnerState(imported, imported.layouts[0]!.partUri);
+    const masterState = slideNumberOwnerState(imported, imported.masters[0]!.partUri);
+    expect(layoutState.cache).toMatch(/^10\d{2}$/);
+    expect(layoutState).toMatchObject({ ownerCount: 1, shapeId: 25 });
+    expect(masterState).toMatchObject({ ownerCount: 1, shapeId: 25, cache: 'null', masterFlag: '0' });
+    expect(imported.layouts[0]?.slideNumber).toBeDefined();
+    expect(imported.masters[0]?.slideNumber).toBeUndefined();
+
+    const native = PptxDocument.create({ firstSlideNumber: 5 });
+    const nativeSlide = native.addSlide();
+    nativeSlide.slideNumber = {
+      align: 'justify',
+      rtl: true,
+      valign: 'middle',
+      style: {
+        lang: 'zh-CN',
+        italic: true,
+        color: { kind: 'srgb', value: 'FF3399' },
+        transparency: 25,
+      },
+    };
+    expect(nativeSlide.slideNumber).toMatchObject({
+      align: 'justify',
+      rtl: true,
+      valign: 'middle',
+      style: { lang: 'zh-CN', italic: true, transparency: 25 },
+    });
+    expect(slideNumberOwnerState(native, nativeSlide.partUri)).toMatchObject({
+      shapeId: 2,
+      shapeIdOccurrences: 1,
+      cache: '5',
+    });
+    expect(native.layouts[0]?.slideNumber).toBeUndefined();
+    expect(native.masters[0]?.slideNumber).toBeUndefined();
+    const nativeJournal = [...native.opcPackage.mutations];
+    expect(() => {
+      nativeSlide.slideNumber = { width: 0 };
+    }).toThrow(/width/i);
+    expect(native.opcPackage.mutations).toEqual(nativeJournal);
+  });
+
+  it('diagnoses, canonicalizes, reorders, and reopens named-master public output', async () => {
+    const source = new PptxGenJS();
+    source.defineSlideMaster({
+      title: 'NUMBERED_MASTER',
+      background: { color: 'FFFFFF' },
+      objects: [],
+      slideNumber: { x: 1, y: 1, w: 1, h: 0.3, align: 'right' },
+    });
+    source.addSlide({ masterName: 'NUMBERED_MASTER' });
+    const imported = await importPptxGenJS(source);
+    const numberedLayout = imported.layouts.find(({ slideNumber }) => slideNumber !== undefined)!;
+    const master = imported.masters[0]!;
+    expect(imported.slides[0]?.slideNumber).toMatchObject({
+      x: 914_400,
+      y: 914_400,
+      width: 914_400,
+      height: 274_320,
+      align: 'right',
+    });
+    expect(numberedLayout.slideNumber?.align).toBe('right');
+    expect(master.slideNumber).toBeUndefined();
+    expect(slideNumberOwnerState(imported, numberedLayout.partUri).cache).toMatch(/^10\d{2}$/);
+    expect(slideNumberOwnerState(imported, master.partUri))
+      .toMatchObject({ ownerCount: 1, shapeId: 25, cache: 'null', masterFlag: '0' });
+
+    const profiles = [
+      'powerpoint-2010',
+      'powerpoint-current',
+      'keynote-current',
+      'google-slides-import',
+      'libreoffice-current',
+    ] as const;
+    for (const compatibility of profiles) {
+      await imported.write({ mode: 'permissive', compatibility });
+      expect(imported.diagnostics.filter(({ severity }) => severity === 'error')).toEqual([]);
+      expect(imported.diagnostics.filter(({ code }) => code.startsWith('SLIDE_NUMBER_')))
+        .toEqual(expect.arrayContaining([
+          expect.objectContaining({
+            code: 'SLIDE_NUMBER_CACHE_NONCANONICAL',
+            partUri: numberedLayout.partUri,
+            compatibility,
+          }),
+          expect.objectContaining({
+            code: 'SLIDE_NUMBER_MASTER_DISABLED',
+            partUri: master.partUri,
+            compatibility,
+          }),
+          expect.objectContaining({
+            code: 'SLIDE_NUMBER_CACHE_NONCANONICAL',
+            partUri: master.partUri,
+            compatibility,
+          }),
+        ]));
+    }
+
+    const themeUri = imported.themes[0]!.partUri;
+    const themeBefore = imported.opcPackage.requirePart(themeUri).bytes;
+    const slideRelationshipsBefore = imported.opcPackage.relationships(
+      imported.slides[0]!.partUri,
+    ).map((relationship) => ({ ...relationship }));
+    imported.slides[0]!.slideNumber = { align: 'center', style: { italic: true } };
+    numberedLayout.slideNumber = { x: 200, align: 'center' };
+    master.slideNumber = { x: 300, align: 'right' };
+    const duplicate = imported.duplicateSlide(0);
+    imported.moveSlide(imported.slides.indexOf(duplicate), 0);
+    expect(imported.opcPackage.requirePart(themeUri).bytes).toEqual(themeBefore);
+    expect(imported.opcPackage.relationships(imported.slides[1]!.partUri)
+      .map((relationship) => ({ ...relationship }))).toEqual(slideRelationshipsBefore);
+
+    const reopened = await PptxDocument.open(await imported.write());
+    expect(reopened.slides.map((slide) => slideNumberOwnerState(reopened, slide.partUri).cache))
+      .toEqual(['1', '2']);
+    expect(reopened.layouts.find(({ partUri }) => partUri === numberedLayout.partUri)?.slideNumber)
+      .toMatchObject({ x: 200, align: 'center' });
+    expect(reopened.masters[0]?.slideNumber).toMatchObject({ x: 300, align: 'right' });
+    expect(slideNumberOwnerState(reopened, reopened.masters[0]!.partUri))
+      .toMatchObject({ cache: '‹#›', masterFlag: '1' });
+    for (const compatibility of profiles) {
+      await reopened.write({ compatibility });
+      expect(reopened.diagnostics.filter(({ code }) => code.startsWith('SLIDE_NUMBER_')))
+        .toEqual([]);
+    }
+  });
+
+  it('reports a real fixed-id collision created only through PptxGenJS public APIs', async () => {
+    const source = new PptxGenJS();
+    const slide = source.addSlide();
+    for (let index = 0; index < 24; index += 1) {
+      slide.addText(String(index), { x: 0, y: 0, w: 1, h: 0.2 });
+    }
+    slide.slideNumber = {};
+    const imported = await importPptxGenJS(source);
+    expect(slideNumberOwnerState(imported, imported.slides[0]!.partUri))
+      .toMatchObject({ shapeId: 25, shapeIdOccurrences: 2 });
+    await expect(imported.write()).rejects.toBeInstanceOf(ValidationError);
+    expect(imported.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        severity: 'error',
+        code: 'SLIDE_NUMBER_SHAPE_ID_COLLISION',
+        partUri: imported.slides[0]!.partUri,
+      }),
+    ]));
+    await expect(imported.write({ mode: 'permissive' })).resolves.toBeInstanceOf(Uint8Array);
+  });
+
   it('matches supported public PptxGenJS slide backgrounds and locks none divergences', async () => {
     const generated = new PptxGenJS();
     generated.addSlide();

@@ -3,7 +3,9 @@ import {
   GradientCodec,
   MasterLayoutThemeCodec,
   MediaCodec,
+  slideNumberDiagnostics,
   type AddMediaOptions,
+  type CodecDiagnostic,
   type MediaSource,
 } from '@pptx/codecs';
 import {
@@ -159,13 +161,39 @@ export class PptxDocument extends PresentationModel {
     const diagnostics: Diagnostic[] = [...validatePackage(this.opcPackage)];
     const gradients = new GradientCodec();
     const media = new MediaCodec(this.opcPackage);
-    for (const slide of this.slides) {
+    const firstSlideNumber = this.firstSlideNumber ?? 1;
+    for (const [index, slide] of this.slides.entries()) {
       const background = slide.background;
       if (background?.kind === 'linear-gradient' || background?.kind === 'path-gradient') {
         diagnostics.push(...gradients.diagnostics(background, compatibility, slide.partUri));
       }
       diagnostics.push(...media.diagnosticsForSlide(slide.partUri, compatibility));
       diagnostics.push(...await chartDiagnostics(this.opcPackage, slide.partUri));
+      appendCodecDiagnostics(diagnostics, slideNumberDiagnostics(
+        this.opcPackage,
+        slide.partUri,
+        'slide',
+        String(firstSlideNumber + index),
+        compatibility,
+      ), compatibility);
+    }
+    for (const layout of this.layouts) {
+      appendCodecDiagnostics(diagnostics, slideNumberDiagnostics(
+        this.opcPackage,
+        layout.partUri,
+        'layout',
+        '‹#›',
+        compatibility,
+      ), compatibility);
+    }
+    for (const master of this.masters) {
+      appendCodecDiagnostics(diagnostics, slideNumberDiagnostics(
+        this.opcPackage,
+        master.partUri,
+        'master',
+        '‹#›',
+        compatibility,
+      ), compatibility);
     }
     this.diagnostics.splice(0, this.diagnostics.length, ...diagnostics);
     if ((options.mode ?? 'strict') === 'strict' && diagnostics.some(({ severity }) => severity === 'error')) {
@@ -326,6 +354,22 @@ export class PptxDocument extends PresentationModel {
     const slide = this.slides[slideIndex];
     if (!slide) throw new RangeError(`Slide index ${slideIndex} is out of range`);
     return slide.media;
+  }
+}
+
+function appendCodecDiagnostics(
+  target: Diagnostic[],
+  source: readonly CodecDiagnostic[],
+  compatibility: CompatibilityProfile,
+): void {
+  for (const { severity, code, message, partUri } of source) {
+    target.push({
+      severity,
+      code,
+      message,
+      ...(partUri === undefined ? {} : { partUri }),
+      compatibility,
+    });
   }
 }
 

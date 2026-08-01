@@ -341,6 +341,56 @@ describe('PptxDocument vertical slice', () => {
     }
   });
 
+  it('surfaces slide-number compatibility warnings and rejects actual id collisions', async () => {
+    const compatibilityProfiles = [
+      'powerpoint-2010',
+      'powerpoint-current',
+      'keynote-current',
+      'google-slides-import',
+      'libreoffice-current',
+    ] as const;
+    const native = PptxDocument.create({ firstSlideNumber: 4 });
+    native.addSlide().slideNumber = {};
+    native.layouts[0]!.slideNumber = {};
+    native.masters[0]!.slideNumber = {};
+    for (const compatibility of compatibilityProfiles) {
+      await native.write({ compatibility });
+      expect(native.diagnostics.filter(({ code }) => code.startsWith('SLIDE_NUMBER_')))
+        .toEqual([]);
+    }
+
+    const slide = native.slides[0]!;
+    const part = native.opcPackage.requirePart(slide.partUri);
+    const noncanonical = new TextDecoder().decode(part.bytes)
+      .replace('<a:t>4</a:t>', '<a:t>999</a:t>');
+    native.opcPackage.setPart(slide.partUri, noncanonical, part.contentType);
+    await native.write({ compatibility: 'libreoffice-current' });
+    expect(native.diagnostics.filter(({ code }) => code.startsWith('SLIDE_NUMBER_')))
+      .toEqual([expect.objectContaining({
+        severity: 'warning',
+        code: 'SLIDE_NUMBER_CACHE_NONCANONICAL',
+        partUri: slide.partUri,
+        compatibility: 'libreoffice-current',
+      })]);
+
+    const collisionPart = native.opcPackage.requirePart(slide.partUri);
+    const collision = new TextDecoder().decode(collisionPart.bytes).replace(
+      '</p:grpSpPr>',
+      '</p:grpSpPr><p:sp><p:nvSpPr><p:cNvPr id="2" name="Collision"/></p:nvSpPr></p:sp>',
+    );
+    native.opcPackage.setPart(slide.partUri, collision, collisionPart.contentType);
+    await expect(native.write()).rejects.toBeInstanceOf(ValidationError);
+    expect(native.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        severity: 'error',
+        code: 'SLIDE_NUMBER_SHAPE_ID_COLLISION',
+        partUri: slide.partUri,
+        compatibility: 'powerpoint-current',
+      }),
+    ]));
+    await expect(native.write({ mode: 'permissive' })).resolves.toBeInstanceOf(Uint8Array);
+  });
+
   it('creates a zero-slide presentation and adds blank slides with the default layout', async () => {
     const document = PptxDocument.create();
     expect(document.format).toBe('pptx');

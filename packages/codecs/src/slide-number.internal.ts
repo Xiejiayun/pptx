@@ -13,6 +13,7 @@ import type {
   SlideNumberOwnerKind,
   SlideNumberTextStyle,
 } from './slide-number.js';
+import type { CodecDiagnostic } from './registry.js';
 
 const PRESENTATION_NAMESPACE =
   'http://schemas.openxmlformats.org/presentationml/2006/main';
@@ -243,6 +244,64 @@ export function readSlideNumber(
   });
 }
 
+export function slideNumberDiagnostics(
+  pkg: OpcPackage,
+  ownerPartUri: string,
+  ownerKind: SlideNumberOwnerKind,
+  expectedCachedText: string,
+  compatibility: string,
+): (CodecDiagnostic & { readonly compatibility: string })[] {
+  assertCachedText(expectedCachedText);
+  const xml = LosslessXmlDocument.parse(pkg.requirePart(ownerPartUri).bytes);
+  const root = uniqueRoot(xml, ROOT_NAMES[ownerKind], PRESENTATION_NAMESPACE);
+  const commonSlide = root
+    ? uniqueDirectChild(root, 'cSld', PRESENTATION_NAMESPACE)
+    : undefined;
+  const shapeTree = commonSlide
+    ? uniqueDirectChild(commonSlide, 'spTree', PRESENTATION_NAMESPACE)
+    : undefined;
+  const candidates = shapeTree ? directSlideNumberShapes(shapeTree) : [];
+  if (!root || candidates.length !== 1) return [];
+
+  const shape = candidates[0]!;
+  const diagnostics: (CodecDiagnostic & { readonly compatibility: string })[] = [];
+  const shapeId = diagnosticShapeId(shape);
+  if (shapeId !== undefined) {
+    const matchingIds = descendantsAndSelf(root)
+      .filter((element) => isElement(element, 'cNvPr', PRESENTATION_NAMESPACE))
+      .filter((element) => readUnsignedInteger(element, 'id', 1, MAX_UINT32) === shapeId);
+    if (matchingIds.length > 1) {
+      diagnostics.push({
+        severity: 'error',
+        code: 'SLIDE_NUMBER_SHAPE_ID_COLLISION',
+        message: 'Slide-number shape id collides with another shape id',
+        partUri: ownerPartUri,
+        compatibility,
+      });
+    }
+  }
+  if (ownerKind === 'master' && masterSlideNumberExplicitlyDisabled(root)) {
+    diagnostics.push({
+      severity: 'warning',
+      code: 'SLIDE_NUMBER_MASTER_DISABLED',
+      message: 'The master slide-number placeholder is disabled by p:hf',
+      partUri: ownerPartUri,
+      compatibility,
+    });
+  }
+  const target = supportedTarget(shape);
+  if (target && textValue(target.text) !== expectedCachedText) {
+    diagnostics.push({
+      severity: 'warning',
+      code: 'SLIDE_NUMBER_CACHE_NONCANONICAL',
+      message: `Expected cached slide-number text ${expectedCachedText}`,
+      partUri: ownerPartUri,
+      compatibility,
+    });
+  }
+  return diagnostics;
+}
+
 export function replaceSlideNumber(
   pkg: OpcPackage,
   ownerPartUri: string,
@@ -367,6 +426,16 @@ function directSlideNumberShapes(shapeTree: XmlElement): XmlElement[] {
     (child) => isElement(child, 'sp', PRESENTATION_NAMESPACE)
       && containsDirectSlideNumberPlaceholder(child),
   );
+}
+
+function diagnosticShapeId(shape: XmlElement): number | undefined {
+  const nonVisual = uniqueDirectChild(shape, 'nvSpPr', PRESENTATION_NAMESPACE);
+  const properties = nonVisual
+    ? uniqueDirectChild(nonVisual, 'cNvPr', PRESENTATION_NAMESPACE)
+    : undefined;
+  if (!properties) return undefined;
+  const value = readUnsignedInteger(properties, 'id', 1, MAX_UINT32);
+  return value === INVALID ? undefined : value;
 }
 
 function supportedTarget(shape: XmlElement): SupportedSlideNumberTarget | undefined {
@@ -766,6 +835,15 @@ function masterFlagValue(root: XmlElement): boolean | undefined {
   if (value === INVALID) return false;
   const parsed = parseBoolean(value);
   return parsed === INVALID ? false : parsed;
+}
+
+function masterSlideNumberExplicitlyDisabled(root: XmlElement): boolean {
+  const headers = directChildren(root).filter(
+    (child) => isElement(child, 'hf', PRESENTATION_NAMESPACE),
+  );
+  if (headers.length !== 1) return false;
+  const value = directAttribute(headers[0]!, 'sldNum');
+  return value !== undefined && value !== INVALID && parseBoolean(value) === false;
 }
 
 function slideNumbersEqual(left: SlideNumber, right: SlideNumber): boolean {

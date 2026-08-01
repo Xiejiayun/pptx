@@ -1,7 +1,7 @@
 import JSZip from 'jszip';
 import { describe, expect, it } from 'vitest';
 import { OpcPackage } from '@pptx/opc';
-import { validatePackage } from './index.js';
+import { validatePackage, type Diagnostic } from './index.js';
 
 async function invalidFixture(): Promise<Uint8Array> {
   const zip = new JSZip();
@@ -49,6 +49,17 @@ function validImageBackgroundPackage(): OpcPackage {
 }
 
 describe('validatePackage', () => {
+  it('retains compatibility metadata for feature diagnostics', () => {
+    const diagnostic: Diagnostic = {
+      severity: 'warning',
+      code: 'SLIDE_NUMBER_CACHE_NONCANONICAL',
+      message: 'Expected cached slide-number text 1',
+      partUri: '/ppt/slides/slide1.xml',
+      compatibility: 'powerpoint-current',
+    };
+    expect(diagnostic.compatibility).toBe('powerpoint-current');
+  });
+
   it('reports duplicate ids, invalid ids, dangling targets, and external resources', async () => {
     const diagnostics = validatePackage(await OpcPackage.open(await invalidFixture()));
     const codes = diagnostics.map(({ code }) => code);

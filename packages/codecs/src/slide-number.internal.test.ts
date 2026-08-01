@@ -6,6 +6,7 @@ import {
   replaceSlideNumber,
   replaceSlideNumberCachedText,
 } from './slide-number.internal.js';
+import { slideNumberDiagnostics } from './index.js';
 import type { SlideNumberOptions } from './slide-number.js';
 
 const P = 'http://schemas.openxmlformats.org/presentationml/2006/main';
@@ -337,6 +338,109 @@ describe('slide number reader', () => {
       '<p:ph xmlns:x="urn:foreign" x:type="sldNum" type="body"',
     );
     expect(readSlideNumber(packageWith(qualified), '/ppt/slides/slide1.xml', 'slide')).toBeUndefined();
+  });
+});
+
+describe('slide number diagnostics', () => {
+  it('reports only actual id collisions, disabled masters, and noncanonical caches', () => {
+    const slideUri = '/ppt/slides/slide1.xml';
+    const collision = packageWith(slideXml().replace(
+      '<p:grpSpPr/>',
+      '<p:grpSpPr/><p:sp><p:nvSpPr><p:cNvPr id="2" name="Collision"/></p:nvSpPr></p:sp>',
+    ));
+    const collisionBefore = packageSnapshot(collision);
+    expect(slideNumberDiagnostics(
+      collision,
+      slideUri,
+      'slide',
+      '1',
+      'powerpoint-current',
+    )).toEqual([{
+      severity: 'error',
+      code: 'SLIDE_NUMBER_SHAPE_ID_COLLISION',
+      message: 'Slide-number shape id collides with another shape id',
+      partUri: slideUri,
+      compatibility: 'powerpoint-current',
+    }]);
+    expect(packageSnapshot(collision)).toEqual(collisionBefore);
+
+    const layoutUri = '/ppt/slideLayouts/slideLayout1.xml';
+    const layout = packageWith(slideXml({
+      root: 'sldLayout',
+      cachedText: '1000',
+    }), layoutUri);
+    expect(slideNumberDiagnostics(
+      layout,
+      layoutUri,
+      'layout',
+      '‹#›',
+      'libreoffice-current',
+    )).toEqual([{
+      severity: 'warning',
+      code: 'SLIDE_NUMBER_CACHE_NONCANONICAL',
+      message: 'Expected cached slide-number text ‹#›',
+      partUri: layoutUri,
+      compatibility: 'libreoffice-current',
+    }]);
+
+    const masterUri = '/ppt/slideMasters/slideMaster1.xml';
+    const master = packageWith(slideXml({
+      root: 'sldMaster',
+      cachedText: 'null',
+      tail: '<p:hf sldNum="0"/>',
+    }), masterUri);
+    expect(slideNumberDiagnostics(
+      master,
+      masterUri,
+      'master',
+      '‹#›',
+      'google-slides-import',
+    )).toEqual([
+      {
+        severity: 'warning',
+        code: 'SLIDE_NUMBER_MASTER_DISABLED',
+        message: 'The master slide-number placeholder is disabled by p:hf',
+        partUri: masterUri,
+        compatibility: 'google-slides-import',
+      },
+      {
+        severity: 'warning',
+        code: 'SLIDE_NUMBER_CACHE_NONCANONICAL',
+        message: 'Expected cached slide-number text ‹#›',
+        partUri: masterUri,
+        compatibility: 'google-slides-import',
+      },
+    ]);
+  });
+
+  it('keeps canonical and absent owner state silent', () => {
+    const uri = '/ppt/slides/slide1.xml';
+    expect(slideNumberDiagnostics(
+      packageWith(slideXml()),
+      uri,
+      'slide',
+      '1',
+      'powerpoint-2010',
+    )).toEqual([]);
+    expect(slideNumberDiagnostics(
+      packageWith(blankOwnerXml()),
+      uri,
+      'slide',
+      '1',
+      'powerpoint-2010',
+    )).toEqual([]);
+    const ambiguousMasterUri = '/ppt/slideMasters/slideMaster1.xml';
+    expect(slideNumberDiagnostics(
+      packageWith(slideXml({
+        root: 'sldMaster',
+        cachedText: '‹#›',
+        tail: '<p:hf sldNum="0"/><p:hf sldNum="0"/>',
+      }), ambiguousMasterUri),
+      ambiguousMasterUri,
+      'master',
+      '‹#›',
+      'powerpoint-current',
+    )).toEqual([]);
   });
 });
 

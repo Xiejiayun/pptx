@@ -6,11 +6,41 @@ import {
   PptxDocument,
   chartWorkbookMatches,
   inches,
+  slideNumberDiagnostics,
   type ReplaceMediaPosterOptions,
   type ReplaceMediaSourceOptions,
+  type SlideNumberOptions,
 } from './index.js';
 
-describe('@jiayunxie/pptx stable media exports', () => {
+describe('@jiayunxie/pptx stable exports', () => {
+  it('exports slide-number creation, editing, and compatibility diagnostics from the root', async () => {
+    const options: SlideNumberOptions = {
+      align: 'justify',
+      rtl: true,
+      style: { italic: true, transparency: 25 },
+    };
+    const document = PptxDocument.create({ firstSlideNumber: 8 });
+    const slide = document.addSlide();
+    slide.slideNumber = options;
+    document.layouts[0]!.slideNumber = { align: 'center' };
+    document.masters[0]!.slideNumber = { align: 'right' };
+
+    expect(slideNumberDiagnostics(
+      document.opcPackage,
+      slide.partUri,
+      'slide',
+      '8',
+      'powerpoint-current',
+    )).toEqual([]);
+    await document.write();
+    expect(document.diagnostics.filter(({ code }) => code.startsWith('SLIDE_NUMBER_')))
+      .toEqual([]);
+    const reopened = await PptxDocument.open(await document.write());
+    expect(reopened.slides[0]?.slideNumber).toMatchObject(options);
+    expect(reopened.layouts[0]?.slideNumber?.align).toBe('center');
+    expect(reopened.masters[0]?.slideNumber?.align).toBe('right');
+  });
+
   it('runs the complete native chart lifecycle through the root package', async () => {
     const document = PptxDocument.create();
     const charts: ChartModel[] = [];
