@@ -78,6 +78,7 @@ import {
   normalizeTextAlignment,
   normalizeTextLanguage,
   readRichText,
+  renderColorChoice,
   renderParagraphProperties,
   renderRichTextParagraphs,
   resolveParagraphSpacing,
@@ -1219,6 +1220,7 @@ export class SlideModel {
 
   addText(value: string, options: AddTextOptions = {}): ShapeModel {
     return this.presentation.opcPackage.transaction(() => {
+      const defaultColor = this.color;
       const normalized = validateTextInput(value, options);
       const bullet = normalized.bullet === false ? undefined : normalized.bullet;
       const spacing = resolveParagraphSpacing(normalized.spacing);
@@ -1237,6 +1239,7 @@ export class SlideModel {
           normalized.marginLeft,
           normalized.marginRight,
           normalized.indent,
+          defaultColor,
         ))
         .join('');
       return this.addTextShape(
@@ -1253,10 +1256,12 @@ export class SlideModel {
 
   addRichText(value: readonly RichTextParagraph[], options: AddTextOptions = {}): ShapeModel {
     return this.presentation.opcPackage.transaction(() => {
+      const defaultColor = this.color;
       const paragraphs = normalizeRichText(value);
       const defaults = validateAddTextOptions(options);
       return this.addTextShape(
         renderRichTextParagraphs(paragraphs, {
+          ...(defaultColor !== undefined ? { defaultColor } : {}),
           ...(defaults.language !== undefined ? { defaultLanguage: defaults.language } : {}),
           ...(options.align ? { defaultAlign: options.align } : {}),
           ...(defaults.rtl !== undefined ? { defaultRtl: defaults.rtl } : {}),
@@ -1742,6 +1747,7 @@ function textParagraphXml(
   marginLeft?: number,
   marginRight?: number,
   indent?: number,
+  defaultColor?: Readonly<RichTextColor>,
 ): string {
   const properties = renderParagraphProperties(
     undefined,
@@ -1759,13 +1765,18 @@ function textParagraphXml(
   const languageValue = escapeXmlAttribute(language ?? 'en-US');
   const endProperties = `<${prefix}endParaRPr lang="${languageValue}" dirty="0"/>`;
   if (value.length === 0) return `<${prefix}p>${properties}${endProperties}</${prefix}p>`;
-  return `<${prefix}p>${properties}${defaultTextRunXml(value, prefix, language)}${endProperties}</${prefix}p>`;
+  return `<${prefix}p>${properties}${defaultTextRunXml(value, prefix, language, defaultColor)}${endProperties}</${prefix}p>`;
 }
 
-function defaultTextRunXml(value: string, prefix = 'a:', language?: string): string {
+function defaultTextRunXml(
+  value: string,
+  prefix = 'a:',
+  language?: string,
+  defaultColor: Readonly<RichTextColor> = { kind: 'scheme', value: 'tx1' },
+): string {
   const languageValue = escapeXmlAttribute(language ?? 'en-US');
   const alternateLanguage = language === undefined ? '' : ' altLang="en-US"';
-  return `<${prefix}r><${prefix}rPr lang="${languageValue}"${alternateLanguage} dirty="0"><${prefix}solidFill><${prefix}schemeClr val="tx1"/></${prefix}solidFill><${prefix}latin typeface="+mn-lt"/></${prefix}rPr><${prefix}t xml:space="preserve">${escapeXmlText(value)}</${prefix}t></${prefix}r>`;
+  return `<${prefix}r><${prefix}rPr lang="${languageValue}"${alternateLanguage} dirty="0"><${prefix}solidFill>${renderColorChoice(defaultColor, prefix)}</${prefix}solidFill><${prefix}latin typeface="+mn-lt"/></${prefix}rPr><${prefix}t xml:space="preserve">${escapeXmlText(value)}</${prefix}t></${prefix}r>`;
 }
 
 function readPlainText(xml: LosslessXmlDocument, element: XmlElement): string {

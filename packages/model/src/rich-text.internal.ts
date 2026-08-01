@@ -267,6 +267,7 @@ export function normalizeRichText(value: unknown): readonly NormalizedRichTextPa
 interface RenderRichTextOptions {
   readonly prefix?: string;
   readonly defaultLanguage?: string;
+  readonly defaultColor?: Readonly<RichTextColor>;
   readonly defaultAlign?: TextAlignment;
   readonly defaultRtl?: boolean;
   readonly defaultBullet?: NormalizedParagraphBullet | false;
@@ -320,7 +321,7 @@ export function renderRichTextParagraphs(
         resolvedMarginRight,
         resolvedIndent,
       )}${runs
-        .map((run) => renderRun(run, prefix, options.defaultLanguage))
+        .map((run) => renderRun(run, prefix, options.defaultLanguage, options.defaultColor))
         .join('')}${options.endParagraphProperties ?? defaultEndProperties}</${prefix}p>`;
     })
     .join('');
@@ -1180,7 +1181,12 @@ function readColorDataObject(
   return { kind: kind.value, value: colorValue.value };
 }
 
-function renderRun(run: RichTextRun, prefix: string, defaultLanguage?: string): string {
+function renderRun(
+  run: RichTextRun,
+  prefix: string,
+  defaultLanguage?: string,
+  defaultColor?: Readonly<RichTextColor>,
+): string {
   const softBreak = run.softBreakBefore ? `<${prefix}br/>` : '';
   if (run.text.length === 0 && run.style === undefined) return softBreak;
   const style = run.style ?? {};
@@ -1207,7 +1213,7 @@ function renderRun(run: RichTextRun, prefix: string, defaultLanguage?: string): 
       : `u="${style.underline === false ? 'none' : style.underline === true ? 'sng' : style.underline.style}"`,
     'dirty="0"',
   ].filter(Boolean).join(' ');
-  const color = style.color ?? { kind: 'scheme' as const, value: 'tx1' };
+  const color = style.color ?? defaultColor ?? { kind: 'scheme' as const, value: 'tx1' };
   const colorXml = renderMainTextColorChoice(color, prefix, style.transparency);
   const outline = style.outline
     ? `<${prefix}ln w="${Math.round(style.outline.size * EMU_PER_POINT)}"><${prefix}solidFill>${renderColorChoice(style.outline.color, prefix)}</${prefix}solidFill></${prefix}ln>`
@@ -1239,7 +1245,7 @@ function renderMainTextColorChoice(
   return `<${prefix}${tag} val="${color.value}"><${prefix}alpha val="${alpha}"/></${prefix}${tag}>`;
 }
 
-function renderColorChoice(color: RichTextColor, prefix: string): string {
+export function renderColorChoice(color: RichTextColor, prefix: string): string {
   return color.kind === 'srgb'
     ? `<${prefix}srgbClr val="${color.value}"/>`
     : `<${prefix}schemeClr val="${color.value}"/>`;

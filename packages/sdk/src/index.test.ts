@@ -342,6 +342,56 @@ describe('PptxDocument vertical slice', () => {
     }
   });
 
+  it('round-trips materialized slide default colors twice in all six formats', async () => {
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const created = PptxDocument.create({ format });
+      const source = created.addSlide();
+      source.color = { kind: 'scheme', value: 'accent2' };
+      source.addText('Plain inherited');
+      source.addRichText([{
+        runs: [
+          { text: 'Rich inherited' },
+          { text: 'Rich override', style: { color: { kind: 'srgb', value: '00AA00' } } },
+        ],
+      }]);
+      const duplicate = created.duplicateSlide(0);
+      expect(duplicate.color).toBe(source.color);
+      duplicate.addText('Duplicate inherited');
+
+      const first = await PptxDocument.open(await created.write());
+      expect(first.format).toBe(format);
+      expect(first.slides.map(({ color }) => color)).toEqual([undefined, undefined]);
+      const firstColors = first.slides.map((slide) => slide.shapes
+        .filter((shape): shape is ShapeModel => shape instanceof ShapeModel)
+        .map(({ richText }) => richText.flatMap(({ runs }) =>
+          runs.map(({ style }) => style?.color))));
+      expect(firstColors).toEqual([
+        [
+          [{ kind: 'scheme', value: 'accent2' }],
+          [
+            { kind: 'scheme', value: 'accent2' },
+            { kind: 'srgb', value: '00AA00' },
+          ],
+        ],
+        [
+          [{ kind: 'scheme', value: 'accent2' }],
+          [
+            { kind: 'scheme', value: 'accent2' },
+            { kind: 'srgb', value: '00AA00' },
+          ],
+          [{ kind: 'scheme', value: 'accent2' }],
+        ],
+      ]);
+
+      const second = await PptxDocument.open(await first.write());
+      expect(second.format).toBe(format);
+      expect(second.formatProfile).toEqual(PRESENTATION_FORMAT_PROFILES[format]);
+      expect(second.slides.map(({ color }) => color)).toEqual([undefined, undefined]);
+      expect(validatePackage(second.opcPackage).filter(({ severity }) => severity === 'error'))
+        .toEqual([]);
+    }
+  });
+
   it('surfaces slide-number compatibility warnings and rejects actual id collisions', async () => {
     const compatibilityProfiles = [
       'powerpoint-2010',

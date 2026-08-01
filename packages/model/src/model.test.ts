@@ -694,6 +694,74 @@ describe('PresentationModel', () => {
     expect(duplicate.color).toEqual({ kind: 'srgb', value: 'FF3399' });
   });
 
+  it('materializes slide default colors into only newly created plain and rich text', () => {
+    const { pkg, model } = emptyPresentationModel();
+    const slide = model.addSlide();
+    slide.color = { kind: 'srgb', value: '#ff3399' };
+    const plain = slide.addText('First\nSecond');
+    expect(plain.richText.map(({ runs }) => runs[0]?.style?.color)).toEqual([
+      { kind: 'srgb', value: 'FF3399' },
+      { kind: 'srgb', value: 'FF3399' },
+    ]);
+    const plainXml = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect(plainXml.match(/<a:srgbClr val="FF3399"\/>/g)).toHaveLength(2);
+
+    const beforeColorChange = pkg.requirePart(slide.partUri).bytes;
+    slide.color = { kind: 'scheme', value: 'accent1' };
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeColorChange);
+    const rich = slide.addRichText([{
+      runs: [
+        { text: 'Inherited' },
+        { text: 'Override', style: { color: { kind: 'srgb', value: '00AA00' } } },
+        { text: 'Transparent inherited', style: { transparency: 25 } },
+      ],
+    }]);
+    expect(rich.richText[0]?.runs.map(({ style }) => style?.color)).toEqual([
+      { kind: 'scheme', value: 'accent1' },
+      { kind: 'srgb', value: '00AA00' },
+      { kind: 'scheme', value: 'accent1' },
+    ]);
+    expect(rich.richText[0]?.runs.map(({ style }) => style?.transparency)).toEqual([
+      undefined,
+      undefined,
+      25,
+    ]);
+    const richXml = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect(richXml).toContain(
+      '<a:schemeClr val="accent1"><a:alpha val="75000"/></a:schemeClr>',
+    );
+
+    slide.color = undefined;
+    const cleared = slide.addText('Theme default');
+    expect(cleared.richText[0]?.runs[0]?.style?.color).toEqual({
+      kind: 'scheme',
+      value: 'tx1',
+    });
+    expect(plain.richText.map(({ runs }) => runs[0]?.style?.color)).toEqual([
+      { kind: 'srgb', value: 'FF3399' },
+      { kind: 'srgb', value: 'FF3399' },
+    ]);
+  });
+
+  it('does not apply slide defaults to existing-shape edits or tables', () => {
+    const { model } = emptyPresentationModel();
+    const slide = model.addSlide();
+    const existing = slide.addText('Existing');
+    slide.color = { kind: 'scheme', value: 'accent6' };
+    existing.richText = [{ runs: [{ text: 'Edited existing' }] }];
+    expect(existing.richText[0]?.runs[0]?.style?.color).toEqual({
+      kind: 'scheme',
+      value: 'tx1',
+    });
+
+    const table = slide.addTable([['Table default']]);
+    const { xml, element } = slide.resolveShape(table.id);
+    const tableXml = xml.original(element);
+    expect(tableXml).toContain('<a:schemeClr val="tx1"/>');
+    expect(tableXml).not.toContain('<a:schemeClr val="accent6"/>');
+    expect(slide.color).toEqual({ kind: 'scheme', value: 'accent6' });
+  });
+
   it('creates, reads, edits, clears, no-ops, and rolls back live slide backgrounds', () => {
     const { pkg, model } = emptyPresentationModel();
     const slide = model.addSlide();
