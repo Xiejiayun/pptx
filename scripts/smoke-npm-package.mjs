@@ -49,7 +49,7 @@ try {
 
   await writeFile(
     join(directory, 'smoke.mjs'),
-    `import { calculateImageSizing, CustomGeometryEvaluationError, evaluateCustomGeometry, ImageModel, inches, inspectImage, inspectRasterImage, inspectSvgImage, PRESET_SHAPE_TYPES, PptxDocument, ShapeModel, TableModel, GradientCodec, importPptxGenJS, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
+    `import { calculateImageSizing, CustomGeometryEvaluationError, evaluateCustomGeometry, ImageModel, inches, inspectImage, inspectRasterImage, inspectSvgImage, MediaCodec, PRESET_SHAPE_TYPES, PptxDocument, ShapeModel, TableModel, GradientCodec, importPptxGenJS, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
 const created = PptxDocument.create({ rtlMode: true });
 const embeddedRasterDeck = PptxDocument.create();
 const embeddedRasterSlide = embeddedRasterDeck.addSlide();
@@ -263,6 +263,186 @@ await packedSvgDeck.writeFile('svg-smoke.pptx');
 const svgImages = packedSvgImmediate && packedLowLevelSvgRejected &&
   packedInvalidFallbackRejected && packedSvgUnchangedAfterFailures && packedSvgShared &&
   packedSvgCloneOnWrite && packedSvgReopened;
+const mediaDeck = PptxDocument.create();
+const mediaSlide = mediaDeck.addSlide();
+const mediaPath = (await import('node:url')).fileURLToPath(
+  new URL('./packed-path-audio.mp3', import.meta.url),
+);
+const sharedAudioBytes = Uint8Array.of(1, 2, 3, 4);
+await import('node:fs/promises').then(({ writeFile }) => writeFile(mediaPath, sharedAudioBytes));
+const mediaPngPoster = Uint8Array.from(Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+  'base64',
+));
+const mediaJpegPoster = Uint8Array.of(255, 216, 255, 224, 0, 16, 74, 70, 73, 70, 255, 217);
+const deletedSharedAudio = await mediaDeck.addAudio(
+  0,
+  'data:audio/mpeg;base64,AQIDBA==',
+  {
+    name: 'Packed audio & data',
+    altText: 'Deleted shared narration',
+    poster: mediaPngPoster,
+    posterContentType: 'image/png',
+  },
+);
+const pathAudio = await mediaDeck.addAudio(0, mediaPath, {
+  name: 'Packed path audio',
+  altText: 'Shared path narration',
+  poster: mediaPngPoster,
+  posterContentType: 'image/png',
+  x: inches(1),
+  y: inches(1.5),
+  width: inches(2),
+  height: inches(1),
+  play: 'auto',
+  loop: true,
+  hideWhenStopped: true,
+  volume: 0.25,
+});
+const bytesAudio = await mediaDeck.addAudio(0, Uint8Array.of(5, 6, 7), {
+  name: 'Packed bytes audio',
+  altText: '',
+  contentType: 'audio/wav',
+  fileName: 'packed-narration.wav',
+  poster: mediaJpegPoster,
+  posterContentType: 'image/jpeg',
+  x: inches(3.5),
+  y: inches(1.5),
+  width: inches(2),
+  height: inches(1),
+});
+const blobAudio = await mediaDeck.addAudio(
+  0,
+  new Blob([Uint8Array.of(8, 9, 10)], { type: 'audio/mp4' }),
+  {
+    name: 'Packed Blob audio',
+    contentType: 'audio/mp4',
+    fileName: 'packed-blob.m4a',
+    x: inches(6),
+    y: inches(1.5),
+    width: inches(2),
+    height: inches(1),
+  },
+);
+const streamAudio = await mediaDeck.addAudio(
+  0,
+  new ReadableStream({
+    start(controller) {
+      controller.enqueue(Uint8Array.of(11, 12));
+      controller.enqueue(Uint8Array.of(13));
+      controller.close();
+    },
+  }),
+  {
+    name: 'Packed stream audio',
+    contentType: 'audio/mpeg',
+    fileName: 'packed-stream.mp3',
+    x: inches(8.5),
+    y: inches(1.5),
+    width: inches(2),
+    height: inches(1),
+  },
+);
+const dataVideo = await mediaDeck.addVideo(0, 'data:video/mp4;base64,Dg8Q', {
+  name: 'Packed data video',
+  altText: 'Video from a data URI',
+  poster: 'data:image/png;base64,' + Buffer.from(mediaPngPoster).toString('base64'),
+  x: inches(1),
+  y: inches(3),
+  width: inches(4),
+  height: inches(2.25),
+  play: 'click',
+  volume: 0.75,
+});
+const bytesVideo = await mediaDeck.addVideo(0, Uint8Array.of(17, 18, 19), {
+  name: 'Packed bytes video',
+  altText: 'MOV bytes with JPEG poster',
+  contentType: 'video/quicktime',
+  fileName: 'packed-bytes.mov',
+  poster: mediaJpegPoster,
+  posterContentType: 'image/jpeg',
+  x: inches(5.5),
+  y: inches(3),
+  width: inches(4),
+  height: inches(2.25),
+});
+const packedMediaDeduplicated = deletedSharedAudio.mediaPartUri === pathAudio.mediaPartUri &&
+  deletedSharedAudio.posterPartUri === pathAudio.posterPartUri;
+new MediaCodec(mediaDeck.opcPackage).delete(mediaSlide.partUri, deletedSharedAudio.shapeId);
+const packedMediaSharedPreserved = mediaDeck.opcPackage.hasPart(pathAudio.mediaPartUri) &&
+  mediaDeck.opcPackage.hasPart(pathAudio.posterPartUri) && mediaDeck.media(0).length === 6;
+const packedMediaExpected = [
+  [pathAudio, 'audio', 'audio/mpeg', '.mp3', 'image/png', '.png'],
+  [bytesAudio, 'audio', 'audio/wav', '.wav', 'image/jpeg', '.jpg'],
+  [blobAudio, 'audio', 'audio/mp4', '.m4a', 'image/png', '.png'],
+  [streamAudio, 'audio', 'audio/mpeg', '.mp3', 'image/png', '.png'],
+  [dataVideo, 'video', 'video/mp4', '.mp4', 'image/png', '.png'],
+  [bytesVideo, 'video', 'video/quicktime', '.mov', 'image/jpeg', '.jpg'],
+];
+const packedMediaRelationshipsValid = (deck, slide, model) => {
+  const relationships = slide.relationships;
+  const mediaRelationships = relationships.filter(
+    ({ resolvedTarget }) => resolvedTarget === model.mediaPartUri,
+  );
+  const posterRelationships = relationships.filter(
+    ({ resolvedTarget }) => resolvedTarget === model.posterPartUri,
+  );
+  return mediaRelationships.some(({ type, targetMode }) =>
+    type.endsWith('/' + model.kind) && targetMode === 'Internal') &&
+    mediaRelationships.some(({ type, targetMode }) =>
+      type === 'http://schemas.microsoft.com/office/2007/relationships/media' &&
+      targetMode === 'Internal') &&
+    posterRelationships.some(({ type, targetMode }) =>
+      type.endsWith('/image') && targetMode === 'Internal') &&
+    deck.opcPackage.hasPart(model.mediaPartUri) && deck.opcPackage.hasPart(model.posterPartUri);
+};
+const packedMediaImmediate = packedMediaExpected.every(
+  ([model, kind, mediaType, mediaExtension, posterType, posterExtension]) =>
+    model.kind === kind && model.mediaPartUri.endsWith(mediaExtension) &&
+    mediaDeck.opcPackage.requirePart(model.mediaPartUri).contentType === mediaType &&
+    model.posterPartUri.endsWith(posterExtension) &&
+    mediaDeck.opcPackage.requirePart(model.posterPartUri).contentType === posterType &&
+    packedMediaRelationshipsValid(mediaDeck, mediaSlide, model),
+);
+const mediaXml = new TextDecoder().decode(mediaDeck.opcPackage.requirePart(mediaSlide.partUri).bytes);
+const packedMediaXmlValid = (mediaXml.match(/<a:audioFile\\b/g) ?? []).length === 4 &&
+  (mediaXml.match(/<a:videoFile\\b/g) ?? []).length === 2 &&
+  mediaXml.includes('name="Packed path audio"') &&
+  mediaXml.includes('descr="Shared path narration"') &&
+  mediaXml.includes('x="914400" y="1371600"') &&
+  mediaXml.includes('cx="1828800" cy="914400"');
+await mediaDeck.writeFile('media-smoke.pptx');
+const reopenedMediaDeck = await PptxDocument.open(await mediaDeck.write());
+const reopenedMedia = [...reopenedMediaDeck.media(0)].sort((left, right) => left.shapeId - right.shapeId);
+const reopenedMediaXml = new TextDecoder().decode(
+  reopenedMediaDeck.opcPackage.requirePart(reopenedMediaDeck.slides[0].partUri).bytes,
+);
+const packedMediaReopened = reopenedMedia.length === 6 && reopenedMedia.every((model, index) => {
+  const expected = packedMediaExpected[index];
+  return model.kind === expected[1] && model.mediaPartUri.endsWith(expected[3]) &&
+    reopenedMediaDeck.opcPackage.requirePart(model.mediaPartUri).contentType === expected[2] &&
+    model.posterPartUri.endsWith(expected[5]) &&
+    reopenedMediaDeck.opcPackage.requirePart(model.posterPartUri).contentType === expected[4] &&
+    packedMediaRelationshipsValid(reopenedMediaDeck, reopenedMediaDeck.slides[0], model);
+}) && reopenedMedia[0].settings.play === 'auto' && reopenedMedia[0].settings.loop === true &&
+  reopenedMedia[0].settings.hideWhenStopped === true && reopenedMedia[0].settings.volume === 0.25 &&
+  reopenedMedia[4].settings.play === 'click' && reopenedMedia[4].settings.volume === 0.75 &&
+  (reopenedMediaXml.match(/<a:audioFile\\b/g) ?? []).length === 4 &&
+  (reopenedMediaXml.match(/<a:videoFile\\b/g) ?? []).length === 2;
+const embeddedMedia = packedMediaDeduplicated && packedMediaSharedPreserved &&
+  packedMediaImmediate && packedMediaXmlValid && packedMediaReopened;
+if (!embeddedMedia) {
+  throw new Error(JSON.stringify({
+    packedMediaDeduplicated,
+    packedMediaSharedPreserved,
+    packedMediaImmediate,
+    packedMediaXmlValid,
+    packedMediaReopened,
+    mediaXml,
+    reopenedMediaXml,
+    reopenedMedia,
+  }));
+}
 const shapeDeck = PptxDocument.create();
 const shapeSlide = shapeDeck.addSlide();
 const defaultShape = shapeSlide.addShape('rect');
@@ -2301,6 +2481,7 @@ const checks = {
   shapeHyperlinks,
   embeddedRasterImages,
   svgImages,
+  embeddedMedia,
   presentationRtl: presentationRtlEnabled === true && presentationRtlDisabled === false && presentationRtlCleared === undefined && paragraphRtlAfterGlobalClear[0] === true && paragraphRtlAfterGlobalClear[1] === false,
   presentationTitle: createdPresentationTitle === 'Packed & <Title>' && editedPresentationTitle === 'Edited title' && reopenedPresentationTitle === 'Edited title' && emptyPresentationTitle === '' && clearedPresentationTitle === undefined,
   presentationAuthor: createdPresentationAuthor === 'Packed & <Author>' && editedPresentationAuthor === 'Edited author' && reopenedPresentationAuthor === 'Edited author' && emptyPresentationAuthor === '' && clearedPresentationAuthor === undefined,
@@ -3582,6 +3763,13 @@ process.stdout.write(resolved);
   type ImageSizing,
   type ImageSizingResult,
   type ImageSource,
+  type AddMediaOptions,
+  type MediaByteChunk,
+  type MediaByteStream,
+  type MediaKind,
+  type MediaModel,
+  type MediaPlaybackSettings,
+  type MediaSource,
   type ResolvedImageSource,
   type ShapeArrows,
   type ShapeArrowType,
@@ -3709,6 +3897,70 @@ const typedHighLevelSvgImage: Promise<ImageModel> = createdDocument.addImage(
   typedImageSource,
   typedImageSourceOptions,
 );
+const typedMediaKind: MediaKind = 'audio';
+const typedMediaChunk: MediaByteChunk = Uint8Array.of(1, 2, 3);
+const typedMediaStream: MediaByteStream = new ReadableStream<MediaByteChunk>({
+  start(controller) {
+    controller.enqueue(typedMediaChunk);
+    controller.close();
+  },
+});
+const typedMediaSources: readonly MediaSource[] = [
+  'data:audio/mpeg;base64,AQID',
+  './typed-audio.mp3',
+  Uint8Array.of(1),
+  Uint8Array.of(2).buffer,
+  new Blob([Uint8Array.of(3)], { type: 'audio/mpeg' }),
+  typedMediaStream,
+];
+const typedPlayback: MediaPlaybackSettings = {
+  play: 'auto',
+  loop: true,
+  hideWhenStopped: true,
+  volume: 0.5,
+};
+const typedMediaOptions: AddMediaOptions = {
+  name: 'Typed media',
+  altText: 'Typed media description',
+  contentType: 'audio/mpeg',
+  fileName: 'typed-media.mp3',
+  poster: 'data:image/png;base64,AQID',
+  posterContentType: 'image/png',
+  x: inches(1),
+  y: inches(2),
+  width: inches(3),
+  height: inches(4),
+  ...typedPlayback,
+  transcode: async (bytes, contentType, kind) => ({
+    bytes,
+    contentType,
+    extension: kind === 'audio' ? '.mp3' : '.mp4',
+  }),
+};
+const typedMediaPromise: Promise<MediaModel> = createdDocument.addAudio(
+  0,
+  typedMediaSources[0],
+  typedMediaOptions,
+);
+const typedVideoPromise: Promise<MediaModel> = createdDocument.addVideo(
+  0,
+  new Blob([Uint8Array.of(4)], { type: 'video/mp4' }),
+  { contentType: 'video/mp4', poster: typedMediaStream },
+);
+// @ts-expect-error media kind accepts only audio or video
+const invalidMediaKind: MediaKind = 'online';
+// @ts-expect-error media name must be a string
+const invalidMediaName: AddMediaOptions = { name: 1 };
+// @ts-expect-error media poster must be a supported media source
+const invalidMediaPoster: AddMediaOptions = { poster: {} };
+// @ts-expect-error media playback accepts only click or auto
+const invalidMediaPlayback: AddMediaOptions = { play: 'hover' };
+const invalidMediaTranscode: AddMediaOptions = {
+  // @ts-expect-error media transcoder bytes must be Uint8Array
+  transcode: async () => ({ bytes: 'bad', contentType: 'audio/mpeg' }),
+};
+// @ts-expect-error media source must be a supported source
+const invalidMediaSource: MediaSource = {};
 // @ts-expect-error low-level raster image options exclude SVG
 const invalidLowLevelSvgOptions: AddImageOptions = { contentType: 'image/svg+xml' };
 const invalidSvgFallback: AddImageSourceOptions = {
@@ -4372,7 +4624,7 @@ void [typedPreset, typedNoneShapeFill, typedSolidShapeFill, typedShapeOptions, t
   typedShapeShadowRead, invalidMissingShapeShadowKind, invalidNoneShapeShadowKind,
   invalidInnerShapeShadowRotate, invalidShapeShadowOffset, invalidShapeShadowType,
   invalidUnknownShapeShadow, invalidShapeShadowFieldType];
-void [documentPromise, createdDocument, typedRasterContentType, typedRasterOptions, typedRasterImage, invalidRasterSvg, invalidRasterMissingType, invalidRasterPath, invalidRasterData, typedSvgContentType, typedImageContentType, typedSvgInfo, typedImageInfo, typedCropRegion, typedImageSizing, typedImageSizingResult, typedImageSource, typedImageChunk, typedImageStream, typedImageSourceOptions, typedResolvedImage, typedSvgOptions, typedSvgImage, typedHighLevelSvgImage, invalidLowLevelSvgOptions, invalidSvgFallback, addSectionOptions, typedSection, addSlideOptions, sectionSnapshot, typedVisibilitySlide, hiddenSnapshot, globalRtl, globalRtlSnapshot, titledDocument, titleSnapshot, authoredDocument, authorSnapshot, lastModifiedDocument, lastModifiedSnapshot, createdAtDocument, createdAtSnapshot, modifiedAtDocument, modifiedAtSnapshot, subjectDocument, subjectSnapshot, revisionDocument, revisionSnapshot, companyDocument, companySnapshot, themedDocument, themeSnapshot, fontSnapshot, fontUpdate, customDocument, createdText, creationBorder, creationMargin, creationOptions, objectCell, tableRows, tableOptions, typedTable, widthSnapshot, heightSnapshot, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotHorizontalAlignment, tableHorizontalAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellHorizontalAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
+void [documentPromise, createdDocument, typedRasterContentType, typedRasterOptions, typedRasterImage, invalidRasterSvg, invalidRasterMissingType, invalidRasterPath, invalidRasterData, typedSvgContentType, typedImageContentType, typedSvgInfo, typedImageInfo, typedCropRegion, typedImageSizing, typedImageSizingResult, typedImageSource, typedImageChunk, typedImageStream, typedImageSourceOptions, typedResolvedImage, typedSvgOptions, typedSvgImage, typedHighLevelSvgImage, typedMediaKind, typedMediaChunk, typedMediaStream, typedMediaSources, typedPlayback, typedMediaOptions, typedMediaPromise, typedVideoPromise, invalidMediaKind, invalidMediaName, invalidMediaPoster, invalidMediaPlayback, invalidMediaTranscode, invalidMediaSource, invalidLowLevelSvgOptions, invalidSvgFallback, addSectionOptions, typedSection, addSlideOptions, sectionSnapshot, typedVisibilitySlide, hiddenSnapshot, globalRtl, globalRtlSnapshot, titledDocument, titleSnapshot, authoredDocument, authorSnapshot, lastModifiedDocument, lastModifiedSnapshot, createdAtDocument, createdAtSnapshot, modifiedAtDocument, modifiedAtSnapshot, subjectDocument, subjectSnapshot, revisionDocument, revisionSnapshot, companyDocument, companySnapshot, themedDocument, themeSnapshot, fontSnapshot, fontUpdate, customDocument, createdText, creationBorder, creationMargin, creationOptions, objectCell, tableRows, tableOptions, typedTable, widthSnapshot, heightSnapshot, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotHorizontalAlignment, tableHorizontalAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellHorizontalAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
 `,
   );
   run(
@@ -4417,9 +4669,29 @@ void [documentPromise, createdDocument, typedRasterContentType, typedRasterOptio
       validated.data.warningCount !== 0) {
     throw new Error(`CLI SVG validation failed: ${validateResult.stdout}`);
   }
+  const mediaDeckPath = join(directory, 'media-smoke.pptx');
+  const mediaInspectResult = run(bin, ['--json', 'package', 'inspect', mediaDeckPath], directory);
+  const mediaInspected = JSON.parse(mediaInspectResult.stdout);
+  const mediaContentTypes = mediaInspected.data?.contentTypes ?? {};
+  if (!mediaInspected.ok || mediaContentTypes['audio/mpeg'] !== 2 ||
+      mediaContentTypes['audio/wav'] !== 1 || mediaContentTypes['audio/mp4'] !== 1 ||
+      mediaContentTypes['video/mp4'] !== 1 || mediaContentTypes['video/quicktime'] !== 1 ||
+      mediaContentTypes['image/png'] < 1 || mediaContentTypes['image/jpeg'] < 1) {
+    throw new Error(`CLI media inspect failed: ${mediaInspectResult.stdout}`);
+  }
+  const mediaValidateResult = run(
+    bin,
+    ['--json', 'package', 'validate', mediaDeckPath, '--profile', 'powerpoint-2010'],
+    directory,
+  );
+  const mediaValidated = JSON.parse(mediaValidateResult.stdout);
+  if (!mediaValidated.ok || !mediaValidated.data?.valid ||
+      mediaValidated.data.errorCount !== 0 || mediaValidated.data.warningCount !== 0) {
+    throw new Error(`CLI media validation failed: ${mediaValidateResult.stdout}`);
+  }
 
   process.stdout.write(
-    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, types: true, cli: doctor.data.version, svgInspect: true, svgValidate: true })}\n`,
+    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, types: true, cli: doctor.data.version, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true })}\n`,
   );
 } finally {
   await rm(directory, { recursive: true, force: true });

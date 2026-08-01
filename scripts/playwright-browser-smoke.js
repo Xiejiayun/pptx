@@ -37,6 +37,49 @@ async (page) => {
         height: api.inches(2),
         flipVertical: true,
       });
+      const mediaDocument = api.PptxDocument.create();
+      mediaDocument.addSlide();
+      const mediaPngPoster = Uint8Array.from([
+        137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82,
+        0, 0, 0, 1, 0, 0, 0, 1, 8, 4, 0, 0, 0, 181, 28, 12, 2, 0, 0,
+        0, 11, 73, 68, 65, 84, 120, 218, 99, 100, 248, 15, 0, 1, 5, 1, 1,
+        39, 24, 227, 102, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130,
+      ]);
+      const posterStream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(mediaPngPoster.slice(0, 20));
+          controller.enqueue(mediaPngPoster.slice(20));
+          controller.close();
+        },
+      });
+      await mediaDocument.addAudio(0, 'data:audio/mpeg;base64,AQIDBA==', {
+        name: 'Browser MP3 narration',
+        altText: 'Browser data URI audio',
+        poster: posterStream,
+        posterContentType: 'image/png',
+        x: api.inches(1),
+        y: api.inches(1),
+        width: api.inches(2),
+        height: api.inches(1),
+        play: 'auto',
+        loop: true,
+        hideWhenStopped: true,
+        volume: 0.5,
+      });
+      await mediaDocument.addVideo(
+        0,
+        new Blob([Uint8Array.of(5, 6, 7, 8)], { type: 'video/mp4' }),
+        {
+          name: 'Browser Blob video',
+          altText: 'Browser Blob video with JPEG poster',
+          poster: Uint8Array.of(255, 216, 255, 224, 0, 16, 74, 70, 73, 70, 255, 217),
+          posterContentType: 'image/jpeg',
+          x: api.inches(4),
+          y: api.inches(1),
+          width: api.inches(4),
+          height: api.inches(2.25),
+        },
+      );
       const output = await document.writeBlob();
       const reopened = await api.PptxDocument.open(output);
       const reopenedSvgDocument = await api.PptxDocument.open(await svgDocument.writeBlob());
@@ -57,6 +100,43 @@ async (page) => {
           )).length,
         };
       });
+      const mediaOutput = await mediaDocument.writeBlob({ compatibility: 'powerpoint-2010' });
+      const reopenedMediaDocument = await api.PptxDocument.open(mediaOutput);
+      const reopenedMediaSlide = reopenedMediaDocument.slides[0];
+      const reopenedMedia = reopenedMediaDocument.media(0);
+      const mediaXml = new TextDecoder().decode(
+        reopenedMediaDocument.opcPackage.requirePart(reopenedMediaSlide.partUri).bytes,
+      );
+      const mediaState = reopenedMedia.map((model) => {
+        const mediaPart = reopenedMediaDocument.opcPackage.requirePart(model.mediaPartUri);
+        const posterPart = reopenedMediaDocument.opcPackage.requirePart(model.posterPartUri);
+        const mediaRelationships = reopenedMediaSlide.relationships.filter(
+          ({ resolvedTarget }) => resolvedTarget === model.mediaPartUri,
+        );
+        const posterRelationships = reopenedMediaSlide.relationships.filter(
+          ({ resolvedTarget }) => resolvedTarget === model.posterPartUri,
+        );
+        return {
+          kind: model.kind,
+          mediaType: mediaPart.contentType,
+          mediaExtension: model.mediaPartUri.slice(model.mediaPartUri.lastIndexOf('.')),
+          posterType: posterPart.contentType,
+          posterExtension: model.posterPartUri.slice(model.posterPartUri.lastIndexOf('.')),
+          roles: [
+            mediaRelationships.some(({ type }) => type.endsWith('/' + model.kind)),
+            mediaRelationships.some(({ type }) =>
+              type === 'http://schemas.microsoft.com/office/2007/relationships/media'),
+            posterRelationships.some(({ type }) => type.endsWith('/image')),
+          ],
+          posterSignature: Array.from(posterPart.bytes.slice(0, 4)),
+        };
+      });
+      const mediaNames = reopenedMedia.map((model) => {
+        const match = mediaXml.match(new RegExp(
+          '<p:cNvPr\\b[^>]*\\bid="' + model.shapeId + '"[^>]*\\bname="([^"]*)"',
+        ));
+        return match?.[1];
+      });
       return {
         format: reopened.format,
         title: reopened.slides[0].title.text,
@@ -67,6 +147,16 @@ async (page) => {
         svgCreatedLive: svgDocument.slides[0].shapes.includes(blobSvg)
           && svgDocument.slides[0].shapes.includes(dataSvg),
         svgState,
+        mediaMime: mediaOutput.type,
+        mediaNames,
+        mediaElementCounts: {
+          audio: (mediaXml.match(/<a:audioFile\b/g) ?? []).length,
+          video: (mediaXml.match(/<a:videoFile\b/g) ?? []).length,
+        },
+        mediaState,
+        mediaValidationErrors: mediaDocument.diagnostics.filter(
+          ({ severity }) => severity === 'error',
+        ).length,
       };
     },
     {
@@ -113,6 +203,30 @@ async (page) => {
         internalTargets: 2,
       },
     ],
+    mediaMime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    mediaNames: ['Browser MP3 narration', 'Browser Blob video'],
+    mediaElementCounts: { audio: 1, video: 1 },
+    mediaState: [
+      {
+        kind: 'audio',
+        mediaType: 'audio/mpeg',
+        mediaExtension: '.mp3',
+        posterType: 'image/png',
+        posterExtension: '.png',
+        roles: [true, true, true],
+        posterSignature: [137, 80, 78, 71],
+      },
+      {
+        kind: 'video',
+        mediaType: 'video/mp4',
+        mediaExtension: '.mp4',
+        posterType: 'image/jpeg',
+        posterExtension: '.jpg',
+        roles: [true, true, true],
+        posterSignature: [255, 216, 255, 224],
+      },
+    ],
+    mediaValidationErrors: 0,
     downloadFileName: 'browser-smoke.pptx',
   };
   if (JSON.stringify(result) !== JSON.stringify(expected)) {
