@@ -72,6 +72,12 @@ import {
   sortPresentationSectionSlides,
 } from './presentation-sections.internal.js';
 import type { Emu, SlideSize } from './units.js';
+import {
+  normalizeFirstSlideNumber,
+  readFirstSlideNumber,
+  replaceFirstSlideNumber,
+  synchronizeSlideNumberCaches,
+} from './presentation-slide-number.internal.js';
 
 const SLIDE_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slide+xml';
 const SLIDE_RELATIONSHIP = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide';
@@ -162,6 +168,33 @@ export class PresentationModel {
     if (['1', 'true', 'on'].includes(value)) return true;
     if (['0', 'false', 'off'].includes(value)) return false;
     return undefined;
+  }
+
+  get firstSlideNumber(): number | undefined {
+    return readFirstSlideNumber(this.parsePresentation().xml);
+  }
+
+  set firstSlideNumber(value: number | undefined) {
+    const normalized = value === undefined ? undefined : normalizeFirstSlideNumber(value);
+    this.opcPackage.transaction(() => {
+      const { xml } = this.parsePresentation();
+      if (!replaceFirstSlideNumber(xml, normalized)) return;
+      this.setXmlPart(this.presentationPartUri, xml.serialize());
+      synchronizeSlideNumberCaches(this);
+    });
+  }
+
+  /** @internal */
+  effectiveSlideNumber(slide: SlideModel): number {
+    const index = this.slides.indexOf(slide);
+    if (index < 0) {
+      throw new Error('Slide is not part of the current presentation');
+    }
+    const effective = (this.firstSlideNumber ?? 1) + index;
+    if (!Number.isSafeInteger(effective)) {
+      throw new RangeError('Effective slide number exceeds the JavaScript safe integer range');
+    }
+    return effective;
   }
 
   get author(): string | undefined {
@@ -406,29 +439,42 @@ export class PresentationModel {
   }
 
   duplicateSlide(index: number): SlideModel {
-    return this.opcPackage.transaction(() => {
-      const source = this.requireSlide(index);
-      const before = this.parsePresentation().xml;
-      this.requireEditableSections(
-        before,
-        new Set(this.slides.map(({ slideId }) => slideId)),
-      );
-      const slideUri = this.opcPackage.allocatePartUri(
-        joinPartUri(partUriDirname(this.presentationPartUri), 'slides'),
-        'slide',
-        '.xml',
-      );
-      const sourcePart = this.opcPackage.requirePart(source.partUri);
-      this.opcPackage.setPart(slideUri, sourcePart.bytes, sourcePart.contentType);
-      cloneSlideDependencies(this.opcPackage, source.partUri, slideUri);
-      const duplicate = this.attachSlide(slideUri);
-      const { xml } = this.parsePresentation();
-      const slideIds = new Set(this.slides.map(({ slideId }) => slideId));
-      if (copyPresentationSlideSection(xml, slideIds, source.slideId, duplicate.slideId)) {
-        this.setXmlPart(this.presentationPartUri, xml.serialize());
+    let allocatedPartUri: string | undefined;
+    let previousModel: SlideModel | undefined;
+    try {
+      return this.opcPackage.transaction(() => {
+        const source = this.requireSlide(index);
+        const before = this.parsePresentation().xml;
+        this.requireEditableSections(
+          before,
+          new Set(this.slides.map(({ slideId }) => slideId)),
+        );
+        const slideUri = this.opcPackage.allocatePartUri(
+          joinPartUri(partUriDirname(this.presentationPartUri), 'slides'),
+          'slide',
+          '.xml',
+        );
+        allocatedPartUri = slideUri;
+        previousModel = this.#slideModels.get(slideUri);
+        const sourcePart = this.opcPackage.requirePart(source.partUri);
+        this.opcPackage.setPart(slideUri, sourcePart.bytes, sourcePart.contentType);
+        cloneSlideDependencies(this.opcPackage, source.partUri, slideUri);
+        const duplicate = this.attachSlide(slideUri);
+        const { xml } = this.parsePresentation();
+        const slideIds = new Set(this.slides.map(({ slideId }) => slideId));
+        if (copyPresentationSlideSection(xml, slideIds, source.slideId, duplicate.slideId)) {
+          this.setXmlPart(this.presentationPartUri, xml.serialize());
+        }
+        synchronizeSlideNumberCaches(this);
+        return duplicate;
+      });
+    } catch (error) {
+      if (allocatedPartUri) {
+        if (previousModel) this.#slideModels.set(allocatedPartUri, previousModel);
+        else this.#slideModels.delete(allocatedPartUri);
       }
-      return duplicate;
-    });
+      throw error;
+    }
   }
 
   deleteSlide(index: number): void {
@@ -468,6 +514,7 @@ export class PresentationModel {
       this.opcPackage.deletePart(slide.partUri);
       garbageCollectOwnedDependencies(this.opcPackage, ownedDependencies);
       garbageCollectMediaDependencies(this.opcPackage, mediaDependencies);
+      synchronizeSlideNumberCaches(this);
     });
   }
 
@@ -501,6 +548,7 @@ export class PresentationModel {
       });
       sortPresentationSectionSlides(xml, validSlideIds, orderedSlideIds);
       this.setXmlPart(this.presentationPartUri, xml.serialize());
+      synchronizeSlideNumberCaches(this);
     });
   }
 

@@ -6,12 +6,17 @@ import {
 } from '@pptx/lossless-xml';
 import {
   MediaCodec,
+  normalizeSlideNumberOptions,
+  readSlideNumber,
+  replaceSlideNumber,
   type AddMediaOptions,
   type MediaPlaybackSettings,
   type MediaKind,
   type MediaSource,
   type ReplaceMediaSourceOptions,
   type ReplaceMediaPosterOptions,
+  type SlideNumber,
+  type SlideNumberOptions,
 } from '@pptx/codecs';
 import {
   relativeRelationshipTarget,
@@ -339,6 +344,23 @@ export class SlideModel {
 
   set background(value: SlideBackground | undefined) {
     replaceSlideBackground(this.presentation.opcPackage, this.partUri, value);
+  }
+
+  get slideNumber(): Readonly<SlideNumber> | undefined {
+    return readSlideNumber(this.presentation.opcPackage, this.partUri, 'slide');
+  }
+
+  set slideNumber(value: SlideNumberOptions | undefined) {
+    const normalized = value === undefined
+      ? undefined
+      : normalizeSlideNumberOptions(value);
+    replaceSlideNumber(
+      this.presentation.opcPackage,
+      this.partUri,
+      'slide',
+      normalized,
+      String(this.presentation.effectiveSlideNumber(this)),
+    );
   }
 
   get hidden(): boolean | undefined {

@@ -1,6 +1,6 @@
 import JSZip from 'jszip';
 import { describe, expect, it, vi } from 'vitest';
-import { MediaCodec } from '@pptx/codecs';
+import { MediaCodec, type SlideNumberOptions } from '@pptx/codecs';
 import { LosslessXmlDocument } from '@pptx/lossless-xml';
 import { OpcPackage, relativeRelationshipTarget, relationshipPartUri } from '@pptx/opc';
 import {
@@ -338,6 +338,15 @@ function packageSnapshot(pkg: OpcPackage) {
   };
 }
 
+function slideNumberCache(pkg: OpcPackage, slidePartUri: string): string | undefined {
+  const xml = LosslessXmlDocument.parse(pkg.requirePart(slidePartUri).bytes);
+  const field = xml.elements('fld').find(
+    (candidate) => xml.attribute(candidate, 'type')?.value === 'slidenum',
+  );
+  const text = field ? xml.descendants(field, 't') : [];
+  return text.length === 1 ? xml.text(text[0]!) : undefined;
+}
+
 function emptyPresentationModel(): { pkg: OpcPackage; model: PresentationModel } {
   const pkg = OpcPackage.create();
   pkg.transaction(() => {
@@ -404,6 +413,151 @@ describe('PresentationModel', () => {
         model.formatProfile.template,
       ]).toEqual(expectedFlags[profile.format]);
     }
+  });
+
+  it('creates, reads, edits, clears, and no-ops live slide numbers and presentation start', () => {
+    const { pkg, model } = emptyPresentationModel();
+    const slide = model.addSlide();
+    expect(model.firstSlideNumber).toBeUndefined();
+    expect(slide.slideNumber).toBeUndefined();
+
+    const options: SlideNumberOptions = {
+      align: 'center',
+      margin: 0,
+      style: { bold: true, color: { kind: 'scheme', value: 'accent1' } },
+    };
+    slide.slideNumber = options;
+    expect(slide.slideNumber).toMatchObject({
+      align: 'center',
+      margin: { top: 0, right: 0, bottom: 0, left: 0 },
+      style: { bold: true, color: { kind: 'scheme', value: 'accent1' } },
+    });
+    expect(slideNumberCache(pkg, slide.partUri)).toBe('1');
+
+    model.firstSlideNumber = -2;
+    expect(model.firstSlideNumber).toBe(-2);
+    expect(slideNumberCache(pkg, slide.partUri)).toBe('-2');
+    const before = packageSnapshot(pkg);
+    model.firstSlideNumber = -2;
+    slide.slideNumber = slide.slideNumber;
+    expect(packageSnapshot(pkg)).toEqual(before);
+
+    model.firstSlideNumber = undefined;
+    expect(model.firstSlideNumber).toBeUndefined();
+    expect(slideNumberCache(pkg, slide.partUri)).toBe('1');
+    slide.slideNumber = undefined;
+    expect(slide.slideNumber).toBeUndefined();
+  });
+
+  it('synchronizes direct caches through duplicate, move, delete, and section operations', () => {
+    const { pkg, model } = emptyPresentationModel();
+    model.firstSlideNumber = 10;
+    const first = model.addSlide();
+    const second = model.addSlide();
+    const third = model.addSlide();
+    first.slideNumber = {};
+    second.slideNumber = {};
+    third.slideNumber = {};
+    expect(model.slides.map((slide) => slideNumberCache(pkg, slide.partUri)))
+      .toEqual(['10', '11', '12']);
+
+    const duplicate = model.duplicateSlide(0);
+    expect(duplicate).not.toBe(first);
+    expect(slideNumberCache(pkg, duplicate.partUri)).toBe('13');
+    expect(slideNumberCache(pkg, first.partUri)).toBe('10');
+
+    model.moveSlide(model.slides.indexOf(duplicate), 0);
+    expect(model.slides[0]).toBe(duplicate);
+    expect(model.slides.map((slide) => slideNumberCache(pkg, slide.partUri)))
+      .toEqual(['10', '11', '12', '13']);
+
+    const section = model.addSection({ title: 'Numbered', order: 0 });
+    model.assignSlideToSection(model.slides.indexOf(second), section.id);
+    const beforeSectionRename = model.slides.map((slide) => slideNumberCache(pkg, slide.partUri));
+    model.renameSection(section.id, 'Renamed');
+    expect(model.slides.map((slide) => slideNumberCache(pkg, slide.partUri)))
+      .toEqual(beforeSectionRename);
+
+    model.deleteSlide(model.slides.indexOf(first));
+    expect(model.slides.map((slide) => slideNumberCache(pkg, slide.partUri)))
+      .toEqual(['10', '11', '12']);
+    expect(() => {
+      first.slideNumber = { width: 0 };
+    }).toThrow(/width/i);
+    expect(() => {
+      first.slideNumber = {};
+    }).toThrow(/current presentation/i);
+  });
+
+  it('leaves unsupported direct fields untouched during cache synchronization', () => {
+    const { pkg, model } = emptyPresentationModel();
+    const supported = model.addSlide();
+    const unsupported = model.addSlide();
+    supported.slideNumber = {};
+    unsupported.slideNumber = {};
+    const unsupportedPart = pkg.requirePart(unsupported.partUri);
+    const unsupportedXml = new TextDecoder().decode(unsupportedPart.bytes)
+      .replace('type="slidenum"', 'type="datetime"');
+    pkg.setPart(unsupported.partUri, unsupportedXml, unsupportedPart.contentType);
+    const unsupportedBefore = pkg.requirePart(unsupported.partUri).bytes.slice();
+
+    model.firstSlideNumber = 20;
+    model.moveSlide(1, 0);
+    expect(pkg.requirePart(unsupported.partUri).bytes).toEqual(unsupportedBefore);
+    expect(slideNumberCache(pkg, supported.partUri)).toBe('21');
+  });
+
+  it('rolls presentation and every changed slide cache back after an injected write failure', () => {
+    const { pkg, model } = emptyPresentationModel();
+    const first = model.addSlide();
+    const second = model.addSlide();
+    first.slideNumber = {};
+    second.slideNumber = {};
+    const before = packageSnapshot(pkg);
+    const original = pkg.setPart.bind(pkg);
+    let slideWrites = 0;
+    const spy = vi.spyOn(pkg, 'setPart').mockImplementation((uri, bytes, contentType) => {
+      if (uri.startsWith('/ppt/slides/')) {
+        slideWrites += 1;
+        if (slideWrites === 2) throw new Error('injected slide-number cache write');
+      }
+      return original(uri, bytes, contentType);
+    });
+    expect(() => {
+      model.firstSlideNumber = 100;
+    }).toThrow('injected slide-number cache write');
+    spy.mockRestore();
+    expect(packageSnapshot(pkg)).toEqual(before);
+    expect(model.firstSlideNumber).toBeUndefined();
+    expect(model.slides[0]).toBe(first);
+    expect(model.slides[1]).toBe(second);
+  });
+
+  it('drops a failed duplicate model after cache synchronization rolls back', () => {
+    const { pkg, model } = emptyPresentationModel();
+    const source = model.addSlide();
+    source.slideNumber = {};
+    const before = packageSnapshot(pkg);
+    const original = pkg.setPart.bind(pkg);
+    let capturedFailedModel: typeof source | undefined;
+    const spy = vi.spyOn(pkg, 'setPart').mockImplementation((uri, bytes, contentType) => {
+      if (uri === '/ppt/slides/slide2.xml' && pkg.hasPart(uri)) {
+        capturedFailedModel = model.slides.at(-1);
+        throw new Error('injected duplicate cache write');
+      }
+      return original(uri, bytes, contentType);
+    });
+    expect(() => model.duplicateSlide(0)).toThrow('injected duplicate cache write');
+    spy.mockRestore();
+    expect(packageSnapshot(pkg)).toEqual(before);
+    expect(model.slides).toEqual([source]);
+    expect(capturedFailedModel).toBeDefined();
+
+    const retry = model.duplicateSlide(0);
+    expect(retry).not.toBe(capturedFailedModel);
+    expect(model.slides[0]).toBe(source);
+    expect(model.slides[1]).toBe(retry);
+    expect(slideNumberCache(pkg, retry.partUri)).toBe('2');
   });
 
   it('creates, reads, edits, clears, no-ops, and rolls back live slide backgrounds', () => {

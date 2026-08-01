@@ -10,6 +10,7 @@ export * from './format.js';
 export * from './hyperlink.js';
 export * from './image.js';
 export * from './presentation.js';
+export { normalizeFirstSlideNumber } from './presentation-slide-number.internal.js';
 export * from './preset-shape.js';
 export * from './shapes.js';
 export * from './slide.js';
