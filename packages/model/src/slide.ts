@@ -1297,10 +1297,11 @@ export class SlideModel {
     textWrap: boolean,
   ): ShapeModel {
     const { xml } = this.parse();
-    const shapeTree = xml
-      .elements('spTree')
-      .find(({ parent }) => parent?.localName === 'cSld');
-    if (!shapeTree) throw new ModelParseError('Slide does not contain a shape tree', this.partUri);
+    const shapeTree = requirePresetShapeTree(
+      xml,
+      this.partUri,
+      'Slide does not contain a shape tree',
+    );
     const nextId = allocateShapeId(xml);
     const shapeXml = textShapeXml(
       nextId,
@@ -1602,9 +1603,14 @@ function allocatePresetShapeId(
 function requirePresetShapeTree(
   xml: LosslessXmlDocument,
   partUri: string,
+  missingTreeMessage = 'Slide must contain exactly one direct shape tree',
 ): XmlElement {
   const root = xml.roots.length === 1 ? xml.roots[0] : undefined;
-  if (!root || root.localName !== 'sld' || namespaceUri(root) !== PRESENTATION_NAMESPACE) {
+  if (
+    !root
+    || !['sld', 'sldLayout', 'sldMaster'].includes(root.localName)
+    || namespaceUri(root) !== PRESENTATION_NAMESPACE
+  ) {
     throw new ModelParseError('Slide does not have a safe presentation root', partUri);
   }
   const commonSlideData = directElementChildren(root, 'cSld');
@@ -1616,7 +1622,7 @@ function requirePresetShapeTree(
   }
   const shapeTrees = directElementChildren(commonSlideData[0]!, 'spTree');
   if (shapeTrees.length !== 1 || namespaceUri(shapeTrees[0]!) !== PRESENTATION_NAMESPACE) {
-    throw new ModelParseError('Slide must contain exactly one direct shape tree', partUri);
+    throw new ModelParseError(missingTreeMessage, partUri);
   }
   const extensionLists = directElementChildren(shapeTrees[0]!, 'extLst');
   if (

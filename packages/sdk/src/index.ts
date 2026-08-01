@@ -6,6 +6,8 @@ import {
   slideNumberDiagnostics,
   type AddMediaOptions,
   type CodecDiagnostic,
+  type LayoutModel as RawLayoutModel,
+  type MasterModel as RawMasterModel,
   type MediaSource,
 } from '@pptx/codecs';
 import {
@@ -47,6 +49,7 @@ import {
   type SetSlideBackgroundImageOptions,
 } from './slide-background-source.js';
 import { resolveSvgFallback } from './svg-image-fallback.js';
+import { SlideLayoutModel, SlideMasterModel } from './master-layout.js';
 
 export * from '@pptx/codecs';
 export * from '@pptx/model';
@@ -84,6 +87,7 @@ export type {
   RasterImageSizingResult,
 } from './raster-image-sizing.js';
 export type { SetSlideBackgroundImageOptions } from './slide-background-source.js';
+export { SlideLayoutModel, SlideMasterModel } from './master-layout.js';
 export { PackageError } from '@pptx/opc';
 export type { PackageOpenOptions } from '@pptx/opc';
 export { ValidationError } from '@pptx/validator';
@@ -110,6 +114,8 @@ export class PptxDocument extends PresentationModel {
   readonly diagnostics: Diagnostic[] = [];
   readonly codecRegistry = new CodecRegistry();
   readonly #masterLayoutTheme: MasterLayoutThemeCodec;
+  readonly #layoutModels = new Map<string, SlideLayoutModel>();
+  readonly #masterModels = new Map<string, SlideMasterModel>();
 
   private constructor(opcPackage: OpcPackage) {
     super(opcPackage);
@@ -230,12 +236,12 @@ export class PptxDocument extends PresentationModel {
     }
   }
 
-  get masters() {
-    return this.#masterLayoutTheme.masters;
+  get masters(): readonly SlideMasterModel[] {
+    return this.#masterLayoutTheme.masters.map((master) => this.modelForMaster(master));
   }
 
-  get layouts() {
-    return this.#masterLayoutTheme.layouts;
+  get layouts(): readonly SlideLayoutModel[] {
+    return this.#masterLayoutTheme.layouts.map((layout) => this.modelForLayout(layout));
   }
 
   get themes() {
@@ -261,6 +267,26 @@ export class PptxDocument extends PresentationModel {
 
   get masterLayoutTheme(): MasterLayoutThemeCodec {
     return this.#masterLayoutTheme;
+  }
+
+  private modelForLayout(raw: RawLayoutModel): SlideLayoutModel {
+    const existing = this.#layoutModels.get(raw.partUri);
+    if (existing) return existing;
+    const created = new SlideLayoutModel(this, raw);
+    this.#layoutModels.set(raw.partUri, created);
+    return created;
+  }
+
+  private modelForMaster(raw: RawMasterModel): SlideMasterModel {
+    const existing = this.#masterModels.get(raw.partUri);
+    if (existing) return existing;
+    const created = new SlideMasterModel(
+      this,
+      raw,
+      (layout) => this.modelForLayout(layout),
+    );
+    this.#masterModels.set(raw.partUri, created);
+    return created;
   }
 
   async addImage(

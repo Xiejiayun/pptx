@@ -29,6 +29,8 @@ import {
   PRESET_SHAPE_TYPES,
   PptxDocument,
   ShapeModel,
+  SlideLayoutModel,
+  SlideMasterModel,
   TableModel,
   ValidationError,
   type AddImageOptions,
@@ -228,6 +230,84 @@ async function tableBordersFixture(): Promise<Uint8Array> {
 }
 
 describe('PptxDocument vertical slice', () => {
+  it('exposes stable semantic master layout models with editable content', async () => {
+    const document = PptxDocument.create();
+    const layout = document.layouts[0]!;
+    const master = document.masters[0]!;
+    expect(layout).toBeInstanceOf(SlideLayoutModel);
+    expect(master).toBeInstanceOf(SlideMasterModel);
+    expect(document.layouts[0]).toBe(layout);
+    expect(document.masters[0]).toBe(master);
+    expect(master.layouts[0]).toBe(layout);
+    expect(document.masterLayoutTheme.layouts[0]?.partUri).toBe(layout.partUri);
+    expect(document.masterLayoutTheme.masters[0]?.partUri).toBe(master.partUri);
+
+    const text = layout.addText('Inherited layout text', {
+      x: inches(1),
+      y: inches(2),
+      width: inches(3),
+      height: inches(4),
+    });
+    const rich = layout.addRichText([{ runs: [{ text: 'Rich layout text' }] }]);
+    const shape = master.addShape('rect', {
+      x: inches(0.1),
+      y: inches(0.2),
+      width: inches(0.3),
+      height: inches(0.4),
+      fill: { kind: 'solid', color: { kind: 'scheme', value: 'accent1' } },
+    });
+    const image = layout.addImage(sdkPngHeader(2, 3), {
+      contentType: 'image/png',
+      x: inches(0.5),
+      y: inches(0.6),
+      width: inches(0.7),
+      height: inches(0.8),
+    });
+    const chart = await master.addChart('bar', [{
+      name: 'Revenue',
+      categories: ['Q1', 'Q2'],
+      values: [10, 20],
+    }]);
+
+    expect(layout.shapes.find(({ id }) => id === text.id)).toBe(text);
+    expect(layout.shapes.find(({ id }) => id === rich.id)).toBe(rich);
+    expect(layout.shapes.find(({ id }) => id === image.id)).toBe(image);
+    expect(master.shapes.find(({ id }) => id === shape.id)).toBe(shape);
+    expect(master.shapes.find(({ id }) => id === chart.id)).toBe(chart);
+    text.text = 'Edited layout text';
+    shape.setTransform({ x: inches(0.9) });
+    expect(layout.shapes.find(({ id }) => id === text.id)).toBe(text);
+    expect(text.text).toBe('Edited layout text');
+    expect(shape.transform.x).toBe(inches(0.9));
+
+    layout.slideNumber = { x: 200, align: 'center' };
+    master.slideNumber = { x: 300, align: 'right' };
+    expect(layout.slideNumber).toMatchObject({ x: 200, align: 'center' });
+    expect(master.slideNumber).toMatchObject({ x: 300, align: 'right' });
+
+    const copiedRaw = document.masterLayoutTheme.copyLayout(layout.partUri);
+    const copied = document.layouts.find(({ partUri }) => partUri === copiedRaw.partUri)!;
+    expect(document.layouts.find(({ partUri }) => partUri === copiedRaw.partUri)).toBe(copied);
+    document.masterLayoutTheme.deleteLayout(copied.partUri);
+    expect(document.layouts).not.toContain(copied);
+    expect(() => copied.name).toThrow();
+
+    const reopened = await PptxDocument.open(await document.write());
+    expect(reopened.layouts[0]).toBe(reopened.layouts[0]);
+    expect(reopened.masters[0]?.layouts[0]).toBe(reopened.layouts[0]);
+    expect(reopened.layouts[0]?.shapes.map(({ kind }) => kind)).toEqual([
+      'text',
+      'text',
+      'image',
+      'text',
+    ]);
+    expect(reopened.masters[0]?.shapes.map(({ kind }) => kind)).toEqual([
+      'shape',
+      'chart',
+      'text',
+    ]);
+  });
+
   it('selects named slide layouts with sections in all six presentation formats', async () => {
     for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
       const document = PptxDocument.create({ format });

@@ -5,6 +5,8 @@ import {
   MediaModel,
   PptxDocument,
   ShapeModel,
+  SlideLayoutModel,
+  SlideMasterModel,
   chartWorkbookMatches,
   inches,
   slideNumberDiagnostics,
@@ -15,6 +17,17 @@ import {
 } from './index.js';
 
 describe('@jiayunxie/pptx stable exports', () => {
+  it('exports semantic master layout models from the root package', () => {
+    const document = PptxDocument.create();
+    const layout: SlideLayoutModel = document.layouts[0]!;
+    const master: SlideMasterModel = document.masters[0]!;
+    expect(layout).toBeInstanceOf(SlideLayoutModel);
+    expect(master).toBeInstanceOf(SlideMasterModel);
+    expect(master.layouts[0]).toBe(layout);
+    expect(layout.addText('Root layout text')).toBe(layout.shapes[0]);
+    expect(master.addShape('rect')).toBe(master.shapes[0]);
+  });
+
   it('exports transient slide default colors and materializes them through the root', async () => {
     const defaultColor: RichTextColor = { kind: 'scheme', value: 'accent1' };
     const document = PptxDocument.create();
