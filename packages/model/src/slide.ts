@@ -1328,7 +1328,12 @@ export function findTitleShape(xml: LosslessXmlDocument): XmlElement | undefined
         const type = xml.attribute(placeholder, 'type')?.value;
         return type === 'title' || type === 'ctrTitle';
       }),
-    ) ?? shapes.find((shape) => xml.descendants(shape, 't').length > 0)
+    ) ?? shapes.find((shape) =>
+      xml.descendants(shape, 't').length > 0
+      && !xml.descendants(shape, 'ph').some(
+        (placeholder) => xml.attribute(placeholder, 'type')?.value === 'sldNum',
+      ),
+    )
   );
 }
 

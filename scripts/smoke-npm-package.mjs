@@ -53,6 +53,85 @@ try {
     join(directory, 'smoke.mjs'),
     `import { CHART_TYPES, ChartModel, calculateImageSizing, chartWorkbookMatches, CustomGeometryEvaluationError, evaluateCustomGeometry, ImageModel, inches, inspectImage, inspectRasterImage, inspectSvgImage, MediaCodec, MediaModel, PRESET_SHAPE_TYPES, PptxDocument, ShapeModel, TableModel, GradientCodec, importPptxGenJS, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
 const created = PptxDocument.create({ rtlMode: true });
+const slideNumberDeck = PptxDocument.create({ firstSlideNumber: 5 });
+const packedNumberSource = slideNumberDeck.addSlide();
+packedNumberSource.slideNumber = {
+  x: 0,
+  y: 0,
+  width: inches(1),
+  height: inches(0.3),
+  align: 'justify',
+  rtl: true,
+  valign: 'middle',
+  margin: [1, 2, 3, 4],
+  style: {
+    fontFamily: 'Aptos',
+    fontSize: 18,
+    lang: 'zh-CN',
+    bold: true,
+    italic: true,
+    color: { kind: 'srgb', value: 'FF3399' },
+    transparency: 20,
+  },
+};
+const packedNumberSecond = slideNumberDeck.addSlide();
+packedNumberSecond.slideNumber = {
+  align: 'center',
+  style: { color: { kind: 'scheme', value: 'accent1' } },
+};
+slideNumberDeck.layouts[0].slideNumber = { x: 200, align: 'center' };
+slideNumberDeck.masters[0].slideNumber = { x: 300, align: 'right' };
+slideNumberDeck.layouts[0].slideNumber = undefined;
+slideNumberDeck.masters[0].slideNumber = undefined;
+slideNumberDeck.layouts[0].slideNumber = { x: 200, align: 'center' };
+slideNumberDeck.masters[0].slideNumber = { x: 300, align: 'right' };
+const packedNumberDuplicate = slideNumberDeck.duplicateSlide(0);
+slideNumberDeck.moveSlide(slideNumberDeck.slides.indexOf(packedNumberDuplicate), 0);
+slideNumberDeck.deleteSlide(slideNumberDeck.slides.findIndex(
+  ({ partUri }) => partUri === packedNumberSource.partUri,
+));
+const reopenedSlideNumberDeck = await PptxDocument.open(await slideNumberDeck.write());
+await reopenedSlideNumberDeck.write({ compatibility: 'powerpoint-2010' });
+const packedSlideNumberXml = (partUri) => new TextDecoder().decode(
+  reopenedSlideNumberDeck.opcPackage.requirePart(partUri).bytes,
+);
+const packedSlideNumberCache = (partUri) => {
+  const xml = packedSlideNumberXml(partUri);
+  const fieldStart = xml.indexOf('type="slidenum"');
+  const textStart = xml.indexOf('<a:t>', fieldStart);
+  const textEnd = xml.indexOf('</a:t>', textStart);
+  return fieldStart < 0 || textStart < 0 || textEnd < 0
+    ? undefined
+    : xml.slice(textStart + 5, textEnd);
+};
+const packedNumberValues = reopenedSlideNumberDeck.slides.map(({ slideNumber }) => slideNumber);
+const packedLayoutNumber = reopenedSlideNumberDeck.layouts[0].slideNumber;
+const packedMasterNumber = reopenedSlideNumberDeck.masters[0].slideNumber;
+const packedMasterXml = packedSlideNumberXml(reopenedSlideNumberDeck.masters[0].partUri);
+const packedOwnerCount = (partUri) => packedSlideNumberXml(partUri).split('type="sldNum"').length - 1;
+const slideNumbers = reopenedSlideNumberDeck.firstSlideNumber === 5 &&
+  reopenedSlideNumberDeck.slides.length === 2 &&
+  packedNumberValues[0]?.align === 'justify' && packedNumberValues[0].rtl === true &&
+  packedNumberValues[0].valign === 'middle' && packedNumberValues[0].margin?.left === 4 &&
+  packedNumberValues[0].style.fontFamily === 'Aptos' &&
+  packedNumberValues[0].style.fontSize === 18 && packedNumberValues[0].style.lang === 'zh-CN' &&
+  packedNumberValues[0].style.bold === true && packedNumberValues[0].style.italic === true &&
+  packedNumberValues[0].style.color?.kind === 'srgb' &&
+  packedNumberValues[0].style.color.value === 'FF3399' &&
+  packedNumberValues[0].style.transparency === 20 &&
+  packedNumberValues[1]?.style.color?.kind === 'scheme' &&
+  packedNumberValues[1].style.color.value === 'accent1' &&
+  packedLayoutNumber?.x === 200 && packedLayoutNumber.align === 'center' &&
+  packedMasterNumber?.x === 300 && packedMasterNumber.align === 'right' &&
+  reopenedSlideNumberDeck.slides.map(({ partUri }) => packedSlideNumberCache(partUri)).join(',') === '5,6' &&
+  packedSlideNumberCache(reopenedSlideNumberDeck.layouts[0].partUri) === '‹#›' &&
+  packedSlideNumberCache(reopenedSlideNumberDeck.masters[0].partUri) === '‹#›' &&
+  reopenedSlideNumberDeck.slides.every(({ partUri }) => packedOwnerCount(partUri) === 1) &&
+  packedOwnerCount(reopenedSlideNumberDeck.layouts[0].partUri) === 1 &&
+  packedOwnerCount(reopenedSlideNumberDeck.masters[0].partUri) === 1 &&
+  packedMasterXml.includes('sldNum="1"') &&
+  reopenedSlideNumberDeck.diagnostics.filter(({ code }) => code.startsWith('SLIDE_NUMBER_')).length === 0;
+await reopenedSlideNumberDeck.writeFile('slide-number-smoke.pptx');
 const embeddedRasterDeck = PptxDocument.create();
 const embeddedRasterSlide = embeddedRasterDeck.addSlide();
 const embeddedRasterInputs = [
@@ -2818,6 +2897,7 @@ const nativeCharts = reopenedNativeChartModels.length === 10
   && reopenedNativeCharts.diagnostics.filter(({ code }) => code.startsWith('CHART_')).length === 0;
 await reopenedNativeCharts.writeFile('native-charts-smoke.pptx');
 const checks = {
+  slideNumbers,
   PptxDocument: typeof PptxDocument === 'function',
   presetShapes,
   customGeometryPaths,
@@ -2910,6 +2990,39 @@ if (PRESET_SHAPE_TYPES.length !== 178 || !Object.isFrozen(PRESET_SHAPE_TYPES)) {
   throw new Error('Browser preset catalog failed');
 }
 const browserRasterDeck = PptxDocument.create();
+const browserSlideNumberDeck = PptxDocument.create({ firstSlideNumber: -2 });
+const browserNumberSource = browserSlideNumberDeck.addSlide();
+browserNumberSource.slideNumber = {
+  align: 'center',
+  rtl: true,
+  style: { italic: true, color: { kind: 'scheme', value: 'accent1' }, transparency: 25 },
+};
+browserSlideNumberDeck.layouts[0].slideNumber = { x: 200 };
+browserSlideNumberDeck.masters[0].slideNumber = { x: 300 };
+const browserNumberDuplicate = browserSlideNumberDeck.duplicateSlide(0);
+browserSlideNumberDeck.moveSlide(browserSlideNumberDeck.slides.indexOf(browserNumberDuplicate), 0);
+const reopenedBrowserSlideNumbers = await PptxDocument.open(await browserSlideNumberDeck.writeBlob());
+await reopenedBrowserSlideNumbers.write({ compatibility: 'powerpoint-current' });
+const browserNumberCache = (partUri) => {
+  const xml = new TextDecoder().decode(reopenedBrowserSlideNumbers.opcPackage.requirePart(partUri).bytes);
+  const fieldStart = xml.indexOf('type="slidenum"');
+  const textStart = xml.indexOf('<a:t>', fieldStart);
+  const textEnd = xml.indexOf('</a:t>', textStart);
+  return fieldStart < 0 || textStart < 0 || textEnd < 0
+    ? undefined
+    : xml.slice(textStart + 5, textEnd);
+};
+if (reopenedBrowserSlideNumbers.firstSlideNumber !== -2 ||
+    reopenedBrowserSlideNumbers.slides.length !== 2 ||
+    reopenedBrowserSlideNumbers.slides.some(({ slideNumber }) =>
+      slideNumber?.align !== 'center' || slideNumber.rtl !== true ||
+      slideNumber.style.italic !== true || slideNumber.style.transparency !== 25) ||
+    reopenedBrowserSlideNumbers.slides.map(({ partUri }) => browserNumberCache(partUri)).join(',') !== '-2,-1' ||
+    reopenedBrowserSlideNumbers.layouts[0].slideNumber?.x !== 200 ||
+    reopenedBrowserSlideNumbers.masters[0].slideNumber?.x !== 300 ||
+    reopenedBrowserSlideNumbers.diagnostics.some(({ code }) => code.startsWith('SLIDE_NUMBER_'))) {
+  throw new Error('Browser slide-number round trip failed');
+}
 const browserRasterBytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
 const browserRasterSlide = browserRasterDeck.addSlide();
 const browserRasterImage = browserRasterSlide.addImage(browserRasterBytes, {
@@ -4153,6 +4266,13 @@ process.stdout.write(resolved);
   type SvgImageContentType,
   type SvgImageInfo,
   type SlideModel,
+  type SlideNumber,
+  type SlideNumberColor,
+  type SlideNumberMarginInput,
+  type SlideNumberMargins,
+  type SlideNumberOptions,
+  type SlideNumberTextStyle,
+  type SlideNumberTextStyleOptions,
   type CustomSlideSize,
   type AddSectionOptions,
   type AddSlideOptions,
@@ -4205,6 +4325,39 @@ process.stdout.write(resolved);
 
 const documentPromise: Promise<PptxDocument> = PptxDocument.open(new Uint8Array());
 const createdDocument: PptxDocument = PptxDocument.create({ format: 'pptx', slideSize: 'wide' });
+const typedSlideNumberColor: SlideNumberColor = { kind: 'scheme', value: 'accent1' };
+const typedSlideNumberMargin: SlideNumberMarginInput = [1, 2, 3, 4];
+const typedSlideNumberMargins: SlideNumberMargins = { top: 1, left: 4 };
+const typedSlideNumberStyleOptions: SlideNumberTextStyleOptions = {
+  italic: true,
+  color: typedSlideNumberColor,
+  transparency: 20,
+};
+const typedSlideNumberOptions: SlideNumberOptions = {
+  align: 'justify',
+  rtl: true,
+  margin: typedSlideNumberMargin,
+  style: typedSlideNumberStyleOptions,
+};
+const typedSlideNumberStyle: SlideNumberTextStyle = {
+  lang: 'en-US',
+  bold: false,
+  italic: true,
+  color: typedSlideNumberColor,
+};
+const typedSlideNumber: SlideNumber = {
+  x: 0,
+  y: 0,
+  width: 800_000,
+  height: 300_000,
+  align: 'justify',
+  rtl: true,
+  margin: typedSlideNumberMargins,
+  style: typedSlideNumberStyle,
+};
+const typedSlideNumberDocument = PptxDocument.create({ firstSlideNumber: 0 });
+typedSlideNumberDocument.addSlide().slideNumber = typedSlideNumberOptions;
+void [typedSlideNumber, typedSlideNumberDocument];
 const typedChartType: ChartType = 'bar';
 const typedChartSeries: readonly ChartSeriesInput[] = [{
   name: 'Revenue', categories: ['Q1', 'Q2'], values: [10, 20],
@@ -5235,6 +5388,55 @@ void [documentPromise, createdDocument, typedChartDefinition, typedChartPromise,
       slideBackgroundValidated.data.warningCount !== 0) {
     throw new Error(`CLI slide background validation failed: ${slideBackgroundValidateResult.stdout}`);
   }
+  const slideNumberDeckPath = join(directory, 'slide-number-smoke.pptx');
+  const slideNumberInspectResult = run(
+    bin,
+    ['--json', 'package', 'inspect', slideNumberDeckPath],
+    directory,
+  );
+  const slideNumberInspected = JSON.parse(slideNumberInspectResult.stdout);
+  if (!slideNumberInspected.ok ||
+      slideNumberInspected.data?.contentTypes?.[
+        'application/vnd.openxmlformats-officedocument.presentationml.slide+xml'
+      ] !== 2) {
+    throw new Error(`CLI slide-number inspect failed: ${slideNumberInspectResult.stdout}`);
+  }
+  const slideNumberValidateResult = run(
+    bin,
+    ['--json', 'package', 'validate', slideNumberDeckPath, '--profile', 'powerpoint-2010'],
+    directory,
+  );
+  const slideNumberValidated = JSON.parse(slideNumberValidateResult.stdout);
+  if (!slideNumberValidated.ok || !slideNumberValidated.data?.valid ||
+      slideNumberValidated.data.errorCount !== 0 ||
+      slideNumberValidated.data.warningCount !== 0) {
+    throw new Error(`CLI slide-number validation failed: ${slideNumberValidateResult.stdout}`);
+  }
+  const slideNumberSlidesResult = run(
+    bin,
+    ['--json', 'slides', 'list', slideNumberDeckPath],
+    directory,
+  );
+  const slideNumberSlides = JSON.parse(slideNumberSlidesResult.stdout);
+  if (!slideNumberSlides.ok || slideNumberSlides.data?.length !== 2 ||
+      slideNumberSlides.data.some(({ title, shapeCount }) => title !== '' || shapeCount !== 1)) {
+    throw new Error(`CLI slide-number slide listing failed: ${slideNumberSlidesResult.stdout}`);
+  }
+  const slideNumberPart = (uri) => JSON.parse(run(
+    bin,
+    ['--json', 'part', 'read', slideNumberDeckPath, uri],
+    directory,
+  ).stdout).data?.content ?? '';
+  const slideNumberSlideXml = slideNumberPart(slideNumberSlides.data[0].partUri);
+  const slideNumberLayoutXml = slideNumberPart('/ppt/slideLayouts/slideLayout1.xml');
+  const slideNumberMasterXml = slideNumberPart('/ppt/slideMasters/slideMaster1.xml');
+  if (!slideNumberSlideXml.includes('type="slidenum"') ||
+      !slideNumberSlideXml.includes('<a:t>5</a:t>') ||
+      !slideNumberLayoutXml.includes('<a:t>‹#›</a:t>') ||
+      !slideNumberMasterXml.includes('<a:t>‹#›</a:t>') ||
+      !slideNumberMasterXml.includes('sldNum="1"')) {
+    throw new Error('CLI slide-number part inspection failed');
+  }
   if (process.env.PPTX_SLIDE_BACKGROUND_GALLERY_OUT) {
     const galleryOutput = resolve(process.env.PPTX_SLIDE_BACKGROUND_GALLERY_OUT);
     await mkdir(dirname(galleryOutput), { recursive: true });
@@ -5245,9 +5447,14 @@ void [documentPromise, createdDocument, typedChartDefinition, typedChartPromise,
     await mkdir(dirname(galleryOutput), { recursive: true });
     await writeFile(galleryOutput, await readFile(nativeChartDeckPath));
   }
+  if (process.env.PPTX_SLIDE_NUMBER_GALLERY_OUT) {
+    const galleryOutput = resolve(process.env.PPTX_SLIDE_NUMBER_GALLERY_OUT);
+    await mkdir(dirname(galleryOutput), { recursive: true });
+    await writeFile(galleryOutput, await readFile(slideNumberDeckPath));
+  }
 
   process.stdout.write(
-    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, slideBackgrounds: apiChecks.slideBackgrounds, types: true, cli: doctor.data.version, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true, slideBackgroundInspect: true, slideBackgroundValidate: true })}\n`,
+    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, slideNumbers: apiChecks.slideNumbers, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, slideBackgrounds: apiChecks.slideBackgrounds, types: true, cli: doctor.data.version, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true, slideBackgroundInspect: true, slideBackgroundValidate: true, slideNumberInspect: true, slideNumberValidate: true, slideNumberSlides: true, slideNumberPartRead: true })}\n`,
   );
 } finally {
   await rm(directory, { recursive: true, force: true });

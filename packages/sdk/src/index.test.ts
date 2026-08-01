@@ -263,6 +263,7 @@ describe('PptxDocument vertical slice', () => {
     const value: Readonly<SlideNumber> | undefined = slide.slideNumber;
     expect(document.firstSlideNumber).toBe(0);
     expect(value).toMatchObject({ align: 'justify', rtl: true });
+    expect(slide.title.text).toBe('');
     expect([margins, style]).toHaveLength(2);
     const presentationXml = new TextDecoder().decode(
       document.opcPackage.requirePart(document.presentationPartUri).bytes,

@@ -11,6 +11,8 @@ const publicInternalDeclarations = new Set([
   'chart-workbook.internal.d.ts',
   'media-state.internal.d.ts',
   'media-timing-state.internal.d.ts',
+  'presentation-slide-number.internal.d.ts',
+  'slide-number.internal.d.ts',
 ]);
 
 const packages = new Map([

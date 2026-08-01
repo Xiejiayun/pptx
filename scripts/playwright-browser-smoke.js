@@ -14,6 +14,72 @@ async (page) => {
       });
       const document = await api.PptxDocument.open(stream);
       document.slides[0].title.text = 'Browser updated';
+      const slideNumberDocument = api.PptxDocument.create({ firstSlideNumber: -2 });
+      const slideNumberSource = slideNumberDocument.addSlide();
+      slideNumberSource.slideNumber = {
+        align: 'center',
+        rtl: true,
+        valign: 'middle',
+        margin: [1, 2, 3, 4],
+        style: {
+          italic: true,
+          color: { kind: 'scheme', value: 'accent1' },
+          transparency: 25,
+        },
+      };
+      slideNumberDocument.layouts[0].slideNumber = { x: 200, align: 'center' };
+      slideNumberDocument.masters[0].slideNumber = { x: 300, align: 'right' };
+      const slideNumberDuplicate = slideNumberDocument.duplicateSlide(0);
+      slideNumberDocument.moveSlide(slideNumberDocument.slides.indexOf(slideNumberDuplicate), 0);
+      const slideNumberOutput = await slideNumberDocument.writeBlob();
+      const reopenedSlideNumbers = await api.PptxDocument.open(slideNumberOutput);
+      await reopenedSlideNumbers.write({ compatibility: 'powerpoint-current' });
+      const slideNumberXml = (partUri) => new TextDecoder().decode(
+        reopenedSlideNumbers.opcPackage.requirePart(partUri).bytes,
+      );
+      const slideNumberCache = (partUri) => {
+        const xml = slideNumberXml(partUri);
+        const fieldStart = xml.indexOf('type="slidenum"');
+        const textStart = xml.indexOf('<a:t>', fieldStart);
+        const textEnd = xml.indexOf('</a:t>', textStart);
+        return fieldStart < 0 || textStart < 0 || textEnd < 0
+          ? undefined
+          : xml.slice(textStart + 5, textEnd);
+      };
+      const slideNumberOwnerCount = (partUri) =>
+        slideNumberXml(partUri).split('type="sldNum"').length - 1;
+      const slideNumberLayout = reopenedSlideNumbers.layouts[0];
+      const slideNumberMaster = reopenedSlideNumbers.masters[0];
+      const slideNumberState = {
+        firstSlideNumber: reopenedSlideNumbers.firstSlideNumber,
+        mime: slideNumberOutput.type,
+        slideCount: reopenedSlideNumbers.slides.length,
+        values: reopenedSlideNumbers.slides.map(({ slideNumber }) => ({
+          width: slideNumber?.width,
+          height: slideNumber?.height,
+          align: slideNumber?.align,
+          rtl: slideNumber?.rtl,
+          valign: slideNumber?.valign,
+          margin: slideNumber?.margin,
+          italic: slideNumber?.style.italic,
+          color: slideNumber?.style.color,
+          transparency: slideNumber?.style.transparency,
+        })),
+        caches: reopenedSlideNumbers.slides.map(({ partUri }) => slideNumberCache(partUri)),
+        layoutX: slideNumberLayout.slideNumber?.x,
+        masterX: slideNumberMaster.slideNumber?.x,
+        layoutCache: slideNumberCache(slideNumberLayout.partUri),
+        masterCache: slideNumberCache(slideNumberMaster.partUri),
+        masterEnabled: slideNumberXml(slideNumberMaster.partUri).includes('sldNum="1"'),
+        ownerCounts: [
+          ...reopenedSlideNumbers.slides.map(({ partUri }) => slideNumberOwnerCount(partUri)),
+          slideNumberOwnerCount(slideNumberLayout.partUri),
+          slideNumberOwnerCount(slideNumberMaster.partUri),
+        ],
+        diagnostics: reopenedSlideNumbers.diagnostics
+          .filter(({ code }) => code.startsWith('SLIDE_NUMBER_'))
+          .map(({ code }) => code),
+      };
       const svgDocument = api.PptxDocument.create();
       svgDocument.addSlide();
       const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360">'
@@ -391,6 +457,7 @@ async (page) => {
         transition: typeof api.transitions.TransitionCodec,
         smartArt: typeof api.smartArt.SmartArtDiagramCodec,
         blobInputTitle: fromBlob.slides[0].title.text,
+        slideNumbers: slideNumberState,
         svgCreatedLive: svgDocument.slides[0].shapes.includes(blobSvg)
           && svgDocument.slides[0].shapes.includes(dataSvg),
         svgState,
@@ -456,6 +523,43 @@ async (page) => {
     transition: 'function',
     smartArt: 'function',
     blobInputTitle: 'Browser fixture',
+    slideNumbers: {
+      firstSlideNumber: -2,
+      mime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      slideCount: 2,
+      values: [
+        {
+          width: 800000,
+          height: 300000,
+          align: 'center',
+          rtl: true,
+          valign: 'middle',
+          margin: { top: 1, right: 2, bottom: 3, left: 4 },
+          italic: true,
+          color: { kind: 'scheme', value: 'accent1' },
+          transparency: 25,
+        },
+        {
+          width: 800000,
+          height: 300000,
+          align: 'center',
+          rtl: true,
+          valign: 'middle',
+          margin: { top: 1, right: 2, bottom: 3, left: 4 },
+          italic: true,
+          color: { kind: 'scheme', value: 'accent1' },
+          transparency: 25,
+        },
+      ],
+      caches: ['-2', '-1'],
+      layoutX: 200,
+      masterX: 300,
+      layoutCache: '‹#›',
+      masterCache: '‹#›',
+      masterEnabled: true,
+      ownerCounts: [1, 1, 1, 1],
+      diagnostics: [],
+    },
     svgCreatedLive: true,
     svgState: [
       {
