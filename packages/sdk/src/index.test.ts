@@ -640,6 +640,33 @@ describe('PptxDocument vertical slice', () => {
         width: 5,
         height: 6,
       });
+      audio.name = 'Audio & narration edited';
+      audio.altText = 'Edited spoken overview';
+      audio.settings = { play: 'click', volume: 1 };
+      audio.settings = { play: 'auto', loop: true, hideWhenStopped: true, volume: 0.25 };
+      audio.setTransform({
+        x: inches(-2),
+        y: inches(1),
+        width: inches(2),
+        height: inches(3),
+      });
+      await audio.replaceSource('https://example.com/temporary.mp3');
+      await audio.replaceSource('data:audio/mpeg;base64,AQIDBA==');
+      await video.replacePoster(Uint8Array.of(14), { contentType: 'image/gif' });
+      await video.replacePoster('data:image/jpeg;base64,CwwN');
+
+      const duplicate = document.duplicateSlide(0);
+      const duplicateAudio = duplicate.media[0]!;
+      const duplicateVideo = duplicate.media[1]!;
+      expect(duplicateAudio.mediaPartUri).toBe(audio.mediaPartUri);
+      expect(duplicateVideo.mediaPartUri).toBe(video.mediaPartUri);
+      await duplicateAudio.replaceSource(Uint8Array.of(14), { contentType: 'audio/ogg' });
+      await duplicateAudio.replacePoster(Uint8Array.of(15), { contentType: 'image/gif' });
+      duplicateVideo.remove();
+      document.moveSlide(1, 0);
+      expect(document.slides[0]).toBe(duplicate);
+      expect(duplicate.media[0]).toBe(duplicateAudio);
+      document.moveSlide(0, 1);
       const reopened = await PptxDocument.open(await document.write());
       const second = await PptxDocument.open(await reopened.write());
 
@@ -647,6 +674,7 @@ describe('PptxDocument vertical slice', () => {
       expect(second.format).toBe(format);
       expect(second.formatProfile).toEqual(PRESENTATION_FORMAT_PROFILES[format]);
       const media = [...second.media(0)].sort((left, right) => left.shapeId - right.shapeId);
+      const duplicateMedia = second.media(1);
       expect(media).toMatchObject([
         {
           kind: 'audio',
@@ -681,21 +709,32 @@ describe('PptxDocument vertical slice', () => {
         bytes: Uint8Array.of(11, 12, 13),
       });
       expect(media[1]!.posterPartUri).toMatch(/\.jpg$/);
+      expect(duplicateMedia).toHaveLength(1);
+      expect(second.opcPackage.requirePart(duplicateMedia[0]!.mediaPartUri!)).toMatchObject({
+        contentType: 'audio/ogg',
+        bytes: Uint8Array.of(14),
+      });
+      expect(second.opcPackage.requirePart(duplicateMedia[0]!.posterPartUri!)).toMatchObject({
+        contentType: 'image/gif',
+        bytes: Uint8Array.of(15),
+      });
+      expect(duplicateMedia[0]!.mediaPartUri).not.toBe(media[0]!.mediaPartUri);
+      expect(duplicateMedia[0]!.posterPartUri).not.toBe(media[0]!.posterPartUri);
       expect(sdkMediaPictureStates(second, 0)).toEqual([
         {
           shapeId: media[0]!.shapeId,
           kind: 'audio',
-          name: 'Audio & narration',
-          altText: 'Spoken overview',
-          x: -1,
-          y: 0,
-          width: 1,
-          height: 2,
+          name: 'Audio & narration edited',
+          altText: 'Edited spoken overview',
+          x: inches(-2),
+          y: inches(1),
+          width: inches(2),
+          height: inches(3),
           hasOfficeMedia: true,
           relationshipTypes: [
             'http://schemas.openxmlformats.org/officeDocument/2006/relationships/audio',
-            'http://schemas.microsoft.com/office/2007/relationships/media',
             'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image',
+            'http://schemas.microsoft.com/office/2007/relationships/media',
           ],
           kindTargetMode: 'Internal',
           kindTarget: `../media/${media[0]!.mediaPartUri!.split('/').at(-1)}`,

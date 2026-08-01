@@ -9,6 +9,7 @@ import {
   ImageModel,
   inches,
   inspectRasterImage,
+  MediaModel,
   PRESET_SHAPE_TYPES,
   PptxDocument,
   ShapeModel,
@@ -846,6 +847,121 @@ describe('importPptxGenJS', () => {
     expect(pictureXml(reopened, 0, strict.shapeId)).toContain('descr="Canonical addition"');
     await reopened.write();
     expect(reopened.diagnostics.filter(({ severity }) => severity === 'error')).toEqual([]);
+  }, 20_000);
+
+  it('edits, canonicalizes, isolates, and removes PptxGenJS legacy media safely', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'pptxgenjs-media-lifecycle-'));
+    const audioPath = join(directory, 'duplicate.mp3');
+    const videoPath = join(directory, 'legacy-video.mp4');
+    await writeFile(audioPath, Uint8Array.of(9, 10, 11));
+    await writeFile(videoPath, Uint8Array.of(4, 5, 6));
+    try {
+      const generated = new PptxGenJS();
+      const generatedSlide = generated.addSlide();
+      generatedSlide.addMedia({
+        type: 'audio',
+        data: 'data:audio/mpeg;base64,AQID',
+        cover: PNG_DATA_URI,
+        extn: 'mp3',
+        objectName: 'Legacy audio',
+        x: 1,
+        y: 1,
+        w: 2,
+        h: 1,
+      });
+      generatedSlide.addMedia({
+        type: 'video',
+        path: videoPath,
+        cover: PNG_DATA_URI,
+        objectName: 'Legacy video',
+        x: 2,
+        y: 2,
+        w: 3,
+        h: 2,
+      });
+      generatedSlide.addMedia({
+        type: 'audio',
+        path: audioPath,
+        cover: PNG_DATA_URI,
+        objectName: 'Duplicate audio A',
+      });
+      generatedSlide.addMedia({
+        type: 'audio',
+        path: audioPath,
+        cover: PNG_DATA_URI,
+        objectName: 'Duplicate audio B',
+      });
+
+      const imported = await openPptxGenJSPublicOutput(generated);
+      const [audio, video, duplicateA, duplicateB] = imported.media(0);
+      expect(audio).toBeInstanceOf(MediaModel);
+      expect(imported.slides[0]!.shapes[0]).toBe(audio);
+      expect(imported.slides[0]!.media[0]).toBe(audio);
+      expect(duplicateA!.mediaPartUri).toBe(duplicateB!.mediaPartUri);
+      const duplicateBefore = pictureXml(imported, 0, duplicateB!.shapeId);
+
+      audio!.name = 'Legacy audio edited';
+      audio!.altText = 'Edited without canonicalization';
+      audio!.settings = { play: 'auto', loop: true, volume: 0.5 };
+      audio!.setTransform({
+        x: inches(2),
+        y: inches(1),
+        width: inches(3),
+        height: inches(1),
+      });
+      const preserved = embeddedMediaStates(imported, 0)[0]!;
+      expect(preserved.fileElement).toBe('videoFile');
+      expect(preserved.mediaContentType).toBe('audio/mp3');
+      expect(preserved.relationshipRoles.kind.type)
+        .toBe('http://schemas.openxmlformats.org/officeDocument/2006/relationships/audio');
+
+      expect(await audio!.replaceSource(Uint8Array.of(12, 13), {
+        contentType: 'audio/mpeg',
+      })).toBe(audio);
+      const canonical = embeddedMediaStates(imported, 0)[0]!;
+      expect(canonical.fileElement).toBe('audioFile');
+      expect(canonical.mediaContentType).toBe('audio/mpeg');
+      expect(canonical.relationshipRoles.kind.type)
+        .toBe('http://schemas.openxmlformats.org/officeDocument/2006/relationships/audio');
+      expect(pictureXml(imported, 0, duplicateB!.shapeId)).toBe(duplicateBefore);
+
+      const sharedPoster = duplicateA!.posterPartUri;
+      expect(await duplicateB!.replacePoster(Uint8Array.of(14), {
+        contentType: 'image/gif',
+      })).toBe(duplicateB);
+      expect(duplicateA!.posterPartUri).toBe(sharedPoster);
+      expect(duplicateB!.posterPartUri).not.toBe(sharedPoster);
+      const sharedMedia = duplicateB!.mediaPartUri!;
+      duplicateA!.remove();
+      expect(imported.media(0)).not.toContain(duplicateA);
+      expect(duplicateB!.mediaPartUri).toBe(sharedMedia);
+      expect(imported.opcPackage.hasPart(sharedMedia)).toBe(true);
+      expect(video!.name).toBe('Legacy video');
+
+      const duplicateSlide = imported.duplicateSlide(0);
+      const isolated = duplicateSlide.media[0]!;
+      expect(isolated.mediaPartUri).toBe(audio!.mediaPartUri);
+      await isolated.replaceSource(Uint8Array.of(15), { contentType: 'audio/wav' });
+      await isolated.replacePoster(Uint8Array.of(16), { contentType: 'image/jpeg' });
+      expect(isolated.mediaPartUri).not.toBe(audio!.mediaPartUri);
+      expect(isolated.posterPartUri).not.toBe(audio!.posterPartUri);
+
+      const reopened = await PptxDocument.open(await imported.write());
+      expect(reopened.media(0).map(({ name }) => name)).toEqual([
+        'Legacy audio edited',
+        'Legacy video',
+        'Duplicate audio B',
+      ]);
+      expect(reopened.media(1)).toHaveLength(3);
+      expect(reopened.opcPackage.requirePart(reopened.media(0)[2]!.posterPartUri!)).toMatchObject({
+        contentType: 'image/gif',
+        bytes: Uint8Array.of(14),
+      });
+      await reopened.write();
+      expect(reopened.diagnostics.filter(({ severity }) => severity === 'error')).toEqual([]);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
   }, 20_000);
 
   it('matches PptxGenJS embedded raster image public output semantically', async () => {
