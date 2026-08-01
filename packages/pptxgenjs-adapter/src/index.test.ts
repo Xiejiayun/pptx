@@ -241,6 +241,12 @@ function pictureXml(document: PptxDocument, slideIndex: number, id: number): str
   return picture;
 }
 
+function slideXml(document: PptxDocument, slideIndex: number): string {
+  const slide = document.slides[slideIndex];
+  if (!slide) throw new Error(`Slide ${slideIndex} was not found`);
+  return new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+}
+
 function embeddedRasterState(
   document: PptxDocument,
   slideIndex: number,
@@ -898,6 +904,11 @@ describe('importPptxGenJS', () => {
       expect(imported.slides[0]!.shapes[0]).toBe(audio);
       expect(imported.slides[0]!.media[0]).toBe(audio);
       expect(duplicateA!.mediaPartUri).toBe(duplicateB!.mediaPartUri);
+      expect(slideXml(imported, 0)).not.toContain('<p:timing>');
+      expect(slideXml(imported, 0)).not.toContain('<px:playback');
+      const noOpState = packageState(imported);
+      await imported.write();
+      expect(packageState(imported)).toEqual(noOpState);
       const duplicateBefore = pictureXml(imported, 0, duplicateB!.shapeId);
 
       audio!.name = 'Legacy audio edited';
@@ -914,6 +925,9 @@ describe('importPptxGenJS', () => {
       expect(preserved.mediaContentType).toBe('audio/mp3');
       expect(preserved.relationshipRoles.kind.type)
         .toBe('http://schemas.openxmlformats.org/officeDocument/2006/relationships/audio');
+      expect(slideXml(imported, 0).match(/<p:cMediaNode\b/g)).toHaveLength(1);
+      expect(slideXml(imported, 0)).toContain(`spid="${audio!.shapeId}"`);
+      expect(slideXml(imported, 0)).toContain('cmd="playFrom(0.0)"');
 
       expect(await audio!.replaceSource(Uint8Array.of(12, 13), {
         contentType: 'audio/mpeg',
@@ -938,9 +952,17 @@ describe('importPptxGenJS', () => {
       expect(imported.opcPackage.hasPart(sharedMedia)).toBe(true);
       expect(video!.name).toBe('Legacy video');
 
+      const sourceBeforeDuplicate = slideXml(imported, 0);
       const duplicateSlide = imported.duplicateSlide(0);
       const isolated = duplicateSlide.media[0]!;
       expect(isolated.mediaPartUri).toBe(audio!.mediaPartUri);
+      isolated.settings = {
+        play: 'click',
+        loop: false,
+        hideWhenStopped: true,
+        volume: 0.25,
+      };
+      expect(slideXml(imported, 0)).toBe(sourceBeforeDuplicate);
       await isolated.replaceSource(Uint8Array.of(15), { contentType: 'audio/wav' });
       await isolated.replacePoster(Uint8Array.of(16), { contentType: 'image/jpeg' });
       expect(isolated.mediaPartUri).not.toBe(audio!.mediaPartUri);
@@ -953,11 +975,43 @@ describe('importPptxGenJS', () => {
         'Duplicate audio B',
       ]);
       expect(reopened.media(1)).toHaveLength(3);
+      expect(reopened.media(0)[0]!.settings).toEqual({
+        play: 'auto',
+        loop: true,
+        hideWhenStopped: false,
+        volume: 0.5,
+      });
+      expect(reopened.media(1)[0]!.settings).toEqual({
+        play: 'click',
+        loop: false,
+        hideWhenStopped: true,
+        volume: 0.25,
+      });
+      expect(slideXml(reopened, 0).match(/<p:cMediaNode\b/g)).toHaveLength(1);
+      expect(slideXml(reopened, 1).match(/<p:cMediaNode\b/g)).toHaveLength(1);
+      expect(embeddedMediaStates(reopened, 0)[2]).toMatchObject({
+        fileElement: 'videoFile',
+        mediaContentType: 'audio/mp3',
+      });
       expect(reopened.opcPackage.requirePart(reopened.media(0)[2]!.posterPartUri!)).toMatchObject({
         contentType: 'image/gif',
         bytes: Uint8Array.of(14),
       });
-      await reopened.write();
+      reopened.media(0)[0]!.settings = {
+        play: 'click',
+        hideWhenStopped: true,
+        volume: 0.25,
+      };
+      const editedAgain = await PptxDocument.open(await reopened.write());
+      expect(editedAgain.media(0)[0]!.settings).toEqual({
+        play: 'click',
+        loop: false,
+        hideWhenStopped: true,
+        volume: 0.25,
+      });
+      await editedAgain.write({ mode: 'permissive' });
+      expect(editedAgain.diagnostics.filter(({ code }) => code.startsWith('MEDIA_TIMING_')))
+        .toEqual([]);
       expect(reopened.diagnostics.filter(({ severity }) => severity === 'error')).toEqual([]);
     } finally {
       await rm(directory, { recursive: true, force: true });

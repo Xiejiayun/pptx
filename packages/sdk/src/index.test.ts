@@ -274,6 +274,8 @@ describe('PptxDocument vertical slice', () => {
     expect(document.media(0)[0]).toBe(media);
     expect(document.slides[0]!.media[0]).toBe(media);
     expect(document.slides[0]!.shapes[0]).toBe(media);
+    const partialPlayback: MediaPlaybackSettings = { loop: true };
+    media.settings = partialPlayback;
     media.name = 'Typed narration edited';
     media.altText = undefined;
     media.settings = { play: 'click', volume: 1 };
@@ -690,6 +692,18 @@ describe('PptxDocument vertical slice', () => {
       expect(duplicate.media[0]).toBe(duplicateAudio);
       document.moveSlide(0, 1);
       const reopened = await PptxDocument.open(await document.write());
+      reopened.media(0)[0]!.settings = {
+        play: 'click',
+        loop: false,
+        hideWhenStopped: false,
+        volume: 0.75,
+      };
+      reopened.media(0)[1]!.settings = {
+        play: 'auto',
+        loop: true,
+        hideWhenStopped: true,
+        volume: 0,
+      };
       const second = await PptxDocument.open(await reopened.write());
 
       expect(reopened.format).toBe(format);
@@ -702,13 +716,13 @@ describe('PptxDocument vertical slice', () => {
           kind: 'audio',
           mediaPartUri: audio.mediaPartUri,
           posterPartUri: audio.posterPartUri,
-          settings: { play: 'auto', loop: true, hideWhenStopped: true, volume: 0.25 },
+          settings: { play: 'click', loop: false, hideWhenStopped: false, volume: 0.75 },
         },
         {
           kind: 'video',
           mediaPartUri: video.mediaPartUri,
           posterPartUri: video.posterPartUri,
-          settings: { play: 'click', loop: false, hideWhenStopped: false, volume: 1 },
+          settings: { play: 'auto', loop: true, hideWhenStopped: true, volume: 0 },
         },
       ]);
       expect(second.opcPackage.requirePart(media[0]!.mediaPartUri!)).toMatchObject({
@@ -782,6 +796,32 @@ describe('PptxDocument vertical slice', () => {
           kindResolvedTarget: media[1]!.mediaPartUri,
         },
       ]);
+      expect(sdkNativeMediaTimingState(second, 0, media[0]!.shapeId)).toMatchObject({
+        kind: 'audio',
+        settings: { play: 'click', loop: false, hideWhenStopped: false, volume: 0.75 },
+        commands: ['playFrom(0.0)'],
+      });
+      expect(sdkNativeMediaTimingState(second, 0, media[1]!.shapeId)).toMatchObject({
+        kind: 'video',
+        settings: { play: 'auto', loop: true, hideWhenStopped: true, volume: 0 },
+        commands: ['playFrom(0.0)', 'togglePause'],
+      });
+      expect(sdkNativeMediaTimingState(second, 1, duplicateMedia[0]!.shapeId)).toMatchObject({
+        kind: 'audio',
+        settings: { play: 'auto', loop: true, hideWhenStopped: true, volume: 0.25 },
+        commands: ['playFrom(0.0)'],
+      });
+      for (const [slideIndex, expectedTargets] of [
+        [0, media.map(({ shapeId }) => shapeId)],
+        [1, duplicateMedia.map(({ shapeId }) => shapeId)],
+      ] as const) {
+        const timing = sdkSlideTimingState(second, slideIndex);
+        expect(new Set(timing.ids).size).toBe(timing.ids.length);
+        expect([...new Set(timing.targets)].sort((left, right) => left - right))
+          .toEqual([...expectedTargets].sort((left, right) => left - right));
+      }
+      await second.write({ mode: 'permissive', compatibility: 'powerpoint-current' });
+      expect(second.diagnostics.filter(({ code }) => code.startsWith('MEDIA_TIMING_'))).toEqual([]);
       expect(validatePackage(second.opcPackage).filter(({ severity }) => severity === 'error'))
         .toEqual([]);
     }
@@ -12011,6 +12051,91 @@ function directSdkElementChildren(element: XmlElement, localName: string): XmlEl
   return element.children.filter(
     (child): child is XmlElement => child.type === 'element' && child.localName === localName,
   );
+}
+
+function sdkNativeMediaTimingState(
+  document: PptxDocument,
+  slideIndex: number,
+  shapeId: number,
+): {
+  readonly kind: MediaKind;
+  readonly settings: Required<MediaPlaybackSettings>;
+  readonly commands: readonly string[];
+} {
+  const slide = document.slides[slideIndex]!;
+  const xml = LosslessXmlDocument.parse(document.opcPackage.requirePart(slide.partUri).bytes);
+  const mediaNode = xml.elements('cMediaNode').find((candidate) =>
+    xml.descendants(candidate, 'spTgt').some(
+      (target) => Number(xml.attribute(target, 'spid')?.value) === shapeId,
+    ));
+  if (!mediaNode || (mediaNode.parent?.localName !== 'audio' && mediaNode.parent?.localName !== 'video')) {
+    throw new Error(`Native media timing for shape ${shapeId} was not found`);
+  }
+  const playCommand = xml.elements('cmd').find((command) =>
+    xml.attribute(command, 'cmd')?.value === 'playFrom(0.0)'
+    && xml.descendants(command, 'spTgt').some(
+      (target) => Number(xml.attribute(target, 'spid')?.value) === shapeId,
+    ));
+  const effect = playCommand
+    ? sdkAncestorWithAttribute(xml, playCommand, 'cTn', 'presetClass', 'mediacall')
+    : undefined;
+  const main = effect
+    ? sdkAncestorWithAttribute(xml, effect, 'cTn', 'nodeType', 'mainSeq')
+    : undefined;
+  const mainList = main ? directSdkElementChildren(main, 'childTnLst')[0] : undefined;
+  const container = mainList?.children.find(
+    (child): child is XmlElement => child.type === 'element'
+      && Boolean(effect && child.start <= effect.start && child.end >= effect.end),
+  );
+  const startNode = container ? directSdkElementChildren(container, 'cTn')[0] : undefined;
+  const startList = startNode ? directSdkElementChildren(startNode, 'stCondLst')[0] : undefined;
+  const start = startList ? directSdkElementChildren(startList, 'cond')[0] : undefined;
+  if (!playCommand || !start) throw new Error(`Native media play timing for shape ${shapeId} is incomplete`);
+  const commands = xml.elements('cmd').filter((command) =>
+    xml.descendants(command, 'spTgt').some(
+      (target) => Number(xml.attribute(target, 'spid')?.value) === shapeId,
+    )).map((command) => xml.attribute(command, 'cmd')?.value ?? '');
+  const mediaTime = directSdkElementChildren(mediaNode, 'cTn')[0]!;
+  return {
+    kind: mediaNode.parent.localName,
+    settings: {
+      play: xml.attribute(start, 'delay')?.value === '0' ? 'auto' : 'click',
+      loop: xml.attribute(mediaTime, 'repeatCount')?.value === 'indefinite',
+      hideWhenStopped: xml.attribute(mediaNode, 'showWhenStopped')?.value === '0',
+      volume: Number(xml.attribute(mediaNode, 'vol')?.value ?? 100_000) / 100_000,
+    },
+    commands,
+  };
+}
+
+function sdkSlideTimingState(
+  document: PptxDocument,
+  slideIndex: number,
+): { readonly ids: readonly number[]; readonly targets: readonly number[] } {
+  const slide = document.slides[slideIndex]!;
+  const xml = LosslessXmlDocument.parse(document.opcPackage.requirePart(slide.partUri).bytes);
+  return {
+    ids: xml.elements('cTn').map((node) => Number(xml.attribute(node, 'id')?.value)),
+    targets: xml.elements('spTgt').map((target) => Number(xml.attribute(target, 'spid')?.value)),
+  };
+}
+
+function sdkAncestorWithAttribute(
+  xml: LosslessXmlDocument,
+  element: XmlElement,
+  localName: string,
+  attributeName: string,
+  value: string,
+): XmlElement | undefined {
+  let current = element.parent;
+  while (current) {
+    if (
+      current.localName === localName
+      && xml.attribute(current, attributeName)?.value === value
+    ) return current;
+    current = current.parent;
+  }
+  return undefined;
 }
 
 async function sdkPackageSnapshot(document: PptxDocument): Promise<unknown> {

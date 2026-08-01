@@ -368,6 +368,12 @@ describe('MediaCodec', () => {
     }
     const timingIds = xml.elements('cTn').map((node) => Number(xml.attribute(node, 'id')?.value));
     expect(new Set(timingIds).size).toBe(timingIds.length);
+    expect(xml.elements('cMediaNode').map((node) => Number(
+      xml.attribute(xml.descendants(node, 'spTgt')[0]!, 'spid')?.value,
+    ))).toEqual([audio.shapeId, video.shapeId, named.shapeId]);
+    const mediaCommands = xml.elements('cmd').map((command) => xml.attribute(command, 'cmd')?.value);
+    expect(mediaCommands.filter((command) => command === 'playFrom(0.0)')).toHaveLength(3);
+    expect(mediaCommands.filter((command) => command === 'togglePause')).toHaveLength(1);
 
     const listed = [...codec.list('/ppt/slides/slide1.xml')]
       .sort((left, right) => left.shapeId - right.shapeId);

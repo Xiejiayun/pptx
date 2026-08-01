@@ -67,6 +67,11 @@ describe('@jiayunxie/pptx stable media exports', () => {
     expect(reopenedAudio.mediaPartUri).not.toBe(reopened.media(1)[0]!.mediaPartUri);
     expect(reopenedAudio.posterPartUri).not.toBe(reopened.media(1)[0]!.posterPartUri);
     await reopenedAudio.replacePoster();
+    reopenedAudio.settings = undefined;
+    expect(reopenedAudio.settings).toEqual({});
+    expect(new TextDecoder().decode(
+      reopened.opcPackage.requirePart(reopened.slides[0]!.partUri).bytes,
+    )).not.toContain('<p:timing>');
     reopenedAudio.settings = { play: 'click', volume: 1 };
     const second = await PptxDocument.open(await reopened.write());
     expect(second.media(0)[0]!.posterPartUri).toMatch(/\.png$/);
@@ -76,6 +81,19 @@ describe('@jiayunxie/pptx stable media exports', () => {
       hideWhenStopped: false,
       volume: 1,
     });
+    for (const [slideIndex, expected] of second.slides.entries()) {
+      const source = new TextDecoder().decode(second.opcPackage.requirePart(expected.partUri).bytes);
+      const ids = [...source.matchAll(/<p:cTn\b[^>]*\bid="([0-9]+)"/g)]
+        .map((match) => Number(match[1]));
+      const targets = [...source.matchAll(/<p:spTgt\b[^>]*\bspid="([0-9]+)"/g)]
+        .map((match) => Number(match[1]));
+      expect(source).toContain('cmd="playFrom(0.0)"');
+      expect(source).toContain('<p:audio><p:cMediaNode');
+      expect(new Set(ids).size).toBe(ids.length);
+      expect(new Set(targets)).toEqual(new Set(second.media(slideIndex).map(({ shapeId }) => shapeId)));
+    }
+    await second.write({ mode: 'permissive' });
+    expect(second.diagnostics.filter(({ code }) => code.startsWith('MEDIA_TIMING_'))).toEqual([]);
 
     if (false) {
       // @ts-expect-error media sources exclude scalar numbers
