@@ -1,4 +1,7 @@
 import { escapeXmlAttribute } from '@pptx/lossless-xml';
+import { normalizePlaceholderSelector } from './placeholder.internal.js';
+import type { PlaceholderIdentity, PlaceholderSelector } from './placeholder.js';
+import type { Transform } from './units.js';
 import {
   normalizeRichText,
   normalizeTextAlignment,
@@ -46,6 +49,7 @@ const DEFAULT_OFFSET = EMU_PER_INCH / 2;
 const DEFAULT_HEIGHT = EMU_PER_INCH;
 const OPTION_KEYS = [
   'name',
+  'placeholder',
   'x',
   'y',
   'width',
@@ -73,6 +77,7 @@ interface NormalizedTableCell {
 export interface NormalizedTableDefinition {
   readonly rows: readonly (readonly NormalizedTableCell[])[];
   readonly name?: string;
+  readonly placeholder?: PlaceholderSelector;
   readonly x: number;
   readonly y: number;
   readonly width: number;
@@ -98,6 +103,9 @@ export function normalizeTableDefinition(
   }
 
   const normalizedOptions = readOptions(options);
+  const placeholder = normalizedOptions.placeholder === undefined
+    ? undefined
+    : normalizePlaceholderSelector(normalizedOptions.placeholder);
   const tableAlignment = normalizedOptions.align === undefined
     ? undefined
     : normalizeTextAlignment(normalizedOptions.align, 'Table align');
@@ -240,6 +248,7 @@ export function normalizeTableDefinition(
   return {
     rows: resolvedRows,
     ...(name !== undefined ? { name } : {}),
+    ...(placeholder === undefined ? {} : { placeholder }),
     x,
     y,
     width,
@@ -346,6 +355,8 @@ export function distributeTableDimension(total: number, count: number): readonly
 export function renderTableGraphicFrame(
   id: number,
   definition: NormalizedTableDefinition,
+  placeholder?: Readonly<PlaceholderIdentity>,
+  transform?: Readonly<Transform>,
 ): string {
   const grid = definition.columnWidths.map((width) => `<a:gridCol w="${width}"/>`).join('');
   const rows = definition.rows.map((row, rowIndex) => {
@@ -353,8 +364,17 @@ export function renderTableGraphicFrame(
     return `<a:tr h="${definition.rowHeights[rowIndex]}">${cells}</a:tr>`;
   }).join('');
   const name = escapeXmlAttribute(definition.name ?? `Table ${id}`);
+  const applicationProperties = placeholder === undefined
+    ? '<p:nvPr/>'
+    : `<p:nvPr><p:ph type="${placeholder.type}" idx="${placeholder.index}"/></p:nvPr>`;
+  const rotation = transform?.rotation ?? 0;
+  const transformAttributes = [
+    rotation === 0 ? '' : ` rot="${rotation}"`,
+    transform?.flipHorizontal ? ' flipH="1"' : '',
+    transform?.flipVertical ? ' flipV="1"' : '',
+  ].join('');
 
-  return `<p:graphicFrame xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><p:nvGraphicFramePr><p:cNvPr id="${id}" name="${name}"/><p:cNvGraphicFramePr><a:graphicFrameLocks noGrp="1"/></p:cNvGraphicFramePr><p:nvPr/></p:nvGraphicFramePr><p:xfrm><a:off x="${definition.x}" y="${definition.y}"/><a:ext cx="${definition.width}" cy="${definition.height}"/></p:xfrm><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/table"><a:tbl><a:tblPr/><a:tblGrid>${grid}</a:tblGrid>${rows}</a:tbl></a:graphicData></a:graphic></p:graphicFrame>`;
+  return `<p:graphicFrame xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><p:nvGraphicFramePr><p:cNvPr id="${id}" name="${name}"/><p:cNvGraphicFramePr><a:graphicFrameLocks noGrp="1"/></p:cNvGraphicFramePr>${applicationProperties}</p:nvGraphicFramePr><p:xfrm${transformAttributes}><a:off x="${definition.x}" y="${definition.y}"/><a:ext cx="${definition.width}" cy="${definition.height}"/></p:xfrm><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/table"><a:tbl><a:tblPr/><a:tblGrid>${grid}</a:tblGrid>${rows}</a:tbl></a:graphicData></a:graphic></p:graphicFrame>`;
 }
 
 function readDenseArray(value: unknown, context: string): readonly unknown[] {

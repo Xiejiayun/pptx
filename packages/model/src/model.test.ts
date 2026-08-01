@@ -628,6 +628,135 @@ describe('PresentationModel', () => {
     expect(packageSnapshot(rollbackFixture.pkg)).toEqual(beforeRollback);
   });
 
+  it('populate table media placeholder owners in place through the model API', async () => {
+    const { pkg, model } = emptyPresentationModel();
+    const slide = model.addSlide();
+    const layoutPartUri = '/ppt/slideLayouts/slideLayout1.xml';
+    const placeholder = (
+      id: number,
+      name: string,
+      type: 'tbl' | 'media',
+      index: number,
+      x: number,
+      y: number,
+      width: number,
+      height: number,
+    ) => '<p:sp><p:nvSpPr>'
+      + `<p:cNvPr id="${id}" name="${name}"/><p:cNvSpPr/><p:nvPr>`
+      + `<p:ph type="${type}" idx="${index}"/></p:nvPr></p:nvSpPr><p:spPr>`
+      + `<a:xfrm><a:off x="${x}" y="${y}"/><a:ext cx="${width}" cy="${height}"/>`
+      + '</a:xfrm></p:spPr><p:txBody><a:bodyPr/><a:lstStyle/><a:p/></p:txBody></p:sp>';
+    const tableOwner = placeholder(
+      2,
+      'data_table',
+      'tbl',
+      106,
+      inches(1),
+      inches(2),
+      inches(4),
+      inches(2),
+    );
+    const mediaOwner = placeholder(
+      3,
+      'narration',
+      'media',
+      107,
+      inches(5),
+      inches(2),
+      inches(2),
+      inches(1),
+    );
+    pkg.setPart(
+      layoutPartUri,
+      '<p:sldLayout xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" '
+        + 'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">'
+        + `<p:cSld><p:spTree>${tableOwner}${mediaOwner}</p:spTree></p:cSld>`
+        + '</p:sldLayout>',
+      SLIDE_LAYOUT_CONTENT_TYPE,
+    );
+    pkg.addRelationship(slide.partUri, {
+      type: SLIDE_LAYOUT_RELATIONSHIP,
+      target: '../slideLayouts/slideLayout1.xml',
+    });
+    pkg.setPart(
+      slide.partUri,
+      '<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" '
+        + 'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" '
+        + 'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+        + `<p:cSld><p:spTree>${tableOwner}${mediaOwner}</p:spTree></p:cSld></p:sld>`,
+      pkg.requirePart(slide.partUri).contentType,
+    );
+    const emptyTable = slide.shapes[0]!;
+    const emptyMedia = slide.shapes[1]!;
+
+    const table = slide.addTable([['A', 'B'], ['1', '2']], {
+      placeholder: 'data_table',
+      width: inches(6),
+      height: inches(4),
+      columnWidths: [inches(2), inches(4)],
+      rowHeights: [inches(1), inches(3)],
+    });
+    const audio = await slide.addAudio(Uint8Array.of(1, 2, 3), {
+      placeholder: { type: 'media', index: 107 },
+      contentType: 'audio/mpeg',
+      poster: Uint8Array.of(4),
+      posterContentType: 'image/png',
+      play: 'auto',
+      x: inches(9),
+      width: inches(9),
+    });
+
+    expect(table).toMatchObject({
+      id: emptyTable.id,
+      name: 'data_table',
+      placeholder: { type: 'tbl', index: 106 },
+      transform: {
+        x: inches(1),
+        y: inches(2),
+        width: inches(4),
+        height: inches(2),
+        rotation: 0,
+        flipHorizontal: false,
+        flipVertical: false,
+      },
+    });
+    expect(table.columnWidths).toEqual([inches(4) / 3, inches(8) / 3]);
+    expect(table.rowHeights).toEqual([inches(0.5), inches(1.5)]);
+    expect(audio).toMatchObject({
+      id: emptyMedia.id,
+      name: 'narration',
+      placeholder: { type: 'media', index: 107 },
+      transform: {
+        x: inches(5),
+        y: inches(2),
+        width: inches(2),
+        height: inches(1),
+        rotation: 0,
+        flipHorizontal: false,
+        flipVertical: false,
+      },
+      settings: {
+        play: 'auto',
+        loop: false,
+        hideWhenStopped: false,
+        volume: 1,
+      },
+    });
+    expect(() => emptyTable.name).toThrow(/stale/i);
+    expect(() => emptyMedia.name).toThrow(/stale/i);
+    expect(slide.shapes).toEqual([table, audio]);
+    const source = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect(source).toContain('<p:ph type="tbl" idx="106"/>');
+    expect(source).toContain('<p:ph type="media" idx="107"/>');
+    expect(source).toContain('<p:timing>');
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    expect(reopened.slides[0]?.shapes.map(({ placeholder: identity }) => identity)).toEqual([
+      { type: 'tbl', index: 106 },
+      { type: 'media', index: 107 },
+    ]);
+  });
+
   it('resolves named slide layouts strictly without package mutation', () => {
     const { pkg, model } = emptyPresentationModel();
     const masterPartUri = '/ppt/slideMasters/slideMaster1.xml';

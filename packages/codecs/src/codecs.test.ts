@@ -784,6 +784,13 @@ describe('MediaCodec', () => {
     const pkg = await featureFixture();
     const codec = new MediaCodec(pkg);
     const before = await packageSnapshot(pkg);
+    let placeholderSourceReads = 0;
+    const placeholderStream = (): AsyncIterable<Uint8Array> => ({
+      async *[Symbol.asyncIterator]() {
+        placeholderSourceReads += 1;
+        yield Uint8Array.of(1);
+      },
+    });
     const failingStream = (): AsyncIterable<Uint8Array> => ({
       async *[Symbol.asyncIterator]() {
         yield Uint8Array.of(1);
@@ -794,6 +801,9 @@ describe('MediaCodec', () => {
       () => codec.addAudio('/ppt/slides/slide1.xml', Uint8Array.of(1), { volume: 2 }),
       () => codec.addAudio('/ppt/slides/slide1.xml', 'data:audio/mpeg;base64,A===', {}),
       () => codec.addAudio('/ppt/slides/slide1.xml', new Uint8Array(), {}),
+      () => codec.addAudio('/ppt/slides/slide1.xml', placeholderStream(), {
+        placeholder: 'missing',
+      }),
       () => codec.addAudio('/ppt/slides/slide1.xml', Uint8Array.of(1), {
         contentType: 'audio/mpeg',
         fileName: 'voice.wav',
@@ -815,6 +825,7 @@ describe('MediaCodec', () => {
       await expect(fail()).rejects.toThrow();
       expect(await packageSnapshot(pkg)).toEqual(before);
     }
+    expect(placeholderSourceReads).toBe(0);
   });
 
   it('rolls back shape, allocation, XML, relationship, and outer-transaction failures', async () => {

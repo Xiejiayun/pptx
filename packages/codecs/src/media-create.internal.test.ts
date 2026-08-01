@@ -8,8 +8,12 @@ import {
 import { resolveMediaCreationInputs } from './media-source.internal.js';
 
 describe('media creation request normalization', () => {
-  it('publishes strict name and alt-text option types', () => {
-    const valid: AddMediaOptions = { name: 'Narration', altText: '' };
+  it('publishes strict name, alt-text, and placeholder option types', () => {
+    const valid: AddMediaOptions = {
+      name: 'Narration',
+      altText: '',
+      placeholder: { type: 'media', index: 7 },
+    };
     if (false) {
       // @ts-expect-error media name must be a string
       const invalidName: AddMediaOptions = { name: 1 };
@@ -17,7 +21,11 @@ describe('media creation request normalization', () => {
       const invalidAltText: AddMediaOptions = { altText: false };
       void [invalidName, invalidAltText];
     }
-    expect(valid).toEqual({ name: 'Narration', altText: '' });
+    expect(valid).toEqual({
+      name: 'Narration',
+      altText: '',
+      placeholder: { type: 'media', index: 7 },
+    });
   });
 
   it('normalizes defaults and detaches direct byte sources', () => {
@@ -63,9 +71,11 @@ describe('media creation request normalization', () => {
       bytes,
       contentType,
     });
+    const placeholder = { type: 'media' as const, index: 12 };
     const options: AddMediaOptions = {
       name: '',
       altText: '',
+      placeholder,
       contentType: 'audio/mpeg',
       fileName: 'voice.mp3',
       poster: new Blob([Uint8Array.of(1)], { type: 'image/png' }),
@@ -83,12 +93,14 @@ describe('media creation request normalization', () => {
     const request = normalizeMediaCreateRequest('audio', 'voice.mp3', options);
 
     (options as { name?: string }).name = 'changed';
+    placeholder.index = 99;
     expect(request).toMatchObject({
       kind: 'audio',
       source: { type: 'string', value: 'voice.mp3' },
       poster: { type: 'blob' },
       name: '',
       altText: '',
+      placeholder: { type: 'media', index: 12 },
       contentType: 'audio/mpeg',
       fileName: 'voice.mp3',
       posterContentType: 'image/png',
@@ -102,6 +114,7 @@ describe('media creation request normalization', () => {
       volume: 0,
       transcode,
     });
+    expect(Object.isFrozen(request.placeholder)).toBe(true);
 
     const nullPrototype = Object.assign(Object.create(null) as Record<string, unknown>, {
       x: -0,
@@ -173,10 +186,31 @@ describe('media creation request normalization', () => {
   });
 
   it('rejects invalid scalar options synchronously', () => {
+    const placeholderAccessor = {};
+    const placeholderGetter = vi.fn(() => 'media');
+    Object.defineProperty(placeholderAccessor, 'type', {
+      enumerable: true,
+      get: placeholderGetter,
+    });
+    Object.defineProperty(placeholderAccessor, 'index', {
+      enumerable: true,
+      value: 1,
+    });
     const invalid: unknown[] = [
       { name: 1 },
       { name: 'bad\u0000name' },
       { altText: 'bad\uD800text' },
+      { placeholder: '' },
+      { placeholder: 'bad\u0000name' },
+      { placeholder: null },
+      { placeholder: [] },
+      { placeholder: { type: 'media' } },
+      { placeholder: { type: 'media', index: 1, extra: true } },
+      { placeholder: { type: 'audio', index: 1 } },
+      { placeholder: { type: 'media', index: -1 } },
+      { placeholder: { type: 'media', index: 4_294_967_295 } },
+      { placeholder: { type: 'media', index: 1.5 } },
+      { placeholder: placeholderAccessor },
       { contentType: '' },
       { contentType: 1 },
       { posterContentType: '' },
@@ -198,6 +232,7 @@ describe('media creation request normalization', () => {
     for (const options of invalid) {
       expect(() => normalizeMediaCreateRequest('audio', Uint8Array.of(1), options)).toThrow();
     }
+    expect(placeholderGetter).not.toHaveBeenCalled();
   });
 
   it('rejects unsupported or empty source values', () => {
@@ -252,6 +287,9 @@ describe('media creation definition and XML', () => {
       y: 0,
       width: 1,
       height: 2,
+      rotation: 0,
+      flipHorizontal: false,
+      flipVertical: false,
       play: 'auto',
       loop: true,
       hideWhenStopped: true,

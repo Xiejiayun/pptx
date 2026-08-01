@@ -106,6 +106,7 @@ import {
   type TableCellTextDirection,
 } from './shapes.js';
 import {
+  distributeTableDimension,
   normalizeTableDefinition,
   renderTableGraphicFrame,
 } from './table-create.internal.js';
@@ -259,6 +260,7 @@ export interface AddTextOptions extends Partial<Transform> {
 export interface AddTableOptions {
   readonly align?: TextAlignment;
   readonly name?: string;
+  readonly placeholder?: PlaceholderSelector;
   readonly x?: number;
   readonly y?: number;
   readonly width?: number;
@@ -466,15 +468,45 @@ export class SlideModel {
   }
 
   async addAudio(source: MediaSource, options: AddMediaOptions = {}): Promise<MediaModel> {
-    const descriptor = await new MediaCodec(this.presentation.opcPackage)
+    const descriptor = await this.mediaCodec()
       .addAudio(this.partUri, source, options);
+    if (descriptor.placeholder) this.invalidateShapeModel(descriptor.shapeId);
     return this.requireMedia(descriptor.shapeId);
   }
 
   async addVideo(source: MediaSource, options: AddMediaOptions = {}): Promise<MediaModel> {
-    const descriptor = await new MediaCodec(this.presentation.opcPackage)
+    const descriptor = await this.mediaCodec()
       .addVideo(this.partUri, source, options);
+    if (descriptor.placeholder) this.invalidateShapeModel(descriptor.shapeId);
     return this.requireMedia(descriptor.shapeId);
+  }
+
+  private mediaCodec(): MediaCodec {
+    return new MediaCodec(
+      this.presentation.opcPackage,
+      (slidePartUri, selector) => {
+        const owner = resolvePlaceholderOwner(
+          this.presentation.opcPackage,
+          slidePartUri,
+          selector,
+          'media',
+        );
+        return {
+          identity: owner.identity,
+          name: owner.name,
+          shapeId: owner.shapeId,
+          x: owner.transform.x,
+          y: owner.transform.y,
+          width: owner.transform.width,
+          height: owner.transform.height,
+          rotation: owner.transform.rotation,
+          flipHorizontal: owner.transform.flipHorizontal,
+          flipVertical: owner.transform.flipVertical,
+          start: owner.slideElement.start,
+          end: owner.slideElement.end,
+        };
+      },
+    );
   }
 
   setMediaName(shapeId: number, value: string): void {
@@ -1177,14 +1209,52 @@ export class SlideModel {
   ): TableModel {
     return this.presentation.opcPackage.transaction(() => {
       const definition = normalizeTableDefinition(rows, options);
+      const owner = definition.placeholder === undefined
+        ? undefined
+        : resolvePlaceholderOwner(
+            this.presentation.opcPackage,
+            this.partUri,
+            definition.placeholder,
+            'table',
+          );
+      const rendered = owner === undefined
+        ? definition
+        : {
+            ...definition,
+            name: owner.name,
+            x: owner.transform.x,
+            y: owner.transform.y,
+            width: owner.transform.width,
+            height: owner.transform.height,
+            autoRowHeight: false,
+            columnWidths: scaleTableDimensions(
+              definition.columnWidths,
+              owner.transform.width,
+              'Table placeholder width',
+            ),
+            rowHeights: scaleTableDimensions(
+              definition.rowHeights,
+              owner.transform.height,
+              'Table placeholder height',
+            ),
+          };
       const { xml } = this.parse();
       const shapeTree = requireTableShapeTree(xml, this.partUri);
-      const nextId = allocateShapeId(xml);
-      const tableXml = renderTableGraphicFrame(nextId, definition);
-      const extensionList = directChildren(shapeTree, 'extLst')[0];
-      if (extensionList) xml.replace(extensionList.start, extensionList.start, tableXml);
-      else xml.appendChildXml(shapeTree, tableXml);
+      const nextId = owner?.shapeId ?? allocateShapeId(xml);
+      const tableXml = renderTableGraphicFrame(
+        nextId,
+        rendered,
+        owner?.identity,
+        owner?.transform,
+      );
+      if (owner) xml.replace(owner.slideElement.start, owner.slideElement.end, tableXml);
+      else {
+        const extensionList = directChildren(shapeTree, 'extLst')[0];
+        if (extensionList) xml.replace(extensionList.start, extensionList.start, tableXml);
+        else xml.appendChildXml(shapeTree, tableXml);
+      }
       this.setXml(xml.serialize());
+      if (owner) this.invalidateShapeModel(nextId);
       const table = this.shapes.find((candidate) => candidate.id === nextId);
       if (!(table instanceof TableModel) || table.kind !== 'table') {
         throw new ModelParseError(`Created table ${nextId} could not be resolved`, this.partUri);
@@ -1536,6 +1606,30 @@ function placeholderTextOptions(owner: ResolvedPlaceholderOwner): AddTextOptions
     flipHorizontal: owner.transform.flipHorizontal,
     flipVertical: owner.transform.flipVertical,
   };
+}
+
+function scaleTableDimensions(
+  values: readonly number[],
+  total: number,
+  context: string,
+): readonly number[] {
+  if (!Number.isSafeInteger(total) || total < values.length) {
+    throw new RangeError(`${context} must provide at least one EMU per item`);
+  }
+  const sourceTotal = values.reduce((sum, value) => sum + value, 0);
+  if (sourceTotal === 0) return distributeTableDimension(total, values.length);
+  let source = 0;
+  let target = 0;
+  return values.map((value, index) => {
+    source += value;
+    const boundary = index === values.length - 1
+      ? total
+      : Math.round(source * total / sourceTotal);
+    const scaled = boundary - target;
+    if (scaled <= 0) throw new RangeError(`${context} cannot preserve all item dimensions`);
+    target = boundary;
+    return scaled;
+  });
 }
 
 function shapeHyperlinkTargetsEqual(

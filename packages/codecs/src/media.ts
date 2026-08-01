@@ -42,6 +42,30 @@ const REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships
 const MEDIA_REL = 'http://schemas.microsoft.com/office/2007/relationships/media';
 
 export type MediaKind = 'audio' | 'video';
+export type MediaPlaceholderType = 'title' | 'body' | 'pic' | 'chart' | 'tbl' | 'media';
+export interface MediaPlaceholderIdentity {
+  readonly type: MediaPlaceholderType;
+  readonly index: number;
+}
+export type MediaPlaceholderSelector = string | Readonly<MediaPlaceholderIdentity>;
+export interface MediaPlaceholderOwner {
+  readonly identity: Readonly<MediaPlaceholderIdentity>;
+  readonly name: string;
+  readonly shapeId: number;
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+  readonly rotation: number;
+  readonly flipHorizontal: boolean;
+  readonly flipVertical: boolean;
+  readonly start: number;
+  readonly end: number;
+}
+export type MediaPlaceholderResolver = (
+  slidePartUri: string,
+  selector: MediaPlaceholderSelector,
+) => MediaPlaceholderOwner;
 export type MediaByteChunk = number | Uint8Array | ArrayBuffer | ArrayBufferView;
 export type MediaByteStream = ReadableStream<MediaByteChunk> | AsyncIterable<MediaByteChunk>;
 export type MediaSource = string | Uint8Array | ArrayBuffer | Blob | MediaByteStream;
@@ -56,6 +80,7 @@ export interface MediaPlaybackSettings {
 export interface AddMediaOptions extends MediaPlaybackSettings {
   readonly name?: string;
   readonly altText?: string;
+  readonly placeholder?: MediaPlaceholderSelector;
   readonly contentType?: string;
   readonly fileName?: string;
   readonly poster?: MediaSource;
@@ -90,6 +115,7 @@ export interface MediaDescriptor {
   readonly externalUrl?: string;
   readonly posterPartUri?: string;
   readonly settings: MediaPlaybackSettings;
+  readonly placeholder?: Readonly<MediaPlaceholderIdentity>;
 }
 
 /** @deprecated Use the runtime MediaModel from @pptx/model or @pptx/sdk. */
@@ -103,7 +129,10 @@ export class MediaCodec {
     relationshipTypes: [`${REL}audio`, `${REL}video`, MEDIA_REL],
   } as const;
 
-  constructor(readonly pkg: OpcPackage) {}
+  constructor(
+    readonly pkg: OpcPackage,
+    private readonly resolvePlaceholder?: MediaPlaceholderResolver,
+  ) {}
 
   async addAudio(slidePartUri: string, source: MediaSource, options: AddMediaOptions = {}): Promise<MediaDescriptor> {
     return this.add('audio', slidePartUri, source, options);
@@ -323,6 +352,12 @@ export class MediaCodec {
     options: AddMediaOptions,
   ): Promise<MediaDescriptor> {
     const request = normalizeMediaCreateRequest(kind, source, options);
+    if (request.placeholder !== undefined) {
+      if (!this.resolvePlaceholder) {
+        throw new Error('Media placeholder resolution is unavailable');
+      }
+      this.resolvePlaceholder(slidePartUri, request.placeholder);
+    }
     const resolved = await resolveMediaCreationInputs(request);
     const existingMediaPartUri = resolved.media.type === 'embedded'
       ? await this.findByHash(resolved.media.bytes, resolved.media.contentType)
@@ -331,13 +366,28 @@ export class MediaCodec {
       resolved.poster.bytes,
       resolved.poster.contentType,
     );
-    const slidePart = this.pkg.requirePart(slidePartUri);
-    const xml = LosslessXmlDocument.parse(slidePart.bytes);
-    const shapeTree = requireMediaShapeTree(xml, slidePartUri);
-    const defaultName = `Media ${countDirectMediaPictures(shapeTree)}`;
-    const definition = finalizeMediaCreationDefinition(request, resolved, defaultName);
-
     return this.pkg.transaction(() => {
+      const owner = request.placeholder === undefined
+        ? undefined
+        : this.resolvePlaceholder!(slidePartUri, request.placeholder);
+      const slidePart = this.pkg.requirePart(slidePartUri);
+      const xml = LosslessXmlDocument.parse(slidePart.bytes);
+      const shapeTree = requireMediaShapeTree(xml, slidePartUri);
+      const defaultName = `Media ${countDirectMediaPictures(shapeTree)}`;
+      const normalizedDefinition = finalizeMediaCreationDefinition(request, resolved, defaultName);
+      const definition = owner === undefined
+        ? normalizedDefinition
+        : Object.freeze({
+            ...normalizedDefinition,
+            name: owner.name,
+            x: owner.x,
+            y: owner.y,
+            width: owner.width,
+            height: owner.height,
+            rotation: owner.rotation,
+            flipHorizontal: owner.flipHorizontal,
+            flipVertical: owner.flipVertical,
+          });
       const mediaPartUri = definition.media.type === 'embedded'
         ? existingMediaPartUri ?? this.pkg.allocatePartUri(
           '/ppt/media',
@@ -377,15 +427,18 @@ export class MediaCodec {
         targetMode: 'Internal',
       });
 
-      const shapeId = allocateMediaShapeId(xml, slidePartUri);
+      const shapeId = owner?.shapeId ?? allocateMediaShapeId(xml, slidePartUri);
       const pictureXml = renderMediaPictureXml(shapeId, definition, {
         kind: kindRelationship.id,
         ...(mediaRelationship ? { media: mediaRelationship.id } : {}),
         poster: posterRelationship.id,
-      });
-      const extensionList = directElementChildren(shapeTree, 'extLst')[0];
-      if (extensionList) xml.replace(extensionList.start, extensionList.start, pictureXml);
-      else xml.appendChildXml(shapeTree, pictureXml);
+      }, owner?.identity);
+      if (owner) xml.replace(owner.start, owner.end, pictureXml);
+      else {
+        const extensionList = directElementChildren(shapeTree, 'extLst')[0];
+        if (extensionList) xml.replace(extensionList.start, extensionList.start, pictureXml);
+        else xml.appendChildXml(shapeTree, pictureXml);
+      }
       const updatedXml = LosslessXmlDocument.parse(xml.serialize());
       const picture = updatedXml.elements('pic').find((candidate) => {
         const properties = updatedXml.descendants(candidate, 'cNvPr')[0];
@@ -413,6 +466,7 @@ export class MediaCodec {
           hideWhenStopped: definition.hideWhenStopped,
           volume: definition.volume,
         },
+        ...(owner === undefined ? {} : { placeholder: owner.identity }),
       };
     });
   }

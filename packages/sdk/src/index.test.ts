@@ -775,6 +775,224 @@ describe('PptxDocument vertical slice', () => {
       .every(({ incoming }) => incoming.length === 0)).toBe(true);
   });
 
+  it('populate table media placeholders with native state and inherited geometry', async () => {
+    const document = PptxDocument.create();
+    const layout = document.layouts[0]!;
+    const tablePrompt = layout.addPlaceholder('Table prompt', {
+      name: 'data_table',
+      type: 'tbl',
+      index: 205,
+      x: inches(1),
+      y: inches(1),
+      width: inches(4),
+      height: inches(2),
+      rotation: degrees(15),
+      flipHorizontal: true,
+    });
+    const audioPrompt = layout.addPlaceholder('Audio prompt', {
+      name: 'narration',
+      type: 'media',
+      index: 206,
+      x: inches(1),
+      y: inches(3.5),
+      width: inches(2),
+      height: inches(1),
+      rotation: degrees(-10),
+      flipVertical: true,
+    });
+    const videoPrompt = layout.addPlaceholder('Video prompt', {
+      name: 'demo_video',
+      type: 'media',
+      index: 207,
+      x: inches(4),
+      y: inches(3.5),
+      width: inches(3),
+      height: inches(2),
+    });
+    const externalPrompt = layout.addPlaceholder('External prompt', {
+      name: 'external_video',
+      type: 'media',
+      index: 208,
+      x: inches(7.5),
+      y: inches(3.5),
+      width: inches(2),
+      height: inches(2),
+    });
+    const slide = document.addSlide({ masterName: 'DEFAULT' });
+    const empty = [...slide.shapes];
+
+    const table = slide.addTable([
+      [
+        {
+          text: 'Quarter',
+          options: {
+            fill: { kind: 'solid', color: { kind: 'scheme', value: 'accent1' } },
+            valign: 'middle',
+          },
+        },
+        { text: 'Revenue', options: { align: 'right', fit: 'shrink' } },
+      ],
+      ['Q1', '10'],
+    ], {
+      placeholder: 'data_table',
+      width: inches(9),
+      height: inches(9),
+      columnWidths: [inches(3), inches(6)],
+      rowHeights: [inches(3), inches(6)],
+    });
+    const audio = await document.addAudio(0, Uint8Array.of(1, 2, 3), {
+      placeholder: { type: 'media', index: 206 },
+      contentType: 'audio/mpeg',
+      poster: Uint8Array.of(4, 5),
+      posterContentType: 'image/png',
+      play: 'auto',
+      loop: true,
+      volume: 0.5,
+      x: inches(9),
+      width: inches(9),
+    });
+    const video = await document.addVideo(0, Uint8Array.of(6, 7, 8), {
+      placeholder: 'demo_video',
+      contentType: 'video/mp4',
+      poster: Uint8Array.of(9, 10),
+      posterContentType: 'image/gif',
+      hideWhenStopped: true,
+      y: inches(9),
+      height: inches(9),
+    });
+    const external = await document.addVideo(0, 'https://example.com/demo.mp4', {
+      placeholder: 'external_video',
+      poster: Uint8Array.of(11, 12),
+      posterContentType: 'image/jpeg',
+    });
+
+    expect([table.id, audio.id, video.id, external.id]).toEqual(empty.map(({ id }) => id));
+    expect([table.name, audio.name, video.name, external.name]).toEqual([
+      'data_table',
+      'narration',
+      'demo_video',
+      'external_video',
+    ]);
+    expect([table.placeholder, audio.placeholder, video.placeholder, external.placeholder])
+      .toEqual([
+        { type: 'tbl', index: 205 },
+        { type: 'media', index: 206 },
+        { type: 'media', index: 207 },
+        { type: 'media', index: 208 },
+      ]);
+    expect([table.transform, audio.transform, video.transform, external.transform]).toEqual([
+      tablePrompt.transform,
+      audioPrompt.transform,
+      videoPrompt.transform,
+      externalPrompt.transform,
+    ]);
+    expect(table.rows.map(({ cells }) => cells.map(({ text }) => text))).toEqual([
+      ['Quarter', 'Revenue'],
+      ['Q1', '10'],
+    ]);
+    expect(table.rows[0]?.cells[0]).toMatchObject({
+      fill: { kind: 'solid', color: { kind: 'scheme', value: 'accent1' } },
+      verticalAlignment: 'middle',
+    });
+    expect(table.columnWidths?.reduce((sum, value) => sum + value, 0))
+      .toBe(tablePrompt.transform.width);
+    expect(table.rowHeights?.reduce((sum, value) => sum + value, 0))
+      .toBe(tablePrompt.transform.height);
+    expect(audio.settings).toEqual({
+      play: 'auto',
+      loop: true,
+      hideWhenStopped: false,
+      volume: 0.5,
+    });
+    expect(video.settings.hideWhenStopped).toBe(true);
+    expect(external.externalUrl).toBe('https://example.com/demo.mp4');
+    expect(audio.mediaPartUri).toBeDefined();
+    expect(audio.posterPartUri).toBeDefined();
+    expect(video.mediaPartUri).toBeDefined();
+    expect(video.posterPartUri).toBeDefined();
+    for (const owner of empty) expect(() => owner.name).toThrow(/stale/i);
+    expect(slide.shapes).toEqual([table, audio, video, external]);
+    const source = new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes);
+    expect(source).toContain('<p:ph type="tbl" idx="205"/>');
+    expect(source.match(/<p:ph type="media" idx="20[678]"\/>/g)).toHaveLength(3);
+    expect(source).toContain('<p:timing>');
+
+    await video.replacePoster(Uint8Array.of(13, 14), { contentType: 'image/png' });
+    const originalAudioUri = audio.mediaPartUri!;
+    const originalVideoPosterUri = video.posterPartUri!;
+    const duplicate = document.duplicateSlide(0);
+    const duplicateAudio = duplicate.media.find(({ name }) => name === 'narration')!;
+    const duplicateVideo = duplicate.media.find(({ name }) => name === 'demo_video')!;
+    expect(duplicateAudio.mediaPartUri).toBe(originalAudioUri);
+    expect(duplicateVideo.posterPartUri).toBe(originalVideoPosterUri);
+    await duplicateAudio.replaceSource(Uint8Array.of(15, 16), { contentType: 'audio/mpeg' });
+    await duplicateVideo.replacePoster(Uint8Array.of(17, 18), { contentType: 'image/gif' });
+    expect(duplicateAudio.mediaPartUri).not.toBe(originalAudioUri);
+    expect(duplicateVideo.posterPartUri).not.toBe(originalVideoPosterUri);
+    expect(audio.mediaPartUri).toBe(originalAudioUri);
+    expect(video.posterPartUri).toBe(originalVideoPosterUri);
+
+    const reopened = await PptxDocument.open(await document.write());
+    expect(reopened.slides[0]?.shapes.map(({ placeholder }) => placeholder)).toEqual([
+      { type: 'tbl', index: 205 },
+      { type: 'media', index: 206 },
+      { type: 'media', index: 207 },
+      { type: 'media', index: 208 },
+    ]);
+    expect((reopened.slides[0]?.shapes[0] as TableModel).rows[0]?.cells[0]?.text)
+      .toBe('Quarter');
+    expect(reopened.slides[0]?.media[0]?.settings.play).toBe('auto');
+
+    const { output: _beforeOutput, ...before } = await sdkPackageSnapshot(document) as {
+      readonly output: Uint8Array;
+      readonly [key: string]: unknown;
+    };
+    expect(() => slide.addTable([['Second']], { placeholder: 'data_table' }))
+      .toThrow(/empty|filled/i);
+    await expect(document.addAudio(0, Uint8Array.of(1), {
+      placeholder: 'data_table',
+      contentType: 'audio/mpeg',
+    })).rejects.toThrow(/domain|type/i);
+    const { output: _afterOutput, ...after } = await sdkPackageSnapshot(document) as {
+      readonly output: Uint8Array;
+      readonly [key: string]: unknown;
+    };
+    expect(after).toEqual(before);
+
+    duplicateAudio.remove();
+    expect(document.opcPackage.hasPart(originalAudioUri)).toBe(true);
+    audio.remove();
+    expect(document.opcPackage.hasPart(originalAudioUri)).toBe(false);
+
+    const rollback = PptxDocument.create();
+    rollback.layouts[0]!.addPlaceholder('Rollback media', {
+      name: 'rollback_media',
+      type: 'media',
+      index: 209,
+    });
+    const rollbackSlide = rollback.addSlide({ masterName: 'DEFAULT' });
+    const { output: _rollbackOutput, ...rollbackBefore } = await sdkPackageSnapshot(rollback) as {
+      readonly output: Uint8Array;
+      readonly [key: string]: unknown;
+    };
+    const originalSetPart = rollback.opcPackage.setPart.bind(rollback.opcPackage);
+    const setPart = vi.spyOn(rollback.opcPackage, 'setPart')
+      .mockImplementation((uri, bytes, contentType) => {
+        if (uri === rollbackSlide.partUri) throw new Error('placeholder media write failed');
+        return originalSetPart(uri, bytes, contentType);
+      });
+    await expect(rollback.addVideo(0, Uint8Array.of(1, 2), {
+      placeholder: 'rollback_media',
+      contentType: 'video/mp4',
+    })).rejects.toThrow('placeholder media write failed');
+    setPart.mockRestore();
+    const { output: _rollbackAfterOutput, ...rollbackAfter } = await sdkPackageSnapshot(rollback) as {
+      readonly output: Uint8Array;
+      readonly [key: string]: unknown;
+    };
+    expect(rollbackAfter).toEqual(rollbackBefore);
+  });
+
   it('edits and reopens direct layout master backgrounds', async () => {
     const document = PptxDocument.create();
     const layout = document.layouts[0]!;

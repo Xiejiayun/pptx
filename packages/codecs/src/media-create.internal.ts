@@ -3,6 +3,8 @@ import type {
   AddMediaOptions,
   MediaByteStream,
   MediaKind,
+  MediaPlaceholderIdentity,
+  MediaPlaceholderSelector,
 } from './media.js';
 import type {
   ResolvedEmbeddedMedia,
@@ -16,6 +18,7 @@ const PLAYBACK_EXTENSION_URI = '{C13D3E4A-5148-4B6D-A7E7-505054582D4F}';
 const OPTION_KEYS = new Set([
   'name',
   'altText',
+  'placeholder',
   'contentType',
   'fileName',
   'poster',
@@ -43,6 +46,7 @@ export interface NormalizedMediaCreateRequest {
   readonly poster?: NormalizedMediaSourceReference;
   readonly name?: string;
   readonly altText?: string;
+  readonly placeholder?: MediaPlaceholderSelector;
   readonly contentType?: string;
   readonly posterContentType?: string;
   readonly fileName?: string;
@@ -65,6 +69,9 @@ export interface NormalizedMediaCreationDefinition {
   readonly y: number;
   readonly width: number;
   readonly height: number;
+  readonly rotation: number;
+  readonly flipHorizontal: boolean;
+  readonly flipVertical: boolean;
   readonly play: 'click' | 'auto';
   readonly loop: boolean;
   readonly hideWhenStopped: boolean;
@@ -91,6 +98,9 @@ export function normalizeMediaCreateRequest(
     : normalizeSource(values.poster, 'poster');
   const name = normalizeXmlString(values.name, 'name');
   const altText = normalizeXmlString(values.altText, 'altText');
+  const placeholder = values.placeholder === undefined
+    ? undefined
+    : normalizePlaceholderSelector(values.placeholder);
   const contentType = normalizeNonEmptyString(values.contentType, 'contentType');
   const posterContentType = normalizeNonEmptyString(
     values.posterContentType,
@@ -105,6 +115,7 @@ export function normalizeMediaCreateRequest(
     ...(poster === undefined ? {} : { poster }),
     ...(name === undefined ? {} : { name }),
     ...(altText === undefined ? {} : { altText }),
+    ...(placeholder === undefined ? {} : { placeholder }),
     ...(contentType === undefined ? {} : { contentType }),
     ...(posterContentType === undefined ? {} : { posterContentType }),
     ...(fileName === undefined ? {} : { fileName }),
@@ -149,6 +160,9 @@ export function finalizeMediaCreationDefinition(
     y: request.y,
     width: request.width,
     height: request.height,
+    rotation: 0,
+    flipHorizontal: false,
+    flipVertical: false,
     play: request.play,
     loop: request.loop,
     hideWhenStopped: request.hideWhenStopped,
@@ -162,6 +176,7 @@ export function renderMediaPictureXml(
   shapeId: number,
   definition: Readonly<NormalizedMediaCreationDefinition>,
   relationships: Readonly<MediaRelationshipIds>,
+  placeholder?: Readonly<MediaPlaceholderIdentity>,
 ): string {
   if (!Number.isSafeInteger(shapeId) || shapeId <= 0) {
     throw new RangeError('Media shape id must be a positive safe integer');
@@ -187,18 +202,78 @@ export function renderMediaPictureXml(
     + `play="${definition.play}" loop="${definition.loop ? 1 : 0}" `
     + `hideWhenStopped="${definition.hideWhenStopped ? 1 : 0}" `
     + `volume="${Math.round(definition.volume * 100_000)}"/></p:ext>`;
+  const placeholderXml = placeholder === undefined
+    ? ''
+    : `<p:ph type="${placeholder.type}" idx="${placeholder.index}"/>`;
+  const transformAttributes = [
+    definition.rotation === 0 ? '' : ` rot="${definition.rotation}"`,
+    definition.flipHorizontal ? ' flipH="1"' : '',
+    definition.flipVertical ? ' flipV="1"' : '',
+  ].join('');
 
   return '<p:pic><p:nvPicPr>'
     + `<p:cNvPr id="${shapeId}" name="${name}"${description}>`
     + '<a:hlinkClick r:id="" action="ppaction://media"/></p:cNvPr>'
-    + '<p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr>'
+    + `<p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr>${placeholderXml}`
     + `<a:${definition.kind}File r:link="${escapeXmlAttribute(kindRelationshipId)}"/>`
     + `<p:extLst>${mediaExtension}${playbackExtension}</p:extLst></p:nvPr></p:nvPicPr>`
     + `<p:blipFill><a:blip r:embed="${escapeXmlAttribute(posterRelationshipId)}"/>`
-    + '<a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr><a:xfrm>'
+    + `<a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr><a:xfrm${transformAttributes}>`
     + `<a:off x="${definition.x}" y="${definition.y}"/>`
     + `<a:ext cx="${definition.width}" cy="${definition.height}"/></a:xfrm>`
     + '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>';
+}
+
+function normalizePlaceholderSelector(value: unknown): MediaPlaceholderSelector {
+  if (typeof value === 'string') {
+    if (value.length === 0) throw new TypeError('Media placeholder name must not be empty');
+    if (!isValidXmlString(value)) {
+      throw new TypeError('Media placeholder name contains invalid XML characters');
+    }
+    return value;
+  }
+  const identity = readPlaceholderIdentity(value);
+  const types = ['title', 'body', 'pic', 'chart', 'tbl', 'media'] as const;
+  if (!types.includes(identity.type as typeof types[number])) {
+    throw new TypeError(`Media placeholder type must be ${types.join(', ')}`);
+  }
+  if (
+    typeof identity.index !== 'number'
+    || !Number.isSafeInteger(identity.index)
+    || identity.index < 0
+    || identity.index > 4_294_967_294
+  ) {
+    throw new RangeError('Media placeholder index must be between 0 and 4294967294');
+  }
+  return Object.freeze({
+    type: identity.type as MediaPlaceholderIdentity['type'],
+    index: identity.index,
+  });
+}
+
+function readPlaceholderIdentity(value: unknown): Record<'type' | 'index', unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new TypeError('Media placeholder must be an object');
+  }
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) {
+    throw new TypeError('Media placeholder must be an ordinary object');
+  }
+  const result = Object.create(null) as Record<string, unknown>;
+  for (const key of Reflect.ownKeys(value)) {
+    if (key !== 'type' && key !== 'index') {
+      throw new TypeError(`Media placeholder contains unsupported property ${String(key)}`);
+    }
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (!descriptor || !Object.hasOwn(descriptor, 'value')) {
+      throw new TypeError(`Media placeholder ${String(key)} must be a data property`);
+    }
+    result[key] = descriptor.value;
+  }
+  if (!Object.hasOwn(result, 'type') || !Object.hasOwn(result, 'index')) {
+    throw new TypeError('Media placeholder requires type and index');
+  }
+  return result as Record<'type' | 'index', unknown>;
 }
 
 function cloneEmbeddedMedia(
