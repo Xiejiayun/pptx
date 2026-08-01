@@ -4,7 +4,13 @@ import {
   LosslessXmlDocument,
   type XmlElement,
 } from '@pptx/lossless-xml';
-import { GradientCodec, type GradientFill } from '@pptx/codecs';
+import {
+  GradientCodec,
+  MediaCodec,
+  type AddMediaOptions,
+  type GradientFill,
+  type MediaSource,
+} from '@pptx/codecs';
 import {
   relativeRelationshipTarget,
   type Relationship,
@@ -56,6 +62,7 @@ import {
 import {
   decodeShape,
   ImageModel,
+  MediaModel,
   ShapeModel,
   TableModel,
   type SemanticShape,
@@ -366,9 +373,33 @@ export class SlideModel {
     return shapes;
   }
 
+  get media(): readonly MediaModel[] {
+    return this.shapes.filter((shape): shape is MediaModel => shape instanceof MediaModel);
+  }
+
+  async addAudio(source: MediaSource, options: AddMediaOptions = {}): Promise<MediaModel> {
+    const descriptor = await new MediaCodec(this.presentation.opcPackage)
+      .addAudio(this.partUri, source, options);
+    return this.requireMedia(descriptor.shapeId);
+  }
+
+  async addVideo(source: MediaSource, options: AddMediaOptions = {}): Promise<MediaModel> {
+    const descriptor = await new MediaCodec(this.presentation.opcPackage)
+      .addVideo(this.partUri, source, options);
+    return this.requireMedia(descriptor.shapeId);
+  }
+
   get opaqueExtensionCount(): number {
     const { xml } = this.parse();
     return xml.elements('extLst').length + xml.elements('AlternateContent').length;
+  }
+
+  private requireMedia(shapeId: number): MediaModel {
+    const model = this.shapes.find((shape) => shape.id === shapeId);
+    if (!(model instanceof MediaModel)) {
+      throw new ModelParseError(`Media shape ${shapeId} was not found`, this.partUri);
+    }
+    return model;
   }
 
   parse(): { xml: LosslessXmlDocument } {

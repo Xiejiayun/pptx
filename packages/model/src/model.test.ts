@@ -1,11 +1,13 @@
 import JSZip from 'jszip';
 import { describe, expect, it } from 'vitest';
+import { MediaCodec } from '@pptx/codecs';
 import { LosslessXmlDocument } from '@pptx/lossless-xml';
 import { OpcPackage, relationshipPartUri } from '@pptx/opc';
 import {
   ChartModel,
   CustomGeometryEvaluationError,
   ImageModel,
+  MediaModel,
   ModelParseError,
   PRESENTATION_FORMAT_PROFILES,
   PRESET_SHAPE_TYPES,
@@ -499,6 +501,92 @@ describe('PresentationModel', () => {
     const part = pkg.requirePart('/ppt/media/image1.png');
     expect(part.contentType).toBe('image/png');
     expect(part.bytes).toEqual(new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]));
+  });
+
+  it('creates stable live media shapes and reconciles semantic kind changes', async () => {
+    const { pkg, model } = emptyPresentationModel();
+    const slide = model.addSlide();
+    const audio = await slide.addAudio(Uint8Array.of(1, 2, 3), {
+      name: 'Stable narration',
+      altText: 'Spoken overview',
+      contentType: 'audio/mpeg',
+      poster: Uint8Array.of(4, 5, 6),
+      posterContentType: 'image/png',
+      play: 'auto',
+      loop: true,
+      volume: 0.25,
+    });
+    const beforeRead = packageSnapshot(pkg);
+
+    expect(audio).toBeInstanceOf(MediaModel);
+    expect(audio.kind).toBe('audio');
+    expect(audio.shapeId).toBe(audio.id);
+    expect(audio.slidePartUri).toBe(slide.partUri);
+    expect(audio.name).toBe('Stable narration');
+    expect(audio.altText).toBe('Spoken overview');
+    expect(audio.mediaPartUri).toMatch(/\.mp3$/);
+    expect(audio.posterPartUri).toMatch(/\.png$/);
+    expect(audio.settings).toEqual({
+      play: 'auto',
+      loop: true,
+      hideWhenStopped: false,
+      volume: 0.25,
+    });
+    expect(Object.isFrozen(audio.settings)).toBe(true);
+    expect(slide.media[0]).toBe(audio);
+    expect(slide.shapes[0]).toBe(audio);
+    expect(model.slides[0]!.media[0]).toBe(audio);
+    expect(packageSnapshot(pkg)).toEqual(beforeRead);
+
+    const duplicate = model.duplicateSlide(0);
+    const duplicateAudio = duplicate.media[0]!;
+    expect(duplicateAudio).toBeInstanceOf(MediaModel);
+    expect(duplicateAudio).not.toBe(audio);
+    expect(duplicateAudio.mediaPartUri).toBe(audio.mediaPartUri);
+    expect(duplicateAudio.posterPartUri).toBe(audio.posterPartUri);
+    model.moveSlide(1, 0);
+    expect(model.slides[0]).toBe(duplicate);
+    expect(model.slides[0]!.media[0]).toBe(duplicateAudio);
+    expect(model.slides[1]).toBe(slide);
+    expect(model.slides[1]!.media[0]).toBe(audio);
+
+    expect(() => pkg.transaction(() => {
+      const part = pkg.requirePart(slide.partUri);
+      pkg.setPart(
+        slide.partUri,
+        new TextDecoder().decode(part.bytes).replace('Stable narration', 'Rolled back'),
+        part.contentType,
+      );
+      expect(slide.media[0]).toBe(audio);
+      throw new Error('rollback identity');
+    })).toThrow('rollback identity');
+    expect(slide.media[0]).toBe(audio);
+    expect(audio.name).toBe('Stable narration');
+
+    const kindRelationship = slide.relationships.find(({ type }) => type.endsWith('/audio'))!;
+    const mediaUri = audio.mediaPartUri!;
+    const slidePart = pkg.requirePart(slide.partUri);
+    pkg.transaction(() => {
+      pkg.setPart(
+        slide.partUri,
+        new TextDecoder().decode(slidePart.bytes)
+          .replace('<a:audioFile ', '<a:videoFile '),
+        slidePart.contentType,
+      );
+      pkg.setPart(mediaUri, pkg.requirePart(mediaUri).bytes, 'video/mp4');
+      pkg.updateRelationship(slide.partUri, kindRelationship.id, {
+        type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/video',
+      });
+    });
+    const video = slide.media[0]!;
+    expect(video).toBeInstanceOf(MediaModel);
+    expect(video.kind).toBe('video');
+    expect(video).not.toBe(audio);
+    expect(() => audio.mediaPartUri).toThrow(/changed semantic kind/);
+
+    new MediaCodec(pkg).delete(slide.partUri, video.shapeId);
+    expect(slide.media).toEqual([]);
+    expect(() => video.name).toThrow(/was not found/);
   });
 
   it('creates embedded SVG images atomically before shape-tree extensions', () => {

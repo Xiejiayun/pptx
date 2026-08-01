@@ -4,10 +4,10 @@ import {
   MasterLayoutThemeCodec,
   MediaCodec,
   type AddMediaOptions,
-  type MediaModel,
   type MediaSource,
 } from '@pptx/codecs';
 import {
+  MediaModel,
   PresentationModel,
   type AddSvgImageOptions,
   type ImageModel,
@@ -37,6 +37,7 @@ import { resolveSvgFallback } from './svg-image-fallback.js';
 
 export * from '@pptx/codecs';
 export * from '@pptx/model';
+export { MediaModel } from '@pptx/model';
 export type { BuiltInSlideSize, CreatePresentationOptions, CustomSlideSize } from './create.js';
 export type { PresentationTheme, PresentationThemeOptions } from './presentation-theme.js';
 export {
@@ -261,19 +262,19 @@ export class PptxDocument extends PresentationModel {
   async addAudio(slideIndex: number, source: MediaSource, options: AddMediaOptions = {}): Promise<MediaModel> {
     const slide = this.slides[slideIndex];
     if (!slide) throw new RangeError(`Slide index ${slideIndex} is out of range`);
-    return new MediaCodec(this.opcPackage).addAudio(slide.partUri, source, options);
+    return slide.addAudio(source, options);
   }
 
   async addVideo(slideIndex: number, source: MediaSource, options: AddMediaOptions = {}): Promise<MediaModel> {
     const slide = this.slides[slideIndex];
     if (!slide) throw new RangeError(`Slide index ${slideIndex} is out of range`);
-    return new MediaCodec(this.opcPackage).addVideo(slide.partUri, source, options);
+    return slide.addVideo(source, options);
   }
 
   media(slideIndex: number): readonly MediaModel[] {
     const slide = this.slides[slideIndex];
     if (!slide) throw new RangeError(`Slide index ${slideIndex} is out of range`);
-    return new MediaCodec(this.opcPackage).list(slide.partUri);
+    return slide.media;
   }
 }
 

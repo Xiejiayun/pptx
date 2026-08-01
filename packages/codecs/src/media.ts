@@ -6,7 +6,15 @@ import {
   renderMediaPictureXml,
 } from './media-create.internal.js';
 import { resolveMediaCreationInputs } from './media-source.internal.js';
+import { readMediaState } from './media-state.internal.js';
 import type { CodecDiagnostic } from './registry.js';
+
+export {
+  readMediaState,
+  type MediaState,
+  type MediaStateKind,
+  type MediaStatePlaybackSettings,
+} from './media-state.internal.js';
 
 const REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/';
 const MEDIA_REL = 'http://schemas.microsoft.com/office/2007/relationships/media';
@@ -41,7 +49,7 @@ export interface AddMediaOptions extends MediaPlaybackSettings {
   ) => Promise<{ bytes: Uint8Array; contentType: string; extension?: string }>;
 }
 
-export interface MediaModel {
+export interface MediaDescriptor {
   readonly kind: MediaKind;
   readonly shapeId: number;
   readonly slidePartUri: string;
@@ -50,6 +58,9 @@ export interface MediaModel {
   readonly posterPartUri?: string;
   readonly settings: MediaPlaybackSettings;
 }
+
+/** @deprecated Use the runtime MediaModel from @pptx/model or @pptx/sdk. */
+export type MediaModel = MediaDescriptor;
 
 export class MediaCodec {
   readonly id = 'builtin.media';
@@ -61,50 +72,19 @@ export class MediaCodec {
 
   constructor(readonly pkg: OpcPackage) {}
 
-  async addAudio(slidePartUri: string, source: MediaSource, options: AddMediaOptions = {}): Promise<MediaModel> {
+  async addAudio(slidePartUri: string, source: MediaSource, options: AddMediaOptions = {}): Promise<MediaDescriptor> {
     return this.add('audio', slidePartUri, source, options);
   }
 
-  async addVideo(slidePartUri: string, source: MediaSource, options: AddMediaOptions = {}): Promise<MediaModel> {
+  async addVideo(slidePartUri: string, source: MediaSource, options: AddMediaOptions = {}): Promise<MediaDescriptor> {
     return this.add('video', slidePartUri, source, options);
   }
 
-  list(slidePartUri: string): readonly MediaModel[] {
+  list(slidePartUri: string): readonly MediaDescriptor[] {
     const xml = LosslessXmlDocument.parse(this.pkg.requirePart(slidePartUri).bytes);
-    const relationships = this.pkg.relationships(slidePartUri);
-    const models: MediaModel[] = [];
-    for (const mediaElement of [...xml.elements('audioFile'), ...xml.elements('videoFile')]) {
-      const kind: MediaKind = mediaElement.localName === 'audioFile' ? 'audio' : 'video';
-      const linkId = xml.attribute(mediaElement, 'r:link')?.value;
-      const link = relationships.find(({ id }) => id === linkId);
-      const picture = ancestor(mediaElement, 'pic');
-      const properties = picture ? xml.descendants(picture, 'cNvPr')[0] : undefined;
-      const shapeId = Number(properties ? xml.attribute(properties, 'id')?.value ?? 0 : 0);
-      const extensionMedia = picture ? xml.descendants(picture, 'media')[0] : undefined;
-      const embedId = extensionMedia ? xml.attribute(extensionMedia, 'r:embed')?.value : undefined;
-      const embedded = relationships.find(({ id }) => id === embedId) ?? (link?.targetMode === 'Internal' ? link : undefined);
-      const blip = picture ? xml.descendants(picture, 'blip')[0] : undefined;
-      const posterId = blip ? xml.attribute(blip, 'r:embed')?.value : undefined;
-      const poster = relationships.find(({ id }) => id === posterId);
-      const playback = picture ? xml.descendants(picture, 'playback')[0] : undefined;
-      models.push({
-        kind,
-        shapeId,
-        slidePartUri,
-        ...(embedded?.resolvedTarget ? { mediaPartUri: embedded.resolvedTarget } : {}),
-        ...(link?.targetMode === 'External' ? { externalUrl: link.target } : {}),
-        ...(poster?.resolvedTarget ? { posterPartUri: poster.resolvedTarget } : {}),
-        settings: playback
-          ? {
-              play: xml.attribute(playback, 'play')?.value === 'auto' ? 'auto' : 'click',
-              loop: xml.attribute(playback, 'loop')?.value === '1',
-              hideWhenStopped: xml.attribute(playback, 'hideWhenStopped')?.value === '1',
-              volume: Number(xml.attribute(playback, 'volume')?.value ?? 100_000) / 100_000,
-            }
-          : {},
-      });
-    }
-    return models;
+    return xml.elements('pic')
+      .map((picture) => readMediaState(this.pkg, slidePartUri, xml, picture))
+      .filter((state): state is NonNullable<typeof state> => state !== undefined);
   }
 
   delete(slidePartUri: string, shapeId: number): void {
@@ -138,7 +118,7 @@ export class MediaCodec {
     });
   }
 
-  diagnostics(model: MediaModel, profile: string): CodecDiagnostic[] {
+  diagnostics(model: MediaDescriptor, profile: string): CodecDiagnostic[] {
     const diagnostics: CodecDiagnostic[] = [];
     if (model.externalUrl) {
       diagnostics.push({
@@ -195,7 +175,7 @@ export class MediaCodec {
     slidePartUri: string,
     source: MediaSource,
     options: AddMediaOptions,
-  ): Promise<MediaModel> {
+  ): Promise<MediaDescriptor> {
     const request = normalizeMediaCreateRequest(kind, source, options);
     const resolved = await resolveMediaCreationInputs(request);
     const existingMediaPartUri = resolved.media.type === 'embedded'

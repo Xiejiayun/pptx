@@ -1,5 +1,12 @@
 import { LosslessXmlDocument, type XmlAttribute, type XmlElement } from '@pptx/lossless-xml';
-import { GradientCodec, type GradientFill } from '@pptx/codecs';
+import {
+  GradientCodec,
+  readMediaState,
+  type GradientFill,
+  type MediaKind,
+  type MediaPlaybackSettings,
+  type MediaState,
+} from '@pptx/codecs';
 import {
   partUriBasename,
   partUriDirname,
@@ -85,7 +92,17 @@ import type {
 } from './text.js';
 import { type Emu, type OoxmlAngle, type Transform } from './units.js';
 
-export type ShapeKind = 'shape' | 'text' | 'image' | 'table' | 'chart' | 'graphic-frame' | 'group' | 'unknown';
+export type ShapeKind =
+  | 'shape'
+  | 'text'
+  | 'image'
+  | 'audio'
+  | 'video'
+  | 'table'
+  | 'chart'
+  | 'graphic-frame'
+  | 'group'
+  | 'unknown';
 
 export type TableCellTextDirection = 'horz' | 'vert' | 'vert270' | 'wordArtVert';
 
@@ -319,6 +336,52 @@ export class ShapeModel extends BaseShapeModel {
 
   set gradientFill(value: GradientFill) {
     new GradientCodec().setShapeFill(this.slide.presentation.opcPackage, this.slide.partUri, this.id, value);
+  }
+}
+
+export class MediaModel extends BaseShapeModel {
+  declare readonly kind: MediaKind;
+
+  get shapeId(): number {
+    return this.id;
+  }
+
+  get slidePartUri(): string {
+    return this.slide.partUri;
+  }
+
+  get altText(): string | undefined {
+    return this.state().altText;
+  }
+
+  get mediaPartUri(): string | undefined {
+    return this.state().mediaPartUri;
+  }
+
+  get externalUrl(): string | undefined {
+    return this.state().externalUrl;
+  }
+
+  get posterPartUri(): string | undefined {
+    return this.state().posterPartUri;
+  }
+
+  get settings(): Readonly<MediaPlaybackSettings> {
+    return this.state().settings;
+  }
+
+  private state(): Readonly<MediaState> {
+    const { xml, element } = this.resolve();
+    const state = readMediaState(
+      this.slide.presentation.opcPackage,
+      this.slide.partUri,
+      xml,
+      element,
+    );
+    if (!state || state.kind !== this.kind) {
+      throw new Error(`Media shape ${this.id} changed semantic kind on ${this.slide.partUri}`);
+    }
+    return state;
   }
 }
 
@@ -698,7 +761,13 @@ export class ChartModel extends BaseShapeModel {
   }
 }
 
-export type SemanticShape = ShapeModel | ImageModel | TableModel | ChartModel | BaseShapeModel;
+export type SemanticShape =
+  | ShapeModel
+  | ImageModel
+  | MediaModel
+  | TableModel
+  | ChartModel
+  | BaseShapeModel;
 
 export function decodeShape(slide: SlideModel, xml: LosslessXmlDocument, element: XmlElement): SemanticShape | undefined {
   const properties = xml.descendants(element, 'cNvPr')[0];
@@ -706,7 +775,16 @@ export function decodeShape(slide: SlideModel, xml: LosslessXmlDocument, element
   const id = Number.parseInt(xml.attribute(properties, 'id')?.value ?? '', 10);
   if (!Number.isFinite(id)) return undefined;
   const name = xml.attribute(properties, 'name')?.value ?? `Shape ${id}`;
-  if (element.localName === 'pic') return new ImageModel(slide, id, name, 'image');
+  if (element.localName === 'pic') {
+    const media = readMediaState(
+      slide.presentation.opcPackage,
+      slide.partUri,
+      xml,
+      element,
+    );
+    if (media) return new MediaModel(slide, id, name, media.kind);
+    return new ImageModel(slide, id, name, 'image');
+  }
   if (element.localName === 'graphicFrame') {
     if (xml.descendants(element, 'tbl').length > 0) return new TableModel(slide, id, name, 'table');
     if (xml.descendants(element, 'chart').length > 0) return new ChartModel(slide, id, name, 'chart');

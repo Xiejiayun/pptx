@@ -22,6 +22,7 @@ import {
   ImageModel,
   inches,
   inspectRasterImage,
+  MediaModel,
   ModelParseError,
   openPptxStream,
   PRESET_SHAPE_TYPES,
@@ -43,7 +44,6 @@ import {
   type ImageSource,
   type ImageSizing,
   type MediaKind,
-  type MediaModel,
   type MediaPlaybackSettings,
   type MediaSource,
   type RasterImageContentType,
@@ -270,6 +270,10 @@ describe('PptxDocument vertical slice', () => {
     const media: MediaModel = await document.addAudio(0, exportedSource, options);
 
     expect(kind).toBe('audio');
+    expect(media).toBeInstanceOf(MediaModel);
+    expect(document.media(0)[0]).toBe(media);
+    expect(document.slides[0]!.media[0]).toBe(media);
+    expect(document.slides[0]!.shapes[0]).toBe(media);
     expect(media).toMatchObject({
       kind: 'audio',
       settings: { play: 'auto', loop: true, hideWhenStopped: true, volume: 0.25 },
