@@ -80,6 +80,7 @@ import {
 } from './presentation-slide-number.internal.js';
 import type { RichTextColor } from './text.js';
 import { resolveSlideLayoutPartUri } from './presentation-layout.internal.js';
+import { materializeLayoutPlaceholders } from './placeholder.internal.js';
 
 const SLIDE_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slide+xml';
 const SLIDE_RELATIONSHIP = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide';
@@ -450,6 +451,12 @@ export class PresentationModel {
           type: SLIDE_LAYOUT_RELATIONSHIP,
           target: relativeRelationshipTarget(slideUri, layoutPartUri),
         });
+        materializeLayoutPlaceholders(
+          this.opcPackage,
+          layoutPartUri,
+          slideUri,
+          normalized.masterName !== undefined,
+        );
       }
       const slide = this.attachSlide(slideUri);
       if (targetSectionId !== undefined) {

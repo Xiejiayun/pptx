@@ -42,6 +42,7 @@ import { evaluateCustomGeometry as evaluateGeometry } from './custom-geometry-ev
 import type { CustomGeometry, EvaluatedCustomGeometry } from './custom-geometry.js';
 import type { Hyperlink } from './hyperlink.js';
 import type { ImageSourceRectangle } from './image.js';
+import type { PlaceholderIdentity } from './placeholder.js';
 import {
   hasSvgImageExtensionCandidate,
   readSvgImageState,
@@ -207,6 +208,10 @@ export abstract class BaseShapeModel {
       flipHorizontal: xml.attribute(xfrm ?? element, 'flipH')?.value === '1',
       flipVertical: xml.attribute(xfrm ?? element, 'flipV')?.value === '1',
     };
+  }
+
+  get placeholder(): Readonly<PlaceholderIdentity> | undefined {
+    return this.slide.getShapePlaceholder(this.id);
   }
 
   setTransform(changes: Partial<Transform>): void {

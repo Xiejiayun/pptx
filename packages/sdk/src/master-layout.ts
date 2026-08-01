@@ -6,9 +6,11 @@ import type {
   ThemeModel,
 } from '@pptx/codecs';
 import {
+  ShapeModel,
   SlideModel,
   type AddChartOptions,
   type AddImageOptions,
+  type AddPlaceholderOptions,
   type AddShapeOptions,
   type AddTextOptions,
   type ChartGroupInput,
@@ -20,7 +22,6 @@ import {
   type PresetShapeType,
   type RichTextParagraph,
   type SemanticShape,
-  type ShapeModel,
   type SlideBackground,
 } from '@pptx/model';
 
@@ -45,6 +46,19 @@ abstract class CommonSlideOwnerModel {
 
   get shapes(): readonly SemanticShape[] {
     return this.content.shapes;
+  }
+
+  get placeholders(): readonly ShapeModel[] {
+    return this.content.placeholders.filter(
+      (shape): shape is ShapeModel => shape instanceof ShapeModel,
+    );
+  }
+
+  addPlaceholder(
+    value: string | readonly RichTextParagraph[],
+    options: AddPlaceholderOptions,
+  ): ShapeModel {
+    return this.content.addPlaceholder(value, options);
   }
 
   addText(value: string, options: AddTextOptions = {}): ShapeModel {

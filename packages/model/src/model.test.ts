@@ -39,6 +39,10 @@ import { readSimpleShadow } from './simple-shadow.internal.js';
 import { readCustomGeometry } from './custom-geometry.internal.js';
 import { chartWorkbookMatches } from './chart-workbook.internal.js';
 import { resolveSlideLayoutPartUri } from './presentation-layout.internal.js';
+import {
+  normalizePlaceholderIdentity,
+  readShapePlaceholder,
+} from './placeholder.internal.js';
 
 const CORE_PROPERTIES_RELATIONSHIP =
   'http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties';
@@ -401,6 +405,53 @@ async function modelFixture(
 }
 
 describe('PresentationModel', () => {
+  it('normalizes and strictly reads placeholder identity', () => {
+    const normalized = normalizePlaceholderIdentity({ type: 'title', index: 103 });
+    expect(normalized).toEqual({ type: 'title', index: 103 });
+    expect(Object.isFrozen(normalized)).toBe(true);
+    expect(normalizePlaceholderIdentity({ type: 'body', index: 0 }))
+      .toEqual({ type: 'body', index: 0 });
+    expect(normalizePlaceholderIdentity({ type: 'media', index: 4_294_967_294 }))
+      .toEqual({ type: 'media', index: 4_294_967_294 });
+
+    const inherited = Object.create({ type: 'title', index: 1 });
+    for (const invalid of [
+      inherited,
+      { type: 'ctrTitle', index: 1 },
+      { type: 'title', index: -1 },
+      { type: 'title', index: 4_294_967_295 },
+      { type: 'title', index: 1.5 },
+      { type: 'title', index: 1, extra: true },
+    ]) {
+      expect(() => normalizePlaceholderIdentity(invalid)).toThrow();
+    }
+
+    const alternate = LosslessXmlDocument.parse(
+      '<q:sp xmlns:q="http://schemas.openxmlformats.org/presentationml/2006/main">'
+        + '<q:nvSpPr><q:cNvPr id="2" name="Title"/><q:cNvSpPr/><q:nvPr>'
+        + '<q:ph type="title" idx="103"/></q:nvPr></q:nvSpPr></q:sp>',
+    );
+    expect(readShapePlaceholder(alternate, alternate.roots[0]!)).toEqual({
+      type: 'title',
+      index: 103,
+    });
+    expect(Object.isFrozen(readShapePlaceholder(alternate, alternate.roots[0]!))).toBe(true);
+
+    for (const placeholder of [
+      '<q:ph xmlns:x="urn:wrong" x:type="title" idx="1"/>',
+      '<q:ph type="title" type="body" idx="1"/>',
+      '<q:ph type="ctrTitle" idx="1"/>',
+      '<x:ph xmlns:x="urn:wrong" type="title" idx="1"/>',
+    ]) {
+      const xml = LosslessXmlDocument.parse(
+        '<q:sp xmlns:q="http://schemas.openxmlformats.org/presentationml/2006/main">'
+          + '<q:nvSpPr><q:cNvPr id="2" name="Title"/><q:cNvSpPr/><q:nvPr>'
+          + `${placeholder}</q:nvPr></q:nvSpPr></q:sp>`,
+      );
+      expect(readShapePlaceholder(xml, xml.roots[0]!)).toBeUndefined();
+    }
+  });
+
   it('resolves named slide layouts strictly without package mutation', () => {
     const { pkg, model } = emptyPresentationModel();
     const masterPartUri = '/ppt/slideMasters/slideMaster1.xml';

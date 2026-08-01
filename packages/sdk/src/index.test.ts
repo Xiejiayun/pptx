@@ -230,6 +230,199 @@ async function tableBordersFixture(): Promise<Uint8Array> {
 }
 
 describe('PptxDocument vertical slice', () => {
+  it('creates placeholder identity and materializes empty layout placeholders', async () => {
+    const document = PptxDocument.create();
+    const layout = document.layouts[0]!;
+    const master = document.masters[0]!;
+    const types = ['title', 'body', 'pic', 'chart', 'tbl', 'media'] as const;
+    const indexes = [100, 0, 4_294_967_294, 103, 104, 105] as const;
+    const prompts = types.map((type, ordinal) => layout.addPlaceholder(
+      `Prompt ${type}`,
+      {
+        name: `${type}_box`,
+        type,
+        ...(ordinal === 0 ? {} : { index: indexes[ordinal] }),
+        x: inches(1 + ordinal),
+        y: inches(2 + ordinal),
+        width: inches(3 + ordinal),
+        height: inches(4 + ordinal),
+      },
+    ));
+    expect(prompts.map(({ placeholder }) => placeholder)).toEqual(
+      types.map((type, ordinal) => ({ type, index: indexes[ordinal] })),
+    );
+    expect(prompts.every(({ placeholder }) => Object.isFrozen(placeholder))).toBe(true);
+    expect(layout.placeholders).toEqual(prompts);
+    expect(prompts[0]!.text).toBe('Prompt title');
+
+    const masterPrompt = master.addPlaceholder([{
+      runs: [{ text: 'Rich master prompt', style: { bold: true } }],
+    }], {
+      name: 'master_title',
+      type: 'title',
+      index: 200,
+    });
+    expect(master.placeholders).toEqual([masterPrompt]);
+    expect(masterPrompt.richText[0]?.runs[0]).toMatchObject({
+      text: 'Rich master prompt',
+      style: { bold: true },
+    });
+    const ordinary = layout.addText('Inherited ordinary object', { name: 'ordinary_layout' });
+    expect(layout.shapes).toContain(ordinary);
+
+    const beforeInvalid = document.opcPackage.mutations.map((mutation) => ({ ...mutation }));
+    expect(() => layout.addPlaceholder('Duplicate name', {
+      name: 'title_box',
+      type: 'body',
+      index: 300,
+    })).toThrow(/name/i);
+    expect(() => layout.addPlaceholder('Duplicate identity', {
+      name: 'other_title',
+      type: 'title',
+      index: 100,
+    })).toThrow(/identity/i);
+    expect(() => layout.addPlaceholder('Reserved index', {
+      name: 'reserved',
+      type: 'body',
+      index: 4_294_967_295,
+    })).toThrow(/index/i);
+    expect(document.opcPackage.mutations).toEqual(beforeInvalid);
+
+    const slide = document.addSlide({ masterName: 'DEFAULT' });
+    expect(slide.shapes.find(({ name }) => name === 'ordinary_layout')).toBeUndefined();
+    const materialized = prompts.map(({ name }) =>
+      slide.shapes.find((shape) => shape.name === name)!);
+    expect(materialized.map(({ placeholder }) => placeholder)).toEqual(
+      prompts.map(({ placeholder }) => placeholder),
+    );
+    expect(materialized.map(({ transform }) => transform)).toEqual(
+      prompts.map(({ transform }) => transform),
+    );
+    for (const shape of materialized) {
+      expect(shape).toBeInstanceOf(ShapeModel);
+      expect((shape as ShapeModel).richText.flatMap(({ runs }) => runs)).toEqual([]);
+    }
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedLayout = reopened.layouts[0]!;
+    expect(reopenedLayout.placeholders.map(({ placeholder }) => placeholder))
+      .toEqual(prompts.map(({ placeholder }) => placeholder));
+    expect(reopened.slides.at(-1)?.shapes.map(({ placeholder }) => placeholder))
+      .toEqual(prompts.map(({ placeholder }) => placeholder));
+  });
+
+  it('materializes alternate-prefix placeholders and ignores foreign or unknown identities', () => {
+    const document = PptxDocument.create();
+    const layout = document.layouts[0]!;
+    document.addSlide({ masterName: 'DEFAULT' });
+    const part = document.opcPackage.requirePart(layout.partUri);
+    const source = new TextDecoder().decode(part.bytes);
+    const alternate = '<q:sp xmlns:q="http://schemas.openxmlformats.org/presentationml/2006/main" '
+      + 'xmlns:d="http://schemas.openxmlformats.org/drawingml/2006/main">'
+      + '<q:nvSpPr><q:cNvPr id="20" name="alternate_title"/><q:cNvSpPr/>'
+      + '<q:nvPr><q:ph type="title" idx="20"/></q:nvPr></q:nvSpPr><q:spPr>'
+      + '<d:xfrm rot="60000"><d:off x="100" y="200"/><d:ext cx="300" cy="400"/>'
+      + '</d:xfrm></q:spPr><q:txBody><d:bodyPr anchor="b"/><d:lstStyle/>'
+      + '<d:p><d:r><d:t>Prompt</d:t></d:r></d:p></q:txBody></q:sp>';
+    const foreign = '<p:sp xmlns:x="urn:foreign"><p:nvSpPr><p:cNvPr id="21" '
+      + 'name="foreign_title"/><p:cNvSpPr/><p:nvPr><x:ph type="title" idx="21"/>'
+      + '</p:nvPr></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/><a:lstStyle/>'
+      + '<a:p/></p:txBody></p:sp>';
+    const unknown = '<p:sp><p:nvSpPr><p:cNvPr id="22" name="unknown_title"/>'
+      + '<p:cNvSpPr/><p:nvPr><p:ph type="ctrTitle" idx="22"/></p:nvPr>'
+      + '</p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/><a:lstStyle/><a:p/>'
+      + '</p:txBody></p:sp>';
+    document.opcPackage.setPart(
+      layout.partUri,
+      source.replace('</p:spTree>', `${alternate}${foreign}${unknown}</p:spTree>`),
+      part.contentType,
+    );
+
+    const beforeRead = document.opcPackage.mutations.map((mutation) => ({ ...mutation }));
+    const prompt = layout.shapes.find(({ name }) => name === 'alternate_title')!;
+    expect(prompt.placeholder).toEqual({ type: 'title', index: 20 });
+    expect(layout.placeholders).toEqual([prompt]);
+    expect(layout.placeholders).toEqual([prompt]);
+    expect(document.opcPackage.mutations).toEqual(beforeRead);
+
+    const slide = document.addSlide();
+    const materialized = slide.shapes.find(({ name }) => name === 'alternate_title')!;
+    expect(materialized.placeholder).toEqual({ type: 'title', index: 20 });
+    expect(materialized.transform).toMatchObject({
+      x: 100,
+      y: 200,
+      width: 300,
+      height: 400,
+      rotation: 60_000,
+    });
+    expect((materialized as ShapeModel).richText.flatMap(({ runs }) => runs)).toEqual([]);
+    expect(slide.shapes.find(({ name }) => name === 'foreign_title')).toBeUndefined();
+    expect(slide.shapes.find(({ name }) => name === 'unknown_title')).toBeUndefined();
+    expect(new TextDecoder().decode(document.opcPackage.requirePart(slide.partUri).bytes))
+      .toContain('<d:bodyPr anchor="b"/>');
+  });
+
+  it('round-trips empty layout placeholders in all six presentation formats', async () => {
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const document = PptxDocument.create({ format });
+      const prompt = document.layouts[0]!.addPlaceholder('Format prompt', {
+        name: 'format_body',
+        type: 'body',
+        index: 7,
+        x: inches(1),
+        y: inches(2),
+        width: inches(3),
+        height: inches(4),
+      });
+      const slide = document.addSlide({ masterName: 'DEFAULT' });
+      expect(slide.placeholders[0]?.placeholder, format).toEqual(prompt.placeholder);
+
+      const reopened = await PptxDocument.open(await document.write());
+      expect(reopened.format, format).toBe(format);
+      expect(reopened.layouts[0]?.placeholders[0]?.placeholder, format)
+        .toEqual({ type: 'body', index: 7 });
+      expect(reopened.slides.at(-1)?.placeholders[0]?.placeholder, format)
+        .toEqual({ type: 'body', index: 7 });
+      expect((reopened.slides.at(-1)?.placeholders[0] as ShapeModel).richText
+        .flatMap(({ runs }) => runs), format).toEqual([]);
+    }
+  });
+
+  it('rolls back addSlide when a layout placeholder set is unsafe', async () => {
+    const cases = [
+      '<p:sp><p:nvSpPr><p:cNvPr id="20" name="ambiguous"/>'
+        + '<p:cNvSpPr/><p:nvPr><p:ph type="title" idx="1"/>'
+        + '<p:ph type="body" idx="2"/></p:nvPr></p:nvSpPr><p:spPr/>'
+        + '<p:txBody><a:bodyPr/><a:lstStyle/><a:p/></p:txBody></p:sp>',
+      '<p:sp><p:nvSpPr><p:cNvPr id="20" name="unsupported"/>'
+        + '<p:cNvSpPr/><p:nvPr><p:ph type="ctrTitle" idx="1"/>'
+        + '</p:nvPr></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/><a:lstStyle/>'
+        + '<a:p/></p:txBody></p:sp>',
+    ];
+    for (const unsafe of cases) {
+      const document = PptxDocument.create();
+      const layout = document.layouts[0]!;
+      const part = document.opcPackage.requirePart(layout.partUri);
+      const source = new TextDecoder().decode(part.bytes);
+      document.opcPackage.setPart(
+        layout.partUri,
+        source.replace('</p:spTree>', `${unsafe}</p:spTree>`),
+        part.contentType,
+      );
+      const { output: _beforeOutput, ...before } = await sdkPackageSnapshot(document) as {
+        readonly output: Uint8Array;
+        readonly [key: string]: unknown;
+      };
+
+      expect(() => document.addSlide({ masterName: 'DEFAULT' })).toThrow(/placeholder/i);
+      const { output: _afterOutput, ...after } = await sdkPackageSnapshot(document) as {
+        readonly output: Uint8Array;
+        readonly [key: string]: unknown;
+      };
+      expect(after).toEqual(before);
+    }
+  });
+
   it('edits and reopens direct layout master backgrounds', async () => {
     const document = PptxDocument.create();
     const layout = document.layouts[0]!;

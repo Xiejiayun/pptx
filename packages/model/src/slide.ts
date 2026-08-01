@@ -64,6 +64,14 @@ import {
   replaceImageSourceRectangle,
 } from './image-source-rectangle.internal.js';
 import type { PresentationModel } from './presentation.js';
+import type {
+  AddPlaceholderOptions,
+  PlaceholderIdentity,
+} from './placeholder.js';
+import {
+  normalizePlaceholderIdentity,
+  readShapePlaceholder,
+} from './placeholder.internal.js';
 import {
   normalizeParagraphBullet,
   normalizeParagraphIndent,
@@ -454,6 +462,10 @@ export class SlideModel {
       }
     }
     return shapes;
+  }
+
+  get placeholders(): readonly SemanticShape[] {
+    return this.shapes.filter(({ placeholder }) => placeholder !== undefined);
   }
 
   get media(): readonly MediaModel[] {
@@ -1265,6 +1277,97 @@ export class SlideModel {
     });
   }
 
+  addPlaceholder(
+    value: string | readonly RichTextParagraph[],
+    options: AddPlaceholderOptions,
+  ): ShapeModel {
+    return this.presentation.opcPackage.transaction(() => {
+      const defaultColor = this.color;
+      const plain = typeof value === 'string' ? validateTextInput(value, options) : undefined;
+      const rich = typeof value === 'string' ? undefined : normalizeRichText(value);
+      const defaults = typeof value === 'string' ? undefined : validateAddTextOptions(options);
+      if (typeof options.name !== 'string' || options.name.length === 0) {
+        throw new TypeError('Placeholder name must be a non-empty string');
+      }
+      const shapes = this.shapes;
+      if (shapes.some(({ name }) => name === options.name)) {
+        throw new RangeError(`Placeholder name ${options.name} is already in use`);
+      }
+      const placeholders = shapes.flatMap(({ placeholder }) =>
+        placeholder === undefined ? [] : [placeholder]);
+      const identity = normalizePlaceholderIdentity({
+        type: options.type,
+        index: options.index ?? 100 + placeholders.length,
+      });
+      if (placeholders.some((candidate) =>
+        candidate.type === identity.type && candidate.index === identity.index)) {
+        throw new RangeError(
+          `Placeholder identity ${identity.type}:${identity.index} is already in use`,
+        );
+      }
+      if (plain) {
+        const bullet = plain.bullet === false ? undefined : plain.bullet;
+        const spacing = resolveParagraphSpacing(plain.spacing);
+        const paragraphs = plain.value
+          .split('\n')
+          .map((line) => textParagraphXml(
+            line,
+            'a:',
+            options.align,
+            plain.rtl,
+            bullet,
+            spacing,
+            plain.level,
+            plain.tabStops,
+            plain.language,
+            plain.marginLeft,
+            plain.marginRight,
+            plain.indent,
+            defaultColor,
+          ))
+          .join('');
+        return this.addTextShape(
+          paragraphs,
+          options,
+          plain.margin,
+          plain.verticalAlignment,
+          plain.textDirection,
+          plain.textFit,
+          plain.textWrap,
+          identity,
+        );
+      }
+      return this.addTextShape(
+        renderRichTextParagraphs(rich!, {
+          ...(defaultColor !== undefined ? { defaultColor } : {}),
+          ...(defaults!.language !== undefined
+            ? { defaultLanguage: defaults!.language }
+            : {}),
+          ...(options.align ? { defaultAlign: options.align } : {}),
+          ...(defaults!.rtl !== undefined ? { defaultRtl: defaults!.rtl } : {}),
+          ...(defaults!.bullet !== undefined ? { defaultBullet: defaults!.bullet } : {}),
+          ...(defaults!.indent !== undefined ? { defaultIndent: defaults!.indent } : {}),
+          ...(defaults!.level !== undefined ? { defaultLevel: defaults!.level } : {}),
+          ...(defaults!.marginLeft !== undefined
+            ? { defaultMarginLeft: defaults!.marginLeft }
+            : {}),
+          ...(defaults!.marginRight !== undefined
+            ? { defaultMarginRight: defaults!.marginRight }
+            : {}),
+          ...(defaults!.spacing !== undefined ? { defaultSpacing: defaults!.spacing } : {}),
+          ...(defaults!.tabStops !== undefined ? { defaultTabStops: defaults!.tabStops } : {}),
+        }),
+        options,
+        defaults!.margin,
+        defaults!.verticalAlignment,
+        defaults!.textDirection,
+        defaults!.textFit,
+        defaults!.textWrap,
+        identity,
+      );
+    });
+  }
+
   addRichText(value: readonly RichTextParagraph[], options: AddTextOptions = {}): ShapeModel {
     return this.presentation.opcPackage.transaction(() => {
       const defaultColor = this.color;
@@ -1298,6 +1401,11 @@ export class SlideModel {
     this.presentation.setXmlPart(this.partUri, xml);
   }
 
+  getShapePlaceholder(id: number): Readonly<PlaceholderIdentity> | undefined {
+    const { xml, element } = this.resolveShape(id);
+    return readShapePlaceholder(xml, element);
+  }
+
   private addTextShape(
     paragraphs: string,
     options: AddTextOptions,
@@ -1306,6 +1414,7 @@ export class SlideModel {
     textDirection: TextBoxTextDirection | undefined,
     textFit: TextBoxFit | undefined,
     textWrap: boolean,
+    placeholder?: Readonly<PlaceholderIdentity>,
   ): ShapeModel {
     const { xml } = this.parse();
     const shapeTree = requirePresetShapeTree(
@@ -1323,6 +1432,7 @@ export class SlideModel {
       textDirection,
       textFit,
       textWrap,
+      placeholder,
     );
     const extensionList = shapeTree.children.find(
       (child): child is XmlElement => child.type === 'element' && child.localName === 'extLst',
@@ -1726,6 +1836,7 @@ function textShapeXml(
   textDirection: TextBoxTextDirection | undefined,
   textFit: TextBoxFit | undefined,
   textWrap: boolean,
+  placeholder?: Readonly<PlaceholderIdentity>,
 ): string {
   const x = Math.round(options.x ?? 0);
   const y = Math.round(options.y ?? 0);
@@ -1748,7 +1859,10 @@ function textShapeXml(
   const bodyProperties = fitChild === ''
     ? `<a:bodyPr${wrapAttribute}${marginAttributes} rtlCol="0"${verticalAlignmentAttribute}${textDirectionAttribute}/>`
     : `<a:bodyPr${wrapAttribute}${marginAttributes} rtlCol="0"${verticalAlignmentAttribute}${textDirectionAttribute}>${fitChild}</a:bodyPr>`;
-  return `<p:sp xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><p:nvSpPr><p:cNvPr id="${id}" name="${name}"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm${transformAttributes}><a:off x="${x}" y="${y}"/><a:ext cx="${width}" cy="${height}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></p:spPr><p:txBody>${bodyProperties}<a:lstStyle/>${paragraphs}</p:txBody></p:sp>`;
+  const applicationProperties = placeholder === undefined
+    ? '<p:nvPr/>'
+    : `<p:nvPr><p:ph type="${placeholder.type}" idx="${placeholder.index}"/></p:nvPr>`;
+  return `<p:sp xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><p:nvSpPr><p:cNvPr id="${id}" name="${name}"/><p:cNvSpPr txBox="1"/>${applicationProperties}</p:nvSpPr><p:spPr><a:xfrm${transformAttributes}><a:off x="${x}" y="${y}"/><a:ext cx="${width}" cy="${height}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></p:spPr><p:txBody>${bodyProperties}<a:lstStyle/>${paragraphs}</p:txBody></p:sp>`;
 }
 
 function textParagraphXml(
