@@ -406,6 +406,55 @@ describe('PresentationModel', () => {
     }
   });
 
+  it('creates, reads, edits, clears, no-ops, and rolls back live slide backgrounds', () => {
+    const { pkg, model } = emptyPresentationModel();
+    const slide = model.addSlide();
+    expect(slide.background).toBeUndefined();
+
+    slide.background = { kind: 'none' };
+    expect(slide.background).toEqual({ kind: 'none' });
+    slide.background = {
+      kind: 'solid',
+      color: { kind: 'srgb', value: 'ff3399' },
+      transparency: 50,
+    };
+    expect(slide.background).toEqual({
+      kind: 'solid',
+      color: { kind: 'srgb', value: 'FF3399' },
+      transparency: 50,
+    });
+
+    const beforeNoOp = pkg.requirePart(slide.partUri).bytes;
+    const beforeNoOpJournal = [...pkg.mutations];
+    slide.background = {
+      kind: 'solid',
+      color: { kind: 'srgb', value: 'FF3399' },
+      transparency: 50,
+    };
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeNoOp);
+    expect(pkg.mutations).toEqual(beforeNoOpJournal);
+
+    expect(() => pkg.transaction(() => {
+      slide.background = {
+        kind: 'path-gradient',
+        path: 'circle',
+        stops: [
+          { offset: 0, color: 'FFFFFF' },
+          { offset: 1, color: '000000' },
+        ],
+      };
+      throw new Error('rollback background');
+    })).toThrow('rollback background');
+    expect(slide.background).toEqual({
+      kind: 'solid',
+      color: { kind: 'srgb', value: 'FF3399' },
+      transparency: 50,
+    });
+
+    slide.background = undefined;
+    expect(slide.background).toBeUndefined();
+  });
+
   it('creates preset shapes through the live model and rejects unsafe shape ids atomically', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);

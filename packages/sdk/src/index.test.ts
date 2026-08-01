@@ -639,6 +639,34 @@ describe('PptxDocument vertical slice', () => {
     ]));
   });
 
+  it('surfaces live slide gradient diagnostics without treating simple fills as gradients', async () => {
+    const document = PptxDocument.create();
+    const gradientSlide = document.addSlide();
+    gradientSlide.background = {
+      kind: 'path-gradient',
+      path: 'circle',
+      stops: [
+        { offset: 0, color: 'FFFFFF' },
+        { offset: 1, color: '000000' },
+      ],
+    };
+    const solidSlide = document.addSlide();
+    solidSlide.background = {
+      kind: 'solid',
+      color: { kind: 'srgb', value: 'FF3399' },
+    };
+
+    await document.write({
+      mode: 'permissive',
+      compatibility: 'google-slides-import',
+    });
+    expect(document.diagnostics.filter(({ code }) => code.startsWith('GRADIENT_')))
+      .toEqual([expect.objectContaining({
+        code: 'GRADIENT_PATH_MAY_DEGRADE',
+        partUri: gradientSlide.partUri,
+      })]);
+  });
+
   it('round-trips canonical audio and video twice in all six presentation formats', async () => {
     for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
       const document = PptxDocument.create({ format });

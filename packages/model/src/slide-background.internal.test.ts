@@ -4,6 +4,7 @@ import type { SlideBackground } from './slide-background.js';
 import {
   normalizeSlideBackground,
   readSlideBackground,
+  replaceSlideBackground,
 } from './slide-background.internal.js';
 
 const PRESENTATION_NAMESPACE =
@@ -481,6 +482,179 @@ describe('strict direct slide background reader', () => {
   });
 });
 
+describe('atomic non-image slide background editing', () => {
+  it('creates none, solid, and gradient backgrounds before the shape tree and clears inheritance', () => {
+    const pkg = backgroundPackage('');
+
+    replaceSlideBackground(pkg, SLIDE_URI, { kind: 'none' });
+    expect(readSlideBackground(pkg, SLIDE_URI)).toEqual({ kind: 'none' });
+    expect(slideXml(pkg)).toContain(
+      '<p:cSld><p:bg><p:bgPr><a:noFill/><a:effectLst/></p:bgPr></p:bg><p:spTree/>',
+    );
+
+    replaceSlideBackground(pkg, SLIDE_URI, {
+      kind: 'solid',
+      color: { kind: 'scheme', value: 'accent1' },
+      transparency: 25,
+    });
+    expect(readSlideBackground(pkg, SLIDE_URI)).toEqual({
+      kind: 'solid',
+      color: { kind: 'scheme', value: 'accent1' },
+      transparency: 25,
+    });
+    expect(slideXml(pkg)).toContain(
+      '<a:solidFill><a:schemeClr val="accent1"><a:alpha val="75000"/>'
+        + '</a:schemeClr></a:solidFill>',
+    );
+
+    replaceSlideBackground(pkg, SLIDE_URI, {
+      kind: 'linear-gradient',
+      angle: 45,
+      scaled: false,
+      rotateWithShape: false,
+      flip: 'x',
+      stops: validStops(),
+    });
+    expect(readSlideBackground(pkg, SLIDE_URI)).toMatchObject({
+      kind: 'linear-gradient',
+      angle: 45,
+      scaled: false,
+      rotateWithShape: false,
+      flip: 'x',
+    });
+    expect(slideXml(pkg)).toContain(
+      '<a:gradFill rotWithShape="0" flip="x"><a:gsLst>',
+    );
+
+    replaceSlideBackground(pkg, SLIDE_URI, undefined);
+    expect(readSlideBackground(pkg, SLIDE_URI)).toBeUndefined();
+    expect(slideXml(pkg)).not.toContain('<p:bg>');
+    expect(slideXml(pkg)).toContain('<p:cSld><p:spTree/></p:cSld>');
+  });
+
+  it('patches a safe fill locally while preserving owned siblings and unrelated XML', () => {
+    const pkg = packageFromSlide(
+      `<p:sld xmlns:p="${PRESENTATION_NAMESPACE}" xmlns:a="${DRAWING_NAMESPACE}" `
+        + `xmlns:r="${RELATIONSHIP_NAMESPACE}" xmlns:x="urn:opaque"><p:cSld custom="keep">`
+        + '<p:bg><p:bgPr shadeToTitle="1"><!--before--><a:solidFill>'
+        + '<a:srgbClr val="FF0000"/></a:solidFill><x:owned keep="yes"/>'
+        + '<a:effectLst><a:outerShdw blurRad="1"/></a:effectLst><!--after-->'
+        + '</p:bgPr></p:bg><p:spTree><x:neighbor value="KEEP"/></p:spTree>'
+        + '</p:cSld></p:sld>',
+    );
+
+    replaceSlideBackground(pkg, SLIDE_URI, { kind: 'none' });
+    const xml = slideXml(pkg);
+    expect(xml).toContain('<p:bgPr shadeToTitle="1"><!--before--><a:noFill/>');
+    expect(xml).toContain('<x:owned keep="yes"/>');
+    expect(xml).toContain('<a:effectLst><a:outerShdw blurRad="1"/></a:effectLst><!--after-->');
+    expect(xml).toContain('<p:spTree><x:neighbor value="KEEP"/></p:spTree>');
+  });
+
+  it('treats repeated normalized assignments and absent clears as exact no-ops', () => {
+    const pkg = backgroundPackage('');
+    const solid = {
+      kind: 'solid',
+      color: { kind: 'srgb', value: 'FF3399' },
+      transparency: 50,
+    } as const;
+    replaceSlideBackground(pkg, SLIDE_URI, solid);
+    const solidSnapshot = snapshot(pkg);
+    replaceSlideBackground(pkg, SLIDE_URI, solid);
+    expect(snapshot(pkg)).toEqual(solidSnapshot);
+
+    const gradient = {
+      kind: 'linear-gradient',
+      angle: 0,
+      stops: validStops(),
+    } as const;
+    replaceSlideBackground(pkg, SLIDE_URI, gradient);
+    const gradientSnapshot = snapshot(pkg);
+    replaceSlideBackground(pkg, SLIDE_URI, gradient);
+    expect(snapshot(pkg)).toEqual(gradientSnapshot);
+
+    replaceSlideBackground(pkg, SLIDE_URI, undefined);
+    const clearSnapshot = snapshot(pkg);
+    replaceSlideBackground(pkg, SLIDE_URI, undefined);
+    expect(snapshot(pkg)).toEqual(clearSnapshot);
+  });
+
+  it.each([
+    ['background reference', '<p:bg><p:bgRef idx="1001"><a:schemeClr val="bg1"/></p:bgRef></p:bg>'],
+    ['pattern fill', '<p:bg><p:bgPr><a:pattFill prst="pct5"/></p:bgPr></p:bg>'],
+    ['empty properties', '<p:bg><p:bgPr><a:effectLst/></p:bgPr></p:bg>'],
+    [
+      'duplicate properties',
+      '<p:bg><p:bgPr><a:noFill/></p:bgPr><p:bgPr><a:noFill/></p:bgPr></p:bg>',
+    ],
+  ] as const)('replaces opaque %s state with one canonical background', (_name, background) => {
+    const pkg = backgroundPackage(background);
+    replaceSlideBackground(pkg, SLIDE_URI, { kind: 'none' });
+    expect(readSlideBackground(pkg, SLIDE_URI)).toEqual({ kind: 'none' });
+    expect((slideXml(pkg).match(/<p:bg>/g) ?? [])).toHaveLength(1);
+    expect((slideXml(pkg).match(/<p:bgPr>/g) ?? [])).toHaveLength(1);
+  });
+
+  it('clears an opaque direct background instead of confusing it with inheritance', () => {
+    const pkg = backgroundPackage(
+      '<p:bg><p:bgRef idx="1001"><a:schemeClr val="bg1"/></p:bgRef></p:bg>',
+    );
+    expect(readSlideBackground(pkg, SLIDE_URI)).toBeUndefined();
+    replaceSlideBackground(pkg, SLIDE_URI, undefined);
+    expect(slideXml(pkg)).not.toContain('<p:bg>');
+  });
+
+  it('collapses duplicate direct backgrounds without touching descendant or wrong-namespace traps', () => {
+    const pkg = packageFromSlide(
+      `<p:sld xmlns:p="${PRESENTATION_NAMESPACE}" xmlns:a="${DRAWING_NAMESPACE}" `
+        + `xmlns:x="urn:opaque"><p:cSld><p:bg><p:bgPr><a:noFill/></p:bgPr></p:bg>`
+        + '<x:bg><x:keep/></x:bg><p:bg><p:bgPr><a:solidFill>'
+        + '<a:srgbClr val="FFFFFF"/></a:solidFill></p:bgPr></p:bg><p:spTree>'
+        + '<p:extLst><p:ext><p:bg><p:bgPr><a:noFill/></p:bgPr></p:bg></p:ext></p:extLst>'
+        + '</p:spTree></p:cSld></p:sld>',
+    );
+    replaceSlideBackground(pkg, SLIDE_URI, {
+      kind: 'solid',
+      color: { kind: 'srgb', value: '112233' },
+    });
+    const xml = slideXml(pkg);
+    expect((xml.match(/<p:cSld><p:bg>/g) ?? [])).toHaveLength(1);
+    expect(xml).toContain('<x:bg><x:keep/></x:bg>');
+    expect(xml).toContain(
+      '<p:extLst><p:ext><p:bg><p:bgPr><a:noFill/></p:bgPr></p:bg></p:ext></p:extLst>',
+    );
+  });
+
+  it('rejects invalid and image values before mutation and rolls back outer transactions', () => {
+    const pkg = backgroundPackage('');
+    const before = snapshot(pkg);
+    expect(() => replaceSlideBackground(pkg, SLIDE_URI, {
+      kind: 'solid',
+      color: { kind: 'srgb', value: 'FFF' },
+    })).toThrow(TypeError);
+    expect(() => replaceSlideBackground(pkg, SLIDE_URI, {
+      kind: 'image',
+      contentType: 'image/png',
+      bytes: Uint8Array.of(1),
+    })).toThrow(/not implemented/);
+    expect(snapshot(pkg)).toEqual(before);
+
+    expect(() => pkg.transaction(() => {
+      replaceSlideBackground(pkg, SLIDE_URI, { kind: 'none' });
+      throw new Error('rollback');
+    })).toThrow('rollback');
+    expect(snapshot(pkg)).toEqual(before);
+
+    const malformed = packageFromSlide(
+      `<p:sld xmlns:p="${PRESENTATION_NAMESPACE}" xmlns:a="${DRAWING_NAMESPACE}"/>`,
+    );
+    const malformedBefore = snapshot(malformed);
+    expect(() => replaceSlideBackground(malformed, SLIDE_URI, { kind: 'none' }))
+      .toThrow(/editable cSld/);
+    expect(snapshot(malformed)).toEqual(malformedBefore);
+  });
+});
+
 function validStops() {
   return [
     { offset: 0, color: 'FFFFFF' },
@@ -555,4 +729,8 @@ function snapshot(pkg: OpcPackage) {
     })),
     mutations: pkg.mutations.map((mutation) => ({ ...mutation })),
   };
+}
+
+function slideXml(pkg: OpcPackage): string {
+  return new TextDecoder().decode(pkg.requirePart(SLIDE_URI).bytes);
 }

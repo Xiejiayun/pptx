@@ -5,10 +5,8 @@ import {
   type XmlElement,
 } from '@pptx/lossless-xml';
 import {
-  GradientCodec,
   MediaCodec,
   type AddMediaOptions,
-  type GradientFill,
   type MediaPlaybackSettings,
   type MediaKind,
   type MediaSource,
@@ -108,6 +106,11 @@ import {
   readSlideNotes,
   replaceSlideNotes,
 } from './slide-notes.internal.js';
+import {
+  readSlideBackground,
+  replaceSlideBackground,
+} from './slide-background.internal.js';
+import type { SlideBackground } from './slide-background.js';
 import {
   normalizeCustomShape,
   normalizePresetShape,
@@ -330,12 +333,12 @@ export class SlideModel {
     this.#slideId = slideId;
   }
 
-  get background(): GradientFill | undefined {
-    return new GradientCodec().getSlideBackground(this.presentation.opcPackage, this.partUri);
+  get background(): SlideBackground | undefined {
+    return readSlideBackground(this.presentation.opcPackage, this.partUri);
   }
 
-  set background(value: GradientFill) {
-    new GradientCodec().setSlideBackground(this.presentation.opcPackage, this.partUri, value);
+  set background(value: SlideBackground | undefined) {
+    replaceSlideBackground(this.presentation.opcPackage, this.partUri, value);
   }
 
   get hidden(): boolean | undefined {

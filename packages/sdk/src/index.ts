@@ -154,8 +154,10 @@ export class PptxDocument extends PresentationModel {
     const gradients = new GradientCodec();
     const media = new MediaCodec(this.opcPackage);
     for (const slide of this.slides) {
-      const background = gradients.getSlideBackground(this.opcPackage, slide.partUri);
-      if (background) diagnostics.push(...gradients.diagnostics(background, compatibility, slide.partUri));
+      const background = slide.background;
+      if (background?.kind === 'linear-gradient' || background?.kind === 'path-gradient') {
+        diagnostics.push(...gradients.diagnostics(background, compatibility, slide.partUri));
+      }
       diagnostics.push(...media.diagnosticsForSlide(slide.partUri, compatibility));
       diagnostics.push(...await chartDiagnostics(this.opcPackage, slide.partUri));
     }

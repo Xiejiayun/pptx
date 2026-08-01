@@ -11,9 +11,12 @@ import {
   type XmlElement,
 } from '@pptx/lossless-xml';
 import type { OpcPackage, Relationship } from '@pptx/opc';
+import { ModelParseError } from './errors.js';
 import type { RasterImageContentType } from './image.js';
 import {
   normalizeSimpleFill,
+  renderSimpleFill,
+  simpleFillsEqual,
   type SimpleFill,
 } from './simple-fill.internal.js';
 import type {
@@ -187,6 +190,132 @@ export function readSlideBackground(
     return readImageBackground(pkg, slidePartUri, choice);
   }
   return undefined;
+}
+
+export function replaceSlideBackground(
+  pkg: OpcPackage,
+  slidePartUri: string,
+  value: unknown,
+): void {
+  const normalized = normalizeSlideBackground(value);
+  if (normalized?.kind === 'image') {
+    throw new Error('Slide background image editing is not implemented');
+  }
+  const current = readSlideBackground(pkg, slidePartUri);
+  if (current?.kind === 'image') {
+    throw new Error('Slide background image replacement is not implemented');
+  }
+  if (normalized !== undefined && backgroundsEqual(current, normalized)) return;
+
+  pkg.transaction(() => {
+    const part = pkg.requirePart(slidePartUri);
+    const xml = LosslessXmlDocument.parse(part.bytes);
+    const roots = xml.roots.filter((root) =>
+      isElement(root, 'sld', PRESENTATION_NAMESPACE));
+    const commonSlides = roots.length === 1
+      ? directChildren(roots[0]!).filter((element) =>
+          isElement(element, 'cSld', PRESENTATION_NAMESPACE))
+      : [];
+    if (commonSlides.length !== 1) {
+      throw new ModelParseError('Slide has no unique editable cSld', slidePartUri);
+    }
+    const commonSlide = commonSlides[0]!;
+    const backgrounds = directChildren(commonSlide).filter((element) =>
+      isElement(element, 'bg', PRESENTATION_NAMESPACE));
+
+    if (normalized === undefined) {
+      if (backgrounds.length === 0) return;
+      for (const background of backgrounds) xml.removeElement(background);
+      pkg.setPart(slidePartUri, xml.serialize(), part.contentType);
+      return;
+    }
+
+    const localChoice = backgrounds.length === 1
+      ? editableFillChoice(backgrounds[0]!)
+      : undefined;
+    if (localChoice) {
+      xml.replaceElement(
+        localChoice,
+        renderLocalFill(normalized, localChoice),
+      );
+    } else {
+      const encoded = renderCanonicalBackground(normalized, commonSlide);
+      if (backgrounds.length === 0) {
+        xml.replace(commonSlide.startTagEnd, commonSlide.startTagEnd, encoded);
+      } else {
+        xml.replaceElement(backgrounds[0]!, encoded);
+        for (const background of backgrounds.slice(1)) xml.removeElement(background);
+      }
+    }
+    pkg.setPart(slidePartUri, xml.serialize(), part.contentType);
+  });
+}
+
+function backgroundsEqual(
+  left: SlideBackground | undefined,
+  right: SlideBackground | undefined,
+): boolean {
+  if (left === undefined || right === undefined) return left === right;
+  if (left.kind === 'image' || right.kind === 'image') return false;
+  const leftGradient = left.kind === 'linear-gradient' || left.kind === 'path-gradient';
+  const rightGradient = right.kind === 'linear-gradient' || right.kind === 'path-gradient';
+  if (leftGradient || rightGradient) {
+    return leftGradient
+      && rightGradient
+      && new GradientCodec().encode(left as GradientFill)
+        === new GradientCodec().encode(right as GradientFill);
+  }
+  return simpleFillsEqual(left as SimpleFill, right as SimpleFill);
+}
+
+function editableFillChoice(background: XmlElement): XmlElement | undefined {
+  const children = directChildren(background);
+  const properties = children.filter((element) =>
+    isElement(element, 'bgPr', PRESENTATION_NAMESPACE));
+  const references = children.filter((element) =>
+    isElement(element, 'bgRef', PRESENTATION_NAMESPACE));
+  if (properties.length !== 1 || references.length > 0) return undefined;
+  const choices = directChildren(properties[0]!).filter((element) =>
+    elementNamespaceUri(element) === DRAWING_NAMESPACE
+    && FILL_NAMES.has(element.localName));
+  if (
+    choices.length !== 1
+    || !['noFill', 'solidFill', 'gradFill'].includes(choices[0]!.localName)
+  ) return undefined;
+  return choices[0];
+}
+
+function renderCanonicalBackground(
+  background: Exclude<SlideBackground, SlideBackgroundImage>,
+  commonSlide: XmlElement,
+): string {
+  const namespaceAttributes = [
+    namespaceUriForPrefix(commonSlide, 'p') === PRESENTATION_NAMESPACE
+      ? ''
+      : ` xmlns:p="${PRESENTATION_NAMESPACE}"`,
+    namespaceUriForPrefix(commonSlide, 'a') === DRAWING_NAMESPACE
+      ? ''
+      : ` xmlns:a="${DRAWING_NAMESPACE}"`,
+  ].join('');
+  return `<p:bg${namespaceAttributes}><p:bgPr>${renderBackgroundFill(background)}`
+    + '<a:effectLst/></p:bgPr></p:bg>';
+}
+
+function renderLocalFill(
+  background: Exclude<SlideBackground, SlideBackgroundImage>,
+  existing: XmlElement,
+): string {
+  const encoded = renderBackgroundFill(background);
+  if (namespaceUriForPrefix(existing, 'a') === DRAWING_NAMESPACE) return encoded;
+  return encoded.replace(/^<a:([\w]+)/, `<a:$1 xmlns:a="${DRAWING_NAMESPACE}"`);
+}
+
+function renderBackgroundFill(
+  background: Exclude<SlideBackground, SlideBackgroundImage>,
+): string {
+  return background.kind === 'linear-gradient' || background.kind === 'path-gradient'
+    ? new GradientCodec().encode(background)
+    : renderSimpleFill(background, 'a:');
 }
 
 function normalizeImage(input: Record<string, unknown>): SlideBackgroundImage {
