@@ -1,6 +1,6 @@
 import JSZip from 'jszip';
-import { describe, expect, it } from 'vitest';
-import { LosslessXmlDocument } from '@pptx/lossless-xml';
+import { describe, expect, it, vi } from 'vitest';
+import { LosslessXmlDocument, type XmlElement } from '@pptx/lossless-xml';
 import { OpcPackage, relativeRelationshipTarget } from '@pptx/opc';
 import {
   CodecOwnershipError,
@@ -246,59 +246,317 @@ describe('MasterLayoutThemeCodec', () => {
 });
 
 describe('MediaCodec', () => {
-  it('embeds, deduplicates, lists, deletes, and diagnoses media', async () => {
+  it('creates canonical audio and video packages with stable names, metadata, and order', async () => {
     const pkg = await featureFixture();
+    const originalSlide = pkg.requirePart('/ppt/slides/slide1.xml');
+    pkg.setPart(
+      originalSlide.uri,
+      new TextDecoder().decode(originalSlide.bytes).replace(
+        '</p:spTree>',
+        '<p:extLst><p:ext uri="existing"/></p:extLst></p:spTree>',
+      ),
+      originalSlide.contentType,
+    );
     const codec = new MediaCodec(pkg);
-    const bytes = new Uint8Array([0, 1, 2, 3, 4]);
-    const first = await codec.addAudio('/ppt/slides/slide1.xml', bytes, {
+    const audioBytes = Uint8Array.of(0, 1, 2, 3, 4);
+    const posterBytes = Uint8Array.of(5, 6, 7);
+    const audio = await codec.addAudio('/ppt/slides/slide1.xml', audioBytes, {
       contentType: 'audio/mpeg',
+      poster: posterBytes,
+      posterContentType: 'image/png',
       play: 'auto',
       loop: true,
       volume: 0.5,
     });
-    const second = await codec.addAudio('/ppt/slides/slide1.xml', bytes, { contentType: 'audio/mpeg' });
-    expect(second.mediaPartUri).toBe(first.mediaPartUri);
-    const fromBlob = await codec.addAudio('/ppt/slides/slide1.xml', new Blob([bytes]), {
-      contentType: 'audio/mpeg',
+    const video = await codec.addVideo('/ppt/slides/slide1.xml', Uint8Array.of(8, 9, 10), {
+      contentType: 'video/mp4',
+      fileName: 'clip.m4v',
+      poster: Uint8Array.of(11, 12, 13),
+      posterContentType: 'image/gif',
+      x: -1,
+      y: 0,
+      width: 1,
+      height: 2,
     });
-    expect(fromBlob.mediaPartUri).toBe(first.mediaPartUri);
-    const fromWebStream = await codec.addAudio(
-      '/ppt/slides/slide1.xml',
-      new ReadableStream<Uint8Array>({
-        start(controller) {
-          controller.enqueue(bytes);
-          controller.close();
-        },
-      }),
-      { contentType: 'audio/mpeg' },
+    const named = await codec.addAudio('/ppt/slides/slide1.xml', Uint8Array.of(14), {
+      name: 'Audio & narration',
+      altText: 'Spoken "overview"',
+      contentType: 'audio/wav',
+      poster: Uint8Array.of(15),
+      posterContentType: 'image/jpeg',
+    });
+
+    audioBytes[0] = 99;
+    posterBytes[0] = 99;
+    expect(pkg.requirePart(audio.mediaPartUri!)).toMatchObject({
+      contentType: 'audio/mpeg',
+      bytes: Uint8Array.of(0, 1, 2, 3, 4),
+    });
+    expect(pkg.requirePart(audio.posterPartUri!)).toMatchObject({
+      contentType: 'image/png',
+      bytes: Uint8Array.of(5, 6, 7),
+    });
+    expect(audio.mediaPartUri).toMatch(/\.mp3$/);
+    expect(audio.posterPartUri).toMatch(/\.png$/);
+    expect(video.mediaPartUri).toMatch(/\.m4v$/);
+    expect(video.posterPartUri).toMatch(/\.gif$/);
+    expect(pkg.requirePart(video.mediaPartUri!).contentType).toBe('video/mp4');
+    expect(pkg.requirePart(named.mediaPartUri!).contentType).toBe('audio/wav');
+    expect(named.mediaPartUri).toMatch(/\.wav$/);
+    expect(named.posterPartUri).toMatch(/\.jpg$/);
+
+    const xml = LosslessXmlDocument.parse(pkg.requirePart('/ppt/slides/slide1.xml').bytes);
+    const shapeTree = xml.elements('spTree')[0]!;
+    const directPictures = shapeTree.children.filter(
+      (child): child is XmlElement => child.type === 'element' && child.localName === 'pic',
     );
-    expect(fromWebStream.mediaPartUri).toBe(first.mediaPartUri);
-    const external = await codec.addVideo('/ppt/slides/slide1.xml', 'https://example.com/video.mp4');
-    const listed = codec.list('/ppt/slides/slide1.xml');
-    expect(listed).toHaveLength(5);
-    expect(listed[0]?.settings).toMatchObject({ play: 'auto', loop: true, volume: 0.5 });
-    expect(codec.diagnostics(external, 'google-slides-import')[0]?.code).toBe('MEDIA_EXTERNAL_NOT_PORTABLE');
+    const directExtensionList = shapeTree.children.find(
+      (child): child is XmlElement => child.type === 'element' && child.localName === 'extLst',
+    );
+    expect(directPictures).toHaveLength(3);
+    expect(directPictures[2]!.end).toBe(directExtensionList!.start);
+    expect(directPictures.map((picture) => {
+      const properties = xml.descendants(picture).find(({ localName }) => localName === 'cNvPr')!;
+      return [
+        Number(xml.attribute(properties, 'id')?.value),
+        xml.attribute(properties, 'name')?.value,
+        xml.attribute(properties, 'descr')?.value,
+      ];
+    })).toEqual([
+      [3, 'Media 0', undefined],
+      [4, 'Media 1', undefined],
+      [5, 'Audio & narration', 'Spoken "overview"'],
+    ]);
+    expect(xml.descendants(directPictures[0]!).map(({ localName }) => localName)).toEqual(
+      expect.arrayContaining(['audioFile', 'media', 'picLocks', 'playback']),
+    );
+    expect(xml.descendants(directPictures[1]!).map(({ localName }) => localName)).toEqual(
+      expect.arrayContaining(['videoFile', 'media', 'picLocks', 'playback']),
+    );
+
+    const relationships = pkg.relationships('/ppt/slides/slide1.xml');
+    for (const model of [audio, video, named]) {
+      const picture = directPictures.find((candidate) => {
+        const properties = xml.descendants(candidate).find(({ localName }) => localName === 'cNvPr');
+        return Number(properties ? xml.attribute(properties, 'id')?.value : -1) === model.shapeId;
+      })!;
+      const ids = xml.descendants(picture).flatMap(({ attributes }) => attributes)
+        .filter(({ name }) => name === 'r:link' || name === 'r:embed')
+        .map(({ value }) => value);
+      expect(relationships.filter(({ id }) => ids.includes(id)).map(({ type }) => type)).toEqual([
+        `http://schemas.openxmlformats.org/officeDocument/2006/relationships/${model.kind}`,
+        'http://schemas.microsoft.com/office/2007/relationships/media',
+        'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image',
+      ]);
+    }
+
+    const listed = [...codec.list('/ppt/slides/slide1.xml')]
+      .sort((left, right) => left.shapeId - right.shapeId);
+    expect(listed).toHaveLength(3);
+    expect(listed).toMatchObject([
+      {
+        kind: 'audio',
+        shapeId: 3,
+        mediaPartUri: audio.mediaPartUri,
+        posterPartUri: audio.posterPartUri,
+        settings: { play: 'auto', loop: true, hideWhenStopped: false, volume: 0.5 },
+      },
+      {
+        kind: 'video',
+        shapeId: 4,
+        mediaPartUri: video.mediaPartUri,
+        posterPartUri: video.posterPartUri,
+      },
+      {
+        kind: 'audio',
+        shapeId: 5,
+        mediaPartUri: named.mediaPartUri,
+        posterPartUri: named.posterPartUri,
+      },
+    ]);
+  });
+
+  it('deduplicates by bytes and exact content type and collects only final references', async () => {
+    const pkg = await featureFixture();
+    const codec = new MediaCodec(pkg);
+    const mediaBytes = Uint8Array.of(1, 2, 3);
+    const posterBytes = Uint8Array.of(4, 5, 6);
+    const first = await codec.addVideo('/ppt/slides/slide1.xml', mediaBytes, {
+      contentType: 'video/mp4',
+      fileName: 'first.mp4',
+      poster: posterBytes,
+      posterContentType: 'image/png',
+    });
+    const shared = await codec.addVideo('/ppt/slides/slide1.xml', mediaBytes, {
+      contentType: 'video/mp4',
+      fileName: 'second.m4v',
+      poster: posterBytes,
+      posterContentType: 'image/png',
+    });
+    const differentType = await codec.addAudio('/ppt/slides/slide1.xml', mediaBytes, {
+      contentType: 'audio/ogg',
+      poster: posterBytes,
+      posterContentType: 'image/gif',
+    });
+    expect(shared.mediaPartUri).toBe(first.mediaPartUri);
+    expect(shared.posterPartUri).toBe(first.posterPartUri);
+    expect(differentType.mediaPartUri).not.toBe(first.mediaPartUri);
+    expect(differentType.posterPartUri).not.toBe(first.posterPartUri);
+
     codec.delete('/ppt/slides/slide1.xml', first.shapeId);
     expect(pkg.hasPart(first.mediaPartUri!)).toBe(true);
-    codec.delete('/ppt/slides/slide1.xml', second.shapeId);
-    codec.delete('/ppt/slides/slide1.xml', fromBlob.shapeId);
-    codec.delete('/ppt/slides/slide1.xml', fromWebStream.shapeId);
+    expect(pkg.hasPart(first.posterPartUri!)).toBe(true);
+    codec.delete('/ppt/slides/slide1.xml', shared.shapeId);
     expect(pkg.hasPart(first.mediaPartUri!)).toBe(false);
+    expect(pkg.hasPart(first.posterPartUri!)).toBe(false);
+    expect(pkg.hasPart(differentType.mediaPartUri!)).toBe(true);
+    expect(pkg.hasPart(differentType.posterPartUri!)).toBe(true);
+
+    const external = await codec.addVideo(
+      '/ppt/slides/slide1.xml',
+      'https://example.com/video.mp4',
+      { poster: Uint8Array.of(7, 8, 9), posterContentType: 'image/jpeg' },
+    );
+    const relationshipCount = pkg.relationships('/ppt/slides/slide1.xml').length;
+    expect(codec.diagnostics(external, 'google-slides-import')[0]?.code)
+      .toBe('MEDIA_EXTERNAL_NOT_PORTABLE');
+    codec.delete('/ppt/slides/slide1.xml', external.shapeId);
+    expect(pkg.relationships('/ppt/slides/slide1.xml')).toHaveLength(relationshipCount - 2);
+    expect(pkg.hasPart(external.posterPartUri!)).toBe(false);
+    expect(pkg.hasPart(differentType.mediaPartUri!)).toBe(true);
+    codec.delete('/ppt/slides/slide1.xml', differentType.shapeId);
+    expect(pkg.hasPart(differentType.mediaPartUri!)).toBe(false);
+    expect(pkg.hasPart(differentType.posterPartUri!)).toBe(false);
   });
 
-  it('rolls back media parts and relationships when the slide cannot accept a shape', async () => {
+  it('leaves the complete package unchanged after input, source, transcode, and poster failures', async () => {
     const pkg = await featureFixture();
-    pkg.setPart('/ppt/slides/slide1.xml', '<p:sld xmlns:p="p"/>');
     const codec = new MediaCodec(pkg);
-    const partUris = pkg.parts.map(({ uri }) => uri);
-    const relationships = pkg.relationships('/ppt/slides/slide1.xml');
-    const journal = [...pkg.mutations];
+    const before = await packageSnapshot(pkg);
+    const failingStream = (): AsyncIterable<Uint8Array> => ({
+      async *[Symbol.asyncIterator]() {
+        yield Uint8Array.of(1);
+        throw new Error('stream failed');
+      },
+    });
+    const failures: Array<() => Promise<unknown>> = [
+      () => codec.addAudio('/ppt/slides/slide1.xml', Uint8Array.of(1), { volume: 2 }),
+      () => codec.addAudio('/ppt/slides/slide1.xml', 'data:audio/mpeg;base64,A===', {}),
+      () => codec.addAudio('/ppt/slides/slide1.xml', new Uint8Array(), {}),
+      () => codec.addAudio('/ppt/slides/slide1.xml', Uint8Array.of(1), {
+        contentType: 'audio/mpeg',
+        fileName: 'voice.wav',
+      }),
+      () => codec.addAudio('/ppt/slides/slide1.xml', '/__pptx_missing__/voice.mp3', {}),
+      () => codec.addAudio('/ppt/slides/slide1.xml', failingStream(), {}),
+      () => codec.addAudio('/ppt/slides/slide1.xml', Uint8Array.of(1), {
+        transcode: async () => { throw new Error('transcode failed'); },
+      }),
+      () => codec.addVideo('/ppt/slides/slide1.xml', Uint8Array.of(1), {
+        poster: 'data:image/png;base64,A===',
+      }),
+      () => codec.addVideo('/ppt/slides/slide1.xml', Uint8Array.of(1), {
+        poster: failingStream(),
+      }),
+    ];
 
-    await expect(
-      codec.addAudio('/ppt/slides/slide1.xml', new Uint8Array([1, 2, 3]), { contentType: 'audio/mpeg' }),
-    ).rejects.toThrow(/no shape tree/);
-    expect(pkg.parts.map(({ uri }) => uri)).toEqual(partUris);
-    expect(pkg.relationships('/ppt/slides/slide1.xml')).toEqual(relationships);
-    expect(pkg.mutations).toEqual(journal);
+    for (const fail of failures) {
+      await expect(fail()).rejects.toThrow();
+      expect(await packageSnapshot(pkg)).toEqual(before);
+    }
+  });
+
+  it('rolls back shape, allocation, XML, relationship, and outer-transaction failures', async () => {
+    const missingTree = await featureFixture();
+    missingTree.setPart('/ppt/slides/slide1.xml', '<p:sld xmlns:p="p"/>');
+    const missingTreeBefore = await packageSnapshot(missingTree);
+    await expect(new MediaCodec(missingTree).addAudio(
+      '/ppt/slides/slide1.xml',
+      Uint8Array.of(1, 2, 3),
+      { contentType: 'audio/mpeg' },
+    )).rejects.toThrow(/shape tree/i);
+    expect(await packageSnapshot(missingTree)).toEqual(missingTreeBefore);
+
+    const allocation = await featureFixture();
+    const allocationBefore = await packageSnapshot(allocation);
+    const allocate = vi.spyOn(allocation, 'allocatePartUri')
+      .mockImplementationOnce(() => '/ppt/media/media1.mp3')
+      .mockImplementationOnce(() => { throw new Error('allocation failed'); });
+    await expect(new MediaCodec(allocation).addAudio(
+      '/ppt/slides/slide1.xml',
+      Uint8Array.of(1, 2, 3),
+      { contentType: 'audio/mpeg' },
+    )).rejects.toThrow('allocation failed');
+    allocate.mockRestore();
+    expect(await packageSnapshot(allocation)).toEqual(allocationBefore);
+
+    const invalidXml = await featureFixture();
+    const invalidXmlBefore = await packageSnapshot(invalidXml);
+    const originalAppend = LosslessXmlDocument.prototype.appendChildXml;
+    const append = vi.spyOn(LosslessXmlDocument.prototype, 'appendChildXml')
+      .mockImplementation(function (this: LosslessXmlDocument, element, value) {
+        if (element.localName === 'spTree') throw new Error('invalid XML append');
+        return originalAppend.call(this, element, value);
+      });
+    await expect(new MediaCodec(invalidXml).addAudio(
+      '/ppt/slides/slide1.xml',
+      Uint8Array.of(1, 2, 3),
+      { contentType: 'audio/mpeg' },
+    )).rejects.toThrow('invalid XML append');
+    append.mockRestore();
+    expect(await packageSnapshot(invalidXml)).toEqual(invalidXmlBefore);
+
+    const relationship = await featureFixture();
+    const relationshipBefore = await packageSnapshot(relationship);
+    const originalAddRelationship = relationship.addRelationship.bind(relationship);
+    let relationshipCalls = 0;
+    const addRelationship = vi.spyOn(relationship, 'addRelationship')
+      .mockImplementation((sourcePartUri, input) => {
+        relationshipCalls += 1;
+        if (relationshipCalls === 2) throw new Error('relationship target failed');
+        return originalAddRelationship(sourcePartUri, input);
+      });
+    await expect(new MediaCodec(relationship).addAudio(
+      '/ppt/slides/slide1.xml',
+      Uint8Array.of(1, 2, 3),
+      { contentType: 'audio/mpeg' },
+    )).rejects.toThrow('relationship target failed');
+    addRelationship.mockRestore();
+    expect(await packageSnapshot(relationship)).toEqual(relationshipBefore);
+
+    const outer = await featureFixture();
+    const outerCodec = new MediaCodec(outer);
+    const created = await outerCodec.addAudio(
+      '/ppt/slides/slide1.xml',
+      Uint8Array.of(1, 2, 3),
+      { contentType: 'audio/mpeg' },
+    );
+    const outerBefore = await packageSnapshot(outer);
+    expect(() => outer.transaction(() => {
+      outerCodec.delete('/ppt/slides/slide1.xml', created.shapeId);
+      throw new Error('outer rollback');
+    })).toThrow('outer rollback');
+    expect(await packageSnapshot(outer)).toEqual(outerBefore);
   });
 });
+
+async function packageSnapshot(pkg: OpcPackage): Promise<unknown> {
+  const partSources = pkg.parts
+    .filter(({ uri }) => !uri.endsWith('.rels'))
+    .map(({ uri }) => uri);
+  return {
+    parts: pkg.parts.map(({ uri, contentType, bytes }) => ({
+      uri,
+      contentType,
+      bytes: new Uint8Array(bytes),
+    })),
+    relationships: ['/', ...partSources].map((uri) => [
+      uri,
+      pkg.relationships(uri).map((relationship) => ({ ...relationship })),
+    ]),
+    graph: pkg.graph,
+    slide: new Uint8Array(pkg.requirePart('/ppt/slides/slide1.xml').bytes),
+    output: new Uint8Array(await pkg.write()),
+    journal: pkg.mutations.map((mutation) => ({ ...mutation })),
+  };
+}

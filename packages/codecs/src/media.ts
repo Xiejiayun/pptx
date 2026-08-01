@@ -1,14 +1,15 @@
 import { LosslessXmlDocument, type XmlElement } from '@pptx/lossless-xml';
 import { relativeRelationshipTarget, type OpcPackage } from '@pptx/opc';
+import {
+  finalizeMediaCreationDefinition,
+  normalizeMediaCreateRequest,
+  renderMediaPictureXml,
+} from './media-create.internal.js';
+import { resolveMediaCreationInputs } from './media-source.internal.js';
 import type { CodecDiagnostic } from './registry.js';
 
 const REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/';
 const MEDIA_REL = 'http://schemas.microsoft.com/office/2007/relationships/media';
-const ONE_PIXEL_PNG = Uint8Array.from([
-  137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1, 8, 4, 0, 0, 0,
-  181, 28, 12, 2, 0, 0, 0, 11, 73, 68, 65, 84, 120, 218, 99, 252, 255, 31, 0, 2, 235, 1, 245, 143, 89, 213,
-  153, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130,
-]);
 
 export type MediaKind = 'audio' | 'video';
 export type MediaByteChunk = number | Uint8Array | ArrayBuffer | ArrayBufferView;
@@ -195,96 +196,83 @@ export class MediaCodec {
     source: MediaSource,
     options: AddMediaOptions,
   ): Promise<MediaModel> {
-    const resolved = await resolveSource(source, kind, options.contentType, options.fileName);
-    let mediaPartUri: string | undefined;
-    let externalUrl: string | undefined;
-    let embeddedMedia: { readonly bytes: Uint8Array; readonly contentType: string } | undefined;
-    let linkTarget: string;
-    let linkMode: 'Internal' | 'External';
-    if (resolved.externalUrl) {
-      externalUrl = resolved.externalUrl;
-      linkTarget = resolved.externalUrl;
-      linkMode = 'External';
-    } else {
-      let bytes = resolved.bytes!;
-      let contentType = resolved.contentType;
-      let extension = resolved.extension;
-      if (options.transcode) {
-        const transcoded = await options.transcode(bytes, contentType, kind);
-        bytes = transcoded.bytes;
-        contentType = transcoded.contentType;
-        extension = transcoded.extension ?? extensionFor(contentType, kind);
-      }
-      mediaPartUri =
-        (await this.findByHash(bytes, contentType)) ?? this.pkg.allocatePartUri('/ppt/media', 'media', extension);
-      embeddedMedia = { bytes, contentType };
-      linkTarget = relativeTarget(slidePartUri, mediaPartUri);
-      linkMode = 'Internal';
-    }
+    const request = normalizeMediaCreateRequest(kind, source, options);
+    const resolved = await resolveMediaCreationInputs(request);
+    const existingMediaPartUri = resolved.media.type === 'embedded'
+      ? await this.findByHash(resolved.media.bytes, resolved.media.contentType)
+      : undefined;
+    const existingPosterPartUri = await this.findByHash(
+      resolved.poster.bytes,
+      resolved.poster.contentType,
+    );
+    const slidePart = this.pkg.requirePart(slidePartUri);
+    const xml = LosslessXmlDocument.parse(slidePart.bytes);
+    const shapeTree = requireMediaShapeTree(xml, slidePartUri);
+    const defaultName = `Media ${countDirectMediaPictures(shapeTree)}`;
+    const definition = finalizeMediaCreationDefinition(request, resolved, defaultName);
 
-    const poster = await resolvePoster(options.poster, options.posterContentType);
-    const posterPartUri =
-      (await this.findByHash(poster.bytes, poster.contentType)) ??
-      this.pkg.allocatePartUri('/ppt/media', 'poster', poster.extension);
     return this.pkg.transaction(() => {
-      if (mediaPartUri && embeddedMedia && !this.pkg.hasPart(mediaPartUri)) {
-        this.pkg.setPart(mediaPartUri, embeddedMedia.bytes, embeddedMedia.contentType);
+      const mediaPartUri = definition.media.type === 'embedded'
+        ? existingMediaPartUri ?? this.pkg.allocatePartUri(
+          '/ppt/media',
+          'media',
+          definition.media.extension,
+        )
+        : undefined;
+      const posterPartUri = existingPosterPartUri ?? this.pkg.allocatePartUri(
+        '/ppt/media',
+        'poster',
+        definition.poster.extension,
+      );
+      if (mediaPartUri && definition.media.type === 'embedded' && !this.pkg.hasPart(mediaPartUri)) {
+        this.pkg.setPart(mediaPartUri, definition.media.bytes, definition.media.contentType);
       }
-      const link = this.pkg.addRelationship(slidePartUri, {
-        type: `${REL}${kind}`,
-        target: linkTarget,
-        targetMode: linkMode,
+      if (!this.pkg.hasPart(posterPartUri)) {
+        this.pkg.setPart(posterPartUri, definition.poster.bytes, definition.poster.contentType);
+      }
+
+      const kindRelationship = this.pkg.addRelationship(slidePartUri, {
+        type: `${REL}${definition.kind}`,
+        target: definition.media.type === 'external'
+          ? definition.media.url
+          : relativeRelationshipTarget(slidePartUri, mediaPartUri!),
+        targetMode: definition.media.type === 'external' ? 'External' : 'Internal',
       });
-      const embedded = mediaPartUri
+      const mediaRelationship = mediaPartUri
         ? this.pkg.addRelationship(slidePartUri, {
             type: MEDIA_REL,
-            target: relativeTarget(slidePartUri, mediaPartUri),
+            target: relativeRelationshipTarget(slidePartUri, mediaPartUri),
+            targetMode: 'Internal',
           })
         : undefined;
-      if (!this.pkg.hasPart(posterPartUri)) {
-        this.pkg.setPart(posterPartUri, poster.bytes, poster.contentType);
-      }
       const posterRelationship = this.pkg.addRelationship(slidePartUri, {
         type: `${REL}image`,
-        target: relativeTarget(slidePartUri, posterPartUri),
+        target: relativeRelationshipTarget(slidePartUri, posterPartUri),
+        targetMode: 'Internal',
       });
 
-      const part = this.pkg.requirePart(slidePartUri);
-      const xml = LosslessXmlDocument.parse(part.bytes);
-      const shapeTree = xml.elements('spTree')[0];
-      if (!shapeTree) throw new Error(`Slide ${slidePartUri} has no shape tree`);
-      const shapeId =
-        Math.max(1, ...xml.elements('cNvPr').map((element) => Number(xml.attribute(element, 'id')?.value ?? 0))) + 1;
-      const position = {
-        x: options.x ?? 914_400,
-        y: options.y ?? 914_400,
-        width: options.width ?? (kind === 'video' ? 4_572_000 : 914_400),
-        height: options.height ?? (kind === 'video' ? 2_571_750 : 914_400),
-      };
-      const mediaExtension = embedded
-        ? `<p:ext uri="{DAA4B4D4-6D71-4841-9C94-3DE7FCFB9230}"><p14:media xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" r:embed="${embedded.id}"/></p:ext>`
-        : '';
-      const playbackExtension = `<p:ext uri="{C13D3E4A-5148-4B6D-A7E7-505054582D4F}"><px:playback xmlns:px="urn:pptx-ooxml:media" play="${
-        options.play ?? 'click'
-      }" loop="${options.loop ? 1 : 0}" hideWhenStopped="${options.hideWhenStopped ? 1 : 0}" volume="${Math.round(
-        clamp(options.volume ?? 1) * 100_000,
-      )}"/></p:ext>`;
-      const extension = `<p:extLst>${mediaExtension}${playbackExtension}</p:extLst>`;
-      const picture = `<p:pic><p:nvPicPr><p:cNvPr id="${shapeId}" name="${kind === 'video' ? 'Video' : 'Audio'} ${shapeId}"><a:hlinkClick r:id="" action="ppaction://media"/></p:cNvPr><p:cNvPicPr/><p:nvPr><a:${kind}File r:link="${link.id}"/>${extension}</p:nvPr></p:nvPicPr><p:blipFill><a:blip r:embed="${posterRelationship.id}"/><a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr><a:xfrm><a:off x="${position.x}" y="${position.y}"/><a:ext cx="${position.width}" cy="${position.height}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>`;
-      xml.appendChildXml(shapeTree, picture);
-      this.pkg.setPart(slidePartUri, xml.serialize(), part.contentType);
+      const shapeId = allocateMediaShapeId(xml, slidePartUri);
+      const pictureXml = renderMediaPictureXml(shapeId, definition, {
+        kind: kindRelationship.id,
+        ...(mediaRelationship ? { media: mediaRelationship.id } : {}),
+        poster: posterRelationship.id,
+      });
+      const extensionList = directElementChildren(shapeTree, 'extLst')[0];
+      if (extensionList) xml.replace(extensionList.start, extensionList.start, pictureXml);
+      else xml.appendChildXml(shapeTree, pictureXml);
+      this.pkg.setPart(slidePartUri, xml.serialize(), slidePart.contentType);
       return {
-        kind,
+        kind: definition.kind,
         shapeId,
         slidePartUri,
         ...(mediaPartUri ? { mediaPartUri } : {}),
-        ...(externalUrl ? { externalUrl } : {}),
+        ...(definition.media.type === 'external' ? { externalUrl: definition.media.url } : {}),
         posterPartUri,
         settings: {
-          play: options.play ?? 'click',
-          loop: options.loop ?? false,
-          hideWhenStopped: options.hideWhenStopped ?? false,
-          volume: clamp(options.volume ?? 1),
+          play: definition.play,
+          loop: definition.loop,
+          hideWhenStopped: definition.hideWhenStopped,
+          volume: definition.volume,
         },
       };
     });
@@ -305,150 +293,76 @@ export class MediaCodec {
   }
 }
 
-async function resolveSource(
-  source: MediaSource,
-  kind: MediaKind,
-  contentType?: string,
-  fileName?: string,
-): Promise<{ bytes?: Uint8Array; externalUrl?: string; contentType: string; extension: string }> {
-  if (typeof source === 'string' && /^https?:\/\//i.test(source)) {
-    return { externalUrl: source, contentType: contentType ?? defaultContentType(kind), extension: extensionFor(contentType ?? defaultContentType(kind), kind) };
-  }
-  let bytes: Uint8Array;
-  let name = fileName;
-  if (typeof source === 'string') {
-    const fs = await loadNodeModule<NodeFsPromises>(['node:fs', 'promises'].join('/'));
-    bytes = new Uint8Array(await fs.readFile(source));
-    name = name ?? source;
-  } else if (source instanceof Uint8Array) bytes = new Uint8Array(source);
-  else if (source instanceof ArrayBuffer) bytes = new Uint8Array(source);
-  else if (isBlob(source)) {
-    bytes = new Uint8Array(await source.arrayBuffer());
-    const sourceName = (source as Blob & { readonly name?: unknown }).name;
-    if (!name && typeof sourceName === 'string') name = sourceName;
-  } else bytes = await readStream(source);
-  const sourceExtension = name ? fileExtension(name) : '';
-  const inferred = contentType ?? contentTypeFor(sourceExtension, kind);
-  return {
-    bytes,
-    contentType: inferred,
-    extension: sourceExtension || extensionFor(inferred, kind),
-  };
-}
-
-async function resolvePoster(source?: MediaSource, contentType?: string): Promise<{ bytes: Uint8Array; contentType: string; extension: string }> {
-  if (!source || (typeof source === 'string' && /^https?:\/\//i.test(source))) {
-    return { bytes: ONE_PIXEL_PNG, contentType: 'image/png', extension: '.png' };
-  }
-  const resolved = await resolveSource(source, 'video', contentType ?? 'image/png');
-  return { bytes: resolved.bytes!, contentType: resolved.contentType, extension: resolved.extension };
-}
-
-async function readStream(stream: MediaByteStream): Promise<Uint8Array> {
-  const chunks: Uint8Array[] = [];
-  if (isReadableStream(stream)) {
-    const reader = stream.getReader();
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        chunks.push(normalizeByteChunk(value));
-      }
-    } finally {
-      reader.releaseLock();
-    }
-  } else {
-    for await (const chunk of stream) chunks.push(normalizeByteChunk(chunk));
-  }
-  return concatenateBytes(chunks);
-}
-
-function defaultContentType(kind: MediaKind): string {
-  return kind === 'video' ? 'video/mp4' : 'audio/mpeg';
-}
-
-function contentTypeFor(extension: string, kind: MediaKind): string {
-  return {
-    '.mp4': 'video/mp4',
-    '.mov': 'video/quicktime',
-    '.webm': 'video/webm',
-    '.mp3': 'audio/mpeg',
-    '.m4a': 'audio/mp4',
-    '.wav': 'audio/wav',
-    '.png': 'image/png',
-    '.jpg': 'image/jpeg',
-    '.jpeg': 'image/jpeg',
-  }[extension.toLowerCase()] ?? defaultContentType(kind);
-}
-
-function extensionFor(contentType: string, kind: MediaKind): string {
-  return {
-    'video/mp4': '.mp4',
-    'video/quicktime': '.mov',
-    'video/webm': '.webm',
-    'audio/mpeg': '.mp3',
-    'audio/mp4': '.m4a',
-    'audio/wav': '.wav',
-    'image/png': '.png',
-    'image/jpeg': '.jpg',
-  }[contentType] ?? (kind === 'video' ? '.mp4' : '.mp3');
-}
-
-function relativeTarget(sourcePartUri: string, targetPartUri: string): string {
-  return relativeRelationshipTarget(sourcePartUri, targetPartUri);
-}
-
-function fileExtension(value: string): string {
-  const basename = value.replaceAll('\\', '/').split('/').at(-1) ?? '';
-  const dot = basename.lastIndexOf('.');
-  return dot <= 0 ? '' : basename.slice(dot);
-}
-
 async function hash(bytes: Uint8Array): Promise<string> {
   if (!globalThis.crypto?.subtle) throw new Error('Media hashing requires the Web Crypto API');
   const digest = await globalThis.crypto.subtle.digest('SHA-256', new Uint8Array(bytes).buffer);
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
-interface NodeFsPromises {
-  readFile(path: string): Promise<Uint8Array>;
-}
-
-async function loadNodeModule<T>(specifier: string): Promise<T> {
-  if (typeof process === 'undefined' || !process.versions?.node) {
-    throw new Error('Local media paths are only supported in Node.js; pass a Blob, File, or byte stream');
+function requireMediaShapeTree(
+  xml: LosslessXmlDocument,
+  slidePartUri: string,
+): XmlElement {
+  const candidates = xml.elements('spTree').filter((shapeTree) =>
+    shapeTree.parent?.localName === 'cSld'
+    && shapeTree.parent.parent?.localName === 'sld');
+  if (candidates.length !== 1) {
+    throw new Error(`Slide ${slidePartUri} must contain exactly one direct shape tree`);
   }
-  return import(specifier) as Promise<T>;
-}
-
-function isReadableStream(value: unknown): value is ReadableStream<unknown> {
-  return Boolean(value && typeof (value as { getReader?: unknown }).getReader === 'function');
-}
-
-function isBlob(value: unknown): value is Blob {
-  return typeof Blob !== 'undefined' && value instanceof Blob;
-}
-
-function normalizeByteChunk(chunk: unknown): Uint8Array {
-  if (typeof chunk === 'number' && Number.isInteger(chunk) && chunk >= 0 && chunk <= 255) {
-    return Uint8Array.of(chunk);
+  if (directElementChildren(candidates[0]!, 'extLst').length > 1) {
+    throw new Error(`Slide ${slidePartUri} contains repeated shape-tree extension lists`);
   }
-  if (chunk instanceof Uint8Array) return new Uint8Array(chunk);
-  if (chunk instanceof ArrayBuffer) return new Uint8Array(chunk);
-  if (ArrayBuffer.isView(chunk)) {
-    return new Uint8Array(new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength));
-  }
-  throw new TypeError('Media streams must yield byte numbers, Uint8Array, ArrayBuffer, or ArrayBufferView chunks');
+  return candidates[0]!;
 }
 
-function concatenateBytes(chunks: readonly Uint8Array[]): Uint8Array {
-  const output = new Uint8Array(chunks.reduce((total, chunk) => total + chunk.byteLength, 0));
-  let offset = 0;
-  for (const chunk of chunks) {
-    output.set(chunk, offset);
-    offset += chunk.byteLength;
+function countDirectMediaPictures(shapeTree: XmlElement): number {
+  let count = 0;
+  for (const picture of directElementChildren(shapeTree, 'pic')) {
+    const nonVisual = directElementChildren(picture, 'nvPicPr')[0];
+    const applicationProperties = nonVisual
+      ? directElementChildren(nonVisual, 'nvPr')[0]
+      : undefined;
+    if (
+      applicationProperties
+      && directElementChildren(applicationProperties, 'audioFile').length
+        + directElementChildren(applicationProperties, 'videoFile').length > 0
+    ) {
+      count += 1;
+    }
   }
-  return output;
+  return count;
+}
+
+function allocateMediaShapeId(
+  xml: LosslessXmlDocument,
+  slidePartUri: string,
+): number {
+  let maximum = 1;
+  for (const properties of xml.elements('cNvPr')) {
+    const value = xml.attribute(properties, 'id')?.value;
+    if (value === undefined) continue;
+    if (!/^\d+$/.test(value)) {
+      throw new Error(`Slide ${slidePartUri} contains an invalid shape id`);
+    }
+    const id = Number(value);
+    if (!Number.isSafeInteger(id) || id > 4_294_967_295) {
+      throw new Error(`Slide ${slidePartUri} contains an invalid shape id`);
+    }
+    maximum = Math.max(maximum, id);
+  }
+  if (maximum >= 4_294_967_295) {
+    throw new Error(`Slide ${slidePartUri} has exhausted its shape ids`);
+  }
+  return maximum + 1;
+}
+
+function directElementChildren(
+  element: XmlElement,
+  localName: string,
+): XmlElement[] {
+  return element.children.filter(
+    (child): child is XmlElement => child.type === 'element' && child.localName === localName,
+  );
 }
 
 function ancestor(element: XmlElement, localName: string): XmlElement | undefined {
@@ -458,8 +372,4 @@ function ancestor(element: XmlElement, localName: string): XmlElement | undefine
     current = current.parent;
   }
   return undefined;
-}
-
-function clamp(value: number): number {
-  return Math.max(0, Math.min(1, Number.isFinite(value) ? value : 1));
 }
