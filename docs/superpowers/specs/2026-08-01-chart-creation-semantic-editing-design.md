@@ -174,7 +174,7 @@ class ChartModel extends BaseShapeModel {
   get workbookPartUri(): string | undefined;
   get definition(): Readonly<ChartDefinition> | undefined;
   get series(): readonly Readonly<ChartSeries>[];
-  get diagnostics(): readonly ChartDiagnostic[];
+  diagnostics(): Promise<readonly ChartDiagnostic[]>;
   async replaceDefinition(value: ChartDefinitionInput): Promise<this>;
   async replaceSeries(value: readonly ChartSeriesInput[]): Promise<this>;
   remove(): void;
@@ -207,8 +207,9 @@ Unknown style children, extension lists, rich title/legend text, colors, and cli
 spans are preserved. Unsupported or ambiguous structure is never coerced into a partial definition. Read operations
 do not change bytes, relationships, the package journal, or model identity.
 
-The reader exposes an internal state with `recognized`, `cache-only`, `workbook-divergent`, `modern`, `unsupported`,
-and `ambiguous` statuses. Diagnostics and mutators consume that state instead of repeating broad descendant searches.
+The synchronous reader exposes an internal state with `recognized`, `cache-only`, `modern`, `unsupported`, and
+`ambiguous` statuses. An asynchronous workbook inspector separately compares ZIP worksheet cells against the strict
+chart definition; diagnostics combine both results instead of pretending a synchronous getter inspected XLSX bytes.
 
 ## Deterministic Embedded Workbook
 
@@ -325,9 +326,9 @@ new strict chart state helpers for standard series resolution and workbook consi
 separate descendant-wide cache reader.
 
 `setSeriesValues()` becomes a compatibility wrapper over the core semantic replacement path and therefore updates
-both cache and workbook. Existing divergence diagnostics remain for raw XML edits or direct workbook replacement that
-cannot prove equality. Adding a trendline, error bars, or data labels changes only the standard chart part and does not
-alter data/workbook equality.
+both cache and workbook. Asynchronous divergence diagnostics remain for raw XML edits or direct workbook replacement
+that cannot prove equality. Adding a trendline, error bars, or data labels changes only the standard chart part and
+does not alter data/workbook equality.
 
 Modern charts remain inspectable and diagnostic-only. The plugin never converts them to standard charts implicitly.
 
