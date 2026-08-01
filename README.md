@@ -69,7 +69,62 @@ await document.writeFile('images.pptx');
 
 LibreOffice 保留 12/12 图片的 payload SHA、content type、名称、非空 alt text、顺序和 internal relationship；它把 12 个重复 payload target 去重为 3 个并重写全部 picture markup。最大 transform 量化为 360 EMU，最大 `srcRect` 量化为 0.007%，双翻转被等价规范化为旋转增加 180°。原件 180 DPI 输出为 2400×1350；回存件把页面宽度规范化后直接输出为 2401×1350，逐页检查使用等比例 2400×1350 raster。
 
-下一图片小项是 SVG。当前仍未提供 rounding/transparency、alt-text 编辑、图片 hyperlink/shadow/placeholder，以及单图片删除与 media GC。
+## 添加和编辑 SVG 图片
+
+```ts
+import { readFile } from 'node:fs/promises';
+import {
+  calculateImageSizing,
+  inches,
+  inspectSvgImage,
+  PptxDocument,
+} from '@jiayunxie/pptx';
+
+const svgBytes = new Uint8Array(await readFile('architecture.svg'));
+const fallbackPng = new Uint8Array(await readFile('architecture.png'));
+const svgInfo = inspectSvgImage(svgBytes);
+const sizing = calculateImageSizing(svgInfo, {
+  type: 'contain',
+  width: inches(6),
+  height: inches(4),
+});
+
+const document = PptxDocument.create();
+const slide = document.addSlide();
+const image = await document.addImage(0, svgBytes, {
+  contentType: 'image/svg+xml', // 可选的 MIME assertion
+  fallback: fallbackPng,
+  name: 'Architecture',
+  altText: 'System architecture diagram',
+  sizing: { type: 'contain', width: inches(6), height: inches(4) },
+});
+console.log(image.isSvg, image.sourcePartUri, image.fallbackPartUri, image.svgPartUri);
+console.log(sizing.sourceRectangle);
+
+// 已持有严格 bytes 时也可使用同步底层 API。
+const strictImage = slide.addSvgImage(svgBytes, fallbackPng, {
+  x: inches(6.5),
+  width: inches(4),
+  height: inches(3),
+});
+strictImage.replaceSvgData(
+  new Uint8Array(await readFile('architecture-updated.svg')),
+  new Uint8Array(await readFile('architecture-updated.png')),
+);
+await document.writeFile('svg-images.pptx');
+```
+
+高层 `PptxDocument.addImage()` 对 SVG 支持与 raster 相同的 path、URL、data URI、bytes、Blob/File、Web stream 和 async iterable 来源；`inspectImage()` / `inspectSvgImage()` 返回 canonical `image/svg+xml` 与 intrinsic dimensions，通用 `calculateImageSizing()` 支持 contain/cover/crop。`contentType: 'image/svg+xml'` 只是可选 assertion，真实类型仍由严格 SVG XML 检查决定。
+
+每张 SVG 图片始终包含一个 SVG part 和一个 PNG fallback part。高层 API 会验证 fallback 的真实 PNG signature，优先级是调用方显式 PNG、浏览器 Canvas 自动栅格化、最后是内建透明 PNG；同步底层 `addSvgImage()` 只接受并复制 non-empty bytes，由调用方保证 payload 符合声明。需要 fallback-only 客户端保持完整视觉时，应显式提供高质量 PNG。库不执行 SVG script、不抓取 SVG 外部资源，也不承诺任意 SVG 的跨客户端栅格化一致性。
+
+`ImageModel.isSvg` 只在 namespace/relationship/part 均安全且无歧义时为 true；此时 `sourcePartUri === fallbackPartUri`，`svgPartUri` 指向矢量 part。`replaceData()` 会拒绝 SVG，必须用 `replaceSvgData(svgBytes, fallbackPngBytes)` 原子替换一对 payload。复制页面最初共享两类 target；替换共享图片时两侧同时 clone-on-write。任何 malformed paired state 或替换失败都保持 package、关系、XML、identity 与 mutation journal 不变。
+
+PptxGenJS 4.0.1 的 data-contain、path-cover、data-crop 3 个公开 case 已精确匹配 picture 结构、transform、direct `srcRect`、extension URI/namespace、关系角色和 SVG payload。Native 明确修复了 PptxGenJS path SVG 把 SVG bytes 写进 `.png` fallback part 的缺陷，始终写入可验证的 PNG。
+
+实际 tarball 的 Node/browser/declaration/CLI smoke 通过，两次 clean build 的 38 个 dist 文件 SHA-256 完全一致。5 页 gallery 含 13 个 shapes、8 张 SVG picture、7 个 SVG parts、7 个 PNG fallbacks 和 16 条 image relationships；原件和 LibreOffice 回存件均 strict reopen，PowerPoint 2010 validation 为 0 errors / 0 warnings。LibreOffice 保留 shape order、名称、alt text、SVG hashes、关系角色和 7+7 targets，将 MIME 从 `image/svg+xml` 规范化为 `image/svg`；最大 position/size 量化 360 EMU、最大 `srcRect` 量化 0.003%，flip/rotation 采用等价规范化。它回存后可能选择 PNG fallback 渲染，所以旧客户端视觉仍以 fallback 质量为准。
+
+当前仍未提供 external SVG relationship、SVG DOM 局部编辑、rounding/transparency、alt-text 编辑、图片 hyperlink/shadow/placeholder，以及单图片删除与 media GC。下一对等小项是 media 收尾。
 
 ## 创建和编辑预设形状、调整值与样式
 

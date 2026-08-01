@@ -280,7 +280,7 @@ $ pptx-inspect --json package inspect output.pptx
 - 新增 pure `calculateRasterImageSizing()`，覆盖 intrinsic-aware `contain`、`cover` 与 source-pixel `crop`；frame 使用 EMU，结果和嵌套 rectangle frozen，不读取 source、不修改 package。
 - 新增 `PptxDocument.addImage(..., { sizing })`；`sizing` 与 top-level `width`/`height` 互斥，高层拒绝 direct `sourceRectangle`。Options/sizing 在异步 source I/O 前脱离 caller，placement 在 package mutation 前计算，invalid source/MIME/sizing 保持零变化。
 - 锁定 PptxGenJS 4.0.1 的 contain/cover/equal-ratio/crop 6 个 public case，最终 transform 与 direct `srcRect` integer percentages 全部精确对等；native 对 ambiguous dimensions、truthy fallback、out-of-bounds crop 与 unsafe numeric state 保持严格拒绝。
-- 下一图片小项调整为 SVG；rounding/transparency、alt-text 编辑、hyperlink/shadow/placeholder、单图片删除与 media GC 继续保留在后续列表。
+- 后续 SVG lifecycle 已在下一节完成；rounding/transparency、alt-text 编辑、hyperlink/shadow/placeholder、单图片删除与 media GC 继续保留在后续列表。
 
 ### 验证结果
 
@@ -289,6 +289,27 @@ $ pptx-inspect --json package inspect output.pptx
 - 4 页、40 shapes、12 images sizing gallery 覆盖 landscape/portrait/square PNG/JPEG/GIF、contain/cover/equal ratio、full/center/edge/fractional crop、direct edit/clear、rotation/flips、special-character name 与 non-empty alt text。
 - 原件和 LibreOffice round-trip 均可 strict reopen，PowerPoint 2010 validation 为 0 errors / 0 warnings，overflow 为 0，并已逐页视觉检查。LibreOffice 保留 12/12 payload SHA、content type、name、alt text、顺序与 internal relationship；重复媒体去重为 3 个并重写 12/12 picture markup。
 - LibreOffice 最大 transform 量化为 360 EMU，最大 `srcRect` 量化为 0.007%，双 flip 等价规范化为 rotation +180°。原件 180 DPI 输出为 2400×1350；回存件规范化 slide width 后 direct raster 为 2401×1350，逐页检查使用 proportional 2400×1350 raster。
+
+## PptxGenJS 全功能对等：SVG image lifecycle
+
+状态：完成
+
+### 本阶段 change
+
+- 新增 strict `SvgImageContentType`、`AddSvgImageOptions` 与 `SlideModel.addSvgImage(svgBytes, fallbackPngBytes, options?)`，原子创建 canonical PNG fallback + Office SVG extension 双 part、双 internal relationship picture；六种 presentation format 均可 create/write/reopen。
+- 新增 namespace-aware `ImageModel.isSvg`、`fallbackPartUri`、`svgPartUri` 与 paired `replaceSvgData()`；arbitrary prefix、LibreOffice `image/svg` normalization、duplicate/shared/noncanonical target 的双侧 clone-on-write、malformed state 与 outer transaction rollback 均已覆盖。SVG picture 的 `sourcePartUri` 明确指向 fallback，普通 `replaceData()` 明确拒绝 SVG extension candidate。
+- 统一 `ImageSource` / `ImageContentType` / `ImageInfo` 与 `inspectImage()`、`inspectSvgImage()`、`calculateImageSizing()`；高层 `PptxDocument.addImage()` 覆盖 path、HTTP/HTTPS、browser-relative URL、strict data URI、bytes/ArrayBuffer、Blob/File、Web stream 与 async iterable 的 SVG，支持 optional MIME assertion、AbortSignal、contain/cover/crop 和 source-rectangle edit。
+- 高层 fallback 优先级固定为 explicit signature-valid PNG、browser Canvas rasterization、built-in transparent PNG；release evidence 中所有 `.png` part 都有真实 PNG signature。同步底层 API 只复制 non-empty bytes，由调用方保证 payload 正确。需要 fallback-only client 保持完整视觉时，调用方必须显式提供高质量 PNG。
+- PptxGenJS 4.0.1 data-contain、path-cover、data-crop 3/3 public conformance case 已匹配 picture order、transform、direct `srcRect`、extension URI/namespace、relationship roles、SVG payload 与 metadata；native 不复制其 path SVG 把 SVG bytes 写入 `.png` fallback 的缺陷。
+- external SVG relationship、SVG DOM 局部编辑、script execution、external-resource fetching、任意 SVG rasterization fidelity、image rounding/transparency、alt-text 编辑、hyperlink/shadow/placeholder、单图片删除与 media GC 保留在后续列表；下一对等小项为 media 收尾。
+
+### 验证结果
+
+- 全量 Vitest：49 个测试文件通过、1 个 performance 文件默认跳过；866 项测试通过、1 项默认跳过。独立 1,000-part performance gate 通过；TypeScript strict typecheck、全仓 build 与 `@jiayunxie/pptx` Node/browser/type build 通过。
+- Actual npm tarball 的 Node/browser/declaration/CLI SVG smoke 通过；browser Blob/data URI 使用真实 Canvas PNG fallback，每图验证 2 个 internal targets。连续两次 clean build 的 38 个 dist 文件 SHA-256 manifest 完全一致。
+- 5 页 gallery 为 13 shapes、8 SVG pictures、7 SVG parts、7 PNG fallbacks、16 image relationships，覆盖全部 source forms、explicit/default fallback、contain/cover/crop、live source-rectangle edit、rotation/flips、duplicate/replacement、特殊名称和 non-empty alt text。原件 strict reopen，PowerPoint 2010 validation 0 errors / 0 warnings，180 DPI overflow 0，已逐页视觉检查。
+- LibreOffice save/reopen 保留 shape order、names、alt text、SVG payload hashes、relationship roles、extension URI/namespace 与 7+7 targets，没有新增 dedup；将 `image/svg+xml` 规范化为 `image/svg`。最大 position/size delta 360 EMU，最大 `srcRect` delta 0.003%，raw rotation delta 10,800,000 来自 flip/rotation 等价规范化；PowerPoint 2010 validation 仍为 0 errors / 0 warnings。
+- LibreOffice 回存后可能选择 PNG fallback 渲染，而不是 retained SVG；结构与 SVG payload 未丢失，但 fallback-only 视觉质量由 PNG 决定。这一 client behavior 已写入公开文档，不误报为 SVG 视觉等同。
 
 ## 0.1.0 初始验收
 

@@ -138,7 +138,57 @@ Valid PptxGenJS 4.0.1 public path/data PNG/JPEG/GIF output reaches the same load
 
 The sizing gallery has four slides, 40 shapes, and 12 images. Source and LibreOffice round-trip packages reopen strictly, validate against PowerPoint 2010 with 0 errors and 0 warnings, report zero overflow, and were visually inspected page by page. LibreOffice retains 12/12 payload hashes, content types, names, non-empty alt text, order, and internal relationships; it deduplicates the 12 repeated payload targets to three and rewrites all 12 picture blocks. The maximum transform quantization is 360 EMU, the maximum source-rectangle quantization is 0.007%, and two flips normalize equivalently to an added 180-degree rotation. Source 180-DPI pages are 2400×1350. The round-trip page width is client-normalized, producing 2401×1350 directly at 180 DPI and a proportional 2400×1350 inspection raster.
 
-SVG is the next image item. Rounding/transparency, alt-text editing, image hyperlink/shadow/placeholder support, and public per-image deletion/media garbage collection remain outside this slice.
+## Embedded SVG images
+
+```ts
+import {
+  calculateImageSizing,
+  inches,
+  inspectSvgImage,
+} from '@pptx/sdk';
+
+declare const svgBytes: Uint8Array;
+declare const fallbackPngBytes: Uint8Array;
+declare const replacementSvgBytes: Uint8Array;
+declare const replacementPngBytes: Uint8Array;
+
+const svgInfo = inspectSvgImage(svgBytes);
+const placement = calculateImageSizing(svgInfo, {
+  type: 'cover',
+  width: inches(6),
+  height: inches(4),
+});
+const svgImage = await created.addImage(0, svgBytes, {
+  contentType: 'image/svg+xml',
+  fallback: fallbackPngBytes,
+  name: 'Architecture',
+  altText: 'System architecture diagram',
+  sizing: { type: 'contain', width: inches(6), height: inches(4) },
+});
+console.log(placement.sourceRectangle);
+console.log(svgImage.isSvg, svgImage.fallbackPartUri, svgImage.svgPartUri);
+
+const lowLevelSvg = created.slides[0]!.addSvgImage(svgBytes, fallbackPngBytes, {
+  x: inches(6.5),
+  width: inches(4),
+  height: inches(3),
+});
+lowLevelSvg.replaceSvgData(replacementSvgBytes, replacementPngBytes);
+```
+
+`PptxDocument.addImage()` detects strict SVG XML from the same Node path, HTTP/HTTPS URL, browser-relative URL, canonical base64 data URI, `Uint8Array`, `ArrayBuffer`, Blob/File, Web Stream, and async-iterable source union used by raster images. `ImageContentType` adds canonical `image/svg+xml`; `AddImageSourceOptions.contentType` remains an optional assertion. `inspectImage()` dispatches raster signatures or SVG XML, while `inspectSvgImage()` returns frozen `{ contentType: 'image/svg+xml', width, height }` intrinsic information. Generic `calculateImageSizing()` supports contain, cover, and source-coordinate crop for both raster and SVG; raster-named inspector/sizing aliases remain available.
+
+`AddImageSourceOptions.fallback` is valid only for SVG and must resolve to a signature-valid PNG. Fallback resolution order is explicit PNG, browser Canvas rasterization (maximum side 8,192 and maximum 16,777,216 pixels), then a detached built-in transparent PNG. Every high-level generated `.png` part contains a real PNG signature. Callers that require full appearance in fallback-only clients should always supply a high-fidelity PNG; the API does not execute SVG scripts, fetch external SVG resources, or guarantee arbitrary rasterization fidelity.
+
+The synchronous `SlideModel.addSvgImage(svgBytes, fallbackPngBytes, options?)` requires and copies non-empty `Uint8Array` payloads, leaving SVG/PNG byte correctness to the low-level caller, then commits a canonical two-part picture in one package transaction. The high-level API performs strict SVG and PNG inspection before calling it. A safe pair exposes `ImageModel.isSvg === true`, `sourcePartUri === fallbackPartUri`, and a distinct `svgPartUri`. The reader resolves the Office SVG extension by namespace and relationship semantics rather than a fixed prefix and accepts LibreOffice's relationship-identified `image/svg` normalization. External SVG relationships and ambiguous/malformed pair state are not exposed as editable SVG state.
+
+`ImageModel.replaceData()` rejects any Office SVG extension candidate. `replaceSvgData(svgBytes, fallbackPngBytes)` validates and copies both non-empty byte inputs before mutation and updates an exclusive canonical pair in place; shared or noncanonical targets are cloned and only the selected picture is retargeted. Slide duplication initially shares both targets. Pair replacement, rollback, six-format write/reopen, arbitrary prefix import, PptxGenJS import, and LibreOffice-normalized shared-target clone-on-write are covered. A missing/unsafe pair or either replacement failure leaves parts, relationships, content types, slide XML, model identity, ZIP state, and mutation journal unchanged.
+
+PptxGenJS 4.0.1 conformance covers three public cases: data-contain, path-cover, and data-crop. Native matches the final picture order, transform, direct `srcRect`, extension URI/namespace, relationship roles, SVG payload, metadata, and canonical content types. The intentional divergence is PptxGenJS's path SVG fallback containing SVG bytes in a `.png` part; native always emits valid PNG fallback bytes.
+
+The packed Node/browser/type/CLI smoke covers explicit/default fallbacks, sizing, duplicate sharing, paired clone-on-write, replacement/reopen, Canvas fallback, two internal relationships, and PowerPoint 2010 validation. Two clean builds have identical SHA-256 manifests for all 38 dist files. The five-slide gallery contains 13 shapes, eight SVG pictures, seven SVG parts, seven PNG fallbacks, and 16 image relationships. Source and LibreOffice round-trip packages strictly reopen and validate with 0 errors and 0 warnings. LibreOffice preserves shape order, names, alt text, SVG hashes, relationship roles, and 7+7 targets, normalizes `image/svg+xml` to `image/svg`, quantizes position/size by at most 360 EMU and `srcRect` by at most 0.003%, and may render the PNG fallback after save.
+
+SVG DOM editing, external SVG relationships, image rounding/transparency, alt-text editing, image hyperlink/shadow/placeholder support, and public per-image deletion/media garbage collection remain outside this slice. Media parity is next.
 
 ## Presentation format
 

@@ -212,7 +212,62 @@ Valid PptxGenJS 4.0.1 public path/data PNG/JPEG/GIF output reaches the same supp
 
 LibreOffice preserves 12/12 payload hashes, content types, names, non-empty alt text, ordering, and internal relationships; it deduplicates 12 repeated payload targets to three and rewrites all 12 picture blocks. Its largest transform quantization is 360 EMU, its largest source-rectangle quantization is 0.007%, and two flips normalize equivalently to an added 180-degree rotation. The source renders at 2400×1350 at 180 DPI. LibreOffice normalizes the round-trip page width, so its direct 180-DPI raster is 2401×1350; the inspected proportional raster is 2400×1350.
 
-SVG is the next image item. Rounding/transparency, alt-text editing, image hyperlinks/shadows/placeholders, and public image deletion/media garbage collection remain pending.
+## Create, load, and edit SVG images
+
+```ts
+import { readFile } from 'node:fs/promises';
+import {
+  calculateImageSizing,
+  inches,
+  inspectSvgImage,
+  PptxDocument,
+} from '@jiayunxie/pptx';
+
+const svgBytes = new Uint8Array(await readFile('architecture.svg'));
+const fallbackPng = new Uint8Array(await readFile('architecture.png'));
+const svgInfo = inspectSvgImage(svgBytes);
+console.log(calculateImageSizing(svgInfo, {
+  type: 'cover',
+  width: inches(6),
+  height: inches(4),
+}));
+
+const svgDocument = PptxDocument.create();
+const svgSlide = svgDocument.addSlide();
+const svgImage = await svgDocument.addImage(0, svgBytes, {
+  contentType: 'image/svg+xml', // optional assertion
+  fallback: fallbackPng,
+  name: 'Architecture',
+  altText: 'System architecture diagram',
+  sizing: { type: 'contain', width: inches(6), height: inches(4) },
+});
+console.log(svgImage.isSvg); // true
+console.log(svgImage.sourcePartUri === svgImage.fallbackPartUri); // true
+console.log(svgImage.svgPartUri); // /ppt/media/imageN.svg
+
+const lowLevelSvg = svgSlide.addSvgImage(svgBytes, fallbackPng, {
+  x: inches(6.5),
+  width: inches(4),
+  height: inches(3),
+});
+lowLevelSvg.replaceSvgData(
+  new Uint8Array(await readFile('architecture-updated.svg')),
+  new Uint8Array(await readFile('architecture-updated.png')),
+);
+await svgDocument.writeFile('svg-images.pptx');
+```
+
+SVG uses the same path, URL, data URI, bytes, Blob/File, Web Stream, and async-iterable sources as raster images. `inspectImage()` and `inspectSvgImage()` return canonical `image/svg+xml` plus intrinsic dimensions, and generic `calculateImageSizing()` supports contain, cover, and crop. The optional `contentType: 'image/svg+xml'` is an assertion; strict SVG XML inspection remains the source of truth.
+
+Every SVG picture owns an SVG part and a PNG fallback part. The high-level API verifies the fallback's actual PNG signature; priority is an explicit caller-supplied PNG, browser Canvas rasterization, then a built-in transparent PNG. The synchronous low-level `addSvgImage()` copies non-empty bytes and leaves declared-payload correctness to its caller. Supply a high-fidelity PNG when clients that consume only the fallback must preserve the full appearance. The library does not execute SVG scripts, fetch SVG external resources, or promise arbitrary cross-client SVG rasterization fidelity.
+
+`ImageModel.isSvg` becomes true only for a safe, unambiguous namespace/relationship/part pair. In that state, `sourcePartUri` and `fallbackPartUri` identify the PNG while `svgPartUri` identifies the vector payload. `replaceData()` rejects SVG pictures; `replaceSvgData(svgBytes, fallbackPngBytes)` atomically replaces both sides. Duplicated slides initially share both targets, and replacement clone-on-writes both sides for only the selected picture. Malformed pair state or any failed replacement leaves package parts, relationships, XML, identity, and the mutation journal unchanged.
+
+Three PptxGenJS 4.0.1 public conformance cases cover data-contain, path-cover, and data-crop, matching picture structure, transform, direct `srcRect`, extension URI/namespace, relationship roles, and SVG bytes. Native intentionally fixes PptxGenJS's invalid path-SVG fallback, which stores SVG bytes in a `.png` part: every native fallback validates as PNG.
+
+The actual tarball passes Node, browser, declaration, and CLI SVG smoke, and two clean builds produce identical SHA-256 manifests for all 38 dist files. The five-slide gallery contains 13 shapes, eight SVG pictures, seven SVG parts, seven PNG fallbacks, and 16 image relationships. Source and LibreOffice round-trip packages strictly reopen and validate against PowerPoint 2010 with 0 errors and 0 warnings. LibreOffice preserves shape order, names, alt text, SVG hashes, relationship roles, and all 7+7 targets, while normalizing `image/svg+xml` to `image/svg`; maximum position/size quantization is 360 EMU and maximum `srcRect` quantization is 0.003%. After save it may render the PNG fallback, so fallback fidelity remains observable client behavior.
+
+External SVG relationships, SVG DOM-level editing, image rounding/transparency, alt-text editing, hyperlinks/shadows/placeholders, and public per-image deletion/media garbage collection remain pending. Media parity is the next image-adjacent slice.
 
 `PRESET_SHAPE_TYPES` is the frozen discovery catalog for all 178 canonical preset geometries accepted by `SlideModel.addShape()`. `AddShapeOptions` accepts `name`, strict `adjustments`, strict `fill`, strict `line`, strict `arrows`, strict `shadow`, strict `hyperlink`, and native EMU/OOXML-angle transform fields; use `inches()` and `degrees()` for ergonomic conversion. Omitted geometry starts at x/y/width/height = 1 inch with zero rotation and no flips; omitted fill creates direct no-fill, and omitted line keeps the canonical empty line container. Inputs are strict, descriptor-safe, detached before mutation, and reject unknown fields. The catalog uses the valid OOXML `foldedCorner`; PptxGenJS 4.0.1's invalid `folderCorner` token and runtime-only `custGeom` value are not accepted as presets.
 
