@@ -121,8 +121,8 @@ function normalizeSeries(
 }
 
 function validateGroupCompatibility(groups: readonly Readonly<ChartGroup>[]): void {
-  if (!groups.some((group) => (group.axis ?? 'primary') === 'primary')) {
-    throw new RangeError('Chart definition requires a primary-axis group');
+  if ((groups[0]!.axis ?? 'primary') !== 'primary') {
+    throw new RangeError('Chart definition first group must use the primary axis');
   }
   if (groups.length === 1) return;
   if (groups.every(({ type }) => type === 'scatter')) return;

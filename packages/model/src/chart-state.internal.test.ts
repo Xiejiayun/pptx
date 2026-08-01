@@ -116,6 +116,31 @@ describe('strict chart semantic state', () => {
     }
   });
 
+  it('strictly reads renderer-produced primary and secondary combination axes', () => {
+    const definition = normalizeChartDefinition({ groups: [
+      {
+        type: 'bar',
+        series: [{ name: 'Revenue', categories: ['Q1', 'Q2'], values: [10, 20] }],
+      },
+      {
+        type: 'line',
+        axis: 'secondary',
+        series: [{ name: 'Trend', categories: ['Q1', 'Q2'], values: [11, 21] }],
+      },
+    ] });
+    const xml = renderChartPart(definition, planChartWorkbook(definition).formulas, 'rId1');
+    expect(readChartState(chartPackage(xml), CHART_URI)).toEqual({
+      status: 'recognized',
+      definition: {
+        groups: [
+          { ...definition.groups[0], axis: 'primary' },
+          definition.groups[1],
+        ],
+      },
+      workbookPartUri: WORKBOOK_URI,
+    });
+  });
+
   it('orders cache points by canonical idx and reads numeric and multi-level categories', () => {
     const series = '<c:ser><c:idx val="0"/><c:order val="0"/>'
       + stringReference('tx', 'Revenue', 'Sheet1!$B$1')

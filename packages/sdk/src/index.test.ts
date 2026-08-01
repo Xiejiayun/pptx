@@ -4032,6 +4032,28 @@ describe('PptxDocument vertical slice', () => {
       expect(created[0]?.altText).toBe('Quarterly chart');
       expect(created[0]?.transform).toMatchObject({ x: inches(2), width: inches(7) });
       expect(created.every((chart) => chart.workbookPartUri !== undefined)).toBe(true);
+      const combo = await document.addChart(0, [
+        {
+          type: 'bar',
+          series: [{ name: 'Revenue', categories: ['Q1', 'Q2'], values: [10, 20] }],
+        },
+        {
+          type: 'line',
+          axis: 'secondary',
+          series: [{ name: 'Trend', categories: ['Q1', 'Q2'], values: [11, 21] }],
+        },
+      ], { name: `${format} combo` });
+      expect(combo.definition?.groups.map(({ type, axis }) => [type, axis])).toEqual([
+        ['bar', 'primary'],
+        ['line', 'secondary'],
+      ]);
+      const duplicate = document.duplicateSlide(0);
+      const duplicateCombo = duplicate.shapes.filter(
+        (shape): shape is ChartModel => shape instanceof ChartModel,
+      ).at(-1)!;
+      expect(duplicateCombo.definition).toEqual(combo.definition);
+      expect(duplicateCombo.chartPartUri).not.toBe(combo.chartPartUri);
+      expect(duplicateCombo.workbookPartUri).not.toBe(combo.workbookPartUri);
       expect(validatePackage(document.opcPackage).filter(({ severity }) => severity === 'error'))
         .toEqual([]);
 
@@ -4039,13 +4061,23 @@ describe('PptxDocument vertical slice', () => {
       const charts = reopened.slides[0]!.shapes.filter(
         (shape): shape is ChartModel => shape instanceof ChartModel,
       );
+      const singleCharts = charts.slice(0, types.length);
+      const reopenedCombo = charts.at(-1)!;
       expect(reopened.format).toBe(format);
-      expect(charts.map((chart) => chart.definition?.groups[0]?.type)).toEqual(types);
-      expect(charts.map((chart) => chart.series[0]?.values)).toEqual(types.map(() => [10, 20]));
-      expect(charts.find((chart) => chart.definition?.groups[0]?.type === 'scatter')
+      expect(singleCharts.map((chart) => chart.definition?.groups[0]?.type)).toEqual(types);
+      expect(singleCharts.map((chart) => chart.series[0]?.values)).toEqual(types.map(() => [10, 20]));
+      expect(singleCharts.find((chart) => chart.definition?.groups[0]?.type === 'scatter')
         ?.series[0]?.xValues).toEqual([1, 2]);
-      expect(charts.find((chart) => chart.definition?.groups[0]?.type === 'bubble')
+      expect(singleCharts.find((chart) => chart.definition?.groups[0]?.type === 'bubble')
         ?.series[0]?.sizes).toEqual([5, 6]);
+      expect(reopenedCombo.definition?.groups.map(({ type, axis }) => [type, axis])).toEqual([
+        ['bar', 'primary'],
+        ['line', 'secondary'],
+      ]);
+      const reopenedDuplicateCombo = reopened.slides[1]!.shapes.filter(
+        (shape): shape is ChartModel => shape instanceof ChartModel,
+      ).at(-1)!;
+      expect(reopenedDuplicateCombo.definition).toEqual(reopenedCombo.definition);
       for (const chart of charts) {
         expect(reopened.opcPackage.requirePart(chart.workbookPartUri!).contentType)
           .toBe('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -4064,11 +4096,15 @@ describe('PptxDocument vertical slice', () => {
     if (false) {
       const type: ChartType = 'bar';
       const options: AddChartOptions = { width: inches(6) };
+      const groupPromise: Promise<ChartModel> = empty.addChart(0, [{
+        type: 'bar',
+        series: [{ name: 'Revenue', categories: ['Q1'], values: [1] }],
+      }], options);
       // @ts-expect-error chart types are a closed catalog
       const invalidType: ChartType = 'stock';
       // @ts-expect-error chart width uses EMU values
       const invalidOptions: AddChartOptions = { width: '6in' };
-      void [type, options, invalidType, invalidOptions];
+      void [type, options, groupPromise, invalidType, invalidOptions];
     }
   });
 

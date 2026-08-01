@@ -134,6 +134,75 @@ describe('scatter and bubble chart rendering', () => {
   });
 });
 
+describe('combination chart rendering', () => {
+  it('shares primary axes and allocates a deterministic secondary pair in group order', () => {
+    const definition = normalizeChartDefinition({ groups: [
+      {
+        type: 'bar',
+        series: [{ name: 'Revenue', categories: ['Q1', 'Q2'], values: [10, 20] }],
+      },
+      {
+        type: 'line',
+        axis: 'secondary',
+        series: [{ name: 'Trend', categories: ['Q1', 'Q2'], values: [11, 21] }],
+      },
+    ] });
+    const xml = renderChartPart(definition, planChartWorkbook(definition).formulas, 'rId1');
+
+    expect(xml.indexOf('<c:barChart>')).toBeLessThan(xml.indexOf('<c:lineChart>'));
+    expect(xml).toMatch(
+      /<c:barChart>[\s\S]*?<c:axId val="10000001"\/><c:axId val="10000002"\/><\/c:barChart>/,
+    );
+    expect(xml).toMatch(
+      /<c:lineChart>[\s\S]*?<c:axId val="10000003"\/><c:axId val="10000004"\/><\/c:lineChart>/,
+    );
+    expect(xml).toContain('<c:idx val="0"/><c:order val="0"/>');
+    expect(xml).toContain('<c:idx val="1"/><c:order val="1"/>');
+    expect(xml).toContain('<c:f>Sheet1!$B$1</c:f>');
+    expect(xml).toContain('<c:f>Sheet1!$D$1</c:f>');
+    expect(xml.match(/<c:crossAx /g)).toHaveLength(4);
+    expect(xml).toContain('<c:axPos val="t"/>');
+    expect(xml).toContain('<c:axPos val="r"/>');
+  });
+
+  it('reuses one primary pair across primary-only and same-type groups', () => {
+    const definition = normalizeChartDefinition({ groups: [
+      {
+        type: 'area',
+        series: [{ name: 'Actual', categories: ['Q1'], values: [10] }],
+      },
+      {
+        type: 'line',
+        series: [{ name: 'Plan', categories: ['Q1'], values: [11] }],
+      },
+      {
+        type: 'line',
+        series: [{ name: 'Forecast', categories: ['Q1'], values: [12] }],
+      },
+    ] });
+    const xml = renderChartPart(definition, planChartWorkbook(definition).formulas, 'rId1');
+    expect(xml.match(/<c:axId val="10000001"\/>/g)).toHaveLength(4);
+    expect(xml.match(/<c:axId val="10000002"\/>/g)).toHaveLength(4);
+    expect(xml).not.toContain('10000003');
+    expect(xml).toContain('<c:idx val="2"/><c:order val="2"/>');
+  });
+
+  it('renders scatter-only combinations with two value-axis pairs', () => {
+    const definition = normalizeChartDefinition({ groups: [
+      { type: 'scatter', series: [{ name: 'A', xValues: [1], values: [2] }] },
+      {
+        type: 'scatter',
+        axis: 'secondary',
+        series: [{ name: 'B', xValues: [3], values: [4] }],
+      },
+    ] });
+    const xml = renderChartPart(definition, planChartWorkbook(definition).formulas, 'rId1');
+    expect(xml.match(/<c:scatterChart>/g)).toHaveLength(2);
+    expect(xml.match(/<c:valAx>/g)).toHaveLength(4);
+    expect(xml).not.toContain('<c:catAx>');
+  });
+});
+
 describe('chart graphic frame rendering', () => {
   it('normalizes, freezes, escapes, and renders exact frame placement', () => {
     const options = normalizeAddChartOptions({

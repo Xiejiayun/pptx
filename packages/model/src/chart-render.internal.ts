@@ -80,27 +80,30 @@ export function renderChartPart(
   formulas: Readonly<ChartWorkbookPlan['formulas']>,
   workbookRelationshipId: string,
 ): string {
-  if (definition.groups.length !== 1) {
-    throw new TypeError('Chart rendering requires exactly one group');
-  }
-  const group = definition.groups[0]!;
-  const axisIds = group.type === 'pie' || group.type === 'doughnut'
-    ? []
-    : group.type === 'bar3D'
-      ? [10_000_001, 10_000_002, 10_000_003]
-      : [10_000_001, 10_000_002];
-  const renderedSeries = group.series.map((series, seriesIndex) => {
-    const formula = formulas.find((candidate) =>
-      candidate.groupIndex === 0 && candidate.seriesIndex === seriesIndex);
-    if (!formula) throw new Error(`Chart series ${seriesIndex} has no workbook formula plan`);
+  const allocation = allocateAxes(definition);
+  let globalSeriesIndex = 0;
+  const groupXml = definition.groups.map((group, groupIndex) => {
+    const axisIds = (group.axis ?? 'primary') === 'secondary'
+      ? allocation.secondary
+      : allocation.primary;
+    if (!axisIds) throw new Error(`Chart group ${groupIndex} has no allocated axis set`);
+    const renderedSeries = group.series.map((series, seriesIndex) => {
+      const formula = formulas.find((candidate) =>
+        candidate.groupIndex === groupIndex && candidate.seriesIndex === seriesIndex);
+      if (!formula) {
+        throw new Error(`Chart group ${groupIndex} series ${seriesIndex} has no workbook formula plan`);
+      }
+      const index = globalSeriesIndex;
+      globalSeriesIndex += 1;
+      return group.type === 'scatter' || group.type === 'bubble'
+        ? renderXySeries(series, formula, index, group.type)
+        : renderCategoricalSeries(series, formula, index);
+    }).join('');
     return group.type === 'scatter' || group.type === 'bubble'
-      ? renderXySeries(series, formula, seriesIndex, group.type)
-      : renderCategoricalSeries(series, formula, seriesIndex);
+      ? renderXyGroup(group.type, renderedSeries, axisIds)
+      : renderCategoricalGroup(group.type, renderedSeries, axisIds);
   }).join('');
-  const groupXml = group.type === 'scatter' || group.type === 'bubble'
-    ? renderXyGroup(group.type, renderedSeries, axisIds)
-    : renderCategoricalGroup(group.type, renderedSeries, axisIds);
-  const axes = renderAxes(group.type, axisIds);
+  const axes = renderAllocatedAxes(definition, allocation);
   return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
     + `<c:chartSpace xmlns:c="${CHART_NAMESPACE}" xmlns:a="${DRAWING_NAMESPACE}" `
     + `xmlns:r="${RELATIONSHIP_NAMESPACE}">`
@@ -110,6 +113,33 @@ export function renderChartPart(
     + '<c:spPr><a:noFill/><a:ln><a:noFill/></a:ln></c:spPr>'
     + `<c:externalData r:id="${escapeXmlAttribute(workbookRelationshipId)}">`
     + '<c:autoUpdate val="0"/></c:externalData></c:chartSpace>';
+}
+
+interface AxisAllocation {
+  readonly primary: readonly number[];
+  readonly secondary?: readonly number[];
+}
+
+function allocateAxes(definition: Readonly<ChartDefinition>): AxisAllocation {
+  const firstType = definition.groups[0]!.type;
+  if (firstType === 'pie' || firstType === 'doughnut') return { primary: [] };
+  if (firstType === 'bar3D') return { primary: [10_000_001, 10_000_002, 10_000_003] };
+  const secondary = definition.groups.some(({ axis }) => axis === 'secondary')
+    ? [10_000_003, 10_000_004]
+    : undefined;
+  return {
+    primary: [10_000_001, 10_000_002],
+    ...(secondary === undefined ? {} : { secondary }),
+  };
+}
+
+function renderAllocatedAxes(
+  definition: Readonly<ChartDefinition>,
+  allocation: AxisAllocation,
+): string {
+  const type = definition.groups[0]!.type;
+  return renderAxes(type, allocation.primary, false)
+    + (allocation.secondary ? renderAxes(type, allocation.secondary, true) : '');
 }
 
 export function renderChartGraphicFrame(
@@ -284,21 +314,22 @@ function formulaCoordinates(value: string): {
   };
 }
 
-function renderAxes(type: ChartType, ids: readonly number[]): string {
+function renderAxes(type: ChartType, ids: readonly number[], secondary: boolean): string {
   if (ids.length === 0) return '';
   if (type === 'scatter' || type === 'bubble') {
-    return renderHorizontalValueAxis(ids[0]!, ids[1]!)
-      + renderValueAxis(ids[1]!, ids[0]!, 'midCat');
+    return renderHorizontalValueAxis(ids[0]!, ids[1]!, secondary)
+      + renderValueAxis(ids[1]!, ids[0]!, 'midCat', secondary);
   }
-  const category = renderCategoryAxis(ids[0]!, ids[1]!);
-  const value = renderValueAxis(ids[1]!, ids[0]!);
+  const category = renderCategoryAxis(ids[0]!, ids[1]!, secondary);
+  const value = renderValueAxis(ids[1]!, ids[0]!, 'between', secondary);
   if (type !== 'bar3D') return category + value;
   return category + value + renderSeriesAxis(ids[2]!, ids[1]!);
 }
 
-function renderCategoryAxis(id: number, crossId: number): string {
+function renderCategoryAxis(id: number, crossId: number, secondary: boolean): string {
   return `<c:catAx><c:axId val="${id}"/><c:scaling><c:orientation val="minMax"/></c:scaling>`
-    + '<c:delete val="0"/><c:axPos val="b"/><c:numFmt formatCode="General" sourceLinked="1"/>'
+    + `<c:delete val="0"/><c:axPos val="${secondary ? 't' : 'b'}"/>`
+    + '<c:numFmt formatCode="General" sourceLinked="1"/>'
     + '<c:majorTickMark val="out"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/>'
     + `<c:crossAx val="${crossId}"/><c:crosses val="autoZero"/><c:auto val="1"/>`
     + '<c:lblAlgn val="ctr"/><c:lblOffset val="100"/></c:catAx>';
@@ -308,18 +339,20 @@ function renderValueAxis(
   id: number,
   crossId: number,
   crossBetween: 'between' | 'midCat' = 'between',
+  secondary = false,
 ): string {
   return `<c:valAx><c:axId val="${id}"/><c:scaling><c:orientation val="minMax"/></c:scaling>`
-    + '<c:delete val="0"/><c:axPos val="l"/><c:majorGridlines/>'
+    + `<c:delete val="0"/><c:axPos val="${secondary ? 'r' : 'l'}"/><c:majorGridlines/>`
     + '<c:numFmt formatCode="General" sourceLinked="0"/><c:majorTickMark val="out"/>'
     + '<c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/>'
     + `<c:crossAx val="${crossId}"/><c:crosses val="autoZero"/><c:crossBetween val="${crossBetween}"/>`
     + '</c:valAx>';
 }
 
-function renderHorizontalValueAxis(id: number, crossId: number): string {
+function renderHorizontalValueAxis(id: number, crossId: number, secondary: boolean): string {
   return `<c:valAx><c:axId val="${id}"/><c:scaling><c:orientation val="minMax"/></c:scaling>`
-    + '<c:delete val="0"/><c:axPos val="b"/><c:numFmt formatCode="General" sourceLinked="0"/>'
+    + `<c:delete val="0"/><c:axPos val="${secondary ? 't' : 'b'}"/>`
+    + '<c:numFmt formatCode="General" sourceLinked="0"/>'
     + '<c:majorTickMark val="none"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/>'
     + `<c:crossAx val="${crossId}"/><c:crosses val="autoZero"/><c:crossBetween val="midCat"/>`
     + '</c:valAx>';

@@ -12,6 +12,7 @@ import {
   PresentationModel,
   type AddChartOptions,
   type AddSvgImageOptions,
+  type ChartGroupInput,
   type ChartSeriesInput,
   type ChartType,
   type ImageModel,
@@ -261,15 +262,32 @@ export class PptxDocument extends PresentationModel {
     });
   }
 
-  async addChart(
+  addChart(
     slideIndex: number,
     type: ChartType,
     series: readonly ChartSeriesInput[],
+    options?: AddChartOptions,
+  ): Promise<ChartModel>;
+  addChart(
+    slideIndex: number,
+    groups: readonly ChartGroupInput[],
+    options?: AddChartOptions,
+  ): Promise<ChartModel>;
+  async addChart(
+    slideIndex: number,
+    typeOrGroups: ChartType | readonly ChartGroupInput[],
+    seriesOrOptions?: readonly ChartSeriesInput[] | AddChartOptions,
     options: AddChartOptions = {},
   ): Promise<ChartModel> {
     const slide = this.slides[slideIndex];
     if (!slide) throw new RangeError(`Slide index ${slideIndex} is out of range`);
-    return slide.addChart(type, series, options);
+    return Array.isArray(typeOrGroups)
+      ? slide.addChart(typeOrGroups, seriesOrOptions as AddChartOptions | undefined)
+      : slide.addChart(
+          typeOrGroups as ChartType,
+          seriesOrOptions as readonly ChartSeriesInput[],
+          options,
+        );
   }
 
   async addAudio(slideIndex: number, source: MediaSource, options: AddMediaOptions = {}): Promise<MediaModel> {

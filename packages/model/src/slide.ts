@@ -22,6 +22,7 @@ import {
 } from '@pptx/opc';
 import type {
   AddChartOptions,
+  ChartGroupInput,
   ChartSeriesInput,
   ChartType,
 } from './chart.js';
@@ -1039,13 +1040,31 @@ export class SlideModel {
     });
   }
 
-  async addChart(
+  addChart(
     type: ChartType,
     series: readonly ChartSeriesInput[],
+    options?: AddChartOptions,
+  ): Promise<ChartModel>;
+  addChart(
+    groups: readonly ChartGroupInput[],
+    options?: AddChartOptions,
+  ): Promise<ChartModel>;
+  async addChart(
+    typeOrGroups: ChartType | readonly ChartGroupInput[],
+    seriesOrOptions?: readonly ChartSeriesInput[] | AddChartOptions,
     options: AddChartOptions = {},
   ): Promise<ChartModel> {
-    const definition = normalizeChartDefinition({ groups: [{ type, series }] });
-    const normalizedOptions = normalizeAddChartOptions(options);
+    const definition = Array.isArray(typeOrGroups)
+      ? normalizeChartDefinition({ groups: typeOrGroups })
+      : normalizeChartDefinition({
+          groups: [{
+            type: typeOrGroups as ChartType,
+            series: seriesOrOptions as readonly ChartSeriesInput[],
+          }],
+        });
+    const normalizedOptions = normalizeAddChartOptions(
+      Array.isArray(typeOrGroups) ? seriesOrOptions as AddChartOptions | undefined : options,
+    );
     const workbookBytes = await buildChartWorkbook(definition);
     const plan = planChartWorkbook(definition);
     return this.presentation.opcPackage.transaction(() => {

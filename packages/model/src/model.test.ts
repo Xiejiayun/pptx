@@ -7094,6 +7094,114 @@ describe('PresentationModel', () => {
       .toHaveLength(2);
   });
 
+  it('creates, duplicates, and reopens ordered combination groups and secondary axes', async () => {
+    const { pkg, model } = emptyPresentationModel();
+    const slide = model.addSlide();
+    const combo = await slide.addChart([
+      {
+        type: 'bar',
+        series: [{ name: 'Revenue', categories: ['Q1', 'Q2'], values: [10, 20] }],
+      },
+      {
+        type: 'line',
+        axis: 'secondary',
+        series: [{ name: 'Trend', categories: ['Q1', 'Q2'], values: [11, 21] }],
+      },
+    ], { name: 'Revenue combo' });
+    expect(combo.name).toBe('Revenue combo');
+    expect(combo.definition?.groups).toEqual([
+      {
+        type: 'bar',
+        axis: 'primary',
+        series: [{ name: 'Revenue', categories: ['Q1', 'Q2'], values: [10, 20] }],
+      },
+      {
+        type: 'line',
+        axis: 'secondary',
+        series: [{ name: 'Trend', categories: ['Q1', 'Q2'], values: [11, 21] }],
+      },
+    ]);
+    expect(combo.series.map(({ name }) => name)).toEqual(['Revenue', 'Trend']);
+    expect(combo.xml.indexOf('<c:barChart>')).toBeLessThan(combo.xml.indexOf('<c:lineChart>'));
+    expect(combo.xml).toContain('<c:axId val="10000003"/><c:axId val="10000004"/>');
+    expect(await chartWorkbookMatches(
+      pkg.requirePart(combo.workbookPartUri!).bytes,
+      combo.definition!,
+    )).toBe(true);
+
+    const primaryOnly = await slide.addChart([
+      {
+        type: 'area',
+        series: [{ name: 'Actual', categories: ['Q1'], values: [10] }],
+      },
+      {
+        type: 'line',
+        series: [{ name: 'Plan', categories: ['Q1'], values: [11] }],
+      },
+      {
+        type: 'line',
+        series: [{ name: 'Forecast', categories: ['Q1'], values: [12] }],
+      },
+    ]);
+    expect(primaryOnly.definition?.groups.map(({ type, axis }) => [type, axis])).toEqual([
+      ['area', 'primary'],
+      ['line', 'primary'],
+      ['line', 'primary'],
+    ]);
+    expect(primaryOnly.xml).not.toContain('10000003');
+
+    const invalidGroups = [
+      [],
+      [
+        { type: 'bar', series: [{ name: 'A', categories: ['Q1'], values: [1] }] },
+        { type: 'pie', series: [{ name: 'B', categories: ['Q1'], values: [2] }] },
+      ],
+      [
+        { type: 'bar3D', series: [{ name: 'A', categories: ['Q1'], values: [1] }] },
+        { type: 'line', series: [{ name: 'B', categories: ['Q1'], values: [2] }] },
+      ],
+      [
+        { type: 'bubble', series: [{ name: 'A', xValues: [1], values: [2], sizes: [3] }] },
+        { type: 'scatter', series: [{ name: 'B', xValues: [1], values: [2] }] },
+      ],
+      [
+        { type: 'scatter', series: [{ name: 'A', xValues: [1], values: [2] }] },
+        { type: 'line', series: [{ name: 'B', categories: ['Q1'], values: [2] }] },
+      ],
+      [
+        {
+          type: 'line',
+          axis: 'secondary',
+          series: [{ name: 'A', categories: ['Q1'], values: [1] }],
+        },
+        { type: 'bar', series: [{ name: 'B', categories: ['Q1'], values: [2] }] },
+      ],
+    ];
+    for (const groups of invalidGroups) {
+      const before = packageSnapshot(pkg);
+      await expect(slide.addChart(groups as never)).rejects.toThrow();
+      expect(packageSnapshot(pkg)).toEqual(before);
+    }
+
+    const duplicate = model.duplicateSlide(0);
+    const duplicateCharts = duplicate.shapes.filter(
+      (shape): shape is ChartModel => shape instanceof ChartModel,
+    );
+    expect(duplicateCharts.map((chart) => chart.definition?.groups.map(({ type }) => type)))
+      .toEqual([['bar', 'line'], ['area', 'line', 'line']]);
+    expect(duplicateCharts[0]?.chartPartUri).not.toBe(combo.chartPartUri);
+    expect(duplicateCharts[0]?.workbookPartUri).not.toBe(combo.workbookPartUri);
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedCombo = reopened.slides[0]!.shapes.find(
+      (shape): shape is ChartModel => shape instanceof ChartModel && shape.name === 'Revenue combo',
+    );
+    expect(reopenedCombo?.definition?.groups.map(({ type, axis }) => [type, axis])).toEqual([
+      ['bar', 'primary'],
+      ['line', 'secondary'],
+    ]);
+  });
+
   it('creates strict basic tables with stable identity, ordering, and atomic failure', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);

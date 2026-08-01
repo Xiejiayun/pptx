@@ -109,6 +109,29 @@ describe('chart definition normalization', () => {
     }] });
   });
 
+  it('accepts compatible primary-only, primary-secondary, same-type, and scatter combinations', () => {
+    for (const groups of [
+      [
+        { type: 'bar', series: [categoricalSeries()] },
+        { type: 'line', series: [categoricalSeries()] },
+      ],
+      [
+        { type: 'area', series: [categoricalSeries()] },
+        { type: 'line', axis: 'secondary', series: [categoricalSeries()] },
+      ],
+      [
+        { type: 'bar', series: [categoricalSeries()] },
+        { type: 'bar', axis: 'secondary', series: [categoricalSeries()] },
+      ],
+      [
+        { type: 'scatter', series: [pointSeries()] },
+        { type: 'scatter', axis: 'secondary', series: [pointSeries()] },
+      ],
+    ]) {
+      expect(normalizeChartDefinition({ groups } as never).groups).toHaveLength(2);
+    }
+  });
+
   it.each([
     ['empty groups', { groups: [] }],
     ['empty series', { groups: [{ type: 'bar', series: [] }] }],
@@ -129,6 +152,12 @@ describe('chart definition normalization', () => {
     ['multiple doughnut series', axisFreeDefinition('doughnut', 2)],
     ['secondary-only definition', {
       groups: [{ type: 'line', axis: 'secondary', series: [categoricalSeries()] }],
+    }],
+    ['secondary group before primary group', {
+      groups: [
+        { type: 'line', axis: 'secondary', series: [categoricalSeries()] },
+        { type: 'bar', series: [categoricalSeries()] },
+      ],
     }],
     ['unsafe axis-free combination', {
       groups: [
