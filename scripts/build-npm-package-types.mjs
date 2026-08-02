@@ -12,6 +12,7 @@ const publicInternalDeclarations = new Set([
   'media-state.internal.d.ts',
   'media-timing-state.internal.d.ts',
   'presentation-slide-number.internal.d.ts',
+  'slide-background.internal.d.ts',
   'slide-number.internal.d.ts',
 ]);
 
@@ -37,6 +38,27 @@ for (const [packageName, outputName] of packages) {
     : join(repositoryRoot, 'packages', packageName, 'dist');
   const outputDirectory = join(typesRoot, outputName);
   await copyDeclarations(sourceDirectory, outputDirectory);
+}
+
+const requiredPublicDeclarations = new Map([
+  [join(typesRoot, 'model/placeholder.d.ts'), [
+    'PLACEHOLDER_TYPES',
+    'PlaceholderType',
+    'PlaceholderSelector',
+  ]],
+  [join(typesRoot, 'sdk/master-layout.d.ts'), [
+    'DefineSlideMasterOptions',
+    'SlideLayoutModel',
+    'SlideMasterModel',
+  ]],
+]);
+for (const [declaration, exports] of requiredPublicDeclarations) {
+  const source = await readFile(declaration, 'utf8');
+  for (const name of exports) {
+    if (!source.includes(name)) {
+      throw new Error(`Packed declaration ${relative(repositoryRoot, declaration)} is missing ${name}`);
+    }
+  }
 }
 
 await writeFile(

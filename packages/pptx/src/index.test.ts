@@ -3,6 +3,7 @@ import {
   CHART_TYPES,
   ChartModel,
   MediaModel,
+  PLACEHOLDER_TYPES,
   PptxDocument,
   ShapeModel,
   SlideLayoutModel,
@@ -14,6 +15,8 @@ import {
   type ReplaceMediaSourceOptions,
   type RichTextColor,
   type DefineSlideMasterOptions,
+  type PlaceholderSelector,
+  type PlaceholderType,
   type SlideMasterBackground,
   type SlideMasterMargin,
   type SlideMasterObject,
@@ -73,6 +76,70 @@ describe('@jiayunxie/pptx stable exports', () => {
     expect(layout.margin).toEqual(margin);
     expect(asyncBackground.kind).toBe('image-source');
     expect(asyncObjects.map(({ kind }) => kind)).toEqual(['image', 'chart']);
+  });
+
+  it('creates, selects, populates, and reopens placeholders through the root package', async () => {
+    const placeholderType: PlaceholderType = 'chart';
+    const pictureSelector: PlaceholderSelector = { type: 'pic', index: 102 };
+    const png = Uint8Array.from([
+      137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82,
+      0, 0, 0, 1, 0, 0, 0, 1, 8, 4, 0, 0, 0, 181, 28, 12, 2, 0, 0,
+      0, 11, 73, 68, 65, 84, 120, 218, 99, 100, 248, 15, 0, 1, 5, 1, 1,
+      39, 24, 227, 102, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130,
+    ]);
+    const document = PptxDocument.create();
+    const layout = await document.defineSlideMaster({
+      title: 'ROOT-PLACEHOLDERS',
+      objects: [
+        {
+          kind: 'placeholder',
+          text: 'Title prompt',
+          options: { name: 'root_title', type: 'title', index: 101 },
+        },
+        {
+          kind: 'placeholder',
+          text: 'Picture prompt',
+          options: { name: 'root_picture', type: 'pic', index: 102 },
+        },
+        {
+          kind: 'placeholder',
+          text: 'Chart prompt',
+          options: { name: 'root_chart', type: placeholderType, index: 103 },
+        },
+      ],
+    });
+    const slide = document.addSlide({ masterName: layout.name });
+    slide.addText('Root title', { placeholder: 'root_title' });
+    await document.addImage(0, png, {
+      contentType: 'image/png',
+      placeholder: pictureSelector,
+    });
+    await document.addChart(0, 'bar', [{
+      name: 'Revenue',
+      categories: ['Q1', 'Q2'],
+      values: [10, 20],
+    }], { placeholder: 'root_chart' });
+
+    expect(PLACEHOLDER_TYPES).toEqual(['title', 'body', 'pic', 'chart', 'tbl', 'media']);
+    expect(slide.relationships.find(({ type }) => type.endsWith('/slideLayout')))
+      .toMatchObject({ resolvedTarget: layout.partUri });
+    expect(slide.shapes.map(({ placeholder }) => placeholder)).toEqual([
+      { type: 'title', index: 101 },
+      { type: 'pic', index: 102 },
+      { type: 'chart', index: 103 },
+    ]);
+
+    const reopened = await PptxDocument.open(await document.write());
+    expect(reopened.layouts.find(({ name }) => name === layout.name)).toBeInstanceOf(SlideLayoutModel);
+    expect(reopened.masters[0]).toBeInstanceOf(SlideMasterModel);
+    expect(reopened.slides[0]?.shapes.map(({ kind, placeholder }) => ({ kind, placeholder })))
+      .toEqual([
+        { kind: 'text', placeholder: { type: 'title', index: 101 } },
+        { kind: 'image', placeholder: { type: 'pic', index: 102 } },
+        { kind: 'chart', placeholder: { type: 'chart', index: 103 } },
+      ]);
+    expect((reopened.slides[0]?.shapes[2] as ChartModel).definition?.groups[0]?.type)
+      .toBe('bar');
   });
 
   it('exports transient slide default colors and materializes them through the root', async () => {

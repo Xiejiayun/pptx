@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 const tarball = resolve(process.argv[2] ?? '');
 if (!tarball.endsWith('.tgz')) throw new Error('Usage: node scripts/smoke-npm-package.mjs <package.tgz>');
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const placeholderTypes = ['title', 'body', 'pic', 'chart', 'tbl', 'media'];
 
 const directory = await mkdtemp(join(tmpdir(), 'jiayunxie-pptx-smoke-'));
 try {
@@ -51,7 +52,7 @@ try {
 
   await writeFile(
     join(directory, 'smoke.mjs'),
-    `import { CHART_TYPES, ChartModel, calculateImageSizing, chartWorkbookMatches, CustomGeometryEvaluationError, evaluateCustomGeometry, ImageModel, inches, inspectImage, inspectRasterImage, inspectSvgImage, MediaCodec, MediaModel, PRESET_SHAPE_TYPES, PptxDocument, ShapeModel, TableModel, GradientCodec, importPptxGenJS, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
+    `import { CHART_TYPES, ChartModel, calculateImageSizing, chartWorkbookMatches, CustomGeometryEvaluationError, evaluateCustomGeometry, ImageModel, inches, inspectImage, inspectRasterImage, inspectSvgImage, MediaCodec, MediaModel, PLACEHOLDER_TYPES, PRESET_SHAPE_TYPES, PptxDocument, ShapeModel, SlideLayoutModel, SlideMasterModel, TableModel, GradientCodec, importPptxGenJS, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
 const created = PptxDocument.create({ rtlMode: true });
 const slideNumberDeck = PptxDocument.create({ firstSlideNumber: 5 });
 const packedNumberSource = slideNumberDeck.addSlide();
@@ -2945,9 +2946,236 @@ const nativeCharts = reopenedNativeChartModels.length === 10
   && nativeChartDeck.opcPackage.hasPart(nativeComboPartUri)
   && reopenedNativeCharts.diagnostics.filter(({ code }) => code.startsWith('CHART_')).length === 0;
 await reopenedNativeCharts.writeFile('native-charts-smoke.pptx');
+const masterLayoutDeck = PptxDocument.create({ slideSize: 'wide', firstSlideNumber: 3 });
+const defaultMasterLayout = masterLayoutDeck.layouts[0];
+masterLayoutDeck.masters[0].background = {
+  kind: 'solid',
+  color: { kind: 'srgb', value: 'F3F6FA' },
+};
+const masterLayout = await masterLayoutDeck.defineSlideMaster({
+  title: 'PACKED-MASTER-LAYOUT',
+  background: { kind: 'image-source', source: packedFallbackPng },
+  margin: [inches(0.1), inches(0.2), inches(0.3), inches(0.4)],
+  slideNumber: { x: inches(12), y: inches(7), width: inches(0.8), height: inches(0.3) },
+  objects: [
+    {
+      kind: 'rect',
+      options: { x: inches(0.25), y: inches(0.2), width: inches(12.8), height: inches(0.08) },
+    },
+    {
+      kind: 'line',
+      options: { x: inches(0.5), y: inches(6.8), width: inches(11.8), height: 1 },
+    },
+    {
+      kind: 'text',
+      text: 'Packed master layout gallery',
+      options: { x: inches(9.4), y: inches(6.85), width: inches(2.4), height: inches(0.3) },
+    },
+    {
+      kind: 'placeholder',
+      text: 'Title prompt',
+      options: {
+        name: 'packed_title', type: 'title', index: 101,
+        x: inches(0.5), y: inches(0.4), width: inches(12.3), height: inches(0.6),
+      },
+    },
+    {
+      kind: 'placeholder',
+      text: 'Body prompt',
+      options: {
+        name: 'packed_body', type: 'body', index: 102,
+        x: inches(0.5), y: inches(1.2), width: inches(4), height: inches(0.8),
+      },
+    },
+    {
+      kind: 'placeholder',
+      text: 'Picture prompt',
+      options: {
+        name: 'packed_picture', type: 'pic', index: 103,
+        x: inches(0.5), y: inches(2.2), width: inches(3), height: inches(2),
+      },
+    },
+    {
+      kind: 'placeholder',
+      text: 'Chart prompt',
+      options: {
+        name: 'packed_chart', type: 'chart', index: 104,
+        x: inches(3.75), y: inches(2.2), width: inches(4), height: inches(2),
+      },
+    },
+    {
+      kind: 'placeholder',
+      text: 'Table prompt',
+      options: {
+        name: 'packed_table', type: 'tbl', index: 105,
+        x: inches(8), y: inches(2.2), width: inches(4.8), height: inches(2),
+      },
+    },
+    {
+      kind: 'placeholder',
+      text: 'Media prompt',
+      options: {
+        name: 'packed_media', type: 'media', index: 106,
+        x: inches(0.5), y: inches(4.6), width: inches(2.5), height: inches(1.4),
+      },
+    },
+    {
+      kind: 'image',
+      source: packedFallbackPng,
+      options: {
+        name: 'Packed layout image object',
+        x: inches(3.4), y: inches(4.8), width: inches(1), height: inches(1),
+      },
+    },
+    {
+      kind: 'chart',
+      groups: [{
+        type: 'line',
+        series: [{ name: 'Layout trend', categories: ['Q1', 'Q2'], values: [8, 12] }],
+      }],
+      options: {
+        name: 'Packed layout chart object',
+        x: inches(4.8), y: inches(4.6), width: inches(3), height: inches(1.5),
+      },
+    },
+  ],
+});
+const masterLayoutMargin = masterLayout.margin;
+const masterLayoutSlide = masterLayoutDeck.addSlide({ masterName: masterLayout.name });
+masterLayoutSlide.addText('Packed master/layout support', { placeholder: 'packed_title' });
+masterLayoutSlide.addRichText([{
+  runs: [
+    { text: 'All six ', style: { bold: true } },
+    { text: 'placeholder domains are populated.' },
+  ],
+}], { placeholder: { type: 'body', index: 102 } });
+await masterLayoutDeck.addImage(0, packedFallbackPng, {
+  placeholder: { type: 'pic', index: 103 },
+});
+const masterLayoutChart = await masterLayoutDeck.addChart(0, 'bar', [{
+  name: 'Revenue', categories: ['Q1', 'Q2'], values: [10, 20],
+}], { placeholder: 'packed_chart' });
+masterLayoutSlide.addTable([
+  ['Quarter', 'Revenue'],
+  ['Q1', '10'],
+  ['Q2', '20'],
+], { placeholder: { type: 'tbl', index: 105 } });
+await masterLayoutDeck.addAudio(0, Uint8Array.of(1, 2, 3, 4), {
+  placeholder: 'packed_media',
+  contentType: 'audio/mpeg',
+  poster: packedFallbackPng,
+  posterContentType: 'image/png',
+});
+const masterLayoutLiveIdentity = masterLayout instanceof SlideLayoutModel &&
+  masterLayoutDeck.masters[0] instanceof SlideMasterModel &&
+  masterLayoutDeck.layouts.find(({ partUri }) => partUri === masterLayout.partUri) === masterLayout &&
+  masterLayoutDeck.masters[0].layouts.some((layout) => layout === masterLayout);
+const masterLayoutSelectedTarget = masterLayoutSlide.relationships.find(
+  ({ type }) => type.endsWith('/slideLayout'),
+)?.resolvedTarget;
+const lifecycleLayout = await masterLayoutDeck.defineSlideMaster({
+  title: 'PACKED-LIFECYCLE',
+  objects: [{ kind: 'text', text: 'Lifecycle original' }],
+});
+const lifecycleSlide = masterLayoutDeck.addSlide({ masterName: lifecycleLayout.name });
+await masterLayoutDeck.replaceSlideMaster(lifecycleLayout, {
+  title: 'PACKED-LIFECYCLE-REPLACED',
+  background: { kind: 'solid', color: { kind: 'srgb', value: 'DDEBF7' } },
+  objects: [{ kind: 'text', text: 'Lifecycle replacement' }],
+});
+const masterLayoutReplaced = lifecycleLayout.name === 'PACKED-LIFECYCLE-REPLACED' &&
+  lifecycleLayout.background?.kind === 'solid' && lifecycleLayout.shapes.length === 1;
+masterLayoutDeck.deleteSlideMaster(lifecycleLayout, defaultMasterLayout);
+const masterLayoutRetargeted = lifecycleSlide.relationships.find(
+  ({ type }) => type.endsWith('/slideLayout'),
+)?.resolvedTarget === defaultMasterLayout.partUri &&
+  !masterLayoutDeck.layouts.includes(lifecycleLayout);
+const reopenedMasterLayoutDeck = await PptxDocument.open(await masterLayoutDeck.write());
+await reopenedMasterLayoutDeck.write({ compatibility: 'powerpoint-2010' });
+const reopenedMasterLayout = reopenedMasterLayoutDeck.layouts.find(
+  ({ name }) => name === 'PACKED-MASTER-LAYOUT',
+);
+const reopenedMasterLayoutSlide = reopenedMasterLayoutDeck.slides[0];
+const reopenedMasterLayoutChart = reopenedMasterLayoutSlide.shapes.find(
+  (shape) => shape instanceof ChartModel,
+);
+const masterLayoutWorkbookMatches = reopenedMasterLayoutChart instanceof ChartModel &&
+  reopenedMasterLayoutChart.workbookPartUri !== undefined &&
+  await chartWorkbookMatches(
+    reopenedMasterLayoutDeck.opcPackage.requirePart(
+      reopenedMasterLayoutChart.workbookPartUri,
+    ).bytes,
+    reopenedMasterLayoutChart.definition,
+    reopenedMasterLayoutChart.xml,
+  );
+const masterLayoutDependencyOrphans = reopenedMasterLayoutDeck.opcPackage.parts
+  .filter(({ contentType }) =>
+    contentType.startsWith('image/') || contentType.startsWith('audio/') ||
+    contentType.startsWith('video/') ||
+    contentType === 'application/vnd.openxmlformats-officedocument.drawingml.chart+xml' ||
+    contentType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  .filter(({ uri }) =>
+    (reopenedMasterLayoutDeck.opcPackage.graph.find((node) => node.uri === uri)?.incoming.length ?? 0) === 0);
+const masterLayoutOwnerIdsUnique = [
+  ...reopenedMasterLayoutDeck.masters,
+  ...reopenedMasterLayoutDeck.layouts,
+  ...reopenedMasterLayoutDeck.slides,
+].every((owner) => {
+  const ids = owner.shapes.map(({ id }) => id);
+  return new Set(ids).size === ids.length;
+});
+const masterLayoutChecks = {
+  liveIdentity: masterLayoutLiveIdentity,
+  replaced: masterLayoutReplaced,
+  retargeted: masterLayoutRetargeted,
+  selected: masterLayoutSelectedTarget === masterLayout.partUri,
+  types: PLACEHOLDER_TYPES.join(',') === 'title,body,pic,chart,tbl,media',
+  margin: masterLayoutMargin?.top === inches(0.1) &&
+    masterLayoutMargin.right === inches(0.2) &&
+    masterLayoutMargin.bottom === inches(0.3) && masterLayoutMargin.left === inches(0.4),
+  liveChart: masterLayoutChart.placeholder?.type === 'chart',
+  layoutClass: reopenedMasterLayout instanceof SlideLayoutModel,
+  masterClass: reopenedMasterLayoutDeck.masters[0] instanceof SlideMasterModel,
+  transientMargin: reopenedMasterLayout.margin === undefined,
+  layoutBackground: reopenedMasterLayout.background?.kind === 'image',
+  masterBackground: reopenedMasterLayoutDeck.masters[0].background?.kind === 'solid',
+  layoutPlaceholders: reopenedMasterLayout.placeholders
+    .map(({ placeholder }) => placeholder?.type).join(',') === PLACEHOLDER_TYPES.join(','),
+  slidePlaceholders: reopenedMasterLayoutSlide.placeholders
+    .map(({ placeholder }) => placeholder?.type).join(',') === PLACEHOLDER_TYPES.join(','),
+  slideKinds: reopenedMasterLayoutSlide.shapes.slice(0, 6)
+    .map(({ kind }) => kind).join(',') === 'text,text,image,chart,table,audio',
+  slideTargets: reopenedMasterLayoutDeck.slides[0].relationships.some(
+    ({ type, resolvedTarget }) =>
+      type.endsWith('/slideLayout') && resolvedTarget === reopenedMasterLayout.partUri,
+  ) && reopenedMasterLayoutDeck.slides[1].relationships.some(
+    ({ type, resolvedTarget }) =>
+      type.endsWith('/slideLayout') && resolvedTarget === defaultMasterLayout.partUri,
+  ),
+  chartClass: reopenedMasterLayoutChart instanceof ChartModel,
+  chartDefinition: reopenedMasterLayoutChart?.definition?.groups[0]?.type === 'bar',
+  chartWorkbook: masterLayoutWorkbookMatches,
+  noOrphans: masterLayoutDependencyOrphans.length === 0,
+  uniqueIds: masterLayoutOwnerIdsUnique,
+  validation: reopenedMasterLayoutDeck.diagnostics
+    .filter(({ severity }) => severity === 'error').length === 0,
+};
+const masterLayouts = Object.values(masterLayoutChecks).every(Boolean);
+if (!masterLayouts) throw new Error(JSON.stringify({
+  masterLayoutChecks,
+  layoutPlaceholderTypes: reopenedMasterLayout.placeholders
+    .map(({ placeholder }) => placeholder?.type),
+  slidePlaceholderTypes: reopenedMasterLayoutSlide.placeholders
+    .map(({ placeholder }) => placeholder?.type),
+  slideKinds: reopenedMasterLayoutSlide.shapes.map(({ kind }) => kind),
+  dependencyOrphans: masterLayoutDependencyOrphans.map(({ uri }) => uri),
+  diagnostics: reopenedMasterLayoutDeck.diagnostics,
+}));
+await reopenedMasterLayoutDeck.writeFile('master-layout-smoke.pptx');
 const checks = {
   slideNumbers,
   slideDefaultColor,
+  masterLayouts,
   PptxDocument: typeof PptxDocument === 'function',
   presetShapes,
   customGeometryPaths,
@@ -4241,9 +4469,12 @@ process.stdout.write(resolved);
   degrees,
   evaluateCustomGeometry,
   ImageModel,
+  PLACEHOLDER_TYPES,
   PRESET_SHAPE_TYPES,
   PptxDocument,
   ShapeModel,
+  SlideLayoutModel,
+  SlideMasterModel,
   TableModel,
   inches,
   type AddCustomShapeOptions,
@@ -4297,6 +4528,9 @@ process.stdout.write(resolved);
   type MediaModel,
   type MediaPlaybackSettings,
   type MediaSource,
+  type DefineSlideMasterOptions,
+  type PlaceholderSelector,
+  type PlaceholderType,
   type ReplaceMediaPosterOptions,
   type ReplaceMediaSourceOptions,
   type ResolvedImageSource,
@@ -4316,6 +4550,8 @@ process.stdout.write(resolved);
   type SvgImageContentType,
   type SvgImageInfo,
   type SlideModel,
+  type SlideMasterMargin,
+  type SlideMasterObject,
   type SlideNumber,
   type SlideNumberColor,
   type SlideNumberMarginInput,
@@ -4376,6 +4612,54 @@ process.stdout.write(resolved);
 
 const documentPromise: Promise<PptxDocument> = PptxDocument.open(new Uint8Array());
 const createdDocument: PptxDocument = PptxDocument.create({ format: 'pptx', slideSize: 'wide' });
+const typedPlaceholderType: PlaceholderType = PLACEHOLDER_TYPES[3];
+const typedPlaceholderName: PlaceholderSelector = 'typed_title';
+const typedPlaceholderIdentity: PlaceholderSelector = { type: 'pic', index: 102 };
+const typedMasterObjects: readonly SlideMasterObject[] = [
+  {
+    kind: 'placeholder',
+    text: 'Typed title',
+    options: { name: 'typed_title', type: 'title', index: 101 },
+  },
+  {
+    kind: 'placeholder',
+    text: 'Typed picture',
+    options: { name: 'typed_picture', type: 'pic', index: 102 },
+  },
+  {
+    kind: 'placeholder',
+    text: 'Typed chart',
+    options: { name: 'typed_chart', type: typedPlaceholderType, index: 103 },
+  },
+];
+const typedMasterDefinition: DefineSlideMasterOptions = {
+  title: 'TYPED-MASTER',
+  margin: inches(0.25),
+  objects: typedMasterObjects,
+};
+const typedMasterDocument = PptxDocument.create();
+const typedMasterWrite: Promise<Uint8Array> = typedMasterDocument
+  .defineSlideMaster(typedMasterDefinition)
+  .then(async (layout: SlideLayoutModel) => {
+    const master: SlideMasterModel = typedMasterDocument.masters[0];
+    const margin: Readonly<SlideMasterMargin> | undefined = layout.margin;
+    const masterLayouts: readonly SlideLayoutModel[] = master.layouts;
+    const layoutShapes = layout.shapes;
+    const masterShapes = master.shapes;
+    const slide = typedMasterDocument.addSlide({ masterName: layout.name });
+    slide.addText('Typed title value', { placeholder: typedPlaceholderName });
+    await typedMasterDocument.addImage(0, Uint8Array.of(137, 80, 78, 71), {
+      contentType: 'image/png',
+      placeholder: typedPlaceholderIdentity,
+    });
+    await typedMasterDocument.addChart(0, 'bar', [{
+      name: 'Typed revenue',
+      categories: ['Q1'],
+      values: [1],
+    }], { placeholder: 'typed_chart' });
+    void [margin, masterLayouts, layoutShapes, masterShapes];
+    return typedMasterDocument.write();
+  });
 const typedDefaultColor: RichTextColor = { kind: 'scheme', value: 'accent1' };
 const typedDefaultColorSlide = createdDocument.addSlide();
 typedDefaultColorSlide.color = typedDefaultColor;
@@ -5289,7 +5573,7 @@ void [typedPreset, typedNoneShapeFill, typedSolidShapeFill, typedShapeOptions, t
   typedShapeShadowRead, invalidMissingShapeShadowKind, invalidNoneShapeShadowKind,
   invalidInnerShapeShadowRotate, invalidShapeShadowOffset, invalidShapeShadowType,
   invalidUnknownShapeShadow, invalidShapeShadowFieldType];
-void [documentPromise, createdDocument, typedChartDefinition, typedChartPromise,
+void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, typedChartPromise,
   typedChartDiagnostics, typedChartWorkbookCheck, invalidChartType, invalidChartAxis,
   invalidChartValues, typedSimpleBackground, typedImageBackground, typedSlideBackground,
   typedSlideBackgroundOptions, typedBackgroundSlide, typedBackgroundPromise,
@@ -5322,6 +5606,84 @@ void [documentPromise, createdDocument, typedChartDefinition, typedChartPromise,
   const cliResult = run(bin, ['--json', 'doctor'], directory);
   const doctor = JSON.parse(cliResult.stdout);
   if (!doctor.ok || doctor.data?.version !== '0.1.0') throw new Error(`CLI smoke failed: ${cliResult.stdout}`);
+  const masterLayoutDeckPath = join(directory, 'master-layout-smoke.pptx');
+  const masterLayoutInspectResult = run(
+    bin,
+    ['--json', 'package', 'inspect', masterLayoutDeckPath],
+    directory,
+  );
+  const masterLayoutInspected = JSON.parse(masterLayoutInspectResult.stdout);
+  const masterLayoutContentTypes = masterLayoutInspected.data?.contentTypes ?? {};
+  if (!masterLayoutInspected.ok ||
+      masterLayoutContentTypes[
+        'application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml'
+      ] !== 1 ||
+      masterLayoutContentTypes[
+        'application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml'
+      ] !== 2 ||
+      masterLayoutContentTypes[
+        'application/vnd.openxmlformats-officedocument.presentationml.slide+xml'
+      ] !== 2 ||
+      masterLayoutContentTypes[
+        'application/vnd.openxmlformats-officedocument.drawingml.chart+xml'
+      ] !== 2 ||
+      masterLayoutContentTypes[
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      ] !== 2) {
+    throw new Error(`CLI master-layout inspect failed: ${masterLayoutInspectResult.stdout}`);
+  }
+  const masterLayoutValidateResult = run(
+    bin,
+    ['--json', 'package', 'validate', masterLayoutDeckPath, '--profile', 'powerpoint-2010'],
+    directory,
+  );
+  const masterLayoutValidated = JSON.parse(masterLayoutValidateResult.stdout);
+  if (!masterLayoutValidated.ok || !masterLayoutValidated.data?.valid ||
+      masterLayoutValidated.data.errorCount !== 0 ||
+      masterLayoutValidated.data.warningCount !== 0) {
+    throw new Error(`CLI master-layout validation failed: ${masterLayoutValidateResult.stdout}`);
+  }
+  const masterLayoutSlidesResult = run(
+    bin,
+    ['--json', 'slides', 'list', masterLayoutDeckPath],
+    directory,
+  );
+  const masterLayoutSlides = JSON.parse(masterLayoutSlidesResult.stdout);
+  if (!masterLayoutSlides.ok || masterLayoutSlides.data?.length !== 2 ||
+      masterLayoutSlides.data[0]?.shapeCount !== 7 ||
+      masterLayoutSlides.data[1]?.shapeCount !== 0) {
+    throw new Error(`CLI master-layout slide listing failed: ${masterLayoutSlidesResult.stdout}`);
+  }
+  const masterLayoutPart = (uri) => JSON.parse(run(
+    bin,
+    ['--json', 'part', 'read', masterLayoutDeckPath, uri],
+    directory,
+  ).stdout).data?.content ?? '';
+  const masterLayoutLayoutXml = masterLayoutPart('/ppt/slideLayouts/slideLayout2.xml');
+  const masterLayoutMasterXml = masterLayoutPart('/ppt/slideMasters/slideMaster1.xml');
+  const masterLayoutSlideXml = masterLayoutPart(masterLayoutSlides.data[0].partUri);
+  if (!masterLayoutLayoutXml.includes('name="PACKED-MASTER-LAYOUT"') ||
+      !placeholderTypes.every((type) => masterLayoutLayoutXml.includes('type="' + type + '"')) ||
+      !masterLayoutMasterXml.includes('sldNum="1"') ||
+      !masterLayoutSlideXml.includes('Packed master/layout support') ||
+      !placeholderTypes.every((type) => masterLayoutSlideXml.includes('type="' + type + '"'))) {
+    throw new Error('CLI master-layout part inspection failed');
+  }
+  const masterLayoutDiffResult = run(
+    bin,
+    [
+      '--json', 'package', 'diff', masterLayoutDeckPath,
+      join(directory, 'slide-number-smoke.pptx'),
+    ],
+    directory,
+  );
+  const masterLayoutDiff = JSON.parse(masterLayoutDiffResult.stdout);
+  if (!masterLayoutDiff.ok ||
+      (masterLayoutDiff.data?.added?.length ?? 0) +
+        (masterLayoutDiff.data?.removed?.length ?? 0) +
+        (masterLayoutDiff.data?.changed?.length ?? 0) === 0) {
+    throw new Error(`CLI master-layout diff failed: ${masterLayoutDiffResult.stdout}`);
+  }
   const svgDeckPath = join(directory, 'svg-smoke.pptx');
   const inspectResult = run(bin, ['--json', 'package', 'inspect', svgDeckPath], directory);
   const inspected = JSON.parse(inspectResult.stdout);
@@ -5565,9 +5927,14 @@ void [documentPromise, createdDocument, typedChartDefinition, typedChartPromise,
     await mkdir(dirname(galleryOutput), { recursive: true });
     await writeFile(galleryOutput, await readFile(slideDefaultColorDeckPath));
   }
+  if (process.env.PPTX_MASTER_LAYOUT_GALLERY_OUT) {
+    const galleryOutput = resolve(process.env.PPTX_MASTER_LAYOUT_GALLERY_OUT);
+    await mkdir(dirname(galleryOutput), { recursive: true });
+    await writeFile(galleryOutput, await readFile(masterLayoutDeckPath));
+  }
 
   process.stdout.write(
-    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, slideNumbers: apiChecks.slideNumbers, slideDefaultColor: apiChecks.slideDefaultColor, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, slideBackgrounds: apiChecks.slideBackgrounds, types: true, cli: doctor.data.version, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true, slideBackgroundInspect: true, slideBackgroundValidate: true, slideNumberInspect: true, slideNumberValidate: true, slideNumberSlides: true, slideNumberPartRead: true, slideDefaultColorInspect: true, slideDefaultColorValidate: true, slideDefaultColorSlides: true, slideDefaultColorPartRead: true })}\n`,
+    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, masterLayouts: apiChecks.masterLayouts, slideNumbers: apiChecks.slideNumbers, slideDefaultColor: apiChecks.slideDefaultColor, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, slideBackgrounds: apiChecks.slideBackgrounds, types: true, cli: doctor.data.version, masterLayoutInspect: true, masterLayoutValidate: true, masterLayoutSlides: true, masterLayoutPartRead: true, masterLayoutDiff: true, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true, slideBackgroundInspect: true, slideBackgroundValidate: true, slideNumberInspect: true, slideNumberValidate: true, slideNumberSlides: true, slideNumberPartRead: true, slideDefaultColorInspect: true, slideDefaultColorValidate: true, slideDefaultColorSlides: true, slideDefaultColorPartRead: true })}\n`,
   );
 } finally {
   await rm(directory, { recursive: true, force: true });

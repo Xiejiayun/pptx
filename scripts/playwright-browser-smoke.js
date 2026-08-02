@@ -1,4 +1,19 @@
 async (page) => {
+  const consoleErrors = [];
+  const pageErrors = [];
+  const networkErrors = [];
+  const onConsole = (message) => {
+    if (message.type() === 'error') consoleErrors.push(message.text());
+  };
+  const onPageError = (error) => pageErrors.push(error.message);
+  const onRequestFailed = (request) => networkErrors.push(request.url());
+  const onResponse = (response) => {
+    if (response.status() >= 400) networkErrors.push(`${response.status()} ${response.url()}`);
+  };
+  page.on('console', onConsole);
+  page.on('pageerror', onPageError);
+  page.on('requestfailed', onRequestFailed);
+  page.on('response', onResponse);
   const result = await page.evaluate(
     async ({ moduleUrl, base64 }) => {
       const binary = atob(base64);
@@ -79,6 +94,158 @@ async (page) => {
         diagnostics: reopenedSlideNumbers.diagnostics
           .filter(({ code }) => code.startsWith('SLIDE_NUMBER_'))
           .map(({ code }) => code),
+      };
+      const browserMasterPngBytes = Uint8Array.from([
+        137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82,
+        0, 0, 0, 1, 0, 0, 0, 1, 8, 4, 0, 0, 0, 181, 28, 12, 2, 0, 0,
+        0, 11, 73, 68, 65, 84, 120, 218, 99, 100, 248, 15, 0, 1, 5, 1, 1,
+        39, 24, 227, 102, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130,
+      ]);
+      const browserMasterPngDataUri =
+        'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwC'
+        + 'AAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+      const masterLayoutDocument = api.PptxDocument.create({ slideSize: 'wide' });
+      masterLayoutDocument.masters[0].background = {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'F3F6FA' },
+      };
+      const browserMasterLayout = await masterLayoutDocument.defineSlideMaster({
+        title: 'BROWSER-MASTER-LAYOUT',
+        background: {
+          kind: 'image-source',
+          source: new Blob([browserMasterPngBytes], { type: 'image/png' }),
+        },
+        margin: [api.inches(0.1), api.inches(0.2), api.inches(0.3), api.inches(0.4)],
+        objects: [
+          {
+            kind: 'placeholder', text: 'Title prompt',
+            options: { name: 'browser_title', type: 'title', index: 101 },
+          },
+          {
+            kind: 'placeholder', text: 'Body prompt',
+            options: { name: 'browser_body', type: 'body', index: 102 },
+          },
+          {
+            kind: 'placeholder', text: 'Picture prompt',
+            options: { name: 'browser_picture', type: 'pic', index: 103 },
+          },
+          {
+            kind: 'placeholder', text: 'Chart prompt',
+            options: { name: 'browser_chart', type: 'chart', index: 104 },
+          },
+          {
+            kind: 'placeholder', text: 'Table prompt',
+            options: { name: 'browser_table', type: 'tbl', index: 105 },
+          },
+          {
+            kind: 'placeholder', text: 'Media prompt',
+            options: { name: 'browser_media', type: 'media', index: 106 },
+          },
+          {
+            kind: 'image',
+            source: browserMasterPngDataUri,
+            options: { name: 'Browser layout image', width: api.inches(1), height: api.inches(1) },
+          },
+        ],
+      });
+      const browserMasterMargin = browserMasterLayout.margin;
+      const browserMasterLiveIdentity =
+        browserMasterLayout instanceof api.SlideLayoutModel
+        && masterLayoutDocument.masters[0] instanceof api.SlideMasterModel
+        && masterLayoutDocument.layouts.find(
+          ({ partUri }) => partUri === browserMasterLayout.partUri,
+        ) === browserMasterLayout
+        && masterLayoutDocument.masters[0].layouts.some(
+          (layout) => layout === browserMasterLayout,
+        );
+      const browserMasterSlide = masterLayoutDocument.addSlide({
+        masterName: browserMasterLayout.name,
+      });
+      browserMasterSlide.addText('Browser master layout', { placeholder: 'browser_title' });
+      browserMasterSlide.addRichText([{
+        runs: [{ text: 'Browser ', style: { bold: true } }, { text: 'placeholder body' }],
+      }], { placeholder: { type: 'body', index: 102 } });
+      await masterLayoutDocument.addImage(0, browserMasterPngBytes, {
+        contentType: 'image/png',
+        placeholder: { type: 'pic', index: 103 },
+      });
+      await masterLayoutDocument.addChart(0, 'bar', [{
+        name: 'Revenue', categories: ['Q1', 'Q2'], values: [10, 20],
+      }], { placeholder: 'browser_chart' });
+      browserMasterSlide.addTable([
+        ['Quarter', 'Revenue'],
+        ['Q1', '10'],
+      ], { placeholder: { type: 'tbl', index: 105 } });
+      await masterLayoutDocument.addAudio(0, 'data:audio/mpeg;base64,AQIDBA==', {
+        placeholder: 'browser_media',
+        poster: browserMasterPngBytes,
+        posterContentType: 'image/png',
+      });
+      const browserMasterSelectedTarget = browserMasterSlide.relationships.find(
+        ({ type }) => type.endsWith('/slideLayout'),
+      )?.resolvedTarget;
+      const browserMasterOutput = await masterLayoutDocument.writeBlob();
+      const reopenedMasterLayoutDocument = await api.PptxDocument.open(browserMasterOutput);
+      await reopenedMasterLayoutDocument.write({ compatibility: 'powerpoint-current' });
+      const reopenedBrowserMasterLayout = reopenedMasterLayoutDocument.layouts.find(
+        ({ name }) => name === 'BROWSER-MASTER-LAYOUT',
+      );
+      const reopenedBrowserMasterSlide = reopenedMasterLayoutDocument.slides[0];
+      const reopenedBrowserMasterImage = reopenedBrowserMasterSlide.shapes.find(
+        (shape) => shape instanceof api.ImageModel,
+      );
+      const reopenedBrowserMasterChart = reopenedBrowserMasterSlide.shapes.find(
+        (shape) => shape instanceof api.ChartModel,
+      );
+      const reopenedBrowserMasterMedia = reopenedBrowserMasterSlide.shapes.find(
+        (shape) => shape instanceof api.MediaModel,
+      );
+      const hashBytes = async (value) => Array.from(
+        new Uint8Array(await crypto.subtle.digest('SHA-256', value)),
+        (byte) => byte.toString(16).padStart(2, '0'),
+      ).join('');
+      const masterLayoutState = {
+        mime: browserMasterOutput.type,
+        liveWrapperIdentity: browserMasterLiveIdentity,
+        layoutNames: reopenedMasterLayoutDocument.layouts.map(({ name }) => name),
+        backgroundKinds: {
+          master: reopenedMasterLayoutDocument.masters[0].background?.kind,
+          layout: reopenedBrowserMasterLayout.background?.kind,
+        },
+        marginBeforeWrite: browserMasterMargin,
+        placeholderTypes: [...api.PLACEHOLDER_TYPES],
+        layoutPlaceholders: reopenedBrowserMasterLayout.placeholders.map(
+          ({ name, placeholder }) => ({ name, placeholder }),
+        ),
+        slidePlaceholders: reopenedBrowserMasterSlide.placeholders.map(
+          ({ name, kind, placeholder }) => ({ name, kind, placeholder }),
+        ),
+        selectedTargets: [
+          browserMasterSelectedTarget,
+          reopenedBrowserMasterSlide.relationships.find(
+            ({ type }) => type.endsWith('/slideLayout'),
+          )?.resolvedTarget,
+        ],
+        reopenedMargin: reopenedBrowserMasterLayout.margin ?? null,
+        payloadHashes: {
+          background: await hashBytes(reopenedBrowserMasterLayout.background.bytes),
+          image: await hashBytes(reopenedMasterLayoutDocument.opcPackage.requirePart(
+            reopenedBrowserMasterImage.sourcePartUri,
+          ).bytes),
+          media: await hashBytes(reopenedMasterLayoutDocument.opcPackage.requirePart(
+            reopenedBrowserMasterMedia.mediaPartUri,
+          ).bytes),
+        },
+        chartDefinition: reopenedBrowserMasterChart.definition.groups.map(
+          ({ type, axis, series }) => ({
+            type,
+            axis,
+            series: series.map(({ name, categories, values }) => ({ name, categories, values })),
+          }),
+        ),
+        validationErrors: reopenedMasterLayoutDocument.diagnostics.filter(
+          ({ severity }) => severity === 'error',
+        ).length,
       };
       const slideDefaultColorDocument = api.PptxDocument.create();
       const slideDefaultColorSource = slideDefaultColorDocument.addSlide();
@@ -491,6 +658,7 @@ async (page) => {
         smartArt: typeof api.smartArt.SmartArtDiagramCodec,
         blobInputTitle: fromBlob.slides[0].title.text,
         slideNumbers: slideNumberState,
+        masterLayouts: masterLayoutState,
         slideDefaultColor: slideDefaultColorState,
         svgCreatedLive: svgDocument.slides[0].shapes.includes(blobSvg)
           && svgDocument.slides[0].shapes.includes(dataSvg),
@@ -550,6 +718,15 @@ async (page) => {
     },
   );
   result.downloadFileName = (await downloadPromise).suggestedFilename();
+  result.errorCounts = {
+    console: consoleErrors.length,
+    page: pageErrors.length,
+    network: networkErrors.length,
+  };
+  page.off('console', onConsole);
+  page.off('pageerror', onPageError);
+  page.off('requestfailed', onRequestFailed);
+  page.off('response', onResponse);
   const expected = {
     format: 'pptx',
     title: 'Browser updated',
@@ -593,6 +770,46 @@ async (page) => {
       masterEnabled: true,
       ownerCounts: [1, 1, 1, 1],
       diagnostics: [],
+    },
+    masterLayouts: {
+      mime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      liveWrapperIdentity: true,
+      layoutNames: ['DEFAULT', 'BROWSER-MASTER-LAYOUT'],
+      backgroundKinds: { master: 'solid', layout: 'image' },
+      marginBeforeWrite: { top: 91440, right: 182880, bottom: 274320, left: 365760 },
+      placeholderTypes: ['title', 'body', 'pic', 'chart', 'tbl', 'media'],
+      layoutPlaceholders: [
+        { name: 'browser_title', placeholder: { type: 'title', index: 101 } },
+        { name: 'browser_body', placeholder: { type: 'body', index: 102 } },
+        { name: 'browser_picture', placeholder: { type: 'pic', index: 103 } },
+        { name: 'browser_chart', placeholder: { type: 'chart', index: 104 } },
+        { name: 'browser_table', placeholder: { type: 'tbl', index: 105 } },
+        { name: 'browser_media', placeholder: { type: 'media', index: 106 } },
+      ],
+      slidePlaceholders: [
+        { name: 'browser_title', kind: 'text', placeholder: { type: 'title', index: 101 } },
+        { name: 'browser_body', kind: 'text', placeholder: { type: 'body', index: 102 } },
+        { name: 'browser_picture', kind: 'image', placeholder: { type: 'pic', index: 103 } },
+        { name: 'browser_chart', kind: 'chart', placeholder: { type: 'chart', index: 104 } },
+        { name: 'browser_table', kind: 'table', placeholder: { type: 'tbl', index: 105 } },
+        { name: 'browser_media', kind: 'audio', placeholder: { type: 'media', index: 106 } },
+      ],
+      selectedTargets: [
+        '/ppt/slideLayouts/slideLayout2.xml',
+        '/ppt/slideLayouts/slideLayout2.xml',
+      ],
+      reopenedMargin: null,
+      payloadHashes: {
+        background: '431ced6916a2a21a156e38701afe55bbd7f88969fbbfc56d7fe099d47f265460',
+        image: '431ced6916a2a21a156e38701afe55bbd7f88969fbbfc56d7fe099d47f265460',
+        media: '9f64a747e1b97f131fabb6b447296c9b6f0201e79fb3c5356e6c77e89b6a806a',
+      },
+      chartDefinition: [{
+        type: 'bar',
+        axis: 'primary',
+        series: [{ name: 'Revenue', categories: ['Q1', 'Q2'], values: [10, 20] }],
+      }],
+      validationErrors: 0,
     },
     slideDefaultColor: {
       mime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
@@ -689,6 +906,7 @@ async (page) => {
     mediaTargetIsolation: true,
     mediaOrphanCount: 0,
     downloadFileName: 'browser-smoke.pptx',
+    errorCounts: { console: 0, page: 0, network: 0 },
   };
   if (JSON.stringify(result) !== JSON.stringify(expected)) {
     throw new Error(`Browser smoke mismatch: ${JSON.stringify(result)}`);
