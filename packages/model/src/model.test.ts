@@ -6609,6 +6609,296 @@ describe('PresentationModel', () => {
     expect(inheritedShape.adjustments).toEqual([]);
   });
 
+  it('creates and edits strict text box state independently from text shape content', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const omittedSlide = model.addSlide();
+    const undefinedSlide = model.addSlide();
+    const omitted = omittedSlide.addText('Same text box state');
+    const explicitUndefined = undefinedSlide.addText('Same text box state', {
+      isTextBox: undefined,
+    } as never);
+    expect(omitted.isTextBox).toBe(false);
+    expect(explicitUndefined.isTextBox).toBe(false);
+    expect(pkg.requirePart(undefinedSlide.partUri).bytes).toEqual(
+      pkg.requirePart(omittedSlide.partUri).bytes,
+    );
+
+    const slide = model.addSlide();
+    const explicitFalse = slide.addText('Shape text', {
+      name: 'Explicit false text box',
+      isTextBox: false,
+    });
+    const explicitTrue = slide.addText('Text box', {
+      name: 'Explicit true text box',
+      isTextBox: true,
+    });
+    const rich = slide.addRichText([{
+      runs: [
+        { text: 'Rich', style: { hyperlink: { url: 'https://run.example' } } },
+        { text: ' text box' },
+      ],
+    }], {
+      name: 'Combined text box state',
+      isTextBox: true,
+      shape: 'roundRect',
+      rectRadius: inches(0.25),
+      x: inches(1),
+      y: inches(2),
+      width: inches(4),
+      height: inches(2),
+      fill: { kind: 'solid', color: { kind: 'scheme', value: 'accent2' } },
+      line: {
+        kind: 'line',
+        color: { kind: 'srgb', value: '123ABC' },
+        width: 2,
+        dash: 'dashDot',
+      },
+      arrows: { begin: 'oval', end: 'triangle' },
+      shadow: { kind: 'outer', opacity: 0.5 },
+      hyperlink: { url: 'https://shape.example', tooltip: 'Shape' },
+      margin: 0,
+      valign: 'bottom',
+      vert: 'vert',
+      fit: 'shrink',
+      wrap: false,
+    });
+    const placeholder = slide.addPlaceholder('Text box prompt', {
+      name: 'text_box_prompt',
+      type: 'title',
+      isTextBox: true,
+    });
+
+    expect(explicitFalse.isTextBox).toBe(false);
+    expect(explicitTrue.isTextBox).toBe(true);
+    expect(rich.isTextBox).toBe(true);
+    expect(placeholder.isTextBox).toBe(true);
+    const createdXml = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect(createdXml).toContain(
+      '<p:cNvPr id="2" name="Explicit false text box"/><p:cNvSpPr/>',
+    );
+    expect(createdXml).toContain(
+      '<p:cNvPr id="3" name="Explicit true text box"/><p:cNvSpPr txBox="1"/>',
+    );
+
+    let beforeNoOp = packageSnapshot(pkg);
+    explicitFalse.isTextBox = false;
+    expect(packageSnapshot(pkg)).toEqual(beforeNoOp);
+    beforeNoOp = packageSnapshot(pkg);
+    explicitTrue.isTextBox = true;
+    expect(packageSnapshot(pkg)).toEqual(beforeNoOp);
+
+    explicitFalse.isTextBox = true;
+    expect(explicitFalse.isTextBox).toBe(true);
+    explicitTrue.isTextBox = false;
+    expect(explicitTrue.isTextBox).toBe(false);
+    expect(slide.shapes[0]).toBe(explicitFalse);
+    expect(slide.shapes[1]).toBe(explicitTrue);
+
+    rich.presetType = 'hexagon';
+    rich.adjustments = [{ name: 'adj', value: 12_500 }];
+    rich.setTransform({ width: inches(5) });
+    rich.fill = { kind: 'solid', color: { kind: 'srgb', value: 'ABCDEF' } };
+    rich.line = { kind: 'none' };
+    rich.arrows = { begin: 'diamond', end: 'stealth' };
+    rich.shadow = { kind: 'inner', opacity: 0.25 };
+    rich.textMargins = 0;
+    rich.verticalAlignment = 'top';
+    rich.textDirection = 'vert270';
+    rich.textFit = 'resize';
+    rich.textWrap = true;
+    rich.text = 'Edited rich text box';
+    expect(rich.isTextBox).toBe(true);
+
+    const beforeToggle = {
+      presetType: rich.presetType,
+      adjustments: rich.adjustments,
+      transform: rich.transform,
+      fill: rich.fill,
+      line: rich.line,
+      arrows: rich.arrows,
+      shadow: rich.shadow,
+      hyperlink: rich.hyperlink,
+      margins: rich.textMargins,
+      verticalAlignment: rich.verticalAlignment,
+      direction: rich.textDirection,
+      fit: rich.textFit,
+      wrap: rich.textWrap,
+      text: rich.text,
+      placeholder: rich.placeholder,
+    };
+    rich.isTextBox = false;
+    expect(rich.isTextBox).toBe(false);
+    expect({
+      presetType: rich.presetType,
+      adjustments: rich.adjustments,
+      transform: rich.transform,
+      fill: rich.fill,
+      line: rich.line,
+      arrows: rich.arrows,
+      shadow: rich.shadow,
+      hyperlink: rich.hyperlink,
+      margins: rich.textMargins,
+      verticalAlignment: rich.verticalAlignment,
+      direction: rich.textDirection,
+      fit: rich.textFit,
+      wrap: rich.textWrap,
+      text: rich.text,
+      placeholder: rich.placeholder,
+    }).toEqual(beforeToggle);
+    rich.isTextBox = true;
+
+    const duplicate = model.duplicateSlide(model.slides.indexOf(slide));
+    const duplicateRich = duplicate.shapes.find(
+      ({ name }) => name === 'Combined text box state',
+    ) as ShapeModel;
+    expect(duplicateRich.isTextBox).toBe(true);
+    duplicateRich.isTextBox = false;
+    expect(duplicateRich.isTextBox).toBe(false);
+    expect(rich.isTextBox).toBe(true);
+    model.moveSlide(model.slides.indexOf(duplicate), 0);
+    expect(duplicateRich.isTextBox).toBe(false);
+
+    const beforeRollback = packageSnapshot(pkg);
+    expect(() => pkg.transaction(() => {
+      rich.isTextBox = false;
+      rich.presetType = 'triangle';
+      throw new Error('restore text box state');
+    })).toThrow('restore text box state');
+    expect(packageSnapshot(pkg)).toEqual(beforeRollback);
+    expect(rich.isTextBox).toBe(true);
+    expect(rich.presetType).toBe('hexagon');
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedSlide = reopened.slides.find(({ partUri }) => partUri === slide.partUri)!;
+    const reopenedRich = reopenedSlide.shapes.find(
+      ({ name }) => name === 'Combined text box state',
+    ) as ShapeModel;
+    expect(reopenedRich.isTextBox).toBe(true);
+    expect(reopenedRich.text).toBe('Edited rich text box');
+    expect(reopenedRich.presetType).toBe('hexagon');
+    expect(reopenedRich.adjustments).toEqual([{ name: 'adj', value: 12_500 }]);
+  });
+
+  it('rejects invalid text box creation and editing and repairs single malformed tokens', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const existing = slide.addText('Existing text box', { isTextBox: true });
+    let accessorCalls = 0;
+    const accessor = Object.defineProperty({}, 'isTextBox', {
+      enumerable: true,
+      get() {
+        accessorCalls += 1;
+        throw new Error('isTextBox getter must not run');
+      },
+    });
+    const invalid = [
+      '',
+      'true',
+      0,
+      1,
+      null,
+      {},
+      [],
+      new Boolean(true),
+      () => true,
+      Symbol('isTextBox'),
+    ];
+    for (const value of invalid) {
+      const before = packageSnapshot(pkg);
+      const shapes = slide.shapes;
+      expect(() => slide.addText('Invalid text box', { isTextBox: value } as never))
+        .toThrow(TypeError);
+      expect(packageSnapshot(pkg)).toEqual(before);
+      expect(slide.shapes).toEqual(shapes);
+      expect(slide.shapes[0]).toBe(existing);
+    }
+    const beforeAccessor = packageSnapshot(pkg);
+    expect(() => slide.addText('Accessor text box', accessor as never)).toThrow(TypeError);
+    expect(accessorCalls).toBe(0);
+    expect(packageSnapshot(pkg)).toEqual(beforeAccessor);
+
+    const inherited = Object.create({ isTextBox: true }) as Record<string, unknown>;
+    inherited.name = 'Inherited text box';
+    const inheritedShape = slide.addText('Inherited is ignored', inherited as never);
+    expect(inheritedShape.isTextBox).toBe(false);
+
+    for (const value of invalid) {
+      const before = packageSnapshot(pkg);
+      expect(() => {
+        (existing as unknown as { isTextBox: boolean }).isTextBox = value as never;
+      }).toThrow(TypeError);
+      expect(packageSnapshot(pkg)).toEqual(before);
+      expect(existing.isTextBox).toBe(true);
+    }
+
+    const malformed = slide.addText('Malformed text box', {
+      name: 'Malformed text box',
+      isTextBox: true,
+    });
+    let part = pkg.requirePart(slide.partUri);
+    let source = new TextDecoder().decode(part.bytes).replace(
+      `<p:cNvPr id="${malformed.id}" name="Malformed text box"/><p:cNvSpPr txBox="1"/>`,
+      `<p:cNvPr id="${malformed.id}" name="Malformed text box"/>`
+        + '<p:cNvSpPr txBox="maybe"/>',
+    );
+    pkg.setPart(slide.partUri, source, part.contentType);
+    expect(malformed.isTextBox).toBeUndefined();
+    malformed.isTextBox = true;
+    expect(malformed.isTextBox).toBe(true);
+    expect(new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes)).toContain(
+      `<p:cNvPr id="${malformed.id}" name="Malformed text box"/>`
+        + '<p:cNvSpPr txBox="1"/>',
+    );
+
+    part = pkg.requirePart(slide.partUri);
+    source = new TextDecoder().decode(part.bytes).replace(
+      `<p:cNvPr id="${malformed.id}" name="Malformed text box"/><p:cNvSpPr txBox="1"/>`,
+      `<p:cNvPr id="${malformed.id}" name="Malformed text box"/>`
+        + '<p:cNvSpPr txBox="1" txBox="0"/>',
+    );
+    pkg.setPart(slide.partUri, source, part.contentType);
+    expect(malformed.isTextBox).toBeUndefined();
+    const beforeAmbiguous = packageSnapshot(pkg);
+    expect(() => {
+      malformed.isTextBox = false;
+    }).toThrow(ModelParseError);
+    expect(packageSnapshot(pkg)).toEqual(beforeAmbiguous);
+  });
+
+  it('round-trips text box state in all six presentation formats', async () => {
+    for (const profile of Object.values(PRESENTATION_FORMAT_PROFILES)) {
+      const pkg = await OpcPackage.open(await modelFixture(profile.presentationContentType));
+      const model = new PresentationModel(pkg);
+      const slide = model.addSlide();
+      const becomesTrue = slide.addText(`${profile.format} true`, {
+        name: `${profile.format} becomes true`,
+      });
+      const becomesFalse = slide.addText(`${profile.format} false`, {
+        name: `${profile.format} becomes false`,
+        isTextBox: true,
+      });
+      const rich = slide.addRichText([{ runs: [{ text: `${profile.format} rich` }] }], {
+        name: `${profile.format} rich true`,
+        isTextBox: true,
+      });
+      becomesTrue.isTextBox = true;
+      becomesFalse.isTextBox = false;
+      expect([becomesTrue.isTextBox, becomesFalse.isTextBox, rich.isTextBox])
+        .toEqual([true, false, true]);
+
+      const duplicate = model.duplicateSlide(model.slides.indexOf(slide));
+      expect(duplicate.shapes.map((shape) => (shape as ShapeModel).isTextBox))
+        .toEqual([true, false, true]);
+      const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+      expect(reopened.format).toBe(profile.format);
+      const reopenedSlide = reopened.slides.find(({ partUri }) => partUri === slide.partUri)!;
+      expect(reopenedSlide.shapes.map((shape) => (shape as ShapeModel).isTextBox))
+        .toEqual([true, false, true]);
+    }
+  });
+
   it('creates plain and rich text with strict direct fills', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);

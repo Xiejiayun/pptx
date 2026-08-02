@@ -271,6 +271,14 @@ export class ShapeModel extends BaseShapeModel {
     this.slide.setShapeText(this.id, value);
   }
 
+  get isTextBox(): boolean | undefined {
+    return this.slide.getShapeIsTextBox(this.id);
+  }
+
+  set isTextBox(value: boolean) {
+    this.slide.setShapeIsTextBox(this.id, value);
+  }
+
   get richText(): readonly RichTextParagraph[] {
     return this.slide.getShapeRichText(this.id);
   }

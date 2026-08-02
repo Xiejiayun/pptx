@@ -234,6 +234,10 @@ import {
   renderTextBoxWrapAttribute,
   replaceTextBoxWrap,
 } from './text-box-wrapping.internal.js';
+import {
+  readTextShapeIsTextBox,
+  replaceTextShapeIsTextBox,
+} from './text-shape-is-text-box.internal.js';
 import type {
   ParagraphBullet,
   ParagraphSpacing,
@@ -270,6 +274,7 @@ export interface AddTextOptions extends Partial<Transform> {
   readonly bullet?: ParagraphBullet;
   readonly fill?: ShapeFill;
   readonly hyperlink?: Hyperlink;
+  readonly isTextBox?: boolean;
   readonly line?: ShapeLine;
   readonly shape?: PresetShapeType;
   readonly rectRadius?: Emu;
@@ -636,6 +641,23 @@ export class SlideModel {
   getShapeText(id: number): string {
     const { xml, element } = this.resolveShape(id);
     return readPlainText(xml, element);
+  }
+
+  getShapeIsTextBox(id: number): boolean | undefined {
+    const { xml, element } = this.resolveShape(id);
+    return readTextShapeIsTextBox(xml, element);
+  }
+
+  setShapeIsTextBox(id: number, value: boolean): void {
+    if (typeof value !== 'boolean') {
+      throw new TypeError('Shape isTextBox must be a boolean');
+    }
+    this.presentation.opcPackage.transaction(() => {
+      const { xml, element } = this.resolveShape(id);
+      if (replaceTextShapeIsTextBox(xml, element, value, this.partUri)) {
+        this.setXml(xml.serialize());
+      }
+    });
   }
 
   getShapePresetType(id: number): PresetShapeType | undefined {
@@ -1502,6 +1524,7 @@ export class SlideModel {
         owner ? placeholderTextOptions(owner) : options,
         normalized.shape,
         normalized.rectRadius,
+        normalized.isTextBox,
         normalized.fill,
         normalized.line,
         normalized.arrows,
@@ -1584,6 +1607,7 @@ export class SlideModel {
           options,
           plain.shape,
           plain.rectRadius,
+          plain.isTextBox,
           plain.fill,
           plain.line,
           plain.arrows,
@@ -1631,6 +1655,7 @@ export class SlideModel {
         options,
         defaults!.shape,
         defaults!.rectRadius,
+        defaults!.isTextBox,
         defaults!.fill,
         defaults!.line,
         defaults!.arrows,
@@ -1691,6 +1716,7 @@ export class SlideModel {
         owner ? placeholderTextOptions(owner) : options,
         defaults.shape,
         defaults.rectRadius,
+        defaults.isTextBox,
         defaults.fill,
         defaults.line,
         defaults.arrows,
@@ -1723,6 +1749,7 @@ export class SlideModel {
     options: AddTextOptions,
     presetType: PresetShapeType,
     rectRadius: Emu | undefined,
+    isTextBox: boolean,
     fill: ShapeFill,
     line: NormalizedSimpleLine,
     arrows: NormalizedShapeArrows | undefined,
@@ -1751,6 +1778,7 @@ export class SlideModel {
       options,
       presetType,
       rectRadius,
+      isTextBox,
       fill,
       line,
       arrows,
@@ -1973,6 +2001,7 @@ interface NormalizedTextInput {
   readonly line: NormalizedSimpleLine;
   readonly shape: PresetShapeType;
   readonly rectRadius: Emu | undefined;
+  readonly isTextBox: boolean;
   readonly indent: number | undefined;
   readonly language: string | undefined;
   readonly level: number | undefined;
@@ -2007,6 +2036,7 @@ function validateTextInput(value: string, options: AddTextOptions): NormalizedTe
     line: defaults.line,
     shape: defaults.shape,
     rectRadius: defaults.rectRadius,
+    isTextBox: defaults.isTextBox,
     indent: defaults.indent,
     language: defaults.language,
     level: defaults.level,
@@ -2032,6 +2062,7 @@ interface NormalizedAddTextOptions {
   readonly line: NormalizedSimpleLine;
   readonly shape: PresetShapeType;
   readonly rectRadius: Emu | undefined;
+  readonly isTextBox: boolean;
   readonly indent?: number;
   readonly language?: string;
   readonly level?: number;
@@ -2094,6 +2125,7 @@ function validateAddTextOptions(options: AddTextOptions): NormalizedAddTextOptio
   const line = normalizeSimpleLine(options.line, 'Text shape line') ?? { kind: 'none' };
   const shape = normalizeTextShapeType(options);
   const rectRadius = normalizeTextRectRadius(options, shape);
+  const isTextBox = normalizeTextShapeIsTextBox(options);
   const level = options.level === undefined
     ? undefined
     : normalizeParagraphLevel(options.level, 'Text level');
@@ -2142,6 +2174,7 @@ function validateAddTextOptions(options: AddTextOptions): NormalizedAddTextOptio
     line,
     shape,
     rectRadius,
+    isTextBox,
     ...(indent !== undefined ? { indent } : {}),
     ...(language !== undefined ? { language } : {}),
     ...(level !== undefined ? { level } : {}),
@@ -2193,6 +2226,20 @@ function normalizeTextRectRadius(
     throw new RangeError('Text rectangle radius must round to a safe EMU integer');
   }
   return (Object.is(rounded, -0) ? 0 : rounded) as Emu;
+}
+
+function normalizeTextShapeIsTextBox(options: AddTextOptions): boolean {
+  const descriptor = Object.getOwnPropertyDescriptor(options, 'isTextBox');
+  if (!descriptor) return false;
+  if (!Object.hasOwn(descriptor, 'value')) {
+    throw new TypeError('Text shape isTextBox must be a data property');
+  }
+  const value = descriptor.value;
+  if (value === undefined) return false;
+  if (typeof value !== 'boolean') {
+    throw new TypeError('Text shape isTextBox must be a boolean');
+  }
+  return value;
 }
 
 function validatePlainText(value: string): string {
@@ -2363,6 +2410,7 @@ function textShapeXml(
   options: AddTextOptions,
   shape: PresetShapeType,
   rectRadius: Emu | undefined,
+  isTextBox: boolean,
   fill: ShapeFill,
   line: NormalizedSimpleLine,
   arrows: NormalizedShapeArrows | undefined,
@@ -2430,7 +2478,7 @@ function textShapeXml(
   const nonVisualProperties = hyperlinkXml === ''
     ? `<p:cNvPr id="${id}" name="${name}"/>`
     : `<p:cNvPr id="${id}" name="${name}">${hyperlinkXml}</p:cNvPr>`;
-  return `<p:sp xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"${relationshipNamespace}><p:nvSpPr>${nonVisualProperties}<p:cNvSpPr txBox="1"/>${applicationProperties}</p:nvSpPr><p:spPr><a:xfrm${transformAttributes}><a:off x="${x}" y="${y}"/><a:ext cx="${width}" cy="${height}"/></a:xfrm>${renderPresetShapeGeometry(shape, 'a:', adjustments)}${renderSimpleFill(fill, 'a:')}${lineXml}${effectXml}</p:spPr><p:txBody>${bodyProperties}<a:lstStyle/>${paragraphs}</p:txBody></p:sp>`;
+  return `<p:sp xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"${relationshipNamespace}><p:nvSpPr>${nonVisualProperties}<p:cNvSpPr${isTextBox ? ' txBox="1"' : ''}/>${applicationProperties}</p:nvSpPr><p:spPr><a:xfrm${transformAttributes}><a:off x="${x}" y="${y}"/><a:ext cx="${width}" cy="${height}"/></a:xfrm>${renderPresetShapeGeometry(shape, 'a:', adjustments)}${renderSimpleFill(fill, 'a:')}${lineXml}${effectXml}</p:spPr><p:txBody>${bodyProperties}<a:lstStyle/>${paragraphs}</p:txBody></p:sp>`;
 }
 
 function textParagraphXml(
