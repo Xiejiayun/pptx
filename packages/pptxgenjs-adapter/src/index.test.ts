@@ -278,6 +278,11 @@ void [
 
 interface PptxGenJSInstance {
   readonly version: string;
+  readonly presLayout: {
+    readonly name: string;
+    readonly width: number;
+    readonly height: number;
+  };
   readonly ChartType: Readonly<Record<string, string>>;
   readonly ShapeType: Readonly<Record<string, string>>;
   readonly SchemeColor: {
@@ -297,6 +302,11 @@ interface PptxGenJSInstance {
   title: string;
   addSection(options: { readonly title: string; readonly order?: number }): void;
   addSlide(options?: { readonly masterName?: string; readonly sectionTitle?: string }): PptxGenJSSlide;
+  defineLayout(layout: {
+    readonly name: string;
+    readonly width: number;
+    readonly height: number;
+  }): void;
   defineSlideMaster(options: {
     readonly title: string;
     readonly background?: {
@@ -772,6 +782,77 @@ describe('importPptxGenJS', () => {
     await native.write();
     expect(generated.version).toBe('4.0.1');
     expect(native.version).toBe(PPTX_VERSION);
+  });
+
+  it('matches the public presentation layout projection and locks the custom-name boundary', async () => {
+    const publicLayout = ({ name, width, height }: PptxGenJSInstance['presLayout']) => ({
+      name,
+      width,
+      height,
+    });
+    const defaultGenerated = new PptxGenJS();
+    const defaultNative = PptxDocument.create();
+    expect(publicLayout(defaultGenerated.presLayout)).toEqual(defaultNative.presLayout);
+
+    const cases = [
+      ['LAYOUT_4x3', '4:3', 'screen4x3', 9_144_000, 6_858_000],
+      ['LAYOUT_16x9', '16:9', 'screen16x9', 9_144_000, 5_143_500],
+      ['LAYOUT_16x10', '16:10', 'screen16x10', 9_144_000, 5_715_000],
+      ['LAYOUT_WIDE', 'wide', 'custom', 12_192_000, 6_858_000],
+    ] as const;
+    for (const [generatedLayout, nativeSize, name, width, height] of cases) {
+      const generated = new PptxGenJS();
+      generated.layout = generatedLayout;
+      const native = PptxDocument.create({ slideSize: nativeSize });
+      const expected = { name, width, height };
+      expect(publicLayout(generated.presLayout)).toEqual(expected);
+      expect(native.presLayout).toEqual(expected);
+      expect(Object.keys(native.presLayout)).toEqual(['name', 'width', 'height']);
+      expect(native.presLayout).not.toBe(native.presLayout);
+
+      await generated.write({ outputType: 'uint8array', compression: false });
+      await native.write();
+      expect(publicLayout(generated.presLayout)).toEqual(expected);
+      expect(native.presLayout).toEqual(expected);
+    }
+
+    const customGenerated = new PptxGenJS();
+    customGenerated.defineLayout({ name: 'CUSTOM', width: 11.7, height: 8.3 });
+    customGenerated.layout = 'CUSTOM';
+    const customNative = PptxDocument.create({
+      slideSize: { width: inches(11.7), height: inches(8.3) },
+    });
+    const expectedGeneratedCustom = {
+      name: 'CUSTOM',
+      width: inches(11.7),
+      height: inches(8.3),
+    };
+    const expectedNativeCustom = {
+      name: 'custom',
+      width: inches(11.7),
+      height: inches(8.3),
+    } as const;
+    expect(publicLayout(customGenerated.presLayout)).toEqual(expectedGeneratedCustom);
+    expect(customNative.presLayout).toEqual(expectedNativeCustom);
+    const customGeneratedBytes = await customGenerated.write({
+      outputType: 'nodebuffer',
+      compression: false,
+    });
+    const customNativeBytes = await customNative.write();
+    expect(publicLayout(customGenerated.presLayout)).toEqual(expectedGeneratedCustom);
+    expect(customNative.presLayout).toEqual(expectedNativeCustom);
+    expect((await PptxDocument.open(customGeneratedBytes)).presLayout)
+      .toEqual(expectedNativeCustom);
+    expect((await PptxDocument.open(customNativeBytes)).presLayout)
+      .toEqual(expectedNativeCustom);
+    expect(Object.getOwnPropertyDescriptor(
+      Object.getPrototypeOf(customGenerated),
+      'presLayout',
+    )).toMatchObject({ set: undefined, enumerable: false });
+    expect(Object.getOwnPropertyDescriptor(PptxDocument.prototype, 'presLayout')).toMatchObject({
+      set: undefined,
+      enumerable: false,
+    });
   });
 
   it('matches public PptxGenJS slide default colors and locks intentional differences', async () => {

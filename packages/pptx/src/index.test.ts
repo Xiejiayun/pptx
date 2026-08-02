@@ -24,6 +24,8 @@ import {
   type Hyperlink,
   type PlaceholderSelector,
   type PlaceholderType,
+  type PresentationLayout,
+  type PresentationLayoutName,
   type PresetShapeType,
   type PptxVersion,
   type SlideMasterBackground,
@@ -48,6 +50,33 @@ describe('@jiayunxie/pptx stable exports', () => {
     if (false) {
       // @ts-expect-error document version is read-only
       document.version = '9.9.9';
+    }
+  });
+
+  it('exports the presentation layout projection from the root package', async () => {
+    const document = PptxDocument.create({ slideSize: 'wide' });
+    const layout: PresentationLayout = document.presLayout;
+    const name: PresentationLayoutName = layout.name;
+
+    expect({ ...layout, name }).toEqual({
+      name: 'custom',
+      width: 12_192_000,
+      height: 6_858_000,
+    });
+    document.slideSize = { width: inches(10), height: inches(5.625) };
+    const edited: PresentationLayout = document.presLayout;
+    expect(edited).toEqual({
+      name: 'screen16x9',
+      width: inches(10),
+      height: inches(5.625),
+    });
+    expect((await PptxDocument.open(await document.write())).presLayout).toEqual(edited);
+
+    if (false) {
+      // @ts-expect-error presLayout is getter-only
+      document.presLayout = edited;
+      // @ts-expect-error presentation layout fields are read-only
+      layout.width = inches(1);
     }
   });
 
