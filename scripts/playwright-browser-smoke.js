@@ -852,6 +852,234 @@ async (page) => {
         ])
         && textShapeRectRadiusState.layout?.[0]?.value === 12_500
         && textShapeRectRadiusState.validationErrors === 0;
+      const textShapeIsTextBoxDocument = api.PptxDocument.create();
+      const textShapeIsTextBoxLayout = textShapeIsTextBoxDocument.layouts[0];
+      const textShapeIsTextBoxMaster = textShapeIsTextBoxDocument.masters[0];
+      const browserLayoutShapeText = textShapeIsTextBoxLayout.addText(
+        'Browser layout shape text',
+        { name: 'browser_layout_shape_text', isTextBox: false },
+      );
+      const browserMasterTextBox = textShapeIsTextBoxMaster.addRichText([{
+        runs: [{ text: 'Browser master text box' }],
+      }], {
+        name: 'browser_master_text_box',
+        isTextBox: true,
+      });
+      const browserFalseTextBoxSource = textShapeIsTextBoxLayout.addPlaceholder(
+        'Browser false text box prompt',
+        {
+          name: 'browser_false_text_box_source',
+          type: 'title',
+          index: 400,
+          isTextBox: false,
+        },
+      );
+      const browserTrueTextBoxSource = textShapeIsTextBoxLayout.addPlaceholder(
+        'Browser true text box prompt',
+        {
+          name: 'browser_true_text_box_source',
+          type: 'body',
+          index: 401,
+          isTextBox: true,
+        },
+      );
+      const textShapeIsTextBoxSlide = textShapeIsTextBoxDocument.addSlide({
+        masterName: textShapeIsTextBoxLayout.name,
+      });
+      const textShapeIsTextBoxMaterialized = textShapeIsTextBoxSlide.placeholders.map(
+        ({ isTextBox }) => isTextBox,
+      );
+      const browserPlainTextBox = textShapeIsTextBoxSlide.addText(
+        'Browser plain shape text',
+        { name: 'browser_plain_text_box' },
+      );
+      const browserRichTextBox = textShapeIsTextBoxSlide.addRichText([{
+        runs: [{ text: 'Browser rich text box', style: { bold: true } }],
+      }], {
+        name: 'browser_rich_text_box',
+        isTextBox: true,
+      });
+      const browserPopulatedFalseTextBox = textShapeIsTextBoxSlide.addText(
+        'Browser population keeps false source',
+        { placeholder: browserFalseTextBoxSource.name, isTextBox: true },
+      );
+      const browserPopulatedTrueTextBox = textShapeIsTextBoxSlide.addText(
+        'Browser population keeps true source',
+        { placeholder: browserTrueTextBoxSource.name, isTextBox: false },
+      );
+      const textShapeIsTextBoxImmediate = [
+        browserLayoutShapeText.isTextBox,
+        browserMasterTextBox.isTextBox,
+        browserFalseTextBoxSource.isTextBox,
+        browserTrueTextBoxSource.isTextBox,
+        browserPlainTextBox.isTextBox,
+        browserRichTextBox.isTextBox,
+        browserPopulatedFalseTextBox.isTextBox,
+        browserPopulatedTrueTextBox.isTextBox,
+      ];
+      const textShapeIsTextBoxNoOpBytes = textShapeIsTextBoxDocument.opcPackage
+        .requirePart(textShapeIsTextBoxSlide.partUri).bytes.slice();
+      const textShapeIsTextBoxNoOpJournal =
+        textShapeIsTextBoxDocument.opcPackage.mutations.length;
+      browserRichTextBox.isTextBox = true;
+      const textShapeIsTextBoxNoOpCurrent = textShapeIsTextBoxDocument.opcPackage
+        .requirePart(textShapeIsTextBoxSlide.partUri).bytes;
+      const textShapeIsTextBoxNoOp =
+        textShapeIsTextBoxNoOpJournal ===
+          textShapeIsTextBoxDocument.opcPackage.mutations.length
+        && textShapeIsTextBoxNoOpBytes.length === textShapeIsTextBoxNoOpCurrent.length
+        && textShapeIsTextBoxNoOpBytes.every(
+          (value, index) => value === textShapeIsTextBoxNoOpCurrent[index],
+        );
+      browserPlainTextBox.isTextBox = true;
+      browserRichTextBox.isTextBox = false;
+      const browserDeclarativeTextBoxLayout =
+        await textShapeIsTextBoxDocument.defineSlideMaster({
+          title: 'BROWSER-TEXT-BOX-STATE',
+          objects: [
+            {
+              kind: 'text',
+              text: 'Browser declarative text box',
+              options: { name: 'browser_declarative_text_box', isTextBox: true },
+            },
+            {
+              kind: 'placeholder',
+              text: 'Browser declarative shape prompt',
+              options: {
+                name: 'browser_declarative_shape_prompt',
+                type: 'title',
+                index: 402,
+                isTextBox: false,
+              },
+            },
+            {
+              kind: 'placeholder',
+              text: 'Browser declarative text box prompt',
+              options: {
+                name: 'browser_declarative_text_box_prompt',
+                type: 'body',
+                index: 403,
+                isTextBox: true,
+              },
+            },
+          ],
+        });
+      const browserDeclarativeTextBoxSlide = textShapeIsTextBoxDocument.addSlide({
+        masterName: browserDeclarativeTextBoxLayout.name,
+      });
+      const textShapeIsTextBoxDeclarative = [
+        browserDeclarativeTextBoxLayout.shapes.find(
+          ({ name }) => name === 'browser_declarative_text_box',
+        ).isTextBox,
+        ...browserDeclarativeTextBoxLayout.placeholders.map(({ isTextBox }) => isTextBox),
+        ...browserDeclarativeTextBoxSlide.placeholders.map(({ isTextBox }) => isTextBox),
+      ];
+      const duplicateTextShapeIsTextBoxSlide = textShapeIsTextBoxDocument.duplicateSlide(
+        textShapeIsTextBoxDocument.slides.indexOf(textShapeIsTextBoxSlide),
+      );
+      const duplicatePlainTextBox = duplicateTextShapeIsTextBoxSlide.shapes.find(
+        ({ name }) => name === browserPlainTextBox.name,
+      );
+      duplicatePlainTextBox.isTextBox = false;
+      const textShapeIsTextBoxDuplicate = [
+        browserPlainTextBox.isTextBox,
+        duplicatePlainTextBox.isTextBox,
+      ];
+      const textShapeIsTextBoxOutput = await textShapeIsTextBoxDocument.writeBlob();
+      const reopenedTextShapeIsTextBox = await api.PptxDocument.open(
+        textShapeIsTextBoxOutput,
+      );
+      await reopenedTextShapeIsTextBox.write({ compatibility: 'powerpoint-current' });
+      const textShapeIsTextBoxByName = (owner, name) => owner.shapes.find(
+        (shape) => shape instanceof api.ShapeModel && shape.name === name,
+      );
+      const reopenedTextShapeIsTextBoxSlide = reopenedTextShapeIsTextBox.slides.find(
+        ({ partUri }) => partUri === textShapeIsTextBoxSlide.partUri,
+      );
+      const reopenedTextShapeIsTextBoxLayout = reopenedTextShapeIsTextBox.layouts.find(
+        ({ partUri }) => partUri === textShapeIsTextBoxLayout.partUri,
+      );
+      const reopenedTextShapeIsTextBoxMaster = reopenedTextShapeIsTextBox.masters.find(
+        ({ partUri }) => partUri === textShapeIsTextBoxMaster.partUri,
+      );
+      const reopenedDeclarativeTextBoxLayout = reopenedTextShapeIsTextBox.layouts.find(
+        ({ name }) => name === browserDeclarativeTextBoxLayout.name,
+      );
+      const textShapeIsTextBoxState = {
+        mime: textShapeIsTextBoxOutput.type,
+        immediate: textShapeIsTextBoxImmediate,
+        materialized: textShapeIsTextBoxMaterialized,
+        noOp: textShapeIsTextBoxNoOp,
+        edited: [browserPlainTextBox.isTextBox, browserRichTextBox.isTextBox],
+        duplicate: textShapeIsTextBoxDuplicate,
+        declarative: textShapeIsTextBoxDeclarative,
+        reopened: [
+          textShapeIsTextBoxByName(
+            reopenedTextShapeIsTextBoxSlide,
+            browserPlainTextBox.name,
+          ).isTextBox,
+          textShapeIsTextBoxByName(
+            reopenedTextShapeIsTextBoxSlide,
+            browserRichTextBox.name,
+          ).isTextBox,
+          textShapeIsTextBoxByName(
+            reopenedTextShapeIsTextBoxSlide,
+            browserFalseTextBoxSource.name,
+          ).isTextBox,
+          textShapeIsTextBoxByName(
+            reopenedTextShapeIsTextBoxSlide,
+            browserTrueTextBoxSource.name,
+          ).isTextBox,
+        ],
+        layout: [
+          textShapeIsTextBoxByName(
+            reopenedTextShapeIsTextBoxLayout,
+            browserLayoutShapeText.name,
+          ).isTextBox,
+          textShapeIsTextBoxByName(
+            reopenedTextShapeIsTextBoxLayout,
+            browserFalseTextBoxSource.name,
+          ).isTextBox,
+          textShapeIsTextBoxByName(
+            reopenedTextShapeIsTextBoxLayout,
+            browserTrueTextBoxSource.name,
+          ).isTextBox,
+        ],
+        master: textShapeIsTextBoxByName(
+          reopenedTextShapeIsTextBoxMaster,
+          browserMasterTextBox.name,
+        ).isTextBox,
+        reopenedDeclarative: [
+          textShapeIsTextBoxByName(
+            reopenedDeclarativeTextBoxLayout,
+            'browser_declarative_text_box',
+          ).isTextBox,
+          ...reopenedDeclarativeTextBoxLayout.placeholders.map(({ isTextBox }) => isTextBox),
+        ],
+        validationErrors: reopenedTextShapeIsTextBox.diagnostics.filter(
+          ({ severity }) => severity === 'error',
+        ).length,
+      };
+      const textShapeIsTextBox =
+        textShapeIsTextBoxState.mime ===
+          'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+        && JSON.stringify(textShapeIsTextBoxState.immediate) ===
+          JSON.stringify([false, true, false, true, false, true, false, true])
+        && JSON.stringify(textShapeIsTextBoxState.materialized) ===
+          JSON.stringify([false, true])
+        && textShapeIsTextBoxState.noOp
+        && JSON.stringify(textShapeIsTextBoxState.edited) === JSON.stringify([true, false])
+        && JSON.stringify(textShapeIsTextBoxState.duplicate) === JSON.stringify([true, false])
+        && JSON.stringify(textShapeIsTextBoxState.declarative) ===
+          JSON.stringify([true, false, true, false, true])
+        && JSON.stringify(textShapeIsTextBoxState.reopened) ===
+          JSON.stringify([true, false, false, true])
+        && JSON.stringify(textShapeIsTextBoxState.layout) ===
+          JSON.stringify([false, false, true])
+        && textShapeIsTextBoxState.master === true
+        && JSON.stringify(textShapeIsTextBoxState.reopenedDeclarative) ===
+          JSON.stringify([true, false, true])
+        && textShapeIsTextBoxState.validationErrors === 0;
       const textShapeHyperlinkDocument = api.PptxDocument.create();
       const textShapeHyperlinkLayout = textShapeHyperlinkDocument.layouts[0];
       textShapeHyperlinkLayout.addPlaceholder('Browser text hyperlink prompt', {
@@ -1560,6 +1788,8 @@ async (page) => {
         textShapePresetGeometryState,
         textShapeRectRadius,
         textShapeRectRadiusState,
+        textShapeIsTextBox,
+        textShapeIsTextBoxState,
         textShapeHyperlinks,
         textShapeHyperlinkState,
         richTextRunHyperlinks,
@@ -1976,6 +2206,21 @@ async (page) => {
         [{ name: 'adj', value: 25_000 }],
       ],
       layout: [{ name: 'adj', value: 12_500 }],
+      validationErrors: 0,
+    },
+    textShapeIsTextBox: true,
+    textShapeIsTextBoxState: {
+      mime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      immediate: [false, true, false, true, false, true, false, true],
+      materialized: [false, true],
+      noOp: true,
+      edited: [true, false],
+      duplicate: [true, false],
+      declarative: [true, false, true, false, true],
+      reopened: [true, false, false, true],
+      layout: [false, false, true],
+      master: true,
+      reopenedDeclarative: [true, false, true],
       validationErrors: 0,
     },
     textShapeHyperlinks: true,

@@ -49,6 +49,19 @@ try {
   if (/\b(?:from|import)\s*['"]node:/.test(browserSource)) {
     throw new Error('Browser bundle contains a static node: import');
   }
+  const textOptionDeclarationSource = await readFile(
+    join(installed, 'dist/types/model/slide.d.ts'),
+    'utf8',
+  );
+  const shapeDeclarationSource = await readFile(
+    join(installed, 'dist/types/model/shapes.d.ts'),
+    'utf8',
+  );
+  if (!textOptionDeclarationSource.includes('readonly isTextBox?: boolean;') ||
+      !shapeDeclarationSource.includes('get isTextBox(): boolean | undefined;') ||
+      !shapeDeclarationSource.includes('set isTextBox(value: boolean);')) {
+    throw new Error('Packed declarations are missing text shape isTextBox surfaces');
+  }
 
   await writeFile(
     join(directory, 'smoke.mjs'),
@@ -3689,6 +3702,254 @@ if (!textShapeRectRadius) {
   }));
 }
 await reopenedTextShapeRectRadiusDeck.writeFile('text-shape-rect-radius-smoke.pptx');
+const textShapeIsTextBoxDeck = PptxDocument.create();
+const textShapeIsTextBoxLayout = textShapeIsTextBoxDeck.layouts[0];
+const textShapeIsTextBoxMaster = textShapeIsTextBoxDeck.masters[0];
+const packedLayoutShapeText = textShapeIsTextBoxLayout.addText(
+  'Packed layout shape text',
+  { name: 'packed_layout_shape_text', isTextBox: false },
+);
+const packedMasterTextBox = textShapeIsTextBoxMaster.addRichText([{
+  runs: [{ text: 'Packed master text box' }],
+}], {
+  name: 'packed_master_text_box',
+  isTextBox: true,
+});
+const packedFalseTextBoxSource = textShapeIsTextBoxLayout.addPlaceholder(
+  'Packed false text box prompt',
+  {
+    name: 'packed_false_text_box_source',
+    type: 'title',
+    index: 400,
+    isTextBox: false,
+  },
+);
+const packedTrueTextBoxSource = textShapeIsTextBoxLayout.addPlaceholder(
+  'Packed true text box prompt',
+  {
+    name: 'packed_true_text_box_source',
+    type: 'body',
+    index: 401,
+    isTextBox: true,
+  },
+);
+const textShapeIsTextBoxSlide = textShapeIsTextBoxDeck.addSlide({
+  masterName: textShapeIsTextBoxLayout.name,
+});
+const packedMaterializedTextBoxStates = textShapeIsTextBoxSlide.placeholders.map(
+  ({ isTextBox }) => isTextBox,
+);
+const packedPlainTextBox = textShapeIsTextBoxSlide.addText(
+  'Packed plain shape text',
+  { name: 'packed_plain_text_box' },
+);
+const packedRichTextBox = textShapeIsTextBoxSlide.addRichText([{
+  runs: [{ text: 'Packed rich text box', style: { bold: true } }],
+}], {
+  name: 'packed_rich_text_box',
+  isTextBox: true,
+});
+const packedPopulatedFalseTextBox = textShapeIsTextBoxSlide.addText(
+  'Packed population keeps false source',
+  { placeholder: packedFalseTextBoxSource.name, isTextBox: true },
+);
+const packedPopulatedTrueTextBox = textShapeIsTextBoxSlide.addRichText([{
+  runs: [{ text: 'Packed population keeps true source' }],
+}], {
+  placeholder: packedTrueTextBoxSource.name,
+  isTextBox: false,
+});
+const packedSlideTextBoxPlaceholder = textShapeIsTextBoxSlide.addPlaceholder(
+  'Packed slide text box prompt',
+  {
+    name: 'packed_slide_text_box_prompt',
+    type: 'body',
+    index: 402,
+    isTextBox: true,
+  },
+);
+const packedTextBoxImmediate = [
+  packedLayoutShapeText.isTextBox,
+  packedMasterTextBox.isTextBox,
+  packedFalseTextBoxSource.isTextBox,
+  packedTrueTextBoxSource.isTextBox,
+  packedPlainTextBox.isTextBox,
+  packedRichTextBox.isTextBox,
+  packedPopulatedFalseTextBox.isTextBox,
+  packedPopulatedTrueTextBox.isTextBox,
+  packedSlideTextBoxPlaceholder.isTextBox,
+];
+const packedTextBoxNoOpBytes = textShapeIsTextBoxDeck.opcPackage
+  .requirePart(textShapeIsTextBoxSlide.partUri).bytes.slice();
+const packedTextBoxNoOpJournal = textShapeIsTextBoxDeck.opcPackage.mutations.length;
+packedRichTextBox.isTextBox = true;
+const packedTextBoxNoOpCurrent = textShapeIsTextBoxDeck.opcPackage
+  .requirePart(textShapeIsTextBoxSlide.partUri).bytes;
+const packedTextBoxNoOp =
+  packedTextBoxNoOpJournal === textShapeIsTextBoxDeck.opcPackage.mutations.length &&
+  packedTextBoxNoOpBytes.length === packedTextBoxNoOpCurrent.length &&
+  packedTextBoxNoOpBytes.every(
+    (value, index) => value === packedTextBoxNoOpCurrent[index],
+  );
+packedPlainTextBox.isTextBox = true;
+packedRichTextBox.isTextBox = false;
+const packedTextBoxEdited = [packedPlainTextBox.isTextBox, packedRichTextBox.isTextBox];
+const packedDeclarativeTextBoxLayout = await textShapeIsTextBoxDeck.defineSlideMaster({
+  title: 'PACKED-TEXT-BOX-STATE',
+  objects: [
+    {
+      kind: 'text',
+      text: 'Packed declarative text box',
+      options: { name: 'packed_declarative_text_box', isTextBox: true },
+    },
+    {
+      kind: 'placeholder',
+      text: 'Packed declarative shape prompt',
+      options: {
+        name: 'packed_declarative_shape_prompt',
+        type: 'title',
+        index: 403,
+        isTextBox: false,
+      },
+    },
+    {
+      kind: 'placeholder',
+      text: 'Packed declarative text box prompt',
+      options: {
+        name: 'packed_declarative_text_box_prompt',
+        type: 'body',
+        index: 404,
+        isTextBox: true,
+      },
+    },
+  ],
+});
+const packedDeclarativeTextBoxSlide = textShapeIsTextBoxDeck.addSlide({
+  masterName: packedDeclarativeTextBoxLayout.name,
+});
+const packedDeclarativeTextBoxStates = [
+  packedDeclarativeTextBoxLayout.shapes.find(
+    ({ name }) => name === 'packed_declarative_text_box',
+  )?.isTextBox,
+  ...packedDeclarativeTextBoxLayout.placeholders.map(({ isTextBox }) => isTextBox),
+  ...packedDeclarativeTextBoxSlide.placeholders.map(({ isTextBox }) => isTextBox),
+];
+const duplicateTextShapeIsTextBoxSlide = textShapeIsTextBoxDeck.duplicateSlide(
+  textShapeIsTextBoxDeck.slides.indexOf(textShapeIsTextBoxSlide),
+);
+const duplicatePlainTextBox = duplicateTextShapeIsTextBoxSlide.shapes.find(
+  ({ name }) => name === packedPlainTextBox.name,
+);
+duplicatePlainTextBox.isTextBox = false;
+const packedTextBoxDuplicateIndependent =
+  packedPlainTextBox.isTextBox === true && duplicatePlainTextBox.isTextBox === false;
+const reopenedTextShapeIsTextBoxDeck = await PptxDocument.open(
+  await textShapeIsTextBoxDeck.write(),
+);
+await reopenedTextShapeIsTextBoxDeck.write({ compatibility: 'powerpoint-2010' });
+const reopenedTextShapeIsTextBoxByName = (owner, name) => owner.shapes.find(
+  (shape) => shape.name === name,
+);
+const reopenedTextShapeIsTextBoxSlide = reopenedTextShapeIsTextBoxDeck.slides.find(
+  ({ partUri }) => partUri === textShapeIsTextBoxSlide.partUri,
+);
+const reopenedTextShapeIsTextBoxLayout = reopenedTextShapeIsTextBoxDeck.layouts.find(
+  ({ partUri }) => partUri === textShapeIsTextBoxLayout.partUri,
+);
+const reopenedTextShapeIsTextBoxMaster = reopenedTextShapeIsTextBoxDeck.masters.find(
+  ({ partUri }) => partUri === textShapeIsTextBoxMaster.partUri,
+);
+const reopenedDeclarativeTextBoxLayout = reopenedTextShapeIsTextBoxDeck.layouts.find(
+  ({ name }) => name === packedDeclarativeTextBoxLayout.name,
+);
+const textShapeIsTextBoxFormatStates = [];
+for (const format of ['pptx', 'pptm', 'ppsx', 'ppsm', 'potx', 'potm']) {
+  const formatted = PptxDocument.create({ format });
+  formatted.layouts[0].addPlaceholder('Formatted shape prompt', {
+    name: 'formatted_shape_prompt',
+    type: 'title',
+    index: 405,
+    isTextBox: false,
+  });
+  formatted.layouts[0].addPlaceholder('Formatted text box prompt', {
+    name: 'formatted_text_box_prompt',
+    type: 'body',
+    index: 406,
+    isTextBox: true,
+  });
+  formatted.addSlide();
+  const reopenedFormatted = await PptxDocument.open(await formatted.write());
+  textShapeIsTextBoxFormatStates.push({
+    format: reopenedFormatted.format,
+    layout: reopenedFormatted.layouts[0].placeholders.map(({ isTextBox }) => isTextBox),
+    slide: reopenedFormatted.slides[0].placeholders.map(({ isTextBox }) => isTextBox),
+  });
+}
+const textShapeIsTextBox =
+  JSON.stringify(packedTextBoxImmediate) ===
+    JSON.stringify([false, true, false, true, false, true, false, true, true]) &&
+  JSON.stringify(packedMaterializedTextBoxStates) === JSON.stringify([false, true]) &&
+  packedTextBoxNoOp &&
+  JSON.stringify(packedTextBoxEdited) === JSON.stringify([true, false]) &&
+  JSON.stringify(packedDeclarativeTextBoxStates) ===
+    JSON.stringify([true, false, true, false, true]) &&
+  packedTextBoxDuplicateIndependent &&
+  reopenedTextShapeIsTextBoxByName(
+    reopenedTextShapeIsTextBoxSlide,
+    packedPlainTextBox.name,
+  )?.isTextBox === true &&
+  reopenedTextShapeIsTextBoxByName(
+    reopenedTextShapeIsTextBoxSlide,
+    packedRichTextBox.name,
+  )?.isTextBox === false &&
+  reopenedTextShapeIsTextBoxByName(
+    reopenedTextShapeIsTextBoxSlide,
+    packedFalseTextBoxSource.name,
+  )?.isTextBox === false &&
+  reopenedTextShapeIsTextBoxByName(
+    reopenedTextShapeIsTextBoxSlide,
+    packedTrueTextBoxSource.name,
+  )?.isTextBox === true &&
+  reopenedTextShapeIsTextBoxLayout &&
+  reopenedTextShapeIsTextBoxByName(
+    reopenedTextShapeIsTextBoxLayout,
+    packedFalseTextBoxSource.name,
+  )?.isTextBox === false &&
+  reopenedTextShapeIsTextBoxByName(
+    reopenedTextShapeIsTextBoxLayout,
+    packedTrueTextBoxSource.name,
+  )?.isTextBox === true &&
+  reopenedTextShapeIsTextBoxMaster &&
+  reopenedTextShapeIsTextBoxByName(
+    reopenedTextShapeIsTextBoxMaster,
+    packedMasterTextBox.name,
+  )?.isTextBox === true &&
+  reopenedDeclarativeTextBoxLayout &&
+  reopenedTextShapeIsTextBoxByName(
+    reopenedDeclarativeTextBoxLayout,
+    'packed_declarative_text_box',
+  )?.isTextBox === true &&
+  reopenedTextShapeIsTextBoxDeck.diagnostics.length === 0 &&
+  JSON.stringify(textShapeIsTextBoxFormatStates) === JSON.stringify(
+    ['pptx', 'pptm', 'ppsx', 'ppsm', 'potx', 'potm'].map((format) => ({
+      format,
+      layout: [false, true],
+      slide: [false, true],
+    })),
+  );
+if (!textShapeIsTextBox) {
+  throw new Error('Packed text shape isTextBox failed: ' + JSON.stringify({
+    immediate: packedTextBoxImmediate,
+    materialized: packedMaterializedTextBoxStates,
+    noOp: packedTextBoxNoOp,
+    edited: packedTextBoxEdited,
+    declarative: packedDeclarativeTextBoxStates,
+    duplicateIndependent: packedTextBoxDuplicateIndependent,
+    formatStates: textShapeIsTextBoxFormatStates,
+    diagnostics: reopenedTextShapeIsTextBoxDeck.diagnostics,
+  }));
+}
+await reopenedTextShapeIsTextBoxDeck.writeFile('text-shape-is-text-box-smoke.pptx');
 const internalTextShapeHyperlinkDeck = PptxDocument.create();
 const internalTextShapeHyperlinkSource = internalTextShapeHyperlinkDeck.addSlide();
 internalTextShapeHyperlinkDeck.addSlide();
@@ -5330,6 +5591,7 @@ const checks = {
   textShapeHyperlinks,
   textShapePresetGeometry,
   textShapeRectRadius,
+  textShapeIsTextBox,
   richTextRunHyperlinks,
   shapeLines,
   shapeArrows,
@@ -6325,6 +6587,135 @@ if (Object.values(browserTextShapeRectRadiusChecks).some((value) => !value)) {
   throw new Error(
     'Browser text shape rectangle radius failed: ' +
     JSON.stringify(browserTextShapeRectRadiusChecks),
+  );
+}
+const browserTextShapeIsTextBoxDeck = PptxDocument.create();
+const browserTextShapeIsTextBoxLayout = browserTextShapeIsTextBoxDeck.layouts[0];
+const browserTextShapeIsTextBoxMaster = browserTextShapeIsTextBoxDeck.masters[0];
+const browserLayoutShapeText = browserTextShapeIsTextBoxLayout.addText(
+  'Browser layout shape text',
+  { name: 'browser_layout_shape_text', isTextBox: false },
+);
+const browserMasterTextBox = browserTextShapeIsTextBoxMaster.addRichText([{
+  runs: [{ text: 'Browser master text box' }],
+}], {
+  name: 'browser_master_text_box',
+  isTextBox: true,
+});
+const browserFalseTextBoxSource = browserTextShapeIsTextBoxLayout.addPlaceholder(
+  'Browser false text box prompt',
+  {
+    name: 'browser_false_text_box_source',
+    type: 'title',
+    index: 400,
+    isTextBox: false,
+  },
+);
+const browserTrueTextBoxSource = browserTextShapeIsTextBoxLayout.addPlaceholder(
+  'Browser true text box prompt',
+  {
+    name: 'browser_true_text_box_source',
+    type: 'body',
+    index: 401,
+    isTextBox: true,
+  },
+);
+const browserTextShapeIsTextBoxSlide = browserTextShapeIsTextBoxDeck.addSlide({
+  masterName: browserTextShapeIsTextBoxLayout.name,
+});
+const browserMaterializedTextBoxStates = browserTextShapeIsTextBoxSlide.placeholders.map(
+  ({ isTextBox }) => isTextBox,
+);
+const browserPlainTextBox = browserTextShapeIsTextBoxSlide.addText(
+  'Browser plain text box',
+  { name: 'browser_plain_text_box' },
+);
+const browserRichTextBox = browserTextShapeIsTextBoxSlide.addRichText([{
+  runs: [{ text: 'Browser rich text box' }],
+}], {
+  name: 'browser_rich_text_box',
+  isTextBox: true,
+});
+const browserPopulatedFalseTextBox = browserTextShapeIsTextBoxSlide.addText(
+  'Browser population keeps false source',
+  { placeholder: browserFalseTextBoxSource.name, isTextBox: true },
+);
+const browserPopulatedTrueTextBox = browserTextShapeIsTextBoxSlide.addText(
+  'Browser population keeps true source',
+  { placeholder: browserTrueTextBoxSource.name, isTextBox: false },
+);
+const browserTextBoxNoOpBytes = browserTextShapeIsTextBoxDeck.opcPackage
+  .requirePart(browserTextShapeIsTextBoxSlide.partUri).bytes.slice();
+const browserTextBoxNoOpJournal = browserTextShapeIsTextBoxDeck.opcPackage.mutations.length;
+browserRichTextBox.isTextBox = true;
+const browserTextBoxNoOpCurrent = browserTextShapeIsTextBoxDeck.opcPackage
+  .requirePart(browserTextShapeIsTextBoxSlide.partUri).bytes;
+const browserTextBoxNoOp =
+  browserTextBoxNoOpJournal === browserTextShapeIsTextBoxDeck.opcPackage.mutations.length &&
+  browserTextBoxNoOpBytes.length === browserTextBoxNoOpCurrent.length &&
+  browserTextBoxNoOpBytes.every(
+    (value, index) => value === browserTextBoxNoOpCurrent[index],
+  );
+browserPlainTextBox.isTextBox = true;
+browserRichTextBox.isTextBox = false;
+const reopenedBrowserTextShapeIsTextBoxDeck = await PptxDocument.open(
+  await browserTextShapeIsTextBoxDeck.writeBlob(),
+);
+await reopenedBrowserTextShapeIsTextBoxDeck.write({
+  compatibility: 'powerpoint-current',
+});
+const reopenedBrowserTextShapeIsTextBoxSlide =
+  reopenedBrowserTextShapeIsTextBoxDeck.slides[0];
+const reopenedBrowserTextShapeIsTextBoxLayout =
+  reopenedBrowserTextShapeIsTextBoxDeck.layouts[0];
+const reopenedBrowserTextShapeIsTextBoxMaster =
+  reopenedBrowserTextShapeIsTextBoxDeck.masters[0];
+const browserTextShapeIsTextBoxByName = (owner, name) => owner.shapes.find(
+  (shape) => shape instanceof ShapeModel && shape.name === name,
+);
+const browserTextShapeIsTextBoxChecks = {
+  owners: browserLayoutShapeText.isTextBox === false &&
+    browserMasterTextBox.isTextBox === true &&
+    browserFalseTextBoxSource.isTextBox === false &&
+    browserTrueTextBoxSource.isTextBox === true,
+  materialized: JSON.stringify(browserMaterializedTextBoxStates) ===
+    JSON.stringify([false, true]),
+  sourceWins: browserPopulatedFalseTextBox.isTextBox === false &&
+    browserPopulatedTrueTextBox.isTextBox === true,
+  noOp: browserTextBoxNoOp,
+  edited: browserPlainTextBox.isTextBox === true && browserRichTextBox.isTextBox === false,
+  reopened: browserTextShapeIsTextBoxByName(
+    reopenedBrowserTextShapeIsTextBoxSlide,
+    browserPlainTextBox.name,
+  )?.isTextBox === true && browserTextShapeIsTextBoxByName(
+    reopenedBrowserTextShapeIsTextBoxSlide,
+    browserRichTextBox.name,
+  )?.isTextBox === false && browserTextShapeIsTextBoxByName(
+    reopenedBrowserTextShapeIsTextBoxSlide,
+    browserFalseTextBoxSource.name,
+  )?.isTextBox === false && browserTextShapeIsTextBoxByName(
+    reopenedBrowserTextShapeIsTextBoxSlide,
+    browserTrueTextBoxSource.name,
+  )?.isTextBox === true,
+  layout: browserTextShapeIsTextBoxByName(
+    reopenedBrowserTextShapeIsTextBoxLayout,
+    browserFalseTextBoxSource.name,
+  )?.isTextBox === false && browserTextShapeIsTextBoxByName(
+    reopenedBrowserTextShapeIsTextBoxLayout,
+    browserTrueTextBoxSource.name,
+  )?.isTextBox === true,
+  master: browserTextShapeIsTextBoxByName(
+    reopenedBrowserTextShapeIsTextBoxMaster,
+    browserMasterTextBox.name,
+  )?.isTextBox === true,
+  validation: reopenedBrowserTextShapeIsTextBoxDeck.diagnostics.every(
+    ({ severity }) => severity !== 'error',
+  ),
+};
+if (Object.values(browserTextShapeIsTextBoxChecks).some((value) => !value)) {
+  throw new Error(
+    'Browser text shape isTextBox failed: ' +
+    JSON.stringify(browserTextShapeIsTextBoxChecks),
   );
 }
 const browserTextShapeLineDeck = PptxDocument.create();
@@ -7773,6 +8164,24 @@ const typedTextShapeOptions: AddTextOptions = {
 };
 const typedTextShapeEllipseOptions: AddTextOptions = { shape: 'ellipse' };
 const typedTextShapeRectOptions: AddTextOptions = { shape: 'rect' };
+const typedTextShapeIsTextBoxOptions: AddTextOptions = { isTextBox: true };
+const typedTextShapeIsNotTextBoxOptions: AddTextOptions = { isTextBox: false };
+const invalidStringTextShapeIsTextBox: AddTextOptions = {
+  // @ts-expect-error isTextBox does not accept string truthiness
+  isTextBox: 'true',
+};
+const invalidNumericTextShapeIsTextBox: AddTextOptions = {
+  // @ts-expect-error isTextBox does not accept numeric truthiness
+  isTextBox: 1,
+};
+const invalidNullTextShapeIsTextBox: AddTextOptions = {
+  // @ts-expect-error isTextBox does not accept null
+  isTextBox: null,
+};
+const invalidObjectTextShapeIsTextBox: AddTextOptions = {
+  // @ts-expect-error isTextBox does not accept object truthiness
+  isTextBox: {},
+};
 const typedTextShapeRectRadius: Emu = inches(0.5);
 const typedTextShapeRectRadiusOptions: AddTextOptions = {
   shape: 'roundRect',
@@ -7819,6 +8228,22 @@ const typedPlainTextShape: ShapeModel = typedTextShapeSlide.addText(
   'Typed plain text shape fill',
   typedTextShapeOptions,
 );
+const typedTextBoxTextShape: ShapeModel = typedTextShapeSlide.addText(
+  'Typed text box state',
+  typedTextShapeIsTextBoxOptions,
+);
+typedTextShapeSlide.addRichText([{
+  runs: [{ text: 'Typed shape text state' }],
+}], typedTextShapeIsNotTextBoxOptions);
+const typedTextShapeIsTextBoxRead: boolean | undefined = typedTextBoxTextShape.isTextBox;
+typedTextBoxTextShape.isTextBox = false;
+typedTextBoxTextShape.isTextBox = true;
+if (false) {
+  // @ts-expect-error live isTextBox only accepts boolean values
+  typedTextBoxTextShape.isTextBox = 'true';
+  // @ts-expect-error undefined is not a writable text box state
+  typedTextBoxTextShape.isTextBox = undefined;
+}
 const typedRectRadiusTextShape: ShapeModel = typedTextShapeSlide.addText(
   'Typed text rectangle radius',
   typedTextShapeRectRadiusOptions,
@@ -8418,7 +8843,11 @@ void [typedPreset, typedNoneShapeFill, typedSolidShapeFill,
   typedTextShapePreset, typedTextShapeEllipseOptions, typedTextShapeRectOptions,
   invalidTextShapeFolderCorner, invalidTextShapeCustomGeometry,
   invalidTextShapePreset, invalidNumericTextShapePreset, invalidBooleanTextShapePreset,
-  typedTextShapeOptions, typedTextShapeSlide, typedPlainTextShape, typedRichTextShape,
+  typedTextShapeOptions, typedTextShapeIsTextBoxOptions, typedTextShapeIsNotTextBoxOptions,
+  invalidStringTextShapeIsTextBox, invalidNumericTextShapeIsTextBox,
+  invalidNullTextShapeIsTextBox, invalidObjectTextShapeIsTextBox,
+  typedTextShapeSlide, typedPlainTextShape, typedTextBoxTextShape,
+  typedTextShapeIsTextBoxRead, typedRichTextShape,
   typedLayoutTextShape, typedMasterTextShape, typedPlaceholderTextShape,
   typedDeclarativeTextFillObject, typedTextShapeLine, typedTextShapeLineRead,
   typedTextShapeShadow, typedTextShapeInnerShadow, typedTextShapeShadowRead,
@@ -9481,6 +9910,124 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
       textShapeRectRadiusPartResult.stdout,
     );
   }
+  const textShapeIsTextBoxDeckPath = join(
+    directory,
+    'text-shape-is-text-box-smoke.pptx',
+  );
+  const textShapeIsTextBoxValidateResult = run(
+    bin,
+    [
+      '--json', 'package', 'validate', textShapeIsTextBoxDeckPath,
+      '--profile', 'powerpoint-2010',
+    ],
+    directory,
+  );
+  const textShapeIsTextBoxValidated = JSON.parse(
+    textShapeIsTextBoxValidateResult.stdout,
+  );
+  if (!textShapeIsTextBoxValidated.ok ||
+      !textShapeIsTextBoxValidated.data?.valid ||
+      textShapeIsTextBoxValidated.data.errorCount !== 0 ||
+      textShapeIsTextBoxValidated.data.warningCount !== 0 ||
+      textShapeIsTextBoxValidated.data.diagnostics.length !== 0) {
+    throw new Error(
+      'CLI text-shape-is-text-box validation failed: ' +
+      textShapeIsTextBoxValidateResult.stdout,
+    );
+  }
+  const textShapeIsTextBoxSlidesResult = run(
+    bin,
+    ['--json', 'slides', 'list', textShapeIsTextBoxDeckPath],
+    directory,
+  );
+  const textShapeIsTextBoxSlides = JSON.parse(textShapeIsTextBoxSlidesResult.stdout);
+  if (!textShapeIsTextBoxSlides.ok ||
+      textShapeIsTextBoxSlides.data?.length !== 3 ||
+      textShapeIsTextBoxSlides.data[0]?.shapeCount !== 5) {
+    throw new Error(
+      'CLI text-shape-is-text-box slide listing failed: ' +
+      textShapeIsTextBoxSlidesResult.stdout,
+    );
+  }
+  const textShapeIsTextBoxPartResult = run(
+    bin,
+    [
+      '--json', 'part', 'read', textShapeIsTextBoxDeckPath,
+      textShapeIsTextBoxSlides.data[0].partUri,
+    ],
+    directory,
+  );
+  const textShapeIsTextBoxPart = JSON.parse(textShapeIsTextBoxPartResult.stdout);
+  const textShapeIsTextBoxXml = textShapeIsTextBoxPart.data?.content ?? '';
+  if (!textShapeIsTextBoxPart.ok ||
+      !textShapeIsTextBoxXml.includes(
+        'name="packed_plain_text_box"/><p:cNvSpPr txBox="1"/>',
+      ) ||
+      !textShapeIsTextBoxXml.includes(
+        'name="packed_rich_text_box"/><p:cNvSpPr/>',
+      ) ||
+      !textShapeIsTextBoxXml.includes(
+        'name="packed_false_text_box_source"/><p:cNvSpPr/>',
+      ) ||
+      !textShapeIsTextBoxXml.includes(
+        'name="packed_true_text_box_source"/><p:cNvSpPr txBox="1"/>',
+      ) ||
+      !textShapeIsTextBoxXml.includes(
+        'name="packed_slide_text_box_prompt"/><p:cNvSpPr txBox="1"/>',
+      )) {
+    throw new Error(
+      'CLI text-shape-is-text-box part read failed: ' +
+      textShapeIsTextBoxPartResult.stdout,
+    );
+  }
+  const textShapeIsTextBoxLayoutPartResult = run(
+    bin,
+    [
+      '--json', 'part', 'read', textShapeIsTextBoxDeckPath,
+      '/ppt/slideLayouts/slideLayout1.xml',
+    ],
+    directory,
+  );
+  const textShapeIsTextBoxLayoutPart = JSON.parse(
+    textShapeIsTextBoxLayoutPartResult.stdout,
+  );
+  const textShapeIsTextBoxLayoutXml = textShapeIsTextBoxLayoutPart.data?.content ?? '';
+  if (!textShapeIsTextBoxLayoutPart.ok ||
+      !textShapeIsTextBoxLayoutXml.includes(
+        'name="packed_layout_shape_text"/><p:cNvSpPr/>',
+      ) ||
+      !textShapeIsTextBoxLayoutXml.includes(
+        'name="packed_false_text_box_source"/><p:cNvSpPr/>',
+      ) ||
+      !textShapeIsTextBoxLayoutXml.includes(
+        'name="packed_true_text_box_source"/><p:cNvSpPr txBox="1"/>',
+      )) {
+    throw new Error(
+      'CLI text-shape-is-text-box layout part read failed: ' +
+      textShapeIsTextBoxLayoutPartResult.stdout,
+    );
+  }
+  const textShapeIsTextBoxMasterPartResult = run(
+    bin,
+    [
+      '--json', 'part', 'read', textShapeIsTextBoxDeckPath,
+      '/ppt/slideMasters/slideMaster1.xml',
+    ],
+    directory,
+  );
+  const textShapeIsTextBoxMasterPart = JSON.parse(
+    textShapeIsTextBoxMasterPartResult.stdout,
+  );
+  const textShapeIsTextBoxMasterXml = textShapeIsTextBoxMasterPart.data?.content ?? '';
+  if (!textShapeIsTextBoxMasterPart.ok ||
+      !textShapeIsTextBoxMasterXml.includes(
+        'name="packed_master_text_box"/><p:cNvSpPr txBox="1"/>',
+      )) {
+    throw new Error(
+      'CLI text-shape-is-text-box master part read failed: ' +
+      textShapeIsTextBoxMasterPartResult.stdout,
+    );
+  }
   if (process.env.PPTX_SLIDE_BACKGROUND_GALLERY_OUT) {
     const galleryOutput = resolve(process.env.PPTX_SLIDE_BACKGROUND_GALLERY_OUT);
     await mkdir(dirname(galleryOutput), { recursive: true });
@@ -9518,7 +10065,7 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
   }
 
   process.stdout.write(
-    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, masterLayouts: apiChecks.masterLayouts, slideNumbers: apiChecks.slideNumbers, slideDefaultColor: apiChecks.slideDefaultColor, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, textShapeFills: apiChecks.textShapeFills, textShapeLines: apiChecks.textShapeLines, textShapeArrows: apiChecks.textShapeArrows, textShapeShadows: apiChecks.textShapeShadows, textShapeHyperlinks: apiChecks.textShapeHyperlinks, textShapePresetGeometry: apiChecks.textShapePresetGeometry, textShapeRectRadius: apiChecks.textShapeRectRadius, richTextRunHyperlinks: apiChecks.richTextRunHyperlinks, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, slideBackgrounds: apiChecks.slideBackgrounds, types: true, cli: doctor.data.version, masterLayoutInspect: true, masterLayoutValidate: true, masterLayoutSlides: true, masterLayoutPartRead: true, masterLayoutDiff: true, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true, slideBackgroundInspect: true, slideBackgroundValidate: true, slideNumberInspect: true, slideNumberValidate: true, slideNumberSlides: true, slideNumberPartRead: true, slideDefaultColorInspect: true, slideDefaultColorValidate: true, slideDefaultColorSlides: true, slideDefaultColorPartRead: true, textShapeFillInspect: true, textShapeFillValidate: true, textShapeFillSlides: true, textShapeFillPartRead: true, textShapeLineInspect: true, textShapeLineValidate: true, textShapeLineSlides: true, textShapeLinePartRead: true, textShapeArrowInspect: true, textShapeArrowValidate: true, textShapeArrowSlides: true, textShapeArrowPartRead: true, textShapeShadowInspect: true, textShapeShadowValidate: true, textShapeShadowSlides: true, textShapeShadowPartRead: true, textShapeHyperlinkInspect: true, textShapeHyperlinkValidate: true, textShapeHyperlinkSlides: true, textShapeHyperlinkPartRead: true, textShapeHyperlinkInternalValidate: true, textShapePresetGeometryValidate: true, textShapePresetGeometrySlides: true, textShapePresetGeometryPartRead: true, textShapeRectRadiusValidate: true, textShapeRectRadiusSlides: true, textShapeRectRadiusPartRead: true, richTextRunHyperlinkInspect: true, richTextRunHyperlinkValidate: true, richTextRunHyperlinkSlides: true, richTextRunHyperlinkPartRead: true, richTextRunHyperlinkInternalValidate: true })}\n`,
+    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, masterLayouts: apiChecks.masterLayouts, slideNumbers: apiChecks.slideNumbers, slideDefaultColor: apiChecks.slideDefaultColor, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, textShapeFills: apiChecks.textShapeFills, textShapeLines: apiChecks.textShapeLines, textShapeArrows: apiChecks.textShapeArrows, textShapeShadows: apiChecks.textShapeShadows, textShapeHyperlinks: apiChecks.textShapeHyperlinks, textShapePresetGeometry: apiChecks.textShapePresetGeometry, textShapeRectRadius: apiChecks.textShapeRectRadius, textShapeIsTextBox: apiChecks.textShapeIsTextBox, richTextRunHyperlinks: apiChecks.richTextRunHyperlinks, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, slideBackgrounds: apiChecks.slideBackgrounds, types: true, cli: doctor.data.version, masterLayoutInspect: true, masterLayoutValidate: true, masterLayoutSlides: true, masterLayoutPartRead: true, masterLayoutDiff: true, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true, slideBackgroundInspect: true, slideBackgroundValidate: true, slideNumberInspect: true, slideNumberValidate: true, slideNumberSlides: true, slideNumberPartRead: true, slideDefaultColorInspect: true, slideDefaultColorValidate: true, slideDefaultColorSlides: true, slideDefaultColorPartRead: true, textShapeFillInspect: true, textShapeFillValidate: true, textShapeFillSlides: true, textShapeFillPartRead: true, textShapeLineInspect: true, textShapeLineValidate: true, textShapeLineSlides: true, textShapeLinePartRead: true, textShapeArrowInspect: true, textShapeArrowValidate: true, textShapeArrowSlides: true, textShapeArrowPartRead: true, textShapeShadowInspect: true, textShapeShadowValidate: true, textShapeShadowSlides: true, textShapeShadowPartRead: true, textShapeHyperlinkInspect: true, textShapeHyperlinkValidate: true, textShapeHyperlinkSlides: true, textShapeHyperlinkPartRead: true, textShapeHyperlinkInternalValidate: true, textShapePresetGeometryValidate: true, textShapePresetGeometrySlides: true, textShapePresetGeometryPartRead: true, textShapeRectRadiusValidate: true, textShapeRectRadiusSlides: true, textShapeRectRadiusPartRead: true, textShapeIsTextBoxValidate: true, textShapeIsTextBoxSlides: true, textShapeIsTextBoxPartRead: true, textShapeIsTextBoxLayoutPartRead: true, textShapeIsTextBoxMasterPartRead: true, richTextRunHyperlinkInspect: true, richTextRunHyperlinkValidate: true, richTextRunHyperlinkSlides: true, richTextRunHyperlinkPartRead: true, richTextRunHyperlinkInternalValidate: true })}\n`,
   );
 } finally {
   await rm(directory, { recursive: true, force: true });
