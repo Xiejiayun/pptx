@@ -569,7 +569,7 @@ The same contract covers plain and rich text, `addPlaceholder()`, title/body pla
 
 The cross-package focused gate is 5/5; SDK/root and adapter suites are 188/188 and 76/76. Final full Vitest is 1262 passed / 1 skipped, the separate performance gate is 1/1 at 560ms, and the TypeScript typecheck plus project build pass. The actual 57-file tarball reports `textShapeFills: true` from installed Node, declarations, browser export, and CLI checks. Real Chrome has zero validation, console, page, or network errors, and installed CLI PowerPoint 2010 validation is 0 errors / 0 warnings.
 
-PptxGenJS 4.0.1 also writes direct no-fill for an omitted text fill, but `{ type: 'none' }` omits the direct fill choice and explicit zero transparency omits alpha. Native preserves explicit none/zero intent; supported solid and non-zero transparency cases are semantically equivalent. Gradient, pattern, picture, and group text fills remain preservation-only outside this simple creator. Text outer simple line, arrows, and simple shadow are supported below; hyperlink, `shape` / `rectRadius` / `isTextBox`, and combined `breakLine` semantics remain pending.
+PptxGenJS 4.0.1 also writes direct no-fill for an omitted text fill, but `{ type: 'none' }` omits the direct fill choice and explicit zero transparency omits alpha. Native preserves explicit none/zero intent; supported solid and non-zero transparency cases are semantically equivalent. Gradient, pattern, picture, and group text fills remain preservation-only outside this simple creator. Text outer simple line, arrows, simple shadow, hyperlink, preset geometry, and rounded-rectangle radius are supported below; `isTextBox` and combined `breakLine` semantics remain pending.
 
 ## Create and edit text-shape lines
 
@@ -728,7 +728,27 @@ Creation writes the outer relationship to the non-visual shape click and each no
 
 PptxGenJS 4.0.1 materializes omitted tooltip as `tooltip=""` and emits broken `rIdundefined` references for rich outer links. Its legal per-run form writes only run links and, like native, allocates one relationship per explicit run. Native accepts its external-run `action=""` but rejects dangling, orphaned, falsy-underline, and console-only defects before mutation.
 
-Final full Vitest is 1303 passed / 1 skipped and performance is 1/1 at 624ms. Model, SDK, root, and adapter suites are 199/199, 191/191, 13/13, and 80/80; both TypeScript builds, both tsup builds, and declaration build pass. The actual 57-file tarball plus installed Node/declarations/browser/CLI and real Chrome report `richTextRunHyperlinks: true`; Chrome has zero validation/console/page/network errors. The external smoke deck is 24 parts / 32 relationships / 3 slides with 0 errors and 8 expected portability warnings; the internal-only deck is 20 parts / 19 relationships / 2 slides with 0 errors / 0 warnings. Text geometry through `AddTextOptions.shape` is the next parity item.
+Final full Vitest is 1303 passed / 1 skipped and performance is 1/1 at 624ms. Model, SDK, root, and adapter suites are 199/199, 191/191, 13/13, and 80/80; both TypeScript builds, both tsup builds, and declaration build pass. The actual 57-file tarball plus installed Node/declarations/browser/CLI and real Chrome report `richTextRunHyperlinks: true`; Chrome has zero validation/console/page/network errors. The external smoke deck is 24 parts / 32 relationships / 3 slides with 0 errors and 8 expected portability warnings; the internal-only deck is 20 parts / 19 relationships / 2 slides with 0 errors / 0 warnings.
+
+## Create rounded text-shape corners
+
+```ts
+const rounded = slide.addText('Rounded text', {
+  shape: 'roundRect',
+  rectRadius: inches(0.5),
+  width: inches(4),
+  height: inches(2),
+});
+
+console.log(rounded.adjustments); // [{ name: 'adj', value: 25000 }]
+rounded.adjustments = [{ name: 'adj', value: 12500 }];
+```
+
+`AddTextOptions.rectRadius?: Emu` is a creation-only shortcut for `shape: 'roundRect'`. The input must be finite and within `0..914400` EMU, then rounds to the nearest EMU. Creation writes `adj = round(rectRadius * 100000 / min(finalWidth, finalHeight))`; omission or runtime `undefined` keeps the canonical empty `a:avLst`, while explicit zero writes `adj=0`. Named-placeholder population uses the final owner extent.
+
+After creation, use `ShapeModel.adjustments` for read, whole replacement, or `[]` clear. Resizing deliberately does not recalculate the stored guide. Plain/rich text, slide/layout/master wrappers, `addPlaceholder()`, placeholder population, and declarative master text/placeholder objects share the same behavior without changing fill, line, arrows, shadow, hyperlink, transform, or text ownership.
+
+Valid positive PptxGenJS 4.0.1 output is semantically equivalent. Native rejects its zero/NaN truthiness loss, string coercion, wrong-shape passthrough, negative/out-of-range values, and infinite formulas before package mutation. Final verification is 1320 passed / 1 skipped tests; model, SDK, root, and adapter suites are 203/203, 195/195, 15/15, and 85/85. The actual 57-file tarball and installed Node/types/browser/CLI plus real Chrome report `textShapeRectRadius: true`, with zero Chrome validation/console/page/network errors. A three-slide QA deck validates at PowerPoint 2010 0/0, changes only the intended slide part, has no overflow, and passed slide-by-slide visual review. LibreOffice preserves every explicit guide and materializes only the omitted default as `16667`.
 
 `PRESET_SHAPE_TYPES` is the frozen discovery catalog for all 178 canonical preset geometries accepted by `SlideModel.addShape()`. `AddShapeOptions` accepts `name`, strict `adjustments`, strict `fill`, strict `line`, strict `arrows`, strict `shadow`, strict `hyperlink`, and native EMU/OOXML-angle transform fields; use `inches()` and `degrees()` for ergonomic conversion. Omitted geometry starts at x/y/width/height = 1 inch with zero rotation and no flips; omitted fill creates direct no-fill, and omitted line keeps the canonical empty line container. Inputs are strict, descriptor-safe, detached before mutation, and reject unknown fields. The catalog uses the valid OOXML `foldedCorner`; PptxGenJS 4.0.1's invalid `folderCorner` token and runtime-only `custGeom` value are not accepted as presets.
 
@@ -818,7 +838,7 @@ An actual packed-package gallery covers 4 slides and 22 evaluator targets. The o
 
 `Hyperlink` is a mutually exclusive `{ url, tooltip? } | { slide, tooltip? }` union used by `AddShapeOptions.hyperlink`, `AddTextOptions.hyperlink`, `ShapeModel.hyperlink`, and `RichTextRunStyle.hyperlink`. URLs must be non-empty XML-safe strings; slide targets are one-based positive safe integers that must exist when assigned. Inputs and frozen getter snapshots are detached. Assignment is a whole replacement, so an omitted tooltip removes the direct attribute, an explicit empty tooltip preserves `tooltip=""`, and `undefined` clears the whole-shape click link. Same-value assignment is an exact no-op. Internal relationships preserve target-slide identity across insert, delete, and reorder; duplicate self-links retarget to the duplicate, target deletion cleans click/hover references, and shared relationships use reference-aware clone-on-write and garbage collection. Text outer creation provides the shape click and default run link; explicit run links own independent relationships, and `false` suppresses the default. PptxGenJS 4.0.1 materializes omitted tooltip as empty and can console-ignore or coerce invalid runtime values into duplicate or dangling links; native rejects those values before mutation. External links intentionally produce the validator's portability warning. Text-shape simple-line, arrow, simple-shadow, outer-hyperlink, and per-run rich-text hyperlink creation/editing are supported.
 
-Hover editing, table/image/chart/media hyperlink creation, action navigation, arrow size, cap/compound/alignment/join editing, advanced line fill/custom dash creation, text geometry creation, and percentage positions remain pending.
+Hover editing, table/image/chart/media hyperlink creation, action navigation, arrow size, cap/compound/alignment/join editing, advanced line fill/custom dash creation, remaining text geometry shortcuts, and percentage positions remain pending.
 
 `CreatePresentationOptions.title` and live `document.title` use the direct core-properties title. Omitted creation input writes no title, `''` writes an explicit empty title, and `undefined` clears only the direct field. Values are strict XML-safe strings; reads follow the package-root core-properties relationship instead of assuming a part URI or prefix, same-value/absent-clear operations are exact no-ops, missing metadata can be created, and unrelated subject/creator/revision/unknown content is preserved. Unsafe malformed or ambiguous ownership is rejected rather than guessed. PptxGenJS 4.0.1 defaults its own public `title` to `PptxGenJS Presentation`; native omitted creation intentionally remains `undefined`.
 

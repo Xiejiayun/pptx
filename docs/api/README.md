@@ -328,7 +328,7 @@ The release gallery was produced from the actual npm tarball and contains 4 slid
 
 `Hyperlink` is the mutually exclusive `{ readonly url: string; readonly tooltip?: string } | { readonly slide: number; readonly tooltip?: string }` value used by `AddShapeOptions.hyperlink`, `AddTextOptions.hyperlink`, `ShapeModel.hyperlink`, and `RichTextRunStyle.hyperlink`. A URL must be a non-empty XML-safe string; a slide number must be a one-based positive safe integer resolving to a current presentation slide at assignment time. Inputs must be descriptor-safe ordinary or null-prototype objects with exactly one target and no unknown keys. Getter results are detached frozen direct-state snapshots. Tooltip absence remains property absence, while direct empty remains `tooltip: ''`; assignment is a whole replacement, omitted tooltip clears only that attribute, and `undefined` removes the supported whole-shape click element. Same-value assignment is an exact bytes/journal no-op. URL/slide switching reuses an unshared relationship or clones on write when its ID is referenced elsewhere, and clear or replacement garbage-collects only unreferenced relationships. Internal links retain target-part identity while slide insert/delete/reorder changes the reported one-based ordinal; duplicate self-links retarget to the duplicate, and deleting a target removes incoming DrawingML click/hover elements before deleting their relationships. `AddTextOptions.hyperlink` supplies the non-visual click and default run link. `RichTextRunStyle.hyperlink?: Hyperlink | false` overrides that default with an independent run relationship, inherits it when omitted, or suppresses it with `false`; explicit run underline always wins. `ShapeModel.hyperlink` deliberately remains whole-shape-only, while run links are read and edited through `ShapeModel.richText`. Unsupported hover editing, extra action/sound/history state, duplicate/malformed click ownership, or dangling/wrong-type relationships are never guessed. PptxGenJS 4.0.1 materializes omitted tooltip as direct empty and may console-ignore, coerce, duplicate, or dangle invalid runtime targets; its rich outer hyperlink emits broken `rIdundefined` references, while legal rich per-run links omit the shape click and allocate separate relationships. Native accepts its external-run `action=""` but rejects its defects before mutation. External hyperlinks produce the expected portability warning rather than a package error. Table/image/chart/media/group/graphic-frame hyperlink creation, hover links, action-only navigation, and relative/file safety policy remain outside this API.
 
-Arrow size, cap/compound/alignment/join editing, generic/advanced effects, custom shadow transforms, non-shape/text shadow APIs, custom-geometry path scaling/arc endpoint and bounds calculation/handle dragging/connector snapping and creation, text `rectRadius` / `isTextBox` / `breakLine`, advanced line fill/custom dash creation, and percentage positions remain pending. Text-shape simple-line, arrow, simple-shadow, outer-hyperlink, and preset-geometry creation reuse the same codecs below.
+Arrow size, cap/compound/alignment/join editing, generic/advanced effects, custom shadow transforms, non-shape/text shadow APIs, custom-geometry path scaling/arc endpoint and bounds calculation/handle dragging/connector snapping and creation, text `isTextBox` / `breakLine`, advanced line fill/custom dash creation, and percentage positions remain pending. Text-shape simple-line, arrow, simple-shadow, outer-hyperlink, preset-geometry, and rounded-rectangle-radius creation reuse the same codecs below.
 
 Shape kinds include `text`, `shape`, `image`, `table`, `chart`, `graphic-frame`, and `group`. Images expose embedded part URIs and replacement; tables support basic native creation plus rows/cells, cell text, borders, fill, margins, horizontal/vertical alignment, text-direction, and text-fit editing; charts expose cached series and lossless chart XML editing.
 
@@ -367,7 +367,7 @@ plain.fill = undefined;
 
 Plain/rich text, `addPlaceholder()`, title/body placeholder population, layout/master wrapper methods, and declarative `defineSlideMaster()` text/placeholder objects share the same renderer and validation contract. The resulting `ShapeModel.fill` is immediately readable and editable. Inputs detach before mutation; snapshots are detached and frozen; duplicate, move, outer rollback, six-format write/reopen, stable identity, sibling isolation, and placeholder-source isolation retain the direct fill. Clearing the live model with `undefined` differs from creation omission: the former removes the direct choice, while the latter intentionally preserves the canonical text-box default no-fill.
 
-PptxGenJS 4.0.1 writes direct no-fill for omitted text fill, omits the direct choice for `{ type: 'none' }`, and omits alpha for explicit zero transparency. Native deliberately preserves explicit none and zero direct intent. Supported solid/scheme/non-zero-alpha output reaches the same final semantics. Gradient/pattern/picture/group text-fill creation remains outside this simple creator. Text outer simple line, arrows, simple shadow, hyperlink, and preset geometry are supported below; `rectRadius`, `isTextBox`, and combined `breakLine` behavior remain pending.
+PptxGenJS 4.0.1 writes direct no-fill for omitted text fill, omits the direct choice for `{ type: 'none' }`, and omits alpha for explicit zero transparency. Native deliberately preserves explicit none and zero direct intent. Supported solid/scheme/non-zero-alpha output reaches the same final semantics. Gradient/pattern/picture/group text-fill creation remains outside this simple creator. Text outer simple line, arrows, simple shadow, hyperlink, preset geometry, and rounded-rectangle radius are supported below; `isTextBox` and combined `breakLine` behavior remain pending.
 
 ### Text-shape direct simple line
 
@@ -526,7 +526,28 @@ Geometry ownership is independent from transform, fill, line, arrows, shadow, wh
 
 Final verification is 1313 passed / 1 skipped tests and performance 1/1 at 578ms; both TypeScript checks, both tsup builds, and declaration build pass. The actual 57-file tarball (SHA-256 `1412706458c883b9e4dfa3d87e6577ab86df57b78999a2796b2c6e69647be0f9`) reports `textShapePresetGeometry: true` from installed Node/types/browser/CLI. Real Chrome reports the same with zero validation/console/page/network errors. The representative two-slide source validates at PowerPoint 2010 0/0; after LibreOffice save all 17 `(text, presetType)` pairs survive, with 0 errors and two placeholder-owner warnings. Both versions render without overflow and match in slide-by-slide visual review.
 
-This slice does not complete advanced text or full PptxGenJS parity. `rectRadius`, `isTextBox`, `breakLine`, advanced text/table and `tableToSlides`, output/runtime helpers, and the peer-range full-suite audit remain pending.
+This slice does not complete advanced text or full PptxGenJS parity. `isTextBox`, `breakLine`, advanced text/table and `tableToSlides`, output/runtime helpers, and the peer-range full-suite audit remain pending.
+
+### Text-shape rounded rectangle radius
+
+```ts
+const rounded = document.addSlide().addText('Rounded text', {
+  shape: 'roundRect',
+  rectRadius: inches(0.5),
+  width: inches(4),
+  height: inches(2),
+});
+
+rounded.adjustments = [{ name: 'adj', value: 12500 }];
+```
+
+`AddTextOptions.rectRadius?: Emu` is an own-data-property creation shortcut that is valid only when the resolved shape is `roundRect`. A supplied value must be a finite number in inclusive range `0..914400`, rounds to the nearest EMU with negative zero canonicalized to zero, and must remain a safe integer after rounding. Omitted, absent, and own `undefined` values leave the preset geometry's canonical empty `a:avLst`; explicit zero creates one direct `{ name: 'adj', value: 0 }` guide.
+
+Creation derives the guide as `Math.round(rectRadius * 100000 / Math.min(finalWidth, finalHeight))`. Plain/rich text, `addPlaceholder()`, named-placeholder population, slide/layout/master methods, and declarative master text/placeholder objects share the contract. Placeholder population uses the selected owner's final inherited transform. The derived guide is ordinary `ShapeModel.adjustments` state: same-value assignment is an exact bytes/journal no-op, whole replacement and `[]` clear are supported, and later transform resizing does not recalculate it. Geometry adjustment ownership remains independent from fill, line, arrows, shadow, hyperlinks, text-body state, transform mutation, and placeholder identity.
+
+Valid positive PptxGenJS 4.0.1 cases produce the same final guide. Native deliberately preserves explicit zero and rejects string coercion, wrong-shape use, negative or over-one-inch values, NaN, infinities, accessors, symbols, inherited keys, and unsafe object shapes before package mutation. It therefore does not reproduce PptxGenJS's zero/NaN truthiness loss, unchecked negative/over-range formulas, or `val Infinity` output.
+
+Final verification is 1320 passed / 1 skipped tests; model, SDK, root, and adapter suites are 203/203, 195/195, 15/15, and 85/85. Both TypeScript checks, both bundles, and declaration generation pass. The actual 57-file tarball plus installed Node/types/browser/CLI and real Google Chrome report `textShapeRectRadius: true`; Chrome validation/console/page/network errors are zero. A three-slide source validates under PowerPoint 2010 at 0/0, mutation isolation changes only `slide1.xml`, overflow is zero, and every rendered page was reviewed. LibreOffice retains all explicit guide values and only normalizes the omitted default to `16667`.
 
 ```ts
 const text = document.addSlide().addText('Quarterly results\nQ4 forecast', {
@@ -997,9 +1018,9 @@ Focused master/layout/placeholder tests report 45 passed / 434 skipped; full Vit
 
 The two-slide native gallery has 32 parts, 29 relationships, two layouts, and one master and validates 0/0 under the PowerPoint 2010 profile. The two-slide PptxGenJS control has 36 parts and 34 relationships. Eight source/LibreOffice-round-trip pages were rendered at 2400×1350 and 180 DPI and inspected individually; full-bleed fixture backgrounds give an expected 0px minimum non-white margin. LibreOffice 26.8 preserves two slides, two layouts, and one master but rewrites placeholder identities and slide-number caches and removes audio plus embedded chart workbooks. Local PowerPoint 16.112 returned `-9074` for both native and control inputs and produced no PPTX/PDF, so neither result is reported as a full round-trip pass.
 
-Full theme text cascade, percentage coordinates, advanced text/table/media/chart styles, and broad client certification remain pending. Advanced text now includes text-shape direct fill, simple line, arrows, simple shadow, outer hyperlink, per-run rich-text hyperlink, and preset geometry creation/read/edit.
+Full theme text cascade, percentage coordinates, advanced text/table/media/chart styles, and broad client certification remain pending. Advanced text now includes text-shape direct fill, simple line, arrows, simple shadow, outer hyperlink, per-run rich-text hyperlink, preset geometry, and rounded-rectangle-radius creation/read/edit.
 
-`AddTextOptions.rectRadius` is next, followed by `isTextBox` / `breakLine`, the remaining advanced-text items, advanced table/`tableToSlides`, output/runtime helpers, and the peer-range full-suite audit.
+`AddTextOptions.isTextBox` is next, followed by `breakLine`, the remaining advanced-text items, advanced table/`tableToSlides`, output/runtime helpers, and the peer-range full-suite audit.
 
 ## Media
 

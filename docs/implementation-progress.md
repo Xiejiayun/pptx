@@ -651,6 +651,29 @@ $ pptx-inspect --json package inspect output.pptx
 - Text preset geometry 已从缺口移入支持项。`rectRadius`、`isTextBox`、`breakLine`、advanced line/effect、其余 advanced text/table、`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit 仍待完成；不声明完整 PptxGenJS parity。
 - 下一小项为 `AddTextOptions.rectRadius`。
 
+## PptxGenJS 全功能对等：Text shape rectangle radius
+
+状态：完成；实施与证据 7/7
+
+### 本阶段 change
+
+- `AddTextOptions.rectRadius?: Emu` 为 `shape: 'roundRect'` 提供 strict creation shortcut。Finite `0..914400` EMU 按最近整数 EMU 归一化，并写入 `adj = round(rectRadius * 100000 / min(finalWidth, finalHeight))`；omitted/runtime `undefined` 保留 empty `a:avLst`，explicit zero 保留 `adj=0`。
+- Plain/rich text、`addPlaceholder()`、placeholder population、slide/layout/master wrappers 与 declarative `defineSlideMaster()` text/placeholder objects 共用同一 normalizer/renderer。Placeholder population 使用最终 owner extent；创建后统一通过 `ShapeModel.adjustments` read/replace/clear，resize 不重算已有 guide。
+- Input normalization 是 own-data-property、getter-free 与 zero-mutation。Wrong shape、negative/over-one-inch、NaN/infinity、string/boolean/object/symbol coercion、accessor/inherited/unknown key 在 package mutation 前拒绝；radius geometry 与 fill/line/arrows/shadow/hyperlink/transform/text/placeholder identity 独立。
+- PptxGenJS 4.0.1 的合法正值与 native final guide 对等。Native 保留 explicit zero，且不复制 PptxGenJS 的 zero/NaN truthiness loss、numeric-string coercion、wrong-shape passthrough、负值/超范围 guide 或 `val Infinity` 缺陷。
+
+### 验证结果
+
+- Model/geometry、SDK/root、adapter 与跨包定向验证分别为 252/252、210/210、85/85、7/7；最终全量为 68 passed / 1 skipped test files、1320 passed / 1 skipped tests，独立 performance 为 1/1（724ms）。两种 TypeScript check、两套 tsup 与 declaration build 全部通过。
+- Actual npm tarball 为 57 files，SHA-256 `b94ed5996c6d6b50f8a59bfa67342abb29b1ca450c251400335be8badfbd3e3a`。Installed Node/types/browser/CLI 与真实 Google Chrome 均报告 `textShapeRectRadius: true`；Chrome validation/console/page/network errors 均为 0。
+- 三页 wide QA deck 的 PowerPoint 2010 profile 为 0 errors / 0 warnings；exact part read 覆盖 empty、0、12500、25000、50000、75000、100000 guides，单项 edit 只改变 `/ppt/slides/slide1.xml`，其余 23 parts byte-identical。三页无 overflow，并逐页检查 radius progression、formula/resize、rich text、layout/master/placeholder 与 edit state。
+- LibreOffice 成功渲染、回存 PPTX 和导出 PDF；回存后 explicit 0、12500、25000、35000、50000、75000、100000 全部保留，omitted 默认被客户端物化为 `16667`。回存件 0 errors；4 条 placeholder-owner warnings 来自 LibreOffice 自动加入的默认 layout placeholders。
+
+### 剩余文本与全功能路线
+
+- Text rectangle radius 已从缺口移入支持项。下一小项为 `AddTextOptions.isTextBox`，之后继续 `breakLine`、advanced line/effect 与其余 advanced text。
+- 总体路线保持 advanced text → advanced table/`tableToSlides` → output/runtime helpers → peer-range full-suite audit；不声明完整 PptxGenJS parity。
+
 ## 0.1.0 初始验收
 
 - `pnpm check`：TypeScript strict build 通过；14 个测试文件、34 项测试全部通过。
