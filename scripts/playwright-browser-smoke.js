@@ -19,6 +19,20 @@ async (page) => {
       const binary = atob(base64);
       const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
       const api = await import(moduleUrl);
+      const versionDocument = api.PptxDocument.create();
+      const reopenedVersionDocument = await api.PptxDocument.open(
+        await versionDocument.writeBlob(),
+      );
+      const presentationVersionState = {
+        constant: api.PPTX_VERSION,
+        created: versionDocument.version,
+        reopened: reopenedVersionDocument.version,
+      };
+      const presentationVersion = Object.values(presentationVersionState)
+        .every((value) => value === api.PPTX_VERSION)
+        && versionDocument.diagnostics.filter(({ severity }) => severity === 'error').length === 0
+        && reopenedVersionDocument.diagnostics
+          .filter(({ severity }) => severity === 'error').length === 0;
       const fromBlob = await api.PptxDocument.open(new Blob([bytes.buffer]));
       const stream = new ReadableStream({
         start(controller) {
@@ -2035,6 +2049,8 @@ async (page) => {
         && chartDocument.opcPackage.hasPart(comboChartPartUri)
         && reopenedChartDocument.diagnostics.filter(({ code }) => code.startsWith('CHART_')).length === 0;
       return {
+        presentationVersion,
+        presentationVersionState,
         format: reopened.format,
         title: reopened.slides[0].title.text,
         mime: output.type,
@@ -2128,6 +2144,12 @@ async (page) => {
   page.off('requestfailed', onRequestFailed);
   page.off('response', onResponse);
   const expected = {
+    presentationVersion: true,
+    presentationVersionState: {
+      constant: '0.1.0',
+      created: '0.1.0',
+      reopened: '0.1.0',
+    },
     format: 'pptx',
     title: 'Browser updated',
     mime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
