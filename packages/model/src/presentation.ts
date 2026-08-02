@@ -1,4 +1,5 @@
 import { LosslessXmlDocument, type XmlElement } from '@pptx/lossless-xml';
+import { readSlideNumber, replaceSlideNumber } from '@pptx/codecs';
 import {
   joinPartUri,
   OpcPackage,
@@ -446,6 +447,9 @@ export class PresentationModel {
         '.xml',
       );
       this.opcPackage.setPart(slideUri, blankSlideXml(), SLIDE_CONTENT_TYPE);
+      const layoutSlideNumber = layoutPartUri === undefined
+        ? undefined
+        : readSlideNumber(this.opcPackage, layoutPartUri, 'layout');
       if (layoutPartUri) {
         this.opcPackage.addRelationship(slideUri, {
           type: SLIDE_LAYOUT_RELATIONSHIP,
@@ -456,9 +460,19 @@ export class PresentationModel {
           layoutPartUri,
           slideUri,
           normalized.masterName !== undefined,
+          layoutSlideNumber !== undefined,
         );
       }
       const slide = this.attachSlide(slideUri);
+      if (layoutSlideNumber !== undefined) {
+        replaceSlideNumber(
+          this.opcPackage,
+          slideUri,
+          'slide',
+          layoutSlideNumber,
+          String(this.effectiveSlideNumber(slide)),
+        );
+      }
       if (targetSectionId !== undefined) {
         const { xml } = this.parsePresentation();
         const slideIds = new Set(this.slides.map(({ slideId }) => slideId));

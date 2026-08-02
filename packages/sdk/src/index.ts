@@ -24,6 +24,7 @@ import {
   type PlaceholderSelector,
   type SlideModel,
 } from '@pptx/model';
+import { escapeXmlAttribute } from '@pptx/lossless-xml';
 import { OpcPackage, type PackageOpenOptions } from '@pptx/opc';
 import {
   ValidationError,
@@ -51,7 +52,14 @@ import {
   type SetSlideBackgroundImageOptions,
 } from './slide-background-source.js';
 import { resolveSvgFallback } from './svg-image-fallback.js';
-import { SlideLayoutModel, SlideMasterModel } from './master-layout.js';
+import {
+  normalizeDefineSlideMasterOptions,
+  SlideLayoutModel,
+  SlideMasterModel,
+  type DefineSlideMasterOptions,
+  type NormalizedSlideMasterObject,
+  type SlideMasterMargin,
+} from './master-layout.js';
 
 export * from '@pptx/codecs';
 export * from '@pptx/model';
@@ -90,6 +98,12 @@ export type {
 } from './raster-image-sizing.js';
 export type { SetSlideBackgroundImageOptions } from './slide-background-source.js';
 export { SlideLayoutModel, SlideMasterModel } from './master-layout.js';
+export type {
+  DefineSlideMasterOptions,
+  SlideMasterMargin,
+  SlideMasterMarginInput,
+  SlideMasterObject,
+} from './master-layout.js';
 export { PackageError } from '@pptx/opc';
 export type { PackageOpenOptions } from '@pptx/opc';
 export { ValidationError } from '@pptx/validator';
@@ -118,6 +132,7 @@ export class PptxDocument extends PresentationModel {
   readonly #masterLayoutTheme: MasterLayoutThemeCodec;
   readonly #layoutModels = new Map<string, SlideLayoutModel>();
   readonly #masterModels = new Map<string, SlideMasterModel>();
+  readonly #layoutMargins = new Map<string, Readonly<SlideMasterMargin>>();
 
   private constructor(opcPackage: OpcPackage) {
     super(opcPackage);
@@ -271,10 +286,55 @@ export class PptxDocument extends PresentationModel {
     return this.#masterLayoutTheme;
   }
 
+  async defineSlideMaster(options: DefineSlideMasterOptions): Promise<SlideLayoutModel> {
+    const normalized = normalizeDefineSlideMasterOptions(options, this.slideSize);
+    if (
+      normalized.master !== undefined
+      && !this.masters.includes(normalized.master)
+    ) {
+      throw new TypeError('Slide master definition master belongs to another document or is detached');
+    }
+    const rawMaster = this.#masterLayoutTheme.requireAttachedMaster(
+      normalized.master?.partUri,
+    );
+    if (this.#masterLayoutTheme.hasAttachedLayoutName(normalized.title)) {
+      throw new RangeError(`Slide master title ${normalized.title} is already in use`);
+    }
+
+    const rawLayout = this.opcPackage.transaction(() => {
+      const raw = this.#masterLayoutTheme.createLayout(
+        rawMaster.partUri,
+        blankNamedLayoutXml(normalized.title),
+      );
+      const layout = new SlideLayoutModel(
+        this,
+        raw,
+        (partUri) => this.#layoutMargins.get(partUri),
+      );
+      if (normalized.background !== undefined) {
+        layout.background = normalized.background;
+      }
+      for (const object of normalized.objects) addSlideMasterObject(layout, object);
+      if (normalized.slideNumber !== undefined) {
+        layout.slideNumber = normalized.slideNumber;
+        this.#masterLayoutTheme.enableMasterSlideNumbers(rawMaster.partUri);
+      }
+      return raw;
+    });
+    if (normalized.margin !== undefined) {
+      this.#layoutMargins.set(rawLayout.partUri, normalized.margin);
+    }
+    return this.modelForLayout(rawLayout);
+  }
+
   private modelForLayout(raw: RawLayoutModel): SlideLayoutModel {
     const existing = this.#layoutModels.get(raw.partUri);
     if (existing) return existing;
-    const created = new SlideLayoutModel(this, raw);
+    const created = new SlideLayoutModel(
+      this,
+      raw,
+      (partUri) => this.#layoutMargins.get(partUri),
+    );
     this.#layoutModels.set(raw.partUri, created);
     return created;
   }
@@ -390,6 +450,38 @@ export class PptxDocument extends PresentationModel {
     if (!slide) throw new RangeError(`Slide index ${slideIndex} is out of range`);
     return slide.media;
   }
+}
+
+function addSlideMasterObject(
+  layout: SlideLayoutModel,
+  object: NormalizedSlideMasterObject,
+): void {
+  switch (object.kind) {
+    case 'rect':
+    case 'line':
+      layout.addShape(object.kind, object.options);
+      return;
+    case 'text':
+      if (typeof object.text === 'string') layout.addText(object.text, object.options);
+      else layout.addRichText(object.text, object.options);
+      return;
+    case 'placeholder':
+      layout.addPlaceholder(object.text, object.options);
+  }
+}
+
+function blankNamedLayoutXml(title: string): string {
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<p:sldLayout xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" '
+    + 'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" '
+    + 'xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" '
+    + 'type="blank" preserve="1">'
+    + `<p:cSld name="${escapeXmlAttribute(title)}"><p:spTree>`
+    + '<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/>'
+    + '</p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/>'
+    + '<a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/>'
+    + '</a:xfrm></p:grpSpPr></p:spTree></p:cSld>'
+    + '<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sldLayout>';
 }
 
 function imageSizingForPlaceholder(

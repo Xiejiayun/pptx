@@ -27,7 +27,8 @@ const SLIDE_LAYOUT_CONTENT_TYPE =
   'application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml';
 
 type PlaceholderState =
-  | { readonly kind: 'none' | 'unsupported' | 'unsafe' }
+  | { readonly kind: 'none' | 'unsafe' }
+  | { readonly kind: 'unsupported'; readonly type: string }
   | {
       readonly kind: 'supported';
       readonly identity: Readonly<PlaceholderIdentity>;
@@ -181,6 +182,7 @@ export function materializeLayoutPlaceholders(
   layoutPartUri: string,
   slidePartUri: string,
   rejectUnsupported = false,
+  allowSlideNumber = false,
 ): void {
   const layoutXml = LosslessXmlDocument.parse(pkg.requirePart(layoutPartUri).bytes);
   const layoutTree = requireShapeTree(layoutXml, layoutPartUri, 'sldLayout');
@@ -189,6 +191,7 @@ export function materializeLayoutPlaceholders(
     layoutTree,
     layoutPartUri,
     rejectUnsupported,
+    allowSlideNumber,
   );
   if (descriptors.length === 0) return;
 
@@ -215,6 +218,7 @@ function readLayoutPlaceholderDescriptors(
   shapeTree: XmlElement,
   partUri: string,
   rejectUnsupported: boolean,
+  allowSlideNumber = false,
 ): readonly MaterializedPlaceholderDescriptor[] {
   const descriptors: MaterializedPlaceholderDescriptor[] = [];
   const names = new Set<string>();
@@ -229,7 +233,11 @@ function readLayoutPlaceholderDescriptors(
     if (state.kind === 'unsafe') {
       throw new ModelParseError('Layout contains an unsafe placeholder identity', partUri);
     }
-    if (state.kind === 'unsupported' && rejectUnsupported) {
+    if (
+      state.kind === 'unsupported'
+      && rejectUnsupported
+      && !(allowSlideNumber && state.type === 'sldNum')
+    ) {
       throw new ModelParseError('Layout contains an unsupported placeholder type', partUri);
     }
     if (state.kind !== 'supported') continue;
@@ -379,7 +387,9 @@ function readPlaceholderState(shape: XmlElement): PlaceholderState {
   const type = strictAttribute(placeholder, 'type');
   if (hasAmbiguousAttribute(placeholder, 'type')) return { kind: 'unsafe' };
   const resolvedType = type ?? 'body';
-  if (!PLACEHOLDER_TYPE_SET.has(resolvedType)) return { kind: 'unsupported' };
+  if (!PLACEHOLDER_TYPE_SET.has(resolvedType)) {
+    return { kind: 'unsupported', type: resolvedType };
+  }
   const index = strictUnsignedAttribute(placeholder, 'idx', MAX_PLACEHOLDER_INDEX, 0);
   if (index === undefined || hasAmbiguousAttribute(placeholder, 'idx')) {
     return { kind: 'unsafe' };

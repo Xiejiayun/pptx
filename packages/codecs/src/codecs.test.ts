@@ -81,6 +81,30 @@ describe('GradientCodec', () => {
 });
 
 describe('MasterLayoutThemeCodec', () => {
+  it('resolves attached masters and enables their slide-number header state idempotently', async () => {
+    const pkg = await featureFixture();
+    const masterPartUri = '/ppt/slideMasters/slideMaster1.xml';
+    const masterPart = pkg.requirePart(masterPartUri);
+    pkg.setPart(
+      masterPartUri,
+      new TextDecoder().decode(masterPart.bytes)
+        .replace('xmlns:p="p"', 'xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"'),
+      masterPart.contentType,
+    );
+    const codec = new MasterLayoutThemeCodec(pkg);
+
+    expect(codec.attachedMasters.map(({ partUri }) => partUri)).toEqual([masterPartUri]);
+    expect(codec.requireAttachedMaster()).toBe(codec.attachedMasters[0]);
+    codec.enableMasterSlideNumbers(masterPartUri);
+    const enabled = new TextDecoder().decode(pkg.requirePart(masterPartUri).bytes);
+    expect(enabled).toContain('<p:hf sldNum="1"/>');
+    const journal = [...pkg.mutations];
+    codec.enableMasterSlideNumbers(masterPartUri);
+    expect(pkg.mutations).toEqual(journal);
+    expect(() => codec.requireAttachedMaster('/ppt/slideMasters/missing.xml'))
+      .toThrow(/not uniquely attached/);
+  });
+
   it('keeps slide, layout, and master slide-number owners explicit and live', async () => {
     const pkg = await featureFixture();
     for (const uri of [

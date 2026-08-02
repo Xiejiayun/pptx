@@ -13,6 +13,9 @@ import {
   type ReplaceMediaPosterOptions,
   type ReplaceMediaSourceOptions,
   type RichTextColor,
+  type DefineSlideMasterOptions,
+  type SlideMasterMargin,
+  type SlideMasterObject,
   type SlideNumberOptions,
 } from './index.js';
 
@@ -26,6 +29,32 @@ describe('@jiayunxie/pptx stable exports', () => {
     expect(master.layouts[0]).toBe(layout);
     expect(layout.addText('Root layout text')).toBe(layout.shapes[0]);
     expect(master.addShape('rect')).toBe(master.shapes[0]);
+  });
+
+  it('exports define slide master types and runtime from the root package', async () => {
+    const margin: SlideMasterMargin = {
+      top: inches(0.1),
+      right: inches(0.2),
+      bottom: inches(0.3),
+      left: inches(0.4),
+    };
+    const objects: readonly SlideMasterObject[] = [
+      { kind: 'rect' },
+      { kind: 'text', text: 'Root brand' },
+      {
+        kind: 'placeholder',
+        options: { name: 'root_title', type: 'title' },
+      },
+    ];
+    const definition: DefineSlideMasterOptions = {
+      title: 'ROOT-BRAND',
+      margin: [margin.top, margin.right, margin.bottom, margin.left],
+      objects,
+    };
+    const document = PptxDocument.create();
+    const layout = await document.defineSlideMaster(definition);
+    expect(layout.name).toBe('ROOT-BRAND');
+    expect(layout.margin).toEqual(margin);
   });
 
   it('exports transient slide default colors and materializes them through the root', async () => {

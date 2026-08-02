@@ -993,6 +993,225 @@ describe('PptxDocument vertical slice', () => {
     expect(rollbackAfter).toEqual(rollbackBefore);
   });
 
+  it('define slide master with synchronous objects, margin, and slide numbers', async () => {
+    const document = PptxDocument.create({ firstSlideNumber: 7 });
+    const master = document.masters[0]!;
+    const layout = await document.defineSlideMaster({
+      title: 'BRAND',
+      master,
+      background: {
+        kind: 'solid',
+        color: { kind: 'scheme', value: 'accent1' },
+        transparency: 10,
+      },
+      margin: [inches(0.1), inches(0.2), inches(0.3), inches(0.4)],
+      slideNumber: { x: 800, y: 500, width: 100, height: 30 },
+      objects: [
+        {
+          kind: 'rect',
+          options: { x: inches(0.1), y: inches(0.2), width: inches(0.3), height: inches(0.4) },
+        },
+        {
+          kind: 'line',
+          options: { x: inches(0.5), y: inches(0.6), width: inches(0.7), height: inches(0.01) },
+        },
+        { kind: 'text', text: 'Brand', options: { x: inches(0.8), y: inches(0.9) } },
+        {
+          kind: 'placeholder',
+          text: 'Title prompt',
+          options: { name: 'title_box', type: 'title', x: inches(1), y: inches(1.1) },
+        },
+      ],
+    });
+
+    expect(layout).toBe(document.layouts.find(({ partUri }) => partUri === layout.partUri));
+    expect(master.layouts.at(-1)).toBe(layout);
+    expect(layout.name).toBe('BRAND');
+    expect(layout.masterPartUri).toBe(master.partUri);
+    expect(layout.margin).toEqual({
+      top: inches(0.1),
+      right: inches(0.2),
+      bottom: inches(0.3),
+      left: inches(0.4),
+    });
+    expect(Object.isFrozen(layout.margin)).toBe(true);
+    expect(layout.background).toEqual({
+      kind: 'solid',
+      color: { kind: 'scheme', value: 'accent1' },
+      transparency: 10,
+    });
+    expect(layout.shapes.map(({ kind }) => kind)).toEqual([
+      'shape',
+      'shape',
+      'text',
+      'text',
+      'text',
+    ]);
+    expect(layout.placeholders.map(({ name, placeholder }) => ({ name, placeholder })))
+      .toEqual([{ name: 'title_box', placeholder: { type: 'title', index: 103 } }]);
+    expect(layout.slideNumber).toMatchObject({ x: 800, y: 500, width: 100, height: 30 });
+    expect(new Set(layout.shapes.map(({ id }) => id)).size).toBe(layout.shapes.length);
+    const masterSource = new TextDecoder().decode(
+      document.opcPackage.requirePart(master.partUri).bytes,
+    );
+    expect(masterSource).toMatch(/<p:hf[^>]*sldNum="1"/);
+
+    const slide = document.addSlide({ masterName: 'BRAND' });
+    expect(slide.shapes.map(({ kind }) => kind)).toEqual(['text', 'text']);
+    expect(slide.placeholders[0]?.placeholder).toEqual({ type: 'title', index: 103 });
+    expect(slide.slideNumber).toMatchObject({ x: 800, y: 500, width: 100, height: 30 });
+    const slideSource = new TextDecoder().decode(
+      document.opcPackage.requirePart(slide.partUri).bytes,
+    );
+    expect(slideSource).toContain('<a:t>7</a:t>');
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedLayout = reopened.layouts.find(({ name }) => name === 'BRAND')!;
+    expect(reopenedLayout.margin).toBeUndefined();
+    expect(reopenedLayout.shapes.map(({ kind }) => kind)).toEqual(layout.shapes.map(({ kind }) => kind));
+    expect(reopened.slides[0]?.slideNumber).toMatchObject({ x: 800, y: 500 });
+  });
+
+  it('define slide master rejects unsafe definitions without observable mutation', async () => {
+    const document = PptxDocument.create();
+    const foreignMaster = PptxDocument.create().masters[0]!;
+    const { output: _beforeOutput, ...before } = await sdkPackageSnapshot(document) as {
+      readonly output: Uint8Array;
+      readonly [key: string]: unknown;
+    };
+    let titleReads = 0;
+    const accessor = Object.defineProperty({}, 'title', {
+      enumerable: true,
+      get: () => {
+        titleReads += 1;
+        return 'ACCESSOR';
+      },
+    });
+    const sparse: unknown[] = [];
+    sparse.length = 1;
+    const invalid = [
+      null,
+      accessor,
+      { title: '' },
+      { title: 'BAD\u0000NAME' },
+      { title: 'UNKNOWN', unknown: true },
+      { title: 'SYMBOL', [Symbol('unsafe')]: true },
+      { title: 'FOREIGN', master: foreignMaster },
+      {
+        title: 'MARGIN-X',
+        margin: [inches(0.1), document.slideSize.width, inches(0.1), inches(0.01)],
+      },
+      {
+        title: 'MARGIN-Y',
+        margin: [document.slideSize.height, inches(0.01), inches(0.01), inches(0.01)],
+      },
+      { title: 'SPARSE', objects: sparse },
+      { title: 'OBJECT', objects: [{ kind: 'unknown' }] },
+      { title: 'SLIDE-NUMBER', slideNumber: { width: 0 } },
+      {
+        title: 'BACKGROUND',
+        background: { kind: 'solid', color: { kind: 'srgb', value: 'FFF' } },
+      },
+      { title: 'RECT', objects: [{ kind: 'rect', options: { width: 0 } }] },
+      { title: 'TEXT', objects: [{ kind: 'text', text: 1 }] },
+      {
+        title: 'TEXT-OPTION',
+        objects: [{ kind: 'text', text: 'Text', options: { unknown: true } }],
+      },
+      {
+        title: 'PLACEHOLDER',
+        objects: [{ kind: 'placeholder', options: { name: '', type: 'title' } }],
+      },
+    ];
+    for (const definition of invalid) {
+      await expect(document.defineSlideMaster(definition as never)).rejects.toThrow();
+      const { output: _afterOutput, ...after } = await sdkPackageSnapshot(document) as {
+        readonly output: Uint8Array;
+        readonly [key: string]: unknown;
+      };
+      expect(after).toEqual(before);
+    }
+    expect(titleReads).toBe(0);
+
+    const created = await document.defineSlideMaster({ title: 'UNIQUE' });
+    expect(created.margin).toBeUndefined();
+    const { output: _createdOutput, ...afterCreated } = await sdkPackageSnapshot(document) as {
+      readonly output: Uint8Array;
+      readonly [key: string]: unknown;
+    };
+    await expect(document.defineSlideMaster({ title: 'UNIQUE' })).rejects.toThrow(/unique|already/i);
+    const { output: _duplicateOutput, ...afterDuplicate } = await sdkPackageSnapshot(document) as {
+      readonly output: Uint8Array;
+      readonly [key: string]: unknown;
+    };
+    expect(afterDuplicate).toEqual(afterCreated);
+
+    const rollback = PptxDocument.create();
+    const { output: _rollbackOutput, ...rollbackBefore } = await sdkPackageSnapshot(rollback) as {
+      readonly output: Uint8Array;
+      readonly [key: string]: unknown;
+    };
+    const originalSetPart = rollback.opcPackage.setPart.bind(rollback.opcPackage);
+    let layoutWrites = 0;
+    const setPart = vi.spyOn(rollback.opcPackage, 'setPart')
+      .mockImplementation((uri, bytes, contentType) => {
+        if (uri === '/ppt/slideLayouts/slideLayout2.xml') {
+          layoutWrites += 1;
+          if (layoutWrites === 2) throw new Error('define slide master write failed');
+        }
+        return originalSetPart(uri, bytes, contentType);
+      });
+    await expect(rollback.defineSlideMaster({
+      title: 'ROLLBACK',
+      background: { kind: 'solid', color: { kind: 'srgb', value: '112233' } },
+      margin: inches(0.5),
+    })).rejects.toThrow('define slide master write failed');
+    setPart.mockRestore();
+    const { output: _rollbackAfterOutput, ...rollbackAfter } = await sdkPackageSnapshot(rollback) as {
+      readonly output: Uint8Array;
+      readonly [key: string]: unknown;
+    };
+    expect(rollbackAfter).toEqual(rollbackBefore);
+    const retried = await rollback.defineSlideMaster({
+      title: 'ROLLBACK',
+      margin: inches(0.5),
+    });
+    expect(retried.margin).toEqual({
+      top: inches(0.5),
+      right: inches(0.5),
+      bottom: inches(0.5),
+      left: inches(0.5),
+    });
+  });
+
+  it('define slide master works in all six presentation formats', async () => {
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const document = PptxDocument.create({ format, firstSlideNumber: 2 });
+      const title = `BRAND-${format}`;
+      const layout = await document.defineSlideMaster({
+        title,
+        margin: inches(0.25),
+        slideNumber: { align: 'center' },
+        objects: [{
+          kind: 'placeholder',
+          options: { name: `title_${format}`, type: 'title' },
+        }],
+      });
+      const slide = document.addSlide({ masterName: title });
+      const reopened = await PptxDocument.open(await document.write());
+      expect(reopened.format).toBe(format);
+      expect(layout.margin).toEqual({
+        top: inches(0.25),
+        right: inches(0.25),
+        bottom: inches(0.25),
+        left: inches(0.25),
+      });
+      expect(reopened.layouts.find(({ name }) => name === title)).toBeDefined();
+      expect(reopened.slides[0]?.partUri).toBe(slide.partUri);
+      expect(reopened.slides[0]?.slideNumber?.align).toBe('center');
+    }
+  });
+
   it('edits and reopens direct layout master backgrounds', async () => {
     const document = PptxDocument.create();
     const layout = document.layouts[0]!;

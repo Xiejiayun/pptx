@@ -27,6 +27,10 @@ export type { ThemeFontSnapshot, ThemeFontUpdate } from './theme-fonts.js';
 const REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/';
 const CONTENT = 'application/vnd.openxmlformats-officedocument.presentationml.';
 const THEME_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.theme+xml';
+const PRESENTATION_NAMESPACE =
+  'http://schemas.openxmlformats.org/presentationml/2006/main';
+const MASTER_CONTENT_TYPE = `${CONTENT}slideMaster+xml`;
+const LAYOUT_CONTENT_TYPE = `${CONTENT}slideLayout+xml`;
 
 export interface PlaceholderModel {
   readonly shapeId: number;
@@ -179,6 +183,82 @@ export class MasterLayoutThemeCodec {
 
   get layouts(): readonly LayoutModel[] {
     return this.masters.flatMap(({ layouts }) => layouts);
+  }
+
+  get attachedMasters(): readonly MasterModel[] {
+    return this.pkg.relationships(this.presentationPartUri).flatMap((relationship) => {
+      if (
+        relationship.type !== `${REL}slideMaster`
+        || relationship.targetMode !== 'Internal'
+        || !relationship.resolvedTarget
+        || this.pkg.getPart(relationship.resolvedTarget)?.contentType !== MASTER_CONTENT_TYPE
+      ) return [];
+      return [this.modelForMaster(relationship.resolvedTarget)];
+    });
+  }
+
+  requireAttachedMaster(partUri?: string): MasterModel {
+    const matches = partUri === undefined
+      ? this.attachedMasters.slice(0, 1)
+      : this.attachedMasters.filter((master) => master.partUri === partUri);
+    if (matches.length !== 1) {
+      throw new Error(partUri === undefined
+        ? 'Presentation does not have one usable attached slide master'
+        : `Slide master ${partUri} is not uniquely attached to the presentation`);
+    }
+    return matches[0]!;
+  }
+
+  hasAttachedLayoutName(name: string): boolean {
+    for (const master of this.attachedMasters) {
+      for (const relationship of this.pkg.relationships(master.partUri)) {
+        if (
+          relationship.type !== `${REL}slideLayout`
+          || relationship.targetMode !== 'Internal'
+          || !relationship.resolvedTarget
+          || this.pkg.getPart(relationship.resolvedTarget)?.contentType !== LAYOUT_CONTENT_TYPE
+        ) continue;
+        if (directLayoutName(this.parse(relationship.resolvedTarget)) === name) return true;
+      }
+    }
+    return false;
+  }
+
+  enableMasterSlideNumbers(masterPartUri: string): void {
+    this.requireAttachedMaster(masterPartUri);
+    this.pkg.transaction(() => {
+      const part = this.pkg.requirePart(masterPartUri);
+      const xml = LosslessXmlDocument.parse(part.bytes);
+      const roots = xml.roots.filter((root) =>
+        root.localName === 'sldMaster' && elementNamespaceUri(root) === PRESENTATION_NAMESPACE);
+      if (roots.length !== 1) throw new Error(`Master ${masterPartUri} XML is invalid`);
+      const root = roots[0]!;
+      const headers = directChildren(root).filter((child) =>
+        child.localName === 'hf' && elementNamespaceUri(child) === PRESENTATION_NAMESPACE);
+      if (headers.length > 1) throw new Error(`Master ${masterPartUri} has ambiguous header/footer state`);
+      const header = headers[0];
+      if (header) {
+        const attributes = header.attributes.filter(({ name }) => name === 'sldNum');
+        if (attributes.length > 1) {
+          throw new Error(`Master ${masterPartUri} has ambiguous slide-number visibility`);
+        }
+        if (attributes[0]?.value === '1') return;
+        if (attributes[0]) xml.replaceAttribute(attributes[0], '1');
+        else {
+          const insertion = header.startTagEnd - (header.selfClosing ? 2 : 1);
+          xml.replace(insertion, insertion, ' sldNum="1"');
+        }
+      } else {
+        const prefix = lexicalPrefix(root.name);
+        const rendered = `<${prefix.length === 0 ? '' : `${prefix}:`}hf sldNum="1"/>`;
+        const target = directChildren(root).find((child) =>
+          ['txStyles', 'extLst'].includes(child.localName)
+          && elementNamespaceUri(child) === PRESENTATION_NAMESPACE);
+        if (target) xml.replace(target.start, target.start, rendered);
+        else xml.appendChildXml(root, rendered);
+      }
+      this.pkg.setPart(masterPartUri, xml.serialize(), part.contentType);
+    });
   }
 
   get presentationTheme(): ThemeModel | undefined {
@@ -340,13 +420,14 @@ export class MasterLayoutThemeCodec {
 
   createLayout(masterPartUri: string, xml: string): LayoutModel {
     return this.pkg.transaction(() => {
+      this.requireAttachedMaster(masterPartUri);
       LosslessXmlDocument.parse(xml);
       const uri = this.pkg.allocatePartUri(
         joinPartUri(partUriDirname(masterPartUri), '../slideLayouts'),
         'slideLayout',
         '.xml',
       );
-      this.pkg.setPart(uri, xml, `${CONTENT}slideLayout+xml`);
+      this.pkg.setPart(uri, xml, LAYOUT_CONTENT_TYPE);
       this.pkg.addRelationship(uri, { type: `${REL}slideMaster`, target: relativeTarget(uri, masterPartUri) });
       this.attachLayout(masterPartUri, uri);
       return this.modelForLayout(uri);
@@ -529,4 +610,45 @@ function findPlaceholder(xml: LosslessXmlDocument, type: string, index: number):
       Number(xml.attribute(placeholder, 'idx')?.value ?? 0) === index
     );
   });
+}
+
+function directLayoutName(xml: LosslessXmlDocument): string | undefined {
+  const roots = xml.roots.filter((root) =>
+    root.localName === 'sldLayout' && elementNamespaceUri(root) === PRESENTATION_NAMESPACE);
+  if (roots.length !== 1) return undefined;
+  const commonSlides = directChildren(roots[0]!).filter((child) =>
+    child.localName === 'cSld' && elementNamespaceUri(child) === PRESENTATION_NAMESPACE);
+  if (commonSlides.length !== 1) return undefined;
+  const names = commonSlides[0]!.attributes.filter(({ name }) => name === 'name');
+  return names.length === 1 ? names[0]!.value : undefined;
+}
+
+function directChildren(element: XmlElement): XmlElement[] {
+  return element.children.filter(
+    (child): child is XmlElement => child.type === 'element',
+  );
+}
+
+function elementNamespaceUri(element: XmlElement): string | undefined {
+  return namespaceUriForPrefix(element, lexicalPrefix(element.name));
+}
+
+function namespaceUriForPrefix(
+  element: XmlElement,
+  prefix: string,
+): string | undefined {
+  let current: XmlElement | undefined = element;
+  const declaration = prefix.length === 0 ? 'xmlns' : `xmlns:${prefix}`;
+  while (current) {
+    const matches = current.attributes.filter(({ name }) => name === declaration);
+    if (matches.length > 1) return undefined;
+    if (matches[0]) return matches[0].value;
+    current = current.parent;
+  }
+  return undefined;
+}
+
+function lexicalPrefix(name: string): string {
+  const separator = name.indexOf(':');
+  return separator < 0 ? '' : name.slice(0, separator);
 }
