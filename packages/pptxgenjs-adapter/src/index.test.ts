@@ -3954,6 +3954,266 @@ describe('importPptxGenJS', () => {
     }
   });
 
+  it('compares text shape fill public output and strict native divergences', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    const generatedSlide = generated.addSlide();
+    const generatedCases: readonly {
+      readonly name: string;
+      readonly fill?: Record<string, unknown>;
+    }[] = [
+      { name: 'Text fill omitted' },
+      { name: 'Text fill none', fill: { type: 'none' } },
+      {
+        name: 'Text fill sRGB',
+        fill: { color: 'AB12CD', transparency: 25 },
+      },
+      {
+        name: 'Text fill scheme',
+        fill: { color: generated.SchemeColor.accent2 },
+      },
+      {
+        name: 'Text fill zero',
+        fill: { color: '00AA00', transparency: 0 },
+      },
+      { name: 'Text fill missing color', fill: { type: 'solid' } },
+    ];
+    for (const [index, fixture] of generatedCases.entries()) {
+      const options: Record<string, unknown> = {
+        objectName: fixture.name,
+        x: 1,
+        y: 0.5 + index * 0.7,
+        w: 4,
+        h: 0.5,
+      };
+      if (fixture.fill !== undefined) options.fill = fixture.fill;
+      generatedSlide.addText(fixture.name, options);
+    }
+
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      const imported = await openPptxGenJSPublicOutput(generated);
+      const importedShapes = new Map(imported.slides[0]!.shapes.map((shape) => [
+        shape.name,
+        shape as ShapeModel,
+      ]));
+      expect([...importedShapes.keys()]).toEqual(generatedCases.map(({ name }) => name));
+      expect(generatedCases.map(({ name }) => importedShapes.get(name)!.fill)).toEqual([
+        { kind: 'none' },
+        undefined,
+        {
+          kind: 'solid',
+          color: { kind: 'srgb', value: 'AB12CD' },
+          transparency: 25,
+        },
+        { kind: 'solid', color: { kind: 'scheme', value: 'accent2' } },
+        { kind: 'solid', color: { kind: 'srgb', value: '00AA00' } },
+        { kind: 'solid', color: { kind: 'srgb', value: '000000' } },
+      ]);
+      expect(warning).toHaveBeenCalled();
+
+      const native = PptxDocument.create();
+      const nativeSlide = native.addSlide();
+      const nativeShapes = new Map([
+        ['Text fill omitted', nativeSlide.addText('Text fill omitted', {
+          name: 'Text fill omitted',
+          x: inches(1),
+          y: inches(0.5),
+          width: inches(4),
+          height: inches(0.5),
+        })],
+        ['Text fill none', nativeSlide.addText('Text fill none', {
+          name: 'Text fill none',
+          x: inches(1),
+          y: inches(1.2),
+          width: inches(4),
+          height: inches(0.5),
+          fill: { kind: 'none' },
+        })],
+        ['Text fill sRGB', nativeSlide.addText('Text fill sRGB', {
+          name: 'Text fill sRGB',
+          x: inches(1),
+          y: inches(1.9),
+          width: inches(4),
+          height: inches(0.5),
+          fill: {
+            kind: 'solid',
+            color: { kind: 'srgb', value: 'AB12CD' },
+            transparency: 25,
+          },
+        })],
+        ['Text fill scheme', nativeSlide.addText('Text fill scheme', {
+          name: 'Text fill scheme',
+          x: inches(1),
+          y: inches(2.6),
+          width: inches(4),
+          height: inches(0.5),
+          fill: { kind: 'solid', color: { kind: 'scheme', value: 'accent2' } },
+        })],
+        ['Text fill zero', nativeSlide.addText('Text fill zero', {
+          name: 'Text fill zero',
+          x: inches(1),
+          y: inches(3.3),
+          width: inches(4),
+          height: inches(0.5),
+          fill: {
+            kind: 'solid',
+            color: { kind: 'srgb', value: '00AA00' },
+            transparency: 0,
+          },
+        })],
+      ] as const);
+
+      for (const name of [
+        'Text fill omitted',
+        'Text fill sRGB',
+        'Text fill scheme',
+      ] as const) {
+        const importedShape = importedShapes.get(name)!;
+        const nativeShape = nativeShapes.get(name)!;
+        expect(importedShape.name).toBe(nativeShape.name);
+        expect(importedShape.text).toBe(nativeShape.text);
+        expect(importedShape.transform).toEqual(nativeShape.transform);
+        expect(importedShape.presetType).toBe(nativeShape.presetType);
+        expect(importedShape.fill).toEqual(nativeShape.fill);
+        expect(importedShape.line).toBeUndefined();
+        expect(nativeShape.line).toEqual({ kind: 'none' });
+      }
+
+      const directFillState = (xml: string) => {
+        const properties = xml.match(/<p:spPr(?:\s[^>]*)?>([\s\S]*?)<\/p:spPr>/)?.[1];
+        if (!properties) throw new Error('Text shape properties were not found');
+        const geometry = properties.match(/<a:prstGeom\b[^>]*\bprst="([^"]+)"/)?.[1];
+        const afterGeometry = properties.match(/<\/a:prstGeom>([\s\S]*)$/)?.[1];
+        if (afterGeometry === undefined) throw new Error('Text shape geometry was not found');
+        const lineOffset = afterGeometry.indexOf('<a:ln');
+        const fillXml = lineOffset < 0 ? afterGeometry : afterGeometry.slice(0, lineOffset);
+        const solid = fillXml.match(
+          /<a:solidFill><a:(srgbClr|schemeClr)\b[^>]*\bval="([^"]+)"(?:><a:alpha\b[^>]*\bval="([0-9]+)"\/><\/a:\1>|\/>)<\/a:solidFill>/,
+        );
+        return {
+          geometry,
+          fill: fillXml.includes('<a:noFill/>')
+            ? { kind: 'none' as const }
+            : solid
+              ? {
+                  kind: 'solid' as const,
+                  colorKind: solid[1],
+                  color: solid[2],
+                  alpha: solid[3] === undefined ? undefined : Number(solid[3]),
+                }
+              : undefined,
+          line: lineOffset >= 0,
+        };
+      };
+
+      for (const name of [
+        'Text fill omitted',
+        'Text fill sRGB',
+        'Text fill scheme',
+      ] as const) {
+        const importedShape = importedShapes.get(name)!;
+        const nativeShape = nativeShapes.get(name)!;
+        expect(directFillState(shapeXml(imported, 0, importedShape.id)))
+          .toEqual(directFillState(shapeXml(native, 0, nativeShape.id)));
+      }
+
+      const generatedNone = importedShapes.get('Text fill none')!;
+      const nativeNone = nativeShapes.get('Text fill none')!;
+      expect(generatedNone.fill).toBeUndefined();
+      expect(nativeNone.fill).toEqual({ kind: 'none' });
+      expect(directFillState(shapeXml(imported, 0, generatedNone.id))).toEqual({
+        geometry: 'rect',
+        fill: undefined,
+        line: true,
+      });
+      expect(directFillState(shapeXml(native, 0, nativeNone.id))).toEqual({
+        geometry: 'rect',
+        fill: { kind: 'none' },
+        line: true,
+      });
+
+      const generatedZero = importedShapes.get('Text fill zero')!;
+      const nativeZero = nativeShapes.get('Text fill zero')!;
+      expect(generatedZero.fill).toEqual({
+        kind: 'solid',
+        color: { kind: 'srgb', value: '00AA00' },
+      });
+      expect(nativeZero.fill).toEqual({
+        kind: 'solid',
+        color: { kind: 'srgb', value: '00AA00' },
+        transparency: 0,
+      });
+      expect(directFillState(shapeXml(imported, 0, generatedZero.id)).fill).toEqual({
+        kind: 'solid',
+        colorKind: 'srgbClr',
+        color: '00AA00',
+        alpha: undefined,
+      });
+      expect(directFillState(shapeXml(native, 0, nativeZero.id)).fill).toEqual({
+        kind: 'solid',
+        colorKind: 'srgbClr',
+        color: '00AA00',
+        alpha: 100000,
+      });
+
+      const generatedSrgb = importedShapes.get('Text fill sRGB')!;
+      expect(directFillState(shapeXml(imported, 0, generatedSrgb.id)).fill).toEqual({
+        kind: 'solid',
+        colorKind: 'srgbClr',
+        color: 'AB12CD',
+        alpha: 75000,
+      });
+      const generatedScheme = importedShapes.get('Text fill scheme')!;
+      expect(directFillState(shapeXml(imported, 0, generatedScheme.id)).fill).toEqual({
+        kind: 'solid',
+        colorKind: 'schemeClr',
+        color: 'accent2',
+        alpha: undefined,
+      });
+
+      const beforeInvalid = packageState(native);
+      for (const fill of [
+        { color: 'AB12CD' },
+        { type: 'none' },
+        {
+          kind: 'solid',
+          color: { kind: 'srgb', value: 'AB12CD' },
+          alpha: 25,
+        },
+        { kind: 'solid' },
+        {
+          kind: 'solid',
+          color: { kind: 'srgb', value: 'AB12CD' },
+          transparency: '25',
+        },
+        {
+          kind: 'solid',
+          color: { kind: 'srgb', value: 'AB12CD' },
+          transparency: -1,
+        },
+        {
+          kind: 'solid',
+          color: { kind: 'srgb', value: 'AB12CD' },
+          transparency: 101,
+        },
+      ]) {
+        expect(() => nativeSlide.addText('Invalid native fill', { fill } as never)).toThrow();
+        expect(packageState(native)).toEqual(beforeInvalid);
+      }
+
+      const importedSlideBytes = imported.opcPackage
+        .requirePart(imported.slides[0]!.partUri).bytes.slice();
+      const reopened = await PptxDocument.open(await imported.write());
+      expect(reopened.opcPackage.requirePart(reopened.slides[0]!.partUri).bytes)
+        .toEqual(importedSlideBytes);
+      expect(reopened.slides[0]!.shapes.map((shape) => (shape as ShapeModel).fill))
+        .toEqual(imported.slides[0]!.shapes.map((shape) => (shape as ShapeModel).fill));
+    } finally {
+      warning.mockRestore();
+    }
+  });
+
   it('compares shape line public output and strict native divergences', async () => {
     const generated = new PptxGenJS();
     expect(generated.version).toBe('4.0.1');
