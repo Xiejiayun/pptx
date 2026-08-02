@@ -801,7 +801,7 @@ $ pptx-inspect --json package inspect output.pptx
 ### 剩余 runtime/output 与全功能路线
 
 - 该检查点总体 PptxGenJS 对等进度约 97%；`OutputType` runtime catalog 已在下一专项完成。
-- Catalog 完成后仍待六种实际 write 返回语义、stream/compression、scheme-color 与其他 runtime helpers、advanced text/table、`tableToSlides` 与最终 peer/client audit；当前不声明完整 PptxGenJS parity。
+- 六种实际 write 返回语义也已在后续专项完成；仍待 stream/compression、scheme-color 与其他 runtime helpers、advanced text/table、`tableToSlides` 与最终 peer/client audit，当前不声明完整 PptxGenJS parity。
 
 ## PptxGenJS 全功能对等：Presentation `OutputType` runtime catalog
 
@@ -821,8 +821,29 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余 runtime/output 与全功能路线
 
-- 总体 PptxGenJS 对等进度仍约 97%；下一小项为六值 `write({ outputType })` 精确返回语义。
-- 之后仍待 Node readable stream、compression policy、scheme-color 与其他 runtime helpers、advanced text/table、`tableToSlides` 与最终 peer/client audit；当前不声明完整 PptxGenJS parity。
+- 总体 PptxGenJS 对等进度仍约 97%；六值 `write({ outputType })` 精确返回语义已在下一专项完成。
+
+## PptxGenJS 全功能对等：`write({ outputType })` 返回语义
+
+状态：完成；实施与证据 5/5
+
+### 本阶段 change
+
+- `WriteBaseOptions` 分离 validation options；泛型 `WriteOptions<TOutputType = 'uint8array'>` 新增 `outputType`，`WriteOutput<T>` 精确映射 literal token。默认、空对象与仅 validation options 继续返回 `Uint8Array`。
+- `arraybuffer` 返回 standalone `ArrayBuffer`，`base64` 返回 raw base64 string，`binarystring` 返回 byte-per-code-unit string，`blob` 返回 `application/zip` Blob，`nodebuffer` 在 Node 返回 Buffer，`uint8array` 返回 plain Uint8Array。Browser `nodebuffer` 以稳定错误明确拒绝。
+- 转换统一发生在 SDK 层 canonical ZIP bytes 之后，不修改 OPC/ZIP writer、diagnostics、package mutation journal 或 output bytes。`writeBlob()` 保持 presentation MIME；`writeFile()` 与 `download()` 合约不变。
+- SDK 与 aggregate root 公开 `WriteBaseOptions`、`WriteOptions`、`WriteOutput`；browser-safe declaration 不引入 `node:buffer`，Node Buffer 以其 `Uint8Array` 结构类型公开。
+
+### 验证结果
+
+- 最终无重叠 clean full Vitest 为 74 passed / 1 skipped test files、1383 passed / 1 skipped tests；独立 performance gate 1/1（966ms）。两种 TypeScript check、Node/browser tsup 与 declaration build 全部通过。权威 clean JSON 为 `/tmp/pptx-write-output-types-vitest-clean.json`。
+- Actual npm tarball 为 61 files，SHA-256 `26bbc7eb7c33eb194388576db2c2eaab33c80d0d99b19ed7a9b4a7375c3f9f37`。Installed Node、generated declarations、browser conditional export、TypeScript consumer 与 CLI package inspection 均报告 `writeOutputTypes: true`。
+- 六种 Node 输出与五种 portable browser 输出均与默认 bytes byte-identical，并可由 `PptxDocument.open()` 重开。真实 Google Chrome 的 `nodebuffer` 错误、两种 Blob MIME、failure/mutation isolation 全部通过，validation/console/page/network errors 为 0。验证生成物位于 `/tmp/pptx-write-output-types-artifacts.oA4tq0`，未进入仓库。
+
+### 剩余 runtime/output 与全功能路线
+
+- 总体 PptxGenJS 对等进度约 97%；下一小项为 Node readable stream。
+- 之后仍待 compression policy、scheme-color 与其他 runtime helpers、advanced text/table、`tableToSlides` 与最终 peer/client audit；当前不声明完整 PptxGenJS parity。
 
 ## 0.1.0 初始验收
 

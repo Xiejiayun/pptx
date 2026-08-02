@@ -896,11 +896,45 @@ for (const outputType of outputTypes) {
 
 `OUTPUT_TYPES` is a frozen readonly tuple in the stable order `arraybuffer`, `base64`, `binarystring`, `blob`, `nodebuffer`, `uint8array`. `OutputType` is derived directly from that tuple. The SDK output layer owns the catalog, and the aggregate root reuses the same object; reading or iterating it never accesses or mutates a presentation package.
 
-PptxGenJS 4.0.1 instance `OutputType` exposes the same six keys and values. Native matches the runtime values and order without adding `PptxDocument.OutputType`, an enum-shaped object, or a mutable alias. `STREAM` is not a member of that public enum and remains part of the separate stream API. Native `write()` still returns `Uint8Array`, while `writeBlob()`, `writeFile()`, and `download()` retain their existing behavior; this item does not claim that six selectable write return types are implemented.
+PptxGenJS 4.0.1 instance `OutputType` exposes the same six keys and values. Native matches the runtime values and order without adding `PptxDocument.OutputType`, an enum-shaped object, or a mutable alias. `STREAM` is not a member of that public enum and remains part of the separate stream API. This historical checkpoint publishes only the catalog; all six selectable write return types are completed in the next section.
 
 Final release gates are 73 passed / 1 skipped test files, 1378 passed / 1 skipped tests, and performance 1/1 at 1.10s. Both TypeScript checks, both bundles, and declaration generation pass. The actual 60-file tarball has SHA-256 `31a38643c8c851ae24a381a68cd225972b76dbf7b37758c16efd2fe27248df0d`; installed Node/types/browser/CLI and real Google Chrome report `outputTypes: true`. Chrome exact values, frozen catalog, and mutation-isolation checks pass; page, bundle, and blob requests return 200 with zero console, page, or network errors.
 
-Overall PptxGenJS parity remains approximately 97%. The next item is six-value `write({ outputType })` return semantics; Node readable stream, compression policy, scheme-color and other runtime helpers, advanced text/table, `tableToSlides`, and the final peer/client audit remain pending.
+Overall PptxGenJS parity remains approximately 97%. Six-value `write({ outputType })` return semantics are completed in the next section.
+
+## Select `write()` output types
+
+```ts
+import {
+  PptxDocument,
+  type OutputType,
+  type WriteOptions,
+  type WriteOutput,
+} from '@jiayunxie/pptx';
+
+const document = PptxDocument.create();
+document.addSlide().addText('Hello');
+
+const bytes = await document.write(); // Uint8Array
+const base64 = await document.write({ outputType: 'base64' }); // string
+const blob = await document.write({ outputType: 'blob' }); // Blob
+
+async function encode<T extends OutputType>(
+  options: WriteOptions<T>,
+): Promise<WriteOutput<T>> {
+  return document.write(options);
+}
+```
+
+`write({ outputType })` accepts all six public tokens. `arraybuffer` returns a standalone `ArrayBuffer`; `base64` returns raw base64 without a data-URI prefix; `binarystring` returns one byte per code unit; `blob` returns a Blob with `application/zip`; `nodebuffer` returns a Node `Buffer`; and `uint8array` returns a plain `Uint8Array`. Browser requests for `nodebuffer` reject with `nodebuffer is not supported by this platform`.
+
+Omitted options, `{}`, and validation-only options retain the default `Uint8Array` result. Generic `WriteOptions<T>` and `WriteOutput<T>` preserve literal output-type inference. The public structural type for `nodebuffer` is `Uint8Array`, avoiding a `node:buffer` dependency in browser declarations, while the Node runtime value remains a `Buffer`. Every conversion starts from the same canonical ZIP bytes and leaves the package, diagnostics, and mutation journal unchanged.
+
+Explicit `outputType: 'blob'` follows the PptxGenJS/ZIP contract and uses `application/zip`; the convenience `writeBlob()` keeps the presentation MIME `application/vnd.openxmlformats-officedocument.presentationml.presentation`. Existing `writeFile()` and `download()` contracts are unchanged.
+
+Final clean gates are 74 passed / 1 skipped test files, 1383 passed / 1 skipped tests, and performance 1/1 at 966ms. Both TypeScript checks, Node/browser bundles, and declaration generation pass. The actual 61-file tarball has SHA-256 `26bbc7eb7c33eb194388576db2c2eaab33c80d0d99b19ed7a9b4a7375c3f9f37`; installed Node/types/browser/CLI and real Google Chrome report `writeOutputTypes: true`. All six Node outputs and all five portable browser outputs are byte-identical and reopen successfully, with zero Chrome validation, console, page, or network errors.
+
+Overall PptxGenJS parity remains approximately 97%. Node readable stream, compression policy, scheme-color and other runtime helpers, advanced text/table, `tableToSlides`, and the final peer/client audit remain pending.
 
 `PRESET_SHAPE_TYPES` is the frozen discovery catalog for all 178 canonical preset geometries accepted by `SlideModel.addShape()`. `AddShapeOptions` accepts `name`, strict `adjustments`, strict `fill`, strict `line`, strict `arrows`, strict `shadow`, strict `hyperlink`, and native EMU/OOXML-angle transform fields; use `inches()` and `degrees()` for ergonomic conversion. Omitted geometry starts at x/y/width/height = 1 inch with zero rotation and no flips; omitted fill creates direct no-fill, and omitted line keeps the canonical empty line container. Inputs are strict, descriptor-safe, detached before mutation, and reject unknown fields. The catalog uses the valid OOXML `foldedCorner`; PptxGenJS 4.0.1's invalid `folderCorner` token and runtime-only `custGeom` value are not accepted as presets.
 

@@ -168,11 +168,46 @@ const outputTypes: readonly OutputType[] = OUTPUT_TYPES;
 
 `OUTPUT_TYPES` is exactly the frozen readonly tuple `['arraybuffer', 'base64', 'binarystring', 'blob', 'nodebuffer', 'uint8array']`, and `OutputType` is derived as `(typeof OUTPUT_TYPES)[number]`. The SDK output layer owns the value, while the aggregate root reuses the same object. Catalog discovery is environment-independent and produces no OPC mutation.
 
-PptxGenJS 4.0.1 public `OutputType` keys and values match the tuple in the same order. Native deliberately exposes the immutable catalog instead of an instance getter or mutable enum-shaped alias. `STREAM` is excluded because it belongs to the separate stream API rather than the public instance enum. This catalog does not add `WriteOptions.outputType`: `write()` still returns `Uint8Array`, and `writeBlob()`, `writeFile()`, and `download()` retain their existing contracts.
+PptxGenJS 4.0.1 public `OutputType` keys and values match the tuple in the same order. Native deliberately exposes the immutable catalog instead of an instance getter or mutable enum-shaped alias. `STREAM` is excluded because it belongs to the separate stream API rather than the public instance enum. This historical catalog checkpoint does not change write behavior; selectable return types are completed below.
 
 Installed Node, declarations, browser conditional export, CLI package inspection, and real Chrome report `outputTypes: true`. The final 60-file tarball SHA-256 is `31a38643c8c851ae24a381a68cd225972b76dbf7b37758c16efd2fe27248df0d`. Final gates are 73 passed / 1 skipped test files, 1378 passed / 1 skipped tests, performance 1/1 at 1.10s, both TypeScript checks, both bundles, declaration generation, Chrome HTTP 200 responses, and zero Chrome console/page/network errors.
 
-Overall PptxGenJS parity remains approximately 97%. Six-value `write({ outputType })` return semantics are next; Node readable stream, compression policy, scheme-color and other runtime helpers, advanced text/table, `tableToSlides`, and the final peer/client audit remain pending.
+Overall PptxGenJS parity remains approximately 97%. Six-value `write({ outputType })` return semantics are completed below.
+
+### Presentation write output types
+
+```ts
+import {
+  PptxDocument,
+  type OutputType,
+  type WriteBaseOptions,
+  type WriteOptions,
+  type WriteOutput,
+} from '@pptx/sdk';
+
+const document = PptxDocument.create();
+const defaultBytes = await document.write(); // Uint8Array
+const arrayBuffer = await document.write({ outputType: 'arraybuffer' });
+const base64 = await document.write({ outputType: 'base64' });
+const binaryString = await document.write({ outputType: 'binarystring' });
+const zipBlob = await document.write({ outputType: 'blob' });
+const nodeBuffer = await document.write({ outputType: 'nodebuffer' });
+const bytes = await document.write({ outputType: 'uint8array' });
+
+async function encode<T extends OutputType>(
+  options: WriteOptions<T>,
+): Promise<WriteOutput<T>> {
+  return document.write(options);
+}
+```
+
+`WriteBaseOptions` contains validation options shared by every output method. `WriteOptions<TOutputType = 'uint8array'>` adds `outputType?: TOutputType`, and `write<T>()` returns `Promise<WriteOutput<T>>`. Omitted options, `{}`, and `WriteBaseOptions` preserve the default `Promise<Uint8Array>` contract. Literal `arraybuffer` maps to `ArrayBuffer`; `base64` and `binarystring` map to `string`; `blob` maps to `Blob`; `nodebuffer` and `uint8array` map structurally to `Uint8Array`. At Node runtime, `nodebuffer` is a `Buffer`; the structural declaration deliberately avoids importing `node:buffer` into browser consumers.
+
+Raw base64 has no data-URI prefix. Binary strings use one byte per code unit. ArrayBuffers are standalone, not views over a larger backing store. Explicit Blob output has MIME `application/zip`, while `writeBlob(options?: WriteBaseOptions)` retains the presentation MIME. Browser `nodebuffer` requests reject exactly with `nodebuffer is not supported by this platform`. All supported conversions use the same canonical ZIP bytes and do not mutate diagnostics or package state.
+
+Installed Node, declarations, browser conditional export, CLI package inspection, and real Chrome report `writeOutputTypes: true`. The final 61-file tarball SHA-256 is `26bbc7eb7c33eb194388576db2c2eaab33c80d0d99b19ed7a9b4a7375c3f9f37`. Final gates are 74 passed / 1 skipped test files, 1383 passed / 1 skipped tests, performance 1/1 at 966ms, both TypeScript checks, both bundles, declaration generation, byte-identical/reopen checks for every available output, and zero Chrome validation/console/page/network errors.
+
+Overall PptxGenJS parity remains approximately 97%. Node readable stream, compression policy, scheme-color and other runtime helpers, advanced text/table, `tableToSlides`, and the final peer/client audit remain pending.
 
 ## Embedded raster images
 

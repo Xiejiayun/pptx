@@ -779,11 +779,45 @@ for (const outputType of outputTypes) {
 
 `OUTPUT_TYPES` 是 frozen readonly tuple，顺序固定为 `arraybuffer`、`base64`、`binarystring`、`blob`、`nodebuffer`、`uint8array`；`OutputType` 直接由该 tuple 派生。Catalog 由 SDK 输出层拥有，aggregate root 复用同一对象；读取或遍历不访问或修改任何文稿 package。
 
-PptxGenJS 4.0.1 的实例 `OutputType` 公开相同六个 keys/values。Native 对等 runtime values 和稳定顺序，但不增加 `PptxDocument.OutputType`、enum-shaped object 或 mutable alias；`STREAM` 不属于该 public enum，因此留给独立 stream API。当前 `write()` 仍返回 `Uint8Array`，`writeBlob()`、`writeFile()` 与 `download()` 也保持原语义，本项不提前声明六种 write 返回值已实现。
+PptxGenJS 4.0.1 的实例 `OutputType` 公开相同六个 keys/values。Native 对等 runtime values 和稳定顺序，但不增加 `PptxDocument.OutputType`、enum-shaped object 或 mutable alias；`STREAM` 不属于该 public enum，因此留给独立 stream API。该历史检查点只发布 catalog；六种实际返回语义已在下一节完成。
 
 最终 release gates 为 73 passed / 1 skipped test files、1378 passed / 1 skipped tests，performance 1/1（1.10s），两种 TypeScript check、Node/browser bundle 与 declaration build 全部通过。实际 60-file tarball 的 SHA-256 为 `31a38643c8c851ae24a381a68cd225972b76dbf7b37758c16efd2fe27248df0d`；installed Node/types/browser/CLI 与真实 Google Chrome 均报告 `outputTypes: true`。Chrome 六值、frozen catalog 和 mutation isolation 检查通过，页面、bundle 与 blob 请求均为 200，console/page/network errors 为 0。
 
-总体 PptxGenJS 对等进度仍约 97%。下一小项是六值 `write({ outputType })` 返回语义；之后仍待 Node readable stream、compression policy、scheme-color 与其他 runtime helpers、advanced text/table、`tableToSlides` 与最终 peer/client audit。
+总体 PptxGenJS 对等进度仍约 97%。六值 `write({ outputType })` 返回语义已在下一节完成。
+
+## 选择 `write()` 输出类型
+
+```ts
+import {
+  PptxDocument,
+  type OutputType,
+  type WriteOptions,
+  type WriteOutput,
+} from '@jiayunxie/pptx';
+
+const document = PptxDocument.create();
+document.addSlide().addText('Hello');
+
+const bytes = await document.write(); // Uint8Array
+const base64 = await document.write({ outputType: 'base64' }); // string
+const blob = await document.write({ outputType: 'blob' }); // Blob
+
+async function encode<T extends OutputType>(
+  options: WriteOptions<T>,
+): Promise<WriteOutput<T>> {
+  return document.write(options);
+}
+```
+
+`write({ outputType })` 现在支持全部六个公开 token：`arraybuffer` 返回独立 `ArrayBuffer`，`base64` 返回不带 data-URI 前缀的 base64 字符串，`binarystring` 返回每个 code unit 表示一个 byte 的字符串，`blob` 返回 MIME 为 `application/zip` 的 `Blob`，`nodebuffer` 在 Node 返回 `Buffer`，`uint8array` 返回普通 `Uint8Array`。浏览器请求 `nodebuffer` 会明确拒绝并报告 `nodebuffer is not supported by this platform`。
+
+未传 options、传空对象或只传 validation options 时继续返回 `Uint8Array`。`WriteOutput<T>` 与泛型 `WriteOptions<T>` 保留 literal output type 的精确返回类型；为避免 browser declarations 引入 `node:buffer`，`nodebuffer` 的公开结构类型是 `Uint8Array`，Node runtime 值仍是 `Buffer`。所有转换都基于同一 canonical ZIP bytes，不修改 package、diagnostics 或 mutation journal。
+
+显式 `outputType: 'blob'` 遵循 PptxGenJS/ZIP 输出语义，MIME 为 `application/zip`；便捷 `writeBlob()` 继续返回 `application/vnd.openxmlformats-officedocument.presentationml.presentation`。`writeFile()` 与 `download()` 的既有契约也不变。
+
+最终 clean gates 为 74 passed / 1 skipped test files、1383 passed / 1 skipped tests，performance 1/1（966ms），两种 TypeScript check、Node/browser bundle 与 declaration build 全部通过。实际 61-file tarball 的 SHA-256 为 `26bbc7eb7c33eb194388576db2c2eaab33c80d0d99b19ed7a9b4a7375c3f9f37`；installed Node/types/browser/CLI 与真实 Google Chrome 均报告 `writeOutputTypes: true`。六种 Node 输出和五种浏览器输出均 byte-identical、可重开；Chrome validation/console/page/network errors 为 0。
+
+总体 PptxGenJS 对等进度约 97%。后续仍待 Node readable stream、compression policy、scheme-color 与其他 runtime helpers、advanced text/table、`tableToSlides` 与最终 peer/client audit。
 
 ## 创建和编辑预设形状、调整值与样式
 
