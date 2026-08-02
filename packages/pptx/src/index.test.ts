@@ -15,6 +15,7 @@ import {
   type ReplaceMediaPosterOptions,
   type ReplaceMediaSourceOptions,
   type RichTextColor,
+  type RichTextRunStyle,
   type DefineSlideMasterOptions,
   type Hyperlink,
   type PlaceholderSelector,
@@ -636,6 +637,59 @@ describe('@jiayunxie/pptx stable exports', () => {
       },
     ];
     expect(invalid).toHaveLength(6);
+  });
+
+  it('exports rich text run hyperlink types and runtime from the root package', async () => {
+    const urlStyle: RichTextRunStyle = {
+      hyperlink: { url: 'https://root-run.example', tooltip: '' },
+    };
+    const suppressed: RichTextRunStyle = { hyperlink: false };
+    const document = PptxDocument.create();
+    const source = document.addSlide();
+    document.addSlide();
+    const shape = source.addRichText([{
+      runs: [
+        { text: 'URL', style: urlStyle },
+        { text: 'Slide', style: { hyperlink: { slide: 2 } } },
+        { text: 'Suppressed', style: suppressed },
+      ],
+    }], { hyperlink: { url: 'https://outer-root.example' } });
+
+    expect(shape.richText[0]!.runs.map((run) => run.style?.hyperlink)).toEqual([
+      { url: 'https://root-run.example', tooltip: '' },
+      { slide: 2 },
+      undefined,
+    ]);
+    shape.richText = [{
+      runs: [{
+        text: 'Edited',
+        style: { hyperlink: { url: 'https://root-run-edited.example' } },
+      }],
+    }];
+    const reopened = await PptxDocument.open(await document.write());
+    expect((reopened.slides[0]!.shapes[0] as ShapeModel)
+      .richText[0]!.runs[0]!.style?.hyperlink)
+      .toEqual({ url: 'https://root-run-edited.example' });
+
+    const invalid: readonly RichTextRunStyle[] = [
+      {
+        // @ts-expect-error true is not a valid suppression sentinel
+        hyperlink: true,
+      },
+      {
+        // @ts-expect-error run hyperlinks require exactly one target branch
+        hyperlink: { url: 'https://example.com', slide: 2 },
+      },
+      {
+        // @ts-expect-error target is not a supported hyperlink alias
+        hyperlink: { target: 'https://example.com' },
+      },
+      {
+        // @ts-expect-error tooltip must be a string
+        hyperlink: { url: 'https://example.com', tooltip: 7 },
+      },
+    ];
+    expect(invalid).toHaveLength(4);
   });
 
   it('exports slide-number creation, editing, and compatibility diagnostics from the root', async () => {

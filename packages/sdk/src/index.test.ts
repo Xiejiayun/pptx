@@ -3616,6 +3616,196 @@ describe('PptxDocument vertical slice', () => {
     }
   });
 
+  it('supports rich text run hyperlinks across SDK owners and declarative placeholders', async () => {
+    const document = PptxDocument.create();
+    const target = document.addSlide();
+    const layout = document.layouts[0]!;
+    const master = document.masters[0]!;
+    const layoutText = layout.addRichText([{
+      runs: [{
+        text: 'Layout run link',
+        style: { hyperlink: { url: 'https://layout-run.example', tooltip: '' } },
+      }],
+    }], { name: 'layout_run_link' });
+    const masterText = master.addRichText([{
+      runs: [{
+        text: 'Master run link',
+        style: { hyperlink: { slide: document.slides.indexOf(target) + 1 } },
+      }],
+    }], { name: 'master_run_link' });
+    const prompt = layout.addPlaceholder([{
+      runs: [{
+        text: 'Prompt run link',
+        style: { hyperlink: { url: 'https://prompt-run.example' } },
+      }],
+    }], {
+      name: 'run_link_prompt',
+      type: 'body',
+      index: 211,
+    });
+
+    const detached = { url: 'https://declarative-run.example', tooltip: 'Detached' };
+    let signalRead!: () => void;
+    let resumeRead!: () => void;
+    const readStarted = new Promise<void>((resolve) => { signalRead = resolve; });
+    const readPaused = new Promise<void>((resolve) => { resumeRead = resolve; });
+    const pending = document.defineSlideMaster({
+      title: 'RUN-HYPERLINKS',
+      objects: [
+        {
+          kind: 'text',
+          text: [{
+            runs: [{ text: 'Declarative run', style: { hyperlink: detached } }],
+          }],
+          options: { name: 'declarative_run_link' },
+        },
+        {
+          kind: 'placeholder',
+          text: [{
+            runs: [{
+              text: 'Declarative prompt',
+              style: { hyperlink: { url: 'https://declarative-prompt-run.example' } },
+            }],
+          }],
+          options: { name: 'declarative_run_prompt', type: 'body', index: 212 },
+        },
+        {
+          kind: 'image',
+          source: {
+            async *[Symbol.asyncIterator]() {
+              signalRead();
+              await readPaused;
+              yield sdkPngHeader(1, 1);
+            },
+          },
+        },
+      ],
+    });
+    await readStarted;
+    detached.url = 'https://changed.example';
+    detached.tooltip = 'Changed';
+    resumeRead();
+    const declarative = await pending;
+    const slide = document.addSlide({ masterName: declarative.name });
+    const populated = slide.addRichText([{
+      runs: [{
+        text: 'Populated run',
+        style: { hyperlink: { slide: document.slides.indexOf(target) + 1, tooltip: '' } },
+      }],
+    }], { placeholder: 'declarative_run_prompt' });
+
+    expect(layoutText.richText[0]!.runs[0]!.style?.hyperlink)
+      .toEqual({ url: 'https://layout-run.example', tooltip: '' });
+    expect(masterText.richText[0]!.runs[0]!.style?.hyperlink)
+      .toEqual({ slide: 1 });
+    expect(prompt.richText[0]!.runs[0]!.style?.hyperlink)
+      .toEqual({ url: 'https://prompt-run.example' });
+    expect((declarative.shapes.find(
+      ({ name }) => name === 'declarative_run_link',
+    ) as ShapeModel).richText[0]!.runs[0]!.style?.hyperlink).toEqual({
+      url: 'https://declarative-run.example',
+      tooltip: 'Detached',
+    });
+    expect(populated.richText[0]!.runs[0]!.style?.hyperlink)
+      .toEqual({ slide: document.slides.indexOf(target) + 1, tooltip: '' });
+    expect(declarative.placeholders.find(
+      ({ name }) => name === 'declarative_run_prompt',
+    )?.richText[0]!.runs[0]!.style?.hyperlink)
+      .toEqual({ url: 'https://declarative-prompt-run.example' });
+
+    layoutText.richText = [{
+      runs: [{
+        text: 'Layout run link edited',
+        style: { hyperlink: false, bold: true },
+      }],
+    }];
+    expect(layoutText.richText[0]!.runs[0]!.style?.hyperlink).toBeUndefined();
+
+    const reopened = await PptxDocument.open(await document.write());
+    expect((reopened.masters[0]!.shapes.find(
+      ({ name }) => name === 'master_run_link',
+    ) as ShapeModel).richText[0]!.runs[0]!.style?.hyperlink).toEqual({ slide: 1 });
+    expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error'))
+      .toEqual([]);
+  });
+
+  it('preserves rich text run hyperlinks through duplicate delete and all formats', async () => {
+    const document = PptxDocument.create();
+    const source = document.addSlide();
+    const target = document.addSlide();
+    const shape = source.addRichText([{
+      runs: [
+        { text: 'External', style: { hyperlink: { url: 'https://run.example' } } },
+        {
+          text: 'Other',
+          style: { hyperlink: { slide: document.slides.indexOf(target) + 1 } },
+        },
+        {
+          text: 'Self',
+          style: { hyperlink: { slide: document.slides.indexOf(source) + 1, tooltip: '' } },
+        },
+      ],
+    }]);
+    const duplicate = document.duplicateSlide(document.slides.indexOf(source));
+    const duplicateShape = duplicate.shapes.find(({ id }) => id === shape.id) as ShapeModel;
+    expect(duplicateShape.richText[0]!.runs.map((run) => run.style?.hyperlink)).toEqual([
+      { url: 'https://run.example' },
+      { slide: document.slides.indexOf(target) + 1 },
+      { slide: document.slides.indexOf(duplicate) + 1, tooltip: '' },
+    ]);
+
+    document.moveSlide(document.slides.indexOf(target), 0);
+    expect(shape.richText[0]!.runs[1]!.style?.hyperlink).toEqual({ slide: 1 });
+    expect(duplicateShape.richText[0]!.runs[1]!.style?.hyperlink).toEqual({ slide: 1 });
+    document.deleteSlide(0);
+    expect(shape.richText[0]!.runs.map((run) => run.style?.hyperlink)).toEqual([
+      { url: 'https://run.example' },
+      undefined,
+      { slide: document.slides.indexOf(source) + 1, tooltip: '' },
+    ]);
+    expect(duplicateShape.richText[0]!.runs[2]!.style?.hyperlink)
+      .toEqual({ slide: document.slides.indexOf(duplicate) + 1, tooltip: '' });
+    expect(validatePackage(document.opcPackage).filter(({ severity }) => severity === 'error'))
+      .toEqual([]);
+
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const formatted = PptxDocument.create({ format });
+      const first = formatted.addSlide();
+      const second = formatted.addSlide();
+      first.addRichText([{
+        runs: [
+          { text: 'URL', style: { hyperlink: { url: 'https://format-run.example' } } },
+          { text: 'Slide', style: { hyperlink: { slide: 2, tooltip: '' } } },
+        ],
+      }]);
+      formatted.layouts[0]!.addRichText([{
+        runs: [{ text: 'Layout', style: { hyperlink: { slide: 2 } } }],
+      }], { name: 'format_layout_run_link' });
+      formatted.masters[0]!.addRichText([{
+        runs: [{ text: 'Master', style: { hyperlink: { url: 'https://master-run.example' } } }],
+      }], { name: 'format_master_run_link' });
+      const reopened = await PptxDocument.open(await formatted.write());
+      expect(reopened.format).toBe(format);
+      expect((reopened.slides[0]!.shapes[0] as ShapeModel).richText[0]!.runs
+        .map((run) => run.style?.hyperlink)).toEqual([
+        { url: 'https://format-run.example' },
+        { slide: reopened.slides.indexOf(
+          reopened.slides.find(({ partUri }) => partUri === second.partUri)!,
+        ) + 1, tooltip: '' },
+      ]);
+      expect((reopened.layouts[0]!.shapes.find(
+        ({ name }) => name === 'format_layout_run_link',
+      ) as ShapeModel).richText[0]!.runs[0]!.style?.hyperlink).toEqual({ slide: 2 });
+      expect((reopened.masters[0]!.shapes.find(
+        ({ name }) => name === 'format_master_run_link',
+      ) as ShapeModel).richText[0]!.runs[0]!.style?.hyperlink)
+        .toEqual({ url: 'https://master-run.example' });
+      expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error'))
+        .toEqual([]);
+      expect(first.partUri).toBe(reopened.slides[0]!.partUri);
+    }
+  });
+
   it('rejects invalid declarative text hyperlinks without observable mutation', async () => {
     const document = PptxDocument.create();
     document.addSlide();
