@@ -120,6 +120,60 @@ async (page) => {
       })
         && reopenedVerticalAlignmentDocument.diagnostics
           .filter(({ severity }) => severity === 'error').length === 0;
+      const schemeColorIsolationDocument = api.PptxDocument.create();
+      const schemeColorIsolationJournal = JSON.stringify(
+        schemeColorIsolationDocument.opcPackage.mutations,
+      );
+      const schemeColorDocument = api.PptxDocument.create();
+      schemeColorDocument.addSlide().addRichText([{
+        runs: [{
+          text: 'Chrome scheme colors',
+          style: { color: { kind: 'scheme', value: api.SCHEME_COLORS.text1 } },
+        }],
+      }], {
+        fill: {
+          kind: 'solid',
+          color: { kind: 'scheme', value: api.SCHEME_COLORS.accent1 },
+        },
+      });
+      const reopenedSchemeColorDocument = await api.PptxDocument.open(
+        await schemeColorDocument.writeBlob(),
+      );
+      const reopenedSchemeColorShape = reopenedSchemeColorDocument.slides[0].shapes[0];
+      const schemeColorState = {
+        entries: Object.entries(api.SCHEME_COLORS),
+        frozen: Object.isFrozen(api.SCHEME_COLORS),
+        mutationIsolation: JSON.stringify(
+          schemeColorIsolationDocument.opcPackage.mutations,
+        ) === schemeColorIsolationJournal,
+        textColor: reopenedSchemeColorShape instanceof api.ShapeModel
+          ? reopenedSchemeColorShape.richText[0]?.runs[0]?.style?.color
+          : undefined,
+        fill: reopenedSchemeColorShape instanceof api.ShapeModel
+          ? reopenedSchemeColorShape.fill
+          : undefined,
+        validationErrors: reopenedSchemeColorDocument.diagnostics
+          .filter(({ severity }) => severity === 'error').length,
+      };
+      const schemeColors = JSON.stringify(schemeColorState) === JSON.stringify({
+        entries: [
+          ['text1', 'tx1'],
+          ['text2', 'tx2'],
+          ['background1', 'bg1'],
+          ['background2', 'bg2'],
+          ['accent1', 'accent1'],
+          ['accent2', 'accent2'],
+          ['accent3', 'accent3'],
+          ['accent4', 'accent4'],
+          ['accent5', 'accent5'],
+          ['accent6', 'accent6'],
+        ],
+        frozen: true,
+        mutationIsolation: true,
+        textColor: { kind: 'scheme', value: 'tx1' },
+        fill: { kind: 'solid', color: { kind: 'scheme', value: 'accent1' } },
+        validationErrors: 0,
+      });
       const outputTypeDocument = api.PptxDocument.create();
       const outputTypeJournal = JSON.stringify(outputTypeDocument.opcPackage.mutations);
       const outputTypeState = {
@@ -2404,6 +2458,8 @@ async (page) => {
         horizontalAlignmentState,
         verticalAlignments,
         verticalAlignmentState,
+        schemeColors,
+        schemeColorState,
         outputTypes,
         outputTypeState,
         writeOutputTypes,
@@ -2608,6 +2664,26 @@ async (page) => {
       textReopened: ['top', 'middle', 'bottom'],
       tableReopened: ['top', 'middle', 'bottom'],
       frozen: true,
+    },
+    schemeColors: true,
+    schemeColorState: {
+      entries: [
+        ['text1', 'tx1'],
+        ['text2', 'tx2'],
+        ['background1', 'bg1'],
+        ['background2', 'bg2'],
+        ['accent1', 'accent1'],
+        ['accent2', 'accent2'],
+        ['accent3', 'accent3'],
+        ['accent4', 'accent4'],
+        ['accent5', 'accent5'],
+        ['accent6', 'accent6'],
+      ],
+      frozen: true,
+      mutationIsolation: true,
+      textColor: { kind: 'scheme', value: 'tx1' },
+      fill: { kind: 'solid', color: { kind: 'scheme', value: 'accent1' } },
+      validationErrors: 0,
     },
     outputTypes: true,
     outputTypeState: {

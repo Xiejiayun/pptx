@@ -41,6 +41,10 @@ for (const [packageName, outputName] of packages) {
 }
 
 const requiredPublicDeclarations = new Map([
+  [join(typesRoot, 'model/scheme-color.d.ts'), [
+    'SCHEME_COLORS',
+    'SchemeColor',
+  ]],
   [join(typesRoot, 'model/placeholder.d.ts'), [
     'PLACEHOLDER_TYPES',
     'PlaceholderType',

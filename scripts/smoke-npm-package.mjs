@@ -61,6 +61,14 @@ try {
     join(installed, 'dist/types/model/text.d.ts'),
     'utf8',
   );
+  const schemeColorDeclarationSource = await readFile(
+    join(installed, 'dist/types/model/scheme-color.d.ts'),
+    'utf8',
+  );
+  const modelDeclarationSource = await readFile(
+    join(installed, 'dist/types/model/index.d.ts'),
+    'utf8',
+  );
   const versionDeclarationSource = await readFile(
     join(installed, 'dist/types/sdk/version.d.ts'),
     'utf8',
@@ -105,6 +113,31 @@ try {
   const normalizedTextDeclarationSource = textDeclarationSource
     .replaceAll('"', "'")
     .replace(/\s+/gu, ' ');
+  const normalizedSchemeColorDeclarationSource = schemeColorDeclarationSource
+    .replaceAll('"', "'")
+    .replace(/\s+/gu, ' ');
+  const schemeColorDeclarationEntries = [
+    "readonly text1: 'tx1';",
+    "readonly text2: 'tx2';",
+    "readonly background1: 'bg1';",
+    "readonly background2: 'bg2';",
+    "readonly accent1: 'accent1';",
+    "readonly accent2: 'accent2';",
+    "readonly accent3: 'accent3';",
+    "readonly accent4: 'accent4';",
+    "readonly accent5: 'accent5';",
+    "readonly accent6: 'accent6';",
+  ];
+  if (!normalizedSchemeColorDeclarationSource.includes(
+    'export declare const SCHEME_COLORS: Readonly<{',
+  ) || !schemeColorDeclarationEntries.every((entry) =>
+    normalizedSchemeColorDeclarationSource.includes(entry)) ||
+      !normalizedSchemeColorDeclarationSource.includes(
+        'export type SchemeColor = (typeof SCHEME_COLORS)[keyof typeof SCHEME_COLORS];',
+      ) || !modelDeclarationSource.includes("export * from './scheme-color.js';") ||
+      !sdkDeclarationSource.includes("export * from '../model/index.js';")) {
+    throw new Error('Packed declarations are missing scheme color helper surfaces');
+  }
   if (!normalizedTextDeclarationSource.includes(
     "export declare const TEXT_ALIGNMENTS: readonly ['left', 'center', 'right', 'justify'];",
   ) || !normalizedTextDeclarationSource.includes(
@@ -164,7 +197,7 @@ try {
     join(directory, 'smoke.mjs'),
     `import { readFile } from 'node:fs/promises';
 import { Readable, Writable } from 'node:stream';
-import { CHART_TYPES, ChartModel, calculateImageSizing, chartWorkbookMatches, CustomGeometryEvaluationError, evaluateCustomGeometry, ImageModel, inches, inspectImage, inspectRasterImage, inspectSvgImage, MediaCodec, MediaModel, OUTPUT_TYPES, PLACEHOLDER_TYPES, PRESET_SHAPE_TYPES, PPTX_VERSION, PptxDocument, ShapeModel, SlideLayoutModel, SlideMasterModel, TableModel, TEXT_ALIGNMENTS, TEXT_VERTICAL_ALIGNMENTS, GradientCodec, importPptxGenJS, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
+import { CHART_TYPES, ChartModel, calculateImageSizing, chartWorkbookMatches, CustomGeometryEvaluationError, evaluateCustomGeometry, ImageModel, inches, inspectImage, inspectRasterImage, inspectSvgImage, MediaCodec, MediaModel, OUTPUT_TYPES, PLACEHOLDER_TYPES, PRESET_SHAPE_TYPES, PPTX_VERSION, PptxDocument, SCHEME_COLORS, ShapeModel, SlideLayoutModel, SlideMasterModel, TableModel, TEXT_ALIGNMENTS, TEXT_VERTICAL_ALIGNMENTS, GradientCodec, importPptxGenJS, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
 const installedManifestVersion = ${JSON.stringify(manifest.version)};
 const created = PptxDocument.create({ rtlMode: true });
 const slideNumberDeck = PptxDocument.create({ firstSlideNumber: 5 });
@@ -5221,6 +5254,62 @@ const verticalAlignments = JSON.stringify(verticalAlignmentState) === JSON.strin
 await reopenedPackedVerticalAlignmentDocument.writeFile(
   'vertical-alignment-smoke.pptx',
 );
+const packedSchemeColorIsolationDocument = PptxDocument.create();
+const packedSchemeColorIsolationJournal = JSON.stringify(
+  packedSchemeColorIsolationDocument.opcPackage.mutations,
+);
+const packedSchemeColorEntries = Object.entries(SCHEME_COLORS);
+const reimportedSchemeColors = (await import('@jiayunxie/pptx')).SCHEME_COLORS;
+const packedSchemeColorDocument = PptxDocument.create();
+packedSchemeColorDocument.addSlide().addRichText([{
+  runs: [{
+    text: 'Packed scheme colors',
+    style: { color: { kind: 'scheme', value: SCHEME_COLORS.text1 } },
+  }],
+}], {
+  fill: { kind: 'solid', color: { kind: 'scheme', value: SCHEME_COLORS.accent1 } },
+});
+const reopenedPackedSchemeColorDocument = await PptxDocument.open(
+  await packedSchemeColorDocument.write(),
+);
+const reopenedPackedSchemeColorShape = reopenedPackedSchemeColorDocument
+  .slides[0].shapes[0];
+const schemeColorState = {
+  entries: packedSchemeColorEntries,
+  frozen: Object.isFrozen(SCHEME_COLORS),
+  shared: SCHEME_COLORS === reimportedSchemeColors,
+  mutationIsolation: JSON.stringify(
+    packedSchemeColorIsolationDocument.opcPackage.mutations,
+  ) === packedSchemeColorIsolationJournal,
+  textColor: reopenedPackedSchemeColorShape instanceof ShapeModel
+    ? reopenedPackedSchemeColorShape.richText[0]?.runs[0]?.style?.color
+    : undefined,
+  fill: reopenedPackedSchemeColorShape instanceof ShapeModel
+    ? reopenedPackedSchemeColorShape.fill
+    : undefined,
+  validationErrors: reopenedPackedSchemeColorDocument.diagnostics
+    .filter(({ severity }) => severity === 'error').length,
+};
+const schemeColors = JSON.stringify(schemeColorState) === JSON.stringify({
+  entries: [
+    ['text1', 'tx1'],
+    ['text2', 'tx2'],
+    ['background1', 'bg1'],
+    ['background2', 'bg2'],
+    ['accent1', 'accent1'],
+    ['accent2', 'accent2'],
+    ['accent3', 'accent3'],
+    ['accent4', 'accent4'],
+    ['accent5', 'accent5'],
+    ['accent6', 'accent6'],
+  ],
+  frozen: true,
+  shared: true,
+  mutationIsolation: true,
+  textColor: { kind: 'scheme', value: 'tx1' },
+  fill: { kind: 'solid', color: { kind: 'scheme', value: 'accent1' } },
+  validationErrors: 0,
+});
 const packedOutputTypeDocument = PptxDocument.create();
 const packedOutputTypeJournal = [...packedOutputTypeDocument.opcPackage.mutations];
 const reimportedOutputTypes = (
@@ -6468,6 +6557,8 @@ const checks = {
   horizontalAlignmentState,
   verticalAlignments,
   verticalAlignmentState,
+  schemeColors,
+  schemeColorState,
   outputTypes,
   outputTypeState,
   writeOutputTypes,
@@ -6538,7 +6629,7 @@ process.stdout.write(JSON.stringify(checks));
 
   await writeFile(
     join(directory, 'browser-smoke.mjs'),
-    `import { CustomGeometryEvaluationError, evaluateCustomGeometry, ImageModel, inches, OUTPUT_TYPES, PRESET_SHAPE_TYPES, PPTX_VERSION, PptxDocument, ShapeModel, TableModel, TEXT_ALIGNMENTS, TEXT_VERTICAL_ALIGNMENTS, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
+    `import { CustomGeometryEvaluationError, evaluateCustomGeometry, ImageModel, inches, OUTPUT_TYPES, PRESET_SHAPE_TYPES, PPTX_VERSION, PptxDocument, SCHEME_COLORS, ShapeModel, TableModel, TEXT_ALIGNMENTS, TEXT_VERTICAL_ALIGNMENTS, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
 const resolved = import.meta.resolve('@jiayunxie/pptx');
 if (!resolved.endsWith('/dist/browser.js')) throw new Error('Browser condition resolved to ' + resolved);
 const checks = [PptxDocument, transitions.TransitionCodec, animations.AnimationTimingCodec, advancedCharts.AdvancedChartCodec, smartArt.SmartArtDiagramCodec];
@@ -6605,6 +6696,46 @@ if (!browserCompressionEqual(browserCompressionDefault, browserCompressionStore)
     }) || JSON.stringify(browserCompressionDocument.diagnostics) !== browserCompressionDiagnostics ||
     JSON.stringify(browserCompressionDocument.opcPackage.mutations) !== browserCompressionJournal) {
   throw new Error('Browser compression policy failed');
+}
+const browserSchemeColorIsolationDocument = PptxDocument.create();
+const browserSchemeColorIsolationJournal = JSON.stringify(
+  browserSchemeColorIsolationDocument.opcPackage.mutations,
+);
+const browserSchemeColorDocument = PptxDocument.create();
+browserSchemeColorDocument.addSlide().addRichText([{
+  runs: [{
+    text: 'Browser condition scheme colors',
+    style: { color: { kind: 'scheme', value: SCHEME_COLORS.text1 } },
+  }],
+}], {
+  fill: { kind: 'solid', color: { kind: 'scheme', value: SCHEME_COLORS.accent1 } },
+});
+const reopenedBrowserSchemeColorDocument = await PptxDocument.open(
+  await browserSchemeColorDocument.writeBlob(),
+);
+const reopenedBrowserSchemeColorShape = reopenedBrowserSchemeColorDocument
+  .slides[0].shapes[0];
+if (JSON.stringify(Object.entries(SCHEME_COLORS)) !== JSON.stringify([
+  ['text1', 'tx1'],
+  ['text2', 'tx2'],
+  ['background1', 'bg1'],
+  ['background2', 'bg2'],
+  ['accent1', 'accent1'],
+  ['accent2', 'accent2'],
+  ['accent3', 'accent3'],
+  ['accent4', 'accent4'],
+  ['accent5', 'accent5'],
+  ['accent6', 'accent6'],
+]) || !Object.isFrozen(SCHEME_COLORS) ||
+    JSON.stringify(browserSchemeColorIsolationDocument.opcPackage.mutations) !==
+      browserSchemeColorIsolationJournal ||
+    !(reopenedBrowserSchemeColorShape instanceof ShapeModel) ||
+    reopenedBrowserSchemeColorShape.richText[0]?.runs[0]?.style?.color?.value !== 'tx1' ||
+    reopenedBrowserSchemeColorShape.fill?.kind !== 'solid' ||
+    reopenedBrowserSchemeColorShape.fill.color.value !== 'accent1' ||
+    reopenedBrowserSchemeColorDocument.diagnostics
+      .filter(({ severity }) => severity === 'error').length !== 0) {
+  throw new Error('Browser scheme color helper failed');
 }
 const browserVersionDocument = PptxDocument.create();
 const reopenedBrowserVersionDocument = await PptxDocument.open(
@@ -8531,6 +8662,7 @@ process.stdout.write(resolved);
   PLACEHOLDER_TYPES,
   PRESET_SHAPE_TYPES,
   PPTX_VERSION,
+  SCHEME_COLORS,
   TEXT_ALIGNMENTS,
   TEXT_VERTICAL_ALIGNMENTS,
   // @ts-expect-error preset geometry normalization stays internal
@@ -8636,6 +8768,7 @@ process.stdout.write(resolved);
   type RichTextColor,
   type RichTextParagraph,
   type RichTextRun,
+  type SchemeColor,
   type TextAlignment,
   type NumberingStyle,
   type OutputType,
@@ -9870,6 +10003,14 @@ TEXT_VERTICAL_ALIGNMENTS.push('top');
 TEXT_VERTICAL_ALIGNMENTS[0] = 'bottom';
 // @ts-expect-error unknown vertical alignment is rejected
 const invalidVerticalAlignment: TextBoxVerticalAlignment = 'distributed';
+const typedTextScheme: SchemeColor = SCHEME_COLORS.text1;
+const typedAccentScheme: SchemeColor = SCHEME_COLORS.accent6;
+// @ts-expect-error key labels are not SchemeColor values
+const invalidSchemeKey: SchemeColor = 'text1';
+// @ts-expect-error extended DrawingML values are not in the PptxGenJS helper
+const invalidSchemeHelperValue: SchemeColor = 'hlink';
+// @ts-expect-error the runtime scheme color mapping is readonly
+SCHEME_COLORS.accent1 = 'accent2';
 const outputTypes: readonly OutputType[] = OUTPUT_TYPES;
 for (const outputType of outputTypes) {
   outputType satisfies OutputType;
@@ -10155,7 +10296,8 @@ void [typedPreset, typedNoneShapeFill, typedSolidShapeFill,
   typedShapeShadowRead, invalidMissingShapeShadowKind, invalidNoneShapeShadowKind,
   invalidInnerShapeShadowRotate, invalidShapeShadowOffset, invalidShapeShadowType,
   invalidUnknownShapeShadow, invalidShapeShadowFieldType, horizontalAlignments,
-  invalidHorizontalAlignment, verticalAlignments, invalidVerticalAlignment, outputTypes,
+  invalidHorizontalAlignment, verticalAlignments, invalidVerticalAlignment,
+  typedTextScheme, typedAccentScheme, invalidSchemeKey, invalidSchemeHelperValue, outputTypes,
   streamOutputType, invalidOutputType, typedWriteOutputDocument, typedWriteBaseOptions,
   typedBlobWriteOptions, typedDynamicWriteOptions, typedDefaultWrite, typedBaseWrite,
   typedArrayBufferWrite, typedBase64Write, typedBinaryStringWrite, typedBlobWrite,
@@ -10219,6 +10361,11 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
   if (!apiChecks.verticalAlignments) {
     throw new Error(
       `Vertical alignment smoke failed: ${JSON.stringify(apiChecks.verticalAlignmentState)}`,
+    );
+  }
+  if (!apiChecks.schemeColors) {
+    throw new Error(
+      `Scheme color smoke failed: ${JSON.stringify(apiChecks.schemeColorState)}`,
     );
   }
   if (!apiChecks.outputTypes) {
@@ -11538,7 +11685,7 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
   }
 
   process.stdout.write(
-    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presentationVersion: apiChecks.presentationVersion, presentationVersionState, presentationLayouts: apiChecks.presentationLayouts, presentationLayoutState: apiChecks.presentationLayoutState, horizontalAlignments: apiChecks.horizontalAlignments, horizontalAlignmentState: apiChecks.horizontalAlignmentState, verticalAlignments: apiChecks.verticalAlignments, verticalAlignmentState: apiChecks.verticalAlignmentState, outputTypes: apiChecks.outputTypes, outputTypeState: apiChecks.outputTypeState, writeOutputTypes: apiChecks.writeOutputTypes, writeOutputTypeState: apiChecks.writeOutputTypeState, nodeReadableStream: apiChecks.nodeReadableStream, nodeReadableStreamState: apiChecks.nodeReadableStreamState, masterLayouts: apiChecks.masterLayouts, slideNumbers: apiChecks.slideNumbers, slideDefaultColor: apiChecks.slideDefaultColor, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, textShapeFills: apiChecks.textShapeFills, textShapeLines: apiChecks.textShapeLines, textShapeArrows: apiChecks.textShapeArrows, textShapeShadows: apiChecks.textShapeShadows, textShapeHyperlinks: apiChecks.textShapeHyperlinks, textShapePresetGeometry: apiChecks.textShapePresetGeometry, textShapeRectRadius: apiChecks.textShapeRectRadius, textShapeIsTextBox: apiChecks.textShapeIsTextBox, richTextBreakLine: apiChecks.richTextBreakLine, richTextRunHyperlinks: apiChecks.richTextRunHyperlinks, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, slideBackgrounds: apiChecks.slideBackgrounds, types: true, cli: doctor.data.version, presentationLayoutInspect: true, horizontalAlignmentInspect: true, verticalAlignmentInspect: true, masterLayoutInspect: true, masterLayoutValidate: true, masterLayoutSlides: true, masterLayoutPartRead: true, masterLayoutDiff: true, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true, slideBackgroundInspect: true, slideBackgroundValidate: true, slideNumberInspect: true, slideNumberValidate: true, slideNumberSlides: true, slideNumberPartRead: true, slideDefaultColorInspect: true, slideDefaultColorValidate: true, slideDefaultColorSlides: true, slideDefaultColorPartRead: true, textShapeFillInspect: true, textShapeFillValidate: true, textShapeFillSlides: true, textShapeFillPartRead: true, textShapeLineInspect: true, textShapeLineValidate: true, textShapeLineSlides: true, textShapeLinePartRead: true, textShapeArrowInspect: true, textShapeArrowValidate: true, textShapeArrowSlides: true, textShapeArrowPartRead: true, textShapeShadowInspect: true, textShapeShadowValidate: true, textShapeShadowSlides: true, textShapeShadowPartRead: true, textShapeHyperlinkInspect: true, textShapeHyperlinkValidate: true, textShapeHyperlinkSlides: true, textShapeHyperlinkPartRead: true, textShapeHyperlinkInternalValidate: true, textShapePresetGeometryValidate: true, textShapePresetGeometrySlides: true, textShapePresetGeometryPartRead: true, textShapeRectRadiusValidate: true, textShapeRectRadiusSlides: true, textShapeRectRadiusPartRead: true, textShapeIsTextBoxValidate: true, textShapeIsTextBoxSlides: true, textShapeIsTextBoxPartRead: true, textShapeIsTextBoxLayoutPartRead: true, textShapeIsTextBoxMasterPartRead: true, richTextRunHyperlinkInspect: true, richTextRunHyperlinkValidate: true, richTextRunHyperlinkSlides: true, richTextRunHyperlinkPartRead: true, richTextRunHyperlinkInternalValidate: true, richTextBreakLineValidate: true, richTextBreakLineSlides: true, richTextBreakLinePartRead: true })}\n`,
+    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presentationVersion: apiChecks.presentationVersion, presentationVersionState, presentationLayouts: apiChecks.presentationLayouts, presentationLayoutState: apiChecks.presentationLayoutState, horizontalAlignments: apiChecks.horizontalAlignments, horizontalAlignmentState: apiChecks.horizontalAlignmentState, verticalAlignments: apiChecks.verticalAlignments, verticalAlignmentState: apiChecks.verticalAlignmentState, schemeColors: apiChecks.schemeColors, schemeColorState: apiChecks.schemeColorState, outputTypes: apiChecks.outputTypes, outputTypeState: apiChecks.outputTypeState, writeOutputTypes: apiChecks.writeOutputTypes, writeOutputTypeState: apiChecks.writeOutputTypeState, nodeReadableStream: apiChecks.nodeReadableStream, nodeReadableStreamState: apiChecks.nodeReadableStreamState, masterLayouts: apiChecks.masterLayouts, slideNumbers: apiChecks.slideNumbers, slideDefaultColor: apiChecks.slideDefaultColor, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, textShapeFills: apiChecks.textShapeFills, textShapeLines: apiChecks.textShapeLines, textShapeArrows: apiChecks.textShapeArrows, textShapeShadows: apiChecks.textShapeShadows, textShapeHyperlinks: apiChecks.textShapeHyperlinks, textShapePresetGeometry: apiChecks.textShapePresetGeometry, textShapeRectRadius: apiChecks.textShapeRectRadius, textShapeIsTextBox: apiChecks.textShapeIsTextBox, richTextBreakLine: apiChecks.richTextBreakLine, richTextRunHyperlinks: apiChecks.richTextRunHyperlinks, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, slideBackgrounds: apiChecks.slideBackgrounds, types: true, cli: doctor.data.version, presentationLayoutInspect: true, horizontalAlignmentInspect: true, verticalAlignmentInspect: true, masterLayoutInspect: true, masterLayoutValidate: true, masterLayoutSlides: true, masterLayoutPartRead: true, masterLayoutDiff: true, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true, slideBackgroundInspect: true, slideBackgroundValidate: true, slideNumberInspect: true, slideNumberValidate: true, slideNumberSlides: true, slideNumberPartRead: true, slideDefaultColorInspect: true, slideDefaultColorValidate: true, slideDefaultColorSlides: true, slideDefaultColorPartRead: true, textShapeFillInspect: true, textShapeFillValidate: true, textShapeFillSlides: true, textShapeFillPartRead: true, textShapeLineInspect: true, textShapeLineValidate: true, textShapeLineSlides: true, textShapeLinePartRead: true, textShapeArrowInspect: true, textShapeArrowValidate: true, textShapeArrowSlides: true, textShapeArrowPartRead: true, textShapeShadowInspect: true, textShapeShadowValidate: true, textShapeShadowSlides: true, textShapeShadowPartRead: true, textShapeHyperlinkInspect: true, textShapeHyperlinkValidate: true, textShapeHyperlinkSlides: true, textShapeHyperlinkPartRead: true, textShapeHyperlinkInternalValidate: true, textShapePresetGeometryValidate: true, textShapePresetGeometrySlides: true, textShapePresetGeometryPartRead: true, textShapeRectRadiusValidate: true, textShapeRectRadiusSlides: true, textShapeRectRadiusPartRead: true, textShapeIsTextBoxValidate: true, textShapeIsTextBoxSlides: true, textShapeIsTextBoxPartRead: true, textShapeIsTextBoxLayoutPartRead: true, textShapeIsTextBoxMasterPartRead: true, richTextRunHyperlinkInspect: true, richTextRunHyperlinkValidate: true, richTextRunHyperlinkSlides: true, richTextRunHyperlinkPartRead: true, richTextRunHyperlinkInternalValidate: true, richTextBreakLineValidate: true, richTextBreakLineSlides: true, richTextBreakLinePartRead: true })}\n`,
   );
 } finally {
   await rm(directory, { recursive: true, force: true });
