@@ -12,6 +12,7 @@ import {
   SlideModel,
   type AddChartOptions,
   type AddImageOptions,
+  type AddSvgImageOptions,
   type AddPlaceholderOptions,
   type AddShapeOptions,
   type AddTextOptions,
@@ -23,11 +24,23 @@ import {
   type PresentationModel,
   type PresetShapeType,
   type RichTextParagraph,
+  type RasterImageContentType,
   type SemanticShape,
   type SlideBackground,
   type SlideSize,
   type Emu,
 } from '@pptx/model';
+import {
+  commitPreparedChart as commitPreparedChartCreation,
+  type PreparedChartCreation,
+} from '@pptx/model/internal/chart-create';
+import {
+  normalizeAddImageSourceOptions,
+  type AddImageSourceOptions,
+  type ImageSource,
+  type NormalizedAddImageSourceOptions,
+  type RasterImageSource,
+} from './raster-image-source.js';
 
 const DEFINE_KEYS = new Set([
   'title',
@@ -97,6 +110,15 @@ export type SlideMasterMarginInput =
   | Emu
   | readonly [Emu, Emu, Emu, Emu];
 
+export type SlideMasterBackground =
+  | SlideBackground
+  | {
+      readonly kind: 'image-source';
+      readonly source: RasterImageSource;
+      readonly contentType?: RasterImageContentType;
+      readonly signal?: AbortSignal;
+    };
+
 export type SlideMasterObject =
   | { readonly kind: 'rect'; readonly options?: AddShapeOptions }
   | { readonly kind: 'line'; readonly options?: AddShapeOptions }
@@ -109,12 +131,22 @@ export type SlideMasterObject =
       readonly kind: 'placeholder';
       readonly text?: string | readonly RichTextParagraph[];
       readonly options: AddPlaceholderOptions;
+    }
+  | {
+      readonly kind: 'image';
+      readonly source: ImageSource;
+      readonly options?: AddImageSourceOptions;
+    }
+  | {
+      readonly kind: 'chart';
+      readonly groups: readonly ChartGroupInput[];
+      readonly options?: AddChartOptions;
     };
 
 export interface DefineSlideMasterOptions {
   readonly title: string;
   readonly master?: SlideMasterModel;
-  readonly background?: SlideBackground;
+  readonly background?: SlideMasterBackground;
   readonly margin?: SlideMasterMarginInput;
   readonly slideNumber?: SlideNumberOptions;
   readonly objects?: readonly SlideMasterObject[];
@@ -131,12 +163,31 @@ export type NormalizedSlideMasterObject =
       readonly kind: 'placeholder';
       readonly text: string | readonly RichTextParagraph[];
       readonly options: AddPlaceholderOptions;
+    }
+  | {
+      readonly kind: 'image';
+      readonly source: ImageSource;
+      readonly options: Readonly<NormalizedAddImageSourceOptions>;
+    }
+  | {
+      readonly kind: 'chart';
+      readonly groups: readonly ChartGroupInput[];
+      readonly options?: AddChartOptions;
+    };
+
+export type NormalizedSlideMasterBackground =
+  | SlideBackground
+  | {
+      readonly kind: 'image-source';
+      readonly source: RasterImageSource;
+      readonly contentType?: RasterImageContentType;
+      readonly signal?: AbortSignal;
     };
 
 export interface NormalizedDefineSlideMasterOptions {
   readonly title: string;
   readonly master?: SlideMasterModel;
-  readonly background?: SlideBackground;
+  readonly background?: NormalizedSlideMasterBackground;
   readonly margin?: Readonly<SlideMasterMargin>;
   readonly slideNumber?: Readonly<SlideNumber>;
   readonly objects: readonly NormalizedSlideMasterObject[];
@@ -153,13 +204,7 @@ export function normalizeDefineSlideMasterOptions(
   }
   const background = input.background === undefined
     ? undefined
-    : cloneDataValue(input.background, 'Slide master background') as SlideBackground;
-  if (
-    background !== undefined
-    && !['none', 'solid', 'image', 'linear-gradient', 'path-gradient'].includes(background.kind)
-  ) {
-    throw new TypeError('Slide master background kind is unsupported');
-  }
+    : normalizeBackground(input.background);
   const margin = input.margin === undefined
     ? undefined
     : normalizeMargin(input.margin, slideSize);
@@ -239,6 +284,14 @@ abstract class CommonSlideOwnerModel {
     return this.content.addImage(bytes, options);
   }
 
+  addSvgImage(
+    svgBytes: Uint8Array,
+    fallbackPngBytes: Uint8Array,
+    options: AddSvgImageOptions = {},
+  ): ImageModel {
+    return this.content.addSvgImage(svgBytes, fallbackPngBytes, options);
+  }
+
   addChart(
     type: ChartType,
     series: readonly ChartSeriesInput[],
@@ -264,6 +317,11 @@ abstract class CommonSlideOwnerModel {
       seriesOrOptions as readonly ChartSeriesInput[],
       options,
     );
+  }
+
+  /** @internal */
+  commitPreparedChart(prepared: PreparedChartCreation): ChartModel {
+    return commitPreparedChartCreation(this.content, prepared);
   }
 }
 
@@ -341,6 +399,30 @@ function normalizeObject(value: unknown, index: number): NormalizedSlideMasterOb
     const options = readOptions(input.options, TEXT_OPTION_KEYS, `${context} options`);
     return Object.freeze({ kind, text, options: options as AddTextOptions });
   }
+  if (kind === 'image') {
+    const input = readDataObject(value, new Set(['kind', 'source', 'options']), context);
+    if (!Object.hasOwn(input, 'source')) {
+      throw new TypeError(`${context} image source is required`);
+    }
+    const options = normalizeAddImageSourceOptions(input.options ?? {});
+    return Object.freeze({
+      kind,
+      source: input.source as ImageSource,
+      options,
+    });
+  }
+  if (kind === 'chart') {
+    const input = readDataObject(value, new Set(['kind', 'groups', 'options']), context);
+    const groups = readDenseArray(input.groups, `${context} chart groups`) as readonly ChartGroupInput[];
+    const options = input.options === undefined
+      ? undefined
+      : cloneDataValue(input.options, `${context} chart options`) as AddChartOptions;
+    return Object.freeze({
+      kind,
+      groups: Object.freeze([...groups]),
+      ...(options === undefined ? {} : { options }),
+    });
+  }
   const input = readDataObject(value, new Set(['kind', 'text', 'options']), context);
   const text = input.text === undefined ? '' : normalizeText(input.text, `${context} text`);
   const options = readOptions(
@@ -380,15 +462,77 @@ function normalizeObject(value: unknown, index: number): NormalizedSlideMasterOb
 function readKind(
   value: unknown,
   context: string,
-): 'rect' | 'line' | 'text' | 'placeholder' {
-  const input = readDataObject(value, new Set(['kind', 'text', 'options']), context);
+): 'rect' | 'line' | 'text' | 'placeholder' | 'image' | 'chart' {
+  const input = readDataObject(
+    value,
+    new Set(['kind', 'text', 'source', 'groups', 'options']),
+    context,
+  );
   if (
     typeof input.kind !== 'string'
-    || !['rect', 'line', 'text', 'placeholder'].includes(input.kind)
+    || !['rect', 'line', 'text', 'placeholder', 'image', 'chart'].includes(input.kind)
   ) {
-    throw new TypeError(`${context} kind must be rect, line, text, or placeholder`);
+    throw new TypeError(
+      `${context} kind must be rect, line, text, placeholder, image, or chart`,
+    );
   }
-  return input.kind as 'rect' | 'line' | 'text' | 'placeholder';
+  return input.kind as 'rect' | 'line' | 'text' | 'placeholder' | 'image' | 'chart';
+}
+
+function normalizeBackground(value: unknown): NormalizedSlideMasterBackground {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new TypeError('Slide master background must be an object');
+  }
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) {
+    throw new TypeError('Slide master background must be an ordinary object');
+  }
+  const kind = Object.getOwnPropertyDescriptor(value, 'kind');
+  if (!kind || !Object.hasOwn(kind, 'value')) {
+    throw new TypeError('Slide master background kind must be a data property');
+  }
+  if (kind.value !== 'image-source') {
+    const background = cloneDataValue(
+      value,
+      'Slide master background',
+    ) as SlideBackground;
+    if (!['none', 'solid', 'image', 'linear-gradient', 'path-gradient'].includes(background.kind)) {
+      throw new TypeError('Slide master background kind is unsupported');
+    }
+    return background;
+  }
+  const sourceInput = readDataObject(
+    value,
+    new Set(['kind', 'source', 'contentType', 'signal']),
+    'Slide master background',
+  );
+  if (!Object.hasOwn(sourceInput, 'source')) {
+    throw new TypeError('Slide master background image source is required');
+  }
+  if (
+    sourceInput.contentType !== undefined
+    && sourceInput.contentType !== 'image/png'
+    && sourceInput.contentType !== 'image/jpeg'
+    && sourceInput.contentType !== 'image/gif'
+  ) {
+    throw new TypeError('Slide master background image contentType is unsupported');
+  }
+  if (
+    sourceInput.signal !== undefined
+    && !(typeof AbortSignal !== 'undefined' && sourceInput.signal instanceof AbortSignal)
+  ) {
+    throw new TypeError('Slide master background image signal must be an AbortSignal');
+  }
+  return Object.freeze({
+    kind: 'image-source',
+    source: sourceInput.source as RasterImageSource,
+    ...(sourceInput.contentType === undefined
+      ? {}
+      : { contentType: sourceInput.contentType as RasterImageContentType }),
+    ...(sourceInput.signal === undefined
+      ? {}
+      : { signal: sourceInput.signal as AbortSignal }),
+  });
 }
 
 function normalizeText(

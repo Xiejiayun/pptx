@@ -22,8 +22,13 @@ import {
   type ChartType,
   type ImageModel,
   type PlaceholderSelector,
+  type SlideBackground,
   type SlideModel,
 } from '@pptx/model';
+import {
+  prepareChartCreation,
+  type PreparedChartCreation,
+} from '@pptx/model/internal/chart-create';
 import { escapeXmlAttribute } from '@pptx/lossless-xml';
 import { OpcPackage, type PackageOpenOptions } from '@pptx/opc';
 import {
@@ -45,6 +50,7 @@ import {
   type AddImageSourceOptions,
   type ImageSource,
   type RasterImageSource,
+  type ResolvedImageSource,
 } from './raster-image-source.js';
 import { calculateImageSizing, type ImageSizing } from './raster-image-sizing.js';
 import {
@@ -57,6 +63,7 @@ import {
   SlideLayoutModel,
   SlideMasterModel,
   type DefineSlideMasterOptions,
+  type NormalizedDefineSlideMasterOptions,
   type NormalizedSlideMasterObject,
   type SlideMasterMargin,
 } from './master-layout.js';
@@ -100,6 +107,7 @@ export type { SetSlideBackgroundImageOptions } from './slide-background-source.j
 export { SlideLayoutModel, SlideMasterModel } from './master-layout.js';
 export type {
   DefineSlideMasterOptions,
+  SlideMasterBackground,
   SlideMasterMargin,
   SlideMasterMarginInput,
   SlideMasterObject,
@@ -117,6 +125,24 @@ export type PptxInput = string | Uint8Array | ArrayBuffer | Blob | PptxByteStrea
 export interface WriteOptions {
   readonly compatibility?: CompatibilityProfile;
   readonly mode?: 'strict' | 'permissive';
+}
+
+type PreparedSlideMasterObject =
+  | Exclude<NormalizedSlideMasterObject, { readonly kind: 'image' | 'chart' }>
+  | {
+      readonly kind: 'image';
+      readonly source: Readonly<ResolvedImageSource>;
+      readonly fallbackPngBytes?: Uint8Array;
+      readonly options: Readonly<AddSvgImageOptions>;
+    }
+  | {
+      readonly kind: 'chart';
+      readonly chart: Readonly<PreparedChartCreation>;
+    };
+
+interface PreparedSlideMasterDefinition {
+  readonly background?: SlideBackground;
+  readonly objects: readonly PreparedSlideMasterObject[];
 }
 
 export class OpaqueMutationError extends Error {
@@ -300,6 +326,7 @@ export class PptxDocument extends PresentationModel {
     if (this.#masterLayoutTheme.hasAttachedLayoutName(normalized.title)) {
       throw new RangeError(`Slide master title ${normalized.title} is already in use`);
     }
+    const prepared = await prepareSlideMasterDefinition(normalized);
 
     const rawLayout = this.opcPackage.transaction(() => {
       const raw = this.#masterLayoutTheme.createLayout(
@@ -311,10 +338,10 @@ export class PptxDocument extends PresentationModel {
         raw,
         (partUri) => this.#layoutMargins.get(partUri),
       );
-      if (normalized.background !== undefined) {
-        layout.background = normalized.background;
+      if (prepared.background !== undefined) {
+        layout.background = prepared.background;
       }
-      for (const object of normalized.objects) addSlideMasterObject(layout, object);
+      for (const object of prepared.objects) addSlideMasterObject(layout, object);
       if (normalized.slideNumber !== undefined) {
         layout.slideNumber = normalized.slideNumber;
         this.#masterLayoutTheme.enableMasterSlideNumbers(rawMaster.partUri);
@@ -452,9 +479,69 @@ export class PptxDocument extends PresentationModel {
   }
 }
 
+async function prepareSlideMasterDefinition(
+  definition: Readonly<NormalizedDefineSlideMasterOptions>,
+): Promise<Readonly<PreparedSlideMasterDefinition>> {
+  const background = definition.background?.kind === 'image-source'
+    ? resolveSlideBackgroundImage(definition.background.source, {
+        ...(definition.background.contentType === undefined
+          ? {}
+          : { contentType: definition.background.contentType }),
+        ...(definition.background.signal === undefined
+          ? {}
+          : { signal: definition.background.signal }),
+      })
+    : Promise.resolve(definition.background);
+  const objects = Promise.all(definition.objects.map(async (
+    object,
+  ): Promise<PreparedSlideMasterObject> => {
+    if (object.kind === 'chart') {
+      return Object.freeze({
+        kind: 'chart',
+        chart: await prepareChartCreation(object.groups, object.options),
+      });
+    }
+    if (object.kind !== 'image') return object;
+    const resolved = await resolveImageSource(object.source, object.options.signal);
+    assertImageContentType(object.options.contentType, resolved);
+    const placement = object.options.sizing === undefined
+      ? undefined
+      : calculateImageSizing(resolved.info, object.options.sizing);
+    const imageOptions = Object.freeze({
+      ...object.options.imageOptions,
+      ...(placement ?? {}),
+    }) as unknown as Readonly<AddSvgImageOptions>;
+    if (resolved.info.contentType !== 'image/svg+xml') {
+      if (object.options.fallback !== undefined) {
+        throw new TypeError('fallback is only valid for SVG images');
+      }
+      return Object.freeze({
+        kind: 'image',
+        source: resolved,
+        options: imageOptions,
+      });
+    }
+    return Object.freeze({
+      kind: 'image',
+      source: resolved,
+      fallbackPngBytes: await resolveSvgFallback(
+        resolved,
+        object.options.fallback,
+        object.options.signal,
+      ),
+      options: imageOptions,
+    });
+  }));
+  const [preparedBackground, preparedObjects] = await Promise.all([background, objects]);
+  return Object.freeze({
+    ...(preparedBackground === undefined ? {} : { background: preparedBackground }),
+    objects: Object.freeze(preparedObjects),
+  });
+}
+
 function addSlideMasterObject(
   layout: SlideLayoutModel,
-  object: NormalizedSlideMasterObject,
+  object: PreparedSlideMasterObject,
 ): void {
   switch (object.kind) {
     case 'rect':
@@ -467,6 +554,23 @@ function addSlideMasterObject(
       return;
     case 'placeholder':
       layout.addPlaceholder(object.text, object.options);
+      return;
+    case 'image':
+      if (object.source.info.contentType === 'image/svg+xml') {
+        layout.addSvgImage(
+          object.source.bytes,
+          object.fallbackPngBytes!,
+          object.options,
+        );
+      } else {
+        layout.addImage(object.source.bytes, {
+          ...object.options,
+          contentType: object.source.info.contentType,
+        });
+      }
+      return;
+    case 'chart':
+      layout.commitPreparedChart(object.chart);
   }
 }
 

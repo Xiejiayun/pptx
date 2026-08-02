@@ -14,6 +14,7 @@ import {
   type ReplaceMediaSourceOptions,
   type RichTextColor,
   type DefineSlideMasterOptions,
+  type SlideMasterBackground,
   type SlideMasterMargin,
   type SlideMasterObject,
   type SlideNumberOptions,
@@ -51,10 +52,27 @@ describe('@jiayunxie/pptx stable exports', () => {
       margin: [margin.top, margin.right, margin.bottom, margin.left],
       objects,
     };
+    const asyncBackground: SlideMasterBackground = {
+      kind: 'image-source',
+      source: new Uint8Array(),
+      contentType: 'image/png',
+    };
+    const asyncObjects: readonly SlideMasterObject[] = [
+      { kind: 'image', source: new Uint8Array() },
+      {
+        kind: 'chart',
+        groups: [{
+          type: 'bar',
+          series: [{ name: 'Root', categories: ['Q1'], values: [1] }],
+        }],
+      },
+    ];
     const document = PptxDocument.create();
     const layout = await document.defineSlideMaster(definition);
     expect(layout.name).toBe('ROOT-BRAND');
     expect(layout.margin).toEqual(margin);
+    expect(asyncBackground.kind).toBe('image-source');
+    expect(asyncObjects.map(({ kind }) => kind)).toEqual(['image', 'chart']);
   });
 
   it('exports transient slide default colors and materializes them through the root', async () => {

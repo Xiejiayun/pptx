@@ -98,6 +98,26 @@ function sdkPngDataUri(bytes: Uint8Array): string {
   return `data:image/png;base64,${Buffer.from(bytes).toString('base64')}`;
 }
 
+function sdkGif(width: number, height: number): Uint8Array<ArrayBuffer> {
+  return Uint8Array.from([
+    71, 73, 70, 56, 57, 97,
+    width & 0xff,
+    width >>> 8,
+    height & 0xff,
+    height >>> 8,
+  ]);
+}
+
+function sdkJpeg(width: number, height: number): Uint8Array<ArrayBuffer> {
+  return Uint8Array.from([
+    0xff, 0xd8,
+    0xff, 0xc0, 0x00, 0x08, 0x08,
+    height >>> 8, height & 0xff,
+    width >>> 8, width & 0xff,
+    0x01,
+  ]);
+}
+
 function sdkSlideNumberCache(document: PptxDocument, ownerPartUri: string): string | undefined {
   const xml = LosslessXmlDocument.parse(document.opcPackage.requirePart(ownerPartUri).bytes);
   const field = xml.elements('fld').find(
@@ -1112,6 +1132,15 @@ describe('PptxDocument vertical slice', () => {
         title: 'BACKGROUND',
         background: { kind: 'solid', color: { kind: 'srgb', value: 'FFF' } },
       },
+      { title: 'BACKGROUND-SOURCE', background: { kind: 'image-source' } },
+      {
+        title: 'BACKGROUND-CONTENT-TYPE',
+        background: {
+          kind: 'image-source',
+          source: sdkPngHeader(1, 1),
+          contentType: 'image/svg+xml',
+        },
+      },
       { title: 'RECT', objects: [{ kind: 'rect', options: { width: 0 } }] },
       { title: 'TEXT', objects: [{ kind: 'text', text: 1 }] },
       {
@@ -1122,6 +1151,8 @@ describe('PptxDocument vertical slice', () => {
         title: 'PLACEHOLDER',
         objects: [{ kind: 'placeholder', options: { name: '', type: 'title' } }],
       },
+      { title: 'IMAGE-SOURCE', objects: [{ kind: 'image' }] },
+      { title: 'CHART-GROUPS', objects: [{ kind: 'chart' }] },
     ];
     for (const definition of invalid) {
       await expect(document.defineSlideMaster(definition as never)).rejects.toThrow();
@@ -1210,6 +1241,166 @@ describe('PptxDocument vertical slice', () => {
       expect(reopened.slides[0]?.partUri).toBe(slide.partUri);
       expect(reopened.slides[0]?.slideNumber?.align).toBe('center');
     }
+  });
+
+  it('prepares async slide master definition sources and charts before atomic commit', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'pptx-master-async-'));
+    const png = sdkPngHeader(16, 9);
+    const jpeg = sdkJpeg(12, 8);
+    const gif = sdkGif(10, 6);
+    const jpegPath = join(directory, 'source.jpg');
+    await writeFile(jpegPath, jpeg);
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(gif, { status: 200, headers: { 'content-type': 'image/gif' } }),
+    );
+    const chartTypes = [
+      'area', 'bar', 'bar3D', 'bubble', 'doughnut', 'line', 'pie', 'radar', 'scatter',
+    ] as const;
+    const chartObjects = chartTypes.map((type, index) => ({
+      kind: 'chart' as const,
+      groups: [{
+        type,
+        series: type === 'scatter'
+          ? [{ name: type, xValues: [1, 2], values: [10, 20] }]
+          : type === 'bubble'
+            ? [{ name: type, xValues: [1, 2], values: [10, 20], sizes: [5, 6] }]
+            : [{ name: type, categories: ['Q1', 'Q2'], values: [10, 20] }],
+      }],
+      options: { name: `${type}-${index}`, x: inches(index / 10) },
+    }));
+    const document = PptxDocument.create();
+    try {
+      const layout = await document.defineSlideMaster({
+        title: 'ASYNC',
+        background: {
+          kind: 'image-source',
+          source: png.buffer.slice(0),
+          contentType: 'image/png',
+        },
+        objects: [
+          { kind: 'text', text: 'Async brand' },
+          {
+            kind: 'image',
+            source: sdkPngDataUri(png),
+            options: {
+              name: 'data-png',
+              sizing: { type: 'cover', width: inches(2), height: inches(2) },
+            },
+          },
+          chartObjects[0]!,
+          { kind: 'rect', options: { name: 'mixed-order' } },
+          { kind: 'image', source: jpegPath, options: { name: 'path-jpeg' } },
+          {
+            kind: 'image',
+            source: 'https://example.test/source.gif',
+            options: { name: 'url-gif' },
+          },
+          {
+            kind: 'image',
+            source: new Blob([sdkSvg(640, 360)], { type: 'image/svg+xml' }),
+            options: {
+              name: 'blob-svg',
+              fallback: new Blob([sdkPngHeader(1, 1)], { type: 'image/png' }),
+            },
+          },
+          {
+            kind: 'image',
+            source: Readable.from([png]),
+            options: { name: 'stream-png' },
+          },
+          { kind: 'image', source: png, options: { name: 'bytes-png' } },
+          ...chartObjects.slice(1),
+          {
+            kind: 'chart',
+            groups: [
+              {
+                type: 'bar',
+                series: [{ name: 'Revenue', categories: ['Q1', 'Q2'], values: [10, 20] }],
+              },
+              {
+                type: 'line',
+                axis: 'secondary',
+                series: [{ name: 'Trend', categories: ['Q1', 'Q2'], values: [11, 21] }],
+              },
+            ],
+            options: { name: 'combo' },
+          },
+        ],
+      });
+
+      expect(layout.background).toMatchObject({ kind: 'image', contentType: 'image/png' });
+      expect(layout.shapes.slice(0, 4).map(({ kind }) => kind)).toEqual([
+        'text', 'image', 'chart', 'shape',
+      ]);
+      const images = layout.shapes.filter(
+        (shape): shape is ImageModel => shape instanceof ImageModel,
+      );
+      expect(images.map(({ name }) => name)).toEqual([
+        'data-png', 'path-jpeg', 'url-gif', 'blob-svg', 'stream-png', 'bytes-png',
+      ]);
+      expect(images[0]?.sourceRectangle).toEqual({
+        left: 21.875,
+        top: 0,
+        right: 21.875,
+        bottom: 0,
+      });
+      expect(images[3]?.isSvg).toBe(true);
+      expect(images[3]?.fallbackPartUri).toBeDefined();
+      const charts = layout.shapes.filter(
+        (shape): shape is ChartModel => shape instanceof ChartModel,
+      );
+      expect(charts).toHaveLength(10);
+      expect(charts.slice(0, 9).map((chart) => chart.definition?.groups[0]?.type))
+        .toEqual(chartTypes);
+      expect(charts[9]?.definition?.groups.map(({ type, axis }) => [type, axis])).toEqual([
+        ['bar', 'primary'],
+        ['line', 'secondary'],
+      ]);
+      expect(new Set(charts.map(({ workbookPartUri }) => workbookPartUri)).size).toBe(10);
+      const reopened = await PptxDocument.open(await document.write());
+      const reopenedLayout = reopened.layouts.find(({ name }) => name === 'ASYNC')!;
+      expect(reopenedLayout.background?.kind).toBe('image');
+      expect(reopenedLayout.shapes.filter((shape) => shape instanceof ImageModel)).toHaveLength(6);
+      expect(reopenedLayout.shapes.filter((shape) => shape instanceof ChartModel)).toHaveLength(10);
+    } finally {
+      fetchSpy.mockRestore();
+      await rm(directory, { recursive: true, force: true });
+    }
+
+    const prepareFailure = PptxDocument.create();
+    const prepareBefore = await sdkPackageSnapshot(prepareFailure);
+    await expect(prepareFailure.defineSlideMaster({
+      title: 'PREPARE-FAILURE',
+      objects: [
+        { kind: 'image', source: png },
+        { kind: 'image', source: Uint8Array.of(1, 2, 3) },
+      ],
+    })).rejects.toThrow(/image|signature|svg/i);
+    expect(await sdkPackageSnapshot(prepareFailure)).toEqual(prepareBefore);
+
+    const commitFailure = PptxDocument.create();
+    const commitBefore = await sdkPackageSnapshot(commitFailure);
+    const originalSetPart = commitFailure.opcPackage.setPart.bind(commitFailure.opcPackage);
+    const setPart = vi.spyOn(commitFailure.opcPackage, 'setPart')
+      .mockImplementation((uri, bytes, contentType) => {
+        if (uri.startsWith('/ppt/charts/')) throw new Error('async chart commit failed');
+        return originalSetPart(uri, bytes, contentType);
+      });
+    await expect(commitFailure.defineSlideMaster({
+      title: 'COMMIT-FAILURE',
+      objects: [
+        { kind: 'image', source: png },
+        {
+          kind: 'chart',
+          groups: [{
+            type: 'bar',
+            series: [{ name: 'Revenue', categories: ['Q1'], values: [1] }],
+          }],
+        },
+      ],
+    })).rejects.toThrow('async chart commit failed');
+    setPart.mockRestore();
+    expect(await sdkPackageSnapshot(commitFailure)).toEqual(commitBefore);
   });
 
   it('edits and reopens direct layout master backgrounds', async () => {
