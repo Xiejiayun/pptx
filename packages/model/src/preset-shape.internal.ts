@@ -58,6 +58,7 @@ const RELATIONSHIP_NAMESPACE =
 const EMU_PER_INCH = 914_400;
 const MAX_ROTATION = 21_600_000;
 const PRESET_SHAPE_TYPE_SET: ReadonlySet<string> = new Set(PRESET_SHAPE_TYPES);
+const EMPTY_SHAPE_ADJUSTMENTS: NormalizedShapeAdjustments = Object.freeze([]);
 const COMMON_OPTION_KEYS = new Set([
   'name',
   'placeholder',
@@ -140,9 +141,7 @@ export function normalizePresetShape(
   type: unknown,
   options: unknown = undefined,
 ): NormalizedPresetShape {
-  if (typeof type !== 'string' || !PRESET_SHAPE_TYPE_SET.has(type)) {
-    throw new TypeError('Preset shape type must be a canonical preset shape string');
-  }
+  const normalizedType = normalizePresetShapeType(type, 'Preset shape type');
   const values = readOptions(options, PRESET_OPTION_KEYS, 'Preset shape');
   const normalizedOptions = normalizeShapeOptions(values, 'Preset shape');
   const adjustments = normalizeShapeAdjustments(
@@ -151,10 +150,20 @@ export function normalizePresetShape(
   );
 
   return Object.freeze({
-    type: type as PresetShapeType,
+    type: normalizedType,
     ...normalizedOptions,
     adjustments,
   });
+}
+
+export function normalizePresetShapeType(
+  value: unknown,
+  context: string,
+): PresetShapeType {
+  if (typeof value !== 'string' || !PRESET_SHAPE_TYPE_SET.has(value)) {
+    throw new TypeError(`${context} must be a canonical preset shape string`);
+  }
+  return value as PresetShapeType;
 }
 
 export function normalizeCustomShape(
@@ -227,17 +236,23 @@ export function renderPresetShapeXml(
   hyperlinkRelationshipId?: string,
   placeholder?: Readonly<PlaceholderIdentity>,
 ): string {
-  const type = escapeXmlAttribute(shape.type);
-  const geometry = `<a:prstGeom prst="${type}">` +
-    `${renderShapeAdjustmentList(shape.adjustments, 'a:')}</a:prstGeom>`;
   return renderShapeXml(
     id,
     shape,
-    geometry,
+    renderPresetShapeGeometry(shape.type, 'a:', shape.adjustments),
     hyperlinkRelationshipId,
     'Preset shape',
     placeholder,
   );
+}
+
+export function renderPresetShapeGeometry(
+  type: PresetShapeType,
+  prefix = 'a:',
+  adjustments: NormalizedShapeAdjustments = EMPTY_SHAPE_ADJUSTMENTS,
+): string {
+  return `<${prefix}prstGeom prst="${escapeXmlAttribute(type)}">` +
+    `${renderShapeAdjustmentList(adjustments, prefix)}</${prefix}prstGeom>`;
 }
 
 export function renderCustomShapeXml(

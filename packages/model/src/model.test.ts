@@ -6176,6 +6176,192 @@ describe('PresentationModel', () => {
     expect(pkg.mutations).toEqual(invalidJournal);
   });
 
+  it('creates and edits strict text shape preset geometry through the shared live model', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const omittedSlide = model.addSlide();
+    const undefinedSlide = model.addSlide();
+    const omitted = omittedSlide.addText('Same geometry');
+    const explicitUndefined = undefinedSlide.addText('Same geometry', {
+      shape: undefined,
+    } as never);
+    expect(omitted.presetType).toBe('rect');
+    expect(explicitUndefined.presetType).toBe('rect');
+    expect(pkg.requirePart(undefinedSlide.partUri).bytes).toEqual(
+      pkg.requirePart(omittedSlide.partUri).bytes,
+    );
+
+    const slide = model.addSlide();
+    const plain = slide.addText('Ellipse text', { shape: 'ellipse' });
+    const rich = slide.addRichText([{
+      runs: [
+        { text: 'Styled', style: { hyperlink: { url: 'https://run.example' } } },
+        { text: ' geometry' },
+      ],
+    }], {
+      name: 'Combined shaped text',
+      shape: 'blockArc',
+      x: inches(1),
+      y: inches(2),
+      width: inches(4),
+      height: inches(2),
+      fill: { kind: 'solid', color: { kind: 'scheme', value: 'accent2' } },
+      line: {
+        kind: 'line',
+        color: { kind: 'srgb', value: '123ABC' },
+        width: 2,
+        dash: 'dashDot',
+      },
+      arrows: { begin: 'oval', end: 'triangle' },
+      shadow: { kind: 'outer', opacity: 0.5 },
+      hyperlink: { url: 'https://shape.example', tooltip: 'Shape' },
+      margin: 0,
+      valign: 'bottom',
+      vert: 'vert',
+      fit: 'shrink',
+      wrap: false,
+    });
+
+    expect(plain.presetType).toBe('ellipse');
+    expect(rich.presetType).toBe('blockArc');
+    expect(rich.text).toBe('Styled geometry');
+    expect(rich.fill).toEqual({
+      kind: 'solid',
+      color: { kind: 'scheme', value: 'accent2' },
+    });
+    expect(rich.line).toMatchObject({ kind: 'line', color: { kind: 'srgb', value: '123ABC' } });
+    expect(rich.arrows).toEqual({ begin: 'oval', end: 'triangle' });
+    expect(rich.shadow).toMatchObject({ kind: 'outer', opacity: 0.5 });
+    expect(rich.hyperlink).toEqual({ url: 'https://shape.example', tooltip: 'Shape' });
+    expect(rich.textMargins).toEqual({ top: 0, right: 0, bottom: 0, left: 0 });
+    expect(rich.verticalAlignment).toBe('bottom');
+    expect(rich.textDirection).toBe('vert');
+    expect(rich.textFit).toBe('shrink');
+    expect(rich.textWrap).toBe(false);
+
+    rich.adjustments = [
+      { name: 'adj1', value: 16_200_000 },
+      { name: 'adj2', value: 0 },
+    ];
+    const beforeSameType = packageSnapshot(pkg);
+    rich.presetType = 'blockArc';
+    expect(packageSnapshot(pkg)).toEqual(beforeSameType);
+    expect(rich.adjustments).toEqual([
+      { name: 'adj1', value: 16_200_000 },
+      { name: 'adj2', value: 0 },
+    ]);
+
+    rich.presetType = 'hexagon';
+    expect(rich.presetType).toBe('hexagon');
+    expect(rich.adjustments).toEqual([]);
+    expect(rich.text).toBe('Styled geometry');
+    expect(rich.fill).toEqual({
+      kind: 'solid',
+      color: { kind: 'scheme', value: 'accent2' },
+    });
+    expect(rich.hyperlink).toEqual({ url: 'https://shape.example', tooltip: 'Shape' });
+    expect(slide.shapes[1]).toBe(rich);
+
+    rich.customGeometry = customTriangleGeometry;
+    expect(rich.presetType).toBeUndefined();
+    expect(rich.customGeometry).toEqual(customTriangleGeometry);
+    expect(rich.text).toBe('Styled geometry');
+    rich.presetType = 'star5';
+    expect(rich.presetType).toBe('star5');
+    expect(rich.customGeometry).toBeUndefined();
+
+    const catalogSlide = model.addSlide();
+    const catalogShapes = PRESET_SHAPE_TYPES.map((shape, index) => catalogSlide.addText(
+      `Geometry ${index}`,
+      { name: `text_geometry_${index}`, shape },
+    ));
+    expect(catalogShapes.map(({ presetType }) => presetType)).toEqual(PRESET_SHAPE_TYPES);
+    expect(catalogSlide.shapes).toEqual(catalogShapes);
+
+    const duplicate = model.duplicateSlide(model.slides.indexOf(slide));
+    const duplicateRich = duplicate.shapes.find(
+      ({ name }) => name === 'Combined shaped text',
+    ) as ShapeModel;
+    expect(duplicateRich.presetType).toBe('star5');
+    rich.presetType = 'diamond';
+    expect(duplicateRich.presetType).toBe('star5');
+    expect(rich.presetType).toBe('diamond');
+
+    const beforeRollback = packageSnapshot(pkg);
+    expect(() => pkg.transaction(() => {
+      rich.presetType = 'triangle';
+      throw new Error('restore shaped text geometry');
+    })).toThrow('restore shaped text geometry');
+    expect(packageSnapshot(pkg)).toEqual(beforeRollback);
+    expect(rich.presetType).toBe('diamond');
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedSlide = reopened.slides.find(({ partUri }) => partUri === slide.partUri)!;
+    const reopenedRich = reopenedSlide.shapes.find(
+      ({ name }) => name === 'Combined shaped text',
+    ) as ShapeModel;
+    expect(reopenedRich.presetType).toBe('diamond');
+    expect(reopenedRich.text).toBe('Styled geometry');
+    expect(reopenedRich.hyperlink).toEqual({ url: 'https://shape.example', tooltip: 'Shape' });
+  });
+
+  it('rejects invalid and malformed text shape preset geometry without mutation', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const existing = slide.addText('Existing text');
+    let accessorCalls = 0;
+    const accessor = Object.defineProperty({}, 'shape', {
+      enumerable: true,
+      get() {
+        accessorCalls += 1;
+        throw new Error('shape getter must not run');
+      },
+    });
+    const invalid = [
+      { shape: '' },
+      { shape: 'folderCorner' },
+      { shape: 'custGeom' },
+      { shape: 'unknown' },
+      { shape: 1 },
+      { shape: false },
+      { shape: null },
+      { shape: {} },
+      { shape: Symbol('shape') },
+      accessor,
+    ];
+
+    for (const options of invalid) {
+      const before = packageSnapshot(pkg);
+      const shapes = slide.shapes;
+      expect(() => slide.addText('Invalid geometry', options as never)).toThrow(TypeError);
+      expect(packageSnapshot(pkg)).toEqual(before);
+      expect(slide.shapes).toEqual(shapes);
+      expect(slide.shapes[0]).toBe(existing);
+    }
+    expect(accessorCalls).toBe(0);
+
+    const inherited = Object.create({ shape: 'ellipse' }) as Record<string, unknown>;
+    inherited.name = 'Inherited geometry';
+    const inheritedShape = slide.addText('Inherited is ignored', inherited as never);
+    expect(inheritedShape.presetType).toBe('rect');
+
+    const malformed = slide.addText('Malformed geometry', { shape: 'ellipse' });
+    const part = pkg.requirePart(slide.partUri);
+    const malformedXml = new TextDecoder().decode(part.bytes).replace(
+      '<a:prstGeom prst="ellipse"><a:avLst/></a:prstGeom>',
+      '<a:prstGeom prst="ellipse"><a:avLst/></a:prstGeom>' +
+      '<a:prstGeom prst="star5"><a:avLst/></a:prstGeom>',
+    );
+    pkg.setPart(slide.partUri, malformedXml, part.contentType);
+    expect(malformed.presetType).toBeUndefined();
+    const malformedBefore = packageSnapshot(pkg);
+    expect(() => {
+      malformed.presetType = 'diamond';
+    }).toThrow(ModelParseError);
+    expect(packageSnapshot(pkg)).toEqual(malformedBefore);
+  });
+
   it('creates plain and rich text with strict direct fills', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);

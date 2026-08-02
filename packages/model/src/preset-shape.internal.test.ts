@@ -15,8 +15,10 @@ import type { CustomGeometry } from './custom-geometry.js';
 import {
   normalizeCustomShape,
   normalizePresetShape,
+  normalizePresetShapeType,
   readPresetShapeType,
   renderCustomShapeXml,
+  renderPresetShapeGeometry,
   renderPresetShapeXml,
   replacePresetShapeType,
 } from './preset-shape.internal.js';
@@ -91,6 +93,36 @@ describe('preset shape catalog', () => {
       (PRESET_SHAPE_TYPES as unknown as string[]).push('rect');
     }).toThrow(TypeError);
     expect(PRESET_SHAPE_TYPES).toHaveLength(178);
+  });
+});
+
+describe('preset geometry primitive', () => {
+  it('normalizes and renders every canonical token through one shared primitive', () => {
+    for (const type of PRESET_SHAPE_TYPES) {
+      expect(normalizePresetShapeType(type, 'Text shape geometry')).toBe(type);
+      expect(renderPresetShapeGeometry(type)).toBe(
+        `<a:prstGeom prst="${type}"><a:avLst/></a:prstGeom>`,
+      );
+      expect(renderPresetShapeGeometry(type, 'd:')).toBe(
+        `<d:prstGeom prst="${type}"><d:avLst/></d:prstGeom>`,
+      );
+    }
+  });
+
+  it('rejects non-canonical values without coercion', () => {
+    for (const value of [
+      '',
+      'folderCorner',
+      'custGeom',
+      'RECT',
+      1,
+      false,
+      null,
+      {},
+      Symbol('shape'),
+    ]) {
+      expect(() => normalizePresetShapeType(value, 'Text shape geometry')).toThrow(TypeError);
+    }
   });
 });
 

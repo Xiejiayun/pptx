@@ -131,8 +131,10 @@ import type { SlideBackground } from './slide-background.js';
 import {
   normalizeCustomShape,
   normalizePresetShape,
+  normalizePresetShapeType,
   readPresetShapeType,
   renderCustomShapeXml,
+  renderPresetShapeGeometry,
   renderPresetShapeXml,
   replacePresetShapeType,
 } from './preset-shape.internal.js';
@@ -263,6 +265,7 @@ export interface AddTextOptions extends Partial<Transform> {
   readonly fill?: ShapeFill;
   readonly hyperlink?: Hyperlink;
   readonly line?: ShapeLine;
+  readonly shape?: PresetShapeType;
   readonly shadow?: ShapeShadow;
   readonly fit?: TextBoxFit;
   readonly lang?: string;
@@ -649,7 +652,7 @@ export class SlideModel {
   }
 
   setShapePresetType(id: number, value: PresetShapeType): void {
-    const type = normalizePresetShape(value, undefined).type;
+    const type = normalizePresetShapeType(value, 'Shape preset type');
     this.presentation.opcPackage.transaction(() => {
       const { xml, element } = this.resolveShape(id);
       if (replacePresetShapeType(xml, element, type, this.partUri)) {
@@ -1490,6 +1493,7 @@ export class SlideModel {
       return this.addTextShape(
         paragraphs,
         owner ? placeholderTextOptions(owner) : options,
+        normalized.shape,
         normalized.fill,
         normalized.line,
         normalized.arrows,
@@ -1570,6 +1574,7 @@ export class SlideModel {
         return this.addTextShape(
           paragraphs,
           options,
+          plain.shape,
           plain.fill,
           plain.line,
           plain.arrows,
@@ -1615,6 +1620,7 @@ export class SlideModel {
             : { runHyperlinkRelationshipIds }),
         }),
         options,
+        defaults!.shape,
         defaults!.fill,
         defaults!.line,
         defaults!.arrows,
@@ -1673,6 +1679,7 @@ export class SlideModel {
           runHyperlinkRelationshipIds,
         }),
         owner ? placeholderTextOptions(owner) : options,
+        defaults.shape,
         defaults.fill,
         defaults.line,
         defaults.arrows,
@@ -1703,6 +1710,7 @@ export class SlideModel {
   private addTextShape(
     paragraphs: string,
     options: AddTextOptions,
+    presetType: PresetShapeType,
     fill: ShapeFill,
     line: NormalizedSimpleLine,
     arrows: NormalizedShapeArrows | undefined,
@@ -1729,6 +1737,7 @@ export class SlideModel {
       nextId,
       paragraphs,
       options,
+      presetType,
       fill,
       line,
       arrows,
@@ -1949,6 +1958,7 @@ interface NormalizedTextInput {
   readonly fill: ShapeFill;
   readonly hyperlink: NormalizedHyperlink | undefined;
   readonly line: NormalizedSimpleLine;
+  readonly shape: PresetShapeType;
   readonly indent: number | undefined;
   readonly language: string | undefined;
   readonly level: number | undefined;
@@ -1981,6 +1991,7 @@ function validateTextInput(value: string, options: AddTextOptions): NormalizedTe
     fill: defaults.fill,
     hyperlink: defaults.hyperlink,
     line: defaults.line,
+    shape: defaults.shape,
     indent: defaults.indent,
     language: defaults.language,
     level: defaults.level,
@@ -2004,6 +2015,7 @@ interface NormalizedAddTextOptions {
   readonly fill: ShapeFill;
   readonly hyperlink?: NormalizedHyperlink;
   readonly line: NormalizedSimpleLine;
+  readonly shape: PresetShapeType;
   readonly indent?: number;
   readonly language?: string;
   readonly level?: number;
@@ -2064,6 +2076,7 @@ function validateAddTextOptions(options: AddTextOptions): NormalizedAddTextOptio
     : normalizeShapeShadow(options.shadow, 'Text shape shadow');
   const fill = normalizeSimpleFill(options.fill, 'Text shape fill') ?? { kind: 'none' };
   const line = normalizeSimpleLine(options.line, 'Text shape line') ?? { kind: 'none' };
+  const shape = normalizeTextShapeType(options);
   const level = options.level === undefined
     ? undefined
     : normalizeParagraphLevel(options.level, 'Text level');
@@ -2110,6 +2123,7 @@ function validateAddTextOptions(options: AddTextOptions): NormalizedAddTextOptio
     fill,
     ...(hyperlink !== undefined ? { hyperlink } : {}),
     line,
+    shape,
     ...(indent !== undefined ? { indent } : {}),
     ...(language !== undefined ? { language } : {}),
     ...(level !== undefined ? { level } : {}),
@@ -2124,6 +2138,16 @@ function validateAddTextOptions(options: AddTextOptions): NormalizedAddTextOptio
     ...(textFit !== undefined ? { textFit } : {}),
     textWrap,
   };
+}
+
+function normalizeTextShapeType(options: AddTextOptions): PresetShapeType {
+  const descriptor = Object.getOwnPropertyDescriptor(options, 'shape');
+  if (!descriptor) return 'rect';
+  if (!Object.hasOwn(descriptor, 'value')) {
+    throw new TypeError('Text shape geometry must be a data property');
+  }
+  if (descriptor.value === undefined) return 'rect';
+  return normalizePresetShapeType(descriptor.value, 'Text shape geometry');
 }
 
 function validatePlainText(value: string): string {
@@ -2292,6 +2316,7 @@ function textShapeXml(
   id: number,
   paragraphs: string,
   options: AddTextOptions,
+  shape: PresetShapeType,
   fill: ShapeFill,
   line: NormalizedSimpleLine,
   arrows: NormalizedShapeArrows | undefined,
@@ -2353,7 +2378,7 @@ function textShapeXml(
   const nonVisualProperties = hyperlinkXml === ''
     ? `<p:cNvPr id="${id}" name="${name}"/>`
     : `<p:cNvPr id="${id}" name="${name}">${hyperlinkXml}</p:cNvPr>`;
-  return `<p:sp xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"${relationshipNamespace}><p:nvSpPr>${nonVisualProperties}<p:cNvSpPr txBox="1"/>${applicationProperties}</p:nvSpPr><p:spPr><a:xfrm${transformAttributes}><a:off x="${x}" y="${y}"/><a:ext cx="${width}" cy="${height}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom>${renderSimpleFill(fill, 'a:')}${lineXml}${effectXml}</p:spPr><p:txBody>${bodyProperties}<a:lstStyle/>${paragraphs}</p:txBody></p:sp>`;
+  return `<p:sp xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"${relationshipNamespace}><p:nvSpPr>${nonVisualProperties}<p:cNvSpPr txBox="1"/>${applicationProperties}</p:nvSpPr><p:spPr><a:xfrm${transformAttributes}><a:off x="${x}" y="${y}"/><a:ext cx="${width}" cy="${height}"/></a:xfrm>${renderPresetShapeGeometry(shape)}${renderSimpleFill(fill, 'a:')}${lineXml}${effectXml}</p:spPr><p:txBody>${bodyProperties}<a:lstStyle/>${paragraphs}</p:txBody></p:sp>`;
 }
 
 function textParagraphXml(
