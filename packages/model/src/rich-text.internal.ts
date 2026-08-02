@@ -7,7 +7,7 @@ import {
 import { ModelParseError } from './errors.js';
 import {
   normalizeHyperlink,
-  readTextRunHyperlink,
+  readTextRunHyperlinkBinding,
   renderShapeHyperlink,
   type NormalizedHyperlink,
   type ShapeHyperlinkReadContext,
@@ -93,6 +93,8 @@ const MAX_PARAGRAPH_MARGIN_EMU = 4032 * EMU_PER_POINT;
 const MAX_LINE_WIDTH_EMU = 20_116_800;
 const MAX_POSITIVE_COORDINATE_EMU = 27_273_042_316_900;
 const PERCENT_SCALE = 100_000;
+const RELATIONSHIP_NAMESPACE =
+  'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
 
 const TAB_STOP_ALIGNMENT_TO_OOXML: Readonly<Record<ParagraphTabStopAlignment, string>> = {
   left: 'l',
@@ -142,6 +144,17 @@ interface NormalizedRichTextParagraph {
   readonly level?: number;
   readonly spacing?: NormalizedParagraphSpacingUpdate | false;
   readonly tabStops?: readonly NormalizedParagraphTabStop[] | false;
+}
+
+export interface ReadRichTextRunHyperlinkBinding {
+  readonly hyperlink: NormalizedHyperlink;
+  readonly relationshipId: string;
+}
+
+export interface ReadRichTextState {
+  readonly paragraphs: readonly RichTextParagraph[];
+  readonly runHyperlinkBindings:
+    readonly (readonly (ReadRichTextRunHyperlinkBinding | undefined)[])[];
 }
 
 const SCHEME_COLORS = new Set([
@@ -271,6 +284,37 @@ export function normalizeRichText(value: unknown): readonly NormalizedRichTextPa
   });
 }
 
+export function richTextParagraphsEqual(
+  left: unknown,
+  right: unknown,
+): boolean {
+  return richTextValuesEqual(left, right);
+}
+
+function richTextValuesEqual(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) return true;
+  if (Array.isArray(left) || Array.isArray(right)) {
+    return Array.isArray(left)
+      && Array.isArray(right)
+      && left.length === right.length
+      && left.every((value, index) => richTextValuesEqual(value, right[index]));
+  }
+  if (
+    !left
+    || !right
+    || typeof left !== 'object'
+    || typeof right !== 'object'
+  ) return false;
+  const leftRecord = left as Record<string, unknown>;
+  const rightRecord = right as Record<string, unknown>;
+  const leftKeys = Object.keys(leftRecord);
+  const rightKeys = Object.keys(rightRecord);
+  return leftKeys.length === rightKeys.length
+    && leftKeys.every((key) =>
+      Object.hasOwn(rightRecord, key)
+      && richTextValuesEqual(leftRecord[key], rightRecord[key]));
+}
+
 interface RenderRichTextOptions {
   readonly prefix?: string;
   readonly defaultLanguage?: string;
@@ -287,6 +331,7 @@ interface RenderRichTextOptions {
   readonly defaultHyperlink?: NormalizedHyperlink;
   readonly hyperlinkRelationshipId?: string;
   readonly runHyperlinkRelationshipIds?: RichTextRunHyperlinkRelationshipIds;
+  readonly declareHyperlinkRelationshipNamespace?: boolean;
   readonly paragraphProperties?: readonly (string | undefined)[];
   readonly endParagraphProperties?: string;
 }
@@ -375,6 +420,7 @@ export function renderRichTextParagraphs(
             options.defaultColor,
             hyperlink,
             relationshipId,
+            options.declareHyperlinkRelationshipNamespace ?? false,
           );
         })
         .join('')}${options.endParagraphProperties ?? defaultEndProperties}</${prefix}p>`;
@@ -387,9 +433,20 @@ export function readRichText(
   element: XmlElement,
   context: ShapeHyperlinkReadContext,
 ): readonly RichTextParagraph[] {
+  return readRichTextState(xml, element, context).paragraphs;
+}
+
+export function readRichTextState(
+  xml: LosslessXmlDocument,
+  element: XmlElement,
+  context: ShapeHyperlinkReadContext,
+): ReadRichTextState {
   const textBody = directChildren(element, 'txBody')[0];
-  if (!textBody) return [];
-  return directChildren(textBody, 'p').map((paragraph) => {
+  if (!textBody) return { paragraphs: [], runHyperlinkBindings: [] };
+  const paragraphs: RichTextParagraph[] = [];
+  const runHyperlinkBindings:
+    (readonly (ReadRichTextRunHyperlinkBinding | undefined)[])[] = [];
+  for (const paragraph of directChildren(textBody, 'p')) {
     const align = readParagraphAlignment(xml, paragraph);
     const rtl = readParagraphRtl(xml, paragraph);
     const marginLeft = readParagraphMarginLeft(xml, paragraph);
@@ -399,8 +456,9 @@ export function readRichText(
     const bullet = readParagraphBullet(xml, paragraph, level ?? 0);
     const spacing = readParagraphSpacing(xml, paragraph);
     const tabStops = readParagraphTabStops(xml, paragraph);
-    return {
-      runs: readRuns(xml, paragraph, context),
+    const runs = readRuns(xml, paragraph, context);
+    paragraphs.push({
+      runs: runs.runs,
       ...(align ? { align } : {}),
       ...(rtl !== undefined ? { rtl } : {}),
       ...(marginLeft !== undefined ? { marginLeft } : {}),
@@ -410,8 +468,10 @@ export function readRichText(
       ...(level !== undefined ? { level } : {}),
       ...(spacing ? { spacing } : {}),
       ...(tabStops !== undefined ? { tabStops } : {}),
-    };
-  });
+    });
+    runHyperlinkBindings.push(runs.hyperlinkBindings);
+  }
+  return { paragraphs, runHyperlinkBindings };
 }
 
 export function replaceRichText(
@@ -419,8 +479,8 @@ export function replaceRichText(
   element: XmlElement,
   paragraphs: readonly NormalizedRichTextParagraph[],
   partUri: string,
-  save: (xml: string) => void,
-): void {
+  runHyperlinkRelationshipIds: RichTextRunHyperlinkRelationshipIds,
+): string {
   const textBody = directChildren(element, 'txBody')[0];
   if (!textBody) throw new ModelParseError('Shape does not contain a text body', partUri);
   const existing = directChildren(textBody, 'p');
@@ -435,11 +495,13 @@ export function replaceRichText(
   const replacement = renderRichTextParagraphs(paragraphs, {
     prefix,
     paragraphProperties,
+    runHyperlinkRelationshipIds,
+    declareHyperlinkRelationshipNamespace: true,
     ...(endProperties ? { endParagraphProperties: xml.original(endProperties) } : {}),
   });
   xml.replaceElement(template, replacement);
   for (const extra of existing.slice(1)) xml.removeElement(extra);
-  save(xml.serialize());
+  return xml.serialize();
 }
 
 export function normalizeTextAlignment(value: unknown, context: string): TextAlignment {
@@ -1263,6 +1325,7 @@ function renderRun(
   defaultColor?: Readonly<RichTextColor>,
   hyperlink?: NormalizedHyperlink,
   hyperlinkRelationshipId?: string,
+  declareHyperlinkRelationshipNamespace = false,
 ): string {
   const softBreak = run.softBreakBefore ? `<${prefix}br/>` : '';
   if (run.text.length === 0 && run.style === undefined) return softBreak;
@@ -1308,12 +1371,20 @@ function renderRun(
   const latin = escapeXmlAttribute(style.fontFamily ?? '+mn-lt');
   const eastAsian = escapeXmlAttribute(style.fontFamily ?? '+mn-ea');
   const complexScript = escapeXmlAttribute(style.fontFamily ?? '+mn-cs');
-  const hyperlinkXml = hyperlink === undefined
+  const drawingPrefix = prefix.endsWith(':') ? prefix.slice(0, -1) : prefix;
+  const relationshipPrefix = drawingPrefix === 'r' ? 'rel' : 'r';
+  const renderedHyperlink = hyperlink === undefined
     ? ''
     : renderShapeHyperlink(
         hyperlink,
         hyperlinkRelationshipId!,
-        { drawing: prefix.endsWith(':') ? prefix.slice(0, -1) : prefix, relationship: 'r' },
+        { drawing: drawingPrefix, relationship: relationshipPrefix },
+      );
+  const hyperlinkXml = !declareHyperlinkRelationshipNamespace || renderedHyperlink === ''
+    ? renderedHyperlink
+    : renderedHyperlink.replace(
+        ' ',
+        ` xmlns:${relationshipPrefix}="${RELATIONSHIP_NAMESPACE}" `,
       );
   return `${softBreak}<${prefix}r><${prefix}rPr ${attributes}>${outline}<${prefix}solidFill>${colorXml}</${prefix}solidFill>${glow}${highlight}${underlineFill}<${prefix}latin typeface="${latin}"/><${prefix}ea typeface="${eastAsian}"/><${prefix}cs typeface="${complexScript}"/>${hyperlinkXml}</${prefix}rPr><${prefix}t xml:space="preserve">${escapeXmlText(run.text)}</${prefix}t></${prefix}r>`;
 }
@@ -1341,12 +1412,18 @@ function renderGlowColorChoice(glow: RichTextGlow, prefix: string): string {
   return `<${prefix}${tag} val="${color.value}"><${prefix}alpha val="${Math.round(glow.opacity * PERCENT_SCALE)}"/></${prefix}${tag}>`;
 }
 
+interface ReadRunsState {
+  readonly runs: readonly RichTextRun[];
+  readonly hyperlinkBindings: readonly (ReadRichTextRunHyperlinkBinding | undefined)[];
+}
+
 function readRuns(
   xml: LosslessXmlDocument,
   paragraph: XmlElement,
   context: ShapeHyperlinkReadContext,
-): RichTextRun[] {
+): ReadRunsState {
   const runs: RichTextRun[] = [];
+  const hyperlinkBindings: (ReadRichTextRunHyperlinkBinding | undefined)[] = [];
   let pendingBreaks = 0;
   for (const child of paragraph.children) {
     if (child.type !== 'element') continue;
@@ -1357,21 +1434,28 @@ function readRuns(
     if (child.localName !== 'r' && child.localName !== 'fld') continue;
     while (pendingBreaks > 1) {
       runs.push({ text: '', softBreakBefore: true });
+      hyperlinkBindings.push(undefined);
       pendingBreaks -= 1;
     }
-    const style = readStyle(xml, child, context);
+    const properties = directChildren(child, 'rPr');
+    const hyperlinkBinding = properties.length === 1
+      ? readTextRunHyperlinkBinding(properties[0]!, context)
+      : undefined;
+    const style = readStyle(xml, child, hyperlinkBinding?.hyperlink);
     runs.push({
       text: xml.descendants(child, 't').map((text) => xml.text(text)).join(''),
       ...(style ? { style } : {}),
       ...(pendingBreaks === 1 ? { softBreakBefore: true } : {}),
     });
+    hyperlinkBindings.push(hyperlinkBinding);
     pendingBreaks = 0;
   }
   while (pendingBreaks > 0) {
     runs.push({ text: '', softBreakBefore: true });
+    hyperlinkBindings.push(undefined);
     pendingBreaks -= 1;
   }
-  return runs;
+  return { runs, hyperlinkBindings };
 }
 
 function readParagraphAlignment(
@@ -1579,7 +1663,7 @@ function readIntegerAttribute(
 function readStyle(
   xml: LosslessXmlDocument,
   run: XmlElement,
-  context: ShapeHyperlinkReadContext,
+  hyperlink: NormalizedHyperlink | undefined,
 ): RichTextRunStyle | undefined {
   const properties = directChildren(run, 'rPr')[0];
   if (!properties) return undefined;
@@ -1607,7 +1691,6 @@ function readStyle(
   const highlight = readHighlight(xml, properties);
   const outline = readOutline(xml, properties);
   const underline = readUnderline(xml, properties);
-  const hyperlink = readTextRunHyperlink(properties, context);
   const style: RichTextRunStyle = {
     ...(fontFamily !== undefined ? { fontFamily } : {}),
     ...(Number.isFinite(size) && size > 0 ? { fontSize: size / 100 } : {}),

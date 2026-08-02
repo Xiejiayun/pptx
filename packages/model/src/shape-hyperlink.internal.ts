@@ -55,6 +55,11 @@ interface HyperlinkElementState {
   readonly action: XmlAttribute | undefined;
 }
 
+export interface TextRunHyperlinkBinding {
+  readonly hyperlink: NormalizedHyperlink;
+  readonly relationshipId: string;
+}
+
 interface LocalEdit {
   readonly start: number;
   readonly end: number;
@@ -105,6 +110,13 @@ export function readTextRunHyperlink(
   properties: XmlElement,
   context: ShapeHyperlinkReadContext,
 ): NormalizedHyperlink | undefined {
+  return readTextRunHyperlinkBinding(properties, context)?.hyperlink;
+}
+
+export function readTextRunHyperlinkBinding(
+  properties: XmlElement,
+  context: ShapeHyperlinkReadContext,
+): TextRunHyperlinkBinding | undefined {
   if (
     properties.localName !== 'rPr'
     || namespaceUri(properties) !== DRAWING_NAMESPACE
@@ -113,7 +125,11 @@ export function readTextRunHyperlink(
     child.localName === 'hlinkClick' && namespaceUri(child) === DRAWING_NAMESPACE);
   if (clicks.length !== 1) return undefined;
   const click = inspectHyperlinkElement(clicks[0]!, true);
-  return click ? decodeHyperlinkElement(click, context, true) : undefined;
+  if (!click) return undefined;
+  const hyperlink = decodeHyperlinkElement(click, context, true);
+  return hyperlink
+    ? Object.freeze({ hyperlink, relationshipId: click.relationshipId.value })
+    : undefined;
 }
 
 function decodeHyperlinkElement(
@@ -262,6 +278,25 @@ export function relationshipReferenceCount(
     }
   }
   return count;
+}
+
+export function drawingHyperlinkRelationshipIds(root: XmlElement): ReadonlySet<string> {
+  const relationshipIds = new Set<string>();
+  const visit = (element: XmlElement): void => {
+    if (
+      (element.localName === 'hlinkClick' || element.localName === 'hlinkHover')
+      && namespaceUri(element) === DRAWING_NAMESPACE
+    ) {
+      for (const attribute of element.attributes) {
+        if (attribute.value.length > 0 && isRelationshipIdAttribute(element, attribute)) {
+          relationshipIds.add(attribute.value);
+        }
+      }
+    }
+    for (const child of directChildren(element)) visit(child);
+  };
+  visit(root);
+  return relationshipIds;
 }
 
 export function removeDrawingHyperlinkReferences(

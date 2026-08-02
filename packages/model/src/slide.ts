@@ -83,11 +83,13 @@ import {
   normalizeTextAlignment,
   normalizeTextLanguage,
   readRichText,
+  readRichTextState,
   renderColorChoice,
   renderParagraphProperties,
   renderRichTextParagraphs,
   resolveParagraphSpacing,
   replaceRichText,
+  richTextParagraphsEqual,
   type NormalizedParagraphBullet,
   type NormalizedParagraphSpacing,
   type NormalizedParagraphSpacingUpdate,
@@ -188,6 +190,7 @@ import {
   type NormalizedShapeShadow,
 } from './simple-shadow.internal.js';
 import {
+  drawingHyperlinkRelationshipIds,
   HYPERLINK_RELATIONSHIP_TYPE,
   normalizeHyperlink,
   readShapeHyperlink,
@@ -849,10 +852,73 @@ export class SlideModel {
   }
 
   setShapeRichText(id: number, value: readonly RichTextParagraph[]): void {
+    const paragraphs = normalizeRichText(value);
+    const preparedRunHyperlinks = this.prepareRichTextRunHyperlinks(paragraphs);
     this.presentation.opcPackage.transaction(() => {
-      const paragraphs = normalizeRichText(value);
       const { xml, element } = this.resolveShape(id);
-      replaceRichText(xml, element, paragraphs, this.partUri, (updated) => this.setXml(updated));
+      const readContext = {
+        relationships: this.relationships,
+        slidePartUris: this.presentation.slides.map(({ partUri }) => partUri),
+      };
+      const current = readRichTextState(xml, element, readContext);
+      if (richTextParagraphsEqual(current.paragraphs, paragraphs)) return;
+
+      const textBody = element.children.find(
+        (child): child is XmlElement => child.type === 'element' && child.localName === 'txBody',
+      );
+      const previousRelationshipIds = textBody
+        ? drawingHyperlinkRelationshipIds(textBody)
+        : new Set<string>();
+      const preparedByPosition = new Map(preparedRunHyperlinks.map((prepared) => [
+        `${prepared.paragraphIndex}:${prepared.runIndex}`,
+        prepared,
+      ] as const));
+      const relationshipIds = paragraphs.map(({ runs }) =>
+        runs.map(() => undefined as string | undefined));
+
+      for (const [paragraphIndex, paragraph] of paragraphs.entries()) {
+        for (const [runIndex, run] of paragraph.runs.entries()) {
+          const hyperlink = run.style?.hyperlink;
+          if (hyperlink === undefined || hyperlink === false) continue;
+          const previous = current.runHyperlinkBindings[paragraphIndex]?.[runIndex];
+          if (previous && shapeHyperlinkTargetsEqual(previous.hyperlink, hyperlink)) {
+            relationshipIds[paragraphIndex]![runIndex] = previous.relationshipId;
+            continue;
+          }
+          const prepared = preparedByPosition.get(`${paragraphIndex}:${runIndex}`);
+          if (!prepared) throw new Error('Prepared rich text run hyperlink was not found');
+          const relationshipId = previous
+            && relationshipReferenceCount(xml, previous.relationshipId) === 1
+            ? this.presentation.opcPackage.updateRelationship(
+                this.partUri,
+                previous.relationshipId,
+                prepared.relationship,
+              ).id
+            : this.presentation.opcPackage.addRelationship(
+                this.partUri,
+                prepared.relationship,
+              ).id;
+          relationshipIds[paragraphIndex]![runIndex] = relationshipId;
+        }
+      }
+
+      const updated = replaceRichText(
+        xml,
+        element,
+        paragraphs,
+        this.partUri,
+        relationshipIds,
+      );
+      this.setXml(updated);
+      const updatedXml = LosslessXmlDocument.parse(updated);
+      for (const relationshipId of previousRelationshipIds) {
+        if (
+          relationshipReferenceCount(updatedXml, relationshipId) === 0
+          && this.relationships.some(({ id: candidate }) => candidate === relationshipId)
+        ) {
+          this.presentation.opcPackage.removeRelationship(this.partUri, relationshipId);
+        }
+      }
     });
   }
 

@@ -22,7 +22,9 @@ import {
   type AddTableCellInput,
   type AddTableOptions,
   type CustomGeometry,
+  type Hyperlink,
   type PresentationFormat,
+  type RichTextParagraph,
   type ShapeArrows,
   type ShapeAdjustment,
   type ShapeArrowType,
@@ -7165,6 +7167,129 @@ describe('PresentationModel', () => {
     expect(xml.match(new RegExp(`r:id="${originalRelationship.id}"`, 'g'))).toHaveLength(1);
     expect(xml).toContain('<a:rPr');
     expect(xml).toContain('<a:hlinkClick');
+  });
+
+  it('edits rich text run hyperlinks with reuse, COW, GC, rollback, and reopen', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const source = model.addSlide();
+    const firstTarget = model.addSlide();
+    const secondTarget = model.addSlide();
+    const shape = source.addRichText([{
+      runs: [
+        { text: 'Unique URL', style: { hyperlink: { url: 'https://one.example', tooltip: 'One' } } },
+        {
+          text: 'Unique slide',
+          style: { hyperlink: { slide: model.slides.indexOf(firstTarget) + 1 } },
+        },
+        { text: 'Shared outer' },
+      ],
+    }], {
+      hyperlink: { url: 'https://outer-edit.example', tooltip: 'Outer' },
+    });
+    const editRun = (
+      paragraphs: readonly RichTextParagraph[],
+      runIndex: number,
+      hyperlink: Hyperlink | undefined,
+    ): readonly RichTextParagraph[] => paragraphs.map((paragraph, paragraphIndex) => ({
+      ...paragraph,
+      runs: paragraph.runs.map((run, candidateIndex) => {
+        if (paragraphIndex !== 0 || candidateIndex !== runIndex) return run;
+        const { hyperlink: currentHyperlink, ...style } = run.style ?? {};
+        void currentHyperlink;
+        return {
+          ...run,
+          style: hyperlink === undefined ? style : { ...style, hyperlink },
+        };
+      }),
+    }));
+
+    const uniqueUrl = source.relationships.find(
+      ({ type, target }) => type === HYPERLINK_RELATIONSHIP && target === 'https://one.example',
+    )!;
+    const uniqueSlide = source.relationships.find(
+      ({ type, resolvedTarget }) =>
+        type === SLIDE_RELATIONSHIP && resolvedTarget === firstTarget.partUri,
+    )!;
+    const outer = source.relationships.find(
+      ({ type, target }) =>
+        type === HYPERLINK_RELATIONSHIP && target === 'https://outer-edit.example',
+    )!;
+
+    const snapshot = shape.richText;
+    const beforeNoOp = packageSnapshot(pkg);
+    shape.richText = snapshot;
+    expect(packageSnapshot(pkg)).toEqual(beforeNoOp);
+
+    shape.richText = editRun(shape.richText, 0, {
+      url: 'https://one.example',
+      tooltip: 'Updated tooltip',
+    });
+    expect(source.relationships.find(({ id }) => id === uniqueUrl.id)?.target)
+      .toBe('https://one.example');
+    expect(new TextDecoder().decode(pkg.requirePart(source.partUri).bytes))
+      .toContain(`r:id="${uniqueUrl.id}" tooltip="Updated tooltip"`);
+
+    shape.richText = editRun(shape.richText, 0, {
+      url: 'https://changed.example',
+      tooltip: 'Changed target',
+    });
+    expect(source.relationships.find(({ id }) => id === uniqueUrl.id)).toMatchObject({
+      target: 'https://changed.example',
+      targetMode: 'External',
+    });
+
+    shape.richText = editRun(shape.richText, 2, {
+      slide: model.slides.indexOf(secondTarget) + 1,
+    });
+    const copied = source.relationships.find(
+      ({ type, resolvedTarget }) =>
+        type === SLIDE_RELATIONSHIP && resolvedTarget === secondTarget.partUri,
+    )!;
+    expect(copied.id).not.toBe(outer.id);
+    expect(source.relationships.find(({ id }) => id === outer.id)?.target)
+      .toBe('https://outer-edit.example');
+    expect(shape.hyperlink).toEqual({ url: 'https://outer-edit.example', tooltip: 'Outer' });
+
+    shape.richText = editRun(shape.richText, 0, undefined);
+    expect(source.relationships.some(({ id }) => id === uniqueUrl.id)).toBe(false);
+    shape.richText = editRun(shape.richText, 1, undefined);
+    expect(source.relationships.some(({ id }) => id === uniqueSlide.id)).toBe(false);
+    shape.richText = editRun(shape.richText, 2, undefined);
+    expect(source.relationships.some(({ id }) => id === copied.id)).toBe(false);
+    expect(source.relationships.some(({ id }) => id === outer.id)).toBe(true);
+
+    const beforeInvalid = packageSnapshot(pkg);
+    expect(() => {
+      shape.richText = editRun(editRun(shape.richText, 0, {
+        url: 'https://prepared-edit.example',
+      }), 2, { slide: model.slides.length + 1 });
+    }).toThrow();
+    expect(packageSnapshot(pkg)).toEqual(beforeInvalid);
+
+    const beforeRollback = packageSnapshot(pkg);
+    const richTextBeforeRollback = shape.richText;
+    expect(() => pkg.transaction(() => {
+      shape.richText = editRun(shape.richText, 1, {
+        slide: model.slides.indexOf(firstTarget) + 1,
+        tooltip: 'Rollback',
+      });
+      throw new Error('rollback rich text run hyperlink edit');
+    })).toThrow('rollback rich text run hyperlink edit');
+    expect(packageSnapshot(pkg)).toEqual(beforeRollback);
+    expect(shape.richText).toEqual(richTextBeforeRollback);
+
+    shape.richText = editRun(shape.richText, 0, {
+      url: 'https://reopen.example',
+      tooltip: '',
+    });
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedSource = reopened.slides.find(({ partUri }) => partUri === source.partUri)!;
+    const reopenedShape = reopenedSource.shapes.find(({ id }) => id === shape.id) as ShapeModel;
+    expect(reopenedShape.richText[0]!.runs[0]!.style?.hyperlink)
+      .toEqual({ url: 'https://reopen.example', tooltip: '' });
+    expect(reopenedShape.hyperlink)
+      .toEqual({ url: 'https://outer-edit.example', tooltip: 'Outer' });
   });
 
   it('rejects invalid text hyperlink creation and rolls valid creation back exactly', async () => {
