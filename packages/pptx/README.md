@@ -569,7 +569,7 @@ The same contract covers plain and rich text, `addPlaceholder()`, title/body pla
 
 The cross-package focused gate is 5/5; SDK/root and adapter suites are 188/188 and 76/76. Final full Vitest is 1262 passed / 1 skipped, the separate performance gate is 1/1 at 560ms, and the TypeScript typecheck plus project build pass. The actual 57-file tarball reports `textShapeFills: true` from installed Node, declarations, browser export, and CLI checks. Real Chrome has zero validation, console, page, or network errors, and installed CLI PowerPoint 2010 validation is 0 errors / 0 warnings.
 
-PptxGenJS 4.0.1 also writes direct no-fill for an omitted text fill, but `{ type: 'none' }` omits the direct fill choice and explicit zero transparency omits alpha. Native preserves explicit none/zero intent; supported solid and non-zero transparency cases are semantically equivalent. Gradient, pattern, picture, and group text fills remain preservation-only outside this simple creator. Text outer simple line, arrows, simple shadow, hyperlink, preset geometry, and rounded-rectangle radius are supported below; `isTextBox` and combined `breakLine` semantics remain pending.
+PptxGenJS 4.0.1 also writes direct no-fill for an omitted text fill, but `{ type: 'none' }` omits the direct fill choice and explicit zero transparency omits alpha. Native preserves explicit none/zero intent; supported solid and non-zero transparency cases are semantically equivalent. Gradient, pattern, picture, and group text fills remain preservation-only outside this simple creator. Text outer simple line, arrows, simple shadow, hyperlink, preset geometry, rounded-rectangle radius, and direct `isTextBox` state are supported below; combined `breakLine` semantics remain pending.
 
 ## Create and edit text-shape lines
 
@@ -749,6 +749,29 @@ rounded.adjustments = [{ name: 'adj', value: 12500 }];
 After creation, use `ShapeModel.adjustments` for read, whole replacement, or `[]` clear. Resizing deliberately does not recalculate the stored guide. Plain/rich text, slide/layout/master wrappers, `addPlaceholder()`, placeholder population, and declarative master text/placeholder objects share the same behavior without changing fill, line, arrows, shadow, hyperlink, transform, or text ownership.
 
 Valid positive PptxGenJS 4.0.1 output is semantically equivalent. Native rejects its zero/NaN truthiness loss, string coercion, wrong-shape passthrough, negative/out-of-range values, and infinite formulas before package mutation. Final verification is 1320 passed / 1 skipped tests; model, SDK, root, and adapter suites are 203/203, 195/195, 15/15, and 85/85. The actual 57-file tarball and installed Node/types/browser/CLI plus real Chrome report `textShapeRectRadius: true`, with zero Chrome validation/console/page/network errors. A three-slide QA deck validates at PowerPoint 2010 0/0, changes only the intended slide part, has no overflow, and passed slide-by-slide visual review. LibreOffice preserves every explicit guide and materializes only the omitted default as `16667`.
+
+## Create and edit text-box state
+
+```ts
+const shapeText = slide.addText('Shape text');
+console.log(shapeText.isTextBox); // false
+
+const textBox = slide.addText('Text box', { isTextBox: true });
+console.log(textBox.isTextBox); // true
+textBox.isTextBox = false;
+```
+
+`AddTextOptions.isTextBox?: boolean` owns only the current `p:sp/p:nvSpPr/p:cNvSpPr@txBox`. Omission, an own data property set to `undefined`, and `false` omit the attribute; `true` writes canonical `txBox="1"`. An inherited property is treated as absent, accessors are not invoked, and any defined value must be a primitive boolean. Strings, numbers, boxed booleans, objects, and other truthy values reject before package mutation.
+
+Live `ShapeModel.isTextBox` returns `false` for attribute absence, accepts true tokens `1/true/on` and false tokens `0/false/off`, and returns `undefined` for malformed, qualified-lookalike, duplicate-attribute, or ambiguous-owner state. Its setter accepts only booleans: true canonicalizes to `txBox="1"`, false removes the unique direct attribute, and a canonical same-value assignment is an exact bytes/journal no-op. One alias or malformed token can be repaired; ambiguous structure rejects without changes.
+
+Plain/rich text, `addPlaceholder()`, direct layout/master methods, declarative master text/placeholder objects, and all six presentation formats share the state. Layout-placeholder materialization retains the source direct boolean. Named-placeholder population validates the call-site value, then lets the layout source win without mutating the layout/master source. The state remains independent from preset/custom geometry, adjustments/`rectRadius`, transforms, text, fill, line, arrows, shadow, hyperlinks, and placeholder identity.
+
+Legal PptxGenJS 4.0.1 boolean public inputs have the same final semantics. PptxGenJS runtime also treats arbitrary truthy values as true; native deliberately does not copy that behavior. Final full Vitest is 1337 passed / 1 skipped and the separate performance gate is 1/1 at 704ms. The actual 57-file tarball, installed Node/browser conditional export/declarations/CLI, and real Google Chrome report `textShapeIsTextBox: true`; Chrome has zero validation, console, page, or network errors.
+
+The two-slide QA deck has 0 PowerPoint 2010 errors and only one expected portability warning from a fixture external hyperlink. Toggling one shape changes only `/ppt/slides/slide1.xml`, adding exactly ` txBox="1"` to the target `<p:cNvSpPr/>`; the other 21 parts remain byte-identical. Source and LibreOffice renders have zero overflow and passed slide-by-slide review. LibreOffice save removes every true `txBox` state from both native and independent PptxGenJS 4.0.1 files, so this is a documented client rewrite boundary rather than a native workaround or a claimed full round trip.
+
+`breakLine` is next. Remaining advanced text/table, `tableToSlides`, output/runtime helpers, and peer/client audit work are still required before full PptxGenJS parity is claimed.
 
 `PRESET_SHAPE_TYPES` is the frozen discovery catalog for all 178 canonical preset geometries accepted by `SlideModel.addShape()`. `AddShapeOptions` accepts `name`, strict `adjustments`, strict `fill`, strict `line`, strict `arrows`, strict `shadow`, strict `hyperlink`, and native EMU/OOXML-angle transform fields; use `inches()` and `degrees()` for ergonomic conversion. Omitted geometry starts at x/y/width/height = 1 inch with zero rotation and no flips; omitted fill creates direct no-fill, and omitted line keeps the canonical empty line container. Inputs are strict, descriptor-safe, detached before mutation, and reject unknown fields. The catalog uses the valid OOXML `foldedCorner`; PptxGenJS 4.0.1's invalid `folderCorner` token and runtime-only `custGeom` value are not accepted as presets.
 
