@@ -104,10 +104,17 @@ try {
   )) {
     throw new Error('Packed declarations are missing horizontal alignment catalog surfaces');
   }
+  if (!normalizedTextDeclarationSource.includes(
+    "export declare const TEXT_VERTICAL_ALIGNMENTS: readonly ['top', 'middle', 'bottom'];",
+  ) || !normalizedTextDeclarationSource.includes(
+    'export type TextBoxVerticalAlignment = typeof TEXT_VERTICAL_ALIGNMENTS[number];',
+  )) {
+    throw new Error('Packed declarations are missing vertical alignment catalog surfaces');
+  }
 
   await writeFile(
     join(directory, 'smoke.mjs'),
-    `import { CHART_TYPES, ChartModel, calculateImageSizing, chartWorkbookMatches, CustomGeometryEvaluationError, evaluateCustomGeometry, ImageModel, inches, inspectImage, inspectRasterImage, inspectSvgImage, MediaCodec, MediaModel, PLACEHOLDER_TYPES, PRESET_SHAPE_TYPES, PPTX_VERSION, PptxDocument, ShapeModel, SlideLayoutModel, SlideMasterModel, TableModel, TEXT_ALIGNMENTS, GradientCodec, importPptxGenJS, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
+    `import { CHART_TYPES, ChartModel, calculateImageSizing, chartWorkbookMatches, CustomGeometryEvaluationError, evaluateCustomGeometry, ImageModel, inches, inspectImage, inspectRasterImage, inspectSvgImage, MediaCodec, MediaModel, PLACEHOLDER_TYPES, PRESET_SHAPE_TYPES, PPTX_VERSION, PptxDocument, ShapeModel, SlideLayoutModel, SlideMasterModel, TableModel, TEXT_ALIGNMENTS, TEXT_VERTICAL_ALIGNMENTS, GradientCodec, importPptxGenJS, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
 const installedManifestVersion = ${JSON.stringify(manifest.version)};
 const created = PptxDocument.create({ rtlMode: true });
 const slideNumberDeck = PptxDocument.create({ firstSlideNumber: 5 });
@@ -5119,6 +5126,51 @@ const horizontalAlignments = JSON.stringify(horizontalAlignmentState) === JSON.s
 await reopenedPackedHorizontalAlignmentDocument.writeFile(
   'horizontal-alignment-smoke.pptx',
 );
+const packedVerticalAlignmentDocument = PptxDocument.create();
+const packedVerticalAlignmentSlide = packedVerticalAlignmentDocument.addSlide();
+const packedVerticalAlignmentShapes = TEXT_VERTICAL_ALIGNMENTS.map((alignment) =>
+  packedVerticalAlignmentSlide.addText(alignment, { valign: alignment }));
+const packedVerticalAlignmentTable = packedVerticalAlignmentSlide.addTable([
+  TEXT_VERTICAL_ALIGNMENTS.map((alignment) => ({
+    text: alignment,
+    options: { valign: alignment },
+  })),
+], { name: 'Packed vertical alignment table' });
+const reopenedPackedVerticalAlignmentDocument = await PptxDocument.open(
+  await packedVerticalAlignmentDocument.write(),
+);
+const reopenedPackedVerticalAlignmentTable = reopenedPackedVerticalAlignmentDocument
+  .slides[0].shapes.find((shape) => shape.name === 'Packed vertical alignment table');
+const reimportedTextVerticalAlignments = (
+  await import('@jiayunxie/pptx')
+).TEXT_VERTICAL_ALIGNMENTS;
+const verticalAlignmentState = {
+  values: [...TEXT_VERTICAL_ALIGNMENTS],
+  textCreated: packedVerticalAlignmentShapes
+    .map(({ verticalAlignment }) => verticalAlignment),
+  tableCreated: packedVerticalAlignmentTable.rows[0].cells
+    .map(({ verticalAlignment }) => verticalAlignment),
+  textReopened: reopenedPackedVerticalAlignmentDocument.slides[0].shapes
+    .slice(0, 3).map(({ verticalAlignment }) => verticalAlignment),
+  tableReopened: reopenedPackedVerticalAlignmentTable instanceof TableModel
+    ? reopenedPackedVerticalAlignmentTable.rows[0].cells
+      .map(({ verticalAlignment }) => verticalAlignment)
+    : undefined,
+  frozen: Object.isFrozen(TEXT_VERTICAL_ALIGNMENTS),
+  shared: TEXT_VERTICAL_ALIGNMENTS === reimportedTextVerticalAlignments,
+};
+const verticalAlignments = JSON.stringify(verticalAlignmentState) === JSON.stringify({
+  values: ['top', 'middle', 'bottom'],
+  textCreated: ['top', 'middle', 'bottom'],
+  tableCreated: ['top', 'middle', 'bottom'],
+  textReopened: ['top', 'middle', 'bottom'],
+  tableReopened: ['top', 'middle', 'bottom'],
+  frozen: true,
+  shared: true,
+});
+await reopenedPackedVerticalAlignmentDocument.writeFile(
+  'vertical-alignment-smoke.pptx',
+);
 const reopenedCreatedTable = reopenedCreated.slides[0].shapes.find((shape) => shape.name === 'Created smoke table');
 const reopenedCreatedTableXml = new TextDecoder().decode(reopenedCreated.opcPackage.requirePart(reopenedCreated.slides[0].partUri).bytes);
 const reopenedCreatedTableHorizontalAlignments = [...reopenedCreatedTableXml.matchAll(/<a:tc(?:\\s[^>]*)?>[\\s\\S]*?<\\/a:tc>/g)].map((match) => match[0].match(/<a:pPr[^>]*\\salgn="([^"]+)"/)?.[1]);
@@ -5973,6 +6025,8 @@ const checks = {
   presentationLayoutState,
   horizontalAlignments,
   horizontalAlignmentState,
+  verticalAlignments,
+  verticalAlignmentState,
   presentationRtl: presentationRtlEnabled === true && presentationRtlDisabled === false && presentationRtlCleared === undefined && paragraphRtlAfterGlobalClear[0] === true && paragraphRtlAfterGlobalClear[1] === false,
   presentationTitle: createdPresentationTitle === 'Packed & <Title>' && editedPresentationTitle === 'Edited title' && reopenedPresentationTitle === 'Edited title' && emptyPresentationTitle === '' && clearedPresentationTitle === undefined,
   presentationAuthor: createdPresentationAuthor === 'Packed & <Author>' && editedPresentationAuthor === 'Edited author' && reopenedPresentationAuthor === 'Edited author' && emptyPresentationAuthor === '' && clearedPresentationAuthor === undefined,
@@ -6035,7 +6089,7 @@ process.stdout.write(JSON.stringify(checks));
 
   await writeFile(
     join(directory, 'browser-smoke.mjs'),
-    `import { CustomGeometryEvaluationError, evaluateCustomGeometry, ImageModel, inches, PRESET_SHAPE_TYPES, PPTX_VERSION, PptxDocument, ShapeModel, TableModel, TEXT_ALIGNMENTS, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
+    `import { CustomGeometryEvaluationError, evaluateCustomGeometry, ImageModel, inches, PRESET_SHAPE_TYPES, PPTX_VERSION, PptxDocument, ShapeModel, TableModel, TEXT_ALIGNMENTS, TEXT_VERTICAL_ALIGNMENTS, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
 const resolved = import.meta.resolve('@jiayunxie/pptx');
 if (!resolved.endsWith('/dist/browser.js')) throw new Error('Browser condition resolved to ' + resolved);
 const checks = [PptxDocument, transitions.TransitionCodec, animations.AnimationTimingCodec, advancedCharts.AdvancedChartCodec, smartArt.SmartArtDiagramCodec];
@@ -6078,6 +6132,36 @@ const reopenedBrowserHorizontalAlignmentDocument = await PptxDocument.open(
 if (JSON.stringify(reopenedBrowserHorizontalAlignmentDocument.slides[0].shapes
   .map(({ richText }) => richText[0]?.align)) !== JSON.stringify(TEXT_ALIGNMENTS)) {
   throw new Error('Browser horizontal alignment round trip failed');
+}
+if (JSON.stringify([...TEXT_VERTICAL_ALIGNMENTS]) !== JSON.stringify([
+  'top', 'middle', 'bottom',
+]) || !Object.isFrozen(TEXT_VERTICAL_ALIGNMENTS)) {
+  throw new Error('Browser vertical alignment catalog failed');
+}
+const browserVerticalAlignmentDocument = PptxDocument.create();
+const browserVerticalAlignmentSlide = browserVerticalAlignmentDocument.addSlide();
+TEXT_VERTICAL_ALIGNMENTS.forEach((alignment) => {
+  browserVerticalAlignmentSlide.addText(alignment, { valign: alignment });
+});
+browserVerticalAlignmentSlide.addTable([
+  TEXT_VERTICAL_ALIGNMENTS.map((alignment) => ({
+    text: alignment,
+    options: { valign: alignment },
+  })),
+], { name: 'Browser vertical alignment table' });
+const reopenedBrowserVerticalAlignmentDocument = await PptxDocument.open(
+  await browserVerticalAlignmentDocument.writeBlob(),
+);
+const reopenedBrowserVerticalAlignmentTable = reopenedBrowserVerticalAlignmentDocument
+  .slides[0].shapes.find((shape) => shape.name === 'Browser vertical alignment table');
+if (JSON.stringify(reopenedBrowserVerticalAlignmentDocument.slides[0].shapes
+  .slice(0, 3).map(({ verticalAlignment }) => verticalAlignment)) !==
+    JSON.stringify(TEXT_VERTICAL_ALIGNMENTS) ||
+    !(reopenedBrowserVerticalAlignmentTable instanceof TableModel) ||
+    JSON.stringify(reopenedBrowserVerticalAlignmentTable.rows[0].cells
+      .map(({ verticalAlignment }) => verticalAlignment)) !==
+      JSON.stringify(TEXT_VERTICAL_ALIGNMENTS)) {
+  throw new Error('Browser vertical alignment round trip failed');
 }
 if (PRESET_SHAPE_TYPES.length !== 178 || !Object.isFrozen(PRESET_SHAPE_TYPES)) {
   throw new Error('Browser preset catalog failed');
@@ -7919,6 +8003,7 @@ process.stdout.write(resolved);
   PRESET_SHAPE_TYPES,
   PPTX_VERSION,
   TEXT_ALIGNMENTS,
+  TEXT_VERTICAL_ALIGNMENTS,
   // @ts-expect-error preset geometry normalization stays internal
   normalizePresetShapeType,
   PptxDocument,
@@ -9240,6 +9325,17 @@ TEXT_ALIGNMENTS.push('left');
 TEXT_ALIGNMENTS[0] = 'right';
 // @ts-expect-error unknown horizontal alignment is rejected
 const invalidHorizontalAlignment: TextAlignment = 'distributed';
+const verticalAlignments: readonly TextBoxVerticalAlignment[] =
+  TEXT_VERTICAL_ALIGNMENTS;
+for (const verticalAlignmentValue of verticalAlignments) {
+  verticalAlignmentValue satisfies TextBoxVerticalAlignment;
+}
+// @ts-expect-error runtime vertical alignment catalog is readonly
+TEXT_VERTICAL_ALIGNMENTS.push('top');
+// @ts-expect-error vertical alignment catalog indexes are readonly
+TEXT_VERTICAL_ALIGNMENTS[0] = 'bottom';
+// @ts-expect-error unknown vertical alignment is rejected
+const invalidVerticalAlignment: TextBoxVerticalAlignment = 'distributed';
 const alignment: TextAlignment = 'center';
 const bullet: ParagraphBullet = { kind: 'bullet', character: '◆', indent: 18 };
 const numbering: NumberingStyle = 'romanUcPeriod';
@@ -9450,7 +9546,7 @@ void [typedPreset, typedNoneShapeFill, typedSolidShapeFill,
   typedShapeShadowRead, invalidMissingShapeShadowKind, invalidNoneShapeShadowKind,
   invalidInnerShapeShadowRotate, invalidShapeShadowOffset, invalidShapeShadowType,
   invalidUnknownShapeShadow, invalidShapeShadowFieldType, horizontalAlignments,
-  invalidHorizontalAlignment];
+  invalidHorizontalAlignment, verticalAlignments, invalidVerticalAlignment];
 void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, typedChartPromise,
   typedChartDiagnostics, typedChartWorkbookCheck, invalidChartType, invalidChartAxis,
   invalidChartValues, typedSimpleBackground, typedImageBackground, typedSlideBackground,
@@ -9506,6 +9602,11 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
       `Horizontal alignment smoke failed: ${JSON.stringify(apiChecks.horizontalAlignmentState)}`,
     );
   }
+  if (!apiChecks.verticalAlignments) {
+    throw new Error(
+      `Vertical alignment smoke failed: ${JSON.stringify(apiChecks.verticalAlignmentState)}`,
+    );
+  }
   const presentationLayoutDeckPath = join(directory, 'presentation-layout-smoke.pptx');
   const presentationLayoutInspectResult = run(
     bin,
@@ -9532,6 +9633,21 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
       ] !== 1) {
     throw new Error(
       `CLI horizontal-alignment inspect failed: ${horizontalAlignmentInspectResult.stdout}`,
+    );
+  }
+  const verticalAlignmentDeckPath = join(directory, 'vertical-alignment-smoke.pptx');
+  const verticalAlignmentInspectResult = run(
+    bin,
+    ['--json', 'package', 'inspect', verticalAlignmentDeckPath],
+    directory,
+  );
+  const verticalAlignmentInspected = JSON.parse(verticalAlignmentInspectResult.stdout);
+  if (!verticalAlignmentInspected.ok ||
+      verticalAlignmentInspected.data?.contentTypes?.[
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml'
+      ] !== 1) {
+    throw new Error(
+      `CLI vertical-alignment inspect failed: ${verticalAlignmentInspectResult.stdout}`,
     );
   }
   const masterLayoutDeckPath = join(directory, 'master-layout-smoke.pptx');
@@ -10773,7 +10889,7 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
   }
 
   process.stdout.write(
-    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presentationVersion: apiChecks.presentationVersion, presentationVersionState, presentationLayouts: apiChecks.presentationLayouts, presentationLayoutState: apiChecks.presentationLayoutState, horizontalAlignments: apiChecks.horizontalAlignments, horizontalAlignmentState: apiChecks.horizontalAlignmentState, masterLayouts: apiChecks.masterLayouts, slideNumbers: apiChecks.slideNumbers, slideDefaultColor: apiChecks.slideDefaultColor, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, textShapeFills: apiChecks.textShapeFills, textShapeLines: apiChecks.textShapeLines, textShapeArrows: apiChecks.textShapeArrows, textShapeShadows: apiChecks.textShapeShadows, textShapeHyperlinks: apiChecks.textShapeHyperlinks, textShapePresetGeometry: apiChecks.textShapePresetGeometry, textShapeRectRadius: apiChecks.textShapeRectRadius, textShapeIsTextBox: apiChecks.textShapeIsTextBox, richTextBreakLine: apiChecks.richTextBreakLine, richTextRunHyperlinks: apiChecks.richTextRunHyperlinks, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, slideBackgrounds: apiChecks.slideBackgrounds, types: true, cli: doctor.data.version, presentationLayoutInspect: true, horizontalAlignmentInspect: true, masterLayoutInspect: true, masterLayoutValidate: true, masterLayoutSlides: true, masterLayoutPartRead: true, masterLayoutDiff: true, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true, slideBackgroundInspect: true, slideBackgroundValidate: true, slideNumberInspect: true, slideNumberValidate: true, slideNumberSlides: true, slideNumberPartRead: true, slideDefaultColorInspect: true, slideDefaultColorValidate: true, slideDefaultColorSlides: true, slideDefaultColorPartRead: true, textShapeFillInspect: true, textShapeFillValidate: true, textShapeFillSlides: true, textShapeFillPartRead: true, textShapeLineInspect: true, textShapeLineValidate: true, textShapeLineSlides: true, textShapeLinePartRead: true, textShapeArrowInspect: true, textShapeArrowValidate: true, textShapeArrowSlides: true, textShapeArrowPartRead: true, textShapeShadowInspect: true, textShapeShadowValidate: true, textShapeShadowSlides: true, textShapeShadowPartRead: true, textShapeHyperlinkInspect: true, textShapeHyperlinkValidate: true, textShapeHyperlinkSlides: true, textShapeHyperlinkPartRead: true, textShapeHyperlinkInternalValidate: true, textShapePresetGeometryValidate: true, textShapePresetGeometrySlides: true, textShapePresetGeometryPartRead: true, textShapeRectRadiusValidate: true, textShapeRectRadiusSlides: true, textShapeRectRadiusPartRead: true, textShapeIsTextBoxValidate: true, textShapeIsTextBoxSlides: true, textShapeIsTextBoxPartRead: true, textShapeIsTextBoxLayoutPartRead: true, textShapeIsTextBoxMasterPartRead: true, richTextRunHyperlinkInspect: true, richTextRunHyperlinkValidate: true, richTextRunHyperlinkSlides: true, richTextRunHyperlinkPartRead: true, richTextRunHyperlinkInternalValidate: true, richTextBreakLineValidate: true, richTextBreakLineSlides: true, richTextBreakLinePartRead: true })}\n`,
+    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presentationVersion: apiChecks.presentationVersion, presentationVersionState, presentationLayouts: apiChecks.presentationLayouts, presentationLayoutState: apiChecks.presentationLayoutState, horizontalAlignments: apiChecks.horizontalAlignments, horizontalAlignmentState: apiChecks.horizontalAlignmentState, verticalAlignments: apiChecks.verticalAlignments, verticalAlignmentState: apiChecks.verticalAlignmentState, masterLayouts: apiChecks.masterLayouts, slideNumbers: apiChecks.slideNumbers, slideDefaultColor: apiChecks.slideDefaultColor, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, textShapeFills: apiChecks.textShapeFills, textShapeLines: apiChecks.textShapeLines, textShapeArrows: apiChecks.textShapeArrows, textShapeShadows: apiChecks.textShapeShadows, textShapeHyperlinks: apiChecks.textShapeHyperlinks, textShapePresetGeometry: apiChecks.textShapePresetGeometry, textShapeRectRadius: apiChecks.textShapeRectRadius, textShapeIsTextBox: apiChecks.textShapeIsTextBox, richTextBreakLine: apiChecks.richTextBreakLine, richTextRunHyperlinks: apiChecks.richTextRunHyperlinks, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, slideBackgrounds: apiChecks.slideBackgrounds, types: true, cli: doctor.data.version, presentationLayoutInspect: true, horizontalAlignmentInspect: true, verticalAlignmentInspect: true, masterLayoutInspect: true, masterLayoutValidate: true, masterLayoutSlides: true, masterLayoutPartRead: true, masterLayoutDiff: true, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true, slideBackgroundInspect: true, slideBackgroundValidate: true, slideNumberInspect: true, slideNumberValidate: true, slideNumberSlides: true, slideNumberPartRead: true, slideDefaultColorInspect: true, slideDefaultColorValidate: true, slideDefaultColorSlides: true, slideDefaultColorPartRead: true, textShapeFillInspect: true, textShapeFillValidate: true, textShapeFillSlides: true, textShapeFillPartRead: true, textShapeLineInspect: true, textShapeLineValidate: true, textShapeLineSlides: true, textShapeLinePartRead: true, textShapeArrowInspect: true, textShapeArrowValidate: true, textShapeArrowSlides: true, textShapeArrowPartRead: true, textShapeShadowInspect: true, textShapeShadowValidate: true, textShapeShadowSlides: true, textShapeShadowPartRead: true, textShapeHyperlinkInspect: true, textShapeHyperlinkValidate: true, textShapeHyperlinkSlides: true, textShapeHyperlinkPartRead: true, textShapeHyperlinkInternalValidate: true, textShapePresetGeometryValidate: true, textShapePresetGeometrySlides: true, textShapePresetGeometryPartRead: true, textShapeRectRadiusValidate: true, textShapeRectRadiusSlides: true, textShapeRectRadiusPartRead: true, textShapeIsTextBoxValidate: true, textShapeIsTextBoxSlides: true, textShapeIsTextBoxPartRead: true, textShapeIsTextBoxLayoutPartRead: true, textShapeIsTextBoxMasterPartRead: true, richTextRunHyperlinkInspect: true, richTextRunHyperlinkValidate: true, richTextRunHyperlinkSlides: true, richTextRunHyperlinkPartRead: true, richTextRunHyperlinkInternalValidate: true, richTextBreakLineValidate: true, richTextBreakLineSlides: true, richTextBreakLinePartRead: true })}\n`,
   );
 } finally {
   await rm(directory, { recursive: true, force: true });

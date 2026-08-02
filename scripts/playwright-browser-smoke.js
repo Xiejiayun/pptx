@@ -83,6 +83,43 @@ async (page) => {
       })
         && reopenedHorizontalAlignmentDocument.diagnostics
           .filter(({ severity }) => severity === 'error').length === 0;
+      const verticalAlignmentValues = [...api.TEXT_VERTICAL_ALIGNMENTS];
+      const verticalAlignmentDocument = api.PptxDocument.create();
+      const verticalAlignmentSlide = verticalAlignmentDocument.addSlide();
+      verticalAlignmentValues.forEach((alignment) => {
+        verticalAlignmentSlide.addText(alignment, { valign: alignment });
+      });
+      verticalAlignmentSlide.addTable([
+        verticalAlignmentValues.map((alignment) => ({
+          text: alignment,
+          options: { valign: alignment },
+        })),
+      ], { name: 'Browser vertical alignment table' });
+      const reopenedVerticalAlignmentDocument = await api.PptxDocument.open(
+        await verticalAlignmentDocument.writeBlob(),
+      );
+      const reopenedVerticalAlignmentTable = reopenedVerticalAlignmentDocument
+        .slides[0].shapes.find(
+          (shape) => shape.name === 'Browser vertical alignment table',
+        );
+      const verticalAlignmentState = {
+        values: verticalAlignmentValues,
+        textReopened: reopenedVerticalAlignmentDocument.slides[0].shapes
+          .slice(0, 3).map(({ verticalAlignment }) => verticalAlignment),
+        tableReopened: reopenedVerticalAlignmentTable instanceof api.TableModel
+          ? reopenedVerticalAlignmentTable.rows[0].cells
+            .map(({ verticalAlignment }) => verticalAlignment)
+          : undefined,
+        frozen: Object.isFrozen(api.TEXT_VERTICAL_ALIGNMENTS),
+      };
+      const verticalAlignments = JSON.stringify(verticalAlignmentState) === JSON.stringify({
+        values: ['top', 'middle', 'bottom'],
+        textReopened: ['top', 'middle', 'bottom'],
+        tableReopened: ['top', 'middle', 'bottom'],
+        frozen: true,
+      })
+        && reopenedVerticalAlignmentDocument.diagnostics
+          .filter(({ severity }) => severity === 'error').length === 0;
       const fromBlob = await api.PptxDocument.open(new Blob([bytes.buffer]));
       const stream = new ReadableStream({
         start(controller) {
@@ -2105,6 +2142,8 @@ async (page) => {
         presentationLayoutState,
         horizontalAlignments,
         horizontalAlignmentState,
+        verticalAlignments,
+        verticalAlignmentState,
         format: reopened.format,
         title: reopened.slides[0].title.text,
         mime: output.type,
@@ -2215,6 +2254,13 @@ async (page) => {
     horizontalAlignmentState: {
       values: ['left', 'center', 'right', 'justify'],
       reopened: ['left', 'center', 'right', 'justify'],
+      frozen: true,
+    },
+    verticalAlignments: true,
+    verticalAlignmentState: {
+      values: ['top', 'middle', 'bottom'],
+      textReopened: ['top', 'middle', 'bottom'],
+      tableReopened: ['top', 'middle', 'bottom'],
       frozen: true,
     },
     format: 'pptx',
