@@ -34,6 +34,7 @@ import {
   type ShapeShadow,
   type TableCellBorderInput,
   type TextBoxMarginInput,
+  type TextBoxVerticalAlignment,
 } from './index.js';
 import { readShapeHyperlink } from './shape-hyperlink.internal.js';
 import { readShapeAdjustments } from './shape-adjustments.internal.js';
@@ -11424,6 +11425,219 @@ describe('PresentationModel', () => {
     ]);
     expect(reopenedTable!.columnWidths).toEqual(Array(4).fill(inches(2)));
     expect(reopenedTable!.rowHeights).toEqual([inches(1)]);
+  });
+
+  it('projects and atomically edits uniform table vertical alignment', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const table = slide.addTable([
+      [
+        {
+          text: 'North',
+          options: {
+            align: 'center',
+            border: {
+              kind: 'line',
+              color: { kind: 'scheme', value: 'accent1' },
+              width: 1.5,
+              style: 'dash',
+            },
+            fill: {
+              kind: 'solid',
+              color: { kind: 'srgb', value: 'D9EAF7' },
+              transparency: 25,
+            },
+            fit: 'shrink',
+            margin: { top: 5, left: 8 },
+            textDirection: 'vert270',
+          },
+        },
+        'South',
+      ],
+      ['East', 'West'],
+    ], {
+      name: 'Uniform table vertical alignment',
+      valign: 'middle',
+      columnWidths: [inches(2), inches(3)],
+      rowHeights: [inches(0.75), inches(1.25)],
+    });
+    const nonAlignmentState = () => table.rows.map(({ cells }) => cells.map(({
+      text,
+      borders,
+      fill,
+      horizontalAlignment,
+      margins,
+      textDirection,
+      textFit,
+    }) => ({
+      text,
+      borders,
+      fill,
+      horizontalAlignment,
+      margins,
+      textDirection,
+      textFit,
+    })));
+    const initialNonAlignmentState = nonAlignmentState();
+    const initialTransform = table.transform;
+    const initialColumnWidths = table.columnWidths;
+    const initialRowHeights = table.rowHeights;
+    const untouchedPartUri = '/ppt/custom/opaque1.bin';
+    const untouchedBefore = pkg.requirePart(untouchedPartUri).bytes.slice();
+
+    expect(table.verticalAlignment).toBe('middle');
+    const noOpBytes = pkg.requirePart(slide.partUri).bytes.slice();
+    const noOpJournal = [...pkg.mutations];
+    void table.verticalAlignment;
+    table.verticalAlignment = 'middle';
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(noOpBytes);
+    expect(pkg.mutations).toEqual(noOpJournal);
+
+    table.setCellVerticalAlignment(0, 1, 'top');
+    expect(table.verticalAlignment).toBeUndefined();
+    table.verticalAlignment = 'bottom';
+    expect(table.verticalAlignment).toBe('bottom');
+    expect(table.rows.flatMap(({ cells }) => cells)
+      .map(({ verticalAlignment }) => verticalAlignment))
+      .toEqual(['bottom', 'bottom', 'bottom', 'bottom']);
+    expect(nonAlignmentState()).toEqual(initialNonAlignmentState);
+
+    const duplicate = model.duplicateSlide(model.slides.indexOf(slide));
+    const duplicateTable = duplicate.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    );
+    expect(duplicateTable).toBeInstanceOf(TableModel);
+    expect(duplicateTable!.verticalAlignment).toBe('bottom');
+
+    table.verticalAlignment = undefined;
+    expect(table.verticalAlignment).toBeUndefined();
+    expect(table.rows.flatMap(({ cells }) => cells)
+      .every(({ verticalAlignment }) => verticalAlignment === undefined)).toBe(true);
+    expect(duplicateTable!.verticalAlignment).toBe('bottom');
+    table.verticalAlignment = 'top';
+    expect(table.verticalAlignment).toBe('top');
+    expect(duplicateTable!.verticalAlignment).toBe('bottom');
+
+    const beforeRollback = pkg.requirePart(slide.partUri).bytes.slice();
+    const rollbackJournal = [...pkg.mutations];
+    expect(() => pkg.transaction(() => {
+      table.verticalAlignment = 'middle';
+      throw new Error('restore table-level vertical alignment');
+    })).toThrow('restore table-level vertical alignment');
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeRollback);
+    expect(pkg.mutations).toEqual(rollbackJournal);
+    expect(table.verticalAlignment).toBe('top');
+
+    for (const invalid of [
+      null,
+      false,
+      true,
+      0,
+      '',
+      'Top',
+      ' top',
+      't',
+      'ctr',
+      'distributed',
+      [],
+      {},
+      Symbol('top'),
+    ]) {
+      const beforeInvalid = pkg.requirePart(slide.partUri).bytes.slice();
+      const invalidJournal = [...pkg.mutations];
+      expect(() => {
+        table.verticalAlignment = invalid as never;
+      }, String(invalid)).toThrow(TypeError);
+      expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeInvalid);
+      expect(pkg.mutations).toEqual(invalidJournal);
+    }
+
+    model.moveSlide(model.slides.indexOf(duplicate), 0);
+    expect(table.verticalAlignment).toBe('top');
+    expect(duplicateTable!.verticalAlignment).toBe('bottom');
+    expect(nonAlignmentState()).toEqual(initialNonAlignmentState);
+    expect(table.transform).toEqual(initialTransform);
+    expect(table.columnWidths).toEqual(initialColumnWidths);
+    expect(table.rowHeights).toEqual(initialRowHeights);
+    expect(pkg.requirePart(untouchedPartUri).bytes).toEqual(untouchedBefore);
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedSourceTable = reopened.slides
+      .find(({ partUri }) => partUri === slide.partUri)
+      ?.shapes.find((shape): shape is TableModel => shape instanceof TableModel);
+    const reopenedDuplicateTable = reopened.slides
+      .find(({ partUri }) => partUri === duplicate.partUri)
+      ?.shapes.find((shape): shape is TableModel => shape instanceof TableModel);
+    expect(reopenedSourceTable).toBeInstanceOf(TableModel);
+    expect(reopenedDuplicateTable).toBeInstanceOf(TableModel);
+    expect(reopenedSourceTable!.verticalAlignment).toBe('top');
+    expect(reopenedDuplicateTable!.verticalAlignment).toBe('bottom');
+    expect(reopenedSourceTable!.rows.flatMap(({ cells }) => cells)
+      .map(({ verticalAlignment }) => verticalAlignment))
+      .toEqual(['top', 'top', 'top', 'top']);
+    expect(reopenedDuplicateTable!.rows.flatMap(({ cells }) => cells)
+      .map(({ verticalAlignment }) => verticalAlignment))
+      .toEqual(['bottom', 'bottom', 'bottom', 'bottom']);
+    expect(reopenedSourceTable!.transform).toEqual(initialTransform);
+    expect(reopenedSourceTable!.columnWidths).toEqual(initialColumnWidths);
+    expect(reopenedSourceTable!.rowHeights).toEqual(initialRowHeights);
+    expect(reopened.opcPackage.requirePart(untouchedPartUri).bytes).toEqual(untouchedBefore);
+
+    if (false) {
+      const alignment: TextBoxVerticalAlignment | undefined = table.verticalAlignment;
+      table.verticalAlignment = 'top';
+      table.verticalAlignment = 'middle';
+      table.verticalAlignment = 'bottom';
+      table.verticalAlignment = undefined;
+      // @ts-expect-error unsupported table vertical alignment
+      table.verticalAlignment = 'distributed';
+      void alignment;
+    }
+  });
+
+  it('rejects unsafe table-level vertical alignment edits without partial package mutation', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const table = slide.addTable([['First', 'Second']], { valign: 'middle' });
+    const original = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    const secondTextOffset = original.indexOf('>Second</a:t>');
+    const secondPropertiesOffset = original.indexOf('<a:tcPr', secondTextOffset);
+    const secondPropertiesEnd = original.indexOf('>', secondPropertiesOffset);
+    expect(secondTextOffset).toBeGreaterThanOrEqual(0);
+    expect(secondPropertiesOffset).toBeGreaterThan(secondTextOffset);
+    expect(secondPropertiesEnd).toBeGreaterThan(secondPropertiesOffset);
+    const repeatedAnchor = original.slice(0, secondPropertiesEnd) +
+      ' anchor="b"' + original.slice(secondPropertiesEnd);
+    pkg.setPart(
+      slide.partUri,
+      repeatedAnchor,
+      pkg.requirePart(slide.partUri).contentType,
+    );
+    expect(table.verticalAlignment).toBeUndefined();
+    const beforeUnsafe = pkg.requirePart(slide.partUri).bytes.slice();
+    const unsafeJournal = [...pkg.mutations];
+    expect(() => {
+      table.verticalAlignment = 'bottom';
+    }).toThrow(ModelParseError);
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeUnsafe);
+    expect(pkg.mutations).toEqual(unsafeJournal);
+
+    const emptyTable = original.replace(/<a:tr\b[\s\S]*?<\/a:tr>/, '');
+    pkg.setPart(
+      slide.partUri,
+      emptyTable,
+      pkg.requirePart(slide.partUri).contentType,
+    );
+    expect(table.verticalAlignment).toBeUndefined();
+    const beforeEmpty = pkg.requirePart(slide.partUri).bytes.slice();
+    const emptyJournal = [...pkg.mutations];
+    expect(() => {
+      table.verticalAlignment = 'top';
+    }).toThrow(ModelParseError);
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeEmpty);
+    expect(pkg.mutations).toEqual(emptyJournal);
   });
 
   it('materializes table text direction through edit, duplicate, write, and reopen', async () => {

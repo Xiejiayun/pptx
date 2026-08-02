@@ -89,7 +89,9 @@ import {
 } from './table-row-heights.internal.js';
 import {
   readTableCellVerticalAlignment,
+  readTableVerticalAlignment,
   replaceTableCellVerticalAlignment,
+  replaceTableVerticalAlignment,
 } from './table-cell-vertical-alignment.internal.js';
 import { normalizeTextAlignment } from './rich-text.internal.js';
 import { normalizeTextBoxFit } from './text-box-fit.internal.js';
@@ -601,6 +603,28 @@ export class TableModel extends BaseShapeModel {
         };
       }),
     }));
+  }
+
+  get verticalAlignment(): TextBoxVerticalAlignment | undefined {
+    const { xml, element } = this.resolve();
+    return readTableVerticalAlignment(xml, element);
+  }
+
+  set verticalAlignment(value: TextBoxVerticalAlignment | undefined) {
+    const alignment = value === undefined
+      ? undefined
+      : normalizeTextBoxVerticalAlignment(value, 'Table vertical alignment');
+    this.slide.presentation.opcPackage.transaction(() => {
+      const { xml, element } = this.resolve();
+      if (replaceTableVerticalAlignment(
+        xml,
+        element,
+        alignment,
+        this.slide.partUri,
+      )) {
+        this.slide.setXml(xml.serialize());
+      }
+    });
   }
 
   get columnWidths(): readonly number[] | undefined {

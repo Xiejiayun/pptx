@@ -9561,11 +9561,27 @@ describe('importPptxGenJS', () => {
       rowH: 1,
       valign: 'middle',
     });
+    generated.addSlide().addTable([[
+      { text: 'Uniform one', options: {} },
+      { text: 'Uniform two', options: {} },
+    ]], {
+      x: 0.5,
+      y: 0.5,
+      w: 4,
+      h: 1,
+      colW: [2, 2],
+      rowH: 1,
+      valign: 'middle',
+    });
     const imported = await importPptxGenJS(generated);
     const importedTable = imported.slides[0]!.shapes.find(
       (shape): shape is TableModel => shape instanceof TableModel,
     );
+    const uniformImportedTable = imported.slides[1]!.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    );
     expect(importedTable).toBeInstanceOf(TableModel);
+    expect(uniformImportedTable).toBeInstanceOf(TableModel);
 
     const native = PptxDocument.create({ slideSize: 'wide' });
     const nativeSlide = native.addSlide();
@@ -9588,6 +9604,8 @@ describe('importPptxGenJS', () => {
       ({ verticalAlignment }) => verticalAlignment)).toEqual(expectedAlignments);
     expect(importedTable!.rows[0]!.cells.map(
       ({ verticalAlignment }) => verticalAlignment)).toEqual(expectedAlignments);
+    expect(importedTable!.verticalAlignment).toBeUndefined();
+    expect(uniformImportedTable!.verticalAlignment).toBe('middle');
     expect(nativeTable.rows[0]!.cells.map(({ text }) => text)).toEqual(expectedText);
     expect(importedTable!.rows[0]!.cells.map(({ text }) => text)).toEqual(expectedText);
     expect(nativeTable.rows[0]!.cells.map(({ margins }) => margins)).toEqual(
@@ -9624,6 +9642,22 @@ describe('importPptxGenJS', () => {
       ({ verticalAlignment }) => verticalAlignment)).toEqual(expectedAlignments);
     expect((reopenedImported.slides[0]!.shapes[0] as TableModel).rows[0]!.cells.map(
       ({ verticalAlignment }) => verticalAlignment)).toEqual(expectedAlignments);
+    expect((reopenedImported.slides[0]!.shapes[0] as TableModel).verticalAlignment)
+      .toBeUndefined();
+    expect((reopenedImported.slides[1]!.shapes[0] as TableModel).verticalAlignment)
+      .toBe('middle');
+
+    importedTable!.verticalAlignment = 'bottom';
+    expect(importedTable!.verticalAlignment).toBe('bottom');
+    expect(importedTable!.rows[0]!.cells.every(
+      ({ verticalAlignment }) => verticalAlignment === 'bottom',
+    )).toBe(true);
+    const normalizedImported = await PptxDocument.open(await imported.write());
+    const normalizedImportedTable = normalizedImported.slides[0]!.shapes[0] as TableModel;
+    expect(normalizedImportedTable.verticalAlignment).toBe('bottom');
+    expect(normalizedImportedTable.rows[0]!.cells.every(
+      ({ verticalAlignment }) => verticalAlignment === 'bottom',
+    )).toBe(true);
 
     const beforeInvalid = native.opcPackage.requirePart(nativeSlide.partUri).bytes.slice();
     const invalidJournal = [...native.opcPackage.mutations];

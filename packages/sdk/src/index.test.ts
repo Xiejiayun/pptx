@@ -13961,6 +13961,87 @@ describe('PptxDocument vertical slice', () => {
     ]);
   });
 
+  it('projects and edits table-level vertical alignment through the public root API', async () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const table = slide.addTable([
+      ['North', 'South'],
+      ['East', 'West'],
+    ], {
+      name: 'Public table vertical alignment',
+      valign: 'middle',
+      columnWidths: inches(2),
+      rowHeights: inches(0.75),
+    });
+    expect(table).toBeInstanceOf(TableModel);
+    expect(table.verticalAlignment).toBe('middle');
+    expect(validatePackage(document.opcPackage)
+      .filter(({ severity }) => severity === 'error')).toEqual([]);
+
+    const noOpBytes = document.opcPackage.requirePart(slide.partUri).bytes.slice();
+    const noOpJournal = [...document.opcPackage.mutations];
+    const noOpDiagnostics = [...document.diagnostics];
+    void table.verticalAlignment;
+    table.verticalAlignment = 'middle';
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(noOpBytes);
+    expect(document.opcPackage.mutations).toEqual(noOpJournal);
+    expect(document.diagnostics).toEqual(noOpDiagnostics);
+
+    table.setCellVerticalAlignment(0, 1, 'top');
+    expect(table.verticalAlignment).toBeUndefined();
+    table.verticalAlignment = 'top';
+    expect(table.verticalAlignment).toBe('top');
+    expect(table.rows.flatMap(({ cells }) => cells)
+      .map(({ verticalAlignment }) => verticalAlignment))
+      .toEqual(['top', 'top', 'top', 'top']);
+
+    const duplicate = document.duplicateSlide(0);
+    const duplicateTable = duplicate.shapes[0] as TableModel;
+    expect(duplicateTable.verticalAlignment).toBe('top');
+    table.verticalAlignment = undefined;
+    expect(table.verticalAlignment).toBeUndefined();
+    expect(table.rows.flatMap(({ cells }) => cells)
+      .every(({ verticalAlignment }) => verticalAlignment === undefined)).toBe(true);
+    expect(duplicateTable.verticalAlignment).toBe('top');
+    table.verticalAlignment = 'bottom';
+
+    const beforeInvalid = document.opcPackage.requirePart(slide.partUri).bytes.slice();
+    const invalidJournal = [...document.opcPackage.mutations];
+    const invalidDiagnostics = [...document.diagnostics];
+    expect(() => {
+      table.verticalAlignment = 'distributed' as never;
+    }).toThrow('Table vertical alignment must be top, middle, or bottom');
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(beforeInvalid);
+    expect(document.opcPackage.mutations).toEqual(invalidJournal);
+    expect(document.diagnostics).toEqual(invalidDiagnostics);
+    expect(table.verticalAlignment).toBe('bottom');
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedTable = reopened.slides[0]!.shapes[0] as TableModel;
+    const reopenedDuplicate = reopened.slides[1]!.shapes[0] as TableModel;
+    expect(reopenedTable.verticalAlignment).toBe('bottom');
+    expect(reopenedDuplicate.verticalAlignment).toBe('top');
+    expect(reopenedTable.rows.flatMap(({ cells }) => cells)
+      .map(({ verticalAlignment }) => verticalAlignment))
+      .toEqual(['bottom', 'bottom', 'bottom', 'bottom']);
+    expect(reopenedDuplicate.rows.flatMap(({ cells }) => cells)
+      .map(({ verticalAlignment }) => verticalAlignment))
+      .toEqual(['top', 'top', 'top', 'top']);
+    expect(validatePackage(reopened.opcPackage)
+      .filter(({ severity }) => severity === 'error')).toEqual([]);
+
+    if (false) {
+      const alignment: TextBoxVerticalAlignment | undefined = table.verticalAlignment;
+      table.verticalAlignment = 'top';
+      table.verticalAlignment = 'middle';
+      table.verticalAlignment = 'bottom';
+      table.verticalAlignment = undefined;
+      // @ts-expect-error unsupported table-level vertical alignment
+      table.verticalAlignment = 'distributed';
+      void alignment;
+    }
+  });
+
   it('rejects invalid table-cell vertical alignments and physical coordinates before mutation', async () => {
     const document = await PptxDocument.open(await tableTextDirectionFixture());
     const slide = document.slides[0]!;
