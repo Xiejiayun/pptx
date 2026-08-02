@@ -6529,6 +6529,155 @@ describe('PresentationModel', () => {
     expect(getterCalls).toBe(0);
   });
 
+  it('creates plain and rich text with strict direct arrows', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const source: ShapeArrows = { begin: 'triangle', end: 'arrow' };
+    const types: readonly ShapeArrowType[] = [
+      'none',
+      'arrow',
+      'diamond',
+      'oval',
+      'stealth',
+      'triangle',
+    ];
+
+    const omitted = slide.addText('Omitted text arrows');
+    const explicitUndefined = slide.addText('Undefined text arrows', {
+      arrows: undefined,
+    } as never);
+    const empty = slide.addText('Empty text arrows', { arrows: {} });
+    const plain = slide.addText('Plain text arrows', { arrows: source });
+    const rich = slide.addRichText([{ runs: [{ text: 'Rich text arrows' }] }], {
+      arrows: { begin: 'none', end: 'stealth' },
+    });
+    const combined = slide.addText('Combined text arrows', {
+      line: {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent2' },
+        transparency: 25,
+        width: 2.5,
+        dash: 'dashDot',
+      },
+      arrows: { begin: 'diamond', end: 'oval' },
+    });
+    const typed = types.map((type) => slide.addText(`Text arrows ${type}`, {
+      arrows: { begin: type, end: type },
+    }));
+
+    expect(omitted.arrows).toBeUndefined();
+    expect(explicitUndefined.arrows).toBeUndefined();
+    expect(empty.arrows).toBeUndefined();
+    expect(plain.arrows).toEqual({ begin: 'triangle', end: 'arrow' });
+    expect(rich.arrows).toEqual({ begin: 'none', end: 'stealth' });
+    expect(combined.arrows).toEqual({ begin: 'diamond', end: 'oval' });
+    expect(typed.map((shape) => shape.arrows)).toEqual(types.map((type) => ({
+      begin: type,
+      end: type,
+    })));
+    expect(Object.isFrozen(plain.arrows)).toBe(true);
+    expect(plain.arrows).not.toBe(plain.arrows);
+
+    (source as { begin: ShapeArrowType }).begin = 'oval';
+    (source as { end: ShapeArrowType }).end = 'diamond';
+    expect(plain.arrows).toEqual({ begin: 'triangle', end: 'arrow' });
+
+    let xml = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect(xml.match(
+      /<a:prstGeom prst="rect"><a:avLst\/><\/a:prstGeom><a:noFill\/><a:ln><a:noFill\/><\/a:ln>/g,
+    )).toHaveLength(3);
+    expect(xml).toContain(
+      '<a:ln><a:noFill/><a:headEnd type="triangle"/>' +
+      '<a:tailEnd type="arrow"/></a:ln>',
+    );
+    expect(xml).toContain(
+      '<a:ln><a:noFill/><a:headEnd type="none"/>' +
+      '<a:tailEnd type="stealth"/></a:ln>',
+    );
+    expect(xml).toContain(
+      '<a:ln w="31750"><a:solidFill><a:schemeClr val="accent2">' +
+      '<a:alpha val="75000"/></a:schemeClr></a:solidFill>' +
+      '<a:prstDash val="dashDot"/><a:headEnd type="diamond"/>' +
+      '<a:tailEnd type="oval"/></a:ln>',
+    );
+    for (const type of types) {
+      expect(xml).toContain(
+        `<a:headEnd type="${type}"/><a:tailEnd type="${type}"/>`,
+      );
+    }
+
+    const beforeNoOp = pkg.requirePart(slide.partUri).bytes.slice();
+    const beforeJournal = [...pkg.mutations];
+    plain.arrows = { begin: 'triangle', end: 'arrow' };
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeNoOp);
+    expect(pkg.mutations).toEqual(beforeJournal);
+
+    rich.arrows = { end: 'oval' };
+    expect(rich.arrows).toEqual({ end: 'oval' });
+    expect(rich.line).toEqual({ kind: 'none' });
+    plain.arrows = undefined;
+    expect(plain.arrows).toBeUndefined();
+    expect(plain.line).toEqual({ kind: 'none' });
+    combined.line = undefined;
+    expect(combined.line).toBeUndefined();
+    expect(combined.arrows).toEqual({ begin: 'diamond', end: 'oval' });
+    xml = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect(xml).toContain(
+      '<a:ln><a:headEnd type="diamond"/><a:tailEnd type="oval"/></a:ln>',
+    );
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedTypes = reopened.slides.at(-1)?.shapes.slice(-types.length)
+      .map((shape) => shape instanceof ShapeModel ? shape.arrows : undefined);
+    expect(reopenedTypes).toEqual(types.map((type) => ({ begin: type, end: type })));
+  });
+
+  it('rejects invalid text arrow creation without mutation', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const existing = slide.addText('Existing text');
+    let getterCalls = 0;
+    const accessor = Object.defineProperty({}, 'begin', {
+      enumerable: true,
+      get() {
+        getterCalls += 1;
+        return 'triangle';
+      },
+    });
+    const symbol = Symbol('unsafe');
+    const inherited = Object.create({ begin: 'triangle' });
+    const invalid = [
+      null,
+      [],
+      new Date(),
+      accessor,
+      inherited,
+      { begin: '' },
+      { end: 'bogus' },
+      { beginArrowType: 'triangle' },
+      { endArrowType: 'arrow' },
+      { lineHead: 'triangle' },
+      { lineTail: 'arrow' },
+      { begin: 'triangle', extra: true },
+      { begin: 'triangle', [symbol]: true },
+    ];
+
+    for (const [index, value] of invalid.entries()) {
+      const before = packageSnapshot(pkg);
+      const shapes = slide.shapes;
+      expect(() => slide.addText('Invalid arrows', { arrows: value } as never)).toThrow();
+      expect(() => slide.addRichText([{ runs: [{ text: 'Invalid rich arrows' }] }], {
+        arrows: value,
+      } as never)).toThrow();
+      expect(packageSnapshot(pkg), `invalid arrows ${index}`).toEqual(before);
+      expect(slide.shapes).toEqual(shapes);
+      expect(slide.shapes.at(-1)).toBe(existing);
+    }
+    expect(getterCalls).toBe(0);
+  });
+
   it('reads and edits direct shape fills through stable live models', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);

@@ -159,7 +159,9 @@ import {
 import {
   normalizeShapeArrows,
   readShapeArrows,
+  renderShapeArrows,
   replaceShapeArrows,
+  type NormalizedShapeArrows,
 } from './shape-arrows.internal.js';
 import {
   readShapeFill,
@@ -245,6 +247,7 @@ export interface AddTextOptions extends Partial<Transform> {
   readonly name?: string;
   readonly placeholder?: PlaceholderSelector;
   readonly align?: TextAlignment;
+  readonly arrows?: ShapeArrows;
   readonly bullet?: ParagraphBullet;
   readonly fill?: ShapeFill;
   readonly line?: ShapeLine;
@@ -1399,6 +1402,7 @@ export class SlideModel {
         owner ? placeholderTextOptions(owner) : options,
         normalized.fill,
         normalized.line,
+        normalized.arrows,
         normalized.margin,
         normalized.verticalAlignment,
         normalized.textDirection,
@@ -1464,6 +1468,7 @@ export class SlideModel {
           options,
           plain.fill,
           plain.line,
+          plain.arrows,
           plain.margin,
           plain.verticalAlignment,
           plain.textDirection,
@@ -1495,6 +1500,7 @@ export class SlideModel {
         options,
         defaults!.fill,
         defaults!.line,
+        defaults!.arrows,
         defaults!.margin,
         defaults!.verticalAlignment,
         defaults!.textDirection,
@@ -1535,6 +1541,7 @@ export class SlideModel {
         owner ? placeholderTextOptions(owner) : options,
         defaults.fill,
         defaults.line,
+        defaults.arrows,
         defaults.margin,
         defaults.verticalAlignment,
         defaults.textDirection,
@@ -1560,6 +1567,7 @@ export class SlideModel {
     options: AddTextOptions,
     fill: ShapeFill,
     line: NormalizedSimpleLine,
+    arrows: NormalizedShapeArrows | undefined,
     margins: TextBoxMargins | undefined,
     verticalAlignment: TextBoxVerticalAlignment,
     textDirection: TextBoxTextDirection | undefined,
@@ -1581,6 +1589,7 @@ export class SlideModel {
       options,
       fill,
       line,
+      arrows,
       margins,
       verticalAlignment,
       textDirection,
@@ -1713,6 +1722,7 @@ function setAttribute(xml: LosslessXmlDocument, element: XmlElement, name: strin
 
 interface NormalizedTextInput {
   readonly value: string;
+  readonly arrows: NormalizedShapeArrows | undefined;
   readonly bullet: NormalizedParagraphBullet | false | undefined;
   readonly fill: ShapeFill;
   readonly line: NormalizedSimpleLine;
@@ -1742,6 +1752,7 @@ function validateTextInput(value: string, options: AddTextOptions): NormalizedTe
   }
   return {
     value: normalized,
+    arrows: defaults.arrows,
     bullet: defaults.bullet,
     fill: defaults.fill,
     line: defaults.line,
@@ -1762,6 +1773,7 @@ function validateTextInput(value: string, options: AddTextOptions): NormalizedTe
 }
 
 interface NormalizedAddTextOptions {
+  readonly arrows?: NormalizedShapeArrows;
   readonly bullet?: NormalizedParagraphBullet | false;
   readonly fill: ShapeFill;
   readonly line: NormalizedSimpleLine;
@@ -1816,6 +1828,7 @@ function validateAddTextOptions(options: AddTextOptions): NormalizedAddTextOptio
   const bullet = options.bullet === undefined
     ? undefined
     : normalizeParagraphBullet(options.bullet, 'Text bullet');
+  const arrows = normalizeShapeArrows(options.arrows, 'Text shape arrows');
   const fill = normalizeSimpleFill(options.fill, 'Text shape fill') ?? { kind: 'none' };
   const line = normalizeSimpleLine(options.line, 'Text shape line') ?? { kind: 'none' };
   const level = options.level === undefined
@@ -1858,6 +1871,7 @@ function validateAddTextOptions(options: AddTextOptions): NormalizedAddTextOptio
     ? true
     : normalizeTextBoxWrap(options.wrap, 'Text wrap');
   return {
+    ...(arrows !== undefined ? { arrows } : {}),
     ...(bullet !== undefined ? { bullet } : {}),
     fill,
     line,
@@ -2045,6 +2059,7 @@ function textShapeXml(
   options: AddTextOptions,
   fill: ShapeFill,
   line: NormalizedSimpleLine,
+  arrows: NormalizedShapeArrows | undefined,
   margins: TextBoxMargins | undefined,
   verticalAlignment: TextBoxVerticalAlignment,
   textDirection: TextBoxTextDirection | undefined,
@@ -2076,9 +2091,10 @@ function textShapeXml(
   const applicationProperties = placeholder === undefined
     ? '<p:nvPr/>'
     : `<p:nvPr><p:ph type="${placeholder.type}" idx="${placeholder.index}"/></p:nvPr>`;
+  const lineContents = renderSimpleLine(line, 'a:') + renderShapeArrows(arrows, 'a:');
   const lineXml = line.kind === 'none'
-    ? `<a:ln>${renderSimpleLine(line, 'a:')}</a:ln>`
-    : `<a:ln w="${points(line.width)}">${renderSimpleLine(line, 'a:')}</a:ln>`;
+    ? `<a:ln>${lineContents}</a:ln>`
+    : `<a:ln w="${points(line.width)}">${lineContents}</a:ln>`;
   return `<p:sp xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><p:nvSpPr><p:cNvPr id="${id}" name="${name}"/><p:cNvSpPr txBox="1"/>${applicationProperties}</p:nvSpPr><p:spPr><a:xfrm${transformAttributes}><a:off x="${x}" y="${y}"/><a:ext cx="${width}" cy="${height}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom>${renderSimpleFill(fill, 'a:')}${lineXml}</p:spPr><p:txBody>${bodyProperties}<a:lstStyle/>${paragraphs}</p:txBody></p:sp>`;
 }
 
