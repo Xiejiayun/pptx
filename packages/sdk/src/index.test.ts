@@ -4049,6 +4049,273 @@ describe('PptxDocument vertical slice', () => {
     expect(rejected).toEqual(before);
   });
 
+  it('creates text shape preset geometry across public owners and lifecycle', async () => {
+    const document = PptxDocument.create();
+    const layout = document.layouts[0]!;
+    const master = document.masters[0]!;
+    const layoutText = layout.addText('Layout geometry', {
+      name: 'layout_text_geometry',
+      shape: 'ellipse',
+    });
+    const masterText = master.addRichText([{
+      runs: [{ text: 'Master geometry' }],
+    }], {
+      name: 'master_text_geometry',
+      shape: 'star5',
+    });
+    const layoutPlaceholder = layout.addPlaceholder('Geometry prompt', {
+      name: 'geometry_title',
+      type: 'title',
+      index: 221,
+      shape: 'roundRect',
+      x: inches(1),
+      y: inches(1),
+      width: inches(8),
+      height: inches(1),
+    });
+    expect(layoutText.presetType).toBe('ellipse');
+    expect(masterText.presetType).toBe('star5');
+    expect(layoutPlaceholder.presetType).toBe('roundRect');
+    expect(layout.shapes.find(({ id }) => id === layoutText.id)).toBe(layoutText);
+    expect(master.shapes.find(({ id }) => id === masterText.id)).toBe(masterText);
+
+    const slide = document.addSlide({ masterName: layout.name });
+    const materialized = slide.placeholders.find(({ name }) => name === 'geometry_title')!;
+    const materializedState = {
+      id: materialized.id,
+      name: materialized.name,
+      transform: materialized.transform,
+      placeholder: materialized.placeholder,
+    };
+    const populated = slide.addText('Populated geometry', {
+      placeholder: 'geometry_title',
+      shape: 'diamond',
+    });
+    expect(populated).toBe(slide.shapes.find(({ id }) => id === materializedState.id));
+    expect({
+      id: populated.id,
+      name: populated.name,
+      transform: populated.transform,
+      placeholder: populated.placeholder,
+    }).toEqual(materializedState);
+    expect(populated.presetType).toBe('diamond');
+    expect(layoutPlaceholder.presetType).toBe('roundRect');
+    expect(materialized).not.toBe(populated);
+
+    const declarative = await document.defineSlideMaster({
+      title: 'TEXT-PRESET-GEOMETRY',
+      objects: [
+        {
+          kind: 'text',
+          text: 'Declarative geometry',
+          options: { name: 'declarative_text_geometry', shape: 'hexagon' },
+        },
+        {
+          kind: 'placeholder',
+          text: [{ runs: [{ text: 'Declarative prompt' }] }],
+          options: {
+            name: 'declarative_geometry_title',
+            type: 'title',
+            index: 222,
+            shape: 'flowChartDecision',
+          },
+        },
+      ],
+    });
+    expect((declarative.shapes.find(
+      ({ name }) => name === 'declarative_text_geometry',
+    ) as ShapeModel).presetType).toBe('hexagon');
+    expect(declarative.placeholders.find(
+      ({ name }) => name === 'declarative_geometry_title',
+    )?.presetType).toBe('flowChartDecision');
+    const declarativeSlide = document.addSlide({ masterName: declarative.name });
+    const declarativePopulated = declarativeSlide.addRichText([{
+      runs: [{ text: 'Declarative populated' }],
+    }], {
+      placeholder: 'declarative_geometry_title',
+      shape: 'actionButtonHome',
+    });
+    expect(declarativePopulated.presetType).toBe('actionButtonHome');
+
+    const duplicate = document.duplicateSlide(document.slides.indexOf(slide));
+    const duplicatePopulated = duplicate.shapes.find(
+      ({ name }) => name === populated.name,
+    ) as ShapeModel;
+    expect(duplicatePopulated.presetType).toBe('diamond');
+    duplicatePopulated.presetType = 'triangle';
+    expect(duplicatePopulated.presetType).toBe('triangle');
+    expect(populated.presetType).toBe('diamond');
+    document.moveSlide(document.slides.indexOf(duplicate), 0);
+    document.moveSlide(0, document.slides.indexOf(slide));
+
+    const beforeRollback = await sdkPackageSnapshot(document);
+    let rolledBack: ShapeModel | undefined;
+    expect(() => document.transaction(() => {
+      rolledBack = slide.addText('Rolled back geometry', { shape: 'cloud' });
+      populated.presetType = 'star8';
+      throw new Error('restore text preset geometry');
+    })).toThrow('restore text preset geometry');
+    expect(await sdkPackageSnapshot(document)).toEqual(beforeRollback);
+    expect(populated.presetType).toBe('diamond');
+    expect(() => rolledBack!.presetType).toThrow(ModelParseError);
+
+    let signalRead!: () => void;
+    let resumeRead!: () => void;
+    const readStarted = new Promise<void>((resolve) => { signalRead = resolve; });
+    const readPaused = new Promise<void>((resolve) => { resumeRead = resolve; });
+    const detachedOptions: { shape: 'ellipse' | 'star8' } = { shape: 'ellipse' };
+    const pendingDetached = document.defineSlideMaster({
+      title: 'DETACHED-TEXT-PRESET-GEOMETRY',
+      objects: [
+        {
+          kind: 'text',
+          text: 'Detached geometry',
+          options: detachedOptions,
+        },
+        {
+          kind: 'image',
+          source: {
+            async *[Symbol.asyncIterator]() {
+              signalRead();
+              await readPaused;
+              yield sdkPngHeader(1, 1);
+            },
+          },
+        },
+      ],
+    });
+    await readStarted;
+    detachedOptions.shape = 'star8';
+    resumeRead();
+    const detachedLayout = await pendingDetached;
+    expect((detachedLayout.shapes.find(
+      ({ name }) => name === 'Text 2',
+    ) as ShapeModel).presetType).toBe('ellipse');
+
+    const reopened = await PptxDocument.open(await document.write());
+    const second = await PptxDocument.open(await reopened.write());
+    expect((second.layouts.find(({ name }) => name === layout.name)!.shapes.find(
+      ({ name }) => name === 'layout_text_geometry',
+    ) as ShapeModel).presetType).toBe('ellipse');
+    expect((second.masters[0]!.shapes.find(
+      ({ name }) => name === 'master_text_geometry',
+    ) as ShapeModel).presetType).toBe('star5');
+    expect((second.slides.find(({ partUri }) => partUri === slide.partUri)!.shapes.find(
+      ({ name }) => name === populated.name,
+    ) as ShapeModel).presetType).toBe('diamond');
+    expect(validatePackage(second.opcPackage).filter(({ severity }) => severity === 'error'))
+      .toEqual([]);
+
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const formatted = PptxDocument.create({ format });
+      formatted.layouts[0]!.addText('Formatted layout geometry', {
+        name: 'formatted_layout_geometry',
+        shape: 'ellipse',
+      });
+      formatted.masters[0]!.addText('Formatted master geometry', {
+        name: 'formatted_master_geometry',
+        shape: 'foldedCorner',
+      });
+      const formattedSlide = formatted.addSlide();
+      formattedSlide.addRichText([{ runs: [{ text: 'Formatted slide geometry' }] }], {
+        name: 'formatted_slide_geometry',
+        shape: 'star5',
+      });
+      const formattedReopened = await PptxDocument.open(await formatted.write());
+      expect(formattedReopened.format).toBe(format);
+      expect((formattedReopened.layouts[0]!.shapes.find(
+        ({ name }) => name === 'formatted_layout_geometry',
+      ) as ShapeModel).presetType).toBe('ellipse');
+      expect((formattedReopened.masters[0]!.shapes.find(
+        ({ name }) => name === 'formatted_master_geometry',
+      ) as ShapeModel).presetType).toBe('foldedCorner');
+      expect((formattedReopened.slides[0]!.shapes.find(
+        ({ name }) => name === 'formatted_slide_geometry',
+      ) as ShapeModel).presetType).toBe('star5');
+      expect(validatePackage(formattedReopened.opcPackage).filter(
+        ({ severity }) => severity === 'error',
+      )).toEqual([]);
+    }
+  });
+
+  it('rejects invalid declarative text shape preset geometry without observable mutation', async () => {
+    const document = PptxDocument.create();
+    const { output: _beforeOutput, ...before } = await sdkPackageSnapshot(document) as {
+      readonly output: Uint8Array;
+      readonly [key: string]: unknown;
+    };
+    for (const definition of [
+      {
+        title: 'INVALID-TEXT-PRESET-GEOMETRY',
+        objects: [{
+          kind: 'text',
+          text: 'Invalid text geometry',
+          options: { shape: 'folderCorner' },
+        }],
+      },
+      {
+        title: 'INVALID-PLACEHOLDER-PRESET-GEOMETRY',
+        objects: [{
+          kind: 'placeholder',
+          options: {
+            name: 'invalid_geometry',
+            type: 'title',
+            shape: 'custGeom',
+          },
+        }],
+      },
+    ]) {
+      await expect(document.defineSlideMaster(definition as never)).rejects.toThrow(TypeError);
+      const { output: _afterOutput, ...after } = await sdkPackageSnapshot(document) as {
+        readonly output: Uint8Array;
+        readonly [key: string]: unknown;
+      };
+      expect(after).toEqual(before);
+    }
+
+    let signalRead!: () => void;
+    let resumeRead!: () => void;
+    const readStarted = new Promise<void>((resolve) => { signalRead = resolve; });
+    const readPaused = new Promise<void>((resolve) => { resumeRead = resolve; });
+    const pending = document.defineSlideMaster({
+      title: 'INVALID-ASYNC-TEXT-PRESET-GEOMETRY',
+      objects: [
+        {
+          kind: 'text',
+          text: 'Invalid detached geometry',
+          options: { shape: 'unknown' as never },
+        },
+        {
+          kind: 'image',
+          source: {
+            async *[Symbol.asyncIterator]() {
+              signalRead();
+              await readPaused;
+              yield sdkPngHeader(1, 1);
+            },
+          },
+        },
+      ],
+    });
+    const phase = await Promise.race([
+      readStarted.then(() => 'read-started' as const),
+      pending.then(() => 'resolved' as const, () => 'rejected' as const),
+    ]);
+    expect(phase).toBe('read-started');
+    const { output: _pausedOutput, ...paused } = await sdkPackageSnapshot(document) as {
+      readonly output: Uint8Array;
+      readonly [key: string]: unknown;
+    };
+    expect(paused).toEqual(before);
+    resumeRead();
+    await expect(pending).rejects.toThrow(TypeError);
+    const { output: _rejectedOutput, ...rejected } = await sdkPackageSnapshot(document) as {
+      readonly output: Uint8Array;
+      readonly [key: string]: unknown;
+    };
+    expect(rejected).toEqual(before);
+  });
+
   it('surfaces slide-number compatibility warnings and rejects actual id collisions', async () => {
     const compatibilityProfiles = [
       'powerpoint-2010',

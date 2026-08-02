@@ -20,6 +20,7 @@ import {
   type Hyperlink,
   type PlaceholderSelector,
   type PlaceholderType,
+  type PresetShapeType,
   type SlideMasterBackground,
   type SlideMasterMargin,
   type SlideMasterObject,
@@ -637,6 +638,66 @@ describe('@jiayunxie/pptx stable exports', () => {
       },
     ];
     expect(invalid).toHaveLength(6);
+  });
+
+  it('exports text shape preset geometry types and runtime from the root package', async () => {
+    const preset: PresetShapeType = 'ellipse';
+    const options: AddTextOptions = {
+      name: 'root_text_preset_geometry',
+      shape: preset,
+    };
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const plain = slide.addText('Root plain geometry', options);
+    const rich = slide.addRichText([{ runs: [{ text: 'Root rich geometry' }] }], {
+      name: 'root_rich_preset_geometry',
+      shape: 'star5',
+    });
+    const layoutText = document.layouts[0]!.addText('Root layout geometry', {
+      name: 'root_layout_preset_geometry',
+      shape: 'roundRect',
+    });
+    const masterText = document.masters[0]!.addText('Root master geometry', {
+      name: 'root_master_preset_geometry',
+      shape: 'foldedCorner',
+    });
+    expect([plain.presetType, rich.presetType, layoutText.presetType, masterText.presetType])
+      .toEqual(['ellipse', 'star5', 'roundRect', 'foldedCorner']);
+    plain.presetType = 'hexagon';
+
+    const reopened = await PptxDocument.open(await document.write());
+    expect((reopened.slides[0]!.shapes.find(
+      ({ name }) => name === 'root_text_preset_geometry',
+    ) as ShapeModel).presetType).toBe('hexagon');
+    expect((reopened.slides[0]!.shapes.find(
+      ({ name }) => name === 'root_rich_preset_geometry',
+    ) as ShapeModel).presetType).toBe('star5');
+    expect((reopened.layouts[0]!.shapes.find(
+      ({ name }) => name === 'root_layout_preset_geometry',
+    ) as ShapeModel).presetType).toBe('roundRect');
+    expect((reopened.masters[0]!.shapes.find(
+      ({ name }) => name === 'root_master_preset_geometry',
+    ) as ShapeModel).presetType).toBe('foldedCorner');
+
+    const invalid: readonly AddTextOptions[] = [
+      {
+        // @ts-expect-error malformed upstream folded-corner spelling is excluded
+        shape: 'folderCorner',
+      },
+      {
+        // @ts-expect-error custom geometry is not a preset text shape token
+        shape: 'custGeom',
+      },
+      {
+        // @ts-expect-error unknown preset geometry is excluded
+        shape: 'unknown',
+      },
+      {
+        // @ts-expect-error preset geometry must be a string token
+        shape: 1,
+      },
+    ];
+    expect(invalid).toHaveLength(4);
   });
 
   it('exports rich text run hyperlink types and runtime from the root package', async () => {
