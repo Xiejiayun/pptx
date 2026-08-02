@@ -24,6 +24,7 @@ import {
   ValidationError,
   type AddShapeOptions,
   type CustomGeometry,
+  type OutputType,
   type PresetShapeType,
   type ShapeArrows,
   type ShapeLine,
@@ -331,6 +332,11 @@ interface PptxGenJSInstance {
   }): void;
   write(options: { outputType: 'nodebuffer'; compression: boolean }): Promise<Uint8Array>;
   write(options: { outputType: 'uint8array'; compression: boolean }): Promise<Uint8Array>;
+  write(options: { outputType: 'arraybuffer'; compression: boolean }): Promise<ArrayBuffer>;
+  write(options: { outputType: 'base64'; compression: boolean }): Promise<string>;
+  write(options: { outputType: 'binarystring'; compression: boolean }): Promise<string>;
+  write(options: { outputType: 'blob'; compression: boolean }): Promise<Blob>;
+  write(options: { outputType: OutputType; compression: boolean }): Promise<unknown>;
 }
 
 const require = createRequire(import.meta.url);
@@ -814,8 +820,16 @@ describe('importPptxGenJS', () => {
       (shape as ShapeModel).richText[0]?.align)).toEqual(TEXT_ALIGNMENTS);
   });
 
-  it('matches the PptxGenJS output type runtime catalog', () => {
+  it('matches the PptxGenJS output type runtime catalog and return kinds', async () => {
     const generated = new PptxGenJS();
+    generated.addSlide().addText('PptxGenJS output types', {
+      x: 1,
+      y: 1,
+      w: 4,
+      h: 1,
+    });
+    const native = PptxDocument.create();
+    native.addSlide().addText('Native output types');
 
     expect(Object.keys(generated.OutputType)).toEqual(OUTPUT_TYPES);
     expect(Object.values(generated.OutputType)).toEqual(OUTPUT_TYPES);
@@ -828,7 +842,34 @@ describe('importPptxGenJS', () => {
       'uint8array',
     ]);
     expect(Object.isFrozen(OUTPUT_TYPES)).toBe(true);
-  });
+
+    const outputKind = (value: unknown): string => {
+      if (Buffer.isBuffer(value)) return 'nodebuffer';
+      if (value instanceof ArrayBuffer) return 'arraybuffer';
+      if (value instanceof Blob) return `blob:${value.type}`;
+      if (value instanceof Uint8Array) return 'uint8array';
+      return typeof value;
+    };
+    const decode = async (outputType: OutputType, value: unknown): Promise<Uint8Array> => {
+      if (outputType === 'arraybuffer') return new Uint8Array(value as ArrayBuffer);
+      if (outputType === 'base64') return Uint8Array.from(Buffer.from(value as string, 'base64'));
+      if (outputType === 'binarystring') {
+        return Uint8Array.from(value as string, (character) => character.charCodeAt(0));
+      }
+      if (outputType === 'blob') return new Uint8Array(await (value as Blob).arrayBuffer());
+      return new Uint8Array(value as Uint8Array);
+    };
+
+    for (const outputType of OUTPUT_TYPES) {
+      const generatedOutput = await generated.write({ outputType, compression: false });
+      const nativeOutput = await native.write({ outputType });
+      expect(outputKind(nativeOutput), outputType).toBe(outputKind(generatedOutput));
+      const generatedBytes = await decode(outputType, generatedOutput);
+      const nativeBytes = await decode(outputType, nativeOutput);
+      expect((await PptxDocument.open(generatedBytes)).slides).toHaveLength(1);
+      expect((await PptxDocument.open(nativeBytes)).slides).toHaveLength(1);
+    }
+  }, 30_000);
 
   it('matches the PptxGenJS vertical alignment runtime catalog', async () => {
     const generated = new PptxGenJS();

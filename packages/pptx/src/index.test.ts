@@ -47,6 +47,9 @@ import {
   type ShapeShadow,
   type TextAlignment,
   type TextBoxVerticalAlignment,
+  type WriteBaseOptions,
+  type WriteOptions,
+  type WriteOutput,
 } from './index.js';
 
 describe('@jiayunxie/pptx stable exports', () => {
@@ -139,6 +142,22 @@ describe('@jiayunxie/pptx stable exports', () => {
       const stream: OutputType = 'STREAM';
       // @ts-expect-error unknown output type is not supported
       const invalid: OutputType = 'buffer';
+      const document = PptxDocument.create();
+      const baseOptions: WriteBaseOptions = { compatibility: 'powerpoint-current' };
+      const blobOptions: WriteOptions<'blob'> = { outputType: 'blob' };
+      const dynamicOptions: WriteOptions<OutputType> = { outputType: OUTPUT_TYPES[0] };
+      document.write() satisfies Promise<Uint8Array>;
+      document.write(baseOptions) satisfies Promise<Uint8Array>;
+      document.write(blobOptions) satisfies Promise<Blob>;
+      document.write(dynamicOptions) satisfies Promise<WriteOutput<OutputType>>;
+      document.write({ outputType: 'arraybuffer' }) satisfies Promise<ArrayBuffer>;
+      document.write({ outputType: 'base64' }) satisfies Promise<string>;
+      document.write({ outputType: 'binarystring' }) satisfies Promise<string>;
+      document.write({ outputType: 'nodebuffer' }) satisfies Promise<Uint8Array>;
+      document.write({ outputType: 'uint8array' }) satisfies Promise<Uint8Array>;
+      document.writeBlob(baseOptions) satisfies Promise<Blob>;
+      // @ts-expect-error convenience blob output does not accept a selector
+      document.writeBlob({ outputType: 'blob' });
       void [stream, invalid];
     }
   });

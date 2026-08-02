@@ -82,6 +82,9 @@ import {
   type PresentationLayout,
   type PresentationLayoutName,
   type PptxVersion,
+  type WriteBaseOptions,
+  type WriteOptions,
+  type WriteOutput,
 } from './index.js';
 
 function sdkPngHeader(width: number, height: number): Uint8Array<ArrayBuffer> {
@@ -299,6 +302,98 @@ describe('PptxDocument vertical slice', () => {
     ]);
     expect(Object.isFrozen(OUTPUT_TYPES)).toBe(true);
     expect(document.opcPackage.mutations).toEqual(journal);
+  });
+
+  it('writes every selected output representation without changing canonical bytes', async () => {
+    const document = PptxDocument.create();
+    document.addSlide().addText('Output types 你好');
+    const journal = [...document.opcPackage.mutations];
+    const defaultOutput = await document.write();
+    const emptyOutput = await document.write({});
+    const permissiveOutput = await document.write({ mode: 'permissive' });
+    const explicitUndefined = await document.write({
+      outputType: undefined,
+    } as unknown as WriteOptions);
+    const arraybuffer = await document.write({ outputType: 'arraybuffer' });
+    const base64 = await document.write({ outputType: 'base64' });
+    const binarystring = await document.write({ outputType: 'binarystring' });
+    const blob = await document.write({ outputType: 'blob' });
+    const nodebuffer = await document.write({ outputType: 'nodebuffer' });
+    const uint8array = await document.write({ outputType: 'uint8array' });
+
+    expect(Buffer.isBuffer(defaultOutput)).toBe(false);
+    expect(emptyOutput).toEqual(defaultOutput);
+    expect(permissiveOutput).toEqual(defaultOutput);
+    expect(explicitUndefined).toEqual(defaultOutput);
+    expect(new Uint8Array(arraybuffer)).toEqual(defaultOutput);
+    expect(Uint8Array.from(Buffer.from(base64, 'base64'))).toEqual(defaultOutput);
+    expect(Uint8Array.from(binarystring, (value) => value.charCodeAt(0))).toEqual(defaultOutput);
+    expect(new Uint8Array(await blob.arrayBuffer())).toEqual(defaultOutput);
+    expect(blob.type).toBe('application/zip');
+    expect(Buffer.isBuffer(nodebuffer)).toBe(true);
+    expect(new Uint8Array(nodebuffer)).toEqual(defaultOutput);
+    expect(Buffer.isBuffer(uint8array)).toBe(false);
+    expect(uint8array).toEqual(defaultOutput);
+    expect(document.opcPackage.mutations).toEqual(journal);
+
+    const decoded = [
+      new Uint8Array(arraybuffer),
+      Uint8Array.from(Buffer.from(base64, 'base64')),
+      Uint8Array.from(binarystring, (value) => value.charCodeAt(0)),
+      new Uint8Array(await blob.arrayBuffer()),
+      nodebuffer,
+      uint8array,
+    ];
+    for (const bytes of decoded) {
+      const reopened = await PptxDocument.open(bytes);
+      const shape = reopened.slides[0]?.shapes[0];
+      expect(shape).toBeInstanceOf(ShapeModel);
+      expect((shape as ShapeModel).text).toBe('Output types 你好');
+    }
+
+    const convenienceBlob = await document.writeBlob();
+    expect(convenienceBlob.type).toBe(
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    );
+    expect(new Uint8Array(await convenienceBlob.arrayBuffer())).toEqual(defaultOutput);
+
+    if (false) {
+      const baseOptions: WriteBaseOptions = { mode: 'permissive' };
+      const blobOptions: WriteOptions<'blob'> = { outputType: 'blob' };
+      const dynamicOptions: WriteOptions<OutputType> = { outputType: OUTPUT_TYPES[0] };
+      document.write() satisfies Promise<Uint8Array>;
+      document.write(baseOptions) satisfies Promise<Uint8Array>;
+      document.write(blobOptions) satisfies Promise<Blob>;
+      document.write(dynamicOptions) satisfies Promise<WriteOutput<OutputType>>;
+      document.write({ outputType: 'arraybuffer' }) satisfies Promise<ArrayBuffer>;
+      document.write({ outputType: 'base64' }) satisfies Promise<string>;
+      document.write({ outputType: 'binarystring' }) satisfies Promise<string>;
+      document.write({ outputType: 'nodebuffer' }) satisfies Promise<Uint8Array>;
+      document.write({ outputType: 'uint8array' }) satisfies Promise<Uint8Array>;
+      document.writeBlob(baseOptions) satisfies Promise<Blob>;
+      // @ts-expect-error convenience blob output has a fixed presentation MIME contract
+      document.writeBlob({ outputType: 'blob' });
+      // @ts-expect-error generic blob options accept only the blob token
+      const wrongBlobOptions: WriteOptions<'blob'> = { outputType: 'base64' };
+      void wrongBlobOptions;
+    }
+  });
+
+  it('rejects unsupported write output types before diagnostics or package writes', async () => {
+    for (const outputType of ['STREAM', 'buffer', 'BLOB', null, 1, {}]) {
+      const document = PptxDocument.create();
+      const diagnostics = [...document.diagnostics];
+      const journal = [...document.opcPackage.mutations];
+      const write = vi.spyOn(document.opcPackage, 'write');
+
+      await expect(document.write({ outputType } as never)).rejects.toThrow(
+        new TypeError('PptxDocument.write() received an unsupported outputType'),
+      );
+      expect(write).not.toHaveBeenCalled();
+      expect(document.diagnostics).toEqual(diagnostics);
+      expect(document.opcPackage.mutations).toEqual(journal);
+      write.mockRestore();
+    }
   });
 
   it('exposes a detached presentation layout projection across its lifecycle', async () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { OUTPUT_TYPES, type OutputType } from './output-type.js';
+import { OUTPUT_TYPES, type OutputType, type WriteOutput } from './output-type.js';
 
 describe('OUTPUT_TYPES', () => {
   it('publishes the complete frozen output type catalog', () => {
@@ -34,7 +34,24 @@ describe('OUTPUT_TYPES', () => {
       const stream: OutputType = 'STREAM';
       // @ts-expect-error unknown output type is not supported
       const unknown: OutputType = 'buffer';
-      void [stream, unknown];
+      const arraybuffer: WriteOutput<'arraybuffer'> = new ArrayBuffer(0);
+      const strings: WriteOutput<'base64' | 'binarystring'> = '';
+      const blob: WriteOutput<'blob'> = new Blob();
+      const bytes: WriteOutput<'nodebuffer' | 'uint8array'> = new Uint8Array();
+      // @ts-expect-error arraybuffer output is not a byte view
+      const wrongArrayBuffer: WriteOutput<'arraybuffer'> = new Uint8Array();
+      // @ts-expect-error blob output is not a string
+      const wrongBlob: WriteOutput<'blob'> = '';
+      void [
+        stream,
+        unknown,
+        arraybuffer,
+        strings,
+        blob,
+        bytes,
+        wrongArrayBuffer,
+        wrongBlob,
+      ];
     }
   });
 });

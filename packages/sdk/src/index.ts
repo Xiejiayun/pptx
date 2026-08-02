@@ -41,6 +41,8 @@ import {
   type Diagnostic,
 } from '@pptx/validator';
 import { createPresentationPackage, type CreatePresentationOptions } from './create.js';
+import { type OutputType, type WriteOutput } from './output-type.js';
+import { convertWriteOutput, resolveWriteOutputType } from './write-output.js';
 import {
   normalizePresentationTheme,
   type PresentationTheme,
@@ -82,7 +84,7 @@ export { MediaModel } from '@pptx/model';
 export type { BuiltInSlideSize, CreatePresentationOptions, CustomSlideSize } from './create.js';
 export type { PresentationTheme, PresentationThemeOptions } from './presentation-theme.js';
 export { OUTPUT_TYPES } from './output-type.js';
-export type { OutputType } from './output-type.js';
+export type { OutputType, WriteOutput } from './output-type.js';
 export { PPTX_VERSION } from './version.js';
 export type { PptxVersion } from './version.js';
 export type { PresentationLayout, PresentationLayoutName } from './presentation-layout.js';
@@ -135,9 +137,15 @@ export type PptxByteChunk = number | Uint8Array | ArrayBuffer | ArrayBufferView;
 export type PptxByteStream = ReadableStream<PptxByteChunk> | AsyncIterable<PptxByteChunk>;
 export type PptxInput = string | Uint8Array | ArrayBuffer | Blob | PptxByteStream;
 
-export interface WriteOptions {
+export interface WriteBaseOptions {
   readonly compatibility?: CompatibilityProfile;
   readonly mode?: 'strict' | 'permissive';
+}
+
+export interface WriteOptions<
+  TOutputType extends OutputType = 'uint8array',
+> extends WriteBaseOptions {
+  readonly outputType?: TOutputType;
 }
 
 type PreparedSlideMasterObject =
@@ -258,7 +266,15 @@ export class PptxDocument extends PresentationModel {
     });
   }
 
-  async write(options: WriteOptions = {}): Promise<Uint8Array> {
+  async write<TOutputType extends OutputType = 'uint8array'>(
+    options: WriteOptions<TOutputType> = {},
+  ): Promise<WriteOutput<TOutputType>> {
+    const outputType = resolveWriteOutputType(options.outputType);
+    const bytes = await this.#writeBytes(options);
+    return convertWriteOutput(bytes, outputType as TOutputType);
+  }
+
+  async #writeBytes(options: WriteBaseOptions): Promise<Uint8Array> {
     const compatibility = options.compatibility ?? 'powerpoint-current';
     const diagnostics: Diagnostic[] = [
       ...validatePackage(this.opcPackage),
@@ -317,17 +333,20 @@ export class PptxDocument extends PresentationModel {
     return this.opcPackage.write();
   }
 
-  async writeFile(path: string, options: WriteOptions = {}): Promise<void> {
+  async writeFile(path: string, options: WriteBaseOptions = {}): Promise<void> {
     const fs = await loadNodeModule<NodeFsPromises>(['node:fs', 'promises'].join('/'));
-    await fs.writeFile(path, await this.write(options));
+    await fs.writeFile(path, await this.#writeBytes(options));
   }
 
-  async writeBlob(options: WriteOptions = {}): Promise<Blob> {
-    const bytes = await this.write(options);
+  async writeBlob(options: WriteBaseOptions = {}): Promise<Blob> {
+    const bytes = await this.#writeBytes(options);
     return new Blob([new Uint8Array(bytes).buffer], { type: this.formatProfile.fileContentType });
   }
 
-  async download(fileName = `presentation${this.formatProfile.extension}`, options: WriteOptions = {}): Promise<void> {
+  async download(
+    fileName = `presentation${this.formatProfile.extension}`,
+    options: WriteBaseOptions = {},
+  ): Promise<void> {
     if (typeof document === 'undefined' || typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') {
       throw new Error('PptxDocument.download() requires a browser DOM; use writeFile() in Node.js');
     }
