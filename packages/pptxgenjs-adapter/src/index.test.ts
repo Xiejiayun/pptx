@@ -19,6 +19,7 @@ import {
   ShapeModel,
   TableModel,
   TEXT_ALIGNMENTS,
+  TEXT_VERTICAL_ALIGNMENTS,
   ValidationError,
   type AddShapeOptions,
   type CustomGeometry,
@@ -280,6 +281,7 @@ void [
 interface PptxGenJSInstance {
   readonly version: string;
   readonly AlignH: Readonly<Record<string, string>>;
+  readonly AlignV: Readonly<Record<string, string>>;
   readonly presLayout: {
     readonly name: string;
     readonly width: number;
@@ -808,6 +810,45 @@ describe('importPptxGenJS', () => {
     const imported = await importPptxGenJS(generated);
     expect(imported.slides[0]?.shapes.map((shape) =>
       (shape as ShapeModel).richText[0]?.align)).toEqual(TEXT_ALIGNMENTS);
+  });
+
+  it('matches the PptxGenJS vertical alignment runtime catalog', async () => {
+    const generated = new PptxGenJS();
+    generated.layout = 'LAYOUT_WIDE';
+    const generatedAlignments = Object.values(generated.AlignV);
+
+    expect(Object.keys(generated.AlignV)).toEqual(TEXT_VERTICAL_ALIGNMENTS);
+    expect(generatedAlignments).toEqual(TEXT_VERTICAL_ALIGNMENTS);
+    expect(TEXT_VERTICAL_ALIGNMENTS).toEqual(['top', 'middle', 'bottom']);
+    expect(Object.isFrozen(TEXT_VERTICAL_ALIGNMENTS)).toBe(true);
+
+    const textSlide = generated.addSlide();
+    generatedAlignments.forEach((alignment, index) => {
+      textSlide.addText(alignment, {
+        valign: alignment,
+        x: 0.5,
+        y: 0.5 + index,
+        w: 3,
+        h: 0.5,
+      });
+    });
+    const tableSlide = generated.addSlide();
+    tableSlide.addTable([
+      generatedAlignments.map((alignment) => ({
+        text: alignment,
+        options: { valign: alignment },
+      })),
+    ], { x: 0.5, y: 4, w: 12, h: 1, valign: 'bottom' });
+
+    const imported = await importPptxGenJS(generated);
+    expect(imported.slides[0]?.shapes.slice(0, 3).map((shape) =>
+      (shape as ShapeModel).verticalAlignment)).toEqual(TEXT_VERTICAL_ALIGNMENTS);
+    const importedTable = imported.slides[1]?.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    );
+    expect(importedTable?.rows[0]?.cells.map(
+      ({ verticalAlignment }) => verticalAlignment,
+    )).toEqual(TEXT_VERTICAL_ALIGNMENTS);
   });
 
   it('matches the public presentation layout projection and locks the custom-name boundary', async () => {

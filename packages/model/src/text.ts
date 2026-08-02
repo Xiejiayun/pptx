@@ -119,7 +119,13 @@ export type TextBoxMarginInput =
   | readonly [top: number, right: number, bottom: number, left: number]
   | TextBoxMargins;
 
-export type TextBoxVerticalAlignment = 'top' | 'middle' | 'bottom';
+export const TEXT_VERTICAL_ALIGNMENTS = Object.freeze([
+  'top',
+  'middle',
+  'bottom',
+] as const);
+
+export type TextBoxVerticalAlignment = typeof TEXT_VERTICAL_ALIGNMENTS[number];
 
 export type TextBoxTextDirection =
   | 'eaVert'

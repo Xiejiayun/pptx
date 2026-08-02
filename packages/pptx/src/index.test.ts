@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { TEXT_ALIGNMENTS as SDK_TEXT_ALIGNMENTS } from '@pptx/sdk';
+import {
+  TEXT_ALIGNMENTS as SDK_TEXT_ALIGNMENTS,
+  TEXT_VERTICAL_ALIGNMENTS as SDK_TEXT_VERTICAL_ALIGNMENTS,
+} from '@pptx/sdk';
 import {
   CHART_TYPES,
   ChartModel,
@@ -14,6 +17,7 @@ import {
   inches,
   slideNumberDiagnostics,
   TEXT_ALIGNMENTS,
+  TEXT_VERTICAL_ALIGNMENTS,
   type AddTextOptions,
   type ReplaceMediaPosterOptions,
   type ReplaceMediaSourceOptions,
@@ -39,6 +43,7 @@ import {
   type ShapeLine,
   type ShapeShadow,
   type TextAlignment,
+  type TextBoxVerticalAlignment,
 } from './index.js';
 
 describe('@jiayunxie/pptx stable exports', () => {
@@ -90,6 +95,21 @@ describe('@jiayunxie/pptx stable exports', () => {
     expect(values).toBe(TEXT_ALIGNMENTS);
     expect([...values]).toEqual(['left', 'center', 'right', 'justify']);
     expect(Object.isFrozen(TEXT_ALIGNMENTS)).toBe(true);
+  });
+
+  it('exports the frozen TEXT_VERTICAL_ALIGNMENTS catalog from the root package', () => {
+    const values: readonly TextBoxVerticalAlignment[] = TEXT_VERTICAL_ALIGNMENTS;
+
+    expect(TEXT_VERTICAL_ALIGNMENTS).toBe(SDK_TEXT_VERTICAL_ALIGNMENTS);
+    expect(values).toBe(TEXT_VERTICAL_ALIGNMENTS);
+    expect([...values]).toEqual(['top', 'middle', 'bottom']);
+    expect(Object.isFrozen(TEXT_VERTICAL_ALIGNMENTS)).toBe(true);
+
+    if (false) {
+      // @ts-expect-error unknown vertical alignment is not supported
+      const invalid: TextBoxVerticalAlignment = 'distributed';
+      void invalid;
+    }
   });
 
   it('exports semantic master layout models from the root package', () => {

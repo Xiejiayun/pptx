@@ -28,6 +28,7 @@ import {
   openPptxStream,
   PRESET_SHAPE_TYPES,
   TEXT_ALIGNMENTS,
+  TEXT_VERTICAL_ALIGNMENTS,
   PPTX_VERSION,
   PptxDocument,
   ShapeModel,
@@ -75,6 +76,7 @@ import {
   type SlideNumberTextStyle,
   type SlideNumberTextStyleOptions,
   type TextAlignment,
+  type TextBoxVerticalAlignment,
   type PresentationLayout,
   type PresentationLayoutName,
   type PptxVersion,
@@ -14598,6 +14600,36 @@ describe('PptxDocument vertical slice', () => {
     const reopened = await PptxDocument.open(await document.write());
     expect(reopened.slides[0]?.shapes.map((shape) =>
       (shape as ShapeModel).richText[0]?.align)).toEqual(TEXT_ALIGNMENTS);
+  });
+
+  it('publishes TEXT_VERTICAL_ALIGNMENTS through text and table lifecycles', async () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const created = TEXT_VERTICAL_ALIGNMENTS.map((alignment) => {
+      const typed: TextBoxVerticalAlignment = alignment;
+      return slide.addText(typed, { valign: typed });
+    });
+    const table = slide.addTable([
+      TEXT_VERTICAL_ALIGNMENTS.map((alignment) => ({
+        text: alignment,
+        options: { valign: alignment },
+      })),
+    ]);
+
+    expect(created.map(({ verticalAlignment }) => verticalAlignment))
+      .toEqual(TEXT_VERTICAL_ALIGNMENTS);
+    expect(table.rows[0]?.cells.map(({ verticalAlignment }) => verticalAlignment))
+      .toEqual(TEXT_VERTICAL_ALIGNMENTS);
+    const journal = [...document.opcPackage.mutations];
+    expect([...TEXT_VERTICAL_ALIGNMENTS]).toEqual(['top', 'middle', 'bottom']);
+    expect(document.opcPackage.mutations).toEqual(journal);
+
+    const reopened = await PptxDocument.open(await document.write());
+    expect(reopened.slides[0]?.shapes.slice(0, 3).map((shape) =>
+      (shape as ShapeModel).verticalAlignment)).toEqual(TEXT_VERTICAL_ALIGNMENTS);
+    expect((reopened.slides[0]?.shapes[3] as TableModel).rows[0]?.cells.map(
+      ({ verticalAlignment }) => verticalAlignment,
+    )).toEqual(TEXT_VERTICAL_ALIGNMENTS);
   });
 
   it('creates, edits, duplicates, and reopens plain and rich paragraph RTL', async () => {
