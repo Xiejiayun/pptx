@@ -72,6 +72,7 @@ const TEXT_OPTION_KEYS = new Set([
   'placeholder',
   'align',
   'bullet',
+  'fill',
   'fit',
   'lang',
   'level',

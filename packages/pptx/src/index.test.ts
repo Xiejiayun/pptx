@@ -11,6 +11,7 @@ import {
   chartWorkbookMatches,
   inches,
   slideNumberDiagnostics,
+  type AddTextOptions,
   type ReplaceMediaPosterOptions,
   type ReplaceMediaSourceOptions,
   type RichTextColor,
@@ -21,6 +22,7 @@ import {
   type SlideMasterMargin,
   type SlideMasterObject,
   type SlideNumberOptions,
+  type ShapeFill,
 } from './index.js';
 
 describe('@jiayunxie/pptx stable exports', () => {
@@ -181,6 +183,91 @@ describe('@jiayunxie/pptx stable exports', () => {
         [{ kind: 'scheme', value: 'accent1' }],
       ],
     ]);
+  });
+
+  it('exports text shape fill creation types and runtime from the root package', async () => {
+    const none: ShapeFill = { kind: 'none' };
+    const srgb: ShapeFill = {
+      kind: 'solid',
+      color: { kind: 'srgb', value: 'A1B2C3' },
+      transparency: 25,
+    };
+    const scheme: ShapeFill = {
+      kind: 'solid',
+      color: { kind: 'scheme', value: 'accent2' },
+      transparency: 0,
+    };
+    const options: AddTextOptions = { name: 'root_text_fill', fill: srgb };
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const plain = slide.addText('Root plain fill', options);
+    const rich = slide.addRichText([{ runs: [{ text: 'Root rich fill' }] }], {
+      name: 'root_rich_fill',
+      fill: scheme,
+    });
+    const layoutText = document.layouts[0]!.addText('Root layout fill', {
+      name: 'root_layout_fill',
+      fill: none,
+    });
+    const masterText = document.masters[0]!.addText('Root master fill', {
+      name: 'root_master_fill',
+      fill: { kind: 'solid', color: { kind: 'scheme', value: 'accent3' } },
+    });
+
+    expect([plain.fill, rich.fill, layoutText.fill, masterText.fill]).toEqual([
+      srgb,
+      scheme,
+      none,
+      { kind: 'solid', color: { kind: 'scheme', value: 'accent3' } },
+    ]);
+
+    const reopened = await PptxDocument.open(await document.write());
+    expect((reopened.slides[0]!.shapes.find(
+      ({ name }) => name === 'root_text_fill',
+    ) as ShapeModel).fill).toEqual(srgb);
+    expect((reopened.slides[0]!.shapes.find(
+      ({ name }) => name === 'root_rich_fill',
+    ) as ShapeModel).fill).toEqual(scheme);
+    expect((reopened.layouts[0]!.shapes.find(
+      ({ name }) => name === 'root_layout_fill',
+    ) as ShapeModel).fill).toEqual(none);
+    expect((reopened.masters[0]!.shapes.find(
+      ({ name }) => name === 'root_master_fill',
+    ) as ShapeModel).fill).toEqual({
+      kind: 'solid',
+      color: { kind: 'scheme', value: 'accent3' },
+    });
+
+    const invalid: readonly AddTextOptions[] = [
+      {
+        // @ts-expect-error PptxGenJS-style fill objects are intentionally unsupported
+        fill: { color: 'FF0000' },
+      },
+      {
+        // @ts-expect-error fill kind must be none or solid
+        fill: { kind: 'gradient' },
+      },
+      {
+        // @ts-expect-error solid fills require a color
+        fill: { kind: 'solid' },
+      },
+      {
+        fill: {
+          kind: 'solid',
+          color: { kind: 'srgb', value: 'FF0000' },
+          // @ts-expect-error transparency must be numeric
+          transparency: '25',
+        },
+      },
+      {
+        fill: {
+          kind: 'none',
+          // @ts-expect-error none fills do not accept extra properties
+          transparency: 0,
+        },
+      },
+    ];
+    expect(invalid).toHaveLength(5);
   });
 
   it('exports slide-number creation, editing, and compatibility diagnostics from the root', async () => {
