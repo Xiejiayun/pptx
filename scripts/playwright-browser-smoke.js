@@ -140,6 +140,106 @@ async (page) => {
         frozen: true,
         mutationIsolation: true,
       });
+      const writeOutputDocument = api.PptxDocument.create();
+      writeOutputDocument.addSlide().addText('Browser output types 你好');
+      const writeOutputJournal = JSON.stringify(writeOutputDocument.opcPackage.mutations);
+      const defaultWriteOutput = await writeOutputDocument.write();
+      const emptyWriteOutput = await writeOutputDocument.write({});
+      const arrayBufferWriteOutput = await writeOutputDocument.write({
+        outputType: 'arraybuffer',
+      });
+      const base64WriteOutput = await writeOutputDocument.write({ outputType: 'base64' });
+      const binaryStringWriteOutput = await writeOutputDocument.write({
+        outputType: 'binarystring',
+      });
+      const blobWriteOutput = await writeOutputDocument.write({ outputType: 'blob' });
+      const uint8ArrayWriteOutput = await writeOutputDocument.write({
+        outputType: 'uint8array',
+      });
+      const convenienceWriteBlob = await writeOutputDocument.writeBlob();
+      const decodeWriteOutput = async (outputType, value) => {
+        if (outputType === 'arraybuffer') return new Uint8Array(value);
+        if (outputType === 'base64') {
+          return Uint8Array.from(atob(value), (character) => character.charCodeAt(0));
+        }
+        if (outputType === 'binarystring') {
+          return Uint8Array.from(value, (character) => character.charCodeAt(0));
+        }
+        if (outputType === 'blob') return new Uint8Array(await value.arrayBuffer());
+        return new Uint8Array(value);
+      };
+      const writeOutputValues = [
+        ['arraybuffer', arrayBufferWriteOutput],
+        ['base64', base64WriteOutput],
+        ['binarystring', binaryStringWriteOutput],
+        ['blob', blobWriteOutput],
+        ['uint8array', uint8ArrayWriteOutput],
+      ];
+      const decodedWriteOutputs = await Promise.all(
+        writeOutputValues.map(([outputType, value]) => decodeWriteOutput(outputType, value)),
+      );
+      const equalWriteOutputBytes = (left, right) =>
+        left.byteLength === right.byteLength
+          && left.every((value, index) => value === right[index]);
+      const reopenedWriteOutputTitles = [];
+      for (const outputBytes of decodedWriteOutputs) {
+        const reopenedWriteOutput = await api.PptxDocument.open(outputBytes);
+        const outputShape = reopenedWriteOutput.slides[0].shapes[0];
+        reopenedWriteOutputTitles.push(
+          outputShape instanceof api.ShapeModel ? outputShape.text : undefined,
+        );
+      }
+      const failureDiagnostics = JSON.stringify(writeOutputDocument.diagnostics);
+      const failureJournal = JSON.stringify(writeOutputDocument.opcPackage.mutations);
+      let nodebufferError;
+      try {
+        await writeOutputDocument.write({ outputType: 'nodebuffer' });
+      } catch (error) {
+        nodebufferError = { name: error.name, message: error.message };
+      }
+      const writeOutputTypeState = {
+        defaultKind: defaultWriteOutput instanceof Uint8Array ? 'uint8array' : typeof defaultWriteOutput,
+        emptyKind: emptyWriteOutput instanceof Uint8Array ? 'uint8array' : typeof emptyWriteOutput,
+        arraybufferKind: arrayBufferWriteOutput instanceof ArrayBuffer
+          ? 'arraybuffer'
+          : typeof arrayBufferWriteOutput,
+        base64Kind: typeof base64WriteOutput,
+        binarystringKind: typeof binaryStringWriteOutput,
+        blobKind: blobWriteOutput instanceof Blob ? 'blob' : typeof blobWriteOutput,
+        blobType: blobWriteOutput.type,
+        uint8arrayKind: uint8ArrayWriteOutput instanceof Uint8Array
+          ? 'uint8array'
+          : typeof uint8ArrayWriteOutput,
+        byteEquality: decodedWriteOutputs.every((outputBytes) =>
+          equalWriteOutputBytes(outputBytes, defaultWriteOutput)),
+        reopenTitles: reopenedWriteOutputTitles,
+        writeBlobType: convenienceWriteBlob.type,
+        nodebufferError,
+        failureIsolation: JSON.stringify(writeOutputDocument.diagnostics) === failureDiagnostics
+          && JSON.stringify(writeOutputDocument.opcPackage.mutations) === failureJournal,
+        mutationIsolation: JSON.stringify(writeOutputDocument.opcPackage.mutations) ===
+          writeOutputJournal,
+      };
+      const writeOutputTypes = JSON.stringify(writeOutputTypeState) === JSON.stringify({
+        defaultKind: 'uint8array',
+        emptyKind: 'uint8array',
+        arraybufferKind: 'arraybuffer',
+        base64Kind: 'string',
+        binarystringKind: 'string',
+        blobKind: 'blob',
+        blobType: 'application/zip',
+        uint8arrayKind: 'uint8array',
+        byteEquality: true,
+        reopenTitles: Array(5).fill('Browser output types 你好'),
+        writeBlobType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        nodebufferError: {
+          name: 'Error',
+          message: 'nodebuffer is not supported by this platform',
+        },
+        failureIsolation: true,
+        mutationIsolation: true,
+      }) && writeOutputDocument.diagnostics
+        .filter(({ severity }) => severity === 'error').length === 0;
       const fromBlob = await api.PptxDocument.open(new Blob([bytes.buffer]));
       const stream = new ReadableStream({
         start(controller) {
@@ -2166,6 +2266,8 @@ async (page) => {
         verticalAlignmentState,
         outputTypes,
         outputTypeState,
+        writeOutputTypes,
+        writeOutputTypeState,
         format: reopened.format,
         title: reopened.slides[0].title.text,
         mime: output.type,
@@ -2296,6 +2398,26 @@ async (page) => {
         'uint8array',
       ],
       frozen: true,
+      mutationIsolation: true,
+    },
+    writeOutputTypes: true,
+    writeOutputTypeState: {
+      defaultKind: 'uint8array',
+      emptyKind: 'uint8array',
+      arraybufferKind: 'arraybuffer',
+      base64Kind: 'string',
+      binarystringKind: 'string',
+      blobKind: 'blob',
+      blobType: 'application/zip',
+      uint8arrayKind: 'uint8array',
+      byteEquality: true,
+      reopenTitles: Array(5).fill('Browser output types 你好'),
+      writeBlobType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      nodebufferError: {
+        name: 'Error',
+        message: 'nodebuffer is not supported by this platform',
+      },
+      failureIsolation: true,
       mutationIsolation: true,
     },
     format: 'pptx',

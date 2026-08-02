@@ -118,12 +118,26 @@ try {
   const normalizedOutputTypeDeclarationSource = outputTypeDeclarationSource
     .replaceAll('"', "'")
     .replace(/\s+/gu, ' ');
+  const normalizedSdkDeclarationSource = sdkDeclarationSource
+    .replaceAll('"', "'")
+    .replace(/\s+/gu, ' ');
   if (!normalizedOutputTypeDeclarationSource.includes(
     "export declare const OUTPUT_TYPES: readonly ['arraybuffer', 'base64', 'binarystring', 'blob', 'nodebuffer', 'uint8array'];",
   ) || !normalizedOutputTypeDeclarationSource.includes(
     'export type OutputType = typeof OUTPUT_TYPES[number];',
+  ) || !normalizedOutputTypeDeclarationSource.includes(
+    "export type WriteOutput<TOutputType extends OutputType = OutputType> = TOutputType extends 'arraybuffer' ? ArrayBuffer : TOutputType extends 'base64' | 'binarystring' ? string : TOutputType extends 'blob' ? Blob : Uint8Array;",
   ) || !sdkDeclarationSource.includes("export { OUTPUT_TYPES } from './output-type.js';") ||
-      !sdkDeclarationSource.includes("export type { OutputType } from './output-type.js';")) {
+      !sdkDeclarationSource.includes("export type { OutputType, WriteOutput } from './output-type.js';") ||
+      !normalizedSdkDeclarationSource.includes('export interface WriteBaseOptions {') ||
+      !normalizedSdkDeclarationSource.includes(
+        "export interface WriteOptions<TOutputType extends OutputType = 'uint8array'> extends WriteBaseOptions {",
+      ) || !normalizedSdkDeclarationSource.includes('readonly outputType?: TOutputType;') ||
+      !normalizedSdkDeclarationSource.includes(
+        "write<TOutputType extends OutputType = 'uint8array'>(options?: WriteOptions<TOutputType>): Promise<WriteOutput<TOutputType>>;",
+      ) || !normalizedSdkDeclarationSource.includes(
+        'writeBlob(options?: WriteBaseOptions): Promise<Blob>;',
+      ) || normalizedSdkDeclarationSource.includes('node:buffer')) {
     throw new Error('Packed declarations are missing output type catalog surfaces');
   }
 
@@ -5211,6 +5225,100 @@ const outputTypes = JSON.stringify(outputTypeState) === JSON.stringify({
   shared: true,
   mutationIsolation: true,
 });
+const packedWriteOutputDocument = PptxDocument.create();
+packedWriteOutputDocument.addSlide().addText('Packed output types 你好');
+const packedWriteOutputJournal = JSON.stringify(
+  packedWriteOutputDocument.opcPackage.mutations,
+);
+const packedDefaultOutput = await packedWriteOutputDocument.write();
+const packedEmptyOutput = await packedWriteOutputDocument.write({});
+const packedArrayBufferOutput = await packedWriteOutputDocument.write({
+  outputType: 'arraybuffer',
+});
+const packedBase64Output = await packedWriteOutputDocument.write({
+  outputType: 'base64',
+});
+const packedBinaryStringOutput = await packedWriteOutputDocument.write({
+  outputType: 'binarystring',
+});
+const packedBlobOutput = await packedWriteOutputDocument.write({ outputType: 'blob' });
+const packedNodeBufferOutput = await packedWriteOutputDocument.write({
+  outputType: 'nodebuffer',
+});
+const packedUint8ArrayOutput = await packedWriteOutputDocument.write({
+  outputType: 'uint8array',
+});
+const packedWriteBlobOutput = await packedWriteOutputDocument.writeBlob();
+const packedWriteOutputKind = (value) => {
+  if (Buffer.isBuffer(value)) return 'nodebuffer';
+  if (value instanceof ArrayBuffer) return 'arraybuffer';
+  if (value instanceof Blob) return 'blob';
+  if (value instanceof Uint8Array) return 'uint8array';
+  return typeof value;
+};
+const decodePackedWriteOutput = async (outputType, value) => {
+  if (outputType === 'arraybuffer') return new Uint8Array(value);
+  if (outputType === 'base64') return Uint8Array.from(Buffer.from(value, 'base64'));
+  if (outputType === 'binarystring') {
+    return Uint8Array.from(value, (character) => character.charCodeAt(0));
+  }
+  if (outputType === 'blob') return new Uint8Array(await value.arrayBuffer());
+  return new Uint8Array(value);
+};
+const packedWriteOutputValues = [
+  ['arraybuffer', packedArrayBufferOutput],
+  ['base64', packedBase64Output],
+  ['binarystring', packedBinaryStringOutput],
+  ['blob', packedBlobOutput],
+  ['nodebuffer', packedNodeBufferOutput],
+  ['uint8array', packedUint8ArrayOutput],
+];
+const packedWriteOutputBytes = await Promise.all(
+  packedWriteOutputValues.map(([outputType, value]) =>
+    decodePackedWriteOutput(outputType, value)),
+);
+const packedWriteOutputBytesEqual = (left, right) =>
+  left.byteLength === right.byteLength && left.every((value, index) => value === right[index]);
+const packedWriteOutputReopenTitles = [];
+for (const outputBytes of packedWriteOutputBytes) {
+  const reopenedOutput = await PptxDocument.open(outputBytes);
+  const outputShape = reopenedOutput.slides[0].shapes[0];
+  packedWriteOutputReopenTitles.push(
+    outputShape instanceof ShapeModel ? outputShape.text : undefined,
+  );
+}
+const writeOutputTypeState = {
+  defaultKind: packedWriteOutputKind(packedDefaultOutput),
+  emptyKind: packedWriteOutputKind(packedEmptyOutput),
+  arraybufferKind: packedWriteOutputKind(packedArrayBufferOutput),
+  base64Kind: packedWriteOutputKind(packedBase64Output),
+  binarystringKind: packedWriteOutputKind(packedBinaryStringOutput),
+  blobKind: packedWriteOutputKind(packedBlobOutput),
+  blobType: packedBlobOutput.type,
+  nodebufferKind: packedWriteOutputKind(packedNodeBufferOutput),
+  uint8arrayKind: packedWriteOutputKind(packedUint8ArrayOutput),
+  byteEquality: packedWriteOutputBytes.every((outputBytes) =>
+    packedWriteOutputBytesEqual(outputBytes, packedDefaultOutput)),
+  reopenTitles: packedWriteOutputReopenTitles,
+  writeBlobType: packedWriteBlobOutput.type,
+  mutationIsolation: JSON.stringify(packedWriteOutputDocument.opcPackage.mutations) ===
+    packedWriteOutputJournal,
+};
+const writeOutputTypes = JSON.stringify(writeOutputTypeState) === JSON.stringify({
+  defaultKind: 'uint8array',
+  emptyKind: 'uint8array',
+  arraybufferKind: 'arraybuffer',
+  base64Kind: 'string',
+  binarystringKind: 'string',
+  blobKind: 'blob',
+  blobType: 'application/zip',
+  nodebufferKind: 'nodebuffer',
+  uint8arrayKind: 'uint8array',
+  byteEquality: true,
+  reopenTitles: Array(6).fill('Packed output types 你好'),
+  writeBlobType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  mutationIsolation: true,
+});
 const reopenedCreatedTable = reopenedCreated.slides[0].shapes.find((shape) => shape.name === 'Created smoke table');
 const reopenedCreatedTableXml = new TextDecoder().decode(reopenedCreated.opcPackage.requirePart(reopenedCreated.slides[0].partUri).bytes);
 const reopenedCreatedTableHorizontalAlignments = [...reopenedCreatedTableXml.matchAll(/<a:tc(?:\\s[^>]*)?>[\\s\\S]*?<\\/a:tc>/g)].map((match) => match[0].match(/<a:pPr[^>]*\\salgn="([^"]+)"/)?.[1]);
@@ -6069,6 +6177,8 @@ const checks = {
   verticalAlignmentState,
   outputTypes,
   outputTypeState,
+  writeOutputTypes,
+  writeOutputTypeState,
   presentationRtl: presentationRtlEnabled === true && presentationRtlDisabled === false && presentationRtlCleared === undefined && paragraphRtlAfterGlobalClear[0] === true && paragraphRtlAfterGlobalClear[1] === false,
   presentationTitle: createdPresentationTitle === 'Packed & <Title>' && editedPresentationTitle === 'Edited title' && reopenedPresentationTitle === 'Edited title' && emptyPresentationTitle === '' && clearedPresentationTitle === undefined,
   presentationAuthor: createdPresentationAuthor === 'Packed & <Author>' && editedPresentationAuthor === 'Edited author' && reopenedPresentationAuthor === 'Edited author' && emptyPresentationAuthor === '' && clearedPresentationAuthor === undefined,
@@ -8169,6 +8279,9 @@ process.stdout.write(resolved);
   type TextAlignment,
   type NumberingStyle,
   type OutputType,
+  type WriteBaseOptions,
+  type WriteOptions,
+  type WriteOutput,
   type ParagraphBullet,
   type ParagraphLineSpacing,
   type ParagraphSpacing,
@@ -9408,6 +9521,38 @@ OUTPUT_TYPES[0] = 'uint8array';
 const streamOutputType: OutputType = 'STREAM';
 // @ts-expect-error unknown output type is rejected
 const invalidOutputType: OutputType = 'buffer';
+const typedWriteOutputDocument = PptxDocument.create();
+const typedWriteBaseOptions: WriteBaseOptions = { mode: 'permissive' };
+const typedBlobWriteOptions: WriteOptions<'blob'> = { outputType: 'blob' };
+const typedDynamicWriteOptions: WriteOptions<OutputType> = {
+  outputType: OUTPUT_TYPES[0],
+};
+const typedDefaultWrite = typedWriteOutputDocument.write();
+typedDefaultWrite satisfies Promise<Uint8Array>;
+const typedBaseWrite = typedWriteOutputDocument.write(typedWriteBaseOptions);
+typedBaseWrite satisfies Promise<Uint8Array>;
+const typedArrayBufferWrite = typedWriteOutputDocument.write({
+  outputType: 'arraybuffer',
+});
+typedArrayBufferWrite satisfies Promise<ArrayBuffer>;
+const typedBase64Write = typedWriteOutputDocument.write({ outputType: 'base64' });
+typedBase64Write satisfies Promise<string>;
+const typedBinaryStringWrite = typedWriteOutputDocument.write({
+  outputType: 'binarystring',
+});
+typedBinaryStringWrite satisfies Promise<string>;
+const typedBlobWrite = typedWriteOutputDocument.write(typedBlobWriteOptions);
+typedBlobWrite satisfies Promise<Blob>;
+const typedNodeBufferWrite = typedWriteOutputDocument.write({ outputType: 'nodebuffer' });
+typedNodeBufferWrite satisfies Promise<Uint8Array>;
+const typedUint8ArrayWrite = typedWriteOutputDocument.write({ outputType: 'uint8array' });
+typedUint8ArrayWrite satisfies Promise<Uint8Array>;
+const typedDynamicWrite = typedWriteOutputDocument.write(typedDynamicWriteOptions);
+typedDynamicWrite satisfies Promise<WriteOutput<OutputType>>;
+// @ts-expect-error generic blob options accept only the blob token
+const invalidBlobWriteOptions: WriteOptions<'blob'> = { outputType: 'base64' };
+// @ts-expect-error convenience blob output has no output selector
+typedWriteOutputDocument.writeBlob({ outputType: 'blob' });
 const alignment: TextAlignment = 'center';
 const bullet: ParagraphBullet = { kind: 'bullet', character: '◆', indent: 18 };
 const numbering: NumberingStyle = 'romanUcPeriod';
@@ -9619,7 +9764,10 @@ void [typedPreset, typedNoneShapeFill, typedSolidShapeFill,
   invalidInnerShapeShadowRotate, invalidShapeShadowOffset, invalidShapeShadowType,
   invalidUnknownShapeShadow, invalidShapeShadowFieldType, horizontalAlignments,
   invalidHorizontalAlignment, verticalAlignments, invalidVerticalAlignment, outputTypes,
-  streamOutputType, invalidOutputType];
+  streamOutputType, invalidOutputType, typedWriteOutputDocument, typedWriteBaseOptions,
+  typedBlobWriteOptions, typedDynamicWriteOptions, typedDefaultWrite, typedBaseWrite,
+  typedArrayBufferWrite, typedBase64Write, typedBinaryStringWrite, typedBlobWrite,
+  typedNodeBufferWrite, typedUint8ArrayWrite, typedDynamicWrite, invalidBlobWriteOptions];
 void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, typedChartPromise,
   typedChartDiagnostics, typedChartWorkbookCheck, invalidChartType, invalidChartAxis,
   invalidChartValues, typedSimpleBackground, typedImageBackground, typedSlideBackground,
@@ -9683,6 +9831,11 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
   if (!apiChecks.outputTypes) {
     throw new Error(
       `Output type smoke failed: ${JSON.stringify(apiChecks.outputTypeState)}`,
+    );
+  }
+  if (!apiChecks.writeOutputTypes) {
+    throw new Error(
+      `Write output type smoke failed: ${JSON.stringify(apiChecks.writeOutputTypeState)}`,
     );
   }
   const presentationLayoutDeckPath = join(directory, 'presentation-layout-smoke.pptx');
@@ -10967,7 +11120,7 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
   }
 
   process.stdout.write(
-    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presentationVersion: apiChecks.presentationVersion, presentationVersionState, presentationLayouts: apiChecks.presentationLayouts, presentationLayoutState: apiChecks.presentationLayoutState, horizontalAlignments: apiChecks.horizontalAlignments, horizontalAlignmentState: apiChecks.horizontalAlignmentState, verticalAlignments: apiChecks.verticalAlignments, verticalAlignmentState: apiChecks.verticalAlignmentState, outputTypes: apiChecks.outputTypes, outputTypeState: apiChecks.outputTypeState, masterLayouts: apiChecks.masterLayouts, slideNumbers: apiChecks.slideNumbers, slideDefaultColor: apiChecks.slideDefaultColor, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, textShapeFills: apiChecks.textShapeFills, textShapeLines: apiChecks.textShapeLines, textShapeArrows: apiChecks.textShapeArrows, textShapeShadows: apiChecks.textShapeShadows, textShapeHyperlinks: apiChecks.textShapeHyperlinks, textShapePresetGeometry: apiChecks.textShapePresetGeometry, textShapeRectRadius: apiChecks.textShapeRectRadius, textShapeIsTextBox: apiChecks.textShapeIsTextBox, richTextBreakLine: apiChecks.richTextBreakLine, richTextRunHyperlinks: apiChecks.richTextRunHyperlinks, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, slideBackgrounds: apiChecks.slideBackgrounds, types: true, cli: doctor.data.version, presentationLayoutInspect: true, horizontalAlignmentInspect: true, verticalAlignmentInspect: true, masterLayoutInspect: true, masterLayoutValidate: true, masterLayoutSlides: true, masterLayoutPartRead: true, masterLayoutDiff: true, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true, slideBackgroundInspect: true, slideBackgroundValidate: true, slideNumberInspect: true, slideNumberValidate: true, slideNumberSlides: true, slideNumberPartRead: true, slideDefaultColorInspect: true, slideDefaultColorValidate: true, slideDefaultColorSlides: true, slideDefaultColorPartRead: true, textShapeFillInspect: true, textShapeFillValidate: true, textShapeFillSlides: true, textShapeFillPartRead: true, textShapeLineInspect: true, textShapeLineValidate: true, textShapeLineSlides: true, textShapeLinePartRead: true, textShapeArrowInspect: true, textShapeArrowValidate: true, textShapeArrowSlides: true, textShapeArrowPartRead: true, textShapeShadowInspect: true, textShapeShadowValidate: true, textShapeShadowSlides: true, textShapeShadowPartRead: true, textShapeHyperlinkInspect: true, textShapeHyperlinkValidate: true, textShapeHyperlinkSlides: true, textShapeHyperlinkPartRead: true, textShapeHyperlinkInternalValidate: true, textShapePresetGeometryValidate: true, textShapePresetGeometrySlides: true, textShapePresetGeometryPartRead: true, textShapeRectRadiusValidate: true, textShapeRectRadiusSlides: true, textShapeRectRadiusPartRead: true, textShapeIsTextBoxValidate: true, textShapeIsTextBoxSlides: true, textShapeIsTextBoxPartRead: true, textShapeIsTextBoxLayoutPartRead: true, textShapeIsTextBoxMasterPartRead: true, richTextRunHyperlinkInspect: true, richTextRunHyperlinkValidate: true, richTextRunHyperlinkSlides: true, richTextRunHyperlinkPartRead: true, richTextRunHyperlinkInternalValidate: true, richTextBreakLineValidate: true, richTextBreakLineSlides: true, richTextBreakLinePartRead: true })}\n`,
+    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presentationVersion: apiChecks.presentationVersion, presentationVersionState, presentationLayouts: apiChecks.presentationLayouts, presentationLayoutState: apiChecks.presentationLayoutState, horizontalAlignments: apiChecks.horizontalAlignments, horizontalAlignmentState: apiChecks.horizontalAlignmentState, verticalAlignments: apiChecks.verticalAlignments, verticalAlignmentState: apiChecks.verticalAlignmentState, outputTypes: apiChecks.outputTypes, outputTypeState: apiChecks.outputTypeState, writeOutputTypes: apiChecks.writeOutputTypes, writeOutputTypeState: apiChecks.writeOutputTypeState, masterLayouts: apiChecks.masterLayouts, slideNumbers: apiChecks.slideNumbers, slideDefaultColor: apiChecks.slideDefaultColor, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, textShapeFills: apiChecks.textShapeFills, textShapeLines: apiChecks.textShapeLines, textShapeArrows: apiChecks.textShapeArrows, textShapeShadows: apiChecks.textShapeShadows, textShapeHyperlinks: apiChecks.textShapeHyperlinks, textShapePresetGeometry: apiChecks.textShapePresetGeometry, textShapeRectRadius: apiChecks.textShapeRectRadius, textShapeIsTextBox: apiChecks.textShapeIsTextBox, richTextBreakLine: apiChecks.richTextBreakLine, richTextRunHyperlinks: apiChecks.richTextRunHyperlinks, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, slideBackgrounds: apiChecks.slideBackgrounds, types: true, cli: doctor.data.version, presentationLayoutInspect: true, horizontalAlignmentInspect: true, verticalAlignmentInspect: true, masterLayoutInspect: true, masterLayoutValidate: true, masterLayoutSlides: true, masterLayoutPartRead: true, masterLayoutDiff: true, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true, slideBackgroundInspect: true, slideBackgroundValidate: true, slideNumberInspect: true, slideNumberValidate: true, slideNumberSlides: true, slideNumberPartRead: true, slideDefaultColorInspect: true, slideDefaultColorValidate: true, slideDefaultColorSlides: true, slideDefaultColorPartRead: true, textShapeFillInspect: true, textShapeFillValidate: true, textShapeFillSlides: true, textShapeFillPartRead: true, textShapeLineInspect: true, textShapeLineValidate: true, textShapeLineSlides: true, textShapeLinePartRead: true, textShapeArrowInspect: true, textShapeArrowValidate: true, textShapeArrowSlides: true, textShapeArrowPartRead: true, textShapeShadowInspect: true, textShapeShadowValidate: true, textShapeShadowSlides: true, textShapeShadowPartRead: true, textShapeHyperlinkInspect: true, textShapeHyperlinkValidate: true, textShapeHyperlinkSlides: true, textShapeHyperlinkPartRead: true, textShapeHyperlinkInternalValidate: true, textShapePresetGeometryValidate: true, textShapePresetGeometrySlides: true, textShapePresetGeometryPartRead: true, textShapeRectRadiusValidate: true, textShapeRectRadiusSlides: true, textShapeRectRadiusPartRead: true, textShapeIsTextBoxValidate: true, textShapeIsTextBoxSlides: true, textShapeIsTextBoxPartRead: true, textShapeIsTextBoxLayoutPartRead: true, textShapeIsTextBoxMasterPartRead: true, richTextRunHyperlinkInspect: true, richTextRunHyperlinkValidate: true, richTextRunHyperlinkSlides: true, richTextRunHyperlinkPartRead: true, richTextRunHyperlinkInternalValidate: true, richTextBreakLineValidate: true, richTextBreakLineSlides: true, richTextBreakLinePartRead: true })}\n`,
   );
 } finally {
   await rm(directory, { recursive: true, force: true });
