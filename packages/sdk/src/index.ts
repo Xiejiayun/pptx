@@ -46,6 +46,7 @@ import {
   type PresentationTheme,
   type PresentationThemeOptions,
 } from './presentation-theme.js';
+import { PPTX_VERSION, type PptxVersion } from './version.js';
 import {
   assertImageContentType,
   normalizeAddImageSourceOptions,
@@ -76,6 +77,8 @@ export * from '@pptx/model';
 export { MediaModel } from '@pptx/model';
 export type { BuiltInSlideSize, CreatePresentationOptions, CustomSlideSize } from './create.js';
 export type { PresentationTheme, PresentationThemeOptions } from './presentation-theme.js';
+export { PPTX_VERSION } from './version.js';
+export type { PptxVersion } from './version.js';
 export {
   assertImageContentType,
   inspectImage,
@@ -194,6 +197,10 @@ export class PptxDocument extends PresentationModel {
   readonly #layoutMargins = new Map<string, Readonly<SlideMasterMargin>>();
   readonly #layoutDefinitions = new Map<string, Readonly<StoredSlideMasterDefinition>>();
   #deletedLastLayout = false;
+
+  get version(): PptxVersion {
+    return PPTX_VERSION;
+  }
 
   private constructor(opcPackage: OpcPackage) {
     super(opcPackage);

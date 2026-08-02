@@ -27,6 +27,7 @@ import {
   ModelParseError,
   openPptxStream,
   PRESET_SHAPE_TYPES,
+  PPTX_VERSION,
   PptxDocument,
   ShapeModel,
   SlideLayoutModel,
@@ -72,6 +73,7 @@ import {
   type SlideNumberOptions,
   type SlideNumberTextStyle,
   type SlideNumberTextStyleOptions,
+  type PptxVersion,
 } from './index.js';
 
 function sdkPngHeader(width: number, height: number): Uint8Array<ArrayBuffer> {
@@ -250,6 +252,29 @@ async function tableBordersFixture(): Promise<Uint8Array> {
 }
 
 describe('PptxDocument vertical slice', () => {
+  it('exposes a read-only runtime version without package mutation', async () => {
+    const current: PptxVersion = PPTX_VERSION;
+    const document = PptxDocument.create();
+    const before = await sdkPackageSnapshot(document);
+
+    expect(current).toBe('0.1.0');
+    expect(document.version).toBe(current);
+    expect(document.version).toBe(document.version);
+    expect(await sdkPackageSnapshot(document)).toEqual(before);
+    expect(Object.getOwnPropertyDescriptor(PptxDocument.prototype, 'version')).toMatchObject({
+      set: undefined,
+      enumerable: false,
+    });
+
+    const reopened = await PptxDocument.open(await document.write());
+    expect(reopened.version).toBe(PPTX_VERSION);
+
+    if (false) {
+      // @ts-expect-error version is read-only
+      document.version = '9.9.9';
+    }
+  });
+
   it('creates placeholder identity and materializes empty layout placeholders', async () => {
     const document = PptxDocument.create();
     const layout = document.layouts[0]!;
