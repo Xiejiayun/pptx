@@ -277,6 +277,109 @@ async (page) => {
         failureIsolation: true,
         laterWriteTitle: 'Browser node stream boundary',
       });
+      const compressionMethods = (zipBytes) => {
+        const view = new DataView(
+          zipBytes.buffer,
+          zipBytes.byteOffset,
+          zipBytes.byteLength,
+        );
+        let eocd = zipBytes.byteLength - 22;
+        while (eocd >= 0 && view.getUint32(eocd, true) !== 0x06054b50) eocd -= 1;
+        if (eocd < 0) throw new Error('ZIP EOCD not found');
+        const entries = view.getUint16(eocd + 10, true);
+        let offset = view.getUint32(eocd + 16, true);
+        const methods = [];
+        for (let index = 0; index < entries; index += 1) {
+          if (view.getUint32(offset, true) !== 0x02014b50) {
+            throw new Error('ZIP central directory entry not found');
+          }
+          const nameLength = view.getUint16(offset + 28, true);
+          const extraLength = view.getUint16(offset + 30, true);
+          const commentLength = view.getUint16(offset + 32, true);
+          const name = new TextDecoder().decode(
+            zipBytes.subarray(offset + 46, offset + 46 + nameLength),
+          );
+          if (!name.endsWith('/')) methods.push(view.getUint16(offset + 10, true));
+          offset += 46 + nameLength + extraLength + commentLength;
+        }
+        return [...new Set(methods)];
+      };
+      const compressionEqual = (left, right) =>
+        left.byteLength === right.byteLength &&
+        left.every((value, index) => value === right[index]);
+      const compressionDocument = api.PptxDocument.create();
+      compressionDocument.addSlide().addText('Chrome compression policy');
+      compressionDocument.opcPackage.setPart(
+        '/custom/chrome-compression.bin',
+        new Uint8Array(65_536).fill(0x41),
+        'application/octet-stream',
+      );
+      const compressionDiagnostics = JSON.stringify(compressionDocument.diagnostics);
+      const compressionJournal = JSON.stringify(compressionDocument.opcPackage.mutations);
+      const compressionDefault = await compressionDocument.write();
+      const compressionStore = await compressionDocument.write({ compression: false });
+      const compressionDeflate = await compressionDocument.write({ compression: true });
+      const compressionBlob = new Uint8Array(
+        await (await compressionDocument.writeBlob({ compression: true })).arrayBuffer(),
+      );
+      const compressionReopened = await api.PptxDocument.open(compressionDeflate);
+      const compressionShape = compressionReopened.slides[0].shapes[0];
+      const originalCompressionPackageWrite = compressionDocument.opcPackage.write.bind(
+        compressionDocument.opcPackage,
+      );
+      let compressionPackageWrites = 0;
+      compressionDocument.opcPackage.write = (...args) => {
+        compressionPackageWrites += 1;
+        return originalCompressionPackageWrite(...args);
+      };
+      let compressionError;
+      try {
+        await compressionDocument.write({ compression: 'true' });
+      } catch (error) {
+        compressionError = { name: error.name, message: error.message };
+      }
+      compressionDocument.opcPackage.write = originalCompressionPackageWrite;
+      const compressionLaterReopened = await api.PptxDocument.open(
+        await compressionDocument.write({ compression: false }),
+      );
+      const compressionLaterShape = compressionLaterReopened.slides[0].shapes[0];
+      const compressionPolicyState = {
+        defaultEqualsFalse: compressionEqual(compressionDefault, compressionStore),
+        storeMethods: compressionMethods(compressionStore),
+        deflateMethods: compressionMethods(compressionDeflate),
+        storeBytes: compressionStore.byteLength,
+        deflateBytes: compressionDeflate.byteLength,
+        deflateSmaller: compressionDeflate.byteLength < compressionStore.byteLength,
+        blobEquality: compressionEqual(compressionBlob, compressionDeflate),
+        reopenTitle: compressionShape instanceof api.ShapeModel
+          ? compressionShape.text
+          : undefined,
+        invalidError: compressionError,
+        invalidEarly: compressionPackageWrites === 0,
+        laterWriteTitle: compressionLaterShape instanceof api.ShapeModel
+          ? compressionLaterShape.text
+          : undefined,
+        failureIsolation: JSON.stringify(compressionDocument.diagnostics) ===
+          compressionDiagnostics &&
+          JSON.stringify(compressionDocument.opcPackage.mutations) === compressionJournal,
+      };
+      const compressionPolicy = JSON.stringify(compressionPolicyState) === JSON.stringify({
+        defaultEqualsFalse: true,
+        storeMethods: [0],
+        deflateMethods: [8],
+        storeBytes: compressionStore.byteLength,
+        deflateBytes: compressionDeflate.byteLength,
+        deflateSmaller: true,
+        blobEquality: true,
+        reopenTitle: 'Chrome compression policy',
+        invalidError: {
+          name: 'TypeError',
+          message: 'PptxDocument output compression must be a boolean',
+        },
+        invalidEarly: true,
+        laterWriteTitle: 'Chrome compression policy',
+        failureIsolation: true,
+      });
       const fromBlob = await api.PptxDocument.open(new Blob([bytes.buffer]));
       const stream = new ReadableStream({
         start(controller) {
@@ -2307,6 +2410,8 @@ async (page) => {
         writeOutputTypeState,
         nodeReadableStream,
         nodeReadableStreamState,
+        compressionPolicy,
+        compressionPolicyState,
         format: reopened.format,
         title: reopened.slides[0].title.text,
         mime: output.type,
@@ -2390,6 +2495,84 @@ async (page) => {
     },
   );
   result.downloadFileName = (await downloadPromise).suggestedFilename();
+  const compressionDownloadPromise = page.waitForEvent('download');
+  await page.evaluate(async (moduleUrl) => {
+    const api = await import(moduleUrl);
+    const document = api.PptxDocument.create();
+    document.addSlide().addText('Chrome compression download');
+    document.opcPackage.setPart(
+      '/custom/chrome-download-compression.bin',
+      new Uint8Array(65_536).fill(0x41),
+      'application/octet-stream',
+    );
+    await document.download('compression-policy.pptx', { compression: true });
+  }, 'http://127.0.0.1:4173/packages/pptx/dist/browser.js');
+  const compressionDownload = await compressionDownloadPromise;
+  const compressionDownloadStream = await compressionDownload.createReadStream();
+  if (!compressionDownloadStream) throw new Error('Compression download stream is unavailable');
+  const compressionDownloadChunks = [];
+  for await (const chunk of compressionDownloadStream) {
+    compressionDownloadChunks.push(new Uint8Array(chunk));
+  }
+  const compressionDownloadLength = compressionDownloadChunks.reduce(
+    (sum, chunk) => sum + chunk.byteLength,
+    0,
+  );
+  const compressionDownloadBytes = new Uint8Array(compressionDownloadLength);
+  let compressionDownloadOffset = 0;
+  for (const chunk of compressionDownloadChunks) {
+    compressionDownloadBytes.set(chunk, compressionDownloadOffset);
+    compressionDownloadOffset += chunk.byteLength;
+  }
+  const compressionDownloadMethods = (() => {
+    const view = new DataView(
+      compressionDownloadBytes.buffer,
+      compressionDownloadBytes.byteOffset,
+      compressionDownloadBytes.byteLength,
+    );
+    let eocd = compressionDownloadBytes.byteLength - 22;
+    while (eocd >= 0 && view.getUint32(eocd, true) !== 0x06054b50) eocd -= 1;
+    if (eocd < 0) throw new Error('Compression download EOCD not found');
+    const entries = view.getUint16(eocd + 10, true);
+    let offset = view.getUint32(eocd + 16, true);
+    const methods = [];
+    for (let index = 0; index < entries; index += 1) {
+      if (view.getUint32(offset, true) !== 0x02014b50) {
+        throw new Error('Compression download central directory entry not found');
+      }
+      const nameLength = view.getUint16(offset + 28, true);
+      const extraLength = view.getUint16(offset + 30, true);
+      const commentLength = view.getUint16(offset + 32, true);
+      const name = new TextDecoder().decode(
+        compressionDownloadBytes.subarray(offset + 46, offset + 46 + nameLength),
+      );
+      if (!name.endsWith('/')) methods.push(view.getUint16(offset + 10, true));
+      offset += 46 + nameLength + extraLength + commentLength;
+    }
+    return [...new Set(methods)];
+  })();
+  const compressionDownloadReopenTitle = await page.evaluate(
+    async ({ moduleUrl, bytes }) => {
+      const api = await import(moduleUrl);
+      const reopened = await api.PptxDocument.open(Uint8Array.from(bytes));
+      const shape = reopened.slides[0].shapes[0];
+      return shape instanceof api.ShapeModel ? shape.text : undefined;
+    },
+    {
+      moduleUrl: 'http://127.0.0.1:4173/packages/pptx/dist/browser.js',
+      bytes: [...compressionDownloadBytes],
+    },
+  );
+  result.compressionPolicyState = {
+    ...result.compressionPolicyState,
+    downloadFileName: compressionDownload.suggestedFilename(),
+    downloadMethods: compressionDownloadMethods,
+    downloadReopenTitle: compressionDownloadReopenTitle,
+  };
+  result.compressionPolicy = result.compressionPolicy &&
+    compressionDownload.suggestedFilename() === 'compression-policy.pptx' &&
+    JSON.stringify(compressionDownloadMethods) === JSON.stringify([8]) &&
+    compressionDownloadReopenTitle === 'Chrome compression download';
   result.errorCounts = {
     console: consoleErrors.length,
     page: pageErrors.length,
@@ -2467,6 +2650,27 @@ async (page) => {
       },
       failureIsolation: true,
       laterWriteTitle: 'Browser node stream boundary',
+    },
+    compressionPolicy: true,
+    compressionPolicyState: {
+      defaultEqualsFalse: true,
+      storeMethods: [0],
+      deflateMethods: [8],
+      storeBytes: result.compressionPolicyState.storeBytes,
+      deflateBytes: result.compressionPolicyState.deflateBytes,
+      deflateSmaller: true,
+      blobEquality: true,
+      reopenTitle: 'Chrome compression policy',
+      invalidError: {
+        name: 'TypeError',
+        message: 'PptxDocument output compression must be a boolean',
+      },
+      invalidEarly: true,
+      laterWriteTitle: 'Chrome compression policy',
+      failureIsolation: true,
+      downloadFileName: 'compression-policy.pptx',
+      downloadMethods: [8],
+      downloadReopenTitle: 'Chrome compression download',
     },
     format: 'pptx',
     title: 'Browser updated',

@@ -77,6 +77,10 @@ try {
     join(installed, 'dist/types/sdk/index.d.ts'),
     'utf8',
   );
+  const opcDeclarationSource = await readFile(
+    join(installed, 'dist/types/opc/index.d.ts'),
+    'utf8',
+  );
   if (!textOptionDeclarationSource.includes('readonly isTextBox?: boolean;') ||
       !shapeDeclarationSource.includes('get isTextBox(): boolean | undefined;') ||
       !shapeDeclarationSource.includes('set isTextBox(value: boolean);')) {
@@ -121,6 +125,9 @@ try {
   const normalizedSdkDeclarationSource = sdkDeclarationSource
     .replaceAll('"', "'")
     .replace(/\s+/gu, ' ');
+  const normalizedOpcDeclarationSource = opcDeclarationSource
+    .replaceAll('"', "'")
+    .replace(/\s+/gu, ' ');
   if (!normalizedOutputTypeDeclarationSource.includes(
     "export declare const OUTPUT_TYPES: readonly ['arraybuffer', 'base64', 'binarystring', 'blob', 'nodebuffer', 'uint8array'];",
   ) || !normalizedOutputTypeDeclarationSource.includes(
@@ -130,6 +137,7 @@ try {
   ) || !sdkDeclarationSource.includes("export { OUTPUT_TYPES } from './output-type.js';") ||
       !sdkDeclarationSource.includes("export type { OutputType, WriteOutput } from './output-type.js';") ||
       !normalizedSdkDeclarationSource.includes('export interface WriteBaseOptions {') ||
+      !normalizedSdkDeclarationSource.includes('readonly compression?: boolean;') ||
       !normalizedSdkDeclarationSource.includes(
         "export interface WriteOptions<TOutputType extends OutputType = 'uint8array'> extends WriteBaseOptions {",
       ) || !normalizedSdkDeclarationSource.includes('readonly outputType?: TOutputType;') ||
@@ -144,13 +152,18 @@ try {
         'pipe<TDestination>(destination: TDestination, options?: { readonly end?: boolean; }): TDestination;',
       ) || !normalizedSdkDeclarationSource.includes(
         'stream(options?: WriteBaseOptions): Promise<PptxNodeReadableStream>;',
+      ) || !normalizedOpcDeclarationSource.includes(
+        'export interface PackageWriteOptions { readonly compression?: boolean; }',
+      ) || !normalizedOpcDeclarationSource.includes(
+        'write(options?: PackageWriteOptions): Promise<Uint8Array>;',
       ) || /node:(?:buffer|stream)|\bNodeJS\.|\bBuffer\b/u.test(sdkDeclarationSource)) {
     throw new Error('Packed declarations are missing output and stream surfaces');
   }
 
   await writeFile(
     join(directory, 'smoke.mjs'),
-    `import { Readable, Writable } from 'node:stream';
+    `import { readFile } from 'node:fs/promises';
+import { Readable, Writable } from 'node:stream';
 import { CHART_TYPES, ChartModel, calculateImageSizing, chartWorkbookMatches, CustomGeometryEvaluationError, evaluateCustomGeometry, ImageModel, inches, inspectImage, inspectRasterImage, inspectSvgImage, MediaCodec, MediaModel, OUTPUT_TYPES, PLACEHOLDER_TYPES, PRESET_SHAPE_TYPES, PPTX_VERSION, PptxDocument, ShapeModel, SlideLayoutModel, SlideMasterModel, TableModel, TEXT_ALIGNMENTS, TEXT_VERTICAL_ALIGNMENTS, GradientCodec, importPptxGenJS, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
 const installedManifestVersion = ${JSON.stringify(manifest.version)};
 const created = PptxDocument.create({ rtlMode: true });
@@ -5418,6 +5431,187 @@ const nodeReadableStream = JSON.stringify(nodeReadableStreamState) === JSON.stri
   reopenTitle: 'Packed node stream 你好',
   mutationIsolation: true,
 });
+const packedZipCompressionMethods = (bytes) => {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let eocd = bytes.byteLength - 22;
+  while (eocd >= 0 && view.getUint32(eocd, true) !== 0x06054b50) eocd -= 1;
+  if (eocd < 0) throw new Error('ZIP EOCD not found');
+  const entries = view.getUint16(eocd + 10, true);
+  let offset = view.getUint32(eocd + 16, true);
+  const methods = [];
+  for (let index = 0; index < entries; index += 1) {
+    if (view.getUint32(offset, true) !== 0x02014b50) {
+      throw new Error('ZIP central directory entry not found');
+    }
+    const nameLength = view.getUint16(offset + 28, true);
+    const extraLength = view.getUint16(offset + 30, true);
+    const commentLength = view.getUint16(offset + 32, true);
+    const name = new TextDecoder().decode(
+      bytes.subarray(offset + 46, offset + 46 + nameLength),
+    );
+    if (!name.endsWith('/')) methods.push(view.getUint16(offset + 10, true));
+    offset += 46 + nameLength + extraLength + commentLength;
+  }
+  return [...new Set(methods)];
+};
+const packedCompressionDocument = PptxDocument.create();
+packedCompressionDocument.addSlide().addText('Compression policy 你好');
+packedCompressionDocument.opcPackage.setPart(
+  '/custom/compression-policy.bin',
+  new Uint8Array(131_072).fill(0x41),
+  'application/octet-stream',
+);
+const packedCompressionJournal = JSON.stringify(
+  packedCompressionDocument.opcPackage.mutations,
+);
+const packedCompressionDefault = await packedCompressionDocument.write();
+const packedCompressionStore = await packedCompressionDocument.write({ compression: false });
+const packedCompressionDeflate = await packedCompressionDocument.write({ compression: true });
+const packedCompressionOutputs = [
+  ['arraybuffer', await packedCompressionDocument.write({
+    outputType: 'arraybuffer', compression: true,
+  })],
+  ['base64', await packedCompressionDocument.write({
+    outputType: 'base64', compression: true,
+  })],
+  ['binarystring', await packedCompressionDocument.write({
+    outputType: 'binarystring', compression: true,
+  })],
+  ['blob', await packedCompressionDocument.write({
+    outputType: 'blob', compression: true,
+  })],
+  ['nodebuffer', await packedCompressionDocument.write({
+    outputType: 'nodebuffer', compression: true,
+  })],
+  ['uint8array', await packedCompressionDocument.write({
+    outputType: 'uint8array', compression: true,
+  })],
+];
+const packedCompressionOutputBytes = await Promise.all(
+  packedCompressionOutputs.map(([outputType, value]) =>
+    decodePackedWriteOutput(outputType, value)),
+);
+const packedCompressionStreamChunks = [];
+for await (const chunk of await packedCompressionDocument.stream({ compression: true })) {
+  packedCompressionStreamChunks.push(new Uint8Array(chunk));
+}
+const packedCompressionStreamBytes = concatenatePackedNodeStream(
+  packedCompressionStreamChunks,
+);
+const packedCompressionBlobBytes = new Uint8Array(
+  await (await packedCompressionDocument.writeBlob({ compression: true })).arrayBuffer(),
+);
+await packedCompressionDocument.writeFile(
+  'compression-policy-smoke.pptx',
+  { compression: true },
+);
+const packedCompressionFileBytes = new Uint8Array(
+  await readFile('compression-policy-smoke.pptx'),
+);
+const packedCompressionStoreReopened = await PptxDocument.open(packedCompressionStore);
+const packedCompressionDeflateReopened = await PptxDocument.open(packedCompressionDeflate);
+const packedCompressionStoreShape = packedCompressionStoreReopened.slides[0].shapes[0];
+const packedCompressionDeflateShape = packedCompressionDeflateReopened.slides[0].shapes[0];
+const packedCompressionUnchangedStore = await packedCompressionStoreReopened.write();
+const packedCompressionUnchangedDeflate = await packedCompressionDeflateReopened.write();
+const packedCompressionExplicitDeflate = await packedCompressionStoreReopened.write({
+  compression: true,
+});
+const packedCompressionExplicitStore = await packedCompressionDeflateReopened.write({
+  compression: false,
+});
+const packedInvalidCompressionDocument = PptxDocument.create();
+const packedInvalidCompressionDiagnostics = JSON.stringify(
+  packedInvalidCompressionDocument.diagnostics,
+);
+const packedInvalidCompressionJournal = JSON.stringify(
+  packedInvalidCompressionDocument.opcPackage.mutations,
+);
+const packedInvalidPackageWrite = packedInvalidCompressionDocument.opcPackage.write.bind(
+  packedInvalidCompressionDocument.opcPackage,
+);
+let packedInvalidPackageWrites = 0;
+packedInvalidCompressionDocument.opcPackage.write = (...args) => {
+  packedInvalidPackageWrites += 1;
+  return packedInvalidPackageWrite(...args);
+};
+let packedInvalidCompressionError;
+try {
+  await packedInvalidCompressionDocument.write({ compression: 'true' });
+} catch (error) {
+  packedInvalidCompressionError = { name: error.name, message: error.message };
+}
+const compressionPolicyState = {
+  defaultEqualsFalse: packedWriteOutputBytesEqual(
+    packedCompressionDefault,
+    packedCompressionStore,
+  ),
+  storeMethods: packedZipCompressionMethods(packedCompressionStore),
+  deflateMethods: packedZipCompressionMethods(packedCompressionDeflate),
+  storeBytes: packedCompressionStore.byteLength,
+  deflateBytes: packedCompressionDeflate.byteLength,
+  deflateSmaller: packedCompressionDeflate.byteLength < packedCompressionStore.byteLength,
+  sixOutputEquality: packedCompressionOutputBytes.every((bytes) =>
+    packedWriteOutputBytesEqual(bytes, packedCompressionDeflate)),
+  streamEquality: packedWriteOutputBytesEqual(
+    packedCompressionStreamBytes,
+    packedCompressionDeflate,
+  ),
+  blobEquality: packedWriteOutputBytesEqual(
+    packedCompressionBlobBytes,
+    packedCompressionDeflate,
+  ),
+  fileEquality: packedWriteOutputBytesEqual(
+    packedCompressionFileBytes,
+    packedCompressionDeflate,
+  ),
+  reopenTitles: [packedCompressionStoreShape, packedCompressionDeflateShape]
+    .map((shape) => shape instanceof ShapeModel ? shape.text : undefined),
+  unchangedOriginal: packedWriteOutputBytesEqual(
+    packedCompressionUnchangedStore,
+    packedCompressionStore,
+  ) && packedWriteOutputBytesEqual(
+    packedCompressionUnchangedDeflate,
+    packedCompressionDeflate,
+  ),
+  explicitStore: JSON.stringify(
+    packedZipCompressionMethods(packedCompressionExplicitStore),
+  ) === JSON.stringify([0]),
+  explicitDeflate: JSON.stringify(
+    packedZipCompressionMethods(packedCompressionExplicitDeflate),
+  ) === JSON.stringify([8]),
+  invalidError: packedInvalidCompressionError,
+  invalidEarly: packedInvalidPackageWrites === 0,
+  failureIsolation: JSON.stringify(packedInvalidCompressionDocument.diagnostics) ===
+    packedInvalidCompressionDiagnostics &&
+    JSON.stringify(packedInvalidCompressionDocument.opcPackage.mutations) ===
+    packedInvalidCompressionJournal,
+  mutationIsolation: JSON.stringify(packedCompressionDocument.opcPackage.mutations) ===
+    packedCompressionJournal,
+};
+const compressionPolicy = JSON.stringify(compressionPolicyState) === JSON.stringify({
+  defaultEqualsFalse: true,
+  storeMethods: [0],
+  deflateMethods: [8],
+  storeBytes: packedCompressionStore.byteLength,
+  deflateBytes: packedCompressionDeflate.byteLength,
+  deflateSmaller: true,
+  sixOutputEquality: true,
+  streamEquality: true,
+  blobEquality: true,
+  fileEquality: true,
+  reopenTitles: ['Compression policy 你好', 'Compression policy 你好'],
+  unchangedOriginal: true,
+  explicitStore: true,
+  explicitDeflate: true,
+  invalidError: {
+    name: 'TypeError',
+    message: 'PptxDocument output compression must be a boolean',
+  },
+  invalidEarly: true,
+  failureIsolation: true,
+  mutationIsolation: true,
+});
 const reopenedCreatedTable = reopenedCreated.slides[0].shapes.find((shape) => shape.name === 'Created smoke table');
 const reopenedCreatedTableXml = new TextDecoder().decode(reopenedCreated.opcPackage.requirePart(reopenedCreated.slides[0].partUri).bytes);
 const reopenedCreatedTableHorizontalAlignments = [...reopenedCreatedTableXml.matchAll(/<a:tc(?:\\s[^>]*)?>[\\s\\S]*?<\\/a:tc>/g)].map((match) => match[0].match(/<a:pPr[^>]*\\salgn="([^"]+)"/)?.[1]);
@@ -6280,6 +6474,8 @@ const checks = {
   writeOutputTypeState,
   nodeReadableStream,
   nodeReadableStreamState,
+  compressionPolicy,
+  compressionPolicyState,
   presentationRtl: presentationRtlEnabled === true && presentationRtlDisabled === false && presentationRtlCleared === undefined && paragraphRtlAfterGlobalClear[0] === true && paragraphRtlAfterGlobalClear[1] === false,
   presentationTitle: createdPresentationTitle === 'Packed & <Title>' && editedPresentationTitle === 'Edited title' && reopenedPresentationTitle === 'Edited title' && emptyPresentationTitle === '' && clearedPresentationTitle === undefined,
   presentationAuthor: createdPresentationAuthor === 'Packed & <Author>' && editedPresentationAuthor === 'Edited author' && reopenedPresentationAuthor === 'Edited author' && emptyPresentationAuthor === '' && clearedPresentationAuthor === undefined,
@@ -6347,6 +6543,69 @@ const resolved = import.meta.resolve('@jiayunxie/pptx');
 if (!resolved.endsWith('/dist/browser.js')) throw new Error('Browser condition resolved to ' + resolved);
 const checks = [PptxDocument, transitions.TransitionCodec, animations.AnimationTimingCodec, advancedCharts.AdvancedChartCodec, smartArt.SmartArtDiagramCodec];
 if (checks.some((value) => typeof value !== 'function')) throw new Error('Browser API surface is incomplete');
+const browserZipCompressionMethods = (bytes) => {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let eocd = bytes.byteLength - 22;
+  while (eocd >= 0 && view.getUint32(eocd, true) !== 0x06054b50) eocd -= 1;
+  if (eocd < 0) throw new Error('Browser ZIP EOCD not found');
+  const entries = view.getUint16(eocd + 10, true);
+  let offset = view.getUint32(eocd + 16, true);
+  const methods = [];
+  for (let index = 0; index < entries; index += 1) {
+    if (view.getUint32(offset, true) !== 0x02014b50) {
+      throw new Error('Browser ZIP central directory entry not found');
+    }
+    const nameLength = view.getUint16(offset + 28, true);
+    const extraLength = view.getUint16(offset + 30, true);
+    const commentLength = view.getUint16(offset + 32, true);
+    const name = new TextDecoder().decode(
+      bytes.subarray(offset + 46, offset + 46 + nameLength),
+    );
+    if (!name.endsWith('/')) methods.push(view.getUint16(offset + 10, true));
+    offset += 46 + nameLength + extraLength + commentLength;
+  }
+  return [...new Set(methods)];
+};
+const browserCompressionEqual = (left, right) =>
+  left.byteLength === right.byteLength &&
+  left.every((value, index) => value === right[index]);
+const browserCompressionDocument = PptxDocument.create();
+browserCompressionDocument.addSlide().addText('Browser condition compression');
+browserCompressionDocument.opcPackage.setPart(
+  '/custom/browser-compression.bin',
+  new Uint8Array(65_536).fill(0x41),
+  'application/octet-stream',
+);
+const browserCompressionDiagnostics = JSON.stringify(browserCompressionDocument.diagnostics);
+const browserCompressionJournal = JSON.stringify(
+  browserCompressionDocument.opcPackage.mutations,
+);
+const browserCompressionDefault = await browserCompressionDocument.write();
+const browserCompressionStore = await browserCompressionDocument.write({ compression: false });
+const browserCompressionDeflate = await browserCompressionDocument.write({ compression: true });
+const browserCompressionBlob = new Uint8Array(
+  await (await browserCompressionDocument.writeBlob({ compression: true })).arrayBuffer(),
+);
+let browserCompressionError;
+try {
+  await browserCompressionDocument.write({ compression: 'true' });
+} catch (error) {
+  browserCompressionError = { name: error.name, message: error.message };
+}
+const browserCompressionReopened = await PptxDocument.open(browserCompressionDeflate);
+if (!browserCompressionEqual(browserCompressionDefault, browserCompressionStore) ||
+    JSON.stringify(browserZipCompressionMethods(browserCompressionStore)) !== JSON.stringify([0]) ||
+    JSON.stringify(browserZipCompressionMethods(browserCompressionDeflate)) !== JSON.stringify([8]) ||
+    browserCompressionDeflate.byteLength >= browserCompressionStore.byteLength ||
+    !browserCompressionEqual(browserCompressionBlob, browserCompressionDeflate) ||
+    browserCompressionReopened.slides[0].shapes[0].text !== 'Browser condition compression' ||
+    JSON.stringify(browserCompressionError) !== JSON.stringify({
+      name: 'TypeError',
+      message: 'PptxDocument output compression must be a boolean',
+    }) || JSON.stringify(browserCompressionDocument.diagnostics) !== browserCompressionDiagnostics ||
+    JSON.stringify(browserCompressionDocument.opcPackage.mutations) !== browserCompressionJournal) {
+  throw new Error('Browser compression policy failed');
+}
 const browserVersionDocument = PptxDocument.create();
 const reopenedBrowserVersionDocument = await PptxDocument.open(
   await browserVersionDocument.writeBlob(),
@@ -9624,8 +9883,14 @@ const streamOutputType: OutputType = 'STREAM';
 // @ts-expect-error unknown output type is rejected
 const invalidOutputType: OutputType = 'buffer';
 const typedWriteOutputDocument = PptxDocument.create();
-const typedWriteBaseOptions: WriteBaseOptions = { mode: 'permissive' };
-const typedBlobWriteOptions: WriteOptions<'blob'> = { outputType: 'blob' };
+const typedWriteBaseOptions: WriteBaseOptions = {
+  mode: 'permissive',
+  compression: true,
+};
+const typedBlobWriteOptions: WriteOptions<'blob'> = {
+  outputType: 'blob',
+  compression: false,
+};
 const typedDynamicWriteOptions: WriteOptions<OutputType> = {
   outputType: OUTPUT_TYPES[0],
 };
@@ -9654,6 +9919,10 @@ typedDynamicWrite satisfies Promise<WriteOutput<OutputType>>;
 const typedNodeReadable = typedWriteOutputDocument.stream();
 typedNodeReadable satisfies Promise<PptxNodeReadableStream>;
 typedWriteOutputDocument.stream(typedWriteBaseOptions) satisfies Promise<PptxNodeReadableStream>;
+typedWriteOutputDocument.stream({ compression: false }) satisfies Promise<PptxNodeReadableStream>;
+typedWriteOutputDocument.writeFile('typed.pptx', { compression: true }) satisfies Promise<void>;
+typedWriteOutputDocument.writeBlob({ compression: false }) satisfies Promise<Blob>;
+typedWriteOutputDocument.download('typed.pptx', { compression: true }) satisfies Promise<void>;
 void typedNodeReadable.then((readable) => {
   readable satisfies AsyncIterable<Uint8Array>;
   const destination = { tag: 'destination' } as const;
@@ -9666,6 +9935,16 @@ const invalidBlobWriteOptions: WriteOptions<'blob'> = { outputType: 'base64' };
 typedWriteOutputDocument.writeBlob({ outputType: 'blob' });
 // @ts-expect-error Node readable output does not accept an output selector
 typedWriteOutputDocument.stream({ outputType: 'uint8array' });
+// @ts-expect-error write compression is boolean-only
+typedWriteOutputDocument.write({ compression: 'true' });
+// @ts-expect-error stream compression is boolean-only
+typedWriteOutputDocument.stream({ compression: 1 });
+// @ts-expect-error file compression is boolean-only
+typedWriteOutputDocument.writeFile('typed.pptx', { compression: null });
+// @ts-expect-error blob compression is boolean-only
+typedWriteOutputDocument.writeBlob({ compression: 'DEFLATE' });
+// @ts-expect-error download compression is boolean-only
+typedWriteOutputDocument.download('typed.pptx', { compression: 1 });
 const alignment: TextAlignment = 'center';
 const bullet: ParagraphBullet = { kind: 'bullet', character: '◆', indent: 18 };
 const numbering: NumberingStyle = 'romanUcPeriod';
@@ -9955,6 +10234,26 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
   if (!apiChecks.nodeReadableStream) {
     throw new Error(
       `Node readable stream smoke failed: ${JSON.stringify(apiChecks.nodeReadableStreamState)}`,
+    );
+  }
+  if (!apiChecks.compressionPolicy) {
+    throw new Error(
+      `Compression policy smoke failed: ${JSON.stringify(apiChecks.compressionPolicyState)}`,
+    );
+  }
+  const compressionPolicyDeckPath = join(directory, 'compression-policy-smoke.pptx');
+  const compressionPolicyInspectResult = run(
+    bin,
+    ['--json', 'package', 'inspect', compressionPolicyDeckPath],
+    directory,
+  );
+  const compressionPolicyInspected = JSON.parse(compressionPolicyInspectResult.stdout);
+  if (!compressionPolicyInspected.ok ||
+      compressionPolicyInspected.data?.contentTypes?.[
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml'
+      ] !== 1) {
+    throw new Error(
+      `CLI compression-policy inspect failed: ${compressionPolicyInspectResult.stdout}`,
     );
   }
   const presentationLayoutDeckPath = join(directory, 'presentation-layout-smoke.pptx');
