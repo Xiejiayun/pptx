@@ -5,6 +5,7 @@ import { ModelParseError } from './errors.js';
 import {
   normalizeHyperlink,
   readShapeHyperlink,
+  readTextRunHyperlink,
   relationshipReferenceCount,
   removeDrawingHyperlinkReferences,
   requireShapeHyperlinkRelationshipId,
@@ -381,6 +382,72 @@ describe('shape hyperlink reader', () => {
       expect(readShapeHyperlink(xml, shape, readContext), source).toBeUndefined();
       expect(xml.changed).toBe(false);
       expect(xml.serialize()).toBe(source);
+    }
+  });
+});
+
+describe('text run hyperlink reader', () => {
+  function properties(click: string, rootName = 'a:rPr'): ReturnType<typeof parse> {
+    return parse(
+      `<${rootName} xmlns:a="${DRAWING_NAMESPACE}" xmlns:r="${RELATIONSHIP_NAMESPACE}" ` +
+      `xmlns:x="urn:test">${click}</${rootName}>`,
+    );
+  }
+
+  it('reads PptxGenJS external and canonical internal run links', () => {
+    const url = properties(
+      '<a:hlinkClick r:id="rId7" tooltip="" action="" invalidUrl="" ' +
+      'tgtFrame="" history="1" highlightClick="0" endSnd="0">' +
+      '<a:extLst><a:ext uri="urn:pptxgenjs"><x:keep/></a:ext></a:extLst>' +
+      '</a:hlinkClick>',
+    );
+    expect(readTextRunHyperlink(url.shape, context([external()])))
+      .toEqual({ url: 'https://example.com?a=1&b=2', tooltip: '' });
+
+    const slide = properties(
+      '<a:hlinkClick r:id="rId7" tooltip="Next" ' +
+      'action="ppaction://hlinksldjump"/>',
+    );
+    expect(readTextRunHyperlink(slide.shape, context([internal()])))
+      .toEqual({ slide: 2, tooltip: 'Next' });
+    expect(url.xml.changed).toBe(false);
+    expect(slide.xml.changed).toBe(false);
+  });
+
+  it('returns undefined for malformed, ambiguous, or unsupported run state', () => {
+    const cases: readonly {
+      readonly click: string;
+      readonly readContext?: ShapeHyperlinkReadContext;
+      readonly rootName?: string;
+    }[] = [
+      { click: '' },
+      { click: '<x:hlinkClick r:id="rId7"/>' },
+      { click: '<a:hlinkClick x:id="rId7"/>' },
+      { click: '<a:hlinkClick r:id="rId7"/><a:hlinkClick r:id="rId8"/>' },
+      { click: '<a:hlinkClick r:id="rId7" action="ppaction://unsupported"/>' },
+      { click: '<a:hlinkClick r:id="rId7"><a:unknown/></a:hlinkClick>' },
+      {
+        click: '<a:hlinkClick r:id="rId7"/>',
+        readContext: context([external(), external('https://duplicate.example', 'rId7')]),
+      },
+      {
+        click: '<a:hlinkClick r:id="rId7"/>',
+        readContext: context([{ ...external(), targetMode: 'Internal' }]),
+      },
+      {
+        click: '<a:hlinkClick r:id="rId7"/>',
+        readContext: context([{ ...external(), target: '' }]),
+      },
+      {
+        click: '<a:hlinkClick r:id="rId7" action="ppaction://hlinksldjump"/>',
+        readContext: context([internal('/ppt/slides/missing.xml')]),
+      },
+      { click: '<a:hlinkClick r:id="rId7"/>', rootName: 'x:rPr' },
+    ];
+    for (const { click, readContext = context([external()]), rootName } of cases) {
+      const parsed = properties(click, rootName);
+      expect(readTextRunHyperlink(parsed.shape, readContext), click).toBeUndefined();
+      expect(parsed.xml.changed).toBe(false);
     }
   });
 });

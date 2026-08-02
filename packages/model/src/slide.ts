@@ -858,7 +858,10 @@ export class SlideModel {
 
   getShapeRichText(id: number): readonly RichTextParagraph[] {
     const { xml, element } = this.resolveShape(id);
-    return readRichText(xml, element);
+    return readRichText(xml, element, {
+      relationships: this.relationships,
+      slidePartUris: this.presentation.slides.map(({ partUri }) => partUri),
+    });
   }
 
   getShapeTextMargins(id: number): TextBoxMargins | undefined {

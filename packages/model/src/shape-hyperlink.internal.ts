@@ -98,6 +98,29 @@ export function readShapeHyperlink(
   const container = inspectHyperlinkContainer(shape);
   const click = container?.click;
   if (!click) return undefined;
+  return decodeHyperlinkElement(click, context, false);
+}
+
+export function readTextRunHyperlink(
+  properties: XmlElement,
+  context: ShapeHyperlinkReadContext,
+): NormalizedHyperlink | undefined {
+  if (
+    properties.localName !== 'rPr'
+    || namespaceUri(properties) !== DRAWING_NAMESPACE
+  ) return undefined;
+  const clicks = directChildren(properties).filter((child) =>
+    child.localName === 'hlinkClick' && namespaceUri(child) === DRAWING_NAMESPACE);
+  if (clicks.length !== 1) return undefined;
+  const click = inspectHyperlinkElement(clicks[0]!, true);
+  return click ? decodeHyperlinkElement(click, context, true) : undefined;
+}
+
+function decodeHyperlinkElement(
+  click: HyperlinkElementState,
+  context: ShapeHyperlinkReadContext,
+  allowEmptyExternalAction: boolean,
+): NormalizedHyperlink | undefined {
   const relationships = context.relationships.filter(
     ({ id }) => id === click.relationshipId.value,
   );
@@ -105,7 +128,7 @@ export function readShapeHyperlink(
   const relationship = relationships[0]!;
   const tooltip = click.tooltip?.value;
 
-  if (!click.action) {
+  if (!click.action || (allowEmptyExternalAction && click.action.value === '')) {
     if (
       relationship.type !== HYPERLINK_RELATIONSHIP_TYPE
       || relationship.targetMode !== 'External'
@@ -364,7 +387,7 @@ function inspectHyperlinkContainer(
     previousStage = stage;
     if (child.localName === 'hlinkClick') {
       if (click) return undefined;
-      click = inspectHyperlinkElement(child);
+      click = inspectHyperlinkElement(child, false);
       if (!click) return undefined;
     } else if (child.localName === 'hlinkHover') {
       if (hover) return undefined;
@@ -379,6 +402,7 @@ function inspectHyperlinkContainer(
 
 function inspectHyperlinkElement(
   element: XmlElement,
+  allowEmptyAction: boolean,
 ): HyperlinkElementState | undefined {
   if (namespaceUri(element) !== DRAWING_NAMESPACE) return undefined;
   if (element.children.some((child) => child.type === 'text' && /\S/u.test(child.value))) {
@@ -430,7 +454,11 @@ function inspectHyperlinkElement(
   if (
     relationshipIds.length !== 1
     || relationshipIds[0]!.value.length === 0
-    || (action && action.value !== INTERNAL_SLIDE_ACTION)
+    || (
+      action
+      && action.value !== INTERNAL_SLIDE_ACTION
+      && !(allowEmptyAction && action.value === '')
+    )
   ) return undefined;
   return {
     element,

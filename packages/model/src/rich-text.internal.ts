@@ -7,8 +7,10 @@ import {
 import { ModelParseError } from './errors.js';
 import {
   normalizeHyperlink,
+  readTextRunHyperlink,
   renderShapeHyperlink,
   type NormalizedHyperlink,
+  type ShapeHyperlinkReadContext,
 } from './shape-hyperlink.internal.js';
 import type {
   CharacterBullet,
@@ -380,7 +382,11 @@ export function renderRichTextParagraphs(
     .join('');
 }
 
-export function readRichText(xml: LosslessXmlDocument, element: XmlElement): readonly RichTextParagraph[] {
+export function readRichText(
+  xml: LosslessXmlDocument,
+  element: XmlElement,
+  context: ShapeHyperlinkReadContext,
+): readonly RichTextParagraph[] {
   const textBody = directChildren(element, 'txBody')[0];
   if (!textBody) return [];
   return directChildren(textBody, 'p').map((paragraph) => {
@@ -394,7 +400,7 @@ export function readRichText(xml: LosslessXmlDocument, element: XmlElement): rea
     const spacing = readParagraphSpacing(xml, paragraph);
     const tabStops = readParagraphTabStops(xml, paragraph);
     return {
-      runs: readRuns(xml, paragraph),
+      runs: readRuns(xml, paragraph, context),
       ...(align ? { align } : {}),
       ...(rtl !== undefined ? { rtl } : {}),
       ...(marginLeft !== undefined ? { marginLeft } : {}),
@@ -1335,7 +1341,11 @@ function renderGlowColorChoice(glow: RichTextGlow, prefix: string): string {
   return `<${prefix}${tag} val="${color.value}"><${prefix}alpha val="${Math.round(glow.opacity * PERCENT_SCALE)}"/></${prefix}${tag}>`;
 }
 
-function readRuns(xml: LosslessXmlDocument, paragraph: XmlElement): RichTextRun[] {
+function readRuns(
+  xml: LosslessXmlDocument,
+  paragraph: XmlElement,
+  context: ShapeHyperlinkReadContext,
+): RichTextRun[] {
   const runs: RichTextRun[] = [];
   let pendingBreaks = 0;
   for (const child of paragraph.children) {
@@ -1349,7 +1359,7 @@ function readRuns(xml: LosslessXmlDocument, paragraph: XmlElement): RichTextRun[
       runs.push({ text: '', softBreakBefore: true });
       pendingBreaks -= 1;
     }
-    const style = readStyle(xml, child);
+    const style = readStyle(xml, child, context);
     runs.push({
       text: xml.descendants(child, 't').map((text) => xml.text(text)).join(''),
       ...(style ? { style } : {}),
@@ -1566,7 +1576,11 @@ function readIntegerAttribute(
   return Number.isSafeInteger(value) ? value : undefined;
 }
 
-function readStyle(xml: LosslessXmlDocument, run: XmlElement): RichTextRunStyle | undefined {
+function readStyle(
+  xml: LosslessXmlDocument,
+  run: XmlElement,
+  context: ShapeHyperlinkReadContext,
+): RichTextRunStyle | undefined {
   const properties = directChildren(run, 'rPr')[0];
   if (!properties) return undefined;
   const size = Number.parseInt(xml.attribute(properties, 'sz')?.value ?? '', 10);
@@ -1593,6 +1607,7 @@ function readStyle(xml: LosslessXmlDocument, run: XmlElement): RichTextRunStyle 
   const highlight = readHighlight(xml, properties);
   const outline = readOutline(xml, properties);
   const underline = readUnderline(xml, properties);
+  const hyperlink = readTextRunHyperlink(properties, context);
   const style: RichTextRunStyle = {
     ...(fontFamily !== undefined ? { fontFamily } : {}),
     ...(Number.isFinite(size) && size > 0 ? { fontSize: size / 100 } : {}),
@@ -1605,6 +1620,7 @@ function readStyle(xml: LosslessXmlDocument, run: XmlElement): RichTextRunStyle 
     ...(transparency !== undefined ? { transparency } : {}),
     ...(glow ? { glow } : {}),
     ...(highlight ? { highlight } : {}),
+    ...(hyperlink ? { hyperlink } : {}),
     ...(outline ? { outline } : {}),
     ...(underline !== undefined ? { underline } : {}),
     ...(strike !== undefined ? { strike } : {}),

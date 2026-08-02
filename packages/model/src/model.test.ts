@@ -7072,6 +7072,15 @@ describe('PresentationModel', () => {
     expect(xml.match(new RegExp(`r:id="${prompt.id}"`, 'g'))).toHaveLength(1);
     expect(xml).toContain(`r:id="${internal.id}" tooltip="" action="ppaction://hlinksldjump"`);
     expect(xml).toMatch(/u="none"[^>]*>[\s\S]*?<a:hlinkClick[^>]*action="ppaction:\/\/hlinksldjump"/);
+    expect(shape.richText[0]!.runs.map((run) => run.style?.hyperlink)).toEqual([
+      { url: 'https://outer.example/path', tooltip: 'Outer' },
+      { url: 'https://local.example/path', tooltip: 'Local' },
+      undefined,
+      { slide: targetIndex, tooltip: '' },
+      { url: 'https://local.example/path', tooltip: 'Second' },
+    ]);
+    expect(placeholder.richText[0]!.runs[0]!.style?.hyperlink)
+      .toEqual({ url: 'https://prompt.example' });
   });
 
   it('rejects invalid rich text run hyperlink creation without mutation', async () => {
