@@ -280,7 +280,7 @@ $ pptx-inspect --json package inspect output.pptx
 - 新增 pure `calculateRasterImageSizing()`，覆盖 intrinsic-aware `contain`、`cover` 与 source-pixel `crop`；frame 使用 EMU，结果和嵌套 rectangle frozen，不读取 source、不修改 package。
 - 新增 `PptxDocument.addImage(..., { sizing })`；`sizing` 与 top-level `width`/`height` 互斥，高层拒绝 direct `sourceRectangle`。Options/sizing 在异步 source I/O 前脱离 caller，placement 在 package mutation 前计算，invalid source/MIME/sizing 保持零变化。
 - 锁定 PptxGenJS 4.0.1 的 contain/cover/equal-ratio/crop 6 个 public case，最终 transform 与 direct `srcRect` integer percentages 全部精确对等；native 对 ambiguous dimensions、truthy fallback、out-of-bounds crop 与 unsafe numeric state 保持严格拒绝。
-- 后续 SVG lifecycle 已在下一节完成；rounding/transparency、alt-text 编辑、hyperlink/shadow/placeholder、单图片删除与 media GC 继续保留在后续列表。
+- 后续 SVG lifecycle 已在下一节完成；rounding/transparency、alt-text 编辑、hyperlink/shadow/advanced placeholder style、单图片删除与 media GC 继续保留在后续列表。Picture placeholder population 已在 master/layout 专项完成。
 
 ### 验证结果
 
@@ -301,7 +301,7 @@ $ pptx-inspect --json package inspect output.pptx
 - 统一 `ImageSource` / `ImageContentType` / `ImageInfo` 与 `inspectImage()`、`inspectSvgImage()`、`calculateImageSizing()`；高层 `PptxDocument.addImage()` 覆盖 path、HTTP/HTTPS、browser-relative URL、strict data URI、bytes/ArrayBuffer、Blob/File、Web stream 与 async iterable 的 SVG，支持 optional MIME assertion、AbortSignal、contain/cover/crop 和 source-rectangle edit。
 - 高层 fallback 优先级固定为 explicit signature-valid PNG、browser Canvas rasterization、built-in transparent PNG；release evidence 中所有 `.png` part 都有真实 PNG signature。同步底层 API 只复制 non-empty bytes，由调用方保证 payload 正确。需要 fallback-only client 保持完整视觉时，调用方必须显式提供高质量 PNG。
 - PptxGenJS 4.0.1 data-contain、path-cover、data-crop 3/3 public conformance case 已匹配 picture order、transform、direct `srcRect`、extension URI/namespace、relationship roles、SVG payload 与 metadata；native 不复制其 path SVG 把 SVG bytes 写入 `.png` fallback 的缺陷。
-- external SVG relationship、SVG DOM 局部编辑、script execution、external-resource fetching、任意 SVG rasterization fidelity、image rounding/transparency、alt-text 编辑、hyperlink/shadow/placeholder、单图片删除与 media GC 保留在后续列表；strict embedded media creation 已在下一节完成。
+- external SVG relationship、SVG DOM 局部编辑、script execution、external-resource fetching、任意 SVG rasterization fidelity、image rounding/transparency、alt-text 编辑、hyperlink/shadow/advanced placeholder style、单图片删除与 media GC 保留在后续列表；picture placeholder population 与 strict embedded media creation 已完成。
 
 ### 验证结果
 
@@ -356,8 +356,8 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余媒体与全功能路线
 
-- 媒体后续：online video、remote-fetch embedding、trim/bookmarks、有限重复、narration/cross-slide audio、captions/subtitles、crop/rounding/shadow/hyperlink/placeholder styles、内建转码引擎与更广泛 PowerPoint/Keynote/Google Slides 客户端认证。
-- Native timing、标准 native chart、direct slide background、slide number 与 default text color 专项均已完成。PptxGenJS 全功能对等仍未完成，后续路线从 master/layout/placeholder 开始。
+- 媒体后续：online video、remote-fetch embedding、trim/bookmarks、有限重复、narration/cross-slide audio、captions/subtitles、crop/rounding/shadow/hyperlink/advanced placeholder styles、内建转码引擎与更广泛 PowerPoint/Keynote/Google Slides 客户端认证；media placeholder population 已完成。
+- Native timing、标准 native chart、direct slide/layout/master background、slide number、default text color 与 named master/layout/placeholder 专项均已完成。PptxGenJS 全功能对等仍未完成，后续路线从 advanced text 开始。
 
 ## PptxGenJS 全功能对等：Native chart creation and semantic editing
 
@@ -383,7 +383,7 @@ $ pptx-inspect --json package inspect output.pptx
 ### 剩余图表与全功能路线
 
 - 图表后续：Office 2016 `cx:*` modern chart 创建/语义编辑、external workbook 编辑、chart animations、内建 trendline/error-bar 创建，以及更广泛 PowerPoint/Keynote/Google Slides 客户端认证。
-- Slide number 与 default text color 已完成；下一小项为 master/layout/placeholder，随后为 advanced text、advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
+- Slide number、default text color 与 master/layout/placeholder 已完成；后续顺序为 advanced text、advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
 
 ## PptxGenJS 全功能对等：Direct slide backgrounds
 
@@ -409,8 +409,8 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余背景与全功能路线
 
-- Background 后续：layout/master background 编辑、`p:bgRef` semantic editing、pattern/group fill、image crop/tile/effects 与更广泛客户端认证。
-- Slide number 与 default text color 已完成；下一小项是 master/layout/placeholder，随后为 advanced text、advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
+- Background 后续：`p:bgRef` semantic editing、pattern/group fill、image crop/tile/effects 与更广泛客户端认证；direct layout/master background 编辑已完成。
+- Slide number、default text color 与 master/layout/placeholder 已完成；后续顺序为 advanced text、advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
 
 ## PptxGenJS 全功能对等：Slide number
 
@@ -437,8 +437,8 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余页码与全功能路线
 
-- Slide number direct owner 能力已完成；declarative named-master integration、percentage position 与更广泛 PowerPoint/Keynote/Google Slides 认证并入 master/layout/placeholder 和 client 阶段。
-- Default text color 已完成；下一小项是 master/layout/placeholder，随后为 advanced text、advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
+- Slide number direct owner 与 declarative named-layout integration 已完成；percentage position 与更广泛 PowerPoint/Keynote/Google Slides 认证并入 advanced/client 阶段。
+- Default text color 与 master/layout/placeholder 已完成；后续顺序为 advanced text、advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
 
 ## PptxGenJS 全功能对等：Slide default text color
 
@@ -463,8 +463,37 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余文本与全功能路线
 
-- Slide default text color direct transient 语义已完成；table 默认颜色、master/layout/placeholder theme inheritance 与 advanced text 仍按独立专项实施。
-- 后续顺序固定为 master/layout/placeholder → advanced text → advanced table/`tableToSlides` → output/runtime helpers → peer-range full-suite audit。
+- Slide default text color direct transient 语义与 master/layout/placeholder 已完成；table 默认颜色与完整 theme text cascade 并入 advanced text/table 专项。
+- 后续顺序固定为 advanced text → advanced table/`tableToSlides` → output/runtime helpers → peer-range full-suite audit。
+
+## PptxGenJS 全功能对等：Named master/layout/placeholder
+
+状态：完成；实施与证据 15/15
+
+### 本阶段 change
+
+- `addSlide({ masterName })` 现在严格选择 presentation 中唯一 attached layout name；默认选择、section 创建、duplicate/move/delete、六格式与 unknown/duplicate 拒绝共用同一标准 layout 关系链。PptxGenJS 的 `masterName` 拼写保留，但文档明确它选择 layout。
+- 新增 stable live `SlideMasterModel` / `SlideLayoutModel`；`document.masters` / `layouts` 可读写 direct background 和 slide number，列出 shapes/placeholders，并添加 placeholder、text/rich text、shape、raster/SVG image 和 chart。Raw `masterLayoutTheme` create/copy/delete/relink 与 semantic wrapper cache 保持同步，deleted handle 与 URI reuse 不泄漏旧 identity。
+- Layout/master background 共用 owner-aware direct read/edit/image lifecycle；none、sRGB/theme solid+transparency、linear/path gradient、PNG/JPEG/GIF image 支持 exact no-op、relationship isolation、clone-on-write、GC 和 rollback。`p:bgRef`、pattern/group fill 与 image crop/tile/effects 继续无损保留。
+- `PLACEHOLDER_TYPES` / `PlaceholderType` / `PlaceholderIdentity` / `PlaceholderSelector` / `AddPlaceholderOptions` 公开 title、body、pic、chart、tbl、media 六个 domain。Named slide 创建仅物化 empty owner，layout prompt 与普通对象保留在继承层；name 或 type+index 可填充 text/shape、image/SVG、chart、table 与 audio/video，并严格检查 domain、歧义、重复 owner 和 geometry ownership。
+- `defineSlideMaster()` 在真实 parent master 下异步创建 named layout，支持 direct background、transient scalar/TRBL margin、slide number，以及 ordered rect/line/plain-rich text/placeholder/image/chart objects。全部 source 与 chart workbook 先 prepare，再在一个同步 OPC transaction 中 commit，任一失败都不留部分 parts、relationships、XML、cache 或 transient state。
+- `replaceSlideMaster()` 保留 target part URI、wrapper identity、master layout ID 和 incoming slide relationships，整体替换 owned background/content/relationships/slide number/margin，并支持 parent relink 与 canonical exact no-op。`deleteSlideMaster()` 对已使用 layout 要求 same-document replacement，retarget 后再按 graph incoming 回收 owned dependencies。
+- PptxGenJS 4.0.1 public-output conformance 覆盖 default/multiple names、backgrounds、margins、slide number、六 object kinds、九 chart types/combo、六 placeholder types、empty owner 与六 domain population。新增 duplicate-layout、invalid relationship、ambiguous identity、missing owner 与 domain mismatch diagnostics；native 不复制 PptxGenJS fixed ID、truthy-zero、random cache、disabled master 或 delayed write mutation 缺陷。
+
+### 验证结果
+
+- Focused master/layout/placeholder suite 为 45 passed / 434 skipped；最终全量 Vitest 为 1256 passed / 1 skipped，独立 performance 为 1/1（578ms），TypeScript strict typecheck、全仓 build 与 package build 通过。
+- Actual npm tarball 为 57 files / 54 dist files，installed Node、TypeScript consumer、CLI 与真实 Chrome 均返回 `masterLayouts: true`。两次 clean build 的 sorted dist-hash manifest 与 tarball byte-identical，SHA-256 分别为 `0a8e958ccde379ae071a7388dc4c29278ac5033a8641976324fcd5820339ad27` 和 `8362a3af38a4a7e8316a7e49e8cb3f4fb405753bd20cc935db609441819ca5e8`。
+- Real Chrome 精确返回 stable wrapper identity、`DEFAULT` / `BROWSER-MASTER-LAYOUT` names、master solid/layout image background、TRBL margin、六 layout/slide placeholder names+identities+kinds、两个 selected layout targets、background/image/media payload hashes、bar chart definition、reopen margin `null` 和 0 validation/console/page/network errors。
+- Native gallery 为 2 slides / 32 parts / 29 relationships / 2 layouts / 1 master，含 3 PNG、2 charts、2 workbooks、1 audio 且零 orphan，PowerPoint 2010 profile 为 0 errors / 0 warnings。PptxGenJS control 为 2 slides / 36 parts / 34 relationships。CLI inspect/validate/slides/part-read/diff 均完成，native 两页 shape counts 为 7/0。
+- Native/control source 与 LibreOffice 回存件共 8 页均以 2400×1350、180 DPI 渲染并逐页检查；全幅背景的 minimum non-white margin 按预期为 0px。Fixture 的 background/image 为 1×1 黑色 PNG，native 第二页按测试意图重定向 blank default layout，因此黑/空白视觉不是继承丢失。
+- LibreOffice 26.8 保留 2 slides / 2 layouts / 1 master，但改写 placeholder identities 和 slide-number caches，移除 audio 与两个 embedded workbooks，并重建 chart styles/colors；native 回存件为 28 parts / 25 relationships，实际 diagnostics 为 1 error / 3 warnings。这是 client degradation 记录，不声明完整 round-trip。
+- 本机 PowerPoint 16.112 对 native/control 均返回同一 `-9074`，未产生 saved PPTX 或 PDF；本轮不声明 PowerPoint 往返通过。
+
+### 剩余 master/layout 与全功能路线
+
+- Named selection、semantic wrapper、direct background、slide-number integration、declarative definition、六类 placeholder population 和 replace/delete lifecycle 已完成。仍未完成完整 theme text cascade、percentage coordinates、advanced text/table/media/chart styles 与更广泛客户端认证。
+- 后续顺序固定为 advanced text → advanced table/`tableToSlides` → output/runtime helpers → peer-range full-suite audit。
 
 ## 0.1.0 初始验收
 

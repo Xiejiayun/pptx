@@ -267,7 +267,7 @@ Three PptxGenJS 4.0.1 public conformance cases cover data-contain, path-cover, a
 
 The actual tarball passes Node, browser, declaration, and CLI SVG smoke, and two clean builds produce identical SHA-256 manifests for all 38 dist files. The five-slide gallery contains 13 shapes, eight SVG pictures, seven SVG parts, seven PNG fallbacks, and 16 image relationships. Source and LibreOffice round-trip packages strictly reopen and validate against PowerPoint 2010 with 0 errors and 0 warnings. LibreOffice preserves shape order, names, alt text, SVG hashes, relationship roles, and all 7+7 targets, while normalizing `image/svg+xml` to `image/svg`; maximum position/size quantization is 360 EMU and maximum `srcRect` quantization is 0.003%. After save it may render the PNG fallback, so fallback fidelity remains observable client behavior.
 
-External SVG relationships, SVG DOM-level editing, image rounding/transparency, alt-text editing, hyperlinks/shadows/placeholders, and public per-image deletion/media garbage collection remain pending. Embedded media creation is documented next.
+External SVG relationships, SVG DOM-level editing, image rounding/transparency, alt-text editing, hyperlinks/shadows, advanced placeholder styling, and public per-image deletion/media garbage collection remain pending. Embedded media creation is documented next.
 
 ## Create embedded audio and video
 
@@ -335,7 +335,7 @@ The actual 45-file npm tarball passes Node, real-Chrome browser, declaration, an
 
 LibreOffice 26.8 preserves the nine-slide order and text but removes every media object, poster, media relationship, and timing branch when it saves the gallery; the package still strictly reopens and validates with 0 errors and 0 warnings. This is a documented client degradation, not a native round-trip guarantee. Local PowerPoint 16.112 automation returned the same `-9074` for the gallery, the LibreOffice output, and a minimal control file, so no PowerPoint round-trip pass is claimed from this environment.
 
-Trim/bookmarks, finite repeats, narration/cross-slide audio, captions/subtitles, online video, remote-fetch embedding, crop/rounding/shadow/hyperlink/placeholder styles, a built-in transcoding engine, and broad PowerPoint/Keynote/Google Slides certification remain pending.
+Trim/bookmarks, finite repeats, narration/cross-slide audio, captions/subtitles, online video, remote-fetch embedding, crop/rounding/shadow/hyperlink and advanced placeholder styles, a built-in transcoding engine, and broad PowerPoint/Keynote/Google Slides certification remain pending.
 
 ## Create and semantically edit native charts
 
@@ -396,7 +396,7 @@ All nine PptxGenJS 4.0.1 public chart types plus a bar+line primary/secondary co
 
 LibreOffice 26.8 renders the eight 2D types and the combination; `bar3D` is title-only for both the native gallery and an independent PptxGenJS control. On save, LibreOffice retains every chart object's group types and cached data but removes embedded workbooks and rewrites formulas to client placeholders. The reader treats those charts as editable `cache-only` state with `CHART_WORKBOOK_MISSING` warnings, and the first semantic replacement recreates a synchronized XLSX. Local PowerPoint 16.112 automation returned the same `-9074` for the gallery and independent control, so this environment does not establish a PowerPoint round-trip pass.
 
-Office 2016 `cx:*` chart creation/semantic editing, external-workbook editing, chart animations, built-in trendline/error-bar creation, and broad Keynote/Google Slides certification remain pending. The advanced-charts plugin continues to cover modern inspection, trendlines, error bars, and explicit fallback. Slide backgrounds, slide numbers, and default text color are complete; the next PptxGenJS parity slice is master/layout/placeholder.
+Office 2016 `cx:*` chart creation/semantic editing, external-workbook editing, chart animations, built-in trendline/error-bar creation, and broad Keynote/Google Slides certification remain pending. The advanced-charts plugin continues to cover modern inspection, trendlines, error bars, and explicit fallback. Slide backgrounds, slide numbers, default text color, and master/layout/placeholder support are complete; the next PptxGenJS parity slice is advanced text.
 
 ## Create and edit slide backgrounds
 
@@ -419,7 +419,7 @@ backgroundSlide.background = undefined;        // remove direct p:bg and inherit
 
 `SlideModel.background` supports direct `p:cSld/p:bg/p:bgPr` none, sRGB/theme solid, linear/path gradient, and PNG/JPEG/GIF image state. Reads are strict and non-repairing; returned colors, stops, rectangles, and image bytes are detached. Equal assignments are exact no-ops. Image backgrounds own an internal image relationship. Duplicated slides initially share its target, the first different write uses clone-on-write, and replacement, clear, or slide deletion collects only media parts with no remaining package-graph incoming reference.
 
-High-level `setSlideBackgroundImage()` accepts the raster loader's Node path, HTTP/HTTPS or browser-relative URL, strict data URI, bytes/ArrayBuffer, Blob/File, Web stream, and async iterable sources. Source resolution, signature inspection, and an optional MIME assertion complete before the synchronous transaction. `undefined` restores inheritance; `{ kind: 'none' }` preserves explicit no-fill intent. Layout/master background creation, `p:bgRef`, pattern/group fill, and image crop/tile/effects are outside this slice and remain byte-preserved when unrelated content is edited.
+High-level `setSlideBackgroundImage()` accepts the raster loader's Node path, HTTP/HTTPS or browser-relative URL, strict data URI, bytes/ArrayBuffer, Blob/File, Web stream, and async iterable sources. Source resolution, signature inspection, and an optional MIME assertion complete before the synchronous transaction. `undefined` restores inheritance; `{ kind: 'none' }` preserves explicit no-fill intent. Layout/master semantic wrappers now read and write the same supported direct background forms. `p:bgRef`, pattern/group fill, and image crop/tile/effects remain outside this API and stay byte-preserved during unrelated edits.
 
 Valid PptxGenJS 4.0.1 solid, transparency, and PNG backgrounds reach the same final supported structure. Its `{ type: 'none' }` writes no direct background, while `{ type: 'none', color }` emits an empty `p:bgPr`; native intentionally corrects that defect and always writes legal `a:noFill` for explicit none. The actual npm tarball passes Node, real-Chrome, declaration, and installed-CLI smoke with `slideBackgrounds: true`. Two clean builds produce an identical SHA-256 manifest for all 48 dist files. The 11-slide native gallery contains 41 parts, 39 relationships, and three background media parts; PowerPoint 2010 validation is 0 errors / 0 warnings. All 11 native and seven PptxGenJS control slides render without overflow and were reviewed individually.
 
@@ -488,6 +488,50 @@ slide.color = undefined;
 There is no legal direct slide-level default-text-color field in OOXML, so the transient default itself is never serialized. Each inherited color is materialized as standard run-level `a:solidFill` when the run is created. After write and reopen, the materialized colors remain but `slide.color === undefined`. The behavior is covered across `pptx/pptm/potx/potm/ppsx/ppsm`, valid PptxGenJS 4.0.1 output, Node, real Chrome, TypeScript declarations, and the installed CLI.
 
 The focused Default Color run reports 10 passed / 409 skipped; full Vitest reports 1205 passed / 1 skipped, the separate performance gate is 1/1 at 998ms, and typecheck/build pass. The actual tarball has 54 files, 51 under `dist`, manifest SHA-256 `467d87ffea6994355c357dbad3b1ea18afa8538b1bacb85b6de43de90ad16829`, and tarball SHA-256 `6812000a83247fdf2d63eddf81ec6ffb43c721d478e4cdcbbf4c4a3ce2b65ad1`. Native/PptxGenJS galleries contain 11/9 slides, 38/52 parts, and 35/58 relationships; both validate 0/0 under the PowerPoint 2010 profile. All 20 pages were inspected at 180 DPI with zero overflow and 106px minimum margins. LibreOffice 26.8 retains slide/text order, custom sRGB, theme, override, and 40% transparency, normalizing only native `tx1` to equivalent `dk1`; its saved package still validates 0/0. Local PowerPoint 16.112 returned `-9074` for both native and control files without loading or producing output, so no PowerPoint round-trip pass is claimed.
+
+## Create, select, and edit masters, layouts, and placeholders
+
+```ts
+import { inches, PptxDocument } from '@jiayunxie/pptx';
+
+const document = PptxDocument.create({ slideSize: 'wide' });
+const layout = await document.defineSlideMaster({
+  title: 'BRAND',
+  background: {
+    kind: 'solid',
+    color: { kind: 'scheme', value: 'accent1' },
+  },
+  margin: [inches(0.5), inches(0.5), inches(0.5), inches(0.5)],
+  objects: [{
+    kind: 'placeholder',
+    text: 'Presentation title',
+    options: {
+      name: 'title_box',
+      type: 'title',
+      x: inches(1),
+      y: inches(1),
+      width: inches(8),
+      height: inches(1),
+    },
+  }],
+});
+
+const slide = document.addSlide({ masterName: layout.name });
+slide.addText('Quarterly results', { placeholder: 'title_box' });
+await document.writeFile('branded.pptx');
+```
+
+The PptxGenJS spelling `masterName` is retained, but it strictly selects one unique `SlideLayoutModel.name`. `defineSlideMaster()` creates a named layout under a real parent master and supports a direct background, transient margin, slide number, and ordered rect, line, plain/rich text, placeholder, image, and chart objects. Ordinary objects remain on the layout and are inherited. Placeholder prompts also remain on the layout; slide creation materializes only empty owners that can be filled.
+
+`PLACEHOLDER_TYPES` is the frozen `title`, `body`, `pic`, `chart`, `tbl`, and `media` tuple. Creator `placeholder` options select by the unique layout name or `{ type, index }` identity. Text/rich text, shapes, images/SVG, charts, tables, and audio/video fill their matching domains using inherited geometry. Duplicate names or identities, a domain mismatch, an unknown `masterName`, and an already-filled owner reject before unsafe mutation.
+
+`document.masters` and `document.layouts` return stable live `SlideMasterModel` and `SlideLayoutModel` wrappers. Both expose direct background and slide-number editing, shape/placeholder collections, and placeholder, text/rich-text, shape, raster/SVG-image, and chart creation. `replaceSlideMaster()` atomically whole-replaces a layout definition while retaining its part URI, wrapper identity, and incoming slide relationships. `deleteSlideMaster()` requires a same-document replacement for a used layout, retargets slides first, and then collects only unreferenced owned dependencies. Background, content, and placeholder relationships persist. Layout `margin` is runtime-only state for later `tableToSlides` work and reopens as `undefined`.
+
+The focused master/layout/placeholder run reports 45 passed / 434 skipped. Full Vitest reports 1256 passed / 1 skipped, the separate performance gate is 1/1 at 578ms, and typecheck, build, and package build pass. The actual tarball contains 57 files and 54 `dist` files. Two clean builds have byte-identical sorted dist-hash manifests and tarballs, with SHA-256 `0a8e958ccde379ae071a7388dc4c29278ac5033a8641976324fcd5820339ad27` and `8362a3af38a4a7e8316a7e49e8cb3f4fb405753bd20cc935db609441819ca5e8`. Packed Node, TypeScript, CLI, and real-Chrome checks all report `masterLayouts: true`; Chrome exactly reopens all six placeholder domains, master/layout backgrounds, selected relationship targets, payload hashes, and the chart definition with zero validation, console, page, or network errors.
+
+The two-slide native gallery contains 32 parts, 29 relationships, two layouts, and one master and validates with 0 errors / 0 warnings under the PowerPoint 2010 profile. The two-slide PptxGenJS control contains 36 parts and 34 relationships. Eight source and LibreOffice-round-trip pages render at 2400×1350 and 180 DPI and were inspected individually; their full-bleed backgrounds give the expected 0px minimum non-white margin. The fixtures deliberately use 1×1 black PNG background/image payloads, and the second native slide is deliberately retargeted to the blank default layout, so black/blank output is not evidence of lost inheritance. LibreOffice 26.8 retains two slides, two layouts, and one master, but rewrites placeholder identities and slide-number caches and removes audio plus embedded chart workbooks. This is a degradation record, not a complete round-trip pass. PowerPoint 16.112 returned the same `-9074` for native and control inputs and produced no PPTX/PDF output, so no PowerPoint round-trip pass is claimed.
+
+Full theme text cascade, percentage coordinates, advanced text/table/media/chart styling, and broader client certification remain pending. The remaining sequence is advanced text → advanced table/`tableToSlides` → output/runtime helpers → peer-range full-suite audit.
 
 `PRESET_SHAPE_TYPES` is the frozen discovery catalog for all 178 canonical preset geometries accepted by `SlideModel.addShape()`. `AddShapeOptions` accepts `name`, strict `adjustments`, strict `fill`, strict `line`, strict `arrows`, strict `shadow`, strict `hyperlink`, and native EMU/OOXML-angle transform fields; use `inches()` and `degrees()` for ergonomic conversion. Omitted geometry starts at x/y/width/height = 1 inch with zero rotation and no flips; omitted fill creates direct no-fill, and omitted line keeps the canonical empty line container. Inputs are strict, descriptor-safe, detached before mutation, and reject unknown fields. The catalog uses the valid OOXML `foldedCorner`; PptxGenJS 4.0.1's invalid `folderCorner` token and runtime-only `custGeom` value are not accepted as presets.
 

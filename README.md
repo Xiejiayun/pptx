@@ -124,7 +124,7 @@ PptxGenJS 4.0.1 的 data-contain、path-cover、data-crop 3 个公开 case 已�
 
 实际 tarball 的 Node/browser/declaration/CLI smoke 通过，两次 clean build 的 38 个 dist 文件 SHA-256 完全一致。5 页 gallery 含 13 个 shapes、8 张 SVG picture、7 个 SVG parts、7 个 PNG fallbacks 和 16 条 image relationships；原件和 LibreOffice 回存件均 strict reopen，PowerPoint 2010 validation 为 0 errors / 0 warnings。LibreOffice 保留 shape order、名称、alt text、SVG hashes、关系角色和 7+7 targets，将 MIME 从 `image/svg+xml` 规范化为 `image/svg`；最大 position/size 量化 360 EMU、最大 `srcRect` 量化 0.003%，flip/rotation 采用等价规范化。它回存后可能选择 PNG fallback 渲染，所以旧客户端视觉仍以 fallback 质量为准。
 
-当前仍未提供 external SVG relationship、SVG DOM 局部编辑、rounding/transparency、alt-text 编辑、图片 hyperlink/shadow/placeholder，以及单图片删除与 media GC。嵌入媒体创建能力见下一节。
+当前仍未提供 external SVG relationship、SVG DOM 局部编辑、rounding/transparency、alt-text 编辑、图片 hyperlink/shadow 与高级 placeholder 样式，以及单图片删除与 media GC。嵌入媒体创建能力见下一节。
 
 ## 创建嵌入式音频与视频
 
@@ -194,7 +194,7 @@ PptxGenJS 4.0.1 的 4/4 个公开有效 data/path、audio/video、cover、`extn`
 
 LibreOffice 26.8 当前会在 save/reopen 时保留 9 页顺序与文案，但删除全部媒体、poster、media relationships 和 timing；回存件仍可 strict reopen 且为 0 errors / 0 warnings。这是已记录的客户端降级，不是 native 写出或 round-trip 保留承诺。本机 PowerPoint 16.112 自动打开对 gallery、LibreOffice 回存件与最小控制文件都返回同一 `-9074`，因此没有把该环境的 PowerPoint 往返误记为通过。
 
-媒体 timing 的下一层仍未支持 trim/bookmarks、有限重复、narration/cross-slide audio、captions/subtitles、online video、remote-fetch embedding、crop/rounding/shadow/hyperlink/placeholder styles、内建转码引擎与更广泛 PowerPoint/Keynote/Google Slides 认证。
+媒体 timing 的下一层仍未支持 trim/bookmarks、有限重复、narration/cross-slide audio、captions/subtitles、online video、remote-fetch embedding、crop/rounding/shadow/hyperlink 与高级 placeholder 样式、内建转码引擎与更广泛 PowerPoint/Keynote/Google Slides 认证。
 
 ## 创建和语义编辑原生图表
 
@@ -255,7 +255,7 @@ PptxGenJS 4.0.1 的九种公开图表和 bar+line 主/次轴组合已通过真�
 
 LibreOffice 26.8 能显示八种 2D 图表及组合图；`bar3D` 在 native 与独立 PptxGenJS 控制文件中都只显示标题。保存时 LibreOffice 保留全部 10 个图表的类型和 cache 数据，但移除内嵌 workbook 并把公式改成客户端占位符；reader 将其识别为可编辑的 `cache-only` 状态并报告 `CHART_WORKBOOK_MISSING` warning，首次语义替换会重新生成同步 XLSX。本机 PowerPoint 16.112 对 gallery 与独立控制文件自动打开均返回同一 `-9074`，本轮不声明 PowerPoint 往返通过。
 
-仍未支持 Office 2016 `cx:*` modern chart 创建/语义编辑、external workbook 编辑、chart animations、内建趋势线/error bar 创建以及更广泛 Keynote/Google Slides 认证；高级插件继续处理 modern inspection、trendline、error bar 与显式 fallback。Slide background、slide number 与 default text color 均已完成；PptxGenJS 全功能对等的下一项是 master/layout/placeholder。
+仍未支持 Office 2016 `cx:*` modern chart 创建/语义编辑、external workbook 编辑、chart animations、内建趋势线/error bar 创建以及更广泛 Keynote/Google Slides 认证；高级插件继续处理 modern inspection、trendline、error bar 与显式 fallback。Slide background、slide number、default text color 与 master/layout/placeholder 均已完成；PptxGenJS 全功能对等的下一项是 advanced text。
 
 ## 创建和编辑页面背景
 
@@ -278,7 +278,7 @@ slide.background = undefined;        // 删除 direct p:bg，恢复 layout/maste
 
 `SlideModel.background` 支持 direct `p:cSld/p:bg/p:bgPr` 的 `none`、sRGB/theme solid、linear/path gradient 和 PNG/JPEG/GIF image。读取严格且不修复原包；返回的颜色、stops、rectangles 与图片 bytes 都会脱离 caller。相同值赋值是 exact no-op。图片背景拥有 internal image relationship；duplicate 初始共享 target，首次不同写入 clone-on-write，替换、清除和删除页面只回收 package graph 中已无 incoming reference 的媒体部件。
 
-高层 `setSlideBackgroundImage()` 接受与 raster loader 相同的 Node path、HTTP/HTTPS 或 browser-relative URL、strict data URI、bytes/ArrayBuffer、Blob/File、Web stream 和 async iterable，并在 source、signature 与可选 MIME assertion 全部通过后才进入同步 transaction。`undefined` 与 `{ kind: 'none' }` 不等价：前者恢复继承，后者保留显式无填充意图。当前不创建 layout/master background、`p:bgRef`、pattern/group fill，也不提供图片 crop/tile/effects；这些不受支持状态在无关编辑中保持原字节。
+高层 `setSlideBackgroundImage()` 接受与 raster loader 相同的 Node path、HTTP/HTTPS 或 browser-relative URL、strict data URI、bytes/ArrayBuffer、Blob/File、Web stream 和 async iterable，并在 source、signature 与可选 MIME assertion 全部通过后才进入同步 transaction。`undefined` 与 `{ kind: 'none' }` 不等价：前者恢复继承，后者保留显式无填充意图。Layout/master 现在也可通过语义 wrapper 读写相同的 direct background；仍未提供 `p:bgRef`、pattern/group fill 与图片 crop/tile/effects，这些状态在无关编辑中保持原字节。
 
 PptxGenJS 4.0.1 的合法 solid、transparency 与 PNG background 最终结构已对等。它的 `{ type: 'none' }` 实际不写 direct background，而 `{ type: 'none', color }` 会产生空 `p:bgPr`；native 不复制这个缺陷，显式 none 始终写合法 `a:noFill`。实际 npm tarball 的 Node、real-Chrome、declaration 与 installed CLI smoke 均报告 `slideBackgrounds: true`。两次 clean build 的 48 个 dist 文件 SHA-256 manifest 完全一致；11 页 native gallery 含 41 parts、39 relationships 和 3 个背景媒体部件，PowerPoint 2010 profile 为 0 errors / 0 warnings，全部 11 页与 7 页 PptxGenJS 对照均已逐页渲染检查且 overflow 为 0。
 
@@ -347,6 +347,50 @@ slide.color = undefined;
 OOXML 没有合法的 direct slide-level default text color 字段，因此 transient default 本身不序列化；写出时颜色已物化到每个 run 的标准 `a:solidFill`。重开后文字颜色与显示保持，但 `slide.color === undefined`。该语义覆盖 `pptx/pptm/potx/potm/ppsx/ppsm`，并通过 PptxGenJS 4.0.1 合法输出、Node、真实 Chrome、TypeScript declarations 与 installed CLI 验证。
 
 Default Color 定向验证为 10 passed / 409 skipped，全量 Vitest 为 1205 passed / 1 skipped，独立 performance gate 为 1/1（998ms），typecheck 与 build 通过。Actual tarball 含 54 个文件、51 个 `dist` 文件，dist manifest SHA-256 为 `467d87ffea6994355c357dbad3b1ea18afa8538b1bacb85b6de43de90ad16829`，tarball SHA-256 为 `6812000a83247fdf2d63eddf81ec6ffb43c721d478e4cdcbbf4c4a3ce2b65ad1`。Native/PptxGenJS gallery 分别为 11/9 slides、38/52 parts、35/58 relationships，PowerPoint 2010 profile 均为 0 errors / 0 warnings；20 页 180-DPI 渲染全部逐页检查，overflow 为 0，最小边距均为 106px。LibreOffice 26.8 回存保留页序、文字顺序、自定义 sRGB/theme/override/40% transparency，仅将 native `tx1` 规范化为等价 `dk1`；回存件仍为 0/0。本机 PowerPoint 16.112 对 native/control 都返回 `-9074`，未加载 presentation 也未产生输出，因此不声明 PowerPoint 往返通过。
+
+## 创建、选择和编辑 master/layout/placeholder
+
+```ts
+import { inches, PptxDocument } from '@jiayunxie/pptx';
+
+const document = PptxDocument.create({ slideSize: 'wide' });
+const layout = await document.defineSlideMaster({
+  title: 'BRAND',
+  background: {
+    kind: 'solid',
+    color: { kind: 'scheme', value: 'accent1' },
+  },
+  margin: [inches(0.5), inches(0.5), inches(0.5), inches(0.5)],
+  objects: [{
+    kind: 'placeholder',
+    text: 'Presentation title',
+    options: {
+      name: 'title_box',
+      type: 'title',
+      x: inches(1),
+      y: inches(1),
+      width: inches(8),
+      height: inches(1),
+    },
+  }],
+});
+
+const slide = document.addSlide({ masterName: layout.name });
+slide.addText('Quarterly results', { placeholder: 'title_box' });
+await document.writeFile('branded.pptx');
+```
+
+PptxGenJS 的 `masterName` 拼写在这里保持兼容，但它严格选择的是唯一 `SlideLayoutModel.name`。`defineSlideMaster()` 在真实 parent master 下创建 named layout，支持 direct background、transient margin、slide number，以及按顺序的 rect、line、plain/rich text、placeholder、image 和 chart objects。普通 objects 留在 layout 中由 slide 继承；placeholder prompt 也留在 layout，新页仅物化可填充的 owner。
+
+`PLACEHOLDER_TYPES` 固定为 `title` / `body` / `pic` / `chart` / `tbl` / `media`。创建方法中的 `placeholder` 可按 layout 内唯一 name，或 `{ type, index }` identity 定位；text/rich text、shape、image/SVG、chart、table 和 audio/video 会在原 owner 的继承 geometry 上填充对应 domain。重复名称、重复 identity、错误 domain、未知 `masterName` 和已填充 owner 都会在危险 mutation 前拒绝。
+
+`document.masters` / `layouts` 返回 stable live `SlideMasterModel` / `SlideLayoutModel`，可读写 background、slide number，列出 shapes/placeholders，并添加 placeholder、text/rich text、shape、raster/SVG image 和 chart。`replaceSlideMaster()` 原子整体替换 layout definition，保留 layout part URI、wrapper identity 和 incoming slide relationships；`deleteSlideMaster()` 在 layout 被使用时要求同文档 replacement，并先重定向 slides 再安全回收 owned dependencies。Background、content 与 placeholder relationships 会持久化；layout `margin` 只是供后续 `tableToSlides` 使用的 runtime state，重开后为 `undefined`。
+
+定向 master/layout/placeholder suite 为 45 passed / 434 skipped；全量 Vitest 为 1256 passed / 1 skipped，独立 performance gate 为 1/1（578ms），typecheck、build 与 package build 通过。Actual tarball 含 57 个文件、54 个 `dist` 文件；两次 clean build 的 sorted dist-hash manifest 与 tarball 逐字节相同，SHA-256 分别为 `0a8e958ccde379ae071a7388dc4c29278ac5033a8641976324fcd5820339ad27` 和 `8362a3af38a4a7e8316a7e49e8cb3f4fb405753bd20cc935db609441819ca5e8`。Packed Node、TypeScript、CLI 与真实 Chrome 均报告 `masterLayouts: true`；Chrome 精确重开六类 placeholder、master/layout background、关系 target、payload hash 和 chart definition，validation/console/page/network errors 均为 0。
+
+2 页 native gallery 含 32 parts / 29 relationships / 2 layouts / 1 master，PowerPoint 2010 profile 为 0 errors / 0 warnings；2 页 PptxGenJS control 为 36 parts / 34 relationships。原件与 LibreOffice 回存件共 8 页均以 2400×1350、180 DPI 渲染并逐页检查；全幅背景使 minimum non-white margin 按预期为 0px。Fixture 的 background 和 image 是 1×1 黑色 PNG，native 第二页按测试意图重定向空白 default layout，黑/空白输出不代表丢失继承。LibreOffice 26.8 保留两页、两个 layouts 和一个 master，但会改写 placeholder identity/slide-number cache，并移除 audio 与内嵌 chart workbooks；这是降级记录，不声明完整 round-trip。PowerPoint 16.112 对 native 与 control 均返回 `-9074` 且没有产生 PPTX/PDF，因此不声明 PowerPoint 往返通过。
+
+尚未实现完整 theme text cascade、percentage coordinates、高级 text/table/media/chart 样式和更广泛客户端认证。后续顺序为 advanced text → advanced table/`tableToSlides` → output/runtime helpers → peer-range full-suite audit。
 
 ## 创建和编辑预设形状、调整值与样式
 
