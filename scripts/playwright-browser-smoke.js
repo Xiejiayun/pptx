@@ -61,6 +61,28 @@ async (page) => {
           .filter(({ severity }) => severity === 'error').length === 0
         && reopenedLayoutDocument.diagnostics
           .filter(({ severity }) => severity === 'error').length === 0;
+      const horizontalAlignmentValues = [...api.TEXT_ALIGNMENTS];
+      const horizontalAlignmentDocument = api.PptxDocument.create();
+      const horizontalAlignmentSlide = horizontalAlignmentDocument.addSlide();
+      horizontalAlignmentValues.forEach((alignment) => {
+        horizontalAlignmentSlide.addText(alignment, { align: alignment });
+      });
+      const reopenedHorizontalAlignmentDocument = await api.PptxDocument.open(
+        await horizontalAlignmentDocument.writeBlob(),
+      );
+      const horizontalAlignmentState = {
+        values: horizontalAlignmentValues,
+        reopened: reopenedHorizontalAlignmentDocument.slides[0].shapes
+          .map(({ richText }) => richText[0]?.align),
+        frozen: Object.isFrozen(api.TEXT_ALIGNMENTS),
+      };
+      const horizontalAlignments = JSON.stringify(horizontalAlignmentState) === JSON.stringify({
+        values: ['left', 'center', 'right', 'justify'],
+        reopened: ['left', 'center', 'right', 'justify'],
+        frozen: true,
+      })
+        && reopenedHorizontalAlignmentDocument.diagnostics
+          .filter(({ severity }) => severity === 'error').length === 0;
       const fromBlob = await api.PptxDocument.open(new Blob([bytes.buffer]));
       const stream = new ReadableStream({
         start(controller) {
@@ -2081,6 +2103,8 @@ async (page) => {
         presentationVersionState,
         presentationLayouts,
         presentationLayoutState,
+        horizontalAlignments,
+        horizontalAlignmentState,
         format: reopened.format,
         title: reopened.slides[0].title.text,
         mime: output.type,
@@ -2186,6 +2210,12 @@ async (page) => {
       custom: { name: 'custom', width: 10_698_480, height: 7_589_520 },
       edited: { name: 'custom', width: 12_192_000, height: 6_858_000 },
       reopened: { name: 'custom', width: 12_192_000, height: 6_858_000 },
+    },
+    horizontalAlignments: true,
+    horizontalAlignmentState: {
+      values: ['left', 'center', 'right', 'justify'],
+      reopened: ['left', 'center', 'right', 'justify'],
+      frozen: true,
     },
     format: 'pptx',
     title: 'Browser updated',
