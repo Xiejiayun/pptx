@@ -779,6 +779,170 @@ async (page) => {
         textShapeHyperlinkState.sharedIds.every(Boolean) &&
         textShapeHyperlinkState.internalActions &&
         textShapeHyperlinkState.validationErrors === 0;
+      const richTextRunHyperlinkDocument = api.PptxDocument.create();
+      const richTextRunHyperlinkSource = richTextRunHyperlinkDocument.addSlide();
+      const richTextRunHyperlinkTarget = richTextRunHyperlinkDocument.addSlide();
+      const richTextRunHyperlinkShape = richTextRunHyperlinkSource.addRichText([{
+        runs: [
+          { text: 'Browser inherited' },
+          {
+            text: ' browser local one',
+            style: {
+              hyperlink: { url: 'https://browser-run.example', tooltip: 'One' },
+            },
+          },
+          {
+            text: ' browser local two',
+            style: {
+              hyperlink: { url: 'https://browser-run.example', tooltip: 'Two' },
+            },
+          },
+          { text: ' browser suppressed', style: { hyperlink: false } },
+          {
+            text: ' browser target',
+            style: { hyperlink: { slide: 2, tooltip: '' }, underline: false },
+          },
+          { text: ' browser self', style: { hyperlink: { slide: 1 } } },
+        ],
+      }], {
+        name: 'browser_run_hyperlinks',
+        hyperlink: { url: 'https://browser-outer-run.example', tooltip: 'Outer' },
+      });
+      const browserRunHyperlinkValues = (shape) => shape.richText[0].runs.map(
+        (run) => run.style?.hyperlink,
+      );
+      const browserRunHyperlinkShapeXml = (document, owner, shape) => {
+        const xml = new TextDecoder().decode(
+          document.opcPackage.requirePart(owner.partUri).bytes,
+        );
+        const idOffset = xml.indexOf('<p:cNvPr id="' + shape.id + '"');
+        const shapeStart = xml.lastIndexOf('<p:sp', idOffset);
+        const shapeEnd = xml.indexOf('</p:sp>', idOffset);
+        return xml.slice(shapeStart, shapeEnd + '</p:sp>'.length);
+      };
+      const browserRunHyperlinkClickIds = (xml) => xml.split('<a:hlinkClick').slice(1).map(
+        (fragment) => fragment.split('r:id="')[1]?.split('"')[0],
+      );
+      const richTextRunHyperlinkInitial = browserRunHyperlinkValues(
+        richTextRunHyperlinkShape,
+      );
+      const richTextRunHyperlinkInitialXml = browserRunHyperlinkShapeXml(
+        richTextRunHyperlinkDocument,
+        richTextRunHyperlinkSource,
+        richTextRunHyperlinkShape,
+      );
+      const richTextRunHyperlinkInitialIds = browserRunHyperlinkClickIds(
+        richTextRunHyperlinkInitialXml,
+      );
+      const richTextRunHyperlinkInitialRelationships = richTextRunHyperlinkInitialIds.map(
+        (id) => richTextRunHyperlinkSource.relationships.find(
+          (relationship) => relationship.id === id,
+        ),
+      );
+      const richTextRunHyperlinkTargetTextOffset = richTextRunHyperlinkInitialXml.indexOf(
+        '> browser target</a:t>',
+      );
+      const richTextRunHyperlinkTargetRunStart = richTextRunHyperlinkInitialXml.lastIndexOf(
+        '<a:r>',
+        richTextRunHyperlinkTargetTextOffset,
+      );
+      const richTextRunHyperlinkTargetRunXml = richTextRunHyperlinkInitialXml.slice(
+        richTextRunHyperlinkTargetRunStart,
+        richTextRunHyperlinkTargetTextOffset,
+      );
+      const richTextRunHyperlinkRelationshipIndependence =
+        richTextRunHyperlinkInitialIds.length === 6
+        && new Set(richTextRunHyperlinkInitialIds).size === 5
+        && richTextRunHyperlinkInitialIds[0] === richTextRunHyperlinkInitialIds[1]
+        && richTextRunHyperlinkInitialIds[2] !== richTextRunHyperlinkInitialIds[3]
+        && richTextRunHyperlinkInitialRelationships[2]?.target ===
+          'https://browser-run.example'
+        && richTextRunHyperlinkInitialRelationships[3]?.target ===
+          'https://browser-run.example'
+        && richTextRunHyperlinkTargetRunXml.includes('u="none"')
+        && richTextRunHyperlinkTargetRunXml.includes('<a:hlinkClick')
+        && richTextRunHyperlinkInitialXml.split('<a:hlinkClick').slice(5).every(
+          (fragment) => fragment.includes('action="ppaction://hlinksldjump"'),
+        );
+      const setBrowserRunHyperlink = (shape, runIndex, hyperlink) => {
+        shape.richText = shape.richText.map((paragraph, paragraphIndex) => ({
+          ...paragraph,
+          runs: paragraph.runs.map((run, candidateIndex) => {
+            if (paragraphIndex !== 0 || candidateIndex !== runIndex) return run;
+            const { hyperlink: _oldHyperlink, ...style } = run.style ?? {};
+            return {
+              ...run,
+              style: hyperlink === undefined ? style : { ...style, hyperlink },
+            };
+          }),
+        }));
+      };
+      setBrowserRunHyperlink(richTextRunHyperlinkShape, 1, {
+        url: 'https://browser-run-edited.example',
+        tooltip: '',
+      });
+      setBrowserRunHyperlink(richTextRunHyperlinkShape, 2, false);
+      setBrowserRunHyperlink(richTextRunHyperlinkShape, 4, false);
+      const richTextRunHyperlinkAfterEdit = browserRunHyperlinkValues(
+        richTextRunHyperlinkShape,
+      );
+      const richTextRunHyperlinkDuplicate = richTextRunHyperlinkDocument.duplicateSlide(0);
+      const richTextRunHyperlinkDuplicateShape = richTextRunHyperlinkDuplicate.shapes.find(
+        ({ name }) => name === 'browser_run_hyperlinks',
+      );
+      richTextRunHyperlinkDocument.moveSlide(
+        richTextRunHyperlinkDocument.slides.indexOf(richTextRunHyperlinkTarget),
+        0,
+      );
+      const richTextRunHyperlinkAfterMove = [
+        browserRunHyperlinkValues(richTextRunHyperlinkShape)[5],
+        browserRunHyperlinkValues(richTextRunHyperlinkDuplicateShape)[5],
+      ];
+      richTextRunHyperlinkDocument.deleteSlide(0);
+      const richTextRunHyperlinkOutput = await richTextRunHyperlinkDocument.writeBlob();
+      const reopenedRichTextRunHyperlinks = await api.PptxDocument.open(
+        richTextRunHyperlinkOutput,
+      );
+      await reopenedRichTextRunHyperlinks.write({ compatibility: 'powerpoint-current' });
+      const reopenedRichTextRunHyperlinkShapes = reopenedRichTextRunHyperlinks.slides.map(
+        (slide) => slide.shapes.find(({ name }) => name === 'browser_run_hyperlinks'),
+      );
+      const reopenedRichTextRunHyperlinkXml = reopenedRichTextRunHyperlinkShapes.map(
+        (shape, index) => browserRunHyperlinkShapeXml(
+          reopenedRichTextRunHyperlinks,
+          reopenedRichTextRunHyperlinks.slides[index],
+          shape,
+        ),
+      );
+      const reopenedRichTextRunHyperlinkIds = reopenedRichTextRunHyperlinkXml.map(
+        browserRunHyperlinkClickIds,
+      );
+      const richTextRunHyperlinkState = {
+        mime: richTextRunHyperlinkOutput.type,
+        immediate: richTextRunHyperlinkInitial,
+        relationshipIndependence: richTextRunHyperlinkRelationshipIndependence,
+        afterEdit: richTextRunHyperlinkAfterEdit,
+        afterMove: richTextRunHyperlinkAfterMove,
+        reopened: reopenedRichTextRunHyperlinkShapes.map(browserRunHyperlinkValues),
+        clickCounts: reopenedRichTextRunHyperlinkIds.map(({ length }) => length),
+        independentIds: reopenedRichTextRunHyperlinkIds.map(
+          (ids) => new Set(ids).size,
+        ),
+        internalActions: reopenedRichTextRunHyperlinkXml.every(
+          (xml) => xml.split('<a:hlinkClick').at(-1).includes(
+            'action="ppaction://hlinksldjump"',
+          ),
+        ),
+        validationErrors: reopenedRichTextRunHyperlinks.diagnostics.filter(
+          ({ severity }) => severity === 'error',
+        ).length,
+      };
+      const richTextRunHyperlinks =
+        richTextRunHyperlinkState.relationshipIndependence
+        && richTextRunHyperlinkState.clickCounts.every((count) => count === 4)
+        && richTextRunHyperlinkState.independentIds.every((count) => count === 3)
+        && richTextRunHyperlinkState.internalActions
+        && richTextRunHyperlinkState.validationErrors === 0;
       const svgDocument = api.PptxDocument.create();
       svgDocument.addSlide();
       const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360">'
@@ -1165,6 +1329,8 @@ async (page) => {
         textShapeShadows: textShapeShadowState,
         textShapeHyperlinks,
         textShapeHyperlinkState,
+        richTextRunHyperlinks,
+        richTextRunHyperlinkState,
         svgCreatedLive: svgDocument.slides[0].shapes.includes(blobSvg)
           && svgDocument.slides[0].shapes.includes(dataSvg),
         svgState,
@@ -1581,6 +1747,50 @@ async (page) => {
       internalActions: true,
       validationErrors: 0,
     },
+    richTextRunHyperlinks: true,
+    richTextRunHyperlinkState: {
+      mime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      immediate: [
+        { url: 'https://browser-outer-run.example', tooltip: 'Outer' },
+        { url: 'https://browser-run.example', tooltip: 'One' },
+        { url: 'https://browser-run.example', tooltip: 'Two' },
+        undefined,
+        { slide: 2, tooltip: '' },
+        { slide: 1 },
+      ],
+      relationshipIndependence: true,
+      afterEdit: [
+        { url: 'https://browser-outer-run.example', tooltip: 'Outer' },
+        { url: 'https://browser-run-edited.example', tooltip: '' },
+        undefined,
+        undefined,
+        undefined,
+        { slide: 1 },
+      ],
+      afterMove: [{ slide: 2 }, { slide: 3 }],
+      reopened: [
+        [
+          { url: 'https://browser-outer-run.example', tooltip: 'Outer' },
+          { url: 'https://browser-run-edited.example', tooltip: '' },
+          undefined,
+          undefined,
+          undefined,
+          { slide: 1 },
+        ],
+        [
+          { url: 'https://browser-outer-run.example', tooltip: 'Outer' },
+          { url: 'https://browser-run-edited.example', tooltip: '' },
+          undefined,
+          undefined,
+          undefined,
+          { slide: 2 },
+        ],
+      ],
+      clickCounts: [4, 4],
+      independentIds: [3, 3],
+      internalActions: true,
+      validationErrors: 0,
+    },
     svgCreatedLive: true,
     svgState: [
       {
@@ -1654,7 +1864,12 @@ async (page) => {
     errorCounts: { console: 0, page: 0, network: 0 },
   };
   if (JSON.stringify(result) !== JSON.stringify(expected)) {
-    throw new Error(`Browser smoke mismatch: ${JSON.stringify(result)}`);
+    throw new Error(`Browser smoke mismatch: ${JSON.stringify({
+      result,
+      consoleErrors,
+      pageErrors,
+      networkErrors,
+    })}`);
   }
   return result;
 }
