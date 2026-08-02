@@ -4214,6 +4214,433 @@ describe('importPptxGenJS', () => {
     }
   });
 
+  it('compares text shape line public output and strict native divergences', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    const generatedSlide = generated.addSlide();
+    const dashes = [
+      'solid',
+      'dash',
+      'dashDot',
+      'lgDash',
+      'lgDashDot',
+      'lgDashDotDot',
+      'sysDash',
+      'sysDot',
+    ] as const;
+    const generatedCases: readonly {
+      readonly name: string;
+      readonly line?: Record<string, unknown>;
+    }[] = [
+      { name: 'Text line omitted' },
+      { name: 'Text line none', line: { type: 'none' } },
+      { name: 'Text line empty', line: {} },
+      { name: 'Text line missing color', line: { type: 'solid' } },
+      { name: 'Text line sRGB', line: { color: 'AB12CD' } },
+      { name: 'Text line scheme', line: { color: generated.SchemeColor.accent2 } },
+      {
+        name: 'Text line transparency',
+        line: { color: '00FF00', transparency: 25 },
+      },
+      {
+        name: 'Text line zero transparency',
+        line: { color: '0000FF', transparency: 0 },
+      },
+      {
+        name: 'Text line full transparency',
+        line: { color: '00AA00', transparency: 100 },
+      },
+      { name: 'Text line zero width', line: { color: '112233', width: 0 } },
+      { name: 'Text line positive width', line: { color: '223344', width: 2.5 } },
+      { name: 'Text line deprecated alpha', line: { color: '334455', alpha: 40 } },
+      { name: 'Text line deprecated dash', line: { color: '445566', lineDash: 'dash' } },
+      ...dashes.map((dash) => ({
+        name: `Text line dash ${dash}`,
+        line: { color: '556677', dashType: dash },
+      })),
+    ];
+    for (const [index, fixture] of generatedCases.entries()) {
+      const options: Record<string, unknown> = {
+        objectName: fixture.name,
+        x: 1,
+        y: 0.25 + index * 0.25,
+        w: 4,
+        h: 0.2,
+      };
+      if (fixture.line !== undefined) options.line = fixture.line;
+      generatedSlide.addText(fixture.name, options);
+    }
+
+    const imported = await openPptxGenJSPublicOutput(generated);
+    const importedShapes = new Map(imported.slides[0]!.shapes.map((shape) => [
+      shape.name,
+      shape as ShapeModel,
+    ]));
+    expect([...importedShapes.keys()]).toEqual(generatedCases.map(({ name }) => name));
+    expect(generatedCases.map(({ name }) => importedShapes.get(name)!.line)).toEqual([
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      {
+        kind: 'line',
+        color: { kind: 'srgb', value: 'AB12CD' },
+        width: 1,
+        dash: 'solid',
+      },
+      {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent2' },
+        width: 1,
+        dash: 'solid',
+      },
+      {
+        kind: 'line',
+        color: { kind: 'srgb', value: '00FF00' },
+        transparency: 25,
+        width: 1,
+        dash: 'solid',
+      },
+      {
+        kind: 'line',
+        color: { kind: 'srgb', value: '0000FF' },
+        width: 1,
+        dash: 'solid',
+      },
+      {
+        kind: 'line',
+        color: { kind: 'srgb', value: '00AA00' },
+        transparency: 100,
+        width: 1,
+        dash: 'solid',
+      },
+      {
+        kind: 'line',
+        color: { kind: 'srgb', value: '112233' },
+        width: 1,
+        dash: 'solid',
+      },
+      {
+        kind: 'line',
+        color: { kind: 'srgb', value: '223344' },
+        width: 2.5,
+        dash: 'solid',
+      },
+      {
+        kind: 'line',
+        color: { kind: 'srgb', value: '334455' },
+        transparency: 40,
+        width: 1,
+        dash: 'solid',
+      },
+      {
+        kind: 'line',
+        color: { kind: 'srgb', value: '445566' },
+        width: 1,
+        dash: 'solid',
+      },
+      ...dashes.map((dash) => ({
+        kind: 'line' as const,
+        color: { kind: 'srgb' as const, value: '556677' },
+        width: 1,
+        dash,
+      })),
+    ]);
+
+    const native = PptxDocument.create();
+    const nativeSlide = native.addSlide();
+    const nativeShapes = new Map<string, ShapeModel>([
+      ['Text line omitted', nativeSlide.addText('Text line omitted', {
+        name: 'Text line omitted',
+        x: inches(1),
+        y: inches(0.25),
+        width: inches(4),
+        height: inches(0.2),
+      })],
+      ['Text line none', nativeSlide.addText('Text line none', {
+        name: 'Text line none',
+        x: inches(1),
+        y: inches(0.5),
+        width: inches(4),
+        height: inches(0.2),
+        line: { kind: 'none' },
+      })],
+      ['Text line sRGB', nativeSlide.addText('Text line sRGB', {
+        name: 'Text line sRGB',
+        x: inches(1),
+        y: inches(1.25),
+        width: inches(4),
+        height: inches(0.2),
+        line: { kind: 'line', color: { kind: 'srgb', value: 'AB12CD' } },
+      })],
+      ['Text line scheme', nativeSlide.addText('Text line scheme', {
+        name: 'Text line scheme',
+        x: inches(1),
+        y: inches(1.5),
+        width: inches(4),
+        height: inches(0.2),
+        line: { kind: 'line', color: { kind: 'scheme', value: 'accent2' } },
+      })],
+      ['Text line transparency', nativeSlide.addText('Text line transparency', {
+        name: 'Text line transparency',
+        x: inches(1),
+        y: inches(1.75),
+        width: inches(4),
+        height: inches(0.2),
+        line: {
+          kind: 'line',
+          color: { kind: 'srgb', value: '00FF00' },
+          transparency: 25,
+        },
+      })],
+      ['Text line zero transparency', nativeSlide.addText('Text line zero transparency', {
+        name: 'Text line zero transparency',
+        x: inches(1),
+        y: inches(2),
+        width: inches(4),
+        height: inches(0.2),
+        line: {
+          kind: 'line',
+          color: { kind: 'srgb', value: '0000FF' },
+          transparency: 0,
+        },
+      })],
+      ['Text line full transparency', nativeSlide.addText('Text line full transparency', {
+        name: 'Text line full transparency',
+        x: inches(1),
+        y: inches(2.25),
+        width: inches(4),
+        height: inches(0.2),
+        line: {
+          kind: 'line',
+          color: { kind: 'srgb', value: '00AA00' },
+          transparency: 100,
+        },
+      })],
+      ['Text line zero width', nativeSlide.addText('Text line zero width', {
+        name: 'Text line zero width',
+        x: inches(1),
+        y: inches(2.5),
+        width: inches(4),
+        height: inches(0.2),
+        line: {
+          kind: 'line',
+          color: { kind: 'srgb', value: '112233' },
+          width: 0,
+        },
+      })],
+      ['Text line positive width', nativeSlide.addText('Text line positive width', {
+        name: 'Text line positive width',
+        x: inches(1),
+        y: inches(2.75),
+        width: inches(4),
+        height: inches(0.2),
+        line: {
+          kind: 'line',
+          color: { kind: 'srgb', value: '223344' },
+          width: 2.5,
+        },
+      })],
+      ...dashes.map((dash, dashIndex) => [
+        `Text line dash ${dash}`,
+        nativeSlide.addText(`Text line dash ${dash}`, {
+          name: `Text line dash ${dash}`,
+          x: inches(1),
+          y: inches(3.5 + dashIndex * 0.25),
+          width: inches(4),
+          height: inches(0.2),
+          line: {
+            kind: 'line',
+            color: { kind: 'srgb', value: '556677' },
+            dash,
+          },
+        }),
+      ] as const),
+    ] as const);
+
+    for (const name of [
+      'Text line sRGB',
+      'Text line scheme',
+      'Text line transparency',
+      'Text line full transparency',
+      'Text line positive width',
+      ...dashes.map((dash) => `Text line dash ${dash}`),
+    ]) {
+      const importedShape = importedShapes.get(name)!;
+      const nativeShape = nativeShapes.get(name)!;
+      expect(importedShape.name, name).toBe(nativeShape.name);
+      expect(importedShape.text, name).toBe(nativeShape.text);
+      expect(importedShape.transform, name).toEqual(nativeShape.transform);
+      expect(importedShape.presetType, name).toBe(nativeShape.presetType);
+      expect(importedShape.fill, name).toEqual(nativeShape.fill);
+      expect(importedShape.line, name).toEqual(nativeShape.line);
+    }
+
+    const directLineState = (xml: string) => {
+      const properties = xml.match(/<p:spPr(?:\s[^>]*)?>([\s\S]*?)<\/p:spPr>/)?.[1];
+      if (!properties) throw new Error('Text shape properties were not found');
+      const fillOffset = properties.search(/<a:(?:noFill|solidFill)\b/);
+      const lineOffset = properties.indexOf('<a:ln');
+      if (fillOffset < 0 || lineOffset < 0 || fillOffset >= lineOffset) {
+        throw new Error('Text shape fill and line order is invalid');
+      }
+      const lineXml = properties.slice(lineOffset);
+      const width = lineXml.match(/^<a:ln\b[^>]*\bw="([0-9]+)"/)?.[1];
+      const solid = lineXml.match(
+        /<a:solidFill><a:(srgbClr|schemeClr)\b[^>]*\bval="([^"]+)"(?:><a:alpha\b[^>]*\bval="([0-9]+)"\/><\/a:\1>|\/>)<\/a:solidFill>/,
+      );
+      return {
+        width: width === undefined ? undefined : Number(width),
+        noFill: lineXml.includes('<a:noFill/>'),
+        colorKind: solid?.[1],
+        color: solid?.[2],
+        alpha: solid?.[3] === undefined ? undefined : Number(solid[3]),
+        dash: lineXml.match(/<a:prstDash\b[^>]*\bval="([^"]+)"\/>/)?.[1],
+      };
+    };
+
+    for (const name of ['Text line omitted', 'Text line none'] as const) {
+      const importedShape = importedShapes.get(name)!;
+      const nativeShape = nativeShapes.get(name)!;
+      expect(importedShape.line).toBeUndefined();
+      expect(nativeShape.line).toEqual({ kind: 'none' });
+      expect(directLineState(shapeXml(imported, 0, importedShape.id))).toEqual({
+        width: undefined,
+        noFill: false,
+        colorKind: undefined,
+        color: undefined,
+        alpha: undefined,
+        dash: undefined,
+      });
+      expect(directLineState(shapeXml(native, 0, nativeShape.id))).toEqual({
+        width: undefined,
+        noFill: true,
+        colorKind: undefined,
+        color: undefined,
+        alpha: undefined,
+        dash: undefined,
+      });
+    }
+    for (const name of ['Text line empty', 'Text line missing color']) {
+      expect(importedShapes.get(name)!.line, name).toBeUndefined();
+    }
+
+    const generatedSrgb = importedShapes.get('Text line sRGB')!;
+    const nativeSrgb = nativeShapes.get('Text line sRGB')!;
+    expect(directLineState(shapeXml(imported, 0, generatedSrgb.id))).toEqual({
+      width: undefined,
+      noFill: false,
+      colorKind: 'srgbClr',
+      color: 'AB12CD',
+      alpha: undefined,
+      dash: undefined,
+    });
+    expect(directLineState(shapeXml(native, 0, nativeSrgb.id))).toEqual({
+      width: 12_700,
+      noFill: false,
+      colorKind: 'srgbClr',
+      color: 'AB12CD',
+      alpha: undefined,
+      dash: 'solid',
+    });
+
+    const generatedZeroTransparency = importedShapes.get('Text line zero transparency')!;
+    const nativeZeroTransparency = nativeShapes.get('Text line zero transparency')!;
+    expect(generatedZeroTransparency.line).toEqual({
+      kind: 'line',
+      color: { kind: 'srgb', value: '0000FF' },
+      width: 1,
+      dash: 'solid',
+    });
+    expect(nativeZeroTransparency.line).toEqual({
+      kind: 'line',
+      color: { kind: 'srgb', value: '0000FF' },
+      transparency: 0,
+      width: 1,
+      dash: 'solid',
+    });
+    expect(directLineState(shapeXml(imported, 0, generatedZeroTransparency.id)).alpha)
+      .toBeUndefined();
+    expect(directLineState(shapeXml(native, 0, nativeZeroTransparency.id)).alpha)
+      .toBe(100_000);
+
+    const generatedZeroWidth = importedShapes.get('Text line zero width')!;
+    const nativeZeroWidth = nativeShapes.get('Text line zero width')!;
+    expect(generatedZeroWidth.line).toEqual({
+      kind: 'line',
+      color: { kind: 'srgb', value: '112233' },
+      width: 1,
+      dash: 'solid',
+    });
+    expect(nativeZeroWidth.line).toEqual({
+      kind: 'line',
+      color: { kind: 'srgb', value: '112233' },
+      width: 0,
+      dash: 'solid',
+    });
+    expect(directLineState(shapeXml(imported, 0, generatedZeroWidth.id)).width)
+      .toBeUndefined();
+    expect(directLineState(shapeXml(native, 0, nativeZeroWidth.id)).width).toBe(0);
+
+    expect(importedShapes.get('Text line deprecated alpha')!.line).toEqual({
+      kind: 'line',
+      color: { kind: 'srgb', value: '334455' },
+      transparency: 40,
+      width: 1,
+      dash: 'solid',
+    });
+    expect(importedShapes.get('Text line deprecated dash')!.line).toEqual({
+      kind: 'line',
+      color: { kind: 'srgb', value: '445566' },
+      width: 1,
+      dash: 'solid',
+    });
+
+    const beforeInvalid = packageState(native);
+    for (const line of [
+      {},
+      { type: 'none' },
+      { color: 'AB12CD' },
+      { kind: 'line' },
+      {
+        kind: 'line',
+        color: { kind: 'srgb', value: 'AB12CD' },
+        alpha: 25,
+      },
+      {
+        kind: 'line',
+        color: { kind: 'srgb', value: 'AB12CD' },
+        dashType: 'dash',
+      },
+      {
+        kind: 'line',
+        color: { kind: 'srgb', value: 'AB12CD' },
+        transparency: '25',
+      },
+      {
+        kind: 'line',
+        color: { kind: 'srgb', value: 'AB12CD' },
+        width: 1_585,
+      },
+      {
+        kind: 'line',
+        color: { kind: 'srgb', value: 'AB12CD' },
+        dash: 'dot',
+      },
+    ]) {
+      expect(() => nativeSlide.addText('Invalid native line', { line } as never)).toThrow();
+      expect(packageState(native)).toEqual(beforeInvalid);
+    }
+
+    const importedSlideBytes = imported.opcPackage
+      .requirePart(imported.slides[0]!.partUri).bytes.slice();
+    const reopened = await PptxDocument.open(await imported.write());
+    expect(reopened.opcPackage.requirePart(reopened.slides[0]!.partUri).bytes)
+      .toEqual(importedSlideBytes);
+    expect(reopened.slides[0]!.shapes.map((shape) => (shape as ShapeModel).line))
+      .toEqual(imported.slides[0]!.shapes.map((shape) => (shape as ShapeModel).line));
+  });
+
   it('compares shape line public output and strict native divergences', async () => {
     const generated = new PptxGenJS();
     expect(generated.version).toBe('4.0.1');
