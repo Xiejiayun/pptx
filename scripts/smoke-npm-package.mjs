@@ -2583,6 +2583,288 @@ if (!textShapeArrows) {
   throw new Error('Packed text shape arrows failed');
 }
 await reopenedTextShapeArrowDeck.writeFile('text-shape-arrows-smoke.pptx');
+const textShapeShadowDeck = PptxDocument.create();
+const textShapeShadowLayout = textShapeShadowDeck.layouts[0];
+const textShapeShadowMaster = textShapeShadowDeck.masters[0];
+const packedLayoutTextShadow = textShapeShadowLayout.addText('Packed layout text shadow', {
+  name: 'packed_layout_text_shadow',
+  shadow: {
+    kind: 'outer',
+    color: { kind: 'scheme', value: 'accent2' },
+    rotateWithShape: true,
+  },
+});
+const packedMasterTextShadow = textShapeShadowMaster.addRichText([{
+  runs: [{ text: 'Packed master text shadow' }],
+}], {
+  name: 'packed_master_text_shadow',
+  shadow: {
+    kind: 'inner',
+    color: { kind: 'srgb', value: '445566' },
+    opacity: 0,
+    blur: 0,
+    angle: 0,
+    distance: 0,
+  },
+});
+const packedLayoutPlaceholderShadow = textShapeShadowLayout.addPlaceholder(
+  'Packed text shadow prompt',
+  {
+    name: 'packed_title_shadow',
+    type: 'title',
+    index: 196,
+    shadow: { kind: 'outer', color: { kind: 'srgb', value: '112233' } },
+  },
+);
+const textShapeShadowColor = { kind: 'scheme', value: 'accent4' };
+const textShapeShadowSource = {
+  kind: 'outer',
+  color: textShapeShadowColor,
+  opacity: 0.4,
+  blur: 2,
+  angle: 45,
+  distance: 3,
+  rotateWithShape: true,
+};
+const textShapeShadowSlide = textShapeShadowDeck.addSlide({
+  masterName: textShapeShadowLayout.name,
+});
+const packedPlainTextShadow = textShapeShadowSlide.addText('Packed plain text shadow', {
+  name: 'packed_plain_text_shadow',
+  fill: { kind: 'solid', color: { kind: 'srgb', value: 'DDEEFF' } },
+  line: {
+    kind: 'line',
+    color: { kind: 'scheme', value: 'accent2' },
+    width: 2,
+    dash: 'dashDot',
+  },
+  arrows: { begin: 'triangle', end: 'arrow' },
+  shadow: textShapeShadowSource,
+});
+const packedRichTextShadow = textShapeShadowSlide.addRichText([{
+  runs: [{ text: 'Packed rich text shadow' }],
+}], {
+  name: 'packed_rich_text_shadow',
+  shadow: {
+    kind: 'inner',
+    color: { kind: 'srgb', value: '667788' },
+    opacity: 0,
+    blur: 0,
+    angle: 0,
+    distance: 0,
+  },
+});
+const packedPopulatedTextShadow = textShapeShadowSlide.addText(
+  'Packed populated text shadow',
+  {
+    placeholder: 'packed_title_shadow',
+    shadow: {
+      kind: 'inner',
+      color: { kind: 'scheme', value: 'accent3' },
+      opacity: 0.5,
+      blur: 1,
+      angle: 90,
+      distance: 2,
+    },
+  },
+);
+const initialPackedPlainTextShadow = packedPlainTextShadow.shadow;
+const initialPackedPlainTextShadowAgain = packedPlainTextShadow.shadow;
+textShapeShadowColor.value = 'accent6';
+textShapeShadowSource.opacity = 0.9;
+textShapeShadowSource.blur = 9;
+textShapeShadowSource.angle = 180;
+textShapeShadowSource.distance = 8;
+textShapeShadowSource.rotateWithShape = false;
+const detachedPackedPlainTextShadow = packedPlainTextShadow.shadow;
+const textShapeShadowNoOpBytes = textShapeShadowDeck.opcPackage
+  .requirePart(textShapeShadowSlide.partUri).bytes.slice();
+const textShapeShadowNoOpJournal = textShapeShadowDeck.opcPackage.mutations.length;
+packedPlainTextShadow.shadow = {
+  kind: 'outer',
+  color: { kind: 'scheme', value: 'accent4' },
+  opacity: 0.4,
+  blur: 2,
+  angle: 45,
+  distance: 3,
+  rotateWithShape: true,
+};
+const textShapeShadowNoOpCurrent = textShapeShadowDeck.opcPackage
+  .requirePart(textShapeShadowSlide.partUri).bytes;
+const textShapeShadowNoOp =
+  textShapeShadowNoOpJournal === textShapeShadowDeck.opcPackage.mutations.length &&
+  textShapeShadowNoOpBytes.length === textShapeShadowNoOpCurrent.length &&
+  textShapeShadowNoOpBytes.every(
+    (value, index) => value === textShapeShadowNoOpCurrent[index],
+  );
+const packedDeclarativeTextShadowLayout = await textShapeShadowDeck.defineSlideMaster({
+  title: 'PACKED-TEXT-SHADOWS',
+  objects: [
+    {
+      kind: 'text',
+      text: 'Packed declarative text shadow',
+      options: {
+        name: 'packed_declarative_text_shadow',
+        shadow: { kind: 'outer', color: { kind: 'scheme', value: 'accent5' } },
+      },
+    },
+    {
+      kind: 'placeholder',
+      text: 'Packed declarative shadow prompt',
+      options: {
+        name: 'packed_declarative_title_shadow',
+        type: 'title',
+        index: 197,
+        shadow: { kind: 'inner', opacity: 0.25 },
+      },
+    },
+  ],
+});
+const packedDeclarativeTextShadow = packedDeclarativeTextShadowLayout.shapes.find(
+  ({ name }) => name === 'packed_declarative_text_shadow',
+);
+const packedDeclarativePlaceholderShadow = packedDeclarativeTextShadowLayout.placeholders.find(
+  ({ name }) => name === 'packed_declarative_title_shadow',
+);
+const packedDeclarativeTextShadowSlide = textShapeShadowDeck.addSlide({
+  masterName: packedDeclarativeTextShadowLayout.name,
+});
+const packedDeclarativePopulatedShadow = packedDeclarativeTextShadowSlide.addText(
+  'Packed declarative populated shadow',
+  {
+    placeholder: 'packed_declarative_title_shadow',
+    shadow: { kind: 'outer', rotateWithShape: true },
+  },
+);
+const duplicateTextShapeShadowSlide = textShapeShadowDeck.duplicateSlide(0);
+const duplicatePlainTextShadow = duplicateTextShapeShadowSlide.shapes.find(
+  ({ name }) => name === 'packed_plain_text_shadow',
+);
+const duplicateRichTextShadow = duplicateTextShapeShadowSlide.shapes.find(
+  ({ name }) => name === 'packed_rich_text_shadow',
+);
+if (!(duplicatePlainTextShadow instanceof ShapeModel) ||
+    !(duplicateRichTextShadow instanceof ShapeModel)) {
+  throw new Error('Packed duplicate text shape shadow failed');
+}
+duplicatePlainTextShadow.shadow = undefined;
+const duplicatePlainLineAfterShadowClear = duplicatePlainTextShadow.line;
+const duplicatePlainArrowsAfterShadowClear = duplicatePlainTextShadow.arrows;
+duplicatePlainTextShadow.shadow = { kind: 'outer' };
+duplicatePlainTextShadow.line = undefined;
+duplicatePlainTextShadow.arrows = undefined;
+const duplicatePlainShadowAfterLineArrowClear = duplicatePlainTextShadow.shadow;
+duplicateRichTextShadow.shadow = undefined;
+const reopenedTextShapeShadowDeck = await PptxDocument.open(await textShapeShadowDeck.write());
+await reopenedTextShapeShadowDeck.write({ compatibility: 'powerpoint-2010' });
+const reopenedTextShadowSourceSlide = reopenedTextShapeShadowDeck.slides[0];
+const reopenedTextShadowDeclarativeSlide = reopenedTextShapeShadowDeck.slides[1];
+const reopenedTextShadowDuplicateSlide = reopenedTextShapeShadowDeck.slides[2];
+const reopenedTextShadowLayout = reopenedTextShapeShadowDeck.layouts.find(
+  ({ name }) => name === textShapeShadowLayout.name,
+);
+const reopenedDeclarativeTextShadowLayout = reopenedTextShapeShadowDeck.layouts.find(
+  ({ name }) => name === 'PACKED-TEXT-SHADOWS',
+);
+const reopenedTextShadowByName = (owner, name) => owner.shapes.find(
+  (shape) => shape instanceof ShapeModel && shape.name === name,
+);
+const textShapeShadows =
+  packedLayoutTextShadow instanceof ShapeModel &&
+  packedMasterTextShadow instanceof ShapeModel &&
+  packedLayoutPlaceholderShadow instanceof ShapeModel &&
+  packedPlainTextShadow instanceof ShapeModel &&
+  packedRichTextShadow instanceof ShapeModel &&
+  packedPopulatedTextShadow instanceof ShapeModel &&
+  packedDeclarativeTextShadow instanceof ShapeModel &&
+  packedDeclarativePlaceholderShadow instanceof ShapeModel &&
+  packedDeclarativePopulatedShadow instanceof ShapeModel &&
+  initialPackedPlainTextShadow !== initialPackedPlainTextShadowAgain &&
+  initialPackedPlainTextShadow?.color !== initialPackedPlainTextShadowAgain?.color &&
+  Object.isFrozen(initialPackedPlainTextShadow) &&
+  Object.isFrozen(initialPackedPlainTextShadow?.color) &&
+  JSON.stringify(initialPackedPlainTextShadow) === JSON.stringify({
+    kind: 'outer',
+    color: { kind: 'scheme', value: 'accent4' },
+    opacity: 0.4,
+    blur: 2,
+    angle: 45,
+    distance: 3,
+    rotateWithShape: true,
+  }) &&
+  JSON.stringify(detachedPackedPlainTextShadow) ===
+    JSON.stringify(initialPackedPlainTextShadow) &&
+  textShapeShadowNoOp &&
+  JSON.stringify(duplicatePlainLineAfterShadowClear) === JSON.stringify({
+    kind: 'line',
+    color: { kind: 'scheme', value: 'accent2' },
+    width: 2,
+    dash: 'dashDot',
+  }) &&
+  JSON.stringify(duplicatePlainArrowsAfterShadowClear) ===
+    JSON.stringify({ begin: 'triangle', end: 'arrow' }) &&
+  duplicatePlainShadowAfterLineArrowClear?.kind === 'outer' &&
+  JSON.stringify(packedLayoutTextShadow.shadow) === JSON.stringify({
+    kind: 'outer',
+    color: { kind: 'scheme', value: 'accent2' },
+    opacity: 0.75,
+    blur: 8,
+    angle: 270,
+    distance: 4,
+    rotateWithShape: true,
+  }) &&
+  packedMasterTextShadow.shadow?.kind === 'inner' &&
+  packedLayoutPlaceholderShadow.shadow?.kind === 'outer' &&
+  packedRichTextShadow.shadow?.kind === 'inner' &&
+  packedPopulatedTextShadow.shadow?.kind === 'inner' &&
+  packedDeclarativeTextShadow.shadow?.kind === 'outer' &&
+  packedDeclarativePlaceholderShadow.shadow?.kind === 'inner' &&
+  packedDeclarativePopulatedShadow.shadow?.kind === 'outer' &&
+  JSON.stringify(reopenedTextShadowByName(
+    reopenedTextShadowSourceSlide,
+    'packed_plain_text_shadow',
+  )?.shadow) === JSON.stringify(initialPackedPlainTextShadow) &&
+  reopenedTextShadowByName(
+    reopenedTextShadowSourceSlide,
+    'packed_rich_text_shadow',
+  )?.shadow?.kind === 'inner' &&
+  reopenedTextShadowByName(
+    reopenedTextShadowDuplicateSlide,
+    'packed_plain_text_shadow',
+  )?.shadow?.kind === 'outer' &&
+  reopenedTextShadowByName(
+    reopenedTextShadowDuplicateSlide,
+    'packed_plain_text_shadow',
+  )?.line === undefined &&
+  reopenedTextShadowByName(
+    reopenedTextShadowDuplicateSlide,
+    'packed_plain_text_shadow',
+  )?.arrows === undefined &&
+  reopenedTextShadowByName(
+    reopenedTextShadowDuplicateSlide,
+    'packed_rich_text_shadow',
+  )?.shadow === undefined &&
+  reopenedTextShadowByName(
+    reopenedTextShadowLayout,
+    'packed_layout_text_shadow',
+  )?.shadow?.kind === 'outer' &&
+  reopenedTextShadowByName(
+    reopenedTextShapeShadowDeck.masters[0],
+    'packed_master_text_shadow',
+  )?.shadow?.kind === 'inner' &&
+  reopenedTextShadowByName(
+    reopenedDeclarativeTextShadowLayout,
+    'packed_declarative_text_shadow',
+  )?.shadow?.kind === 'outer' &&
+  reopenedTextShadowByName(
+    reopenedTextShadowDeclarativeSlide,
+    'packed_declarative_title_shadow',
+  )?.shadow?.kind === 'outer' &&
+  reopenedTextShapeShadowDeck.diagnostics.every(({ severity }) => severity !== 'error');
+if (!textShapeShadows) {
+  throw new Error('Packed text shape shadows failed');
+}
+await reopenedTextShapeShadowDeck.writeFile('text-shape-shadows-smoke.pptx');
 const createdText = created.addSlide().addText('Smoke\\n\\nParagraph', { align: 'center', fit: 'shrink', valign: 'top', vert: 'vert270', wrap: false, bullet: true, level: 2, margin: 10, rtlMode: true, spacing: { before: 4, after: 6, line: { kind: 'exact', points: 20 } }, tabStops: [{ position: 1.25 }, { position: 2.5, alignment: 'right' }] });
 const shapeLineDeck = PptxDocument.create();
 const shapeLineSlide = shapeLineDeck.addSlide();
@@ -3858,6 +4140,7 @@ const checks = {
   textShapeFills,
   textShapeLines,
   textShapeArrows,
+  textShapeShadows,
   shapeLines,
   shapeArrows,
   shapeHyperlinks,
@@ -6134,11 +6417,28 @@ const typedTextShapeArrows: ShapeArrows = {
   begin: 'none',
   end: 'triangle',
 };
+const typedTextShapeShadow: ShapeShadow = {
+  kind: 'outer',
+  color: { kind: 'scheme', value: 'accent5' },
+  opacity: 0.4,
+  blur: 2,
+  angle: 45,
+  distance: 3,
+  rotateWithShape: true,
+};
+const typedTextShapeInnerShadow: ShapeShadow = {
+  kind: 'inner',
+  opacity: 0,
+  blur: 0,
+  angle: 0,
+  distance: 0,
+};
 const typedTextShapeOptions: AddTextOptions = {
-  name: 'Typed text shape fill, line, and arrows',
+  name: 'Typed text shape fill, line, arrows, and shadow',
   fill: typedTextShapeSrgbFill,
   line: typedTextShapeLine,
   arrows: typedTextShapeArrows,
+  shadow: typedTextShapeShadow,
 };
 const typedTextShapeSlide = createdDocument.addSlide();
 const typedPlainTextShape: ShapeModel = typedTextShapeSlide.addText(
@@ -6151,6 +6451,7 @@ const typedRichTextShape: ShapeModel = typedTextShapeSlide.addRichText([{
   fill: typedTextShapeSchemeFill,
   line: typedTextShapeLine,
   arrows: { begin: 'diamond' },
+  shadow: typedTextShapeInnerShadow,
 });
 const typedLayoutTextShape: ShapeModel = createdDocument.layouts[0].addText(
   'Typed layout text shape fill',
@@ -6158,6 +6459,7 @@ const typedLayoutTextShape: ShapeModel = createdDocument.layouts[0].addText(
     fill: typedTextShapeNoneFill,
     line: { kind: 'none' },
     arrows: { end: 'arrow' },
+    shadow: typedTextShapeShadow,
   },
 );
 const typedMasterTextShape: ShapeModel = createdDocument.masters[0].addText(
@@ -6166,6 +6468,7 @@ const typedMasterTextShape: ShapeModel = createdDocument.masters[0].addText(
     fill: typedTextShapeSchemeFill,
     line: typedTextShapeLine,
     arrows: { begin: 'stealth', end: 'oval' },
+    shadow: typedTextShapeInnerShadow,
   },
 );
 const typedPlaceholderTextShape: ShapeModel = createdDocument.layouts[0].addPlaceholder(
@@ -6177,6 +6480,7 @@ const typedPlaceholderTextShape: ShapeModel = createdDocument.layouts[0].addPlac
     fill: typedTextShapeSrgbFill,
     line: typedTextShapeLine,
     arrows: { begin: 'arrow', end: 'none' },
+    shadow: typedTextShapeShadow,
   },
 );
 const typedDeclarativeTextFillObject: SlideMasterObject = {
@@ -6186,10 +6490,12 @@ const typedDeclarativeTextFillObject: SlideMasterObject = {
     fill: typedTextShapeSchemeFill,
     line: typedTextShapeLine,
     arrows: typedTextShapeArrows,
+    shadow: typedTextShapeInnerShadow,
   },
 };
 const typedTextShapeLineRead: ShapeLine | undefined = typedPlainTextShape.line;
 const typedTextShapeArrowsRead: ShapeArrows | undefined = typedPlainTextShape.arrows;
+const typedTextShapeShadowRead: ShapeShadow | undefined = typedPlainTextShape.shadow;
 const typedShapeLineDash: ShapeLineDash = 'lgDashDotDot';
 const typedNoneShapeLine: ShapeLine = { kind: 'none' };
 const typedSolidShapeLine: ShapeLine = {
@@ -6375,6 +6681,35 @@ const invalidTextArrowUnknownKey: AddTextOptions = {
     begin: 'triangle',
     // @ts-expect-error text arrow values reject unknown fields
     extra: true,
+  },
+};
+const invalidPptxGenJSTextShadow: AddTextOptions = {
+  // @ts-expect-error PptxGenJS-style text shadow aliases are intentionally unsupported
+  shadow: { type: 'outer' },
+};
+const invalidNoneTextShadow: AddTextOptions = {
+  // @ts-expect-error text shadow kind must be outer or inner
+  shadow: { kind: 'none' },
+};
+const invalidTextShadowOffset: AddTextOptions = {
+  shadow: {
+    kind: 'outer',
+    // @ts-expect-error PptxGenJS offset is intentionally unsupported
+    offset: 4,
+  },
+};
+const invalidTextInnerShadowRotate: AddTextOptions = {
+  shadow: {
+    kind: 'inner',
+    // @ts-expect-error inner text shadow cannot rotate with the shape
+    rotateWithShape: true,
+  },
+};
+const invalidTextShadowOpacity: AddTextOptions = {
+  shadow: {
+    kind: 'outer',
+    // @ts-expect-error text shadow opacity is numeric
+    opacity: '0.5',
   },
 };
 // @ts-expect-error solid is not the native shape-line discriminator
@@ -6656,10 +6991,12 @@ void [typedPreset, typedNoneShapeFill, typedSolidShapeFill,
   typedTextShapeOptions, typedTextShapeSlide, typedPlainTextShape, typedRichTextShape,
   typedLayoutTextShape, typedMasterTextShape, typedPlaceholderTextShape,
   typedDeclarativeTextFillObject, typedTextShapeLine, typedTextShapeLineRead,
+  typedTextShapeShadow, typedTextShapeInnerShadow, typedTextShapeShadowRead,
   invalidPptxGenJSTextFill, invalidTextFillKind, invalidTextFillMissingColor,
   invalidTextFillTransparency, invalidTextFillUnknownKey, invalidPptxGenJSTextLine,
   invalidTextLineKind, invalidTextLineMissingColor, invalidTextLineWidth,
-  invalidTextLineDash,
+  invalidTextLineDash, invalidPptxGenJSTextShadow, invalidNoneTextShadow,
+  invalidTextShadowOffset, invalidTextInnerShadowRotate, invalidTextShadowOpacity,
   typedShapeOptions, typedShape,
   typedCustomPoint, typedCustomCommand, typedCustomFill, typedCustomPath, typedCustomGeometry,
   typedCustomValue, typedUnaryFormula, typedBinaryFormula, typedTernaryFormula,
@@ -7243,6 +7580,97 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
       !textShapeArrowMasterXml.includes('<a:tailEnd type="triangle"/>')) {
     throw new Error('CLI text-shape-arrow part inspection failed');
   }
+  const textShapeShadowDeckPath = join(directory, 'text-shape-shadows-smoke.pptx');
+  const textShapeShadowInspectResult = run(
+    bin,
+    ['--json', 'package', 'inspect', textShapeShadowDeckPath],
+    directory,
+  );
+  const textShapeShadowInspected = JSON.parse(textShapeShadowInspectResult.stdout);
+  const textShapeShadowContentTypes = textShapeShadowInspected.data?.contentTypes ?? {};
+  if (!textShapeShadowInspected.ok ||
+      textShapeShadowContentTypes[
+        'application/vnd.openxmlformats-officedocument.presentationml.slide+xml'
+      ] !== 3 ||
+      textShapeShadowContentTypes[
+        'application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml'
+      ] !== 2 ||
+      textShapeShadowContentTypes[
+        'application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml'
+      ] !== 1) {
+    throw new Error(`CLI text-shape-shadow inspect failed: ${textShapeShadowInspectResult.stdout}`);
+  }
+  const textShapeShadowValidateResult = run(
+    bin,
+    ['--json', 'package', 'validate', textShapeShadowDeckPath, '--profile', 'powerpoint-2010'],
+    directory,
+  );
+  const textShapeShadowValidated = JSON.parse(textShapeShadowValidateResult.stdout);
+  if (!textShapeShadowValidated.ok || !textShapeShadowValidated.data?.valid ||
+      textShapeShadowValidated.data.errorCount !== 0 ||
+      textShapeShadowValidated.data.warningCount !== 0) {
+    throw new Error(
+      `CLI text-shape-shadow validation failed: ${textShapeShadowValidateResult.stdout}`,
+    );
+  }
+  const textShapeShadowSlidesResult = run(
+    bin,
+    ['--json', 'slides', 'list', textShapeShadowDeckPath],
+    directory,
+  );
+  const textShapeShadowSlides = JSON.parse(textShapeShadowSlidesResult.stdout);
+  if (!textShapeShadowSlides.ok || textShapeShadowSlides.data?.length !== 3 ||
+      textShapeShadowSlides.data[0]?.shapeCount !== 3 ||
+      textShapeShadowSlides.data[1]?.shapeCount !== 1 ||
+      textShapeShadowSlides.data[2]?.shapeCount !== 3) {
+    throw new Error(
+      `CLI text-shape-shadow slide listing failed: ${textShapeShadowSlidesResult.stdout}`,
+    );
+  }
+  const textShapeShadowPart = (uri) => JSON.parse(run(
+    bin,
+    ['--json', 'part', 'read', textShapeShadowDeckPath, uri],
+    directory,
+  ).stdout).data?.content ?? '';
+  const textShapeShadowSourceXml = textShapeShadowPart(textShapeShadowSlides.data[0].partUri);
+  const textShapeShadowDuplicateXml = textShapeShadowPart(
+    textShapeShadowSlides.data[2].partUri,
+  );
+  const textShapeShadowLayoutXml = textShapeShadowPart('/ppt/slideLayouts/slideLayout1.xml');
+  const textShapeShadowMasterXml = textShapeShadowPart('/ppt/slideMasters/slideMaster1.xml');
+  if (!textShapeShadowSourceXml.includes(
+        '<a:ln w="25400"><a:solidFill><a:schemeClr val="accent2"/>' +
+        '</a:solidFill><a:prstDash val="dashDot"/>' +
+        '<a:headEnd type="triangle"/><a:tailEnd type="arrow"/></a:ln>' +
+        '<a:effectLst><a:outerShdw sx="100000" sy="100000" kx="0" ky="0" ' +
+        'algn="bl" rotWithShape="1" blurRad="25400" dist="38100" dir="2700000">' +
+        '<a:schemeClr val="accent4"><a:alpha val="40000"/></a:schemeClr>' +
+        '</a:outerShdw></a:effectLst>',
+      ) ||
+      !textShapeShadowSourceXml.includes(
+        '<a:innerShdw blurRad="0" dist="0" dir="0">' +
+        '<a:srgbClr val="667788"><a:alpha val="0"/></a:srgbClr></a:innerShdw>',
+      ) ||
+      !textShapeShadowSourceXml.includes(
+        '<a:innerShdw blurRad="12700" dist="25400" dir="5400000">' +
+        '<a:schemeClr val="accent3"><a:alpha val="50000"/></a:schemeClr>' +
+        '</a:innerShdw>',
+      ) ||
+      !textShapeShadowDuplicateXml.includes(
+        '<a:ln></a:ln><a:effectLst><a:outerShdw sx="100000" sy="100000"',
+      ) ||
+      !textShapeShadowDuplicateXml.includes('<a:effectLst></a:effectLst>') ||
+      !textShapeShadowLayoutXml.includes('name="packed_layout_text_shadow"') ||
+      !textShapeShadowLayoutXml.includes(
+        '<a:schemeClr val="accent2"><a:alpha val="75000"/></a:schemeClr>',
+      ) ||
+      !textShapeShadowLayoutXml.includes('name="packed_title_shadow"') ||
+      !textShapeShadowMasterXml.includes(
+        '<a:innerShdw blurRad="0" dist="0" dir="0">' +
+        '<a:srgbClr val="445566"><a:alpha val="0"/></a:srgbClr></a:innerShdw>',
+      )) {
+    throw new Error('CLI text-shape-shadow part inspection failed');
+  }
   if (process.env.PPTX_SLIDE_BACKGROUND_GALLERY_OUT) {
     const galleryOutput = resolve(process.env.PPTX_SLIDE_BACKGROUND_GALLERY_OUT);
     await mkdir(dirname(galleryOutput), { recursive: true });
@@ -7270,7 +7698,7 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
   }
 
   process.stdout.write(
-    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, masterLayouts: apiChecks.masterLayouts, slideNumbers: apiChecks.slideNumbers, slideDefaultColor: apiChecks.slideDefaultColor, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, textShapeFills: apiChecks.textShapeFills, textShapeLines: apiChecks.textShapeLines, textShapeArrows: apiChecks.textShapeArrows, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, slideBackgrounds: apiChecks.slideBackgrounds, types: true, cli: doctor.data.version, masterLayoutInspect: true, masterLayoutValidate: true, masterLayoutSlides: true, masterLayoutPartRead: true, masterLayoutDiff: true, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true, slideBackgroundInspect: true, slideBackgroundValidate: true, slideNumberInspect: true, slideNumberValidate: true, slideNumberSlides: true, slideNumberPartRead: true, slideDefaultColorInspect: true, slideDefaultColorValidate: true, slideDefaultColorSlides: true, slideDefaultColorPartRead: true, textShapeFillInspect: true, textShapeFillValidate: true, textShapeFillSlides: true, textShapeFillPartRead: true, textShapeLineInspect: true, textShapeLineValidate: true, textShapeLineSlides: true, textShapeLinePartRead: true, textShapeArrowInspect: true, textShapeArrowValidate: true, textShapeArrowSlides: true, textShapeArrowPartRead: true })}\n`,
+    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, masterLayouts: apiChecks.masterLayouts, slideNumbers: apiChecks.slideNumbers, slideDefaultColor: apiChecks.slideDefaultColor, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, textShapeFills: apiChecks.textShapeFills, textShapeLines: apiChecks.textShapeLines, textShapeArrows: apiChecks.textShapeArrows, textShapeShadows: apiChecks.textShapeShadows, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, slideBackgrounds: apiChecks.slideBackgrounds, types: true, cli: doctor.data.version, masterLayoutInspect: true, masterLayoutValidate: true, masterLayoutSlides: true, masterLayoutPartRead: true, masterLayoutDiff: true, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true, slideBackgroundInspect: true, slideBackgroundValidate: true, slideNumberInspect: true, slideNumberValidate: true, slideNumberSlides: true, slideNumberPartRead: true, slideDefaultColorInspect: true, slideDefaultColorValidate: true, slideDefaultColorSlides: true, slideDefaultColorPartRead: true, textShapeFillInspect: true, textShapeFillValidate: true, textShapeFillSlides: true, textShapeFillPartRead: true, textShapeLineInspect: true, textShapeLineValidate: true, textShapeLineSlides: true, textShapeLinePartRead: true, textShapeArrowInspect: true, textShapeArrowValidate: true, textShapeArrowSlides: true, textShapeArrowPartRead: true, textShapeShadowInspect: true, textShapeShadowValidate: true, textShapeShadowSlides: true, textShapeShadowPartRead: true })}\n`,
   );
 } finally {
   await rm(directory, { recursive: true, force: true });

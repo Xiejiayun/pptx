@@ -518,6 +518,111 @@ async (page) => {
           ({ severity }) => severity === 'error',
         ).length,
       };
+      const textShapeShadowDocument = api.PptxDocument.create();
+      const textShapeShadowLayout = textShapeShadowDocument.layouts[0];
+      textShapeShadowLayout.addPlaceholder('Browser text shadow prompt', {
+        name: 'browser_text_shadow_placeholder',
+        type: 'title',
+        index: 193,
+        shadow: {
+          kind: 'outer',
+          color: { kind: 'scheme', value: 'accent1' },
+          rotateWithShape: true,
+        },
+      });
+      const textShapeShadowSlide = textShapeShadowDocument.addSlide({
+        masterName: textShapeShadowLayout.name,
+      });
+      const textShapeShadowColor = { kind: 'scheme', value: 'accent4' };
+      const textShapeShadowSource = {
+        kind: 'outer',
+        color: textShapeShadowColor,
+        opacity: 0.4,
+        blur: 2,
+        angle: 45,
+        distance: 3,
+        rotateWithShape: true,
+      };
+      const browserPlainTextShadow = textShapeShadowSlide.addText(
+        'Browser plain text shadow',
+        {
+          name: 'browser_plain_text_shadow',
+          line: {
+            kind: 'line',
+            color: { kind: 'scheme', value: 'accent2' },
+            width: 2,
+            dash: 'dashDot',
+          },
+          arrows: { begin: 'triangle', end: 'arrow' },
+          shadow: textShapeShadowSource,
+        },
+      );
+      const browserRichTextShadow = textShapeShadowSlide.addRichText([{
+        runs: [{ text: 'Browser rich text shadow' }],
+      }], {
+        name: 'browser_rich_text_shadow',
+        shadow: {
+          kind: 'inner',
+          color: { kind: 'srgb', value: '667788' },
+          opacity: 0,
+          blur: 0,
+          angle: 0,
+          distance: 0,
+        },
+      });
+      const browserPopulatedTextShadow = textShapeShadowSlide.addText(
+        'Browser populated text shadow',
+        { placeholder: 'browser_text_shadow_placeholder', shadow: { kind: 'outer' } },
+      );
+      const textShapeShadowImmediate = [
+        browserPlainTextShadow.shadow,
+        browserRichTextShadow.shadow,
+        browserPopulatedTextShadow.shadow,
+      ];
+      textShapeShadowColor.value = 'accent6';
+      textShapeShadowSource.opacity = 0.9;
+      textShapeShadowSource.rotateWithShape = false;
+      const textShapeShadowDetached = browserPlainTextShadow.shadow;
+      const textShapeShadowOutput = await textShapeShadowDocument.writeBlob();
+      const reopenedTextShapeShadows = await api.PptxDocument.open(textShapeShadowOutput);
+      await reopenedTextShapeShadows.write({ compatibility: 'powerpoint-current' });
+      const textShapeShadowByName = (owner, name) => owner.shapes.find(
+        (shape) => shape instanceof api.ShapeModel && shape.name === name,
+      );
+      const textShapeShadowState = {
+        mime: textShapeShadowOutput.type,
+        immediate: textShapeShadowImmediate,
+        detached: textShapeShadowDetached,
+        reopened: [
+          textShapeShadowByName(
+            reopenedTextShapeShadows.slides[0],
+            'browser_plain_text_shadow',
+          ).shadow,
+          textShapeShadowByName(
+            reopenedTextShapeShadows.slides[0],
+            'browser_rich_text_shadow',
+          ).shadow,
+          textShapeShadowByName(
+            reopenedTextShapeShadows.slides[0],
+            'browser_text_shadow_placeholder',
+          ).shadow,
+        ],
+        layout: textShapeShadowByName(
+          reopenedTextShapeShadows.layouts[0],
+          'browser_text_shadow_placeholder',
+        ).shadow,
+        line: textShapeShadowByName(
+          reopenedTextShapeShadows.slides[0],
+          'browser_plain_text_shadow',
+        ).line,
+        arrows: textShapeShadowByName(
+          reopenedTextShapeShadows.slides[0],
+          'browser_plain_text_shadow',
+        ).arrows,
+        validationErrors: reopenedTextShapeShadows.diagnostics.filter(
+          ({ severity }) => severity === 'error',
+        ).length,
+      };
       const svgDocument = api.PptxDocument.create();
       svgDocument.addSlide();
       const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360">'
@@ -901,6 +1006,7 @@ async (page) => {
         textShapeFills: textShapeFillState,
         textShapeLines: textShapeLineState,
         textShapeArrows: textShapeArrowState,
+        textShapeShadows: textShapeShadowState,
         svgCreatedLive: svgDocument.slides[0].shapes.includes(blobSvg)
           && svgDocument.slides[0].shapes.includes(dataSvg),
         svgState,
@@ -1189,6 +1295,91 @@ async (page) => {
         width: 2,
         dash: 'dashDot',
       },
+      validationErrors: 0,
+    },
+    textShapeShadows: {
+      mime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      immediate: [
+        {
+          kind: 'outer',
+          color: { kind: 'scheme', value: 'accent4' },
+          opacity: 0.4,
+          blur: 2,
+          angle: 45,
+          distance: 3,
+          rotateWithShape: true,
+        },
+        {
+          kind: 'inner',
+          color: { kind: 'srgb', value: '667788' },
+          opacity: 0,
+          blur: 0,
+          angle: 0,
+          distance: 0,
+        },
+        {
+          kind: 'outer',
+          color: { kind: 'srgb', value: '000000' },
+          opacity: 0.75,
+          blur: 8,
+          angle: 270,
+          distance: 4,
+          rotateWithShape: false,
+        },
+      ],
+      detached: {
+        kind: 'outer',
+        color: { kind: 'scheme', value: 'accent4' },
+        opacity: 0.4,
+        blur: 2,
+        angle: 45,
+        distance: 3,
+        rotateWithShape: true,
+      },
+      reopened: [
+        {
+          kind: 'outer',
+          color: { kind: 'scheme', value: 'accent4' },
+          opacity: 0.4,
+          blur: 2,
+          angle: 45,
+          distance: 3,
+          rotateWithShape: true,
+        },
+        {
+          kind: 'inner',
+          color: { kind: 'srgb', value: '667788' },
+          opacity: 0,
+          blur: 0,
+          angle: 0,
+          distance: 0,
+        },
+        {
+          kind: 'outer',
+          color: { kind: 'srgb', value: '000000' },
+          opacity: 0.75,
+          blur: 8,
+          angle: 270,
+          distance: 4,
+          rotateWithShape: false,
+        },
+      ],
+      layout: {
+        kind: 'outer',
+        color: { kind: 'scheme', value: 'accent1' },
+        opacity: 0.75,
+        blur: 8,
+        angle: 270,
+        distance: 4,
+        rotateWithShape: true,
+      },
+      line: {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent2' },
+        width: 2,
+        dash: 'dashDot',
+      },
+      arrows: { begin: 'triangle', end: 'arrow' },
       validationErrors: 0,
     },
     svgCreatedLive: true,
