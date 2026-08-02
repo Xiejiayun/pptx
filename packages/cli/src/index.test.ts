@@ -2,7 +2,7 @@ import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { PptxDocument } from '@pptx/sdk';
+import { PPTX_VERSION, PptxDocument } from '@pptx/sdk';
 import { createMinimalPptx } from '@pptx/testkit';
 import { runCli } from './index.js';
 
@@ -22,7 +22,13 @@ describe('pptx-inspect CLI', () => {
     const file = join(directory, 'fixture.pptx');
     await writeFile(file, await createMinimalPptx('CLI fixture'));
     const doctor = await run(['--json', 'doctor']);
-    expect(JSON.parse(doctor.stdout)).toMatchObject({ ok: true, command: 'doctor', data: { auth: { required: false } } });
+    expect(JSON.parse(doctor.stdout)).toMatchObject({
+      ok: true,
+      command: 'doctor',
+      data: { version: PPTX_VERSION, auth: { required: false } },
+    });
+    const version = await run(['--version']);
+    expect(version).toEqual({ code: 0, stdout: `${PPTX_VERSION}\n`, stderr: '' });
     const inspection = await run(['--json', 'package', 'inspect', file]);
     expect(JSON.parse(inspection.stdout)).toMatchObject({ ok: true, command: 'package.inspect', data: { partCount: 5 } });
   });
@@ -45,4 +51,3 @@ describe('pptx-inspect CLI', () => {
     expect(JSON.parse(result.stdout)).toMatchObject({ ok: false, error: { code: 'CLI_ERROR' } });
   });
 });
-

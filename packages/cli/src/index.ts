@@ -2,7 +2,7 @@ import { promises as fs } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { Command, CommanderError, InvalidArgumentError } from 'commander';
 import { OpcPackage } from '@pptx/opc';
-import { PptxDocument, type CompatibilityProfile } from '@pptx/sdk';
+import { PPTX_VERSION, PptxDocument, type CompatibilityProfile } from '@pptx/sdk';
 import { diffPackages, inspectPackage } from '@pptx/testkit';
 
 export interface CliIo {
@@ -37,7 +37,7 @@ function createProgram(io: CliIo): Command {
   program
     .name('pptx-inspect')
     .description('Inspect, validate, diff, and make narrow edits to PPTX OOXML packages')
-    .version('0.1.0')
+    .version(PPTX_VERSION)
     .option('--json', 'emit stable machine-readable JSON')
     .exitOverride()
     .configureOutput({ writeOut: io.stdout, writeErr: io.stderr });
@@ -49,7 +49,7 @@ function createProgram(io: CliIo): Command {
       const nodeMajor = Number(process.versions.node.split('.')[0]);
       const soffice = commandExists('soffice');
       emit(program, io, 'doctor', {
-        version: '0.1.0',
+        version: PPTX_VERSION,
         node: { version: process.versions.node, supported: nodeMajor >= 20 },
         platform: process.platform,
         auth: { required: false, source: 'not-required' },
@@ -182,4 +182,3 @@ function errorCode(error: unknown): string {
   if (error instanceof RangeError) return 'CLI_RANGE_ERROR';
   return 'CLI_ERROR';
 }
-

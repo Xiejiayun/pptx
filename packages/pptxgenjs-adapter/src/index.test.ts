@@ -14,6 +14,7 @@ import {
   inspectRasterImage,
   MediaModel,
   PRESET_SHAPE_TYPES,
+  PPTX_VERSION,
   PptxDocument,
   ShapeModel,
   TableModel,
@@ -759,6 +760,20 @@ function directTextPresetGeometryState(xml: string) {
 }
 
 describe('importPptxGenJS', () => {
+  it('reports each library runtime version through its public instance', async () => {
+    const generated = new PptxGenJS();
+    const native = PptxDocument.create();
+
+    expect(generated.version).toBe('4.0.1');
+    expect(native.version).toBe(PPTX_VERSION);
+    expect(generated.version).not.toBe(native.version);
+
+    await generated.write({ outputType: 'uint8array', compression: false });
+    await native.write();
+    expect(generated.version).toBe('4.0.1');
+    expect(native.version).toBe(PPTX_VERSION);
+  });
+
   it('matches public PptxGenJS slide default colors and locks intentional differences', async () => {
     const generated = new PptxGenJS();
     expect(generated.version).toBe('4.0.1');

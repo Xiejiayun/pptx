@@ -4,6 +4,7 @@ import {
   ChartModel,
   MediaModel,
   PLACEHOLDER_TYPES,
+  PPTX_VERSION,
   PptxDocument,
   ShapeModel,
   SlideLayoutModel,
@@ -24,6 +25,7 @@ import {
   type PlaceholderSelector,
   type PlaceholderType,
   type PresetShapeType,
+  type PptxVersion,
   type SlideMasterBackground,
   type SlideMasterMargin,
   type SlideMasterObject,
@@ -35,6 +37,20 @@ import {
 } from './index.js';
 
 describe('@jiayunxie/pptx stable exports', () => {
+  it('exports the read-only runtime version from the root package', async () => {
+    const current: PptxVersion = PPTX_VERSION;
+    const document = PptxDocument.create();
+
+    expect(current).toBe('0.1.0');
+    expect(document.version).toBe(current);
+    expect((await PptxDocument.open(await document.write())).version).toBe(current);
+
+    if (false) {
+      // @ts-expect-error document version is read-only
+      document.version = '9.9.9';
+    }
+  });
+
   it('exports semantic master layout models from the root package', () => {
     const document = PptxDocument.create();
     const layout: SlideLayoutModel = document.layouts[0]!;
