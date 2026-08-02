@@ -181,6 +181,9 @@ type PptxGenJSPublicShapeOptions = NonNullable<
 >;
 type PptxGenJSPublicSlideNumberOptions =
   ReturnType<PptxGenJSPublicInstance['addSlide']>['slideNumber'];
+type PptxGenJSPublicTextOptions = Parameters<
+  ReturnType<PptxGenJSPublicInstance['addSlide']>['addText']
+>[1];
 type PptxGenJSMediaOptions = Parameters<
   ReturnType<PptxGenJSPublicInstance['addSlide']>['addMedia']
 >[0];
@@ -207,6 +210,11 @@ const publicSlideNumberOptions: PptxGenJSPublicSlideNumberOptions = {
   color: 'FF3399',
   transparency: 25,
   margin: [1, 2, 3, 4],
+};
+const publicTextBoxOptions: PptxGenJSPublicTextOptions = { isTextBox: true };
+const unsupportedPublicTextBoxOptions: PptxGenJSPublicTextOptions = {
+  // @ts-expect-error PptxGenJS 4.0.1 types require a boolean text-box flag.
+  isTextBox: 'true',
 };
 const unsupportedPublicHandleOptions: PptxGenJSPublicShapeOptions = {
   x: 1,
@@ -243,6 +251,8 @@ const unsupportedPublicEvaluatorOptions: PptxGenJSPublicShapeOptions = {
 void [
   publicCustomShapeOptions,
   publicSlideNumberOptions,
+  publicTextBoxOptions,
+  unsupportedPublicTextBoxOptions,
   unsupportedPublicHandleOptions,
   unsupportedPublicConnectionSiteOptions,
   unsupportedPublicGuideOptions,
@@ -4095,6 +4105,277 @@ describe('importPptxGenJS', () => {
     expect((reopened.slides[0]!.shapes.find(
       ({ name }) => name === 'Folded corner',
     ) as ShapeModel).presetType).toBe('foldedCorner');
+  });
+
+  it('compares text box state public output across text and placeholder owners', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    const publicObjects: PptxGenJSMasterObject[] = [
+      {
+        text: {
+          text: 'Layout shape text',
+          options: { objectName: 'layout-shape-text', x: 0.5, y: 0.5, w: 2, h: 0.5 },
+        },
+      },
+      {
+        text: {
+          text: 'Layout text box',
+          options: {
+            objectName: 'layout-text-box', x: 3, y: 0.5, w: 2, h: 0.5,
+            isTextBox: true,
+          },
+        },
+      },
+      ...[
+        {
+          name: 'populate_false_source', objectName: 'populate-false-source',
+          type: 'title', y: 1.5, isTextBox: false,
+        },
+        {
+          name: 'populate_true_source', objectName: 'populate-true-source',
+          type: 'body', y: 2.5, isTextBox: true,
+        },
+        {
+          name: 'empty_false_source', objectName: 'empty-false-source',
+          type: 'body', y: 3.5, isTextBox: false,
+        },
+        {
+          name: 'empty_true_source', objectName: 'empty-true-source',
+          type: 'body', y: 4.5, isTextBox: true,
+        },
+      ].map((options, index): PptxGenJSMasterObject => ({
+        placeholder: {
+          text: `Prompt ${index}`,
+          options: {
+            ...options,
+            x: 0.5,
+            w: 4,
+            h: 0.5,
+          } as PptxGenJSPlaceholderOptions,
+        },
+      })),
+    ];
+    generated.defineSlideMaster({ title: 'TEXT-BOX-STATE', objects: publicObjects });
+    const generatedSlide = generated.addSlide({ masterName: 'TEXT-BOX-STATE' });
+    generatedSlide.addText('Omitted', {
+      objectName: 'slide-omitted', x: 5, y: 0.5, w: 2, h: 0.5,
+    });
+    generatedSlide.addText('Undefined', {
+      objectName: 'slide-undefined', x: 5, y: 1.5, w: 2, h: 0.5,
+      isTextBox: undefined,
+    });
+    generatedSlide.addText('False', {
+      objectName: 'slide-false', x: 5, y: 2.5, w: 2, h: 0.5,
+      isTextBox: false,
+    });
+    generatedSlide.addText('True', {
+      objectName: 'slide-true', x: 5, y: 3.5, w: 2, h: 0.5,
+      isTextBox: true,
+    });
+    generatedSlide.addText([
+      { text: 'Rich', options: { bold: true } },
+      { text: ' text box', options: { italic: true } },
+    ], {
+      objectName: 'slide-rich-true', x: 5, y: 4.5, w: 2, h: 0.5,
+      isTextBox: true,
+    });
+    generatedSlide.addText('Population true', {
+      placeholder: 'populate_false_source',
+      isTextBox: true,
+    });
+    generatedSlide.addText('Population false', {
+      placeholder: 'populate_true_source',
+    });
+
+    const imported = await openPptxGenJSPublicOutput(generated);
+    const importedLayout = imported.layouts.find(({ name }) => name === 'TEXT-BOX-STATE')!;
+    const states = (shapes: readonly ShapeModel[]) => Object.fromEntries(
+      shapes.map((shape) => [shape.name, shape.isTextBox]),
+    );
+    expect(states(importedLayout.shapes as readonly ShapeModel[])).toMatchObject({
+      'layout-shape-text': false,
+      'layout-text-box': true,
+      'populate-false-source': false,
+      'populate-true-source': true,
+      'empty-false-source': false,
+      'empty-true-source': true,
+    });
+    expect(states(imported.slides[0]!.shapes as readonly ShapeModel[])).toMatchObject({
+      'slide-omitted': false,
+      'slide-undefined': false,
+      'slide-false': false,
+      'slide-true': true,
+      'slide-rich-true': true,
+      'populate-false-source': false,
+      'populate-true-source': true,
+      'empty-false-source': false,
+      'empty-true-source': true,
+    });
+
+    const native = PptxDocument.create();
+    const nativeLayout = await native.defineSlideMaster({
+      title: 'TEXT-BOX-STATE-NATIVE',
+      objects: [
+        {
+          kind: 'text', text: 'Layout shape text',
+          options: { name: 'layout-shape-text', isTextBox: false },
+        },
+        {
+          kind: 'text', text: 'Layout text box',
+          options: { name: 'layout-text-box', isTextBox: true },
+        },
+        {
+          kind: 'placeholder', text: 'Prompt 0',
+          options: {
+            name: 'populate-false-source', type: 'title', index: 100,
+            isTextBox: false,
+          },
+        },
+        {
+          kind: 'placeholder', text: 'Prompt 1',
+          options: {
+            name: 'populate-true-source', type: 'body', index: 101,
+            isTextBox: true,
+          },
+        },
+        {
+          kind: 'placeholder', text: 'Prompt 2',
+          options: {
+            name: 'empty-false-source', type: 'body', index: 102,
+            isTextBox: false,
+          },
+        },
+        {
+          kind: 'placeholder', text: 'Prompt 3',
+          options: {
+            name: 'empty-true-source', type: 'body', index: 103,
+            isTextBox: true,
+          },
+        },
+      ],
+    });
+    const nativeSlide = native.addSlide({ masterName: nativeLayout.name });
+    nativeSlide.addText('Omitted', { name: 'slide-omitted' });
+    nativeSlide.addText('Undefined', { name: 'slide-undefined', isTextBox: undefined } as never);
+    nativeSlide.addText('False', { name: 'slide-false', isTextBox: false });
+    nativeSlide.addText('True', { name: 'slide-true', isTextBox: true });
+    nativeSlide.addRichText([{ runs: [{ text: 'Rich', style: { bold: true } }] }], {
+      name: 'slide-rich-true',
+      isTextBox: true,
+    });
+    nativeSlide.addText('Population true', {
+      placeholder: 'populate-false-source',
+      isTextBox: true,
+    });
+    nativeSlide.addText('Population false', { placeholder: 'populate-true-source' });
+    expect(states(nativeLayout.shapes as readonly ShapeModel[])).toEqual(
+      states(importedLayout.shapes as readonly ShapeModel[]),
+    );
+    expect(states(nativeSlide.shapes as readonly ShapeModel[])).toEqual(
+      states(imported.slides[0]!.shapes as readonly ShapeModel[]),
+    );
+
+    const styledPublicXml = async (isTextBox: boolean): Promise<string> => {
+      const presentation = new PptxGenJS();
+      const slide = presentation.addSlide();
+      slide.addText([
+        { text: 'Styled', options: { bold: true, color: '336699' } },
+        { text: ' text', options: { italic: true } },
+      ], {
+        objectName: 'Styled isolation',
+        x: 1,
+        y: 1,
+        w: 4,
+        h: 2,
+        shape: 'roundRect',
+        rectRadius: 0.5,
+        fill: { color: 'ABCDEF' },
+        line: { color: '123456', width: 2, dash: 'dashDot' },
+        hyperlink: { url: 'https://example.com', tooltip: 'Keep' },
+        margin: 0,
+        valign: 'bottom',
+        isTextBox,
+      });
+      const document = await openPptxGenJSPublicOutput(presentation);
+      return shapeXml(document, 0, document.slides[0]!.shapes[0]!.id);
+    };
+    const publicFalseXml = await styledPublicXml(false);
+    const publicTrueXml = await styledPublicXml(true);
+    expect(publicTrueXml.replace('<p:cNvSpPr txBox="1"/>', '<p:cNvSpPr/>'))
+      .toBe(publicFalseXml);
+
+    const styledNativeXml = (isTextBox: boolean): string => {
+      const presentation = PptxDocument.create();
+      const shape = presentation.addSlide().addRichText([{
+        runs: [
+          { text: 'Styled', style: { bold: true, color: { kind: 'srgb', value: '336699' } } },
+          { text: ' text', style: { italic: true } },
+        ],
+      }], {
+        name: 'Styled isolation',
+        shape: 'roundRect',
+        rectRadius: inches(0.5),
+        width: inches(4),
+        height: inches(2),
+        fill: { kind: 'solid', color: { kind: 'srgb', value: 'ABCDEF' } },
+        line: {
+          kind: 'line', color: { kind: 'srgb', value: '123456' },
+          width: 2, dash: 'dashDot',
+        },
+        hyperlink: { url: 'https://example.com', tooltip: 'Keep' },
+        margin: 0,
+        valign: 'bottom',
+        isTextBox,
+      });
+      return shapeXml(presentation, 0, shape.id);
+    };
+    const nativeFalseXml = styledNativeXml(false);
+    const nativeTrueXml = styledNativeXml(true);
+    expect(nativeTrueXml.replace('<p:cNvSpPr txBox="1"/>', '<p:cNvSpPr/>'))
+      .toBe(nativeFalseXml);
+  });
+
+  it('locks text box runtime truthiness divergence and native strictness', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    const generatedSlide = generated.addSlide();
+    const cases = [
+      { name: 'Truthy string', value: 'yes', expected: true },
+      { name: 'Truthy number', value: 1, expected: true },
+      { name: 'Truthy object', value: {}, expected: true },
+      { name: 'Truthy array', value: [], expected: true },
+      { name: 'Falsy zero', value: 0, expected: false },
+      { name: 'Falsy empty', value: '', expected: false },
+      { name: 'Falsy null', value: null, expected: false },
+    ] as const;
+    for (const [index, fixture] of cases.entries()) {
+      generatedSlide.addText(fixture.name, {
+        objectName: fixture.name,
+        x: 0.5,
+        y: 0.5 + index * 0.5,
+        w: 2,
+        h: 0.4,
+        isTextBox: fixture.value,
+      });
+    }
+    const imported = await openPptxGenJSPublicOutput(generated);
+    expect((imported.slides[0]!.shapes as readonly ShapeModel[]).map(
+      ({ name, isTextBox }) => ({ name, isTextBox }),
+    )).toEqual(cases.map(({ name, expected }) => ({ name, isTextBox: expected })));
+
+    const native = PptxDocument.create();
+    const nativeSlide = native.addSlide();
+    const existing = nativeSlide.addText('Existing', { name: 'Existing', isTextBox: true });
+    const before = packageState(native);
+    const shapes = nativeSlide.shapes;
+    for (const fixture of cases) {
+      expect(() => nativeSlide.addText(fixture.name, {
+        isTextBox: fixture.value,
+      } as never), fixture.name).toThrow(TypeError);
+      expect(packageState(native), fixture.name).toEqual(before);
+      expect(nativeSlide.shapes, fixture.name).toEqual(shapes);
+      expect(nativeSlide.shapes[0], fixture.name).toBe(existing);
+    }
   });
 
   it('compares supported text shape rectangle radius public output', async () => {
