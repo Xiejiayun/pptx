@@ -2142,6 +2142,252 @@ if (!textShapeFills) {
   throw new Error('Packed text shape fills failed');
 }
 await reopenedTextShapeFillDeck.writeFile('text-shape-fill-smoke.pptx');
+const textShapeLineDeck = PptxDocument.create();
+const textShapeLineLayout = textShapeLineDeck.layouts[0];
+const textShapeLineMaster = textShapeLineDeck.masters[0];
+const packedLayoutTextLine = textShapeLineLayout.addText('Packed layout text line', {
+  name: 'packed_layout_text_line',
+  line: { kind: 'none' },
+});
+const packedMasterTextLine = textShapeLineMaster.addRichText([{
+  runs: [{ text: 'Packed master text line' }],
+}], {
+  name: 'packed_master_text_line',
+  line: {
+    kind: 'line',
+    color: { kind: 'scheme', value: 'accent6' },
+    transparency: 100,
+    width: 0,
+    dash: 'sysDot',
+  },
+});
+const packedLayoutPlaceholderLine = textShapeLineLayout.addPlaceholder(
+  'Packed text line prompt',
+  {
+    name: 'packed_title_line',
+    type: 'title',
+    index: 192,
+    line: {
+      kind: 'line',
+      color: { kind: 'scheme', value: 'accent1' },
+      transparency: 50,
+    },
+  },
+);
+const textShapeLineSource = {
+  kind: 'line',
+  color: { kind: 'srgb', value: '#AB12CD' },
+  transparency: 25,
+  width: 2.5,
+  dash: 'dashDot',
+};
+const textShapeLineSlide = textShapeLineDeck.addSlide({
+  masterName: textShapeLineLayout.name,
+});
+const packedPlainTextLine = textShapeLineSlide.addText('Packed plain text line', {
+  name: 'packed_plain_text_line',
+  line: textShapeLineSource,
+});
+const packedRichTextLine = textShapeLineSlide.addRichText([{
+  runs: [{ text: 'Packed rich text line' }],
+}], {
+  name: 'packed_rich_text_line',
+  line: {
+    kind: 'line',
+    color: { kind: 'scheme', value: 'accent2' },
+    transparency: 0,
+  },
+});
+const packedPopulatedTextLine = textShapeLineSlide.addText('Packed populated text line', {
+  placeholder: 'packed_title_line',
+  line: {
+    kind: 'line',
+    color: { kind: 'srgb', value: '112233' },
+    transparency: 25,
+    width: 3,
+    dash: 'lgDashDot',
+  },
+});
+const initialPackedPlainTextLine = packedPlainTextLine.line;
+textShapeLineSource.color.value = 'FFFFFF';
+textShapeLineSource.transparency = 90;
+textShapeLineSource.width = 9;
+textShapeLineSource.dash = 'solid';
+const detachedPackedPlainTextLine = packedPlainTextLine.line;
+const packedDeclarativeTextLineLayout = await textShapeLineDeck.defineSlideMaster({
+  title: 'PACKED-TEXT-LINES',
+  objects: [
+    {
+      kind: 'text',
+      text: 'Packed declarative text line',
+      options: { name: 'packed_declarative_text_line', line: { kind: 'none' } },
+    },
+    {
+      kind: 'placeholder',
+      text: 'Packed declarative line prompt',
+      options: {
+        name: 'packed_declarative_title_line',
+        type: 'title',
+        index: 193,
+        line: {
+          kind: 'line',
+          color: { kind: 'scheme', value: 'accent4' },
+          transparency: 40,
+          width: 1.5,
+          dash: 'sysDash',
+        },
+      },
+    },
+  ],
+});
+const packedDeclarativeTextLine = packedDeclarativeTextLineLayout.shapes.find(
+  ({ name }) => name === 'packed_declarative_text_line',
+);
+const packedDeclarativePlaceholderLine = packedDeclarativeTextLineLayout.placeholders.find(
+  ({ name }) => name === 'packed_declarative_title_line',
+);
+const packedDeclarativeTextLineSlide = textShapeLineDeck.addSlide({
+  masterName: packedDeclarativeTextLineLayout.name,
+});
+const packedDeclarativePopulatedLine = packedDeclarativeTextLineSlide.addText(
+  'Packed declarative populated line',
+  {
+    placeholder: 'packed_declarative_title_line',
+    line: {
+      kind: 'line',
+      color: { kind: 'scheme', value: 'accent3' },
+      transparency: 50,
+      width: 2,
+      dash: 'lgDashDotDot',
+    },
+  },
+);
+const duplicateTextShapeLineSlide = textShapeLineDeck.duplicateSlide(0);
+const duplicatePlainTextLine = duplicateTextShapeLineSlide.shapes.find(
+  ({ name }) => name === 'packed_plain_text_line',
+);
+const duplicateRichTextLine = duplicateTextShapeLineSlide.shapes.find(
+  ({ name }) => name === 'packed_rich_text_line',
+);
+if (!(duplicatePlainTextLine instanceof ShapeModel) ||
+    !(duplicateRichTextLine instanceof ShapeModel)) {
+  throw new Error('Packed duplicate text shape line failed');
+}
+duplicatePlainTextLine.line = { kind: 'none' };
+duplicateRichTextLine.line = undefined;
+const reopenedTextShapeLineDeck = await PptxDocument.open(await textShapeLineDeck.write());
+await reopenedTextShapeLineDeck.write({ compatibility: 'powerpoint-2010' });
+const reopenedTextLineSourceSlide = reopenedTextShapeLineDeck.slides[0];
+const reopenedTextLineDeclarativeSlide = reopenedTextShapeLineDeck.slides[1];
+const reopenedTextLineDuplicateSlide = reopenedTextShapeLineDeck.slides[2];
+const reopenedTextLineLayout = reopenedTextShapeLineDeck.layouts.find(
+  ({ name }) => name === textShapeLineLayout.name,
+);
+const reopenedDeclarativeTextLineLayout = reopenedTextShapeLineDeck.layouts.find(
+  ({ name }) => name === 'PACKED-TEXT-LINES',
+);
+const reopenedTextLineByName = (owner, name) => owner.shapes.find(
+  (shape) => shape instanceof ShapeModel && shape.name === name,
+);
+const textShapeLines =
+  packedLayoutTextLine instanceof ShapeModel &&
+  packedMasterTextLine instanceof ShapeModel &&
+  packedLayoutPlaceholderLine instanceof ShapeModel &&
+  packedPlainTextLine instanceof ShapeModel &&
+  packedRichTextLine instanceof ShapeModel &&
+  packedPopulatedTextLine instanceof ShapeModel &&
+  packedDeclarativeTextLine instanceof ShapeModel &&
+  packedDeclarativePlaceholderLine instanceof ShapeModel &&
+  packedDeclarativePopulatedLine instanceof ShapeModel &&
+  JSON.stringify(initialPackedPlainTextLine) === JSON.stringify({
+    kind: 'line',
+    color: { kind: 'srgb', value: 'AB12CD' },
+    transparency: 25,
+    width: 2.5,
+    dash: 'dashDot',
+  }) &&
+  JSON.stringify(detachedPackedPlainTextLine) === JSON.stringify(initialPackedPlainTextLine) &&
+  packedLayoutTextLine.line?.kind === 'none' &&
+  JSON.stringify(packedMasterTextLine.line) === JSON.stringify({
+    kind: 'line',
+    color: { kind: 'scheme', value: 'accent6' },
+    transparency: 100,
+    width: 0,
+    dash: 'sysDot',
+  }) &&
+  JSON.stringify(packedLayoutPlaceholderLine.line) === JSON.stringify({
+    kind: 'line',
+    color: { kind: 'scheme', value: 'accent1' },
+    transparency: 50,
+    width: 1,
+    dash: 'solid',
+  }) &&
+  JSON.stringify(packedRichTextLine.line) === JSON.stringify({
+    kind: 'line',
+    color: { kind: 'scheme', value: 'accent2' },
+    transparency: 0,
+    width: 1,
+    dash: 'solid',
+  }) &&
+  JSON.stringify(packedPopulatedTextLine.line) === JSON.stringify({
+    kind: 'line',
+    color: { kind: 'srgb', value: '112233' },
+    transparency: 25,
+    width: 3,
+    dash: 'lgDashDot',
+  }) &&
+  packedDeclarativeTextLine.line?.kind === 'none' &&
+  JSON.stringify(packedDeclarativePlaceholderLine.line) === JSON.stringify({
+    kind: 'line',
+    color: { kind: 'scheme', value: 'accent4' },
+    transparency: 40,
+    width: 1.5,
+    dash: 'sysDash',
+  }) &&
+  JSON.stringify(packedDeclarativePopulatedLine.line) === JSON.stringify({
+    kind: 'line',
+    color: { kind: 'scheme', value: 'accent3' },
+    transparency: 50,
+    width: 2,
+    dash: 'lgDashDotDot',
+  }) &&
+  JSON.stringify(reopenedTextLineByName(
+    reopenedTextLineSourceSlide,
+    'packed_plain_text_line',
+  )?.line) === JSON.stringify(initialPackedPlainTextLine) &&
+  JSON.stringify(reopenedTextLineByName(
+    reopenedTextLineSourceSlide,
+    'packed_rich_text_line',
+  )?.line) === JSON.stringify(packedRichTextLine.line) &&
+  reopenedTextLineByName(
+    reopenedTextLineDuplicateSlide,
+    'packed_plain_text_line',
+  )?.line?.kind === 'none' &&
+  reopenedTextLineByName(
+    reopenedTextLineDuplicateSlide,
+    'packed_rich_text_line',
+  )?.line === undefined &&
+  reopenedTextLineByName(
+    reopenedTextLineLayout,
+    'packed_layout_text_line',
+  )?.line?.kind === 'none' &&
+  JSON.stringify(reopenedTextLineByName(
+    reopenedTextShapeLineDeck.masters[0],
+    'packed_master_text_line',
+  )?.line) === JSON.stringify(packedMasterTextLine.line) &&
+  reopenedTextLineByName(
+    reopenedDeclarativeTextLineLayout,
+    'packed_declarative_text_line',
+  )?.line?.kind === 'none' &&
+  JSON.stringify(reopenedTextLineByName(
+    reopenedTextLineDeclarativeSlide,
+    'packed_declarative_title_line',
+  )?.line) === JSON.stringify(packedDeclarativePopulatedLine.line) &&
+  reopenedTextShapeLineDeck.diagnostics.every(({ severity }) => severity !== 'error');
+if (!textShapeLines) {
+  throw new Error('Packed text shape lines failed');
+}
+await reopenedTextShapeLineDeck.writeFile('text-shape-line-smoke.pptx');
 const createdText = created.addSlide().addText('Smoke\\n\\nParagraph', { align: 'center', fit: 'shrink', valign: 'top', vert: 'vert270', wrap: false, bullet: true, level: 2, margin: 10, rtlMode: true, spacing: { before: 4, after: 6, line: { kind: 'exact', points: 20 } }, tabStops: [{ position: 1.25 }, { position: 2.5, alignment: 'right' }] });
 const shapeLineDeck = PptxDocument.create();
 const shapeLineSlide = shapeLineDeck.addSlide();
@@ -3415,6 +3661,7 @@ const checks = {
   shapeShadows,
   shapeFills,
   textShapeFills,
+  textShapeLines,
   shapeLines,
   shapeArrows,
   shapeHyperlinks,
@@ -4274,6 +4521,112 @@ const browserTextShapeFillChecks = {
 };
 if (Object.values(browserTextShapeFillChecks).some((value) => !value)) {
   throw new Error('Browser text shape fill failed: ' + JSON.stringify(browserTextShapeFillChecks));
+}
+const browserTextShapeLineDeck = PptxDocument.create();
+const browserTextShapeLineLayout = browserTextShapeLineDeck.layouts[0];
+const browserTextShapeLinePlaceholder = browserTextShapeLineLayout.addPlaceholder(
+  'Browser text line prompt',
+  {
+    name: 'browser_text_line_placeholder',
+    type: 'title',
+    index: 191,
+    line: {
+      kind: 'line',
+      color: { kind: 'scheme', value: 'accent1' },
+      transparency: 100,
+      width: 0,
+      dash: 'sysDot',
+    },
+  },
+);
+const browserTextShapeLineSlide = browserTextShapeLineDeck.addSlide({
+  masterName: browserTextShapeLineLayout.name,
+});
+const browserTextShapeLineSource = {
+  kind: 'line',
+  color: { kind: 'srgb', value: '#AB12CD' },
+  transparency: 25,
+  width: 2.5,
+  dash: 'dashDot',
+};
+const browserPlainTextShapeLine = browserTextShapeLineSlide.addText(
+  'Browser plain text line',
+  { name: 'browser_plain_text_line', line: browserTextShapeLineSource },
+);
+const browserRichTextShapeLine = browserTextShapeLineSlide.addRichText([{
+  runs: [{ text: 'Browser rich text line' }],
+}], {
+  name: 'browser_rich_text_line',
+  line: {
+    kind: 'line',
+    color: { kind: 'scheme', value: 'accent2' },
+    transparency: 0,
+  },
+});
+const browserPopulatedTextShapeLine = browserTextShapeLineSlide.addText(
+  'Browser populated text line',
+  { placeholder: 'browser_text_line_placeholder', line: { kind: 'none' } },
+);
+const browserPlainTextShapeLineSnapshot = browserPlainTextShapeLine.line;
+browserTextShapeLineSource.color.value = 'FFFFFF';
+browserTextShapeLineSource.transparency = 90;
+browserTextShapeLineSource.width = 9;
+browserTextShapeLineSource.dash = 'solid';
+const reopenedBrowserTextShapeLineDeck = await PptxDocument.open(
+  await browserTextShapeLineDeck.writeBlob(),
+);
+await reopenedBrowserTextShapeLineDeck.write({ compatibility: 'powerpoint-current' });
+const reopenedBrowserTextShapeLineSlide = reopenedBrowserTextShapeLineDeck.slides[0];
+const reopenedBrowserTextShapeLineLayout = reopenedBrowserTextShapeLineDeck.layouts[0];
+const browserTextShapeLineByName = (owner, name) => owner.shapes.find(
+  (shape) => shape instanceof ShapeModel && shape.name === name,
+);
+const browserTextShapeLineChecks = {
+  detached: JSON.stringify(browserPlainTextShapeLine.line) ===
+    JSON.stringify(browserPlainTextShapeLineSnapshot),
+  plain: JSON.stringify(browserTextShapeLineByName(
+    reopenedBrowserTextShapeLineSlide,
+    'browser_plain_text_line',
+  )?.line) === JSON.stringify({
+    kind: 'line',
+    color: { kind: 'srgb', value: 'AB12CD' },
+    transparency: 25,
+    width: 2.5,
+    dash: 'dashDot',
+  }),
+  rich: JSON.stringify(browserTextShapeLineByName(
+    reopenedBrowserTextShapeLineSlide,
+    'browser_rich_text_line',
+  )?.line) === JSON.stringify({
+    kind: 'line',
+    color: { kind: 'scheme', value: 'accent2' },
+    transparency: 0,
+    width: 1,
+    dash: 'solid',
+  }),
+  populated: browserTextShapeLineByName(
+    reopenedBrowserTextShapeLineSlide,
+    'browser_text_line_placeholder',
+  )?.line?.kind === 'none',
+  placeholder: JSON.stringify(browserTextShapeLineByName(
+    reopenedBrowserTextShapeLineLayout,
+    'browser_text_line_placeholder',
+  )?.line) === JSON.stringify({
+    kind: 'line',
+    color: { kind: 'scheme', value: 'accent1' },
+    transparency: 100,
+    width: 0,
+    dash: 'sysDot',
+  }),
+  live: browserTextShapeLinePlaceholder instanceof ShapeModel &&
+    browserRichTextShapeLine instanceof ShapeModel &&
+    browserPopulatedTextShapeLine instanceof ShapeModel,
+  validation: reopenedBrowserTextShapeLineDeck.diagnostics.every(
+    ({ severity }) => severity !== 'error',
+  ),
+};
+if (Object.values(browserTextShapeLineChecks).some((value) => !value)) {
+  throw new Error('Browser text shape line failed: ' + JSON.stringify(browserTextShapeLineChecks));
 }
 const browserLineDeck = PptxDocument.create();
 const browserLineSlide = browserLineDeck.addSlide();
@@ -5489,9 +5842,17 @@ const typedTextShapeSchemeFill: ShapeFill = {
   color: { kind: 'scheme', value: 'accent3' },
   transparency: 0,
 };
+const typedTextShapeLine: ShapeLine = {
+  kind: 'line',
+  color: { kind: 'scheme', value: 'accent4' },
+  transparency: 25,
+  width: 2.5,
+  dash: 'dashDot',
+};
 const typedTextShapeOptions: AddTextOptions = {
-  name: 'Typed text shape fill',
+  name: 'Typed text shape fill and line',
   fill: typedTextShapeSrgbFill,
+  line: typedTextShapeLine,
 };
 const typedTextShapeSlide = createdDocument.addSlide();
 const typedPlainTextShape: ShapeModel = typedTextShapeSlide.addText(
@@ -5500,14 +5861,14 @@ const typedPlainTextShape: ShapeModel = typedTextShapeSlide.addText(
 );
 const typedRichTextShape: ShapeModel = typedTextShapeSlide.addRichText([{
   runs: [{ text: 'Typed rich text shape fill' }],
-}], { fill: typedTextShapeSchemeFill });
+}], { fill: typedTextShapeSchemeFill, line: typedTextShapeLine });
 const typedLayoutTextShape: ShapeModel = createdDocument.layouts[0].addText(
   'Typed layout text shape fill',
-  { fill: typedTextShapeNoneFill },
+  { fill: typedTextShapeNoneFill, line: { kind: 'none' } },
 );
 const typedMasterTextShape: ShapeModel = createdDocument.masters[0].addText(
   'Typed master text shape fill',
-  { fill: typedTextShapeSchemeFill },
+  { fill: typedTextShapeSchemeFill, line: typedTextShapeLine },
 );
 const typedPlaceholderTextShape: ShapeModel = createdDocument.layouts[0].addPlaceholder(
   'Typed placeholder text shape fill',
@@ -5516,13 +5877,15 @@ const typedPlaceholderTextShape: ShapeModel = createdDocument.layouts[0].addPlac
     type: 'title',
     index: 190,
     fill: typedTextShapeSrgbFill,
+    line: typedTextShapeLine,
   },
 );
 const typedDeclarativeTextFillObject: SlideMasterObject = {
   kind: 'text',
   text: 'Typed declarative text shape fill',
-  options: { fill: typedTextShapeSchemeFill },
+  options: { fill: typedTextShapeSchemeFill, line: typedTextShapeLine },
 };
+const typedTextShapeLineRead: ShapeLine | undefined = typedPlainTextShape.line;
 const typedShapeLineDash: ShapeLineDash = 'lgDashDotDot';
 const typedNoneShapeLine: ShapeLine = { kind: 'none' };
 const typedSolidShapeLine: ShapeLine = {
@@ -5657,6 +6020,34 @@ const invalidTextFillUnknownKey: AddTextOptions = {
     kind: 'none',
     // @ts-expect-error text shape none fills reject unknown fields
     extra: true,
+  },
+};
+const invalidPptxGenJSTextLine: AddTextOptions = {
+  // @ts-expect-error PptxGenJS-style text line objects are intentionally unsupported
+  line: { color: 'FF0000', dashType: 'dash' },
+};
+const invalidTextLineKind: AddTextOptions = {
+  // @ts-expect-error text shape line kind must be none or line
+  line: { kind: 'solid' },
+};
+const invalidTextLineMissingColor: AddTextOptions = {
+  // @ts-expect-error solid text shape lines require a color
+  line: { kind: 'line' },
+};
+const invalidTextLineWidth: AddTextOptions = {
+  line: {
+    kind: 'line',
+    color: { kind: 'srgb', value: 'FF0000' },
+    // @ts-expect-error text shape line width is numeric points
+    width: '2',
+  },
+};
+const invalidTextLineDash: AddTextOptions = {
+  line: {
+    kind: 'line',
+    color: { kind: 'srgb', value: 'FF0000' },
+    // @ts-expect-error text shape line dash union is closed
+    dash: 'dot',
   },
 };
 // @ts-expect-error solid is not the native shape-line discriminator
@@ -5937,8 +6328,11 @@ void [typedPreset, typedNoneShapeFill, typedSolidShapeFill,
   typedTextShapeNoneFill, typedTextShapeSrgbFill, typedTextShapeSchemeFill,
   typedTextShapeOptions, typedTextShapeSlide, typedPlainTextShape, typedRichTextShape,
   typedLayoutTextShape, typedMasterTextShape, typedPlaceholderTextShape,
-  typedDeclarativeTextFillObject, invalidPptxGenJSTextFill, invalidTextFillKind,
-  invalidTextFillMissingColor, invalidTextFillTransparency, invalidTextFillUnknownKey,
+  typedDeclarativeTextFillObject, typedTextShapeLine, typedTextShapeLineRead,
+  invalidPptxGenJSTextFill, invalidTextFillKind, invalidTextFillMissingColor,
+  invalidTextFillTransparency, invalidTextFillUnknownKey, invalidPptxGenJSTextLine,
+  invalidTextLineKind, invalidTextLineMissingColor, invalidTextLineWidth,
+  invalidTextLineDash,
   typedShapeOptions, typedShape,
   typedCustomPoint, typedCustomCommand, typedCustomFill, typedCustomPath, typedCustomGeometry,
   typedCustomValue, typedUnaryFormula, typedBinaryFormula, typedTernaryFormula,
@@ -6374,6 +6768,79 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
       )) {
     throw new Error('CLI text-shape-fill part inspection failed');
   }
+  const textShapeLineDeckPath = join(directory, 'text-shape-line-smoke.pptx');
+  const textShapeLineInspectResult = run(
+    bin,
+    ['--json', 'package', 'inspect', textShapeLineDeckPath],
+    directory,
+  );
+  const textShapeLineInspected = JSON.parse(textShapeLineInspectResult.stdout);
+  const textShapeLineContentTypes = textShapeLineInspected.data?.contentTypes ?? {};
+  if (!textShapeLineInspected.ok ||
+      textShapeLineContentTypes[
+        'application/vnd.openxmlformats-officedocument.presentationml.slide+xml'
+      ] !== 3 ||
+      textShapeLineContentTypes[
+        'application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml'
+      ] !== 2 ||
+      textShapeLineContentTypes[
+        'application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml'
+      ] !== 1) {
+    throw new Error(`CLI text-shape-line inspect failed: ${textShapeLineInspectResult.stdout}`);
+  }
+  const textShapeLineValidateResult = run(
+    bin,
+    ['--json', 'package', 'validate', textShapeLineDeckPath, '--profile', 'powerpoint-2010'],
+    directory,
+  );
+  const textShapeLineValidated = JSON.parse(textShapeLineValidateResult.stdout);
+  if (!textShapeLineValidated.ok || !textShapeLineValidated.data?.valid ||
+      textShapeLineValidated.data.errorCount !== 0 ||
+      textShapeLineValidated.data.warningCount !== 0) {
+    throw new Error(`CLI text-shape-line validation failed: ${textShapeLineValidateResult.stdout}`);
+  }
+  const textShapeLineSlidesResult = run(
+    bin,
+    ['--json', 'slides', 'list', textShapeLineDeckPath],
+    directory,
+  );
+  const textShapeLineSlides = JSON.parse(textShapeLineSlidesResult.stdout);
+  if (!textShapeLineSlides.ok || textShapeLineSlides.data?.length !== 3 ||
+      textShapeLineSlides.data[0]?.shapeCount !== 3 ||
+      textShapeLineSlides.data[1]?.shapeCount !== 1 ||
+      textShapeLineSlides.data[2]?.shapeCount !== 3) {
+    throw new Error(`CLI text-shape-line slide listing failed: ${textShapeLineSlidesResult.stdout}`);
+  }
+  const textShapeLinePart = (uri) => JSON.parse(run(
+    bin,
+    ['--json', 'part', 'read', textShapeLineDeckPath, uri],
+    directory,
+  ).stdout).data?.content ?? '';
+  const textShapeLineSourceXml = textShapeLinePart(textShapeLineSlides.data[0].partUri);
+  const textShapeLineDuplicateXml = textShapeLinePart(textShapeLineSlides.data[2].partUri);
+  const textShapeLineLayoutXml = textShapeLinePart('/ppt/slideLayouts/slideLayout1.xml');
+  const textShapeLineMasterXml = textShapeLinePart('/ppt/slideMasters/slideMaster1.xml');
+  if (!textShapeLineSourceXml.includes(
+        '<a:ln w="31750"><a:solidFill><a:srgbClr val="AB12CD">' +
+        '<a:alpha val="75000"/></a:srgbClr></a:solidFill>' +
+        '<a:prstDash val="dashDot"/></a:ln>',
+      ) ||
+      !textShapeLineSourceXml.includes(
+        '<a:ln w="12700"><a:solidFill><a:schemeClr val="accent2">' +
+        '<a:alpha val="100000"/></a:schemeClr></a:solidFill>' +
+        '<a:prstDash val="solid"/></a:ln>',
+      ) ||
+      !textShapeLineDuplicateXml.includes('<a:ln><a:noFill/></a:ln>') ||
+      !textShapeLineDuplicateXml.includes('<a:ln></a:ln>') ||
+      !textShapeLineLayoutXml.includes('name="packed_layout_text_line"') ||
+      !textShapeLineLayoutXml.includes('<a:ln><a:noFill/></a:ln>') ||
+      !textShapeLineMasterXml.includes(
+        '<a:ln w="0"><a:solidFill><a:schemeClr val="accent6">' +
+        '<a:alpha val="0"/></a:schemeClr></a:solidFill>' +
+        '<a:prstDash val="sysDot"/></a:ln>',
+      )) {
+    throw new Error('CLI text-shape-line part inspection failed');
+  }
   if (process.env.PPTX_SLIDE_BACKGROUND_GALLERY_OUT) {
     const galleryOutput = resolve(process.env.PPTX_SLIDE_BACKGROUND_GALLERY_OUT);
     await mkdir(dirname(galleryOutput), { recursive: true });
@@ -6401,7 +6868,7 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
   }
 
   process.stdout.write(
-    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, masterLayouts: apiChecks.masterLayouts, slideNumbers: apiChecks.slideNumbers, slideDefaultColor: apiChecks.slideDefaultColor, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, textShapeFills: apiChecks.textShapeFills, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, slideBackgrounds: apiChecks.slideBackgrounds, types: true, cli: doctor.data.version, masterLayoutInspect: true, masterLayoutValidate: true, masterLayoutSlides: true, masterLayoutPartRead: true, masterLayoutDiff: true, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true, slideBackgroundInspect: true, slideBackgroundValidate: true, slideNumberInspect: true, slideNumberValidate: true, slideNumberSlides: true, slideNumberPartRead: true, slideDefaultColorInspect: true, slideDefaultColorValidate: true, slideDefaultColorSlides: true, slideDefaultColorPartRead: true, textShapeFillInspect: true, textShapeFillValidate: true, textShapeFillSlides: true, textShapeFillPartRead: true })}\n`,
+    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, masterLayouts: apiChecks.masterLayouts, slideNumbers: apiChecks.slideNumbers, slideDefaultColor: apiChecks.slideDefaultColor, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, textShapeFills: apiChecks.textShapeFills, textShapeLines: apiChecks.textShapeLines, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, slideBackgrounds: apiChecks.slideBackgrounds, types: true, cli: doctor.data.version, masterLayoutInspect: true, masterLayoutValidate: true, masterLayoutSlides: true, masterLayoutPartRead: true, masterLayoutDiff: true, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true, slideBackgroundInspect: true, slideBackgroundValidate: true, slideNumberInspect: true, slideNumberValidate: true, slideNumberSlides: true, slideNumberPartRead: true, slideDefaultColorInspect: true, slideDefaultColorValidate: true, slideDefaultColorSlides: true, slideDefaultColorPartRead: true, textShapeFillInspect: true, textShapeFillValidate: true, textShapeFillSlides: true, textShapeFillPartRead: true, textShapeLineInspect: true, textShapeLineValidate: true, textShapeLineSlides: true, textShapeLinePartRead: true })}\n`,
   );
 } finally {
   await rm(directory, { recursive: true, force: true });

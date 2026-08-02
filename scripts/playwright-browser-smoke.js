@@ -358,6 +358,90 @@ async (page) => {
           ({ severity }) => severity === 'error',
         ).length,
       };
+      const textShapeLineDocument = api.PptxDocument.create();
+      const textShapeLineLayout = textShapeLineDocument.layouts[0];
+      textShapeLineLayout.addPlaceholder('Browser text line prompt', {
+        name: 'browser_text_line_placeholder',
+        type: 'title',
+        index: 191,
+        line: {
+          kind: 'line',
+          color: { kind: 'scheme', value: 'accent1' },
+          transparency: 100,
+          width: 0,
+          dash: 'sysDot',
+        },
+      });
+      const textShapeLineSlide = textShapeLineDocument.addSlide({
+        masterName: textShapeLineLayout.name,
+      });
+      const textShapeLineSource = {
+        kind: 'line',
+        color: { kind: 'srgb', value: '#AB12CD' },
+        transparency: 25,
+        width: 2.5,
+        dash: 'dashDot',
+      };
+      const browserPlainTextLine = textShapeLineSlide.addText('Browser plain text line', {
+        name: 'browser_plain_text_line',
+        line: textShapeLineSource,
+      });
+      const browserRichTextLine = textShapeLineSlide.addRichText([{
+        runs: [{ text: 'Browser rich text line' }],
+      }], {
+        name: 'browser_rich_text_line',
+        line: {
+          kind: 'line',
+          color: { kind: 'scheme', value: 'accent2' },
+          transparency: 0,
+        },
+      });
+      const browserPopulatedTextLine = textShapeLineSlide.addText(
+        'Browser populated text line',
+        { placeholder: 'browser_text_line_placeholder', line: { kind: 'none' } },
+      );
+      const textShapeLineImmediate = [
+        browserPlainTextLine.line,
+        browserRichTextLine.line,
+        browserPopulatedTextLine.line,
+      ];
+      textShapeLineSource.color.value = 'FFFFFF';
+      textShapeLineSource.transparency = 90;
+      textShapeLineSource.width = 9;
+      textShapeLineSource.dash = 'solid';
+      const textShapeLineDetached = browserPlainTextLine.line;
+      const textShapeLineOutput = await textShapeLineDocument.writeBlob();
+      const reopenedTextShapeLines = await api.PptxDocument.open(textShapeLineOutput);
+      await reopenedTextShapeLines.write({ compatibility: 'powerpoint-current' });
+      const textShapeLineByName = (owner, name) => owner.shapes.find(
+        (shape) => shape instanceof api.ShapeModel && shape.name === name,
+      );
+      const textShapeLineState = {
+        mime: textShapeLineOutput.type,
+        immediate: textShapeLineImmediate,
+        detached: textShapeLineDetached,
+        reopened: [
+          textShapeLineByName(
+            reopenedTextShapeLines.slides[0],
+            'browser_plain_text_line',
+          ).line,
+          textShapeLineByName(
+            reopenedTextShapeLines.slides[0],
+            'browser_rich_text_line',
+          ).line,
+          textShapeLineByName(
+            reopenedTextShapeLines.slides[0],
+            'browser_text_line_placeholder',
+          ).line,
+        ],
+        layout: textShapeLineByName(
+          reopenedTextShapeLines.layouts[0],
+          'browser_text_line_placeholder',
+        ).line,
+        validationErrors: reopenedTextShapeLines.diagnostics.filter(
+          ({ severity }) => severity === 'error',
+        ).length,
+      };
       const svgDocument = api.PptxDocument.create();
       svgDocument.addSlide();
       const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360">'
@@ -739,6 +823,7 @@ async (page) => {
         masterLayouts: masterLayoutState,
         slideDefaultColor: slideDefaultColorState,
         textShapeFills: textShapeFillState,
+        textShapeLines: textShapeLineState,
         svgCreatedLive: svgDocument.slides[0].shapes.includes(blobSvg)
           && svgDocument.slides[0].shapes.includes(dataSvg),
         svgState,
@@ -952,6 +1037,58 @@ async (page) => {
         kind: 'solid',
         color: { kind: 'scheme', value: 'accent1' },
         transparency: 100,
+      },
+      validationErrors: 0,
+    },
+    textShapeLines: {
+      mime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      immediate: [
+        {
+          kind: 'line',
+          color: { kind: 'srgb', value: 'AB12CD' },
+          transparency: 25,
+          width: 2.5,
+          dash: 'dashDot',
+        },
+        {
+          kind: 'line',
+          color: { kind: 'scheme', value: 'accent2' },
+          transparency: 0,
+          width: 1,
+          dash: 'solid',
+        },
+        { kind: 'none' },
+      ],
+      detached: {
+        kind: 'line',
+        color: { kind: 'srgb', value: 'AB12CD' },
+        transparency: 25,
+        width: 2.5,
+        dash: 'dashDot',
+      },
+      reopened: [
+        {
+          kind: 'line',
+          color: { kind: 'srgb', value: 'AB12CD' },
+          transparency: 25,
+          width: 2.5,
+          dash: 'dashDot',
+        },
+        {
+          kind: 'line',
+          color: { kind: 'scheme', value: 'accent2' },
+          transparency: 0,
+          width: 1,
+          dash: 'solid',
+        },
+        { kind: 'none' },
+      ],
+      layout: {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent1' },
+        transparency: 100,
+        width: 0,
+        dash: 'sysDot',
       },
       validationErrors: 0,
     },
