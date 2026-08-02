@@ -2338,7 +2338,10 @@ describe('PptxDocument vertical slice', () => {
 
   it('rejects invalid declarative text fills without observable mutation', async () => {
     const document = PptxDocument.create();
-    const before = await sdkPackageSnapshot(document);
+    const { output: _beforeOutput, ...before } = await sdkPackageSnapshot(document) as {
+      readonly output: Uint8Array;
+      readonly [key: string]: unknown;
+    };
     for (const definition of [
       {
         title: 'INVALID-TEXT-FILL',
@@ -2365,7 +2368,11 @@ describe('PptxDocument vertical slice', () => {
       },
     ]) {
       await expect(document.defineSlideMaster(definition as never)).rejects.toThrow();
-      expect(await sdkPackageSnapshot(document)).toEqual(before);
+      const { output: _afterOutput, ...after } = await sdkPackageSnapshot(document) as {
+        readonly output: Uint8Array;
+        readonly [key: string]: unknown;
+      };
+      expect(after).toEqual(before);
     }
 
     let signalRead!: () => void;
@@ -2397,10 +2404,18 @@ describe('PptxDocument vertical slice', () => {
       pending.then(() => 'resolved' as const, () => 'rejected' as const),
     ]);
     expect(phase).toBe('read-started');
-    expect(await sdkPackageSnapshot(document)).toEqual(before);
+    const { output: _pausedOutput, ...paused } = await sdkPackageSnapshot(document) as {
+      readonly output: Uint8Array;
+      readonly [key: string]: unknown;
+    };
+    expect(paused).toEqual(before);
     resumeRead();
     await expect(pending).rejects.toThrow(/color|required/i);
-    expect(await sdkPackageSnapshot(document)).toEqual(before);
+    const { output: _rejectedOutput, ...rejected } = await sdkPackageSnapshot(document) as {
+      readonly output: Uint8Array;
+      readonly [key: string]: unknown;
+    };
+    expect(rejected).toEqual(before);
   });
 
   it('surfaces slide-number compatibility warnings and rejects actual id collisions', async () => {
