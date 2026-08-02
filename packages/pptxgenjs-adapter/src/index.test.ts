@@ -3,6 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it, vi } from 'vitest';
 import {
@@ -330,6 +331,7 @@ interface PptxGenJSInstance {
     readonly slideNumber?: PptxGenJSSlideNumberProps;
     readonly objects?: readonly PptxGenJSMasterObject[];
   }): void;
+  stream(options?: { readonly compression?: boolean }): Promise<unknown>;
   write(options: { outputType: 'nodebuffer'; compression: boolean }): Promise<Uint8Array>;
   write(options: { outputType: 'uint8array'; compression: boolean }): Promise<Uint8Array>;
   write(options: { outputType: 'arraybuffer'; compression: boolean }): Promise<ArrayBuffer>;
@@ -869,6 +871,40 @@ describe('importPptxGenJS', () => {
       expect((await PptxDocument.open(generatedBytes)).slides).toHaveLength(1);
       expect((await PptxDocument.open(nativeBytes)).slides).toHaveLength(1);
     }
+  }, 30_000);
+
+  it('records the public PptxGenJS stream result and provides a real Node readable', async () => {
+    const generated = new PptxGenJS();
+    generated.addSlide().addText('PptxGenJS stream', {
+      x: 1,
+      y: 1,
+      w: 4,
+      h: 1,
+    });
+    const native = PptxDocument.create();
+    native.addSlide().addText('Native stream');
+
+    const generatedStream = await generated.stream();
+    expect(Buffer.isBuffer(generatedStream)).toBe(true);
+    expect((await PptxDocument.open(generatedStream as Uint8Array)).slides).toHaveLength(1);
+
+    const nativeNodeBuffer = await native.write({ outputType: 'nodebuffer' });
+    expect(Buffer.isBuffer(nativeNodeBuffer)).toBe(true);
+    expect((await PptxDocument.open(nativeNodeBuffer)).slides).toHaveLength(1);
+
+    const nativeStream = await native.stream();
+    expect(nativeStream).toBeInstanceOf(Readable);
+    expect(Buffer.isBuffer(nativeStream)).toBe(false);
+    const chunks: Uint8Array[] = [];
+    for await (const chunk of nativeStream) chunks.push(new Uint8Array(chunk));
+    const length = chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0);
+    const bytes = new Uint8Array(length);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    expect((await PptxDocument.open(bytes)).slides).toHaveLength(1);
   }, 30_000);
 
   it('matches the PptxGenJS vertical alignment runtime catalog', async () => {

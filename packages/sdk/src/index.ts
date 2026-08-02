@@ -137,6 +137,28 @@ export type PptxByteChunk = number | Uint8Array | ArrayBuffer | ArrayBufferView;
 export type PptxByteStream = ReadableStream<PptxByteChunk> | AsyncIterable<PptxByteChunk>;
 export type PptxInput = string | Uint8Array | ArrayBuffer | Blob | PptxByteStream;
 
+export interface PptxNodeReadableStream extends AsyncIterable<Uint8Array> {
+  readonly destroyed: boolean;
+  readonly readable: boolean;
+  readonly readableEnded: boolean;
+  readonly readableObjectMode: false;
+  pipe<TDestination>(
+    destination: TDestination,
+    options?: { readonly end?: boolean },
+  ): TDestination;
+  pause(): this;
+  resume(): this;
+  isPaused(): boolean;
+  read(size?: number): Uint8Array | null;
+  destroy(error?: Error): this;
+  on(event: 'data', listener: (chunk: Uint8Array) => void): this;
+  on(event: 'end' | 'close', listener: () => void): this;
+  on(event: 'error', listener: (error: Error) => void): this;
+  once(event: 'data', listener: (chunk: Uint8Array) => void): this;
+  once(event: 'end' | 'close', listener: () => void): this;
+  once(event: 'error', listener: (error: Error) => void): this;
+}
+
 export interface WriteBaseOptions {
   readonly compatibility?: CompatibilityProfile;
   readonly mode?: 'strict' | 'permissive';
@@ -272,6 +294,15 @@ export class PptxDocument extends PresentationModel {
     const outputType = resolveWriteOutputType(options.outputType);
     const bytes = await this.#writeBytes(options);
     return convertWriteOutput(bytes, outputType as TOutputType);
+  }
+
+  async stream(options: WriteBaseOptions = {}): Promise<PptxNodeReadableStream> {
+    if (!isNodeRuntime()) {
+      throw new Error('PptxDocument.stream() is only supported in Node.js');
+    }
+    const bytes = await this.#writeBytes(options);
+    const { Readable } = await loadNodeModule<NodeStreamModule>(['node:stream'].join('/'));
+    return Readable.from(chunkPptxBytes(bytes), { objectMode: false }) as PptxNodeReadableStream;
   }
 
   async #writeBytes(options: WriteBaseOptions): Promise<Uint8Array> {
@@ -1013,6 +1044,27 @@ interface NodeFsPromises {
 
 interface NodeFs {
   createReadStream(path: string): AsyncIterable<unknown>;
+}
+
+interface NodeStreamModule {
+  readonly Readable: {
+    from(
+      iterable: Iterable<Uint8Array>,
+      options: { readonly objectMode: false },
+    ): unknown;
+  };
+}
+
+const NODE_STREAM_CHUNK_SIZE = 64 * 1024;
+
+function isNodeRuntime(): boolean {
+  return typeof process !== 'undefined' && Boolean(process.versions?.node);
+}
+
+function* chunkPptxBytes(bytes: Uint8Array): Iterable<Uint8Array> {
+  for (let offset = 0; offset < bytes.byteLength; offset += NODE_STREAM_CHUNK_SIZE) {
+    yield bytes.subarray(offset, Math.min(offset + NODE_STREAM_CHUNK_SIZE, bytes.byteLength));
+  }
 }
 
 async function loadNodeModule<T>(specifier: string): Promise<T> {

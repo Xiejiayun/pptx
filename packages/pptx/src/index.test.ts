@@ -36,6 +36,7 @@ import {
   type PresentationLayout,
   type PresentationLayoutName,
   type PresetShapeType,
+  type PptxNodeReadableStream,
   type PptxVersion,
   type SlideMasterBackground,
   type SlideMasterMargin,
@@ -159,6 +160,23 @@ describe('@jiayunxie/pptx stable exports', () => {
       // @ts-expect-error convenience blob output does not accept a selector
       document.writeBlob({ outputType: 'blob' });
       void [stream, invalid];
+    }
+  });
+
+  it('exports the Node readable stream contract from the root package', () => {
+    const document = PptxDocument.create();
+    if (false) {
+      document.stream() satisfies Promise<PptxNodeReadableStream>;
+      document.stream({ mode: 'permissive' }) satisfies Promise<PptxNodeReadableStream>;
+      document.stream({ compatibility: 'powerpoint-current' }) satisfies Promise<PptxNodeReadableStream>;
+      void document.stream().then((readable) => {
+        readable satisfies AsyncIterable<Uint8Array>;
+        const destination = { tag: 'destination' } as const;
+        readable.pipe(destination) satisfies typeof destination;
+        readable.pause().resume().destroy();
+      });
+      // @ts-expect-error stream does not consume write output selectors
+      document.stream({ outputType: 'uint8array' });
     }
   });
 
