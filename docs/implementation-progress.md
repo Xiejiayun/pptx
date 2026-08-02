@@ -465,7 +465,7 @@ $ pptx-inspect --json package inspect output.pptx
 
 - Slide default text color direct transient 语义与 master/layout/placeholder 已完成；table 默认颜色与完整 theme text cascade 并入 advanced text/table 专项。
 - Advanced text 的 text shape fill、simple line、arrows、simple shadow、outer hyperlink、per-run rich-text hyperlink 与 preset geometry 已在后续专项完成。
-- `AddTextOptions.rectRadius` 与 `isTextBox` 已在后续专项完成；当前下一小项为 `breakLine`，之后继续其余 advanced text、advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
+- `AddTextOptions.rectRadius`、`isTextBox` 与 rich-text `breakLine` 已在后续专项完成；之后继续其余 advanced text、advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
 
 ## PptxGenJS 全功能对等：Named master/layout/placeholder
 
@@ -495,7 +495,7 @@ $ pptx-inspect --json package inspect output.pptx
 
 - Named selection、semantic wrapper、direct background、slide-number integration、declarative definition、六类 placeholder population 和 replace/delete lifecycle 已完成。仍未完成完整 theme text cascade、percentage coordinates、advanced text/table/media/chart styles 与更广泛客户端认证。
 - Advanced text 已完成 text shape fill、simple line、arrows、simple shadow、outer hyperlink、per-run rich-text hyperlink 与 preset geometry。
-- `AddTextOptions.rectRadius` 与 `isTextBox` 已在后续专项完成；当前下一小项是 `breakLine`，后续总体顺序仍是 advanced text → advanced table/`tableToSlides` → output/runtime helpers → peer-range full-suite audit。
+- `AddTextOptions.rectRadius`、`isTextBox` 与 rich-text `breakLine` 已在后续专项完成；后续总体顺序仍是 advanced text → advanced table/`tableToSlides` → output/runtime helpers → peer-range full-suite audit。
 
 ## PptxGenJS 全功能对等：Text shape fill creation
 
@@ -514,8 +514,8 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余文本与全功能路线
 
-- Text outer fill 与 preset geometry 已从缺口移入支持项。Gradient/pattern/picture/group text-fill creation 仍待后续；outer simple line、arrows、simple shadow、outer/per-run hyperlink、`rectRadius` 与 `isTextBox` 已在后续阶段完成，`breakLine` 组合语义与其余 shape-level styles 仍待逐项完成。
-- `AddTextOptions.rectRadius` 与 `isTextBox` 已在后续专项完成；当前下一小项为 `breakLine`，之后继续其余 advanced text，再进入 advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
+- Text outer fill 与 preset geometry 已从缺口移入支持项。Gradient/pattern/picture/group text-fill creation 仍待后续；outer simple line、arrows、simple shadow、outer/per-run hyperlink、`rectRadius`、`isTextBox` 与 rich-text `breakLine` 已在后续阶段完成，其余 shape-level styles 仍待逐项完成。
+- 之后继续其余 advanced text，再进入 advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
 
 ## PptxGenJS 全功能对等：Text shape simple line creation
 
@@ -537,7 +537,7 @@ $ pptx-inspect --json package inspect output.pptx
 ### 剩余文本与全功能路线
 
 - Text outer simple line、arrows、simple shadow、outer/per-run hyperlink 与 preset geometry 已从缺口移入支持项。Gradient/pattern/picture/group line fill、custom dash、cap/compound/alignment/join，以及其余 text geometry shortcut 仍待逐项完成。
-- `AddTextOptions.rectRadius` 与 `isTextBox` 已在后续专项完成；当前下一小项为 `breakLine`，之后继续其余 advanced text，再进入 advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
+- `AddTextOptions.rectRadius`、`isTextBox` 与 rich-text `breakLine` 已在后续专项完成；之后继续其余 advanced text，再进入 advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
 
 ## PptxGenJS 全功能对等：Text shape arrows creation
 
@@ -558,8 +558,8 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余文本与全功能路线
 
-- Text outer arrows、simple shadow、outer/per-run hyperlink、preset geometry、`rectRadius` 与 `isTextBox` 已从缺口移入支持项。Arrow size、advanced line fill/custom dash/cap/compound/alignment/join，以及 `breakLine` 组合语义仍待逐项完成。
-- `AddTextOptions.rectRadius` 与 `isTextBox` 已在后续专项完成；当前下一小项为 `breakLine`，之后继续 advanced text，再进入 advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
+- Text outer arrows、simple shadow、outer/per-run hyperlink、preset geometry、`rectRadius`、`isTextBox` 与 rich-text `breakLine` 已从缺口移入支持项。Arrow size、advanced line fill/custom dash/cap/compound/alignment/join 仍待逐项完成。
+- 之后继续 advanced text，再进入 advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
 
 ## PptxGenJS 全功能对等：Text shape simple shadow creation
 
@@ -580,8 +580,8 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余文本与全功能路线
 
-- Text simple shadow、outer hyperlink、per-run rich-text hyperlink、preset geometry、`rectRadius` 与 `isTextBox` 已从缺口移入支持项。仍待完成 `breakLine` 组合语义、advanced line/effect，以及 image/table/chart/media 等其他 owner 的 shadow/hyperlink/style 能力。
-- `AddTextOptions.rectRadius` 与 `isTextBox` 已在后续专项完成；当前下一小项为 `breakLine`，之后继续其余 advanced text，再进入 advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
+- Text simple shadow、outer hyperlink、per-run rich-text hyperlink、preset geometry、`rectRadius`、`isTextBox` 与 rich-text `breakLine` 已从缺口移入支持项。仍待完成 advanced line/effect，以及 image/table/chart/media 等其他 owner 的 shadow/hyperlink/style 能力。
+- 之后继续其余 advanced text，再进入 advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
 
 ## PptxGenJS 全功能对等：Text shape outer hyperlink creation
 
@@ -603,7 +603,7 @@ $ pptx-inspect --json package inspect output.pptx
 ### 剩余文本与全功能路线
 
 - Text outer hyperlink 与 per-run rich-text hyperlink 已从缺口移入支持项。
-- Preset geometry、`rectRadius` 与 `isTextBox` 已在后续专项完成；当前下一小项为 `breakLine`，之后继续 advanced line/effect 等剩余 advanced text。
+- Preset geometry、`rectRadius`、`isTextBox` 与 rich-text `breakLine` 已在后续专项完成；之后继续 advanced line/effect 等剩余 advanced text。
 - 总体路线保持 advanced text → advanced table/`tableToSlides` → output/runtime helpers → peer-range full-suite audit。
 
 ## PptxGenJS 全功能对等：Per-run rich-text hyperlink
@@ -625,7 +625,7 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余文本与全功能路线
 
-- Preset geometry、`rectRadius` 与 `isTextBox` 已在后续专项完成；当前下一小项为 `breakLine`，之后继续 advanced line/effect。
+- Preset geometry、`rectRadius`、`isTextBox` 与 rich-text `breakLine` 已在后续专项完成；之后继续 advanced line/effect。
 - 总体路线保持 advanced text → advanced table/`tableToSlides` → output/runtime helpers → peer-range full-suite audit。
 
 ## PptxGenJS 全功能对等：Text shape preset geometry
@@ -648,8 +648,7 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余文本与全功能路线
 
-- Text preset geometry、`rectRadius` 与 `isTextBox` 已从缺口移入支持项。`breakLine`、advanced line/effect、其余 advanced text/table、`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit 仍待完成；不声明完整 PptxGenJS parity。
-- 下一小项为 `breakLine`。
+- Text preset geometry、`rectRadius`、`isTextBox` 与 rich-text `breakLine` 已从缺口移入支持项。Advanced line/effect、其余 advanced text/table、`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit 仍待完成；不声明完整 PptxGenJS parity。
 
 ## PptxGenJS 全功能对等：Text shape rectangle radius
 
@@ -671,7 +670,7 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余文本与全功能路线
 
-- Text rectangle radius 已从缺口移入支持项；`AddTextOptions.isTextBox` 已在下一阶段完成。当前继续 `breakLine`、advanced line/effect 与其余 advanced text。
+- Text rectangle radius、`AddTextOptions.isTextBox` 与 rich-text `breakLine` 已从缺口移入支持项。当前继续 advanced line/effect 与其余 advanced text。
 - 总体路线保持 advanced text → advanced table/`tableToSlides` → output/runtime helpers → peer-range full-suite audit；不声明完整 PptxGenJS parity。
 
 ## PptxGenJS 全功能对等：Text shape `isTextBox`
@@ -694,8 +693,31 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余文本与全功能路线
 
-- Text `isTextBox` 已从缺口移入支持项。下一小项为 `breakLine`，之后继续 advanced line/effect 与其余 advanced text。
+- Text `isTextBox` 与 rich-text `breakLine` 已从缺口移入支持项。之后继续 advanced line/effect 与其余 advanced text。
 - 总体路线保持 advanced text → advanced table/`tableToSlides` → output/runtime helpers → peer-range full-suite audit；不声明完整 PptxGenJS parity。
+
+## PptxGenJS 全功能对等：Rich-text `breakLine`
+
+状态：完成；实施与证据 8/8
+
+### 本阶段 change
+
+- 新增 strict `RichTextRun.breakLine?: boolean` transient input syntax。Non-final true 在该 run 后拆分 paragraph；middle/trailing/empty/consecutive flags 保留规范段落与中间空段，final flag 被消费但不产生尾部空段。Omitted/undefined/false 不拆分，非 primitive boolean 在任何 package mutation 前拒绝。
+- Shared rich-text normalizer 先完整校验，再拆分并把原 paragraph 的 align、RTL、margin、indent、bullet、level、spacing 与 tab stops 复制到每个 segment。`softBreakBefore` 保持附着于 run，即使该 run 成为 split paragraph 的第一项；canonical normalized run、renderer 与 getter 均不保留 private marker。
+- Slide/layout/master、placeholder prompt/population、declarative master、live create/edit、duplicate/move/rollback/reopen 与六格式共用同一 canonical boundary。Run-local URL/internal-slide hyperlink 在 split 后按最终 paragraph/run indexes 分配、复用与回收 relationship；outer shape state 与 owner source 保持隔离。
+- `breakLine` 不扩展 outer `AddTextOptions`，也不把 run text CR/LF 解释为快捷方式。PptxGenJS 4.0.1 legal boolean paragraph/property/hyperlink final semantics 对等；native 不复制 upstream truthy/falsy coercion，也保留 upstream 会抑制的 first-run `softBreakBefore` direct intent。
+
+### 验证结果
+
+- 最终全量为 69 passed / 1 skipped test files、1350 passed / 1 skipped tests；独立 performance gate 1/1。两种 TypeScript check、Node/browser tsup 与 declaration build 全部通过。首轮唯一 5 秒 preset-geometry timeout 定向复跑为 4419ms，并在无并发重跑的完整套件中通过。
+- Actual npm tarball 为 57 files，SHA-256 `d06b84c0c3b8ff8e610c87c55b0fe9b67de6b41e59b5ec7fad62b206fdbe2699`。Installed Node/types/browser/CLI 与真实 Google Chrome 均报告 `richTextBreakLine: true`；Chrome validation/console/page/network errors 为 0。
+- 四页 source deck 为 26 parts / 24 relationships，PowerPoint 2010 profile 0 errors / 0 warnings。单项 hyperlink edit 只改变 `/ppt/slides/slide1.xml` 与 `/ppt/slides/_rels/slide1.xml.rels`，其他 24 parts byte-identical；target 从 slide 2 精确改为 slide 3，canonical paragraphs、empty paragraph、first-run `<a:br/>`、paragraph properties 与 marker absence 均通过 exact-part 检查。
+- 五页 source 与 LibreOffice visual decks 均为 0 overflow，逐页检查无裁切、意外换行或 layout 问题。LibreOffice 保留 visible paragraphs、empty line、soft break 与 internal hyperlink，但会合并同段相邻 runs、省略 empty tooltip、把 master content 下推到 layouts、重命名 placeholders，并丢弃 master placeholder prompt；回存件的 placeholder-owner warnings 属于该客户端重写边界，不声明 owner identity 完整往返。
+
+### 剩余文本与全功能路线
+
+- Rich-text `breakLine` 已从缺口移入支持项。仍待 advanced line/effect、完整 theme text cascade、percentage coordinates，以及其他 text/image/table/chart/media style surfaces。
+- 总体路线继续 advanced text → advanced table/`tableToSlides` → output/runtime helpers → peer-range full-suite audit；不声明完整 PptxGenJS parity。
 
 ## 0.1.0 初始验收
 

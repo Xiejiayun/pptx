@@ -531,7 +531,7 @@ The focused master/layout/placeholder run reports 45 passed / 434 skipped. Full 
 
 The two-slide native gallery contains 32 parts, 29 relationships, two layouts, and one master and validates with 0 errors / 0 warnings under the PowerPoint 2010 profile. The two-slide PptxGenJS control contains 36 parts and 34 relationships. Eight source and LibreOffice-round-trip pages render at 2400×1350 and 180 DPI and were inspected individually; their full-bleed backgrounds give the expected 0px minimum non-white margin. The fixtures deliberately use 1×1 black PNG background/image payloads, and the second native slide is deliberately retargeted to the blank default layout, so black/blank output is not evidence of lost inheritance. LibreOffice 26.8 retains two slides, two layouts, and one master, but rewrites placeholder identities and slide-number caches and removes audio plus embedded chart workbooks. This is a degradation record, not a complete round-trip pass. PowerPoint 16.112 returned the same `-9074` for native and control inputs and produced no PPTX/PDF output, so no PowerPoint round-trip pass is claimed.
 
-Full theme text cascade, percentage coordinates, advanced text/table/media/chart styling, and broader client certification remain pending. Advanced text now includes text-shape direct fill, simple line, begin/end arrows, and simple shadow, with the remaining options proceeding one at a time.
+Full theme text cascade, percentage coordinates, advanced text/table/media/chart styling, and broader client certification remain pending. Advanced text now includes text-shape direct fill, simple line, begin/end arrows, simple shadow, outer and per-run hyperlinks, preset geometry, rounded-rectangle radius, direct `isTextBox` state, and rich-text `breakLine` paragraph splitting.
 
 ## Create and edit text-shape fills
 
@@ -569,7 +569,7 @@ The same contract covers plain and rich text, `addPlaceholder()`, title/body pla
 
 The cross-package focused gate is 5/5; SDK/root and adapter suites are 188/188 and 76/76. Final full Vitest is 1262 passed / 1 skipped, the separate performance gate is 1/1 at 560ms, and the TypeScript typecheck plus project build pass. The actual 57-file tarball reports `textShapeFills: true` from installed Node, declarations, browser export, and CLI checks. Real Chrome has zero validation, console, page, or network errors, and installed CLI PowerPoint 2010 validation is 0 errors / 0 warnings.
 
-PptxGenJS 4.0.1 also writes direct no-fill for an omitted text fill, but `{ type: 'none' }` omits the direct fill choice and explicit zero transparency omits alpha. Native preserves explicit none/zero intent; supported solid and non-zero transparency cases are semantically equivalent. Gradient, pattern, picture, and group text fills remain preservation-only outside this simple creator. Text outer simple line, arrows, simple shadow, hyperlink, preset geometry, rounded-rectangle radius, and direct `isTextBox` state are supported below; combined `breakLine` semantics remain pending.
+PptxGenJS 4.0.1 also writes direct no-fill for an omitted text fill, but `{ type: 'none' }` omits the direct fill choice and explicit zero transparency omits alpha. Native preserves explicit none/zero intent; supported solid and non-zero transparency cases are semantically equivalent. Gradient, pattern, picture, and group text fills remain preservation-only outside this simple creator. Text outer simple line, arrows, simple shadow, hyperlink, preset geometry, rounded-rectangle radius, direct `isTextBox` state, and rich-text `breakLine` are supported below.
 
 ## Create and edit text-shape lines
 
@@ -771,7 +771,30 @@ Legal PptxGenJS 4.0.1 boolean public inputs have the same final semantics. PptxG
 
 The two-slide QA deck has 0 PowerPoint 2010 errors and only one expected portability warning from a fixture external hyperlink. Toggling one shape changes only `/ppt/slides/slide1.xml`, adding exactly ` txBox="1"` to the target `<p:cNvSpPr/>`; the other 21 parts remain byte-identical. Source and LibreOffice renders have zero overflow and passed slide-by-slide review. LibreOffice save removes every true `txBox` state from both native and independent PptxGenJS 4.0.1 files, so this is a documented client rewrite boundary rather than a native workaround or a claimed full round trip.
 
-`breakLine` is next. Remaining advanced text/table, `tableToSlides`, output/runtime helpers, and peer/client audit work are still required before full PptxGenJS parity is claimed.
+## Split rich-text runs into paragraphs
+
+```ts
+const rich = slide.addRichText([{
+  align: 'center',
+  runs: [
+    { text: 'First paragraph', breakLine: true },
+    { text: '', breakLine: true }, // preserves an empty middle paragraph
+    { text: 'Third paragraph', softBreakBefore: true },
+  ],
+}]);
+
+console.log(rich.richText.length); // 3; snapshots never expose breakLine markers
+```
+
+`RichTextRun.breakLine?: boolean` is transient input syntax for creation and whole-rich-text replacement. A true non-final run ends the current paragraph. Middle, empty, and consecutive flags preserve the corresponding empty paragraphs; a trailing flag is consumed without adding a trailing empty paragraph. Every split segment copies the source paragraph's alignment, RTL, margins, indent, bullet, level, spacing, and tab stops. `softBreakBefore` stays attached to its run even when that run becomes the first run of a split paragraph. Run-local URL or internal-slide hyperlinks remain attached and are reindexed against the canonical paragraph/run matrix.
+
+The field covers slide/layout/master content, placeholder prompt/population, declarative masters, live editing, duplicate/move/rollback/reopen, and all six presentation formats. Getters return only explicit canonical `RichTextParagraph[]`; they never infer or expose a private marker. `breakLine` is not an outer `AddTextOptions` field, and CR/LF in run text is not an alias for it.
+
+Legal boolean PptxGenJS 4.0.1 output reaches equivalent paragraph, property, and hyperlink semantics. Native strictly rejects truthy/falsy strings, numbers, null, objects, and boxed booleans. PptxGenJS suppresses a first-run soft break after splitting, while native retains the existing reversible `softBreakBefore` contract. Final release gates are 1350 passed / 1 skipped tests plus performance 1/1. The 57-file tarball SHA-256 is `d06b84c0c3b8ff8e610c87c55b0fe9b67de6b41e59b5ec7fad62b206fdbe2699`; installed Node/types/browser/CLI and real Chrome report `richTextBreakLine: true`, with zero Chrome validation, console, page, or network errors.
+
+The four-slide source deck validates at PowerPoint 2010 with 0 errors / 0 warnings. One link-target edit changes only `slide1.xml` and its relationships; the other 24 parts remain byte-identical. Five-page source and LibreOffice visual decks have no overflow, clipping, or unexpected wrapping. LibreOffice retains visible paragraphs, empty lines, soft breaks, and internal links, but merges adjacent runs, omits empty tooltips, pushes master content into layouts, renames placeholders, and drops the master placeholder prompt; owner identity is therefore not claimed as a complete round trip.
+
+Remaining advanced text/table, `tableToSlides`, output/runtime helpers, and peer/client audit work are still required before full PptxGenJS parity is claimed.
 
 `PRESET_SHAPE_TYPES` is the frozen discovery catalog for all 178 canonical preset geometries accepted by `SlideModel.addShape()`. `AddShapeOptions` accepts `name`, strict `adjustments`, strict `fill`, strict `line`, strict `arrows`, strict `shadow`, strict `hyperlink`, and native EMU/OOXML-angle transform fields; use `inches()` and `degrees()` for ergonomic conversion. Omitted geometry starts at x/y/width/height = 1 inch with zero rotation and no flips; omitted fill creates direct no-fill, and omitted line keeps the canonical empty line container. Inputs are strict, descriptor-safe, detached before mutation, and reject unknown fields. The catalog uses the valid OOXML `foldedCorner`; PptxGenJS 4.0.1's invalid `folderCorner` token and runtime-only `custGeom` value are not accepted as presets.
 
