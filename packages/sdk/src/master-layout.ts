@@ -75,6 +75,7 @@ const TEXT_OPTION_KEYS = new Set([
   'fill',
   'line',
   'arrows',
+  'shadow',
   'fit',
   'lang',
   'level',

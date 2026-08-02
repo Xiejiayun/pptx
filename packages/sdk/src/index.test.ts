@@ -2982,6 +2982,339 @@ describe('PptxDocument vertical slice', () => {
     expect(rejected).toEqual(before);
   });
 
+  it('creates text shadows across slide layout master and placeholder owners', async () => {
+    const document = PptxDocument.create();
+    const layout = document.layouts[0]!;
+    const master = document.masters[0]!;
+    const layoutText = layout.addText('Layout shadow', {
+      name: 'layout_shadow',
+      shadow: {
+        kind: 'outer',
+        color: { kind: 'scheme', value: 'accent2' },
+        rotateWithShape: true,
+      },
+    });
+    const masterText = master.addRichText([{ runs: [{ text: 'Master shadow' }] }], {
+      name: 'master_shadow',
+      shadow: { kind: 'inner', opacity: 0, blur: 0, angle: 0, distance: 0 },
+    });
+    const layoutPlaceholder = layout.addPlaceholder('Layout prompt', {
+      name: 'title_shadow',
+      type: 'title',
+      index: 199,
+      x: inches(1),
+      y: inches(1),
+      width: inches(8),
+      height: inches(1),
+      shadow: { kind: 'outer', color: { kind: 'srgb', value: '112233' } },
+    });
+
+    expect(layout.shapes.find(({ id }) => id === layoutText.id)).toBe(layoutText);
+    expect(master.shapes.find(({ id }) => id === masterText.id)).toBe(masterText);
+    expect(layout.placeholders.find(({ id }) => id === layoutPlaceholder.id))
+      .toBe(layoutPlaceholder);
+    expect(layoutText.shadow).toMatchObject({
+      kind: 'outer',
+      color: { kind: 'scheme', value: 'accent2' },
+      rotateWithShape: true,
+    });
+    expect(masterText.shadow).toEqual({
+      kind: 'inner',
+      color: { kind: 'srgb', value: '000000' },
+      opacity: 0,
+      blur: 0,
+      angle: 0,
+      distance: 0,
+    });
+
+    const slide = document.addSlide({ masterName: layout.name });
+    const materialized = slide.placeholders.find(({ name }) => name === 'title_shadow')!;
+    const materializedState = {
+      id: materialized.id,
+      name: materialized.name,
+      transform: materialized.transform,
+      placeholder: materialized.placeholder,
+    };
+    const populated = slide.addText('Populated shadow', {
+      placeholder: 'title_shadow',
+      shadow: {
+        kind: 'inner',
+        color: { kind: 'scheme', value: 'accent3' },
+        opacity: 0.5,
+        blur: 2,
+        angle: 45,
+        distance: 3,
+      },
+    });
+    expect(populated).toBe(slide.shapes.find(({ id }) => id === materializedState.id));
+    expect({
+      id: populated.id,
+      name: populated.name,
+      transform: populated.transform,
+      placeholder: populated.placeholder,
+    }).toEqual(materializedState);
+    expect(populated.shadow).toEqual({
+      kind: 'inner',
+      color: { kind: 'scheme', value: 'accent3' },
+      opacity: 0.5,
+      blur: 2,
+      angle: 45,
+      distance: 3,
+    });
+    expect(layoutPlaceholder.shadow).toMatchObject({
+      kind: 'outer',
+      color: { kind: 'srgb', value: '112233' },
+    });
+    expect(materialized).not.toBe(populated);
+
+    const declarative = await document.defineSlideMaster({
+      title: 'TEXT-SHADOWS',
+      objects: [
+        {
+          kind: 'text',
+          text: 'Declarative text shadow',
+          options: {
+            name: 'declarative_text_shadow',
+            shadow: { kind: 'outer', color: { kind: 'scheme', value: 'accent4' } },
+          },
+        },
+        {
+          kind: 'placeholder',
+          text: 'Declarative prompt',
+          options: {
+            name: 'declarative_title_shadow',
+            type: 'title',
+            index: 200,
+            shadow: { kind: 'inner', opacity: 0.25 },
+          },
+        },
+      ],
+    });
+    const declarativeText = declarative.shapes.find(
+      ({ name }) => name === 'declarative_text_shadow',
+    ) as ShapeModel;
+    const declarativePlaceholder = declarative.placeholders.find(
+      ({ name }) => name === 'declarative_title_shadow',
+    )!;
+    expect(declarativeText.shadow).toMatchObject({
+      kind: 'outer',
+      color: { kind: 'scheme', value: 'accent4' },
+    });
+    expect(declarativePlaceholder.shadow).toMatchObject({ kind: 'inner', opacity: 0.25 });
+    const declarativeSlide = document.addSlide({ masterName: declarative.name });
+    const declarativePopulated = declarativeSlide.addText('Declarative populated', {
+      placeholder: 'declarative_title_shadow',
+      shadow: { kind: 'outer', rotateWithShape: true },
+    });
+    expect(declarativePopulated.shadow).toMatchObject({
+      kind: 'outer',
+      rotateWithShape: true,
+    });
+    expect(declarativePlaceholder.shadow).toMatchObject({ kind: 'inner', opacity: 0.25 });
+
+    const duplicate = document.duplicateSlide(document.slides.indexOf(slide));
+    const duplicatePopulated = duplicate.shapes.find(
+      ({ name }) => name === populated.name,
+    ) as ShapeModel;
+    duplicatePopulated.shadow = { kind: 'outer', color: { kind: 'scheme', value: 'accent5' } };
+    expect(duplicatePopulated.shadow).toMatchObject({
+      kind: 'outer',
+      color: { kind: 'scheme', value: 'accent5' },
+    });
+    expect(populated.shadow).toMatchObject({
+      kind: 'inner',
+      color: { kind: 'scheme', value: 'accent3' },
+    });
+
+    const beforeRollbackShapes = [...slide.shapes];
+    let rolledBack: ShapeModel | undefined;
+    expect(() => document.transaction(() => {
+      rolledBack = slide.addText('Rolled back shadow', { shadow: { kind: 'outer' } });
+      throw new Error('restore created text shadow');
+    })).toThrow('restore created text shadow');
+    expect(slide.shapes).toEqual(beforeRollbackShapes);
+    expect(slide.shapes.find(({ id }) => id === populated.id)).toBe(populated);
+    expect(() => rolledBack!.shadow).toThrow(ModelParseError);
+
+    let signalRead!: () => void;
+    let resumeRead!: () => void;
+    const readStarted = new Promise<void>((resolve) => { signalRead = resolve; });
+    const readPaused = new Promise<void>((resolve) => { resumeRead = resolve; });
+    const detachedColor: { kind: 'scheme'; value: 'accent1' | 'accent6' } = {
+      kind: 'scheme',
+      value: 'accent1',
+    };
+    const detachedShadow: {
+      kind: 'outer';
+      color: typeof detachedColor;
+      opacity: number;
+    } = { kind: 'outer', color: detachedColor, opacity: 0.4 };
+    const pendingDetached = document.defineSlideMaster({
+      title: 'DETACHED-TEXT-SHADOW',
+      objects: [
+        {
+          kind: 'text',
+          text: 'Detached text shadow',
+          options: { name: 'detached_text_shadow', shadow: detachedShadow },
+        },
+        {
+          kind: 'image',
+          source: {
+            async *[Symbol.asyncIterator]() {
+              signalRead();
+              await readPaused;
+              yield sdkPngHeader(1, 1);
+            },
+          },
+        },
+      ],
+    });
+    await readStarted;
+    detachedColor.value = 'accent6';
+    detachedShadow.opacity = 0.9;
+    resumeRead();
+    const detachedLayout = await pendingDetached;
+    expect((detachedLayout.shapes.find(
+      ({ name }) => name === 'detached_text_shadow',
+    ) as ShapeModel).shadow).toMatchObject({
+      color: { kind: 'scheme', value: 'accent1' },
+      opacity: 0.4,
+    });
+
+    const reopened = await PptxDocument.open(await document.write());
+    const second = await PptxDocument.open(await reopened.write());
+    expect((second.layouts.find(({ name }) => name === layout.name)!.shapes.find(
+      ({ name }) => name === 'layout_shadow',
+    ) as ShapeModel).shadow).toMatchObject({ kind: 'outer', rotateWithShape: true });
+    expect((second.masters[0]!.shapes.find(
+      ({ name }) => name === 'master_shadow',
+    ) as ShapeModel).shadow).toMatchObject({ kind: 'inner', opacity: 0 });
+    expect((second.slides.find(({ partUri }) => partUri === slide.partUri)!.shapes.find(
+      ({ name }) => name === populated.name,
+    ) as ShapeModel).shadow).toMatchObject({ kind: 'inner', opacity: 0.5 });
+    expect(validatePackage(second.opcPackage).filter(({ severity }) => severity === 'error'))
+      .toEqual([]);
+
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const formatted = PptxDocument.create({ format });
+      const formattedLayout = formatted.layouts[0]!;
+      formattedLayout.addText('Formatted layout shadow', {
+        name: 'formatted_layout_shadow',
+        shadow: { kind: 'outer', color: { kind: 'scheme', value: 'accent2' } },
+      });
+      formatted.masters[0]!.addRichText([{ runs: [{ text: 'Formatted master shadow' }] }], {
+        name: 'formatted_master_shadow',
+        shadow: { kind: 'inner', opacity: 0 },
+      });
+      formattedLayout.addPlaceholder('Formatted prompt', {
+        name: 'formatted_title_shadow',
+        type: 'title',
+        index: 201,
+        shadow: { kind: 'outer' },
+      });
+      const formattedSlide = formatted.addSlide({ masterName: formattedLayout.name });
+      formattedSlide.addText('Formatted populated shadow', {
+        placeholder: 'formatted_title_shadow',
+        shadow: { kind: 'inner', blur: 0, angle: 0, distance: 0 },
+      });
+
+      const first = await PptxDocument.open(await formatted.write());
+      const formattedSecond = await PptxDocument.open(await first.write());
+      expect(formattedSecond.format).toBe(format);
+      expect(formattedSecond.formatProfile).toEqual(PRESENTATION_FORMAT_PROFILES[format]);
+      expect((formattedSecond.layouts[0]!.shapes.find(
+        ({ name }) => name === 'formatted_layout_shadow',
+      ) as ShapeModel).shadow).toMatchObject({ kind: 'outer' });
+      expect((formattedSecond.masters[0]!.shapes.find(
+        ({ name }) => name === 'formatted_master_shadow',
+      ) as ShapeModel).shadow).toMatchObject({ kind: 'inner', opacity: 0 });
+      expect((formattedSecond.slides[0]!.shapes.find(
+        ({ name }) => name === 'formatted_title_shadow',
+      ) as ShapeModel).shadow).toMatchObject({ kind: 'inner', blur: 0, angle: 0, distance: 0 });
+      expect(validatePackage(formattedSecond.opcPackage).filter(
+        ({ severity }) => severity === 'error',
+      )).toEqual([]);
+    }
+  });
+
+  it('rejects invalid declarative text shadows without observable mutation', async () => {
+    const document = PptxDocument.create();
+    const { output: _beforeOutput, ...before } = await sdkPackageSnapshot(document) as {
+      readonly output: Uint8Array;
+      readonly [key: string]: unknown;
+    };
+    for (const definition of [
+      {
+        title: 'INVALID-TEXT-SHADOW',
+        objects: [{
+          kind: 'text',
+          text: 'Invalid text shadow',
+          options: { shadow: { type: 'outer' } },
+        }],
+      },
+      {
+        title: 'INVALID-PLACEHOLDER-SHADOW',
+        objects: [{
+          kind: 'placeholder',
+          options: {
+            name: 'invalid_shadow',
+            type: 'title',
+            shadow: { kind: 'inner', rotateWithShape: true },
+          },
+        }],
+      },
+    ]) {
+      await expect(document.defineSlideMaster(definition as never)).rejects.toThrow();
+      const { output: _afterOutput, ...after } = await sdkPackageSnapshot(document) as {
+        readonly output: Uint8Array;
+        readonly [key: string]: unknown;
+      };
+      expect(after).toEqual(before);
+    }
+
+    let signalRead!: () => void;
+    let resumeRead!: () => void;
+    const readStarted = new Promise<void>((resolve) => { signalRead = resolve; });
+    const readPaused = new Promise<void>((resolve) => { resumeRead = resolve; });
+    const pending = document.defineSlideMaster({
+      title: 'INVALID-ASYNC-TEXT-SHADOW',
+      objects: [
+        {
+          kind: 'text',
+          text: 'Invalid detached shadow',
+          options: { shadow: { kind: 'outer', distance: 201 } as never },
+        },
+        {
+          kind: 'image',
+          source: {
+            async *[Symbol.asyncIterator]() {
+              signalRead();
+              await readPaused;
+              yield sdkPngHeader(1, 1);
+            },
+          },
+        },
+      ],
+    });
+    const phase = await Promise.race([
+      readStarted.then(() => 'read-started' as const),
+      pending.then(() => 'resolved' as const, () => 'rejected' as const),
+    ]);
+    expect(phase).toBe('read-started');
+    const { output: _pausedOutput, ...paused } = await sdkPackageSnapshot(document) as {
+      readonly output: Uint8Array;
+      readonly [key: string]: unknown;
+    };
+    expect(paused).toEqual(before);
+    resumeRead();
+    await expect(pending).rejects.toThrow();
+    const { output: _rejectedOutput, ...rejected } = await sdkPackageSnapshot(document) as {
+      readonly output: Uint8Array;
+      readonly [key: string]: unknown;
+    };
+    expect(rejected).toEqual(before);
+  });
+
   it('rejects invalid declarative text lines without observable mutation', async () => {
     const document = PptxDocument.create();
     const { output: _beforeOutput, ...before } = await sdkPackageSnapshot(document) as {

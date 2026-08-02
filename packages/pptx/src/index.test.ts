@@ -25,6 +25,7 @@ import {
   type ShapeArrows,
   type ShapeFill,
   type ShapeLine,
+  type ShapeShadow,
 } from './index.js';
 
 describe('@jiayunxie/pptx stable exports', () => {
@@ -447,6 +448,114 @@ describe('@jiayunxie/pptx stable exports', () => {
           begin: 'triangle',
           // @ts-expect-error arrows reject unknown properties
           extra: true,
+        },
+      },
+    ];
+    expect(invalid).toHaveLength(5);
+  });
+
+  it('exports text shape shadow creation types and runtime from the root package', async () => {
+    const outer: ShapeShadow = {
+      kind: 'outer',
+      color: { kind: 'scheme', value: 'accent2' },
+      opacity: 0.4,
+      blur: 2.5,
+      angle: 45,
+      distance: 3,
+      rotateWithShape: true,
+    };
+    const inner: ShapeShadow = {
+      kind: 'inner',
+      opacity: 0,
+      blur: 0,
+      angle: 0,
+      distance: 0,
+    };
+    const options: AddTextOptions = { name: 'root_text_shadow', shadow: outer };
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const plain = slide.addText('Root plain shadow', options);
+    const rich = slide.addRichText([{ runs: [{ text: 'Root rich shadow' }] }], {
+      name: 'root_rich_shadow',
+      shadow: inner,
+    });
+    const layoutText = document.layouts[0]!.addText('Root layout shadow', {
+      name: 'root_layout_shadow',
+      shadow: { kind: 'outer' },
+    });
+    const masterText = document.masters[0]!.addText('Root master shadow', {
+      name: 'root_master_shadow',
+      line: { kind: 'line', color: { kind: 'scheme', value: 'accent3' } },
+      arrows: { end: 'diamond' },
+      shadow: { kind: 'inner', color: { kind: 'scheme', value: 'accent4' } },
+    });
+
+    expect(plain.shadow).toEqual(outer);
+    expect(rich.shadow).toEqual({
+      kind: 'inner',
+      color: { kind: 'srgb', value: '000000' },
+      opacity: 0,
+      blur: 0,
+      angle: 0,
+      distance: 0,
+    });
+    expect(layoutText.shadow).toMatchObject({ kind: 'outer', rotateWithShape: false });
+    expect(masterText.shadow).toMatchObject({
+      kind: 'inner',
+      color: { kind: 'scheme', value: 'accent4' },
+    });
+    expect(masterText.line).toMatchObject({ kind: 'line', width: 1, dash: 'solid' });
+    expect(masterText.arrows).toEqual({ end: 'diamond' });
+
+    const reopened = await PptxDocument.open(await document.write());
+    expect((reopened.slides[0]!.shapes.find(
+      ({ name }) => name === 'root_text_shadow',
+    ) as ShapeModel).shadow).toEqual(outer);
+    expect((reopened.slides[0]!.shapes.find(
+      ({ name }) => name === 'root_rich_shadow',
+    ) as ShapeModel).shadow).toEqual({
+      kind: 'inner',
+      color: { kind: 'srgb', value: '000000' },
+      opacity: 0,
+      blur: 0,
+      angle: 0,
+      distance: 0,
+    });
+    expect((reopened.layouts[0]!.shapes.find(
+      ({ name }) => name === 'root_layout_shadow',
+    ) as ShapeModel).shadow).toMatchObject({ kind: 'outer' });
+    expect((reopened.masters[0]!.shapes.find(
+      ({ name }) => name === 'root_master_shadow',
+    ) as ShapeModel).shadow).toMatchObject({ kind: 'inner' });
+
+    const invalid: readonly AddTextOptions[] = [
+      {
+        // @ts-expect-error PptxGenJS-style shadow aliases are intentionally unsupported
+        shadow: { type: 'outer' },
+      },
+      {
+        // @ts-expect-error shadow kind must be outer or inner
+        shadow: { kind: 'none' },
+      },
+      {
+        shadow: {
+          kind: 'outer',
+          // @ts-expect-error PptxGenJS offset alias is intentionally unsupported
+          offset: 4,
+        },
+      },
+      {
+        shadow: {
+          kind: 'inner',
+          // @ts-expect-error inner shadow cannot rotate with the shape
+          rotateWithShape: true,
+        },
+      },
+      {
+        shadow: {
+          kind: 'outer',
+          // @ts-expect-error opacity must be numeric
+          opacity: '0.5',
         },
       },
     ];
