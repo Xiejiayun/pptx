@@ -170,7 +170,11 @@ import {
   readShapeLine,
   replaceShapeLine,
 } from './shape-line.internal.js';
-import { normalizeSimpleLine } from './simple-line.internal.js';
+import {
+  normalizeSimpleLine,
+  renderSimpleLine,
+  type NormalizedSimpleLine,
+} from './simple-line.internal.js';
 import {
   readShapeShadow,
   replaceShapeShadow,
@@ -230,7 +234,7 @@ import type {
   TextBoxVerticalAlignment,
   TextAlignment,
 } from './text.js';
-import { inches, type Transform } from './units.js';
+import { inches, points, type Transform } from './units.js';
 
 const IMAGE_RELATIONSHIP_TYPE =
   'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image';
@@ -243,6 +247,7 @@ export interface AddTextOptions extends Partial<Transform> {
   readonly align?: TextAlignment;
   readonly bullet?: ParagraphBullet;
   readonly fill?: ShapeFill;
+  readonly line?: ShapeLine;
   readonly fit?: TextBoxFit;
   readonly lang?: string;
   readonly level?: number;
@@ -1393,6 +1398,7 @@ export class SlideModel {
         paragraphs,
         owner ? placeholderTextOptions(owner) : options,
         normalized.fill,
+        normalized.line,
         normalized.margin,
         normalized.verticalAlignment,
         normalized.textDirection,
@@ -1457,6 +1463,7 @@ export class SlideModel {
           paragraphs,
           options,
           plain.fill,
+          plain.line,
           plain.margin,
           plain.verticalAlignment,
           plain.textDirection,
@@ -1487,6 +1494,7 @@ export class SlideModel {
         }),
         options,
         defaults!.fill,
+        defaults!.line,
         defaults!.margin,
         defaults!.verticalAlignment,
         defaults!.textDirection,
@@ -1526,6 +1534,7 @@ export class SlideModel {
         }),
         owner ? placeholderTextOptions(owner) : options,
         defaults.fill,
+        defaults.line,
         defaults.margin,
         defaults.verticalAlignment,
         defaults.textDirection,
@@ -1550,6 +1559,7 @@ export class SlideModel {
     paragraphs: string,
     options: AddTextOptions,
     fill: ShapeFill,
+    line: NormalizedSimpleLine,
     margins: TextBoxMargins | undefined,
     verticalAlignment: TextBoxVerticalAlignment,
     textDirection: TextBoxTextDirection | undefined,
@@ -1570,6 +1580,7 @@ export class SlideModel {
       paragraphs,
       options,
       fill,
+      line,
       margins,
       verticalAlignment,
       textDirection,
@@ -1704,6 +1715,7 @@ interface NormalizedTextInput {
   readonly value: string;
   readonly bullet: NormalizedParagraphBullet | false | undefined;
   readonly fill: ShapeFill;
+  readonly line: NormalizedSimpleLine;
   readonly indent: number | undefined;
   readonly language: string | undefined;
   readonly level: number | undefined;
@@ -1732,6 +1744,7 @@ function validateTextInput(value: string, options: AddTextOptions): NormalizedTe
     value: normalized,
     bullet: defaults.bullet,
     fill: defaults.fill,
+    line: defaults.line,
     indent: defaults.indent,
     language: defaults.language,
     level: defaults.level,
@@ -1751,6 +1764,7 @@ function validateTextInput(value: string, options: AddTextOptions): NormalizedTe
 interface NormalizedAddTextOptions {
   readonly bullet?: NormalizedParagraphBullet | false;
   readonly fill: ShapeFill;
+  readonly line: NormalizedSimpleLine;
   readonly indent?: number;
   readonly language?: string;
   readonly level?: number;
@@ -1803,6 +1817,7 @@ function validateAddTextOptions(options: AddTextOptions): NormalizedAddTextOptio
     ? undefined
     : normalizeParagraphBullet(options.bullet, 'Text bullet');
   const fill = normalizeSimpleFill(options.fill, 'Text shape fill') ?? { kind: 'none' };
+  const line = normalizeSimpleLine(options.line, 'Text shape line') ?? { kind: 'none' };
   const level = options.level === undefined
     ? undefined
     : normalizeParagraphLevel(options.level, 'Text level');
@@ -1845,6 +1860,7 @@ function validateAddTextOptions(options: AddTextOptions): NormalizedAddTextOptio
   return {
     ...(bullet !== undefined ? { bullet } : {}),
     fill,
+    line,
     ...(indent !== undefined ? { indent } : {}),
     ...(language !== undefined ? { language } : {}),
     ...(level !== undefined ? { level } : {}),
@@ -2028,6 +2044,7 @@ function textShapeXml(
   paragraphs: string,
   options: AddTextOptions,
   fill: ShapeFill,
+  line: NormalizedSimpleLine,
   margins: TextBoxMargins | undefined,
   verticalAlignment: TextBoxVerticalAlignment,
   textDirection: TextBoxTextDirection | undefined,
@@ -2059,7 +2076,10 @@ function textShapeXml(
   const applicationProperties = placeholder === undefined
     ? '<p:nvPr/>'
     : `<p:nvPr><p:ph type="${placeholder.type}" idx="${placeholder.index}"/></p:nvPr>`;
-  return `<p:sp xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><p:nvSpPr><p:cNvPr id="${id}" name="${name}"/><p:cNvSpPr txBox="1"/>${applicationProperties}</p:nvSpPr><p:spPr><a:xfrm${transformAttributes}><a:off x="${x}" y="${y}"/><a:ext cx="${width}" cy="${height}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom>${renderSimpleFill(fill, 'a:')}<a:ln><a:noFill/></a:ln></p:spPr><p:txBody>${bodyProperties}<a:lstStyle/>${paragraphs}</p:txBody></p:sp>`;
+  const lineXml = line.kind === 'none'
+    ? `<a:ln>${renderSimpleLine(line, 'a:')}</a:ln>`
+    : `<a:ln w="${points(line.width)}">${renderSimpleLine(line, 'a:')}</a:ln>`;
+  return `<p:sp xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><p:nvSpPr><p:cNvPr id="${id}" name="${name}"/><p:cNvSpPr txBox="1"/>${applicationProperties}</p:nvSpPr><p:spPr><a:xfrm${transformAttributes}><a:off x="${x}" y="${y}"/><a:ext cx="${width}" cy="${height}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom>${renderSimpleFill(fill, 'a:')}${lineXml}</p:spPr><p:txBody>${bodyProperties}<a:lstStyle/>${paragraphs}</p:txBody></p:sp>`;
 }
 
 function textParagraphXml(

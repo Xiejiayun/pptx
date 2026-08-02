@@ -6326,6 +6326,209 @@ describe('PresentationModel', () => {
     expect(getterCalls).toBe(0);
   });
 
+  it('creates plain and rich text with strict direct lines', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const source = {
+      kind: 'line',
+      color: { kind: 'srgb', value: '#ab12cd' },
+      transparency: 25,
+      width: 2.5,
+      dash: 'dashDot',
+    } as ShapeLine;
+    const dashes: readonly ShapeLineDash[] = [
+      'solid',
+      'dash',
+      'dashDot',
+      'lgDash',
+      'lgDashDot',
+      'lgDashDotDot',
+      'sysDash',
+      'sysDot',
+    ];
+
+    const omitted = slide.addText('Omitted text line');
+    const explicitUndefined = slide.addText('Undefined text line', { line: undefined } as never);
+    const none = slide.addText('Explicit text no-line', { line: { kind: 'none' } });
+    const plain = slide.addText('Plain solid line', { line: source });
+    const rich = slide.addRichText([{ runs: [{ text: 'Rich theme line' }] }], {
+      line: {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent2' },
+        transparency: 0,
+        width: 0,
+        dash: 'sysDot',
+      },
+    });
+    const transparent = slide.addText('Fully transparent line', {
+      line: {
+        kind: 'line',
+        color: { kind: 'srgb', value: '00AA00' },
+        transparency: 100,
+      },
+    });
+    const dashed = dashes.map((dash) => slide.addText(`Text line ${dash}`, {
+      line: {
+        kind: 'line',
+        color: { kind: 'srgb', value: '112233' },
+        dash,
+      },
+    }));
+
+    expect(omitted.line).toEqual({ kind: 'none' });
+    expect(explicitUndefined.line).toEqual({ kind: 'none' });
+    expect(none.line).toEqual({ kind: 'none' });
+    expect(plain.line).toEqual({
+      kind: 'line',
+      color: { kind: 'srgb', value: 'AB12CD' },
+      transparency: 25,
+      width: 2.5,
+      dash: 'dashDot',
+    });
+    expect(rich.line).toEqual({
+      kind: 'line',
+      color: { kind: 'scheme', value: 'accent2' },
+      transparency: 0,
+      width: 0,
+      dash: 'sysDot',
+    });
+    expect(transparent.line).toEqual({
+      kind: 'line',
+      color: { kind: 'srgb', value: '00AA00' },
+      transparency: 100,
+      width: 1,
+      dash: 'solid',
+    });
+    expect(dashed.map((shape) => shape.line)).toEqual(dashes.map((dash) => ({
+      kind: 'line',
+      color: { kind: 'srgb', value: '112233' },
+      width: 1,
+      dash,
+    })));
+
+    (source as { color: { value: string }; transparency: number; width: number; dash: string })
+      .color.value = 'FFFFFF';
+    (source as { transparency: number }).transparency = 50;
+    (source as { width: number }).width = 9;
+    (source as { dash: string }).dash = 'solid';
+    expect(plain.line).toEqual({
+      kind: 'line',
+      color: { kind: 'srgb', value: 'AB12CD' },
+      transparency: 25,
+      width: 2.5,
+      dash: 'dashDot',
+    });
+
+    let xml = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect(xml.match(
+      /<a:prstGeom prst="rect"><a:avLst\/><\/a:prstGeom><a:noFill\/><a:ln><a:noFill\/><\/a:ln>/g,
+    )).toHaveLength(3);
+    expect(xml).toContain(
+      '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/>' +
+      '<a:ln w="31750"><a:solidFill><a:srgbClr val="AB12CD">' +
+      '<a:alpha val="75000"/></a:srgbClr></a:solidFill>' +
+      '<a:prstDash val="dashDot"/></a:ln>',
+    );
+    expect(xml).toContain(
+      '<a:ln w="0"><a:solidFill><a:schemeClr val="accent2">' +
+      '<a:alpha val="100000"/></a:schemeClr></a:solidFill>' +
+      '<a:prstDash val="sysDot"/></a:ln>',
+    );
+    expect(xml).toContain(
+      '<a:ln w="12700"><a:solidFill><a:srgbClr val="00AA00">' +
+      '<a:alpha val="0"/></a:srgbClr></a:solidFill>' +
+      '<a:prstDash val="solid"/></a:ln>',
+    );
+    for (const dash of dashes) {
+      expect(xml).toContain(`<a:prstDash val="${dash}"/>`);
+    }
+
+    const beforeNoOp = pkg.requirePart(slide.partUri).bytes.slice();
+    const beforeJournal = [...pkg.mutations];
+    plain.line = {
+      kind: 'line',
+      color: { kind: 'srgb', value: 'AB12CD' },
+      transparency: 25,
+      width: 2.5,
+      dash: 'dashDot',
+    };
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeNoOp);
+    expect(pkg.mutations).toEqual(beforeJournal);
+    transparent.line = undefined;
+    expect(transparent.line).toBeUndefined();
+    xml = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect(xml).toContain('<a:ln></a:ln></p:spPr>');
+    expect(xml).toContain('Fully transparent line');
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedLines = reopened.slides.at(-1)?.shapes.slice(-dashes.length)
+      .map((shape) => shape instanceof ShapeModel ? shape.line : undefined);
+    expect(reopenedLines).toEqual(dashes.map((dash) => ({
+      kind: 'line',
+      color: { kind: 'srgb', value: '112233' },
+      width: 1,
+      dash,
+    })));
+  });
+
+  it('rejects invalid text line creation without mutation', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const existing = slide.addText('Existing text');
+    let getterCalls = 0;
+    const accessor = Object.defineProperty({}, 'kind', {
+      enumerable: true,
+      get() {
+        getterCalls += 1;
+        return 'none';
+      },
+    });
+    const symbol = Symbol('unsafe');
+    const invalid = [
+      null,
+      [],
+      new Date(),
+      accessor,
+      { kind: 'line' },
+      { kind: 'line', color: { kind: 'srgb', value: 'GG0000' } },
+      { kind: 'line', color: { kind: 'scheme', value: 'unknown' } },
+      {
+        kind: 'line',
+        color: { kind: 'srgb', value: 'FF0000' },
+        transparency: -1,
+      },
+      {
+        kind: 'line',
+        color: { kind: 'srgb', value: 'FF0000' },
+        width: 1_585,
+      },
+      {
+        kind: 'line',
+        color: { kind: 'srgb', value: 'FF0000' },
+        dash: 'dot',
+      },
+      { kind: 'none', width: 1 },
+      { kind: 'none', [symbol]: true },
+      { type: 'none' },
+      { color: 'FF0000', dashType: 'dash' },
+    ];
+
+    for (const [index, value] of invalid.entries()) {
+      const before = packageSnapshot(pkg);
+      const shapes = slide.shapes;
+      expect(() => slide.addText('Invalid line', { line: value } as never)).toThrow();
+      expect(() => slide.addRichText([{ runs: [{ text: 'Invalid rich line' }] }], {
+        line: value,
+      } as never)).toThrow();
+      expect(packageSnapshot(pkg), `invalid line ${index}`).toEqual(before);
+      expect(slide.shapes).toEqual(shapes);
+      expect(slide.shapes.at(-1)).toBe(existing);
+    }
+    expect(getterCalls).toBe(0);
+  });
+
   it('reads and edits direct shape fills through stable live models', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);
