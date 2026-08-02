@@ -324,11 +324,11 @@ The release gallery was produced from the actual npm tarball and contains 4 slid
 
 `ShapeArrowType` is `none | arrow | diamond | oval | stealth | triangle`. `ShapeArrows` has optional readonly `begin` / `end` fields and is used by `AddShapeOptions.arrows` and `ShapeModel.arrows`. Inputs and getter results are detached; the setter is a whole replacement, so a missing side clears that endpoint, explicit `none` stays distinguishable from absence, and `undefined` or an empty object clears both. Same-value assignment is an exact no-op. Arrow edits preserve line width/fill/dash, joins, extensions, advanced line state, and unrelated attributes; line clear/edit operations preserve arrows. Arrows-only creation writes a line container with endpoints but does not synthesize color, width, or dash. A unique safe existing endpoint may carry legal `w` / `len` values `sm | med | lg`; type replacement preserves them lexically, but size is not returned or editable. Malformed, duplicate, reversed, wrong-namespace, or unsupported endpoints read as `undefined` and reject arrow mutation without package changes.
 
-`ShapeShadow` is the strict outer/inner direct-state union used by `AddShapeOptions.shadow` and `ShapeModel.shadow`. Both branches accept optional `RichTextColor`, finite `0..1` opacity, `0..100` point blur, `0 <= angle < 360` degrees, and `0..200` point distance; only outer accepts `rotateWithShape`. Omitted fields normalize to black, 0.75, 8pt, 270°, 4pt, and outer rotate false, while every explicit zero remains zero. Inputs and nested colors are detached before mutation; getter snapshots are detached and deep-frozen. Assignment is a whole replacement, same-value assignment is an exact bytes/journal no-op, kind switches replace only the direct shadow child, and `undefined` removes only that child while retaining `effectLst` plus legal glow, preset-shadow, reflection, soft-edge, blur, or fill-overlay siblings. A malformed, ambiguous, wrong-namespace, `effectDag`, or unsafe schema-order state reads as `undefined` and rejects mutation without package changes. PptxGenJS 4.0.1 omitted shadow and `type: 'none'` map to native `undefined`; its `offset` is native `distance`. Native preserves explicit zero, honors outer rotation, emits legal inner XML, supports theme colors, and rejects invalid passthrough instead of copying PptxGenJS's falsy fallback, ignored rotate flag, malformed inner closing tag, or out-of-range output. Generic effect stacks, custom shadow transforms, preset-shadow editing, and shadow APIs for images, text creation, tables, charts, media, and other owners remain outside this focused shape API.
+`ShapeShadow` is the strict outer/inner direct-state union used by `AddShapeOptions.shadow`, `AddTextOptions.shadow`, and `ShapeModel.shadow`. Both branches accept optional `RichTextColor`, finite `0..1` opacity, `0..100` point blur, `0 <= angle < 360` degrees, and `0..200` point distance; only outer accepts `rotateWithShape`. Omitted fields normalize to black, 0.75, 8pt, 270°, 4pt, and outer rotate false, while every explicit zero remains zero. Inputs and nested colors are detached before mutation; getter snapshots are detached and deep-frozen. Assignment is a whole replacement, same-value assignment is an exact bytes/journal no-op, kind switches replace only the direct shadow child, and `undefined` removes only that child while retaining `effectLst` plus legal glow, preset-shadow, reflection, soft-edge, blur, or fill-overlay siblings. A malformed, ambiguous, wrong-namespace, `effectDag`, or unsafe schema-order state reads as `undefined` and rejects mutation without package changes. PptxGenJS 4.0.1 omitted shadow and `type: 'none'` map to native `undefined`; its `offset` is native `distance`. Native preserves explicit zero, honors outer rotation, emits legal inner XML, supports theme colors, and rejects invalid passthrough instead of copying PptxGenJS's falsy fallback, ignored rotate flag, malformed inner closing tag, or out-of-range output. Generic effect stacks, custom shadow transforms, preset-shadow editing, and shadow APIs for images, tables, charts, media, and other owners remain outside these focused shape/text APIs.
 
 `Hyperlink` is the mutually exclusive `{ readonly url: string; readonly tooltip?: string } | { readonly slide: number; readonly tooltip?: string }` value used by `AddShapeOptions.hyperlink` and `ShapeModel.hyperlink`. A URL must be a non-empty XML-safe string; a slide number must be a one-based positive safe integer resolving to a current presentation slide at assignment time. Inputs must be descriptor-safe ordinary or null-prototype objects with exactly one target and no unknown keys. Getter results are detached frozen direct-state snapshots. Tooltip absence remains property absence, while direct empty remains `tooltip: ''`; assignment is a whole replacement, omitted tooltip clears only that attribute, and `undefined` removes the supported click element. Same-value assignment is an exact bytes/journal no-op. URL/slide switching reuses an unshared relationship or clones on write when its ID is referenced elsewhere, and clear or replacement garbage-collects only unreferenced relationships. Internal links retain target-part identity while slide insert/delete/reorder changes the reported one-based ordinal; duplicate self-links retarget to the duplicate, and deleting a target removes incoming DrawingML click/hover elements before deleting their relationships. Unsupported hover editing, extra action/sound/history state, duplicate/malformed click ownership, or dangling/wrong-type relationships are never guessed: reads return `undefined`, and writes reject without package changes. PptxGenJS 4.0.1 materializes omitted tooltip as direct empty and may console-ignore, coerce, duplicate, or dangle invalid runtime targets; native supports the valid final semantics but rejects those defects before mutation. External hyperlinks produce the expected portability warning rather than a package error. Text-run, table, image, chart, media, group, and graphic-frame hyperlink creation, hover links, action-only navigation, and relative/file safety policy remain outside this shape-level API.
 
-Arrow size, cap/compound/alignment/join editing, generic/advanced effects, custom shadow transforms, non-shape shadow APIs, custom-geometry path scaling/arc endpoint and bounds calculation/handle dragging/connector snapping and creation, text-shape shadow/hyperlink/geometry creation options, advanced line fill/custom dash creation, and percentage positions remain pending. Text-shape simple-line and arrow creation reuse the same codecs below.
+Arrow size, cap/compound/alignment/join editing, generic/advanced effects, custom shadow transforms, non-shape/text shadow APIs, custom-geometry path scaling/arc endpoint and bounds calculation/handle dragging/connector snapping and creation, text-shape hyperlink/geometry creation options, advanced line fill/custom dash creation, and percentage positions remain pending. Text-shape simple-line, arrow, and simple-shadow creation reuse the same codecs below.
 
 Shape kinds include `text`, `shape`, `image`, `table`, `chart`, `graphic-frame`, and `group`. Images expose embedded part URIs and replacement; tables support basic native creation plus rows/cells, cell text, borders, fill, margins, horizontal/vertical alignment, text-direction, and text-fit editing; charts expose cached series and lossless chart XML editing.
 
@@ -367,7 +367,7 @@ plain.fill = undefined;
 
 Plain/rich text, `addPlaceholder()`, title/body placeholder population, layout/master wrapper methods, and declarative `defineSlideMaster()` text/placeholder objects share the same renderer and validation contract. The resulting `ShapeModel.fill` is immediately readable and editable. Inputs detach before mutation; snapshots are detached and frozen; duplicate, move, outer rollback, six-format write/reopen, stable identity, sibling isolation, and placeholder-source isolation retain the direct fill. Clearing the live model with `undefined` differs from creation omission: the former removes the direct choice, while the latter intentionally preserves the canonical text-box default no-fill.
 
-PptxGenJS 4.0.1 writes direct no-fill for omitted text fill, omits the direct choice for `{ type: 'none' }`, and omits alpha for explicit zero transparency. Native deliberately preserves explicit none and zero direct intent. Supported solid/scheme/non-zero-alpha output reaches the same final semantics. Gradient/pattern/picture/group text-fill creation remains outside this simple creator. Text outer simple line and arrows are supported below; shadow/hyperlink/geometry, `rectRadius`, `isTextBox`, and combined `breakLine` behavior remain pending.
+PptxGenJS 4.0.1 writes direct no-fill for omitted text fill, omits the direct choice for `{ type: 'none' }`, and omits alpha for explicit zero transparency. Native deliberately preserves explicit none and zero direct intent. Supported solid/scheme/non-zero-alpha output reaches the same final semantics. Gradient/pattern/picture/group text-fill creation remains outside this simple creator. Text outer simple line, arrows, and simple shadow are supported below; hyperlink/geometry, `rectRadius`, `isTextBox`, and combined `breakLine` behavior remain pending.
 
 ### Text-shape direct simple line
 
@@ -396,7 +396,7 @@ outlined.line = undefined;
 
 Plain/rich text, `addPlaceholder()`, named placeholder population, layout/master wrapper methods, and declarative `defineSlideMaster()` text/placeholder objects share one renderer. Line stays after geometry and shape fill. The resulting `ShapeModel.line` immediately returns a detached normalized snapshot and keeps the existing read/whole-replace/clear semantics: same value is an exact no-op, none writes direct no-fill, and `undefined` removes owned width/fill/dash while preserving the line container and unrelated state. Duplicate, move, outer rollback, six-format write/reopen, stable identity, sibling isolation, and placeholder-source isolation are covered.
 
-PptxGenJS 4.0.1 emits empty `a:ln` for omitted/none/empty/missing-color text line, omits direct width/dash for their defaults, collapses width/transparency zero, honors nested deprecated `alpha`, and ignores nested `lineDash`. Native uses explicit reversible direct state and rejects permissive aliases/fallbacks. Supported sRGB/theme, non-zero transparency, positive width, and all eight dash tokens reach equivalent final semantics. Gradient/pattern/picture/group line fills, custom dash, cap/compound/alignment/join, shadow, hyperlink, and text geometry creation remain outside this simple-line slice. Text arrows are supported below.
+PptxGenJS 4.0.1 emits empty `a:ln` for omitted/none/empty/missing-color text line, omits direct width/dash for their defaults, collapses width/transparency zero, honors nested deprecated `alpha`, and ignores nested `lineDash`. Native uses explicit reversible direct state and rejects permissive aliases/fallbacks. Supported sRGB/theme, non-zero transparency, positive width, and all eight dash tokens reach equivalent final semantics. Gradient/pattern/picture/group line fills, custom dash, cap/compound/alignment/join, hyperlink, and text geometry creation remain outside this simple-line slice. Text arrows and simple shadow are supported below.
 
 Release evidence is 1268 passed / 1 skipped tests, performance 1/1 at 553ms, both TypeScript builds, both package builds, an actual 57-file tarball with `textShapeLines: true`, real-Chrome exact immediate/detached/reopen state with zero console/page/network errors, and installed CLI PowerPoint 2010 validation at 0 errors / 0 warnings.
 
@@ -429,7 +429,53 @@ Plain/rich text, `addPlaceholder()`, named placeholder population, layout/master
 
 PptxGenJS 4.0.1 emits an empty line for omitted text line paint and omits no-fill for arrow-only or `{ type: 'none' }` plus endpoints. It ignores empty endpoints and nested/top-level `lineHead` / `lineTail`, while invalid runtime tokens pass through as malformed direct endpoint state. Native keeps canonical no-fill and rejects aliases or invalid tokens before mutation. All six legal endpoint tokens, begin/end/both, explicit `none`, and combined solid line semantics are otherwise compatible; malformed imported endpoints remain losslessly preserved but are absent from the strict snapshot.
 
-Release evidence is 1274 passed / 1 skipped tests, performance 1/1 at 581ms, both TypeScript and package builds, an actual 57-file tarball with `textShapeArrows: true`, real-browser exact immediate/detached/reopen state with zero errors, and installed CLI PowerPoint 2010 validation at 0 errors / 0 warnings. Text-shape simple shadow creation is next.
+Release evidence is 1274 passed / 1 skipped tests, performance 1/1 at 581ms, both TypeScript and package builds, an actual 57-file tarball with `textShapeArrows: true`, real-browser exact immediate/detached/reopen state with zero errors, and installed CLI PowerPoint 2010 validation at 0 errors / 0 warnings. The following section documents text-shape simple shadow support.
+
+### Text-shape direct simple shadow
+
+```ts
+const shadowed = document.addSlide().addText('Shadowed heading', {
+  line: {
+    kind: 'line',
+    color: { kind: 'scheme', value: 'accent2' },
+    width: 2,
+    dash: 'dashDot',
+  },
+  arrows: { begin: 'triangle', end: 'arrow' },
+  shadow: {
+    kind: 'outer',
+    color: { kind: 'scheme', value: 'accent4' },
+    opacity: 0.4,
+    blur: 2,
+    angle: 45,
+    distance: 3,
+    rotateWithShape: true,
+  },
+});
+const inner = document.layouts[0].addRichText([{
+  runs: [{ text: 'Inner shadow' }],
+}], {
+  shadow: {
+    kind: 'inner',
+    color: { kind: 'srgb', value: '667788' },
+    opacity: 0,
+    blur: 0,
+    angle: 0,
+    distance: 0,
+  },
+});
+
+shadowed.shadow = { kind: 'inner', opacity: 0.25 };
+shadowed.shadow = undefined;
+```
+
+`AddTextOptions.shadow?: ShapeShadow` uses the same strict direct-state normalizer as preset shapes. Outer and inner accept valid sRGB/theme color, finite `0..1` opacity, `0..100pt` blur, `0 <= angle < 360°`, and `0..200pt` distance; only outer accepts boolean `rotateWithShape`. Defaults are black, 0.75, 8pt, 270°, 4pt, and outer rotate false. Every explicit zero is retained. PptxGenJS `type` / `offset` aliases, coercible strings, invalid ranges, unknown/inherited/accessor/symbol keys, arrays, and class instances reject before package mutation.
+
+Plain/rich text, `addPlaceholder()`, named placeholder population, layout/master wrapper methods, and declarative `defineSlideMaster()` text/placeholder objects share the same renderer. Direct child order is geometry, fill, line/endpoints, then one `effectLst`. Fill, line, arrows, and effect ownership are independent. The returned `ShapeModel.shadow` immediately exposes a detached deep-frozen snapshot; assignment is a whole replacement, same-value assignment is an exact bytes/journal no-op, and `undefined` clears only the direct inner/outer child while preserving a safe effect-list container plus sibling effects. Duplicate, move, outer rollback, asynchronous declarative detachment, all six formats, write/reopen, stable identity, sibling isolation, and placeholder-source isolation are covered.
+
+PptxGenJS 4.0.1 omits direct effects for omitted shadow and `{ type: 'none' }`; supported outer cases reach equivalent final semantics, and legacy `offset` corresponds to native `distance`. It falls back from runtime zero to defaults, ignores text `rotateWithShape: true`, warning-corrects or loosely converts some invalid type/color/number inputs, and emits a mismatched closing tag for inner shadow. Native deliberately retains zero, supports theme color and rotate true, emits legal inner XML, and rejects invalid input with zero mutation.
+
+Release evidence is 1280 passed / 1 skipped tests, performance 1/1 at 607ms, both TypeScript builds, both package builds, and the declaration build. The actual 57-file tarball reports `textShapeShadows: true` from installed Node, declarations, browser export, and installed CLI checks. Real-browser exact immediate/detached/reopen state has zero console/page/network errors, and installed CLI PowerPoint 2010 validation is 0 errors / 0 warnings. Text-shape hyperlink creation is next.
 
 ```ts
 const text = document.addSlide().addText('Quarterly results\nQ4 forecast', {
@@ -900,7 +946,7 @@ Focused master/layout/placeholder tests report 45 passed / 434 skipped; full Vit
 
 The two-slide native gallery has 32 parts, 29 relationships, two layouts, and one master and validates 0/0 under the PowerPoint 2010 profile. The two-slide PptxGenJS control has 36 parts and 34 relationships. Eight source/LibreOffice-round-trip pages were rendered at 2400×1350 and 180 DPI and inspected individually; full-bleed fixture backgrounds give an expected 0px minimum non-white margin. LibreOffice 26.8 preserves two slides, two layouts, and one master but rewrites placeholder identities and slide-number caches and removes audio plus embedded chart workbooks. Local PowerPoint 16.112 returned `-9074` for both native and control inputs and produced no PPTX/PDF, so neither result is reported as a full round-trip pass.
 
-Full theme text cascade, percentage coordinates, advanced text/table/media/chart styles, and broad client certification remain pending. Advanced text now includes text-shape direct fill, simple line, and arrows; text-shape simple shadow is next, followed by the remaining advanced-text items, advanced table/`tableToSlides`, output/runtime helpers, and the peer-range full-suite audit.
+Full theme text cascade, percentage coordinates, advanced text/table/media/chart styles, and broad client certification remain pending. Advanced text now includes text-shape direct fill, simple line, arrows, and simple shadow; text-shape hyperlink creation is next, followed by the remaining advanced-text items, advanced table/`tableToSlides`, output/runtime helpers, and the peer-range full-suite audit.
 
 ## Media
 

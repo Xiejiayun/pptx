@@ -390,7 +390,7 @@ PptxGenJS 的 `masterName` 拼写在这里保持兼容，但它严格选择的�
 
 2 页 native gallery 含 32 parts / 29 relationships / 2 layouts / 1 master，PowerPoint 2010 profile 为 0 errors / 0 warnings；2 页 PptxGenJS control 为 36 parts / 34 relationships。原件与 LibreOffice 回存件共 8 页均以 2400×1350、180 DPI 渲染并逐页检查；全幅背景使 minimum non-white margin 按预期为 0px。Fixture 的 background 和 image 是 1×1 黑色 PNG，native 第二页按测试意图重定向空白 default layout，黑/空白输出不代表丢失继承。LibreOffice 26.8 保留两页、两个 layouts 和一个 master，但会改写 placeholder identity/slide-number cache，并移除 audio 与内嵌 chart workbooks；这是降级记录，不声明完整 round-trip。PowerPoint 16.112 对 native 与 control 均返回 `-9074` 且没有产生 PPTX/PDF，因此不声明 PowerPoint 往返通过。
 
-尚未实现完整 theme text cascade、percentage coordinates、高级 text/table/media/chart 样式和更广泛客户端认证。Advanced text 已完成文本框 direct fill、simple line 与 begin/end arrows，并继续按小项推进。
+尚未实现完整 theme text cascade、percentage coordinates、高级 text/table/media/chart 样式和更广泛客户端认证。Advanced text 已完成文本框 direct fill、simple line、begin/end arrows 与 simple shadow，下一小项为 text-shape hyperlink creation。
 
 ## 创建和编辑文本框填充
 
@@ -428,7 +428,7 @@ plain.fill = undefined; // 只清除 direct fill choice
 
 本项跨 package focused gate 为 5/5，SDK/root 与 adapter suites 分别为 188/188、76/76；最终全量 Vitest 为 1262 passed / 1 skipped，独立 performance 为 1/1（560ms），TypeScript typecheck 与 project build 均通过。Actual 57-file tarball 的 Node、declarations、browser export 与 installed CLI 均报告 `textShapeFills: true`；真实 Chrome validation/console/page/network errors 全为 0，CLI PowerPoint 2010 profile 为 0 errors / 0 warnings。
 
-PptxGenJS 4.0.1 的 omitted fill 同样写 direct no-fill，但 `{ type: 'none' }` 会省略 direct fill choice，显式 zero transparency 也会省略 alpha；本库保留 explicit none/zero 的 direct intent。合法 solid 与非零透明度在最终语义上对等。Gradient/pattern/picture/group text fill 仍只做无损保留，不在 simple-fill 创建范围内。Text outer simple line 与 arrows 已在后续小节支持；shadow、hyperlink、`shape` / `rectRadius` / `isTextBox` 和 `breakLine` 组合语义仍待完成。
+PptxGenJS 4.0.1 的 omitted fill 同样写 direct no-fill，但 `{ type: 'none' }` 会省略 direct fill choice，显式 zero transparency 也会省略 alpha；本库保留 explicit none/zero 的 direct intent。合法 solid 与非零透明度在最终语义上对等。Gradient/pattern/picture/group text fill 仍只做无损保留，不在 simple-fill 创建范围内。Text outer simple line、arrows 与 simple shadow 已在后续小节支持；hyperlink、`shape` / `rectRadius` / `isTextBox` 和 `breakLine` 组合语义仍待完成。
 
 ## 创建和编辑文本框线条
 
@@ -462,7 +462,7 @@ outlined.line = undefined; // 只清除 direct width/fill/dash
 
 Plain/rich text、`addPlaceholder()`、placeholder population、layout/master wrappers 与 declarative `defineSlideMaster()` text/placeholder objects 共用同一 normalizer/renderer。创建结果可立即通过 live `ShapeModel.line` read/replace/clear；caller detachment、same-value bytes/journal no-op、duplicate isolation、outer rollback、stable identity、六格式 write/reopen 与 placeholder-source isolation 均已覆盖。PptxGenJS-shaped `type`/`dashType`/`alpha`/`lineDash`、missing color、invalid dash/range、unknown/accessor/symbol/class input 会在 mutation 前拒绝。
 
-PptxGenJS 4.0.1 的 omitted/none/empty/missing-color text line 都输出 empty `a:ln`，省略 width/dash 时依赖隐式 1pt/solid，width zero 和 transparency zero 也被 falsy collapse；native 写明确可逆的 no-fill、默认 width/dash 与 zero direct state。合法 sRGB/theme、非零 transparency、正 width 和全部八种 dash 的 final semantics 对等。Nested deprecated `alpha` 在 PptxGenJS text line 中仍生效而 `lineDash` 被忽略；native 不接受两者。Gradient/pattern/picture/group line fill、custom dash 与 cap/compound/alignment/join 仍待后续；text arrows 已在下一节支持，shadow/hyperlink/geometry 继续按小项推进。
+PptxGenJS 4.0.1 的 omitted/none/empty/missing-color text line 都输出 empty `a:ln`，省略 width/dash 时依赖隐式 1pt/solid，width zero 和 transparency zero 也被 falsy collapse；native 写明确可逆的 no-fill、默认 width/dash 与 zero direct state。合法 sRGB/theme、非零 transparency、正 width 和全部八种 dash 的 final semantics 对等。Nested deprecated `alpha` 在 PptxGenJS text line 中仍生效而 `lineDash` 被忽略；native 不接受两者。Gradient/pattern/picture/group line fill、custom dash 与 cap/compound/alignment/join 仍待后续；text arrows 与 simple shadow 已在后续小节支持，hyperlink/geometry 继续按小项推进。
 
 本项跨 package focused gate 为 5/5，model、SDK、root 与 adapter suites 分别为 189/189、182/182、9/9、77/77。最终全量为 1268 passed / 1 skipped，独立 performance 为 1/1（553ms），两种 TypeScript build 与两套 package build 通过。Actual 57-file tarball 的 Node、declarations、browser export 与 CLI 均报告 `textShapeLines: true`；真实 Chrome immediate/detached/reopen state 完全匹配且 console/page/network 为 0，CLI PowerPoint 2010 profile 为 0 errors / 0 warnings。
 
@@ -500,7 +500,58 @@ Plain/rich text、`addPlaceholder()`、placeholder population、layout/master wr
 
 PptxGenJS 4.0.1 对 omitted text line 写 empty `a:ln`，arrow-only 与 `{ type: 'none' }` + endpoint 也不写 no-fill；native 保留 canonical direct no-fill。PptxGenJS 会忽略 empty endpoint 与 nested/top-level `lineHead` / `lineTail`，并可把非法 endpoint token 原样写入 OOXML；native 不接受这些 alias 或非法值。六种合法 begin/end、单端/双端、显式 `none` 与 solid line + arrows 的 final endpoint semantics 对等，非法既有 endpoint 只做无损保留。
 
-本项跨 package focused gate 为 4/4，model、SDK、root 与 adapter suites 分别为 191/191、184/184、10/10、78/78。最终全量为 1274 passed / 1 skipped，独立 performance 为 1/1（581ms），两种 TypeScript build 与两套 package build 通过。Actual 57-file tarball 的 Node、declarations、browser export 与 installed CLI 均报告 `textShapeArrows: true`；真实浏览器 immediate/detached/reopen state 完全匹配且错误为 0，CLI PowerPoint 2010 profile 为 0 errors / 0 warnings。下一小项是 text-shape simple shadow creation。
+本项跨 package focused gate 为 4/4，model、SDK、root 与 adapter suites 分别为 191/191、184/184、10/10、78/78。最终全量为 1274 passed / 1 skipped，独立 performance 为 1/1（581ms），两种 TypeScript build 与两套 package build 通过。Actual 57-file tarball 的 Node、declarations、browser export 与 installed CLI 均报告 `textShapeArrows: true`；真实浏览器 immediate/detached/reopen state 完全匹配且错误为 0，CLI PowerPoint 2010 profile 为 0 errors / 0 warnings。Text-shape simple shadow 已在下一节支持。
+
+## 创建和编辑文本框阴影
+
+```ts
+const shadowed = slide.addText('Shadowed heading', {
+  line: {
+    kind: 'line',
+    color: { kind: 'scheme', value: 'accent2' },
+    width: 2,
+    dash: 'dashDot',
+  },
+  arrows: { begin: 'triangle', end: 'arrow' },
+  shadow: {
+    kind: 'outer',
+    color: { kind: 'scheme', value: 'accent4' },
+    opacity: 0.4,
+    blur: 2,
+    angle: 45,
+    distance: 3,
+    rotateWithShape: true,
+  },
+});
+const rich = slide.addRichText([{
+  runs: [{ text: 'Inner shadow' }],
+}], {
+  shadow: {
+    kind: 'inner',
+    color: { kind: 'srgb', value: '667788' },
+    opacity: 0,
+    blur: 0,
+    angle: 0,
+    distance: 0,
+  },
+});
+const placeholder = slide.addPlaceholder('Shadow placeholder', {
+  name: 'shadow_title',
+  type: 'title',
+  shadow: { kind: 'outer' },
+});
+
+shadowed.shadow = { kind: 'inner', opacity: 0.25 };
+shadowed.shadow = undefined; // 只清除 direct shadow
+```
+
+`AddTextOptions.shadow` 复用 strict `ShapeShadow`。Outer/inner 都支持合法六位 sRGB/theme color、finite `0..1` opacity、`0..100pt` blur、`0 <= angle < 360°` 与 `0..200pt` distance；只有 outer 可提供 boolean `rotateWithShape`。省略字段归一化为 black、0.75、8pt、270°、4pt 与 outer rotate false，所有显式 zero 都保留。输入和嵌套 color 在 mutation 前脱离 caller；`type`/`offset` alias、coercible string、非法 range、unknown/inherited/accessor/symbol key、数组和 class instance 均以零 package 变化拒绝。
+
+Plain/rich text、`addPlaceholder()`、placeholder population、layout/master wrappers 与 declarative `defineSlideMaster()` text/placeholder objects 共用同一 renderer。Shadow 在 line/endpoints 后写入唯一 canonical `a:effectLst`；fill、line、arrows 与 effect ownership 相互独立。Live `ShapeModel.shadow` 立即返回 detached deep-frozen snapshot，并支持 whole replacement/clear；same-value 是 exact bytes/journal no-op，`undefined` 只移除 direct inner/outer child，保留安全的 effect-list container 与 sibling effects。Duplicate、outer rollback、六格式 write/reopen、stable identity、异步 declarative detachment 与 placeholder-source isolation 均已覆盖。
+
+PptxGenJS 4.0.1 对 omitted shadow 与 `{ type: 'none' }` 不写 direct effect，合法 outer final semantics 与 native 对等，legacy `offset` 对应 native `distance`。它会把 runtime zero 回退为 defaults、忽略 text `rotateWithShape: true`、纠正或宽松转换部分非法 type/color/number，并为 inner 写出不匹配的 closing tag；native 不复制这些缺陷，而是保留 zero、支持 theme color 和 rotate true、写合法 inner XML，并在 mutation 前严格拒绝非法输入。
+
+本项 model/codec、SDK/root 与 adapter suites 分别为 234/234、197/197、79/79，跨 package focused gate 为 6/6。最终全量为 1280 passed / 1 skipped，独立 performance 为 1/1（607ms），两种 TypeScript build、两套 package build 与 declaration build 全部通过。Actual 57-file tarball 的 Node、declarations、browser export 与 installed CLI 均报告 `textShapeShadows: true`；真实浏览器 immediate/detached/reopen state 完全匹配且 console/page/network 为 0，CLI PowerPoint 2010 profile 为 0 errors / 0 warnings。下一小项是 text-shape hyperlink creation。
 
 ## 创建和编辑预设形状、调整值与样式
 
@@ -567,7 +618,7 @@ shape.hyperlink = undefined;
 
 `AddShapeOptions.arrows` 与 `ShapeModel.arrows` 支持 begin/end 的 `none | arrow | diamond | oval | stealth | triangle`。快照与输入脱离；赋值采用 whole replacement，缺失的一端会被清除，显式 `none` 则保留对应 direct endpoint。`undefined` 只清除两端而保留 line，反向的 `shape.line = undefined` 也保留 arrows。只创建 arrows 不会隐式生成颜色、宽度或 dash；已有合法 `w` / `len` size 会在类型编辑中无损保留，但 size 创建/读取/编辑尚未公开。
 
-`AddShapeOptions.shadow` 与 `ShapeModel.shadow` 支持 direct outer/inner shadow 的创建、读取、whole replacement 与清除，包括 sRGB/theme color、`0..1` opacity、`0..100pt` blur、`0..<360°` angle、`0..200pt` distance，以及 outer-only `rotateWithShape`。默认值为 black、0.75、8pt、270°、4pt 和 outer rotate false；显式 zero 会保留。输入在 mutation 前深度脱离，getter 的嵌套快照会 deep-freeze；同值赋值是 exact no-op，`undefined` 只移除 direct shadow 并保留 `effectLst` 与 glow/reflection 等 sibling effects。Generic/advanced effects、custom shadow transforms，以及 text/image/table/chart/media 等非 preset-shape shadow API 仍待后续小项。
+`AddShapeOptions.shadow`、`AddTextOptions.shadow` 与 `ShapeModel.shadow` 支持 preset/text shape direct outer/inner shadow 的创建、读取、whole replacement 与清除，包括 sRGB/theme color、`0..1` opacity、`0..100pt` blur、`0..<360°` angle、`0..200pt` distance，以及 outer-only `rotateWithShape`。默认值为 black、0.75、8pt、270°、4pt 和 outer rotate false；显式 zero 会保留。输入在 mutation 前深度脱离，getter 的嵌套快照会 deep-freeze；同值赋值是 exact no-op，`undefined` 只移除 direct shadow 并保留 `effectLst` 与 glow/reflection 等 sibling effects。Generic/advanced effects、custom shadow transforms，以及 image/table/chart/media 等其他 owner 的 shadow API 仍待后续小项。
 
 `AddShapeOptions.hyperlink` 与 `ShapeModel.hyperlink` 支持整个 preset shape 的 click URL 或内部页链接。输入必须恰好包含一个非空 `url` 或一个当前文稿内的一基 `slide`；`tooltip` 可省略，也可显式为空。Getter 返回 detached frozen snapshot，setter 采用 whole replacement，同值赋值为 exact no-op，`undefined` 清除 click link。内部关系按目标页 identity 保存，移动或在目标前插删页面只更新 getter ordinal；复制 self-link 会指向副本自身，删除目标页会清理相关 click/hover，shared relationship 则按引用 clone-on-write 与回收。外部链接产生 validator 的预期可移植性 warning。Hover 编辑、text-run/table/image/chart/media 链接创建、action navigation、advanced line fill/custom dash 和 percentage positions 仍待后续小项。
 
