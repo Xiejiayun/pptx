@@ -442,6 +442,82 @@ async (page) => {
           ({ severity }) => severity === 'error',
         ).length,
       };
+      const textShapeArrowDocument = api.PptxDocument.create();
+      const textShapeArrowLayout = textShapeArrowDocument.layouts[0];
+      textShapeArrowLayout.addPlaceholder('Browser text arrow prompt', {
+        name: 'browser_text_arrow_placeholder',
+        type: 'title',
+        index: 192,
+        arrows: { begin: 'none', end: 'stealth' },
+      });
+      const textShapeArrowSlide = textShapeArrowDocument.addSlide({
+        masterName: textShapeArrowLayout.name,
+      });
+      const textShapeArrowSource = { begin: 'triangle', end: 'arrow' };
+      const browserPlainTextArrow = textShapeArrowSlide.addText('Browser plain text arrow', {
+        name: 'browser_plain_text_arrow',
+        line: {
+          kind: 'line',
+          color: { kind: 'scheme', value: 'accent2' },
+          width: 2,
+          dash: 'dashDot',
+        },
+        arrows: textShapeArrowSource,
+      });
+      const browserRichTextArrow = textShapeArrowSlide.addRichText([{
+        runs: [{ text: 'Browser rich text arrow' }],
+      }], {
+        name: 'browser_rich_text_arrow',
+        arrows: { end: 'diamond' },
+      });
+      const browserPopulatedTextArrow = textShapeArrowSlide.addText(
+        'Browser populated text arrow',
+        { placeholder: 'browser_text_arrow_placeholder', arrows: { begin: 'arrow' } },
+      );
+      const textShapeArrowImmediate = [
+        browserPlainTextArrow.arrows,
+        browserRichTextArrow.arrows,
+        browserPopulatedTextArrow.arrows,
+      ];
+      textShapeArrowSource.begin = 'oval';
+      textShapeArrowSource.end = 'triangle';
+      const textShapeArrowDetached = browserPlainTextArrow.arrows;
+      const textShapeArrowOutput = await textShapeArrowDocument.writeBlob();
+      const reopenedTextShapeArrows = await api.PptxDocument.open(textShapeArrowOutput);
+      await reopenedTextShapeArrows.write({ compatibility: 'powerpoint-current' });
+      const textShapeArrowByName = (owner, name) => owner.shapes.find(
+        (shape) => shape instanceof api.ShapeModel && shape.name === name,
+      );
+      const textShapeArrowState = {
+        mime: textShapeArrowOutput.type,
+        immediate: textShapeArrowImmediate,
+        detached: textShapeArrowDetached,
+        reopened: [
+          textShapeArrowByName(
+            reopenedTextShapeArrows.slides[0],
+            'browser_plain_text_arrow',
+          ).arrows,
+          textShapeArrowByName(
+            reopenedTextShapeArrows.slides[0],
+            'browser_rich_text_arrow',
+          ).arrows,
+          textShapeArrowByName(
+            reopenedTextShapeArrows.slides[0],
+            'browser_text_arrow_placeholder',
+          ).arrows,
+        ],
+        layout: textShapeArrowByName(
+          reopenedTextShapeArrows.layouts[0],
+          'browser_text_arrow_placeholder',
+        ).arrows,
+        line: textShapeArrowByName(
+          reopenedTextShapeArrows.slides[0],
+          'browser_plain_text_arrow',
+        ).line,
+        validationErrors: reopenedTextShapeArrows.diagnostics.filter(
+          ({ severity }) => severity === 'error',
+        ).length,
+      };
       const svgDocument = api.PptxDocument.create();
       svgDocument.addSlide();
       const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360">'
@@ -824,6 +900,7 @@ async (page) => {
         slideDefaultColor: slideDefaultColorState,
         textShapeFills: textShapeFillState,
         textShapeLines: textShapeLineState,
+        textShapeArrows: textShapeArrowState,
         svgCreatedLive: svgDocument.slides[0].shapes.includes(blobSvg)
           && svgDocument.slides[0].shapes.includes(dataSvg),
         svgState,
@@ -1089,6 +1166,28 @@ async (page) => {
         transparency: 100,
         width: 0,
         dash: 'sysDot',
+      },
+      validationErrors: 0,
+    },
+    textShapeArrows: {
+      mime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      immediate: [
+        { begin: 'triangle', end: 'arrow' },
+        { end: 'diamond' },
+        { begin: 'arrow' },
+      ],
+      detached: { begin: 'triangle', end: 'arrow' },
+      reopened: [
+        { begin: 'triangle', end: 'arrow' },
+        { end: 'diamond' },
+        { begin: 'arrow' },
+      ],
+      layout: { begin: 'none', end: 'stealth' },
+      line: {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent2' },
+        width: 2,
+        dash: 'dashDot',
       },
       validationErrors: 0,
     },

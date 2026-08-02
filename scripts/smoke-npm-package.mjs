@@ -2388,6 +2388,201 @@ if (!textShapeLines) {
   throw new Error('Packed text shape lines failed');
 }
 await reopenedTextShapeLineDeck.writeFile('text-shape-line-smoke.pptx');
+const textShapeArrowDeck = PptxDocument.create();
+const textShapeArrowLayout = textShapeArrowDeck.layouts[0];
+const textShapeArrowMaster = textShapeArrowDeck.masters[0];
+const packedLayoutTextArrow = textShapeArrowLayout.addText('Packed layout text arrow', {
+  name: 'packed_layout_text_arrow',
+  arrows: { begin: 'none' },
+});
+const packedMasterTextArrow = textShapeArrowMaster.addRichText([{
+  runs: [{ text: 'Packed master text arrow' }],
+}], {
+  name: 'packed_master_text_arrow',
+  arrows: { end: 'triangle' },
+});
+const packedLayoutPlaceholderArrow = textShapeArrowLayout.addPlaceholder(
+  'Packed text arrow prompt',
+  {
+    name: 'packed_title_arrow',
+    type: 'title',
+    index: 194,
+    arrows: { begin: 'stealth', end: 'none' },
+  },
+);
+const textShapeArrowSource = { begin: 'triangle', end: 'arrow' };
+const textShapeArrowSlide = textShapeArrowDeck.addSlide({
+  masterName: textShapeArrowLayout.name,
+});
+const packedPlainTextArrow = textShapeArrowSlide.addText('Packed plain text arrow', {
+  name: 'packed_plain_text_arrow',
+  line: {
+    kind: 'line',
+    color: { kind: 'scheme', value: 'accent2' },
+    width: 2,
+    dash: 'dashDot',
+  },
+  arrows: textShapeArrowSource,
+});
+const packedRichTextArrow = textShapeArrowSlide.addRichText([{
+  runs: [{ text: 'Packed rich text arrow' }],
+}], {
+  name: 'packed_rich_text_arrow',
+  arrows: { begin: 'diamond' },
+});
+const packedPopulatedTextArrow = textShapeArrowSlide.addText('Packed populated text arrow', {
+  placeholder: 'packed_title_arrow',
+  arrows: { end: 'oval' },
+});
+const initialPackedPlainTextArrow = packedPlainTextArrow.arrows;
+textShapeArrowSource.begin = 'oval';
+textShapeArrowSource.end = 'diamond';
+const detachedPackedPlainTextArrow = packedPlainTextArrow.arrows;
+const packedDeclarativeTextArrowLayout = await textShapeArrowDeck.defineSlideMaster({
+  title: 'PACKED-TEXT-ARROWS',
+  objects: [
+    {
+      kind: 'text',
+      text: 'Packed declarative text arrow',
+      options: {
+        name: 'packed_declarative_text_arrow',
+        arrows: { begin: 'none', end: 'stealth' },
+      },
+    },
+    {
+      kind: 'placeholder',
+      text: 'Packed declarative arrow prompt',
+      options: {
+        name: 'packed_declarative_title_arrow',
+        type: 'title',
+        index: 195,
+        arrows: { begin: 'arrow', end: 'triangle' },
+      },
+    },
+  ],
+});
+const packedDeclarativeTextArrow = packedDeclarativeTextArrowLayout.shapes.find(
+  ({ name }) => name === 'packed_declarative_text_arrow',
+);
+const packedDeclarativePlaceholderArrow = packedDeclarativeTextArrowLayout.placeholders.find(
+  ({ name }) => name === 'packed_declarative_title_arrow',
+);
+const packedDeclarativeTextArrowSlide = textShapeArrowDeck.addSlide({
+  masterName: packedDeclarativeTextArrowLayout.name,
+});
+const packedDeclarativePopulatedArrow = packedDeclarativeTextArrowSlide.addText(
+  'Packed declarative populated arrow',
+  {
+    placeholder: 'packed_declarative_title_arrow',
+    arrows: { end: 'diamond' },
+  },
+);
+const duplicateTextShapeArrowSlide = textShapeArrowDeck.duplicateSlide(0);
+const duplicatePlainTextArrow = duplicateTextShapeArrowSlide.shapes.find(
+  ({ name }) => name === 'packed_plain_text_arrow',
+);
+const duplicateRichTextArrow = duplicateTextShapeArrowSlide.shapes.find(
+  ({ name }) => name === 'packed_rich_text_arrow',
+);
+if (!(duplicatePlainTextArrow instanceof ShapeModel) ||
+    !(duplicateRichTextArrow instanceof ShapeModel)) {
+  throw new Error('Packed duplicate text shape arrow failed');
+}
+duplicatePlainTextArrow.line = undefined;
+const duplicatePlainArrowsAfterLineClear = duplicatePlainTextArrow.arrows;
+duplicatePlainTextArrow.arrows = { begin: 'oval' };
+duplicateRichTextArrow.arrows = undefined;
+const reopenedTextShapeArrowDeck = await PptxDocument.open(await textShapeArrowDeck.write());
+await reopenedTextShapeArrowDeck.write({ compatibility: 'powerpoint-2010' });
+const reopenedTextArrowSourceSlide = reopenedTextShapeArrowDeck.slides[0];
+const reopenedTextArrowDeclarativeSlide = reopenedTextShapeArrowDeck.slides[1];
+const reopenedTextArrowDuplicateSlide = reopenedTextShapeArrowDeck.slides[2];
+const reopenedTextArrowLayout = reopenedTextShapeArrowDeck.layouts.find(
+  ({ name }) => name === textShapeArrowLayout.name,
+);
+const reopenedDeclarativeTextArrowLayout = reopenedTextShapeArrowDeck.layouts.find(
+  ({ name }) => name === 'PACKED-TEXT-ARROWS',
+);
+const reopenedTextArrowByName = (owner, name) => owner.shapes.find(
+  (shape) => shape instanceof ShapeModel && shape.name === name,
+);
+const textShapeArrows =
+  packedLayoutTextArrow instanceof ShapeModel &&
+  packedMasterTextArrow instanceof ShapeModel &&
+  packedLayoutPlaceholderArrow instanceof ShapeModel &&
+  packedPlainTextArrow instanceof ShapeModel &&
+  packedRichTextArrow instanceof ShapeModel &&
+  packedPopulatedTextArrow instanceof ShapeModel &&
+  packedDeclarativeTextArrow instanceof ShapeModel &&
+  packedDeclarativePlaceholderArrow instanceof ShapeModel &&
+  packedDeclarativePopulatedArrow instanceof ShapeModel &&
+  JSON.stringify(initialPackedPlainTextArrow) === JSON.stringify({
+    begin: 'triangle',
+    end: 'arrow',
+  }) &&
+  JSON.stringify(detachedPackedPlainTextArrow) ===
+    JSON.stringify(initialPackedPlainTextArrow) &&
+  JSON.stringify(duplicatePlainArrowsAfterLineClear) ===
+    JSON.stringify(initialPackedPlainTextArrow) &&
+  JSON.stringify(packedLayoutTextArrow.arrows) === JSON.stringify({ begin: 'none' }) &&
+  JSON.stringify(packedMasterTextArrow.arrows) === JSON.stringify({ end: 'triangle' }) &&
+  JSON.stringify(packedLayoutPlaceholderArrow.arrows) === JSON.stringify({
+    begin: 'stealth',
+    end: 'none',
+  }) &&
+  JSON.stringify(packedRichTextArrow.arrows) === JSON.stringify({ begin: 'diamond' }) &&
+  JSON.stringify(packedPopulatedTextArrow.arrows) === JSON.stringify({ end: 'oval' }) &&
+  JSON.stringify(packedDeclarativeTextArrow.arrows) === JSON.stringify({
+    begin: 'none',
+    end: 'stealth',
+  }) &&
+  JSON.stringify(packedDeclarativePlaceholderArrow.arrows) === JSON.stringify({
+    begin: 'arrow',
+    end: 'triangle',
+  }) &&
+  JSON.stringify(packedDeclarativePopulatedArrow.arrows) ===
+    JSON.stringify({ end: 'diamond' }) &&
+  JSON.stringify(reopenedTextArrowByName(
+    reopenedTextArrowSourceSlide,
+    'packed_plain_text_arrow',
+  )?.arrows) === JSON.stringify(initialPackedPlainTextArrow) &&
+  JSON.stringify(reopenedTextArrowByName(
+    reopenedTextArrowSourceSlide,
+    'packed_rich_text_arrow',
+  )?.arrows) === JSON.stringify({ begin: 'diamond' }) &&
+  JSON.stringify(reopenedTextArrowByName(
+    reopenedTextArrowDuplicateSlide,
+    'packed_plain_text_arrow',
+  )?.arrows) === JSON.stringify({ begin: 'oval' }) &&
+  reopenedTextArrowByName(
+    reopenedTextArrowDuplicateSlide,
+    'packed_plain_text_arrow',
+  )?.line === undefined &&
+  reopenedTextArrowByName(
+    reopenedTextArrowDuplicateSlide,
+    'packed_rich_text_arrow',
+  )?.arrows === undefined &&
+  JSON.stringify(reopenedTextArrowByName(
+    reopenedTextArrowLayout,
+    'packed_layout_text_arrow',
+  )?.arrows) === JSON.stringify({ begin: 'none' }) &&
+  JSON.stringify(reopenedTextArrowByName(
+    reopenedTextShapeArrowDeck.masters[0],
+    'packed_master_text_arrow',
+  )?.arrows) === JSON.stringify({ end: 'triangle' }) &&
+  JSON.stringify(reopenedTextArrowByName(
+    reopenedDeclarativeTextArrowLayout,
+    'packed_declarative_text_arrow',
+  )?.arrows) === JSON.stringify({ begin: 'none', end: 'stealth' }) &&
+  JSON.stringify(reopenedTextArrowByName(
+    reopenedTextArrowDeclarativeSlide,
+    'packed_declarative_title_arrow',
+  )?.arrows) === JSON.stringify({ end: 'diamond' }) &&
+  reopenedTextShapeArrowDeck.diagnostics.every(({ severity }) => severity !== 'error');
+if (!textShapeArrows) {
+  throw new Error('Packed text shape arrows failed');
+}
+await reopenedTextShapeArrowDeck.writeFile('text-shape-arrows-smoke.pptx');
 const createdText = created.addSlide().addText('Smoke\\n\\nParagraph', { align: 'center', fit: 'shrink', valign: 'top', vert: 'vert270', wrap: false, bullet: true, level: 2, margin: 10, rtlMode: true, spacing: { before: 4, after: 6, line: { kind: 'exact', points: 20 } }, tabStops: [{ position: 1.25 }, { position: 2.5, alignment: 'right' }] });
 const shapeLineDeck = PptxDocument.create();
 const shapeLineSlide = shapeLineDeck.addSlide();
@@ -3662,6 +3857,7 @@ const checks = {
   shapeFills,
   textShapeFills,
   textShapeLines,
+  textShapeArrows,
   shapeLines,
   shapeArrows,
   shapeHyperlinks,
@@ -4627,6 +4823,91 @@ const browserTextShapeLineChecks = {
 };
 if (Object.values(browserTextShapeLineChecks).some((value) => !value)) {
   throw new Error('Browser text shape line failed: ' + JSON.stringify(browserTextShapeLineChecks));
+}
+const browserTextShapeArrowDeck = PptxDocument.create();
+const browserTextShapeArrowLayout = browserTextShapeArrowDeck.layouts[0];
+const browserTextShapeArrowPlaceholder = browserTextShapeArrowLayout.addPlaceholder(
+  'Browser text arrow prompt',
+  {
+    name: 'browser_text_arrow_placeholder',
+    type: 'title',
+    index: 196,
+    arrows: { begin: 'none', end: 'stealth' },
+  },
+);
+const browserTextShapeArrowSlide = browserTextShapeArrowDeck.addSlide({
+  masterName: browserTextShapeArrowLayout.name,
+});
+const browserTextShapeArrowSource = { begin: 'triangle', end: 'arrow' };
+const browserPlainTextShapeArrow = browserTextShapeArrowSlide.addText(
+  'Browser plain text arrow',
+  {
+    name: 'browser_plain_text_arrow',
+    line: {
+      kind: 'line',
+      color: { kind: 'scheme', value: 'accent2' },
+      width: 2,
+      dash: 'dashDot',
+    },
+    arrows: browserTextShapeArrowSource,
+  },
+);
+const browserRichTextShapeArrow = browserTextShapeArrowSlide.addRichText([{
+  runs: [{ text: 'Browser rich text arrow' }],
+}], {
+  name: 'browser_rich_text_arrow',
+  arrows: { end: 'diamond' },
+});
+const browserPopulatedTextShapeArrow = browserTextShapeArrowSlide.addText(
+  'Browser populated text arrow',
+  { placeholder: 'browser_text_arrow_placeholder', arrows: { begin: 'arrow' } },
+);
+const browserPlainTextShapeArrowSnapshot = browserPlainTextShapeArrow.arrows;
+browserTextShapeArrowSource.begin = 'oval';
+browserTextShapeArrowSource.end = 'diamond';
+const reopenedBrowserTextShapeArrowDeck = await PptxDocument.open(
+  await browserTextShapeArrowDeck.writeBlob(),
+);
+await reopenedBrowserTextShapeArrowDeck.write({ compatibility: 'powerpoint-current' });
+const reopenedBrowserTextShapeArrowSlide = reopenedBrowserTextShapeArrowDeck.slides[0];
+const reopenedBrowserTextShapeArrowLayout = reopenedBrowserTextShapeArrowDeck.layouts[0];
+const browserTextShapeArrowByName = (owner, name) => owner.shapes.find(
+  (shape) => shape instanceof ShapeModel && shape.name === name,
+);
+const browserTextShapeArrowChecks = {
+  detached: JSON.stringify(browserPlainTextShapeArrow.arrows) ===
+    JSON.stringify(browserPlainTextShapeArrowSnapshot),
+  plain: JSON.stringify(browserTextShapeArrowByName(
+    reopenedBrowserTextShapeArrowSlide,
+    'browser_plain_text_arrow',
+  )?.arrows) === JSON.stringify({ begin: 'triangle', end: 'arrow' }),
+  rich: JSON.stringify(browserTextShapeArrowByName(
+    reopenedBrowserTextShapeArrowSlide,
+    'browser_rich_text_arrow',
+  )?.arrows) === JSON.stringify({ end: 'diamond' }),
+  populated: JSON.stringify(browserTextShapeArrowByName(
+    reopenedBrowserTextShapeArrowSlide,
+    'browser_text_arrow_placeholder',
+  )?.arrows) === JSON.stringify({ begin: 'arrow' }),
+  placeholder: JSON.stringify(browserTextShapeArrowByName(
+    reopenedBrowserTextShapeArrowLayout,
+    'browser_text_arrow_placeholder',
+  )?.arrows) === JSON.stringify({ begin: 'none', end: 'stealth' }),
+  line: browserTextShapeArrowByName(
+    reopenedBrowserTextShapeArrowSlide,
+    'browser_plain_text_arrow',
+  )?.line?.kind === 'line',
+  live: browserTextShapeArrowPlaceholder instanceof ShapeModel &&
+    browserRichTextShapeArrow instanceof ShapeModel &&
+    browserPopulatedTextShapeArrow instanceof ShapeModel,
+  validation: reopenedBrowserTextShapeArrowDeck.diagnostics.every(
+    ({ severity }) => severity !== 'error',
+  ),
+};
+if (Object.values(browserTextShapeArrowChecks).some((value) => !value)) {
+  throw new Error(
+    'Browser text shape arrow failed: ' + JSON.stringify(browserTextShapeArrowChecks),
+  );
 }
 const browserLineDeck = PptxDocument.create();
 const browserLineSlide = browserLineDeck.addSlide();
@@ -5849,10 +6130,15 @@ const typedTextShapeLine: ShapeLine = {
   width: 2.5,
   dash: 'dashDot',
 };
+const typedTextShapeArrows: ShapeArrows = {
+  begin: 'none',
+  end: 'triangle',
+};
 const typedTextShapeOptions: AddTextOptions = {
-  name: 'Typed text shape fill and line',
+  name: 'Typed text shape fill, line, and arrows',
   fill: typedTextShapeSrgbFill,
   line: typedTextShapeLine,
+  arrows: typedTextShapeArrows,
 };
 const typedTextShapeSlide = createdDocument.addSlide();
 const typedPlainTextShape: ShapeModel = typedTextShapeSlide.addText(
@@ -5861,14 +6147,26 @@ const typedPlainTextShape: ShapeModel = typedTextShapeSlide.addText(
 );
 const typedRichTextShape: ShapeModel = typedTextShapeSlide.addRichText([{
   runs: [{ text: 'Typed rich text shape fill' }],
-}], { fill: typedTextShapeSchemeFill, line: typedTextShapeLine });
+}], {
+  fill: typedTextShapeSchemeFill,
+  line: typedTextShapeLine,
+  arrows: { begin: 'diamond' },
+});
 const typedLayoutTextShape: ShapeModel = createdDocument.layouts[0].addText(
   'Typed layout text shape fill',
-  { fill: typedTextShapeNoneFill, line: { kind: 'none' } },
+  {
+    fill: typedTextShapeNoneFill,
+    line: { kind: 'none' },
+    arrows: { end: 'arrow' },
+  },
 );
 const typedMasterTextShape: ShapeModel = createdDocument.masters[0].addText(
   'Typed master text shape fill',
-  { fill: typedTextShapeSchemeFill, line: typedTextShapeLine },
+  {
+    fill: typedTextShapeSchemeFill,
+    line: typedTextShapeLine,
+    arrows: { begin: 'stealth', end: 'oval' },
+  },
 );
 const typedPlaceholderTextShape: ShapeModel = createdDocument.layouts[0].addPlaceholder(
   'Typed placeholder text shape fill',
@@ -5878,14 +6176,20 @@ const typedPlaceholderTextShape: ShapeModel = createdDocument.layouts[0].addPlac
     index: 190,
     fill: typedTextShapeSrgbFill,
     line: typedTextShapeLine,
+    arrows: { begin: 'arrow', end: 'none' },
   },
 );
 const typedDeclarativeTextFillObject: SlideMasterObject = {
   kind: 'text',
   text: 'Typed declarative text shape fill',
-  options: { fill: typedTextShapeSchemeFill, line: typedTextShapeLine },
+  options: {
+    fill: typedTextShapeSchemeFill,
+    line: typedTextShapeLine,
+    arrows: typedTextShapeArrows,
+  },
 };
 const typedTextShapeLineRead: ShapeLine | undefined = typedPlainTextShape.line;
+const typedTextShapeArrowsRead: ShapeArrows | undefined = typedPlainTextShape.arrows;
 const typedShapeLineDash: ShapeLineDash = 'lgDashDotDot';
 const typedNoneShapeLine: ShapeLine = { kind: 'none' };
 const typedSolidShapeLine: ShapeLine = {
@@ -6048,6 +6352,29 @@ const invalidTextLineDash: AddTextOptions = {
     color: { kind: 'srgb', value: 'FF0000' },
     // @ts-expect-error text shape line dash union is closed
     dash: 'dot',
+  },
+};
+const invalidPptxGenJSTextArrows: AddTextOptions = {
+  // @ts-expect-error PptxGenJS-style text arrow aliases are intentionally unsupported
+  arrows: { beginArrowType: 'triangle' },
+};
+const invalidDeprecatedTextArrows: AddTextOptions = {
+  // @ts-expect-error deprecated text arrow aliases are intentionally unsupported
+  arrows: { lineHead: 'triangle' },
+};
+const invalidTextArrowToken: AddTextOptions = {
+  // @ts-expect-error text arrow endpoint tokens use a closed union
+  arrows: { end: 'bogus' },
+};
+const invalidEmptyTextArrow: AddTextOptions = {
+  // @ts-expect-error empty text arrow endpoint tokens are rejected
+  arrows: { begin: '' },
+};
+const invalidTextArrowUnknownKey: AddTextOptions = {
+  arrows: {
+    begin: 'triangle',
+    // @ts-expect-error text arrow values reject unknown fields
+    extra: true,
   },
 };
 // @ts-expect-error solid is not the native shape-line discriminator
@@ -6841,6 +7168,81 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
       )) {
     throw new Error('CLI text-shape-line part inspection failed');
   }
+  const textShapeArrowDeckPath = join(directory, 'text-shape-arrows-smoke.pptx');
+  const textShapeArrowInspectResult = run(
+    bin,
+    ['--json', 'package', 'inspect', textShapeArrowDeckPath],
+    directory,
+  );
+  const textShapeArrowInspected = JSON.parse(textShapeArrowInspectResult.stdout);
+  const textShapeArrowContentTypes = textShapeArrowInspected.data?.contentTypes ?? {};
+  if (!textShapeArrowInspected.ok ||
+      textShapeArrowContentTypes[
+        'application/vnd.openxmlformats-officedocument.presentationml.slide+xml'
+      ] !== 3 ||
+      textShapeArrowContentTypes[
+        'application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml'
+      ] !== 2 ||
+      textShapeArrowContentTypes[
+        'application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml'
+      ] !== 1) {
+    throw new Error(`CLI text-shape-arrow inspect failed: ${textShapeArrowInspectResult.stdout}`);
+  }
+  const textShapeArrowValidateResult = run(
+    bin,
+    ['--json', 'package', 'validate', textShapeArrowDeckPath, '--profile', 'powerpoint-2010'],
+    directory,
+  );
+  const textShapeArrowValidated = JSON.parse(textShapeArrowValidateResult.stdout);
+  if (!textShapeArrowValidated.ok || !textShapeArrowValidated.data?.valid ||
+      textShapeArrowValidated.data.errorCount !== 0 ||
+      textShapeArrowValidated.data.warningCount !== 0) {
+    throw new Error(`CLI text-shape-arrow validation failed: ${textShapeArrowValidateResult.stdout}`);
+  }
+  const textShapeArrowSlidesResult = run(
+    bin,
+    ['--json', 'slides', 'list', textShapeArrowDeckPath],
+    directory,
+  );
+  const textShapeArrowSlides = JSON.parse(textShapeArrowSlidesResult.stdout);
+  if (!textShapeArrowSlides.ok || textShapeArrowSlides.data?.length !== 3 ||
+      textShapeArrowSlides.data[0]?.shapeCount !== 3 ||
+      textShapeArrowSlides.data[1]?.shapeCount !== 1 ||
+      textShapeArrowSlides.data[2]?.shapeCount !== 3) {
+    throw new Error(`CLI text-shape-arrow slide listing failed: ${textShapeArrowSlidesResult.stdout}`);
+  }
+  const textShapeArrowPart = (uri) => JSON.parse(run(
+    bin,
+    ['--json', 'part', 'read', textShapeArrowDeckPath, uri],
+    directory,
+  ).stdout).data?.content ?? '';
+  const textShapeArrowSourceXml = textShapeArrowPart(textShapeArrowSlides.data[0].partUri);
+  const textShapeArrowDuplicateXml = textShapeArrowPart(textShapeArrowSlides.data[2].partUri);
+  const textShapeArrowLayoutXml = textShapeArrowPart('/ppt/slideLayouts/slideLayout1.xml');
+  const textShapeArrowMasterXml = textShapeArrowPart('/ppt/slideMasters/slideMaster1.xml');
+  if (!textShapeArrowSourceXml.includes(
+        '<a:ln w="25400"><a:solidFill><a:schemeClr val="accent2"/>' +
+        '</a:solidFill><a:prstDash val="dashDot"/>' +
+        '<a:headEnd type="triangle"/><a:tailEnd type="arrow"/></a:ln>',
+      ) ||
+      !textShapeArrowSourceXml.includes(
+        '<a:ln><a:noFill/><a:headEnd type="diamond"/></a:ln>',
+      ) ||
+      !textShapeArrowSourceXml.includes(
+        '<a:ln><a:noFill/><a:tailEnd type="oval"/></a:ln>',
+      ) ||
+      !textShapeArrowDuplicateXml.includes(
+        '<a:ln><a:headEnd type="oval"/></a:ln>',
+      ) ||
+      !textShapeArrowDuplicateXml.includes('<a:ln><a:noFill/></a:ln>') ||
+      !textShapeArrowLayoutXml.includes('name="packed_layout_text_arrow"') ||
+      !textShapeArrowLayoutXml.includes('<a:headEnd type="none"/>') ||
+      !textShapeArrowLayoutXml.includes(
+        '<a:headEnd type="stealth"/><a:tailEnd type="none"/>',
+      ) ||
+      !textShapeArrowMasterXml.includes('<a:tailEnd type="triangle"/>')) {
+    throw new Error('CLI text-shape-arrow part inspection failed');
+  }
   if (process.env.PPTX_SLIDE_BACKGROUND_GALLERY_OUT) {
     const galleryOutput = resolve(process.env.PPTX_SLIDE_BACKGROUND_GALLERY_OUT);
     await mkdir(dirname(galleryOutput), { recursive: true });
@@ -6868,7 +7270,7 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
   }
 
   process.stdout.write(
-    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, masterLayouts: apiChecks.masterLayouts, slideNumbers: apiChecks.slideNumbers, slideDefaultColor: apiChecks.slideDefaultColor, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, textShapeFills: apiChecks.textShapeFills, textShapeLines: apiChecks.textShapeLines, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, slideBackgrounds: apiChecks.slideBackgrounds, types: true, cli: doctor.data.version, masterLayoutInspect: true, masterLayoutValidate: true, masterLayoutSlides: true, masterLayoutPartRead: true, masterLayoutDiff: true, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true, slideBackgroundInspect: true, slideBackgroundValidate: true, slideNumberInspect: true, slideNumberValidate: true, slideNumberSlides: true, slideNumberPartRead: true, slideDefaultColorInspect: true, slideDefaultColorValidate: true, slideDefaultColorSlides: true, slideDefaultColorPartRead: true, textShapeFillInspect: true, textShapeFillValidate: true, textShapeFillSlides: true, textShapeFillPartRead: true, textShapeLineInspect: true, textShapeLineValidate: true, textShapeLineSlides: true, textShapeLinePartRead: true })}\n`,
+    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, masterLayouts: apiChecks.masterLayouts, slideNumbers: apiChecks.slideNumbers, slideDefaultColor: apiChecks.slideDefaultColor, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, textShapeFills: apiChecks.textShapeFills, textShapeLines: apiChecks.textShapeLines, textShapeArrows: apiChecks.textShapeArrows, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, slideBackgrounds: apiChecks.slideBackgrounds, types: true, cli: doctor.data.version, masterLayoutInspect: true, masterLayoutValidate: true, masterLayoutSlides: true, masterLayoutPartRead: true, masterLayoutDiff: true, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true, slideBackgroundInspect: true, slideBackgroundValidate: true, slideNumberInspect: true, slideNumberValidate: true, slideNumberSlides: true, slideNumberPartRead: true, slideDefaultColorInspect: true, slideDefaultColorValidate: true, slideDefaultColorSlides: true, slideDefaultColorPartRead: true, textShapeFillInspect: true, textShapeFillValidate: true, textShapeFillSlides: true, textShapeFillPartRead: true, textShapeLineInspect: true, textShapeLineValidate: true, textShapeLineSlides: true, textShapeLinePartRead: true, textShapeArrowInspect: true, textShapeArrowValidate: true, textShapeArrowSlides: true, textShapeArrowPartRead: true })}\n`,
   );
 } finally {
   await rm(directory, { recursive: true, force: true });
