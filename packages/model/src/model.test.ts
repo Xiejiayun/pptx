@@ -6362,6 +6362,253 @@ describe('PresentationModel', () => {
     expect(packageSnapshot(pkg)).toEqual(malformedBefore);
   });
 
+  it('creates and edits text shape rectangle radius through direct adjustments', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const omittedSlide = model.addSlide();
+    const undefinedSlide = model.addSlide();
+    const omitted = omittedSlide.addText('Same radius', { shape: 'roundRect' });
+    const explicitUndefined = undefinedSlide.addText('Same radius', {
+      shape: 'roundRect',
+      rectRadius: undefined,
+    } as never);
+    expect(omitted.adjustments).toEqual([]);
+    expect(explicitUndefined.adjustments).toEqual([]);
+    expect(pkg.requirePart(undefinedSlide.partUri).bytes).toEqual(
+      pkg.requirePart(omittedSlide.partUri).bytes,
+    );
+
+    const slide = model.addSlide();
+    const zero = slide.addText('Explicit zero radius', {
+      shape: 'roundRect',
+      rectRadius: inches(0),
+      width: inches(2),
+      height: inches(1),
+    });
+    const negativeZero = slide.addText('Negative zero radius', {
+      shape: 'roundRect',
+      rectRadius: -0,
+    } as never);
+    const twoByOne = slide.addText('Two by one', {
+      shape: 'roundRect',
+      rectRadius: inches(0.5),
+      width: inches(2),
+      height: inches(1),
+    });
+    const fourByTwo = slide.addText('Four by two', {
+      name: 'Four by two radius',
+      shape: 'roundRect',
+      rectRadius: inches(0.5),
+      width: inches(4),
+      height: inches(2),
+    });
+    const boundary = slide.addText('Boundary radius', {
+      shape: 'roundRect',
+      rectRadius: inches(1),
+      width: inches(2),
+      height: inches(1),
+    });
+    const portrait = slide.addText('Portrait radius', {
+      shape: 'roundRect',
+      rectRadius: inches(0.25),
+      width: inches(1),
+      height: inches(2),
+    });
+    const fractional = slide.addText('Fractional EMU radius', {
+      shape: 'roundRect',
+      rectRadius: 1.4,
+      width: 10.4,
+      height: 20.4,
+    } as never);
+    const rich = slide.addRichText([{
+      runs: [
+        { text: 'Rounded', style: { hyperlink: { url: 'https://run.example' } } },
+        { text: ' rich text' },
+      ],
+    }], {
+      name: 'Combined rounded text',
+      shape: 'roundRect',
+      rectRadius: inches(0.5),
+      width: inches(4),
+      height: inches(2),
+      fill: { kind: 'solid', color: { kind: 'scheme', value: 'accent2' } },
+      line: {
+        kind: 'line',
+        color: { kind: 'srgb', value: '123ABC' },
+        width: 2,
+        dash: 'dashDot',
+      },
+      arrows: { begin: 'oval', end: 'triangle' },
+      shadow: { kind: 'outer', opacity: 0.5 },
+      hyperlink: { url: 'https://shape.example', tooltip: 'Shape' },
+      margin: 0,
+      valign: 'bottom',
+      vert: 'vert',
+      fit: 'shrink',
+      wrap: false,
+    });
+    const placeholder = slide.addPlaceholder('Rounded prompt', {
+      name: 'rounded_prompt',
+      type: 'title',
+      shape: 'roundRect',
+      rectRadius: inches(0.25),
+      width: inches(2),
+      height: inches(1),
+    });
+
+    expect(zero.adjustments).toEqual([{ name: 'adj', value: 0 }]);
+    expect(negativeZero.adjustments).toEqual([{ name: 'adj', value: 0 }]);
+    expect(Object.is(negativeZero.adjustments?.[0]?.value, -0)).toBe(false);
+    expect(twoByOne.adjustments).toEqual([{ name: 'adj', value: 50_000 }]);
+    expect(fourByTwo.adjustments).toEqual([{ name: 'adj', value: 25_000 }]);
+    expect(boundary.adjustments).toEqual([{ name: 'adj', value: 100_000 }]);
+    expect(portrait.adjustments).toEqual([{ name: 'adj', value: 25_000 }]);
+    expect(fractional.adjustments).toEqual([{ name: 'adj', value: 10_000 }]);
+    expect(rich.adjustments).toEqual([{ name: 'adj', value: 25_000 }]);
+    expect(placeholder.adjustments).toEqual([{ name: 'adj', value: 25_000 }]);
+    expect(rich.text).toBe('Rounded rich text');
+    expect(rich.fill).toEqual({
+      kind: 'solid',
+      color: { kind: 'scheme', value: 'accent2' },
+    });
+    expect(rich.arrows).toEqual({ begin: 'oval', end: 'triangle' });
+    expect(rich.shadow).toMatchObject({ kind: 'outer', opacity: 0.5 });
+    expect(rich.hyperlink).toEqual({ url: 'https://shape.example', tooltip: 'Shape' });
+    expect(rich.textMargins).toEqual({ top: 0, right: 0, bottom: 0, left: 0 });
+    expect(rich.verticalAlignment).toBe('bottom');
+    expect(rich.textDirection).toBe('vert');
+    expect(rich.textFit).toBe('shrink');
+    expect(rich.textWrap).toBe(false);
+
+    const snapshot = twoByOne.adjustments!;
+    expect(Object.isFrozen(snapshot)).toBe(true);
+    expect(Object.isFrozen(snapshot[0])).toBe(true);
+    const beforeNoOp = packageSnapshot(pkg);
+    twoByOne.adjustments = [{ name: 'adj', value: 50_000 }];
+    expect(packageSnapshot(pkg)).toEqual(beforeNoOp);
+    twoByOne.setTransform({ width: inches(4), height: inches(2) });
+    expect(twoByOne.adjustments).toEqual([{ name: 'adj', value: 50_000 }]);
+    twoByOne.fill = { kind: 'solid', color: { kind: 'srgb', value: 'ABCDEF' } };
+    twoByOne.line = {
+      kind: 'line',
+      color: { kind: 'scheme', value: 'accent3' },
+      width: 1,
+      dash: 'solid',
+    };
+    twoByOne.arrows = { begin: 'diamond', end: 'stealth' };
+    twoByOne.shadow = { kind: 'inner', opacity: 0.25 };
+    expect(twoByOne.adjustments).toEqual([{ name: 'adj', value: 50_000 }]);
+    twoByOne.adjustments = [{ name: 'adj', value: 12_500 }];
+    expect(twoByOne.adjustments).toEqual([{ name: 'adj', value: 12_500 }]);
+    twoByOne.adjustments = [];
+    expect(twoByOne.adjustments).toEqual([]);
+
+    const beforeSamePreset = packageSnapshot(pkg);
+    rich.presetType = 'roundRect';
+    expect(packageSnapshot(pkg)).toEqual(beforeSamePreset);
+    expect(rich.adjustments).toEqual([{ name: 'adj', value: 25_000 }]);
+
+    const duplicate = model.duplicateSlide(model.slides.indexOf(slide));
+    const duplicateRich = duplicate.shapes.find(
+      ({ name }) => name === 'Combined rounded text',
+    ) as ShapeModel;
+    expect(duplicateRich.adjustments).toEqual([{ name: 'adj', value: 25_000 }]);
+    model.moveSlide(model.slides.indexOf(duplicate), 0);
+    expect(duplicateRich.adjustments).toEqual([{ name: 'adj', value: 25_000 }]);
+
+    const beforeRollback = packageSnapshot(pkg);
+    expect(() => pkg.transaction(() => {
+      rich.adjustments = [{ name: 'adj', value: 75_000 }];
+      rich.setTransform({ width: inches(8), height: inches(4) });
+      throw new Error('restore rounded text radius');
+    })).toThrow('restore rounded text radius');
+    expect(packageSnapshot(pkg)).toEqual(beforeRollback);
+    expect(rich.adjustments).toEqual([{ name: 'adj', value: 25_000 }]);
+
+    rich.presetType = 'ellipse';
+    expect(rich.adjustments).toEqual([]);
+    expect(rich.text).toBe('Rounded rich text');
+    expect(rich.fill).toEqual({
+      kind: 'solid',
+      color: { kind: 'scheme', value: 'accent2' },
+    });
+
+    const xml = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect(xml).toContain(
+      '<a:prstGeom prst="roundRect"><a:avLst><a:gd name="adj" fmla="val 0"/>' +
+      '</a:avLst></a:prstGeom>',
+    );
+    expect(xml).toContain(
+      '<a:prstGeom prst="roundRect"><a:avLst><a:gd name="adj" fmla="val 25000"/>' +
+      '</a:avLst></a:prstGeom>',
+    );
+    expect(xml).toContain(
+      '<a:prstGeom prst="roundRect"><a:avLst><a:gd name="adj" fmla="val 100000"/>' +
+      '</a:avLst></a:prstGeom>',
+    );
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedSlide = reopened.slides.find(({ partUri }) => partUri === slide.partUri)!;
+    const reopenedFourByTwo = reopenedSlide.shapes.find(
+      ({ name }) => name === 'Four by two radius',
+    ) as ShapeModel;
+    expect(reopenedFourByTwo.adjustments).toEqual([{ name: 'adj', value: 25_000 }]);
+  });
+
+  it('rejects invalid text shape rectangle radius without mutation', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const existing = slide.addText('Existing text');
+    let accessorCalls = 0;
+    const accessor = Object.defineProperty({ shape: 'roundRect' }, 'rectRadius', {
+      enumerable: true,
+      get() {
+        accessorCalls += 1;
+        throw new Error('rectRadius getter must not run');
+      },
+    });
+    const invalid = [
+      { options: { rectRadius: inches(0.5) }, error: TypeError },
+      { options: { shape: 'rect', rectRadius: inches(0.5) }, error: TypeError },
+      { options: { shape: 'ellipse', rectRadius: inches(0.5) }, error: TypeError },
+      { options: { shape: 'roundRect', rectRadius: -0.1 }, error: RangeError },
+      { options: { shape: 'roundRect', rectRadius: inches(1) + 0.1 }, error: RangeError },
+      { options: { shape: 'roundRect', rectRadius: Number.NaN }, error: TypeError },
+      {
+        options: { shape: 'roundRect', rectRadius: Number.POSITIVE_INFINITY },
+        error: TypeError,
+      },
+      {
+        options: { shape: 'roundRect', rectRadius: Number.NEGATIVE_INFINITY },
+        error: TypeError,
+      },
+      { options: { shape: 'roundRect', rectRadius: '0.5' }, error: TypeError },
+      { options: { shape: 'roundRect', rectRadius: false }, error: TypeError },
+      { options: { shape: 'roundRect', rectRadius: null }, error: TypeError },
+      { options: { shape: 'roundRect', rectRadius: {} }, error: TypeError },
+      { options: { shape: 'roundRect', rectRadius: Symbol('radius') }, error: TypeError },
+      { options: accessor, error: TypeError },
+    ];
+
+    for (const { options, error } of invalid) {
+      const before = packageSnapshot(pkg);
+      const shapes = slide.shapes;
+      expect(() => slide.addText('Invalid radius', options as never)).toThrow(error);
+      expect(packageSnapshot(pkg)).toEqual(before);
+      expect(slide.shapes).toEqual(shapes);
+      expect(slide.shapes[0]).toBe(existing);
+    }
+    expect(accessorCalls).toBe(0);
+
+    const inherited = Object.create({ rectRadius: inches(0.5) }) as Record<string, unknown>;
+    inherited.name = 'Inherited radius';
+    inherited.shape = 'roundRect';
+    const inheritedShape = slide.addText('Inherited is ignored', inherited as never);
+    expect(inheritedShape.presetType).toBe('roundRect');
+    expect(inheritedShape.adjustments).toEqual([]);
+  });
+
   it('creates plain and rich text with strict direct fills', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);

@@ -247,7 +247,13 @@ import type {
   TextBoxVerticalAlignment,
   TextAlignment,
 } from './text.js';
-import { inches, points, type Transform } from './units.js';
+import {
+  EMU_PER_INCH,
+  inches,
+  points,
+  type Emu,
+  type Transform,
+} from './units.js';
 
 const IMAGE_RELATIONSHIP_TYPE =
   'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image';
@@ -266,6 +272,7 @@ export interface AddTextOptions extends Partial<Transform> {
   readonly hyperlink?: Hyperlink;
   readonly line?: ShapeLine;
   readonly shape?: PresetShapeType;
+  readonly rectRadius?: Emu;
   readonly shadow?: ShapeShadow;
   readonly fit?: TextBoxFit;
   readonly lang?: string;
@@ -1494,6 +1501,7 @@ export class SlideModel {
         paragraphs,
         owner ? placeholderTextOptions(owner) : options,
         normalized.shape,
+        normalized.rectRadius,
         normalized.fill,
         normalized.line,
         normalized.arrows,
@@ -1575,6 +1583,7 @@ export class SlideModel {
           paragraphs,
           options,
           plain.shape,
+          plain.rectRadius,
           plain.fill,
           plain.line,
           plain.arrows,
@@ -1621,6 +1630,7 @@ export class SlideModel {
         }),
         options,
         defaults!.shape,
+        defaults!.rectRadius,
         defaults!.fill,
         defaults!.line,
         defaults!.arrows,
@@ -1680,6 +1690,7 @@ export class SlideModel {
         }),
         owner ? placeholderTextOptions(owner) : options,
         defaults.shape,
+        defaults.rectRadius,
         defaults.fill,
         defaults.line,
         defaults.arrows,
@@ -1711,6 +1722,7 @@ export class SlideModel {
     paragraphs: string,
     options: AddTextOptions,
     presetType: PresetShapeType,
+    rectRadius: Emu | undefined,
     fill: ShapeFill,
     line: NormalizedSimpleLine,
     arrows: NormalizedShapeArrows | undefined,
@@ -1738,6 +1750,7 @@ export class SlideModel {
       paragraphs,
       options,
       presetType,
+      rectRadius,
       fill,
       line,
       arrows,
@@ -1959,6 +1972,7 @@ interface NormalizedTextInput {
   readonly hyperlink: NormalizedHyperlink | undefined;
   readonly line: NormalizedSimpleLine;
   readonly shape: PresetShapeType;
+  readonly rectRadius: Emu | undefined;
   readonly indent: number | undefined;
   readonly language: string | undefined;
   readonly level: number | undefined;
@@ -1992,6 +2006,7 @@ function validateTextInput(value: string, options: AddTextOptions): NormalizedTe
     hyperlink: defaults.hyperlink,
     line: defaults.line,
     shape: defaults.shape,
+    rectRadius: defaults.rectRadius,
     indent: defaults.indent,
     language: defaults.language,
     level: defaults.level,
@@ -2016,6 +2031,7 @@ interface NormalizedAddTextOptions {
   readonly hyperlink?: NormalizedHyperlink;
   readonly line: NormalizedSimpleLine;
   readonly shape: PresetShapeType;
+  readonly rectRadius: Emu | undefined;
   readonly indent?: number;
   readonly language?: string;
   readonly level?: number;
@@ -2077,6 +2093,7 @@ function validateAddTextOptions(options: AddTextOptions): NormalizedAddTextOptio
   const fill = normalizeSimpleFill(options.fill, 'Text shape fill') ?? { kind: 'none' };
   const line = normalizeSimpleLine(options.line, 'Text shape line') ?? { kind: 'none' };
   const shape = normalizeTextShapeType(options);
+  const rectRadius = normalizeTextRectRadius(options, shape);
   const level = options.level === undefined
     ? undefined
     : normalizeParagraphLevel(options.level, 'Text level');
@@ -2124,6 +2141,7 @@ function validateAddTextOptions(options: AddTextOptions): NormalizedAddTextOptio
     ...(hyperlink !== undefined ? { hyperlink } : {}),
     line,
     shape,
+    rectRadius,
     ...(indent !== undefined ? { indent } : {}),
     ...(language !== undefined ? { language } : {}),
     ...(level !== undefined ? { level } : {}),
@@ -2148,6 +2166,33 @@ function normalizeTextShapeType(options: AddTextOptions): PresetShapeType {
   }
   if (descriptor.value === undefined) return 'rect';
   return normalizePresetShapeType(descriptor.value, 'Text shape geometry');
+}
+
+function normalizeTextRectRadius(
+  options: AddTextOptions,
+  shape: PresetShapeType,
+): Emu | undefined {
+  const descriptor = Object.getOwnPropertyDescriptor(options, 'rectRadius');
+  if (!descriptor) return undefined;
+  if (!Object.hasOwn(descriptor, 'value')) {
+    throw new TypeError('Text rectangle radius must be a data property');
+  }
+  const value = descriptor.value;
+  if (value === undefined) return undefined;
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new TypeError('Text rectangle radius must be finite');
+  }
+  if (value < 0 || value > EMU_PER_INCH) {
+    throw new RangeError('Text rectangle radius must be between 0 and 914400 EMU');
+  }
+  if (shape !== 'roundRect') {
+    throw new TypeError('Text rectangle radius requires roundRect geometry');
+  }
+  const rounded = Math.round(value);
+  if (!Number.isSafeInteger(rounded)) {
+    throw new RangeError('Text rectangle radius must round to a safe EMU integer');
+  }
+  return (Object.is(rounded, -0) ? 0 : rounded) as Emu;
 }
 
 function validatePlainText(value: string): string {
@@ -2317,6 +2362,7 @@ function textShapeXml(
   paragraphs: string,
   options: AddTextOptions,
   shape: PresetShapeType,
+  rectRadius: Emu | undefined,
   fill: ShapeFill,
   line: NormalizedSimpleLine,
   arrows: NormalizedShapeArrows | undefined,
@@ -2338,6 +2384,12 @@ function textShapeXml(
   const y = Math.round(options.y ?? 0);
   const width = Math.round(options.width ?? inches(1));
   const height = Math.round(options.height ?? inches(1));
+  const adjustments = rectRadius === undefined
+    ? undefined
+    : normalizeShapeAdjustments([{
+        name: 'adj',
+        value: Math.round(rectRadius * 100_000 / Math.min(width, height)),
+      }], 'Text rectangle radius adjustments');
   const rotation = Math.round(options.rotation ?? 0);
   const transformAttributes = [
     rotation === 0 ? '' : ` rot="${rotation}"`,
@@ -2378,7 +2430,7 @@ function textShapeXml(
   const nonVisualProperties = hyperlinkXml === ''
     ? `<p:cNvPr id="${id}" name="${name}"/>`
     : `<p:cNvPr id="${id}" name="${name}">${hyperlinkXml}</p:cNvPr>`;
-  return `<p:sp xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"${relationshipNamespace}><p:nvSpPr>${nonVisualProperties}<p:cNvSpPr txBox="1"/>${applicationProperties}</p:nvSpPr><p:spPr><a:xfrm${transformAttributes}><a:off x="${x}" y="${y}"/><a:ext cx="${width}" cy="${height}"/></a:xfrm>${renderPresetShapeGeometry(shape)}${renderSimpleFill(fill, 'a:')}${lineXml}${effectXml}</p:spPr><p:txBody>${bodyProperties}<a:lstStyle/>${paragraphs}</p:txBody></p:sp>`;
+  return `<p:sp xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"${relationshipNamespace}><p:nvSpPr>${nonVisualProperties}<p:cNvSpPr txBox="1"/>${applicationProperties}</p:nvSpPr><p:spPr><a:xfrm${transformAttributes}><a:off x="${x}" y="${y}"/><a:ext cx="${width}" cy="${height}"/></a:xfrm>${renderPresetShapeGeometry(shape, 'a:', adjustments)}${renderSimpleFill(fill, 'a:')}${lineXml}${effectXml}</p:spPr><p:txBody>${bodyProperties}<a:lstStyle/>${paragraphs}</p:txBody></p:sp>`;
 }
 
 function textParagraphXml(
