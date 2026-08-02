@@ -13,6 +13,7 @@ import {
   inches,
   inspectRasterImage,
   MediaModel,
+  OUTPUT_TYPES,
   PRESET_SHAPE_TYPES,
   PPTX_VERSION,
   PptxDocument,
@@ -282,6 +283,7 @@ interface PptxGenJSInstance {
   readonly version: string;
   readonly AlignH: Readonly<Record<string, string>>;
   readonly AlignV: Readonly<Record<string, string>>;
+  readonly OutputType: Readonly<Record<string, string>>;
   readonly presLayout: {
     readonly name: string;
     readonly width: number;
@@ -810,6 +812,22 @@ describe('importPptxGenJS', () => {
     const imported = await importPptxGenJS(generated);
     expect(imported.slides[0]?.shapes.map((shape) =>
       (shape as ShapeModel).richText[0]?.align)).toEqual(TEXT_ALIGNMENTS);
+  });
+
+  it('matches the PptxGenJS output type runtime catalog', () => {
+    const generated = new PptxGenJS();
+
+    expect(Object.keys(generated.OutputType)).toEqual(OUTPUT_TYPES);
+    expect(Object.values(generated.OutputType)).toEqual(OUTPUT_TYPES);
+    expect(OUTPUT_TYPES).toEqual([
+      'arraybuffer',
+      'base64',
+      'binarystring',
+      'blob',
+      'nodebuffer',
+      'uint8array',
+    ]);
+    expect(Object.isFrozen(OUTPUT_TYPES)).toBe(true);
   });
 
   it('matches the PptxGenJS vertical alignment runtime catalog', async () => {

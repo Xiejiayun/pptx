@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  OUTPUT_TYPES as SDK_OUTPUT_TYPES,
   TEXT_ALIGNMENTS as SDK_TEXT_ALIGNMENTS,
   TEXT_VERTICAL_ALIGNMENTS as SDK_TEXT_VERTICAL_ALIGNMENTS,
 } from '@pptx/sdk';
@@ -7,6 +8,7 @@ import {
   CHART_TYPES,
   ChartModel,
   MediaModel,
+  OUTPUT_TYPES,
   PLACEHOLDER_TYPES,
   PPTX_VERSION,
   PptxDocument,
@@ -28,6 +30,7 @@ import {
   type DefineSlideMasterOptions,
   type Emu,
   type Hyperlink,
+  type OutputType,
   type PlaceholderSelector,
   type PlaceholderType,
   type PresentationLayout,
@@ -109,6 +112,34 @@ describe('@jiayunxie/pptx stable exports', () => {
       // @ts-expect-error unknown vertical alignment is not supported
       const invalid: TextBoxVerticalAlignment = 'distributed';
       void invalid;
+    }
+  });
+
+  it('exports the frozen OUTPUT_TYPES catalog from the root package', () => {
+    const values: readonly OutputType[] = OUTPUT_TYPES;
+
+    expect(OUTPUT_TYPES).toBe(SDK_OUTPUT_TYPES);
+    expect(values).toBe(OUTPUT_TYPES);
+    expect([...values]).toEqual([
+      'arraybuffer',
+      'base64',
+      'binarystring',
+      'blob',
+      'nodebuffer',
+      'uint8array',
+    ]);
+    expect(Object.isFrozen(OUTPUT_TYPES)).toBe(true);
+
+    if (false) {
+      // @ts-expect-error runtime output type catalog is readonly
+      OUTPUT_TYPES.push('uint8array');
+      // @ts-expect-error output type catalog indexes are readonly
+      OUTPUT_TYPES[0] = 'uint8array';
+      // @ts-expect-error STREAM is handled by the separate stream API
+      const stream: OutputType = 'STREAM';
+      // @ts-expect-error unknown output type is not supported
+      const invalid: OutputType = 'buffer';
+      void [stream, invalid];
     }
   });
 

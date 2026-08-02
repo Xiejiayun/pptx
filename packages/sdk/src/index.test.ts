@@ -26,6 +26,7 @@ import {
   MediaModel,
   ModelParseError,
   openPptxStream,
+  OUTPUT_TYPES,
   PRESET_SHAPE_TYPES,
   TEXT_ALIGNMENTS,
   TEXT_VERTICAL_ALIGNMENTS,
@@ -54,6 +55,7 @@ import {
   type MediaKind,
   type MediaPlaybackSettings,
   type MediaSource,
+  type OutputType,
   type RasterImageContentType,
   type RasterImageByteStream,
   type RasterImageInfo,
@@ -279,6 +281,24 @@ describe('PptxDocument vertical slice', () => {
       // @ts-expect-error version is read-only
       document.version = '9.9.9';
     }
+  });
+
+  it('publishes the frozen output type catalog without package mutation', () => {
+    const document = PptxDocument.create();
+    const journal = [...document.opcPackage.mutations];
+    const values: readonly OutputType[] = OUTPUT_TYPES;
+
+    expect(values).toBe(OUTPUT_TYPES);
+    expect([...values]).toEqual([
+      'arraybuffer',
+      'base64',
+      'binarystring',
+      'blob',
+      'nodebuffer',
+      'uint8array',
+    ]);
+    expect(Object.isFrozen(OUTPUT_TYPES)).toBe(true);
+    expect(document.opcPackage.mutations).toEqual(journal);
   });
 
   it('exposes a detached presentation layout projection across its lifecycle', async () => {

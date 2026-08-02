@@ -81,6 +81,8 @@ export * from '@pptx/model';
 export { MediaModel } from '@pptx/model';
 export type { BuiltInSlideSize, CreatePresentationOptions, CustomSlideSize } from './create.js';
 export type { PresentationTheme, PresentationThemeOptions } from './presentation-theme.js';
+export { OUTPUT_TYPES } from './output-type.js';
+export type { OutputType } from './output-type.js';
 export { PPTX_VERSION } from './version.js';
 export type { PptxVersion } from './version.js';
 export type { PresentationLayout, PresentationLayoutName } from './presentation-layout.js';
