@@ -6998,6 +6998,124 @@ describe('PresentationModel', () => {
       ) + 1, tooltip: '' });
   });
 
+  it('creates independent rich text run hyperlink relationships', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const source = model.addSlide();
+    const target = model.addSlide();
+    const targetIndex = model.slides.indexOf(target) + 1;
+
+    const shape = source.addRichText([{
+      runs: [
+        { text: 'Outer' },
+        {
+          text: 'Local one',
+          style: { hyperlink: { url: 'https://local.example/path', tooltip: 'Local' } },
+        },
+        { text: 'Suppressed', style: { bold: true, hyperlink: false } },
+        {
+          text: 'Internal',
+          style: { hyperlink: { slide: targetIndex, tooltip: '' }, underline: false },
+        },
+        {
+          text: 'Local two',
+          style: { hyperlink: { url: 'https://local.example/path', tooltip: 'Second' } },
+        },
+      ],
+    }], {
+      hyperlink: { url: 'https://outer.example/path', tooltip: 'Outer' },
+    });
+    const placeholder = source.addPlaceholder([{
+      runs: [{ text: 'Prompt link', style: { hyperlink: { url: 'https://prompt.example' } } }],
+    }], {
+      name: 'run_link_prompt',
+      type: 'body',
+      index: 71,
+    });
+
+    expect(shape.hyperlink).toEqual({
+      url: 'https://outer.example/path',
+      tooltip: 'Outer',
+    });
+    expect(placeholder.hyperlink).toBeUndefined();
+    const outer = source.relationships.find(
+      ({ type, target: relationshipTarget }) =>
+        type === HYPERLINK_RELATIONSHIP
+        && relationshipTarget === 'https://outer.example/path',
+    )!;
+    const locals = source.relationships.filter(
+      ({ type, target: relationshipTarget }) =>
+        type === HYPERLINK_RELATIONSHIP
+        && relationshipTarget === 'https://local.example/path',
+    );
+    const internal = source.relationships.find(
+      ({ type, resolvedTarget }) =>
+        type === SLIDE_RELATIONSHIP && resolvedTarget === target.partUri,
+    )!;
+    const prompt = source.relationships.find(
+      ({ type, target: relationshipTarget }) =>
+        type === HYPERLINK_RELATIONSHIP
+        && relationshipTarget === 'https://prompt.example',
+    )!;
+
+    expect(locals).toHaveLength(2);
+    expect(new Set(locals.map(({ id }) => id)).size).toBe(2);
+    expect(internal.targetMode).toBe('Internal');
+    expect(prompt.targetMode).toBe('External');
+
+    const xml = new TextDecoder().decode(pkg.requirePart(source.partUri).bytes);
+    expect(xml).toContain(`xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"`);
+    expect(xml.match(new RegExp(`r:id="${outer.id}"`, 'g'))).toHaveLength(2);
+    expect(xml.match(new RegExp(`r:id="${locals[0]!.id}"`, 'g'))).toHaveLength(1);
+    expect(xml.match(new RegExp(`r:id="${locals[1]!.id}"`, 'g'))).toHaveLength(1);
+    expect(xml.match(new RegExp(`r:id="${internal.id}"`, 'g'))).toHaveLength(1);
+    expect(xml.match(new RegExp(`r:id="${prompt.id}"`, 'g'))).toHaveLength(1);
+    expect(xml).toContain(`r:id="${internal.id}" tooltip="" action="ppaction://hlinksldjump"`);
+    expect(xml).toMatch(/u="none"[^>]*>[\s\S]*?<a:hlinkClick[^>]*action="ppaction:\/\/hlinksldjump"/);
+  });
+
+  it('rejects invalid rich text run hyperlink creation without mutation', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const source = model.addSlide();
+    model.addSlide();
+    const existing = source.addText('Existing text');
+    const invalidValues = [
+      [{
+        runs: [
+          { text: 'Prepared first', style: { hyperlink: { url: 'https://prepared.example' } } },
+          { text: 'Invalid later', style: { hyperlink: { slide: model.slides.length + 1 } } },
+        ],
+      }],
+      [{
+        runs: [{ text: '', style: { hyperlink: { url: 'https://empty.example' } } }],
+      }],
+    ];
+
+    for (const [index, value] of invalidValues.entries()) {
+      let before = packageSnapshot(pkg);
+      let shapes = source.shapes;
+      expect(() => source.addRichText(value as never, {
+        hyperlink: { url: 'https://outer.example' },
+      })).toThrow();
+      expect(packageSnapshot(pkg), `rich text invalid run hyperlink ${index}`).toEqual(before);
+      expect(source.shapes).toEqual(shapes);
+      expect(source.shapes.at(-1)).toBe(existing);
+
+      before = packageSnapshot(pkg);
+      shapes = source.shapes;
+      expect(() => source.addPlaceholder(value as never, {
+        name: `invalid_run_link_${index}`,
+        type: 'body',
+        index: 80 + index,
+        hyperlink: { url: 'https://outer.example' },
+      })).toThrow();
+      expect(packageSnapshot(pkg), `placeholder invalid run hyperlink ${index}`).toEqual(before);
+      expect(source.shapes).toEqual(shapes);
+      expect(source.shapes.at(-1)).toBe(existing);
+    }
+  });
+
   it('keeps text run hyperlinks independent from whole-shape hyperlink edits', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);

@@ -92,6 +92,7 @@ import {
   type NormalizedParagraphSpacing,
   type NormalizedParagraphSpacingUpdate,
   type NormalizedParagraphTabStop,
+  type RichTextRunHyperlinkRelationshipIds,
 } from './rich-text.internal.js';
 import {
   ChartModel,
@@ -308,6 +309,12 @@ export interface AddTableCell {
 }
 
 export type AddTableCellInput = string | AddTableCell;
+
+interface PreparedRichTextRunHyperlink {
+  readonly paragraphIndex: number;
+  readonly runIndex: number;
+  readonly relationship: RelationshipInput;
+}
 
 export class SlideTitleModel {
   constructor(private readonly slide: SlideModel) {}
@@ -1420,6 +1427,7 @@ export class SlideModel {
         normalized.shadow,
         normalized.hyperlink,
         hyperlinkRelationshipId,
+        false,
         normalized.margin,
         normalized.verticalAlignment,
         normalized.textDirection,
@@ -1460,7 +1468,13 @@ export class SlideModel {
         );
       }
       const hyperlink = plain ? plain.hyperlink : defaults!.hyperlink;
+      const preparedRunHyperlinks = rich === undefined
+        ? []
+        : this.prepareRichTextRunHyperlinks(rich);
       const hyperlinkRelationshipId = this.createTextHyperlinkRelationship(hyperlink);
+      const runHyperlinkRelationshipIds = rich === undefined
+        ? undefined
+        : this.createRichTextRunHyperlinkRelationships(rich, preparedRunHyperlinks);
       if (plain) {
         const bullet = plain.bullet === false ? undefined : plain.bullet;
         const spacing = resolveParagraphSpacing(plain.spacing);
@@ -1493,6 +1507,7 @@ export class SlideModel {
           plain.shadow,
           plain.hyperlink,
           hyperlinkRelationshipId,
+          false,
           plain.margin,
           plain.verticalAlignment,
           plain.textDirection,
@@ -1526,6 +1541,9 @@ export class SlideModel {
                 hyperlinkRelationshipId: hyperlinkRelationshipId!,
               }
             : {}),
+          ...(runHyperlinkRelationshipIds === undefined
+            ? {}
+            : { runHyperlinkRelationshipIds }),
         }),
         options,
         defaults!.fill,
@@ -1534,6 +1552,7 @@ export class SlideModel {
         defaults!.shadow,
         defaults!.hyperlink,
         hyperlinkRelationshipId,
+        preparedRunHyperlinks.length > 0,
         defaults!.margin,
         defaults!.verticalAlignment,
         defaults!.textDirection,
@@ -1557,7 +1576,12 @@ export class SlideModel {
             options.placeholder,
             'text-shape',
           );
+      const preparedRunHyperlinks = this.prepareRichTextRunHyperlinks(paragraphs);
       const hyperlinkRelationshipId = this.createTextHyperlinkRelationship(defaults.hyperlink);
+      const runHyperlinkRelationshipIds = this.createRichTextRunHyperlinkRelationships(
+        paragraphs,
+        preparedRunHyperlinks,
+      );
       return this.addTextShape(
         renderRichTextParagraphs(paragraphs, {
           ...(defaultColor !== undefined ? { defaultColor } : {}),
@@ -1577,6 +1601,7 @@ export class SlideModel {
                 hyperlinkRelationshipId: hyperlinkRelationshipId!,
               }
             : {}),
+          runHyperlinkRelationshipIds,
         }),
         owner ? placeholderTextOptions(owner) : options,
         defaults.fill,
@@ -1585,6 +1610,7 @@ export class SlideModel {
         defaults.shadow,
         defaults.hyperlink,
         hyperlinkRelationshipId,
+        preparedRunHyperlinks.length > 0,
         defaults.margin,
         defaults.verticalAlignment,
         defaults.textDirection,
@@ -1614,6 +1640,7 @@ export class SlideModel {
     shadow: NormalizedShapeShadow | undefined,
     hyperlink: NormalizedHyperlink | undefined,
     hyperlinkRelationshipId: string | undefined,
+    hasRunHyperlinks: boolean,
     margins: TextBoxMargins | undefined,
     verticalAlignment: TextBoxVerticalAlignment,
     textDirection: TextBoxTextDirection | undefined,
@@ -1639,6 +1666,7 @@ export class SlideModel {
       shadow,
       hyperlink,
       hyperlinkRelationshipId,
+      hasRunHyperlinks,
       margins,
       verticalAlignment,
       textDirection,
@@ -1683,6 +1711,59 @@ export class SlideModel {
       target: relativeRelationshipTarget(this.partUri, target.partUri),
       targetMode: 'Internal',
     }).id;
+  }
+
+  private prepareRichTextRunHyperlinks(
+    paragraphs: ReturnType<typeof normalizeRichText>,
+  ): readonly PreparedRichTextRunHyperlink[] {
+    const prepared: PreparedRichTextRunHyperlink[] = [];
+    for (const [paragraphIndex, paragraph] of paragraphs.entries()) {
+      for (const [runIndex, run] of paragraph.runs.entries()) {
+        const hyperlink = run.style?.hyperlink;
+        if (hyperlink === undefined || hyperlink === false) continue;
+        if (hyperlink.url !== undefined) {
+          prepared.push({
+            paragraphIndex,
+            runIndex,
+            relationship: {
+              type: HYPERLINK_RELATIONSHIP_TYPE,
+              target: hyperlink.url,
+              targetMode: 'External',
+            },
+          });
+          continue;
+        }
+        const target = this.presentation.slides[hyperlink.slide - 1];
+        if (!target) {
+          throw new RangeError(
+            `Rich text run hyperlink slide ${hyperlink.slide} is out of range`,
+          );
+        }
+        prepared.push({
+          paragraphIndex,
+          runIndex,
+          relationship: {
+            type: SLIDE_RELATIONSHIP_TYPE,
+            target: relativeRelationshipTarget(this.partUri, target.partUri),
+            targetMode: 'Internal',
+          },
+        });
+      }
+    }
+    return prepared;
+  }
+
+  private createRichTextRunHyperlinkRelationships(
+    paragraphs: ReturnType<typeof normalizeRichText>,
+    prepared: readonly PreparedRichTextRunHyperlink[],
+  ): RichTextRunHyperlinkRelationshipIds {
+    const relationshipIds = paragraphs.map(({ runs }) =>
+      runs.map(() => undefined as string | undefined));
+    for (const { paragraphIndex, runIndex, relationship } of prepared) {
+      relationshipIds[paragraphIndex]![runIndex] =
+        this.presentation.opcPackage.addRelationship(this.partUri, relationship).id;
+    }
+    return relationshipIds;
   }
 
   /** @internal */
@@ -2148,6 +2229,7 @@ function textShapeXml(
   shadow: NormalizedShapeShadow | undefined,
   hyperlink: NormalizedHyperlink | undefined,
   hyperlinkRelationshipId: string | undefined,
+  hasRunHyperlinks: boolean,
   margins: TextBoxMargins | undefined,
   verticalAlignment: TextBoxVerticalAlignment,
   textDirection: TextBoxTextDirection | undefined,
@@ -2189,7 +2271,7 @@ function textShapeXml(
   const effectXml = shadow === undefined
     ? ''
     : `<a:effectLst>${renderSimpleShadow(shadow, 'a:')}</a:effectLst>`;
-  const relationshipNamespace = hyperlink === undefined
+  const relationshipNamespace = hyperlink === undefined && !hasRunHyperlinks
     ? ''
     : ` xmlns:r="${RELATIONSHIP_NAMESPACE}"`;
   const hyperlinkXml = hyperlink === undefined
