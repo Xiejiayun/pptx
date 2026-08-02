@@ -280,6 +280,84 @@ async (page) => {
           ({ severity }) => severity === 'error',
         ).length,
       };
+      const textShapeFillDocument = api.PptxDocument.create();
+      const textShapeFillLayout = textShapeFillDocument.layouts[0];
+      textShapeFillLayout.addPlaceholder('Browser text fill prompt', {
+        name: 'browser_text_fill_placeholder',
+        type: 'title',
+        index: 190,
+        fill: {
+          kind: 'solid',
+          color: { kind: 'scheme', value: 'accent1' },
+          transparency: 100,
+        },
+      });
+      const textShapeFillSlide = textShapeFillDocument.addSlide({
+        masterName: textShapeFillLayout.name,
+      });
+      const textShapeFillSource = {
+        kind: 'solid',
+        color: { kind: 'srgb', value: '#AB12CD' },
+        transparency: 25,
+      };
+      const browserPlainTextFill = textShapeFillSlide.addText('Browser plain text fill', {
+        name: 'browser_plain_text_fill',
+        fill: textShapeFillSource,
+      });
+      const browserRichTextFill = textShapeFillSlide.addRichText([{
+        runs: [{ text: 'Browser rich text fill' }],
+      }], {
+        name: 'browser_rich_text_fill',
+        fill: {
+          kind: 'solid',
+          color: { kind: 'scheme', value: 'accent2' },
+          transparency: 0,
+        },
+      });
+      const browserPopulatedTextFill = textShapeFillSlide.addText(
+        'Browser populated text fill',
+        { placeholder: 'browser_text_fill_placeholder', fill: { kind: 'none' } },
+      );
+      const textShapeFillImmediate = [
+        browserPlainTextFill.fill,
+        browserRichTextFill.fill,
+        browserPopulatedTextFill.fill,
+      ];
+      textShapeFillSource.color.value = 'FFFFFF';
+      textShapeFillSource.transparency = 90;
+      const textShapeFillDetached = browserPlainTextFill.fill;
+      const textShapeFillOutput = await textShapeFillDocument.writeBlob();
+      const reopenedTextShapeFills = await api.PptxDocument.open(textShapeFillOutput);
+      await reopenedTextShapeFills.write({ compatibility: 'powerpoint-current' });
+      const textShapeFillByName = (owner, name) => owner.shapes.find(
+        (shape) => shape instanceof api.ShapeModel && shape.name === name,
+      );
+      const textShapeFillState = {
+        mime: textShapeFillOutput.type,
+        immediate: textShapeFillImmediate,
+        detached: textShapeFillDetached,
+        reopened: [
+          textShapeFillByName(
+            reopenedTextShapeFills.slides[0],
+            'browser_plain_text_fill',
+          ).fill,
+          textShapeFillByName(
+            reopenedTextShapeFills.slides[0],
+            'browser_rich_text_fill',
+          ).fill,
+          textShapeFillByName(
+            reopenedTextShapeFills.slides[0],
+            'browser_text_fill_placeholder',
+          ).fill,
+        ],
+        layout: textShapeFillByName(
+          reopenedTextShapeFills.layouts[0],
+          'browser_text_fill_placeholder',
+        ).fill,
+        validationErrors: reopenedTextShapeFills.diagnostics.filter(
+          ({ severity }) => severity === 'error',
+        ).length,
+      };
       const svgDocument = api.PptxDocument.create();
       svgDocument.addSlide();
       const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360">'
@@ -660,6 +738,7 @@ async (page) => {
         slideNumbers: slideNumberState,
         masterLayouts: masterLayoutState,
         slideDefaultColor: slideDefaultColorState,
+        textShapeFills: textShapeFillState,
         svgCreatedLive: svgDocument.slides[0].shapes.includes(blobSvg)
           && svgDocument.slides[0].shapes.includes(dataSvg),
         svgState,
@@ -834,6 +913,46 @@ async (page) => {
         ],
       ],
       reopened: [null, null],
+      validationErrors: 0,
+    },
+    textShapeFills: {
+      mime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      immediate: [
+        {
+          kind: 'solid',
+          color: { kind: 'srgb', value: 'AB12CD' },
+          transparency: 25,
+        },
+        {
+          kind: 'solid',
+          color: { kind: 'scheme', value: 'accent2' },
+          transparency: 0,
+        },
+        { kind: 'none' },
+      ],
+      detached: {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'AB12CD' },
+        transparency: 25,
+      },
+      reopened: [
+        {
+          kind: 'solid',
+          color: { kind: 'srgb', value: 'AB12CD' },
+          transparency: 25,
+        },
+        {
+          kind: 'solid',
+          color: { kind: 'scheme', value: 'accent2' },
+          transparency: 0,
+        },
+        { kind: 'none' },
+      ],
+      layout: {
+        kind: 'solid',
+        color: { kind: 'scheme', value: 'accent1' },
+        transparency: 100,
+      },
       validationErrors: 0,
     },
     svgCreatedLive: true,

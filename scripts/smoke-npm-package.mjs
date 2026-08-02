@@ -1915,6 +1915,233 @@ const shapeFills = packedSrgbFill instanceof ShapeModel &&
     { kind: 'solid', color: { kind: 'scheme', value: 'accent2' }, transparency: 25 },
     { kind: 'none' },
   ]);
+const textShapeFillDeck = PptxDocument.create();
+const textShapeFillLayout = textShapeFillDeck.layouts[0];
+const textShapeFillMaster = textShapeFillDeck.masters[0];
+const packedLayoutTextFill = textShapeFillLayout.addText('Packed layout text fill', {
+  name: 'packed_layout_text_fill',
+  fill: { kind: 'none' },
+});
+const packedMasterTextFill = textShapeFillMaster.addRichText([{
+  runs: [{ text: 'Packed master text fill' }],
+}], {
+  name: 'packed_master_text_fill',
+  fill: {
+    kind: 'solid',
+    color: { kind: 'scheme', value: 'accent6' },
+    transparency: 100,
+  },
+});
+const packedLayoutPlaceholderFill = textShapeFillLayout.addPlaceholder('Packed title prompt', {
+  name: 'packed_title_fill',
+  type: 'title',
+  index: 190,
+  fill: {
+    kind: 'solid',
+    color: { kind: 'scheme', value: 'accent1' },
+    transparency: 50,
+  },
+});
+const textShapeFillSource = {
+  kind: 'solid',
+  color: { kind: 'srgb', value: '#AB12CD' },
+  transparency: 25,
+};
+const textShapeFillSlide = textShapeFillDeck.addSlide({ masterName: textShapeFillLayout.name });
+const packedPlainTextFill = textShapeFillSlide.addText('Packed plain text fill', {
+  name: 'packed_plain_text_fill',
+  fill: textShapeFillSource,
+});
+const packedRichTextFill = textShapeFillSlide.addRichText([{
+  runs: [{ text: 'Packed rich text fill' }],
+}], {
+  name: 'packed_rich_text_fill',
+  fill: {
+    kind: 'solid',
+    color: { kind: 'scheme', value: 'accent2' },
+    transparency: 0,
+  },
+});
+const packedPopulatedTextFill = textShapeFillSlide.addText('Packed populated text fill', {
+  placeholder: 'packed_title_fill',
+  fill: {
+    kind: 'solid',
+    color: { kind: 'srgb', value: '112233' },
+    transparency: 25,
+  },
+});
+const initialPackedPlainTextFill = packedPlainTextFill.fill;
+textShapeFillSource.color.value = 'FFFFFF';
+textShapeFillSource.transparency = 90;
+const detachedPackedPlainTextFill = packedPlainTextFill.fill;
+const packedDeclarativeTextFillLayout = await textShapeFillDeck.defineSlideMaster({
+  title: 'PACKED-TEXT-FILLS',
+  objects: [
+    {
+      kind: 'text',
+      text: 'Packed declarative text fill',
+      options: { name: 'packed_declarative_text_fill', fill: { kind: 'none' } },
+    },
+    {
+      kind: 'placeholder',
+      text: 'Packed declarative prompt',
+      options: {
+        name: 'packed_declarative_title_fill',
+        type: 'title',
+        index: 191,
+        fill: {
+          kind: 'solid',
+          color: { kind: 'scheme', value: 'accent4' },
+          transparency: 40,
+        },
+      },
+    },
+  ],
+});
+const packedDeclarativeTextFill = packedDeclarativeTextFillLayout.shapes.find(
+  ({ name }) => name === 'packed_declarative_text_fill',
+);
+const packedDeclarativePlaceholderFill = packedDeclarativeTextFillLayout.placeholders.find(
+  ({ name }) => name === 'packed_declarative_title_fill',
+);
+const packedDeclarativeTextFillSlide = textShapeFillDeck.addSlide({
+  masterName: packedDeclarativeTextFillLayout.name,
+});
+const packedDeclarativePopulatedFill = packedDeclarativeTextFillSlide.addText(
+  'Packed declarative populated fill',
+  {
+    placeholder: 'packed_declarative_title_fill',
+    fill: {
+      kind: 'solid',
+      color: { kind: 'scheme', value: 'accent3' },
+      transparency: 50,
+    },
+  },
+);
+const duplicateTextShapeFillSlide = textShapeFillDeck.duplicateSlide(0);
+const duplicatePlainTextFill = duplicateTextShapeFillSlide.shapes.find(
+  ({ name }) => name === 'packed_plain_text_fill',
+);
+const duplicateRichTextFill = duplicateTextShapeFillSlide.shapes.find(
+  ({ name }) => name === 'packed_rich_text_fill',
+);
+if (!(duplicatePlainTextFill instanceof ShapeModel) ||
+    !(duplicateRichTextFill instanceof ShapeModel)) {
+  throw new Error('Packed duplicate text shape fill failed');
+}
+duplicatePlainTextFill.fill = { kind: 'none' };
+duplicateRichTextFill.fill = undefined;
+const reopenedTextShapeFillDeck = await PptxDocument.open(await textShapeFillDeck.write());
+await reopenedTextShapeFillDeck.write({ compatibility: 'powerpoint-2010' });
+const reopenedTextFillSourceSlide = reopenedTextShapeFillDeck.slides[0];
+const reopenedTextFillDeclarativeSlide = reopenedTextShapeFillDeck.slides[1];
+const reopenedTextFillDuplicateSlide = reopenedTextShapeFillDeck.slides[2];
+const reopenedTextFillLayout = reopenedTextShapeFillDeck.layouts.find(
+  ({ name }) => name === textShapeFillLayout.name,
+);
+const reopenedDeclarativeTextFillLayout = reopenedTextShapeFillDeck.layouts.find(
+  ({ name }) => name === 'PACKED-TEXT-FILLS',
+);
+const reopenedTextFillByName = (owner, name) => owner.shapes.find(
+  (shape) => shape instanceof ShapeModel && shape.name === name,
+);
+const textShapeFills =
+  packedLayoutTextFill instanceof ShapeModel &&
+  packedMasterTextFill instanceof ShapeModel &&
+  packedLayoutPlaceholderFill instanceof ShapeModel &&
+  packedPlainTextFill instanceof ShapeModel &&
+  packedRichTextFill instanceof ShapeModel &&
+  packedPopulatedTextFill instanceof ShapeModel &&
+  packedDeclarativeTextFill instanceof ShapeModel &&
+  packedDeclarativePlaceholderFill instanceof ShapeModel &&
+  packedDeclarativePopulatedFill instanceof ShapeModel &&
+  JSON.stringify(initialPackedPlainTextFill) === JSON.stringify({
+    kind: 'solid',
+    color: { kind: 'srgb', value: 'AB12CD' },
+    transparency: 25,
+  }) &&
+  JSON.stringify(detachedPackedPlainTextFill) === JSON.stringify(initialPackedPlainTextFill) &&
+  packedLayoutTextFill.fill?.kind === 'none' &&
+  JSON.stringify(packedMasterTextFill.fill) === JSON.stringify({
+    kind: 'solid',
+    color: { kind: 'scheme', value: 'accent6' },
+    transparency: 100,
+  }) &&
+  JSON.stringify(packedLayoutPlaceholderFill.fill) === JSON.stringify({
+    kind: 'solid',
+    color: { kind: 'scheme', value: 'accent1' },
+    transparency: 50,
+  }) &&
+  JSON.stringify(packedRichTextFill.fill) === JSON.stringify({
+    kind: 'solid',
+    color: { kind: 'scheme', value: 'accent2' },
+    transparency: 0,
+  }) &&
+  JSON.stringify(packedPopulatedTextFill.fill) === JSON.stringify({
+    kind: 'solid',
+    color: { kind: 'srgb', value: '112233' },
+    transparency: 25,
+  }) &&
+  packedDeclarativeTextFill.fill?.kind === 'none' &&
+  JSON.stringify(packedDeclarativePlaceholderFill.fill) === JSON.stringify({
+    kind: 'solid',
+    color: { kind: 'scheme', value: 'accent4' },
+    transparency: 40,
+  }) &&
+  JSON.stringify(packedDeclarativePopulatedFill.fill) === JSON.stringify({
+    kind: 'solid',
+    color: { kind: 'scheme', value: 'accent3' },
+    transparency: 50,
+  }) &&
+  JSON.stringify(reopenedTextFillByName(
+    reopenedTextFillSourceSlide,
+    'packed_plain_text_fill',
+  )?.fill) === JSON.stringify(initialPackedPlainTextFill) &&
+  JSON.stringify(reopenedTextFillByName(
+    reopenedTextFillSourceSlide,
+    'packed_rich_text_fill',
+  )?.fill) === JSON.stringify({
+    kind: 'solid',
+    color: { kind: 'scheme', value: 'accent2' },
+    transparency: 0,
+  }) &&
+  JSON.stringify(reopenedTextFillByName(
+    reopenedTextFillDuplicateSlide,
+    'packed_plain_text_fill',
+  )?.fill) === JSON.stringify({ kind: 'none' }) &&
+  reopenedTextFillByName(
+    reopenedTextFillDuplicateSlide,
+    'packed_rich_text_fill',
+  )?.fill === undefined &&
+  reopenedTextFillByName(
+    reopenedTextFillLayout,
+    'packed_layout_text_fill',
+  )?.fill?.kind === 'none' &&
+  JSON.stringify(reopenedTextFillByName(
+    reopenedTextShapeFillDeck.masters[0],
+    'packed_master_text_fill',
+  )?.fill) === JSON.stringify({
+    kind: 'solid',
+    color: { kind: 'scheme', value: 'accent6' },
+    transparency: 100,
+  }) &&
+  reopenedTextFillByName(
+    reopenedDeclarativeTextFillLayout,
+    'packed_declarative_text_fill',
+  )?.fill?.kind === 'none' &&
+  JSON.stringify(reopenedTextFillByName(
+    reopenedTextFillDeclarativeSlide,
+    'packed_declarative_title_fill',
+  )?.fill) === JSON.stringify({
+    kind: 'solid',
+    color: { kind: 'scheme', value: 'accent3' },
+    transparency: 50,
+  }) &&
+  reopenedTextShapeFillDeck.diagnostics.every(({ severity }) => severity !== 'error');
+if (!textShapeFills) {
+  throw new Error('Packed text shape fills failed');
+}
+await reopenedTextShapeFillDeck.writeFile('text-shape-fill-smoke.pptx');
 const createdText = created.addSlide().addText('Smoke\\n\\nParagraph', { align: 'center', fit: 'shrink', valign: 'top', vert: 'vert270', wrap: false, bullet: true, level: 2, margin: 10, rtlMode: true, spacing: { before: 4, after: 6, line: { kind: 'exact', points: 20 } }, tabStops: [{ position: 1.25 }, { position: 2.5, alignment: 'right' }] });
 const shapeLineDeck = PptxDocument.create();
 const shapeLineSlide = shapeLineDeck.addSlide();
@@ -3187,6 +3414,7 @@ const checks = {
   shapeAdjustments,
   shapeShadows,
   shapeFills,
+  textShapeFills,
   shapeLines,
   shapeArrows,
   shapeHyperlinks,
@@ -3953,6 +4181,100 @@ if (Object.values(browserShapeFillChecks).some((value) => !value)) {
     initial: browserInitialShapeFill,
   }));
 }
+const browserTextShapeFillDeck = PptxDocument.create();
+const browserTextShapeFillLayout = browserTextShapeFillDeck.layouts[0];
+const browserTextShapeFillPlaceholder = browserTextShapeFillLayout.addPlaceholder(
+  'Browser text fill prompt',
+  {
+    name: 'browser_text_fill_placeholder',
+    type: 'title',
+    index: 190,
+    fill: {
+      kind: 'solid',
+      color: { kind: 'scheme', value: 'accent1' },
+      transparency: 100,
+    },
+  },
+);
+const browserTextShapeFillSlide = browserTextShapeFillDeck.addSlide({
+  masterName: browserTextShapeFillLayout.name,
+});
+const browserTextShapeFillSource = {
+  kind: 'solid',
+  color: { kind: 'srgb', value: '#AB12CD' },
+  transparency: 25,
+};
+const browserPlainTextShapeFill = browserTextShapeFillSlide.addText(
+  'Browser plain text fill',
+  { name: 'browser_plain_text_fill', fill: browserTextShapeFillSource },
+);
+const browserRichTextShapeFill = browserTextShapeFillSlide.addRichText([{
+  runs: [{ text: 'Browser rich text fill' }],
+}], {
+  name: 'browser_rich_text_fill',
+  fill: {
+    kind: 'solid',
+    color: { kind: 'scheme', value: 'accent2' },
+    transparency: 0,
+  },
+});
+const browserPopulatedTextShapeFill = browserTextShapeFillSlide.addText(
+  'Browser populated text fill',
+  { placeholder: 'browser_text_fill_placeholder', fill: { kind: 'none' } },
+);
+const browserPlainTextShapeFillSnapshot = browserPlainTextShapeFill.fill;
+browserTextShapeFillSource.color.value = 'FFFFFF';
+browserTextShapeFillSource.transparency = 90;
+const reopenedBrowserTextShapeFillDeck = await PptxDocument.open(
+  await browserTextShapeFillDeck.writeBlob(),
+);
+await reopenedBrowserTextShapeFillDeck.write({ compatibility: 'powerpoint-current' });
+const reopenedBrowserTextShapeFillSlide = reopenedBrowserTextShapeFillDeck.slides[0];
+const reopenedBrowserTextShapeFillLayout = reopenedBrowserTextShapeFillDeck.layouts[0];
+const browserTextShapeFillByName = (owner, name) => owner.shapes.find(
+  (shape) => shape instanceof ShapeModel && shape.name === name,
+);
+const browserTextShapeFillChecks = {
+  detached: JSON.stringify(browserPlainTextShapeFill.fill) ===
+    JSON.stringify(browserPlainTextShapeFillSnapshot),
+  plain: JSON.stringify(browserTextShapeFillByName(
+    reopenedBrowserTextShapeFillSlide,
+    'browser_plain_text_fill',
+  )?.fill) === JSON.stringify({
+    kind: 'solid',
+    color: { kind: 'srgb', value: 'AB12CD' },
+    transparency: 25,
+  }),
+  rich: JSON.stringify(browserTextShapeFillByName(
+    reopenedBrowserTextShapeFillSlide,
+    'browser_rich_text_fill',
+  )?.fill) === JSON.stringify({
+    kind: 'solid',
+    color: { kind: 'scheme', value: 'accent2' },
+    transparency: 0,
+  }),
+  populated: browserTextShapeFillByName(
+    reopenedBrowserTextShapeFillSlide,
+    'browser_text_fill_placeholder',
+  )?.fill?.kind === 'none',
+  placeholder: JSON.stringify(browserTextShapeFillByName(
+    reopenedBrowserTextShapeFillLayout,
+    'browser_text_fill_placeholder',
+  )?.fill) === JSON.stringify({
+    kind: 'solid',
+    color: { kind: 'scheme', value: 'accent1' },
+    transparency: 100,
+  }),
+  live: browserTextShapeFillPlaceholder instanceof ShapeModel &&
+    browserRichTextShapeFill instanceof ShapeModel &&
+    browserPopulatedTextShapeFill instanceof ShapeModel,
+  validation: reopenedBrowserTextShapeFillDeck.diagnostics.every(
+    ({ severity }) => severity !== 'error',
+  ),
+};
+if (Object.values(browserTextShapeFillChecks).some((value) => !value)) {
+  throw new Error('Browser text shape fill failed: ' + JSON.stringify(browserTextShapeFillChecks));
+}
 const browserLineDeck = PptxDocument.create();
 const browserLineSlide = browserLineDeck.addSlide();
 const browserLineColor = { kind: 'srgb', value: '#335577' };
@@ -4487,6 +4809,7 @@ process.stdout.write(resolved);
   type AddImageOptions,
   type AddSvgImageOptions,
   type AddShapeOptions,
+  type AddTextOptions,
   type CustomGeometry,
   type CustomGeometryCommand,
   type CustomGeometryConnectionSite,
@@ -5155,6 +5478,51 @@ const typedSolidShapeFill: ShapeFill = {
   color: { kind: 'scheme', value: 'accent2' },
   transparency: 25,
 };
+const typedTextShapeNoneFill: ShapeFill = { kind: 'none' };
+const typedTextShapeSrgbFill: ShapeFill = {
+  kind: 'solid',
+  color: { kind: 'srgb', value: 'A1B2C3' },
+  transparency: 25,
+};
+const typedTextShapeSchemeFill: ShapeFill = {
+  kind: 'solid',
+  color: { kind: 'scheme', value: 'accent3' },
+  transparency: 0,
+};
+const typedTextShapeOptions: AddTextOptions = {
+  name: 'Typed text shape fill',
+  fill: typedTextShapeSrgbFill,
+};
+const typedTextShapeSlide = createdDocument.addSlide();
+const typedPlainTextShape: ShapeModel = typedTextShapeSlide.addText(
+  'Typed plain text shape fill',
+  typedTextShapeOptions,
+);
+const typedRichTextShape: ShapeModel = typedTextShapeSlide.addRichText([{
+  runs: [{ text: 'Typed rich text shape fill' }],
+}], { fill: typedTextShapeSchemeFill });
+const typedLayoutTextShape: ShapeModel = createdDocument.layouts[0].addText(
+  'Typed layout text shape fill',
+  { fill: typedTextShapeNoneFill },
+);
+const typedMasterTextShape: ShapeModel = createdDocument.masters[0].addText(
+  'Typed master text shape fill',
+  { fill: typedTextShapeSchemeFill },
+);
+const typedPlaceholderTextShape: ShapeModel = createdDocument.layouts[0].addPlaceholder(
+  'Typed placeholder text shape fill',
+  {
+    name: 'typed_text_fill_placeholder',
+    type: 'title',
+    index: 190,
+    fill: typedTextShapeSrgbFill,
+  },
+);
+const typedDeclarativeTextFillObject: SlideMasterObject = {
+  kind: 'text',
+  text: 'Typed declarative text shape fill',
+  options: { fill: typedTextShapeSchemeFill },
+};
 const typedShapeLineDash: ShapeLineDash = 'lgDashDotDot';
 const typedNoneShapeLine: ShapeLine = { kind: 'none' };
 const typedSolidShapeLine: ShapeLine = {
@@ -5264,6 +5632,33 @@ const invalidShapeFillKind: ShapeFill = { kind: 'gradient' };
 const invalidShapeFillColor: ShapeFill = { kind: 'solid', color: { kind: 'rgb', value: 'FF0000' } };
 // @ts-expect-error transparency is numeric
 const invalidShapeFillTransparency: ShapeFill = { kind: 'solid', color: { kind: 'srgb', value: 'FF0000' }, transparency: '50' };
+const invalidPptxGenJSTextFill: AddTextOptions = {
+  // @ts-expect-error PptxGenJS-style text fill objects are intentionally unsupported
+  fill: { color: 'FF0000' },
+};
+const invalidTextFillKind: AddTextOptions = {
+  // @ts-expect-error text shape fill kind must be none or solid
+  fill: { kind: 'gradient' },
+};
+const invalidTextFillMissingColor: AddTextOptions = {
+  // @ts-expect-error solid text shape fills require a color
+  fill: { kind: 'solid' },
+};
+const invalidTextFillTransparency: AddTextOptions = {
+  fill: {
+    kind: 'solid',
+    color: { kind: 'srgb', value: 'FF0000' },
+    // @ts-expect-error text shape fill transparency is numeric
+    transparency: '25',
+  },
+};
+const invalidTextFillUnknownKey: AddTextOptions = {
+  fill: {
+    kind: 'none',
+    // @ts-expect-error text shape none fills reject unknown fields
+    extra: true,
+  },
+};
 // @ts-expect-error solid is not the native shape-line discriminator
 const invalidShapeLineKind: ShapeLine = { kind: 'solid', color: { kind: 'srgb', value: 'FF0000' } };
 // @ts-expect-error shape line colors use srgb or scheme
@@ -5538,7 +5933,13 @@ documentPromise.then((document) => {
   smartArt.installSmartArtPlugin(document);
 });
 void [typedNotesSlide, notesSnapshot, returnedNotesSlide];
-void [typedPreset, typedNoneShapeFill, typedSolidShapeFill, typedShapeOptions, typedShape,
+void [typedPreset, typedNoneShapeFill, typedSolidShapeFill,
+  typedTextShapeNoneFill, typedTextShapeSrgbFill, typedTextShapeSchemeFill,
+  typedTextShapeOptions, typedTextShapeSlide, typedPlainTextShape, typedRichTextShape,
+  typedLayoutTextShape, typedMasterTextShape, typedPlaceholderTextShape,
+  typedDeclarativeTextFillObject, invalidPptxGenJSTextFill, invalidTextFillKind,
+  invalidTextFillMissingColor, invalidTextFillTransparency, invalidTextFillUnknownKey,
+  typedShapeOptions, typedShape,
   typedCustomPoint, typedCustomCommand, typedCustomFill, typedCustomPath, typedCustomGeometry,
   typedCustomValue, typedUnaryFormula, typedBinaryFormula, typedTernaryFormula,
   typedCustomGuide, typedFormulaGeometry, typedXyHandle, typedPolarHandle,
@@ -5907,6 +6308,72 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
       )) {
     throw new Error(`CLI slide-default-color part inspection failed: ${slideDefaultColorPartResult.stdout}`);
   }
+  const textShapeFillDeckPath = join(directory, 'text-shape-fill-smoke.pptx');
+  const textShapeFillInspectResult = run(
+    bin,
+    ['--json', 'package', 'inspect', textShapeFillDeckPath],
+    directory,
+  );
+  const textShapeFillInspected = JSON.parse(textShapeFillInspectResult.stdout);
+  const textShapeFillContentTypes = textShapeFillInspected.data?.contentTypes ?? {};
+  if (!textShapeFillInspected.ok ||
+      textShapeFillContentTypes[
+        'application/vnd.openxmlformats-officedocument.presentationml.slide+xml'
+      ] !== 3 ||
+      textShapeFillContentTypes[
+        'application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml'
+      ] !== 2 ||
+      textShapeFillContentTypes[
+        'application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml'
+      ] !== 1) {
+    throw new Error(`CLI text-shape-fill inspect failed: ${textShapeFillInspectResult.stdout}`);
+  }
+  const textShapeFillValidateResult = run(
+    bin,
+    ['--json', 'package', 'validate', textShapeFillDeckPath, '--profile', 'powerpoint-2010'],
+    directory,
+  );
+  const textShapeFillValidated = JSON.parse(textShapeFillValidateResult.stdout);
+  if (!textShapeFillValidated.ok || !textShapeFillValidated.data?.valid ||
+      textShapeFillValidated.data.errorCount !== 0 ||
+      textShapeFillValidated.data.warningCount !== 0) {
+    throw new Error(`CLI text-shape-fill validation failed: ${textShapeFillValidateResult.stdout}`);
+  }
+  const textShapeFillSlidesResult = run(
+    bin,
+    ['--json', 'slides', 'list', textShapeFillDeckPath],
+    directory,
+  );
+  const textShapeFillSlides = JSON.parse(textShapeFillSlidesResult.stdout);
+  if (!textShapeFillSlides.ok || textShapeFillSlides.data?.length !== 3 ||
+      textShapeFillSlides.data[0]?.shapeCount !== 3 ||
+      textShapeFillSlides.data[1]?.shapeCount !== 1 ||
+      textShapeFillSlides.data[2]?.shapeCount !== 3) {
+    throw new Error(`CLI text-shape-fill slide listing failed: ${textShapeFillSlidesResult.stdout}`);
+  }
+  const textShapeFillPart = (uri) => JSON.parse(run(
+    bin,
+    ['--json', 'part', 'read', textShapeFillDeckPath, uri],
+    directory,
+  ).stdout).data?.content ?? '';
+  const textShapeFillSourceXml = textShapeFillPart(textShapeFillSlides.data[0].partUri);
+  const textShapeFillDuplicateXml = textShapeFillPart(textShapeFillSlides.data[2].partUri);
+  const textShapeFillLayoutXml = textShapeFillPart('/ppt/slideLayouts/slideLayout1.xml');
+  const textShapeFillMasterXml = textShapeFillPart('/ppt/slideMasters/slideMaster1.xml');
+  if (!textShapeFillSourceXml.includes(
+        '<a:srgbClr val="AB12CD"><a:alpha val="75000"/></a:srgbClr>',
+      ) ||
+      !textShapeFillSourceXml.includes(
+        '<a:schemeClr val="accent2"><a:alpha val="100000"/></a:schemeClr>',
+      ) ||
+      !textShapeFillDuplicateXml.includes('<a:noFill/>') ||
+      !textShapeFillLayoutXml.includes('name="packed_layout_text_fill"') ||
+      !textShapeFillLayoutXml.includes('<a:noFill/>') ||
+      !textShapeFillMasterXml.includes(
+        '<a:schemeClr val="accent6"><a:alpha val="0"/></a:schemeClr>',
+      )) {
+    throw new Error('CLI text-shape-fill part inspection failed');
+  }
   if (process.env.PPTX_SLIDE_BACKGROUND_GALLERY_OUT) {
     const galleryOutput = resolve(process.env.PPTX_SLIDE_BACKGROUND_GALLERY_OUT);
     await mkdir(dirname(galleryOutput), { recursive: true });
@@ -5934,7 +6401,7 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
   }
 
   process.stdout.write(
-    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, masterLayouts: apiChecks.masterLayouts, slideNumbers: apiChecks.slideNumbers, slideDefaultColor: apiChecks.slideDefaultColor, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, slideBackgrounds: apiChecks.slideBackgrounds, types: true, cli: doctor.data.version, masterLayoutInspect: true, masterLayoutValidate: true, masterLayoutSlides: true, masterLayoutPartRead: true, masterLayoutDiff: true, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true, slideBackgroundInspect: true, slideBackgroundValidate: true, slideNumberInspect: true, slideNumberValidate: true, slideNumberSlides: true, slideNumberPartRead: true, slideDefaultColorInspect: true, slideDefaultColorValidate: true, slideDefaultColorSlides: true, slideDefaultColorPartRead: true })}\n`,
+    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, masterLayouts: apiChecks.masterLayouts, slideNumbers: apiChecks.slideNumbers, slideDefaultColor: apiChecks.slideDefaultColor, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, textShapeFills: apiChecks.textShapeFills, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, slideBackgrounds: apiChecks.slideBackgrounds, types: true, cli: doctor.data.version, masterLayoutInspect: true, masterLayoutValidate: true, masterLayoutSlides: true, masterLayoutPartRead: true, masterLayoutDiff: true, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true, slideBackgroundInspect: true, slideBackgroundValidate: true, slideNumberInspect: true, slideNumberValidate: true, slideNumberSlides: true, slideNumberPartRead: true, slideDefaultColorInspect: true, slideDefaultColorValidate: true, slideDefaultColorSlides: true, slideDefaultColorPartRead: true, textShapeFillInspect: true, textShapeFillValidate: true, textShapeFillSlides: true, textShapeFillPartRead: true })}\n`,
   );
 } finally {
   await rm(directory, { recursive: true, force: true });
