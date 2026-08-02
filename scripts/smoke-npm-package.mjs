@@ -107,6 +107,13 @@ try {
   )) {
     throw new Error('Packed TableModel declaration is missing table-level vertical alignment');
   }
+  if (!tableModelDeclaration.includes(
+    'get textDirection(): TableCellTextDirection | undefined;',
+  ) || !tableModelDeclaration.includes(
+    'set textDirection(value: TableCellTextDirection | undefined);',
+  )) {
+    throw new Error('Packed TableModel declaration is missing table-level text direction');
+  }
   if (!textOptionDeclarationSource.includes('readonly isTextBox?: boolean;') ||
       !shapeDeclarationSource.includes('get isTextBox(): boolean | undefined;') ||
       !shapeDeclarationSource.includes('set isTextBox(value: boolean);')) {
@@ -5373,6 +5380,115 @@ const tableVerticalAlignment = JSON.stringify(tableVerticalAlignmentState) === J
   failureIsolation: true,
   validationErrors: 0,
 });
+const tableTextDirectionDocument = PptxDocument.create();
+const tableTextDirectionSlide = tableTextDirectionDocument.addSlide();
+const tableTextDirectionTable = tableTextDirectionSlide.addTable([
+  ['North', 'South'],
+  ['East', 'West'],
+], { name: 'Packed table text direction', textDirection: 'vert270' });
+const tableTextDirectionPart = () => tableTextDirectionDocument.opcPackage
+  .requirePart(tableTextDirectionSlide.partUri).bytes;
+const tableTextDirectionReadBytes = tableTextDirectionPart().slice();
+const tableTextDirectionReadJournal = JSON.stringify(
+  tableTextDirectionDocument.opcPackage.mutations,
+);
+const tableTextDirectionUniform = tableTextDirectionTable.textDirection;
+const tableTextDirectionReadIsolation = packedBytesEqual(
+  tableTextDirectionReadBytes,
+  tableTextDirectionPart(),
+) && JSON.stringify(tableTextDirectionDocument.opcPackage.mutations) ===
+  tableTextDirectionReadJournal;
+const tableTextDirectionNoOpBytes = tableTextDirectionPart().slice();
+const tableTextDirectionNoOpJournal = JSON.stringify(
+  tableTextDirectionDocument.opcPackage.mutations,
+);
+tableTextDirectionTable.textDirection = 'vert270';
+const tableTextDirectionNoOp = packedBytesEqual(
+  tableTextDirectionNoOpBytes,
+  tableTextDirectionPart(),
+) && JSON.stringify(tableTextDirectionDocument.opcPackage.mutations) ===
+  tableTextDirectionNoOpJournal;
+tableTextDirectionTable.setCellTextDirection(0, 1, 'vert');
+const tableTextDirectionMixed = tableTextDirectionTable.textDirection ?? null;
+tableTextDirectionTable.textDirection = 'wordArtVert';
+const tableTextDirectionOverwritten = tableTextDirectionTable.textDirection;
+const tableTextDirectionOverwrittenCells = tableTextDirectionTable.rows
+  .flatMap(({ cells }) => cells.map(({ textDirection }) => textDirection ?? null));
+tableTextDirectionTable.textDirection = 'horz';
+const tableTextDirectionHorizontal = tableTextDirectionTable.textDirection;
+const tableTextDirectionHorizontalCells = tableTextDirectionTable.rows
+  .flatMap(({ cells }) => cells.map(({ textDirection }) => textDirection ?? null));
+tableTextDirectionTable.textDirection = undefined;
+const tableTextDirectionCleared = tableTextDirectionTable.textDirection ?? null;
+const tableTextDirectionClearedCells = tableTextDirectionTable.rows
+  .flatMap(({ cells }) => cells.map(({ textDirection }) => textDirection ?? null));
+const tableTextDirectionInvalidBytes = tableTextDirectionPart().slice();
+const tableTextDirectionInvalidJournal = JSON.stringify(
+  tableTextDirectionDocument.opcPackage.mutations,
+);
+let tableTextDirectionInvalidError;
+try {
+  tableTextDirectionTable.textDirection = 'eaVert';
+} catch (error) {
+  tableTextDirectionInvalidError = { name: error.name, message: error.message };
+}
+const tableTextDirectionFailureIsolation = packedBytesEqual(
+  tableTextDirectionInvalidBytes,
+  tableTextDirectionPart(),
+) && JSON.stringify(tableTextDirectionDocument.opcPackage.mutations) ===
+  tableTextDirectionInvalidJournal;
+tableTextDirectionTable.textDirection = 'vert';
+await tableTextDirectionDocument.writeFile('table-text-direction-smoke.pptx');
+const reopenedTableTextDirectionDocument = await PptxDocument.open(
+  await readFile('table-text-direction-smoke.pptx'),
+);
+const reopenedTableTextDirectionTable = reopenedTableTextDirectionDocument
+  .slides[0].shapes.find((shape) => shape.name === 'Packed table text direction');
+const tableTextDirectionState = {
+  uniform: tableTextDirectionUniform,
+  readIsolation: tableTextDirectionReadIsolation,
+  noOp: tableTextDirectionNoOp,
+  mixed: tableTextDirectionMixed,
+  overwritten: tableTextDirectionOverwritten,
+  overwrittenCells: tableTextDirectionOverwrittenCells,
+  horizontal: tableTextDirectionHorizontal,
+  horizontalCells: tableTextDirectionHorizontalCells,
+  cleared: tableTextDirectionCleared,
+  clearedCells: tableTextDirectionClearedCells,
+  reopened: reopenedTableTextDirectionTable instanceof TableModel
+    ? reopenedTableTextDirectionTable.textDirection ?? null
+    : null,
+  reopenedCells: reopenedTableTextDirectionTable instanceof TableModel
+    ? reopenedTableTextDirectionTable.rows.flatMap(({ cells }) =>
+      cells.map(({ textDirection }) => textDirection ?? null))
+    : [],
+  invalidError: tableTextDirectionInvalidError,
+  failureIsolation: tableTextDirectionFailureIsolation,
+  validationErrors: tableTextDirectionDocument.diagnostics
+    .filter(({ severity }) => severity === 'error').length +
+    reopenedTableTextDirectionDocument.diagnostics
+      .filter(({ severity }) => severity === 'error').length,
+};
+const tableTextDirection = JSON.stringify(tableTextDirectionState) === JSON.stringify({
+  uniform: 'vert270',
+  readIsolation: true,
+  noOp: true,
+  mixed: null,
+  overwritten: 'wordArtVert',
+  overwrittenCells: ['wordArtVert', 'wordArtVert', 'wordArtVert', 'wordArtVert'],
+  horizontal: 'horz',
+  horizontalCells: ['horz', 'horz', 'horz', 'horz'],
+  cleared: null,
+  clearedCells: [null, null, null, null],
+  reopened: 'vert',
+  reopenedCells: ['vert', 'vert', 'vert', 'vert'],
+  invalidError: {
+    name: 'TypeError',
+    message: 'Table text direction must be horz, vert, vert270, or wordArtVert',
+  },
+  failureIsolation: true,
+  validationErrors: 0,
+});
 const packedSchemeColorIsolationDocument = PptxDocument.create();
 const packedSchemeColorIsolationJournal = JSON.stringify(
   packedSchemeColorIsolationDocument.opcPackage.mutations,
@@ -6678,6 +6794,8 @@ const checks = {
   verticalAlignmentState,
   tableVerticalAlignment,
   tableVerticalAlignmentState,
+  tableTextDirection,
+  tableTextDirectionState,
   schemeColors,
   schemeColorState,
   outputTypes,
@@ -7034,6 +7152,118 @@ if (JSON.stringify(browserTableVerticalAlignmentState) !== JSON.stringify({
   validationErrors: 0,
 })) {
   throw new Error('Browser table-level vertical alignment failed');
+}
+const browserTableTextDirectionDocument = PptxDocument.create();
+const browserTableTextDirectionSlide = browserTableTextDirectionDocument.addSlide();
+const browserTableTextDirectionTable = browserTableTextDirectionSlide.addTable([
+  ['North', 'South'],
+  ['East', 'West'],
+], { name: 'Browser condition table text direction', textDirection: 'vert270' });
+const browserTableTextDirectionPart = () => browserTableTextDirectionDocument
+  .opcPackage.requirePart(browserTableTextDirectionSlide.partUri).bytes;
+const browserTableTextDirectionReadBytes = browserTableTextDirectionPart().slice();
+const browserTableTextDirectionReadJournal = JSON.stringify(
+  browserTableTextDirectionDocument.opcPackage.mutations,
+);
+const browserTableTextDirectionUniform = browserTableTextDirectionTable.textDirection;
+const browserTableTextDirectionReadIsolation = browserCompressionEqual(
+  browserTableTextDirectionReadBytes,
+  browserTableTextDirectionPart(),
+) && JSON.stringify(browserTableTextDirectionDocument.opcPackage.mutations) ===
+  browserTableTextDirectionReadJournal;
+const browserTableTextDirectionNoOpBytes = browserTableTextDirectionPart().slice();
+const browserTableTextDirectionNoOpJournal = JSON.stringify(
+  browserTableTextDirectionDocument.opcPackage.mutations,
+);
+browserTableTextDirectionTable.textDirection = 'vert270';
+const browserTableTextDirectionNoOp = browserCompressionEqual(
+  browserTableTextDirectionNoOpBytes,
+  browserTableTextDirectionPart(),
+) && JSON.stringify(browserTableTextDirectionDocument.opcPackage.mutations) ===
+  browserTableTextDirectionNoOpJournal;
+browserTableTextDirectionTable.setCellTextDirection(0, 1, 'vert');
+const browserTableTextDirectionMixed = browserTableTextDirectionTable.textDirection ?? null;
+browserTableTextDirectionTable.textDirection = 'wordArtVert';
+const browserTableTextDirectionOverwritten = browserTableTextDirectionTable.textDirection;
+const browserTableTextDirectionOverwrittenCells = browserTableTextDirectionTable.rows
+  .flatMap(({ cells }) => cells.map(({ textDirection }) => textDirection ?? null));
+browserTableTextDirectionTable.textDirection = 'horz';
+const browserTableTextDirectionHorizontal = browserTableTextDirectionTable.textDirection;
+const browserTableTextDirectionHorizontalCells = browserTableTextDirectionTable.rows
+  .flatMap(({ cells }) => cells.map(({ textDirection }) => textDirection ?? null));
+browserTableTextDirectionTable.textDirection = undefined;
+const browserTableTextDirectionCleared = browserTableTextDirectionTable.textDirection ?? null;
+const browserTableTextDirectionClearedCells = browserTableTextDirectionTable.rows
+  .flatMap(({ cells }) => cells.map(({ textDirection }) => textDirection ?? null));
+const browserTableTextDirectionInvalidBytes = browserTableTextDirectionPart().slice();
+const browserTableTextDirectionInvalidJournal = JSON.stringify(
+  browserTableTextDirectionDocument.opcPackage.mutations,
+);
+let browserTableTextDirectionInvalidError;
+try {
+  browserTableTextDirectionTable.textDirection = 'eaVert';
+} catch (error) {
+  browserTableTextDirectionInvalidError = { name: error.name, message: error.message };
+}
+const browserTableTextDirectionFailureIsolation = browserCompressionEqual(
+  browserTableTextDirectionInvalidBytes,
+  browserTableTextDirectionPart(),
+) && JSON.stringify(browserTableTextDirectionDocument.opcPackage.mutations) ===
+  browserTableTextDirectionInvalidJournal;
+browserTableTextDirectionTable.textDirection = 'vert';
+const reopenedBrowserTableTextDirectionDocument = await PptxDocument.open(
+  await browserTableTextDirectionDocument.writeBlob(),
+);
+const reopenedBrowserTableTextDirectionTable = reopenedBrowserTableTextDirectionDocument
+  .slides[0].shapes.find(
+    (shape) => shape.name === 'Browser condition table text direction',
+  );
+const browserTableTextDirectionState = {
+  uniform: browserTableTextDirectionUniform,
+  readIsolation: browserTableTextDirectionReadIsolation,
+  noOp: browserTableTextDirectionNoOp,
+  mixed: browserTableTextDirectionMixed,
+  overwritten: browserTableTextDirectionOverwritten,
+  overwrittenCells: browserTableTextDirectionOverwrittenCells,
+  horizontal: browserTableTextDirectionHorizontal,
+  horizontalCells: browserTableTextDirectionHorizontalCells,
+  cleared: browserTableTextDirectionCleared,
+  clearedCells: browserTableTextDirectionClearedCells,
+  reopened: reopenedBrowserTableTextDirectionTable instanceof TableModel
+    ? reopenedBrowserTableTextDirectionTable.textDirection ?? null
+    : null,
+  reopenedCells: reopenedBrowserTableTextDirectionTable instanceof TableModel
+    ? reopenedBrowserTableTextDirectionTable.rows.flatMap(({ cells }) =>
+      cells.map(({ textDirection }) => textDirection ?? null))
+    : [],
+  invalidError: browserTableTextDirectionInvalidError,
+  failureIsolation: browserTableTextDirectionFailureIsolation,
+  validationErrors: browserTableTextDirectionDocument.diagnostics
+    .filter(({ severity }) => severity === 'error').length +
+    reopenedBrowserTableTextDirectionDocument.diagnostics
+      .filter(({ severity }) => severity === 'error').length,
+};
+if (JSON.stringify(browserTableTextDirectionState) !== JSON.stringify({
+  uniform: 'vert270',
+  readIsolation: true,
+  noOp: true,
+  mixed: null,
+  overwritten: 'wordArtVert',
+  overwrittenCells: ['wordArtVert', 'wordArtVert', 'wordArtVert', 'wordArtVert'],
+  horizontal: 'horz',
+  horizontalCells: ['horz', 'horz', 'horz', 'horz'],
+  cleared: null,
+  clearedCells: [null, null, null, null],
+  reopened: 'vert',
+  reopenedCells: ['vert', 'vert', 'vert', 'vert'],
+  invalidError: {
+    name: 'TypeError',
+    message: 'Table text direction must be horz, vert, vert270, or wordArtVert',
+  },
+  failureIsolation: true,
+  validationErrors: 0,
+})) {
+  throw new Error('Browser table-level text direction failed');
 }
 const browserOutputTypeDocument = PptxDocument.create();
 const browserOutputTypeJournal = JSON.stringify(
@@ -10374,6 +10604,15 @@ typedTable.verticalAlignment = 'bottom';
 typedTable.verticalAlignment = undefined;
 // @ts-expect-error unsupported table-level vertical alignment
 typedTable.verticalAlignment = 'distributed';
+const typedTableTextDirection: TableCellTextDirection | undefined =
+  typedTable.textDirection;
+typedTable.textDirection = 'horz';
+typedTable.textDirection = 'vert';
+typedTable.textDirection = 'vert270';
+typedTable.textDirection = 'wordArtVert';
+typedTable.textDirection = undefined;
+// @ts-expect-error unsupported table-level text direction
+typedTable.textDirection = 'eaVert';
 typedTable.setColumnWidths(inches(2));
 typedTable.setColumnWidths([inches(1.5), inches(2.5)]);
 typedTable.setRowHeights(inches(1));
@@ -10545,7 +10784,7 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
   invalidChartValues, typedSimpleBackground, typedImageBackground, typedSlideBackground,
   typedSlideBackgroundOptions, typedBackgroundSlide, typedBackgroundPromise,
   typedRasterContentType, typedRasterOptions, typedRasterImage,
-  invalidRasterSvg, invalidRasterMissingType, invalidRasterPath, invalidRasterData, typedSvgContentType, typedImageContentType, typedSvgInfo, typedImageInfo, typedCropRegion, typedImageSizing, typedImageSizingResult, typedImageSource, typedImageChunk, typedImageStream, typedImageSourceOptions, typedResolvedImage, typedSvgOptions, typedSvgImage, typedHighLevelSvgImage, typedMediaKind, typedMediaChunk, typedMediaStream, typedMediaSources, typedPlayback, typedMediaOptions, typedMediaPromise, typedVideoPromise, typedReplaceMediaSourceOptions, typedReplaceMediaPosterOptions, typedMediaLifecycle, invalidMediaKind, invalidMediaName, invalidMediaPoster, invalidMediaPlayback, invalidMediaTranscode, invalidMediaSource, invalidMediaSourceReplacement, invalidMediaPosterReplacement, invalidLowLevelSvgOptions, invalidSvgFallback, addSectionOptions, typedSection, addSlideOptions, sectionSnapshot, typedVisibilitySlide, hiddenSnapshot, globalRtl, globalRtlSnapshot, titledDocument, titleSnapshot, authoredDocument, authorSnapshot, lastModifiedDocument, lastModifiedSnapshot, createdAtDocument, createdAtSnapshot, modifiedAtDocument, modifiedAtSnapshot, subjectDocument, subjectSnapshot, revisionDocument, revisionSnapshot, companyDocument, companySnapshot, themedDocument, themeSnapshot, fontSnapshot, fontUpdate, customDocument, createdText, creationBorder, creationMargin, creationOptions, objectCell, tableRows, tableOptions, typedTable, widthSnapshot, heightSnapshot, typedTableVerticalAlignment, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotHorizontalAlignment, tableHorizontalAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellHorizontalAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
+  invalidRasterSvg, invalidRasterMissingType, invalidRasterPath, invalidRasterData, typedSvgContentType, typedImageContentType, typedSvgInfo, typedImageInfo, typedCropRegion, typedImageSizing, typedImageSizingResult, typedImageSource, typedImageChunk, typedImageStream, typedImageSourceOptions, typedResolvedImage, typedSvgOptions, typedSvgImage, typedHighLevelSvgImage, typedMediaKind, typedMediaChunk, typedMediaStream, typedMediaSources, typedPlayback, typedMediaOptions, typedMediaPromise, typedVideoPromise, typedReplaceMediaSourceOptions, typedReplaceMediaPosterOptions, typedMediaLifecycle, invalidMediaKind, invalidMediaName, invalidMediaPoster, invalidMediaPlayback, invalidMediaTranscode, invalidMediaSource, invalidMediaSourceReplacement, invalidMediaPosterReplacement, invalidLowLevelSvgOptions, invalidSvgFallback, addSectionOptions, typedSection, addSlideOptions, sectionSnapshot, typedVisibilitySlide, hiddenSnapshot, globalRtl, globalRtlSnapshot, titledDocument, titleSnapshot, authoredDocument, authorSnapshot, lastModifiedDocument, lastModifiedSnapshot, createdAtDocument, createdAtSnapshot, modifiedAtDocument, modifiedAtSnapshot, subjectDocument, subjectSnapshot, revisionDocument, revisionSnapshot, companyDocument, companySnapshot, themedDocument, themeSnapshot, fontSnapshot, fontUpdate, customDocument, createdText, creationBorder, creationMargin, creationOptions, objectCell, tableRows, tableOptions, typedTable, widthSnapshot, heightSnapshot, typedTableVerticalAlignment, typedTableTextDirection, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotHorizontalAlignment, tableHorizontalAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellHorizontalAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
 `,
   );
   run(
@@ -10603,6 +10842,11 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
   if (!apiChecks.tableVerticalAlignment) {
     throw new Error(
       `Table vertical alignment smoke failed: ${JSON.stringify(apiChecks.tableVerticalAlignmentState)}`,
+    );
+  }
+  if (!apiChecks.tableTextDirection) {
+    throw new Error(
+      `Table text direction smoke failed: ${JSON.stringify(apiChecks.tableTextDirectionState)}`,
     );
   }
   if (!apiChecks.schemeColors) {
@@ -10746,6 +10990,66 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
       /<a:bodyPr\b[^>]*\sanchor=/.test(tableVerticalAlignmentPart)) {
     throw new Error(
       `CLI table vertical-alignment part inspection failed: ${tableVerticalAlignmentPartResult.stdout}`,
+    );
+  }
+  const tableTextDirectionDeckPath = join(
+    directory,
+    'table-text-direction-smoke.pptx',
+  );
+  const tableTextDirectionValidateResult = run(
+    bin,
+    [
+      '--json', 'package', 'validate', tableTextDirectionDeckPath,
+      '--profile', 'powerpoint-2010',
+    ],
+    directory,
+  );
+  const tableTextDirectionValidated = JSON.parse(
+    tableTextDirectionValidateResult.stdout,
+  );
+  if (!tableTextDirectionValidated.ok ||
+      !tableTextDirectionValidated.data?.valid ||
+      tableTextDirectionValidated.data.errorCount !== 0 ||
+      tableTextDirectionValidated.data.warningCount !== 0) {
+    throw new Error(
+      `CLI table text-direction validation failed: ${tableTextDirectionValidateResult.stdout}`,
+    );
+  }
+  const tableTextDirectionSlidesResult = run(
+    bin,
+    ['--json', 'slides', 'list', tableTextDirectionDeckPath],
+    directory,
+  );
+  const tableTextDirectionSlides = JSON.parse(
+    tableTextDirectionSlidesResult.stdout,
+  );
+  if (!tableTextDirectionSlides.ok ||
+      tableTextDirectionSlides.data?.length !== 1 ||
+      tableTextDirectionSlides.data[0]?.shapeCount !== 1) {
+    throw new Error(
+      `CLI table text-direction slide listing failed: ${tableTextDirectionSlidesResult.stdout}`,
+    );
+  }
+  const tableTextDirectionPartResult = run(
+    bin,
+    [
+      '--json', 'part', 'read', tableTextDirectionDeckPath,
+      tableTextDirectionSlides.data[0].partUri,
+    ],
+    directory,
+  );
+  const tableTextDirectionPart = JSON.parse(
+    tableTextDirectionPartResult.stdout,
+  ).data?.content ?? '';
+  const tableTextDirectionTokens = [
+    ...tableTextDirectionPart.matchAll(/<a:tcPr\b[^>]*\svert="([^"]+)"/g),
+  ].map((match) => match[1]);
+  if (!tableTextDirectionPart.includes('<a:tbl>') ||
+      tableTextDirectionTokens.length !== 4 ||
+      tableTextDirectionTokens.some((direction) => direction !== 'vert') ||
+      /<a:bodyPr\b[^>]*\svert=/.test(tableTextDirectionPart)) {
+    throw new Error(
+      `CLI table text-direction part inspection failed: ${tableTextDirectionPartResult.stdout}`,
     );
   }
   const masterLayoutDeckPath = join(directory, 'master-layout-smoke.pptx');
@@ -11987,7 +12291,7 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
   }
 
   process.stdout.write(
-    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presentationVersion: apiChecks.presentationVersion, presentationVersionState, presentationLayouts: apiChecks.presentationLayouts, presentationLayoutState: apiChecks.presentationLayoutState, horizontalAlignments: apiChecks.horizontalAlignments, horizontalAlignmentState: apiChecks.horizontalAlignmentState, verticalAlignments: apiChecks.verticalAlignments, verticalAlignmentState: apiChecks.verticalAlignmentState, tableVerticalAlignment: apiChecks.tableVerticalAlignment, tableVerticalAlignmentState: apiChecks.tableVerticalAlignmentState, schemeColors: apiChecks.schemeColors, schemeColorState: apiChecks.schemeColorState, outputTypes: apiChecks.outputTypes, outputTypeState: apiChecks.outputTypeState, writeOutputTypes: apiChecks.writeOutputTypes, writeOutputTypeState: apiChecks.writeOutputTypeState, nodeReadableStream: apiChecks.nodeReadableStream, nodeReadableStreamState: apiChecks.nodeReadableStreamState, masterLayouts: apiChecks.masterLayouts, slideNumbers: apiChecks.slideNumbers, slideDefaultColor: apiChecks.slideDefaultColor, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, textShapeFills: apiChecks.textShapeFills, textShapeLines: apiChecks.textShapeLines, textShapeArrows: apiChecks.textShapeArrows, textShapeShadows: apiChecks.textShapeShadows, textShapeHyperlinks: apiChecks.textShapeHyperlinks, textShapePresetGeometry: apiChecks.textShapePresetGeometry, textShapeRectRadius: apiChecks.textShapeRectRadius, textShapeIsTextBox: apiChecks.textShapeIsTextBox, richTextBreakLine: apiChecks.richTextBreakLine, richTextRunHyperlinks: apiChecks.richTextRunHyperlinks, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, slideBackgrounds: apiChecks.slideBackgrounds, types: true, cli: doctor.data.version, presentationLayoutInspect: true, horizontalAlignmentInspect: true, verticalAlignmentInspect: true, tableVerticalAlignmentInspect: true, masterLayoutInspect: true, masterLayoutValidate: true, masterLayoutSlides: true, masterLayoutPartRead: true, masterLayoutDiff: true, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true, slideBackgroundInspect: true, slideBackgroundValidate: true, slideNumberInspect: true, slideNumberValidate: true, slideNumberSlides: true, slideNumberPartRead: true, slideDefaultColorInspect: true, slideDefaultColorValidate: true, slideDefaultColorSlides: true, slideDefaultColorPartRead: true, textShapeFillInspect: true, textShapeFillValidate: true, textShapeFillSlides: true, textShapeFillPartRead: true, textShapeLineInspect: true, textShapeLineValidate: true, textShapeLineSlides: true, textShapeLinePartRead: true, textShapeArrowInspect: true, textShapeArrowValidate: true, textShapeArrowSlides: true, textShapeArrowPartRead: true, textShapeShadowInspect: true, textShapeShadowValidate: true, textShapeShadowSlides: true, textShapeShadowPartRead: true, textShapeHyperlinkInspect: true, textShapeHyperlinkValidate: true, textShapeHyperlinkSlides: true, textShapeHyperlinkPartRead: true, textShapeHyperlinkInternalValidate: true, textShapePresetGeometryValidate: true, textShapePresetGeometrySlides: true, textShapePresetGeometryPartRead: true, textShapeRectRadiusValidate: true, textShapeRectRadiusSlides: true, textShapeRectRadiusPartRead: true, textShapeIsTextBoxValidate: true, textShapeIsTextBoxSlides: true, textShapeIsTextBoxPartRead: true, textShapeIsTextBoxLayoutPartRead: true, textShapeIsTextBoxMasterPartRead: true, richTextRunHyperlinkInspect: true, richTextRunHyperlinkValidate: true, richTextRunHyperlinkSlides: true, richTextRunHyperlinkPartRead: true, richTextRunHyperlinkInternalValidate: true, richTextBreakLineValidate: true, richTextBreakLineSlides: true, richTextBreakLinePartRead: true })}\n`,
+    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presentationVersion: apiChecks.presentationVersion, presentationVersionState, presentationLayouts: apiChecks.presentationLayouts, presentationLayoutState: apiChecks.presentationLayoutState, horizontalAlignments: apiChecks.horizontalAlignments, horizontalAlignmentState: apiChecks.horizontalAlignmentState, verticalAlignments: apiChecks.verticalAlignments, verticalAlignmentState: apiChecks.verticalAlignmentState, tableVerticalAlignment: apiChecks.tableVerticalAlignment, tableVerticalAlignmentState: apiChecks.tableVerticalAlignmentState, tableTextDirection: apiChecks.tableTextDirection, tableTextDirectionState: apiChecks.tableTextDirectionState, schemeColors: apiChecks.schemeColors, schemeColorState: apiChecks.schemeColorState, outputTypes: apiChecks.outputTypes, outputTypeState: apiChecks.outputTypeState, writeOutputTypes: apiChecks.writeOutputTypes, writeOutputTypeState: apiChecks.writeOutputTypeState, nodeReadableStream: apiChecks.nodeReadableStream, nodeReadableStreamState: apiChecks.nodeReadableStreamState, masterLayouts: apiChecks.masterLayouts, slideNumbers: apiChecks.slideNumbers, slideDefaultColor: apiChecks.slideDefaultColor, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, textShapeFills: apiChecks.textShapeFills, textShapeLines: apiChecks.textShapeLines, textShapeArrows: apiChecks.textShapeArrows, textShapeShadows: apiChecks.textShapeShadows, textShapeHyperlinks: apiChecks.textShapeHyperlinks, textShapePresetGeometry: apiChecks.textShapePresetGeometry, textShapeRectRadius: apiChecks.textShapeRectRadius, textShapeIsTextBox: apiChecks.textShapeIsTextBox, richTextBreakLine: apiChecks.richTextBreakLine, richTextRunHyperlinks: apiChecks.richTextRunHyperlinks, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, slideBackgrounds: apiChecks.slideBackgrounds, types: true, cli: doctor.data.version, presentationLayoutInspect: true, horizontalAlignmentInspect: true, verticalAlignmentInspect: true, tableVerticalAlignmentInspect: true, tableTextDirectionInspect: true, masterLayoutInspect: true, masterLayoutValidate: true, masterLayoutSlides: true, masterLayoutPartRead: true, masterLayoutDiff: true, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true, slideBackgroundInspect: true, slideBackgroundValidate: true, slideNumberInspect: true, slideNumberValidate: true, slideNumberSlides: true, slideNumberPartRead: true, slideDefaultColorInspect: true, slideDefaultColorValidate: true, slideDefaultColorSlides: true, slideDefaultColorPartRead: true, textShapeFillInspect: true, textShapeFillValidate: true, textShapeFillSlides: true, textShapeFillPartRead: true, textShapeLineInspect: true, textShapeLineValidate: true, textShapeLineSlides: true, textShapeLinePartRead: true, textShapeArrowInspect: true, textShapeArrowValidate: true, textShapeArrowSlides: true, textShapeArrowPartRead: true, textShapeShadowInspect: true, textShapeShadowValidate: true, textShapeShadowSlides: true, textShapeShadowPartRead: true, textShapeHyperlinkInspect: true, textShapeHyperlinkValidate: true, textShapeHyperlinkSlides: true, textShapeHyperlinkPartRead: true, textShapeHyperlinkInternalValidate: true, textShapePresetGeometryValidate: true, textShapePresetGeometrySlides: true, textShapePresetGeometryPartRead: true, textShapeRectRadiusValidate: true, textShapeRectRadiusSlides: true, textShapeRectRadiusPartRead: true, textShapeIsTextBoxValidate: true, textShapeIsTextBoxSlides: true, textShapeIsTextBoxPartRead: true, textShapeIsTextBoxLayoutPartRead: true, textShapeIsTextBoxMasterPartRead: true, richTextRunHyperlinkInspect: true, richTextRunHyperlinkValidate: true, richTextRunHyperlinkSlides: true, richTextRunHyperlinkPartRead: true, richTextRunHyperlinkInternalValidate: true, richTextBreakLineValidate: true, richTextBreakLineSlides: true, richTextBreakLinePartRead: true })}\n`,
   );
 } finally {
   await rm(directory, { recursive: true, force: true });

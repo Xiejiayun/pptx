@@ -82,6 +82,13 @@ if (!tableModelDeclaration.includes(
 )) {
   throw new Error('Packed TableModel declaration is missing table-level vertical alignment');
 }
+if (!tableModelDeclaration.includes(
+  'get textDirection(): TableCellTextDirection | undefined;',
+) || !tableModelDeclaration.includes(
+  'set textDirection(value: TableCellTextDirection | undefined);',
+)) {
+  throw new Error('Packed TableModel declaration is missing table-level text direction');
+}
 
 await writeFile(
   join(outputRoot, 'index.d.ts'),

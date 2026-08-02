@@ -237,6 +237,124 @@ async (page) => {
           failureIsolation: true,
           validationErrors: 0,
         });
+      const tableTextDirectionDocument = api.PptxDocument.create();
+      const tableTextDirectionSlide = tableTextDirectionDocument.addSlide();
+      const tableTextDirectionTable = tableTextDirectionSlide.addTable([
+        ['North', 'South'],
+        ['East', 'West'],
+      ], { name: 'Chrome table text direction', textDirection: 'vert270' });
+      const tableTextDirectionPart = () => tableTextDirectionDocument.opcPackage
+        .requirePart(tableTextDirectionSlide.partUri).bytes;
+      const tableTextDirectionBytesEqual = (left, right) =>
+        left.byteLength === right.byteLength &&
+        left.every((value, index) => value === right[index]);
+      const tableTextDirectionReadBytes = tableTextDirectionPart().slice();
+      const tableTextDirectionReadJournal = JSON.stringify(
+        tableTextDirectionDocument.opcPackage.mutations,
+      );
+      const tableTextDirectionUniform = tableTextDirectionTable.textDirection;
+      const tableTextDirectionReadIsolation = tableTextDirectionBytesEqual(
+        tableTextDirectionReadBytes,
+        tableTextDirectionPart(),
+      ) && JSON.stringify(tableTextDirectionDocument.opcPackage.mutations) ===
+        tableTextDirectionReadJournal;
+      const tableTextDirectionNoOpBytes = tableTextDirectionPart().slice();
+      const tableTextDirectionNoOpJournal = JSON.stringify(
+        tableTextDirectionDocument.opcPackage.mutations,
+      );
+      tableTextDirectionTable.textDirection = 'vert270';
+      const tableTextDirectionNoOp = tableTextDirectionBytesEqual(
+        tableTextDirectionNoOpBytes,
+        tableTextDirectionPart(),
+      ) && JSON.stringify(tableTextDirectionDocument.opcPackage.mutations) ===
+        tableTextDirectionNoOpJournal;
+      tableTextDirectionTable.setCellTextDirection(0, 1, 'vert');
+      const tableTextDirectionMixed = tableTextDirectionTable.textDirection ?? null;
+      tableTextDirectionTable.textDirection = 'wordArtVert';
+      const tableTextDirectionOverwritten = tableTextDirectionTable.textDirection;
+      const tableTextDirectionOverwrittenCells = tableTextDirectionTable.rows
+        .flatMap(({ cells }) => cells.map(({ textDirection }) => textDirection ?? null));
+      tableTextDirectionTable.textDirection = 'horz';
+      const tableTextDirectionHorizontal = tableTextDirectionTable.textDirection;
+      const tableTextDirectionHorizontalCells = tableTextDirectionTable.rows
+        .flatMap(({ cells }) => cells.map(({ textDirection }) => textDirection ?? null));
+      tableTextDirectionTable.textDirection = undefined;
+      const tableTextDirectionCleared = tableTextDirectionTable.textDirection ?? null;
+      const tableTextDirectionClearedCells = tableTextDirectionTable.rows
+        .flatMap(({ cells }) => cells.map(({ textDirection }) => textDirection ?? null));
+      const tableTextDirectionInvalidBytes = tableTextDirectionPart().slice();
+      const tableTextDirectionInvalidJournal = JSON.stringify(
+        tableTextDirectionDocument.opcPackage.mutations,
+      );
+      let tableTextDirectionInvalidError;
+      try {
+        tableTextDirectionTable.textDirection = 'eaVert';
+      } catch (error) {
+        tableTextDirectionInvalidError = {
+          name: error.name,
+          message: error.message,
+        };
+      }
+      const tableTextDirectionFailureIsolation = tableTextDirectionBytesEqual(
+        tableTextDirectionInvalidBytes,
+        tableTextDirectionPart(),
+      ) && JSON.stringify(tableTextDirectionDocument.opcPackage.mutations) ===
+        tableTextDirectionInvalidJournal;
+      tableTextDirectionTable.textDirection = 'vert';
+      const reopenedTableTextDirectionDocument = await api.PptxDocument.open(
+        await tableTextDirectionDocument.writeBlob(),
+      );
+      const reopenedTableTextDirectionTable = reopenedTableTextDirectionDocument
+        .slides[0].shapes.find(
+          (shape) => shape.name === 'Chrome table text direction',
+        );
+      const tableTextDirectionState = {
+        uniform: tableTextDirectionUniform,
+        readIsolation: tableTextDirectionReadIsolation,
+        noOp: tableTextDirectionNoOp,
+        mixed: tableTextDirectionMixed,
+        overwritten: tableTextDirectionOverwritten,
+        overwrittenCells: tableTextDirectionOverwrittenCells,
+        horizontal: tableTextDirectionHorizontal,
+        horizontalCells: tableTextDirectionHorizontalCells,
+        cleared: tableTextDirectionCleared,
+        clearedCells: tableTextDirectionClearedCells,
+        reopened: reopenedTableTextDirectionTable instanceof api.TableModel
+          ? reopenedTableTextDirectionTable.textDirection ?? null
+          : null,
+        reopenedCells: reopenedTableTextDirectionTable instanceof api.TableModel
+          ? reopenedTableTextDirectionTable.rows.flatMap(({ cells }) => cells.map(
+            ({ textDirection }) => textDirection ?? null,
+          ))
+          : [],
+        invalidError: tableTextDirectionInvalidError,
+        failureIsolation: tableTextDirectionFailureIsolation,
+        validationErrors: tableTextDirectionDocument.diagnostics
+          .filter(({ severity }) => severity === 'error').length +
+          reopenedTableTextDirectionDocument.diagnostics
+            .filter(({ severity }) => severity === 'error').length,
+      };
+      const tableTextDirection = JSON.stringify(tableTextDirectionState) ===
+        JSON.stringify({
+          uniform: 'vert270',
+          readIsolation: true,
+          noOp: true,
+          mixed: null,
+          overwritten: 'wordArtVert',
+          overwrittenCells: ['wordArtVert', 'wordArtVert', 'wordArtVert', 'wordArtVert'],
+          horizontal: 'horz',
+          horizontalCells: ['horz', 'horz', 'horz', 'horz'],
+          cleared: null,
+          clearedCells: [null, null, null, null],
+          reopened: 'vert',
+          reopenedCells: ['vert', 'vert', 'vert', 'vert'],
+          invalidError: {
+            name: 'TypeError',
+            message: 'Table text direction must be horz, vert, vert270, or wordArtVert',
+          },
+          failureIsolation: true,
+          validationErrors: 0,
+        });
       const schemeColorIsolationDocument = api.PptxDocument.create();
       const schemeColorIsolationJournal = JSON.stringify(
         schemeColorIsolationDocument.opcPackage.mutations,
@@ -2577,6 +2695,8 @@ async (page) => {
         verticalAlignmentState,
         tableVerticalAlignment,
         tableVerticalAlignmentState,
+        tableTextDirection,
+        tableTextDirectionState,
         schemeColors,
         schemeColorState,
         outputTypes,
@@ -2799,6 +2919,27 @@ async (page) => {
       invalidError: {
         name: 'TypeError',
         message: 'Table vertical alignment must be top, middle, or bottom',
+      },
+      failureIsolation: true,
+      validationErrors: 0,
+    },
+    tableTextDirection: true,
+    tableTextDirectionState: {
+      uniform: 'vert270',
+      readIsolation: true,
+      noOp: true,
+      mixed: null,
+      overwritten: 'wordArtVert',
+      overwrittenCells: ['wordArtVert', 'wordArtVert', 'wordArtVert', 'wordArtVert'],
+      horizontal: 'horz',
+      horizontalCells: ['horz', 'horz', 'horz', 'horz'],
+      cleared: null,
+      clearedCells: [null, null, null, null],
+      reopened: 'vert',
+      reopenedCells: ['vert', 'vert', 'vert', 'vert'],
+      invalidError: {
+        name: 'TypeError',
+        message: 'Table text direction must be horz, vert, vert270, or wordArtVert',
       },
       failureIsolation: true,
       validationErrors: 0,
