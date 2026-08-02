@@ -5704,6 +5704,270 @@ describe('importPptxGenJS', () => {
     expect(reopenedXml).toContain('<a:tailEnd type="stealth"/>');
   });
 
+  it('compares text shape hyperlink public output and strict native divergences', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    const generatedSlide = generated.addSlide();
+    generatedSlide.addText('Plain URL', {
+      objectName: 'Plain URL',
+      x: 1,
+      y: 1,
+      w: 2,
+      h: 1,
+      hyperlink: { url: 'https://example.com/path?a=1&b=2' },
+    });
+    generatedSlide.addText('First\nSecond', {
+      objectName: 'Multiline URL',
+      x: 1,
+      y: 2,
+      w: 2,
+      h: 1,
+      color: '123ABC',
+      hyperlink: { url: 'mailto:test@example.com', tooltip: 'Mail & help' },
+    });
+    generatedSlide.addText('Internal slide', {
+      objectName: 'Internal slide',
+      x: 1,
+      y: 3,
+      w: 2,
+      h: 1,
+      hyperlink: { slide: 2 },
+    });
+    generatedSlide.addText([
+      {
+        text: 'Run one',
+        options: { hyperlink: { url: 'https://one.example/path' } },
+      },
+      {
+        text: 'Run two',
+        options: {
+          color: '00AA00',
+          underline: false,
+          hyperlink: { slide: 2, tooltip: 'Run & two' },
+        },
+      },
+    ], {
+      objectName: 'Rich per-run',
+      x: 1,
+      y: 4,
+      w: 3,
+      h: 1,
+    });
+    generated.addSlide();
+
+    const imported = await openPptxGenJSPublicOutput(generated);
+    const importedSlide = imported.slides[0]!;
+    const importedShapes = new Map(importedSlide.shapes.map((shape) => [
+      shape.name,
+      shape as ShapeModel,
+    ]));
+    const clickAttributes = (xml: string) => [...xml.matchAll(
+      /<a:hlinkClick\b([^>]*)>/g,
+    )].map((match) => match[1]!);
+    const clickIds = (xml: string) => clickAttributes(xml).map((attributes) =>
+      attributes.match(/\br:id="([^"]+)"/)?.[1]);
+    const nonVisualXml = (xml: string) => xml.slice(0, xml.indexOf('</p:nvSpPr>'));
+    const relationship = (id: string | undefined) =>
+      importedSlide.relationships.find((candidate) => candidate.id === id);
+
+    const plain = importedShapes.get('Plain URL')!;
+    const plainXml = shapeXml(imported, 0, plain.id);
+    const plainClicks = clickAttributes(plainXml);
+    const plainIds = clickIds(plainXml);
+    expect(plain.hyperlink).toEqual({
+      url: 'https://example.com/path?a=1&b=2',
+      tooltip: '',
+    });
+    expect(plainClicks).toHaveLength(2);
+    expect(new Set(plainIds).size).toBe(1);
+    expect(clickAttributes(nonVisualXml(plainXml))).toHaveLength(1);
+    expect(plainClicks.every((attributes) => attributes.includes('tooltip=""'))).toBe(true);
+    expect(plainXml).toMatch(/<a:rPr\b[^>]*\bu="sng"[^>]*>[\s\S]*?<a:hlinkClick/);
+    expect(relationship(plainIds[0])).toMatchObject({
+      type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink',
+      target: 'https://example.com/path?a=1&b=2',
+      targetMode: 'External',
+    });
+
+    const multiline = importedShapes.get('Multiline URL')!;
+    const multilineXml = shapeXml(imported, 0, multiline.id);
+    const multilineClicks = clickAttributes(multilineXml);
+    const multilineIds = clickIds(multilineXml);
+    expect(multilineClicks).toHaveLength(3);
+    expect(new Set(multilineIds).size).toBe(1);
+    expect(clickAttributes(nonVisualXml(multilineXml))).toHaveLength(1);
+    expect(multilineClicks.every(
+      (attributes) => attributes.includes('tooltip="Mail &amp; help"'),
+    )).toBe(true);
+    expect(relationship(multilineIds[0])).toMatchObject({
+      type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink',
+      target: 'mailto:test@example.com',
+      targetMode: 'External',
+    });
+
+    const internal = importedShapes.get('Internal slide')!;
+    const internalXml = shapeXml(imported, 0, internal.id);
+    const internalClicks = clickAttributes(internalXml);
+    const internalIds = clickIds(internalXml);
+    expect(internal.hyperlink).toEqual({ slide: 2, tooltip: '' });
+    expect(internalClicks).toHaveLength(2);
+    expect(new Set(internalIds).size).toBe(1);
+    expect(internalClicks.every(
+      (attributes) => attributes.includes('action="ppaction://hlinksldjump"'),
+    )).toBe(true);
+    expect(relationship(internalIds[0])).toMatchObject({
+      type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide',
+      target: 'slide2.xml',
+      targetMode: 'Internal',
+    });
+
+    const richPerRun = importedShapes.get('Rich per-run')!;
+    const richPerRunXml = shapeXml(imported, 0, richPerRun.id);
+    const richPerRunClicks = clickAttributes(richPerRunXml);
+    const richPerRunIds = clickIds(richPerRunXml);
+    expect(richPerRun.hyperlink).toBeUndefined();
+    expect(clickAttributes(nonVisualXml(richPerRunXml))).toEqual([]);
+    expect(richPerRunClicks).toHaveLength(2);
+    expect(new Set(richPerRunIds).size).toBe(2);
+    expect(relationship(richPerRunIds[0])).toMatchObject({
+      type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink',
+      target: 'https://one.example/path',
+      targetMode: 'External',
+    });
+    expect(relationship(richPerRunIds[1])).toMatchObject({
+      type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide',
+      target: 'slide2.xml',
+      targetMode: 'Internal',
+    });
+    expect(richPerRunClicks[1]).toContain('tooltip="Run &amp; two"');
+    expect(richPerRunClicks[1]).toContain('action="ppaction://hlinksldjump"');
+
+    const brokenGenerated = new PptxGenJS();
+    const brokenSlide = brokenGenerated.addSlide();
+    brokenSlide.addText([
+      { text: 'Rich outer one', options: { bold: true } },
+      { text: ' two', options: { color: '00AA00', underline: false } },
+    ], {
+      objectName: 'Rich outer',
+      x: 1,
+      y: 1,
+      w: 3,
+      h: 1,
+      hyperlink: { url: 'https://outer.example/path' },
+    });
+    const broken = await openPptxGenJSPublicOutput(brokenGenerated);
+    const brokenShapeXml = [...slideXml(broken, 0).matchAll(
+      /<p:sp(?:\s[^>]*)?>[\s\S]*?<\/p:sp>/g,
+    )].map((match) => match[0]).find((xml) => xml.includes('name="Rich outer"'))!;
+    const brokenClicks = clickAttributes(brokenShapeXml);
+    expect(brokenClicks).toHaveLength(3);
+    expect(brokenClicks.every(
+      (attributes) => attributes.includes('r:id="rIdundefined"'),
+    )).toBe(true);
+    expect(broken.slides[0]!.relationships.filter(
+      ({ type }) => type.endsWith('/hyperlink') || type.endsWith('/slide'),
+    )).toEqual([]);
+
+    const native = PptxDocument.create();
+    const nativeSlide = native.addSlide();
+    native.addSlide();
+    const nativePlain = nativeSlide.addText('Plain URL', {
+      name: 'Plain URL',
+      x: inches(1),
+      y: inches(1),
+      width: inches(2),
+      height: inches(1),
+      hyperlink: { url: 'https://example.com/path?a=1&b=2' },
+    });
+    const nativeMultiline = nativeSlide.addText('First\nSecond', {
+      name: 'Multiline URL',
+      x: inches(1),
+      y: inches(2),
+      width: inches(2),
+      height: inches(1),
+      hyperlink: { url: 'mailto:test@example.com', tooltip: 'Mail & help' },
+    });
+    const nativeInternal = nativeSlide.addText('Internal slide', {
+      name: 'Internal slide',
+      x: inches(1),
+      y: inches(3),
+      width: inches(2),
+      height: inches(1),
+      hyperlink: { slide: 2 },
+    });
+    const nativeRichOuter = nativeSlide.addRichText([{
+      runs: [
+        { text: 'Rich outer one', style: { bold: true } },
+        {
+          text: ' two',
+          style: {
+            color: { kind: 'srgb', value: '00AA00' },
+            underline: false,
+          },
+        },
+      ],
+    }], {
+      name: 'Rich outer',
+      x: inches(1),
+      y: inches(4),
+      width: inches(3),
+      height: inches(1),
+      hyperlink: { url: 'https://outer.example/path' },
+    });
+
+    for (const [generatedShape, nativeShape] of [
+      [plain, nativePlain],
+      [multiline, nativeMultiline],
+      [internal, nativeInternal],
+    ] as const) {
+      expect(nativeShape.name).toBe(generatedShape.name);
+      expect(nativeShape.text).toBe(generatedShape.text);
+      expect(nativeShape.transform).toEqual(generatedShape.transform);
+      const nativeXml = shapeXml(native, 0, nativeShape.id);
+      expect(clickAttributes(nativeXml)).toHaveLength(clickAttributes(
+        shapeXml(imported, 0, generatedShape.id),
+      ).length);
+      expect(new Set(clickIds(nativeXml)).size).toBe(1);
+    }
+    expect(nativePlain.hyperlink).toEqual({ url: 'https://example.com/path?a=1&b=2' });
+    expect(nativeInternal.hyperlink).toEqual({ slide: 2 });
+    expect(nativeRichOuter.hyperlink).toEqual({ url: 'https://outer.example/path' });
+    const nativeRichOuterXml = shapeXml(native, 0, nativeRichOuter.id);
+    const nativeRichOuterIds = clickIds(nativeRichOuterXml);
+    expect(nativeRichOuterIds).toHaveLength(3);
+    expect(new Set(nativeRichOuterIds).size).toBe(1);
+    expect(nativeRichOuterXml).not.toContain('rIdundefined');
+    expect(nativeRichOuterXml).toMatch(/<a:rPr\b[^>]*\bu="sng"[^>]*>/);
+    expect(nativeRichOuterXml).toMatch(/<a:rPr\b[^>]*\bu="none"[^>]*>/);
+    expect(nativeSlide.relationships.find(
+      ({ id }) => id === nativeRichOuterIds[0],
+    )).toMatchObject({
+      type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink',
+      target: 'https://outer.example/path',
+      targetMode: 'External',
+    });
+
+    const beforeInvalid = packageState(native);
+    const shapeCount = nativeSlide.shapes.length;
+    for (const hyperlink of [
+      {},
+      { url: '' },
+      { url: 'https://example.com', slide: 2 },
+      { slide: 99 },
+      { url: 42 },
+      { slide: '2' },
+    ]) {
+      expect(() => nativeSlide.addText('Invalid text hyperlink', {
+        hyperlink,
+      } as never)).toThrow();
+      expect(() => nativeSlide.addRichText([{ runs: [{ text: 'Invalid rich link' }] }], {
+        hyperlink,
+      } as never)).toThrow();
+      expect(packageState(native)).toEqual(beforeInvalid);
+      expect(nativeSlide.shapes).toHaveLength(shapeCount);
+    }
+  });
+
   it('compares shape hyperlink public output and strict native divergences', async () => {
     const generated = new PptxGenJS();
     expect(generated.version).toBe('4.0.1');
