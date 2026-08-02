@@ -4097,6 +4097,285 @@ describe('importPptxGenJS', () => {
     ) as ShapeModel).presetType).toBe('foldedCorner');
   });
 
+  it('compares supported text shape rectangle radius public output', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    const generatedSlide = generated.addSlide();
+    const fixtures = [
+      {
+        name: 'Radius two by one',
+        radius: 0.5,
+        width: 2,
+        height: 1,
+        expected: 50_000,
+      },
+      {
+        name: 'Radius four by two',
+        radius: 0.5,
+        width: 4,
+        height: 2,
+        expected: 25_000,
+      },
+      {
+        name: 'Radius one inch',
+        radius: 1,
+        width: 4,
+        height: 2,
+        expected: 50_000,
+      },
+      {
+        name: 'Radius fractional',
+        radius: 0.333333,
+        width: 3,
+        height: 1.5,
+        expected: 22_222,
+      },
+    ] as const;
+
+    for (const [index, fixture] of fixtures.entries()) {
+      generatedSlide.addText(fixture.name, {
+        objectName: fixture.name,
+        x: 0.5,
+        y: 0.5 + index,
+        w: fixture.width,
+        h: fixture.height,
+        shape: generated.ShapeType.roundRect,
+        rectRadius: fixture.radius,
+      });
+    }
+
+    const imported = await openPptxGenJSPublicOutput(generated);
+    const importedByName = new Map(imported.slides[0]!.shapes.map((shape) => [
+      shape.name,
+      shape as ShapeModel,
+    ]));
+    const native = PptxDocument.create();
+    const nativeSlide = native.addSlide();
+    for (const fixture of fixtures) {
+      const importedShape = importedByName.get(fixture.name)!;
+      const nativeShape = nativeSlide.addText(fixture.name, {
+        name: fixture.name,
+        shape: 'roundRect',
+        rectRadius: inches(fixture.radius),
+        width: inches(fixture.width),
+        height: inches(fixture.height),
+      });
+      const expected = [{ name: 'adj', value: fixture.expected }];
+      expect(importedShape.presetType, fixture.name).toBe('roundRect');
+      expect(importedShape.text, fixture.name).toBe(fixture.name);
+      expect(importedShape.adjustments, fixture.name).toEqual(expected);
+      expect(nativeShape.presetType, fixture.name).toBe('roundRect');
+      expect(nativeShape.text, fixture.name).toBe(fixture.name);
+      expect(nativeShape.adjustments, fixture.name).toEqual(expected);
+      expect(directTextPresetGeometryState(
+        shapeXml(imported, 0, importedShape.id),
+      ), fixture.name).toEqual({
+        type: 'roundRect',
+        adjustments: [{ name: 'adj', formula: `val ${fixture.expected}` }],
+      });
+      expect(directTextPresetGeometryState(shapeXml(native, 0, nativeShape.id)), fixture.name)
+        .toEqual({
+          type: 'roundRect',
+          adjustments: [{ name: 'adj', formula: `val ${fixture.expected}` }],
+        });
+    }
+
+    const publicShapeXml = async (rectRadius?: number) => {
+      const presentation = new PptxGenJS();
+      presentation.addSlide().addText('Radius isolation', {
+        objectName: 'Radius isolation',
+        x: 1,
+        y: 1,
+        w: 4,
+        h: 2,
+        shape: presentation.ShapeType.roundRect,
+        ...(rectRadius === undefined ? {} : { rectRadius }),
+      });
+      const document = await openPptxGenJSPublicOutput(presentation);
+      return shapeXml(document, 0, document.slides[0]!.shapes[0]!.id);
+    };
+    const publicOmitted = await publicShapeXml();
+    const publicPositive = await publicShapeXml(0.5);
+    expect(publicPositive.replace(
+      '<a:avLst><a:gd name="adj" fmla="val 25000"/></a:avLst>',
+      '<a:avLst></a:avLst>',
+    )).toBe(publicOmitted);
+
+    const nativeShapeXml = (withRadius: boolean) => {
+      const document = PptxDocument.create();
+      const shape = document.addSlide().addRichText([{
+        runs: [
+          { text: 'Rounded', style: { hyperlink: { url: 'https://run.example' } } },
+          { text: ' isolation' },
+        ],
+      }], {
+        name: 'Radius isolation',
+        shape: 'roundRect',
+        ...(withRadius ? { rectRadius: inches(0.5) } : {}),
+        width: inches(4),
+        height: inches(2),
+        fill: { kind: 'solid', color: { kind: 'scheme', value: 'accent2' } },
+        line: {
+          kind: 'line',
+          color: { kind: 'srgb', value: '123ABC' },
+          width: 2,
+          dash: 'dashDot',
+        },
+        arrows: { begin: 'oval', end: 'triangle' },
+        shadow: { kind: 'outer', opacity: 0.5 },
+        hyperlink: { url: 'https://shape.example', tooltip: 'Shape' },
+        margin: 0,
+        valign: 'bottom',
+        vert: 'vert',
+        fit: 'shrink',
+        wrap: false,
+      });
+      return shapeXml(document, 0, shape.id);
+    };
+    const nativeOmitted = nativeShapeXml(false);
+    const nativePositive = nativeShapeXml(true);
+    expect(nativePositive.replace(
+      '<a:avLst><a:gd name="adj" fmla="val 25000"/></a:avLst>',
+      '<a:avLst/>',
+    )).toBe(nativeOmitted);
+  });
+
+  it('locks text shape rectangle radius upstream divergences and native strictness', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    const generatedSlide = generated.addSlide();
+    const generatedCases: readonly {
+      readonly name: string;
+      readonly shape: string;
+      readonly radius: unknown;
+      readonly expectedType: string;
+      readonly expectedFormula?: string;
+    }[] = [
+      {
+        name: 'Dropped zero radius',
+        shape: 'roundRect',
+        radius: 0,
+        expectedType: 'roundRect',
+      },
+      {
+        name: 'String radius coercion',
+        shape: 'roundRect',
+        radius: '0.5',
+        expectedType: 'roundRect',
+        expectedFormula: 'val 50000',
+      },
+      {
+        name: 'Negative radius passthrough',
+        shape: 'roundRect',
+        radius: -0.25,
+        expectedType: 'roundRect',
+        expectedFormula: 'val -25000',
+      },
+      {
+        name: 'Over range radius passthrough',
+        shape: 'roundRect',
+        radius: 1.5,
+        expectedType: 'roundRect',
+        expectedFormula: 'val 150000',
+      },
+      {
+        name: 'Dropped NaN radius',
+        shape: 'roundRect',
+        radius: Number.NaN,
+        expectedType: 'roundRect',
+      },
+      {
+        name: 'Infinite radius formula',
+        shape: 'roundRect',
+        radius: Number.POSITIVE_INFINITY,
+        expectedType: 'roundRect',
+        expectedFormula: 'val Infinity',
+      },
+      {
+        name: 'Negative infinite radius formula',
+        shape: 'roundRect',
+        radius: Number.NEGATIVE_INFINITY,
+        expectedType: 'roundRect',
+        expectedFormula: 'val -Infinity',
+      },
+      {
+        name: 'Rectangle radius passthrough',
+        shape: 'rect',
+        radius: 0.5,
+        expectedType: 'rect',
+        expectedFormula: 'val 50000',
+      },
+      {
+        name: 'Ellipse radius passthrough',
+        shape: 'ellipse',
+        radius: 0.5,
+        expectedType: 'ellipse',
+        expectedFormula: 'val 50000',
+      },
+    ];
+
+    for (const [index, fixture] of generatedCases.entries()) {
+      generatedSlide.addText(fixture.name, {
+        objectName: fixture.name,
+        x: 0.5,
+        y: 0.5 + index,
+        w: 2,
+        h: 1,
+        shape: fixture.shape,
+        rectRadius: fixture.radius,
+      });
+    }
+    const imported = await openPptxGenJSPublicOutput(generated);
+    const importedByName = new Map(imported.slides[0]!.shapes.map((shape) => [
+      shape.name,
+      shape as ShapeModel,
+    ]));
+    for (const fixture of generatedCases) {
+      const shape = importedByName.get(fixture.name)!;
+      expect(directTextPresetGeometryState(shapeXml(imported, 0, shape.id)), fixture.name)
+        .toEqual({
+          type: fixture.expectedType,
+          adjustments: fixture.expectedFormula === undefined
+            ? []
+            : [{ name: 'adj', formula: fixture.expectedFormula }],
+        });
+      if (fixture.expectedFormula?.includes('Infinity')) {
+        expect(shape.adjustments, fixture.name).toBeUndefined();
+      }
+    }
+
+    const native = PptxDocument.create();
+    const nativeSlide = native.addSlide();
+    const existing = nativeSlide.addText('Existing', { name: 'Existing' });
+    const explicitZero = nativeSlide.addText('Explicit zero radius', {
+      shape: 'roundRect',
+      rectRadius: inches(0),
+      width: inches(2),
+      height: inches(1),
+    });
+    expect(explicitZero.adjustments).toEqual([{ name: 'adj', value: 0 }]);
+    const beforeInvalid = packageState(native);
+    const beforeShapes = nativeSlide.shapes;
+    const invalid = [
+      { rectRadius: inches(0.5) },
+      { shape: 'rect', rectRadius: inches(0.5) },
+      { shape: 'ellipse', rectRadius: inches(0.5) },
+      { shape: 'roundRect', rectRadius: '0.5' },
+      { shape: 'roundRect', rectRadius: -1 },
+      { shape: 'roundRect', rectRadius: inches(1) + 1 },
+      { shape: 'roundRect', rectRadius: Number.NaN },
+      { shape: 'roundRect', rectRadius: Number.POSITIVE_INFINITY },
+      { shape: 'roundRect', rectRadius: Number.NEGATIVE_INFINITY },
+    ];
+    for (const options of invalid) {
+      expect(() => nativeSlide.addText('Invalid native radius', options as never)).toThrow();
+      expect(packageState(native)).toEqual(beforeInvalid);
+      expect(nativeSlide.shapes).toEqual(beforeShapes);
+      expect(nativeSlide.shapes[0]).toBe(existing);
+      expect(nativeSlide.shapes[1]).toBe(explicitZero);
+    }
+  });
+
   it('compares shape fill public output and strict native divergences', async () => {
     const generated = new PptxGenJS();
     expect(generated.version).toBe('4.0.1');
