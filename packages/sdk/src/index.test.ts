@@ -2686,6 +2686,302 @@ describe('PptxDocument vertical slice', () => {
     }
   });
 
+  it('creates text arrows across slide layout master and placeholder owners', async () => {
+    const document = PptxDocument.create();
+    const layout = document.layouts[0]!;
+    const master = document.masters[0]!;
+    const layoutText = layout.addText('Layout arrows', {
+      name: 'layout_arrows',
+      arrows: { begin: 'triangle' },
+    });
+    const masterText = master.addRichText([{ runs: [{ text: 'Master arrows' }] }], {
+      name: 'master_arrows',
+      arrows: { end: 'arrow' },
+    });
+    const layoutPlaceholder = layout.addPlaceholder('Layout prompt', {
+      name: 'title_arrows',
+      type: 'title',
+      index: 196,
+      x: inches(1),
+      y: inches(1),
+      width: inches(8),
+      height: inches(1),
+      arrows: { begin: 'none', end: 'stealth' },
+    });
+
+    expect(layout.shapes.find(({ id }) => id === layoutText.id)).toBe(layoutText);
+    expect(master.shapes.find(({ id }) => id === masterText.id)).toBe(masterText);
+    expect(layout.placeholders.find(({ id }) => id === layoutPlaceholder.id))
+      .toBe(layoutPlaceholder);
+    expect(layoutText.arrows).toEqual({ begin: 'triangle' });
+    expect(masterText.arrows).toEqual({ end: 'arrow' });
+    expect(layoutPlaceholder.arrows).toEqual({ begin: 'none', end: 'stealth' });
+
+    const slide = document.addSlide({ masterName: layout.name });
+    const materialized = slide.placeholders.find(({ name }) => name === 'title_arrows')!;
+    const materializedState = {
+      id: materialized.id,
+      name: materialized.name,
+      transform: materialized.transform,
+      placeholder: materialized.placeholder,
+    };
+    const populated = slide.addText('Populated arrows', {
+      placeholder: 'title_arrows',
+      line: {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent3' },
+        width: 2.5,
+        dash: 'dashDot',
+      },
+      arrows: { begin: 'diamond', end: 'oval' },
+    });
+    expect(populated).toBe(slide.shapes.find(({ id }) => id === materializedState.id));
+    expect({
+      id: populated.id,
+      name: populated.name,
+      transform: populated.transform,
+      placeholder: populated.placeholder,
+    }).toEqual(materializedState);
+    expect(populated.arrows).toEqual({ begin: 'diamond', end: 'oval' });
+    expect(populated.line).toEqual({
+      kind: 'line',
+      color: { kind: 'scheme', value: 'accent3' },
+      width: 2.5,
+      dash: 'dashDot',
+    });
+    expect(layoutPlaceholder.arrows).toEqual({ begin: 'none', end: 'stealth' });
+    expect(materialized).not.toBe(populated);
+
+    const declarative = await document.defineSlideMaster({
+      title: 'TEXT-ARROWS',
+      objects: [
+        {
+          kind: 'text',
+          text: 'Declarative text arrows',
+          options: {
+            name: 'declarative_text_arrows',
+            arrows: { begin: 'stealth', end: 'triangle' },
+          },
+        },
+        {
+          kind: 'placeholder',
+          text: 'Declarative prompt',
+          options: {
+            name: 'declarative_title_arrows',
+            type: 'title',
+            index: 197,
+            arrows: { begin: 'arrow', end: 'none' },
+          },
+        },
+      ],
+    });
+    const declarativeText = declarative.shapes.find(
+      ({ name }) => name === 'declarative_text_arrows',
+    ) as ShapeModel;
+    const declarativePlaceholder = declarative.placeholders.find(
+      ({ name }) => name === 'declarative_title_arrows',
+    )!;
+    expect(declarativeText.arrows).toEqual({ begin: 'stealth', end: 'triangle' });
+    expect(declarativePlaceholder.arrows).toEqual({ begin: 'arrow', end: 'none' });
+    const declarativeSlide = document.addSlide({ masterName: declarative.name });
+    const declarativePopulated = declarativeSlide.addText('Declarative populated', {
+      placeholder: 'declarative_title_arrows',
+      arrows: { end: 'diamond' },
+    });
+    expect(declarativePopulated.arrows).toEqual({ end: 'diamond' });
+    expect(declarativePlaceholder.arrows).toEqual({ begin: 'arrow', end: 'none' });
+
+    const duplicate = document.duplicateSlide(document.slides.indexOf(slide));
+    const duplicatePopulated = duplicate.shapes.find(
+      ({ name }) => name === populated.name,
+    ) as ShapeModel;
+    duplicatePopulated.arrows = { begin: 'triangle' };
+    expect(duplicatePopulated.arrows).toEqual({ begin: 'triangle' });
+    expect(populated.arrows).toEqual({ begin: 'diamond', end: 'oval' });
+
+    const beforeRollbackShapes = [...slide.shapes];
+    let rolledBack: ShapeModel | undefined;
+    expect(() => document.transaction(() => {
+      rolledBack = slide.addText('Rolled back arrows', {
+        arrows: { begin: 'triangle', end: 'arrow' },
+      });
+      throw new Error('restore created text arrows');
+    })).toThrow('restore created text arrows');
+    expect(slide.shapes).toEqual(beforeRollbackShapes);
+    expect(slide.shapes.find(({ id }) => id === populated.id)).toBe(populated);
+    expect(() => rolledBack!.arrows).toThrow(ModelParseError);
+
+    let signalRead!: () => void;
+    let resumeRead!: () => void;
+    const readStarted = new Promise<void>((resolve) => { signalRead = resolve; });
+    const readPaused = new Promise<void>((resolve) => { resumeRead = resolve; });
+    const detachedArrows: { begin: 'triangle' | 'oval'; end: 'arrow' | 'diamond' } = {
+      begin: 'triangle',
+      end: 'arrow',
+    };
+    const pendingDetached = document.defineSlideMaster({
+      title: 'DETACHED-TEXT-ARROWS',
+      objects: [
+        {
+          kind: 'text',
+          text: 'Detached text arrows',
+          options: { name: 'detached_text_arrows', arrows: detachedArrows },
+        },
+        {
+          kind: 'image',
+          source: {
+            async *[Symbol.asyncIterator]() {
+              signalRead();
+              await readPaused;
+              yield sdkPngHeader(1, 1);
+            },
+          },
+        },
+      ],
+    });
+    await readStarted;
+    detachedArrows.begin = 'oval';
+    detachedArrows.end = 'diamond';
+    resumeRead();
+    const detachedLayout = await pendingDetached;
+    expect((detachedLayout.shapes.find(
+      ({ name }) => name === 'detached_text_arrows',
+    ) as ShapeModel).arrows).toEqual({ begin: 'triangle', end: 'arrow' });
+
+    const reopened = await PptxDocument.open(await document.write());
+    const second = await PptxDocument.open(await reopened.write());
+    expect((second.layouts.find(({ name }) => name === layout.name)!.shapes.find(
+      ({ name }) => name === 'layout_arrows',
+    ) as ShapeModel).arrows).toEqual({ begin: 'triangle' });
+    expect((second.masters[0]!.shapes.find(
+      ({ name }) => name === 'master_arrows',
+    ) as ShapeModel).arrows).toEqual({ end: 'arrow' });
+    expect((second.slides.find(({ partUri }) => partUri === slide.partUri)!.shapes.find(
+      ({ name }) => name === populated.name,
+    ) as ShapeModel).arrows).toEqual({ begin: 'diamond', end: 'oval' });
+    expect(validatePackage(second.opcPackage).filter(({ severity }) => severity === 'error'))
+      .toEqual([]);
+
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const formatted = PptxDocument.create({ format });
+      const formattedLayout = formatted.layouts[0]!;
+      formattedLayout.addText('Formatted layout arrows', {
+        name: 'formatted_layout_arrows',
+        arrows: { begin: 'triangle' },
+      });
+      formatted.masters[0]!.addText('Formatted master arrows', {
+        name: 'formatted_master_arrows',
+        arrows: { end: 'arrow' },
+      });
+      formattedLayout.addPlaceholder('Formatted prompt', {
+        name: 'formatted_title_arrows',
+        type: 'title',
+        index: 198,
+        arrows: { begin: 'none', end: 'stealth' },
+      });
+      const formattedSlide = formatted.addSlide({ masterName: formattedLayout.name });
+      formattedSlide.addText('Formatted populated arrows', {
+        placeholder: 'formatted_title_arrows',
+        arrows: { begin: 'diamond', end: 'oval' },
+      });
+
+      const first = await PptxDocument.open(await formatted.write());
+      const formattedSecond = await PptxDocument.open(await first.write());
+      expect(formattedSecond.format).toBe(format);
+      expect(formattedSecond.formatProfile).toEqual(PRESENTATION_FORMAT_PROFILES[format]);
+      expect((formattedSecond.layouts[0]!.shapes.find(
+        ({ name }) => name === 'formatted_layout_arrows',
+      ) as ShapeModel).arrows).toEqual({ begin: 'triangle' });
+      expect((formattedSecond.masters[0]!.shapes.find(
+        ({ name }) => name === 'formatted_master_arrows',
+      ) as ShapeModel).arrows).toEqual({ end: 'arrow' });
+      expect((formattedSecond.slides[0]!.shapes.find(
+        ({ name }) => name === 'formatted_title_arrows',
+      ) as ShapeModel).arrows).toEqual({ begin: 'diamond', end: 'oval' });
+      expect(validatePackage(formattedSecond.opcPackage).filter(
+        ({ severity }) => severity === 'error',
+      )).toEqual([]);
+    }
+  });
+
+  it('rejects invalid declarative text arrows without observable mutation', async () => {
+    const document = PptxDocument.create();
+    const { output: _beforeOutput, ...before } = await sdkPackageSnapshot(document) as {
+      readonly output: Uint8Array;
+      readonly [key: string]: unknown;
+    };
+    for (const definition of [
+      {
+        title: 'INVALID-TEXT-ARROWS',
+        objects: [{
+          kind: 'text',
+          text: 'Invalid text arrows',
+          options: { arrows: { beginArrowType: 'triangle' } },
+        }],
+      },
+      {
+        title: 'INVALID-PLACEHOLDER-ARROWS',
+        objects: [{
+          kind: 'placeholder',
+          options: {
+            name: 'invalid_arrows',
+            type: 'title',
+            arrows: { end: 'bogus' },
+          },
+        }],
+      },
+    ]) {
+      await expect(document.defineSlideMaster(definition as never)).rejects.toThrow();
+      const { output: _afterOutput, ...after } = await sdkPackageSnapshot(document) as {
+        readonly output: Uint8Array;
+        readonly [key: string]: unknown;
+      };
+      expect(after).toEqual(before);
+    }
+
+    let signalRead!: () => void;
+    let resumeRead!: () => void;
+    const readStarted = new Promise<void>((resolve) => { signalRead = resolve; });
+    const readPaused = new Promise<void>((resolve) => { resumeRead = resolve; });
+    const pending = document.defineSlideMaster({
+      title: 'INVALID-ASYNC-TEXT-ARROWS',
+      objects: [
+        {
+          kind: 'text',
+          text: 'Invalid detached arrows',
+          options: { arrows: { begin: 'bogus' } as never },
+        },
+        {
+          kind: 'image',
+          source: {
+            async *[Symbol.asyncIterator]() {
+              signalRead();
+              await readPaused;
+              yield sdkPngHeader(1, 1);
+            },
+          },
+        },
+      ],
+    });
+    const phase = await Promise.race([
+      readStarted.then(() => 'read-started' as const),
+      pending.then(() => 'resolved' as const, () => 'rejected' as const),
+    ]);
+    expect(phase).toBe('read-started');
+    const { output: _pausedOutput, ...paused } = await sdkPackageSnapshot(document) as {
+      readonly output: Uint8Array;
+      readonly [key: string]: unknown;
+    };
+    expect(paused).toEqual(before);
+    resumeRead();
+    await expect(pending).rejects.toThrow(/unsupported/i);
+    const { output: _rejectedOutput, ...rejected } = await sdkPackageSnapshot(document) as {
+      readonly output: Uint8Array;
+      readonly [key: string]: unknown;
+    };
+    expect(rejected).toEqual(before);
+  });
+
   it('rejects invalid declarative text lines without observable mutation', async () => {
     const document = PptxDocument.create();
     const { output: _beforeOutput, ...before } = await sdkPackageSnapshot(document) as {

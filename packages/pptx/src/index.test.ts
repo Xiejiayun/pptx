@@ -22,6 +22,7 @@ import {
   type SlideMasterMargin,
   type SlideMasterObject,
   type SlideNumberOptions,
+  type ShapeArrows,
   type ShapeFill,
   type ShapeLine,
 } from './index.js';
@@ -373,6 +374,83 @@ describe('@jiayunxie/pptx stable exports', () => {
       },
     ];
     expect(invalid).toHaveLength(6);
+  });
+
+  it('exports text shape arrow creation types and runtime from the root package', async () => {
+    const both: ShapeArrows = { begin: 'triangle', end: 'arrow' };
+    const explicitNone: ShapeArrows = { begin: 'none', end: 'stealth' };
+    const empty: ShapeArrows = {};
+    const options: AddTextOptions = { name: 'root_text_arrows', arrows: both };
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const plain = slide.addText('Root plain arrows', options);
+    const rich = slide.addRichText([{ runs: [{ text: 'Root rich arrows' }] }], {
+      name: 'root_rich_arrows',
+      arrows: explicitNone,
+    });
+    const layoutText = document.layouts[0]!.addText('Root layout arrows', {
+      name: 'root_layout_arrows',
+      arrows: empty,
+    });
+    const masterText = document.masters[0]!.addText('Root master arrows', {
+      name: 'root_master_arrows',
+      line: { kind: 'line', color: { kind: 'scheme', value: 'accent3' } },
+      arrows: { end: 'diamond' },
+    });
+
+    expect([plain.arrows, rich.arrows, layoutText.arrows, masterText.arrows]).toEqual([
+      both,
+      explicitNone,
+      undefined,
+      { end: 'diamond' },
+    ]);
+    expect(masterText.line).toEqual({
+      kind: 'line',
+      color: { kind: 'scheme', value: 'accent3' },
+      width: 1,
+      dash: 'solid',
+    });
+
+    const reopened = await PptxDocument.open(await document.write());
+    expect((reopened.slides[0]!.shapes.find(
+      ({ name }) => name === 'root_text_arrows',
+    ) as ShapeModel).arrows).toEqual(both);
+    expect((reopened.slides[0]!.shapes.find(
+      ({ name }) => name === 'root_rich_arrows',
+    ) as ShapeModel).arrows).toEqual(explicitNone);
+    expect((reopened.layouts[0]!.shapes.find(
+      ({ name }) => name === 'root_layout_arrows',
+    ) as ShapeModel).arrows).toBeUndefined();
+    expect((reopened.masters[0]!.shapes.find(
+      ({ name }) => name === 'root_master_arrows',
+    ) as ShapeModel).arrows).toEqual({ end: 'diamond' });
+
+    const invalid: readonly AddTextOptions[] = [
+      {
+        // @ts-expect-error PptxGenJS-style arrow aliases are intentionally unsupported
+        arrows: { beginArrowType: 'arrow' },
+      },
+      {
+        // @ts-expect-error deprecated arrow aliases are intentionally unsupported
+        arrows: { lineHead: 'triangle' },
+      },
+      {
+        // @ts-expect-error begin arrow tokens are a closed union
+        arrows: { begin: 'bogus' },
+      },
+      {
+        // @ts-expect-error end arrow tokens are a closed union
+        arrows: { end: '' },
+      },
+      {
+        arrows: {
+          begin: 'triangle',
+          // @ts-expect-error arrows reject unknown properties
+          extra: true,
+        },
+      },
+    ];
+    expect(invalid).toHaveLength(5);
   });
 
   it('exports slide-number creation, editing, and compatibility diagnostics from the root', async () => {
