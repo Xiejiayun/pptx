@@ -897,7 +897,29 @@ PptxGenJS 4.0.1 的 `SchemeColor` getter 公开相同 keys、values 和顺序，
 
 最终 clean full Vitest 为 77 passed / 1 skipped test files、1404 passed / 1 skipped tests，performance 1/1（736ms）；两种 TypeScript check、Node/browser bundle 与 declaration build 全部通过。实际 62-file tarball SHA-256 为 `5d7096b0347d605c105dff15bb357781c4dcaa1cb7c3eff69f89ea6baa70e742`；installed Node/types/browser/CLI 门禁全部通过，Node 与真实 Google Chrome 均报告 `schemeColors: true`。Write/reopen、frozen/shared identity、mutation isolation 通过，Chrome validation/console/page/network errors 为 0。证据保存在 `/tmp/pptx-scheme-color-artifacts.AOU1Qb`。
 
-总体 PptxGenJS 对等进度仍约 97%。PptxGenJS 4.0.1 声明的六类 presentation runtime catalogs 已全部覆盖；下一小项为 advanced table 的 table-level direct vertical-alignment 读取与编辑，之后仍待其他 advanced text/table、`tableToSlides` 与最终 peer/client audit。
+## 表格级垂直对齐读取与批量编辑
+
+```ts
+import { PptxDocument, type TextBoxVerticalAlignment } from '@jiayunxie/pptx';
+
+const document = PptxDocument.create();
+const table = document.addSlide().addTable([
+  ['North', 'South'],
+  ['East', 'West'],
+], { valign: 'middle' });
+
+const uniform: TextBoxVerticalAlignment | undefined = table.verticalAlignment; // middle
+table.setCellVerticalAlignment(0, 1, 'top');
+console.log(table.verticalAlignment); // undefined: mixed direct cell state
+table.verticalAlignment = 'bottom';  // atomically overwrites every physical cell
+table.verticalAlignment = undefined; // clears every direct tcPr@anchor
+```
+
+`TableModel.verticalAlignment` 是全部物理 cell direct `tcPr@anchor` 的共识投影：一个或多个 cell 都具有同一合法值时返回 `top`、`middle` 或 `bottom`；mixed、absent、empty 或 unsafe state 返回 `undefined`。赋值会原子覆盖全部 physical cells（包括 merge continuation），`undefined` 会清除全部 direct anchor；同值和全 absent clear 是 exact no-op。DrawingML 没有在这里保存 table creation default，本属性也不会合成或记忆默认值；需要查看 mixed 细节时使用 `rows[].cells[].verticalAlignment`。结构不安全的写入以 `ModelParseError` 零 mutation 拒绝，并保留文本、边框、填充、margin、方向、fit、grid、row 与 transform。
+
+PptxGenJS 4.0.1 只提供创建期 table/cell `valign`，生成的最终 direct cell anchors 可被该共识 getter 精确读取；native bulk editor 是对相同 OOXML state 的 lossless existing-deck 扩展。Focused 为 4 files / 521 tests，最终 full 为 78 passed / 1 skipped test files、1411 passed / 1 skipped tests，performance 1/1（885ms）。实际 62-file tarball SHA-256 为 `6ce48d8bb73d59148754f14dc379b9cd11ba34d358dd8e7ebba7b72cf8208f1e`；installed Node/types/browser/CLI 与真实 Chrome 均报告 `tableVerticalAlignment: true`，Chrome validation/console/page/network errors 为 0。证据位于 `/tmp/pptx-table-vertical-alignment-artifacts.1kZjyy`。
+
+总体 PptxGenJS 对等进度仍约 97%。下一小项为 advanced table 的 table-level direct text-direction 共识读取与批量编辑；之后仍待其他 advanced text/table、`tableToSlides` 与最终 peer/client audit。
 
 ## 创建和编辑预设形状、调整值与样式
 

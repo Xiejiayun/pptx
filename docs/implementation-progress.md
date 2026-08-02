@@ -905,10 +905,27 @@ $ pptx-inspect --json package inspect output.pptx
 - Actual npm tarball 为 62 files，SHA-256 `5d7096b0347d605c105dff15bb357781c4dcaa1cb7c3eff69f89ea6baa70e742`。Installed Node、generated declarations、browser conditional export、TypeScript consumer 与 CLI 均通过，Node 顶层与 `api` 状态报告 `schemeColors: true`。
 - 真实 Google Chrome 返回 `schemeColors: true`；十项 entries、frozen、mutation isolation、`tx1` text、`accent1` fill 与 validation errors 0 全部匹配，console/page/network errors 为 0。完整证据位于 `/tmp/pptx-scheme-color-artifacts.AOU1Qb`，未进入仓库。
 
+## PptxGenJS 全功能对等：Table-level direct vertical alignment
+
+状态：完成；实施与证据 6/6
+
+### 本阶段 change
+
+- 新增 live `TableModel.verticalAlignment: TextBoxVerticalAlignment | undefined`。Getter 只在 exact direct table path 上的一个或多个 physical cells 全部具有同一合法 direct `tcPr@anchor` 时返回 `top`、`middle` 或 `bottom`；mixed、absent、empty、malformed 或 ambiguous state 返回 `undefined`，且读取不修改 package。
+- Setter 接受同一三值或 `undefined`，在单一 transaction 内覆盖或清除全部 physical cells，包括 merge continuations；合法同值与全 absent clear 是 exact bytes/journal no-op，late-cell unsafe state 以 `ModelParseError` 零 partial mutation 拒绝。文本、边框、填充、margin、方向、fit、grid、rows、transform、复制隔离、rollback 与 write/reopen 均保持。
+- DrawingML 只保留 final physical-cell direct state，不存在 synthetic table default 或 `mixed` sentinel；调用方需要 mixed 明细时读取 `rows[].cells[].verticalAlignment`。PptxGenJS 4.0.1 只提供创建 options，native existing-deck bulk edit 是相同 OOXML state 上的 lossless extension。
+- Core 实现为 `6c5a8ce`，实际包/Chrome 门禁为 `1ba05e3`；文档作为独立小项 review、commit、push。
+
+### 验证结果
+
+- Focused 为 4 files / 521 tests；最终 clean full Vitest 为 78 passed / 1 skipped test files、1411 passed / 1 skipped tests。独立 performance gate 1/1（885ms），两种 TypeScript check、Node/browser tsup 与 declaration build 全部通过。
+- Actual npm tarball 为 62 files，SHA-256 `6ce48d8bb73d59148754f14dc379b9cd11ba34d358dd8e7ebba7b72cf8208f1e`。Installed Node、generated declarations、browser conditional export、TypeScript consumer 与 CLI validate/slides/part-read 全部通过；最终 slide XML 恰有四个 direct `tcPr@anchor="t"`，无 `ctr`、`b` 或 `bodyPr@anchor` false positive。
+- Packed Node、browser conditional export 与真实 Google Chrome 的 uniform/read-isolation/no-op/mixed/overwrite/clear/reopen/invalid-failure-isolation state 全部匹配，均报告 `tableVerticalAlignment: true`；Chrome validation/console/page/network errors 为 0。完整证据位于 `/tmp/pptx-table-vertical-alignment-artifacts.1kZjyy`，未进入仓库。
+
 ### 剩余 advanced API 与全功能路线
 
-- 总体 PptxGenJS 对等进度仍约 97%；PptxGenJS 4.0.1 声明的六类 presentation runtime catalogs 已全部支持，不再保留“其他 runtime helper”占位项。
-- 下一小项为 advanced table 的 table-level direct vertical-alignment 读取与编辑；之后仍待其他 advanced text/table、`tableToSlides` 与最终 peer/client audit，当前不声明完整 PptxGenJS parity。
+- 总体 PptxGenJS 对等进度仍约 97%；PptxGenJS 4.0.1 声明的六类 presentation runtime catalogs 与 table-level direct vertical alignment 已支持。
+- 下一小项为 advanced table 的 table-level direct text-direction 共识读取与批量编辑；之后仍待其他 advanced text/table、`tableToSlides` 与最终 peer/client audit，当前不声明完整 PptxGenJS parity。
 
 ## 0.1.0 初始验收
 
