@@ -675,7 +675,7 @@ $ pptx-inspect --json package inspect output.pptx
 
 ## PptxGenJS 全功能对等：Text shape `isTextBox`
 
-状态：完成；实施与证据 6/6
+状态：完成；实施与证据 5/5
 
 ### 本阶段 change
 
@@ -863,8 +863,30 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余 runtime/output 与全功能路线
 
-- 总体 PptxGenJS 对等进度约 97%；下一小项为 compression policy。
-- 之后仍待 scheme-color 与其他 runtime helpers、advanced text/table、`tableToSlides` 与最终 peer/client audit；当前不声明完整 PptxGenJS parity。
+- 总体 PptxGenJS 对等进度约 97%；compression policy 已在下一专项完成。
+
+## PptxGenJS 全功能对等：Presentation compression policy
+
+状态：完成；实施与证据 6/6
+
+### 本阶段 change
+
+- `WriteBaseOptions` 与 OPC `PackageWriteOptions` 新增严格 `compression?: boolean`。新建或已修改文稿在 omitted/`undefined`/`false` 时使用 ZIP STORE，`true` 使用 DEFLATE level 6；六种 `write({ outputType })`、`stream()`、`writeFile()`、`writeBlob()` 与 `download()` 共用同一策略。
+- Opened unchanged package 在 compression omitted/`undefined` 时继续返回 exact original bytes，保留源压缩、entry metadata 与无关字节。显式 `false`/`true` 关闭 fast path 并强制 STORE/DEFLATE 重打包。
+- 非 primitive boolean 在 validation replacement 与 OPC write 前以稳定 `TypeError` 拒绝，diagnostics、package mutation journal 与后续合法写出不受影响。
+- PptxGenJS 4.0.1 的合法 primitive-boolean 意图已对等。Native 不复制其 explicit `outputType` 路径忽略 compression 或 truthy 非 boolean coercion，保证 selector 与 output representation 正交。
+
+### 验证结果
+
+- 最终无重叠 full Vitest 为 1400 passed / 1 skipped tests；独立 performance gate 1/1（749.5ms）。两种 TypeScript check、Node/browser tsup 与 declaration build 全部通过。
+- Actual npm tarball 为 61 files，SHA-256 `4bbaa25b83a0d20dd3d2239708c628afec79bcff19c69faca6fe67b03e3bd990`。Installed Node、generated declarations、browser conditional export、TypeScript consumer 与 CLI inspection 均报告 `compressionPolicy: true`。
+- Packed Node 的代表性 STORE/DEFLATE 输出为 149,598/9,347 bytes；六种 output、stream、file 与 Blob byte equality、reopen、unchanged-original、explicit regeneration、invalid failure isolation 与 mutation isolation 全部通过。
+- 真实 Google Chrome 的 STORE/DEFLATE 输出为 84,062/9,270 bytes；Blob equality、非法值 early rejection、later write、download method 8 与 download reopen 全部通过，`compressionPolicy: true`，console/page/network errors 为 0。完整证据位于 `/tmp/pptx-compression-policy-artifacts.oo7sDX`，未进入仓库。
+
+### 剩余 runtime/output 与全功能路线
+
+- 总体 PptxGenJS 对等进度仍约 97%；下一小项为 `SchemeColor` runtime helper。
+- 之后仍待其他 runtime helpers、advanced text/table、`tableToSlides` 与最终 peer/client audit；当前不声明完整 PptxGenJS parity。
 
 ## 0.1.0 初始验收
 

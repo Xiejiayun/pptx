@@ -843,7 +843,32 @@ const file = createWriteStream('output.pptx');
 
 PptxGenJS 4.0.1 的 public `stream()` 实际返回 Buffer，而不是真正的 Readable；该 byte-result 已由 `write({ outputType: 'nodebuffer' })` 对等。本库把 `stream()` 用于真实 Node stream，并保留 `STREAM` 不进入 `OUTPUT_TYPES`。最终 clean gates 为 75 passed / 1 skipped test files、1390 passed / 1 skipped tests，performance 1/1（682ms）。实际 61-file tarball SHA-256 为 `37b1d6bec7b5a144d577c57b61c0777f2aad8515015e9cbee05abd55f8e067d2`；installed Node/types/browser/CLI 与真实 Chrome 均报告 `nodeReadableStream: true`，Chrome validation/console/page/network errors 为 0。
 
-总体 PptxGenJS 对等进度约 97%。后续仍待 compression policy、scheme-color 与其他 runtime helpers、advanced text/table、`tableToSlides` 与最终 peer/client audit。
+总体 PptxGenJS 对等进度约 97%。Compression policy 已在下一节完成。
+
+## 控制演示文稿 ZIP 压缩
+
+```ts
+import { PptxDocument } from '@jiayunxie/pptx';
+
+const document = PptxDocument.create();
+document.addSlide().addText('Compression policy');
+
+const compressed = await document.write({
+  outputType: 'uint8array',
+  compression: true,
+});
+const readable = await document.stream({ compression: true }); // Node.js
+await document.writeFile('compressed.pptx', { compression: true }); // Node.js
+const uncompressedBlob = await document.writeBlob({ compression: false }); // browser
+```
+
+`compression` 是严格的 primitive boolean。省略、`undefined` 或 `false` 对新建/已修改文稿使用 ZIP STORE；`true` 使用 DEFLATE level 6。该策略在六种 `write({ outputType })`、`stream()`、`writeFile()`、`writeBlob()` 和 `download()` 上一致，压缩只改变 ZIP 表示，不改变 OOXML 语义、diagnostics 或 mutation journal。字符串、数字、对象和 boxed Boolean 会在 OPC 写入前以 `PptxDocument output compression must be a boolean` 拒绝。
+
+唯一的 fast path 是打开后完全未修改的文稿：省略或传 `undefined` 会返回原始 bytes，从而保留原文件的压缩、entry metadata 与无关字节；显式 `false` 或 `true` 总会重新打包为 STORE 或 DEFLATE。PptxGenJS 4.0.1 的合法 boolean 意图保持对等，但本库不会复制其显式 `outputType` 路径丢失 compression 或对 truthy 非 boolean 值进行 coercion 的行为。
+
+最终 clean gates 为 1400 passed / 1 skipped tests，performance 1/1（749.5ms），两种 TypeScript check、Node/browser bundle 与 declaration build 全部通过。实际 61-file tarball SHA-256 为 `4bbaa25b83a0d20dd3d2239708c628afec79bcff19c69faca6fe67b03e3bd990`；packed Node 的代表性 STORE/DEFLATE 输出为 149,598/9,347 bytes，真实 Chrome 为 84,062/9,270 bytes。Installed Node/types/browser/CLI 与 Chrome 均报告 `compressionPolicy: true`，Chrome download 使用 ZIP method 8、可重开，console/page/network errors 为 0。
+
+总体 PptxGenJS 对等进度仍约 97%。后续仍待 scheme-color 与其他 runtime helpers、advanced text/table、`tableToSlides` 与最终 peer/client audit。
 
 ## 创建和编辑预设形状、调整值与样式
 

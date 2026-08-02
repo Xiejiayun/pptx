@@ -46,6 +46,7 @@ adapter 不读取 `_slides` 等私有字段。后续 peer-range conformance test
 | presentation `OutputType` runtime values | `OUTPUT_TYPES` / `OutputType` | 已支持 frozen `arraybuffer/base64/binarystring/blob/nodebuffer/uint8array` tuple、derived union、SDK→root 同一导出与 package mutation isolation；`STREAM` 留给独立 stream API，native 不复制 instance getter、enum-shaped mutable object 或 alias |
 | `write({ outputType })` 六种返回值 | `PptxDocument.write()` / `WriteOptions<T>` / `WriteOutput<T>` | 已支持 standalone `ArrayBuffer`、raw base64、byte-per-code-unit binary string、`application/zip` Blob、Node Buffer 与 plain Uint8Array；默认仍为 Uint8Array，browser `nodebuffer` 明确拒绝，`writeBlob()` 保持 presentation MIME |
 | `stream()` | `PptxDocument.stream()` / `PptxNodeReadableStream` | 已支持真实 Node non-object-mode Readable、64 KiB chunks、pipe/async iteration/events/pause/resume/destroy、validation parity、byte-identical reopen 与 browser early rejection；ZIP generation 仍先整包驻留内存 |
+| `compression` 输出策略 | `WriteBaseOptions.compression` + `PptxDocument.write/stream/writeFile/writeBlob/download` | 已支持 omitted/`undefined`/`false` STORE、`true` DEFLATE level 6、六种 output type 与所有 convenience path 一致；opened unchanged + omitted 精确保留原始 bytes，显式 boolean 强制重打包；对等合法 boolean 意图，但不复制 PptxGenJS 4.0.1 explicit-output 丢失 compression 或 truthy coercion |
 | `slide.addText(string)` 单段文本 | `slide.addText(string, options)` | 已支持 |
 | string 中的 CR/LF、多段落与空行 | `addText()` / `ShapeModel.text` | 已支持 |
 | 文本框 x/y/w/h、旋转、翻转、名称 | `AddTextOptions` + `inches()` / `degrees()` | 已支持 |

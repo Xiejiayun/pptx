@@ -237,7 +237,29 @@ The complete canonical ZIP bytes are still generated before the Readable is retu
 
 Installed Node, declarations, browser conditional export, CLI package inspection, and real Chrome report `nodeReadableStream: true`. The final 61-file tarball SHA-256 is `37b1d6bec7b5a144d577c57b61c0777f2aad8515015e9cbee05abd55f8e067d2`. Final gates are 75 passed / 1 skipped test files, 1390 passed / 1 skipped tests, performance 1/1 at 682ms, both TypeScript checks, Node/browser bundles, multi-chunk async/pipe byte equality, successful reopen, exact Chrome rejection/isolation, and zero Chrome validation/console/page/network errors.
 
-Overall PptxGenJS parity remains approximately 97%. Compression policy, scheme-color and other runtime helpers, advanced text/table, `tableToSlides`, and the final peer/client audit remain pending.
+Overall PptxGenJS parity remains approximately 97%. Compression policy is completed below.
+
+### Presentation ZIP compression policy
+
+```ts
+const deflated = await document.write({
+  outputType: 'uint8array',
+  compression: true,
+});
+const stored = await document.write({ compression: false });
+const readable = await document.stream({ compression: true }); // Node.js
+await document.writeFile('output.pptx', { compression: true }); // Node.js
+const browserBlob = await document.writeBlob({ compression: false });
+await document.download('output.pptx', { compression: true }); // browser
+```
+
+`WriteBaseOptions.compression?: boolean` is shared by `write()`, `stream()`, `writeFile()`, `writeBlob()`, and `download()`. For created or modified documents, omitted/`undefined` and `false` select ZIP STORE, while `true` selects DEFLATE level 6. Every `WriteOptions<T>` output representation uses the same package policy. Non-primitive booleans reject before validation replacement or OPC generation with `PptxDocument output compression must be a boolean`, leaving diagnostics and package mutations unchanged.
+
+Opened documents have a single preservation exception: if the package remains unchanged and compression is omitted or `undefined`, the original bytes are returned exactly. Explicit `false` or `true` bypasses that fast path and regenerates STORE or DEFLATE output. This keeps lossless editing as the default while making caller-selected compression deterministic.
+
+PptxGenJS 4.0.1's legal primitive-boolean intent is supported. Native deliberately keeps compression orthogonal to explicit `outputType` and rejects truthy non-booleans instead of copying upstream's explicit-output omission and coercion behavior. Installed Node/types/browser/CLI and real Chrome report `compressionPolicy: true`. The final 61-file tarball SHA-256 is `4bbaa25b83a0d20dd3d2239708c628afec79bcff19c69faca6fe67b03e3bd990`; packed Node STORE/DEFLATE sizes are 149,598/9,347 bytes, Chrome sizes are 84,062/9,270 bytes, download uses method 8 and reopens, and Chrome console/page/network errors are zero. Final gates are 1400 passed / 1 skipped tests, performance 1/1 at 749.5ms, both TypeScript checks, both bundles, and declaration generation.
+
+Overall PptxGenJS parity remains approximately 97%. Scheme-color and other runtime helpers, advanced text/table, `tableToSlides`, and the final peer/client audit remain pending.
 
 ## Embedded raster images
 

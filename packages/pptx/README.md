@@ -960,7 +960,32 @@ The ZIP writer still produces the complete canonical `Uint8Array` in memory befo
 
 PptxGenJS 4.0.1 public `stream()` actually returns a Buffer rather than a Readable; `write({ outputType: 'nodebuffer' })` already matches that byte-result behavior. Native reserves `stream()` for a real Node stream and keeps `STREAM` out of `OUTPUT_TYPES`. Final clean gates are 75 passed / 1 skipped test files, 1390 passed / 1 skipped tests, and performance 1/1 at 682ms. The actual 61-file tarball SHA-256 is `37b1d6bec7b5a144d577c57b61c0777f2aad8515015e9cbee05abd55f8e067d2`; installed Node/types/browser/CLI and real Chrome report `nodeReadableStream: true`, with zero Chrome validation, console, page, or network errors.
 
-Overall PptxGenJS parity remains approximately 97%. Compression policy, scheme-color and other runtime helpers, advanced text/table, `tableToSlides`, and the final peer/client audit remain pending.
+Overall PptxGenJS parity remains approximately 97%. Compression policy is completed in the next section.
+
+## Control presentation ZIP compression
+
+```ts
+import { PptxDocument } from '@jiayunxie/pptx';
+
+const document = PptxDocument.create();
+document.addSlide().addText('Compression policy');
+
+const compressed = await document.write({
+  outputType: 'uint8array',
+  compression: true,
+});
+const readable = await document.stream({ compression: true }); // Node.js
+await document.writeFile('compressed.pptx', { compression: true }); // Node.js
+const uncompressedBlob = await document.writeBlob({ compression: false }); // browser
+```
+
+`compression` accepts primitive booleans only. Omitted, `undefined`, or `false` uses ZIP STORE for created or modified presentations; `true` uses DEFLATE level 6. The policy is identical across all six `write({ outputType })` results, `stream()`, `writeFile()`, `writeBlob()`, and `download()`. Compression changes only the ZIP representation, not OOXML semantics, diagnostics, or the mutation journal. Strings, numbers, objects, and boxed booleans reject before OPC writing with `PptxDocument output compression must be a boolean`.
+
+There is one lossless fast path: an opened, completely unchanged presentation returns its original bytes when compression is omitted or `undefined`, preserving source compression, entry metadata, and unrelated bytes. Explicit `false` or `true` always repacks as STORE or DEFLATE. Native matches PptxGenJS 4.0.1's legal boolean intent but deliberately does not copy its explicit-`outputType` compression drop or truthy non-boolean coercion.
+
+Final clean gates are 1400 passed / 1 skipped tests and performance 1/1 at 749.5ms. Both TypeScript checks, Node/browser bundles, and declaration generation pass. The actual 61-file tarball SHA-256 is `4bbaa25b83a0d20dd3d2239708c628afec79bcff19c69faca6fe67b03e3bd990`; representative packed Node STORE/DEFLATE outputs are 149,598/9,347 bytes, and real Chrome outputs are 84,062/9,270 bytes. Installed Node/types/browser/CLI and Chrome report `compressionPolicy: true`; the Chrome download uses ZIP method 8, reopens successfully, and has zero console/page/network errors.
+
+Overall PptxGenJS parity remains approximately 97%. Scheme-color and other runtime helpers, advanced text/table, `tableToSlides`, and the final peer/client audit remain pending.
 
 `PRESET_SHAPE_TYPES` is the frozen discovery catalog for all 178 canonical preset geometries accepted by `SlideModel.addShape()`. `AddShapeOptions` accepts `name`, strict `adjustments`, strict `fill`, strict `line`, strict `arrows`, strict `shadow`, strict `hyperlink`, and native EMU/OOXML-angle transform fields; use `inches()` and `degrees()` for ergonomic conversion. Omitted geometry starts at x/y/width/height = 1 inch with zero rotation and no flips; omitted fill creates direct no-fill, and omitted line keeps the canonical empty line container. Inputs are strict, descriptor-safe, detached before mutation, and reject unknown fields. The catalog uses the valid OOXML `foldedCorner`; PptxGenJS 4.0.1's invalid `folderCorner` token and runtime-only `custGeom` value are not accepted as presets.
 
