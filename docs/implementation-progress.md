@@ -842,8 +842,29 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余 runtime/output 与全功能路线
 
-- 总体 PptxGenJS 对等进度约 97%；下一小项为 Node readable stream。
-- 之后仍待 compression policy、scheme-color 与其他 runtime helpers、advanced text/table、`tableToSlides` 与最终 peer/client audit；当前不声明完整 PptxGenJS parity。
+- 总体 PptxGenJS 对等进度约 97%；Node readable stream 已在下一专项完成。
+
+## PptxGenJS 全功能对等：Node readable stream
+
+状态：完成；实施与证据 5/5
+
+### 本阶段 change
+
+- 新增 `PptxDocument.stream(options?: WriteBaseOptions): Promise<PptxNodeReadableStream>`。Node runtime 返回真实 non-object-mode `Readable`，支持 pipe、async iteration、data/end/close/error、pause/resume/read/destroy；aggregate root 自动复用同一类型与方法。
+- Canonical ZIP bytes 以最大 64 KiB 的 ordered views 交付；async iteration、events 与 pipe 三条路径均 byte-identical、可重开。Stream Promise resolve 时捕获文稿状态，destroy/消费不修改 package、diagnostics 或 mutation journal。
+- Browser 在 validation、diagnostics replacement、OPC write 和 dynamic import 前以稳定错误拒绝。`node:stream` 只在 Node 调用路径动态加载；公开 declaration 不引用 `node:stream`、`node:buffer`、`NodeJS` 或 Buffer。
+- 当前 OPC/ZIP writer 仍先生成完整 `Uint8Array`，因此本项提供 downstream backpressure 而不宣称 constant-memory ZIP generation 或 earlier time-to-first-byte。PptxGenJS 4.0.1 同名方法实际返回 Buffer；native `nodebuffer` selector 覆盖该结果，`stream()` 提供真实 readable。
+
+### 验证结果
+
+- 最终无重叠 clean full Vitest 为 75 passed / 1 skipped test files、1390 passed / 1 skipped tests；独立 performance gate 1/1（682ms）。两种 TypeScript check、Node/browser tsup 与 declaration build 全部通过。权威 clean JSON 为 `/tmp/pptx-node-readable-stream-vitest-clean.json`。
+- Actual npm tarball 为 61 files，SHA-256 `37b1d6bec7b5a144d577c57b61c0777f2aad8515015e9cbee05abd55f8e067d2`。Installed Node、generated declarations、browser conditional export、TypeScript consumer 与 CLI inspection 均报告 `nodeReadableStream: true`；两 chunks、chunk limit、async/pipe equality、reopen 与 mutation isolation 全部通过。
+- 真实 Google Chrome exact rejection、failure isolation 与 later write/reopen 均通过，`nodeReadableStream: true`；validation/console/page/network errors 为 0。完整验证生成物位于 `/tmp/pptx-node-readable-stream-artifacts.QxZoqx`，未进入仓库。
+
+### 剩余 runtime/output 与全功能路线
+
+- 总体 PptxGenJS 对等进度约 97%；下一小项为 compression policy。
+- 之后仍待 scheme-color 与其他 runtime helpers、advanced text/table、`tableToSlides` 与最终 peer/client audit；当前不声明完整 PptxGenJS parity。
 
 ## 0.1.0 初始验收
 

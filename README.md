@@ -817,7 +817,33 @@ async function encode<T extends OutputType>(
 
 最终 clean gates 为 74 passed / 1 skipped test files、1383 passed / 1 skipped tests，performance 1/1（966ms），两种 TypeScript check、Node/browser bundle 与 declaration build 全部通过。实际 61-file tarball 的 SHA-256 为 `26bbc7eb7c33eb194388576db2c2eaab33c80d0d99b19ed7a9b4a7375c3f9f37`；installed Node/types/browser/CLI 与真实 Google Chrome 均报告 `writeOutputTypes: true`。六种 Node 输出和五种浏览器输出均 byte-identical、可重开；Chrome validation/console/page/network errors 为 0。
 
-总体 PptxGenJS 对等进度约 97%。后续仍待 Node readable stream、compression policy、scheme-color 与其他 runtime helpers、advanced text/table、`tableToSlides` 与最终 peer/client audit。
+总体 PptxGenJS 对等进度约 97%。Node readable stream 已在下一节完成。
+
+## 输出 Node Readable stream
+
+```ts
+import { createWriteStream } from 'node:fs';
+import { PptxDocument, type PptxNodeReadableStream } from '@jiayunxie/pptx';
+
+const document = PptxDocument.create();
+document.addSlide().addText('Stream output');
+
+const readable: PptxNodeReadableStream = await document.stream();
+for await (const chunk of readable) {
+  console.log(chunk.byteLength);
+}
+
+const file = createWriteStream('output.pptx');
+(await document.stream()).pipe(file);
+```
+
+`stream(options?: WriteBaseOptions)` 只在 Node.js 提供真正的 non-object-mode `Readable`，支持 `pipe()`、async iteration、`data/end/error` events、pause/resume/read/destroy。每个输出 chunk 最大 64 KiB，按顺序拼接后与同一状态的 `write()` byte-identical，并可直接重开；strict/permissive 与 compatibility diagnostics 继续复用同一 `#writeBytes()` 路径。
+
+当前 ZIP writer 仍会先在内存中生成完整 canonical `Uint8Array`，再通过 Readable 进行 backpressure-aware delivery；因此这里不宣称 constant-memory ZIP generation 或更早的 time-to-first-byte。浏览器调用会在 validation/ZIP write 前明确拒绝并报告 `PptxDocument.stream() is only supported in Node.js`，应改用 `write()`、`writeBlob()` 或 `download()`。
+
+PptxGenJS 4.0.1 的 public `stream()` 实际返回 Buffer，而不是真正的 Readable；该 byte-result 已由 `write({ outputType: 'nodebuffer' })` 对等。本库把 `stream()` 用于真实 Node stream，并保留 `STREAM` 不进入 `OUTPUT_TYPES`。最终 clean gates 为 75 passed / 1 skipped test files、1390 passed / 1 skipped tests，performance 1/1（682ms）。实际 61-file tarball SHA-256 为 `37b1d6bec7b5a144d577c57b61c0777f2aad8515015e9cbee05abd55f8e067d2`；installed Node/types/browser/CLI 与真实 Chrome 均报告 `nodeReadableStream: true`，Chrome validation/console/page/network errors 为 0。
+
+总体 PptxGenJS 对等进度约 97%。后续仍待 compression policy、scheme-color 与其他 runtime helpers、advanced text/table、`tableToSlides` 与最终 peer/client audit。
 
 ## 创建和编辑预设形状、调整值与样式
 

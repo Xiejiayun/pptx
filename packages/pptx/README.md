@@ -934,7 +934,33 @@ Explicit `outputType: 'blob'` follows the PptxGenJS/ZIP contract and uses `appli
 
 Final clean gates are 74 passed / 1 skipped test files, 1383 passed / 1 skipped tests, and performance 1/1 at 966ms. Both TypeScript checks, Node/browser bundles, and declaration generation pass. The actual 61-file tarball has SHA-256 `26bbc7eb7c33eb194388576db2c2eaab33c80d0d99b19ed7a9b4a7375c3f9f37`; installed Node/types/browser/CLI and real Google Chrome report `writeOutputTypes: true`. All six Node outputs and all five portable browser outputs are byte-identical and reopen successfully, with zero Chrome validation, console, page, or network errors.
 
-Overall PptxGenJS parity remains approximately 97%. Node readable stream, compression policy, scheme-color and other runtime helpers, advanced text/table, `tableToSlides`, and the final peer/client audit remain pending.
+Overall PptxGenJS parity remains approximately 97%. Node readable output is completed in the next section.
+
+## Write to a Node Readable stream
+
+```ts
+import { createWriteStream } from 'node:fs';
+import { PptxDocument, type PptxNodeReadableStream } from '@jiayunxie/pptx';
+
+const document = PptxDocument.create();
+document.addSlide().addText('Stream output');
+
+const readable: PptxNodeReadableStream = await document.stream();
+for await (const chunk of readable) {
+  console.log(chunk.byteLength);
+}
+
+const file = createWriteStream('output.pptx');
+(await document.stream()).pipe(file);
+```
+
+`stream(options?: WriteBaseOptions)` is Node-only and returns a real non-object-mode `Readable` with `pipe()`, async iteration, `data/end/error` events, pause/resume/read/destroy, and ordered chunks no larger than 64 KiB. Concatenated bytes are byte-identical to `write()` for the same state and reopen directly. Strict/permissive validation and compatibility diagnostics use the same private canonical-byte path.
+
+The ZIP writer still produces the complete canonical `Uint8Array` in memory before exposing the Readable. This API provides backpressure-aware downstream delivery, not constant-memory ZIP generation or earlier time-to-first-byte. Browsers reject before validation or ZIP writing with `PptxDocument.stream() is only supported in Node.js`; use `write()`, `writeBlob()`, or `download()` there.
+
+PptxGenJS 4.0.1 public `stream()` actually returns a Buffer rather than a Readable; `write({ outputType: 'nodebuffer' })` already matches that byte-result behavior. Native reserves `stream()` for a real Node stream and keeps `STREAM` out of `OUTPUT_TYPES`. Final clean gates are 75 passed / 1 skipped test files, 1390 passed / 1 skipped tests, and performance 1/1 at 682ms. The actual 61-file tarball SHA-256 is `37b1d6bec7b5a144d577c57b61c0777f2aad8515015e9cbee05abd55f8e067d2`; installed Node/types/browser/CLI and real Chrome report `nodeReadableStream: true`, with zero Chrome validation, console, page, or network errors.
+
+Overall PptxGenJS parity remains approximately 97%. Compression policy, scheme-color and other runtime helpers, advanced text/table, `tableToSlides`, and the final peer/client audit remain pending.
 
 `PRESET_SHAPE_TYPES` is the frozen discovery catalog for all 178 canonical preset geometries accepted by `SlideModel.addShape()`. `AddShapeOptions` accepts `name`, strict `adjustments`, strict `fill`, strict `line`, strict `arrows`, strict `shadow`, strict `hyperlink`, and native EMU/OOXML-angle transform fields; use `inches()` and `degrees()` for ergonomic conversion. Omitted geometry starts at x/y/width/height = 1 inch with zero rotation and no flips; omitted fill creates direct no-fill, and omitted line keeps the canonical empty line container. Inputs are strict, descriptor-safe, detached before mutation, and reject unknown fields. The catalog uses the valid OOXML `foldedCorner`; PptxGenJS 4.0.1's invalid `folderCorner` token and runtime-only `custGeom` value are not accepted as presets.
 

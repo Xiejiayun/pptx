@@ -207,7 +207,37 @@ Raw base64 has no data-URI prefix. Binary strings use one byte per code unit. Ar
 
 Installed Node, declarations, browser conditional export, CLI package inspection, and real Chrome report `writeOutputTypes: true`. The final 61-file tarball SHA-256 is `26bbc7eb7c33eb194388576db2c2eaab33c80d0d99b19ed7a9b4a7375c3f9f37`. Final gates are 74 passed / 1 skipped test files, 1383 passed / 1 skipped tests, performance 1/1 at 966ms, both TypeScript checks, both bundles, declaration generation, byte-identical/reopen checks for every available output, and zero Chrome validation/console/page/network errors.
 
-Overall PptxGenJS parity remains approximately 97%. Node readable stream, compression policy, scheme-color and other runtime helpers, advanced text/table, `tableToSlides`, and the final peer/client audit remain pending.
+Overall PptxGenJS parity remains approximately 97%. Node readable output is completed below.
+
+### Node readable output
+
+```ts
+import { createWriteStream } from 'node:fs';
+import {
+  PptxDocument,
+  type PptxNodeReadableStream,
+  type WriteBaseOptions,
+} from '@pptx/sdk';
+
+const document = PptxDocument.create();
+document.addSlide().addText('Stream output');
+
+const options: WriteBaseOptions = { mode: 'strict' };
+const readable: PptxNodeReadableStream = await document.stream(options);
+for await (const chunk of readable) console.log(chunk.byteLength);
+
+(await document.stream()).pipe(createWriteStream('output.pptx'));
+```
+
+`PptxNodeReadableStream` is a browser-safe structural declaration over the core binary Node Readable surface: async iteration, `pipe`, data/end/close/error listeners, pause/resume/isPaused/read/destroy, and readable state. Runtime values are actual `node:stream` `Readable` instances with `readableObjectMode === false`; declarations do not import `node:stream`, `node:buffer`, `NodeJS`, or Buffer types. Each internal chunk is at most 65,536 bytes.
+
+`stream()` checks the Node runtime before validation or ZIP generation, then calls the same `#writeBytes(options)` path as other output methods and dynamically loads `node:stream`. Concatenated output is byte-identical to `write()` and reopens. The stream captures document state when its Promise resolves; later mutations affect only later writes. Consumer destroy and delivery do not mutate package state or diagnostics.
+
+The complete canonical ZIP bytes are still generated before the Readable is returned, so peak ZIP-generation memory and time-to-first-byte do not improve. Browser calls reject exactly with `PptxDocument.stream() is only supported in Node.js`. PptxGenJS 4.0.1's method of the same name returns Buffer; native matches that separate result through `write({ outputType: 'nodebuffer' })` and provides real stream semantics here.
+
+Installed Node, declarations, browser conditional export, CLI package inspection, and real Chrome report `nodeReadableStream: true`. The final 61-file tarball SHA-256 is `37b1d6bec7b5a144d577c57b61c0777f2aad8515015e9cbee05abd55f8e067d2`. Final gates are 75 passed / 1 skipped test files, 1390 passed / 1 skipped tests, performance 1/1 at 682ms, both TypeScript checks, Node/browser bundles, multi-chunk async/pipe byte equality, successful reopen, exact Chrome rejection/isolation, and zero Chrome validation/console/page/network errors.
+
+Overall PptxGenJS parity remains approximately 97%. Compression policy, scheme-color and other runtime helpers, advanced text/table, `tableToSlides`, and the final peer/client audit remain pending.
 
 ## Embedded raster images
 
