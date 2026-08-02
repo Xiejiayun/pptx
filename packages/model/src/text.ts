@@ -1,3 +1,5 @@
+import type { Hyperlink } from './hyperlink.js';
+
 export type RichTextColor =
   | { readonly kind: 'srgb'; readonly value: string }
   | { readonly kind: 'scheme'; readonly value: string };
@@ -135,6 +137,7 @@ export interface RichTextRunStyle {
   readonly transparency?: number;
   readonly glow?: RichTextGlow;
   readonly highlight?: RichTextColor;
+  readonly hyperlink?: Hyperlink | false;
   readonly outline?: RichTextOutline;
   readonly underline?: boolean | RichTextUnderline;
   readonly strike?: boolean | RichTextStrikeStyle;

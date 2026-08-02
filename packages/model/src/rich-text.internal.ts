@@ -6,6 +6,7 @@ import {
 } from '@pptx/lossless-xml';
 import { ModelParseError } from './errors.js';
 import {
+  normalizeHyperlink,
   renderShapeHyperlink,
   type NormalizedHyperlink,
 } from './shape-hyperlink.internal.js';
@@ -283,9 +284,13 @@ interface RenderRichTextOptions {
   readonly defaultTabStops?: readonly NormalizedParagraphTabStop[];
   readonly defaultHyperlink?: NormalizedHyperlink;
   readonly hyperlinkRelationshipId?: string;
+  readonly runHyperlinkRelationshipIds?: RichTextRunHyperlinkRelationshipIds;
   readonly paragraphProperties?: readonly (string | undefined)[];
   readonly endParagraphProperties?: string;
 }
+
+export type RichTextRunHyperlinkRelationshipIds =
+  readonly (readonly (string | undefined)[])[];
 
 export function renderRichTextParagraphs(
   paragraphs: readonly NormalizedRichTextParagraph[],
@@ -297,11 +302,23 @@ export function renderRichTextParagraphs(
   ) {
     throw new TypeError('Rich text hyperlink and relationship ID must be supplied together');
   }
+  if (options.runHyperlinkRelationshipIds !== undefined) {
+    if (options.runHyperlinkRelationshipIds.length !== paragraphs.length) {
+      throw new TypeError('Rich text run hyperlink relationship IDs must match the paragraph count');
+    }
+    for (const [paragraphIndex, paragraph] of paragraphs.entries()) {
+      if (options.runHyperlinkRelationshipIds[paragraphIndex]?.length !== paragraph.runs.length) {
+        throw new TypeError(
+          `Rich text run hyperlink relationship IDs must match paragraph ${paragraphIndex} run count`,
+        );
+      }
+    }
+  }
   const prefix = options.prefix ?? 'a:';
   const defaultLanguage = options.defaultLanguage ?? 'en-US';
   const defaultEndProperties = `<${prefix}endParaRPr lang="${escapeXmlAttribute(defaultLanguage)}" dirty="0"/>`;
   return paragraphs
-    .map(({ align, bullet, indent, level, marginLeft, marginRight, rtl, runs, spacing, tabStops }, index) => {
+    .map(({ align, bullet, indent, level, marginLeft, marginRight, rtl, runs, spacing, tabStops }, paragraphIndex) => {
       const resolvedBullet = bullet === false
         ? undefined
         : bullet ?? (options.defaultBullet === false ? undefined : options.defaultBullet);
@@ -321,7 +338,7 @@ export function renderRichTextParagraphs(
         throw new TypeError('Paragraph indent cannot be combined with an active bullet');
       }
       return `<${prefix}p>${renderParagraphProperties(
-        options.paragraphProperties?.[index] ?? options.paragraphProperties?.[0],
+        options.paragraphProperties?.[paragraphIndex] ?? options.paragraphProperties?.[0],
         prefix,
         align ?? options.defaultAlign,
         rtl ?? options.defaultRtl,
@@ -333,14 +350,31 @@ export function renderRichTextParagraphs(
         resolvedMarginRight,
         resolvedIndent,
       )}${runs
-        .map((run) => renderRun(
-          run,
-          prefix,
-          options.defaultLanguage,
-          options.defaultColor,
-          options.defaultHyperlink,
-          options.hyperlinkRelationshipId,
-        ))
+        .map((run, runIndex) => {
+          const localHyperlink = run.style?.hyperlink;
+          const directHyperlink = localHyperlink === false ? undefined : localHyperlink;
+          const directRelationshipId =
+            options.runHyperlinkRelationshipIds?.[paragraphIndex]?.[runIndex];
+          if ((directHyperlink === undefined) !== (directRelationshipId === undefined)) {
+            throw new TypeError(
+              `Rich text run ${paragraphIndex},${runIndex} hyperlink and relationship ID must be supplied together`,
+            );
+          }
+          const hyperlink = localHyperlink === false
+            ? undefined
+            : localHyperlink ?? options.defaultHyperlink;
+          const relationshipId = directHyperlink === undefined
+            ? hyperlink === undefined ? undefined : options.hyperlinkRelationshipId
+            : directRelationshipId;
+          return renderRun(
+            run,
+            prefix,
+            options.defaultLanguage,
+            options.defaultColor,
+            hyperlink,
+            relationshipId,
+          );
+        })
         .join('')}${options.endParagraphProperties ?? defaultEndProperties}</${prefix}p>`;
     })
     .join('');
@@ -926,7 +960,9 @@ function normalizeRun(value: unknown, paragraphIndex: number, runIndex: number):
   if (candidate.softBreakBefore !== undefined && typeof candidate.softBreakBefore !== 'boolean') {
     throw new TypeError(`Rich text run ${paragraphIndex},${runIndex} softBreakBefore must be a boolean`);
   }
-  const style = candidate.style === undefined ? undefined : normalizeStyle(candidate.style, paragraphIndex, runIndex);
+  const style = candidate.style === undefined
+    ? undefined
+    : normalizeStyle(candidate.style, paragraphIndex, runIndex, candidate.text);
   return {
     text: candidate.text,
     ...(style ? { style } : {}),
@@ -934,13 +970,18 @@ function normalizeRun(value: unknown, paragraphIndex: number, runIndex: number):
   };
 }
 
-function normalizeStyle(value: unknown, paragraphIndex: number, runIndex: number): RichTextRunStyle {
+function normalizeStyle(
+  value: unknown,
+  paragraphIndex: number,
+  runIndex: number,
+  runText: string,
+): RichTextRunStyle {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new TypeError(`Rich text run ${paragraphIndex},${runIndex} style must be an object`);
   }
   assertSupportedKeys(
     value,
-    ['baseline', 'bold', 'characterSpacing', 'color', 'fontFamily', 'fontSize', 'glow', 'highlight', 'italic', 'lang', 'outline', 'strike', 'transparency', 'underline'],
+    ['baseline', 'bold', 'characterSpacing', 'color', 'fontFamily', 'fontSize', 'glow', 'highlight', 'hyperlink', 'italic', 'lang', 'outline', 'strike', 'transparency', 'underline'],
     `Rich text run ${paragraphIndex},${runIndex} style`,
   );
   const candidate = value as RichTextRunStyle;
@@ -990,6 +1031,14 @@ function normalizeStyle(value: unknown, paragraphIndex: number, runIndex: number
   const highlight = candidate.highlight === undefined
     ? undefined
     : normalizeRichTextColor(candidate.highlight, `${context} highlight`);
+  const hyperlink = candidate.hyperlink === undefined
+    ? undefined
+    : candidate.hyperlink === false
+      ? false
+      : normalizeHyperlink(candidate.hyperlink, `${context} hyperlink`);
+  if (hyperlink !== undefined && hyperlink !== false && runText.length === 0) {
+    throw new TypeError(`${context} hyperlink requires non-empty text`);
+  }
   const outline = candidate.outline === undefined
     ? undefined
     : normalizeOutline(candidate.outline, `${context} outline`);
@@ -1011,6 +1060,7 @@ function normalizeStyle(value: unknown, paragraphIndex: number, runIndex: number
     ...(transparency !== undefined ? { transparency } : {}),
     ...(glow ? { glow } : {}),
     ...(highlight ? { highlight } : {}),
+    ...(hyperlink !== undefined ? { hyperlink } : {}),
     ...(outline ? { outline } : {}),
     ...(underline !== undefined ? { underline } : {}),
     ...(strike !== undefined ? { strike } : {}),
@@ -1784,6 +1834,17 @@ function containsInvalidXmlCharacter(value: string): boolean {
 }
 
 function assertSupportedKeys(value: object, supported: readonly string[], context: string): void {
-  const unsupported = Object.keys(value).find((key) => !supported.includes(key));
-  if (unsupported) throw new TypeError(`${context} property ${unsupported} is not supported yet`);
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) {
+    throw new TypeError(`${context} must be an ordinary object`);
+  }
+  for (const key of Reflect.ownKeys(value)) {
+    if (typeof key !== 'string' || !supported.includes(key)) {
+      throw new TypeError(`${context} property ${String(key)} is not supported yet`);
+    }
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (!descriptor || !Object.hasOwn(descriptor, 'value')) {
+      throw new TypeError(`${context} property ${key} must be a data property`);
+    }
+  }
 }
