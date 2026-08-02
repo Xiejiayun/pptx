@@ -120,6 +120,26 @@ async (page) => {
       })
         && reopenedVerticalAlignmentDocument.diagnostics
           .filter(({ severity }) => severity === 'error').length === 0;
+      const outputTypeDocument = api.PptxDocument.create();
+      const outputTypeJournal = JSON.stringify(outputTypeDocument.opcPackage.mutations);
+      const outputTypeState = {
+        values: [...api.OUTPUT_TYPES],
+        frozen: Object.isFrozen(api.OUTPUT_TYPES),
+        mutationIsolation: JSON.stringify(outputTypeDocument.opcPackage.mutations) ===
+          outputTypeJournal,
+      };
+      const outputTypes = JSON.stringify(outputTypeState) === JSON.stringify({
+        values: [
+          'arraybuffer',
+          'base64',
+          'binarystring',
+          'blob',
+          'nodebuffer',
+          'uint8array',
+        ],
+        frozen: true,
+        mutationIsolation: true,
+      });
       const fromBlob = await api.PptxDocument.open(new Blob([bytes.buffer]));
       const stream = new ReadableStream({
         start(controller) {
@@ -2144,6 +2164,8 @@ async (page) => {
         horizontalAlignmentState,
         verticalAlignments,
         verticalAlignmentState,
+        outputTypes,
+        outputTypeState,
         format: reopened.format,
         title: reopened.slides[0].title.text,
         mime: output.type,
@@ -2262,6 +2284,19 @@ async (page) => {
       textReopened: ['top', 'middle', 'bottom'],
       tableReopened: ['top', 'middle', 'bottom'],
       frozen: true,
+    },
+    outputTypes: true,
+    outputTypeState: {
+      values: [
+        'arraybuffer',
+        'base64',
+        'binarystring',
+        'blob',
+        'nodebuffer',
+        'uint8array',
+      ],
+      frozen: true,
+      mutationIsolation: true,
     },
     format: 'pptx',
     title: 'Browser updated',
