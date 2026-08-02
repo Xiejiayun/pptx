@@ -6,6 +6,9 @@
   "types": "./dist/index.d.ts",
   "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
   "files": ["dist", "!dist/**/*.test.*"],
-  "dependencies": { "@pptx/opc": "workspace:*" },
+  "dependencies": {
+    "@pptx/lossless-xml": "workspace:*",
+    "@pptx/opc": "workspace:*"
+  },
   "devDependencies": { "jszip": "^3.10.1" }
 }

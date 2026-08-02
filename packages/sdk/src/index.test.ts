@@ -1243,6 +1243,36 @@ describe('PptxDocument vertical slice', () => {
     }
   });
 
+  it('reports transient slide master layout margins as profile-specific info only', async () => {
+    const document = PptxDocument.create();
+    const layout = await document.defineSlideMaster({
+      title: 'TRANSIENT-MARGIN',
+      margin: inches(0.5),
+    });
+    for (const compatibility of [
+      'powerpoint-2010',
+      'powerpoint-current',
+      'keynote-current',
+      'libreoffice-current',
+      'google-slides-import',
+    ] as const) {
+      await expect(document.write({ compatibility })).resolves.toBeInstanceOf(Uint8Array);
+      expect(document.diagnostics.filter(({ code }) => code === 'LAYOUT_MARGIN_TRANSIENT'))
+        .toEqual([expect.objectContaining({
+          severity: 'info',
+          partUri: layout.partUri,
+          compatibility,
+        })]);
+      expect(document.diagnostics.filter(({ severity }) => severity !== 'info')).toEqual([]);
+    }
+    const reopened = await PptxDocument.open(await document.write());
+    await reopened.write();
+    expect(reopened.layouts.find(({ name }) => name === 'TRANSIENT-MARGIN')?.margin)
+      .toBeUndefined();
+    expect(reopened.diagnostics.filter(({ code }) => code === 'LAYOUT_MARGIN_TRANSIENT'))
+      .toEqual([]);
+  });
+
   it('prepares async slide master definition sources and charts before atomic commit', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'pptx-master-async-'));
     const png = sdkPngHeader(16, 9);
@@ -1570,7 +1600,10 @@ describe('PptxDocument vertical slice', () => {
       objects: [{ kind: 'text', text: 'Rollback original' }],
     });
     const rollbackOriginalShape = layout.shapes[0] as ShapeModel;
-    const before = await sdkPackageSnapshot(document);
+    const { output: _beforeOutput, ...before } = await sdkPackageSnapshot(document) as {
+      readonly output: Uint8Array;
+      readonly [key: string]: unknown;
+    };
     const originalSetPart = document.opcPackage.setPart.bind(document.opcPackage);
     const setPart = vi.spyOn(document.opcPackage, 'setPart')
       .mockImplementation((uri, bytes, contentType) => {
@@ -1592,7 +1625,11 @@ describe('PptxDocument vertical slice', () => {
       ],
     })).rejects.toThrow('replace chart failed');
     setPart.mockRestore();
-    expect(await sdkPackageSnapshot(document)).toEqual(before);
+    const { output: _afterOutput, ...after } = await sdkPackageSnapshot(document) as {
+      readonly output: Uint8Array;
+      readonly [key: string]: unknown;
+    };
+    expect(after).toEqual(before);
     expect(layout.name).toBe('ROLLBACK-ORIGINAL');
     expect(layout.margin).toBeUndefined();
     expect(layout.shapes).toEqual([rollbackOriginalShape]);

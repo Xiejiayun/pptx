@@ -21,6 +21,7 @@ import {
   type AddShapeOptions,
   type CustomGeometry,
   type PresetShapeType,
+  type SlideMasterObject,
 } from '@pptx/sdk';
 import { importPptxGenJS } from './index.js';
 
@@ -132,6 +133,45 @@ interface PptxGenJSShapeOptions extends Record<string, unknown> {
   readonly points?: readonly PptxGenJSCustomPoint[];
 }
 
+type PptxGenJSPlaceholderType = 'title' | 'body' | 'pic' | 'chart' | 'tbl' | 'media';
+
+interface PptxGenJSPlaceholderOptions extends Record<string, unknown> {
+  readonly name: string;
+  readonly type: PptxGenJSPlaceholderType;
+  readonly x?: PptxGenJSCoord;
+  readonly y?: PptxGenJSCoord;
+  readonly w?: PptxGenJSCoord;
+  readonly h?: PptxGenJSCoord;
+}
+
+interface PptxGenJSMasterChart {
+  readonly type: string | readonly {
+    readonly type: string;
+    readonly data: readonly PptxGenJSChartData[];
+    readonly options: Record<string, unknown>;
+  }[];
+  readonly data: readonly PptxGenJSChartData[] | Record<string, unknown>;
+  readonly opts: Record<string, unknown>;
+}
+
+type PptxGenJSMasterObject =
+  | { readonly chart: PptxGenJSMasterChart }
+  | { readonly image: Readonly<Record<string, unknown>> }
+  | { readonly line: Readonly<PptxGenJSShapeOptions> }
+  | { readonly rect: Readonly<PptxGenJSShapeOptions> }
+  | {
+      readonly text: {
+        readonly text: string;
+        readonly options: Readonly<Record<string, unknown>>;
+      };
+    }
+  | {
+      readonly placeholder: {
+        readonly text?: string;
+        readonly options: Readonly<PptxGenJSPlaceholderOptions>;
+      };
+    };
+
 type PptxGenJSPublicInstance = InstanceType<typeof import('pptxgenjs').default>;
 type PptxGenJSPublicShapeOptions = NonNullable<
   Parameters<ReturnType<PptxGenJSPublicInstance['addSlide']>['addShape']>[1]
@@ -241,7 +281,7 @@ interface PptxGenJSInstance {
     };
     readonly margin?: number | readonly [number, number, number, number];
     readonly slideNumber?: PptxGenJSSlideNumberProps;
-    readonly objects?: readonly unknown[];
+    readonly objects?: readonly PptxGenJSMasterObject[];
   }): void;
   write(options: { outputType: 'nodebuffer'; compression: boolean }): Promise<Uint8Array>;
   write(options: { outputType: 'uint8array'; compression: boolean }): Promise<Uint8Array>;
@@ -1091,6 +1131,910 @@ describe('importPptxGenJS', () => {
       expect(layout(name).background, name).toBeUndefined();
     }
     expect(imported.opcPackage.mutations).toEqual(before);
+  });
+
+  it('matches public slide master objects, topology, and empty placeholder geometry', async () => {
+    const source = new PptxGenJS();
+    source.layout = 'LAYOUT_WIDE';
+    const placeholderTypes = ['title', 'body', 'pic', 'chart', 'tbl', 'media'] as const;
+    const publicObjects: PptxGenJSMasterObject[] = [
+      {
+        rect: {
+          objectName: 'matrix-rect',
+          x: 0.5,
+          y: 0.5,
+          w: 1,
+          h: 0.75,
+          fill: { color: '112233' },
+        },
+      },
+      {
+        line: {
+          objectName: 'matrix-line',
+          x: 1.75,
+          y: 0.5,
+          w: 1,
+          h: 0.75,
+          line: { color: '445566', width: 2 },
+        },
+      },
+      {
+        text: {
+          text: 'Master text',
+          options: {
+            objectName: 'matrix-text',
+            x: 3,
+            y: 0.5,
+            w: 2,
+            h: 0.75,
+            bold: true,
+            color: '336699',
+          },
+        },
+      },
+      {
+        image: {
+          objectName: 'matrix-png',
+          data: PNG_DATA_URI,
+          x: 5.25,
+          y: 0.5,
+          w: 1,
+          h: 0.75,
+        },
+      },
+      {
+        image: {
+          objectName: 'matrix-svg',
+          data: SVG_DATA_URI,
+          x: 6.5,
+          y: 0.5,
+          w: 1,
+          h: 0.75,
+        },
+      },
+      ...placeholderTypes.map((type, index): PptxGenJSMasterObject => ({
+        placeholder: {
+          text: `${type} prompt`,
+          options: {
+            name: `${type}_matrix`,
+            objectName: `${type}-placeholder`,
+            type,
+            x: 0.5 + index * 2,
+            y: 2,
+            w: 1.5,
+            h: 0.75,
+          },
+        },
+      })),
+    ];
+    source.defineSlideMaster({ title: 'PUBLIC-MATRIX', objects: publicObjects });
+    source.addSlide({ masterName: 'PUBLIC-MATRIX' });
+    const imported = await openPptxGenJSPublicOutput(source);
+
+    const native = PptxDocument.create({ slideSize: 'wide' });
+    const nativeObjects: SlideMasterObject[] = [
+      {
+        kind: 'rect',
+        options: {
+          name: 'matrix-rect',
+          x: inches(0.5),
+          y: inches(0.5),
+          width: inches(1),
+          height: inches(0.75),
+          fill: { kind: 'solid', color: { kind: 'srgb', value: '112233' } },
+        },
+      },
+      {
+        kind: 'line',
+        options: {
+          name: 'matrix-line',
+          x: inches(1.75),
+          y: inches(0.5),
+          width: inches(1),
+          height: inches(0.75),
+          line: { kind: 'line', color: { kind: 'srgb', value: '445566' }, width: 2 },
+        },
+      },
+      {
+        kind: 'text',
+        text: [{
+          runs: [{
+            text: 'Master text',
+            style: { bold: true, color: { kind: 'srgb', value: '336699' } },
+          }],
+        }],
+        options: {
+          name: 'matrix-text',
+          x: inches(3),
+          y: inches(0.5),
+          width: inches(2),
+          height: inches(0.75),
+        },
+      },
+      {
+        kind: 'image',
+        source: PNG_DATA_URI,
+        options: {
+          name: 'matrix-png',
+          x: inches(5.25),
+          y: inches(0.5),
+          width: inches(1),
+          height: inches(0.75),
+        },
+      },
+      {
+        kind: 'image',
+        source: SVG_DATA_URI,
+        options: {
+          name: 'matrix-svg',
+          fallback: PNG_DATA_URI,
+          x: inches(6.5),
+          y: inches(0.5),
+          width: inches(1),
+          height: inches(0.75),
+        },
+      },
+      ...placeholderTypes.map((type, index): SlideMasterObject => ({
+        kind: 'placeholder',
+        text: `${type} prompt`,
+        options: {
+          name: `${type}_matrix`,
+          type,
+          index: 105 + index,
+          x: inches(0.5 + index * 2),
+          y: inches(2),
+          width: inches(1.5),
+          height: inches(0.75),
+        },
+      })),
+    ];
+    const nativeLayout = await native.defineSlideMaster({
+      title: 'NATIVE-MATRIX',
+      objects: nativeObjects,
+    });
+    native.addSlide({ masterName: 'NATIVE-MATRIX' });
+
+    const importedLayout = imported.layouts.find(({ name }) => name === 'PUBLIC-MATRIX')!;
+    const importedMaster = imported.masters.find(
+      ({ partUri }) => partUri === importedLayout.masterPartUri,
+    )!;
+    const nativeMaster = native.masters.find(
+      ({ partUri }) => partUri === nativeLayout.masterPartUri,
+    )!;
+    const topology = (
+      document: PptxDocument,
+      layoutPartUri: string,
+      masterPartUri: string,
+      slidePartUri: string,
+    ) => ({
+      layoutBacklinks: document.opcPackage.relationships(layoutPartUri).filter(
+        ({ type, resolvedTarget }) =>
+          type.endsWith('/slideMaster') && resolvedTarget === masterPartUri,
+      ).length,
+      masterLinks: document.opcPackage.relationships(masterPartUri).filter(
+        ({ type, resolvedTarget }) =>
+          type.endsWith('/slideLayout') && resolvedTarget === layoutPartUri,
+      ).length,
+      slideLinks: document.opcPackage.relationships(slidePartUri).filter(
+        ({ type, resolvedTarget }) =>
+          type.endsWith('/slideLayout') && resolvedTarget === layoutPartUri,
+      ).length,
+    });
+    expect(topology(
+      imported,
+      importedLayout.partUri,
+      importedMaster.partUri,
+      imported.slides[0]!.partUri,
+    )).toEqual({ layoutBacklinks: 1, masterLinks: 1, slideLinks: 1 });
+    expect(topology(
+      native,
+      nativeLayout.partUri,
+      nativeMaster.partUri,
+      native.slides[0]!.partUri,
+    )).toEqual({ layoutBacklinks: 1, masterLinks: 1, slideLinks: 1 });
+
+    expect(importedLayout.shapes.map(({ kind }) => kind))
+      .toEqual(nativeLayout.shapes.map(({ kind }) => kind));
+    expect(importedLayout.shapes.map(({ transform }) => transform))
+      .toEqual(nativeLayout.shapes.map(({ transform }) => transform));
+    expect(importedLayout.shapes.slice(0, 5).map(({ name }) => name))
+      .toEqual(nativeLayout.shapes.slice(0, 5).map(({ name }) => name));
+    const importedRect = importedLayout.shapes[0] as ShapeModel;
+    const nativeRect = nativeLayout.shapes[0] as ShapeModel;
+    const importedLine = importedLayout.shapes[1] as ShapeModel;
+    const nativeLine = nativeLayout.shapes[1] as ShapeModel;
+    const importedText = importedLayout.shapes[2] as ShapeModel;
+    const nativeText = nativeLayout.shapes[2] as ShapeModel;
+    expect(importedRect.fill).toEqual(nativeRect.fill);
+    expect(importedLine.line).toEqual(nativeLine.line);
+    const comparableTextRun = (shape: ShapeModel) => {
+      const run = shape.richText[0]?.runs[0];
+      return {
+        text: run?.text,
+        bold: run?.style?.bold,
+        color: run?.style?.color,
+        lang: run?.style?.lang,
+      };
+    };
+    expect(comparableTextRun(importedText)).toEqual(comparableTextRun(nativeText));
+
+    const importedImages = importedLayout.shapes.filter(
+      (shape): shape is ImageModel => shape instanceof ImageModel,
+    );
+    const nativeImages = nativeLayout.shapes.filter(
+      (shape): shape is ImageModel => shape instanceof ImageModel,
+    );
+    expect(importedImages.map(({ isSvg }) => isSvg)).toEqual([false, true]);
+    expect(nativeImages.map(({ isSvg }) => isSvg)).toEqual([false, true]);
+    const imageHash = (document: PptxDocument, image: ImageModel) => createHash('sha256')
+      .update(document.opcPackage.requirePart(
+        image.isSvg ? image.svgPartUri! : image.sourcePartUri!,
+      ).bytes)
+      .digest('hex');
+    expect(importedImages.map((image) => imageHash(imported, image)))
+      .toEqual(nativeImages.map((image) => imageHash(native, image)));
+
+    expect(importedLayout.placeholders.map(({ placeholder }) => placeholder)).toEqual([
+      { type: 'title', index: 105 },
+      { type: 'body', index: 106 },
+      { type: 'body', index: 107 },
+      { type: 'chart', index: 108 },
+      { type: 'body', index: 109 },
+      { type: 'media', index: 110 },
+    ]);
+    expect(nativeLayout.placeholders.map(({ placeholder }) => placeholder)).toEqual(
+      placeholderTypes.map((type, index) => ({ type, index: 105 + index })),
+    );
+    expect(imported.slides[0]?.placeholders.map(({ placeholder }) => placeholder))
+      .toEqual(importedLayout.placeholders.map(({ placeholder }) => placeholder));
+    expect(native.slides[0]?.placeholders.map(({ placeholder }) => placeholder))
+      .toEqual(nativeLayout.placeholders.map(({ placeholder }) => placeholder));
+
+    for (const compatibility of [
+      'powerpoint-2010',
+      'powerpoint-current',
+      'keynote-current',
+      'libreoffice-current',
+      'google-slides-import',
+    ] as const) {
+      await imported.write({ compatibility });
+      await native.write({ compatibility });
+      expect(imported.diagnostics.filter(({ code, severity }) =>
+        severity !== 'info' && /^(LAYOUT_|PLACEHOLDER_)/.test(code))).toEqual([]);
+      expect(native.diagnostics.filter(({ code, severity }) =>
+        severity !== 'info' && /^(LAYOUT_|PLACEHOLDER_)/.test(code))).toEqual([]);
+    }
+  });
+
+  it('matches all public slide master chart types and combo workbooks to native output', async () => {
+    const source = new PptxGenJS();
+    source.layout = 'LAYOUT_WIDE';
+    const chartTypes = [
+      ['area', source.ChartType.area!],
+      ['bar', source.ChartType.bar!],
+      ['bar3D', source.ChartType.bar3d!],
+      ['bubble', source.ChartType.bubble!],
+      ['doughnut', source.ChartType.doughnut!],
+      ['line', source.ChartType.line!],
+      ['pie', source.ChartType.pie!],
+      ['radar', source.ChartType.radar!],
+      ['scatter', source.ChartType.scatter!],
+    ] as const;
+    const publicData = (type: typeof chartTypes[number][0]): readonly PptxGenJSChartData[] => {
+      if (type === 'scatter') {
+        return [
+          { name: 'X', values: [1, 2] },
+          { name: 'scatter-series', values: [10, 20] },
+        ];
+      }
+      if (type === 'bubble') {
+        return [
+          { name: 'X', values: [1, 2] },
+          { name: 'bubble-series', values: [10, 20], sizes: [5, 6] },
+        ];
+      }
+      return [{ name: `${type}-series`, labels: ['Q1', 'Q2'], values: [10, 20] }];
+    };
+    const publicObjects: PptxGenJSMasterObject[] = chartTypes.map(
+      ([type, publicType], index) => ({
+        chart: {
+          type: publicType,
+          data: publicData(type),
+          opts: { x: 0.5 + index, y: 0.5, w: 0.8, h: 1.5 },
+        },
+      }),
+    );
+    const comboData = [{ name: 'Revenue', labels: ['Q1', 'Q2'], values: [10, 20] }];
+    const trendData = [{ name: 'Trend', labels: ['Q1', 'Q2'], values: [11, 21] }];
+    publicObjects.push({
+      chart: {
+        type: [
+          { type: source.ChartType.bar!, data: comboData, options: {} },
+          {
+            type: source.ChartType.line!,
+            data: trendData,
+            options: { secondaryCatAxis: true, secondaryValAxis: true },
+          },
+        ],
+        data: {
+          x: 9.5,
+          y: 0.5,
+          w: 2,
+          h: 1.5,
+          catAxes: [{}, {}],
+          valAxes: [{}, {}],
+        },
+        opts: {},
+      },
+    });
+    source.defineSlideMaster({ title: 'PUBLIC-CHARTS', objects: publicObjects });
+    source.addSlide({ masterName: 'PUBLIC-CHARTS' });
+    const imported = await openPptxGenJSPublicOutput(source);
+    const importedLayout = imported.layouts.find(({ name }) => name === 'PUBLIC-CHARTS')!;
+    const importedCharts = importedLayout.shapes.filter(
+      (shape): shape is ChartModel => shape instanceof ChartModel,
+    );
+
+    const nativeObject = (
+      type: typeof chartTypes[number][0],
+      index: number,
+    ): SlideMasterObject => {
+      const options = {
+        x: inches(0.5 + index),
+        y: inches(0.5),
+        width: inches(0.8),
+        height: inches(1.5),
+      };
+      if (type === 'scatter') {
+        return {
+          kind: 'chart',
+          groups: [{
+            type,
+            series: [{ name: 'scatter-series', xValues: [1, 2], values: [10, 20] }],
+          }],
+          options,
+        };
+      }
+      if (type === 'bubble') {
+        return {
+          kind: 'chart',
+          groups: [{
+            type,
+            series: [{
+              name: 'bubble-series',
+              xValues: [1, 2],
+              values: [10, 20],
+              sizes: [5, 6],
+            }],
+          }],
+          options,
+        };
+      }
+      return {
+        kind: 'chart',
+        groups: [{
+          type,
+          series: [{ name: `${type}-series`, categories: ['Q1', 'Q2'], values: [10, 20] }],
+        }],
+        options,
+      };
+    };
+    const native = PptxDocument.create({ slideSize: 'wide' });
+    const nativeLayout = await native.defineSlideMaster({
+      title: 'NATIVE-CHARTS',
+      objects: [
+        ...chartTypes.map(([type], index) => nativeObject(type, index)),
+        {
+          kind: 'chart',
+          groups: [
+            {
+              type: 'bar',
+              series: [{ name: 'Revenue', categories: ['Q1', 'Q2'], values: [10, 20] }],
+            },
+            {
+              type: 'line',
+              axis: 'secondary',
+              series: [{ name: 'Trend', categories: ['Q1', 'Q2'], values: [11, 21] }],
+            },
+          ],
+          options: {
+            x: inches(9.5),
+            y: inches(0.5),
+            width: inches(2),
+            height: inches(1.5),
+          },
+        },
+      ],
+    });
+    native.addSlide({ masterName: 'NATIVE-CHARTS' });
+    const nativeCharts = nativeLayout.shapes.filter(
+      (shape): shape is ChartModel => shape instanceof ChartModel,
+    );
+    expect(importedCharts).toHaveLength(10);
+    expect(nativeCharts).toHaveLength(10);
+    const chartState = (charts: readonly ChartModel[]) => charts.map((chart) => ({
+      transform: chart.transform,
+      groups: chart.definition?.groups.map(({ type, axis, series }) => ({
+        type,
+        axis,
+        series: series.map(({ name, values, xValues, sizes }) => ({
+          name,
+          values,
+          xValues,
+          sizes,
+        })),
+      })),
+    }));
+    expect(chartState(importedCharts)).toEqual(chartState(nativeCharts));
+    expect(importedCharts.at(-1)?.definition?.groups.map(({ type, axis }) => [type, axis]))
+      .toEqual([['bar', 'primary'], ['line', 'secondary']]);
+
+    for (const [document, layout, charts] of [
+      [imported, importedLayout, importedCharts],
+      [native, nativeLayout, nativeCharts],
+    ] as const) {
+      for (const chart of charts) {
+        expect(chart.workbookPartUri).toBeDefined();
+        expect(await chartWorkbookMatches(
+          document.opcPackage.requirePart(chart.workbookPartUri!).bytes,
+          chart.definition!,
+          chart.xml,
+        )).toBe(true);
+        expect(document.opcPackage.relationships(layout.partUri).filter(
+          ({ type, resolvedTarget }) =>
+            type.endsWith('/chart') && resolvedTarget === chart.chartPartUri,
+        )).toHaveLength(1);
+        expect(document.opcPackage.relationships(chart.chartPartUri!).filter(
+          ({ type, resolvedTarget }) =>
+            type.endsWith('/package') && resolvedTarget === chart.workbookPartUri,
+        )).toHaveLength(1);
+      }
+    }
+  });
+
+  it('compares public placeholder population payloads with strict native owners', async () => {
+    const source = new PptxGenJS();
+    source.layout = 'LAYOUT_WIDE';
+    const publicPlaceholders = [
+      {
+        name: 'title_box', objectName: 'title-placeholder',
+        type: 'title', x: 0.5, y: 0.5, w: 2, h: 0.75,
+      },
+      {
+        name: 'rich_box', objectName: 'rich-placeholder',
+        type: 'body', x: 0.5, y: 1.5, w: 2, h: 0.75,
+      },
+      {
+        name: 'pic_box', objectName: 'picture-placeholder',
+        type: 'pic', x: 3, y: 0.5, w: 2, h: 1.75,
+      },
+      {
+        name: 'chart_box', objectName: 'chart-placeholder',
+        type: 'chart', x: 5.5, y: 0.5, w: 2.5, h: 1.75,
+      },
+      {
+        name: 'table_box', objectName: 'table-placeholder',
+        type: 'tbl', x: 8.5, y: 0.5, w: 2.5, h: 1.75,
+      },
+      {
+        name: 'media_box', objectName: 'media-placeholder',
+        type: 'media', x: 11.5, y: 0.5, w: 1.25, h: 1.75,
+      },
+    ] as const;
+    source.defineSlideMaster({
+      title: 'PUBLIC-POPULATED',
+      objects: publicPlaceholders.map((options): PptxGenJSMasterObject => ({
+        placeholder: { text: `${options.type} prompt`, options },
+      })),
+    });
+    const publicSlide = source.addSlide({ masterName: 'PUBLIC-POPULATED' });
+    publicSlide.addText('Filled title', { placeholder: 'title_box' });
+    publicSlide.addText([
+      { text: 'Rich', options: { bold: true } },
+      { text: ' body', options: { italic: true } },
+    ], { placeholder: 'rich_box' });
+    publicSlide.addImage({ data: PNG_DATA_URI, placeholder: 'pic_box' });
+    publicSlide.addChart(source.ChartType.bar!, [{
+      name: 'Revenue', labels: ['Q1', 'Q2'], values: [10, 20],
+    }], { placeholder: 'chart_box' });
+    publicSlide.addTable([
+      [{ text: 'Quarter' }, { text: 'Revenue' }],
+      [{ text: 'Q1' }, { text: '10' }],
+    ], { placeholder: 'table_box' });
+    const publicMediaOptions: PptxGenJSMediaOptions & { readonly placeholder: string } = {
+      type: 'audio',
+      data: 'data:audio/mpeg;base64,AQIDBA==',
+      placeholder: 'media_box',
+    };
+    publicSlide.addMedia(publicMediaOptions);
+    const imported = await openPptxGenJSPublicOutput(source);
+    const importedLayout = imported.layouts.find(({ name }) => name === 'PUBLIC-POPULATED')!;
+    const importedSlide = imported.slides[0]!;
+
+    const native = PptxDocument.create({ slideSize: 'wide' });
+    const nativeLayout = await native.defineSlideMaster({
+      title: 'NATIVE-POPULATED',
+      objects: publicPlaceholders.map((placeholder, index): SlideMasterObject => ({
+        kind: 'placeholder',
+        text: `${placeholder.type} prompt`,
+        options: {
+          name: placeholder.name,
+          type: placeholder.type,
+          index: 100 + index,
+          x: inches(placeholder.x),
+          y: inches(placeholder.y),
+          width: inches(placeholder.w),
+          height: inches(placeholder.h),
+        },
+      })),
+    });
+    const nativeSlide = native.addSlide({ masterName: 'NATIVE-POPULATED' });
+    nativeSlide.addText('Filled title', { placeholder: 'title_box' });
+    nativeSlide.addRichText([
+      {
+        runs: [
+          { text: 'Rich', style: { bold: true } },
+          { text: ' body', style: { italic: true } },
+        ],
+      },
+    ], { placeholder: 'rich_box' });
+    await native.addImage(0, PNG_DATA_URI, { placeholder: 'pic_box' });
+    await native.addChart(0, 'bar', [{
+      name: 'Revenue', categories: ['Q1', 'Q2'], values: [10, 20],
+    }], { placeholder: 'chart_box' });
+    nativeSlide.addTable([
+      ['Quarter', 'Revenue'],
+      ['Q1', '10'],
+    ], { placeholder: 'table_box' });
+    await native.addAudio(0, 'data:audio/mpeg;base64,AQIDBA==', {
+      placeholder: 'media_box',
+    });
+
+    expect(importedLayout.placeholders.map(({ placeholder }) => placeholder)).toEqual([
+      { type: 'title', index: 100 },
+      { type: 'body', index: 101 },
+      { type: 'body', index: 102 },
+      { type: 'chart', index: 103 },
+      { type: 'body', index: 104 },
+      { type: 'media', index: 105 },
+    ]);
+    expect(nativeLayout.placeholders.map(({ placeholder }) => placeholder)).toEqual([
+      { type: 'title', index: 100 },
+      { type: 'body', index: 101 },
+      { type: 'pic', index: 102 },
+      { type: 'chart', index: 103 },
+      { type: 'tbl', index: 104 },
+      { type: 'media', index: 105 },
+    ]);
+    expect(importedSlide.shapes.map(({ kind }) => kind)).toEqual([
+      'text', 'text', 'image', 'chart', 'table', 'audio', 'text',
+    ]);
+    expect(nativeSlide.shapes.map(({ kind }) => kind)).toEqual([
+      'text', 'text', 'image', 'chart', 'table', 'audio',
+    ]);
+    expect((importedSlide.shapes[0] as ShapeModel).text)
+      .toBe((nativeSlide.shapes[0] as ShapeModel).text);
+    expect((importedSlide.shapes[1] as ShapeModel).richText[0]?.runs.map(
+      ({ text, style }) => ({ text, bold: style?.bold, italic: style?.italic }),
+    )).toEqual((nativeSlide.shapes[1] as ShapeModel).richText[0]?.runs.map(
+      ({ text, style }) => ({ text, bold: style?.bold, italic: style?.italic }),
+    ));
+
+    const importedImage = importedSlide.shapes.find(
+      (shape): shape is ImageModel => shape instanceof ImageModel,
+    )!;
+    const nativeImage = nativeSlide.shapes.find(
+      (shape): shape is ImageModel => shape instanceof ImageModel,
+    )!;
+    expect(importedImage.transform).toMatchObject({
+      x: importedLayout.placeholders[2]?.transform.x,
+      y: importedLayout.placeholders[2]?.transform.y,
+      width: inches(1),
+      height: inches(1),
+    });
+    expect(importedImage.transform).not.toEqual(importedLayout.placeholders[2]?.transform);
+    expect(nativeImage.transform).toEqual(nativeLayout.placeholders[2]?.transform);
+    expect(createHash('sha256').update(
+      imported.opcPackage.requirePart(importedImage.sourcePartUri!).bytes,
+    ).digest('hex')).toBe(createHash('sha256').update(
+      native.opcPackage.requirePart(nativeImage.sourcePartUri!).bytes,
+    ).digest('hex'));
+
+    const importedChart = importedSlide.shapes.find(
+      (shape): shape is ChartModel => shape instanceof ChartModel,
+    )!;
+    const nativeChart = nativeSlide.shapes.find(
+      (shape): shape is ChartModel => shape instanceof ChartModel,
+    )!;
+    expect(importedChart.transform).toEqual(importedLayout.placeholders[3]?.transform);
+    expect(nativeChart.transform).toEqual(nativeLayout.placeholders[3]?.transform);
+    expect(importedChart.definition?.groups.map(({ type, series }) => ({
+      type,
+      series: series.map(({ name, values }) => ({ name, values })),
+    }))).toEqual(nativeChart.definition?.groups.map(({ type, series }) => ({
+      type,
+      series: series.map(({ name, values }) => ({ name, values })),
+    })));
+    for (const [document, chart] of [
+      [imported, importedChart],
+      [native, nativeChart],
+    ] as const) {
+      expect(await chartWorkbookMatches(
+        document.opcPackage.requirePart(chart.workbookPartUri!).bytes,
+        chart.definition!,
+        chart.xml,
+      )).toBe(true);
+    }
+
+    const importedTable = importedSlide.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    )!;
+    const nativeTable = nativeSlide.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    )!;
+    const expectedTableRows = [
+      ['Quarter', 'Revenue'],
+      ['Q1', '10'],
+    ];
+    expect(importedTable.id).toBe(importedSlide.shapes[0]?.id);
+    expect(importedTable.rows).toEqual([]);
+    for (const text of expectedTableRows.flat()) {
+      expect(slideXml(imported, 0)).toContain(`<a:t>${text}</a:t>`);
+    }
+    expect(nativeTable.rows.map(({ cells }) => cells.map(({ text }) => text)))
+      .toEqual(expectedTableRows);
+    const importedAudio = embeddedMediaStates(imported, 0)[0]!;
+    const nativeAudio = embeddedMediaStates(native, 0)[0]!;
+    expect(importedAudio.mediaBytes).toEqual(nativeAudio.mediaBytes);
+    const nativeMediaGeometry = {
+      x: nativeLayout.placeholders[5]!.transform.x,
+      y: nativeLayout.placeholders[5]!.transform.y,
+      width: nativeLayout.placeholders[5]!.transform.width,
+      height: nativeLayout.placeholders[5]!.transform.height,
+    };
+    expect(importedAudio.transform).not.toEqual(nativeMediaGeometry);
+    expect(nativeAudio.transform).toEqual(nativeMediaGeometry);
+    expect(nativeSlide.placeholders.map(({ placeholder }) => placeholder))
+      .toEqual(nativeLayout.placeholders.map(({ placeholder }) => placeholder));
+
+    for (const compatibility of [
+      'powerpoint-2010',
+      'powerpoint-current',
+      'keynote-current',
+      'libreoffice-current',
+      'google-slides-import',
+    ] as const) {
+      await imported.write({ mode: 'permissive', compatibility });
+      expect(imported.diagnostics.filter(({ code }) => /^(LAYOUT_|PLACEHOLDER_)/.test(code)))
+        .toEqual([
+          expect.objectContaining({
+            severity: 'error',
+            code: 'PLACEHOLDER_DOMAIN_MISMATCH',
+            partUri: importedSlide.partUri,
+            objectId: 'body:102',
+            compatibility,
+          }),
+          expect.objectContaining({
+            severity: 'warning',
+            code: 'PLACEHOLDER_OWNER_MISSING',
+            partUri: importedSlide.partUri,
+            objectId: 'body:104',
+            compatibility,
+          }),
+        ]);
+      await native.write({ compatibility });
+      expect(native.diagnostics.filter(({ code, severity }) =>
+        severity !== 'info' && /^(LAYOUT_|PLACEHOLDER_)/.test(code))).toEqual([]);
+    }
+  });
+
+  it('locks public slide master fallbacks while native definitions reject atomically', async () => {
+    const unknown = new PptxGenJS();
+    unknown.defineSlideMaster({ title: 'KNOWN', objects: [] });
+    unknown.addSlide({ masterName: 'UNKNOWN' });
+    const importedUnknown = await openPptxGenJSPublicOutput(unknown);
+    const knownLayout = importedUnknown.layouts.find(({ name }) => name === 'KNOWN')!;
+    expect(importedUnknown.slides[0]?.relationships.find(
+      ({ type }) => type.endsWith('/slideLayout'),
+    )?.resolvedTarget).not.toBe(knownLayout.partUri);
+
+    const duplicate = new PptxGenJS();
+    duplicate.defineSlideMaster({
+      title: 'DUPLICATE',
+      objects: [{ text: { text: 'First', options: {} } }],
+    });
+    duplicate.defineSlideMaster({
+      title: 'DUPLICATE',
+      objects: [{ text: { text: 'Second', options: {} } }],
+    });
+    duplicate.addSlide({ masterName: 'DUPLICATE' });
+    const importedDuplicate = await openPptxGenJSPublicOutput(duplicate);
+    const duplicateLayouts = importedDuplicate.layouts.filter(({ name }) => name === 'DUPLICATE');
+    expect(duplicateLayouts).toHaveLength(2);
+    expect(importedDuplicate.slides[0]?.relationships.find(
+      ({ type }) => type.endsWith('/slideLayout'),
+    )?.resolvedTarget).toBe(duplicateLayouts[0]?.partUri);
+    await importedDuplicate.write({ mode: 'permissive' });
+    expect(importedDuplicate.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        severity: 'error',
+        code: 'LAYOUT_NAME_DUPLICATE',
+        partUri: duplicateLayouts[1]?.partUri,
+        objectId: 'DUPLICATE',
+      }),
+    ]));
+
+    const invalidType = new PptxGenJS();
+    invalidType.defineSlideMaster({
+      title: 'INVALID-TYPE',
+      objects: [{
+        placeholder: {
+          text: 'Invalid',
+          options: { name: 'invalid', type: 'footer', x: 1, y: 1, w: 2, h: 1 },
+        },
+      }],
+    } as never);
+    invalidType.addSlide({ masterName: 'INVALID-TYPE' });
+    const importedInvalidType = await openPptxGenJSPublicOutput(invalidType);
+    expect(importedInvalidType.layouts.find(({ name }) => name === 'INVALID-TYPE')
+      ?.placeholders[0]?.placeholder).toEqual({ type: 'body', index: 100 });
+
+    const duplicateNames = new PptxGenJS();
+    duplicateNames.defineSlideMaster({
+      title: 'DUPLICATE-PLACEHOLDER-NAME',
+      objects: [
+        {
+          placeholder: {
+            text: 'First',
+            options: { name: 'same_name', type: 'title', x: 1, y: 1, w: 2, h: 1 },
+          },
+        },
+        {
+          placeholder: {
+            text: 'Second',
+            options: { name: 'same_name', type: 'body', x: 1, y: 2, w: 2, h: 1 },
+          },
+        },
+      ],
+    });
+    duplicateNames.addSlide({ masterName: 'DUPLICATE-PLACEHOLDER-NAME' });
+    const importedDuplicateNames = await openPptxGenJSPublicOutput(duplicateNames);
+    expect(importedDuplicateNames.slides[0]?.placeholders.map(({ placeholder }) => placeholder))
+      .toEqual([{ type: 'title', index: 100 }]);
+    await importedDuplicateNames.write({ mode: 'permissive' });
+    expect(importedDuplicateNames.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        severity: 'error',
+        code: 'PLACEHOLDER_IDENTITY_AMBIGUOUS',
+        partUri: importedDuplicateNames.layouts.find(
+          ({ name }) => name === 'DUPLICATE-PLACEHOLDER-NAME',
+        )?.partUri,
+        objectId: 'name:Text 0',
+      }),
+    ]));
+
+    const zeroGeometry = new PptxGenJS();
+    zeroGeometry.defineSlideMaster({
+      title: 'ZERO-GEOMETRY',
+      objects: [{
+        placeholder: {
+          text: 'Zero',
+          options: { name: 'zero_box', type: 'title', x: 0, y: 0, w: 0, h: 0 },
+        },
+      }],
+    });
+    zeroGeometry.addSlide({ masterName: 'ZERO-GEOMETRY' });
+    const importedZero = await openPptxGenJSPublicOutput(zeroGeometry);
+    expect(importedZero.layouts.find(({ name }) => name === 'ZERO-GEOMETRY')
+      ?.placeholders[0]?.transform).toMatchObject({ x: 0, y: 0, width: 0, height: 0 });
+    expect(importedZero.slides[0]?.placeholders[0]?.transform)
+      .toMatchObject({ x: 0, y: 0, width: 0, height: 0 });
+
+    const delayed = new PptxGenJS();
+    delayed.defineSlideMaster({
+      title: 'DELAYED',
+      objects: [{
+        placeholder: {
+          text: 'Delayed',
+          options: { name: 'delayed_box', type: 'title', x: 1, y: 1, w: 2, h: 1 },
+        },
+      }],
+    });
+    const delayedSlide = delayed.addSlide({ masterName: 'DELAYED' });
+    const firstWrite = await openPptxGenJSPublicOutput(delayed);
+    expect(firstWrite.slides[0]?.placeholders.map((shape) => ({
+      placeholder: shape.placeholder,
+      text: (shape as ShapeModel).text,
+    }))).toEqual([{ placeholder: { type: 'title', index: 100 }, text: '' }]);
+    delayedSlide.addText('Filled after first write', { placeholder: 'delayed_box' });
+    const secondWrite = await openPptxGenJSPublicOutput(delayed);
+    expect(secondWrite.slides[0]?.placeholders.map((shape) => ({
+      placeholder: shape.placeholder,
+      text: (shape as ShapeModel).text,
+    }))).toEqual([
+      { placeholder: { type: 'title', index: 100 }, text: '' },
+      { placeholder: { type: 'title', index: 100 }, text: 'Filled after first write' },
+    ]);
+    await secondWrite.write({ mode: 'permissive' });
+    expect(secondWrite.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        severity: 'error',
+        code: 'PLACEHOLDER_IDENTITY_AMBIGUOUS',
+        partUri: secondWrite.slides[0]?.partUri,
+        objectId: 'title:100',
+      }),
+    ]));
+
+    const nativeUnknown = PptxDocument.create();
+    const unknownBefore = packageState(nativeUnknown);
+    expect(() => nativeUnknown.addSlide({ masterName: 'UNKNOWN' })).toThrow(/not found/i);
+    expect(packageState(nativeUnknown)).toEqual(unknownBefore);
+
+    const nativeDuplicate = PptxDocument.create();
+    await nativeDuplicate.defineSlideMaster({ title: 'DUPLICATE' });
+    const duplicateBefore = packageState(nativeDuplicate);
+    await expect(nativeDuplicate.defineSlideMaster({ title: 'DUPLICATE' }))
+      .rejects.toThrow(/already|unique/i);
+    expect(packageState(nativeDuplicate)).toEqual(duplicateBefore);
+
+    const rejectedDefinitions = [
+      {
+        title: 'INVALID-TYPE',
+        objects: [{
+          kind: 'placeholder',
+          options: { name: 'invalid', type: 'footer' },
+        }],
+      },
+      {
+        title: 'DUPLICATE-PLACEHOLDER-NAME',
+        objects: [
+          {
+            kind: 'placeholder',
+            options: { name: 'same_name', type: 'title', index: 100 },
+          },
+          {
+            kind: 'placeholder',
+            options: { name: 'same_name', type: 'body', index: 101 },
+          },
+        ],
+      },
+      {
+        title: 'ZERO-GEOMETRY',
+        objects: [{
+          kind: 'placeholder',
+          options: { name: 'zero_box', type: 'title', width: 0, height: 0 },
+        }],
+      },
+    ] as const;
+    for (const definition of rejectedDefinitions) {
+      const document = PptxDocument.create();
+      const before = packageState(document);
+      await expect(document.defineSlideMaster(definition as never)).rejects.toThrow();
+      expect(packageState(document)).toEqual(before);
+    }
+
+    const nativeDelayed = PptxDocument.create();
+    await nativeDelayed.defineSlideMaster({
+      title: 'DELAYED',
+      objects: [{
+        kind: 'placeholder',
+        text: 'Delayed',
+        options: { name: 'delayed_box', type: 'title', index: 100 },
+      }],
+    });
+    const nativeDelayedSlide = nativeDelayed.addSlide({ masterName: 'DELAYED' });
+    await nativeDelayed.write();
+    nativeDelayedSlide.addText('Filled after first write', { placeholder: 'delayed_box' });
+    expect(nativeDelayedSlide.placeholders.map((shape) => ({
+      placeholder: shape.placeholder,
+      text: (shape as ShapeModel).text,
+    }))).toEqual([{
+      placeholder: { type: 'title', index: 100 },
+      text: 'Filled after first write',
+    }]);
+    await nativeDelayed.write();
+    expect(nativeDelayed.diagnostics.filter(({ code }) => /^(LAYOUT_|PLACEHOLDER_)/.test(code)))
+      .toEqual([]);
   });
 
   it('reports a real fixed-id collision created only through PptxGenJS public APIs', async () => {
@@ -8802,11 +9746,22 @@ describe('importPptxGenJS', () => {
       ],
     ]);
     expect(imported.map(({ slides }) => slides.length)).toEqual([2, 2, 1, 0, 2, 2, 1, 0]);
-    for (const document of imported) {
+    for (const [documentIndex, document] of imported.entries()) {
       for (const { id } of document.sections ?? []) {
         expect(id).toMatch(/^\{[0-9A-F]{8}(?:-[0-9A-F]{4}){3}-[0-9A-F]{12}\}$/i);
       }
-      const reopened = await PptxDocument.open(await document.write());
+      const masterless = documentIndex === 3 || documentIndex === 7;
+      const output = await document.write(masterless ? { mode: 'permissive' } : {});
+      expect(document.diagnostics.filter(({ code }) => code === 'LAYOUT_RELATIONSHIP_INVALID'))
+        .toEqual(masterless
+          ? [expect.objectContaining({
+              severity: 'error',
+              code: 'LAYOUT_RELATIONSHIP_INVALID',
+              partUri: document.presentationPartUri,
+              objectId: 'rId1',
+            })]
+          : []);
+      const reopened = await PptxDocument.open(output);
       expect(sectionState(reopened)).toEqual(sectionState(document));
     }
 

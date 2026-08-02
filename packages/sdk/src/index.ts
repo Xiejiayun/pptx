@@ -35,6 +35,7 @@ import { escapeXmlAttribute } from '@pptx/lossless-xml';
 import { OpcPackage, type PackageOpenOptions } from '@pptx/opc';
 import {
   ValidationError,
+  validateMasterLayoutPlaceholders,
   validatePackage,
   type CompatibilityProfile,
   type Diagnostic,
@@ -241,10 +242,23 @@ export class PptxDocument extends PresentationModel {
 
   async write(options: WriteOptions = {}): Promise<Uint8Array> {
     const compatibility = options.compatibility ?? 'powerpoint-current';
-    const diagnostics: Diagnostic[] = [...validatePackage(this.opcPackage)];
+    const diagnostics: Diagnostic[] = [
+      ...validatePackage(this.opcPackage),
+      ...validateMasterLayoutPlaceholders(this.opcPackage, compatibility),
+    ];
     const gradients = new GradientCodec();
     const media = new MediaCodec(this.opcPackage);
     const firstSlideNumber = this.firstSlideNumber ?? 1;
+    for (const partUri of this.#layoutMargins.keys()) {
+      diagnostics.push({
+        severity: 'info',
+        code: 'LAYOUT_MARGIN_TRANSIENT',
+        message: 'Layout margin is runtime-only and is not serialized into the presentation',
+        partUri,
+        compatibility,
+        suggestion: 'Reapply the margin after reopen before using runtime layout helpers.',
+      });
+    }
     for (const [index, slide] of this.slides.entries()) {
       const background = slide.background;
       if (background?.kind === 'linear-gradient' || background?.kind === 'path-gradient') {

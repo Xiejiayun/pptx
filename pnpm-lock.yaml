@@ -151,6 +151,9 @@ importers:
 
   packages/validator:
     dependencies:
+      '@pptx/lossless-xml':
+        specifier: workspace:*
+        version: link:../lossless-xml
       '@pptx/opc':
         specifier: workspace:*
         version: link:../opc

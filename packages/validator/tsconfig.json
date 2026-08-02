@@ -2,6 +2,8 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": { "composite": true, "rootDir": "src", "outDir": "dist" },
   "include": ["src/**/*.ts"],
-  "references": [{ "path": "../opc" }]
+  "references": [
+    { "path": "../lossless-xml" },
+    { "path": "../opc" }
+  ]
 }
-
