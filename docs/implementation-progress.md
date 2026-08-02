@@ -464,7 +464,7 @@ $ pptx-inspect --json package inspect output.pptx
 ### 剩余文本与全功能路线
 
 - Slide default text color direct transient 语义与 master/layout/placeholder 已完成；table 默认颜色与完整 theme text cascade 并入 advanced text/table 专项。
-- Advanced text 的 text shape fill、simple line、arrows 与 simple shadow 已在后续专项完成；下一小项为 text-shape hyperlink creation，之后进入其余 advanced text、advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
+- Advanced text 的 text shape fill、simple line、arrows、simple shadow 与 outer hyperlink 已在后续专项完成；当前下一小项为 per-run rich-text hyperlink 创建、读取与编辑，之后进入其余 advanced text、advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
 
 ## PptxGenJS 全功能对等：Named master/layout/placeholder
 
@@ -493,7 +493,7 @@ $ pptx-inspect --json package inspect output.pptx
 ### 剩余 master/layout 与全功能路线
 
 - Named selection、semantic wrapper、direct background、slide-number integration、declarative definition、六类 placeholder population 和 replace/delete lifecycle 已完成。仍未完成完整 theme text cascade、percentage coordinates、advanced text/table/media/chart styles 与更广泛客户端认证。
-- Advanced text 已完成 text shape fill、simple line、arrows 与 simple shadow；下一小项是 text-shape hyperlink，后续总体顺序仍是 advanced text → advanced table/`tableToSlides` → output/runtime helpers → peer-range full-suite audit。
+- Advanced text 已完成 text shape fill、simple line、arrows、simple shadow 与 outer hyperlink；当前下一小项是 per-run rich-text hyperlink，后续总体顺序仍是 advanced text → advanced table/`tableToSlides` → output/runtime helpers → peer-range full-suite audit。
 
 ## PptxGenJS 全功能对等：Text shape fill creation
 
@@ -512,8 +512,8 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余文本与全功能路线
 
-- Text outer fill 已从缺口移入支持项。Gradient/pattern/picture/group text-fill creation 仍待后续；outer simple line、arrows 与 simple shadow 已在后续阶段完成，hyperlink、`shape` / `rectRadius` / `isTextBox`、breakLine 组合语义与其余 shape-level styles 仍待逐项完成。
-- 下一小项固定为 text-shape hyperlink creation：复用现有 relationship-aware hyperlink lifecycle；之后继续 geometry 等 advanced text，再进入 advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
+- Text outer fill 已从缺口移入支持项。Gradient/pattern/picture/group text-fill creation 仍待后续；outer simple line、arrows、simple shadow 与 hyperlink 已在后续阶段完成，per-run rich-text hyperlink、`shape` / `rectRadius` / `isTextBox`、breakLine 组合语义与其余 shape-level styles 仍待逐项完成。
+- 当前下一小项为 per-run rich-text hyperlink 创建、读取与编辑；之后继续 geometry 等 advanced text，再进入 advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
 
 ## PptxGenJS 全功能对等：Text shape simple line creation
 
@@ -534,8 +534,8 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余文本与全功能路线
 
-- Text outer simple line、arrows 与 simple shadow 已从缺口移入支持项。Gradient/pattern/picture/group line fill、custom dash、cap/compound/alignment/join，以及 text hyperlink/geometry 仍待逐项完成。
-- 下一小项固定为 text-shape hyperlink creation：复用 strict relationship-aware hyperlink codec；之后继续 geometry 等 advanced text，再进入 advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
+- Text outer simple line、arrows、simple shadow 与 hyperlink 已从缺口移入支持项。Gradient/pattern/picture/group line fill、custom dash、cap/compound/alignment/join，以及 per-run rich-text hyperlink/text geometry 仍待逐项完成。
+- 当前下一小项为 per-run rich-text hyperlink 创建、读取与编辑；之后继续 geometry 等 advanced text，再进入 advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
 
 ## PptxGenJS 全功能对等：Text shape arrows creation
 
@@ -556,8 +556,8 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余文本与全功能路线
 
-- Text outer arrows 与 simple shadow 已从缺口移入支持项。Arrow size、advanced line fill/custom dash/cap/compound/alignment/join，以及 text hyperlink/geometry、`rectRadius` / `isTextBox` / `breakLine` 组合语义仍待逐项完成。
-- 下一小项固定为 text-shape hyperlink creation：复用 strict hyperlink codec，保持 fill/line/arrows/effect/relationship ownership 隔离；之后继续 advanced text，再进入 advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
+- Text outer arrows、simple shadow 与 hyperlink 已从缺口移入支持项。Arrow size、advanced line fill/custom dash/cap/compound/alignment/join，以及 per-run rich-text hyperlink/text geometry、`rectRadius` / `isTextBox` / `breakLine` 组合语义仍待逐项完成。
+- 当前下一小项为 per-run rich-text hyperlink 创建、读取与编辑；之后继续 advanced text，再进入 advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
 
 ## PptxGenJS 全功能对等：Text shape simple shadow creation
 
@@ -578,8 +578,30 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余文本与全功能路线
 
-- Text simple shadow 已从缺口移入支持项。仍待完成 text hyperlink/geometry、`rectRadius` / `isTextBox` / `breakLine` 组合语义、advanced line/effect，以及 image/table/chart/media 等其他 owner 的 shadow/hyperlink/style 能力。
-- 下一小项固定为 text-shape hyperlink creation；之后继续其余 advanced text，再进入 advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
+- Text simple shadow 与 outer hyperlink 已从缺口移入支持项。仍待完成 per-run rich-text hyperlink、text geometry、`rectRadius` / `isTextBox` / `breakLine` 组合语义、advanced line/effect，以及 image/table/chart/media 等其他 owner 的 shadow/hyperlink/style 能力。
+- 当前下一小项为 per-run rich-text hyperlink 创建、读取与编辑；之后继续其余 advanced text，再进入 advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
+
+## PptxGenJS 全功能对等：Text shape outer hyperlink creation
+
+状态：完成；实施与证据 7/7
+
+### 本阶段 change
+
+- `AddTextOptions.hyperlink` 复用 strict `Hyperlink` 与 relationship-aware codec，支持 URL、当前 presentation 内部一基 slide target 与 optional tooltip。Plain/rich text、`addPlaceholder()`、placeholder population、slide/layout/master wrappers 和 declarative `defineSlideMaster()` text/placeholder objects 全覆盖；descriptor-safe input 立即 detached，非法、coercible 或 dangling target 在 package mutation 前零变更拒绝。
+- 创建时 non-visual whole-shape click 与每个非空 text run 共用一个 relationship；空 paragraph/run 不伪造引用。Run 没有显式 underline 时默认 single，显式 `RichTextRunStyle.underline` 优先，包括 false。`ShapeModel.hyperlink` 仍只读取和编辑 whole-shape click；same-value、whole replacement、clear、shared relationship clone-on-write 与 GC 都保持 run-link ownership 独立。
+- URL/internal target/tooltip 已覆盖 duplicate、move、target delete、rollback、六格式 write/reopen 与 stable identity。Duplicate self-link retarget duplicate；target deletion 清理 slide/layout/master 中 incoming shape/run click；external link 仅产生 validator 的 portability warning。
+- PptxGenJS 4.0.1 plain outer 合法输出与 native 具有相同 shape/run relationship 语义，但 omitted tooltip 固定物化 `tooltip=""`；rich outer 错误写 `rIdundefined` 且无 relationship；rich per-run 只写 run links 并为每 run 分配独立 relationship。其非法 runtime 值可能宽松转换、重复、悬空或 console-only；native plain/rich outer 均生成一个合法共享 relationship，并严格零变更拒绝。
+
+### 验证结果
+
+- Model、SDK、root 与 PptxGenJS adapter suites 分别为 196/196、189/189、12/12、80/80；plain/rich/placeholder/layout/master/declarative、relationship ownership、duplicate/move/delete/rollback/write-reopen 与 PptxGenJS 4.0.1 divergence 均通过。
+- 最终全量 Vitest 为 1290 passed / 1 skipped；独立 performance 为 1/1（584ms）。TypeScript、两套 package tsup build 与 declaration build 全部通过。
+- Actual npm tarball 为 57 files；installed Node、TypeScript declarations、browser conditional export、真实 Chrome 与 installed CLI 均返回 `textShapeHyperlinks: true`。Chrome validation/console/page/network errors 均为 0；internal-only installed CLI PowerPoint 2010 profile 为 0 errors / 0 warnings，external deck 仅有预期的 `OPC_EXTERNAL_RELATIONSHIP`，package inspect、slides list 与 exact part read 均通过。
+
+### 剩余文本与全功能路线
+
+- Text outer hyperlink 已从缺口移入支持项。Per-run rich-text hyperlink 的创建、读取与编辑仍未支持，PptxGenJS per-run 的独立 relationship 语义将在下一小项实现；之后继续 text geometry、`rectRadius` / `isTextBox` / `breakLine`、advanced line/effect 等剩余 advanced text。
+- 总体路线保持 advanced text → advanced table/`tableToSlides` → output/runtime helpers → peer-range full-suite audit。
 
 ## 0.1.0 初始验收
 

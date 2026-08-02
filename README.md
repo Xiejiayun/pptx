@@ -390,7 +390,7 @@ PptxGenJS 的 `masterName` 拼写在这里保持兼容，但它严格选择的�
 
 2 页 native gallery 含 32 parts / 29 relationships / 2 layouts / 1 master，PowerPoint 2010 profile 为 0 errors / 0 warnings；2 页 PptxGenJS control 为 36 parts / 34 relationships。原件与 LibreOffice 回存件共 8 页均以 2400×1350、180 DPI 渲染并逐页检查；全幅背景使 minimum non-white margin 按预期为 0px。Fixture 的 background 和 image 是 1×1 黑色 PNG，native 第二页按测试意图重定向空白 default layout，黑/空白输出不代表丢失继承。LibreOffice 26.8 保留两页、两个 layouts 和一个 master，但会改写 placeholder identity/slide-number cache，并移除 audio 与内嵌 chart workbooks；这是降级记录，不声明完整 round-trip。PowerPoint 16.112 对 native 与 control 均返回 `-9074` 且没有产生 PPTX/PDF，因此不声明 PowerPoint 往返通过。
 
-尚未实现完整 theme text cascade、percentage coordinates、高级 text/table/media/chart 样式和更广泛客户端认证。Advanced text 已完成文本框 direct fill、simple line、begin/end arrows 与 simple shadow，下一小项为 text-shape hyperlink creation。
+尚未实现完整 theme text cascade、percentage coordinates、高级 text/table/media/chart 样式和更广泛客户端认证。Advanced text 已完成文本框 direct fill、simple line、begin/end arrows、simple shadow 与 outer hyperlink creation；下一小项为 per-run rich-text hyperlink 的创建、读取与编辑。
 
 ## 创建和编辑文本框填充
 
@@ -551,7 +551,34 @@ Plain/rich text、`addPlaceholder()`、placeholder population、layout/master wr
 
 PptxGenJS 4.0.1 对 omitted shadow 与 `{ type: 'none' }` 不写 direct effect，合法 outer final semantics 与 native 对等，legacy `offset` 对应 native `distance`。它会把 runtime zero 回退为 defaults、忽略 text `rotateWithShape: true`、纠正或宽松转换部分非法 type/color/number，并为 inner 写出不匹配的 closing tag；native 不复制这些缺陷，而是保留 zero、支持 theme color 和 rotate true、写合法 inner XML，并在 mutation 前严格拒绝非法输入。
 
-本项 model/codec、SDK/root 与 adapter suites 分别为 234/234、197/197、79/79，跨 package focused gate 为 6/6。最终全量为 1280 passed / 1 skipped，独立 performance 为 1/1（607ms），两种 TypeScript build、两套 package build 与 declaration build 全部通过。Actual 57-file tarball 的 Node、declarations、browser export 与 installed CLI 均报告 `textShapeShadows: true`；真实浏览器 immediate/detached/reopen state 完全匹配且 console/page/network 为 0，CLI PowerPoint 2010 profile 为 0 errors / 0 warnings。下一小项是 text-shape hyperlink creation。
+本项 model/codec、SDK/root 与 adapter suites 分别为 234/234、197/197、79/79，跨 package focused gate 为 6/6。最终全量为 1280 passed / 1 skipped，独立 performance 为 1/1（607ms），两种 TypeScript build、两套 package build 与 declaration build 全部通过。Actual 57-file tarball 的 Node、declarations、browser export 与 installed CLI 均报告 `textShapeShadows: true`；真实浏览器 immediate/detached/reopen state 完全匹配且 console/page/network 为 0，CLI PowerPoint 2010 profile 为 0 errors / 0 warnings。
+
+## 创建文本框超链接
+
+```ts
+const plain = slide.addText('打开产品页', {
+  hyperlink: { url: 'https://example.com/product', tooltip: '查看产品' },
+});
+const rich = slide.addRichText([{
+  runs: [
+    { text: '跳转到' },
+    { text: '详情页', style: { underline: false } },
+  ],
+}], {
+  hyperlink: { slide: 2, tooltip: '' },
+});
+
+plain.hyperlink = { url: 'mailto:team@example.com' };
+plain.hyperlink = undefined; // 只清除整个 shape 的 click link
+```
+
+`AddTextOptions.hyperlink` 接受与 preset shape 相同的 strict `Hyperlink`：恰好一个非空 URL 或当前文稿内的一基 slide target，并可带 `tooltip`。Plain/rich text、`addPlaceholder()`、placeholder population、layout/master wrappers 与 declarative `defineSlideMaster()` text/placeholder objects 全部支持；输入立即脱离 caller，非法、可强制转换或悬空的 target 会在任何 mutation 前拒绝。
+
+创建时会在 non-visual shape click 与每个非空 text run 上写入同一个 relationship；空段落和空 run 不伪造链接。链接 run 默认写单下划线，显式 `RichTextRunStyle.underline` 优先，因此可明确关闭或选择其他 underline。`ShapeModel.hyperlink` 仍只读取和编辑 whole-shape click：其 whole replacement、clear、same-value no-op 与 relationship clone-on-write/GC 不会覆盖已有 run link。
+
+URL/internal-slide 与 tooltip 状态可跨 duplicate、move、delete、transaction rollback、六格式 write/reopen 保存；self-link 复制后指向副本，删除 target 会清理 incoming shape/run click。PptxGenJS 4.0.1 对省略 tooltip 固定写 `tooltip=""`；rich outer hyperlink 会错误输出悬空的 `rIdundefined`，而 rich per-run hyperlink 只写 run links 且每个 run 使用独立 relationship。它对非法 runtime 值还可能宽松转换、写悬空关系或只输出 console 信息；本库对 outer hyperlink 提供合法的共享关系并以零变更严格拒绝非法输入。
+
+最终全量 Vitest 为 1290 passed / 1 skipped，独立 performance 为 1/1（584ms）；model、SDK、root 与 adapter suites 分别为 196/196、189/189、12/12、80/80，TypeScript、两套 tsup 与 declaration build 全部通过。Actual 57-file tarball、installed Node/declarations/browser/CLI 与真实 Chrome 均报告 `textShapeHyperlinks: true`；Chrome 的 validation/console/page/network errors 均为 0。仅含内部链接的 installed CLI PowerPoint 2010 profile 为 0 errors / 0 warnings；外部链接只产生预期的 `OPC_EXTERNAL_RELATIONSHIP` portability warning。Per-run rich-text hyperlink 的创建、读取与编辑仍未支持，是下一小项。
 
 ## 创建和编辑预设形状、调整值与样式
 
@@ -620,7 +647,7 @@ shape.hyperlink = undefined;
 
 `AddShapeOptions.shadow`、`AddTextOptions.shadow` 与 `ShapeModel.shadow` 支持 preset/text shape direct outer/inner shadow 的创建、读取、whole replacement 与清除，包括 sRGB/theme color、`0..1` opacity、`0..100pt` blur、`0..<360°` angle、`0..200pt` distance，以及 outer-only `rotateWithShape`。默认值为 black、0.75、8pt、270°、4pt 和 outer rotate false；显式 zero 会保留。输入在 mutation 前深度脱离，getter 的嵌套快照会 deep-freeze；同值赋值是 exact no-op，`undefined` 只移除 direct shadow 并保留 `effectLst` 与 glow/reflection 等 sibling effects。Generic/advanced effects、custom shadow transforms，以及 image/table/chart/media 等其他 owner 的 shadow API 仍待后续小项。
 
-`AddShapeOptions.hyperlink` 与 `ShapeModel.hyperlink` 支持整个 preset shape 的 click URL 或内部页链接。输入必须恰好包含一个非空 `url` 或一个当前文稿内的一基 `slide`；`tooltip` 可省略，也可显式为空。Getter 返回 detached frozen snapshot，setter 采用 whole replacement，同值赋值为 exact no-op，`undefined` 清除 click link。内部关系按目标页 identity 保存，移动或在目标前插删页面只更新 getter ordinal；复制 self-link 会指向副本自身，删除目标页会清理相关 click/hover，shared relationship 则按引用 clone-on-write 与回收。外部链接产生 validator 的预期可移植性 warning。Hover 编辑、text-run/table/image/chart/media 链接创建、action navigation、advanced line fill/custom dash 和 percentage positions 仍待后续小项。
+`AddShapeOptions.hyperlink`、`AddTextOptions.hyperlink` 与 `ShapeModel.hyperlink` 支持整个 preset/text shape 的 click URL 或内部页链接。输入必须恰好包含一个非空 `url` 或一个当前文稿内的一基 `slide`；`tooltip` 可省略，也可显式为空。Getter 返回 detached frozen snapshot，setter 采用 whole replacement，同值赋值为 exact no-op，`undefined` 清除 click link。内部关系按目标页 identity 保存，移动或在目标前插删页面只更新 getter ordinal；复制 self-link 会指向副本自身，删除目标页会清理相关 click/hover，shared relationship 则按引用 clone-on-write 与回收。Text outer 创建还把同一 relationship 写入每个非空 run；后续 `ShapeModel.hyperlink` 编辑仍只管理 whole-shape click。外部链接产生 validator 的预期可移植性 warning。Hover 编辑、独立 per-run rich-text/table/image/chart/media 链接创建、action navigation、advanced line fill/custom dash 和 percentage positions 仍待后续小项。
 
 ### 创建和编辑自定义几何路径
 
