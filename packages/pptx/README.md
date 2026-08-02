@@ -814,7 +814,7 @@ console.log(document.version === current); // true
 
 A PptxGenJS 4.0.1 instance correctly reports its own `'4.0.1'`, while this runtime reports its own `'0.1.0'`; parity means public availability, stability, and manifest synchronization, not equal cross-library strings. Manifest drift tests cover all three manifests, and CLI `--version` plus JSON doctor consume the same constant. Final release gates are 1354 passed / 1 skipped tests and performance 1/1 at 617ms. Both TypeScript checks, both bundles, and declaration generation pass. The actual 58-file tarball has SHA-256 `ce300d3c5da10a8fbdb9910b10497d02af496532b99329e18a314c9604e6f9a8`; installed Node/types/browser/CLI and real Google Chrome report `presentationVersion: true`, with zero Chrome validation, console, page, or network errors.
 
-Full PptxGenJS parity is not yet claimed. The remaining runtime constants, output types/stream/compression, advanced text/table, `tableToSlides`, and the final peer/client audit remain pending.
+Full PptxGenJS parity is not yet claimed at this historical checkpoint. The `OutputType` runtime catalog is completed in a later section; six actual `write({ outputType })` return semantics, stream, compression, remaining runtime constants, advanced text/table, `tableToSlides`, and the final peer/client audit remain pending.
 
 ## Read the current presentation layout
 
@@ -840,7 +840,7 @@ PptxGenJS 4.0.1 exposes the same EMU values for its default, four built-ins, and
 
 Final release gates are 1363 passed / 1 skipped tests and performance 1/1 at 1.01s. Both TypeScript checks, both bundles, and declaration generation pass. The actual 59-file tarball has SHA-256 `a07a11156840071f0945289c0a48fdd9741549d2003ca21006e6efab28104b3d`; installed Node/types/browser/CLI and real Google Chrome report `presentationLayouts: true`, with zero Chrome validation, console, page, or network errors.
 
-Full PptxGenJS parity is not yet claimed. The remaining runtime constants, output types/stream/compression, advanced text/table, `tableToSlides`, and the final peer/client audit remain pending.
+Full PptxGenJS parity is not yet claimed at this historical checkpoint. The `OutputType` runtime catalog is completed in a later section; six actual `write({ outputType })` return semantics, stream, compression, remaining runtime constants, advanced text/table, `tableToSlides`, and the final peer/client audit remain pending.
 
 ## Enumerate horizontal text alignments
 
@@ -881,7 +881,26 @@ slide.addTable([[{ text: alignment, options: { valign: alignment } }]]);
 
 PptxGenJS 4.0.1 instance `AlignV` exposes the same three keys and values. Native matches the runtime values and enumeration order through the existing root-catalog design rather than adding `PptxDocument.AlignV`, an enum-shaped object, or a mutable alias. Final clean gates are 72 passed / 1 skipped test files, 1373 passed / 1 skipped tests, and performance 1/1 at 939ms. Both TypeScript checks, both bundles, and declaration generation pass. The actual 59-file tarball has SHA-256 `aaaa5e0ceb053a472af49732784e0ea5babb00968734ec5093cd4f80afc34095`; installed Node/types/browser/CLI and real Google Chrome report `verticalAlignments: true`. Chrome values, text/table reopen, and frozen-catalog checks pass with zero validation, console, page, or network errors.
 
-Overall PptxGenJS parity is now approximately 97%. Remaining work includes output types/stream/compression, scheme-color and other runtime helpers, advanced text/table, `tableToSlides`, and the final peer/client audit.
+Overall PptxGenJS parity at this checkpoint is approximately 97%; the `OutputType` runtime catalog is completed in the next section.
+
+## Enumerate presentation output types
+
+```ts
+import { OUTPUT_TYPES, type OutputType } from '@jiayunxie/pptx';
+
+const outputTypes: readonly OutputType[] = OUTPUT_TYPES;
+for (const outputType of outputTypes) {
+  console.log(outputType);
+}
+```
+
+`OUTPUT_TYPES` is a frozen readonly tuple in the stable order `arraybuffer`, `base64`, `binarystring`, `blob`, `nodebuffer`, `uint8array`. `OutputType` is derived directly from that tuple. The SDK output layer owns the catalog, and the aggregate root reuses the same object; reading or iterating it never accesses or mutates a presentation package.
+
+PptxGenJS 4.0.1 instance `OutputType` exposes the same six keys and values. Native matches the runtime values and order without adding `PptxDocument.OutputType`, an enum-shaped object, or a mutable alias. `STREAM` is not a member of that public enum and remains part of the separate stream API. Native `write()` still returns `Uint8Array`, while `writeBlob()`, `writeFile()`, and `download()` retain their existing behavior; this item does not claim that six selectable write return types are implemented.
+
+Final release gates are 73 passed / 1 skipped test files, 1378 passed / 1 skipped tests, and performance 1/1 at 1.10s. Both TypeScript checks, both bundles, and declaration generation pass. The actual 60-file tarball has SHA-256 `31a38643c8c851ae24a381a68cd225972b76dbf7b37758c16efd2fe27248df0d`; installed Node/types/browser/CLI and real Google Chrome report `outputTypes: true`. Chrome exact values, frozen catalog, and mutation-isolation checks pass; page, bundle, and blob requests return 200 with zero console, page, or network errors.
+
+Overall PptxGenJS parity remains approximately 97%. The next item is six-value `write({ outputType })` return semantics; Node readable stream, compression policy, scheme-color and other runtime helpers, advanced text/table, `tableToSlides`, and the final peer/client audit remain pending.
 
 `PRESET_SHAPE_TYPES` is the frozen discovery catalog for all 178 canonical preset geometries accepted by `SlideModel.addShape()`. `AddShapeOptions` accepts `name`, strict `adjustments`, strict `fill`, strict `line`, strict `arrows`, strict `shadow`, strict `hyperlink`, and native EMU/OOXML-angle transform fields; use `inches()` and `degrees()` for ergonomic conversion. Omitted geometry starts at x/y/width/height = 1 inch with zero rotation and no flips; omitted fill creates direct no-fill, and omitted line keeps the canonical empty line container. Inputs are strict, descriptor-safe, detached before mutation, and reject unknown fields. The catalog uses the valid OOXML `foldedCorner`; PptxGenJS 4.0.1's invalid `folderCorner` token and runtime-only `custGeom` value are not accepted as presets.
 

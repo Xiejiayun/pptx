@@ -737,7 +737,7 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余 runtime/output 与全功能路线
 
-- Version 已从 runtime-helper 缺口移入支持项；仍待其余 runtime constants、六种 output type、Node readable stream、compression policy 与返回值语义。
+- Version 已从 runtime-helper 缺口移入支持项；`OutputType` runtime catalog 已在后续专项完成，仍待六种实际 `write({ outputType })` 返回语义、Node readable stream、compression policy 与其余 runtime constants。
 - Advanced text/table、`tableToSlides`、其他 style/lifecycle surfaces 与最终 peer/client audit 仍待完成；不声明完整 PptxGenJS parity。
 
 ## PptxGenJS 全功能对等：Presentation `presLayout`
@@ -758,7 +758,7 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余 runtime/output 与全功能路线
 
-- Version 与 `presLayout` 已完成；仍待其余 runtime constants、六种 output type、Node readable stream、compression policy 与返回值语义。
+- Version 与 `presLayout` 已完成；`OutputType` runtime catalog 已在后续专项完成，仍待六种实际 `write({ outputType })` 返回语义、Node readable stream、compression policy 与其余 runtime constants。
 - Advanced text/table、`tableToSlides`、其他 style/lifecycle surfaces 与最终 peer/client audit 仍待完成；不声明完整 PptxGenJS parity。
 
 ## PptxGenJS 全功能对等：Presentation `AlignH`
@@ -780,7 +780,7 @@ $ pptx-inspect --json package inspect output.pptx
 ### 剩余 runtime/output 与全功能路线
 
 - 该检查点总体 PptxGenJS 对等进度约 96%；`AlignV` 已在下一专项完成。
-- `AlignV` 完成后仍待 output type/stream/compression、其他 runtime helpers、advanced text/table、`tableToSlides` 与最终 peer/client audit；当前不声明完整 PptxGenJS parity。
+- `AlignV` 完成后，`OutputType` runtime catalog 已在后续专项完成；仍待六种实际 `write({ outputType })` 返回语义、stream、compression、其他 runtime helpers、advanced text/table、`tableToSlides` 与最终 peer/client audit，当前不声明完整 PptxGenJS parity。
 
 ## PptxGenJS 全功能对等：Presentation `AlignV`
 
@@ -800,8 +800,29 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余 runtime/output 与全功能路线
 
-- 总体 PptxGenJS 对等进度约 97%；下一小项为 `OutputType` runtime catalog 与 output type/stream/compression。
-- 之后仍待 scheme-color 与其他 runtime helpers、advanced text/table、`tableToSlides` 与最终 peer/client audit；当前不声明完整 PptxGenJS parity。
+- 该检查点总体 PptxGenJS 对等进度约 97%；`OutputType` runtime catalog 已在下一专项完成。
+- Catalog 完成后仍待六种实际 write 返回语义、stream/compression、scheme-color 与其他 runtime helpers、advanced text/table、`tableToSlides` 与最终 peer/client audit；当前不声明完整 PptxGenJS parity。
+
+## PptxGenJS 全功能对等：Presentation `OutputType` runtime catalog
+
+状态：完成；实施与证据 5/5
+
+### 本阶段 change
+
+- 新增 SDK-owned frozen readonly `OUTPUT_TYPES` tuple，稳定顺序为 `arraybuffer`、`base64`、`binarystring`、`blob`、`nodebuffer`、`uint8array`；`OutputType` 直接由 tuple 派生。Aggregate root 复用同一对象和类型导出。
+- PptxGenJS 4.0.1 public `OutputType` 的六个 keys/values 与顺序已对照。Native 延续 root catalog 设计，不新增 `PptxDocument.OutputType`、enum-shaped mutable object 或 alias；`STREAM` 不属于该 public enum，保留给独立 stream API。
+- Catalog exact values、顺序、冻结状态、SDK/root identity、类型正反例、actual package 和 mutation isolation 已覆盖。本项不修改 `WriteOptions`、`write(): Uint8Array`、`writeBlob()`、`writeFile()`、`download()`、diagnostics、bytes、MIME 或错误。
+
+### 验证结果
+
+- 最终无重叠全量为 73 passed / 1 skipped test files、1378 passed / 1 skipped tests；独立 performance gate 1/1（1.10s）。两种 TypeScript check、Node/browser tsup 与 declaration build 全部通过。
+- Actual npm tarball 为 60 files，SHA-256 `31a38643c8c851ae24a381a68cd225972b76dbf7b37758c16efd2fe27248df0d`。Installed Node、generated declarations、browser conditional export、TypeScript consumer 与 CLI package inspection 均报告 `outputTypes: true`。
+- 真实 Google Chrome exact values、frozen catalog 与 mutation isolation 均通过，`outputTypes: true`；页面、bundle 与两条 blob 请求均为 HTTP 200，console/page/network errors 为 0。验证生成物位于 `/tmp/pptx-output-types-artifacts.VYmnts`，未进入仓库。
+
+### 剩余 runtime/output 与全功能路线
+
+- 总体 PptxGenJS 对等进度仍约 97%；下一小项为六值 `write({ outputType })` 精确返回语义。
+- 之后仍待 Node readable stream、compression policy、scheme-color 与其他 runtime helpers、advanced text/table、`tableToSlides` 与最终 peer/client audit；当前不声明完整 PptxGenJS parity。
 
 ## 0.1.0 初始验收
 

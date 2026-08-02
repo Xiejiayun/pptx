@@ -94,7 +94,7 @@ document.version satisfies PptxVersion;
 
 PptxGenJS 4.0.1 reports `'4.0.1'` and native 0.1.0 reports `'0.1.0'`; those values should differ because each instance identifies its own library. Repository tests synchronize the constant with the root, SDK, and aggregate manifests, while CLI `--version` and JSON doctor reuse the same constant. The actual 58-file package (SHA-256 `ce300d3c5da10a8fbdb9910b10497d02af496532b99329e18a314c9604e6f9a8`) passes installed Node, declaration, browser-conditional, CLI, and real-Google-Chrome create/writeBlob/reopen coverage with `presentationVersion: true` and zero Chrome validation/console/page/network errors. Final gates are 1354 passed / 1 skipped tests, performance 1/1 at 617ms, both TypeScript checks, both bundles, and declaration generation.
 
-This does not complete PptxGenJS parity. Remaining runtime constants, output types/stream/compression, advanced text/table, `tableToSlides`, and the final peer/client audit remain pending.
+This historical checkpoint does not complete PptxGenJS parity. The `OutputType` runtime catalog is completed in a later section; six actual `write({ outputType })` return semantics, stream, compression, remaining runtime constants, advanced text/table, `tableToSlides`, and the final peer/client audit remain pending.
 
 ### Presentation layout projection
 
@@ -118,7 +118,7 @@ document.presLayout; // { name: 'custom', width: 10698480, height: 7589520 }
 
 PptxGenJS 4.0.1 public runtime uses the same EMU values. Native intentionally omits the undeclared `_sizeW` / `_sizeH` fields and mutable internal alias. A PptxGenJS custom registry name is not serialized into PPTX, so native reports canonical `custom` after open/reopen. Installed Node, declarations, browser conditional export, CLI package inspection, and real Chrome report `presentationLayouts: true`; the final 59-file tarball SHA-256 is `a07a11156840071f0945289c0a48fdd9741549d2003ca21006e6efab28104b3d`. Final gates are 1363 passed / 1 skipped tests, performance 1/1 at 1.01s, both TypeScript checks, both bundles, declaration generation, and zero Chrome validation/console/page/network errors.
 
-This does not complete PptxGenJS parity. Remaining runtime constants, output types/stream/compression, advanced text/table, `tableToSlides`, and the final peer/client audit remain pending.
+This historical checkpoint does not complete PptxGenJS parity. The `OutputType` runtime catalog is completed in a later section; six actual `write({ outputType })` return semantics, stream, compression, remaining runtime constants, advanced text/table, `tableToSlides`, and the final peer/client audit remain pending.
 
 ### Horizontal text alignment catalog
 
@@ -156,7 +156,23 @@ slide.addTable([[{ text: alignment, options: { valign: alignment } }]]);
 
 PptxGenJS 4.0.1 public `AlignV` keys and values match the tuple in the same order. Native deliberately exposes the immutable catalog instead of an instance getter or mutable enum-shaped alias. Installed Node, declarations, browser conditional export, CLI package inspection, and real Chrome report `verticalAlignments: true`; text and table create/reopen preserve all three values. The final 59-file tarball SHA-256 is `aaaa5e0ceb053a472af49732784e0ea5babb00968734ec5093cd4f80afc34095`. Final clean gates are 72 passed / 1 skipped test files, 1373 passed / 1 skipped tests, performance 1/1 at 939ms, both TypeScript checks, both bundles, declaration generation, and zero Chrome validation/console/page/network errors.
 
-Overall PptxGenJS parity is approximately 97%. Output types/stream/compression, scheme-color and other runtime helpers, advanced text/table, `tableToSlides`, and the final peer/client audit remain pending.
+Overall PptxGenJS parity at this checkpoint is approximately 97%; the `OutputType` runtime catalog is completed in the next section.
+
+### Presentation output type catalog
+
+```ts
+import { OUTPUT_TYPES, type OutputType } from '@pptx/sdk';
+
+const outputTypes: readonly OutputType[] = OUTPUT_TYPES;
+```
+
+`OUTPUT_TYPES` is exactly the frozen readonly tuple `['arraybuffer', 'base64', 'binarystring', 'blob', 'nodebuffer', 'uint8array']`, and `OutputType` is derived as `(typeof OUTPUT_TYPES)[number]`. The SDK output layer owns the value, while the aggregate root reuses the same object. Catalog discovery is environment-independent and produces no OPC mutation.
+
+PptxGenJS 4.0.1 public `OutputType` keys and values match the tuple in the same order. Native deliberately exposes the immutable catalog instead of an instance getter or mutable enum-shaped alias. `STREAM` is excluded because it belongs to the separate stream API rather than the public instance enum. This catalog does not add `WriteOptions.outputType`: `write()` still returns `Uint8Array`, and `writeBlob()`, `writeFile()`, and `download()` retain their existing contracts.
+
+Installed Node, declarations, browser conditional export, CLI package inspection, and real Chrome report `outputTypes: true`. The final 60-file tarball SHA-256 is `31a38643c8c851ae24a381a68cd225972b76dbf7b37758c16efd2fe27248df0d`. Final gates are 73 passed / 1 skipped test files, 1378 passed / 1 skipped tests, performance 1/1 at 1.10s, both TypeScript checks, both bundles, declaration generation, Chrome HTTP 200 responses, and zero Chrome console/page/network errors.
+
+Overall PptxGenJS parity remains approximately 97%. Six-value `write({ outputType })` return semantics are next; Node readable stream, compression policy, scheme-color and other runtime helpers, advanced text/table, `tableToSlides`, and the final peer/client audit remain pending.
 
 ## Embedded raster images
 

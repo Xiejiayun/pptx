@@ -697,7 +697,7 @@ console.log(document.version === current); // true
 
 PptxGenJS 4.0.1 实例返回它自己的 `'4.0.1'`，本库当前返回自己的 `'0.1.0'`；两个值不相等是正确行为，对等点是公开可读、稳定且各自与 manifest 同步。三份 manifest 由测试防漂移，CLI `--version` 与 JSON doctor 共用同一常量。最终 release gates 为 1354 passed / 1 skipped，performance 1/1（617ms），两种 TypeScript check、Node/browser bundle 与 declaration build 全部通过。实际 58-file tarball 的 SHA-256 为 `ce300d3c5da10a8fbdb9910b10497d02af496532b99329e18a314c9604e6f9a8`；installed Node/types/browser/CLI 与真实 Google Chrome 均报告 `presentationVersion: true`，Chrome validation/console/page/network errors 为 0。
 
-该项完成后仍不声明完整 PptxGenJS 对等；其余 runtime helper constants、output types/stream/compression、advanced text/table、`tableToSlides` 与最终 peer/client audit 仍待完成。
+该历史检查点仍不声明完整 PptxGenJS 对等；`OutputType` runtime catalog 已在后续专项完成，仍待六种实际 `write({ outputType })` 返回语义、stream、compression、其余 runtime helper constants、advanced text/table、`tableToSlides` 与最终 peer/client audit。
 
 ## 读取当前演示文稿布局
 
@@ -723,7 +723,7 @@ PptxGenJS 4.0.1 的公开 getter 对默认、四种内建和自定义尺寸使�
 
 最终 release gates 为 1363 passed / 1 skipped，performance 1/1（1.01s），两种 TypeScript check、Node/browser bundle 与 declaration build 全部通过。实际 59-file tarball 的 SHA-256 为 `a07a11156840071f0945289c0a48fdd9741549d2003ca21006e6efab28104b3d`；installed Node/types/browser/CLI 与真实 Google Chrome 均报告 `presentationLayouts: true`，Chrome validation/console/page/network errors 为 0。
 
-该项完成后仍不声明完整 PptxGenJS 对等；其余 runtime constants、output types/stream/compression、advanced text/table、`tableToSlides` 与最终 peer/client audit 仍待完成。
+该历史检查点仍不声明完整 PptxGenJS 对等；`OutputType` runtime catalog 已在后续专项完成，仍待六种实际 `write({ outputType })` 返回语义、stream、compression、其余 runtime constants、advanced text/table、`tableToSlides` 与最终 peer/client audit。
 
 ## 枚举水平文字对齐值
 
@@ -764,7 +764,26 @@ slide.addTable([[{ text: alignment, options: { valign: alignment } }]]);
 
 PptxGenJS 4.0.1 的实例 `AlignV` 公开相同的三个 keys/values。Native 对等这些 runtime values 和稳定枚举顺序，但沿用 root catalog 设计，不增加 `PptxDocument.AlignV`、enum-shaped object 或 mutable alias。最终 clean gates 为 72 passed / 1 skipped test files、1373 passed / 1 skipped tests，performance 1/1（939ms），两种 TypeScript check、Node/browser bundle 与 declaration build 全部通过。实际 59-file tarball 的 SHA-256 为 `aaaa5e0ceb053a472af49732784e0ea5babb00968734ec5093cd4f80afc34095`；installed Node/types/browser/CLI 与真实 Google Chrome 均报告 `verticalAlignments: true`，Chrome values、text/table reopen、frozen catalog 检查通过，validation/console/page/network errors 为 0。
 
-该项完成后总体 PptxGenJS 对等进度约 97%。仍待 output type/stream/compression、scheme-color 与其他 runtime helpers、advanced text/table、`tableToSlides` 与最终 peer/client audit。
+该检查点总体 PptxGenJS 对等进度约 97%；`OutputType` runtime catalog 已在下一节完成。
+
+## 枚举演示文稿输出类型
+
+```ts
+import { OUTPUT_TYPES, type OutputType } from '@jiayunxie/pptx';
+
+const outputTypes: readonly OutputType[] = OUTPUT_TYPES;
+for (const outputType of outputTypes) {
+  console.log(outputType);
+}
+```
+
+`OUTPUT_TYPES` 是 frozen readonly tuple，顺序固定为 `arraybuffer`、`base64`、`binarystring`、`blob`、`nodebuffer`、`uint8array`；`OutputType` 直接由该 tuple 派生。Catalog 由 SDK 输出层拥有，aggregate root 复用同一对象；读取或遍历不访问或修改任何文稿 package。
+
+PptxGenJS 4.0.1 的实例 `OutputType` 公开相同六个 keys/values。Native 对等 runtime values 和稳定顺序，但不增加 `PptxDocument.OutputType`、enum-shaped object 或 mutable alias；`STREAM` 不属于该 public enum，因此留给独立 stream API。当前 `write()` 仍返回 `Uint8Array`，`writeBlob()`、`writeFile()` 与 `download()` 也保持原语义，本项不提前声明六种 write 返回值已实现。
+
+最终 release gates 为 73 passed / 1 skipped test files、1378 passed / 1 skipped tests，performance 1/1（1.10s），两种 TypeScript check、Node/browser bundle 与 declaration build 全部通过。实际 60-file tarball 的 SHA-256 为 `31a38643c8c851ae24a381a68cd225972b76dbf7b37758c16efd2fe27248df0d`；installed Node/types/browser/CLI 与真实 Google Chrome 均报告 `outputTypes: true`。Chrome 六值、frozen catalog 和 mutation isolation 检查通过，页面、bundle 与 blob 请求均为 200，console/page/network errors 为 0。
+
+总体 PptxGenJS 对等进度仍约 97%。下一小项是六值 `write({ outputType })` 返回语义；之后仍待 Node readable stream、compression policy、scheme-color 与其他 runtime helpers、advanced text/table、`tableToSlides` 与最终 peer/client audit。
 
 ## 创建和编辑预设形状、调整值与样式
 
