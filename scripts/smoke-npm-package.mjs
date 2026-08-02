@@ -89,6 +89,24 @@ try {
     join(installed, 'dist/types/opc/index.d.ts'),
     'utf8',
   );
+  const tableModelDeclarationStart = shapeDeclarationSource.indexOf(
+    'export declare class TableModel',
+  );
+  const chartModelDeclarationStart = shapeDeclarationSource.indexOf(
+    'export declare class ChartModel',
+    tableModelDeclarationStart,
+  );
+  const tableModelDeclaration = tableModelDeclarationStart >= 0 &&
+      chartModelDeclarationStart > tableModelDeclarationStart
+    ? shapeDeclarationSource.slice(tableModelDeclarationStart, chartModelDeclarationStart)
+    : '';
+  if (!tableModelDeclaration.includes(
+    'get verticalAlignment(): TextBoxVerticalAlignment | undefined;',
+  ) || !tableModelDeclaration.includes(
+    'set verticalAlignment(value: TextBoxVerticalAlignment | undefined);',
+  )) {
+    throw new Error('Packed TableModel declaration is missing table-level vertical alignment');
+  }
   if (!textOptionDeclarationSource.includes('readonly isTextBox?: boolean;') ||
       !shapeDeclarationSource.includes('get isTextBox(): boolean | undefined;') ||
       !shapeDeclarationSource.includes('set isTextBox(value: boolean);')) {
@@ -5254,6 +5272,107 @@ const verticalAlignments = JSON.stringify(verticalAlignmentState) === JSON.strin
 await reopenedPackedVerticalAlignmentDocument.writeFile(
   'vertical-alignment-smoke.pptx',
 );
+const tableVerticalAlignmentDocument = PptxDocument.create();
+const tableVerticalAlignmentSlide = tableVerticalAlignmentDocument.addSlide();
+const tableVerticalAlignmentTable = tableVerticalAlignmentSlide.addTable([
+  ['North', 'South'],
+  ['East', 'West'],
+], { name: 'Packed table vertical alignment', valign: 'middle' });
+const tableVerticalAlignmentPart = () => tableVerticalAlignmentDocument.opcPackage
+  .requirePart(tableVerticalAlignmentSlide.partUri).bytes;
+const tableVerticalAlignmentReadBytes = tableVerticalAlignmentPart().slice();
+const tableVerticalAlignmentReadJournal = JSON.stringify(
+  tableVerticalAlignmentDocument.opcPackage.mutations,
+);
+const tableVerticalAlignmentUniform = tableVerticalAlignmentTable.verticalAlignment;
+const tableVerticalAlignmentReadIsolation = packedBytesEqual(
+  tableVerticalAlignmentReadBytes,
+  tableVerticalAlignmentPart(),
+) && JSON.stringify(tableVerticalAlignmentDocument.opcPackage.mutations) ===
+  tableVerticalAlignmentReadJournal;
+const tableVerticalAlignmentNoOpBytes = tableVerticalAlignmentPart().slice();
+const tableVerticalAlignmentNoOpJournal = JSON.stringify(
+  tableVerticalAlignmentDocument.opcPackage.mutations,
+);
+tableVerticalAlignmentTable.verticalAlignment = 'middle';
+const tableVerticalAlignmentNoOp = packedBytesEqual(
+  tableVerticalAlignmentNoOpBytes,
+  tableVerticalAlignmentPart(),
+) && JSON.stringify(tableVerticalAlignmentDocument.opcPackage.mutations) ===
+  tableVerticalAlignmentNoOpJournal;
+tableVerticalAlignmentTable.setCellVerticalAlignment(0, 1, 'top');
+const tableVerticalAlignmentMixed = tableVerticalAlignmentTable.verticalAlignment ?? null;
+tableVerticalAlignmentTable.verticalAlignment = 'bottom';
+const tableVerticalAlignmentOverwritten = tableVerticalAlignmentTable.verticalAlignment;
+const tableVerticalAlignmentOverwrittenCells = tableVerticalAlignmentTable.rows
+  .flatMap(({ cells }) => cells.map(({ verticalAlignment }) => verticalAlignment ?? null));
+tableVerticalAlignmentTable.verticalAlignment = undefined;
+const tableVerticalAlignmentCleared = tableVerticalAlignmentTable.verticalAlignment ?? null;
+const tableVerticalAlignmentClearedCells = tableVerticalAlignmentTable.rows
+  .flatMap(({ cells }) => cells.map(({ verticalAlignment }) => verticalAlignment ?? null));
+const tableVerticalAlignmentInvalidBytes = tableVerticalAlignmentPart().slice();
+const tableVerticalAlignmentInvalidJournal = JSON.stringify(
+  tableVerticalAlignmentDocument.opcPackage.mutations,
+);
+let tableVerticalAlignmentInvalidError;
+try {
+  tableVerticalAlignmentTable.verticalAlignment = 'distributed';
+} catch (error) {
+  tableVerticalAlignmentInvalidError = { name: error.name, message: error.message };
+}
+const tableVerticalAlignmentFailureIsolation = packedBytesEqual(
+  tableVerticalAlignmentInvalidBytes,
+  tableVerticalAlignmentPart(),
+) && JSON.stringify(tableVerticalAlignmentDocument.opcPackage.mutations) ===
+  tableVerticalAlignmentInvalidJournal;
+tableVerticalAlignmentTable.verticalAlignment = 'top';
+await tableVerticalAlignmentDocument.writeFile('table-vertical-alignment-smoke.pptx');
+const reopenedTableVerticalAlignmentDocument = await PptxDocument.open(
+  await readFile('table-vertical-alignment-smoke.pptx'),
+);
+const reopenedTableVerticalAlignmentTable = reopenedTableVerticalAlignmentDocument
+  .slides[0].shapes.find((shape) => shape.name === 'Packed table vertical alignment');
+const tableVerticalAlignmentState = {
+  uniform: tableVerticalAlignmentUniform,
+  readIsolation: tableVerticalAlignmentReadIsolation,
+  noOp: tableVerticalAlignmentNoOp,
+  mixed: tableVerticalAlignmentMixed,
+  overwritten: tableVerticalAlignmentOverwritten,
+  overwrittenCells: tableVerticalAlignmentOverwrittenCells,
+  cleared: tableVerticalAlignmentCleared,
+  clearedCells: tableVerticalAlignmentClearedCells,
+  reopened: reopenedTableVerticalAlignmentTable instanceof TableModel
+    ? reopenedTableVerticalAlignmentTable.verticalAlignment ?? null
+    : null,
+  reopenedCells: reopenedTableVerticalAlignmentTable instanceof TableModel
+    ? reopenedTableVerticalAlignmentTable.rows.flatMap(({ cells }) =>
+      cells.map(({ verticalAlignment }) => verticalAlignment ?? null))
+    : [],
+  invalidError: tableVerticalAlignmentInvalidError,
+  failureIsolation: tableVerticalAlignmentFailureIsolation,
+  validationErrors: tableVerticalAlignmentDocument.diagnostics
+    .filter(({ severity }) => severity === 'error').length +
+    reopenedTableVerticalAlignmentDocument.diagnostics
+      .filter(({ severity }) => severity === 'error').length,
+};
+const tableVerticalAlignment = JSON.stringify(tableVerticalAlignmentState) === JSON.stringify({
+  uniform: 'middle',
+  readIsolation: true,
+  noOp: true,
+  mixed: null,
+  overwritten: 'bottom',
+  overwrittenCells: ['bottom', 'bottom', 'bottom', 'bottom'],
+  cleared: null,
+  clearedCells: [null, null, null, null],
+  reopened: 'top',
+  reopenedCells: ['top', 'top', 'top', 'top'],
+  invalidError: {
+    name: 'TypeError',
+    message: 'Table vertical alignment must be top, middle, or bottom',
+  },
+  failureIsolation: true,
+  validationErrors: 0,
+});
 const packedSchemeColorIsolationDocument = PptxDocument.create();
 const packedSchemeColorIsolationJournal = JSON.stringify(
   packedSchemeColorIsolationDocument.opcPackage.mutations,
@@ -6557,6 +6676,8 @@ const checks = {
   horizontalAlignmentState,
   verticalAlignments,
   verticalAlignmentState,
+  tableVerticalAlignment,
+  tableVerticalAlignmentState,
   schemeColors,
   schemeColorState,
   outputTypes,
@@ -6805,6 +6926,114 @@ if (JSON.stringify(reopenedBrowserVerticalAlignmentDocument.slides[0].shapes
       .map(({ verticalAlignment }) => verticalAlignment)) !==
       JSON.stringify(TEXT_VERTICAL_ALIGNMENTS)) {
   throw new Error('Browser vertical alignment round trip failed');
+}
+const browserTableVerticalAlignmentDocument = PptxDocument.create();
+const browserTableVerticalAlignmentSlide = browserTableVerticalAlignmentDocument.addSlide();
+const browserTableVerticalAlignmentTable = browserTableVerticalAlignmentSlide.addTable([
+  ['North', 'South'],
+  ['East', 'West'],
+], { name: 'Browser condition table vertical alignment', valign: 'middle' });
+const browserTableVerticalAlignmentPart = () => browserTableVerticalAlignmentDocument
+  .opcPackage.requirePart(browserTableVerticalAlignmentSlide.partUri).bytes;
+const browserTableVerticalAlignmentReadBytes = browserTableVerticalAlignmentPart().slice();
+const browserTableVerticalAlignmentReadJournal = JSON.stringify(
+  browserTableVerticalAlignmentDocument.opcPackage.mutations,
+);
+const browserTableVerticalAlignmentUniform = browserTableVerticalAlignmentTable
+  .verticalAlignment;
+const browserTableVerticalAlignmentReadIsolation = browserCompressionEqual(
+  browserTableVerticalAlignmentReadBytes,
+  browserTableVerticalAlignmentPart(),
+) && JSON.stringify(browserTableVerticalAlignmentDocument.opcPackage.mutations) ===
+  browserTableVerticalAlignmentReadJournal;
+const browserTableVerticalAlignmentNoOpBytes = browserTableVerticalAlignmentPart().slice();
+const browserTableVerticalAlignmentNoOpJournal = JSON.stringify(
+  browserTableVerticalAlignmentDocument.opcPackage.mutations,
+);
+browserTableVerticalAlignmentTable.verticalAlignment = 'middle';
+const browserTableVerticalAlignmentNoOp = browserCompressionEqual(
+  browserTableVerticalAlignmentNoOpBytes,
+  browserTableVerticalAlignmentPart(),
+) && JSON.stringify(browserTableVerticalAlignmentDocument.opcPackage.mutations) ===
+  browserTableVerticalAlignmentNoOpJournal;
+browserTableVerticalAlignmentTable.setCellVerticalAlignment(0, 1, 'top');
+const browserTableVerticalAlignmentMixed = browserTableVerticalAlignmentTable
+  .verticalAlignment ?? null;
+browserTableVerticalAlignmentTable.verticalAlignment = 'bottom';
+const browserTableVerticalAlignmentOverwritten = browserTableVerticalAlignmentTable
+  .verticalAlignment;
+const browserTableVerticalAlignmentOverwrittenCells = browserTableVerticalAlignmentTable.rows
+  .flatMap(({ cells }) => cells.map(({ verticalAlignment }) => verticalAlignment ?? null));
+browserTableVerticalAlignmentTable.verticalAlignment = undefined;
+const browserTableVerticalAlignmentCleared = browserTableVerticalAlignmentTable
+  .verticalAlignment ?? null;
+const browserTableVerticalAlignmentClearedCells = browserTableVerticalAlignmentTable.rows
+  .flatMap(({ cells }) => cells.map(({ verticalAlignment }) => verticalAlignment ?? null));
+const browserTableVerticalAlignmentInvalidBytes = browserTableVerticalAlignmentPart().slice();
+const browserTableVerticalAlignmentInvalidJournal = JSON.stringify(
+  browserTableVerticalAlignmentDocument.opcPackage.mutations,
+);
+let browserTableVerticalAlignmentInvalidError;
+try {
+  browserTableVerticalAlignmentTable.verticalAlignment = 'distributed';
+} catch (error) {
+  browserTableVerticalAlignmentInvalidError = { name: error.name, message: error.message };
+}
+const browserTableVerticalAlignmentFailureIsolation = browserCompressionEqual(
+  browserTableVerticalAlignmentInvalidBytes,
+  browserTableVerticalAlignmentPart(),
+) && JSON.stringify(browserTableVerticalAlignmentDocument.opcPackage.mutations) ===
+  browserTableVerticalAlignmentInvalidJournal;
+browserTableVerticalAlignmentTable.verticalAlignment = 'top';
+const reopenedBrowserTableVerticalAlignmentDocument = await PptxDocument.open(
+  await browserTableVerticalAlignmentDocument.writeBlob(),
+);
+const reopenedBrowserTableVerticalAlignmentTable = reopenedBrowserTableVerticalAlignmentDocument
+  .slides[0].shapes.find(
+    (shape) => shape.name === 'Browser condition table vertical alignment',
+  );
+const browserTableVerticalAlignmentState = {
+  uniform: browserTableVerticalAlignmentUniform,
+  readIsolation: browserTableVerticalAlignmentReadIsolation,
+  noOp: browserTableVerticalAlignmentNoOp,
+  mixed: browserTableVerticalAlignmentMixed,
+  overwritten: browserTableVerticalAlignmentOverwritten,
+  overwrittenCells: browserTableVerticalAlignmentOverwrittenCells,
+  cleared: browserTableVerticalAlignmentCleared,
+  clearedCells: browserTableVerticalAlignmentClearedCells,
+  reopened: reopenedBrowserTableVerticalAlignmentTable instanceof TableModel
+    ? reopenedBrowserTableVerticalAlignmentTable.verticalAlignment ?? null
+    : null,
+  reopenedCells: reopenedBrowserTableVerticalAlignmentTable instanceof TableModel
+    ? reopenedBrowserTableVerticalAlignmentTable.rows.flatMap(({ cells }) =>
+      cells.map(({ verticalAlignment }) => verticalAlignment ?? null))
+    : [],
+  invalidError: browserTableVerticalAlignmentInvalidError,
+  failureIsolation: browserTableVerticalAlignmentFailureIsolation,
+  validationErrors: browserTableVerticalAlignmentDocument.diagnostics
+    .filter(({ severity }) => severity === 'error').length +
+    reopenedBrowserTableVerticalAlignmentDocument.diagnostics
+      .filter(({ severity }) => severity === 'error').length,
+};
+if (JSON.stringify(browserTableVerticalAlignmentState) !== JSON.stringify({
+  uniform: 'middle',
+  readIsolation: true,
+  noOp: true,
+  mixed: null,
+  overwritten: 'bottom',
+  overwrittenCells: ['bottom', 'bottom', 'bottom', 'bottom'],
+  cleared: null,
+  clearedCells: [null, null, null, null],
+  reopened: 'top',
+  reopenedCells: ['top', 'top', 'top', 'top'],
+  invalidError: {
+    name: 'TypeError',
+    message: 'Table vertical alignment must be top, middle, or bottom',
+  },
+  failureIsolation: true,
+  validationErrors: 0,
+})) {
+  throw new Error('Browser table-level vertical alignment failed');
 }
 const browserOutputTypeDocument = PptxDocument.create();
 const browserOutputTypeJournal = JSON.stringify(
@@ -10137,6 +10366,14 @@ const tableOptions: AddTableOptions = { align: tableHorizontalAlignment, name: '
 const typedTable: TableModel = createdDocument.slides[0].addTable(tableRows, tableOptions);
 const widthSnapshot: readonly number[] | undefined = typedTable.columnWidths;
 const heightSnapshot: readonly number[] | undefined = typedTable.rowHeights;
+const typedTableVerticalAlignment: TextBoxVerticalAlignment | undefined =
+  typedTable.verticalAlignment;
+typedTable.verticalAlignment = 'top';
+typedTable.verticalAlignment = 'middle';
+typedTable.verticalAlignment = 'bottom';
+typedTable.verticalAlignment = undefined;
+// @ts-expect-error unsupported table-level vertical alignment
+typedTable.verticalAlignment = 'distributed';
 typedTable.setColumnWidths(inches(2));
 typedTable.setColumnWidths([inches(1.5), inches(2.5)]);
 typedTable.setRowHeights(inches(1));
@@ -10308,7 +10545,7 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
   invalidChartValues, typedSimpleBackground, typedImageBackground, typedSlideBackground,
   typedSlideBackgroundOptions, typedBackgroundSlide, typedBackgroundPromise,
   typedRasterContentType, typedRasterOptions, typedRasterImage,
-  invalidRasterSvg, invalidRasterMissingType, invalidRasterPath, invalidRasterData, typedSvgContentType, typedImageContentType, typedSvgInfo, typedImageInfo, typedCropRegion, typedImageSizing, typedImageSizingResult, typedImageSource, typedImageChunk, typedImageStream, typedImageSourceOptions, typedResolvedImage, typedSvgOptions, typedSvgImage, typedHighLevelSvgImage, typedMediaKind, typedMediaChunk, typedMediaStream, typedMediaSources, typedPlayback, typedMediaOptions, typedMediaPromise, typedVideoPromise, typedReplaceMediaSourceOptions, typedReplaceMediaPosterOptions, typedMediaLifecycle, invalidMediaKind, invalidMediaName, invalidMediaPoster, invalidMediaPlayback, invalidMediaTranscode, invalidMediaSource, invalidMediaSourceReplacement, invalidMediaPosterReplacement, invalidLowLevelSvgOptions, invalidSvgFallback, addSectionOptions, typedSection, addSlideOptions, sectionSnapshot, typedVisibilitySlide, hiddenSnapshot, globalRtl, globalRtlSnapshot, titledDocument, titleSnapshot, authoredDocument, authorSnapshot, lastModifiedDocument, lastModifiedSnapshot, createdAtDocument, createdAtSnapshot, modifiedAtDocument, modifiedAtSnapshot, subjectDocument, subjectSnapshot, revisionDocument, revisionSnapshot, companyDocument, companySnapshot, themedDocument, themeSnapshot, fontSnapshot, fontUpdate, customDocument, createdText, creationBorder, creationMargin, creationOptions, objectCell, tableRows, tableOptions, typedTable, widthSnapshot, heightSnapshot, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotHorizontalAlignment, tableHorizontalAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellHorizontalAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
+  invalidRasterSvg, invalidRasterMissingType, invalidRasterPath, invalidRasterData, typedSvgContentType, typedImageContentType, typedSvgInfo, typedImageInfo, typedCropRegion, typedImageSizing, typedImageSizingResult, typedImageSource, typedImageChunk, typedImageStream, typedImageSourceOptions, typedResolvedImage, typedSvgOptions, typedSvgImage, typedHighLevelSvgImage, typedMediaKind, typedMediaChunk, typedMediaStream, typedMediaSources, typedPlayback, typedMediaOptions, typedMediaPromise, typedVideoPromise, typedReplaceMediaSourceOptions, typedReplaceMediaPosterOptions, typedMediaLifecycle, invalidMediaKind, invalidMediaName, invalidMediaPoster, invalidMediaPlayback, invalidMediaTranscode, invalidMediaSource, invalidMediaSourceReplacement, invalidMediaPosterReplacement, invalidLowLevelSvgOptions, invalidSvgFallback, addSectionOptions, typedSection, addSlideOptions, sectionSnapshot, typedVisibilitySlide, hiddenSnapshot, globalRtl, globalRtlSnapshot, titledDocument, titleSnapshot, authoredDocument, authorSnapshot, lastModifiedDocument, lastModifiedSnapshot, createdAtDocument, createdAtSnapshot, modifiedAtDocument, modifiedAtSnapshot, subjectDocument, subjectSnapshot, revisionDocument, revisionSnapshot, companyDocument, companySnapshot, themedDocument, themeSnapshot, fontSnapshot, fontUpdate, customDocument, createdText, creationBorder, creationMargin, creationOptions, objectCell, tableRows, tableOptions, typedTable, widthSnapshot, heightSnapshot, typedTableVerticalAlignment, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotHorizontalAlignment, tableHorizontalAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellHorizontalAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
 `,
   );
   run(
@@ -10361,6 +10598,11 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
   if (!apiChecks.verticalAlignments) {
     throw new Error(
       `Vertical alignment smoke failed: ${JSON.stringify(apiChecks.verticalAlignmentState)}`,
+    );
+  }
+  if (!apiChecks.tableVerticalAlignment) {
+    throw new Error(
+      `Table vertical alignment smoke failed: ${JSON.stringify(apiChecks.tableVerticalAlignmentState)}`,
     );
   }
   if (!apiChecks.schemeColors) {
@@ -10444,6 +10686,66 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
       ] !== 1) {
     throw new Error(
       `CLI vertical-alignment inspect failed: ${verticalAlignmentInspectResult.stdout}`,
+    );
+  }
+  const tableVerticalAlignmentDeckPath = join(
+    directory,
+    'table-vertical-alignment-smoke.pptx',
+  );
+  const tableVerticalAlignmentValidateResult = run(
+    bin,
+    [
+      '--json', 'package', 'validate', tableVerticalAlignmentDeckPath,
+      '--profile', 'powerpoint-2010',
+    ],
+    directory,
+  );
+  const tableVerticalAlignmentValidated = JSON.parse(
+    tableVerticalAlignmentValidateResult.stdout,
+  );
+  if (!tableVerticalAlignmentValidated.ok ||
+      !tableVerticalAlignmentValidated.data?.valid ||
+      tableVerticalAlignmentValidated.data.errorCount !== 0 ||
+      tableVerticalAlignmentValidated.data.warningCount !== 0) {
+    throw new Error(
+      `CLI table vertical-alignment validation failed: ${tableVerticalAlignmentValidateResult.stdout}`,
+    );
+  }
+  const tableVerticalAlignmentSlidesResult = run(
+    bin,
+    ['--json', 'slides', 'list', tableVerticalAlignmentDeckPath],
+    directory,
+  );
+  const tableVerticalAlignmentSlides = JSON.parse(
+    tableVerticalAlignmentSlidesResult.stdout,
+  );
+  if (!tableVerticalAlignmentSlides.ok ||
+      tableVerticalAlignmentSlides.data?.length !== 1 ||
+      tableVerticalAlignmentSlides.data[0]?.shapeCount !== 1) {
+    throw new Error(
+      `CLI table vertical-alignment slide listing failed: ${tableVerticalAlignmentSlidesResult.stdout}`,
+    );
+  }
+  const tableVerticalAlignmentPartResult = run(
+    bin,
+    [
+      '--json', 'part', 'read', tableVerticalAlignmentDeckPath,
+      tableVerticalAlignmentSlides.data[0].partUri,
+    ],
+    directory,
+  );
+  const tableVerticalAlignmentPart = JSON.parse(
+    tableVerticalAlignmentPartResult.stdout,
+  ).data?.content ?? '';
+  const tableVerticalAlignmentAnchors = [
+    ...tableVerticalAlignmentPart.matchAll(/<a:tcPr\b[^>]*\sanchor="([^"]+)"/g),
+  ].map((match) => match[1]);
+  if (!tableVerticalAlignmentPart.includes('<a:tbl>') ||
+      tableVerticalAlignmentAnchors.length !== 4 ||
+      tableVerticalAlignmentAnchors.some((anchor) => anchor !== 't') ||
+      /<a:bodyPr\b[^>]*\sanchor=/.test(tableVerticalAlignmentPart)) {
+    throw new Error(
+      `CLI table vertical-alignment part inspection failed: ${tableVerticalAlignmentPartResult.stdout}`,
     );
   }
   const masterLayoutDeckPath = join(directory, 'master-layout-smoke.pptx');
@@ -11685,7 +11987,7 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
   }
 
   process.stdout.write(
-    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presentationVersion: apiChecks.presentationVersion, presentationVersionState, presentationLayouts: apiChecks.presentationLayouts, presentationLayoutState: apiChecks.presentationLayoutState, horizontalAlignments: apiChecks.horizontalAlignments, horizontalAlignmentState: apiChecks.horizontalAlignmentState, verticalAlignments: apiChecks.verticalAlignments, verticalAlignmentState: apiChecks.verticalAlignmentState, schemeColors: apiChecks.schemeColors, schemeColorState: apiChecks.schemeColorState, outputTypes: apiChecks.outputTypes, outputTypeState: apiChecks.outputTypeState, writeOutputTypes: apiChecks.writeOutputTypes, writeOutputTypeState: apiChecks.writeOutputTypeState, nodeReadableStream: apiChecks.nodeReadableStream, nodeReadableStreamState: apiChecks.nodeReadableStreamState, masterLayouts: apiChecks.masterLayouts, slideNumbers: apiChecks.slideNumbers, slideDefaultColor: apiChecks.slideDefaultColor, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, textShapeFills: apiChecks.textShapeFills, textShapeLines: apiChecks.textShapeLines, textShapeArrows: apiChecks.textShapeArrows, textShapeShadows: apiChecks.textShapeShadows, textShapeHyperlinks: apiChecks.textShapeHyperlinks, textShapePresetGeometry: apiChecks.textShapePresetGeometry, textShapeRectRadius: apiChecks.textShapeRectRadius, textShapeIsTextBox: apiChecks.textShapeIsTextBox, richTextBreakLine: apiChecks.richTextBreakLine, richTextRunHyperlinks: apiChecks.richTextRunHyperlinks, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, slideBackgrounds: apiChecks.slideBackgrounds, types: true, cli: doctor.data.version, presentationLayoutInspect: true, horizontalAlignmentInspect: true, verticalAlignmentInspect: true, masterLayoutInspect: true, masterLayoutValidate: true, masterLayoutSlides: true, masterLayoutPartRead: true, masterLayoutDiff: true, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true, slideBackgroundInspect: true, slideBackgroundValidate: true, slideNumberInspect: true, slideNumberValidate: true, slideNumberSlides: true, slideNumberPartRead: true, slideDefaultColorInspect: true, slideDefaultColorValidate: true, slideDefaultColorSlides: true, slideDefaultColorPartRead: true, textShapeFillInspect: true, textShapeFillValidate: true, textShapeFillSlides: true, textShapeFillPartRead: true, textShapeLineInspect: true, textShapeLineValidate: true, textShapeLineSlides: true, textShapeLinePartRead: true, textShapeArrowInspect: true, textShapeArrowValidate: true, textShapeArrowSlides: true, textShapeArrowPartRead: true, textShapeShadowInspect: true, textShapeShadowValidate: true, textShapeShadowSlides: true, textShapeShadowPartRead: true, textShapeHyperlinkInspect: true, textShapeHyperlinkValidate: true, textShapeHyperlinkSlides: true, textShapeHyperlinkPartRead: true, textShapeHyperlinkInternalValidate: true, textShapePresetGeometryValidate: true, textShapePresetGeometrySlides: true, textShapePresetGeometryPartRead: true, textShapeRectRadiusValidate: true, textShapeRectRadiusSlides: true, textShapeRectRadiusPartRead: true, textShapeIsTextBoxValidate: true, textShapeIsTextBoxSlides: true, textShapeIsTextBoxPartRead: true, textShapeIsTextBoxLayoutPartRead: true, textShapeIsTextBoxMasterPartRead: true, richTextRunHyperlinkInspect: true, richTextRunHyperlinkValidate: true, richTextRunHyperlinkSlides: true, richTextRunHyperlinkPartRead: true, richTextRunHyperlinkInternalValidate: true, richTextBreakLineValidate: true, richTextBreakLineSlides: true, richTextBreakLinePartRead: true })}\n`,
+    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presentationVersion: apiChecks.presentationVersion, presentationVersionState, presentationLayouts: apiChecks.presentationLayouts, presentationLayoutState: apiChecks.presentationLayoutState, horizontalAlignments: apiChecks.horizontalAlignments, horizontalAlignmentState: apiChecks.horizontalAlignmentState, verticalAlignments: apiChecks.verticalAlignments, verticalAlignmentState: apiChecks.verticalAlignmentState, tableVerticalAlignment: apiChecks.tableVerticalAlignment, tableVerticalAlignmentState: apiChecks.tableVerticalAlignmentState, schemeColors: apiChecks.schemeColors, schemeColorState: apiChecks.schemeColorState, outputTypes: apiChecks.outputTypes, outputTypeState: apiChecks.outputTypeState, writeOutputTypes: apiChecks.writeOutputTypes, writeOutputTypeState: apiChecks.writeOutputTypeState, nodeReadableStream: apiChecks.nodeReadableStream, nodeReadableStreamState: apiChecks.nodeReadableStreamState, masterLayouts: apiChecks.masterLayouts, slideNumbers: apiChecks.slideNumbers, slideDefaultColor: apiChecks.slideDefaultColor, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, textShapeFills: apiChecks.textShapeFills, textShapeLines: apiChecks.textShapeLines, textShapeArrows: apiChecks.textShapeArrows, textShapeShadows: apiChecks.textShapeShadows, textShapeHyperlinks: apiChecks.textShapeHyperlinks, textShapePresetGeometry: apiChecks.textShapePresetGeometry, textShapeRectRadius: apiChecks.textShapeRectRadius, textShapeIsTextBox: apiChecks.textShapeIsTextBox, richTextBreakLine: apiChecks.richTextBreakLine, richTextRunHyperlinks: apiChecks.richTextRunHyperlinks, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, slideBackgrounds: apiChecks.slideBackgrounds, types: true, cli: doctor.data.version, presentationLayoutInspect: true, horizontalAlignmentInspect: true, verticalAlignmentInspect: true, tableVerticalAlignmentInspect: true, masterLayoutInspect: true, masterLayoutValidate: true, masterLayoutSlides: true, masterLayoutPartRead: true, masterLayoutDiff: true, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true, slideBackgroundInspect: true, slideBackgroundValidate: true, slideNumberInspect: true, slideNumberValidate: true, slideNumberSlides: true, slideNumberPartRead: true, slideDefaultColorInspect: true, slideDefaultColorValidate: true, slideDefaultColorSlides: true, slideDefaultColorPartRead: true, textShapeFillInspect: true, textShapeFillValidate: true, textShapeFillSlides: true, textShapeFillPartRead: true, textShapeLineInspect: true, textShapeLineValidate: true, textShapeLineSlides: true, textShapeLinePartRead: true, textShapeArrowInspect: true, textShapeArrowValidate: true, textShapeArrowSlides: true, textShapeArrowPartRead: true, textShapeShadowInspect: true, textShapeShadowValidate: true, textShapeShadowSlides: true, textShapeShadowPartRead: true, textShapeHyperlinkInspect: true, textShapeHyperlinkValidate: true, textShapeHyperlinkSlides: true, textShapeHyperlinkPartRead: true, textShapeHyperlinkInternalValidate: true, textShapePresetGeometryValidate: true, textShapePresetGeometrySlides: true, textShapePresetGeometryPartRead: true, textShapeRectRadiusValidate: true, textShapeRectRadiusSlides: true, textShapeRectRadiusPartRead: true, textShapeIsTextBoxValidate: true, textShapeIsTextBoxSlides: true, textShapeIsTextBoxPartRead: true, textShapeIsTextBoxLayoutPartRead: true, textShapeIsTextBoxMasterPartRead: true, richTextRunHyperlinkInspect: true, richTextRunHyperlinkValidate: true, richTextRunHyperlinkSlides: true, richTextRunHyperlinkPartRead: true, richTextRunHyperlinkInternalValidate: true, richTextBreakLineValidate: true, richTextBreakLineSlides: true, richTextBreakLinePartRead: true })}\n`,
   );
 } finally {
   await rm(directory, { recursive: true, force: true });

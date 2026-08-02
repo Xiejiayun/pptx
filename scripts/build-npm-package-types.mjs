@@ -65,6 +65,24 @@ for (const [declaration, exports] of requiredPublicDeclarations) {
   }
 }
 
+const shapeDeclaration = join(typesRoot, 'model/shapes.d.ts');
+const shapeDeclarationSource = await readFile(shapeDeclaration, 'utf8');
+const tableModelStart = shapeDeclarationSource.indexOf('export declare class TableModel');
+const chartModelStart = shapeDeclarationSource.indexOf(
+  'export declare class ChartModel',
+  tableModelStart,
+);
+const tableModelDeclaration = tableModelStart >= 0 && chartModelStart > tableModelStart
+  ? shapeDeclarationSource.slice(tableModelStart, chartModelStart)
+  : '';
+if (!tableModelDeclaration.includes(
+  'get verticalAlignment(): TextBoxVerticalAlignment | undefined;',
+) || !tableModelDeclaration.includes(
+  'set verticalAlignment(value: TextBoxVerticalAlignment | undefined);',
+)) {
+  throw new Error('Packed TableModel declaration is missing table-level vertical alignment');
+}
+
 await writeFile(
   join(outputRoot, 'index.d.ts'),
   [

@@ -120,6 +120,123 @@ async (page) => {
       })
         && reopenedVerticalAlignmentDocument.diagnostics
           .filter(({ severity }) => severity === 'error').length === 0;
+      const tableVerticalAlignmentDocument = api.PptxDocument.create();
+      const tableVerticalAlignmentSlide = tableVerticalAlignmentDocument.addSlide();
+      const tableVerticalAlignmentTable = tableVerticalAlignmentSlide.addTable([
+        ['North', 'South'],
+        ['East', 'West'],
+      ], { name: 'Chrome table vertical alignment', valign: 'middle' });
+      const tableVerticalAlignmentPart = () => tableVerticalAlignmentDocument.opcPackage
+        .requirePart(tableVerticalAlignmentSlide.partUri).bytes;
+      const tableVerticalAlignmentBytesEqual = (left, right) =>
+        left.byteLength === right.byteLength &&
+        left.every((value, index) => value === right[index]);
+      const tableVerticalAlignmentReadBytes = tableVerticalAlignmentPart().slice();
+      const tableVerticalAlignmentReadJournal = JSON.stringify(
+        tableVerticalAlignmentDocument.opcPackage.mutations,
+      );
+      const tableVerticalAlignmentUniform = tableVerticalAlignmentTable.verticalAlignment;
+      const tableVerticalAlignmentReadIsolation = tableVerticalAlignmentBytesEqual(
+        tableVerticalAlignmentReadBytes,
+        tableVerticalAlignmentPart(),
+      ) && JSON.stringify(tableVerticalAlignmentDocument.opcPackage.mutations) ===
+        tableVerticalAlignmentReadJournal;
+      const tableVerticalAlignmentNoOpBytes = tableVerticalAlignmentPart().slice();
+      const tableVerticalAlignmentNoOpJournal = JSON.stringify(
+        tableVerticalAlignmentDocument.opcPackage.mutations,
+      );
+      tableVerticalAlignmentTable.verticalAlignment = 'middle';
+      const tableVerticalAlignmentNoOp = tableVerticalAlignmentBytesEqual(
+        tableVerticalAlignmentNoOpBytes,
+        tableVerticalAlignmentPart(),
+      ) && JSON.stringify(tableVerticalAlignmentDocument.opcPackage.mutations) ===
+        tableVerticalAlignmentNoOpJournal;
+      tableVerticalAlignmentTable.setCellVerticalAlignment(0, 1, 'top');
+      const tableVerticalAlignmentMixed = tableVerticalAlignmentTable
+        .verticalAlignment ?? null;
+      tableVerticalAlignmentTable.verticalAlignment = 'bottom';
+      const tableVerticalAlignmentOverwritten = tableVerticalAlignmentTable
+        .verticalAlignment;
+      const tableVerticalAlignmentOverwrittenCells = tableVerticalAlignmentTable.rows
+        .flatMap(({ cells }) => cells.map(
+          ({ verticalAlignment }) => verticalAlignment ?? null,
+        ));
+      tableVerticalAlignmentTable.verticalAlignment = undefined;
+      const tableVerticalAlignmentCleared = tableVerticalAlignmentTable
+        .verticalAlignment ?? null;
+      const tableVerticalAlignmentClearedCells = tableVerticalAlignmentTable.rows
+        .flatMap(({ cells }) => cells.map(
+          ({ verticalAlignment }) => verticalAlignment ?? null,
+        ));
+      const tableVerticalAlignmentInvalidBytes = tableVerticalAlignmentPart().slice();
+      const tableVerticalAlignmentInvalidJournal = JSON.stringify(
+        tableVerticalAlignmentDocument.opcPackage.mutations,
+      );
+      let tableVerticalAlignmentInvalidError;
+      try {
+        tableVerticalAlignmentTable.verticalAlignment = 'distributed';
+      } catch (error) {
+        tableVerticalAlignmentInvalidError = {
+          name: error.name,
+          message: error.message,
+        };
+      }
+      const tableVerticalAlignmentFailureIsolation = tableVerticalAlignmentBytesEqual(
+        tableVerticalAlignmentInvalidBytes,
+        tableVerticalAlignmentPart(),
+      ) && JSON.stringify(tableVerticalAlignmentDocument.opcPackage.mutations) ===
+        tableVerticalAlignmentInvalidJournal;
+      tableVerticalAlignmentTable.verticalAlignment = 'top';
+      const reopenedTableVerticalAlignmentDocument = await api.PptxDocument.open(
+        await tableVerticalAlignmentDocument.writeBlob(),
+      );
+      const reopenedTableVerticalAlignmentTable = reopenedTableVerticalAlignmentDocument
+        .slides[0].shapes.find(
+          (shape) => shape.name === 'Chrome table vertical alignment',
+        );
+      const tableVerticalAlignmentState = {
+        uniform: tableVerticalAlignmentUniform,
+        readIsolation: tableVerticalAlignmentReadIsolation,
+        noOp: tableVerticalAlignmentNoOp,
+        mixed: tableVerticalAlignmentMixed,
+        overwritten: tableVerticalAlignmentOverwritten,
+        overwrittenCells: tableVerticalAlignmentOverwrittenCells,
+        cleared: tableVerticalAlignmentCleared,
+        clearedCells: tableVerticalAlignmentClearedCells,
+        reopened: reopenedTableVerticalAlignmentTable instanceof api.TableModel
+          ? reopenedTableVerticalAlignmentTable.verticalAlignment ?? null
+          : null,
+        reopenedCells: reopenedTableVerticalAlignmentTable instanceof api.TableModel
+          ? reopenedTableVerticalAlignmentTable.rows.flatMap(({ cells }) => cells.map(
+            ({ verticalAlignment }) => verticalAlignment ?? null,
+          ))
+          : [],
+        invalidError: tableVerticalAlignmentInvalidError,
+        failureIsolation: tableVerticalAlignmentFailureIsolation,
+        validationErrors: tableVerticalAlignmentDocument.diagnostics
+          .filter(({ severity }) => severity === 'error').length +
+          reopenedTableVerticalAlignmentDocument.diagnostics
+            .filter(({ severity }) => severity === 'error').length,
+      };
+      const tableVerticalAlignment = JSON.stringify(tableVerticalAlignmentState) ===
+        JSON.stringify({
+          uniform: 'middle',
+          readIsolation: true,
+          noOp: true,
+          mixed: null,
+          overwritten: 'bottom',
+          overwrittenCells: ['bottom', 'bottom', 'bottom', 'bottom'],
+          cleared: null,
+          clearedCells: [null, null, null, null],
+          reopened: 'top',
+          reopenedCells: ['top', 'top', 'top', 'top'],
+          invalidError: {
+            name: 'TypeError',
+            message: 'Table vertical alignment must be top, middle, or bottom',
+          },
+          failureIsolation: true,
+          validationErrors: 0,
+        });
       const schemeColorIsolationDocument = api.PptxDocument.create();
       const schemeColorIsolationJournal = JSON.stringify(
         schemeColorIsolationDocument.opcPackage.mutations,
@@ -2458,6 +2575,8 @@ async (page) => {
         horizontalAlignmentState,
         verticalAlignments,
         verticalAlignmentState,
+        tableVerticalAlignment,
+        tableVerticalAlignmentState,
         schemeColors,
         schemeColorState,
         outputTypes,
@@ -2664,6 +2783,25 @@ async (page) => {
       textReopened: ['top', 'middle', 'bottom'],
       tableReopened: ['top', 'middle', 'bottom'],
       frozen: true,
+    },
+    tableVerticalAlignment: true,
+    tableVerticalAlignmentState: {
+      uniform: 'middle',
+      readIsolation: true,
+      noOp: true,
+      mixed: null,
+      overwritten: 'bottom',
+      overwrittenCells: ['bottom', 'bottom', 'bottom', 'bottom'],
+      cleared: null,
+      clearedCells: [null, null, null, null],
+      reopened: 'top',
+      reopenedCells: ['top', 'top', 'top', 'top'],
+      invalidError: {
+        name: 'TypeError',
+        message: 'Table vertical alignment must be top, middle, or bottom',
+      },
+      failureIsolation: true,
+      validationErrors: 0,
     },
     schemeColors: true,
     schemeColorState: {
