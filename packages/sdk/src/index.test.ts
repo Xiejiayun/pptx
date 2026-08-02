@@ -382,6 +382,35 @@ describe('PptxDocument vertical slice', () => {
       .toContain('<d:bodyPr anchor="b"/>');
   });
 
+  it('materializes a non-shape layout placeholder without forging text box state', () => {
+    const document = PptxDocument.create();
+    const layout = document.layouts[0]!;
+    const part = document.opcPackage.requirePart(layout.partUri);
+    const source = new TextDecoder().decode(part.bytes);
+    const picturePlaceholder = '<p:pic><p:nvPicPr><p:cNvPr id="20" '
+      + 'name="picture_owner"/><p:cNvPicPr/><p:nvPr><p:ph type="pic" idx="20"/>'
+      + '</p:nvPr></p:nvPicPr><p:blipFill/><p:spPr><a:xfrm><a:off x="1" y="2"/>'
+      + '<a:ext cx="3" cy="4"/></a:xfrm></p:spPr></p:pic>';
+    document.opcPackage.setPart(
+      layout.partUri,
+      source.replace('</p:spTree>', `${picturePlaceholder}</p:spTree>`),
+      part.contentType,
+    );
+
+    const slide = document.addSlide();
+    const materialized = slide.placeholders.find(({ name }) => name === 'picture_owner')!;
+    expect(materialized).toBeInstanceOf(ShapeModel);
+    expect((materialized as ShapeModel).isTextBox).toBe(false);
+    expect(materialized.placeholder).toEqual({ type: 'pic', index: 20 });
+    expect(materialized.transform).toMatchObject({ x: 1, y: 2, width: 3, height: 4 });
+    const slideXml = new TextDecoder().decode(
+      document.opcPackage.requirePart(slide.partUri).bytes,
+    );
+    expect(slideXml).toContain(
+      '<p:cNvPr id="2" name="picture_owner"/><p:cNvSpPr/><p:nvPr>',
+    );
+  });
+
   it('round-trips empty layout placeholders in all six presentation formats', async () => {
     for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
       const document = PptxDocument.create({ format });
@@ -416,6 +445,14 @@ describe('PptxDocument vertical slice', () => {
         + '<p:txBody><a:bodyPr/><a:lstStyle/><a:p/></p:txBody></p:sp>',
       '<p:sp><p:nvSpPr><p:cNvPr id="20" name="unsupported"/>'
         + '<p:cNvSpPr/><p:nvPr><p:ph type="ctrTitle" idx="1"/>'
+        + '</p:nvPr></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/><a:lstStyle/>'
+        + '<a:p/></p:txBody></p:sp>',
+      '<p:sp><p:nvSpPr><p:cNvPr id="20" name="invalid_txbox"/>'
+        + '<p:cNvSpPr txBox="maybe"/><p:nvPr><p:ph type="title" idx="1"/>'
+        + '</p:nvPr></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/><a:lstStyle/>'
+        + '<a:p/></p:txBody></p:sp>',
+      '<p:sp><p:nvSpPr><p:cNvPr id="20" name="ambiguous_txbox"/>'
+        + '<p:cNvSpPr txBox="1" txBox="0"/><p:nvPr><p:ph type="title" idx="1"/>'
         + '</p:nvPr></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/><a:lstStyle/>'
         + '<a:p/></p:txBody></p:sp>',
     ];
@@ -4600,6 +4637,312 @@ describe('PptxDocument vertical slice', () => {
       {
         title: 'INVALID-TEXT-RECT-RADIUS-ACCESSOR',
         objects: [{ kind: 'text', text: 'Invalid accessor radius', options: accessor }],
+      },
+    ]) {
+      await expect(document.defineSlideMaster(definition as never)).rejects.toThrow();
+      const { output: _afterOutput, ...after } = await sdkPackageSnapshot(document) as {
+        readonly output: Uint8Array;
+        readonly [key: string]: unknown;
+      };
+      expect(after).toEqual(before);
+    }
+    expect(accessorCalls).toBe(0);
+  });
+
+  it('preserves text box state across public owners and placeholder lifecycle', async () => {
+    const document = PptxDocument.create();
+    const layout = document.layouts[0]!;
+    const master = document.masters[0]!;
+    const layoutText = layout.addText('Layout shape text', {
+      name: 'layout_shape_text',
+      isTextBox: false,
+    });
+    const masterText = master.addRichText([{
+      runs: [{ text: 'Master text box' }],
+    }], {
+      name: 'master_text_box',
+      isTextBox: true,
+    });
+    const sourceFalse = layout.addPlaceholder('False prompt', {
+      name: 'source_false_text_box',
+      type: 'title',
+      index: 241,
+      isTextBox: false,
+      x: inches(1),
+      y: inches(1),
+      width: inches(4),
+      height: inches(1),
+    });
+    const sourceTrue = layout.addPlaceholder('True prompt', {
+      name: 'source_true_text_box',
+      type: 'body',
+      index: 242,
+      isTextBox: true,
+      x: inches(1),
+      y: inches(2),
+      width: inches(4),
+      height: inches(2),
+    });
+    const masterPlaceholder = master.addPlaceholder('Master text box prompt', {
+      name: 'master_true_text_box',
+      type: 'title',
+      index: 243,
+      isTextBox: true,
+    });
+    expect(layoutText.isTextBox).toBe(false);
+    expect(masterText.isTextBox).toBe(true);
+    expect(sourceFalse.isTextBox).toBe(false);
+    expect(sourceTrue.isTextBox).toBe(true);
+    expect(masterPlaceholder.isTextBox).toBe(true);
+
+    const layoutPart = document.opcPackage.requirePart(layout.partUri);
+    const aliasSource = new TextDecoder().decode(layoutPart.bytes)
+      .replace(
+        `<p:cNvPr id="${sourceFalse.id}" name="${sourceFalse.name}"/><p:cNvSpPr/>`,
+        `<p:cNvPr id="${sourceFalse.id}" name="${sourceFalse.name}"/>`
+          + '<p:cNvSpPr txBox="off"/>',
+      )
+      .replace(
+        `<p:cNvPr id="${sourceTrue.id}" name="${sourceTrue.name}"/>`
+          + '<p:cNvSpPr txBox="1"/>',
+        `<p:cNvPr id="${sourceTrue.id}" name="${sourceTrue.name}"/>`
+          + '<p:cNvSpPr txBox="on"/>',
+      );
+    document.opcPackage.setPart(layout.partUri, aliasSource, layoutPart.contentType);
+    expect(sourceFalse.isTextBox).toBe(false);
+    expect(sourceTrue.isTextBox).toBe(true);
+    const layoutSource = document.opcPackage.requirePart(layout.partUri).bytes.slice();
+    const slide = document.addSlide({ masterName: layout.name });
+    const materializedFalse = slide.placeholders.find(
+      ({ name }) => name === sourceFalse.name,
+    )!;
+    const materializedTrue = slide.placeholders.find(
+      ({ name }) => name === sourceTrue.name,
+    )!;
+    expect((materializedFalse as ShapeModel).isTextBox).toBe(false);
+    expect((materializedTrue as ShapeModel).isTextBox).toBe(true);
+    const falseOwner = {
+      id: materializedFalse.id,
+      name: materializedFalse.name,
+      transform: materializedFalse.transform,
+      placeholder: materializedFalse.placeholder,
+    };
+    const trueOwner = {
+      id: materializedTrue.id,
+      name: materializedTrue.name,
+      transform: materializedTrue.transform,
+      placeholder: materializedTrue.placeholder,
+    };
+
+    const populatedTrue = slide.addText('Population overrides false source', {
+      placeholder: sourceFalse.name,
+      isTextBox: true,
+    });
+    const populatedFalse = slide.addRichText([{
+      runs: [{ text: 'Population default overrides true source' }],
+    }], {
+      placeholder: sourceTrue.name,
+    });
+    expect(populatedTrue.isTextBox).toBe(true);
+    expect(populatedFalse.isTextBox).toBe(false);
+    expect({
+      id: populatedTrue.id,
+      name: populatedTrue.name,
+      transform: populatedTrue.transform,
+      placeholder: populatedTrue.placeholder,
+    }).toEqual(falseOwner);
+    expect({
+      id: populatedFalse.id,
+      name: populatedFalse.name,
+      transform: populatedFalse.transform,
+      placeholder: populatedFalse.placeholder,
+    }).toEqual(trueOwner);
+    expect(materializedFalse).not.toBe(populatedTrue);
+    expect(materializedTrue).not.toBe(populatedFalse);
+    expect(sourceFalse.isTextBox).toBe(false);
+    expect(sourceTrue.isTextBox).toBe(true);
+    expect(document.opcPackage.requirePart(layout.partUri).bytes).toEqual(layoutSource);
+
+    const slideRich = slide.addRichText([{ runs: [{ text: 'Slide text box' }] }], {
+      name: 'slide_text_box',
+      isTextBox: true,
+    });
+    const slidePlaceholder = slide.addPlaceholder('Slide shape prompt', {
+      name: 'slide_shape_prompt',
+      type: 'body',
+      index: 244,
+      isTextBox: false,
+    });
+    expect(slideRich.isTextBox).toBe(true);
+    expect(slidePlaceholder.isTextBox).toBe(false);
+
+    const declarative = await document.defineSlideMaster({
+      title: 'TEXT-BOX-STATE',
+      objects: [
+        {
+          kind: 'text',
+          text: 'Declarative text box',
+          options: { name: 'declarative_text_box', isTextBox: true },
+        },
+        {
+          kind: 'placeholder',
+          text: [{ runs: [{ text: 'Declarative shape prompt' }] }],
+          options: {
+            name: 'declarative_shape_prompt',
+            type: 'title',
+            index: 245,
+            isTextBox: false,
+          },
+        },
+        {
+          kind: 'placeholder',
+          text: 'Declarative text box prompt',
+          options: {
+            name: 'declarative_text_box_prompt',
+            type: 'body',
+            index: 246,
+            isTextBox: true,
+          },
+        },
+      ],
+    });
+    expect((declarative.shapes.find(
+      ({ name }) => name === 'declarative_text_box',
+    ) as ShapeModel).isTextBox).toBe(true);
+    expect(declarative.placeholders.find(
+      ({ name }) => name === 'declarative_shape_prompt',
+    )?.isTextBox).toBe(false);
+    expect(declarative.placeholders.find(
+      ({ name }) => name === 'declarative_text_box_prompt',
+    )?.isTextBox).toBe(true);
+    const declarativeSlide = document.addSlide({ masterName: declarative.name });
+    expect(declarativeSlide.placeholders.map((shape) => (shape as ShapeModel).isTextBox))
+      .toEqual([false, true]);
+
+    let signalRead!: () => void;
+    let resumeRead!: () => void;
+    const readStarted = new Promise<void>((resolve) => { signalRead = resolve; });
+    const readPaused = new Promise<void>((resolve) => { resumeRead = resolve; });
+    const detachedOptions = { isTextBox: true };
+    const pendingDetached = document.defineSlideMaster({
+      title: 'DETACHED-TEXT-BOX-STATE',
+      objects: [
+        { kind: 'text', text: 'Detached text box', options: detachedOptions },
+        {
+          kind: 'image',
+          source: {
+            async *[Symbol.asyncIterator]() {
+              signalRead();
+              await readPaused;
+              yield sdkPngHeader(1, 1);
+            },
+          },
+        },
+      ],
+    });
+    await readStarted;
+    detachedOptions.isTextBox = false;
+    resumeRead();
+    const detachedLayout = await pendingDetached;
+    expect((detachedLayout.shapes.find(
+      ({ name }) => name === 'Text 2',
+    ) as ShapeModel).isTextBox).toBe(true);
+
+    const duplicate = document.duplicateSlide(document.slides.indexOf(slide));
+    const duplicateTrue = duplicate.shapes.find(
+      ({ name }) => name === populatedTrue.name,
+    ) as ShapeModel;
+    expect(duplicateTrue.isTextBox).toBe(true);
+    duplicateTrue.isTextBox = false;
+    expect(populatedTrue.isTextBox).toBe(true);
+    document.moveSlide(document.slides.indexOf(duplicate), 0);
+    expect(duplicateTrue.isTextBox).toBe(false);
+
+    const beforeRollback = await sdkPackageSnapshot(document);
+    expect(() => document.transaction(() => {
+      populatedTrue.isTextBox = false;
+      populatedFalse.isTextBox = true;
+      throw new Error('restore public text box state');
+    })).toThrow('restore public text box state');
+    expect(await sdkPackageSnapshot(document)).toEqual(beforeRollback);
+    expect(populatedTrue.isTextBox).toBe(true);
+    expect(populatedFalse.isTextBox).toBe(false);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const second = await PptxDocument.open(await reopened.write());
+    const secondSlide = second.slides.find(({ partUri }) => partUri === slide.partUri)!;
+    expect((secondSlide.shapes.find(
+      ({ name }) => name === populatedTrue.name,
+    ) as ShapeModel).isTextBox).toBe(true);
+    expect((secondSlide.shapes.find(
+      ({ name }) => name === populatedFalse.name,
+    ) as ShapeModel).isTextBox).toBe(false);
+    expect((second.layouts.find(({ name }) => name === layout.name)!.placeholders.find(
+      ({ name }) => name === sourceTrue.name,
+    ) as ShapeModel).isTextBox).toBe(true);
+    expect(validatePackage(second.opcPackage).filter(({ severity }) => severity === 'error'))
+      .toEqual([]);
+
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const formatted = PptxDocument.create({ format });
+      formatted.layouts[0]!.addPlaceholder('Formatted false prompt', {
+        name: 'formatted_false_prompt',
+        type: 'title',
+        index: 247,
+        isTextBox: false,
+      });
+      formatted.layouts[0]!.addPlaceholder('Formatted true prompt', {
+        name: 'formatted_true_prompt',
+        type: 'body',
+        index: 248,
+        isTextBox: true,
+      });
+      const formattedSlide = formatted.addSlide();
+      expect(formattedSlide.placeholders.map((shape) => (shape as ShapeModel).isTextBox))
+        .toEqual([false, true]);
+      const formattedReopened = await PptxDocument.open(await formatted.write());
+      expect(formattedReopened.format).toBe(format);
+      expect(formattedReopened.layouts[0]!.placeholders.map(({ isTextBox }) => isTextBox))
+        .toEqual([false, true]);
+      expect(formattedReopened.slides[0]!.placeholders.map(
+        (shape) => (shape as ShapeModel).isTextBox,
+      ))
+        .toEqual([false, true]);
+      expect(validatePackage(formattedReopened.opcPackage).filter(
+        ({ severity }) => severity === 'error',
+      )).toEqual([]);
+    }
+  });
+
+  it('rejects invalid declarative text box state without observable mutation', async () => {
+    const document = PptxDocument.create();
+    const { output: _beforeOutput, ...before } = await sdkPackageSnapshot(document) as {
+      readonly output: Uint8Array;
+      readonly [key: string]: unknown;
+    };
+    let accessorCalls = 0;
+    const accessor = Object.defineProperty({}, 'isTextBox', {
+      enumerable: true,
+      get() {
+        accessorCalls += 1;
+        return true;
+      },
+    });
+    for (const definition of [
+      {
+        title: 'INVALID-TEXT-BOX-STRING',
+        objects: [{ kind: 'text', text: 'Invalid', options: { isTextBox: 'true' } }],
+      },
+      {
+        title: 'INVALID-TEXT-BOX-PLACEHOLDER',
+        objects: [{
+          kind: 'placeholder',
+          options: { name: 'invalid_text_box', type: 'title', isTextBox: 1 },
+        }],
+      },
+      {
+        title: 'INVALID-TEXT-BOX-ACCESSOR',
+        objects: [{ kind: 'text', text: 'Accessor', options: accessor }],
       },
     ]) {
       await expect(document.defineSlideMaster(definition as never)).rejects.toThrow();

@@ -768,6 +768,66 @@ describe('@jiayunxie/pptx stable exports', () => {
     expect(invalid).toHaveLength(4);
   });
 
+  it('exports text box state creation and editing from the root package', async () => {
+    const options: AddTextOptions = {
+      name: 'root_text_box_state',
+      isTextBox: true,
+    };
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const plain = slide.addText('Root text box', options);
+    const rich = slide.addRichText([{ runs: [{ text: 'Root shape rich text' }] }], {
+      name: 'root_shape_text_state',
+      isTextBox: false,
+    });
+    const placeholder = slide.addPlaceholder('Root text box prompt', {
+      name: 'root_text_box_prompt',
+      type: 'title',
+      isTextBox: true,
+    });
+    const readable: boolean | undefined = plain.isTextBox;
+    expect(readable).toBe(true);
+    expect(rich.isTextBox).toBe(false);
+    expect(placeholder.isTextBox).toBe(true);
+    plain.isTextBox = false;
+    rich.isTextBox = true;
+    expect([plain.isTextBox, rich.isTextBox]).toEqual([false, true]);
+
+    const reopened = await PptxDocument.open(await document.write());
+    expect((reopened.slides[0]!.shapes.find(
+      ({ name }) => name === 'root_text_box_state',
+    ) as ShapeModel).isTextBox).toBe(false);
+    expect((reopened.slides[0]!.shapes.find(
+      ({ name }) => name === 'root_shape_text_state',
+    ) as ShapeModel).isTextBox).toBe(true);
+
+    const invalid: readonly AddTextOptions[] = [
+      {
+        // @ts-expect-error isTextBox does not accept string truthiness
+        isTextBox: 'true',
+      },
+      {
+        // @ts-expect-error isTextBox does not accept numeric truthiness
+        isTextBox: 1,
+      },
+      {
+        // @ts-expect-error isTextBox does not accept null
+        isTextBox: null,
+      },
+      {
+        // @ts-expect-error isTextBox does not accept objects
+        isTextBox: {},
+      },
+    ];
+    expect(invalid).toHaveLength(4);
+    if (false) {
+      // @ts-expect-error live isTextBox setter only accepts boolean
+      plain.isTextBox = 'true';
+      // @ts-expect-error undefined is not a writable text box state
+      plain.isTextBox = undefined;
+    }
+  });
+
   it('exports rich text run hyperlink types and runtime from the root package', async () => {
     const urlStyle: RichTextRunStyle = {
       hyperlink: { url: 'https://root-run.example', tooltip: '' },

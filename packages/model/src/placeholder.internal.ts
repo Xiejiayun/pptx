@@ -13,6 +13,7 @@ import {
   type PlaceholderType,
 } from './placeholder.js';
 import type { Transform } from './units.js';
+import { readTextShapeIsTextBox } from './text-shape-is-text-box.internal.js';
 
 const PRESENTATION_NAMESPACE =
   'http://schemas.openxmlformats.org/presentationml/2006/main';
@@ -41,6 +42,7 @@ interface MaterializedPlaceholderDescriptor {
   readonly identity: Readonly<PlaceholderIdentity>;
   readonly element: XmlElement;
   readonly transform: Transform;
+  readonly isTextBox: boolean;
   readonly namespaceAttributes: string;
   readonly transformXml?: string;
   readonly bodyPropertiesXml?: string;
@@ -274,6 +276,12 @@ function readDescriptor(
   if (name === undefined || id === undefined) {
     throw new ModelParseError('Layout placeholder has an invalid name or shape id', partUri);
   }
+  const isTextBox = shape.localName === 'sp'
+    ? readTextShapeIsTextBox(xml, shape)
+    : false;
+  if (isTextBox === undefined) {
+    throw new ModelParseError('Layout placeholder has an unsafe text box state', partUri);
+  }
   const shapeProperties = directChildren(shape, 'spPr', PRESENTATION_NAMESPACE);
   if (shapeProperties.length > 1) {
     throw new ModelParseError('Layout placeholder has ambiguous shape properties', partUri);
@@ -303,6 +311,7 @@ function readDescriptor(
     identity: state.identity,
     element: shape,
     transform: readTransform(shape, partUri),
+    isTextBox,
     namespaceAttributes: inScopeNamespaceAttributes(shape),
     ...(transforms[0] ? { transformXml: xml.original(transforms[0]) } : {}),
     ...(bodyProperties[0] ? { bodyPropertiesXml: xml.original(bodyProperties[0]) } : {}),
@@ -414,7 +423,7 @@ function renderMaterializedPlaceholder(
     : '<p:spPr/>';
   return `<p:sp xmlns:p="${PRESENTATION_NAMESPACE}" xmlns:a="${DRAWING_NAMESPACE}"`
     + `${descriptor.namespaceAttributes}><p:nvSpPr><p:cNvPr id="${id}" name="${name}"/>`
-    + '<p:cNvSpPr txBox="1"/><p:nvPr>'
+    + `<p:cNvSpPr${descriptor.isTextBox ? ' txBox="1"' : ''}/><p:nvPr>`
     + `<p:ph type="${type}" idx="${descriptor.identity.index}"/></p:nvPr></p:nvSpPr>`
     + `${shapeProperties}<p:txBody>${bodyProperties}${listStyle}`
     + '<a:p><a:endParaRPr lang="en-US" dirty="0"/></a:p></p:txBody></p:sp>';

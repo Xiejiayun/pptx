@@ -74,6 +74,7 @@ const TEXT_OPTION_KEYS = new Set([
   'bullet',
   'fill',
   'hyperlink',
+  'isTextBox',
   'line',
   'shape',
   'rectRadius',
