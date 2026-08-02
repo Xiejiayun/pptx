@@ -84,12 +84,21 @@ import { resolveSlideLayoutPartUri } from './presentation-layout.internal.js';
 import { materializeLayoutPlaceholders } from './placeholder.internal.js';
 
 const SLIDE_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slide+xml';
+const SLIDE_LAYOUT_CONTENT_TYPE =
+  'application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml';
+const SLIDE_MASTER_CONTENT_TYPE =
+  'application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml';
 const SLIDE_RELATIONSHIP = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide';
 const SLIDE_LAYOUT_RELATIONSHIP = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout';
 const PRESENTATION_NAMESPACE = 'http://schemas.openxmlformats.org/presentationml/2006/main';
 const MIN_SLIDE_SIZE = 914_400;
 const MAX_SLIDE_SIZE = 51_206_400;
 const DEFAULT_SECTION_TITLE = /^Default-[1-9]\d*$/;
+const DRAWING_HYPERLINK_OWNER_CONTENT_TYPES = new Set([
+  SLIDE_CONTENT_TYPE,
+  SLIDE_LAYOUT_CONTENT_TYPE,
+  SLIDE_MASTER_CONTENT_TYPE,
+]);
 
 export interface PresentationSection {
   readonly id: string;
@@ -550,20 +559,29 @@ export class PresentationModel {
       if (!entry) throw new PackageError(`Slide entry ${slide.relationshipId} is missing`, this.presentationPartUri);
       const ownedDependencies = ownedSlideDependencyRoots(this.opcPackage, slide.partUri);
       const mediaDependencies = mediaSlideDependencyTargets(this.opcPackage, slide.partUri);
-      for (const source of this.slides) {
-        if (source.partUri === slide.partUri) continue;
-        const relationshipIds = new Set(
-          source.relationships
-            .filter(({ type, targetMode, resolvedTarget }) =>
-              type === SLIDE_RELATIONSHIP
-              && targetMode === 'Internal'
-              && resolvedTarget === slide.partUri)
-            .map(({ id }) => id),
-        );
-        if (relationshipIds.size === 0) continue;
-        const sourceXml = source.parse().xml;
+      const incomingBySource = new Map<string, Set<string>>();
+      const incoming = this.opcPackage.graph.find(({ uri }) => uri === slide.partUri)?.incoming ?? [];
+      for (const { sourceUri, relationship } of incoming) {
+        if (
+          sourceUri === slide.partUri
+          || sourceUri === this.presentationPartUri
+          || relationship.type !== SLIDE_RELATIONSHIP
+          || relationship.targetMode !== 'Internal'
+        ) continue;
+        const sourcePart = this.opcPackage.getPart(sourceUri);
+        if (
+          !sourcePart
+          || !DRAWING_HYPERLINK_OWNER_CONTENT_TYPES.has(sourcePart.contentType)
+        ) continue;
+        const relationshipIds = incomingBySource.get(sourceUri) ?? new Set<string>();
+        relationshipIds.add(relationship.id);
+        incomingBySource.set(sourceUri, relationshipIds);
+      }
+      for (const [sourceUri, relationshipIds] of incomingBySource) {
+        const sourcePart = this.opcPackage.requirePart(sourceUri);
+        const sourceXml = LosslessXmlDocument.parse(sourcePart.bytes);
         if (removeDrawingHyperlinkReferences(sourceXml, relationshipIds)) {
-          source.setXml(sourceXml.serialize());
+          this.setXmlPart(sourceUri, sourceXml.serialize());
         }
       }
       removePresentationSlideFromSections(

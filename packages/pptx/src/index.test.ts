@@ -16,6 +16,7 @@ import {
   type ReplaceMediaSourceOptions,
   type RichTextColor,
   type DefineSlideMasterOptions,
+  type Hyperlink,
   type PlaceholderSelector,
   type PlaceholderType,
   type SlideMasterBackground,
@@ -560,6 +561,81 @@ describe('@jiayunxie/pptx stable exports', () => {
       },
     ];
     expect(invalid).toHaveLength(5);
+  });
+
+  it('exports text shape hyperlink creation types and runtime from the root package', async () => {
+    const url: Hyperlink = {
+      url: 'https://example.com?a=1&b=2',
+      tooltip: 'Visit & learn',
+    };
+    const internal: Hyperlink = { slide: 2, tooltip: '' };
+    const options: AddTextOptions = { name: 'root_text_hyperlink', hyperlink: url };
+    const document = PptxDocument.create();
+    const source = document.addSlide();
+    const target = document.addSlide();
+    const plain = source.addText('Root plain hyperlink', options);
+    const rich = source.addRichText([{ runs: [{ text: 'Root rich hyperlink' }] }], {
+      name: 'root_rich_hyperlink',
+      hyperlink: internal,
+    });
+    const layoutText = document.layouts[0]!.addText('Root layout hyperlink', {
+      name: 'root_layout_hyperlink',
+      hyperlink: { url: 'https://layout.example' },
+    });
+    const masterText = document.masters[0]!.addText('Root master hyperlink', {
+      name: 'root_master_hyperlink',
+      hyperlink: { slide: document.slides.indexOf(target) + 1 },
+    });
+
+    expect(plain.hyperlink).toEqual(url);
+    expect(rich.hyperlink).toEqual(internal);
+    expect(layoutText.hyperlink).toEqual({ url: 'https://layout.example' });
+    expect(masterText.hyperlink).toEqual({ slide: 2 });
+
+    const reopened = await PptxDocument.open(await document.write());
+    expect((reopened.slides[0]!.shapes.find(
+      ({ name }) => name === 'root_text_hyperlink',
+    ) as ShapeModel).hyperlink).toEqual(url);
+    expect((reopened.slides[0]!.shapes.find(
+      ({ name }) => name === 'root_rich_hyperlink',
+    ) as ShapeModel).hyperlink).toEqual(internal);
+    expect((reopened.layouts[0]!.shapes.find(
+      ({ name }) => name === 'root_layout_hyperlink',
+    ) as ShapeModel).hyperlink).toEqual({ url: 'https://layout.example' });
+    expect((reopened.masters[0]!.shapes.find(
+      ({ name }) => name === 'root_master_hyperlink',
+    ) as ShapeModel).hyperlink).toEqual({ slide: 2 });
+
+    const invalid: readonly AddTextOptions[] = [
+      {
+        // @ts-expect-error text hyperlink requires exactly one target
+        hyperlink: {},
+      },
+      {
+        // @ts-expect-error text hyperlink target branches are mutually exclusive
+        hyperlink: { url: 'https://example.com', slide: 2 },
+      },
+      {
+        // @ts-expect-error text hyperlink URL must be a string
+        hyperlink: { url: 42 },
+      },
+      {
+        // @ts-expect-error text hyperlink slide must be numeric
+        hyperlink: { slide: '2' },
+      },
+      {
+        hyperlink: {
+          url: 'https://example.com',
+          // @ts-expect-error relationship IDs are intentionally unsupported
+          _rId: 'rId9',
+        },
+      },
+      {
+        // @ts-expect-error text hyperlink tooltip must be a string
+        hyperlink: { slide: 2, tooltip: 7 },
+      },
+    ];
+    expect(invalid).toHaveLength(6);
   });
 
   it('exports slide-number creation, editing, and compatibility diagnostics from the root', async () => {

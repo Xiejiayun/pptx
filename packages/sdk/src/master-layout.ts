@@ -73,6 +73,7 @@ const TEXT_OPTION_KEYS = new Set([
   'align',
   'bullet',
   'fill',
+  'hyperlink',
   'line',
   'arrows',
   'shadow',

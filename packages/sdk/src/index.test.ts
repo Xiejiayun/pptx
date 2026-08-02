@@ -3315,6 +3315,386 @@ describe('PptxDocument vertical slice', () => {
     expect(rejected).toEqual(before);
   });
 
+  it('creates text hyperlinks across slide layout master and placeholder owners', async () => {
+    const document = PptxDocument.create();
+    const target = document.addSlide();
+    const layout = document.layouts[0]!;
+    const master = document.masters[0]!;
+    const layoutInput: { url: string; tooltip?: string } = {
+      url: 'https://layout.example?a=1&b=2',
+      tooltip: 'Layout & link',
+    };
+    const layoutText = layout.addText('Layout hyperlink', {
+      name: 'layout_hyperlink',
+      hyperlink: layoutInput,
+    });
+    const masterText = master.addRichText([{ runs: [{ text: 'Master hyperlink' }] }], {
+      name: 'master_hyperlink',
+      hyperlink: { slide: document.slides.indexOf(target) + 1, tooltip: '' },
+    });
+    const layoutPlaceholder = layout.addPlaceholder('Layout hyperlink prompt', {
+      name: 'title_hyperlink',
+      type: 'title',
+      index: 202,
+      x: inches(1),
+      y: inches(1),
+      width: inches(8),
+      height: inches(1),
+      hyperlink: { url: 'https://prompt.example' },
+    });
+    layoutInput.url = 'https://changed.example';
+    layoutInput.tooltip = 'Changed';
+
+    expect(layout.shapes.find(({ id }) => id === layoutText.id)).toBe(layoutText);
+    expect(master.shapes.find(({ id }) => id === masterText.id)).toBe(masterText);
+    expect(layout.placeholders.find(({ id }) => id === layoutPlaceholder.id))
+      .toBe(layoutPlaceholder);
+    expect(layoutText.hyperlink).toEqual({
+      url: 'https://layout.example?a=1&b=2',
+      tooltip: 'Layout & link',
+    });
+    expect(masterText.hyperlink).toEqual({
+      slide: document.slides.indexOf(target) + 1,
+      tooltip: '',
+    });
+    expect(layoutPlaceholder.hyperlink).toEqual({ url: 'https://prompt.example' });
+    expect(document.opcPackage.relationships(layout.partUri).filter(
+      ({ type }) => type.endsWith('/hyperlink'),
+    )).toHaveLength(2);
+    expect(document.opcPackage.relationships(master.partUri).find(
+      ({ type, resolvedTarget }) => type.endsWith('/slide') && resolvedTarget === target.partUri,
+    )).toBeDefined();
+
+    const slide = document.addSlide({ masterName: layout.name });
+    const materialized = slide.placeholders.find(
+      ({ name }) => name === 'title_hyperlink',
+    ) as ShapeModel;
+    const materializedState = {
+      id: materialized.id,
+      name: materialized.name,
+      transform: materialized.transform,
+      placeholder: materialized.placeholder,
+    };
+    expect(materialized.hyperlink).toBeUndefined();
+    const populated = slide.addText('Populated hyperlink', {
+      placeholder: 'title_hyperlink',
+      hyperlink: { slide: document.slides.indexOf(target) + 1, tooltip: 'Target' },
+    });
+    expect(populated).toBe(slide.shapes.find(({ id }) => id === materializedState.id));
+    expect({
+      id: populated.id,
+      name: populated.name,
+      transform: populated.transform,
+      placeholder: populated.placeholder,
+    }).toEqual(materializedState);
+    expect(populated.hyperlink).toEqual({
+      slide: document.slides.indexOf(target) + 1,
+      tooltip: 'Target',
+    });
+    expect(layoutPlaceholder.hyperlink).toEqual({ url: 'https://prompt.example' });
+    expect(materialized).not.toBe(populated);
+
+    const declarative = await document.defineSlideMaster({
+      title: 'TEXT-HYPERLINKS',
+      objects: [
+        {
+          kind: 'text',
+          text: 'Declarative text hyperlink',
+          options: {
+            name: 'declarative_text_hyperlink',
+            hyperlink: { url: 'https://declarative.example', tooltip: '' },
+          },
+        },
+        {
+          kind: 'placeholder',
+          text: 'Declarative hyperlink prompt',
+          options: {
+            name: 'declarative_title_hyperlink',
+            type: 'title',
+            index: 203,
+            hyperlink: { url: 'https://declarative-prompt.example' },
+          },
+        },
+      ],
+    });
+    expect((declarative.shapes.find(
+      ({ name }) => name === 'declarative_text_hyperlink',
+    ) as ShapeModel).hyperlink).toEqual({
+      url: 'https://declarative.example',
+      tooltip: '',
+    });
+    expect(declarative.placeholders.find(
+      ({ name }) => name === 'declarative_title_hyperlink',
+    )?.hyperlink).toEqual({ url: 'https://declarative-prompt.example' });
+    const declarativeSlide = document.addSlide({ masterName: declarative.name });
+    const declarativePopulated = declarativeSlide.addRichText([{
+      runs: [{ text: 'Declarative populated hyperlink' }],
+    }], {
+      placeholder: 'declarative_title_hyperlink',
+      hyperlink: { url: 'https://populated.example' },
+    });
+    expect(declarativePopulated.hyperlink).toEqual({ url: 'https://populated.example' });
+
+    const beforeRollback = await sdkPackageSnapshot(document);
+    let rolledBack: ShapeModel | undefined;
+    expect(() => document.transaction(() => {
+      rolledBack = slide.addText('Rolled back hyperlink', {
+        hyperlink: { url: 'https://rollback.example' },
+      });
+      throw new Error('restore created text hyperlink');
+    })).toThrow('restore created text hyperlink');
+    expect(await sdkPackageSnapshot(document)).toEqual(beforeRollback);
+    expect(() => rolledBack!.hyperlink).toThrow(ModelParseError);
+
+    let signalRead!: () => void;
+    let resumeRead!: () => void;
+    const readStarted = new Promise<void>((resolve) => { signalRead = resolve; });
+    const readPaused = new Promise<void>((resolve) => { resumeRead = resolve; });
+    const detachedHyperlink: { url: string; tooltip?: string } = {
+      url: 'https://detached.example',
+      tooltip: 'Detached',
+    };
+    const pendingDetached = document.defineSlideMaster({
+      title: 'DETACHED-TEXT-HYPERLINK',
+      objects: [
+        {
+          kind: 'text',
+          text: 'Detached text hyperlink',
+          options: { name: 'detached_text_hyperlink', hyperlink: detachedHyperlink },
+        },
+        {
+          kind: 'image',
+          source: {
+            async *[Symbol.asyncIterator]() {
+              signalRead();
+              await readPaused;
+              yield sdkPngHeader(1, 1);
+            },
+          },
+        },
+      ],
+    });
+    await readStarted;
+    detachedHyperlink.url = 'https://changed.example';
+    detachedHyperlink.tooltip = 'Changed';
+    resumeRead();
+    const detachedLayout = await pendingDetached;
+    expect((detachedLayout.shapes.find(
+      ({ name }) => name === 'detached_text_hyperlink',
+    ) as ShapeModel).hyperlink).toEqual({
+      url: 'https://detached.example',
+      tooltip: 'Detached',
+    });
+
+    const reopened = await PptxDocument.open(await document.write());
+    const second = await PptxDocument.open(await reopened.write());
+    expect((second.layouts.find(({ name }) => name === layout.name)!.shapes.find(
+      ({ name }) => name === 'layout_hyperlink',
+    ) as ShapeModel).hyperlink).toEqual({
+      url: 'https://layout.example?a=1&b=2',
+      tooltip: 'Layout & link',
+    });
+    expect((second.masters[0]!.shapes.find(
+      ({ name }) => name === 'master_hyperlink',
+    ) as ShapeModel).hyperlink).toEqual({
+      slide: second.slides.findIndex(({ partUri }) => partUri === target.partUri) + 1,
+      tooltip: '',
+    });
+    expect((second.slides.find(({ partUri }) => partUri === slide.partUri)!.shapes.find(
+      ({ name }) => name === populated.name,
+    ) as ShapeModel).hyperlink).toEqual({
+      slide: second.slides.findIndex(({ partUri }) => partUri === target.partUri) + 1,
+      tooltip: 'Target',
+    });
+    expect(validatePackage(second.opcPackage).filter(({ severity }) => severity === 'error'))
+      .toEqual([]);
+  });
+
+  it('preserves text hyperlink targets through duplicate move delete and all formats', async () => {
+    const document = PptxDocument.create();
+    const source = document.addSlide();
+    const target = document.addSlide();
+    const layoutLink = document.layouts[0]!.addText('Layout target hyperlink', {
+      name: 'layout_target_hyperlink',
+      hyperlink: { slide: document.slides.indexOf(target) + 1 },
+    });
+    const masterLink = document.masters[0]!.addRichText([{
+      runs: [{ text: 'Master target hyperlink' }],
+    }], {
+      name: 'master_target_hyperlink',
+      hyperlink: { slide: document.slides.indexOf(target) + 1 },
+    });
+    const external = source.addText('External hyperlink', {
+      hyperlink: { url: 'https://example.com', tooltip: 'Visit' },
+    });
+    const internal = source.addText('Internal hyperlink', {
+      hyperlink: { slide: document.slides.indexOf(target) + 1 },
+    });
+    const self = source.addRichText([{ runs: [{ text: 'Self hyperlink' }] }], {
+      hyperlink: { slide: document.slides.indexOf(source) + 1, tooltip: '' },
+    });
+    const layoutTargetRelationship = document.opcPackage.relationships(
+      document.layouts[0]!.partUri,
+    ).find(({ resolvedTarget }) => resolvedTarget === target.partUri)!;
+    const masterTargetRelationship = document.opcPackage.relationships(
+      document.masters[0]!.partUri,
+    ).find(({ resolvedTarget }) => resolvedTarget === target.partUri)!;
+
+    const duplicate = document.duplicateSlide(document.slides.indexOf(source));
+    const [duplicateExternal, duplicateInternal, duplicateSelf] = duplicate.shapes as ShapeModel[];
+    expect(duplicateExternal!.hyperlink).toEqual(external.hyperlink);
+    expect(duplicateInternal!.hyperlink).toEqual({
+      slide: document.slides.indexOf(target) + 1,
+    });
+    expect(duplicateSelf!.hyperlink).toEqual({
+      slide: document.slides.indexOf(duplicate) + 1,
+      tooltip: '',
+    });
+
+    document.moveSlide(document.slides.indexOf(target), 0);
+    expect(internal.hyperlink).toEqual({ slide: 1 });
+    expect(duplicateInternal!.hyperlink).toEqual({ slide: 1 });
+    expect(layoutLink.hyperlink).toEqual({ slide: 1 });
+    expect(masterLink.hyperlink).toEqual({ slide: 1 });
+
+    document.deleteSlide(document.slides.indexOf(target));
+    expect(internal.hyperlink).toBeUndefined();
+    expect(duplicateInternal!.hyperlink).toBeUndefined();
+    expect(layoutLink.hyperlink).toBeUndefined();
+    expect(masterLink.hyperlink).toBeUndefined();
+    expect(external.hyperlink).toEqual({ url: 'https://example.com', tooltip: 'Visit' });
+    expect(duplicateExternal!.hyperlink).toEqual(external.hyperlink);
+    expect(self.hyperlink).toEqual({
+      slide: document.slides.indexOf(source) + 1,
+      tooltip: '',
+    });
+    expect(duplicateSelf!.hyperlink).toEqual({
+      slide: document.slides.indexOf(duplicate) + 1,
+      tooltip: '',
+    });
+    const layoutXml = new TextDecoder().decode(document.opcPackage.requirePart(
+      document.layouts[0]!.partUri,
+    ).bytes);
+    const masterXml = new TextDecoder().decode(document.opcPackage.requirePart(
+      document.masters[0]!.partUri,
+    ).bytes);
+    expect(layoutXml).not.toContain(`r:id="${layoutTargetRelationship.id}"`);
+    expect(masterXml).not.toContain(`r:id="${masterTargetRelationship.id}"`);
+    expect(validatePackage(document.opcPackage).filter(({ severity }) => severity === 'error'))
+      .toEqual([]);
+
+    const reopened = await PptxDocument.open(await document.write());
+    expect((reopened.layouts[0]!.shapes.find(
+      ({ name }) => name === 'layout_target_hyperlink',
+    ) as ShapeModel).hyperlink).toBeUndefined();
+    expect((reopened.masters[0]!.shapes.find(
+      ({ name }) => name === 'master_target_hyperlink',
+    ) as ShapeModel).hyperlink).toBeUndefined();
+
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const formatted = PptxDocument.create({ format });
+      const first = formatted.addSlide();
+      const secondSlide = formatted.addSlide();
+      first.addText('Formatted text hyperlink', {
+        hyperlink: { slide: formatted.slides.indexOf(secondSlide) + 1, tooltip: '' },
+      });
+      formatted.layouts[0]!.addRichText([{ runs: [{ text: 'Formatted layout hyperlink' }] }], {
+        name: 'formatted_layout_hyperlink',
+        hyperlink: { slide: formatted.slides.indexOf(secondSlide) + 1 },
+      });
+      const formattedReopened = await PptxDocument.open(await formatted.write());
+      expect(formattedReopened.format).toBe(format);
+      expect(formattedReopened.formatProfile).toEqual(PRESENTATION_FORMAT_PROFILES[format]);
+      expect((formattedReopened.slides[0]!.shapes[0] as ShapeModel).hyperlink)
+        .toEqual({ slide: 2, tooltip: '' });
+      expect((formattedReopened.layouts[0]!.shapes.find(
+        ({ name }) => name === 'formatted_layout_hyperlink',
+      ) as ShapeModel).hyperlink).toEqual({ slide: 2 });
+      expect(validatePackage(formattedReopened.opcPackage).filter(
+        ({ severity }) => severity === 'error',
+      )).toEqual([]);
+    }
+  });
+
+  it('rejects invalid declarative text hyperlinks without observable mutation', async () => {
+    const document = PptxDocument.create();
+    document.addSlide();
+    const { output: _beforeOutput, ...before } = await sdkPackageSnapshot(document) as {
+      readonly output: Uint8Array;
+      readonly [key: string]: unknown;
+    };
+    for (const definition of [
+      {
+        title: 'INVALID-TEXT-HYPERLINK',
+        objects: [{
+          kind: 'text',
+          text: 'Invalid text hyperlink',
+          options: { hyperlink: { url: 'https://example.com', slide: 1 } },
+        }],
+      },
+      {
+        title: 'INVALID-PLACEHOLDER-HYPERLINK',
+        objects: [{
+          kind: 'placeholder',
+          options: {
+            name: 'invalid_hyperlink',
+            type: 'title',
+            hyperlink: { slide: 0 },
+          },
+        }],
+      },
+    ]) {
+      await expect(document.defineSlideMaster(definition as never)).rejects.toThrow();
+      const { output: _afterOutput, ...after } = await sdkPackageSnapshot(document) as {
+        readonly output: Uint8Array;
+        readonly [key: string]: unknown;
+      };
+      expect(after).toEqual(before);
+    }
+
+    let signalRead!: () => void;
+    let resumeRead!: () => void;
+    const readStarted = new Promise<void>((resolve) => { signalRead = resolve; });
+    const readPaused = new Promise<void>((resolve) => { resumeRead = resolve; });
+    const pending = document.defineSlideMaster({
+      title: 'INVALID-ASYNC-TEXT-HYPERLINK',
+      objects: [
+        {
+          kind: 'text',
+          text: 'Invalid detached hyperlink',
+          options: { hyperlink: { slide: 99 } },
+        },
+        {
+          kind: 'image',
+          source: {
+            async *[Symbol.asyncIterator]() {
+              signalRead();
+              await readPaused;
+              yield sdkPngHeader(1, 1);
+            },
+          },
+        },
+      ],
+    });
+    const phase = await Promise.race([
+      readStarted.then(() => 'read-started' as const),
+      pending.then(() => 'resolved' as const, () => 'rejected' as const),
+    ]);
+    expect(phase).toBe('read-started');
+    const { output: _pausedOutput, ...paused } = await sdkPackageSnapshot(document) as {
+      readonly output: Uint8Array;
+      readonly [key: string]: unknown;
+    };
+    expect(paused).toEqual(before);
+    resumeRead();
+    await expect(pending).rejects.toThrow(/out of range/i);
+    const { output: _rejectedOutput, ...rejected } = await sdkPackageSnapshot(document) as {
+      readonly output: Uint8Array;
+      readonly [key: string]: unknown;
+    };
+    expect(rejected).toEqual(before);
+  });
+
   it('rejects invalid declarative text lines without observable mutation', async () => {
     const document = PptxDocument.create();
     const { output: _beforeOutput, ...before } = await sdkPackageSnapshot(document) as {
