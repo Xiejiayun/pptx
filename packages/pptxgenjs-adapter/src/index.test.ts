@@ -18,6 +18,7 @@ import {
   PRESET_SHAPE_TYPES,
   PPTX_VERSION,
   PptxDocument,
+  SCHEME_COLORS,
   ShapeModel,
   TableModel,
   TEXT_ALIGNMENTS,
@@ -294,8 +295,16 @@ interface PptxGenJSInstance {
   readonly ChartType: Readonly<Record<string, string>>;
   readonly ShapeType: Readonly<Record<string, string>>;
   readonly SchemeColor: {
+    readonly text1: 'tx1';
+    readonly text2: 'tx2';
+    readonly background1: 'bg1';
+    readonly background2: 'bg2';
     readonly accent1: 'accent1';
     readonly accent2: 'accent2';
+    readonly accent3: 'accent3';
+    readonly accent4: 'accent4';
+    readonly accent5: 'accent5';
+    readonly accent6: 'accent6';
   };
   author: string;
   company: string;
@@ -983,6 +992,32 @@ describe('importPptxGenJS', () => {
     expect((await PptxDocument.open(nativeStore)).slides).toHaveLength(1);
     expect((await PptxDocument.open(nativeDeflate)).slides).toHaveLength(1);
   }, 30_000);
+
+  it('matches the public PptxGenJS SchemeColor helper and legal output', async () => {
+    const generated = new PptxGenJS();
+    const second = new PptxGenJS();
+    expect(Object.entries(generated.SchemeColor)).toEqual(Object.entries(SCHEME_COLORS));
+    expect(second.SchemeColor).toBe(generated.SchemeColor);
+    expect(Object.isFrozen(generated.SchemeColor)).toBe(false);
+    expect(Object.getOwnPropertyDescriptor(
+      Object.getPrototypeOf(generated),
+      'SchemeColor',
+    )).toMatchObject({ set: undefined, enumerable: false });
+    expect(Object.isFrozen(SCHEME_COLORS)).toBe(true);
+
+    const slide = generated.addSlide();
+    slide.addText([
+      { text: 'Text1', options: { color: generated.SchemeColor.text1 } },
+      { text: 'Accent1', options: { color: generated.SchemeColor.accent1 } },
+    ], { x: 1, y: 1, w: 5, h: 1 });
+    const imported = await importPptxGenJS(generated);
+    const shape = imported.slides[0]?.shapes[0];
+    expect(shape).toBeInstanceOf(ShapeModel);
+    expect((shape as ShapeModel).richText[0]?.runs.map(({ style }) => style?.color)).toEqual([
+      { kind: 'scheme', value: SCHEME_COLORS.text1 },
+      { kind: 'scheme', value: SCHEME_COLORS.accent1 },
+    ]);
+  });
 
   it('matches the PptxGenJS vertical alignment runtime catalog', async () => {
     const generated = new PptxGenJS();

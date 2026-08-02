@@ -13,6 +13,7 @@ export * from './placeholder.js';
 export * from './presentation.js';
 export { normalizeFirstSlideNumber } from './presentation-slide-number.internal.js';
 export * from './preset-shape.js';
+export * from './scheme-color.js';
 export * from './shapes.js';
 export * from './slide.js';
 export * from './slide-background.js';

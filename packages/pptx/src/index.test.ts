@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   OUTPUT_TYPES as SDK_OUTPUT_TYPES,
+  SCHEME_COLORS as SDK_SCHEME_COLORS,
   TEXT_ALIGNMENTS as SDK_TEXT_ALIGNMENTS,
   TEXT_VERTICAL_ALIGNMENTS as SDK_TEXT_VERTICAL_ALIGNMENTS,
 } from '@pptx/sdk';
@@ -12,6 +13,7 @@ import {
   PLACEHOLDER_TYPES,
   PPTX_VERSION,
   PptxDocument,
+  SCHEME_COLORS,
   ShapeModel,
   SlideLayoutModel,
   SlideMasterModel,
@@ -27,6 +29,7 @@ import {
   type RichTextParagraph,
   type RichTextRun,
   type RichTextRunStyle,
+  type SchemeColor,
   type DefineSlideMasterOptions,
   type Emu,
   type Hyperlink,
@@ -92,6 +95,56 @@ describe('@jiayunxie/pptx stable exports', () => {
       document.presLayout = edited;
       // @ts-expect-error presentation layout fields are read-only
       layout.width = inches(1);
+    }
+  });
+
+  it('exports the frozen SCHEME_COLORS helper from the root package', async () => {
+    expect(SCHEME_COLORS).toBe(SDK_SCHEME_COLORS);
+    expect(Object.entries(SCHEME_COLORS)).toEqual([
+      ['text1', 'tx1'],
+      ['text2', 'tx2'],
+      ['background1', 'bg1'],
+      ['background2', 'bg2'],
+      ['accent1', 'accent1'],
+      ['accent2', 'accent2'],
+      ['accent3', 'accent3'],
+      ['accent4', 'accent4'],
+      ['accent5', 'accent5'],
+      ['accent6', 'accent6'],
+    ]);
+    expect(Object.isFrozen(SCHEME_COLORS)).toBe(true);
+
+    const isolated = PptxDocument.create();
+    const journal = JSON.stringify(isolated.opcPackage.mutations);
+    Object.values(SCHEME_COLORS);
+    expect(JSON.stringify(isolated.opcPackage.mutations)).toBe(journal);
+
+    const document = PptxDocument.create();
+    document.addSlide().addRichText([{
+      runs: [{
+        text: 'Scheme helper',
+        style: { color: { kind: 'scheme', value: SCHEME_COLORS.text1 } },
+      }],
+    }], {
+      fill: { kind: 'solid', color: { kind: 'scheme', value: SCHEME_COLORS.accent1 } },
+    });
+    const reopened = await PptxDocument.open(await document.write());
+    const shape = reopened.slides[0]?.shapes[0];
+    expect(shape).toBeInstanceOf(ShapeModel);
+    if (!(shape instanceof ShapeModel)) throw new TypeError('Expected a text shape');
+    expect(shape.richText[0]?.runs[0]?.style?.color)
+      .toEqual({ kind: 'scheme', value: 'tx1' });
+    expect(shape.fill)
+      .toEqual({ kind: 'solid', color: { kind: 'scheme', value: 'accent1' } });
+
+    if (false) {
+      const text: SchemeColor = SCHEME_COLORS.text1;
+      const accent: SchemeColor = SCHEME_COLORS.accent6;
+      // @ts-expect-error SchemeColor excludes key labels
+      const invalid: SchemeColor = 'background1';
+      // @ts-expect-error the runtime catalog is readonly
+      SCHEME_COLORS.accent1 = 'accent2';
+      void [text, accent, invalid];
     }
   });
 
