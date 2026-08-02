@@ -9191,6 +9191,74 @@ describe('importPptxGenJS', () => {
     ]);
   });
 
+  it('projects and normalizes PptxGenJS table-level text direction output', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    generated.layout = 'LAYOUT_WIDE';
+    const slide = generated.addSlide();
+    slide.addTable(
+      [[{ text: 'Uniform A', options: {} }, { text: 'Uniform B', options: {} }]],
+      { x: 0.5, y: 0.5, w: 4, h: 1, textDirection: 'vert270' },
+    );
+    slide.addTable(
+      [[{ text: 'Horizontal A', options: {} }, { text: 'Horizontal B', options: {} }]],
+      { x: 0.5, y: 2, w: 4, h: 1, textDirection: 'horz' },
+    );
+    slide.addTable(
+      [[
+        { text: 'Inherited stacked', options: {} },
+        { text: 'Vertical override', options: { textDirection: 'vert' } },
+      ]],
+      { x: 0.5, y: 3.5, w: 4, h: 1, textDirection: 'wordArtVert' },
+    );
+
+    const imported = await importPptxGenJS(generated);
+    const tables = imported.slides[0]!.shapes.filter(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    );
+    expect(tables).toHaveLength(3);
+    expect(tables[0]!.textDirection).toBe('vert270');
+    expect(tables[1]!.textDirection).toBeUndefined();
+    expect(tables[1]!.rows[0]!.cells.map(({ textDirection }) => textDirection)).toEqual([
+      undefined,
+      undefined,
+    ]);
+    expect(tables[2]!.textDirection).toBeUndefined();
+    expect(tables[2]!.rows[0]!.cells.map(({ textDirection }) => textDirection)).toEqual([
+      'wordArtVert',
+      'vert',
+    ]);
+
+    tables[2]!.textDirection = 'horz';
+    expect(tables[2]!.textDirection).toBe('horz');
+    expect(tables[2]!.rows[0]!.cells.map(({ textDirection }) => textDirection)).toEqual([
+      'horz',
+      'horz',
+    ]);
+    tables[2]!.textDirection = 'wordArtVert';
+    expect(tables[2]!.textDirection).toBe('wordArtVert');
+
+    const reopened = await PptxDocument.open(await imported.write());
+    const reopenedTables = reopened.slides[0]!.shapes.filter(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    );
+    expect(reopenedTables[0]!.textDirection).toBe('vert270');
+    expect(reopenedTables[1]!.textDirection).toBeUndefined();
+    expect(reopenedTables[2]!.textDirection).toBe('wordArtVert');
+    expect(reopenedTables[2]!.rows[0]!.cells.map(({ textDirection }) => textDirection)).toEqual([
+      'wordArtVert',
+      'wordArtVert',
+    ]);
+
+    const xml = new TextDecoder().decode(
+      reopened.opcPackage.requirePart(reopened.slides[0]!.partUri).bytes,
+    );
+    expect(xml.match(/<a:tcPr[^>]* vert="vert270"/g)).toHaveLength(2);
+    expect(xml.match(/<a:tcPr[^>]* vert="wordArtVert"/g)).toHaveLength(2);
+    expect(xml).not.toMatch(/<a:tcPr[^>]* vert="horz"/);
+    expect(xml).not.toMatch(/<a:bodyPr[^>]* vert=/);
+  });
+
   it('matches native table text direction creation to PptxGenJS final state', async () => {
     const generated = new PptxGenJS();
     expect(generated.version).toBe('4.0.1');

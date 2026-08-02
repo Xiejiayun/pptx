@@ -4,6 +4,7 @@ import {
   type XmlElement,
 } from '@pptx/lossless-xml';
 import { ModelParseError } from './errors.js';
+import { readDirectTablePhysicalCells } from './table-physical-cells.internal.js';
 import type { TextBoxVerticalAlignment } from './text.js';
 
 const FROM_OOXML = new Map<string, TextBoxVerticalAlignment>([
@@ -39,7 +40,7 @@ export function readTableVerticalAlignment(
   xml: LosslessXmlDocument,
   frame: XmlElement,
 ): TextBoxVerticalAlignment | undefined {
-  const cells = physicalTableCells(frame);
+  const cells = readDirectTablePhysicalCells(frame);
   if (!cells) return undefined;
   const first = readTableCellVerticalAlignment(xml, cells[0]!);
   if (first === undefined) return undefined;
@@ -107,7 +108,7 @@ export function replaceTableVerticalAlignment(
   value: TextBoxVerticalAlignment | undefined,
   partUri: string,
 ): boolean {
-  const cells = physicalTableCells(frame);
+  const cells = readDirectTablePhysicalCells(frame);
   if (!cells) {
     throw new ModelParseError(
       'Table must contain one complete set of direct physical cells',
@@ -124,26 +125,6 @@ export function replaceTableVerticalAlignment(
     ) || changed;
   }
   return changed;
-}
-
-function physicalTableCells(frame: XmlElement): readonly XmlElement[] | undefined {
-  if (frame.localName !== 'graphicFrame') return undefined;
-  const graphic = exactDirectChild(frame, 'graphic');
-  const graphicData = graphic ? exactDirectChild(graphic, 'graphicData') : undefined;
-  const table = graphicData ? exactDirectChild(graphicData, 'tbl') : undefined;
-  if (!table) return undefined;
-  const rows = directChildren(table, 'tr');
-  if (rows.length === 0) return undefined;
-  const matrix = rows.map((row) => directChildren(row, 'tc'));
-  return matrix.some((cells) => cells.length === 0) ? undefined : matrix.flat();
-}
-
-function exactDirectChild(
-  element: XmlElement,
-  localName: string,
-): XmlElement | undefined {
-  const matches = directChildren(element, localName);
-  return matches.length === 1 ? matches[0] : undefined;
 }
 
 function directChildren(element: XmlElement, localName: string): XmlElement[] {

@@ -33,6 +33,7 @@ import {
   type ShapeLineDash,
   type ShapeShadow,
   type TableCellBorderInput,
+  type TableCellTextDirection,
   type TextBoxMarginInput,
   type TextBoxVerticalAlignment,
 } from './index.js';
@@ -11635,6 +11636,228 @@ describe('PresentationModel', () => {
     const emptyJournal = [...pkg.mutations];
     expect(() => {
       table.verticalAlignment = 'top';
+    }).toThrow(ModelParseError);
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeEmpty);
+    expect(pkg.mutations).toEqual(emptyJournal);
+  });
+
+  it('projects and atomically edits uniform table text direction', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const table = slide.addTable([
+      [
+        {
+          text: 'North',
+          options: {
+            align: 'center',
+            border: {
+              kind: 'line',
+              color: { kind: 'scheme', value: 'accent1' },
+              width: 1.5,
+              style: 'dash',
+            },
+            fill: {
+              kind: 'solid',
+              color: { kind: 'srgb', value: 'D9EAF7' },
+              transparency: 25,
+            },
+            fit: 'shrink',
+            margin: { top: 5, left: 8 },
+            valign: 'middle',
+          },
+        },
+        'South',
+      ],
+      ['East', 'West'],
+    ], {
+      name: 'Uniform table text direction',
+      textDirection: 'vert270',
+      columnWidths: [inches(2), inches(3)],
+      rowHeights: [inches(0.75), inches(1.25)],
+    });
+    const nonDirectionState = () => table.rows.map(({ cells }) => cells.map(({
+      text,
+      borders,
+      fill,
+      horizontalAlignment,
+      margins,
+      textFit,
+      verticalAlignment,
+    }) => ({
+      text,
+      borders,
+      fill,
+      horizontalAlignment,
+      margins,
+      textFit,
+      verticalAlignment,
+    })));
+    const initialNonDirectionState = nonDirectionState();
+    const initialTransform = table.transform;
+    const initialColumnWidths = table.columnWidths;
+    const initialRowHeights = table.rowHeights;
+    const untouchedPartUri = '/ppt/custom/opaque1.bin';
+    const untouchedBefore = pkg.requirePart(untouchedPartUri).bytes.slice();
+
+    expect(table.textDirection).toBe('vert270');
+    const noOpBytes = pkg.requirePart(slide.partUri).bytes.slice();
+    const noOpJournal = [...pkg.mutations];
+    void table.textDirection;
+    table.textDirection = 'vert270';
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(noOpBytes);
+    expect(pkg.mutations).toEqual(noOpJournal);
+
+    table.setCellTextDirection(0, 1, 'vert');
+    expect(table.textDirection).toBeUndefined();
+    table.textDirection = 'wordArtVert';
+    expect(table.textDirection).toBe('wordArtVert');
+    expect(table.rows.flatMap(({ cells }) => cells)
+      .map(({ textDirection }) => textDirection))
+      .toEqual(['wordArtVert', 'wordArtVert', 'wordArtVert', 'wordArtVert']);
+    expect(nonDirectionState()).toEqual(initialNonDirectionState);
+
+    table.textDirection = 'horz';
+    expect(table.textDirection).toBe('horz');
+    expect(table.rows.flatMap(({ cells }) => cells)
+      .every(({ textDirection }) => textDirection === 'horz')).toBe(true);
+    const horizontalXml = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect(horizontalXml.match(/<a:tcPr[^>]* vert="horz"/g)).toHaveLength(4);
+
+    table.textDirection = 'wordArtVert';
+    const duplicate = model.duplicateSlide(model.slides.indexOf(slide));
+    const duplicateTable = duplicate.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    );
+    expect(duplicateTable).toBeInstanceOf(TableModel);
+    expect(duplicateTable!.textDirection).toBe('wordArtVert');
+
+    table.textDirection = undefined;
+    expect(table.textDirection).toBeUndefined();
+    expect(table.rows.flatMap(({ cells }) => cells)
+      .every(({ textDirection }) => textDirection === undefined)).toBe(true);
+    expect(duplicateTable!.textDirection).toBe('wordArtVert');
+    table.textDirection = 'vert';
+    expect(table.textDirection).toBe('vert');
+    expect(duplicateTable!.textDirection).toBe('wordArtVert');
+
+    const beforeRollback = pkg.requirePart(slide.partUri).bytes.slice();
+    const rollbackJournal = [...pkg.mutations];
+    expect(() => pkg.transaction(() => {
+      table.textDirection = 'vert270';
+      throw new Error('restore table-level text direction');
+    })).toThrow('restore table-level text direction');
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeRollback);
+    expect(pkg.mutations).toEqual(rollbackJournal);
+    expect(table.textDirection).toBe('vert');
+
+    for (const invalid of [
+      null,
+      false,
+      true,
+      0,
+      '',
+      'horizontal',
+      'Horz',
+      ' vert',
+      'vert90',
+      'eaVert',
+      [],
+      {},
+      Symbol('vert'),
+    ]) {
+      const beforeInvalid = pkg.requirePart(slide.partUri).bytes.slice();
+      const invalidJournal = [...pkg.mutations];
+      expect(() => {
+        table.textDirection = invalid as never;
+      }, String(invalid)).toThrow(TypeError);
+      expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeInvalid);
+      expect(pkg.mutations).toEqual(invalidJournal);
+    }
+
+    model.moveSlide(model.slides.indexOf(duplicate), 0);
+    expect(table.textDirection).toBe('vert');
+    expect(duplicateTable!.textDirection).toBe('wordArtVert');
+    expect(nonDirectionState()).toEqual(initialNonDirectionState);
+    expect(table.transform).toEqual(initialTransform);
+    expect(table.columnWidths).toEqual(initialColumnWidths);
+    expect(table.rowHeights).toEqual(initialRowHeights);
+    expect(pkg.requirePart(untouchedPartUri).bytes).toEqual(untouchedBefore);
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedSourceTable = reopened.slides
+      .find(({ partUri }) => partUri === slide.partUri)
+      ?.shapes.find((shape): shape is TableModel => shape instanceof TableModel);
+    const reopenedDuplicateTable = reopened.slides
+      .find(({ partUri }) => partUri === duplicate.partUri)
+      ?.shapes.find((shape): shape is TableModel => shape instanceof TableModel);
+    expect(reopenedSourceTable).toBeInstanceOf(TableModel);
+    expect(reopenedDuplicateTable).toBeInstanceOf(TableModel);
+    expect(reopenedSourceTable!.textDirection).toBe('vert');
+    expect(reopenedDuplicateTable!.textDirection).toBe('wordArtVert');
+    expect(reopenedSourceTable!.rows.flatMap(({ cells }) => cells)
+      .map(({ textDirection }) => textDirection))
+      .toEqual(['vert', 'vert', 'vert', 'vert']);
+    expect(reopenedDuplicateTable!.rows.flatMap(({ cells }) => cells)
+      .map(({ textDirection }) => textDirection))
+      .toEqual(['wordArtVert', 'wordArtVert', 'wordArtVert', 'wordArtVert']);
+    expect(reopenedSourceTable!.transform).toEqual(initialTransform);
+    expect(reopenedSourceTable!.columnWidths).toEqual(initialColumnWidths);
+    expect(reopenedSourceTable!.rowHeights).toEqual(initialRowHeights);
+    expect(reopened.opcPackage.requirePart(untouchedPartUri).bytes).toEqual(untouchedBefore);
+
+    if (false) {
+      const direction: TableCellTextDirection | undefined = table.textDirection;
+      table.textDirection = 'horz';
+      table.textDirection = 'vert';
+      table.textDirection = 'vert270';
+      table.textDirection = 'wordArtVert';
+      table.textDirection = undefined;
+      // @ts-expect-error unsupported table text direction
+      table.textDirection = 'eaVert';
+      void direction;
+    }
+  });
+
+  it('rejects unsafe table-level text direction edits without partial package mutation', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const table = slide.addTable([['First', 'Second']], { textDirection: 'vert270' });
+    const original = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    const secondTextOffset = original.indexOf('>Second</a:t>');
+    const secondPropertiesOffset = original.indexOf('<a:tcPr', secondTextOffset);
+    const secondPropertiesEnd = original.indexOf('>', secondPropertiesOffset);
+    expect(secondTextOffset).toBeGreaterThanOrEqual(0);
+    expect(secondPropertiesOffset).toBeGreaterThan(secondTextOffset);
+    expect(secondPropertiesEnd).toBeGreaterThan(secondPropertiesOffset);
+    const repeatedDirection = original.slice(0, secondPropertiesEnd) +
+      ' vert="vert"' + original.slice(secondPropertiesEnd);
+    pkg.setPart(
+      slide.partUri,
+      repeatedDirection,
+      pkg.requirePart(slide.partUri).contentType,
+    );
+    expect(table.textDirection).toBeUndefined();
+    const beforeUnsafe = pkg.requirePart(slide.partUri).bytes.slice();
+    const unsafeJournal = [...pkg.mutations];
+    expect(() => {
+      table.textDirection = 'wordArtVert';
+    }).toThrow(ModelParseError);
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeUnsafe);
+    expect(pkg.mutations).toEqual(unsafeJournal);
+
+    const emptyTable = original.replace(/<a:tr\b[\s\S]*?<\/a:tr>/, '');
+    pkg.setPart(
+      slide.partUri,
+      emptyTable,
+      pkg.requirePart(slide.partUri).contentType,
+    );
+    expect(table.textDirection).toBeUndefined();
+    const beforeEmpty = pkg.requirePart(slide.partUri).bytes.slice();
+    const emptyJournal = [...pkg.mutations];
+    expect(() => {
+      table.textDirection = 'vert';
     }).toThrow(ModelParseError);
     expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeEmpty);
     expect(pkg.mutations).toEqual(emptyJournal);

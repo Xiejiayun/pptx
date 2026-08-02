@@ -5,6 +5,7 @@ import {
 } from '@pptx/lossless-xml';
 import { ModelParseError } from './errors.js';
 import type { TableCellTextDirection } from './shapes.js';
+import { readDirectTablePhysicalCells } from './table-physical-cells.internal.js';
 
 const DIRECTIONS = new Set<TableCellTextDirection>([
   'horz',
@@ -25,6 +26,19 @@ export function readTableCellTextDirection(
   return DIRECTIONS.has(value as TableCellTextDirection)
     ? value as TableCellTextDirection
     : undefined;
+}
+
+export function readTableTextDirection(
+  xml: LosslessXmlDocument,
+  frame: XmlElement,
+): TableCellTextDirection | undefined {
+  const cells = readDirectTablePhysicalCells(frame);
+  if (!cells) return undefined;
+  const first = readTableCellTextDirection(xml, cells[0]!);
+  if (first === undefined) return undefined;
+  return cells.every(
+    (cell) => readTableCellTextDirection(xml, cell) === first,
+  ) ? first : undefined;
 }
 
 export function normalizeTableCellTextDirection(
@@ -89,6 +103,26 @@ export function replaceTableCellTextDirection(
 
   xml.replaceElement(propertiesElement, properties.serialize());
   return true;
+}
+
+export function replaceTableTextDirection(
+  xml: LosslessXmlDocument,
+  frame: XmlElement,
+  value: TableCellTextDirection | undefined,
+  partUri: string,
+): boolean {
+  const cells = readDirectTablePhysicalCells(frame);
+  if (!cells) {
+    throw new ModelParseError(
+      'Table must contain one complete set of direct physical cells',
+      partUri,
+    );
+  }
+  let changed = false;
+  for (const cell of cells) {
+    changed = replaceTableCellTextDirection(xml, cell, value, partUri) || changed;
+  }
+  return changed;
 }
 
 function directChildren(element: XmlElement, localName: string): XmlElement[] {

@@ -75,7 +75,9 @@ import {
 import {
   normalizeTableCellTextDirection,
   readTableCellTextDirection,
+  readTableTextDirection,
   replaceTableCellTextDirection,
+  replaceTableTextDirection,
 } from './table-cell-text-direction.internal.js';
 import {
   normalizeTableColumnWidthInput,
@@ -603,6 +605,28 @@ export class TableModel extends BaseShapeModel {
         };
       }),
     }));
+  }
+
+  get textDirection(): TableCellTextDirection | undefined {
+    const { xml, element } = this.resolve();
+    return readTableTextDirection(xml, element);
+  }
+
+  set textDirection(value: TableCellTextDirection | undefined) {
+    const direction = value === undefined
+      ? undefined
+      : normalizeTableCellTextDirection(value, 'Table text direction');
+    this.slide.presentation.opcPackage.transaction(() => {
+      const { xml, element } = this.resolve();
+      if (replaceTableTextDirection(
+        xml,
+        element,
+        direction,
+        this.slide.partUri,
+      )) {
+        this.slide.setXml(xml.serialize());
+      }
+    });
   }
 
   get verticalAlignment(): TextBoxVerticalAlignment | undefined {

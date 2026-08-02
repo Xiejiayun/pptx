@@ -78,6 +78,7 @@ import {
   type SlideNumberTextStyle,
   type SlideNumberTextStyleOptions,
   type TextAlignment,
+  type TableCellTextDirection,
   type TextBoxVerticalAlignment,
   type PresentationLayout,
   type PresentationLayoutName,
@@ -14039,6 +14040,93 @@ describe('PptxDocument vertical slice', () => {
       // @ts-expect-error unsupported table-level vertical alignment
       table.verticalAlignment = 'distributed';
       void alignment;
+    }
+  });
+
+  it('projects and edits table-level text direction through the public root API', async () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const table = slide.addTable([
+      ['North', 'South'],
+      ['East', 'West'],
+    ], {
+      name: 'Public table text direction',
+      textDirection: 'vert270',
+      columnWidths: inches(2),
+      rowHeights: inches(0.75),
+    });
+    expect(table).toBeInstanceOf(TableModel);
+    expect(table.textDirection).toBe('vert270');
+    expect(validatePackage(document.opcPackage)
+      .filter(({ severity }) => severity === 'error')).toEqual([]);
+
+    const noOpBytes = document.opcPackage.requirePart(slide.partUri).bytes.slice();
+    const noOpJournal = [...document.opcPackage.mutations];
+    const noOpDiagnostics = [...document.diagnostics];
+    void table.textDirection;
+    table.textDirection = 'vert270';
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(noOpBytes);
+    expect(document.opcPackage.mutations).toEqual(noOpJournal);
+    expect(document.diagnostics).toEqual(noOpDiagnostics);
+
+    table.setCellTextDirection(0, 1, 'vert');
+    expect(table.textDirection).toBeUndefined();
+    table.textDirection = 'wordArtVert';
+    expect(table.textDirection).toBe('wordArtVert');
+    expect(table.rows.flatMap(({ cells }) => cells)
+      .map(({ textDirection }) => textDirection))
+      .toEqual(['wordArtVert', 'wordArtVert', 'wordArtVert', 'wordArtVert']);
+
+    table.textDirection = 'horz';
+    expect(table.textDirection).toBe('horz');
+    expect(table.rows.flatMap(({ cells }) => cells)
+      .every(({ textDirection }) => textDirection === 'horz')).toBe(true);
+    const duplicate = document.duplicateSlide(0);
+    const duplicateTable = duplicate.shapes[0] as TableModel;
+    expect(duplicateTable.textDirection).toBe('horz');
+
+    table.textDirection = undefined;
+    expect(table.textDirection).toBeUndefined();
+    expect(table.rows.flatMap(({ cells }) => cells)
+      .every(({ textDirection }) => textDirection === undefined)).toBe(true);
+    expect(duplicateTable.textDirection).toBe('horz');
+    table.textDirection = 'vert';
+
+    const beforeInvalid = document.opcPackage.requirePart(slide.partUri).bytes.slice();
+    const invalidJournal = [...document.opcPackage.mutations];
+    const invalidDiagnostics = [...document.diagnostics];
+    expect(() => {
+      table.textDirection = 'eaVert' as never;
+    }).toThrow('Table text direction must be horz, vert, vert270, or wordArtVert');
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(beforeInvalid);
+    expect(document.opcPackage.mutations).toEqual(invalidJournal);
+    expect(document.diagnostics).toEqual(invalidDiagnostics);
+    expect(table.textDirection).toBe('vert');
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedTable = reopened.slides[0]!.shapes[0] as TableModel;
+    const reopenedDuplicate = reopened.slides[1]!.shapes[0] as TableModel;
+    expect(reopenedTable.textDirection).toBe('vert');
+    expect(reopenedDuplicate.textDirection).toBe('horz');
+    expect(reopenedTable.rows.flatMap(({ cells }) => cells)
+      .map(({ textDirection }) => textDirection))
+      .toEqual(['vert', 'vert', 'vert', 'vert']);
+    expect(reopenedDuplicate.rows.flatMap(({ cells }) => cells)
+      .map(({ textDirection }) => textDirection))
+      .toEqual(['horz', 'horz', 'horz', 'horz']);
+    expect(validatePackage(reopened.opcPackage)
+      .filter(({ severity }) => severity === 'error')).toEqual([]);
+
+    if (false) {
+      const direction: TableCellTextDirection | undefined = table.textDirection;
+      table.textDirection = 'horz';
+      table.textDirection = 'vert';
+      table.textDirection = 'vert270';
+      table.textDirection = 'wordArtVert';
+      table.textDirection = undefined;
+      // @ts-expect-error unsupported table-level text direction
+      table.textDirection = 'eaVert';
+      void direction;
     }
   });
 
