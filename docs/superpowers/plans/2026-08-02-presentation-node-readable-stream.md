@@ -101,8 +101,7 @@ Require `PptxNodeReadableStream` to be exported from SDK and aggregate root. Add
 ```ts
 document.stream() satisfies Promise<PptxNodeReadableStream>;
 document.stream({ mode: 'permissive' }) satisfies Promise<PptxNodeReadableStream>;
-document.stream({ compatibility: 'powerpoint-current' })
-  satisfies Promise<PptxNodeReadableStream>;
+document.stream({ compatibility: 'powerpoint-current' }) satisfies Promise<PptxNodeReadableStream>;
 void document.stream().then((readable) => {
   readable satisfies AsyncIterable<Uint8Array>;
   const destination = { tag: 'destination' } as const;
