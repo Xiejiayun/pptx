@@ -9,6 +9,7 @@ import {
   type LayoutModel as RawLayoutModel,
   type MasterModel as RawMasterModel,
   type MediaSource,
+  type SlideNumber,
 } from '@pptx/codecs';
 import {
   ChartModel,
@@ -16,6 +17,7 @@ import {
   PresentationModel,
   chartDiagnostics,
   type AddChartOptions,
+  type AddSlideOptions,
   type AddSvgImageOptions,
   type ChartGroupInput,
   type ChartSeriesInput,
@@ -145,6 +147,36 @@ interface PreparedSlideMasterDefinition {
   readonly objects: readonly PreparedSlideMasterObject[];
 }
 
+interface CanonicalSlideMasterDefinition {
+  readonly title: string;
+  readonly masterPartUri: string;
+  readonly margin?: Readonly<SlideMasterMargin>;
+  readonly slideNumber?: Readonly<SlideNumber>;
+  readonly prepared: Readonly<PreparedSlideMasterDefinition>;
+}
+
+interface SlideMasterDefinitionRelationshipState {
+  readonly id: string;
+  readonly type: string;
+  readonly target: string;
+  readonly targetMode: 'Internal' | 'External';
+  readonly resolvedTarget?: string;
+}
+
+interface SlideMasterDefinitionPartState {
+  readonly uri: string;
+  readonly contentType: string;
+  readonly bytes: Uint8Array;
+  readonly relationships: readonly Readonly<SlideMasterDefinitionRelationshipState>[];
+}
+
+type SlideMasterDefinitionState = readonly Readonly<SlideMasterDefinitionPartState>[];
+
+interface StoredSlideMasterDefinition {
+  readonly definition: Readonly<CanonicalSlideMasterDefinition>;
+  readonly state: SlideMasterDefinitionState;
+}
+
 export class OpaqueMutationError extends Error {
   constructor(message: string, readonly partUri?: string) {
     super(partUri ? `${message}: ${partUri}` : message);
@@ -159,6 +191,8 @@ export class PptxDocument extends PresentationModel {
   readonly #layoutModels = new Map<string, SlideLayoutModel>();
   readonly #masterModels = new Map<string, SlideMasterModel>();
   readonly #layoutMargins = new Map<string, Readonly<SlideMasterMargin>>();
+  readonly #layoutDefinitions = new Map<string, Readonly<StoredSlideMasterDefinition>>();
+  #deletedLastLayout = false;
 
   private constructor(opcPackage: OpcPackage) {
     super(opcPackage);
@@ -312,6 +346,13 @@ export class PptxDocument extends PresentationModel {
     return this.#masterLayoutTheme;
   }
 
+  override addSlide(options: AddSlideOptions = {}): SlideModel {
+    if (this.#deletedLastLayout && this.#masterLayoutTheme.layouts.length === 0) {
+      throw new Error('Presentation does not have a usable slide layout');
+    }
+    return super.addSlide(options);
+  }
+
   async defineSlideMaster(options: DefineSlideMasterOptions): Promise<SlideLayoutModel> {
     const normalized = normalizeDefineSlideMasterOptions(options, this.slideSize);
     if (
@@ -329,6 +370,16 @@ export class PptxDocument extends PresentationModel {
     const prepared = await prepareSlideMasterDefinition(normalized);
 
     const rawLayout = this.opcPackage.transaction(() => {
+      if (
+        normalized.master !== undefined
+        && !this.masters.includes(normalized.master)
+      ) {
+        throw new TypeError('Slide master definition master belongs to another document or is detached');
+      }
+      this.#masterLayoutTheme.requireAttachedMaster(rawMaster.partUri);
+      if (this.#masterLayoutTheme.hasAttachedLayoutName(normalized.title)) {
+        throw new RangeError(`Slide master title ${normalized.title} is already in use`);
+      }
       const raw = this.#masterLayoutTheme.createLayout(
         rawMaster.partUri,
         blankNamedLayoutXml(normalized.title),
@@ -348,15 +399,148 @@ export class PptxDocument extends PresentationModel {
       }
       return raw;
     });
+    const layout = this.modelForLayout(rawLayout);
     if (normalized.margin !== undefined) {
       this.#layoutMargins.set(rawLayout.partUri, normalized.margin);
     }
-    return this.modelForLayout(rawLayout);
+    const definition = Object.freeze({
+      title: normalized.title,
+      masterPartUri: rawMaster.partUri,
+      ...(normalized.margin === undefined ? {} : { margin: normalized.margin }),
+      ...(normalized.slideNumber === undefined ? {} : { slideNumber: normalized.slideNumber }),
+      prepared,
+    });
+    this.#layoutDefinitions.set(rawLayout.partUri, Object.freeze({
+      definition,
+      state: captureLayoutDefinitionState(this.opcPackage, rawLayout.partUri),
+    }));
+    this.#deletedLastLayout = false;
+    return layout;
+  }
+
+  async replaceSlideMaster(
+    layout: SlideLayoutModel,
+    options: DefineSlideMasterOptions,
+  ): Promise<void> {
+    const current = this.layouts.find(({ partUri }) => partUri === layout?.partUri);
+    if (!(layout instanceof SlideLayoutModel) || current !== layout) {
+      throw new TypeError('Slide master replacement layout belongs to another document or is detached');
+    }
+    const normalized = normalizeDefineSlideMasterOptions(options, this.slideSize);
+    if (
+      normalized.master !== undefined
+      && !this.masters.includes(normalized.master)
+    ) {
+      throw new TypeError('Slide master replacement master belongs to another document or is detached');
+    }
+    const rawMaster = this.#masterLayoutTheme.requireAttachedMaster(
+      normalized.master?.partUri,
+    );
+    this.#masterLayoutTheme.requireAttachedLayout(layout.partUri);
+    if (this.#masterLayoutTheme.hasAttachedLayoutNameExcept(
+      normalized.title,
+      layout.partUri,
+    )) {
+      throw new RangeError(`Slide master title ${normalized.title} is already in use`);
+    }
+    const prepared = await prepareSlideMasterDefinition(normalized);
+    const definition = Object.freeze({
+      title: normalized.title,
+      masterPartUri: rawMaster.partUri,
+      ...(normalized.margin === undefined ? {} : { margin: normalized.margin }),
+      ...(normalized.slideNumber === undefined ? {} : { slideNumber: normalized.slideNumber }),
+      prepared,
+    });
+    const existing = this.#layoutDefinitions.get(layout.partUri);
+    if (
+      existing
+      && dataValuesEqual(existing.definition, definition)
+      && dataValuesEqual(
+        existing.state,
+        captureLayoutDefinitionState(this.opcPackage, layout.partUri),
+      )
+    ) return;
+
+    this.opcPackage.transaction(() => {
+      if (layout.isStale()) {
+        throw new TypeError('Slide master replacement layout belongs to another document or is detached');
+      }
+      if (
+        normalized.master !== undefined
+        && !this.masters.includes(normalized.master)
+      ) {
+        throw new TypeError('Slide master replacement master belongs to another document or is detached');
+      }
+      this.#masterLayoutTheme.requireAttachedMaster(rawMaster.partUri);
+      this.#masterLayoutTheme.requireAttachedLayout(layout.partUri);
+      if (this.#masterLayoutTheme.hasAttachedLayoutNameExcept(
+        normalized.title,
+        layout.partUri,
+      )) {
+        throw new RangeError(`Slide master title ${normalized.title} is already in use`);
+      }
+      const replacementRaw = this.#masterLayoutTheme.resetLayout(
+        layout.partUri,
+        rawMaster.partUri,
+        blankNamedLayoutXml(normalized.title),
+      );
+      const replacementLayout = new SlideLayoutModel(
+        this,
+        replacementRaw,
+        (partUri) => this.#layoutMargins.get(partUri),
+      );
+      if (prepared.background !== undefined) replacementLayout.background = prepared.background;
+      for (const object of prepared.objects) addSlideMasterObject(replacementLayout, object);
+      if (normalized.slideNumber !== undefined) {
+        replacementLayout.slideNumber = normalized.slideNumber;
+        this.#masterLayoutTheme.enableMasterSlideNumbers(rawMaster.partUri);
+      }
+    });
+    layout.rotateContentGeneration();
+    if (normalized.margin === undefined) this.#layoutMargins.delete(layout.partUri);
+    else this.#layoutMargins.set(layout.partUri, normalized.margin);
+    this.#layoutDefinitions.set(layout.partUri, Object.freeze({
+      definition,
+      state: captureLayoutDefinitionState(this.opcPackage, layout.partUri),
+    }));
+  }
+
+  deleteSlideMaster(
+    layout: SlideLayoutModel,
+    replacement?: SlideLayoutModel,
+  ): void {
+    const current = this.layouts.find(({ partUri }) => partUri === layout?.partUri);
+    if (!(layout instanceof SlideLayoutModel) || current !== layout) {
+      throw new TypeError('Slide master deletion layout belongs to another document or is detached');
+    }
+    if (replacement !== undefined) {
+      const currentReplacement = this.layouts.find(
+        ({ partUri }) => partUri === replacement.partUri,
+      );
+      if (
+        !(replacement instanceof SlideLayoutModel)
+        || currentReplacement !== replacement
+        || replacement === layout
+      ) {
+        throw new TypeError('Slide master deletion replacement is invalid or detached');
+      }
+    }
+    this.#masterLayoutTheme.deleteLayout(layout.partUri, replacement?.partUri);
+    layout.rotateContentGeneration();
+    this.#layoutMargins.delete(layout.partUri);
+    this.#layoutDefinitions.delete(layout.partUri);
+    this.#layoutModels.delete(layout.partUri);
+    this.#deletedLastLayout = this.#masterLayoutTheme.layouts.length === 0;
   }
 
   private modelForLayout(raw: RawLayoutModel): SlideLayoutModel {
     const existing = this.#layoutModels.get(raw.partUri);
-    if (existing) return existing;
+    if (existing && !existing.isStale()) return existing;
+    if (existing) {
+      this.#layoutModels.delete(raw.partUri);
+      this.#layoutMargins.delete(raw.partUri);
+      this.#layoutDefinitions.delete(raw.partUri);
+    }
     const created = new SlideLayoutModel(
       this,
       raw,
@@ -368,7 +552,8 @@ export class PptxDocument extends PresentationModel {
 
   private modelForMaster(raw: RawMasterModel): SlideMasterModel {
     const existing = this.#masterModels.get(raw.partUri);
-    if (existing) return existing;
+    if (existing && !existing.isStale()) return existing;
+    if (existing) this.#masterModels.delete(raw.partUri);
     const created = new SlideMasterModel(
       this,
       raw,
@@ -572,6 +757,116 @@ function addSlideMasterObject(
     case 'chart':
       layout.commitPreparedChart(object.chart);
   }
+}
+
+function dataValuesEqual(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) return true;
+  if (left instanceof Uint8Array || right instanceof Uint8Array) {
+    return left instanceof Uint8Array
+      && right instanceof Uint8Array
+      && byteViewsEqual(left, right);
+  }
+  if (left instanceof ArrayBuffer || right instanceof ArrayBuffer) {
+    if (!(left instanceof ArrayBuffer) || !(right instanceof ArrayBuffer)) return false;
+    return byteViewsEqual(new Uint8Array(left), new Uint8Array(right));
+  }
+  if (ArrayBuffer.isView(left) || ArrayBuffer.isView(right)) {
+    if (!ArrayBuffer.isView(left) || !ArrayBuffer.isView(right)) return false;
+    return byteViewsEqual(
+      new Uint8Array(left.buffer, left.byteOffset, left.byteLength),
+      new Uint8Array(right.buffer, right.byteOffset, right.byteLength),
+    );
+  }
+  if (Array.isArray(left) || Array.isArray(right)) {
+    return Array.isArray(left)
+      && Array.isArray(right)
+      && left.length === right.length
+      && left.every((value, index) => dataValuesEqual(value, right[index]));
+  }
+  if (
+    !left
+    || !right
+    || typeof left !== 'object'
+    || typeof right !== 'object'
+  ) return false;
+  const leftKeys = Reflect.ownKeys(left);
+  const rightKeys = Reflect.ownKeys(right);
+  if (leftKeys.length !== rightKeys.length) return false;
+  return leftKeys.every((key) =>
+    rightKeys.includes(key)
+    && dataValuesEqual(
+      (left as Record<PropertyKey, unknown>)[key],
+      (right as Record<PropertyKey, unknown>)[key],
+    ));
+}
+
+function byteViewsEqual(left: Uint8Array, right: Uint8Array): boolean {
+  return left.byteLength === right.byteLength
+    && left.every((value, index) => value === right[index]);
+}
+
+function captureLayoutDefinitionState(
+  pkg: OpcPackage,
+  layoutPartUri: string,
+): SlideMasterDefinitionState {
+  const slideMasterRelationshipType =
+    'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster';
+  const visited = new Set<string>();
+  const parts: Readonly<SlideMasterDefinitionPartState>[] = [];
+  const visit = (partUri: string): void => {
+    if (visited.has(partUri)) return;
+    visited.add(partUri);
+    const part = pkg.requirePart(partUri);
+    const sourceRelationships = [...pkg.relationships(partUri)].sort(compareRelationshipState);
+    const relationships = Object.freeze(sourceRelationships.map((relationship) => Object.freeze({
+      id: relationship.id,
+      type: relationship.type,
+      target: relationship.target,
+      targetMode: relationship.targetMode,
+      ...(relationship.resolvedTarget === undefined
+        ? {}
+        : { resolvedTarget: relationship.resolvedTarget }),
+    })));
+    parts.push(Object.freeze({
+      uri: part.uri,
+      contentType: part.contentType,
+      bytes: new Uint8Array(part.bytes),
+      relationships,
+    }));
+    for (const relationship of sourceRelationships) {
+      if (
+        relationship.type === slideMasterRelationshipType
+        || relationship.targetMode !== 'Internal'
+        || relationship.resolvedTarget === undefined
+        || !pkg.hasPart(relationship.resolvedTarget)
+      ) continue;
+      visit(relationship.resolvedTarget);
+    }
+  };
+  visit(layoutPartUri);
+  parts.sort(({ uri: left }, { uri: right }) => left < right ? -1 : left > right ? 1 : 0);
+  return Object.freeze(parts);
+}
+
+function compareRelationshipState(
+  left: Readonly<SlideMasterDefinitionRelationshipState>,
+  right: Readonly<SlideMasterDefinitionRelationshipState>,
+): number {
+  const leftKey = [
+    left.id,
+    left.type,
+    left.target,
+    left.targetMode,
+    left.resolvedTarget ?? '',
+  ].join('\u0000');
+  const rightKey = [
+    right.id,
+    right.type,
+    right.target,
+    right.targetMode,
+    right.resolvedTarget ?? '',
+  ].join('\u0000');
+  return leftKey < rightKey ? -1 : leftKey > rightKey ? 1 : 0;
 }
 
 function blankNamedLayoutXml(title: string): string {

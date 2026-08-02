@@ -1403,6 +1403,249 @@ describe('PptxDocument vertical slice', () => {
     expect(await sdkPackageSnapshot(commitFailure)).toEqual(commitBefore);
   });
 
+  it('replace delete slide master preserves identity, relinks, collects, and invalidates safely', async () => {
+    const document = PptxDocument.create();
+    document.masterLayoutTheme.copyMaster(document.masters[0]!.partUri);
+    const secondMaster = document.masters[1]!;
+    const original = await document.defineSlideMaster({
+      title: 'LIFECYCLE-ORIGINAL',
+      background: { kind: 'image-source', source: sdkPngHeader(2, 1) },
+      margin: inches(0.25),
+      slideNumber: { align: 'right' },
+      objects: [
+        { kind: 'text', text: 'Original text' },
+        { kind: 'image', source: sdkPngHeader(3, 2), options: { name: 'Original image' } },
+        {
+          kind: 'chart',
+          groups: [{
+            type: 'bar',
+            series: [{ name: 'Original chart', categories: ['Q1'], values: [1] }],
+          }],
+        },
+      ],
+    });
+    const originalPartUri = original.partUri;
+    const originalShape = original.shapes[0]!;
+    const slide = document.addSlide({ masterName: 'LIFECYCLE-ORIGINAL' });
+    const slideLayoutRelationship = slide.relationships.find(
+      ({ type }) => type.endsWith('/slideLayout'),
+    )!;
+    const copiedRaw = document.masterLayoutTheme.copyLayout(original.partUri);
+    const sharedCopy = document.layouts.find(({ partUri }) => partUri === copiedRaw.partUri)!;
+    const oldTargets = document.opcPackage.relationships(original.partUri)
+      .flatMap(({ resolvedTarget, type }) =>
+        resolvedTarget && (type.endsWith('/image') || type.endsWith('/chart'))
+          ? [resolvedTarget]
+          : []);
+    const oldWorkbookTargets = oldTargets.flatMap((target) =>
+      document.opcPackage.relationships(target).flatMap(({ type, resolvedTarget }) =>
+        type.endsWith('/package') && resolvedTarget ? [resolvedTarget] : []));
+    expect(oldTargets.length).toBeGreaterThan(1);
+    expect(oldWorkbookTargets).toHaveLength(1);
+
+    const replacementDefinition = {
+      title: 'LIFECYCLE-RENAMED',
+      master: secondMaster,
+      background: {
+        kind: 'solid' as const,
+        color: { kind: 'srgb' as const, value: '112233' },
+      },
+      margin: inches(0.5),
+      objects: [{ kind: 'text' as const, text: 'Replacement text' }],
+    };
+    await document.replaceSlideMaster(original, replacementDefinition);
+    expect(document.layouts.find(({ name }) => name === 'LIFECYCLE-RENAMED')).toBe(original);
+    expect(original.masterPartUri).toBe(secondMaster.partUri);
+    expect(original.background).toEqual({
+      kind: 'solid',
+      color: { kind: 'srgb', value: '112233' },
+    });
+    expect(original.margin).toEqual({
+      top: inches(0.5),
+      right: inches(0.5),
+      bottom: inches(0.5),
+      left: inches(0.5),
+    });
+    expect(original.slideNumber).toBeUndefined();
+    expect(original.shapes.map(({ kind }) => kind)).toEqual(['text']);
+    expect(slide.relationships.find(({ type }) => type.endsWith('/slideLayout'))).toEqual(
+      slideLayoutRelationship,
+    );
+    expect(() => originalShape.name).toThrow(/stale/i);
+    for (const target of oldTargets) expect(document.opcPackage.hasPart(target)).toBe(true);
+    for (const target of oldWorkbookTargets) expect(document.opcPackage.hasPart(target)).toBe(true);
+
+    document.title = 'Unrelated package mutation';
+    const journal = [...document.opcPackage.mutations];
+    await document.replaceSlideMaster(original, replacementDefinition);
+    expect(document.opcPackage.mutations).toEqual(journal);
+    original.addText('Direct drift');
+    await document.replaceSlideMaster(original, replacementDefinition);
+    expect(original.shapes.map((shape) => shape instanceof ShapeModel ? shape.text : ''))
+      .toEqual(['Replacement text']);
+
+    document.deleteSlideMaster(sharedCopy);
+    expect(oldTargets.filter((target) => document.opcPackage.hasPart(target))).toEqual([]);
+    expect(oldWorkbookTargets.filter((target) => document.opcPackage.hasPart(target))).toEqual([]);
+    const { output: _beforeRejectedOutput, ...beforeRejectedDelete } =
+      await sdkPackageSnapshot(document) as {
+        readonly output: Uint8Array;
+        readonly [key: string]: unknown;
+      };
+    expect(() => document.deleteSlideMaster(original)).toThrow(/used|slide/i);
+    const { output: _afterRejectedOutput, ...afterRejectedDelete } =
+      await sdkPackageSnapshot(document) as {
+        readonly output: Uint8Array;
+        readonly [key: string]: unknown;
+      };
+    expect(afterRejectedDelete).toEqual(beforeRejectedDelete);
+
+    const replacement = await document.defineSlideMaster({
+      title: 'LIFECYCLE-REPLACEMENT',
+      master: secondMaster,
+    });
+    document.deleteSlideMaster(original, replacement);
+    expect(slide.relationships.find(({ type }) => type.endsWith('/slideLayout'))).toMatchObject({
+      id: slideLayoutRelationship.id,
+      resolvedTarget: replacement.partUri,
+    });
+    expect(document.layouts).not.toContain(original);
+    expect(() => original.name).toThrow(/stale|deleted/i);
+
+    const reused = await document.defineSlideMaster({ title: 'LIFECYCLE-REUSED' });
+    expect(reused.partUri).toBe(originalPartUri);
+    expect(reused).not.toBe(original);
+    expect(reused.name).toBe('LIFECYCLE-REUSED');
+    expect(reused.margin).toBeUndefined();
+
+    const rawDeleted = await document.defineSlideMaster({ title: 'RAW-DELETE' });
+    const rawDeletedPartUri = rawDeleted.partUri;
+    document.masterLayoutTheme.deleteLayout(rawDeletedPartUri);
+    const rawReused = await document.defineSlideMaster({ title: 'RAW-REUSED' });
+    expect(rawReused.partUri).toBe(rawDeletedPartUri);
+    expect(rawReused).not.toBe(rawDeleted);
+    expect(() => rawDeleted.name).toThrow(/stale|deleted/i);
+
+    const exclusiveDefinition = {
+      title: 'EXCLUSIVE-REUSE',
+      objects: [
+        { kind: 'image' as const, source: sdkPngHeader(4, 3) },
+        {
+          kind: 'chart' as const,
+          groups: [{
+            type: 'bar' as const,
+            series: [{ name: 'Exclusive', categories: ['Q1'], values: [7] }],
+          }],
+        },
+      ],
+    };
+    const exclusive = await document.defineSlideMaster(exclusiveDefinition);
+    const exclusiveTargets = document.opcPackage.relationships(exclusive.partUri)
+      .flatMap(({ type, resolvedTarget }) =>
+        resolvedTarget && (type.endsWith('/image') || type.endsWith('/chart'))
+          ? [resolvedTarget]
+          : []);
+    const exclusiveImageUri = exclusiveTargets.find((uri) => uri.includes('/media/'))!;
+    const exclusiveChartUri = exclusiveTargets.find((uri) => uri.includes('/charts/'))!;
+    const exclusiveWorkbookUri = document.opcPackage.relationships(exclusiveChartUri)[0]!
+      .resolvedTarget!;
+    const exclusiveImageBytes = document.opcPackage.requirePart(exclusiveImageUri).bytes;
+    document.opcPackage.setPart(exclusiveImageUri, Uint8Array.of(1, 2, 3), 'image/png');
+    await document.replaceSlideMaster(exclusive, exclusiveDefinition);
+    expect(document.opcPackage.relationships(exclusive.partUri)
+      .flatMap(({ type, resolvedTarget }) =>
+        resolvedTarget && (type.endsWith('/image') || type.endsWith('/chart'))
+          ? [resolvedTarget]
+          : []))
+      .toEqual(exclusiveTargets);
+    expect(document.opcPackage.requirePart(exclusiveImageUri).bytes).toEqual(exclusiveImageBytes);
+    expect(document.opcPackage.relationships(exclusiveChartUri)[0]?.resolvedTarget)
+      .toBe(exclusiveWorkbookUri);
+  });
+
+  it('replace delete slide master rolls back and rejects creating slides without a layout', async () => {
+    const document = PptxDocument.create();
+    const layout = await document.defineSlideMaster({
+      title: 'ROLLBACK-ORIGINAL',
+      objects: [{ kind: 'text', text: 'Rollback original' }],
+    });
+    const rollbackOriginalShape = layout.shapes[0] as ShapeModel;
+    const before = await sdkPackageSnapshot(document);
+    const originalSetPart = document.opcPackage.setPart.bind(document.opcPackage);
+    const setPart = vi.spyOn(document.opcPackage, 'setPart')
+      .mockImplementation((uri, bytes, contentType) => {
+        if (uri.startsWith('/ppt/charts/')) throw new Error('replace chart failed');
+        return originalSetPart(uri, bytes, contentType);
+      });
+    await expect(document.replaceSlideMaster(layout, {
+      title: 'ROLLBACK-RENAMED',
+      margin: inches(0.5),
+      objects: [
+        { kind: 'image', source: sdkPngHeader(1, 1) },
+        {
+          kind: 'chart',
+          groups: [{
+            type: 'bar',
+            series: [{ name: 'Rollback', categories: ['Q1'], values: [1] }],
+          }],
+        },
+      ],
+    })).rejects.toThrow('replace chart failed');
+    setPart.mockRestore();
+    expect(await sdkPackageSnapshot(document)).toEqual(before);
+    expect(layout.name).toBe('ROLLBACK-ORIGINAL');
+    expect(layout.margin).toBeUndefined();
+    expect(layout.shapes).toEqual([rollbackOriginalShape]);
+    expect(rollbackOriginalShape.text).toBe('Rollback original');
+
+    const concurrent = PptxDocument.create();
+    const concurrentTarget = await concurrent.defineSlideMaster({ title: 'CONCURRENT-TARGET' });
+    let signalRead!: () => void;
+    let resumeRead!: () => void;
+    const readStarted = new Promise<void>((resolve) => {
+      signalRead = resolve;
+    });
+    const readPaused = new Promise<void>((resolve) => {
+      resumeRead = resolve;
+    });
+    const pendingReplace = concurrent.replaceSlideMaster(concurrentTarget, {
+      title: 'CONCURRENT-OLD',
+      objects: [{
+        kind: 'image',
+        source: {
+          async *[Symbol.asyncIterator]() {
+            signalRead();
+            await readPaused;
+            yield sdkPngHeader(2, 2);
+          },
+        },
+      }],
+    });
+    await readStarted;
+    const concurrentPartUri = concurrentTarget.partUri;
+    concurrent.deleteSlideMaster(concurrentTarget);
+    const concurrentReused = await concurrent.defineSlideMaster({ title: 'CONCURRENT-REUSED' });
+    expect(concurrentReused.partUri).toBe(concurrentPartUri);
+    resumeRead();
+    await expect(pendingReplace).rejects.toThrow(/detached|stale/i);
+    expect(concurrentReused.name).toBe('CONCURRENT-REUSED');
+
+    const withFallback = PptxDocument.create();
+    const formerDefault = withFallback.layouts[0]!;
+    const fallback = await withFallback.defineSlideMaster({ title: 'FALLBACK' });
+    withFallback.deleteSlideMaster(formerDefault);
+    const fallbackSlide = withFallback.addSlide();
+    expect(fallbackSlide.relationships.find(({ type }) => type.endsWith('/slideLayout'))
+      ?.resolvedTarget).toBe(fallback.partUri);
+
+    const empty = PptxDocument.create();
+    const onlyLayout = empty.layouts[0]!;
+    empty.deleteSlideMaster(onlyLayout);
+    const emptyBefore = await sdkPackageSnapshot(empty);
+    expect(() => empty.addSlide()).toThrow(/layout/i);
+    expect(await sdkPackageSnapshot(empty)).toEqual(emptyBefore);
+  });
+
   it('edits and reopens direct layout master backgrounds', async () => {
     const document = PptxDocument.create();
     const layout = document.layouts[0]!;

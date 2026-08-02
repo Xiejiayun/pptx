@@ -31,6 +31,9 @@ const PRESENTATION_NAMESPACE =
   'http://schemas.openxmlformats.org/presentationml/2006/main';
 const MASTER_CONTENT_TYPE = `${CONTENT}slideMaster+xml`;
 const LAYOUT_CONTENT_TYPE = `${CONTENT}slideLayout+xml`;
+const CHART_CONTENT_TYPE =
+  'application/vnd.openxmlformats-officedocument.drawingml.chart+xml';
+const PACKAGE_RELATIONSHIP_TYPE = `${REL}package`;
 
 export interface PlaceholderModel {
   readonly shapeId: number;
@@ -210,18 +213,35 @@ export class MasterLayoutThemeCodec {
   }
 
   hasAttachedLayoutName(name: string): boolean {
-    for (const master of this.attachedMasters) {
-      for (const relationship of this.pkg.relationships(master.partUri)) {
-        if (
-          relationship.type !== `${REL}slideLayout`
-          || relationship.targetMode !== 'Internal'
-          || !relationship.resolvedTarget
-          || this.pkg.getPart(relationship.resolvedTarget)?.contentType !== LAYOUT_CONTENT_TYPE
-        ) continue;
-        if (directLayoutName(this.parse(relationship.resolvedTarget)) === name) return true;
-      }
+    return this.hasAttachedLayoutNameExcept(name);
+  }
+
+  hasAttachedLayoutNameExcept(name: string, excludedPartUri?: string): boolean {
+    for (const { layout } of this.attachedLayoutEntries()) {
+      if (layout.partUri === excludedPartUri) continue;
+      if (directLayoutName(this.parse(layout.partUri)) === name) return true;
     }
     return false;
+  }
+
+  requireAttachedLayout(partUri: string): LayoutModel {
+    const matches = this.attachedLayoutEntries().filter(
+      ({ layout }) => layout.partUri === partUri,
+    );
+    if (matches.length !== 1) {
+      throw new Error(`Slide layout ${partUri} is not uniquely attached to the presentation`);
+    }
+    return matches[0]!.layout;
+  }
+
+  attachedMasterPartUriForLayout(partUri: string): string {
+    const matches = this.attachedLayoutEntries().filter(
+      ({ layout }) => layout.partUri === partUri,
+    );
+    if (matches.length !== 1) {
+      throw new Error(`Slide layout ${partUri} is not uniquely attached to the presentation`);
+    }
+    return matches[0]!.masterPartUri;
   }
 
   enableMasterSlideNumbers(masterPartUri: string): void {
@@ -434,6 +454,79 @@ export class MasterLayoutThemeCodec {
     });
   }
 
+  resetLayout(layoutPartUri: string, masterPartUri: string, xml: string): LayoutModel {
+    return this.pkg.transaction(() => {
+      this.requireAttachedLayout(layoutPartUri);
+      this.requireAttachedMaster(masterPartUri);
+      LosslessXmlDocument.parse(xml);
+      const part = this.pkg.requirePart(layoutPartUri);
+      if (part.contentType !== LAYOUT_CONTENT_TYPE) {
+        throw new Error(`Layout ${layoutPartUri} has an invalid content type`);
+      }
+      const detached = this.pkg.relationships(layoutPartUri).filter(
+        ({ type }) => type !== `${REL}slideMaster`,
+      );
+      for (const relationship of detached) {
+        this.pkg.removeRelationship(layoutPartUri, relationship.id);
+      }
+      garbageCollectLayoutDependencies(this.pkg, detached);
+      this.pkg.setPart(layoutPartUri, xml, part.contentType);
+      this.relinkLayoutMaster(layoutPartUri, masterPartUri);
+      return this.modelForLayout(layoutPartUri);
+    });
+  }
+
+  relinkLayoutMaster(layoutPartUri: string, masterPartUri: string): void {
+    this.pkg.transaction(() => {
+      this.requireAttachedLayout(layoutPartUri);
+      this.requireAttachedMaster(masterPartUri);
+      const currentMasterPartUri = this.attachedMasterPartUriForLayout(layoutPartUri);
+      if (currentMasterPartUri === masterPartUri) return;
+      const parentRelationships = this.pkg.relationships(layoutPartUri).filter(
+        ({ type }) => type === `${REL}slideMaster`,
+      );
+      const parentRelationship = parentRelationships[0];
+      if (
+        parentRelationships.length !== 1
+        || parentRelationship?.targetMode !== 'Internal'
+        || parentRelationship.resolvedTarget !== currentMasterPartUri
+        || this.pkg.getPart(parentRelationship.resolvedTarget)?.contentType !== MASTER_CONTENT_TYPE
+      ) {
+        throw new Error(`Layout ${layoutPartUri} has an ambiguous master backlink`);
+      }
+      const currentRelationships = this.pkg.relationships(currentMasterPartUri).filter(
+        ({ type, targetMode, resolvedTarget }) =>
+          type === `${REL}slideLayout`
+          && targetMode === 'Internal'
+          && resolvedTarget === layoutPartUri,
+      );
+      if (currentRelationships.length !== 1) {
+        throw new Error(`Layout ${layoutPartUri} has an ambiguous parent master relationship`);
+      }
+      const currentRelationship = currentRelationships[0]!;
+      const currentXml = this.parse(currentMasterPartUri);
+      const entries = currentXml.elements('sldLayoutId').filter(
+        (candidate) => currentXml.attribute(candidate, 'r:id')?.value === currentRelationship.id,
+      );
+      if (entries.length !== 1) {
+        throw new Error(`Layout ${layoutPartUri} has an ambiguous parent master id`);
+      }
+      const preferredId = Number(currentXml.attribute(entries[0]!, 'id')?.value);
+      currentXml.removeElement(entries[0]!);
+      this.save(currentMasterPartUri, currentXml);
+      this.pkg.removeRelationship(currentMasterPartUri, currentRelationship.id);
+      this.pkg.updateRelationship(layoutPartUri, parentRelationship.id, {
+        target: relativeTarget(layoutPartUri, masterPartUri),
+        targetMode: 'Internal',
+      });
+      this.attachLayout(
+        masterPartUri,
+        layoutPartUri,
+        Number.isSafeInteger(preferredId) && preferredId > 0 ? preferredId : undefined,
+      );
+    });
+  }
+
   copyLayout(layoutPartUri: string, masterPartUri?: string): LayoutModel {
     return this.pkg.transaction(() => {
       const sourceMaster = this.relationship(layoutPartUri, 'slideMaster')?.resolvedTarget;
@@ -447,31 +540,69 @@ export class MasterLayoutThemeCodec {
 
   deleteLayout(layoutPartUri: string, replacementLayoutPartUri?: string): void {
     this.pkg.transaction(() => {
+      this.requireAttachedLayout(layoutPartUri);
+      const masterPartUri = this.attachedMasterPartUriForLayout(layoutPartUri);
+      if (replacementLayoutPartUri !== undefined) {
+        if (replacementLayoutPartUri === layoutPartUri) {
+          throw new Error('A slide layout cannot replace itself during deletion');
+        }
+        this.requireAttachedLayout(replacementLayoutPartUri);
+      }
+      const detached = this.pkg.relationships(layoutPartUri).filter(
+        ({ type }) => type !== `${REL}slideMaster`,
+      );
       const incomingSlides = (this.pkg.graph.find(({ uri }) => uri === layoutPartUri)?.incoming ?? []).filter(
         ({ sourceUri, relationship }) =>
-          relationship.type.endsWith('/slideLayout') &&
-          this.pkg.getPart(sourceUri)?.contentType === `${CONTENT}slide+xml`,
+          relationship.type === `${REL}slideLayout`
+          && relationship.targetMode === 'Internal'
+          && this.pkg.getPart(sourceUri)?.contentType === `${CONTENT}slide+xml`,
       );
       if (incomingSlides.length > 0 && !replacementLayoutPartUri) {
         throw new Error(`Layout ${layoutPartUri} is still used by ${incomingSlides.length} slide(s)`);
       }
-      for (const { sourceUri } of incomingSlides) this.relinkSlideLayout(sourceUri, replacementLayoutPartUri!);
-      const masterPartUri = this.relationship(layoutPartUri, 'slideMaster')?.resolvedTarget;
-      if (masterPartUri) {
-        const relationship = this.pkg
-          .relationships(masterPartUri)
-          .find(({ resolvedTarget, type }) => type.endsWith('/slideLayout') && resolvedTarget === layoutPartUri);
-        if (relationship) {
-          const xml = this.parse(masterPartUri);
-          const element = xml
-            .elements('sldLayoutId')
-            .find((candidate) => xml.attribute(candidate, 'r:id')?.value === relationship.id);
-          if (element) xml.removeElement(element);
-          this.save(masterPartUri, xml);
-          this.pkg.removeRelationship(masterPartUri, relationship.id);
-        }
+      const slideRelationships = [...new Set(incomingSlides.map(({ sourceUri }) => sourceUri))]
+        .map((sourceUri) => {
+          const matches = this.pkg.relationships(sourceUri).filter(
+            ({ type }) => type === `${REL}slideLayout`,
+          );
+          const relationship = matches[0];
+          if (
+            matches.length !== 1
+            || relationship?.targetMode !== 'Internal'
+            || relationship.resolvedTarget !== layoutPartUri
+          ) {
+            throw new Error(`Slide ${sourceUri} has an ambiguous layout relationship`);
+          }
+          return { sourceUri, relationship };
+        });
+      const masterRelationships = this.pkg.relationships(masterPartUri).filter(
+        ({ type, targetMode, resolvedTarget }) =>
+          type === `${REL}slideLayout`
+          && targetMode === 'Internal'
+          && resolvedTarget === layoutPartUri,
+      );
+      if (masterRelationships.length !== 1) {
+        throw new Error(`Layout ${layoutPartUri} has an ambiguous parent master relationship`);
       }
+      const masterRelationship = masterRelationships[0]!;
+      const masterXml = this.parse(masterPartUri);
+      const masterEntries = masterXml.elements('sldLayoutId').filter(
+        (candidate) => masterXml.attribute(candidate, 'r:id')?.value === masterRelationship.id,
+      );
+      if (masterEntries.length !== 1) {
+        throw new Error(`Layout ${layoutPartUri} has an ambiguous parent master id`);
+      }
+      for (const { sourceUri, relationship } of slideRelationships) {
+        this.pkg.updateRelationship(sourceUri, relationship.id, {
+          target: relativeTarget(sourceUri, replacementLayoutPartUri!),
+          targetMode: 'Internal',
+        });
+      }
+      masterXml.removeElement(masterEntries[0]!);
+      this.save(masterPartUri, masterXml);
+      this.pkg.removeRelationship(masterPartUri, masterRelationship.id);
       this.pkg.deletePart(layoutPartUri);
+      garbageCollectLayoutDependencies(this.pkg, detached);
     });
   }
 
@@ -556,7 +687,11 @@ export class MasterLayoutThemeCodec {
     this.save(this.presentationPartUri, xml);
   }
 
-  private attachLayout(masterPartUri: string, layoutPartUri: string): void {
+  private attachLayout(
+    masterPartUri: string,
+    layoutPartUri: string,
+    preferredId?: number,
+  ): void {
     const relationship = this.pkg.addRelationship(masterPartUri, {
       type: `${REL}slideLayout`,
       target: relativeTarget(masterPartUri, layoutPartUri),
@@ -565,7 +700,12 @@ export class MasterLayoutThemeCodec {
     const root = xml.elements('sldMaster')[0];
     if (!root) throw new Error(`Master ${masterPartUri} XML is invalid`);
     const list = xml.elements('sldLayoutIdLst')[0];
-    const id = Math.max(0, ...xml.elements('sldLayoutId').map((item) => Number(xml.attribute(item, 'id')?.value ?? 0))) + 1;
+    const ids = xml.elements('sldLayoutId').map(
+      (item) => Number(xml.attribute(item, 'id')?.value ?? 0),
+    );
+    const id = preferredId !== undefined && !ids.includes(preferredId)
+      ? preferredId
+      : Math.max(0, ...ids) + 1;
     const entry = `<p:sldLayoutId id="${id}" r:id="${relationship.id}"/>`;
     if (list) xml.appendChildXml(list, entry);
     else xml.replace(root.startTagEnd, root.startTagEnd, `<p:sldLayoutIdLst>${entry}</p:sldLayoutIdLst>`);
@@ -587,6 +727,38 @@ export class MasterLayoutThemeCodec {
       });
     }
     return uri;
+  }
+
+  private attachedLayoutEntries(): readonly {
+    readonly layout: LayoutModel;
+    readonly masterPartUri: string;
+  }[] {
+    const entries: { layout: LayoutModel; masterPartUri: string }[] = [];
+    for (const master of this.attachedMasters) {
+      for (const relationship of this.pkg.relationships(master.partUri)) {
+        if (
+          relationship.type !== `${REL}slideLayout`
+          || relationship.targetMode !== 'Internal'
+          || !relationship.resolvedTarget
+          || this.pkg.getPart(relationship.resolvedTarget)?.contentType !== LAYOUT_CONTENT_TYPE
+        ) continue;
+        const backlinks = this.pkg.relationships(relationship.resolvedTarget).filter(
+          ({ type }) => type === `${REL}slideMaster`,
+        );
+        const backlink = backlinks[0];
+        if (
+          backlinks.length !== 1
+          || backlink?.targetMode !== 'Internal'
+          || backlink.resolvedTarget !== master.partUri
+          || this.pkg.getPart(backlink.resolvedTarget)?.contentType !== MASTER_CONTENT_TYPE
+        ) continue;
+        entries.push({
+          layout: this.modelForLayout(relationship.resolvedTarget),
+          masterPartUri: master.partUri,
+        });
+      }
+    }
+    return entries;
   }
 }
 
@@ -651,4 +823,35 @@ function namespaceUriForPrefix(
 function lexicalPrefix(name: string): string {
   const separator = name.indexOf(':');
   return separator < 0 ? '' : name.slice(0, separator);
+}
+
+function garbageCollectLayoutDependencies(
+  pkg: OpcPackage,
+  relationships: readonly Relationship[],
+): void {
+  const targets = new Set(relationships.flatMap((relationship) =>
+    relationship.targetMode === 'Internal' && relationship.resolvedTarget
+      ? [relationship.resolvedTarget]
+      : []));
+  for (const target of targets) {
+    const incoming = pkg.graph.find(({ uri }) => uri === target)?.incoming ?? [];
+    if (incoming.length > 0) continue;
+    const part = pkg.getPart(target);
+    if (!part) continue;
+    if (part.contentType === CHART_CONTENT_TYPE) {
+      const children = pkg.relationships(target).flatMap((relationship) =>
+        relationship.type === PACKAGE_RELATIONSHIP_TYPE
+          && relationship.targetMode === 'Internal'
+          && relationship.resolvedTarget
+          ? [relationship.resolvedTarget]
+          : []);
+      pkg.deletePart(target);
+      for (const child of children) {
+        const childIncoming = pkg.graph.find(({ uri }) => uri === child)?.incoming ?? [];
+        if (childIncoming.length === 0) pkg.deletePart(child);
+      }
+      continue;
+    }
+    if (part.contentType.startsWith('image/')) pkg.deletePart(target);
+  }
 }

@@ -226,15 +226,76 @@ export function normalizeDefineSlideMasterOptions(
   });
 }
 
+class LifecycleSlideModel extends SlideModel {
+  constructor(
+    document: PresentationModel,
+    partUri: string,
+    ownerKind: 'layout' | 'master',
+    private readonly assertContentActive: () => void,
+  ) {
+    super(document, partUri, '', 0, ownerKind);
+  }
+
+  override parse(): ReturnType<SlideModel['parse']> {
+    this.assertContentActive();
+    return super.parse();
+  }
+}
+
 abstract class CommonSlideOwnerModel {
-  protected readonly content: SlideModel;
+  #content: SlideModel;
+  #contentGeneration = { active: true };
+  readonly #createdMutationIndex: number;
+  readonly #ownerKind: 'layout' | 'master';
 
   protected constructor(
-    document: PresentationModel,
+    protected readonly document: PresentationModel,
     readonly partUri: string,
     ownerKind: 'layout' | 'master',
   ) {
-    this.content = new SlideModel(document, partUri, '', 0, ownerKind);
+    this.#createdMutationIndex = document.opcPackage.mutations.length;
+    this.#ownerKind = ownerKind;
+    this.#content = this.createContent(this.#contentGeneration);
+  }
+
+  protected get content(): SlideModel {
+    this.assertLive();
+    return this.#content;
+  }
+
+  /** @internal */
+  isStale(): boolean {
+    return !this.document.opcPackage.hasPart(this.partUri)
+      || this.document.opcPackage.mutations
+        .slice(this.#createdMutationIndex)
+        .some(({ kind, uri }) => kind === 'delete' && uri === this.partUri);
+  }
+
+  /** @internal */
+  rotateContentGeneration(): void {
+    this.#contentGeneration.active = false;
+    this.#contentGeneration = { active: true };
+    this.#content = this.createContent(this.#contentGeneration);
+  }
+
+  protected assertLive(): void {
+    if (this.isStale()) {
+      throw new Error(`Slide owner ${this.partUri} handle is stale or deleted`);
+    }
+  }
+
+  private createContent(generation: { active: boolean }): SlideModel {
+    return new LifecycleSlideModel(
+      this.document,
+      this.partUri,
+      this.#ownerKind,
+      () => {
+        if (!generation.active) {
+          throw new Error(`Slide owner ${this.partUri} content handle is stale`);
+        }
+        this.assertLive();
+      },
+    );
   }
 
   get background(): SlideBackground | undefined {
@@ -338,22 +399,27 @@ export class SlideLayoutModel extends CommonSlideOwnerModel {
   }
 
   get name(): string {
+    this.assertLive();
     return this.raw.name;
   }
 
   get masterPartUri(): string | undefined {
+    this.assertLive();
     return this.raw.masterPartUri;
   }
 
   get margin(): Readonly<SlideMasterMargin> | undefined {
+    this.assertLive();
     return this.readMargin(this.partUri);
   }
 
   get slideNumber(): Readonly<SlideNumber> | undefined {
+    this.assertLive();
     return this.raw.slideNumber;
   }
 
   set slideNumber(value: SlideNumberOptions | undefined) {
+    this.assertLive();
     this.raw.slideNumber = value;
   }
 }
@@ -369,18 +435,22 @@ export class SlideMasterModel extends CommonSlideOwnerModel {
   }
 
   get layouts(): readonly SlideLayoutModel[] {
+    this.assertLive();
     return this.raw.layouts.map((layout) => this.layoutModel(layout));
   }
 
   get theme(): ThemeModel | undefined {
+    this.assertLive();
     return this.raw.theme;
   }
 
   get slideNumber(): Readonly<SlideNumber> | undefined {
+    this.assertLive();
     return this.raw.slideNumber;
   }
 
   set slideNumber(value: SlideNumberOptions | undefined) {
+    this.assertLive();
     this.raw.slideNumber = value;
   }
 }

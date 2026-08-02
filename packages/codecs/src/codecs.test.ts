@@ -81,6 +81,50 @@ describe('GradientCodec', () => {
 });
 
 describe('MasterLayoutThemeCodec', () => {
+  it('replace delete slide master layout graph keeps attachment and retargeting strict', async () => {
+    const pkg = await featureFixture();
+    const codec = new MasterLayoutThemeCodec(pkg);
+    const layout = codec.layouts[0]!;
+    const secondMaster = codec.copyMaster(codec.masters[0]!.partUri);
+    const replacement = codec.copyLayout(layout.partUri);
+    const replacementPartUri = replacement.partUri;
+    const resetXml = '<?xml version="1.0" encoding="UTF-8"?>'
+      + '<p:sldLayout xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" '
+      + 'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">'
+      + '<p:cSld name="RESET"><p:spTree/></p:cSld>'
+      + '<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sldLayout>';
+
+    expect(codec.requireAttachedLayout(layout.partUri)).toBe(layout);
+    const duplicateBacklink = pkg.addRelationship(layout.partUri, {
+      type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster',
+      target: relativeRelationshipTarget(layout.partUri, codec.masters[0]!.partUri),
+    });
+    expect(() => codec.requireAttachedLayout(layout.partUri)).toThrow(/not uniquely attached/);
+    pkg.removeRelationship(layout.partUri, duplicateBacklink.id);
+    codec.resetLayout(layout.partUri, secondMaster.partUri, resetXml);
+    expect(layout.name).toBe('RESET');
+    expect(layout.masterPartUri).toBe(secondMaster.partUri);
+    expect(secondMaster.layouts).toContain(layout);
+    expect(codec.masters[0]!.layouts).not.toContain(layout);
+    expect(() => codec.deleteLayout(layout.partUri, layout.partUri)).toThrow(/itself/i);
+
+    const duplicateSlideLayout = pkg.addRelationship('/ppt/slides/slide1.xml', {
+      type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout',
+      target: relativeRelationshipTarget('/ppt/slides/slide1.xml', layout.partUri),
+    });
+    const ambiguousBefore = await packageSnapshot(pkg);
+    expect(() => codec.deleteLayout(layout.partUri, replacementPartUri)).toThrow(/ambiguous/i);
+    expect(await packageSnapshot(pkg)).toEqual(ambiguousBefore);
+    pkg.removeRelationship('/ppt/slides/slide1.xml', duplicateSlideLayout.id);
+
+    codec.deleteLayout(layout.partUri, replacementPartUri);
+    expect(pkg.hasPart(layout.partUri)).toBe(false);
+    expect(pkg.relationships('/ppt/slides/slide1.xml').find(
+      ({ type }) => type.endsWith('/slideLayout'),
+    )?.resolvedTarget).toBe(replacementPartUri);
+    expect(() => codec.requireAttachedLayout(layout.partUri)).toThrow(/not uniquely attached/);
+  });
+
   it('resolves attached masters and enables their slide-number header state idempotently', async () => {
     const pkg = await featureFixture();
     const masterPartUri = '/ppt/slideMasters/slideMaster1.xml';
