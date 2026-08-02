@@ -796,6 +796,26 @@ The four-slide source deck validates at PowerPoint 2010 with 0 errors / 0 warnin
 
 Remaining advanced text/table, `tableToSlides`, output/runtime helpers, and peer/client audit work are still required before full PptxGenJS parity is claimed.
 
+## Read the library runtime version
+
+```ts
+import {
+  PPTX_VERSION,
+  PptxDocument,
+  type PptxVersion,
+} from '@jiayunxie/pptx';
+
+const current: PptxVersion = PPTX_VERSION; // '0.1.0'
+const document = PptxDocument.create();
+console.log(document.version === current); // true
+```
+
+`PPTX_VERSION` is a browser-safe compile-time literal and `PptxVersion` is its literal type. Read-only `PptxDocument.version` remains the same through create/open/write/reopen, performs no package lookup, and does not mutate the presentation. It is unrelated to OOXML extended-properties `AppVersion` or the producer/version of an input file.
+
+A PptxGenJS 4.0.1 instance correctly reports its own `'4.0.1'`, while this runtime reports its own `'0.1.0'`; parity means public availability, stability, and manifest synchronization, not equal cross-library strings. Manifest drift tests cover all three manifests, and CLI `--version` plus JSON doctor consume the same constant. Final release gates are 1354 passed / 1 skipped tests and performance 1/1 at 617ms. Both TypeScript checks, both bundles, and declaration generation pass. The actual 58-file tarball has SHA-256 `ce300d3c5da10a8fbdb9910b10497d02af496532b99329e18a314c9604e6f9a8`; installed Node/types/browser/CLI and real Google Chrome report `presentationVersion: true`, with zero Chrome validation, console, page, or network errors.
+
+Full PptxGenJS parity is not yet claimed. `presLayout`, the remaining runtime constants, output types/stream/compression, advanced text/table, `tableToSlides`, and the final peer/client audit remain pending.
+
 `PRESET_SHAPE_TYPES` is the frozen discovery catalog for all 178 canonical preset geometries accepted by `SlideModel.addShape()`. `AddShapeOptions` accepts `name`, strict `adjustments`, strict `fill`, strict `line`, strict `arrows`, strict `shadow`, strict `hyperlink`, and native EMU/OOXML-angle transform fields; use `inches()` and `degrees()` for ergonomic conversion. Omitted geometry starts at x/y/width/height = 1 inch with zero rotation and no flips; omitted fill creates direct no-fill, and omitted line keeps the canonical empty line container. Inputs are strict, descriptor-safe, detached before mutation, and reject unknown fields. The catalog uses the valid OOXML `foldedCorner`; PptxGenJS 4.0.1's invalid `folderCorner` token and runtime-only `custGeom` value are not accepted as presets.
 
 `ShapeModel.presetType` reads only one safe direct canonical preset geometry. Reassigning the same type is an exact no-op; changing the type replaces only the geometry and clears old adjustment guides while preserving transform, name, fill, line, arrows, effects, text, order, and model identity. Creation, duplicate isolation, rollback, write/reopen, Node/browser bundles, and PptxGenJS public output are covered.

@@ -719,6 +719,27 @@ $ pptx-inspect --json package inspect output.pptx
 - Rich-text `breakLine` 已从缺口移入支持项。仍待 advanced line/effect、完整 theme text cascade、percentage coordinates，以及其他 text/image/table/chart/media style surfaces。
 - 总体路线继续 advanced text → advanced table/`tableToSlides` → output/runtime helpers → peer-range full-suite audit；不声明完整 PptxGenJS parity。
 
+## PptxGenJS 全功能对等：Presentation runtime `version`
+
+状态：完成；实施与证据 4/4
+
+### 本阶段 change
+
+- 新增 browser-safe compile-time `PPTX_VERSION = '0.1.0'`、literal type `PptxVersion` 与 getter-only `PptxDocument.version`。Create/open/write/reopen 与六种 presentation format 始终返回当前 native runtime 版本，不读取 `package.json`、OOXML `AppVersion`、输入文件 producer 或 PowerPoint compatibility metadata，也不产生 package mutation。
+- `@pptx/sdk` 与 `@jiayunxie/pptx` root 都导出 constant/type；三份 manifest 由 drift test 锁定。CLI `--version` 与 JSON doctor 删除重复 literal，直接复用同一常量。
+- PptxGenJS 4.0.1 public instance 返回自己的 `'4.0.1'`，native 0.1.0 返回自己的 `'0.1.0'`。Conformance 验证公开可用、readonly typing 与 write 后稳定性，不错误要求两个库的版本字符串相等。
+
+### 验证结果
+
+- 最终全量为 70 passed / 1 skipped test files、1354 passed / 1 skipped tests；独立 performance gate 1/1（617ms）。两种 TypeScript check、Node/browser tsup 与 declaration build 全部通过。
+- Actual npm tarball 为 58 files，SHA-256 `ce300d3c5da10a8fbdb9910b10497d02af496532b99329e18a314c9604e6f9a8`。Installed Node、generated declarations、browser conditional export、CLI `--version`/doctor 与真实 Google Chrome create/writeBlob/reopen 均报告 `presentationVersion: true`；Chrome validation/console/page/network errors 为 0。
+- Packed declarations 精确包含 `PPTX_VERSION: "0.1.0"`、`PptxVersion` 与 getter-only `version`；installed TypeScript consumer 锁定 literal assignment 和 readonly negative。Packed runtime 还把 constant、created、reopened、manifest、CLI 五个状态统一为 `0.1.0`。
+
+### 剩余 runtime/output 与全功能路线
+
+- Version 已从 runtime-helper 缺口移入支持项；仍待 `presLayout`、其余 runtime constants、六种 output type、Node readable stream、compression policy 与返回值语义。
+- Advanced text/table、`tableToSlides`、其他 style/lifecycle surfaces 与最终 peer/client audit 仍待完成；不声明完整 PptxGenJS parity。
+
 ## 0.1.0 初始验收
 
 - `pnpm check`：TypeScript strict build 通过；14 个测试文件、34 项测试全部通过。
