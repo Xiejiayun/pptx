@@ -740,7 +740,31 @@ for (const alignment of TEXT_ALIGNMENTS) {
 
 PptxGenJS 4.0.1 的实例 `AlignH` 公开相同的四个 keys/values。Native 对等这些 runtime values 和稳定枚举顺序，但采用现有 root catalog 模式，不增加 `PptxDocument.AlignH`、enum-shaped object 或 mutable alias。最终 release gates 为 1368 passed / 1 skipped tests，performance 1/1（1.17s），两种 TypeScript check、Node/browser bundle 与 declaration build 全部通过。实际 59-file tarball 的 SHA-256 为 `46a88495acbffb2f81eb99f290bd15928974ddad86f507941c1ea5bfb65eaa90`；installed Node/types/browser/CLI 与真实 Google Chrome 均报告 `horizontalAlignments: true`，Chrome validation/console/page/network errors 为 0。
 
-该项完成后总体 PptxGenJS 对等进度约 96%。仍待 `AlignV`、output type/stream/compression、其他 runtime helpers、advanced text/table、`tableToSlides` 与最终 peer/client audit。
+该检查点总体 PptxGenJS 对等进度约 96%；`AlignV` 已在下一节完成。
+
+## 枚举垂直文字对齐值
+
+```ts
+import {
+  PptxDocument,
+  TEXT_VERTICAL_ALIGNMENTS,
+  type TextBoxVerticalAlignment,
+} from '@jiayunxie/pptx';
+
+const document = PptxDocument.create();
+const slide = document.addSlide();
+const alignment: TextBoxVerticalAlignment = TEXT_VERTICAL_ALIGNMENTS[1];
+
+slide.addText('Centered vertically', { valign: alignment });
+slide.slideNumber = { valign: alignment };
+slide.addTable([[{ text: alignment, options: { valign: alignment } }]]);
+```
+
+`TEXT_VERTICAL_ALIGNMENTS` 是 frozen readonly tuple，顺序固定为 `top`、`middle`、`bottom`；`TextBoxVerticalAlignment` 直接由该 tuple 派生，因此 runtime discovery 与 TypeScript union 不会漂移。三个 token 可用于 text box、slide number 与 table/table-cell 垂直对齐，既有 `top → t`、`middle → ctr`、`bottom → b` OOXML 映射、非法值拒绝、默认值和 write/reopen 语义均未改变。
+
+PptxGenJS 4.0.1 的实例 `AlignV` 公开相同的三个 keys/values。Native 对等这些 runtime values 和稳定枚举顺序，但沿用 root catalog 设计，不增加 `PptxDocument.AlignV`、enum-shaped object 或 mutable alias。最终 clean gates 为 72 passed / 1 skipped test files、1373 passed / 1 skipped tests，performance 1/1（939ms），两种 TypeScript check、Node/browser bundle 与 declaration build 全部通过。实际 59-file tarball 的 SHA-256 为 `aaaa5e0ceb053a472af49732784e0ea5babb00968734ec5093cd4f80afc34095`；installed Node/types/browser/CLI 与真实 Google Chrome 均报告 `verticalAlignments: true`，Chrome values、text/table reopen、frozen catalog 检查通过，validation/console/page/network errors 为 0。
+
+该项完成后总体 PptxGenJS 对等进度约 97%。仍待 output type/stream/compression、scheme-color 与其他 runtime helpers、advanced text/table、`tableToSlides` 与最终 peer/client audit。
 
 ## 创建和编辑预设形状、调整值与样式
 

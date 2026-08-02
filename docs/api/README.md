@@ -132,7 +132,31 @@ const alignments: readonly TextAlignment[] = TEXT_ALIGNMENTS;
 
 PptxGenJS 4.0.1 public `AlignH` keys and values match the tuple in the same order. Native deliberately exposes the immutable catalog instead of an instance getter or mutable enum-shaped alias. Installed Node, declarations, browser conditional export, CLI package inspection, and real Chrome report `horizontalAlignments: true`; create and reopen preserve all four values. The final 59-file tarball SHA-256 is `46a88495acbffb2f81eb99f290bd15928974ddad86f507941c1ea5bfb65eaa90`. Final gates are 1368 passed / 1 skipped tests, performance 1/1 at 1.17s, both TypeScript checks, both bundles, declaration generation, and zero Chrome validation/console/page/network errors.
 
-Overall PptxGenJS parity is approximately 96%. `AlignV`, output types/stream/compression, other runtime helpers, advanced text/table, `tableToSlides`, and the final peer/client audit remain pending.
+Overall PptxGenJS parity at this checkpoint was approximately 96%; `AlignV` is completed in the next section.
+
+### Vertical text alignment catalog
+
+```ts
+import {
+  PptxDocument,
+  TEXT_VERTICAL_ALIGNMENTS,
+  type TextBoxVerticalAlignment,
+} from '@pptx/sdk';
+
+const document = PptxDocument.create();
+const slide = document.addSlide();
+const alignment: TextBoxVerticalAlignment = TEXT_VERTICAL_ALIGNMENTS[1];
+
+slide.addText('Centered vertically', { valign: alignment });
+slide.slideNumber = { valign: alignment };
+slide.addTable([[{ text: alignment, options: { valign: alignment } }]]);
+```
+
+`TEXT_VERTICAL_ALIGNMENTS` is exactly the frozen readonly tuple `['top', 'middle', 'bottom']`, and `TextBoxVerticalAlignment` is derived as `(typeof TEXT_VERTICAL_ALIGNMENTS)[number]`. SDK and aggregate-root exports reuse the model value rather than creating facade copies. The tokens continue to drive text-box, slide-number, and table/table-cell alignment through the unchanged `t`, `ctr`, and `b` OOXML mappings; catalog reads never mutate an OPC package.
+
+PptxGenJS 4.0.1 public `AlignV` keys and values match the tuple in the same order. Native deliberately exposes the immutable catalog instead of an instance getter or mutable enum-shaped alias. Installed Node, declarations, browser conditional export, CLI package inspection, and real Chrome report `verticalAlignments: true`; text and table create/reopen preserve all three values. The final 59-file tarball SHA-256 is `aaaa5e0ceb053a472af49732784e0ea5babb00968734ec5093cd4f80afc34095`. Final clean gates are 72 passed / 1 skipped test files, 1373 passed / 1 skipped tests, performance 1/1 at 939ms, both TypeScript checks, both bundles, declaration generation, and zero Chrome validation/console/page/network errors.
+
+Overall PptxGenJS parity is approximately 97%. Output types/stream/compression, scheme-color and other runtime helpers, advanced text/table, `tableToSlides`, and the final peer/client audit remain pending.
 
 ## Embedded raster images
 

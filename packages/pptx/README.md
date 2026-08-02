@@ -857,7 +857,31 @@ for (const alignment of TEXT_ALIGNMENTS) {
 
 PptxGenJS 4.0.1 instance `AlignH` exposes the same four keys and values. Native matches the runtime values and enumeration order through the existing root-catalog design rather than adding `PptxDocument.AlignH`, an enum-shaped object, or a mutable alias. Final release gates are 1368 passed / 1 skipped tests plus performance 1/1 at 1.17s. Both TypeScript checks, both bundles, and declaration generation pass. The actual 59-file tarball has SHA-256 `46a88495acbffb2f81eb99f290bd15928974ddad86f507941c1ea5bfb65eaa90`; installed Node/types/browser/CLI and real Google Chrome report `horizontalAlignments: true`, with zero Chrome validation, console, page, or network errors.
 
-Overall PptxGenJS parity is now approximately 96%. Remaining work includes `AlignV`, output types/stream/compression, other runtime helpers, advanced text/table, `tableToSlides`, and the final peer/client audit.
+Overall PptxGenJS parity at this checkpoint was approximately 96%; `AlignV` is completed in the next section.
+
+## Enumerate vertical text alignments
+
+```ts
+import {
+  PptxDocument,
+  TEXT_VERTICAL_ALIGNMENTS,
+  type TextBoxVerticalAlignment,
+} from '@jiayunxie/pptx';
+
+const document = PptxDocument.create();
+const slide = document.addSlide();
+const alignment: TextBoxVerticalAlignment = TEXT_VERTICAL_ALIGNMENTS[1];
+
+slide.addText('Centered vertically', { valign: alignment });
+slide.slideNumber = { valign: alignment };
+slide.addTable([[{ text: alignment, options: { valign: alignment } }]]);
+```
+
+`TEXT_VERTICAL_ALIGNMENTS` is a frozen readonly tuple in the stable order `top`, `middle`, `bottom`. `TextBoxVerticalAlignment` is derived directly from that tuple, keeping runtime discovery and the TypeScript union synchronized. Every token remains valid for text boxes, slide numbers, and table/table-cell vertical alignment; the existing `top → t`, `middle → ctr`, and `bottom → b` OOXML mappings, rejection behavior, defaults, and write/reopen semantics are unchanged.
+
+PptxGenJS 4.0.1 instance `AlignV` exposes the same three keys and values. Native matches the runtime values and enumeration order through the existing root-catalog design rather than adding `PptxDocument.AlignV`, an enum-shaped object, or a mutable alias. Final clean gates are 72 passed / 1 skipped test files, 1373 passed / 1 skipped tests, and performance 1/1 at 939ms. Both TypeScript checks, both bundles, and declaration generation pass. The actual 59-file tarball has SHA-256 `aaaa5e0ceb053a472af49732784e0ea5babb00968734ec5093cd4f80afc34095`; installed Node/types/browser/CLI and real Google Chrome report `verticalAlignments: true`. Chrome values, text/table reopen, and frozen-catalog checks pass with zero validation, console, page, or network errors.
+
+Overall PptxGenJS parity is now approximately 97%. Remaining work includes output types/stream/compression, scheme-color and other runtime helpers, advanced text/table, `tableToSlides`, and the final peer/client audit.
 
 `PRESET_SHAPE_TYPES` is the frozen discovery catalog for all 178 canonical preset geometries accepted by `SlideModel.addShape()`. `AddShapeOptions` accepts `name`, strict `adjustments`, strict `fill`, strict `line`, strict `arrows`, strict `shadow`, strict `hyperlink`, and native EMU/OOXML-angle transform fields; use `inches()` and `degrees()` for ergonomic conversion. Omitted geometry starts at x/y/width/height = 1 inch with zero rotation and no flips; omitted fill creates direct no-fill, and omitted line keeps the canonical empty line container. Inputs are strict, descriptor-safe, detached before mutation, and reject unknown fields. The catalog uses the valid OOXML `foldedCorner`; PptxGenJS 4.0.1's invalid `folderCorner` token and runtime-only `custGeom` value are not accepted as presets.
 

@@ -779,8 +779,29 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余 runtime/output 与全功能路线
 
-- 总体 PptxGenJS 对等进度约 96%；下一小项为 `AlignV`。
-- 之后仍待 output type/stream/compression、其他 runtime helpers、advanced text/table、`tableToSlides` 与最终 peer/client audit；当前不声明完整 PptxGenJS parity。
+- 该检查点总体 PptxGenJS 对等进度约 96%；`AlignV` 已在下一专项完成。
+- `AlignV` 完成后仍待 output type/stream/compression、其他 runtime helpers、advanced text/table、`tableToSlides` 与最终 peer/client audit；当前不声明完整 PptxGenJS parity。
+
+## PptxGenJS 全功能对等：Presentation `AlignV`
+
+状态：完成；实施与证据 5/5
+
+### 本阶段 change
+
+- 新增 frozen readonly `TEXT_VERTICAL_ALIGNMENTS` tuple，稳定顺序为 `top`、`middle`、`bottom`；`TextBoxVerticalAlignment` 直接由 tuple 派生，避免 runtime catalog 与 TypeScript union 漂移。Model、SDK 与 aggregate root 复用同一对象和类型导出。
+- PptxGenJS 4.0.1 public `AlignV` 的三个 keys/values 与顺序已对照。Native 延续 root catalog 设计，不新增 `PptxDocument.AlignV`、enum-shaped mutable object 或 alias；不修改 normalizer、错误、默认值、OOXML writer/reader 或既有 text box、slide-number 与 table/table-cell 行为。
+- Catalog 的 exact values、顺序、冻结状态、导出 identity、类型正反例、text/table create/edit/write/reopen 和 package mutation isolation 已覆盖；三个 token 也可直接用于 slide number，并继续映射为 `t`、`ctr`、`b`。
+
+### 验证结果
+
+- 最终无重叠 clean full Vitest 为 72 passed / 1 skipped test files、1373 passed / 1 skipped tests；独立 performance gate 1/1（939ms）。两种 TypeScript check、Node/browser tsup 与 declaration build 全部通过。权威 clean JSON 为 `/tmp/pptx-alignv-vitest-clean.json`。
+- Actual npm tarball 为 59 files，SHA-256 `aaaa5e0ceb053a472af49732784e0ea5babb00968734ec5093cd4f80afc34095`。Installed Node、generated declarations、browser conditional export、TypeScript consumer 与 CLI package inspection 均报告 `verticalAlignments: true`。
+- 真实 Google Chrome exact values、frozen catalog、text/table create/writeBlob/reopen 均通过，`verticalAlignments: true`；Chrome validation/console/page/network errors 为 0。验证生成物位于 `/tmp/pptx-alignv-artifacts.16yH5h`，未进入仓库。
+
+### 剩余 runtime/output 与全功能路线
+
+- 总体 PptxGenJS 对等进度约 97%；下一小项为 `OutputType` runtime catalog 与 output type/stream/compression。
+- 之后仍待 scheme-color 与其他 runtime helpers、advanced text/table、`tableToSlides` 与最终 peer/client audit；当前不声明完整 PptxGenJS parity。
 
 ## 0.1.0 初始验收
 
