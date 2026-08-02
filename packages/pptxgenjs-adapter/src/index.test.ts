@@ -703,6 +703,35 @@ function directShapePaintState(xml: string): { fill: 'none'; line: 'empty' } {
   return { fill: 'none', line: 'empty' };
 }
 
+function directTextPresetGeometryState(xml: string) {
+  const properties = xml.match(/<p:spPr(?:\s[^>]*)?>([\s\S]*?)<\/p:spPr>/)?.[1];
+  if (!properties) throw new Error('Text shape properties were not found');
+  const geometries = [...properties.matchAll(
+    /<a:prstGeom\b([^>]*)>([\s\S]*?)<\/a:prstGeom>/g,
+  )];
+  if (geometries.length !== 1) throw new Error('Expected one direct preset geometry');
+  const geometryAttributes = geometries[0]?.[1];
+  const geometryContents = geometries[0]?.[2];
+  if (geometryAttributes === undefined || geometryContents === undefined) {
+    throw new Error('Preset geometry content was not found');
+  }
+  const type = geometryAttributes.match(/(?:^|\s)prst="([^"]+)"/)?.[1];
+  if (type === undefined) throw new Error('Preset geometry type was not found');
+  const adjustmentLists = [...geometryContents.matchAll(
+    /<a:avLst(?:\s[^>]*)?(?:\/>|>([\s\S]*?)<\/a:avLst>)/g,
+  )];
+  if (adjustmentLists.length !== 1) throw new Error('Expected one adjustment list');
+  const adjustmentXml = adjustmentLists[0]![1] ?? '';
+  const adjustments = [...adjustmentXml.matchAll(/<a:gd\b([^>]*)\/>/g)].map((match) => ({
+    name: match[1]!.match(/(?:^|\s)name="([^"]+)"/)?.[1],
+    formula: match[1]!.match(/(?:^|\s)fmla="([^"]+)"/)?.[1],
+  }));
+  if (adjustmentXml.replace(/<a:gd\b[^>]*\/>/g, '').trim() !== '') {
+    throw new Error('Unexpected preset geometry adjustment content');
+  }
+  return { type, adjustments };
+}
+
 describe('importPptxGenJS', () => {
   it('matches public PptxGenJS slide default colors and locks intentional differences', async () => {
     const generated = new PptxGenJS();
@@ -3791,6 +3820,281 @@ describe('importPptxGenJS', () => {
       expect(directShapePaintState(shapeXml(imported, index, importedShape!.id)))
         .toEqual(directShapePaintState(shapeXml(native, index, nativeShape.id)));
     }
+  });
+
+  it('compares representative text shape preset geometry public output', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    const slide = generated.addSlide();
+    const cases: readonly {
+      readonly name: string;
+      readonly text: Parameters<PptxGenJSSlide['addText']>[0];
+      readonly expectedText: string;
+      readonly type: PresetShapeType;
+      readonly options: Readonly<Record<string, unknown>>;
+    }[] = [
+      {
+        name: 'Geometry omitted',
+        text: 'Plain omitted',
+        expectedText: 'Plain omitted',
+        type: 'rect',
+        options: {},
+      },
+      {
+        name: 'Geometry undefined',
+        text: 'Plain undefined',
+        expectedText: 'Plain undefined',
+        type: 'rect',
+        options: { shape: undefined },
+      },
+      {
+        name: 'Geometry ellipse',
+        text: 'Ellipse',
+        expectedText: 'Ellipse',
+        type: 'ellipse',
+        options: { shape: 'ellipse' },
+      },
+      {
+        name: 'Geometry round rectangle',
+        text: 'Round rectangle',
+        expectedText: 'Round rectangle',
+        type: 'roundRect',
+        options: { shape: 'roundRect' },
+      },
+      {
+        name: 'Geometry line',
+        text: 'Line',
+        expectedText: 'Line',
+        type: 'line',
+        options: { shape: 'line', line: {} },
+      },
+      {
+        name: 'Geometry inverse line',
+        text: 'Inverse line',
+        expectedText: 'Inverse line',
+        type: 'lineInv',
+        options: { shape: 'lineInv' },
+      },
+      {
+        name: 'Geometry flowchart',
+        text: 'First\nSecond',
+        expectedText: 'First\nSecond',
+        type: 'flowChartDecision',
+        options: { shape: 'flowChartDecision' },
+      },
+      {
+        name: 'Geometry callout',
+        text: 'Callout',
+        expectedText: 'Callout',
+        type: 'wedgeRoundRectCallout',
+        options: { shape: 'wedgeRoundRectCallout' },
+      },
+      {
+        name: 'Geometry action button',
+        text: 'Action button',
+        expectedText: 'Action button',
+        type: 'actionButtonHome',
+        options: { shape: 'actionButtonHome' },
+      },
+      {
+        name: 'Geometry star',
+        text: [
+          { text: 'Rich ', options: { bold: true } },
+          { text: 'star', options: { color: 'FF0000' } },
+        ],
+        expectedText: 'Rich star',
+        type: 'star5',
+        options: { shape: 'star5' },
+      },
+    ];
+
+    for (const [index, fixture] of cases.entries()) {
+      slide.addText(fixture.text, {
+        objectName: fixture.name,
+        x: 1,
+        y: 0.25 + index * 0.25,
+        w: 4,
+        h: 0.2,
+        ...fixture.options,
+      });
+    }
+
+    const imported = await openPptxGenJSPublicOutput(generated);
+    const importedShapes = imported.slides[0]!.shapes as readonly ShapeModel[];
+    expect(importedShapes.map(({ name }) => name)).toEqual(cases.map(({ name }) => name));
+    for (const [index, fixture] of cases.entries()) {
+      const shape = importedShapes[index]!;
+      expect(shape, fixture.name).toBeInstanceOf(ShapeModel);
+      expect(shape.text, fixture.name).toBe(fixture.expectedText);
+      expect(shape.presetType, fixture.name).toBe(fixture.type);
+      expect(directTextPresetGeometryState(shapeXml(imported, 0, shape.id)), fixture.name)
+        .toEqual({ type: fixture.type, adjustments: [] });
+    }
+  });
+
+  it('compares every common text shape preset geometry token', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    const commonTypes = PRESET_SHAPE_TYPES.filter((type) => type !== 'foldedCorner');
+    const generatedSlide = generated.addSlide();
+    for (const type of commonTypes) {
+      const publicType = generated.ShapeType[type];
+      expect(publicType, type).toBe(type);
+      generatedSlide.addText(type, {
+        objectName: type,
+        shape: publicType,
+        ...(type === 'line' ? { line: {} } : {}),
+      });
+    }
+
+    const imported = await openPptxGenJSPublicOutput(generated);
+    const importedShapes = imported.slides[0]!.shapes as readonly ShapeModel[];
+    expect(importedShapes).toHaveLength(177);
+    expect(importedShapes.map(({ presetType }) => presetType)).toEqual(commonTypes);
+    expect(importedShapes.map(({ text }) => text)).toEqual(commonTypes);
+
+    const native = PptxDocument.create();
+    const nativeSlide = native.addSlide();
+    const nativeShapes = commonTypes.map((type) => nativeSlide.addText(type, {
+      name: type,
+      shape: type,
+    }));
+    expect(nativeShapes.map(({ presetType }) => presetType)).toEqual(commonTypes);
+    for (const [index, type] of commonTypes.entries()) {
+      const importedShape = importedShapes[index]!;
+      const nativeShape = nativeShapes[index]!;
+      expect(directTextPresetGeometryState(shapeXml(imported, 0, importedShape.id)), type)
+        .toEqual(directTextPresetGeometryState(shapeXml(native, 0, nativeShape.id)));
+    }
+  }, 30_000);
+
+  it('locks text shape preset geometry upstream defects and native strictness', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    expect(generated.ShapeType.folderCorner).toBe('folderCorner');
+    expect(generated.ShapeType.foldedCorner).toBeUndefined();
+    expect(generated.ShapeType.custGeom).toBe('custGeom');
+    const generatedSlide = generated.addSlide();
+    const divergentCases: readonly {
+      readonly name: string;
+      readonly shape: unknown;
+      readonly expectedType?: string;
+      readonly points?: readonly PptxGenJSCustomPoint[];
+    }[] = [
+      { name: 'Falsy false', shape: false, expectedType: 'rect' },
+      { name: 'Falsy empty', shape: '', expectedType: 'rect' },
+      { name: 'Unknown string', shape: 'unknown', expectedType: 'unknown' },
+      { name: 'Numeric token', shape: 42, expectedType: '42' },
+      { name: 'Folder corner', shape: 'folderCorner', expectedType: 'folderCorner' },
+      {
+        name: 'Custom geometry',
+        shape: 'custGeom',
+        points: [{ x: 0, y: 0, moveTo: true }, { x: 1, y: 1 }],
+      },
+    ];
+    for (const fixture of divergentCases) {
+      generatedSlide.addText(fixture.name, {
+        objectName: fixture.name,
+        x: 1,
+        y: 1,
+        w: 2,
+        h: 1,
+        shape: fixture.shape,
+        ...(fixture.points === undefined ? {} : { points: fixture.points }),
+      });
+    }
+
+    const imported = await openPptxGenJSPublicOutput(generated);
+    const importedShapes = new Map(imported.slides[0]!.shapes.map((shape) => [
+      shape.name,
+      shape as ShapeModel,
+    ]));
+    for (const fixture of divergentCases) {
+      const shape = importedShapes.get(fixture.name)!;
+      if (fixture.expectedType === 'rect') {
+        expect(shape.presetType, fixture.name).toBe('rect');
+      } else {
+        expect(shape.presetType, fixture.name).toBeUndefined();
+      }
+      if (fixture.expectedType !== undefined) {
+        expect(directTextPresetGeometryState(shapeXml(imported, 0, shape.id)), fixture.name)
+          .toEqual({ type: fixture.expectedType, adjustments: [] });
+      }
+    }
+    const custom = importedShapes.get('Custom geometry')!;
+    expect(custom.customGeometry).toBeDefined();
+    expect(shapeXml(imported, 0, custom.id)).toContain('<a:custGeom>');
+
+    const singlePublicShape = async (options: Readonly<Record<string, unknown>>) => {
+      const presentation = new PptxGenJS();
+      const presentationSlide = presentation.addSlide();
+      presentationSlide.addText('Isolation', {
+        objectName: 'Isolation',
+        x: 1,
+        y: 1,
+        w: 2,
+        h: 1,
+        shape: 'roundRect',
+        ...options,
+      });
+      const document = await openPptxGenJSPublicOutput(presentation);
+      const shape = document.slides[0]!.shapes[0] as ShapeModel;
+      return shapeXml(document, 0, shape.id);
+    };
+    const textBoxFalse = await singlePublicShape({ isTextBox: false });
+    const textBoxTrue = await singlePublicShape({ isTextBox: true });
+    expect(textBoxFalse).toContain('<p:cNvSpPr/>');
+    expect(textBoxTrue).toContain('<p:cNvSpPr txBox="1"/>');
+    expect(textBoxTrue.replace('<p:cNvSpPr txBox="1"/>', '<p:cNvSpPr/>'))
+      .toBe(textBoxFalse);
+
+    const zeroRadius = await singlePublicShape({ rectRadius: 0 });
+    const positiveRadius = await singlePublicShape({ rectRadius: 0.5 });
+    expect(directTextPresetGeometryState(zeroRadius))
+      .toEqual({ type: 'roundRect', adjustments: [] });
+    expect(directTextPresetGeometryState(positiveRadius)).toEqual({
+      type: 'roundRect',
+      adjustments: [{ name: 'adj', formula: 'val 50000' }],
+    });
+    expect(positiveRadius.replace(
+      '<a:avLst><a:gd name="adj" fmla="val 50000"/></a:avLst>',
+      '<a:avLst></a:avLst>',
+    )).toBe(zeroRadius);
+
+    const brokenLine = new PptxGenJS();
+    expect(() => brokenLine.addSlide().addText('Broken line', { shape: 'line' }))
+      .toThrow(TypeError);
+
+    const native = PptxDocument.create();
+    const nativeSlide = native.addSlide();
+    const existing = nativeSlide.addText('Existing', { name: 'Existing' });
+    const beforeInvalid = packageState(native);
+    const beforeShapes = nativeSlide.shapes;
+    for (const shape of [false, '', 'unknown', 42, 'folderCorner', 'custGeom']) {
+      expect(() => nativeSlide.addText('Invalid geometry', { shape } as never))
+        .toThrow(TypeError);
+      expect(packageState(native)).toEqual(beforeInvalid);
+      expect(nativeSlide.shapes).toEqual(beforeShapes);
+      expect(nativeSlide.shapes[0]).toBe(existing);
+    }
+
+    const nativeLine = nativeSlide.addText('Native line', {
+      name: 'Native line',
+      shape: 'line',
+    });
+    expect(nativeLine.presetType).toBe('line');
+    expect(shapeXml(native, 0, nativeLine.id)).toContain(
+      '</a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln>',
+    );
+    const foldedCorner = nativeSlide.addText('Folded corner', {
+      name: 'Folded corner',
+      shape: 'foldedCorner',
+    });
+    expect(foldedCorner.presetType).toBe('foldedCorner');
+    const reopened = await PptxDocument.open(await native.write());
+    expect((reopened.slides[0]!.shapes.find(
+      ({ name }) => name === 'Folded corner',
+    ) as ShapeModel).presetType).toBe('foldedCorner');
   });
 
   it('compares shape fill public output and strict native divergences', async () => {
