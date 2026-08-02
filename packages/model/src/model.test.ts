@@ -6174,6 +6174,158 @@ describe('PresentationModel', () => {
     expect(pkg.mutations).toEqual(invalidJournal);
   });
 
+  it('creates plain and rich text with strict direct fills', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const source = {
+      kind: 'solid',
+      color: { kind: 'srgb', value: '#ab12cd' },
+      transparency: 25,
+    } as ShapeFill;
+
+    const omitted = slide.addText('Omitted text fill');
+    const explicitUndefined = slide.addText('Undefined text fill', { fill: undefined as never });
+    const none = slide.addText('Explicit text no-fill', { fill: { kind: 'none' } });
+    const plain = slide.addText('Plain solid fill', { fill: source });
+    const rich = slide.addRichText([{ runs: [{ text: 'Rich theme fill' }] }], {
+      fill: {
+        kind: 'solid',
+        color: { kind: 'scheme', value: 'accent2' },
+        transparency: 0,
+      },
+    });
+    const transparent = slide.addText('Fully transparent fill', {
+      fill: {
+        kind: 'solid',
+        color: { kind: 'srgb', value: '00AA00' },
+        transparency: 100,
+      },
+    });
+
+    expect(omitted.fill).toEqual({ kind: 'none' });
+    expect(explicitUndefined.fill).toEqual({ kind: 'none' });
+    expect(none.fill).toEqual({ kind: 'none' });
+    expect(plain.fill).toEqual({
+      kind: 'solid',
+      color: { kind: 'srgb', value: 'AB12CD' },
+      transparency: 25,
+    });
+    expect(rich.fill).toEqual({
+      kind: 'solid',
+      color: { kind: 'scheme', value: 'accent2' },
+      transparency: 0,
+    });
+    expect(transparent.fill).toEqual({
+      kind: 'solid',
+      color: { kind: 'srgb', value: '00AA00' },
+      transparency: 100,
+    });
+    expect(slide.shapes.slice(-6)).toEqual([
+      omitted,
+      explicitUndefined,
+      none,
+      plain,
+      rich,
+      transparent,
+    ]);
+
+    (source as { color: { value: string }; transparency: number }).color.value = 'FFFFFF';
+    (source as { color: { value: string }; transparency: number }).transparency = 50;
+    expect(plain.fill).toEqual({
+      kind: 'solid',
+      color: { kind: 'srgb', value: 'AB12CD' },
+      transparency: 25,
+    });
+
+    const xml = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect(xml.match(
+      /<a:prstGeom prst="rect"><a:avLst\/><\/a:prstGeom><a:noFill\/><a:ln><a:noFill\/><\/a:ln>/g,
+    )).toHaveLength(3);
+    expect(xml).toContain(
+      '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>' +
+      '<a:solidFill><a:srgbClr val="AB12CD"><a:alpha val="75000"/>' +
+      '</a:srgbClr></a:solidFill><a:ln><a:noFill/></a:ln>',
+    );
+    expect(xml).toContain(
+      '<a:solidFill><a:schemeClr val="accent2"><a:alpha val="100000"/>' +
+      '</a:schemeClr></a:solidFill>',
+    );
+    expect(xml).toContain(
+      '<a:solidFill><a:srgbClr val="00AA00"><a:alpha val="0"/>' +
+      '</a:srgbClr></a:solidFill>',
+    );
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    expect(reopened.slides.at(-1)?.shapes.slice(-6).map((shape) =>
+      shape instanceof ShapeModel ? shape.fill : undefined)).toEqual([
+      { kind: 'none' },
+      { kind: 'none' },
+      { kind: 'none' },
+      {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'AB12CD' },
+        transparency: 25,
+      },
+      {
+        kind: 'solid',
+        color: { kind: 'scheme', value: 'accent2' },
+        transparency: 0,
+      },
+      {
+        kind: 'solid',
+        color: { kind: 'srgb', value: '00AA00' },
+        transparency: 100,
+      },
+    ]);
+  });
+
+  it('rejects invalid text fill creation without mutation', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const existing = slide.addText('Existing text');
+    let getterCalls = 0;
+    const accessor = Object.defineProperty({}, 'kind', {
+      enumerable: true,
+      get() {
+        getterCalls += 1;
+        return 'none';
+      },
+    });
+    const symbol = Symbol('unsafe');
+    const invalid = [
+      null,
+      [],
+      new Date(),
+      accessor,
+      { kind: 'solid' },
+      { kind: 'solid', color: { kind: 'srgb', value: 'GG0000' } },
+      { kind: 'solid', color: { kind: 'scheme', value: 'unknown' } },
+      {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'FF0000' },
+        transparency: -1,
+      },
+      { kind: 'none', transparency: 1 },
+      { kind: 'none', [symbol]: true },
+      { type: 'none' },
+    ];
+
+    for (const [index, value] of invalid.entries()) {
+      const before = packageSnapshot(pkg);
+      const shapes = slide.shapes;
+      expect(() => slide.addText('Invalid fill', { fill: value as never })).toThrow();
+      expect(() => slide.addRichText([{ runs: [{ text: 'Invalid rich fill' }] }], {
+        fill: value as never,
+      })).toThrow();
+      expect(packageSnapshot(pkg), `invalid fill ${index}`).toEqual(before);
+      expect(slide.shapes).toEqual(shapes);
+      expect(slide.shapes.at(-1)).toBe(existing);
+    }
+    expect(getterCalls).toBe(0);
+  });
+
   it('reads and edits direct shape fills through stable live models', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);
