@@ -1080,6 +1080,270 @@ async (page) => {
         && JSON.stringify(textShapeIsTextBoxState.reopenedDeclarative) ===
           JSON.stringify([true, false, true])
         && textShapeIsTextBoxState.validationErrors === 0;
+      const richTextBreakLineDocument = api.PptxDocument.create();
+      const richTextBreakLineLayout = richTextBreakLineDocument.layouts[0];
+      const richTextBreakLineMaster = richTextBreakLineDocument.masters[0];
+      const browserBreakLineInput = (prefix, hyperlink) => [{
+        align: 'center',
+        marginLeft: 12,
+        spacing: { before: 3, after: 5 },
+        tabStops: [{ position: 1.5, alignment: 'right' }],
+        runs: [
+          {
+            text: `${prefix} first`,
+            breakLine: true,
+            ...(hyperlink === undefined ? {} : { style: { hyperlink } }),
+          },
+          { text: '', breakLine: true },
+          { text: `${prefix} soft`, softBreakBefore: true },
+          { text: `${prefix} trailing`, breakLine: true },
+        ],
+      }];
+      const browserBreakLineParagraphs = (shape) => shape.richText.map(({ runs }) =>
+        runs.map(({ text }) => text));
+      const browserLayoutBreakLine = richTextBreakLineLayout.addRichText(
+        browserBreakLineInput('Browser layout'),
+        { name: 'browser_layout_break_line' },
+      );
+      const browserMasterBreakLine = richTextBreakLineMaster.addRichText(
+        browserBreakLineInput('Browser master'),
+        { name: 'browser_master_break_line' },
+      );
+      const browserLayoutBreakLinePrompt = richTextBreakLineLayout.addPlaceholder(
+        browserBreakLineInput('Browser layout prompt'),
+        {
+          name: 'browser_layout_break_line_prompt',
+          type: 'body',
+          index: 410,
+        },
+      );
+      const browserMasterBreakLinePrompt = richTextBreakLineMaster.addPlaceholder(
+        browserBreakLineInput('Browser master prompt'),
+        {
+          name: 'browser_master_break_line_prompt',
+          type: 'body',
+          index: 411,
+        },
+      );
+      const richTextBreakLineSource = richTextBreakLineDocument.addSlide({
+        masterName: richTextBreakLineLayout.name,
+      });
+      const richTextBreakLineTarget = richTextBreakLineDocument.addSlide({
+        masterName: richTextBreakLineLayout.name,
+      });
+      const browserMaterializedBreakLine = browserBreakLineParagraphs(
+        richTextBreakLineSource.placeholders.find(
+          ({ name }) => name === browserLayoutBreakLinePrompt.name,
+        ),
+      );
+      const richTextBreakLineTargetIndex =
+        richTextBreakLineDocument.slides.indexOf(richTextBreakLineTarget) + 1;
+      const browserDirectBreakLineInput = browserBreakLineInput(
+        'Browser direct',
+        { slide: richTextBreakLineTargetIndex, tooltip: '' },
+      );
+      const browserDirectBreakLine = richTextBreakLineSource.addRichText(
+        browserDirectBreakLineInput,
+        { name: 'browser_break_line_source' },
+      );
+      browserDirectBreakLineInput[0].runs[0].text = 'Changed browser caller text';
+      browserDirectBreakLineInput[0].runs[0].breakLine = false;
+      const browserPopulatedBreakLine = richTextBreakLineSource.addRichText(
+        browserBreakLineInput('Browser populated'),
+        { placeholder: browserLayoutBreakLinePrompt.name },
+      );
+      const browserEditedBreakLine = richTextBreakLineSource.addRichText([{
+        runs: [{ text: 'Browser before edit' }],
+      }], { name: 'browser_break_line_edited' });
+      browserEditedBreakLine.richText = browserBreakLineInput('Browser edited');
+      const browserDeclarativeBreakLineLayout =
+        await richTextBreakLineDocument.defineSlideMaster({
+          title: 'BROWSER-RICH-TEXT-BREAK-LINE',
+          objects: [
+            {
+              kind: 'text',
+              text: browserBreakLineInput('Browser declarative'),
+              options: { name: 'browser_declarative_break_line' },
+            },
+            {
+              kind: 'placeholder',
+              text: browserBreakLineInput('Browser declarative prompt'),
+              options: {
+                name: 'browser_declarative_break_line_prompt',
+                type: 'body',
+                index: 412,
+              },
+            },
+          ],
+        });
+      const browserDeclarativeBreakLineSlide = richTextBreakLineDocument.addSlide({
+        masterName: browserDeclarativeBreakLineLayout.name,
+      });
+      const browserDeclarativePopulatedBreakLine =
+        browserDeclarativeBreakLineSlide.addRichText(
+          browserBreakLineInput('Browser declarative populated'),
+          { placeholder: 'browser_declarative_break_line_prompt' },
+        );
+      const browserBreakLineDuplicate = richTextBreakLineDocument.duplicateSlide(
+        richTextBreakLineDocument.slides.indexOf(richTextBreakLineSource),
+      );
+      const browserDuplicateBreakLineShape = browserBreakLineDuplicate.shapes.find(
+        ({ name }) => name === browserDirectBreakLine.name,
+      );
+      browserDuplicateBreakLineShape.richText = [{
+        runs: [{ text: 'Browser duplicate only' }],
+      }];
+      const richTextBreakLineSourceXml = new TextDecoder().decode(
+        richTextBreakLineDocument.opcPackage
+          .requirePart(richTextBreakLineSource.partUri).bytes,
+      );
+      const browserBreakLineIdOffset = richTextBreakLineSourceXml.indexOf(
+        `<p:cNvPr id="${browserDirectBreakLine.id}"`,
+      );
+      const browserBreakLineShapeStart = richTextBreakLineSourceXml.lastIndexOf(
+        '<p:sp',
+        browserBreakLineIdOffset,
+      );
+      const browserBreakLineShapeEnd = richTextBreakLineSourceXml.indexOf(
+        '</p:sp>',
+        browserBreakLineIdOffset,
+      );
+      const browserBreakLineShapeXml = richTextBreakLineSourceXml.slice(
+        browserBreakLineShapeStart,
+        browserBreakLineShapeEnd + '</p:sp>'.length,
+      );
+      const browserBreakLineParagraphXml = browserBreakLineShapeXml.match(
+        /<a:p(?:\s[^>]*)?>[\s\S]*?<\/a:p>/g,
+      ) ?? [];
+      const richTextBreakLineOutput = await richTextBreakLineDocument.writeBlob();
+      const reopenedRichTextBreakLine = await api.PptxDocument.open(
+        richTextBreakLineOutput,
+      );
+      await reopenedRichTextBreakLine.write({ compatibility: 'powerpoint-current' });
+      const browserBreakLineByName = (owner, name) => owner.shapes.find(
+        (shape) => shape instanceof api.ShapeModel && shape.name === name,
+      );
+      const reopenedRichTextBreakLineSource = reopenedRichTextBreakLine.slides.find(
+        ({ partUri }) => partUri === richTextBreakLineSource.partUri,
+      );
+      const reopenedRichTextBreakLineDuplicate = reopenedRichTextBreakLine.slides.find(
+        ({ partUri }) => partUri === browserBreakLineDuplicate.partUri,
+      );
+      const reopenedRichTextBreakLineLayout = reopenedRichTextBreakLine.layouts.find(
+        ({ partUri }) => partUri === richTextBreakLineLayout.partUri,
+      );
+      const reopenedRichTextBreakLineMaster = reopenedRichTextBreakLine.masters.find(
+        ({ partUri }) => partUri === richTextBreakLineMaster.partUri,
+      );
+      const reopenedDeclarativeBreakLineLayout = reopenedRichTextBreakLine.layouts.find(
+        ({ name }) => name === browserDeclarativeBreakLineLayout.name,
+      );
+      const richTextBreakLineState = {
+        mime: richTextBreakLineOutput.type,
+        direct: browserBreakLineParagraphs(browserDirectBreakLine),
+        materialized: browserMaterializedBreakLine,
+        owners: [
+          browserBreakLineParagraphs(browserLayoutBreakLine),
+          browserBreakLineParagraphs(browserMasterBreakLine),
+          browserBreakLineParagraphs(browserLayoutBreakLinePrompt),
+          browserBreakLineParagraphs(browserMasterBreakLinePrompt),
+        ],
+        populated: browserBreakLineParagraphs(browserPopulatedBreakLine),
+        edited: browserBreakLineParagraphs(browserEditedBreakLine),
+        duplicate: [
+          browserBreakLineParagraphs(browserDirectBreakLine),
+          browserBreakLineParagraphs(browserDuplicateBreakLineShape),
+        ],
+        declarative: [
+          browserBreakLineParagraphs(browserBreakLineByName(
+            browserDeclarativeBreakLineLayout,
+            'browser_declarative_break_line',
+          )),
+          browserBreakLineParagraphs(browserBreakLineByName(
+            browserDeclarativeBreakLineLayout,
+            'browser_declarative_break_line_prompt',
+          )),
+          browserBreakLineParagraphs(browserDeclarativePopulatedBreakLine),
+        ],
+        reopened: [
+          browserBreakLineParagraphs(browserBreakLineByName(
+            reopenedRichTextBreakLineSource,
+            browserDirectBreakLine.name,
+          )),
+          browserBreakLineParagraphs(browserBreakLineByName(
+            reopenedRichTextBreakLineDuplicate,
+            browserDirectBreakLine.name,
+          )),
+          browserBreakLineParagraphs(browserBreakLineByName(
+            reopenedRichTextBreakLineLayout,
+            browserLayoutBreakLine.name,
+          )),
+          browserBreakLineParagraphs(browserBreakLineByName(
+            reopenedRichTextBreakLineMaster,
+            browserMasterBreakLine.name,
+          )),
+          browserBreakLineParagraphs(browserBreakLineByName(
+            reopenedDeclarativeBreakLineLayout,
+            'browser_declarative_break_line',
+          )),
+        ],
+        properties: browserDirectBreakLine.richText.every(
+          ({ align, marginLeft, spacing, tabStops }) =>
+            align === 'center' && marginLeft === 12 && spacing?.before === 3 &&
+            spacing.after === 5 && tabStops?.[0]?.position === 1.5 &&
+            tabStops[0].alignment === 'right',
+        ),
+        canonical: browserDirectBreakLine.richText.every(({ runs }) =>
+          runs.every((run) => !Object.hasOwn(run, 'breakLine'))),
+        softBreak: browserDirectBreakLine.richText[2].runs[0].softBreakBefore === true,
+        relationshipTarget: richTextBreakLineSource.relationships.some(
+          ({ resolvedTarget }) => resolvedTarget === richTextBreakLineTarget.partUri,
+        ),
+        xml: {
+          paragraphCount: browserBreakLineParagraphXml.length,
+          emptyParagraph: !browserBreakLineParagraphXml[1]?.includes('<a:r>') &&
+            !/<a:t(?:\s|>)/.test(browserBreakLineParagraphXml[1] ?? ''),
+          softBreak: browserBreakLineParagraphXml[2]?.includes('<a:br/>') === true,
+          privateMarker: browserBreakLineShapeXml.includes('breakLine'),
+        },
+        validationErrors: reopenedRichTextBreakLine.diagnostics.filter(
+          ({ severity }) => severity === 'error',
+        ).length,
+        validationWarnings: reopenedRichTextBreakLine.diagnostics.filter(
+          ({ severity }) => severity === 'warning',
+        ).length,
+      };
+      const richTextBreakLine =
+        richTextBreakLineState.mime ===
+          'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+        && richTextBreakLineState.direct.length === 3
+        && richTextBreakLineState.direct[1].length === 0
+        && richTextBreakLineState.direct[2].length === 2
+        && JSON.stringify(richTextBreakLineState.materialized) ===
+          JSON.stringify([[]])
+        && richTextBreakLineState.owners.every((paragraphs) => paragraphs.length === 3)
+        && richTextBreakLineState.populated.length === 3
+        && richTextBreakLineState.edited.length === 3
+        && richTextBreakLineState.duplicate[0].length === 3
+        && richTextBreakLineState.duplicate[1][0][0] === 'Browser duplicate only'
+        && richTextBreakLineState.declarative.every(
+          (paragraphs) => paragraphs.length === 3,
+        )
+        && richTextBreakLineState.reopened[0].length === 3
+        && richTextBreakLineState.reopened[1][0][0] === 'Browser duplicate only'
+        && richTextBreakLineState.reopened.slice(2).every(
+          (paragraphs) => paragraphs.length === 3,
+        )
+        && richTextBreakLineState.properties
+        && richTextBreakLineState.canonical
+        && richTextBreakLineState.softBreak
+        && richTextBreakLineState.relationshipTarget
+        && richTextBreakLineState.xml.paragraphCount === 3
+        && richTextBreakLineState.xml.emptyParagraph
+        && richTextBreakLineState.xml.softBreak
+        && !richTextBreakLineState.xml.privateMarker
+        && richTextBreakLineState.validationErrors === 0
+        && richTextBreakLineState.validationWarnings === 0;
       const textShapeHyperlinkDocument = api.PptxDocument.create();
       const textShapeHyperlinkLayout = textShapeHyperlinkDocument.layouts[0];
       textShapeHyperlinkLayout.addPlaceholder('Browser text hyperlink prompt', {
@@ -1790,6 +2054,8 @@ async (page) => {
         textShapeRectRadiusState,
         textShapeIsTextBox,
         textShapeIsTextBoxState,
+        richTextBreakLine,
+        richTextBreakLineState,
         textShapeHyperlinks,
         textShapeHyperlinkState,
         richTextRunHyperlinks,
@@ -2222,6 +2488,113 @@ async (page) => {
       master: true,
       reopenedDeclarative: [true, false, true],
       validationErrors: 0,
+    },
+    richTextBreakLine: true,
+    richTextBreakLineState: {
+      mime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      direct: [
+        ['Browser direct first'],
+        [],
+        ['Browser direct soft', 'Browser direct trailing'],
+      ],
+      materialized: [
+        [],
+      ],
+      owners: [
+        [
+          ['Browser layout first'],
+          [],
+          ['Browser layout soft', 'Browser layout trailing'],
+        ],
+        [
+          ['Browser master first'],
+          [],
+          ['Browser master soft', 'Browser master trailing'],
+        ],
+        [
+          ['Browser layout prompt first'],
+          [],
+          ['Browser layout prompt soft', 'Browser layout prompt trailing'],
+        ],
+        [
+          ['Browser master prompt first'],
+          [],
+          ['Browser master prompt soft', 'Browser master prompt trailing'],
+        ],
+      ],
+      populated: [
+        ['Browser populated first'],
+        [],
+        ['Browser populated soft', 'Browser populated trailing'],
+      ],
+      edited: [
+        ['Browser edited first'],
+        [],
+        ['Browser edited soft', 'Browser edited trailing'],
+      ],
+      duplicate: [
+        [
+          ['Browser direct first'],
+          [],
+          ['Browser direct soft', 'Browser direct trailing'],
+        ],
+        [['Browser duplicate only']],
+      ],
+      declarative: [
+        [
+          ['Browser declarative first'],
+          [],
+          ['Browser declarative soft', 'Browser declarative trailing'],
+        ],
+        [
+          ['Browser declarative prompt first'],
+          [],
+          ['Browser declarative prompt soft', 'Browser declarative prompt trailing'],
+        ],
+        [
+          ['Browser declarative populated first'],
+          [],
+          [
+            'Browser declarative populated soft',
+            'Browser declarative populated trailing',
+          ],
+        ],
+      ],
+      reopened: [
+        [
+          ['Browser direct first'],
+          [],
+          ['Browser direct soft', 'Browser direct trailing'],
+        ],
+        [['Browser duplicate only']],
+        [
+          ['Browser layout first'],
+          [],
+          ['Browser layout soft', 'Browser layout trailing'],
+        ],
+        [
+          ['Browser master first'],
+          [],
+          ['Browser master soft', 'Browser master trailing'],
+        ],
+        [
+          ['Browser declarative first'],
+          [],
+          ['Browser declarative soft', 'Browser declarative trailing'],
+        ],
+      ],
+      properties: true,
+      canonical: true,
+      softBreak: true,
+      relationshipTarget: true,
+      xml: {
+        paragraphCount: 3,
+        emptyParagraph: true,
+        softBreak: true,
+        privateMarker: false,
+      },
+      validationErrors: 0,
+      validationWarnings: 0,
     },
     textShapeHyperlinks: true,
     textShapeHyperlinkState: {

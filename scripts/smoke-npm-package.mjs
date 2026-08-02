@@ -3950,6 +3950,261 @@ if (!textShapeIsTextBox) {
   }));
 }
 await reopenedTextShapeIsTextBoxDeck.writeFile('text-shape-is-text-box-smoke.pptx');
+const richTextBreakLineDeck = PptxDocument.create();
+const richTextBreakLineLayout = richTextBreakLineDeck.layouts[0];
+const richTextBreakLineMaster = richTextBreakLineDeck.masters[0];
+const packedBreakLineInput = (prefix, hyperlink) => [{
+  align: 'center',
+  marginLeft: 12,
+  spacing: { before: 3, after: 5 },
+  tabStops: [{ position: 1.5, alignment: 'right' }],
+  runs: [
+    {
+      text: prefix + ' first',
+      breakLine: true,
+      ...(hyperlink === undefined ? {} : { style: { hyperlink } }),
+    },
+    { text: '', breakLine: true },
+    { text: prefix + ' soft', softBreakBefore: true },
+    { text: prefix + ' trailing', breakLine: true },
+  ],
+}];
+const packedBreakLineParagraphs = (shape) => shape.richText.map(({ runs }) =>
+  runs.map(({ text }) => text));
+const packedBreakLineExpected = (prefix) => [
+  [prefix + ' first'],
+  [],
+  [prefix + ' soft', prefix + ' trailing'],
+];
+const packedLayoutBreakLine = richTextBreakLineLayout.addRichText(
+  packedBreakLineInput('Packed layout'),
+  { name: 'packed_layout_break_line' },
+);
+const packedMasterBreakLine = richTextBreakLineMaster.addRichText(
+  packedBreakLineInput('Packed master'),
+  { name: 'packed_master_break_line' },
+);
+const packedLayoutBreakLinePrompt = richTextBreakLineLayout.addPlaceholder(
+  packedBreakLineInput('Packed layout prompt'),
+  {
+    name: 'packed_layout_break_line_prompt',
+    type: 'body',
+    index: 410,
+  },
+);
+const packedMasterBreakLinePrompt = richTextBreakLineMaster.addPlaceholder(
+  packedBreakLineInput('Packed master prompt'),
+  {
+    name: 'packed_master_break_line_prompt',
+    type: 'body',
+    index: 411,
+  },
+);
+const packedBreakLineSource = richTextBreakLineDeck.addSlide({
+  masterName: richTextBreakLineLayout.name,
+});
+const packedBreakLineTarget = richTextBreakLineDeck.addSlide({
+  masterName: richTextBreakLineLayout.name,
+});
+const packedMaterializedBreakLine = packedBreakLineParagraphs(
+  packedBreakLineSource.placeholders.find(
+    ({ name }) => name === packedLayoutBreakLinePrompt.name,
+  ),
+);
+const packedBreakLineTargetIndex =
+  richTextBreakLineDeck.slides.indexOf(packedBreakLineTarget) + 1;
+const packedDirectBreakLineInput = packedBreakLineInput(
+  'Packed direct',
+  { slide: packedBreakLineTargetIndex, tooltip: '' },
+);
+const packedDirectBreakLine = packedBreakLineSource.addRichText(
+  packedDirectBreakLineInput,
+  { name: 'packed_break_line_source' },
+);
+packedDirectBreakLineInput[0].runs[0].text = 'Changed caller text';
+packedDirectBreakLineInput[0].runs[0].breakLine = false;
+const packedPopulatedBreakLine = packedBreakLineSource.addRichText(
+  packedBreakLineInput('Packed populated'),
+  { placeholder: packedLayoutBreakLinePrompt.name },
+);
+const packedEditedBreakLine = packedBreakLineSource.addRichText([{
+  runs: [{ text: 'Before edit' }],
+}], { name: 'packed_break_line_edited' });
+packedEditedBreakLine.richText = packedBreakLineInput('Packed edited');
+const packedBreakLineNoOpBytes = richTextBreakLineDeck.opcPackage
+  .requirePart(packedBreakLineSource.partUri).bytes.slice();
+const packedBreakLineNoOpJournal = richTextBreakLineDeck.opcPackage.mutations.length;
+packedDirectBreakLine.richText = packedDirectBreakLine.richText;
+const packedBreakLineNoOpCurrent = richTextBreakLineDeck.opcPackage
+  .requirePart(packedBreakLineSource.partUri).bytes;
+const packedBreakLineNoOp =
+  packedBreakLineNoOpJournal === richTextBreakLineDeck.opcPackage.mutations.length &&
+  packedBreakLineNoOpBytes.length === packedBreakLineNoOpCurrent.length &&
+  packedBreakLineNoOpBytes.every(
+    (value, index) => value === packedBreakLineNoOpCurrent[index],
+  );
+const packedDeclarativeBreakLineLayout = await richTextBreakLineDeck.defineSlideMaster({
+  title: 'PACKED-RICH-TEXT-BREAK-LINE',
+  objects: [
+    {
+      kind: 'text',
+      text: packedBreakLineInput('Packed declarative'),
+      options: { name: 'packed_declarative_break_line' },
+    },
+    {
+      kind: 'placeholder',
+      text: packedBreakLineInput('Packed declarative prompt'),
+      options: {
+        name: 'packed_declarative_break_line_prompt',
+        type: 'body',
+        index: 412,
+      },
+    },
+  ],
+});
+const packedDeclarativeBreakLineSlide = richTextBreakLineDeck.addSlide({
+  masterName: packedDeclarativeBreakLineLayout.name,
+});
+const packedDeclarativePopulatedBreakLine =
+  packedDeclarativeBreakLineSlide.addRichText(
+    packedBreakLineInput('Packed declarative populated'),
+    { placeholder: 'packed_declarative_break_line_prompt' },
+  );
+const packedBreakLineDuplicate = richTextBreakLineDeck.duplicateSlide(
+  richTextBreakLineDeck.slides.indexOf(packedBreakLineSource),
+);
+const packedDuplicateBreakLineShape = packedBreakLineDuplicate.shapes.find(
+  ({ name }) => name === packedDirectBreakLine.name,
+);
+packedDuplicateBreakLineShape.richText = [{ runs: [{ text: 'Packed duplicate only' }] }];
+const packedBreakLineFormatStates = [];
+for (const format of ['pptx', 'pptm', 'ppsx', 'ppsm', 'potx', 'potm']) {
+  const formatted = PptxDocument.create({ format });
+  formatted.addSlide().addRichText(packedBreakLineInput(format), {
+    name: format + '_break_line',
+  });
+  const reopenedFormatted = await PptxDocument.open(await formatted.write());
+  const reopenedFormattedShape = reopenedFormatted.slides[0].shapes.find(
+    ({ name }) => name === format + '_break_line',
+  );
+  packedBreakLineFormatStates.push({
+    format: reopenedFormatted.format,
+    paragraphs: packedBreakLineParagraphs(reopenedFormattedShape),
+    softBreak: reopenedFormattedShape.richText[2].runs[0].softBreakBefore,
+  });
+}
+const reopenedRichTextBreakLineDeck = await PptxDocument.open(
+  await richTextBreakLineDeck.write(),
+);
+await reopenedRichTextBreakLineDeck.write({ compatibility: 'powerpoint-2010' });
+const packedBreakLineByName = (owner, name) => owner.shapes.find(
+  (shape) => shape instanceof ShapeModel && shape.name === name,
+);
+const reopenedPackedBreakLineSource = reopenedRichTextBreakLineDeck.slides.find(
+  ({ partUri }) => partUri === packedBreakLineSource.partUri,
+);
+const reopenedPackedBreakLineDuplicate = reopenedRichTextBreakLineDeck.slides.find(
+  ({ partUri }) => partUri === packedBreakLineDuplicate.partUri,
+);
+const reopenedPackedBreakLineLayout = reopenedRichTextBreakLineDeck.layouts.find(
+  ({ partUri }) => partUri === richTextBreakLineLayout.partUri,
+);
+const reopenedPackedBreakLineMaster = reopenedRichTextBreakLineDeck.masters.find(
+  ({ partUri }) => partUri === richTextBreakLineMaster.partUri,
+);
+const reopenedPackedDeclarativeBreakLineLayout =
+  reopenedRichTextBreakLineDeck.layouts.find(
+    ({ name }) => name === packedDeclarativeBreakLineLayout.name,
+  );
+const packedDirectBreakLineParagraphs = packedBreakLineParagraphs(packedDirectBreakLine);
+const packedDirectBreakLineProperties = packedDirectBreakLine.richText.every(
+  ({ align, marginLeft, spacing, tabStops }) =>
+    align === 'center' && marginLeft === 12 && spacing?.before === 3 &&
+    spacing.after === 5 && tabStops?.[0]?.position === 1.5 &&
+    tabStops[0].alignment === 'right',
+);
+const packedDirectBreakLineCanonical = packedDirectBreakLine.richText.every(
+  ({ runs }) => runs.every((run) => !Object.hasOwn(run, 'breakLine')),
+);
+const packedBreakLineRelationship = packedBreakLineSource.relationships.find(
+  ({ resolvedTarget }) => resolvedTarget === packedBreakLineTarget.partUri,
+);
+const richTextBreakLine =
+  JSON.stringify(packedDirectBreakLineParagraphs) ===
+    JSON.stringify(packedBreakLineExpected('Packed direct')) &&
+  packedDirectBreakLineProperties &&
+  packedDirectBreakLineCanonical &&
+  packedDirectBreakLine.richText[2].runs[0].softBreakBefore === true &&
+  packedDirectBreakLine.richText[0].runs[0].style?.hyperlink?.slide ===
+    packedBreakLineTargetIndex &&
+  packedBreakLineRelationship?.resolvedTarget === packedBreakLineTarget.partUri &&
+  JSON.stringify(packedMaterializedBreakLine) ===
+    JSON.stringify([[]]) &&
+  JSON.stringify(packedBreakLineParagraphs(packedLayoutBreakLinePrompt)) ===
+    JSON.stringify(packedBreakLineExpected('Packed layout prompt')) &&
+  JSON.stringify(packedBreakLineParagraphs(packedLayoutBreakLine)) ===
+    JSON.stringify(packedBreakLineExpected('Packed layout')) &&
+  JSON.stringify(packedBreakLineParagraphs(packedMasterBreakLine)) ===
+    JSON.stringify(packedBreakLineExpected('Packed master')) &&
+  JSON.stringify(packedBreakLineParagraphs(packedMasterBreakLinePrompt)) ===
+    JSON.stringify(packedBreakLineExpected('Packed master prompt')) &&
+  JSON.stringify(packedBreakLineParagraphs(packedPopulatedBreakLine)) ===
+    JSON.stringify(packedBreakLineExpected('Packed populated')) &&
+  JSON.stringify(packedBreakLineParagraphs(packedEditedBreakLine)) ===
+    JSON.stringify(packedBreakLineExpected('Packed edited')) &&
+  packedBreakLineNoOp &&
+  JSON.stringify(packedBreakLineParagraphs(packedDirectBreakLine)) ===
+    JSON.stringify(packedBreakLineExpected('Packed direct')) &&
+  JSON.stringify(packedBreakLineParagraphs(packedDuplicateBreakLineShape)) ===
+    JSON.stringify([['Packed duplicate only']]) &&
+  JSON.stringify(packedBreakLineParagraphs(
+    packedBreakLineByName(
+      packedDeclarativeBreakLineLayout,
+      'packed_declarative_break_line',
+    ),
+  )) === JSON.stringify(packedBreakLineExpected('Packed declarative')) &&
+  JSON.stringify(packedBreakLineParagraphs(packedDeclarativePopulatedBreakLine)) ===
+    JSON.stringify(packedBreakLineExpected('Packed declarative populated')) &&
+  JSON.stringify(packedBreakLineParagraphs(packedBreakLineByName(
+    reopenedPackedBreakLineSource,
+    packedDirectBreakLine.name,
+  ))) === JSON.stringify(packedBreakLineExpected('Packed direct')) &&
+  JSON.stringify(packedBreakLineParagraphs(packedBreakLineByName(
+    reopenedPackedBreakLineDuplicate,
+    packedDirectBreakLine.name,
+  ))) === JSON.stringify([['Packed duplicate only']]) &&
+  JSON.stringify(packedBreakLineParagraphs(packedBreakLineByName(
+    reopenedPackedBreakLineLayout,
+    packedLayoutBreakLine.name,
+  ))) === JSON.stringify(packedBreakLineExpected('Packed layout')) &&
+  JSON.stringify(packedBreakLineParagraphs(packedBreakLineByName(
+    reopenedPackedBreakLineMaster,
+    packedMasterBreakLine.name,
+  ))) === JSON.stringify(packedBreakLineExpected('Packed master')) &&
+  JSON.stringify(packedBreakLineParagraphs(packedBreakLineByName(
+    reopenedPackedDeclarativeBreakLineLayout,
+    'packed_declarative_break_line',
+  ))) === JSON.stringify(packedBreakLineExpected('Packed declarative')) &&
+  reopenedRichTextBreakLineDeck.diagnostics.length === 0 &&
+  JSON.stringify(packedBreakLineFormatStates) === JSON.stringify(
+    ['pptx', 'pptm', 'ppsx', 'ppsm', 'potx', 'potm'].map((format) => ({
+      format,
+      paragraphs: packedBreakLineExpected(format),
+      softBreak: true,
+    })),
+  );
+if (!richTextBreakLine) {
+  throw new Error('Packed rich text breakLine failed: ' + JSON.stringify({
+    direct: packedDirectBreakLineParagraphs,
+    directProperties: packedDirectBreakLineProperties,
+    directCanonical: packedDirectBreakLineCanonical,
+    materialized: packedMaterializedBreakLine,
+    noOp: packedBreakLineNoOp,
+    formats: packedBreakLineFormatStates,
+    diagnostics: reopenedRichTextBreakLineDeck.diagnostics,
+  }));
+}
+await reopenedRichTextBreakLineDeck.writeFile('rich-text-break-line-smoke.pptx');
 const internalTextShapeHyperlinkDeck = PptxDocument.create();
 const internalTextShapeHyperlinkSource = internalTextShapeHyperlinkDeck.addSlide();
 internalTextShapeHyperlinkDeck.addSlide();
@@ -5592,6 +5847,7 @@ const checks = {
   textShapePresetGeometry,
   textShapeRectRadius,
   textShapeIsTextBox,
+  richTextBreakLine,
   richTextRunHyperlinks,
   shapeLines,
   shapeArrows,
@@ -6718,6 +6974,87 @@ if (Object.values(browserTextShapeIsTextBoxChecks).some((value) => !value)) {
     JSON.stringify(browserTextShapeIsTextBoxChecks),
   );
 }
+const browserBreakLineDeck = PptxDocument.create();
+const browserBreakLineLayout = browserBreakLineDeck.layouts[0];
+const browserBreakLineMaster = browserBreakLineDeck.masters[0];
+const browserBreakLineInput = (prefix, hyperlink) => [{
+  align: 'center',
+  runs: [
+    {
+      text: prefix + ' first',
+      breakLine: true,
+      ...(hyperlink === undefined ? {} : { style: { hyperlink } }),
+    },
+    { text: '', breakLine: true },
+    { text: prefix + ' soft', softBreakBefore: true },
+    { text: prefix + ' trailing', breakLine: true },
+  ],
+}];
+const browserBreakLineParagraphs = (shape) => shape.richText.map(({ runs }) =>
+  runs.map(({ text }) => text));
+const browserLayoutBreakLine = browserBreakLineLayout.addRichText(
+  browserBreakLineInput('Browser layout'),
+  { name: 'browser_layout_break_line' },
+);
+const browserMasterBreakLine = browserBreakLineMaster.addRichText(
+  browserBreakLineInput('Browser master'),
+  { name: 'browser_master_break_line' },
+);
+const browserBreakLineSource = browserBreakLineDeck.addSlide({
+  masterName: browserBreakLineLayout.name,
+});
+const browserBreakLineTarget = browserBreakLineDeck.addSlide({
+  masterName: browserBreakLineLayout.name,
+});
+const browserDirectBreakLine = browserBreakLineSource.addRichText(
+  browserBreakLineInput('Browser direct', {
+    slide: browserBreakLineDeck.slides.indexOf(browserBreakLineTarget) + 1,
+    tooltip: '',
+  }),
+  { name: 'browser_direct_break_line' },
+);
+browserDirectBreakLine.richText = browserBreakLineInput('Browser edited', {
+  slide: browserBreakLineDeck.slides.indexOf(browserBreakLineTarget) + 1,
+  tooltip: '',
+});
+const reopenedBrowserBreakLineDeck = await PptxDocument.open(
+  await browserBreakLineDeck.writeBlob(),
+);
+await reopenedBrowserBreakLineDeck.write({ compatibility: 'powerpoint-current' });
+const browserBreakLineByName = (owner, name) => owner.shapes.find(
+  (shape) => shape instanceof ShapeModel && shape.name === name,
+);
+const reopenedBrowserBreakLineSource = reopenedBrowserBreakLineDeck.slides.find(
+  ({ partUri }) => partUri === browserBreakLineSource.partUri,
+);
+const browserBreakLineChecks = {
+  edited: JSON.stringify(browserBreakLineParagraphs(browserDirectBreakLine)) ===
+    JSON.stringify([['Browser edited first'], [], [
+      'Browser edited soft',
+      'Browser edited trailing',
+    ]]),
+  softBreak: browserDirectBreakLine.richText[2]?.runs[0]?.softBreakBefore === true,
+  canonical: browserDirectBreakLine.richText.every(({ runs }) =>
+    runs.every((run) => !Object.hasOwn(run, 'breakLine'))),
+  layout: browserBreakLineParagraphs(browserLayoutBreakLine).length === 3,
+  master: browserBreakLineParagraphs(browserMasterBreakLine).length === 3,
+  reopened: JSON.stringify(browserBreakLineParagraphs(browserBreakLineByName(
+    reopenedBrowserBreakLineSource,
+    browserDirectBreakLine.name,
+  ))) === JSON.stringify([['Browser edited first'], [], [
+    'Browser edited soft',
+    'Browser edited trailing',
+  ]]),
+  relationship: browserBreakLineSource.relationships.some(
+    ({ resolvedTarget }) => resolvedTarget === browserBreakLineTarget.partUri,
+  ),
+  validation: reopenedBrowserBreakLineDeck.diagnostics.length === 0,
+};
+if (Object.values(browserBreakLineChecks).some((value) => !value)) {
+  throw new Error(
+    'Browser rich text breakLine failed: ' + JSON.stringify(browserBreakLineChecks),
+  );
+}
 const browserTextShapeLineDeck = PptxDocument.create();
 const browserTextShapeLineLayout = browserTextShapeLineDeck.layouts[0];
 const browserTextShapeLinePlaceholder = browserTextShapeLineLayout.addPlaceholder(
@@ -7529,6 +7866,7 @@ process.stdout.write(resolved);
   type ThemeFontUpdate,
   type RichTextColor,
   type RichTextParagraph,
+  type RichTextRun,
   type TextAlignment,
   type NumberingStyle,
   type ParagraphBullet,
@@ -8181,6 +8519,41 @@ const invalidNullTextShapeIsTextBox: AddTextOptions = {
 const invalidObjectTextShapeIsTextBox: AddTextOptions = {
   // @ts-expect-error isTextBox does not accept object truthiness
   isTextBox: {},
+};
+const typedRichTextBreakLineRun: RichTextRun = {
+  text: 'Typed rich text line break',
+  breakLine: true,
+};
+const typedRichTextNoBreakLineRun: RichTextRun = {
+  text: 'Typed rich text without a line break',
+  breakLine: false,
+};
+const typedRichTextBreakLineParagraph: RichTextParagraph = {
+  runs: [typedRichTextBreakLineRun, typedRichTextNoBreakLineRun],
+};
+const invalidStringRichTextBreakLine: RichTextRun = {
+  text: 'Invalid string rich text line break',
+  // @ts-expect-error breakLine does not accept string truthiness
+  breakLine: 'true',
+};
+const invalidNumericRichTextBreakLine: RichTextRun = {
+  text: 'Invalid numeric rich text line break',
+  // @ts-expect-error breakLine does not accept numeric truthiness
+  breakLine: 1,
+};
+const invalidNullRichTextBreakLine: RichTextRun = {
+  text: 'Invalid null rich text line break',
+  // @ts-expect-error breakLine does not accept null
+  breakLine: null,
+};
+const invalidObjectRichTextBreakLine: RichTextRun = {
+  text: 'Invalid object rich text line break',
+  // @ts-expect-error breakLine does not accept object truthiness
+  breakLine: {},
+};
+const invalidOuterRichTextBreakLine: AddTextOptions = {
+  // @ts-expect-error breakLine belongs to RichTextRun, not AddTextOptions
+  breakLine: true,
 };
 const typedTextShapeRectRadius: Emu = inches(0.5);
 const typedTextShapeRectRadiusOptions: AddTextOptions = {
@@ -10028,6 +10401,104 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
       textShapeIsTextBoxMasterPartResult.stdout,
     );
   }
+  const richTextBreakLineDeckPath = join(
+    directory,
+    'rich-text-break-line-smoke.pptx',
+  );
+  const richTextBreakLineValidateResult = run(
+    bin,
+    [
+      '--json', 'package', 'validate', richTextBreakLineDeckPath,
+      '--profile', 'powerpoint-2010',
+    ],
+    directory,
+  );
+  const richTextBreakLineValidated = JSON.parse(
+    richTextBreakLineValidateResult.stdout,
+  );
+  if (!richTextBreakLineValidated.ok ||
+      !richTextBreakLineValidated.data?.valid ||
+      richTextBreakLineValidated.data.errorCount !== 0 ||
+      richTextBreakLineValidated.data.warningCount !== 0 ||
+      richTextBreakLineValidated.data.diagnostics.length !== 0) {
+    throw new Error(
+      'CLI rich-text-break-line validation failed: ' +
+      richTextBreakLineValidateResult.stdout,
+    );
+  }
+  const richTextBreakLineSlidesResult = run(
+    bin,
+    ['--json', 'slides', 'list', richTextBreakLineDeckPath],
+    directory,
+  );
+  const richTextBreakLineSlides = JSON.parse(richTextBreakLineSlidesResult.stdout);
+  if (!richTextBreakLineSlides.ok ||
+      richTextBreakLineSlides.data?.length !== 4 ||
+      richTextBreakLineSlides.data[0]?.shapeCount !== 3 ||
+      richTextBreakLineSlides.data[3]?.shapeCount !== 3) {
+    throw new Error(
+      'CLI rich-text-break-line slide listing failed: ' +
+      richTextBreakLineSlidesResult.stdout,
+    );
+  }
+  const richTextBreakLinePartResult = run(
+    bin,
+    [
+      '--json', 'part', 'read', richTextBreakLineDeckPath,
+      richTextBreakLineSlides.data[0].partUri,
+    ],
+    directory,
+  );
+  const richTextBreakLinePart = JSON.parse(richTextBreakLinePartResult.stdout);
+  const richTextBreakLineSourceXml = richTextBreakLinePart.data?.content ?? '';
+  const richTextBreakLineNameOffset = richTextBreakLineSourceXml.indexOf(
+    'name="packed_break_line_source"',
+  );
+  const richTextBreakLineShapeStart = richTextBreakLineSourceXml.lastIndexOf(
+    '<p:sp',
+    richTextBreakLineNameOffset,
+  );
+  const richTextBreakLineShapeEnd = richTextBreakLineSourceXml.indexOf(
+    '</p:sp>',
+    richTextBreakLineNameOffset,
+  );
+  const richTextBreakLineShapeXml = richTextBreakLineNameOffset < 0 ||
+    richTextBreakLineShapeStart < 0 || richTextBreakLineShapeEnd < 0
+    ? ''
+    : richTextBreakLineSourceXml.slice(
+        richTextBreakLineShapeStart,
+        richTextBreakLineShapeEnd + '</p:sp>'.length,
+      );
+  const richTextBreakLineParagraphXml = richTextBreakLineShapeXml.match(
+    /<a:p(?:\s[^>]*)?>[\s\S]*?<\/a:p>/g,
+  ) ?? [];
+  const richTextBreakLinePartChecks = {
+    part: richTextBreakLinePart.ok === true,
+    paragraphCount: richTextBreakLineParagraphXml.length === 3,
+    firstText: richTextBreakLineParagraphXml[0]?.includes(
+        '<a:t xml:space="preserve">Packed direct first</a:t>',
+      ) === true,
+    hyperlink: richTextBreakLineParagraphXml[0]?.includes('<a:hlinkClick') === true,
+    internalAction: richTextBreakLineParagraphXml[0]?.includes(
+        'action="ppaction://hlinksldjump"',
+      ) === true,
+    emptyParagraph: !richTextBreakLineParagraphXml[1]?.includes('<a:r>') &&
+      !/<a:t(?:\s|>)/.test(richTextBreakLineParagraphXml[1] ?? ''),
+    softBreak: richTextBreakLineParagraphXml[2]?.includes('<a:br/>') === true,
+    softText: richTextBreakLineParagraphXml[2]?.includes(
+        '<a:t xml:space="preserve">Packed direct soft</a:t>',
+      ) === true,
+    trailingText: richTextBreakLineParagraphXml[2]?.includes(
+        '<a:t xml:space="preserve">Packed direct trailing</a:t>',
+      ) === true,
+    noPrivateMarker: !richTextBreakLineShapeXml.includes('breakLine'),
+  };
+  if (Object.values(richTextBreakLinePartChecks).some((value) => !value)) {
+    throw new Error(
+      'CLI rich-text-break-line part read failed: ' +
+      JSON.stringify(richTextBreakLinePartChecks),
+    );
+  }
   if (process.env.PPTX_SLIDE_BACKGROUND_GALLERY_OUT) {
     const galleryOutput = resolve(process.env.PPTX_SLIDE_BACKGROUND_GALLERY_OUT);
     await mkdir(dirname(galleryOutput), { recursive: true });
@@ -10063,9 +10534,14 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
     await mkdir(dirname(output), { recursive: true });
     await writeFile(output, await readFile(internalRichTextRunHyperlinkDeckPath));
   }
+  if (process.env.PPTX_RICH_TEXT_BREAK_LINE_OUT) {
+    const output = resolve(process.env.PPTX_RICH_TEXT_BREAK_LINE_OUT);
+    await mkdir(dirname(output), { recursive: true });
+    await writeFile(output, await readFile(richTextBreakLineDeckPath));
+  }
 
   process.stdout.write(
-    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, masterLayouts: apiChecks.masterLayouts, slideNumbers: apiChecks.slideNumbers, slideDefaultColor: apiChecks.slideDefaultColor, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, textShapeFills: apiChecks.textShapeFills, textShapeLines: apiChecks.textShapeLines, textShapeArrows: apiChecks.textShapeArrows, textShapeShadows: apiChecks.textShapeShadows, textShapeHyperlinks: apiChecks.textShapeHyperlinks, textShapePresetGeometry: apiChecks.textShapePresetGeometry, textShapeRectRadius: apiChecks.textShapeRectRadius, textShapeIsTextBox: apiChecks.textShapeIsTextBox, richTextRunHyperlinks: apiChecks.richTextRunHyperlinks, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, slideBackgrounds: apiChecks.slideBackgrounds, types: true, cli: doctor.data.version, masterLayoutInspect: true, masterLayoutValidate: true, masterLayoutSlides: true, masterLayoutPartRead: true, masterLayoutDiff: true, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true, slideBackgroundInspect: true, slideBackgroundValidate: true, slideNumberInspect: true, slideNumberValidate: true, slideNumberSlides: true, slideNumberPartRead: true, slideDefaultColorInspect: true, slideDefaultColorValidate: true, slideDefaultColorSlides: true, slideDefaultColorPartRead: true, textShapeFillInspect: true, textShapeFillValidate: true, textShapeFillSlides: true, textShapeFillPartRead: true, textShapeLineInspect: true, textShapeLineValidate: true, textShapeLineSlides: true, textShapeLinePartRead: true, textShapeArrowInspect: true, textShapeArrowValidate: true, textShapeArrowSlides: true, textShapeArrowPartRead: true, textShapeShadowInspect: true, textShapeShadowValidate: true, textShapeShadowSlides: true, textShapeShadowPartRead: true, textShapeHyperlinkInspect: true, textShapeHyperlinkValidate: true, textShapeHyperlinkSlides: true, textShapeHyperlinkPartRead: true, textShapeHyperlinkInternalValidate: true, textShapePresetGeometryValidate: true, textShapePresetGeometrySlides: true, textShapePresetGeometryPartRead: true, textShapeRectRadiusValidate: true, textShapeRectRadiusSlides: true, textShapeRectRadiusPartRead: true, textShapeIsTextBoxValidate: true, textShapeIsTextBoxSlides: true, textShapeIsTextBoxPartRead: true, textShapeIsTextBoxLayoutPartRead: true, textShapeIsTextBoxMasterPartRead: true, richTextRunHyperlinkInspect: true, richTextRunHyperlinkValidate: true, richTextRunHyperlinkSlides: true, richTextRunHyperlinkPartRead: true, richTextRunHyperlinkInternalValidate: true })}\n`,
+    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, masterLayouts: apiChecks.masterLayouts, slideNumbers: apiChecks.slideNumbers, slideDefaultColor: apiChecks.slideDefaultColor, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, textShapeFills: apiChecks.textShapeFills, textShapeLines: apiChecks.textShapeLines, textShapeArrows: apiChecks.textShapeArrows, textShapeShadows: apiChecks.textShapeShadows, textShapeHyperlinks: apiChecks.textShapeHyperlinks, textShapePresetGeometry: apiChecks.textShapePresetGeometry, textShapeRectRadius: apiChecks.textShapeRectRadius, textShapeIsTextBox: apiChecks.textShapeIsTextBox, richTextBreakLine: apiChecks.richTextBreakLine, richTextRunHyperlinks: apiChecks.richTextRunHyperlinks, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, slideBackgrounds: apiChecks.slideBackgrounds, types: true, cli: doctor.data.version, masterLayoutInspect: true, masterLayoutValidate: true, masterLayoutSlides: true, masterLayoutPartRead: true, masterLayoutDiff: true, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true, slideBackgroundInspect: true, slideBackgroundValidate: true, slideNumberInspect: true, slideNumberValidate: true, slideNumberSlides: true, slideNumberPartRead: true, slideDefaultColorInspect: true, slideDefaultColorValidate: true, slideDefaultColorSlides: true, slideDefaultColorPartRead: true, textShapeFillInspect: true, textShapeFillValidate: true, textShapeFillSlides: true, textShapeFillPartRead: true, textShapeLineInspect: true, textShapeLineValidate: true, textShapeLineSlides: true, textShapeLinePartRead: true, textShapeArrowInspect: true, textShapeArrowValidate: true, textShapeArrowSlides: true, textShapeArrowPartRead: true, textShapeShadowInspect: true, textShapeShadowValidate: true, textShapeShadowSlides: true, textShapeShadowPartRead: true, textShapeHyperlinkInspect: true, textShapeHyperlinkValidate: true, textShapeHyperlinkSlides: true, textShapeHyperlinkPartRead: true, textShapeHyperlinkInternalValidate: true, textShapePresetGeometryValidate: true, textShapePresetGeometrySlides: true, textShapePresetGeometryPartRead: true, textShapeRectRadiusValidate: true, textShapeRectRadiusSlides: true, textShapeRectRadiusPartRead: true, textShapeIsTextBoxValidate: true, textShapeIsTextBoxSlides: true, textShapeIsTextBoxPartRead: true, textShapeIsTextBoxLayoutPartRead: true, textShapeIsTextBoxMasterPartRead: true, richTextRunHyperlinkInspect: true, richTextRunHyperlinkValidate: true, richTextRunHyperlinkSlides: true, richTextRunHyperlinkPartRead: true, richTextRunHyperlinkInternalValidate: true, richTextBreakLineValidate: true, richTextBreakLineSlides: true, richTextBreakLinePartRead: true })}\n`,
   );
 } finally {
   await rm(directory, { recursive: true, force: true });
