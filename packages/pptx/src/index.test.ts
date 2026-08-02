@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { TEXT_ALIGNMENTS as SDK_TEXT_ALIGNMENTS } from '@pptx/sdk';
 import {
   CHART_TYPES,
   ChartModel,
@@ -12,6 +13,7 @@ import {
   chartWorkbookMatches,
   inches,
   slideNumberDiagnostics,
+  TEXT_ALIGNMENTS,
   type AddTextOptions,
   type ReplaceMediaPosterOptions,
   type ReplaceMediaSourceOptions,
@@ -36,6 +38,7 @@ import {
   type ShapeFill,
   type ShapeLine,
   type ShapeShadow,
+  type TextAlignment,
 } from './index.js';
 
 describe('@jiayunxie/pptx stable exports', () => {
@@ -78,6 +81,15 @@ describe('@jiayunxie/pptx stable exports', () => {
       // @ts-expect-error presentation layout fields are read-only
       layout.width = inches(1);
     }
+  });
+
+  it('exports the frozen TEXT_ALIGNMENTS catalog from the root package', () => {
+    const values: readonly TextAlignment[] = TEXT_ALIGNMENTS;
+
+    expect(TEXT_ALIGNMENTS).toBe(SDK_TEXT_ALIGNMENTS);
+    expect(values).toBe(TEXT_ALIGNMENTS);
+    expect([...values]).toEqual(['left', 'center', 'right', 'justify']);
+    expect(Object.isFrozen(TEXT_ALIGNMENTS)).toBe(true);
   });
 
   it('exports semantic master layout models from the root package', () => {

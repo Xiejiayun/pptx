@@ -27,6 +27,7 @@ import {
   ModelParseError,
   openPptxStream,
   PRESET_SHAPE_TYPES,
+  TEXT_ALIGNMENTS,
   PPTX_VERSION,
   PptxDocument,
   ShapeModel,
@@ -73,6 +74,7 @@ import {
   type SlideNumberOptions,
   type SlideNumberTextStyle,
   type SlideNumberTextStyleOptions,
+  type TextAlignment,
   type PresentationLayout,
   type PresentationLayoutName,
   type PptxVersion,
@@ -14582,6 +14584,20 @@ describe('PptxDocument vertical slice', () => {
     expect(reopenedPlain.richText.map(({ align }) => align)).toEqual(['center', 'center', 'center']);
     expect(reopenedRich.richText.map(({ align }) => align)).toEqual(['center', undefined, 'right']);
     expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
+  });
+
+  it('publishes TEXT_ALIGNMENTS through the SDK lifecycle', async () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const created = TEXT_ALIGNMENTS.map((alignment) => {
+      const typed: TextAlignment = alignment;
+      return slide.addText(typed, { align: typed });
+    });
+
+    expect(created.map(({ richText }) => richText[0]?.align)).toEqual(TEXT_ALIGNMENTS);
+    const reopened = await PptxDocument.open(await document.write());
+    expect(reopened.slides[0]?.shapes.map((shape) =>
+      (shape as ShapeModel).richText[0]?.align)).toEqual(TEXT_ALIGNMENTS);
   });
 
   it('creates, edits, duplicates, and reopens plain and rich paragraph RTL', async () => {

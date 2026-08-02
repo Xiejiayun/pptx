@@ -18,6 +18,7 @@ import {
   PptxDocument,
   ShapeModel,
   TableModel,
+  TEXT_ALIGNMENTS,
   ValidationError,
   type AddShapeOptions,
   type CustomGeometry,
@@ -278,6 +279,7 @@ void [
 
 interface PptxGenJSInstance {
   readonly version: string;
+  readonly AlignH: Readonly<Record<string, string>>;
   readonly presLayout: {
     readonly name: string;
     readonly width: number;
@@ -782,6 +784,30 @@ describe('importPptxGenJS', () => {
     await native.write();
     expect(generated.version).toBe('4.0.1');
     expect(native.version).toBe(PPTX_VERSION);
+  });
+
+  it('matches the PptxGenJS horizontal alignment runtime catalog', async () => {
+    const generated = new PptxGenJS();
+    const generatedAlignments = Object.values(generated.AlignH);
+
+    expect(Object.keys(generated.AlignH)).toEqual(TEXT_ALIGNMENTS);
+    expect(generatedAlignments).toEqual(TEXT_ALIGNMENTS);
+    expect(TEXT_ALIGNMENTS).toEqual(['left', 'center', 'right', 'justify']);
+    expect(Object.isFrozen(TEXT_ALIGNMENTS)).toBe(true);
+
+    const slide = generated.addSlide();
+    generatedAlignments.forEach((alignment, index) => {
+      slide.addText(alignment, {
+        align: alignment,
+        x: 0.5,
+        y: 0.5 + index,
+        w: 3,
+        h: 0.5,
+      });
+    });
+    const imported = await importPptxGenJS(generated);
+    expect(imported.slides[0]?.shapes.map((shape) =>
+      (shape as ShapeModel).richText[0]?.align)).toEqual(TEXT_ALIGNMENTS);
   });
 
   it('matches the public presentation layout projection and locks the custom-name boundary', async () => {

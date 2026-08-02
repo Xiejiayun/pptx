@@ -42,7 +42,14 @@ export interface RichTextGlow {
   readonly size: number;
 }
 
-export type TextAlignment = 'left' | 'center' | 'right' | 'justify';
+export const TEXT_ALIGNMENTS = Object.freeze([
+  'left',
+  'center',
+  'right',
+  'justify',
+] as const);
+
+export type TextAlignment = typeof TEXT_ALIGNMENTS[number];
 
 export type NumberingStyle =
   | 'alphaLcParenBoth'
