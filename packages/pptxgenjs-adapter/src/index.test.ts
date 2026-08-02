@@ -5736,7 +5736,7 @@ describe('importPptxGenJS', () => {
     generatedSlide.addText([
       {
         text: 'Run one',
-        options: { hyperlink: { url: 'https://one.example/path' } },
+        options: { color: 'FF0000', hyperlink: { url: 'https://one.example/path' } },
       },
       {
         text: 'Run two',
@@ -5752,6 +5752,38 @@ describe('importPptxGenJS', () => {
       y: 4,
       w: 3,
       h: 1,
+    });
+    generatedSlide.addText([
+      { text: 'Same one', options: { hyperlink: { url: 'https://same.example/path' } } },
+      { text: ' Same two', options: { hyperlink: { url: 'https://same.example/path' } } },
+      { text: ' Plain' },
+    ], {
+      objectName: 'Rich identical targets',
+      x: 4,
+      y: 1,
+      w: 3,
+      h: 1,
+    });
+    generatedSlide.addText([
+      { text: '', options: { hyperlink: { url: 'https://empty-run.example' } } },
+      { text: 'Keep unlinked' },
+    ], {
+      objectName: 'Rich empty linked run',
+      x: 4,
+      y: 2,
+      w: 3,
+      h: 1,
+    });
+    generatedSlide.addText([
+      { text: 'Inherited outer' },
+      { text: ' Local valid', options: { hyperlink: { url: 'https://local-valid.example' } } },
+    ], {
+      objectName: 'Rich outer and local',
+      x: 4,
+      y: 3,
+      w: 3,
+      h: 1,
+      hyperlink: { url: 'https://broken-outer.example' },
     });
     generated.addSlide();
 
@@ -5841,6 +5873,62 @@ describe('importPptxGenJS', () => {
     });
     expect(richPerRunClicks[1]).toContain('tooltip="Run &amp; two"');
     expect(richPerRunClicks[1]).toContain('action="ppaction://hlinksldjump"');
+    expect(richPerRunClicks[0]).toContain('action=""');
+    expect(richPerRun.richText[0]!.runs.map((run) => ({
+      hyperlink: run.style?.hyperlink,
+      underline: run.style?.underline,
+    }))).toEqual([
+      {
+        hyperlink: { url: 'https://one.example/path', tooltip: '' },
+        underline: { style: 'sng' },
+      },
+      {
+        hyperlink: { slide: 2, tooltip: 'Run & two' },
+        underline: { style: 'sng' },
+      },
+    ]);
+    expect(richPerRunXml).toContain('uri="{A12FA001-AC4F-418D-AE19-62706E023703}"');
+
+    const identical = importedShapes.get('Rich identical targets')!;
+    const identicalXml = shapeXml(imported, 0, identical.id);
+    const identicalIds = clickIds(identicalXml);
+    expect(identical.richText[0]!.runs.map((run) => run.style?.hyperlink)).toEqual([
+      { url: 'https://same.example/path', tooltip: '' },
+      { url: 'https://same.example/path', tooltip: '' },
+      undefined,
+    ]);
+    expect(identicalIds).toHaveLength(2);
+    expect(new Set(identicalIds).size).toBe(2);
+    expect(identicalIds.map((id) => relationship(id)?.target)).toEqual([
+      'https://same.example/path',
+      'https://same.example/path',
+    ]);
+
+    const emptyLinked = importedShapes.get('Rich empty linked run')!;
+    const emptyLinkedXml = shapeXml(imported, 0, emptyLinked.id);
+    expect(emptyLinked.richText[0]!.runs.map((run) => ({
+      text: run.text,
+      hyperlink: run.style?.hyperlink,
+    }))).toEqual([{ text: 'Keep unlinked', hyperlink: undefined }]);
+    expect(clickIds(emptyLinkedXml)).toEqual([]);
+    expect(importedSlide.relationships.find(
+      ({ target }) => target === 'https://empty-run.example',
+    )).toBeDefined();
+
+    const outerAndLocal = importedShapes.get('Rich outer and local')!;
+    const outerAndLocalXml = shapeXml(imported, 0, outerAndLocal.id);
+    expect(outerAndLocal.hyperlink).toBeUndefined();
+    expect(outerAndLocal.richText[0]!.runs.map((run) => run.style?.hyperlink)).toEqual([
+      undefined,
+      { url: 'https://local-valid.example', tooltip: '' },
+    ]);
+    expect(clickIds(outerAndLocalXml)).toContain('rIdundefined');
+    expect(importedSlide.relationships.filter(
+      ({ target }) => target === 'https://local-valid.example',
+    )).toHaveLength(1);
+    expect(importedSlide.relationships.some(
+      ({ target }) => target === 'https://broken-outer.example',
+    )).toBe(false);
 
     const brokenGenerated = new PptxGenJS();
     const brokenSlide = brokenGenerated.addSlide();
@@ -5914,6 +6002,45 @@ describe('importPptxGenJS', () => {
       height: inches(1),
       hyperlink: { url: 'https://outer.example/path' },
     });
+    const nativeRichPerRun = nativeSlide.addRichText([{
+      runs: [
+        {
+          text: 'Run one',
+          style: {
+            color: { kind: 'srgb', value: 'FF0000' },
+            hyperlink: { url: 'https://one.example/path' },
+          },
+        },
+        {
+          text: 'Run two',
+          style: {
+            color: { kind: 'srgb', value: '00AA00' },
+            underline: false,
+            hyperlink: { slide: 2, tooltip: 'Run & two' },
+          },
+        },
+      ],
+    }], { name: 'Native rich per-run' });
+    const nativeIdentical = nativeSlide.addRichText([{
+      runs: [
+        { text: 'Same one', style: { hyperlink: { url: 'https://same.example/path' } } },
+        { text: ' Same two', style: { hyperlink: { url: 'https://same.example/path' } } },
+        { text: ' Plain' },
+      ],
+    }], { name: 'Native identical targets' });
+    const nativeOuterAndLocal = nativeSlide.addRichText([{
+      runs: [
+        { text: 'Inherited outer' },
+        {
+          text: ' Local valid',
+          style: { hyperlink: { url: 'https://local-valid.example' } },
+        },
+        { text: ' Suppressed', style: { hyperlink: false } },
+      ],
+    }], {
+      name: 'Native outer and local',
+      hyperlink: { url: 'https://valid-outer.example' },
+    });
 
     for (const [generatedShape, nativeShape] of [
       [plain, nativePlain],
@@ -5946,6 +6073,23 @@ describe('importPptxGenJS', () => {
       target: 'https://outer.example/path',
       targetMode: 'External',
     });
+    expect(nativeRichPerRun.richText[0]!.runs.map((run) => ({
+      hyperlink: run.style?.hyperlink,
+      underline: run.style?.underline,
+    }))).toEqual([
+      { hyperlink: { url: 'https://one.example/path' }, underline: { style: 'sng' } },
+      { hyperlink: { slide: 2, tooltip: 'Run & two' }, underline: false },
+    ]);
+    const nativeIdenticalIds = clickIds(shapeXml(native, 0, nativeIdentical.id));
+    expect(nativeIdenticalIds).toHaveLength(2);
+    expect(new Set(nativeIdenticalIds).size).toBe(2);
+    expect(nativeOuterAndLocal.hyperlink).toEqual({ url: 'https://valid-outer.example' });
+    expect(nativeOuterAndLocal.richText[0]!.runs.map((run) => run.style?.hyperlink)).toEqual([
+      { url: 'https://valid-outer.example' },
+      { url: 'https://local-valid.example' },
+      undefined,
+    ]);
+    expect(shapeXml(native, 0, nativeOuterAndLocal.id)).not.toContain('rIdundefined');
 
     const beforeInvalid = packageState(native);
     const shapeCount = nativeSlide.shapes.length;
@@ -5966,6 +6110,11 @@ describe('importPptxGenJS', () => {
       expect(packageState(native)).toEqual(beforeInvalid);
       expect(nativeSlide.shapes).toHaveLength(shapeCount);
     }
+    expect(() => nativeSlide.addRichText([{
+      runs: [{ text: '', style: { hyperlink: { url: 'https://empty-run.example' } } }],
+    }])).toThrow(/non-empty text/i);
+    expect(packageState(native)).toEqual(beforeInvalid);
+    expect(nativeSlide.shapes).toHaveLength(shapeCount);
   });
 
   it('compares shape hyperlink public output and strict native divergences', async () => {
