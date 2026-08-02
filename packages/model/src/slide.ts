@@ -181,7 +181,11 @@ import {
   readShapeShadow,
   replaceShapeShadow,
 } from './shape-shadow.internal.js';
-import { normalizeShapeShadow } from './simple-shadow.internal.js';
+import {
+  normalizeShapeShadow,
+  renderSimpleShadow,
+  type NormalizedShapeShadow,
+} from './simple-shadow.internal.js';
 import {
   HYPERLINK_RELATIONSHIP_TYPE,
   normalizeHyperlink,
@@ -251,6 +255,7 @@ export interface AddTextOptions extends Partial<Transform> {
   readonly bullet?: ParagraphBullet;
   readonly fill?: ShapeFill;
   readonly line?: ShapeLine;
+  readonly shadow?: ShapeShadow;
   readonly fit?: TextBoxFit;
   readonly lang?: string;
   readonly level?: number;
@@ -1403,6 +1408,7 @@ export class SlideModel {
         normalized.fill,
         normalized.line,
         normalized.arrows,
+        normalized.shadow,
         normalized.margin,
         normalized.verticalAlignment,
         normalized.textDirection,
@@ -1469,6 +1475,7 @@ export class SlideModel {
           plain.fill,
           plain.line,
           plain.arrows,
+          plain.shadow,
           plain.margin,
           plain.verticalAlignment,
           plain.textDirection,
@@ -1501,6 +1508,7 @@ export class SlideModel {
         defaults!.fill,
         defaults!.line,
         defaults!.arrows,
+        defaults!.shadow,
         defaults!.margin,
         defaults!.verticalAlignment,
         defaults!.textDirection,
@@ -1542,6 +1550,7 @@ export class SlideModel {
         defaults.fill,
         defaults.line,
         defaults.arrows,
+        defaults.shadow,
         defaults.margin,
         defaults.verticalAlignment,
         defaults.textDirection,
@@ -1568,6 +1577,7 @@ export class SlideModel {
     fill: ShapeFill,
     line: NormalizedSimpleLine,
     arrows: NormalizedShapeArrows | undefined,
+    shadow: NormalizedShapeShadow | undefined,
     margins: TextBoxMargins | undefined,
     verticalAlignment: TextBoxVerticalAlignment,
     textDirection: TextBoxTextDirection | undefined,
@@ -1590,6 +1600,7 @@ export class SlideModel {
       fill,
       line,
       arrows,
+      shadow,
       margins,
       verticalAlignment,
       textDirection,
@@ -1723,6 +1734,7 @@ function setAttribute(xml: LosslessXmlDocument, element: XmlElement, name: strin
 interface NormalizedTextInput {
   readonly value: string;
   readonly arrows: NormalizedShapeArrows | undefined;
+  readonly shadow: NormalizedShapeShadow | undefined;
   readonly bullet: NormalizedParagraphBullet | false | undefined;
   readonly fill: ShapeFill;
   readonly line: NormalizedSimpleLine;
@@ -1753,6 +1765,7 @@ function validateTextInput(value: string, options: AddTextOptions): NormalizedTe
   return {
     value: normalized,
     arrows: defaults.arrows,
+    shadow: defaults.shadow,
     bullet: defaults.bullet,
     fill: defaults.fill,
     line: defaults.line,
@@ -1774,6 +1787,7 @@ function validateTextInput(value: string, options: AddTextOptions): NormalizedTe
 
 interface NormalizedAddTextOptions {
   readonly arrows?: NormalizedShapeArrows;
+  readonly shadow?: NormalizedShapeShadow;
   readonly bullet?: NormalizedParagraphBullet | false;
   readonly fill: ShapeFill;
   readonly line: NormalizedSimpleLine;
@@ -1829,6 +1843,9 @@ function validateAddTextOptions(options: AddTextOptions): NormalizedAddTextOptio
     ? undefined
     : normalizeParagraphBullet(options.bullet, 'Text bullet');
   const arrows = normalizeShapeArrows(options.arrows, 'Text shape arrows');
+  const shadow = options.shadow === undefined
+    ? undefined
+    : normalizeShapeShadow(options.shadow, 'Text shape shadow');
   const fill = normalizeSimpleFill(options.fill, 'Text shape fill') ?? { kind: 'none' };
   const line = normalizeSimpleLine(options.line, 'Text shape line') ?? { kind: 'none' };
   const level = options.level === undefined
@@ -1872,6 +1889,7 @@ function validateAddTextOptions(options: AddTextOptions): NormalizedAddTextOptio
     : normalizeTextBoxWrap(options.wrap, 'Text wrap');
   return {
     ...(arrows !== undefined ? { arrows } : {}),
+    ...(shadow !== undefined ? { shadow } : {}),
     ...(bullet !== undefined ? { bullet } : {}),
     fill,
     line,
@@ -2060,6 +2078,7 @@ function textShapeXml(
   fill: ShapeFill,
   line: NormalizedSimpleLine,
   arrows: NormalizedShapeArrows | undefined,
+  shadow: NormalizedShapeShadow | undefined,
   margins: TextBoxMargins | undefined,
   verticalAlignment: TextBoxVerticalAlignment,
   textDirection: TextBoxTextDirection | undefined,
@@ -2095,7 +2114,10 @@ function textShapeXml(
   const lineXml = line.kind === 'none'
     ? `<a:ln>${lineContents}</a:ln>`
     : `<a:ln w="${points(line.width)}">${lineContents}</a:ln>`;
-  return `<p:sp xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><p:nvSpPr><p:cNvPr id="${id}" name="${name}"/><p:cNvSpPr txBox="1"/>${applicationProperties}</p:nvSpPr><p:spPr><a:xfrm${transformAttributes}><a:off x="${x}" y="${y}"/><a:ext cx="${width}" cy="${height}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom>${renderSimpleFill(fill, 'a:')}${lineXml}</p:spPr><p:txBody>${bodyProperties}<a:lstStyle/>${paragraphs}</p:txBody></p:sp>`;
+  const effectXml = shadow === undefined
+    ? ''
+    : `<a:effectLst>${renderSimpleShadow(shadow, 'a:')}</a:effectLst>`;
+  return `<p:sp xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><p:nvSpPr><p:cNvPr id="${id}" name="${name}"/><p:cNvSpPr txBox="1"/>${applicationProperties}</p:nvSpPr><p:spPr><a:xfrm${transformAttributes}><a:off x="${x}" y="${y}"/><a:ext cx="${width}" cy="${height}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom>${renderSimpleFill(fill, 'a:')}${lineXml}${effectXml}</p:spPr><p:txBody>${bodyProperties}<a:lstStyle/>${paragraphs}</p:txBody></p:sp>`;
 }
 
 function textParagraphXml(

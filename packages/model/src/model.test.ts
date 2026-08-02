@@ -6678,6 +6678,212 @@ describe('PresentationModel', () => {
     expect(getterCalls).toBe(0);
   });
 
+  it('creates plain and rich text with strict direct shadows', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const omittedSlide = model.addSlide();
+    const undefinedSlide = model.addSlide();
+    omittedSlide.addText('Text shadow');
+    undefinedSlide.addText('Text shadow', { shadow: undefined } as never);
+    expect(pkg.requirePart(undefinedSlide.partUri).bytes).toEqual(
+      pkg.requirePart(omittedSlide.partUri).bytes,
+    );
+
+    const slide = model.addSlide();
+    const color: { kind: 'scheme'; value: 'accent2' | 'accent3' } = {
+      kind: 'scheme',
+      value: 'accent2',
+    };
+    const source: ShapeShadow = {
+      kind: 'outer',
+      color,
+      opacity: 0.42,
+      blur: 7.25,
+      angle: 123.4,
+      distance: 5.5,
+      rotateWithShape: true,
+    };
+    const combined = slide.addText('Combined text shadow', {
+      fill: { kind: 'solid', color: { kind: 'srgb', value: 'DDEEFF' } },
+      line: {
+        kind: 'line',
+        color: { kind: 'srgb', value: '112233' },
+        width: 2,
+        dash: 'dash',
+      },
+      arrows: { begin: 'triangle', end: 'arrow' },
+      shadow: source,
+    });
+    const rich = slide.addRichText([{ runs: [{ text: 'Rich text shadow' }] }], {
+      shadow: {
+        kind: 'inner',
+        color: { kind: 'srgb', value: '445566' },
+        opacity: 0,
+        blur: 0,
+        angle: 0,
+        distance: 0,
+      },
+    });
+    const defaults = slide.addText('Default text shadow', {
+      shadow: { kind: 'outer' },
+    });
+    color.value = 'accent3';
+
+    expect(combined.shadow).toEqual({
+      kind: 'outer',
+      color: { kind: 'scheme', value: 'accent2' },
+      opacity: 0.42,
+      blur: 7.25,
+      angle: 123.4,
+      distance: 5.5,
+      rotateWithShape: true,
+    });
+    expect(rich.shadow).toEqual({
+      kind: 'inner',
+      color: { kind: 'srgb', value: '445566' },
+      opacity: 0,
+      blur: 0,
+      angle: 0,
+      distance: 0,
+    });
+    expect(defaults.shadow).toEqual({
+      kind: 'outer',
+      color: { kind: 'srgb', value: '000000' },
+      opacity: 0.75,
+      blur: 8,
+      angle: 270,
+      distance: 4,
+      rotateWithShape: false,
+    });
+    const first = combined.shadow;
+    const second = combined.shadow;
+    expect(first).not.toBe(second);
+    expect(first?.color).not.toBe(second?.color);
+    expect(Object.isFrozen(first)).toBe(true);
+    expect(Object.isFrozen(first?.color)).toBe(true);
+
+    let xml = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect(xml).toContain(
+      '<a:solidFill><a:srgbClr val="DDEEFF"/></a:solidFill>' +
+      '<a:ln w="25400"><a:solidFill><a:srgbClr val="112233"/></a:solidFill>' +
+      '<a:prstDash val="dash"/><a:headEnd type="triangle"/>' +
+      '<a:tailEnd type="arrow"/></a:ln><a:effectLst>' +
+      '<a:outerShdw sx="100000" sy="100000" kx="0" ky="0" algn="bl" ' +
+      'rotWithShape="1" blurRad="92075" dist="69850" dir="7404000">' +
+      '<a:schemeClr val="accent2"><a:alpha val="42000"/></a:schemeClr>' +
+      '</a:outerShdw></a:effectLst>',
+    );
+    expect(xml).toContain(
+      '<a:innerShdw blurRad="0" dist="0" dir="0">' +
+      '<a:srgbClr val="445566"><a:alpha val="0"/></a:srgbClr></a:innerShdw>',
+    );
+
+    const beforeNoOp = pkg.requirePart(slide.partUri).bytes.slice();
+    const beforeJournal = [...pkg.mutations];
+    combined.shadow = {
+      kind: 'outer',
+      color: { kind: 'scheme', value: 'accent2' },
+      opacity: 0.42,
+      blur: 7.25,
+      angle: 123.4,
+      distance: 5.5,
+      rotateWithShape: true,
+    };
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeNoOp);
+    expect(pkg.mutations).toEqual(beforeJournal);
+
+    combined.shadow = undefined;
+    expect(combined.shadow).toBeUndefined();
+    expect(combined.fill).toEqual({
+      kind: 'solid',
+      color: { kind: 'srgb', value: 'DDEEFF' },
+    });
+    expect(combined.line).toEqual({
+      kind: 'line',
+      color: { kind: 'srgb', value: '112233' },
+      width: 2,
+      dash: 'dash',
+    });
+    expect(combined.arrows).toEqual({ begin: 'triangle', end: 'arrow' });
+    combined.shadow = { kind: 'outer' };
+    combined.fill = undefined;
+    combined.line = undefined;
+    combined.arrows = undefined;
+    expect(combined.shadow).toEqual({
+      kind: 'outer',
+      color: { kind: 'srgb', value: '000000' },
+      opacity: 0.75,
+      blur: 8,
+      angle: 270,
+      distance: 4,
+      rotateWithShape: false,
+    });
+    xml = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect(xml).toContain('<a:ln></a:ln><a:effectLst><a:outerShdw');
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedSlide = reopened.slides.find(({ partUri }) => partUri === slide.partUri)!;
+    const reopenedRich = reopenedSlide.shapes.find(({ id }) => id === rich.id) as ShapeModel;
+    expect(reopenedRich.shadow).toEqual({
+      kind: 'inner',
+      color: { kind: 'srgb', value: '445566' },
+      opacity: 0,
+      blur: 0,
+      angle: 0,
+      distance: 0,
+    });
+  });
+
+  it('rejects invalid text shadow creation without mutation', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const existing = slide.addText('Existing text');
+    let getterCalls = 0;
+    const accessor = Object.defineProperty({}, 'kind', {
+      enumerable: true,
+      get() {
+        getterCalls += 1;
+        return 'outer';
+      },
+    });
+    const inherited = Object.create({ kind: 'outer' });
+    const invalid = [
+      null,
+      [],
+      new Date(),
+      accessor,
+      inherited,
+      {},
+      { kind: 'none' },
+      { type: 'outer' },
+      { kind: 'outer', offset: 4 },
+      { kind: 'inner', rotateWithShape: true },
+      { kind: 'outer', opacity: '0.5' },
+      { kind: 'outer', opacity: Number.NaN },
+      { kind: 'outer', blur: -1 },
+      { kind: 'outer', blur: 101 },
+      { kind: 'outer', angle: 360 },
+      { kind: 'outer', distance: 201 },
+      { kind: 'outer', color: { kind: 'srgb', value: 'FFF' } },
+      { kind: 'outer', color: { kind: 'scheme', value: 'unknown' } },
+      { kind: 'outer', [Symbol('unsafe')]: true },
+    ];
+
+    for (const [index, value] of invalid.entries()) {
+      const before = packageSnapshot(pkg);
+      const shapes = slide.shapes;
+      expect(() => slide.addText('Invalid shadow', { shadow: value } as never)).toThrow();
+      expect(() => slide.addRichText([{ runs: [{ text: 'Invalid rich shadow' }] }], {
+        shadow: value,
+      } as never)).toThrow();
+      expect(packageSnapshot(pkg), `invalid shadow ${index}`).toEqual(before);
+      expect(slide.shapes).toEqual(shapes);
+      expect(slide.shapes.at(-1)).toBe(existing);
+    }
+    expect(getterCalls).toBe(0);
+  });
+
   it('reads and edits direct shape fills through stable live models', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);
