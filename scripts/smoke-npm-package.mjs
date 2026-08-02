@@ -3413,6 +3413,282 @@ if (!textShapePresetGeometry) {
 await reopenedTextShapePresetGeometryDeck.writeFile(
   'text-shape-preset-geometry-smoke.pptx',
 );
+const textShapeRectRadiusDeck = PptxDocument.create();
+const textShapeRectRadiusLayout = textShapeRectRadiusDeck.layouts[0];
+const textShapeRectRadiusMaster = textShapeRectRadiusDeck.masters[0];
+const packedLayoutTextRectRadius = textShapeRectRadiusLayout.addText(
+  'Packed layout rounded text',
+  {
+    name: 'packed_layout_text_rect_radius',
+    shape: 'roundRect',
+    rectRadius: inches(0.5),
+    width: inches(4),
+    height: inches(2),
+  },
+);
+const packedMasterTextRectRadius = textShapeRectRadiusMaster.addRichText([{
+  runs: [{ text: 'Packed master rounded text' }],
+}], {
+  name: 'packed_master_text_rect_radius',
+  shape: 'roundRect',
+  rectRadius: inches(0),
+  width: inches(2),
+  height: inches(1),
+});
+const packedLayoutRectRadiusPlaceholder = textShapeRectRadiusLayout.addPlaceholder(
+  'Packed rounded prompt',
+  {
+    name: 'packed_text_rect_radius_placeholder',
+    type: 'title',
+    index: 397,
+    shape: 'roundRect',
+    rectRadius: inches(0.25),
+    width: inches(4),
+    height: inches(2),
+  },
+);
+const textShapeRectRadiusSlide = textShapeRectRadiusDeck.addSlide({
+  masterName: textShapeRectRadiusLayout.name,
+});
+const packedOmittedTextRectRadius = textShapeRectRadiusSlide.addText(
+  'Packed omitted radius',
+  { name: 'packed_omitted_text_rect_radius', shape: 'roundRect' },
+);
+const packedTwoByOneTextRectRadius = textShapeRectRadiusSlide.addText(
+  'Packed two by one radius',
+  {
+    name: 'packed_two_by_one_text_rect_radius',
+    shape: 'roundRect',
+    rectRadius: inches(0.5),
+    width: inches(2),
+    height: inches(1),
+  },
+);
+const packedRichTextRectRadius = textShapeRectRadiusSlide.addRichText([{
+  runs: [{ text: 'Packed rich ' }, { text: 'radius', style: { bold: true } }],
+}], {
+  name: 'packed_rich_text_rect_radius',
+  shape: 'roundRect',
+  rectRadius: inches(0.5),
+  width: inches(4),
+  height: inches(2),
+  fill: { kind: 'solid', color: { kind: 'scheme', value: 'accent2' } },
+  line: {
+    kind: 'line',
+    color: { kind: 'srgb', value: '123ABC' },
+    width: 2,
+    dash: 'dashDot',
+  },
+  arrows: { begin: 'oval', end: 'triangle' },
+  shadow: { kind: 'outer', opacity: 0.5 },
+  margin: 0,
+  valign: 'bottom',
+  fit: 'shrink',
+  wrap: false,
+});
+const packedPopulatedTextRectRadius = textShapeRectRadiusSlide.addText(
+  'Packed populated radius',
+  {
+    placeholder: 'packed_text_rect_radius_placeholder',
+    shape: 'roundRect',
+    rectRadius: inches(0.5),
+    width: inches(1),
+    height: inches(1),
+  },
+);
+const packedSlideRectRadiusPlaceholder = textShapeRectRadiusSlide.addPlaceholder(
+  'Packed zero radius prompt',
+  {
+    name: 'packed_zero_text_rect_radius',
+    type: 'body',
+    index: 398,
+    shape: 'roundRect',
+    rectRadius: inches(0),
+    width: inches(2),
+    height: inches(1),
+  },
+);
+const packedTextRectRadiusImmediate = [
+  packedOmittedTextRectRadius.adjustments,
+  packedTwoByOneTextRectRadius.adjustments,
+  packedRichTextRectRadius.adjustments,
+  packedPopulatedTextRectRadius.adjustments,
+  packedSlideRectRadiusPlaceholder.adjustments,
+  packedLayoutTextRectRadius.adjustments,
+  packedMasterTextRectRadius.adjustments,
+  packedLayoutRectRadiusPlaceholder.adjustments,
+];
+const packedTextRectRadiusNoOpBytes = textShapeRectRadiusDeck.opcPackage
+  .requirePart(textShapeRectRadiusSlide.partUri).bytes.slice();
+const packedTextRectRadiusNoOpJournal = textShapeRectRadiusDeck.opcPackage.mutations.length;
+packedTwoByOneTextRectRadius.adjustments = [{ name: 'adj', value: 50_000 }];
+const packedTextRectRadiusNoOpCurrent = textShapeRectRadiusDeck.opcPackage
+  .requirePart(textShapeRectRadiusSlide.partUri).bytes;
+const packedTextRectRadiusNoOp =
+  packedTextRectRadiusNoOpJournal === textShapeRectRadiusDeck.opcPackage.mutations.length &&
+  packedTextRectRadiusNoOpBytes.length === packedTextRectRadiusNoOpCurrent.length &&
+  packedTextRectRadiusNoOpBytes.every(
+    (value, index) => value === packedTextRectRadiusNoOpCurrent[index],
+  );
+packedTwoByOneTextRectRadius.setTransform({ width: inches(4), height: inches(2) });
+const packedTextRectRadiusResizeStable =
+  packedTwoByOneTextRectRadius.adjustments?.[0]?.value === 50_000;
+packedOmittedTextRectRadius.adjustments = [{ name: 'adj', value: 12_500 }];
+const packedTextRectRadiusReplacement =
+  packedOmittedTextRectRadius.adjustments?.[0]?.value === 12_500;
+packedOmittedTextRectRadius.adjustments = [];
+const packedTextRectRadiusClear = packedOmittedTextRectRadius.adjustments?.length === 0;
+const packedDeclarativeTextRectRadiusLayout = await textShapeRectRadiusDeck.defineSlideMaster({
+  title: 'PACKED-TEXT-SHAPE-RECT-RADIUS',
+  objects: [
+    {
+      kind: 'text',
+      text: 'Packed declarative rounded text',
+      options: {
+        name: 'packed_declarative_text_rect_radius',
+        shape: 'roundRect',
+        rectRadius: inches(0.25),
+        width: inches(2),
+        height: inches(1),
+      },
+    },
+    {
+      kind: 'placeholder',
+      text: 'Packed declarative rounded prompt',
+      options: {
+        name: 'packed_declarative_rect_radius_placeholder',
+        type: 'body',
+        index: 399,
+        shape: 'roundRect',
+        rectRadius: inches(0.5),
+        width: inches(4),
+        height: inches(2),
+      },
+    },
+  ],
+});
+const packedDeclarativeTextRectRadius = packedDeclarativeTextRectRadiusLayout.shapes.find(
+  ({ name }) => name === 'packed_declarative_text_rect_radius',
+);
+const packedDeclarativeRectRadiusPlaceholder =
+  packedDeclarativeTextRectRadiusLayout.placeholders.find(
+    ({ name }) => name === 'packed_declarative_rect_radius_placeholder',
+  );
+const packedDeclarativeTextRectRadiusSlide = textShapeRectRadiusDeck.addSlide({
+  masterName: packedDeclarativeTextRectRadiusLayout.name,
+});
+const packedDeclarativePopulatedTextRectRadius =
+  packedDeclarativeTextRectRadiusSlide.addText('Packed declarative populated radius', {
+    placeholder: 'packed_declarative_rect_radius_placeholder',
+    shape: 'roundRect',
+    rectRadius: inches(0.25),
+    width: inches(1),
+    height: inches(1),
+  });
+const duplicateTextShapeRectRadiusSlide = textShapeRectRadiusDeck.duplicateSlide(
+  textShapeRectRadiusDeck.slides.indexOf(textShapeRectRadiusSlide),
+);
+const duplicateRichTextRectRadius = duplicateTextShapeRectRadiusSlide.shapes.find(
+  ({ name }) => name === 'packed_rich_text_rect_radius',
+);
+duplicateRichTextRectRadius.adjustments = [{ name: 'adj', value: 75_000 }];
+const packedTextRectRadiusDuplicateIndependent =
+  packedRichTextRectRadius.adjustments?.[0]?.value === 25_000 &&
+  duplicateRichTextRectRadius.adjustments?.[0]?.value === 75_000;
+const reopenedTextShapeRectRadiusDeck = await PptxDocument.open(
+  await textShapeRectRadiusDeck.write(),
+);
+await reopenedTextShapeRectRadiusDeck.write({ compatibility: 'powerpoint-2010' });
+const reopenedTextShapeRectRadiusByName = (owner, name) => owner.shapes.find(
+  (shape) => shape.name === name,
+);
+const reopenedTextShapeRectRadiusLayout = reopenedTextShapeRectRadiusDeck.layouts.find(
+  ({ partUri }) => partUri === textShapeRectRadiusLayout.partUri,
+);
+const reopenedTextShapeRectRadiusMaster = reopenedTextShapeRectRadiusDeck.masters.find(
+  ({ partUri }) => partUri === textShapeRectRadiusMaster.partUri,
+);
+const reopenedDeclarativeTextRectRadiusLayout = reopenedTextShapeRectRadiusDeck.layouts.find(
+  ({ name }) => name === 'PACKED-TEXT-SHAPE-RECT-RADIUS',
+);
+const textShapeRectRadiusFormatStates = [];
+for (const format of ['pptx', 'pptm', 'ppsx', 'ppsm', 'potx', 'potm']) {
+  const formatted = PptxDocument.create({ format });
+  formatted.addSlide().addText(format, {
+    name: format,
+    shape: 'roundRect',
+    rectRadius: inches(0.5),
+    width: inches(2),
+    height: inches(1),
+  });
+  const reopenedFormatted = await PptxDocument.open(await formatted.write());
+  textShapeRectRadiusFormatStates.push({
+    format: reopenedFormatted.format,
+    adjustment: reopenedFormatted.slides[0].shapes[0].adjustments?.[0]?.value,
+  });
+}
+const textShapeRectRadius =
+  JSON.stringify(packedTextRectRadiusImmediate) === JSON.stringify([
+    [],
+    [{ name: 'adj', value: 50_000 }],
+    [{ name: 'adj', value: 25_000 }],
+    [{ name: 'adj', value: 25_000 }],
+    [{ name: 'adj', value: 0 }],
+    [{ name: 'adj', value: 25_000 }],
+    [{ name: 'adj', value: 0 }],
+    [{ name: 'adj', value: 12_500 }],
+  ]) &&
+  packedTextRectRadiusNoOp &&
+  packedTextRectRadiusResizeStable &&
+  packedTextRectRadiusReplacement &&
+  packedTextRectRadiusClear &&
+  packedTextRectRadiusDuplicateIndependent &&
+  packedLayoutRectRadiusPlaceholder.adjustments?.[0]?.value === 12_500 &&
+  packedPopulatedTextRectRadius.adjustments?.[0]?.value === 25_000 &&
+  packedDeclarativeTextRectRadius?.adjustments?.[0]?.value === 25_000 &&
+  packedDeclarativeRectRadiusPlaceholder?.adjustments?.[0]?.value === 25_000 &&
+  packedDeclarativePopulatedTextRectRadius.adjustments?.[0]?.value === 12_500 &&
+  reopenedTextShapeRectRadiusByName(
+    reopenedTextShapeRectRadiusDeck.slides.find(
+      ({ partUri }) => partUri === textShapeRectRadiusSlide.partUri,
+    ),
+    'packed_two_by_one_text_rect_radius',
+  )?.adjustments?.[0]?.value === 50_000 &&
+  reopenedTextShapeRectRadiusLayout &&
+  reopenedTextShapeRectRadiusByName(
+    reopenedTextShapeRectRadiusLayout,
+    'packed_layout_text_rect_radius',
+  )?.adjustments?.[0]?.value === 25_000 &&
+  reopenedTextShapeRectRadiusMaster &&
+  reopenedTextShapeRectRadiusByName(
+    reopenedTextShapeRectRadiusMaster,
+    'packed_master_text_rect_radius',
+  )?.adjustments?.[0]?.value === 0 &&
+  reopenedDeclarativeTextRectRadiusLayout &&
+  reopenedTextShapeRectRadiusByName(
+    reopenedDeclarativeTextRectRadiusLayout,
+    'packed_declarative_text_rect_radius',
+  )?.adjustments?.[0]?.value === 25_000 &&
+  reopenedTextShapeRectRadiusDeck.diagnostics.length === 0 &&
+  JSON.stringify(textShapeRectRadiusFormatStates) === JSON.stringify(
+    ['pptx', 'pptm', 'ppsx', 'ppsm', 'potx', 'potm'].map((format) => ({
+      format,
+      adjustment: 50_000,
+    })),
+  );
+if (!textShapeRectRadius) {
+  throw new Error('Packed text shape rectangle radius failed: ' + JSON.stringify({
+    immediate: packedTextRectRadiusImmediate,
+    noOp: packedTextRectRadiusNoOp,
+    resizeStable: packedTextRectRadiusResizeStable,
+    replacement: packedTextRectRadiusReplacement,
+    clear: packedTextRectRadiusClear,
+    duplicateIndependent: packedTextRectRadiusDuplicateIndependent,
+    formatStates: textShapeRectRadiusFormatStates,
+    diagnostics: reopenedTextShapeRectRadiusDeck.diagnostics,
+  }));
+}
+await reopenedTextShapeRectRadiusDeck.writeFile('text-shape-rect-radius-smoke.pptx');
 const internalTextShapeHyperlinkDeck = PptxDocument.create();
 const internalTextShapeHyperlinkSource = internalTextShapeHyperlinkDeck.addSlide();
 internalTextShapeHyperlinkDeck.addSlide();
@@ -5053,6 +5329,7 @@ const checks = {
   textShapeShadows,
   textShapeHyperlinks,
   textShapePresetGeometry,
+  textShapeRectRadius,
   richTextRunHyperlinks,
   shapeLines,
   shapeArrows,
@@ -5959,6 +6236,97 @@ const browserTextShapeFillChecks = {
 if (Object.values(browserTextShapeFillChecks).some((value) => !value)) {
   throw new Error('Browser text shape fill failed: ' + JSON.stringify(browserTextShapeFillChecks));
 }
+const browserTextShapeRectRadiusDeck = PptxDocument.create();
+const browserTextShapeRectRadiusLayout = browserTextShapeRectRadiusDeck.layouts[0];
+const browserTextShapeRectRadiusPlaceholder = browserTextShapeRectRadiusLayout.addPlaceholder(
+  'Browser text radius prompt',
+  {
+    name: 'browser_text_rect_radius_placeholder',
+    type: 'title',
+    index: 397,
+    shape: 'roundRect',
+    rectRadius: inches(0.25),
+    width: inches(4),
+    height: inches(2),
+  },
+);
+const browserTextShapeRectRadiusSlide = browserTextShapeRectRadiusDeck.addSlide({
+  masterName: browserTextShapeRectRadiusLayout.name,
+});
+const browserPlainTextShapeRectRadius = browserTextShapeRectRadiusSlide.addText(
+  'Browser plain text radius',
+  {
+    name: 'browser_plain_text_rect_radius',
+    shape: 'roundRect',
+    rectRadius: inches(0.5),
+    width: inches(2),
+    height: inches(1),
+  },
+);
+const browserRichTextShapeRectRadius = browserTextShapeRectRadiusSlide.addRichText([{
+  runs: [{ text: 'Browser rich text radius' }],
+}], {
+  name: 'browser_rich_text_rect_radius',
+  shape: 'roundRect',
+  rectRadius: inches(0),
+  width: inches(2),
+  height: inches(1),
+});
+const browserPopulatedTextShapeRectRadius = browserTextShapeRectRadiusSlide.addText(
+  'Browser populated text radius',
+  {
+    placeholder: 'browser_text_rect_radius_placeholder',
+    shape: 'roundRect',
+    rectRadius: inches(0.5),
+    width: inches(1),
+    height: inches(1),
+  },
+);
+browserPlainTextShapeRectRadius.setTransform({ width: inches(4), height: inches(2) });
+browserRichTextShapeRectRadius.adjustments = [{ name: 'adj', value: 12_500 }];
+const reopenedBrowserTextShapeRectRadiusDeck = await PptxDocument.open(
+  await browserTextShapeRectRadiusDeck.writeBlob(),
+);
+await reopenedBrowserTextShapeRectRadiusDeck.write({
+  compatibility: 'powerpoint-current',
+});
+const reopenedBrowserTextShapeRectRadiusSlide = reopenedBrowserTextShapeRectRadiusDeck.slides[0];
+const reopenedBrowserTextShapeRectRadiusLayout = reopenedBrowserTextShapeRectRadiusDeck.layouts[0];
+const browserTextShapeRectRadiusByName = (owner, name) => owner.shapes.find(
+  (shape) => shape instanceof ShapeModel && shape.name === name,
+);
+const browserTextShapeRectRadiusChecks = {
+  resizeStable: browserPlainTextShapeRectRadius.adjustments?.[0]?.value === 50_000,
+  edited: browserRichTextShapeRectRadius.adjustments?.[0]?.value === 12_500,
+  plain: browserTextShapeRectRadiusByName(
+    reopenedBrowserTextShapeRectRadiusSlide,
+    'browser_plain_text_rect_radius',
+  )?.adjustments?.[0]?.value === 50_000,
+  rich: browserTextShapeRectRadiusByName(
+    reopenedBrowserTextShapeRectRadiusSlide,
+    'browser_rich_text_rect_radius',
+  )?.adjustments?.[0]?.value === 12_500,
+  populated: browserTextShapeRectRadiusByName(
+    reopenedBrowserTextShapeRectRadiusSlide,
+    'browser_text_rect_radius_placeholder',
+  )?.adjustments?.[0]?.value === 25_000,
+  placeholder: browserTextShapeRectRadiusByName(
+    reopenedBrowserTextShapeRectRadiusLayout,
+    'browser_text_rect_radius_placeholder',
+  )?.adjustments?.[0]?.value === 12_500,
+  live: browserTextShapeRectRadiusPlaceholder instanceof ShapeModel &&
+    browserRichTextShapeRectRadius instanceof ShapeModel &&
+    browserPopulatedTextShapeRectRadius instanceof ShapeModel,
+  validation: reopenedBrowserTextShapeRectRadiusDeck.diagnostics.every(
+    ({ severity }) => severity !== 'error',
+  ),
+};
+if (Object.values(browserTextShapeRectRadiusChecks).some((value) => !value)) {
+  throw new Error(
+    'Browser text shape rectangle radius failed: ' +
+    JSON.stringify(browserTextShapeRectRadiusChecks),
+  );
+}
 const browserTextShapeLineDeck = PptxDocument.create();
 const browserTextShapeLineLayout = browserTextShapeLineDeck.layouts[0];
 const browserTextShapeLinePlaceholder = browserTextShapeLineLayout.addPlaceholder(
@@ -6712,6 +7080,7 @@ process.stdout.write(resolved);
   type EvaluatedCustomGeometryPolarHandle,
   type EvaluatedCustomGeometryTextRectangle,
   type EvaluatedCustomGeometryXyHandle,
+  type Emu,
   type Hyperlink,
   type ImageByteChunk,
   type ImageByteStream,
@@ -7404,6 +7773,37 @@ const typedTextShapeOptions: AddTextOptions = {
 };
 const typedTextShapeEllipseOptions: AddTextOptions = { shape: 'ellipse' };
 const typedTextShapeRectOptions: AddTextOptions = { shape: 'rect' };
+const typedTextShapeRectRadius: Emu = inches(0.5);
+const typedTextShapeRectRadiusOptions: AddTextOptions = {
+  shape: 'roundRect',
+  rectRadius: typedTextShapeRectRadius,
+  width: inches(4),
+  height: inches(2),
+};
+const typedTextShapeZeroRectRadiusOptions: AddTextOptions = {
+  shape: 'roundRect',
+  rectRadius: inches(0),
+};
+const invalidTextShapeNumericRectRadius: AddTextOptions = {
+  shape: 'roundRect',
+  // @ts-expect-error radius uses branded EMU rather than an implicit inch number
+  rectRadius: 0.5,
+};
+const invalidTextShapeStringRectRadius: AddTextOptions = {
+  shape: 'roundRect',
+  // @ts-expect-error radius does not accept string coercion
+  rectRadius: '0.5',
+};
+const invalidTextShapeBooleanRectRadius: AddTextOptions = {
+  shape: 'roundRect',
+  // @ts-expect-error radius must be numeric EMU
+  rectRadius: false,
+};
+const invalidTextShapeObjectRectRadius: AddTextOptions = {
+  shape: 'roundRect',
+  // @ts-expect-error radius must not be an object
+  rectRadius: {},
+};
 // @ts-expect-error malformed upstream folded-corner spelling is excluded
 const invalidTextShapeFolderCorner: AddTextOptions = { shape: 'folderCorner' };
 // @ts-expect-error custom geometry uses the dedicated custom-shape API
@@ -7419,6 +7819,13 @@ const typedPlainTextShape: ShapeModel = typedTextShapeSlide.addText(
   'Typed plain text shape fill',
   typedTextShapeOptions,
 );
+const typedRectRadiusTextShape: ShapeModel = typedTextShapeSlide.addText(
+  'Typed text rectangle radius',
+  typedTextShapeRectRadiusOptions,
+);
+typedTextShapeSlide.addText('Typed zero text rectangle radius', typedTextShapeZeroRectRadiusOptions);
+// @ts-expect-error live radius aliases are intentionally excluded
+typedRectRadiusTextShape.rectRadius;
 const typedRichTextShape: ShapeModel = typedTextShapeSlide.addRichText([{
   runs: [{ text: 'Typed rich text shape fill' }],
 }], {
@@ -9010,6 +9417,70 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
       textShapePresetGeometryPartResult.stdout,
     );
   }
+  const textShapeRectRadiusDeckPath = join(
+    directory,
+    'text-shape-rect-radius-smoke.pptx',
+  );
+  const textShapeRectRadiusValidateResult = run(
+    bin,
+    [
+      '--json', 'package', 'validate', textShapeRectRadiusDeckPath,
+      '--profile', 'powerpoint-2010',
+    ],
+    directory,
+  );
+  const textShapeRectRadiusValidated = JSON.parse(
+    textShapeRectRadiusValidateResult.stdout,
+  );
+  if (!textShapeRectRadiusValidated.ok ||
+      !textShapeRectRadiusValidated.data?.valid ||
+      textShapeRectRadiusValidated.data.errorCount !== 0 ||
+      textShapeRectRadiusValidated.data.warningCount !== 0 ||
+      textShapeRectRadiusValidated.data.diagnostics.length !== 0) {
+    throw new Error(
+      'CLI text-shape-rect-radius validation failed: ' +
+      textShapeRectRadiusValidateResult.stdout,
+    );
+  }
+  const textShapeRectRadiusSlidesResult = run(
+    bin,
+    ['--json', 'slides', 'list', textShapeRectRadiusDeckPath],
+    directory,
+  );
+  const textShapeRectRadiusSlides = JSON.parse(textShapeRectRadiusSlidesResult.stdout);
+  if (!textShapeRectRadiusSlides.ok ||
+      textShapeRectRadiusSlides.data?.length !== 3 ||
+      textShapeRectRadiusSlides.data[0]?.shapeCount < 5) {
+    throw new Error(
+      'CLI text-shape-rect-radius slide listing failed: ' +
+      textShapeRectRadiusSlidesResult.stdout,
+    );
+  }
+  const textShapeRectRadiusPartResult = run(
+    bin,
+    [
+      '--json', 'part', 'read', textShapeRectRadiusDeckPath,
+      textShapeRectRadiusSlides.data[0].partUri,
+    ],
+    directory,
+  );
+  const textShapeRectRadiusPart = JSON.parse(textShapeRectRadiusPartResult.stdout);
+  const textShapeRectRadiusXml = textShapeRectRadiusPart.data?.content ?? '';
+  if (!textShapeRectRadiusPart.ok ||
+      !textShapeRectRadiusXml.includes(
+        '<a:gd name="adj" fmla="val 0"/>',
+      ) ||
+      !textShapeRectRadiusXml.includes(
+        '<a:gd name="adj" fmla="val 25000"/>',
+      ) ||
+      !textShapeRectRadiusXml.includes(
+        '<a:gd name="adj" fmla="val 50000"/>',
+      )) {
+    throw new Error(
+      'CLI text-shape-rect-radius part read failed: ' +
+      textShapeRectRadiusPartResult.stdout,
+    );
+  }
   if (process.env.PPTX_SLIDE_BACKGROUND_GALLERY_OUT) {
     const galleryOutput = resolve(process.env.PPTX_SLIDE_BACKGROUND_GALLERY_OUT);
     await mkdir(dirname(galleryOutput), { recursive: true });
@@ -9047,7 +9518,7 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
   }
 
   process.stdout.write(
-    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, masterLayouts: apiChecks.masterLayouts, slideNumbers: apiChecks.slideNumbers, slideDefaultColor: apiChecks.slideDefaultColor, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, textShapeFills: apiChecks.textShapeFills, textShapeLines: apiChecks.textShapeLines, textShapeArrows: apiChecks.textShapeArrows, textShapeShadows: apiChecks.textShapeShadows, textShapeHyperlinks: apiChecks.textShapeHyperlinks, textShapePresetGeometry: apiChecks.textShapePresetGeometry, richTextRunHyperlinks: apiChecks.richTextRunHyperlinks, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, slideBackgrounds: apiChecks.slideBackgrounds, types: true, cli: doctor.data.version, masterLayoutInspect: true, masterLayoutValidate: true, masterLayoutSlides: true, masterLayoutPartRead: true, masterLayoutDiff: true, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true, slideBackgroundInspect: true, slideBackgroundValidate: true, slideNumberInspect: true, slideNumberValidate: true, slideNumberSlides: true, slideNumberPartRead: true, slideDefaultColorInspect: true, slideDefaultColorValidate: true, slideDefaultColorSlides: true, slideDefaultColorPartRead: true, textShapeFillInspect: true, textShapeFillValidate: true, textShapeFillSlides: true, textShapeFillPartRead: true, textShapeLineInspect: true, textShapeLineValidate: true, textShapeLineSlides: true, textShapeLinePartRead: true, textShapeArrowInspect: true, textShapeArrowValidate: true, textShapeArrowSlides: true, textShapeArrowPartRead: true, textShapeShadowInspect: true, textShapeShadowValidate: true, textShapeShadowSlides: true, textShapeShadowPartRead: true, textShapeHyperlinkInspect: true, textShapeHyperlinkValidate: true, textShapeHyperlinkSlides: true, textShapeHyperlinkPartRead: true, textShapeHyperlinkInternalValidate: true, textShapePresetGeometryValidate: true, textShapePresetGeometrySlides: true, textShapePresetGeometryPartRead: true, richTextRunHyperlinkInspect: true, richTextRunHyperlinkValidate: true, richTextRunHyperlinkSlides: true, richTextRunHyperlinkPartRead: true, richTextRunHyperlinkInternalValidate: true })}\n`,
+    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, masterLayouts: apiChecks.masterLayouts, slideNumbers: apiChecks.slideNumbers, slideDefaultColor: apiChecks.slideDefaultColor, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, textShapeFills: apiChecks.textShapeFills, textShapeLines: apiChecks.textShapeLines, textShapeArrows: apiChecks.textShapeArrows, textShapeShadows: apiChecks.textShapeShadows, textShapeHyperlinks: apiChecks.textShapeHyperlinks, textShapePresetGeometry: apiChecks.textShapePresetGeometry, textShapeRectRadius: apiChecks.textShapeRectRadius, richTextRunHyperlinks: apiChecks.richTextRunHyperlinks, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, slideBackgrounds: apiChecks.slideBackgrounds, types: true, cli: doctor.data.version, masterLayoutInspect: true, masterLayoutValidate: true, masterLayoutSlides: true, masterLayoutPartRead: true, masterLayoutDiff: true, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true, slideBackgroundInspect: true, slideBackgroundValidate: true, slideNumberInspect: true, slideNumberValidate: true, slideNumberSlides: true, slideNumberPartRead: true, slideDefaultColorInspect: true, slideDefaultColorValidate: true, slideDefaultColorSlides: true, slideDefaultColorPartRead: true, textShapeFillInspect: true, textShapeFillValidate: true, textShapeFillSlides: true, textShapeFillPartRead: true, textShapeLineInspect: true, textShapeLineValidate: true, textShapeLineSlides: true, textShapeLinePartRead: true, textShapeArrowInspect: true, textShapeArrowValidate: true, textShapeArrowSlides: true, textShapeArrowPartRead: true, textShapeShadowInspect: true, textShapeShadowValidate: true, textShapeShadowSlides: true, textShapeShadowPartRead: true, textShapeHyperlinkInspect: true, textShapeHyperlinkValidate: true, textShapeHyperlinkSlides: true, textShapeHyperlinkPartRead: true, textShapeHyperlinkInternalValidate: true, textShapePresetGeometryValidate: true, textShapePresetGeometrySlides: true, textShapePresetGeometryPartRead: true, textShapeRectRadiusValidate: true, textShapeRectRadiusSlides: true, textShapeRectRadiusPartRead: true, richTextRunHyperlinkInspect: true, richTextRunHyperlinkValidate: true, richTextRunHyperlinkSlides: true, richTextRunHyperlinkPartRead: true, richTextRunHyperlinkInternalValidate: true })}\n`,
   );
 } finally {
   await rm(directory, { recursive: true, force: true });

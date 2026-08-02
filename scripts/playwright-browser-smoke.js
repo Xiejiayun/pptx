@@ -710,6 +710,148 @@ async (page) => {
           'rect,star5,line,roundRect'
         && textShapePresetGeometryState.layout === 'foldedCorner'
         && textShapePresetGeometryState.validationErrors === 0;
+      const textShapeRectRadiusDocument = api.PptxDocument.create();
+      const textShapeRectRadiusLayout = textShapeRectRadiusDocument.layouts[0];
+      const browserTextRectRadiusPlaceholder = textShapeRectRadiusLayout.addPlaceholder(
+        'Browser rounded prompt',
+        {
+          name: 'browser_text_rect_radius_placeholder',
+          type: 'title',
+          index: 397,
+          shape: 'roundRect',
+          rectRadius: api.inches(0.25),
+          width: api.inches(4),
+          height: api.inches(2),
+        },
+      );
+      const textShapeRectRadiusSlide = textShapeRectRadiusDocument.addSlide({
+        masterName: textShapeRectRadiusLayout.name,
+      });
+      const browserOmittedTextRectRadius = textShapeRectRadiusSlide.addText(
+        'Browser omitted radius',
+        { name: 'browser_omitted_text_rect_radius', shape: 'roundRect' },
+      );
+      const browserZeroTextRectRadius = textShapeRectRadiusSlide.addText(
+        'Browser zero radius',
+        {
+          name: 'browser_zero_text_rect_radius',
+          shape: 'roundRect',
+          rectRadius: api.inches(0),
+          width: api.inches(2),
+          height: api.inches(1),
+        },
+      );
+      const browserTwoByOneTextRectRadius = textShapeRectRadiusSlide.addText(
+        'Browser two by one radius',
+        {
+          name: 'browser_two_by_one_text_rect_radius',
+          shape: 'roundRect',
+          rectRadius: api.inches(0.5),
+          width: api.inches(2),
+          height: api.inches(1),
+        },
+      );
+      const browserRichTextRectRadius = textShapeRectRadiusSlide.addRichText([{
+        runs: [{ text: 'Browser rich ' }, { text: 'radius', style: { bold: true } }],
+      }], {
+        name: 'browser_rich_text_rect_radius',
+        shape: 'roundRect',
+        rectRadius: api.inches(0.5),
+        width: api.inches(4),
+        height: api.inches(2),
+      });
+      const browserPopulatedTextRectRadius = textShapeRectRadiusSlide.addText(
+        'Browser populated radius',
+        {
+          placeholder: 'browser_text_rect_radius_placeholder',
+          shape: 'roundRect',
+          rectRadius: api.inches(0.5),
+          width: api.inches(1),
+          height: api.inches(1),
+        },
+      );
+      const textShapeRectRadiusImmediate = [
+        browserOmittedTextRectRadius.adjustments,
+        browserZeroTextRectRadius.adjustments,
+        browserTwoByOneTextRectRadius.adjustments,
+        browserRichTextRectRadius.adjustments,
+        browserPopulatedTextRectRadius.adjustments,
+        browserTextRectRadiusPlaceholder.adjustments,
+      ];
+      browserTwoByOneTextRectRadius.setTransform({
+        width: api.inches(4),
+        height: api.inches(2),
+      });
+      browserRichTextRectRadius.adjustments = [{ name: 'adj', value: 12_500 }];
+      browserOmittedTextRectRadius.adjustments = [{ name: 'adj', value: 75_000 }];
+      browserOmittedTextRectRadius.adjustments = [];
+      const textShapeRectRadiusOutput = await textShapeRectRadiusDocument.writeBlob();
+      const reopenedTextShapeRectRadius = await api.PptxDocument.open(
+        textShapeRectRadiusOutput,
+      );
+      await reopenedTextShapeRectRadius.write({ compatibility: 'powerpoint-current' });
+      const textShapeRectRadiusByName = (owner, name) => owner.shapes.find(
+        (shape) => shape instanceof api.ShapeModel && shape.name === name,
+      );
+      const textShapeRectRadiusState = {
+        mime: textShapeRectRadiusOutput.type,
+        immediate: textShapeRectRadiusImmediate,
+        resizeStable: browserTwoByOneTextRectRadius.adjustments,
+        edited: browserRichTextRectRadius.adjustments,
+        cleared: browserOmittedTextRectRadius.adjustments,
+        reopened: [
+          textShapeRectRadiusByName(
+            reopenedTextShapeRectRadius.slides[0],
+            'browser_omitted_text_rect_radius',
+          ).adjustments,
+          textShapeRectRadiusByName(
+            reopenedTextShapeRectRadius.slides[0],
+            'browser_zero_text_rect_radius',
+          ).adjustments,
+          textShapeRectRadiusByName(
+            reopenedTextShapeRectRadius.slides[0],
+            'browser_two_by_one_text_rect_radius',
+          ).adjustments,
+          textShapeRectRadiusByName(
+            reopenedTextShapeRectRadius.slides[0],
+            'browser_rich_text_rect_radius',
+          ).adjustments,
+          textShapeRectRadiusByName(
+            reopenedTextShapeRectRadius.slides[0],
+            'browser_text_rect_radius_placeholder',
+          ).adjustments,
+        ],
+        layout: textShapeRectRadiusByName(
+          reopenedTextShapeRectRadius.layouts[0],
+          'browser_text_rect_radius_placeholder',
+        ).adjustments,
+        validationErrors: reopenedTextShapeRectRadius.diagnostics.filter(
+          ({ severity }) => severity === 'error',
+        ).length,
+      };
+      const textShapeRectRadius =
+        textShapeRectRadiusState.mime ===
+          'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+        && JSON.stringify(textShapeRectRadiusState.immediate) === JSON.stringify([
+          [],
+          [{ name: 'adj', value: 0 }],
+          [{ name: 'adj', value: 50_000 }],
+          [{ name: 'adj', value: 25_000 }],
+          [{ name: 'adj', value: 25_000 }],
+          [{ name: 'adj', value: 12_500 }],
+        ])
+        && textShapeRectRadiusState.resizeStable?.[0]?.value === 50_000
+        && textShapeRectRadiusState.edited?.[0]?.value === 12_500
+        && textShapeRectRadiusState.cleared?.length === 0
+        && JSON.stringify(textShapeRectRadiusState.reopened) === JSON.stringify([
+          [],
+          [{ name: 'adj', value: 0 }],
+          [{ name: 'adj', value: 50_000 }],
+          [{ name: 'adj', value: 12_500 }],
+          [{ name: 'adj', value: 25_000 }],
+        ])
+        && textShapeRectRadiusState.layout?.[0]?.value === 12_500
+        && textShapeRectRadiusState.validationErrors === 0;
       const textShapeHyperlinkDocument = api.PptxDocument.create();
       const textShapeHyperlinkLayout = textShapeHyperlinkDocument.layouts[0];
       textShapeHyperlinkLayout.addPlaceholder('Browser text hyperlink prompt', {
@@ -1416,6 +1558,8 @@ async (page) => {
         textShapeShadows: textShapeShadowState,
         textShapePresetGeometry,
         textShapePresetGeometryState,
+        textShapeRectRadius,
+        textShapeRectRadiusState,
         textShapeHyperlinks,
         textShapeHyperlinkState,
         richTextRunHyperlinks,
@@ -1808,6 +1952,30 @@ async (page) => {
         'Browser ellipse geometry',
         'Browser rich line',
       ],
+      validationErrors: 0,
+    },
+    textShapeRectRadius: true,
+    textShapeRectRadiusState: {
+      mime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      immediate: [
+        [],
+        [{ name: 'adj', value: 0 }],
+        [{ name: 'adj', value: 50_000 }],
+        [{ name: 'adj', value: 25_000 }],
+        [{ name: 'adj', value: 25_000 }],
+        [{ name: 'adj', value: 12_500 }],
+      ],
+      resizeStable: [{ name: 'adj', value: 50_000 }],
+      edited: [{ name: 'adj', value: 12_500 }],
+      cleared: [],
+      reopened: [
+        [],
+        [{ name: 'adj', value: 0 }],
+        [{ name: 'adj', value: 50_000 }],
+        [{ name: 'adj', value: 12_500 }],
+        [{ name: 'adj', value: 25_000 }],
+      ],
+      layout: [{ name: 'adj', value: 12_500 }],
       validationErrors: 0,
     },
     textShapeHyperlinks: true,
