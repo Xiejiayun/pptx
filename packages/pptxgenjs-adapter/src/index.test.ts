@@ -184,6 +184,9 @@ type PptxGenJSPublicSlideNumberOptions =
 type PptxGenJSPublicTextOptions = Parameters<
   ReturnType<PptxGenJSPublicInstance['addSlide']>['addText']
 >[1];
+type PptxGenJSPublicText = Parameters<
+  ReturnType<PptxGenJSPublicInstance['addSlide']>['addText']
+>[0];
 type PptxGenJSMediaOptions = Parameters<
   ReturnType<PptxGenJSPublicInstance['addSlide']>['addMedia']
 >[0];
@@ -212,6 +215,17 @@ const publicSlideNumberOptions: PptxGenJSPublicSlideNumberOptions = {
   margin: [1, 2, 3, 4],
 };
 const publicTextBoxOptions: PptxGenJSPublicTextOptions = { isTextBox: true };
+const publicBreakLineText: PptxGenJSPublicText = [
+  { text: 'First', options: { breakLine: true } },
+  { text: 'Second', options: {} },
+];
+const unsupportedPublicBreakLineText: PptxGenJSPublicText = [{
+  text: 'Invalid',
+  options: {
+    // @ts-expect-error PptxGenJS 4.0.1 types require a boolean line-break flag.
+    breakLine: 'true',
+  },
+}];
 const unsupportedPublicTextBoxOptions: PptxGenJSPublicTextOptions = {
   // @ts-expect-error PptxGenJS 4.0.1 types require a boolean text-box flag.
   isTextBox: 'true',
@@ -252,6 +266,8 @@ void [
   publicCustomShapeOptions,
   publicSlideNumberOptions,
   publicTextBoxOptions,
+  publicBreakLineText,
+  unsupportedPublicBreakLineText,
   unsupportedPublicTextBoxOptions,
   unsupportedPublicHandleOptions,
   unsupportedPublicConnectionSiteOptions,
@@ -4372,6 +4388,277 @@ describe('importPptxGenJS', () => {
       expect(() => nativeSlide.addText(fixture.name, {
         isTextBox: fixture.value,
       } as never), fixture.name).toThrow(TypeError);
+      expect(packageState(native), fixture.name).toEqual(before);
+      expect(nativeSlide.shapes, fixture.name).toEqual(shapes);
+      expect(nativeSlide.shapes[0], fixture.name).toBe(existing);
+    }
+  });
+
+  it('compares public rich text line breaks with native canonical paragraphs', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    const generatedSlide = generated.addSlide();
+    const addPublic = (
+      name: string,
+      runs: readonly { readonly text: string; readonly options?: Record<string, unknown> }[],
+      y: number,
+    ) => generatedSlide.addText(runs, {
+      objectName: name,
+      x: 0.5,
+      y,
+      w: 4,
+      h: 0.5,
+    });
+    addPublic('break-middle', [
+      { text: 'A', options: { breakLine: true } },
+      { text: 'B', options: {} },
+    ], 0.5);
+    addPublic('break-trailing', [
+      { text: 'A', options: { breakLine: true } },
+    ], 1);
+    addPublic('break-empty', [
+      { text: '', options: { breakLine: true } },
+      { text: 'B', options: {} },
+    ], 1.5);
+    addPublic('break-consecutive-empty', [
+      { text: '', options: { breakLine: true } },
+      { text: '', options: { breakLine: true } },
+      { text: 'C', options: {} },
+    ], 2);
+    addPublic('break-false', [
+      { text: 'A', options: { breakLine: false } },
+      { text: 'B', options: {} },
+    ], 2.5);
+    addPublic('break-soft', [
+      { text: 'A', options: { breakLine: true } },
+      { text: 'B', options: { softBreakBefore: true } },
+      { text: 'C', options: {} },
+    ], 3);
+    addPublic('break-properties', [
+      {
+        text: 'Right',
+        options: {
+          breakLine: true,
+          align: 'right',
+          paraSpaceAfter: 8,
+          tabStops: [{ position: 1.5, alignment: 'r' }],
+        },
+      },
+      {
+        text: 'Center',
+        options: {
+          align: 'center',
+          paraSpaceAfter: 4,
+          tabStops: [{ position: 2.5, alignment: 'ctr' }],
+        },
+      },
+    ], 3.5);
+    addPublic('break-hyperlinks', [
+      {
+        text: 'External',
+        options: {
+          breakLine: true,
+          hyperlink: { url: 'https://break.example', tooltip: 'External' },
+        },
+      },
+      {
+        text: 'Internal',
+        options: { hyperlink: { slide: 2, tooltip: '' } },
+      },
+    ], 4);
+    generated.addSlide();
+
+    const imported = await openPptxGenJSPublicOutput(generated);
+    const importedShapes = imported.slides[0]!.shapes as readonly ShapeModel[];
+    const byName = (name: string) => importedShapes.find((shape) => shape.name === name)!;
+    const paragraphTexts = (shape: ShapeModel) => shape.richText.map(({ runs }) =>
+      runs.map(({ text }) => text));
+    const expected = new Map<string, readonly (readonly string[])[]>([
+      ['break-middle', [['A'], ['B']]],
+      ['break-trailing', [['A']]],
+      ['break-empty', [[], ['B']]],
+      ['break-consecutive-empty', [[], [], ['C']]],
+      ['break-false', [['A', 'B']]],
+      ['break-soft', [['A'], ['B', 'C']]],
+      ['break-properties', [['Right'], ['Center']]],
+      ['break-hyperlinks', [['External'], ['Internal']]],
+    ]);
+    for (const [name, paragraphs] of expected) {
+      expect(paragraphTexts(byName(name)), name).toEqual(paragraphs);
+      expect(shapeXml(imported, 0, byName(name).id).match(/<a:p>/g), name)
+        .toHaveLength(paragraphs.length);
+    }
+    expect(byName('break-properties').richText.map(({ align, spacing, tabStops }) => ({
+      align,
+      spacing,
+      tabStops,
+    }))).toEqual([
+      {
+        align: 'right',
+        spacing: { after: 8 },
+        tabStops: [{ position: 1.5, alignment: 'right' }],
+      },
+      {
+        align: 'center',
+        spacing: { after: 4 },
+        tabStops: [{ position: 2.5, alignment: 'center' }],
+      },
+    ]);
+    expect(byName('break-hyperlinks').richText.map(({ runs }) =>
+      runs[0]?.style?.hyperlink)).toEqual([
+      { url: 'https://break.example', tooltip: 'External' },
+      { slide: 2, tooltip: '' },
+    ]);
+    expect(byName('break-soft').richText[1]!.runs[0]!.softBreakBefore).toBeUndefined();
+
+    const native = PptxDocument.create();
+    const nativeSlide = native.addSlide();
+    native.addSlide();
+    const nativeFixtures = [
+      {
+        name: 'break-middle',
+        paragraphs: [{ runs: [
+          { text: 'A', breakLine: true },
+          { text: 'B' },
+        ] }],
+      },
+      {
+        name: 'break-trailing',
+        paragraphs: [{ runs: [{ text: 'A', breakLine: true }] }],
+      },
+      {
+        name: 'break-empty',
+        paragraphs: [{ runs: [
+          { text: '', breakLine: true },
+          { text: 'B' },
+        ] }],
+      },
+      {
+        name: 'break-consecutive-empty',
+        paragraphs: [{ runs: [
+          { text: '', breakLine: true },
+          { text: '', breakLine: true },
+          { text: 'C' },
+        ] }],
+      },
+      {
+        name: 'break-false',
+        paragraphs: [{ runs: [
+          { text: 'A', breakLine: false },
+          { text: 'B' },
+        ] }],
+      },
+      {
+        name: 'break-soft',
+        paragraphs: [{ runs: [
+          { text: 'A', breakLine: true },
+          { text: 'B', softBreakBefore: true },
+          { text: 'C' },
+        ] }],
+      },
+      {
+        name: 'break-hyperlinks',
+        paragraphs: [{ runs: [
+          {
+            text: 'External',
+            breakLine: true,
+            style: { hyperlink: { url: 'https://break.example', tooltip: 'External' } },
+          },
+          {
+            text: 'Internal',
+            style: { hyperlink: { slide: 2, tooltip: '' } },
+          },
+        ] }],
+      },
+    ] as const;
+    for (const fixture of nativeFixtures) {
+      const shape = nativeSlide.addRichText(fixture.paragraphs, { name: fixture.name });
+      expect(paragraphTexts(shape), fixture.name).toEqual(expected.get(fixture.name));
+    }
+    const nativeProperties = nativeSlide.addRichText([
+      {
+        align: 'right',
+        spacing: { after: 8 },
+        tabStops: [{ position: 1.5, alignment: 'right' }],
+        runs: [{ text: 'Right' }],
+      },
+      {
+        align: 'center',
+        spacing: { after: 4 },
+        tabStops: [{ position: 2.5, alignment: 'center' }],
+        runs: [{ text: 'Center' }],
+      },
+    ], { name: 'break-properties' });
+    expect(nativeProperties.richText.map(({ align, spacing, tabStops }) => ({
+      align,
+      spacing,
+      tabStops,
+    }))).toEqual(byName('break-properties').richText.map(({ align, spacing, tabStops }) => ({
+      align,
+      spacing,
+      tabStops,
+    })));
+    const nativeHyperlinks = nativeSlide.shapes.find(
+      ({ name }) => name === 'break-hyperlinks',
+    ) as ShapeModel;
+    expect(nativeHyperlinks.richText.map(({ runs }) => runs[0]?.style?.hyperlink))
+      .toEqual(byName('break-hyperlinks').richText.map(
+        ({ runs }) => runs[0]?.style?.hyperlink,
+      ));
+    const nativeSoft = nativeSlide.shapes.find(({ name }) => name === 'break-soft') as ShapeModel;
+    expect(nativeSoft.richText[1]!.runs[0]!.softBreakBefore).toBe(true);
+    expect((await imported.write()).byteLength).toBeGreaterThan(0);
+    expect((await native.write()).byteLength).toBeGreaterThan(0);
+  });
+
+  it('locks rich text line break runtime truthiness divergence and native strictness', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    const generatedSlide = generated.addSlide();
+    const cases = [
+      { name: 'Truthy string', value: 'yes', paragraphs: 2 },
+      { name: 'Truthy number', value: 1, paragraphs: 2 },
+      { name: 'Truthy object', value: {}, paragraphs: 2 },
+      { name: 'Truthy array', value: [], paragraphs: 2 },
+      { name: 'Falsy zero', value: 0, paragraphs: 1 },
+      { name: 'Falsy empty', value: '', paragraphs: 1 },
+      { name: 'Falsy null', value: null, paragraphs: 1 },
+      { name: 'Falsy undefined', value: undefined, paragraphs: 1 },
+    ] as const;
+    for (const [index, fixture] of cases.entries()) {
+      generatedSlide.addText([
+        { text: 'A', options: { breakLine: fixture.value } },
+        { text: 'B', options: {} },
+      ], {
+        objectName: fixture.name,
+        x: 0.5,
+        y: 0.5 + index * 0.5,
+        w: 3,
+        h: 0.4,
+      });
+    }
+    const imported = await openPptxGenJSPublicOutput(generated);
+    for (const fixture of cases) {
+      const shape = imported.slides[0]!.shapes.find(
+        ({ name }) => name === fixture.name,
+      ) as ShapeModel;
+      expect(shape.richText, fixture.name).toHaveLength(fixture.paragraphs);
+    }
+
+    const native = PptxDocument.create();
+    const nativeSlide = native.addSlide();
+    const existing = nativeSlide.addRichText([{ runs: [
+      { text: 'A', breakLine: undefined },
+      { text: 'B' },
+    ] }] as never, { name: 'Falsy undefined' });
+    expect(existing.richText).toHaveLength(1);
+    const before = packageState(native);
+    const shapes = nativeSlide.shapes;
+    for (const fixture of cases.slice(0, -1)) {
+      expect(() => nativeSlide.addRichText([{ runs: [
+        { text: 'A', breakLine: fixture.value },
+        { text: 'B' },
+      ] }] as never, { name: fixture.name }), fixture.name).toThrow(TypeError);
       expect(packageState(native), fixture.name).toEqual(before);
       expect(nativeSlide.shapes, fixture.name).toEqual(shapes);
       expect(nativeSlide.shapes[0], fixture.name).toBe(existing);
