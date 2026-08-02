@@ -2336,6 +2336,438 @@ describe('PptxDocument vertical slice', () => {
     }
   });
 
+  it('creates text lines across slide layout master and placeholder owners', async () => {
+    const document = PptxDocument.create();
+    const layout = document.layouts[0]!;
+    const master = document.masters[0]!;
+    const layoutText = layout.addText('Layout line', {
+      name: 'layout_line',
+      line: { kind: 'line', color: { kind: 'scheme', value: 'accent1' } },
+    });
+    const masterText = master.addRichText([{ runs: [{ text: 'Master line' }] }], {
+      name: 'master_line',
+      line: {
+        kind: 'line',
+        color: { kind: 'srgb', value: '112233' },
+        transparency: 40,
+        width: 2,
+        dash: 'dash',
+      },
+    });
+    const layoutPlaceholder = layout.addPlaceholder('Layout prompt', {
+      name: 'title_line',
+      type: 'title',
+      index: 193,
+      x: inches(1),
+      y: inches(1),
+      width: inches(8),
+      height: inches(1),
+      line: {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent2' },
+        transparency: 10,
+        width: 0,
+        dash: 'sysDot',
+      },
+    });
+
+    expect(layout.shapes.find(({ id }) => id === layoutText.id)).toBe(layoutText);
+    expect(master.shapes.find(({ id }) => id === masterText.id)).toBe(masterText);
+    expect(layout.placeholders.find(({ id }) => id === layoutPlaceholder.id))
+      .toBe(layoutPlaceholder);
+    expect(layoutText.line).toEqual({
+      kind: 'line',
+      color: { kind: 'scheme', value: 'accent1' },
+      width: 1,
+      dash: 'solid',
+    });
+    expect(masterText.line).toEqual({
+      kind: 'line',
+      color: { kind: 'srgb', value: '112233' },
+      transparency: 40,
+      width: 2,
+      dash: 'dash',
+    });
+    expect(layoutPlaceholder.line).toEqual({
+      kind: 'line',
+      color: { kind: 'scheme', value: 'accent2' },
+      transparency: 10,
+      width: 0,
+      dash: 'sysDot',
+    });
+
+    const slide = document.addSlide({ masterName: layout.name });
+    const materialized = slide.placeholders.find(({ name }) => name === 'title_line')!;
+    const materializedState = {
+      id: materialized.id,
+      name: materialized.name,
+      transform: materialized.transform,
+      placeholder: materialized.placeholder,
+    };
+    const populated = slide.addText('Populated line', {
+      placeholder: 'title_line',
+      line: {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent3' },
+        transparency: 25,
+        width: 2.5,
+        dash: 'dashDot',
+      },
+    });
+    expect(populated).toBe(slide.shapes.find(({ id }) => id === materializedState.id));
+    expect({
+      id: populated.id,
+      name: populated.name,
+      transform: populated.transform,
+      placeholder: populated.placeholder,
+    }).toEqual(materializedState);
+    expect(populated.line).toEqual({
+      kind: 'line',
+      color: { kind: 'scheme', value: 'accent3' },
+      transparency: 25,
+      width: 2.5,
+      dash: 'dashDot',
+    });
+    expect(layoutPlaceholder.line).toEqual({
+      kind: 'line',
+      color: { kind: 'scheme', value: 'accent2' },
+      transparency: 10,
+      width: 0,
+      dash: 'sysDot',
+    });
+    expect(materialized).not.toBe(populated);
+
+    const declarative = await document.defineSlideMaster({
+      title: 'TEXT-LINES',
+      objects: [
+        {
+          kind: 'text',
+          text: 'Declarative text line',
+          options: {
+            name: 'declarative_text_line',
+            line: {
+              kind: 'line',
+              color: { kind: 'scheme', value: 'accent4' },
+              transparency: 0,
+            },
+          },
+        },
+        {
+          kind: 'placeholder',
+          text: 'Declarative prompt',
+          options: {
+            name: 'declarative_title_line',
+            type: 'title',
+            index: 194,
+            line: {
+              kind: 'line',
+              color: { kind: 'srgb', value: 'AABBCC' },
+              transparency: 50,
+              width: 3,
+              dash: 'sysDash',
+            },
+          },
+        },
+      ],
+    });
+    const declarativeText = declarative.shapes.find(
+      ({ name }) => name === 'declarative_text_line',
+    ) as ShapeModel;
+    const declarativePlaceholder = declarative.placeholders.find(
+      ({ name }) => name === 'declarative_title_line',
+    )!;
+    expect(declarativeText.line).toEqual({
+      kind: 'line',
+      color: { kind: 'scheme', value: 'accent4' },
+      transparency: 0,
+      width: 1,
+      dash: 'solid',
+    });
+    expect(declarativePlaceholder.line).toEqual({
+      kind: 'line',
+      color: { kind: 'srgb', value: 'AABBCC' },
+      transparency: 50,
+      width: 3,
+      dash: 'sysDash',
+    });
+    const declarativeSlide = document.addSlide({ masterName: declarative.name });
+    const declarativePopulated = declarativeSlide.addText('Declarative populated', {
+      placeholder: 'declarative_title_line',
+      line: { kind: 'none' },
+    });
+    expect(declarativePopulated.line).toEqual({ kind: 'none' });
+    expect(declarativePlaceholder.line).toEqual({
+      kind: 'line',
+      color: { kind: 'srgb', value: 'AABBCC' },
+      transparency: 50,
+      width: 3,
+      dash: 'sysDash',
+    });
+
+    const duplicate = document.duplicateSlide(document.slides.indexOf(slide));
+    const duplicatePopulated = duplicate.shapes.find(
+      ({ name }) => name === populated.name,
+    ) as ShapeModel;
+    duplicatePopulated.line = { kind: 'none' };
+    expect(duplicatePopulated.line).toEqual({ kind: 'none' });
+    expect(populated.line).toEqual({
+      kind: 'line',
+      color: { kind: 'scheme', value: 'accent3' },
+      transparency: 25,
+      width: 2.5,
+      dash: 'dashDot',
+    });
+
+    const beforeRollbackShapes = [...slide.shapes];
+    let rolledBack: ShapeModel | undefined;
+    expect(() => document.transaction(() => {
+      rolledBack = slide.addText('Rolled back line', {
+        line: { kind: 'line', color: { kind: 'srgb', value: 'FF0000' } },
+      });
+      throw new Error('restore created text line');
+    })).toThrow('restore created text line');
+    expect(slide.shapes).toEqual(beforeRollbackShapes);
+    expect(slide.shapes.find(({ id }) => id === populated.id)).toBe(populated);
+    expect(() => rolledBack!.line).toThrow(ModelParseError);
+
+    let signalRead!: () => void;
+    let resumeRead!: () => void;
+    const readStarted = new Promise<void>((resolve) => { signalRead = resolve; });
+    const readPaused = new Promise<void>((resolve) => { resumeRead = resolve; });
+    const detachedLine: {
+      kind: 'line';
+      color: { kind: 'srgb'; value: string };
+      transparency: number;
+      width: number;
+      dash: ShapeLineDash;
+    } = {
+      kind: 'line',
+      color: { kind: 'srgb', value: '123456' },
+      transparency: 30,
+      width: 1.5,
+      dash: 'lgDashDot',
+    };
+    const pendingDetached = document.defineSlideMaster({
+      title: 'DETACHED-TEXT-LINE',
+      objects: [
+        {
+          kind: 'text',
+          text: 'Detached text line',
+          options: { name: 'detached_text_line', line: detachedLine },
+        },
+        {
+          kind: 'image',
+          source: {
+            async *[Symbol.asyncIterator]() {
+              signalRead();
+              await readPaused;
+              yield sdkPngHeader(1, 1);
+            },
+          },
+        },
+      ],
+    });
+    await readStarted;
+    detachedLine.color.value = 'FFFFFF';
+    detachedLine.transparency = 90;
+    detachedLine.width = 9;
+    detachedLine.dash = 'solid';
+    resumeRead();
+    const detachedLayout = await pendingDetached;
+    expect((detachedLayout.shapes.find(
+      ({ name }) => name === 'detached_text_line',
+    ) as ShapeModel).line).toEqual({
+      kind: 'line',
+      color: { kind: 'srgb', value: '123456' },
+      transparency: 30,
+      width: 1.5,
+      dash: 'lgDashDot',
+    });
+
+    const reopened = await PptxDocument.open(await document.write());
+    const second = await PptxDocument.open(await reopened.write());
+    expect((second.layouts.find(({ name }) => name === layout.name)!.shapes.find(
+      ({ name }) => name === 'layout_line',
+    ) as ShapeModel).line).toEqual({
+      kind: 'line',
+      color: { kind: 'scheme', value: 'accent1' },
+      width: 1,
+      dash: 'solid',
+    });
+    expect((second.masters[0]!.shapes.find(
+      ({ name }) => name === 'master_line',
+    ) as ShapeModel).line).toEqual({
+      kind: 'line',
+      color: { kind: 'srgb', value: '112233' },
+      transparency: 40,
+      width: 2,
+      dash: 'dash',
+    });
+    expect((second.slides.find(({ partUri }) => partUri === slide.partUri)!.shapes.find(
+      ({ name }) => name === populated.name,
+    ) as ShapeModel).line).toEqual({
+      kind: 'line',
+      color: { kind: 'scheme', value: 'accent3' },
+      transparency: 25,
+      width: 2.5,
+      dash: 'dashDot',
+    });
+    expect(validatePackage(second.opcPackage).filter(({ severity }) => severity === 'error'))
+      .toEqual([]);
+
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const formatted = PptxDocument.create({ format });
+      const formattedLayout = formatted.layouts[0]!;
+      formattedLayout.addText('Formatted layout line', {
+        name: 'formatted_layout_line',
+        line: { kind: 'line', color: { kind: 'scheme', value: 'accent5' } },
+      });
+      formatted.masters[0]!.addText('Formatted master line', {
+        name: 'formatted_master_line',
+        line: {
+          kind: 'line',
+          color: { kind: 'srgb', value: '445566' },
+          transparency: 100,
+          width: 0,
+          dash: 'sysDot',
+        },
+      });
+      formattedLayout.addPlaceholder('Formatted prompt', {
+        name: 'formatted_title_line',
+        type: 'title',
+        index: 195,
+        line: { kind: 'line', color: { kind: 'scheme', value: 'accent6' } },
+      });
+      const formattedSlide = formatted.addSlide({ masterName: formattedLayout.name });
+      formattedSlide.addText('Formatted populated line', {
+        placeholder: 'formatted_title_line',
+        line: {
+          kind: 'line',
+          color: { kind: 'scheme', value: 'accent2' },
+          transparency: 25,
+          width: 2.25,
+          dash: 'dashDot',
+        },
+      });
+
+      const first = await PptxDocument.open(await formatted.write());
+      const formattedSecond = await PptxDocument.open(await first.write());
+      expect(formattedSecond.format).toBe(format);
+      expect(formattedSecond.formatProfile).toEqual(PRESENTATION_FORMAT_PROFILES[format]);
+      expect((formattedSecond.layouts[0]!.shapes.find(
+        ({ name }) => name === 'formatted_layout_line',
+      ) as ShapeModel).line).toEqual({
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent5' },
+        width: 1,
+        dash: 'solid',
+      });
+      expect((formattedSecond.masters[0]!.shapes.find(
+        ({ name }) => name === 'formatted_master_line',
+      ) as ShapeModel).line).toEqual({
+        kind: 'line',
+        color: { kind: 'srgb', value: '445566' },
+        transparency: 100,
+        width: 0,
+        dash: 'sysDot',
+      });
+      expect((formattedSecond.slides[0]!.shapes.find(
+        ({ name }) => name === 'formatted_title_line',
+      ) as ShapeModel).line).toEqual({
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent2' },
+        transparency: 25,
+        width: 2.25,
+        dash: 'dashDot',
+      });
+      expect(validatePackage(formattedSecond.opcPackage).filter(
+        ({ severity }) => severity === 'error',
+      )).toEqual([]);
+    }
+  });
+
+  it('rejects invalid declarative text lines without observable mutation', async () => {
+    const document = PptxDocument.create();
+    const { output: _beforeOutput, ...before } = await sdkPackageSnapshot(document) as {
+      readonly output: Uint8Array;
+      readonly [key: string]: unknown;
+    };
+    for (const definition of [
+      {
+        title: 'INVALID-TEXT-LINE',
+        objects: [{
+          kind: 'text',
+          text: 'Invalid text line',
+          options: { line: { color: 'FF0000' } },
+        }],
+      },
+      {
+        title: 'INVALID-PLACEHOLDER-LINE',
+        objects: [{
+          kind: 'placeholder',
+          options: {
+            name: 'invalid_line',
+            type: 'title',
+            line: {
+              kind: 'line',
+              color: { kind: 'srgb', value: 'FF0000' },
+              width: 1_585,
+            },
+          },
+        }],
+      },
+    ]) {
+      await expect(document.defineSlideMaster(definition as never)).rejects.toThrow();
+      const { output: _afterOutput, ...after } = await sdkPackageSnapshot(document) as {
+        readonly output: Uint8Array;
+        readonly [key: string]: unknown;
+      };
+      expect(after).toEqual(before);
+    }
+
+    let signalRead!: () => void;
+    let resumeRead!: () => void;
+    const readStarted = new Promise<void>((resolve) => { signalRead = resolve; });
+    const readPaused = new Promise<void>((resolve) => { resumeRead = resolve; });
+    const pending = document.defineSlideMaster({
+      title: 'INVALID-ASYNC-TEXT-LINE',
+      objects: [
+        {
+          kind: 'text',
+          text: 'Invalid detached line',
+          options: { line: { kind: 'line' } as never },
+        },
+        {
+          kind: 'image',
+          source: {
+            async *[Symbol.asyncIterator]() {
+              signalRead();
+              await readPaused;
+              yield sdkPngHeader(1, 1);
+            },
+          },
+        },
+      ],
+    });
+    const phase = await Promise.race([
+      readStarted.then(() => 'read-started' as const),
+      pending.then(() => 'resolved' as const, () => 'rejected' as const),
+    ]);
+    expect(phase).toBe('read-started');
+    const { output: _pausedOutput, ...paused } = await sdkPackageSnapshot(document) as {
+      readonly output: Uint8Array;
+      readonly [key: string]: unknown;
+    };
+    expect(paused).toEqual(before);
+    resumeRead();
+    await expect(pending).rejects.toThrow(/color|required/i);
+    const { output: _rejectedOutput, ...rejected } = await sdkPackageSnapshot(document) as {
+      readonly output: Uint8Array;
+      readonly [key: string]: unknown;
+    };
+    expect(rejected).toEqual(before);
+  });
+
   it('rejects invalid declarative text fills without observable mutation', async () => {
     const document = PptxDocument.create();
     const { output: _beforeOutput, ...before } = await sdkPackageSnapshot(document) as {

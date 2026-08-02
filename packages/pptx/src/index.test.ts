@@ -23,6 +23,7 @@ import {
   type SlideMasterObject,
   type SlideNumberOptions,
   type ShapeFill,
+  type ShapeLine,
 } from './index.js';
 
 describe('@jiayunxie/pptx stable exports', () => {
@@ -268,6 +269,110 @@ describe('@jiayunxie/pptx stable exports', () => {
       },
     ];
     expect(invalid).toHaveLength(5);
+  });
+
+  it('exports text shape line creation types and runtime from the root package', async () => {
+    const none: ShapeLine = { kind: 'none' };
+    const srgb: ShapeLine = {
+      kind: 'line',
+      color: { kind: 'srgb', value: 'A1B2C3' },
+      transparency: 25,
+      width: 2.5,
+      dash: 'dashDot',
+    };
+    const scheme: ShapeLine = {
+      kind: 'line',
+      color: { kind: 'scheme', value: 'accent2' },
+      transparency: 0,
+      width: 0,
+      dash: 'sysDot',
+    };
+    const options: AddTextOptions = { name: 'root_text_line', line: srgb };
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const plain = slide.addText('Root plain line', options);
+    const rich = slide.addRichText([{ runs: [{ text: 'Root rich line' }] }], {
+      name: 'root_rich_line',
+      line: scheme,
+    });
+    const layoutText = document.layouts[0]!.addText('Root layout line', {
+      name: 'root_layout_line',
+      line: none,
+    });
+    const masterText = document.masters[0]!.addText('Root master line', {
+      name: 'root_master_line',
+      line: { kind: 'line', color: { kind: 'scheme', value: 'accent3' } },
+    });
+
+    expect([plain.line, rich.line, layoutText.line, masterText.line]).toEqual([
+      srgb,
+      scheme,
+      none,
+      {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent3' },
+        width: 1,
+        dash: 'solid',
+      },
+    ]);
+
+    const reopened = await PptxDocument.open(await document.write());
+    expect((reopened.slides[0]!.shapes.find(
+      ({ name }) => name === 'root_text_line',
+    ) as ShapeModel).line).toEqual(srgb);
+    expect((reopened.slides[0]!.shapes.find(
+      ({ name }) => name === 'root_rich_line',
+    ) as ShapeModel).line).toEqual(scheme);
+    expect((reopened.layouts[0]!.shapes.find(
+      ({ name }) => name === 'root_layout_line',
+    ) as ShapeModel).line).toEqual(none);
+    expect((reopened.masters[0]!.shapes.find(
+      ({ name }) => name === 'root_master_line',
+    ) as ShapeModel).line).toEqual({
+      kind: 'line',
+      color: { kind: 'scheme', value: 'accent3' },
+      width: 1,
+      dash: 'solid',
+    });
+
+    const invalid: readonly AddTextOptions[] = [
+      {
+        // @ts-expect-error PptxGenJS-style line objects are intentionally unsupported
+        line: { color: 'FF0000' },
+      },
+      {
+        // @ts-expect-error line kind must be none or line
+        line: { kind: 'solid' },
+      },
+      {
+        // @ts-expect-error solid lines require a color
+        line: { kind: 'line' },
+      },
+      {
+        line: {
+          kind: 'line',
+          color: { kind: 'srgb', value: 'FF0000' },
+          // @ts-expect-error width must be numeric
+          width: '2',
+        },
+      },
+      {
+        line: {
+          kind: 'line',
+          color: { kind: 'srgb', value: 'FF0000' },
+          // @ts-expect-error dash must be a supported preset
+          dash: 'dot',
+        },
+      },
+      {
+        line: {
+          kind: 'none',
+          // @ts-expect-error none lines do not accept extra properties
+          transparency: 0,
+        },
+      },
+    ];
+    expect(invalid).toHaveLength(6);
   });
 
   it('exports slide-number creation, editing, and compatibility diagnostics from the root', async () => {
