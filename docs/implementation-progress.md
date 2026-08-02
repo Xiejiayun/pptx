@@ -464,7 +464,7 @@ $ pptx-inspect --json package inspect output.pptx
 ### 剩余文本与全功能路线
 
 - Slide default text color direct transient 语义与 master/layout/placeholder 已完成；table 默认颜色与完整 theme text cascade 并入 advanced text/table 专项。
-- Advanced text 的 text shape fill 已在后续专项完成；下一小项为 text shape simple line creation，之后进入其余 advanced text、advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
+- Advanced text 的 text shape fill 与 simple line 已在后续专项完成；下一小项为 text-shape arrows creation，之后进入其余 advanced text、advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
 
 ## PptxGenJS 全功能对等：Named master/layout/placeholder
 
@@ -493,7 +493,7 @@ $ pptx-inspect --json package inspect output.pptx
 ### 剩余 master/layout 与全功能路线
 
 - Named selection、semantic wrapper、direct background、slide-number integration、declarative definition、六类 placeholder population 和 replace/delete lifecycle 已完成。仍未完成完整 theme text cascade、percentage coordinates、advanced text/table/media/chart styles 与更广泛客户端认证。
-- Advanced text 已从 text shape fill 开始按小项推进；后续总体顺序仍是 advanced text → advanced table/`tableToSlides` → output/runtime helpers → peer-range full-suite audit。
+- Advanced text 已完成 text shape fill 与 simple line；下一小项是 text-shape arrows，后续总体顺序仍是 advanced text → advanced table/`tableToSlides` → output/runtime helpers → peer-range full-suite audit。
 
 ## PptxGenJS 全功能对等：Text shape fill creation
 
@@ -512,8 +512,30 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余文本与全功能路线
 
-- Text outer fill 已从缺口移入支持项。Gradient/pattern/picture/group text-fill creation，以及 outer line/arrows/shadow/hyperlink、`shape` / `rectRadius` / `isTextBox`、breakLine 组合语义与其余 shape-level styles 仍待逐项完成。
-- 下一小项固定为 text shape simple line creation：复用现有 `ShapeLine` codec 和同一 text renderer boundary；之后继续 advanced text，再进入 advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
+- Text outer fill 已从缺口移入支持项。Gradient/pattern/picture/group text-fill creation 仍待后续；outer simple line 已在下一阶段完成，arrows/shadow/hyperlink、`shape` / `rectRadius` / `isTextBox`、breakLine 组合语义与其余 shape-level styles 仍待逐项完成。
+- 下一小项固定为 text-shape arrows creation：复用现有 `ShapeArrows` codec 和同一 text renderer boundary；之后继续 advanced text，再进入 advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
+
+## PptxGenJS 全功能对等：Text shape simple line creation
+
+状态：完成；实施与证据 7/7
+
+### 本阶段 change
+
+- `AddTextOptions.line` 复用 strict `ShapeLine` 与 simple-line codec，仅接受 direct none 或带 required sRGB/theme color、可选 transparency/width/dash 的 solid line。Transparency 为 finite `0..100` 并量化到 `0.001%`；width 为 finite `0..1584pt` 并量化到 1 EMU；dash 为八种 preset token。Omitted width/dash 物化为 1pt/solid，zero width 与 explicit-zero transparency 保留 direct state，omitted/runtime `undefined`/explicit none 创建保持 canonical direct no-fill。
+- Plain/rich text、`addPlaceholder()`、placeholder population、slide/layout/master wrappers 与 declarative `defineSlideMaster()` text/placeholder objects 共用同一 normalizer/renderer；line 固定输出在 geometry 与 shape fill 之后、text body 之前。
+- 创建结果立即通过 live `ShapeModel.line` read/whole-replace/clear；caller detachment、same-value exact bytes/journal no-op、stable identity、duplicate/move、outer transaction rollback、六格式 write/reopen、sibling isolation 与 layout-placeholder source isolation 已覆盖。Invalid color/range/dash、PptxGenJS aliases、accessor/symbol/unknown key/class input 在任何 package mutation 前拒绝。
+- PptxGenJS 4.0.1 public output 对 omitted/none/empty/missing-color text line 写 empty `a:ln`，依赖隐式 default width/dash，折叠 zero width/transparency，接受 nested deprecated `alpha` 并忽略 `lineDash`。Native 保留 explicit reversible no-fill、1pt/solid defaults 与 zero direct state；合法 sRGB/theme、非零 transparency、正 width 和八种 dash 的 final semantics 对等。
+
+### 验证结果
+
+- Model、SDK、root public/lifecycle 与 PptxGenJS adapter suites 分别为 189/189、182/182、9/9、77/77；跨 package text-line focused gate 为 5/5，plain/rich/placeholder/layout/master/declarative、duplicate/rollback/reopen 与六格式均通过。
+- Actual npm tarball 为 57 files / 54 dist files；installed Node、TypeScript declarations、browser conditional export、真实 Chrome 与 installed CLI smoke 均返回 `textShapeLines: true`。Chrome immediate/detached/reopen state 完全匹配，console/page/network errors 均为 0；installed CLI PowerPoint 2010 profile 为 0 errors / 0 warnings。
+- 最终全量 Vitest 为 1268 passed / 1 skipped tests；独立 performance 为 1/1（553ms）。两种 TypeScript build、两套 package tsup build 与 declaration build 全部通过。
+
+### 剩余文本与全功能路线
+
+- Text outer simple line 已从缺口移入支持项。Gradient/pattern/picture/group line fill、custom dash、cap/compound/alignment/join，以及 text arrows/shadow/hyperlink/geometry 仍待逐项完成。
+- 下一小项固定为 text-shape arrows creation：复用 `ShapeArrows` direct-state codec，保持 line 与 endpoint 独立 ownership；之后继续 shadow、hyperlink、geometry 等 advanced text，再进入 advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
 
 ## 0.1.0 初始验收
 

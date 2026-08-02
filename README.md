@@ -390,7 +390,7 @@ PptxGenJS 的 `masterName` 拼写在这里保持兼容，但它严格选择的�
 
 2 页 native gallery 含 32 parts / 29 relationships / 2 layouts / 1 master，PowerPoint 2010 profile 为 0 errors / 0 warnings；2 页 PptxGenJS control 为 36 parts / 34 relationships。原件与 LibreOffice 回存件共 8 页均以 2400×1350、180 DPI 渲染并逐页检查；全幅背景使 minimum non-white margin 按预期为 0px。Fixture 的 background 和 image 是 1×1 黑色 PNG，native 第二页按测试意图重定向空白 default layout，黑/空白输出不代表丢失继承。LibreOffice 26.8 保留两页、两个 layouts 和一个 master，但会改写 placeholder identity/slide-number cache，并移除 audio 与内嵌 chart workbooks；这是降级记录，不声明完整 round-trip。PowerPoint 16.112 对 native 与 control 均返回 `-9074` 且没有产生 PPTX/PDF，因此不声明 PowerPoint 往返通过。
 
-尚未实现完整 theme text cascade、percentage coordinates、高级 text/table/media/chart 样式和更广泛客户端认证。Advanced text 已从文本框 direct fill 开始逐项补齐。
+尚未实现完整 theme text cascade、percentage coordinates、高级 text/table/media/chart 样式和更广泛客户端认证。Advanced text 已完成文本框 direct fill 与 simple line，并继续按小项推进。
 
 ## 创建和编辑文本框填充
 
@@ -428,7 +428,43 @@ plain.fill = undefined; // 只清除 direct fill choice
 
 本项跨 package focused gate 为 5/5，SDK/root 与 adapter suites 分别为 188/188、76/76；最终全量 Vitest 为 1262 passed / 1 skipped，独立 performance 为 1/1（560ms），TypeScript typecheck 与 project build 均通过。Actual 57-file tarball 的 Node、declarations、browser export 与 installed CLI 均报告 `textShapeFills: true`；真实 Chrome validation/console/page/network errors 全为 0，CLI PowerPoint 2010 profile 为 0 errors / 0 warnings。
 
-PptxGenJS 4.0.1 的 omitted fill 同样写 direct no-fill，但 `{ type: 'none' }` 会省略 direct fill choice，显式 zero transparency 也会省略 alpha；本库保留 explicit none/zero 的 direct intent。合法 solid 与非零透明度在最终语义上对等。Gradient/pattern/picture/group text fill 仍只做无损保留，不在 simple-fill 创建范围内；text outer `line`、arrows、shadow、hyperlink、`shape` / `rectRadius` / `isTextBox` 和 `breakLine` 组合语义也仍未支持。下一小项是 text shape simple line creation。
+PptxGenJS 4.0.1 的 omitted fill 同样写 direct no-fill，但 `{ type: 'none' }` 会省略 direct fill choice，显式 zero transparency 也会省略 alpha；本库保留 explicit none/zero 的 direct intent。合法 solid 与非零透明度在最终语义上对等。Gradient/pattern/picture/group text fill 仍只做无损保留，不在 simple-fill 创建范围内。Text outer simple line 已在下一节支持；arrows、shadow、hyperlink、`shape` / `rectRadius` / `isTextBox` 和 `breakLine` 组合语义仍待完成。
+
+## 创建和编辑文本框线条
+
+```ts
+const outlined = slide.addText('Outlined text box', {
+  line: {
+    kind: 'line',
+    color: { kind: 'srgb', value: '2F5597' },
+    transparency: 25,
+    width: 2.5,
+    dash: 'dashDot',
+  },
+});
+const themed = slide.addRichText([{
+  runs: [{ text: 'Theme outline' }],
+}], {
+  line: { kind: 'line', color: { kind: 'scheme', value: 'accent2' } },
+});
+const placeholder = slide.addPlaceholder('No outline', {
+  name: 'outlined_title',
+  type: 'title',
+  line: { kind: 'none' },
+});
+
+outlined.line = { kind: 'line', color: { kind: 'scheme', value: 'accent3' } };
+outlined.line = { kind: 'none' };
+outlined.line = undefined; // 只清除 direct width/fill/dash
+```
+
+`AddTextOptions.line` 复用 strict `ShapeLine`。值只能是 `{ kind: 'none' }`，或 `{ kind: 'line', color, transparency?, width?, dash? }`；color 支持合法六位 sRGB/theme，transparency 是量化到 `0.001%` 的 finite `0..100`，width 是量化到 1 EMU 的 finite `0..1584` point，dash 是 `solid/dash/dashDot/lgDash/lgDashDot/lgDashDotDot/sysDash/sysDot`。省略 width/dash 会物化为 1pt/solid，zero width 与 explicit zero transparency 都保留 direct intent。省略、runtime `undefined` 与 explicit none 创建保持既有 canonical `<a:ln><a:noFill/></a:ln>`。
+
+Plain/rich text、`addPlaceholder()`、placeholder population、layout/master wrappers 与 declarative `defineSlideMaster()` text/placeholder objects 共用同一 normalizer/renderer。创建结果可立即通过 live `ShapeModel.line` read/replace/clear；caller detachment、same-value bytes/journal no-op、duplicate isolation、outer rollback、stable identity、六格式 write/reopen 与 placeholder-source isolation 均已覆盖。PptxGenJS-shaped `type`/`dashType`/`alpha`/`lineDash`、missing color、invalid dash/range、unknown/accessor/symbol/class input 会在 mutation 前拒绝。
+
+PptxGenJS 4.0.1 的 omitted/none/empty/missing-color text line 都输出 empty `a:ln`，省略 width/dash 时依赖隐式 1pt/solid，width zero 和 transparency zero 也被 falsy collapse；native 写明确可逆的 no-fill、默认 width/dash 与 zero direct state。合法 sRGB/theme、非零 transparency、正 width 和全部八种 dash 的 final semantics 对等。Nested deprecated `alpha` 在 PptxGenJS text line 中仍生效而 `lineDash` 被忽略；native 不接受两者。Gradient/pattern/picture/group line fill、custom dash、cap/compound/alignment/join，以及 text arrows/shadow/hyperlink/geometry 仍待后续；下一小项是 text-shape arrows creation。
+
+本项跨 package focused gate 为 5/5，model、SDK、root 与 adapter suites 分别为 189/189、182/182、9/9、77/77。最终全量为 1268 passed / 1 skipped，独立 performance 为 1/1（553ms），两种 TypeScript build 与两套 package build 通过。Actual 57-file tarball 的 Node、declarations、browser export 与 CLI 均报告 `textShapeLines: true`；真实 Chrome immediate/detached/reopen state 完全匹配且 console/page/network 为 0，CLI PowerPoint 2010 profile 为 0 errors / 0 warnings。
 
 ## 创建和编辑预设形状、调整值与样式
 

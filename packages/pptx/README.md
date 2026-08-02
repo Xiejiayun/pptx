@@ -531,7 +531,7 @@ The focused master/layout/placeholder run reports 45 passed / 434 skipped. Full 
 
 The two-slide native gallery contains 32 parts, 29 relationships, two layouts, and one master and validates with 0 errors / 0 warnings under the PowerPoint 2010 profile. The two-slide PptxGenJS control contains 36 parts and 34 relationships. Eight source and LibreOffice-round-trip pages render at 2400×1350 and 180 DPI and were inspected individually; their full-bleed backgrounds give the expected 0px minimum non-white margin. The fixtures deliberately use 1×1 black PNG background/image payloads, and the second native slide is deliberately retargeted to the blank default layout, so black/blank output is not evidence of lost inheritance. LibreOffice 26.8 retains two slides, two layouts, and one master, but rewrites placeholder identities and slide-number caches and removes audio plus embedded chart workbooks. This is a degradation record, not a complete round-trip pass. PowerPoint 16.112 returned the same `-9074` for native and control inputs and produced no PPTX/PDF output, so no PowerPoint round-trip pass is claimed.
 
-Full theme text cascade, percentage coordinates, advanced text/table/media/chart styling, and broader client certification remain pending. Advanced text is now being completed one text-shape option at a time, beginning with direct fill.
+Full theme text cascade, percentage coordinates, advanced text/table/media/chart styling, and broader client certification remain pending. Advanced text now includes text-shape direct fill and simple line, with the remaining options proceeding one at a time.
 
 ## Create and edit text-shape fills
 
@@ -569,7 +569,43 @@ The same contract covers plain and rich text, `addPlaceholder()`, title/body pla
 
 The cross-package focused gate is 5/5; SDK/root and adapter suites are 188/188 and 76/76. Final full Vitest is 1262 passed / 1 skipped, the separate performance gate is 1/1 at 560ms, and the TypeScript typecheck plus project build pass. The actual 57-file tarball reports `textShapeFills: true` from installed Node, declarations, browser export, and CLI checks. Real Chrome has zero validation, console, page, or network errors, and installed CLI PowerPoint 2010 validation is 0 errors / 0 warnings.
 
-PptxGenJS 4.0.1 also writes direct no-fill for an omitted text fill, but `{ type: 'none' }` omits the direct fill choice and explicit zero transparency omits alpha. Native preserves explicit none/zero intent; supported solid and non-zero transparency cases are semantically equivalent. Gradient, pattern, picture, and group text fills remain preservation-only outside this simple creator. Text outer `line`, arrows, shadow, hyperlink, `shape` / `rectRadius` / `isTextBox`, and combined `breakLine` semantics remain pending. The next subitem is text-shape simple-line creation.
+PptxGenJS 4.0.1 also writes direct no-fill for an omitted text fill, but `{ type: 'none' }` omits the direct fill choice and explicit zero transparency omits alpha. Native preserves explicit none/zero intent; supported solid and non-zero transparency cases are semantically equivalent. Gradient, pattern, picture, and group text fills remain preservation-only outside this simple creator. Text outer simple line is supported below; arrows, shadow, hyperlink, `shape` / `rectRadius` / `isTextBox`, and combined `breakLine` semantics remain pending.
+
+## Create and edit text-shape lines
+
+```ts
+const outlined = slide.addText('Outlined text box', {
+  line: {
+    kind: 'line',
+    color: { kind: 'srgb', value: '2F5597' },
+    transparency: 25,
+    width: 2.5,
+    dash: 'dashDot',
+  },
+});
+const themed = slide.addRichText([{
+  runs: [{ text: 'Theme outline' }],
+}], {
+  line: { kind: 'line', color: { kind: 'scheme', value: 'accent2' } },
+});
+const placeholder = slide.addPlaceholder('No outline', {
+  name: 'outlined_title',
+  type: 'title',
+  line: { kind: 'none' },
+});
+
+outlined.line = { kind: 'line', color: { kind: 'scheme', value: 'accent3' } };
+outlined.line = { kind: 'none' };
+outlined.line = undefined; // clears only direct width/fill/dash
+```
+
+`AddTextOptions.line` reuses the strict `ShapeLine` union. It accepts only `{ kind: 'none' }` or `{ kind: 'line', color, transparency?, width?, dash? }`: color is strict six-digit sRGB or a supported scheme color, transparency is finite `0..100` rounded to `0.001%`, width is finite `0..1584` points rounded to one EMU, and dash is one of `solid/dash/dashDot/lgDash/lgDashDot/lgDashDotDot/sysDash/sysDot`. Omitted width/dash materialize as 1pt/solid; zero width and explicit zero transparency retain direct intent. Omitted, runtime-`undefined`, and explicit none creation preserve the existing canonical `<a:ln><a:noFill/></a:ln>` text-box default.
+
+Plain/rich text, `addPlaceholder()`, placeholder population, layout/master wrappers, and declarative `defineSlideMaster()` text/placeholder objects share the same normalizer and renderer. The returned live `ShapeModel.line` is immediately readable, replaceable, and clearable. Caller detachment, exact same-value bytes/journal no-op, duplicate isolation, outer rollback, stable identity, all six formats, write/reopen, and placeholder-source isolation are covered. PptxGenJS-shaped `type`/`dashType`/`alpha`/`lineDash`, missing color, invalid dash/range, and unknown/accessor/symbol/class input reject before mutation.
+
+PptxGenJS 4.0.1 emits an empty `a:ln` for omitted/none/empty/missing-color text lines, relies on implicit 1pt/solid when width/dash are omitted, and collapses zero width and zero transparency. Native writes explicit reversible no-fill, default width/dash, and zero direct state. Supported sRGB/theme, non-zero transparency, positive width, and all eight dash values reach equivalent final semantics. Nested deprecated `alpha` still affects PptxGenJS text lines while `lineDash` is ignored; native accepts neither. Gradient/pattern/picture/group line fill, custom dash, cap/compound/alignment/join, and text arrows/shadow/hyperlink/geometry remain pending; text-shape arrows creation is next.
+
+The cross-package focused gate is 5/5; model, SDK, root, and adapter suites are 189/189, 182/182, 9/9, and 77/77. Final full Vitest is 1268 passed / 1 skipped, the separate performance gate is 1/1 at 553ms, and both TypeScript builds plus both package builds pass. The actual 57-file tarball reports `textShapeLines: true` from installed Node, declarations, browser export, and CLI checks. Real Chrome immediate/detached/reopen state matches with zero console/page/network errors, and installed CLI PowerPoint 2010 validation is 0 errors / 0 warnings.
 
 `PRESET_SHAPE_TYPES` is the frozen discovery catalog for all 178 canonical preset geometries accepted by `SlideModel.addShape()`. `AddShapeOptions` accepts `name`, strict `adjustments`, strict `fill`, strict `line`, strict `arrows`, strict `shadow`, strict `hyperlink`, and native EMU/OOXML-angle transform fields; use `inches()` and `degrees()` for ergonomic conversion. Omitted geometry starts at x/y/width/height = 1 inch with zero rotation and no flips; omitted fill creates direct no-fill, and omitted line keeps the canonical empty line container. Inputs are strict, descriptor-safe, detached before mutation, and reject unknown fields. The catalog uses the valid OOXML `foldedCorner`; PptxGenJS 4.0.1's invalid `folderCorner` token and runtime-only `custGeom` value are not accepted as presets.
 
@@ -657,7 +693,7 @@ An actual packed-package gallery covers 4 slides and 22 evaluator targets. The o
 
 `ShapeShadow` is the strict `kind: 'outer' | 'inner'` union used by `AddShapeOptions.shadow` and `ShapeModel.shadow`. Both kinds accept sRGB/theme color, finite `0..1` opacity, `0..100` point blur, `0 <= angle < 360` degrees, and `0..200` point distance; only outer accepts `rotateWithShape`. Defaults are black, 0.75 opacity, 8pt blur, 270°, 4pt distance, and outer rotate false. Explicit zero survives normalization. Inputs are deeply detached before mutation, getter snapshots are detached and deep-frozen, assignment is a whole replacement, same-value assignment is an exact bytes/journal no-op, and `undefined` removes only the direct inner/outer child while retaining `effectLst` and legal sibling effects. PptxGenJS 4.0.1 omission and `type: 'none'` map to native `undefined`, and its legacy `offset` maps conceptually to native `distance`; native deliberately rejects its zero-value fallback, ignored rotate flag, invalid passthrough, and malformed inner closing tag. Generic/advanced effects, preset shadow, custom shadow transforms, and non-shape shadow APIs remain outside this focused surface.
 
-`Hyperlink` is a mutually exclusive `{ url, tooltip? } | { slide, tooltip? }` union used by `AddShapeOptions.hyperlink` and `ShapeModel.hyperlink`. URLs must be non-empty XML-safe strings; slide targets are one-based positive safe integers that must exist when assigned. Inputs and frozen getter snapshots are detached. Assignment is a whole replacement, so an omitted tooltip removes the direct attribute, an explicit empty tooltip preserves `tooltip=""`, and `undefined` clears the click link. Same-value assignment is an exact no-op. Internal relationships preserve target-slide identity across insert, delete, and reorder; duplicate self-links retarget to the duplicate, target deletion cleans click/hover references, and shared relationships use reference-aware clone-on-write and garbage collection. PptxGenJS 4.0.1 materializes an omitted tooltip as empty and can console-ignore or coerce invalid runtime values into duplicate or dangling links; native rejects those values before mutation. External links intentionally produce the validator's portability warning. Hover editing, text-run/table/image/chart/media hyperlink creation, action navigation, arrow size, cap/compound/alignment/join editing, advanced line fill/custom dash creation, text-shape line/arrows/shadow/hyperlink/geometry creation options, and percentage positions remain pending.
+`Hyperlink` is a mutually exclusive `{ url, tooltip? } | { slide, tooltip? }` union used by `AddShapeOptions.hyperlink` and `ShapeModel.hyperlink`. URLs must be non-empty XML-safe strings; slide targets are one-based positive safe integers that must exist when assigned. Inputs and frozen getter snapshots are detached. Assignment is a whole replacement, so an omitted tooltip removes the direct attribute, an explicit empty tooltip preserves `tooltip=""`, and `undefined` clears the click link. Same-value assignment is an exact no-op. Internal relationships preserve target-slide identity across insert, delete, and reorder; duplicate self-links retarget to the duplicate, target deletion cleans click/hover references, and shared relationships use reference-aware clone-on-write and garbage collection. PptxGenJS 4.0.1 materializes an omitted tooltip as empty and can console-ignore or coerce invalid runtime values into duplicate or dangling links; native rejects those values before mutation. External links intentionally produce the validator's portability warning. Text-shape simple-line creation is now supported. Hover editing, text-run/table/image/chart/media hyperlink creation, action navigation, arrow size, cap/compound/alignment/join editing, advanced line fill/custom dash creation, text-shape arrows/shadow/hyperlink/geometry creation options, and percentage positions remain pending.
 
 `CreatePresentationOptions.title` and live `document.title` use the direct core-properties title. Omitted creation input writes no title, `''` writes an explicit empty title, and `undefined` clears only the direct field. Values are strict XML-safe strings; reads follow the package-root core-properties relationship instead of assuming a part URI or prefix, same-value/absent-clear operations are exact no-ops, missing metadata can be created, and unrelated subject/creator/revision/unknown content is preserved. Unsafe malformed or ambiguous ownership is rejected rather than guessed. PptxGenJS 4.0.1 defaults its own public `title` to `PptxGenJS Presentation`; native omitted creation intentionally remains `undefined`.
 
