@@ -54,6 +54,7 @@ export type PlaceholderDomain = 'text-shape' | 'image' | 'chart' | 'table' | 'me
 export interface ResolvedPlaceholderOwner {
   readonly identity: Readonly<PlaceholderIdentity>;
   readonly name: string;
+  readonly isTextBox: boolean;
   readonly shapeId: number;
   readonly transform: Transform;
   readonly slideElement: XmlElement;
@@ -172,6 +173,7 @@ export function resolvePlaceholderOwner(
   return {
     identity: layout.identity,
     name: layout.name,
+    isTextBox: layout.isTextBox,
     shapeId: slide.shapeId,
     transform: layout.transform,
     slideElement: slide.element,

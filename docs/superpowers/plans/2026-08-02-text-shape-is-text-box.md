@@ -15,7 +15,7 @@
 - Canonical false is attribute absence; canonical true is unqualified `txBox="1"`.
 - Plain/rich text, `addPlaceholder()`, named placeholder population, layout/master wrappers, and declarative master text/placeholder objects share one normalizer and renderer.
 - `ShapeModel.isTextBox` reads false/true aliases, returns `undefined` for unsafe existing state, sets canonical boolean state, repairs a single malformed token, and rejects ambiguous structure before mutation.
-- Layout placeholder materialization copies source direct semantic. Population uses the population call's value and does not mutate or inherit the layout/master source value.
+- Layout placeholder materialization and population both copy source direct semantic. A valid opposite population-call value is validated but does not override the layout source, matching PptxGenJS's `{ ...call, ...placeholder }` merge order.
 - `isTextBox` changes only `p:cNvSpPr@txBox`; geometry, adjustments/`rectRadius`, transform, text, fill/line/arrows/shadow/hyperlinks, placeholder identity, relationships, parts, ordering, and cache remain independently owned.
 - Changing the default from historical fixed true to false is an intentional PptxGenJS-compatible creation correction. Opening/writing an existing deck without editing must preserve source bytes.
 - Do not add `breakLine`, generic non-visual properties, geometry inference, or a second text-shape renderer.
@@ -149,7 +149,7 @@ Define layout placeholders with omitted/false/true and boolean aliases. Add a sl
 
 - [ ] **Step 2: Add failing population tests**
 
-Populate source-false with true, source-true with false, and both with omitted. Require population-call default/explicit state, stable owner id/name/identity/transform, and exact layout/master source bytes. Cover plain and rich population plus duplicate/rollback/reopen.
+Populate source-false with true, source-true with false, and both with omitted. Require source state to win every time, stable owner id/name/identity/transform, and exact layout/master source bytes. Cover plain and rich population plus duplicate/rollback/reopen.
 
 - [ ] **Step 3: Add failing public-owner/declarative tests**
 
@@ -175,7 +175,7 @@ git diff --check
 
 - [ ] **Step 7: Review, commit, push, and verify**
 
-Review layout-source reading, non-shape fallback, population precedence, owner identity/transform stability, source isolation, declarative clone timing, closed-key expansion, root declarations, duplicate/rollback/six-format persistence, and no unrelated master behavior changes. Commit `feat: preserve text box owner semantics`, push, fetch, and require divergence `0 0`.
+Review layout-source reading, non-shape fallback, source-over-call population precedence, owner identity/transform stability, source isolation, declarative clone timing, closed-key expansion, root declarations, duplicate/rollback/six-format persistence, and no unrelated master behavior changes. Commit `feat: preserve text box owner semantics`, push, fetch, and require divergence `0 0`.
 
 ---
 
@@ -194,7 +194,7 @@ Generate omitted/undefined/false/true plain and rich text through public PptxGen
 
 - [ ] **Step 2: Add master/placeholder fixtures**
 
-Generate master text, omitted/false/true placeholders, empty slide materialization, and false<->true population. Compare layout and slide owner state with native equivalents, including source isolation.
+Generate master text, omitted/false/true placeholders, empty slide materialization, and opposite-value population calls. Compare PptxGenJS and native source-state precedence, layout/slide owner state, and source isolation.
 
 - [ ] **Step 3: Prove geometry/style orthogonality and strict divergence**
 
@@ -288,7 +288,7 @@ Document:
 - `AddTextOptions.isTextBox?: boolean` default/strict input contract;
 - canonical false absence and canonical true `txBox="1"` output;
 - `ShapeModel.isTextBox` readable aliases, unsafe `undefined`, canonical setter, and ambiguity behavior;
-- all supported owners, materialization copy, population precedence, and source isolation;
+- all supported owners, materialization copy, source-over-call population precedence, and source isolation;
 - geometry/radius/style orthogonality and the intentional historical-default correction;
 - PptxGenJS valid boolean parity plus strict runtime truthiness divergence;
 - remaining `breakLine`, advanced line/effect/text/table, `tableToSlides`, output/runtime helpers, peer-range audit, and full-parity work.

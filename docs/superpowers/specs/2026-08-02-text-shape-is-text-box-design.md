@@ -34,7 +34,7 @@ strSlideXml += '<p:cNvSpPr'
 - runtime truthy string 也会写 `txBox="1"`，但这不属于 typed public contract；
 - `shape`、`rectRadius`、plain/rich text content 都不参与该判断；
 - layout placeholder 的 omitted/false/true 状态在空 slide owner materialization 时分别保持；
-- placeholder population 使用 population call 的 `isTextBox`，不会隐式继承 layout source 的值。
+- placeholder population 的 option merge 顺序是 `{ ...populationCall, ...layoutPlaceholder }`，因此 layout source 的 `isTextBox` 覆盖本次 call；即使 call 显式给出相反 boolean，最终仍保留 source state。
 
 Native 对合法 boolean input 比较相同 final semantic。Native 不复制 truthy coercion、inherited-property读取或 accessor执行。
 
@@ -136,7 +136,7 @@ Setter先解析安全结构：
 
 - `addText()` / `addRichText()` 将 normalized boolean 传给一次性 text renderer；
 - `addPlaceholder()` 的 plain/rich prompt使用同一 boolean；
-- placeholder population使用本次 call 的 explicit/default value，并仅从 owner取得name、identity与最终transform；
+- placeholder population验证本次 call 的字段类型，但最终`isTextBox`继承layout source；source false/true会分别覆盖call true/false，与PptxGenJS的placeholder option merge一致；
 - layout/master direct text和placeholder source在各自owner part写 direct state；
 - declarative text/placeholder definitions在任何异步资源准备前 clone并验证新字段；
 - empty layout-placeholder materialization读取 source `txBox` semantic：source true写 1，source false/absence保持 absence；
@@ -167,7 +167,7 @@ Setter先解析安全结构：
 - true/false/alias/malformed/ambiguous existing OOXML read/edit；
 - same-value no-op、canonicalization、stable model identity；
 - plain/rich/empty/multiline、placeholder create/populate、slide/layout/master/declarative owners；
-- empty placeholder materialization复制source state，population call覆盖owner state且source隔离；
+- empty placeholder materialization和population都复制layout source state；相反的population call值不覆盖source，且layout/master source保持隔离；
 - geometry/radius/style/text/transform ownership isolation；
 - duplicate、move、rollback、六格式和write/reopen；
 - root declarations与compile-time invalid cases。
@@ -195,7 +195,7 @@ Setter先解析安全结构：
 
 1. 所有text creation owners接受strict boolean并输出PptxGenJS-compatible direct state；
 2. `ShapeModel.isTextBox` 可安全读取、canonical edit和拒绝ambiguous state；
-3. placeholder materialization复制source state，population call/default与source owner隔离；
+3. placeholder materialization和population复制source state，相反call值不覆盖source，且source owner保持隔离；
 4. geometry、radius、styles、text、transform和lifecycle ownership均有永久测试；
 5. PptxGenJS public output、六格式、packed Node/types/browser/CLI、validator、LibreOffice与visual QA全部通过；
 6. 文档明确default行为修正，以及后续`breakLine`和完整PptxGenJS parity仍未完成。

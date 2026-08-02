@@ -4734,31 +4734,32 @@ describe('PptxDocument vertical slice', () => {
       placeholder: materializedTrue.placeholder,
     };
 
-    const populatedTrue = slide.addText('Population overrides false source', {
+    const populatedFromFalse = slide.addText('Population keeps false source', {
       placeholder: sourceFalse.name,
       isTextBox: true,
     });
-    const populatedFalse = slide.addRichText([{
-      runs: [{ text: 'Population default overrides true source' }],
+    const populatedFromTrue = slide.addRichText([{
+      runs: [{ text: 'Population keeps true source' }],
     }], {
       placeholder: sourceTrue.name,
+      isTextBox: false,
     });
-    expect(populatedTrue.isTextBox).toBe(true);
-    expect(populatedFalse.isTextBox).toBe(false);
+    expect(populatedFromFalse.isTextBox).toBe(false);
+    expect(populatedFromTrue.isTextBox).toBe(true);
     expect({
-      id: populatedTrue.id,
-      name: populatedTrue.name,
-      transform: populatedTrue.transform,
-      placeholder: populatedTrue.placeholder,
+      id: populatedFromFalse.id,
+      name: populatedFromFalse.name,
+      transform: populatedFromFalse.transform,
+      placeholder: populatedFromFalse.placeholder,
     }).toEqual(falseOwner);
     expect({
-      id: populatedFalse.id,
-      name: populatedFalse.name,
-      transform: populatedFalse.transform,
-      placeholder: populatedFalse.placeholder,
+      id: populatedFromTrue.id,
+      name: populatedFromTrue.name,
+      transform: populatedFromTrue.transform,
+      placeholder: populatedFromTrue.placeholder,
     }).toEqual(trueOwner);
-    expect(materializedFalse).not.toBe(populatedTrue);
-    expect(materializedTrue).not.toBe(populatedFalse);
+    expect(materializedFalse).not.toBe(populatedFromFalse);
+    expect(materializedTrue).not.toBe(populatedFromTrue);
     expect(sourceFalse.isTextBox).toBe(false);
     expect(sourceTrue.isTextBox).toBe(true);
     expect(document.opcPackage.requirePart(layout.partUri).bytes).toEqual(layoutSource);
@@ -4850,33 +4851,33 @@ describe('PptxDocument vertical slice', () => {
 
     const duplicate = document.duplicateSlide(document.slides.indexOf(slide));
     const duplicateTrue = duplicate.shapes.find(
-      ({ name }) => name === populatedTrue.name,
+      ({ name }) => name === populatedFromTrue.name,
     ) as ShapeModel;
     expect(duplicateTrue.isTextBox).toBe(true);
     duplicateTrue.isTextBox = false;
-    expect(populatedTrue.isTextBox).toBe(true);
+    expect(populatedFromTrue.isTextBox).toBe(true);
     document.moveSlide(document.slides.indexOf(duplicate), 0);
     expect(duplicateTrue.isTextBox).toBe(false);
 
     const beforeRollback = await sdkPackageSnapshot(document);
     expect(() => document.transaction(() => {
-      populatedTrue.isTextBox = false;
-      populatedFalse.isTextBox = true;
+      populatedFromFalse.isTextBox = true;
+      populatedFromTrue.isTextBox = false;
       throw new Error('restore public text box state');
     })).toThrow('restore public text box state');
     expect(await sdkPackageSnapshot(document)).toEqual(beforeRollback);
-    expect(populatedTrue.isTextBox).toBe(true);
-    expect(populatedFalse.isTextBox).toBe(false);
+    expect(populatedFromFalse.isTextBox).toBe(false);
+    expect(populatedFromTrue.isTextBox).toBe(true);
 
     const reopened = await PptxDocument.open(await document.write());
     const second = await PptxDocument.open(await reopened.write());
     const secondSlide = second.slides.find(({ partUri }) => partUri === slide.partUri)!;
     expect((secondSlide.shapes.find(
-      ({ name }) => name === populatedTrue.name,
-    ) as ShapeModel).isTextBox).toBe(true);
-    expect((secondSlide.shapes.find(
-      ({ name }) => name === populatedFalse.name,
+      ({ name }) => name === populatedFromFalse.name,
     ) as ShapeModel).isTextBox).toBe(false);
+    expect((secondSlide.shapes.find(
+      ({ name }) => name === populatedFromTrue.name,
+    ) as ShapeModel).isTextBox).toBe(true);
     expect((second.layouts.find(({ name }) => name === layout.name)!.placeholders.find(
       ({ name }) => name === sourceTrue.name,
     ) as ShapeModel).isTextBox).toBe(true);
