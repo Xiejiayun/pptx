@@ -23,6 +23,7 @@ import {
   type PresetShapeType,
   type ShapeArrows,
   type ShapeLine,
+  type ShapeShadow,
   type SlideMasterObject,
 } from '@pptx/sdk';
 import { importPptxGenJS } from './index.js';
@@ -4905,6 +4906,310 @@ describe('importPptxGenJS', () => {
     ) as ShapeModel;
     expect(reopenedInvalid.arrows).toBeUndefined();
     expect(shapeXml(reopened, 0, reopenedInvalid.id)).toBe(invalidXmlBefore);
+  });
+
+  it('compares text shape shadow public output and strict native divergences', async () => {
+    expect(new PptxGenJS().version).toBe('4.0.1');
+    const generate = async (
+      name: string,
+      shadow: unknown,
+      extra: Record<string, unknown> = {},
+    ) => {
+      const generated = new PptxGenJS();
+      const slide = generated.addSlide();
+      const options: Record<string, unknown> = {
+        objectName: name,
+        x: 1,
+        y: 1,
+        w: 2,
+        h: 1,
+        ...extra,
+      };
+      if (shadow !== undefined) options.shadow = shadow;
+      slide.addText(name, options);
+      const bytes = await generated.write({
+        outputType: 'nodebuffer',
+        compression: true,
+      });
+      const document = await PptxDocument.open(bytes);
+      const partUri = document.slides[0]!.partUri;
+      const xml = new TextDecoder().decode(document.opcPackage.requirePart(partUri).bytes);
+      return { document, xml };
+    };
+
+    const omitted = await generate('Text shadow omitted', undefined);
+    const none = await generate('Text shadow none', { type: 'none' });
+    for (const fixture of [omitted, none]) {
+      expect(fixture.xml).not.toContain('<a:effectLst>');
+      expect(fixture.xml).not.toMatch(/<(?:a:)?(?:inner|outer)Shdw/);
+      expect((fixture.document.slides[0]!.shapes[0] as ShapeModel).shadow).toBeUndefined();
+    }
+
+    const defaults = await generate('Text shadow outer defaults', { type: 'outer' });
+    expect(defaults.xml).toContain(
+      '<a:outerShdw sx="100000" sy="100000" kx="0" ky="0" algn="bl" ' +
+      'rotWithShape="0" blurRad="101600" dist="50800" dir="16200000"> ' +
+      '<a:srgbClr val="000000"> <a:alpha val="75000"/></a:srgbClr> ' +
+      '</a:outerShdw>',
+    );
+    const generatedDefaults = (defaults.document.slides[0]!.shapes[0] as ShapeModel).shadow;
+    expect(generatedDefaults).toEqual({
+      kind: 'outer',
+      color: { kind: 'srgb', value: '000000' },
+      opacity: 0.75,
+      blur: 8,
+      angle: 270,
+      distance: 4,
+      rotateWithShape: false,
+    });
+
+    const custom = await generate('Text shadow outer custom', {
+      type: 'outer',
+      color: '123ABC',
+      opacity: 0.42,
+      blur: 7.25,
+      angle: 123,
+      offset: 5.5,
+      rotateWithShape: false,
+    }, {
+      line: {
+        color: '112233',
+        width: 2.5,
+        dashType: 'dashDot',
+        beginArrowType: 'triangle',
+        endArrowType: 'arrow',
+      },
+    });
+    const generatedCustomShape = custom.document.slides[0]!.shapes[0] as ShapeModel;
+    expect(generatedCustomShape.shadow).toEqual({
+      kind: 'outer',
+      color: { kind: 'srgb', value: '123ABC' },
+      opacity: 0.42,
+      blur: 7.25,
+      angle: 123,
+      distance: 5.5,
+      rotateWithShape: false,
+    });
+    expect(generatedCustomShape.line).toEqual({
+      kind: 'line',
+      color: { kind: 'srgb', value: '112233' },
+      width: 2.5,
+      dash: 'dashDot',
+    });
+    expect(generatedCustomShape.arrows).toEqual({ begin: 'triangle', end: 'arrow' });
+    const generatedLineOffset = custom.xml.indexOf('<a:ln w="31750">');
+    const generatedEffectOffset = custom.xml.indexOf('<a:effectLst>', generatedLineOffset);
+    expect(generatedLineOffset).toBeGreaterThanOrEqual(0);
+    expect(generatedLineOffset).toBeLessThan(generatedEffectOffset);
+    expect(custom.xml.slice(generatedLineOffset, generatedEffectOffset))
+      .toContain('<a:headEnd type="triangle"/><a:tailEnd type="arrow"/>');
+
+    const native = PptxDocument.create();
+    const nativeSlide = native.addSlide();
+    const addNative = (name: string, shadow: ShapeShadow, options: {
+      readonly line?: ShapeLine;
+      readonly arrows?: ShapeArrows;
+    } = {}) => nativeSlide.addText(name, {
+      name,
+      x: inches(1),
+      y: inches(1),
+      width: inches(2),
+      height: inches(1),
+      shadow,
+      ...options,
+    });
+    const nativeDefaults = addNative('Text shadow outer defaults', { kind: 'outer' });
+    const nativeCustom = addNative('Text shadow outer custom', {
+      kind: 'outer',
+      color: { kind: 'srgb', value: '123ABC' },
+      opacity: 0.42,
+      blur: 7.25,
+      angle: 123,
+      distance: 5.5,
+      rotateWithShape: false,
+    }, {
+      line: {
+        kind: 'line',
+        color: { kind: 'srgb', value: '112233' },
+        width: 2.5,
+        dash: 'dashDot',
+      },
+      arrows: { begin: 'triangle', end: 'arrow' },
+    });
+    expect(nativeDefaults.shadow).toEqual(generatedDefaults);
+    expect(nativeCustom.name).toBe(generatedCustomShape.name);
+    expect(nativeCustom.text).toBe(generatedCustomShape.text);
+    expect(nativeCustom.transform).toEqual(generatedCustomShape.transform);
+    expect(nativeCustom.presetType).toBe(generatedCustomShape.presetType);
+    expect(nativeCustom.line).toEqual(generatedCustomShape.line);
+    expect(nativeCustom.arrows).toEqual(generatedCustomShape.arrows);
+    expect(nativeCustom.shadow).toEqual(generatedCustomShape.shadow);
+    const nativeCustomXml = shapeXml(native, 0, nativeCustom.id);
+    const nativeLineOffset = nativeCustomXml.indexOf('<a:ln w="31750">');
+    const nativeEffectOffset = nativeCustomXml.indexOf('<a:effectLst>', nativeLineOffset);
+    expect(nativeLineOffset).toBeGreaterThanOrEqual(0);
+    expect(nativeLineOffset).toBeLessThan(nativeEffectOffset);
+
+    const zero = await generate('Text shadow zero fallback', {
+      type: 'outer',
+      color: '000000',
+      opacity: 0,
+      blur: 0,
+      angle: 0,
+      offset: 0,
+    });
+    expect((zero.document.slides[0]!.shapes[0] as ShapeModel).shadow)
+      .toEqual(generatedDefaults);
+    const nativeZero = addNative('Text shadow native zero', {
+      kind: 'outer',
+      color: { kind: 'scheme', value: 'accent2' },
+      opacity: 0,
+      blur: 0,
+      angle: 0,
+      distance: 0,
+    });
+    expect(nativeZero.shadow).toEqual({
+      kind: 'outer',
+      color: { kind: 'scheme', value: 'accent2' },
+      opacity: 0,
+      blur: 0,
+      angle: 0,
+      distance: 0,
+      rotateWithShape: false,
+    });
+
+    const rotate = await generate('Text shadow rotate ignored', {
+      type: 'outer',
+      rotateWithShape: true,
+    });
+    expect((rotate.document.slides[0]!.shapes[0] as ShapeModel).shadow)
+      .toMatchObject({ kind: 'outer', rotateWithShape: false });
+    const nativeRotate = addNative('Text shadow rotate kept', {
+      kind: 'outer',
+      rotateWithShape: true,
+    });
+    expect(nativeRotate.shadow).toMatchObject({ kind: 'outer', rotateWithShape: true });
+
+    const malformedInner = await generate('Text shadow malformed inner', { type: 'inner' });
+    expect(malformedInner.xml).toContain('<a:innerShdw  blurRad="101600"');
+    expect(malformedInner.xml).toContain('</a:outerShdw></a:effectLst>');
+    expect(() => malformedInner.document.slides[0]!.shapes).toThrow();
+    await expect(malformedInner.document.write()).rejects.toThrow();
+    const nativeInner = addNative('Text shadow native inner', {
+      kind: 'inner',
+      color: { kind: 'scheme', value: 'accent3' },
+    });
+    expect(nativeInner.shadow?.kind).toBe('inner');
+    expect(shapeXml(native, 0, nativeInner.id)).toContain(
+      '<a:innerShdw blurRad="101600" dist="50800" dir="16200000">',
+    );
+    expect(shapeXml(native, 0, nativeInner.id)).toContain('</a:innerShdw>');
+
+    const warnings = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const missingType = await generate('Text shadow missing type', {});
+    const invalidType = await generate('Text shadow invalid type', {
+      type: 'bogus',
+      color: 'FF0000',
+    });
+    const hashColor = await generate('Text shadow hash color', {
+      type: 'outer',
+      color: '#ABCDEF',
+    });
+    const coercion = await generate('Text shadow coercion', {
+      type: 'outer',
+      color: '112233',
+      opacity: '0.4',
+      blur: '2.5',
+      angle: '45.6',
+      offset: '3',
+    });
+    const invalidRanges = await generate('Text shadow invalid ranges', {
+      type: 'outer',
+      color: '00FF00',
+      opacity: 2,
+      blur: -1,
+      angle: 400,
+      offset: 201,
+    });
+    expect(warnings).toHaveBeenCalled();
+    warnings.mockRestore();
+
+    expect((missingType.document.slides[0]!.shapes[0] as ShapeModel).shadow)
+      .toEqual(generatedDefaults);
+    expect((invalidType.document.slides[0]!.shapes[0] as ShapeModel).shadow)
+      .toMatchObject({ kind: 'outer', color: { kind: 'srgb', value: 'FF0000' } });
+    expect((hashColor.document.slides[0]!.shapes[0] as ShapeModel).shadow)
+      .toMatchObject({ kind: 'outer', color: { kind: 'srgb', value: 'ABCDEF' } });
+    const nativeHashColor = addNative('Text shadow native hash color', {
+      kind: 'outer',
+      color: { kind: 'srgb', value: '#ABCDEF' },
+    });
+    expect(nativeHashColor.shadow).toEqual(
+      (hashColor.document.slides[0]!.shapes[0] as ShapeModel).shadow,
+    );
+    expect((coercion.document.slides[0]!.shapes[0] as ShapeModel).shadow).toEqual({
+      kind: 'outer',
+      color: { kind: 'srgb', value: '112233' },
+      opacity: 0.4,
+      blur: 2.5,
+      angle: 46,
+      distance: 3,
+      rotateWithShape: false,
+    });
+    expect(invalidRanges.xml).toContain(
+      'blurRad="-12700" dist="2552700" dir="16200000"> ' +
+      '<a:srgbClr val="00FF00"> <a:alpha val="75000"/>',
+    );
+    expect((invalidRanges.document.slides[0]!.shapes[0] as ShapeModel).shadow)
+      .toBeUndefined();
+
+    const beforeInvalid = packageState(native);
+    let accessorCalls = 0;
+    const accessor = Object.defineProperty({}, 'kind', {
+      enumerable: true,
+      get() {
+        accessorCalls += 1;
+        return 'outer';
+      },
+    });
+    for (const [index, shadow] of [
+      {},
+      { kind: 'none' },
+      { type: 'outer' },
+      { kind: 'outer', offset: 4 },
+      { kind: 'inner', rotateWithShape: false },
+      { kind: 'outer', opacity: '0.4' },
+      { kind: 'outer', blur: -1 },
+      { kind: 'outer', angle: 360 },
+      { kind: 'outer', distance: 201 },
+      accessor,
+    ].entries()) {
+      expect(
+        () => nativeSlide.addText('Invalid native text shadow', { shadow } as never),
+        `invalid native text shadow ${index}`,
+      )
+        .toThrow();
+      expect(packageState(native)).toEqual(beforeInvalid);
+    }
+    expect(accessorCalls).toBe(0);
+
+    const importedLine = generatedCustomShape.line;
+    const importedArrows = generatedCustomShape.arrows;
+    generatedCustomShape.shadow = undefined;
+    expect(generatedCustomShape.line).toEqual(importedLine);
+    expect(generatedCustomShape.arrows).toEqual(importedArrows);
+    generatedCustomShape.shadow = { kind: 'outer', rotateWithShape: true };
+    generatedCustomShape.line = undefined;
+    generatedCustomShape.arrows = undefined;
+    expect(generatedCustomShape.shadow).toMatchObject({
+      kind: 'outer',
+      rotateWithShape: true,
+    });
+    const reopened = await PptxDocument.open(await custom.document.write());
+    const reopenedShape = reopened.slides[0]!.shapes[0] as ShapeModel;
+    expect(reopenedShape.line).toBeUndefined();
+    expect(reopenedShape.arrows).toBeUndefined();
+    expect(reopenedShape.shadow).toMatchObject({ kind: 'outer', rotateWithShape: true });
   });
 
   it('compares shape line public output and strict native divergences', async () => {
