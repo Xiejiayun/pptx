@@ -33,6 +33,34 @@ async (page) => {
         && versionDocument.diagnostics.filter(({ severity }) => severity === 'error').length === 0
         && reopenedVersionDocument.diagnostics
           .filter(({ severity }) => severity === 'error').length === 0;
+      const standardLayoutDocument = api.PptxDocument.create({ slideSize: '4:3' });
+      const customLayoutDocument = api.PptxDocument.create({
+        slideSize: { width: 10_698_480, height: 7_589_520 },
+      });
+      const detachedLayout = customLayoutDocument.presLayout;
+      detachedLayout.width = 1;
+      const customLayout = customLayoutDocument.presLayout;
+      customLayoutDocument.slideSize = { width: 12_192_000, height: 6_858_000 };
+      const editedLayout = customLayoutDocument.presLayout;
+      const reopenedLayoutDocument = await api.PptxDocument.open(
+        await customLayoutDocument.writeBlob(),
+      );
+      const presentationLayoutState = {
+        standard: standardLayoutDocument.presLayout,
+        custom: customLayout,
+        edited: editedLayout,
+        reopened: reopenedLayoutDocument.presLayout,
+      };
+      const presentationLayouts = JSON.stringify(presentationLayoutState) === JSON.stringify({
+        standard: { name: 'screen4x3', width: 9_144_000, height: 6_858_000 },
+        custom: { name: 'custom', width: 10_698_480, height: 7_589_520 },
+        edited: { name: 'custom', width: 12_192_000, height: 6_858_000 },
+        reopened: { name: 'custom', width: 12_192_000, height: 6_858_000 },
+      })
+        && customLayoutDocument.diagnostics
+          .filter(({ severity }) => severity === 'error').length === 0
+        && reopenedLayoutDocument.diagnostics
+          .filter(({ severity }) => severity === 'error').length === 0;
       const fromBlob = await api.PptxDocument.open(new Blob([bytes.buffer]));
       const stream = new ReadableStream({
         start(controller) {
@@ -2051,6 +2079,8 @@ async (page) => {
       return {
         presentationVersion,
         presentationVersionState,
+        presentationLayouts,
+        presentationLayoutState,
         format: reopened.format,
         title: reopened.slides[0].title.text,
         mime: output.type,
@@ -2149,6 +2179,13 @@ async (page) => {
       constant: '0.1.0',
       created: '0.1.0',
       reopened: '0.1.0',
+    },
+    presentationLayouts: true,
+    presentationLayoutState: {
+      standard: { name: 'screen4x3', width: 9_144_000, height: 6_858_000 },
+      custom: { name: 'custom', width: 10_698_480, height: 7_589_520 },
+      edited: { name: 'custom', width: 12_192_000, height: 6_858_000 },
+      reopened: { name: 'custom', width: 12_192_000, height: 6_858_000 },
     },
     format: 'pptx',
     title: 'Browser updated',

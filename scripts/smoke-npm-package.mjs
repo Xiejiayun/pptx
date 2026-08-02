@@ -61,6 +61,10 @@ try {
     join(installed, 'dist/types/sdk/version.d.ts'),
     'utf8',
   );
+  const presentationLayoutDeclarationSource = await readFile(
+    join(installed, 'dist/types/sdk/presentation-layout.d.ts'),
+    'utf8',
+  );
   const sdkDeclarationSource = await readFile(
     join(installed, 'dist/types/sdk/index.d.ts'),
     'utf8',
@@ -74,6 +78,17 @@ try {
       !versionDeclarationSource.includes('export type PptxVersion = typeof PPTX_VERSION;') ||
       !sdkDeclarationSource.includes('get version(): PptxVersion;')) {
     throw new Error('Packed declarations are missing presentation runtime version surfaces');
+  }
+  if (!presentationLayoutDeclarationSource.includes("'screen4x3'") ||
+      !presentationLayoutDeclarationSource.includes("'screen16x9'") ||
+      !presentationLayoutDeclarationSource.includes("'screen16x10'") ||
+      !presentationLayoutDeclarationSource.includes("'custom'") ||
+      !presentationLayoutDeclarationSource.includes('readonly name: PresentationLayoutName;') ||
+      !presentationLayoutDeclarationSource.includes('readonly width: Emu;') ||
+      !presentationLayoutDeclarationSource.includes('readonly height: Emu;') ||
+      !sdkDeclarationSource.includes('get presLayout(): PresentationLayout;') ||
+      !sdkDeclarationSource.includes('PresentationLayoutName')) {
+    throw new Error('Packed declarations are missing presentation layout surfaces');
   }
 
   await writeFile(
@@ -5032,6 +5047,36 @@ const presentationVersionState = {
   reopened: reopenedCreated.version,
   manifest: installedManifestVersion,
 };
+const packedDefaultLayout = PptxDocument.create().presLayout;
+const packedWideLayout = PptxDocument.create({ slideSize: 'wide' }).presLayout;
+const packedLayoutDocument = PptxDocument.create({
+  slideSize: { width: inches(11.7), height: inches(8.3) },
+});
+const packedCustomLayout = packedLayoutDocument.presLayout;
+const packedDetachedLayout = packedLayoutDocument.presLayout;
+packedDetachedLayout.width = 1;
+const packedLayoutDetached = packedLayoutDocument.presLayout.width === inches(11.7);
+packedLayoutDocument.slideSize = { width: inches(10), height: inches(6.25) };
+const packedEditedLayout = packedLayoutDocument.presLayout;
+const packedReopenedLayout = (
+  await PptxDocument.open(await packedLayoutDocument.write())
+).presLayout;
+const presentationLayoutState = {
+  default: packedDefaultLayout,
+  wide: packedWideLayout,
+  custom: packedCustomLayout,
+  edited: packedEditedLayout,
+  reopened: packedReopenedLayout,
+};
+const presentationLayouts = packedLayoutDetached
+  && JSON.stringify(presentationLayoutState) === JSON.stringify({
+    default: { name: 'screen16x9', width: 9144000, height: 5143500 },
+    wide: { name: 'custom', width: 12192000, height: 6858000 },
+    custom: { name: 'custom', width: 10698480, height: 7589520 },
+    edited: { name: 'screen16x10', width: 9144000, height: 5715000 },
+    reopened: { name: 'screen16x10', width: 9144000, height: 5715000 },
+  });
+await packedLayoutDocument.writeFile('presentation-layout-smoke.pptx');
 const reopenedCreatedTable = reopenedCreated.slides[0].shapes.find((shape) => shape.name === 'Created smoke table');
 const reopenedCreatedTableXml = new TextDecoder().decode(reopenedCreated.opcPackage.requirePart(reopenedCreated.slides[0].partUri).bytes);
 const reopenedCreatedTableHorizontalAlignments = [...reopenedCreatedTableXml.matchAll(/<a:tc(?:\\s[^>]*)?>[\\s\\S]*?<\\/a:tc>/g)].map((match) => match[0].match(/<a:pPr[^>]*\\salgn="([^"]+)"/)?.[1]);
@@ -5882,6 +5927,8 @@ const checks = {
   presentationVersion: Object.values(presentationVersionState)
     .every((value) => value === PPTX_VERSION),
   presentationVersionState,
+  presentationLayouts,
+  presentationLayoutState,
   presentationRtl: presentationRtlEnabled === true && presentationRtlDisabled === false && presentationRtlCleared === undefined && paragraphRtlAfterGlobalClear[0] === true && paragraphRtlAfterGlobalClear[1] === false,
   presentationTitle: createdPresentationTitle === 'Packed & <Title>' && editedPresentationTitle === 'Edited title' && reopenedPresentationTitle === 'Edited title' && emptyPresentationTitle === '' && clearedPresentationTitle === undefined,
   presentationAuthor: createdPresentationAuthor === 'Packed & <Author>' && editedPresentationAuthor === 'Edited author' && reopenedPresentationAuthor === 'Edited author' && emptyPresentationAuthor === '' && clearedPresentationAuthor === undefined,
@@ -5958,6 +6005,19 @@ if (PPTX_VERSION !== ${JSON.stringify(manifest.version)} ||
     reopenedBrowserVersionDocument.version !== PPTX_VERSION) {
   throw new Error('Browser presentation runtime version failed');
 }
+const browserLayoutDocument = PptxDocument.create({
+  slideSize: { width: inches(11.7), height: inches(8.3) },
+});
+if (JSON.stringify(browserLayoutDocument.presLayout) !== JSON.stringify({
+  name: 'custom', width: 10698480, height: 7589520,
+})) throw new Error('Browser custom presentation layout failed');
+browserLayoutDocument.slideSize = { width: inches(10), height: inches(6.25) };
+const reopenedBrowserLayoutDocument = await PptxDocument.open(
+  await browserLayoutDocument.writeBlob(),
+);
+if (JSON.stringify(reopenedBrowserLayoutDocument.presLayout) !== JSON.stringify({
+  name: 'screen16x10', width: 9144000, height: 5715000,
+})) throw new Error('Browser edited presentation layout failed');
 if (PRESET_SHAPE_TYPES.length !== 178 || !Object.isFrozen(PRESET_SHAPE_TYPES)) {
   throw new Error('Browser preset catalog failed');
 }
@@ -7922,6 +7982,8 @@ process.stdout.write(resolved);
   type AddTableCellOptions,
   type AddTableCellInput,
   type AddTableOptions,
+  type PresentationLayout,
+  type PresentationLayoutName,
   type PptxVersion,
   type TableCellTextDirection,
   type TableCellBorder,
@@ -7949,6 +8011,14 @@ const versionDocument = PptxDocument.create();
 versionDocument.version satisfies PptxVersion;
 // @ts-expect-error document version is read-only
 versionDocument.version = '9.9.9';
+const layoutDocument = PptxDocument.create({ slideSize: 'wide' });
+const presentationLayout: PresentationLayout = layoutDocument.presLayout;
+const presentationLayoutName: PresentationLayoutName = presentationLayout.name;
+presentationLayoutName satisfies 'screen4x3' | 'screen16x9' | 'screen16x10' | 'custom';
+// @ts-expect-error presLayout is getter-only
+layoutDocument.presLayout = presentationLayout;
+// @ts-expect-error presentation layout width is readonly
+presentationLayout.width = inches(1);
 const typedPlaceholderType: PlaceholderType = PLACEHOLDER_TYPES[3];
 const typedPlaceholderName: PlaceholderSelector = 'typed_title';
 const typedPlaceholderIdentity: PlaceholderSelector = { type: 'pic', index: 102 };
@@ -9355,6 +9425,22 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
       Object.values(presentationVersionState).some((value) => value !== manifest.version)) {
     throw new Error(`Presentation runtime version smoke failed: ${JSON.stringify(presentationVersionState)}`);
   }
+  if (!apiChecks.presentationLayouts) {
+    throw new Error(`Presentation layout smoke failed: ${JSON.stringify(apiChecks.presentationLayoutState)}`);
+  }
+  const presentationLayoutDeckPath = join(directory, 'presentation-layout-smoke.pptx');
+  const presentationLayoutInspectResult = run(
+    bin,
+    ['--json', 'package', 'inspect', presentationLayoutDeckPath],
+    directory,
+  );
+  const presentationLayoutInspected = JSON.parse(presentationLayoutInspectResult.stdout);
+  if (!presentationLayoutInspected.ok ||
+      presentationLayoutInspected.data?.contentTypes?.[
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml'
+      ] !== 1) {
+    throw new Error(`CLI presentation-layout inspect failed: ${presentationLayoutInspectResult.stdout}`);
+  }
   const masterLayoutDeckPath = join(directory, 'master-layout-smoke.pptx');
   const masterLayoutInspectResult = run(
     bin,
@@ -10594,7 +10680,7 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
   }
 
   process.stdout.write(
-    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presentationVersion: apiChecks.presentationVersion, presentationVersionState, masterLayouts: apiChecks.masterLayouts, slideNumbers: apiChecks.slideNumbers, slideDefaultColor: apiChecks.slideDefaultColor, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, textShapeFills: apiChecks.textShapeFills, textShapeLines: apiChecks.textShapeLines, textShapeArrows: apiChecks.textShapeArrows, textShapeShadows: apiChecks.textShapeShadows, textShapeHyperlinks: apiChecks.textShapeHyperlinks, textShapePresetGeometry: apiChecks.textShapePresetGeometry, textShapeRectRadius: apiChecks.textShapeRectRadius, textShapeIsTextBox: apiChecks.textShapeIsTextBox, richTextBreakLine: apiChecks.richTextBreakLine, richTextRunHyperlinks: apiChecks.richTextRunHyperlinks, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, slideBackgrounds: apiChecks.slideBackgrounds, types: true, cli: doctor.data.version, masterLayoutInspect: true, masterLayoutValidate: true, masterLayoutSlides: true, masterLayoutPartRead: true, masterLayoutDiff: true, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true, slideBackgroundInspect: true, slideBackgroundValidate: true, slideNumberInspect: true, slideNumberValidate: true, slideNumberSlides: true, slideNumberPartRead: true, slideDefaultColorInspect: true, slideDefaultColorValidate: true, slideDefaultColorSlides: true, slideDefaultColorPartRead: true, textShapeFillInspect: true, textShapeFillValidate: true, textShapeFillSlides: true, textShapeFillPartRead: true, textShapeLineInspect: true, textShapeLineValidate: true, textShapeLineSlides: true, textShapeLinePartRead: true, textShapeArrowInspect: true, textShapeArrowValidate: true, textShapeArrowSlides: true, textShapeArrowPartRead: true, textShapeShadowInspect: true, textShapeShadowValidate: true, textShapeShadowSlides: true, textShapeShadowPartRead: true, textShapeHyperlinkInspect: true, textShapeHyperlinkValidate: true, textShapeHyperlinkSlides: true, textShapeHyperlinkPartRead: true, textShapeHyperlinkInternalValidate: true, textShapePresetGeometryValidate: true, textShapePresetGeometrySlides: true, textShapePresetGeometryPartRead: true, textShapeRectRadiusValidate: true, textShapeRectRadiusSlides: true, textShapeRectRadiusPartRead: true, textShapeIsTextBoxValidate: true, textShapeIsTextBoxSlides: true, textShapeIsTextBoxPartRead: true, textShapeIsTextBoxLayoutPartRead: true, textShapeIsTextBoxMasterPartRead: true, richTextRunHyperlinkInspect: true, richTextRunHyperlinkValidate: true, richTextRunHyperlinkSlides: true, richTextRunHyperlinkPartRead: true, richTextRunHyperlinkInternalValidate: true, richTextBreakLineValidate: true, richTextBreakLineSlides: true, richTextBreakLinePartRead: true })}\n`,
+    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presentationVersion: apiChecks.presentationVersion, presentationVersionState, presentationLayouts: apiChecks.presentationLayouts, presentationLayoutState: apiChecks.presentationLayoutState, masterLayouts: apiChecks.masterLayouts, slideNumbers: apiChecks.slideNumbers, slideDefaultColor: apiChecks.slideDefaultColor, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, textShapeFills: apiChecks.textShapeFills, textShapeLines: apiChecks.textShapeLines, textShapeArrows: apiChecks.textShapeArrows, textShapeShadows: apiChecks.textShapeShadows, textShapeHyperlinks: apiChecks.textShapeHyperlinks, textShapePresetGeometry: apiChecks.textShapePresetGeometry, textShapeRectRadius: apiChecks.textShapeRectRadius, textShapeIsTextBox: apiChecks.textShapeIsTextBox, richTextBreakLine: apiChecks.richTextBreakLine, richTextRunHyperlinks: apiChecks.richTextRunHyperlinks, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, slideBackgrounds: apiChecks.slideBackgrounds, types: true, cli: doctor.data.version, presentationLayoutInspect: true, masterLayoutInspect: true, masterLayoutValidate: true, masterLayoutSlides: true, masterLayoutPartRead: true, masterLayoutDiff: true, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true, slideBackgroundInspect: true, slideBackgroundValidate: true, slideNumberInspect: true, slideNumberValidate: true, slideNumberSlides: true, slideNumberPartRead: true, slideDefaultColorInspect: true, slideDefaultColorValidate: true, slideDefaultColorSlides: true, slideDefaultColorPartRead: true, textShapeFillInspect: true, textShapeFillValidate: true, textShapeFillSlides: true, textShapeFillPartRead: true, textShapeLineInspect: true, textShapeLineValidate: true, textShapeLineSlides: true, textShapeLinePartRead: true, textShapeArrowInspect: true, textShapeArrowValidate: true, textShapeArrowSlides: true, textShapeArrowPartRead: true, textShapeShadowInspect: true, textShapeShadowValidate: true, textShapeShadowSlides: true, textShapeShadowPartRead: true, textShapeHyperlinkInspect: true, textShapeHyperlinkValidate: true, textShapeHyperlinkSlides: true, textShapeHyperlinkPartRead: true, textShapeHyperlinkInternalValidate: true, textShapePresetGeometryValidate: true, textShapePresetGeometrySlides: true, textShapePresetGeometryPartRead: true, textShapeRectRadiusValidate: true, textShapeRectRadiusSlides: true, textShapeRectRadiusPartRead: true, textShapeIsTextBoxValidate: true, textShapeIsTextBoxSlides: true, textShapeIsTextBoxPartRead: true, textShapeIsTextBoxLayoutPartRead: true, textShapeIsTextBoxMasterPartRead: true, richTextRunHyperlinkInspect: true, richTextRunHyperlinkValidate: true, richTextRunHyperlinkSlides: true, richTextRunHyperlinkPartRead: true, richTextRunHyperlinkInternalValidate: true, richTextBreakLineValidate: true, richTextBreakLineSlides: true, richTextBreakLinePartRead: true })}\n`,
   );
 } finally {
   await rm(directory, { recursive: true, force: true });
