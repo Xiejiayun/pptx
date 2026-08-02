@@ -15,6 +15,8 @@ import {
   type ReplaceMediaPosterOptions,
   type ReplaceMediaSourceOptions,
   type RichTextColor,
+  type RichTextParagraph,
+  type RichTextRun,
   type RichTextRunStyle,
   type DefineSlideMasterOptions,
   type Emu,
@@ -826,6 +828,71 @@ describe('@jiayunxie/pptx stable exports', () => {
       // @ts-expect-error undefined is not a writable text box state
       plain.isTextBox = undefined;
     }
+  });
+
+  it('exports rich text line break types and runtime from the root package', async () => {
+    const first: RichTextRun = { text: 'First', breakLine: true };
+    const empty: RichTextRun = { text: '', breakLine: true };
+    const last: RichTextRun = { text: 'Last', softBreakBefore: true, breakLine: true };
+    const paragraphs: readonly RichTextParagraph[] = [{
+      align: 'center',
+      runs: [first, empty, last],
+    }];
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const shape = slide.addRichText(paragraphs, { name: 'root_break_line' });
+
+    expect(shape.richText.map(({ runs }) => runs.map(({ text }) => text))).toEqual([
+      ['First'],
+      [],
+      ['Last'],
+    ]);
+    expect(shape.richText[2]!.runs[0]!.softBreakBefore).toBe(true);
+    expect(shape.richText.flatMap(({ runs }) => runs).some((run) =>
+      Object.hasOwn(run, 'breakLine'))).toBe(false);
+    shape.richText = [{
+      runs: [
+        { text: 'Edited first', breakLine: true },
+        { text: 'Edited last' },
+      ],
+    }];
+
+    const reopened = await PptxDocument.open(await document.write());
+    expect((reopened.slides[0]!.shapes.find(
+      ({ name }) => name === 'root_break_line',
+    ) as ShapeModel).richText.map(({ runs }) => runs.map(({ text }) => text))).toEqual([
+      ['Edited first'],
+      ['Edited last'],
+    ]);
+
+    const invalidRuns: readonly RichTextRun[] = [
+      {
+        text: 'String',
+        // @ts-expect-error breakLine accepts only primitive boolean values
+        breakLine: 'true',
+      },
+      {
+        text: 'Number',
+        // @ts-expect-error numeric truthiness is intentionally unsupported
+        breakLine: 1,
+      },
+      {
+        text: 'Null',
+        // @ts-expect-error null is not a line-break state
+        breakLine: null,
+      },
+      {
+        text: 'Object',
+        // @ts-expect-error objects are not line-break states
+        breakLine: {},
+      },
+    ];
+    const invalidOuter: AddTextOptions = {
+      // @ts-expect-error breakLine belongs to RichTextRun, not outer text options
+      breakLine: true,
+    };
+    expect(invalidRuns).toHaveLength(4);
+    expect(invalidOuter).toEqual({ breakLine: true });
   });
 
   it('exports rich text run hyperlink types and runtime from the root package', async () => {

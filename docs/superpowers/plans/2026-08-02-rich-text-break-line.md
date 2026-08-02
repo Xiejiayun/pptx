@@ -19,7 +19,8 @@
 - `softBreakBefore` remains attached to its run even when that run becomes the first run of a split paragraph; do not weaken the existing reversible native soft-break contract.
 - Getter snapshots expose explicit `RichTextParagraph[]` only and never guess `breakLine` markers from OOXML.
 - Run hyperlink relationship matrices are allocated after splitting and must match canonical paragraph/run indexes without leaks or target drift.
-- Plain slide, layout, master, placeholders, declarative masters, table cells, setters, duplicates, moves, rollback, and all six formats share the same normalizer.
+- Plain slide, layout, master, placeholders, declarative masters, setters, duplicates, moves, rollback, and all six formats share the same normalizer.
+- Rich-text table cells are not yet a public native API and remain in the advanced-table scope; do not widen table creation/editing in this slice.
 - Do not add `breakLine` to outer `AddTextOptions`, accept CR/LF inside run text, modify the PptxGenJS adapter production path, or claim remaining full parity.
 - Never stage `.pnpm-store/`, tarballs, temporary consumers, generated decks, browser artifacts, LibreOffice profiles, render output, or build output.
 - Use repository-local binaries. Every implementation/evidence commit is pushed to `main`, fetched, and verified at divergence `0 0` before continuing.
@@ -154,12 +155,12 @@ Review exact OOXML paragraph boundaries, getter canonicalization, same-semantic 
 - Modify if a closed-key defect is exposed: `packages/sdk/src/master-layout.ts`
 
 **Interfaces:**
-- Consumes: Task 1 public interface and shared normalizer through slide/layout/master/placeholder/declarative/table routes.
+- Consumes: Task 1 public interface and shared normalizer through slide/layout/master/placeholder/declarative routes.
 - Produces: all-owner runtime coverage, declarative cloning evidence, and root declaration/type proof.
 
 - [ ] **Step 1: Add failing owner matrix tests**
 
-Exercise direct slide/layout/master rich text, layout/master placeholder prompts, named placeholder population, declarative master text/placeholder definitions, and rich-text table cells. Require matching canonical paragraph counts/properties and owner-source isolation after create/write/reopen.
+Exercise direct slide/layout/master rich text, layout/master placeholder prompts, named placeholder population, and declarative master text/placeholder definitions. Require matching canonical paragraph counts/properties and owner-source isolation after create/write/reopen.
 
 - [ ] **Step 2: Add placeholder lifecycle tests**
 
@@ -175,7 +176,7 @@ Import `RichTextRun`, `RichTextParagraph`, and the owner APIs from the root pack
 
 - [ ] **Step 5: Apply only exposed public-surface corrections**
 
-No closed outer option key is expected because `breakLine` belongs inside run data. If declarative cloning or table-cell normalization bypasses the shared boundary, route it through the existing canonical helper without duplicating field lists or semantics.
+No closed outer option key is expected because `breakLine` belongs inside run data. If declarative cloning bypasses the shared boundary, route it through the existing canonical helper without duplicating field lists or semantics. Do not add rich-text table-cell creation or editing here; that remains advanced-table work.
 
 - [ ] **Step 6: Run public gates**
 
@@ -189,7 +190,7 @@ git diff --check
 
 - [ ] **Step 7: Review, commit, push, and verify**
 
-Review every public owner, placeholder source/population isolation, declarative detachment timing, table `a:txBody` output, root declaration surface, compile-time negatives, and the absence of an outer `AddTextOptions.breakLine`. Commit `test: cover rich text line break owners`, push, fetch, and require divergence `0 0`.
+Review every public rich-text owner, placeholder source/population isolation, declarative detachment timing, root declaration surface, compile-time negatives, and the absence of an outer `AddTextOptions.breakLine`. Commit `test: cover rich text line break owners`, push, fetch, and require divergence `0 0`.
 
 ---
 
@@ -240,7 +241,7 @@ Review public-only upstream generation, exact paragraph grouping, empty/trailing
 
 - [ ] **Step 1: Extend actual-tarball Node runtime coverage**
 
-Using only installed artifacts, create middle/trailing/empty/consecutive splits across slide/layout/master/placeholder/declarative/table owners, combine per-run hyperlinks and soft breaks, live-edit, duplicate, write/reopen, and cover six formats. Require canonical getter state, source isolation, relationship targets, and add `richTextBreakLine` to final JSON.
+Using only installed artifacts, create middle/trailing/empty/consecutive splits across slide/layout/master/placeholder/declarative owners, combine per-run hyperlinks and soft breaks, live-edit, duplicate, write/reopen, and cover six formats. Require canonical getter state, source isolation, relationship targets, and add `richTextBreakLine` to final JSON.
 
 - [ ] **Step 2: Extend installed declaration checks**
 
@@ -289,7 +290,7 @@ Review installed-only imports, type negatives, Node/browser parity, every owner,
 
 - [ ] **Step 1: Run focused PowerPoint compatibility validation**
 
-Read and follow the local `pptx-inspect` skill before this step. Generate a representative deck with middle/trailing/empty/consecutive splits, all paragraph properties, style/soft break/hyperlinks, slide/layout/master/placeholder/declarative/table owners, and live editing. Validate under PowerPoint 2010, inspect exact slide/layout/master parts and relationships, and prove a boundary edit changes only its owning part plus necessary relationship entries.
+Read and follow the local `pptx-inspect` skill before this step. Generate a representative deck with middle/trailing/empty/consecutive splits, all paragraph properties, style/soft break/hyperlinks, slide/layout/master/placeholder/declarative owners, and live editing. Validate under PowerPoint 2010, inspect exact slide/layout/master parts and relationships, and prove a boundary edit changes only its owning part plus necessary relationship entries.
 
 - [ ] **Step 2: Run LibreOffice round-trip and visual QA**
 

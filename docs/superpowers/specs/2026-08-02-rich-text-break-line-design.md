@@ -12,10 +12,10 @@
 - 同一 input paragraph 内带标记的 run 按顺序切成多个 canonical `RichTextParagraph`；
 - 最后一个 run 的 `breakLine: true` 不创建尾部空段落；
 - 空 run、连续标记、run style、paragraph properties、run hyperlink 和 `softBreakBefore` 均可组合；
-- plain slide、layout、master、placeholder、declarative master 与 table-cell rich text 共用 `normalizeRichText()` 的同一 contract；
+- plain slide、layout、master、placeholder 与 declarative master 共用 `normalizeRichText()` 的同一 contract；
 - `ShapeModel.richText` getter 继续返回 OOXML 的 canonical explicit paragraphs，不反向伪造 `breakLine`。
 
-本小项不在 outer `AddTextOptions` 增加无效果字段，不接受字符串中的 CR/LF，不改变 `softBreakBefore` 的既有 direct soft-break contract，也不补齐其余 advanced line/effect/text/table、`tableToSlides`、output/runtime helpers 或 peer-range audit。完成本小项仍不声明完整 PptxGenJS parity。
+本小项不在 outer `AddTextOptions` 增加无效果字段，不接受字符串中的 CR/LF，不改变 `softBreakBefore` 的既有 direct soft-break contract，也不新增尚未公开的 rich-text table-cell API；table rich text继续属于advanced-table专项。本小项也不补齐其余 advanced line/effect/text/table、`tableToSlides`、output/runtime helpers 或 peer-range audit。完成本小项仍不声明完整 PptxGenJS parity。
 
 ## 2. PptxGenJS 4.0.1 公开行为证据
 
@@ -45,7 +45,7 @@ Native 对合法 boolean input 比较相同 paragraph boundary、run 顺序、vi
 
 ### 方案 A：renderer 遇到 `breakLine` 时直接关闭并重开 `a:p`
 
-初看改动最少，但 paragraph properties、run hyperlink relationship matrix、owner defaults、existing-deck replacement 和 table-cell `a:` renderer 都必须在输出阶段重新索引。归一化结果仍保留一个 paragraph，事务前验证、相等判断与 getter canonical shape 会互相不一致。
+初看改动最少，但 paragraph properties、run hyperlink relationship matrix、owner defaults 和 existing-deck replacement 都必须在输出阶段重新索引。归一化结果仍保留一个 paragraph，事务前验证、相等判断与 getter canonical shape 会互相不一致。
 
 ### 方案 B：把 `breakLine` 写成 `a:br`
 
@@ -53,7 +53,7 @@ Native 对合法 boolean input 比较相同 paragraph boundary、run 顺序、vi
 
 ### 方案 C：归一化阶段拆成 canonical paragraphs（采用）
 
-`normalizeRichText()` 先严格验证全部 input paragraphs/runs，再按标记切分并移除 transient `breakLine`。下游 renderer、relationship allocation、getter、setter、six-format writer 与 table-cell path 只消费现有 canonical paragraph model。该方案把兼容语义集中在单一入口，最大限度复用既有正确性边界。
+`normalizeRichText()` 先严格验证全部 input paragraphs/runs，再按标记切分并移除 transient `breakLine`。下游 renderer、relationship allocation、getter、setter与six-format writer只消费现有canonical paragraph model。该方案把兼容语义集中在单一入口，最大限度复用既有正确性边界。
 
 ## 4. 公共 API 与 canonical snapshot
 
@@ -139,7 +139,7 @@ Native 的 `align`、`rtl`、margins、indent、bullet、level、spacing 和 tab
 - URL/internal-slide、outer inherited hyperlink、per-run override和`false` suppression在拆分后保持目标；
 - empty run、连续切分和同目标重复关系不发生错位、泄漏或错误复用；
 - setter可在现有 shape上新增/移除/reorder boundaries，过期 relationship按现有 reference-count cleanup删除；
-- plain slide、layout、master、placeholder source/population、declarative master和table cell共用归一化结果；
+- plain slide、layout、master、placeholder source/population和declarative master共用归一化结果；
 - duplicate保留exact generated OOXML，move不改变shape bytes，rollback恢复part bytes/order/relationships/journal/live identity；
 - 六格式write/reopen只保留canonical paragraphs，不保留transient marker，这是预期的语义归一化。
 
@@ -153,7 +153,7 @@ Placeholder source与population call的rich text仍遵守现有owner选择规则
 - 全 paragraph properties复制、outer defaults、style与`softBreakBefore`组合；
 - URL/internal-slide/outer/per-run hyperlink relationship重索引、cleanup和rollback；
 - immediate getter、setter、same-semantic no-op、stable model identity；
-- slide/layout/master/placeholder/declarative/table-cell owners；
+- slide/layout/master/placeholder/declarative owners；
 - duplicate、move、六格式write/reopen；
 - strict invalid values、unknown/accessor/symbol/prototype/class输入零 mutation；
 - root declarations和compile-time invalid cases。
@@ -171,7 +171,7 @@ Placeholder source与population call的rich text仍遵守现有owner选择规则
 - actual tarball Node/types/browser/CLI 与真实Chrome create/read/edit/reopen；
 - PowerPoint 2010 validator、exact part read与mutation isolation；
 - LibreOffice round-trip保留paragraph boundary、空段落、soft break和hyperlink；
-- representative rich/placeholder/table视觉与overflow检查；
+- representative rich/placeholder视觉与overflow检查；
 - README、API、compatibility、progress和changelog收尾。
 
 ## 10. 完成门禁

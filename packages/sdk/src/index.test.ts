@@ -3766,6 +3766,227 @@ describe('PptxDocument vertical slice', () => {
       .toEqual([]);
   });
 
+  it('supports rich text line breaks across SDK owners and declarative placeholders', async () => {
+    const document = PptxDocument.create();
+    const directSlide = document.addSlide();
+    const layout = document.layouts[0]!;
+    const master = document.masters[0]!;
+    const paragraphTexts = (shape: ShapeModel) => shape.richText.map(({ runs }) =>
+      runs.map(({ text }) => text));
+    const richInput = (prefix: string) => [{
+      align: 'center' as const,
+      runs: [
+        { text: `${prefix} first`, breakLine: true },
+        { text: '', breakLine: true },
+        { text: `${prefix} last`, softBreakBefore: true },
+      ],
+    }];
+
+    const slideText = directSlide.addRichText(richInput('Slide'), {
+      name: 'slide_break_line',
+    });
+    const layoutText = layout.addRichText(richInput('Layout'), {
+      name: 'layout_break_line',
+    });
+    const masterText = master.addRichText(richInput('Master'), {
+      name: 'master_break_line',
+    });
+    const layoutPrompt = layout.addPlaceholder(richInput('Layout prompt'), {
+      name: 'layout_break_prompt',
+      type: 'body',
+      index: 221,
+    });
+    const masterPrompt = master.addPlaceholder(richInput('Master prompt'), {
+      name: 'master_break_prompt',
+      type: 'body',
+      index: 222,
+    });
+
+    const declarativeText = [{
+      runs: [
+        { text: 'Declarative first', breakLine: true },
+        { text: 'Declarative last' },
+      ],
+    }];
+    const declarativePrompt = [{
+      runs: [
+        { text: 'Declarative prompt first', breakLine: true },
+        { text: 'Declarative prompt last' },
+      ],
+    }];
+    let signalRead!: () => void;
+    let resumeRead!: () => void;
+    const readStarted = new Promise<void>((resolve) => { signalRead = resolve; });
+    const readPaused = new Promise<void>((resolve) => { resumeRead = resolve; });
+    const pending = document.defineSlideMaster({
+      title: 'RICH-BREAK-LINES',
+      objects: [
+        {
+          kind: 'text',
+          text: declarativeText,
+          options: { name: 'declarative_break_line' },
+        },
+        {
+          kind: 'placeholder',
+          text: declarativePrompt,
+          options: { name: 'declarative_break_prompt', type: 'body', index: 223 },
+        },
+        {
+          kind: 'image',
+          source: {
+            async *[Symbol.asyncIterator]() {
+              signalRead();
+              await readPaused;
+              yield sdkPngHeader(1, 1);
+            },
+          },
+        },
+      ],
+    });
+    await readStarted;
+    declarativeText[0]!.runs[0]!.breakLine = false;
+    declarativeText[0]!.runs[0]!.text = 'Changed declarative first';
+    declarativePrompt[0]!.runs[0]!.breakLine = false;
+    declarativePrompt[0]!.runs[0]!.text = 'Changed declarative prompt first';
+    resumeRead();
+    const declarative = await pending;
+    const populatedSlide = document.addSlide({ masterName: declarative.name });
+    const populated = populatedSlide.addRichText([{
+      runs: [
+        { text: 'Populated first', breakLine: true },
+        { text: 'Populated last' },
+      ],
+    }], { placeholder: 'declarative_break_prompt' });
+
+    expect(paragraphTexts(slideText)).toEqual([
+      ['Slide first'],
+      [],
+      ['Slide last'],
+    ]);
+    expect(paragraphTexts(layoutText)).toEqual([
+      ['Layout first'],
+      [],
+      ['Layout last'],
+    ]);
+    expect(paragraphTexts(masterText)).toEqual([
+      ['Master first'],
+      [],
+      ['Master last'],
+    ]);
+    expect(paragraphTexts(layoutPrompt)).toEqual([
+      ['Layout prompt first'],
+      [],
+      ['Layout prompt last'],
+    ]);
+    expect(paragraphTexts(masterPrompt)).toEqual([
+      ['Master prompt first'],
+      [],
+      ['Master prompt last'],
+    ]);
+    expect(paragraphTexts(declarative.shapes.find(
+      ({ name }) => name === 'declarative_break_line',
+    ) as ShapeModel)).toEqual([
+      ['Declarative first'],
+      ['Declarative last'],
+    ]);
+    expect(paragraphTexts(declarative.placeholders.find(
+      ({ name }) => name === 'declarative_break_prompt',
+    )!)).toEqual([
+      ['Declarative prompt first'],
+      ['Declarative prompt last'],
+    ]);
+    expect(paragraphTexts(populated)).toEqual([
+      ['Populated first'],
+      ['Populated last'],
+    ]);
+    for (const shape of [
+      slideText,
+      layoutText,
+      masterText,
+      layoutPrompt,
+      masterPrompt,
+      populated,
+    ]) {
+      expect(shape.richText.flatMap(({ runs }) => runs).some((run) =>
+        Object.hasOwn(run, 'breakLine'))).toBe(false);
+    }
+    expect(validatePackage(document.opcPackage).filter(({ severity }) => severity === 'error'))
+      .toEqual([]);
+
+    const reopened = await PptxDocument.open(await document.write());
+    expect(paragraphTexts(reopened.slides.find(
+      ({ partUri }) => partUri === directSlide.partUri,
+    )!.shapes.find(({ name }) => name === 'slide_break_line') as ShapeModel)).toEqual([
+      ['Slide first'],
+      [],
+      ['Slide last'],
+    ]);
+    expect(paragraphTexts(reopened.layouts[0]!.shapes.find(
+      ({ name }) => name === 'layout_break_line',
+    ) as ShapeModel)).toEqual([
+      ['Layout first'],
+      [],
+      ['Layout last'],
+    ]);
+    expect(paragraphTexts(reopened.masters[0]!.shapes.find(
+      ({ name }) => name === 'master_break_line',
+    ) as ShapeModel)).toEqual([
+      ['Master first'],
+      [],
+      ['Master last'],
+    ]);
+    const reopenedDeclarative = reopened.layouts.find(
+      ({ name }) => name === 'RICH-BREAK-LINES',
+    )!;
+    expect(paragraphTexts(reopenedDeclarative.shapes.find(
+      ({ name }) => name === 'declarative_break_line',
+    ) as ShapeModel)).toEqual([
+      ['Declarative first'],
+      ['Declarative last'],
+    ]);
+    expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error'))
+      .toEqual([]);
+  });
+
+  it('rejects invalid rich text line breaks across declarative owners without mutation', async () => {
+    const document = PptxDocument.create();
+    document.addSlide();
+    const { output: _beforeOutput, ...before } = await sdkPackageSnapshot(document) as {
+      readonly output: Uint8Array;
+      readonly [key: string]: unknown;
+    };
+    let accessorCalls = 0;
+    const accessor = Object.defineProperty({ text: 'Accessor' }, 'breakLine', {
+      enumerable: true,
+      get() {
+        accessorCalls += 1;
+        return true;
+      },
+    });
+    for (const [index, text] of [
+      [{ runs: [{ text: 'Invalid', breakLine: 'yes' }] }],
+      [{ runs: [accessor] }],
+    ].entries()) {
+      await expect(document.defineSlideMaster({
+        title: `INVALID-RICH-BREAK-${index}`,
+        objects: [
+          { kind: 'text', text: text as never },
+          {
+            kind: 'placeholder',
+            text: text as never,
+            options: { name: `invalid_break_prompt_${index}`, type: 'body' },
+          },
+        ],
+      })).rejects.toThrow();
+      const { output: _afterOutput, ...after } = await sdkPackageSnapshot(document) as {
+        readonly output: Uint8Array;
+        readonly [key: string]: unknown;
+      };
+      expect(after).toEqual(before);
+    }
+    expect(accessorCalls).toBe(0);
+  });
+
   it('preserves rich text run hyperlinks through duplicate delete and all formats', async () => {
     const document = PptxDocument.create();
     const source = document.addSlide();
@@ -16955,7 +17176,6 @@ describe('PptxDocument vertical slice', () => {
       [{ runs: [], tabStops: [{ position: 3_000 }] }],
       [{ runs: [], tabStops: [{ position: 1, alignment: 'tab' }] }],
       [{ runs: [], tabStops: [{ position: 1, leader: 'dot' }] }],
-      [{ runs: [{ text: 'x', breakLine: true }] }],
       [{ runs: [{ text: 'x', style: { underline: null } }] }],
       [{ runs: [{ text: 'x', style: { underline: 'sng' } }] }],
       [{ runs: [{ text: 'x', style: { underline: [] } }] }],
