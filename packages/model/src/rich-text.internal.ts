@@ -5,6 +5,10 @@ import {
   type XmlElement,
 } from '@pptx/lossless-xml';
 import { ModelParseError } from './errors.js';
+import {
+  renderShapeHyperlink,
+  type NormalizedHyperlink,
+} from './shape-hyperlink.internal.js';
 import type {
   CharacterBullet,
   NumberedBullet,
@@ -277,6 +281,8 @@ interface RenderRichTextOptions {
   readonly defaultMarginRight?: number;
   readonly defaultSpacing?: NormalizedParagraphSpacingUpdate;
   readonly defaultTabStops?: readonly NormalizedParagraphTabStop[];
+  readonly defaultHyperlink?: NormalizedHyperlink;
+  readonly hyperlinkRelationshipId?: string;
   readonly paragraphProperties?: readonly (string | undefined)[];
   readonly endParagraphProperties?: string;
 }
@@ -285,6 +291,12 @@ export function renderRichTextParagraphs(
   paragraphs: readonly NormalizedRichTextParagraph[],
   options: RenderRichTextOptions = {},
 ): string {
+  if (
+    (options.defaultHyperlink === undefined)
+    !== (options.hyperlinkRelationshipId === undefined)
+  ) {
+    throw new TypeError('Rich text hyperlink and relationship ID must be supplied together');
+  }
   const prefix = options.prefix ?? 'a:';
   const defaultLanguage = options.defaultLanguage ?? 'en-US';
   const defaultEndProperties = `<${prefix}endParaRPr lang="${escapeXmlAttribute(defaultLanguage)}" dirty="0"/>`;
@@ -321,7 +333,14 @@ export function renderRichTextParagraphs(
         resolvedMarginRight,
         resolvedIndent,
       )}${runs
-        .map((run) => renderRun(run, prefix, options.defaultLanguage, options.defaultColor))
+        .map((run) => renderRun(
+          run,
+          prefix,
+          options.defaultLanguage,
+          options.defaultColor,
+          options.defaultHyperlink,
+          options.hyperlinkRelationshipId,
+        ))
         .join('')}${options.endParagraphProperties ?? defaultEndProperties}</${prefix}p>`;
     })
     .join('');
@@ -1186,6 +1205,8 @@ function renderRun(
   prefix: string,
   defaultLanguage?: string,
   defaultColor?: Readonly<RichTextColor>,
+  hyperlink?: NormalizedHyperlink,
+  hyperlinkRelationshipId?: string,
 ): string {
   const softBreak = run.softBreakBefore ? `<${prefix}br/>` : '';
   if (run.text.length === 0 && run.style === undefined) return softBreak;
@@ -1209,7 +1230,7 @@ function renderRun(
       ? ''
       : `strike="${style.strike === false ? 'noStrike' : style.strike === true ? 'sngStrike' : style.strike}"`,
     style.underline === undefined
-      ? ''
+      ? hyperlink === undefined ? '' : 'u="sng"'
       : `u="${style.underline === false ? 'none' : style.underline === true ? 'sng' : style.underline.style}"`,
     'dirty="0"',
   ].filter(Boolean).join(' ');
@@ -1231,7 +1252,14 @@ function renderRun(
   const latin = escapeXmlAttribute(style.fontFamily ?? '+mn-lt');
   const eastAsian = escapeXmlAttribute(style.fontFamily ?? '+mn-ea');
   const complexScript = escapeXmlAttribute(style.fontFamily ?? '+mn-cs');
-  return `${softBreak}<${prefix}r><${prefix}rPr ${attributes}>${outline}<${prefix}solidFill>${colorXml}</${prefix}solidFill>${glow}${highlight}${underlineFill}<${prefix}latin typeface="${latin}"/><${prefix}ea typeface="${eastAsian}"/><${prefix}cs typeface="${complexScript}"/></${prefix}rPr><${prefix}t xml:space="preserve">${escapeXmlText(run.text)}</${prefix}t></${prefix}r>`;
+  const hyperlinkXml = hyperlink === undefined
+    ? ''
+    : renderShapeHyperlink(
+        hyperlink,
+        hyperlinkRelationshipId!,
+        { drawing: prefix.endsWith(':') ? prefix.slice(0, -1) : prefix, relationship: 'r' },
+      );
+  return `${softBreak}<${prefix}r><${prefix}rPr ${attributes}>${outline}<${prefix}solidFill>${colorXml}</${prefix}solidFill>${glow}${highlight}${underlineFill}<${prefix}latin typeface="${latin}"/><${prefix}ea typeface="${eastAsian}"/><${prefix}cs typeface="${complexScript}"/>${hyperlinkXml}</${prefix}rPr><${prefix}t xml:space="preserve">${escapeXmlText(run.text)}</${prefix}t></${prefix}r>`;
 }
 
 function renderMainTextColorChoice(

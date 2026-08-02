@@ -191,6 +191,7 @@ import {
   normalizeHyperlink,
   readShapeHyperlink,
   relationshipReferenceCount,
+  renderShapeHyperlink,
   replaceShapeHyperlinkElement,
   requireShapeHyperlinkRelationshipId,
   shapeHyperlinksEqual,
@@ -246,6 +247,8 @@ const IMAGE_RELATIONSHIP_TYPE =
   'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image';
 const CHART_RELATIONSHIP_TYPE =
   'http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart';
+const RELATIONSHIP_NAMESPACE =
+  'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
 
 export interface AddTextOptions extends Partial<Transform> {
   readonly name?: string;
@@ -254,6 +257,7 @@ export interface AddTextOptions extends Partial<Transform> {
   readonly arrows?: ShapeArrows;
   readonly bullet?: ParagraphBullet;
   readonly fill?: ShapeFill;
+  readonly hyperlink?: Hyperlink;
   readonly line?: ShapeLine;
   readonly shadow?: ShapeShadow;
   readonly fit?: TextBoxFit;
@@ -1382,6 +1386,9 @@ export class SlideModel {
             options.placeholder,
             'text-shape',
           );
+      const hyperlinkRelationshipId = this.createTextHyperlinkRelationship(
+        normalized.hyperlink,
+      );
       const bullet = normalized.bullet === false ? undefined : normalized.bullet;
       const spacing = resolveParagraphSpacing(normalized.spacing);
       const paragraphs = normalized.value
@@ -1400,6 +1407,8 @@ export class SlideModel {
           normalized.marginRight,
           normalized.indent,
           defaultColor,
+          normalized.hyperlink,
+          hyperlinkRelationshipId,
         ))
         .join('');
       return this.addTextShape(
@@ -1409,6 +1418,8 @@ export class SlideModel {
         normalized.line,
         normalized.arrows,
         normalized.shadow,
+        normalized.hyperlink,
+        hyperlinkRelationshipId,
         normalized.margin,
         normalized.verticalAlignment,
         normalized.textDirection,
@@ -1448,6 +1459,8 @@ export class SlideModel {
           `Placeholder identity ${identity.type}:${identity.index} is already in use`,
         );
       }
+      const hyperlink = plain ? plain.hyperlink : defaults!.hyperlink;
+      const hyperlinkRelationshipId = this.createTextHyperlinkRelationship(hyperlink);
       if (plain) {
         const bullet = plain.bullet === false ? undefined : plain.bullet;
         const spacing = resolveParagraphSpacing(plain.spacing);
@@ -1467,6 +1480,8 @@ export class SlideModel {
             plain.marginRight,
             plain.indent,
             defaultColor,
+            plain.hyperlink,
+            hyperlinkRelationshipId,
           ))
           .join('');
         return this.addTextShape(
@@ -1476,6 +1491,8 @@ export class SlideModel {
           plain.line,
           plain.arrows,
           plain.shadow,
+          plain.hyperlink,
+          hyperlinkRelationshipId,
           plain.margin,
           plain.verticalAlignment,
           plain.textDirection,
@@ -1503,12 +1520,20 @@ export class SlideModel {
             : {}),
           ...(defaults!.spacing !== undefined ? { defaultSpacing: defaults!.spacing } : {}),
           ...(defaults!.tabStops !== undefined ? { defaultTabStops: defaults!.tabStops } : {}),
+          ...(defaults!.hyperlink !== undefined
+            ? {
+                defaultHyperlink: defaults!.hyperlink,
+                hyperlinkRelationshipId: hyperlinkRelationshipId!,
+              }
+            : {}),
         }),
         options,
         defaults!.fill,
         defaults!.line,
         defaults!.arrows,
         defaults!.shadow,
+        defaults!.hyperlink,
+        hyperlinkRelationshipId,
         defaults!.margin,
         defaults!.verticalAlignment,
         defaults!.textDirection,
@@ -1532,6 +1557,7 @@ export class SlideModel {
             options.placeholder,
             'text-shape',
           );
+      const hyperlinkRelationshipId = this.createTextHyperlinkRelationship(defaults.hyperlink);
       return this.addTextShape(
         renderRichTextParagraphs(paragraphs, {
           ...(defaultColor !== undefined ? { defaultColor } : {}),
@@ -1545,12 +1571,20 @@ export class SlideModel {
           ...(defaults.marginRight !== undefined ? { defaultMarginRight: defaults.marginRight } : {}),
           ...(defaults.spacing !== undefined ? { defaultSpacing: defaults.spacing } : {}),
           ...(defaults.tabStops !== undefined ? { defaultTabStops: defaults.tabStops } : {}),
+          ...(defaults.hyperlink !== undefined
+            ? {
+                defaultHyperlink: defaults.hyperlink,
+                hyperlinkRelationshipId: hyperlinkRelationshipId!,
+              }
+            : {}),
         }),
         owner ? placeholderTextOptions(owner) : options,
         defaults.fill,
         defaults.line,
         defaults.arrows,
         defaults.shadow,
+        defaults.hyperlink,
+        hyperlinkRelationshipId,
         defaults.margin,
         defaults.verticalAlignment,
         defaults.textDirection,
@@ -1578,6 +1612,8 @@ export class SlideModel {
     line: NormalizedSimpleLine,
     arrows: NormalizedShapeArrows | undefined,
     shadow: NormalizedShapeShadow | undefined,
+    hyperlink: NormalizedHyperlink | undefined,
+    hyperlinkRelationshipId: string | undefined,
     margins: TextBoxMargins | undefined,
     verticalAlignment: TextBoxVerticalAlignment,
     textDirection: TextBoxTextDirection | undefined,
@@ -1601,6 +1637,8 @@ export class SlideModel {
       line,
       arrows,
       shadow,
+      hyperlink,
+      hyperlinkRelationshipId,
       margins,
       verticalAlignment,
       textDirection,
@@ -1623,6 +1661,28 @@ export class SlideModel {
       throw new ModelParseError(`Created text shape ${nextId} could not be resolved`, this.partUri);
     }
     return shape;
+  }
+
+  private createTextHyperlinkRelationship(
+    hyperlink: NormalizedHyperlink | undefined,
+  ): string | undefined {
+    if (hyperlink === undefined) return undefined;
+    if (hyperlink.url !== undefined) {
+      return this.presentation.opcPackage.addRelationship(this.partUri, {
+        type: HYPERLINK_RELATIONSHIP_TYPE,
+        target: hyperlink.url,
+        targetMode: 'External',
+      }).id;
+    }
+    const target = this.presentation.slides[hyperlink.slide - 1];
+    if (!target) {
+      throw new RangeError(`Text shape hyperlink slide ${hyperlink.slide} is out of range`);
+    }
+    return this.presentation.opcPackage.addRelationship(this.partUri, {
+      type: SLIDE_RELATIONSHIP_TYPE,
+      target: relativeRelationshipTarget(this.partUri, target.partUri),
+      targetMode: 'Internal',
+    }).id;
   }
 
   /** @internal */
@@ -1737,6 +1797,7 @@ interface NormalizedTextInput {
   readonly shadow: NormalizedShapeShadow | undefined;
   readonly bullet: NormalizedParagraphBullet | false | undefined;
   readonly fill: ShapeFill;
+  readonly hyperlink: NormalizedHyperlink | undefined;
   readonly line: NormalizedSimpleLine;
   readonly indent: number | undefined;
   readonly language: string | undefined;
@@ -1768,6 +1829,7 @@ function validateTextInput(value: string, options: AddTextOptions): NormalizedTe
     shadow: defaults.shadow,
     bullet: defaults.bullet,
     fill: defaults.fill,
+    hyperlink: defaults.hyperlink,
     line: defaults.line,
     indent: defaults.indent,
     language: defaults.language,
@@ -1790,6 +1852,7 @@ interface NormalizedAddTextOptions {
   readonly shadow?: NormalizedShapeShadow;
   readonly bullet?: NormalizedParagraphBullet | false;
   readonly fill: ShapeFill;
+  readonly hyperlink?: NormalizedHyperlink;
   readonly line: NormalizedSimpleLine;
   readonly indent?: number;
   readonly language?: string;
@@ -1843,6 +1906,9 @@ function validateAddTextOptions(options: AddTextOptions): NormalizedAddTextOptio
     ? undefined
     : normalizeParagraphBullet(options.bullet, 'Text bullet');
   const arrows = normalizeShapeArrows(options.arrows, 'Text shape arrows');
+  const hyperlink = options.hyperlink === undefined
+    ? undefined
+    : normalizeHyperlink(options.hyperlink, 'Text shape hyperlink');
   const shadow = options.shadow === undefined
     ? undefined
     : normalizeShapeShadow(options.shadow, 'Text shape shadow');
@@ -1892,6 +1958,7 @@ function validateAddTextOptions(options: AddTextOptions): NormalizedAddTextOptio
     ...(shadow !== undefined ? { shadow } : {}),
     ...(bullet !== undefined ? { bullet } : {}),
     fill,
+    ...(hyperlink !== undefined ? { hyperlink } : {}),
     line,
     ...(indent !== undefined ? { indent } : {}),
     ...(language !== undefined ? { language } : {}),
@@ -2079,6 +2146,8 @@ function textShapeXml(
   line: NormalizedSimpleLine,
   arrows: NormalizedShapeArrows | undefined,
   shadow: NormalizedShapeShadow | undefined,
+  hyperlink: NormalizedHyperlink | undefined,
+  hyperlinkRelationshipId: string | undefined,
   margins: TextBoxMargins | undefined,
   verticalAlignment: TextBoxVerticalAlignment,
   textDirection: TextBoxTextDirection | undefined,
@@ -2086,6 +2155,9 @@ function textShapeXml(
   textWrap: boolean,
   placeholder?: Readonly<PlaceholderIdentity>,
 ): string {
+  if ((hyperlink === undefined) !== (hyperlinkRelationshipId === undefined)) {
+    throw new TypeError('Text shape hyperlink and relationship ID must be supplied together');
+  }
   const x = Math.round(options.x ?? 0);
   const y = Math.round(options.y ?? 0);
   const width = Math.round(options.width ?? inches(1));
@@ -2117,7 +2189,20 @@ function textShapeXml(
   const effectXml = shadow === undefined
     ? ''
     : `<a:effectLst>${renderSimpleShadow(shadow, 'a:')}</a:effectLst>`;
-  return `<p:sp xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><p:nvSpPr><p:cNvPr id="${id}" name="${name}"/><p:cNvSpPr txBox="1"/>${applicationProperties}</p:nvSpPr><p:spPr><a:xfrm${transformAttributes}><a:off x="${x}" y="${y}"/><a:ext cx="${width}" cy="${height}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom>${renderSimpleFill(fill, 'a:')}${lineXml}${effectXml}</p:spPr><p:txBody>${bodyProperties}<a:lstStyle/>${paragraphs}</p:txBody></p:sp>`;
+  const relationshipNamespace = hyperlink === undefined
+    ? ''
+    : ` xmlns:r="${RELATIONSHIP_NAMESPACE}"`;
+  const hyperlinkXml = hyperlink === undefined
+    ? ''
+    : renderShapeHyperlink(
+        hyperlink,
+        hyperlinkRelationshipId!,
+        { drawing: 'a', relationship: 'r' },
+      );
+  const nonVisualProperties = hyperlinkXml === ''
+    ? `<p:cNvPr id="${id}" name="${name}"/>`
+    : `<p:cNvPr id="${id}" name="${name}">${hyperlinkXml}</p:cNvPr>`;
+  return `<p:sp xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"${relationshipNamespace}><p:nvSpPr>${nonVisualProperties}<p:cNvSpPr txBox="1"/>${applicationProperties}</p:nvSpPr><p:spPr><a:xfrm${transformAttributes}><a:off x="${x}" y="${y}"/><a:ext cx="${width}" cy="${height}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom>${renderSimpleFill(fill, 'a:')}${lineXml}${effectXml}</p:spPr><p:txBody>${bodyProperties}<a:lstStyle/>${paragraphs}</p:txBody></p:sp>`;
 }
 
 function textParagraphXml(
@@ -2134,6 +2219,8 @@ function textParagraphXml(
   marginRight?: number,
   indent?: number,
   defaultColor?: Readonly<RichTextColor>,
+  hyperlink?: NormalizedHyperlink,
+  hyperlinkRelationshipId?: string,
 ): string {
   const properties = renderParagraphProperties(
     undefined,
@@ -2151,7 +2238,14 @@ function textParagraphXml(
   const languageValue = escapeXmlAttribute(language ?? 'en-US');
   const endProperties = `<${prefix}endParaRPr lang="${languageValue}" dirty="0"/>`;
   if (value.length === 0) return `<${prefix}p>${properties}${endProperties}</${prefix}p>`;
-  return `<${prefix}p>${properties}${defaultTextRunXml(value, prefix, language, defaultColor)}${endProperties}</${prefix}p>`;
+  return `<${prefix}p>${properties}${defaultTextRunXml(
+    value,
+    prefix,
+    language,
+    defaultColor,
+    hyperlink,
+    hyperlinkRelationshipId,
+  )}${endProperties}</${prefix}p>`;
 }
 
 function defaultTextRunXml(
@@ -2159,10 +2253,23 @@ function defaultTextRunXml(
   prefix = 'a:',
   language?: string,
   defaultColor: Readonly<RichTextColor> = { kind: 'scheme', value: 'tx1' },
+  hyperlink?: NormalizedHyperlink,
+  hyperlinkRelationshipId?: string,
 ): string {
+  if ((hyperlink === undefined) !== (hyperlinkRelationshipId === undefined)) {
+    throw new TypeError('Text run hyperlink and relationship ID must be supplied together');
+  }
   const languageValue = escapeXmlAttribute(language ?? 'en-US');
   const alternateLanguage = language === undefined ? '' : ' altLang="en-US"';
-  return `<${prefix}r><${prefix}rPr lang="${languageValue}"${alternateLanguage} dirty="0"><${prefix}solidFill>${renderColorChoice(defaultColor, prefix)}</${prefix}solidFill><${prefix}latin typeface="+mn-lt"/></${prefix}rPr><${prefix}t xml:space="preserve">${escapeXmlText(value)}</${prefix}t></${prefix}r>`;
+  const underline = hyperlink === undefined ? '' : ' u="sng"';
+  const hyperlinkXml = hyperlink === undefined
+    ? ''
+    : renderShapeHyperlink(
+        hyperlink,
+        hyperlinkRelationshipId!,
+        { drawing: prefix.endsWith(':') ? prefix.slice(0, -1) : prefix, relationship: 'r' },
+      );
+  return `<${prefix}r><${prefix}rPr lang="${languageValue}"${alternateLanguage}${underline} dirty="0"><${prefix}solidFill>${renderColorChoice(defaultColor, prefix)}</${prefix}solidFill><${prefix}latin typeface="+mn-lt"/>${hyperlinkXml}</${prefix}rPr><${prefix}t xml:space="preserve">${escapeXmlText(value)}</${prefix}t></${prefix}r>`;
 }
 
 function readPlainText(xml: LosslessXmlDocument, element: XmlElement): string {

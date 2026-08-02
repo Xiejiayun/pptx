@@ -6884,6 +6884,234 @@ describe('PresentationModel', () => {
     expect(getterCalls).toBe(0);
   });
 
+  it('creates plain and rich text hyperlinks with one shared shape and run relationship', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const omittedSlide = model.addSlide();
+    const undefinedSlide = model.addSlide();
+    omittedSlide.addText('Text hyperlink');
+    undefinedSlide.addText('Text hyperlink', { hyperlink: undefined } as never);
+    expect(pkg.requirePart(undefinedSlide.partUri).bytes).toEqual(
+      pkg.requirePart(omittedSlide.partUri).bytes,
+    );
+    expect(undefinedSlide.relationships).toEqual(omittedSlide.relationships);
+
+    const source = model.addSlide();
+    const target = model.addSlide();
+    const urlInput: { url: string; tooltip?: string } = {
+      url: 'https://example.com/path?a=1&b=2',
+      tooltip: 'Visit <now> & learn',
+    };
+    const plain = source.addText('First\n\nSecond', {
+      fill: { kind: 'solid', color: { kind: 'srgb', value: 'DDEEFF' } },
+      line: { kind: 'line', color: { kind: 'srgb', value: '112233' }, width: 2 },
+      arrows: { begin: 'triangle', end: 'arrow' },
+      shadow: { kind: 'outer' },
+      hyperlink: urlInput,
+    });
+    const rich = source.addRichText([{
+      runs: [
+        { text: 'One' },
+        {
+          text: 'Two',
+          style: {
+            underline: false,
+            color: { kind: 'scheme', value: 'accent2' },
+          },
+        },
+        { text: '' },
+      ],
+    }], {
+      hyperlink: {
+        slide: model.slides.indexOf(target) + 1,
+        tooltip: '',
+      },
+    });
+    const empty = source.addText('', {
+      hyperlink: { slide: model.slides.indexOf(source) + 1 },
+    });
+    urlInput.url = 'https://changed.example';
+    urlInput.tooltip = 'Changed';
+
+    expect(plain.hyperlink).toEqual({
+      url: 'https://example.com/path?a=1&b=2',
+      tooltip: 'Visit <now> & learn',
+    });
+    expect(Object.isFrozen(plain.hyperlink)).toBe(true);
+    expect(rich.hyperlink).toEqual({
+      slide: model.slides.indexOf(target) + 1,
+      tooltip: '',
+    });
+    expect(empty.hyperlink).toEqual({ slide: model.slides.indexOf(source) + 1 });
+    expect(plain.fill).toEqual({
+      kind: 'solid',
+      color: { kind: 'srgb', value: 'DDEEFF' },
+    });
+    expect(plain.line).toEqual({
+      kind: 'line',
+      color: { kind: 'srgb', value: '112233' },
+      width: 2,
+      dash: 'solid',
+    });
+    expect(plain.arrows).toEqual({ begin: 'triangle', end: 'arrow' });
+    expect(plain.shadow?.kind).toBe('outer');
+
+    const urlRelationship = source.relationships.find(
+      ({ type, target: relationshipTarget }) =>
+        type === HYPERLINK_RELATIONSHIP
+        && relationshipTarget === 'https://example.com/path?a=1&b=2',
+    )!;
+    const slideRelationship = source.relationships.find(
+      ({ type, resolvedTarget }) =>
+        type === SLIDE_RELATIONSHIP && resolvedTarget === target.partUri,
+    )!;
+    const selfRelationship = source.relationships.find(
+      ({ type, resolvedTarget }) =>
+        type === SLIDE_RELATIONSHIP && resolvedTarget === source.partUri,
+    )!;
+    expect(urlRelationship.targetMode).toBe('External');
+    expect(slideRelationship.targetMode).toBe('Internal');
+    expect(selfRelationship.targetMode).toBe('Internal');
+
+    const xml = new TextDecoder().decode(pkg.requirePart(source.partUri).bytes);
+    expect(xml.match(new RegExp(`r:id="${urlRelationship.id}"`, 'g'))).toHaveLength(3);
+    expect(xml.match(new RegExp(`r:id="${slideRelationship.id}"`, 'g'))).toHaveLength(3);
+    expect(xml.match(new RegExp(`r:id="${selfRelationship.id}"`, 'g'))).toHaveLength(1);
+    expect(xml).toContain('tooltip="Visit &lt;now&gt; &amp; learn"');
+    expect(xml.match(new RegExp(
+      `r:id="${slideRelationship.id}" tooltip="" action="ppaction://hlinksldjump"`,
+      'g',
+    ))).toHaveLength(3);
+    expect(xml.match(/u="sng"/g)?.length).toBeGreaterThanOrEqual(3);
+    expect(xml).toContain('u="none"');
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedSource = reopened.slides.find(({ partUri }) => partUri === source.partUri)!;
+    expect((reopenedSource.shapes.find(({ id }) => id === plain.id) as ShapeModel).hyperlink)
+      .toEqual({
+        url: 'https://example.com/path?a=1&b=2',
+        tooltip: 'Visit <now> & learn',
+      });
+    expect((reopenedSource.shapes.find(({ id }) => id === rich.id) as ShapeModel).hyperlink)
+      .toEqual({ slide: reopened.slides.indexOf(
+        reopened.slides.find(({ partUri }) => partUri === target.partUri)!,
+      ) + 1, tooltip: '' });
+  });
+
+  it('keeps text run hyperlinks independent from whole-shape hyperlink edits', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const source = model.addSlide();
+    const target = model.addSlide();
+    const shape = source.addText('Linked text', {
+      hyperlink: { url: 'https://runs.example', tooltip: 'Runs' },
+    });
+    const originalRelationship = source.relationships.find(
+      ({ type }) => type === HYPERLINK_RELATIONSHIP,
+    )!;
+
+    const noOp = packageSnapshot(pkg);
+    shape.hyperlink = { url: 'https://runs.example', tooltip: 'Runs' };
+    expect(packageSnapshot(pkg)).toEqual(noOp);
+
+    shape.hyperlink = { url: 'https://runs.example', tooltip: '' };
+    expect(source.relationships.find(({ id }) => id === originalRelationship.id)?.target)
+      .toBe('https://runs.example');
+    let xml = new TextDecoder().decode(pkg.requirePart(source.partUri).bytes);
+    expect(xml.match(new RegExp(`r:id="${originalRelationship.id}"`, 'g'))).toHaveLength(2);
+
+    shape.hyperlink = { slide: model.slides.indexOf(target) + 1 };
+    const targetRelationship = source.relationships.find(
+      ({ type, resolvedTarget }) => type === SLIDE_RELATIONSHIP && resolvedTarget === target.partUri,
+    )!;
+    expect(targetRelationship.id).not.toBe(originalRelationship.id);
+    xml = new TextDecoder().decode(pkg.requirePart(source.partUri).bytes);
+    expect(xml.match(new RegExp(`r:id="${originalRelationship.id}"`, 'g'))).toHaveLength(1);
+    expect(xml.match(new RegExp(`r:id="${targetRelationship.id}"`, 'g'))).toHaveLength(1);
+    expect(shape.hyperlink).toEqual({ slide: model.slides.indexOf(target) + 1 });
+
+    shape.hyperlink = undefined;
+    expect(shape.hyperlink).toBeUndefined();
+    expect(source.relationships.some(({ id }) => id === targetRelationship.id)).toBe(false);
+    expect(source.relationships.some(({ id }) => id === originalRelationship.id)).toBe(true);
+    xml = new TextDecoder().decode(pkg.requirePart(source.partUri).bytes);
+    expect(xml.match(new RegExp(`r:id="${originalRelationship.id}"`, 'g'))).toHaveLength(1);
+    expect(xml).toContain('<a:rPr');
+    expect(xml).toContain('<a:hlinkClick');
+  });
+
+  it('rejects invalid text hyperlink creation and rolls valid creation back exactly', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    model.addSlide();
+    const existing = slide.addText('Existing text');
+    let getterCalls = 0;
+    const accessor = Object.defineProperty({}, 'url', {
+      enumerable: true,
+      get() {
+        getterCalls += 1;
+        return 'https://example.com';
+      },
+    });
+    const inherited = Object.create({ url: 'https://example.com' });
+    const invalid = [
+      null,
+      false,
+      [],
+      new Date(),
+      accessor,
+      inherited,
+      {},
+      { url: '', slide: undefined },
+      { url: 'https://example.com', slide: 2 },
+      { url: 123 },
+      { slide: 0 },
+      { slide: -1 },
+      { slide: 1.5 },
+      { slide: Number.NaN },
+      { slide: Number.POSITIVE_INFINITY },
+      { slide: Number.MAX_SAFE_INTEGER + 1 },
+      { slide: model.slides.length + 1 },
+      { url: 'bad\u0000url' },
+      { url: 'https://example.com', tooltip: 'bad\u0000tooltip' },
+      { target: 'https://example.com' },
+      { url: 'https://example.com', _rId: 'rId9' },
+      { url: 'https://example.com', kind: 'url' },
+      { url: 'https://example.com', [Symbol('unsafe')]: true },
+    ];
+
+    for (const [index, hyperlink] of invalid.entries()) {
+      const before = packageSnapshot(pkg);
+      const shapes = slide.shapes;
+      expect(() => slide.addText('Invalid hyperlink', { hyperlink } as never)).toThrow();
+      expect(() => slide.addRichText([{ runs: [{ text: 'Invalid rich hyperlink' }] }], {
+        hyperlink,
+      } as never)).toThrow();
+      expect(() => slide.addPlaceholder('Invalid placeholder hyperlink', {
+        name: 'invalid_hyperlink',
+        type: 'title',
+        hyperlink,
+      } as never)).toThrow();
+      expect(packageSnapshot(pkg), `invalid hyperlink ${index}`).toEqual(before);
+      expect(slide.shapes).toEqual(shapes);
+      expect(slide.shapes.at(-1)).toBe(existing);
+    }
+    expect(getterCalls).toBe(0);
+
+    const before = packageSnapshot(pkg);
+    let rolledBack: ShapeModel | undefined;
+    expect(() => pkg.transaction(() => {
+      rolledBack = slide.addText('Rollback hyperlink', {
+        hyperlink: { url: 'https://rollback.example' },
+      });
+      throw new Error('restore text hyperlink creation');
+    })).toThrow('restore text hyperlink creation');
+    expect(packageSnapshot(pkg)).toEqual(before);
+    expect(slide.shapes.at(-1)).toBe(existing);
+    expect(() => rolledBack!.name).toThrow(ModelParseError);
+  });
+
   it('reads and edits direct shape fills through stable live models', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);
