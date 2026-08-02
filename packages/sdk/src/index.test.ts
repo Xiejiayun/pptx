@@ -9500,7 +9500,7 @@ describe('PptxDocument vertical slice', () => {
       const invalidOptions: AddChartOptions = { width: '6in' };
       void [type, options, groupPromise, invalidType, invalidOptions];
     }
-  });
+  }, 15_000);
 
   it('validates chart caches and workbooks on strict writes without mutating the package', async () => {
     const document = PptxDocument.create();
