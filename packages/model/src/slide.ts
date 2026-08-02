@@ -893,7 +893,10 @@ export class SlideModel {
         slidePartUris: this.presentation.slides.map(({ partUri }) => partUri),
       };
       const current = readRichTextState(xml, element, readContext);
-      if (richTextParagraphsEqual(current.paragraphs, paragraphs)) return;
+      const normalizedCurrent = current.paragraphs.length === 0
+        ? current.paragraphs
+        : normalizeRichText(current.paragraphs);
+      if (richTextParagraphsEqual(normalizedCurrent, paragraphs)) return;
 
       const textBody = element.children.find(
         (child): child is XmlElement => child.type === 'element' && child.localName === 'txBody',

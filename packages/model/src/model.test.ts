@@ -7808,6 +7808,323 @@ describe('PresentationModel', () => {
       .toEqual({ url: 'https://prompt.example' });
   });
 
+  it('creates and edits canonical rich text line break paragraphs without changing shape state', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const shape = slide.addRichText([{
+      align: 'center',
+      rtl: true,
+      marginLeft: 12,
+      marginRight: 18,
+      indent: 4,
+      level: 2,
+      spacing: { before: 3, after: 5, line: { kind: 'multiple', factor: 1.25 } },
+      tabStops: [{ position: 1.5, alignment: 'right' }],
+      runs: [
+        { text: 'First', style: { bold: true }, breakLine: true },
+        { text: '', breakLine: true },
+        { text: 'Soft', softBreakBefore: true },
+        { text: 'Final', breakLine: true },
+      ],
+    }], {
+      name: 'Canonical breakLine shape',
+      shape: 'roundRect',
+      rectRadius: inches(0.2),
+      isTextBox: true,
+      fill: { kind: 'solid', color: { kind: 'srgb', value: 'DDEEFF' } },
+      line: { kind: 'line', color: { kind: 'srgb', value: '112233' }, width: 2 },
+      arrows: { begin: 'triangle', end: 'arrow' },
+      shadow: { kind: 'outer' },
+      margin: [2, 3, 4, 5],
+      valign: 'bottom',
+      vert: 'horz',
+      fit: 'shrink',
+      wrap: false,
+    });
+
+    const properties = {
+      align: 'center' as const,
+      rtl: true,
+      marginLeft: 12,
+      marginRight: 18,
+      indent: 4,
+      level: 2,
+      spacing: { before: 3, after: 5, line: { kind: 'multiple' as const, factor: 1.25 } },
+      tabStops: [{ position: 1.5, alignment: 'right' as const }],
+    };
+    const defaultStyle = {
+      fontFamily: '+mn-lt',
+      lang: 'en-US',
+      color: { kind: 'scheme' as const, value: 'tx1' },
+    };
+    expect(shape.richText).toEqual([
+      { ...properties, runs: [{ text: 'First', style: { ...defaultStyle, bold: true } }] },
+      { ...properties, runs: [] },
+      {
+        ...properties,
+        runs: [
+          { text: 'Soft', style: defaultStyle, softBreakBefore: true },
+          { text: 'Final', style: defaultStyle },
+        ],
+      },
+    ]);
+    expect(shape.text).toBe('First\n\n\nSoftFinal');
+    expect(shape.richText.flatMap(({ runs }) => runs).some((run) =>
+      Object.hasOwn(run, 'breakLine'))).toBe(false);
+
+    const xml = LosslessXmlDocument.parse(pkg.requirePart(slide.partUri).bytes);
+    const element = xml.elements('sp').find((candidate) => {
+      const properties = xml.descendants(candidate, 'cNvPr')[0];
+      return properties && xml.attribute(properties, 'id')?.value === String(shape.id);
+    })!;
+    const textBody = xml.descendants(element, 'txBody')[0]!;
+    expect(textBody.children.filter((child) =>
+      child.type === 'element' && child.localName === 'p')).toHaveLength(3);
+
+    const beforeNoOp = packageSnapshot(pkg);
+    shape.richText = shape.richText;
+    expect(packageSnapshot(pkg)).toEqual(beforeNoOp);
+
+    const ownedState = {
+      presetType: shape.presetType,
+      adjustments: shape.adjustments,
+      isTextBox: shape.isTextBox,
+      fill: shape.fill,
+      line: shape.line,
+      arrows: shape.arrows,
+      shadow: shape.shadow,
+      textMargins: shape.textMargins,
+      verticalAlignment: shape.verticalAlignment,
+      textDirection: shape.textDirection,
+      textFit: shape.textFit,
+      textWrap: shape.textWrap,
+    };
+    shape.richText = [{
+      align: 'right',
+      runs: [
+        { text: 'Left', breakLine: true },
+        { text: 'Right' },
+      ],
+    }];
+    expect(shape.richText).toEqual([
+      { align: 'right', runs: [{ text: 'Left', style: defaultStyle }] },
+      { align: 'right', runs: [{ text: 'Right', style: defaultStyle }] },
+    ]);
+    expect({
+      presetType: shape.presetType,
+      adjustments: shape.adjustments,
+      isTextBox: shape.isTextBox,
+      fill: shape.fill,
+      line: shape.line,
+      arrows: shape.arrows,
+      shadow: shape.shadow,
+      textMargins: shape.textMargins,
+      verticalAlignment: shape.verticalAlignment,
+      textDirection: shape.textDirection,
+      textFit: shape.textFit,
+      textWrap: shape.textWrap,
+    }).toEqual(ownedState);
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedSlide = reopened.slides.find(({ partUri }) => partUri === slide.partUri)!;
+    expect((reopenedSlide.shapes.find(({ id }) => id === shape.id) as ShapeModel).richText)
+      .toEqual(shape.richText);
+  });
+
+  it('reindexes rich text line break hyperlinks through edits, moves, duplicate, and rollback', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const source = model.addSlide();
+    const target = model.addSlide();
+    const targetIndex = model.slides.indexOf(target) + 1;
+    const shape = source.addRichText([{
+      runs: [
+        {
+          text: 'URL',
+          breakLine: true,
+          style: { hyperlink: { url: 'https://break.example', tooltip: 'URL' } },
+        },
+        {
+          text: 'Slide',
+          breakLine: true,
+          style: { hyperlink: { slide: targetIndex, tooltip: '' } },
+        },
+        { text: 'Plain' },
+      ],
+    }]);
+
+    expect(shape.richText.map(({ runs }) => runs.map(({ text }) => text))).toEqual([
+      ['URL'],
+      ['Slide'],
+      ['Plain'],
+    ]);
+    let urlRelationships = source.relationships.filter(
+      ({ type, target: value }) =>
+        type === HYPERLINK_RELATIONSHIP && value === 'https://break.example',
+    );
+    let slideRelationships = source.relationships.filter(
+      ({ type, resolvedTarget }) =>
+        type === SLIDE_RELATIONSHIP && resolvedTarget === target.partUri,
+    );
+    expect(urlRelationships).toHaveLength(1);
+    expect(slideRelationships).toHaveLength(1);
+    const originalSlideRelationshipId = slideRelationships[0]!.id;
+
+    shape.richText = [{
+      runs: [
+        {
+          text: 'URL moved',
+          style: { hyperlink: { url: 'https://break.example', tooltip: 'URL' } },
+        },
+        {
+          text: 'Slide moved',
+          breakLine: true,
+          style: { hyperlink: { slide: targetIndex, tooltip: '' } },
+        },
+        { text: 'Plain moved' },
+      ],
+    }];
+    expect(shape.richText.map(({ runs }) => runs.map(({ text }) => text))).toEqual([
+      ['URL moved', 'Slide moved'],
+      ['Plain moved'],
+    ]);
+    urlRelationships = source.relationships.filter(
+      ({ type, target: value }) =>
+        type === HYPERLINK_RELATIONSHIP && value === 'https://break.example',
+    );
+    slideRelationships = source.relationships.filter(
+      ({ type, resolvedTarget }) =>
+        type === SLIDE_RELATIONSHIP && resolvedTarget === target.partUri,
+    );
+    expect(urlRelationships).toHaveLength(1);
+    expect(slideRelationships).toHaveLength(1);
+    expect(source.relationships.some(({ id }) => id === originalSlideRelationshipId)).toBe(false);
+
+    const beforeRollback = packageSnapshot(pkg);
+    const textBeforeRollback = shape.richText;
+    expect(() => pkg.transaction(() => {
+      shape.richText = [{
+        runs: [
+          {
+            text: 'Rollback URL',
+            breakLine: true,
+            style: { hyperlink: { url: 'https://rollback-break.example' } },
+          },
+          { text: 'Rollback plain' },
+        ],
+      }];
+      throw new Error('restore rich text line break edit');
+    })).toThrow('restore rich text line break edit');
+    expect(packageSnapshot(pkg)).toEqual(beforeRollback);
+    expect(shape.richText).toEqual(textBeforeRollback);
+
+    model.moveSlide(model.slides.indexOf(target), 0);
+    const movedTargetIndex = model.slides.indexOf(target) + 1;
+    expect(shape.richText[0]!.runs[1]!.style?.hyperlink)
+      .toEqual({ slide: movedTargetIndex, tooltip: '' });
+    const duplicate = model.duplicateSlide(model.slides.indexOf(source));
+    const duplicateShape = duplicate.shapes.find(({ name }) => name === shape.name) as ShapeModel;
+    expect(duplicateShape.richText).toEqual(shape.richText);
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedSource = reopened.slides.find(({ partUri }) => partUri === source.partUri)!;
+    const reopenedShape = reopenedSource.shapes.find(({ id }) => id === shape.id) as ShapeModel;
+    expect(reopenedShape.richText.map(({ runs }) => runs.map(({ text }) => text))).toEqual([
+      ['URL moved', 'Slide moved'],
+      ['Plain moved'],
+    ]);
+    expect(reopenedShape.richText[0]!.runs[1]!.style?.hyperlink).toEqual({
+      slide: reopened.slides.findIndex(({ partUri }) => partUri === target.partUri) + 1,
+      tooltip: '',
+    });
+  });
+
+  it('rejects invalid rich text line breaks atomically without executing accessors', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const shape = slide.addRichText([{ runs: [{ text: 'Existing' }] }]);
+    let accessorCalls = 0;
+    const accessor = Object.defineProperty({ text: 'Accessor' }, 'breakLine', {
+      enumerable: true,
+      get() {
+        accessorCalls += 1;
+        return true;
+      },
+    });
+    const invalidInputs = [
+      [{
+        runs: [
+          {
+            text: 'Prepared hyperlink',
+            style: { hyperlink: { url: 'https://prepared-break.example' } },
+          },
+          { text: 'Invalid later', breakLine: 'yes' },
+        ],
+      }],
+      [{ runs: [accessor] }],
+    ];
+
+    for (const [index, input] of invalidInputs.entries()) {
+      let before = packageSnapshot(pkg);
+      const shapes = slide.shapes;
+      expect(() => slide.addRichText(input as never, {
+        hyperlink: { url: 'https://outer-break.example' },
+      })).toThrow();
+      expect(packageSnapshot(pkg), `create breakLine invalid ${index}`).toEqual(before);
+      expect(slide.shapes).toEqual(shapes);
+      expect(slide.shapes.at(-1)).toBe(shape);
+
+      before = packageSnapshot(pkg);
+      const richText = shape.richText;
+      expect(() => {
+        shape.richText = input as never;
+      }).toThrow();
+      expect(packageSnapshot(pkg), `edit breakLine invalid ${index}`).toEqual(before);
+      expect(shape.richText).toEqual(richText);
+      expect(slide.shapes.at(-1)).toBe(shape);
+    }
+    expect(accessorCalls).toBe(0);
+  });
+
+  it('round-trips rich text line breaks in all six presentation formats', async () => {
+    for (const profile of Object.values(PRESENTATION_FORMAT_PROFILES)) {
+      const pkg = await OpcPackage.open(await modelFixture(profile.presentationContentType));
+      const model = new PresentationModel(pkg);
+      const slide = model.addSlide();
+      const shape = slide.addRichText([{
+        runs: [
+          { text: `${profile.format} first`, breakLine: true },
+          { text: '', breakLine: true },
+          { text: `${profile.format} last`, softBreakBefore: true, breakLine: true },
+        ],
+      }], { name: `${profile.format} breakLine` });
+      expect(shape.richText.map(({ runs }) => runs.map(({ text }) => text))).toEqual([
+        [`${profile.format} first`],
+        [],
+        [`${profile.format} last`],
+      ]);
+
+      const duplicate = model.duplicateSlide(model.slides.indexOf(slide));
+      model.moveSlide(model.slides.indexOf(duplicate), 0);
+      const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+      expect(reopened.format).toBe(profile.format);
+      for (const partUri of [slide.partUri, duplicate.partUri]) {
+        const reopenedSlide = reopened.slides.find((candidate) => candidate.partUri === partUri)!;
+        const reopenedShape = reopenedSlide.shapes.find(
+          ({ name }) => name === `${profile.format} breakLine`,
+        ) as ShapeModel;
+        expect(reopenedShape.richText.map(({ runs }) => runs.map(({ text }) => text))).toEqual([
+          [`${profile.format} first`],
+          [],
+          [`${profile.format} last`],
+        ]);
+        expect(reopenedShape.richText[2]!.runs[0]!.softBreakBefore).toBe(true);
+      }
+    }
+  });
+
   it('rejects invalid rich text run hyperlink creation without mutation', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);
