@@ -390,7 +390,45 @@ PptxGenJS 的 `masterName` 拼写在这里保持兼容，但它严格选择的�
 
 2 页 native gallery 含 32 parts / 29 relationships / 2 layouts / 1 master，PowerPoint 2010 profile 为 0 errors / 0 warnings；2 页 PptxGenJS control 为 36 parts / 34 relationships。原件与 LibreOffice 回存件共 8 页均以 2400×1350、180 DPI 渲染并逐页检查；全幅背景使 minimum non-white margin 按预期为 0px。Fixture 的 background 和 image 是 1×1 黑色 PNG，native 第二页按测试意图重定向空白 default layout，黑/空白输出不代表丢失继承。LibreOffice 26.8 保留两页、两个 layouts 和一个 master，但会改写 placeholder identity/slide-number cache，并移除 audio 与内嵌 chart workbooks；这是降级记录，不声明完整 round-trip。PowerPoint 16.112 对 native 与 control 均返回 `-9074` 且没有产生 PPTX/PDF，因此不声明 PowerPoint 往返通过。
 
-尚未实现完整 theme text cascade、percentage coordinates、高级 text/table/media/chart 样式和更广泛客户端认证。后续顺序为 advanced text → advanced table/`tableToSlides` → output/runtime helpers → peer-range full-suite audit。
+尚未实现完整 theme text cascade、percentage coordinates、高级 text/table/media/chart 样式和更广泛客户端认证。Advanced text 已从文本框 direct fill 开始逐项补齐。
+
+## 创建和编辑文本框填充
+
+```ts
+const plain = slide.addText('Solid text box', {
+  fill: {
+    kind: 'solid',
+    color: { kind: 'srgb', value: 'D9EAF7' },
+    transparency: 25,
+  },
+});
+const rich = slide.addRichText([{
+  runs: [{ text: 'Theme-filled rich text' }],
+}], {
+  fill: {
+    kind: 'solid',
+    color: { kind: 'scheme', value: 'accent2' },
+    transparency: 0,
+  },
+});
+const placeholder = slide.addPlaceholder('Filled placeholder', {
+  name: 'filled_title',
+  type: 'title',
+  fill: { kind: 'none' },
+});
+
+plain.fill = { kind: 'solid', color: { kind: 'scheme', value: 'accent3' } };
+plain.fill = { kind: 'none' };
+plain.fill = undefined; // 只清除 direct fill choice
+```
+
+`AddTextOptions.fill` 复用 strict `ShapeFill`：值只能是 `{ kind: 'none' }`，或带有合法六位 sRGB / DrawingML theme color 的 `{ kind: 'solid', color, transparency? }`。`transparency` 必须是 finite `0..100`，并量化到 `0.001%`。创建时省略、runtime `undefined` 和 explicit none 都写 canonical direct `a:noFill`；solid 的显式 zero transparency 会保留为 `a:alpha val="100000"`。空对象、缺少 color、PptxGenJS 风格的 `{ color: 'FF0000' }`、unknown key、accessor、symbol、class instance 和越界值都会在 package mutation 前拒绝。
+
+同一 contract 覆盖 plain/rich text、`addPlaceholder()`、title/body placeholder population、`SlideLayoutModel` / `SlideMasterModel` 的 text 创建，以及 `defineSlideMaster()` 的 declarative text/placeholder objects。创建结果可立即通过 `ShapeModel.fill` 读取、替换或清除；输入与快照保持 detached，same-value 是 exact no-op，duplicate、outer transaction rollback、六格式 write/reopen 和 placeholder source isolation 均已覆盖。
+
+本项跨 package focused gate 为 5/5，SDK/root 与 adapter suites 分别为 188/188、76/76；最终全量 Vitest 为 1262 passed / 1 skipped，独立 performance 为 1/1（560ms），TypeScript typecheck 与 project build 均通过。Actual 57-file tarball 的 Node、declarations、browser export 与 installed CLI 均报告 `textShapeFills: true`；真实 Chrome validation/console/page/network errors 全为 0，CLI PowerPoint 2010 profile 为 0 errors / 0 warnings。
+
+PptxGenJS 4.0.1 的 omitted fill 同样写 direct no-fill，但 `{ type: 'none' }` 会省略 direct fill choice，显式 zero transparency 也会省略 alpha；本库保留 explicit none/zero 的 direct intent。合法 solid 与非零透明度在最终语义上对等。Gradient/pattern/picture/group text fill 仍只做无损保留，不在 simple-fill 创建范围内；text outer `line`、arrows、shadow、hyperlink、`shape` / `rectRadius` / `isTextBox` 和 `breakLine` 组合语义也仍未支持。下一小项是 text shape simple line creation。
 
 ## 创建和编辑预设形状、调整值与样式
 

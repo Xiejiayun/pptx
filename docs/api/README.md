@@ -318,7 +318,7 @@ The release gallery was produced from the actual npm tarball and contains 4 slid
 
 `ShapeAdjustment` is the readonly `{ readonly name: string; readonly value: number }` direct guide value used by preset-only `AddShapeOptions.adjustments` and `ShapeModel.adjustments`. A value must be a safe integer and is written directly as the operand of `a:gd@fmla="val N"`; the API performs no shape-specific conversion, clamping, or range inference. Lists must be dense, ordered, and uniquely named. Normalization is descriptor-safe and getter-free, immediately detaches from the caller, and getter snapshots are detached and deeply frozen. Assignment replaces the whole ordered list, `[]` keeps an empty `a:avLst`, and the setter does not accept `undefined`; assigning the same list is an exact bytes/journal no-op. Only one namespace-correct direct preset geometry with one direct adjustment list and simple `val` guides is supported. Complex formulas, duplicate or ambiguous guides, wrong namespaces, unsafe integers, and custom geometry read as `undefined`; replacement throws `ModelParseError` before package changes. A different `presetType` resets adjustments, while same-type assignment preserves their exact bytes. Valid PptxGenJS 4.0.1 `rectRadius`, `angleRange`, and `arcThicknessRatio` output imports as the same final integer list. Native deliberately retains explicit zero and rejects PptxGenJS string coercion, zero truthiness loss, shortcut precedence, ignored thickness-without-angles, and malformed/unsafe passthrough. The separate custom-geometry API above covers paths, guide formulas, handles, connection sites, text rectangles, and numeric evaluation; the preset-only adjustment API intentionally remains a direct-state list.
 
-`ShapeFill` supports direct none or solid sRGB/theme color with optional finite 0–100 transparency rounded to 0.001%. `ShapeModel.fill` returns a detached direct-state snapshot; same-value assignment is an exact no-op, `{ kind: 'none' }` writes direct no-fill, and `undefined` clears only the direct fill choice. Existing gradient, picture, pattern, and group fills survive unrelated edits and can be explicitly replaced or cleared, but their creation remains outside this simple-fill API.
+`ShapeFill` supports direct none or solid sRGB/theme color with optional finite 0–100 transparency rounded to 0.001%. `AddShapeOptions.fill` and `AddTextOptions.fill` use this same value. `ShapeModel.fill` returns a detached direct-state snapshot; same-value assignment is an exact no-op, `{ kind: 'none' }` writes direct no-fill, and `undefined` clears only the direct fill choice. Existing gradient, picture, pattern, and group fills survive unrelated edits and can be explicitly replaced or cleared, but their creation remains outside this simple-fill API.
 
 `ShapeLine` supports direct none or a solid sRGB/theme line with optional finite 0–100 transparency, optional 0–1584 point width, and optional `solid | dash | dashDot | lgDash | lgDashDot | lgDashDotDot | sysDash | sysDot` dash. Omitted width/dash materialize as 1pt/solid; zero width remains direct zero. `ShapeModel.line` returns a detached direct-state snapshot; same-value assignment is an exact no-op, `{ kind: 'none' }` writes direct line no-fill, and `undefined` clears only owned width/fill/dash while preserving the line container, arrowheads, joins, extensions, and unrelated attributes. Existing advanced line fills and custom dashes survive unrelated edits and can be explicitly replaced or cleared, but their creation remains outside this simple-line API.
 
@@ -328,9 +328,46 @@ The release gallery was produced from the actual npm tarball and contains 4 slid
 
 `Hyperlink` is the mutually exclusive `{ readonly url: string; readonly tooltip?: string } | { readonly slide: number; readonly tooltip?: string }` value used by `AddShapeOptions.hyperlink` and `ShapeModel.hyperlink`. A URL must be a non-empty XML-safe string; a slide number must be a one-based positive safe integer resolving to a current presentation slide at assignment time. Inputs must be descriptor-safe ordinary or null-prototype objects with exactly one target and no unknown keys. Getter results are detached frozen direct-state snapshots. Tooltip absence remains property absence, while direct empty remains `tooltip: ''`; assignment is a whole replacement, omitted tooltip clears only that attribute, and `undefined` removes the supported click element. Same-value assignment is an exact bytes/journal no-op. URL/slide switching reuses an unshared relationship or clones on write when its ID is referenced elsewhere, and clear or replacement garbage-collects only unreferenced relationships. Internal links retain target-part identity while slide insert/delete/reorder changes the reported one-based ordinal; duplicate self-links retarget to the duplicate, and deleting a target removes incoming DrawingML click/hover elements before deleting their relationships. Unsupported hover editing, extra action/sound/history state, duplicate/malformed click ownership, or dangling/wrong-type relationships are never guessed: reads return `undefined`, and writes reject without package changes. PptxGenJS 4.0.1 materializes omitted tooltip as direct empty and may console-ignore, coerce, duplicate, or dangle invalid runtime targets; native supports the valid final semantics but rejects those defects before mutation. External hyperlinks produce the expected portability warning rather than a package error. Text-run, table, image, chart, media, group, and graphic-frame hyperlink creation, hover links, action-only navigation, and relative/file safety policy remain outside this shape-level API.
 
-Arrow size, cap/compound/alignment/join editing, generic/advanced effects, custom shadow transforms, non-shape shadow APIs, custom-geometry path scaling/arc endpoint and bounds calculation/handle dragging/connector snapping and creation, shape-text creation options, advanced line fill/custom dash creation, and percentage positions remain pending.
+Arrow size, cap/compound/alignment/join editing, generic/advanced effects, custom shadow transforms, non-shape shadow APIs, custom-geometry path scaling/arc endpoint and bounds calculation/handle dragging/connector snapping and creation, text-shape line/arrows/shadow/hyperlink/geometry creation options, advanced line fill/custom dash creation, and percentage positions remain pending.
 
 Shape kinds include `text`, `shape`, `image`, `table`, `chart`, `graphic-frame`, and `group`. Images expose embedded part URIs and replacement; tables support basic native creation plus rows/cells, cell text, borders, fill, margins, horizontal/vertical alignment, text-direction, and text-fit editing; charts expose cached series and lossless chart XML editing.
+
+### Text-shape direct fill
+
+```ts
+const slide = document.addSlide();
+const plain = slide.addText('Solid text box', {
+  fill: {
+    kind: 'solid',
+    color: { kind: 'srgb', value: 'D9EAF7' },
+    transparency: 25,
+  },
+});
+const rich = slide.addRichText([{
+  runs: [{ text: 'Theme-filled rich text' }],
+}], {
+  fill: {
+    kind: 'solid',
+    color: { kind: 'scheme', value: 'accent2' },
+    transparency: 0,
+  },
+});
+const placeholder = slide.addPlaceholder('Filled placeholder', {
+  name: 'filled_title',
+  type: 'title',
+  fill: { kind: 'none' },
+});
+
+plain.fill = { kind: 'solid', color: { kind: 'scheme', value: 'accent3' } };
+plain.fill = { kind: 'none' };
+plain.fill = undefined;
+```
+
+`AddTextOptions.fill?: ShapeFill` is normalized before any package mutation. The supported union is exactly direct none or direct solid with a required strict six-digit sRGB/supported scheme color and optional finite `0..100` transparency rounded to `0.001%`. Omitted, runtime-`undefined`, and explicit none creation all produce canonical direct `a:noFill`; solid explicit zero transparency produces direct `a:alpha val="100000"`. Unknown, inherited, accessor, or symbol keys; non-ordinary objects; missing color; invalid lexical colors; and non-finite or out-of-range transparency reject without changing parts, relationships, XML, runtime caches, shape order, or the mutation journal.
+
+Plain/rich text, `addPlaceholder()`, title/body placeholder population, layout/master wrapper methods, and declarative `defineSlideMaster()` text/placeholder objects share the same renderer and validation contract. The resulting `ShapeModel.fill` is immediately readable and editable. Inputs detach before mutation; snapshots are detached and frozen; duplicate, move, outer rollback, six-format write/reopen, stable identity, sibling isolation, and placeholder-source isolation retain the direct fill. Clearing the live model with `undefined` differs from creation omission: the former removes the direct choice, while the latter intentionally preserves the canonical text-box default no-fill.
+
+PptxGenJS 4.0.1 writes direct no-fill for omitted text fill, omits the direct choice for `{ type: 'none' }`, and omits alpha for explicit zero transparency. Native deliberately preserves explicit none and zero direct intent. Supported solid/scheme/non-zero-alpha output reaches the same final semantics. Gradient/pattern/picture/group text-fill creation, text outer line/arrows/shadow/hyperlink/geometry, `rectRadius`, `isTextBox`, and combined `breakLine` behavior remain outside this subitem; text-shape simple-line creation is next.
 
 ```ts
 const text = document.addSlide().addText('Quarterly results\nQ4 forecast', {
@@ -801,7 +838,7 @@ Focused master/layout/placeholder tests report 45 passed / 434 skipped; full Vit
 
 The two-slide native gallery has 32 parts, 29 relationships, two layouts, and one master and validates 0/0 under the PowerPoint 2010 profile. The two-slide PptxGenJS control has 36 parts and 34 relationships. Eight source/LibreOffice-round-trip pages were rendered at 2400×1350 and 180 DPI and inspected individually; full-bleed fixture backgrounds give an expected 0px minimum non-white margin. LibreOffice 26.8 preserves two slides, two layouts, and one master but rewrites placeholder identities and slide-number caches and removes audio plus embedded chart workbooks. Local PowerPoint 16.112 returned `-9074` for both native and control inputs and produced no PPTX/PDF, so neither result is reported as a full round-trip pass.
 
-Full theme text cascade, percentage coordinates, advanced text/table/media/chart styles, and broad client certification remain pending. The next sequence is advanced text → advanced table/`tableToSlides` → output/runtime helpers → peer-range full-suite audit.
+Full theme text cascade, percentage coordinates, advanced text/table/media/chart styles, and broad client certification remain pending. Advanced text has started with text-shape direct fill; text-shape simple-line creation is next, followed by the remaining advanced-text items, advanced table/`tableToSlides`, output/runtime helpers, and the peer-range full-suite audit.
 
 ## Media
 

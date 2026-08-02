@@ -464,7 +464,7 @@ $ pptx-inspect --json package inspect output.pptx
 ### 剩余文本与全功能路线
 
 - Slide default text color direct transient 语义与 master/layout/placeholder 已完成；table 默认颜色与完整 theme text cascade 并入 advanced text/table 专项。
-- 后续顺序固定为 advanced text → advanced table/`tableToSlides` → output/runtime helpers → peer-range full-suite audit。
+- Advanced text 的 text shape fill 已在后续专项完成；下一小项为 text shape simple line creation，之后进入其余 advanced text、advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
 
 ## PptxGenJS 全功能对等：Named master/layout/placeholder
 
@@ -493,7 +493,27 @@ $ pptx-inspect --json package inspect output.pptx
 ### 剩余 master/layout 与全功能路线
 
 - Named selection、semantic wrapper、direct background、slide-number integration、declarative definition、六类 placeholder population 和 replace/delete lifecycle 已完成。仍未完成完整 theme text cascade、percentage coordinates、advanced text/table/media/chart styles 与更广泛客户端认证。
-- 后续顺序固定为 advanced text → advanced table/`tableToSlides` → output/runtime helpers → peer-range full-suite audit。
+- Advanced text 已从 text shape fill 开始按小项推进；后续总体顺序仍是 advanced text → advanced table/`tableToSlides` → output/runtime helpers → peer-range full-suite audit。
+
+## PptxGenJS 全功能对等：Text shape fill creation
+
+### 本阶段 change
+
+- `AddTextOptions.fill` 复用既有 strict `ShapeFill` 与 simple-fill codec，支持 direct none 或 solid sRGB/theme color，以及量化到 `0.001%` 的 `0..100` transparency；omitted、runtime `undefined` 与 explicit none 保持 canonical direct `a:noFill`，explicit zero 保留 direct alpha `100000`。
+- Plain/rich text、`addPlaceholder()`、title/body placeholder population、slide/layout/master wrappers 与 declarative `defineSlideMaster()` text/placeholder objects 共用同一 normalizer/renderer；fill 固定输出在 geometry 之后、line 之前。
+- 创建结果立即通过 live `ShapeModel.fill` read/edit/clear；caller detachment、same-value exact no-op、stable identity、duplicate/move、outer transaction rollback、六格式 write/reopen、sibling isolation 与 layout-placeholder source isolation 已覆盖。Invalid nested object/color/range/accessor/symbol/unknown key 在 parts、relationships、XML、journal、shape order 与 runtime cache 变化前拒绝。
+- PptxGenJS 4.0.1 public output 对 omitted text fill 写 direct no-fill，对 `{ type: 'none' }` 省略 direct fill，对 explicit zero transparency 省略 alpha。Native 保留 explicit none/zero direct intent；合法 sRGB/theme solid 与非零 transparency 的 final semantics 对等，不复制 permissive fallback 或 falsy collapse。
+
+### 验证结果
+
+- SDK/root public 与 lifecycle suites 为 188/188，PptxGenJS adapter 为 76/76，跨 package text-fill focused gate 为 5/5；plain/rich/placeholder/layout/master/declarative、duplicate/rollback/reopen 与六格式均通过。
+- Actual npm tarball 为 57 files / 54 dist files；installed Node、TypeScript declarations、browser conditional export、真实 Chrome 与 installed CLI smoke 均返回 `textShapeFills: true`。Chrome immediate/reopen 的 plain/rich/placeholder state、layout 100% transparency 与 detached caller state 完全匹配，validation/console/page/network errors 均为 0。PowerPoint 2010 profile 为 0 errors / 0 warnings，raw slide part 包含预期的 sRGB/theme、alpha `75000`、alpha `100000` 与 direct no-fill。
+- 最终全量 Vitest 为 67 passed / 1 skipped test files、1262 passed / 1 skipped tests；独立 performance 为 1/1（560ms）。TypeScript `--pretty false` typecheck、普通 project build、两套 package tsup build 与 declaration build 全部通过。
+
+### 剩余文本与全功能路线
+
+- Text outer fill 已从缺口移入支持项。Gradient/pattern/picture/group text-fill creation，以及 outer line/arrows/shadow/hyperlink、`shape` / `rectRadius` / `isTextBox`、breakLine 组合语义与其余 shape-level styles 仍待逐项完成。
+- 下一小项固定为 text shape simple line creation：复用现有 `ShapeLine` codec 和同一 text renderer boundary；之后继续 advanced text，再进入 advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
 
 ## 0.1.0 初始验收
 
