@@ -17,6 +17,7 @@ import {
   type RichTextColor,
   type RichTextRunStyle,
   type DefineSlideMasterOptions,
+  type Emu,
   type Hyperlink,
   type PlaceholderSelector,
   type PlaceholderType,
@@ -695,6 +696,73 @@ describe('@jiayunxie/pptx stable exports', () => {
       {
         // @ts-expect-error preset geometry must be a string token
         shape: 1,
+      },
+    ];
+    expect(invalid).toHaveLength(4);
+  });
+
+  it('exports text shape rectangle radius types and runtime from the root package', async () => {
+    const radius: Emu = inches(0.5);
+    const options: AddTextOptions = {
+      name: 'root_text_rect_radius',
+      shape: 'roundRect',
+      rectRadius: radius,
+      width: inches(4),
+      height: inches(2),
+    };
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const plain = slide.addText('Root rounded text', options);
+    const rich = slide.addRichText([{ runs: [{ text: 'Root rounded rich text' }] }], {
+      name: 'root_rich_rect_radius',
+      shape: 'roundRect',
+      rectRadius: inches(0),
+      width: inches(2),
+      height: inches(1),
+    });
+    const placeholder = slide.addPlaceholder('Root rounded prompt', {
+      name: 'root_rect_radius_prompt',
+      type: 'title',
+      shape: 'roundRect',
+      rectRadius: inches(0.25),
+      width: inches(2),
+      height: inches(1),
+    });
+    expect(plain.adjustments).toEqual([{ name: 'adj', value: 25_000 }]);
+    expect(rich.adjustments).toEqual([{ name: 'adj', value: 0 }]);
+    expect(placeholder.adjustments).toEqual([{ name: 'adj', value: 25_000 }]);
+    plain.adjustments = [{ name: 'adj', value: 12_500 }];
+    plain.setTransform({ width: inches(8), height: inches(4) });
+    expect(plain.adjustments).toEqual([{ name: 'adj', value: 12_500 }]);
+
+    const reopened = await PptxDocument.open(await document.write());
+    expect((reopened.slides[0]!.shapes.find(
+      ({ name }) => name === 'root_text_rect_radius',
+    ) as ShapeModel).adjustments).toEqual([{ name: 'adj', value: 12_500 }]);
+    expect((reopened.slides[0]!.shapes.find(
+      ({ name }) => name === 'root_rich_rect_radius',
+    ) as ShapeModel).adjustments).toEqual([{ name: 'adj', value: 0 }]);
+
+    const invalid: readonly AddTextOptions[] = [
+      {
+        shape: 'roundRect',
+        // @ts-expect-error radius uses branded EMU, not an implicit inch number
+        rectRadius: 0.5,
+      },
+      {
+        shape: 'roundRect',
+        // @ts-expect-error radius does not accept string coercion
+        rectRadius: '0.5',
+      },
+      {
+        shape: 'roundRect',
+        // @ts-expect-error radius must be numeric EMU
+        rectRadius: false,
+      },
+      {
+        shape: 'roundRect',
+        // @ts-expect-error radius must not be an object
+        rectRadius: {},
       },
     ];
     expect(invalid).toHaveLength(4);

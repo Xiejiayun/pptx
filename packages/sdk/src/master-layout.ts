@@ -76,6 +76,7 @@ const TEXT_OPTION_KEYS = new Set([
   'hyperlink',
   'line',
   'shape',
+  'rectRadius',
   'arrows',
   'shadow',
   'fit',
