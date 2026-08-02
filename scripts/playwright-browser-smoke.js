@@ -623,6 +623,93 @@ async (page) => {
           ({ severity }) => severity === 'error',
         ).length,
       };
+      const textShapePresetGeometryDocument = api.PptxDocument.create();
+      const textShapePresetGeometryLayout = textShapePresetGeometryDocument.layouts[0];
+      const browserTextPresetGeometryPlaceholder =
+        textShapePresetGeometryLayout.addPlaceholder('Browser geometry prompt', {
+          name: 'browser_text_geometry_placeholder',
+          type: 'title',
+          index: 198,
+          shape: 'foldedCorner',
+        });
+      const textShapePresetGeometrySlide = textShapePresetGeometryDocument.addSlide({
+        masterName: textShapePresetGeometryLayout.name,
+      });
+      const browserDefaultTextPresetGeometry = textShapePresetGeometrySlide.addText(
+        'Browser default geometry',
+        { name: 'browser_default_text_geometry' },
+      );
+      const browserEllipseTextPresetGeometry = textShapePresetGeometrySlide.addText(
+        'Browser ellipse geometry',
+        { name: 'browser_ellipse_text_geometry', shape: 'ellipse' },
+      );
+      const browserRichTextPresetGeometry = textShapePresetGeometrySlide.addRichText([{
+        runs: [{ text: 'Browser rich ' }, { text: 'line', style: { bold: true } }],
+      }], { name: 'browser_rich_text_geometry', shape: 'line' });
+      const browserPopulatedTextPresetGeometry = textShapePresetGeometrySlide.addText(
+        'Browser populated geometry',
+        { placeholder: 'browser_text_geometry_placeholder', shape: 'roundRect' },
+      );
+      const textShapePresetGeometryImmediate = [
+        browserDefaultTextPresetGeometry.presetType,
+        browserEllipseTextPresetGeometry.presetType,
+        browserRichTextPresetGeometry.presetType,
+        browserPopulatedTextPresetGeometry.presetType,
+        browserTextPresetGeometryPlaceholder.presetType,
+      ];
+      browserEllipseTextPresetGeometry.presetType = 'star5';
+      const textShapePresetGeometryOutput =
+        await textShapePresetGeometryDocument.writeBlob();
+      const reopenedTextShapePresetGeometry = await api.PptxDocument.open(
+        textShapePresetGeometryOutput,
+      );
+      await reopenedTextShapePresetGeometry.write({
+        compatibility: 'powerpoint-current',
+      });
+      const textShapePresetGeometryByName = (owner, name) => owner.shapes.find(
+        (shape) => shape instanceof api.ShapeModel && shape.name === name,
+      );
+      const textShapePresetGeometryState = {
+        mime: textShapePresetGeometryOutput.type,
+        immediate: textShapePresetGeometryImmediate,
+        edited: browserEllipseTextPresetGeometry.presetType,
+        reopened: [
+          textShapePresetGeometryByName(
+            reopenedTextShapePresetGeometry.slides[0],
+            'browser_default_text_geometry',
+          ).presetType,
+          textShapePresetGeometryByName(
+            reopenedTextShapePresetGeometry.slides[0],
+            'browser_ellipse_text_geometry',
+          ).presetType,
+          textShapePresetGeometryByName(
+            reopenedTextShapePresetGeometry.slides[0],
+            'browser_rich_text_geometry',
+          ).presetType,
+          textShapePresetGeometryByName(
+            reopenedTextShapePresetGeometry.slides[0],
+            'browser_text_geometry_placeholder',
+          ).presetType,
+        ],
+        layout: textShapePresetGeometryByName(
+          reopenedTextShapePresetGeometry.layouts[0],
+          'browser_text_geometry_placeholder',
+        ).presetType,
+        texts: reopenedTextShapePresetGeometry.slides[0].shapes.map(({ text }) => text),
+        validationErrors: reopenedTextShapePresetGeometry.diagnostics.filter(
+          ({ severity }) => severity === 'error',
+        ).length,
+      };
+      const textShapePresetGeometry =
+        textShapePresetGeometryState.mime ===
+          'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+        && textShapePresetGeometryState.immediate.join(',') ===
+          'rect,ellipse,line,roundRect,foldedCorner'
+        && textShapePresetGeometryState.edited === 'star5'
+        && textShapePresetGeometryState.reopened.join(',') ===
+          'rect,star5,line,roundRect'
+        && textShapePresetGeometryState.layout === 'foldedCorner'
+        && textShapePresetGeometryState.validationErrors === 0;
       const textShapeHyperlinkDocument = api.PptxDocument.create();
       const textShapeHyperlinkLayout = textShapeHyperlinkDocument.layouts[0];
       textShapeHyperlinkLayout.addPlaceholder('Browser text hyperlink prompt', {
@@ -1327,6 +1414,8 @@ async (page) => {
         textShapeLines: textShapeLineState,
         textShapeArrows: textShapeArrowState,
         textShapeShadows: textShapeShadowState,
+        textShapePresetGeometry,
+        textShapePresetGeometryState,
         textShapeHyperlinks,
         textShapeHyperlinkState,
         richTextRunHyperlinks,
@@ -1704,6 +1793,21 @@ async (page) => {
         dash: 'dashDot',
       },
       arrows: { begin: 'triangle', end: 'arrow' },
+      validationErrors: 0,
+    },
+    textShapePresetGeometry: true,
+    textShapePresetGeometryState: {
+      mime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      immediate: ['rect', 'ellipse', 'line', 'roundRect', 'foldedCorner'],
+      edited: 'star5',
+      reopened: ['rect', 'star5', 'line', 'roundRect'],
+      layout: 'foldedCorner',
+      texts: [
+        'Browser populated geometry',
+        'Browser default geometry',
+        'Browser ellipse geometry',
+        'Browser rich line',
+      ],
       validationErrors: 0,
     },
     textShapeHyperlinks: true,

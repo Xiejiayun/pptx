@@ -3190,6 +3190,229 @@ if (!textShapeHyperlinks) {
   }));
 }
 await reopenedTextShapeHyperlinkDeck.writeFile('text-shape-hyperlinks-smoke.pptx');
+const textShapePresetGeometryDeck = PptxDocument.create();
+const textShapePresetGeometryLayout = textShapePresetGeometryDeck.layouts[0];
+const textShapePresetGeometryMaster = textShapePresetGeometryDeck.masters[0];
+const packedLayoutTextPresetGeometry = textShapePresetGeometryLayout.addText(
+  'Packed layout text geometry',
+  { name: 'packed_layout_text_geometry', shape: 'ellipse' },
+);
+const packedMasterTextPresetGeometry = textShapePresetGeometryMaster.addRichText([{
+  runs: [{ text: 'Packed master text geometry' }],
+}], { name: 'packed_master_text_geometry', shape: 'line' });
+const packedLayoutPresetGeometryPlaceholder = textShapePresetGeometryLayout.addPlaceholder(
+  'Packed geometry prompt',
+  {
+    name: 'packed_text_geometry_placeholder',
+    type: 'title',
+    index: 199,
+    shape: 'roundRect',
+  },
+);
+const textShapePresetGeometrySlide = textShapePresetGeometryDeck.addSlide({
+  masterName: textShapePresetGeometryLayout.name,
+});
+const packedDefaultTextPresetGeometry = textShapePresetGeometrySlide.addText(
+  'Packed default geometry',
+  { name: 'packed_default_text_geometry' },
+);
+const packedPlainTextPresetGeometry = textShapePresetGeometrySlide.addText(
+  'Packed plain geometry',
+  {
+    name: 'packed_plain_text_geometry',
+    shape: 'ellipse',
+    fill: { kind: 'solid', color: { kind: 'scheme', value: 'accent2' } },
+    line: {
+      kind: 'line',
+      color: { kind: 'srgb', value: '123ABC' },
+      width: 2,
+      dash: 'dashDot',
+    },
+    arrows: { begin: 'oval', end: 'triangle' },
+    shadow: { kind: 'outer', opacity: 0.5 },
+    margin: 0,
+    valign: 'bottom',
+    fit: 'shrink',
+    wrap: false,
+  },
+);
+const packedRichTextPresetGeometry = textShapePresetGeometrySlide.addRichText([{
+  runs: [{ text: 'Packed rich ' }, { text: 'geometry', style: { bold: true } }],
+}], { name: 'packed_rich_text_geometry', shape: 'foldedCorner' });
+const packedPopulatedTextPresetGeometry = textShapePresetGeometrySlide.addText(
+  'Packed populated geometry',
+  { placeholder: 'packed_text_geometry_placeholder', shape: 'star5' },
+);
+const packedTextPresetGeometryImmediate = [
+  packedDefaultTextPresetGeometry.presetType,
+  packedPlainTextPresetGeometry.presetType,
+  packedRichTextPresetGeometry.presetType,
+  packedPopulatedTextPresetGeometry.presetType,
+  packedLayoutTextPresetGeometry.presetType,
+  packedMasterTextPresetGeometry.presetType,
+  packedLayoutPresetGeometryPlaceholder.presetType,
+];
+const packedTextPresetGeometryStyles = {
+  fill: packedPlainTextPresetGeometry.fill,
+  line: packedPlainTextPresetGeometry.line,
+  arrows: packedPlainTextPresetGeometry.arrows,
+  shadow: packedPlainTextPresetGeometry.shadow,
+  margins: packedPlainTextPresetGeometry.textMargins,
+  valign: packedPlainTextPresetGeometry.verticalAlignment,
+  fit: packedPlainTextPresetGeometry.textFit,
+  wrap: packedPlainTextPresetGeometry.textWrap,
+};
+packedPlainTextPresetGeometry.adjustments = [{ name: 'adj', value: 25_000 }];
+const packedTextPresetGeometryNoOpBytes = textShapePresetGeometryDeck.opcPackage
+  .requirePart(textShapePresetGeometrySlide.partUri).bytes.slice();
+const packedTextPresetGeometryNoOpJournal = textShapePresetGeometryDeck.opcPackage
+  .mutations.length;
+packedPlainTextPresetGeometry.presetType = 'ellipse';
+const packedTextPresetGeometryNoOpCurrent = textShapePresetGeometryDeck.opcPackage
+  .requirePart(textShapePresetGeometrySlide.partUri).bytes;
+const packedTextPresetGeometryNoOp =
+  packedTextPresetGeometryNoOpJournal === textShapePresetGeometryDeck.opcPackage.mutations.length &&
+  packedTextPresetGeometryNoOpBytes.length === packedTextPresetGeometryNoOpCurrent.length &&
+  packedTextPresetGeometryNoOpBytes.every(
+    (value, index) => value === packedTextPresetGeometryNoOpCurrent[index],
+  ) &&
+  packedPlainTextPresetGeometry.adjustments?.[0]?.value === 25_000;
+packedPlainTextPresetGeometry.presetType = 'hexagon';
+const packedTextPresetGeometryReplacementIsolated =
+  packedPlainTextPresetGeometry.adjustments?.length === 0 &&
+  JSON.stringify({
+    fill: packedPlainTextPresetGeometry.fill,
+    line: packedPlainTextPresetGeometry.line,
+    arrows: packedPlainTextPresetGeometry.arrows,
+    shadow: packedPlainTextPresetGeometry.shadow,
+    margins: packedPlainTextPresetGeometry.textMargins,
+    valign: packedPlainTextPresetGeometry.verticalAlignment,
+    fit: packedPlainTextPresetGeometry.textFit,
+    wrap: packedPlainTextPresetGeometry.textWrap,
+  }) === JSON.stringify(packedTextPresetGeometryStyles);
+const packedDeclarativeTextPresetGeometryLayout =
+  await textShapePresetGeometryDeck.defineSlideMaster({
+    title: 'PACKED-TEXT-SHAPE-PRESET-GEOMETRY',
+    objects: [
+      {
+        kind: 'text',
+        text: 'Packed declarative geometry',
+        options: { name: 'packed_declarative_text_geometry', shape: 'actionButtonHome' },
+      },
+      {
+        kind: 'placeholder',
+        text: 'Packed declarative geometry prompt',
+        options: {
+          name: 'packed_declarative_geometry_placeholder',
+          type: 'body',
+          index: 299,
+          shape: 'flowChartDecision',
+        },
+      },
+    ],
+  });
+const packedDeclarativeTextPresetGeometry =
+  packedDeclarativeTextPresetGeometryLayout.shapes.find(
+    ({ name }) => name === 'packed_declarative_text_geometry',
+  );
+const packedDeclarativePresetGeometryPlaceholder =
+  packedDeclarativeTextPresetGeometryLayout.placeholders.find(
+    ({ name }) => name === 'packed_declarative_geometry_placeholder',
+  );
+const packedDeclarativeTextPresetGeometrySlide = textShapePresetGeometryDeck.addSlide({
+  masterName: packedDeclarativeTextPresetGeometryLayout.name,
+});
+const packedDeclarativePopulatedTextPresetGeometry =
+  packedDeclarativeTextPresetGeometrySlide.addText(
+    'Packed declarative populated geometry',
+    { placeholder: 'packed_declarative_geometry_placeholder', shape: 'lineInv' },
+  );
+const duplicateTextShapePresetGeometrySlide = textShapePresetGeometryDeck.duplicateSlide(
+  textShapePresetGeometryDeck.slides.indexOf(textShapePresetGeometrySlide),
+);
+const duplicatePlainTextPresetGeometry = duplicateTextShapePresetGeometrySlide.shapes.find(
+  ({ name }) => name === 'packed_plain_text_geometry',
+);
+duplicatePlainTextPresetGeometry.presetType = 'diamond';
+const packedTextPresetGeometryDuplicateIndependent =
+  packedPlainTextPresetGeometry.presetType === 'hexagon' &&
+  duplicatePlainTextPresetGeometry.presetType === 'diamond';
+const reopenedTextShapePresetGeometryDeck = await PptxDocument.open(
+  await textShapePresetGeometryDeck.write(),
+);
+await reopenedTextShapePresetGeometryDeck.write({ compatibility: 'powerpoint-2010' });
+const reopenedTextShapePresetGeometryTypes = reopenedTextShapePresetGeometryDeck.slides
+  .map((slide) => slide.shapes.find(({ name }) => name === 'packed_plain_text_geometry'))
+  .filter(Boolean)
+  .map(({ presetType }) => presetType)
+  .sort();
+const reopenedTextShapePresetGeometryLayout = reopenedTextShapePresetGeometryDeck.layouts.find(
+  ({ partUri }) => partUri === textShapePresetGeometryLayout.partUri,
+);
+const reopenedTextShapePresetGeometryMaster = reopenedTextShapePresetGeometryDeck.masters.find(
+  ({ partUri }) => partUri === textShapePresetGeometryMaster.partUri,
+);
+const reopenedDeclarativeTextPresetGeometryLayout =
+  reopenedTextShapePresetGeometryDeck.layouts.find(
+    ({ name }) => name === 'PACKED-TEXT-SHAPE-PRESET-GEOMETRY',
+  );
+const textShapePresetGeometryFormatStates = [];
+for (const format of ['pptx', 'pptm', 'ppsx', 'ppsm', 'potx', 'potm']) {
+  const formatted = PptxDocument.create({ format });
+  formatted.addSlide().addText(format, { name: format, shape: 'foldedCorner' });
+  const reopenedFormatted = await PptxDocument.open(await formatted.write());
+  textShapePresetGeometryFormatStates.push({
+    format: reopenedFormatted.format,
+    presetType: reopenedFormatted.slides[0].shapes[0].presetType,
+  });
+}
+const textShapePresetGeometry =
+  JSON.stringify(packedTextPresetGeometryImmediate) === JSON.stringify([
+    'rect', 'ellipse', 'foldedCorner', 'star5', 'ellipse', 'line', 'roundRect',
+  ]) &&
+  packedTextPresetGeometryNoOp &&
+  packedTextPresetGeometryReplacementIsolated &&
+  packedTextPresetGeometryDuplicateIndependent &&
+  packedLayoutPresetGeometryPlaceholder.presetType === 'roundRect' &&
+  packedPopulatedTextPresetGeometry.presetType === 'star5' &&
+  packedDeclarativeTextPresetGeometry?.presetType === 'actionButtonHome' &&
+  packedDeclarativePresetGeometryPlaceholder?.presetType === 'flowChartDecision' &&
+  packedDeclarativePopulatedTextPresetGeometry.presetType === 'lineInv' &&
+  JSON.stringify(reopenedTextShapePresetGeometryTypes) ===
+    JSON.stringify(['diamond', 'hexagon']) &&
+  reopenedTextShapePresetGeometryLayout?.shapes.find(
+    ({ name }) => name === 'packed_layout_text_geometry',
+  )?.presetType === 'ellipse' &&
+  reopenedTextShapePresetGeometryLayout?.placeholders.find(
+    ({ name }) => name === 'packed_text_geometry_placeholder',
+  )?.presetType === 'roundRect' &&
+  reopenedTextShapePresetGeometryMaster?.shapes.find(
+    ({ name }) => name === 'packed_master_text_geometry',
+  )?.presetType === 'line' &&
+  reopenedDeclarativeTextPresetGeometryLayout?.shapes.find(
+    ({ name }) => name === 'packed_declarative_text_geometry',
+  )?.presetType === 'actionButtonHome' &&
+  reopenedTextShapePresetGeometryDeck.diagnostics.length === 0 &&
+  JSON.stringify(textShapePresetGeometryFormatStates) === JSON.stringify(
+    ['pptx', 'pptm', 'ppsx', 'ppsm', 'potx', 'potm'].map((format) => ({
+      format,
+      presetType: 'foldedCorner',
+    })),
+  );
+if (!textShapePresetGeometry) {
+  throw new Error('Packed text shape preset geometry failed: ' + JSON.stringify({
+    immediate: packedTextPresetGeometryImmediate,
+    noOp: packedTextPresetGeometryNoOp,
+    replacementIsolated: packedTextPresetGeometryReplacementIsolated,
+    duplicateIndependent: packedTextPresetGeometryDuplicateIndependent,
+    reopenedTypes: reopenedTextShapePresetGeometryTypes,
+    formatStates: textShapePresetGeometryFormatStates,
+    diagnostics: reopenedTextShapePresetGeometryDeck.diagnostics,
+  }));
+}
+await reopenedTextShapePresetGeometryDeck.writeFile(
+  'text-shape-preset-geometry-smoke.pptx',
+);
 const internalTextShapeHyperlinkDeck = PptxDocument.create();
 const internalTextShapeHyperlinkSource = internalTextShapeHyperlinkDeck.addSlide();
 internalTextShapeHyperlinkDeck.addSlide();
@@ -4829,6 +5052,7 @@ const checks = {
   textShapeArrows,
   textShapeShadows,
   textShapeHyperlinks,
+  textShapePresetGeometry,
   richTextRunHyperlinks,
   shapeLines,
   shapeArrows,
@@ -6444,6 +6668,8 @@ process.stdout.write(resolved);
   ImageModel,
   PLACEHOLDER_TYPES,
   PRESET_SHAPE_TYPES,
+  // @ts-expect-error preset geometry normalization stays internal
+  normalizePresetShapeType,
   PptxDocument,
   ShapeModel,
   SlideLayoutModel,
@@ -7167,13 +7393,27 @@ const typedTextShapeInnerShadow: ShapeShadow = {
   angle: 0,
   distance: 0,
 };
+const typedTextShapePreset: PresetShapeType = 'foldedCorner';
 const typedTextShapeOptions: AddTextOptions = {
   name: 'Typed text shape fill, line, arrows, and shadow',
+  shape: typedTextShapePreset,
   fill: typedTextShapeSrgbFill,
   line: typedTextShapeLine,
   arrows: typedTextShapeArrows,
   shadow: typedTextShapeShadow,
 };
+const typedTextShapeEllipseOptions: AddTextOptions = { shape: 'ellipse' };
+const typedTextShapeRectOptions: AddTextOptions = { shape: 'rect' };
+// @ts-expect-error malformed upstream folded-corner spelling is excluded
+const invalidTextShapeFolderCorner: AddTextOptions = { shape: 'folderCorner' };
+// @ts-expect-error custom geometry uses the dedicated custom-shape API
+const invalidTextShapeCustomGeometry: AddTextOptions = { shape: 'custGeom' };
+// @ts-expect-error unknown preset geometry tokens are excluded
+const invalidTextShapePreset: AddTextOptions = { shape: 'unknown' };
+// @ts-expect-error text shape geometry must be a canonical string token
+const invalidNumericTextShapePreset: AddTextOptions = { shape: 1 };
+// @ts-expect-error text shape geometry does not accept boolean fallback values
+const invalidBooleanTextShapePreset: AddTextOptions = { shape: false };
 const typedTextShapeSlide = createdDocument.addSlide();
 const typedPlainTextShape: ShapeModel = typedTextShapeSlide.addText(
   'Typed plain text shape fill',
@@ -7768,6 +8008,9 @@ documentPromise.then((document) => {
 void [typedNotesSlide, notesSnapshot, returnedNotesSlide];
 void [typedPreset, typedNoneShapeFill, typedSolidShapeFill,
   typedTextShapeNoneFill, typedTextShapeSrgbFill, typedTextShapeSchemeFill,
+  typedTextShapePreset, typedTextShapeEllipseOptions, typedTextShapeRectOptions,
+  invalidTextShapeFolderCorner, invalidTextShapeCustomGeometry,
+  invalidTextShapePreset, invalidNumericTextShapePreset, invalidBooleanTextShapePreset,
   typedTextShapeOptions, typedTextShapeSlide, typedPlainTextShape, typedRichTextShape,
   typedLayoutTextShape, typedMasterTextShape, typedPlaceholderTextShape,
   typedDeclarativeTextFillObject, typedTextShapeLine, typedTextShapeLineRead,
@@ -8704,6 +8947,69 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
       internalRichTextRunHyperlinkValidateResult.stdout,
     );
   }
+  const textShapePresetGeometryDeckPath = join(
+    directory,
+    'text-shape-preset-geometry-smoke.pptx',
+  );
+  const textShapePresetGeometryValidateResult = run(
+    bin,
+    [
+      '--json', 'package', 'validate', textShapePresetGeometryDeckPath,
+      '--profile', 'powerpoint-2010',
+    ],
+    directory,
+  );
+  const textShapePresetGeometryValidated = JSON.parse(
+    textShapePresetGeometryValidateResult.stdout,
+  );
+  if (!textShapePresetGeometryValidated.ok ||
+      !textShapePresetGeometryValidated.data?.valid ||
+      textShapePresetGeometryValidated.data.errorCount !== 0 ||
+      textShapePresetGeometryValidated.data.warningCount !== 0 ||
+      textShapePresetGeometryValidated.data.diagnostics.length !== 0) {
+    throw new Error(
+      'CLI text-shape-preset-geometry validation failed: ' +
+      textShapePresetGeometryValidateResult.stdout,
+    );
+  }
+  const textShapePresetGeometrySlidesResult = run(
+    bin,
+    ['--json', 'slides', 'list', textShapePresetGeometryDeckPath],
+    directory,
+  );
+  const textShapePresetGeometrySlides = JSON.parse(
+    textShapePresetGeometrySlidesResult.stdout,
+  );
+  if (!textShapePresetGeometrySlides.ok ||
+      textShapePresetGeometrySlides.data?.length !== 3 ||
+      textShapePresetGeometrySlides.data[0]?.shapeCount < 4) {
+    throw new Error(
+      'CLI text-shape-preset-geometry slide listing failed: ' +
+      textShapePresetGeometrySlidesResult.stdout,
+    );
+  }
+  const textShapePresetGeometryPartResult = run(
+    bin,
+    [
+      '--json', 'part', 'read', textShapePresetGeometryDeckPath,
+      textShapePresetGeometrySlides.data[0].partUri,
+    ],
+    directory,
+  );
+  const textShapePresetGeometryPart = JSON.parse(
+    textShapePresetGeometryPartResult.stdout,
+  );
+  const textShapePresetGeometryXml = textShapePresetGeometryPart.data?.content ?? '';
+  if (!textShapePresetGeometryPart.ok ||
+      !textShapePresetGeometryXml.includes('prst="rect"') ||
+      !textShapePresetGeometryXml.includes('prst="hexagon"') ||
+      !textShapePresetGeometryXml.includes('prst="foldedCorner"') ||
+      !textShapePresetGeometryXml.includes('prst="star5"')) {
+    throw new Error(
+      'CLI text-shape-preset-geometry part read failed: ' +
+      textShapePresetGeometryPartResult.stdout,
+    );
+  }
   if (process.env.PPTX_SLIDE_BACKGROUND_GALLERY_OUT) {
     const galleryOutput = resolve(process.env.PPTX_SLIDE_BACKGROUND_GALLERY_OUT);
     await mkdir(dirname(galleryOutput), { recursive: true });
@@ -8741,7 +9047,7 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
   }
 
   process.stdout.write(
-    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, masterLayouts: apiChecks.masterLayouts, slideNumbers: apiChecks.slideNumbers, slideDefaultColor: apiChecks.slideDefaultColor, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, textShapeFills: apiChecks.textShapeFills, textShapeLines: apiChecks.textShapeLines, textShapeArrows: apiChecks.textShapeArrows, textShapeShadows: apiChecks.textShapeShadows, textShapeHyperlinks: apiChecks.textShapeHyperlinks, richTextRunHyperlinks: apiChecks.richTextRunHyperlinks, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, slideBackgrounds: apiChecks.slideBackgrounds, types: true, cli: doctor.data.version, masterLayoutInspect: true, masterLayoutValidate: true, masterLayoutSlides: true, masterLayoutPartRead: true, masterLayoutDiff: true, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true, slideBackgroundInspect: true, slideBackgroundValidate: true, slideNumberInspect: true, slideNumberValidate: true, slideNumberSlides: true, slideNumberPartRead: true, slideDefaultColorInspect: true, slideDefaultColorValidate: true, slideDefaultColorSlides: true, slideDefaultColorPartRead: true, textShapeFillInspect: true, textShapeFillValidate: true, textShapeFillSlides: true, textShapeFillPartRead: true, textShapeLineInspect: true, textShapeLineValidate: true, textShapeLineSlides: true, textShapeLinePartRead: true, textShapeArrowInspect: true, textShapeArrowValidate: true, textShapeArrowSlides: true, textShapeArrowPartRead: true, textShapeShadowInspect: true, textShapeShadowValidate: true, textShapeShadowSlides: true, textShapeShadowPartRead: true, textShapeHyperlinkInspect: true, textShapeHyperlinkValidate: true, textShapeHyperlinkSlides: true, textShapeHyperlinkPartRead: true, textShapeHyperlinkInternalValidate: true, richTextRunHyperlinkInspect: true, richTextRunHyperlinkValidate: true, richTextRunHyperlinkSlides: true, richTextRunHyperlinkPartRead: true, richTextRunHyperlinkInternalValidate: true })}\n`,
+    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, masterLayouts: apiChecks.masterLayouts, slideNumbers: apiChecks.slideNumbers, slideDefaultColor: apiChecks.slideDefaultColor, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, textShapeFills: apiChecks.textShapeFills, textShapeLines: apiChecks.textShapeLines, textShapeArrows: apiChecks.textShapeArrows, textShapeShadows: apiChecks.textShapeShadows, textShapeHyperlinks: apiChecks.textShapeHyperlinks, textShapePresetGeometry: apiChecks.textShapePresetGeometry, richTextRunHyperlinks: apiChecks.richTextRunHyperlinks, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, slideBackgrounds: apiChecks.slideBackgrounds, types: true, cli: doctor.data.version, masterLayoutInspect: true, masterLayoutValidate: true, masterLayoutSlides: true, masterLayoutPartRead: true, masterLayoutDiff: true, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true, slideBackgroundInspect: true, slideBackgroundValidate: true, slideNumberInspect: true, slideNumberValidate: true, slideNumberSlides: true, slideNumberPartRead: true, slideDefaultColorInspect: true, slideDefaultColorValidate: true, slideDefaultColorSlides: true, slideDefaultColorPartRead: true, textShapeFillInspect: true, textShapeFillValidate: true, textShapeFillSlides: true, textShapeFillPartRead: true, textShapeLineInspect: true, textShapeLineValidate: true, textShapeLineSlides: true, textShapeLinePartRead: true, textShapeArrowInspect: true, textShapeArrowValidate: true, textShapeArrowSlides: true, textShapeArrowPartRead: true, textShapeShadowInspect: true, textShapeShadowValidate: true, textShapeShadowSlides: true, textShapeShadowPartRead: true, textShapeHyperlinkInspect: true, textShapeHyperlinkValidate: true, textShapeHyperlinkSlides: true, textShapeHyperlinkPartRead: true, textShapeHyperlinkInternalValidate: true, textShapePresetGeometryValidate: true, textShapePresetGeometrySlides: true, textShapePresetGeometryPartRead: true, richTextRunHyperlinkInspect: true, richTextRunHyperlinkValidate: true, richTextRunHyperlinkSlides: true, richTextRunHyperlinkPartRead: true, richTextRunHyperlinkInternalValidate: true })}\n`,
   );
 } finally {
   await rm(directory, { recursive: true, force: true });
