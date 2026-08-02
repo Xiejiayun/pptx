@@ -137,13 +137,21 @@ try {
         "write<TOutputType extends OutputType = 'uint8array'>(options?: WriteOptions<TOutputType>): Promise<WriteOutput<TOutputType>>;",
       ) || !normalizedSdkDeclarationSource.includes(
         'writeBlob(options?: WriteBaseOptions): Promise<Blob>;',
-      ) || normalizedSdkDeclarationSource.includes('node:buffer')) {
-    throw new Error('Packed declarations are missing output type catalog surfaces');
+      ) || !normalizedSdkDeclarationSource.includes(
+        'export interface PptxNodeReadableStream extends AsyncIterable<Uint8Array> {',
+      ) || !normalizedSdkDeclarationSource.includes('readonly readableObjectMode: false;') ||
+      !normalizedSdkDeclarationSource.includes(
+        'pipe<TDestination>(destination: TDestination, options?: { readonly end?: boolean; }): TDestination;',
+      ) || !normalizedSdkDeclarationSource.includes(
+        'stream(options?: WriteBaseOptions): Promise<PptxNodeReadableStream>;',
+      ) || /node:(?:buffer|stream)|\bNodeJS\.|\bBuffer\b/u.test(sdkDeclarationSource)) {
+    throw new Error('Packed declarations are missing output and stream surfaces');
   }
 
   await writeFile(
     join(directory, 'smoke.mjs'),
-    `import { CHART_TYPES, ChartModel, calculateImageSizing, chartWorkbookMatches, CustomGeometryEvaluationError, evaluateCustomGeometry, ImageModel, inches, inspectImage, inspectRasterImage, inspectSvgImage, MediaCodec, MediaModel, OUTPUT_TYPES, PLACEHOLDER_TYPES, PRESET_SHAPE_TYPES, PPTX_VERSION, PptxDocument, ShapeModel, SlideLayoutModel, SlideMasterModel, TableModel, TEXT_ALIGNMENTS, TEXT_VERTICAL_ALIGNMENTS, GradientCodec, importPptxGenJS, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
+    `import { Readable, Writable } from 'node:stream';
+import { CHART_TYPES, ChartModel, calculateImageSizing, chartWorkbookMatches, CustomGeometryEvaluationError, evaluateCustomGeometry, ImageModel, inches, inspectImage, inspectRasterImage, inspectSvgImage, MediaCodec, MediaModel, OUTPUT_TYPES, PLACEHOLDER_TYPES, PRESET_SHAPE_TYPES, PPTX_VERSION, PptxDocument, ShapeModel, SlideLayoutModel, SlideMasterModel, TableModel, TEXT_ALIGNMENTS, TEXT_VERTICAL_ALIGNMENTS, GradientCodec, importPptxGenJS, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
 const installedManifestVersion = ${JSON.stringify(manifest.version)};
 const created = PptxDocument.create({ rtlMode: true });
 const slideNumberDeck = PptxDocument.create({ firstSlideNumber: 5 });
@@ -5319,6 +5327,97 @@ const writeOutputTypes = JSON.stringify(writeOutputTypeState) === JSON.stringify
   writeBlobType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
   mutationIsolation: true,
 });
+const packedNodeStreamDocument = PptxDocument.create();
+packedNodeStreamDocument.addSlide().addText('Packed node stream 你好');
+const packedNodeStreamPayload = new Uint8Array(98_333);
+let packedNodeStreamPayloadState = 0x12345678;
+for (let index = 0; index < packedNodeStreamPayload.byteLength; index += 1) {
+  packedNodeStreamPayloadState ^= packedNodeStreamPayloadState << 13;
+  packedNodeStreamPayloadState ^= packedNodeStreamPayloadState >>> 17;
+  packedNodeStreamPayloadState ^= packedNodeStreamPayloadState << 5;
+  packedNodeStreamPayload[index] = packedNodeStreamPayloadState & 0xff;
+}
+packedNodeStreamDocument.opcPackage.setPart(
+  '/custom/packed-node-stream.bin',
+  packedNodeStreamPayload,
+  'application/octet-stream',
+);
+const packedNodeStreamJournal = JSON.stringify(
+  packedNodeStreamDocument.opcPackage.mutations,
+);
+const packedNodeStreamExpected = await packedNodeStreamDocument.write();
+const concatenatePackedNodeStream = (chunks) => {
+  const length = chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0);
+  const bytes = new Uint8Array(length);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return bytes;
+};
+const packedNodeIterableStream = await packedNodeStreamDocument.stream();
+const packedNodeIterableChunks = [];
+for await (const chunk of packedNodeIterableStream) {
+  packedNodeIterableChunks.push(new Uint8Array(chunk));
+}
+const packedNodeIterableBytes = concatenatePackedNodeStream(packedNodeIterableChunks);
+const packedNodeEventStream = await packedNodeStreamDocument.stream();
+const packedNodeStreamChunkLengths = await new Promise((resolve, reject) => {
+  const lengths = [];
+  packedNodeEventStream.on('data', (chunk) => lengths.push(chunk.byteLength));
+  packedNodeEventStream.once('end', () => resolve(lengths));
+  packedNodeEventStream.once('error', reject);
+});
+const packedNodePipeStream = await packedNodeStreamDocument.stream();
+const packedNodePipeChunks = [];
+const packedNodePipeDestination = new Writable({
+  write(chunk, encoding, callback) {
+    packedNodePipeChunks.push(new Uint8Array(chunk));
+    callback();
+  },
+});
+const packedNodePipeComplete = new Promise((resolve, reject) => {
+  packedNodePipeDestination.once('finish', resolve);
+  packedNodePipeDestination.once('error', reject);
+  packedNodePipeStream.once('error', reject);
+});
+const packedNodePipeResult = packedNodePipeStream.pipe(packedNodePipeDestination);
+await packedNodePipeComplete;
+const packedNodePipeBytes = concatenatePackedNodeStream(packedNodePipeChunks);
+const packedNodeStreamReopened = await PptxDocument.open(packedNodeIterableBytes);
+const packedNodeStreamShape = packedNodeStreamReopened.slides[0].shapes[0];
+const nodeReadableStreamState = {
+  readable: packedNodeIterableStream instanceof Readable,
+  buffer: Buffer.isBuffer(packedNodeIterableStream),
+  objectMode: packedNodeIterableStream.readableObjectMode,
+  chunks: packedNodeStreamChunkLengths.length,
+  multiChunk: packedNodeStreamChunkLengths.length > 1,
+  chunkLimit: packedNodeStreamChunkLengths.every((length) => length <= 65_536),
+  byteEquality: packedWriteOutputBytesEqual(
+    packedNodeIterableBytes,
+    packedNodeStreamExpected,
+  ),
+  pipeEquality: packedNodePipeResult === packedNodePipeDestination &&
+    packedWriteOutputBytesEqual(packedNodePipeBytes, packedNodeStreamExpected),
+  reopenTitle: packedNodeStreamShape instanceof ShapeModel
+    ? packedNodeStreamShape.text
+    : undefined,
+  mutationIsolation: JSON.stringify(packedNodeStreamDocument.opcPackage.mutations) ===
+    packedNodeStreamJournal,
+};
+const nodeReadableStream = JSON.stringify(nodeReadableStreamState) === JSON.stringify({
+  readable: true,
+  buffer: false,
+  objectMode: false,
+  chunks: packedNodeStreamChunkLengths.length,
+  multiChunk: true,
+  chunkLimit: true,
+  byteEquality: true,
+  pipeEquality: true,
+  reopenTitle: 'Packed node stream 你好',
+  mutationIsolation: true,
+});
 const reopenedCreatedTable = reopenedCreated.slides[0].shapes.find((shape) => shape.name === 'Created smoke table');
 const reopenedCreatedTableXml = new TextDecoder().decode(reopenedCreated.opcPackage.requirePart(reopenedCreated.slides[0].partUri).bytes);
 const reopenedCreatedTableHorizontalAlignments = [...reopenedCreatedTableXml.matchAll(/<a:tc(?:\\s[^>]*)?>[\\s\\S]*?<\\/a:tc>/g)].map((match) => match[0].match(/<a:pPr[^>]*\\salgn="([^"]+)"/)?.[1]);
@@ -6179,6 +6278,8 @@ const checks = {
   outputTypeState,
   writeOutputTypes,
   writeOutputTypeState,
+  nodeReadableStream,
+  nodeReadableStreamState,
   presentationRtl: presentationRtlEnabled === true && presentationRtlDisabled === false && presentationRtlCleared === undefined && paragraphRtlAfterGlobalClear[0] === true && paragraphRtlAfterGlobalClear[1] === false,
   presentationTitle: createdPresentationTitle === 'Packed & <Title>' && editedPresentationTitle === 'Edited title' && reopenedPresentationTitle === 'Edited title' && emptyPresentationTitle === '' && clearedPresentationTitle === undefined,
   presentationAuthor: createdPresentationAuthor === 'Packed & <Author>' && editedPresentationAuthor === 'Edited author' && reopenedPresentationAuthor === 'Edited author' && emptyPresentationAuthor === '' && clearedPresentationAuthor === undefined,
@@ -8304,6 +8405,7 @@ process.stdout.write(resolved);
   type AddTableOptions,
   type PresentationLayout,
   type PresentationLayoutName,
+  type PptxNodeReadableStream,
   type PptxVersion,
   type TableCellTextDirection,
   type TableCellBorder,
@@ -9549,10 +9651,21 @@ const typedUint8ArrayWrite = typedWriteOutputDocument.write({ outputType: 'uint8
 typedUint8ArrayWrite satisfies Promise<Uint8Array>;
 const typedDynamicWrite = typedWriteOutputDocument.write(typedDynamicWriteOptions);
 typedDynamicWrite satisfies Promise<WriteOutput<OutputType>>;
+const typedNodeReadable = typedWriteOutputDocument.stream();
+typedNodeReadable satisfies Promise<PptxNodeReadableStream>;
+typedWriteOutputDocument.stream(typedWriteBaseOptions) satisfies Promise<PptxNodeReadableStream>;
+void typedNodeReadable.then((readable) => {
+  readable satisfies AsyncIterable<Uint8Array>;
+  const destination = { tag: 'destination' } as const;
+  readable.pipe(destination) satisfies typeof destination;
+  readable.pause().resume().destroy();
+});
 // @ts-expect-error generic blob options accept only the blob token
 const invalidBlobWriteOptions: WriteOptions<'blob'> = { outputType: 'base64' };
 // @ts-expect-error convenience blob output has no output selector
 typedWriteOutputDocument.writeBlob({ outputType: 'blob' });
+// @ts-expect-error Node readable output does not accept an output selector
+typedWriteOutputDocument.stream({ outputType: 'uint8array' });
 const alignment: TextAlignment = 'center';
 const bullet: ParagraphBullet = { kind: 'bullet', character: '◆', indent: 18 };
 const numbering: NumberingStyle = 'romanUcPeriod';
@@ -9767,7 +9880,8 @@ void [typedPreset, typedNoneShapeFill, typedSolidShapeFill,
   streamOutputType, invalidOutputType, typedWriteOutputDocument, typedWriteBaseOptions,
   typedBlobWriteOptions, typedDynamicWriteOptions, typedDefaultWrite, typedBaseWrite,
   typedArrayBufferWrite, typedBase64Write, typedBinaryStringWrite, typedBlobWrite,
-  typedNodeBufferWrite, typedUint8ArrayWrite, typedDynamicWrite, invalidBlobWriteOptions];
+  typedNodeBufferWrite, typedUint8ArrayWrite, typedDynamicWrite, typedNodeReadable,
+  invalidBlobWriteOptions];
 void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, typedChartPromise,
   typedChartDiagnostics, typedChartWorkbookCheck, invalidChartType, invalidChartAxis,
   invalidChartValues, typedSimpleBackground, typedImageBackground, typedSlideBackground,
@@ -9836,6 +9950,11 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
   if (!apiChecks.writeOutputTypes) {
     throw new Error(
       `Write output type smoke failed: ${JSON.stringify(apiChecks.writeOutputTypeState)}`,
+    );
+  }
+  if (!apiChecks.nodeReadableStream) {
+    throw new Error(
+      `Node readable stream smoke failed: ${JSON.stringify(apiChecks.nodeReadableStreamState)}`,
     );
   }
   const presentationLayoutDeckPath = join(directory, 'presentation-layout-smoke.pptx');
@@ -11120,7 +11239,7 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
   }
 
   process.stdout.write(
-    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presentationVersion: apiChecks.presentationVersion, presentationVersionState, presentationLayouts: apiChecks.presentationLayouts, presentationLayoutState: apiChecks.presentationLayoutState, horizontalAlignments: apiChecks.horizontalAlignments, horizontalAlignmentState: apiChecks.horizontalAlignmentState, verticalAlignments: apiChecks.verticalAlignments, verticalAlignmentState: apiChecks.verticalAlignmentState, outputTypes: apiChecks.outputTypes, outputTypeState: apiChecks.outputTypeState, writeOutputTypes: apiChecks.writeOutputTypes, writeOutputTypeState: apiChecks.writeOutputTypeState, masterLayouts: apiChecks.masterLayouts, slideNumbers: apiChecks.slideNumbers, slideDefaultColor: apiChecks.slideDefaultColor, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, textShapeFills: apiChecks.textShapeFills, textShapeLines: apiChecks.textShapeLines, textShapeArrows: apiChecks.textShapeArrows, textShapeShadows: apiChecks.textShapeShadows, textShapeHyperlinks: apiChecks.textShapeHyperlinks, textShapePresetGeometry: apiChecks.textShapePresetGeometry, textShapeRectRadius: apiChecks.textShapeRectRadius, textShapeIsTextBox: apiChecks.textShapeIsTextBox, richTextBreakLine: apiChecks.richTextBreakLine, richTextRunHyperlinks: apiChecks.richTextRunHyperlinks, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, slideBackgrounds: apiChecks.slideBackgrounds, types: true, cli: doctor.data.version, presentationLayoutInspect: true, horizontalAlignmentInspect: true, verticalAlignmentInspect: true, masterLayoutInspect: true, masterLayoutValidate: true, masterLayoutSlides: true, masterLayoutPartRead: true, masterLayoutDiff: true, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true, slideBackgroundInspect: true, slideBackgroundValidate: true, slideNumberInspect: true, slideNumberValidate: true, slideNumberSlides: true, slideNumberPartRead: true, slideDefaultColorInspect: true, slideDefaultColorValidate: true, slideDefaultColorSlides: true, slideDefaultColorPartRead: true, textShapeFillInspect: true, textShapeFillValidate: true, textShapeFillSlides: true, textShapeFillPartRead: true, textShapeLineInspect: true, textShapeLineValidate: true, textShapeLineSlides: true, textShapeLinePartRead: true, textShapeArrowInspect: true, textShapeArrowValidate: true, textShapeArrowSlides: true, textShapeArrowPartRead: true, textShapeShadowInspect: true, textShapeShadowValidate: true, textShapeShadowSlides: true, textShapeShadowPartRead: true, textShapeHyperlinkInspect: true, textShapeHyperlinkValidate: true, textShapeHyperlinkSlides: true, textShapeHyperlinkPartRead: true, textShapeHyperlinkInternalValidate: true, textShapePresetGeometryValidate: true, textShapePresetGeometrySlides: true, textShapePresetGeometryPartRead: true, textShapeRectRadiusValidate: true, textShapeRectRadiusSlides: true, textShapeRectRadiusPartRead: true, textShapeIsTextBoxValidate: true, textShapeIsTextBoxSlides: true, textShapeIsTextBoxPartRead: true, textShapeIsTextBoxLayoutPartRead: true, textShapeIsTextBoxMasterPartRead: true, richTextRunHyperlinkInspect: true, richTextRunHyperlinkValidate: true, richTextRunHyperlinkSlides: true, richTextRunHyperlinkPartRead: true, richTextRunHyperlinkInternalValidate: true, richTextBreakLineValidate: true, richTextBreakLineSlides: true, richTextBreakLinePartRead: true })}\n`,
+    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presentationVersion: apiChecks.presentationVersion, presentationVersionState, presentationLayouts: apiChecks.presentationLayouts, presentationLayoutState: apiChecks.presentationLayoutState, horizontalAlignments: apiChecks.horizontalAlignments, horizontalAlignmentState: apiChecks.horizontalAlignmentState, verticalAlignments: apiChecks.verticalAlignments, verticalAlignmentState: apiChecks.verticalAlignmentState, outputTypes: apiChecks.outputTypes, outputTypeState: apiChecks.outputTypeState, writeOutputTypes: apiChecks.writeOutputTypes, writeOutputTypeState: apiChecks.writeOutputTypeState, nodeReadableStream: apiChecks.nodeReadableStream, nodeReadableStreamState: apiChecks.nodeReadableStreamState, masterLayouts: apiChecks.masterLayouts, slideNumbers: apiChecks.slideNumbers, slideDefaultColor: apiChecks.slideDefaultColor, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, textShapeFills: apiChecks.textShapeFills, textShapeLines: apiChecks.textShapeLines, textShapeArrows: apiChecks.textShapeArrows, textShapeShadows: apiChecks.textShapeShadows, textShapeHyperlinks: apiChecks.textShapeHyperlinks, textShapePresetGeometry: apiChecks.textShapePresetGeometry, textShapeRectRadius: apiChecks.textShapeRectRadius, textShapeIsTextBox: apiChecks.textShapeIsTextBox, richTextBreakLine: apiChecks.richTextBreakLine, richTextRunHyperlinks: apiChecks.richTextRunHyperlinks, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, slideBackgrounds: apiChecks.slideBackgrounds, types: true, cli: doctor.data.version, presentationLayoutInspect: true, horizontalAlignmentInspect: true, verticalAlignmentInspect: true, masterLayoutInspect: true, masterLayoutValidate: true, masterLayoutSlides: true, masterLayoutPartRead: true, masterLayoutDiff: true, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true, slideBackgroundInspect: true, slideBackgroundValidate: true, slideNumberInspect: true, slideNumberValidate: true, slideNumberSlides: true, slideNumberPartRead: true, slideDefaultColorInspect: true, slideDefaultColorValidate: true, slideDefaultColorSlides: true, slideDefaultColorPartRead: true, textShapeFillInspect: true, textShapeFillValidate: true, textShapeFillSlides: true, textShapeFillPartRead: true, textShapeLineInspect: true, textShapeLineValidate: true, textShapeLineSlides: true, textShapeLinePartRead: true, textShapeArrowInspect: true, textShapeArrowValidate: true, textShapeArrowSlides: true, textShapeArrowPartRead: true, textShapeShadowInspect: true, textShapeShadowValidate: true, textShapeShadowSlides: true, textShapeShadowPartRead: true, textShapeHyperlinkInspect: true, textShapeHyperlinkValidate: true, textShapeHyperlinkSlides: true, textShapeHyperlinkPartRead: true, textShapeHyperlinkInternalValidate: true, textShapePresetGeometryValidate: true, textShapePresetGeometrySlides: true, textShapePresetGeometryPartRead: true, textShapeRectRadiusValidate: true, textShapeRectRadiusSlides: true, textShapeRectRadiusPartRead: true, textShapeIsTextBoxValidate: true, textShapeIsTextBoxSlides: true, textShapeIsTextBoxPartRead: true, textShapeIsTextBoxLayoutPartRead: true, textShapeIsTextBoxMasterPartRead: true, richTextRunHyperlinkInspect: true, richTextRunHyperlinkValidate: true, richTextRunHyperlinkSlides: true, richTextRunHyperlinkPartRead: true, richTextRunHyperlinkInternalValidate: true, richTextBreakLineValidate: true, richTextBreakLineSlides: true, richTextBreakLinePartRead: true })}\n`,
   );
 } finally {
   await rm(directory, { recursive: true, force: true });

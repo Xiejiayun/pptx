@@ -240,6 +240,43 @@ async (page) => {
         mutationIsolation: true,
       }) && writeOutputDocument.diagnostics
         .filter(({ severity }) => severity === 'error').length === 0;
+      const nodeReadableStreamDocument = api.PptxDocument.create();
+      nodeReadableStreamDocument.addSlide().addText('Browser node stream boundary');
+      const nodeReadableStreamDiagnostics = JSON.stringify(
+        nodeReadableStreamDocument.diagnostics,
+      );
+      const nodeReadableStreamJournal = JSON.stringify(
+        nodeReadableStreamDocument.opcPackage.mutations,
+      );
+      let nodeReadableStreamError;
+      try {
+        await nodeReadableStreamDocument.stream();
+      } catch (error) {
+        nodeReadableStreamError = { name: error.name, message: error.message };
+      }
+      const nodeReadableStreamBytes = await nodeReadableStreamDocument.write();
+      const nodeReadableStreamReopened = await api.PptxDocument.open(
+        nodeReadableStreamBytes,
+      );
+      const nodeReadableStreamShape = nodeReadableStreamReopened.slides[0].shapes[0];
+      const nodeReadableStreamState = {
+        error: nodeReadableStreamError,
+        failureIsolation: JSON.stringify(nodeReadableStreamDocument.diagnostics) ===
+          nodeReadableStreamDiagnostics &&
+          JSON.stringify(nodeReadableStreamDocument.opcPackage.mutations) ===
+          nodeReadableStreamJournal,
+        laterWriteTitle: nodeReadableStreamShape instanceof api.ShapeModel
+          ? nodeReadableStreamShape.text
+          : undefined,
+      };
+      const nodeReadableStream = JSON.stringify(nodeReadableStreamState) === JSON.stringify({
+        error: {
+          name: 'Error',
+          message: 'PptxDocument.stream() is only supported in Node.js',
+        },
+        failureIsolation: true,
+        laterWriteTitle: 'Browser node stream boundary',
+      });
       const fromBlob = await api.PptxDocument.open(new Blob([bytes.buffer]));
       const stream = new ReadableStream({
         start(controller) {
@@ -2268,6 +2305,8 @@ async (page) => {
         outputTypeState,
         writeOutputTypes,
         writeOutputTypeState,
+        nodeReadableStream,
+        nodeReadableStreamState,
         format: reopened.format,
         title: reopened.slides[0].title.text,
         mime: output.type,
@@ -2419,6 +2458,15 @@ async (page) => {
       },
       failureIsolation: true,
       mutationIsolation: true,
+    },
+    nodeReadableStream: true,
+    nodeReadableStreamState: {
+      error: {
+        name: 'Error',
+        message: 'PptxDocument.stream() is only supported in Node.js',
+      },
+      failureIsolation: true,
+      laterWriteTitle: 'Browser node stream boundary',
     },
     format: 'pptx',
     title: 'Browser updated',
