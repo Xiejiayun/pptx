@@ -161,6 +161,7 @@ export interface PptxNodeReadableStream extends AsyncIterable<Uint8Array> {
 
 export interface WriteBaseOptions {
   readonly compatibility?: CompatibilityProfile;
+  readonly compression?: boolean;
   readonly mode?: 'strict' | 'permissive';
 }
 
@@ -306,6 +307,7 @@ export class PptxDocument extends PresentationModel {
   }
 
   async #writeBytes(options: WriteBaseOptions): Promise<Uint8Array> {
+    const compression = resolveOutputCompression(options.compression);
     const compatibility = options.compatibility ?? 'powerpoint-current';
     const diagnostics: Diagnostic[] = [
       ...validatePackage(this.opcPackage),
@@ -361,7 +363,9 @@ export class PptxDocument extends PresentationModel {
     if ((options.mode ?? 'strict') === 'strict' && diagnostics.some(({ severity }) => severity === 'error')) {
       throw new ValidationError(diagnostics);
     }
-    return this.opcPackage.write();
+    return this.opcPackage.write(
+      compression === undefined ? {} : { compression },
+    );
   }
 
   async writeFile(path: string, options: WriteBaseOptions = {}): Promise<void> {
@@ -1056,6 +1060,13 @@ interface NodeStreamModule {
 }
 
 const NODE_STREAM_CHUNK_SIZE = 64 * 1024;
+
+function resolveOutputCompression(value: unknown): boolean | undefined {
+  if (value !== undefined && typeof value !== 'boolean') {
+    throw new TypeError('PptxDocument output compression must be a boolean');
+  }
+  return value;
+}
 
 function isNodeRuntime(): boolean {
   return typeof process !== 'undefined' && Boolean(process.versions?.node);

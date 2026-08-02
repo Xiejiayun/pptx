@@ -26,6 +26,10 @@ export interface PackageCreateOptions {
   readonly entryDate?: Date;
 }
 
+export interface PackageWriteOptions {
+  readonly compression?: boolean;
+}
+
 export interface Relationship {
   readonly id: string;
   readonly type: string;
@@ -402,12 +406,13 @@ export class OpcPackage {
     return normalizePartUri(`${normalizedDirectory}/${stem}${number}${suffix}`);
   }
 
-  async write(): Promise<Uint8Array> {
-    if (!this.changed) return new Uint8Array(this.#original);
+  async write(options: PackageWriteOptions = {}): Promise<Uint8Array> {
+    const compression = resolvePackageCompression(options.compression);
+    if (!this.changed && compression === undefined) return new Uint8Array(this.#original);
     return this.#zip.generateAsync({
       type: 'uint8array',
-      compression: 'DEFLATE',
-      compressionOptions: { level: 6 },
+      compression: compression === true ? 'DEFLATE' : 'STORE',
+      ...(compression === true ? { compressionOptions: { level: 6 } } : {}),
       platform: 'DOS',
     });
   }
@@ -620,6 +625,13 @@ function normalizeEntryDate(value: Date | undefined): Date | undefined {
   const time = Date.prototype.getTime.call(value);
   if (!Number.isFinite(time)) throw new TypeError('Package entryDate must be a valid Date');
   return new Date(time);
+}
+
+function resolvePackageCompression(value: unknown): boolean | undefined {
+  if (value !== undefined && typeof value !== 'boolean') {
+    throw new TypeError('Package compression must be a boolean');
+  }
+  return value;
 }
 
 function compressedSizeOf(entry: JSZip.JSZipObject): number {

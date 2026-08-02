@@ -12,6 +12,7 @@ import {
   relationshipPartUri,
   resolveRelationshipTarget,
   sourcePartUri,
+  type PackageWriteOptions,
 } from './index.js';
 
 async function fixture(): Promise<Uint8Array> {
@@ -23,6 +24,42 @@ async function fixture(): Promise<Uint8Array> {
   zip.file('ppt/slides/slide1.xml', '<p:sld xmlns:p="p"><x:unknown xmlns:x="x" keep="true"/></p:sld>');
   zip.file('docProps/opaque.bin', new Uint8Array([0, 1, 2, 3, 255]));
   return zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' });
+}
+
+function compressionPackage(): OpcPackage {
+  const pkg = OpcPackage.create({
+    entryDate: new Date('1980-01-01T00:00:00.000Z'),
+  });
+  pkg.setPart(
+    '/data.xml',
+    `<data>${'compression-policy-'.repeat(8_192)}</data>`,
+    'application/xml',
+  );
+  return pkg;
+}
+
+function zipCompressionMethods(bytes: Uint8Array): number[] {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let eocd = bytes.byteLength - 22;
+  while (eocd >= 0 && view.getUint32(eocd, true) !== 0x0605_4b50) eocd -= 1;
+  if (eocd < 0) throw new Error('ZIP EOCD not found');
+  const entries = view.getUint16(eocd + 10, true);
+  let offset = view.getUint32(eocd + 16, true);
+  const methods: number[] = [];
+  for (let index = 0; index < entries; index += 1) {
+    if (view.getUint32(offset, true) !== 0x0201_4b50) {
+      throw new Error('ZIP central directory entry not found');
+    }
+    const nameLength = view.getUint16(offset + 28, true);
+    const extraLength = view.getUint16(offset + 30, true);
+    const commentLength = view.getUint16(offset + 32, true);
+    const name = new TextDecoder().decode(
+      bytes.subarray(offset + 46, offset + 46 + nameLength),
+    );
+    if (!name.endsWith('/')) methods.push(view.getUint16(offset + 10, true));
+    offset += 46 + nameLength + extraLength + commentLength;
+  }
+  return methods;
 }
 
 describe('OpcPackage', () => {
@@ -54,6 +91,65 @@ describe('OpcPackage', () => {
     const input = await fixture();
     const pkg = await OpcPackage.open(input);
     expect(await pkg.write()).toEqual(input);
+  });
+
+  it('selects deterministic STORE or DEFLATE output for changed packages', async () => {
+    const pkg = compressionPackage();
+    const defaultBytes = await pkg.write();
+    const storedBytes = await pkg.write({ compression: false });
+    const deflatedBytes = await pkg.write({ compression: true });
+
+    expect(defaultBytes).toEqual(storedBytes);
+    expect(new Set(zipCompressionMethods(storedBytes))).toEqual(new Set([0]));
+    expect(new Set(zipCompressionMethods(deflatedBytes))).toEqual(new Set([8]));
+    expect(deflatedBytes.byteLength).toBeLessThan(storedBytes.byteLength);
+    expect(await pkg.write({ compression: false })).toEqual(storedBytes);
+    expect(await pkg.write({ compression: true })).toEqual(deflatedBytes);
+    await expect(OpcPackage.open(storedBytes)).resolves.toBeInstanceOf(OpcPackage);
+    await expect(OpcPackage.open(deflatedBytes)).resolves.toBeInstanceOf(OpcPackage);
+
+    if (false) {
+      const options: PackageWriteOptions = { compression: true };
+      pkg.write(options) satisfies Promise<Uint8Array>;
+      // @ts-expect-error package compression is boolean-only
+      pkg.write({ compression: 'DEFLATE' });
+    }
+  });
+
+  it('preserves unchanged originals only when compression is omitted', async () => {
+    const source = compressionPackage();
+    const deflatedInput = await source.write({ compression: true });
+    const fromDeflate = await OpcPackage.open(deflatedInput);
+    const deflateJournal = [...fromDeflate.mutations];
+
+    expect(await fromDeflate.write()).toEqual(deflatedInput);
+    expect(await fromDeflate.write({ compression: undefined } as never)).toEqual(deflatedInput);
+    expect(new Set(zipCompressionMethods(
+      await fromDeflate.write({ compression: false }),
+    ))).toEqual(new Set([0]));
+    expect(new Set(zipCompressionMethods(
+      await fromDeflate.write({ compression: true }),
+    ))).toEqual(new Set([8]));
+    expect(fromDeflate.mutations).toEqual(deflateJournal);
+
+    const storedInput = await source.write({ compression: false });
+    const fromStore = await OpcPackage.open(storedInput);
+    expect(await fromStore.write()).toEqual(storedInput);
+    expect(new Set(zipCompressionMethods(
+      await fromStore.write({ compression: true }),
+    ))).toEqual(new Set([8]));
+    expect(fromStore.mutations).toHaveLength(0);
+  });
+
+  it('rejects non-boolean compression without package mutation', async () => {
+    for (const compression of ['yes', 1, 0, null, {}, [], new Boolean(true)]) {
+      const pkg = compressionPackage();
+      const journal = [...pkg.mutations];
+      await expect(pkg.write({ compression } as never)).rejects.toThrow(
+        new TypeError('Package compression must be a boolean'),
+      );
+      expect(pkg.mutations).toEqual(journal);
+    }
   });
 
   it('builds resolved relationships and preserves untouched payloads', async () => {

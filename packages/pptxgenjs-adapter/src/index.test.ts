@@ -364,6 +364,30 @@ const OFFICE_MEDIA_EXTENSION_URI = '{DAA4B4D4-6D71-4841-9C94-3DE7FCFB9230}';
 const sectionState = (document: PptxDocument) =>
   document.sections?.map(({ title, slideIds }) => ({ title, slideIds }));
 
+function zipCompressionMethods(bytes: Uint8Array): number[] {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let eocd = bytes.byteLength - 22;
+  while (eocd >= 0 && view.getUint32(eocd, true) !== 0x0605_4b50) eocd -= 1;
+  if (eocd < 0) throw new Error('ZIP EOCD not found');
+  const entries = view.getUint16(eocd + 10, true);
+  let offset = view.getUint32(eocd + 16, true);
+  const methods: number[] = [];
+  for (let index = 0; index < entries; index += 1) {
+    if (view.getUint32(offset, true) !== 0x0201_4b50) {
+      throw new Error('ZIP central directory entry not found');
+    }
+    const nameLength = view.getUint16(offset + 28, true);
+    const extraLength = view.getUint16(offset + 30, true);
+    const commentLength = view.getUint16(offset + 32, true);
+    const name = new TextDecoder().decode(
+      bytes.subarray(offset + 46, offset + 46 + nameLength),
+    );
+    if (!name.endsWith('/')) methods.push(view.getUint16(offset + 10, true));
+    offset += 46 + nameLength + extraLength + commentLength;
+  }
+  return methods;
+}
+
 function pngHeader(width: number, height: number): Uint8Array<ArrayBuffer> {
   const bytes = new Uint8Array(24);
   bytes.set([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82]);
@@ -905,6 +929,59 @@ describe('importPptxGenJS', () => {
       offset += chunk.byteLength;
     }
     expect((await PptxDocument.open(bytes)).slides).toHaveLength(1);
+  }, 30_000);
+
+  it('matches legal compression booleans without copying the explicit-output defect', async () => {
+    const generated = new PptxGenJS();
+    generated.addSlide().addText('PptxGenJS compression '.repeat(2_000), {
+      x: 1,
+      y: 1,
+      w: 4,
+      h: 1,
+    });
+    const generatedStreamDefault = new Uint8Array(await generated.stream() as Uint8Array);
+    const generatedStreamStore = new Uint8Array(
+      await generated.stream({ compression: false }) as Uint8Array,
+    );
+    const generatedStreamDeflate = new Uint8Array(
+      await generated.stream({ compression: true }) as Uint8Array,
+    );
+    const generatedWriteStore = await generated.write({
+      outputType: 'uint8array',
+      compression: false,
+    });
+    const generatedWriteDeflate = await generated.write({
+      outputType: 'uint8array',
+      compression: true,
+    });
+
+    expect(generatedStreamDefault).toEqual(generatedStreamStore);
+    expect(new Set(zipCompressionMethods(generatedStreamStore))).toEqual(new Set([0]));
+    expect(new Set(zipCompressionMethods(generatedStreamDeflate))).toEqual(new Set([8]));
+    expect(generatedStreamDeflate.byteLength).toBeLessThan(generatedStreamStore.byteLength);
+    expect(generatedWriteDeflate).toEqual(generatedWriteStore);
+    expect(new Set(zipCompressionMethods(generatedWriteDeflate))).toEqual(new Set([0]));
+
+    const native = PptxDocument.create();
+    native.addSlide().addText('Native compression');
+    native.opcPackage.setPart(
+      '/custom/compression.bin',
+      new Uint8Array(65_536).fill(0x41),
+      'application/octet-stream',
+    );
+    const nativeStore = await native.write({
+      outputType: 'uint8array',
+      compression: false,
+    });
+    const nativeDeflate = await native.write({
+      outputType: 'uint8array',
+      compression: true,
+    });
+    expect(new Set(zipCompressionMethods(nativeStore))).toEqual(new Set([0]));
+    expect(new Set(zipCompressionMethods(nativeDeflate))).toEqual(new Set([8]));
+    expect(nativeDeflate.byteLength).toBeLessThan(nativeStore.byteLength);
+    expect((await PptxDocument.open(nativeStore)).slides).toHaveLength(1);
+    expect((await PptxDocument.open(nativeDeflate)).slides).toHaveLength(1);
   }, 30_000);
 
   it('matches the PptxGenJS vertical alignment runtime catalog', async () => {

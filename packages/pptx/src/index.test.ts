@@ -144,8 +144,14 @@ describe('@jiayunxie/pptx stable exports', () => {
       // @ts-expect-error unknown output type is not supported
       const invalid: OutputType = 'buffer';
       const document = PptxDocument.create();
-      const baseOptions: WriteBaseOptions = { compatibility: 'powerpoint-current' };
-      const blobOptions: WriteOptions<'blob'> = { outputType: 'blob' };
+      const baseOptions: WriteBaseOptions = {
+        compatibility: 'powerpoint-current',
+        compression: true,
+      };
+      const blobOptions: WriteOptions<'blob'> = {
+        outputType: 'blob',
+        compression: false,
+      };
       const dynamicOptions: WriteOptions<OutputType> = { outputType: OUTPUT_TYPES[0] };
       document.write() satisfies Promise<Uint8Array>;
       document.write(baseOptions) satisfies Promise<Uint8Array>;
@@ -157,6 +163,14 @@ describe('@jiayunxie/pptx stable exports', () => {
       document.write({ outputType: 'nodebuffer' }) satisfies Promise<Uint8Array>;
       document.write({ outputType: 'uint8array' }) satisfies Promise<Uint8Array>;
       document.writeBlob(baseOptions) satisfies Promise<Blob>;
+      document.writeFile('output.pptx', { compression: true });
+      document.download('output.pptx', { compression: false });
+      // @ts-expect-error compression is boolean-only
+      document.write({ compression: 'true' });
+      // @ts-expect-error file compression is boolean-only
+      document.writeFile('output.pptx', { compression: 1 });
+      // @ts-expect-error download compression is boolean-only
+      document.download('output.pptx', { compression: null });
       // @ts-expect-error convenience blob output does not accept a selector
       document.writeBlob({ outputType: 'blob' });
       void [stream, invalid];
@@ -169,6 +183,7 @@ describe('@jiayunxie/pptx stable exports', () => {
       document.stream() satisfies Promise<PptxNodeReadableStream>;
       document.stream({ mode: 'permissive' }) satisfies Promise<PptxNodeReadableStream>;
       document.stream({ compatibility: 'powerpoint-current' }) satisfies Promise<PptxNodeReadableStream>;
+      document.stream({ compression: true }) satisfies Promise<PptxNodeReadableStream>;
       void document.stream().then((readable) => {
         readable satisfies AsyncIterable<Uint8Array>;
         const destination = { tag: 'destination' } as const;
@@ -177,6 +192,8 @@ describe('@jiayunxie/pptx stable exports', () => {
       });
       // @ts-expect-error stream does not consume write output selectors
       document.stream({ outputType: 'uint8array' });
+      // @ts-expect-error stream compression is boolean-only
+      document.stream({ compression: 'DEFLATE' });
     }
   });
 
