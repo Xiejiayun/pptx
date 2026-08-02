@@ -2865,6 +2865,354 @@ if (!textShapeShadows) {
   throw new Error('Packed text shape shadows failed');
 }
 await reopenedTextShapeShadowDeck.writeFile('text-shape-shadows-smoke.pptx');
+const textShapeHyperlinkDeck = PptxDocument.create();
+const textShapeHyperlinkLayout = textShapeHyperlinkDeck.layouts[0];
+const textShapeHyperlinkMaster = textShapeHyperlinkDeck.masters[0];
+const textShapeHyperlinkTargetLayout = await textShapeHyperlinkDeck.defineSlideMaster({
+  title: 'PACKED-TEXT-HYPERLINK-TARGET',
+  objects: [],
+});
+const textShapeHyperlinkTargetSlide = textShapeHyperlinkDeck.addSlide({
+  masterName: textShapeHyperlinkTargetLayout.name,
+});
+const packedLayoutTextHyperlink = textShapeHyperlinkLayout.addText(
+  'Packed layout text hyperlink',
+  {
+    name: 'packed_layout_text_hyperlink',
+    hyperlink: { url: 'https://layout.example', tooltip: 'Layout' },
+  },
+);
+const packedMasterTextHyperlink = textShapeHyperlinkMaster.addRichText([{
+  runs: [{ text: 'Packed master text hyperlink' }],
+}], {
+  name: 'packed_master_text_hyperlink',
+  hyperlink: { slide: 1 },
+});
+const packedLayoutPlaceholderHyperlink = textShapeHyperlinkLayout.addPlaceholder(
+  'Packed text hyperlink prompt',
+  {
+    name: 'packed_title_hyperlink',
+    type: 'title',
+    index: 198,
+    hyperlink: { url: 'https://placeholder.example', tooltip: '' },
+  },
+);
+const textShapeHyperlinkSourceSlide = textShapeHyperlinkDeck.addSlide({
+  masterName: textShapeHyperlinkLayout.name,
+});
+const textShapeHyperlinkInput = {
+  url: 'https://text.example/path?a=1&b=2',
+  tooltip: 'Packed & linked',
+};
+const packedPlainTextHyperlink = textShapeHyperlinkSourceSlide.addText(
+  'Packed plain text hyperlink\\nSecond line',
+  {
+    name: 'packed_plain_text_hyperlink',
+    fill: { kind: 'solid', color: { kind: 'srgb', value: 'DDEEFF' } },
+    line: {
+      kind: 'line',
+      color: { kind: 'scheme', value: 'accent2' },
+      width: 2,
+      dash: 'dashDot',
+    },
+    arrows: { begin: 'triangle', end: 'arrow' },
+    shadow: { kind: 'outer', color: { kind: 'scheme', value: 'accent4' } },
+    hyperlink: textShapeHyperlinkInput,
+  },
+);
+const packedRichTextHyperlink = textShapeHyperlinkSourceSlide.addRichText([{
+  runs: [
+    { text: 'Packed rich one' },
+    { text: ' and two', style: { underline: false } },
+  ],
+}], {
+  name: 'packed_rich_text_hyperlink',
+  hyperlink: { slide: 1, tooltip: '' },
+});
+const packedPopulatedTextHyperlink = textShapeHyperlinkSourceSlide.addText(
+  'Packed populated text hyperlink',
+  {
+    placeholder: 'packed_title_hyperlink',
+    hyperlink: { slide: 2 },
+  },
+);
+const packedEditableTextHyperlink = textShapeHyperlinkSourceSlide.addText(
+  'Packed editable text hyperlink',
+  {
+    name: 'packed_editable_text_hyperlink',
+    hyperlink: { url: 'https://runs.example', tooltip: 'Runs' },
+  },
+);
+const initialPackedTextHyperlink = packedPlainTextHyperlink.hyperlink;
+const initialPackedTextHyperlinkAgain = packedPlainTextHyperlink.hyperlink;
+textShapeHyperlinkInput.url = 'https://changed.example';
+textShapeHyperlinkInput.tooltip = 'Changed';
+const detachedPackedTextHyperlink = packedPlainTextHyperlink.hyperlink;
+const packedDeclarativeTextHyperlinkLayout = await textShapeHyperlinkDeck.defineSlideMaster({
+  title: 'PACKED-TEXT-HYPERLINKS',
+  objects: [
+    {
+      kind: 'text',
+      text: 'Packed declarative text hyperlink',
+      options: {
+        name: 'packed_declarative_text_hyperlink',
+        hyperlink: { url: 'https://declarative.example' },
+      },
+    },
+    {
+      kind: 'placeholder',
+      text: 'Packed declarative hyperlink prompt',
+      options: {
+        name: 'packed_declarative_title_hyperlink',
+        type: 'title',
+        index: 199,
+        hyperlink: { slide: 1, tooltip: 'Target' },
+      },
+    },
+  ],
+});
+const packedDeclarativeTextHyperlink = packedDeclarativeTextHyperlinkLayout.shapes.find(
+  ({ name }) => name === 'packed_declarative_text_hyperlink',
+);
+const packedDeclarativePlaceholderHyperlink =
+  packedDeclarativeTextHyperlinkLayout.placeholders.find(
+    ({ name }) => name === 'packed_declarative_title_hyperlink',
+  );
+const packedDeclarativeTextHyperlinkSlide = textShapeHyperlinkDeck.addSlide({
+  masterName: packedDeclarativeTextHyperlinkLayout.name,
+});
+const packedDeclarativePopulatedHyperlink = packedDeclarativeTextHyperlinkSlide.addText(
+  'Packed declarative populated hyperlink',
+  {
+    placeholder: 'packed_declarative_title_hyperlink',
+    hyperlink: { slide: 3 },
+  },
+);
+const packedTextHyperlinkShapeXml = (owner, name) => {
+  const shape = owner.shapes.find(
+    (candidate) => candidate instanceof ShapeModel && candidate.name === name,
+  );
+  if (!(shape instanceof ShapeModel)) throw new Error('Packed text hyperlink shape missing');
+  const xml = new TextDecoder().decode(
+    textShapeHyperlinkDeck.opcPackage.requirePart(owner.partUri).bytes,
+  );
+  const nameOffset = xml.indexOf('name="' + name + '"');
+  const shapeStart = xml.lastIndexOf('<p:sp', nameOffset);
+  const shapeEnd = xml.indexOf('</p:sp>', nameOffset);
+  if (nameOffset < 0 || shapeStart < 0 || shapeEnd < 0) {
+    throw new Error('Packed text hyperlink XML missing');
+  }
+  return xml.slice(shapeStart, shapeEnd + '</p:sp>'.length);
+};
+const packedTextHyperlinkIds = (xml) => xml.split('<a:hlinkClick').slice(1).map(
+  (fragment) => fragment.split('r:id="')[1]?.split('"')[0],
+);
+const packedPlainTextHyperlinkXml = packedTextHyperlinkShapeXml(
+  textShapeHyperlinkSourceSlide,
+  'packed_plain_text_hyperlink',
+);
+const packedPlainTextHyperlinkIds = packedTextHyperlinkIds(packedPlainTextHyperlinkXml);
+const packedRichTextHyperlinkXml = packedTextHyperlinkShapeXml(
+  textShapeHyperlinkSourceSlide,
+  'packed_rich_text_hyperlink',
+);
+const packedRichTextHyperlinkIds = packedTextHyperlinkIds(packedRichTextHyperlinkXml);
+const packedPlainTextHyperlinkRelationship = textShapeHyperlinkSourceSlide.relationships.find(
+  ({ id }) => id === packedPlainTextHyperlinkIds[0],
+);
+const packedRichTextHyperlinkRelationship = textShapeHyperlinkSourceSlide.relationships.find(
+  ({ id }) => id === packedRichTextHyperlinkIds[0],
+);
+const packedTextHyperlinkDualOutput =
+  packedPlainTextHyperlinkIds.length === 3 &&
+  new Set(packedPlainTextHyperlinkIds).size === 1 &&
+  packedPlainTextHyperlinkRelationship?.type.endsWith('/hyperlink') === true &&
+  packedPlainTextHyperlinkRelationship.target === 'https://text.example/path?a=1&b=2' &&
+  packedPlainTextHyperlinkRelationship.targetMode === 'External' &&
+  packedPlainTextHyperlinkXml.includes('tooltip="Packed &amp; linked"') &&
+  packedRichTextHyperlinkIds.length === 3 &&
+  new Set(packedRichTextHyperlinkIds).size === 1 &&
+  packedRichTextHyperlinkRelationship?.type.endsWith('/slide') === true &&
+  packedRichTextHyperlinkRelationship.resolvedTarget === textShapeHyperlinkTargetSlide.partUri &&
+  packedRichTextHyperlinkXml.split('<a:hlinkClick').slice(1).every(
+    (fragment) => fragment.includes('action="ppaction://hlinksldjump"'),
+  );
+const packedEditableOriginalXml = packedTextHyperlinkShapeXml(
+  textShapeHyperlinkSourceSlide,
+  'packed_editable_text_hyperlink',
+);
+const packedEditableOriginalRelationshipId = packedTextHyperlinkIds(
+  packedEditableOriginalXml,
+)[0];
+packedEditableTextHyperlink.hyperlink = { slide: 1, tooltip: '' };
+const packedEditableReplacementXml = packedTextHyperlinkShapeXml(
+  textShapeHyperlinkSourceSlide,
+  'packed_editable_text_hyperlink',
+);
+const packedEditableReplacementRelationshipId = packedTextHyperlinkIds(
+  packedEditableReplacementXml,
+)[0];
+const packedEditableReplacementRelationship = textShapeHyperlinkSourceSlide.relationships.find(
+  ({ id }) => id === packedEditableReplacementRelationshipId,
+);
+packedEditableTextHyperlink.hyperlink = undefined;
+const packedEditableClearedXml = packedTextHyperlinkShapeXml(
+  textShapeHyperlinkSourceSlide,
+  'packed_editable_text_hyperlink',
+);
+const packedTextHyperlinkRunOwnership =
+  packedEditableTextHyperlink.hyperlink === undefined &&
+  packedEditableReplacementRelationship !== undefined &&
+  !textShapeHyperlinkSourceSlide.relationships.some(
+    ({ id }) => id === packedEditableReplacementRelationship.id,
+  ) &&
+  textShapeHyperlinkSourceSlide.relationships.some(
+    ({ id }) => id === packedEditableOriginalRelationshipId,
+  ) &&
+  packedEditableClearedXml.slice(
+    0,
+    packedEditableClearedXml.indexOf('</p:nvSpPr>'),
+  ).split('<a:hlinkClick').length === 1 &&
+  packedTextHyperlinkIds(packedEditableClearedXml).length === 1 &&
+  packedTextHyperlinkIds(packedEditableClearedXml)[0] ===
+    packedEditableOriginalRelationshipId;
+const duplicateTextShapeHyperlinkSlide = textShapeHyperlinkDeck.duplicateSlide(1);
+const duplicateTextShapeHyperlinkSelf = duplicateTextShapeHyperlinkSlide.shapes.find(
+  ({ name }) => name === 'packed_title_hyperlink',
+);
+textShapeHyperlinkDeck.moveSlide(
+  textShapeHyperlinkDeck.slides.indexOf(textShapeHyperlinkTargetSlide),
+  1,
+);
+const textShapeHyperlinkMoveIdentity =
+  JSON.stringify(packedRichTextHyperlink.hyperlink) === JSON.stringify({ slide: 2, tooltip: '' }) &&
+  JSON.stringify(packedPopulatedTextHyperlink.hyperlink) === JSON.stringify({ slide: 1 }) &&
+  JSON.stringify(duplicateTextShapeHyperlinkSelf?.hyperlink) === JSON.stringify({ slide: 4 });
+const reopenedTextShapeHyperlinkDeck = await PptxDocument.open(
+  await textShapeHyperlinkDeck.write(),
+);
+await reopenedTextShapeHyperlinkDeck.write({ compatibility: 'powerpoint-2010' });
+const reopenedTextShapeHyperlinkByName = (owner, name) => owner.shapes.find(
+  (shape) => shape instanceof ShapeModel && shape.name === name,
+);
+const reopenedTextShapeHyperlinkSource = reopenedTextShapeHyperlinkDeck.slides[0];
+const reopenedTextShapeHyperlinkDuplicate = reopenedTextShapeHyperlinkDeck.slides[3];
+const reopenedTextShapeHyperlinkLayout = reopenedTextShapeHyperlinkDeck.layouts.find(
+  ({ name }) => name === textShapeHyperlinkLayout.name,
+);
+const reopenedDeclarativeTextHyperlinkLayout = reopenedTextShapeHyperlinkDeck.layouts.find(
+  ({ name }) => name === 'PACKED-TEXT-HYPERLINKS',
+);
+const textShapeHyperlinkWarnings = reopenedTextShapeHyperlinkDeck.diagnostics.filter(
+  ({ severity }) => severity === 'warning',
+);
+const textShapeHyperlinks =
+  packedLayoutTextHyperlink instanceof ShapeModel &&
+  packedMasterTextHyperlink instanceof ShapeModel &&
+  packedLayoutPlaceholderHyperlink instanceof ShapeModel &&
+  packedPlainTextHyperlink instanceof ShapeModel &&
+  packedRichTextHyperlink instanceof ShapeModel &&
+  packedPopulatedTextHyperlink instanceof ShapeModel &&
+  packedDeclarativeTextHyperlink instanceof ShapeModel &&
+  packedDeclarativePlaceholderHyperlink instanceof ShapeModel &&
+  packedDeclarativePopulatedHyperlink instanceof ShapeModel &&
+  initialPackedTextHyperlink !== initialPackedTextHyperlinkAgain &&
+  Object.isFrozen(initialPackedTextHyperlink) &&
+  JSON.stringify(initialPackedTextHyperlink) === JSON.stringify({
+    url: 'https://text.example/path?a=1&b=2',
+    tooltip: 'Packed & linked',
+  }) &&
+  JSON.stringify(detachedPackedTextHyperlink) === JSON.stringify(initialPackedTextHyperlink) &&
+  packedTextHyperlinkDualOutput &&
+  packedTextHyperlinkRunOwnership &&
+  textShapeHyperlinkMoveIdentity &&
+  JSON.stringify(reopenedTextShapeHyperlinkByName(
+    reopenedTextShapeHyperlinkSource,
+    'packed_plain_text_hyperlink',
+  )?.hyperlink) === JSON.stringify(initialPackedTextHyperlink) &&
+  JSON.stringify(reopenedTextShapeHyperlinkByName(
+    reopenedTextShapeHyperlinkSource,
+    'packed_rich_text_hyperlink',
+  )?.hyperlink) === JSON.stringify({ slide: 2, tooltip: '' }) &&
+  JSON.stringify(reopenedTextShapeHyperlinkByName(
+    reopenedTextShapeHyperlinkDuplicate,
+    'packed_title_hyperlink',
+  )?.hyperlink) === JSON.stringify({ slide: 4 }) &&
+  JSON.stringify(reopenedTextShapeHyperlinkByName(
+    reopenedTextShapeHyperlinkLayout,
+    'packed_layout_text_hyperlink',
+  )?.hyperlink) === JSON.stringify({ url: 'https://layout.example', tooltip: 'Layout' }) &&
+  JSON.stringify(reopenedTextShapeHyperlinkByName(
+    reopenedTextShapeHyperlinkDeck.masters[0],
+    'packed_master_text_hyperlink',
+  )?.hyperlink) === JSON.stringify({ slide: 2 }) &&
+  JSON.stringify(reopenedTextShapeHyperlinkByName(
+    reopenedDeclarativeTextHyperlinkLayout,
+    'packed_declarative_text_hyperlink',
+  )?.hyperlink) === JSON.stringify({ url: 'https://declarative.example' }) &&
+  reopenedTextShapeHyperlinkDeck.diagnostics.every(
+    ({ severity, code }) => severity !== 'error' &&
+      (severity !== 'warning' || code === 'OPC_EXTERNAL_RELATIONSHIP'),
+  ) &&
+  textShapeHyperlinkWarnings.length > 0;
+if (!textShapeHyperlinks) {
+  throw new Error('Packed text shape hyperlinks failed: ' + JSON.stringify({
+    initialPackedTextHyperlink,
+    detachedPackedTextHyperlink,
+    packedTextHyperlinkDualOutput,
+    packedTextHyperlinkRunOwnership,
+    textShapeHyperlinkMoveIdentity,
+    reopenedPlain: reopenedTextShapeHyperlinkByName(
+      reopenedTextShapeHyperlinkSource,
+      'packed_plain_text_hyperlink',
+    )?.hyperlink,
+    reopenedRich: reopenedTextShapeHyperlinkByName(
+      reopenedTextShapeHyperlinkSource,
+      'packed_rich_text_hyperlink',
+    )?.hyperlink,
+    reopenedDuplicate: reopenedTextShapeHyperlinkByName(
+      reopenedTextShapeHyperlinkDuplicate,
+      'packed_title_hyperlink',
+    )?.hyperlink,
+    reopenedLayout: reopenedTextShapeHyperlinkByName(
+      reopenedTextShapeHyperlinkLayout,
+      'packed_layout_text_hyperlink',
+    )?.hyperlink,
+    reopenedMaster: reopenedTextShapeHyperlinkByName(
+      reopenedTextShapeHyperlinkDeck.masters[0],
+      'packed_master_text_hyperlink',
+    )?.hyperlink,
+    reopenedDeclarative: reopenedTextShapeHyperlinkByName(
+      reopenedDeclarativeTextHyperlinkLayout,
+      'packed_declarative_text_hyperlink',
+    )?.hyperlink,
+    diagnostics: reopenedTextShapeHyperlinkDeck.diagnostics,
+  }));
+}
+await reopenedTextShapeHyperlinkDeck.writeFile('text-shape-hyperlinks-smoke.pptx');
+const internalTextShapeHyperlinkDeck = PptxDocument.create();
+const internalTextShapeHyperlinkSource = internalTextShapeHyperlinkDeck.addSlide();
+internalTextShapeHyperlinkDeck.addSlide();
+internalTextShapeHyperlinkSource.addText('Packed internal-only text hyperlink', {
+  name: 'packed_internal_only_text_hyperlink',
+  hyperlink: { slide: 2, tooltip: '' },
+});
+internalTextShapeHyperlinkSource.addRichText([{
+  runs: [{ text: 'Packed internal-only rich hyperlink' }],
+}], {
+  name: 'packed_internal_only_rich_hyperlink',
+  hyperlink: { slide: 1 },
+});
+const reopenedInternalTextShapeHyperlinkDeck = await PptxDocument.open(
+  await internalTextShapeHyperlinkDeck.write(),
+);
+await reopenedInternalTextShapeHyperlinkDeck.write({ compatibility: 'powerpoint-2010' });
+if (reopenedInternalTextShapeHyperlinkDeck.diagnostics.length !== 0) {
+  throw new Error('Packed internal-only text shape hyperlink validation failed');
+}
+await reopenedInternalTextShapeHyperlinkDeck.writeFile(
+  'text-shape-hyperlinks-internal-smoke.pptx',
+);
 const createdText = created.addSlide().addText('Smoke\\n\\nParagraph', { align: 'center', fit: 'shrink', valign: 'top', vert: 'vert270', wrap: false, bullet: true, level: 2, margin: 10, rtlMode: true, spacing: { before: 4, after: 6, line: { kind: 'exact', points: 20 } }, tabStops: [{ position: 1.25 }, { position: 2.5, alignment: 'right' }] });
 const shapeLineDeck = PptxDocument.create();
 const shapeLineSlide = shapeLineDeck.addSlide();
@@ -4141,6 +4489,7 @@ const checks = {
   textShapeLines,
   textShapeArrows,
   textShapeShadows,
+  textShapeHyperlinks,
   shapeLines,
   shapeArrows,
   shapeHyperlinks,
@@ -4747,6 +5096,51 @@ if (JSON.stringify(reopenedBrowserHyperlinks) !== JSON.stringify([
 ])) {
   throw new Error('Browser shape hyperlink edit/reopen failed: ' +
     JSON.stringify(reopenedBrowserHyperlinks));
+}
+const browserTextHyperlinkDeck = PptxDocument.create();
+const browserTextHyperlinkSource = browserTextHyperlinkDeck.addSlide();
+browserTextHyperlinkDeck.addSlide();
+const browserTextHyperlinkInput = {
+  url: 'https://browser-text.example',
+  tooltip: 'Browser text',
+};
+const browserPlainTextHyperlink = browserTextHyperlinkSource.addText(
+  'Browser text hyperlink\\nSecond line',
+  {
+    name: 'browser_plain_text_hyperlink',
+    hyperlink: browserTextHyperlinkInput,
+  },
+);
+const browserRichTextHyperlink = browserTextHyperlinkSource.addRichText([{
+  runs: [{ text: 'Browser rich one' }, { text: ' and two' }],
+}], {
+  name: 'browser_rich_text_hyperlink',
+  hyperlink: { slide: 2, tooltip: '' },
+});
+const browserInitialTextHyperlink = browserPlainTextHyperlink.hyperlink;
+browserTextHyperlinkInput.url = 'https://changed.browser-text.example';
+browserTextHyperlinkInput.tooltip = 'Changed';
+const reopenedBrowserTextHyperlinkDeck = await PptxDocument.open(
+  await browserTextHyperlinkDeck.writeBlob(),
+);
+const reopenedBrowserTextHyperlinks = reopenedBrowserTextHyperlinkDeck.slides[0].shapes.map(
+  (shape) => shape instanceof ShapeModel ? shape.hyperlink : undefined,
+);
+if (!(browserPlainTextHyperlink instanceof ShapeModel) ||
+    !(browserRichTextHyperlink instanceof ShapeModel) ||
+    !Object.isFrozen(browserInitialTextHyperlink) ||
+    JSON.stringify(browserInitialTextHyperlink) !== JSON.stringify({
+      url: 'https://browser-text.example',
+      tooltip: 'Browser text',
+    }) ||
+    JSON.stringify(browserPlainTextHyperlink.hyperlink) !==
+      JSON.stringify(browserInitialTextHyperlink) ||
+    JSON.stringify(reopenedBrowserTextHyperlinks) !== JSON.stringify([
+      { url: 'https://browser-text.example', tooltip: 'Browser text' },
+      { slide: 2, tooltip: '' },
+    ]) ||
+    reopenedBrowserTextHyperlinkDeck.diagnostics.some(({ severity }) => severity === 'error')) {
+  throw new Error('Browser text shape hyperlink lifecycle failed');
 }
 const browserShadowDeck = PptxDocument.create();
 const browserShadowSlide = browserShadowDeck.addSlide();
@@ -6537,6 +6931,22 @@ const typedUrlHyperlink: Hyperlink = {
   tooltip: 'Typed URL',
 };
 const typedSlideHyperlink: Hyperlink = { slide: 2, tooltip: '' };
+const typedTextHyperlinkOptions: AddTextOptions = {
+  hyperlink: typedUrlHyperlink,
+};
+const typedTextHyperlinkShape: ShapeModel = typedTextShapeSlide.addText(
+  'Typed text hyperlink',
+  typedTextHyperlinkOptions,
+);
+const typedTextHyperlinkRead: Hyperlink | undefined = typedTextHyperlinkShape.hyperlink;
+const invalidBothTextHyperlink: AddTextOptions = {
+  // @ts-expect-error text shape hyperlinks require exactly one target
+  hyperlink: { url: 'https://example.com', slide: 2 },
+};
+const invalidAliasTextHyperlink: AddTextOptions = {
+  // @ts-expect-error text shape hyperlinks expose no target alias
+  hyperlink: { target: 'https://example.com' },
+};
 const typedShapeOptions: AddShapeOptions = {
   x: inches(1),
   y: inches(2),
@@ -7026,6 +7436,8 @@ void [typedPreset, typedNoneShapeFill, typedSolidShapeFill,
   typedNoneShapeLine, typedSolidShapeLine, typedShapeLineRead, invalidShapeLineKind,
   invalidShapeLineColor, invalidShapeLineTransparency, invalidShapeLineWidth,
   invalidShapeLineDash, invalidShapeLineAlias, typedUrlHyperlink, typedSlideHyperlink,
+  typedTextHyperlinkOptions, typedTextHyperlinkShape, typedTextHyperlinkRead,
+  invalidBothTextHyperlink, invalidAliasTextHyperlink,
   typedShapeHyperlinkRead, invalidMissingHyperlink, invalidBothHyperlink,
   invalidUrlHyperlink, invalidSlideHyperlink, invalidTooltipHyperlink,
   invalidUnknownHyperlink, typedOuterShapeShadow, typedInnerShapeShadow,
@@ -7671,6 +8083,124 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
       )) {
     throw new Error('CLI text-shape-shadow part inspection failed');
   }
+  const textShapeHyperlinkDeckPath = join(directory, 'text-shape-hyperlinks-smoke.pptx');
+  const textShapeHyperlinkInspectResult = run(
+    bin,
+    ['--json', 'package', 'inspect', textShapeHyperlinkDeckPath],
+    directory,
+  );
+  const textShapeHyperlinkInspected = JSON.parse(textShapeHyperlinkInspectResult.stdout);
+  const textShapeHyperlinkContentTypes = textShapeHyperlinkInspected.data?.contentTypes ?? {};
+  if (!textShapeHyperlinkInspected.ok ||
+      textShapeHyperlinkContentTypes[
+        'application/vnd.openxmlformats-officedocument.presentationml.slide+xml'
+      ] !== 4 ||
+      textShapeHyperlinkContentTypes[
+        'application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml'
+      ] !== 3 ||
+      textShapeHyperlinkContentTypes[
+        'application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml'
+      ] !== 1) {
+    throw new Error(
+      `CLI text-shape-hyperlink inspect failed: ${textShapeHyperlinkInspectResult.stdout}`,
+    );
+  }
+  const textShapeHyperlinkValidateResult = run(
+    bin,
+    ['--json', 'package', 'validate', textShapeHyperlinkDeckPath, '--profile', 'powerpoint-2010'],
+    directory,
+  );
+  const textShapeHyperlinkValidated = JSON.parse(textShapeHyperlinkValidateResult.stdout);
+  if (!textShapeHyperlinkValidated.ok || !textShapeHyperlinkValidated.data?.valid ||
+      textShapeHyperlinkValidated.data.errorCount !== 0 ||
+      textShapeHyperlinkValidated.data.warningCount < 1 ||
+      !textShapeHyperlinkValidated.data.diagnostics.every(
+        ({ severity, code }) =>
+          severity !== 'error' &&
+          (severity !== 'warning' || code === 'OPC_EXTERNAL_RELATIONSHIP'),
+      )) {
+    throw new Error(
+      `CLI text-shape-hyperlink validation failed: ${textShapeHyperlinkValidateResult.stdout}`,
+    );
+  }
+  const textShapeHyperlinkSlidesResult = run(
+    bin,
+    ['--json', 'slides', 'list', textShapeHyperlinkDeckPath],
+    directory,
+  );
+  const textShapeHyperlinkSlides = JSON.parse(textShapeHyperlinkSlidesResult.stdout);
+  if (!textShapeHyperlinkSlides.ok || textShapeHyperlinkSlides.data?.length !== 4 ||
+      textShapeHyperlinkSlides.data.map(({ shapeCount }) => shapeCount).join(',') !== '4,0,1,4') {
+    throw new Error(
+      `CLI text-shape-hyperlink slide listing failed: ${textShapeHyperlinkSlidesResult.stdout}`,
+    );
+  }
+  const textShapeHyperlinkPartResult = run(
+    bin,
+    [
+      '--json', 'part', 'read', textShapeHyperlinkDeckPath,
+      textShapeHyperlinkSlides.data[0].partUri,
+    ],
+    directory,
+  );
+  const textShapeHyperlinkPart = JSON.parse(textShapeHyperlinkPartResult.stdout);
+  const textShapeHyperlinkSourceXml = textShapeHyperlinkPart.data?.content ?? '';
+  const textShapeHyperlinkShapeXml = (name) => {
+    const nameOffset = textShapeHyperlinkSourceXml.indexOf('name="' + name + '"');
+    const shapeStart = textShapeHyperlinkSourceXml.lastIndexOf('<p:sp', nameOffset);
+    const shapeEnd = textShapeHyperlinkSourceXml.indexOf('</p:sp>', nameOffset);
+    return nameOffset < 0 || shapeStart < 0 || shapeEnd < 0
+      ? ''
+      : textShapeHyperlinkSourceXml.slice(shapeStart, shapeEnd + '</p:sp>'.length);
+  };
+  const textShapeHyperlinkClickIds = (xml) => xml.split('<a:hlinkClick').slice(1).map(
+    (fragment) => fragment.split('r:id="')[1]?.split('"')[0],
+  );
+  const textShapeHyperlinkPlainXml = textShapeHyperlinkShapeXml(
+    'packed_plain_text_hyperlink',
+  );
+  const textShapeHyperlinkRichXml = textShapeHyperlinkShapeXml(
+    'packed_rich_text_hyperlink',
+  );
+  const textShapeHyperlinkPlainIds = textShapeHyperlinkClickIds(
+    textShapeHyperlinkPlainXml,
+  );
+  const textShapeHyperlinkRichIds = textShapeHyperlinkClickIds(textShapeHyperlinkRichXml);
+  if (!textShapeHyperlinkPart.ok || textShapeHyperlinkPlainIds.length !== 3 ||
+      new Set(textShapeHyperlinkPlainIds).size !== 1 ||
+      !textShapeHyperlinkPlainXml.includes('tooltip="Packed &amp; linked"') ||
+      textShapeHyperlinkRichIds.length !== 3 ||
+      new Set(textShapeHyperlinkRichIds).size !== 1 ||
+      !textShapeHyperlinkRichXml.split('<a:hlinkClick').slice(1).every(
+        (fragment) => fragment.includes('action="ppaction://hlinksldjump"'),
+      )) {
+    throw new Error(`CLI text-shape-hyperlink part read failed: ${textShapeHyperlinkPartResult.stdout}`);
+  }
+  const internalTextShapeHyperlinkDeckPath = join(
+    directory,
+    'text-shape-hyperlinks-internal-smoke.pptx',
+  );
+  const internalTextShapeHyperlinkValidateResult = run(
+    bin,
+    [
+      '--json', 'package', 'validate', internalTextShapeHyperlinkDeckPath,
+      '--profile', 'powerpoint-2010',
+    ],
+    directory,
+  );
+  const internalTextShapeHyperlinkValidated = JSON.parse(
+    internalTextShapeHyperlinkValidateResult.stdout,
+  );
+  if (!internalTextShapeHyperlinkValidated.ok ||
+      !internalTextShapeHyperlinkValidated.data?.valid ||
+      internalTextShapeHyperlinkValidated.data.errorCount !== 0 ||
+      internalTextShapeHyperlinkValidated.data.warningCount !== 0 ||
+      internalTextShapeHyperlinkValidated.data.diagnostics.length !== 0) {
+    throw new Error(
+      'CLI internal-only text-shape-hyperlink validation failed: ' +
+      internalTextShapeHyperlinkValidateResult.stdout,
+    );
+  }
   if (process.env.PPTX_SLIDE_BACKGROUND_GALLERY_OUT) {
     const galleryOutput = resolve(process.env.PPTX_SLIDE_BACKGROUND_GALLERY_OUT);
     await mkdir(dirname(galleryOutput), { recursive: true });
@@ -7698,7 +8228,7 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
   }
 
   process.stdout.write(
-    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, masterLayouts: apiChecks.masterLayouts, slideNumbers: apiChecks.slideNumbers, slideDefaultColor: apiChecks.slideDefaultColor, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, textShapeFills: apiChecks.textShapeFills, textShapeLines: apiChecks.textShapeLines, textShapeArrows: apiChecks.textShapeArrows, textShapeShadows: apiChecks.textShapeShadows, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, slideBackgrounds: apiChecks.slideBackgrounds, types: true, cli: doctor.data.version, masterLayoutInspect: true, masterLayoutValidate: true, masterLayoutSlides: true, masterLayoutPartRead: true, masterLayoutDiff: true, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true, slideBackgroundInspect: true, slideBackgroundValidate: true, slideNumberInspect: true, slideNumberValidate: true, slideNumberSlides: true, slideNumberPartRead: true, slideDefaultColorInspect: true, slideDefaultColorValidate: true, slideDefaultColorSlides: true, slideDefaultColorPartRead: true, textShapeFillInspect: true, textShapeFillValidate: true, textShapeFillSlides: true, textShapeFillPartRead: true, textShapeLineInspect: true, textShapeLineValidate: true, textShapeLineSlides: true, textShapeLinePartRead: true, textShapeArrowInspect: true, textShapeArrowValidate: true, textShapeArrowSlides: true, textShapeArrowPartRead: true, textShapeShadowInspect: true, textShapeShadowValidate: true, textShapeShadowSlides: true, textShapeShadowPartRead: true })}\n`,
+    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, masterLayouts: apiChecks.masterLayouts, slideNumbers: apiChecks.slideNumbers, slideDefaultColor: apiChecks.slideDefaultColor, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, textShapeFills: apiChecks.textShapeFills, textShapeLines: apiChecks.textShapeLines, textShapeArrows: apiChecks.textShapeArrows, textShapeShadows: apiChecks.textShapeShadows, textShapeHyperlinks: apiChecks.textShapeHyperlinks, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, slideBackgrounds: apiChecks.slideBackgrounds, types: true, cli: doctor.data.version, masterLayoutInspect: true, masterLayoutValidate: true, masterLayoutSlides: true, masterLayoutPartRead: true, masterLayoutDiff: true, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true, slideBackgroundInspect: true, slideBackgroundValidate: true, slideNumberInspect: true, slideNumberValidate: true, slideNumberSlides: true, slideNumberPartRead: true, slideDefaultColorInspect: true, slideDefaultColorValidate: true, slideDefaultColorSlides: true, slideDefaultColorPartRead: true, textShapeFillInspect: true, textShapeFillValidate: true, textShapeFillSlides: true, textShapeFillPartRead: true, textShapeLineInspect: true, textShapeLineValidate: true, textShapeLineSlides: true, textShapeLinePartRead: true, textShapeArrowInspect: true, textShapeArrowValidate: true, textShapeArrowSlides: true, textShapeArrowPartRead: true, textShapeShadowInspect: true, textShapeShadowValidate: true, textShapeShadowSlides: true, textShapeShadowPartRead: true, textShapeHyperlinkInspect: true, textShapeHyperlinkValidate: true, textShapeHyperlinkSlides: true, textShapeHyperlinkPartRead: true, textShapeHyperlinkInternalValidate: true })}\n`,
   );
 } finally {
   await rm(directory, { recursive: true, force: true });

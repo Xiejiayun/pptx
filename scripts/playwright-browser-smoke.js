@@ -623,6 +623,162 @@ async (page) => {
           ({ severity }) => severity === 'error',
         ).length,
       };
+      const textShapeHyperlinkDocument = api.PptxDocument.create();
+      const textShapeHyperlinkLayout = textShapeHyperlinkDocument.layouts[0];
+      textShapeHyperlinkLayout.addPlaceholder('Browser text hyperlink prompt', {
+        name: 'browser_text_hyperlink_placeholder',
+        type: 'title',
+        index: 194,
+        hyperlink: { url: 'https://layout-browser.example', tooltip: '' },
+      });
+      const textShapeHyperlinkSlide = textShapeHyperlinkDocument.addSlide({
+        masterName: textShapeHyperlinkLayout.name,
+      });
+      const textShapeHyperlinkTargetLayout = await textShapeHyperlinkDocument.defineSlideMaster({
+        title: 'BROWSER-TEXT-HYPERLINK-TARGET',
+        objects: [],
+      });
+      textShapeHyperlinkDocument.addSlide({
+        masterName: textShapeHyperlinkTargetLayout.name,
+      });
+      const textShapeHyperlinkInput = {
+        url: 'https://browser-text.example/path?a=1&b=2',
+        tooltip: 'Browser & text',
+      };
+      const browserPlainTextHyperlink = textShapeHyperlinkSlide.addText(
+        'Browser plain text hyperlink\nSecond line',
+        {
+          name: 'browser_plain_text_hyperlink',
+          fill: { kind: 'solid', color: { kind: 'srgb', value: 'DDEEFF' } },
+          line: {
+            kind: 'line',
+            color: { kind: 'scheme', value: 'accent2' },
+            width: 2,
+            dash: 'dashDot',
+          },
+          arrows: { begin: 'triangle', end: 'arrow' },
+          shadow: { kind: 'outer', color: { kind: 'scheme', value: 'accent4' } },
+          hyperlink: textShapeHyperlinkInput,
+        },
+      );
+      const browserRichTextHyperlink = textShapeHyperlinkSlide.addRichText([{
+        runs: [
+          { text: 'Browser rich one' },
+          { text: ' and two', style: { underline: false } },
+        ],
+      }], {
+        name: 'browser_rich_text_hyperlink',
+        hyperlink: { slide: 2, tooltip: '' },
+      });
+      const browserPopulatedTextHyperlink = textShapeHyperlinkSlide.addText(
+        'Browser populated text hyperlink',
+        {
+          placeholder: 'browser_text_hyperlink_placeholder',
+          hyperlink: { slide: 1 },
+        },
+      );
+      const textShapeHyperlinkImmediate = [
+        browserPlainTextHyperlink.hyperlink,
+        browserRichTextHyperlink.hyperlink,
+        browserPopulatedTextHyperlink.hyperlink,
+      ];
+      textShapeHyperlinkInput.url = 'https://changed.browser-text.example';
+      textShapeHyperlinkInput.tooltip = 'Changed';
+      const textShapeHyperlinkDetached = browserPlainTextHyperlink.hyperlink;
+      const textShapeHyperlinkOutput = await textShapeHyperlinkDocument.writeBlob();
+      const reopenedTextShapeHyperlinks = await api.PptxDocument.open(
+        textShapeHyperlinkOutput,
+      );
+      await reopenedTextShapeHyperlinks.write({ compatibility: 'powerpoint-current' });
+      const textShapeHyperlinkByName = (owner, name) => owner.shapes.find(
+        (shape) => shape instanceof api.ShapeModel && shape.name === name,
+      );
+      const textShapeHyperlinkShapeXml = (owner, name) => {
+        const shape = textShapeHyperlinkByName(owner, name);
+        const xml = new TextDecoder().decode(
+          reopenedTextShapeHyperlinks.opcPackage.requirePart(owner.partUri).bytes,
+        );
+        const idOffset = xml.indexOf('<p:cNvPr id="' + shape.id + '"');
+        const shapeStart = xml.lastIndexOf('<p:sp', idOffset);
+        const shapeEnd = xml.indexOf('</p:sp>', idOffset);
+        return xml.slice(shapeStart, shapeEnd + '</p:sp>'.length);
+      };
+      const textShapeHyperlinkClickIds = (xml) => xml.split('<a:hlinkClick').slice(1).map(
+        (fragment) => fragment.split('r:id="')[1]?.split('"')[0],
+      );
+      const browserPlainTextHyperlinkXml = textShapeHyperlinkShapeXml(
+        reopenedTextShapeHyperlinks.slides[0],
+        'browser_plain_text_hyperlink',
+      );
+      const browserRichTextHyperlinkXml = textShapeHyperlinkShapeXml(
+        reopenedTextShapeHyperlinks.slides[0],
+        'browser_rich_text_hyperlink',
+      );
+      const browserPlainTextHyperlinkIds = textShapeHyperlinkClickIds(
+        browserPlainTextHyperlinkXml,
+      );
+      const browserRichTextHyperlinkIds = textShapeHyperlinkClickIds(
+        browserRichTextHyperlinkXml,
+      );
+      const textShapeHyperlinkState = {
+        mime: textShapeHyperlinkOutput.type,
+        immediate: textShapeHyperlinkImmediate,
+        detached: textShapeHyperlinkDetached,
+        reopened: [
+          textShapeHyperlinkByName(
+            reopenedTextShapeHyperlinks.slides[0],
+            'browser_plain_text_hyperlink',
+          ).hyperlink,
+          textShapeHyperlinkByName(
+            reopenedTextShapeHyperlinks.slides[0],
+            'browser_rich_text_hyperlink',
+          ).hyperlink,
+          textShapeHyperlinkByName(
+            reopenedTextShapeHyperlinks.slides[0],
+            'browser_text_hyperlink_placeholder',
+          ).hyperlink,
+        ],
+        layout: textShapeHyperlinkByName(
+          reopenedTextShapeHyperlinks.layouts[0],
+          'browser_text_hyperlink_placeholder',
+        ).hyperlink,
+        fill: textShapeHyperlinkByName(
+          reopenedTextShapeHyperlinks.slides[0],
+          'browser_plain_text_hyperlink',
+        ).fill,
+        line: textShapeHyperlinkByName(
+          reopenedTextShapeHyperlinks.slides[0],
+          'browser_plain_text_hyperlink',
+        ).line,
+        arrows: textShapeHyperlinkByName(
+          reopenedTextShapeHyperlinks.slides[0],
+          'browser_plain_text_hyperlink',
+        ).arrows,
+        shadowKind: textShapeHyperlinkByName(
+          reopenedTextShapeHyperlinks.slides[0],
+          'browser_plain_text_hyperlink',
+        ).shadow?.kind,
+        clickCounts: [
+          browserPlainTextHyperlinkIds.length,
+          browserRichTextHyperlinkIds.length,
+        ],
+        sharedIds: [
+          new Set(browserPlainTextHyperlinkIds).size === 1,
+          new Set(browserRichTextHyperlinkIds).size === 1,
+        ],
+        internalActions: browserRichTextHyperlinkXml.split('<a:hlinkClick').slice(1).every(
+          (fragment) => fragment.includes('action="ppaction://hlinksldjump"'),
+        ),
+        validationErrors: reopenedTextShapeHyperlinks.diagnostics.filter(
+          ({ severity }) => severity === 'error',
+        ).length,
+      };
+      const textShapeHyperlinks =
+        textShapeHyperlinkState.clickCounts[0] === 3 &&
+        textShapeHyperlinkState.clickCounts[1] === 3 &&
+        textShapeHyperlinkState.sharedIds.every(Boolean) &&
+        textShapeHyperlinkState.internalActions &&
+        textShapeHyperlinkState.validationErrors === 0;
       const svgDocument = api.PptxDocument.create();
       svgDocument.addSlide();
       const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360">'
@@ -1007,6 +1163,8 @@ async (page) => {
         textShapeLines: textShapeLineState,
         textShapeArrows: textShapeArrowState,
         textShapeShadows: textShapeShadowState,
+        textShapeHyperlinks,
+        textShapeHyperlinkState,
         svgCreatedLive: svgDocument.slides[0].shapes.includes(blobSvg)
           && svgDocument.slides[0].shapes.includes(dataSvg),
         svgState,
@@ -1380,6 +1538,47 @@ async (page) => {
         dash: 'dashDot',
       },
       arrows: { begin: 'triangle', end: 'arrow' },
+      validationErrors: 0,
+    },
+    textShapeHyperlinks: true,
+    textShapeHyperlinkState: {
+      mime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      immediate: [
+        {
+          url: 'https://browser-text.example/path?a=1&b=2',
+          tooltip: 'Browser & text',
+        },
+        { slide: 2, tooltip: '' },
+        { slide: 1 },
+      ],
+      detached: {
+        url: 'https://browser-text.example/path?a=1&b=2',
+        tooltip: 'Browser & text',
+      },
+      reopened: [
+        {
+          url: 'https://browser-text.example/path?a=1&b=2',
+          tooltip: 'Browser & text',
+        },
+        { slide: 2, tooltip: '' },
+        { slide: 1 },
+      ],
+      layout: { url: 'https://layout-browser.example', tooltip: '' },
+      fill: {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'DDEEFF' },
+      },
+      line: {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent2' },
+        width: 2,
+        dash: 'dashDot',
+      },
+      arrows: { begin: 'triangle', end: 'arrow' },
+      shadowKind: 'outer',
+      clickCounts: [3, 3],
+      sharedIds: [true, true],
+      internalActions: true,
       validationErrors: 0,
     },
     svgCreatedLive: true,
