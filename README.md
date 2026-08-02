@@ -868,7 +868,36 @@ const uncompressedBlob = await document.writeBlob({ compression: false }); // br
 
 最终 clean gates 为 1400 passed / 1 skipped tests，performance 1/1（749.5ms），两种 TypeScript check、Node/browser bundle 与 declaration build 全部通过。实际 61-file tarball SHA-256 为 `4bbaa25b83a0d20dd3d2239708c628afec79bcff19c69faca6fe67b03e3bd990`；packed Node 的代表性 STORE/DEFLATE 输出为 149,598/9,347 bytes，真实 Chrome 为 84,062/9,270 bytes。Installed Node/types/browser/CLI 与 Chrome 均报告 `compressionPolicy: true`，Chrome download 使用 ZIP method 8、可重开，console/page/network errors 为 0。
 
-总体 PptxGenJS 对等进度仍约 97%。后续仍待 scheme-color 与其他 runtime helpers、advanced text/table、`tableToSlides` 与最终 peer/client audit。
+总体 PptxGenJS 对等进度仍约 97%。`SchemeColor` runtime helper 已在下一节完成。
+
+## 使用 PptxGenJS 对等的主题色 helper
+
+```ts
+import {
+  PptxDocument,
+  SCHEME_COLORS,
+  type SchemeColor,
+} from '@jiayunxie/pptx';
+
+const accent: SchemeColor = SCHEME_COLORS.accent1;
+const document = PptxDocument.create();
+document.addSlide().addRichText([{
+  runs: [
+    { text: 'Theme text', style: { color: { kind: 'scheme', value: SCHEME_COLORS.text1 } } },
+    { text: ' accent', style: { color: { kind: 'scheme', value: accent } } },
+  ],
+}], {
+  fill: { kind: 'solid', color: { kind: 'scheme', value: SCHEME_COLORS.background1 } },
+});
+```
+
+`SCHEME_COLORS` 按稳定顺序公开 `text1→tx1`、`text2→tx2`、`background1→bg1`、`background2→bg2` 和 `accent1..accent6` 十项映射，`SchemeColor` 直接由这些 values 派生。Catalog 在 model 中创建并冻结，SDK 与 aggregate root 复用同一对象；读取它不访问或修改 presentation package，Node 与浏览器结果一致。
+
+PptxGenJS 4.0.1 的 `SchemeColor` getter 公开相同 keys、values 和顺序，但返回共享 mutable object；native 采用 frozen root mapping，不增加 `PptxDocument.SchemeColor`、instance getter 或第二份 catalog。`SchemeColor` 只表示 PptxGenJS helper 的十个值；native 既有 color APIs 仍接受经验证的更广 DrawingML scheme-color 子集，因此它不是全部 OOXML 主题色 token 的穷举类型。
+
+最终 clean full Vitest 为 77 passed / 1 skipped test files、1404 passed / 1 skipped tests，performance 1/1（736ms）；两种 TypeScript check、Node/browser bundle 与 declaration build 全部通过。实际 62-file tarball SHA-256 为 `5d7096b0347d605c105dff15bb357781c4dcaa1cb7c3eff69f89ea6baa70e742`；installed Node/types/browser/CLI 门禁全部通过，Node 与真实 Google Chrome 均报告 `schemeColors: true`。Write/reopen、frozen/shared identity、mutation isolation 通过，Chrome validation/console/page/network errors 为 0。证据保存在 `/tmp/pptx-scheme-color-artifacts.AOU1Qb`。
+
+总体 PptxGenJS 对等进度仍约 97%。PptxGenJS 4.0.1 声明的六类 presentation runtime catalogs 已全部覆盖；下一小项为 advanced table 的 table-level direct vertical-alignment 读取与编辑，之后仍待其他 advanced text/table、`tableToSlides` 与最终 peer/client audit。
 
 ## 创建和编辑预设形状、调整值与样式
 

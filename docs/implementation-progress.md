@@ -888,6 +888,28 @@ $ pptx-inspect --json package inspect output.pptx
 - 总体 PptxGenJS 对等进度仍约 97%；下一小项为 `SchemeColor` runtime helper。
 - 之后仍待其他 runtime helpers、advanced text/table、`tableToSlides` 与最终 peer/client audit；当前不声明完整 PptxGenJS parity。
 
+## PptxGenJS 全功能对等：Presentation `SchemeColor`
+
+状态：完成；实施与证据 6/6
+
+### 本阶段 change
+
+- 新增 model-owned frozen `SCHEME_COLORS`，按 `text1→tx1`、`text2→tx2`、`background1→bg1`、`background2→bg2`、`accent1..accent6` 的稳定顺序公开十项 mapping；`SchemeColor` 直接由 values 派生，model、SDK 与 aggregate root 共享同一对象。
+- Native 对等 PptxGenJS 4.0.1 的 public keys/values/order 与合法主题色输出，但不增加 `PptxDocument.SchemeColor`、prototype getter、mutable enum-shaped alias 或 catalog 副本。现有 color API 的更广 DrawingML token 范围不收窄。
+- Source、adapter、packed Node、browser conditional export 与真实 Chrome 覆盖 exact entries、freeze/shared identity、TypeScript closure、package mutation isolation，以及 `tx1` text / `accent1` fill 的 create/write/reopen。
+- Core 实现为 `1d40f17`，实际包/Chrome 门禁为 `4da3187`；文档作为独立小项 review、commit、push。
+
+### 验证结果
+
+- Focused 为 3 files / 123 tests；最终 clean full Vitest 为 77 passed / 1 skipped test files、1404 passed / 1 skipped tests。独立 performance gate 1/1（736ms），两种 TypeScript check、Node/browser tsup 与 declaration build 全部通过。
+- Actual npm tarball 为 62 files，SHA-256 `5d7096b0347d605c105dff15bb357781c4dcaa1cb7c3eff69f89ea6baa70e742`。Installed Node、generated declarations、browser conditional export、TypeScript consumer 与 CLI 均通过，Node 顶层与 `api` 状态报告 `schemeColors: true`。
+- 真实 Google Chrome 返回 `schemeColors: true`；十项 entries、frozen、mutation isolation、`tx1` text、`accent1` fill 与 validation errors 0 全部匹配，console/page/network errors 为 0。完整证据位于 `/tmp/pptx-scheme-color-artifacts.AOU1Qb`，未进入仓库。
+
+### 剩余 advanced API 与全功能路线
+
+- 总体 PptxGenJS 对等进度仍约 97%；PptxGenJS 4.0.1 声明的六类 presentation runtime catalogs 已全部支持，不再保留“其他 runtime helper”占位项。
+- 下一小项为 advanced table 的 table-level direct vertical-alignment 读取与编辑；之后仍待其他 advanced text/table、`tableToSlides` 与最终 peer/client audit，当前不声明完整 PptxGenJS parity。
+
 ## 0.1.0 初始验收
 
 - `pnpm check`：TypeScript strict build 通过；14 个测试文件、34 项测试全部通过。

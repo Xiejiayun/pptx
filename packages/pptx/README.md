@@ -985,7 +985,36 @@ There is one lossless fast path: an opened, completely unchanged presentation re
 
 Final clean gates are 1400 passed / 1 skipped tests and performance 1/1 at 749.5ms. Both TypeScript checks, Node/browser bundles, and declaration generation pass. The actual 61-file tarball SHA-256 is `4bbaa25b83a0d20dd3d2239708c628afec79bcff19c69faca6fe67b03e3bd990`; representative packed Node STORE/DEFLATE outputs are 149,598/9,347 bytes, and real Chrome outputs are 84,062/9,270 bytes. Installed Node/types/browser/CLI and Chrome report `compressionPolicy: true`; the Chrome download uses ZIP method 8, reopens successfully, and has zero console/page/network errors.
 
-Overall PptxGenJS parity remains approximately 97%. Scheme-color and other runtime helpers, advanced text/table, `tableToSlides`, and the final peer/client audit remain pending.
+Overall PptxGenJS parity remains approximately 97%. The `SchemeColor` runtime helper is completed in the next section.
+
+## Use PptxGenJS-compatible scheme colors
+
+```ts
+import {
+  PptxDocument,
+  SCHEME_COLORS,
+  type SchemeColor,
+} from '@jiayunxie/pptx';
+
+const accent: SchemeColor = SCHEME_COLORS.accent1;
+const document = PptxDocument.create();
+document.addSlide().addRichText([{
+  runs: [
+    { text: 'Theme text', style: { color: { kind: 'scheme', value: SCHEME_COLORS.text1 } } },
+    { text: ' accent', style: { color: { kind: 'scheme', value: accent } } },
+  ],
+}], {
+  fill: { kind: 'solid', color: { kind: 'scheme', value: SCHEME_COLORS.background1 } },
+});
+```
+
+`SCHEME_COLORS` exposes the stable ten-entry order `text1→tx1`, `text2→tx2`, `background1→bg1`, `background2→bg2`, and `accent1..accent6`; `SchemeColor` is derived directly from those values. The model owns and freezes the catalog, while the SDK and aggregate root share that same object. Reading it never accesses or mutates a presentation package, and Node and browser builds expose identical state.
+
+PptxGenJS 4.0.1's `SchemeColor` getter has the same keys, values, and order but returns a shared mutable object. Native uses a frozen root mapping and does not add `PptxDocument.SchemeColor`, an instance getter, or a second catalog. `SchemeColor` names only the ten PptxGenJS helper values; existing native color APIs continue to accept their wider validated DrawingML scheme-color subset, so this is not the exhaustive OOXML scheme-color type.
+
+Final clean full Vitest is 77 passed / 1 skipped test files and 1404 passed / 1 skipped tests, with performance 1/1 at 736ms. Both TypeScript checks, Node/browser bundles, declaration generation, and installed Node/types/browser/CLI gates pass. The actual 62-file tarball SHA-256 is `5d7096b0347d605c105dff15bb357781c4dcaa1cb7c3eff69f89ea6baa70e742`; Node and real Google Chrome report `schemeColors: true`. Write/reopen, frozen/shared identity, and mutation isolation pass with zero Chrome validation, console, page, or network errors. Evidence is retained at `/tmp/pptx-scheme-color-artifacts.AOU1Qb`.
+
+Overall PptxGenJS parity remains approximately 97%. All six presentation runtime catalogs declared by PptxGenJS 4.0.1 are now covered. The next item is advanced-table table-level direct vertical-alignment read/edit support, followed by the remaining advanced text/table work, `tableToSlides`, and the final peer/client audit.
 
 `PRESET_SHAPE_TYPES` is the frozen discovery catalog for all 178 canonical preset geometries accepted by `SlideModel.addShape()`. `AddShapeOptions` accepts `name`, strict `adjustments`, strict `fill`, strict `line`, strict `arrows`, strict `shadow`, strict `hyperlink`, and native EMU/OOXML-angle transform fields; use `inches()` and `degrees()` for ergonomic conversion. Omitted geometry starts at x/y/width/height = 1 inch with zero rotation and no flips; omitted fill creates direct no-fill, and omitted line keeps the canonical empty line container. Inputs are strict, descriptor-safe, detached before mutation, and reject unknown fields. The catalog uses the valid OOXML `foldedCorner`; PptxGenJS 4.0.1's invalid `folderCorner` token and runtime-only `custGeom` value are not accepted as presets.
 

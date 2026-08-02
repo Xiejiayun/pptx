@@ -259,7 +259,37 @@ Opened documents have a single preservation exception: if the package remains un
 
 PptxGenJS 4.0.1's legal primitive-boolean intent is supported. Native deliberately keeps compression orthogonal to explicit `outputType` and rejects truthy non-booleans instead of copying upstream's explicit-output omission and coercion behavior. Installed Node/types/browser/CLI and real Chrome report `compressionPolicy: true`. The final 61-file tarball SHA-256 is `4bbaa25b83a0d20dd3d2239708c628afec79bcff19c69faca6fe67b03e3bd990`; packed Node STORE/DEFLATE sizes are 149,598/9,347 bytes, Chrome sizes are 84,062/9,270 bytes, download uses method 8 and reopens, and Chrome console/page/network errors are zero. Final gates are 1400 passed / 1 skipped tests, performance 1/1 at 749.5ms, both TypeScript checks, both bundles, and declaration generation.
 
-Overall PptxGenJS parity remains approximately 97%. Scheme-color and other runtime helpers, advanced text/table, `tableToSlides`, and the final peer/client audit remain pending.
+Overall PptxGenJS parity remains approximately 97%. The `SchemeColor` runtime helper is completed below.
+
+### Presentation scheme-color catalog
+
+```ts
+import {
+  PptxDocument,
+  SCHEME_COLORS,
+  type SchemeColor,
+} from '@jiayunxie/pptx';
+
+const text: SchemeColor = SCHEME_COLORS.text1;
+const background: SchemeColor = SCHEME_COLORS.background1;
+const accent: SchemeColor = SCHEME_COLORS.accent1;
+const document = PptxDocument.create();
+
+document.addSlide().addRichText([{
+  runs: [
+    { text: 'Theme text', style: { color: { kind: 'scheme', value: text } } },
+    { text: ' accent', style: { color: { kind: 'scheme', value: accent } } },
+  ],
+}], { fill: { kind: 'solid', color: { kind: 'scheme', value: background } } });
+```
+
+`SCHEME_COLORS` is a frozen `Readonly` mapping with exact order and values `text1→tx1`, `text2→tx2`, `background1→bg1`, `background2→bg2`, and `accent1..accent6`. `SchemeColor` is the union of those ten values. The model, SDK, and root export one object identity in Node and browsers; catalog access is independent of document/package state.
+
+This matches PptxGenJS 4.0.1's public `SchemeColor` keys, values, order, and legal output without copying its prototype getter or shared mutable enum object. `SchemeColor` is intentionally the PptxGenJS helper union, not the exhaustive native theme-color type: native color APIs retain their wider validated DrawingML token subset.
+
+Final gates are 77 passed / 1 skipped test files, 1404 passed / 1 skipped tests, performance 1/1 at 736ms, both TypeScript checks, both bundles, declaration generation, and installed Node/types/browser/CLI checks. The actual 62-file tarball SHA-256 is `5d7096b0347d605c105dff15bb357781c4dcaa1cb7c3eff69f89ea6baa70e742`; Node and real Chrome report `schemeColors: true`, with successful write/reopen, frozen/shared identity, mutation isolation, and zero Chrome validation/console/page/network errors.
+
+Overall parity remains approximately 97%. The six declared presentation runtime catalogs are now complete; table-level direct vertical-alignment read/edit is next, followed by the remaining advanced text/table work, `tableToSlides`, and the final peer/client audit.
 
 ## Embedded raster images
 
