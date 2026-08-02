@@ -464,8 +464,8 @@ $ pptx-inspect --json package inspect output.pptx
 ### 剩余文本与全功能路线
 
 - Slide default text color direct transient 语义与 master/layout/placeholder 已完成；table 默认颜色与完整 theme text cascade 并入 advanced text/table 专项。
-- Advanced text 的 text shape fill、simple line、arrows、simple shadow、outer hyperlink 与 per-run rich-text hyperlink 已在后续专项完成。
-- 当前下一小项为 `AddTextOptions.shape` text geometry，之后进入其余 advanced text、advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
+- Advanced text 的 text shape fill、simple line、arrows、simple shadow、outer hyperlink、per-run rich-text hyperlink 与 preset geometry 已在后续专项完成。
+- 当前下一小项为 `AddTextOptions.rectRadius`，之后继续 `isTextBox` / `breakLine`、其余 advanced text、advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
 
 ## PptxGenJS 全功能对等：Named master/layout/placeholder
 
@@ -494,8 +494,8 @@ $ pptx-inspect --json package inspect output.pptx
 ### 剩余 master/layout 与全功能路线
 
 - Named selection、semantic wrapper、direct background、slide-number integration、declarative definition、六类 placeholder population 和 replace/delete lifecycle 已完成。仍未完成完整 theme text cascade、percentage coordinates、advanced text/table/media/chart styles 与更广泛客户端认证。
-- Advanced text 已完成 text shape fill、simple line、arrows、simple shadow、outer hyperlink 与 per-run rich-text hyperlink。
-- 当前下一小项是 `AddTextOptions.shape` text geometry，后续总体顺序仍是 advanced text → advanced table/`tableToSlides` → output/runtime helpers → peer-range full-suite audit。
+- Advanced text 已完成 text shape fill、simple line、arrows、simple shadow、outer hyperlink、per-run rich-text hyperlink 与 preset geometry。
+- 当前下一小项是 `AddTextOptions.rectRadius`，后续总体顺序仍是 advanced text → advanced table/`tableToSlides` → output/runtime helpers → peer-range full-suite audit。
 
 ## PptxGenJS 全功能对等：Text shape fill creation
 
@@ -514,8 +514,8 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余文本与全功能路线
 
-- Text outer fill 已从缺口移入支持项。Gradient/pattern/picture/group text-fill creation 仍待后续；outer simple line、arrows、simple shadow、outer/per-run hyperlink 已在后续阶段完成，`shape` / `rectRadius` / `isTextBox`、breakLine 组合语义与其余 shape-level styles 仍待逐项完成。
-- 当前下一小项为 `AddTextOptions.shape` text geometry 创建、读取与编辑；之后继续其余 advanced text，再进入 advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
+- Text outer fill 与 preset geometry 已从缺口移入支持项。Gradient/pattern/picture/group text-fill creation 仍待后续；outer simple line、arrows、simple shadow、outer/per-run hyperlink 已在后续阶段完成，`rectRadius` / `isTextBox` / `breakLine` 组合语义与其余 shape-level styles 仍待逐项完成。
+- 当前下一小项为 `AddTextOptions.rectRadius`；之后继续其余 advanced text，再进入 advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
 
 ## PptxGenJS 全功能对等：Text shape simple line creation
 
@@ -536,8 +536,8 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余文本与全功能路线
 
-- Text outer simple line、arrows、simple shadow、outer/per-run hyperlink 已从缺口移入支持项。Gradient/pattern/picture/group line fill、custom dash、cap/compound/alignment/join，以及 text geometry 仍待逐项完成。
-- 当前下一小项为 `AddTextOptions.shape` text geometry 创建、读取与编辑；之后继续其余 advanced text，再进入 advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
+- Text outer simple line、arrows、simple shadow、outer/per-run hyperlink 与 preset geometry 已从缺口移入支持项。Gradient/pattern/picture/group line fill、custom dash、cap/compound/alignment/join，以及其余 text geometry shortcut 仍待逐项完成。
+- 当前下一小项为 `AddTextOptions.rectRadius`；之后继续其余 advanced text，再进入 advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
 
 ## PptxGenJS 全功能对等：Text shape arrows creation
 
@@ -558,8 +558,8 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余文本与全功能路线
 
-- Text outer arrows、simple shadow、outer/per-run hyperlink 已从缺口移入支持项。Arrow size、advanced line fill/custom dash/cap/compound/alignment/join，以及 text geometry、`rectRadius` / `isTextBox` / `breakLine` 组合语义仍待逐项完成。
-- 当前下一小项为 `AddTextOptions.shape` text geometry 创建、读取与编辑；之后继续 advanced text，再进入 advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
+- Text outer arrows、simple shadow、outer/per-run hyperlink 与 preset geometry 已从缺口移入支持项。Arrow size、advanced line fill/custom dash/cap/compound/alignment/join，以及 `rectRadius` / `isTextBox` / `breakLine` 组合语义仍待逐项完成。
+- 当前下一小项为 `AddTextOptions.rectRadius`；之后继续 advanced text，再进入 advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
 
 ## PptxGenJS 全功能对等：Text shape simple shadow creation
 
@@ -580,8 +580,8 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余文本与全功能路线
 
-- Text simple shadow、outer hyperlink 与 per-run rich-text hyperlink 已从缺口移入支持项。仍待完成 text geometry、`rectRadius` / `isTextBox` / `breakLine` 组合语义、advanced line/effect，以及 image/table/chart/media 等其他 owner 的 shadow/hyperlink/style 能力。
-- 当前下一小项为 `AddTextOptions.shape` text geometry 创建、读取与编辑；之后继续其余 advanced text，再进入 advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
+- Text simple shadow、outer hyperlink、per-run rich-text hyperlink 与 preset geometry 已从缺口移入支持项。仍待完成 `rectRadius` / `isTextBox` / `breakLine` 组合语义、advanced line/effect，以及 image/table/chart/media 等其他 owner 的 shadow/hyperlink/style 能力。
+- 当前下一小项为 `AddTextOptions.rectRadius`；之后继续其余 advanced text，再进入 advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
 
 ## PptxGenJS 全功能对等：Text shape outer hyperlink creation
 
@@ -603,7 +603,7 @@ $ pptx-inspect --json package inspect output.pptx
 ### 剩余文本与全功能路线
 
 - Text outer hyperlink 与 per-run rich-text hyperlink 已从缺口移入支持项。
-- 下一小项为 `AddTextOptions.shape` text geometry；之后继续 `rectRadius` / `isTextBox` / `breakLine`、advanced line/effect 等剩余 advanced text。
+- Preset geometry 已在后续专项完成；下一小项为 `AddTextOptions.rectRadius`，之后继续 `isTextBox` / `breakLine`、advanced line/effect 等剩余 advanced text。
 - 总体路线保持 advanced text → advanced table/`tableToSlides` → output/runtime helpers → peer-range full-suite audit。
 
 ## PptxGenJS 全功能对等：Per-run rich-text hyperlink
@@ -625,8 +625,31 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余文本与全功能路线
 
-- 当前下一小项为 `AddTextOptions.shape` text geometry 创建、读取与编辑；之后继续 `rectRadius` / `isTextBox` / `breakLine`、advanced line/effect。
+- Preset geometry 已在后续专项完成；当前下一小项为 `AddTextOptions.rectRadius`，之后继续 `isTextBox` / `breakLine`、advanced line/effect。
 - 总体路线保持 advanced text → advanced table/`tableToSlides` → output/runtime helpers → peer-range full-suite audit。
+
+## PptxGenJS 全功能对等：Text shape preset geometry
+
+状态：完成；实施与证据 7/7
+
+### 本阶段 change
+
+- `AddTextOptions.shape?: PresetShapeType` 复用 frozen 178-token `PRESET_SHAPE_TYPES` 与 preset geometry primitive；omitted/runtime `undefined` 默认 canonical `rect`。Plain/rich text、`addPlaceholder()`、placeholder population、slide/layout/master wrappers 与 declarative `defineSlideMaster()` text/placeholder objects 共用同一 strict normalizer/renderer。
+- 创建结果立即通过 live `ShapeModel.presetType` 读取和编辑；same-value 保留 exact bytes/journal 与 adjustments，换 token 只替换 direct geometry 并清空 stale adjustments。Geometry 与 fill、line、arrows、shadow、whole-shape/run hyperlink、transform、text body、placeholder identity 和 relationships 独立。
+- Invalid falsy/unknown/coercible/accessor value、`folderCorner` 与 `custGeom` 在 package mutation 前拒绝。Native 支持正确 `foldedCorner`，并把 `shape: 'line'` geometry 与 `AddTextOptions.line` style 分离；custom geometry 继续由 `addCustomShape()` / `ShapeModel.customGeometry` 负责。
+- PptxGenJS 4.0.1 public output 与 native 共有 177 个合法 preset tokens；其 runtime `ShapeType` 暴露 invalid `folderCorner` 与 `custGeom`、遗漏 `foldedCorner`，并具有 falsy fallback、unknown/number passthrough 与 line-without-line-option exception。Native 只对共同合法 final geometry 声明语义对等，不复制这些缺陷。
+
+### 验证结果
+
+- 全部 178 个 native tokens、177 个 PptxGenJS common tokens、默认 rect、plain/rich/placeholder/layout/master/declarative owners、live edit、duplicate/move/rollback、六格式 write/reopen、malformed-state zero-mutation 与 style ownership 均有永久测试。
+- 最终全量 Vitest 为 68 passed / 1 skipped test files、1313 passed / 1 skipped tests；独立 performance 为 1/1（578ms）。两种 TypeScript check、两套 package tsup build 与 declaration build 全部通过。
+- Actual npm tarball 为 57 files，SHA-256 为 `1412706458c883b9e4dfa3d87e6577ab86df57b78999a2796b2c6e69647be0f9`；installed Node/types/browser/CLI 与真实 Google Chrome 均报告 `textShapePresetGeometry: true`。Chrome validation/console/page/network errors 均为 0。
+- 代表性 source deck 的 PowerPoint 2010 profile 为 0 errors / 0 warnings；live edit mutation isolation 只改变 `/ppt/slides/slide1.xml`，且只把 `ellipse` 替换为 `hexagon`。LibreOffice round-trip 保留全部 17 个 `(text, presetType)`；validator 为 0 errors 与 2 条 placeholder-owner warnings。原件/回存件两页均无 overflow，逐页视觉一致。
+
+### 剩余文本与全功能路线
+
+- Text preset geometry 已从缺口移入支持项。`rectRadius`、`isTextBox`、`breakLine`、advanced line/effect、其余 advanced text/table、`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit 仍待完成；不声明完整 PptxGenJS parity。
+- 下一小项为 `AddTextOptions.rectRadius`。
 
 ## 0.1.0 初始验收
 

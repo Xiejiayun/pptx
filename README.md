@@ -390,9 +390,9 @@ PptxGenJS 的 `masterName` 拼写在这里保持兼容，但它严格选择的�
 
 2 页 native gallery 含 32 parts / 29 relationships / 2 layouts / 1 master，PowerPoint 2010 profile 为 0 errors / 0 warnings；2 页 PptxGenJS control 为 36 parts / 34 relationships。原件与 LibreOffice 回存件共 8 页均以 2400×1350、180 DPI 渲染并逐页检查；全幅背景使 minimum non-white margin 按预期为 0px。Fixture 的 background 和 image 是 1×1 黑色 PNG，native 第二页按测试意图重定向空白 default layout，黑/空白输出不代表丢失继承。LibreOffice 26.8 保留两页、两个 layouts 和一个 master，但会改写 placeholder identity/slide-number cache，并移除 audio 与内嵌 chart workbooks；这是降级记录，不声明完整 round-trip。PowerPoint 16.112 对 native 与 control 均返回 `-9074` 且没有产生 PPTX/PDF，因此不声明 PowerPoint 往返通过。
 
-尚未实现完整 theme text cascade、percentage coordinates、高级 text/table/media/chart 样式和更广泛客户端认证。Advanced text 已完成文本框 direct fill、simple line、begin/end arrows、simple shadow、outer hyperlink 与 per-run rich-text hyperlink。
+尚未实现完整 theme text cascade、percentage coordinates、高级 text/table/media/chart 样式和更广泛客户端认证。Advanced text 已完成文本框 direct fill、simple line、begin/end arrows、simple shadow、outer hyperlink、per-run rich-text hyperlink 与 preset geometry。
 
-下一小项为 `AddTextOptions.shape` text geometry 创建、读取与编辑。
+下一小项为 `AddTextOptions.rectRadius`；`isTextBox` 与 `breakLine` 组合语义随后逐项完成。
 
 ## 创建和编辑文本框填充
 
@@ -430,7 +430,7 @@ plain.fill = undefined; // 只清除 direct fill choice
 
 本项跨 package focused gate 为 5/5，SDK/root 与 adapter suites 分别为 188/188、76/76；最终全量 Vitest 为 1262 passed / 1 skipped，独立 performance 为 1/1（560ms），TypeScript typecheck 与 project build 均通过。Actual 57-file tarball 的 Node、declarations、browser export 与 installed CLI 均报告 `textShapeFills: true`；真实 Chrome validation/console/page/network errors 全为 0，CLI PowerPoint 2010 profile 为 0 errors / 0 warnings。
 
-PptxGenJS 4.0.1 的 omitted fill 同样写 direct no-fill，但 `{ type: 'none' }` 会省略 direct fill choice，显式 zero transparency 也会省略 alpha；本库保留 explicit none/zero 的 direct intent。合法 solid 与非零透明度在最终语义上对等。Gradient/pattern/picture/group text fill 仍只做无损保留，不在 simple-fill 创建范围内。Text outer simple line、arrows 与 simple shadow 已在后续小节支持；hyperlink、`shape` / `rectRadius` / `isTextBox` 和 `breakLine` 组合语义仍待完成。
+PptxGenJS 4.0.1 的 omitted fill 同样写 direct no-fill，但 `{ type: 'none' }` 会省略 direct fill choice，显式 zero transparency 也会省略 alpha；本库保留 explicit none/zero 的 direct intent。合法 solid 与非零透明度在最终语义上对等。Gradient/pattern/picture/group text fill 仍只做无损保留，不在 simple-fill 创建范围内。Text outer simple line、arrows、simple shadow、hyperlink 与 preset geometry 已在后续小节支持；`rectRadius` / `isTextBox` / `breakLine` 组合语义仍待完成。
 
 ## 创建和编辑文本框线条
 
@@ -464,7 +464,7 @@ outlined.line = undefined; // 只清除 direct width/fill/dash
 
 Plain/rich text、`addPlaceholder()`、placeholder population、layout/master wrappers 与 declarative `defineSlideMaster()` text/placeholder objects 共用同一 normalizer/renderer。创建结果可立即通过 live `ShapeModel.line` read/replace/clear；caller detachment、same-value bytes/journal no-op、duplicate isolation、outer rollback、stable identity、六格式 write/reopen 与 placeholder-source isolation 均已覆盖。PptxGenJS-shaped `type`/`dashType`/`alpha`/`lineDash`、missing color、invalid dash/range、unknown/accessor/symbol/class input 会在 mutation 前拒绝。
 
-PptxGenJS 4.0.1 的 omitted/none/empty/missing-color text line 都输出 empty `a:ln`，省略 width/dash 时依赖隐式 1pt/solid，width zero 和 transparency zero 也被 falsy collapse；native 写明确可逆的 no-fill、默认 width/dash 与 zero direct state。合法 sRGB/theme、非零 transparency、正 width 和全部八种 dash 的 final semantics 对等。Nested deprecated `alpha` 在 PptxGenJS text line 中仍生效而 `lineDash` 被忽略；native 不接受两者。Gradient/pattern/picture/group line fill、custom dash 与 cap/compound/alignment/join 仍待后续；text arrows 与 simple shadow 已在后续小节支持，hyperlink/geometry 继续按小项推进。
+PptxGenJS 4.0.1 的 omitted/none/empty/missing-color text line 都输出 empty `a:ln`，省略 width/dash 时依赖隐式 1pt/solid，width zero 和 transparency zero 也被 falsy collapse；native 写明确可逆的 no-fill、默认 width/dash 与 zero direct state。合法 sRGB/theme、非零 transparency、正 width 和全部八种 dash 的 final semantics 对等。Nested deprecated `alpha` 在 PptxGenJS text line 中仍生效而 `lineDash` 被忽略；native 不接受两者。Gradient/pattern/picture/group line fill、custom dash 与 cap/compound/alignment/join 仍待后续；text arrows、simple shadow、hyperlink 与 preset geometry 已在后续小节支持。
 
 本项跨 package focused gate 为 5/5，model、SDK、root 与 adapter suites 分别为 189/189、182/182、9/9、77/77。最终全量为 1268 passed / 1 skipped，独立 performance 为 1/1（553ms），两种 TypeScript build 与两套 package build 通过。Actual 57-file tarball 的 Node、declarations、browser export 与 CLI 均报告 `textShapeLines: true`；真实 Chrome immediate/detached/reopen state 完全匹配且 console/page/network 为 0，CLI PowerPoint 2010 profile 为 0 errors / 0 warnings。
 
@@ -591,6 +591,26 @@ PptxGenJS 4.0.1 对省略 tooltip 固定写 `tooltip=""`，rich outer hyperlink 
 
 最终全量 Vitest 为 1303 passed / 1 skipped，独立 performance 为 1/1（624ms）；model、SDK、root 与 adapter suites 分别为 199/199、191/191、13/13、80/80，两种 TypeScript build、两套 tsup 与 declaration build 全部通过。Actual 57-file tarball 的 installed Node/declarations/browser/CLI 与真实 Chrome 均报告 `richTextRunHyperlinks: true`；Chrome validation/console/page/network errors 均为 0。外链 smoke deck 为 24 parts / 32 relationships / 3 slides、0 errors 与 8 条预期 portability warnings；纯内链 deck 为 20 parts / 19 relationships / 2 slides、0 errors / 0 warnings。
 
+## 创建和编辑预设文本框几何
+
+```ts
+import { type PresetShapeType } from '@jiayunxie/pptx';
+
+const geometry: PresetShapeType = 'ellipse';
+const text = slide.addText('Shaped text', { shape: geometry });
+console.log(text.presetType); // 'ellipse'
+
+text.presetType = 'hexagon';
+```
+
+`AddTextOptions.shape?: PresetShapeType` 接受 `PRESET_SHAPE_TYPES` 中全部 178 个 canonical OOXML token；省略或显式 `undefined` 时默认 `rect`。Plain/rich text、`addPlaceholder()`、named placeholder population、slide/layout/master wrappers 与 declarative `defineSlideMaster()` text/placeholder objects 共用同一严格 contract。创建结果可立即通过 live `ShapeModel.presetType` 读取和编辑；同值赋值保持 exact bytes 与 adjustments，换值只替换 direct geometry 并清空旧 adjustments。
+
+Native 使用正确的 `foldedCorner`，并拒绝 PptxGenJS 4.0.1 的无效 `folderCorner`。空字符串、`false`、unknown string、number/string coercion、`custGeom` 与 accessor input 都会在 package mutation 前拒绝；custom geometry 继续使用 `addCustomShape()` / `ShapeModel.customGeometry`。`shape: 'line'` 选择文本 shape 的几何，`AddTextOptions.line` 选择 outline style，两者互不替代。
+
+Geometry 与 fill、line、arrows、shadow、whole-shape/run hyperlink、transform、text body 和 placeholder identity 独立。Duplicate、move、rollback、六格式 write/reopen、layout/master source isolation 均已覆盖。最终全量为 1313 passed / 1 skipped，performance 为 1/1（578ms）；57-file tarball 的 Node/types/browser/CLI 与真实 Chrome 均报告 `textShapePresetGeometry: true`，Chrome validation/console/page/network errors 为 0。代表性 2 页文件在原件与 LibreOffice 回存后均保持全部 17 个 `(text, presetType)`，无 overflow 且逐页视觉一致；原件 PowerPoint 2010 validation 为 0 errors / 0 warnings，回存件为 0 errors 与 2 条 placeholder-owner warnings。
+
+该小项不代表已实现完整 PptxGenJS 对等。`rectRadius`、`isTextBox`、`breakLine`、其余 advanced text/table、`tableToSlides`、output/runtime helpers 与更广泛 peer/client audit 仍待完成。
+
 ## 创建和编辑预设形状、调整值与样式
 
 ```ts
@@ -658,7 +678,7 @@ shape.hyperlink = undefined;
 
 `AddShapeOptions.shadow`、`AddTextOptions.shadow` 与 `ShapeModel.shadow` 支持 preset/text shape direct outer/inner shadow 的创建、读取、whole replacement 与清除，包括 sRGB/theme color、`0..1` opacity、`0..100pt` blur、`0..<360°` angle、`0..200pt` distance，以及 outer-only `rotateWithShape`。默认值为 black、0.75、8pt、270°、4pt 和 outer rotate false；显式 zero 会保留。输入在 mutation 前深度脱离，getter 的嵌套快照会 deep-freeze；同值赋值是 exact no-op，`undefined` 只移除 direct shadow 并保留 `effectLst` 与 glow/reflection 等 sibling effects。Generic/advanced effects、custom shadow transforms，以及 image/table/chart/media 等其他 owner 的 shadow API 仍待后续小项。
 
-`AddShapeOptions.hyperlink`、`AddTextOptions.hyperlink` 与 `ShapeModel.hyperlink` 支持整个 preset/text shape 的 click URL 或内部页链接。输入必须恰好包含一个非空 `url` 或一个当前文稿内的一基 `slide`；`tooltip` 可省略，也可显式为空。Getter 返回 detached frozen snapshot，setter 采用 whole replacement，同值赋值为 exact no-op，`undefined` 清除 click link。内部关系按目标页 identity 保存，移动或在目标前插删页面只更新 getter ordinal；复制 self-link 会指向副本自身，删除目标页会清理相关 click/hover，shared relationship 则按引用 clone-on-write 与回收。Text outer 与 `RichTextRunStyle.hyperlink` 分别管理 whole-shape/default run 和显式 run-local 链接，ownership 相互独立。外部链接产生 validator 的预期可移植性 warning。Hover 编辑、table/image/chart/media 链接创建、action navigation、advanced line fill/custom dash、text geometry 和 percentage positions 仍待后续小项。
+`AddShapeOptions.hyperlink`、`AddTextOptions.hyperlink` 与 `ShapeModel.hyperlink` 支持整个 preset/text shape 的 click URL 或内部页链接。输入必须恰好包含一个非空 `url` 或一个当前文稿内的一基 `slide`；`tooltip` 可省略，也可显式为空。Getter 返回 detached frozen snapshot，setter 采用 whole replacement，同值赋值为 exact no-op，`undefined` 清除 click link。内部关系按目标页 identity 保存，移动或在目标前插删页面只更新 getter ordinal；复制 self-link 会指向副本自身，删除目标页会清理相关 click/hover，shared relationship 则按引用 clone-on-write 与回收。Text outer 与 `RichTextRunStyle.hyperlink` 分别管理 whole-shape/default run 和显式 run-local 链接，ownership 相互独立。外部链接产生 validator 的预期可移植性 warning。Hover 编辑、table/image/chart/media 链接创建、action navigation、advanced line fill/custom dash、`rectRadius` / `isTextBox` / `breakLine` 和 percentage positions 仍待后续小项。
 
 ### 创建和编辑自定义几何路径
 
