@@ -73,6 +73,8 @@ import {
   type SlideNumberOptions,
   type SlideNumberTextStyle,
   type SlideNumberTextStyleOptions,
+  type PresentationLayout,
+  type PresentationLayoutName,
   type PptxVersion,
 } from './index.js';
 
@@ -272,6 +274,74 @@ describe('PptxDocument vertical slice', () => {
     if (false) {
       // @ts-expect-error version is read-only
       document.version = '9.9.9';
+    }
+  });
+
+  it('exposes a detached presentation layout projection across its lifecycle', async () => {
+    const sizes = [
+      ['4:3', 'screen4x3', 9_144_000, 6_858_000],
+      ['16:9', 'screen16x9', 9_144_000, 5_143_500],
+      ['16:10', 'screen16x10', 9_144_000, 5_715_000],
+      ['wide', 'custom', 12_192_000, 6_858_000],
+    ] as const;
+
+    for (const [slideSize, name, width, height] of sizes) {
+      const document = PptxDocument.create({ slideSize });
+      const before = await sdkPackageSnapshot(document);
+      const layout: PresentationLayout = document.presLayout;
+      const layoutName: PresentationLayoutName = layout.name;
+      expect({ ...layout, name: layoutName }).toEqual({ name, width, height });
+      expect(document.presLayout).not.toBe(layout);
+      expect(await sdkPackageSnapshot(document)).toEqual(before);
+    }
+
+    const custom = PptxDocument.create({
+      slideSize: { width: inches(11.7), height: inches(8.3) },
+    });
+    const detached = custom.presLayout as {
+      name: string;
+      width: number;
+      height: number;
+    };
+    detached.name = 'changed';
+    detached.width = 1;
+    expect(custom.presLayout).toEqual({
+      name: 'custom',
+      width: inches(11.7),
+      height: inches(8.3),
+    });
+
+    custom.slideSize = { width: inches(10), height: inches(6.25) };
+    const edited: PresentationLayout = custom.presLayout;
+    expect(edited).toEqual({
+      name: 'screen16x10',
+      width: inches(10),
+      height: inches(6.25),
+    });
+    expect(() => {
+      custom.slideSize = { width: 0 as never, height: inches(7.5) };
+    }).toThrow(RangeError);
+    expect(custom.presLayout).toEqual(edited);
+    expect((await PptxDocument.open(await custom.write())).presLayout).toEqual(edited);
+    expect(Object.getOwnPropertyDescriptor(PptxDocument.prototype, 'presLayout')).toMatchObject({
+      set: undefined,
+      enumerable: false,
+    });
+
+    const malformed = PptxDocument.create();
+    const presentationPart = malformed.opcPackage.requirePart(malformed.presentationPartUri);
+    malformed.opcPackage.setPart(
+      presentationPart.uri,
+      new TextDecoder().decode(presentationPart.bytes).replace('cx="9144000"', 'cx="0"'),
+      presentationPart.contentType,
+    );
+    expect(() => malformed.presLayout).toThrow(/slide width is invalid/);
+
+    if (false) {
+      // @ts-expect-error presLayout is getter-only
+      custom.presLayout = edited;
+      // @ts-expect-error presentation layout fields are read-only
+      edited.width = inches(1);
     }
   });
 

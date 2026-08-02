@@ -48,6 +48,10 @@ import {
 } from './presentation-theme.js';
 import { PPTX_VERSION, type PptxVersion } from './version.js';
 import {
+  presentationLayoutFromSlideSize,
+  type PresentationLayout,
+} from './presentation-layout.js';
+import {
   assertImageContentType,
   normalizeAddImageSourceOptions,
   resolveImageSource,
@@ -79,6 +83,7 @@ export type { BuiltInSlideSize, CreatePresentationOptions, CustomSlideSize } fro
 export type { PresentationTheme, PresentationThemeOptions } from './presentation-theme.js';
 export { PPTX_VERSION } from './version.js';
 export type { PptxVersion } from './version.js';
+export type { PresentationLayout, PresentationLayoutName } from './presentation-layout.js';
 export {
   assertImageContentType,
   inspectImage,
@@ -200,6 +205,10 @@ export class PptxDocument extends PresentationModel {
 
   get version(): PptxVersion {
     return PPTX_VERSION;
+  }
+
+  get presLayout(): PresentationLayout {
+    return presentationLayoutFromSlideSize(this.slideSize);
   }
 
   private constructor(opcPackage: OpcPackage) {
