@@ -919,7 +919,29 @@ table.verticalAlignment = undefined; // clears every direct tcPr@anchor
 
 PptxGenJS 4.0.1 只提供创建期 table/cell `valign`，生成的最终 direct cell anchors 可被该共识 getter 精确读取；native bulk editor 是对相同 OOXML state 的 lossless existing-deck 扩展。Focused 为 4 files / 521 tests，最终 full 为 78 passed / 1 skipped test files、1411 passed / 1 skipped tests，performance 1/1（885ms）。实际 62-file tarball SHA-256 为 `6ce48d8bb73d59148754f14dc379b9cd11ba34d358dd8e7ebba7b72cf8208f1e`；installed Node/types/browser/CLI 与真实 Chrome 均报告 `tableVerticalAlignment: true`，Chrome validation/console/page/network errors 为 0。证据位于 `/tmp/pptx-table-vertical-alignment-artifacts.1kZjyy`。
 
-总体 PptxGenJS 对等进度仍约 97%。下一小项为 advanced table 的 table-level direct text-direction 共识读取与批量编辑；之后仍待其他 advanced text/table、`tableToSlides` 与最终 peer/client audit。
+## 表格级文本方向读取与批量编辑
+
+```ts
+import { PptxDocument, type TableCellTextDirection } from '@jiayunxie/pptx';
+
+const document = PptxDocument.create();
+const table = document.addSlide().addTable([
+  ['North', 'South'],
+  ['East', 'West'],
+], { textDirection: 'vert' });
+
+const uniform: TableCellTextDirection | undefined = table.textDirection; // vert
+table.setCellTextDirection(0, 1, 'vert270');
+console.log(table.textDirection); // undefined: mixed direct cell state
+table.textDirection = 'horz';     // 显式写入每个 physical cell 的 vert="horz"
+table.textDirection = undefined;  // 清除全部 direct tcPr@vert
+```
+
+`TableModel.textDirection` 是全部物理 cell direct `tcPr@vert` 的严格共识投影：只有每个 cell 都存在同一个合法 direct token 时才返回 `horz`、`vert`、`vert270` 或 `wordArtVert`；absent、mixed、empty 或 unsafe state 都返回 `undefined`。它不会把属性缺失合成为 `horz`。赋值会在单一事务中覆盖全部 physical cells（包括 merge continuation），其中 `horz` 写显式属性，只有 `undefined` 才清除属性；同值和全 absent clear 是 exact no-op。需要查看 mixed 明细时使用 `rows[].cells[].textDirection`。不安全结构会以 `ModelParseError` 零 partial mutation 拒绝，并保留所有无关 cell/table 状态。
+
+PptxGenJS 4.0.1 创建期会把 resolved `horz` 折叠为属性缺失，因此这类文件导入后的 `table.textDirection` 是 `undefined`，而不是 `horz`；三个非水平值可按最终 direct state 精确读取。显式 native `horz` 与 existing-deck bulk edit 是相同 OOXML direct state 上的 lossless 扩展。Focused 为 5 files / 529 tests，最终 full 为 79 passed / 1 skipped test files、1419 passed / 1 skipped tests，performance 1/1（1118ms）。实际 62-file tarball SHA-256 为 `5f427a8ff77cf64f6dda593ec02fdbe405c44d22481f0357bf05fa39b63ec92d`；installed Node/types/browser/CLI 与真实 Chrome 均报告 `tableTextDirection: true`，Chrome validation/console/page/network errors 为 0。证据位于 `/tmp/pptx-table-text-direction-artifacts.BksCOP`。
+
+总体 PptxGenJS 对等进度仍约 97%。下一小项为 advanced table 的 table-level direct horizontal-alignment 共识读取与批量编辑；之后仍待其他 advanced text/table、`tableToSlides` 与最终 peer/client audit。
 
 ## 创建和编辑预设形状、调整值与样式
 

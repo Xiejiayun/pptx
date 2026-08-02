@@ -924,8 +924,29 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余 advanced API 与全功能路线
 
-- 总体 PptxGenJS 对等进度仍约 97%；PptxGenJS 4.0.1 声明的六类 presentation runtime catalogs 与 table-level direct vertical alignment 已支持。
-- 下一小项为 advanced table 的 table-level direct text-direction 共识读取与批量编辑；之后仍待其他 advanced text/table、`tableToSlides` 与最终 peer/client audit，当前不声明完整 PptxGenJS parity。
+- 该检查点总体 PptxGenJS 对等进度约 97%；table-level direct text direction 已在下一专项完成。
+
+## PptxGenJS 全功能对等：Table-level direct text direction
+
+状态：完成；实施与证据 6/6
+
+### 本阶段 change
+
+- 新增 live `TableModel.textDirection: TableCellTextDirection | undefined`。Getter 只在 exact direct table path 上的全部 physical cells 都具有同一合法 direct `tcPr@vert` 时返回 `horz`、`vert`、`vert270` 或 `wordArtVert`；absent、mixed、empty、malformed 或 ambiguous state 返回 `undefined`，不会把 absence 合成为 `horz`，读取也不修改 package。
+- Setter 接受同一四值或 `undefined`，在单一 transaction 内覆盖或清除全部 physical cells，包括 merge continuations；`horz` 写显式 `vert="horz"`，只有 `undefined` 清除属性。合法同值与全 absent clear 是 exact bytes/journal no-op，late-cell unsafe state 以 `ModelParseError` 零 partial mutation 拒绝。文本、边框、填充、margin、对齐、fit、grid、rows、transform、复制隔离、rollback 与 write/reopen 均保持。
+- DrawingML 只保留 final physical-cell direct state，不存在 synthetic table default 或 `mixed` sentinel；调用方需要 mixed 明细时读取 `rows[].cells[].textDirection`。PptxGenJS 4.0.1 创建期把 resolved `horz` 折叠为 absence，因此其输出导入后的 table getter 是 `undefined`；explicit native `horz` 与 existing-deck bulk edit 是相同 OOXML state 上的 lossless extension。
+- Core 实现为 `2ba4ef5`，实际包/Chrome 门禁为 `d258525`；文档作为独立小项 review、commit、push。
+
+### 验证结果
+
+- Focused 为 5 files / 529 tests；最终 clean full Vitest 为 79 passed / 1 skipped test files、1419 passed / 1 skipped tests。独立 performance gate 1/1（1118ms）。
+- Actual npm tarball 为 62 files，SHA-256 `5f427a8ff77cf64f6dda593ec02fdbe405c44d22481f0357bf05fa39b63ec92d`。Installed Node、generated declarations、browser conditional export、TypeScript consumer 与 CLI 均通过，Node 顶层与 `api` 状态报告 `tableTextDirection: true`。
+- Packed Node、browser conditional export 与真实 Google Chrome 的 uniform/read-isolation/no-op/mixed/overwrite/clear/reopen/invalid-failure-isolation state 全部匹配，均报告 `tableTextDirection: true`；Chrome validation/console/page/network errors 为 0。完整证据位于 `/tmp/pptx-table-text-direction-artifacts.BksCOP`，未进入仓库。
+
+### 剩余 advanced API 与全功能路线
+
+- 总体 PptxGenJS 对等进度仍约 97%；PptxGenJS 4.0.1 声明的六类 presentation runtime catalogs，以及 table-level direct vertical alignment 与 text direction 已支持。
+- 下一小项为 advanced table 的 table-level direct horizontal-alignment 共识读取与批量编辑；之后仍待其他 advanced text/table、`tableToSlides` 与最终 peer/client audit，当前不声明完整 PptxGenJS parity。
 
 ## 0.1.0 初始验收
 
