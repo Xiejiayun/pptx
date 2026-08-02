@@ -2,6 +2,143 @@ import { describe, expect, it } from 'vitest';
 import { normalizeRichText, renderRichTextParagraphs } from './rich-text.internal.js';
 import { normalizeHyperlink } from './shape-hyperlink.internal.js';
 
+describe('rich text breakLine normalization', () => {
+  it('splits non-final runs into canonical paragraphs and removes transient markers', () => {
+    const input = [{
+      align: 'center',
+      rtl: true,
+      marginLeft: 12,
+      marginRight: 18,
+      indent: 4,
+      bullet: false,
+      level: 2,
+      spacing: { before: 3, after: 5, line: { kind: 'multiple', factor: 1.25 } },
+      tabStops: [{ position: 1.5, alignment: 'right' }],
+      runs: [
+        { text: 'First', style: { bold: true }, breakLine: true },
+        { text: 'Second', softBreakBefore: true, breakLine: false },
+        { text: '', breakLine: true },
+        { text: 'Final', breakLine: true },
+      ],
+    }, {
+      runs: [],
+    }];
+    const before = structuredClone(input);
+
+    const paragraphs = normalizeRichText(input);
+
+    const properties = {
+      align: 'center',
+      bullet: false,
+      indent: 4,
+      level: 2,
+      marginLeft: 12,
+      marginRight: 18,
+      rtl: true,
+      spacing: { before: 3, after: 5, line: { kind: 'multiple', factor: 1.25 } },
+      tabStops: [{ positionEmu: 1_371_600, alignment: 'right' }],
+    };
+    expect(paragraphs).toEqual([
+      { ...properties, runs: [{ text: 'First', style: { bold: true } }] },
+      {
+        ...properties,
+        runs: [
+          { text: 'Second', softBreakBefore: true },
+          { text: '' },
+        ],
+      },
+      { ...properties, runs: [{ text: 'Final' }] },
+      { runs: [] },
+    ]);
+    expect(paragraphs[0]).not.toBe(paragraphs[1]);
+    expect(paragraphs[0]!.runs).not.toBe(paragraphs[1]!.runs);
+    expect(Object.hasOwn(paragraphs[0]!.runs[0]!, 'breakLine')).toBe(false);
+    expect(Object.hasOwn(paragraphs[1]!.runs[0]!, 'breakLine')).toBe(false);
+    expect(input).toEqual(before);
+  });
+
+  it('preserves empty and consecutive splits without adding a trailing paragraph', () => {
+    expect(normalizeRichText([{
+      runs: [
+        { text: '', breakLine: true },
+        { text: '', breakLine: true },
+        { text: 'End' },
+      ],
+    }])).toEqual([
+      { runs: [{ text: '' }] },
+      { runs: [{ text: '' }] },
+      { runs: [{ text: 'End' }] },
+    ]);
+
+    expect(normalizeRichText([{
+      runs: [
+        { text: 'Together', breakLine: false },
+        { text: 'Still together', breakLine: undefined },
+        { text: 'Trailing only', breakLine: true },
+      ],
+    }])).toEqual([{
+      runs: [
+        { text: 'Together' },
+        { text: 'Still together' },
+        { text: 'Trailing only' },
+      ],
+    }]);
+  });
+
+  it('preserves an explicit soft break on the first run after a paragraph split', () => {
+    const paragraphs = normalizeRichText([{
+      runs: [
+        { text: 'Before', breakLine: true },
+        { text: 'After', softBreakBefore: true },
+      ],
+    }]);
+
+    expect(paragraphs).toEqual([
+      { runs: [{ text: 'Before' }] },
+      { runs: [{ text: 'After', softBreakBefore: true }] },
+    ]);
+    expect(renderRichTextParagraphs(paragraphs)).toMatch(
+      /<a:p>[\s\S]*?<a:t xml:space="preserve">Before<\/a:t>[\s\S]*?<\/a:p>\s*<a:p>[\s\S]*?<a:br\/>[\s\S]*?<a:t xml:space="preserve">After<\/a:t>/,
+    );
+  });
+
+  it('strictly rejects invalid values and unsafe run containers without accessors', () => {
+    for (const breakLine of [
+      null,
+      'true',
+      1,
+      {},
+      Symbol('break'),
+      new Boolean(true),
+      () => true,
+    ]) {
+      expect(() => normalizeRichText([{
+        runs: [{ text: 'Invalid', breakLine }],
+      }]), String(breakLine)).toThrow(/breakLine must be a boolean/i);
+    }
+
+    let accessorCalls = 0;
+    const accessor = Object.defineProperty({ text: 'Accessor' }, 'breakLine', {
+      enumerable: true,
+      get: () => {
+        accessorCalls += 1;
+        return true;
+      },
+    });
+    const inherited = Object.create({ breakLine: true }) as { text?: string };
+    inherited.text = 'Inherited';
+    class Run {
+      text = 'Class';
+      breakLine = true;
+    }
+
+    for (const run of [accessor, inherited, new Run(), { text: 'Symbol', [Symbol('break')]: true }]) {
+      expect(() => normalizeRichText([{ runs: [run] }])).toThrow();
+    }
+    expect(accessorCalls).toBe(0);
+  });
+});
+
 describe('rich text run hyperlink normalization', () => {
   it('normalizes direct links, suppression, and detached nested values', () => {
     const input = { url: 'https://local.example', tooltip: '' };

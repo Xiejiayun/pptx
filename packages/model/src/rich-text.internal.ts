@@ -133,8 +133,19 @@ export interface NormalizedParagraphTabStop {
   readonly alignment: ParagraphTabStopAlignment;
 }
 
+interface NormalizedRichTextRun {
+  readonly text: string;
+  readonly style?: RichTextRunStyle;
+  readonly softBreakBefore?: boolean;
+}
+
+interface NormalizedRichTextRunInput {
+  readonly run: NormalizedRichTextRun;
+  readonly breakLine: boolean;
+}
+
 interface NormalizedRichTextParagraph {
-  readonly runs: readonly RichTextRun[];
+  readonly runs: readonly NormalizedRichTextRun[];
   readonly align?: TextAlignment;
   readonly rtl?: boolean;
   readonly marginLeft?: number | false;
@@ -203,7 +214,7 @@ export function normalizeRichText(value: unknown): readonly NormalizedRichTextPa
   if (!Array.isArray(value) || value.length === 0) {
     throw new TypeError('Rich text must contain at least one paragraph');
   }
-  return value.map((paragraph, paragraphIndex) => {
+  return value.flatMap((paragraph, paragraphIndex) => {
     if (!paragraph || typeof paragraph !== 'object' || Array.isArray(paragraph)) {
       throw new TypeError(`Rich text paragraph ${paragraphIndex} must be an object`);
     }
@@ -269,8 +280,7 @@ export function normalizeRichText(value: unknown): readonly NormalizedRichTextPa
       : candidate.tabStops === false
         ? false
         : normalizeParagraphTabStops(candidate.tabStops, `Rich text paragraph ${paragraphIndex} tabStops`);
-    return {
-      runs: runs.map((run, runIndex) => normalizeRun(run, paragraphIndex, runIndex)),
+    const properties: Omit<NormalizedRichTextParagraph, 'runs'> = {
       ...(align ? { align } : {}),
       ...(bullet !== undefined ? { bullet } : {}),
       ...(indent !== undefined ? { indent } : {}),
@@ -281,7 +291,28 @@ export function normalizeRichText(value: unknown): readonly NormalizedRichTextPa
       ...(spacing !== undefined ? { spacing } : {}),
       ...(tabStops !== undefined ? { tabStops } : {}),
     };
+    return splitNormalizedRichTextParagraph(
+      properties,
+      runs.map((run, runIndex) => normalizeRun(run, paragraphIndex, runIndex)),
+    );
   });
+}
+
+function splitNormalizedRichTextParagraph(
+  properties: Omit<NormalizedRichTextParagraph, 'runs'>,
+  runs: readonly NormalizedRichTextRunInput[],
+): readonly NormalizedRichTextParagraph[] {
+  const paragraphs: NormalizedRichTextParagraph[] = [];
+  let current: NormalizedRichTextRun[] = [];
+  for (const [index, { run, breakLine }] of runs.entries()) {
+    current.push(run);
+    if (breakLine && index + 1 < runs.length) {
+      paragraphs.push({ ...properties, runs: current });
+      current = [];
+    }
+  }
+  paragraphs.push({ ...properties, runs: current });
+  return paragraphs;
 }
 
 export function richTextParagraphsEqual(
@@ -1010,12 +1041,25 @@ function renderParagraphSpacingXml(
   return `${line}${before}${after}`;
 }
 
-function normalizeRun(value: unknown, paragraphIndex: number, runIndex: number): RichTextRun {
+function normalizeRun(
+  value: unknown,
+  paragraphIndex: number,
+  runIndex: number,
+): NormalizedRichTextRunInput {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new TypeError(`Rich text run ${paragraphIndex},${runIndex} must be an object`);
   }
-  assertSupportedKeys(value, ['softBreakBefore', 'style', 'text'], `Rich text run ${paragraphIndex},${runIndex}`);
-  const candidate = value as { text?: unknown; style?: unknown; softBreakBefore?: unknown };
+  assertSupportedKeys(
+    value,
+    ['breakLine', 'softBreakBefore', 'style', 'text'],
+    `Rich text run ${paragraphIndex},${runIndex}`,
+  );
+  const candidate = value as {
+    breakLine?: unknown;
+    text?: unknown;
+    style?: unknown;
+    softBreakBefore?: unknown;
+  };
   if (typeof candidate.text !== 'string') {
     throw new TypeError(`Rich text run ${paragraphIndex},${runIndex} text must be a string`);
   }
@@ -1028,13 +1072,19 @@ function normalizeRun(value: unknown, paragraphIndex: number, runIndex: number):
   if (candidate.softBreakBefore !== undefined && typeof candidate.softBreakBefore !== 'boolean') {
     throw new TypeError(`Rich text run ${paragraphIndex},${runIndex} softBreakBefore must be a boolean`);
   }
+  if (candidate.breakLine !== undefined && typeof candidate.breakLine !== 'boolean') {
+    throw new TypeError(`Rich text run ${paragraphIndex},${runIndex} breakLine must be a boolean`);
+  }
   const style = candidate.style === undefined
     ? undefined
     : normalizeStyle(candidate.style, paragraphIndex, runIndex, candidate.text);
   return {
-    text: candidate.text,
-    ...(style ? { style } : {}),
-    ...(candidate.softBreakBefore !== undefined ? { softBreakBefore: candidate.softBreakBefore } : {}),
+    run: {
+      text: candidate.text,
+      ...(style ? { style } : {}),
+      ...(candidate.softBreakBefore !== undefined ? { softBreakBefore: candidate.softBreakBefore } : {}),
+    },
+    breakLine: candidate.breakLine ?? false,
   };
 }
 
@@ -1319,7 +1369,7 @@ function readColorDataObject(
 }
 
 function renderRun(
-  run: RichTextRun,
+  run: NormalizedRichTextRun,
   prefix: string,
   defaultLanguage?: string,
   defaultColor?: Readonly<RichTextColor>,

@@ -147,6 +147,7 @@ export interface RichTextRun {
   readonly text: string;
   readonly style?: RichTextRunStyle;
   readonly softBreakBefore?: boolean;
+  readonly breakLine?: boolean;
 }
 
 export interface RichTextParagraph {
