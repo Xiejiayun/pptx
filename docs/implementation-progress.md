@@ -761,6 +761,27 @@ $ pptx-inspect --json package inspect output.pptx
 - Version 与 `presLayout` 已完成；仍待其余 runtime constants、六种 output type、Node readable stream、compression policy 与返回值语义。
 - Advanced text/table、`tableToSlides`、其他 style/lifecycle surfaces 与最终 peer/client audit 仍待完成；不声明完整 PptxGenJS parity。
 
+## PptxGenJS 全功能对等：Presentation `AlignH`
+
+状态：完成；实施与证据 5/5
+
+### 本阶段 change
+
+- 新增 frozen readonly `TEXT_ALIGNMENTS` tuple，稳定顺序为 `left`、`center`、`right`、`justify`；`TextAlignment` 直接由 tuple 派生，避免 runtime catalog 与 TypeScript union 漂移。Model、SDK 与 aggregate root 复用同一对象和类型导出。
+- PptxGenJS 4.0.1 public `AlignH` 的四个 keys/values 与顺序已对照。Native 延续 root catalog 设计，不新增 `PptxDocument.AlignH`、enum-shaped mutable object 或 alias；不修改 normalizer、OOXML writer/reader 或既有 plain/rich text 与 table/table-cell 行为。
+- Catalog 的 exact values、顺序、冻结状态、导出 identity、类型正反例、create/edit/write/reopen 和 package mutation isolation 已覆盖；四值继续映射为 `l`、`ctr`、`r`、`just`。
+
+### 验证结果
+
+- 最终全量为 72 passed / 1 skipped test files、1368 passed / 1 skipped tests；独立 performance gate 1/1（1.17s）。两种 TypeScript check、Node/browser tsup 与 declaration build 全部通过。图表 catalog 单项保持全部断言并采用显式 15 秒稳定预算。
+- Actual npm tarball 为 59 files，SHA-256 `46a88495acbffb2f81eb99f290bd15928974ddad86f507941c1ea5bfb65eaa90`。Installed Node、generated declarations、browser conditional export、TypeScript consumer 与 CLI package inspection 均报告 `horizontalAlignments: true`。
+- 真实 Google Chrome exact values、frozen catalog、create/writeBlob/reopen 均通过，`horizontalAlignments: true`；Chrome validation/console/page/network errors 为 0。验证生成物已移至 `/tmp/pptx-alignh-artifacts.A10wta`，未进入仓库。
+
+### 剩余 runtime/output 与全功能路线
+
+- 总体 PptxGenJS 对等进度约 96%；下一小项为 `AlignV`。
+- 之后仍待 output type/stream/compression、其他 runtime helpers、advanced text/table、`tableToSlides` 与最终 peer/client audit；当前不声明完整 PptxGenJS parity。
+
 ## 0.1.0 初始验收
 
 - `pnpm check`：TypeScript strict build 通过；14 个测试文件、34 项测试全部通过。

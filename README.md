@@ -725,6 +725,23 @@ PptxGenJS 4.0.1 的公开 getter 对默认、四种内建和自定义尺寸使�
 
 该项完成后仍不声明完整 PptxGenJS 对等；其余 runtime constants、output types/stream/compression、advanced text/table、`tableToSlides` 与最终 peer/client audit 仍待完成。
 
+## 枚举水平文字对齐值
+
+```ts
+import { TEXT_ALIGNMENTS, type TextAlignment } from '@jiayunxie/pptx';
+
+for (const alignment of TEXT_ALIGNMENTS) {
+  const value: TextAlignment = alignment;
+  console.log(value);
+}
+```
+
+`TEXT_ALIGNMENTS` 是 frozen readonly tuple，顺序固定为 `left`、`center`、`right`、`justify`；`TextAlignment` 直接由该 tuple 派生，因此 runtime discovery 与 TypeScript union 不会漂移。四个 token 可直接用于 plain/rich text 与 table/table-cell 水平对齐 API，既有 `left → l`、`center → ctr`、`right → r`、`justify → just` OOXML 映射、非法值拒绝和 write/reopen 语义均未改变。
+
+PptxGenJS 4.0.1 的实例 `AlignH` 公开相同的四个 keys/values。Native 对等这些 runtime values 和稳定枚举顺序，但采用现有 root catalog 模式，不增加 `PptxDocument.AlignH`、enum-shaped object 或 mutable alias。最终 release gates 为 1368 passed / 1 skipped tests，performance 1/1（1.17s），两种 TypeScript check、Node/browser bundle 与 declaration build 全部通过。实际 59-file tarball 的 SHA-256 为 `46a88495acbffb2f81eb99f290bd15928974ddad86f507941c1ea5bfb65eaa90`；installed Node/types/browser/CLI 与真实 Google Chrome 均报告 `horizontalAlignments: true`，Chrome validation/console/page/network errors 为 0。
+
+该项完成后总体 PptxGenJS 对等进度约 96%。仍待 `AlignV`、output type/stream/compression、其他 runtime helpers、advanced text/table、`tableToSlides` 与最终 peer/client audit。
+
 ## 创建和编辑预设形状、调整值与样式
 
 ```ts

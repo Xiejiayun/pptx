@@ -120,6 +120,20 @@ PptxGenJS 4.0.1 public runtime uses the same EMU values. Native intentionally om
 
 This does not complete PptxGenJS parity. Remaining runtime constants, output types/stream/compression, advanced text/table, `tableToSlides`, and the final peer/client audit remain pending.
 
+### Horizontal text alignment catalog
+
+```ts
+import { TEXT_ALIGNMENTS, type TextAlignment } from '@pptx/sdk';
+
+const alignments: readonly TextAlignment[] = TEXT_ALIGNMENTS;
+```
+
+`TEXT_ALIGNMENTS` is exactly the frozen readonly tuple `['left', 'center', 'right', 'justify']`, and `TextAlignment` is derived as `(typeof TEXT_ALIGNMENTS)[number]`. SDK and aggregate-root exports reuse the model value rather than creating facade copies. These tokens continue to drive plain/rich text plus table/table-cell alignment through the unchanged `l`, `ctr`, `r`, and `just` OOXML mappings; catalog reads never mutate an OPC package.
+
+PptxGenJS 4.0.1 public `AlignH` keys and values match the tuple in the same order. Native deliberately exposes the immutable catalog instead of an instance getter or mutable enum-shaped alias. Installed Node, declarations, browser conditional export, CLI package inspection, and real Chrome report `horizontalAlignments: true`; create and reopen preserve all four values. The final 59-file tarball SHA-256 is `46a88495acbffb2f81eb99f290bd15928974ddad86f507941c1ea5bfb65eaa90`. Final gates are 1368 passed / 1 skipped tests, performance 1/1 at 1.17s, both TypeScript checks, both bundles, declaration generation, and zero Chrome validation/console/page/network errors.
+
+Overall PptxGenJS parity is approximately 96%. `AlignV`, output types/stream/compression, other runtime helpers, advanced text/table, `tableToSlides`, and the final peer/client audit remain pending.
+
 ## Embedded raster images
 
 ```ts

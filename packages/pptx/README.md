@@ -842,6 +842,23 @@ Final release gates are 1363 passed / 1 skipped tests and performance 1/1 at 1.0
 
 Full PptxGenJS parity is not yet claimed. The remaining runtime constants, output types/stream/compression, advanced text/table, `tableToSlides`, and the final peer/client audit remain pending.
 
+## Enumerate horizontal text alignments
+
+```ts
+import { TEXT_ALIGNMENTS, type TextAlignment } from '@jiayunxie/pptx';
+
+for (const alignment of TEXT_ALIGNMENTS) {
+  const value: TextAlignment = alignment;
+  console.log(value);
+}
+```
+
+`TEXT_ALIGNMENTS` is a frozen readonly tuple in the stable order `left`, `center`, `right`, `justify`. `TextAlignment` is derived directly from that tuple, keeping runtime discovery and the TypeScript union synchronized. Every token remains valid for plain/rich text and table/table-cell horizontal alignment; the existing `left → l`, `center → ctr`, `right → r`, and `justify → just` OOXML mappings, rejection behavior, and write/reopen semantics are unchanged.
+
+PptxGenJS 4.0.1 instance `AlignH` exposes the same four keys and values. Native matches the runtime values and enumeration order through the existing root-catalog design rather than adding `PptxDocument.AlignH`, an enum-shaped object, or a mutable alias. Final release gates are 1368 passed / 1 skipped tests plus performance 1/1 at 1.17s. Both TypeScript checks, both bundles, and declaration generation pass. The actual 59-file tarball has SHA-256 `46a88495acbffb2f81eb99f290bd15928974ddad86f507941c1ea5bfb65eaa90`; installed Node/types/browser/CLI and real Google Chrome report `horizontalAlignments: true`, with zero Chrome validation, console, page, or network errors.
+
+Overall PptxGenJS parity is now approximately 96%. Remaining work includes `AlignV`, output types/stream/compression, other runtime helpers, advanced text/table, `tableToSlides`, and the final peer/client audit.
+
 `PRESET_SHAPE_TYPES` is the frozen discovery catalog for all 178 canonical preset geometries accepted by `SlideModel.addShape()`. `AddShapeOptions` accepts `name`, strict `adjustments`, strict `fill`, strict `line`, strict `arrows`, strict `shadow`, strict `hyperlink`, and native EMU/OOXML-angle transform fields; use `inches()` and `degrees()` for ergonomic conversion. Omitted geometry starts at x/y/width/height = 1 inch with zero rotation and no flips; omitted fill creates direct no-fill, and omitted line keeps the canonical empty line container. Inputs are strict, descriptor-safe, detached before mutation, and reject unknown fields. The catalog uses the valid OOXML `foldedCorner`; PptxGenJS 4.0.1's invalid `folderCorner` token and runtime-only `custGeom` value are not accepted as presets.
 
 `ShapeModel.presetType` reads only one safe direct canonical preset geometry. Reassigning the same type is an exact no-op; changing the type replaces only the geometry and clears old adjustment guides while preserving transform, name, fill, line, arrows, effects, text, order, and model identity. Creation, duplicate isolation, rollback, write/reopen, Node/browser bundles, and PptxGenJS public output are covered.
