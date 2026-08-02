@@ -697,7 +697,33 @@ console.log(document.version === current); // true
 
 PptxGenJS 4.0.1 实例返回它自己的 `'4.0.1'`，本库当前返回自己的 `'0.1.0'`；两个值不相等是正确行为，对等点是公开可读、稳定且各自与 manifest 同步。三份 manifest 由测试防漂移，CLI `--version` 与 JSON doctor 共用同一常量。最终 release gates 为 1354 passed / 1 skipped，performance 1/1（617ms），两种 TypeScript check、Node/browser bundle 与 declaration build 全部通过。实际 58-file tarball 的 SHA-256 为 `ce300d3c5da10a8fbdb9910b10497d02af496532b99329e18a314c9604e6f9a8`；installed Node/types/browser/CLI 与真实 Google Chrome 均报告 `presentationVersion: true`，Chrome validation/console/page/network errors 为 0。
 
-该项完成后仍不声明完整 PptxGenJS 对等；`presLayout`、其余 runtime helper constants、output types/stream/compression、advanced text/table、`tableToSlides` 与最终 peer/client audit 仍待完成。
+该项完成后仍不声明完整 PptxGenJS 对等；其余 runtime helper constants、output types/stream/compression、advanced text/table、`tableToSlides` 与最终 peer/client audit 仍待完成。
+
+## 读取当前演示文稿布局
+
+```ts
+import {
+  inches,
+  PptxDocument,
+  type PresentationLayout,
+  type PresentationLayoutName,
+} from '@jiayunxie/pptx';
+
+const document = PptxDocument.create({ slideSize: '16:9' });
+const layout: PresentationLayout = document.presLayout;
+const name: PresentationLayoutName = layout.name; // 'screen16x9'
+
+document.slideSize = { width: inches(11.7), height: inches(8.3) };
+console.log(document.presLayout); // { name: 'custom', width: 10698480, height: 7589520 }
+```
+
+Getter-only `PptxDocument.presLayout` 从唯一的 `p:sldSz` / `slideSize` 状态即时投影 `{ name, width, height }`，宽高单位为 EMU。10×7.5、10×5.625、10×6.25 inch 精确映射为 `screen4x3`、`screen16x9`、`screen16x10`；其他合法尺寸（包括 `wide`）映射为 `custom`。每次读取返回 detached plain-object snapshot；修改旧快照不会改变文稿，读取也不产生 OPC mutation。修改 `slideSize` 后下一次读取立即反映新值，write/reopen 后保持。
+
+PptxGenJS 4.0.1 的公开 getter 对默认、四种内建和自定义尺寸使用相同 EMU 数值；native 不暴露其未声明的 `_sizeW` / `_sizeH`，也不返回内部 mutable alias。`defineLayout()` 的自定义名称只存在于 PptxGenJS 进程内且不写入 PPTX，所以 native 打开自定义尺寸时使用可恢复的 canonical `custom`，而不伪造命名 registry。
+
+最终 release gates 为 1363 passed / 1 skipped，performance 1/1（1.01s），两种 TypeScript check、Node/browser bundle 与 declaration build 全部通过。实际 59-file tarball 的 SHA-256 为 `a07a11156840071f0945289c0a48fdd9741549d2003ca21006e6efab28104b3d`；installed Node/types/browser/CLI 与真实 Google Chrome 均报告 `presentationLayouts: true`，Chrome validation/console/page/network errors 为 0。
+
+该项完成后仍不声明完整 PptxGenJS 对等；其余 runtime constants、output types/stream/compression、advanced text/table、`tableToSlides` 与最终 peer/client audit 仍待完成。
 
 ## 创建和编辑预设形状、调整值与样式
 

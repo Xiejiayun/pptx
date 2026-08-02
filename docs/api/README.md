@@ -94,7 +94,31 @@ document.version satisfies PptxVersion;
 
 PptxGenJS 4.0.1 reports `'4.0.1'` and native 0.1.0 reports `'0.1.0'`; those values should differ because each instance identifies its own library. Repository tests synchronize the constant with the root, SDK, and aggregate manifests, while CLI `--version` and JSON doctor reuse the same constant. The actual 58-file package (SHA-256 `ce300d3c5da10a8fbdb9910b10497d02af496532b99329e18a314c9604e6f9a8`) passes installed Node, declaration, browser-conditional, CLI, and real-Google-Chrome create/writeBlob/reopen coverage with `presentationVersion: true` and zero Chrome validation/console/page/network errors. Final gates are 1354 passed / 1 skipped tests, performance 1/1 at 617ms, both TypeScript checks, both bundles, and declaration generation.
 
-This does not complete PptxGenJS parity. `presLayout`, remaining runtime constants, output types/stream/compression, advanced text/table, `tableToSlides`, and the final peer/client audit remain pending.
+This does not complete PptxGenJS parity. Remaining runtime constants, output types/stream/compression, advanced text/table, `tableToSlides`, and the final peer/client audit remain pending.
+
+### Presentation layout projection
+
+```ts
+import {
+  inches,
+  PptxDocument,
+  type PresentationLayout,
+  type PresentationLayoutName,
+} from '@pptx/sdk';
+
+const document = PptxDocument.create({ slideSize: '4:3' });
+const layout: PresentationLayout = document.presLayout;
+const name: PresentationLayoutName = layout.name; // 'screen4x3'
+
+document.slideSize = { width: inches(11.7), height: inches(8.3) };
+document.presLayout; // { name: 'custom', width: 10698480, height: 7589520 }
+```
+
+`PptxDocument.presLayout` is getter-only and derives a new detached `{ name, width, height }` snapshot from `slideSize` on every read. Dimensions use EMU. Exact standard dimensions map to `screen4x3`, `screen16x9`, or `screen16x10`; all other legal dimensions, including wide, map to `custom`. Reads do not mutate the package, invalid `p:sldSz` reuses the strict `slideSize` error, failed edits roll back, and successful edits survive write/reopen.
+
+PptxGenJS 4.0.1 public runtime uses the same EMU values. Native intentionally omits the undeclared `_sizeW` / `_sizeH` fields and mutable internal alias. A PptxGenJS custom registry name is not serialized into PPTX, so native reports canonical `custom` after open/reopen. Installed Node, declarations, browser conditional export, CLI package inspection, and real Chrome report `presentationLayouts: true`; the final 59-file tarball SHA-256 is `a07a11156840071f0945289c0a48fdd9741549d2003ca21006e6efab28104b3d`. Final gates are 1363 passed / 1 skipped tests, performance 1/1 at 1.01s, both TypeScript checks, both bundles, declaration generation, and zero Chrome validation/console/page/network errors.
+
+This does not complete PptxGenJS parity. Remaining runtime constants, output types/stream/compression, advanced text/table, `tableToSlides`, and the final peer/client audit remain pending.
 
 ## Embedded raster images
 

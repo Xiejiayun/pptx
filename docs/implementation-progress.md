@@ -737,7 +737,28 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余 runtime/output 与全功能路线
 
-- Version 已从 runtime-helper 缺口移入支持项；仍待 `presLayout`、其余 runtime constants、六种 output type、Node readable stream、compression policy 与返回值语义。
+- Version 已从 runtime-helper 缺口移入支持项；仍待其余 runtime constants、六种 output type、Node readable stream、compression policy 与返回值语义。
+- Advanced text/table、`tableToSlides`、其他 style/lifecycle surfaces 与最终 peer/client audit 仍待完成；不声明完整 PptxGenJS parity。
+
+## PptxGenJS 全功能对等：Presentation `presLayout`
+
+状态：完成；实施与证据 4/4
+
+### 本阶段 change
+
+- 新增 `PresentationLayoutName`、readonly `PresentationLayout` 与 getter-only `PptxDocument.presLayout`。Getter 只从现有 `slideSize` / `p:sldSz` 投影 canonical `{ name, width, height }`，宽高统一为 EMU，不引入 registry、cache、instance field 或自定义 OOXML。
+- 10×7.5、10×5.625、10×6.25 inch 精确映射为 `screen4x3`、`screen16x9`、`screen16x10`；wide 与任意其他合法尺寸映射为 `custom`。读取返回 detached plain object，修改旧快照不影响 document；slideSize edit、rollback、malformed input、write/reopen 与 mutation isolation 已覆盖。
+- PptxGenJS 4.0.1 public constructor/layout/defineLayout/presLayout/write 对照覆盖默认、四种内建与自定义尺寸。Native 复用相同 EMU final state，但不暴露未声明 `_sizeW` / `_sizeH` 或 mutable alias；custom registry name 不进入 PPTX，native reopen 使用 canonical `custom`。
+
+### 验证结果
+
+- 最终全量为 71 passed / 1 skipped test files、1363 passed / 1 skipped tests；独立 performance gate 1/1（1.01s）。两种 TypeScript check、Node/browser tsup 与 declaration build 全部通过。全量并行曾让创建 178 种 preset geometry 的 catalog test 越过默认 5 秒；该单项保持全部断言并使用显式 10 秒预算后，原始全量命令稳定通过。
+- Actual npm tarball 为 59 files，SHA-256 `a07a11156840071f0945289c0a48fdd9741549d2003ca21006e6efab28104b3d`。Installed Node、generated declarations、browser conditional export、TypeScript consumer 与 CLI package inspection 均报告 `presentationLayouts: true`。
+- 真实 Google Chrome create/edit/writeBlob/reopen 返回标准、自定义与 wide canonical state，`presentationLayouts: true`；Chrome validation/console/page/network errors 为 0。Packed declarations 锁定四值 name union、readonly fields 与 getter-only document property。
+
+### 剩余 runtime/output 与全功能路线
+
+- Version 与 `presLayout` 已完成；仍待其余 runtime constants、六种 output type、Node readable stream、compression policy 与返回值语义。
 - Advanced text/table、`tableToSlides`、其他 style/lifecycle surfaces 与最终 peer/client audit 仍待完成；不声明完整 PptxGenJS parity。
 
 ## 0.1.0 初始验收

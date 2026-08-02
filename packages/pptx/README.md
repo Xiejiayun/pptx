@@ -814,7 +814,33 @@ console.log(document.version === current); // true
 
 A PptxGenJS 4.0.1 instance correctly reports its own `'4.0.1'`, while this runtime reports its own `'0.1.0'`; parity means public availability, stability, and manifest synchronization, not equal cross-library strings. Manifest drift tests cover all three manifests, and CLI `--version` plus JSON doctor consume the same constant. Final release gates are 1354 passed / 1 skipped tests and performance 1/1 at 617ms. Both TypeScript checks, both bundles, and declaration generation pass. The actual 58-file tarball has SHA-256 `ce300d3c5da10a8fbdb9910b10497d02af496532b99329e18a314c9604e6f9a8`; installed Node/types/browser/CLI and real Google Chrome report `presentationVersion: true`, with zero Chrome validation, console, page, or network errors.
 
-Full PptxGenJS parity is not yet claimed. `presLayout`, the remaining runtime constants, output types/stream/compression, advanced text/table, `tableToSlides`, and the final peer/client audit remain pending.
+Full PptxGenJS parity is not yet claimed. The remaining runtime constants, output types/stream/compression, advanced text/table, `tableToSlides`, and the final peer/client audit remain pending.
+
+## Read the current presentation layout
+
+```ts
+import {
+  inches,
+  PptxDocument,
+  type PresentationLayout,
+  type PresentationLayoutName,
+} from '@jiayunxie/pptx';
+
+const document = PptxDocument.create({ slideSize: '16:9' });
+const layout: PresentationLayout = document.presLayout;
+const name: PresentationLayoutName = layout.name; // 'screen16x9'
+
+document.slideSize = { width: inches(11.7), height: inches(8.3) };
+console.log(document.presLayout); // { name: 'custom', width: 10698480, height: 7589520 }
+```
+
+Getter-only `PptxDocument.presLayout` projects `{ name, width, height }` from the single `p:sldSz` / `slideSize` source of truth; dimensions are EMU. Exact 10×7.5, 10×5.625, and 10×6.25 inch canvases map to `screen4x3`, `screen16x9`, and `screen16x10`; every other valid size, including `wide`, maps to `custom`. Each read returns a detached plain-object snapshot, causes no OPC mutation, immediately follows a `slideSize` edit, and remains stable through write/reopen.
+
+PptxGenJS 4.0.1 exposes the same EMU values for its default, four built-ins, and custom layouts. Native does not expose undeclared `_sizeW` / `_sizeH` fields or a mutable internal alias. A `defineLayout()` custom name exists only in the PptxGenJS process and is not stored in PPTX, so native uses the recoverable canonical `custom` name instead of inventing a named-layout registry.
+
+Final release gates are 1363 passed / 1 skipped tests and performance 1/1 at 1.01s. Both TypeScript checks, both bundles, and declaration generation pass. The actual 59-file tarball has SHA-256 `a07a11156840071f0945289c0a48fdd9741549d2003ca21006e6efab28104b3d`; installed Node/types/browser/CLI and real Google Chrome report `presentationLayouts: true`, with zero Chrome validation, console, page, or network errors.
+
+Full PptxGenJS parity is not yet claimed. The remaining runtime constants, output types/stream/compression, advanced text/table, `tableToSlides`, and the final peer/client audit remain pending.
 
 `PRESET_SHAPE_TYPES` is the frozen discovery catalog for all 178 canonical preset geometries accepted by `SlideModel.addShape()`. `AddShapeOptions` accepts `name`, strict `adjustments`, strict `fill`, strict `line`, strict `arrows`, strict `shadow`, strict `hyperlink`, and native EMU/OOXML-angle transform fields; use `inches()` and `degrees()` for ergonomic conversion. Omitted geometry starts at x/y/width/height = 1 inch with zero rotation and no flips; omitted fill creates direct no-fill, and omitted line keeps the canonical empty line container. Inputs are strict, descriptor-safe, detached before mutation, and reject unknown fields. The catalog uses the valid OOXML `foldedCorner`; PptxGenJS 4.0.1's invalid `folderCorner` token and runtime-only `custGeom` value are not accepted as presets.
 
