@@ -771,6 +771,179 @@ async (page) => {
         failureIsolation: true,
         validationErrors: 0,
       });
+      const tableBorderSideSnapshot = (value) => {
+        if (value.kind === 'none') return { kind: 'none' };
+        return {
+          kind: 'line',
+          color: { kind: value.color.kind, value: value.color.value },
+          width: value.width,
+          ...(value.style !== undefined ? { style: value.style } : {}),
+        };
+      };
+      const tableBordersSnapshot = (value) => value === undefined
+        ? null
+        : {
+            ...(value.top !== undefined
+              ? { top: tableBorderSideSnapshot(value.top) }
+              : {}),
+            ...(value.right !== undefined
+              ? { right: tableBorderSideSnapshot(value.right) }
+              : {}),
+            ...(value.bottom !== undefined
+              ? { bottom: tableBorderSideSnapshot(value.bottom) }
+              : {}),
+            ...(value.left !== undefined
+              ? { left: tableBorderSideSnapshot(value.left) }
+              : {}),
+          };
+      const tableBordersDocument = api.PptxDocument.create();
+      const tableBordersSlide = tableBordersDocument.addSlide();
+      const tableBordersInitialLine = {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent1' },
+        width: 1.5,
+        style: 'dash',
+      };
+      const tableBordersTable = tableBordersSlide.addTable([
+        ['North', 'South'],
+        ['East', 'West'],
+      ], {
+        name: 'Chrome table borders',
+        border: tableBordersInitialLine,
+      });
+      const tableBordersPart = () => tableBordersDocument.opcPackage
+        .requirePart(tableBordersSlide.partUri).bytes;
+      const tableBordersReadBytes = tableBordersPart().slice();
+      const tableBordersReadJournal = JSON.stringify(
+        tableBordersDocument.opcPackage.mutations,
+      );
+      const tableBordersUniform = tableBordersSnapshot(tableBordersTable.borders);
+      const tableBordersDetached = tableBordersTable.borders;
+      if (tableBordersDetached?.top?.kind === 'line') {
+        tableBordersDetached.top.color.value = 'accent6';
+        tableBordersDetached.top.width = 99;
+      }
+      const tableBordersReadIsolation = tableMarginsBytesEqual(
+        tableBordersReadBytes,
+        tableBordersPart(),
+      ) && JSON.stringify(tableBordersDocument.opcPackage.mutations) ===
+        tableBordersReadJournal &&
+        JSON.stringify(tableBordersSnapshot(tableBordersTable.borders)) ===
+          JSON.stringify({
+            top: tableBordersInitialLine,
+            right: tableBordersInitialLine,
+            bottom: tableBordersInitialLine,
+            left: tableBordersInitialLine,
+          });
+      const tableBordersNoOpBytes = tableBordersPart().slice();
+      const tableBordersNoOpJournal = JSON.stringify(
+        tableBordersDocument.opcPackage.mutations,
+      );
+      tableBordersTable.borders = tableBordersInitialLine;
+      const tableBordersNoOp = tableMarginsBytesEqual(
+        tableBordersNoOpBytes,
+        tableBordersPart(),
+      ) && JSON.stringify(tableBordersDocument.opcPackage.mutations) ===
+        tableBordersNoOpJournal;
+      tableBordersTable.setCellBorders(0, 1, { kind: 'none' });
+      const tableBordersMixed = tableBordersSnapshot(tableBordersTable.borders);
+      const tableBordersPartialInput = {
+        top: {
+          kind: 'line',
+          color: { kind: 'srgb', value: 'D9EAF7' },
+          width: 2,
+        },
+        bottom: { kind: 'none' },
+      };
+      tableBordersTable.borders = tableBordersPartialInput;
+      const tableBordersPartial = tableBordersSnapshot(tableBordersTable.borders);
+      const tableBordersPartialCells = tableBordersTable.rows.flatMap(({ cells }) =>
+        cells.map(({ borders }) => tableBordersSnapshot(borders)));
+      tableBordersTable.borders = { kind: 'none' };
+      const tableBordersNone = tableBordersSnapshot(tableBordersTable.borders);
+      const tableBordersNoneCells = tableBordersTable.rows.flatMap(({ cells }) =>
+        cells.map(({ borders }) => tableBordersSnapshot(borders)));
+      tableBordersTable.borders = undefined;
+      const tableBordersCleared = tableBordersSnapshot(tableBordersTable.borders);
+      const tableBordersClearedCells = tableBordersTable.rows.flatMap(({ cells }) =>
+        cells.map(({ borders }) => tableBordersSnapshot(borders)));
+      const tableBordersInvalidBytes = tableBordersPart().slice();
+      const tableBordersInvalidJournal = JSON.stringify(
+        tableBordersDocument.opcPackage.mutations,
+      );
+      let tableBordersInvalidError;
+      try {
+        tableBordersTable.borders = null;
+      } catch (error) {
+        tableBordersInvalidError = { name: error.name, message: error.message };
+      }
+      const tableBordersFailureIsolation = tableMarginsBytesEqual(
+        tableBordersInvalidBytes,
+        tableBordersPart(),
+      ) && JSON.stringify(tableBordersDocument.opcPackage.mutations) ===
+        tableBordersInvalidJournal;
+      tableBordersTable.borders = { kind: 'none' };
+      const reopenedTableBordersDocument = await api.PptxDocument.open(
+        await tableBordersDocument.writeBlob(),
+      );
+      const reopenedTableBordersTable = reopenedTableBordersDocument.slides[0]
+        .shapes.find((shape) => shape.name === 'Chrome table borders');
+      const tableBordersState = {
+        uniform: tableBordersUniform,
+        readIsolation: tableBordersReadIsolation,
+        noOp: tableBordersNoOp,
+        mixed: tableBordersMixed,
+        partial: tableBordersPartial,
+        partialCells: tableBordersPartialCells,
+        none: tableBordersNone,
+        noneCells: tableBordersNoneCells,
+        cleared: tableBordersCleared,
+        clearedCells: tableBordersClearedCells,
+        reopened: reopenedTableBordersTable instanceof api.TableModel
+          ? tableBordersSnapshot(reopenedTableBordersTable.borders)
+          : null,
+        reopenedCells: reopenedTableBordersTable instanceof api.TableModel
+          ? reopenedTableBordersTable.rows.flatMap(({ cells }) =>
+            cells.map(({ borders }) => tableBordersSnapshot(borders)))
+          : [],
+        invalidError: tableBordersInvalidError,
+        failureIsolation: tableBordersFailureIsolation,
+        validationErrors: tableBordersDocument.diagnostics
+          .filter(({ severity }) => severity === 'error').length +
+          reopenedTableBordersDocument.diagnostics
+            .filter(({ severity }) => severity === 'error').length,
+      };
+      const tableBordersNoneSnapshot = {
+        top: { kind: 'none' },
+        right: { kind: 'none' },
+        bottom: { kind: 'none' },
+        left: { kind: 'none' },
+      };
+      const tableBorders = JSON.stringify(tableBordersState) === JSON.stringify({
+        uniform: {
+          top: tableBordersInitialLine,
+          right: tableBordersInitialLine,
+          bottom: tableBordersInitialLine,
+          left: tableBordersInitialLine,
+        },
+        readIsolation: true,
+        noOp: true,
+        mixed: null,
+        partial: tableBordersPartialInput,
+        partialCells: Array(4).fill(tableBordersPartialInput),
+        none: tableBordersNoneSnapshot,
+        noneCells: Array(4).fill(tableBordersNoneSnapshot),
+        cleared: null,
+        clearedCells: [null, null, null, null],
+        reopened: tableBordersNoneSnapshot,
+        reopenedCells: Array(4).fill(tableBordersNoneSnapshot),
+        invalidError: {
+          name: 'TypeError',
+          message: 'Table borders must be an object',
+        },
+        failureIsolation: true,
+        validationErrors: 0,
+      });
       const schemeColorIsolationDocument = api.PptxDocument.create();
       const schemeColorIsolationJournal = JSON.stringify(
         schemeColorIsolationDocument.opcPackage.mutations,
@@ -3117,6 +3290,8 @@ async (page) => {
         tableHorizontalAlignmentState,
         tableMargins,
         tableMarginsState,
+        tableBorders,
+        tableBordersState,
         tableFill,
         tableFillState,
         schemeColors,
@@ -3404,6 +3579,86 @@ async (page) => {
       invalidError: {
         name: 'TypeError',
         message: 'Table margins must be a number, four-value tuple, or margin object',
+      },
+      failureIsolation: true,
+      validationErrors: 0,
+    },
+    tableBorders: true,
+    tableBordersState: {
+      uniform: {
+        top: {
+          kind: 'line',
+          color: { kind: 'scheme', value: 'accent1' },
+          width: 1.5,
+          style: 'dash',
+        },
+        right: {
+          kind: 'line',
+          color: { kind: 'scheme', value: 'accent1' },
+          width: 1.5,
+          style: 'dash',
+        },
+        bottom: {
+          kind: 'line',
+          color: { kind: 'scheme', value: 'accent1' },
+          width: 1.5,
+          style: 'dash',
+        },
+        left: {
+          kind: 'line',
+          color: { kind: 'scheme', value: 'accent1' },
+          width: 1.5,
+          style: 'dash',
+        },
+      },
+      readIsolation: true,
+      noOp: true,
+      mixed: null,
+      partial: {
+        top: {
+          kind: 'line',
+          color: { kind: 'srgb', value: 'D9EAF7' },
+          width: 2,
+        },
+        bottom: { kind: 'none' },
+      },
+      partialCells: Array(4).fill({
+        top: {
+          kind: 'line',
+          color: { kind: 'srgb', value: 'D9EAF7' },
+          width: 2,
+        },
+        bottom: { kind: 'none' },
+      }),
+      none: {
+        top: { kind: 'none' },
+        right: { kind: 'none' },
+        bottom: { kind: 'none' },
+        left: { kind: 'none' },
+      },
+      noneCells: Array(4).fill({
+        top: { kind: 'none' },
+        right: { kind: 'none' },
+        bottom: { kind: 'none' },
+        left: { kind: 'none' },
+      }),
+      cleared: null,
+      clearedCells: [null, null, null, null],
+      reopened: {
+        top: { kind: 'none' },
+        right: { kind: 'none' },
+        bottom: { kind: 'none' },
+        left: { kind: 'none' },
+      },
+      reopenedCells: Array(4).fill({
+        top: { kind: 'none' },
+        right: { kind: 'none' },
+        bottom: { kind: 'none' },
+        left: { kind: 'none' },
+      }),
+      invalidError: {
+        name: 'TypeError',
+        message: 'Table borders must be an object',
       },
       failureIsolation: true,
       validationErrors: 0,

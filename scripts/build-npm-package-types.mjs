@@ -110,6 +110,13 @@ if (!tableModelDeclaration.includes(
 )) {
   throw new Error('Packed TableModel declaration is missing table-level fill');
 }
+if (!tableModelDeclaration.includes(
+  'get borders(): TableCellBorders | undefined;',
+) || !tableModelDeclaration.includes(
+  'set borders(value: TableCellBorderInput | undefined);',
+)) {
+  throw new Error('Packed TableModel declaration is missing table-level borders');
+}
 
 await writeFile(
   join(outputRoot, 'index.d.ts'),

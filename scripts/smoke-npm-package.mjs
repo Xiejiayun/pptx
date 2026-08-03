@@ -135,6 +135,13 @@ try {
   )) {
     throw new Error('Packed TableModel declaration is missing table-level fill');
   }
+  if (!tableModelDeclaration.includes(
+    'get borders(): TableCellBorders | undefined;',
+  ) || !tableModelDeclaration.includes(
+    'set borders(value: TableCellBorderInput | undefined);',
+  )) {
+    throw new Error('Packed TableModel declaration is missing table-level borders');
+  }
   if (!textOptionDeclarationSource.includes('readonly isTextBox?: boolean;') ||
       !shapeDeclarationSource.includes('get isTextBox(): boolean | undefined;') ||
       !shapeDeclarationSource.includes('set isTextBox(value: boolean);')) {
@@ -5741,6 +5748,172 @@ const tableMargins = JSON.stringify(tableMarginsState) === JSON.stringify({
   failureIsolation: true,
   validationErrors: 0,
 });
+const packedTableBorderSideSnapshot = (value) => {
+  if (value.kind === 'none') return { kind: 'none' };
+  return {
+    kind: 'line',
+    color: { kind: value.color.kind, value: value.color.value },
+    width: value.width,
+    ...(value.style !== undefined ? { style: value.style } : {}),
+  };
+};
+const packedTableBordersSnapshot = (value) => value === undefined
+  ? null
+  : {
+      ...(value.top !== undefined
+        ? { top: packedTableBorderSideSnapshot(value.top) }
+        : {}),
+      ...(value.right !== undefined
+        ? { right: packedTableBorderSideSnapshot(value.right) }
+        : {}),
+      ...(value.bottom !== undefined
+        ? { bottom: packedTableBorderSideSnapshot(value.bottom) }
+        : {}),
+      ...(value.left !== undefined
+        ? { left: packedTableBorderSideSnapshot(value.left) }
+        : {}),
+    };
+const tableBordersDocument = PptxDocument.create();
+const tableBordersSlide = tableBordersDocument.addSlide();
+const tableBordersInitialLine = {
+  kind: 'line',
+  color: { kind: 'scheme', value: 'accent1' },
+  width: 1.5,
+  style: 'dash',
+};
+const tableBordersTable = tableBordersSlide.addTable([
+  ['North', 'South'],
+  ['East', 'West'],
+], {
+  name: 'Packed table borders',
+  border: tableBordersInitialLine,
+});
+const tableBordersPart = () => tableBordersDocument.opcPackage
+  .requirePart(tableBordersSlide.partUri).bytes;
+const tableBordersReadBytes = tableBordersPart().slice();
+const tableBordersReadJournal = JSON.stringify(tableBordersDocument.opcPackage.mutations);
+const tableBordersUniform = packedTableBordersSnapshot(tableBordersTable.borders);
+const tableBordersDetached = tableBordersTable.borders;
+if (tableBordersDetached?.top?.kind === 'line') {
+  tableBordersDetached.top.color.value = 'accent6';
+  tableBordersDetached.top.width = 99;
+}
+const tableBordersReadIsolation = packedBytesEqual(
+  tableBordersReadBytes,
+  tableBordersPart(),
+) && JSON.stringify(tableBordersDocument.opcPackage.mutations) === tableBordersReadJournal &&
+  JSON.stringify(packedTableBordersSnapshot(tableBordersTable.borders)) ===
+    JSON.stringify({
+      top: tableBordersInitialLine,
+      right: tableBordersInitialLine,
+      bottom: tableBordersInitialLine,
+      left: tableBordersInitialLine,
+    });
+const tableBordersNoOpBytes = tableBordersPart().slice();
+const tableBordersNoOpJournal = JSON.stringify(tableBordersDocument.opcPackage.mutations);
+tableBordersTable.borders = tableBordersInitialLine;
+const tableBordersNoOp = packedBytesEqual(
+  tableBordersNoOpBytes,
+  tableBordersPart(),
+) && JSON.stringify(tableBordersDocument.opcPackage.mutations) === tableBordersNoOpJournal;
+tableBordersTable.setCellBorders(0, 1, { kind: 'none' });
+const tableBordersMixed = packedTableBordersSnapshot(tableBordersTable.borders);
+const tableBordersPartialInput = {
+  top: {
+    kind: 'line',
+    color: { kind: 'srgb', value: 'D9EAF7' },
+    width: 2,
+  },
+  bottom: { kind: 'none' },
+};
+tableBordersTable.borders = tableBordersPartialInput;
+const tableBordersPartial = packedTableBordersSnapshot(tableBordersTable.borders);
+const tableBordersPartialCells = tableBordersTable.rows.flatMap(({ cells }) =>
+  cells.map(({ borders }) => packedTableBordersSnapshot(borders)));
+tableBordersTable.borders = { kind: 'none' };
+const tableBordersNone = packedTableBordersSnapshot(tableBordersTable.borders);
+const tableBordersNoneCells = tableBordersTable.rows.flatMap(({ cells }) =>
+  cells.map(({ borders }) => packedTableBordersSnapshot(borders)));
+tableBordersTable.borders = undefined;
+const tableBordersCleared = packedTableBordersSnapshot(tableBordersTable.borders);
+const tableBordersClearedCells = tableBordersTable.rows.flatMap(({ cells }) =>
+  cells.map(({ borders }) => packedTableBordersSnapshot(borders)));
+const tableBordersInvalidBytes = tableBordersPart().slice();
+const tableBordersInvalidJournal = JSON.stringify(tableBordersDocument.opcPackage.mutations);
+let tableBordersInvalidError;
+try {
+  tableBordersTable.borders = null;
+} catch (error) {
+  tableBordersInvalidError = { name: error.name, message: error.message };
+}
+const tableBordersFailureIsolation = packedBytesEqual(
+  tableBordersInvalidBytes,
+  tableBordersPart(),
+) && JSON.stringify(tableBordersDocument.opcPackage.mutations) === tableBordersInvalidJournal;
+tableBordersTable.borders = { kind: 'none' };
+await tableBordersDocument.writeFile('table-borders-smoke.pptx');
+const reopenedTableBordersDocument = await PptxDocument.open(
+  await readFile('table-borders-smoke.pptx'),
+);
+const reopenedTableBordersTable = reopenedTableBordersDocument.slides[0].shapes.find(
+  (shape) => shape.name === 'Packed table borders',
+);
+const tableBordersState = {
+  uniform: tableBordersUniform,
+  readIsolation: tableBordersReadIsolation,
+  noOp: tableBordersNoOp,
+  mixed: tableBordersMixed,
+  partial: tableBordersPartial,
+  partialCells: tableBordersPartialCells,
+  none: tableBordersNone,
+  noneCells: tableBordersNoneCells,
+  cleared: tableBordersCleared,
+  clearedCells: tableBordersClearedCells,
+  reopened: reopenedTableBordersTable instanceof TableModel
+    ? packedTableBordersSnapshot(reopenedTableBordersTable.borders)
+    : null,
+  reopenedCells: reopenedTableBordersTable instanceof TableModel
+    ? reopenedTableBordersTable.rows.flatMap(({ cells }) =>
+      cells.map(({ borders }) => packedTableBordersSnapshot(borders)))
+    : [],
+  invalidError: tableBordersInvalidError,
+  failureIsolation: tableBordersFailureIsolation,
+  validationErrors: tableBordersDocument.diagnostics
+    .filter(({ severity }) => severity === 'error').length +
+    reopenedTableBordersDocument.diagnostics
+      .filter(({ severity }) => severity === 'error').length,
+};
+const tableBordersNoneSnapshot = {
+  top: { kind: 'none' },
+  right: { kind: 'none' },
+  bottom: { kind: 'none' },
+  left: { kind: 'none' },
+};
+const tableBorders = JSON.stringify(tableBordersState) === JSON.stringify({
+  uniform: {
+    top: tableBordersInitialLine,
+    right: tableBordersInitialLine,
+    bottom: tableBordersInitialLine,
+    left: tableBordersInitialLine,
+  },
+  readIsolation: true,
+  noOp: true,
+  mixed: null,
+  partial: tableBordersPartialInput,
+  partialCells: Array(4).fill(tableBordersPartialInput),
+  none: tableBordersNoneSnapshot,
+  noneCells: Array(4).fill(tableBordersNoneSnapshot),
+  cleared: null,
+  clearedCells: [null, null, null, null],
+  reopened: tableBordersNoneSnapshot,
+  reopenedCells: Array(4).fill(tableBordersNoneSnapshot),
+  invalidError: {
+    name: 'TypeError',
+    message: 'Table borders must be an object',
+  },
+  failureIsolation: true,
+  validationErrors: 0,
+});
 const packedTableFillSnapshot = (value) => {
   if (value === undefined) return null;
   if (value.kind === 'none') return { kind: 'none' };
@@ -7198,6 +7371,8 @@ const checks = {
   tableHorizontalAlignmentState,
   tableMargins,
   tableMarginsState,
+  tableBorders,
+  tableBordersState,
   tableFill,
   tableFillState,
   schemeColors,
@@ -8081,6 +8256,197 @@ if (JSON.stringify(browserTableFillState) !== JSON.stringify({
 })) {
   throw new Error('Browser table-level fill failed: ' +
     JSON.stringify(browserTableFillState));
+}
+const browserTableBorderSideSnapshot = (value) => {
+  if (value.kind === 'none') return { kind: 'none' };
+  return {
+    kind: 'line',
+    color: { kind: value.color.kind, value: value.color.value },
+    width: value.width,
+    ...(value.style !== undefined ? { style: value.style } : {}),
+  };
+};
+const browserTableBordersSnapshot = (value) => value === undefined
+  ? null
+  : {
+      ...(value.top !== undefined
+        ? { top: browserTableBorderSideSnapshot(value.top) }
+        : {}),
+      ...(value.right !== undefined
+        ? { right: browserTableBorderSideSnapshot(value.right) }
+        : {}),
+      ...(value.bottom !== undefined
+        ? { bottom: browserTableBorderSideSnapshot(value.bottom) }
+        : {}),
+      ...(value.left !== undefined
+        ? { left: browserTableBorderSideSnapshot(value.left) }
+        : {}),
+    };
+const browserTableBordersDocument = PptxDocument.create();
+const browserTableBordersSlide = browserTableBordersDocument.addSlide();
+const browserTableBordersInitialLine = {
+  kind: 'line',
+  color: { kind: 'scheme', value: 'accent1' },
+  width: 1.5,
+  style: 'dash',
+};
+const browserTableBordersTable = browserTableBordersSlide.addTable([
+  ['North', 'South'],
+  ['East', 'West'],
+], {
+  name: 'Browser condition table borders',
+  border: browserTableBordersInitialLine,
+});
+const browserTableBordersPart = () => browserTableBordersDocument.opcPackage
+  .requirePart(browserTableBordersSlide.partUri).bytes;
+const browserTableBordersReadBytes = browserTableBordersPart().slice();
+const browserTableBordersReadJournal = JSON.stringify(
+  browserTableBordersDocument.opcPackage.mutations,
+);
+const browserTableBordersUniform = browserTableBordersSnapshot(
+  browserTableBordersTable.borders,
+);
+const browserTableBordersDetached = browserTableBordersTable.borders;
+if (browserTableBordersDetached?.top?.kind === 'line') {
+  browserTableBordersDetached.top.color.value = 'accent6';
+  browserTableBordersDetached.top.width = 99;
+}
+const browserTableBordersReadIsolation = browserCompressionEqual(
+  browserTableBordersReadBytes,
+  browserTableBordersPart(),
+) && JSON.stringify(browserTableBordersDocument.opcPackage.mutations) ===
+  browserTableBordersReadJournal &&
+  JSON.stringify(browserTableBordersSnapshot(browserTableBordersTable.borders)) ===
+    JSON.stringify({
+      top: browserTableBordersInitialLine,
+      right: browserTableBordersInitialLine,
+      bottom: browserTableBordersInitialLine,
+      left: browserTableBordersInitialLine,
+    });
+const browserTableBordersNoOpBytes = browserTableBordersPart().slice();
+const browserTableBordersNoOpJournal = JSON.stringify(
+  browserTableBordersDocument.opcPackage.mutations,
+);
+browserTableBordersTable.borders = browserTableBordersInitialLine;
+const browserTableBordersNoOp = browserCompressionEqual(
+  browserTableBordersNoOpBytes,
+  browserTableBordersPart(),
+) && JSON.stringify(browserTableBordersDocument.opcPackage.mutations) ===
+  browserTableBordersNoOpJournal;
+browserTableBordersTable.setCellBorders(0, 1, { kind: 'none' });
+const browserTableBordersMixed = browserTableBordersSnapshot(
+  browserTableBordersTable.borders,
+);
+const browserTableBordersPartialInput = {
+  top: {
+    kind: 'line',
+    color: { kind: 'srgb', value: 'D9EAF7' },
+    width: 2,
+  },
+  bottom: { kind: 'none' },
+};
+browserTableBordersTable.borders = browserTableBordersPartialInput;
+const browserTableBordersPartial = browserTableBordersSnapshot(
+  browserTableBordersTable.borders,
+);
+const browserTableBordersPartialCells = browserTableBordersTable.rows.flatMap(
+  ({ cells }) => cells.map(({ borders }) => browserTableBordersSnapshot(borders)),
+);
+browserTableBordersTable.borders = { kind: 'none' };
+const browserTableBordersNone = browserTableBordersSnapshot(
+  browserTableBordersTable.borders,
+);
+const browserTableBordersNoneCells = browserTableBordersTable.rows.flatMap(
+  ({ cells }) => cells.map(({ borders }) => browserTableBordersSnapshot(borders)),
+);
+browserTableBordersTable.borders = undefined;
+const browserTableBordersCleared = browserTableBordersSnapshot(
+  browserTableBordersTable.borders,
+);
+const browserTableBordersClearedCells = browserTableBordersTable.rows.flatMap(
+  ({ cells }) => cells.map(({ borders }) => browserTableBordersSnapshot(borders)),
+);
+const browserTableBordersInvalidBytes = browserTableBordersPart().slice();
+const browserTableBordersInvalidJournal = JSON.stringify(
+  browserTableBordersDocument.opcPackage.mutations,
+);
+let browserTableBordersInvalidError;
+try {
+  browserTableBordersTable.borders = null;
+} catch (error) {
+  browserTableBordersInvalidError = { name: error.name, message: error.message };
+}
+const browserTableBordersFailureIsolation = browserCompressionEqual(
+  browserTableBordersInvalidBytes,
+  browserTableBordersPart(),
+) && JSON.stringify(browserTableBordersDocument.opcPackage.mutations) ===
+  browserTableBordersInvalidJournal;
+browserTableBordersTable.borders = { kind: 'none' };
+const reopenedBrowserTableBordersDocument = await PptxDocument.open(
+  await browserTableBordersDocument.writeBlob(),
+);
+const reopenedBrowserTableBordersTable = reopenedBrowserTableBordersDocument
+  .slides[0].shapes.find(
+    (shape) => shape.name === 'Browser condition table borders',
+  );
+const browserTableBordersState = {
+  uniform: browserTableBordersUniform,
+  readIsolation: browserTableBordersReadIsolation,
+  noOp: browserTableBordersNoOp,
+  mixed: browserTableBordersMixed,
+  partial: browserTableBordersPartial,
+  partialCells: browserTableBordersPartialCells,
+  none: browserTableBordersNone,
+  noneCells: browserTableBordersNoneCells,
+  cleared: browserTableBordersCleared,
+  clearedCells: browserTableBordersClearedCells,
+  reopened: reopenedBrowserTableBordersTable instanceof TableModel
+    ? browserTableBordersSnapshot(reopenedBrowserTableBordersTable.borders)
+    : null,
+  reopenedCells: reopenedBrowserTableBordersTable instanceof TableModel
+    ? reopenedBrowserTableBordersTable.rows.flatMap(({ cells }) =>
+      cells.map(({ borders }) => browserTableBordersSnapshot(borders)))
+    : [],
+  invalidError: browserTableBordersInvalidError,
+  failureIsolation: browserTableBordersFailureIsolation,
+  validationErrors: browserTableBordersDocument.diagnostics
+    .filter(({ severity }) => severity === 'error').length +
+    reopenedBrowserTableBordersDocument.diagnostics
+      .filter(({ severity }) => severity === 'error').length,
+};
+const browserTableBordersNoneSnapshot = {
+  top: { kind: 'none' },
+  right: { kind: 'none' },
+  bottom: { kind: 'none' },
+  left: { kind: 'none' },
+};
+if (JSON.stringify(browserTableBordersState) !== JSON.stringify({
+  uniform: {
+    top: browserTableBordersInitialLine,
+    right: browserTableBordersInitialLine,
+    bottom: browserTableBordersInitialLine,
+    left: browserTableBordersInitialLine,
+  },
+  readIsolation: true,
+  noOp: true,
+  mixed: null,
+  partial: browserTableBordersPartialInput,
+  partialCells: Array(4).fill(browserTableBordersPartialInput),
+  none: browserTableBordersNoneSnapshot,
+  noneCells: Array(4).fill(browserTableBordersNoneSnapshot),
+  cleared: null,
+  clearedCells: [null, null, null, null],
+  reopened: browserTableBordersNoneSnapshot,
+  reopenedCells: Array(4).fill(browserTableBordersNoneSnapshot),
+  invalidError: {
+    name: 'TypeError',
+    message: 'Table borders must be an object',
+  },
+  failureIsolation: true,
+  validationErrors: 0,
+})) {
+  throw new Error('Browser table-level borders failed: ' +
+    JSON.stringify(browserTableBordersState));
 }
 const browserOutputTypeDocument = PptxDocument.create();
 const browserOutputTypeJournal = JSON.stringify(
@@ -11461,6 +11827,23 @@ typedTable.fill = undefined;
 typedTable.fill = null;
 // @ts-expect-error table fill rejects PptxGenJS-shaped input
 typedTable.fill = { color: 'D9EAF7' };
+const typedTableBorders: TableCellBorders | undefined = typedTable.borders;
+typedTable.borders = { kind: 'none' };
+typedTable.borders = [
+  { kind: 'none' },
+  undefined,
+  { kind: 'line', color: { kind: 'scheme', value: 'accent1' }, width: 2 },
+  undefined,
+];
+typedTable.borders = {
+  top: { kind: 'line', color: { kind: 'srgb', value: '4472C4' }, width: 1 },
+  bottom: { kind: 'none' },
+};
+typedTable.borders = undefined;
+// @ts-expect-error table borders reject null
+typedTable.borders = null;
+// @ts-expect-error table borders reject PptxGenJS-shaped input
+typedTable.borders = { type: 'solid', color: '4472C4', pt: 1 };
 typedTable.setColumnWidths(inches(2));
 typedTable.setColumnWidths([inches(1.5), inches(2.5)]);
 typedTable.setRowHeights(inches(1));
@@ -11627,6 +12010,7 @@ void [typedPreset, typedNoneShapeFill, typedSolidShapeFill,
   typedArrayBufferWrite, typedBase64Write, typedBinaryStringWrite, typedBlobWrite,
   typedNodeBufferWrite, typedUint8ArrayWrite, typedDynamicWrite, typedNodeReadable,
   invalidBlobWriteOptions];
+void typedTableBorders;
 void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, typedChartPromise,
   typedChartDiagnostics, typedChartWorkbookCheck, invalidChartType, invalidChartAxis,
   invalidChartValues, typedSimpleBackground, typedImageBackground, typedSlideBackground,
@@ -11705,6 +12089,11 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
   if (!apiChecks.tableMargins) {
     throw new Error(
       `Table margins smoke failed: ${JSON.stringify(apiChecks.tableMarginsState)}`,
+    );
+  }
+  if (!apiChecks.tableBorders) {
+    throw new Error(
+      `Table borders smoke failed: ${JSON.stringify(apiChecks.tableBordersState)}`,
     );
   }
   if (!apiChecks.tableFill) {
@@ -12040,6 +12429,95 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
       `CLI table margins part inspection failed: ${tableMarginsPartResult.stdout}`,
     );
   }
+  const tableBordersDeckPath = join(directory, 'table-borders-smoke.pptx');
+  const tableBordersInspectResult = run(
+    bin,
+    ['--json', 'package', 'inspect', tableBordersDeckPath],
+    directory,
+  );
+  const tableBordersInspected = JSON.parse(tableBordersInspectResult.stdout);
+  if (!tableBordersInspected.ok ||
+      tableBordersInspected.data?.contentTypes?.[
+        'application/vnd.openxmlformats-officedocument.presentationml.slide+xml'
+      ] !== 1) {
+    throw new Error(
+      `CLI table borders package inspection failed: ${tableBordersInspectResult.stdout}`,
+    );
+  }
+  const tableBordersValidateResult = run(
+    bin,
+    [
+      '--json', 'package', 'validate', tableBordersDeckPath,
+      '--profile', 'powerpoint-2010',
+    ],
+    directory,
+  );
+  const tableBordersValidated = JSON.parse(tableBordersValidateResult.stdout);
+  if (!tableBordersValidated.ok ||
+      !tableBordersValidated.data?.valid ||
+      tableBordersValidated.data.errorCount !== 0 ||
+      tableBordersValidated.data.warningCount !== 0) {
+    throw new Error(
+      `CLI table borders validation failed: ${tableBordersValidateResult.stdout}`,
+    );
+  }
+  const tableBordersSlidesResult = run(
+    bin,
+    ['--json', 'slides', 'list', tableBordersDeckPath],
+    directory,
+  );
+  const tableBordersSlides = JSON.parse(tableBordersSlidesResult.stdout);
+  if (!tableBordersSlides.ok ||
+      tableBordersSlides.data?.length !== 1 ||
+      tableBordersSlides.data[0]?.shapeCount !== 1) {
+    throw new Error(
+      `CLI table borders slide listing failed: ${tableBordersSlidesResult.stdout}`,
+    );
+  }
+  const tableBordersPartResult = run(
+    bin,
+    [
+      '--json', 'part', 'read', tableBordersDeckPath,
+      tableBordersSlides.data[0].partUri,
+    ],
+    directory,
+  );
+  const tableBordersPart = JSON.parse(tableBordersPartResult.stdout).data?.content ?? '';
+  const tableBordersCells = [...tableBordersPart.matchAll(
+    /<a:tc\b[^>]*>([\s\S]*?)<\/a:tc>/g,
+  )].map((match) => match[1]);
+  const tableBordersCellsMatch = tableBordersCells.every((cell) => {
+    const properties = cell.match(/<a:tcPr\b[^>]*>([\s\S]*?)<\/a:tcPr>/);
+    if (!properties) return false;
+    const ownedBorderNames = [...properties[1].matchAll(
+      /<a:(ln[LRBT])\b/g,
+    )].map((match) => match[1]);
+    const directBorders = [...properties[1].matchAll(
+      /<a:(ln[LRBT])\b[^>]*>([\s\S]*?)<\/a:\1>/g,
+    )];
+    if (ownedBorderNames.join(',') !== 'lnL,lnR,lnT,lnB' ||
+        directBorders.length !== 4 ||
+        directBorders.map((match) => match[1]).join(',') !== 'lnL,lnR,lnT,lnB') {
+      return false;
+    }
+    return directBorders.every((match) => {
+      const choices = [...match[2].matchAll(
+        /<a:(noFill|solidFill|gradFill|blipFill|pattFill|grpFill)\b/g,
+      )].map((choice) => choice[1]);
+      return JSON.stringify(choices) === JSON.stringify(['noFill']);
+    });
+  });
+  if (!tableBordersPart.includes('<a:tbl>') ||
+      tableBordersCells.length !== 4 ||
+      !tableBordersCellsMatch) {
+    throw new Error(
+      `CLI table borders part inspection failed: ${tableBordersPartResult.stdout}`,
+    );
+  }
+  await writeFile(
+    join(dirname(tarball), 'table-borders-smoke.pptx'),
+    await readFile(tableBordersDeckPath),
+  );
   const tableFillDeckPath = join(directory, 'table-fill-smoke.pptx');
   const tableFillInspectResult = run(
     bin,
@@ -13362,6 +13840,9 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
     summary.tableMargins = apiChecks.tableMargins;
     summary.tableMarginsState = apiChecks.tableMarginsState;
     summary.tableMarginsInspect = true;
+    summary.tableBorders = apiChecks.tableBorders;
+    summary.tableBordersState = apiChecks.tableBordersState;
+    summary.tableBordersInspect = true;
     summary.tableFill = apiChecks.tableFill;
     summary.tableFillState = apiChecks.tableFillState;
     summary.tableFillInspect = true;
