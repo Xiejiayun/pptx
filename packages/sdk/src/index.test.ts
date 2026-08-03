@@ -83,8 +83,10 @@ import {
   type TextBoxMargins,
   type TableCellBorders,
   type TableCell,
+  type TableCellMerge,
   type TableCellFill,
   type TableCellTextDirection,
+  type TableMergeRegion,
   type TextBoxVerticalAlignment,
   type PresentationLayout,
   type PresentationLayoutName,
@@ -15541,6 +15543,101 @@ describe('PptxDocument vertical slice', () => {
     expect(table.rows.map(({ cells }) => cells.map(({ textFit }) => textFit))).toEqual(fits);
     expect(table.rows.map(({ cells }) => cells.map(({ textDirection }) => textDirection))).toEqual(directions);
     expect(table.rows.map(({ cells }) => cells.map((cell) => cell.text))).toEqual(text);
+  });
+
+  it('exports table colspan, rowspan, merge snapshots, and editors through the SDK', async () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const spanOptions: AddTableCellOptions = { colspan: 2, rowspan: 1 };
+    const mixed = slide.addTable([
+      [
+        { text: 'Horizontal', options: spanOptions },
+        { text: 'Vertical', options: { rowspan: 2 } },
+        'Right',
+      ],
+      ['Lower left', 'Lower middle', 'Lower right'],
+    ], { name: 'SDK mixed spans' });
+    const ordinary = slide.addTable([
+      ['A', 'B'],
+      ['C', 'D'],
+    ], { name: 'SDK editable merge' });
+
+    expect(mixed.rows.map(({ cells }) => cells.map(({ text }) => text))).toEqual([
+      ['Horizontal', '', 'Vertical', 'Right'],
+      ['Lower left', 'Lower middle', '', 'Lower right'],
+    ]);
+    expect(mixed.mergeRegions).toEqual([
+      { rowIndex: 0, columnIndex: 0, rowspan: 1, colspan: 2 },
+      { rowIndex: 0, columnIndex: 2, rowspan: 2, colspan: 1 },
+    ]);
+    const region: Readonly<TableMergeRegion> = mixed.mergeRegions![1]!;
+    const cellMerge: Readonly<TableCellMerge> = mixed.rows[1]!.cells[2]!.merge!;
+    expect(region).toEqual({ rowIndex: 0, columnIndex: 2, rowspan: 2, colspan: 1 });
+    expect(cellMerge).toEqual({
+      rowIndex: 0,
+      columnIndex: 2,
+      rowspan: 2,
+      colspan: 1,
+      isAnchor: false,
+    });
+
+    ordinary.mergeCells(0, 0, 2, 2);
+    expect(slide.shapes.find(({ id }) => id === ordinary.id)).toBe(ordinary);
+    expect(ordinary.mergeRegions).toEqual([
+      { rowIndex: 0, columnIndex: 0, rowspan: 2, colspan: 2 },
+    ]);
+    ordinary.unmergeCell(1, 1);
+    expect(slide.shapes.find(({ id }) => id === ordinary.id)).toBe(ordinary);
+    expect(ordinary.mergeRegions).toEqual([]);
+
+    const beforeFraction = await sdkPackageSnapshot(document);
+    expect(() => ordinary.mergeCells(0, 0, 1.5, 2)).toThrow(RangeError);
+    expect(await sdkPackageSnapshot(document)).toEqual(beforeFraction);
+
+    if (false) {
+      const wrongCasing: AddTableCellOptions = {
+        // @ts-expect-error public span fields use exact PptxGenJS lowercase spelling.
+        colSpan: 2,
+      };
+      const wrongRowCasing: AddTableCellOptions = {
+        // @ts-expect-error public span fields use exact PptxGenJS lowercase spelling.
+        rowSpan: 2,
+      };
+      const stringSpan: AddTableCellOptions = {
+        // @ts-expect-error spans are numbers.
+        colspan: '2',
+      };
+      const logicalOnly: TableMergeRegion = {
+        rowIndex: 0,
+        columnIndex: 0,
+        rowspan: 2,
+        colspan: 2,
+        // @ts-expect-error snapshots expose physical coordinates only.
+        logicalRowIndex: 0,
+      };
+      // @ts-expect-error merge snapshots are readonly.
+      region.rowspan = 3;
+      // @ts-expect-error mergeCells requires four numeric arguments.
+      ordinary.mergeCells(0, 0, 2);
+      // @ts-expect-error unmergeCell requires both physical coordinates.
+      ordinary.unmergeCell(0);
+      // @ts-expect-error mergeCells coordinates are numeric.
+      ordinary.mergeCells('0', 0, 1, 2);
+      void [wrongCasing, wrongRowCasing, stringSpan, logicalOnly];
+    }
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedMixed = reopened.slides[0]!.shapes.find((shape): shape is TableModel =>
+      shape instanceof TableModel && shape.name === 'SDK mixed spans')!;
+    const reopenedOrdinary = reopened.slides[0]!.shapes.find(
+      (shape): shape is TableModel =>
+        shape instanceof TableModel && shape.name === 'SDK editable merge',
+    )!;
+    expect(reopenedMixed.mergeRegions).toEqual(mixed.mergeRegions);
+    expect(reopenedMixed.rows).toEqual(mixed.rows);
+    expect(reopenedOrdinary.mergeRegions).toEqual([]);
+    expect(validatePackage(reopened.opcPackage).filter(({ severity }) =>
+      severity === 'error')).toEqual([]);
   });
 
   it('creates, edits, and round-trips plain-text paragraphs with normalized line endings', async () => {

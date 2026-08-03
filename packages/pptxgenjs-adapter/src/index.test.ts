@@ -196,6 +196,9 @@ type PptxGenJSPublicTextOptions = Parameters<
 type PptxGenJSPublicText = Parameters<
   ReturnType<PptxGenJSPublicInstance['addSlide']>['addText']
 >[0];
+type PptxGenJSPublicTableCell = Parameters<
+  ReturnType<PptxGenJSPublicInstance['addSlide']>['addTable']
+>[0][number][number];
 type PptxGenJSMediaOptions = Parameters<
   ReturnType<PptxGenJSPublicInstance['addSlide']>['addMedia']
 >[0];
@@ -228,6 +231,17 @@ const publicBreakLineText: PptxGenJSPublicText = [
   { text: 'First', options: { breakLine: true } },
   { text: 'Second', options: {} },
 ];
+const publicTableSpanCell: PptxGenJSPublicTableCell = {
+  text: 'Merged',
+  options: { colspan: 2, rowspan: 2 },
+};
+const unsupportedPublicTableSpanCell: PptxGenJSPublicTableCell = {
+  text: 'Invalid',
+  options: {
+    // @ts-expect-error PptxGenJS 4.0.1 declares numeric span fields.
+    colspan: '2',
+  },
+};
 const unsupportedPublicBreakLineText: PptxGenJSPublicText = [{
   text: 'Invalid',
   options: {
@@ -276,6 +290,8 @@ void [
   publicSlideNumberOptions,
   publicTextBoxOptions,
   publicBreakLineText,
+  publicTableSpanCell,
+  unsupportedPublicTableSpanCell,
   unsupportedPublicBreakLineText,
   unsupportedPublicTextBoxOptions,
   unsupportedPublicHandleOptions,
@@ -10351,6 +10367,254 @@ describe('importPptxGenJS', () => {
     expect(native.opcPackage.mutations).toEqual(invalidJournal);
     expect(nativeSlide.shapes).toHaveLength(shapeCount);
     expect(nativeSlide.shapes[0]).toBe(nativeTable);
+  });
+
+  it('matches legal PptxGenJS table merges and native colspan and rowspan output', async () => {
+    type MergeInput = string | {
+      readonly text: string;
+      readonly options?: {
+        readonly colspan?: number;
+        readonly rowspan?: number;
+      };
+    };
+    const cases: readonly {
+      readonly name: string;
+      readonly rows: readonly (readonly MergeInput[])[];
+      readonly region: {
+        readonly rowIndex: number;
+        readonly columnIndex: number;
+        readonly rowspan: number;
+        readonly colspan: number;
+      };
+    }[] = [
+      {
+        name: 'Horizontal',
+        rows: [
+          [{ text: 'Horizontal anchor', options: { colspan: 2 } }, 'Top right'],
+          ['H 1', 'H 2', 'H 3'],
+        ],
+        region: { rowIndex: 0, columnIndex: 0, rowspan: 1, colspan: 2 },
+      },
+      {
+        name: 'Vertical',
+        rows: [
+          [{ text: 'Vertical anchor', options: { rowspan: 2 } }, 'Top right'],
+          ['Bottom right'],
+        ],
+        region: { rowIndex: 0, columnIndex: 0, rowspan: 2, colspan: 1 },
+      },
+      {
+        name: 'Rectangular',
+        rows: [
+          [{ text: 'Rectangle anchor', options: { colspan: 2, rowspan: 2 } }, 'Top right'],
+          ['Bottom right'],
+          ['R 1', 'R 2', 'R 3'],
+        ],
+        region: { rowIndex: 0, columnIndex: 0, rowspan: 2, colspan: 2 },
+      },
+      {
+        name: 'Offset',
+        rows: [
+          ['Top left', { text: 'Offset anchor', options: { colspan: 2, rowspan: 2 } }, 'Top right'],
+          ['Bottom left', 'Bottom right'],
+          ['O 1', 'O 2', 'O 3', 'O 4'],
+        ],
+        region: { rowIndex: 0, columnIndex: 1, rowspan: 2, colspan: 2 },
+      },
+      {
+        name: 'Full row',
+        rows: [
+          [{ text: 'Full row anchor', options: { colspan: 3 } }],
+          ['F 1', 'F 2', 'F 3'],
+        ],
+        region: { rowIndex: 0, columnIndex: 0, rowspan: 1, colspan: 3 },
+      },
+    ];
+    const generated = new PptxGenJS();
+    generated.layout = 'LAYOUT_WIDE';
+    const native = PptxDocument.create({ slideSize: 'wide' });
+    for (const fixture of cases) {
+      generated.addSlide().addTable(structuredClone(fixture.rows), {
+        x: 0.5,
+        y: 0.5,
+        w: 6,
+        h: 2,
+        margin: 0,
+      });
+      native.addSlide().addTable(structuredClone(fixture.rows), {
+        x: inches(0.5),
+        y: inches(0.5),
+        width: inches(6),
+        height: inches(2),
+        margin: 0,
+      });
+    }
+    expect(generated.version).toBe('4.0.1');
+    const imported = await importPptxGenJS(generated);
+    const mergeTokenMatrices = (document: PptxDocument, slideIndex: number) => {
+      const table = slideXml(document, slideIndex)
+        .match(/<a:tbl(?:\s[^>]*)?>[\s\S]*?<\/a:tbl>/)?.[0];
+      if (!table) throw new Error(`Table ${slideIndex} was not found`);
+      return [...table.matchAll(/<a:tr(?:\s[^>]*)?>([\s\S]*?)<\/a:tr>/g)]
+        .map((row) => [...row[1]!.matchAll(/<a:tc(?:\s[^>]*)?>/g)].map((cell) => {
+          const attribute = (name: string): string | undefined =>
+            cell[0].match(new RegExp(`\\s${name}="([^"]+)"`))?.[1];
+          const boolean = (name: string): boolean => {
+            const value = attribute(name);
+            return value === '1' || value === 'true';
+          };
+          return {
+            rowSpan: Number(attribute('rowSpan') ?? 1),
+            gridSpan: Number(attribute('gridSpan') ?? 1),
+            vMerge: boolean('vMerge'),
+            hMerge: boolean('hMerge'),
+          };
+        }));
+    };
+
+    for (const [index, fixture] of cases.entries()) {
+      const importedTable = imported.slides[index]!.shapes[0] as TableModel;
+      const nativeTable = native.slides[index]!.shapes[0] as TableModel;
+      expect(importedTable).toBeInstanceOf(TableModel);
+      expect(nativeTable).toBeInstanceOf(TableModel);
+      expect(importedTable.rows.map(({ cells }) => cells.length))
+        .toEqual(nativeTable.rows.map(({ cells }) => cells.length));
+      expect(importedTable.rows.map(({ cells }) => cells.map(({ text }) => text)))
+        .toEqual(nativeTable.rows.map(({ cells }) => cells.map(({ text }) => text)));
+      expect(importedTable.mergeRegions).toEqual([fixture.region]);
+      expect(nativeTable.mergeRegions).toEqual([fixture.region]);
+      expect(mergeTokenMatrices(imported, index)).toEqual(mergeTokenMatrices(native, index));
+
+      importedTable.unmergeCell(
+        fixture.region.rowIndex + fixture.region.rowspan - 1,
+        fixture.region.columnIndex + fixture.region.colspan - 1,
+      );
+      expect(importedTable.mergeRegions).toEqual([]);
+      importedTable.mergeCells(
+        fixture.region.rowIndex,
+        fixture.region.columnIndex,
+        fixture.region.rowspan,
+        fixture.region.colspan,
+      );
+      expect(importedTable.mergeRegions).toEqual([fixture.region]);
+      expect(mergeTokenMatrices(imported, index)).toEqual(mergeTokenMatrices(native, index));
+    }
+
+    const reopenedImported = await PptxDocument.open(await imported.write());
+    const reopenedNative = await PptxDocument.open(await native.write());
+    for (const [index, fixture] of cases.entries()) {
+      const importedTable = reopenedImported.slides[index]!.shapes[0] as TableModel;
+      const nativeTable = reopenedNative.slides[index]!.shapes[0] as TableModel;
+      expect(importedTable.mergeRegions).toEqual([fixture.region]);
+      expect(nativeTable.mergeRegions).toEqual([fixture.region]);
+      expect(importedTable.rows.map(({ cells }) => cells.map(({ text }) => text)))
+        .toEqual(nativeTable.rows.map(({ cells }) => cells.map(({ text }) => text)));
+      expect(mergeTokenMatrices(reopenedImported, index))
+        .toEqual(mergeTokenMatrices(reopenedNative, index));
+    }
+  });
+
+  it('locks PptxGenJS colspan and rowspan mutation and invalid-output differences', async () => {
+    const callerCell = {
+      text: 'Caller anchor',
+      options: { colspan: 2, rowspan: 2 } as Record<string, unknown>,
+    };
+    const callerRows = [[callerCell, 'Top right'], ['Bottom right']];
+    const callerBefore = structuredClone(callerRows);
+    const mutating = new PptxGenJS();
+    mutating.addSlide().addTable(callerRows, { x: 1, y: 1, w: 4, h: 2 });
+    expect(callerCell.options).toHaveProperty('border');
+    await mutating.write({ outputType: 'nodebuffer', compression: true });
+    expect(callerRows).not.toEqual(callerBefore);
+    expect(callerCell.options).toMatchObject({
+      colspan: 2,
+      rowspan: 2,
+      color: '000000',
+      fontSize: 12,
+      _lineIdx: 0,
+    });
+
+    type InvalidInput = string | {
+      readonly text: string;
+      readonly options?: {
+        readonly colspan?: number;
+        readonly rowspan?: number;
+      };
+    };
+    const invalidCases: readonly {
+      readonly name: string;
+      readonly rows: readonly (readonly InvalidInput[])[];
+      readonly physicalRows: readonly number[];
+      readonly gridColumns: number;
+      readonly emittedToken?: string;
+    }[] = [
+      {
+        name: 'lopsided row',
+        rows: [['A', 'B'], ['C']],
+        physicalRows: [2, 1],
+        gridColumns: 2,
+      },
+      {
+        name: 'negative colspan',
+        rows: [[{ text: 'Negative', options: { colspan: -1 } }, 'B']],
+        physicalRows: [2],
+        gridColumns: 0,
+      },
+      {
+        name: 'fractional rowspan',
+        rows: [
+          [{ text: 'Fractional', options: { rowspan: 1.5 } }, 'B'],
+          ['C', 'D'],
+        ],
+        physicalRows: [2, 3],
+        gridColumns: 2,
+        emittedToken: 'rowSpan="1.5"',
+      },
+      {
+        name: 'out-of-bounds rowspan',
+        rows: [
+          [{ text: 'Out of bounds', options: { rowspan: 3 } }, 'B'],
+          ['C'],
+        ],
+        physicalRows: [2, 2],
+        gridColumns: 2,
+        emittedToken: 'rowSpan="3"',
+      },
+    ];
+
+    for (const fixture of invalidCases) {
+      const generated = new PptxGenJS();
+      generated.addSlide().addTable(structuredClone(fixture.rows), {
+        x: 1,
+        y: 1,
+        w: 4,
+        h: 2,
+      });
+      const imported = await importPptxGenJS(generated);
+      const table = imported.slides[0]!.shapes[0] as TableModel;
+      const xml = slideXml(imported, 0);
+      expect(table.rows.map(({ cells }) => cells.length), fixture.name)
+        .toEqual(fixture.physicalRows);
+      expect(table.mergeRegions, fixture.name).toBeUndefined();
+      expect(xml.match(/<a:gridCol\b/g)?.length ?? 0, fixture.name)
+        .toBe(fixture.gridColumns);
+      if (fixture.emittedToken !== undefined) {
+        expect(xml, fixture.name).toContain(fixture.emittedToken);
+      }
+
+      const native = PptxDocument.create();
+      const nativeSlide = native.addSlide();
+      const nativeRows = structuredClone(fixture.rows);
+      const nativeRowsBefore = structuredClone(nativeRows);
+      const partBefore = native.opcPackage.requirePart(nativeSlide.partUri).bytes;
+      const journalBefore = [...native.opcPackage.mutations];
+      expect(() => nativeSlide.addTable(nativeRows), fixture.name).toThrow();
+      expect(nativeRows, fixture.name).toEqual(nativeRowsBefore);
+      expect(native.opcPackage.requirePart(nativeSlide.partUri).bytes, fixture.name)
+        .toEqual(partBefore);
+      expect(native.opcPackage.mutations, fixture.name).toEqual(journalBefore);
+      expect(nativeSlide.shapes, fixture.name).toEqual([]);
+    }
   });
 
   it('imports PptxGenJS table fit-like runtime options as fit-less cells', async () => {
