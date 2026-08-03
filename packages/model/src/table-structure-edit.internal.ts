@@ -1,10 +1,15 @@
 import type {
+  LosslessXmlDocument,
   XmlAttribute,
   XmlElement,
 } from '@pptx/lossless-xml';
 import { ModelParseError } from './errors.js';
+import { renderEmptyTableCellFragment } from './table-create.internal.js';
 import {
   readTableMergeStateFromCells,
+  replaceTableCellMergeAttributes,
+  type TableCellMergeTokens,
+  type TableMergeRegionState,
   type TableMergeState,
 } from './table-cell-merge.internal.js';
 
@@ -12,6 +17,9 @@ const PRESENTATION_NAMESPACE =
   'http://schemas.openxmlformats.org/presentationml/2006/main';
 const DRAWING_NAMESPACE =
   'http://schemas.openxmlformats.org/drawingml/2006/main';
+const RELATIONSHIP_NAMESPACE =
+  'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+const MAX_TABLE_PHYSICAL_CELLS = 1_000_000;
 const MAX_INSERT_ITEMS = 999_999;
 const ROW_INSERT_KEYS = ['count', 'rowHeights'] as const;
 const COLUMN_INSERT_KEYS = ['count', 'columnWidths'] as const;
@@ -186,6 +194,207 @@ export function requireEditableTableStructure(
   });
 }
 
+export function insertTableRows(
+  xml: LosslessXmlDocument,
+  frame: XmlElement,
+  input: Readonly<NormalizedTableRowInsert>,
+  partUri: string,
+): void {
+  const structure = requireEditableTableStructure(frame, partUri);
+  const rowCount = structure.rows.length;
+  const columnCount = structure.gridColumns.length;
+  if (input.rowIndex > rowCount) {
+    throw new RangeError(`Table row insert index ${input.rowIndex} is out of range`);
+  }
+  const currentCells = rowCount * columnCount;
+  const availableCells = MAX_TABLE_PHYSICAL_CELLS - currentCells;
+  if (
+    availableCells < 0
+    || input.count > Math.floor(availableCells / columnCount)
+  ) {
+    throw new RangeError('Table row insert exceeds the physical table cell limit');
+  }
+
+  const insertedHeights = materializeInsertedDimensions(
+    input.rowHeights,
+    input.count,
+    structure.rowHeights[input.rowIndex] ?? structure.rowHeights.at(-1)!,
+    'Table row insert heights',
+  );
+  const finalHeights = [
+    ...structure.rowHeights.slice(0, input.rowIndex),
+    ...insertedHeights,
+    ...structure.rowHeights.slice(input.rowIndex),
+  ];
+  const finalHeight = explicitDimensionTotal(finalHeights, 'Table row heights');
+  const regionUpdates = structure.mergeState.regions.map((region) => {
+    if (input.rowIndex <= region.rowIndex) {
+      return {
+        source: region,
+        target: Object.freeze({
+          ...region,
+          rowIndex: region.rowIndex + input.count,
+        }),
+        changed: false,
+      };
+    }
+    if (input.rowIndex < region.rowIndex + region.rowspan) {
+      return {
+        source: region,
+        target: Object.freeze({
+          ...region,
+          rowspan: region.rowspan + input.count,
+        }),
+        changed: true,
+      };
+    }
+    return { source: region, target: region, changed: false };
+  });
+  const finalRegions = regionUpdates.map(({ target }) => target);
+  const mergeOwnership = validateMergeRegions(
+    finalRegions,
+    rowCount + input.count,
+    columnCount,
+  );
+
+  const drawingDeclaration = namespaceUriForPrefix(structure.table, 'a')
+    === DRAWING_NAMESPACE
+    ? ''
+    : ` xmlns:a="${DRAWING_NAMESPACE}"`;
+  const insertedRows = insertedHeights.map((height, offset) => {
+    const rowIndex = input.rowIndex + offset;
+    const cells = Array.from({ length: columnCount }, (_, columnIndex) =>
+      renderEmptyTableCellFragment(
+        mergeTokensAt(mergeOwnership, columnCount, rowIndex, columnIndex),
+      )).join('');
+    return `<a:tr${drawingDeclaration} h="${height}">${cells}</a:tr>`;
+  }).join('');
+
+  for (const update of regionUpdates) {
+    if (!update.changed) continue;
+    for (let rowOffset = 0; rowOffset < update.source.rowspan; rowOffset += 1) {
+      for (
+        let columnOffset = 0;
+        columnOffset < update.source.colspan;
+        columnOffset += 1
+      ) {
+        const sourceRow = update.source.rowIndex + rowOffset;
+        const sourceColumn = update.source.columnIndex + columnOffset;
+        const targetRow = sourceRow < input.rowIndex
+          ? sourceRow
+          : sourceRow + input.count;
+        replaceTableCellMergeAttributes(
+          xml,
+          structure.cells[sourceRow]![sourceColumn]!,
+          mergeTokensForRegionCell(update.target, targetRow, sourceColumn),
+        );
+      }
+    }
+  }
+
+  const insertionPoint = input.rowIndex < rowCount
+    ? structure.rows[input.rowIndex]!.start
+    : structure.rows.at(-1)!.end;
+  xml.replace(insertionPoint, insertionPoint, insertedRows);
+  if (finalHeight !== undefined && finalHeight !== structure.height) {
+    xml.replaceAttribute(structure.heightAttribute, String(finalHeight));
+  }
+}
+
+export function deleteTableRows(
+  xml: LosslessXmlDocument,
+  frame: XmlElement,
+  input: Readonly<NormalizedTableDelete>,
+  partUri: string,
+): ReadonlySet<string> {
+  const structure = requireEditableTableStructure(frame, partUri);
+  const rowCount = structure.rows.length;
+  const columnCount = structure.gridColumns.length;
+  if (
+    input.index >= rowCount
+    || input.count > rowCount - input.index
+  ) {
+    throw new RangeError(
+      `Table row delete range ${input.index}:${input.count} is out of range`,
+    );
+  }
+  if (input.count === rowCount) {
+    throw new RangeError('Table row delete must leave at least one row');
+  }
+  const deleteEnd = input.index + input.count;
+  const finalHeights = structure.rowHeights.filter(
+    (_, index) => index < input.index || index >= deleteEnd,
+  );
+  const finalHeight = explicitDimensionTotal(finalHeights, 'Table row heights');
+  const regionUpdates = structure.mergeState.regions.map((region) => {
+    const regionEnd = region.rowIndex + region.rowspan;
+    const overlap = Math.max(
+      0,
+      Math.min(regionEnd, deleteEnd) - Math.max(region.rowIndex, input.index),
+    );
+    if (overlap === 0) {
+      const target = region.rowIndex >= deleteEnd
+        ? Object.freeze({ ...region, rowIndex: region.rowIndex - input.count })
+        : region;
+      return { source: region, target, changed: false, survivorCount: region.rowspan };
+    }
+    const survivorCount = region.rowspan - overlap;
+    if (survivorCount === 0) {
+      return { source: region, target: undefined, changed: true, survivorCount };
+    }
+    const target = Object.freeze({
+      ...region,
+      rowIndex: region.rowIndex < input.index ? region.rowIndex : input.index,
+      rowspan: survivorCount,
+    });
+    return { source: region, target, changed: true, survivorCount };
+  });
+  const finalRegions = regionUpdates.flatMap(({ target }) =>
+    target && (target.rowspan > 1 || target.colspan > 1) ? [target] : []);
+  validateMergeRegions(finalRegions, rowCount - input.count, columnCount);
+
+  const removedRelationshipIds = new Set<string>();
+  for (let rowIndex = input.index; rowIndex < deleteEnd; rowIndex += 1) {
+    collectRelationshipIds(structure.rows[rowIndex]!, removedRelationshipIds);
+  }
+
+  for (const update of regionUpdates) {
+    if (!update.changed || update.survivorCount === 0) continue;
+    for (let rowOffset = 0; rowOffset < update.source.rowspan; rowOffset += 1) {
+      const sourceRow = update.source.rowIndex + rowOffset;
+      if (sourceRow >= input.index && sourceRow < deleteEnd) continue;
+      const targetRow = sourceRow < input.index
+        ? sourceRow
+        : sourceRow - input.count;
+      for (
+        let columnOffset = 0;
+        columnOffset < update.source.colspan;
+        columnOffset += 1
+      ) {
+        const columnIndex = update.source.columnIndex + columnOffset;
+        const tokens = update.target
+          && (update.target.rowspan > 1 || update.target.colspan > 1)
+          ? mergeTokensForRegionCell(update.target, targetRow, columnIndex)
+          : {};
+        replaceTableCellMergeAttributes(
+          xml,
+          structure.cells[sourceRow]![columnIndex]!,
+          tokens,
+        );
+      }
+    }
+  }
+
+  for (let rowIndex = input.index; rowIndex < deleteEnd; rowIndex += 1) {
+    const row = structure.rows[rowIndex]!;
+    xml.replace(row.start, row.end, '');
+  }
+  if (finalHeight !== undefined && finalHeight !== structure.height) {
+    xml.replaceAttribute(structure.heightAttribute, String(finalHeight));
+  }
+  return removedRelationshipIds;
+}
+
 function normalizeIndex(value: unknown, context: string): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
     throw new TypeError(`${context} must be finite`);
@@ -194,6 +403,114 @@ function normalizeIndex(value: unknown, context: string): number {
     throw new RangeError(`${context} must be a non-negative safe integer`);
   }
   return value;
+}
+
+function materializeInsertedDimensions(
+  explicit: readonly number[] | undefined,
+  count: number,
+  fallback: number,
+  context: string,
+): readonly number[] {
+  if (explicit === undefined) {
+    return Array.from({ length: count }, () => fallback);
+  }
+  if (explicit.length !== count) {
+    throw new TypeError(`${context} must match the insert count`);
+  }
+  return explicit;
+}
+
+function explicitDimensionTotal(
+  values: readonly number[],
+  context: string,
+): number | undefined {
+  if (values.some((value) => value === 0)) return undefined;
+  let total = 0;
+  for (const value of values) {
+    if (value > Number.MAX_SAFE_INTEGER - total) {
+      throw new RangeError(`${context} sum must fit a safe integer EMU value`);
+    }
+    total += value;
+  }
+  return total;
+}
+
+function mergeTokensAt(
+  ownership: ReadonlyMap<number, Readonly<TableMergeRegionState>>,
+  columnCount: number,
+  rowIndex: number,
+  columnIndex: number,
+): Readonly<TableCellMergeTokens> {
+  const region = ownership.get(rowIndex * columnCount + columnIndex);
+  return region ? mergeTokensForRegionCell(region, rowIndex, columnIndex) : {};
+}
+
+function mergeTokensForRegionCell(
+  region: Readonly<TableMergeRegionState>,
+  rowIndex: number,
+  columnIndex: number,
+): Readonly<TableCellMergeTokens> {
+  const rowOffset = rowIndex - region.rowIndex;
+  const columnOffset = columnIndex - region.columnIndex;
+  return {
+    ...(rowOffset === 0 && region.rowspan > 1
+      ? { rowSpan: region.rowspan }
+      : {}),
+    ...(columnOffset === 0 && region.colspan > 1
+      ? { gridSpan: region.colspan }
+      : {}),
+    ...(rowOffset > 0 ? { vertical: true as const } : {}),
+    ...(columnOffset > 0 ? { horizontal: true as const } : {}),
+  };
+}
+
+function validateMergeRegions(
+  regions: readonly Readonly<TableMergeRegionState>[],
+  rowCount: number,
+  columnCount: number,
+): ReadonlyMap<number, Readonly<TableMergeRegionState>> {
+  const ownership = new Map<number, Readonly<TableMergeRegionState>>();
+  for (const region of regions) {
+    if (
+      region.rowspan < 1
+      || region.colspan < 1
+      || (region.rowspan === 1 && region.colspan === 1)
+      || region.rowIndex < 0
+      || region.columnIndex < 0
+      || region.rowspan > rowCount - region.rowIndex
+      || region.colspan > columnCount - region.columnIndex
+    ) {
+      throw new RangeError('Projected table merge region is out of range');
+    }
+    for (let rowOffset = 0; rowOffset < region.rowspan; rowOffset += 1) {
+      for (let columnOffset = 0; columnOffset < region.colspan; columnOffset += 1) {
+        const key = (region.rowIndex + rowOffset) * columnCount
+          + region.columnIndex + columnOffset;
+        if (ownership.has(key)) {
+          throw new RangeError('Projected table merge regions overlap');
+        }
+        ownership.set(key, region);
+      }
+    }
+  }
+  return ownership;
+}
+
+function collectRelationshipIds(
+  root: XmlElement,
+  relationshipIds: Set<string>,
+): void {
+  for (const attribute of root.attributes) {
+    const prefix = lexicalPrefix(attribute.name);
+    if (
+      prefix !== ''
+      && attribute.value.length > 0
+      && namespaceUriForPrefix(root, prefix) === RELATIONSHIP_NAMESPACE
+    ) relationshipIds.add(attribute.value);
+  }
+  for (const child of root.children) {
+    if (child.type === 'element') collectRelationshipIds(child, relationshipIds);
+  }
 }
 
 function normalizeCount(value: unknown, context: string): number {
@@ -342,7 +659,13 @@ function readIntegerAttribute(
 }
 
 function namespaceUri(element: XmlElement): string | undefined {
-  const prefix = lexicalPrefix(element.name);
+  return namespaceUriForPrefix(element, lexicalPrefix(element.name));
+}
+
+function namespaceUriForPrefix(
+  element: XmlElement,
+  prefix: string,
+): string | undefined {
   const declaration = prefix === '' ? 'xmlns' : `xmlns:${prefix}`;
   for (let current: XmlElement | undefined = element; current; current = current.parent) {
     const attributes = current.attributes.filter(({ name }) => name === declaration);
