@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
-import { inches, SlideModel, TableModel } from '@pptx/model';
+import {
+  inches,
+  ShapeModel,
+  SlideModel,
+  TableModel,
+  type RichTextParagraph,
+} from '@pptx/model';
 import { PptxDocument } from './index.js';
 import {
   normalizeTableToSlidesRequest,
@@ -977,6 +983,166 @@ describe('PptxDocument.tableToSlides lifecycle', () => {
     }));
     expect(retry).toHaveLength(1);
     expect(deck.slides).toEqual(retry);
+  });
+});
+
+describe('PptxDocument.tableToSlides additional objects', () => {
+  it('adds shape, table, and rich text to every HTML-generated page in order', async () => {
+    const dom = tableFixture({ bodies: [Array.from({ length: 35 }, (_, index) => [
+      cell(`Row ${index} ${'content '.repeat(8)}`),
+    ])] });
+    const deck = PptxDocument.create({
+      slideSize: { width: inches(6), height: inches(2.5) },
+    });
+    const richText: readonly RichTextParagraph[] = [{
+      runs: [{
+        text: 'Details',
+        style: {
+          bold: true,
+          hyperlink: { url: 'https://example.com/details' },
+        },
+      }],
+    }];
+    const shapeOptions = {
+      x: inches(0.1),
+      y: inches(0.2),
+      width: inches(0.3),
+      height: inches(0.4),
+    };
+    const tableRows = [['K', 'V']];
+    const textOptions = {
+      x: inches(0.7),
+      y: inches(0.8),
+      width: inches(0.9),
+      height: inches(1),
+    };
+    const pages = await withGlobalDocument(dom.document, () => deck.tableToSlides('table', {
+      addShape: { type: 'roundRect', options: shapeOptions },
+      addTable: { rows: tableRows, options: { x: 50, y: 60, rowHeights: 100 } },
+      addText: { text: richText, options: textOptions },
+    }));
+    expect(pages.length).toBeGreaterThan(1);
+    expect(pages.every((page) => page.shapes.map(({ kind }) => kind).join(',') ===
+      'table,shape,table,text')).toBe(true);
+    const pageShapes = pages.map((page) => page.shapes[1]!);
+    expect(pageShapes.every((shape, index) => index === 0 || shape !== pageShapes[0])).toBe(true);
+    expect(pages.every((page) => page.relationships.some((relationship) =>
+      relationship.type.endsWith('/hyperlink')
+      && relationship.target === 'https://example.com/details'
+      && relationship.targetMode === 'External'))).toBe(true);
+
+    shapeOptions.x = inches(9);
+    tableRows[0]![0] = 'mutated';
+    textOptions.x = inches(9);
+    expect(pages.every((page) => page.shapes[1]!.transform.x === inches(0.1))).toBe(true);
+    expect(pages.every((page) => {
+      const table = page.shapes[2];
+      return table instanceof TableModel && table.rows[0]!.cells[0]!.text === 'K';
+    })).toBe(true);
+    expect(pages.every((page) => page.shapes[3]!.transform.x === inches(0.7))).toBe(true);
+  });
+
+  it('uses plain addText for strings', async () => {
+    const dom = tableFixture({ bodies: [[[cell('A')]]] });
+    const deck = PptxDocument.create();
+    const pages = await withGlobalDocument(dom.document, () => deck.tableToSlides('table', {
+      autoPage: false,
+      addText: { text: 'Plain addition', options: { x: inches(0.1), y: inches(0.2) } },
+    }));
+    expect(pages[0]!.shapes.map(({ kind }) => kind)).toEqual(['table', 'text']);
+    expect(pages[0]!.shapes[1]).toBeInstanceOf(ShapeModel);
+    expect((pages[0]!.shapes[1] as ShapeModel).text).toBe('Plain addition');
+  });
+
+  it('keeps nested additional-table continuation pages outside the HTML result snapshot', async () => {
+    const dom = tableFixture({ bodies: [[[cell('HTML')]]] });
+    const deck = PptxDocument.create({
+      slideSize: { width: inches(5), height: inches(2) },
+    });
+    const additionalRows = Array.from({ length: 35 }, (_, index) => [
+      `Additional ${index} ${'content '.repeat(8)}`,
+    ]);
+    const pages = await withGlobalDocument(dom.document, () => deck.tableToSlides('table', {
+      autoPage: false,
+      addShape: {
+        type: 'rect',
+        options: {
+          x: inches(0.01),
+          y: inches(0.01),
+          width: inches(0.1),
+          height: inches(0.1),
+        },
+      },
+      addTable: {
+        rows: additionalRows,
+        options: {
+          autoPage: true,
+          x: inches(0.25),
+          y: inches(0.5),
+          width: inches(4.5),
+          columnWidths: [inches(4.5)],
+          slideMargin: inches(0.25),
+        },
+      },
+      addText: {
+        text: 'HTML page only',
+        options: { x: inches(0.01), y: inches(0.2) },
+      },
+    }));
+    expect(pages).toHaveLength(1);
+    expect(deck.slides.length).toBeGreaterThan(1);
+    expect(pages[0]!.shapes.map(({ kind }) => kind)).toEqual([
+      'table', 'shape', 'table', 'text',
+    ]);
+    expect(deck.slides.slice(1).every((slide) =>
+      slide.shapes.map(({ kind }) => kind).join(',') === 'table')).toBe(true);
+  });
+
+  it('rolls back every page when an additional object is invalid', async () => {
+    const dom = tableFixture({ bodies: [Array.from({ length: 25 }, (_, index) => [
+      cell(`Row ${index} ${'content '.repeat(6)}`),
+    ])] });
+    const deck = PptxDocument.create({
+      slideSize: { width: inches(5), height: inches(2) },
+    });
+    const before = packageState(deck);
+    await expect(withGlobalDocument(dom.document, () => deck.tableToSlides('table', {
+      addShape: { type: 'not-a-shape' as 'rect' },
+      addText: { text: 'must not survive' },
+    }))).rejects.toThrow(/preset shape type/i);
+    expect(packageState(deck)).toEqual(before);
+    expect(deck.slides).toEqual([]);
+  });
+
+  it('rolls back page-local additions when a later HTML page fails after commit', async () => {
+    const dom = tableFixture({ bodies: [Array.from({ length: 30 }, (_, index) => [
+      cell(`Row ${index} ${'content '.repeat(8)}`),
+    ])] });
+    const deck = PptxDocument.create({
+      slideSize: { width: inches(5), height: inches(2) },
+    });
+    const before = packageState(deck);
+    const original = SlideModel.prototype.addText;
+    let calls = 0;
+    const failure = vi.spyOn(SlideModel.prototype, 'addText').mockImplementation(function (
+      this: SlideModel,
+      ...args: Parameters<SlideModel['addText']>
+    ) {
+      calls += 1;
+      const shape = original.apply(this, args);
+      if (calls === 2) throw new Error('injected later-page addition failure');
+      return shape;
+    });
+    try {
+      await expect(withGlobalDocument(dom.document, () => deck.tableToSlides('table', {
+        addText: { text: 'page-local' },
+      }))).rejects.toThrow(/later-page addition failure/i);
+    } finally {
+      failure.mockRestore();
+    }
+    expect(calls).toBe(2);
+    expect(packageState(deck)).toEqual(before);
+    expect(deck.slides).toEqual([]);
   });
 });
 

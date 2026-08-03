@@ -696,7 +696,23 @@ export class PptxDocument extends PresentationModel {
               : { masterName: request.masterSlideName },
           );
           first.addTable(prepared.rows, prepared.tableOptions);
-          return Object.freeze([first, ...first.newAutoPagedSlides]);
+          const htmlPages = Object.freeze([first, ...first.newAutoPagedSlides]);
+          for (const page of htmlPages) {
+            if (request.addShape !== undefined) {
+              page.addShape(request.addShape.type, request.addShape.options);
+            }
+            if (request.addTable !== undefined) {
+              page.addTable(request.addTable.rows, request.addTable.options);
+            }
+            if (request.addText !== undefined) {
+              if (typeof request.addText.text === 'string') {
+                page.addText(request.addText.text, request.addText.options);
+              } else {
+                page.addRichText(request.addText.text, request.addText.options);
+              }
+            }
+          }
+          return htmlPages;
         } finally {
           for (const slide of this.slides) {
             if (!existingPartUris.has(slide.partUri)) createdPartUris.add(slide.partUri);
