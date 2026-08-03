@@ -114,6 +114,15 @@ try {
       !addTableCellOptionsDeclaration.includes('readonly rowspan?: number;')) {
     throw new Error('Packed AddTableCellOptions declaration is missing table-cell spans');
   }
+  const tableMeasurementWeightDeclarations = [
+    'readonly autoPageCharWeight?: number;',
+    'readonly autoPageLineWeight?: number;',
+  ];
+  if (!tableMeasurementWeightDeclarations.every((field) =>
+    addTableOptionsDeclaration.includes(field) &&
+      addTableCellOptionsDeclaration.includes(field))) {
+    throw new Error('Packed table option declarations are missing measurement weights');
+  }
   const tableTextDefaultDeclarations = [
     'readonly bold?: boolean;',
     'readonly color?: RichTextColor;',
@@ -8629,6 +8638,468 @@ const tableAutoPageState = {
 const tableAutoPage = Object.values(tableAutoPageState).every(
   (value) => value === true || value === 0,
 );
+const tableContentMeasurementDocument = PptxDocument.create({ slideSize: 'wide' });
+const tableContentMeasurementOwner = {
+  x: inches(1),
+  y: inches(1.25),
+  width: inches(2),
+  height: inches(2.5),
+};
+const tableContentMeasurementContinuationY = inches(1.5);
+const tableContentMeasurementLayout = await tableContentMeasurementDocument
+  .defineSlideMaster({
+    title: 'PACKED-TABLE-CONTENT-MEASUREMENT',
+    objects: [{
+      kind: 'placeholder',
+      text: 'Measured table prompt',
+      options: {
+        name: 'packed_measurement_table',
+        type: 'tbl',
+        index: 205,
+        ...tableContentMeasurementOwner,
+      },
+    }],
+  });
+const tableContentMeasurementLead = tableContentMeasurementDocument.addSlide();
+const tableContentMeasurementSource = tableContentMeasurementDocument.addSlide({
+  masterName: tableContentMeasurementLayout.name,
+});
+const tableContentMeasurementSentinel = tableContentMeasurementDocument.addSlide();
+const tableContentMeasurementTarget = tableContentMeasurementDocument.addSlide();
+const tableContentMeasurementSection = tableContentMeasurementDocument.addSection({
+  title: 'Packed measured pages',
+});
+tableContentMeasurementDocument.assignSlideToSection(
+  tableContentMeasurementDocument.slides.indexOf(tableContentMeasurementSource),
+  tableContentMeasurementSection.id,
+);
+const tableContentMeasurementTargetInput = tableContentMeasurementDocument.slides.indexOf(
+  tableContentMeasurementTarget,
+) + 1;
+const tableContentMeasurementHeaderUrl = 'https://measurement.example/header';
+const tableContentMeasurementOuterUrl = 'https://measurement.example/outer';
+const tableContentMeasurementRunUrl = 'https://measurement.example/run';
+const tableContentMeasurementEditedUrl = 'https://measurement.example/edited';
+const tableContentMeasurementFixedHeights = [
+  inches(0.3),
+  inches(0.3),
+  inches(0.3),
+];
+const tableContentMeasurementFixedTable = tableContentMeasurementLead.addTable([
+  [
+    {
+      text: 'Fixed merge ' + 'F'.repeat(160),
+      options: { rowspan: 2, colspan: 2, margin: 0 },
+    },
+    'Fixed right',
+  ],
+  ['Fixed lower right'],
+  ['Fixed tail 1', 'Fixed tail 2', 'Fixed tail 3'],
+], {
+  name: 'Packed fixed measurement regression',
+  autoPage: true,
+  x: inches(0.5),
+  y: inches(0.5),
+  columnWidths: [inches(1), inches(1), inches(1)],
+  rowHeights: tableContentMeasurementFixedHeights,
+});
+const tableContentMeasurementAutomaticTable = tableContentMeasurementLead.addTable([
+  [{
+    text: 'Automatic omitted row height ' + 'A'.repeat(36),
+    options: { margin: 0 },
+  }],
+  [{
+    text: '自动行高漢字測量',
+    options: { margin: 0 },
+  }],
+], {
+  name: 'Packed omitted row-height measurement',
+  autoPage: true,
+  x: inches(0.5),
+  y: inches(2),
+  columnWidths: [inches(2)],
+  margin: 0,
+});
+const tableContentMeasurementRichA = 'A'.repeat(180);
+const tableContentMeasurementRichB = 'B'.repeat(120);
+const tableContentMeasurementTailRows = Array.from(
+  { length: 20 },
+  (_, index) => [{
+    text: 'Delete-only tail ' + String(index + 1),
+    options: { colspan: 2, margin: 0 },
+  }],
+);
+const tableContentMeasurementRows = [
+  [{
+    text: 'Measured header',
+    options: {
+      bold: true,
+      margin: 0,
+      hyperlink: {
+        url: tableContentMeasurementHeaderUrl,
+        tooltip: 'Repeated measured header',
+      },
+    },
+  }, 'Measured header right'],
+  [{
+    text: [{ runs: [
+      {
+        text: 'Measured outer ',
+        style: { bold: true },
+      },
+      {
+        text: tableContentMeasurementRichA,
+        style: {
+          bold: true,
+          color: { kind: 'srgb', value: 'C00000' },
+          hyperlink: {
+            url: tableContentMeasurementRunUrl,
+            tooltip: 'Measured run URL',
+          },
+        },
+      },
+      {
+        text: tableContentMeasurementRichB,
+        softBreakBefore: true,
+        style: {
+          italic: true,
+          color: { kind: 'scheme', value: 'accent2' },
+          hyperlink: {
+            slide: tableContentMeasurementTargetInput,
+            tooltip: 'Measured target slide',
+          },
+        },
+      },
+    ] }],
+    options: {
+      colspan: 2,
+      margin: 0,
+      autoPageCharWeight: -1,
+      autoPageLineWeight: 1,
+      hyperlink: {
+        url: tableContentMeasurementOuterUrl,
+        tooltip: 'Measured default link',
+      },
+    },
+  }],
+  [{
+    text: '漢字自動測量 CJK minimum',
+    options: {
+      colspan: 2,
+      margin: 0,
+      autoPageCharWeight: 1,
+      autoPageLineWeight: -1,
+    },
+  }],
+  [
+    {
+      text: 'Measured rowspan block',
+      options: { rowspan: 2, margin: 0 },
+    },
+    'Measured rowspan right 1',
+  ],
+  ['Measured rowspan right 2'],
+  ...tableContentMeasurementTailRows,
+];
+const tableContentMeasurementSourceTable = tableContentMeasurementSource.addTable(
+  tableContentMeasurementRows,
+  {
+    autoPage: true,
+    autoPageCharWeight: 0,
+    autoPageLineWeight: 0,
+    autoPageRepeatHeader: true,
+    autoPageHeaderRows: 1,
+    autoPageSlideStartY: tableContentMeasurementContinuationY,
+    slideMargin: 0,
+    placeholder: 'packed_measurement_table',
+    columnWidths: [inches(1), inches(1)],
+    rowHeights: [
+      0,
+      0,
+      inches(0.35),
+      0,
+      0,
+      ...tableContentMeasurementTailRows.map(() => 0),
+    ],
+  },
+);
+const tableContentMeasurementGenerated = tableContentMeasurementSource.newAutoPagedSlides;
+const tableContentMeasurementInitialSlides = [
+  tableContentMeasurementLead,
+  tableContentMeasurementSource,
+  ...tableContentMeasurementGenerated,
+  tableContentMeasurementSentinel,
+  tableContentMeasurementTarget,
+];
+const tableContentMeasurementTableFor = (slide) => slide.shapes.find(
+  (shape) => shape instanceof TableModel &&
+    shape.name === 'packed_measurement_table',
+);
+const tableContentMeasurementPageTables = [
+  tableContentMeasurementSourceTable,
+  ...tableContentMeasurementGenerated.map(tableContentMeasurementTableFor),
+];
+const tableContentMeasurementXml = (document, slide) => new TextDecoder().decode(
+  document.opcPackage.requirePart(slide.partUri).bytes,
+);
+const tableContentMeasurementClickIds = (document, slide) => [
+  ...tableContentMeasurementXml(document, slide).matchAll(
+    /<a:hlinkClick\\b[^>]*\\br:id="([^"]+)"/g,
+  ),
+].map((match) => match[1]);
+const tableContentMeasurementOwnedLinks = (slide) => slide.relationships.filter(
+  ({ type }) => type.endsWith('/hyperlink') || type.endsWith('/slide'),
+);
+const tableContentMeasurementLinksOwned = (document, slide) => {
+  const clickIds = new Set(tableContentMeasurementClickIds(document, slide));
+  const ownedIds = new Set(tableContentMeasurementOwnedLinks(slide).map(({ id }) => id));
+  return clickIds.size === ownedIds.size &&
+    [...clickIds].every((id) => ownedIds.has(id));
+};
+const tableContentMeasurementRowsPositive = (table) =>
+  table instanceof TableModel &&
+  table.rowHeights?.every((height) => height > 0) === true &&
+  table.transform.height === table.rowHeights.reduce((sum, height) => sum + height, 0);
+const tableContentMeasurementCreated =
+  tableContentMeasurementGenerated.length >= 4 &&
+  Object.isFrozen(tableContentMeasurementGenerated) &&
+  JSON.stringify(tableContentMeasurementDocument.slides.map(({ partUri }) => partUri)) ===
+    JSON.stringify(tableContentMeasurementInitialSlides.map(({ partUri }) => partUri)) &&
+  tableContentMeasurementPageTables.every(
+    (table) => tableContentMeasurementRowsPositive(table),
+  );
+const tableContentMeasurementAutomatic =
+  tableContentMeasurementRowsPositive(tableContentMeasurementAutomaticTable) &&
+  tableContentMeasurementAutomaticTable.rowHeights.length === 2 &&
+  tableContentMeasurementPageTables.flatMap(({ rowHeights }) => rowHeights)
+    .every((height) => height > 0);
+const tableContentMeasurementMinimumRow = tableContentMeasurementPageTables
+  .flatMap((table) => table.rows.map((row, rowIndex) => ({
+    text: row.cells[0]?.text,
+    height: table.rowHeights?.[rowIndex],
+  })))
+  .find(({ text }) => text === '漢字自動測量 CJK minimum');
+const tableContentMeasurementMinimum =
+  tableContentMeasurementMinimumRow?.height >= inches(0.35);
+const tableContentMeasurementDeleteSlide = tableContentMeasurementGenerated.at(-1);
+const tableContentMeasurementDeleteTable = tableContentMeasurementDeleteSlide === undefined
+  ? undefined
+  : tableContentMeasurementTableFor(tableContentMeasurementDeleteSlide);
+const tableContentMeasurementDeleteOnly =
+  tableContentMeasurementDeleteTable instanceof TableModel &&
+  tableContentMeasurementDeleteTable.rows.length > 1 &&
+  tableContentMeasurementDeleteTable.rows.slice(1).every(
+    (row) => row.cells[0]?.text.startsWith('Delete-only tail ') === true,
+  );
+const tableContentMeasurementEditableSlide = tableContentMeasurementGenerated.find(
+  (slide) => slide !== tableContentMeasurementDeleteSlide &&
+    tableContentMeasurementTableFor(slide)?.rows.some(
+      (row) => row.cells[0]?.text.startsWith('Delete-only tail ') === true,
+    ),
+);
+const tableContentMeasurementEditableTable = tableContentMeasurementEditableSlide === undefined
+  ? undefined
+  : tableContentMeasurementTableFor(tableContentMeasurementEditableSlide);
+const tableContentMeasurementEditableRow = tableContentMeasurementEditableTable
+  ?.rows.findIndex((row) => row.cells[0]?.text.startsWith('Delete-only tail ') === true) ?? -1;
+if (tableContentMeasurementEditableTable instanceof TableModel &&
+    tableContentMeasurementEditableRow >= 0) {
+  tableContentMeasurementEditableTable.setCellRichText(
+    tableContentMeasurementEditableRow,
+    0,
+    [{ runs: [{
+      text: 'Measured edited tail',
+      style: {
+        bold: true,
+        hyperlink: {
+          url: tableContentMeasurementEditedUrl,
+          tooltip: 'Measured edited tail',
+        },
+      },
+    }] }],
+  );
+}
+const tableContentMeasurementEdited =
+  tableContentMeasurementEditableTable instanceof TableModel &&
+  tableContentMeasurementEditableRow >= 0 &&
+  tableContentMeasurementEditableTable.rows[
+    tableContentMeasurementEditableRow
+  ]?.cells[0]?.text === 'Measured edited tail' &&
+  tableContentMeasurementOwnedLinks(tableContentMeasurementEditableSlide).some(
+    ({ target }) => target === tableContentMeasurementEditedUrl,
+  );
+const tableContentMeasurementDeleteOriginalIndex =
+  tableContentMeasurementDeleteSlide === undefined
+    ? -1
+    : tableContentMeasurementDocument.slides.indexOf(tableContentMeasurementDeleteSlide);
+if (tableContentMeasurementDeleteOriginalIndex >= 0) {
+  tableContentMeasurementDocument.moveSlide(
+    tableContentMeasurementDeleteOriginalIndex,
+    tableContentMeasurementDocument.slides.length - 1,
+  );
+}
+const tableContentMeasurementMovedAway =
+  tableContentMeasurementDocument.slides.at(-1) === tableContentMeasurementDeleteSlide;
+if (tableContentMeasurementDeleteSlide !== undefined) {
+  tableContentMeasurementDocument.moveSlide(
+    tableContentMeasurementDocument.slides.indexOf(tableContentMeasurementDeleteSlide),
+    tableContentMeasurementDocument.slides.indexOf(tableContentMeasurementSentinel),
+  );
+}
+const tableContentMeasurementMoved = tableContentMeasurementMovedAway &&
+  tableContentMeasurementDocument.slides.indexOf(tableContentMeasurementDeleteSlide) ===
+    tableContentMeasurementDocument.slides.indexOf(tableContentMeasurementSentinel) - 1;
+if (tableContentMeasurementDeleteOnly && tableContentMeasurementDeleteSlide !== undefined) {
+  tableContentMeasurementDocument.deleteSlide(
+    tableContentMeasurementDocument.slides.indexOf(tableContentMeasurementDeleteSlide),
+  );
+}
+const tableContentMeasurementFinalPageSlides = [
+  tableContentMeasurementSource,
+  ...tableContentMeasurementSource.newAutoPagedSlides,
+];
+const tableContentMeasurementFinalTables = tableContentMeasurementFinalPageSlides.map(
+  tableContentMeasurementTableFor,
+);
+const tableContentMeasurementFragmentCells = tableContentMeasurementFinalTables
+  .flatMap((table) => table.rows.flatMap(({ cells }) => cells))
+  .filter((cell) => cell.hyperlink?.url === tableContentMeasurementOuterUrl ||
+    cell.richText.some(({ runs }) => runs.some(({ style }) =>
+      style?.hyperlink?.url === tableContentMeasurementRunUrl ||
+      style?.hyperlink?.slide !== undefined)));
+const tableContentMeasurementFragmentText = tableContentMeasurementFragmentCells
+  .map(({ text }) => text)
+  .join('')
+  .split(String.fromCharCode(10))
+  .join('');
+const tableContentMeasurementFragmentRuns = tableContentMeasurementFragmentCells
+  .flatMap(({ richText }) => richText.flatMap(({ runs }) => runs));
+const tableContentMeasurementRepeatedHeaders = tableContentMeasurementFinalTables.every(
+  (table) => table.rows[0]?.cells[0]?.text === 'Measured header',
+);
+const tableContentMeasurementRowspan = tableContentMeasurementFinalTables.some(
+  (table) => table.mergeRegions?.some(({ rowspan, colspan }) =>
+    rowspan === 2 && colspan === 1) === true &&
+    table.rows.some((row) => row.cells[0]?.text === 'Measured rowspan block'),
+);
+const tableContentMeasurementFragment =
+  tableContentMeasurementFragmentCells.length >= 3 &&
+  tableContentMeasurementFragmentText ===
+    'Measured outer ' + tableContentMeasurementRichA + tableContentMeasurementRichB &&
+  tableContentMeasurementFragmentRuns.some(({ style }) =>
+    style?.bold === true && style.hyperlink?.url === tableContentMeasurementRunUrl) &&
+  tableContentMeasurementFragmentRuns.some(({ softBreakBefore, style }) =>
+    softBreakBefore === true && style?.italic === true &&
+      style.hyperlink?.slide !== undefined) &&
+  tableContentMeasurementRepeatedHeaders &&
+  tableContentMeasurementRowspan;
+const tableContentMeasurementOwnerBottom =
+  tableContentMeasurementOwner.y + tableContentMeasurementOwner.height;
+const tableContentMeasurementPlaceholder = tableContentMeasurementFinalTables.every(
+  (table, index) => table.name === 'packed_measurement_table' &&
+    table.placeholder?.type === 'tbl' && table.placeholder.index === 205 &&
+    table.transform.x === tableContentMeasurementOwner.x &&
+    table.transform.y === (index === 0
+      ? tableContentMeasurementOwner.y
+      : tableContentMeasurementContinuationY) &&
+    table.transform.width === tableContentMeasurementOwner.width &&
+    table.transform.y + table.transform.height <= tableContentMeasurementOwnerBottom &&
+    tableContentMeasurementRowsPositive(table),
+);
+const tableContentMeasurementFixed =
+  JSON.stringify(tableContentMeasurementFixedTable.rowHeights) ===
+    JSON.stringify(tableContentMeasurementFixedHeights) &&
+  tableContentMeasurementFixedTable.transform.height ===
+    tableContentMeasurementFixedHeights.reduce((sum, height) => sum + height, 0) &&
+  JSON.stringify(tableContentMeasurementFixedTable.mergeRegions) === JSON.stringify([
+    { rowIndex: 0, columnIndex: 0, rowspan: 2, colspan: 2 },
+  ]);
+const tableContentMeasurementRelationships =
+  tableContentMeasurementFinalPageSlides.every((slide) =>
+    tableContentMeasurementLinksOwned(tableContentMeasurementDocument, slide)) &&
+  tableContentMeasurementFinalPageSlides.every((slide) =>
+    tableContentMeasurementOwnedLinks(slide).some(
+      ({ target }) => target === tableContentMeasurementHeaderUrl,
+    )) &&
+  tableContentMeasurementFinalPageSlides.some((slide) =>
+    tableContentMeasurementOwnedLinks(slide).some(
+      ({ target }) => target === tableContentMeasurementOuterUrl,
+    )) &&
+  tableContentMeasurementFinalPageSlides.some((slide) =>
+    tableContentMeasurementOwnedLinks(slide).some(
+      ({ target }) => target === tableContentMeasurementRunUrl,
+    )) &&
+  tableContentMeasurementFinalPageSlides.some((slide) =>
+    tableContentMeasurementOwnedLinks(slide).some(
+      ({ resolvedTarget }) => resolvedTarget === tableContentMeasurementTarget.partUri,
+    ));
+const tableContentMeasurementDeleted = tableContentMeasurementDeleteOnly &&
+  tableContentMeasurementSource.newAutoPagedSlides.length ===
+    tableContentMeasurementGenerated.length - 1 &&
+  !tableContentMeasurementDocument.slides.includes(tableContentMeasurementDeleteSlide) &&
+  tableContentMeasurementDocument.sections?.find(
+    ({ id }) => id === tableContentMeasurementSection.id,
+  )?.slideIds.join(',') === tableContentMeasurementFinalPageSlides
+    .map(({ slideId }) => slideId).join(',');
+await tableContentMeasurementDocument.writeFile(
+  'table-content-measurement-smoke.pptx',
+);
+const reopenedTableContentMeasurementDocument = await PptxDocument.open(
+  await tableContentMeasurementDocument.write(),
+);
+const reopenedTableContentMeasurementTables = reopenedTableContentMeasurementDocument.slides
+  .flatMap((slide) => slide.shapes.filter((shape) => shape instanceof TableModel));
+const reopenedTableContentMeasurementPageSlides =
+  reopenedTableContentMeasurementDocument.slides.filter((slide) =>
+    slide.shapes.some((shape) => shape instanceof TableModel &&
+      shape.name === 'packed_measurement_table'));
+const reopenedTableContentMeasurementPages = reopenedTableContentMeasurementPageSlides.map(
+  (slide) => slide.shapes.find((shape) => shape instanceof TableModel &&
+    shape.name === 'packed_measurement_table'),
+);
+const tableContentMeasurementReopened =
+  reopenedTableContentMeasurementTables.length ===
+    tableContentMeasurementFinalTables.length + 2 &&
+  reopenedTableContentMeasurementPages.every(
+    (table) => tableContentMeasurementRowsPositive(table) &&
+      table.placeholder?.type === 'tbl' && table.placeholder.index === 205,
+  ) &&
+  reopenedTableContentMeasurementPages.every(
+    (table) => table.rows[0]?.cells[0]?.text === 'Measured header',
+  ) &&
+  reopenedTableContentMeasurementPages.some(
+    (table) => table.rows.some((row) =>
+      row.cells[0]?.text === 'Measured edited tail'),
+  ) &&
+  reopenedTableContentMeasurementPages.some(
+    (table) => table.mergeRegions?.some(({ rowspan, colspan }) =>
+      rowspan === 2 && colspan === 1) === true,
+  ) &&
+  reopenedTableContentMeasurementPageSlides.every((slide) =>
+    tableContentMeasurementLinksOwned(
+      reopenedTableContentMeasurementDocument,
+      slide,
+    ));
+const tableContentMeasurementState = {
+  created: tableContentMeasurementCreated,
+  automatic: tableContentMeasurementAutomatic,
+  minimum: tableContentMeasurementMinimum,
+  fragment: tableContentMeasurementFragment,
+  placeholder: tableContentMeasurementPlaceholder,
+  fixed: tableContentMeasurementFixed,
+  relationships: tableContentMeasurementRelationships,
+  edited: tableContentMeasurementEdited,
+  moved: tableContentMeasurementMoved,
+  deleted: tableContentMeasurementDeleted,
+  reopened: tableContentMeasurementReopened,
+  validationErrors: tableContentMeasurementDocument.diagnostics
+    .filter(({ severity }) => severity === 'error').length +
+    reopenedTableContentMeasurementDocument.diagnostics
+      .filter(({ severity }) => severity === 'error').length,
+};
+const tableContentMeasurement = Object.values(tableContentMeasurementState).every(
+  (value) => value === true || value === 0,
+);
 const checks = {
   slideNumbers,
   slideDefaultColor,
@@ -8696,6 +9167,8 @@ const checks = {
   tableStructureEditingState,
   tableAutoPage,
   tableAutoPageState,
+  tableContentMeasurement,
+  tableContentMeasurementState,
   schemeColors,
   schemeColorState,
   outputTypes,
@@ -13270,6 +13743,8 @@ const typedTable: TableModel = createdDocument.slides[0].addTable(tableRows, tab
 const typedTableAutoPageMargin: TableAutoPageMarginInput = [1, 2, 3, 4];
 const typedTableAutoPageOptions: AddTableOptions = {
   autoPage: true,
+  autoPageCharWeight: 0,
+  autoPageLineWeight: -1,
   autoPageRepeatHeader: true,
   autoPageHeaderRows: 1,
   autoPageSlideStartY: inches(0.5),
@@ -13286,10 +13761,14 @@ typedTableAutoPageSource.newAutoPagedSlides = [];
 const invalidTableAutoPageFlag: AddTableOptions = { autoPage: 'true' };
 // @ts-expect-error slideMargin tuple requires four values
 const invalidTableAutoPageMargin: TableAutoPageMarginInput = [1, 2, 3];
-const invalidTableAutoPageWeight: AddTableOptions = {
+const invalidTableAutoPageLineWeight: AddTableOptions = {
   autoPage: true,
-  // @ts-expect-error autoPageLineWeight is not supported in this stage
-  autoPageLineWeight: 1,
+  // @ts-expect-error autoPageLineWeight is number-only
+  autoPageLineWeight: '1',
+};
+const invalidTableAutoPageCharWeight: AddTableCellOptions = {
+  // @ts-expect-error autoPageCharWeight is number-only
+  autoPageCharWeight: false,
 };
 const typedTableCellHyperlinkTable: TableModel = createdDocument.slides[0].addTable([[
   { text: 'Typed table-cell hyperlink', options: typedTableCellHyperlinkOptions },
@@ -13603,7 +14082,7 @@ void [typedPreset, typedNoneShapeFill, typedSolidShapeFill,
   invalidInsertTableRowsOptions, invalidInsertTableColumnsOptions,
   typedTableAutoPageMargin, typedTableAutoPageOptions, typedTableAutoPageSource,
   typedNewAutoPagedSlides, invalidTableAutoPageFlag, invalidTableAutoPageMargin,
-  invalidTableAutoPageWeight];
+  invalidTableAutoPageLineWeight, invalidTableAutoPageCharWeight];
 void typedTableBorders;
 void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, typedChartPromise,
   typedChartDiagnostics, typedChartWorkbookCheck, invalidChartType, invalidChartAxis,
@@ -13718,6 +14197,13 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
   if (!apiChecks.tableAutoPage) {
     throw new Error(
       `Table auto-page smoke failed: ${JSON.stringify(apiChecks.tableAutoPageState)}`,
+    );
+  }
+  if (!apiChecks.tableContentMeasurement) {
+    throw new Error(
+      `Table content measurement smoke failed: ${JSON.stringify(
+        apiChecks.tableContentMeasurementState,
+      )}`,
     );
   }
   if (!apiChecks.schemeColors) {
@@ -14562,6 +15048,326 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
         generated: tableAutoPageGeneratedPartUri,
         sentinel: tableAutoPageSentinelPartUri,
         target: tableAutoPageTargetPartUri,
+      })}`,
+    );
+  }
+  const tableContentMeasurementDeckPath = join(
+    directory,
+    'table-content-measurement-smoke.pptx',
+  );
+  const tableContentMeasurementInspectResult = run(
+    bin,
+    ['--json', 'package', 'inspect', tableContentMeasurementDeckPath],
+    directory,
+  );
+  const tableContentMeasurementInspected = JSON.parse(
+    tableContentMeasurementInspectResult.stdout,
+  );
+  if (!tableContentMeasurementInspected.ok ||
+      tableContentMeasurementInspected.data?.contentTypes?.[
+        'application/vnd.openxmlformats-officedocument.presentationml.slide+xml'
+      ] !== 12) {
+    throw new Error(
+      `CLI table content measurement package inspection failed: ${
+        tableContentMeasurementInspectResult.stdout
+      }`,
+    );
+  }
+  const tableContentMeasurementValidateResult = run(
+    bin,
+    [
+      '--json', 'package', 'validate', tableContentMeasurementDeckPath,
+      '--profile', 'powerpoint-2010',
+    ],
+    directory,
+  );
+  const tableContentMeasurementValidated = JSON.parse(
+    tableContentMeasurementValidateResult.stdout,
+  );
+  if (!tableContentMeasurementValidated.ok ||
+      !tableContentMeasurementValidated.data?.valid ||
+      tableContentMeasurementValidated.data.errorCount !== 0 ||
+      tableContentMeasurementValidated.data.warningCount !== 15 ||
+      !tableContentMeasurementValidated.data.diagnostics.every(
+        ({ code, severity }) => severity === 'warning' &&
+          code === 'OPC_EXTERNAL_RELATIONSHIP',
+      )) {
+    throw new Error(
+      `CLI table content measurement validation failed: ${
+        tableContentMeasurementValidateResult.stdout
+      }`,
+    );
+  }
+  const tableContentMeasurementSlidesResult = run(
+    bin,
+    ['--json', 'slides', 'list', tableContentMeasurementDeckPath],
+    directory,
+  );
+  const tableContentMeasurementSlides = JSON.parse(
+    tableContentMeasurementSlidesResult.stdout,
+  );
+  if (!tableContentMeasurementSlides.ok ||
+      tableContentMeasurementSlides.data?.length !== 12 ||
+      JSON.stringify(tableContentMeasurementSlides.data.map(
+        ({ shapeCount }) => shapeCount,
+      )) !== JSON.stringify([2, ...Array(9).fill(1), 0, 0])) {
+    throw new Error(
+      `CLI table content measurement slide listing failed: ${
+        tableContentMeasurementSlidesResult.stdout
+      }`,
+    );
+  }
+  const tableContentMeasurementReadPart = (partUri) => {
+    const result = run(
+      bin,
+      ['--json', 'part', 'read', tableContentMeasurementDeckPath, partUri],
+      directory,
+    );
+    const parsed = JSON.parse(result.stdout);
+    if (!parsed.ok || typeof parsed.data?.content !== 'string') {
+      throw new Error(
+        `CLI table content measurement part read failed: ${result.stdout}`,
+      );
+    }
+    return parsed.data.content;
+  };
+  const tableContentMeasurementRelationshipPartUri = (partUri) => partUri.slice(
+    0,
+    partUri.lastIndexOf('/'),
+  ) + '/_rels/' + basename(partUri) + '.rels';
+  const tableContentMeasurementLeadEntry = tableContentMeasurementSlides.data[0];
+  const tableContentMeasurementPageEntries = tableContentMeasurementSlides.data.slice(1, 10);
+  const tableContentMeasurementSentinelEntries = tableContentMeasurementSlides.data.slice(10);
+  const tableContentMeasurementLeadPart = tableContentMeasurementReadPart(
+    tableContentMeasurementLeadEntry.partUri,
+  );
+  const tableContentMeasurementPageParts = tableContentMeasurementPageEntries.map(
+    ({ partUri }) => tableContentMeasurementReadPart(partUri),
+  );
+  const tableContentMeasurementPageRelationships =
+    tableContentMeasurementPageEntries.map(({ partUri }) =>
+      tableContentMeasurementReadPart(
+        tableContentMeasurementRelationshipPartUri(partUri),
+      ));
+  const tableContentMeasurementSentinelParts = tableContentMeasurementSentinelEntries.map(
+    ({ partUri }) => tableContentMeasurementReadPart(partUri),
+  );
+  const tableContentMeasurementSentinelRelationships =
+    tableContentMeasurementSentinelEntries.map(({ partUri }) =>
+      tableContentMeasurementReadPart(
+        tableContentMeasurementRelationshipPartUri(partUri),
+      ));
+  const tableContentMeasurementPresentationPart = tableContentMeasurementReadPart(
+    '/ppt/presentation.xml',
+  );
+  const tableContentMeasurementFrames = (xml) => [
+    ...xml.matchAll(/<p:graphicFrame\b[\s\S]*?<\/p:graphicFrame>/g),
+  ].map((match) => match[0]);
+  const tableContentMeasurementRows = (xml) => [
+    ...xml.matchAll(/<a:tr\b[^>]*>[\s\S]*?<\/a:tr>/g),
+  ].map((match) => match[0]);
+  const tableContentMeasurementRowHeights = (xml) => tableContentMeasurementRows(xml)
+    .map((row) => Number(row.match(/<a:tr\b[^>]*\bh="(\d+)"/)?.[1]));
+  const tableContentMeasurementTransform = (xml) => {
+    const match = xml.match(
+      /<p:xfrm><a:off x="(\d+)" y="(\d+)"\/><a:ext cx="(\d+)" cy="(\d+)"\/><\/p:xfrm>/,
+    );
+    return match === null ? undefined : {
+      x: Number(match[1]),
+      y: Number(match[2]),
+      width: Number(match[3]),
+      height: Number(match[4]),
+    };
+  };
+  const tableContentMeasurementRelationshipElements = (xml) => [
+    ...xml.matchAll(/<Relationship\b[^>]*\/>/g),
+  ].map((match) => match[0]);
+  const tableContentMeasurementLinkRelationships = (xml) =>
+    tableContentMeasurementRelationshipElements(xml).filter((relationship) =>
+      relationship.includes('/relationships/hyperlink"') ||
+      relationship.includes('/relationships/slide"'));
+  const tableContentMeasurementClickIds = (xml) => new Set([
+    ...xml.matchAll(/<a:hlinkClick\b[^>]*\br:id="([^"]+)"/g),
+  ].map((match) => match[1]));
+  const tableContentMeasurementLinkIds = (xml) => new Set(
+    tableContentMeasurementLinkRelationships(xml).map((relationship) =>
+      relationship.match(/\bId="([^"]+)"/)?.[1]),
+  );
+  const tableContentMeasurementLinksMatch = (slideXml, relationshipsXml) => {
+    const clicks = tableContentMeasurementClickIds(slideXml);
+    const owned = tableContentMeasurementLinkIds(relationshipsXml);
+    return clicks.size === owned.size && [...clicks].every((id) => owned.has(id));
+  };
+  const tableContentMeasurementLeadFrames = tableContentMeasurementFrames(
+    tableContentMeasurementLeadPart,
+  );
+  const tableContentMeasurementFixedFrame = tableContentMeasurementLeadFrames.find(
+    (frame) => frame.includes('name="Packed fixed measurement regression"'),
+  );
+  const tableContentMeasurementAutomaticFrame = tableContentMeasurementLeadFrames.find(
+    (frame) => frame.includes('name="Packed omitted row-height measurement"'),
+  );
+  const tableContentMeasurementFixedRows = tableContentMeasurementFixedFrame === undefined
+    ? []
+    : tableContentMeasurementRowHeights(tableContentMeasurementFixedFrame);
+  const tableContentMeasurementFixedTransform =
+    tableContentMeasurementFixedFrame === undefined
+      ? undefined
+      : tableContentMeasurementTransform(tableContentMeasurementFixedFrame);
+  const tableContentMeasurementAutomaticRows =
+    tableContentMeasurementAutomaticFrame === undefined
+      ? []
+      : tableContentMeasurementRowHeights(tableContentMeasurementAutomaticFrame);
+  const tableContentMeasurementAutomaticTransform =
+    tableContentMeasurementAutomaticFrame === undefined
+      ? undefined
+      : tableContentMeasurementTransform(tableContentMeasurementAutomaticFrame);
+  const tableContentMeasurementFixedInspect =
+    JSON.stringify(tableContentMeasurementFixedRows) ===
+      JSON.stringify(Array(3).fill(274320)) &&
+    tableContentMeasurementFixedTransform?.height ===
+      tableContentMeasurementFixedRows.reduce((sum, height) => sum + height, 0) &&
+    tableContentMeasurementFixedFrame?.includes('<a:tc rowSpan="2" gridSpan="2">') &&
+    tableContentMeasurementFixedFrame.includes('<a:tc rowSpan="2" hMerge="1">') &&
+    tableContentMeasurementFixedFrame.includes('<a:tc gridSpan="2" vMerge="1">') &&
+    tableContentMeasurementFixedFrame.includes('<a:tc vMerge="1" hMerge="1">');
+  const tableContentMeasurementAutomaticInspect =
+    tableContentMeasurementAutomaticRows.length === 2 &&
+    tableContentMeasurementAutomaticRows.every((height) => height > 0) &&
+    tableContentMeasurementAutomaticTransform?.height ===
+      tableContentMeasurementAutomaticRows.reduce((sum, height) => sum + height, 0) &&
+    tableContentMeasurementAutomaticFrame?.includes('自动行高漢字測量');
+  const tableContentMeasurementPageInspect = tableContentMeasurementPageParts.every(
+    (xml, index) => {
+      const heights = tableContentMeasurementRowHeights(xml);
+      const transform = tableContentMeasurementTransform(xml);
+      return xml.includes('name="packed_measurement_table"') &&
+        xml.includes('<p:ph type="tbl" idx="205"/>') &&
+        JSON.stringify([
+          ...xml.matchAll(/<a:gridCol\b[^>]*\bw="(\d+)"/g),
+        ].map((match) => Number(match[1]))) === JSON.stringify([914400, 914400]) &&
+        heights.length > 1 && heights.every((height) => height > 0) &&
+        transform?.x === 914400 &&
+        transform.y === (index === 0 ? 1143000 : 1371600) &&
+        transform.width === 1828800 &&
+        transform.height === heights.reduce((sum, height) => sum + height, 0) &&
+        transform.y + transform.height <= 3429000 &&
+        (xml.match(/>Measured header<\/a:t>/g) ?? []).length === 1;
+    },
+  );
+  const tableContentMeasurementAllText = tableContentMeasurementPageParts.flatMap(
+    (xml) => [...xml.matchAll(/<a:t(?:\s[^>]*)?>([^<]*)<\/a:t>/g)]
+      .map((match) => match[1]),
+  );
+  const tableContentMeasurementRichText = tableContentMeasurementAllText.filter(
+    (value) => value === 'Measured outer ' || /^A+$/u.test(value) || /^B+$/u.test(value),
+  ).join('');
+  const tableContentMeasurementRichRunInspect =
+    tableContentMeasurementPageParts.every((xml) => [
+      ...xml.matchAll(/<a:r>[\s\S]*?<\/a:r>/g),
+    ].every((match) => {
+      const run = match[0];
+      const text = run.match(/<a:t(?:\s[^>]*)?>([^<]*)<\/a:t>/)?.[1] ?? '';
+      if (/^A+$/u.test(text)) {
+        return run.includes(' b="1"') &&
+          run.includes('<a:srgbClr val="C00000"/>') &&
+          run.includes('<a:hlinkClick ');
+      }
+      if (/^B+$/u.test(text)) {
+        return run.includes(' i="1"') &&
+          run.includes('<a:schemeClr val="accent2"/>') &&
+          run.includes('action="ppaction://hlinksldjump"');
+      }
+      return true;
+    }));
+  const tableContentMeasurementRelationshipInspect =
+    tableContentMeasurementPageParts.every((xml, index) =>
+      tableContentMeasurementLinksMatch(
+        xml,
+        tableContentMeasurementPageRelationships[index],
+      )) &&
+    tableContentMeasurementPageRelationships.every((xml) =>
+      xml.includes('https://measurement.example/header')) &&
+    tableContentMeasurementPageRelationships.some((xml) =>
+      xml.includes('https://measurement.example/outer')) &&
+    tableContentMeasurementPageRelationships.some((xml) =>
+      xml.includes('https://measurement.example/run')) &&
+    tableContentMeasurementPageRelationships.some((xml) =>
+      xml.includes('https://measurement.example/edited')) &&
+    tableContentMeasurementPageRelationships.some((xml) =>
+      xml.includes('/relationships/slide"') &&
+        xml.includes('Target="' + basename(
+          tableContentMeasurementSlides.data[11].partUri,
+        ) + '"'));
+  const tableContentMeasurementMinimumInspect = tableContentMeasurementPageParts.some(
+    (xml) => tableContentMeasurementRows(xml).some((row) =>
+      row.includes('漢字自動測量 CJK minimum') &&
+        Number(row.match(/<a:tr\b[^>]*\bh="(\d+)"/)?.[1]) >= 320040),
+  );
+  const tableContentMeasurementFragmentInspect =
+    tableContentMeasurementRichText ===
+      'Measured outer ' + 'A'.repeat(180) + 'B'.repeat(120) &&
+    tableContentMeasurementRichRunInspect &&
+    tableContentMeasurementPageParts.some((xml) =>
+      /<a:br\/><a:r>[\s\S]*?>B+<\/a:t>[\s\S]*?<\/a:r>/.test(xml));
+  const tableContentMeasurementRowspanInspect = tableContentMeasurementPageParts.some(
+    (xml) => xml.includes('>Measured rowspan block</a:t>') &&
+      xml.includes('>Measured rowspan right 1</a:t>') &&
+      xml.includes('>Measured rowspan right 2</a:t>') &&
+      xml.includes('<a:tc rowSpan="2">') &&
+      xml.includes('<a:tc vMerge="1">'),
+  );
+  const tableContentMeasurementSlideIds = [
+    ...tableContentMeasurementPresentationPart.matchAll(
+      /<p:sldId\b[^>]*\bid="(\d+)"/g,
+    ),
+  ].map((match) => match[1]);
+  const tableContentMeasurementSectionIds = [
+    ...tableContentMeasurementPresentationPart.matchAll(
+      /<p14:sldId\b[^>]*\bid="(\d+)"/g,
+    ),
+  ].map((match) => match[1]);
+  const tableContentMeasurementSectionInspect =
+    tableContentMeasurementPresentationPart.includes(
+      '<p14:section name="Packed measured pages"',
+    ) &&
+    JSON.stringify(tableContentMeasurementSectionIds) ===
+      JSON.stringify(tableContentMeasurementSlideIds.slice(1, 10));
+  const tableContentMeasurementSentinelInspect =
+    tableContentMeasurementSentinelParts.every((xml) => !xml.includes('<a:tbl>')) &&
+    tableContentMeasurementSentinelRelationships.every((xml) =>
+      !xml.includes('/relationships/hyperlink"') &&
+        !xml.includes('/relationships/slide"'));
+  const tableContentMeasurementLayoutTargets =
+    tableContentMeasurementPageRelationships.map((xml) =>
+      tableContentMeasurementRelationshipElements(xml)
+        .find((relationship) => relationship.includes('/relationships/slideLayout"'))
+        ?.match(/\bTarget="([^"]+)"/)?.[1]);
+  const tableContentMeasurementInspect =
+    tableContentMeasurementFixedInspect &&
+    tableContentMeasurementAutomaticInspect &&
+    tableContentMeasurementPageInspect &&
+    tableContentMeasurementMinimumInspect &&
+    tableContentMeasurementFragmentInspect &&
+    tableContentMeasurementRowspanInspect &&
+    tableContentMeasurementRelationshipInspect &&
+    tableContentMeasurementSectionInspect &&
+    tableContentMeasurementSentinelInspect &&
+    tableContentMeasurementLayoutTargets[0] !== undefined &&
+    new Set(tableContentMeasurementLayoutTargets).size === 1;
+  if (!tableContentMeasurementInspect) {
+    throw new Error(
+      `CLI table content measurement part inspection failed: ${JSON.stringify({
+        fixed: tableContentMeasurementFixedInspect,
+        automatic: tableContentMeasurementAutomaticInspect,
+        pages: tableContentMeasurementPageInspect,
+        minimum: tableContentMeasurementMinimumInspect,
+        fragment: tableContentMeasurementFragmentInspect,
+        rowspan: tableContentMeasurementRowspanInspect,
+        relationships: tableContentMeasurementRelationshipInspect,
+        sections: tableContentMeasurementSectionInspect,
+        sentinel: tableContentMeasurementSentinelInspect,
+        layouts: tableContentMeasurementLayoutTargets,
       })}`,
     );
   }
@@ -16130,6 +16936,11 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
     await mkdir(dirname(output), { recursive: true });
     await writeFile(output, await readFile(tableAutoPageDeckPath));
   }
+  if (process.env.PPTX_TABLE_CONTENT_MEASUREMENT_OUT) {
+    const output = resolve(process.env.PPTX_TABLE_CONTENT_MEASUREMENT_OUT);
+    await mkdir(dirname(output), { recursive: true });
+    await writeFile(output, await readFile(tableContentMeasurementDeckPath));
+  }
 
   const writeSummary = (serialized) => {
     const summary = JSON.parse(serialized);
@@ -16158,6 +16969,9 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
     summary.tableAutoPage = apiChecks.tableAutoPage;
     summary.tableAutoPageState = apiChecks.tableAutoPageState;
     summary.tableAutoPageInspect = tableAutoPageInspect;
+    summary.tableContentMeasurement = apiChecks.tableContentMeasurement;
+    summary.tableContentMeasurementState = apiChecks.tableContentMeasurementState;
+    summary.tableContentMeasurementInspect = tableContentMeasurementInspect;
     process.stdout.write(`${JSON.stringify(summary)}\n`);
   };
   writeSummary(
