@@ -1123,7 +1123,7 @@ $ pptx-inspect --json package inspect output.pptx
 
 ## PptxGenJS 全功能对等：Table auto-page 与 repeated headers
 
-状态：实施、公开契约与文档完成；专项 6/8，actual package、真实浏览器、PowerPoint 2010 与最终全量/性能门禁待后续两项完成
+状态：完成；专项 8/8
 
 ### 本阶段 change
 
@@ -1134,16 +1134,18 @@ $ pptx-inspect --json package inspect output.pptx
 - Source table、generated slide parts、relationships、presentation order、sections、model caches 与 runtime result 共用一个 outer transaction；对每个注入边界都验证 byte/journal/cache/identity failure isolation 与可重试性。
 - PptxGenJS 4.0.1 对照覆盖 repeated headers、multi-page splitting、source-in-the-middle 顺序及其 runtime 差异。Native 不复制 caller mutation、weight clamping、coercion 或 following-slide reuse。
 
-### 当前验证结果
+### 最终验证结果
 
-- 公开 model 专项 34/34 通过；model/SDK/root/PptxGenJS adapter 聚合契约 5/5 通过，覆盖六种 presentation format、merge/rich/link preservation、layout/section/order、runtime lifecycle 与 reopen。
-- 全仓 TypeScript project references、root build、Node/browser bundles、declarations 与 diff check 通过。实现与契约 commits 为 `0b63c07`、`a52708a`、`062e0b3`、`d30a4e6`、`3ce9cc7`。
-- 当前尚不记录 actual tarball、installed consumers、真实 Chrome、PowerPoint 2010、全量 suite、性能或确定性证明；这些数据只在对应门禁实际通过后写入。
+- 最终 focused gate 为 7 个文件（6 passed / 1 skipped）、39 passed / 629 skipped，Vitest 5.44s；full gate 为 89 个文件（88 passed / 1 skipped）、1579 passed / 1 skipped，Vitest 40.17s；独立 1000-part performance gate 为 1/1，核心测试 682ms、Vitest 1.89s。TypeScript typecheck、root build 与 `@jiayunxie/pptx` package build 分别为 1.40s、1.10s、7.00s。
+- 两次 59-file dist manifest 完全一致，manifest SHA-256 为 `f5fd12f308fc360fb49edd0c4d35e4e43aaf5e3bd7ad1ed3c3caebe9d4a25a8e`；两份 62-file actual tarball byte-identical，SHA-256 均为 `3db5ca1dcf61b81ac6072639e342d8b5e1bbca9e35c2025476cc9f4d781432d3`。Installed Node、NodeNext declarations 与 browser conditional export 均报告 `tableAutoPage: true`，installed CLI/Inspector 另报告 `tableAutoPageInspect: true`。
+- Google Chrome 150.0.7871.188 的 create/edit/move/delete/relationship/reopen 阶段全部为 true，validation/console/page/network errors 均为 0。Node 与 browser evidence deck 均为 26 parts / 32 relationships、5 slides / 2 tables，生成阶段把 7 行分为 4/4/3 三页并重复两行表头；三页保持同一 layout 与连续 section membership，header/body merge、rich style 与目标 slide identity 均保留。
+- 最终 move/edit/delete 后两张 table slide 都是 4×3 physical cells、row height 457200、column width 914400、transform 2743200×1828800；source 的 4 个 click 对应 3 external + 1 internal relationship，continuation 的 5 个 click 对应 3 external + 2 internal relationships，且全部 page-local IDs 精确匹配。Node/browser deck SHA-256 分别为 `8665affbdbc2e96eecb7683770685d08cf6761ee4d12c4d72ee057cea9943cb7` 与 `a6a8b4458af12dd95635e6ea3443346910de07cbbd5a91ee68b5f86e8d82e862`；两者 PowerPoint 2010 validation 均为 0 errors / 6 个预期 `OPC_EXTERNAL_RELATIONSHIP` warnings。
+- Commit chain 为 `0b63c07`、`a52708a`、`062e0b3`、`d30a4e6`、`3ce9cc7`、`d66f884`、`c377799`、`0ab580f`，证据保留在 `/tmp/pptx-table-auto-page-proof.IQxIFi`。
 
 ### 剩余 advanced API 与全功能路线
 
 - 当前总体 PptxGenJS 对等进度约 99.3%，尚不声明完整 parity。剩余能力包括 automatic row measurement、`autoPageCharWeight` / `autoPageLineWeight`、text-row fragmentation、placeholder auto-page、content/layout recomputation 与 `tableToSlides`。
-- 本专项剩余 2/8：actual package/installed consumer/真实浏览器/PPTX 验证，以及最终全量/性能/确定性门禁与证据固化。
+- 本专项 8/8 完成；下一项是 content measurement/layout recomputation，之后为 `tableToSlides` 与最终 peer/client audit。
 
 ## 0.1.0 初始验收
 
