@@ -1173,7 +1173,57 @@ PptxGenJS 4.0.1 的合法 CR/LF、`breakLine`、多段落、paragraph alignment/
 
 最终 full Vitest 为 85 passed / 1 skipped test files、1487 passed / 1 skipped tests（143.22s），1000-part performance 为 1648ms；TypeScript project references、Node/browser bundle 与 declaration build 均通过。实际 62-file tarball SHA-256 为 `7de2354ac691ad09b58e0e103fd07ff1428caa799b548d2a65d9d19a4e0fd79f`；installed Node、NodeNext types、browser、CLI、Inspector 与 PptxGenJS 4.0.1 import/edit 均通过。最终 edited package 为 20 parts / 19 relationships，只有 slide XML 与其 relationships part 变化，2 个 click 无 dangling ID。PowerPoint 2010 全部为 0 errors，仅有预期 external-link warnings；Google Chrome 150.0.7871.188 的 create/snapshot/edit/link 均为 true，validation/console/page/network errors 均为 0。实现与复核 commits 为 `3eb6f37`、`6b40fc5`、`fd6fc43`、`d0aa76d`、`0e3c36a`；证据位于 `/tmp/pptx-table-cell-rich-text-DA3x3Z`。
 
-总体 PptxGenJS 对等进度约 98%。下一小项是 table/cell outer font defaults；之后依次完成 merge/colspan/rowspan、row/column CRUD、auto-page/repeated headers、`tableToSlides` 与最终 peer/client audit。
+## 表格与单元格文本样式默认值
+
+```ts
+import { PptxDocument } from '@jiayunxie/pptx';
+
+const document = PptxDocument.create();
+const slide = document.addSlide();
+const table = slide.addTable([[
+  '继承表格默认值',
+  {
+    text: [{
+      spacing: { after: 10 },
+      runs: [
+        { text: '继承单元格默认值' },
+        {
+          text: ' · 局部覆盖',
+          style: { fontSize: 12, bold: false },
+        },
+        {
+          text: ' · 链接',
+          style: { hyperlink: { url: 'https://example.com' } },
+        },
+      ],
+    }],
+    options: {
+      fontFamily: 'Courier New',
+      bold: false,
+      spacing: { before: 3 },
+    },
+  },
+]], {
+  fontFamily: 'Aptos',
+  fontSize: 18.25,
+  bold: true,
+  color: { kind: 'scheme', value: 'accent1' },
+  spacing: {
+    before: 6,
+    after: 8,
+    line: { kind: 'multiple', factor: 1.5 },
+  },
+});
+
+table.setCellText(0, 0, '保留已物化的 direct run 样式');
+table.setCellRichText(0, 1, [{ runs: [{ text: '全量替换，不重新继承创建默认值' }] }]);
+```
+
+`AddTableOptions` 与 `AddTableCellOptions` 现在都公开 `fontFamily`、`fontSize`、`bold`、`color` 和 `spacing`。创建优先级固定为 table → cell → explicit paragraph/run；字体、字号、粗体与颜色逐字段覆盖，spacing 则按 `before`、`after`、`line` 子字段合并。显式 `bold: false`、paragraph `spacing: false` 与 `line: false` 会阻断对应继承。Font family 必须是非空 XML-safe string，font size 使用 strict 1–4000pt，bold 只接受 boolean，颜色与 paragraph spacing 复用既有 strict native value。Native 名称固定为 `fontFamily` 和 structured `spacing`，不接受 PptxGenJS 的 `fontFace`、`paraSpaceBefore`、`paraSpaceAfter`、`lineSpacing` 或 `lineSpacingMultiple` alias。
+
+Resolved 值只物化为每个 physical cell 的 direct paragraph/run OOXML，不保留 table/cell 创建 metadata。`TableCell.richText` 可立即读取最终 direct state；`setCellText()` 保留安全 plain run 的当前样式模板，`setCellRichText()` whole-replace 后不会重新应用创建默认值。空段落的 `endParaRPr` 会携带 resolved font family/font size。Cell-default hyperlink 保留 outer color；run-local hyperlink 若没有 explicit run color，则不继承 outer color，显式 run color 始终优先。
+
+PptxGenJS 4.0.1 的合法 table/cell `fontFace`、font size、bold、color、cell paragraph spacing、rich override、empty paragraph 和 hyperlink final state 均可导入、编辑并重开。Native 另外支持 table-level spacing 传播，并修正其 truthy fallback 会覆盖 cell/run `bold: false` 以及 writer 修改 caller options 的行为。总体 PptxGenJS 对等进度约 98.5%；剩余依次为 merge/colspan/rowspan、row/column CRUD、auto-page/repeated headers、`tableToSlides` 与最终 peer/client audit。
 
 ## 创建和编辑预设形状、调整值与样式
 

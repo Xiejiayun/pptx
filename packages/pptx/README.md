@@ -1290,7 +1290,54 @@ Legal PptxGenJS 4.0.1 CR/LF, `breakLine`, multi-paragraph, paragraph alignment/b
 
 Final full verification is 85 passed / 1 skipped test files and 1487 passed / 1 skipped tests in 143.22s; the 1000-part performance test is 1648ms. TypeScript project references, Node/browser bundles, and declarations pass. The actual 62-file tarball SHA-256 is `7de2354ac691ad09b58e0e103fd07ff1428caa799b548d2a65d9d19a4e0fd79f`; installed Node, NodeNext types, browser, CLI, Inspector, and PptxGenJS 4.0.1 import/edit checks pass. The final edited package has 20 parts / 19 relationships, changes only the slide XML and its relationships part, and retains two clicks with no dangling ID. PowerPoint 2010 reports zero errors and only expected external-link warnings. Google Chrome 150.0.7871.188 reports creation/snapshot/edit/link true and zero validation/console/page/network errors. Implementation and review commits are `3eb6f37`, `6b40fc5`, `fd6fc43`, `d0aa76d`, and `0e3c36a`; evidence is retained at `/tmp/pptx-table-cell-rich-text-DA3x3Z`.
 
-Overall PptxGenJS parity is approximately 98%. Table/cell outer font defaults are next, followed by merge/colspan/rowspan, row/column CRUD, auto-page/repeated headers, `tableToSlides`, and the final peer/client audit.
+### Table and cell text-style defaults
+
+```ts
+import { PptxDocument } from '@jiayunxie/pptx';
+
+const document = PptxDocument.create();
+const slide = document.addSlide();
+const table = slide.addTable([[
+  'inherits table defaults',
+  {
+    text: [{
+      spacing: { after: 10 },
+      runs: [
+        { text: 'inherits cell defaults' },
+        { text: ' · local', style: { fontSize: 12, bold: false } },
+        {
+          text: ' · link',
+          style: { hyperlink: { url: 'https://example.com' } },
+        },
+      ],
+    }],
+    options: {
+      fontFamily: 'Courier New',
+      bold: false,
+      spacing: { before: 3 },
+    },
+  },
+]], {
+  fontFamily: 'Aptos',
+  fontSize: 18.25,
+  bold: true,
+  color: { kind: 'scheme', value: 'accent1' },
+  spacing: {
+    before: 6,
+    after: 8,
+    line: { kind: 'multiple', factor: 1.5 },
+  },
+});
+
+table.setCellText(0, 0, 'preserves the materialized direct run style');
+table.setCellRichText(0, 1, [{ runs: [{ text: 'replacement does not re-inherit' }] }]);
+```
+
+`AddTableOptions` and `AddTableCellOptions` both expose `fontFamily`, `fontSize`, `bold`, `color`, and `spacing`. Creation precedence is table → cell → explicit paragraph/run. Font family, size, bold, and color override independently; spacing overlays independently by `before`, `after`, and `line`. Explicit `bold: false`, paragraph `spacing: false`, and `line: false` block the corresponding inherited values. Font families are non-empty XML-safe strings, font size is strict 1–4000pt, bold is boolean-only, and color/spacing reuse the existing strict native values. Native names remain `fontFamily` and structured `spacing`; PptxGenJS aliases such as `fontFace`, `paraSpaceBefore`, `paraSpaceAfter`, `lineSpacing`, and `lineSpacingMultiple` are rejected.
+
+Resolved values are materialized only as direct paragraph/run OOXML on each physical cell; no table/cell creation metadata is retained. `TableCell.richText` immediately exposes final direct state. `setCellText()` preserves the current safe plain-run style template, while `setCellRichText()` whole-replaces content without reapplying creation defaults. Empty-paragraph `endParaRPr` carries the resolved font family and size. A cell-default hyperlink retains outer color; a run-local hyperlink without explicit run color skips outer color, while explicit run color still wins.
+
+Legal PptxGenJS 4.0.1 table/cell `fontFace`, font size, bold, color, cell paragraph spacing, rich overrides, empty paragraphs, and hyperlink final state import, edit, and reopen. Native additionally propagates table-level spacing and corrects PptxGenJS truthy fallback that overwrites cell/run `bold: false`, as well as its caller-option mutation. Overall parity is approximately 98.5%. Remaining work is merge/colspan/rowspan, row/column CRUD, auto-page/repeated headers, `tableToSlides`, and the final peer/client audit.
 
 `PRESET_SHAPE_TYPES` is the frozen discovery catalog for all 178 canonical preset geometries accepted by `SlideModel.addShape()`. `AddShapeOptions` accepts `name`, strict `adjustments`, strict `fill`, strict `line`, strict `arrows`, strict `shadow`, strict `hyperlink`, and native EMU/OOXML-angle transform fields; use `inches()` and `degrees()` for ergonomic conversion. Omitted geometry starts at x/y/width/height = 1 inch with zero rotation and no flips; omitted fill creates direct no-fill, and omitted line keeps the canonical empty line container. Inputs are strict, descriptor-safe, detached before mutation, and reject unknown fields. The catalog uses the valid OOXML `foldedCorner`; PptxGenJS 4.0.1's invalid `folderCorner` token and runtime-only `custGeom` value are not accepted as presets.
 
@@ -1455,7 +1502,7 @@ slide.notes = undefined;
 
 Cell-level table text-fit creation uses only `AddTableCellOptions.fit` with strict `none`, `shrink`, and `resize` values. Omitted, runtime `undefined`, and `none` produce byte-identical self-closing `bodyPr` and an immediate direct `TableCell.textFit` snapshot of `undefined`; `shrink` and `resize` write direct `normAutofit` and `spAutoFit` and snapshot immediately. Creation never writes `noAutofit`, retains table metadata, measures content, calculates final font scale, or recomputes cell/table geometry. `setCellTextFit()` keeps direct-editor semantics: `none` and `undefined` clear without restoring creation input, and fit remains independent from `tcPr@vert` direction. Table-level fit creation/default/getter/editor remains unsupported. PptxGenJS 4.0.1 ignores table/cell runtime `fit`, `autoFit`, and `shrinkText`, so native shrink/resize creation is an explicit extension rather than a parity claim.
 
-Creation is native and does not require PptxGenJS. New documents include the complete default presentation chain and support preset or custom EMU slide sizes, direct presentation RTL, editable canvas size, plain/rich text, strict shapes, media, charts, and tables. `slide.addTable()` accepts rectangular strings or `{ text: string | readonly RichTextParagraph[], options? }` cells, rich/multi-paragraph text and run links, table/cell align, border, fill, margin, text direction and vertical alignment defaults, cell fit, exact geometry, column widths, and row heights. Creation defaults materialize only into uncovered physical cells and are not retained as metadata. Existing tables expose live plain/rich cell snapshots and indexed editors, strict grid/row-size editing, relationship-safe rich replacement, and uniform direct table-level consensus/bulk editing for vertical alignment, text direction, horizontal alignment, margins, borders, and fill. Explicit `horz`, direct no-fill, and explicit-zero alpha remain distinct from `undefined` clear; mixed detail stays in `rows[].cells[]`, exact no-ops preserve bytes/journal, and unsafe edits reject without partial mutation. Table/cell outer font defaults, table-level fit, diagonal/advanced borders and fills, merges, row/column CRUD, creation styles, auto-page/repeated headers, content measurement, layout recomputation, and `tableToSlides` remain pending. The dedicated sections above and below define exact creation precedence, numeric ranges, OOXML mappings, PptxGenJS boundaries, and the wider text/shape/media APIs.
+Creation is native and does not require PptxGenJS. New documents include the complete default presentation chain and support preset or custom EMU slide sizes, direct presentation RTL, editable canvas size, plain/rich text, strict shapes, media, charts, and tables. `slide.addTable()` accepts rectangular strings or `{ text: string | readonly RichTextParagraph[], options? }` cells, rich/multi-paragraph text and run links, table/cell font family, font size, bold, color, paragraph spacing, align, border, fill, margin, text direction and vertical alignment defaults, cell fit, exact geometry, column widths, and row heights. Creation defaults materialize only into physical-cell direct state and are not retained as metadata. Existing tables expose live plain/rich cell snapshots and indexed editors, strict grid/row-size editing, relationship-safe rich replacement, and uniform direct table-level consensus/bulk editing for vertical alignment, text direction, horizontal alignment, margins, borders, and fill. Explicit `horz`, direct no-fill, and explicit-zero alpha remain distinct from `undefined` clear; mixed detail stays in `rows[].cells[]`, exact no-ops preserve bytes/journal, and unsafe edits reject without partial mutation. Table-level fit, diagonal/advanced borders and fills, merges, row/column CRUD, creation styles, auto-page/repeated headers, content measurement, layout recomputation, and `tableToSlides` remain pending. The dedicated sections above and below define exact creation precedence, numeric ranges, OOXML mappings, PptxGenJS boundaries, and the wider text/shape/media APIs.
 
 ## Edit an existing presentation
 

@@ -542,7 +542,49 @@ Cell `options.hyperlink` defaults runs that do not provide a local override. Exp
 
 Final gates are 85 passed / 1 skipped test files and 1487 passed / 1 skipped tests in 143.22s, plus the 1000-part performance test at 1648ms. TypeScript, Node/browser bundles, declarations, an actual 62-file tarball (SHA-256 `7de2354ac691ad09b58e0e103fd07ff1428caa799b548d2a65d9d19a4e0fd79f`), installed Node/NodeNext/browser/CLI/Inspector, and PptxGenJS import/edit checks pass. PowerPoint 2010 reports zero errors and only expected external-link warnings. Chrome 150.0.7871.188 reports all four rich-cell capability flags true and zero validation/console/page/network errors. Evidence is retained at `/tmp/pptx-table-cell-rich-text-DA3x3Z`.
 
-Overall parity is approximately 98%. Table/cell outer font defaults are next, followed by merge/colspan/rowspan, row/column CRUD, auto-page/repeated headers, `tableToSlides`, and the final peer/client audit.
+## Table and cell text-style defaults
+
+```ts
+import { PptxDocument } from '@pptx/sdk';
+
+const document = PptxDocument.create();
+const slide = document.addSlide();
+const table = slide.addTable([[
+  'inherits table defaults',
+  {
+    text: [{
+      spacing: { after: 10 },
+      runs: [
+        { text: 'inherits cell defaults' },
+        { text: ' · local', style: { fontSize: 12, bold: false } },
+        {
+          text: ' · link',
+          style: { hyperlink: { url: 'https://example.com' } },
+        },
+      ],
+    }],
+    options: {
+      fontFamily: 'Courier New',
+      bold: false,
+      spacing: { before: 3 },
+    },
+  },
+]], {
+  fontFamily: 'Aptos',
+  fontSize: 18.25,
+  bold: true,
+  color: { kind: 'scheme', value: 'accent1' },
+  spacing: {
+    before: 6,
+    after: 8,
+    line: { kind: 'multiple', factor: 1.5 },
+  },
+});
+```
+
+Both `AddTableOptions` and `AddTableCellOptions` expose `fontFamily?: string`, `fontSize?: number`, `bold?: boolean`, `color?: RichTextColor`, and `spacing?: ParagraphSpacing`. Resolution order is table → cell → explicit paragraph/run. Scalar run fields override independently; spacing overlays by `before`, `after`, and `line`. Explicit run/cell `bold: false`, paragraph `spacing: false`, and paragraph `line: false` block inherited values. Native rejects the PptxGenJS aliases `fontFace`, `paraSpaceBefore`, `paraSpaceAfter`, `lineSpacing`, and `lineSpacingMultiple`.
+
+Only resolved direct OOXML is stored. `TableCell.richText` immediately reads it, `setCellText()` preserves a safe plain run's materialized style, and `setCellRichText()` does not reapply creation defaults. Font family and size are also written to empty-paragraph `endParaRPr`. Cell-default hyperlinks retain outer color; local run hyperlinks without explicit color skip the outer color. PptxGenJS 4.0.1 legal font/size/bold/color, cell spacing, rich override, empty paragraph, and hyperlink output imports and remains editable. Native additionally propagates table-level spacing, preserves explicit false values, and never mutates caller objects. Overall parity is approximately 98.5%; remaining work is merge/span, row/column CRUD, auto-page/repeated headers, `tableToSlides`, and the final peer/client audit.
 
 ## Embedded raster images
 
@@ -1190,13 +1232,13 @@ createdTable.setRowHeights([0, inches(1), 0]);
 createdTable.setCellText(2, 2, '8%');
 ```
 
-`addTable()` accepts a non-empty dense rectangular matrix of strings or strict `{ text: string | readonly RichTextParagraph[], options? }` objects whose supported cell options are align, border, fill, fit, hyperlink, margin, text direction, and vertical alignment. String CR/LF normalization, empty paragraphs, structured paragraph/run styles, soft breaks, and cell-default/local run links are supported. Table defaults for align, border, fill, margin, text direction, and vertical alignment are materialized only into uncovered physical cells; cell values win and no creation metadata is retained. There is no table-level hyperlink default. Inputs are descriptor-safe, getter-free, detached, and serialized in stable `tcPr` order: margins, optional anchor/direction, L/R/T/B borders, then fill. A plain cell hyperlink attaches to its one direct run; rich cell defaults apply only to runs without a local override. Geometry uses EMU, with strict scalar or exact-length column/row vectors and synchronized transform dimensions. Existing tables expose paragraph-aware `text`, detached `richText`, indexed safe plain/rich editors, readonly scalar hyperlink snapshots, and table-level uniform consensus/all-physical-cell bulk editing through `verticalAlignment`, `textDirection`, `horizontalAlignment`, `margins`, `borders`, and `fill`; mixed detail remains under `rows[].cells[]`, and explicit direction `horz`, direct no-fill, zero-width line, omitted border style, explicit solid, and explicit-zero alpha stay distinct from `undefined` clear. Remaining unsupported table work includes outer table/cell font defaults, merge/span, row/column CRUD, table-level fit creation/defaults, diagonal/advanced borders and fills, table creation styles, auto-page/repeated headers, content measurement/layout recomputation, and `tableToSlides`; unsupported inputs are rejected rather than ignored. The detailed sections define exact creation precedence, numeric ranges, OOXML mappings, no-op behavior, and PptxGenJS boundaries for each property.
+`addTable()` accepts a non-empty dense rectangular matrix of strings or strict `{ text: string | readonly RichTextParagraph[], options? }` objects whose supported cell options are font family, font size, bold, color, paragraph spacing, align, border, fill, fit, hyperlink, margin, text direction, and vertical alignment. String CR/LF normalization, empty paragraphs, structured paragraph/run styles, soft breaks, and cell-default/local run links are supported. Table defaults for font family, font size, bold, color, spacing, align, border, fill, margin, text direction, and vertical alignment are materialized into physical-cell direct state; cell values win and no creation metadata is retained. There is no table-level hyperlink default. Inputs are descriptor-safe, getter-free, detached, and serialized in stable `tcPr` order: margins, optional anchor/direction, L/R/T/B borders, then fill. A plain cell hyperlink attaches to its one direct run; rich cell defaults apply only to runs without a local override. Geometry uses EMU, with strict scalar or exact-length column/row vectors and synchronized transform dimensions. Existing tables expose paragraph-aware `text`, detached `richText`, indexed safe plain/rich editors, readonly scalar hyperlink snapshots, and table-level uniform consensus/all-physical-cell bulk editing through `verticalAlignment`, `textDirection`, `horizontalAlignment`, `margins`, `borders`, and `fill`; mixed detail remains under `rows[].cells[]`, and explicit direction `horz`, direct no-fill, zero-width line, omitted border style, explicit solid, and explicit-zero alpha stay distinct from `undefined` clear. Remaining unsupported table work includes merge/span, row/column CRUD, table-level fit creation/defaults, diagonal/advanced borders and fills, table creation styles, auto-page/repeated headers, content measurement/layout recomputation, and `tableToSlides`; unsupported inputs are rejected rather than ignored. The detailed sections define exact creation precedence, numeric ranges, OOXML mappings, no-op behavior, and PptxGenJS boundaries for each property.
 
 `AddTableOptions.align` and `AddTableCellOptions.align` reuse the exact `TextAlignment` values `left`, `center`, `right`, and `justify`, mapped to direct `a:pPr@algn` tokens `l`, `ctr`, `r`, and `just`. A table value supplies the default for every cell that omits cell alignment or supplies runtime `undefined`; a valid cell value wins, and an explicit `RichTextParagraph.align` wins for that paragraph. When the table value is omitted or runtime-`undefined`, current bytes are preserved and no effective left token is synthesized. Final ownership is each physical cell paragraph's direct `a:pPr@algn`, never `tcPr`, `bodyPr`, or retained table metadata, so later clearing does not reapply a creation default. Rich/multi-paragraph alignment is read and whole-replaced through `TableCell.richText` / `setCellRichText()`. The scalar `horizontalAlignment` snapshot/editor below deliberately requires one exact direct paragraph. Supported table, cell, and paragraph values and precedence match PptxGenJS 4.0.1 final state; PptxGenJS silently drops an unknown table runtime value, whereas native creation throws `TypeError` before mutation.
 
 `TableModel.columnWidths` reads the unique direct `tblGrid` as a detached exact-EMU snapshot. A malformed or ambiguous grid returns `undefined` instead of guessing from the transform or cells. `setColumnWidths()` accepts a positive scalar broadcast or a dense descriptor-safe exact-length array, rounds each item to a safe EMU integer, rejects unsafe sums, and atomically updates both `gridCol@w` and `ext@cx`. A valid grid/transform mismatch is repaired; a numeric no-op preserves the original slide bytes and mutation journal. Unsafe existing grid or transform XML raises `ModelParseError` without mutation. Inherited `setTransform({ width })` still changes only the transform, so use `setColumnWidths()` when changing table width distribution.
 
-`TableModel.rowHeights` reads all direct `tr@h` values as a detached exact-EMU snapshot; zero is a valid automatic row height. A malformed or ambiguous direct row vector returns `undefined` without guessing from transform height or cell content. `setRowHeights()` accepts a non-negative scalar broadcast or a dense descriptor-safe exact-length array, rejects raw negative values, and rounds each item to a safe EMU integer. When every target is positive, their safe exact sum is written to `ext@cy` and a valid rows/transform mismatch is repaired. When any target is zero, row tokens are updated but the already-valid transform height is preserved because the rendered automatic height cannot be derived from the numeric row sum. Numeric no-ops preserve original tokens, slide bytes, and the mutation journal; unsafe existing rows or transform XML raise `ModelParseError` without mutation. Creation remains stricter: explicit `addTable({ rowHeights })` values must be positive, while omitting `rowHeights` creates automatic rows. Inherited `setTransform({ height })` still changes only the transform, so use `setRowHeights()` to edit row tokens. Rich/multi-paragraph cell text, paragraph alignment/style, run style/default-local links, and plain scalar hyperlink editing are supported in the rich-cell sections above. Remaining table gaps include outer table/cell font defaults, cell options outside the documented set, table-level fit creation/defaults, diagonal/advanced borders and fills, colspan/rowspan or merge editing, row insertion/deletion, table/cell creation styles, auto-page/repeated headers, content measurement/layout recomputation, and `tableToSlides`.
+`TableModel.rowHeights` reads all direct `tr@h` values as a detached exact-EMU snapshot; zero is a valid automatic row height. A malformed or ambiguous direct row vector returns `undefined` without guessing from transform height or cell content. `setRowHeights()` accepts a non-negative scalar broadcast or a dense descriptor-safe exact-length array, rejects raw negative values, and rounds each item to a safe EMU integer. When every target is positive, their safe exact sum is written to `ext@cy` and a valid rows/transform mismatch is repaired. When any target is zero, row tokens are updated but the already-valid transform height is preserved because the rendered automatic height cannot be derived from the numeric row sum. Numeric no-ops preserve original tokens, slide bytes, and the mutation journal; unsafe existing rows or transform XML raise `ModelParseError` without mutation. Creation remains stricter: explicit `addTable({ rowHeights })` values must be positive, while omitting `rowHeights` creates automatic rows. Inherited `setTransform({ height })` still changes only the transform, so use `setRowHeights()` to edit row tokens. Rich/multi-paragraph cell text, table/cell text-style defaults, paragraph/run overrides, default/local links, and plain scalar hyperlink editing are supported in the sections above. Remaining table gaps include cell options outside the documented set, table-level fit creation/defaults, diagonal/advanced borders and fills, colspan/rowspan or merge editing, row insertion/deletion, table/cell creation styles, auto-page/repeated headers, content measurement/layout recomputation, and `tableToSlides`.
 
 ```ts
 import {
