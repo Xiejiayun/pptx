@@ -1121,6 +1121,30 @@ $ pptx-inspect --json package inspect output.pptx
 
 - 当前总体 PptxGenJS 对等进度约 99.1%，尚不声明完整 parity。CRUD 专项 8/8 已完成；能力路线随后依次为 auto-page/repeated headers → content measurement/layout recomputation → `tableToSlides` → 最终 peer/client audit。
 
+## PptxGenJS 全功能对等：Table auto-page 与 repeated headers
+
+状态：实施、公开契约与文档完成；专项 6/8，actual package、真实浏览器、PowerPoint 2010 与最终全量/性能门禁待后续两项完成
+
+### 本阶段 change
+
+- `AddTableOptions` 新增 strict `autoPage`、`autoPageRepeatHeader`、`autoPageHeaderRows`、`autoPageSlideStartY` 与 `slideMargin`。当前 deterministic structural pagination 要求每个 physical row 都有正 EMU `rowHeights`，source 与 continuation capacity 使用 exact EMU margin/startY 计算。
+- Pure planner 按最小 rowspan block 分页，支持一个或多个 repeated header rows，不拆 merge，不允许 merge 跨 header/body 边界；每页生成 ordinary page-local table definition，保留 rich/multi-paragraph text、cell styles、hyperlinks、column widths、row heights 与 merge semantics。
+- 新增 same-layout blank slide insertion primitive。Continuation slides 紧邻 source 连续创建，保持 exact section membership，不复用既有 following slide；internal-slide link 在插页前解析为 stable target identity。
+- `SlideModel.newAutoPagedSlides` 是 getter-only frozen readonly runtime snapshot，不含 source。普通/no-overflow 成功调用清空，失败调用保持前值，删除生成页会过滤 detached identity，duplicate/write/reopen 后为空。
+- Source table、generated slide parts、relationships、presentation order、sections、model caches 与 runtime result 共用一个 outer transaction；对每个注入边界都验证 byte/journal/cache/identity failure isolation 与可重试性。
+- PptxGenJS 4.0.1 对照覆盖 repeated headers、multi-page splitting、source-in-the-middle 顺序及其 runtime 差异。Native 不复制 caller mutation、weight clamping、coercion 或 following-slide reuse。
+
+### 当前验证结果
+
+- 公开 model 专项 34/34 通过；model/SDK/root/PptxGenJS adapter 聚合契约 5/5 通过，覆盖六种 presentation format、merge/rich/link preservation、layout/section/order、runtime lifecycle 与 reopen。
+- 全仓 TypeScript project references、root build、Node/browser bundles、declarations 与 diff check 通过。实现与契约 commits 为 `0b63c07`、`a52708a`、`062e0b3`、`d30a4e6`、`3ce9cc7`。
+- 当前尚不记录 actual tarball、installed consumers、真实 Chrome、PowerPoint 2010、全量 suite、性能或确定性证明；这些数据只在对应门禁实际通过后写入。
+
+### 剩余 advanced API 与全功能路线
+
+- 当前总体 PptxGenJS 对等进度约 99.3%，尚不声明完整 parity。剩余能力包括 automatic row measurement、`autoPageCharWeight` / `autoPageLineWeight`、text-row fragmentation、placeholder auto-page、content/layout recomputation 与 `tableToSlides`。
+- 本专项剩余 2/8：actual package/installed consumer/真实浏览器/PPTX 验证，以及最终全量/性能/确定性门禁与证据固化。
+
 ## 0.1.0 初始验收
 
 - `pnpm check`：TypeScript strict build 通过；14 个测试文件、34 项测试全部通过。
