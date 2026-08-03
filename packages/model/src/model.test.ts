@@ -10860,6 +10860,115 @@ describe('PresentationModel', () => {
     }
   });
 
+  it('reads and whole-replaces table-cell rich text without partial plain edits', async () => {
+    const { pkg, model } = emptyPresentationModel();
+    const source = model.addSlide();
+    model.addSlide();
+    const table = source.addTable([[
+      {
+        text: [{
+          align: 'center',
+          runs: [
+            { text: 'First', style: { bold: true } },
+            { text: 'Soft', softBreakBefore: true },
+          ],
+        }, {
+          runs: [{ text: 'Second', style: { italic: true } }],
+        }],
+        options: {
+          fill: { kind: 'solid', color: { kind: 'srgb', value: 'DDEEFF' } },
+          fit: 'shrink',
+          margin: [1, 2, 3, 4],
+          valign: 'middle',
+        },
+      },
+      { text: 'Plain', options: { fill: { kind: 'none' } } },
+    ]], { name: 'Editable rich table' });
+
+    expect(table.rows[0]!.cells[0]!.text).toBe('First\nSoft\nSecond');
+    expect(table.rows[0]!.cells[0]!.richText.map(({ runs }) =>
+      runs.map(({ text }) => text))).toEqual([['First', 'Soft'], ['Second']]);
+    expect(table.rows[0]!.cells[0]!.richText[0]!.runs[1]!.softBreakBefore).toBe(true);
+    expect(table.rows[0]!.cells[0]!.richText[0]!.align).toBe('center');
+
+    const snapshot = table.rows[0]!.cells[0]!.richText;
+    const beforeNoOp = packageSnapshot(pkg);
+    table.setCellRichText(0, 0, snapshot);
+    expect(packageSnapshot(pkg)).toEqual(beforeNoOp);
+
+    const replacement = [{
+      align: 'right' as const,
+      runs: [
+        {
+          text: 'URL',
+          style: { hyperlink: { url: 'https://edit.example', tooltip: 'Edit' } },
+        },
+        {
+          text: ' slide',
+          style: { hyperlink: { slide: 2, tooltip: '' }, underline: false },
+        },
+      ],
+    }, {
+      runs: [{ text: 'Tail', style: { bold: true } }],
+    }];
+    const identity = table;
+    table.setCellRichText(0, 0, replacement);
+    expect(source.shapes.find(({ id }) => id === table.id)).toBe(identity);
+    expect(table.rows[0]!.cells[0]!.text).toBe('URL slide\nTail');
+    expect(table.rows[0]!.cells[0]!.richText[0]!.runs.map(
+      ({ style }) => style?.hyperlink,
+    )).toEqual([
+      { url: 'https://edit.example', tooltip: 'Edit' },
+      { slide: 2, tooltip: '' },
+    ]);
+    expect(table.rows[0]!.cells[0]!.fill).toEqual({
+      kind: 'solid',
+      color: { kind: 'srgb', value: 'DDEEFF' },
+    });
+    expect(table.rows[0]!.cells[0]!.margins).toEqual({
+      top: 1,
+      right: 2,
+      bottom: 3,
+      left: 4,
+    });
+    expect(table.rows[0]!.cells[0]!.textFit).toBe('shrink');
+    expect(table.rows[0]!.cells[0]!.verticalAlignment).toBe('middle');
+    expect(table.rows[0]!.cells[1]).toMatchObject({
+      text: 'Plain',
+      fill: { kind: 'none' },
+    });
+
+    replacement[0]!.runs[0]!.text = 'MUTATED';
+    expect(table.rows[0]!.cells[0]!.text).toBe('URL slide\nTail');
+
+    const beforeUnsafePlain = packageSnapshot(pkg);
+    expect(() => table.setCellText(0, 0, 'Unsafe')).toThrow(ModelParseError);
+    expect(packageSnapshot(pkg)).toEqual(beforeUnsafePlain);
+    table.setCellText(0, 1, 'Safe');
+    expect(table.rows[0]!.cells[1]!.text).toBe('Safe');
+
+    const beforeInvalid = packageSnapshot(pkg);
+    expect(() => table.setCellRichText(0, 0, [{ runs: [{
+      text: 'Invalid',
+      style: { hyperlink: { slide: 99 } },
+    }] }])).toThrow();
+    expect(() => table.setCellRichText(9, 0, [{ runs: [{ text: 'Missing' }] }]))
+      .toThrow(RangeError);
+    expect(packageSnapshot(pkg)).toEqual(beforeInvalid);
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedTable = reopened.slides[0]!.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    )!;
+    expect(reopenedTable.rows[0]!.cells[0]!.text).toBe('URL slide\nTail');
+    expect(reopenedTable.rows[0]!.cells[0]!.richText[0]!.runs.map(
+      ({ style }) => style?.hyperlink,
+    )).toEqual([
+      { url: 'https://edit.example', tooltip: 'Edit' },
+      { slide: 2, tooltip: '' },
+    ]);
+  });
+
   it('edits table-cell hyperlinks with ID reuse, clone-on-write, and reference GC', async () => {
     const { pkg, model } = emptyPresentationModel();
     const source = model.addSlide();
@@ -11568,7 +11677,6 @@ describe('PresentationModel', () => {
       ['A'],
       [['A'], ['B', 'C']],
       [[1]],
-      [['line\nbreak']],
       [[{ text: 'A', unknown: true }]],
       [[{ text: 'A', options: { fill: {
         kind: 'solid',

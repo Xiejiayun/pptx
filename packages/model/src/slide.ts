@@ -209,6 +209,7 @@ import {
   type NormalizedHyperlink,
 } from './shape-hyperlink.internal.js';
 import { requireEditableTableCellHyperlinkState } from './table-cell-hyperlink.internal.js';
+import { requireEditableTableCellRichTextState } from './table-cell-rich-text.internal.js';
 import { readDirectTablePhysicalCellMatrix } from './table-physical-cells.internal.js';
 import {
   normalizeTextBoxMargins,
@@ -1028,6 +1029,100 @@ export class SlideModel {
           this.partUri,
           current.relationshipId,
         );
+      }
+    });
+  }
+
+  setTableCellRichText(
+    id: number,
+    rowIndex: number,
+    columnIndex: number,
+    value: readonly RichTextParagraph[],
+  ): void {
+    const paragraphs = normalizeRichText(value);
+    const preparedRunHyperlinks = this.prepareRichTextRunHyperlinks(paragraphs);
+    this.presentation.opcPackage.transaction(() => {
+      const { xml, element } = this.resolveShape(id);
+      const matrix = readDirectTablePhysicalCellMatrix(element);
+      if (!matrix) {
+        throw new ModelParseError(
+          'Table cell rich text state is not safely editable',
+          this.partUri,
+        );
+      }
+      const cell = matrix[rowIndex]?.[columnIndex];
+      if (!cell) {
+        throw new RangeError(`Table cell ${rowIndex},${columnIndex} was not found`);
+      }
+      const readContext = {
+        relationships: this.relationships,
+        slidePartUris: this.presentation.slides.map(({ partUri }) => partUri),
+      };
+      const current = requireEditableTableCellRichTextState(
+        xml,
+        cell,
+        readContext,
+        this.partUri,
+      );
+      const normalizedCurrent = current.paragraphs.length === 0
+        ? current.paragraphs
+        : normalizeRichText(current.paragraphs);
+      if (richTextParagraphsEqual(normalizedCurrent, paragraphs)) return;
+
+      const textBody = cell.children.find(
+        (child): child is XmlElement =>
+          child.type === 'element' && child.localName === 'txBody',
+      )!;
+      const previousRelationshipIds = drawingHyperlinkRelationshipIds(textBody);
+      const preparedByPosition = new Map(preparedRunHyperlinks.map((prepared) => [
+        `${prepared.paragraphIndex}:${prepared.runIndex}`,
+        prepared,
+      ] as const));
+      const relationshipIds = paragraphs.map(({ runs }) =>
+        runs.map(() => undefined as string | undefined));
+
+      for (const [paragraphIndex, paragraph] of paragraphs.entries()) {
+        for (const [runIndex, run] of paragraph.runs.entries()) {
+          const hyperlink = run.style?.hyperlink;
+          if (hyperlink === undefined || hyperlink === false) continue;
+          const previous = current.runHyperlinkBindings[paragraphIndex]?.[runIndex];
+          if (previous && shapeHyperlinkTargetsEqual(previous.hyperlink, hyperlink)) {
+            relationshipIds[paragraphIndex]![runIndex] = previous.relationshipId;
+            continue;
+          }
+          const prepared = preparedByPosition.get(`${paragraphIndex}:${runIndex}`);
+          if (!prepared) throw new Error('Prepared table-cell rich text hyperlink was not found');
+          const relationshipId = previous
+            && relationshipReferenceCount(xml, previous.relationshipId) === 1
+            ? this.presentation.opcPackage.updateRelationship(
+                this.partUri,
+                previous.relationshipId,
+                prepared.relationship,
+              ).id
+            : this.presentation.opcPackage.addRelationship(
+                this.partUri,
+                prepared.relationship,
+              ).id;
+          relationshipIds[paragraphIndex]![runIndex] = relationshipId;
+        }
+      }
+
+      const updated = replaceRichText(
+        xml,
+        cell,
+        paragraphs,
+        this.partUri,
+        relationshipIds,
+      );
+      this.setXml(updated);
+      const updatedXml = LosslessXmlDocument.parse(updated);
+      for (const relationshipId of previousRelationshipIds) {
+        if (
+          relationshipReferenceCount(updatedXml, relationshipId) === 0
+          && this.relationships.some(({ id: candidate }) => candidate === relationshipId)
+        ) {
+          this.presentation.opcPackage.removeRelationship(this.partUri, relationshipId);
+        }
       }
     });
   }

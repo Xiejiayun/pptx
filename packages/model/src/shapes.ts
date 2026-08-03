@@ -38,6 +38,7 @@ import {
   chartWorkbookMatches,
 } from './chart-workbook.internal.js';
 import { cloneOwnedPartForMutation } from './dependency.internal.js';
+import { ModelParseError } from './errors.js';
 import { evaluateCustomGeometry as evaluateGeometry } from './custom-geometry-evaluator.js';
 import type { CustomGeometry, EvaluatedCustomGeometry } from './custom-geometry.js';
 import type { Hyperlink } from './hyperlink.js';
@@ -65,6 +66,11 @@ import {
   replaceTableFill,
 } from './table-cell-fill.internal.js';
 import { readTableCellHyperlink } from './table-cell-hyperlink.internal.js';
+import {
+  readTableCellRichText,
+  readTableCellText,
+  requireEditablePlainTableCellText,
+} from './table-cell-rich-text.internal.js';
 import {
   readTableCellHorizontalAlignment,
   readTableHorizontalAlignment,
@@ -104,6 +110,7 @@ import {
   replaceTableCellVerticalAlignment,
   replaceTableVerticalAlignment,
 } from './table-cell-vertical-alignment.internal.js';
+import { readDirectTablePhysicalCellMatrix } from './table-physical-cells.internal.js';
 import { normalizeTextAlignment } from './rich-text.internal.js';
 import { normalizeTextBoxFit } from './text-box-fit.internal.js';
 import { normalizeTextBoxMargins } from './text-box-margins.internal.js';
@@ -180,6 +187,7 @@ export type TableCellFill =
 
 export interface TableCell {
   readonly text: string;
+  readonly richText: readonly RichTextParagraph[];
   readonly borders?: TableCellBorders;
   readonly fill?: TableCellFill;
   readonly hyperlink?: Hyperlink;
@@ -598,8 +606,9 @@ export class TableModel extends BaseShapeModel {
       relationships: this.slide.relationships,
       slidePartUris: this.slide.presentation.slides.map(({ partUri }) => partUri),
     };
-    return xml.descendants(element, 'tr').map((row) => ({
-      cells: xml.descendants(row, 'tc').map((cell) => {
+    return (readDirectTablePhysicalCellMatrix(element) ?? []).map((row) => ({
+      cells: row.map((cell) => {
+        const richText = readTableCellRichText(xml, cell, hyperlinkContext);
         const borders = readTableCellBorders(xml, cell);
         const fill = readTableCellFill(xml, cell);
         const hyperlink = readTableCellHyperlink(xml, cell, hyperlinkContext);
@@ -609,7 +618,8 @@ export class TableModel extends BaseShapeModel {
         const textFit = readTableCellTextFit(xml, cell, this.slide.partUri);
         const verticalAlignment = readTableCellVerticalAlignment(xml, cell);
         return {
-          text: xml.descendants(cell, 't').map((node) => xml.text(node)).join(''),
+          text: readTableCellText(xml, cell, hyperlinkContext),
+          richText,
           ...(borders !== undefined ? { borders } : {}),
           ...(fill !== undefined ? { fill } : {}),
           ...(hyperlink !== undefined ? { hyperlink } : {}),
@@ -765,13 +775,27 @@ export class TableModel extends BaseShapeModel {
   }
 
   setCellText(rowIndex: number, columnIndex: number, value: string): void {
-    const { xml, element } = this.resolve();
-    const row = xml.descendants(element, 'tr')[rowIndex];
-    const cell = row ? xml.descendants(row, 'tc')[columnIndex] : undefined;
-    const text = cell ? xml.descendants(cell, 't')[0] : undefined;
-    if (!text) throw new RangeError(`Table cell ${rowIndex},${columnIndex} was not found`);
-    xml.replaceText(text, value);
-    this.slide.setXml(xml.serialize());
+    this.slide.presentation.opcPackage.transaction(() => {
+      const { xml, element } = this.resolve();
+      const matrix = readDirectTablePhysicalCellMatrix(element);
+      if (!matrix) {
+        throw new ModelParseError('Table cell text state is not safely editable', this.slide.partUri);
+      }
+      const cell = matrix[rowIndex]?.[columnIndex];
+      if (!cell) throw new RangeError(`Table cell ${rowIndex},${columnIndex} was not found`);
+      const text = requireEditablePlainTableCellText(xml, cell, this.slide.partUri);
+      if (xml.text(text) === value) return;
+      xml.replaceText(text, value);
+      this.slide.setXml(xml.serialize());
+    });
+  }
+
+  setCellRichText(
+    rowIndex: number,
+    columnIndex: number,
+    value: readonly RichTextParagraph[],
+  ): void {
+    this.slide.setTableCellRichText(this.id, rowIndex, columnIndex, value);
   }
 
   setCellHyperlink(
