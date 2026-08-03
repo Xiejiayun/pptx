@@ -52,6 +52,7 @@ import type {
   TextBoxMargins,
   TextBoxVerticalAlignment,
 } from './text.js';
+import type { TableCellMergeTokens } from './table-cell-merge.internal.js';
 
 const EMU_PER_INCH = 914_400;
 const DEFAULT_OFFSET = EMU_PER_INCH / 2;
@@ -606,6 +607,21 @@ export function distributeTableDimension(total: number, count: number): readonly
   );
 }
 
+export function renderEmptyTableCellFragment(
+  tokens: Readonly<TableCellMergeTokens> = {},
+): string {
+  const cell = renderTableCell({ text: '' }, undefined);
+  const attributes = [
+    renderStructuralMergeSpan(tokens.rowSpan, 'rowSpan'),
+    renderStructuralMergeSpan(tokens.gridSpan, 'gridSpan'),
+    tokens.vertical ? ' vMerge="1"' : '',
+    tokens.horizontal ? ' hMerge="1"' : '',
+  ].join('');
+  return attributes === ''
+    ? cell
+    : `<a:tc${attributes}${cell.slice('<a:tc'.length)}`;
+}
+
 export function renderTableGraphicFrame(
   id: number,
   definition: NormalizedTableDefinition,
@@ -850,6 +866,17 @@ function renderTableCell(
     ? '<a:bodyPr/>'
     : `<a:bodyPr>${textFitChild}</a:bodyPr>`;
   return `<a:tc${spanAttributes}><a:txBody>${bodyProperties}<a:lstStyle/>${renderedParagraphs}</a:txBody><a:tcPr${marginAttributes}${verticalAlignmentAttribute}${textDirectionAttribute}>${borders}${fill}</a:tcPr></a:tc>`;
+}
+
+function renderStructuralMergeSpan(
+  value: number | undefined,
+  name: 'rowSpan' | 'gridSpan',
+): string {
+  if (value === undefined || value === 1) return '';
+  if (!Number.isSafeInteger(value) || value < 1) {
+    throw new RangeError(`Table cell ${name} must be a positive safe integer`);
+  }
+  return ` ${name}="${value}"`;
 }
 
 function renderTableCellSpanAttributes(cell: NormalizedTableCell): string {

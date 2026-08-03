@@ -28,6 +28,13 @@ export interface TableMergeState {
   readonly cells: readonly (readonly (Readonly<TableCellMergeState> | undefined)[])[];
 }
 
+export interface TableCellMergeTokens {
+  readonly rowSpan?: number;
+  readonly gridSpan?: number;
+  readonly vertical?: true;
+  readonly horizontal?: true;
+}
+
 interface DirectTableStructure {
   readonly columnCount: number;
   readonly cells: readonly (readonly XmlElement[])[];
@@ -51,14 +58,26 @@ export function readTableMergeState(
 ): Readonly<TableMergeState> | undefined {
   const structure = readDirectTableStructure(frame);
   if (!structure) return undefined;
-  const parsed = structure.cells.map((row) => row.map(readMergeCell));
+  return readTableMergeStateFromCells(structure.cells);
+}
+
+export function readTableMergeStateFromCells(
+  physicalCells: readonly (readonly XmlElement[])[],
+): Readonly<TableMergeState> | undefined {
+  const columnCount = physicalCells[0]?.length ?? 0;
+  if (
+    physicalCells.length === 0
+    || columnCount === 0
+    || physicalCells.some((row) => row.length !== columnCount)
+  ) return undefined;
+  const parsed = physicalCells.map((row) => row.map(readMergeCell));
   if (parsed.some((row) => row.some((cell) => cell === undefined))) {
     return undefined;
   }
   const cells = parsed as readonly (readonly ParsedMergeCell[])[];
   const regions: TableMergeRegionState[] = [];
   for (let rowIndex = 0; rowIndex < cells.length; rowIndex += 1) {
-    for (let columnIndex = 0; columnIndex < structure.columnCount; columnIndex += 1) {
+    for (let columnIndex = 0; columnIndex < columnCount; columnIndex += 1) {
       const cell = cells[rowIndex]![columnIndex]!;
       if (
         !cell.verticalContinuation
@@ -76,11 +95,11 @@ export function readTableMergeState(
   }
 
   const ownership: (TableMergeRegionState | undefined)[][] = cells.map(() =>
-    Array.from({ length: structure.columnCount }, () => undefined));
+    Array.from({ length: columnCount }, () => undefined));
   for (const region of regions) {
     if (
       region.rowIndex + region.rowspan > cells.length
-      || region.columnIndex + region.colspan > structure.columnCount
+      || region.columnIndex + region.colspan > columnCount
     ) return undefined;
     for (let rowOffset = 0; rowOffset < region.rowspan; rowOffset += 1) {
       for (let columnOffset = 0; columnOffset < region.colspan; columnOffset += 1) {
@@ -97,7 +116,7 @@ export function readTableMergeState(
   > = [];
   for (let rowIndex = 0; rowIndex < cells.length; rowIndex += 1) {
     const snapshotRow: (Readonly<TableCellMergeState> | undefined)[] = [];
-    for (let columnIndex = 0; columnIndex < structure.columnCount; columnIndex += 1) {
+    for (let columnIndex = 0; columnIndex < columnCount; columnIndex += 1) {
       const cell = cells[rowIndex]![columnIndex]!;
       const region = ownership[rowIndex]![columnIndex];
       if (!region) {
@@ -188,11 +207,15 @@ export function replaceTableMergeRegion(
       const cell = structure.cells[region.rowIndex + rowOffset]![
         region.columnIndex + columnOffset
       ]!;
-      replaceCellMergeAttributes(xml, cell, {
-        rowSpan: rowOffset === 0 ? region.rowspan : 1,
-        gridSpan: columnOffset === 0 ? region.colspan : 1,
-        verticalContinuation: rowOffset > 0,
-        horizontalContinuation: columnOffset > 0,
+      replaceTableCellMergeAttributes(xml, cell, {
+        ...(rowOffset === 0 && region.rowspan > 1
+          ? { rowSpan: region.rowspan }
+          : {}),
+        ...(columnOffset === 0 && region.colspan > 1
+          ? { gridSpan: region.colspan }
+          : {}),
+        ...(rowOffset > 0 ? { vertical: true as const } : {}),
+        ...(columnOffset > 0 ? { horizontal: true as const } : {}),
       });
     }
   }
@@ -223,15 +246,10 @@ export function clearTableMergeRegionAt(
   }
   for (let rowOffset = 0; rowOffset < region.rowspan; rowOffset += 1) {
     for (let columnOffset = 0; columnOffset < region.colspan; columnOffset += 1) {
-      replaceCellMergeAttributes(
+      replaceTableCellMergeAttributes(
         xml,
         structure.cells[region.rowIndex + rowOffset]![region.columnIndex + columnOffset]!,
-        {
-          rowSpan: 1,
-          gridSpan: 1,
-          verticalContinuation: false,
-          horizontalContinuation: false,
-        },
+        {},
       );
     }
   }
@@ -357,6 +375,29 @@ function regionsOverlap(
     && right.columnIndex < left.columnIndex + left.colspan;
 }
 
+export function replaceTableCellMergeAttributes(
+  xml: LosslessXmlDocument,
+  cell: XmlElement,
+  tokens: Readonly<TableCellMergeTokens>,
+): boolean {
+  const target: ParsedMergeCell = {
+    rowSpan: normalizeMergeTokenSpan(tokens.rowSpan, 'Table cell rowSpan'),
+    gridSpan: normalizeMergeTokenSpan(tokens.gridSpan, 'Table cell gridSpan'),
+    verticalContinuation: tokens.vertical === true,
+    horizontalContinuation: tokens.horizontal === true,
+  };
+  const current = readMergeCell(cell);
+  if (
+    current
+    && current.rowSpan === target.rowSpan
+    && current.gridSpan === target.gridSpan
+    && current.verticalContinuation === target.verticalContinuation
+    && current.horizontalContinuation === target.horizontalContinuation
+  ) return false;
+  replaceCellMergeAttributes(xml, cell, target);
+  return true;
+}
+
 function replaceCellMergeAttributes(
   xml: LosslessXmlDocument,
   cell: XmlElement,
@@ -378,6 +419,14 @@ function replaceCellMergeAttributes(
     ? stripped
     : insertAttributes(stripped, additions);
   if (next !== source) xml.replace(cell.start, cell.startTagEnd, next);
+}
+
+function normalizeMergeTokenSpan(value: number | undefined, context: string): number {
+  if (value === undefined) return 1;
+  if (!Number.isSafeInteger(value) || value < 1) {
+    throw new RangeError(`${context} must be a positive safe integer`);
+  }
+  return value;
 }
 
 function removeAttributeEdit(
