@@ -116,7 +116,10 @@ import {
   type TableCellHyperlinkRelationshipIds,
   type TableCellRichTextRunHyperlinkRelationshipIds,
 } from './table-create.internal.js';
-import { planTableAutoPages } from './table-auto-page.internal.js';
+import {
+  planTableAutoPages,
+  resolveTableAutoPageLayout,
+} from './table-auto-page.internal.js';
 import {
   readSlideHidden,
   replaceSlideHidden,
@@ -1614,13 +1617,16 @@ export class SlideModel {
     options: AddTableOptions = {},
   ): TableModel {
     const definition = normalizeTableDefinition(rows, options);
-    const pageDefinitions = definition.autoPage === undefined
-      ? Object.freeze([definition])
-      : planTableAutoPages(
+    const layoutRegion = definition.autoPage === undefined
+      ? undefined
+      : resolveTableAutoPageLayout(
           definition,
           this.presentation.slideSize,
           this.presentation.tableAutoPageMarginsForSlide(this),
         );
+    const pageDefinitions = layoutRegion === undefined
+      ? Object.freeze([definition])
+      : planTableAutoPages(definition, layoutRegion);
     const insertionPlans = pageDefinitions.slice(1).map(() =>
       this.presentation.prepareSlideInsertionAfter(this));
     const preparedHyperlinks = pageDefinitions.map((page) =>

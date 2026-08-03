@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { normalizeTableDefinition } from './table-create.internal.js';
 import {
-  planTableAutoPages,
+  planTableAutoPages as partitionTableAutoPages,
+  resolveTableAutoPageLayout,
   type TableAutoPageMargins,
 } from './table-auto-page.internal.js';
-import type { Emu, SlideSize } from './units.js';
+import { EMU_PER_INCH, type Emu, type SlideSize } from './units.js';
 
 const emu = (value: number): Emu => value as Emu;
 
@@ -20,11 +21,209 @@ function definition(
   });
 }
 
+function planTableAutoPages(
+  source: ReturnType<typeof definition>,
+  slideSize: Readonly<SlideSize>,
+  layoutMargins?: Readonly<TableAutoPageMargins>,
+  bottomEdgeOverride?: number,
+) {
+  const region = resolveTableAutoPageLayout(
+    source,
+    slideSize,
+    layoutMargins,
+    bottomEdgeOverride,
+  );
+  return partitionTableAutoPages(source, region);
+}
+
 function firstColumnText(
   pages: ReturnType<typeof planTableAutoPages>,
 ): readonly (readonly string[])[] {
   return pages.map((page) => page.rows.map((row) => row[0]!.text));
 }
+
+describe('table auto-page layout region', () => {
+  it('resolves one frozen layout region for measurement and partition', () => {
+    const source = definition([['A']], {
+      y: 20,
+      rowHeights: [10],
+      autoPageSlideStartY: 5,
+      slideMargin: [3, 4, 7, 6],
+    });
+
+    const region = resolveTableAutoPageLayout(source, SLIDE);
+    expect(region).toEqual({
+      firstY: 20,
+      continuationY: 5,
+      bottomEdge: 93,
+      firstCapacity: 73,
+      continuationCapacity: 88,
+    });
+    expect(Object.isFrozen(region)).toBe(true);
+    expect(partitionTableAutoPages({ ...source, y: 99 }, region)[0]!.y).toBe(20);
+  });
+
+  it('uses explicit margins before layout margins and canonical defaults', () => {
+    const layoutMargins: TableAutoPageMargins = {
+      top: 10,
+      right: 20,
+      bottom: 30,
+      left: 40,
+    };
+    const layout = resolveTableAutoPageLayout(definition([['A']], {
+      y: 20,
+      rowHeights: [10],
+    }), SLIDE, layoutMargins);
+    expect(layout).toEqual({
+      firstY: 20,
+      continuationY: 10,
+      bottomEdge: 70,
+      firstCapacity: 50,
+      continuationCapacity: 60,
+    });
+
+    const explicit = resolveTableAutoPageLayout(definition([['A']], {
+      y: 20,
+      rowHeights: [10],
+      slideMargin: [5, 6, 10, 8],
+    }), SLIDE, layoutMargins);
+    expect(explicit).toEqual({
+      firstY: 20,
+      continuationY: 5,
+      bottomEdge: 90,
+      firstCapacity: 70,
+      continuationCapacity: 85,
+    });
+
+    const canonicalSlide: SlideSize = {
+      width: emu(2_000_000),
+      height: emu(1_000_000),
+    };
+    const canonical = resolveTableAutoPageLayout(definition([['A']], {
+      y: 500_000,
+      rowHeights: [10],
+    }), canonicalSlide);
+    const defaultMargin = EMU_PER_INCH / 2;
+    expect(canonical).toEqual({
+      firstY: 500_000,
+      continuationY: defaultMargin,
+      bottomEdge: 1_000_000 - defaultMargin,
+      firstCapacity: 1_000_000 - defaultMargin - 500_000,
+      continuationCapacity: 1_000_000 - (2 * defaultMargin),
+    });
+  });
+
+  it('applies the exact stricter bottom edge and clips a looser override', () => {
+    const source = definition([['A']], {
+      y: 20,
+      rowHeights: [10],
+      autoPageSlideStartY: 5,
+      slideMargin: [0, 0, 10, 0],
+    });
+    expect(resolveTableAutoPageLayout(source, SLIDE, undefined, 80)).toEqual({
+      firstY: 20,
+      continuationY: 5,
+      bottomEdge: 80,
+      firstCapacity: 60,
+      continuationCapacity: 75,
+    });
+    expect(resolveTableAutoPageLayout(source, SLIDE, undefined, 99)).toEqual({
+      firstY: 20,
+      continuationY: 5,
+      bottomEdge: 90,
+      firstCapacity: 70,
+      continuationCapacity: 85,
+    });
+  });
+
+  it.each([
+    ['zero bottom override', () => resolveTableAutoPageLayout(
+      definition([['A']], { y: 0, rowHeights: [10], slideMargin: 0 }),
+      SLIDE,
+      undefined,
+      0,
+    ), /bottom edge/i],
+    ['fractional bottom override', () => resolveTableAutoPageLayout(
+      definition([['A']], { y: 0, rowHeights: [10], slideMargin: 0 }),
+      SLIDE,
+      undefined,
+      1.5,
+    ), /bottom edge/i],
+    ['override at source Y', () => resolveTableAutoPageLayout(
+      definition([['A']], {
+        y: 20,
+        rowHeights: [10],
+        autoPageSlideStartY: 5,
+        slideMargin: 0,
+      }),
+      SLIDE,
+      undefined,
+      20,
+    ), /source height/i],
+    ['override before source Y', () => resolveTableAutoPageLayout(
+      definition([['A']], {
+        y: 20,
+        rowHeights: [10],
+        autoPageSlideStartY: 5,
+        slideMargin: 0,
+      }),
+      SLIDE,
+      undefined,
+      19,
+    ), /source height/i],
+    ['override at continuation Y', () => resolveTableAutoPageLayout(
+      definition([['A']], {
+        y: 5,
+        rowHeights: [10],
+        autoPageSlideStartY: 20,
+        slideMargin: 0,
+      }),
+      SLIDE,
+      undefined,
+      20,
+    ), /continuation height/i],
+    ['horizontal margin exhaustion', () => resolveTableAutoPageLayout(
+      definition([['A']], {
+        y: 0,
+        rowHeights: [10],
+        slideMargin: [0, 600, 0, 400],
+      }),
+      SLIDE,
+    ), /horizontal/i],
+    ['vertical margin exhaustion', () => resolveTableAutoPageLayout(
+      definition([['A']], {
+        y: 0,
+        rowHeights: [10],
+        slideMargin: [50, 0, 50, 0],
+      }),
+      SLIDE,
+    ), /vertical/i],
+    ['unsafe slide width', () => resolveTableAutoPageLayout(
+      definition([['A']], { y: 0, rowHeights: [10], slideMargin: 0 }),
+      { width: emu(Number.MAX_SAFE_INTEGER + 1), height: emu(100) },
+    ), /slide width/i],
+    ['unsafe slide height', () => resolveTableAutoPageLayout(
+      definition([['A']], { y: 0, rowHeights: [10], slideMargin: 0 }),
+      { width: emu(100), height: emu(Number.MAX_SAFE_INTEGER + 1) },
+    ), /slide height/i],
+    ['unsafe bottom override', () => resolveTableAutoPageLayout(
+      definition([['A']], { y: 0, rowHeights: [10], slideMargin: 0 }),
+      SLIDE,
+      undefined,
+      Number.MAX_SAFE_INTEGER + 1,
+    ), /bottom edge/i],
+    ['overflowing margin sum', () => resolveTableAutoPageLayout(
+      definition([['A']], {
+        y: 0,
+        rowHeights: [10],
+        slideMargin: [0, Number.MAX_SAFE_INTEGER, 0, 1],
+      }),
+      { width: emu(Number.MAX_SAFE_INTEGER), height: emu(100) },
+    ), /safe integer/i],
+  ])('rejects %s', (_name, resolve, message) => {
+    expect(resolve).toThrow(message);
+  });
+});
 
 describe('table auto-page partition planner', () => {
   it('partitions exact EMU rows and repeats headers', () => {

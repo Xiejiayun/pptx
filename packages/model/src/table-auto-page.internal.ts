@@ -31,6 +31,14 @@ export interface TableAutoPageMargins {
   readonly left: number;
 }
 
+export interface TableAutoPageLayoutRegion {
+  readonly firstY: number;
+  readonly continuationY: number;
+  readonly bottomEdge: number;
+  readonly firstCapacity: number;
+  readonly continuationCapacity: number;
+}
+
 interface NormalizeTableAutoPageContext {
   readonly rowCount: number;
   readonly rowHeights: readonly number[];
@@ -129,14 +137,14 @@ export function normalizeTableAutoPageWeight(
   return Object.is(value, -0) ? 0 : value;
 }
 
-export function planTableAutoPages(
+export function resolveTableAutoPageLayout(
   definition: Readonly<NormalizedTableDefinition>,
   slideSize: Readonly<SlideSize>,
   layoutMargins?: Readonly<TableAutoPageMargins>,
-): readonly Readonly<NormalizedTableDefinition>[] {
-  if (definition.autoPage === undefined) return Object.freeze([definition]);
-  if (definition.autoPage.measureContent) {
-    throw new RangeError('Table auto-page rowHeights must be materialized before planning');
+  bottomEdgeOverride?: number,
+): Readonly<TableAutoPageLayoutRegion> {
+  if (definition.autoPage === undefined) {
+    throw new TypeError('Table auto-page layout requires an auto-page definition');
   }
   const width = normalizePositiveSafeInteger(slideSize.width, 'Slide width');
   const height = normalizePositiveSafeInteger(slideSize.height, 'Slide height');
@@ -160,8 +168,21 @@ export function planTableAutoPages(
     throw new RangeError('Table auto-page vertical margins must be smaller than slide height');
   }
 
-  const bottomEdge = height - margins.bottom;
-  const firstCapacity = bottomEdge - definition.y;
+  const canonicalBottomEdge = height - margins.bottom;
+  const bottomEdge = bottomEdgeOverride === undefined
+    ? canonicalBottomEdge
+    : Math.min(
+        canonicalBottomEdge,
+        normalizePositiveSafeInteger(
+          bottomEdgeOverride,
+          'Table auto-page bottom edge override',
+        ),
+      );
+  const firstY = normalizeNonNegativeSafeInteger(
+    definition.y,
+    'Table auto-page source Y',
+  );
+  const firstCapacity = bottomEdge - firstY;
   if (!Number.isSafeInteger(firstCapacity) || firstCapacity <= 0) {
     throw new RangeError('Table auto-page source height must be positive');
   }
@@ -173,6 +194,30 @@ export function planTableAutoPages(
   if (!Number.isSafeInteger(continuationCapacity) || continuationCapacity <= 0) {
     throw new RangeError('Table auto-page continuation height must be positive');
   }
+
+  return Object.freeze({
+    firstY,
+    continuationY,
+    bottomEdge,
+    firstCapacity,
+    continuationCapacity,
+  });
+}
+
+export function planTableAutoPages(
+  definition: Readonly<NormalizedTableDefinition>,
+  region: Readonly<TableAutoPageLayoutRegion>,
+): readonly Readonly<NormalizedTableDefinition>[] {
+  if (definition.autoPage === undefined) return Object.freeze([definition]);
+  if (definition.autoPage.measureContent) {
+    throw new RangeError('Table auto-page rowHeights must be materialized before planning');
+  }
+  const {
+    firstY,
+    continuationY,
+    firstCapacity,
+    continuationCapacity,
+  } = region;
 
   const headerRows = definition.autoPage.headerRows;
   assertHeaderBoundary(definition.rows, headerRows);
@@ -220,7 +265,7 @@ export function planTableAutoPages(
   return Object.freeze(pages.map((rowIndexes, pageIndex) => pageDefinition(
     definition,
     rowIndexes,
-    pageIndex === 0 ? definition.y : continuationY,
+    pageIndex === 0 ? firstY : continuationY,
   )));
 }
 
