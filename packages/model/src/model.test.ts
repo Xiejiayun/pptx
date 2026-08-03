@@ -12253,6 +12253,73 @@ describe('PresentationModel', () => {
     expect(packageSnapshot(pkg)).toEqual(beforeInvalid);
   });
 
+  it('projects frozen physical table merge snapshots and isolates malformed topology', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const table = slide.addTable([
+      ['Left', { text: 'Merged', options: { colspan: 2, rowspan: 2 } }, 'Right'],
+      ['Lower left', 'Lower right'],
+      ['A', 'B', 'C', 'D'],
+    ], { name: 'Snapshot merge' });
+    const unmerged = slide.addTable([['One', 'Two']], { name: 'Unmerged snapshot' });
+
+    expect(table.mergeRegions).toEqual([
+      { rowIndex: 0, columnIndex: 1, rowspan: 2, colspan: 2 },
+    ]);
+    expect(table.rows.map(({ cells }) => cells.map(({ merge }) => merge))).toEqual([
+      [
+        undefined,
+        { rowIndex: 0, columnIndex: 1, rowspan: 2, colspan: 2, isAnchor: true },
+        { rowIndex: 0, columnIndex: 1, rowspan: 2, colspan: 2, isAnchor: false },
+        undefined,
+      ],
+      [
+        undefined,
+        { rowIndex: 0, columnIndex: 1, rowspan: 2, colspan: 2, isAnchor: false },
+        { rowIndex: 0, columnIndex: 1, rowspan: 2, colspan: 2, isAnchor: false },
+        undefined,
+      ],
+      [undefined, undefined, undefined, undefined],
+    ]);
+    expect(table.rows.map(({ cells }) => cells.map(({ text }) => text))).toEqual([
+      ['Left', 'Merged', '', 'Right'],
+      ['Lower left', '', '', 'Lower right'],
+      ['A', 'B', 'C', 'D'],
+    ]);
+    expect(unmerged.mergeRegions).toEqual([]);
+    expect(Object.isFrozen(table.mergeRegions)).toBe(true);
+    expect(Object.isFrozen(table.mergeRegions?.[0])).toBe(true);
+    expect(Object.isFrozen(table.rows[1]!.cells[2]!.merge)).toBe(true);
+    expect(() => {
+      (table.mergeRegions as unknown as Array<{ rowIndex: number }>)[0]!.rowIndex = 9;
+    }).toThrow();
+    expect(table.mergeRegions?.[0]?.rowIndex).toBe(0);
+
+    const malformedPart = pkg.requirePart(slide.partUri);
+    const source = new TextDecoder().decode(malformedPart.bytes);
+    const nameOffset = source.indexOf('name="Unmerged snapshot"');
+    const cellOffset = source.indexOf('<a:tc>', nameOffset);
+    const malformed = source.slice(0, cellOffset)
+      + '<a:tc hMerge="1">'
+      + source.slice(cellOffset + '<a:tc>'.length);
+    pkg.setPart(slide.partUri, malformed, malformedPart.contentType);
+    expect(unmerged.mergeRegions).toBeUndefined();
+    expect(unmerged.rows[0]!.cells.map(({ text, merge }) => ({ text, merge }))).toEqual([
+      { text: 'One', merge: undefined },
+      { text: 'Two', merge: undefined },
+    ]);
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedTable = reopened.slides.find(({ partUri }) => partUri === slide.partUri)!
+      .shapes.find((shape): shape is TableModel =>
+        shape instanceof TableModel && shape.name === 'Snapshot merge')!;
+    expect(reopenedTable.mergeRegions).toEqual([
+      { rowIndex: 0, columnIndex: 1, rowspan: 2, colspan: 2 },
+    ]);
+    expect(reopenedTable.rows[1]!.cells[2]!.merge?.isAnchor).toBe(false);
+  });
+
   it('preserves table-cell text style defaults through edits, duplication, rollback, and reopen', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);

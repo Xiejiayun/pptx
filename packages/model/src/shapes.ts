@@ -111,6 +111,7 @@ import {
   replaceTableVerticalAlignment,
 } from './table-cell-vertical-alignment.internal.js';
 import { readDirectTablePhysicalCellMatrix } from './table-physical-cells.internal.js';
+import { readTableMergeState } from './table-cell-merge.internal.js';
 import { normalizeTextAlignment } from './rich-text.internal.js';
 import { normalizeTextBoxFit } from './text-box-fit.internal.js';
 import { normalizeTextBoxMargins } from './text-box-margins.internal.js';
@@ -185,6 +186,17 @@ export type TableCellFill =
       readonly transparency?: number;
     };
 
+export interface TableMergeRegion {
+  readonly rowIndex: number;
+  readonly columnIndex: number;
+  readonly rowspan: number;
+  readonly colspan: number;
+}
+
+export interface TableCellMerge extends TableMergeRegion {
+  readonly isAnchor: boolean;
+}
+
 export interface TableCell {
   readonly text: string;
   readonly richText: readonly RichTextParagraph[];
@@ -192,6 +204,7 @@ export interface TableCell {
   readonly fill?: TableCellFill;
   readonly hyperlink?: Hyperlink;
   readonly horizontalAlignment?: TextAlignment;
+  readonly merge?: Readonly<TableCellMerge>;
   readonly margins?: TextBoxMargins;
   readonly textDirection?: TableCellTextDirection;
   readonly textFit?: TextBoxFit;
@@ -602,12 +615,13 @@ export class ImageModel extends BaseShapeModel {
 export class TableModel extends BaseShapeModel {
   get rows(): readonly TableRow[] {
     const { xml, element } = this.resolve();
+    const mergeState = readTableMergeState(element);
     const hyperlinkContext = {
       relationships: this.slide.relationships,
       slidePartUris: this.slide.presentation.slides.map(({ partUri }) => partUri),
     };
-    return (readDirectTablePhysicalCellMatrix(element) ?? []).map((row) => ({
-      cells: row.map((cell) => {
+    return (readDirectTablePhysicalCellMatrix(element) ?? []).map((row, rowIndex) => ({
+      cells: row.map((cell, columnIndex) => {
         const richText = readTableCellRichText(xml, cell, hyperlinkContext);
         const borders = readTableCellBorders(xml, cell);
         const fill = readTableCellFill(xml, cell);
@@ -617,6 +631,7 @@ export class TableModel extends BaseShapeModel {
         const textDirection = readTableCellTextDirection(xml, cell);
         const textFit = readTableCellTextFit(xml, cell, this.slide.partUri);
         const verticalAlignment = readTableCellVerticalAlignment(xml, cell);
+        const merge = mergeState?.cells[rowIndex]?.[columnIndex];
         return {
           text: readTableCellText(xml, cell, hyperlinkContext),
           richText,
@@ -625,12 +640,18 @@ export class TableModel extends BaseShapeModel {
           ...(hyperlink !== undefined ? { hyperlink } : {}),
           ...(horizontalAlignment !== undefined ? { horizontalAlignment } : {}),
           ...(margins !== undefined ? { margins } : {}),
+          ...(merge !== undefined ? { merge } : {}),
           ...(textDirection !== undefined ? { textDirection } : {}),
           ...(textFit !== undefined ? { textFit } : {}),
           ...(verticalAlignment !== undefined ? { verticalAlignment } : {}),
         };
       }),
     }));
+  }
+
+  get mergeRegions(): readonly Readonly<TableMergeRegion>[] | undefined {
+    const { element } = this.resolve();
+    return readTableMergeState(element)?.regions;
   }
 
   get horizontalAlignment(): TextAlignment | undefined {
