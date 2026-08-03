@@ -111,7 +111,12 @@ import {
   replaceTableVerticalAlignment,
 } from './table-cell-vertical-alignment.internal.js';
 import { readDirectTablePhysicalCellMatrix } from './table-physical-cells.internal.js';
-import { readTableMergeState } from './table-cell-merge.internal.js';
+import {
+  clearTableMergeRegionAt,
+  normalizeTableMergeRegionInput,
+  readTableMergeState,
+  replaceTableMergeRegion,
+} from './table-cell-merge.internal.js';
 import { normalizeTextAlignment } from './rich-text.internal.js';
 import { normalizeTextBoxFit } from './text-box-fit.internal.js';
 import { normalizeTextBoxMargins } from './text-box-margins.internal.js';
@@ -652,6 +657,41 @@ export class TableModel extends BaseShapeModel {
   get mergeRegions(): readonly Readonly<TableMergeRegion>[] | undefined {
     const { element } = this.resolve();
     return readTableMergeState(element)?.regions;
+  }
+
+  mergeCells(
+    rowIndex: number,
+    columnIndex: number,
+    rowspan: number,
+    colspan: number,
+  ): void {
+    const region = normalizeTableMergeRegionInput(
+      rowIndex,
+      columnIndex,
+      rowspan,
+      colspan,
+    );
+    this.slide.presentation.opcPackage.transaction(() => {
+      const { xml, element } = this.resolve();
+      if (replaceTableMergeRegion(xml, element, region, this.slide.partUri)) {
+        this.slide.setXml(xml.serialize());
+      }
+    });
+  }
+
+  unmergeCell(rowIndex: number, columnIndex: number): void {
+    this.slide.presentation.opcPackage.transaction(() => {
+      const { xml, element } = this.resolve();
+      if (clearTableMergeRegionAt(
+        xml,
+        element,
+        rowIndex,
+        columnIndex,
+        this.slide.partUri,
+      )) {
+        this.slide.setXml(xml.serialize());
+      }
+    });
   }
 
   get horizontalAlignment(): TextAlignment | undefined {

@@ -12320,6 +12320,274 @@ describe('PresentationModel', () => {
     expect(reopenedTable.rows[1]!.cells[2]!.merge?.isAnchor).toBe(false);
   });
 
+  it('runs the lossless table merge lifecycle with exact no-ops and rollback', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const expectedText = [
+      ['0,0', '0,1', '0,2', '0,3'],
+      ['1,0', '1,1', '1,2', '1,3'],
+      ['2,0', '2,1', 'Hidden 2,2', '2,3'],
+      ['3,0', '3,1', '3,2', '3,3'],
+    ];
+    const table = slide.addTable([
+      ['0,0', '0,1', '0,2', '0,3'],
+      ['1,0', '1,1', '1,2', '1,3'],
+      ['2,0', '2,1', {
+        text: 'Hidden 2,2',
+        options: {
+          bold: true,
+          border: {
+            kind: 'line',
+            color: { kind: 'scheme', value: 'accent1' },
+            width: 2,
+          },
+          fill: {
+            kind: 'solid',
+            color: { kind: 'scheme', value: 'accent2' },
+            transparency: 25,
+          },
+          hyperlink: { url: 'https://hidden.example' },
+        },
+      }, '2,3'],
+      ['3,0', '3,1', '3,2', '3,3'],
+    ], { name: 'Merge lifecycle' });
+    const relationshipsBeforeMerge = slide.relationships;
+
+    const part = pkg.requirePart(slide.partUri);
+    let source = new TextDecoder().decode(part.bytes);
+    const nameOffset = source.indexOf('name="Merge lifecycle"');
+    let anchorOffset = nameOffset;
+    for (let index = 0; index <= 5; index += 1) {
+      anchorOffset = source.indexOf('<a:tc>', anchorOffset + 1);
+    }
+    const anchorEnd = source.indexOf('</a:tc>', anchorOffset);
+    source = source.slice(0, anchorOffset)
+      + '<a:tc keep="OPAQUE">'
+      + source.slice(anchorOffset + '<a:tc>'.length, anchorEnd)
+      + '<x:keep xmlns:x="urn:test"/>'
+      + source.slice(anchorEnd);
+    pkg.setPart(slide.partUri, source, part.contentType);
+
+    table.mergeCells(1, 1, 2, 2);
+    expect(table.mergeRegions).toEqual([
+      { rowIndex: 1, columnIndex: 1, rowspan: 2, colspan: 2 },
+    ]);
+    expect(table.rows.map(({ cells }) => cells.map(({ text }) => text))).toEqual(expectedText);
+    expect(table.rows[2]!.cells[2]).toMatchObject({
+      text: 'Hidden 2,2',
+      fill: {
+        kind: 'solid',
+        color: { kind: 'scheme', value: 'accent2' },
+        transparency: 25,
+      },
+      hyperlink: { url: 'https://hidden.example' },
+      merge: {
+        rowIndex: 1,
+        columnIndex: 1,
+        rowspan: 2,
+        colspan: 2,
+        isAnchor: false,
+      },
+    });
+    expect(table.rows[2]!.cells[2]!.richText[0]!.runs[0]!.style?.bold).toBe(true);
+    expect(slide.relationships).toEqual(relationshipsBeforeMerge);
+
+    const mergedPart = pkg.requirePart(slide.partUri);
+    pkg.setPart(
+      slide.partUri,
+      new TextDecoder().decode(mergedPart.bytes)
+        .replace('rowSpan="2" gridSpan="2"', 'rowSpan="02" gridSpan="02"')
+        .replace('rowSpan="2" hMerge="1"', 'rowSpan="02" hMerge="true"')
+        .replace('gridSpan="2" vMerge="1"', 'gridSpan="02" vMerge="true"')
+        .replace('vMerge="1" hMerge="1"', 'vMerge="true" hMerge="true"'),
+      mergedPart.contentType,
+    );
+    const beforeExactMerge = packageSnapshot(pkg);
+    const exactRows = table.rows;
+    table.mergeCells(1, 1, 2, 2);
+    expect(packageSnapshot(pkg)).toEqual(beforeExactMerge);
+    expect(table.rows).toEqual(exactRows);
+    expect(slide.shapes.find(({ id }) => id === table.id)).toBe(table);
+
+    table.setCellText(2, 2, 'Edited hidden');
+    table.unmergeCell(2, 2);
+    expect(table.mergeRegions).toEqual([]);
+    expect(table.rows[2]!.cells[2]).toMatchObject({
+      text: 'Edited hidden',
+      fill: {
+        kind: 'solid',
+        color: { kind: 'scheme', value: 'accent2' },
+        transparency: 25,
+      },
+      hyperlink: { url: 'https://hidden.example' },
+    });
+    expect(table.rows[2]!.cells[2]!.richText[0]!.runs[0]!.style?.bold).toBe(true);
+    expect(slide.relationships).toEqual(relationshipsBeforeMerge);
+    source = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect(source).toContain('<a:tc keep="OPAQUE">');
+    expect(source).toContain('<x:keep xmlns:x="urn:test"/>');
+    for (const token of ['rowSpan=', 'gridSpan=', 'vMerge=', 'hMerge=']) {
+      expect(source).not.toContain(token);
+    }
+
+    const beforeUnmergedNoOp = packageSnapshot(pkg);
+    const unmergedRows = table.rows;
+    table.unmergeCell(2, 2);
+    expect(packageSnapshot(pkg)).toEqual(beforeUnmergedNoOp);
+    expect(table.rows).toEqual(unmergedRows);
+
+    table.mergeCells(0, 0, 1, 2);
+    const beforeRepeatedHorizontal = packageSnapshot(pkg);
+    table.mergeCells(0, 0, 1, 2);
+    expect(packageSnapshot(pkg)).toEqual(beforeRepeatedHorizontal);
+    table.mergeCells(0, 3, 2, 1);
+    table.mergeCells(1, 0, 2, 1);
+    table.mergeCells(1, 1, 2, 2);
+    table.mergeCells(3, 0, 1, 4);
+    expect(table.mergeRegions).toEqual([
+      { rowIndex: 0, columnIndex: 0, rowspan: 1, colspan: 2 },
+      { rowIndex: 0, columnIndex: 3, rowspan: 2, colspan: 1 },
+      { rowIndex: 1, columnIndex: 0, rowspan: 2, colspan: 1 },
+      { rowIndex: 1, columnIndex: 1, rowspan: 2, colspan: 2 },
+      { rowIndex: 3, columnIndex: 0, rowspan: 1, colspan: 4 },
+    ]);
+
+    const beforeInvalid = packageSnapshot(pkg);
+    for (const operation of [
+      () => table.mergeCells(0, 1, 2, 2),
+      () => table.mergeCells(3, 3, 2, 1),
+      () => table.mergeCells(0, 0, 1, 1),
+      () => table.mergeCells(-1, 0, 1, 2),
+      () => table.mergeCells(0.5, 0, 1, 2),
+      () => table.mergeCells(0, 0, Number.NaN, 2),
+      () => table.unmergeCell(4, 0),
+    ]) expect(operation).toThrow();
+    expect(packageSnapshot(pkg)).toEqual(beforeInvalid);
+    expect(slide.shapes.find(({ id }) => id === table.id)).toBe(table);
+
+    const beforeRollback = packageSnapshot(pkg);
+    const originalSetPart = pkg.setPart.bind(pkg);
+    const failure = vi.spyOn(pkg, 'setPart').mockImplementation((uri, bytes, contentType) => {
+      if (uri === slide.partUri) throw new Error('injected table merge write');
+      return originalSetPart(uri, bytes, contentType);
+    });
+    expect(() => table.unmergeCell(1, 1)).toThrow('injected table merge write');
+    failure.mockRestore();
+    expect(packageSnapshot(pkg)).toEqual(beforeRollback);
+    expect(table.mergeRegions).toContainEqual({
+      rowIndex: 1,
+      columnIndex: 1,
+      rowspan: 2,
+      colspan: 2,
+    });
+
+    const duplicate = model.duplicateSlide(model.slides.indexOf(slide));
+    const duplicateTable = duplicate.shapes.find((shape): shape is TableModel =>
+      shape instanceof TableModel && shape.name === 'Merge lifecycle')!;
+    expect(duplicateTable.mergeRegions).toEqual(table.mergeRegions);
+    table.unmergeCell(1, 1);
+    expect(table.mergeRegions).not.toContainEqual({
+      rowIndex: 1,
+      columnIndex: 1,
+      rowspan: 2,
+      colspan: 2,
+    });
+    expect(duplicateTable.mergeRegions).toContainEqual({
+      rowIndex: 1,
+      columnIndex: 1,
+      rowspan: 2,
+      colspan: 2,
+    });
+    model.moveSlide(model.slides.indexOf(duplicate), 0);
+    expect(model.slides[0]).toBe(duplicate);
+
+    const unsupportedSlide = model.addSlide();
+    const unsupported = unsupportedSlide.addTable([['A', 'B']], {
+      name: 'Unsupported merge',
+    });
+    const unsupportedPart = pkg.requirePart(unsupportedSlide.partUri);
+    pkg.setPart(
+      unsupportedSlide.partUri,
+      new TextDecoder().decode(unsupportedPart.bytes)
+        .replace('<a:tc>', '<a:tc hMerge="1">'),
+      unsupportedPart.contentType,
+    );
+    const beforeUnsupported = packageSnapshot(pkg);
+    expect(() => unsupported.mergeCells(0, 0, 1, 2)).toThrow(ModelParseError);
+    expect(() => unsupported.unmergeCell(0, 0)).toThrow(ModelParseError);
+    expect(packageSnapshot(pkg)).toEqual(beforeUnsupported);
+
+    const deletedSlide = model.addSlide();
+    const deletedTable = deletedSlide.addTable([['A', 'B']]);
+    model.deleteSlide(model.slides.indexOf(deletedSlide));
+    expect(() => deletedTable.mergeCells(0, 0, 1, 2)).toThrow(/Missing package part/);
+    expect(() => deletedTable.unmergeCell(0, 0)).toThrow(/Missing package part/);
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedSource = reopened.slides.find(({ partUri }) => partUri === slide.partUri)!;
+    const reopenedDuplicate = reopened.slides.find(({ partUri }) =>
+      partUri === duplicate.partUri)!;
+    const reopenedTable = reopenedSource.shapes.find((shape): shape is TableModel =>
+      shape instanceof TableModel && shape.name === 'Merge lifecycle')!;
+    const reopenedDuplicateTable = reopenedDuplicate.shapes.find(
+      (shape): shape is TableModel =>
+        shape instanceof TableModel && shape.name === 'Merge lifecycle',
+    )!;
+    expect(reopenedTable.rows[2]!.cells[2]!.text).toBe('Edited hidden');
+    expect(reopenedTable.mergeRegions).not.toContainEqual({
+      rowIndex: 1,
+      columnIndex: 1,
+      rowspan: 2,
+      colspan: 2,
+    });
+    expect(reopenedDuplicateTable.mergeRegions).toContainEqual({
+      rowIndex: 1,
+      columnIndex: 1,
+      rowspan: 2,
+      colspan: 2,
+    });
+  });
+
+  it('round-trips table merge editors in all six presentation formats', async () => {
+    for (const profile of Object.values(PRESENTATION_FORMAT_PROFILES)) {
+      const pkg = await OpcPackage.open(await modelFixture(profile.presentationContentType));
+      const model = new PresentationModel(pkg);
+      const slide = model.addSlide();
+      const table = slide.addTable([
+        [`${profile.format} 0,0`, `${profile.format} 0,1`],
+        [`${profile.format} 1,0`, `${profile.format} 1,1`],
+      ], { name: `Merge ${profile.format}` });
+      table.mergeCells(0, 0, 2, 2);
+      const duplicate = model.duplicateSlide(model.slides.indexOf(slide));
+      const duplicateTable = duplicate.shapes.find((shape): shape is TableModel =>
+        shape instanceof TableModel && shape.name === `Merge ${profile.format}`)!;
+      table.unmergeCell(1, 1);
+      model.moveSlide(model.slides.indexOf(duplicate), 0);
+
+      const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+      const reopenedSource = reopened.slides.find(({ partUri }) => partUri === slide.partUri)!;
+      const reopenedDuplicate = reopened.slides.find(({ partUri }) =>
+        partUri === duplicate.partUri)!;
+      const reopenedTable = reopenedSource.shapes.find((shape): shape is TableModel =>
+        shape instanceof TableModel && shape.name === `Merge ${profile.format}`)!;
+      const reopenedDuplicateTable = reopenedDuplicate.shapes.find(
+        (shape): shape is TableModel =>
+          shape instanceof TableModel && shape.name === `Merge ${profile.format}`,
+      )!;
+      expect(reopened.format).toBe(profile.format);
+      expect(reopenedTable.mergeRegions).toEqual([]);
+      expect(reopenedDuplicateTable.mergeRegions).toEqual([
+        { rowIndex: 0, columnIndex: 0, rowspan: 2, colspan: 2 },
+      ]);
+      expect(reopenedDuplicateTable.rows.map(({ cells }) =>
+        cells.map(({ text }) => text))).toEqual([
+        [`${profile.format} 0,0`, `${profile.format} 0,1`],
+        [`${profile.format} 1,0`, `${profile.format} 1,1`],
+      ]);
+    }
+  });
+
   it('preserves table-cell text style defaults through edits, duplication, rollback, and reopen', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);
