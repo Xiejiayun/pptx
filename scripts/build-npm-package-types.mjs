@@ -96,6 +96,13 @@ if (!tableModelDeclaration.includes(
 )) {
   throw new Error('Packed TableModel declaration is missing table-level horizontal alignment');
 }
+if (!tableModelDeclaration.includes(
+  'get margins(): TextBoxMargins | undefined;',
+) || !tableModelDeclaration.includes(
+  'set margins(value: TextBoxMarginInput | undefined);',
+)) {
+  throw new Error('Packed TableModel declaration is missing table-level margins');
+}
 
 await writeFile(
   join(outputRoot, 'index.d.ts'),

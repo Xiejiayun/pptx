@@ -121,6 +121,13 @@ try {
   )) {
     throw new Error('Packed TableModel declaration is missing table-level horizontal alignment');
   }
+  if (!tableModelDeclaration.includes(
+    'get margins(): TextBoxMargins | undefined;',
+  ) || !tableModelDeclaration.includes(
+    'set margins(value: TextBoxMarginInput | undefined);',
+  )) {
+    throw new Error('Packed TableModel declaration is missing table-level margins');
+  }
   if (!textOptionDeclarationSource.includes('readonly isTextBox?: boolean;') ||
       !shapeDeclarationSource.includes('get isTextBox(): boolean | undefined;') ||
       !shapeDeclarationSource.includes('set isTextBox(value: boolean);')) {
@@ -5611,6 +5618,122 @@ const tableHorizontalAlignment = JSON.stringify(tableHorizontalAlignmentState) =
     failureIsolation: true,
     validationErrors: 0,
   });
+const packedTableMarginsSnapshot = (value) => value === undefined
+  ? null
+  : {
+      top: value.top,
+      right: value.right,
+      bottom: value.bottom,
+      left: value.left,
+    };
+const tableMarginsDocument = PptxDocument.create();
+const tableMarginsSlide = tableMarginsDocument.addSlide();
+const tableMarginsTable = tableMarginsSlide.addTable([
+  ['North', 'South'],
+  ['East', 'West'],
+], {
+  name: 'Packed table margins',
+  margin: [3.6, 7.2, 10.8, 14.4],
+});
+const tableMarginsPart = () => tableMarginsDocument.opcPackage
+  .requirePart(tableMarginsSlide.partUri).bytes;
+const tableMarginsReadBytes = tableMarginsPart().slice();
+const tableMarginsReadJournal = JSON.stringify(tableMarginsDocument.opcPackage.mutations);
+const tableMarginsUniform = packedTableMarginsSnapshot(tableMarginsTable.margins);
+const tableMarginsDetached = tableMarginsTable.margins;
+if (tableMarginsDetached) tableMarginsDetached.top = 99;
+const tableMarginsReadIsolation = packedBytesEqual(
+  tableMarginsReadBytes,
+  tableMarginsPart(),
+) && JSON.stringify(tableMarginsDocument.opcPackage.mutations) === tableMarginsReadJournal &&
+  JSON.stringify(packedTableMarginsSnapshot(tableMarginsTable.margins)) ===
+    JSON.stringify({ top: 3.6, right: 7.2, bottom: 10.8, left: 14.4 });
+const tableMarginsNoOpBytes = tableMarginsPart().slice();
+const tableMarginsNoOpJournal = JSON.stringify(tableMarginsDocument.opcPackage.mutations);
+tableMarginsTable.margins = [3.6, 7.2, 10.8, 14.4];
+const tableMarginsNoOp = packedBytesEqual(
+  tableMarginsNoOpBytes,
+  tableMarginsPart(),
+) && JSON.stringify(tableMarginsDocument.opcPackage.mutations) === tableMarginsNoOpJournal;
+tableMarginsTable.setCellMargins(0, 1, { top: 9 });
+const tableMarginsMixed = packedTableMarginsSnapshot(tableMarginsTable.margins);
+tableMarginsTable.margins = 6;
+const tableMarginsOverwritten = packedTableMarginsSnapshot(tableMarginsTable.margins);
+const tableMarginsOverwrittenCells = tableMarginsTable.rows.flatMap(({ cells }) =>
+  cells.map(({ margins }) => packedTableMarginsSnapshot(margins)));
+tableMarginsTable.margins = { top: 2, left: 4 };
+const tableMarginsPartial = packedTableMarginsSnapshot(tableMarginsTable.margins);
+const tableMarginsPartialCells = tableMarginsTable.rows.flatMap(({ cells }) =>
+  cells.map(({ margins }) => packedTableMarginsSnapshot(margins)));
+tableMarginsTable.margins = {};
+const tableMarginsCleared = packedTableMarginsSnapshot(tableMarginsTable.margins);
+const tableMarginsClearedCells = tableMarginsTable.rows.flatMap(({ cells }) =>
+  cells.map(({ margins }) => packedTableMarginsSnapshot(margins)));
+const tableMarginsInvalidBytes = tableMarginsPart().slice();
+const tableMarginsInvalidJournal = JSON.stringify(tableMarginsDocument.opcPackage.mutations);
+let tableMarginsInvalidError;
+try {
+  tableMarginsTable.margins = null;
+} catch (error) {
+  tableMarginsInvalidError = { name: error.name, message: error.message };
+}
+const tableMarginsFailureIsolation = packedBytesEqual(
+  tableMarginsInvalidBytes,
+  tableMarginsPart(),
+) && JSON.stringify(tableMarginsDocument.opcPackage.mutations) === tableMarginsInvalidJournal;
+tableMarginsTable.margins = [1, 2, 3, 4];
+await tableMarginsDocument.writeFile('table-margins-smoke.pptx');
+const reopenedTableMarginsDocument = await PptxDocument.open(
+  await readFile('table-margins-smoke.pptx'),
+);
+const reopenedTableMarginsTable = reopenedTableMarginsDocument.slides[0].shapes.find(
+  (shape) => shape.name === 'Packed table margins',
+);
+const tableMarginsState = {
+  uniform: tableMarginsUniform,
+  readIsolation: tableMarginsReadIsolation,
+  noOp: tableMarginsNoOp,
+  mixed: tableMarginsMixed,
+  overwritten: tableMarginsOverwritten,
+  overwrittenCells: tableMarginsOverwrittenCells,
+  partial: tableMarginsPartial,
+  partialCells: tableMarginsPartialCells,
+  cleared: tableMarginsCleared,
+  clearedCells: tableMarginsClearedCells,
+  reopened: reopenedTableMarginsTable instanceof TableModel
+    ? packedTableMarginsSnapshot(reopenedTableMarginsTable.margins)
+    : null,
+  reopenedCells: reopenedTableMarginsTable instanceof TableModel
+    ? reopenedTableMarginsTable.rows.flatMap(({ cells }) =>
+      cells.map(({ margins }) => packedTableMarginsSnapshot(margins)))
+    : [],
+  invalidError: tableMarginsInvalidError,
+  failureIsolation: tableMarginsFailureIsolation,
+  validationErrors: tableMarginsDocument.diagnostics
+    .filter(({ severity }) => severity === 'error').length +
+    reopenedTableMarginsDocument.diagnostics
+      .filter(({ severity }) => severity === 'error').length,
+};
+const tableMargins = JSON.stringify(tableMarginsState) === JSON.stringify({
+  uniform: { top: 3.6, right: 7.2, bottom: 10.8, left: 14.4 },
+  readIsolation: true,
+  noOp: true,
+  mixed: null,
+  overwritten: { top: 6, right: 6, bottom: 6, left: 6 },
+  overwrittenCells: Array(4).fill({ top: 6, right: 6, bottom: 6, left: 6 }),
+  partial: { top: 2, left: 4 },
+  partialCells: Array(4).fill({ top: 2, left: 4 }),
+  cleared: null,
+  clearedCells: [null, null, null, null],
+  reopened: { top: 1, right: 2, bottom: 3, left: 4 },
+  reopenedCells: Array(4).fill({ top: 1, right: 2, bottom: 3, left: 4 }),
+  invalidError: {
+    name: 'TypeError',
+    message: 'Table margins must be a number, four-value tuple, or margin object',
+  },
+  failureIsolation: true,
+  validationErrors: 0,
+});
 const packedSchemeColorIsolationDocument = PptxDocument.create();
 const packedSchemeColorIsolationJournal = JSON.stringify(
   packedSchemeColorIsolationDocument.opcPackage.mutations,
@@ -6920,6 +7043,8 @@ const checks = {
   tableTextDirectionState,
   tableHorizontalAlignment,
   tableHorizontalAlignmentState,
+  tableMargins,
+  tableMarginsState,
   schemeColors,
   schemeColorState,
   outputTypes,
@@ -7508,6 +7633,141 @@ if (JSON.stringify(browserTableHorizontalAlignmentState) !== JSON.stringify({
   validationErrors: 0,
 })) {
   throw new Error('Browser table-level horizontal alignment failed');
+}
+const browserTableMarginsSnapshot = (value) => value === undefined
+  ? null
+  : {
+      top: value.top,
+      right: value.right,
+      bottom: value.bottom,
+      left: value.left,
+    };
+const browserTableMarginsDocument = PptxDocument.create();
+const browserTableMarginsSlide = browserTableMarginsDocument.addSlide();
+const browserTableMarginsTable = browserTableMarginsSlide.addTable([
+  ['North', 'South'],
+  ['East', 'West'],
+], {
+  name: 'Browser condition table margins',
+  margin: [3.6, 7.2, 10.8, 14.4],
+});
+const browserTableMarginsPart = () => browserTableMarginsDocument.opcPackage
+  .requirePart(browserTableMarginsSlide.partUri).bytes;
+const browserTableMarginsReadBytes = browserTableMarginsPart().slice();
+const browserTableMarginsReadJournal = JSON.stringify(
+  browserTableMarginsDocument.opcPackage.mutations,
+);
+const browserTableMarginsUniform = browserTableMarginsSnapshot(browserTableMarginsTable.margins);
+const browserTableMarginsDetached = browserTableMarginsTable.margins;
+if (browserTableMarginsDetached) browserTableMarginsDetached.top = 99;
+const browserTableMarginsReadIsolation = browserCompressionEqual(
+  browserTableMarginsReadBytes,
+  browserTableMarginsPart(),
+) && JSON.stringify(browserTableMarginsDocument.opcPackage.mutations) ===
+  browserTableMarginsReadJournal &&
+  JSON.stringify(browserTableMarginsSnapshot(browserTableMarginsTable.margins)) ===
+    JSON.stringify({ top: 3.6, right: 7.2, bottom: 10.8, left: 14.4 });
+const browserTableMarginsNoOpBytes = browserTableMarginsPart().slice();
+const browserTableMarginsNoOpJournal = JSON.stringify(
+  browserTableMarginsDocument.opcPackage.mutations,
+);
+browserTableMarginsTable.margins = [3.6, 7.2, 10.8, 14.4];
+const browserTableMarginsNoOp = browserCompressionEqual(
+  browserTableMarginsNoOpBytes,
+  browserTableMarginsPart(),
+) && JSON.stringify(browserTableMarginsDocument.opcPackage.mutations) ===
+  browserTableMarginsNoOpJournal;
+browserTableMarginsTable.setCellMargins(0, 1, { top: 9 });
+const browserTableMarginsMixed = browserTableMarginsSnapshot(browserTableMarginsTable.margins);
+browserTableMarginsTable.margins = 6;
+const browserTableMarginsOverwritten = browserTableMarginsSnapshot(
+  browserTableMarginsTable.margins,
+);
+const browserTableMarginsOverwrittenCells = browserTableMarginsTable.rows
+  .flatMap(({ cells }) => cells.map(
+    ({ margins }) => browserTableMarginsSnapshot(margins),
+  ));
+browserTableMarginsTable.margins = { top: 2, left: 4 };
+const browserTableMarginsPartial = browserTableMarginsSnapshot(browserTableMarginsTable.margins);
+const browserTableMarginsPartialCells = browserTableMarginsTable.rows
+  .flatMap(({ cells }) => cells.map(
+    ({ margins }) => browserTableMarginsSnapshot(margins),
+  ));
+browserTableMarginsTable.margins = {};
+const browserTableMarginsCleared = browserTableMarginsSnapshot(browserTableMarginsTable.margins);
+const browserTableMarginsClearedCells = browserTableMarginsTable.rows
+  .flatMap(({ cells }) => cells.map(
+    ({ margins }) => browserTableMarginsSnapshot(margins),
+  ));
+const browserTableMarginsInvalidBytes = browserTableMarginsPart().slice();
+const browserTableMarginsInvalidJournal = JSON.stringify(
+  browserTableMarginsDocument.opcPackage.mutations,
+);
+let browserTableMarginsInvalidError;
+try {
+  browserTableMarginsTable.margins = null;
+} catch (error) {
+  browserTableMarginsInvalidError = { name: error.name, message: error.message };
+}
+const browserTableMarginsFailureIsolation = browserCompressionEqual(
+  browserTableMarginsInvalidBytes,
+  browserTableMarginsPart(),
+) && JSON.stringify(browserTableMarginsDocument.opcPackage.mutations) ===
+  browserTableMarginsInvalidJournal;
+browserTableMarginsTable.margins = [1, 2, 3, 4];
+const reopenedBrowserTableMarginsDocument = await PptxDocument.open(
+  await browserTableMarginsDocument.writeBlob(),
+);
+const reopenedBrowserTableMarginsTable = reopenedBrowserTableMarginsDocument
+  .slides[0].shapes.find((shape) => shape.name === 'Browser condition table margins');
+const browserTableMarginsState = {
+  uniform: browserTableMarginsUniform,
+  readIsolation: browserTableMarginsReadIsolation,
+  noOp: browserTableMarginsNoOp,
+  mixed: browserTableMarginsMixed,
+  overwritten: browserTableMarginsOverwritten,
+  overwrittenCells: browserTableMarginsOverwrittenCells,
+  partial: browserTableMarginsPartial,
+  partialCells: browserTableMarginsPartialCells,
+  cleared: browserTableMarginsCleared,
+  clearedCells: browserTableMarginsClearedCells,
+  reopened: reopenedBrowserTableMarginsTable instanceof TableModel
+    ? browserTableMarginsSnapshot(reopenedBrowserTableMarginsTable.margins)
+    : null,
+  reopenedCells: reopenedBrowserTableMarginsTable instanceof TableModel
+    ? reopenedBrowserTableMarginsTable.rows.flatMap(({ cells }) => cells.map(
+      ({ margins }) => browserTableMarginsSnapshot(margins),
+    ))
+    : [],
+  invalidError: browserTableMarginsInvalidError,
+  failureIsolation: browserTableMarginsFailureIsolation,
+  validationErrors: browserTableMarginsDocument.diagnostics
+    .filter(({ severity }) => severity === 'error').length +
+    reopenedBrowserTableMarginsDocument.diagnostics
+      .filter(({ severity }) => severity === 'error').length,
+};
+if (JSON.stringify(browserTableMarginsState) !== JSON.stringify({
+  uniform: { top: 3.6, right: 7.2, bottom: 10.8, left: 14.4 },
+  readIsolation: true,
+  noOp: true,
+  mixed: null,
+  overwritten: { top: 6, right: 6, bottom: 6, left: 6 },
+  overwrittenCells: Array(4).fill({ top: 6, right: 6, bottom: 6, left: 6 }),
+  partial: { top: 2, left: 4 },
+  partialCells: Array(4).fill({ top: 2, left: 4 }),
+  cleared: null,
+  clearedCells: [null, null, null, null],
+  reopened: { top: 1, right: 2, bottom: 3, left: 4 },
+  reopenedCells: Array(4).fill({ top: 1, right: 2, bottom: 3, left: 4 }),
+  invalidError: {
+    name: 'TypeError',
+    message: 'Table margins must be a number, four-value tuple, or margin object',
+  },
+  failureIsolation: true,
+  validationErrors: 0,
+})) {
+  throw new Error('Browser table-level margins failed: ' +
+    JSON.stringify(browserTableMarginsState));
 }
 const browserOutputTypeDocument = PptxDocument.create();
 const browserOutputTypeJournal = JSON.stringify(
@@ -10866,6 +11126,16 @@ typedTable.horizontalAlignment = 'justify';
 typedTable.horizontalAlignment = undefined;
 // @ts-expect-error unsupported table-level horizontal alignment
 typedTable.horizontalAlignment = 'dist';
+const typedTableMargins: TextBoxMargins | undefined = typedTable.margins;
+typedTable.margins = 6;
+typedTable.margins = [1, 2, 3, 4];
+typedTable.margins = { top: 2, left: 4 };
+typedTable.margins = {};
+typedTable.margins = undefined;
+// @ts-expect-error table margins reject null
+typedTable.margins = null;
+// @ts-expect-error table margin tuple requires four values
+typedTable.margins = [1, 2, 3];
 typedTable.setColumnWidths(inches(2));
 typedTable.setColumnWidths([inches(1.5), inches(2.5)]);
 typedTable.setRowHeights(inches(1));
@@ -11037,7 +11307,7 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
   invalidChartValues, typedSimpleBackground, typedImageBackground, typedSlideBackground,
   typedSlideBackgroundOptions, typedBackgroundSlide, typedBackgroundPromise,
   typedRasterContentType, typedRasterOptions, typedRasterImage,
-  invalidRasterSvg, invalidRasterMissingType, invalidRasterPath, invalidRasterData, typedSvgContentType, typedImageContentType, typedSvgInfo, typedImageInfo, typedCropRegion, typedImageSizing, typedImageSizingResult, typedImageSource, typedImageChunk, typedImageStream, typedImageSourceOptions, typedResolvedImage, typedSvgOptions, typedSvgImage, typedHighLevelSvgImage, typedMediaKind, typedMediaChunk, typedMediaStream, typedMediaSources, typedPlayback, typedMediaOptions, typedMediaPromise, typedVideoPromise, typedReplaceMediaSourceOptions, typedReplaceMediaPosterOptions, typedMediaLifecycle, invalidMediaKind, invalidMediaName, invalidMediaPoster, invalidMediaPlayback, invalidMediaTranscode, invalidMediaSource, invalidMediaSourceReplacement, invalidMediaPosterReplacement, invalidLowLevelSvgOptions, invalidSvgFallback, addSectionOptions, typedSection, addSlideOptions, sectionSnapshot, typedVisibilitySlide, hiddenSnapshot, globalRtl, globalRtlSnapshot, titledDocument, titleSnapshot, authoredDocument, authorSnapshot, lastModifiedDocument, lastModifiedSnapshot, createdAtDocument, createdAtSnapshot, modifiedAtDocument, modifiedAtSnapshot, subjectDocument, subjectSnapshot, revisionDocument, revisionSnapshot, companyDocument, companySnapshot, themedDocument, themeSnapshot, fontSnapshot, fontUpdate, customDocument, createdText, creationBorder, creationMargin, creationOptions, objectCell, tableRows, tableOptions, typedTable, widthSnapshot, heightSnapshot, typedTableVerticalAlignment, typedTableTextDirection, typedTableHorizontalAlignment, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotHorizontalAlignment, tableHorizontalAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellHorizontalAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
+  invalidRasterSvg, invalidRasterMissingType, invalidRasterPath, invalidRasterData, typedSvgContentType, typedImageContentType, typedSvgInfo, typedImageInfo, typedCropRegion, typedImageSizing, typedImageSizingResult, typedImageSource, typedImageChunk, typedImageStream, typedImageSourceOptions, typedResolvedImage, typedSvgOptions, typedSvgImage, typedHighLevelSvgImage, typedMediaKind, typedMediaChunk, typedMediaStream, typedMediaSources, typedPlayback, typedMediaOptions, typedMediaPromise, typedVideoPromise, typedReplaceMediaSourceOptions, typedReplaceMediaPosterOptions, typedMediaLifecycle, invalidMediaKind, invalidMediaName, invalidMediaPoster, invalidMediaPlayback, invalidMediaTranscode, invalidMediaSource, invalidMediaSourceReplacement, invalidMediaPosterReplacement, invalidLowLevelSvgOptions, invalidSvgFallback, addSectionOptions, typedSection, addSlideOptions, sectionSnapshot, typedVisibilitySlide, hiddenSnapshot, globalRtl, globalRtlSnapshot, titledDocument, titleSnapshot, authoredDocument, authorSnapshot, lastModifiedDocument, lastModifiedSnapshot, createdAtDocument, createdAtSnapshot, modifiedAtDocument, modifiedAtSnapshot, subjectDocument, subjectSnapshot, revisionDocument, revisionSnapshot, companyDocument, companySnapshot, themedDocument, themeSnapshot, fontSnapshot, fontUpdate, customDocument, createdText, creationBorder, creationMargin, creationOptions, objectCell, tableRows, tableOptions, typedTable, widthSnapshot, heightSnapshot, typedTableVerticalAlignment, typedTableTextDirection, typedTableHorizontalAlignment, typedTableMargins, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotHorizontalAlignment, tableHorizontalAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellHorizontalAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
 `,
   );
   run(
@@ -11105,6 +11375,11 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
   if (!apiChecks.tableHorizontalAlignment) {
     throw new Error(
       `Table horizontal alignment smoke failed: ${JSON.stringify(apiChecks.tableHorizontalAlignmentState)}`,
+    );
+  }
+  if (!apiChecks.tableMargins) {
+    throw new Error(
+      `Table margins smoke failed: ${JSON.stringify(apiChecks.tableMarginsState)}`,
     );
   }
   if (!apiChecks.schemeColors) {
@@ -11368,6 +11643,71 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
       /<a:(?:tcPr|bodyPr)\b[^>]*\salgn=/.test(tableHorizontalAlignmentPart)) {
     throw new Error(
       `CLI table horizontal-alignment part inspection failed: ${tableHorizontalAlignmentPartResult.stdout}`,
+    );
+  }
+  const tableMarginsDeckPath = join(directory, 'table-margins-smoke.pptx');
+  const tableMarginsValidateResult = run(
+    bin,
+    [
+      '--json', 'package', 'validate', tableMarginsDeckPath,
+      '--profile', 'powerpoint-2010',
+    ],
+    directory,
+  );
+  const tableMarginsValidated = JSON.parse(tableMarginsValidateResult.stdout);
+  if (!tableMarginsValidated.ok ||
+      !tableMarginsValidated.data?.valid ||
+      tableMarginsValidated.data.errorCount !== 0 ||
+      tableMarginsValidated.data.warningCount !== 0) {
+    throw new Error(
+      `CLI table margins validation failed: ${tableMarginsValidateResult.stdout}`,
+    );
+  }
+  const tableMarginsSlidesResult = run(
+    bin,
+    ['--json', 'slides', 'list', tableMarginsDeckPath],
+    directory,
+  );
+  const tableMarginsSlides = JSON.parse(tableMarginsSlidesResult.stdout);
+  if (!tableMarginsSlides.ok ||
+      tableMarginsSlides.data?.length !== 1 ||
+      tableMarginsSlides.data[0]?.shapeCount !== 1) {
+    throw new Error(
+      `CLI table margins slide listing failed: ${tableMarginsSlidesResult.stdout}`,
+    );
+  }
+  const tableMarginsPartResult = run(
+    bin,
+    [
+      '--json', 'part', 'read', tableMarginsDeckPath,
+      tableMarginsSlides.data[0].partUri,
+    ],
+    directory,
+  );
+  const tableMarginsPart = JSON.parse(tableMarginsPartResult.stdout).data?.content ?? '';
+  const tableMarginsProperties = [
+    ...tableMarginsPart.matchAll(/<a:tcPr\b([^>]*)>/g),
+  ].map((match) => match[1]);
+  const expectedTableMargins = {
+    marL: '50800',
+    marR: '25400',
+    marT: '12700',
+    marB: '38100',
+  };
+  const tableMarginsPropertiesMatch = tableMarginsProperties.every((attributes) => {
+    const owned = [...attributes.matchAll(/\s(mar[LRBT])="([^"]*)"/g)];
+    if (owned.length !== 4) return false;
+    const values = Object.fromEntries(owned.map((match) => [match[1], match[2]]));
+    return Object.entries(expectedTableMargins).every(
+      ([name, value]) => values[name] === value,
+    );
+  });
+  if (!tableMarginsPart.includes('<a:tbl>') ||
+      tableMarginsProperties.length !== 4 ||
+      !tableMarginsPropertiesMatch ||
+      /<a:bodyPr\b[^>]*\s(?:lIns|rIns|tIns|bIns)=/.test(tableMarginsPart)) {
+    throw new Error(
+      `CLI table margins part inspection failed: ${tableMarginsPartResult.stdout}`,
     );
   }
   const masterLayoutDeckPath = join(directory, 'master-layout-smoke.pptx');
@@ -12608,7 +12948,14 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
     await writeFile(output, await readFile(richTextBreakLineDeckPath));
   }
 
-  process.stdout.write(
+  const writeSummary = (serialized) => {
+    const summary = JSON.parse(serialized);
+    summary.tableMargins = apiChecks.tableMargins;
+    summary.tableMarginsState = apiChecks.tableMarginsState;
+    summary.tableMarginsInspect = true;
+    process.stdout.write(`${JSON.stringify(summary)}\n`);
+  };
+  writeSummary(
     `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presentationVersion: apiChecks.presentationVersion, presentationVersionState, presentationLayouts: apiChecks.presentationLayouts, presentationLayoutState: apiChecks.presentationLayoutState, horizontalAlignments: apiChecks.horizontalAlignments, horizontalAlignmentState: apiChecks.horizontalAlignmentState, verticalAlignments: apiChecks.verticalAlignments, verticalAlignmentState: apiChecks.verticalAlignmentState, tableVerticalAlignment: apiChecks.tableVerticalAlignment, tableVerticalAlignmentState: apiChecks.tableVerticalAlignmentState, tableTextDirection: apiChecks.tableTextDirection, tableTextDirectionState: apiChecks.tableTextDirectionState, tableHorizontalAlignment: apiChecks.tableHorizontalAlignment, tableHorizontalAlignmentState: apiChecks.tableHorizontalAlignmentState, schemeColors: apiChecks.schemeColors, schemeColorState: apiChecks.schemeColorState, outputTypes: apiChecks.outputTypes, outputTypeState: apiChecks.outputTypeState, writeOutputTypes: apiChecks.writeOutputTypes, writeOutputTypeState: apiChecks.writeOutputTypeState, nodeReadableStream: apiChecks.nodeReadableStream, nodeReadableStreamState: apiChecks.nodeReadableStreamState, masterLayouts: apiChecks.masterLayouts, slideNumbers: apiChecks.slideNumbers, slideDefaultColor: apiChecks.slideDefaultColor, presetShapes: apiChecks.presetShapes, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, textShapeFills: apiChecks.textShapeFills, textShapeLines: apiChecks.textShapeLines, textShapeArrows: apiChecks.textShapeArrows, textShapeShadows: apiChecks.textShapeShadows, textShapeHyperlinks: apiChecks.textShapeHyperlinks, textShapePresetGeometry: apiChecks.textShapePresetGeometry, textShapeRectRadius: apiChecks.textShapeRectRadius, textShapeIsTextBox: apiChecks.textShapeIsTextBox, richTextBreakLine: apiChecks.richTextBreakLine, richTextRunHyperlinks: apiChecks.richTextRunHyperlinks, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, slideBackgrounds: apiChecks.slideBackgrounds, types: true, cli: doctor.data.version, presentationLayoutInspect: true, horizontalAlignmentInspect: true, verticalAlignmentInspect: true, tableVerticalAlignmentInspect: true, tableTextDirectionInspect: true, tableHorizontalAlignmentInspect: true, masterLayoutInspect: true, masterLayoutValidate: true, masterLayoutSlides: true, masterLayoutPartRead: true, masterLayoutDiff: true, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true, slideBackgroundInspect: true, slideBackgroundValidate: true, slideNumberInspect: true, slideNumberValidate: true, slideNumberSlides: true, slideNumberPartRead: true, slideDefaultColorInspect: true, slideDefaultColorValidate: true, slideDefaultColorSlides: true, slideDefaultColorPartRead: true, textShapeFillInspect: true, textShapeFillValidate: true, textShapeFillSlides: true, textShapeFillPartRead: true, textShapeLineInspect: true, textShapeLineValidate: true, textShapeLineSlides: true, textShapeLinePartRead: true, textShapeArrowInspect: true, textShapeArrowValidate: true, textShapeArrowSlides: true, textShapeArrowPartRead: true, textShapeShadowInspect: true, textShapeShadowValidate: true, textShapeShadowSlides: true, textShapeShadowPartRead: true, textShapeHyperlinkInspect: true, textShapeHyperlinkValidate: true, textShapeHyperlinkSlides: true, textShapeHyperlinkPartRead: true, textShapeHyperlinkInternalValidate: true, textShapePresetGeometryValidate: true, textShapePresetGeometrySlides: true, textShapePresetGeometryPartRead: true, textShapeRectRadiusValidate: true, textShapeRectRadiusSlides: true, textShapeRectRadiusPartRead: true, textShapeIsTextBoxValidate: true, textShapeIsTextBoxSlides: true, textShapeIsTextBoxPartRead: true, textShapeIsTextBoxLayoutPartRead: true, textShapeIsTextBoxMasterPartRead: true, richTextRunHyperlinkInspect: true, richTextRunHyperlinkValidate: true, richTextRunHyperlinkSlides: true, richTextRunHyperlinkPartRead: true, richTextRunHyperlinkInternalValidate: true, richTextBreakLineValidate: true, richTextBreakLineSlides: true, richTextBreakLinePartRead: true })}\n`,
   );
 } finally {

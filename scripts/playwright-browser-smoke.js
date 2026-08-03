@@ -481,6 +481,140 @@ async (page) => {
           failureIsolation: true,
           validationErrors: 0,
         });
+      const tableMarginsSnapshot = (value) => value === undefined
+        ? null
+        : {
+            top: value.top,
+            right: value.right,
+            bottom: value.bottom,
+            left: value.left,
+          };
+      const tableMarginsDocument = api.PptxDocument.create();
+      const tableMarginsSlide = tableMarginsDocument.addSlide();
+      const tableMarginsTable = tableMarginsSlide.addTable([
+        ['North', 'South'],
+        ['East', 'West'],
+      ], {
+        name: 'Chrome table margins',
+        margin: [3.6, 7.2, 10.8, 14.4],
+      });
+      const tableMarginsPart = () => tableMarginsDocument.opcPackage
+        .requirePart(tableMarginsSlide.partUri).bytes;
+      const tableMarginsBytesEqual = (left, right) =>
+        left.byteLength === right.byteLength &&
+        left.every((value, index) => value === right[index]);
+      const tableMarginsReadBytes = tableMarginsPart().slice();
+      const tableMarginsReadJournal = JSON.stringify(
+        tableMarginsDocument.opcPackage.mutations,
+      );
+      const tableMarginsUniform = tableMarginsSnapshot(tableMarginsTable.margins);
+      const tableMarginsDetached = tableMarginsTable.margins;
+      if (tableMarginsDetached) tableMarginsDetached.top = 99;
+      const tableMarginsReadIsolation = tableMarginsBytesEqual(
+        tableMarginsReadBytes,
+        tableMarginsPart(),
+      ) && JSON.stringify(tableMarginsDocument.opcPackage.mutations) ===
+        tableMarginsReadJournal &&
+        JSON.stringify(tableMarginsSnapshot(tableMarginsTable.margins)) ===
+          JSON.stringify({ top: 3.6, right: 7.2, bottom: 10.8, left: 14.4 });
+      const tableMarginsNoOpBytes = tableMarginsPart().slice();
+      const tableMarginsNoOpJournal = JSON.stringify(
+        tableMarginsDocument.opcPackage.mutations,
+      );
+      tableMarginsTable.margins = [3.6, 7.2, 10.8, 14.4];
+      const tableMarginsNoOp = tableMarginsBytesEqual(
+        tableMarginsNoOpBytes,
+        tableMarginsPart(),
+      ) && JSON.stringify(tableMarginsDocument.opcPackage.mutations) ===
+        tableMarginsNoOpJournal;
+      tableMarginsTable.setCellMargins(0, 1, { top: 9 });
+      const tableMarginsMixed = tableMarginsSnapshot(tableMarginsTable.margins);
+      tableMarginsTable.margins = 6;
+      const tableMarginsOverwritten = tableMarginsSnapshot(tableMarginsTable.margins);
+      const tableMarginsOverwrittenCells = tableMarginsTable.rows
+        .flatMap(({ cells }) => cells.map(
+          ({ margins }) => tableMarginsSnapshot(margins),
+        ));
+      tableMarginsTable.margins = { top: 2, left: 4 };
+      const tableMarginsPartial = tableMarginsSnapshot(tableMarginsTable.margins);
+      const tableMarginsPartialCells = tableMarginsTable.rows
+        .flatMap(({ cells }) => cells.map(
+          ({ margins }) => tableMarginsSnapshot(margins),
+        ));
+      tableMarginsTable.margins = {};
+      const tableMarginsCleared = tableMarginsSnapshot(tableMarginsTable.margins);
+      const tableMarginsClearedCells = tableMarginsTable.rows
+        .flatMap(({ cells }) => cells.map(
+          ({ margins }) => tableMarginsSnapshot(margins),
+        ));
+      const tableMarginsInvalidBytes = tableMarginsPart().slice();
+      const tableMarginsInvalidJournal = JSON.stringify(
+        tableMarginsDocument.opcPackage.mutations,
+      );
+      let tableMarginsInvalidError;
+      try {
+        tableMarginsTable.margins = null;
+      } catch (error) {
+        tableMarginsInvalidError = { name: error.name, message: error.message };
+      }
+      const tableMarginsFailureIsolation = tableMarginsBytesEqual(
+        tableMarginsInvalidBytes,
+        tableMarginsPart(),
+      ) && JSON.stringify(tableMarginsDocument.opcPackage.mutations) ===
+        tableMarginsInvalidJournal;
+      tableMarginsTable.margins = [1, 2, 3, 4];
+      const reopenedTableMarginsDocument = await api.PptxDocument.open(
+        await tableMarginsDocument.writeBlob(),
+      );
+      const reopenedTableMarginsTable = reopenedTableMarginsDocument.slides[0].shapes.find(
+        (shape) => shape.name === 'Chrome table margins',
+      );
+      const tableMarginsState = {
+        uniform: tableMarginsUniform,
+        readIsolation: tableMarginsReadIsolation,
+        noOp: tableMarginsNoOp,
+        mixed: tableMarginsMixed,
+        overwritten: tableMarginsOverwritten,
+        overwrittenCells: tableMarginsOverwrittenCells,
+        partial: tableMarginsPartial,
+        partialCells: tableMarginsPartialCells,
+        cleared: tableMarginsCleared,
+        clearedCells: tableMarginsClearedCells,
+        reopened: reopenedTableMarginsTable instanceof api.TableModel
+          ? tableMarginsSnapshot(reopenedTableMarginsTable.margins)
+          : null,
+        reopenedCells: reopenedTableMarginsTable instanceof api.TableModel
+          ? reopenedTableMarginsTable.rows.flatMap(({ cells }) => cells.map(
+            ({ margins }) => tableMarginsSnapshot(margins),
+          ))
+          : [],
+        invalidError: tableMarginsInvalidError,
+        failureIsolation: tableMarginsFailureIsolation,
+        validationErrors: tableMarginsDocument.diagnostics
+          .filter(({ severity }) => severity === 'error').length +
+          reopenedTableMarginsDocument.diagnostics
+            .filter(({ severity }) => severity === 'error').length,
+      };
+      const tableMargins = JSON.stringify(tableMarginsState) === JSON.stringify({
+        uniform: { top: 3.6, right: 7.2, bottom: 10.8, left: 14.4 },
+        readIsolation: true,
+        noOp: true,
+        mixed: null,
+        overwritten: { top: 6, right: 6, bottom: 6, left: 6 },
+        overwrittenCells: Array(4).fill({ top: 6, right: 6, bottom: 6, left: 6 }),
+        partial: { top: 2, left: 4 },
+        partialCells: Array(4).fill({ top: 2, left: 4 }),
+        cleared: null,
+        clearedCells: [null, null, null, null],
+        reopened: { top: 1, right: 2, bottom: 3, left: 4 },
+        reopenedCells: Array(4).fill({ top: 1, right: 2, bottom: 3, left: 4 }),
+        invalidError: {
+          name: 'TypeError',
+          message: 'Table margins must be a number, four-value tuple, or margin object',
+        },
+        failureIsolation: true,
+        validationErrors: 0,
+      });
       const schemeColorIsolationDocument = api.PptxDocument.create();
       const schemeColorIsolationJournal = JSON.stringify(
         schemeColorIsolationDocument.opcPackage.mutations,
@@ -2825,6 +2959,8 @@ async (page) => {
         tableTextDirectionState,
         tableHorizontalAlignment,
         tableHorizontalAlignmentState,
+        tableMargins,
+        tableMarginsState,
         schemeColors,
         schemeColorState,
         outputTypes,
@@ -3089,6 +3225,27 @@ async (page) => {
       invalidError: {
         name: 'TypeError',
         message: 'Table horizontal alignment must be left, center, right, or justify',
+      },
+      failureIsolation: true,
+      validationErrors: 0,
+    },
+    tableMargins: true,
+    tableMarginsState: {
+      uniform: { top: 3.6, right: 7.2, bottom: 10.8, left: 14.4 },
+      readIsolation: true,
+      noOp: true,
+      mixed: null,
+      overwritten: { top: 6, right: 6, bottom: 6, left: 6 },
+      overwrittenCells: Array(4).fill({ top: 6, right: 6, bottom: 6, left: 6 }),
+      partial: { top: 2, left: 4 },
+      partialCells: Array(4).fill({ top: 2, left: 4 }),
+      cleared: null,
+      clearedCells: [null, null, null, null],
+      reopened: { top: 1, right: 2, bottom: 3, left: 4 },
+      reopenedCells: Array(4).fill({ top: 1, right: 2, bottom: 3, left: 4 }),
+      invalidError: {
+        name: 'TypeError',
+        message: 'Table margins must be a number, four-value tuple, or margin object',
       },
       failureIsolation: true,
       validationErrors: 0,
