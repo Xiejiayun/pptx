@@ -395,6 +395,244 @@ export function deleteTableRows(
   return removedRelationshipIds;
 }
 
+export function insertTableColumns(
+  xml: LosslessXmlDocument,
+  frame: XmlElement,
+  input: Readonly<NormalizedTableColumnInsert>,
+  partUri: string,
+): void {
+  const structure = requireEditableTableStructure(frame, partUri);
+  const rowCount = structure.rows.length;
+  const columnCount = structure.gridColumns.length;
+  if (input.columnIndex > columnCount) {
+    throw new RangeError(
+      `Table column insert index ${input.columnIndex} is out of range`,
+    );
+  }
+  const currentCells = rowCount * columnCount;
+  const availableCells = MAX_TABLE_PHYSICAL_CELLS - currentCells;
+  if (
+    availableCells < 0
+    || input.count > Math.floor(availableCells / rowCount)
+  ) {
+    throw new RangeError('Table column insert exceeds the physical table cell limit');
+  }
+
+  const insertedWidths = materializeInsertedDimensions(
+    input.columnWidths,
+    input.count,
+    structure.columnWidths[input.columnIndex] ?? structure.columnWidths.at(-1)!,
+    'Table column insert widths',
+  );
+  const finalWidths = [
+    ...structure.columnWidths.slice(0, input.columnIndex),
+    ...insertedWidths,
+    ...structure.columnWidths.slice(input.columnIndex),
+  ];
+  const finalWidth = requiredDimensionTotal(finalWidths, 'Table column widths');
+  const regionUpdates = structure.mergeState.regions.map((region) => {
+    if (input.columnIndex <= region.columnIndex) {
+      return {
+        source: region,
+        target: Object.freeze({
+          ...region,
+          columnIndex: region.columnIndex + input.count,
+        }),
+        changed: false,
+      };
+    }
+    if (input.columnIndex < region.columnIndex + region.colspan) {
+      return {
+        source: region,
+        target: Object.freeze({
+          ...region,
+          colspan: region.colspan + input.count,
+        }),
+        changed: true,
+      };
+    }
+    return { source: region, target: region, changed: false };
+  });
+  const finalRegions = regionUpdates.map(({ target }) => target);
+  const finalColumnCount = columnCount + input.count;
+  const mergeOwnership = validateMergeRegions(
+    finalRegions,
+    rowCount,
+    finalColumnCount,
+  );
+
+  const gridDeclaration = namespaceUriForPrefix(structure.grid, 'a')
+    === DRAWING_NAMESPACE
+    ? ''
+    : ` xmlns:a="${DRAWING_NAMESPACE}"`;
+  const insertedGrid = insertedWidths
+    .map((width) => `<a:gridCol${gridDeclaration} w="${width}"/>`)
+    .join('');
+  const cellDeclarationRequired = structure.rows.map((row) =>
+    namespaceUriForPrefix(row, 'a') !== DRAWING_NAMESPACE);
+  const insertedCells = structure.rows.map((_, rowIndex) =>
+    insertedWidths.map((__, offset) => {
+      const columnIndex = input.columnIndex + offset;
+      const fragment = renderEmptyTableCellFragment(
+        mergeTokensAt(
+          mergeOwnership,
+          finalColumnCount,
+          rowIndex,
+          columnIndex,
+        ),
+      );
+      return cellDeclarationRequired[rowIndex]
+        ? addDrawingNamespaceToCell(fragment)
+        : fragment;
+    }).join(''));
+
+  for (const update of regionUpdates) {
+    if (!update.changed) continue;
+    for (let rowOffset = 0; rowOffset < update.source.rowspan; rowOffset += 1) {
+      for (
+        let columnOffset = 0;
+        columnOffset < update.source.colspan;
+        columnOffset += 1
+      ) {
+        const rowIndex = update.source.rowIndex + rowOffset;
+        const sourceColumn = update.source.columnIndex + columnOffset;
+        const targetColumn = sourceColumn < input.columnIndex
+          ? sourceColumn
+          : sourceColumn + input.count;
+        replaceTableCellMergeAttributes(
+          xml,
+          structure.cells[rowIndex]![sourceColumn]!,
+          mergeTokensForRegionCell(update.target, rowIndex, targetColumn),
+        );
+      }
+    }
+  }
+
+  const gridInsertionPoint = input.columnIndex < columnCount
+    ? structure.gridColumns[input.columnIndex]!.start
+    : structure.gridColumns.at(-1)!.end;
+  xml.replace(gridInsertionPoint, gridInsertionPoint, insertedGrid);
+  for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
+    const insertionPoint = input.columnIndex < columnCount
+      ? structure.cells[rowIndex]![input.columnIndex]!.start
+      : structure.cells[rowIndex]!.at(-1)!.end;
+    xml.replace(insertionPoint, insertionPoint, insertedCells[rowIndex]!);
+  }
+  if (finalWidth !== structure.width) {
+    xml.replaceAttribute(structure.widthAttribute, String(finalWidth));
+  }
+}
+
+export function deleteTableColumns(
+  xml: LosslessXmlDocument,
+  frame: XmlElement,
+  input: Readonly<NormalizedTableDelete>,
+  partUri: string,
+): ReadonlySet<string> {
+  const structure = requireEditableTableStructure(frame, partUri);
+  const rowCount = structure.rows.length;
+  const columnCount = structure.gridColumns.length;
+  if (
+    input.index >= columnCount
+    || input.count > columnCount - input.index
+  ) {
+    throw new RangeError(
+      `Table column delete range ${input.index}:${input.count} is out of range`,
+    );
+  }
+  if (input.count === columnCount) {
+    throw new RangeError('Table column delete must leave at least one column');
+  }
+  const deleteEnd = input.index + input.count;
+  const finalWidths = structure.columnWidths.filter(
+    (_, index) => index < input.index || index >= deleteEnd,
+  );
+  const finalWidth = requiredDimensionTotal(finalWidths, 'Table column widths');
+  const regionUpdates = structure.mergeState.regions.map((region) => {
+    const regionEnd = region.columnIndex + region.colspan;
+    const overlap = Math.max(
+      0,
+      Math.min(regionEnd, deleteEnd) - Math.max(region.columnIndex, input.index),
+    );
+    if (overlap === 0) {
+      const target = region.columnIndex >= deleteEnd
+        ? Object.freeze({
+            ...region,
+            columnIndex: region.columnIndex - input.count,
+          })
+        : region;
+      return { source: region, target, changed: false, survivorCount: region.colspan };
+    }
+    const survivorCount = region.colspan - overlap;
+    if (survivorCount === 0) {
+      return { source: region, target: undefined, changed: true, survivorCount };
+    }
+    const target = Object.freeze({
+      ...region,
+      columnIndex: region.columnIndex < input.index
+        ? region.columnIndex
+        : input.index,
+      colspan: survivorCount,
+    });
+    return { source: region, target, changed: true, survivorCount };
+  });
+  const finalRegions = regionUpdates.flatMap(({ target }) =>
+    target && (target.rowspan > 1 || target.colspan > 1) ? [target] : []);
+  validateMergeRegions(finalRegions, rowCount, columnCount - input.count);
+
+  const removedRelationshipIds = new Set<string>();
+  for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
+    for (let columnIndex = input.index; columnIndex < deleteEnd; columnIndex += 1) {
+      collectRelationshipIds(
+        structure.cells[rowIndex]![columnIndex]!,
+        removedRelationshipIds,
+      );
+    }
+  }
+
+  for (const update of regionUpdates) {
+    if (!update.changed || update.survivorCount === 0) continue;
+    for (let rowOffset = 0; rowOffset < update.source.rowspan; rowOffset += 1) {
+      const rowIndex = update.source.rowIndex + rowOffset;
+      for (
+        let columnOffset = 0;
+        columnOffset < update.source.colspan;
+        columnOffset += 1
+      ) {
+        const sourceColumn = update.source.columnIndex + columnOffset;
+        if (sourceColumn >= input.index && sourceColumn < deleteEnd) continue;
+        const targetColumn = sourceColumn < input.index
+          ? sourceColumn
+          : sourceColumn - input.count;
+        const tokens = update.target
+          && (update.target.rowspan > 1 || update.target.colspan > 1)
+          ? mergeTokensForRegionCell(update.target, rowIndex, targetColumn)
+          : {};
+        replaceTableCellMergeAttributes(
+          xml,
+          structure.cells[rowIndex]![sourceColumn]!,
+          tokens,
+        );
+      }
+    }
+  }
+
+  for (let columnIndex = input.index; columnIndex < deleteEnd; columnIndex += 1) {
+    const column = structure.gridColumns[columnIndex]!;
+    xml.replace(column.start, column.end, '');
+  }
+  for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
+    for (let columnIndex = input.index; columnIndex < deleteEnd; columnIndex += 1) {
+      const cell = structure.cells[rowIndex]![columnIndex]!;
+      xml.replace(cell.start, cell.end, '');
+    }
+  }
+  if (finalWidth !== structure.width) {
+    xml.replaceAttribute(structure.widthAttribute, String(finalWidth));
+  }
+  return removedRelationshipIds;
+}
+
 function normalizeIndex(value: unknown, context: string): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
     throw new TypeError(`${context} must be finite`);
@@ -433,6 +671,25 @@ function explicitDimensionTotal(
     total += value;
   }
   return total;
+}
+
+function requiredDimensionTotal(
+  values: readonly number[],
+  context: string,
+): number {
+  let total = 0;
+  for (const value of values) {
+    if (value < 1) throw new RangeError(`${context} must be positive`);
+    if (value > Number.MAX_SAFE_INTEGER - total) {
+      throw new RangeError(`${context} sum must fit a safe integer EMU value`);
+    }
+    total += value;
+  }
+  return total;
+}
+
+function addDrawingNamespaceToCell(fragment: string): string {
+  return `<a:tc xmlns:a="${DRAWING_NAMESPACE}"${fragment.slice('<a:tc'.length)}`;
 }
 
 function mergeTokensAt(

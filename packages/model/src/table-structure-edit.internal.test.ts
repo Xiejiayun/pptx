@@ -8,7 +8,9 @@ import { requireEditablePlainTableCellText } from './table-cell-rich-text.intern
 import { renderEmptyTableCellFragment } from './table-create.internal.js';
 import { replaceTableCellMergeAttributes } from './table-cell-merge.internal.js';
 import {
+  deleteTableColumns,
   deleteTableRows,
+  insertTableColumns,
   insertTableRows,
   normalizeTableColumnInsertInput,
   normalizeTableDeleteInput,
@@ -696,6 +698,373 @@ describe('lossless table row deletion', () => {
       normalizeTableDeleteInput(0, 2, 'row'),
     ]) {
       expect(() => deleteTableRows(
+        fixture.xml,
+        fixture.frame,
+        input,
+        PART_URI,
+      )).toThrow();
+      expect(fixture.xml.changed).toBe(false);
+    }
+  });
+});
+
+describe('lossless table column insertion', () => {
+  it('splices every row and the grid with prepend, middle, append, default, and explicit widths', () => {
+    const middle = parseFrame(plainFrame([40, 60], 2));
+    const before = requireEditableTableStructure(middle.frame, PART_URI);
+    const survivors = before.cells.flat().map((target) => middle.xml.original(target));
+    insertTableColumns(
+      middle.xml,
+      middle.frame,
+      normalizeTableColumnInsertInput(1, {
+        count: 2,
+        columnWidths: [150, 250],
+      }),
+      PART_URI,
+    );
+    const middleSource = middle.xml.serialize();
+    for (const survivor of survivors) expect(middleSource).toContain(survivor);
+    const middleReopened = parseFrame(middleSource);
+    const middleState = requireEditableTableStructure(middleReopened.frame, PART_URI);
+    expect(middleState.columnWidths).toEqual([100, 150, 250, 200]);
+    expect(middleState.width).toBe(700);
+    expect(middleState.cells.map((row) => row.length)).toEqual([4, 4]);
+    for (const row of middleState.cells) {
+      for (const columnIndex of [1, 2]) {
+        expect(requireEditablePlainTableCellText(
+          middleReopened.xml,
+          row[columnIndex]!,
+          PART_URI,
+        )).toBeDefined();
+      }
+    }
+
+    const append = parseFrame(plainFrame([40, 60], 2));
+    insertTableColumns(
+      append.xml,
+      append.frame,
+      normalizeTableColumnInsertInput(2, undefined),
+      PART_URI,
+    );
+    const appendState = requireEditableTableStructure(
+      parseFrame(append.xml.serialize()).frame,
+      PART_URI,
+    );
+    expect(appendState.columnWidths).toEqual([100, 200, 200]);
+    expect(appendState.width).toBe(500);
+
+    const copiedMiddle = parseFrame(plainFrame([40], 2));
+    insertTableColumns(
+      copiedMiddle.xml,
+      copiedMiddle.frame,
+      normalizeTableColumnInsertInput(1, undefined),
+      PART_URI,
+    );
+    expect(requireEditableTableStructure(
+      parseFrame(copiedMiddle.xml.serialize()).frame,
+      PART_URI,
+    ).columnWidths).toEqual([100, 200, 200]);
+
+    const prepend = parseFrame(plainFrame([40], 2));
+    insertTableColumns(
+      prepend.xml,
+      prepend.frame,
+      normalizeTableColumnInsertInput(0, { count: 2, columnWidths: 25 }),
+      PART_URI,
+    );
+    const prependState = requireEditableTableStructure(
+      parseFrame(prepend.xml.serialize()).frame,
+      PART_URI,
+    );
+    expect(prependState.columnWidths).toEqual([25, 25, 100, 200]);
+    expect(prependState.width).toBe(350);
+
+    const alternateSource = plainFrame([10], 1)
+      .replaceAll('a:', 'd:')
+      .replace('xmlns:a=', 'xmlns:d=');
+    const alternate = parseFrame(alternateSource);
+    insertTableColumns(
+      alternate.xml,
+      alternate.frame,
+      normalizeTableColumnInsertInput(1, { columnWidths: 50 }),
+      PART_URI,
+    );
+    const alternateUpdated = alternate.xml.serialize();
+    expect(alternateUpdated).toContain(
+      `<a:gridCol xmlns:a="${DRAWING_NAMESPACE}" w="50"/>`,
+    );
+    expect(alternateUpdated).toContain(
+      `<a:tc xmlns:a="${DRAWING_NAMESPACE}"><a:txBody>`,
+    );
+    expect(requireEditableTableStructure(
+      parseFrame(alternateUpdated).frame,
+      PART_URI,
+    ).columnWidths).toEqual([100, 50]);
+  });
+
+  it('expands only strict-inside merge regions and renders editable continuations', () => {
+    const inside = parseFrame(validFrame());
+    insertTableColumns(
+      inside.xml,
+      inside.frame,
+      normalizeTableColumnInsertInput(1, { count: 2, columnWidths: 50 }),
+      PART_URI,
+    );
+    const reopened = parseFrame(inside.xml.serialize());
+    const state = requireEditableTableStructure(reopened.frame, PART_URI);
+    expect(state.columnWidths).toEqual([100, 50, 50, 200, 300]);
+    expect(state.width).toBe(700);
+    expect(state.mergeState.regions).toEqual([
+      { rowIndex: 0, columnIndex: 0, rowspan: 2, colspan: 4 },
+    ]);
+    expect(reopened.xml.original(state.cells[0]![0]!)).toContain('gridSpan="4"');
+    expect(reopened.xml.original(state.cells[0]![1]!))
+      .toMatch(/^<a:tc rowSpan="2" hMerge="1"><a:txBody>/);
+    expect(reopened.xml.original(state.cells[1]![1]!))
+      .toMatch(/^<a:tc vMerge="1" hMerge="1"><a:txBody>/);
+    expect(requireEditablePlainTableCellText(
+      reopened.xml,
+      state.cells[1]![1]!,
+      PART_URI,
+    )).toBeDefined();
+
+    const before = parseFrame(validFrame());
+    const beforeState = requireEditableTableStructure(before.frame, PART_URI);
+    const originalAnchor = before.xml.original(beforeState.cells[0]![0]!);
+    insertTableColumns(
+      before.xml,
+      before.frame,
+      normalizeTableColumnInsertInput(0, { columnWidths: 25 }),
+      PART_URI,
+    );
+    const beforeSource = before.xml.serialize();
+    expect(beforeSource).toContain(originalAnchor);
+    expect(requireEditableTableStructure(parseFrame(beforeSource).frame, PART_URI)
+      .mergeState.regions).toEqual([
+        { rowIndex: 0, columnIndex: 1, rowspan: 2, colspan: 2 },
+      ]);
+
+    const after = parseFrame(validFrame());
+    insertTableColumns(
+      after.xml,
+      after.frame,
+      normalizeTableColumnInsertInput(2, { columnWidths: 25 }),
+      PART_URI,
+    );
+    expect(requireEditableTableStructure(parseFrame(after.xml.serialize()).frame, PART_URI)
+      .mergeState.regions).toEqual([
+        { rowIndex: 0, columnIndex: 0, rowspan: 2, colspan: 2 },
+      ]);
+
+    const multiple = parseFrame(validFrame({
+      transform: '<p:xfrm><a:ext cx="20" cy="40"/></p:xfrm>',
+      grid: '<a:tblGrid><a:gridCol w="10"/><a:gridCol w="10"/></a:tblGrid>',
+      rows: '<a:tr h="10">' + cell(' gridSpan="2"', 'Top') +
+        cell(' hMerge="1"', 'Top hidden') + '</a:tr>' +
+        '<a:tr h="10">' + cell('', 'Middle 0') + cell('', 'Middle 1') +
+        '</a:tr><a:tr h="10">' + cell(' gridSpan="2"', 'Bottom') +
+        cell(' hMerge="1"', 'Bottom hidden') + '</a:tr>' +
+        '<a:tr h="10">' + cell('', 'Tail 0') + cell('', 'Tail 1') + '</a:tr>',
+    }));
+    insertTableColumns(
+      multiple.xml,
+      multiple.frame,
+      normalizeTableColumnInsertInput(1, { columnWidths: 10 }),
+      PART_URI,
+    );
+    expect(requireEditableTableStructure(parseFrame(multiple.xml.serialize()).frame, PART_URI)
+      .mergeState.regions).toEqual([
+        { rowIndex: 0, columnIndex: 0, rowspan: 1, colspan: 3 },
+        { rowIndex: 2, columnIndex: 0, rowspan: 1, colspan: 3 },
+      ]);
+  });
+
+  it('rejects invalid ranges, physical-cell overflow, and width-sum overflow before mutation', () => {
+    const fixture = parseFrame(plainFrame([40, 60, 80], 2));
+    for (const input of [
+      normalizeTableColumnInsertInput(3, undefined),
+      Object.freeze({ columnIndex: 0, count: 333_333 }),
+    ]) {
+      expect(() => insertTableColumns(
+        fixture.xml,
+        fixture.frame,
+        input,
+        PART_URI,
+      )).toThrow();
+      expect(fixture.xml.changed).toBe(false);
+    }
+
+    const overflow = parseFrame(validFrame({
+      transform: '<p:xfrm><a:ext cx="1" cy="1"/></p:xfrm>',
+      grid: '<a:tblGrid><a:gridCol w="9007199254740991"/></a:tblGrid>',
+      rows: '<a:tr h="1">' + cell() + '</a:tr>',
+    }));
+    expect(() => insertTableColumns(
+      overflow.xml,
+      overflow.frame,
+      normalizeTableColumnInsertInput(1, { columnWidths: 1 }),
+      PART_URI,
+    )).toThrow(/sum must fit a safe integer/);
+    expect(overflow.xml.changed).toBe(false);
+  });
+});
+
+describe('lossless table column deletion', () => {
+  it('removes exact grid/cell ranges, preserves row/survivor bytes, updates cx, and collects IDs', () => {
+    const grid = '<a:tblGrid keep="GRID"><a:gridCol w="10"/>' +
+      '<x:betweenGrid keep="YES"/><a:gridCol w="20"/><a:gridCol w="30"/>' +
+      '<a:gridCol w="40"/></a:tblGrid>';
+    const linkedCell = (rowIndex: number, columnIndex: number): string => {
+      const relationship = columnIndex === 0
+        ? '<a:rPr><a:hlinkClick r:id="rIdShared"/></a:rPr>'
+        : columnIndex === 1
+          ? '<a:rPr><a:hlinkClick r:id="rIdUnique"/></a:rPr>'
+          : columnIndex === 2
+            ? '<a:rPr><a:hlinkClick r:id="rIdShared" x:id="rIdForeign"/></a:rPr>'
+            : '';
+      return `<a:tc keep="CELL-${rowIndex}-${columnIndex}"><a:txBody>` +
+        '<a:bodyPr/><a:lstStyle/><a:p><a:r>' + relationship +
+        `<a:t>${rowIndex},${columnIndex}</a:t></a:r></a:p></a:txBody>` +
+        '<a:tcPr/></a:tc>';
+    };
+    const rows = [0, 1].map((rowIndex) =>
+      `<a:tr h="10" keep="ROW-${rowIndex}">` + [0, 1, 2, 3]
+        .map((columnIndex) => linkedCell(rowIndex, columnIndex))
+        .join('<x:betweenCell keep="YES"/>') + '</a:tr>').join('');
+    const source = validFrame({
+      transform: '<p:xfrm><a:ext cx="100" cy="20"/></p:xfrm>',
+      grid,
+      rows,
+    }).replace(
+      'xmlns:x="urn:foreign"',
+      `xmlns:x="urn:foreign" xmlns:r="${RELATIONSHIP_NAMESPACE}"`,
+    );
+    const fixture = parseFrame(source);
+    const original = requireEditableTableStructure(fixture.frame, PART_URI);
+    const rowTags = original.rows.map((row) =>
+      fixture.xml.source.slice(row.start, row.startTagEnd));
+    const survivors = original.cells.flatMap((row) => [
+      fixture.xml.original(row[0]!),
+      fixture.xml.original(row[3]!),
+    ]);
+    const removed = deleteTableColumns(
+      fixture.xml,
+      fixture.frame,
+      normalizeTableDeleteInput(1, 2, 'column'),
+      PART_URI,
+    );
+    expect([...removed].sort()).toEqual(['rIdShared', 'rIdUnique']);
+    const updated = fixture.xml.serialize();
+    for (const tag of rowTags) expect(updated).toContain(tag);
+    for (const survivor of survivors) expect(updated).toContain(survivor);
+    expect(updated).toContain('<x:betweenGrid keep="YES"/>');
+    expect(updated.match(/<x:betweenCell keep="YES"\/>/g)).toHaveLength(6);
+    expect(updated).not.toContain('rIdUnique');
+    expect(updated).toContain('rIdShared');
+    expect(updated).not.toContain('rIdForeign');
+    const state = requireEditableTableStructure(parseFrame(updated).frame, PART_URI);
+    expect(state.columnWidths).toEqual([10, 40]);
+    expect(state.width).toBe(50);
+    expect(state.cells.map((row) => row.length)).toEqual([2, 2]);
+  });
+
+  it('shrinks merges, promotes hidden anchors, degrades to one dimension, and dissolves 1 x 1', () => {
+    const promoted = parseFrame(validFrame());
+    deleteTableColumns(
+      promoted.xml,
+      promoted.frame,
+      normalizeTableDeleteInput(0, 1, 'column'),
+      PART_URI,
+    );
+    const promotedReopened = parseFrame(promoted.xml.serialize());
+    const promotedState = requireEditableTableStructure(promotedReopened.frame, PART_URI);
+    expect(promotedState.mergeState.regions).toEqual([
+      { rowIndex: 0, columnIndex: 0, rowspan: 2, colspan: 1 },
+    ]);
+    expect(promotedReopened.xml.text(promotedState.cells[0]![0]!)).toBe('B');
+    expect(promotedReopened.xml.original(promotedState.cells[0]![0]!))
+      .toContain('rowSpan="2"');
+    expect(promotedReopened.xml.original(promotedState.cells[0]![0]!))
+      .not.toMatch(/gridSpan|hMerge/);
+
+    const shrunk = parseFrame(validFrame({
+      transform: '<p:xfrm><a:ext cx="40" cy="10"/></p:xfrm>',
+      grid: '<a:tblGrid><a:gridCol w="10"/><a:gridCol w="10"/>' +
+        '<a:gridCol w="10"/><a:gridCol w="10"/></a:tblGrid>',
+      rows: '<a:tr h="10">' + cell(' gridSpan="3"', 'Anchor') +
+        cell(' hMerge="1"', 'Removed') + cell(' hMerge="1"', 'Survivor') +
+        cell('', 'Tail') + '</a:tr>',
+    }));
+    deleteTableColumns(
+      shrunk.xml,
+      shrunk.frame,
+      normalizeTableDeleteInput(1, 1, 'column'),
+      PART_URI,
+    );
+    const shrunkState = requireEditableTableStructure(
+      parseFrame(shrunk.xml.serialize()).frame,
+      PART_URI,
+    );
+    expect(shrunkState.mergeState.regions).toEqual([
+      { rowIndex: 0, columnIndex: 0, rowspan: 1, colspan: 2 },
+    ]);
+    expect(shrunk.xml.serialize()).toContain('gridSpan="2"');
+    expect(shrunk.xml.serialize()).toContain('Survivor');
+    expect(shrunk.xml.serialize()).not.toContain('Removed');
+
+    const horizontal = parseFrame(validFrame({
+      transform: '<p:xfrm><a:ext cx="200" cy="10"/></p:xfrm>',
+      grid: '<a:tblGrid><a:gridCol w="100"/><a:gridCol w="100"/></a:tblGrid>',
+      rows: '<a:tr h="10">' + cell(' gridSpan="2"', 'Left') +
+        cell(' hMerge="1" keep="HIDDEN"', 'Hidden') + '</a:tr>',
+    }));
+    deleteTableColumns(
+      horizontal.xml,
+      horizontal.frame,
+      normalizeTableDeleteInput(0, 1, 'column'),
+      PART_URI,
+    );
+    const horizontalReopened = parseFrame(horizontal.xml.serialize());
+    const horizontalState = requireEditableTableStructure(horizontalReopened.frame, PART_URI);
+    expect(horizontalState.mergeState.regions).toEqual([]);
+    expect(horizontalReopened.xml.text(horizontalState.cells[0]![0]!)).toBe('Hidden');
+    expect(horizontalReopened.xml.original(horizontalState.cells[0]![0]!))
+      .toContain('keep="HIDDEN"');
+    expect(horizontalReopened.xml.original(horizontalState.cells[0]![0]!))
+      .not.toMatch(/rowSpan|gridSpan|vMerge|hMerge/);
+
+    const fullyRemoved = parseFrame(validFrame({
+      transform: '<p:xfrm><a:ext cx="40" cy="10"/></p:xfrm>',
+      grid: '<a:tblGrid><a:gridCol w="10"/><a:gridCol w="10"/>' +
+        '<a:gridCol w="10"/><a:gridCol w="10"/></a:tblGrid>',
+      rows: '<a:tr h="10">' + cell('', 'Before') +
+        cell(' gridSpan="2"', 'Merged') + cell(' hMerge="1"', 'Hidden') +
+        cell('', 'After') + '</a:tr>',
+    }));
+    deleteTableColumns(
+      fullyRemoved.xml,
+      fullyRemoved.frame,
+      normalizeTableDeleteInput(1, 2, 'column'),
+      PART_URI,
+    );
+    const fullyRemovedState = requireEditableTableStructure(
+      parseFrame(fullyRemoved.xml.serialize()).frame,
+      PART_URI,
+    );
+    expect(fullyRemovedState.mergeState.regions).toEqual([]);
+    expect(fullyRemovedState.columnWidths).toEqual([10, 10]);
+    expect(fullyRemoved.xml.serialize()).not.toContain('Merged');
+    expect(fullyRemoved.xml.serialize()).not.toContain('Hidden');
+  });
+
+  it('rejects out-of-range and last-column deletion without scheduling XML changes', () => {
+    const fixture = parseFrame(plainFrame([40, 60], 2));
+    for (const input of [
+      normalizeTableDeleteInput(2, 1, 'column'),
+      normalizeTableDeleteInput(1, 2, 'column'),
+      normalizeTableDeleteInput(0, 2, 'column'),
+    ]) {
+      expect(() => deleteTableColumns(
         fixture.xml,
         fixture.frame,
         input,
