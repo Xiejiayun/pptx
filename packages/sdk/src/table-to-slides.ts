@@ -11,6 +11,9 @@ import type {
 import type { AddImageSourceOptions, ImageSource } from './raster-image-source.js';
 import { mapComputedCellOptions } from './table-to-slides-css.js';
 
+export { resolveHtmlTableColumns } from './table-to-slides-columns.js';
+export type { ResolvedHtmlTableColumns } from './table-to-slides-columns.js';
+
 const OPTION_KEYS = new Set([
   'name',
   'masterSlideName',

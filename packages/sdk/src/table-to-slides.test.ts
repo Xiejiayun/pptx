@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { inches } from '@pptx/model';
 import {
   normalizeTableToSlidesRequest,
+  resolveHtmlTableColumns,
   snapshotHtmlTable,
   snapshotHtmlTableById,
 } from './table-to-slides.js';
@@ -453,6 +455,230 @@ describe('HTML table computed CSS snapshots', () => {
   ])('rejects malformed non-empty computed CSS %#', (style, expected) => {
     const dom = tableFixture({ bodies: [[[cell('A', { style })]]] });
     expect(() => snapshotHtmlTable(dom.table, dom.getComputedStyle)).toThrow(expected);
+  });
+});
+
+describe('HTML table column width resolution', () => {
+  it('maps a 900px 25/75 table to exact EMU proportions', () => {
+    const dom = tableFixture({ bodies: [[[
+      cell('A', { width: 225 }),
+      cell('B', { width: 675 }),
+    ]]] });
+    const snapshot = snapshotHtmlTable(dom.table, dom.getComputedStyle);
+    const resolved = resolveHtmlTableColumns(snapshot, inches(10.8));
+    expect(resolved).toEqual({
+      widths: [inches(2.7), inches(8.1)],
+      width: inches(10.8),
+    });
+    expect(Object.isFrozen(resolved)).toBe(true);
+    expect(Object.isFrozen(resolved.widths)).toBe(true);
+  });
+
+  it('uses stable largest remainders and expands colspan pixel weights', () => {
+    const equal = tableFixture({ bodies: [[[
+      cell('A', { width: 1 }),
+      cell('B', { width: 1 }),
+      cell('C', { width: 1 }),
+    ]]] });
+    expect(resolveHtmlTableColumns(
+      snapshotHtmlTable(equal.table, equal.getComputedStyle),
+      10,
+    ).widths).toEqual([4, 3, 3]);
+
+    const spanned = tableFixture({ bodies: [[[
+      cell('AB', { width: 300, colSpan: 2 }),
+      cell('C', { width: 100 }),
+    ]]] });
+    expect(resolveHtmlTableColumns(
+      snapshotHtmlTable(spanned.table, spanned.getComputedStyle),
+      400,
+    ).widths).toEqual([150, 150, 100]);
+  });
+
+  it('applies fixed and minimum header constraints with true water filling', () => {
+    const dom = tableFixture({ head: [[
+      cell('A', {
+        localName: 'th',
+        width: 100,
+        attributes: { 'data-pptx-min-width': '0.8' },
+      }),
+      cell('B', {
+        localName: 'th',
+        width: 200,
+        attributes: { 'data-pptx-width': '4.5' },
+      }),
+      cell('C', { localName: 'th', width: 100 }),
+    ]] });
+    expect(resolveHtmlTableColumns(
+      snapshotHtmlTable(dom.table, dom.getComputedStyle),
+      inches(8),
+    )).toEqual({
+      widths: [inches(1.75), inches(4.5), inches(1.75)],
+      width: inches(8),
+    });
+  });
+
+  it('expands the table when fixed plus minimum constraints overflow', () => {
+    const dom = tableFixture({ head: [[
+      cell('A', {
+        localName: 'th',
+        width: 1,
+        attributes: { 'data-pptx-width': '1.5' },
+      }),
+      cell('B', {
+        localName: 'th',
+        width: 1,
+        attributes: { 'data-pptx-min-width': '1' },
+      }),
+    ]] });
+    expect(resolveHtmlTableColumns(
+      snapshotHtmlTable(dom.table, dom.getComputedStyle),
+      inches(2),
+    )).toEqual({
+      widths: [inches(1.5), inches(1)],
+      width: inches(2.5),
+    });
+  });
+
+  it('lets fixed width win over minimum and distributes colspan constraints', () => {
+    const dom = tableFixture({ head: [[
+      cell('AB', {
+        localName: 'th',
+        colSpan: 2,
+        width: 200,
+        attributes: {
+          'data-pptx-width': '3',
+          'data-pptx-min-width': 'not-a-number',
+        },
+      }),
+      cell('C', { localName: 'th', width: 100 }),
+    ]] });
+    expect(resolveHtmlTableColumns(
+      snapshotHtmlTable(dom.table, dom.getComputedStyle),
+      inches(6),
+    )).toEqual({
+      widths: [inches(1.5), inches(1.5), inches(3)],
+      width: inches(6),
+    });
+  });
+
+  it('uses explicit scalar and vector widths before pixels or attributes', () => {
+    const dom = tableFixture({ head: [[
+      cell('A', {
+        localName: 'th',
+        width: 0,
+        attributes: { 'data-pptx-width': 'bad' },
+      }),
+      cell('B', { localName: 'th', width: 0 }),
+    ]] });
+    const snapshot = snapshotHtmlTable(dom.table, dom.getComputedStyle);
+    expect(resolveHtmlTableColumns(snapshot, 200, 100)).toEqual({
+      widths: [100, 100],
+      width: 200,
+    });
+    expect(resolveHtmlTableColumns(snapshot, 200, [80, 120])).toEqual({
+      widths: [80, 120],
+      width: 200,
+    });
+    expect(() => resolveHtmlTableColumns(snapshot, 201, [80, 120]))
+      .toThrow(/equal.*target width/i);
+  });
+
+  it('rejects fully hidden flexible tables but permits all-fixed hidden tables', () => {
+    const hidden = tableFixture({ bodies: [[[
+      cell('A', { width: 0 }),
+      cell('B', { width: 0 }),
+    ]]] });
+    expect(() => resolveHtmlTableColumns(
+      snapshotHtmlTable(hidden.table, hidden.getComputedStyle),
+      100,
+    )).toThrow(/hidden|columnWidths/i);
+
+    const fixed = tableFixture({ head: [[
+      cell('A', {
+        localName: 'th',
+        width: 0,
+        attributes: { 'data-pptx-width': '1' },
+      }),
+      cell('B', {
+        localName: 'th',
+        width: 0,
+        attributes: { 'data-pptx-width': '2' },
+      }),
+    ]] });
+    expect(resolveHtmlTableColumns(
+      snapshotHtmlTable(fixed.table, fixed.getComputedStyle),
+      inches(10),
+    )).toEqual({
+      widths: [inches(1), inches(2)],
+      width: inches(3),
+    });
+  });
+
+  it.each(['', '-1', 'NaN', 'Infinity', '0x10'])('rejects invalid width attribute %j', (width) => {
+    const dom = tableFixture({ head: [[cell('A', {
+      localName: 'th',
+      attributes: { 'data-pptx-width': width },
+    })]] });
+    expect(() => resolveHtmlTableColumns(
+      snapshotHtmlTable(dom.table, dom.getComputedStyle),
+      inches(2),
+    )).toThrow(/data-pptx-width/i);
+  });
+
+  it.each(['', '-1', 'NaN', 'Infinity', '0x10'])(
+    'rejects invalid minimum width attribute %j',
+    (minimum) => {
+      const dom = tableFixture({ head: [[cell('A', {
+        localName: 'th',
+        attributes: { 'data-pptx-min-width': minimum },
+      })]] });
+      expect(() => resolveHtmlTableColumns(
+        snapshotHtmlTable(dom.table, dom.getComputedStyle),
+        inches(2),
+      )).toThrow(/data-pptx-min-width/i);
+    },
+  );
+
+  it('accepts a zero minimum width while preserving the one-EMU column floor', () => {
+    const dom = tableFixture({ head: [[
+      cell('A', {
+        localName: 'th',
+        width: 1,
+        attributes: { 'data-pptx-min-width': '0' },
+      }),
+      cell('B', { localName: 'th', width: 1 }),
+    ]] });
+    expect(resolveHtmlTableColumns(
+      snapshotHtmlTable(dom.table, dom.getComputedStyle),
+      3,
+    ).widths).toEqual([2, 1]);
+  });
+
+  it('rejects impossible physical column and safe-integer allocations', () => {
+    const excessive = tableFixture({ bodies: [[[
+      cell('A', { colSpan: 1_000_001 }),
+    ]]] });
+    expect(() => resolveHtmlTableColumns(
+      snapshotHtmlTable(excessive.table, excessive.getComputedStyle),
+      2_000_002,
+    )).toThrow(/physical columns/i);
+
+    const two = tableFixture({ bodies: [[[
+      cell('A'),
+      cell('B'),
+    ]]] });
+    const snapshot = snapshotHtmlTable(two.table, two.getComputedStyle);
+    expect(() => resolveHtmlTableColumns(snapshot, 1)).toThrow(/one EMU per column/i);
+    expect(() => resolveHtmlTableColumns(
+      snapshot,
+      Number.MAX_SAFE_INTEGER,
+      [Number.MAX_SAFE_INTEGER, 1],
+    )).toThrow(/safe integer|overflow/i);
+
+    const sparse = [1, 2];
+    delete sparse[0];
+    expect(() => resolveHtmlTableColumns(snapshot, 3, sparse)).toThrow(/dense/i);
   });
 });
 
