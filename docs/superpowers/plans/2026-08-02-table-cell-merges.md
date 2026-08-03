@@ -14,6 +14,7 @@
 - Span values are positive safe integers; omitted and `1` mean one physical cell and emit no span attribute.
 - Outer rows and the first logical row are non-empty dense arrays; later logical rows may be empty only when active row spans completely cover the physical row.
 - First-row colspan sum defines physical column count; every physical row must be completely and exactly covered without overlap or out-of-bounds rectangles.
+- Expanded tables may contain at most 1,000,000 physical cells so hostile single-cell spans cannot cause unbounded allocation.
 - Public snapshots and indexed editors use zero-based physical row/column coordinates.
 - Valid existing merge state is recognized all-or-nothing against the direct grid, rows, cells, and semantic `gridSpan` / `rowSpan` / `hMerge` / `vMerge` pattern.
 - `mergeRegions` returns frozen row-major regions, `[]` for recognized unmerged tables, and `undefined` for unsupported topology.

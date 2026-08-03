@@ -60,7 +60,7 @@ export class TableModel {
 
 Outer rows 仍必须是 non-empty dense data array，首行必须包含至少一个 logical cell。首行每个 cell 的 normalized `colspan` 之和定义 physical column count。后续 logical row 可为空；布局器按输入顺序把每个 cell 放到当前行最左侧尚未被上方 active `rowspan` 占用的 physical column，并为其完整 `rowspan × colspan` 矩形预留位置。
 
-每行布局结束后，来自既有 row spans 和本行 anchors 必须恰好覆盖全部 physical columns。任何空洞、越过首行列数、越过总行数、重叠 rectangle 或不完整最后 continuation 都在创建前拒绝。这样可表达 PptxGenJS 的常见 lopsided input：
+每行布局结束后，来自既有 row spans 和本行 anchors 必须恰好覆盖全部 physical columns。任何空洞、越过首行列数、越过总行数、重叠 rectangle、不完整最后 continuation，或展开后超过 1,000,000 个 physical cells 都在创建前拒绝；总量上限保证单个巨大 span 也不会在校验阶段触发无界分配。这样可表达 PptxGenJS 的常见 lopsided input：
 
 ```ts
 slide.addTable([

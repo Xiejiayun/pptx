@@ -177,6 +177,162 @@ describe('table creation internals', () => {
     expect(plainObject).toBe(plainString);
   });
 
+  it('expands logical colspan and rowspan cells into a complete physical matrix', () => {
+    const rich = [{ runs: [{ text: 'Merged', style: { bold: true } }] }];
+    const options = {
+      colspan: 2,
+      rowspan: 2,
+      hyperlink: { url: 'https://merged.example' },
+    };
+    const definition = normalizeTableDefinition([
+      [{ text: rich, options }, 'Right'],
+      ['Bottom right'],
+    ], {
+      fontFamily: 'Aptos',
+      fill: {
+        kind: 'solid',
+        color: { kind: 'srgb', value: '4472C4' },
+      },
+    });
+
+    expect(definition.rows).toHaveLength(2);
+    expect(definition.rows[0]).toHaveLength(3);
+    expect(definition.rows[1]).toHaveLength(3);
+    expect(definition.rows[0]![0]).toMatchObject({
+      text: 'Merged',
+      rowspan: 2,
+      colspan: 2,
+      fontFamily: 'Aptos',
+      hyperlink: { url: 'https://merged.example' },
+    });
+    expect(definition.rows[0]![1]).toEqual({
+      text: '',
+      continuation: {
+        rowSpan: 2,
+        horizontal: true,
+      },
+    });
+    expect(definition.rows[1]![0]).toEqual({
+      text: '',
+      continuation: {
+        gridSpan: 2,
+        vertical: true,
+      },
+    });
+    expect(definition.rows[1]![1]).toEqual({
+      text: '',
+      continuation: {
+        vertical: true,
+        horizontal: true,
+      },
+    });
+    expect(definition.columnWidths).toEqual([914_400, 914_400, 914_400]);
+    expect(definition.rowHeights).toEqual([0, 0]);
+
+    const xml = renderTableGraphicFrame(
+      14,
+      definition,
+      undefined,
+      undefined,
+      [
+        ['rId7', undefined, undefined],
+        [undefined, undefined, undefined],
+      ],
+    );
+    expect(xml).toContain('<a:tc rowSpan="2" gridSpan="2"><a:txBody>');
+    expect(xml).toContain('<a:tc rowSpan="2" hMerge="1"><a:tcPr/></a:tc>');
+    expect(xml).toContain('<a:tc gridSpan="2" vMerge="1"><a:tcPr/></a:tc>');
+    expect(xml).toContain('<a:tc vMerge="1" hMerge="1"><a:tcPr/></a:tc>');
+    expect(xml.match(/<a:hlinkClick\b/g)).toHaveLength(1);
+    expect(xml).toContain('<a:hlinkClick r:id="rId7"/>');
+    expect(xml.match(/typeface="Aptos"/g)).toHaveLength(18);
+    expect(xml.match(/<a:solidFill><a:srgbClr val="4472C4"\/><\/a:solidFill>/g))
+      .toHaveLength(3);
+    expect(() => renderTableGraphicFrame(
+      14,
+      definition,
+      undefined,
+      undefined,
+      [
+        ['rId7', 'rIdContinuation', undefined],
+        [undefined, undefined, undefined],
+      ],
+    )).toThrow(/continuation cells cannot contain hyperlink relationships/);
+
+    rich[0]!.runs[0]!.text = 'MUTATED';
+    options.colspan = 1;
+    options.rowspan = 1;
+    options.hyperlink.url = 'https://changed.example';
+    expect(definition.rows[0]![0]).toMatchObject({
+      text: 'Merged',
+      rowspan: 2,
+      colspan: 2,
+      hyperlink: { url: 'https://merged.example' },
+    });
+  });
+
+  it('accepts fully covered empty logical rows and rejects invalid span layouts', () => {
+    const covered = normalizeTableDefinition([
+      [
+        { text: 'A', options: { rowspan: 2 } },
+        { text: 'B', options: { rowspan: 2 } },
+      ],
+      [],
+    ], undefined);
+    expect(covered.rows).toEqual([
+      [
+        { text: 'A', rowspan: 2 },
+        { text: 'B', rowspan: 2 },
+      ],
+      [
+        { text: '', continuation: { vertical: true } },
+        { text: '', continuation: { vertical: true } },
+      ],
+    ]);
+
+    const invalidLayouts = [
+      [[]],
+      [['A', 'B'], []],
+      [['A', 'B'], ['C']],
+      [['A'], ['B', 'C']],
+      [[{ text: 'A', options: { rowspan: 2 } }]],
+      [[
+        { text: 'A', options: { rowspan: 2 } },
+        'B',
+        { text: 'C', options: { rowspan: 2 } },
+      ], [
+        { text: 'D', options: { colspan: 2 } },
+      ]],
+    ];
+    for (const rows of invalidLayouts) {
+      expect(() => normalizeTableDefinition(rows, undefined), JSON.stringify(rows)).toThrow();
+    }
+
+    const invalidSpans = [
+      0,
+      -1,
+      1.5,
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+      Number.MAX_SAFE_INTEGER,
+      Number.MAX_SAFE_INTEGER + 1,
+      '2',
+      true,
+    ];
+    for (const span of invalidSpans) {
+      expect(() => normalizeTableDefinition([[
+        { text: 'A', options: { colspan: span } },
+      ]], undefined), String(span)).toThrow();
+      expect(() => normalizeTableDefinition([[
+        { text: 'A', options: { rowspan: span } },
+      ]], undefined), String(span)).toThrow();
+    }
+
+    expect(normalizeTableDefinition([[
+      { text: 'A', options: { colspan: 1, rowspan: 1 } },
+    ]], undefined).rows).toEqual([[{ text: 'A' }]]);
+  });
+
   it('normalizes and renders strict table-cell text style defaults', () => {
     const tableColor = { kind: 'scheme' as const, value: 'accent1' };
     const tableSpacing = {

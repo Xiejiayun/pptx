@@ -12198,6 +12198,61 @@ describe('PresentationModel', () => {
     expect(() => repeatedExtension.addTable([['A']])).toThrow(/repeated extension lists/);
   });
 
+  it('creates logical table spans with physical hyperlink ownership and reopen', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const table = slide.addTable([
+      [{
+        text: [{ runs: [
+          { text: 'Default' },
+          {
+            text: ' run',
+            style: { hyperlink: { url: 'https://run.example' } },
+          },
+        ] }],
+        options: {
+          colspan: 2,
+          rowspan: 2,
+          hyperlink: { url: 'https://default.example' },
+        },
+      }, 'Right'],
+      ['Bottom right'],
+    ], { name: 'Merged creation' });
+
+    expect(table.rows.map(({ cells }) => cells.map(({ text }) => text))).toEqual([
+      ['Default run', '', 'Right'],
+      ['', '', 'Bottom right'],
+    ]);
+    const xml = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect(xml).toContain('<a:tc rowSpan="2" gridSpan="2"><a:txBody>');
+    expect(xml).toContain('<a:tc rowSpan="2" hMerge="1"><a:tcPr/></a:tc>');
+    expect(xml).toContain('<a:tc gridSpan="2" vMerge="1"><a:tcPr/></a:tc>');
+    expect(xml).toContain('<a:tc vMerge="1" hMerge="1"><a:tcPr/></a:tc>');
+    expect(xml.match(/<a:tc\b/g)).toHaveLength(6);
+    expect(xml.match(/<a:hlinkClick\b/g)).toHaveLength(2);
+    expect(slide.relationships.filter(({ type }) => type === HYPERLINK_RELATIONSHIP))
+      .toHaveLength(2);
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedTable = reopened.slides.find(({ partUri }) => partUri === slide.partUri)!
+      .shapes.find((shape): shape is TableModel =>
+        shape instanceof TableModel && shape.name === 'Merged creation')!;
+    expect(reopenedTable.rows.map(({ cells }) => cells.map(({ text }) => text))).toEqual([
+      ['Default run', '', 'Right'],
+      ['', '', 'Bottom right'],
+    ]);
+    expect(reopened.slides.find(({ partUri }) => partUri === slide.partUri)!
+      .relationships.filter(({ type }) => type === HYPERLINK_RELATIONSHIP))
+      .toHaveLength(2);
+
+    const beforeInvalid = packageSnapshot(pkg);
+    expect(() => slide.addTable([[
+      { text: 'Invalid', options: { colspan: 2, rowspan: 2 } },
+    ]])).toThrow(/span is out of range/);
+    expect(packageSnapshot(pkg)).toEqual(beforeInvalid);
+  });
+
   it('preserves table-cell text style defaults through edits, duplication, rollback, and reopen', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);

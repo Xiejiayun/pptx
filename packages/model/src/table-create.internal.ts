@@ -56,6 +56,7 @@ import type {
 const EMU_PER_INCH = 914_400;
 const DEFAULT_OFFSET = EMU_PER_INCH / 2;
 const DEFAULT_HEIGHT = EMU_PER_INCH;
+const MAX_TABLE_PHYSICAL_CELLS = 1_000_000;
 const RELATIONSHIP_NAMESPACE =
   'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
 const OPTION_KEYS = [
@@ -91,6 +92,14 @@ interface NormalizedTableTextDefaults {
 interface NormalizedTableCell extends NormalizedTableTextDefaults {
   readonly text: string;
   readonly richText?: ReturnType<typeof normalizeRichText>;
+  readonly colspan?: number;
+  readonly rowspan?: number;
+  readonly continuation?: Readonly<{
+    readonly rowSpan?: number;
+    readonly gridSpan?: number;
+    readonly vertical?: true;
+    readonly horizontal?: true;
+  }>;
   readonly alignment?: TextAlignment;
   readonly borders?: TableCellBorders;
   readonly fill?: TableCellFill;
@@ -126,14 +135,8 @@ export function normalizeTableDefinition(
 ): NormalizedTableDefinition {
   const outer = readDenseArray(rows, 'Table rows');
   const normalizedRows = outer.map((row, rowIndex) =>
-    readDenseArray(row, `Table row ${rowIndex}`).map((cell, columnIndex) =>
+    readDenseArray(row, `Table row ${rowIndex}`, rowIndex > 0).map((cell, columnIndex) =>
       normalizeTableCell(cell, rowIndex, columnIndex)));
-  const columnCount = normalizedRows[0]!.length;
-  for (let rowIndex = 1; rowIndex < normalizedRows.length; rowIndex += 1) {
-    if (normalizedRows[rowIndex]!.length !== columnCount) {
-      throw new TypeError('Table rows must contain the same number of cells');
-    }
-  }
 
   const normalizedOptions = readOptions(options);
   const placeholder = normalizedOptions.placeholder === undefined
@@ -201,6 +204,8 @@ export function normalizeTableDefinition(
       cell.verticalAlignment === undefined
         ? { ...cell, verticalAlignment: tableVerticalAlignment }
         : cell));
+  const physicalRows = expandTableRows(resolvedRows);
+  const columnCount = physicalRows[0]!.length;
   const name = normalizedOptions.name;
   if (name !== undefined) {
     if (typeof name !== 'string') throw new TypeError('Table name must be a string');
@@ -255,7 +260,7 @@ export function normalizeTableDefinition(
   if (requestedRowHeights !== undefined) {
     rowHeights = normalizeDimensionVector(
       requestedRowHeights,
-      normalizedRows.length,
+      physicalRows.length,
       'Table rowHeights',
       'row count',
     );
@@ -275,16 +280,16 @@ export function normalizeTableDefinition(
       ? DEFAULT_HEIGHT
       : normalizeCoordinate(normalizedOptions.height, 'Table height');
     if (height <= 0) throw new RangeError('Table height must be greater than zero');
-    if (!autoRowHeight && height < normalizedRows.length) {
+    if (!autoRowHeight && height < physicalRows.length) {
       throw new RangeError('Table height must provide at least one EMU per row');
     }
     rowHeights = autoRowHeight
-      ? normalizedRows.map(() => 0)
-      : distributeTableDimension(height, normalizedRows.length);
+      ? physicalRows.map(() => 0)
+      : distributeTableDimension(height, physicalRows.length);
   }
 
   return {
-    rows: resolvedRows,
+    rows: physicalRows,
     ...(name !== undefined ? { name } : {}),
     ...(placeholder === undefined ? {} : { placeholder }),
     x,
@@ -350,11 +355,13 @@ function normalizeTableCellOptions(
   | 'bold'
   | 'borders'
   | 'color'
+  | 'colspan'
   | 'fill'
   | 'fontFamily'
   | 'fontSize'
   | 'hyperlink'
   | 'margins'
+  | 'rowspan'
   | 'spacing'
   | 'textDirection'
   | 'textFit'
@@ -369,18 +376,22 @@ function normalizeTableCellOptions(
       'bold',
       'border',
       'color',
+      'colspan',
       'fill',
       'fit',
       'fontFamily',
       'fontSize',
       'hyperlink',
       'margin',
+      'rowspan',
       'spacing',
       'textDirection',
       'valign',
     ],
   );
   const textDefaults = normalizeTableTextDefaults(options, context);
+  const colspan = normalizeTableCellSpan(options.colspan, `${context} colspan`);
+  const rowspan = normalizeTableCellSpan(options.rowspan, `${context} rowspan`);
   const alignment = options.align === undefined
     ? undefined
     : normalizeTextAlignment(options.align, `${context} align`);
@@ -407,15 +418,31 @@ function normalizeTableCellOptions(
     : normalizeTextBoxVerticalAlignment(options.valign, `${context} valign`);
   return {
     ...textDefaults,
+    ...(colspan === undefined ? {} : { colspan }),
     ...(alignment === undefined ? {} : { alignment }),
     ...(borders === undefined ? {} : { borders }),
     ...(fill === undefined ? {} : { fill }),
     ...(hyperlink === undefined ? {} : { hyperlink }),
     ...(margins === undefined ? {} : { margins }),
+    ...(rowspan === undefined ? {} : { rowspan }),
     ...(textDirection === undefined ? {} : { textDirection }),
     ...(textFit === undefined ? {} : { textFit }),
     ...(verticalAlignment === undefined ? {} : { verticalAlignment }),
   };
+}
+
+function normalizeTableCellSpan(
+  value: unknown,
+  context: string,
+): number | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new TypeError(`${context} must be finite`);
+  }
+  if (!Number.isSafeInteger(value) || value < 1) {
+    throw new RangeError(`${context} must be a positive safe integer`);
+  }
+  return value === 1 ? undefined : value;
 }
 
 function normalizeTableTextDefaults(
@@ -483,6 +510,90 @@ function resolveTableTextDefaults(
     ...(bold === undefined ? {} : { bold }),
     ...(color === undefined ? {} : { color }),
     ...(spacing === undefined ? {} : { spacing }),
+  };
+}
+
+function expandTableRows(
+  logicalRows: readonly (readonly NormalizedTableCell[])[],
+): readonly (readonly NormalizedTableCell[])[] {
+  const columnCount = logicalRows[0]!.reduce((sum, cell) => {
+    const colspan = cell.colspan ?? 1;
+    if (colspan > Number.MAX_SAFE_INTEGER - sum) {
+      throw new RangeError('Table physical column count must fit a safe integer');
+    }
+    return sum + colspan;
+  }, 0);
+  if (columnCount > Math.floor(MAX_TABLE_PHYSICAL_CELLS / logicalRows.length)) {
+    throw new RangeError(
+      `Table cannot contain more than ${MAX_TABLE_PHYSICAL_CELLS} physical cells`,
+    );
+  }
+  const matrix: Array<Array<NormalizedTableCell | undefined>> = logicalRows.map(() =>
+    Array.from({ length: columnCount }, () => undefined));
+
+  for (let rowIndex = 0; rowIndex < logicalRows.length; rowIndex += 1) {
+    let physicalColumnIndex = 0;
+    for (const [logicalColumnIndex, cell] of logicalRows[rowIndex]!.entries()) {
+      while (
+        physicalColumnIndex < columnCount
+        && matrix[rowIndex]![physicalColumnIndex] !== undefined
+      ) physicalColumnIndex += 1;
+      if (physicalColumnIndex >= columnCount) {
+        throw new TypeError('Table rows must cover the same number of physical cells');
+      }
+      const rowspan = cell.rowspan ?? 1;
+      const colspan = cell.colspan ?? 1;
+      if (
+        rowIndex + rowspan > logicalRows.length
+        || physicalColumnIndex + colspan > columnCount
+      ) {
+        throw new RangeError(
+          `Table cell ${rowIndex},${logicalColumnIndex} span is out of range`,
+        );
+      }
+      for (let rowOffset = 0; rowOffset < rowspan; rowOffset += 1) {
+        for (let columnOffset = 0; columnOffset < colspan; columnOffset += 1) {
+          const targetRow = rowIndex + rowOffset;
+          const targetColumn = physicalColumnIndex + columnOffset;
+          if (matrix[targetRow]![targetColumn] !== undefined) {
+            throw new RangeError(
+              `Table cell ${rowIndex},${logicalColumnIndex} span overlaps another cell`,
+            );
+          }
+        }
+      }
+      for (let rowOffset = 0; rowOffset < rowspan; rowOffset += 1) {
+        for (let columnOffset = 0; columnOffset < colspan; columnOffset += 1) {
+          const targetRow = rowIndex + rowOffset;
+          const targetColumn = physicalColumnIndex + columnOffset;
+          matrix[targetRow]![targetColumn] = rowOffset === 0 && columnOffset === 0
+            ? cell
+            : tableContinuationCell(rowOffset, columnOffset, rowspan, colspan);
+        }
+      }
+      physicalColumnIndex += colspan;
+    }
+    if (matrix[rowIndex]!.some((cell) => cell === undefined)) {
+      throw new TypeError('Table rows must cover the same number of physical cells');
+    }
+  }
+  return matrix as readonly (readonly NormalizedTableCell[])[];
+}
+
+function tableContinuationCell(
+  rowOffset: number,
+  columnOffset: number,
+  rowspan: number,
+  colspan: number,
+): NormalizedTableCell {
+  return {
+    text: '',
+    continuation: {
+      ...(rowOffset === 0 && rowspan > 1 ? { rowSpan: rowspan } : {}),
+      ...(columnOffset === 0 && colspan > 1 ? { gridSpan: colspan } : {}),
+      ...(rowOffset > 0 ? { vertical: true as const } : {}),
+      ...(columnOffset > 0 ? { horizontal: true as const } : {}),
+    },
   };
 }
 
@@ -554,9 +665,15 @@ export function renderTableGraphicFrame(
   return `<p:graphicFrame xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"${relationshipNamespace}><p:nvGraphicFramePr><p:cNvPr id="${id}" name="${name}"/><p:cNvGraphicFramePr><a:graphicFrameLocks noGrp="1"/></p:cNvGraphicFramePr>${applicationProperties}</p:nvGraphicFramePr><p:xfrm${transformAttributes}><a:off x="${definition.x}" y="${definition.y}"/><a:ext cx="${definition.width}" cy="${definition.height}"/></p:xfrm><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/table"><a:tbl><a:tblPr/><a:tblGrid>${grid}</a:tblGrid>${rows}</a:tbl></a:graphicData></a:graphic></p:graphicFrame>`;
 }
 
-function readDenseArray(value: unknown, context: string): readonly unknown[] {
-  if (!Array.isArray(value) || value.length === 0) {
-    throw new TypeError(`${context} must be a non-empty array`);
+function readDenseArray(
+  value: unknown,
+  context: string,
+  allowEmpty = false,
+): readonly unknown[] {
+  if (!Array.isArray(value) || (!allowEmpty && value.length === 0)) {
+    throw new TypeError(
+      allowEmpty ? `${context} must be an array` : `${context} must be a non-empty array`,
+    );
   }
   const allowed = new Set([
     'length',
@@ -673,6 +790,17 @@ function renderTableCell(
   hyperlinkRelationshipId: string | undefined,
   runHyperlinkRelationshipIds?: RichTextRunHyperlinkRelationshipIds,
 ): string {
+  const spanAttributes = renderTableCellSpanAttributes(cell);
+  if (cell.continuation !== undefined) {
+    if (
+      hyperlinkRelationshipId !== undefined
+      || runHyperlinkRelationshipIds?.some((paragraph) =>
+        paragraph.some((relationshipId) => relationshipId !== undefined))
+    ) {
+      throw new TypeError('Table continuation cells cannot contain hyperlink relationships');
+    }
+    return `<a:tc${spanAttributes}><a:tcPr/></a:tc>`;
+  }
   const paragraphs = tableCellRichText(cell);
   const defaultHyperlink = cell.hyperlink !== undefined
     && paragraphs.some(({ runs }) =>
@@ -721,7 +849,21 @@ function renderTableCell(
   const bodyProperties = textFitChild === ''
     ? '<a:bodyPr/>'
     : `<a:bodyPr>${textFitChild}</a:bodyPr>`;
-  return `<a:tc><a:txBody>${bodyProperties}<a:lstStyle/>${renderedParagraphs}</a:txBody><a:tcPr${marginAttributes}${verticalAlignmentAttribute}${textDirectionAttribute}>${borders}${fill}</a:tcPr></a:tc>`;
+  return `<a:tc${spanAttributes}><a:txBody>${bodyProperties}<a:lstStyle/>${renderedParagraphs}</a:txBody><a:tcPr${marginAttributes}${verticalAlignmentAttribute}${textDirectionAttribute}>${borders}${fill}</a:tcPr></a:tc>`;
+}
+
+function renderTableCellSpanAttributes(cell: NormalizedTableCell): string {
+  const continuation = cell.continuation;
+  return [
+    continuation?.rowSpan !== undefined
+      ? ` rowSpan="${continuation.rowSpan}"`
+      : cell.rowspan !== undefined ? ` rowSpan="${cell.rowspan}"` : '',
+    continuation?.gridSpan !== undefined
+      ? ` gridSpan="${continuation.gridSpan}"`
+      : cell.colspan !== undefined ? ` gridSpan="${cell.colspan}"` : '',
+    continuation?.vertical ? ' vMerge="1"' : '',
+    continuation?.horizontal ? ' hMerge="1"' : '',
+  ].join('');
 }
 
 function tableCellRichText(
@@ -733,6 +875,7 @@ function tableCellRichText(
 }
 
 function tableCellHasRenderedHyperlink(cell: NormalizedTableCell): boolean {
+  if (cell.continuation !== undefined) return false;
   return tableCellRichText(cell).some(({ runs }) => runs.some(({ style }) => {
     const local = style?.hyperlink;
     return local !== false && (local !== undefined || cell.hyperlink !== undefined);

@@ -328,12 +328,14 @@ export interface AddTableCellOptions {
   readonly bold?: boolean;
   readonly border?: TableCellBorderInput;
   readonly color?: RichTextColor;
+  readonly colspan?: number;
   readonly fill?: TableCellFill;
   readonly fit?: TextBoxFit;
   readonly fontFamily?: string;
   readonly fontSize?: number;
   readonly hyperlink?: Hyperlink;
   readonly margin?: TextBoxMarginInput;
+  readonly rowspan?: number;
   readonly spacing?: ParagraphSpacing;
   readonly textDirection?: TableCellTextDirection;
   readonly valign?: TextBoxVerticalAlignment;
@@ -2102,6 +2104,7 @@ export class SlideModel {
     const prepared: PreparedTableCellHyperlink[] = [];
     for (const [rowIndex, row] of definition.rows.entries()) {
       for (const [columnIndex, cell] of row.entries()) {
+        if (cell.continuation !== undefined) continue;
         const append = (
           hyperlink: NormalizedHyperlink,
           paragraphIndex?: number,
@@ -2163,8 +2166,10 @@ export class SlideModel {
     const defaultRelationshipIds = definition.rows.map((row) =>
       row.map(() => undefined as string | undefined));
     const runRelationshipIds = definition.rows.map((row) => row.map((cell) =>
-      (cell.richText ?? [{ runs: [{ text: cell.text }] }]).map(({ runs }) =>
-        runs.map(() => undefined as string | undefined))));
+      cell.continuation === undefined
+        ? (cell.richText ?? [{ runs: [{ text: cell.text }] }]).map(({ runs }) =>
+            runs.map(() => undefined as string | undefined))
+        : []));
     for (const {
       rowIndex,
       columnIndex,
