@@ -24,6 +24,7 @@ import {
   TEXT_ALIGNMENTS,
   TEXT_VERTICAL_ALIGNMENTS,
   ValidationError,
+  type AddTableCellInput,
   type AddShapeOptions,
   type CustomGeometry,
   type OutputType,
@@ -200,6 +201,9 @@ type PptxGenJSPublicText = Parameters<
 type PptxGenJSPublicTableCell = Parameters<
   ReturnType<PptxGenJSPublicInstance['addSlide']>['addTable']
 >[0][number][number];
+type PptxGenJSPublicTableOptions = Parameters<
+  ReturnType<PptxGenJSPublicInstance['addSlide']>['addTable']
+>[1];
 type PptxGenJSMediaOptions = Parameters<
   ReturnType<PptxGenJSPublicInstance['addSlide']>['addMedia']
 >[0];
@@ -235,6 +239,15 @@ const publicBreakLineText: PptxGenJSPublicText = [
 const publicTableSpanCell: PptxGenJSPublicTableCell = {
   text: 'Merged',
   options: { colspan: 2, rowspan: 2 },
+};
+const publicMeasuredTableCell: PptxGenJSPublicTableCell = {
+  text: 'Weighted',
+  options: { autoPageCharWeight: -1, autoPageLineWeight: 1 },
+};
+const publicMeasuredTableOptions: PptxGenJSPublicTableOptions = {
+  autoPage: true,
+  autoPageCharWeight: 0,
+  autoPageLineWeight: 0,
 };
 const unsupportedPublicTableSpanCell: PptxGenJSPublicTableCell = {
   text: 'Invalid',
@@ -292,6 +305,8 @@ void [
   publicTextBoxOptions,
   publicBreakLineText,
   publicTableSpanCell,
+  publicMeasuredTableCell,
+  publicMeasuredTableOptions,
   unsupportedPublicTableSpanCell,
   unsupportedPublicBreakLineText,
   unsupportedPublicTextBoxOptions,
@@ -9210,8 +9225,8 @@ describe('importPptxGenJS', () => {
 
     for (const invalid of [
       { autoPage: 'true', rowHeights: [1] },
-      { autoPage: true, rowHeights: [1], autoPageLineWeight: 1 },
-      { autoPage: true, rowHeights: [1], autoPageCharWeight: 1 },
+      { autoPage: true, rowHeights: [1], autoPageLineWeight: 1.001 },
+      { autoPage: true, rowHeights: [1], autoPageCharWeight: '1' },
       { autoPage: true, rowHeights: [1], addHeaderToEach: true },
       { autoPage: true, rowHeights: [1], newSlideStartY: 1 },
     ]) {
@@ -9238,7 +9253,133 @@ describe('importPptxGenJS', () => {
     expect(() => pptxgenjs.addSlide().addTable([['Coercible']], coercible))
       .not.toThrow();
     expect(coercible.autoPage).toBe(false);
+
+    const overriddenCell = {
+      text: 'Cell override',
+      options: { autoPageCharWeight: -1 } as Record<string, unknown>,
+    };
+    const overridden = new PptxGenJS();
+    overridden.addSlide().addTable([[overriddenCell]], {
+      x: 1,
+      y: 1,
+      w: 8,
+      autoPage: true,
+      autoPageCharWeight: 1,
+    });
+    expect(overriddenCell.options.autoPageCharWeight).toBe(1);
   });
+
+  it('matches legal PptxGenJS automatic table boundaries at all public weights', async () => {
+    const weights = [-1, 0, 1] as const;
+    const bodyTexts = Array.from(
+      { length: 4 },
+      (_, index) => `${index} ${Array.from({ length: 5 }, () => 'A'.repeat(10)).join(' ')}`,
+    );
+    const headerText = `H ${Array.from({ length: 5 }, () => 'A'.repeat(10)).join(' ')}`;
+
+    for (const weight of weights) {
+      const expectedLines = weight === -1 ? 5 : weight === 0 ? 3 : 2;
+      const lineHeight = 12 * (1.67 + weight) / 100;
+      const pageCapacity = lineHeight * expectedLines + 0.001;
+      const pageStartY = 5.125 - pageCapacity;
+      const generated = new PptxGenJS();
+      generated.defineLayout({ name: 'NATIVE-SIZE', width: 10, height: 5.625 });
+      generated.layout = 'NATIVE-SIZE';
+      const generatedSlide = generated.addSlide();
+      const generatedCellOptions = Array.from(
+        { length: bodyTexts.length + 1 },
+        () => ({ margin: 0 } as Record<string, unknown>),
+      );
+      const generatedRows: (string | PptxGenJSTableCell)[][] = [
+        [{ text: headerText, options: generatedCellOptions[0]! }],
+        ...bodyTexts.map((text, index) => [{
+          text,
+          options: generatedCellOptions[index + 1]!,
+        }]),
+      ];
+      const generatedOptions: Record<string, unknown> = {
+        x: 1,
+        y: pageStartY,
+        w: 2,
+        autoPage: true,
+        autoPageCharWeight: weight,
+        autoPageLineWeight: weight,
+        autoPageSlideStartY: pageStartY,
+        slideMargin: 0.5,
+        fontSize: 12,
+        margin: 0,
+      };
+      generatedSlide.addTable(generatedRows, generatedOptions);
+      expect(generatedSlide.newAutoPagedSlides.length, `PptxGenJS weight ${weight}`)
+        .toBeGreaterThan(0);
+      expect(generatedOptions, `PptxGenJS weight ${weight}`).toMatchObject({
+        autoPage: false,
+        autoPageCharWeight: weight,
+        autoPageLineWeight: weight,
+      });
+      expect(generatedCellOptions.every(({ autoPageCharWeight }) =>
+        autoPageCharWeight === (weight === 0 ? null : weight))).toBe(true);
+
+      const imported = await importPptxGenJS(generated);
+      const generatedHeights: readonly (readonly number[])[] = imported.slides.map((slide) => {
+        const table = slide.shapes.find(
+          (shape): shape is TableModel => shape instanceof TableModel,
+        )!;
+        return table.rowHeights!;
+      });
+      const generatedPages = imported.slides.map((slide) => {
+        const table = slide.shapes.find(
+          (shape): shape is TableModel => shape instanceof TableModel,
+        )!;
+        return table.rows.map((row) => row.cells[0]!.text);
+      });
+
+      const native = PptxDocument.create({
+        slideSize: { width: inches(10), height: inches(5.625) },
+      });
+      const nativeSlide = native.addSlide();
+      const nativeRows: readonly (readonly AddTableCellInput[])[] = [
+        [{ text: headerText, options: { margin: 0 } }],
+        ...bodyTexts.map((text) => [{ text, options: { margin: 0 } }]),
+      ];
+      const nativeSnapshot = structuredClone(nativeRows);
+      nativeSlide.addTable(nativeRows, {
+        autoPage: true,
+        autoPageCharWeight: weight,
+        autoPageLineWeight: weight,
+        autoPageSlideStartY: inches(pageStartY),
+        slideMargin: inches(0.5),
+        x: inches(1),
+        y: inches(pageStartY),
+        columnWidths: [inches(2)],
+        fontSize: 12,
+        margin: 0,
+      });
+      expect(nativeRows, `native detachment weight ${weight}`).toEqual(nativeSnapshot);
+      const nativePages = [nativeSlide, ...nativeSlide.newAutoPagedSlides].map((slide) => {
+        const table = slide.shapes.find(
+          (shape): shape is TableModel => shape instanceof TableModel,
+        )!;
+        return table.rows.map((row) => row.cells[0]!.text);
+      });
+      expect(nativePages, `weight ${weight}`).toEqual(generatedPages);
+      const nativeHeights = [nativeSlide, ...nativeSlide.newAutoPagedSlides].map((slide) => {
+        const table = slide.shapes.find(
+          (shape): shape is TableModel => shape instanceof TableModel,
+        )!;
+        return table.rowHeights!;
+      });
+      expect(generatedHeights.flat().every((height) => height === 0), `PptxGenJS weight ${weight}`)
+        .toBe(true);
+      expect(nativeHeights.flat(), `native row heights weight ${weight}`).toEqual(
+        Array.from(
+          { length: bodyTexts.length + 1 },
+          () => expectedLines * inches(lineHeight),
+        ),
+      );
+      expect(nativePages.flat(), `weight ${weight}`).toEqual([headerText, ...bodyTexts]);
+    }
+  }, 60_000);
 
   it('imports and edits legal PptxGenJS plain table-cell hyperlinks', async () => {
     const generated = new PptxGenJS();

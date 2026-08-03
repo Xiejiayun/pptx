@@ -2203,10 +2203,12 @@ describe('PresentationModel', () => {
   it('rolls every auto-page creation boundary back with cache and runtime isolation', async () => {
     const boundaries = [
       'source-table',
+      'source-hyperlink',
       'generated-slide-part',
       'layout-relationship',
       'placeholder-materialization',
       'generated-hyperlink',
+      'section-sync',
       'slide-number-sync',
       'outer-transaction',
     ] as const;
@@ -2291,9 +2293,11 @@ describe('PresentationModel', () => {
         boundary === 'source-table'
         || boundary === 'generated-slide-part'
         || boundary === 'placeholder-materialization'
+        || boundary === 'section-sync'
         || boundary === 'slide-number-sync'
       ) {
         const original = pkg.setPart.bind(pkg);
+        let presentationWrites = 0;
         const spy = vi.spyOn(pkg, 'setPart').mockImplementation((uri, bytes, contentType) => {
           if (boundary === 'source-table' && uri === source.partUri) {
             throw new Error(`injected ${boundary}`);
@@ -2315,6 +2319,17 @@ describe('PresentationModel', () => {
             throw new Error(`injected ${boundary}`);
           }
           if (
+            boundary === 'section-sync'
+            && uri === model.presentationPartUri
+          ) {
+            presentationWrites += 1;
+            if (presentationWrites === 2) {
+              captureSourceTable();
+              captureGeneratedSlide();
+              throw new Error(`injected ${boundary}`);
+            }
+          }
+          if (
             boundary === 'slide-number-sync'
             && uri === sentinel.partUri
             && model.slides.length > beforeSlides.length
@@ -2329,6 +2344,13 @@ describe('PresentationModel', () => {
       } else {
         const original = pkg.addRelationship.bind(pkg);
         const spy = vi.spyOn(pkg, 'addRelationship').mockImplementation((partUri, input) => {
+          if (
+            boundary === 'source-hyperlink'
+            && partUri === source.partUri
+            && input.type === HYPERLINK_RELATIONSHIP
+          ) {
+            throw new Error(`injected ${boundary}`);
+          }
           if (
             boundary === 'layout-relationship'
             && directGeneratedSlide(partUri)

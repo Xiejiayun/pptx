@@ -944,7 +944,7 @@ describe('@jiayunxie/pptx stable exports', () => {
     }
   });
 
-  it('exports strict table auto-page and newAutoPagedSlides contracts from the root package', async () => {
+  it('exports measured table auto-page and newAutoPagedSlides contracts from the root package', async () => {
     const document = PptxDocument.create();
     const source = document.addSlide();
     const slideMargin: TableAutoPageMarginInput = [
@@ -953,30 +953,52 @@ describe('@jiayunxie/pptx stable exports', () => {
       inches(0.5),
       inches(0.25),
     ];
+    const cellOptions: AddTableCellOptions = {
+      autoPageCharWeight: 1,
+      autoPageLineWeight: -1,
+      margin: 0,
+    };
     const options: AddTableOptions = {
       autoPage: true,
+      autoPageCharWeight: -1,
+      autoPageLineWeight: 0,
       autoPageRepeatHeader: true,
       autoPageHeaderRows: 1,
       autoPageSlideStartY: inches(0.75),
       slideMargin,
       y: inches(4.5),
       columnWidths: [inches(4)],
-      rowHeights: [inches(0.5), inches(0.75), inches(0.75)],
+      rowHeights: [0, inches(0.75), 0],
     };
-    source.addTable([['Header'], ['A'], ['B']], options);
+    source.addTable([
+      ['Header'],
+      [{ text: 'A'.repeat(80), options: cellOptions }],
+      ['B'],
+    ], options);
 
     expect(source.newAutoPagedSlides).toHaveLength(1);
     expect(Object.isFrozen(source.newAutoPagedSlides)).toBe(true);
     const pageTables = [source, ...source.newAutoPagedSlides].map((slide) =>
       slide.shapes.find((shape): shape is TableModel => shape instanceof TableModel)!);
     expect(pageTables.map((table) => table.rows.map((row) => row.cells[0]!.text)))
-      .toEqual([['Header'], ['Header', 'A', 'B']]);
+      .toEqual([['Header'], ['Header', 'A'.repeat(80), 'B']]);
     expect(pageTables[1]!.transform.y).toBe(inches(0.75));
+    expect(pageTables.every((table) => table.rowHeights?.every((height) => height > 0)))
+      .toBe(true);
 
     const reopened = await PptxDocument.open(await document.write());
     expect(reopened.slides).toHaveLength(2);
     expect(reopened.slides.every((slide) => slide.newAutoPagedSlides.length === 0))
       .toBe(true);
+
+    expect(() => source.addTable([['Invalid']], {
+      autoPage: true,
+      autoPageLineWeight: 1.001,
+    })).toThrow(/weight/i);
+    expect(() => source.addTable([['Invalid']], {
+      autoPage: true,
+      autoPageCharWeight: '0' as never,
+    })).toThrow(/weight/i);
 
     if (false) {
       const scalar: TableAutoPageMarginInput = inches(0.5);
@@ -999,11 +1021,36 @@ describe('@jiayunxie/pptx stable exports', () => {
         // @ts-expect-error legacy PptxGenJS alias is intentionally excluded.
         newSlideStartY: 1,
       };
-      const unsupportedWeight: AddTableOptions = {
-        // @ts-expect-error automatic row measurement weights are not supported yet.
-        autoPageLineWeight: 0,
+      const boundedTableWeights: readonly AddTableOptions[] = [
+        { autoPage: true, autoPageCharWeight: -1, autoPageLineWeight: 1 },
+        { autoPage: true, autoPageCharWeight: 0, autoPageLineWeight: 0 },
+        { autoPage: true, autoPageCharWeight: 1, autoPageLineWeight: -1 },
+      ];
+      const boundedCellWeights: readonly AddTableCellOptions[] = [
+        { autoPageCharWeight: -1, autoPageLineWeight: 1 },
+        { autoPageCharWeight: 0, autoPageLineWeight: 0 },
+        { autoPageCharWeight: 1, autoPageLineWeight: -1 },
+      ];
+      // @ts-expect-error normalized table internals are not root exports.
+      type HiddenNormalizedTable = import('./index.js').NormalizedTableDefinition;
+      // @ts-expect-error measurement internals are not root exports.
+      type HiddenMeasuredLine = import('./index.js').MeasuredTableLine;
+      const invalidWeight: AddTableOptions = {
+        autoPage: true,
+        // @ts-expect-error measurement weights are numeric.
+        autoPageLineWeight: '0',
       };
-      void [stringRepeat, malformedMargin, legacyHeader, legacyStart, unsupportedWeight];
+      void [
+        stringRepeat,
+        malformedMargin,
+        legacyHeader,
+        legacyStart,
+        boundedTableWeights,
+        boundedCellWeights,
+        invalidWeight,
+        undefined as unknown as HiddenNormalizedTable,
+        undefined as unknown as HiddenMeasuredLine,
+      ];
     }
   });
 

@@ -1609,22 +1609,33 @@ describe('PptxDocument vertical slice', () => {
       .toEqual([['Header', 'A'], ['Header', 'B', 'C', 'D']]);
   });
 
-  it('exports strict table auto-page contracts through all six presentation formats', async () => {
+  it('exports measured table auto-page contracts through all six presentation formats', async () => {
     for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
       const document = PptxDocument.create({ format });
       const source = document.addSlide();
       const margin: TableAutoPageMarginInput = inches(0.5);
+      const weightedCell: AddTableCellOptions = {
+        autoPageCharWeight: 1,
+        autoPageLineWeight: -1,
+        margin: 0,
+      };
       const options: AddTableOptions = {
         autoPage: true,
+        autoPageCharWeight: -1,
+        autoPageLineWeight: 0,
         autoPageRepeatHeader: true,
         autoPageHeaderRows: 1,
         autoPageSlideStartY: inches(0.75),
         slideMargin: margin,
         y: inches(4.5),
         columnWidths: [inches(4)],
-        rowHeights: [inches(0.5), inches(0.75), inches(0.75)],
+        rowHeights: [0, inches(0.75), 0],
       };
-      source.addTable([['Header'], ['A'], ['B']], options);
+      source.addTable([
+        ['Header'],
+        [{ text: 'A'.repeat(80), options: weightedCell }],
+        ['B'],
+      ], options);
 
       const generated: readonly SlideModel[] = source.newAutoPagedSlides;
       expect(generated).toHaveLength(1);
@@ -1633,9 +1644,11 @@ describe('PptxDocument vertical slice', () => {
         (shape): shape is TableModel => shape instanceof TableModel,
       )!);
       expect(tables.map((table) => table.rows.map((row) => row.cells[0]!.text)))
-        .toEqual([['Header'], ['Header', 'A', 'B']]);
+        .toEqual([['Header'], ['Header', 'A'.repeat(80), 'B']]);
       expect(tables.map(({ transform }) => transform.y))
         .toEqual([inches(4.5), inches(0.75)]);
+      expect(tables.every((table) => table.rowHeights?.every((height) => height > 0)))
+        .toBe(true);
 
       const reopened = await PptxDocument.open(await document.write());
       expect(reopened.format).toBe(format);
@@ -1644,8 +1657,18 @@ describe('PptxDocument vertical slice', () => {
         .toBe(true);
       expect(reopened.slides.map((slide) =>
         (slide.shapes[0] as TableModel).rows.map((row) => row.cells[0]!.text)))
-        .toEqual([['Header'], ['Header', 'A', 'B']]);
+        .toEqual([['Header'], ['Header', 'A'.repeat(80), 'B']]);
     }
+
+    const invalid = PptxDocument.create().addSlide();
+    expect(() => invalid.addTable([['A']], {
+      autoPage: true,
+      autoPageCharWeight: 1.001,
+    })).toThrow(/weight/i);
+    expect(() => invalid.addTable([['A']], {
+      autoPage: true,
+      autoPageLineWeight: '0' as never,
+    })).toThrow(/weight/i);
 
     const descriptor = Object.getOwnPropertyDescriptor(
       Object.getPrototypeOf(PptxDocument.create().addSlide()),
@@ -1687,21 +1710,35 @@ describe('PptxDocument vertical slice', () => {
         // @ts-expect-error legacy PptxGenJS continuation-Y alias is not supported.
         newSlideStartY: 1,
       };
-      const unsupportedCharWeight: AddTableOptions = {
-        // @ts-expect-error automatic character measurement is a later specialty.
-        autoPageCharWeight: 0,
-      };
-      const unsupportedLineWeight: AddTableOptions = {
-        // @ts-expect-error automatic line measurement is a later specialty.
-        autoPageLineWeight: 0,
+      const boundedTableWeights: readonly AddTableOptions[] = [
+        { autoPage: true, autoPageCharWeight: -1, autoPageLineWeight: 1 },
+        { autoPage: true, autoPageCharWeight: 0, autoPageLineWeight: 0 },
+        { autoPage: true, autoPageCharWeight: 1, autoPageLineWeight: -1 },
+      ];
+      const boundedCellWeights: readonly AddTableCellOptions[] = [
+        { autoPageCharWeight: -1, autoPageLineWeight: 1 },
+        { autoPageCharWeight: 0, autoPageLineWeight: 0 },
+        { autoPageCharWeight: 1, autoPageLineWeight: -1 },
+      ];
+      // @ts-expect-error normalized table internals are not SDK exports.
+      type HiddenNormalizedTable = import('./index.js').NormalizedTableDefinition;
+      // @ts-expect-error measurement internals are not SDK exports.
+      type HiddenMeasuredLine = import('./index.js').MeasuredTableLine;
+      const invalidCharWeight: AddTableOptions = {
+        autoPage: true,
+        // @ts-expect-error measurement weights are numeric.
+        autoPageCharWeight: '0',
       };
       void [
         stringBoolean,
         malformedMargin,
         legacyHeader,
         legacyStart,
-        unsupportedCharWeight,
-        unsupportedLineWeight,
+        boundedTableWeights,
+        boundedCellWeights,
+        invalidCharWeight,
+        undefined as unknown as HiddenNormalizedTable,
+        undefined as unknown as HiddenMeasuredLine,
       ];
     }
   });
