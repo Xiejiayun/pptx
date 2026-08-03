@@ -167,6 +167,50 @@ try {
   )) {
     throw new Error('Packed TableModel declaration is missing table-cell merge editing');
   }
+  const insertTableRowsOptionsStart = shapeDeclarationSource.indexOf(
+    'export interface InsertTableRowsOptions',
+  );
+  const insertTableColumnsOptionsStart = shapeDeclarationSource.indexOf(
+    'export interface InsertTableColumnsOptions',
+    insertTableRowsOptionsStart,
+  );
+  const baseShapeModelStart = shapeDeclarationSource.indexOf(
+    'export declare abstract class BaseShapeModel',
+    insertTableColumnsOptionsStart,
+  );
+  const insertTableRowsOptionsDeclaration = insertTableRowsOptionsStart >= 0 &&
+      insertTableColumnsOptionsStart > insertTableRowsOptionsStart
+    ? shapeDeclarationSource.slice(
+        insertTableRowsOptionsStart,
+        insertTableColumnsOptionsStart,
+      )
+    : '';
+  const insertTableColumnsOptionsDeclaration = insertTableColumnsOptionsStart >= 0 &&
+      baseShapeModelStart > insertTableColumnsOptionsStart
+    ? shapeDeclarationSource.slice(insertTableColumnsOptionsStart, baseShapeModelStart)
+    : '';
+  if (!insertTableRowsOptionsDeclaration.includes('readonly count?: number;') ||
+      !insertTableRowsOptionsDeclaration.includes(
+        'readonly rowHeights?: number | readonly number[];',
+      ) ||
+      !insertTableColumnsOptionsDeclaration.includes('readonly count?: number;') ||
+      !insertTableColumnsOptionsDeclaration.includes(
+        'readonly columnWidths?: number | readonly number[];',
+      )) {
+    throw new Error('Packed declarations are missing table structure insertion options');
+  }
+  const normalizedTableModelDeclaration = tableModelDeclaration.replace(/\s+/g, ' ');
+  if (!normalizedTableModelDeclaration.includes(
+    'insertRows(rowIndex: number, options?: InsertTableRowsOptions): void;',
+  ) || !normalizedTableModelDeclaration.includes(
+    'deleteRows(rowIndex: number, count?: number): void;',
+  ) || !normalizedTableModelDeclaration.includes(
+    'insertColumns(columnIndex: number, options?: InsertTableColumnsOptions): void;',
+  ) || !normalizedTableModelDeclaration.includes(
+    'deleteColumns(columnIndex: number, count?: number): void;',
+  )) {
+    throw new Error('Packed TableModel declaration is missing table structure editing');
+  }
   if (!tableModelDeclaration.includes(
     'get verticalAlignment(): TextBoxVerticalAlignment | undefined;',
   ) || !tableModelDeclaration.includes(
@@ -7951,6 +7995,294 @@ const tableCellMergesState = {
 const tableCellMerges = Object.values(tableCellMergesState).every(
   (value) => value === true || value === 0,
 );
+const tableStructureEditingDocument = PptxDocument.create();
+const tableStructureEditingSlide = tableStructureEditingDocument.addSlide();
+const tableStructureEditingSurvivorUrl =
+  'https://table-structure.example?a=1&b=2';
+const tableStructureEditingDeletedRowUrl =
+  'https://table-structure-row-deleted.example';
+const tableStructureEditingDeletedColumnUrl =
+  'https://table-structure-column-deleted.example';
+const tableStructureEditingTable = tableStructureEditingSlide.addTable([
+  [{
+    text: 'Packed structure anchor',
+    options: {
+      colspan: 2,
+      rowspan: 2,
+      fill: { kind: 'solid', color: { kind: 'srgb', value: 'DDEEFF' } },
+    },
+  }, 'Packed R0C2', 'Packed R0C3'],
+  ['Packed R1C2', 'Packed R1C3'],
+  [
+    'Packed R2C0',
+    'Packed R2C1',
+    {
+      text: [{ runs: [
+        {
+          text: 'Styled ',
+          style: {
+            bold: true,
+            color: { kind: 'srgb', value: '1F4E78' },
+          },
+        },
+        { text: 'linked survivor', style: { italic: true } },
+      ] }],
+      options: {
+        fill: { kind: 'solid', color: { kind: 'srgb', value: 'F4B183' } },
+        hyperlink: {
+          url: tableStructureEditingSurvivorUrl,
+          tooltip: 'Packed survivor',
+        },
+      },
+    },
+    {
+      text: 'Deleted column link',
+      options: { hyperlink: { url: tableStructureEditingDeletedColumnUrl } },
+    },
+  ],
+  [
+    'Packed R3C0',
+    'Packed R3C1',
+    {
+      text: 'Deleted row link',
+      options: { hyperlink: { url: tableStructureEditingDeletedRowUrl } },
+    },
+    'Packed R3C3',
+  ],
+], {
+  name: 'Packed table structure editing',
+  x: inches(1),
+  y: inches(0.5),
+  columnWidths: [inches(1), inches(2), inches(3), inches(4)],
+  rowHeights: [inches(0.5), inches(1), inches(1.5), inches(2)],
+});
+const tableStructureEditingHyperlinks = () =>
+  tableStructureEditingSlide.relationships.filter(
+    ({ type }) => type.endsWith('/hyperlink'),
+  );
+const tableStructureEditingXml = (document, slide) => new TextDecoder().decode(
+  document.opcPackage.requirePart(slide.partUri).bytes,
+);
+const tableStructureEditingClickIds = (document, slide) => [
+  ...tableStructureEditingXml(document, slide).matchAll(
+    /<a:hlinkClick\\b[^>]*\\br:id="([^"]+)"/g,
+  ),
+].map((match) => match[1]);
+const tableStructureEditingSurvivorRelationship = tableStructureEditingHyperlinks().find(
+  ({ target }) => target === tableStructureEditingSurvivorUrl,
+);
+const tableStructureEditingDeletedRowRelationship = tableStructureEditingHyperlinks().find(
+  ({ target }) => target === tableStructureEditingDeletedRowUrl,
+);
+const tableStructureEditingDeletedColumnRelationship = tableStructureEditingHyperlinks().find(
+  ({ target }) => target === tableStructureEditingDeletedColumnUrl,
+);
+const tableStructureEditingCreated =
+  tableStructureEditingTable.rows.length === 4 &&
+  tableStructureEditingTable.rows.every(({ cells }) => cells.length === 4) &&
+  JSON.stringify(tableStructureEditingTable.mergeRegions) === JSON.stringify([{
+    rowIndex: 0,
+    columnIndex: 0,
+    rowspan: 2,
+    colspan: 2,
+  }]) &&
+  tableStructureEditingHyperlinks().length === 3 &&
+  tableStructureEditingSurvivorRelationship !== undefined &&
+  tableStructureEditingDeletedRowRelationship !== undefined &&
+  tableStructureEditingDeletedColumnRelationship !== undefined &&
+  tableStructureEditingClickIds(
+    tableStructureEditingDocument,
+    tableStructureEditingSlide,
+  ).filter((id) => id === tableStructureEditingSurvivorRelationship.id).length === 2;
+tableStructureEditingTable.insertRows(1, { rowHeights: inches(0.25) });
+const tableStructureEditingRowsInserted =
+  tableStructureEditingTable.rows.length === 5 &&
+  tableStructureEditingTable.rows.every(({ cells }) => cells.length === 4) &&
+  JSON.stringify(tableStructureEditingTable.rowHeights) === JSON.stringify([
+    inches(0.5), inches(0.25), inches(1), inches(1.5), inches(2),
+  ]) &&
+  JSON.stringify(tableStructureEditingTable.mergeRegions) === JSON.stringify([{
+    rowIndex: 0,
+    columnIndex: 0,
+    rowspan: 3,
+    colspan: 2,
+  }]);
+tableStructureEditingTable.insertColumns(1, { columnWidths: inches(0.5) });
+const tableStructureEditingColumnsInserted =
+  tableStructureEditingTable.rows.length === 5 &&
+  tableStructureEditingTable.rows.every(({ cells }) => cells.length === 5) &&
+  JSON.stringify(tableStructureEditingTable.columnWidths) === JSON.stringify([
+    inches(1), inches(0.5), inches(2), inches(3), inches(4),
+  ]) &&
+  JSON.stringify(tableStructureEditingTable.mergeRegions) === JSON.stringify([{
+    rowIndex: 0,
+    columnIndex: 0,
+    rowspan: 3,
+    colspan: 3,
+  }]);
+tableStructureEditingTable.setCellRichText(1, 1, [{ runs: [{
+  text: 'Inserted hidden cell',
+  style: {
+    bold: true,
+    color: { kind: 'srgb', value: '385723' },
+  },
+}] }]);
+tableStructureEditingTable.setCellFill(1, 1, {
+  kind: 'solid',
+  color: { kind: 'srgb', value: 'E2F0D9' },
+});
+const packedTableStructureEditingHiddenCell = (table) => {
+  const cell = table.rows[1]?.cells[1];
+  const run = cell?.richText[0]?.runs[0];
+  return cell?.text === 'Inserted hidden cell' &&
+    cell.merge?.isAnchor === false &&
+    cell.fill?.kind === 'solid' &&
+    cell.fill.color.kind === 'srgb' &&
+    cell.fill.color.value === 'E2F0D9' &&
+    run?.style?.bold === true &&
+    run.style.color?.kind === 'srgb' &&
+    run.style.color.value === '385723';
+};
+const tableStructureEditingNewCellEdited = packedTableStructureEditingHiddenCell(
+  tableStructureEditingTable,
+);
+tableStructureEditingTable.deleteRows(4);
+const tableStructureEditingRowsDeleted =
+  tableStructureEditingTable.rows.length === 4 &&
+  tableStructureEditingTable.rows.every(({ cells }) => cells.length === 5) &&
+  !tableStructureEditingSlide.relationships.some(
+    ({ id }) => id === tableStructureEditingDeletedRowRelationship?.id,
+  ) &&
+  tableStructureEditingSlide.relationships.some(
+    ({ id }) => id === tableStructureEditingDeletedColumnRelationship?.id,
+  ) &&
+  tableStructureEditingSlide.relationships.some(
+    ({ id }) => id === tableStructureEditingSurvivorRelationship?.id,
+  );
+tableStructureEditingTable.deleteColumns(4);
+const tableStructureEditingColumnsDeleted =
+  tableStructureEditingTable.rows.length === 4 &&
+  tableStructureEditingTable.rows.every(({ cells }) => cells.length === 4) &&
+  !tableStructureEditingSlide.relationships.some(
+    ({ id }) => id === tableStructureEditingDeletedColumnRelationship?.id,
+  ) &&
+  tableStructureEditingSlide.relationships.some(
+    ({ id }) => id === tableStructureEditingSurvivorRelationship?.id,
+  );
+const packedTableStructureEditingDimensions = (table) =>
+  JSON.stringify(table.columnWidths) === JSON.stringify([
+    inches(1), inches(0.5), inches(2), inches(3),
+  ]) &&
+  JSON.stringify(table.rowHeights) === JSON.stringify([
+    inches(0.5), inches(0.25), inches(1), inches(1.5),
+  ]) &&
+  table.transform.width === inches(6.5) &&
+  table.transform.height === inches(3.25);
+const packedTableStructureEditingMerge = (table) =>
+  JSON.stringify(table.mergeRegions) === JSON.stringify([{
+    rowIndex: 0,
+    columnIndex: 0,
+    rowspan: 3,
+    colspan: 3,
+  }]);
+const packedTableStructureEditingSurvivor = (table) => {
+  const survivor = table.rows[3]?.cells[3];
+  const styles = survivor?.richText[0]?.runs.map(({ style }) => style);
+  return survivor?.text === 'Styled linked survivor' &&
+    survivor.fill?.kind === 'solid' &&
+    survivor.fill.color.kind === 'srgb' &&
+    survivor.fill.color.value === 'F4B183' &&
+    styles?.[0]?.bold === true &&
+    styles[0].color?.kind === 'srgb' &&
+    styles[0].color.value === '1F4E78' &&
+    styles[0].hyperlink?.url === tableStructureEditingSurvivorUrl &&
+    styles[0].hyperlink.tooltip === 'Packed survivor' &&
+    styles?.[1]?.italic === true &&
+    styles[1].hyperlink?.url === tableStructureEditingSurvivorUrl &&
+    styles[1].hyperlink.tooltip === 'Packed survivor';
+};
+const tableStructureEditingDimensions = packedTableStructureEditingDimensions(
+  tableStructureEditingTable,
+);
+const tableStructureEditingMerge = packedTableStructureEditingMerge(
+  tableStructureEditingTable,
+);
+const tableStructureEditingSurvivor = packedTableStructureEditingSurvivor(
+  tableStructureEditingTable,
+);
+const tableStructureEditingFinalHyperlinks = tableStructureEditingHyperlinks();
+const tableStructureEditingFinalClickIds = tableStructureEditingClickIds(
+  tableStructureEditingDocument,
+  tableStructureEditingSlide,
+);
+const tableStructureEditingFinalRelationshipIds = new Set(
+  tableStructureEditingSlide.relationships.map(({ id }) => id),
+);
+const tableStructureEditingRelationships =
+  tableStructureEditingFinalHyperlinks.length === 1 &&
+  tableStructureEditingFinalHyperlinks[0]?.id ===
+    tableStructureEditingSurvivorRelationship?.id &&
+  tableStructureEditingFinalHyperlinks[0]?.target ===
+    tableStructureEditingSurvivorUrl &&
+  tableStructureEditingFinalClickIds.length === 2 &&
+  new Set(tableStructureEditingFinalClickIds).size === 1 &&
+  tableStructureEditingFinalClickIds.every((id) =>
+    id === tableStructureEditingSurvivorRelationship?.id &&
+    tableStructureEditingFinalRelationshipIds.has(id));
+await tableStructureEditingDocument.writeFile('table-structure-editing-smoke.pptx');
+const reopenedTableStructureEditingDocument = await PptxDocument.open(
+  await tableStructureEditingDocument.write(),
+);
+const reopenedTableStructureEditingSlide =
+  reopenedTableStructureEditingDocument.slides[0];
+const reopenedTableStructureEditingTable = reopenedTableStructureEditingSlide.shapes.find(
+  (shape) => shape.name === 'Packed table structure editing',
+);
+const reopenedTableStructureEditingHyperlinks =
+  reopenedTableStructureEditingSlide.relationships.filter(
+    ({ type }) => type.endsWith('/hyperlink'),
+  );
+const reopenedTableStructureEditingSurvivorRelationship =
+  reopenedTableStructureEditingHyperlinks.find(
+    ({ target }) => target === tableStructureEditingSurvivorUrl,
+  );
+const reopenedTableStructureEditingClickIds = tableStructureEditingClickIds(
+  reopenedTableStructureEditingDocument,
+  reopenedTableStructureEditingSlide,
+);
+const tableStructureEditingReopened =
+  reopenedTableStructureEditingTable instanceof TableModel &&
+  reopenedTableStructureEditingTable.rows.length === 4 &&
+  reopenedTableStructureEditingTable.rows.every(({ cells }) => cells.length === 4) &&
+  packedTableStructureEditingDimensions(reopenedTableStructureEditingTable) &&
+  packedTableStructureEditingMerge(reopenedTableStructureEditingTable) &&
+  packedTableStructureEditingHiddenCell(reopenedTableStructureEditingTable) &&
+  packedTableStructureEditingSurvivor(reopenedTableStructureEditingTable) &&
+  reopenedTableStructureEditingHyperlinks.length === 1 &&
+  reopenedTableStructureEditingClickIds.length === 2 &&
+  reopenedTableStructureEditingClickIds.every(
+    (id) => id === reopenedTableStructureEditingSurvivorRelationship?.id,
+  );
+const tableStructureEditingState = {
+  created: tableStructureEditingCreated,
+  rowsInserted: tableStructureEditingRowsInserted,
+  columnsInserted: tableStructureEditingColumnsInserted,
+  newCellEdited: tableStructureEditingNewCellEdited,
+  rowsDeleted: tableStructureEditingRowsDeleted,
+  columnsDeleted: tableStructureEditingColumnsDeleted,
+  dimensions: tableStructureEditingDimensions,
+  merge: tableStructureEditingMerge,
+  survivor: tableStructureEditingSurvivor,
+  relationships: tableStructureEditingRelationships,
+  reopened: tableStructureEditingReopened,
+  validationErrors: tableStructureEditingDocument.diagnostics
+    .filter(({ severity }) => severity === 'error').length +
+    reopenedTableStructureEditingDocument.diagnostics
+      .filter(({ severity }) => severity === 'error').length,
+};
+const tableStructureEditing = Object.values(tableStructureEditingState).every(
+  (value) => value === true || value === 0,
+);
 const checks = {
   slideNumbers,
   slideDefaultColor,
@@ -8014,6 +8346,8 @@ const checks = {
   tableTextDefaultsState,
   tableCellMerges,
   tableCellMergesState,
+  tableStructureEditing,
+  tableStructureEditingState,
   schemeColors,
   schemeColorState,
   outputTypes,
@@ -11223,6 +11557,8 @@ process.stdout.write(resolved);
   type AddTableCellOptions,
   type AddTableCellInput,
   type AddTableOptions,
+  type InsertTableColumnsOptions,
+  type InsertTableRowsOptions,
   type PresentationLayout,
   type PresentationLayoutName,
   type PptxNodeReadableStream,
@@ -12598,6 +12934,30 @@ const typedTableCellMerge: Readonly<TableCellMerge> | undefined =
   typedTableCellMergeTable.rows[1].cells[1].merge;
 typedTableCellMergeTable.unmergeCell(1, 1);
 typedTableCellMergeTable.mergeCells(0, 0, 2, 2);
+const typedInsertTableRowsOptions: InsertTableRowsOptions = {
+  count: 2,
+  rowHeights: [1, 2],
+};
+const typedInsertTableColumnsOptions: InsertTableColumnsOptions = {
+  count: 2,
+  columnWidths: [3, 4],
+};
+typedTableCellMergeTable.insertRows(1, typedInsertTableRowsOptions);
+typedTableCellMergeTable.insertColumns(1, typedInsertTableColumnsOptions);
+typedTableCellMergeTable.deleteRows(1, 2);
+typedTableCellMergeTable.deleteColumns(1, 2);
+// @ts-expect-error row insertion uses rowHeights
+const invalidInsertTableRowsOptions: InsertTableRowsOptions = { rowHeight: 1 };
+// @ts-expect-error column insertion uses columnWidths
+const invalidInsertTableColumnsOptions: InsertTableColumnsOptions = { columnWidth: 1 };
+// @ts-expect-error insertRows requires a physical row index
+typedTableCellMergeTable.insertRows();
+// @ts-expect-error insertColumns index is numeric
+typedTableCellMergeTable.insertColumns('1');
+// @ts-expect-error deleteRows count is numeric
+typedTableCellMergeTable.deleteRows(1, '2');
+// @ts-expect-error deleteColumns accepts at most index and count
+typedTableCellMergeTable.deleteColumns(1, 1, 1);
 // @ts-expect-error table-cell spans are numeric
 const typedTableCellInvalidColspan: AddTableCellOptions = { colspan: '2' };
 // @ts-expect-error table-cell span spelling is lowercase
@@ -12866,7 +13226,8 @@ void [typedPreset, typedNoneShapeFill, typedSolidShapeFill,
   typedBlobWriteOptions, typedDynamicWriteOptions, typedDefaultWrite, typedBaseWrite,
   typedArrayBufferWrite, typedBase64Write, typedBinaryStringWrite, typedBlobWrite,
   typedNodeBufferWrite, typedUint8ArrayWrite, typedDynamicWrite, typedNodeReadable,
-  invalidBlobWriteOptions];
+  invalidBlobWriteOptions, typedInsertTableRowsOptions, typedInsertTableColumnsOptions,
+  invalidInsertTableRowsOptions, invalidInsertTableColumnsOptions];
 void typedTableBorders;
 void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, typedChartPromise,
   typedChartDiagnostics, typedChartWorkbookCheck, invalidChartType, invalidChartAxis,
@@ -12971,6 +13332,11 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
   if (!apiChecks.tableCellMerges) {
     throw new Error(
       `Table-cell merges smoke failed: ${JSON.stringify(apiChecks.tableCellMergesState)}`,
+    );
+  }
+  if (!apiChecks.tableStructureEditing) {
+    throw new Error(
+      `Table structure editing smoke failed: ${JSON.stringify(apiChecks.tableStructureEditingState)}`,
     );
   }
   if (!apiChecks.schemeColors) {
@@ -13453,6 +13819,177 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
       !tableCellMergesPart.includes('<a:srgbClr val="FCE4D6"/>')) {
     throw new Error(
       `CLI table-cell merges part inspection failed: ${tableCellMergesPartResult.stdout}`,
+    );
+  }
+  const tableStructureEditingDeckPath = join(
+    directory,
+    'table-structure-editing-smoke.pptx',
+  );
+  const tableStructureEditingInspectResult = run(
+    bin,
+    ['--json', 'package', 'inspect', tableStructureEditingDeckPath],
+    directory,
+  );
+  const tableStructureEditingInspected = JSON.parse(
+    tableStructureEditingInspectResult.stdout,
+  );
+  if (!tableStructureEditingInspected.ok ||
+      tableStructureEditingInspected.data?.contentTypes?.[
+        'application/vnd.openxmlformats-officedocument.presentationml.slide+xml'
+      ] !== 1) {
+    throw new Error(
+      `CLI table structure editing package inspection failed: ${tableStructureEditingInspectResult.stdout}`,
+    );
+  }
+  const tableStructureEditingValidateResult = run(
+    bin,
+    [
+      '--json', 'package', 'validate', tableStructureEditingDeckPath,
+      '--profile', 'powerpoint-2010',
+    ],
+    directory,
+  );
+  const tableStructureEditingValidated = JSON.parse(
+    tableStructureEditingValidateResult.stdout,
+  );
+  if (!tableStructureEditingValidated.ok ||
+      !tableStructureEditingValidated.data?.valid ||
+      tableStructureEditingValidated.data.errorCount !== 0 ||
+      tableStructureEditingValidated.data.warningCount !== 1 ||
+      !tableStructureEditingValidated.data.diagnostics.every(
+        ({ severity, code }) =>
+          severity === 'warning' && code === 'OPC_EXTERNAL_RELATIONSHIP',
+      )) {
+    throw new Error(
+      `CLI table structure editing validation failed: ${tableStructureEditingValidateResult.stdout}`,
+    );
+  }
+  const tableStructureEditingSlidesResult = run(
+    bin,
+    ['--json', 'slides', 'list', tableStructureEditingDeckPath],
+    directory,
+  );
+  const tableStructureEditingSlides = JSON.parse(
+    tableStructureEditingSlidesResult.stdout,
+  );
+  if (!tableStructureEditingSlides.ok ||
+      tableStructureEditingSlides.data?.length !== 1 ||
+      tableStructureEditingSlides.data[0]?.shapeCount !== 1) {
+    throw new Error(
+      `CLI table structure editing slide listing failed: ${tableStructureEditingSlidesResult.stdout}`,
+    );
+  }
+  const tableStructureEditingSlidePartUri =
+    tableStructureEditingSlides.data[0].partUri;
+  const tableStructureEditingPartResult = run(
+    bin,
+    [
+      '--json', 'part', 'read', tableStructureEditingDeckPath,
+      tableStructureEditingSlidePartUri,
+    ],
+    directory,
+  );
+  const tableStructureEditingPart = JSON.parse(
+    tableStructureEditingPartResult.stdout,
+  ).data?.content ?? '';
+  const tableStructureEditingRelationshipPartUri =
+    tableStructureEditingSlidePartUri.slice(
+      0,
+      tableStructureEditingSlidePartUri.lastIndexOf('/'),
+    ) + '/_rels/' + basename(tableStructureEditingSlidePartUri) + '.rels';
+  const tableStructureEditingRelationshipPartResult = run(
+    bin,
+    [
+      '--json', 'part', 'read', tableStructureEditingDeckPath,
+      tableStructureEditingRelationshipPartUri,
+    ],
+    directory,
+  );
+  const tableStructureEditingRelationshipPart = JSON.parse(
+    tableStructureEditingRelationshipPartResult.stdout,
+  ).data?.content ?? '';
+  const tableStructureEditingRows = [
+    ...tableStructureEditingPart.matchAll(/<a:tr\b[^>]*>[\s\S]*?<\/a:tr>/g),
+  ].map((match) => match[0]);
+  const tableStructureEditingGridWidths = [
+    ...tableStructureEditingPart.matchAll(/<a:gridCol\b[^>]*\bw="(\d+)"[^>]*\/>/g),
+  ].map((match) => Number(match[1]));
+  const tableStructureEditingRowHeights = tableStructureEditingRows.map((row) =>
+    Number(row.match(/^<a:tr\b[^>]*\bh="(\d+)"/)?.[1]));
+  const tableStructureEditingTransformExts = [
+    ...tableStructureEditingPart.matchAll(/<a:ext\b[^>]*\/>/g),
+  ].map((match) => match[0]);
+  const tableStructureEditingMergeTags = [
+    ...tableStructureEditingPart.matchAll(/<a:tc\b[^>]*>/g),
+  ].map((match) => match[0]);
+  const tableStructureEditingClickIds = [
+    ...tableStructureEditingPart.matchAll(
+      /<a:hlinkClick\b[^>]*\br:id="([^"]+)"[^>]*\/>/g,
+    ),
+  ].map((match) => match[1]);
+  const tableStructureEditingRelationshipElements = [
+    ...tableStructureEditingRelationshipPart.matchAll(/<Relationship\b[^>]*\/>/g),
+  ].map((match) => match[0]);
+  const tableStructureEditingRelationshipIds = new Set(
+    tableStructureEditingRelationshipElements.map((relationship) =>
+      relationship.match(/\bId="([^"]+)"/)?.[1]),
+  );
+  const tableStructureEditingExternalRelationships =
+    tableStructureEditingRelationshipElements.filter((relationship) => relationship.includes(
+      'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink"',
+    ));
+  const tableStructureEditingExternalRelationshipIds = new Set(
+    tableStructureEditingExternalRelationships.map((relationship) =>
+      relationship.match(/\bId="([^"]+)"/)?.[1]),
+  );
+  const tableStructureEditingInspect =
+    tableStructureEditingPart.includes('<a:tbl>') &&
+    tableStructureEditingRows.length === 4 &&
+    tableStructureEditingRows.every(
+      (row) => (row.match(/<a:tc(?:\s[^>]*)?>/g) ?? []).length === 4,
+    ) &&
+    JSON.stringify(tableStructureEditingGridWidths) ===
+      JSON.stringify([914400, 457200, 1828800, 2743200]) &&
+    tableStructureEditingGridWidths.reduce((sum, value) => sum + value, 0) ===
+      5943600 &&
+    JSON.stringify(tableStructureEditingRowHeights) ===
+      JSON.stringify([457200, 228600, 914400, 1371600]) &&
+    tableStructureEditingRowHeights.reduce((sum, value) => sum + value, 0) ===
+      2971800 &&
+    tableStructureEditingTransformExts.some((tag) =>
+      tag.includes('cx="5943600"') && tag.includes('cy="2971800"')) &&
+    tableStructureEditingMergeTags.filter((tag) =>
+      tag.includes('rowSpan="3"') && tag.includes('gridSpan="3"')).length === 1 &&
+    tableStructureEditingMergeTags.filter((tag) =>
+      tag.includes('rowSpan="3"') && tag.includes('hMerge="1"')).length === 2 &&
+    tableStructureEditingMergeTags.filter((tag) =>
+      tag.includes('gridSpan="3"') && tag.includes('vMerge="1"')).length === 2 &&
+    tableStructureEditingMergeTags.filter((tag) =>
+      tag.includes('vMerge="1"') && tag.includes('hMerge="1"')).length === 4 &&
+    tableStructureEditingPart.includes('>Inserted hidden cell</a:t>') &&
+    tableStructureEditingPart.includes('>Styled </a:t>') &&
+    tableStructureEditingPart.includes('>linked survivor</a:t>') &&
+    tableStructureEditingPart.includes('<a:srgbClr val="385723"/>') &&
+    tableStructureEditingPart.includes('<a:srgbClr val="E2F0D9"/>') &&
+    tableStructureEditingPart.includes('<a:srgbClr val="1F4E78"/>') &&
+    tableStructureEditingPart.includes('<a:srgbClr val="F4B183"/>') &&
+    tableStructureEditingClickIds.length === 2 &&
+    new Set(tableStructureEditingClickIds).size === 1 &&
+    tableStructureEditingClickIds.every((id) =>
+      tableStructureEditingRelationshipIds.has(id)) &&
+    tableStructureEditingExternalRelationships.length === 1 &&
+    tableStructureEditingExternalRelationships[0].includes(
+      'Target="https://table-structure.example?a=1&amp;b=2"',
+    ) &&
+    tableStructureEditingExternalRelationships[0].includes('TargetMode="External"') &&
+    !tableStructureEditingRelationshipPart.includes('table-structure-row-deleted') &&
+    !tableStructureEditingRelationshipPart.includes('table-structure-column-deleted') &&
+    tableStructureEditingExternalRelationshipIds.size === 1 &&
+    [...tableStructureEditingExternalRelationshipIds].every((id) =>
+      tableStructureEditingClickIds.includes(id));
+  if (!tableStructureEditingInspect) {
+    throw new Error(
+      `CLI table structure editing part inspection failed: ${tableStructureEditingPartResult.stdout}\n${tableStructureEditingRelationshipPartResult.stdout}`,
     );
   }
   const tableCellHyperlinkDeckPath = join(
@@ -15010,6 +15547,11 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
     await mkdir(dirname(output), { recursive: true });
     await writeFile(output, await readFile(tableCellMergesDeckPath));
   }
+  if (process.env.PPTX_TABLE_STRUCTURE_EDITING_OUT) {
+    const output = resolve(process.env.PPTX_TABLE_STRUCTURE_EDITING_OUT);
+    await mkdir(dirname(output), { recursive: true });
+    await writeFile(output, await readFile(tableStructureEditingDeckPath));
+  }
 
   const writeSummary = (serialized) => {
     const summary = JSON.parse(serialized);
@@ -15032,6 +15574,9 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
     summary.tableCellMerges = apiChecks.tableCellMerges;
     summary.tableCellMergesState = apiChecks.tableCellMergesState;
     summary.tableCellMergesInspect = true;
+    summary.tableStructureEditing = apiChecks.tableStructureEditing;
+    summary.tableStructureEditingState = apiChecks.tableStructureEditingState;
+    summary.tableStructureEditingInspect = tableStructureEditingInspect;
     process.stdout.write(`${JSON.stringify(summary)}\n`);
   };
   writeSummary(

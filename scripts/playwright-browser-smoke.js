@@ -999,6 +999,318 @@ async (page) => {
       const tableCellMerges = Object.values(tableCellMergesState).every(
         (value) => value === true || value === 0,
       );
+      const tableStructureEditingDocument = api.PptxDocument.create();
+      const tableStructureEditingSlide = tableStructureEditingDocument.addSlide();
+      const tableStructureEditingSurvivorUrl =
+        'https://table-structure.example?a=1&b=2';
+      const tableStructureEditingDeletedRowUrl =
+        'https://table-structure-row-deleted.example';
+      const tableStructureEditingDeletedColumnUrl =
+        'https://table-structure-column-deleted.example';
+      const tableStructureEditingTable = tableStructureEditingSlide.addTable([
+        [{
+          text: 'Chrome structure anchor',
+          options: {
+            colspan: 2,
+            rowspan: 2,
+            fill: { kind: 'solid', color: { kind: 'srgb', value: 'DDEEFF' } },
+          },
+        }, 'Chrome R0C2', 'Chrome R0C3'],
+        ['Chrome R1C2', 'Chrome R1C3'],
+        [
+          'Chrome R2C0',
+          'Chrome R2C1',
+          {
+            text: [{ runs: [
+              {
+                text: 'Styled ',
+                style: {
+                  bold: true,
+                  color: { kind: 'srgb', value: '1F4E78' },
+                },
+              },
+              { text: 'linked survivor', style: { italic: true } },
+            ] }],
+            options: {
+              fill: { kind: 'solid', color: { kind: 'srgb', value: 'F4B183' } },
+              hyperlink: {
+                url: tableStructureEditingSurvivorUrl,
+                tooltip: 'Chrome survivor',
+              },
+            },
+          },
+          {
+            text: 'Deleted column link',
+            options: { hyperlink: { url: tableStructureEditingDeletedColumnUrl } },
+          },
+        ],
+        [
+          'Chrome R3C0',
+          'Chrome R3C1',
+          {
+            text: 'Deleted row link',
+            options: { hyperlink: { url: tableStructureEditingDeletedRowUrl } },
+          },
+          'Chrome R3C3',
+        ],
+      ], {
+        name: 'Chrome table structure editing',
+        x: api.inches(1),
+        y: api.inches(0.5),
+        columnWidths: [api.inches(1), api.inches(2), api.inches(3), api.inches(4)],
+        rowHeights: [
+          api.inches(0.5),
+          api.inches(1),
+          api.inches(1.5),
+          api.inches(2),
+        ],
+      });
+      const tableStructureEditingHyperlinks = (slide) =>
+        slide.relationships.filter(({ type }) => type.endsWith('/hyperlink'));
+      const tableStructureEditingXml = (document, slide) => new TextDecoder().decode(
+        document.opcPackage.requirePart(slide.partUri).bytes,
+      );
+      const tableStructureEditingClickIds = (document, slide) => [
+        ...tableStructureEditingXml(document, slide).matchAll(
+          /<a:hlinkClick\b[^>]*\br:id="([^"]+)"/g,
+        ),
+      ].map((match) => match[1]);
+      const tableStructureEditingInitialHyperlinks = tableStructureEditingHyperlinks(
+        tableStructureEditingSlide,
+      );
+      const tableStructureEditingSurvivorRelationship =
+        tableStructureEditingInitialHyperlinks.find(
+          ({ target }) => target === tableStructureEditingSurvivorUrl,
+        );
+      const tableStructureEditingDeletedRowRelationship =
+        tableStructureEditingInitialHyperlinks.find(
+          ({ target }) => target === tableStructureEditingDeletedRowUrl,
+        );
+      const tableStructureEditingDeletedColumnRelationship =
+        tableStructureEditingInitialHyperlinks.find(
+          ({ target }) => target === tableStructureEditingDeletedColumnUrl,
+        );
+      const tableStructureEditingCreated =
+        tableStructureEditingTable.rows.length === 4
+        && tableStructureEditingTable.rows.every(({ cells }) => cells.length === 4)
+        && JSON.stringify(tableStructureEditingTable.mergeRegions) === JSON.stringify([{
+          rowIndex: 0,
+          columnIndex: 0,
+          rowspan: 2,
+          colspan: 2,
+        }])
+        && tableStructureEditingInitialHyperlinks.length === 3
+        && tableStructureEditingSurvivorRelationship !== undefined
+        && tableStructureEditingDeletedRowRelationship !== undefined
+        && tableStructureEditingDeletedColumnRelationship !== undefined
+        && tableStructureEditingClickIds(
+          tableStructureEditingDocument,
+          tableStructureEditingSlide,
+        ).filter((id) => id === tableStructureEditingSurvivorRelationship.id).length === 2;
+      tableStructureEditingTable.insertRows(1, { rowHeights: api.inches(0.25) });
+      const tableStructureEditingRowsInserted =
+        tableStructureEditingTable.rows.length === 5
+        && tableStructureEditingTable.rows.every(({ cells }) => cells.length === 4)
+        && JSON.stringify(tableStructureEditingTable.rowHeights) === JSON.stringify([
+          api.inches(0.5),
+          api.inches(0.25),
+          api.inches(1),
+          api.inches(1.5),
+          api.inches(2),
+        ])
+        && JSON.stringify(tableStructureEditingTable.mergeRegions) === JSON.stringify([{
+          rowIndex: 0,
+          columnIndex: 0,
+          rowspan: 3,
+          colspan: 2,
+        }]);
+      tableStructureEditingTable.insertColumns(1, { columnWidths: api.inches(0.5) });
+      const tableStructureEditingColumnsInserted =
+        tableStructureEditingTable.rows.length === 5
+        && tableStructureEditingTable.rows.every(({ cells }) => cells.length === 5)
+        && JSON.stringify(tableStructureEditingTable.columnWidths) === JSON.stringify([
+          api.inches(1),
+          api.inches(0.5),
+          api.inches(2),
+          api.inches(3),
+          api.inches(4),
+        ])
+        && JSON.stringify(tableStructureEditingTable.mergeRegions) === JSON.stringify([{
+          rowIndex: 0,
+          columnIndex: 0,
+          rowspan: 3,
+          colspan: 3,
+        }]);
+      tableStructureEditingTable.setCellRichText(1, 1, [{ runs: [{
+        text: 'Inserted hidden cell',
+        style: {
+          bold: true,
+          color: { kind: 'srgb', value: '385723' },
+        },
+      }] }]);
+      tableStructureEditingTable.setCellFill(1, 1, {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'E2F0D9' },
+      });
+      const tableStructureEditingHiddenCell = (table) => {
+        const cell = table.rows[1]?.cells[1];
+        const run = cell?.richText[0]?.runs[0];
+        return cell?.text === 'Inserted hidden cell'
+          && cell.merge?.isAnchor === false
+          && cell.fill?.kind === 'solid'
+          && cell.fill.color.kind === 'srgb'
+          && cell.fill.color.value === 'E2F0D9'
+          && run?.style?.bold === true
+          && run.style.color?.kind === 'srgb'
+          && run.style.color.value === '385723';
+      };
+      const tableStructureEditingNewCellEdited = tableStructureEditingHiddenCell(
+        tableStructureEditingTable,
+      );
+      tableStructureEditingTable.deleteRows(4);
+      const tableStructureEditingRowsDeleted =
+        tableStructureEditingTable.rows.length === 4
+        && tableStructureEditingTable.rows.every(({ cells }) => cells.length === 5)
+        && !tableStructureEditingSlide.relationships.some(
+          ({ id }) => id === tableStructureEditingDeletedRowRelationship?.id,
+        )
+        && tableStructureEditingSlide.relationships.some(
+          ({ id }) => id === tableStructureEditingDeletedColumnRelationship?.id,
+        )
+        && tableStructureEditingSlide.relationships.some(
+          ({ id }) => id === tableStructureEditingSurvivorRelationship?.id,
+        );
+      tableStructureEditingTable.deleteColumns(4);
+      const tableStructureEditingColumnsDeleted =
+        tableStructureEditingTable.rows.length === 4
+        && tableStructureEditingTable.rows.every(({ cells }) => cells.length === 4)
+        && !tableStructureEditingSlide.relationships.some(
+          ({ id }) => id === tableStructureEditingDeletedColumnRelationship?.id,
+        )
+        && tableStructureEditingSlide.relationships.some(
+          ({ id }) => id === tableStructureEditingSurvivorRelationship?.id,
+        );
+      const tableStructureEditingDimensionsMatch = (table) =>
+        JSON.stringify(table.columnWidths) === JSON.stringify([
+          api.inches(1), api.inches(0.5), api.inches(2), api.inches(3),
+        ])
+        && JSON.stringify(table.rowHeights) === JSON.stringify([
+          api.inches(0.5), api.inches(0.25), api.inches(1), api.inches(1.5),
+        ])
+        && table.transform.width === api.inches(6.5)
+        && table.transform.height === api.inches(3.25);
+      const tableStructureEditingMergeMatch = (table) =>
+        JSON.stringify(table.mergeRegions) === JSON.stringify([{
+          rowIndex: 0,
+          columnIndex: 0,
+          rowspan: 3,
+          colspan: 3,
+        }]);
+      const tableStructureEditingSurvivorMatch = (table) => {
+        const survivor = table.rows[3]?.cells[3];
+        const styles = survivor?.richText[0]?.runs.map(({ style }) => style);
+        return survivor?.text === 'Styled linked survivor'
+          && survivor.fill?.kind === 'solid'
+          && survivor.fill.color.kind === 'srgb'
+          && survivor.fill.color.value === 'F4B183'
+          && styles?.[0]?.bold === true
+          && styles[0].color?.kind === 'srgb'
+          && styles[0].color.value === '1F4E78'
+          && styles[0].hyperlink?.url === tableStructureEditingSurvivorUrl
+          && styles[0].hyperlink.tooltip === 'Chrome survivor'
+          && styles?.[1]?.italic === true
+          && styles[1].hyperlink?.url === tableStructureEditingSurvivorUrl
+          && styles[1].hyperlink.tooltip === 'Chrome survivor';
+      };
+      const tableStructureEditingDimensions = tableStructureEditingDimensionsMatch(
+        tableStructureEditingTable,
+      );
+      const tableStructureEditingMerge = tableStructureEditingMergeMatch(
+        tableStructureEditingTable,
+      );
+      const tableStructureEditingSurvivor = tableStructureEditingSurvivorMatch(
+        tableStructureEditingTable,
+      );
+      const tableStructureEditingFinalHyperlinks = tableStructureEditingHyperlinks(
+        tableStructureEditingSlide,
+      );
+      const tableStructureEditingFinalClickIds = tableStructureEditingClickIds(
+        tableStructureEditingDocument,
+        tableStructureEditingSlide,
+      );
+      const tableStructureEditingFinalRelationshipIds = new Set(
+        tableStructureEditingSlide.relationships.map(({ id }) => id),
+      );
+      const tableStructureEditingRelationships =
+        tableStructureEditingFinalHyperlinks.length === 1
+        && tableStructureEditingFinalHyperlinks[0]?.id ===
+          tableStructureEditingSurvivorRelationship?.id
+        && tableStructureEditingFinalHyperlinks[0]?.target ===
+          tableStructureEditingSurvivorUrl
+        && tableStructureEditingFinalClickIds.length === 2
+        && new Set(tableStructureEditingFinalClickIds).size === 1
+        && tableStructureEditingFinalClickIds.every((id) =>
+          id === tableStructureEditingSurvivorRelationship?.id
+          && tableStructureEditingFinalRelationshipIds.has(id));
+      const tableStructureEditingEvidenceBlob =
+        await tableStructureEditingDocument.writeBlob();
+      globalThis.__pptxTableStructureEditingEvidenceBlob =
+        tableStructureEditingEvidenceBlob;
+      const reopenedTableStructureEditingDocument = await api.PptxDocument.open(
+        tableStructureEditingEvidenceBlob,
+      );
+      const reopenedTableStructureEditingSlide =
+        reopenedTableStructureEditingDocument.slides[0];
+      const reopenedTableStructureEditingTable =
+        reopenedTableStructureEditingSlide.shapes.find(
+          (shape) => shape.name === 'Chrome table structure editing',
+        );
+      const reopenedTableStructureEditingHyperlinks = tableStructureEditingHyperlinks(
+        reopenedTableStructureEditingSlide,
+      );
+      const reopenedTableStructureEditingSurvivorRelationship =
+        reopenedTableStructureEditingHyperlinks.find(
+          ({ target }) => target === tableStructureEditingSurvivorUrl,
+        );
+      const reopenedTableStructureEditingClickIds = tableStructureEditingClickIds(
+        reopenedTableStructureEditingDocument,
+        reopenedTableStructureEditingSlide,
+      );
+      const tableStructureEditingReopened =
+        reopenedTableStructureEditingTable instanceof api.TableModel
+        && reopenedTableStructureEditingTable.rows.length === 4
+        && reopenedTableStructureEditingTable.rows.every(
+          ({ cells }) => cells.length === 4,
+        )
+        && tableStructureEditingDimensionsMatch(reopenedTableStructureEditingTable)
+        && tableStructureEditingMergeMatch(reopenedTableStructureEditingTable)
+        && tableStructureEditingHiddenCell(reopenedTableStructureEditingTable)
+        && tableStructureEditingSurvivorMatch(reopenedTableStructureEditingTable)
+        && reopenedTableStructureEditingHyperlinks.length === 1
+        && reopenedTableStructureEditingClickIds.length === 2
+        && reopenedTableStructureEditingClickIds.every(
+          (id) => id === reopenedTableStructureEditingSurvivorRelationship?.id,
+        );
+      const tableStructureEditingState = {
+        created: tableStructureEditingCreated,
+        rowsInserted: tableStructureEditingRowsInserted,
+        columnsInserted: tableStructureEditingColumnsInserted,
+        newCellEdited: tableStructureEditingNewCellEdited,
+        rowsDeleted: tableStructureEditingRowsDeleted,
+        columnsDeleted: tableStructureEditingColumnsDeleted,
+        dimensions: tableStructureEditingDimensions,
+        merge: tableStructureEditingMerge,
+        survivor: tableStructureEditingSurvivor,
+        relationships: tableStructureEditingRelationships,
+        reopened: tableStructureEditingReopened,
+        validationErrors: tableStructureEditingDocument.diagnostics
+          .filter(({ severity }) => severity === 'error').length
+          + reopenedTableStructureEditingDocument.diagnostics
+            .filter(({ severity }) => severity === 'error').length,
+      };
+      const tableStructureEditing = Object.values(tableStructureEditingState).every(
+        (value) => value === true || value === 0,
+      );
       const tableBorderSideSnapshot = (value) => {
         if (value.kind === 'none') return { kind: 'none' };
         return {
@@ -3879,6 +4191,8 @@ async (page) => {
         tableTextDefaultsState,
         tableCellMerges,
         tableCellMergesState,
+        tableStructureEditing,
+        tableStructureEditingState,
         schemeColors,
         schemeColorState,
         outputTypes,
@@ -3974,6 +4288,26 @@ async (page) => {
   if (typeof process !== 'undefined' && process.env.PPTX_BROWSER_TABLE_CELL_MERGES_OUT) {
     await tableCellMergesEvidenceDownload.saveAs(
       process.env.PPTX_BROWSER_TABLE_CELL_MERGES_OUT,
+    );
+  }
+  const tableStructureEditingEvidenceDownloadPromise = page.waitForEvent('download');
+  await page.evaluate(() => {
+    const blob = globalThis.__pptxTableStructureEditingEvidenceBlob;
+    if (!(blob instanceof Blob)) throw new Error('Missing table structure editing evidence Blob');
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'browser-table-structure-editing.pptx';
+    anchor.click();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  });
+  const tableStructureEditingEvidenceDownload =
+    await tableStructureEditingEvidenceDownloadPromise;
+  result.tableStructureEditingEvidenceFileName =
+    tableStructureEditingEvidenceDownload.suggestedFilename();
+  if (typeof process !== 'undefined' && process.env.PPTX_BROWSER_TABLE_STRUCTURE_EDITING_OUT) {
+    await tableStructureEditingEvidenceDownload.saveAs(
+      process.env.PPTX_BROWSER_TABLE_STRUCTURE_EDITING_OUT,
     );
   }
   const downloadPromise = page.waitForEvent('download');
@@ -4391,6 +4725,21 @@ async (page) => {
       unmerged: true,
       edited: true,
       remerged: true,
+      reopened: true,
+      validationErrors: 0,
+    },
+    tableStructureEditing: true,
+    tableStructureEditingState: {
+      created: true,
+      rowsInserted: true,
+      columnsInserted: true,
+      newCellEdited: true,
+      rowsDeleted: true,
+      columnsDeleted: true,
+      dimensions: true,
+      merge: true,
+      survivor: true,
+      relationships: true,
       reopened: true,
       validationErrors: 0,
     },
@@ -5100,6 +5449,7 @@ async (page) => {
     mediaTargetIsolation: true,
     mediaOrphanCount: 0,
     tableCellMergesEvidenceFileName: 'browser-table-cell-merges.pptx',
+    tableStructureEditingEvidenceFileName: 'browser-table-structure-editing.pptx',
     downloadFileName: 'browser-smoke.pptx',
     errorCounts: { console: 0, page: 0, network: 0 },
   };
