@@ -102,7 +102,7 @@ In the same file, cover a two-row/two-column table plus later unsafe cells. Asse
 - same semantic vector and all-absent clear preserve serialized bytes and `xml.changed`;
 - one unique gradient/malformed side can be replaced or cleared;
 - diagonal lines, fill, margins, alignment, direction, fit, text, extensions, transform, grid, and row bytes are preserved;
-- an unsafe late cell throws `ModelParseError` before any caller-visible XML mutation.
+- an unsafe late cell throws `ModelParseError`; the later public-model test proves package bytes and the mutation journal stay unchanged because `TableModel` never commits the temporary XML.
 
 Use exact final order assertions:
 
