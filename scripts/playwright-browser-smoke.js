@@ -2903,6 +2903,150 @@ async (page) => {
         && richTextRunHyperlinkState.independentIds.every((count) => count === 3)
         && richTextRunHyperlinkState.internalActions
         && richTextRunHyperlinkState.validationErrors === 0;
+      const tableCellHyperlinkDocument = api.PptxDocument.create();
+      const tableCellHyperlinkSource = tableCellHyperlinkDocument.addSlide();
+      const tableCellHyperlinkTarget = tableCellHyperlinkDocument.addSlide();
+      const tableCellHyperlinkUrlInput = {
+        url: 'https://example.com?a=1&b=2',
+        tooltip: 'Visit & learn',
+      };
+      const tableCellHyperlinkEmptyTooltipInput = {
+        url: 'https://example.com?a=1&b=2',
+        tooltip: '',
+      };
+      const tableCellHyperlinkTable = tableCellHyperlinkSource.addTable([[
+        { text: 'URL', options: { hyperlink: tableCellHyperlinkUrlInput } },
+        { text: 'Empty', options: { hyperlink: tableCellHyperlinkEmptyTooltipInput } },
+        { text: 'Slide', options: { hyperlink: { slide: 2 } } },
+        'Plain',
+      ]], { name: 'Chrome table-cell hyperlinks' });
+      const tableCellHyperlinkSnapshot = (table) => table.rows[0].cells
+        .map(({ hyperlink }) => hyperlink ?? null);
+      const tableCellHyperlinkImmediate = tableCellHyperlinkSnapshot(
+        tableCellHyperlinkTable,
+      );
+      const tableCellHyperlinkSnapshotsFrozen = tableCellHyperlinkTable.rows[0].cells
+        .every(({ hyperlink }) => hyperlink === undefined || Object.isFrozen(hyperlink));
+      tableCellHyperlinkUrlInput.url = 'https://changed.example';
+      tableCellHyperlinkUrlInput.tooltip = 'Changed';
+      tableCellHyperlinkEmptyTooltipInput.url = 'https://changed.example';
+      tableCellHyperlinkEmptyTooltipInput.tooltip = 'Changed';
+      const tableCellHyperlinkInputDetached =
+        JSON.stringify(tableCellHyperlinkSnapshot(tableCellHyperlinkTable)) ===
+          JSON.stringify(tableCellHyperlinkImmediate)
+        && !Object.hasOwn(tableCellHyperlinkUrlInput, '_rId')
+        && !Object.hasOwn(tableCellHyperlinkEmptyTooltipInput, '_rId');
+      const tableCellHyperlinkXml = new TextDecoder().decode(
+        tableCellHyperlinkDocument.opcPackage
+          .requirePart(tableCellHyperlinkSource.partUri).bytes,
+      );
+      const tableCellHyperlinkClickIds = [...tableCellHyperlinkXml.matchAll(
+        /<a:hlinkClick[^>]*r:id="([^"]+)"/g,
+      )].map((match) => match[1]);
+      const tableCellHyperlinkRelationships = tableCellHyperlinkSource.relationships
+        .filter(({ type }) => type.endsWith('/hyperlink'));
+      const tableCellSlideRelationships = tableCellHyperlinkSource.relationships
+        .filter(({ type }) => type.endsWith('/slide'));
+      const tableCellHyperlinkNonVisualEnd = tableCellHyperlinkXml
+        .indexOf('</p:nvGraphicFramePr>');
+      const tableCellHyperlinkIndependentRelationships =
+        tableCellHyperlinkClickIds.length === 3
+        && new Set(tableCellHyperlinkClickIds).size === 3
+        && tableCellHyperlinkRelationships.length === 2
+        && new Set(tableCellHyperlinkRelationships.map(({ id }) => id)).size === 2
+        && tableCellHyperlinkRelationships.every(({ target, targetMode }) =>
+          target === 'https://example.com?a=1&b=2' && targetMode === 'External')
+        && tableCellSlideRelationships.length === 1
+        && tableCellSlideRelationships[0].resolvedTarget === tableCellHyperlinkTarget.partUri
+        && tableCellHyperlinkXml.split('u="sng"').length - 1 === 3
+        && tableCellHyperlinkNonVisualEnd >= 0
+        && !tableCellHyperlinkXml.slice(0, tableCellHyperlinkNonVisualEnd)
+          .includes('<a:hlinkClick');
+      tableCellHyperlinkTable.setCellText(0, 0, 'URL edited');
+      const tableCellHyperlinkTextEditPreserved = tableCellHyperlinkTable
+        .rows[0].cells[0].hyperlink;
+      tableCellHyperlinkDocument.moveSlide(1, 0);
+      const tableCellHyperlinkMovedInternal = tableCellHyperlinkTable
+        .rows[0].cells[2].hyperlink;
+      tableCellHyperlinkDocument.moveSlide(0, 1);
+      const tableCellHyperlinkRestoredInternal = tableCellHyperlinkTable
+        .rows[0].cells[2].hyperlink;
+      const tableCellHyperlinkInvalidBytes = tableCellHyperlinkDocument.opcPackage
+        .requirePart(tableCellHyperlinkSource.partUri).bytes.slice();
+      const tableCellHyperlinkInvalidRelationships = JSON.stringify(
+        tableCellHyperlinkSource.relationships,
+      );
+      const tableCellHyperlinkInvalidJournal = JSON.stringify(
+        tableCellHyperlinkDocument.opcPackage.mutations,
+      );
+      let tableCellHyperlinkInvalidError;
+      try {
+        tableCellHyperlinkSource.addTable([[
+          { text: 'First', options: { hyperlink: { url: 'https://first.example' } } },
+          { text: 'Invalid', options: { hyperlink: { slide: 99 } } },
+        ]]);
+      } catch (error) {
+        tableCellHyperlinkInvalidError = { name: error.name, message: error.message };
+      }
+      const tableCellHyperlinkFailureIsolation = tableVerticalAlignmentBytesEqual(
+        tableCellHyperlinkInvalidBytes,
+        tableCellHyperlinkDocument.opcPackage
+          .requirePart(tableCellHyperlinkSource.partUri).bytes,
+      ) && JSON.stringify(tableCellHyperlinkSource.relationships) ===
+        tableCellHyperlinkInvalidRelationships
+        && JSON.stringify(tableCellHyperlinkDocument.opcPackage.mutations) ===
+          tableCellHyperlinkInvalidJournal;
+      const reopenedTableCellHyperlinkDocument = await api.PptxDocument.open(
+        await tableCellHyperlinkDocument.writeBlob(),
+      );
+      const reopenedTableCellHyperlinkTable = reopenedTableCellHyperlinkDocument
+        .slides[0].shapes.find(({ name }) => name === 'Chrome table-cell hyperlinks');
+      const tableCellHyperlinkState = {
+        immediate: tableCellHyperlinkImmediate,
+        inputDetached: tableCellHyperlinkInputDetached,
+        snapshotsFrozen: tableCellHyperlinkSnapshotsFrozen,
+        independentRelationships: tableCellHyperlinkIndependentRelationships,
+        textEditPreserved: tableCellHyperlinkTextEditPreserved,
+        movedInternal: tableCellHyperlinkMovedInternal,
+        restoredInternal: tableCellHyperlinkRestoredInternal,
+        reopened: tableCellHyperlinkSnapshot(reopenedTableCellHyperlinkTable),
+        invalidError: tableCellHyperlinkInvalidError,
+        failureIsolation: tableCellHyperlinkFailureIsolation,
+        validationErrors: tableCellHyperlinkDocument.diagnostics
+          .filter(({ severity }) => severity === 'error').length +
+          reopenedTableCellHyperlinkDocument.diagnostics
+            .filter(({ severity }) => severity === 'error').length,
+      };
+      const tableCellHyperlinks = JSON.stringify(tableCellHyperlinkState) ===
+        JSON.stringify({
+          immediate: [
+            { url: 'https://example.com?a=1&b=2', tooltip: 'Visit & learn' },
+            { url: 'https://example.com?a=1&b=2', tooltip: '' },
+            { slide: 2 },
+            null,
+          ],
+          inputDetached: true,
+          snapshotsFrozen: true,
+          independentRelationships: true,
+          textEditPreserved: {
+            url: 'https://example.com?a=1&b=2',
+            tooltip: 'Visit & learn',
+          },
+          movedInternal: { slide: 1 },
+          restoredInternal: { slide: 2 },
+          reopened: [
+            { url: 'https://example.com?a=1&b=2', tooltip: 'Visit & learn' },
+            { url: 'https://example.com?a=1&b=2', tooltip: '' },
+            { slide: 2 },
+            null,
+          ],
+          invalidError: {
+            name: 'RangeError',
+            message: 'Table cell 0,1 hyperlink slide 99 is out of range',
+          },
+          failureIsolation: true,
+          validationErrors: 0,
+        });
       const svgDocument = api.PptxDocument.create();
       svgDocument.addSlide();
       const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360">'
@@ -3290,6 +3434,8 @@ async (page) => {
         tableHorizontalAlignmentState,
         tableMargins,
         tableMarginsState,
+        tableCellHyperlinks,
+        tableCellHyperlinkState,
         tableBorders,
         tableBordersState,
         tableFill,
@@ -3579,6 +3725,36 @@ async (page) => {
       invalidError: {
         name: 'TypeError',
         message: 'Table margins must be a number, four-value tuple, or margin object',
+      },
+      failureIsolation: true,
+      validationErrors: 0,
+    },
+    tableCellHyperlinks: true,
+    tableCellHyperlinkState: {
+      immediate: [
+        { url: 'https://example.com?a=1&b=2', tooltip: 'Visit & learn' },
+        { url: 'https://example.com?a=1&b=2', tooltip: '' },
+        { slide: 2 },
+        null,
+      ],
+      inputDetached: true,
+      snapshotsFrozen: true,
+      independentRelationships: true,
+      textEditPreserved: {
+        url: 'https://example.com?a=1&b=2',
+        tooltip: 'Visit & learn',
+      },
+      movedInternal: { slide: 1 },
+      restoredInternal: { slide: 2 },
+      reopened: [
+        { url: 'https://example.com?a=1&b=2', tooltip: 'Visit & learn' },
+        { url: 'https://example.com?a=1&b=2', tooltip: '' },
+        { slide: 2 },
+        null,
+      ],
+      invalidError: {
+        name: 'RangeError',
+        message: 'Table cell 0,1 hyperlink slide 99 is out of range',
       },
       failureIsolation: true,
       validationErrors: 0,

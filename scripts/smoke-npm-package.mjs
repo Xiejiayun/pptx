@@ -89,6 +89,31 @@ try {
     join(installed, 'dist/types/opc/index.d.ts'),
     'utf8',
   );
+  const addTableCellOptionsStart = textOptionDeclarationSource.indexOf(
+    'export interface AddTableCellOptions',
+  );
+  const addTableCellStart = textOptionDeclarationSource.indexOf(
+    'export interface AddTableCell',
+    addTableCellOptionsStart + 1,
+  );
+  const addTableCellOptionsDeclaration = addTableCellOptionsStart >= 0 &&
+      addTableCellStart > addTableCellOptionsStart
+    ? textOptionDeclarationSource.slice(addTableCellOptionsStart, addTableCellStart)
+    : '';
+  if (!addTableCellOptionsDeclaration.includes('readonly hyperlink?: Hyperlink;')) {
+    throw new Error('Packed AddTableCellOptions declaration is missing table-cell hyperlink');
+  }
+  const tableCellStart = shapeDeclarationSource.indexOf('export interface TableCell {');
+  const tableRowStart = shapeDeclarationSource.indexOf(
+    'export interface TableRow',
+    tableCellStart,
+  );
+  const tableCellDeclaration = tableCellStart >= 0 && tableRowStart > tableCellStart
+    ? shapeDeclarationSource.slice(tableCellStart, tableRowStart)
+    : '';
+  if (!tableCellDeclaration.includes('readonly hyperlink?: Hyperlink;')) {
+    throw new Error('Packed TableCell declaration is missing table-cell hyperlink snapshot');
+  }
   const tableModelDeclarationStart = shapeDeclarationSource.indexOf(
     'export declare class TableModel',
   );
@@ -5748,6 +5773,149 @@ const tableMargins = JSON.stringify(tableMarginsState) === JSON.stringify({
   failureIsolation: true,
   validationErrors: 0,
 });
+const tableCellHyperlinkDocument = PptxDocument.create();
+const tableCellHyperlinkSource = tableCellHyperlinkDocument.addSlide();
+const tableCellHyperlinkTarget = tableCellHyperlinkDocument.addSlide();
+const tableCellHyperlinkUrlInput = {
+  url: 'https://example.com?a=1&b=2',
+  tooltip: 'Visit & learn',
+};
+const tableCellHyperlinkEmptyTooltipInput = {
+  url: 'https://example.com?a=1&b=2',
+  tooltip: '',
+};
+const tableCellHyperlinkTable = tableCellHyperlinkSource.addTable([[
+  { text: 'URL', options: { hyperlink: tableCellHyperlinkUrlInput } },
+  { text: 'Empty', options: { hyperlink: tableCellHyperlinkEmptyTooltipInput } },
+  { text: 'Slide', options: { hyperlink: { slide: 2 } } },
+  'Plain',
+]], { name: 'Packed table-cell hyperlinks' });
+const packedTableCellHyperlinkSnapshot = (table) => table.rows[0].cells
+  .map(({ hyperlink }) => hyperlink ?? null);
+const tableCellHyperlinkImmediate = packedTableCellHyperlinkSnapshot(tableCellHyperlinkTable);
+const tableCellHyperlinkSnapshotsFrozen = tableCellHyperlinkTable.rows[0].cells
+  .every(({ hyperlink }) => hyperlink === undefined || Object.isFrozen(hyperlink));
+tableCellHyperlinkUrlInput.url = 'https://changed.example';
+tableCellHyperlinkUrlInput.tooltip = 'Changed';
+tableCellHyperlinkEmptyTooltipInput.url = 'https://changed.example';
+tableCellHyperlinkEmptyTooltipInput.tooltip = 'Changed';
+const tableCellHyperlinkInputDetached =
+  JSON.stringify(packedTableCellHyperlinkSnapshot(tableCellHyperlinkTable)) ===
+    JSON.stringify(tableCellHyperlinkImmediate) &&
+  !Object.hasOwn(tableCellHyperlinkUrlInput, '_rId') &&
+  !Object.hasOwn(tableCellHyperlinkEmptyTooltipInput, '_rId');
+const tableCellHyperlinkXml = new TextDecoder().decode(
+  tableCellHyperlinkDocument.opcPackage.requirePart(tableCellHyperlinkSource.partUri).bytes,
+);
+const tableCellHyperlinkClickIds = [...tableCellHyperlinkXml.matchAll(
+  /<a:hlinkClick[^>]*r:id="([^"]+)"/g,
+)].map((match) => match[1]);
+const tableCellHyperlinkRelationships = tableCellHyperlinkSource.relationships.filter(
+  ({ type }) => type.endsWith('/hyperlink'),
+);
+const tableCellSlideRelationships = tableCellHyperlinkSource.relationships.filter(
+  ({ type }) => type.endsWith('/slide'),
+);
+const tableCellHyperlinkNonVisualEnd = tableCellHyperlinkXml.indexOf(
+  '</p:nvGraphicFramePr>',
+);
+const tableCellHyperlinkIndependentRelationships =
+  tableCellHyperlinkClickIds.length === 3 &&
+  new Set(tableCellHyperlinkClickIds).size === 3 &&
+  tableCellHyperlinkRelationships.length === 2 &&
+  new Set(tableCellHyperlinkRelationships.map(({ id }) => id)).size === 2 &&
+  tableCellHyperlinkRelationships.every(({ target, targetMode }) =>
+    target === 'https://example.com?a=1&b=2' && targetMode === 'External') &&
+  tableCellSlideRelationships.length === 1 &&
+  tableCellSlideRelationships[0].resolvedTarget === tableCellHyperlinkTarget.partUri &&
+  tableCellHyperlinkXml.split('u="sng"').length - 1 === 3 &&
+  tableCellHyperlinkNonVisualEnd >= 0 &&
+  !tableCellHyperlinkXml.slice(0, tableCellHyperlinkNonVisualEnd)
+    .includes('<a:hlinkClick');
+tableCellHyperlinkTable.setCellText(0, 0, 'URL edited');
+const tableCellHyperlinkTextEditPreserved = tableCellHyperlinkTable.rows[0].cells[0]
+  .hyperlink;
+tableCellHyperlinkDocument.moveSlide(1, 0);
+const tableCellHyperlinkMovedInternal = tableCellHyperlinkTable.rows[0].cells[2]
+  .hyperlink;
+tableCellHyperlinkDocument.moveSlide(0, 1);
+const tableCellHyperlinkRestoredInternal = tableCellHyperlinkTable.rows[0].cells[2]
+  .hyperlink;
+const tableCellHyperlinkInvalidBytes = tableCellHyperlinkDocument.opcPackage
+  .requirePart(tableCellHyperlinkSource.partUri).bytes.slice();
+const tableCellHyperlinkInvalidRelationships = JSON.stringify(
+  tableCellHyperlinkSource.relationships,
+);
+const tableCellHyperlinkInvalidJournal = JSON.stringify(
+  tableCellHyperlinkDocument.opcPackage.mutations,
+);
+let tableCellHyperlinkInvalidError;
+try {
+  tableCellHyperlinkSource.addTable([[
+    { text: 'First', options: { hyperlink: { url: 'https://first.example' } } },
+    { text: 'Invalid', options: { hyperlink: { slide: 99 } } },
+  ]]);
+} catch (error) {
+  tableCellHyperlinkInvalidError = { name: error.name, message: error.message };
+}
+const tableCellHyperlinkFailureIsolation = packedBytesEqual(
+  tableCellHyperlinkInvalidBytes,
+  tableCellHyperlinkDocument.opcPackage.requirePart(tableCellHyperlinkSource.partUri).bytes,
+) && JSON.stringify(tableCellHyperlinkSource.relationships) ===
+  tableCellHyperlinkInvalidRelationships &&
+  JSON.stringify(tableCellHyperlinkDocument.opcPackage.mutations) ===
+  tableCellHyperlinkInvalidJournal;
+await tableCellHyperlinkDocument.writeFile('table-cell-hyperlinks-smoke.pptx');
+const reopenedTableCellHyperlinkDocument = await PptxDocument.open(
+  await readFile('table-cell-hyperlinks-smoke.pptx'),
+);
+const reopenedTableCellHyperlinkTable = reopenedTableCellHyperlinkDocument.slides[0]
+  .shapes.find(({ name }) => name === 'Packed table-cell hyperlinks');
+const tableCellHyperlinkState = {
+  immediate: tableCellHyperlinkImmediate,
+  inputDetached: tableCellHyperlinkInputDetached,
+  snapshotsFrozen: tableCellHyperlinkSnapshotsFrozen,
+  independentRelationships: tableCellHyperlinkIndependentRelationships,
+  textEditPreserved: tableCellHyperlinkTextEditPreserved,
+  movedInternal: tableCellHyperlinkMovedInternal,
+  restoredInternal: tableCellHyperlinkRestoredInternal,
+  reopened: packedTableCellHyperlinkSnapshot(reopenedTableCellHyperlinkTable),
+  invalidError: tableCellHyperlinkInvalidError,
+  failureIsolation: tableCellHyperlinkFailureIsolation,
+  validationErrors: tableCellHyperlinkDocument.diagnostics
+    .filter(({ severity }) => severity === 'error').length +
+    reopenedTableCellHyperlinkDocument.diagnostics
+      .filter(({ severity }) => severity === 'error').length,
+};
+const tableCellHyperlinkExpected = {
+  immediate: [
+    { url: 'https://example.com?a=1&b=2', tooltip: 'Visit & learn' },
+    { url: 'https://example.com?a=1&b=2', tooltip: '' },
+    { slide: 2 },
+    null,
+  ],
+  inputDetached: true,
+  snapshotsFrozen: true,
+  independentRelationships: true,
+  textEditPreserved: { url: 'https://example.com?a=1&b=2', tooltip: 'Visit & learn' },
+  movedInternal: { slide: 1 },
+  restoredInternal: { slide: 2 },
+  reopened: [
+    { url: 'https://example.com?a=1&b=2', tooltip: 'Visit & learn' },
+    { url: 'https://example.com?a=1&b=2', tooltip: '' },
+    { slide: 2 },
+    null,
+  ],
+  invalidError: {
+    name: 'RangeError',
+    message: 'Table cell 0,1 hyperlink slide 99 is out of range',
+  },
+  failureIsolation: true,
+  validationErrors: 0,
+};
+const tableCellHyperlinks = JSON.stringify(tableCellHyperlinkState) ===
+  JSON.stringify(tableCellHyperlinkExpected);
+if (!tableCellHyperlinks) throw new Error(JSON.stringify(tableCellHyperlinkState));
 const packedTableBorderSideSnapshot = (value) => {
   if (value.kind === 'none') return { kind: 'none' };
   return {
@@ -7371,6 +7539,8 @@ const checks = {
   tableHorizontalAlignmentState,
   tableMargins,
   tableMarginsState,
+  tableCellHyperlinks,
+  tableCellHyperlinkState,
   tableBorders,
   tableBordersState,
   tableFill,
@@ -8098,6 +8268,153 @@ if (JSON.stringify(browserTableMarginsState) !== JSON.stringify({
 })) {
   throw new Error('Browser table-level margins failed: ' +
     JSON.stringify(browserTableMarginsState));
+}
+const browserTableCellHyperlinkDocument = PptxDocument.create();
+const browserTableCellHyperlinkSource = browserTableCellHyperlinkDocument.addSlide();
+const browserTableCellHyperlinkTarget = browserTableCellHyperlinkDocument.addSlide();
+const browserTableCellHyperlinkUrlInput = {
+  url: 'https://example.com?a=1&b=2',
+  tooltip: 'Visit & learn',
+};
+const browserTableCellHyperlinkEmptyTooltipInput = {
+  url: 'https://example.com?a=1&b=2',
+  tooltip: '',
+};
+const browserTableCellHyperlinkTable = browserTableCellHyperlinkSource.addTable([[
+  { text: 'URL', options: { hyperlink: browserTableCellHyperlinkUrlInput } },
+  { text: 'Empty', options: { hyperlink: browserTableCellHyperlinkEmptyTooltipInput } },
+  { text: 'Slide', options: { hyperlink: { slide: 2 } } },
+  'Plain',
+]], { name: 'Browser condition table-cell hyperlinks' });
+const browserTableCellHyperlinkSnapshot = (table) => table.rows[0].cells
+  .map(({ hyperlink }) => hyperlink ?? null);
+const browserTableCellHyperlinkImmediate = browserTableCellHyperlinkSnapshot(
+  browserTableCellHyperlinkTable,
+);
+const browserTableCellHyperlinkSnapshotsFrozen = browserTableCellHyperlinkTable.rows[0].cells
+  .every(({ hyperlink }) => hyperlink === undefined || Object.isFrozen(hyperlink));
+browserTableCellHyperlinkUrlInput.url = 'https://changed.example';
+browserTableCellHyperlinkUrlInput.tooltip = 'Changed';
+browserTableCellHyperlinkEmptyTooltipInput.url = 'https://changed.example';
+browserTableCellHyperlinkEmptyTooltipInput.tooltip = 'Changed';
+const browserTableCellHyperlinkInputDetached =
+  JSON.stringify(browserTableCellHyperlinkSnapshot(browserTableCellHyperlinkTable)) ===
+    JSON.stringify(browserTableCellHyperlinkImmediate) &&
+  !Object.hasOwn(browserTableCellHyperlinkUrlInput, '_rId') &&
+  !Object.hasOwn(browserTableCellHyperlinkEmptyTooltipInput, '_rId');
+const browserTableCellHyperlinkXml = new TextDecoder().decode(
+  browserTableCellHyperlinkDocument.opcPackage
+    .requirePart(browserTableCellHyperlinkSource.partUri).bytes,
+);
+const browserTableCellHyperlinkClickIds = [...browserTableCellHyperlinkXml.matchAll(
+  /<a:hlinkClick[^>]*r:id="([^"]+)"/g,
+)].map((match) => match[1]);
+const browserTableCellHyperlinkRelationships = browserTableCellHyperlinkSource.relationships
+  .filter(({ type }) => type.endsWith('/hyperlink'));
+const browserTableCellSlideRelationships = browserTableCellHyperlinkSource.relationships
+  .filter(({ type }) => type.endsWith('/slide'));
+const browserTableCellHyperlinkNonVisualEnd = browserTableCellHyperlinkXml
+  .indexOf('</p:nvGraphicFramePr>');
+const browserTableCellHyperlinkIndependentRelationships =
+  browserTableCellHyperlinkClickIds.length === 3 &&
+  new Set(browserTableCellHyperlinkClickIds).size === 3 &&
+  browserTableCellHyperlinkRelationships.length === 2 &&
+  new Set(browserTableCellHyperlinkRelationships.map(({ id }) => id)).size === 2 &&
+  browserTableCellHyperlinkRelationships.every(({ target, targetMode }) =>
+    target === 'https://example.com?a=1&b=2' && targetMode === 'External') &&
+  browserTableCellSlideRelationships.length === 1 &&
+  browserTableCellSlideRelationships[0].resolvedTarget ===
+    browserTableCellHyperlinkTarget.partUri &&
+  browserTableCellHyperlinkXml.split('u="sng"').length - 1 === 3 &&
+  browserTableCellHyperlinkNonVisualEnd >= 0 &&
+  !browserTableCellHyperlinkXml.slice(0, browserTableCellHyperlinkNonVisualEnd)
+    .includes('<a:hlinkClick');
+browserTableCellHyperlinkTable.setCellText(0, 0, 'URL edited');
+const browserTableCellHyperlinkTextEditPreserved = browserTableCellHyperlinkTable
+  .rows[0].cells[0].hyperlink;
+browserTableCellHyperlinkDocument.moveSlide(1, 0);
+const browserTableCellHyperlinkMovedInternal = browserTableCellHyperlinkTable
+  .rows[0].cells[2].hyperlink;
+browserTableCellHyperlinkDocument.moveSlide(0, 1);
+const browserTableCellHyperlinkRestoredInternal = browserTableCellHyperlinkTable
+  .rows[0].cells[2].hyperlink;
+const browserTableCellHyperlinkInvalidBytes = browserTableCellHyperlinkDocument.opcPackage
+  .requirePart(browserTableCellHyperlinkSource.partUri).bytes.slice();
+const browserTableCellHyperlinkInvalidRelationships = JSON.stringify(
+  browserTableCellHyperlinkSource.relationships,
+);
+const browserTableCellHyperlinkInvalidJournal = JSON.stringify(
+  browserTableCellHyperlinkDocument.opcPackage.mutations,
+);
+let browserTableCellHyperlinkInvalidError;
+try {
+  browserTableCellHyperlinkSource.addTable([[
+    { text: 'First', options: { hyperlink: { url: 'https://first.example' } } },
+    { text: 'Invalid', options: { hyperlink: { slide: 99 } } },
+  ]]);
+} catch (error) {
+  browserTableCellHyperlinkInvalidError = { name: error.name, message: error.message };
+}
+const browserTableCellHyperlinkFailureIsolation = browserCompressionEqual(
+  browserTableCellHyperlinkInvalidBytes,
+  browserTableCellHyperlinkDocument.opcPackage
+    .requirePart(browserTableCellHyperlinkSource.partUri).bytes,
+) && JSON.stringify(browserTableCellHyperlinkSource.relationships) ===
+  browserTableCellHyperlinkInvalidRelationships &&
+  JSON.stringify(browserTableCellHyperlinkDocument.opcPackage.mutations) ===
+  browserTableCellHyperlinkInvalidJournal;
+const reopenedBrowserTableCellHyperlinkDocument = await PptxDocument.open(
+  await browserTableCellHyperlinkDocument.writeBlob(),
+);
+const reopenedBrowserTableCellHyperlinkTable = reopenedBrowserTableCellHyperlinkDocument
+  .slides[0].shapes.find(({ name }) =>
+    name === 'Browser condition table-cell hyperlinks');
+const browserTableCellHyperlinkState = {
+  immediate: browserTableCellHyperlinkImmediate,
+  inputDetached: browserTableCellHyperlinkInputDetached,
+  snapshotsFrozen: browserTableCellHyperlinkSnapshotsFrozen,
+  independentRelationships: browserTableCellHyperlinkIndependentRelationships,
+  textEditPreserved: browserTableCellHyperlinkTextEditPreserved,
+  movedInternal: browserTableCellHyperlinkMovedInternal,
+  restoredInternal: browserTableCellHyperlinkRestoredInternal,
+  reopened: browserTableCellHyperlinkSnapshot(reopenedBrowserTableCellHyperlinkTable),
+  invalidError: browserTableCellHyperlinkInvalidError,
+  failureIsolation: browserTableCellHyperlinkFailureIsolation,
+  validationErrors: browserTableCellHyperlinkDocument.diagnostics
+    .filter(({ severity }) => severity === 'error').length +
+    reopenedBrowserTableCellHyperlinkDocument.diagnostics
+      .filter(({ severity }) => severity === 'error').length,
+};
+const browserTableCellHyperlinkExpected = {
+  immediate: [
+    { url: 'https://example.com?a=1&b=2', tooltip: 'Visit & learn' },
+    { url: 'https://example.com?a=1&b=2', tooltip: '' },
+    { slide: 2 },
+    null,
+  ],
+  inputDetached: true,
+  snapshotsFrozen: true,
+  independentRelationships: true,
+  textEditPreserved: { url: 'https://example.com?a=1&b=2', tooltip: 'Visit & learn' },
+  movedInternal: { slide: 1 },
+  restoredInternal: { slide: 2 },
+  reopened: [
+    { url: 'https://example.com?a=1&b=2', tooltip: 'Visit & learn' },
+    { url: 'https://example.com?a=1&b=2', tooltip: '' },
+    { slide: 2 },
+    null,
+  ],
+  invalidError: {
+    name: 'RangeError',
+    message: 'Table cell 0,1 hyperlink slide 99 is out of range',
+  },
+  failureIsolation: true,
+  validationErrors: 0,
+};
+if (JSON.stringify(browserTableCellHyperlinkState) !==
+    JSON.stringify(browserTableCellHyperlinkExpected)) {
+  throw new Error('Browser table-cell hyperlinks failed: ' +
+    JSON.stringify(browserTableCellHyperlinkState));
 }
 const browserTableFillSnapshot = (value) => {
   if (value === undefined) return null;
@@ -10441,6 +10758,7 @@ process.stdout.write(resolved);
   type PresentationLayoutName,
   type PptxNodeReadableStream,
   type PptxVersion,
+  type TableCell,
   type TableCellTextDirection,
   type TableCellBorder,
   type TableCellBorderInput,
@@ -11764,6 +12082,13 @@ const creationBorder: TableCellBorderInput = [
   { kind: 'line', color: { kind: 'srgb', value: 'FF0000' }, width: 2 },
 ];
 const creationMargin: TextBoxMarginInput = { top: 4, left: 8 };
+const typedTableCellHyperlink: Hyperlink = {
+  url: 'https://typed-table-cell.example',
+  tooltip: '',
+};
+const typedTableCellHyperlinkOptions: AddTableCellOptions = {
+  hyperlink: typedTableCellHyperlink,
+};
 const creationOptions: AddTableCellOptions = {
   align: cellHorizontalAlignment,
   border: creationBorder,
@@ -11777,6 +12102,20 @@ const objectCell: AddTableCell = { text: 'Revenue', options: creationOptions };
 const tableRows: readonly (readonly AddTableCellInput[])[] = [['Region', objectCell], [{ text: 'East' }, { text: '' }]];
 const tableOptions: AddTableOptions = { align: tableHorizontalAlignment, name: 'Typed table', x: inches(1), columnWidths: [inches(1), inches(3)], rowHeights: [inches(0.5), inches(1.5)], border: cellBorderInput, fill: cellFill, margin: cellMargins, textDirection: cellDirection, valign: cellAlignment };
 const typedTable: TableModel = createdDocument.slides[0].addTable(tableRows, tableOptions);
+const typedTableCellHyperlinkTable: TableModel = createdDocument.slides[0].addTable([[
+  { text: 'Typed table-cell hyperlink', options: typedTableCellHyperlinkOptions },
+]]);
+const typedTableCellHyperlinkCell: TableCell = typedTableCellHyperlinkTable.rows[0].cells[0];
+const typedTableCellHyperlinkRead: Hyperlink | undefined =
+  typedTableCellHyperlinkCell.hyperlink;
+// @ts-expect-error table-cell hyperlink requires exactly one target
+const missingTableCellHyperlinkTarget: AddTableCellOptions = { hyperlink: {} };
+// @ts-expect-error table-cell hyperlink branches are mutually exclusive
+const bothTableCellHyperlinkTargets: AddTableCellOptions = { hyperlink: { url: 'https://example.com', slide: 2 } };
+// @ts-expect-error relationship IDs are internal
+const tableCellHyperlinkRelationshipEscape: AddTableCellOptions = { hyperlink: { url: 'https://example.com', _rId: 'rId9' } };
+// @ts-expect-error there is no table-level hyperlink default
+createdDocument.slides[0].addTable([['A']], { hyperlink: { url: 'https://example.com' } });
 const widthSnapshot: readonly number[] | undefined = typedTable.columnWidths;
 const heightSnapshot: readonly number[] | undefined = typedTable.rowHeights;
 const typedTableVerticalAlignment: TextBoxVerticalAlignment | undefined =
@@ -12089,6 +12428,11 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
   if (!apiChecks.tableMargins) {
     throw new Error(
       `Table margins smoke failed: ${JSON.stringify(apiChecks.tableMarginsState)}`,
+    );
+  }
+  if (!apiChecks.tableCellHyperlinks) {
+    throw new Error(
+      `Table-cell hyperlinks smoke failed: ${JSON.stringify(apiChecks.tableCellHyperlinkState)}`,
     );
   }
   if (!apiChecks.tableBorders) {
@@ -12429,6 +12773,143 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
       `CLI table margins part inspection failed: ${tableMarginsPartResult.stdout}`,
     );
   }
+  const tableCellHyperlinkDeckPath = join(
+    directory,
+    'table-cell-hyperlinks-smoke.pptx',
+  );
+  const tableCellHyperlinkInspectResult = run(
+    bin,
+    ['--json', 'package', 'inspect', tableCellHyperlinkDeckPath],
+    directory,
+  );
+  const tableCellHyperlinkInspected = JSON.parse(tableCellHyperlinkInspectResult.stdout);
+  if (!tableCellHyperlinkInspected.ok ||
+      tableCellHyperlinkInspected.data?.contentTypes?.[
+        'application/vnd.openxmlformats-officedocument.presentationml.slide+xml'
+      ] !== 2) {
+    throw new Error(
+      `CLI table-cell hyperlink package inspection failed: ${tableCellHyperlinkInspectResult.stdout}`,
+    );
+  }
+  const tableCellHyperlinkValidateResult = run(
+    bin,
+    [
+      '--json', 'package', 'validate', tableCellHyperlinkDeckPath,
+      '--profile', 'powerpoint-2010',
+    ],
+    directory,
+  );
+  const tableCellHyperlinkValidated = JSON.parse(tableCellHyperlinkValidateResult.stdout);
+  if (!tableCellHyperlinkValidated.ok ||
+      !tableCellHyperlinkValidated.data?.valid ||
+      tableCellHyperlinkValidated.data.errorCount !== 0 ||
+      tableCellHyperlinkValidated.data.warningCount !== 2 ||
+      !tableCellHyperlinkValidated.data.diagnostics.every(
+        ({ severity, code }) =>
+          severity === 'warning' && code === 'OPC_EXTERNAL_RELATIONSHIP',
+      )) {
+    throw new Error(
+      `CLI table-cell hyperlink validation failed: ${tableCellHyperlinkValidateResult.stdout}`,
+    );
+  }
+  const tableCellHyperlinkSlidesResult = run(
+    bin,
+    ['--json', 'slides', 'list', tableCellHyperlinkDeckPath],
+    directory,
+  );
+  const tableCellHyperlinkSlides = JSON.parse(tableCellHyperlinkSlidesResult.stdout);
+  if (!tableCellHyperlinkSlides.ok ||
+      tableCellHyperlinkSlides.data?.length !== 2 ||
+      tableCellHyperlinkSlides.data[0]?.shapeCount !== 1 ||
+      tableCellHyperlinkSlides.data[1]?.shapeCount !== 0) {
+    throw new Error(
+      `CLI table-cell hyperlink slide listing failed: ${tableCellHyperlinkSlidesResult.stdout}`,
+    );
+  }
+  const tableCellHyperlinkSlidePartUri = tableCellHyperlinkSlides.data[0].partUri;
+  const tableCellHyperlinkPartResult = run(
+    bin,
+    [
+      '--json', 'part', 'read', tableCellHyperlinkDeckPath,
+      tableCellHyperlinkSlidePartUri,
+    ],
+    directory,
+  );
+  const tableCellHyperlinkPart = JSON.parse(
+    tableCellHyperlinkPartResult.stdout,
+  ).data?.content ?? '';
+  const tableCellHyperlinkRelationshipPartUri =
+    tableCellHyperlinkSlidePartUri.slice(
+      0,
+      tableCellHyperlinkSlidePartUri.lastIndexOf('/'),
+    ) + '/_rels/' + basename(tableCellHyperlinkSlidePartUri) + '.rels';
+  const tableCellHyperlinkRelationshipPartResult = run(
+    bin,
+    [
+      '--json', 'part', 'read', tableCellHyperlinkDeckPath,
+      tableCellHyperlinkRelationshipPartUri,
+    ],
+    directory,
+  );
+  const tableCellHyperlinkRelationshipPart = JSON.parse(
+    tableCellHyperlinkRelationshipPartResult.stdout,
+  ).data?.content ?? '';
+  const tableCellHyperlinkCells = [...tableCellHyperlinkPart.matchAll(
+    /<a:tc\b[^>]*>([\s\S]*?)<\/a:tc>/g,
+  )];
+  const tableCellHyperlinkClicks = [...tableCellHyperlinkPart.matchAll(
+    /<a:hlinkClick\b[^>]*\/>/g,
+  )].map((match) => match[0]);
+  const tableCellHyperlinkClickIds = tableCellHyperlinkClicks.map((click) =>
+    click.match(/\br:id="([^"]+)"/)?.[1]);
+  const tableCellHyperlinkRelationshipElements = [
+    ...tableCellHyperlinkRelationshipPart.matchAll(/<Relationship\b[^>]*\/>/g),
+  ].map((match) => match[0]);
+  const tableCellHyperlinkExternalRelationships = tableCellHyperlinkRelationshipElements.filter(
+    (relationship) => relationship.includes(
+      'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink"',
+    ),
+  );
+  const tableCellHyperlinkInternalRelationships = tableCellHyperlinkRelationshipElements.filter(
+    (relationship) => relationship.includes(
+      'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide"',
+    ),
+  );
+  const tableCellHyperlinkOwnedRelationshipIds = [
+    ...tableCellHyperlinkExternalRelationships,
+    ...tableCellHyperlinkInternalRelationships,
+  ].map((relationship) => relationship.match(/\bId="([^"]+)"/)?.[1]);
+  if (!tableCellHyperlinkPart.includes('<a:tbl>') ||
+      tableCellHyperlinkCells.length !== 4 ||
+      tableCellHyperlinkClicks.length !== 3 ||
+      new Set(tableCellHyperlinkClickIds).size !== 3 ||
+      tableCellHyperlinkClicks.filter((click) => !click.includes('tooltip=')).length !== 1 ||
+      tableCellHyperlinkClicks.filter((click) => click.includes('tooltip=""')).length !== 1 ||
+      tableCellHyperlinkClicks.filter((click) =>
+        click.includes('action="ppaction://hlinksldjump"')).length !== 1 ||
+      [...tableCellHyperlinkPart.matchAll(/<a:rPr\b[^>]*\bu="sng"/g)].length !== 3 ||
+      /<p:cNvPr\b[^>]*>[\s\S]*?<a:hlinkClick[\s\S]*?<\/p:cNvPr>/.test(
+        tableCellHyperlinkPart,
+      ) ||
+      tableCellHyperlinkExternalRelationships.length !== 2 ||
+      new Set(tableCellHyperlinkExternalRelationships.map((relationship) =>
+        relationship.match(/\bId="([^"]+)"/)?.[1])).size !== 2 ||
+      tableCellHyperlinkExternalRelationships.some((relationship) =>
+        !relationship.includes('Target="https://example.com?a=1&amp;b=2"') ||
+        !relationship.includes('TargetMode="External"')) ||
+      tableCellHyperlinkInternalRelationships.length !== 1 ||
+      !tableCellHyperlinkInternalRelationships[0].includes('Target="slide2.xml"') ||
+      tableCellHyperlinkInternalRelationships[0].includes('TargetMode=') ||
+      JSON.stringify([...tableCellHyperlinkClickIds].sort()) !==
+        JSON.stringify([...tableCellHyperlinkOwnedRelationshipIds].sort())) {
+    throw new Error(
+      `CLI table-cell hyperlink part inspection failed: ${tableCellHyperlinkPartResult.stdout}\n${tableCellHyperlinkRelationshipPartResult.stdout}`,
+    );
+  }
+  await writeFile(
+    join(dirname(tarball), 'table-cell-hyperlinks-smoke.pptx'),
+    await readFile(tableCellHyperlinkDeckPath),
+  );
   const tableBordersDeckPath = join(directory, 'table-borders-smoke.pptx');
   const tableBordersInspectResult = run(
     bin,
@@ -13840,6 +14321,9 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
     summary.tableMargins = apiChecks.tableMargins;
     summary.tableMarginsState = apiChecks.tableMarginsState;
     summary.tableMarginsInspect = true;
+    summary.tableCellHyperlinks = apiChecks.tableCellHyperlinks;
+    summary.tableCellHyperlinkState = apiChecks.tableCellHyperlinkState;
+    summary.tableCellHyperlinksInspect = true;
     summary.tableBorders = apiChecks.tableBorders;
     summary.tableBordersState = apiChecks.tableBordersState;
     summary.tableBordersInspect = true;

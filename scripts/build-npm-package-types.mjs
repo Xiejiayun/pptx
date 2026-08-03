@@ -67,6 +67,33 @@ for (const [declaration, exports] of requiredPublicDeclarations) {
 
 const shapeDeclaration = join(typesRoot, 'model/shapes.d.ts');
 const shapeDeclarationSource = await readFile(shapeDeclaration, 'utf8');
+const slideDeclaration = join(typesRoot, 'model/slide.d.ts');
+const slideDeclarationSource = await readFile(slideDeclaration, 'utf8');
+const addTableCellOptionsStart = slideDeclarationSource.indexOf(
+  'export interface AddTableCellOptions',
+);
+const addTableCellStart = slideDeclarationSource.indexOf(
+  'export interface AddTableCell',
+  addTableCellOptionsStart + 1,
+);
+const addTableCellOptionsDeclaration = addTableCellOptionsStart >= 0 &&
+    addTableCellStart > addTableCellOptionsStart
+  ? slideDeclarationSource.slice(addTableCellOptionsStart, addTableCellStart)
+  : '';
+if (!addTableCellOptionsDeclaration.includes('readonly hyperlink?: Hyperlink;')) {
+  throw new Error('Packed AddTableCellOptions declaration is missing table-cell hyperlink');
+}
+const tableCellStart = shapeDeclarationSource.indexOf('export interface TableCell {');
+const tableRowStart = shapeDeclarationSource.indexOf(
+  'export interface TableRow',
+  tableCellStart,
+);
+const tableCellDeclaration = tableCellStart >= 0 && tableRowStart > tableCellStart
+  ? shapeDeclarationSource.slice(tableCellStart, tableRowStart)
+  : '';
+if (!tableCellDeclaration.includes('readonly hyperlink?: Hyperlink;')) {
+  throw new Error('Packed TableCell declaration is missing table-cell hyperlink snapshot');
+}
 const tableModelStart = shapeDeclarationSource.indexOf('export declare class TableModel');
 const chartModelStart = shapeDeclarationSource.indexOf(
   'export declare class ChartModel',
