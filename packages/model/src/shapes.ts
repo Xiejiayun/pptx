@@ -62,7 +62,9 @@ import {
 } from './table-cell-fill.internal.js';
 import {
   readTableCellHorizontalAlignment,
+  readTableHorizontalAlignment,
   replaceTableCellHorizontalAlignment,
+  replaceTableHorizontalAlignment,
 } from './table-cell-horizontal-alignment.internal.js';
 import {
   readTableCellMargins,
@@ -605,6 +607,28 @@ export class TableModel extends BaseShapeModel {
         };
       }),
     }));
+  }
+
+  get horizontalAlignment(): TextAlignment | undefined {
+    const { xml, element } = this.resolve();
+    return readTableHorizontalAlignment(xml, element);
+  }
+
+  set horizontalAlignment(value: TextAlignment | undefined) {
+    const alignment = value === undefined
+      ? undefined
+      : normalizeTextAlignment(value, 'Table horizontal alignment');
+    this.slide.presentation.opcPackage.transaction(() => {
+      const { xml, element } = this.resolve();
+      if (replaceTableHorizontalAlignment(
+        xml,
+        element,
+        alignment,
+        this.slide.partUri,
+      )) {
+        this.slide.setXml(xml.serialize());
+      }
+    });
   }
 
   get textDirection(): TableCellTextDirection | undefined {

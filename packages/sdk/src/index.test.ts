@@ -13962,6 +13962,90 @@ describe('PptxDocument vertical slice', () => {
     ]);
   });
 
+  it('projects and edits table-level horizontal alignment through the public root API', async () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const table = slide.addTable([
+      ['North', 'South'],
+      ['East', 'West'],
+    ], {
+      name: 'Public table horizontal alignment',
+      align: 'center',
+      columnWidths: inches(2),
+      rowHeights: inches(0.75),
+    });
+    expect(table).toBeInstanceOf(TableModel);
+    expect(table.horizontalAlignment).toBe('center');
+    expect(validatePackage(document.opcPackage)
+      .filter(({ severity }) => severity === 'error')).toEqual([]);
+
+    const noOpBytes = document.opcPackage.requirePart(slide.partUri).bytes.slice();
+    const noOpJournal = [...document.opcPackage.mutations];
+    const noOpDiagnostics = [...document.diagnostics];
+    void table.horizontalAlignment;
+    table.horizontalAlignment = 'center';
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(noOpBytes);
+    expect(document.opcPackage.mutations).toEqual(noOpJournal);
+    expect(document.diagnostics).toEqual(noOpDiagnostics);
+
+    table.setCellHorizontalAlignment(0, 1, 'right');
+    expect(table.horizontalAlignment).toBeUndefined();
+    table.horizontalAlignment = 'justify';
+    expect(table.horizontalAlignment).toBe('justify');
+    expect(table.rows.flatMap(({ cells }) => cells)
+      .map(({ horizontalAlignment }) => horizontalAlignment))
+      .toEqual(['justify', 'justify', 'justify', 'justify']);
+
+    table.horizontalAlignment = 'left';
+    expect(table.horizontalAlignment).toBe('left');
+    const duplicate = document.duplicateSlide(0);
+    const duplicateTable = duplicate.shapes[0] as TableModel;
+    expect(duplicateTable.horizontalAlignment).toBe('left');
+    table.horizontalAlignment = undefined;
+    expect(table.horizontalAlignment).toBeUndefined();
+    expect(table.rows.flatMap(({ cells }) => cells)
+      .every(({ horizontalAlignment }) => horizontalAlignment === undefined)).toBe(true);
+    expect(duplicateTable.horizontalAlignment).toBe('left');
+    table.horizontalAlignment = 'right';
+
+    const beforeInvalid = document.opcPackage.requirePart(slide.partUri).bytes.slice();
+    const invalidJournal = [...document.opcPackage.mutations];
+    const invalidDiagnostics = [...document.diagnostics];
+    expect(() => {
+      table.horizontalAlignment = 'dist' as never;
+    }).toThrow('Table horizontal alignment must be left, center, right, or justify');
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(beforeInvalid);
+    expect(document.opcPackage.mutations).toEqual(invalidJournal);
+    expect(document.diagnostics).toEqual(invalidDiagnostics);
+    expect(table.horizontalAlignment).toBe('right');
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedTable = reopened.slides[0]!.shapes[0] as TableModel;
+    const reopenedDuplicate = reopened.slides[1]!.shapes[0] as TableModel;
+    expect(reopenedTable.horizontalAlignment).toBe('right');
+    expect(reopenedDuplicate.horizontalAlignment).toBe('left');
+    expect(reopenedTable.rows.flatMap(({ cells }) => cells)
+      .map(({ horizontalAlignment }) => horizontalAlignment))
+      .toEqual(['right', 'right', 'right', 'right']);
+    expect(reopenedDuplicate.rows.flatMap(({ cells }) => cells)
+      .map(({ horizontalAlignment }) => horizontalAlignment))
+      .toEqual(['left', 'left', 'left', 'left']);
+    expect(validatePackage(reopened.opcPackage)
+      .filter(({ severity }) => severity === 'error')).toEqual([]);
+
+    if (false) {
+      const alignment: TextAlignment | undefined = table.horizontalAlignment;
+      table.horizontalAlignment = 'left';
+      table.horizontalAlignment = 'center';
+      table.horizontalAlignment = 'right';
+      table.horizontalAlignment = 'justify';
+      table.horizontalAlignment = undefined;
+      // @ts-expect-error unsupported table-level horizontal alignment
+      table.horizontalAlignment = 'dist';
+      void alignment;
+    }
+  });
+
   it('projects and edits table-level vertical alignment through the public root API', async () => {
     const document = PptxDocument.create();
     const slide = document.addSlide();

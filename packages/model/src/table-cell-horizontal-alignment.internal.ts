@@ -4,6 +4,7 @@ import {
   type XmlElement,
 } from '@pptx/lossless-xml';
 import { ModelParseError } from './errors.js';
+import { readDirectTablePhysicalCells } from './table-physical-cells.internal.js';
 import type { TextAlignment } from './text.js';
 
 const FROM_OOXML = new Map<string, TextAlignment>([
@@ -33,6 +34,19 @@ export function readTableCellHorizontalAlignment(
   const attributes = properties[0]!.attributes.filter(({ name }) => name === 'algn');
   if (attributes.length !== 1) return undefined;
   return FROM_OOXML.get(attributes[0]!.value);
+}
+
+export function readTableHorizontalAlignment(
+  xml: LosslessXmlDocument,
+  frame: XmlElement,
+): TextAlignment | undefined {
+  const cells = readDirectTablePhysicalCells(frame);
+  if (!cells) return undefined;
+  const first = readTableCellHorizontalAlignment(xml, cells[0]!);
+  if (first === undefined) return undefined;
+  return cells.every(
+    (cell) => readTableCellHorizontalAlignment(xml, cell) === first,
+  ) ? first : undefined;
 }
 
 export function replaceTableCellHorizontalAlignment(
@@ -123,6 +137,31 @@ export function replaceTableCellHorizontalAlignment(
 
   xml.replaceElement(paragraphElement, paragraphXml.serialize());
   return true;
+}
+
+export function replaceTableHorizontalAlignment(
+  xml: LosslessXmlDocument,
+  frame: XmlElement,
+  value: TextAlignment | undefined,
+  partUri: string,
+): boolean {
+  const cells = readDirectTablePhysicalCells(frame);
+  if (!cells) {
+    throw new ModelParseError(
+      'Table must contain one complete set of direct physical cells',
+      partUri,
+    );
+  }
+  let changed = false;
+  for (const cell of cells) {
+    changed = replaceTableCellHorizontalAlignment(
+      xml,
+      cell,
+      value,
+      partUri,
+    ) || changed;
+  }
+  return changed;
 }
 
 function directChildren(element: XmlElement, localName: string): XmlElement[] {

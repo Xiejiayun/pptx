@@ -34,6 +34,7 @@ import {
   type ShapeShadow,
   type TableCellBorderInput,
   type TableCellTextDirection,
+  type TextAlignment,
   type TextBoxMarginInput,
   type TextBoxVerticalAlignment,
 } from './index.js';
@@ -11426,6 +11427,229 @@ describe('PresentationModel', () => {
     ]);
     expect(reopenedTable!.columnWidths).toEqual(Array(4).fill(inches(2)));
     expect(reopenedTable!.rowHeights).toEqual([inches(1)]);
+  });
+
+  it('projects and atomically edits uniform table horizontal alignment', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const table = slide.addTable([
+      [
+        {
+          text: 'North',
+          options: {
+            border: {
+              kind: 'line',
+              color: { kind: 'scheme', value: 'accent1' },
+              width: 1.5,
+              style: 'dash',
+            },
+            fill: {
+              kind: 'solid',
+              color: { kind: 'srgb', value: 'D9EAF7' },
+              transparency: 25,
+            },
+            fit: 'shrink',
+            margin: { top: 5, left: 8 },
+            textDirection: 'vert270',
+            valign: 'middle',
+          },
+        },
+        'South',
+      ],
+      ['East', 'West'],
+    ], {
+      name: 'Uniform table horizontal alignment',
+      align: 'center',
+      columnWidths: [inches(2), inches(3)],
+      rowHeights: [inches(0.75), inches(1.25)],
+    });
+    const nonAlignmentState = () => table.rows.map(({ cells }) => cells.map(({
+      text,
+      borders,
+      fill,
+      margins,
+      textDirection,
+      textFit,
+      verticalAlignment,
+    }) => ({
+      text,
+      borders,
+      fill,
+      margins,
+      textDirection,
+      textFit,
+      verticalAlignment,
+    })));
+    const initialNonAlignmentState = nonAlignmentState();
+    const initialTransform = table.transform;
+    const initialColumnWidths = table.columnWidths;
+    const initialRowHeights = table.rowHeights;
+    const untouchedPartUri = '/ppt/custom/opaque1.bin';
+    const untouchedBefore = pkg.requirePart(untouchedPartUri).bytes.slice();
+
+    expect(table.horizontalAlignment).toBe('center');
+    const noOpBytes = pkg.requirePart(slide.partUri).bytes.slice();
+    const noOpJournal = [...pkg.mutations];
+    void table.horizontalAlignment;
+    table.horizontalAlignment = 'center';
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(noOpBytes);
+    expect(pkg.mutations).toEqual(noOpJournal);
+
+    table.setCellHorizontalAlignment(0, 1, 'right');
+    expect(table.horizontalAlignment).toBeUndefined();
+    table.horizontalAlignment = 'justify';
+    expect(table.horizontalAlignment).toBe('justify');
+    expect(table.rows.flatMap(({ cells }) => cells)
+      .map(({ horizontalAlignment }) => horizontalAlignment))
+      .toEqual(['justify', 'justify', 'justify', 'justify']);
+    expect(nonAlignmentState()).toEqual(initialNonAlignmentState);
+
+    table.horizontalAlignment = 'left';
+    expect(table.horizontalAlignment).toBe('left');
+    const leftXml = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect(leftXml.match(/<a:pPr\b[^>]* algn="l"/g)).toHaveLength(4);
+    const duplicate = model.duplicateSlide(model.slides.indexOf(slide));
+    const duplicateTable = duplicate.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    );
+    expect(duplicateTable).toBeInstanceOf(TableModel);
+    expect(duplicateTable!.horizontalAlignment).toBe('left');
+
+    table.horizontalAlignment = undefined;
+    expect(table.horizontalAlignment).toBeUndefined();
+    expect(table.rows.flatMap(({ cells }) => cells)
+      .every(({ horizontalAlignment }) => horizontalAlignment === undefined)).toBe(true);
+    expect(duplicateTable!.horizontalAlignment).toBe('left');
+    table.horizontalAlignment = 'right';
+    expect(table.horizontalAlignment).toBe('right');
+
+    const beforeRollback = pkg.requirePart(slide.partUri).bytes.slice();
+    const rollbackJournal = [...pkg.mutations];
+    expect(() => pkg.transaction(() => {
+      table.horizontalAlignment = 'center';
+      throw new Error('restore table-level horizontal alignment');
+    })).toThrow('restore table-level horizontal alignment');
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeRollback);
+    expect(pkg.mutations).toEqual(rollbackJournal);
+    expect(table.horizontalAlignment).toBe('right');
+
+    for (const invalid of [
+      null,
+      false,
+      true,
+      0,
+      '',
+      'l',
+      'ctr',
+      'dist',
+      'Left',
+      ' left',
+      [],
+      {},
+      Symbol('align'),
+    ]) {
+      const beforeInvalid = pkg.requirePart(slide.partUri).bytes.slice();
+      const invalidJournal = [...pkg.mutations];
+      expect(() => {
+        table.horizontalAlignment = invalid as never;
+      }, String(invalid)).toThrow(TypeError);
+      expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeInvalid);
+      expect(pkg.mutations).toEqual(invalidJournal);
+    }
+
+    model.moveSlide(model.slides.indexOf(duplicate), 0);
+    expect(table.horizontalAlignment).toBe('right');
+    expect(duplicateTable!.horizontalAlignment).toBe('left');
+    expect(nonAlignmentState()).toEqual(initialNonAlignmentState);
+    expect(table.transform).toEqual(initialTransform);
+    expect(table.columnWidths).toEqual(initialColumnWidths);
+    expect(table.rowHeights).toEqual(initialRowHeights);
+    expect(pkg.requirePart(untouchedPartUri).bytes).toEqual(untouchedBefore);
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedSourceTable = reopened.slides
+      .find(({ partUri }) => partUri === slide.partUri)
+      ?.shapes.find((shape): shape is TableModel => shape instanceof TableModel);
+    const reopenedDuplicateTable = reopened.slides
+      .find(({ partUri }) => partUri === duplicate.partUri)
+      ?.shapes.find((shape): shape is TableModel => shape instanceof TableModel);
+    expect(reopenedSourceTable).toBeInstanceOf(TableModel);
+    expect(reopenedDuplicateTable).toBeInstanceOf(TableModel);
+    expect(reopenedSourceTable!.horizontalAlignment).toBe('right');
+    expect(reopenedDuplicateTable!.horizontalAlignment).toBe('left');
+    expect(reopenedSourceTable!.rows.flatMap(({ cells }) => cells)
+      .map(({ horizontalAlignment }) => horizontalAlignment))
+      .toEqual(['right', 'right', 'right', 'right']);
+    expect(reopenedDuplicateTable!.rows.flatMap(({ cells }) => cells)
+      .map(({ horizontalAlignment }) => horizontalAlignment))
+      .toEqual(['left', 'left', 'left', 'left']);
+    expect(reopenedSourceTable!.transform).toEqual(initialTransform);
+    expect(reopenedSourceTable!.columnWidths).toEqual(initialColumnWidths);
+    expect(reopenedSourceTable!.rowHeights).toEqual(initialRowHeights);
+    expect(reopened.opcPackage.requirePart(untouchedPartUri).bytes).toEqual(untouchedBefore);
+
+    if (false) {
+      const alignment: TextAlignment | undefined = table.horizontalAlignment;
+      table.horizontalAlignment = 'left';
+      table.horizontalAlignment = 'center';
+      table.horizontalAlignment = 'right';
+      table.horizontalAlignment = 'justify';
+      table.horizontalAlignment = undefined;
+      // @ts-expect-error unsupported table horizontal alignment
+      table.horizontalAlignment = 'dist';
+      void alignment;
+    }
+  });
+
+  it('rejects unsafe table-level horizontal alignment edits without partial mutation', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const table = slide.addTable([['First', 'Second']], { align: 'center' });
+    const original = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    const secondTextOffset = original.indexOf('>Second</a:t>');
+    const secondPropertiesOffset = original.lastIndexOf('<a:pPr', secondTextOffset);
+    const secondPropertiesEnd = original.indexOf('>', secondPropertiesOffset);
+    expect(secondTextOffset).toBeGreaterThanOrEqual(0);
+    expect(secondPropertiesOffset).toBeGreaterThanOrEqual(0);
+    expect(secondPropertiesEnd).toBeGreaterThan(secondPropertiesOffset);
+    const repeatedAlignment = original.slice(0, secondPropertiesEnd) +
+      ' algn="r"' + original.slice(secondPropertiesEnd);
+    pkg.setPart(
+      slide.partUri,
+      repeatedAlignment,
+      pkg.requirePart(slide.partUri).contentType,
+    );
+    expect(table.horizontalAlignment).toBeUndefined();
+    const beforeUnsafe = pkg.requirePart(slide.partUri).bytes.slice();
+    const unsafeJournal = [...pkg.mutations];
+    expect(() => {
+      table.horizontalAlignment = 'justify';
+    }).toThrow(ModelParseError);
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeUnsafe);
+    expect(pkg.mutations).toEqual(unsafeJournal);
+
+    const secondParagraphStart = original.lastIndexOf('<a:p>', secondTextOffset);
+    const secondParagraphEnd = original.indexOf('</a:p>', secondTextOffset) + '</a:p>'.length;
+    expect(secondParagraphStart).toBeGreaterThanOrEqual(0);
+    expect(secondParagraphEnd).toBeGreaterThan(secondTextOffset);
+    const secondParagraph = original.slice(secondParagraphStart, secondParagraphEnd);
+    const multipleParagraphs = original.slice(0, secondParagraphEnd) + secondParagraph +
+      original.slice(secondParagraphEnd);
+    pkg.setPart(
+      slide.partUri,
+      multipleParagraphs,
+      pkg.requirePart(slide.partUri).contentType,
+    );
+    expect(table.horizontalAlignment).toBeUndefined();
+    const beforeMultiple = pkg.requirePart(slide.partUri).bytes.slice();
+    const multipleJournal = [...pkg.mutations];
+    expect(() => {
+      table.horizontalAlignment = 'left';
+    }).toThrow(ModelParseError);
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeMultiple);
+    expect(pkg.mutations).toEqual(multipleJournal);
   });
 
   it('projects and atomically edits uniform table vertical alignment', async () => {

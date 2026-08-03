@@ -9110,6 +9110,85 @@ describe('importPptxGenJS', () => {
     expect(nativeXml).toContain('<a:ext cx="914400" cy="2743200"/>');
   });
 
+  it('projects and normalizes PptxGenJS table-level horizontal alignment output', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    generated.layout = 'LAYOUT_WIDE';
+    const slide = generated.addSlide();
+    for (const [index, align] of ['left', 'center', 'right', 'justify'].entries()) {
+      slide.addTable(
+        [[{ text: `${align} A`, options: {} }, { text: `${align} B`, options: {} }]],
+        {
+          x: 0.5,
+          y: 0.5 + (index * 0.8),
+          w: 4,
+          h: 0.6,
+          align: align as 'left' | 'center' | 'right' | 'justify',
+        },
+      );
+    }
+    slide.addTable(
+      [[{ text: 'Omitted A', options: {} }, { text: 'Omitted B', options: {} }]],
+      { x: 5, y: 0.5, w: 4, h: 0.6 },
+    );
+    slide.addTable(
+      [[
+        { text: 'Inherited center', options: {} },
+        { text: 'Right override', options: { align: 'right' } },
+      ]],
+      { x: 5, y: 1.5, w: 4, h: 0.6, align: 'center' },
+    );
+
+    const imported = await importPptxGenJS(generated);
+    const tables = imported.slides[0]!.shapes.filter(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    );
+    expect(tables).toHaveLength(6);
+    expect(tables.slice(0, 4).map(({ horizontalAlignment }) => horizontalAlignment)).toEqual([
+      'left',
+      'center',
+      'right',
+      'justify',
+    ]);
+    expect(tables[4]!.horizontalAlignment).toBeUndefined();
+    expect(tables[4]!.rows[0]!.cells.map(
+      ({ horizontalAlignment }) => horizontalAlignment)).toEqual([undefined, undefined]);
+    expect(tables[5]!.horizontalAlignment).toBeUndefined();
+    expect(tables[5]!.rows[0]!.cells.map(
+      ({ horizontalAlignment }) => horizontalAlignment)).toEqual(['center', 'right']);
+
+    tables[5]!.horizontalAlignment = 'left';
+    expect(tables[5]!.horizontalAlignment).toBe('left');
+    expect(tables[5]!.rows[0]!.cells.map(
+      ({ horizontalAlignment }) => horizontalAlignment)).toEqual(['left', 'left']);
+
+    const reopened = await PptxDocument.open(await imported.write());
+    const reopenedTables = reopened.slides[0]!.shapes.filter(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    );
+    expect(reopenedTables.slice(0, 4).map(
+      ({ horizontalAlignment }) => horizontalAlignment)).toEqual([
+      'left',
+      'center',
+      'right',
+      'justify',
+    ]);
+    expect(reopenedTables[4]!.horizontalAlignment).toBeUndefined();
+    expect(reopenedTables[5]!.horizontalAlignment).toBe('left');
+    expect(reopenedTables[5]!.rows[0]!.cells.map(
+      ({ horizontalAlignment }) => horizontalAlignment)).toEqual(['left', 'left']);
+
+    const xml = new TextDecoder().decode(
+      reopened.opcPackage.requirePart(reopened.slides[0]!.partUri).bytes,
+    );
+    expect(xml.match(/<a:pPr\b[^>]* algn="l"/g)).toHaveLength(4);
+    expect(xml.match(/<a:pPr\b[^>]* algn="ctr"/g)).toHaveLength(2);
+    expect(xml.match(/<a:pPr\b[^>]* algn="r"/g)).toHaveLength(2);
+    expect(xml.match(/<a:pPr\b[^>]* algn="just"/g)).toHaveLength(2);
+    expect(xml).not.toMatch(/<a:tcPr\b[^>]* algn=/);
+    expect(xml).not.toMatch(/<a:bodyPr\b[^>]* algn=/);
+  });
+
   it('imports PptxGenJS table-cell text directions with exact four-value semantics', async () => {
     const generated = new PptxGenJS();
     expect(generated.version).toBe('4.0.1');
