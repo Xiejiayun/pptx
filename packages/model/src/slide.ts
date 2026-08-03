@@ -116,6 +116,7 @@ import {
   type TableCellHyperlinkRelationshipIds,
   type TableCellRichTextRunHyperlinkRelationshipIds,
 } from './table-create.internal.js';
+import { planTableAutoPages } from './table-auto-page.internal.js';
 import {
   readSlideHidden,
   replaceSlideHidden,
@@ -302,6 +303,11 @@ export interface AddTextOptions extends Partial<Transform> {
 }
 
 export interface AddTableOptions {
+  readonly autoPage?: boolean;
+  readonly autoPageRepeatHeader?: boolean;
+  readonly autoPageHeaderRows?: number;
+  readonly autoPageSlideStartY?: number;
+  readonly slideMargin?: TableAutoPageMarginInput;
   readonly align?: TextAlignment;
   readonly bold?: boolean;
   readonly color?: RichTextColor;
@@ -322,6 +328,10 @@ export interface AddTableOptions {
   readonly textDirection?: TableCellTextDirection;
   readonly valign?: TextBoxVerticalAlignment;
 }
+
+export type TableAutoPageMarginInput =
+  | number
+  | readonly [number, number, number, number];
 
 export interface AddTableCellOptions {
   readonly align?: TextAlignment;
@@ -359,7 +369,9 @@ interface PreparedTableCellHyperlink {
   readonly columnIndex: number;
   readonly paragraphIndex?: number;
   readonly runIndex?: number;
-  readonly relationship: RelationshipInput;
+  readonly target:
+    | { readonly kind: 'external'; readonly url: string }
+    | { readonly kind: 'slide'; readonly partUri: string };
 }
 
 interface CreatedTableCellHyperlinkRelationships {
@@ -394,6 +406,7 @@ export class SlideModel {
   readonly title = new SlideTitleModel(this);
   readonly #shapeModels = new Map<number, SemanticShape>();
   readonly #staleShapeModels = new WeakSet<SemanticShape>();
+  #newAutoPagedSlidePartUris: readonly string[] = Object.freeze([]);
   #relationshipId: string;
   #slideId: number;
 
@@ -513,6 +526,14 @@ export class SlideModel {
 
   get relationships(): readonly Relationship[] {
     return this.presentation.opcPackage.relationships(this.partUri);
+  }
+
+  get newAutoPagedSlides(): readonly SlideModel[] {
+    const attached = new Map(this.presentation.slides.map((slide) => [slide.partUri, slide]));
+    return Object.freeze(this.#newAutoPagedSlidePartUris.flatMap((partUri) => {
+      const slide = attached.get(partUri);
+      return slide === undefined ? [] : [slide];
+    }));
   }
 
   get shapes(): readonly SemanticShape[] {
@@ -1592,67 +1613,44 @@ export class SlideModel {
     rows: readonly (readonly AddTableCellInput[])[],
     options: AddTableOptions = {},
   ): TableModel {
-    return this.presentation.opcPackage.transaction(() => {
-      const definition = normalizeTableDefinition(rows, options);
-      const preparedHyperlinks = this.prepareTableCellHyperlinks(definition);
-      const owner = definition.placeholder === undefined
-        ? undefined
-        : resolvePlaceholderOwner(
-            this.presentation.opcPackage,
-            this.partUri,
-            definition.placeholder,
-            'table',
+    const definition = normalizeTableDefinition(rows, options);
+    const pageDefinitions = definition.autoPage === undefined
+      ? Object.freeze([definition])
+      : planTableAutoPages(definition, this.presentation.slideSize);
+    const insertionPlans = pageDefinitions.slice(1).map(() =>
+      this.presentation.prepareSlideInsertionAfter(this));
+    const preparedHyperlinks = pageDefinitions.map((page) =>
+      this.prepareTableCellHyperlinks(page));
+    const generatedPartUris: string[] = [];
+    try {
+      const table = this.presentation.opcPackage.transaction(() => {
+        const sourceTable = this.commitNormalizedTable(
+          pageDefinitions[0]!,
+          preparedHyperlinks[0]!,
+        );
+        let after: SlideModel = this;
+        for (let index = 1; index < pageDefinitions.length; index += 1) {
+          const generated = this.presentation.insertPreparedBlankSlideAfter(
+            after,
+            insertionPlans[index - 1]!,
           );
-      const rendered = owner === undefined
-        ? definition
-        : {
-            ...definition,
-            name: owner.name,
-            x: owner.transform.x,
-            y: owner.transform.y,
-            width: owner.transform.width,
-            height: owner.transform.height,
-            autoRowHeight: false,
-            columnWidths: scaleTableDimensions(
-              definition.columnWidths,
-              owner.transform.width,
-              'Table placeholder width',
-            ),
-            rowHeights: scaleTableDimensions(
-              definition.rowHeights,
-              owner.transform.height,
-              'Table placeholder height',
-            ),
-          };
-      const { xml } = this.parse();
-      const shapeTree = requireTableShapeTree(xml, this.partUri);
-      const nextId = owner?.shapeId ?? allocateShapeId(xml);
-      const hyperlinkRelationships = this.createTableCellHyperlinkRelationships(
-        definition,
-        preparedHyperlinks,
-      );
-      const tableXml = renderTableGraphicFrame(
-        nextId,
-        rendered,
-        owner?.identity,
-        owner?.transform,
-        hyperlinkRelationships.defaultRelationshipIds,
-        hyperlinkRelationships.runRelationshipIds,
-      );
-      if (owner) xml.replace(owner.slideElement.start, owner.slideElement.end, tableXml);
-      else {
-        const extensionList = directChildren(shapeTree, 'extLst')[0];
-        if (extensionList) xml.replace(extensionList.start, extensionList.start, tableXml);
-        else xml.appendChildXml(shapeTree, tableXml);
-      }
-      this.setXml(xml.serialize());
-      if (owner) this.invalidateShapeModel(nextId);
-      const table = this.shapes.find((candidate) => candidate.id === nextId);
-      if (!(table instanceof TableModel) || table.kind !== 'table') {
-        throw new ModelParseError(`Created table ${nextId} could not be resolved`, this.partUri);
-      }
+          generatedPartUris.push(generated.partUri);
+          generated.commitNormalizedTable(
+            pageDefinitions[index]!,
+            preparedHyperlinks[index]!,
+          );
+          after = generated;
+        }
+        return sourceTable;
+      });
+      this.#newAutoPagedSlidePartUris = Object.freeze([...generatedPartUris]);
       return table;
-    });
+    } catch (error) {
+      for (const partUri of generatedPartUris) {
+        this.presentation.discardDetachedSlideModel(partUri);
+      }
+      throw error;
+    }
   }
 
   addChart(
@@ -2098,8 +2096,71 @@ export class SlideModel {
     }).id;
   }
 
+  private commitNormalizedTable(
+    definition: Readonly<NormalizedTableDefinition>,
+    preparedHyperlinks: readonly PreparedTableCellHyperlink[],
+  ): TableModel {
+    const owner = definition.placeholder === undefined
+      ? undefined
+      : resolvePlaceholderOwner(
+          this.presentation.opcPackage,
+          this.partUri,
+          definition.placeholder,
+          'table',
+        );
+    const rendered = owner === undefined
+      ? definition
+      : {
+          ...definition,
+          name: owner.name,
+          x: owner.transform.x,
+          y: owner.transform.y,
+          width: owner.transform.width,
+          height: owner.transform.height,
+          autoRowHeight: false,
+          columnWidths: scaleTableDimensions(
+            definition.columnWidths,
+            owner.transform.width,
+            'Table placeholder width',
+          ),
+          rowHeights: scaleTableDimensions(
+            definition.rowHeights,
+            owner.transform.height,
+            'Table placeholder height',
+          ),
+        };
+    const { xml } = this.parse();
+    const shapeTree = requireTableShapeTree(xml, this.partUri);
+    const nextId = owner?.shapeId ?? allocateShapeId(xml);
+    const hyperlinkRelationships = this.createTableCellHyperlinkRelationships(
+      definition,
+      preparedHyperlinks,
+    );
+    const tableXml = renderTableGraphicFrame(
+      nextId,
+      rendered,
+      owner?.identity,
+      owner?.transform,
+      hyperlinkRelationships.defaultRelationshipIds,
+      hyperlinkRelationships.runRelationshipIds,
+    );
+    if (owner) xml.replace(owner.slideElement.start, owner.slideElement.end, tableXml);
+    else {
+      const extensionList = directChildren(shapeTree, 'extLst')[0];
+      if (extensionList) xml.replace(extensionList.start, extensionList.start, tableXml);
+      else xml.appendChildXml(shapeTree, tableXml);
+    }
+    this.setXml(xml.serialize());
+    if (owner) this.invalidateShapeModel(nextId);
+    const table = this.shapes.find((candidate) => candidate.id === nextId);
+    if (!(table instanceof TableModel) || table.kind !== 'table') {
+      throw new ModelParseError(`Created table ${nextId} could not be resolved`, this.partUri);
+    }
+    return table;
+  }
+
   private prepareTableCellHyperlinks(
-    definition: NormalizedTableDefinition,
+    definition: Readonly<NormalizedTableDefinition>,
   ): readonly PreparedTableCellHyperlink[] {
     const prepared: PreparedTableCellHyperlink[] = [];
     for (const [rowIndex, row] of definition.rows.entries()) {
@@ -2110,33 +2171,25 @@ export class SlideModel {
           paragraphIndex?: number,
           runIndex?: number,
         ): void => {
-          let relationship: RelationshipInput;
+          let target: PreparedTableCellHyperlink['target'];
           if (hyperlink.url !== undefined) {
-            relationship = {
-              type: HYPERLINK_RELATIONSHIP_TYPE,
-              target: hyperlink.url,
-              targetMode: 'External',
-            };
+            target = { kind: 'external', url: hyperlink.url };
           } else {
-            const target = this.presentation.slides[hyperlink.slide - 1];
-            if (!target) {
+            const targetSlide = this.presentation.slides[hyperlink.slide - 1];
+            if (!targetSlide) {
               throw new RangeError(
                 `Table cell ${rowIndex},${columnIndex} hyperlink slide ` +
                 `${hyperlink.slide} is out of range`,
               );
             }
-            relationship = {
-              type: SLIDE_RELATIONSHIP_TYPE,
-              target: relativeRelationshipTarget(this.partUri, target.partUri),
-              targetMode: 'Internal',
-            };
+            target = { kind: 'slide', partUri: targetSlide.partUri };
           }
           prepared.push({
             rowIndex,
             columnIndex,
             ...(paragraphIndex === undefined ? {} : { paragraphIndex }),
             ...(runIndex === undefined ? {} : { runIndex }),
-            relationship,
+            target,
           });
         };
 
@@ -2160,7 +2213,7 @@ export class SlideModel {
   }
 
   private createTableCellHyperlinkRelationships(
-    definition: NormalizedTableDefinition,
+    definition: Readonly<NormalizedTableDefinition>,
     prepared: readonly PreparedTableCellHyperlink[],
   ): CreatedTableCellHyperlinkRelationships {
     const defaultRelationshipIds = definition.rows.map((row) =>
@@ -2175,8 +2228,19 @@ export class SlideModel {
       columnIndex,
       paragraphIndex,
       runIndex,
-      relationship,
+      target,
     } of prepared) {
+      const relationship: RelationshipInput = target.kind === 'external'
+        ? {
+            type: HYPERLINK_RELATIONSHIP_TYPE,
+            target: target.url,
+            targetMode: 'External',
+          }
+        : {
+            type: SLIDE_RELATIONSHIP_TYPE,
+            target: relativeRelationshipTarget(this.partUri, target.partUri),
+            targetMode: 'Internal',
+          };
       const id = this.presentation.opcPackage.addRelationship(
         this.partUri,
         relationship,

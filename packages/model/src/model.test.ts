@@ -373,7 +373,9 @@ function slideNumberCache(pkg: OpcPackage, slidePartUri: string): string | undef
   return text.length === 1 ? xml.text(text[0]!) : undefined;
 }
 
-function emptyPresentationModel(): { pkg: OpcPackage; model: PresentationModel } {
+function emptyPresentationModel(
+  presentationContentType = PRESENTATION_FORMAT_PROFILES.pptx.presentationContentType,
+): { pkg: OpcPackage; model: PresentationModel } {
   const pkg = OpcPackage.create();
   pkg.transaction(() => {
     pkg.setPart(
@@ -384,7 +386,7 @@ function emptyPresentationModel(): { pkg: OpcPackage; model: PresentationModel }
         'xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">' +
         '<p:sldIdLst/><p:sldSz cx="9144000" cy="5143500"/>' +
         '<p:notesSz cx="5143500" cy="9144000"/></p:presentation>',
-      PRESENTATION_FORMAT_PROFILES.pptx.presentationContentType,
+      presentationContentType,
     );
     pkg.addRelationship('/', {
       id: 'rId1',
@@ -1150,6 +1152,156 @@ describe('PresentationModel', () => {
     const inserted = model.insertPreparedBlankSlideAfter(source, prepared);
     expect(inserted).not.toBe(failedModel);
     expect(model.slides).toEqual([source, inserted, following]);
+  });
+
+  it('auto-pages explicit table rows and maintains newAutoPagedSlides lifecycle state', async () => {
+    const { pkg, model } = emptyPresentationModel();
+    const layoutPartUri = '/ppt/slideLayouts/slideLayout1.xml';
+    installNamedSlideLayouts(pkg, model, [{ name: 'TABLE', partUri: layoutPartUri }]);
+    const first = model.addSlide({ masterName: 'TABLE' });
+    const source = model.addSlide({ masterName: 'TABLE' });
+    const sentinel = model.addSlide({ masterName: 'TABLE' });
+    const sourceTable = source.addTable(
+      [[{ text: 'Header', options: { hyperlink: { slide: 3 } } }], ['A'], ['B'], ['C']],
+      {
+        autoPage: true,
+        autoPageRepeatHeader: true,
+        autoPageHeaderRows: 1,
+        autoPageSlideStartY: inches(0.5),
+        slideMargin: inches(0.5),
+        y: inches(3.875),
+        width: inches(4),
+        columnWidths: [inches(4)],
+        rowHeights: [inches(0.5), inches(0.75), inches(0.75), inches(0.75)],
+      },
+    );
+
+    expect(sourceTable).toBeInstanceOf(TableModel);
+    const generated = source.newAutoPagedSlides;
+    expect(Object.isFrozen(generated)).toBe(true);
+    expect(generated).toHaveLength(1);
+    expect(() => source.addTable([['Invalid']], { autoPage: true }))
+      .toThrow(/rowHeights/i);
+    expect(source.newAutoPagedSlides).toEqual(generated);
+    expect(model.slides).toEqual([first, source, generated[0], sentinel]);
+    expect(model.slides.at(-1)).toBe(sentinel);
+    const pageTables = [sourceTable, generated[0]!.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    )!];
+    expect(pageTables.map((table) => table.rows.map((row) => row.cells[0]!.text)))
+      .toEqual([['Header', 'A'], ['Header', 'B', 'C']]);
+    expect(pageTables.map((table) => table.rows[0]!.cells[0]!.hyperlink))
+      .toEqual([{ slide: 4 }, { slide: 4 }]);
+    expect([source, generated[0]!].map((slide) => slide.relationships
+      .filter(({ type }) => type === SLIDE_RELATIONSHIP)
+      .map(({ resolvedTarget }) => resolvedTarget)))
+      .toEqual([[sentinel.partUri], [sentinel.partUri]]);
+    expect(pageTables.map(({ transform }) => transform.height))
+      .toEqual([inches(1.25), inches(2)]);
+    expect(pageTables.map(({ columnWidths }) => columnWidths))
+      .toEqual([[inches(4)], [inches(4)]]);
+
+    model.moveSlide(model.slides.indexOf(generated[0]!), 0);
+    expect(source.newAutoPagedSlides).toEqual(generated);
+    model.deleteSlide(model.slides.indexOf(generated[0]!));
+    expect(source.newAutoPagedSlides).toEqual([]);
+
+    source.addTable([['H'], ['A'], ['B']], {
+      autoPage: true,
+      y: inches(4.5),
+      slideMargin: inches(0.5),
+      rowHeights: [inches(0.5), inches(0.5), inches(0.5)],
+    });
+    expect(source.newAutoPagedSlides).toHaveLength(1);
+    source.addTable([['Ordinary']], { rowHeights: [inches(0.5)] });
+    expect(source.newAutoPagedSlides).toEqual([]);
+
+    source.addTable([['No overflow']], {
+      autoPage: true,
+      y: inches(0.5),
+      slideMargin: inches(0.5),
+      rowHeights: [inches(0.5)],
+    });
+    expect(source.newAutoPagedSlides).toEqual([]);
+    const duplicate = model.duplicateSlide(model.slides.indexOf(source));
+    expect(duplicate.newAutoPagedSlides).toEqual([]);
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    expect(reopened.slides.every((slide) => slide.newAutoPagedSlides.length === 0)).toBe(true);
+  });
+
+  it('keeps the ordinary table creation package byte-identical with autoPage false', () => {
+    const ordinary = emptyPresentationModel();
+    const disabled = emptyPresentationModel();
+    ordinary.model.addSlide().addTable([['A', 'B'], ['C', 'D']], {
+      name: 'Stable table',
+      x: inches(1),
+      y: inches(1),
+      columnWidths: [inches(2), inches(3)],
+      rowHeights: [inches(0.5), inches(0.75)],
+    });
+    disabled.model.addSlide().addTable([['A', 'B'], ['C', 'D']], {
+      autoPage: false,
+      name: 'Stable table',
+      x: inches(1),
+      y: inches(1),
+      columnWidths: [inches(2), inches(3)],
+      rowHeights: [inches(0.5), inches(0.75)],
+    });
+    expect(packageSnapshot(disabled.pkg)).toEqual(packageSnapshot(ordinary.pkg));
+  });
+
+  it('reopens auto-paged tables with same layout, section, and numbering in all formats', async () => {
+    for (const profile of Object.values(PRESENTATION_FORMAT_PROFILES)) {
+      const { pkg, model } = emptyPresentationModel(profile.presentationContentType);
+      const layoutPartUri = '/ppt/slideLayouts/slideLayout1.xml';
+      installNamedSlideLayouts(pkg, model, [{
+        name: 'TABLE',
+        partUri: layoutPartUri,
+        slideNumber: true,
+      }]);
+      const first = model.addSlide({ masterName: 'TABLE' });
+      const source = model.addSlide({ masterName: 'TABLE' });
+      const sentinel = model.addSlide({ masterName: 'TABLE' });
+      const section = model.addSection({ title: 'Paged tables' });
+      model.assignSlideToSection(model.slides.indexOf(source), section.id);
+      source.addTable([['Header'], ['A'], ['B'], ['C']], {
+        autoPage: true,
+        autoPageRepeatHeader: true,
+        autoPageHeaderRows: 1,
+        autoPageSlideStartY: inches(0.5),
+        slideMargin: inches(0.5),
+        y: inches(3.875),
+        columnWidths: [inches(4)],
+        rowHeights: [inches(0.5), inches(0.75), inches(0.75), inches(0.75)],
+      });
+      const generated = source.newAutoPagedSlides[0]!;
+
+      expect(model.slides).toEqual([first, source, generated, sentinel]);
+      expect(generated.relationships.filter(({ type }) => type === SLIDE_LAYOUT_RELATIONSHIP)
+        .map(({ resolvedTarget }) => resolvedTarget)).toEqual([layoutPartUri]);
+      expect(model.sections?.find(({ id }) => id === section.id)?.slideIds)
+        .toEqual([source.slideId, generated.slideId]);
+      expect(model.slides.map((slide) => slideNumberCache(pkg, slide.partUri)))
+        .toEqual(['1', '2', '3', '4']);
+      expect(model.slides.slice(1, 3).map((slide) =>
+        new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes)))
+        .not.toContain(expect.stringMatching(/autoPage|slideMargin/));
+
+      const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+      expect(reopened.format).toBe(profile.format);
+      expect(reopened.slides).toHaveLength(4);
+      expect(reopened.slides.every((slide) => slide.newAutoPagedSlides.length === 0)).toBe(true);
+      const reopenedTables = reopened.slides.slice(1, 3).map((slide) =>
+        slide.shapes.find((shape): shape is TableModel => shape instanceof TableModel)!);
+      expect(reopenedTables.map((table) => table.rows.map((row) => row.cells[0]!.text)))
+        .toEqual([['Header', 'A'], ['Header', 'B', 'C']]);
+      expect(reopenedTables.map(({ rowHeights }) => rowHeights))
+        .toEqual([
+          [inches(0.5), inches(0.75)],
+          [inches(0.5), inches(0.75), inches(0.75)],
+        ]);
+    }
   });
 
   it('detects all six OOXML presentation formats from the package content type', async () => {

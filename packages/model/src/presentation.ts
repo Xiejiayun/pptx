@@ -526,78 +526,85 @@ export class PresentationModel {
     after: SlideModel,
     prepared: Readonly<PreparedSlideInsertionAfter>,
   ): SlideModel {
-    const inserted = this.opcPackage.transaction(() => {
-      const source = this.requirePreparedInsertionSource(prepared);
-      const insertionIndex = this.requireAttachedSlideIndex(after, 'Insertion slide') + 1;
-      const initial = this.parsePresentation().xml;
-      this.requireEditableSections(
-        initial,
-        new Set(this.slides.map(({ slideId }) => slideId)),
-      );
-      const layoutSlideNumber = readSlideNumber(
-        this.opcPackage,
-        prepared.layoutPartUri,
-        'layout',
-      );
-      if ((layoutSlideNumber !== undefined) !== prepared.materializeSlideNumber) {
-        throw new ModelParseError(
-          'Prepared slide layout number state has changed',
-          prepared.layoutPartUri,
+    let allocatedPartUri: string | undefined;
+    try {
+      const inserted = this.opcPackage.transaction(() => {
+        const source = this.requirePreparedInsertionSource(prepared);
+        const insertionIndex = this.requireAttachedSlideIndex(after, 'Insertion slide') + 1;
+        const initial = this.parsePresentation().xml;
+        this.requireEditableSections(
+          initial,
+          new Set(this.slides.map(({ slideId }) => slideId)),
         );
-      }
-
-      const slideUri = this.opcPackage.allocatePartUri(
-        joinPartUri(partUriDirname(this.presentationPartUri), 'slides'),
-        'slide',
-        '.xml',
-      );
-      this.opcPackage.setPart(slideUri, blankSlideXml(), SLIDE_CONTENT_TYPE);
-      this.opcPackage.addRelationship(slideUri, {
-        type: SLIDE_LAYOUT_RELATIONSHIP,
-        target: relativeRelationshipTarget(slideUri, prepared.layoutPartUri),
-      });
-      materializeLayoutPlaceholders(
-        this.opcPackage,
-        prepared.layoutPartUri,
-        slideUri,
-        false,
-        prepared.materializeSlideNumber,
-      );
-      const slide = this.attachSlide(slideUri, insertionIndex);
-      if (layoutSlideNumber !== undefined) {
-        replaceSlideNumber(
+        const layoutSlideNumber = readSlideNumber(
           this.opcPackage,
-          slideUri,
-          'slide',
-          layoutSlideNumber,
-          String(this.effectiveSlideNumber(slide)),
+          prepared.layoutPartUri,
+          'layout',
         );
-      }
+        if ((layoutSlideNumber !== undefined) !== prepared.materializeSlideNumber) {
+          throw new ModelParseError(
+            'Prepared slide layout number state has changed',
+            prepared.layoutPartUri,
+          );
+        }
 
-      const sectionXml = this.parsePresentation().xml;
-      const sectionSlideIds = new Set(this.slides.map(({ slideId }) => slideId));
-      if (copyPresentationSlideSection(
-        sectionXml,
-        sectionSlideIds,
-        source.slideId,
-        slide.slideId,
-      )) {
-        this.setXmlPart(this.presentationPartUri, sectionXml.serialize());
-      }
-      const sortedXml = this.parsePresentation().xml;
-      const orderedSlideIds = this.slides.map(({ slideId }) => slideId);
-      if (sortPresentationSectionSlides(
-        sortedXml,
-        new Set(orderedSlideIds),
-        orderedSlideIds,
-      )) {
-        this.setXmlPart(this.presentationPartUri, sortedXml.serialize());
-      }
-      synchronizeSlideNumberCaches(this);
-      return slide;
-    });
-    this.#slideDefaultColors.delete(inserted.partUri);
-    return inserted;
+        const slideUri = this.opcPackage.allocatePartUri(
+          joinPartUri(partUriDirname(this.presentationPartUri), 'slides'),
+          'slide',
+          '.xml',
+        );
+        allocatedPartUri = slideUri;
+        this.opcPackage.setPart(slideUri, blankSlideXml(), SLIDE_CONTENT_TYPE);
+        this.opcPackage.addRelationship(slideUri, {
+          type: SLIDE_LAYOUT_RELATIONSHIP,
+          target: relativeRelationshipTarget(slideUri, prepared.layoutPartUri),
+        });
+        materializeLayoutPlaceholders(
+          this.opcPackage,
+          prepared.layoutPartUri,
+          slideUri,
+          false,
+          prepared.materializeSlideNumber,
+        );
+        const slide = this.attachSlide(slideUri, insertionIndex);
+        if (layoutSlideNumber !== undefined) {
+          replaceSlideNumber(
+            this.opcPackage,
+            slideUri,
+            'slide',
+            layoutSlideNumber,
+            String(this.effectiveSlideNumber(slide)),
+          );
+        }
+
+        const sectionXml = this.parsePresentation().xml;
+        const sectionSlideIds = new Set(this.slides.map(({ slideId }) => slideId));
+        if (copyPresentationSlideSection(
+          sectionXml,
+          sectionSlideIds,
+          source.slideId,
+          slide.slideId,
+        )) {
+          this.setXmlPart(this.presentationPartUri, sectionXml.serialize());
+        }
+        const sortedXml = this.parsePresentation().xml;
+        const orderedSlideIds = this.slides.map(({ slideId }) => slideId);
+        if (sortPresentationSectionSlides(
+          sortedXml,
+          new Set(orderedSlideIds),
+          orderedSlideIds,
+        )) {
+          this.setXmlPart(this.presentationPartUri, sortedXml.serialize());
+        }
+        synchronizeSlideNumberCaches(this);
+        return slide;
+      });
+      this.#slideDefaultColors.delete(inserted.partUri);
+      return inserted;
+    } catch (error) {
+      if (allocatedPartUri !== undefined) this.discardDetachedSlideModel(allocatedPartUri);
+      throw error;
+    }
   }
 
   /** @internal */
