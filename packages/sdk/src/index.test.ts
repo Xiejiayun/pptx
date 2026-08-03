@@ -53,6 +53,8 @@ import {
   type Hyperlink,
   type ImageSource,
   type ImageSizing,
+  type InsertTableColumnsOptions,
+  type InsertTableRowsOptions,
   type MediaKind,
   type MediaPlaybackSettings,
   type MediaSource,
@@ -15638,6 +15640,76 @@ describe('PptxDocument vertical slice', () => {
     expect(reopenedOrdinary.mergeRegions).toEqual([]);
     expect(validatePackage(reopened.opcPackage).filter(({ severity }) =>
       severity === 'error')).toEqual([]);
+  });
+
+  it('exports table row and column structure editing through all presentation formats', async () => {
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const document = PptxDocument.create({ format });
+      const slide = document.addSlide();
+      const table = slide.addTable([
+        [`${format} A0`, `${format} A1`, `${format} A2`],
+        [`${format} B0`, `${format} B1`, `${format} B2`],
+        [`${format} C0`, `${format} C1`, `${format} C2`],
+      ], {
+        name: `SDK table structure ${format}`,
+        columnWidths: [100, 200, 300],
+        rowHeights: [10, 20, 30],
+      });
+      table.mergeCells(0, 0, 2, 2);
+      const rowOptions: InsertTableRowsOptions = { rowHeights: 11 };
+      const columnOptions: InsertTableColumnsOptions = { columnWidths: 21 };
+      table.insertRows(1, rowOptions);
+      table.insertColumns(1, columnOptions);
+      table.setCellText(1, 1, `Hidden ${format}`);
+      table.deleteRows(3);
+      table.deleteColumns(3);
+      expect(table.rowHeights).toEqual([10, 11, 20]);
+      expect(table.columnWidths).toEqual([100, 21, 200]);
+      expect(table.mergeRegions).toEqual([
+        { rowIndex: 0, columnIndex: 0, rowspan: 3, colspan: 3 },
+      ]);
+
+      const duplicate = document.duplicateSlide(0);
+      expect((duplicate.shapes[0] as TableModel).rows[1]!.cells[1]!.text)
+        .toBe(`Hidden ${format}`);
+      const reopened = await PptxDocument.open(await document.write());
+      expect(reopened.format).toBe(format);
+      const reopenedSource = reopened.slides[0]!.shapes[0] as TableModel;
+      const reopenedDuplicate = reopened.slides[1]!.shapes[0] as TableModel;
+      for (const candidate of [reopenedSource, reopenedDuplicate]) {
+        expect(candidate.rowHeights).toEqual([10, 11, 20]);
+        expect(candidate.columnWidths).toEqual([100, 21, 200]);
+        expect(candidate.mergeRegions).toEqual([
+          { rowIndex: 0, columnIndex: 0, rowspan: 3, colspan: 3 },
+        ]);
+        expect(candidate.rows[1]!.cells[1]!.text).toBe(`Hidden ${format}`);
+      }
+      expect(validatePackage(reopened.opcPackage).filter(
+        ({ severity }) => severity === 'error',
+      )).toEqual([]);
+    }
+
+    if (false) {
+      const document = PptxDocument.create();
+      const table = document.addSlide().addTable([['A', 'B'], ['C', 'D']]);
+      const wrongRowName: InsertTableRowsOptions = {
+        // @ts-expect-error row insert uses rowHeights.
+        rowHeight: 1,
+      };
+      const wrongColumnName: InsertTableColumnsOptions = {
+        // @ts-expect-error column insert uses columnWidths.
+        columnWidth: 1,
+      };
+      // @ts-expect-error insertRows requires a physical row index.
+      table.insertRows();
+      // @ts-expect-error insertColumns index is numeric.
+      table.insertColumns('0');
+      // @ts-expect-error deleteRows count is numeric.
+      table.deleteRows(0, '1');
+      // @ts-expect-error deleteColumns accepts at most index and count.
+      table.deleteColumns(0, 1, 2);
+      void [wrongRowName, wrongColumnName];
+    }
   });
 
   it('creates, edits, and round-trips plain-text paragraphs with normalized line endings', async () => {

@@ -10514,6 +10514,140 @@ describe('importPptxGenJS', () => {
     }
   });
 
+  it('edits rows and columns in a public PptxGenJS table without losing survivor state', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    generated.layout = 'LAYOUT_WIDE';
+    const survivorLink: { url: string; tooltip: string; _rId?: number } = {
+      url: 'https://table-structure.example?a=1&b=2',
+      tooltip: 'PptxGenJS survivor',
+    };
+    generated.addSlide().addTable([
+      [
+        {
+          text: 'Merge anchor',
+          options: { colspan: 2, rowspan: 2, fill: { color: 'DDEEFF' } },
+        },
+        { text: 'R0C2', options: {} },
+        { text: 'R0C3', options: {} },
+      ],
+      [
+        { text: 'R1C2', options: {} },
+        { text: 'R1C3', options: {} },
+      ],
+      [
+        { text: 'R2C0', options: {} },
+        { text: 'R2C1', options: {} },
+        {
+          text: [
+            { text: 'Styled ', options: { bold: true, color: '1F4E78' } },
+            { text: 'linked survivor', options: { italic: true } },
+          ],
+          options: {
+            fill: { color: 'F4B183' },
+            hyperlink: survivorLink,
+          },
+        },
+        { text: 'R2C3', options: {} },
+      ],
+      [
+        { text: 'R3C0', options: {} },
+        { text: 'R3C1', options: {} },
+        { text: 'R3C2', options: {} },
+        { text: 'R3C3', options: {} },
+      ],
+    ], {
+      x: 1,
+      y: 1,
+      w: 10,
+      h: 5,
+      colW: [1, 2, 3, 4],
+      rowH: [0.5, 1, 1.5, 2],
+      margin: 0.1,
+    });
+
+    const imported = await importPptxGenJS(generated);
+    const table = imported.slides[0]!.shapes[0] as TableModel;
+    expect(table).toBeInstanceOf(TableModel);
+    expect(table.mergeRegions).toEqual([
+      { rowIndex: 0, columnIndex: 0, rowspan: 2, colspan: 2 },
+    ]);
+    expect(table.columnWidths).toEqual([inches(1), inches(2), inches(3), inches(4)]);
+    expect(table.rowHeights).toEqual([
+      inches(0.5),
+      inches(1),
+      inches(1.5),
+      inches(2),
+    ]);
+    const relationshipId = imported.slides[0]!.relationships.find(
+      ({ type }) => type.endsWith('/hyperlink'),
+    )!.id;
+
+    table.insertRows(1, { rowHeights: inches(0.25) });
+    table.insertColumns(1, { columnWidths: inches(0.5) });
+    table.setCellText(1, 1, 'Inserted hidden cell');
+    table.deleteRows(4);
+    table.deleteColumns(4);
+
+    const assertEditedState = (candidate: TableModel): void => {
+      expect(candidate.mergeRegions).toEqual([
+        { rowIndex: 0, columnIndex: 0, rowspan: 3, colspan: 3 },
+      ]);
+      expect(candidate.columnWidths).toEqual([
+        inches(1),
+        inches(0.5),
+        inches(2),
+        inches(3),
+      ]);
+      expect(candidate.rowHeights).toEqual([
+        inches(0.5),
+        inches(0.25),
+        inches(1),
+        inches(1.5),
+      ]);
+      expect(candidate.transform.width).toBe(inches(6.5));
+      expect(candidate.transform.height).toBe(inches(3.25));
+      expect(candidate.rows[1]!.cells[1]!.text).toBe('Inserted hidden cell');
+      const survivor = candidate.rows[3]!.cells[3]!;
+      expect(survivor.text).toBe('Styled linked survivor');
+      expect(survivor.fill).toEqual({
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'F4B183' },
+      });
+      expect(survivor.richText[0]!.runs.map(({ style }) => style)).toEqual([
+        expect.objectContaining({
+          bold: true,
+          color: { kind: 'srgb', value: '1F4E78' },
+          hyperlink: {
+            url: 'https://table-structure.example?a=1&b=2',
+            tooltip: 'PptxGenJS survivor',
+          },
+        }),
+        expect.objectContaining({
+          italic: true,
+          hyperlink: {
+            url: 'https://table-structure.example?a=1&b=2',
+            tooltip: 'PptxGenJS survivor',
+          },
+        }),
+      ]);
+    };
+    assertEditedState(table);
+    expect(imported.slides[0]!.relationships.find(({ id }) => id === relationshipId))
+      .toMatchObject({
+        target: 'https://table-structure.example?a=1&b=2',
+        targetMode: 'External',
+      });
+
+    const reopened = await PptxDocument.open(await imported.write());
+    assertEditedState(reopened.slides[0]!.shapes[0] as TableModel);
+    expect(reopened.slides[0]!.relationships.find(({ id }) => id === relationshipId))
+      .toMatchObject({
+        target: 'https://table-structure.example?a=1&b=2',
+        targetMode: 'External',
+      });
+  }, 20_000);
+
   it('locks PptxGenJS colspan and rowspan mutation and invalid-output differences', async () => {
     const callerCell = {
       text: 'Caller anchor',

@@ -35,6 +35,8 @@ import {
   type DefineSlideMasterOptions,
   type Emu,
   type Hyperlink,
+  type InsertTableColumnsOptions,
+  type InsertTableRowsOptions,
   type OutputType,
   type PlaceholderSelector,
   type PlaceholderType,
@@ -937,6 +939,62 @@ describe('@jiayunxie/pptx stable exports', () => {
       // @ts-expect-error table-cell hyperlink snapshots are readonly
       cell.hyperlink = { slide: 2 };
       expect(invalid).toHaveLength(6);
+    }
+  });
+
+  it('exports table row and column structure editing from the root package', async () => {
+    const document = PptxDocument.create();
+    const table = document.addSlide().addTable([
+      ['A0', 'A1', 'A2'],
+      ['B0', 'B1', 'B2'],
+      ['C0', 'C1', 'C2'],
+    ], {
+      columnWidths: [100, 200, 300],
+      rowHeights: [10, 20, 30],
+    });
+    table.mergeCells(0, 0, 2, 2);
+    const rowOptions: InsertTableRowsOptions = { rowHeights: 11 };
+    const columnOptions: InsertTableColumnsOptions = { columnWidths: 21 };
+    table.insertRows(1, rowOptions);
+    table.insertColumns(1, columnOptions);
+    table.setCellText(1, 1, 'Root hidden cell');
+    table.deleteRows(3);
+    table.deleteColumns(3);
+
+    expect(table.rowHeights).toEqual([10, 11, 20]);
+    expect(table.columnWidths).toEqual([100, 21, 200]);
+    expect(table.mergeRegions).toEqual([
+      { rowIndex: 0, columnIndex: 0, rowspan: 3, colspan: 3 },
+    ]);
+    expect(table.rows[1]!.cells[1]!.text).toBe('Root hidden cell');
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedTable = reopened.slides[0]!.shapes[0] as TableModel;
+    expect(reopenedTable.rowHeights).toEqual([10, 11, 20]);
+    expect(reopenedTable.columnWidths).toEqual([100, 21, 200]);
+    expect(reopenedTable.mergeRegions).toEqual([
+      { rowIndex: 0, columnIndex: 0, rowspan: 3, colspan: 3 },
+    ]);
+    expect(reopenedTable.rows[1]!.cells[1]!.text).toBe('Root hidden cell');
+
+    if (false) {
+      const wrongRows: InsertTableRowsOptions = {
+        // @ts-expect-error row insertion uses rowHeights.
+        rowHeight: 1,
+      };
+      const wrongColumns: InsertTableColumnsOptions = {
+        // @ts-expect-error column insertion uses columnWidths.
+        columnWidth: 1,
+      };
+      // @ts-expect-error insertRows requires a physical row index.
+      table.insertRows();
+      // @ts-expect-error insertColumns index is numeric.
+      table.insertColumns('0');
+      // @ts-expect-error deleteRows count is numeric.
+      table.deleteRows(0, '1');
+      // @ts-expect-error deleteColumns accepts at most index and count.
+      table.deleteColumns(0, 1, 2);
+      void [wrongRows, wrongColumns];
     }
   });
 
