@@ -1311,6 +1311,351 @@ async (page) => {
       const tableStructureEditing = Object.values(tableStructureEditingState).every(
         (value) => value === true || value === 0,
       );
+      const tableAutoPageDocument = api.PptxDocument.create();
+      const tableAutoPageLead = tableAutoPageDocument.addSlide();
+      const tableAutoPageSource = tableAutoPageDocument.addSlide();
+      const tableAutoPageSentinel = tableAutoPageDocument.addSlide();
+      const tableAutoPageTarget = tableAutoPageDocument.addSlide();
+      const tableAutoPageSection = tableAutoPageDocument.addSection({
+        title: 'Chrome auto page',
+      });
+      tableAutoPageDocument.assignSlideToSection(
+        tableAutoPageDocument.slides.indexOf(tableAutoPageSource),
+        tableAutoPageSection.id,
+      );
+      const tableAutoPageTargetInput = tableAutoPageDocument.slides.indexOf(
+        tableAutoPageTarget,
+      ) + 1;
+      const tableAutoPageHeaderOuterUrl =
+        'https://chrome-auto-page.example/header-outer';
+      const tableAutoPageHeaderRunUrl =
+        'https://chrome-auto-page.example/header-run';
+      const tableAutoPageBodyUrl = 'https://chrome-auto-page.example/body';
+      const tableAutoPageEditedUrl = 'https://chrome-auto-page.example/edited';
+      const tableAutoPageSourceTable = tableAutoPageSource.addTable([
+        [
+          {
+            text: [{ runs: [
+              {
+                text: 'Chrome auto-page header ',
+                style: {
+                  bold: true,
+                  color: { kind: 'scheme', value: 'accent1' },
+                },
+              },
+              {
+                text: 'external',
+                style: {
+                  hyperlink: {
+                    url: tableAutoPageHeaderRunUrl,
+                    tooltip: 'Chrome header run',
+                  },
+                  underline: true,
+                },
+              },
+              {
+                text: ' target',
+                style: {
+                  hyperlink: {
+                    slide: tableAutoPageTargetInput,
+                    tooltip: 'Chrome target',
+                  },
+                  italic: true,
+                },
+              },
+            ] }],
+            options: {
+              rowspan: 2,
+              colspan: 2,
+              fill: {
+                kind: 'solid',
+                color: { kind: 'srgb', value: 'D9EAF7' },
+              },
+              hyperlink: {
+                url: tableAutoPageHeaderOuterUrl,
+                tooltip: 'Chrome header outer',
+              },
+            },
+          },
+          'Chrome header right',
+        ],
+        ['Chrome header lower right'],
+        [
+          {
+            text: 'Chrome body A',
+            options: {
+              rowspan: 2,
+              colspan: 2,
+              fill: {
+                kind: 'solid',
+                color: { kind: 'srgb', value: 'FFF2CC' },
+              },
+              hyperlink: { url: tableAutoPageBodyUrl, tooltip: 'Chrome body' },
+            },
+          },
+          'Chrome A right',
+        ],
+        ['Chrome A lower right'],
+        [
+          {
+            text: 'Chrome body B',
+            options: {
+              rowspan: 2,
+              bold: true,
+              hyperlink: {
+                slide: tableAutoPageTargetInput,
+                tooltip: 'Chrome body target',
+              },
+            },
+          },
+          'Chrome B middle',
+          'Chrome B right',
+        ],
+        ['Chrome B lower middle', 'Chrome B lower right'],
+        ['Chrome tail', 'Chrome tail middle', 'Chrome tail right'],
+      ], {
+        name: 'Chrome table auto page',
+        autoPage: true,
+        autoPageRepeatHeader: true,
+        autoPageHeaderRows: 2,
+        autoPageSlideStartY: api.inches(3.125),
+        slideMargin: api.inches(0.5),
+        x: api.inches(1),
+        y: api.inches(3.125),
+        columnWidths: [api.inches(1), api.inches(1), api.inches(1)],
+        rowHeights: Array.from({ length: 7 }, () => api.inches(0.5)),
+      });
+      const tableAutoPageGenerated = tableAutoPageSource.newAutoPagedSlides;
+      const tableAutoPageInitialSlides = [
+        tableAutoPageLead,
+        tableAutoPageSource,
+        ...tableAutoPageGenerated,
+        tableAutoPageSentinel,
+        tableAutoPageTarget,
+      ];
+      const tableAutoPageTableFor = (slide) => slide.shapes.find(
+        (shape) => shape instanceof api.TableModel &&
+          shape.name === 'Chrome table auto page',
+      );
+      const tableAutoPageTables = [
+        tableAutoPageSourceTable,
+        ...tableAutoPageGenerated.map(tableAutoPageTableFor),
+      ];
+      const tableAutoPageXml = (document, slide) => new TextDecoder().decode(
+        document.opcPackage.requirePart(slide.partUri).bytes,
+      );
+      const tableAutoPageClickIds = (document, slide) => [
+        ...tableAutoPageXml(document, slide).matchAll(
+          /<a:hlinkClick\b[^>]*\br:id="([^"]+)"/g,
+        ),
+      ].map((match) => match[1]);
+      const tableAutoPageOwnedLinks = (slide) => slide.relationships.filter(
+        ({ type }) => type.endsWith('/hyperlink') || type.endsWith('/slide'),
+      );
+      const tableAutoPageLinksOwned = (document, slide) => {
+        const clickIds = tableAutoPageClickIds(document, slide);
+        const owned = tableAutoPageOwnedLinks(slide);
+        const ownedIds = new Set(owned.map(({ id }) => id));
+        return clickIds.length === owned.length
+          && new Set(clickIds).size === owned.length
+          && clickIds.every((id) => ownedIds.has(id));
+      };
+      const tableAutoPageLayoutTarget = (slide) => slide.relationships.find(
+        ({ type }) => type.endsWith('/slideLayout'),
+      )?.resolvedTarget;
+      const tableAutoPageCreated =
+        tableAutoPageGenerated.length === 2
+        && Object.isFrozen(tableAutoPageGenerated)
+        && JSON.stringify(tableAutoPageDocument.slides.map(({ partUri }) => partUri)) ===
+          JSON.stringify(tableAutoPageInitialSlides.map(({ partUri }) => partUri))
+        && tableAutoPageTables.every((table) => table instanceof api.TableModel)
+        && JSON.stringify(tableAutoPageTables.map((table) => table.rows.map(
+          (row) => row.cells[0]?.text,
+        ))) === JSON.stringify([
+          ['Chrome auto-page header external target', '', 'Chrome body A', ''],
+          ['Chrome auto-page header external target', '', 'Chrome body B', ''],
+          ['Chrome auto-page header external target', '', 'Chrome tail'],
+        ])
+        && JSON.stringify(tableAutoPageTables.map(({ rowHeights }) => rowHeights)) ===
+          JSON.stringify([
+            Array(4).fill(api.inches(0.5)),
+            Array(4).fill(api.inches(0.5)),
+            Array(3).fill(api.inches(0.5)),
+          ])
+        && JSON.stringify(tableAutoPageTables.map(({ mergeRegions }) => mergeRegions)) ===
+          JSON.stringify([
+            [
+              { rowIndex: 0, columnIndex: 0, rowspan: 2, colspan: 2 },
+              { rowIndex: 2, columnIndex: 0, rowspan: 2, colspan: 2 },
+            ],
+            [
+              { rowIndex: 0, columnIndex: 0, rowspan: 2, colspan: 2 },
+              { rowIndex: 2, columnIndex: 0, rowspan: 2, colspan: 1 },
+            ],
+            [{ rowIndex: 0, columnIndex: 0, rowspan: 2, colspan: 2 }],
+          ])
+        && new Set([
+          tableAutoPageSource,
+          ...tableAutoPageGenerated,
+        ].map(tableAutoPageLayoutTarget)).size === 1
+        && tableAutoPageDocument.sections?.find(
+          ({ id }) => id === tableAutoPageSection.id,
+        )?.slideIds.join(',') === [
+          tableAutoPageSource,
+          ...tableAutoPageGenerated,
+        ].map(({ slideId }) => slideId).join(',')
+        && [tableAutoPageSource, ...tableAutoPageGenerated].every(
+          (slide) => tableAutoPageLinksOwned(tableAutoPageDocument, slide),
+        )
+        && [tableAutoPageSource, ...tableAutoPageGenerated].every(
+          (slide) => tableAutoPageOwnedLinks(slide).some(
+            ({ resolvedTarget }) => resolvedTarget === tableAutoPageTarget.partUri,
+          ),
+        );
+      const tableAutoPageEditedTable = tableAutoPageTables[1];
+      tableAutoPageEditedTable.setCellRichText(3, 2, [{ runs: [{
+        text: 'Chrome auto-page edited',
+        style: {
+          bold: true,
+          color: { kind: 'srgb', value: 'C00000' },
+          hyperlink: { url: tableAutoPageEditedUrl, tooltip: 'Chrome edited' },
+        },
+      }] }]);
+      const tableAutoPageEdited =
+        tableAutoPageEditedTable.rows[3]?.cells[2]?.text === 'Chrome auto-page edited'
+        && tableAutoPageEditedTable.rows[3]?.cells[2]?.richText[0]
+          ?.runs[0]?.style?.bold === true
+        && tableAutoPageEditedTable.rows[3]?.cells[2]?.richText[0]
+          ?.runs[0]?.style?.color?.value === 'C00000'
+        && tableAutoPageEditedTable.rows[3]?.cells[2]?.richText[0]
+          ?.runs[0]?.style?.hyperlink?.url === tableAutoPageEditedUrl
+        && tableAutoPageLinksOwned(
+          tableAutoPageDocument,
+          tableAutoPageGenerated[0],
+        );
+      tableAutoPageDocument.moveSlide(
+        tableAutoPageDocument.slides.indexOf(tableAutoPageGenerated[1]),
+        tableAutoPageDocument.slides.length - 1,
+      );
+      const tableAutoPageMovedAway =
+        tableAutoPageSource.newAutoPagedSlides[0] === tableAutoPageGenerated[0]
+        && tableAutoPageSource.newAutoPagedSlides[1] === tableAutoPageGenerated[1]
+        && tableAutoPageOwnedLinks(tableAutoPageGenerated[1]).some(
+          ({ resolvedTarget }) => resolvedTarget === tableAutoPageTarget.partUri,
+        );
+      tableAutoPageDocument.moveSlide(
+        tableAutoPageDocument.slides.indexOf(tableAutoPageGenerated[1]),
+        tableAutoPageDocument.slides.indexOf(tableAutoPageSentinel),
+      );
+      const tableAutoPageMoved = tableAutoPageMovedAway
+        && JSON.stringify(tableAutoPageDocument.slides.map(({ partUri }) => partUri)) ===
+          JSON.stringify(tableAutoPageInitialSlides.map(({ partUri }) => partUri));
+      tableAutoPageDocument.deleteSlide(
+        tableAutoPageDocument.slides.indexOf(tableAutoPageGenerated[1]),
+      );
+      const tableAutoPageFinalSlides = [
+        tableAutoPageLead,
+        tableAutoPageSource,
+        tableAutoPageGenerated[0],
+        tableAutoPageSentinel,
+        tableAutoPageTarget,
+      ];
+      const tableAutoPageDeleted =
+        tableAutoPageSource.newAutoPagedSlides.length === 1
+        && tableAutoPageSource.newAutoPagedSlides[0] === tableAutoPageGenerated[0]
+        && JSON.stringify(tableAutoPageDocument.slides.map(({ partUri }) => partUri)) ===
+          JSON.stringify(tableAutoPageFinalSlides.map(({ partUri }) => partUri))
+        && tableAutoPageDocument.sections?.find(
+          ({ id }) => id === tableAutoPageSection.id,
+        )?.slideIds.join(',') === [
+          tableAutoPageSource.slideId,
+          tableAutoPageGenerated[0].slideId,
+        ].join(',');
+      const tableAutoPageRelationships =
+        [tableAutoPageSource, tableAutoPageGenerated[0]].every(
+          (slide) => tableAutoPageLinksOwned(tableAutoPageDocument, slide),
+        )
+        && [tableAutoPageSource, tableAutoPageGenerated[0]].every(
+          (slide) => tableAutoPageOwnedLinks(slide).some(
+            ({ resolvedTarget }) => resolvedTarget === tableAutoPageTarget.partUri,
+          ),
+        )
+        && tableAutoPageOwnedLinks(tableAutoPageSource).filter(
+          ({ targetMode }) => targetMode === 'External',
+        ).length === 3
+        && tableAutoPageOwnedLinks(tableAutoPageGenerated[0]).filter(
+          ({ targetMode }) => targetMode === 'External',
+        ).length === 3;
+      const tableAutoPageEvidenceBlob = await tableAutoPageDocument.writeBlob();
+      globalThis.__pptxTableAutoPageEvidenceBlob = tableAutoPageEvidenceBlob;
+      const reopenedTableAutoPageDocument = await api.PptxDocument.open(
+        tableAutoPageEvidenceBlob,
+      );
+      const reopenedTableAutoPageSource = reopenedTableAutoPageDocument.slides.find(
+        ({ partUri }) => partUri === tableAutoPageSource.partUri,
+      );
+      const reopenedTableAutoPageGenerated = reopenedTableAutoPageDocument.slides.find(
+        ({ partUri }) => partUri === tableAutoPageGenerated[0].partUri,
+      );
+      const reopenedTableAutoPageTarget = reopenedTableAutoPageDocument.slides.find(
+        ({ partUri }) => partUri === tableAutoPageTarget.partUri,
+      );
+      const reopenedTableAutoPageSourceTable = reopenedTableAutoPageSource === undefined
+        ? undefined
+        : tableAutoPageTableFor(reopenedTableAutoPageSource);
+      const reopenedTableAutoPageGeneratedTable =
+        reopenedTableAutoPageGenerated === undefined
+          ? undefined
+          : tableAutoPageTableFor(reopenedTableAutoPageGenerated);
+      const reopenedTableAutoPageHeaderRuns = reopenedTableAutoPageGeneratedTable
+        ?.rows[0]?.cells[0]?.richText[0]?.runs;
+      const tableAutoPageReopened =
+        reopenedTableAutoPageSource !== undefined
+        && reopenedTableAutoPageGenerated !== undefined
+        && reopenedTableAutoPageTarget !== undefined
+        && reopenedTableAutoPageSourceTable instanceof api.TableModel
+        && reopenedTableAutoPageGeneratedTable instanceof api.TableModel
+        && reopenedTableAutoPageDocument.slides.every(
+          (slide) => slide.newAutoPagedSlides.length === 0,
+        )
+        && JSON.stringify(reopenedTableAutoPageDocument.slides.map(
+          ({ partUri }) => partUri,
+        )) === JSON.stringify(tableAutoPageFinalSlides.map(({ partUri }) => partUri))
+        && JSON.stringify(reopenedTableAutoPageSourceTable.rowHeights) ===
+          JSON.stringify(Array(4).fill(api.inches(0.5)))
+        && JSON.stringify(reopenedTableAutoPageGeneratedTable.rowHeights) ===
+          JSON.stringify(Array(4).fill(api.inches(0.5)))
+        && reopenedTableAutoPageGeneratedTable.rows[3]?.cells[2]?.text ===
+          'Chrome auto-page edited'
+        && reopenedTableAutoPageHeaderRuns?.[0]?.style?.hyperlink?.url ===
+          tableAutoPageHeaderOuterUrl
+        && reopenedTableAutoPageHeaderRuns?.[1]?.style?.hyperlink?.url ===
+          tableAutoPageHeaderRunUrl
+        && reopenedTableAutoPageHeaderRuns?.[2]?.style?.hyperlink?.slide ===
+          reopenedTableAutoPageDocument.slides.indexOf(reopenedTableAutoPageTarget) + 1
+        && tableAutoPageLinksOwned(
+          reopenedTableAutoPageDocument,
+          reopenedTableAutoPageSource,
+        )
+        && tableAutoPageLinksOwned(
+          reopenedTableAutoPageDocument,
+          reopenedTableAutoPageGenerated,
+        );
+      const tableAutoPageState = {
+        created: tableAutoPageCreated,
+        edited: tableAutoPageEdited,
+        moved: tableAutoPageMoved,
+        deleted: tableAutoPageDeleted,
+        relationships: tableAutoPageRelationships,
+        reopened: tableAutoPageReopened,
+        validationErrors: tableAutoPageDocument.diagnostics
+          .filter(({ severity }) => severity === 'error').length
+          + reopenedTableAutoPageDocument.diagnostics
+            .filter(({ severity }) => severity === 'error').length,
+      };
+      const tableAutoPage = Object.values(tableAutoPageState).every(
+        (value) => value === true || value === 0,
+      );
       const tableBorderSideSnapshot = (value) => {
         if (value.kind === 'none') return { kind: 'none' };
         return {
@@ -4193,6 +4538,8 @@ async (page) => {
         tableCellMergesState,
         tableStructureEditing,
         tableStructureEditingState,
+        tableAutoPage,
+        tableAutoPageState,
         schemeColors,
         schemeColorState,
         outputTypes,
@@ -4308,6 +4655,25 @@ async (page) => {
   if (typeof process !== 'undefined' && process.env.PPTX_BROWSER_TABLE_STRUCTURE_EDITING_OUT) {
     await tableStructureEditingEvidenceDownload.saveAs(
       process.env.PPTX_BROWSER_TABLE_STRUCTURE_EDITING_OUT,
+    );
+  }
+  const tableAutoPageEvidenceDownloadPromise = page.waitForEvent('download');
+  await page.evaluate(() => {
+    const blob = globalThis.__pptxTableAutoPageEvidenceBlob;
+    if (!(blob instanceof Blob)) throw new Error('Missing table auto-page evidence Blob');
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'browser-table-auto-page.pptx';
+    anchor.click();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  });
+  const tableAutoPageEvidenceDownload = await tableAutoPageEvidenceDownloadPromise;
+  result.tableAutoPageEvidenceFileName =
+    tableAutoPageEvidenceDownload.suggestedFilename();
+  if (typeof process !== 'undefined' && process.env.PPTX_BROWSER_TABLE_AUTO_PAGE_OUT) {
+    await tableAutoPageEvidenceDownload.saveAs(
+      process.env.PPTX_BROWSER_TABLE_AUTO_PAGE_OUT,
     );
   }
   const downloadPromise = page.waitForEvent('download');
@@ -4739,6 +5105,16 @@ async (page) => {
       dimensions: true,
       merge: true,
       survivor: true,
+      relationships: true,
+      reopened: true,
+      validationErrors: 0,
+    },
+    tableAutoPage: true,
+    tableAutoPageState: {
+      created: true,
+      edited: true,
+      moved: true,
+      deleted: true,
       relationships: true,
       reopened: true,
       validationErrors: 0,
@@ -5450,6 +5826,7 @@ async (page) => {
     mediaOrphanCount: 0,
     tableCellMergesEvidenceFileName: 'browser-table-cell-merges.pptx',
     tableStructureEditingEvidenceFileName: 'browser-table-structure-editing.pptx',
+    tableAutoPageEvidenceFileName: 'browser-table-auto-page.pptx',
     downloadFileName: 'browser-smoke.pptx',
     errorCounts: { console: 0, page: 0, network: 0 },
   };

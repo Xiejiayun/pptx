@@ -211,6 +211,26 @@ try {
   )) {
     throw new Error('Packed TableModel declaration is missing table structure editing');
   }
+  const tableAutoPageOptionDeclarations = [
+    'readonly autoPage?: boolean;',
+    'readonly autoPageRepeatHeader?: boolean;',
+    'readonly autoPageHeaderRows?: number;',
+    'readonly autoPageSlideStartY?: number;',
+    'readonly slideMargin?: TableAutoPageMarginInput;',
+  ];
+  if (!tableAutoPageOptionDeclarations.every((field) =>
+    addTableOptionsDeclaration.includes(field)) ||
+      !textOptionDeclarationSource.includes(
+        'export type TableAutoPageMarginInput = number | readonly [number, number, number, number];',
+      ) ||
+      !textOptionDeclarationSource.includes(
+        'get newAutoPagedSlides(): readonly SlideModel[];',
+      ) ||
+      textOptionDeclarationSource.includes(
+        'set newAutoPagedSlides(',
+      )) {
+    throw new Error('Packed declarations are missing strict table auto-page contracts');
+  }
   if (!tableModelDeclaration.includes(
     'get verticalAlignment(): TextBoxVerticalAlignment | undefined;',
   ) || !tableModelDeclaration.includes(
@@ -8283,6 +8303,332 @@ const tableStructureEditingState = {
 const tableStructureEditing = Object.values(tableStructureEditingState).every(
   (value) => value === true || value === 0,
 );
+const tableAutoPageDocument = PptxDocument.create();
+const tableAutoPageLead = tableAutoPageDocument.addSlide();
+const tableAutoPageSource = tableAutoPageDocument.addSlide();
+const tableAutoPageSentinel = tableAutoPageDocument.addSlide();
+const tableAutoPageTarget = tableAutoPageDocument.addSlide();
+const tableAutoPageSection = tableAutoPageDocument.addSection({
+  title: 'Packed auto page',
+});
+tableAutoPageDocument.assignSlideToSection(
+  tableAutoPageDocument.slides.indexOf(tableAutoPageSource),
+  tableAutoPageSection.id,
+);
+const tableAutoPageTargetInput = tableAutoPageDocument.slides.indexOf(
+  tableAutoPageTarget,
+) + 1;
+const tableAutoPageHeaderOuterUrl = 'https://auto-page.example/header-outer';
+const tableAutoPageHeaderRunUrl = 'https://auto-page.example/header-run';
+const tableAutoPageBodyUrl = 'https://auto-page.example/body';
+const tableAutoPageEditedUrl = 'https://auto-page.example/edited';
+const tableAutoPageSourceTable = tableAutoPageSource.addTable([
+  [
+    {
+      text: [{ runs: [
+        {
+          text: 'Packed auto-page header ',
+          style: {
+            bold: true,
+            color: { kind: 'scheme', value: 'accent1' },
+          },
+        },
+        {
+          text: 'external',
+          style: {
+            hyperlink: {
+              url: tableAutoPageHeaderRunUrl,
+              tooltip: 'Packed header run',
+            },
+            underline: true,
+          },
+        },
+        {
+          text: ' target',
+          style: {
+            hyperlink: {
+              slide: tableAutoPageTargetInput,
+              tooltip: 'Packed target',
+            },
+            italic: true,
+          },
+        },
+      ] }],
+      options: {
+        rowspan: 2,
+        colspan: 2,
+        fill: { kind: 'solid', color: { kind: 'srgb', value: 'D9EAF7' } },
+        hyperlink: {
+          url: tableAutoPageHeaderOuterUrl,
+          tooltip: 'Packed header outer',
+        },
+      },
+    },
+    'Packed header right',
+  ],
+  ['Packed header lower right'],
+  [
+    {
+      text: 'Packed body A',
+      options: {
+        rowspan: 2,
+        colspan: 2,
+        fill: { kind: 'solid', color: { kind: 'srgb', value: 'FFF2CC' } },
+        hyperlink: { url: tableAutoPageBodyUrl, tooltip: 'Packed body' },
+      },
+    },
+    'Packed A right',
+  ],
+  ['Packed A lower right'],
+  [
+    {
+      text: 'Packed body B',
+      options: {
+        rowspan: 2,
+        bold: true,
+        hyperlink: { slide: tableAutoPageTargetInput, tooltip: 'Packed body target' },
+      },
+    },
+    'Packed B middle',
+    'Packed B right',
+  ],
+  ['Packed B lower middle', 'Packed B lower right'],
+  ['Packed tail', 'Packed tail middle', 'Packed tail right'],
+], {
+  name: 'Packed table auto page',
+  autoPage: true,
+  autoPageRepeatHeader: true,
+  autoPageHeaderRows: 2,
+  autoPageSlideStartY: inches(3.125),
+  slideMargin: inches(0.5),
+  x: inches(1),
+  y: inches(3.125),
+  columnWidths: [inches(1), inches(1), inches(1)],
+  rowHeights: Array.from({ length: 7 }, () => inches(0.5)),
+});
+const tableAutoPageGenerated = tableAutoPageSource.newAutoPagedSlides;
+const tableAutoPageInitialSlides = [
+  tableAutoPageLead,
+  tableAutoPageSource,
+  ...tableAutoPageGenerated,
+  tableAutoPageSentinel,
+  tableAutoPageTarget,
+];
+const tableAutoPageTableFor = (slide) => slide.shapes.find(
+  (shape) => shape instanceof TableModel && shape.name === 'Packed table auto page',
+);
+const tableAutoPageTables = [
+  tableAutoPageSourceTable,
+  ...tableAutoPageGenerated.map(tableAutoPageTableFor),
+];
+const tableAutoPageXml = (document, slide) => new TextDecoder().decode(
+  document.opcPackage.requirePart(slide.partUri).bytes,
+);
+const tableAutoPageClickIds = (document, slide) => [
+  ...tableAutoPageXml(document, slide).matchAll(
+    /<a:hlinkClick\\b[^>]*\\br:id="([^"]+)"/g,
+  ),
+].map((match) => match[1]);
+const tableAutoPageOwnedLinks = (slide) => slide.relationships.filter(
+  ({ type }) => type.endsWith('/hyperlink') || type.endsWith('/slide'),
+);
+const tableAutoPageLinksOwned = (document, slide) => {
+  const clickIds = tableAutoPageClickIds(document, slide);
+  const owned = tableAutoPageOwnedLinks(slide);
+  const ownedIds = new Set(owned.map(({ id }) => id));
+  return clickIds.length === owned.length &&
+    new Set(clickIds).size === owned.length &&
+    clickIds.every((id) => ownedIds.has(id));
+};
+const tableAutoPageLayoutTarget = (slide) => slide.relationships.find(
+  ({ type }) => type.endsWith('/slideLayout'),
+)?.resolvedTarget;
+const tableAutoPageCreated =
+  tableAutoPageGenerated.length === 2 &&
+  Object.isFrozen(tableAutoPageGenerated) &&
+  JSON.stringify(tableAutoPageDocument.slides.map(({ partUri }) => partUri)) ===
+    JSON.stringify(tableAutoPageInitialSlides.map(({ partUri }) => partUri)) &&
+  tableAutoPageTables.every((table) => table instanceof TableModel) &&
+  JSON.stringify(tableAutoPageTables.map((table) => table.rows.map(
+    (row) => row.cells[0]?.text,
+  ))) === JSON.stringify([
+    ['Packed auto-page header external target', '', 'Packed body A', ''],
+    ['Packed auto-page header external target', '', 'Packed body B', ''],
+    ['Packed auto-page header external target', '', 'Packed tail'],
+  ]) &&
+  JSON.stringify(tableAutoPageTables.map(({ rowHeights }) => rowHeights)) ===
+    JSON.stringify([
+      Array(4).fill(inches(0.5)),
+      Array(4).fill(inches(0.5)),
+      Array(3).fill(inches(0.5)),
+    ]) &&
+  JSON.stringify(tableAutoPageTables.map(({ mergeRegions }) => mergeRegions)) ===
+    JSON.stringify([
+      [
+        { rowIndex: 0, columnIndex: 0, rowspan: 2, colspan: 2 },
+        { rowIndex: 2, columnIndex: 0, rowspan: 2, colspan: 2 },
+      ],
+      [
+        { rowIndex: 0, columnIndex: 0, rowspan: 2, colspan: 2 },
+        { rowIndex: 2, columnIndex: 0, rowspan: 2, colspan: 1 },
+      ],
+      [{ rowIndex: 0, columnIndex: 0, rowspan: 2, colspan: 2 }],
+    ]) &&
+  new Set([
+    tableAutoPageSource,
+    ...tableAutoPageGenerated,
+  ].map(tableAutoPageLayoutTarget)).size === 1 &&
+  tableAutoPageDocument.sections?.find(
+    ({ id }) => id === tableAutoPageSection.id,
+  )?.slideIds.join(',') === [
+    tableAutoPageSource,
+    ...tableAutoPageGenerated,
+  ].map(({ slideId }) => slideId).join(',') &&
+  [tableAutoPageSource, ...tableAutoPageGenerated].every(
+    (slide) => tableAutoPageLinksOwned(tableAutoPageDocument, slide),
+  ) &&
+  [tableAutoPageSource, ...tableAutoPageGenerated].every(
+    (slide) => tableAutoPageOwnedLinks(slide).some(
+      ({ resolvedTarget }) => resolvedTarget === tableAutoPageTarget.partUri,
+    ),
+  );
+const tableAutoPageEditedTable = tableAutoPageTables[1];
+tableAutoPageEditedTable.setCellRichText(3, 2, [{ runs: [{
+  text: 'Packed auto-page edited',
+  style: {
+    bold: true,
+    color: { kind: 'srgb', value: 'C00000' },
+    hyperlink: { url: tableAutoPageEditedUrl, tooltip: 'Packed edited' },
+  },
+}] }]);
+const tableAutoPageEdited =
+  tableAutoPageEditedTable.rows[3]?.cells[2]?.text === 'Packed auto-page edited' &&
+  tableAutoPageEditedTable.rows[3]?.cells[2]?.richText[0]?.runs[0]?.style?.bold === true &&
+  tableAutoPageEditedTable.rows[3]?.cells[2]?.richText[0]?.runs[0]?.style?.color?.value ===
+    'C00000' &&
+  tableAutoPageEditedTable.rows[3]?.cells[2]?.richText[0]?.runs[0]?.style?.hyperlink?.url ===
+    tableAutoPageEditedUrl &&
+  tableAutoPageLinksOwned(tableAutoPageDocument, tableAutoPageGenerated[0]);
+tableAutoPageDocument.moveSlide(
+  tableAutoPageDocument.slides.indexOf(tableAutoPageGenerated[1]),
+  tableAutoPageDocument.slides.length - 1,
+);
+const tableAutoPageMovedAway =
+  tableAutoPageSource.newAutoPagedSlides[0] === tableAutoPageGenerated[0] &&
+  tableAutoPageSource.newAutoPagedSlides[1] === tableAutoPageGenerated[1] &&
+  tableAutoPageOwnedLinks(tableAutoPageGenerated[1]).some(
+    ({ resolvedTarget }) => resolvedTarget === tableAutoPageTarget.partUri,
+  );
+tableAutoPageDocument.moveSlide(
+  tableAutoPageDocument.slides.indexOf(tableAutoPageGenerated[1]),
+  tableAutoPageDocument.slides.indexOf(tableAutoPageSentinel),
+);
+const tableAutoPageMoved = tableAutoPageMovedAway &&
+  JSON.stringify(tableAutoPageDocument.slides.map(({ partUri }) => partUri)) ===
+    JSON.stringify(tableAutoPageInitialSlides.map(({ partUri }) => partUri));
+tableAutoPageDocument.deleteSlide(
+  tableAutoPageDocument.slides.indexOf(tableAutoPageGenerated[1]),
+);
+const tableAutoPageFinalSlides = [
+  tableAutoPageLead,
+  tableAutoPageSource,
+  tableAutoPageGenerated[0],
+  tableAutoPageSentinel,
+  tableAutoPageTarget,
+];
+const tableAutoPageDeleted =
+  tableAutoPageSource.newAutoPagedSlides.length === 1 &&
+  tableAutoPageSource.newAutoPagedSlides[0] === tableAutoPageGenerated[0] &&
+  JSON.stringify(tableAutoPageDocument.slides.map(({ partUri }) => partUri)) ===
+    JSON.stringify(tableAutoPageFinalSlides.map(({ partUri }) => partUri)) &&
+  tableAutoPageDocument.sections?.find(
+    ({ id }) => id === tableAutoPageSection.id,
+  )?.slideIds.join(',') === [
+    tableAutoPageSource.slideId,
+    tableAutoPageGenerated[0].slideId,
+  ].join(',');
+const tableAutoPageRelationships =
+  [tableAutoPageSource, tableAutoPageGenerated[0]].every(
+    (slide) => tableAutoPageLinksOwned(tableAutoPageDocument, slide),
+  ) &&
+  [tableAutoPageSource, tableAutoPageGenerated[0]].every(
+    (slide) => tableAutoPageOwnedLinks(slide).some(
+      ({ resolvedTarget }) => resolvedTarget === tableAutoPageTarget.partUri,
+    ),
+  ) &&
+  tableAutoPageOwnedLinks(tableAutoPageSource).filter(
+    ({ targetMode }) => targetMode === 'External',
+  ).length === 3 &&
+  tableAutoPageOwnedLinks(tableAutoPageGenerated[0]).filter(
+    ({ targetMode }) => targetMode === 'External',
+  ).length === 3;
+await tableAutoPageDocument.writeFile('table-auto-page-smoke.pptx');
+const reopenedTableAutoPageDocument = await PptxDocument.open(
+  await tableAutoPageDocument.write(),
+);
+const reopenedTableAutoPageSource = reopenedTableAutoPageDocument.slides.find(
+  ({ partUri }) => partUri === tableAutoPageSource.partUri,
+);
+const reopenedTableAutoPageGenerated = reopenedTableAutoPageDocument.slides.find(
+  ({ partUri }) => partUri === tableAutoPageGenerated[0].partUri,
+);
+const reopenedTableAutoPageTarget = reopenedTableAutoPageDocument.slides.find(
+  ({ partUri }) => partUri === tableAutoPageTarget.partUri,
+);
+const reopenedTableAutoPageSourceTable = reopenedTableAutoPageSource === undefined
+  ? undefined
+  : tableAutoPageTableFor(reopenedTableAutoPageSource);
+const reopenedTableAutoPageGeneratedTable = reopenedTableAutoPageGenerated === undefined
+  ? undefined
+  : tableAutoPageTableFor(reopenedTableAutoPageGenerated);
+const reopenedTableAutoPageHeaderRuns = reopenedTableAutoPageGeneratedTable
+  ?.rows[0]?.cells[0]?.richText[0]?.runs;
+const tableAutoPageReopened =
+  reopenedTableAutoPageSource !== undefined &&
+  reopenedTableAutoPageGenerated !== undefined &&
+  reopenedTableAutoPageTarget !== undefined &&
+  reopenedTableAutoPageSourceTable instanceof TableModel &&
+  reopenedTableAutoPageGeneratedTable instanceof TableModel &&
+  reopenedTableAutoPageDocument.slides.every(
+    (slide) => slide.newAutoPagedSlides.length === 0,
+  ) &&
+  JSON.stringify(reopenedTableAutoPageDocument.slides.map(({ partUri }) => partUri)) ===
+    JSON.stringify(tableAutoPageFinalSlides.map(({ partUri }) => partUri)) &&
+  JSON.stringify(reopenedTableAutoPageSourceTable.rowHeights) ===
+    JSON.stringify(Array(4).fill(inches(0.5))) &&
+  JSON.stringify(reopenedTableAutoPageGeneratedTable.rowHeights) ===
+    JSON.stringify(Array(4).fill(inches(0.5))) &&
+  reopenedTableAutoPageGeneratedTable.rows[3]?.cells[2]?.text ===
+    'Packed auto-page edited' &&
+  reopenedTableAutoPageHeaderRuns?.[0]?.style?.hyperlink?.url ===
+    tableAutoPageHeaderOuterUrl &&
+  reopenedTableAutoPageHeaderRuns?.[1]?.style?.hyperlink?.url ===
+    tableAutoPageHeaderRunUrl &&
+  reopenedTableAutoPageHeaderRuns?.[2]?.style?.hyperlink?.slide ===
+    reopenedTableAutoPageDocument.slides.indexOf(reopenedTableAutoPageTarget) + 1 &&
+  tableAutoPageLinksOwned(
+    reopenedTableAutoPageDocument,
+    reopenedTableAutoPageSource,
+  ) &&
+  tableAutoPageLinksOwned(
+    reopenedTableAutoPageDocument,
+    reopenedTableAutoPageGenerated,
+  );
+const tableAutoPageState = {
+  created: tableAutoPageCreated,
+  edited: tableAutoPageEdited,
+  moved: tableAutoPageMoved,
+  deleted: tableAutoPageDeleted,
+  relationships: tableAutoPageRelationships,
+  reopened: tableAutoPageReopened,
+  validationErrors: tableAutoPageDocument.diagnostics
+    .filter(({ severity }) => severity === 'error').length +
+    reopenedTableAutoPageDocument.diagnostics
+      .filter(({ severity }) => severity === 'error').length,
+};
+const tableAutoPage = Object.values(tableAutoPageState).every(
+  (value) => value === true || value === 0,
+);
 const checks = {
   slideNumbers,
   slideDefaultColor,
@@ -8348,6 +8694,8 @@ const checks = {
   tableCellMergesState,
   tableStructureEditing,
   tableStructureEditingState,
+  tableAutoPage,
+  tableAutoPageState,
   schemeColors,
   schemeColorState,
   outputTypes,
@@ -11557,6 +11905,7 @@ process.stdout.write(resolved);
   type AddTableCellOptions,
   type AddTableCellInput,
   type AddTableOptions,
+  type TableAutoPageMarginInput,
   type InsertTableColumnsOptions,
   type InsertTableRowsOptions,
   type PresentationLayout,
@@ -12918,6 +13267,30 @@ const objectCell: AddTableCell = { text: 'Revenue', options: creationOptions };
 const tableRows: readonly (readonly AddTableCellInput[])[] = [['Region', objectCell], [{ text: 'East' }, { text: '' }]];
 const tableOptions: AddTableOptions = { align: tableHorizontalAlignment, bold: true, color: { kind: 'scheme', value: 'accent1' }, fontFamily: 'Aptos', fontSize: 18.25, name: 'Typed table', x: inches(1), columnWidths: [inches(1), inches(3)], rowHeights: [inches(0.5), inches(1.5)], border: cellBorderInput, fill: cellFill, margin: cellMargins, spacing: { after: 8, line: { kind: 'multiple', factor: 1.5 } }, textDirection: cellDirection, valign: cellAlignment };
 const typedTable: TableModel = createdDocument.slides[0].addTable(tableRows, tableOptions);
+const typedTableAutoPageMargin: TableAutoPageMarginInput = [1, 2, 3, 4];
+const typedTableAutoPageOptions: AddTableOptions = {
+  autoPage: true,
+  autoPageRepeatHeader: true,
+  autoPageHeaderRows: 1,
+  autoPageSlideStartY: inches(0.5),
+  slideMargin: typedTableAutoPageMargin,
+  rowHeights: [inches(0.5), inches(0.5)],
+};
+const typedTableAutoPageSource: SlideModel = createdDocument.addSlide();
+typedTableAutoPageSource.addTable([['Header'], ['Body']], typedTableAutoPageOptions);
+const typedNewAutoPagedSlides: readonly SlideModel[] =
+  typedTableAutoPageSource.newAutoPagedSlides;
+// @ts-expect-error newAutoPagedSlides is getter-only runtime state
+typedTableAutoPageSource.newAutoPagedSlides = [];
+// @ts-expect-error autoPage is boolean-only
+const invalidTableAutoPageFlag: AddTableOptions = { autoPage: 'true' };
+// @ts-expect-error slideMargin tuple requires four values
+const invalidTableAutoPageMargin: TableAutoPageMarginInput = [1, 2, 3];
+const invalidTableAutoPageWeight: AddTableOptions = {
+  autoPage: true,
+  // @ts-expect-error autoPageLineWeight is not supported in this stage
+  autoPageLineWeight: 1,
+};
 const typedTableCellHyperlinkTable: TableModel = createdDocument.slides[0].addTable([[
   { text: 'Typed table-cell hyperlink', options: typedTableCellHyperlinkOptions },
 ]]);
@@ -13227,7 +13600,10 @@ void [typedPreset, typedNoneShapeFill, typedSolidShapeFill,
   typedArrayBufferWrite, typedBase64Write, typedBinaryStringWrite, typedBlobWrite,
   typedNodeBufferWrite, typedUint8ArrayWrite, typedDynamicWrite, typedNodeReadable,
   invalidBlobWriteOptions, typedInsertTableRowsOptions, typedInsertTableColumnsOptions,
-  invalidInsertTableRowsOptions, invalidInsertTableColumnsOptions];
+  invalidInsertTableRowsOptions, invalidInsertTableColumnsOptions,
+  typedTableAutoPageMargin, typedTableAutoPageOptions, typedTableAutoPageSource,
+  typedNewAutoPagedSlides, invalidTableAutoPageFlag, invalidTableAutoPageMargin,
+  invalidTableAutoPageWeight];
 void typedTableBorders;
 void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, typedChartPromise,
   typedChartDiagnostics, typedChartWorkbookCheck, invalidChartType, invalidChartAxis,
@@ -13337,6 +13713,11 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
   if (!apiChecks.tableStructureEditing) {
     throw new Error(
       `Table structure editing smoke failed: ${JSON.stringify(apiChecks.tableStructureEditingState)}`,
+    );
+  }
+  if (!apiChecks.tableAutoPage) {
+    throw new Error(
+      `Table auto-page smoke failed: ${JSON.stringify(apiChecks.tableAutoPageState)}`,
     );
   }
   if (!apiChecks.schemeColors) {
@@ -13990,6 +14371,198 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
   if (!tableStructureEditingInspect) {
     throw new Error(
       `CLI table structure editing part inspection failed: ${tableStructureEditingPartResult.stdout}\n${tableStructureEditingRelationshipPartResult.stdout}`,
+    );
+  }
+  const tableAutoPageDeckPath = join(directory, 'table-auto-page-smoke.pptx');
+  const tableAutoPageInspectResult = run(
+    bin,
+    ['--json', 'package', 'inspect', tableAutoPageDeckPath],
+    directory,
+  );
+  const tableAutoPageInspected = JSON.parse(tableAutoPageInspectResult.stdout);
+  if (!tableAutoPageInspected.ok ||
+      tableAutoPageInspected.data?.contentTypes?.[
+        'application/vnd.openxmlformats-officedocument.presentationml.slide+xml'
+      ] !== 5) {
+    throw new Error(
+      `CLI table auto-page package inspection failed: ${tableAutoPageInspectResult.stdout}`,
+    );
+  }
+  const tableAutoPageValidateResult = run(
+    bin,
+    [
+      '--json', 'package', 'validate', tableAutoPageDeckPath,
+      '--profile', 'powerpoint-2010',
+    ],
+    directory,
+  );
+  const tableAutoPageValidated = JSON.parse(tableAutoPageValidateResult.stdout);
+  if (!tableAutoPageValidated.ok ||
+      !tableAutoPageValidated.data?.valid ||
+      tableAutoPageValidated.data.errorCount !== 0 ||
+      tableAutoPageValidated.data.warningCount !== 6 ||
+      !tableAutoPageValidated.data.diagnostics.every(
+        ({ code, severity }) => severity === 'warning' &&
+          code === 'OPC_EXTERNAL_RELATIONSHIP',
+      )) {
+    throw new Error(
+      `CLI table auto-page validation failed: ${tableAutoPageValidateResult.stdout}`,
+    );
+  }
+  const tableAutoPageSlidesResult = run(
+    bin,
+    ['--json', 'slides', 'list', tableAutoPageDeckPath],
+    directory,
+  );
+  const tableAutoPageSlides = JSON.parse(tableAutoPageSlidesResult.stdout);
+  if (!tableAutoPageSlides.ok ||
+      tableAutoPageSlides.data?.length !== 5 ||
+      JSON.stringify(tableAutoPageSlides.data.map(({ shapeCount }) => shapeCount)) !==
+        JSON.stringify([0, 1, 1, 0, 0])) {
+    throw new Error(
+      `CLI table auto-page slide listing failed: ${tableAutoPageSlidesResult.stdout}`,
+    );
+  }
+  const tableAutoPageReadPart = (partUri) => {
+    const result = run(
+      bin,
+      ['--json', 'part', 'read', tableAutoPageDeckPath, partUri],
+      directory,
+    );
+    const parsed = JSON.parse(result.stdout);
+    if (!parsed.ok || typeof parsed.data?.content !== 'string') {
+      throw new Error(`CLI table auto-page part read failed: ${result.stdout}`);
+    }
+    return parsed.data.content;
+  };
+  const tableAutoPageRelationshipPartUri = (partUri) => partUri.slice(
+    0,
+    partUri.lastIndexOf('/'),
+  ) + '/_rels/' + basename(partUri) + '.rels';
+  const tableAutoPageSourcePartUri = tableAutoPageSlides.data[1].partUri;
+  const tableAutoPageGeneratedPartUri = tableAutoPageSlides.data[2].partUri;
+  const tableAutoPageSentinelPartUri = tableAutoPageSlides.data[3].partUri;
+  const tableAutoPageTargetPartUri = tableAutoPageSlides.data[4].partUri;
+  const tableAutoPageSourcePart = tableAutoPageReadPart(tableAutoPageSourcePartUri);
+  const tableAutoPageGeneratedPart = tableAutoPageReadPart(tableAutoPageGeneratedPartUri);
+  const tableAutoPageSentinelPart = tableAutoPageReadPart(tableAutoPageSentinelPartUri);
+  const tableAutoPageSourceRelationships = tableAutoPageReadPart(
+    tableAutoPageRelationshipPartUri(tableAutoPageSourcePartUri),
+  );
+  const tableAutoPageGeneratedRelationships = tableAutoPageReadPart(
+    tableAutoPageRelationshipPartUri(tableAutoPageGeneratedPartUri),
+  );
+  const tableAutoPageSentinelRelationships = tableAutoPageReadPart(
+    tableAutoPageRelationshipPartUri(tableAutoPageSentinelPartUri),
+  );
+  const tableAutoPageRows = (xml) => [
+    ...xml.matchAll(/<a:tr\b[^>]*>[\s\S]*?<\/a:tr>/g),
+  ].map((match) => match[0]);
+  const tableAutoPageGridWidths = (xml) => [
+    ...xml.matchAll(/<a:gridCol\b[^>]*\bw="(\d+)"[^>]*\/>/g),
+  ].map((match) => Number(match[1]));
+  const tableAutoPageClickIds = (xml) => [
+    ...xml.matchAll(/<a:hlinkClick\b[^>]*\br:id="([^"]+)"[^>]*\/>/g),
+  ].map((match) => match[1]);
+  const tableAutoPageRelationshipElements = (xml) => [
+    ...xml.matchAll(/<Relationship\b[^>]*\/>/g),
+  ].map((match) => match[0]);
+  const tableAutoPageLinkRelationships = (xml) => tableAutoPageRelationshipElements(xml)
+    .filter((relationship) =>
+      relationship.includes('/relationships/hyperlink"') ||
+      relationship.includes('/relationships/slide"'));
+  const tableAutoPageRelationshipIds = (relationships) => new Set(
+    relationships.map((relationship) => relationship.match(/\bId="([^"]+)"/)?.[1]),
+  );
+  const tableAutoPagePartShape = (xml, bodyText, edited) => {
+    const rows = tableAutoPageRows(xml);
+    const clickIds = tableAutoPageClickIds(xml);
+    return xml.includes('<a:tbl>') &&
+      xml.includes('name="Packed table auto page"') &&
+      rows.length === 4 &&
+      rows.every((row) => (row.match(/<a:tc(?:\s[^>]*)?>/g) ?? []).length === 3) &&
+      rows.every((row) => row.includes('<a:tr h="457200">')) &&
+      JSON.stringify(tableAutoPageGridWidths(xml)) ===
+        JSON.stringify([914400, 914400, 914400]) &&
+      xml.includes('<a:off x="914400" y="2857500"/>') &&
+      xml.includes('<a:ext cx="2743200" cy="1828800"/>') &&
+      xml.includes('<a:tc rowSpan="2" gridSpan="2">') &&
+      xml.includes('<a:tc rowSpan="2" hMerge="1">') &&
+      xml.includes('<a:tc gridSpan="2" vMerge="1">') &&
+      xml.includes('<a:tc vMerge="1" hMerge="1">') &&
+      xml.includes('>Packed auto-page header </a:t>') &&
+      xml.includes('>external</a:t>') &&
+      xml.includes('> target</a:t>') &&
+      xml.includes('>' + bodyText + '</a:t>') &&
+      (edited ? xml.includes('>Packed auto-page edited</a:t>') : true) &&
+      clickIds.length === (edited ? 5 : 4);
+  };
+  const tableAutoPageLinksMatch = (slideXml, relationshipsXml, expectedInternal) => {
+    const clickIds = tableAutoPageClickIds(slideXml);
+    const links = tableAutoPageLinkRelationships(relationshipsXml);
+    const ids = tableAutoPageRelationshipIds(links);
+    return clickIds.length === links.length &&
+      new Set(clickIds).size === links.length &&
+      clickIds.every((id) => ids.has(id)) &&
+      links.filter((relationship) => relationship.includes('TargetMode="External"'))
+        .length === 3 &&
+      links.filter((relationship) => relationship.includes('/relationships/slide"'))
+        .length === expectedInternal &&
+      links.filter((relationship) => relationship.includes('/relationships/slide"'))
+        .every((relationship) => relationship.includes(
+          'Target="' + basename(tableAutoPageTargetPartUri) + '"',
+        ));
+  };
+  const tableAutoPageSourceLayout = tableAutoPageRelationshipElements(
+    tableAutoPageSourceRelationships,
+  ).find((relationship) => relationship.includes('/relationships/slideLayout"'));
+  const tableAutoPageGeneratedLayout = tableAutoPageRelationshipElements(
+    tableAutoPageGeneratedRelationships,
+  ).find((relationship) => relationship.includes('/relationships/slideLayout"'));
+  const tableAutoPageSentinelLayout = tableAutoPageRelationshipElements(
+    tableAutoPageSentinelRelationships,
+  ).find((relationship) => relationship.includes('/relationships/slideLayout"'));
+  const tableAutoPageLayoutTarget = (relationship) =>
+    relationship?.match(/\bTarget="([^"]+)"/)?.[1];
+  const tableAutoPageInspect =
+    tableAutoPagePartShape(tableAutoPageSourcePart, 'Packed body A', false) &&
+    tableAutoPagePartShape(tableAutoPageGeneratedPart, 'Packed body B', true) &&
+    !tableAutoPageSourcePart.includes('>Packed body B</a:t>') &&
+    !tableAutoPageGeneratedPart.includes('>Packed body A</a:t>') &&
+    !tableAutoPageSourcePart.includes('>Packed tail</a:t>') &&
+    !tableAutoPageGeneratedPart.includes('>Packed tail</a:t>') &&
+    !tableAutoPageSentinelPart.includes('<a:tbl>') &&
+    tableAutoPageLinksMatch(
+      tableAutoPageSourcePart,
+      tableAutoPageSourceRelationships,
+      1,
+    ) &&
+    tableAutoPageLinksMatch(
+      tableAutoPageGeneratedPart,
+      tableAutoPageGeneratedRelationships,
+      2,
+    ) &&
+    tableAutoPageSourceRelationships.includes('https://auto-page.example/header-outer') &&
+    tableAutoPageSourceRelationships.includes('https://auto-page.example/header-run') &&
+    tableAutoPageSourceRelationships.includes('https://auto-page.example/body') &&
+    tableAutoPageGeneratedRelationships.includes('https://auto-page.example/header-outer') &&
+    tableAutoPageGeneratedRelationships.includes('https://auto-page.example/header-run') &&
+    tableAutoPageGeneratedRelationships.includes('https://auto-page.example/edited') &&
+    !tableAutoPageSentinelRelationships.includes('/relationships/hyperlink"') &&
+    !tableAutoPageSentinelRelationships.includes('/relationships/slide"') &&
+    tableAutoPageLayoutTarget(tableAutoPageSourceLayout) !== undefined &&
+    tableAutoPageLayoutTarget(tableAutoPageSourceLayout) ===
+      tableAutoPageLayoutTarget(tableAutoPageGeneratedLayout) &&
+    tableAutoPageLayoutTarget(tableAutoPageSourceLayout) ===
+      tableAutoPageLayoutTarget(tableAutoPageSentinelLayout);
+  if (!tableAutoPageInspect) {
+    throw new Error(
+      `CLI table auto-page part inspection failed: ${JSON.stringify({
+        source: tableAutoPageSourcePartUri,
+        generated: tableAutoPageGeneratedPartUri,
+        sentinel: tableAutoPageSentinelPartUri,
+        target: tableAutoPageTargetPartUri,
+      })}`,
     );
   }
   const tableCellHyperlinkDeckPath = join(
@@ -15552,6 +16125,11 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
     await mkdir(dirname(output), { recursive: true });
     await writeFile(output, await readFile(tableStructureEditingDeckPath));
   }
+  if (process.env.PPTX_TABLE_AUTO_PAGE_OUT) {
+    const output = resolve(process.env.PPTX_TABLE_AUTO_PAGE_OUT);
+    await mkdir(dirname(output), { recursive: true });
+    await writeFile(output, await readFile(tableAutoPageDeckPath));
+  }
 
   const writeSummary = (serialized) => {
     const summary = JSON.parse(serialized);
@@ -15577,6 +16155,9 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
     summary.tableStructureEditing = apiChecks.tableStructureEditing;
     summary.tableStructureEditingState = apiChecks.tableStructureEditingState;
     summary.tableStructureEditingInspect = tableStructureEditingInspect;
+    summary.tableAutoPage = apiChecks.tableAutoPage;
+    summary.tableAutoPageState = apiChecks.tableAutoPageState;
+    summary.tableAutoPageInspect = tableAutoPageInspect;
     process.stdout.write(`${JSON.stringify(summary)}\n`);
   };
   writeSummary(
