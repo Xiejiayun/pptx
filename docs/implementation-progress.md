@@ -945,8 +945,29 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余 advanced API 与全功能路线
 
-- 总体 PptxGenJS 对等进度仍约 97%；PptxGenJS 4.0.1 声明的六类 presentation runtime catalogs，以及 table-level direct vertical alignment 与 text direction 已支持。
-- 下一小项为 advanced table 的 table-level direct horizontal-alignment 共识读取与批量编辑；之后仍待其他 advanced text/table、`tableToSlides` 与最终 peer/client audit，当前不声明完整 PptxGenJS parity。
+- 该检查点总体 PptxGenJS 对等进度约 97%；table-level direct horizontal alignment 已在下一专项完成。
+
+## PptxGenJS 全功能对等：Table-level direct horizontal alignment
+
+状态：完成；实施与证据 7/7
+
+### 本阶段 change
+
+- 新增 live `TableModel.horizontalAlignment: TextAlignment | undefined`。Getter 只在 exact direct table path 上的全部 physical cells 都具有同一安全合法、唯一单段落 direct `pPr@algn` 时返回 `left`、`center`、`right` 或 `justify`；absent、mixed、empty、multi-paragraph、malformed 或 ambiguous state 返回 `undefined`，不会把 absence 合成为 `left`，读取也不修改 package。
+- Setter 接受同一四值或 `undefined`，在单一 transaction 内覆盖或清除全部 physical cells，包括 merge continuations；`left` 写显式 `algn="l"`，只有 `undefined` 清除属性。缺少 `pPr` 时合法值可安全创建；合法同值与全 absent clear 是 exact bytes/journal no-op，late-cell unsafe state 以 `ModelParseError` 零 partial package mutation 拒绝。文本、边框、填充、margin、方向、垂直对齐、fit、grid、rows、transform、复制隔离、rollback 与 write/reopen 均保持。
+- DrawingML 只保留 final physical-cell direct state，不存在 synthetic table default 或 `mixed` sentinel；调用方需要 mixed 明细时读取 `rows[].cells[].horizontalAlignment`。PptxGenJS 4.0.1 的四个合法创建值按最终 direct state 导入，omitted 为 `undefined`，table/cell override 混合态投影为 `undefined`；native existing-deck bulk edit 是相同 OOXML state 上的 lossless extension。
+- 设计为 `48ee395`，实施计划为 `72e8af3`，core API 与 PptxGenJS conformance 为 `cfd09ce`，实际包/Chrome 门禁为 `79185e5`；文档作为独立小项 review、commit、push。
+
+### 验证结果
+
+- Focused 为 6 files / 537 tests；最终 clean full Vitest 为 80 passed / 1 skipped test files、1427 passed / 1 skipped tests。独立 performance gate 1/1（1.34s），两种 TypeScript check、Node/browser tsup 与 declaration build 全部通过。
+- Actual npm tarball 为 62 files，SHA-256 `03b376861aeb799fa21a99dd105871b8943e29bd4fe51c875a508ff295b9f9c0`。Installed Node、generated declarations、browser conditional export、TypeScript consumer 与 CLI 均通过，Node 顶层与 `api` 状态报告 `tableHorizontalAlignment: true`；CLI 最终 slide XML 恰有四个 direct `pPr@algn="r"`，无 `tcPr@algn` 或 `bodyPr@algn` false positive。
+- Packed Node、browser conditional export 与真实 Google Chrome 的 uniform/read-isolation/no-op/mixed/justify-overwrite/explicit-left/clear/right-reopen/invalid-failure-isolation state 全部匹配，均报告 `tableHorizontalAlignment: true`；Chrome validation/console/page/network errors 为 0。完整证据位于 `/tmp/pptx-table-horizontal-alignment-artifacts.oe2f5A`，未进入仓库。
+
+### 剩余 advanced API 与全功能路线
+
+- 总体 PptxGenJS 对等进度仍约 97%；PptxGenJS 4.0.1 声明的六类 presentation runtime catalogs，以及 table-level direct vertical alignment、text direction 与 horizontal alignment 已支持。
+- 比较 table-level margin、border 与 fill 后，margin 仅管理四个 direct signed-Int32 属性并已具备成熟 cell normalizer/editor，范围最小；下一小项选择 table-level direct margins 共识读取与批量编辑。之后仍待 table-level border/fill、其他 advanced text/table、`tableToSlides` 与最终 peer/client audit，当前不声明完整 PptxGenJS parity。
 
 ## 0.1.0 初始验收
 

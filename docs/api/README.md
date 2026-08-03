@@ -333,7 +333,30 @@ table.textDirection = undefined;
 
 PptxGenJS 4.0.1 collapses resolved horizontal table creation to attribute absence, so importing that output yields `undefined` at table level rather than `horz`; its three non-horizontal values import exactly. Explicit native `horz` and existing-deck bulk editing are intentional lossless extensions over the same OOXML direct state. Final verification is 5 focused files / 529 focused tests, 79 passed / 1 skipped full test files, 1419 passed / 1 skipped full tests, and performance 1/1 at 1118ms. The actual 62-file tarball SHA-256 is `5f427a8ff77cf64f6dda593ec02fdbe405c44d22481f0357bf05fa39b63ec92d`; installed Node/types/browser/CLI and real Chrome report `tableTextDirection: true`, with zero Chrome validation, console, page, or network errors. Evidence is retained at `/tmp/pptx-table-text-direction-artifacts.BksCOP`.
 
-Overall parity remains approximately 97%. Table-level direct horizontal-alignment consensus read/bulk edit is next, followed by the remaining advanced text/table work, `tableToSlides`, and the final peer/client audit.
+## Table-level horizontal alignment
+
+```ts
+import { PptxDocument, type TextAlignment } from '@jiayunxie/pptx';
+
+const document = PptxDocument.create();
+const table = document.addSlide().addTable([
+  ['North', 'South'],
+  ['East', 'West'],
+], { align: 'center' });
+
+const uniform: TextAlignment | undefined = table.horizontalAlignment; // center
+table.setCellHorizontalAlignment(0, 1, 'right');
+const mixed = table.horizontalAlignment; // undefined
+table.horizontalAlignment = 'justify';
+table.horizontalAlignment = 'left'; // explicit direct left
+table.horizontalAlignment = undefined;
+```
+
+`TableModel.horizontalAlignment` reads strict consensus from every physical cell's unique direct single-paragraph `pPr@algn`. It returns `left`, `center`, `right`, or `justify` only when every cell has that same safe direct value. Absent, mixed, empty, multi-paragraph, or unsafe state returns `undefined`; absent state is never synthesized as `left`. Assigning a legal value atomically replaces every physical cell, including merge continuations. `left` writes an explicit direct token, while `undefined` clears every direct alignment. Exact no-ops preserve slide bytes and the mutation journal. Callers needing mixed detail inspect `rows[].cells[].horizontalAlignment`. Unsafe edits raise `ModelParseError` without partial package mutation and preserve unrelated cell/table state.
+
+PptxGenJS 4.0.1's four legal table-alignment creation values import exactly from their final direct state. Omitted alignment remains `undefined`; a table value plus a differing cell override projects to mixed `undefined`. Native existing-deck bulk editing is an intentional lossless extension. Final verification is 6 focused files / 537 focused tests, 80 passed / 1 skipped full test files, 1427 passed / 1 skipped full tests, and performance 1/1 at 1.34s. The actual 62-file tarball SHA-256 is `03b376861aeb799fa21a99dd105871b8943e29bd4fe51c875a508ff295b9f9c0`; installed Node/types/browser/CLI and real Chrome report `tableHorizontalAlignment: true`. CLI inspection finds exactly four direct final `pPr@algn="r"` tokens and no `tcPr/bodyPr@algn`; Chrome validation, console, page, and network errors are zero. Evidence is retained at `/tmp/pptx-table-horizontal-alignment-artifacts.oe2f5A`.
+
+Overall parity remains approximately 97%. Table-level direct margins consensus read/bulk edit is next, followed by table-level border/fill, the remaining advanced text/table work, `tableToSlides`, and the final peer/client audit.
 
 ## Embedded raster images
 

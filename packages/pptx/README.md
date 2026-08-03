@@ -1058,7 +1058,30 @@ table.textDirection = undefined;  // clears every direct tcPr@vert
 
 PptxGenJS 4.0.1 collapses resolved horizontal creation to attribute absence, so importing that output yields `table.textDirection === undefined`, not `horz`; the three non-horizontal creation values import as their final direct state. Explicit native `horz` and existing-deck bulk editing are lossless extensions over the same OOXML direct state. Focused verification is 5 files / 529 tests; final full verification is 79 passed / 1 skipped test files and 1419 passed / 1 skipped tests, with performance 1/1 at 1118ms. The actual 62-file tarball SHA-256 is `5f427a8ff77cf64f6dda593ec02fdbe405c44d22481f0357bf05fa39b63ec92d`; installed Node/types/browser/CLI and real Chrome report `tableTextDirection: true`, with zero Chrome validation, console, page, or network errors. Evidence is retained at `/tmp/pptx-table-text-direction-artifacts.BksCOP`.
 
-Overall PptxGenJS parity remains approximately 97%. The next item is advanced-table table-level direct horizontal-alignment consensus read/bulk edit, followed by the remaining advanced text/table work, `tableToSlides`, and the final peer/client audit.
+## Read and bulk-edit table-level horizontal alignment
+
+```ts
+import { PptxDocument, type TextAlignment } from '@jiayunxie/pptx';
+
+const document = PptxDocument.create();
+const table = document.addSlide().addTable([
+  ['North', 'South'],
+  ['East', 'West'],
+], { align: 'center' });
+
+const uniform: TextAlignment | undefined = table.horizontalAlignment; // center
+table.setCellHorizontalAlignment(0, 1, 'right');
+console.log(table.horizontalAlignment); // undefined: mixed direct cell state
+table.horizontalAlignment = 'justify'; // overwrites every physical cell
+table.horizontalAlignment = 'left';    // writes explicit pPr@algn="l"
+table.horizontalAlignment = undefined; // clears every direct pPr@algn
+```
+
+`TableModel.horizontalAlignment` is a strict consensus projection over every physical cell's unique single-paragraph direct `pPr@algn`. It returns `left`, `center`, `right`, or `justify` only when every cell has the same safe direct value; absent, mixed, empty, multi-paragraph, or unsafe state returns `undefined`, and absence is never synthesized as `left`. Assignment atomically overwrites every physical cell, including merge continuations. `left` writes an explicit `algn="l"`, while only `undefined` clears the attribute. Same-value assignment and an all-absent clear are exact no-ops. Inspect `rows[].cells[].horizontalAlignment` for mixed detail. Unsafe edits fail with `ModelParseError` and zero partial package mutation while preserving unrelated cell/table state.
+
+All four legal PptxGenJS 4.0.1 table-alignment creation values import from their final direct state; omitted alignment remains `undefined`, and table center plus a right cell override projects to mixed `undefined`. Native existing-deck bulk editing is a lossless extension over the same OOXML state. Focused verification is 6 files / 537 tests; final full verification is 80 passed / 1 skipped test files and 1427 passed / 1 skipped tests, with performance 1/1 at 1.34s. The actual 62-file tarball SHA-256 is `03b376861aeb799fa21a99dd105871b8943e29bd4fe51c875a508ff295b9f9c0`; installed Node/types/browser/CLI and real Chrome report `tableHorizontalAlignment: true`. CLI inspection finds exactly four direct `pPr@algn="r"` tokens and no `tcPr/bodyPr@algn`, while Chrome has zero validation, console, page, or network errors. Evidence is retained at `/tmp/pptx-table-horizontal-alignment-artifacts.oe2f5A`.
+
+Overall PptxGenJS parity remains approximately 97%. The next item is advanced-table table-level direct margins consensus read/bulk edit, followed by table-level border/fill, the remaining advanced text/table work, `tableToSlides`, and the final peer/client audit.
 
 `PRESET_SHAPE_TYPES` is the frozen discovery catalog for all 178 canonical preset geometries accepted by `SlideModel.addShape()`. `AddShapeOptions` accepts `name`, strict `adjustments`, strict `fill`, strict `line`, strict `arrows`, strict `shadow`, strict `hyperlink`, and native EMU/OOXML-angle transform fields; use `inches()` and `degrees()` for ergonomic conversion. Omitted geometry starts at x/y/width/height = 1 inch with zero rotation and no flips; omitted fill creates direct no-fill, and omitted line keeps the canonical empty line container. Inputs are strict, descriptor-safe, detached before mutation, and reject unknown fields. The catalog uses the valid OOXML `foldedCorner`; PptxGenJS 4.0.1's invalid `folderCorner` token and runtime-only `custGeom` value are not accepted as presets.
 

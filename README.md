@@ -941,7 +941,30 @@ table.textDirection = undefined;  // 清除全部 direct tcPr@vert
 
 PptxGenJS 4.0.1 创建期会把 resolved `horz` 折叠为属性缺失，因此这类文件导入后的 `table.textDirection` 是 `undefined`，而不是 `horz`；三个非水平值可按最终 direct state 精确读取。显式 native `horz` 与 existing-deck bulk edit 是相同 OOXML direct state 上的 lossless 扩展。Focused 为 5 files / 529 tests，最终 full 为 79 passed / 1 skipped test files、1419 passed / 1 skipped tests，performance 1/1（1118ms）。实际 62-file tarball SHA-256 为 `5f427a8ff77cf64f6dda593ec02fdbe405c44d22481f0357bf05fa39b63ec92d`；installed Node/types/browser/CLI 与真实 Chrome 均报告 `tableTextDirection: true`，Chrome validation/console/page/network errors 为 0。证据位于 `/tmp/pptx-table-text-direction-artifacts.BksCOP`。
 
-总体 PptxGenJS 对等进度仍约 97%。下一小项为 advanced table 的 table-level direct horizontal-alignment 共识读取与批量编辑；之后仍待其他 advanced text/table、`tableToSlides` 与最终 peer/client audit。
+## 表格级水平对齐读取与批量编辑
+
+```ts
+import { PptxDocument, type TextAlignment } from '@jiayunxie/pptx';
+
+const document = PptxDocument.create();
+const table = document.addSlide().addTable([
+  ['North', 'South'],
+  ['East', 'West'],
+], { align: 'center' });
+
+const uniform: TextAlignment | undefined = table.horizontalAlignment; // center
+table.setCellHorizontalAlignment(0, 1, 'right');
+console.log(table.horizontalAlignment); // undefined: mixed direct cell state
+table.horizontalAlignment = 'justify'; // 覆盖全部 physical cells
+table.horizontalAlignment = 'left';    // 显式写入每个 pPr@algn="l"
+table.horizontalAlignment = undefined; // 清除全部 direct pPr@algn
+```
+
+`TableModel.horizontalAlignment` 是全部物理 cell 唯一单段落 direct `pPr@algn` 的严格共识投影：只有每个 cell 都存在同一个安全合法值时才返回 `left`、`center`、`right` 或 `justify`；absent、mixed、empty、multi-paragraph 或 unsafe state 都返回 `undefined`，且属性缺失绝不合成为 `left`。赋值会在单一事务中覆盖全部 physical cells（包括 merge continuation），其中 `left` 写显式 `algn="l"`，只有 `undefined` 才清除属性；同值和全 absent clear 是 exact no-op。需要查看 mixed 明细时使用 `rows[].cells[].horizontalAlignment`。不安全结构会以 `ModelParseError` 零 partial mutation 拒绝，并保留所有无关 cell/table 状态。
+
+PptxGenJS 4.0.1 的四个合法 table alignment 创建值可按最终 direct state 精确导入；omitted alignment 保持 `undefined`，table center 加单 cell right override 会投影为 mixed `undefined`。Native existing-deck bulk edit 是相同 OOXML direct state 上的 lossless 扩展。Focused 为 6 files / 537 tests，最终 full 为 80 passed / 1 skipped test files、1427 passed / 1 skipped tests，performance 1/1（1.34s）。实际 62-file tarball SHA-256 为 `03b376861aeb799fa21a99dd105871b8943e29bd4fe51c875a508ff295b9f9c0`；installed Node/types/browser/CLI 与真实 Chrome 均报告 `tableHorizontalAlignment: true`，CLI 确认最终 slide 恰有四个 direct `pPr@algn="r"` 且无 `tcPr/bodyPr@algn`，Chrome validation/console/page/network errors 为 0。证据位于 `/tmp/pptx-table-horizontal-alignment-artifacts.oe2f5A`。
+
+总体 PptxGenJS 对等进度仍约 97%。下一小项为 advanced table 的 table-level direct margins 共识读取与批量编辑；之后仍待 table-level border/fill、其他 advanced text/table、`tableToSlides` 与最终 peer/client audit。
 
 ## 创建和编辑预设形状、调整值与样式
 
