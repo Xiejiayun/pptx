@@ -201,11 +201,14 @@ import {
   relationshipReferenceCount,
   renderShapeHyperlink,
   replaceShapeHyperlinkElement,
+  replaceTextRunHyperlinkElement,
   requireShapeHyperlinkRelationshipId,
   shapeHyperlinksEqual,
   SLIDE_RELATIONSHIP_TYPE,
   type NormalizedHyperlink,
 } from './shape-hyperlink.internal.js';
+import { requireEditableTableCellHyperlinkState } from './table-cell-hyperlink.internal.js';
+import { readDirectTablePhysicalCellMatrix } from './table-physical-cells.internal.js';
 import {
   normalizeTextBoxMargins,
   readTextBoxMargins,
@@ -888,6 +891,135 @@ export class SlideModel {
         ) === 0
       ) {
         this.presentation.opcPackage.removeRelationship(this.partUri, relationshipId);
+      }
+    });
+  }
+
+  setTableCellHyperlink(
+    id: number,
+    rowIndex: number,
+    columnIndex: number,
+    value: Hyperlink | undefined,
+  ): void {
+    const hyperlink = value === undefined
+      ? undefined
+      : normalizeHyperlink(value, 'Table cell hyperlink');
+    let targetSlide: SlideModel | undefined;
+    if (hyperlink?.slide !== undefined) {
+      targetSlide = this.presentation.slides[hyperlink.slide - 1];
+      if (!targetSlide) {
+        throw new RangeError(
+          `Table cell ${rowIndex},${columnIndex} hyperlink slide ` +
+          `${hyperlink.slide} is out of range`,
+        );
+      }
+    }
+
+    this.presentation.opcPackage.transaction(() => {
+      const { xml, element } = this.resolveShape(id);
+      const matrix = readDirectTablePhysicalCellMatrix(element);
+      if (!matrix) {
+        throw new ModelParseError('Table cell hyperlink state is not safely editable', this.partUri);
+      }
+      const cell = matrix[rowIndex]?.[columnIndex];
+      if (!cell) {
+        throw new RangeError(`Table cell ${rowIndex},${columnIndex} was not found`);
+      }
+      const current = requireEditableTableCellHyperlinkState(
+        cell,
+        {
+          relationships: this.relationships,
+          slidePartUris: this.presentation.slides.map(({ partUri }) => partUri),
+        },
+        this.partUri,
+      );
+      if (shapeHyperlinksEqual(current.hyperlink, hyperlink)) return;
+
+      if (hyperlink === undefined) {
+        replaceTextRunHyperlinkElement(
+          xml,
+          current.properties,
+          undefined,
+          undefined,
+          this.partUri,
+        );
+        const updated = xml.serialize();
+        this.setXml(updated);
+        if (
+          current.relationshipId !== undefined
+          && relationshipReferenceCount(
+            LosslessXmlDocument.parse(updated),
+            current.relationshipId,
+          ) === 0
+        ) {
+          this.presentation.opcPackage.removeRelationship(
+            this.partUri,
+            current.relationshipId,
+          );
+        }
+        return;
+      }
+
+      if (
+        current.hyperlink !== undefined
+        && current.relationshipId !== undefined
+        && shapeHyperlinkTargetsEqual(current.hyperlink, hyperlink)
+      ) {
+        replaceTextRunHyperlinkElement(
+          xml,
+          current.properties,
+          hyperlink,
+          current.relationshipId,
+          this.partUri,
+        );
+        this.setXml(xml.serialize());
+        return;
+      }
+
+      const relationshipInput: RelationshipInput = hyperlink.url !== undefined
+        ? {
+            type: HYPERLINK_RELATIONSHIP_TYPE,
+            target: hyperlink.url,
+            targetMode: 'External',
+          }
+        : {
+            type: SLIDE_RELATIONSHIP_TYPE,
+            target: relativeRelationshipTarget(this.partUri, targetSlide!.partUri),
+            targetMode: 'Internal',
+          };
+      const canUpdateRelationship = current.relationshipId !== undefined
+        && relationshipReferenceCount(xml, current.relationshipId) === 1;
+      const nextRelationshipId = canUpdateRelationship
+        ? this.presentation.opcPackage.updateRelationship(
+            this.partUri,
+            current.relationshipId!,
+            relationshipInput,
+          ).id
+        : this.presentation.opcPackage.addRelationship(
+            this.partUri,
+            relationshipInput,
+          ).id;
+      replaceTextRunHyperlinkElement(
+        xml,
+        current.properties,
+        hyperlink,
+        nextRelationshipId,
+        this.partUri,
+      );
+      const updated = xml.serialize();
+      this.setXml(updated);
+      if (
+        current.relationshipId !== undefined
+        && current.relationshipId !== nextRelationshipId
+        && relationshipReferenceCount(
+          LosslessXmlDocument.parse(updated),
+          current.relationshipId,
+        ) === 0
+      ) {
+        this.presentation.opcPackage.removeRelationship(
+          this.partUri,
+          current.relationshipId,
+        );
       }
     });
   }

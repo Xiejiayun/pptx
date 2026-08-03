@@ -11308,7 +11308,7 @@ describe('PptxDocument vertical slice', () => {
       .toBe('shrink');
   });
 
-  it('creates and reads table-cell hyperlinks through the public SDK surface', async () => {
+  it('creates and edits table-cell hyperlinks through the public SDK surface', async () => {
     const document = PptxDocument.create();
     const source = document.addSlide();
     const target = document.addSlide();
@@ -11352,21 +11352,48 @@ describe('PptxDocument vertical slice', () => {
     expect(source.relationships).toEqual(relationships);
     expect(document.opcPackage.mutations).toEqual(journal);
 
+    const beforeNoOp = document.opcPackage.requirePart(source.partUri).bytes;
+    const beforeNoOpJournal = [...document.opcPackage.mutations];
+    table.setCellHyperlink(0, 0, url);
+    expect(document.opcPackage.requirePart(source.partUri).bytes).toEqual(beforeNoOp);
+    expect(document.opcPackage.mutations).toEqual(beforeNoOpJournal);
+
+    const editedUrl: Hyperlink = {
+      url: 'https://sdk-edit.example?a=1&b=2',
+      tooltip: '',
+    };
+    table.setCellHyperlink(0, 0, editedUrl);
+    table.setCellHyperlink(0, 1, { slide: 2, tooltip: 'SDK target' });
+    table.setCellHyperlink(0, 2, { url: 'https://temporary.example' });
+    expect(table.rows[0]!.cells.map((candidate) => candidate.hyperlink)).toEqual([
+      editedUrl,
+      { slide: 2, tooltip: 'SDK target' },
+      { url: 'https://temporary.example' },
+    ]);
+    table.setCellHyperlink(0, 2, undefined);
+    expect(source.shapes[0]).toBe(table);
+
     table.setCellText(0, 0, 'URL edited');
     document.moveSlide(document.slides.indexOf(target), 0);
-    expect(table.rows[0]!.cells[1]!.hyperlink).toEqual({ slide: 1, tooltip: '' });
+    expect(table.rows[0]!.cells[1]!.hyperlink).toEqual({
+      slide: 1,
+      tooltip: 'SDK target',
+    });
     document.moveSlide(0, document.slides.length - 1);
     const duplicate = document.duplicateSlide(document.slides.indexOf(source));
     expect((duplicate.shapes[0] as TableModel).rows[0]!.cells[1]!.hyperlink)
-      .toEqual({ slide: document.slides.indexOf(target) + 1, tooltip: '' });
+      .toEqual({
+        slide: document.slides.indexOf(target) + 1,
+        tooltip: 'SDK target',
+      });
 
     const reopened = await PptxDocument.open(await document.write());
     const reopenedSource = reopened.slides.find(({ partUri }) => partUri === source.partUri)!;
     const reopenedTable = reopenedSource.shapes[0] as TableModel;
     expect(reopenedTable.rows[0]!.cells.map((candidate) => candidate.hyperlink)).toEqual([
-      url,
+      editedUrl,
       { slide: reopened.slides.findIndex(({ partUri }) => partUri === target.partUri) + 1,
-        tooltip: '' },
+        tooltip: 'SDK target' },
       undefined,
     ]);
 
@@ -11402,6 +11429,12 @@ describe('PptxDocument vertical slice', () => {
       ];
       // @ts-expect-error there is no table-level hyperlink default
       source.addTable([['A']], { hyperlink: url });
+      // @ts-expect-error table-cell hyperlink editor requires a supported hyperlink
+      table.setCellHyperlink(0, 0, {});
+      // @ts-expect-error table-cell hyperlink editor URL and slide targets are exclusive
+      table.setCellHyperlink(0, 0, { url: 'https://example.com', slide: 2 });
+      // @ts-expect-error table-cell hyperlink snapshots are readonly
+      cell.hyperlink = { url: 'https://mutated.example' };
       expect(invalid).toHaveLength(6);
     }
   });

@@ -1,8 +1,10 @@
 import { LosslessXmlDocument, type XmlElement } from '@pptx/lossless-xml';
 import type { Relationship } from '@pptx/opc';
 import { describe, expect, it } from 'vitest';
+import { ModelParseError } from './errors.js';
 import {
   readTableCellHyperlink,
+  requireEditableTableCellHyperlinkState,
 } from './table-cell-hyperlink.internal.js';
 import type { ShapeHyperlinkReadContext } from './shape-hyperlink.internal.js';
 
@@ -120,6 +122,80 @@ describe('table-cell hyperlinks', () => {
       url: 'https://example.com?a=1&b=2',
       tooltip: 'Visit & learn',
     });
+  });
+
+  it('requires a safe editable run and distinguishes absent from linked state', () => {
+    const unlinked = parseCell(paragraph());
+    const absent = requireEditableTableCellHyperlinkState(
+      unlinked.cell,
+      context([]),
+      '/ppt/slides/slide1.xml',
+    );
+    expect(absent.properties.localName).toBe('rPr');
+    expect(absent.hyperlink).toBeUndefined();
+    expect(absent.relationshipId).toBeUndefined();
+
+    const linked = parseCell(paragraph(
+      '<a:hlinkClick r:id="rId7" tooltip=""/>',
+    ));
+    const state = requireEditableTableCellHyperlinkState(
+      linked.cell,
+      context([external('https://example.com', 'rId7')]),
+      '/ppt/slides/slide1.xml',
+    );
+    expect(state.properties.localName).toBe('rPr');
+    expect(state.hyperlink).toEqual({ url: 'https://example.com', tooltip: '' });
+    expect(state.relationshipId).toBe('rId7');
+  });
+
+  it('rejects structurally unsafe or undecodable editable state', () => {
+    const cases = [
+      {
+        parsed: parseCell('<a:bodyPr/><a:lstStyle/><a:p/><a:p/>'),
+        relationships: [],
+      },
+      {
+        parsed: parseCell(
+          '<a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr/><a:t>A</a:t></a:r>' +
+          '<a:r><a:rPr/><a:t>B</a:t></a:r></a:p>',
+        ),
+        relationships: [],
+      },
+      {
+        parsed: parseCell(
+          '<a:bodyPr/><a:lstStyle/><a:p><a:r><a:t>A</a:t></a:r></a:p>',
+        ),
+        relationships: [],
+      },
+      {
+        parsed: parseCell(paragraph('<x:hlinkClick r:id="rId7"/>')),
+        relationships: [external()],
+      },
+      {
+        parsed: parseCell(paragraph(
+          '<a:hlinkClick r:id="rId7"/><a:hlinkClick r:id="rId8"/>',
+        )),
+        relationships: [external(), external('https://other.example', 'rId8')],
+      },
+      {
+        parsed: parseCell(paragraph('<a:hlinkClick r:id="missing"/>')),
+        relationships: [external()],
+      },
+      {
+        parsed: parseCell(paragraph(
+          '<a:hlinkClick r:id="rId7" action="ppaction://unsupported"/>',
+        )),
+        relationships: [external()],
+      },
+    ];
+    for (const { parsed, relationships } of cases) {
+      expect(() => requireEditableTableCellHyperlinkState(
+        parsed.cell,
+        context(relationships),
+        '/ppt/slides/slide1.xml',
+      )).toThrow(ModelParseError);
+      expect(parsed.xml.changed).toBe(false);
+    }
   });
 
   it('returns undefined for unsupported cell text ownership', () => {

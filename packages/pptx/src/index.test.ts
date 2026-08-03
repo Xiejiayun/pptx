@@ -861,7 +861,7 @@ describe('@jiayunxie/pptx stable exports', () => {
     expect(invalid).toHaveLength(6);
   });
 
-  it('exports table-cell hyperlink creation types and runtime from the root package', async () => {
+  it('exports table-cell hyperlink creation and editing from the root package', async () => {
     const url: Hyperlink = {
       url: 'https://root-table.example?a=1&b=2',
       tooltip: 'Root table link',
@@ -879,13 +879,23 @@ describe('@jiayunxie/pptx stable exports', () => {
 
     expect(hyperlink).toEqual(url);
     expect(table.rows[0]!.cells[1]!.hyperlink).toEqual({ slide: 2, tooltip: '' });
+    const typedTable: TableModel = table;
+    typedTable.setCellHyperlink(0, 0, {
+      url: 'https://root-table-edited.example?a=1&b=2',
+      tooltip: '',
+    });
+    typedTable.setCellHyperlink(0, 1, { slide: 2, tooltip: 'Root target' });
+    expect(typedTable.rows[0]!.cells.map((candidate) => candidate.hyperlink)).toEqual([
+      { url: 'https://root-table-edited.example?a=1&b=2', tooltip: '' },
+      { slide: 2, tooltip: 'Root target' },
+    ]);
     const reopened = await PptxDocument.open(await document.write());
     const reopenedTable = reopened.slides[0]!.shapes.find(
       ({ name }) => name === 'root_table_cell_hyperlinks',
     ) as TableModel;
     expect(reopenedTable.rows[0]!.cells.map((candidate) => candidate.hyperlink)).toEqual([
-      url,
-      { slide: 2, tooltip: '' },
+      { url: 'https://root-table-edited.example?a=1&b=2', tooltip: '' },
+      { slide: 2, tooltip: 'Root target' },
     ]);
 
     if (false) {
@@ -920,6 +930,12 @@ describe('@jiayunxie/pptx stable exports', () => {
       ];
       // @ts-expect-error there is no table-level hyperlink default
       source.addTable([['A']], { hyperlink: url });
+      // @ts-expect-error table-cell hyperlink editor requires exactly one target
+      typedTable.setCellHyperlink(0, 0, {});
+      // @ts-expect-error table-cell hyperlink editor URL must be a string
+      typedTable.setCellHyperlink(0, 0, { url: 42 });
+      // @ts-expect-error table-cell hyperlink snapshots are readonly
+      cell.hyperlink = { slide: 2 };
       expect(invalid).toHaveLength(6);
     }
   });

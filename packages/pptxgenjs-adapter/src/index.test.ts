@@ -8943,7 +8943,7 @@ describe('importPptxGenJS', () => {
     ]);
   });
 
-  it('imports and matches legal PptxGenJS plain table-cell hyperlinks', async () => {
+  it('imports and edits legal PptxGenJS plain table-cell hyperlinks', async () => {
     const generated = new PptxGenJS();
     expect(generated.version).toBe('4.0.1');
     const source = generated.addSlide();
@@ -8995,6 +8995,49 @@ describe('importPptxGenJS', () => {
     expect(importedXml).toContain('invalidUrl="" action=""');
     expect(importedXml).toContain('action="ppaction://hlinksldjump" tooltip=""');
 
+    const callerUrlRelationshipId = generatedUrl._rId;
+    const callerInternalRelationshipId = generatedInternal._rId;
+    const externalRelationshipId = importedRelationships.find(
+      ({ type }) => type.endsWith('/hyperlink'),
+    )!.id;
+    const internalRelationshipId = importedRelationships.find(
+      ({ resolvedTarget }) => resolvedTarget === imported.slides[1]!.partUri,
+    )!.id;
+    importedTable.setCellHyperlink(0, 0, {
+      url: 'https://adapter-edited.example?a=1&b=2',
+      tooltip: '',
+    });
+    importedTable.setCellHyperlink(0, 1, { slide: 2, tooltip: 'Adapter target' });
+    importedTable.setCellHyperlink(0, 2, { url: 'https://temporary.example' });
+    importedTable.setCellHyperlink(0, 2, undefined);
+    expect(importedTable.rows[0]!.cells.map(({ hyperlink }) => hyperlink)).toEqual([
+      { url: 'https://adapter-edited.example?a=1&b=2', tooltip: '' },
+      { slide: 2, tooltip: 'Adapter target' },
+      undefined,
+    ]);
+    expect(generatedUrl._rId).toBe(callerUrlRelationshipId);
+    expect(generatedInternal._rId).toBe(callerInternalRelationshipId);
+    expect(imported.slides[0]!.relationships.find(({ id }) => id === externalRelationshipId))
+      .toMatchObject({
+        target: 'https://adapter-edited.example?a=1&b=2',
+        targetMode: 'External',
+      });
+    expect(imported.slides[0]!.relationships.find(({ id }) => id === internalRelationshipId))
+      .toMatchObject({ resolvedTarget: imported.slides[1]!.partUri });
+    const editedImportedXml = new TextDecoder().decode(
+      imported.opcPackage.requirePart(imported.slides[0]!.partUri).bytes,
+    );
+    const editedExternalClick = editedImportedXml.match(
+      new RegExp(`<a:hlinkClick\\b[^>]*r:id="${externalRelationshipId}"[^>]*>`),
+    )?.[0];
+    expect(editedExternalClick).toContain('invalidUrl=""');
+    expect(editedExternalClick).toContain('tgtFrame=""');
+    expect(editedExternalClick).toContain('history="1"');
+    expect(editedExternalClick).toContain('highlightClick="0"');
+    expect(editedExternalClick).toContain('endSnd="0"');
+    expect(editedExternalClick).toContain('tooltip=""');
+    expect(editedExternalClick).not.toContain('action=""');
+
     const native = PptxDocument.create();
     const nativeSource = native.addSlide();
     native.addSlide();
@@ -9036,10 +9079,10 @@ describe('importPptxGenJS', () => {
     expect((reopenedImported.slides[0]!.shapes[0] as TableModel)
       .rows[0]!.cells.map(({ hyperlink }) => hyperlink)).toEqual([
       {
-        url: 'https://example.com?a=1&b=2',
-        tooltip: 'Visit & learn',
+        url: 'https://adapter-edited.example?a=1&b=2',
+        tooltip: '',
       },
-      { slide: 2, tooltip: '' },
+      { slide: 2, tooltip: 'Adapter target' },
       undefined,
     ]);
     expect((reopenedNative.slides[0]!.shapes[0] as TableModel)

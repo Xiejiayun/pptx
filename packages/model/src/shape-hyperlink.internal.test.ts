@@ -11,6 +11,7 @@ import {
   requireShapeHyperlinkRelationshipId,
   renderShapeHyperlink,
   replaceShapeHyperlinkElement,
+  replaceTextRunHyperlinkElement,
   shapeHyperlinksEqual,
   type ShapeHyperlinkReadContext,
 } from './shape-hyperlink.internal.js';
@@ -618,6 +619,146 @@ describe('shape hyperlink element replacement', () => {
       expect(xml.changed).toBe(false);
       expect(xml.serialize()).toBe(source);
     }
+  });
+});
+
+describe('text-run hyperlink element replacement', () => {
+  const runProperties = (contents = '', attributes = 'lang="en-US"') => {
+    const source = `<a:rPr xmlns:a="${DRAWING_NAMESPACE}" xmlns:x="urn:test" ` +
+      `${attributes}>${contents}</a:rPr>`;
+    const xml = LosslessXmlDocument.parse(source);
+    return { source, xml, properties: xml.roots[0]! };
+  };
+
+  it('inserts direct clicks with local relationship namespace and default underline', () => {
+    const parsed = runProperties(
+      '<a:solidFill><a:schemeClr val="tx1"/></a:solidFill>' +
+      '<a:extLst><a:ext uri="urn:keep"><x:keep/></a:ext></a:extLst>',
+    );
+    expect(replaceTextRunHyperlinkElement(
+      parsed.xml,
+      parsed.properties,
+      { url: 'https://example.com', tooltip: '' },
+      'rId7',
+      PART_URI,
+    )).toBe(true);
+    const output = parsed.xml.serialize();
+    expect(output).toContain('<a:rPr xmlns:a=');
+    expect(output).toContain('lang="en-US" u="sng"');
+    expect(output).toContain(
+      `<a:hlinkClick xmlns:r="${RELATIONSHIP_NAMESPACE}" r:id="rId7" tooltip=""/>` +
+      '<a:extLst>',
+    );
+    expect(output).toContain('<x:keep/>');
+
+    const explicit = runProperties('', 'lang="en-US" u="none"');
+    replaceTextRunHyperlinkElement(
+      explicit.xml,
+      explicit.properties,
+      { slide: 2 },
+      'rId8',
+      PART_URI,
+    );
+    expect(explicit.xml.serialize()).toContain('u="none"');
+    expect(explicit.xml.serialize()).toContain(
+      'r:id="rId8" action="ppaction://hlinksldjump"',
+    );
+  });
+
+  it('patches owned click state and preserves compatible imported extras', () => {
+    const parsed = runProperties(
+      '<a:solidFill><a:schemeClr val="tx1"/></a:solidFill>' +
+      '<a:hlinkClick xmlns:r="' + RELATIONSHIP_NAMESPACE + '" r:id="rId7" ' +
+      'invalidUrl="" action="" tgtFrame="" tooltip="Old" history="1" ' +
+      'highlightClick="0" endSnd="0"><a:snd r:embed="rIdSound"/>' +
+      '<a:extLst><a:ext uri="urn:click"><x:keep/></a:ext></a:extLst>' +
+      '</a:hlinkClick>',
+      'lang="en-US" u="sng"',
+    );
+    expect(replaceTextRunHyperlinkElement(
+      parsed.xml,
+      parsed.properties,
+      { slide: 2, tooltip: '' },
+      'rId9',
+      PART_URI,
+    )).toBe(true);
+    const output = parsed.xml.serialize();
+    expect(output).toContain('r:id="rId9"');
+    expect(output).toContain('tooltip=""');
+    expect(output).toContain('action="ppaction://hlinksldjump"');
+    expect(output).toContain('invalidUrl=""');
+    expect(output).toContain('history="1"');
+    expect(output).toContain('<a:snd r:embed="rIdSound"/>');
+    expect(output).toContain('<x:keep/>');
+
+    const cleared = LosslessXmlDocument.parse(output);
+    expect(replaceTextRunHyperlinkElement(
+      cleared,
+      cleared.roots[0]!,
+      undefined,
+      undefined,
+      PART_URI,
+    )).toBe(true);
+    expect(cleared.serialize()).not.toContain('hlinkClick');
+    expect(cleared.serialize()).toContain('u="sng"');
+    expect(cleared.serialize()).toContain('<a:solidFill>');
+  });
+
+  it('performs exact no-ops and rejects unsafe direct run state', () => {
+    const same = runProperties(
+      `<a:hlinkClick xmlns:r="${RELATIONSHIP_NAMESPACE}" r:id="rId7" tooltip=""/>`,
+      'lang="en-US" u="sng"',
+    );
+    expect(replaceTextRunHyperlinkElement(
+      same.xml,
+      same.properties,
+      { url: 'https://example.com', tooltip: '' },
+      'rId7',
+      PART_URI,
+    )).toBe(false);
+    expect(same.xml.changed).toBe(false);
+    expect(same.xml.serialize()).toBe(same.source);
+
+    const absent = runProperties();
+    expect(replaceTextRunHyperlinkElement(
+      absent.xml,
+      absent.properties,
+      undefined,
+      undefined,
+      PART_URI,
+    )).toBe(false);
+    expect(absent.xml.changed).toBe(false);
+
+    for (const parsed of [
+      runProperties(
+        `<a:hlinkClick xmlns:r="${RELATIONSHIP_NAMESPACE}" r:id="rId7"/>` +
+        `<a:hlinkClick xmlns:r="${RELATIONSHIP_NAMESPACE}" r:id="rId8"/>`,
+      ),
+      runProperties('<x:hlinkClick/>'),
+      runProperties(
+        `<a:hlinkClick xmlns:r="${RELATIONSHIP_NAMESPACE}" r:id="rId7" ` +
+        'action="ppaction://unsupported"/>',
+      ),
+      runProperties('', 'u="sng" u="none"'),
+    ]) {
+      expect(() => replaceTextRunHyperlinkElement(
+        parsed.xml,
+        parsed.properties,
+        { url: 'https://replacement.example' },
+        'rId9',
+        PART_URI,
+      )).toThrow(ModelParseError);
+      expect(parsed.xml.changed).toBe(false);
+    }
+
+    const mismatched = runProperties();
+    expect(() => replaceTextRunHyperlinkElement(
+      mismatched.xml,
+      mismatched.properties,
+      { url: 'https://example.com' },
+      undefined,
+      PART_URI,
+    )).toThrow(TypeError);
   });
 });
 

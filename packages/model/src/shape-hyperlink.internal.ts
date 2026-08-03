@@ -245,6 +245,88 @@ export function replaceShapeHyperlinkElement(
   return true;
 }
 
+export function replaceTextRunHyperlinkElement(
+  xml: LosslessXmlDocument,
+  properties: XmlElement,
+  hyperlink: NormalizedHyperlink | undefined,
+  relationshipId: string | undefined,
+  partUri: string,
+): boolean {
+  if ((hyperlink === undefined) !== (relationshipId === undefined)) {
+    throw new TypeError('Text run hyperlink and relationship ID must be supplied together');
+  }
+  if (
+    properties.localName !== 'rPr'
+    || namespaceUri(properties) !== DRAWING_NAMESPACE
+  ) {
+    throw new ModelParseError('Text run hyperlink state is not safely editable', partUri);
+  }
+  const underlineAttributes = properties.attributes.filter(({ name }) => name === 'u');
+  if (underlineAttributes.length > 1) {
+    throw new ModelParseError('Text run hyperlink state is not safely editable', partUri);
+  }
+  const candidates = directChildren(properties).filter(
+    ({ localName }) => localName === 'hlinkClick',
+  );
+  if (candidates.length > 1) {
+    throw new ModelParseError('Text run hyperlink state is not safely editable', partUri);
+  }
+  const click = candidates[0]
+    ? inspectHyperlinkElement(candidates[0]!, true)
+    : undefined;
+  if (candidates[0] && !click) {
+    throw new ModelParseError('Text run hyperlink state is not safely editable', partUri);
+  }
+
+  if (!click) {
+    if (!hyperlink) return false;
+    const source = xml.original(properties);
+    const rendered = renderInsertedHyperlink(properties, hyperlink, relationshipId!);
+    if (properties.selfClosing) {
+      const closing = source.lastIndexOf('/>');
+      if (closing < 0) {
+        throw new ModelParseError('Invalid text run properties template', partUri);
+      }
+      const underline = underlineAttributes.length === 0 ? ' u="sng"' : '';
+      xml.replaceElement(
+        properties,
+        source.slice(0, closing) + underline + '>' + rendered +
+          `</${properties.name}>`,
+      );
+      return true;
+    }
+    const anchor = directChildren(properties).find((child) =>
+      namespaceUri(child) === DRAWING_NAMESPACE
+      && (child.localName === 'hlinkMouseOver' || child.localName === 'extLst'));
+    const edits: LocalEdit[] = [{
+      start: (anchor?.start ?? properties.endTagStart) - properties.start,
+      end: (anchor?.start ?? properties.endTagStart) - properties.start,
+      replacement: rendered,
+    }];
+    if (underlineAttributes.length === 0) {
+      const insertion = startTagAttributeInsertion(source, properties);
+      edits.push({ start: insertion, end: insertion, replacement: ' u="sng"' });
+    }
+    xml.replaceElement(properties, applyLocalEdits(source, edits));
+    return true;
+  }
+
+  if (!hyperlink) {
+    xml.removeElement(click.element);
+    return true;
+  }
+  const source = xml.original(click.element);
+  const updated = patchExistingHyperlink(
+    source,
+    click,
+    hyperlink,
+    relationshipId!,
+  );
+  if (updated === source) return false;
+  xml.replaceElement(click.element, updated);
+  return true;
+}
+
 export function shapeHyperlinksEqual(
   left: NormalizedHyperlink | undefined,
   right: NormalizedHyperlink | undefined,
@@ -565,6 +647,13 @@ function patchExistingHyperlink(
   const targetIsInternal = Object.hasOwn(hyperlink, 'slide');
   if (state.action) {
     if (!targetIsInternal) edits.push(removeAttributeEdit(source, state.action, offset));
+    else if (state.action.value !== INTERNAL_SLIDE_ACTION) {
+      edits.push({
+        start: state.action.valueStart - offset,
+        end: state.action.valueEnd - offset,
+        replacement: INTERNAL_SLIDE_ACTION,
+      });
+    }
   }
 
   const additions = [

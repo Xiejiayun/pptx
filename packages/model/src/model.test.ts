@@ -10779,6 +10779,240 @@ describe('PresentationModel', () => {
     ]);
   });
 
+  it('edits table-cell hyperlinks with ID reuse, clone-on-write, and reference GC', async () => {
+    const { pkg, model } = emptyPresentationModel();
+    const source = model.addSlide();
+    model.addSlide();
+    const alternate = model.addSlide();
+    const table = source.addTable([[
+      { text: 'Shared one', options: { hyperlink: { url: 'https://shared.example' } } },
+      { text: 'Shared two', options: { hyperlink: { url: 'https://second.example' } } },
+      { text: 'Shared three', options: { hyperlink: { url: 'https://third.example' } } },
+      { text: 'Target', options: { hyperlink: { slide: 2 } } },
+      { text: 'Self', options: { hyperlink: { slide: 1, tooltip: '' } } },
+      'Plain styled',
+    ]], { name: 'Editable cell hyperlinks' });
+
+    const prepared = source.resolveShape(table.id);
+    const clicks = prepared.xml.descendants(prepared.element, 'hlinkClick');
+    const firstId = prepared.xml.attribute(clicks[0]!, 'r:id')!.value;
+    const replacedIds = clicks.slice(1, 3).map(
+      (click) => prepared.xml.attribute(click, 'r:id')!.value,
+    );
+    for (const click of clicks.slice(1, 3)) {
+      const id = prepared.xml.attribute(click, 'r:id')!.value;
+      prepared.xml.replaceElement(
+        click,
+        prepared.xml.original(click).replace(`r:id="${id}"`, `r:id="${firstId}"`),
+      );
+    }
+    const row = prepared.xml.descendants(prepared.element, 'tr')[0]!;
+    const plainCell = prepared.xml.descendants(row, 'tc')[5]!;
+    const plainProperties = prepared.xml.descendants(plainCell, 'rPr')[0]!;
+    prepared.xml.replaceElement(
+      plainProperties,
+      prepared.xml.original(plainProperties).replace('<a:rPr ', '<a:rPr u="none" '),
+    );
+    pkg.transaction(() => {
+      source.setXml(prepared.xml.serialize());
+      for (const id of replacedIds) pkg.removeRelationship(source.partUri, id);
+    });
+
+    const directClickIds = (): readonly string[] => {
+      const resolved = source.resolveShape(table.id);
+      return resolved.xml.descendants(resolved.element, 'hlinkClick').map(
+        (click) => resolved.xml.attribute(click, 'r:id')!.value,
+      );
+    };
+    expect(table.rows[0]!.cells.slice(0, 3).map(({ hyperlink }) => hyperlink)).toEqual([
+      { url: 'https://shared.example' },
+      { url: 'https://shared.example' },
+      { url: 'https://shared.example' },
+    ]);
+
+    const noOp = packageSnapshot(pkg);
+    table.setCellHyperlink(0, 1, { url: 'https://shared.example' });
+    expect(packageSnapshot(pkg)).toEqual(noOp);
+    expect(source.shapes.find(({ id }) => id === table.id)).toBe(table);
+
+    table.setCellHyperlink(0, 1, {
+      url: 'https://shared.example',
+      tooltip: '',
+    });
+    expect(directClickIds()[1]).toBe(firstId);
+    expect(table.rows[0]!.cells[1]!.hyperlink).toEqual({
+      url: 'https://shared.example',
+      tooltip: '',
+    });
+
+    table.setCellHyperlink(0, 0, {
+      url: 'https://edited.example',
+      tooltip: 'Edited',
+    });
+    const clonedId = directClickIds()[0]!;
+    expect(clonedId).not.toBe(firstId);
+    expect(directClickIds().slice(1, 3)).toEqual([firstId, firstId]);
+    expect(source.relationships.find(({ id }) => id === clonedId)?.target)
+      .toBe('https://edited.example');
+    expect(source.relationships.find(({ id }) => id === firstId)?.target)
+      .toBe('https://shared.example');
+
+    const uniqueInternalId = directClickIds()[3]!;
+    table.setCellHyperlink(0, 3, { slide: 3, tooltip: '' });
+    expect(directClickIds()[3]).toBe(uniqueInternalId);
+    expect(source.relationships.find(({ id }) => id === uniqueInternalId)?.resolvedTarget)
+      .toBe(alternate.partUri);
+
+    table.setCellHyperlink(0, 5, { url: 'https://added.example' });
+    let updatedXml = new TextDecoder().decode(pkg.requirePart(source.partUri).bytes);
+    expect(updatedXml).toContain('<a:rPr u="none"');
+    expect(updatedXml).not.toContain('<a:rPr u="none" u="sng"');
+    table.setCellHyperlink(0, 5, undefined);
+    updatedXml = new TextDecoder().decode(pkg.requirePart(source.partUri).bytes);
+    expect(updatedXml).toContain('<a:rPr u="none"');
+    expect(table.rows[0]!.cells[5]!.hyperlink).toBeUndefined();
+
+    table.setCellHyperlink(0, 1, undefined);
+    expect(source.relationships.some(({ id }) => id === firstId)).toBe(true);
+    expect(table.rows[0]!.cells[2]!.hyperlink).toEqual({ url: 'https://shared.example' });
+    table.setCellHyperlink(0, 2, undefined);
+    expect(source.relationships.some(({ id }) => id === firstId)).toBe(false);
+
+    table.setCellText(0, 0, 'Edited text');
+    table.setCellBorders(0, 0, {
+      kind: 'line',
+      color: { kind: 'srgb', value: '112233' },
+      width: 1,
+    });
+    table.setCellFill(0, 0, { kind: 'none' });
+    table.setCellMargins(0, 0, { top: 2 });
+    table.setCellTextDirection(0, 0, 'vert270');
+    table.setCellTextFit(0, 0, 'shrink');
+    table.setCellHorizontalAlignment(0, 0, 'center');
+    table.setCellVerticalAlignment(0, 0, 'bottom');
+    expect(table.rows[0]!.cells[0]!.hyperlink).toEqual({
+      url: 'https://edited.example',
+      tooltip: 'Edited',
+    });
+
+    model.moveSlide(model.slides.indexOf(alternate), 0);
+    expect(table.rows[0]!.cells[3]!.hyperlink).toEqual({ slide: 1, tooltip: '' });
+    expect(table.rows[0]!.cells[4]!.hyperlink).toEqual({ slide: 2, tooltip: '' });
+    model.moveSlide(0, model.slides.length - 1);
+
+    const duplicate = model.duplicateSlide(model.slides.indexOf(source));
+    const duplicateTable = duplicate.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    )!;
+    expect(duplicateTable.rows[0]!.cells[4]!.hyperlink).toEqual({
+      slide: model.slides.indexOf(duplicate) + 1,
+      tooltip: '',
+    });
+    model.deleteSlide(model.slides.indexOf(alternate));
+    expect(table.rows[0]!.cells[3]!.hyperlink).toBeUndefined();
+    expect(duplicateTable.rows[0]!.cells[3]!.hyperlink).toBeUndefined();
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedSource = reopened.slides.find(({ partUri }) => partUri === source.partUri)!;
+    const reopenedTable = reopenedSource.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    )!;
+    expect(reopenedTable.rows[0]!.cells.map(({ hyperlink }) => hyperlink)).toEqual([
+      { url: 'https://edited.example', tooltip: 'Edited' },
+      undefined,
+      undefined,
+      undefined,
+      { slide: reopened.slides.indexOf(reopenedSource) + 1, tooltip: '' },
+      undefined,
+    ]);
+  });
+
+  it('rejects unsafe table-cell hyperlink edits and rolls back every mutation stage', () => {
+    const { pkg, model } = emptyPresentationModel();
+    const source = model.addSlide();
+    model.addSlide();
+    const table = source.addTable([[
+      { text: 'Linked', options: { hyperlink: { url: 'https://example.com' } } },
+      'Plain',
+    ]]);
+
+    const invalidCalls = [
+      () => table.setCellHyperlink(-1, 0, { url: 'https://invalid.example' }),
+      () => table.setCellHyperlink(0, -1, { url: 'https://invalid.example' }),
+      () => table.setCellHyperlink(1, 0, { url: 'https://invalid.example' }),
+      () => table.setCellHyperlink(0, 2, { url: 'https://invalid.example' }),
+      () => table.setCellHyperlink(0, 0, {} as never),
+      () => table.setCellHyperlink(0, 0, { url: 'https://example.com', slide: 2 } as never),
+      () => table.setCellHyperlink(0, 0, { slide: 99 }),
+    ];
+    for (const invoke of invalidCalls) {
+      const before = packageSnapshot(pkg);
+      expect(invoke).toThrow();
+      expect(packageSnapshot(pkg)).toEqual(before);
+    }
+
+    const failureCases: readonly {
+      readonly method: 'addRelationship' | 'updateRelationship' | 'removeRelationship' | 'setPart';
+      readonly invoke: () => void;
+    }[] = [
+      {
+        method: 'addRelationship',
+        invoke: () => table.setCellHyperlink(0, 1, { url: 'https://added.example' }),
+      },
+      {
+        method: 'updateRelationship',
+        invoke: () => table.setCellHyperlink(0, 0, { url: 'https://updated.example' }),
+      },
+      {
+        method: 'removeRelationship',
+        invoke: () => table.setCellHyperlink(0, 0, undefined),
+      },
+      {
+        method: 'setPart',
+        invoke: () => table.setCellHyperlink(0, 0, {
+          url: 'https://example.com',
+          tooltip: '',
+        }),
+      },
+    ];
+    for (const { method, invoke } of failureCases) {
+      const before = packageSnapshot(pkg);
+      const spy = vi.spyOn(pkg, method).mockImplementation(() => {
+        throw new Error(`injected ${method}`);
+      });
+      try {
+        expect(invoke).toThrow(`injected ${method}`);
+        expect(packageSnapshot(pkg)).toEqual(before);
+        expect(table.rows[0]!.cells.map(({ hyperlink }) => hyperlink)).toEqual([
+          { url: 'https://example.com' },
+          undefined,
+        ]);
+      } finally {
+        spy.mockRestore();
+      }
+    }
+
+    const part = pkg.requirePart(source.partUri);
+    const malformed = new TextDecoder().decode(part.bytes).replace(
+      /<a:hlinkClick\b([^>]*)\/>/,
+      '<a:hlinkClick$1 action="ppaction://unsupported"/>',
+    );
+    pkg.setPart(source.partUri, malformed, part.contentType);
+    const beforeMalformed = packageSnapshot(pkg);
+    expect(() => table.setCellHyperlink(0, 0, { url: 'https://replacement.example' }))
+      .toThrow(ModelParseError);
+    expect(packageSnapshot(pkg)).toEqual(beforeMalformed);
+
+    pkg.setPart(source.partUri, part.bytes, part.contentType);
+    const relationshipId = source.relationships.find(
+      ({ type }) => type === HYPERLINK_RELATIONSHIP,
+    )!.id;
+    pkg.removeRelationship(source.partUri, relationshipId);
+    const beforeDangling = packageSnapshot(pkg);
+    expect(() => table.setCellHyperlink(0, 0, undefined)).toThrow(ModelParseError);
+    expect(packageSnapshot(pkg)).toEqual(beforeDangling);
+  });
+
   it('reopens table-cell hyperlinks in every presentation format', async () => {
     for (const profile of Object.values(PRESENTATION_FORMAT_PROFILES)) {
       const model = new PresentationModel(await OpcPackage.open(
@@ -10786,21 +11020,29 @@ describe('PresentationModel', () => {
       ));
       const source = model.slides[0]!;
       const target = model.slides[1]!;
-      source.addTable([[
+      const table = source.addTable([[
         { text: 'External', options: {
           hyperlink: { url: `https://example.com/${profile.format}`, tooltip: '' },
         } },
         { text: 'Internal', options: { hyperlink: { slide: 2 } } },
       ]], { name: 'Format links' });
+      table.setCellHyperlink(0, 0, {
+        url: `https://edited.example/${profile.format}`,
+        tooltip: 'Edited',
+      });
+      table.setCellHyperlink(0, 1, { slide: 2, tooltip: '' });
       const reopened = new PresentationModel(await OpcPackage.open(await model.opcPackage.write()));
-      const table = reopened.slides[0]!.shapes.find(
+      const reopenedTable = reopened.slides[0]!.shapes.find(
         (shape): shape is TableModel => shape instanceof TableModel
           && shape.name === 'Format links',
       )!;
       expect(reopened.format).toBe(profile.format);
-      expect(table.rows[0]!.cells.map(({ hyperlink }) => hyperlink)).toEqual([
-        { url: `https://example.com/${profile.format}`, tooltip: '' },
-        { slide: reopened.slides.findIndex(({ partUri }) => partUri === target.partUri) + 1 },
+      expect(reopenedTable.rows[0]!.cells.map(({ hyperlink }) => hyperlink)).toEqual([
+        { url: `https://edited.example/${profile.format}`, tooltip: 'Edited' },
+        {
+          slide: reopened.slides.findIndex(({ partUri }) => partUri === target.partUri) + 1,
+          tooltip: '',
+        },
       ]);
     }
   });

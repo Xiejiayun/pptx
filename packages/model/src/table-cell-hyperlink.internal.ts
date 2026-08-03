@@ -1,9 +1,11 @@
 import type { LosslessXmlDocument, XmlElement } from '@pptx/lossless-xml';
 import {
   readTextRunHyperlink,
+  readTextRunHyperlinkBinding,
   type NormalizedHyperlink,
   type ShapeHyperlinkReadContext,
 } from './shape-hyperlink.internal.js';
+import { ModelParseError } from './errors.js';
 
 const DRAWING_NAMESPACE =
   'http://schemas.openxmlformats.org/drawingml/2006/main';
@@ -13,6 +15,43 @@ export function readTableCellHyperlink(
   cell: XmlElement,
   context: ShapeHyperlinkReadContext,
 ): NormalizedHyperlink | undefined {
+  const properties = readTableCellRunProperties(cell);
+  return properties ? readTextRunHyperlink(properties, context) : undefined;
+}
+
+export interface EditableTableCellHyperlinkState {
+  readonly properties: XmlElement;
+  readonly hyperlink?: NormalizedHyperlink;
+  readonly relationshipId?: string;
+}
+
+export function requireEditableTableCellHyperlinkState(
+  cell: XmlElement,
+  context: ShapeHyperlinkReadContext,
+  partUri: string,
+): EditableTableCellHyperlinkState {
+  const properties = readTableCellRunProperties(cell);
+  if (!properties) {
+    throw new ModelParseError('Table cell hyperlink state is not safely editable', partUri);
+  }
+  const clickCandidates = directChildren(properties).filter(
+    ({ localName }) => localName === 'hlinkClick',
+  );
+  if (clickCandidates.length === 0) return Object.freeze({ properties });
+  const binding = clickCandidates.length === 1
+    ? readTextRunHyperlinkBinding(properties, context)
+    : undefined;
+  if (!binding) {
+    throw new ModelParseError('Table cell hyperlink state is not safely editable', partUri);
+  }
+  return Object.freeze({
+    properties,
+    hyperlink: binding.hyperlink,
+    relationshipId: binding.relationshipId,
+  });
+}
+
+function readTableCellRunProperties(cell: XmlElement): XmlElement | undefined {
   if (cell.localName !== 'tc' || namespaceUri(cell) !== DRAWING_NAMESPACE) {
     return undefined;
   }
@@ -45,7 +84,7 @@ export function readTableCellHyperlink(
   ) {
     return undefined;
   }
-  return readTextRunHyperlink(runChildren[0]!, context);
+  return runChildren[0]!;
 }
 
 function singleDrawingChild(

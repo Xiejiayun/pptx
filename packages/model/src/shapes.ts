@@ -774,6 +774,14 @@ export class TableModel extends BaseShapeModel {
     this.slide.setXml(xml.serialize());
   }
 
+  setCellHyperlink(
+    rowIndex: number,
+    columnIndex: number,
+    value: Hyperlink | undefined,
+  ): void {
+    this.slide.setTableCellHyperlink(this.id, rowIndex, columnIndex, value);
+  }
+
   setCellBorders(
     rowIndex: number,
     columnIndex: number,
