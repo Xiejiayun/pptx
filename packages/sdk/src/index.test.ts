@@ -79,6 +79,7 @@ import {
   type SlideNumberTextStyleOptions,
   type TextAlignment,
   type TextBoxMargins,
+  type TableCellFill,
   type TableCellTextDirection,
   type TextBoxVerticalAlignment,
   type PresentationLayout,
@@ -13961,6 +13962,139 @@ describe('PptxDocument vertical slice', () => {
       undefined,
       'middle',
     ]);
+  });
+
+  it('projects and edits table-level fill through the public root API', async () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const table = slide.addTable([
+      ['North', 'South'],
+      ['East', 'West'],
+    ], {
+      name: 'Public table fill',
+      fill: {
+        kind: 'solid',
+        color: { kind: 'scheme', value: 'accent1' },
+        transparency: 25,
+      },
+      columnWidths: inches(2),
+      rowHeights: inches(0.75),
+    });
+    const initialFill = {
+      kind: 'solid' as const,
+      color: { kind: 'scheme' as const, value: 'accent1' as const },
+      transparency: 25,
+    };
+    expect(table).toBeInstanceOf(TableModel);
+    expect(table.fill).toEqual(initialFill);
+    expect(validatePackage(document.opcPackage)
+      .filter(({ severity }) => severity === 'error')).toEqual([]);
+
+    const detached = table.fill!;
+    expect(detached.kind).toBe('solid');
+    if (detached.kind === 'solid') {
+      (detached.color as { value: string }).value = 'accent6';
+    }
+    expect(table.fill).toEqual(initialFill);
+    const noOpBytes = document.opcPackage.requirePart(slide.partUri).bytes.slice();
+    const noOpJournal = [...document.opcPackage.mutations];
+    const noOpDiagnostics = [...document.diagnostics];
+    table.fill = initialFill;
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(noOpBytes);
+    expect(document.opcPackage.mutations).toEqual(noOpJournal);
+    expect(document.diagnostics).toEqual(noOpDiagnostics);
+
+    table.setCellFill(0, 1, { kind: 'none' });
+    expect(table.fill).toBeUndefined();
+    table.fill = { kind: 'none' };
+    expect(table.fill).toEqual({ kind: 'none' });
+    expect(table.rows.flatMap(({ cells }) => cells).map(({ fill }) => fill))
+      .toEqual(Array(4).fill({ kind: 'none' }));
+
+    table.fill = {
+      kind: 'solid',
+      color: { kind: 'srgb', value: 'D9EAF7' },
+      transparency: 0,
+    };
+    const explicitZero = {
+      kind: 'solid' as const,
+      color: { kind: 'srgb' as const, value: 'D9EAF7' },
+      transparency: 0,
+    };
+    expect(table.fill).toEqual(explicitZero);
+    expect(table.rows.flatMap(({ cells }) => cells).map(({ fill }) => fill))
+      .toEqual(Array(4).fill(explicitZero));
+
+    table.fill = undefined;
+    expect(table.fill).toBeUndefined();
+    expect(table.rows.flatMap(({ cells }) => cells).map(({ fill }) => fill))
+      .toEqual([undefined, undefined, undefined, undefined]);
+    const clearBytes = document.opcPackage.requirePart(slide.partUri).bytes.slice();
+    const clearJournal = [...document.opcPackage.mutations];
+    table.fill = undefined;
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(clearBytes);
+    expect(document.opcPackage.mutations).toEqual(clearJournal);
+
+    table.fill = { kind: 'none' };
+    const duplicate = document.duplicateSlide(0);
+    const duplicateTable = duplicate.shapes[0] as TableModel;
+    expect(duplicateTable.fill).toEqual({ kind: 'none' });
+    table.fill = {
+      kind: 'solid',
+      color: { kind: 'scheme', value: 'accent2' },
+      transparency: 50,
+    };
+    const finalFill = {
+      kind: 'solid' as const,
+      color: { kind: 'scheme' as const, value: 'accent2' as const },
+      transparency: 50,
+    };
+    expect(table.fill).toEqual(finalFill);
+    expect(duplicateTable.fill).toEqual({ kind: 'none' });
+
+    const beforeRollback = document.opcPackage.requirePart(slide.partUri).bytes.slice();
+    const rollbackJournal = [...document.opcPackage.mutations];
+    expect(() => document.transaction(() => {
+      table.fill = { kind: 'none' };
+      throw new Error('restore public table fill');
+    })).toThrow('restore public table fill');
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(beforeRollback);
+    expect(document.opcPackage.mutations).toEqual(rollbackJournal);
+    expect(table.fill).toEqual(finalFill);
+
+    const beforeInvalid = document.opcPackage.requirePart(slide.partUri).bytes.slice();
+    const invalidJournal = [...document.opcPackage.mutations];
+    const invalidDiagnostics = [...document.diagnostics];
+    expect(() => {
+      table.fill = null as never;
+    }).toThrow('Table fill must be an object');
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(beforeInvalid);
+    expect(document.opcPackage.mutations).toEqual(invalidJournal);
+    expect(document.diagnostics).toEqual(invalidDiagnostics);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedTable = reopened.slides[0]!.shapes[0] as TableModel;
+    const reopenedDuplicate = reopened.slides[1]!.shapes[0] as TableModel;
+    expect(reopenedTable.fill).toEqual(finalFill);
+    expect(reopenedTable.rows.flatMap(({ cells }) => cells).map(({ fill }) => fill))
+      .toEqual(Array(4).fill(finalFill));
+    expect(reopenedDuplicate.fill).toEqual({ kind: 'none' });
+    expect(reopenedDuplicate.rows.flatMap(({ cells }) => cells).map(({ fill }) => fill))
+      .toEqual(Array(4).fill({ kind: 'none' }));
+    expect(validatePackage(reopened.opcPackage)
+      .filter(({ severity }) => severity === 'error')).toEqual([]);
+
+    if (false) {
+      const fill: TableCellFill | undefined = table.fill;
+      table.fill = { kind: 'none' };
+      table.fill = { kind: 'solid', color: { kind: 'srgb', value: 'D9EAF7' } };
+      table.fill = undefined;
+      // @ts-expect-error table fill rejects null
+      table.fill = null;
+      // @ts-expect-error table fill rejects PptxGenJS-shaped input
+      table.fill = { color: 'D9EAF7' };
+      void fill;
+    }
   });
 
   it('projects and edits table-level margins through the public root API', async () => {

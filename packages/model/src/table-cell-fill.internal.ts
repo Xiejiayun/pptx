@@ -8,6 +8,7 @@ import {
   simpleFillsEqual,
 } from './simple-fill.internal.js';
 import type { TableCellFill } from './shapes.js';
+import { readDirectTablePhysicalCells } from './table-physical-cells.internal.js';
 
 const FILL_CHOICES = new Set<string>(SIMPLE_FILL_CHOICE_NAMES);
 
@@ -31,6 +32,19 @@ export function readTableCellFill(
   );
   if (choices.length !== 1) return undefined;
   return readSimpleFillChoice(choices[0]!, prefix);
+}
+
+export function readTableFill(
+  xml: LosslessXmlDocument,
+  frame: XmlElement,
+): TableCellFill | undefined {
+  const cells = readDirectTablePhysicalCells(frame);
+  if (!cells) return undefined;
+  const first = readTableCellFill(xml, cells[0]!);
+  if (!first) return undefined;
+  return cells.slice(1).every((cell) =>
+    simpleFillsEqual(readTableCellFill(xml, cell), first)
+  ) ? first : undefined;
 }
 
 export function replaceTableCellFill(
@@ -83,6 +97,26 @@ export function replaceTableCellFill(
 
   xml.replaceElement(propertiesElement, properties.serialize());
   return true;
+}
+
+export function replaceTableFill(
+  xml: LosslessXmlDocument,
+  frame: XmlElement,
+  fill: TableCellFill | undefined,
+  partUri: string,
+): boolean {
+  const cells = readDirectTablePhysicalCells(frame);
+  if (!cells) {
+    throw new ModelParseError(
+      'Table must contain one complete set of direct physical cells',
+      partUri,
+    );
+  }
+  let changed = false;
+  for (const cell of cells) {
+    changed = replaceTableCellFill(xml, cell, fill, partUri) || changed;
+  }
+  return changed;
 }
 
 export function renderTableCellFill(fill: TableCellFill, prefix: string): string {

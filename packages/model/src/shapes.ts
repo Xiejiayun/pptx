@@ -58,7 +58,9 @@ import {
 import {
   normalizeTableCellFill,
   readTableCellFill,
+  readTableFill,
   replaceTableCellFill,
+  replaceTableFill,
 } from './table-cell-fill.internal.js';
 import {
   readTableCellHorizontalAlignment,
@@ -628,6 +630,21 @@ export class TableModel extends BaseShapeModel {
         alignment,
         this.slide.partUri,
       )) {
+        this.slide.setXml(xml.serialize());
+      }
+    });
+  }
+
+  get fill(): TableCellFill | undefined {
+    const { xml, element } = this.resolve();
+    return readTableFill(xml, element);
+  }
+
+  set fill(value: TableCellFill | undefined) {
+    const fill = normalizeTableCellFill(value, 'Table fill');
+    this.slide.presentation.opcPackage.transaction(() => {
+      const { xml, element } = this.resolve();
+      if (replaceTableFill(xml, element, fill, this.slide.partUri)) {
         this.slide.setXml(xml.serialize());
       }
     });

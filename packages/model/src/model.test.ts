@@ -33,6 +33,7 @@ import {
   type ShapeLineDash,
   type ShapeShadow,
   type TableCellBorderInput,
+  type TableCellFill,
   type TableCellTextDirection,
   type TextAlignment,
   type TextBoxMarginInput,
@@ -11428,6 +11429,279 @@ describe('PresentationModel', () => {
     ]);
     expect(reopenedTable!.columnWidths).toEqual(Array(4).fill(inches(2)));
     expect(reopenedTable!.rowHeights).toEqual([inches(1)]);
+  });
+
+  it('projects and atomically edits uniform table fill', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const table = slide.addTable([
+      [
+        {
+          text: 'North',
+          options: {
+            border: {
+              kind: 'line',
+              color: { kind: 'scheme', value: 'accent2' },
+              width: 1.5,
+              style: 'dash',
+            },
+            fit: 'shrink',
+            margin: [1, 2, 3, 4],
+            textDirection: 'vert270',
+            valign: 'middle',
+          },
+        },
+        'South',
+      ],
+      ['East', 'West'],
+    ], {
+      name: 'Uniform table fill',
+      align: 'center',
+      fill: {
+        kind: 'solid',
+        color: { kind: 'scheme', value: 'accent1' },
+        transparency: 25,
+      },
+      columnWidths: [inches(2), inches(3)],
+      rowHeights: [inches(0.75), inches(1.25)],
+    });
+    const nonFillState = () => table.rows.map(({ cells }) => cells.map(({
+      text,
+      borders,
+      horizontalAlignment,
+      margins,
+      textDirection,
+      textFit,
+      verticalAlignment,
+    }) => ({
+      text,
+      borders,
+      horizontalAlignment,
+      margins,
+      textDirection,
+      textFit,
+      verticalAlignment,
+    })));
+    const initialNonFillState = nonFillState();
+    const initialTransform = table.transform;
+    const initialColumnWidths = table.columnWidths;
+    const initialRowHeights = table.rowHeights;
+    const untouchedPartUri = '/ppt/custom/opaque1.bin';
+    const untouchedBefore = pkg.requirePart(untouchedPartUri).bytes.slice();
+    const initialFill = {
+      kind: 'solid' as const,
+      color: { kind: 'scheme' as const, value: 'accent1' as const },
+      transparency: 25,
+    };
+
+    expect(table.fill).toEqual(initialFill);
+    const detached = table.fill!;
+    expect(detached.kind).toBe('solid');
+    if (detached.kind === 'solid') {
+      (detached.color as { value: string }).value = 'accent6';
+    }
+    (detached as { transparency?: number }).transparency = 99;
+    expect(table.fill).toEqual(initialFill);
+    const noOpBytes = pkg.requirePart(slide.partUri).bytes.slice();
+    const noOpJournal = [...pkg.mutations];
+    table.fill = {
+      kind: 'solid',
+      color: { kind: 'scheme', value: 'accent1' },
+      transparency: 25,
+    };
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(noOpBytes);
+    expect(pkg.mutations).toEqual(noOpJournal);
+
+    table.setCellFill(0, 1, { kind: 'none' });
+    expect(table.fill).toBeUndefined();
+    table.fill = { kind: 'none' };
+    expect(table.fill).toEqual({ kind: 'none' });
+    expect(table.rows.flatMap(({ cells }) => cells).map(({ fill }) => fill))
+      .toEqual(Array(4).fill({ kind: 'none' }));
+    expect(nonFillState()).toEqual(initialNonFillState);
+
+    table.fill = {
+      kind: 'solid',
+      color: { kind: 'srgb', value: 'D9EAF7' },
+      transparency: 0,
+    };
+    const explicitZero = {
+      kind: 'solid' as const,
+      color: { kind: 'srgb' as const, value: 'D9EAF7' },
+      transparency: 0,
+    };
+    expect(table.fill).toEqual(explicitZero);
+    expect(table.rows.flatMap(({ cells }) => cells).map(({ fill }) => fill))
+      .toEqual(Array(4).fill(explicitZero));
+
+    table.fill = undefined;
+    expect(table.fill).toBeUndefined();
+    expect(table.rows.flatMap(({ cells }) => cells)
+      .every(({ fill }) => fill === undefined)).toBe(true);
+    const clearBytes = pkg.requirePart(slide.partUri).bytes.slice();
+    const clearJournal = [...pkg.mutations];
+    table.fill = undefined;
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(clearBytes);
+    expect(pkg.mutations).toEqual(clearJournal);
+
+    table.fill = { kind: 'none' };
+    const duplicate = model.duplicateSlide(model.slides.indexOf(slide));
+    const duplicateTable = duplicate.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    );
+    expect(duplicateTable).toBeInstanceOf(TableModel);
+    expect(duplicateTable!.fill).toEqual({ kind: 'none' });
+    table.fill = {
+      kind: 'solid',
+      color: { kind: 'scheme', value: 'accent2' },
+      transparency: 50,
+    };
+    const finalFill = {
+      kind: 'solid' as const,
+      color: { kind: 'scheme' as const, value: 'accent2' as const },
+      transparency: 50,
+    };
+    expect(table.fill).toEqual(finalFill);
+    expect(duplicateTable!.fill).toEqual({ kind: 'none' });
+
+    const beforeRollback = pkg.requirePart(slide.partUri).bytes.slice();
+    const rollbackJournal = [...pkg.mutations];
+    expect(() => pkg.transaction(() => {
+      table.fill = { kind: 'none' };
+      throw new Error('restore table-level fill');
+    })).toThrow('restore table-level fill');
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeRollback);
+    expect(pkg.mutations).toEqual(rollbackJournal);
+    expect(table.fill).toEqual(finalFill);
+
+    for (const [invalid, ErrorType] of [
+      [null, TypeError],
+      [false, TypeError],
+      ['', TypeError],
+      [{}, TypeError],
+      [{ kind: 'solid' }, TypeError],
+      [{ kind: 'solid', color: { kind: 'srgb', value: 'bad' } }, TypeError],
+      [{
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'D9EAF7' },
+        transparency: 101,
+      }, RangeError],
+      [Object.create({ kind: 'none' }), TypeError],
+      [Symbol('fill'), TypeError],
+    ] as const) {
+      const beforeInvalid = pkg.requirePart(slide.partUri).bytes.slice();
+      const invalidJournal = [...pkg.mutations];
+      expect(() => {
+        table.fill = invalid as never;
+      }).toThrow(ErrorType);
+      expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeInvalid);
+      expect(pkg.mutations).toEqual(invalidJournal);
+    }
+
+    model.moveSlide(model.slides.indexOf(duplicate), 0);
+    expect(table.fill).toEqual(finalFill);
+    expect(duplicateTable!.fill).toEqual({ kind: 'none' });
+    expect(nonFillState()).toEqual(initialNonFillState);
+    expect(table.transform).toEqual(initialTransform);
+    expect(table.columnWidths).toEqual(initialColumnWidths);
+    expect(table.rowHeights).toEqual(initialRowHeights);
+    expect(pkg.requirePart(untouchedPartUri).bytes).toEqual(untouchedBefore);
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedSourceTable = reopened.slides
+      .find(({ partUri }) => partUri === slide.partUri)
+      ?.shapes.find((shape): shape is TableModel => shape instanceof TableModel);
+    const reopenedDuplicateTable = reopened.slides
+      .find(({ partUri }) => partUri === duplicate.partUri)
+      ?.shapes.find((shape): shape is TableModel => shape instanceof TableModel);
+    expect(reopenedSourceTable).toBeInstanceOf(TableModel);
+    expect(reopenedDuplicateTable).toBeInstanceOf(TableModel);
+    expect(reopenedSourceTable!.fill).toEqual(finalFill);
+    expect(reopenedSourceTable!.rows.flatMap(({ cells }) => cells).map(({ fill }) => fill))
+      .toEqual(Array(4).fill(finalFill));
+    expect(reopenedDuplicateTable!.fill).toEqual({ kind: 'none' });
+    expect(reopenedDuplicateTable!.rows.flatMap(({ cells }) => cells).map(({ fill }) => fill))
+      .toEqual(Array(4).fill({ kind: 'none' }));
+    expect(reopenedSourceTable!.transform).toEqual(initialTransform);
+    expect(reopenedSourceTable!.columnWidths).toEqual(initialColumnWidths);
+    expect(reopenedSourceTable!.rowHeights).toEqual(initialRowHeights);
+    expect(reopened.opcPackage.requirePart(untouchedPartUri).bytes).toEqual(untouchedBefore);
+
+    if (false) {
+      const fill: TableCellFill | undefined = table.fill;
+      table.fill = { kind: 'none' };
+      table.fill = { kind: 'solid', color: { kind: 'srgb', value: 'D9EAF7' } };
+      table.fill = undefined;
+      // @ts-expect-error table fill rejects null
+      table.fill = null;
+      // @ts-expect-error table fill rejects PptxGenJS-shaped input
+      table.fill = { color: 'D9EAF7' };
+      void fill;
+    }
+  });
+
+  it('rejects unsafe table-level fill edits without partial package mutation', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const table = slide.addTable([['First', 'Second']], {
+      fill: { kind: 'solid', color: { kind: 'srgb', value: 'D9EAF7' } },
+    });
+    const original = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    const finalPropertiesEnd = original.lastIndexOf('</a:tcPr>');
+    expect(finalPropertiesEnd).toBeGreaterThanOrEqual(0);
+    const repeatedFill = original.slice(0, finalPropertiesEnd) +
+      '<a:noFill/>' + original.slice(finalPropertiesEnd);
+    pkg.setPart(slide.partUri, repeatedFill, pkg.requirePart(slide.partUri).contentType);
+    expect(table.fill).toBeUndefined();
+    const beforeUnsafe = pkg.requirePart(slide.partUri).bytes.slice();
+    const unsafeJournal = [...pkg.mutations];
+    expect(() => {
+      table.fill = { kind: 'none' };
+    }).toThrow(ModelParseError);
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeUnsafe);
+    expect(pkg.mutations).toEqual(unsafeJournal);
+
+    const finalColor = original.lastIndexOf('val="D9EAF7"');
+    expect(finalColor).toBeGreaterThanOrEqual(0);
+    const malformed = original.slice(0, finalColor) + 'val="ZZZZZZ"' +
+      original.slice(finalColor + 'val="D9EAF7"'.length);
+    pkg.setPart(slide.partUri, malformed, pkg.requirePart(slide.partUri).contentType);
+    expect(table.fill).toBeUndefined();
+    table.fill = { kind: 'none' };
+    expect(table.fill).toEqual({ kind: 'none' });
+    expect(table.rows[0]!.cells.map(({ fill }) => fill))
+      .toEqual(Array(2).fill({ kind: 'none' }));
+  });
+
+  it('reopens table-level fill in every presentation format', async () => {
+    for (const profile of Object.values(PRESENTATION_FORMAT_PROFILES)) {
+      const model = new PresentationModel(await OpcPackage.open(
+        await modelFixture(profile.presentationContentType),
+      ));
+      const table = model.addSlide().addTable([['A', 'B']], {
+        fill: { kind: 'none' },
+      });
+      table.fill = {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'D9EAF7' },
+        transparency: 0,
+      };
+      const reopened = new PresentationModel(await OpcPackage.open(await model.opcPackage.write()));
+      expect(reopened.format).toBe(profile.format);
+      const reopenedTable = reopened.slides.at(-1)!.shapes[0] as TableModel;
+      expect(reopenedTable.fill).toEqual({
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'D9EAF7' },
+        transparency: 0,
+      });
+      expect(reopenedTable.rows[0]!.cells.map(({ fill }) => fill)).toEqual(Array(2).fill({
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'D9EAF7' },
+        transparency: 0,
+      }));
+    }
   });
 
   it('projects and atomically edits uniform table margins', async () => {
