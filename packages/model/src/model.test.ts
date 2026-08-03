@@ -10969,6 +10969,208 @@ describe('PresentationModel', () => {
     ]);
   });
 
+  it('edits rich table-cell links with reuse, COW, GC, and slide lifecycle safety', async () => {
+    const { pkg, model } = emptyPresentationModel();
+    const source = model.addSlide();
+    const target = model.addSlide();
+    model.addSlide();
+    const table = source.addTable([[
+      {
+        text: [{ runs: [{ text: 'Shared one' }, { text: 'Shared two' }] }],
+        options: { hyperlink: { url: 'https://shared.example' } },
+      },
+      { text: [{ runs: [{
+        text: 'Unique',
+        style: { hyperlink: { url: 'https://unique.example' } },
+      }] }] },
+      { text: [{ runs: [{
+        text: 'Self',
+        style: { hyperlink: { slide: 1, tooltip: '' } },
+      }] }] },
+      { text: [{ runs: [{
+        text: 'Target',
+        style: { hyperlink: { slide: 2 } },
+      }] }] },
+    ]], { name: 'Rich relationship lifecycle' });
+
+    const cellClickIds = (cellIndex: number): readonly string[] => {
+      const resolved = source.resolveShape(table.id);
+      const row = resolved.xml.descendants(resolved.element, 'tr')[0]!;
+      const cell = resolved.xml.descendants(row, 'tc')[cellIndex]!;
+      return resolved.xml.descendants(cell, 'hlinkClick').map(
+        (click) => resolved.xml.attribute(click, 'r:id')!.value,
+      );
+    };
+    const editRun = (
+      cellIndex: number,
+      runIndex: number,
+      hyperlink: Hyperlink | undefined,
+    ): readonly RichTextParagraph[] => table.rows[0]!.cells[cellIndex]!.richText.map(
+      (paragraph, paragraphIndex) => ({
+        ...paragraph,
+        runs: paragraph.runs.map((run, candidateIndex) => {
+          if (paragraphIndex !== 0 || candidateIndex !== runIndex) return run;
+          const { hyperlink: current, ...style } = run.style ?? {};
+          void current;
+          return {
+            ...run,
+            style: hyperlink === undefined ? style : { ...style, hyperlink },
+          };
+        }),
+      }),
+    );
+
+    const [sharedId, secondSharedId] = cellClickIds(0);
+    const uniqueId = cellClickIds(1)[0]!;
+    expect(sharedId).toBe(secondSharedId);
+
+    table.setCellRichText(0, 0, editRun(0, 0, {
+      url: 'https://shared.example',
+      tooltip: 'Updated',
+    }));
+    expect(cellClickIds(0)).toEqual([sharedId, sharedId]);
+    expect(table.rows[0]!.cells[0]!.richText[0]!.runs[0]!.style?.hyperlink)
+      .toEqual({ url: 'https://shared.example', tooltip: 'Updated' });
+
+    table.setCellRichText(0, 1, editRun(1, 0, {
+      url: 'https://unique-edited.example',
+      tooltip: '',
+    }));
+    expect(cellClickIds(1)[0]).toBe(uniqueId);
+    expect(source.relationships.find(({ id }) => id === uniqueId)?.target)
+      .toBe('https://unique-edited.example');
+
+    table.setCellRichText(0, 0, editRun(0, 0, {
+      url: 'https://cloned.example',
+    }));
+    const [clonedId, retainedSharedId] = cellClickIds(0);
+    expect(clonedId).not.toBe(sharedId);
+    expect(retainedSharedId).toBe(sharedId);
+    expect(source.relationships.find(({ id }) => id === clonedId)?.target)
+      .toBe('https://cloned.example');
+    expect(source.relationships.find(({ id }) => id === sharedId)?.target)
+      .toBe('https://shared.example');
+
+    table.setCellRichText(0, 0, editRun(0, 0, undefined));
+    expect(source.relationships.some(({ id }) => id === clonedId)).toBe(false);
+    expect(source.relationships.some(({ id }) => id === sharedId)).toBe(true);
+    table.setCellRichText(0, 0, editRun(0, 1, undefined));
+    expect(source.relationships.some(({ id }) => id === sharedId)).toBe(false);
+
+    model.moveSlide(model.slides.indexOf(target), 0);
+    expect(table.rows[0]!.cells[2]!.richText[0]!.runs[0]!.style?.hyperlink)
+      .toEqual({ slide: 2, tooltip: '' });
+    expect(table.rows[0]!.cells[3]!.richText[0]!.runs[0]!.style?.hyperlink)
+      .toEqual({ slide: 1 });
+    const duplicate = model.duplicateSlide(model.slides.indexOf(source));
+    const duplicateTable = duplicate.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    )!;
+    expect(duplicateTable.rows[0]!.cells[2]!.richText[0]!.runs[0]!.style?.hyperlink)
+      .toEqual({ slide: model.slides.indexOf(duplicate) + 1, tooltip: '' });
+
+    model.deleteSlide(model.slides.indexOf(target));
+    expect(table.rows[0]!.cells[3]!.richText[0]!.runs[0]!.style?.hyperlink).toBeUndefined();
+    expect(duplicateTable.rows[0]!.cells[3]!.richText[0]!.runs[0]!.style?.hyperlink)
+      .toBeUndefined();
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedSource = reopened.slides.find(({ partUri }) => partUri === source.partUri)!;
+    const reopenedTable = reopenedSource.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    )!;
+    expect(reopenedTable.rows[0]!.cells[1]!.richText[0]!.runs[0]!.style?.hyperlink)
+      .toEqual({ url: 'https://unique-edited.example', tooltip: '' });
+    expect(reopenedTable.rows[0]!.cells[2]!.richText[0]!.runs[0]!.style?.hyperlink)
+      .toEqual({
+        slide: reopened.slides.indexOf(reopenedSource) + 1,
+        tooltip: '',
+      });
+  });
+
+  it('rolls rich table-cell replacement back at every relationship mutation stage', () => {
+    const { pkg, model } = emptyPresentationModel();
+    const source = model.addSlide();
+    model.addSlide();
+    const table = source.addTable([[
+      { text: [{ runs: [{
+        text: 'Linked',
+        style: { hyperlink: { url: 'https://original.example' } },
+      }] }] },
+      { text: [{ runs: [{ text: 'Plain' }] }] },
+    ]]);
+    const replaceFirst = (hyperlink: Hyperlink | undefined): readonly RichTextParagraph[] => {
+      const [paragraph] = table.rows[0]!.cells[0]!.richText;
+      const run = paragraph!.runs[0]!;
+      const { hyperlink: current, ...style } = run.style ?? {};
+      void current;
+      return [{
+        ...paragraph,
+        runs: [{
+          ...run,
+          style: hyperlink === undefined ? style : { ...style, hyperlink },
+        }],
+      }];
+    };
+    const failureCases: readonly {
+      readonly method: 'addRelationship' | 'updateRelationship' | 'removeRelationship' | 'setPart';
+      readonly invoke: () => void;
+    }[] = [
+      {
+        method: 'addRelationship',
+        invoke: () => table.setCellRichText(0, 1, [{ runs: [{
+          text: 'Added',
+          style: { hyperlink: { url: 'https://added.example' } },
+        }] }]),
+      },
+      {
+        method: 'updateRelationship',
+        invoke: () => table.setCellRichText(0, 0, replaceFirst({
+          url: 'https://updated.example',
+        })),
+      },
+      {
+        method: 'removeRelationship',
+        invoke: () => table.setCellRichText(0, 0, replaceFirst(undefined)),
+      },
+      {
+        method: 'setPart',
+        invoke: () => table.setCellRichText(0, 0, replaceFirst({
+          url: 'https://original.example',
+          tooltip: '',
+        })),
+      },
+    ];
+
+    for (const { method, invoke } of failureCases) {
+      const before = packageSnapshot(pkg);
+      const spy = vi.spyOn(pkg, method).mockImplementation(() => {
+        throw new Error(`injected rich ${method}`);
+      });
+      try {
+        expect(invoke).toThrow(`injected rich ${method}`);
+        expect(packageSnapshot(pkg)).toEqual(before);
+        expect(table.rows[0]!.cells[0]!.richText[0]!.runs[0]!.style?.hyperlink)
+          .toEqual({ url: 'https://original.example' });
+        expect(table.rows[0]!.cells[1]!.richText[0]!.runs[0]!.style?.hyperlink)
+          .toBeUndefined();
+      } finally {
+        spy.mockRestore();
+      }
+    }
+
+    const beforeOuter = packageSnapshot(pkg);
+    expect(() => pkg.transaction(() => {
+      table.setCellRichText(0, 1, [{ runs: [{
+        text: 'Rollback',
+        style: { hyperlink: { slide: 2, tooltip: '' } },
+      }] }]);
+      throw new Error('rollback rich table cell');
+    })).toThrow('rollback rich table cell');
+    expect(packageSnapshot(pkg)).toEqual(beforeOuter);
+    expect(table.rows[0]!.cells[1]!.text).toBe('Plain');
+  });
+
   it('edits table-cell hyperlinks with ID reuse, clone-on-write, and reference GC', async () => {
     const { pkg, model } = emptyPresentationModel();
     const source = model.addSlide();
@@ -11221,6 +11423,21 @@ describe('PresentationModel', () => {
         tooltip: 'Edited',
       });
       table.setCellHyperlink(0, 1, { slide: 2, tooltip: '' });
+      const richTable = source.addTable([[
+        { text: [{ runs: [{ text: 'Rich external' }] }] },
+        { text: [{ runs: [{ text: 'Rich internal' }] }] },
+      ]], { name: 'Format rich links' });
+      richTable.setCellRichText(0, 0, [{ runs: [{
+        text: `Rich ${profile.format}`,
+        style: { hyperlink: {
+          url: `https://rich.example/${profile.format}`,
+          tooltip: '',
+        } },
+      }] }]);
+      richTable.setCellRichText(0, 1, [{ runs: [{
+        text: 'Rich target',
+        style: { hyperlink: { slide: 2, tooltip: 'Target' } },
+      }] }]);
       const reopened = new PresentationModel(await OpcPackage.open(await model.opcPackage.write()));
       const reopenedTable = reopened.slides[0]!.shapes.find(
         (shape): shape is TableModel => shape instanceof TableModel
@@ -11232,6 +11449,22 @@ describe('PresentationModel', () => {
         {
           slide: reopened.slides.findIndex(({ partUri }) => partUri === target.partUri) + 1,
           tooltip: '',
+        },
+      ]);
+      const reopenedRichTable = reopened.slides[0]!.shapes.find(
+        (shape): shape is TableModel => shape instanceof TableModel
+          && shape.name === 'Format rich links',
+      )!;
+      expect(reopenedRichTable.rows[0]!.cells.map(({ text }) => text)).toEqual([
+        `Rich ${profile.format}`,
+        'Rich target',
+      ]);
+      expect(reopenedRichTable.rows[0]!.cells.map(({ richText }) =>
+        richText[0]!.runs[0]!.style?.hyperlink)).toEqual([
+        { url: `https://rich.example/${profile.format}`, tooltip: '' },
+        {
+          slide: reopened.slides.findIndex(({ partUri }) => partUri === target.partUri) + 1,
+          tooltip: 'Target',
         },
       ]);
     }

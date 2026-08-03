@@ -41,6 +41,11 @@ interface BorderProps {
   readonly pt?: number;
 }
 
+interface PptxGenJSTableCell {
+  readonly text?: string | readonly PptxGenJSTableCell[];
+  readonly options?: Record<string, unknown>;
+}
+
 interface PptxGenJSChartData {
   readonly name?: string;
   readonly labels?: readonly string[] | readonly (readonly string[])[];
@@ -77,10 +82,7 @@ interface PptxGenJSSlide {
     options: Record<string, unknown>,
   ): void;
   addTable(
-    rows: readonly (readonly {
-      readonly text?: string;
-      readonly options?: Record<string, unknown>;
-    }[])[],
+    rows: readonly (readonly (string | PptxGenJSTableCell)[])[],
     options: Record<string, unknown>,
   ): void;
 }
@@ -9094,6 +9096,123 @@ describe('importPptxGenJS', () => {
       { slide: 2 },
       undefined,
     ]);
+  }, 20_000);
+
+  it('imports and edits legal PptxGenJS rich table-cell text semantically', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    const generatedSlide = generated.addSlide();
+    generated.addSlide();
+    const outer: { url: string; tooltip: string; _rId?: number } = {
+      url: 'https://outer-rich.example',
+      tooltip: '',
+    };
+    const local: { slide: number; tooltip: string; _rId?: number } = {
+      slide: 2,
+      tooltip: 'Local target',
+    };
+    generatedSlide.addTable([[
+      {
+        text: [
+          { text: 'Outer', options: { bold: true } },
+          {
+            text: ' local',
+            options: { italic: true, hyperlink: local, breakLine: true },
+          },
+          { text: 'Second', options: { color: '336699', underline: true } },
+        ],
+        options: { hyperlink: outer },
+      },
+    ]], { x: 1, y: 1, w: 6, h: 1.5 });
+
+    const imported = await importPptxGenJS(generated);
+    const importedTable = imported.slides[0]!.shapes[0] as TableModel;
+    const importedCell = importedTable.rows[0]!.cells[0]!;
+    expect(importedCell.text).toBe('Outer local\nSecond');
+    expect(importedCell.richText).toHaveLength(2);
+    expect(importedCell.richText.map(({ runs }) => runs.map(({ text }) => text)))
+      .toEqual([['Outer', ' local'], ['Second']]);
+    expect(importedCell.richText[0]!.runs[0]!.style).toMatchObject({
+      bold: true,
+      hyperlink: { url: 'https://outer-rich.example', tooltip: '' },
+    });
+    expect(importedCell.richText[0]!.runs[1]!.style).toMatchObject({
+      italic: true,
+      hyperlink: { slide: 2, tooltip: 'Local target' },
+    });
+    expect(importedCell.richText[1]!.runs[0]!.style).toMatchObject({
+      color: { kind: 'srgb', value: '336699' },
+      hyperlink: { url: 'https://outer-rich.example', tooltip: '' },
+    });
+    expect(outer._rId).toBeTypeOf('number');
+    expect(local._rId).toBeTypeOf('number');
+
+    importedTable.setCellRichText(0, 0, [{
+      align: 'right',
+      runs: [
+        {
+          text: 'Edited',
+          style: { bold: true, hyperlink: {
+            url: 'https://adapter-rich-edited.example',
+            tooltip: '',
+          } },
+        },
+        {
+          text: ' target',
+          style: { italic: true, hyperlink: { slide: 2, tooltip: 'Edited target' } },
+        },
+      ],
+    }]);
+    expect(importedTable.rows[0]!.cells[0]!.text).toBe('Edited target');
+    expect(importedTable.rows[0]!.cells[0]!.richText[0]!.runs.map(
+      ({ style }) => style?.hyperlink,
+    )).toEqual([
+      { url: 'https://adapter-rich-edited.example', tooltip: '' },
+      { slide: 2, tooltip: 'Edited target' },
+    ]);
+
+    const native = PptxDocument.create();
+    const nativeSlide = native.addSlide();
+    native.addSlide();
+    const nativeOuter = { url: 'https://outer-rich.example', tooltip: '' };
+    const nativeTable = nativeSlide.addTable([[
+      {
+        text: [
+          { runs: [
+            { text: 'Outer', style: { bold: true } },
+            { text: ' local', style: {
+              italic: true,
+              hyperlink: { slide: 2, tooltip: 'Local target' },
+            } },
+          ] },
+          { runs: [{
+            text: 'Second',
+            style: {
+              color: { kind: 'srgb', value: '336699' },
+              underline: true,
+            },
+          }] },
+        ],
+        options: { hyperlink: nativeOuter },
+      },
+    ]], {
+      x: inches(1),
+      y: inches(1),
+      width: inches(6),
+      height: inches(1.5),
+    });
+    expect(nativeTable.rows[0]!.cells[0]!.text).toBe('Outer local\nSecond');
+    expect(nativeTable.rows[0]!.cells[0]!.richText.map(({ runs }) =>
+      runs.map(({ text }) => text))).toEqual(
+      importedCell.richText.map(({ runs }) => runs.map(({ text }) => text)),
+    );
+    expect(Object.hasOwn(nativeOuter, '_rId')).toBe(false);
+
+    const reopenedImported = await PptxDocument.open(await imported.write());
+    const reopenedTable = reopenedImported.slides[0]!.shapes[0] as TableModel;
+    expect(reopenedTable.rows[0]!.cells[0]!.text).toBe('Edited target');
+    expect(reopenedTable.rows[0]!.cells[0]!.richText[0]!.runs[1]!.style?.hyperlink)
+      .toEqual({ slide: 2, tooltip: 'Edited target' });
   }, 20_000);
 
   it('repairs a PptxGenJS transform and column-grid mismatch through the public model', async () => {

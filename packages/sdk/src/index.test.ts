@@ -42,6 +42,7 @@ import {
   type AddImageSourceOptions,
   type AddMediaOptions,
   type AddSvgImageOptions,
+  type AddTableCell,
   type AddTableCellOptions,
   type AddTableCellInput,
   type AddTableOptions,
@@ -60,6 +61,7 @@ import {
   type RasterImageByteStream,
   type RasterImageInfo,
   type RasterImageSource,
+  type RichTextParagraph,
   type SetSlideBackgroundImageOptions,
   type SvgImageContentType,
   type ShapeArrows,
@@ -11436,6 +11438,76 @@ describe('PptxDocument vertical slice', () => {
       // @ts-expect-error table-cell hyperlink snapshots are readonly
       cell.hyperlink = { url: 'https://mutated.example' };
       expect(invalid).toHaveLength(6);
+    }
+  });
+
+  it('creates and edits rich table-cell text through the public SDK surface', async () => {
+    const document = PptxDocument.create();
+    const source = document.addSlide();
+    document.addSlide();
+    const paragraphs: readonly RichTextParagraph[] = [{
+      align: 'center',
+      runs: [
+        { text: 'SDK rich', style: { bold: true } },
+        { text: ' link', style: { hyperlink: { url: 'https://sdk-rich.example' } } },
+      ],
+    }, {
+      runs: [{ text: 'Second', style: { italic: true } }],
+    }];
+    const richCell: AddTableCell = { text: paragraphs };
+    const rows: readonly (readonly AddTableCellInput[])[] = [[
+      richCell,
+      'one\r\ntwo\n',
+    ]];
+    const table = source.addTable(rows, { name: 'SDK rich cells' });
+    const cell: TableCell = table.rows[0]!.cells[0]!;
+    const snapshot: readonly RichTextParagraph[] = cell.richText;
+
+    expect(cell.text).toBe('SDK rich link\nSecond');
+    expect(snapshot.map(({ runs }) => runs.map(({ text }) => text)))
+      .toEqual([['SDK rich', ' link'], ['Second']]);
+    expect(table.rows[0]!.cells[1]!.text).toBe('one\ntwo\n');
+    expect(table.rows[0]!.cells[1]!.richText).toHaveLength(3);
+
+    table.setCellRichText(0, 0, [{ runs: [
+      { text: 'Edited URL', style: { hyperlink: {
+        url: 'https://sdk-edited.example',
+        tooltip: '',
+      } } },
+      { text: ' target', style: { hyperlink: { slide: 2, tooltip: 'Target' } } },
+    ] }]);
+    expect(table.rows[0]!.cells[0]!.text).toBe('Edited URL target');
+    expect(table.rows[0]!.cells[0]!.richText[0]!.runs.map(
+      ({ style }) => style?.hyperlink,
+    )).toEqual([
+      { url: 'https://sdk-edited.example', tooltip: '' },
+      { slide: 2, tooltip: 'Target' },
+    ]);
+    expect(validatePackage(document.opcPackage).filter(
+      ({ severity }) => severity === 'error',
+    )).toEqual([]);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedTable = reopened.slides[0]!.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    )!;
+    expect(reopenedTable.rows[0]!.cells[0]!.text).toBe('Edited URL target');
+    expect(reopenedTable.rows[0]!.cells[0]!.richText[0]!.runs[1]!.style?.hyperlink)
+      .toEqual({ slide: 2, tooltip: 'Target' });
+
+    if (false) {
+      // @ts-expect-error a bare rich-text array is not a table cell
+      const bareCell: AddTableCellInput = [{ runs: [{ text: 'Bare' }] }];
+      // @ts-expect-error table-cell richText is a readonly snapshot property
+      cell.richText = [];
+      // @ts-expect-error rich replacement requires paragraph arrays
+      table.setCellRichText(0, 0, 'Plain');
+      const recursive: AddTableCell = {
+        // @ts-expect-error PptxGenJS recursive table-cell objects are not native paragraphs
+        text: [{ text: 'Nested', options: {} }],
+      };
+      void bareCell;
+      void recursive;
     }
   });
 
