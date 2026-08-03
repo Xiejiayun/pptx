@@ -12198,6 +12198,212 @@ describe('PresentationModel', () => {
     expect(() => repeatedExtension.addTable([['A']])).toThrow(/repeated extension lists/);
   });
 
+  it('preserves table-cell text style defaults through edits, duplication, rollback, and reopen', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const untouchedPartUri = '/ppt/custom/opaque1.bin';
+    const untouchedBefore = pkg.requirePart(untouchedPartUri).bytes.slice();
+    const table = slide.addTable([[
+      'Plain',
+      { text: 'False', options: { bold: false, spacing: { before: 3 } } },
+      {
+        text: [{
+          spacing: { after: 9, line: false },
+          runs: [
+            { text: 'Inherited' },
+            { text: ' local', style: { fontSize: 10, bold: false } },
+          ],
+        }, { spacing: false, runs: [] }],
+        options: {
+          fontFamily: 'Courier New',
+          color: { kind: 'srgb', value: '00AA00' },
+        },
+      },
+      { text: [{ runs: [] }] },
+      { text: 'Linked', options: {
+        hyperlink: { url: 'https://defaults.example' },
+      } },
+    ]], {
+      name: 'Table-cell text style defaults',
+      fontFamily: 'Aptos',
+      fontSize: 18.25,
+      bold: true,
+      color: { kind: 'scheme', value: 'accent1' },
+      spacing: {
+        before: 6,
+        after: 8,
+        line: { kind: 'multiple', factor: 1.5 },
+      },
+    });
+
+    expect(table.rows[0]!.cells[0]!.richText[0]!.runs[0]!.style).toMatchObject({
+      fontFamily: 'Aptos',
+      fontSize: 18.25,
+      bold: true,
+      color: { kind: 'scheme', value: 'accent1' },
+    });
+    expect(table.rows[0]!.cells[1]!.richText[0]!.runs[0]!.style?.bold).toBe(false);
+    expect(table.rows[0]!.cells[1]!.richText[0]!.spacing).toEqual({
+      before: 3,
+      after: 8,
+      line: { kind: 'multiple', factor: 1.5 },
+    });
+    expect(table.rows[0]!.cells[2]!.richText).toMatchObject([{
+      spacing: { before: 6, after: 9 },
+      runs: [
+        {
+          text: 'Inherited',
+          style: {
+            fontFamily: 'Courier New',
+            fontSize: 18.25,
+            bold: true,
+            color: { kind: 'srgb', value: '00AA00' },
+          },
+        },
+        {
+          text: ' local',
+          style: {
+            fontFamily: 'Courier New',
+            fontSize: 10,
+            bold: false,
+            color: { kind: 'srgb', value: '00AA00' },
+          },
+        },
+      ],
+    }, { runs: [] }]);
+    expect(table.rows[0]!.cells[3]!.richText).toMatchObject([{
+      runs: [],
+      spacing: {
+        before: 6,
+        after: 8,
+        line: { kind: 'multiple', factor: 1.5 },
+      },
+    }]);
+    expect(table.rows[0]!.cells[4]!.richText[0]!.runs[0]!.style).toMatchObject({
+      fontFamily: 'Aptos',
+      fontSize: 18.25,
+      bold: true,
+      color: { kind: 'scheme', value: 'accent1' },
+      hyperlink: { url: 'https://defaults.example' },
+    });
+
+    const createdState = table.rows[0]!.cells.map(({ richText }) => richText);
+    const duplicate = model.duplicateSlide(model.slides.indexOf(slide));
+    const duplicateTable = duplicate.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel
+        && shape.name === table.name,
+    )!;
+    expect(duplicateTable.rows[0]!.cells.map(({ richText }) => richText)).toEqual(createdState);
+
+    const noOpBefore = pkg.requirePart(slide.partUri).bytes.slice();
+    const noOpJournal = [...pkg.mutations];
+    table.setCellRichText(0, 2, table.rows[0]!.cells[2]!.richText);
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(noOpBefore);
+    expect(pkg.mutations).toEqual(noOpJournal);
+
+    const plainStyle = table.rows[0]!.cells[0]!.richText[0]!.runs[0]!.style;
+    table.setCellText(0, 0, 'Edited plain');
+    expect(table.rows[0]!.cells[0]!.richText[0]!.runs[0]).toEqual({
+      text: 'Edited plain',
+      style: plainStyle,
+    });
+    table.setCellRichText(0, 1, [{ runs: [{ text: 'Replacement' }] }]);
+    const replacement = table.rows[0]!.cells[1]!.richText[0]!;
+    expect(replacement.spacing).toBeUndefined();
+    expect(replacement.runs[0]!.style).toMatchObject({
+      fontFamily: '+mn-lt',
+      color: { kind: 'scheme', value: 'tx1' },
+    });
+    expect(replacement.runs[0]!.style?.fontSize).toBeUndefined();
+    expect(replacement.runs[0]!.style?.bold).toBeUndefined();
+    expect(duplicateTable.rows[0]!.cells.map(({ richText }) => richText)).toEqual(createdState);
+
+    const editedState = table.rows[0]!.cells.map(({ richText }) => richText);
+    const beforeRollback = packageSnapshot(pkg);
+    let rolledBack: TableModel | undefined;
+    expect(() => pkg.transaction(() => {
+      table.setCellRichText(0, 0, [{ runs: [{
+        text: 'Temporary',
+        style: { fontFamily: 'Arial', bold: false },
+      }] }]);
+      rolledBack = slide.addTable([['Temporary table']], {
+        fontFamily: 'Arial',
+        fontSize: 12,
+        bold: false,
+        color: { kind: 'srgb', value: 'FF0000' },
+        spacing: { after: 4 },
+      });
+      throw new Error('restore table-cell text style defaults');
+    })).toThrow('restore table-cell text style defaults');
+    expect(packageSnapshot(pkg)).toEqual(beforeRollback);
+    expect(table.rows[0]!.cells.map(({ richText }) => richText)).toEqual(editedState);
+    expect(() => rolledBack!.rows).toThrow(ModelParseError);
+    expect(pkg.requirePart(untouchedPartUri).bytes).toEqual(untouchedBefore);
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedSource = reopened.slides.find(({ partUri }) => partUri === slide.partUri)!;
+    const reopenedDuplicate = reopened.slides.find(({ partUri }) => partUri === duplicate.partUri)!;
+    const reopenedTable = reopenedSource.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel
+        && shape.name === table.name,
+    )!;
+    const reopenedDuplicateTable = reopenedDuplicate.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel
+        && shape.name === table.name,
+    )!;
+    expect(reopenedTable.rows[0]!.cells.map(({ richText }) => richText)).toEqual(editedState);
+    expect(reopenedDuplicateTable.rows[0]!.cells.map(({ richText }) => richText))
+      .toEqual(createdState);
+    expect(reopened.opcPackage.requirePart(untouchedPartUri).bytes).toEqual(untouchedBefore);
+  });
+
+  it('reopens table-cell text style defaults in every presentation format', async () => {
+    for (const profile of Object.values(PRESENTATION_FORMAT_PROFILES)) {
+      const model = new PresentationModel(await OpcPackage.open(
+        await modelFixture(profile.presentationContentType),
+      ));
+      const table = model.addSlide().addTable([[
+        'Inherited',
+        { text: 'False', options: { bold: false, spacing: { after: 3 } } },
+      ]], {
+        name: `Text defaults ${profile.format}`,
+        fontFamily: 'Aptos',
+        fontSize: 18.25,
+        bold: true,
+        color: { kind: 'scheme', value: 'accent1' },
+        spacing: { before: 6, line: { kind: 'multiple', factor: 1.5 } },
+      });
+      table.setCellText(0, 0, `Edited ${profile.format}`);
+
+      const reopened = new PresentationModel(await OpcPackage.open(
+        await model.opcPackage.write(),
+      ));
+      const reopenedTable = reopened.slides.at(-1)!.shapes[0] as TableModel;
+      expect(reopened.format).toBe(profile.format);
+      expect(reopenedTable.rows[0]!.cells[0]!.richText[0]!.runs[0]).toMatchObject({
+        text: `Edited ${profile.format}`,
+        style: {
+          fontFamily: 'Aptos',
+          fontSize: 18.25,
+          bold: true,
+          color: { kind: 'scheme', value: 'accent1' },
+        },
+      });
+      expect(reopenedTable.rows[0]!.cells[0]!.richText[0]!.spacing).toEqual({
+        before: 6,
+        line: { kind: 'multiple', factor: 1.5 },
+      });
+      expect(reopenedTable.rows[0]!.cells[1]!.richText[0]!.runs[0]!.style?.bold)
+        .toBe(false);
+      expect(reopenedTable.rows[0]!.cells[1]!.richText[0]!.spacing).toEqual({
+        before: 6,
+        after: 3,
+        line: { kind: 'multiple', factor: 1.5 },
+      });
+    }
+  });
+
   it('materializes table valign through edit, duplicate, write, and reopen', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);

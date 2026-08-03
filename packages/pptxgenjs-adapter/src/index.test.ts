@@ -9215,6 +9215,286 @@ describe('importPptxGenJS', () => {
       .toEqual({ slide: 2, tooltip: 'Edited target' });
   }, 20_000);
 
+  it('imports PptxGenJS table text defaults and locks native differences', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    const generatedSlide = generated.addSlide();
+    const tableOptions = {
+      x: 0.5,
+      y: 0.5,
+      w: 12,
+      h: 1.5,
+      fontFace: 'Aptos',
+      fontSize: 18.25,
+      bold: true,
+      color: '4472C4',
+      paraSpaceBefore: 6,
+      paraSpaceAfter: 8,
+      lineSpacingMultiple: 1.5,
+    };
+    const falseCellOptions = {
+      fontFace: 'Courier New',
+      fontSize: 10,
+      bold: false,
+      color: '00AA00',
+      paraSpaceBefore: 3,
+      paraSpaceAfter: 9,
+      lineSpacing: 22,
+    };
+    const richCellOptions = { lineSpacingMultiple: 1.25 };
+    const falseRunOptions = {
+      fontFace: 'Arial',
+      fontSize: 8,
+      bold: false,
+      color: 'FF0000',
+    };
+    const defaultHyperlink: { url: string; tooltip: string; _rId?: number } = {
+      url: 'https://default-table-link.example',
+      tooltip: '',
+    };
+    const localHyperlink: { url: string; tooltip: string; _rId?: number } = {
+      url: 'https://local-table-link.example',
+      tooltip: 'Local',
+    };
+    generatedSlide.addTable([[
+      { text: 'Plain', options: {} },
+      { text: 'Cell false', options: falseCellOptions },
+      {
+        text: [
+          { text: 'Rich', options: {} },
+          { text: ' local false', options: falseRunOptions },
+        ],
+        options: richCellOptions,
+      },
+      { text: '', options: {} },
+      { text: 'Default link', options: { hyperlink: defaultHyperlink } },
+      {
+        text: [{ text: 'Local link', options: { hyperlink: localHyperlink } }],
+        options: {},
+      },
+    ]], tableOptions);
+
+    const imported = await importPptxGenJS(generated);
+    const importedTable = imported.slides[0]!.shapes[0] as TableModel;
+    const importedCells = importedTable.rows[0]!.cells;
+    expect(importedCells[0]!.richText[0]!.runs[0]!.style).toMatchObject({
+      fontFamily: 'Aptos',
+      fontSize: 18.25,
+      bold: true,
+      color: { kind: 'srgb', value: '4472C4' },
+    });
+    expect(importedCells[0]!.richText[0]!.spacing).toBeUndefined();
+    expect(importedCells[1]!.richText[0]).toMatchObject({
+      spacing: {
+        before: 3,
+        after: 9,
+        line: { kind: 'exact', points: 22 },
+      },
+      runs: [{
+        style: {
+          fontFamily: 'Courier New',
+          fontSize: 10,
+          bold: true,
+          color: { kind: 'srgb', value: '00AA00' },
+        },
+      }],
+    });
+    expect(importedCells[2]!.richText[0]!.spacing).toEqual({
+      line: { kind: 'multiple', factor: 1.25 },
+    });
+    expect(importedCells[2]!.richText[0]!.runs).toMatchObject([
+      {
+        text: 'Rich',
+        style: {
+          fontFamily: 'Aptos',
+          fontSize: 18.25,
+          bold: true,
+          color: { kind: 'srgb', value: '4472C4' },
+        },
+      },
+      {
+        text: ' local false',
+        style: {
+          fontFamily: 'Arial',
+          fontSize: 8,
+          bold: true,
+          color: { kind: 'srgb', value: 'FF0000' },
+        },
+      },
+    ]);
+    expect(importedCells[3]!.richText).toMatchObject([{ runs: [] }]);
+    for (const [index, hyperlink] of [
+      [4, { url: 'https://default-table-link.example', tooltip: '' }],
+      [5, { url: 'https://local-table-link.example', tooltip: 'Local' }],
+    ] as const) {
+      expect(importedCells[index]!.richText[0]!.runs[0]!.style).toMatchObject({
+        fontFamily: 'Aptos',
+        fontSize: 18.25,
+        bold: true,
+        hyperlink,
+      });
+    }
+    expect(importedCells[4]!.richText[0]!.runs[0]!.style?.color).toEqual({
+      kind: 'srgb',
+      value: '4472C4',
+    });
+    expect(importedCells[5]!.richText[0]!.runs[0]!.style?.color).toBeUndefined();
+    const importedXml = new TextDecoder().decode(
+      imported.opcPackage.requirePart(imported.slides[0]!.partUri).bytes,
+    );
+    const importedCellXml = [...importedXml.matchAll(/<a:tc>[\s\S]*?<\/a:tc>/g)]
+      .map(([cell]) => cell);
+    expect(importedCellXml[3]).toContain(
+      '<a:endParaRPr lang="en-US" sz="1825" dirty="0">',
+    );
+    expect(importedCellXml[3]).toContain('typeface="Aptos"');
+
+    expect(tableOptions).toMatchObject({
+      x: inches(0.5),
+      y: inches(0.5),
+      w: inches(12),
+      h: inches(1.5),
+      margin: [0.05, 0.1, 0.05, 0.1],
+    });
+    expect(falseCellOptions.bold).toBe(true);
+    expect(falseRunOptions.bold).toBe(true);
+    expect(Object.hasOwn(falseCellOptions, '_lineIdx')).toBe(true);
+    expect(Object.hasOwn(falseRunOptions, '_lineIdx')).toBe(true);
+    expect(defaultHyperlink._rId).toBeTypeOf('number');
+    expect(localHyperlink._rId).toBeTypeOf('number');
+
+    const native = PptxDocument.create();
+    const nativeSlide = native.addSlide();
+    const nativeTableOptions = {
+      fontFamily: 'Aptos',
+      fontSize: 18.25,
+      bold: true,
+      color: { kind: 'srgb' as const, value: '4472C4' },
+    };
+    const nativeFalseCellOptions = {
+      fontFamily: 'Courier New',
+      fontSize: 10,
+      bold: false,
+      color: { kind: 'srgb' as const, value: '00AA00' },
+      spacing: {
+        before: 3,
+        after: 9,
+        line: { kind: 'exact' as const, points: 22 },
+      },
+    };
+    const nativeFalseRunStyle = {
+      fontFamily: 'Arial',
+      fontSize: 8,
+      bold: false,
+      color: { kind: 'srgb' as const, value: 'FF0000' },
+    };
+    const nativeInputsBefore = JSON.stringify({
+      nativeTableOptions,
+      nativeFalseCellOptions,
+      nativeFalseRunStyle,
+    });
+    const nativeTable = nativeSlide.addTable([[
+      'Plain',
+      { text: 'Cell false', options: nativeFalseCellOptions },
+      {
+        text: [{ runs: [
+          { text: 'Rich' },
+          { text: ' local false', style: nativeFalseRunStyle },
+        ] }],
+        options: { spacing: { line: { kind: 'multiple', factor: 1.25 } } },
+      },
+      { text: [{ runs: [] }] },
+      { text: 'Default link', options: {
+        hyperlink: { url: 'https://default-table-link.example', tooltip: '' },
+      } },
+      { text: [{ runs: [{
+        text: 'Local link',
+        style: { hyperlink: {
+          url: 'https://local-table-link.example',
+          tooltip: 'Local',
+        } },
+      }] }] },
+    ]], nativeTableOptions);
+    const nativeCells = nativeTable.rows[0]!.cells;
+    expect(nativeCells[0]!.richText).toEqual(importedCells[0]!.richText);
+    expect(nativeCells[1]!.richText[0]!.spacing).toEqual(
+      importedCells[1]!.richText[0]!.spacing,
+    );
+    expect(nativeCells[1]!.richText[0]!.runs[0]!.style).toMatchObject({
+      fontFamily: 'Courier New',
+      fontSize: 10,
+      bold: false,
+      color: { kind: 'srgb', value: '00AA00' },
+    });
+    expect(nativeCells[2]!.richText[0]!.runs[0]).toEqual(
+      importedCells[2]!.richText[0]!.runs[0],
+    );
+    expect(nativeCells[2]!.richText[0]!.runs[1]!.style).toMatchObject({
+      fontFamily: 'Arial',
+      fontSize: 8,
+      bold: false,
+      color: { kind: 'srgb', value: 'FF0000' },
+    });
+    expect(nativeCells[3]!.richText).toEqual(importedCells[3]!.richText);
+    expect(nativeCells.slice(4).map(({ richText }) => richText))
+      .toEqual(importedCells.slice(4).map(({ richText }) => richText));
+    expect(JSON.stringify({
+      nativeTableOptions,
+      nativeFalseCellOptions,
+      nativeFalseRunStyle,
+    })).toBe(nativeInputsBefore);
+
+    const nativeExtension = PptxDocument.create();
+    const extensionTable = nativeExtension.addSlide().addTable([[
+      { text: 'Native false', options: { bold: false } },
+    ]], {
+      bold: true,
+      spacing: {
+        before: 6,
+        after: 8,
+        line: { kind: 'multiple', factor: 1.5 },
+      },
+    });
+    expect(extensionTable.rows[0]!.cells[0]!.richText[0]!.runs[0]!.style?.bold)
+      .toBe(false);
+    expect(extensionTable.rows[0]!.cells[0]!.richText[0]!.spacing).toEqual({
+      before: 6,
+      after: 8,
+      line: { kind: 'multiple', factor: 1.5 },
+    });
+
+    importedTable.setCellText(0, 0, 'Imported edited');
+    nativeTable.setCellText(0, 0, 'Native edited');
+    importedTable.setCellRichText(0, 2, [{ runs: [{
+      text: 'Imported rich edit',
+      style: { bold: false, color: { kind: 'srgb', value: '112233' } },
+    }] }]);
+    nativeTable.setCellRichText(0, 2, [{ runs: [{
+      text: 'Native rich edit',
+      style: { bold: false, color: { kind: 'srgb', value: '112233' } },
+    }] }]);
+    const reopenedImported = await PptxDocument.open(await imported.write());
+    const reopenedNative = await PptxDocument.open(await native.write());
+    const reopenedImportedTable = reopenedImported.slides[0]!.shapes[0] as TableModel;
+    const reopenedNativeTable = reopenedNative.slides[0]!.shapes[0] as TableModel;
+    expect(reopenedImportedTable.rows[0]!.cells[0]!.richText[0]!.runs[0]).toMatchObject({
+      text: 'Imported edited',
+      style: { fontFamily: 'Aptos', fontSize: 18.25, bold: true },
+    });
+    expect(reopenedNativeTable.rows[0]!.cells[0]!.richText[0]!.runs[0]).toMatchObject({
+      text: 'Native edited',
+      style: { fontFamily: 'Aptos', fontSize: 18.25, bold: true },
+    });
+    expect(reopenedImportedTable.rows[0]!.cells[2]!.richText[0]!.runs[0]).toMatchObject({
+      text: 'Imported rich edit',
+      style: { bold: false, color: { kind: 'srgb', value: '112233' } },
+    });
+    expect(reopenedNativeTable.rows[0]!.cells[2]!.richText[0]!.runs[0]).toMatchObject({
+      text: 'Native rich edit',
+      style: { bold: false, color: { kind: 'srgb', value: '112233' } },
+    });
+  }, 20_000);
+
   it('repairs a PptxGenJS transform and column-grid mismatch through the public model', async () => {
     const generated = new PptxGenJS();
     expect(generated.version).toBe('4.0.1');

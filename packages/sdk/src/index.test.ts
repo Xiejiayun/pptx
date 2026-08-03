@@ -11511,6 +11511,84 @@ describe('PptxDocument vertical slice', () => {
     }
   });
 
+  it('creates table-cell text style defaults through the public SDK and root surface', async () => {
+    const tableOptions: AddTableOptions = {
+      name: 'SDK table-cell text style defaults',
+      fontFamily: 'Aptos',
+      fontSize: 18.25,
+      bold: true,
+      color: { kind: 'scheme', value: 'accent1' },
+      spacing: {
+        before: 6,
+        after: 8,
+        line: { kind: 'multiple', factor: 1.5 },
+      },
+    };
+    const cellOptions: AddTableCellOptions = {
+      fontFamily: 'Courier New',
+      fontSize: 10,
+      bold: false,
+      color: { kind: 'srgb', value: '00AA00' },
+      spacing: { before: 3 },
+    };
+    const document = PptxDocument.create();
+    const table = document.addSlide().addTable([[
+      'Inherited',
+      { text: 'Cell override', options: cellOptions },
+    ]], tableOptions);
+
+    expect(table.rows[0]!.cells[0]!.richText[0]!.runs[0]!.style).toMatchObject({
+      fontFamily: 'Aptos',
+      fontSize: 18.25,
+      bold: true,
+      color: { kind: 'scheme', value: 'accent1' },
+    });
+    expect(table.rows[0]!.cells[1]!.richText[0]).toMatchObject({
+      spacing: {
+        before: 3,
+        after: 8,
+        line: { kind: 'multiple', factor: 1.5 },
+      },
+      runs: [{
+        text: 'Cell override',
+        style: {
+          fontFamily: 'Courier New',
+          fontSize: 10,
+          bold: false,
+          color: { kind: 'srgb', value: '00AA00' },
+        },
+      }],
+    });
+    expect(validatePackage(document.opcPackage).filter(
+      ({ severity }) => severity === 'error',
+    )).toEqual([]);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedTable = reopened.slides[0]!.shapes[0] as TableModel;
+    expect(reopenedTable.rows[0]!.cells.map(({ richText }) => richText))
+      .toEqual(table.rows[0]!.cells.map(({ richText }) => richText));
+
+    if (false) {
+      const tableAlias: AddTableOptions = {
+        // @ts-expect-error native table options use fontFamily, not fontFace
+        fontFace: 'Aptos',
+      };
+      const tableBold: AddTableOptions = {
+        // @ts-expect-error table bold must be boolean
+        bold: 1,
+      };
+      const cellSpacingAlias: AddTableCellOptions = {
+        // @ts-expect-error native spacing uses structured ParagraphSpacing
+        paraSpaceAfter: 6,
+      };
+      const cellBold: AddTableCellOptions = {
+        // @ts-expect-error table-cell bold must be boolean
+        bold: 'true',
+      };
+      void [tableAlias, tableBold, cellSpacingAlias, cellBold];
+    }
+  });
+
   it('creates, edits, duplicates, rolls back, and reopens a basic table', async () => {
     const document = PptxDocument.create({ slideSize: 'wide' });
     const slide = document.addSlide();
