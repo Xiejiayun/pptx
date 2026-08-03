@@ -1097,6 +1097,28 @@ $ pptx-inspect --json package inspect output.pptx
 
 - 当前总体 PptxGenJS 对等进度仍约 98.9%；发布证明不重复计入能力覆盖率。下一小项固定为 row/column CRUD，之后依次为 auto-page/repeated headers → content measurement/layout recomputation → `tableToSlides` → 最终 peer/client audit；尚不声明完整 PptxGenJS parity。
 
+## PptxGenJS 全功能对等：Physical table row/column CRUD
+
+状态：实现、公开契约与文档完成；专项 6/8，actual package/real-browser proof 与最终全量门禁待后续两项
+
+### 本阶段 change
+
+- 新增公开 `InsertTableRowsOptions`、`InsertTableColumnsOptions` 与 `TableModel.insertRows()` / `deleteRows()` / `insertColumns()` / `deleteColumns()`。所有 index 都是零基 physical coordinate，insert 可 append，count 默认为 1；禁止删除最后一行/列，结果上限为 1,000,000 physical cells。
+- Structural editor 使用 source-span splice，只修改 direct grid/row/cell 序列和确实变化的 size/merge/transform token。新 cell 是可由现有 plain/rich/hyperlink/style editor 立即编辑的 canonical empty state；survivor 的内容、样式、隐藏 continuation、relationship、opaque XML 与 source bytes 保留。
+- Merge-aware insert 在 anchor 坐标前移区域、在区域内部扩展 span；delete 可收缩 2D/1D 区域、提升最上/最左 survivor 为新 anchor，并在 1×1 时解除合并。Column CRUD 始终同步 grid sum 与 transform width；row CRUD 仅在全部 direct height 为正时同步 transform height，存在 automatic row 时保留现有 height。
+- 删除只在整张 slide 最后一个 XML reference 消失后回收 URL/internal/opaque hyperlink relationship；slide XML update 与 relationship GC 位于同一 OPC transaction。Options、sizes、indexes、direct ownership、namespace、merge topology 和 numeric bounds 均在第一处 observable mutation 前严格验证。
+- PptxGenJS 4.0.1 没有 existing-deck table structural editor。真实 public `addTable()` plain/rich/linked/merged/sized 输出可以导入后执行四个 native 方法，并在 write/reopen 后保留 survivor state；malformed table output 仍为 preservation-only。
+
+### 当前验证结果
+
+- Row internal gates 为 25/25，column internal gates 为 31/31；公开 model focused 为 22 passed。SDK/root/PptxGenJS aggregate contracts 为 3/3，覆盖六种 presentation format、duplicate、canonical hidden-cell edit、validator、真实 PptxGenJS 4.0.1 rich/style/link/merge/size survivor 与 reopen。
+- TypeScript project references 与全仓 build 通过，文档 consistency/diff gate 在本小项执行。设计、计划、boundary、row splice、column splice、public API 与 aggregate contracts commits 依次为 `bc0bdec`、`ea91d8b`、`ee68731`、`d70c2af`、`099f345`、`89f9b1b`。
+- 本节不提前记录 actual tarball、Node/NodeNext/browser/CLI/Inspector、真实 Chrome、PowerPoint 2010、deterministic pack 或最终 full/performance 数字；这些证据分别由专项 Task 7 和 Task 8 产生。
+
+### 剩余 advanced API 与全功能路线
+
+- 当前总体 PptxGenJS 对等进度约 99.1%，尚不声明完整 parity。本 CRUD 专项剩余 actual package/real-browser proof 与最终 full/performance audit；能力路线随后依次为 auto-page/repeated headers → content measurement/layout recomputation → `tableToSlides` → 最终 peer/client audit。
+
 ## 0.1.0 初始验收
 
 - `pnpm check`：TypeScript strict build 通过；14 个测试文件、34 项测试全部通过。

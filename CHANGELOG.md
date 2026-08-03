@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added strict merge-aware physical table row/column insertion and deletion with canonical editable cells, exact size/transform synchronization, anchor promotion and 1×1 merge dissolution, lossless survivor spans, final-reference relationship collection, six-format/root/PptxGenJS contracts, and transactional rollback.
 - Added explicit detection and public profiles for `.pptx`, `.pptm`, `.ppsx`, `.ppsm`, `.potx`, and `.potm` packages.
 - Replaced host `node:path` semantics in the OPC graph, model, codecs, and transition plugin with portable OPC part URI operations.
 - Added a browser conditional export with Blob/File/Web Stream input, Blob/download output, portable media hashing, and browser-safe SmartArt IDs.
