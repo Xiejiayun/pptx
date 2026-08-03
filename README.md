@@ -1067,7 +1067,40 @@ PptxGenJS 4.0.1 省略 border 时会物化 uniform four-side direct none；合�
 
 Focused 为 9 files / 567 tests；最终 full 为 1457 passed / 1 skipped tests，performance 1/1（1.20s）。实际 62-file tarball SHA-256 为 `47d9666c1dac8454524a87f7ca1898af0442c6faa7816e39cec34ff42dbf0d48`；installed Node/types/browser/CLI、`pptx-inspect` 与真实 Google Chrome 均报告 `tableBorders: true` / `tableBordersInspect: true`。最终四个 physical cells 各自恰有一组 direct `lnL/lnR/lnT/lnB` no-fill，PowerPoint 2010 validation 为 0 errors / 0 warnings，Chrome validation/console/page/network errors 均为 0。设计、计划、修正、core 与 package-proof commits 分别为 `8d6dfae`、`d4bf9c9`、`faca4ba`、`9195e57`、`f8a9d0d`；证据位于 `/tmp/pptx-table-borders-artifacts.vyi1yo`。
 
-总体 PptxGenJS 对等进度仍约 97%。下一小项是 table-cell hyperlink creation；之后仍待 rich/multi-paragraph cell text/style、merge/colspan/rowspan、row/column CRUD、auto-page/repeated headers、`tableToSlides` 与最终 peer/client audit。
+## 创建和读取表格单元格超链接
+
+```ts
+import { PptxDocument, TableModel } from '@jiayunxie/pptx';
+
+const document = PptxDocument.create();
+const source = document.addSlide();
+const target = document.addSlide();
+const table = source.addTable([[
+  { text: '官网', options: { hyperlink: { url: 'https://example.com' } } },
+  { text: '详情', options: { hyperlink: { slide: 2, tooltip: '' } } },
+]], { name: '单元格链接' });
+
+console.log(table.rows[0]!.cells[0]!.hyperlink); // { url: 'https://example.com' }
+console.log(table.rows[0]!.cells[1]!.hyperlink); // { slide: 2, tooltip: '' }
+document.moveSlide(document.slides.indexOf(target), 0);
+console.log(table.rows[0]!.cells[1]!.hyperlink); // { slide: 1, tooltip: '' }
+table.setCellText(0, 1, '打开详情'); // 保留该单元格链接
+
+const reopened = await PptxDocument.open(await document.write());
+const reopenedSource = reopened.slides.find(({ partUri }) => partUri === source.partUri)!;
+const reopenedTable = reopenedSource.shapes.find(
+  ({ name }) => name === '单元格链接',
+) as TableModel;
+console.log(reopenedTable.rows[0]!.cells[1]!.hyperlink); // { slide: 1, tooltip: '' }
+```
+
+`AddTableCellOptions.hyperlink` 支持 URL 或当前文稿内部的一基页码，`tooltip` 的省略与显式 `''` 保持可区分；创建后可立即通过只读 `TableCell.hyperlink` 获得 detached frozen direct-state snapshot。链接属于普通 plain cell 的唯一 direct run，`setCellText()` 和其他已支持的 cell 属性编辑不会移除它。内部链接按目标页 identity 保存，页面移动后 snapshot 的 ordinal 会同步变化；duplicate、delete、rollback、六格式与 write/reopen 共用既有 relationship lifecycle。
+
+每个 linked cell 都独占一个 relationship，即使多个 cells 使用相同 URL；当前没有 table-level hyperlink default，也没有单元格链接编辑/清除 API。Strict reader 只接受唯一 direct text body、paragraph、run 与 run properties，不猜测 rich/multi-run/multi-paragraph 状态；这些高级 cell text links 仍未支持。PptxGenJS 4.0.1 的合法 URL/内部页输出可读取，但 omitted tooltip 会物化为 empty，并会在 run click 上增加 `invalidUrl=""`、`action=""`、`history="1"` 等兼容属性；本库可读取这些额外属性，但 native 输出保留更精确的 omitted/empty 差异。PptxGenJS 还会向 caller hyperlink object 写入 `_rId`，本库从不修改输入。
+
+Feature proof 的 focused 为 8 files / 619 tests，full Vitest 为 84 passed / 1 skipped test files、1468 passed / 1 skipped tests，performance 1/1（1.21s）；修复跨时间边界 rollback 后的最终文档门禁为 1469 passed / 1 skipped，performance 1/1（1.25s）。实际 62-file tarball SHA-256 为 `99206cbbe07626560501a0ef2007daf9327d0c5d88decd8773c4ed6c81f940b9`；installed Node/types/browser/CLI、`pptx-inspect` 与真实 Google Chrome 均报告 `tableCellHyperlinks: true`。检查结果为 20 parts、20 relationships、2 slides、4 cells、3 个独立 click；PowerPoint 2010 validation 为 0 errors，并只有 2 条预期 `OPC_EXTERNAL_RELATIONSHIP`，Chrome validation/console/page/network errors 均为 0。设计、计划、core 与 package-proof commits 分别为 `64aac21`、`fdbe711`、`542fb7e`、`c82f6a2`；rollback date 修复为 `89c83b0`，证据位于 `/tmp/pptx-table-cell-hyperlink-artifacts.nkRM1l`。
+
+总体 PptxGenJS 对等进度仍约 97%。下一小项是 table-cell hyperlink editing/clearing；之后继续 rich/multi-paragraph cell text/style、merge/colspan/rowspan、row/column CRUD、auto-page/repeated headers、`tableToSlides` 与最终 peer/client audit。
 
 ## 创建和编辑预设形状、调整值与样式
 
@@ -1136,7 +1169,7 @@ shape.hyperlink = undefined;
 
 `AddShapeOptions.shadow`、`AddTextOptions.shadow` 与 `ShapeModel.shadow` 支持 preset/text shape direct outer/inner shadow 的创建、读取、whole replacement 与清除，包括 sRGB/theme color、`0..1` opacity、`0..100pt` blur、`0..<360°` angle、`0..200pt` distance，以及 outer-only `rotateWithShape`。默认值为 black、0.75、8pt、270°、4pt 和 outer rotate false；显式 zero 会保留。输入在 mutation 前深度脱离，getter 的嵌套快照会 deep-freeze；同值赋值是 exact no-op，`undefined` 只移除 direct shadow 并保留 `effectLst` 与 glow/reflection 等 sibling effects。Generic/advanced effects、custom shadow transforms，以及 image/table/chart/media 等其他 owner 的 shadow API 仍待后续小项。
 
-`AddShapeOptions.hyperlink`、`AddTextOptions.hyperlink` 与 `ShapeModel.hyperlink` 支持整个 preset/text shape 的 click URL 或内部页链接。输入必须恰好包含一个非空 `url` 或一个当前文稿内的一基 `slide`；`tooltip` 可省略，也可显式为空。Getter 返回 detached frozen snapshot，setter 采用 whole replacement，同值赋值为 exact no-op，`undefined` 清除 click link。内部关系按目标页 identity 保存，移动或在目标前插删页面只更新 getter ordinal；复制 self-link 会指向副本自身，删除目标页会清理相关 click/hover，shared relationship 则按引用 clone-on-write 与回收。Text outer 与 `RichTextRunStyle.hyperlink` 分别管理 whole-shape/default run 和显式 run-local 链接，ownership 相互独立；run hyperlink 可与 `RichTextRun.breakLine` 组合并按规范段落重新索引。外部链接产生 validator 的预期可移植性 warning。Hover 编辑、table/image/chart/media 链接创建、action navigation、advanced line fill/custom dash 和 percentage positions 仍待后续小项；`isTextBox` 与 rich-text `breakLine` 已完成。
+`AddShapeOptions.hyperlink`、`AddTextOptions.hyperlink` 与 `ShapeModel.hyperlink` 支持整个 preset/text shape 的 click URL 或内部页链接。输入必须恰好包含一个非空 `url` 或一个当前文稿内的一基 `slide`；`tooltip` 可省略，也可显式为空。Getter 返回 detached frozen snapshot，setter 采用 whole replacement，同值赋值为 exact no-op，`undefined` 清除 click link。内部关系按目标页 identity 保存，移动或在目标前插删页面只更新 getter ordinal；复制 self-link 会指向副本自身，删除目标页会清理相关 click/hover，shared relationship 则按引用 clone-on-write 与回收。Text outer 与 `RichTextRunStyle.hyperlink` 分别管理 whole-shape/default run 和显式 run-local 链接，ownership 相互独立；run hyperlink 可与 `RichTextRun.breakLine` 组合并按规范段落重新索引。外部链接产生 validator 的预期可移植性 warning。Plain single-run table-cell hyperlink creation/read 已支持；其编辑/清除，以及 hover、table graphic-frame/image/chart/media 链接、action navigation、advanced line fill/custom dash 和 percentage positions 仍待后续小项；`isTextBox` 与 rich-text `breakLine` 已完成。
 
 ### 创建和编辑自定义几何路径
 
