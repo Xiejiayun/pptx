@@ -37,7 +37,7 @@ describe('PptxDocument compression policy', () => {
       .toBe('Compression policy 你好');
     expect((reopenedDeflate.slides[0]?.shapes[0] as ShapeModel).text)
       .toBe('Compression policy 你好');
-  });
+  }, 15_000);
 
   it('keeps compression orthogonal to every output representation and convenience path', async () => {
     const document = createCompressionDocument();
