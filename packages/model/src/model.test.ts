@@ -1304,6 +1304,429 @@ describe('PresentationModel', () => {
     }
   });
 
+  it('keeps auto-page header and body merge blocks intact through reopen', async () => {
+    const { pkg, model } = emptyPresentationModel();
+    installNamedSlideLayouts(pkg, model, [{
+      name: 'MERGED',
+      partUri: '/ppt/slideLayouts/slideLayout1.xml',
+    }]);
+    const source = model.addSlide({ masterName: 'MERGED' });
+    const sentinel = model.addSlide({ masterName: 'MERGED' });
+    const mergedRows: readonly (readonly AddTableCellInput[])[] = [
+      [
+        {
+          text: 'Header',
+          options: {
+            rowspan: 2,
+            colspan: 2,
+            fill: { kind: 'solid', color: { kind: 'srgb', value: 'DDEEFF' } },
+          },
+        },
+        'Header right',
+      ],
+      ['Header lower right'],
+      [
+        {
+          text: 'Body A',
+          options: {
+            rowspan: 2,
+            colspan: 2,
+            fill: { kind: 'solid', color: { kind: 'srgb', value: 'FFEEDD' } },
+          },
+        },
+        'A right',
+      ],
+      ['A lower right'],
+      [
+        { text: 'Body B', options: { rowspan: 2, bold: true } },
+        'B middle',
+        'B right',
+      ],
+      ['B lower middle', 'B lower right'],
+      ['Tail', 'Tail middle', 'Tail right'],
+    ];
+    const sourceTable = source.addTable(mergedRows, {
+      autoPage: true,
+      autoPageRepeatHeader: true,
+      autoPageHeaderRows: 2,
+      autoPageSlideStartY: inches(3.125),
+      slideMargin: inches(0.5),
+      y: inches(3.125),
+      columnWidths: [inches(1), inches(1), inches(1)],
+      rowHeights: Array.from({ length: 7 }, () => inches(0.5)),
+    });
+    const pageSlides = [source, ...source.newAutoPagedSlides];
+    expect(model.slides).toEqual([...pageSlides, sentinel]);
+    expect(pageSlides).toHaveLength(3);
+    const tables = pageSlides.map((slide, index) => index === 0
+      ? sourceTable
+      : slide.shapes.find((shape): shape is TableModel => shape instanceof TableModel)!);
+    expect(tables.map((table) => table.rows.map((row) => row.cells[0]!.text)))
+      .toEqual([
+        ['Header', '', 'Body A', ''],
+        ['Header', '', 'Body B', ''],
+        ['Header', '', 'Tail'],
+      ]);
+    expect(tables.map(({ mergeRegions }) => mergeRegions)).toEqual([
+      [
+        { rowIndex: 0, columnIndex: 0, rowspan: 2, colspan: 2 },
+        { rowIndex: 2, columnIndex: 0, rowspan: 2, colspan: 2 },
+      ],
+      [
+        { rowIndex: 0, columnIndex: 0, rowspan: 2, colspan: 2 },
+        { rowIndex: 2, columnIndex: 0, rowspan: 2, colspan: 1 },
+      ],
+      [{ rowIndex: 0, columnIndex: 0, rowspan: 2, colspan: 2 }],
+    ]);
+    for (const slide of pageSlides) {
+      const xml = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+      expect(xml).toContain('<a:tc rowSpan="2" gridSpan="2"><a:txBody>');
+      expect(xml).toContain('<a:tc rowSpan="2" hMerge="1"><a:tcPr/></a:tc>');
+      expect(xml).toContain('<a:tc gridSpan="2" vMerge="1"><a:tcPr/></a:tc>');
+      expect(xml).toContain('<a:tc vMerge="1" hMerge="1"><a:tcPr/></a:tc>');
+    }
+
+    const beforeCrossing = packageSnapshot(pkg);
+    expect(() => source.addTable([
+      [{ text: 'Crossing', options: { rowspan: 3 } }, 'H2'],
+      ['H2 lower'],
+      ['Body'],
+    ], {
+      autoPage: true,
+      autoPageRepeatHeader: true,
+      autoPageHeaderRows: 2,
+      slideMargin: 0,
+      rowHeights: [10, 10, 10],
+    })).toThrow(/header/i);
+    expect(packageSnapshot(pkg)).toEqual(beforeCrossing);
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedTables = reopened.slides.slice(0, 3).map((slide) =>
+      slide.shapes.find((shape): shape is TableModel => shape instanceof TableModel)!);
+    expect(reopenedTables.map(({ mergeRegions }) => mergeRegions))
+      .toEqual(tables.map(({ mergeRegions }) => mergeRegions));
+  });
+
+  it('owns every auto-page plain and rich hyperlink relationship on its page', async () => {
+    const { pkg, model } = emptyPresentationModel();
+    installNamedSlideLayouts(pkg, model, [{
+      name: 'LINKED',
+      partUri: '/ppt/slideLayouts/slideLayout1.xml',
+    }]);
+    const first = model.addSlide({ masterName: 'LINKED' });
+    const source = model.addSlide({ masterName: 'LINKED' });
+    const sentinel = model.addSlide({ masterName: 'LINKED' });
+    const target = model.addSlide({ masterName: 'LINKED' });
+    source.addTable([
+      [{
+        text: [{ runs: [
+          { text: 'Outer', style: { underline: true } },
+          {
+            text: ' URL',
+            style: {
+              underline: false,
+              hyperlink: { url: 'https://run.example', tooltip: 'Run tooltip' },
+            },
+          },
+          {
+            text: ' target',
+            style: { hyperlink: { slide: 4, tooltip: '' }, underline: true },
+          },
+        ] }],
+        options: {
+          hyperlink: { url: 'https://outer.example', tooltip: 'Outer tooltip' },
+        },
+      }],
+      [{ text: 'Source URL', options: { hyperlink: { url: 'https://body.example' } } }],
+      [{ text: 'Body target', options: { hyperlink: { slide: 4, tooltip: 'Target' } } }],
+    ], {
+      autoPage: true,
+      autoPageRepeatHeader: true,
+      autoPageHeaderRows: 1,
+      autoPageSlideStartY: inches(4.125),
+      slideMargin: inches(0.5),
+      y: inches(4.125),
+      rowHeights: [inches(0.5), inches(0.5), inches(0.5)],
+    });
+    const generated = source.newAutoPagedSlides[0]!;
+    expect(model.slides).toEqual([first, source, generated, sentinel, target]);
+
+    for (const [pageIndex, slide] of [source, generated].entries()) {
+      const xml = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+      const referencedIds = [...xml.matchAll(/<a:hlinkClick\b[^>]*\br:id="([^"]+)"/g)]
+        .map((match) => match[1]!);
+      const owned = slide.relationships.filter(({ type }) =>
+        type === HYPERLINK_RELATIONSHIP || type === SLIDE_RELATIONSHIP);
+      expect(referencedIds).toHaveLength(4);
+      expect(new Set(referencedIds)).toEqual(new Set(owned.map(({ id }) => id)));
+      expect(owned.filter(({ resolvedTarget }) => resolvedTarget === target.partUri))
+        .toHaveLength(pageIndex === 0 ? 1 : 2);
+      expect(owned.filter(({ target: value }) => value === 'https://outer.example'))
+        .toHaveLength(1);
+      expect(owned.filter(({ target: value }) => value === 'https://run.example'))
+        .toHaveLength(1);
+      expect(xml).toContain('tooltip="Outer tooltip"');
+      expect(xml).toContain('tooltip="Run tooltip"');
+      expect(xml).toContain('u="sng"');
+    }
+    expect(source.relationships.some(({ target: value }) =>
+      value === 'https://body.example')).toBe(true);
+    expect(generated.relationships.some(({ resolvedTarget }) =>
+      resolvedTarget === target.partUri)).toBe(true);
+    expect(generated.relationships.some(({ resolvedTarget }) =>
+      resolvedTarget === sentinel.partUri)).toBe(false);
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedTarget = reopened.slides.find(({ partUri }) => partUri === target.partUri)!;
+    for (const slide of reopened.slides.filter(({ partUri }) =>
+      partUri === source.partUri || partUri === generated.partUri)) {
+      const table = slide.shapes.find((shape): shape is TableModel => shape instanceof TableModel)!;
+      expect(table.rows[0]!.cells[0]!.richText[0]!.runs.map(
+        ({ style }) => style?.hyperlink,
+      )).toEqual([
+        { url: 'https://outer.example', tooltip: 'Outer tooltip' },
+        { url: 'https://run.example', tooltip: 'Run tooltip' },
+        { slide: reopened.slides.indexOf(reopenedTarget) + 1, tooltip: '' },
+      ]);
+    }
+  });
+
+  it('keeps multiple auto-page groups independent without reusing following slides', () => {
+    const { pkg, model } = emptyPresentationModel();
+    installNamedSlideLayouts(pkg, model, [{
+      name: 'MULTI',
+      partUri: '/ppt/slideLayouts/slideLayout1.xml',
+    }]);
+    const source = model.addSlide({ masterName: 'MULTI' });
+    const sentinel = model.addSlide({ masterName: 'MULTI' });
+    const section = model.addSection({ title: 'Multiple calls' });
+    model.assignSlideToSection(0, section.id);
+    const sentinelBytes = pkg.requirePart(sentinel.partUri).bytes.slice();
+    const options: AddTableOptions = {
+      autoPage: true,
+      autoPageRepeatHeader: true,
+      autoPageHeaderRows: 1,
+      autoPageSlideStartY: inches(4.125),
+      slideMargin: inches(0.5),
+      y: inches(4.125),
+      rowHeights: [inches(0.5), inches(0.5), inches(0.5), inches(0.5)],
+    };
+
+    source.addTable([['H1'], ['A1'], ['B1'], ['C1']], options);
+    const firstGroup = source.newAutoPagedSlides;
+    expect(firstGroup).toHaveLength(2);
+    const firstGroupBytes = firstGroup.map((slide) =>
+      pkg.requirePart(slide.partUri).bytes.slice());
+
+    source.addTable([['H2'], ['A2'], ['B2'], ['C2']], options);
+    const secondGroup = source.newAutoPagedSlides;
+    expect(secondGroup).toHaveLength(2);
+    expect(model.slides).toEqual([
+      source,
+      ...secondGroup,
+      ...firstGroup,
+      sentinel,
+    ]);
+    expect(firstGroup.map((slide) => model.slides.find(({ partUri }) =>
+      partUri === slide.partUri))).toEqual(firstGroup);
+    expect(firstGroup.map((slide) => pkg.requirePart(slide.partUri).bytes))
+      .toEqual(firstGroupBytes);
+    expect(pkg.requirePart(sentinel.partUri).bytes).toEqual(sentinelBytes);
+    expect(model.sections?.find(({ id }) => id === section.id)?.slideIds)
+      .toEqual([source, ...secondGroup, ...firstGroup].map(({ slideId }) => slideId));
+
+    model.deleteSlide(model.slides.indexOf(secondGroup[0]!));
+    expect(source.newAutoPagedSlides).toEqual([secondGroup[1]]);
+    model.moveSlide(model.slides.indexOf(secondGroup[1]!), model.slides.length - 1);
+    model.moveSlide(model.slides.indexOf(source), 1);
+    expect(source.newAutoPagedSlides).toEqual([secondGroup[1]]);
+    expect(model.slides.find(({ partUri }) => partUri === sentinel.partUri)).toBe(sentinel);
+
+    source.addTable([['No overflow']], {
+      autoPage: true,
+      y: inches(0.5),
+      slideMargin: inches(0.5),
+      rowHeights: [inches(0.5)],
+    });
+    expect(source.newAutoPagedSlides).toEqual([]);
+    expect(firstGroup.every((slide) => model.slides.includes(slide))).toBe(true);
+    expect(model.slides.includes(secondGroup[1]!)).toBe(true);
+  });
+
+  it('rolls every auto-page creation boundary back with cache and runtime isolation', async () => {
+    const boundaries = [
+      'source-table',
+      'generated-slide-part',
+      'layout-relationship',
+      'placeholder-materialization',
+      'generated-hyperlink',
+      'slide-number-sync',
+      'outer-transaction',
+    ] as const;
+
+    for (const boundary of boundaries) {
+      const { pkg, model } = emptyPresentationModel();
+      installNamedSlideLayouts(pkg, model, [{
+        name: 'FAILURE',
+        partUri: '/ppt/slideLayouts/slideLayout1.xml',
+        slideNumber: true,
+      }]);
+      const source = model.addSlide({ masterName: 'FAILURE' });
+      const sentinel = model.addSlide({ masterName: 'FAILURE' });
+      const section = model.addSection({ title: 'Failure isolation' });
+      model.assignSlideToSection(0, section.id);
+      const addPagedTable = (label: string): TableModel => source.addTable([
+        [{
+          text: `${label} header`,
+          options: { hyperlink: { url: `https://${label}.header.example` } },
+        }],
+        [`${label} source`],
+        [{
+          text: `${label} generated`,
+          options: { hyperlink: { url: `https://${label}.generated.example` } },
+        }],
+      ], {
+        autoPage: true,
+        autoPageRepeatHeader: true,
+        autoPageHeaderRows: 1,
+        autoPageSlideStartY: inches(4.125),
+        slideMargin: inches(0.5),
+        y: inches(4.125),
+        rowHeights: [inches(0.5), inches(0.5), inches(0.5)],
+      });
+
+      addPagedTable('previous');
+      const previousRuntime = source.newAutoPagedSlides;
+      const before = packageSnapshot(pkg);
+      const beforeBytes = await pkg.write();
+      const beforeSlides = [...model.slides];
+      const beforeShapes = beforeSlides.map((slide) => [...slide.shapes]);
+      const beforeSections = model.sections;
+      const knownSlidePartUris = new Set(beforeSlides.map(({ partUri }) => partUri));
+      let failedSourceTable: TableModel | undefined;
+      let failedGeneratedSlide: typeof source | undefined;
+      const captureSourceTable = (): void => {
+        failedSourceTable = source.shapes.filter(
+          (shape): shape is TableModel => shape instanceof TableModel,
+        ).at(-1);
+      };
+      const captureGeneratedSlide = (): void => {
+        failedGeneratedSlide = model.slides.find(({ partUri }) =>
+          !knownSlidePartUris.has(partUri));
+      };
+      const directGeneratedSlide = (partUri: string): boolean =>
+        /^\/ppt\/slides\/slide\d+\.xml$/.test(partUri)
+        && !knownSlidePartUris.has(partUri);
+      let restore = (): void => {};
+
+      if (boundary === 'outer-transaction') {
+        const original = pkg.transaction.bind(pkg);
+        let depth = 0;
+        const spy = vi.spyOn(pkg, 'transaction').mockImplementation(((operation: () => unknown) => {
+          depth += 1;
+          const outer = depth === 1;
+          try {
+            return original(() => {
+              const result = operation();
+              if (outer) {
+                captureSourceTable();
+                captureGeneratedSlide();
+                throw new Error(`injected ${boundary}`);
+              }
+              return result;
+            });
+          } finally {
+            depth -= 1;
+          }
+        }) as typeof pkg.transaction);
+        restore = () => spy.mockRestore();
+      } else if (
+        boundary === 'source-table'
+        || boundary === 'generated-slide-part'
+        || boundary === 'placeholder-materialization'
+        || boundary === 'slide-number-sync'
+      ) {
+        const original = pkg.setPart.bind(pkg);
+        const spy = vi.spyOn(pkg, 'setPart').mockImplementation((uri, bytes, contentType) => {
+          if (boundary === 'source-table' && uri === source.partUri) {
+            throw new Error(`injected ${boundary}`);
+          }
+          if (
+            boundary === 'generated-slide-part'
+            && directGeneratedSlide(uri)
+            && !pkg.hasPart(uri)
+          ) {
+            captureSourceTable();
+            throw new Error(`injected ${boundary}`);
+          }
+          if (
+            boundary === 'placeholder-materialization'
+            && directGeneratedSlide(uri)
+            && pkg.hasPart(uri)
+          ) {
+            captureSourceTable();
+            throw new Error(`injected ${boundary}`);
+          }
+          if (
+            boundary === 'slide-number-sync'
+            && uri === sentinel.partUri
+            && model.slides.length > beforeSlides.length
+          ) {
+            captureSourceTable();
+            captureGeneratedSlide();
+            throw new Error(`injected ${boundary}`);
+          }
+          return original(uri, bytes, contentType);
+        });
+        restore = () => spy.mockRestore();
+      } else {
+        const original = pkg.addRelationship.bind(pkg);
+        const spy = vi.spyOn(pkg, 'addRelationship').mockImplementation((partUri, input) => {
+          if (
+            boundary === 'layout-relationship'
+            && directGeneratedSlide(partUri)
+            && input.type === SLIDE_LAYOUT_RELATIONSHIP
+          ) {
+            captureSourceTable();
+            throw new Error(`injected ${boundary}`);
+          }
+          if (
+            boundary === 'generated-hyperlink'
+            && directGeneratedSlide(partUri)
+            && input.type === HYPERLINK_RELATIONSHIP
+          ) {
+            captureSourceTable();
+            captureGeneratedSlide();
+            throw new Error(`injected ${boundary}`);
+          }
+          return original(partUri, input);
+        });
+        restore = () => spy.mockRestore();
+      }
+
+      try {
+        expect(() => addPagedTable(boundary)).toThrow(`injected ${boundary}`);
+      } finally {
+        restore();
+      }
+      expect(packageSnapshot(pkg), boundary).toEqual(before);
+      expect(await pkg.write(), boundary).toEqual(beforeBytes);
+      expect(model.slides, boundary).toEqual(beforeSlides);
+      expect(model.sections, boundary).toEqual(beforeSections);
+      expect(source.newAutoPagedSlides, boundary).toEqual(previousRuntime);
+      expect(source.newAutoPagedSlides[0], boundary).toBe(previousRuntime[0]);
+      for (const [index, slide] of beforeSlides.entries()) {
+        expect(slide.shapes, `${boundary} shapes ${index}`).toEqual(beforeShapes[index]);
+      }
+
+      const retryTable = addPagedTable(`retry-${boundary}`);
+      const retryGenerated = source.newAutoPagedSlides[0]!;
+      if (failedSourceTable) expect(retryTable, boundary).not.toBe(failedSourceTable);
+      if (failedGeneratedSlide) expect(retryGenerated, boundary).not.toBe(failedGeneratedSlide);
+      expect(model.slides.includes(sentinel), boundary).toBe(true);
+    }
+  });
+
   it('detects all six OOXML presentation formats from the package content type', async () => {
     const expectedFlags: Record<PresentationFormat, readonly [boolean, boolean, boolean]> = {
       pptx: [false, false, false],

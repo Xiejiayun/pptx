@@ -1622,12 +1622,14 @@ export class SlideModel {
     const preparedHyperlinks = pageDefinitions.map((page) =>
       this.prepareTableCellHyperlinks(page));
     const generatedPartUris: string[] = [];
+    let committedSourceTable: TableModel | undefined;
     try {
       const table = this.presentation.opcPackage.transaction(() => {
         const sourceTable = this.commitNormalizedTable(
           pageDefinitions[0]!,
           preparedHyperlinks[0]!,
         );
+        committedSourceTable = sourceTable;
         let after: SlideModel = this;
         for (let index = 1; index < pageDefinitions.length; index += 1) {
           const generated = this.presentation.insertPreparedBlankSlideAfter(
@@ -1646,6 +1648,9 @@ export class SlideModel {
       this.#newAutoPagedSlidePartUris = Object.freeze([...generatedPartUris]);
       return table;
     } catch (error) {
+      if (committedSourceTable !== undefined) {
+        this.invalidateShapeModel(committedSourceTable.id);
+      }
       for (const partUri of generatedPartUris) {
         this.presentation.discardDetachedSlideModel(partUri);
       }
