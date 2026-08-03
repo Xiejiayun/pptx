@@ -459,7 +459,7 @@ PptxGenJS 4.0.1 materializes omitted borders as uniform four-side direct none. L
 
 Final verification is 9 focused files / 567 focused tests, 1457 passed / 1 skipped full tests, and performance 1/1 at 1.20s. The actual 62-file tarball SHA-256 is `47d9666c1dac8454524a87f7ca1898af0442c6faa7816e39cec34ff42dbf0d48`; installed Node/types/browser/CLI, `pptx-inspect`, and real Google Chrome report `tableBorders: true` / `tableBordersInspect: true`. Each final physical cell has exactly one direct `lnL/lnR/lnT/lnB` no-fill set; PowerPoint 2010 validation is 0 errors / 0 warnings, and Chrome validation/console/page/network errors are zero. Design, plan, correction, core, and package-proof commits are `8d6dfae`, `d4bf9c9`, `faca4ba`, `9195e57`, and `f8a9d0d`; evidence is retained at `/tmp/pptx-table-borders-artifacts.vyi1yo`.
 
-## Table-cell hyperlink creation and snapshots
+## Table-cell hyperlink creation, snapshots, and editing
 
 ```ts
 import { PptxDocument, TableModel } from '@jiayunxie/pptx';
@@ -477,22 +477,31 @@ console.log(table.rows[0].cells[1].hyperlink); // { slide: 2, tooltip: '' }
 document.moveSlide(document.slides.indexOf(target), 0);
 console.log(table.rows[0].cells[1].hyperlink); // { slide: 1, tooltip: '' }
 table.setCellText(0, 1, 'Open details'); // preserves the cell hyperlink
+table.setCellHyperlink(0, 0, {
+  url: 'https://example.com/docs',
+  tooltip: 'Read the docs',
+});
+table.setCellHyperlink(0, 1, undefined); // clears click, preserving run style
 
 const reopened = await PptxDocument.open(await document.write());
 const reopenedSource = reopened.slides.find(({ partUri }) => partUri === source.partUri)!;
 const reopenedTable = reopenedSource.shapes.find(
   ({ name }) => name === 'Cell links',
 ) as TableModel;
-console.log(reopenedTable.rows[0].cells[1].hyperlink); // { slide: 1, tooltip: '' }
+console.log(reopenedTable.rows[0].cells[0].hyperlink);
+// { url: 'https://example.com/docs', tooltip: 'Read the docs' }
+console.log(reopenedTable.rows[0].cells[1].hyperlink); // undefined
 ```
 
-`AddTableCellOptions.hyperlink?: Hyperlink` accepts a URL or a one-based current-presentation slide target. Omitted tooltip and explicit `''` remain distinct. Readonly `TableCell.hyperlink?: Hyperlink` immediately returns a detached frozen snapshot of the supported direct state. The link belongs to the plain cell's only direct run, survives `setCellText()` and supported property edits, and follows target-slide identity while reorder changes the reported ordinal. Duplicate, delete, rollback, all six formats, and write/reopen use the existing relationship lifecycle.
+`AddTableCellOptions.hyperlink?: Hyperlink` and `TableModel.setCellHyperlink(rowIndex, columnIndex, value)` accept a URL or a one-based current-presentation slide target. Omitted tooltip and explicit `''` remain distinct; `undefined` clears the selected zero-based physical cell's direct run click. Readonly `TableCell.hyperlink?: Hyperlink` immediately returns a detached frozen snapshot of the supported direct state. The link belongs to the plain cell's only direct run, survives `setCellText()` and supported property edits, and follows target-slide identity while reorder changes the reported ordinal. Duplicate, delete, rollback, all six formats, and write/reopen use the existing relationship lifecycle.
 
-Every linked cell owns one independent relationship, including cells with equal URLs. No `AddTableOptions.hyperlink` default or table-cell hyperlink editing/clearing method is provided yet. Reading requires exactly one namespace-correct direct text body, paragraph, run, run-properties node, and text node; rich, multi-run, and multi-paragraph cell links return `undefined` and remain unsupported. Legal PptxGenJS 4.0.1 URL/slide output imports, including extra `invalidUrl=""`, `action=""`, and `history="1"` run-click attributes. PptxGenJS materializes an omitted tooltip as empty and writes `_rId` back into caller hyperlink objects; native preserves omitted versus empty state and never mutates input.
+Native-created linked cells own independent relationships, including cells with equal URLs. Imported shared IDs use clone-on-write for target changes. Equal values are exact part/relationship/journal no-ops; tooltip-only edits retain the ID, unique target changes update in place, and clear/replace garbage-collect only the last reference. Adding a click supplies direct single underline when absent; clearing removes only the click and preserves underline plus every other run property. No `AddTableOptions.hyperlink` default is provided. Reading and editing require exactly one namespace-correct direct text body, paragraph, run, run-properties node, and text node; rich, multi-run, and multi-paragraph cell links return `undefined` and remain unsupported.
 
-Feature-proof verification is 8 focused files / 619 focused tests, 84 passed / 1 skipped full test files and 1468 passed / 1 skipped full tests, with performance 1/1 at 1.21s. After the cross-clock-boundary rollback fix, the final documentation gate is 1469 passed / 1 skipped with performance 1/1 at 1.25s. The actual 62-file tarball SHA-256 is `99206cbbe07626560501a0ef2007daf9327d0c5d88decd8773c4ed6c81f940b9`; installed Node/types/browser/CLI, `pptx-inspect`, and real Google Chrome report `tableCellHyperlinks: true`. Inspection confirms 20 parts, 20 relationships, 2 slides, 4 cells, and 3 independent clicks; PowerPoint 2010 validation has 0 errors and only 2 expected `OPC_EXTERNAL_RELATIONSHIP` warnings, while Chrome validation/console/page/network errors are zero. Design, plan, core, and package-proof commits are `64aac21`, `fdbe711`, `542fb7e`, and `c82f6a2`; the rollback-date fix is `89c83b0`, and evidence is retained at `/tmp/pptx-table-cell-hyperlink-artifacts.nkRM1l`.
+Legal PptxGenJS 4.0.1 URL/slide output imports and edits, including extra `invalidUrl=""`, `action=""`, and `history="1"` run-click attributes; PptxGenJS has no existing-deck table-cell hyperlink editor. It materializes omitted tooltip as empty and writes `_rId` back into caller hyperlink objects. Native preserves omitted versus empty state, never mutates input, and does not copy loose coercion or dangling-relationship behavior.
 
-Overall parity remains approximately 97%. Table-cell hyperlink editing/clearing is next, followed by rich/multi-paragraph cell text and style, merge/colspan/rowspan, row/column CRUD, auto-page/repeated headers, `tableToSlides`, and the final peer/client audit.
+Final verification is 84 passed / 1 skipped full test files and 1476 passed / 1 skipped tests, with performance 1/1 at 1.63s. The actual 62-file tarball SHA-256 is `2d06b955b48a25fc6f1e06accf2bd059045a7b3db04a6f3640c5bdca987ea816`; installed Node/types/browser/CLI, `pptx-inspect`, and real Google Chrome report `tableCellHyperlinkEditing: true`. The final evidence deck has 22 parts, 23 relationships, and 3 slides; its first table slide has 6 cells, 2 clicks, 2 matching relationships, and 6 preserved underlines. PowerPoint 2010 validation has 0 errors and only 2 expected `OPC_EXTERNAL_RELATIONSHIP` warnings, while Chrome validation/console/page/network errors are zero. Design, plan, rollback, core, and package-proof commits are `4fe0c43`, `0e566bd`, `dca33ba`, `99a6d3b`, and `93b6b09`; evidence is retained at `/tmp/pptx-table-cell-hyperlink-editing-UphgYg`.
+
+Overall parity remains approximately 97%. Rich/multi-paragraph table-cell text and style is next, followed by merge/colspan/rowspan, row/column CRUD, auto-page/repeated headers, `tableToSlides`, and the final peer/client audit.
 
 ## Embedded raster images
 

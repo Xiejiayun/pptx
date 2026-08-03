@@ -967,7 +967,7 @@ $ pptx-inspect --json package inspect output.pptx
 ### 剩余 advanced API 与全功能路线
 
 - 总体 PptxGenJS 对等进度仍约 97%；PptxGenJS 4.0.1 声明的六类 presentation runtime catalogs，以及 table-level direct vertical alignment、text direction、horizontal alignment 与 margins 已支持。
-- Table-level direct margins、fill、borders 与 table-cell hyperlink creation/read 已在后续专项完成；下一小项为 table-cell hyperlink editing/clearing，之后仍待 rich/multi-paragraph cell text/style、merge、row/column CRUD、auto-page/repeated headers、`tableToSlides` 与最终 peer/client audit，当前不声明完整 PptxGenJS parity。
+- Table-level direct margins、fill、borders 与 table-cell hyperlink creation/read/edit/clear 已在后续专项完成；下一小项为 rich/multi-paragraph cell text/style，之后仍待 merge、row/column CRUD、auto-page/repeated headers、`tableToSlides` 与最终 peer/client audit，当前不声明完整 PptxGenJS parity。
 
 ## PptxGenJS 全功能对等：Table-level direct margins
 
@@ -988,7 +988,7 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余 advanced API 与全功能路线
 
-- 总体 PptxGenJS 对等进度仍约 97%。Table-level direct fill、borders 与 table-cell hyperlink creation/read 已在后续专项完成；下一小项为 table-cell hyperlink editing/clearing，之后仍待其余 advanced text/table、`tableToSlides` 与最终 peer/client audit，当前不声明完整 PptxGenJS parity。
+- 总体 PptxGenJS 对等进度仍约 97%。Table-level direct fill、borders 与 table-cell hyperlink creation/read/edit/clear 已在后续专项完成；下一小项为 rich/multi-paragraph cell text/style，之后仍待其余 advanced table、`tableToSlides` 与最终 peer/client audit，当前不声明完整 PptxGenJS parity。
 
 ## PptxGenJS 全功能对等：Table-level direct fill
 
@@ -1009,7 +1009,7 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余 advanced API 与全功能路线
 
-- 总体 PptxGenJS 对等进度仍约 97%。Table-level direct borders 与 table-cell hyperlink creation/read 已在后续专项完成；下一小项为 table-cell hyperlink editing/clearing，之后仍待其余 advanced text/table、`tableToSlides` 与最终 peer/client audit，当前不声明完整 PptxGenJS parity。
+- 总体 PptxGenJS 对等进度仍约 97%。Table-level direct borders 与 table-cell hyperlink creation/read/edit/clear 已在后续专项完成；下一小项为 rich/multi-paragraph cell text/style，之后仍待其余 advanced table、`tableToSlides` 与最终 peer/client audit，当前不声明完整 PptxGenJS parity。
 
 ## PptxGenJS 全功能对等：Table-level direct borders
 
@@ -1030,7 +1030,7 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余 advanced API 与全功能路线
 
-- 总体 PptxGenJS 对等进度仍约 97%。Table-level fit 不是 PptxGenJS 4.0.1 table API，现有 cell fit 已作为 native extension；table-cell hyperlink creation/read 已在下一专项完成。下一小项为 table-cell hyperlink editing/clearing，之后再推进 rich/multi-paragraph cell text/style、merge、row/column CRUD、auto-page/repeated headers、`tableToSlides` 与最终 peer/client audit；当前不声明完整 PptxGenJS parity。
+- 总体 PptxGenJS 对等进度仍约 97%。Table-level fit 不是 PptxGenJS 4.0.1 table API，现有 cell fit 已作为 native extension；table-cell hyperlink creation/read/edit/clear 已在后续专项完成。下一小项为 rich/multi-paragraph cell text/style，之后再推进 merge、row/column CRUD、auto-page/repeated headers、`tableToSlides` 与最终 peer/client audit；当前不声明完整 PptxGenJS parity。
 
 ## PptxGenJS 全功能对等：Table-cell hyperlink creation
 
@@ -1040,7 +1040,7 @@ $ pptx-inspect --json package inspect output.pptx
 
 - 新增 `AddTableCellOptions.hyperlink?: Hyperlink` 与 readonly `TableCell.hyperlink?: Hyperlink`，支持 strict external URL、当前 presentation 内部一基 slide target、tooltip omitted 与 explicit empty。链接属于 plain cell 的唯一 direct run；输入在 mutation 前 descriptor-safe normalization 并立即 detached，getter 返回 detached frozen snapshot。`setCellText()` 与现有 cell style editors 保留链接，internal relationship 按 target part identity 保存，因此 slide reorder 只更新 getter ordinal。
 - 每个 linked cell 独占一个 relationship，即使多个 cells 指向相同 URL；没有 `AddTableOptions.hyperlink` default。创建前会验证完整 cell matrix 与全部 target，relationship 分配和 table 写入共用 transaction；duplicate、move、delete、rollback、六格式、write/reopen 与 self-link 生命周期已覆盖。Strict reader 只接受唯一 namespace-correct direct `txBody/p/r/rPr/t` path，不扫描 descendant，也不猜测 rich/multi-run/multi-paragraph、field、break、graphic-frame click 或 malformed relationship state。
-- PptxGenJS 4.0.1 合法 plain table-cell URL/slide final state 可导入，包括 external run click 的 `invalidUrl="" action="" history="1"` 等额外兼容属性。其 omitted tooltip 会物化 empty，并向 caller hyperlink object 写 `_rId`；native 保留 omitted/empty 差异、不输出这些非必要属性，也从不修改 caller 输入。Rich/multi-paragraph cell links 与 table-cell hyperlink editing/clearing 仍未支持。
+- PptxGenJS 4.0.1 合法 plain table-cell URL/slide final state 可导入，包括 external run click 的 `invalidUrl="" action="" history="1"` 等额外兼容属性。其 omitted tooltip 会物化 empty，并向 caller hyperlink object 写 `_rId`；native 保留 omitted/empty 差异、不输出这些非必要属性，也从不修改 caller 输入。Table-cell hyperlink editing/clearing 已在下一专项完成；rich/multi-paragraph cell links 仍未支持。
 - 设计、实施计划、core API/PptxGenJS conformance 与 actual-package/Chrome proof commits 分别为 `64aac21`、`fdbe711`、`542fb7e`、`c82f6a2`；文档作为独立小项 review、commit、push。
 
 ### 验证结果
@@ -1051,7 +1051,29 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余 advanced API 与全功能路线
 
-- 总体 PptxGenJS 对等进度仍约 97%。下一小项为 table-cell hyperlink editing/clearing；之后继续 rich/multi-paragraph cell text/style、merge/colspan/rowspan、row/column CRUD、auto-page/repeated headers、`tableToSlides` 与最终 peer/client audit，当前不声明完整 PptxGenJS parity。
+- 总体 PptxGenJS 对等进度仍约 97%。Table-cell hyperlink editing/clearing 已在下一专项完成；后续继续 rich/multi-paragraph cell text/style、merge/colspan/rowspan、row/column CRUD、auto-page/repeated headers、`tableToSlides` 与最终 peer/client audit，当前不声明完整 PptxGenJS parity。
+
+## PptxGenJS 全功能对等：Table-cell hyperlink editing
+
+状态：完成；实施与证据 5/5
+
+### 本阶段 change
+
+- 新增 `TableModel.setCellHyperlink(rowIndex, columnIndex, value)`，使用零基 physical cell indexes 与 strict `Hyperlink | undefined` whole-replacement 语义。支持 URL/内部 slide/tooltip omitted-empty-value 切换、添加与清除；readonly `TableCell.hyperlink` 继续返回 detached frozen snapshot，没有 table-level default 或 bulk editor。
+- Equal current/requested value 是 exact part/relationship/journal no-op；tooltip-only edit 保留 relationship ID，unique target 变化原位更新，imported shared ID target 变化 clone-on-write，clear/replace 只 GC 最后引用。添加 click 时只在缺失时补 direct single underline；清除仅移除 `hlinkClick`，保留 underline 与其他 run properties。
+- Unsafe/malformed/dangling/ambiguous relationship 或 rich/multi-run/multi-paragraph/field/break cell 结构在 mutation 前拒绝。Internal target identity、duplicate self-link、slide move/delete、target deletion、六格式、write/reopen、outer rollback 与失败注入均保持原子隔离；`setCellText()`、fill、margins 等现有 cell editor 与链接共存。
+- PptxGenJS 4.0.1 没有 existing-deck table-cell hyperlink editor。Native 可导入并编辑其合法 final state，包括 `invalidUrl=""`、external empty `action` 与 `history="1"` 等兼容属性，但不复制 caller `_rId` mutation、宽松 coercion 或 dangling relationship 缺陷。
+- 设计、实施计划、ZIP directory-date rollback、core API 与 actual-package/Chrome proof commits 分别为 `4fe0c43`、`0e566bd`、`dca33ba`、`99a6d3b`、`93b6b09`；文档作为独立小项 review、commit、push。
+
+### 验证结果
+
+- 最终 clean full Vitest 为 84 passed / 1 skipped test files、1476 passed / 1 skipped tests；独立 performance gate 1/1（核心测试 1.63s）。TypeScript packed declarations、Node/browser bundles、真实 tarball consumer、CLI 与 Inspector smoke 全部通过。
+- Actual npm tarball 为 62 files，SHA-1 `301c3b15522b2abe3d3627bbaa03fc34cadd7b8b`，SHA-256 `2d06b955b48a25fc6f1e06accf2bd059045a7b3db04a6f3640c5bdca987ea816`。Installed Node 与真实 Google Chrome 均报告 `tableCellHyperlinkEditing: true`；Chrome final state、validation、console、page 与 network errors 全部精确为预期/0。
+- `pptx-inspect` 确认最终证据文件为 22 parts、23 relationships、3 slides；首个表格页含 6 cells、2 clicks、2 matching relationships 与 6 preserved underlines。PowerPoint 2010 validation 为 0 errors，并只有 2 条预期 `OPC_EXTERNAL_RELATIONSHIP`。完整证据位于 `/tmp/pptx-table-cell-hyperlink-editing-UphgYg`，未进入仓库。
+
+### 剩余 advanced API 与全功能路线
+
+- 总体 PptxGenJS 对等进度仍约 97%。下一小项为 rich/multi-paragraph table-cell text/style；之后继续 merge/colspan/rowspan、row/column CRUD、auto-page/repeated headers、`tableToSlides` 与最终 peer/client audit，当前不声明完整 PptxGenJS parity。
 
 ## 0.1.0 初始验收
 
