@@ -10,6 +10,8 @@ const AUTO_PAGE_CONTROL_KEYS = [
   'autoPageHeaderRows',
   'autoPageSlideStartY',
   'slideMargin',
+  'autoPageCharWeight',
+  'autoPageLineWeight',
 ] as const;
 
 export interface NormalizedTableAutoPageRequest {
@@ -17,6 +19,9 @@ export interface NormalizedTableAutoPageRequest {
   readonly headerRows: number;
   readonly slideStartY?: number;
   readonly slideMargin?: readonly [number, number, number, number];
+  readonly charWeight?: number;
+  readonly lineWeight?: number;
+  readonly measureContent: boolean;
 }
 
 export interface TableAutoPageMargins {
@@ -31,6 +36,7 @@ interface NormalizeTableAutoPageContext {
   readonly rowHeights: readonly number[];
   readonly autoRowHeight: boolean;
   readonly hasPlaceholder: boolean;
+  readonly hasCellMeasurementWeights: boolean;
 }
 
 interface TableRowBlock {
@@ -43,13 +49,10 @@ export function normalizeTableAutoPageRequest(
   options: Readonly<Record<string, unknown>>,
   context: Readonly<NormalizeTableAutoPageContext>,
 ): Readonly<NormalizedTableAutoPageRequest> | undefined {
-  const enabled = options.autoPage;
-  if (enabled !== undefined && typeof enabled !== 'boolean') {
-    throw new TypeError('Table autoPage must be a boolean');
-  }
+  const enabled = normalizeTableAutoPageEnabled(options.autoPage);
   const hasControls = AUTO_PAGE_CONTROL_KEYS.some((key) => options[key] !== undefined);
-  if (enabled !== true) {
-    if (hasControls) {
+  if (!enabled) {
+    if (hasControls || context.hasCellMeasurementWeights) {
       throw new TypeError('Table auto-page controls require autoPage to be true');
     }
     return undefined;
@@ -57,10 +60,6 @@ export function normalizeTableAutoPageRequest(
   if (context.hasPlaceholder) {
     throw new TypeError('Table autoPage does not support placeholder placement');
   }
-  if (context.autoRowHeight || context.rowHeights.some((height) => height <= 0)) {
-    throw new RangeError('Table autoPage requires explicit positive rowHeights');
-  }
-
   const repeatHeaderValue = options.autoPageRepeatHeader;
   if (repeatHeaderValue !== undefined && typeof repeatHeaderValue !== 'boolean') {
     throw new TypeError('Table autoPageRepeatHeader must be a boolean');
@@ -84,13 +83,50 @@ export function normalizeTableAutoPageRequest(
   const slideMargin = options.slideMargin === undefined
     ? undefined
     : normalizeSlideMargin(options.slideMargin);
+  const charWeight = normalizeTableAutoPageWeight(
+    options.autoPageCharWeight,
+    'Table autoPageCharWeight',
+  );
+  const lineWeight = normalizeTableAutoPageWeight(
+    options.autoPageLineWeight,
+    'Table autoPageLineWeight',
+  );
+  const measureContent = context.autoRowHeight
+    || context.rowHeights.some((height) => height === 0)
+    || charWeight !== undefined
+    || lineWeight !== undefined
+    || context.hasCellMeasurementWeights;
 
   return Object.freeze({
     repeatHeader,
     headerRows,
     ...(slideStartY === undefined ? {} : { slideStartY }),
     ...(slideMargin === undefined ? {} : { slideMargin }),
+    ...(charWeight === undefined ? {} : { charWeight }),
+    ...(lineWeight === undefined ? {} : { lineWeight }),
+    measureContent,
   });
+}
+
+export function normalizeTableAutoPageEnabled(value: unknown): boolean {
+  if (value !== undefined && typeof value !== 'boolean') {
+    throw new TypeError('Table autoPage must be a boolean');
+  }
+  return value === true;
+}
+
+export function normalizeTableAutoPageWeight(
+  value: unknown,
+  context: string,
+): number | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new TypeError(`${context} must be finite`);
+  }
+  if (value < -1 || value > 1) {
+    throw new RangeError(`${context} must be between -1 and 1`);
+  }
+  return Object.is(value, -0) ? 0 : value;
 }
 
 export function planTableAutoPages(
@@ -99,6 +135,9 @@ export function planTableAutoPages(
   layoutMargins?: Readonly<TableAutoPageMargins>,
 ): readonly Readonly<NormalizedTableDefinition>[] {
   if (definition.autoPage === undefined) return Object.freeze([definition]);
+  if (definition.autoPage.measureContent) {
+    throw new RangeError('Table auto-page rowHeights must be materialized before planning');
+  }
   const width = normalizePositiveSafeInteger(slideSize.width, 'Slide width');
   const height = normalizePositiveSafeInteger(slideSize.height, 'Slide height');
   const margins = definition.autoPage.slideMargin === undefined

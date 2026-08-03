@@ -24,6 +24,7 @@ describe('table auto-page option normalization', () => {
       headerRows: 1,
       slideStartY: 500,
       slideMargin: [100, 200, 300, 400],
+      measureContent: false,
     });
     expect(Object.isFrozen(definition.autoPage)).toBe(true);
     expect(Object.isFrozen(definition.autoPage!.slideMargin)).toBe(true);
@@ -42,15 +43,160 @@ describe('table auto-page option normalization', () => {
       repeatHeader: true,
       headerRows: 1,
       slideMargin: [250, 250, 250, 250],
+      measureContent: false,
     });
     expect(normalizeTableDefinition(
       [['A'], ['B']],
       { autoPage: true, rowHeights: [10, 20] },
-    ).autoPage).toEqual({ repeatHeader: false, headerRows: 0 });
+    ).autoPage).toEqual({
+      repeatHeader: false,
+      headerRows: 0,
+      measureContent: false,
+    });
     expect(normalizeTableDefinition(
       [['A']],
       { autoPage: false, rowHeights: [10] },
     ).autoPage).toBeUndefined();
+  });
+
+  it('normalizes automatic rows and strict detached table/cell measurement weights', () => {
+    const definition = normalizeTableDefinition(
+      [
+        [{
+          text: 'A',
+          options: {
+            autoPageCharWeight: -0.25,
+            autoPageLineWeight: 0,
+          },
+        }],
+        ['B'],
+      ],
+      {
+        autoPage: true,
+        autoPageCharWeight: 0,
+        autoPageLineWeight: 0.5,
+        rowHeights: [0, 400_000],
+      },
+    );
+
+    expect(definition.autoPage).toEqual({
+      repeatHeader: false,
+      headerRows: 0,
+      charWeight: 0,
+      lineWeight: 0.5,
+      measureContent: true,
+    });
+    expect(definition.rows[0]![0]).toMatchObject({
+      autoPageCharWeight: -0.25,
+      autoPageLineWeight: 0,
+    });
+    expect(definition.rowHeights).toEqual([0, 400_000]);
+    expect(definition.autoRowHeight).toBe(true);
+    expect(definition.height).toBe(400_000);
+    expect(Object.isFrozen(definition.autoPage)).toBe(true);
+
+    expect(normalizeTableDefinition(
+      [['A'], ['B']],
+      { autoPage: true },
+    )).toMatchObject({
+      autoRowHeight: true,
+      rowHeights: [0, 0],
+      autoPage: {
+        repeatHeader: false,
+        headerRows: 0,
+        measureContent: true,
+      },
+    });
+    expect(normalizeTableDefinition(
+      [['A'], ['B']],
+      { autoPage: true, rowHeights: 0 },
+    )).toMatchObject({
+      autoRowHeight: true,
+      rowHeights: [0, 0],
+      height: 0,
+      autoPage: { measureContent: true },
+    });
+    expect(normalizeTableDefinition(
+      [['A'], ['B']],
+      {
+        autoPage: true,
+        autoPageLineWeight: 0,
+        rowHeights: [10, 20],
+      },
+    )).toMatchObject({
+      autoRowHeight: false,
+      rowHeights: [10, 20],
+      autoPage: { lineWeight: 0, measureContent: true },
+    });
+    expect(normalizeTableDefinition(
+      [['A']],
+      {
+        autoPage: true,
+        autoPageCharWeight: -1,
+        autoPageLineWeight: 1,
+        rowHeights: [10],
+      },
+    ).autoPage).toEqual({
+      repeatHeader: false,
+      headerRows: 0,
+      charWeight: -1,
+      lineWeight: 1,
+      measureContent: true,
+    });
+    expect(normalizeTableDefinition(
+      [['A']],
+      {
+        autoPage: true,
+        autoPageCharWeight: undefined,
+        autoPageLineWeight: undefined,
+        rowHeights: [10],
+      },
+    ).autoPage).toEqual({
+      repeatHeader: false,
+      headerRows: 0,
+      measureContent: false,
+    });
+  });
+
+  it('selects measured mode for a cell weight without materializing the table default', () => {
+    const definition = normalizeTableDefinition([[
+      { text: 'A', options: { autoPageCharWeight: 1 } },
+      { text: 'B', options: { autoPageLineWeight: -1 } },
+    ]], {
+      autoPage: true,
+      rowHeights: [100],
+    });
+    expect(definition.autoPage).toEqual({
+      repeatHeader: false,
+      headerRows: 0,
+      measureContent: true,
+    });
+    expect(definition.rows[0]!.map((cell) => ({
+      char: cell.autoPageCharWeight,
+      line: cell.autoPageLineWeight,
+    }))).toEqual([
+      { char: 1, line: undefined },
+      { char: undefined, line: -1 },
+    ]);
+  });
+
+  it('detaches measurement weights and canonicalizes negative zero', () => {
+    const cellOptions = { autoPageCharWeight: -0 };
+    const tableOptions = {
+      autoPage: true,
+      autoPageLineWeight: -0,
+      rowHeights: [100],
+    };
+    const definition = normalizeTableDefinition([[
+      { text: 'A', options: cellOptions },
+    ]], tableOptions);
+
+    cellOptions.autoPageCharWeight = 1;
+    tableOptions.autoPageLineWeight = 1;
+    expect(definition.autoPage).toMatchObject({ lineWeight: 0 });
+    expect(definition.rows[0]![0]!.autoPageCharWeight).toBe(0);
+    expect(Object.is(definition.autoPage!.lineWeight, -0)).toBe(false);
+    expect(Object.is(definition.rows[0]![0]!.autoPageCharWeight, -0)).toBe(false);
   });
 
   it.each([
@@ -77,8 +223,11 @@ describe('table auto-page option normalization', () => {
       autoPageHeaderRows: 3,
       rowHeights: [10, 10],
     }, RangeError],
-    ['automatic rows', { autoPage: true }, RangeError],
-    ['zero direct row', { autoPage: true, rowHeights: [0, 10] }, RangeError],
+    ['zero direct row with explicit height', {
+      autoPage: true,
+      rowHeights: [0, 10],
+      height: 10,
+    }, RangeError],
     ['placeholder owner', {
       autoPage: true,
       placeholder: 'Body',
@@ -104,8 +253,56 @@ describe('table auto-page option normalization', () => {
       slideMargin: [1, 2, -1, 4],
       rowHeights: [10, 10],
     }, RangeError],
+    ['table char weight below range', {
+      autoPage: true,
+      autoPageCharWeight: -1.000_001,
+      rowHeights: [10, 10],
+    }, RangeError],
+    ['table line weight above range', {
+      autoPage: true,
+      autoPageLineWeight: 1.000_001,
+      rowHeights: [10, 10],
+    }, RangeError],
+    ['non-numeric table weight', {
+      autoPage: true,
+      autoPageCharWeight: '0',
+      rowHeights: [10, 10],
+    }, TypeError],
+    ['non-finite table weight', {
+      autoPage: true,
+      autoPageLineWeight: Number.NaN,
+      rowHeights: [10, 10],
+    }, TypeError],
+    ['weight while disabled', {
+      autoPage: false,
+      autoPageCharWeight: 0,
+      rowHeights: [10, 10],
+    }, TypeError],
+    ['weight without auto-page', {
+      autoPageLineWeight: 0,
+      rowHeights: [10, 10],
+    }, TypeError],
   ])('rejects %s before package access', (_name, options, error) => {
     expect(() => normalizeTableDefinition([['A'], ['B']], options)).toThrow(error);
+  });
+
+  it.each([
+    ['char below range', { autoPageCharWeight: -1.1 }, RangeError],
+    ['char above range', { autoPageCharWeight: 1.1 }, RangeError],
+    ['line string', { autoPageLineWeight: '0' }, TypeError],
+    ['line infinity', { autoPageLineWeight: Number.POSITIVE_INFINITY }, TypeError],
+  ])('rejects invalid cell measurement %s', (_name, cellOptions, error) => {
+    expect(() => normalizeTableDefinition([[
+      { text: 'A', options: cellOptions },
+    ]], { autoPage: true, rowHeights: [10] })).toThrow(error);
+  });
+
+  it('rejects cell measurement controls unless the enclosing table enables auto-page', () => {
+    for (const options of [undefined, { autoPage: false }]) {
+      expect(() => normalizeTableDefinition([[
+        { text: 'A', options: { autoPageLineWeight: 0 } },
+      ]], options)).toThrow(TypeError);
+    }
   });
 
   it('rejects unsafe control descriptors, tuples, and object shapes', () => {
@@ -135,6 +332,56 @@ describe('table auto-page option normalization', () => {
       slideMargin: new Margin(1, 2, 3, 4),
       rowHeights: [10, 10],
     })).toThrow(TypeError);
+
+    let accessorCalls = 0;
+    const tableAccessor = { autoPage: true, rowHeights: [10, 10] };
+    Object.defineProperty(tableAccessor, 'autoPageCharWeight', {
+      enumerable: true,
+      get: () => {
+        accessorCalls += 1;
+        return 0;
+      },
+    });
+    expect(() => normalizeTableDefinition([['A'], ['B']], tableAccessor))
+      .toThrow(TypeError);
+
+    const cellAccessor = {};
+    Object.defineProperty(cellAccessor, 'autoPageLineWeight', {
+      enumerable: true,
+      get: () => {
+        accessorCalls += 1;
+        return 0;
+      },
+    });
+    expect(() => normalizeTableDefinition([[
+      { text: 'A', options: cellAccessor },
+    ]], { autoPage: true, rowHeights: [10] })).toThrow(TypeError);
+    expect(accessorCalls).toBe(0);
+
+    class CellWeights {
+      autoPageCharWeight = 0;
+    }
+    expect(() => normalizeTableDefinition([[
+      { text: 'A', options: new CellWeights() },
+    ]], { autoPage: true, rowHeights: [10] })).toThrow(TypeError);
+
+    const inheritedTable = Object.assign(
+      Object.create({ autoPageCharWeight: 0 }),
+      { autoPage: true, rowHeights: [10, 10] },
+    );
+    expect(() => normalizeTableDefinition([['A'], ['B']], inheritedTable))
+      .toThrow(TypeError);
+
+    const tableSymbol = { autoPage: true, rowHeights: [10, 10] };
+    Object.defineProperty(tableSymbol, Symbol('weight'), { value: 0 });
+    expect(() => normalizeTableDefinition([['A'], ['B']], tableSymbol))
+      .toThrow(TypeError);
+
+    const cellSymbol = { autoPageCharWeight: 0 };
+    Object.defineProperty(cellSymbol, Symbol('weight'), { value: 0 });
+    expect(() => normalizeTableDefinition([[
+      { text: 'A', options: cellSymbol },
+    ]], { autoPage: true, rowHeights: [10] })).toThrow(TypeError);
   });
 });
 

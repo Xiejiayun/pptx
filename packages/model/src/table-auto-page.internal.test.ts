@@ -217,6 +217,10 @@ describe('table auto-page partition planner', () => {
         slideMargin: 0,
       },
     ), /continuation|block/i],
+    ['automatic content is not materialized', () => definition(
+      [['A']],
+      { y: 0, slideMargin: 0 },
+    ), /materialized/i],
     ['zero continuation area', () => definition(
       [['A']],
       {

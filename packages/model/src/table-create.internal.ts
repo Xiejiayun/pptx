@@ -54,7 +54,9 @@ import type {
 } from './text.js';
 import type { TableCellMergeTokens } from './table-cell-merge.internal.js';
 import {
+  normalizeTableAutoPageEnabled,
   normalizeTableAutoPageRequest,
+  normalizeTableAutoPageWeight,
   type NormalizedTableAutoPageRequest,
 } from './table-auto-page.internal.js';
 
@@ -72,6 +74,8 @@ const OPTION_KEYS = [
   'autoPageHeaderRows',
   'autoPageSlideStartY',
   'slideMargin',
+  'autoPageCharWeight',
+  'autoPageLineWeight',
   'x',
   'y',
   'width',
@@ -102,6 +106,8 @@ interface NormalizedTableTextDefaults {
 export interface NormalizedTableCell extends NormalizedTableTextDefaults {
   readonly text: string;
   readonly richText?: ReturnType<typeof normalizeRichText>;
+  readonly autoPageCharWeight?: number;
+  readonly autoPageLineWeight?: number;
   readonly colspan?: number;
   readonly rowspan?: number;
   readonly continuation?: Readonly<{
@@ -150,6 +156,7 @@ export function normalizeTableDefinition(
       normalizeTableCell(cell, rowIndex, columnIndex)));
 
   const normalizedOptions = readOptions(options);
+  const autoPageEnabled = normalizeTableAutoPageEnabled(normalizedOptions.autoPage);
   const placeholder = normalizedOptions.placeholder === undefined
     ? undefined
     : normalizePlaceholderSelector(normalizedOptions.placeholder);
@@ -274,9 +281,15 @@ export function normalizeTableDefinition(
       physicalRows.length,
       'Table rowHeights',
       'row count',
+      autoPageEnabled,
     );
     const rowHeightSum = sumDimensions(rowHeights, 'Table rowHeights');
-    autoRowHeight = false;
+    autoRowHeight = rowHeights.some((rowHeight) => rowHeight === 0);
+    if (autoRowHeight && normalizedOptions.height !== undefined) {
+      throw new RangeError(
+        'Table height cannot be combined with automatic zero rowHeights',
+      );
+    }
     if (normalizedOptions.height === undefined) {
       height = rowHeightSum;
     } else {
@@ -304,6 +317,9 @@ export function normalizeTableDefinition(
     rowHeights,
     autoRowHeight,
     hasPlaceholder: placeholder !== undefined,
+    hasCellMeasurementWeights: physicalRows.some((row) => row.some((cell) =>
+      cell.autoPageCharWeight !== undefined
+      || cell.autoPageLineWeight !== undefined)),
   });
 
   return {
@@ -371,6 +387,8 @@ function normalizeTableCellOptions(
 ): Pick<
   NormalizedTableCell,
   | 'alignment'
+  | 'autoPageCharWeight'
+  | 'autoPageLineWeight'
   | 'bold'
   | 'borders'
   | 'color'
@@ -392,6 +410,8 @@ function normalizeTableCellOptions(
     `${context} options`,
     [
       'align',
+      'autoPageCharWeight',
+      'autoPageLineWeight',
       'bold',
       'border',
       'color',
@@ -409,6 +429,14 @@ function normalizeTableCellOptions(
     ],
   );
   const textDefaults = normalizeTableTextDefaults(options, context);
+  const autoPageCharWeight = normalizeTableAutoPageWeight(
+    options.autoPageCharWeight,
+    `${context} autoPageCharWeight`,
+  );
+  const autoPageLineWeight = normalizeTableAutoPageWeight(
+    options.autoPageLineWeight,
+    `${context} autoPageLineWeight`,
+  );
   const colspan = normalizeTableCellSpan(options.colspan, `${context} colspan`);
   const rowspan = normalizeTableCellSpan(options.rowspan, `${context} rowspan`);
   const alignment = options.align === undefined
@@ -437,6 +465,8 @@ function normalizeTableCellOptions(
     : normalizeTextBoxVerticalAlignment(options.valign, `${context} valign`);
   return {
     ...textDefaults,
+    ...(autoPageCharWeight === undefined ? {} : { autoPageCharWeight }),
+    ...(autoPageLineWeight === undefined ? {} : { autoPageLineWeight }),
     ...(colspan === undefined ? {} : { colspan }),
     ...(alignment === undefined ? {} : { alignment }),
     ...(borders === undefined ? {} : { borders }),
@@ -794,6 +824,7 @@ function normalizeDimensionVector(
   count: number,
   context: string,
   countContext: string,
+  allowZero = false,
 ): readonly number[] {
   const values = Array.isArray(value)
     ? readDenseArray(value, context)
@@ -803,8 +834,12 @@ function normalizeDimensionVector(
   }
   return values.map((item, index) => {
     const dimension = normalizeCoordinate(item, `${context} ${index}`);
-    if (dimension <= 0) {
-      throw new RangeError(`${context} ${index} must be greater than zero`);
+    if (dimension < 0 || (!allowZero && dimension === 0)) {
+      throw new RangeError(
+        allowZero
+          ? `${context} ${index} must be non-negative`
+          : `${context} ${index} must be greater than zero`,
+      );
     }
     return dimension;
   });
