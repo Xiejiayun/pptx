@@ -384,7 +384,7 @@ PptxGenJS 的 `masterName` 拼写在这里保持兼容，但它严格选择的�
 
 `PLACEHOLDER_TYPES` 固定为 `title` / `body` / `pic` / `chart` / `tbl` / `media`。创建方法中的 `placeholder` 可按 layout 内唯一 name，或 `{ type, index }` identity 定位；text/rich text、shape、image/SVG、chart、table 和 audio/video 会在原 owner 的继承 geometry 上填充对应 domain。重复名称、重复 identity、错误 domain、未知 `masterName` 和已填充 owner 都会在危险 mutation 前拒绝。
 
-`document.masters` / `layouts` 返回 stable live `SlideMasterModel` / `SlideLayoutModel`，可读写 background、slide number，列出 shapes/placeholders，并添加 placeholder、text/rich text、shape、raster/SVG image 和 chart。`replaceSlideMaster()` 原子整体替换 layout definition，保留 layout part URI、wrapper identity 和 incoming slide relationships；`deleteSlideMaster()` 在 layout 被使用时要求同文档 replacement，并先重定向 slides 再安全回收 owned dependencies。Background、content 与 placeholder relationships 会持久化；layout `margin` 是供 table auto-page 与后续 `tableToSlides` 使用的 runtime state，重开后为 `undefined`。
+`document.masters` / `layouts` 返回 stable live `SlideMasterModel` / `SlideLayoutModel`，可读写 background、slide number，列出 shapes/placeholders，并添加 placeholder、text/rich text、shape、raster/SVG image 和 chart。`replaceSlideMaster()` 原子整体替换 layout definition，保留 layout part URI、wrapper identity 和 incoming slide relationships；`deleteSlideMaster()` 在 layout 被使用时要求同文档 replacement，并先重定向 slides 再安全回收 owned dependencies。Background、content 与 placeholder relationships 会持久化；layout `margin` 是供 table auto-page 与 `tableToSlides` 使用的 runtime state，重开后为 `undefined`。
 
 定向 master/layout/placeholder suite 为 45 passed / 434 skipped；全量 Vitest 为 1256 passed / 1 skipped，独立 performance gate 为 1/1（578ms），typecheck、build 与 package build 通过。Actual tarball 含 57 个文件、54 个 `dist` 文件；两次 clean build 的 sorted dist-hash manifest 与 tarball 逐字节相同，SHA-256 分别为 `0a8e958ccde379ae071a7388dc4c29278ac5033a8641976324fcd5820339ad27` 和 `8362a3af38a4a7e8316a7e49e8cb3f4fb405753bd20cc935db609441819ca5e8`。Packed Node、TypeScript、CLI 与真实 Chrome 均报告 `masterLayouts: true`；Chrome 精确重开六类 placeholder、master/layout background、关系 target、payload hash 和 chart definition，validation/console/page/network errors 均为 0。
 
@@ -607,7 +607,7 @@ Native 使用正确的 `foldedCorner`，并拒绝 PptxGenJS 4.0.1 的无效 `fol
 
 Geometry 与 fill、line、arrows、shadow、whole-shape/run hyperlink、transform、text body 和 placeholder identity 独立。Duplicate、move、rollback、六格式 write/reopen、layout/master source isolation 均已覆盖。最终全量为 1313 passed / 1 skipped，performance 为 1/1（578ms）；57-file tarball 的 Node/types/browser/CLI 与真实 Chrome 均报告 `textShapePresetGeometry: true`，Chrome validation/console/page/network errors 为 0。代表性 2 页文件在原件与 LibreOffice 回存后均保持全部 17 个 `(text, presetType)`，无 overflow 且逐页视觉一致；原件 PowerPoint 2010 validation 为 0 errors / 0 warnings，回存件为 0 errors 与 2 条 placeholder-owner warnings。
 
-该小项不代表已实现完整 PptxGenJS 对等。`isTextBox` 与 rich-text `breakLine` 已在后续小节完成；其余 advanced text/table、`tableToSlides`、output/runtime helpers 与更广泛 peer/client audit 仍待完成。
+这是 text preset geometry 完成时的历史 checkpoint，并不代表当时已实现完整 PptxGenJS 对等。`isTextBox` 与 rich-text `breakLine` 已在后续小节完成；当时其余 advanced text/table、`tableToSlides`、output/runtime helpers 与更广泛 peer/client audit 仍待完成。
 
 ## 创建圆角文本框半径
 
@@ -677,7 +677,7 @@ PptxGenJS 4.0.1 合法 boolean 输入的段落、属性与 hyperlink 最终语�
 
 四页 source deck 在 PowerPoint 2010 profile 下为 0 errors / 0 warnings；单项 edit 只改变 `slide1.xml` 与对应 relationships，其他 24 parts byte-identical。五页 source/LibreOffice 视觉件均无 overflow、裁切或意外换行。LibreOffice 保留可见段落、空行、软换行与内部页链接，但会合并相邻 runs、省略空 tooltip、下推 master 内容、重命名 placeholder，并丢弃 master placeholder prompt；因此不声明 owner identity 完整往返。
 
-完整 PptxGenJS 对等仍需继续完成其余 advanced text/table、`tableToSlides`、output/runtime helpers 与 peer/client audit。
+这是 rich-text `breakLine` 完成时的历史 checkpoint；当时完整 PptxGenJS 对等仍需继续完成其余 advanced text/table、`tableToSlides`、output/runtime helpers 与 peer/client audit。
 
 ## 读取库运行时版本
 
@@ -1278,7 +1278,7 @@ table.deleteColumns(3);
 
 在 merge anchor 坐标插入表示在区域之前插入；严格插入区域内部会扩展 rowspan/colspan。删除会收缩区域，在原 anchor 被删除时提升最上/最左的 survivor，并在区域退化为 1×1 时解除合并。新 cell 是可立即由 text/rich-text/hyperlink/style editor 填充的 canonical empty plain cell，不复制相邻内容或样式。幸存 cell 的 source bytes、隐藏内容、样式、relationship 与未知 XML 保持；删除只回收整张 slide 中最后引用已经消失的 relationship。四个方法与 relationship GC 都在同一个 package transaction 中执行。
 
-PptxGenJS 4.0.1 只有创建期 table rows、`rowH` / `colW` 和 auto-page helper，没有 existing-deck row/column editor。合法 PptxGenJS plain/rich/linked/merged/sized table 可以通过 `importPptxGenJS()` 导入后使用上述 native lossless CRUD。Auto-page、repeated headers 与 automatic content measurement/layout recomputation 已在下节支持；本结构编辑 API 仍不提供 logical content insertion，`tableToSlides` 仍未支持。
+PptxGenJS 4.0.1 只有创建期 table rows、`rowH` / `colW` 和 auto-page helper，没有 existing-deck row/column editor。合法 PptxGenJS plain/rich/linked/merged/sized table 可以通过 `importPptxGenJS()` 导入后使用上述 native lossless CRUD。Auto-page、repeated headers 与 automatic content measurement/layout recomputation 已在下节支持；本结构编辑 API 仍不提供 logical content insertion，DOM import 现由独立 `tableToSlides()` API 支持。
 
 最终 focused gate 为 5 个文件 / 611 项测试（29.96s）；全量为 87 passed / 1 skipped test files、1535 passed / 1 skipped tests（64.27s），独立 1000-part performance 为 1/1（核心测试 1204ms，test file 1207ms，total 2.52s）。TypeScript project references、root build、Node/browser bundles 与 declarations 全部通过。两次 clean build 的 59-file dist manifests 完全一致，manifest SHA-256 为 `51d0c19da69fbd81682933d4a5418ff58ef2a805b4164d624f150d1674924e41`；两份 62-file、660,178-byte actual tarball byte-identical，SHA-256 均为 `17d43a887a9871fd4910bcf33415d985b4d8f1968b4020670a64166c148aeaa4`。Installed Node、NodeNext declarations、browser conditional export、CLI 与 Inspector 均报告 `tableStructureEditing: true`。
 
@@ -1346,11 +1346,11 @@ Continuation slides 总是紧邻 source 连续新建，使用同一 layout 并�
 
 `source.newAutoPagedSlides` 是最近一次成功 `addTable()` 产生的 continuation slides 的 frozen readonly runtime snapshot，不包含 source。成功的普通 table 或无溢出 auto-page 会把它重置为空；失败调用保留上一次成功结果；删除已生成页后 getter 会过滤 detached identity；duplicate 与 write/reopen 后均为空，因为该 metadata 不写入 PPTX。
 
-Native 不复制 PptxGenJS 4.0.1 修改 caller objects、夹取权重、coerce 非法值或复用既有后续 slide 的行为。当前总体 PptxGenJS 对等进度约 99.7%；剩余能力项只有 `tableToSlides`，之后还需最终 peer/client audit，因此仍不声明 100% 或完整 parity。
+Native 不复制 PptxGenJS 4.0.1 修改 caller objects、夹取权重、coerce 非法值或复用既有后续 slide 的行为。这是 measurement workstream 的 99.7% 历史 checkpoint；`tableToSlides` 已在本文后续独立章节完成，当前公开能力覆盖为 100%，最终 parity 认证仍等待 peer/client audit。
 
 Table content measurement/layout recomputation 专项最终 11/11 完成。Focused gate 为 8 个文件（7 passed / 1 skipped）、107 passed / 644 skipped，Vitest 8.59s；full gate 为 90 个文件（89 passed / 1 skipped）、1654 passed / 1 skipped，Vitest 40.16s；独立 1000-part performance gate 为 1/1，核心测试 604ms、Vitest 1.68s。TypeScript typecheck、root build 与 `@jiayunxie/pptx` package build 分别为 2.15s、1.66s、6.51s。两次 59-file dist manifest 完全一致，manifest SHA-256 为 `c2e9acc7f14aebb32e425fc0abcc8f62677e5268ee883f941ccda74d74c1d5ab`；两份 62-file actual tarball byte-identical，SHA-256 均为 `1ce84a18208daa0b045ef45dfa4b79f4728daa5a3111c960caf823a1b334b4ac`。Installed Node 与 browser conditional export 的 `tableContentMeasurement` 状态全部为 true，installed CLI/Inspector 另报告 `tableContentMeasurementInspect: true`；Google Chrome 150.0.7871.188 的 console/page/network errors 为 0/0/0。
 
-Node 与 browser evidence deck 均为 42 parts / 57 relationships、12 slides / 11 tables，其中 9 张是分页表；fixed rows 均为 `[274320, 274320, 274320]`，Node automatic rows 为 `[549738, 183246]`，browser automatic rows 为 `[732984, 183246]`，minimum row 为 `320040`。9 张 section pages、repeated headers、每页 transform/row-height sum、layout 与 placeholder identity 均通过；18 个 clicks 拥有 18 个精确 page-local relationships，orphan links 为 0。Node/browser deck SHA-256 分别为 `b37d5204aab7cdb98d42e6b0e0eda7af782b660f15901440189fc434fefa214a` 与 `d734893e309809d5fa4cce1751db302fec9bf1b7c307c4b48fa8f705cfe8dfab`；两者 PowerPoint 2010 validation 均为 0 errors / 15 个预期 external-link warnings。Commit chain 为 `4482555`、`7a262ae`、`95b98ce`、`78cb279`、`6633696`、`e64e232`、`d77f54b`、`2f7595a`、`e765011`、`6c63e0b`，完整证据位于 `/tmp/pptx-table-content-measurement-artifacts.zxJbXX`。专项进度 100%，总体对等进度保持约 99.7%。
+Node 与 browser evidence deck 均为 42 parts / 57 relationships、12 slides / 11 tables，其中 9 张是分页表；fixed rows 均为 `[274320, 274320, 274320]`，Node automatic rows 为 `[549738, 183246]`，browser automatic rows 为 `[732984, 183246]`，minimum row 为 `320040`。9 张 section pages、repeated headers、每页 transform/row-height sum、layout 与 placeholder identity 均通过；18 个 clicks 拥有 18 个精确 page-local relationships，orphan links 为 0。Node/browser deck SHA-256 分别为 `b37d5204aab7cdb98d42e6b0e0eda7af782b660f15901440189fc434fefa214a` 与 `d734893e309809d5fa4cce1751db302fec9bf1b7c307c4b48fa8f705cfe8dfab`；两者 PowerPoint 2010 validation 均为 0 errors / 15 个预期 external-link warnings。Commit chain 为 `4482555`、`7a262ae`、`95b98ce`、`78cb279`、`6633696`、`e64e232`、`d77f54b`、`2f7595a`、`e765011`、`6c63e0b`，完整证据位于 `/tmp/pptx-table-content-measurement-artifacts.zxJbXX`。专项进度 100%；在该历史 checkpoint，总体对等进度约 99.7%。
 
 ## 创建和编辑预设形状、调整值与样式
 
@@ -1521,6 +1521,43 @@ arc.adjustments = [];
 `ShapeAdjustment.value` 是 `a:gd@fmla="val N"` 的 direct safe integer，不执行形状专属单位换算。列表有序且名称唯一；输入会立即脱离 caller，getter 返回 detached deep-frozen snapshot，赋相同列表是 exact bytes/journal no-op。赋值采用 whole replacement，`[]` 清空 `a:avLst`，setter 不接受 `undefined`。复杂公式、重复或歧义结构读取为 `undefined`，编辑会在 package 变化前拒绝；改变 `presetType` 会重置调整值，同类型赋值保留原 bytes。
 
 PptxGenJS 4.0.1 的合法 `rectRadius`、`angleRange` 与 `arcThicknessRatio` 最终输出可直接导入。原生 API 接受最终整数 guide 列表，因此保留显式 zero，也不会复制 PptxGenJS 的 zero truthiness 丢失、字符串转换、`rectRadius` 快捷字段优先级、无 angles 时忽略 thickness 或 malformed/unsafe passthrough。Custom geometry paths、guide formulas、handles、connection sites、text rectangle 与 numeric evaluation 已由独立 API 支持。
+
+## 从 HTML 表格创建可编辑幻灯片
+
+`PptxDocument.tableToSlides()` 在浏览器 DOM 中按 ID 读取 `<table>`，生成一个或多个普通、可继续编辑的 `SlideModel`。该方法是异步的；公开几何仍使用 EMU，只有 `data-pptx-width` 与 `data-pptx-min-width` 按 PptxGenJS 边界使用英寸。
+
+```ts
+const pages = await document.tableToSlides('report-table', {
+  masterSlideName: 'REPORT',
+  autoPage: true,
+  autoPageRepeatHeader: true,
+  x: inches(0.5),
+  y: inches(0.75),
+  width: inches(12),
+  slideMargin: [inches(0.5), inches(0.5), inches(0.5), inches(0.5)],
+  addImage: {
+    source: logoBytes,
+    options: { x: inches(11), y: inches(0.1), width: inches(1), height: inches(0.4) },
+  },
+  addShape: {
+    type: 'rect',
+    options: { x: inches(0.2), y: inches(0.2), width: inches(0.1), height: inches(0.1) },
+  },
+  addTable: { rows: [['Generated', 'Yes']], options: { x: inches(9), y: inches(6) } },
+  addText: { text: [{ runs: [{ text: 'Confidential', style: { bold: true } }] }] },
+});
+
+const table = pages[0]!.shapes.find((shape) => shape instanceof TableModel) as TableModel;
+table.setCellText(1, 0, 'Edited after import');
+```
+
+行顺序固定为 `thead`、全部 `tbody`、`tfoot`；文本来自一次 detached `innerText` 快照。Cell computed CSS 支持 sRGB 前景/背景、font family/size/weight、水平/垂直对齐、四边 padding 与 border；透明背景映射为白色，可见的非 solid border 映射为 dash。列宽优先级是显式 `columnWidths`，否则由可见像素比例和 header 上的 fixed/minimum data attributes 求出正数 EMU，并保证精确总和。
+
+`autoPage` 默认 `true`，支持重复表头、named-layout margin、section/slide-number/layout 继承和严格内容测量；显式 `false` 只创建一张 ordinary automatic-row table，并拒绝仅分页可用的 controls。每个 HTML page 的附加对象顺序为 image → shape → table → text；附加 table 自己产生的 continuation slides 不进入返回数组。图片源只加载一次，每页拥有独立 relationship，相同 content type 与 bytes 复用 media part，替换继续 clone-on-write。DOM/CSS/列宽/图片预检发生在 package mutation 前，所有页面、关系和附加对象在一个外层 transaction 中提交或整体回滚。
+
+边界：该 API 需要 browser `document` 与真实 table-like DOM；不解析 word-level HTML，样式只取 cell computed CSS；颜色 alpha 不写入 cell fill/border；隐藏且没有固定列宽依据的表格会拒绝。Native 不复制 PptxGenJS 4.0.1 的 selector 插值、caller mutation、`autoPage:false` 忽略、truthy coercion、fixed-width-as-minimum 缺陷或 silent NaN。
+
+至此锁定的 PptxGenJS 4.0.1 公开能力项覆盖达到 100%。最终“全功能对等”认证仍等待实际 tarball、真实 Chrome、CLI/Inspector、PowerPoint/LibreOffice 与最终 peer/client audit，当前不提前声明完整 parity 已认证。
 
 ## 开发
 

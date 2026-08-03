@@ -1,6 +1,6 @@
 # PPTX 双向编辑库实施进度
 
-最后更新：2026-08-02
+最后更新：2026-08-04
 
 ## WP0：基线与技术验证
 
@@ -1171,8 +1171,36 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余 advanced API 与全功能路线
 
-- 当前总体 PptxGenJS 对等进度约 99.7%，尚不声明 100% 或完整 parity。
-- 剩余能力项只有 `tableToSlides`；完成后执行最终 peer/client audit 与全量发布证明。
+- 这是 measurement/layout workstream 完成时的历史 checkpoint：当时总体 PptxGenJS 对等进度约 99.7%，尚不声明 100% 或完整 parity。
+- 当时剩余能力项只有 `tableToSlides`；该能力已在下一节实现，随后执行最终 actual-package/browser/client/peer audit 与全量发布证明。
+
+## PptxGenJS 全功能对等：HTML `tableToSlides`
+
+状态：实现与公开契约完成；专项 8/10（80%），剩余 actual-package/browser/client proof 与最终证据收口
+
+### 本阶段 change
+
+- 新增 strict browser-DOM `PptxDocument.tableToSlides()`：ID lookup 不插值 selector，按 `thead` → 全部 `tbody` → `tfoot` 顺序一次性脱离 `innerText`、span、offset width 与 computed cell CSS。
+- 支持 sRGB foreground/background、font family/size/weight、horizontal/vertical alignment、padding、四边 border，以及 transparent→white、visible non-solid border→dash 的确定性映射；不保留 DOM/CSS 对象。
+- 显式 `columnWidths` 优先；否则以 visible pixel proportions 和 header `data-pptx-width` / `data-pptx-min-width` 约束求 exact positive EMU vector。Native geometry 是 EMU，两个 HTML data attribute 保留 PptxGenJS-compatible inches。
+- `autoPage` 默认 true，复用 automatic measurement、weights、rich fragmentation、repeated headers、named-layout margin、layout/section/slide-number ownership 与 page-local links。显式 false 只创建一张 ordinary automatic-row table，并拒绝分页专用 controls。
+- 每张 HTML page 以 image → shape → table → text 顺序加入模板；additional table 自己产生的 continuation 不进入返回 snapshot。Plain/rich text 分流到对应 native creator。
+- 图片源在 package mutation 前只解析一次；raster/SVG/fallback/placeholder sizing 复用 standalone loader。每页关系独立，精确 content type + bytes 复用 media part，replacement 保持 clone-on-write。
+- DOM/CSS/layout/columns/images 全部 preflight；slide creation、HTML pagination、relations 与 additions 位于一个 outer transaction，任何失败整体回滚并清理 detached model identity。
+- SDK/root 导出 `TableToSlidesAddImage`、`TableToSlidesAddShape`、`TableToSlidesAddTable`、`TableToSlidesAddText`、`TableToSlidesOptions`；六种 presentation format、generated declarations 与 PptxGenJS 4.0.1 legal/difference contracts 已验证。
+
+### 当前验证结果
+
+- Task 5 gate：table/SDK/model 3 files、577 tests 全部通过；workspace typecheck 与 diff check 通过。
+- Task 6 gate：prepared image/raster/SVG/table/SDK/model 6 files、680 tests 全部通过；workspace typecheck 与 diff check 通过。
+- Task 7 gate：SDK table/SDK root/package root/adapter 4 files、463 tests 全部通过；workspace typecheck、Node/browser package build 与 packed declaration generation 通过。
+- 已锁定 PptxGenJS 4.0.1 合法 row/style/column/layout/addition 语义，以及 native 对 `void` return、caller mutation、ignored `autoPage:false`、truthy coercion、fixed-width-as-minimum 与 silent-invalid-number defects 的明确差异。
+
+### 剩余工作与对等结论
+
+- 公开 capability checklist 已达到 100%；不再存在 `tableToSlides` 能力缺口。
+- 尚未完成 Task 9 actual tarball、real Chrome、installed Node/NodeNext/browser/CLI/Inspector、PowerPoint 2010、LibreOffice/render/overflow proof，以及 Task 10 final evidence consistency/peer-client audit。
+- 因此当前只声明“公开能力覆盖 100%”，不提前声明“最终完整 PptxGenJS parity 已认证”。
 
 ## 0.1.0 初始验收
 
