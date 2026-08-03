@@ -252,6 +252,75 @@ describe('uniform rich text hyperlink rendering', () => {
   });
 });
 
+describe('rich text run style defaults', () => {
+  it('resolves run defaults with explicit overrides and hyperlink color suppression', () => {
+    const paragraphs = normalizeRichText([{
+      runs: [
+        { text: 'Inherited' },
+        {
+          text: 'Local false',
+          style: {
+            fontFamily: 'Arial',
+            fontSize: 10,
+            bold: false,
+            color: { kind: 'srgb', value: 'FF0000' },
+          },
+        },
+        {
+          text: 'Linked',
+          style: { hyperlink: { url: 'https://example.com' } },
+        },
+      ],
+    }, { runs: [] }]);
+
+    const rendered = renderRichTextParagraphs(paragraphs, {
+      defaultFontFamily: 'Aptos',
+      defaultFontSize: 18.25,
+      defaultBold: true,
+      defaultColor: { kind: 'scheme', value: 'accent1' },
+      suppressDefaultColorForHyperlinks: true,
+      runHyperlinkRelationshipIds: [[undefined, undefined, 'rId7'], []],
+    });
+    const runs = [...rendered.matchAll(/<a:r>[\s\S]*?<\/a:r>/g)]
+      .map(([run]) => run);
+
+    expect(runs).toHaveLength(3);
+    expect(runs[0]).toContain('<a:rPr lang="en-US" sz="1825" b="1" dirty="0">');
+    expect(runs[0]).toContain('<a:schemeClr val="accent1"/>');
+    expect(runs[0]).toContain(
+      '<a:latin typeface="Aptos"/><a:ea typeface="Aptos"/><a:cs typeface="Aptos"/>',
+    );
+    expect(runs[1]).toContain('<a:rPr lang="en-US" sz="1000" b="0" dirty="0">');
+    expect(runs[1]).toContain('<a:srgbClr val="FF0000"/>');
+    expect(runs[1]).toContain(
+      '<a:latin typeface="Arial"/><a:ea typeface="Arial"/><a:cs typeface="Arial"/>',
+    );
+    expect(runs[2]).toContain('<a:rPr lang="en-US" sz="1825" b="1" u="sng" dirty="0">');
+    expect(runs[2]).not.toContain('<a:solidFill>');
+    expect(runs[2]).toContain(
+      '<a:latin typeface="Aptos"/><a:ea typeface="Aptos"/><a:cs typeface="Aptos"/>',
+    );
+    expect(runs[2]).toContain('<a:hlinkClick r:id="rId7"/>');
+    expect(rendered.match(
+      /<a:endParaRPr lang="en-US" sz="1825" dirty="0"><a:latin typeface="Aptos"\/><a:ea typeface="Aptos"\/><a:cs typeface="Aptos"\/><\/a:endParaRPr>/g,
+    )).toHaveLength(2);
+  });
+
+  it('keeps legacy rendering byte-identical when defaults are omitted', () => {
+    const paragraphs = normalizeRichText([{ runs: [{ text: 'Legacy' }] }]);
+
+    expect(renderRichTextParagraphs(paragraphs)).toBe(
+      '<a:p><a:pPr indent="0" marL="0"><a:buNone/></a:pPr>' +
+      '<a:r><a:rPr lang="en-US" dirty="0">' +
+      '<a:solidFill><a:schemeClr val="tx1"/></a:solidFill>' +
+      '<a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/>' +
+      '<a:cs typeface="+mn-cs"/></a:rPr>' +
+      '<a:t xml:space="preserve">Legacy</a:t></a:r>' +
+      '<a:endParaRPr lang="en-US" dirty="0"/></a:p>',
+    );
+  });
+});
+
 describe('rich text run hyperlink rendering', () => {
   it('resolves local values over outer defaults with suppression and independent IDs', () => {
     const paragraphs = normalizeRichText([{

@@ -349,6 +349,9 @@ function richTextValuesEqual(left: unknown, right: unknown): boolean {
 interface RenderRichTextOptions {
   readonly prefix?: string;
   readonly defaultLanguage?: string;
+  readonly defaultFontFamily?: string;
+  readonly defaultFontSize?: number;
+  readonly defaultBold?: boolean;
   readonly defaultColor?: Readonly<RichTextColor>;
   readonly defaultAlign?: TextAlignment;
   readonly defaultRtl?: boolean;
@@ -363,8 +366,22 @@ interface RenderRichTextOptions {
   readonly hyperlinkRelationshipId?: string;
   readonly runHyperlinkRelationshipIds?: RichTextRunHyperlinkRelationshipIds;
   readonly declareHyperlinkRelationshipNamespace?: boolean;
+  readonly suppressDefaultColorForHyperlinks?: boolean;
   readonly paragraphProperties?: readonly (string | undefined)[];
   readonly endParagraphProperties?: string;
+}
+
+interface RenderRunOptions {
+  readonly prefix: string;
+  readonly defaultLanguage?: string;
+  readonly defaultFontFamily?: string;
+  readonly defaultFontSize?: number;
+  readonly defaultBold?: boolean;
+  readonly defaultColor?: Readonly<RichTextColor>;
+  readonly hyperlink?: NormalizedHyperlink;
+  readonly hyperlinkRelationshipId?: string;
+  readonly declareHyperlinkRelationshipNamespace: boolean;
+  readonly suppressDefaultColorForHyperlinks: boolean;
 }
 
 export type RichTextRunHyperlinkRelationshipIds =
@@ -394,7 +411,12 @@ export function renderRichTextParagraphs(
   }
   const prefix = options.prefix ?? 'a:';
   const defaultLanguage = options.defaultLanguage ?? 'en-US';
-  const defaultEndProperties = `<${prefix}endParaRPr lang="${escapeXmlAttribute(defaultLanguage)}" dirty="0"/>`;
+  const defaultEndProperties = renderDefaultEndParagraphProperties(
+    prefix,
+    defaultLanguage,
+    options.defaultFontFamily,
+    options.defaultFontSize,
+  );
   return paragraphs
     .map(({ align, bullet, indent, level, marginLeft, marginRight, rtl, runs, spacing, tabStops }, paragraphIndex) => {
       const resolvedBullet = bullet === false
@@ -444,19 +466,57 @@ export function renderRichTextParagraphs(
           const relationshipId = directHyperlink === undefined
             ? hyperlink === undefined ? undefined : options.hyperlinkRelationshipId
             : directRelationshipId;
-          return renderRun(
-            run,
+          return renderRun(run, {
             prefix,
-            options.defaultLanguage,
-            options.defaultColor,
-            hyperlink,
-            relationshipId,
-            options.declareHyperlinkRelationshipNamespace ?? false,
-          );
+            ...(options.defaultLanguage === undefined
+              ? {}
+              : { defaultLanguage: options.defaultLanguage }),
+            ...(options.defaultFontFamily === undefined
+              ? {}
+              : { defaultFontFamily: options.defaultFontFamily }),
+            ...(options.defaultFontSize === undefined
+              ? {}
+              : { defaultFontSize: options.defaultFontSize }),
+            ...(options.defaultBold === undefined
+              ? {}
+              : { defaultBold: options.defaultBold }),
+            ...(options.defaultColor === undefined
+              ? {}
+              : { defaultColor: options.defaultColor }),
+            ...(hyperlink === undefined ? {} : { hyperlink }),
+            ...(relationshipId === undefined
+              ? {}
+              : { hyperlinkRelationshipId: relationshipId }),
+            declareHyperlinkRelationshipNamespace:
+              options.declareHyperlinkRelationshipNamespace ?? false,
+            suppressDefaultColorForHyperlinks:
+              options.suppressDefaultColorForHyperlinks ?? false,
+          });
         })
         .join('')}${options.endParagraphProperties ?? defaultEndProperties}</${prefix}p>`;
     })
     .join('');
+}
+
+function renderDefaultEndParagraphProperties(
+  prefix: string,
+  language: string,
+  fontFamily?: string,
+  fontSize?: number,
+): string {
+  const languageValue = escapeXmlAttribute(language);
+  const sizeAttribute = fontSize === undefined
+    ? ''
+    : ` sz="${Math.round(fontSize * 100)}"`;
+  if (fontFamily === undefined) {
+    return `<${prefix}endParaRPr lang="${languageValue}"${sizeAttribute} dirty="0"/>`;
+  }
+  const typeface = escapeXmlAttribute(fontFamily);
+  return `<${prefix}endParaRPr lang="${languageValue}"${sizeAttribute} dirty="0">` +
+    `<${prefix}latin typeface="${typeface}"/>` +
+    `<${prefix}ea typeface="${typeface}"/>` +
+    `<${prefix}cs typeface="${typeface}"/>` +
+    `</${prefix}endParaRPr>`;
 }
 
 export function readRichText(
@@ -1370,41 +1430,51 @@ function readColorDataObject(
 
 function renderRun(
   run: NormalizedRichTextRun,
-  prefix: string,
-  defaultLanguage?: string,
-  defaultColor?: Readonly<RichTextColor>,
-  hyperlink?: NormalizedHyperlink,
-  hyperlinkRelationshipId?: string,
-  declareHyperlinkRelationshipNamespace = false,
+  options: RenderRunOptions,
 ): string {
+  const { prefix } = options;
   const softBreak = run.softBreakBefore ? `<${prefix}br/>` : '';
   if (run.text.length === 0 && run.style === undefined) return softBreak;
   const style = run.style ?? {};
-  const language = style.lang ?? defaultLanguage ?? 'en-US';
-  const explicitLanguage = style.lang !== undefined || defaultLanguage !== undefined;
+  const language = style.lang ?? options.defaultLanguage ?? 'en-US';
+  const explicitLanguage = style.lang !== undefined || options.defaultLanguage !== undefined;
+  const fontFamily = style.fontFamily ?? options.defaultFontFamily;
+  const fontSize = style.fontSize ?? options.defaultFontSize;
+  const bold = style.bold ?? options.defaultBold;
   const languageAttributes = `lang="${escapeXmlAttribute(language)}"${
     explicitLanguage ? ' altLang="en-US"' : ''
   }`;
   const attributes = [
     languageAttributes,
-    style.fontSize === undefined ? '' : `sz="${Math.round(style.fontSize * 100)}"`,
+    fontSize === undefined ? '' : `sz="${Math.round(fontSize * 100)}"`,
     style.baseline === undefined
       ? ''
       : `baseline="${style.baseline === 'superscript' ? 30_000 : style.baseline === 'subscript' ? -40_000 : Math.round(style.baseline * 1_000)}"`,
     style.characterSpacing === undefined ? '' : `spc="${Math.round(style.characterSpacing * 100)}"`,
     style.characterSpacing === undefined ? '' : 'kern="0"',
-    style.bold === undefined ? '' : `b="${style.bold ? 1 : 0}"`,
+    bold === undefined ? '' : `b="${bold ? 1 : 0}"`,
     style.italic === undefined ? '' : `i="${style.italic ? 1 : 0}"`,
     style.strike === undefined
       ? ''
       : `strike="${style.strike === false ? 'noStrike' : style.strike === true ? 'sngStrike' : style.strike}"`,
     style.underline === undefined
-      ? hyperlink === undefined ? '' : 'u="sng"'
+      ? options.hyperlink === undefined ? '' : 'u="sng"'
       : `u="${style.underline === false ? 'none' : style.underline === true ? 'sng' : style.underline.style}"`,
     'dirty="0"',
   ].filter(Boolean).join(' ');
-  const color = style.color ?? defaultColor ?? { kind: 'scheme' as const, value: 'tx1' };
-  const colorXml = renderMainTextColorChoice(color, prefix, style.transparency);
+  const suppressOuterColor = options.suppressDefaultColorForHyperlinks
+    && options.hyperlink !== undefined
+    && style.color === undefined;
+  const color = style.color
+    ?? (suppressOuterColor ? undefined : options.defaultColor)
+    ?? (suppressOuterColor ? undefined : { kind: 'scheme' as const, value: 'tx1' });
+  const solidFill = color === undefined
+    ? ''
+    : `<${prefix}solidFill>${renderMainTextColorChoice(
+        color,
+        prefix,
+        style.transparency,
+      )}</${prefix}solidFill>`;
   const outline = style.outline
     ? `<${prefix}ln w="${Math.round(style.outline.size * EMU_PER_POINT)}"><${prefix}solidFill>${renderColorChoice(style.outline.color, prefix)}</${prefix}solidFill></${prefix}ln>`
     : '';
@@ -1418,25 +1488,25 @@ function renderRun(
   const underlineFill = underlineColor
     ? `<${prefix}uFill><${prefix}solidFill>${renderColorChoice(underlineColor, prefix)}</${prefix}solidFill></${prefix}uFill>`
     : '';
-  const latin = escapeXmlAttribute(style.fontFamily ?? '+mn-lt');
-  const eastAsian = escapeXmlAttribute(style.fontFamily ?? '+mn-ea');
-  const complexScript = escapeXmlAttribute(style.fontFamily ?? '+mn-cs');
+  const latin = escapeXmlAttribute(fontFamily ?? '+mn-lt');
+  const eastAsian = escapeXmlAttribute(fontFamily ?? '+mn-ea');
+  const complexScript = escapeXmlAttribute(fontFamily ?? '+mn-cs');
   const drawingPrefix = prefix.endsWith(':') ? prefix.slice(0, -1) : prefix;
   const relationshipPrefix = drawingPrefix === 'r' ? 'rel' : 'r';
-  const renderedHyperlink = hyperlink === undefined
+  const renderedHyperlink = options.hyperlink === undefined
     ? ''
     : renderShapeHyperlink(
-        hyperlink,
-        hyperlinkRelationshipId!,
+        options.hyperlink,
+        options.hyperlinkRelationshipId!,
         { drawing: drawingPrefix, relationship: relationshipPrefix },
       );
-  const hyperlinkXml = !declareHyperlinkRelationshipNamespace || renderedHyperlink === ''
+  const hyperlinkXml = !options.declareHyperlinkRelationshipNamespace || renderedHyperlink === ''
     ? renderedHyperlink
     : renderedHyperlink.replace(
         ' ',
         ` xmlns:${relationshipPrefix}="${RELATIONSHIP_NAMESPACE}" `,
       );
-  return `${softBreak}<${prefix}r><${prefix}rPr ${attributes}>${outline}<${prefix}solidFill>${colorXml}</${prefix}solidFill>${glow}${highlight}${underlineFill}<${prefix}latin typeface="${latin}"/><${prefix}ea typeface="${eastAsian}"/><${prefix}cs typeface="${complexScript}"/>${hyperlinkXml}</${prefix}rPr><${prefix}t xml:space="preserve">${escapeXmlText(run.text)}</${prefix}t></${prefix}r>`;
+  return `${softBreak}<${prefix}r><${prefix}rPr ${attributes}>${outline}${solidFill}${glow}${highlight}${underlineFill}<${prefix}latin typeface="${latin}"/><${prefix}ea typeface="${eastAsian}"/><${prefix}cs typeface="${complexScript}"/>${hyperlinkXml}</${prefix}rPr><${prefix}t xml:space="preserve">${escapeXmlText(run.text)}</${prefix}t></${prefix}r>`;
 }
 
 function renderMainTextColorChoice(
