@@ -1144,8 +1144,33 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余 advanced API 与全功能路线
 
-- 当前总体 PptxGenJS 对等进度约 99.3%，尚不声明完整 parity。剩余能力包括 automatic row measurement、`autoPageCharWeight` / `autoPageLineWeight`、text-row fragmentation、placeholder auto-page、content/layout recomputation 与 `tableToSlides`。
-- 本专项 8/8 完成；下一项是 content measurement/layout recomputation，之后为 `tableToSlides` 与最终 peer/client audit。
+- 这是 explicit-row-height structural pagination 的历史 checkpoint：当时总体 PptxGenJS 对等进度约 99.3%，尚不声明完整 parity；当时剩余 automatic row measurement、`autoPageCharWeight` / `autoPageLineWeight`、text-row fragmentation、placeholder auto-page、content/layout recomputation 与 `tableToSlides`。
+- 本专项 8/8 完成；其“下一项”描述保留为当时路线记录，相关 measurement/layout 工作已在下节完成。
+
+## PptxGenJS 全功能对等：Table content measurement/layout recomputation
+
+状态：完成；专项 8/8
+
+### 本阶段 change
+
+- `autoPage: true` 现在支持同时省略 `height` 与 `rowHeights` 的全 automatic 模式，以及零值 automatic / 正值 minimum 的混合向量；只提供 `height` 时仍均分为固定正行高。全正行高且没有 table/cell weight 时保持此前 fixed structural pagination，不重新测量内容。
+- `AddTableOptions` 与 `AddTableCellOptions` 均公开 strict `autoPageCharWeight` / `autoPageLineWeight`，范围为有限数值 `[-1, 1]`，cell 覆盖 table，省略与显式 0 数值等价。Native 不复制 PptxGenJS 4.0.1 的 caller mutation、clamping 或 coercion。
+- 所有 geometry 与 layout 输入仍使用 EMU；未声明字体大小时按 12pt。Character advance 使用 `2.3 + charWeight` 分母，natural line height 使用 `1.67 + lineWeight` modifier，并安全量化为 EMU。
+- Deterministic measurement 按 Unicode cluster 处理 combining marks、variation selector、skin tone 与 ZWJ sequence，覆盖 whitespace、ASCII punctuation、Latin/数字、CJK/wide characters；同时计算 rich run font size/character spacing、soft break、cell margin、paragraph margin/indent/bullet/tab stop，以及 before/after/exact/multiple spacing。
+- Colspan 使用跨列宽总和；rowspan content 约束完整 merge block。无 rowspan 的超高 measured text row 可按完整 line band 分片，保留 rich paragraph/run styles、soft break、spacing、URL/internal-slide hyperlink 与 page-local relationship。Fixed minimum overflow、merge/rowspan block overflow 或单个 band overflow 会严格拒绝。
+- Placeholder auto-page 使用 owner X/Y/width/bottom：source 从 owner Y 开始，continuation 使用 `autoPageSlideStartY`，两者共享 X/width 与 bottom limit。每页 transform height 等于实际 row-height sum，不拉伸到 placeholder height；placeholder identity、layout、section、slide number cache 与 stable internal target 同步。
+- `SlideModel.newAutoPagedSlides` 继续提供 frozen readonly continuation snapshot：成功调用 reset，失败保留前值，delete 过滤 detached identity，duplicate/write/reopen 清空。Measurement、fragmentation、placeholder materialization、relationships、order、sections、caches 与 runtime state 都位于同一 transaction。
+
+### 当前验证结果
+
+- Measurement、automatic table、fragment 与 placeholder auto-page focused gate 覆盖 7 个测试文件、107 passed；SDK/root declarations、六种 presentation format 与 PptxGenJS 4.0.1 合法 `-1/0/1` weight boundary 已闭合。
+- TypeScript project references、root build 与 diff check 通过；source hyperlink、section sync、model cache 和 `newAutoPagedSlides` failure isolation 覆盖所有已注入边界并保持可重试。
+- Automatic measurement/layout 的 intent、layout sharing、cell measurement、row materialization、rich fragmentation、public integration、placeholder pagination 与 aggregate-contract commits 依次为 `4482555`、`7a262ae`、`95b98ce`、`78cb279`、`6633696`、`e64e232`、`d77f54b`、`2f7595a`。
+
+### 剩余 advanced API 与全功能路线
+
+- 当前总体 PptxGenJS 对等进度约 99.7%，尚不声明 100% 或完整 parity。
+- 剩余能力项只有 `tableToSlides`；完成后执行最终 peer/client audit 与全量发布证明。
 
 ## 0.1.0 初始验收
 

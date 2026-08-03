@@ -1223,7 +1223,7 @@ table.setCellRichText(0, 1, [{ runs: [{ text: '全量替换，不重新继承创
 
 Resolved 值只物化为每个 physical cell 的 direct paragraph/run OOXML，不保留 table/cell 创建 metadata。`TableCell.richText` 可立即读取最终 direct state；`setCellText()` 保留安全 plain run 的当前样式模板，`setCellRichText()` whole-replace 后不会重新应用创建默认值。空段落的 `endParaRPr` 会携带 resolved font family/font size。Cell-default hyperlink 保留 outer color；run-local hyperlink 若没有 explicit run color，则不继承 outer color，显式 run color 始终优先。
 
-PptxGenJS 4.0.1 的合法 table/cell `fontFace`、font size、bold、color、cell paragraph spacing、rich override、empty paragraph 和 hyperlink final state 均可导入、编辑并重开。Native 另外支持 table-level spacing 传播，并修正其 truthy fallback 会覆盖 cell/run `bold: false` 以及 writer 修改 caller options 的行为。表格合并、physical row/column CRUD 与 explicit-row-height auto-page/repeated headers 已在后续专项完成；当前总体 PptxGenJS 对等进度约 99.3%，剩余 automatic content measurement/layout recomputation、`tableToSlides` 与最终 peer/client audit。
+PptxGenJS 4.0.1 的合法 table/cell `fontFace`、font size、bold、color、cell paragraph spacing、rich override、empty paragraph 和 hyperlink final state 均可导入、编辑并重开。Native 另外支持 table-level spacing 传播，并修正其 truthy fallback 会覆盖 cell/run `bold: false` 以及 writer 修改 caller options 的行为。表格合并、physical row/column CRUD、auto-page/repeated headers 与 automatic content measurement/layout recomputation 已在后续专项完成；在本历史 checkpoint 总体 PptxGenJS 对等进度约 99.3%，当时剩余 automatic content measurement/layout recomputation、`tableToSlides` 与最终 peer/client audit。
 
 最终 full Vitest 为 85 passed / 1 skipped test files、1497 passed / 1 skipped tests（167.50s），1000-part performance 为 1565ms；TypeScript、Node/browser bundles 与 declarations 均通过。实际 62-file tarball SHA-256 为 `79ed789e6d4f218cc5c838af9e5965e96bd7e35f132d2a630a85ac5dd39ed222`；installed Node、NodeNext types、browser conditional export、CLI 与 Inspector 均报告 table text defaults 通过。最终 evidence deck 为 18 parts / 15 relationships、1 slide / 1 table / 3 cells，PowerPoint 2010 为 0 errors / 0 warnings；Google Chrome 150.0.7871.188 的 create/snapshot/plain edit/rich replacement/reopen 均为 true，validation/console/page/network errors 均为 0。实现、复核与发布证明 commits 为 `e8cd0c7`、`0fc1567`、`af4e419`、`d6f3fd9`、`6e5df9a`、`145148b`、`2eb1a5f`；证据位于 `/tmp/pptx-table-text-defaults-proof.ViSdTX`。
 
@@ -1250,7 +1250,7 @@ PptxGenJS 4.0.1 的合法 horizontal、vertical、rectangular 和 offset span �
 
 最终 focused gate 为 5/5 test files、594/594 tests（28.11s）；全量为 86 passed / 1 skipped test files、1512 passed / 1 skipped tests（73.26s），独立 1000-part performance 为 1/1（709ms）。TypeScript project references、Node/browser bundles 与 declarations 全部通过。两次构建的 59-file dist manifests 完全一致，两份 62-file actual tarball byte-identical，SHA-256 均为 `0c85afa9bed6a04faa5d3dab6934a3974cea731091dc673ab2ff6e92cb83343d`。Installed Node、NodeNext types、browser conditional export、CLI 与 Inspector 均报告 `tableCellMerges: true` / `tableCellMergesInspect: true`。
 
-真实 Google Chrome 150.0.7871.188 的 create/read/frozen snapshot/unmerge/edit/remerge/reopen 全部为 true，validation/console/page/network errors 均为 0。Browser evidence deck 为 18 parts / 15 relationships、1 slide / 1 table、2×3 physical cells 与 1 个 2×2 merge region；四种 anchor/continuation token 均存在，slide relationship 只有合法 layout owner，PowerPoint 2010 validation 为 0 errors / 0 warnings。识别、创建、snapshot/editor、SDK/adapter、文档与 package proof commits 为 `688f9f6`、`3d93f07`、`db01937`、`b2f6846`、`5832399`、`7073eae`、`f174519`；完整证据位于 `/tmp/pptx-table-cell-merges-artifacts.B7ZhGQ`。Physical row/column CRUD 与 explicit-row-height auto-page/repeated headers 已在下节完成；当前总体 PptxGenJS 对等进度约 99.3%，之后依次是 automatic content measurement/layout recomputation、`tableToSlides` 与最终 peer/client audit。
+真实 Google Chrome 150.0.7871.188 的 create/read/frozen snapshot/unmerge/edit/remerge/reopen 全部为 true，validation/console/page/network errors 均为 0。Browser evidence deck 为 18 parts / 15 relationships、1 slide / 1 table、2×3 physical cells 与 1 个 2×2 merge region；四种 anchor/continuation token 均存在，slide relationship 只有合法 layout owner，PowerPoint 2010 validation 为 0 errors / 0 warnings。识别、创建、snapshot/editor、SDK/adapter、文档与 package proof commits 为 `688f9f6`、`3d93f07`、`db01937`、`b2f6846`、`5832399`、`7073eae`、`f174519`；完整证据位于 `/tmp/pptx-table-cell-merges-artifacts.B7ZhGQ`。Physical row/column CRUD、auto-page/repeated headers 与 automatic content measurement/layout recomputation 已在后续专项完成；本段 99.3% 仅是当时的历史 checkpoint。
 
 ## 插入和删除表格行列
 
@@ -1278,7 +1278,7 @@ table.deleteColumns(3);
 
 在 merge anchor 坐标插入表示在区域之前插入；严格插入区域内部会扩展 rowspan/colspan。删除会收缩区域，在原 anchor 被删除时提升最上/最左的 survivor，并在区域退化为 1×1 时解除合并。新 cell 是可立即由 text/rich-text/hyperlink/style editor 填充的 canonical empty plain cell，不复制相邻内容或样式。幸存 cell 的 source bytes、隐藏内容、样式、relationship 与未知 XML 保持；删除只回收整张 slide 中最后引用已经消失的 relationship。四个方法与 relationship GC 都在同一个 package transaction 中执行。
 
-PptxGenJS 4.0.1 只有创建期 table rows、`rowH` / `colW` 和 auto-page helper，没有 existing-deck row/column editor。合法 PptxGenJS plain/rich/linked/merged/sized table 可以通过 `importPptxGenJS()` 导入后使用上述 native lossless CRUD。Explicit-row-height auto-page 与 repeated headers 已在下节支持；logical content insertion、automatic content measurement/layout recomputation 与 `tableToSlides` 仍未支持。
+PptxGenJS 4.0.1 只有创建期 table rows、`rowH` / `colW` 和 auto-page helper，没有 existing-deck row/column editor。合法 PptxGenJS plain/rich/linked/merged/sized table 可以通过 `importPptxGenJS()` 导入后使用上述 native lossless CRUD。Auto-page、repeated headers 与 automatic content measurement/layout recomputation 已在下节支持；本结构编辑 API 仍不提供 logical content insertion，`tableToSlides` 仍未支持。
 
 最终 focused gate 为 5 个文件 / 611 项测试（29.96s）；全量为 87 passed / 1 skipped test files、1535 passed / 1 skipped tests（64.27s），独立 1000-part performance 为 1/1（核心测试 1204ms，test file 1207ms，total 2.52s）。TypeScript project references、root build、Node/browser bundles 与 declarations 全部通过。两次 clean build 的 59-file dist manifests 完全一致，manifest SHA-256 为 `51d0c19da69fbd81682933d4a5418ff58ef2a805b4164d624f150d1674924e41`；两份 62-file、660,178-byte actual tarball byte-identical，SHA-256 均为 `17d43a887a9871fd4910bcf33415d985b4d8f1968b4020670a64166c148aeaa4`。Installed Node、NodeNext declarations、browser conditional export、CLI 与 Inspector 均报告 `tableStructureEditing: true`。
 
@@ -1295,47 +1295,62 @@ const source = document.addSlide();
 const following = document.addSlide();
 
 source.addTable([
-  ['Region', 'Revenue'],
+  [{ text: 'Region', options: { autoPageCharWeight: -0.25 } }, 'Revenue'],
   ['Unit', 'USD'],
-  ['North', '$120'],
+  [{
+    text: [{ runs: [
+      { text: 'North '.repeat(700), style: { bold: true } },
+      { text: '$120', softBreakBefore: true, style: { italic: true } },
+    ] }],
+    options: { colspan: 2, margin: 0 },
+  }],
   ['South', '$95'],
   ['East', '$110'],
-  ['West', '$105'],
 ], {
   autoPage: true,
+  autoPageCharWeight: 0,
+  autoPageLineWeight: 0,
   autoPageRepeatHeader: true,
   autoPageHeaderRows: 2,
   autoPageSlideStartY: inches(0.75),
   slideMargin: [inches(0.5), inches(0.4), inches(0.5), inches(0.4)],
   y: inches(5),
   columnWidths: [inches(3), inches(2)],
-  rowHeights: [
-    inches(0.3),
-    inches(0.3),
-    inches(0.55),
-    inches(0.55),
-    inches(0.55),
-    inches(0.55),
-  ],
+  // 省略 rowHeights：每行按内容自动测量。
 });
 
-console.log(source.newAutoPagedSlides.length); // 1
-console.log(document.slides.indexOf(following)); // 3，generated slide 插在 source 与 following 之间
+console.log(source.newAutoPagedSlides.length); // continuation slide 数量
+console.log(document.slides.indexOf(following)); // following 位于全部 generated slides 之后
 ```
 
-当前支持的是 deterministic structural pagination：`autoPage: true` 必须同时提供每个 physical row 的正 EMU `rowHeights`。Source page 从 table 自身的 `y` 开始；continuation page 从 `autoPageSlideStartY`、当前 runtime named-layout top margin 或 canonical 0.5 英寸 margin 开始，并在 bottom margin 前结束。显式 `slideMargin` 可为单个非负 EMU 或严格 `[top, right, bottom, left]` 四元组，并优先于 layout margin。
+`autoPage: true` 支持三种行高输入：同时省略 `height` 与 `rowHeights` 表示全部自动测量；零值表示该行自动测量；正值表示该行的最小高度。只提供 `height` 时仍按行均分为固定正高度。`rowHeights: [0, inches(0.5), 0]` 是 automatic/minimum/automatic 的混合向量。若所有行高均为正且没有 measurement weight，则继续使用原有 fixed structural pagination，不重新估算内容。所有几何、行高、列宽、起始位置和 slide margin 输入都是 EMU。
 
-`autoPageRepeatHeader` 为 true 时，`autoPageHeaderRows` 默认为 1，也可指定多个 header rows。Rowspan block 不会被拆开，且 merge 不得跨越 header/body 边界。每张输出页都是普通、可继续编辑并可重开的 table；rich text、cell styles、URL/internal-slide hyperlinks、column widths、merge tokens 与 relationship ownership 都按页保留。内部页链接会在插入 continuation slides 前解析，所以目标 identity 不会因页序变化而漂移。
+测量默认字体为 12pt。每个 Unicode cluster 的 inline advance 使用 `2.3 + autoPageCharWeight` 作为分母，自然行高使用 `1.67 + autoPageLineWeight` 作为 modifier；两个 weight 都是严格的有限数值 `[-1, 1]`，table 值作用于全部 cells，cell 值优先。省略和显式 0 数值等价；不会夹取或 coerce 非法值。Cluster 规则保持 combining marks、variation selector、skin tone 与 ZWJ sequence 不拆，区分空白、ASCII 标点、Latin/数字和宽字符；rich run font size/character spacing、soft break、cell margin、paragraph margin/indent/bullet/tab stop 以及 before/after/exact/multiple spacing 都参与确定性计算。Colspan 使用所跨列宽总和，rowspan content 会约束整个合并块的最小高度。
+
+Source page 从 table 自身的 `y` 开始；continuation page 从 `autoPageSlideStartY`、当前 runtime named-layout top margin 或 canonical 0.5 英寸 margin 开始，并在 bottom margin 前结束。显式 `slideMargin` 可为单个非负 EMU 或严格 `[top, right, bottom, left]` 四元组，并优先于 layout margin。
+
+`autoPageRepeatHeader` 为 true 时，`autoPageHeaderRows` 默认为 1，也可指定多个 header rows。Rowspan block 不会被拆开，且 merge 不得跨越 header/body 边界。无 rowspan 的超高 measured text row 会按完整 measured line band 分成多个普通 rows，并保留 paragraph/run styles、soft breaks、spacing、URL/internal-slide hyperlinks 与 page-local relationship ownership；固定最小高度造成的超高行、merge/rowspan block 或单个 line band 本身仍放不下时会明确拒绝。每张输出页都是普通、可继续编辑并可重开的 table；column widths 与合法 merge semantics 按页保留。内部页链接会在插入 continuation slides 前解析，所以目标 identity 不会因页序变化而漂移。
+
+选择 table placeholder 时，source table 使用 owner 的 X/Y/width，continuation 使用相同 X/width 和配置的 continuation Y，并以 owner bottom 作为额外下界；每页 transform height 等于该页实际 row-height sum，不会拉伸到 placeholder height。Placeholder identity、layout、section、slide number cache 与稳定内部链接目标会随新页同步。示例：
+
+```ts
+source.addTable([['Header'], ['Body']], {
+  autoPage: true,
+  placeholder: 'data_table',
+  autoPageSlideStartY: inches(1.25),
+  rowHeights: [0, inches(0.4)],
+});
+```
 
 Continuation slides 总是紧邻 source 连续新建，使用同一 layout 并保持 source 的 section membership；不会复用或修改原本的 following slide。Source table、所有生成页、relationships、presentation order、sections 与 runtime state 位于同一 transaction，失败时整体恢复。
 
 `source.newAutoPagedSlides` 是最近一次成功 `addTable()` 产生的 continuation slides 的 frozen readonly runtime snapshot，不包含 source。成功的普通 table 或无溢出 auto-page 会把它重置为空；失败调用保留上一次成功结果；删除已生成页后 getter 会过滤 detached identity；duplicate 与 write/reopen 后均为空，因为该 metadata 不写入 PPTX。
 
-当前尚不支持省略/automatic `rowHeights`、`autoPageCharWeight`、`autoPageLineWeight`、超高文字行 fragmentation、placeholder auto-page、content measurement/layout recomputation 或 `tableToSlides`。这些输入会被拒绝，而不是静默估算。Native 也不复制 PptxGenJS 4.0.1 修改 caller objects、夹取权重、coerce 非法值或复用既有后续 slide 的行为。当前总体 PptxGenJS 对等进度约 99.3%，仍不声明完整 parity。
+Native 不复制 PptxGenJS 4.0.1 修改 caller objects、夹取权重、coerce 非法值或复用既有后续 slide 的行为。当前总体 PptxGenJS 对等进度约 99.7%；剩余能力项只有 `tableToSlides`，之后还需最终 peer/client audit，因此仍不声明 100% 或完整 parity。
 
 最终 focused gate 为 7 个文件（6 passed / 1 skipped）、39 passed / 629 skipped，Vitest 5.44s；full gate 为 89 个文件（88 passed / 1 skipped）、1579 passed / 1 skipped，Vitest 40.17s；独立 1000-part performance gate 为 1/1，核心测试 682ms、Vitest 1.89s。TypeScript typecheck、root build 与 `@jiayunxie/pptx` package build 分别为 1.40s、1.10s、7.00s。两次 59-file dist manifest 完全一致，manifest SHA-256 为 `f5fd12f308fc360fb49edd0c4d35e4e43aaf5e3bd7ad1ed3c3caebe9d4a25a8e`；两份 62-file actual tarball byte-identical，SHA-256 均为 `3db5ca1dcf61b81ac6072639e342d8b5e1bbca9e35c2025476cc9f4d781432d3`。Installed Node、NodeNext declarations 与 browser conditional export 均报告 `tableAutoPage: true`，installed CLI/Inspector 另报告 `tableAutoPageInspect: true`。
 
-Google Chrome 150.0.7871.188 的 create/edit/move/delete/relationship/reopen 阶段全部为 true，validation/console/page/network errors 均为 0。Node 与 browser evidence deck 均为 26 parts / 32 relationships、5 slides / 2 tables，生成阶段把 7 行分为 4/4/3 三页并重复两行表头；三页保持同一 layout 与连续 section membership，header/body merge、rich style 与目标 slide identity 均保留。最终 move/edit/delete 后两张 table slide 都是 4×3 physical cells、row height 457200、column width 914400、transform 2743200×1828800；source 的 4 个 click 对应 3 external + 1 internal relationship，continuation 的 5 个 click 对应 3 external + 2 internal relationships，且全部 page-local IDs 精确匹配。Node/browser deck SHA-256 分别为 `8665affbdbc2e96eecb7683770685d08cf6761ee4d12c4d72ee057cea9943cb7` 与 `a6a8b4458af12dd95635e6ea3443346910de07cbbd5a91ee68b5f86e8d82e862`；两者 PowerPoint 2010 validation 均为 0 errors / 6 个预期 `OPC_EXTERNAL_RELATIONSHIP` warnings。Commit chain 为 `0b63c07`、`a52708a`、`062e0b3`、`d30a4e6`、`3ce9cc7`、`d66f884`、`c377799`、`0ab580f`，证据保留在 `/tmp/pptx-table-auto-page-proof.IQxIFi`。本专项 8/8 完成；总体 PptxGenJS 对等进度约 99.3%，下一项是 content measurement/layout recomputation，之后为 `tableToSlides` 与最终 peer/client audit。
+Google Chrome 150.0.7871.188 的 create/edit/move/delete/relationship/reopen 阶段全部为 true，validation/console/page/network errors 均为 0。Node 与 browser evidence deck 均为 26 parts / 32 relationships、5 slides / 2 tables，生成阶段把 7 行分为 4/4/3 三页并重复两行表头；三页保持同一 layout 与连续 section membership，header/body merge、rich style 与目标 slide identity 均保留。最终 move/edit/delete 后两张 table slide 都是 4×3 physical cells、row height 457200、column width 914400、transform 2743200×1828800；source 的 4 个 click 对应 3 external + 1 internal relationship，continuation 的 5 个 click 对应 3 external + 2 internal relationships，且全部 page-local IDs 精确匹配。Node/browser deck SHA-256 分别为 `8665affbdbc2e96eecb7683770685d08cf6761ee4d12c4d72ee057cea9943cb7` 与 `a6a8b4458af12dd95635e6ea3443346910de07cbbd5a91ee68b5f86e8d82e862`；两者 PowerPoint 2010 validation 均为 0 errors / 6 个预期 `OPC_EXTERNAL_RELATIONSHIP` warnings。Commit chain 为 `0b63c07`、`a52708a`、`062e0b3`、`d30a4e6`、`3ce9cc7`、`d66f884`、`c377799`、`0ab580f`，证据保留在 `/tmp/pptx-table-auto-page-proof.IQxIFi`。这是 explicit-row-height structural checkpoint；其 99.3% 与“下一项”描述属于当时状态。Automatic measurement/layout 的后续 commits 为 `4482555`、`7a262ae`、`95b98ce`、`78cb279`、`6633696`、`e64e232`、`d77f54b`、`2f7595a`；focused gate 为 7 个测试文件、107 passed，typecheck、build 与 diff check 均通过，当前进度约 99.7%。
 
 ## 创建和编辑预设形状、调整值与样式
 
