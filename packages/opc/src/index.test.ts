@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import JSZip from 'jszip';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   joinPartUri,
   normalizePartUri,
@@ -255,6 +255,26 @@ describe('OpcPackage', () => {
     });
     expect(relationship.id).toBe('rId1');
     expect(pkg.graph.find(({ uri }) => uri === '/ppt/media/image1.png')?.incoming).toHaveLength(1);
+  });
+
+  it('restores ZIP entry dates when a transaction rolls back across time', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(new Date('2026-08-02T00:00:00.000Z'));
+      const pkg = OpcPackage.create();
+      pkg.setPart('/data.xml', '<data>original</data>', 'application/xml');
+      const before = await pkg.write({ compression: false });
+
+      vi.setSystemTime(new Date('2026-08-02T00:02:00.000Z'));
+      expect(() => pkg.transaction(() => {
+        pkg.setPart('/data.xml', '<data>temporary</data>', 'application/xml');
+        throw new Error('rollback across time');
+      })).toThrow('rollback across time');
+
+      expect(await pkg.write({ compression: false })).toEqual(before);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('uses nested savepoints and rejects asynchronous transaction callbacks', async () => {

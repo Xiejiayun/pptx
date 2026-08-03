@@ -83,6 +83,7 @@ interface PackageSavepoint {
   readonly journal: readonly MutationRecord[];
   readonly defaults: readonly (readonly [string, string])[];
   readonly overrides: readonly (readonly [string, string])[];
+  readonly zipEntryDates: readonly (readonly [string, Date])[];
 }
 
 export class OpcPackage {
@@ -515,16 +516,24 @@ export class OpcPackage {
       journal: this.#journal.map((record) => ({ ...record })),
       defaults: [...this.#defaults.entries()],
       overrides: [...this.#overrides.entries()],
+      zipEntryDates: Object.entries(this.#zip.files)
+        .filter(([, entry]) => !entry.dir)
+        .map(([name, entry]) => [name, new Date(entry.date.getTime())] as const),
     };
   }
 
   #restoreSavepoint(savepoint: PackageSavepoint): void {
+    const zipEntryDates = new Map(savepoint.zipEntryDates);
     for (const name of Object.keys(this.#zip.files)) this.#zip.remove(name);
     this.#parts.clear();
     for (const saved of savepoint.parts) {
       const part = cloneMutablePart(saved);
       this.#parts.set(part.uri, part);
-      this.#writeZipFile(part.uri.slice(1), part.bytes);
+      this.#writeZipFile(
+        part.uri.slice(1),
+        part.bytes,
+        zipEntryDates.get(part.uri.slice(1)),
+      );
     }
     this.#defaults.clear();
     for (const [extension, contentType] of savepoint.defaults) this.#defaults.set(extension, contentType);
@@ -533,9 +542,10 @@ export class OpcPackage {
     this.#journal.splice(0, this.#journal.length, ...savepoint.journal.map((record) => ({ ...record })));
   }
 
-  #writeZipFile(name: string, bytes: Uint8Array): void {
-    if (this.#entryDate) {
-      this.#zip.file(name, bytes, { date: new Date(this.#entryDate.getTime()) });
+  #writeZipFile(name: string, bytes: Uint8Array, restoredDate?: Date): void {
+    const date = restoredDate ?? this.#entryDate;
+    if (date) {
+      this.#zip.file(name, bytes, { date: new Date(date.getTime()) });
     } else {
       this.#zip.file(name, bytes);
     }
