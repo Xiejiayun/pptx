@@ -10630,6 +10630,181 @@ describe('PresentationModel', () => {
     }
   });
 
+  it('creates table-cell hyperlinks with independent atomic relationship ownership', async () => {
+    const { pkg, model } = emptyPresentationModel();
+    const source = model.addSlide();
+    const target = model.addSlide();
+    const firstUrl: { url: string; tooltip?: string } = {
+      url: 'https://example.com?a=1&b=2',
+      tooltip: 'Visit & learn',
+    };
+    const secondUrl: { url: string; tooltip?: string } = {
+      url: 'https://example.com?a=1&b=2',
+      tooltip: '',
+    };
+    const internal: { slide: number; tooltip?: string } = { slide: 2 };
+    const self: Hyperlink = { slide: 1, tooltip: '' };
+    const table = source.addTable([[
+      { text: 'URL one', options: { hyperlink: firstUrl } },
+      { text: 'URL two', options: { hyperlink: secondUrl } },
+      { text: 'Target', options: { hyperlink: internal } },
+      { text: 'Self', options: { hyperlink: self } },
+      'Plain',
+    ]], { name: 'Linked table' });
+
+    const expected = [
+      { url: 'https://example.com?a=1&b=2', tooltip: 'Visit & learn' },
+      { url: 'https://example.com?a=1&b=2', tooltip: '' },
+      { slide: 2 },
+      { slide: 1, tooltip: '' },
+      undefined,
+    ];
+    expect(table.rows[0]!.cells.map(({ hyperlink }) => hyperlink)).toEqual(expected);
+    expect(Object.isFrozen(table.rows[0]!.cells[0]!.hyperlink)).toBe(true);
+    const hyperlinkRelationships = source.relationships.filter(
+      ({ type }) => type === HYPERLINK_RELATIONSHIP,
+    );
+    expect(hyperlinkRelationships).toHaveLength(2);
+    expect(new Set(hyperlinkRelationships.map(({ id }) => id)).size).toBe(2);
+    expect(hyperlinkRelationships.map(({ target }) => target)).toEqual([
+      'https://example.com?a=1&b=2',
+      'https://example.com?a=1&b=2',
+    ]);
+    expect(source.relationships.filter(({ type }) => type === SLIDE_RELATIONSHIP))
+      .toEqual([
+        expect.objectContaining({ resolvedTarget: target.partUri }),
+        expect.objectContaining({ resolvedTarget: source.partUri }),
+      ]);
+    const createdXml = new TextDecoder().decode(pkg.requirePart(source.partUri).bytes);
+    const clickIds = [...createdXml.matchAll(/<a:hlinkClick\b[^>]*\br:id="([^"]+)"/g)]
+      .map((match) => match[1]);
+    expect(clickIds).toHaveLength(4);
+    expect(new Set(clickIds).size).toBe(4);
+    expect(createdXml.match(/\bu="sng"/g)).toHaveLength(4);
+    expect(createdXml).toContain('tooltip="Visit &amp; learn"');
+    expect(createdXml).toContain('tooltip="" action="ppaction://hlinksldjump"');
+
+    firstUrl.url = 'https://changed.example';
+    firstUrl.tooltip = 'Changed';
+    secondUrl.url = 'https://changed.example';
+    internal.slide = 1;
+    expect(table.rows[0]!.cells.map(({ hyperlink }) => hyperlink)).toEqual(expected);
+    expect(Object.hasOwn(firstUrl, '_rId')).toBe(false);
+
+    table.setCellText(0, 0, 'URL edited');
+    table.setCellFill(0, 0, { kind: 'none' });
+    table.setCellMargins(0, 1, { top: 3 });
+    table.setCellHorizontalAlignment(0, 2, 'center');
+    table.setCellVerticalAlignment(0, 3, 'bottom');
+    expect(table.rows[0]!.cells[0]!.hyperlink).toEqual(expected[0]);
+    expect(table.rows[0]!.cells.map(({ hyperlink }) => hyperlink)).toEqual(expected);
+
+    model.moveSlide(model.slides.indexOf(target), 0);
+    expect(table.rows[0]!.cells[2]!.hyperlink).toEqual({ slide: 1 });
+    expect(table.rows[0]!.cells[3]!.hyperlink).toEqual({ slide: 2, tooltip: '' });
+    model.moveSlide(0, model.slides.length - 1);
+    expect(table.rows[0]!.cells[2]!.hyperlink).toEqual({ slide: 2 });
+    expect(table.rows[0]!.cells[3]!.hyperlink).toEqual({ slide: 1, tooltip: '' });
+
+    const duplicate = model.duplicateSlide(model.slides.indexOf(source));
+    const duplicateTable = duplicate.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    )!;
+    expect(duplicateTable.rows[0]!.cells[0]!.hyperlink).toEqual(expected[0]);
+    expect(duplicateTable.rows[0]!.cells[2]!.hyperlink).toEqual({
+      slide: model.slides.indexOf(target) + 1,
+    });
+    expect(duplicateTable.rows[0]!.cells[3]!.hyperlink).toEqual({
+      slide: model.slides.indexOf(duplicate) + 1,
+      tooltip: '',
+    });
+    expect(table.rows[0]!.cells[3]!.hyperlink).toEqual({
+      slide: model.slides.indexOf(source) + 1,
+      tooltip: '',
+    });
+
+    model.deleteSlide(model.slides.indexOf(target));
+    expect(table.rows[0]!.cells[2]!.hyperlink).toBeUndefined();
+    expect(duplicateTable.rows[0]!.cells[2]!.hyperlink).toBeUndefined();
+    expect(table.rows[0]!.cells[0]!.hyperlink).toEqual(expected[0]);
+    expect(duplicateTable.rows[0]!.cells[0]!.hyperlink).toEqual(expected[0]);
+    expect(table.rows[0]!.cells[3]!.hyperlink).toEqual({
+      slide: model.slides.indexOf(source) + 1,
+      tooltip: '',
+    });
+    expect(duplicateTable.rows[0]!.cells[3]!.hyperlink).toEqual({
+      slide: model.slides.indexOf(duplicate) + 1,
+      tooltip: '',
+    });
+    expect(new TextDecoder().decode(pkg.requirePart(source.partUri).bytes))
+      .toContain('u="sng"');
+
+    const beforeInvalid = packageSnapshot(pkg);
+    expect(() => source.addTable([[
+      { text: 'Prepared first', options: { hyperlink: { url: 'https://first.example' } } },
+      { text: 'Invalid later', options: { hyperlink: { slide: 99 } } },
+    ]])).toThrow('Table cell 0,1 hyperlink slide 99 is out of range');
+    expect(packageSnapshot(pkg)).toEqual(beforeInvalid);
+
+    const originalAddRelationship = pkg.addRelationship.bind(pkg);
+    let addedCellLinks = 0;
+    const spy = vi.spyOn(pkg, 'addRelationship').mockImplementation((partUri, input) => {
+      if (partUri === source.partUri && input.type === HYPERLINK_RELATIONSHIP) {
+        addedCellLinks += 1;
+        if (addedCellLinks === 2) throw new Error('injected second cell hyperlink');
+      }
+      return originalAddRelationship(partUri, input);
+    });
+    try {
+      expect(() => source.addTable([[
+        { text: 'First', options: { hyperlink: { url: 'https://first.example' } } },
+        { text: 'Second', options: { hyperlink: { url: 'https://second.example' } } },
+      ]])).toThrow('injected second cell hyperlink');
+      expect(packageSnapshot(pkg)).toEqual(beforeInvalid);
+    } finally {
+      spy.mockRestore();
+    }
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedSource = reopened.slides.find(({ partUri }) => partUri === source.partUri)!;
+    const reopenedTable = reopenedSource.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    )!;
+    expect(reopenedTable.rows[0]!.cells.map(({ hyperlink }) => hyperlink)).toEqual([
+      expected[0],
+      expected[1],
+      undefined,
+      { slide: reopened.slides.indexOf(reopenedSource) + 1, tooltip: '' },
+      undefined,
+    ]);
+  });
+
+  it('reopens table-cell hyperlinks in every presentation format', async () => {
+    for (const profile of Object.values(PRESENTATION_FORMAT_PROFILES)) {
+      const model = new PresentationModel(await OpcPackage.open(
+        await modelFixture(profile.presentationContentType),
+      ));
+      const source = model.slides[0]!;
+      const target = model.slides[1]!;
+      source.addTable([[
+        { text: 'External', options: {
+          hyperlink: { url: `https://example.com/${profile.format}`, tooltip: '' },
+        } },
+        { text: 'Internal', options: { hyperlink: { slide: 2 } } },
+      ]], { name: 'Format links' });
+      const reopened = new PresentationModel(await OpcPackage.open(await model.opcPackage.write()));
+      const table = reopened.slides[0]!.shapes.find(
+        (shape): shape is TableModel => shape instanceof TableModel
+          && shape.name === 'Format links',
+      )!;
+      expect(reopened.format).toBe(profile.format);
+      expect(table.rows[0]!.cells.map(({ hyperlink }) => hyperlink)).toEqual([
+        { url: `https://example.com/${profile.format}`, tooltip: '' },
+        { slide: reopened.slides.findIndex(({ partUri }) => partUri === target.partUri) + 1 },
+      ]);
+    }
+  });
+
   it('creates strict basic tables with stable identity, ordering, and atomic failure', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);

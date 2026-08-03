@@ -8943,6 +8943,116 @@ describe('importPptxGenJS', () => {
     ]);
   });
 
+  it('imports and matches legal PptxGenJS plain table-cell hyperlinks', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    const source = generated.addSlide();
+    generated.addSlide();
+    const generatedUrl: {
+      url: string;
+      tooltip?: string;
+      _rId?: number;
+    } = {
+      url: 'https://example.com?a=1&b=2',
+      tooltip: 'Visit & learn',
+    };
+    const generatedInternal: {
+      slide: number;
+      tooltip?: string;
+      _rId?: number;
+    } = { slide: 2 };
+    source.addTable([[
+      { text: 'URL', options: { hyperlink: generatedUrl } },
+      { text: 'Slide', options: { hyperlink: generatedInternal } },
+      { text: 'Plain', options: {} },
+    ]], { x: 1, y: 1, w: 8, h: 1 });
+
+    const imported = await importPptxGenJS(generated);
+    const importedTable = imported.slides[0]!.shapes[0] as TableModel;
+    expect(importedTable.rows[0]!.cells.map(({ hyperlink }) => hyperlink)).toEqual([
+      {
+        url: 'https://example.com?a=1&b=2',
+        tooltip: 'Visit & learn',
+      },
+      { slide: 2, tooltip: '' },
+      undefined,
+    ]);
+    expect(generatedUrl._rId).toBeTypeOf('number');
+    expect(generatedInternal._rId).toBeTypeOf('number');
+    const importedRelationships = imported.slides[0]!.relationships;
+    expect(importedRelationships.find(({ type }) => type.endsWith('/hyperlink')))
+      .toMatchObject({
+        target: 'https://example.com?a=1&b=2',
+        targetMode: 'External',
+      });
+    expect(importedRelationships.find(({ resolvedTarget }) =>
+      resolvedTarget === imported.slides[1]!.partUri)).toBeDefined();
+    const importedXml = new TextDecoder().decode(
+      imported.opcPackage.requirePart(imported.slides[0]!.partUri).bytes,
+    );
+    expect(importedXml.match(/<a:hlinkClick\b/g)).toHaveLength(2);
+    expect(importedXml.match(/\bu="sng"/g)).toHaveLength(2);
+    expect(importedXml).toContain('invalidUrl="" action=""');
+    expect(importedXml).toContain('action="ppaction://hlinksldjump" tooltip=""');
+
+    const native = PptxDocument.create();
+    const nativeSource = native.addSlide();
+    native.addSlide();
+    const nativeUrl = {
+      url: 'https://example.com?a=1&b=2',
+      tooltip: 'Visit & learn',
+    };
+    const nativeTable = nativeSource.addTable([[
+      { text: 'URL', options: { hyperlink: nativeUrl } },
+      { text: 'Slide', options: { hyperlink: { slide: 2 } } },
+      'Plain',
+    ]], {
+      x: inches(1),
+      y: inches(1),
+      width: inches(8),
+      height: inches(1),
+    });
+    expect(nativeTable.rows[0]!.cells.map(({ hyperlink }) => hyperlink)).toEqual([
+      {
+        url: 'https://example.com?a=1&b=2',
+        tooltip: 'Visit & learn',
+      },
+      { slide: 2 },
+      undefined,
+    ]);
+    expect(Object.hasOwn(nativeUrl, '_rId')).toBe(false);
+    const nativeXml = new TextDecoder().decode(
+      native.opcPackage.requirePart(nativeSource.partUri).bytes,
+    );
+    expect(nativeXml.match(/<a:hlinkClick\b/g)).toHaveLength(2);
+    expect(nativeXml.match(/\bu="sng"/g)).toHaveLength(2);
+    expect(nativeXml).not.toContain('invalidUrl=');
+    expect(nativeXml).toMatch(
+      /<a:hlinkClick r:id="rId\d+" action="ppaction:\/\/hlinksldjump"\/>/,
+    );
+
+    const reopenedImported = await PptxDocument.open(await imported.write());
+    const reopenedNative = await PptxDocument.open(await native.write());
+    expect((reopenedImported.slides[0]!.shapes[0] as TableModel)
+      .rows[0]!.cells.map(({ hyperlink }) => hyperlink)).toEqual([
+      {
+        url: 'https://example.com?a=1&b=2',
+        tooltip: 'Visit & learn',
+      },
+      { slide: 2, tooltip: '' },
+      undefined,
+    ]);
+    expect((reopenedNative.slides[0]!.shapes[0] as TableModel)
+      .rows[0]!.cells.map(({ hyperlink }) => hyperlink)).toEqual([
+      {
+        url: 'https://example.com?a=1&b=2',
+        tooltip: 'Visit & learn',
+      },
+      { slide: 2 },
+      undefined,
+    ]);
+  }, 20_000);
+
   it('repairs a PptxGenJS transform and column-grid mismatch through the public model', async () => {
     const generated = new PptxGenJS();
     expect(generated.version).toBe('4.0.1');

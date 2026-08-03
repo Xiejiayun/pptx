@@ -17,12 +17,14 @@ import {
   ShapeModel,
   SlideLayoutModel,
   SlideMasterModel,
+  TableModel,
   chartWorkbookMatches,
   inches,
   slideNumberDiagnostics,
   TEXT_ALIGNMENTS,
   TEXT_VERTICAL_ALIGNMENTS,
   type AddTextOptions,
+  type AddTableCellOptions,
   type ReplaceMediaPosterOptions,
   type ReplaceMediaSourceOptions,
   type RichTextColor,
@@ -49,6 +51,7 @@ import {
   type ShapeFill,
   type ShapeLine,
   type ShapeShadow,
+  type TableCell,
   type TextAlignment,
   type TextBoxVerticalAlignment,
   type WriteBaseOptions,
@@ -856,6 +859,69 @@ describe('@jiayunxie/pptx stable exports', () => {
       },
     ];
     expect(invalid).toHaveLength(6);
+  });
+
+  it('exports table-cell hyperlink creation types and runtime from the root package', async () => {
+    const url: Hyperlink = {
+      url: 'https://root-table.example?a=1&b=2',
+      tooltip: 'Root table link',
+    };
+    const options: AddTableCellOptions = { hyperlink: url };
+    const document = PptxDocument.create();
+    const source = document.addSlide();
+    document.addSlide();
+    const table = source.addTable([[
+      { text: 'URL', options },
+      { text: 'Slide', options: { hyperlink: { slide: 2, tooltip: '' } } },
+    ]], { name: 'root_table_cell_hyperlinks' });
+    const cell: TableCell = table.rows[0]!.cells[0]!;
+    const hyperlink: Hyperlink | undefined = cell.hyperlink;
+
+    expect(hyperlink).toEqual(url);
+    expect(table.rows[0]!.cells[1]!.hyperlink).toEqual({ slide: 2, tooltip: '' });
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedTable = reopened.slides[0]!.shapes.find(
+      ({ name }) => name === 'root_table_cell_hyperlinks',
+    ) as TableModel;
+    expect(reopenedTable.rows[0]!.cells.map((candidate) => candidate.hyperlink)).toEqual([
+      url,
+      { slide: 2, tooltip: '' },
+    ]);
+
+    if (false) {
+      const invalid: readonly AddTableCellOptions[] = [
+        {
+          // @ts-expect-error table-cell hyperlink requires exactly one target
+          hyperlink: {},
+        },
+        {
+          // @ts-expect-error table-cell hyperlink branches are mutually exclusive
+          hyperlink: { url: 'https://example.com', slide: 2 },
+        },
+        {
+          // @ts-expect-error table-cell hyperlink URL must be a string
+          hyperlink: { url: 42 },
+        },
+        {
+          // @ts-expect-error table-cell hyperlink slide must be numeric
+          hyperlink: { slide: '2' },
+        },
+        {
+          // @ts-expect-error table-cell hyperlink tooltip must be a string
+          hyperlink: { slide: 2, tooltip: 7 },
+        },
+        {
+          hyperlink: {
+            url: 'https://example.com',
+            // @ts-expect-error relationship IDs are internal
+            _rId: 'rId9',
+          },
+        },
+      ];
+      // @ts-expect-error there is no table-level hyperlink default
+      source.addTable([['A']], { hyperlink: url });
+      expect(invalid).toHaveLength(6);
+    }
   });
 
   it('exports text shape preset geometry types and runtime from the root package', async () => {

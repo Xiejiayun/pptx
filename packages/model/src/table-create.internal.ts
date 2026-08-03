@@ -8,6 +8,10 @@ import {
   renderRichTextParagraphs,
 } from './rich-text.internal.js';
 import {
+  normalizeHyperlink,
+  type NormalizedHyperlink,
+} from './shape-hyperlink.internal.js';
+import {
   normalizeTableCellFill,
   renderTableCellFill,
 } from './table-cell-fill.internal.js';
@@ -47,6 +51,8 @@ import type {
 const EMU_PER_INCH = 914_400;
 const DEFAULT_OFFSET = EMU_PER_INCH / 2;
 const DEFAULT_HEIGHT = EMU_PER_INCH;
+const RELATIONSHIP_NAMESPACE =
+  'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
 const OPTION_KEYS = [
   'name',
   'placeholder',
@@ -68,6 +74,7 @@ interface NormalizedTableCell {
   readonly alignment?: TextAlignment;
   readonly borders?: TableCellBorders;
   readonly fill?: TableCellFill;
+  readonly hyperlink?: NormalizedHyperlink;
   readonly margins?: TextBoxMargins;
   readonly textDirection?: TableCellTextDirection;
   readonly textFit?: TextBoxFit;
@@ -86,6 +93,9 @@ export interface NormalizedTableDefinition {
   readonly columnWidths: readonly number[];
   readonly rowHeights: readonly number[];
 }
+
+export type TableCellHyperlinkRelationshipIds =
+  readonly (readonly (string | undefined)[])[];
 
 export function normalizeTableDefinition(
   rows: unknown,
@@ -300,6 +310,7 @@ function normalizeTableCellOptions(
   | 'alignment'
   | 'borders'
   | 'fill'
+  | 'hyperlink'
   | 'margins'
   | 'textDirection'
   | 'textFit'
@@ -309,13 +320,16 @@ function normalizeTableCellOptions(
   const options = readDataObject(
     value,
     `${context} options`,
-    ['align', 'border', 'fill', 'fit', 'margin', 'textDirection', 'valign'],
+    ['align', 'border', 'fill', 'fit', 'hyperlink', 'margin', 'textDirection', 'valign'],
   );
   const alignment = options.align === undefined
     ? undefined
     : normalizeTextAlignment(options.align, `${context} align`);
   const borders = normalizeTableCellBorders(options.border, `${context} border`);
   const fill = normalizeTableCellFill(options.fill, `${context} fill`);
+  const hyperlink = options.hyperlink === undefined
+    ? undefined
+    : normalizeHyperlink(options.hyperlink, `${context} hyperlink`);
   const margins = normalizeTextBoxMargins(
     options.margin as TextBoxMarginInput | undefined,
     `${context} margin`,
@@ -336,6 +350,7 @@ function normalizeTableCellOptions(
     ...(alignment === undefined ? {} : { alignment }),
     ...(borders === undefined ? {} : { borders }),
     ...(fill === undefined ? {} : { fill }),
+    ...(hyperlink === undefined ? {} : { hyperlink }),
     ...(margins === undefined ? {} : { margins }),
     ...(textDirection === undefined ? {} : { textDirection }),
     ...(textFit === undefined ? {} : { textFit }),
@@ -357,10 +372,22 @@ export function renderTableGraphicFrame(
   definition: NormalizedTableDefinition,
   placeholder?: Readonly<PlaceholderIdentity>,
   transform?: Readonly<Transform>,
+  hyperlinkRelationshipIds?: TableCellHyperlinkRelationshipIds,
 ): string {
+  const relationshipIds = hyperlinkRelationshipIds ?? definition.rows.map((row) =>
+    row.map(() => undefined));
+  if (relationshipIds.length !== definition.rows.length) {
+    throw new TypeError('Table-cell hyperlink relationship IDs must match the row count');
+  }
   const grid = definition.columnWidths.map((width) => `<a:gridCol w="${width}"/>`).join('');
   const rows = definition.rows.map((row, rowIndex) => {
-    const cells = row.map(renderTableCell).join('');
+    if (relationshipIds[rowIndex]?.length !== row.length) {
+      throw new TypeError(
+        `Table-cell hyperlink relationship IDs must match row ${rowIndex} cell count`,
+      );
+    }
+    const cells = row.map((cell, columnIndex) =>
+      renderTableCell(cell, relationshipIds[rowIndex]![columnIndex])).join('');
     return `<a:tr h="${definition.rowHeights[rowIndex]}">${cells}</a:tr>`;
   }).join('');
   const name = escapeXmlAttribute(definition.name ?? `Table ${id}`);
@@ -373,8 +400,12 @@ export function renderTableGraphicFrame(
     transform?.flipHorizontal ? ' flipH="1"' : '',
     transform?.flipVertical ? ' flipV="1"' : '',
   ].join('');
+  const relationshipNamespace = definition.rows.some((row) =>
+    row.some(({ hyperlink }) => hyperlink !== undefined))
+    ? ` xmlns:r="${RELATIONSHIP_NAMESPACE}"`
+    : '';
 
-  return `<p:graphicFrame xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><p:nvGraphicFramePr><p:cNvPr id="${id}" name="${name}"/><p:cNvGraphicFramePr><a:graphicFrameLocks noGrp="1"/></p:cNvGraphicFramePr>${applicationProperties}</p:nvGraphicFramePr><p:xfrm${transformAttributes}><a:off x="${definition.x}" y="${definition.y}"/><a:ext cx="${definition.width}" cy="${definition.height}"/></p:xfrm><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/table"><a:tbl><a:tblPr/><a:tblGrid>${grid}</a:tblGrid>${rows}</a:tbl></a:graphicData></a:graphic></p:graphicFrame>`;
+  return `<p:graphicFrame xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"${relationshipNamespace}><p:nvGraphicFramePr><p:cNvPr id="${id}" name="${name}"/><p:cNvGraphicFramePr><a:graphicFrameLocks noGrp="1"/></p:cNvGraphicFramePr>${applicationProperties}</p:nvGraphicFramePr><p:xfrm${transformAttributes}><a:off x="${definition.x}" y="${definition.y}"/><a:ext cx="${definition.width}" cy="${definition.height}"/></p:xfrm><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/table"><a:tbl><a:tblPr/><a:tblGrid>${grid}</a:tblGrid>${rows}</a:tbl></a:graphicData></a:graphic></p:graphicFrame>`;
 }
 
 function readDenseArray(value: unknown, context: string): readonly unknown[] {
@@ -491,10 +522,24 @@ function sumDimensions(dimensions: readonly number[], context: string): number {
   }, 0);
 }
 
-function renderTableCell(cell: NormalizedTableCell): string {
+function renderTableCell(
+  cell: NormalizedTableCell,
+  hyperlinkRelationshipId: string | undefined,
+): string {
+  if ((cell.hyperlink === undefined) !== (hyperlinkRelationshipId === undefined)) {
+    throw new TypeError('Table-cell hyperlink and relationship ID must be supplied together');
+  }
   const paragraphs = renderRichTextParagraphs(normalizeRichText([
     { runs: [{ text: cell.text, style: {} }] },
-  ]), cell.alignment === undefined ? {} : { defaultAlign: cell.alignment });
+  ]), {
+    ...(cell.alignment === undefined ? {} : { defaultAlign: cell.alignment }),
+    ...(cell.hyperlink === undefined
+      ? {}
+      : {
+          defaultHyperlink: cell.hyperlink,
+          hyperlinkRelationshipId: hyperlinkRelationshipId!,
+        }),
+  });
   const borders = renderTableCellBorders(cell.borders, 'a:');
   const fill = cell.fill === undefined ? '' : renderTableCellFill(cell.fill, 'a:');
   const marginAttributes = renderTableCellMarginAttributes(cell.margins);

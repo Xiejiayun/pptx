@@ -64,6 +64,7 @@ import {
   replaceTableCellFill,
   replaceTableFill,
 } from './table-cell-fill.internal.js';
+import { readTableCellHyperlink } from './table-cell-hyperlink.internal.js';
 import {
   readTableCellHorizontalAlignment,
   readTableHorizontalAlignment,
@@ -181,6 +182,7 @@ export interface TableCell {
   readonly text: string;
   readonly borders?: TableCellBorders;
   readonly fill?: TableCellFill;
+  readonly hyperlink?: Hyperlink;
   readonly horizontalAlignment?: TextAlignment;
   readonly margins?: TextBoxMargins;
   readonly textDirection?: TableCellTextDirection;
@@ -592,10 +594,15 @@ export class ImageModel extends BaseShapeModel {
 export class TableModel extends BaseShapeModel {
   get rows(): readonly TableRow[] {
     const { xml, element } = this.resolve();
+    const hyperlinkContext = {
+      relationships: this.slide.relationships,
+      slidePartUris: this.slide.presentation.slides.map(({ partUri }) => partUri),
+    };
     return xml.descendants(element, 'tr').map((row) => ({
       cells: xml.descendants(row, 'tc').map((cell) => {
         const borders = readTableCellBorders(xml, cell);
         const fill = readTableCellFill(xml, cell);
+        const hyperlink = readTableCellHyperlink(xml, cell, hyperlinkContext);
         const horizontalAlignment = readTableCellHorizontalAlignment(xml, cell);
         const margins = readTableCellMargins(xml, cell);
         const textDirection = readTableCellTextDirection(xml, cell);
@@ -605,6 +612,7 @@ export class TableModel extends BaseShapeModel {
           text: xml.descendants(cell, 't').map((node) => xml.text(node)).join(''),
           ...(borders !== undefined ? { borders } : {}),
           ...(fill !== undefined ? { fill } : {}),
+          ...(hyperlink !== undefined ? { hyperlink } : {}),
           ...(horizontalAlignment !== undefined ? { horizontalAlignment } : {}),
           ...(margins !== undefined ? { margins } : {}),
           ...(textDirection !== undefined ? { textDirection } : {}),

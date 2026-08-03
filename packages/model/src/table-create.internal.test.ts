@@ -6,6 +6,138 @@ import {
 } from './table-create.internal.js';
 
 describe('table creation internals', () => {
+  it('normalizes and renders detached table-cell hyperlinks', () => {
+    const url = {
+      url: 'https://example.com?a=1&b=2',
+      tooltip: 'Visit & learn',
+    };
+    const slide = Object.assign(Object.create(null), { slide: 2, tooltip: '' });
+    const definition = normalizeTableDefinition([[
+      { text: 'URL', options: { hyperlink: url } },
+      {
+        text: 'Slide',
+        options: Object.assign(Object.create(null), { hyperlink: slide }),
+      },
+      { text: 'Plain', options: { hyperlink: undefined } },
+      { text: '', options: { hyperlink: { url: 'https://empty.example' } } },
+    ]], {});
+
+    expect(definition.rows).toEqual([[
+      {
+        text: 'URL',
+        hyperlink: {
+          url: 'https://example.com?a=1&b=2',
+          tooltip: 'Visit & learn',
+        },
+      },
+      { text: 'Slide', hyperlink: { slide: 2, tooltip: '' } },
+      { text: 'Plain' },
+      { text: '', hyperlink: { url: 'https://empty.example' } },
+    ]]);
+    expect(Object.isFrozen(definition.rows[0]![0]!.hyperlink)).toBe(true);
+    url.url = 'https://changed.example';
+    url.tooltip = 'Changed';
+    slide.slide = 1;
+    expect(definition.rows[0]![0]!.hyperlink).toEqual({
+      url: 'https://example.com?a=1&b=2',
+      tooltip: 'Visit & learn',
+    });
+    expect(definition.rows[0]![1]!.hyperlink).toEqual({ slide: 2, tooltip: '' });
+
+    const rendered = renderTableGraphicFrame(
+      7,
+      definition,
+      undefined,
+      undefined,
+      [['rId7', 'rId8', undefined, 'rId9']],
+    );
+    expect(rendered).toContain(
+      `xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"`,
+    );
+    expect(rendered.match(/<a:hlinkClick\b/g)).toHaveLength(3);
+    expect(rendered.match(/\bu="sng"/g)).toHaveLength(3);
+    expect(rendered).toContain(
+      '<a:hlinkClick r:id="rId7" tooltip="Visit &amp; learn"/>',
+    );
+    expect(rendered).toContain(
+      '<a:hlinkClick r:id="rId8" tooltip="" action="ppaction://hlinksldjump"/>',
+    );
+    expect(rendered).toContain(
+      '<a:hlinkClick r:id="rId9"/>',
+    );
+    expect(rendered.slice(
+      rendered.indexOf('<p:nvGraphicFramePr>'),
+      rendered.indexOf('</p:nvGraphicFramePr>'),
+    )).not.toContain('<a:hlinkClick');
+
+    const unlinked = renderTableGraphicFrame(
+      8,
+      normalizeTableDefinition([['Same']], undefined),
+    );
+    const undefinedLink = renderTableGraphicFrame(
+      8,
+      normalizeTableDefinition([[
+        { text: 'Same', options: { hyperlink: undefined } },
+      ]], undefined),
+    );
+    expect(undefinedLink).toBe(unlinked);
+    expect(unlinked).not.toContain('xmlns:r=');
+  });
+
+  it('rejects invalid table-cell hyperlinks and relationship ID matrices', () => {
+    const invalid = [
+      {},
+      { url: 'https://example.com', slide: 2 },
+      { url: '' },
+      { url: 42 },
+      { slide: 0 },
+      { slide: 1.5 },
+      { slide: Number.MAX_SAFE_INTEGER + 1 },
+      { url: 'https://example.com', tooltip: 7 },
+      { url: 'https://example.com', _rId: 'rId7' },
+    ];
+    for (const hyperlink of invalid) {
+      expect(() => normalizeTableDefinition([[
+        { text: 'Invalid', options: { hyperlink } },
+      ]], undefined), JSON.stringify(hyperlink)).toThrow();
+    }
+
+    const accessor = {};
+    Object.defineProperty(accessor, 'url', { get: () => 'https://example.com' });
+    class HyperlinkOptions {
+      url = 'https://example.com';
+    }
+    for (const hyperlink of [accessor, new HyperlinkOptions()]) {
+      expect(() => normalizeTableDefinition([[
+        { text: 'Invalid', options: { hyperlink } },
+      ]], undefined)).toThrow(TypeError);
+    }
+
+    const inherited = Object.create({ url: 'https://example.com' });
+    expect(() => normalizeTableDefinition([[
+      { text: 'Invalid', options: { hyperlink: inherited } },
+    ]], undefined)).toThrow(TypeError);
+
+    const definition = normalizeTableDefinition([[
+      { text: 'URL', options: { hyperlink: { url: 'https://example.com' } } },
+      'Plain',
+    ]], undefined);
+    for (const ids of [
+      [],
+      [['rId7']],
+      [['rId7', 'rId8']],
+      [[undefined, undefined]],
+    ]) {
+      expect(() => renderTableGraphicFrame(
+        7,
+        definition,
+        undefined,
+        undefined,
+        ids,
+      ), JSON.stringify(ids)).toThrow(TypeError);
+    }
+  });
+
   it('normalizes detached table input and renders deterministic exact geometry', () => {
     const sourceRows = [
       ['A & <1>', '', 'C1'],

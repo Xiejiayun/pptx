@@ -80,6 +80,7 @@ import {
   type TextAlignment,
   type TextBoxMargins,
   type TableCellBorders,
+  type TableCell,
   type TableCellFill,
   type TableCellTextDirection,
   type TextBoxVerticalAlignment,
@@ -11305,6 +11306,104 @@ describe('PptxDocument vertical slice', () => {
     expect(reopenedTable.rows[0]!.cells[5]!.textDirection).toBe('wordArtVert');
     expect((reopened.slides[1]!.shapes[0] as TableModel).rows[0]!.cells[4]!.textFit)
       .toBe('shrink');
+  });
+
+  it('creates and reads table-cell hyperlinks through the public SDK surface', async () => {
+    const document = PptxDocument.create();
+    const source = document.addSlide();
+    const target = document.addSlide();
+    const url: Hyperlink = {
+      url: 'https://example.com?a=1&b=2',
+      tooltip: 'Visit & learn',
+    };
+    const options: AddTableCellOptions = { hyperlink: url };
+    const table = source.addTable([[
+      { text: 'URL', options },
+      { text: 'Slide', options: { hyperlink: { slide: 2, tooltip: '' } } },
+      'Plain',
+    ]], { name: 'SDK cell hyperlinks' });
+    const cell: TableCell = table.rows[0]!.cells[0]!;
+    const hyperlink: Hyperlink | undefined = cell.hyperlink;
+
+    expect(hyperlink).toEqual(url);
+    expect(table.rows[0]!.cells.map((candidate) => candidate.hyperlink)).toEqual([
+      url,
+      { slide: 2, tooltip: '' },
+      undefined,
+    ]);
+    expect(source.relationships.filter(({ type }) => type.endsWith('/hyperlink')))
+      .toEqual([expect.objectContaining({
+        target: 'https://example.com?a=1&b=2',
+        targetMode: 'External',
+      })]);
+    expect(source.relationships.find(({ resolvedTarget }) => resolvedTarget === target.partUri))
+      .toBeDefined();
+    expect(validatePackage(document.opcPackage).filter(({ severity }) => severity === 'error'))
+      .toEqual([]);
+
+    const beforeInvalid = document.opcPackage.requirePart(source.partUri).bytes;
+    const relationships = source.relationships;
+    const journal = [...document.opcPackage.mutations];
+    expect(() => source.addTable([[
+      { text: 'First', options: { hyperlink: { url: 'https://first.example' } } },
+      { text: 'Invalid', options: { hyperlink: { slide: 99 } } },
+    ]])).toThrow('Table cell 0,1 hyperlink slide 99 is out of range');
+    expect(document.opcPackage.requirePart(source.partUri).bytes).toEqual(beforeInvalid);
+    expect(source.relationships).toEqual(relationships);
+    expect(document.opcPackage.mutations).toEqual(journal);
+
+    table.setCellText(0, 0, 'URL edited');
+    document.moveSlide(document.slides.indexOf(target), 0);
+    expect(table.rows[0]!.cells[1]!.hyperlink).toEqual({ slide: 1, tooltip: '' });
+    document.moveSlide(0, document.slides.length - 1);
+    const duplicate = document.duplicateSlide(document.slides.indexOf(source));
+    expect((duplicate.shapes[0] as TableModel).rows[0]!.cells[1]!.hyperlink)
+      .toEqual({ slide: document.slides.indexOf(target) + 1, tooltip: '' });
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedSource = reopened.slides.find(({ partUri }) => partUri === source.partUri)!;
+    const reopenedTable = reopenedSource.shapes[0] as TableModel;
+    expect(reopenedTable.rows[0]!.cells.map((candidate) => candidate.hyperlink)).toEqual([
+      url,
+      { slide: reopened.slides.findIndex(({ partUri }) => partUri === target.partUri) + 1,
+        tooltip: '' },
+      undefined,
+    ]);
+
+    if (false) {
+      const invalid: readonly AddTableCellOptions[] = [
+        {
+          // @ts-expect-error table-cell hyperlink requires exactly one target
+          hyperlink: {},
+        },
+        {
+          // @ts-expect-error table-cell hyperlink branches are mutually exclusive
+          hyperlink: { url: 'https://example.com', slide: 2 },
+        },
+        {
+          // @ts-expect-error table-cell hyperlink URL must be a string
+          hyperlink: { url: 42 },
+        },
+        {
+          // @ts-expect-error table-cell hyperlink slide must be numeric
+          hyperlink: { slide: '2' },
+        },
+        {
+          // @ts-expect-error table-cell hyperlink tooltip must be a string
+          hyperlink: { slide: 2, tooltip: 7 },
+        },
+        {
+          hyperlink: {
+            url: 'https://example.com',
+            // @ts-expect-error relationship IDs are internal
+            _rId: 'rId9',
+          },
+        },
+      ];
+      // @ts-expect-error there is no table-level hyperlink default
+      source.addTable([['A']], { hyperlink: url });
+      expect(invalid).toHaveLength(6);
+    }
   });
 
   it('creates, edits, duplicates, rolls back, and reopens a basic table', async () => {

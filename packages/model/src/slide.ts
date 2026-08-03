@@ -112,6 +112,8 @@ import {
   distributeTableDimension,
   normalizeTableDefinition,
   renderTableGraphicFrame,
+  type NormalizedTableDefinition,
+  type TableCellHyperlinkRelationshipIds,
 } from './table-create.internal.js';
 import {
   readSlideHidden,
@@ -316,6 +318,7 @@ export interface AddTableCellOptions {
   readonly border?: TableCellBorderInput;
   readonly fill?: TableCellFill;
   readonly fit?: TextBoxFit;
+  readonly hyperlink?: Hyperlink;
   readonly margin?: TextBoxMarginInput;
   readonly textDirection?: TableCellTextDirection;
   readonly valign?: TextBoxVerticalAlignment;
@@ -331,6 +334,12 @@ export type AddTableCellInput = string | AddTableCell;
 interface PreparedRichTextRunHyperlink {
   readonly paragraphIndex: number;
   readonly runIndex: number;
+  readonly relationship: RelationshipInput;
+}
+
+interface PreparedTableCellHyperlink {
+  readonly rowIndex: number;
+  readonly columnIndex: number;
   readonly relationship: RelationshipInput;
 }
 
@@ -1338,6 +1347,7 @@ export class SlideModel {
   ): TableModel {
     return this.presentation.opcPackage.transaction(() => {
       const definition = normalizeTableDefinition(rows, options);
+      const preparedHyperlinks = this.prepareTableCellHyperlinks(definition);
       const owner = definition.placeholder === undefined
         ? undefined
         : resolvePlaceholderOwner(
@@ -1370,11 +1380,16 @@ export class SlideModel {
       const { xml } = this.parse();
       const shapeTree = requireTableShapeTree(xml, this.partUri);
       const nextId = owner?.shapeId ?? allocateShapeId(xml);
+      const hyperlinkRelationshipIds = this.createTableCellHyperlinkRelationships(
+        definition,
+        preparedHyperlinks,
+      );
       const tableXml = renderTableGraphicFrame(
         nextId,
         rendered,
         owner?.identity,
         owner?.transform,
+        hyperlinkRelationshipIds,
       );
       if (owner) xml.replace(owner.slideElement.start, owner.slideElement.end, tableXml);
       else {
@@ -1833,6 +1848,59 @@ export class SlideModel {
       target: relativeRelationshipTarget(this.partUri, target.partUri),
       targetMode: 'Internal',
     }).id;
+  }
+
+  private prepareTableCellHyperlinks(
+    definition: NormalizedTableDefinition,
+  ): readonly PreparedTableCellHyperlink[] {
+    const prepared: PreparedTableCellHyperlink[] = [];
+    for (const [rowIndex, row] of definition.rows.entries()) {
+      for (const [columnIndex, { hyperlink }] of row.entries()) {
+        if (hyperlink === undefined) continue;
+        if (hyperlink.url !== undefined) {
+          prepared.push({
+            rowIndex,
+            columnIndex,
+            relationship: {
+              type: HYPERLINK_RELATIONSHIP_TYPE,
+              target: hyperlink.url,
+              targetMode: 'External',
+            },
+          });
+          continue;
+        }
+        const target = this.presentation.slides[hyperlink.slide - 1];
+        if (!target) {
+          throw new RangeError(
+            `Table cell ${rowIndex},${columnIndex} hyperlink slide ` +
+            `${hyperlink.slide} is out of range`,
+          );
+        }
+        prepared.push({
+          rowIndex,
+          columnIndex,
+          relationship: {
+            type: SLIDE_RELATIONSHIP_TYPE,
+            target: relativeRelationshipTarget(this.partUri, target.partUri),
+            targetMode: 'Internal',
+          },
+        });
+      }
+    }
+    return prepared;
+  }
+
+  private createTableCellHyperlinkRelationships(
+    definition: NormalizedTableDefinition,
+    prepared: readonly PreparedTableCellHyperlink[],
+  ): TableCellHyperlinkRelationshipIds {
+    const relationshipIds = definition.rows.map((row) =>
+      row.map(() => undefined as string | undefined));
+    for (const { rowIndex, columnIndex, relationship } of prepared) {
+      relationshipIds[rowIndex]![columnIndex] =
+        this.presentation.opcPackage.addRelationship(this.partUri, relationship).id;
+    }
+    return relationshipIds;
   }
 
   private prepareRichTextRunHyperlinks(
