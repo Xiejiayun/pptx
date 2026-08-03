@@ -6,6 +6,7 @@ import {
   normalizeRichText,
   normalizeTextAlignment,
   renderRichTextParagraphs,
+  type RichTextRunHyperlinkRelationshipIds,
 } from './rich-text.internal.js';
 import {
   normalizeHyperlink,
@@ -71,6 +72,7 @@ const OPTION_KEYS = [
 ] as const;
 interface NormalizedTableCell {
   readonly text: string;
+  readonly richText?: ReturnType<typeof normalizeRichText>;
   readonly alignment?: TextAlignment;
   readonly borders?: TableCellBorders;
   readonly fill?: TableCellFill;
@@ -96,6 +98,9 @@ export interface NormalizedTableDefinition {
 
 export type TableCellHyperlinkRelationshipIds =
   readonly (readonly (string | undefined)[])[];
+
+export type TableCellRichTextRunHyperlinkRelationshipIds =
+  readonly (readonly RichTextRunHyperlinkRelationshipIds[])[];
 
 export function normalizeTableDefinition(
   rows: unknown,
@@ -276,7 +281,7 @@ function normalizeTableCell(
 ): NormalizedTableCell {
   const context = `Table cell ${rowIndex},${columnIndex}`;
   if (typeof cell === 'string') {
-    return { text: normalizeTableCellText(cell, context) };
+    return normalizeTableCellText(cell, context);
   }
   if (!cell || typeof cell !== 'object' || Array.isArray(cell)) {
     throw new TypeError(`${context} must be a string or text object`);
@@ -284,22 +289,33 @@ function normalizeTableCell(
   const candidate = readDataObject(cell, context, ['text', 'options']);
   const text = normalizeTableCellText(candidate.text, context);
   return {
-    text,
+    ...text,
     ...normalizeTableCellOptions(candidate.options, context),
   };
 }
 
-function normalizeTableCellText(value: unknown, context: string): string {
-  if (typeof value !== 'string') {
-    throw new TypeError(`${context} text must be a string`);
+function normalizeTableCellText(
+  value: unknown,
+  context: string,
+): Pick<NormalizedTableCell, 'text' | 'richText'> {
+  if (typeof value === 'string') {
+    if (containsInvalidXmlCharacter(value)) {
+      throw new TypeError(`${context} contains invalid XML characters`);
+    }
+    const text = value.replace(/\r\n?/g, '\n');
+    if (!text.includes('\n')) return { text };
+    return {
+      text,
+      richText: normalizeRichText(text.split('\n').map((line) => ({
+        runs: [{ text: line, style: {} }],
+      }))),
+    };
   }
-  if (/\r|\n/.test(value)) {
-    throw new TypeError(`${context} must contain one paragraph`);
-  }
-  if (containsInvalidXmlCharacter(value)) {
-    throw new TypeError(`${context} contains invalid XML characters`);
-  }
-  return value;
+  const richText = normalizeRichText(value);
+  return {
+    text: projectTableCellText(richText),
+    richText,
+  };
 }
 
 function normalizeTableCellOptions(
@@ -373,6 +389,7 @@ export function renderTableGraphicFrame(
   placeholder?: Readonly<PlaceholderIdentity>,
   transform?: Readonly<Transform>,
   hyperlinkRelationshipIds?: TableCellHyperlinkRelationshipIds,
+  richTextRunHyperlinkRelationshipIds?: TableCellRichTextRunHyperlinkRelationshipIds,
 ): string {
   const relationshipIds = hyperlinkRelationshipIds ?? definition.rows.map((row) =>
     row.map(() => undefined));
@@ -386,8 +403,17 @@ export function renderTableGraphicFrame(
         `Table-cell hyperlink relationship IDs must match row ${rowIndex} cell count`,
       );
     }
-    const cells = row.map((cell, columnIndex) =>
-      renderTableCell(cell, relationshipIds[rowIndex]![columnIndex])).join('');
+    const runRelationshipIds = richTextRunHyperlinkRelationshipIds?.[rowIndex];
+    if (runRelationshipIds !== undefined && runRelationshipIds.length !== row.length) {
+      throw new TypeError(
+        `Table-cell rich-text hyperlink relationship IDs must match row ${rowIndex} cell count`,
+      );
+    }
+    const cells = row.map((cell, columnIndex) => renderTableCell(
+      cell,
+      relationshipIds[rowIndex]![columnIndex],
+      runRelationshipIds?.[columnIndex],
+    )).join('');
     return `<a:tr h="${definition.rowHeights[rowIndex]}">${cells}</a:tr>`;
   }).join('');
   const name = escapeXmlAttribute(definition.name ?? `Table ${id}`);
@@ -400,8 +426,16 @@ export function renderTableGraphicFrame(
     transform?.flipHorizontal ? ' flipH="1"' : '',
     transform?.flipVertical ? ' flipV="1"' : '',
   ].join('');
+  if (
+    richTextRunHyperlinkRelationshipIds !== undefined
+    && richTextRunHyperlinkRelationshipIds.length !== definition.rows.length
+  ) {
+    throw new TypeError(
+      'Table-cell rich-text hyperlink relationship IDs must match the row count',
+    );
+  }
   const relationshipNamespace = definition.rows.some((row) =>
-    row.some(({ hyperlink }) => hyperlink !== undefined))
+    row.some((cell) => tableCellHasRenderedHyperlink(cell)))
     ? ` xmlns:r="${RELATIONSHIP_NAMESPACE}"`
     : '';
 
@@ -525,20 +559,28 @@ function sumDimensions(dimensions: readonly number[], context: string): number {
 function renderTableCell(
   cell: NormalizedTableCell,
   hyperlinkRelationshipId: string | undefined,
+  runHyperlinkRelationshipIds?: RichTextRunHyperlinkRelationshipIds,
 ): string {
-  if ((cell.hyperlink === undefined) !== (hyperlinkRelationshipId === undefined)) {
+  const paragraphs = tableCellRichText(cell);
+  const defaultHyperlink = cell.hyperlink !== undefined
+    && paragraphs.some(({ runs }) =>
+      runs.some(({ style }) => style?.hyperlink === undefined))
+    ? cell.hyperlink
+    : undefined;
+  if ((defaultHyperlink === undefined) !== (hyperlinkRelationshipId === undefined)) {
     throw new TypeError('Table-cell hyperlink and relationship ID must be supplied together');
   }
-  const paragraphs = renderRichTextParagraphs(normalizeRichText([
-    { runs: [{ text: cell.text, style: {} }] },
-  ]), {
+  const renderedParagraphs = renderRichTextParagraphs(paragraphs, {
     ...(cell.alignment === undefined ? {} : { defaultAlign: cell.alignment }),
-    ...(cell.hyperlink === undefined
+    ...(defaultHyperlink === undefined
       ? {}
       : {
-          defaultHyperlink: cell.hyperlink,
+          defaultHyperlink,
           hyperlinkRelationshipId: hyperlinkRelationshipId!,
         }),
+    ...(runHyperlinkRelationshipIds === undefined
+      ? {}
+      : { runHyperlinkRelationshipIds }),
   });
   const borders = renderTableCellBorders(cell.borders, 'a:');
   const fill = cell.fill === undefined ? '' : renderTableCellFill(cell.fill, 'a:');
@@ -555,7 +597,29 @@ function renderTableCell(
   const bodyProperties = textFitChild === ''
     ? '<a:bodyPr/>'
     : `<a:bodyPr>${textFitChild}</a:bodyPr>`;
-  return `<a:tc><a:txBody>${bodyProperties}<a:lstStyle/>${paragraphs}</a:txBody><a:tcPr${marginAttributes}${verticalAlignmentAttribute}${textDirectionAttribute}>${borders}${fill}</a:tcPr></a:tc>`;
+  return `<a:tc><a:txBody>${bodyProperties}<a:lstStyle/>${renderedParagraphs}</a:txBody><a:tcPr${marginAttributes}${verticalAlignmentAttribute}${textDirectionAttribute}>${borders}${fill}</a:tcPr></a:tc>`;
+}
+
+function tableCellRichText(
+  cell: NormalizedTableCell,
+): ReturnType<typeof normalizeRichText> {
+  return cell.richText ?? normalizeRichText([
+    { runs: [{ text: cell.text, style: {} }] },
+  ]);
+}
+
+function tableCellHasRenderedHyperlink(cell: NormalizedTableCell): boolean {
+  return tableCellRichText(cell).some(({ runs }) => runs.some(({ style }) => {
+    const local = style?.hyperlink;
+    return local !== false && (local !== undefined || cell.hyperlink !== undefined);
+  }));
+}
+
+function projectTableCellText(
+  paragraphs: ReturnType<typeof normalizeRichText>,
+): string {
+  return paragraphs.map(({ runs }) => runs.map((run) =>
+    `${run.softBreakBefore ? '\n' : ''}${run.text}`).join('')).join('\n');
 }
 
 function containsInvalidXmlCharacter(value: string): boolean {

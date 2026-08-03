@@ -84,6 +84,99 @@ describe('table creation internals', () => {
     expect(unlinked).not.toContain('xmlns:r=');
   });
 
+  it('normalizes and renders rich and multi-paragraph table-cell text', () => {
+    const source = [{
+      align: 'right' as const,
+      runs: [
+        { text: 'Inherited', style: { bold: true } },
+        { text: ' shared', style: { italic: false } },
+        {
+          text: ' explicit',
+          style: { hyperlink: { url: 'https://run.example', tooltip: 'Run' } },
+        },
+        {
+          text: ' suppressed',
+          softBreakBefore: true,
+          style: { hyperlink: false as const, italic: true },
+        },
+      ],
+    }, {
+      bullet: { kind: 'bullet' as const, character: '→', indent: 18 },
+      runs: [{
+        text: 'Slide',
+        style: { hyperlink: { slide: 2, tooltip: '' }, underline: false },
+      }],
+    }];
+    const definition = normalizeTableDefinition([[
+      {
+        text: source,
+        options: {
+          align: 'center',
+          hyperlink: { url: 'https://cell.example' },
+        },
+      },
+      'one\r\ntwo\rempty\n',
+    ]], undefined);
+
+    expect(definition.rows[0]![0]!.text).toBe(
+      'Inherited shared explicit\n suppressed\nSlide',
+    );
+    expect(definition.rows[0]![0]!.richText).toEqual(source);
+    expect(definition.rows[0]![1]!.text).toBe('one\ntwo\nempty\n');
+    expect(definition.rows[0]![1]!.richText).toEqual([
+      { runs: [{ text: 'one', style: {} }] },
+      { runs: [{ text: 'two', style: {} }] },
+      { runs: [{ text: 'empty', style: {} }] },
+      { runs: [{ text: '', style: {} }] },
+    ]);
+
+    source[0]!.runs[0]!.text = 'MUTATED';
+    expect(definition.rows[0]![0]!.richText?.[0]?.runs[0]).toEqual({
+      text: 'Inherited',
+      style: { bold: true },
+    });
+
+    const rendered = renderTableGraphicFrame(
+      9,
+      definition,
+      undefined,
+      undefined,
+      [['rIdCell', undefined]],
+      [[[
+        [undefined, undefined, 'rIdRun', undefined],
+        ['rIdSlide'],
+      ], [
+        [undefined],
+        [undefined],
+        [undefined],
+        [undefined],
+      ]]],
+    );
+    expect(rendered.match(/<a:p>/g)).toHaveLength(6);
+    expect(rendered.match(/<a:hlinkClick\b/g)).toHaveLength(4);
+    expect(rendered.match(/<a:hlinkClick r:id="rIdCell"\/>/g)).toHaveLength(2);
+    expect(rendered).toContain(
+      '<a:hlinkClick r:id="rIdRun" tooltip="Run"/>',
+    );
+    expect(rendered).toContain(
+      '<a:hlinkClick r:id="rIdSlide" tooltip="" action="ppaction://hlinksldjump"/>',
+    );
+    expect(rendered).toContain('<a:pPr algn="r"');
+    expect(rendered).toContain('<a:br/><a:r><a:rPr lang="en-US" i="1"');
+    expect(rendered).toContain('<a:buChar char="→"/>');
+    expect(rendered).toContain('xmlns:r=');
+
+    const plainString = renderTableGraphicFrame(
+      10,
+      normalizeTableDefinition([['Same']], undefined),
+    );
+    const plainObject = renderTableGraphicFrame(
+      10,
+      normalizeTableDefinition([[{ text: 'Same' }]], undefined),
+    );
+    expect(plainObject).toBe(plainString);
+  });
+
   it('rejects invalid table-cell hyperlinks and relationship ID matrices', () => {
     const invalid = [
       {},
@@ -1650,8 +1743,6 @@ describe('table creation internals', () => {
       accessorRow,
       [[1]],
       [[null]],
-      [['line\nbreak']],
-      [['carriage\rreturn']],
       [['bad\u0000xml']],
       Symbol('rows'),
     ];
@@ -2061,8 +2152,6 @@ describe('table creation internals', () => {
       Object.assign({ text: 'A' }, { [Symbol('extra')]: true }),
       { text: 1 },
       { text: ['rich'] },
-      { text: 'line\nbreak' },
-      { text: 'carriage\rreturn' },
       { text: 'bad\u0000xml' },
     ];
     for (const cell of invalidCells) {

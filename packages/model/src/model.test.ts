@@ -10779,6 +10779,87 @@ describe('PresentationModel', () => {
     ]);
   });
 
+  it('creates rich table-cell paragraphs and positioned hyperlinks atomically', () => {
+    const { pkg, model } = emptyPresentationModel();
+    const source = model.addSlide();
+    const target = model.addSlide();
+    const rich = [{
+      align: 'right' as const,
+      runs: [
+        { text: 'Inherited', style: { bold: true } },
+        {
+          text: ' explicit',
+          style: { hyperlink: { url: 'https://run.example', tooltip: 'Run' } },
+        },
+        {
+          text: ' suppressed',
+          style: { hyperlink: false as const, italic: true },
+        },
+      ],
+    }, {
+      runs: [{
+        text: 'Slide',
+        style: { hyperlink: { slide: 2, tooltip: '' } },
+      }],
+    }];
+    source.addTable([[
+      {
+        text: rich,
+        options: { hyperlink: { url: 'https://cell.example' } },
+      },
+      'one\r\ntwo\n',
+    ]], { name: 'Rich linked table' });
+
+    const xml = new TextDecoder().decode(pkg.requirePart(source.partUri).bytes);
+    expect(xml.match(/<a:p>/g)).toHaveLength(5);
+    const clicks = [...xml.matchAll(/<a:hlinkClick\b[^>]*\br:id="([^"]+)"[^>]*>/g)];
+    expect(clicks).toHaveLength(3);
+    const clickIds = clicks.map((match) => match[1]!);
+    expect(new Set(clickIds).size).toBe(3);
+    expect(xml).toContain('<a:pPr algn="r"');
+    expect(xml).toContain('tooltip="Run"');
+    expect(xml).toContain('tooltip="" action="ppaction://hlinksldjump"');
+    expect(xml.match(/> suppressed<\/a:t>/g)).toHaveLength(1);
+
+    const byId = new Map(source.relationships.map((relationship) => [
+      relationship.id,
+      relationship,
+    ]));
+    expect(byId.get(clickIds[0]!)?.target).toBe('https://cell.example');
+    expect(byId.get(clickIds[1]!)?.target).toBe('https://run.example');
+    expect(byId.get(clickIds[2]!)?.resolvedTarget).toBe(target.partUri);
+
+    rich[0]!.runs[0]!.text = 'MUTATED';
+    expect(new TextDecoder().decode(pkg.requirePart(source.partUri).bytes)).toBe(xml);
+
+    const beforeInvalid = packageSnapshot(pkg);
+    expect(() => source.addTable([[
+      { text: [{ runs: [{ text: 'Invalid', style: { hyperlink: { slide: 99 } } }] }] },
+    ]])).toThrow('Table cell 0,0 hyperlink slide 99 is out of range');
+    expect(packageSnapshot(pkg)).toEqual(beforeInvalid);
+
+    const originalAddRelationship = pkg.addRelationship.bind(pkg);
+    let added = 0;
+    const spy = vi.spyOn(pkg, 'addRelationship').mockImplementation((partUri, input) => {
+      if (partUri === source.partUri && input.type === HYPERLINK_RELATIONSHIP) {
+        added += 1;
+        if (added === 2) throw new Error('injected rich cell relationship');
+      }
+      return originalAddRelationship(partUri, input);
+    });
+    try {
+      expect(() => source.addTable([[
+        { text: [{ runs: [
+          { text: 'One', style: { hyperlink: { url: 'https://one.example' } } },
+          { text: 'Two', style: { hyperlink: { url: 'https://two.example' } } },
+        ] }] },
+      ]])).toThrow('injected rich cell relationship');
+      expect(packageSnapshot(pkg)).toEqual(beforeInvalid);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it('edits table-cell hyperlinks with ID reuse, clone-on-write, and reference GC', async () => {
     const { pkg, model } = emptyPresentationModel();
     const source = model.addSlide();

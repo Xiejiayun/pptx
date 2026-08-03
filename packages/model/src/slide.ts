@@ -114,6 +114,7 @@ import {
   renderTableGraphicFrame,
   type NormalizedTableDefinition,
   type TableCellHyperlinkRelationshipIds,
+  type TableCellRichTextRunHyperlinkRelationshipIds,
 } from './table-create.internal.js';
 import {
   readSlideHidden,
@@ -328,7 +329,7 @@ export interface AddTableCellOptions {
 }
 
 export interface AddTableCell {
-  readonly text: string;
+  readonly text: string | readonly RichTextParagraph[];
   readonly options?: AddTableCellOptions;
 }
 
@@ -343,7 +344,14 @@ interface PreparedRichTextRunHyperlink {
 interface PreparedTableCellHyperlink {
   readonly rowIndex: number;
   readonly columnIndex: number;
+  readonly paragraphIndex?: number;
+  readonly runIndex?: number;
   readonly relationship: RelationshipInput;
+}
+
+interface CreatedTableCellHyperlinkRelationships {
+  readonly defaultRelationshipIds: TableCellHyperlinkRelationshipIds;
+  readonly runRelationshipIds: TableCellRichTextRunHyperlinkRelationshipIds;
 }
 
 export class SlideTitleModel {
@@ -1512,7 +1520,7 @@ export class SlideModel {
       const { xml } = this.parse();
       const shapeTree = requireTableShapeTree(xml, this.partUri);
       const nextId = owner?.shapeId ?? allocateShapeId(xml);
-      const hyperlinkRelationshipIds = this.createTableCellHyperlinkRelationships(
+      const hyperlinkRelationships = this.createTableCellHyperlinkRelationships(
         definition,
         preparedHyperlinks,
       );
@@ -1521,7 +1529,8 @@ export class SlideModel {
         rendered,
         owner?.identity,
         owner?.transform,
-        hyperlinkRelationshipIds,
+        hyperlinkRelationships.defaultRelationshipIds,
+        hyperlinkRelationships.runRelationshipIds,
       );
       if (owner) xml.replace(owner.slideElement.start, owner.slideElement.end, tableXml);
       else {
@@ -1987,36 +1996,56 @@ export class SlideModel {
   ): readonly PreparedTableCellHyperlink[] {
     const prepared: PreparedTableCellHyperlink[] = [];
     for (const [rowIndex, row] of definition.rows.entries()) {
-      for (const [columnIndex, { hyperlink }] of row.entries()) {
-        if (hyperlink === undefined) continue;
-        if (hyperlink.url !== undefined) {
-          prepared.push({
-            rowIndex,
-            columnIndex,
-            relationship: {
+      for (const [columnIndex, cell] of row.entries()) {
+        const append = (
+          hyperlink: NormalizedHyperlink,
+          paragraphIndex?: number,
+          runIndex?: number,
+        ): void => {
+          let relationship: RelationshipInput;
+          if (hyperlink.url !== undefined) {
+            relationship = {
               type: HYPERLINK_RELATIONSHIP_TYPE,
               target: hyperlink.url,
               targetMode: 'External',
-            },
+            };
+          } else {
+            const target = this.presentation.slides[hyperlink.slide - 1];
+            if (!target) {
+              throw new RangeError(
+                `Table cell ${rowIndex},${columnIndex} hyperlink slide ` +
+                `${hyperlink.slide} is out of range`,
+              );
+            }
+            relationship = {
+              type: SLIDE_RELATIONSHIP_TYPE,
+              target: relativeRelationshipTarget(this.partUri, target.partUri),
+              targetMode: 'Internal',
+            };
+          }
+          prepared.push({
+            rowIndex,
+            columnIndex,
+            ...(paragraphIndex === undefined ? {} : { paragraphIndex }),
+            ...(runIndex === undefined ? {} : { runIndex }),
+            relationship,
           });
-          continue;
+        };
+
+        const inheritsCellHyperlink = cell.richText === undefined
+          || cell.richText.some(({ runs }) =>
+            runs.some(({ style }) => style?.hyperlink === undefined));
+        if (cell.hyperlink !== undefined && inheritsCellHyperlink) {
+          append(cell.hyperlink);
         }
-        const target = this.presentation.slides[hyperlink.slide - 1];
-        if (!target) {
-          throw new RangeError(
-            `Table cell ${rowIndex},${columnIndex} hyperlink slide ` +
-            `${hyperlink.slide} is out of range`,
-          );
+        for (const [paragraphIndex, paragraph] of (cell.richText ?? []).entries()) {
+          for (const [runIndex, run] of paragraph.runs.entries()) {
+            const hyperlink = run.style?.hyperlink;
+            if (hyperlink !== undefined && hyperlink !== false) {
+              append(hyperlink, paragraphIndex, runIndex);
+            }
+          }
         }
-        prepared.push({
-          rowIndex,
-          columnIndex,
-          relationship: {
-            type: SLIDE_RELATIONSHIP_TYPE,
-            target: relativeRelationshipTarget(this.partUri, target.partUri),
-            targetMode: 'Internal',
-          },
-        });
       }
     }
     return prepared;
@@ -2025,14 +2054,30 @@ export class SlideModel {
   private createTableCellHyperlinkRelationships(
     definition: NormalizedTableDefinition,
     prepared: readonly PreparedTableCellHyperlink[],
-  ): TableCellHyperlinkRelationshipIds {
-    const relationshipIds = definition.rows.map((row) =>
+  ): CreatedTableCellHyperlinkRelationships {
+    const defaultRelationshipIds = definition.rows.map((row) =>
       row.map(() => undefined as string | undefined));
-    for (const { rowIndex, columnIndex, relationship } of prepared) {
-      relationshipIds[rowIndex]![columnIndex] =
-        this.presentation.opcPackage.addRelationship(this.partUri, relationship).id;
+    const runRelationshipIds = definition.rows.map((row) => row.map((cell) =>
+      (cell.richText ?? [{ runs: [{ text: cell.text }] }]).map(({ runs }) =>
+        runs.map(() => undefined as string | undefined))));
+    for (const {
+      rowIndex,
+      columnIndex,
+      paragraphIndex,
+      runIndex,
+      relationship,
+    } of prepared) {
+      const id = this.presentation.opcPackage.addRelationship(
+        this.partUri,
+        relationship,
+      ).id;
+      if (paragraphIndex === undefined || runIndex === undefined) {
+        defaultRelationshipIds[rowIndex]![columnIndex] = id;
+      } else {
+        runRelationshipIds[rowIndex]![columnIndex]![paragraphIndex]![runIndex] = id;
+      }
     }
-    return relationshipIds;
+    return { defaultRelationshipIds, runRelationshipIds };
   }
 
   private prepareRichTextRunHyperlinks(
