@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Added strict merge-aware physical table row/column insertion and deletion with canonical editable cells, exact size/transform synchronization, anchor promotion and 1×1 merge dissolution, lossless survivor spans, final-reference relationship collection, six-format/root/PptxGenJS contracts, and transactional rollback.
+- Verified table structure editing through 5 focused files / 611 tests, 87 passed / 1 skipped full-suite files and 1535 passed / 1 skipped tests, the 1204ms 1000-part performance gate, identical 59-file dist manifests, and byte-identical 62-file actual tarballs with SHA-256 `17d43a887a9871fd4910bcf33415d985b4d8f1968b4020670a64166c148aeaa4`. Installed Node/NodeNext/browser/CLI/Inspector and Chrome 150 report every lifecycle stage true; the 18-part / 16-relationship 4×4-cell evidence decks retain the 3×3 merge, hidden/styled survivors, and exact relationship ownership, with zero Chrome errors and PowerPoint 2010 validation at 0 errors / 1 expected external-relationship warning.
 - Added explicit detection and public profiles for `.pptx`, `.pptm`, `.ppsx`, `.ppsm`, `.potx`, and `.potm` packages.
 - Replaced host `node:path` semantics in the OPC graph, model, codecs, and transition plugin with portable OPC part URI operations.
 - Added a browser conditional export with Blob/File/Web Stream input, Blob/download output, portable media hashing, and browser-safe SmartArt IDs.

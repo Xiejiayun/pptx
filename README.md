@@ -1280,6 +1280,10 @@ table.deleteColumns(3);
 
 PptxGenJS 4.0.1 只有创建期 table rows、`rowH` / `colW` 和 auto-page helper，没有 existing-deck row/column editor。合法 PptxGenJS plain/rich/linked/merged/sized table 可以通过 `importPptxGenJS()` 导入后使用上述 native lossless CRUD；logical content insertion、auto-page/repeated headers、content measurement/layout recomputation 与 `tableToSlides` 仍未支持。
 
+最终 focused gate 为 5 个文件 / 611 项测试（29.96s）；全量为 87 passed / 1 skipped test files、1535 passed / 1 skipped tests（64.27s），独立 1000-part performance 为 1/1（核心测试 1204ms，test file 1207ms，total 2.52s）。TypeScript project references、root build、Node/browser bundles 与 declarations 全部通过。两次 clean build 的 59-file dist manifests 完全一致，manifest SHA-256 为 `51d0c19da69fbd81682933d4a5418ff58ef2a805b4164d624f150d1674924e41`；两份 62-file、660,178-byte actual tarball byte-identical，SHA-256 均为 `17d43a887a9871fd4910bcf33415d985b4d8f1968b4020670a64166c148aeaa4`。Installed Node、NodeNext declarations、browser conditional export、CLI 与 Inspector 均报告 `tableStructureEditing: true`。
+
+真实 Google Chrome 150.0.7871.188 的 create/row insert/column insert/new-cell edit/row delete/column delete/dimensions/merge/survivor/relationships/reopen 全部为 true，validation/console/page/network errors 均为 0。Node 与 browser evidence deck 均为 18 parts / 16 relationships、1 slide / 1 table、4×4 physical matrix；column widths `[914400, 457200, 1828800, 2743200]` 与 transform width 同为 5943600，row heights `[457200, 228600, 914400, 1371600]` 与 transform height 同为 2971800。最终 3×3 merge 含 1 anchor、2 top、2 left、4 interior continuation，隐藏 inserted text 与 styled survivor 均存在；两个 click 共用 `rId2`，只保留 1 个 external relationship，orphan hyperlinks 为 0。PowerPoint 2010 validation 为 0 errors / 1 个预期 `OPC_EXTERNAL_RELATIONSHIP` portability warning。实现、契约、文档与 package proof commits 为 `ee68731`、`d70c2af`、`099f345`、`89f9b1b`、`2250826`、`1ab602f`；完整证据位于 `/tmp/pptx-table-structure-editing-proof.S1rVAZ`。CRUD 专项 8/8 完成，下一能力项为 auto-page/repeated headers；当前总体 PptxGenJS 对等进度约 99.1%。
+
 ## 创建和编辑预设形状、调整值与样式
 
 ```ts

@@ -1099,7 +1099,7 @@ $ pptx-inspect --json package inspect output.pptx
 
 ## PptxGenJS 全功能对等：Physical table row/column CRUD
 
-状态：实现、公开契约与文档完成；专项 6/8，actual package/real-browser proof 与最终全量门禁待后续两项
+状态：完成；专项 8/8，actual package、真实浏览器、PowerPoint 2010 与最终全量/性能门禁全部通过
 
 ### 本阶段 change
 
@@ -1112,12 +1112,14 @@ $ pptx-inspect --json package inspect output.pptx
 ### 当前验证结果
 
 - Row internal gates 为 25/25，column internal gates 为 31/31；公开 model focused 为 22 passed。SDK/root/PptxGenJS aggregate contracts 为 3/3，覆盖六种 presentation format、duplicate、canonical hidden-cell edit、validator、真实 PptxGenJS 4.0.1 rich/style/link/merge/size survivor 与 reopen。
-- TypeScript project references 与全仓 build 通过，文档 consistency/diff gate 在本小项执行。设计、计划、boundary、row splice、column splice、public API 与 aggregate contracts commits 依次为 `bc0bdec`、`ea91d8b`、`ee68731`、`d70c2af`、`099f345`、`89f9b1b`。
-- 本节不提前记录 actual tarball、Node/NodeNext/browser/CLI/Inspector、真实 Chrome、PowerPoint 2010、deterministic pack 或最终 full/performance 数字；这些证据分别由专项 Task 7 和 Task 8 产生。
+- TypeScript project references、root build、Node/browser bundles 与 declaration build 通过。设计、计划、boundary、row splice、column splice、public API、aggregate contracts、文档与 package proof commits 依次为 `bc0bdec`、`ea91d8b`、`ee68731`、`d70c2af`、`099f345`、`89f9b1b`、`2250826`、`1ab602f`。
+- 最终 focused 为 5 files / 611 tests（29.96s）；full 为 87 passed / 1 skipped test files、1535 passed / 1 skipped tests（64.27s）；独立 1000-part performance 为 1/1（核心 1204ms，test file 1207ms，total 2.52s）。
+- 两次 clean build 的 59-file dist manifests 完全一致，manifest SHA-256 为 `51d0c19da69fbd81682933d4a5418ff58ef2a805b4164d624f150d1674924e41`。两份 62-file、660,178-byte actual tarball byte-identical，SHA-256 均为 `17d43a887a9871fd4910bcf33415d985b4d8f1968b4020670a64166c148aeaa4`；installed Node、NodeNext declarations、browser conditional export、CLI 与 Inspector 全部通过并报告 `tableStructureEditing: true`。
+- Google Chrome 150.0.7871.188 的 create/rows inserted/columns inserted/new-cell edit/rows deleted/columns deleted/dimensions/merge/survivor/relationships/reopen 全部为 true，validation/console/page/network errors 均为 0。Node 与 browser evidence deck 都是 18 parts / 16 relationships、1 slide / 1 table、4×4 physical matrix；widths/heights 精确等于 transform，3×3 merge token 分布为 1 anchor / 2 top / 2 left / 4 interior，隐藏 inserted text、styled survivor、共用 `rId2` 的两个 click 与唯一 surviving external relationship 均存在，orphan hyperlinks 为 0。PowerPoint 2010 为 0 errors / 1 个预期 `OPC_EXTERNAL_RELATIONSHIP` portability warning；完整证据位于 `/tmp/pptx-table-structure-editing-proof.S1rVAZ`。
 
 ### 剩余 advanced API 与全功能路线
 
-- 当前总体 PptxGenJS 对等进度约 99.1%，尚不声明完整 parity。本 CRUD 专项剩余 actual package/real-browser proof 与最终 full/performance audit；能力路线随后依次为 auto-page/repeated headers → content measurement/layout recomputation → `tableToSlides` → 最终 peer/client audit。
+- 当前总体 PptxGenJS 对等进度约 99.1%，尚不声明完整 parity。CRUD 专项 8/8 已完成；能力路线随后依次为 auto-page/repeated headers → content measurement/layout recomputation → `tableToSlides` → 最终 peer/client audit。
 
 ## 0.1.0 初始验收
 
