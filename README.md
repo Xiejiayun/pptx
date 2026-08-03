@@ -964,7 +964,34 @@ table.horizontalAlignment = undefined; // 清除全部 direct pPr@algn
 
 PptxGenJS 4.0.1 的四个合法 table alignment 创建值可按最终 direct state 精确导入；omitted alignment 保持 `undefined`，table center 加单 cell right override 会投影为 mixed `undefined`。Native existing-deck bulk edit 是相同 OOXML direct state 上的 lossless 扩展。Focused 为 6 files / 537 tests，最终 full 为 80 passed / 1 skipped test files、1427 passed / 1 skipped tests，performance 1/1（1.34s）。实际 62-file tarball SHA-256 为 `03b376861aeb799fa21a99dd105871b8943e29bd4fe51c875a508ff295b9f9c0`；installed Node/types/browser/CLI 与真实 Chrome 均报告 `tableHorizontalAlignment: true`，CLI 确认最终 slide 恰有四个 direct `pPr@algn="r"` 且无 `tcPr/bodyPr@algn`，Chrome validation/console/page/network errors 为 0。证据位于 `/tmp/pptx-table-horizontal-alignment-artifacts.oe2f5A`。
 
-总体 PptxGenJS 对等进度仍约 97%。下一小项为 advanced table 的 table-level direct margins 共识读取与批量编辑；之后仍待 table-level border/fill、其他 advanced text/table、`tableToSlides` 与最终 peer/client audit。
+## 表格级 margins 读取与批量编辑
+
+```ts
+import { PptxDocument, type TextBoxMargins } from '@jiayunxie/pptx';
+
+const document = PptxDocument.create();
+const table = document.addSlide().addTable([
+  ['North', 'South'],
+  ['East', 'West'],
+], { margin: [3.6, 7.2, 10.8, 14.4] });
+
+const uniform: TextBoxMargins | undefined = table.margins;
+table.setCellMargins(0, 1, { top: 9 });
+console.log(table.margins);       // undefined: mixed direct cell state
+table.margins = 6;               // 四边均为 6pt
+table.margins = { top: 2, left: 4 }; // whole-replace，并清除 right/bottom
+table.margins = undefined;       // 清除全部 direct marL/marR/marT/marB
+```
+
+`TableModel.margins` 是全部 physical cells（包括 merge continuation）唯一 direct `tcPr@marL/marR/marT/marB` 的严格共识投影。只有每个 cell 都具有同一组非空、安全 complete 或 partial 边和值时才返回 detached `TextBoxMargins`；absent、mixed keys/values、empty、malformed、repeated 或 ambiguous state 返回 `undefined`。它不会从 canonical defaults、table style 或创建输入合成值；mixed 明细继续通过 `rows[].cells[].margins` 读取。
+
+赋值接受 point scalar、TRBL tuple、partial named object、`{}` 或 `undefined`，并在单一事务中 whole-replace 全部 physical cells。Scalar/TRBL 写四边，partial object 清除遗漏边，`{}`/`undefined` 清除四边；同数值和全 absent clear 是 exact bytes/journal no-op。不安全写入以 `ModelParseError` 零 package partial mutation 拒绝，文本、border、fill、alignment、direction、fit、grid、rows、transform 与 relationships 均保留。
+
+PptxGenJS 4.0.1 只提供创建期 margin，最终只留下 direct cell attributes。Omitted creation 会导入其显式 canonical `{ top: 3.6, right: 7.2, bottom: 3.6, left: 7.2 }`；合法 uniform table margin 可投影，单 cell override 会得到 mixed `undefined`。其 legacy runtime 把首项 `<1` 解释为 inches、`>=1` 解释为 points；native 始终使用 points，所以 PptxGenJS `[0.05, 0.1, 0.15, 0.2]` 对等 native `[3.6, 7.2, 10.8, 14.4]` 的最终 EMU，而不是复制输入单位歧义。
+
+Focused 为 7 files / 547 tests，最终 full 为 81 passed / 1 skipped test files、1437 passed / 1 skipped tests，performance 1/1（1.65s）。实际 62-file tarball SHA-256 为 `428f47de86cebb89ae19a59b4b5500f3c67c116f63107253e2bf997b04008e37`；installed Node/types/browser/CLI 与真实 Chrome 均报告 `tableMargins: true`。CLI 确认最终四个 direct `tcPr` 都恰有 `marL="50800" marR="25400" marT="12700" marB="38100"`，Chrome validation/console/page/network errors 为 0。证据位于 `/tmp/pptx-table-margins-artifacts.gPmz7V`。
+
+总体 PptxGenJS 对等进度仍约 97%。下一小项选择 table-level direct fill 共识读取与批量编辑；之后仍待 table-level border、其他 advanced text/table、`tableToSlides` 与最终 peer/client audit。
 
 ## 创建和编辑预设形状、调整值与样式
 
