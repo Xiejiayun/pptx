@@ -23,7 +23,6 @@ import {
   type ChartSeriesInput,
   type ChartType,
   type ImageModel,
-  type PlaceholderSelector,
   type SlideBackground,
   type SlideModel,
 } from '@pptx/model';
@@ -62,12 +61,16 @@ import {
   type RasterImageSource,
   type ResolvedImageSource,
 } from './raster-image-source.js';
-import { calculateImageSizing, type ImageSizing } from './raster-image-sizing.js';
+import { calculateImageSizing } from './raster-image-sizing.js';
 import {
   resolveSlideBackgroundImage,
   type SetSlideBackgroundImageOptions,
 } from './slide-background-source.js';
 import { resolveSvgFallback } from './svg-image-fallback.js';
+import {
+  commitPreparedImage,
+  prepareImageSource,
+} from './prepared-image-source.js';
 import {
   normalizeDefineSlideMasterOptions,
   SlideLayoutModel,
@@ -685,6 +688,9 @@ export class PptxDocument extends PresentationModel {
       this.slideSize,
       layoutMargins,
     );
+    const preparedImage = request.addImage === undefined
+      ? undefined
+      : await prepareImageSource(request.addImage.source, request.addImage.options);
     const existingPartUris = new Set(this.slides.map(({ partUri }) => partUri));
     const createdPartUris = new Set<string>();
     try {
@@ -698,6 +704,7 @@ export class PptxDocument extends PresentationModel {
           first.addTable(prepared.rows, prepared.tableOptions);
           const htmlPages = Object.freeze([first, ...first.newAutoPagedSlides]);
           for (const page of htmlPages) {
+            if (preparedImage !== undefined) commitPreparedImage(page, preparedImage);
             if (request.addShape !== undefined) {
               page.addShape(request.addShape.type, request.addShape.options);
             }
@@ -732,41 +739,7 @@ export class PptxDocument extends PresentationModel {
   ): Promise<ImageModel> {
     const slide = this.slides[slideIndex];
     if (!slide) throw new RangeError(`Slide index ${slideIndex} is out of range`);
-    const normalized = normalizeAddImageSourceOptions(options);
-    const resolved = await resolveImageSource(source, normalized.signal);
-    assertImageContentType(normalized.contentType, resolved);
-    const placement = normalized.sizing
-      ? calculateImageSizing(
-          resolved.info,
-          imageSizingForPlaceholder(
-            slide,
-            normalized.imageOptions.placeholder,
-            normalized.sizing,
-          ),
-        ) as Pick<
-          AddSvgImageOptions,
-          'width' | 'height' | 'sourceRectangle'
-        >
-      : undefined;
-    if (resolved.info.contentType !== 'image/svg+xml') {
-      if (normalized.fallback !== undefined) {
-        throw new TypeError('fallback is only valid for SVG images');
-      }
-      return slide.addImage(resolved.bytes, {
-        ...normalized.imageOptions,
-        ...(placement ?? {}),
-        contentType: resolved.info.contentType,
-      });
-    }
-    const fallback = await resolveSvgFallback(
-      resolved,
-      normalized.fallback,
-      normalized.signal,
-    );
-    return slide.addSvgImage(resolved.bytes, fallback, {
-      ...normalized.imageOptions,
-      ...(placement ?? {}),
-    });
+    return commitPreparedImage(slide, await prepareImageSource(source, options));
   }
 
   async setSlideBackgroundImage(
@@ -1079,26 +1052,6 @@ function blankNamedLayoutXml(title: string): string {
     + '<a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/>'
     + '</a:xfrm></p:grpSpPr></p:spTree></p:cSld>'
     + '<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sldLayout>';
-}
-
-function imageSizingForPlaceholder(
-  slide: SlideModel,
-  selector: PlaceholderSelector | undefined,
-  sizing: Readonly<ImageSizing>,
-): Readonly<ImageSizing> {
-  if (selector === undefined) return sizing;
-  const owner = slide.placeholders.find((shape) => {
-    const identity = shape.placeholder;
-    return typeof selector === 'string'
-      ? shape.name === selector
-      : identity?.type === selector.type && identity.index === selector.index;
-  });
-  if (owner?.placeholder?.type !== 'pic') return sizing;
-  return Object.freeze({
-    ...sizing,
-    width: owner.transform.width,
-    height: owner.transform.height,
-  });
 }
 
 function appendCodecDiagnostics(

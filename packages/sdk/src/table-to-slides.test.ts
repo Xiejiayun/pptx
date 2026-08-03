@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  ImageModel,
   inches,
   ShapeModel,
   SlideModel,
@@ -130,6 +131,20 @@ function packageState(document: PptxDocument): unknown {
       targetMode,
     })),
   }));
+}
+
+function pngHeader(width: number, height: number): Uint8Array<ArrayBuffer> {
+  const bytes = new Uint8Array(24);
+  bytes.set([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82]);
+  bytes[16] = width >>> 24;
+  bytes[17] = width >>> 16;
+  bytes[18] = width >>> 8;
+  bytes[19] = width;
+  bytes[20] = height >>> 24;
+  bytes[21] = height >>> 16;
+  bytes[22] = height >>> 8;
+  bytes[23] = height;
+  return bytes;
 }
 
 describe('HTML table row snapshots', () => {
@@ -1141,6 +1156,118 @@ describe('PptxDocument.tableToSlides additional objects', () => {
       failure.mockRestore();
     }
     expect(calls).toBe(2);
+    expect(packageState(deck)).toEqual(before);
+    expect(deck.slides).toEqual([]);
+  });
+});
+
+describe('PptxDocument.tableToSlides image additions', () => {
+  it('resolves once and adds the image before other additions on every HTML page', async () => {
+    const dom = tableFixture({ bodies: [Array.from({ length: 35 }, (_, index) => [
+      cell(`Row ${index} ${'content '.repeat(8)}`),
+    ])] });
+    const deck = PptxDocument.create({
+      slideSize: { width: inches(6), height: inches(2.5) },
+    });
+    let reads = 0;
+    const source = {
+      async *[Symbol.asyncIterator]() {
+        reads += 1;
+        yield pngHeader(16, 9);
+      },
+    };
+    const pages = await withGlobalDocument(dom.document, () => deck.tableToSlides('table', {
+      addImage: {
+        source,
+        options: { x: inches(0.1), y: inches(0.2), width: inches(0.3), height: inches(0.4) },
+      },
+      addShape: {
+        type: 'rect',
+        options: { x: inches(0.5), y: inches(0.6), width: inches(0.7), height: inches(0.8) },
+      },
+      addText: { text: 'after image' },
+    }));
+
+    expect(pages.length).toBeGreaterThan(1);
+    expect(reads).toBe(1);
+    expect(pages.every((page) => page.shapes.map(({ kind }) => kind).join(',') ===
+      'table,image,shape,text')).toBe(true);
+    const images = pages.map((page) => page.shapes[1] as ImageModel);
+    expect(new Set(images.map(({ sourcePartUri }) => sourcePartUri)).size).toBe(1);
+    expect(images.every((image, index) => index === 0 || image !== images[0])).toBe(true);
+    expect(pages.every((page, index) => page.relationships.filter(({ resolvedTarget }) =>
+      resolvedTarget === images[index]!.sourcePartUri).length === 1)).toBe(true);
+  });
+
+  it('rolls back every slide, relationship, and media part after a later image commit fails', async () => {
+    const dom = tableFixture({ bodies: [Array.from({ length: 35 }, (_, index) => [
+      cell(`Row ${index} ${'content '.repeat(8)}`),
+    ])] });
+    const deck = PptxDocument.create({
+      slideSize: { width: inches(6), height: inches(2.5) },
+    });
+    const before = packageState(deck);
+    const original = SlideModel.prototype.addImage;
+    let calls = 0;
+    const failure = vi.spyOn(SlideModel.prototype, 'addImage').mockImplementation(function (
+      this: SlideModel,
+      ...args: Parameters<SlideModel['addImage']>
+    ) {
+      calls += 1;
+      const image = original.apply(this, args);
+      if (calls === 2) throw new Error('injected later-page image failure');
+      return image;
+    });
+    try {
+      await expect(withGlobalDocument(dom.document, () => deck.tableToSlides('table', {
+        addImage: { source: pngHeader(16, 9) },
+      }))).rejects.toThrow(/later-page image failure/i);
+    } finally {
+      failure.mockRestore();
+    }
+
+    expect(calls).toBe(2);
+    expect(packageState(deck)).toEqual(before);
+    expect(deck.slides).toEqual([]);
+  });
+
+  it('adds one prepared SVG fallback pair to every HTML page', async () => {
+    const dom = tableFixture({ bodies: [Array.from({ length: 25 }, (_, index) => [
+      cell(`SVG row ${index} ${'content '.repeat(8)}`),
+    ])] });
+    const deck = PptxDocument.create({
+      slideSize: { width: inches(6), height: inches(2.5) },
+    });
+    const pages = await withGlobalDocument(dom.document, () => deck.tableToSlides('table', {
+      addImage: {
+        source: new TextEncoder().encode(
+          '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 9"/>',
+        ),
+        options: {
+          fallback: pngHeader(1, 1),
+          width: inches(1.6),
+          height: inches(0.9),
+        },
+      },
+    }));
+    const images = pages.map((page) => page.shapes[1] as ImageModel);
+
+    expect(pages.length).toBeGreaterThan(1);
+    expect(images.every(({ isSvg }) => isSvg)).toBe(true);
+    expect(new Set(images.map(({ fallbackPartUri }) => fallbackPartUri)).size).toBe(1);
+    expect(new Set(images.map(({ svgPartUri }) => svgPartUri)).size).toBe(1);
+    expect(images[0]!.fallbackPartUri).not.toBe(images[0]!.svgPartUri);
+    expect(pages.every((page) => page.relationships.filter(({ type }) =>
+      type.endsWith('/image')).length === 2)).toBe(true);
+  });
+
+  it('rejects an invalid image during preflight without attaching a slide', async () => {
+    const dom = tableFixture({ bodies: [[[cell('A')]]] });
+    const deck = PptxDocument.create();
+    const before = packageState(deck);
+    await expect(withGlobalDocument(dom.document, () => deck.tableToSlides('table', {
+      addImage: { source: new Uint8Array([1, 2, 3]) },
+    }))).rejects.toThrow(/image|signature|SVG/i);
     expect(packageState(deck)).toEqual(before);
     expect(deck.slides).toEqual([]);
   });

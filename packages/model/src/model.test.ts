@@ -4419,6 +4419,57 @@ describe('PresentationModel', () => {
     expect(created.sourcePartUri).toBe('/ppt/media/image1.png');
   });
 
+  it('deduplicates exact image payloads and keeps replacements clone-on-write', () => {
+    const { pkg, model } = emptyPresentationModel();
+    const firstSlide = model.addSlide();
+    const secondSlide = model.addSlide();
+    const bytes = new Uint8Array([1, 2, 3]);
+    const first = firstSlide.addImage(bytes, { contentType: 'image/png' });
+    const second = secondSlide.addImage(bytes, { contentType: 'image/png' });
+    const differentType = secondSlide.addImage(bytes, { contentType: 'image/jpeg' });
+    const differentBytes = secondSlide.addImage(new Uint8Array([1, 2, 4]), {
+      contentType: 'image/png',
+    });
+
+    expect(first.sourcePartUri).toBe(second.sourcePartUri);
+    expect(differentType.sourcePartUri).not.toBe(first.sourcePartUri);
+    expect(differentBytes.sourcePartUri).not.toBe(first.sourcePartUri);
+    expect(firstSlide.relationships.filter(({ resolvedTarget }) =>
+      resolvedTarget === first.sourcePartUri)).toHaveLength(1);
+    expect(secondSlide.relationships.filter(({ resolvedTarget }) =>
+      resolvedTarget === second.sourcePartUri)).toHaveLength(1);
+
+    const sharedRasterUri = first.sourcePartUri!;
+    first.replaceData(new Uint8Array([9, 8, 7]), 'image/png');
+    expect(first.sourcePartUri).not.toBe(sharedRasterUri);
+    expect(second.sourcePartUri).toBe(sharedRasterUri);
+    expect(pkg.requirePart(sharedRasterUri).bytes).toEqual(bytes);
+    expect(pkg.requirePart(first.sourcePartUri!).bytes).toEqual(new Uint8Array([9, 8, 7]));
+
+    const firstSvg = firstSlide.addSvgImage(
+      new Uint8Array([60, 115, 118, 103, 47, 62]),
+      new Uint8Array([137, 80, 78, 71]),
+    );
+    const secondSvg = secondSlide.addSvgImage(
+      new Uint8Array([60, 115, 118, 103, 47, 62]),
+      new Uint8Array([137, 80, 78, 71]),
+    );
+    expect(firstSvg.fallbackPartUri).toBe(secondSvg.fallbackPartUri);
+    expect(firstSvg.svgPartUri).toBe(secondSvg.svgPartUri);
+
+    const sharedFallbackUri = firstSvg.fallbackPartUri!;
+    const sharedSvgUri = firstSvg.svgPartUri!;
+    secondSvg.replaceSvgData(new Uint8Array([1]), new Uint8Array([2]));
+    expect(firstSvg.fallbackPartUri).toBe(sharedFallbackUri);
+    expect(firstSvg.svgPartUri).toBe(sharedSvgUri);
+    expect(secondSvg.fallbackPartUri).not.toBe(sharedFallbackUri);
+    expect(secondSvg.svgPartUri).not.toBe(sharedSvgUri);
+    expect(pkg.requirePart(sharedFallbackUri).bytes)
+      .toEqual(new Uint8Array([137, 80, 78, 71]));
+    expect(pkg.requirePart(sharedSvgUri).bytes)
+      .toEqual(new Uint8Array([60, 115, 118, 103, 47, 62]));
+  });
+
   it('reads, edits, clears, rolls back, and duplicates image source rectangles', async () => {
     const { pkg, model } = emptyPresentationModel();
     const slide = model.addSlide();

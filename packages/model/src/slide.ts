@@ -20,6 +20,7 @@ import {
 } from '@pptx/codecs';
 import {
   relativeRelationshipTarget,
+  type OpcPackage,
   type Relationship,
   type RelationshipInput,
 } from '@pptx/opc';
@@ -277,6 +278,27 @@ const CHART_RELATIONSHIP_TYPE =
   'http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart';
 const RELATIONSHIP_NAMESPACE =
   'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+
+function getOrCreateImagePart(
+  pkg: OpcPackage,
+  bytes: Uint8Array,
+  contentType: string,
+  extension: string,
+): string {
+  const existing = pkg.parts.find((part) =>
+    part.uri.startsWith('/ppt/media/')
+    && part.contentType === contentType
+    && bytesEqual(part.bytes, bytes));
+  if (existing) return existing.uri;
+  const uri = pkg.allocatePartUri('/ppt/media', 'image', extension);
+  pkg.setPart(uri, bytes, contentType);
+  return uri;
+}
+
+function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
+  if (left.byteLength !== right.byteLength) return false;
+  return left.every((byte, index) => byte === right[index]);
+}
 
 export interface AddTextOptions extends Partial<Transform> {
   readonly name?: string;
@@ -1376,12 +1398,12 @@ export class SlideModel {
             name: owner.name,
             ...owner.transform,
           });
-      const mediaPartUri = pkg.allocatePartUri(
-        '/ppt/media',
-        'image',
+      const mediaPartUri = getOrCreateImagePart(
+        pkg,
+        definition.bytes,
+        definition.contentType,
         definition.extension,
       );
-      pkg.setPart(mediaPartUri, definition.bytes, definition.contentType);
       const relationship = pkg.addRelationship(this.partUri, {
         type: IMAGE_RELATIONSHIP_TYPE,
         target: relativeRelationshipTarget(this.partUri, mediaPartUri),
@@ -1437,10 +1459,18 @@ export class SlideModel {
             name: owner.name,
             ...owner.transform,
           });
-      const fallbackPartUri = pkg.allocatePartUri('/ppt/media', 'image', '.png');
-      const svgPartUri = pkg.allocatePartUri('/ppt/media', 'image', '.svg');
-      pkg.setPart(fallbackPartUri, definition.fallbackPngBytes, 'image/png');
-      pkg.setPart(svgPartUri, definition.svgBytes, 'image/svg+xml');
+      const fallbackPartUri = getOrCreateImagePart(
+        pkg,
+        definition.fallbackPngBytes,
+        'image/png',
+        '.png',
+      );
+      const svgPartUri = getOrCreateImagePart(
+        pkg,
+        definition.svgBytes,
+        'image/svg+xml',
+        '.svg',
+      );
       const fallbackRelationship = pkg.addRelationship(this.partUri, {
         type: IMAGE_RELATIONSHIP_TYPE,
         target: relativeRelationshipTarget(this.partUri, fallbackPartUri),
