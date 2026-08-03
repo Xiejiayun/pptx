@@ -1,6 +1,10 @@
 import JSZip from 'jszip';
 import { describe, expect, it, vi } from 'vitest';
-import { MediaCodec, type SlideNumberOptions } from '@pptx/codecs';
+import {
+  MediaCodec,
+  replaceSlideNumber,
+  type SlideNumberOptions,
+} from '@pptx/codecs';
 import { LosslessXmlDocument } from '@pptx/lossless-xml';
 import { OpcPackage, relativeRelationshipTarget, relationshipPartUri } from '@pptx/opc';
 import {
@@ -389,6 +393,68 @@ function emptyPresentationModel(): { pkg: OpcPackage; model: PresentationModel }
     });
   });
   return { pkg, model: new PresentationModel(pkg) };
+}
+
+function installNamedSlideLayouts(
+  pkg: OpcPackage,
+  model: PresentationModel,
+  layouts: readonly {
+    readonly name: string;
+    readonly partUri: string;
+    readonly slideNumber?: boolean;
+  }[],
+): void {
+  const masterPartUri = '/ppt/slideMasters/slideMaster1.xml';
+  const group = '<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/>'
+    + '</p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/>'
+    + '<a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/>'
+    + '<a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>';
+  const title = '<p:sp><p:nvSpPr><p:cNvPr id="2" name="Title"/><p:cNvSpPr/>'
+    + '<p:nvPr><p:ph type="title" idx="1"/></p:nvPr></p:nvSpPr>'
+    + '<p:spPr><a:xfrm><a:off x="914400" y="457200"/>'
+    + '<a:ext cx="7315200" cy="914400"/></a:xfrm></p:spPr>'
+    + '<p:txBody><a:bodyPr/><a:lstStyle/><a:p/></p:txBody></p:sp>';
+
+  pkg.transaction(() => {
+    pkg.setPart(
+      masterPartUri,
+      '<p:sldMaster xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" '
+        + 'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">'
+        + `<p:cSld><p:spTree>${group}</p:spTree></p:cSld></p:sldMaster>`,
+      SLIDE_MASTER_CONTENT_TYPE,
+    );
+    pkg.addRelationship(model.presentationPartUri, {
+      type: SLIDE_MASTER_RELATIONSHIP,
+      target: 'slideMasters/slideMaster1.xml',
+    });
+    for (const layout of layouts) {
+      pkg.setPart(
+        layout.partUri,
+        '<p:sldLayout xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" '
+          + 'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">'
+          + `<p:cSld name="${layout.name}"><p:spTree>${group}${title}</p:spTree>`
+          + '</p:cSld></p:sldLayout>',
+        SLIDE_LAYOUT_CONTENT_TYPE,
+      );
+      pkg.addRelationship(masterPartUri, {
+        type: SLIDE_LAYOUT_RELATIONSHIP,
+        target: relativeRelationshipTarget(masterPartUri, layout.partUri),
+      });
+      pkg.addRelationship(layout.partUri, {
+        type: SLIDE_MASTER_RELATIONSHIP,
+        target: relativeRelationshipTarget(layout.partUri, masterPartUri),
+      });
+      if (layout.slideNumber) {
+        replaceSlideNumber(
+          pkg,
+          layout.partUri,
+          'layout',
+          { x: inches(8), y: inches(4.8), width: inches(1), height: inches(0.4) },
+          '1',
+        );
+      }
+    }
+  });
 }
 
 async function modelFixture(
@@ -928,6 +994,162 @@ describe('PresentationModel', () => {
       undefined,
     )).toThrow(ModelParseError);
     expect(packageSnapshot(pkg)).toEqual(malformedBefore);
+  });
+
+  it('prepares and inserts a same-layout blank slide directly after its source', () => {
+    const { pkg, model } = emptyPresentationModel();
+    const sourceLayoutPartUri = '/ppt/slideLayouts/slideLayout1.xml';
+    installNamedSlideLayouts(pkg, model, [
+      { name: 'SOURCE', partUri: sourceLayoutPartUri },
+      { name: 'ALTERNATE', partUri: '/ppt/slideLayouts/slideLayout2.xml' },
+    ]);
+    const first = model.addSlide({ masterName: 'ALTERNATE' });
+    const source = model.addSlide({ masterName: 'SOURCE' });
+    const following = model.addSlide({ masterName: 'ALTERNATE' });
+    const firstSection = model.addSection({ title: 'Repeated title' });
+    const sourceSection = model.addSection({ title: 'Repeated title' });
+    model.assignSlideToSection(model.slides.indexOf(first), firstSection.id);
+    model.assignSlideToSection(model.slides.indexOf(source), sourceSection.id);
+    model.assignSlideToSection(model.slides.indexOf(following), firstSection.id);
+    const followingBytes = pkg.requirePart(following.partUri).bytes.slice();
+
+    const prepared = model.prepareSlideInsertionAfter(source);
+    expect(prepared).toEqual({
+      sourcePartUri: source.partUri,
+      sourceSlideId: source.slideId,
+      layoutPartUri: sourceLayoutPartUri,
+      materializeSlideNumber: false,
+    });
+    expect(Object.isFrozen(prepared)).toBe(true);
+
+    const inserted = model.insertPreparedBlankSlideAfter(source, prepared);
+    expect(model.slides).toEqual([first, source, inserted, following]);
+    expect(model.slides[2]).toBe(inserted);
+    expect(inserted.relationships.filter(({ type }) =>
+      type === SLIDE_LAYOUT_RELATIONSHIP).map(({ resolvedTarget }) => resolvedTarget))
+      .toEqual([sourceLayoutPartUri]);
+    expect(inserted.shapes.map(({ placeholder }) => placeholder))
+      .toContainEqual({ type: 'title', index: 1 });
+
+    const secondInserted = model.insertPreparedBlankSlideAfter(inserted, prepared);
+    expect(model.slides).toEqual([first, source, inserted, secondInserted, following]);
+    expect(model.sections?.find(({ id }) => id === sourceSection.id)?.slideIds)
+      .toEqual([source.slideId, inserted.slideId, secondInserted.slideId]);
+    expect(model.sections?.find(({ id }) => id === firstSection.id)?.slideIds)
+      .toEqual([first.slideId, following.slideId]);
+    expect(pkg.requirePart(following.partUri).bytes).toEqual(followingBytes);
+  });
+
+  it('materializes inserted layout slide numbers and synchronizes shifted caches', () => {
+    const { pkg, model } = emptyPresentationModel();
+    const layoutPartUri = '/ppt/slideLayouts/slideLayout1.xml';
+    installNamedSlideLayouts(pkg, model, [
+      { name: 'NUMBERED', partUri: layoutPartUri, slideNumber: true },
+    ]);
+    const first = model.addSlide({ masterName: 'NUMBERED' });
+    const source = model.addSlide({ masterName: 'NUMBERED' });
+    const following = model.addSlide({ masterName: 'NUMBERED' });
+
+    const prepared = model.prepareSlideInsertionAfter(source);
+    expect(prepared.materializeSlideNumber).toBe(true);
+    const inserted = model.insertPreparedBlankSlideAfter(source, prepared);
+
+    expect(model.slides).toEqual([first, source, inserted, following]);
+    expect(model.slides.map((slide) => slideNumberCache(pkg, slide.partUri)))
+      .toEqual(['1', '2', '3', '4']);
+    expect(inserted.slideNumber).toEqual(source.slideNumber);
+  });
+
+  it('rejects unsafe prepared-slide topology without package mutation', () => {
+    const missing = emptyPresentationModel();
+    const missingSource = missing.model.addSlide();
+    const missingBefore = packageSnapshot(missing.pkg);
+    expect(() => missing.model.prepareSlideInsertionAfter(missingSource)).toThrow(/layout/i);
+    expect(packageSnapshot(missing.pkg)).toEqual(missingBefore);
+
+    for (const kind of ['repeated', 'external', 'wrong-content'] as const) {
+      const { pkg, model } = emptyPresentationModel();
+      const layoutPartUri = '/ppt/slideLayouts/slideLayout1.xml';
+      installNamedSlideLayouts(pkg, model, [{ name: 'SOURCE', partUri: layoutPartUri }]);
+      const source = model.addSlide({ masterName: 'SOURCE' });
+      const relationship = source.relationships.find(({ type }) =>
+        type === SLIDE_LAYOUT_RELATIONSHIP)!;
+      if (kind !== 'repeated') {
+        pkg.removeRelationship(source.partUri, relationship.id);
+      }
+      if (kind === 'repeated') {
+        pkg.addRelationship(source.partUri, {
+          type: SLIDE_LAYOUT_RELATIONSHIP,
+          target: relativeRelationshipTarget(source.partUri, layoutPartUri),
+        });
+      } else if (kind === 'external') {
+        pkg.addRelationship(source.partUri, {
+          type: SLIDE_LAYOUT_RELATIONSHIP,
+          target: 'https://example.com/layout.xml',
+          targetMode: 'External',
+        });
+      } else {
+        const wrongPartUri = '/ppt/slideLayouts/not-a-layout.xml';
+        pkg.setPart(wrongPartUri, '<root/>', 'application/xml');
+        pkg.addRelationship(source.partUri, {
+          type: SLIDE_LAYOUT_RELATIONSHIP,
+          target: relativeRelationshipTarget(source.partUri, wrongPartUri),
+        });
+      }
+      const before = packageSnapshot(pkg);
+      expect(() => model.prepareSlideInsertionAfter(source)).toThrow(/layout/i);
+      expect(packageSnapshot(pkg), kind).toEqual(before);
+    }
+
+    const attached = emptyPresentationModel();
+    installNamedSlideLayouts(attached.pkg, attached.model, [{
+      name: 'SOURCE',
+      partUri: '/ppt/slideLayouts/slideLayout1.xml',
+    }]);
+    const source = attached.model.addSlide({ masterName: 'SOURCE' });
+    const detached = emptyPresentationModel();
+    expect(() => detached.model.prepareSlideInsertionAfter(source)).toThrow(/presentation/i);
+
+    const prepared = attached.model.prepareSlideInsertionAfter(source);
+    attached.model.deleteSlide(0);
+    const detachedBefore = packageSnapshot(attached.pkg);
+    expect(() => attached.model.insertPreparedBlankSlideAfter(source, prepared))
+      .toThrow(/source slide|attached/i);
+    expect(packageSnapshot(attached.pkg)).toEqual(detachedBefore);
+  });
+
+  it('rolls back failed prepared insertion and discards its detached model cache', () => {
+    const { pkg, model } = emptyPresentationModel();
+    installNamedSlideLayouts(pkg, model, [{
+      name: 'NUMBERED',
+      partUri: '/ppt/slideLayouts/slideLayout1.xml',
+      slideNumber: true,
+    }]);
+    const source = model.addSlide({ masterName: 'NUMBERED' });
+    const following = model.addSlide({ masterName: 'NUMBERED' });
+    const prepared = model.prepareSlideInsertionAfter(source);
+    const before = packageSnapshot(pkg);
+    const original = pkg.setPart.bind(pkg);
+    let failedModel: typeof source | undefined;
+    const spy = vi.spyOn(pkg, 'setPart').mockImplementation((uri, bytes, contentType) => {
+      if (uri === following.partUri && model.slides.length === 3) {
+        failedModel = model.slides[1];
+        throw new Error('injected prepared slide insertion failure');
+      }
+      return original(uri, bytes, contentType);
+    });
+
+    expect(() => model.insertPreparedBlankSlideAfter(source, prepared))
+      .toThrow('injected prepared slide insertion failure');
+    spy.mockRestore();
+    expect(packageSnapshot(pkg)).toEqual(before);
+    expect(model.slides).toEqual([source, following]);
+    expect(failedModel).toBeDefined();
+
+    model.discardDetachedSlideModel(failedModel!.partUri);
+    const inserted = model.insertPreparedBlankSlideAfter(source, prepared);
+    expect(inserted).not.toBe(failedModel);
+    expect(model.slides).toEqual([source, inserted, following]);
   });
 
   it('detects all six OOXML presentation formats from the package content type', async () => {
