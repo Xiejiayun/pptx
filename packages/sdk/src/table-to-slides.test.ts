@@ -11,6 +11,7 @@ interface CellFixtureOptions {
   readonly colSpan?: number;
   readonly rowSpan?: number;
   readonly attributes?: Readonly<Record<string, string>>;
+  readonly style?: Readonly<Record<string, string>>;
 }
 
 interface CellFixture {
@@ -19,6 +20,7 @@ interface CellFixture {
   offsetWidth: number;
   colSpan: number;
   rowSpan: number;
+  style: Readonly<Record<string, string>>;
   getAttribute(name: string): string | null;
 }
 
@@ -37,6 +39,7 @@ function cell(text: string, options: CellFixtureOptions = {}): CellFixture {
     offsetWidth: options.width ?? 100,
     colSpan: options.colSpan ?? 1,
     rowSpan: options.rowSpan ?? 1,
+    style: options.style ?? {},
     getAttribute(name: string): string | null {
       return Object.hasOwn(attributes, name) ? attributes[name]! : null;
     },
@@ -58,9 +61,14 @@ function tableFixture(input: TableFixtureInput) {
     styles: 0,
   };
   const defaultView = {
-    getComputedStyle(_element: unknown): Readonly<Record<string, never>> {
+    getComputedStyle(element: unknown) {
       calls.styles += 1;
-      return Object.freeze({});
+      const style = (element as { style?: Readonly<Record<string, string>> }).style ?? {};
+      return Object.freeze({
+        getPropertyValue(name: string): string {
+          return style[name] ?? '';
+        },
+      });
     },
   };
   const document = {
@@ -255,6 +263,196 @@ describe('HTML table row snapshots', () => {
       },
       () => ({}),
     )).toThrow(expected);
+  });
+});
+
+describe('HTML table computed CSS snapshots', () => {
+  it('maps exact computed cell CSS to editable native table options', () => {
+    const styled = cell('Styled', {
+      style: {
+        color: 'rgb(1, 2, 3)',
+        'background-color': 'rgb(240, 241, 242)',
+        'font-family': '"Noto Sans", Arial, sans-serif',
+        'font-size': '18.5px',
+        'font-weight': '600',
+        'text-align': 'right',
+        'vertical-align': 'bottom',
+        direction: 'ltr',
+        'padding-top': '7.5px',
+        'padding-right': '11px',
+        'padding-bottom': '3.25px',
+        'padding-left': '5px',
+        'border-top-style': 'solid',
+        'border-top-width': '2px',
+        'border-top-color': 'rgba(10, 20, 30, 0.5)',
+        'border-right-style': 'dashed',
+        'border-right-width': '1.5px',
+        'border-right-color': 'rgb(40, 50, 60)',
+        'border-bottom-style': 'none',
+        'border-bottom-width': '0px',
+        'border-bottom-color': 'rgb(0, 0, 0)',
+        'border-left-style': 'dotted',
+        'border-left-width': '3px',
+        'border-left-color': 'rgb(70, 80, 90)',
+      },
+    });
+    const dom = tableFixture({ bodies: [[[styled]]] });
+    const options = snapshotHtmlTable(dom.table, dom.getComputedStyle).rows[0]![0]!.options;
+    expect(options).toEqual({
+      align: 'right',
+      bold: true,
+      color: { kind: 'srgb', value: '010203' },
+      fill: { kind: 'solid', color: { kind: 'srgb', value: 'F0F1F2' } },
+      fontFamily: 'Noto Sans',
+      fontSize: 18.5,
+      margin: [7.5, 11, 3.25, 5],
+      valign: 'bottom',
+      border: {
+        top: {
+          kind: 'line',
+          color: { kind: 'srgb', value: '0A141E' },
+          width: 2,
+          style: 'solid',
+        },
+        right: {
+          kind: 'line',
+          color: { kind: 'srgb', value: '28323C' },
+          width: 1.5,
+          style: 'dash',
+        },
+        bottom: { kind: 'none' },
+        left: {
+          kind: 'line',
+          color: { kind: 'srgb', value: '46505A' },
+          width: 3,
+          style: 'dash',
+        },
+      },
+    });
+    expect(Object.isFrozen(options)).toBe(true);
+    expect(Object.isFrozen(options.margin)).toBe(true);
+    expect(Object.isFrozen(options.border)).toBe(true);
+    (styled.style as Record<string, string>).color = 'rgb(255, 255, 255)';
+    expect(options.color).toEqual({ kind: 'srgb', value: '010203' });
+  });
+
+  it('maps transparent fill, decimal channels, font weights, and directional alignment', () => {
+    const dom = tableFixture({
+      bodies: [[
+        [cell('transparent', { style: {
+          color: 'rgba(1.4, 2.5, 3.6, 0.25)',
+          'background-color': 'rgba(0, 0, 0, 0)',
+          'font-weight': '400',
+          'text-align': 'start',
+          direction: 'rtl',
+          'vertical-align': 'middle',
+        } })],
+        [cell('bold', { style: {
+          'background-color': 'transparent',
+          'font-weight': 'bolder',
+          'text-align': 'end',
+          direction: 'rtl',
+          'vertical-align': 'top',
+        } })],
+      ]],
+    });
+    const rows = snapshotHtmlTable(dom.table, dom.getComputedStyle).rows;
+    expect(rows[0]![0]!.options).toMatchObject({
+      align: 'right',
+      bold: false,
+      color: { kind: 'srgb', value: '010304' },
+      fill: { kind: 'solid', color: { kind: 'srgb', value: 'FFFFFF' } },
+      valign: 'middle',
+    });
+    expect(rows[1]![0]!.options).toMatchObject({
+      align: 'left',
+      bold: true,
+      fill: { kind: 'solid', color: { kind: 'srgb', value: 'FFFFFF' } },
+      valign: 'top',
+    });
+  });
+
+  it.each([
+    ['normal', false],
+    ['400', false],
+    ['500', true],
+    ['bold', true],
+    ['bolder', true],
+  ])('maps font-weight %s to bold=%s', (weight, bold) => {
+    const dom = tableFixture({ bodies: [[[cell('A', { style: { 'font-weight': weight } })]]] });
+    expect(snapshotHtmlTable(dom.table, dom.getComputedStyle).rows[0]![0]!.options.bold)
+      .toBe(bold);
+  });
+
+  it.each([
+    ['left', 'ltr', 'left'],
+    ['center', 'ltr', 'center'],
+    ['right', 'ltr', 'right'],
+    ['justify', 'rtl', 'justify'],
+    ['start', 'ltr', 'left'],
+    ['end', 'ltr', 'right'],
+  ])('maps text alignment %s in %s to %s', (alignment, direction, expected) => {
+    const dom = tableFixture({ bodies: [[[cell('A', { style: {
+      'text-align': alignment,
+      direction,
+    } })]]] });
+    expect(snapshotHtmlTable(dom.table, dom.getComputedStyle).rows[0]![0]!.options.align)
+      .toBe(expected);
+  });
+
+  it('accepts modern space-separated RGB and percentage alpha', () => {
+    const dom = tableFixture({ bodies: [[[cell('A', { style: {
+      color: 'rgb(10.4 20.5 30.6 / 25%)',
+    } })]]] });
+    expect(snapshotHtmlTable(dom.table, dom.getComputedStyle).rows[0]![0]!.options.color)
+      .toEqual({ kind: 'srgb', value: '0A151F' });
+  });
+
+  it('omits intentionally empty and generic computed values', () => {
+    const dom = tableFixture({ bodies: [[[cell('A', { style: {
+      'font-family': 'sans-serif',
+      'vertical-align': 'baseline',
+    } })]]] });
+    expect(snapshotHtmlTable(dom.table, dom.getComputedStyle).rows[0]![0]!.options)
+      .toEqual({});
+  });
+
+  it('reads every required computed property exactly once per cell', () => {
+    const reads = new Map<string, number>();
+    const tracked = {
+      localName: 'td',
+      innerText: 'A',
+      offsetWidth: 1,
+      colSpan: 1,
+      rowSpan: 1,
+      getAttribute: () => null,
+    };
+    snapshotHtmlTable(
+      { localName: 'table', tHead: null, tBodies: [{ rows: [{ cells: [tracked] }] }], tFoot: null },
+      () => ({
+        getPropertyValue(name: string) {
+          reads.set(name, (reads.get(name) ?? 0) + 1);
+          return '';
+        },
+      }),
+    );
+    expect(reads.size).toBe(24);
+    expect([...reads.values()].every((count) => count === 1)).toBe(true);
+  });
+
+  it.each([
+    [{ color: 'lab(10% 0 0)' }, /color.*rgb/i],
+    [{ color: 'rgb(256, 0, 0)' }, /channel/i],
+    [{ color: 'rgba(0, 0, 0, )' }, /alpha/i],
+    [{ 'font-size': 'NaNpx' }, /font-size/i],
+    [{ 'padding-left': '-1px' }, /padding-left/i],
+    [{ 'border-top-style': 'solid', 'border-top-width': 'wide', 'border-top-color': 'rgb(0,0,0)' }, /border-top-width/i],
+    [{ 'border-left-style': 'sparkle', 'border-left-width': '1px', 'border-left-color': 'rgb(0,0,0)' }, /border-left-style/i],
+    [{ 'text-align': 'match-parent' }, /text-align/i],
+    [{ 'text-align': 'start', direction: 'sideways' }, /direction/i],
+  ])('rejects malformed non-empty computed CSS %#', (style, expected) => {
+    const dom = tableFixture({ bodies: [[[cell('A', { style })]]] });
+    expect(() => snapshotHtmlTable(dom.table, dom.getComputedStyle)).toThrow(expected);
   });
 });
 

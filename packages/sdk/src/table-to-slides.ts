@@ -9,6 +9,7 @@ import type {
   TableAutoPageMarginInput,
 } from '@pptx/model';
 import type { AddImageSourceOptions, ImageSource } from './raster-image-source.js';
+import { mapComputedCellOptions } from './table-to-slides-css.js';
 
 const OPTION_KEYS = new Set([
   'name',
@@ -38,7 +39,6 @@ const AUTO_PAGE_CONTROL_KEYS = [
   'autoPageSlideStartY',
   'slideMargin',
 ] as const;
-
 export interface TableToSlidesAddImage {
   readonly source: ImageSource;
   readonly options?: AddImageSourceOptions;
@@ -345,6 +345,7 @@ function snapshotCell(
   if (!style || (typeof style !== 'object' && typeof style !== 'function')) {
     throw new TypeError(`${context} getComputedStyle must return an object`);
   }
+  const options = mapComputedCellOptions(style, context);
 
   return Object.freeze({
     text: text.replace(/\r\n?/g, '\n'),
@@ -354,7 +355,7 @@ function snapshotCell(
     ...(rowspan === undefined ? {} : { rowspan }),
     ...(pptxWidth === undefined ? {} : { pptxWidth }),
     ...(pptxMinWidth === undefined ? {} : { pptxMinWidth }),
-    options: Object.freeze({}),
+    options,
   });
 }
 
