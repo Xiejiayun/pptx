@@ -3,7 +3,10 @@ import {
   resolveParagraphSpacing,
   type NormalizedRichTextParagraph,
 } from './rich-text.internal.js';
-import type { NormalizedTableCell } from './table-create.internal.js';
+import type {
+  NormalizedTableCell,
+  NormalizedTableDefinition,
+} from './table-create.internal.js';
 
 const DEFAULT_TABLE_FONT_SIZE_PT = 12;
 const BASE_CHAR_DIVISOR = 2.3;
@@ -68,6 +71,15 @@ export interface MeasuredTableCellContent {
   readonly leftMargin: number;
 }
 
+export interface MeasuredTableRowLayout {
+  readonly sourceRowIndex: number;
+  readonly bands: readonly number[];
+  readonly contentHeight: number;
+  readonly height: number;
+  readonly fragmentable: boolean;
+  readonly cells: readonly (Readonly<MeasuredTableCellContent> | undefined)[];
+}
+
 export function measureTableCellContent(
   cell: Readonly<NormalizedTableCell>,
   width: number,
@@ -106,6 +118,165 @@ export function measureTableCellContent(
     rightMargin: margins.right,
     bottomMargin: margins.bottom,
     leftMargin: margins.left,
+  });
+}
+
+export function measureTableAutoPageRows(
+  definition: Readonly<NormalizedTableDefinition>,
+): readonly Readonly<MeasuredTableRowLayout>[] {
+  if (definition.rowHeights.length !== definition.rows.length) {
+    throw new RangeError('Measured table row heights must match the row count');
+  }
+  const charWeight = definition.autoPage?.charWeight;
+  const lineWeight = definition.autoPage?.lineWeight;
+  return Object.freeze(definition.rows.map((row, rowIndex) => {
+    if (row.length !== definition.columnWidths.length) {
+      throw new RangeError(`Measured table row ${rowIndex} must match the column count`);
+    }
+    const cells = row.map((anchor, columnIndex) => {
+      if (anchor.continuation !== undefined) return undefined;
+      const width = columnSpanWidth(
+        definition.columnWidths,
+        columnIndex,
+        anchor.colspan ?? 1,
+      );
+      return measureTableCellContent(anchor, width, charWeight, lineWeight);
+    });
+    const ordinaryCells = row.flatMap((anchor, columnIndex) =>
+      anchor.continuation === undefined && anchor.rowspan === undefined
+        ? [cells[columnIndex]!]
+        : []);
+    const bandCount = ordinaryCells.reduce(
+      (maximum, measured) => Math.max(maximum, measured.lines.length),
+      0,
+    );
+    const bands = Object.freeze(Array.from({ length: bandCount }, (_, bandIndex) =>
+      ordinaryCells.reduce(
+        (maximum, measured) => Math.max(
+          maximum,
+          measured.lines[bandIndex]?.height ?? 0,
+        ),
+        0,
+      )));
+    const topMargin = ordinaryCells.reduce(
+      (maximum, measured) => Math.max(maximum, measured.topMargin),
+      ordinaryCells[0]?.topMargin ?? 0,
+    );
+    const bottomMargin = ordinaryCells.reduce(
+      (maximum, measured) => Math.max(maximum, measured.bottomMargin),
+      ordinaryCells[0]?.bottomMargin ?? 0,
+    );
+    const contentHeight = safeSum(
+      [topMargin, ...bands, bottomMargin],
+      `Measured table row ${rowIndex} content height`,
+    );
+    const minimum = nonNegativeSafeInteger(
+      definition.rowHeights[rowIndex]!,
+      `Measured table row ${rowIndex} minimum`,
+    );
+    const height = Math.max(1, minimum, contentHeight);
+    const fragmentable = ordinaryCells.length > 0 && row.every((candidate) =>
+      candidate.rowspan === undefined && candidate.continuation?.vertical !== true);
+    return Object.freeze({
+      sourceRowIndex: rowIndex,
+      bands,
+      contentHeight,
+      height,
+      fragmentable,
+      cells: Object.freeze(cells),
+    });
+  }));
+}
+
+export function materializeMeasuredTableRows(
+  definition: Readonly<NormalizedTableDefinition>,
+  measuredRows: readonly Readonly<MeasuredTableRowLayout>[],
+): Readonly<NormalizedTableDefinition> {
+  if (definition.autoPage?.measureContent !== true) return definition;
+  if (measuredRows.length !== definition.rows.length) {
+    throw new RangeError('Measured table rows must match the source row count');
+  }
+
+  const heights = measuredRows.map((measured, rowIndex) => {
+    if (measured.sourceRowIndex !== rowIndex) {
+      throw new RangeError(`Measured table row ${rowIndex} source index is inconsistent`);
+    }
+    if (measured.cells.length !== definition.rows[rowIndex]!.length) {
+      throw new RangeError(`Measured table row ${rowIndex} cells must match the source row`);
+    }
+    return positiveSafeInteger(
+      measured.height,
+      `Measured table row ${rowIndex} height`,
+    );
+  });
+  const constraints: Array<{
+    start: number;
+    span: number;
+    column: number;
+    required: number;
+  }> = [];
+  for (const [rowIndex, row] of definition.rows.entries()) {
+    for (const [columnIndex, anchor] of row.entries()) {
+      if (anchor.continuation !== undefined || anchor.rowspan === undefined) continue;
+      const measured = measuredRows[rowIndex]!.cells[columnIndex];
+      if (measured === undefined) {
+        throw new RangeError(`Measured rowspan anchor ${rowIndex},${columnIndex} is missing`);
+      }
+      constraints.push({
+        start: rowIndex,
+        span: anchor.rowspan,
+        column: columnIndex,
+        required: measuredCellContentHeight(measured, rowIndex, columnIndex),
+      });
+    }
+  }
+  constraints.sort((left, right) =>
+    left.span - right.span
+    || left.start - right.start
+    || left.column - right.column);
+  for (const constraint of constraints) {
+    const end = constraint.start + constraint.span;
+    if (end > heights.length) {
+      throw new RangeError('Measured rowspan constraint is out of range');
+    }
+    const current = safeSum(
+      heights.slice(constraint.start, end),
+      'Measured rowspan current height',
+    );
+    if (current >= constraint.required) continue;
+    const deficit = safeSubtract(
+      constraint.required,
+      current,
+      'Measured rowspan deficit',
+    );
+    const quotient = Math.floor(deficit / constraint.span);
+    const remainder = deficit % constraint.span;
+    for (let offset = 0; offset < constraint.span; offset += 1) {
+      const rowIndex = constraint.start + offset;
+      heights[rowIndex] = safeAdd(
+        heights[rowIndex]!,
+        quotient + (offset < remainder ? 1 : 0),
+        `Measured rowspan row ${rowIndex} height`,
+      );
+    }
+  }
+
+  const rowHeights = Object.freeze(heights);
+  const height = safeSum(rowHeights, 'Measured table height');
+  const rows = Object.freeze(definition.rows.map((row) => Object.freeze([...row])));
+  const columnWidths = Object.freeze([...definition.columnWidths]);
+  const autoPage = Object.freeze({
+    ...definition.autoPage,
+    measureContent: false,
+  });
+  return Object.freeze({
+    ...definition,
+    rows,
+    height,
+    autoRowHeight: false,
+    columnWidths,
+    rowHeights,
+    autoPage,
   });
 }
 
@@ -508,6 +679,36 @@ function resolveCellMargins(
   });
 }
 
+function columnSpanWidth(
+  columnWidths: readonly number[],
+  start: number,
+  span: number,
+): number {
+  if (!Number.isSafeInteger(span) || span < 1 || start + span > columnWidths.length) {
+    throw new RangeError('Measured table cell colspan is out of range');
+  }
+  return safeSum(
+    columnWidths.slice(start, start + span).map((width, offset) =>
+      positiveSafeInteger(width, `Measured table column ${start + offset} width`)),
+    'Measured table cell colspan width',
+  );
+}
+
+function measuredCellContentHeight(
+  measured: Readonly<MeasuredTableCellContent>,
+  rowIndex: number,
+  columnIndex: number,
+): number {
+  return safeSum([
+    measured.topMargin,
+    ...measured.lines.map(({ height }, lineIndex) => positiveSafeInteger(
+      height,
+      `Measured rowspan ${rowIndex},${columnIndex} line ${lineIndex} height`,
+    )),
+    measured.bottomMargin,
+  ], `Measured rowspan ${rowIndex},${columnIndex} content height`);
+}
+
 function measurementWeight(value: number, context: string): number {
   if (!Number.isFinite(value)) throw new TypeError(`${context} must be finite`);
   if (value < -1 || value > 1) {
@@ -531,6 +732,15 @@ function positiveSafeInteger(value: number, context: string): number {
     throw new TypeError(`${context} must be a safe integer EMU value`);
   }
   if (value <= 0) throw new RangeError(`${context} must be positive`);
+  return value;
+}
+
+function nonNegativeSafeInteger(value: number, context: string): number {
+  if (!Number.isFinite(value)) throw new TypeError(`${context} must be finite`);
+  if (!Number.isSafeInteger(value)) {
+    throw new TypeError(`${context} must be a safe integer EMU value`);
+  }
+  if (value < 0) throw new RangeError(`${context} must be non-negative`);
   return value;
 }
 

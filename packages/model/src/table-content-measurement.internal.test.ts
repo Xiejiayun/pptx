@@ -4,8 +4,11 @@ import {
   type NormalizedTableCell,
 } from './table-create.internal.js';
 import {
+  materializeMeasuredTableRows,
   measureTableCellContent,
+  measureTableAutoPageRows,
   type MeasuredTableCellContent,
+  type MeasuredTableRowLayout,
 } from './table-content-measurement.internal.js';
 
 const EMU_PER_POINT = 12_700;
@@ -27,6 +30,38 @@ function lineTexts(measured: Readonly<MeasuredTableCellContent>): readonly strin
 
 function zeroMarginCell(text: unknown): NormalizedTableCell {
   return cell(text, { margin: 0 });
+}
+
+function syntheticContent(height: number): Readonly<MeasuredTableCellContent> {
+  return {
+    paragraphs: [],
+    lines: [{
+      paragraphIndex: 0,
+      slices: [],
+      height,
+      startsParagraph: true,
+      endsParagraph: true,
+    }],
+    topMargin: 0,
+    rightMargin: 0,
+    bottomMargin: 0,
+    leftMargin: 0,
+  };
+}
+
+function syntheticRow(
+  sourceRowIndex: number,
+  height: number,
+  cells: readonly (Readonly<MeasuredTableCellContent> | undefined)[],
+): Readonly<MeasuredTableRowLayout> {
+  return {
+    sourceRowIndex,
+    bands: [],
+    contentHeight: 0,
+    height,
+    fragmentable: false,
+    cells,
+  };
 }
 
 describe('deterministic table-cell content measurement', () => {
@@ -312,5 +347,180 @@ describe('deterministic table-cell content measurement', () => {
     expect(Object.isFrozen(measured.lines[0]!.slices)).toBe(true);
     expect(Object.isFrozen(measured.lines[0]!.slices[0])).toBe(true);
     expect(measured.paragraphs).not.toBe(source.richText);
+  });
+});
+
+describe('measured table row bands and materialization', () => {
+  it('builds ordinal max bands with effective margins and positive minimums', () => {
+    const line20 = Math.round(20 * 1.67 * EMU_PER_INCH / 100);
+    const definition = normalizeTableDefinition([[
+      {
+        text: 'AAAA',
+        options: { margin: [1, 0, 2, 0] },
+      },
+      {
+        text: [{ runs: [{ text: 'A', style: { fontSize: 20 } }] }],
+        options: { margin: [3, 0, 1, 0] },
+      },
+    ]], {
+      autoPage: true,
+      columnWidths: [2 * BASE_ADVANCE, 2 * BASE_ADVANCE],
+      rowHeights: [0],
+    });
+    const measured = measureTableAutoPageRows(definition);
+
+    expect(measured[0]!.bands).toEqual([line20, BASE_LINE_HEIGHT]);
+    expect(measured[0]!.contentHeight).toBe(
+      (3 * EMU_PER_POINT) + line20 + BASE_LINE_HEIGHT + (2 * EMU_PER_POINT),
+    );
+    expect(measured[0]!.height).toBe(measured[0]!.contentHeight);
+    expect(measured[0]!.fragmentable).toBe(true);
+    expect(measured[0]!.cells.every((entry) => entry !== undefined)).toBe(true);
+    expect(Object.isFrozen(measured)).toBe(true);
+    expect(Object.isFrozen(measured[0])).toBe(true);
+    expect(Object.isFrozen(measured[0]!.bands)).toBe(true);
+    expect(Object.isFrozen(measured[0]!.cells)).toBe(true);
+
+    const minimum = measured[0]!.contentHeight + 123;
+    const minimumDefinition = normalizeTableDefinition([['A', 'B']], {
+      autoPage: true,
+      autoPageCharWeight: 0,
+      columnWidths: [4 * BASE_ADVANCE, 4 * BASE_ADVANCE],
+      rowHeights: [minimum],
+    });
+    expect(measureTableAutoPageRows(minimumDefinition)[0]!.height).toBe(minimum);
+  });
+
+  it('measures empty anchors and exact colspan width but excludes continuations', () => {
+    const empty = normalizeTableDefinition([['', 'A']], {
+      autoPage: true,
+      margin: 0,
+      columnWidths: [BASE_ADVANCE, BASE_ADVANCE],
+      rowHeights: [0],
+    });
+    expect(measureTableAutoPageRows(empty)[0]!.bands).toEqual([BASE_LINE_HEIGHT]);
+
+    const colspan = normalizeTableDefinition([
+      [{ text: 'AAAAAA', options: { colspan: 2, margin: 0 } }],
+      ['A', 'B'],
+    ], {
+      autoPage: true,
+      columnWidths: [3 * BASE_ADVANCE, 3 * BASE_ADVANCE],
+      rowHeights: [0, 0],
+    });
+    const measured = measureTableAutoPageRows(colspan);
+    expect(measured[0]!.bands).toEqual([BASE_LINE_HEIGHT]);
+    expect(measured[0]!.cells[0]).toBeDefined();
+    expect(measured[0]!.cells[1]).toBeUndefined();
+  });
+
+  it('returns fixed definitions by identity and freezes measured geometry containers', () => {
+    const fixed = normalizeTableDefinition([['A'], ['B']], {
+      autoPage: true,
+      rowHeights: [100, 200],
+    });
+    expect(materializeMeasuredTableRows(fixed, measureTableAutoPageRows(fixed)))
+      .toBe(fixed);
+
+    const automatic = normalizeTableDefinition([['A'], ['B']], {
+      autoPage: true,
+      rowHeights: [0, 0],
+    });
+    const measured = measureTableAutoPageRows(automatic);
+    const materialized = materializeMeasuredTableRows(automatic, measured);
+    expect(materialized).not.toBe(automatic);
+    expect(materialized.rows).not.toBe(automatic.rows);
+    expect(materialized.rows[0]).not.toBe(automatic.rows[0]);
+    expect(materialized.rows[0]![0]).toBe(automatic.rows[0]![0]);
+    expect(materialized.rowHeights.every((height) => height > 0)).toBe(true);
+    expect(materialized.autoRowHeight).toBe(false);
+    expect(materialized.height).toBe(
+      materialized.rowHeights.reduce((sum, height) => sum + height, 0),
+    );
+    expect(materialized.autoPage?.measureContent).toBe(false);
+    expect(Object.isFrozen(materialized)).toBe(true);
+    expect(Object.isFrozen(materialized.rows)).toBe(true);
+    expect(materialized.rows.every(Object.isFrozen)).toBe(true);
+    expect(Object.isFrozen(materialized.rowHeights)).toBe(true);
+    expect(Object.isFrozen(materialized.columnWidths)).toBe(true);
+    expect(automatic.rowHeights).toEqual([0, 0]);
+    expect(automatic.autoRowHeight).toBe(true);
+    expect(automatic.autoPage?.measureContent).toBe(true);
+  });
+
+  it('distributes a two-row rowspan deficit from the first covered row', () => {
+    const definition = normalizeTableDefinition([
+      [{ text: 'Span', options: { rowspan: 2 } }, 'A'],
+      ['B'],
+      ['C', 'D'],
+    ], {
+      autoPage: true,
+      rowHeights: [0, 0, 0],
+    });
+    const measured = [
+      syntheticRow(0, 10, [syntheticContent(100), syntheticContent(1)]),
+      syntheticRow(1, 10, [undefined, syntheticContent(1)]),
+      syntheticRow(2, 11, [syntheticContent(1), syntheticContent(1)]),
+    ];
+    const materialized = materializeMeasuredTableRows(definition, measured);
+    expect(materialized.rowHeights).toEqual([50, 50, 11]);
+    expect(materialized.height).toBe(111);
+  });
+
+  it('orders nested rowspan lower bounds by span length without breaking shorter spans', () => {
+    const definition = normalizeTableDefinition([
+      [
+        { text: 'Two', options: { rowspan: 2 } },
+        { text: 'Three', options: { rowspan: 3 } },
+        'A',
+      ],
+      ['B'],
+      ['C', 'D'],
+    ], {
+      autoPage: true,
+      rowHeights: [0, 0, 0],
+    });
+    const measured = [
+      syntheticRow(0, 10, [
+        syntheticContent(80),
+        syntheticContent(111),
+        syntheticContent(1),
+      ]),
+      syntheticRow(1, 10, [undefined, undefined, syntheticContent(1)]),
+      syntheticRow(2, 11, [syntheticContent(1), undefined, syntheticContent(1)]),
+    ];
+    const materialized = materializeMeasuredTableRows(definition, measured);
+    expect(materialized.rowHeights).toEqual([47, 47, 17]);
+    expect(materialized.rowHeights[0]! + materialized.rowHeights[1]!).toBeGreaterThanOrEqual(80);
+    expect(materialized.height).toBe(111);
+  });
+
+  it('gives continuation-only rows a one-EMU automatic minimum and rejects overflow', () => {
+    const merged = normalizeTableDefinition([
+      [{ text: 'Span', options: { rowspan: 2, colspan: 2, margin: 0 } }],
+      [],
+    ], {
+      autoPage: true,
+      rowHeights: [0, 0],
+    });
+    const measured = measureTableAutoPageRows(merged);
+    expect(measured[1]).toMatchObject({
+      bands: [],
+      contentHeight: 0,
+      height: 1,
+      fragmentable: false,
+      cells: [undefined, undefined],
+    });
+
+    const ordinary = normalizeTableDefinition([['A'], ['B']], {
+      autoPage: true,
+      rowHeights: [0, 0],
+    });
+    const overflowing = [
+      syntheticRow(0, Number.MAX_SAFE_INTEGER, [syntheticContent(1)]),
+      syntheticRow(1, 1, [syntheticContent(1)]),
+    ];
+    expect(() => materializeMeasuredTableRows(ordinary, overflowing))
+      .toThrow(/safe integer/i);
   });
 });
