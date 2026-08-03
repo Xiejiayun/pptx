@@ -199,6 +199,17 @@ describe('table auto-page option normalization', () => {
     expect(Object.is(definition.rows[0]![0]!.autoPageCharWeight, -0)).toBe(false);
   });
 
+  it('retains placeholder selectors for slide-level auto-page preflight', () => {
+    const definition = normalizeTableDefinition([['A'], ['B']], {
+      autoPage: true,
+      placeholder: 'Body',
+      rowHeights: [10, 10],
+    });
+    expect(definition.placeholder).toBe('Body');
+    expect(definition.autoPage).toMatchObject({ measureContent: false });
+    expect(definition.placeholderAutoPage).toBeUndefined();
+  });
+
   it.each([
     ['non-boolean enable', { autoPage: 'yes', rowHeights: [10, 10] }, TypeError],
     ['controls while disabled', {
@@ -228,11 +239,6 @@ describe('table auto-page option normalization', () => {
       rowHeights: [0, 10],
       height: 10,
     }, RangeError],
-    ['placeholder owner', {
-      autoPage: true,
-      placeholder: 'Body',
-      rowHeights: [10, 10],
-    }, TypeError],
     ['negative start Y', {
       autoPage: true,
       autoPageSlideStartY: -1,

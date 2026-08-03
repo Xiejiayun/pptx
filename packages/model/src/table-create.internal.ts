@@ -130,6 +130,7 @@ export interface NormalizedTableDefinition {
   readonly rows: readonly (readonly NormalizedTableCell[])[];
   readonly name?: string;
   readonly placeholder?: PlaceholderSelector;
+  readonly placeholderAutoPage?: true;
   readonly x: number;
   readonly y: number;
   readonly width: number;
@@ -316,7 +317,6 @@ export function normalizeTableDefinition(
     rowCount: physicalRows.length,
     rowHeights,
     autoRowHeight,
-    hasPlaceholder: placeholder !== undefined,
     hasCellMeasurementWeights: physicalRows.some((row) => row.some((cell) =>
       cell.autoPageCharWeight !== undefined
       || cell.autoPageLineWeight !== undefined)),

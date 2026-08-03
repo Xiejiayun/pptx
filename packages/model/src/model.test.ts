@@ -404,6 +404,7 @@ function installNamedSlideLayouts(
     readonly name: string;
     readonly partUri: string;
     readonly slideNumber?: boolean;
+    readonly extraShapeXml?: string;
   }[],
 ): void {
   const masterPartUri = '/ppt/slideMasters/slideMaster1.xml';
@@ -434,7 +435,8 @@ function installNamedSlideLayouts(
         layout.partUri,
         '<p:sldLayout xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" '
           + 'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">'
-          + `<p:cSld name="${layout.name}"><p:spTree>${group}${title}</p:spTree>`
+          + `<p:cSld name="${layout.name}"><p:spTree>${group}${title}`
+          + `${layout.extraShapeXml ?? ''}</p:spTree>`
           + '</p:cSld></p:sldLayout>',
         SLIDE_LAYOUT_CONTENT_TYPE,
       );
@@ -457,6 +459,22 @@ function installNamedSlideLayouts(
       }
     }
   });
+}
+
+function tablePlaceholderXml(
+  name = 'data_table',
+  index = 106,
+  x = inches(1),
+  y = inches(1),
+  width = inches(2),
+  height = inches(1.25),
+  type: 'tbl' | 'pic' = 'tbl',
+): string {
+  return '<p:sp><p:nvSpPr><p:cNvPr id="3" '
+    + `name="${name}"/><p:cNvSpPr/><p:nvPr><p:ph type="${type}" idx="${index}"/>`
+    + '</p:nvPr></p:nvSpPr><p:spPr><a:xfrm>'
+    + `<a:off x="${x}" y="${y}"/><a:ext cx="${width}" cy="${height}"/>`
+    + '</a:xfrm></p:spPr><p:txBody><a:bodyPr/><a:lstStyle/><a:p/></p:txBody></p:sp>';
 }
 
 async function modelFixture(
@@ -1449,6 +1467,413 @@ describe('PresentationModel', () => {
       expect(model.slides.map((slide) => [...slide.shapes])).toEqual(beforeShapes);
       expect(source.newAutoPagedSlides).toEqual(previousRuntime);
       expect(model.slides.at(-1)).toBe(sentinel);
+    }
+  });
+
+  it('auto-pages measured tables within placeholder geometry and reopens local owners', async () => {
+    const { pkg, model } = emptyPresentationModel();
+    const layoutPartUri = '/ppt/slideLayouts/slideLayout1.xml';
+    const ownerX = inches(1);
+    const ownerY = inches(1);
+    const ownerWidth = inches(2);
+    const ownerHeight = inches(1.25);
+    const continuationY = inches(1.25);
+    installNamedSlideLayouts(pkg, model, [{
+      name: 'PLACEHOLDER-MEASURED',
+      partUri: layoutPartUri,
+      slideNumber: true,
+      extraShapeXml: tablePlaceholderXml(
+        'data_table',
+        106,
+        ownerX,
+        ownerY,
+        ownerWidth,
+        ownerHeight,
+      ),
+    }]);
+    const source = model.addSlide({ masterName: 'PLACEHOLDER-MEASURED' });
+    const sentinel = model.addSlide({ masterName: 'PLACEHOLDER-MEASURED' });
+    const target = model.addSlide({ masterName: 'PLACEHOLDER-MEASURED' });
+    const section = model.addSection({ title: 'Placeholder pages' });
+    model.assignSlideToSection(0, section.id);
+    const sourceOwner = source.shapes.find(({ placeholder }) =>
+      placeholder?.type === 'tbl')!;
+    const bodyText = 'A'.repeat(36);
+    const headerLink = { url: 'https://placeholder.header.example' };
+    const targetLink = { slide: 3, tooltip: 'Stable target' };
+
+    const sourceTable = source.addTable([
+      [{ text: 'Header', options: { hyperlink: headerLink, margin: 0 } }],
+      [{ text: bodyText, options: { margin: 0 } }],
+      [{ text: 'B'.repeat(36), options: { margin: 0 } }],
+      [{
+        text: [{ runs: [{
+          text: 'C'.repeat(36),
+          style: { hyperlink: targetLink, italic: true },
+        }] }],
+        options: { margin: 0 },
+      }],
+      [{ text: 'D'.repeat(36), options: { margin: 0 } }],
+    ], {
+      autoPage: true,
+      autoPageRepeatHeader: true,
+      autoPageHeaderRows: 1,
+      autoPageSlideStartY: continuationY,
+      slideMargin: 0,
+      placeholder: 'data_table',
+      x: inches(7),
+      y: inches(4),
+      columnWidths: [inches(4)],
+    });
+    const pageSlides = [source, ...source.newAutoPagedSlides];
+    expect(pageSlides.length).toBeGreaterThan(1);
+    expect(model.slides).toEqual([...pageSlides, sentinel, target]);
+    const tables = pageSlides.map((slide, index) => index === 0
+      ? sourceTable
+      : slide.shapes.find((shape): shape is TableModel => shape instanceof TableModel)!);
+    const ownerBottom = ownerY + ownerHeight;
+
+    expect(() => sourceOwner.name).toThrow(/stale/i);
+    expect(tables.every((table) => table.name === 'data_table')).toBe(true);
+    expect(tables.every((table) => table.placeholder?.type === 'tbl'
+      && table.placeholder.index === 106)).toBe(true);
+    expect(tables.map(({ transform }) => transform.x))
+      .toEqual(tables.map(() => ownerX));
+    expect(tables.map(({ transform }) => transform.y))
+      .toEqual([ownerY, ...source.newAutoPagedSlides.map(() => continuationY)]);
+    expect(tables.map(({ transform }) => transform.width))
+      .toEqual(tables.map(() => ownerWidth));
+    expect(tables.every((table) => {
+      const rowHeights = table.rowHeights!;
+      return table.columnWidths?.reduce((sum, width) => sum + width, 0) === ownerWidth
+        && table.transform.height === rowHeights.reduce((sum, height) => sum + height, 0)
+        && table.transform.y + table.transform.height <= ownerBottom
+        && table.transform.height < ownerHeight;
+    })).toBe(true);
+
+    const wide = emptyPresentationModel();
+    const wideTable = wide.model.addSlide().addTable([[bodyText]], {
+      autoPage: true,
+      margin: 0,
+      columnWidths: [inches(4)],
+    });
+    const narrowBodyHeight = tables.flatMap((table) => table.rows.map((row, rowIndex) => ({
+      text: row.cells[0]!.text,
+      height: table.rowHeights![rowIndex]!,
+    }))).find(({ text }) => text === bodyText)!.height;
+    expect(narrowBodyHeight).toBeGreaterThan(wideTable.rowHeights![0]!);
+
+    for (const slide of pageSlides) {
+      const xml = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+      const referencedIds = [...xml.matchAll(/<a:hlinkClick\b[^>]*\br:id="([^"]+)"/g)]
+        .map((match) => match[1]!);
+      const owned = slide.relationships.filter(({ type }) =>
+        type === HYPERLINK_RELATIONSHIP || type === SLIDE_RELATIONSHIP);
+      expect(new Set(referencedIds)).toEqual(new Set(owned.map(({ id }) => id)));
+      expect(owned.some(({ target: value }) => value === headerLink.url)).toBe(true);
+      expect(slide.relationships.filter(({ type }) => type === SLIDE_LAYOUT_RELATIONSHIP)
+        .map(({ resolvedTarget }) => resolvedTarget)).toEqual([layoutPartUri]);
+    }
+    expect(pageSlides.some((slide) => slide.relationships.some(({ resolvedTarget }) =>
+      resolvedTarget === target.partUri))).toBe(true);
+    expect(model.sections?.find(({ id }) => id === section.id)?.slideIds)
+      .toEqual(pageSlides.map(({ slideId }) => slideId));
+    expect(model.slides.map((slide) => slideNumberCache(pkg, slide.partUri)))
+      .toEqual(model.slides.map((_, index) => String(index + 1)));
+    for (const value of [headerLink, targetLink]) {
+      expect(Object.hasOwn(value, '_rId')).toBe(false);
+    }
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedTables = reopened.slides.slice(0, pageSlides.length).map((slide) =>
+      slide.shapes.find((shape): shape is TableModel => shape instanceof TableModel)!);
+    expect(reopenedTables.map(({ name }) => name)).toEqual(tables.map(({ name }) => name));
+    expect(reopenedTables.map(({ placeholder }) => placeholder))
+      .toEqual(tables.map(({ placeholder }) => placeholder));
+    expect(reopenedTables.map(({ transform }) => transform))
+      .toEqual(tables.map(({ transform }) => transform));
+  });
+
+  it('auto-pages fixed rows from the placeholder origin without stretching page heights', () => {
+    const { pkg, model } = emptyPresentationModel();
+    const ownerX = inches(0.75);
+    const ownerY = inches(2);
+    const ownerWidth = inches(3);
+    const ownerHeight = inches(1.25);
+    installNamedSlideLayouts(pkg, model, [{
+      name: 'PLACEHOLDER-FIXED',
+      partUri: '/ppt/slideLayouts/slideLayout1.xml',
+      extraShapeXml: tablePlaceholderXml(
+        'fixed_table',
+        107,
+        ownerX,
+        ownerY,
+        ownerWidth,
+        ownerHeight,
+      ),
+    }]);
+    const source = model.addSlide({ masterName: 'PLACEHOLDER-FIXED' });
+    const sentinel = model.addSlide({ masterName: 'PLACEHOLDER-FIXED' });
+    const sourceTable = source.addTable([
+      ['H1', 'H2'],
+      ['A1', 'A2'],
+      ['B1', 'B2'],
+    ], {
+      autoPage: true,
+      placeholder: 'fixed_table',
+      columnWidths: [inches(1), inches(1)],
+      rowHeights: [inches(0.5), inches(0.5), inches(0.5)],
+    });
+    const generated = source.newAutoPagedSlides[0]!;
+    expect(model.slides).toEqual([source, generated, sentinel]);
+    const generatedTable = generated.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    )!;
+    expect([sourceTable, generatedTable].map(({ transform }) => transform)).toEqual([
+      expect.objectContaining({
+        x: ownerX,
+        y: ownerY,
+        width: ownerWidth,
+        height: inches(1),
+      }),
+      expect.objectContaining({
+        x: ownerX,
+        y: ownerY,
+        width: ownerWidth,
+        height: inches(0.5),
+      }),
+    ]);
+    expect([sourceTable, generatedTable].map(({ columnWidths }) => columnWidths))
+      .toEqual([
+        [inches(1.5), inches(1.5)],
+        [inches(1.5), inches(1.5)],
+      ]);
+    expect([sourceTable, generatedTable].map(({ name }) => name))
+      .toEqual(['fixed_table', 'fixed_table']);
+    expect([sourceTable, generatedTable].map(({ placeholder }) => placeholder))
+      .toEqual([
+        { type: 'tbl', index: 107 },
+        { type: 'tbl', index: 107 },
+      ]);
+  });
+
+  it('keeps placeholder auto-page preflight failures isolated', () => {
+    const mutations = [
+      {
+        name: 'zero width',
+        layout: (xml: string) => xml.replace(`cx="${inches(2)}"`, 'cx="0"'),
+      },
+      {
+        name: 'zero height',
+        layout: (xml: string) => xml.replace(`cy="${inches(1.25)}"`, 'cy="0"'),
+      },
+      {
+        name: 'wrong domain',
+        layout: (xml: string) => xml.replace('type="tbl" idx="106"', 'type="pic" idx="106"'),
+      },
+      {
+        name: 'malformed transform',
+        layout: (xml: string) => xml.replace(`cx="${inches(2)}"`, 'cx="invalid"'),
+      },
+      {
+        name: 'unsafe owner bottom',
+        layout: (xml: string) => xml.replace(
+          `x="${inches(1)}" y="${inches(1)}"`,
+          `x="${inches(1)}" y="${Number.MAX_SAFE_INTEGER}"`,
+        ),
+      },
+      {
+        name: 'ambiguous owner',
+        layout: (xml: string) => xml.replace(
+          '</p:spTree>',
+          `${tablePlaceholderXml('data_table', 107)}</p:spTree>`,
+        ),
+      },
+      {
+        name: 'missing slide owner',
+        slide: (xml: string) => xml.replace('name="data_table"', 'name="other_table"'),
+      },
+      {
+        name: 'filled slide owner',
+        slide: (xml: string) => {
+          const owner = xml.indexOf('name="data_table"');
+          if (owner < 0) return xml;
+          const prefix = xml.slice(0, owner);
+          const suffix = xml.slice(owner).replace(
+            '</a:xfrm></p:spPr>',
+            '</a:xfrm><a:noFill/></p:spPr>',
+          );
+          return prefix + suffix;
+        },
+      },
+      {
+        name: 'continuation at bottom',
+        options: { autoPageSlideStartY: inches(2.25) },
+      },
+      {
+        name: 'missing selector',
+        selector: 'missing_table',
+      },
+    ] as const;
+
+    for (const mutation of mutations) {
+      const { pkg, model } = emptyPresentationModel();
+      const layoutPartUri = '/ppt/slideLayouts/slideLayout1.xml';
+      installNamedSlideLayouts(pkg, model, [{
+        name: 'PLACEHOLDER-PREFLIGHT',
+        partUri: layoutPartUri,
+        extraShapeXml: tablePlaceholderXml(),
+      }]);
+      const source = model.addSlide({ masterName: 'PLACEHOLDER-PREFLIGHT' });
+      const sentinel = model.addSlide({ masterName: 'PLACEHOLDER-PREFLIGHT' });
+      if ('layout' in mutation) {
+        const part = pkg.requirePart(layoutPartUri);
+        pkg.setPart(
+          layoutPartUri,
+          mutation.layout(new TextDecoder().decode(part.bytes)),
+          part.contentType,
+        );
+      }
+      if ('slide' in mutation) {
+        const part = pkg.requirePart(source.partUri);
+        pkg.setPart(
+          source.partUri,
+          mutation.slide(new TextDecoder().decode(part.bytes)),
+          part.contentType,
+        );
+      }
+      const before = packageSnapshot(pkg);
+      const beforeSlides = [...model.slides];
+      const beforeShapes = model.slides.map((slide) => [...slide.shapes]);
+      expect(() => source.addTable([['A'], ['B']], {
+        autoPage: true,
+        placeholder: 'selector' in mutation ? mutation.selector : 'data_table',
+        rowHeights: [inches(0.75), inches(0.75)],
+        ...('options' in mutation ? mutation.options : {}),
+      }), mutation.name).toThrow();
+      expect(packageSnapshot(pkg), mutation.name).toEqual(before);
+      expect(model.slides, mutation.name).toEqual(beforeSlides);
+      expect(model.slides.map((slide) => [...slide.shapes]), mutation.name)
+        .toEqual(beforeShapes);
+      expect(source.newAutoPagedSlides, mutation.name).toEqual([]);
+      expect(model.slides.at(-1), mutation.name).toBe(sentinel);
+    }
+  });
+
+  it('rolls placeholder owner writes and relationships back without runtime residue', () => {
+    const boundaries = [
+      'source-owner',
+      'generated-owner',
+      'generated-hyperlink',
+      'outer-transaction',
+    ] as const;
+
+    for (const boundary of boundaries) {
+      const { pkg, model } = emptyPresentationModel();
+      installNamedSlideLayouts(pkg, model, [{
+        name: 'PLACEHOLDER-ROLLBACK',
+        partUri: '/ppt/slideLayouts/slideLayout1.xml',
+        extraShapeXml: tablePlaceholderXml(
+          'rollback_table',
+          108,
+          inches(1),
+          inches(1),
+          inches(2),
+          inches(1.25),
+        ),
+      }]);
+      const source = model.addSlide({ masterName: 'PLACEHOLDER-ROLLBACK' });
+      const sentinel = model.addSlide({ masterName: 'PLACEHOLDER-ROLLBACK' });
+      source.addTable([['Previous'], ['page']], {
+        autoPage: true,
+        y: inches(4.5),
+        slideMargin: inches(0.5),
+        rowHeights: [inches(0.5), inches(0.5)],
+      });
+      const previousRuntime = source.newAutoPagedSlides;
+      const before = packageSnapshot(pkg);
+      const beforeSlides = [...model.slides];
+      const beforeShapes = beforeSlides.map((slide) => [...slide.shapes]);
+      const knownSlidePartUris = new Set(beforeSlides.map(({ partUri }) => partUri));
+      const directGeneratedSlide = (partUri: string): boolean =>
+        /^\/ppt\/slides\/slide\d+\.xml$/.test(partUri)
+        && !knownSlidePartUris.has(partUri);
+      let restore = (): void => {};
+
+      if (boundary === 'outer-transaction') {
+        const original = pkg.transaction.bind(pkg);
+        let depth = 0;
+        const spy = vi.spyOn(pkg, 'transaction').mockImplementation(((operation: () => unknown) => {
+          depth += 1;
+          const outer = depth === 1;
+          try {
+            return original(() => {
+              const result = operation();
+              if (outer) throw new Error(`injected ${boundary}`);
+              return result;
+            });
+          } finally {
+            depth -= 1;
+          }
+        }) as typeof pkg.transaction);
+        restore = () => spy.mockRestore();
+      } else if (boundary === 'generated-hyperlink') {
+        const original = pkg.addRelationship.bind(pkg);
+        const spy = vi.spyOn(pkg, 'addRelationship').mockImplementation((partUri, input) => {
+          if (directGeneratedSlide(partUri) && input.type === HYPERLINK_RELATIONSHIP) {
+            throw new Error(`injected ${boundary}`);
+          }
+          return original(partUri, input);
+        });
+        restore = () => spy.mockRestore();
+      } else {
+        const original = pkg.setPart.bind(pkg);
+        const generatedWrites = new Map<string, number>();
+        const spy = vi.spyOn(pkg, 'setPart').mockImplementation((uri, bytes, contentType) => {
+          if (boundary === 'source-owner' && uri === source.partUri) {
+            throw new Error(`injected ${boundary}`);
+          }
+          if (directGeneratedSlide(uri)) {
+            const write = (generatedWrites.get(uri) ?? 0) + 1;
+            generatedWrites.set(uri, write);
+            if (boundary === 'generated-owner' && write === 3) {
+              throw new Error(`injected ${boundary}`);
+            }
+          }
+          return original(uri, bytes, contentType);
+        });
+        restore = () => spy.mockRestore();
+      }
+
+      const addPlaceholderTable = (): TableModel => source.addTable([
+        [{
+          text: 'Header',
+          options: { hyperlink: { url: 'https://placeholder.rollback.example' } },
+        }],
+        ['Body'],
+        ['Body 2'],
+      ], {
+        autoPage: true,
+        autoPageRepeatHeader: true,
+        autoPageHeaderRows: 1,
+        placeholder: 'rollback_table',
+        rowHeights: [inches(0.5), inches(0.5), inches(0.5)],
+      });
+      try {
+        expect(addPlaceholderTable, boundary).toThrow(`injected ${boundary}`);
+      } finally {
+        restore();
+      }
+      expect(packageSnapshot(pkg), boundary).toEqual(before);
+      expect(model.slides, boundary).toEqual(beforeSlides);
+      expect(model.slides.map((slide) => [...slide.shapes]), boundary).toEqual(beforeShapes);
+      expect(source.newAutoPagedSlides, boundary).toEqual(previousRuntime);
+      expect(source.newAutoPagedSlides[0], boundary).toBe(previousRuntime[0]);
+      expect(model.slides.includes(sentinel), boundary).toBe(true);
+
+      const retry = addPlaceholderTable();
+      expect(retry.placeholder, boundary).toEqual({ type: 'tbl', index: 108 });
+      expect(source.newAutoPagedSlides, boundary).toHaveLength(1);
     }
   });
 

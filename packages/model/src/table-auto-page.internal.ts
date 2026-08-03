@@ -43,7 +43,6 @@ interface NormalizeTableAutoPageContext {
   readonly rowCount: number;
   readonly rowHeights: readonly number[];
   readonly autoRowHeight: boolean;
-  readonly hasPlaceholder: boolean;
   readonly hasCellMeasurementWeights: boolean;
 }
 
@@ -64,9 +63,6 @@ export function normalizeTableAutoPageRequest(
       throw new TypeError('Table auto-page controls require autoPage to be true');
     }
     return undefined;
-  }
-  if (context.hasPlaceholder) {
-    throw new TypeError('Table autoPage does not support placeholder placement');
   }
   const repeatHeaderValue = options.autoPageRepeatHeader;
   if (repeatHeaderValue !== undefined && typeof repeatHeaderValue !== 'boolean') {
@@ -436,6 +432,7 @@ function pageDefinition(
     rows,
     ...(source.name === undefined ? {} : { name: source.name }),
     ...(source.placeholder === undefined ? {} : { placeholder: source.placeholder }),
+    ...(source.placeholderAutoPage === true ? { placeholderAutoPage: true as const } : {}),
     x: source.x,
     y,
     width: source.width,

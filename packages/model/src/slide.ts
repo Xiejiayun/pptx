@@ -1622,16 +1622,47 @@ export class SlideModel {
     options: AddTableOptions = {},
   ): TableModel {
     const definition = normalizeTableDefinition(rows, options);
-    const layoutRegion = definition.autoPage === undefined
+    let placeholderAutoPageOwner: ResolvedPlaceholderOwner | undefined;
+    let effectiveDefinition: Readonly<NormalizedTableDefinition> = definition;
+    if (definition.autoPage !== undefined && definition.placeholder !== undefined) {
+      placeholderAutoPageOwner = resolvePlaceholderOwner(
+        this.presentation.opcPackage,
+        this.partUri,
+        definition.placeholder,
+        'table',
+      );
+      effectiveDefinition = Object.freeze({
+        ...definition,
+        placeholderAutoPage: true as const,
+        x: placeholderAutoPageOwner.transform.x,
+        y: placeholderAutoPageOwner.transform.y,
+        width: placeholderAutoPageOwner.transform.width,
+        columnWidths: Object.freeze(scaleTableDimensions(
+          definition.columnWidths,
+          placeholderAutoPageOwner.transform.width,
+          'Table auto-page placeholder width',
+        )),
+        autoPage: Object.freeze({
+          ...definition.autoPage,
+          slideStartY: definition.autoPage.slideStartY
+            ?? placeholderAutoPageOwner.transform.y,
+        }),
+      });
+    }
+    const layoutRegion = effectiveDefinition.autoPage === undefined
       ? undefined
       : resolveTableAutoPageLayout(
-          definition,
+          effectiveDefinition,
           this.presentation.slideSize,
           this.presentation.tableAutoPageMarginsForSlide(this),
+          placeholderAutoPageOwner === undefined
+            ? undefined
+            : placeholderAutoPageOwner.transform.y
+              + placeholderAutoPageOwner.transform.height,
         );
     const materialized = layoutRegion === undefined
-      ? definition
-      : materializeTableAutoPageContent(definition, layoutRegion);
+      ? effectiveDefinition
+      : materializeTableAutoPageContent(effectiveDefinition, layoutRegion);
     const pageDefinitions = layoutRegion === undefined
       ? Object.freeze([materialized])
       : planTableAutoPages(materialized, layoutRegion);
@@ -2133,25 +2164,30 @@ export class SlideModel {
         );
     const rendered = owner === undefined
       ? definition
-      : {
-          ...definition,
-          name: owner.name,
-          x: owner.transform.x,
-          y: owner.transform.y,
-          width: owner.transform.width,
-          height: owner.transform.height,
-          autoRowHeight: false,
-          columnWidths: scaleTableDimensions(
-            definition.columnWidths,
-            owner.transform.width,
-            'Table placeholder width',
-          ),
-          rowHeights: scaleTableDimensions(
-            definition.rowHeights,
-            owner.transform.height,
-            'Table placeholder height',
-          ),
-        };
+      : definition.placeholderAutoPage === true
+        ? {
+            ...definition,
+            name: owner.name,
+          }
+        : {
+            ...definition,
+            name: owner.name,
+            x: owner.transform.x,
+            y: owner.transform.y,
+            width: owner.transform.width,
+            height: owner.transform.height,
+            autoRowHeight: false,
+            columnWidths: scaleTableDimensions(
+              definition.columnWidths,
+              owner.transform.width,
+              'Table placeholder width',
+            ),
+            rowHeights: scaleTableDimensions(
+              definition.rowHeights,
+              owner.transform.height,
+              'Table placeholder height',
+            ),
+          };
     const { xml } = this.parse();
     const shapeTree = requireTableShapeTree(xml, this.partUri);
     const nextId = owner?.shapeId ?? allocateShapeId(xml);
