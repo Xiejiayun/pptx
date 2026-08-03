@@ -1149,7 +1149,7 @@ $ pptx-inspect --json package inspect output.pptx
 
 ## PptxGenJS 全功能对等：Table content measurement/layout recomputation
 
-状态：完成；专项 8/8
+状态：完成；专项 11/11（100%）
 
 ### 本阶段 change
 
@@ -1161,11 +1161,13 @@ $ pptx-inspect --json package inspect output.pptx
 - Placeholder auto-page 使用 owner X/Y/width/bottom：source 从 owner Y 开始，continuation 使用 `autoPageSlideStartY`，两者共享 X/width 与 bottom limit。每页 transform height 等于实际 row-height sum，不拉伸到 placeholder height；placeholder identity、layout、section、slide number cache 与 stable internal target 同步。
 - `SlideModel.newAutoPagedSlides` 继续提供 frozen readonly continuation snapshot：成功调用 reset，失败保留前值，delete 过滤 detached identity，duplicate/write/reopen 清空。Measurement、fragmentation、placeholder materialization、relationships、order、sections、caches 与 runtime state 都位于同一 transaction。
 
-### 当前验证结果
+### 最终验证结果
 
-- Measurement、automatic table、fragment 与 placeholder auto-page focused gate 覆盖 7 个测试文件、107 passed；SDK/root declarations、六种 presentation format 与 PptxGenJS 4.0.1 合法 `-1/0/1` weight boundary 已闭合。
-- TypeScript project references、root build 与 diff check 通过；source hyperlink、section sync、model cache 和 `newAutoPagedSlides` failure isolation 覆盖所有已注入边界并保持可重试。
-- Automatic measurement/layout 的 intent、layout sharing、cell measurement、row materialization、rich fragmentation、public integration、placeholder pagination 与 aggregate-contract commits 依次为 `4482555`、`7a262ae`、`95b98ce`、`78cb279`、`6633696`、`e64e232`、`d77f54b`、`2f7595a`。
+- Focused gate 为 8 个文件（7 passed / 1 skipped）、107 passed / 644 skipped，Vitest 8.59s；full gate 为 90 个文件（89 passed / 1 skipped）、1654 passed / 1 skipped，Vitest 40.16s；独立 1000-part performance gate 为 1/1，核心测试 604ms、Vitest 1.68s。TypeScript typecheck、root build 与 `@jiayunxie/pptx` package build 分别为 2.15s、1.66s、6.51s。
+- 两次 59-file dist manifest 完全一致，manifest SHA-256 为 `c2e9acc7f14aebb32e425fc0abcc8f62677e5268ee883f941ccda74d74c1d5ab`；两份 62-file actual tarball byte-identical，SHA-256 均为 `1ce84a18208daa0b045ef45dfa4b79f4728daa5a3111c960caf823a1b334b4ac`。Installed Node 与 browser conditional export 的 `tableContentMeasurement` 状态全部为 true，installed CLI/Inspector 另报告 `tableContentMeasurementInspect: true`；Google Chrome 150.0.7871.188 的 console/page/network errors 为 0/0/0。
+- Node 与 browser evidence deck 均为 42 parts / 57 relationships、12 slides / 11 tables，其中 9 张是分页表；fixed rows 均为 `[274320, 274320, 274320]`，Node automatic rows 为 `[549738, 183246]`，browser automatic rows 为 `[732984, 183246]`，minimum row 为 `320040`。9 张 section pages、repeated headers、每页 transform/row-height sum、layout 与 placeholder identity 均通过；18 个 clicks 拥有 18 个精确 page-local relationships，orphan links 为 0。
+- Node/browser deck SHA-256 分别为 `b37d5204aab7cdb98d42e6b0e0eda7af782b660f15901440189fc434fefa214a` 与 `d734893e309809d5fa4cce1751db302fec9bf1b7c307c4b48fa8f705cfe8dfab`；两者 PowerPoint 2010 validation 均为 0 errors / 15 个预期 external-link warnings。完整证据位于 `/tmp/pptx-table-content-measurement-artifacts.zxJbXX`。
+- Automatic measurement/layout 的 intent、layout sharing、cell measurement、row materialization、rich fragmentation、public integration、placeholder pagination、aggregate contract、package proof 与 final packed-proof commits 依次为 `4482555`、`7a262ae`、`95b98ce`、`78cb279`、`6633696`、`e64e232`、`d77f54b`、`2f7595a`、`e765011`、`6c63e0b`。
 
 ### 剩余 advanced API 与全功能路线
 
