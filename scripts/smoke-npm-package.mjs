@@ -89,9 +89,16 @@ try {
     join(installed, 'dist/types/opc/index.d.ts'),
     'utf8',
   );
+  const addTableOptionsStart = textOptionDeclarationSource.indexOf(
+    'export interface AddTableOptions',
+  );
   const addTableCellOptionsStart = textOptionDeclarationSource.indexOf(
     'export interface AddTableCellOptions',
   );
+  const addTableOptionsDeclaration = addTableOptionsStart >= 0 &&
+      addTableCellOptionsStart > addTableOptionsStart
+    ? textOptionDeclarationSource.slice(addTableOptionsStart, addTableCellOptionsStart)
+    : '';
   const addTableCellStart = textOptionDeclarationSource.indexOf(
     'export interface AddTableCell',
     addTableCellOptionsStart + 1,
@@ -102,6 +109,18 @@ try {
     : '';
   if (!addTableCellOptionsDeclaration.includes('readonly hyperlink?: Hyperlink;')) {
     throw new Error('Packed AddTableCellOptions declaration is missing table-cell hyperlink');
+  }
+  const tableTextDefaultDeclarations = [
+    'readonly bold?: boolean;',
+    'readonly color?: RichTextColor;',
+    'readonly fontFamily?: string;',
+    'readonly fontSize?: number;',
+    'readonly spacing?: ParagraphSpacing;',
+  ];
+  if (!tableTextDefaultDeclarations.every((field) =>
+    addTableOptionsDeclaration.includes(field) &&
+      addTableCellOptionsDeclaration.includes(field))) {
+    throw new Error('Packed table option declarations are missing text-style defaults');
   }
   const tableCellStart = shapeDeclarationSource.indexOf('export interface TableCell {');
   const tableRowStart = shapeDeclarationSource.indexOf(
@@ -7693,6 +7712,128 @@ if (!masterLayouts) throw new Error(JSON.stringify({
   diagnostics: reopenedMasterLayoutDeck.diagnostics,
 }));
 await reopenedMasterLayoutDeck.writeFile('master-layout-smoke.pptx');
+const tableTextDefaultsDocument = PptxDocument.create();
+const tableTextDefaultsSlide = tableTextDefaultsDocument.addSlide();
+const tableTextDefaultsTable = tableTextDefaultsSlide.addTable([[
+  'Table defaults',
+  {
+    text: 'Cell replaced',
+    options: {
+      fontFamily: 'Courier New',
+      fontSize: 10,
+      bold: false,
+      color: { kind: 'srgb', value: '00AA00' },
+      spacing: { before: 3 },
+    },
+  },
+  {
+    text: 'Cell retained',
+    options: {
+      fontFamily: 'Courier New',
+      fontSize: 10,
+      bold: false,
+      color: { kind: 'srgb', value: '00AA00' },
+      spacing: { before: 3 },
+    },
+  },
+]], {
+  name: 'Packed table text defaults',
+  fontFamily: 'Aptos',
+  fontSize: 18.25,
+  bold: true,
+  color: { kind: 'scheme', value: 'accent1' },
+  spacing: {
+    before: 6,
+    after: 8,
+    line: { kind: 'multiple', factor: 1.5 },
+  },
+});
+const tableTextDefaultsInitialTableParagraph =
+  tableTextDefaultsTable.rows[0].cells[0].richText[0];
+const tableTextDefaultsInitialCellParagraph =
+  tableTextDefaultsTable.rows[0].cells[1].richText[0];
+const tableTextDefaultsCreated =
+  tableTextDefaultsInitialTableParagraph.spacing?.before === 6 &&
+  tableTextDefaultsInitialTableParagraph.spacing?.after === 8 &&
+  tableTextDefaultsInitialTableParagraph.spacing?.line?.kind === 'multiple' &&
+  tableTextDefaultsInitialTableParagraph.spacing.line.factor === 1.5 &&
+  tableTextDefaultsInitialTableParagraph.runs[0].style?.fontFamily === 'Aptos' &&
+  tableTextDefaultsInitialTableParagraph.runs[0].style?.fontSize === 18.25 &&
+  tableTextDefaultsInitialTableParagraph.runs[0].style?.bold === true &&
+  tableTextDefaultsInitialTableParagraph.runs[0].style?.color?.kind === 'scheme' &&
+  tableTextDefaultsInitialTableParagraph.runs[0].style.color.value === 'accent1' &&
+  tableTextDefaultsInitialCellParagraph.spacing?.before === 3 &&
+  tableTextDefaultsInitialCellParagraph.spacing?.after === 8 &&
+  tableTextDefaultsInitialCellParagraph.spacing?.line?.kind === 'multiple' &&
+  tableTextDefaultsInitialCellParagraph.spacing.line.factor === 1.5 &&
+  tableTextDefaultsInitialCellParagraph.runs[0].style?.fontFamily === 'Courier New' &&
+  tableTextDefaultsInitialCellParagraph.runs[0].style?.fontSize === 10 &&
+  tableTextDefaultsInitialCellParagraph.runs[0].style?.bold === false &&
+  tableTextDefaultsInitialCellParagraph.runs[0].style?.color?.kind === 'srgb' &&
+  tableTextDefaultsInitialCellParagraph.runs[0].style.color.value === '00AA00';
+tableTextDefaultsTable.setCellText(0, 0, 'Table edited');
+const tableTextDefaultsPlainEditParagraph =
+  tableTextDefaultsTable.rows[0].cells[0].richText[0];
+const tableTextDefaultsPlainEdit =
+  tableTextDefaultsPlainEditParagraph.runs[0].text === 'Table edited' &&
+  tableTextDefaultsPlainEditParagraph.runs[0].style?.fontFamily === 'Aptos' &&
+  tableTextDefaultsPlainEditParagraph.runs[0].style?.fontSize === 18.25 &&
+  tableTextDefaultsPlainEditParagraph.runs[0].style?.bold === true &&
+  tableTextDefaultsPlainEditParagraph.spacing?.before === 6;
+tableTextDefaultsTable.setCellRichText(0, 1, [{ runs: [{ text: 'Replacement' }] }]);
+const tableTextDefaultsReplacement =
+  tableTextDefaultsTable.rows[0].cells[1].richText[0];
+const tableTextDefaultsRichReplacement =
+  tableTextDefaultsReplacement.spacing === undefined &&
+  tableTextDefaultsReplacement.runs[0].text === 'Replacement' &&
+  tableTextDefaultsReplacement.runs[0].style?.fontFamily === '+mn-lt' &&
+  tableTextDefaultsReplacement.runs[0].style?.fontSize === undefined &&
+  tableTextDefaultsReplacement.runs[0].style?.bold === undefined &&
+  tableTextDefaultsReplacement.runs[0].style?.color?.kind === 'scheme' &&
+  tableTextDefaultsReplacement.runs[0].style.color.value === 'tx1';
+await tableTextDefaultsDocument.writeFile('table-text-defaults-smoke.pptx');
+const reopenedTableTextDefaultsDocument = await PptxDocument.open(
+  await tableTextDefaultsDocument.write(),
+);
+const reopenedTableTextDefaultsTable = reopenedTableTextDefaultsDocument
+  .slides[0].shapes.find((shape) => shape.name === 'Packed table text defaults');
+const reopenedTableTextDefaultsRetained = reopenedTableTextDefaultsTable instanceof TableModel
+  ? reopenedTableTextDefaultsTable.rows[0].cells[2].richText[0]
+  : undefined;
+const tableTextDefaultsReopened = reopenedTableTextDefaultsTable instanceof TableModel &&
+  reopenedTableTextDefaultsTable.rows[0].cells[0].text === 'Table edited' &&
+  reopenedTableTextDefaultsTable.rows[0].cells[1].text === 'Replacement' &&
+  reopenedTableTextDefaultsTable.rows[0].cells[1].richText[0].spacing === undefined &&
+  reopenedTableTextDefaultsTable.rows[0].cells[1].richText[0].runs[0].style?.fontFamily ===
+    '+mn-lt' &&
+  reopenedTableTextDefaultsTable.rows[0].cells[1].richText[0].runs[0].style?.fontSize ===
+    undefined &&
+  reopenedTableTextDefaultsTable.rows[0].cells[1].richText[0].runs[0].style?.bold ===
+    undefined &&
+  reopenedTableTextDefaultsTable.rows[0].cells[1].richText[0].runs[0].style?.color?.kind ===
+    'scheme' &&
+  reopenedTableTextDefaultsTable.rows[0].cells[1].richText[0].runs[0].style.color.value ===
+    'tx1' &&
+  reopenedTableTextDefaultsRetained?.spacing?.before === 3 &&
+  reopenedTableTextDefaultsRetained.spacing.after === 8 &&
+  reopenedTableTextDefaultsRetained.runs[0].style?.fontFamily === 'Courier New' &&
+  reopenedTableTextDefaultsRetained.runs[0].style?.fontSize === 10 &&
+  reopenedTableTextDefaultsRetained.runs[0].style?.bold === false &&
+  reopenedTableTextDefaultsRetained.runs[0].style?.color?.kind === 'srgb' &&
+  reopenedTableTextDefaultsRetained.runs[0].style.color.value === '00AA00';
+const tableTextDefaultsState = {
+  created: tableTextDefaultsCreated,
+  plainEdit: tableTextDefaultsPlainEdit,
+  richReplacement: tableTextDefaultsRichReplacement,
+  reopened: tableTextDefaultsReopened,
+  validationErrors: tableTextDefaultsDocument.diagnostics
+    .filter(({ severity }) => severity === 'error').length +
+    reopenedTableTextDefaultsDocument.diagnostics
+      .filter(({ severity }) => severity === 'error').length,
+};
+const tableTextDefaults = Object.values(tableTextDefaultsState).every(
+  (value) => value === true || value === 0,
+);
 const checks = {
   slideNumbers,
   slideDefaultColor,
@@ -7752,6 +7893,8 @@ const checks = {
   tableBordersState,
   tableFill,
   tableFillState,
+  tableTextDefaults,
+  tableTextDefaultsState,
   schemeColors,
   schemeColorState,
   outputTypes,
@@ -12298,16 +12441,21 @@ const typedTableCellHyperlinkOptions: AddTableCellOptions = {
 };
 const creationOptions: AddTableCellOptions = {
   align: cellHorizontalAlignment,
+  bold: false,
   border: creationBorder,
+  color: { kind: 'srgb', value: '00AA00' },
   fill: cellFill,
   fit: cellFit,
+  fontFamily: 'Courier New',
+  fontSize: 10,
   margin: creationMargin,
+  spacing: { before: 3 },
   textDirection: cellDirection,
   valign: cellAlignment,
 };
 const objectCell: AddTableCell = { text: 'Revenue', options: creationOptions };
 const tableRows: readonly (readonly AddTableCellInput[])[] = [['Region', objectCell], [{ text: 'East' }, { text: '' }]];
-const tableOptions: AddTableOptions = { align: tableHorizontalAlignment, name: 'Typed table', x: inches(1), columnWidths: [inches(1), inches(3)], rowHeights: [inches(0.5), inches(1.5)], border: cellBorderInput, fill: cellFill, margin: cellMargins, textDirection: cellDirection, valign: cellAlignment };
+const tableOptions: AddTableOptions = { align: tableHorizontalAlignment, bold: true, color: { kind: 'scheme', value: 'accent1' }, fontFamily: 'Aptos', fontSize: 18.25, name: 'Typed table', x: inches(1), columnWidths: [inches(1), inches(3)], rowHeights: [inches(0.5), inches(1.5)], border: cellBorderInput, fill: cellFill, margin: cellMargins, spacing: { after: 8, line: { kind: 'multiple', factor: 1.5 } }, textDirection: cellDirection, valign: cellAlignment };
 const typedTable: TableModel = createdDocument.slides[0].addTable(tableRows, tableOptions);
 const typedTableCellHyperlinkTable: TableModel = createdDocument.slides[0].addTable([[
   { text: 'Typed table-cell hyperlink', options: typedTableCellHyperlinkOptions },
@@ -12335,6 +12483,12 @@ const bothTableCellHyperlinkTargets: AddTableCellOptions = { hyperlink: { url: '
 const tableCellHyperlinkRelationshipEscape: AddTableCellOptions = { hyperlink: { url: 'https://example.com', _rId: 'rId9' } };
 // @ts-expect-error there is no table-level hyperlink default
 createdDocument.slides[0].addTable([['A']], { hyperlink: { url: 'https://example.com' } });
+// @ts-expect-error native table options use fontFamily, not fontFace
+createdDocument.slides[0].addTable([['A']], { fontFace: 'Aptos' });
+// @ts-expect-error native table spacing uses the structured ParagraphSpacing value
+const typedTableCellSpacingAlias: AddTableCellOptions = { paraSpaceAfter: 6 };
+// @ts-expect-error table-cell bold is boolean-only
+const typedTableCellInvalidBold: AddTableCellOptions = { bold: 1 };
 // @ts-expect-error there is no table-level hyperlink property
 typedTable.hyperlink = { url: 'https://example.com' };
 const widthSnapshot: readonly number[] | undefined = typedTable.columnWidths;
@@ -12666,6 +12820,11 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
       `Table fill smoke failed: ${JSON.stringify(apiChecks.tableFillState)}`,
     );
   }
+  if (!apiChecks.tableTextDefaults) {
+    throw new Error(
+      `Table text defaults smoke failed: ${JSON.stringify(apiChecks.tableTextDefaultsState)}`,
+    );
+  }
   if (!apiChecks.schemeColors) {
     throw new Error(
       `Scheme color smoke failed: ${JSON.stringify(apiChecks.schemeColorState)}`,
@@ -12992,6 +13151,84 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
       /<a:bodyPr\b[^>]*\s(?:lIns|rIns|tIns|bIns)=/.test(tableMarginsPart)) {
     throw new Error(
       `CLI table margins part inspection failed: ${tableMarginsPartResult.stdout}`,
+    );
+  }
+  const tableTextDefaultsDeckPath = join(
+    directory,
+    'table-text-defaults-smoke.pptx',
+  );
+  const tableTextDefaultsInspectResult = run(
+    bin,
+    ['--json', 'package', 'inspect', tableTextDefaultsDeckPath],
+    directory,
+  );
+  const tableTextDefaultsInspected = JSON.parse(tableTextDefaultsInspectResult.stdout);
+  if (!tableTextDefaultsInspected.ok ||
+      tableTextDefaultsInspected.data?.contentTypes?.[
+        'application/vnd.openxmlformats-officedocument.presentationml.slide+xml'
+      ] !== 1) {
+    throw new Error(
+      `CLI table text defaults package inspection failed: ${tableTextDefaultsInspectResult.stdout}`,
+    );
+  }
+  const tableTextDefaultsValidateResult = run(
+    bin,
+    [
+      '--json', 'package', 'validate', tableTextDefaultsDeckPath,
+      '--profile', 'powerpoint-2010',
+    ],
+    directory,
+  );
+  const tableTextDefaultsValidated = JSON.parse(tableTextDefaultsValidateResult.stdout);
+  if (!tableTextDefaultsValidated.ok ||
+      !tableTextDefaultsValidated.data?.valid ||
+      tableTextDefaultsValidated.data.errorCount !== 0 ||
+      tableTextDefaultsValidated.data.warningCount !== 0) {
+    throw new Error(
+      `CLI table text defaults validation failed: ${tableTextDefaultsValidateResult.stdout}`,
+    );
+  }
+  const tableTextDefaultsSlidesResult = run(
+    bin,
+    ['--json', 'slides', 'list', tableTextDefaultsDeckPath],
+    directory,
+  );
+  const tableTextDefaultsSlides = JSON.parse(tableTextDefaultsSlidesResult.stdout);
+  if (!tableTextDefaultsSlides.ok ||
+      tableTextDefaultsSlides.data?.length !== 1 ||
+      tableTextDefaultsSlides.data[0]?.shapeCount !== 1) {
+    throw new Error(
+      `CLI table text defaults slide listing failed: ${tableTextDefaultsSlidesResult.stdout}`,
+    );
+  }
+  const tableTextDefaultsPartResult = run(
+    bin,
+    [
+      '--json', 'part', 'read', tableTextDefaultsDeckPath,
+      tableTextDefaultsSlides.data[0].partUri,
+    ],
+    directory,
+  );
+  const tableTextDefaultsPart = JSON.parse(
+    tableTextDefaultsPartResult.stdout,
+  ).data?.content ?? '';
+  const tableTextDefaultsCells = [
+    ...tableTextDefaultsPart.matchAll(/<a:tc\b[^>]*>[\s\S]*?<\/a:tc>/g),
+  ];
+  if (!tableTextDefaultsPart.includes('<a:tbl>') ||
+      tableTextDefaultsCells.length !== 3 ||
+      !tableTextDefaultsPart.includes('<a:latin typeface="Aptos"/>') ||
+      !tableTextDefaultsPart.includes('<a:latin typeface="Courier New"/>') ||
+      !tableTextDefaultsPart.includes('sz="1825" b="1"') ||
+      !tableTextDefaultsPart.includes('sz="1000" b="0"') ||
+      !tableTextDefaultsPart.includes('<a:schemeClr val="accent1"/>') ||
+      !tableTextDefaultsPart.includes('<a:srgbClr val="00AA00"/>') ||
+      !tableTextDefaultsPart.includes('<a:spcPct val="150000"/>') ||
+      !tableTextDefaultsPart.includes('<a:spcPts val="600"/>') ||
+      !tableTextDefaultsPart.includes('<a:spcPts val="300"/>') ||
+      !tableTextDefaultsPart.includes('<a:spcPts val="800"/>')) {
+    throw new Error(
+      `CLI table text defaults part inspection failed: ${tableTextDefaultsPartResult.stdout}`,
     );
   }
   const tableCellHyperlinkDeckPath = join(
@@ -14539,6 +14776,11 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
     await mkdir(dirname(output), { recursive: true });
     await writeFile(output, await readFile(richTextBreakLineDeckPath));
   }
+  if (process.env.PPTX_TABLE_TEXT_DEFAULTS_OUT) {
+    const output = resolve(process.env.PPTX_TABLE_TEXT_DEFAULTS_OUT);
+    await mkdir(dirname(output), { recursive: true });
+    await writeFile(output, await readFile(tableTextDefaultsDeckPath));
+  }
 
   const writeSummary = (serialized) => {
     const summary = JSON.parse(serialized);
@@ -14555,6 +14797,9 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
     summary.tableFill = apiChecks.tableFill;
     summary.tableFillState = apiChecks.tableFillState;
     summary.tableFillInspect = true;
+    summary.tableTextDefaults = apiChecks.tableTextDefaults;
+    summary.tableTextDefaultsState = apiChecks.tableTextDefaultsState;
+    summary.tableTextDefaultsInspect = true;
     process.stdout.write(`${JSON.stringify(summary)}\n`);
   };
   writeSummary(

@@ -771,6 +771,134 @@ async (page) => {
         failureIsolation: true,
         validationErrors: 0,
       });
+      const tableTextDefaultsDocument = api.PptxDocument.create();
+      const tableTextDefaultsSlide = tableTextDefaultsDocument.addSlide();
+      const tableTextDefaultsTable = tableTextDefaultsSlide.addTable([[
+        'Table defaults',
+        {
+          text: 'Cell replaced',
+          options: {
+            fontFamily: 'Courier New',
+            fontSize: 10,
+            bold: false,
+            color: { kind: 'srgb', value: '00AA00' },
+            spacing: { before: 3 },
+          },
+        },
+        {
+          text: 'Cell retained',
+          options: {
+            fontFamily: 'Courier New',
+            fontSize: 10,
+            bold: false,
+            color: { kind: 'srgb', value: '00AA00' },
+            spacing: { before: 3 },
+          },
+        },
+      ]], {
+        name: 'Chrome table text defaults',
+        fontFamily: 'Aptos',
+        fontSize: 18.25,
+        bold: true,
+        color: { kind: 'scheme', value: 'accent1' },
+        spacing: {
+          before: 6,
+          after: 8,
+          line: { kind: 'multiple', factor: 1.5 },
+        },
+      });
+      const tableTextDefaultsInitialTableParagraph =
+        tableTextDefaultsTable.rows[0].cells[0].richText[0];
+      const tableTextDefaultsInitialCellParagraph =
+        tableTextDefaultsTable.rows[0].cells[1].richText[0];
+      const tableTextDefaultsCreated =
+        tableTextDefaultsInitialTableParagraph.spacing?.before === 6
+        && tableTextDefaultsInitialTableParagraph.spacing?.after === 8
+        && tableTextDefaultsInitialTableParagraph.spacing?.line?.kind === 'multiple'
+        && tableTextDefaultsInitialTableParagraph.spacing.line.factor === 1.5
+        && tableTextDefaultsInitialTableParagraph.runs[0].style?.fontFamily === 'Aptos'
+        && tableTextDefaultsInitialTableParagraph.runs[0].style?.fontSize === 18.25
+        && tableTextDefaultsInitialTableParagraph.runs[0].style?.bold === true
+        && tableTextDefaultsInitialTableParagraph.runs[0].style?.color?.kind === 'scheme'
+        && tableTextDefaultsInitialTableParagraph.runs[0].style.color.value === 'accent1'
+        && tableTextDefaultsInitialCellParagraph.spacing?.before === 3
+        && tableTextDefaultsInitialCellParagraph.spacing?.after === 8
+        && tableTextDefaultsInitialCellParagraph.spacing?.line?.kind === 'multiple'
+        && tableTextDefaultsInitialCellParagraph.spacing.line.factor === 1.5
+        && tableTextDefaultsInitialCellParagraph.runs[0].style?.fontFamily ===
+          'Courier New'
+        && tableTextDefaultsInitialCellParagraph.runs[0].style?.fontSize === 10
+        && tableTextDefaultsInitialCellParagraph.runs[0].style?.bold === false
+        && tableTextDefaultsInitialCellParagraph.runs[0].style?.color?.kind === 'srgb'
+        && tableTextDefaultsInitialCellParagraph.runs[0].style.color.value === '00AA00';
+      tableTextDefaultsTable.setCellText(0, 0, 'Table edited');
+      const tableTextDefaultsPlainEditParagraph =
+        tableTextDefaultsTable.rows[0].cells[0].richText[0];
+      const tableTextDefaultsPlainEdit =
+        tableTextDefaultsPlainEditParagraph.runs[0].text === 'Table edited'
+        && tableTextDefaultsPlainEditParagraph.runs[0].style?.fontFamily === 'Aptos'
+        && tableTextDefaultsPlainEditParagraph.runs[0].style?.fontSize === 18.25
+        && tableTextDefaultsPlainEditParagraph.runs[0].style?.bold === true
+        && tableTextDefaultsPlainEditParagraph.spacing?.before === 6;
+      tableTextDefaultsTable.setCellRichText(
+        0,
+        1,
+        [{ runs: [{ text: 'Replacement' }] }],
+      );
+      const tableTextDefaultsReplacement =
+        tableTextDefaultsTable.rows[0].cells[1].richText[0];
+      const tableTextDefaultsRichReplacement =
+        tableTextDefaultsReplacement.spacing === undefined
+        && tableTextDefaultsReplacement.runs[0].text === 'Replacement'
+        && tableTextDefaultsReplacement.runs[0].style?.fontFamily === '+mn-lt'
+        && tableTextDefaultsReplacement.runs[0].style?.fontSize === undefined
+        && tableTextDefaultsReplacement.runs[0].style?.bold === undefined
+        && tableTextDefaultsReplacement.runs[0].style?.color?.kind === 'scheme'
+        && tableTextDefaultsReplacement.runs[0].style.color.value === 'tx1';
+      const reopenedTableTextDefaultsDocument = await api.PptxDocument.open(
+        await tableTextDefaultsDocument.writeBlob(),
+      );
+      const reopenedTableTextDefaultsTable = reopenedTableTextDefaultsDocument
+        .slides[0].shapes.find((shape) => shape.name === 'Chrome table text defaults');
+      const reopenedTableTextDefaultsRetained =
+        reopenedTableTextDefaultsTable instanceof api.TableModel
+          ? reopenedTableTextDefaultsTable.rows[0].cells[2].richText[0]
+          : undefined;
+      const tableTextDefaultsReopened =
+        reopenedTableTextDefaultsTable instanceof api.TableModel
+        && reopenedTableTextDefaultsTable.rows[0].cells[0].text === 'Table edited'
+        && reopenedTableTextDefaultsTable.rows[0].cells[1].text === 'Replacement'
+        && reopenedTableTextDefaultsTable.rows[0].cells[1].richText[0].spacing === undefined
+        && reopenedTableTextDefaultsTable.rows[0].cells[1].richText[0]
+          .runs[0].style?.fontFamily === '+mn-lt'
+        && reopenedTableTextDefaultsTable.rows[0].cells[1].richText[0]
+          .runs[0].style?.fontSize === undefined
+        && reopenedTableTextDefaultsTable.rows[0].cells[1].richText[0]
+          .runs[0].style?.bold === undefined
+        && reopenedTableTextDefaultsTable.rows[0].cells[1].richText[0]
+          .runs[0].style?.color?.kind === 'scheme'
+        && reopenedTableTextDefaultsTable.rows[0].cells[1].richText[0]
+          .runs[0].style.color.value === 'tx1'
+        && reopenedTableTextDefaultsRetained?.spacing?.before === 3
+        && reopenedTableTextDefaultsRetained.spacing.after === 8
+        && reopenedTableTextDefaultsRetained.runs[0].style?.fontFamily === 'Courier New'
+        && reopenedTableTextDefaultsRetained.runs[0].style?.fontSize === 10
+        && reopenedTableTextDefaultsRetained.runs[0].style?.bold === false
+        && reopenedTableTextDefaultsRetained.runs[0].style?.color?.kind === 'srgb'
+        && reopenedTableTextDefaultsRetained.runs[0].style.color.value === '00AA00';
+      const tableTextDefaultsState = {
+        created: tableTextDefaultsCreated,
+        plainEdit: tableTextDefaultsPlainEdit,
+        richReplacement: tableTextDefaultsRichReplacement,
+        reopened: tableTextDefaultsReopened,
+        validationErrors: tableTextDefaultsDocument.diagnostics
+          .filter(({ severity }) => severity === 'error').length
+          + reopenedTableTextDefaultsDocument.diagnostics
+            .filter(({ severity }) => severity === 'error').length,
+      };
+      const tableTextDefaults = Object.values(tableTextDefaultsState).every(
+        (value) => value === true || value === 0,
+      );
       const tableBorderSideSnapshot = (value) => {
         if (value.kind === 'none') return { kind: 'none' };
         return {
@@ -3647,6 +3775,8 @@ async (page) => {
         tableBordersState,
         tableFill,
         tableFillState,
+        tableTextDefaults,
+        tableTextDefaultsState,
         schemeColors,
         schemeColorState,
         outputTypes,
@@ -4122,6 +4252,14 @@ async (page) => {
         message: 'Table fill must be an object',
       },
       failureIsolation: true,
+      validationErrors: 0,
+    },
+    tableTextDefaults: true,
+    tableTextDefaultsState: {
+      created: true,
+      plainEdit: true,
+      richReplacement: true,
+      reopened: true,
       validationErrors: 0,
     },
     schemeColors: true,
