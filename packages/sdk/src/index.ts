@@ -77,6 +77,13 @@ import {
   type NormalizedSlideMasterObject,
   type SlideMasterMargin,
 } from './master-layout.js';
+import {
+  normalizeTableToSlidesRequest,
+  prepareTableToSlidesContent,
+  snapshotHtmlTableById,
+  type TableToSlidesMargins,
+  type TableToSlidesOptions,
+} from './table-to-slides.js';
 
 const SLIDE_LAYOUT_RELATIONSHIP =
   'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout';
@@ -665,6 +672,43 @@ export class PptxDocument extends PresentationModel {
     return created;
   }
 
+  async tableToSlides(
+    elementId: string,
+    options: TableToSlidesOptions = {},
+  ): Promise<readonly SlideModel[]> {
+    const request = normalizeTableToSlidesRequest(elementId, options);
+    const snapshot = snapshotHtmlTableById(request.id);
+    const layoutMargins = resolveTableToSlidesLayoutMargins(this, request.masterSlideName);
+    const prepared = prepareTableToSlidesContent(
+      request,
+      snapshot,
+      this.slideSize,
+      layoutMargins,
+    );
+    const existingPartUris = new Set(this.slides.map(({ partUri }) => partUri));
+    const createdPartUris = new Set<string>();
+    try {
+      return this.opcPackage.transaction(() => {
+        try {
+          const first = this.addSlide(
+            request.masterSlideName === undefined
+              ? {}
+              : { masterName: request.masterSlideName },
+          );
+          first.addTable(prepared.rows, prepared.tableOptions);
+          return Object.freeze([first, ...first.newAutoPagedSlides]);
+        } finally {
+          for (const slide of this.slides) {
+            if (!existingPartUris.has(slide.partUri)) createdPartUris.add(slide.partUri);
+          }
+        }
+      });
+    } catch (error) {
+      for (const partUri of createdPartUris) discardTableToSlidesModel(this, partUri);
+      throw error;
+    }
+  }
+
   async addImage(
     slideIndex: number,
     source: ImageSource,
@@ -764,6 +808,42 @@ export class PptxDocument extends PresentationModel {
     if (!slide) throw new RangeError(`Slide index ${slideIndex} is out of range`);
     return slide.media;
   }
+}
+
+function resolveTableToSlidesLayoutMargins(
+  document: PptxDocument,
+  masterSlideName: string | undefined,
+): Readonly<TableToSlidesMargins> | undefined {
+  const layouts = document.layouts;
+  if (masterSlideName !== undefined) {
+    const matches = layouts.filter(({ name }) => name === masterSlideName);
+    if (matches.length === 0) {
+      throw new RangeError(`Slide master ${masterSlideName} was not found`);
+    }
+    if (matches.length !== 1) {
+      throw new TypeError(`Slide master ${masterSlideName} is ambiguous`);
+    }
+    return matches[0]!.margin;
+  }
+  const byPartUri = new Map(layouts.map((layout) => [layout.partUri, layout]));
+  const inherited = document.slides[0]?.relationships.filter((relationship) =>
+    relationship.type === SLIDE_LAYOUT_RELATIONSHIP
+    && relationship.targetMode === 'Internal'
+    && relationship.resolvedTarget !== undefined
+    && byPartUri.has(relationship.resolvedTarget)) ?? [];
+  if (inherited.length > 1) {
+    throw new TypeError('Source slide layout is ambiguous');
+  }
+  return inherited[0]?.resolvedTarget === undefined
+    ? layouts[0]?.margin
+    : byPartUri.get(inherited[0].resolvedTarget)?.margin;
+}
+
+function discardTableToSlidesModel(document: PptxDocument, partUri: string): void {
+  const presentation = document as PptxDocument & {
+    discardDetachedSlideModel(uri: string): void;
+  };
+  presentation.discardDetachedSlideModel(partUri);
 }
 
 async function prepareSlideMasterDefinition(

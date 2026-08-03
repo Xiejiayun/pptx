@@ -1,3 +1,4 @@
+import { inches } from '@pptx/model';
 import type {
   AddShapeOptions,
   AddTableCellInput,
@@ -6,12 +7,14 @@ import type {
   AddTextOptions,
   PresetShapeType,
   RichTextParagraph,
+  SlideSize,
   TableAutoPageMarginInput,
 } from '@pptx/model';
 import type { AddImageSourceOptions, ImageSource } from './raster-image-source.js';
 import { mapComputedCellOptions } from './table-to-slides-css.js';
+import { resolveHtmlTableColumns } from './table-to-slides-columns.js';
 
-export { resolveHtmlTableColumns } from './table-to-slides-columns.js';
+export { resolveHtmlTableColumns };
 export type { ResolvedHtmlTableColumns } from './table-to-slides-columns.js';
 
 const OPTION_KEYS = new Set([
@@ -103,6 +106,18 @@ export interface HtmlTableSnapshot {
   readonly rows: readonly (readonly HtmlTableCellSnapshot[])[];
   readonly headRowCount: number;
   readonly widthSourceRowIndex: number;
+}
+
+export interface TableToSlidesMargins {
+  readonly top: number;
+  readonly right: number;
+  readonly bottom: number;
+  readonly left: number;
+}
+
+export interface PreparedTableToSlidesContent {
+  readonly rows: readonly (readonly AddTableCellInput[])[];
+  readonly tableOptions: Readonly<AddTableOptions>;
 }
 
 export type HtmlComputedStyleResolver = (element: unknown) => unknown;
@@ -291,6 +306,91 @@ export function snapshotHtmlTable(
   });
 }
 
+export function prepareTableToSlidesContent(
+  request: Readonly<NormalizedTableToSlidesRequest>,
+  snapshot: Readonly<HtmlTableSnapshot>,
+  slideSize: Readonly<SlideSize>,
+  layoutMargins?: Readonly<TableToSlidesMargins>,
+): Readonly<PreparedTableToSlidesContent> {
+  const margins = resolveTableToSlidesMargins(request.slideMargin, layoutMargins, slideSize);
+  const x = request.x ?? margins.left;
+  const y = request.y ?? margins.top;
+  if (request.autoPage && y < 0) {
+    throw new RangeError('HTML table auto-page y must be non-negative');
+  }
+  const targetWidth = request.width ?? subtractSafeIntegers(
+    subtractSafeIntegers(slideSize.width, x, 'HTML table default width'),
+    margins.right,
+    'HTML table default width',
+  );
+  if (!Number.isSafeInteger(targetWidth) || targetWidth <= 0) {
+    throw new RangeError('HTML table width must be a positive safe integer');
+  }
+  const columns = resolveHtmlTableColumns(snapshot, targetWidth, request.columnWidths);
+  const rows = Object.freeze(snapshot.rows.map((row) => Object.freeze(row.map((cell) => {
+    const options = Object.freeze({
+      ...cell.options,
+      ...(cell.colspan === undefined ? {} : { colspan: cell.colspan }),
+      ...(cell.rowspan === undefined ? {} : { rowspan: cell.rowspan }),
+    });
+    return Object.freeze({ text: cell.text, options });
+  }))));
+  const commonOptions = {
+    ...(request.name === undefined ? {} : { name: request.name }),
+    x,
+    y,
+    width: columns.width,
+    columnWidths: columns.widths,
+  };
+  let tableOptions: Readonly<AddTableOptions>;
+  if (!request.autoPage) {
+    tableOptions = Object.freeze(commonOptions);
+  } else {
+    const repeatHeader = request.autoPageRepeatHeader ?? false;
+    const headerRows = repeatHeader
+      ? request.autoPageHeaderRows ?? (snapshot.headRowCount > 0 ? snapshot.headRowCount : 1)
+      : undefined;
+    let effectiveMargins = margins;
+    if (request.height !== undefined) {
+      const requestedBottomEdge = addSafeIntegers(y, request.height, 'HTML table height');
+      const marginBottomEdge = slideSize.height - margins.bottom;
+      const bottomEdge = Math.min(requestedBottomEdge, marginBottomEdge);
+      if (bottomEdge <= y) {
+        throw new RangeError('HTML table height must leave positive auto-page capacity');
+      }
+      effectiveMargins = Object.freeze({
+        ...margins,
+        bottom: slideSize.height - bottomEdge,
+      });
+    }
+    const slideMargin = Object.freeze([
+      effectiveMargins.top,
+      effectiveMargins.right,
+      effectiveMargins.bottom,
+      effectiveMargins.left,
+    ] as const);
+    tableOptions = Object.freeze({
+      ...commonOptions,
+      autoPage: true,
+      ...(request.autoPageCharWeight === undefined
+        ? {}
+        : { autoPageCharWeight: request.autoPageCharWeight }),
+      ...(request.autoPageLineWeight === undefined
+        ? {}
+        : { autoPageLineWeight: request.autoPageLineWeight }),
+      ...(request.autoPageRepeatHeader === undefined
+        ? {}
+        : { autoPageRepeatHeader: request.autoPageRepeatHeader }),
+      ...(headerRows === undefined ? {} : { autoPageHeaderRows: headerRows }),
+      ...(request.autoPageSlideStartY === undefined
+        ? {}
+        : { autoPageSlideStartY: request.autoPageSlideStartY }),
+      slideMargin,
+    });
+  }
+  return Object.freeze({ rows, tableOptions });
+}
+
 function snapshotCell(
   cell: unknown,
   rowIndex: number,
@@ -464,6 +564,42 @@ function normalizeSlideMargin(value: unknown): TableAutoPageMarginInput {
   ))) as readonly [number, number, number, number];
 }
 
+function resolveTableToSlidesMargins(
+  explicit: TableAutoPageMarginInput | undefined,
+  layout: Readonly<TableToSlidesMargins> | undefined,
+  slideSize: Readonly<SlideSize>,
+): Readonly<TableToSlidesMargins> {
+  const fallback = inches(0.5);
+  let values: readonly unknown[];
+  if (explicit !== undefined) {
+    values = typeof explicit === 'number'
+      ? [explicit, explicit, explicit, explicit]
+      : explicit;
+  } else if (layout !== undefined) {
+    values = [layout.top, layout.right, layout.bottom, layout.left];
+  } else {
+    values = [fallback, fallback, fallback, fallback];
+  }
+  const normalized = values.map((value, index) => requireNonNegativeSafeInteger(
+    value,
+    `HTML table effective ${['top', 'right', 'bottom', 'left'][index]} margin`,
+  ));
+  const width = requirePositiveSafeCoordinate(slideSize.width, 'HTML table slide width');
+  const height = requirePositiveSafeCoordinate(slideSize.height, 'HTML table slide height');
+  if (addSafeIntegers(normalized[1]!, normalized[3]!, 'HTML table horizontal margins') >= width) {
+    throw new RangeError('HTML table horizontal margins must be smaller than slide width');
+  }
+  if (addSafeIntegers(normalized[0]!, normalized[2]!, 'HTML table vertical margins') >= height) {
+    throw new RangeError('HTML table vertical margins must be smaller than slide height');
+  }
+  return Object.freeze({
+    top: normalized[0]!,
+    right: normalized[1]!,
+    bottom: normalized[2]!,
+    left: normalized[3]!,
+  });
+}
+
 function normalizeColumnWidths(value: unknown): number | readonly number[] {
   if (Array.isArray(value)) {
     const values = readDensePlainArray(value, 'HTML table columnWidths');
@@ -628,6 +764,24 @@ function requireNonNegativeSafeInteger(value: unknown, context: string): number 
   if (!Number.isSafeInteger(value)) throw new RangeError(`${context} must be a safe integer`);
   if (value < 0) throw new RangeError(`${context} must be non-negative`);
   return value;
+}
+
+function requirePositiveSafeCoordinate(value: unknown, context: string): number {
+  const normalized = requireNonNegativeSafeInteger(value, context);
+  if (normalized === 0) throw new RangeError(`${context} must be positive`);
+  return normalized;
+}
+
+function addSafeIntegers(left: number, right: number, context: string): number {
+  const result = left + right;
+  if (!Number.isSafeInteger(result)) throw new RangeError(`${context} exceeds safe integer range`);
+  return result;
+}
+
+function subtractSafeIntegers(left: number, right: number, context: string): number {
+  const result = left - right;
+  if (!Number.isSafeInteger(result)) throw new RangeError(`${context} exceeds safe integer range`);
+  return result;
 }
 
 function normalizePlatformSpan(value: unknown, context: string): number | undefined {

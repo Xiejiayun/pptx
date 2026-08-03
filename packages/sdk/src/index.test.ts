@@ -284,6 +284,7 @@ describe('PptxDocument vertical slice', () => {
     expect(current).toBe('0.1.0');
     expect(document.version).toBe(current);
     expect(document.version).toBe(document.version);
+    expect(typeof PptxDocument.prototype.tableToSlides).toBe('function');
     expect(await sdkPackageSnapshot(document)).toEqual(before);
     expect(Object.getOwnPropertyDescriptor(PptxDocument.prototype, 'version')).toMatchObject({
       set: undefined,

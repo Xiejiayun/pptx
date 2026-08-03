@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
-import { inches } from '@pptx/model';
+import { describe, expect, it, vi } from 'vitest';
+import { inches, SlideModel, TableModel } from '@pptx/model';
+import { PptxDocument } from './index.js';
 import {
   normalizeTableToSlidesRequest,
   resolveHtmlTableColumns,
@@ -93,6 +94,36 @@ function tableFixture(input: TableFixtureInput) {
     calls,
     getComputedStyle: defaultView.getComputedStyle.bind(defaultView),
   };
+}
+
+async function withGlobalDocument<T>(documentValue: unknown, operation: () => Promise<T>): Promise<T> {
+  const previous = Object.getOwnPropertyDescriptor(globalThis, 'document');
+  Object.defineProperty(globalThis, 'document', {
+    configurable: true,
+    enumerable: true,
+    writable: true,
+    value: documentValue,
+  });
+  try {
+    return await operation();
+  } finally {
+    if (previous) Object.defineProperty(globalThis, 'document', previous);
+    else Reflect.deleteProperty(globalThis, 'document');
+  }
+}
+
+function packageState(document: PptxDocument): unknown {
+  return document.opcPackage.parts.map(({ uri, contentType, bytes, relationships }) => ({
+    uri,
+    contentType,
+    bytes: [...bytes],
+    relationships: relationships.map(({ id, type, target, targetMode }) => ({
+      id,
+      type,
+      target,
+      targetMode,
+    })),
+  }));
 }
 
 describe('HTML table row snapshots', () => {
@@ -679,6 +710,273 @@ describe('HTML table column width resolution', () => {
     const sparse = [1, 2];
     delete sparse[0];
     expect(() => resolveHtmlTableColumns(snapshot, 3, sparse)).toThrow(/dense/i);
+  });
+});
+
+describe('PptxDocument.tableToSlides lifecycle', () => {
+  it('defaults to automatic pagination and returns frozen ordinary slide identities', async () => {
+    const head = [[
+      cell('Header A', { localName: 'th', width: 240 }),
+      cell('Header B', { localName: 'th', width: 560 }),
+    ]];
+    const body = Array.from({ length: 40 }, (_, index) => [
+      cell(`Row ${index} ${'content '.repeat(6)}`, { width: 240 }),
+      cell(`Value ${index} ${'detail '.repeat(10)}`, { width: 560 }),
+    ]);
+    const dom = tableFixture({ head, bodies: [body] });
+    const deck = PptxDocument.create({
+      slideSize: { width: inches(10), height: inches(3) },
+    });
+    const pages = await withGlobalDocument(dom.document, () => deck.tableToSlides('table', {
+      autoPageRepeatHeader: true,
+      autoPageCharWeight: 0,
+      autoPageLineWeight: 0,
+      x: inches(0.5),
+      y: inches(0.5),
+      autoPageSlideStartY: inches(0.25),
+      slideMargin: inches(0.25),
+    }));
+    expect(pages.length).toBeGreaterThan(1);
+    expect(Object.isFrozen(pages)).toBe(true);
+    expect(pages).toEqual(deck.slides);
+    expect(pages.every((slide) => slide instanceof SlideModel)).toBe(true);
+    expect(pages.every((slide) => slide.shapes.some(({ kind }) => kind === 'table'))).toBe(true);
+    expect(pages.slice(1).every((slide) => {
+      const table = slide.shapes.find((shape): shape is TableModel => shape instanceof TableModel)!;
+      return table.rows[0]!.cells[0]!.text === 'Header A';
+    })).toBe(true);
+    expect(pages.slice(1).map((slide) => {
+      const table = slide.shapes.find((shape): shape is TableModel => shape instanceof TableModel)!;
+      return table.transform.y;
+    }).every((y) => y === inches(0.25))).toBe(true);
+  });
+
+  it('honors explicit autoPage false with exactly one automatic-row table', async () => {
+    const body = Array.from({ length: 80 }, (_, index) => [cell(`Row ${index}`)]);
+    const dom = tableFixture({ bodies: [body] });
+    const deck = PptxDocument.create({
+      slideSize: { width: inches(5), height: inches(2) },
+    });
+    const pages = await withGlobalDocument(dom.document, () => deck.tableToSlides('table', {
+      autoPage: false,
+    }));
+    expect(pages).toHaveLength(1);
+    expect(deck.slides).toEqual(pages);
+    const table = pages[0]!.shapes.find((shape): shape is TableModel => shape instanceof TableModel)!;
+    expect(table.rows).toHaveLength(80);
+  });
+
+  it('defaults repeated headers to all thead rows and falls back to the first body row', async () => {
+    const body = Array.from({ length: 30 }, (_, index) => [
+      cell(`Row ${index} ${'content '.repeat(6)}`),
+    ]);
+    const headedDom = tableFixture({
+      head: [
+        [cell('Header 1', { localName: 'th' })],
+        [cell('Header 2', { localName: 'th' })],
+      ],
+      bodies: [body],
+    });
+    const headedDeck = PptxDocument.create({
+      slideSize: { width: inches(5), height: inches(2) },
+    });
+    const headedPages = await withGlobalDocument(
+      headedDom.document,
+      () => headedDeck.tableToSlides('table', { autoPageRepeatHeader: true }),
+    );
+    expect(headedPages.length).toBeGreaterThan(1);
+    expect(headedPages.slice(1).every((page) => {
+      const table = page.shapes.find((shape): shape is TableModel => shape instanceof TableModel)!;
+      return table.rows[0]!.cells[0]!.text === 'Header 1'
+        && table.rows[1]!.cells[0]!.text === 'Header 2';
+    })).toBe(true);
+
+    const fallbackDom = tableFixture({ bodies: [[
+      [cell('Body Header')],
+      ...body,
+    ]] });
+    const fallbackDeck = PptxDocument.create({
+      slideSize: { width: inches(5), height: inches(2) },
+    });
+    const fallbackPages = await withGlobalDocument(
+      fallbackDom.document,
+      () => fallbackDeck.tableToSlides('table', { autoPageRepeatHeader: true }),
+    );
+    expect(fallbackPages.length).toBeGreaterThan(1);
+    expect(fallbackPages.slice(1).every((page) => {
+      const table = page.shapes.find((shape): shape is TableModel => shape instanceof TableModel)!;
+      return table.rows[0]!.cells[0]!.text === 'Body Header';
+    })).toBe(true);
+  });
+
+  it('turns height into a stricter auto-page bottom edge', async () => {
+    const body = Array.from({ length: 30 }, (_, index) => [
+      cell(`Row ${index} ${'content '.repeat(6)}`),
+    ]);
+    const unrestrictedDom = tableFixture({ bodies: [body] });
+    const restrictedDom = tableFixture({ bodies: [body] });
+    const unrestricted = PptxDocument.create({
+      slideSize: { width: inches(5), height: inches(4) },
+    });
+    const restricted = PptxDocument.create({
+      slideSize: { width: inches(5), height: inches(4) },
+    });
+    const unrestrictedPages = await withGlobalDocument(
+      unrestrictedDom.document,
+      () => unrestricted.tableToSlides('table', { y: inches(0.5) }),
+    );
+    const restrictedPages = await withGlobalDocument(
+      restrictedDom.document,
+      () => restricted.tableToSlides('table', {
+        y: inches(0.5),
+        height: inches(1),
+      }),
+    );
+    expect(restrictedPages.length).toBeGreaterThan(unrestrictedPages.length);
+    expect(restrictedPages.every((page) => {
+      const table = page.shapes.find((shape): shape is TableModel => shape instanceof TableModel)!;
+      return table.transform.y + table.transform.height <= inches(1.5);
+    })).toBe(true);
+  });
+
+  it('uses named layout margins, preserves sections and slide numbers, and reopens editable tables', async () => {
+    const deck = PptxDocument.create({
+      firstSlideNumber: 7,
+      slideSize: { width: inches(8), height: inches(3) },
+    });
+    deck.addSection({ title: 'Existing' });
+    const margin = {
+      top: inches(0.4),
+      right: inches(0.6),
+      bottom: inches(0.5),
+      left: inches(0.7),
+    };
+    const layout = await deck.defineSlideMaster({
+      title: 'REPORT',
+      margin: [margin.top, margin.right, margin.bottom, margin.left],
+      background: {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'F0F1F2' },
+      },
+      slideNumber: { x: 10, y: 10, width: 100, height: 20 },
+    });
+    const dom = tableFixture({
+      head: [[cell('Header', { localName: 'th', width: 800 })]],
+      bodies: [Array.from({ length: 35 }, (_, index) => [
+        cell(`Row ${index} ${'long content '.repeat(8)}`, { width: 800 }),
+      ])],
+    });
+    const pages = await withGlobalDocument(dom.document, () => deck.tableToSlides('table', {
+      masterSlideName: 'REPORT',
+      autoPageRepeatHeader: true,
+    }));
+    expect(pages.length).toBeGreaterThan(1);
+    for (const [index, page] of pages.entries()) {
+      const layoutRelationship = page.relationships.find(({ type }) => type.endsWith('/slideLayout'));
+      expect(layoutRelationship?.resolvedTarget).toBe(layout.partUri);
+      const table = page.shapes.find((shape): shape is TableModel => shape instanceof TableModel)!;
+      expect(table.transform.x).toBe(margin.left);
+      expect(table.transform.y).toBe(margin.top);
+      expect(table.transform.width).toBe(deck.slideSize.width - margin.left - margin.right);
+      expect(page.slideNumber).toBeDefined();
+      expect(deck.slides.indexOf(page)).toBe(index);
+    }
+    const generatedSection = deck.sections?.find(({ title }) => /^Default-/.test(title));
+    expect(generatedSection?.slideIds).toEqual(pages.map(({ slideId }) => slideId));
+
+    const reopened = await PptxDocument.open(await deck.write());
+    expect(reopened.slides).toHaveLength(pages.length);
+    expect(reopened.slides.every((slide) =>
+      slide.shapes.some((shape) => shape instanceof TableModel))).toBe(true);
+  });
+
+  it('appends after existing slides and supports repeated invocations', async () => {
+    const deck = PptxDocument.create();
+    const sentinel = deck.addSlide();
+    const firstDom = tableFixture({ id: 'first', bodies: [[[cell('First')]]] });
+    const secondDom = tableFixture({ id: 'second', bodies: [[[cell('Second')]]] });
+    const first = await withGlobalDocument(firstDom.document, () => deck.tableToSlides('first', {
+      autoPage: false,
+    }));
+    const second = await withGlobalDocument(secondDom.document, () => deck.tableToSlides('second', {
+      autoPage: false,
+    }));
+    expect(deck.slides).toEqual([sentinel, ...first, ...second]);
+    expect(first[0]).not.toBe(second[0]);
+  });
+
+  it('rejects missing layouts and false auto-page controls before adding a slide', async () => {
+    const dom = tableFixture({ bodies: [[[cell('A')]]] });
+    const deck = PptxDocument.create();
+    const before = packageState(deck);
+    await expect(withGlobalDocument(dom.document, () => deck.tableToSlides('table', {
+      masterSlideName: 'MISSING',
+    }))).rejects.toThrow(/not found/i);
+    await expect(withGlobalDocument(dom.document, () => deck.tableToSlides('table', {
+      autoPage: false,
+      autoPageRepeatHeader: true,
+    }))).rejects.toThrow(/require autoPage to be true/i);
+    expect(packageState(deck)).toEqual(before);
+    expect(deck.slides).toEqual([]);
+  });
+
+  it('rolls back slides, generated pages, relationships, and cached identities on failure', async () => {
+    const body = Array.from({ length: 40 }, (_, index) => [
+      cell(`Row ${index} ${'content '.repeat(8)}`),
+    ]);
+    const dom = tableFixture({ bodies: [body] });
+    const deck = PptxDocument.create({
+      slideSize: { width: inches(5), height: inches(2) },
+    });
+    const sentinel = deck.addSlide();
+    const before = packageState(deck);
+    const original = SlideModel.prototype.addTable;
+    const failure = vi.spyOn(SlideModel.prototype, 'addTable').mockImplementation(function (
+      this: SlideModel,
+      ...args: Parameters<SlideModel['addTable']>
+    ) {
+      original.apply(this, args);
+      throw new Error('injected tableToSlides failure');
+    });
+    try {
+      await expect(withGlobalDocument(dom.document, () => deck.tableToSlides('table')))
+        .rejects.toThrow(/injected tableToSlides failure/i);
+    } finally {
+      failure.mockRestore();
+    }
+    expect(packageState(deck)).toEqual(before);
+    expect(deck.slides).toEqual([sentinel]);
+
+    const retry = await withGlobalDocument(dom.document, () => deck.tableToSlides('table'));
+    expect(retry.length).toBeGreaterThan(1);
+    expect(deck.slides).toEqual([sentinel, ...retry]);
+  });
+
+  it('cleans a detached first-slide model when slide creation fails after attachment', async () => {
+    const dom = tableFixture({ bodies: [[[cell('A')]]] });
+    const deck = PptxDocument.create();
+    const before = packageState(deck);
+    const original = PptxDocument.prototype.addSlide;
+    const failure = vi.spyOn(PptxDocument.prototype, 'addSlide').mockImplementation(function (
+      this: PptxDocument,
+      ...args: Parameters<PptxDocument['addSlide']>
+    ) {
+      original.apply(this, args);
+      throw new Error('injected first-slide failure');
+    });
+    try {
+      await expect(withGlobalDocument(dom.document, () => deck.tableToSlides('table')))
+        .rejects.toThrow(/injected first-slide failure/i);
+    } finally {
+      failure.mockRestore();
+    }
+    expect(packageState(deck)).toEqual(before);
+    expect(deck.slides).toEqual([]);
+    const retry = await withGlobalDocument(dom.document, () => deck.tableToSlides('table', {
+      autoPage: false,
+    }));
+    expect(retry).toHaveLength(1);
+    expect(deck.slides).toEqual(retry);
   });
 });
 
