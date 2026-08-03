@@ -1223,9 +1223,30 @@ table.setCellRichText(0, 1, [{ runs: [{ text: '全量替换，不重新继承创
 
 Resolved 值只物化为每个 physical cell 的 direct paragraph/run OOXML，不保留 table/cell 创建 metadata。`TableCell.richText` 可立即读取最终 direct state；`setCellText()` 保留安全 plain run 的当前样式模板，`setCellRichText()` whole-replace 后不会重新应用创建默认值。空段落的 `endParaRPr` 会携带 resolved font family/font size。Cell-default hyperlink 保留 outer color；run-local hyperlink 若没有 explicit run color，则不继承 outer color，显式 run color 始终优先。
 
-PptxGenJS 4.0.1 的合法 table/cell `fontFace`、font size、bold、color、cell paragraph spacing、rich override、empty paragraph 和 hyperlink final state 均可导入、编辑并重开。Native 另外支持 table-level spacing 传播，并修正其 truthy fallback 会覆盖 cell/run `bold: false` 以及 writer 修改 caller options 的行为。总体 PptxGenJS 对等进度约 98.5%；剩余依次为 merge/colspan/rowspan、row/column CRUD、auto-page/repeated headers、`tableToSlides` 与最终 peer/client audit。
+PptxGenJS 4.0.1 的合法 table/cell `fontFace`、font size、bold、color、cell paragraph spacing、rich override、empty paragraph 和 hyperlink final state 均可导入、编辑并重开。Native 另外支持 table-level spacing 传播，并修正其 truthy fallback 会覆盖 cell/run `bold: false` 以及 writer 修改 caller options 的行为。表格合并已在下一专项完成；当前总体 PptxGenJS 对等进度约 98.9%，剩余依次为 row/column CRUD、auto-page/repeated headers、content measurement/layout recomputation、`tableToSlides` 与最终 peer/client audit。
 
 最终 full Vitest 为 85 passed / 1 skipped test files、1497 passed / 1 skipped tests（167.50s），1000-part performance 为 1565ms；TypeScript、Node/browser bundles 与 declarations 均通过。实际 62-file tarball SHA-256 为 `79ed789e6d4f218cc5c838af9e5965e96bd7e35f132d2a630a85ac5dd39ed222`；installed Node、NodeNext types、browser conditional export、CLI 与 Inspector 均报告 table text defaults 通过。最终 evidence deck 为 18 parts / 15 relationships、1 slide / 1 table / 3 cells，PowerPoint 2010 为 0 errors / 0 warnings；Google Chrome 150.0.7871.188 的 create/snapshot/plain edit/rich replacement/reopen 均为 true，validation/console/page/network errors 均为 0。实现、复核与发布证明 commits 为 `e8cd0c7`、`0fc1567`、`af4e419`、`d6f3fd9`、`6e5df9a`、`145148b`、`2eb1a5f`；证据位于 `/tmp/pptx-table-text-defaults-proof.ViSdTX`。
+
+## 创建、读取和编辑表格单元格合并
+
+```ts
+const table = slide.addTable([
+  [{ text: 'Summary', options: { colspan: 2, rowspan: 2 } }, 'Total'],
+  ['42'],
+]);
+
+console.log(table.mergeRegions);
+table.unmergeCell(1, 1); // region 中任意 physical cell 都可定位整个合并区域
+table.mergeCells(0, 0, 2, 2);
+```
+
+创建输入使用 logical rows。首行所有 cell 的 `colspan` 总和定义 physical column count；后续行会跳过仍被上方 `rowspan` 占用的列，因此完全被覆盖的行可以写成 `[]`。`colspan` / `rowspan` 只接受正 safe integer，省略或 `1` 表示该维不合并。输入会在 package mutation 前完成展开和校验；空洞、重叠、越界、非矩形或超过安全上限的布局直接拒绝。
+
+读取和编辑统一使用从零开始的 physical row/column coordinates。`TableModel.mergeRegions` 对合法未合并表返回 `[]`，对合法合并表返回按 row-major 排序的 detached deep-frozen `TableMergeRegion[]`，对不安全或歧义拓扑返回 `undefined`；每个合法区域内的 physical `TableCell.merge` 都指向同一 anchor，并以 `isAnchor` 区分左上角。`mergeCells()` 要求至少覆盖两个 cells，拒绝与现有区域发生非完全相同的相交；`unmergeCell()` 可接收 anchor 或任意 continuation。
+
+合并与拆分只修改 physical cell start tag 的 `rowSpan`、`gridSpan`、`vMerge`、`hMerge`。Continuation 中原有的隐藏文本、样式、关系和未知 XML 均被保留，拆分后重新可见；既有 cell editor 仍可按 physical coordinate 显式编辑这些状态。重复同一合并、拆分未合并 cell 都是 exact bytes/relationships/journal no-op；malformed 或不能安全识别的拓扑保留原 bytes，并拒绝语义编辑。
+
+PptxGenJS 4.0.1 的合法 horizontal、vertical、rectangular 和 offset span 输出可读取、编辑并由 native 创建为相同最终合并语义。Native 不复制其 lopsided non-span row、negative/fractional span 或 out-of-bounds rowspan 可产生非法 OOXML 的缺陷，而是在任何可观察 mutation 前严格拒绝。
 
 ## 创建和编辑预设形状、调整值与样式
 

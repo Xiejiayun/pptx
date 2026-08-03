@@ -966,8 +966,8 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余 advanced API 与全功能路线
 
-- 总体 PptxGenJS 对等进度仍约 97%；PptxGenJS 4.0.1 声明的六类 presentation runtime catalogs，以及 table-level direct vertical alignment、text direction、horizontal alignment 与 margins 已支持。
-- Table-level direct margins、fill、borders 与 table-cell hyperlink creation/read/edit/clear 已在后续专项完成；下一小项为 rich/multi-paragraph cell text/style，之后仍待 merge、row/column CRUD、auto-page/repeated headers、`tableToSlides` 与最终 peer/client audit，当前不声明完整 PptxGenJS parity。
+- 该阶段总体 PptxGenJS 对等进度约 97%；PptxGenJS 4.0.1 声明的六类 presentation runtime catalogs，以及 table-level direct vertical alignment、text direction、horizontal alignment 与 margins 已支持。
+- Table-level direct margins、fill、borders、table-cell hyperlink creation/read/edit/clear、rich/multi-paragraph cell text/style 与 merge/colspan/rowspan 已在后续专项完成；当前剩余 row/column CRUD、auto-page/repeated headers、content measurement/layout recomputation、`tableToSlides` 与最终 peer/client audit，尚不声明完整 PptxGenJS parity。
 
 ## PptxGenJS 全功能对等：Table-level direct margins
 
@@ -988,7 +988,7 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余 advanced API 与全功能路线
 
-- 总体 PptxGenJS 对等进度仍约 97%。Table-level direct fill、borders 与 table-cell hyperlink creation/read/edit/clear 已在后续专项完成；下一小项为 rich/multi-paragraph cell text/style，之后仍待其余 advanced table、`tableToSlides` 与最终 peer/client audit，当前不声明完整 PptxGenJS parity。
+- 该阶段总体 PptxGenJS 对等进度约 97%。Table-level direct fill、borders、table-cell hyperlink creation/read/edit/clear、rich/multi-paragraph cell text/style 与 merge/colspan/rowspan 已在后续专项完成；当前剩余 row/column CRUD、auto-page/repeated headers、content measurement/layout recomputation、`tableToSlides` 与最终 peer/client audit，尚不声明完整 PptxGenJS parity。
 
 ## PptxGenJS 全功能对等：Table-level direct fill
 
@@ -1009,7 +1009,7 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余 advanced API 与全功能路线
 
-- 总体 PptxGenJS 对等进度仍约 97%。Table-level direct borders 与 table-cell hyperlink creation/read/edit/clear 已在后续专项完成；下一小项为 rich/multi-paragraph cell text/style，之后仍待其余 advanced table、`tableToSlides` 与最终 peer/client audit，当前不声明完整 PptxGenJS parity。
+- 该阶段总体 PptxGenJS 对等进度约 97%。Table-level direct borders、table-cell hyperlink creation/read/edit/clear、rich/multi-paragraph cell text/style 与 merge/colspan/rowspan 已在后续专项完成；当前剩余 row/column CRUD、auto-page/repeated headers、content measurement/layout recomputation、`tableToSlides` 与最终 peer/client audit，尚不声明完整 PptxGenJS parity。
 
 ## PptxGenJS 全功能对等：Table-level direct borders
 
@@ -1030,7 +1030,7 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余 advanced API 与全功能路线
 
-- 总体 PptxGenJS 对等进度仍约 97%。Table-level fit 不是 PptxGenJS 4.0.1 table API，现有 cell fit 已作为 native extension；table-cell hyperlink creation/read/edit/clear 已在后续专项完成。下一小项为 rich/multi-paragraph cell text/style，之后再推进 merge、row/column CRUD、auto-page/repeated headers、`tableToSlides` 与最终 peer/client audit；当前不声明完整 PptxGenJS parity。
+- 该阶段总体 PptxGenJS 对等进度约 97%。Table-level fit 不是 PptxGenJS 4.0.1 table API，现有 cell fit 已作为 native extension；table-cell hyperlink、rich/multi-paragraph cell text/style 与 merge/colspan/rowspan 已在后续专项完成。当前剩余 row/column CRUD、auto-page/repeated headers、content measurement/layout recomputation、`tableToSlides` 与最终 peer/client audit；尚不声明完整 PptxGenJS parity。
 
 ## PptxGenJS 全功能对等：Table-cell hyperlink creation
 
@@ -1051,7 +1051,7 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余 advanced API 与全功能路线
 
-- 总体 PptxGenJS 对等进度仍约 97%。Table-cell hyperlink editing/clearing 已在下一专项完成；后续继续 rich/multi-paragraph cell text/style、merge/colspan/rowspan、row/column CRUD、auto-page/repeated headers、`tableToSlides` 与最终 peer/client audit，当前不声明完整 PptxGenJS parity。
+- 该阶段总体 PptxGenJS 对等进度约 97%。Table-cell hyperlink editing/clearing、rich/multi-paragraph cell text/style 与 merge/colspan/rowspan 已在后续专项完成；当前剩余 row/column CRUD、auto-page/repeated headers、content measurement/layout recomputation、`tableToSlides` 与最终 peer/client audit，尚不声明完整 PptxGenJS parity。
 
 ## PptxGenJS 全功能对等：Table-cell hyperlink editing
 
@@ -1073,7 +1073,28 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余 advanced API 与全功能路线
 
-- 总体 PptxGenJS 对等进度仍约 97%。下一小项为 rich/multi-paragraph table-cell text/style；之后继续 merge/colspan/rowspan、row/column CRUD、auto-page/repeated headers、`tableToSlides` 与最终 peer/client audit，当前不声明完整 PptxGenJS parity。
+- 该阶段总体 PptxGenJS 对等进度约 97%。Rich/multi-paragraph table-cell text/style 与 merge/colspan/rowspan 已在后续专项完成；当前剩余 row/column CRUD、auto-page/repeated headers、content measurement/layout recomputation、`tableToSlides` 与最终 peer/client audit，尚不声明完整 PptxGenJS parity。
+
+## PptxGenJS 全功能对等：Table-cell merge / colspan / rowspan
+
+状态：核心与公开契约完成；实施 5/5，发布制品与客户端最终证明待后续独立小项
+
+### 本阶段 change
+
+- `AddTableCellOptions.colspan` / `rowspan` 支持 strict logical-row 创建。首行跨度总和定义 physical width；后续 logical rows 跳过 active rowspan，完全覆盖行可写 `[]`。布局在 mutation 前展开为完整 physical matrix，anchor 保留原内容/样式/关系，continuation 使用 canonical merge OOXML；空洞、重叠、越界、非法数值和超过 1,000,000 physical cells 的输入均拒绝。
+- 新增公开 `TableMergeRegion`、`TableCellMerge`、`TableModel.mergeRegions` 与 `TableCell.merge`。合法未合并表返回 `[]`；合法 merge regions 返回 row-major detached deep-frozen snapshot；不安全或歧义 direct topology 返回 `undefined`，不猜测、不修复。
+- 新增 `TableModel.mergeCells()` / `unmergeCell()`，统一采用零基 physical coordinates。编辑只改 `rowSpan/gridSpan/vMerge/hMerge`，continuation 的隐藏内容、样式、relationships、opaque children 与未知 XML 保持；exact repeat/unmerged unmerge 为零变更，非完全相同 overlap、越界和 malformed topology 在 mutation 前拒绝。
+- PptxGenJS 4.0.1 合法 horizontal、vertical、rectangular、offset span 的最终语义已对等。Native 严格拒绝其 lopsided non-span row、negative/fractional span 和 out-of-bounds rowspan 缺陷，不复制非法 OOXML；其余 PptxGenJS-specific input mutation 也不复制。
+- 识别、创建、snapshot/editor、SDK/root 类型契约与 adapter 对等 commits 为 `688f9f6`、`3d93f07`、`db01937`、`b2f6846`、`5832399`；文档作为独立小项 review、commit、push。
+
+### 当前验证结果
+
+- Model suite 239/239、SDK suite 217/217、PptxGenJS adapter suite 107/107 通过；全仓 TypeScript project references、Node/browser 聚合 bundle 与 declaration build 通过。
+- 本节只记录已运行的核心和构建门禁。Actual tarball、Node/NodeNext/browser/CLI/Inspector、真实 Chrome、PowerPoint 2010、full/performance 与最终 evidence deck 数字在后续证明小项完成后补录。
+
+### 剩余 advanced API 与全功能路线
+
+- 当前总体 PptxGenJS 对等进度约 98.9%。后续顺序固定为 row/column CRUD → auto-page/repeated headers → content measurement/layout recomputation → `tableToSlides` → 最终 peer/client audit；尚不声明完整 PptxGenJS parity。
 
 ## 0.1.0 初始验收
 
