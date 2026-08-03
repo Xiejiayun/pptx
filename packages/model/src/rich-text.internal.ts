@@ -1463,7 +1463,8 @@ function renderRun(
     'dirty="0"',
   ].filter(Boolean).join(' ');
   const suppressOuterColor = options.suppressDefaultColorForHyperlinks
-    && options.hyperlink !== undefined
+    && style.hyperlink !== undefined
+    && style.hyperlink !== false
     && style.color === undefined;
   const color = style.color
     ?? (suppressOuterColor ? undefined : options.defaultColor)

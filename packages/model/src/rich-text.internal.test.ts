@@ -306,6 +306,29 @@ describe('rich text run style defaults', () => {
     )).toHaveLength(2);
   });
 
+  it('keeps outer color for default hyperlinks while suppressing it for local hyperlinks', () => {
+    const paragraphs = normalizeRichText([{
+      runs: [
+        { text: 'Default' },
+        { text: 'Local', style: { hyperlink: { url: 'https://local.example' } } },
+      ],
+    }]);
+    const rendered = renderRichTextParagraphs(paragraphs, {
+      defaultColor: { kind: 'scheme', value: 'accent1' },
+      defaultHyperlink: normalizeHyperlink({ url: 'https://default.example' }, 'default'),
+      hyperlinkRelationshipId: 'rIdDefault',
+      runHyperlinkRelationshipIds: [[undefined, 'rIdLocal']],
+      suppressDefaultColorForHyperlinks: true,
+    });
+    const runs = [...rendered.matchAll(/<a:r>[\s\S]*?<\/a:r>/g)]
+      .map(([run]) => run);
+
+    expect(runs[0]).toContain('<a:schemeClr val="accent1"/>');
+    expect(runs[0]).toContain('r:id="rIdDefault"');
+    expect(runs[1]).not.toContain('<a:solidFill>');
+    expect(runs[1]).toContain('r:id="rIdLocal"');
+  });
+
   it('keeps legacy rendering byte-identical when defaults are omitted', () => {
     const paragraphs = normalizeRichText([{ runs: [{ text: 'Legacy' }] }]);
 

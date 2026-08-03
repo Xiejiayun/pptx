@@ -291,7 +291,7 @@ describe('table creation internals', () => {
     )).toHaveLength(2);
   });
 
-  it('suppresses inherited table-cell colors on linked runs without changing omitted bytes', () => {
+  it('suppresses local hyperlink colors while preserving default hyperlink colors and omitted bytes', () => {
     const definition = normalizeTableDefinition([[
       {
         text: [{
@@ -336,7 +336,7 @@ describe('table creation internals', () => {
     expect(runs[1]).toContain('r:id="rId8"');
     expect(runs[2]).toContain('sz="1800" b="1" u="sng"');
     expect(runs[2]).toContain('typeface="Aptos"');
-    expect(runs[2]).not.toContain('<a:solidFill>');
+    expect(runs[2]).toContain('<a:schemeClr val="accent1"/>');
     expect(runs[2]).toContain('r:id="rIdDefault"');
 
     const omitted = renderTableGraphicFrame(
