@@ -9110,6 +9110,97 @@ describe('importPptxGenJS', () => {
     expect(nativeXml).toContain('<a:ext cx="914400" cy="2743200"/>');
   });
 
+  it('projects and normalizes PptxGenJS table-level margin output', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    generated.layout = 'LAYOUT_WIDE';
+    const slide = generated.addSlide();
+    slide.addTable(
+      [[{ text: 'Uniform A', options: {} }, { text: 'Uniform B', options: {} }]],
+      { x: 0.5, y: 0.5, w: 4, h: 1, margin: [0.05, 0.1, 0.15, 0.2] },
+    );
+    slide.addTable(
+      [[{ text: 'Omitted A', options: {} }, { text: 'Omitted B', options: {} }]],
+      { x: 0.5, y: 2, w: 4, h: 1 },
+    );
+    slide.addTable(
+      [[
+        { text: 'Inherited', options: {} },
+        { text: 'Override', options: { margin: 0 } },
+      ]],
+      { x: 0.5, y: 3.5, w: 4, h: 1, margin: 0.1 },
+    );
+
+    const imported = await importPptxGenJS(generated);
+    const tables = imported.slides[0]!.shapes.filter(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    );
+    expect(tables).toHaveLength(3);
+    expect(tables[0]!.margins).toEqual({
+      top: 3.6,
+      right: 7.2,
+      bottom: 10.8,
+      left: 14.4,
+    });
+    expect(tables[0]!.rows[0]!.cells.map(({ margins }) => margins)).toEqual(Array(2).fill({
+      top: 3.6,
+      right: 7.2,
+      bottom: 10.8,
+      left: 14.4,
+    }));
+    expect(tables[1]!.margins).toEqual({
+      top: 3.6,
+      right: 7.2,
+      bottom: 3.6,
+      left: 7.2,
+    });
+    expect(tables[2]!.margins).toBeUndefined();
+    expect(tables[2]!.rows[0]!.cells.map(({ margins }) => margins)).toEqual([
+      { top: 7.2, right: 7.2, bottom: 7.2, left: 7.2 },
+      { top: 0, right: 0, bottom: 0, left: 0 },
+    ]);
+
+    tables[2]!.margins = [1, 2, 3, 4];
+    expect(tables[2]!.margins).toEqual({ top: 1, right: 2, bottom: 3, left: 4 });
+    expect(tables[2]!.rows[0]!.cells.map(({ margins }) => margins)).toEqual(Array(2).fill({
+      top: 1,
+      right: 2,
+      bottom: 3,
+      left: 4,
+    }));
+
+    const reopened = await PptxDocument.open(await imported.write());
+    const reopenedTables = reopened.slides[0]!.shapes.filter(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    );
+    expect(reopenedTables[0]!.margins).toEqual({
+      top: 3.6,
+      right: 7.2,
+      bottom: 10.8,
+      left: 14.4,
+    });
+    expect(reopenedTables[1]!.margins).toEqual({
+      top: 3.6,
+      right: 7.2,
+      bottom: 3.6,
+      left: 7.2,
+    });
+    expect(reopenedTables[2]!.margins).toEqual({ top: 1, right: 2, bottom: 3, left: 4 });
+    expect(reopenedTables[2]!.rows[0]!.cells.map(({ margins }) => margins)).toEqual(Array(2).fill({
+      top: 1,
+      right: 2,
+      bottom: 3,
+      left: 4,
+    }));
+
+    const xml = new TextDecoder().decode(
+      reopened.opcPackage.requirePart(reopened.slides[0]!.partUri).bytes,
+    );
+    expect(xml.match(/<a:tcPr\b[^>]*marL="50800"[^>]*marR="25400"[^>]*marT="12700"[^>]*marB="38100"/g))
+      .toHaveLength(2);
+    expect(xml).not.toMatch(/<a:bodyPr\b[^>]*(?:marL|marR|marT|marB)=/);
+  });
+
   it('projects and normalizes PptxGenJS table-level horizontal alignment output', async () => {
     const generated = new PptxGenJS();
     expect(generated.version).toBe('4.0.1');

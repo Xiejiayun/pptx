@@ -36,6 +36,7 @@ import {
   type TableCellTextDirection,
   type TextAlignment,
   type TextBoxMarginInput,
+  type TextBoxMargins,
   type TextBoxVerticalAlignment,
 } from './index.js';
 import { readShapeHyperlink } from './shape-hyperlink.internal.js';
@@ -11427,6 +11428,228 @@ describe('PresentationModel', () => {
     ]);
     expect(reopenedTable!.columnWidths).toEqual(Array(4).fill(inches(2)));
     expect(reopenedTable!.rowHeights).toEqual([inches(1)]);
+  });
+
+  it('projects and atomically edits uniform table margins', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const table = slide.addTable([
+      [
+        {
+          text: 'North',
+          options: {
+            border: {
+              kind: 'line',
+              color: { kind: 'scheme', value: 'accent1' },
+              width: 1.5,
+              style: 'dash',
+            },
+            fill: {
+              kind: 'solid',
+              color: { kind: 'srgb', value: 'D9EAF7' },
+              transparency: 25,
+            },
+            fit: 'shrink',
+            textDirection: 'vert270',
+            valign: 'middle',
+          },
+        },
+        'South',
+      ],
+      ['East', 'West'],
+    ], {
+      name: 'Uniform table margins',
+      align: 'center',
+      margin: [3.6, 7.2, 10.8, 14.4],
+      columnWidths: [inches(2), inches(3)],
+      rowHeights: [inches(0.75), inches(1.25)],
+    });
+    const nonMarginState = () => table.rows.map(({ cells }) => cells.map(({
+      text,
+      borders,
+      fill,
+      horizontalAlignment,
+      textDirection,
+      textFit,
+      verticalAlignment,
+    }) => ({
+      text,
+      borders,
+      fill,
+      horizontalAlignment,
+      textDirection,
+      textFit,
+      verticalAlignment,
+    })));
+    const initialNonMarginState = nonMarginState();
+    const initialTransform = table.transform;
+    const initialColumnWidths = table.columnWidths;
+    const initialRowHeights = table.rowHeights;
+    const untouchedPartUri = '/ppt/custom/opaque1.bin';
+    const untouchedBefore = pkg.requirePart(untouchedPartUri).bytes.slice();
+
+    expect(table.margins).toEqual({ top: 3.6, right: 7.2, bottom: 10.8, left: 14.4 });
+    const detached = table.margins!;
+    (detached as { top?: number }).top = 99;
+    expect(table.margins).toEqual({ top: 3.6, right: 7.2, bottom: 10.8, left: 14.4 });
+    const noOpBytes = pkg.requirePart(slide.partUri).bytes.slice();
+    const noOpJournal = [...pkg.mutations];
+    table.margins = [3.6, 7.2, 10.8, 14.4];
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(noOpBytes);
+    expect(pkg.mutations).toEqual(noOpJournal);
+
+    table.setCellMargins(0, 1, { top: 9 });
+    expect(table.margins).toBeUndefined();
+    table.margins = 6;
+    expect(table.margins).toEqual({ top: 6, right: 6, bottom: 6, left: 6 });
+    expect(table.rows.flatMap(({ cells }) => cells).map(({ margins }) => margins))
+      .toEqual(Array(4).fill({ top: 6, right: 6, bottom: 6, left: 6 }));
+    expect(nonMarginState()).toEqual(initialNonMarginState);
+
+    table.margins = { top: 2, left: 4 };
+    expect(table.margins).toEqual({ top: 2, left: 4 });
+    expect(table.rows.flatMap(({ cells }) => cells).map(({ margins }) => margins))
+      .toEqual(Array(4).fill({ top: 2, left: 4 }));
+    table.margins = {};
+    expect(table.margins).toBeUndefined();
+    expect(table.rows.flatMap(({ cells }) => cells)
+      .every(({ margins }) => margins === undefined)).toBe(true);
+    const clearBytes = pkg.requirePart(slide.partUri).bytes.slice();
+    const clearJournal = [...pkg.mutations];
+    table.margins = undefined;
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(clearBytes);
+    expect(pkg.mutations).toEqual(clearJournal);
+
+    table.margins = [1, 2, 3, 4];
+    const duplicate = model.duplicateSlide(model.slides.indexOf(slide));
+    const duplicateTable = duplicate.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    );
+    expect(duplicateTable).toBeInstanceOf(TableModel);
+    expect(duplicateTable!.margins).toEqual({ top: 1, right: 2, bottom: 3, left: 4 });
+    table.margins = 5;
+    expect(table.margins).toEqual({ top: 5, right: 5, bottom: 5, left: 5 });
+    expect(duplicateTable!.margins).toEqual({ top: 1, right: 2, bottom: 3, left: 4 });
+    table.margins = [1, 2, 3, 4];
+
+    const beforeRollback = pkg.requirePart(slide.partUri).bytes.slice();
+    const rollbackJournal = [...pkg.mutations];
+    expect(() => pkg.transaction(() => {
+      table.margins = { bottom: 9 };
+      throw new Error('restore table-level margins');
+    })).toThrow('restore table-level margins');
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeRollback);
+    expect(pkg.mutations).toEqual(rollbackJournal);
+    expect(table.margins).toEqual({ top: 1, right: 2, bottom: 3, left: 4 });
+
+    for (const [invalid, ErrorType] of [
+      [null, TypeError],
+      [false, TypeError],
+      [true, TypeError],
+      ['', TypeError],
+      [[1, 2, 3], RangeError],
+      [[1, 2, 3, 4, 5], RangeError],
+      [{ middle: 1 }, TypeError],
+      [{ top: Number.NaN }, TypeError],
+      [Object.create({ top: 1 }), TypeError],
+      [Symbol('margins'), TypeError],
+    ] as const) {
+      const beforeInvalid = pkg.requirePart(slide.partUri).bytes.slice();
+      const invalidJournal = [...pkg.mutations];
+      expect(() => {
+        table.margins = invalid as never;
+      }).toThrow(ErrorType);
+      expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeInvalid);
+      expect(pkg.mutations).toEqual(invalidJournal);
+    }
+
+    model.moveSlide(model.slides.indexOf(duplicate), 0);
+    expect(table.margins).toEqual({ top: 1, right: 2, bottom: 3, left: 4 });
+    expect(duplicateTable!.margins).toEqual({ top: 1, right: 2, bottom: 3, left: 4 });
+    expect(nonMarginState()).toEqual(initialNonMarginState);
+    expect(table.transform).toEqual(initialTransform);
+    expect(table.columnWidths).toEqual(initialColumnWidths);
+    expect(table.rowHeights).toEqual(initialRowHeights);
+    expect(pkg.requirePart(untouchedPartUri).bytes).toEqual(untouchedBefore);
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedSourceTable = reopened.slides
+      .find(({ partUri }) => partUri === slide.partUri)
+      ?.shapes.find((shape): shape is TableModel => shape instanceof TableModel);
+    const reopenedDuplicateTable = reopened.slides
+      .find(({ partUri }) => partUri === duplicate.partUri)
+      ?.shapes.find((shape): shape is TableModel => shape instanceof TableModel);
+    expect(reopenedSourceTable).toBeInstanceOf(TableModel);
+    expect(reopenedDuplicateTable).toBeInstanceOf(TableModel);
+    for (const reopenedTable of [reopenedSourceTable!, reopenedDuplicateTable!]) {
+      expect(reopenedTable.margins).toEqual({ top: 1, right: 2, bottom: 3, left: 4 });
+      expect(reopenedTable.rows.flatMap(({ cells }) => cells).map(({ margins }) => margins))
+        .toEqual(Array(4).fill({ top: 1, right: 2, bottom: 3, left: 4 }));
+    }
+    expect(reopenedSourceTable!.transform).toEqual(initialTransform);
+    expect(reopenedSourceTable!.columnWidths).toEqual(initialColumnWidths);
+    expect(reopenedSourceTable!.rowHeights).toEqual(initialRowHeights);
+    expect(reopened.opcPackage.requirePart(untouchedPartUri).bytes).toEqual(untouchedBefore);
+
+    if (false) {
+      const margins: TextBoxMargins | undefined = table.margins;
+      table.margins = 6;
+      table.margins = [1, 2, 3, 4];
+      table.margins = { top: 2, left: 4 };
+      table.margins = {};
+      table.margins = undefined;
+      // @ts-expect-error table margins reject null
+      table.margins = null;
+      // @ts-expect-error table margin tuple requires four values
+      table.margins = [1, 2, 3];
+      void margins;
+    }
+  });
+
+  it('rejects unsafe table-level margin edits without partial package mutation', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const table = slide.addTable([['First', 'Second']], { margin: 1 });
+    const original = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    const finalPropertiesOffset = original.lastIndexOf('<a:tcPr');
+    const finalPropertiesEnd = original.indexOf('>', finalPropertiesOffset);
+    expect(finalPropertiesOffset).toBeGreaterThanOrEqual(0);
+    expect(finalPropertiesEnd).toBeGreaterThan(finalPropertiesOffset);
+    const repeatedMargin = original.slice(0, finalPropertiesEnd) +
+      ' marT="25400"' + original.slice(finalPropertiesEnd);
+    pkg.setPart(slide.partUri, repeatedMargin, pkg.requirePart(slide.partUri).contentType);
+    expect(table.margins).toBeUndefined();
+    const beforeUnsafe = pkg.requirePart(slide.partUri).bytes.slice();
+    const unsafeJournal = [...pkg.mutations];
+    expect(() => {
+      table.margins = 2;
+    }).toThrow(ModelParseError);
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeUnsafe);
+    expect(pkg.mutations).toEqual(unsafeJournal);
+
+    const malformed = original.replace(/marT="12700"(?=[^<]*>[^]*$)/, 'marT="bad"');
+    pkg.setPart(slide.partUri, malformed, pkg.requirePart(slide.partUri).contentType);
+    expect(table.margins).toBeUndefined();
+    table.margins = 2;
+    expect(table.margins).toEqual({ top: 2, right: 2, bottom: 2, left: 2 });
+  });
+
+  it('reopens table-level margins in every presentation format', async () => {
+    for (const profile of Object.values(PRESENTATION_FORMAT_PROFILES)) {
+      const model = new PresentationModel(await OpcPackage.open(
+        await modelFixture(profile.presentationContentType),
+      ));
+      const table = model.addSlide().addTable([['A', 'B']], { margin: 1 });
+      table.margins = { top: 2, left: 4 };
+      const reopened = new PresentationModel(await OpcPackage.open(await model.opcPackage.write()));
+      expect(reopened.format).toBe(profile.format);
+      const reopenedTable = reopened.slides.at(-1)!.shapes[0] as TableModel;
+      expect(reopenedTable.margins).toEqual({ top: 2, left: 4 });
+      expect(reopenedTable.rows[0]!.cells.map(({ margins }) => margins))
+        .toEqual(Array(2).fill({ top: 2, left: 4 }));
+    }
   });
 
   it('projects and atomically edits uniform table horizontal alignment', async () => {

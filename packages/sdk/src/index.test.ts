@@ -78,6 +78,7 @@ import {
   type SlideNumberTextStyle,
   type SlideNumberTextStyleOptions,
   type TextAlignment,
+  type TextBoxMargins,
   type TableCellTextDirection,
   type TextBoxVerticalAlignment,
   type PresentationLayout,
@@ -13960,6 +13961,110 @@ describe('PptxDocument vertical slice', () => {
       undefined,
       'middle',
     ]);
+  });
+
+  it('projects and edits table-level margins through the public root API', async () => {
+    const document = PptxDocument.create();
+    const slide = document.addSlide();
+    const table = slide.addTable([
+      ['North', 'South'],
+      ['East', 'West'],
+    ], {
+      name: 'Public table margins',
+      margin: [3.6, 7.2, 10.8, 14.4],
+      columnWidths: inches(2),
+      rowHeights: inches(0.75),
+    });
+    expect(table).toBeInstanceOf(TableModel);
+    expect(table.margins).toEqual({ top: 3.6, right: 7.2, bottom: 10.8, left: 14.4 });
+    expect(validatePackage(document.opcPackage)
+      .filter(({ severity }) => severity === 'error')).toEqual([]);
+
+    const detached = table.margins!;
+    (detached as { top?: number }).top = 99;
+    expect(table.margins).toEqual({ top: 3.6, right: 7.2, bottom: 10.8, left: 14.4 });
+    const noOpBytes = document.opcPackage.requirePart(slide.partUri).bytes.slice();
+    const noOpJournal = [...document.opcPackage.mutations];
+    const noOpDiagnostics = [...document.diagnostics];
+    table.margins = [3.6, 7.2, 10.8, 14.4];
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(noOpBytes);
+    expect(document.opcPackage.mutations).toEqual(noOpJournal);
+    expect(document.diagnostics).toEqual(noOpDiagnostics);
+
+    table.setCellMargins(0, 1, { top: 9 });
+    expect(table.margins).toBeUndefined();
+    table.margins = 6;
+    expect(table.margins).toEqual({ top: 6, right: 6, bottom: 6, left: 6 });
+    expect(table.rows.flatMap(({ cells }) => cells).map(({ margins }) => margins))
+      .toEqual(Array(4).fill({ top: 6, right: 6, bottom: 6, left: 6 }));
+
+    table.margins = { top: 2, left: 4 };
+    expect(table.margins).toEqual({ top: 2, left: 4 });
+    expect(table.rows.flatMap(({ cells }) => cells).map(({ margins }) => margins))
+      .toEqual(Array(4).fill({ top: 2, left: 4 }));
+    table.margins = {};
+    expect(table.margins).toBeUndefined();
+    expect(table.rows.flatMap(({ cells }) => cells)
+      .every(({ margins }) => margins === undefined)).toBe(true);
+    const clearedBytes = document.opcPackage.requirePart(slide.partUri).bytes.slice();
+    const clearedJournal = [...document.opcPackage.mutations];
+    table.margins = undefined;
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(clearedBytes);
+    expect(document.opcPackage.mutations).toEqual(clearedJournal);
+
+    table.margins = [1, 2, 3, 4];
+    const duplicate = document.duplicateSlide(0);
+    const duplicateTable = duplicate.shapes[0] as TableModel;
+    expect(duplicateTable.margins).toEqual({ top: 1, right: 2, bottom: 3, left: 4 });
+    table.margins = 5;
+    expect(table.margins).toEqual({ top: 5, right: 5, bottom: 5, left: 5 });
+    expect(duplicateTable.margins).toEqual({ top: 1, right: 2, bottom: 3, left: 4 });
+    table.margins = [1, 2, 3, 4];
+
+    const beforeRollback = document.opcPackage.requirePart(slide.partUri).bytes.slice();
+    const rollbackJournal = [...document.opcPackage.mutations];
+    expect(() => document.transaction(() => {
+      table.margins = { bottom: 9 };
+      throw new Error('restore public table margins');
+    })).toThrow('restore public table margins');
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(beforeRollback);
+    expect(document.opcPackage.mutations).toEqual(rollbackJournal);
+    expect(table.margins).toEqual({ top: 1, right: 2, bottom: 3, left: 4 });
+
+    const beforeInvalid = document.opcPackage.requirePart(slide.partUri).bytes.slice();
+    const invalidJournal = [...document.opcPackage.mutations];
+    const invalidDiagnostics = [...document.diagnostics];
+    expect(() => {
+      table.margins = null as never;
+    }).toThrow('Table margins must be a number, four-value tuple, or margin object');
+    expect(document.opcPackage.requirePart(slide.partUri).bytes).toEqual(beforeInvalid);
+    expect(document.opcPackage.mutations).toEqual(invalidJournal);
+    expect(document.diagnostics).toEqual(invalidDiagnostics);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedTable = reopened.slides[0]!.shapes[0] as TableModel;
+    const reopenedDuplicate = reopened.slides[1]!.shapes[0] as TableModel;
+    for (const current of [reopenedTable, reopenedDuplicate]) {
+      expect(current.margins).toEqual({ top: 1, right: 2, bottom: 3, left: 4 });
+      expect(current.rows.flatMap(({ cells }) => cells).map(({ margins }) => margins))
+        .toEqual(Array(4).fill({ top: 1, right: 2, bottom: 3, left: 4 }));
+    }
+    expect(validatePackage(reopened.opcPackage)
+      .filter(({ severity }) => severity === 'error')).toEqual([]);
+
+    if (false) {
+      const margins: TextBoxMargins | undefined = table.margins;
+      table.margins = 6;
+      table.margins = [1, 2, 3, 4];
+      table.margins = { top: 2, left: 4 };
+      table.margins = {};
+      table.margins = undefined;
+      // @ts-expect-error table margins reject null
+      table.margins = null;
+      // @ts-expect-error table margin tuple requires four values
+      table.margins = [1, 2, 3];
+      void margins;
+    }
   });
 
   it('projects and edits table-level horizontal alignment through the public root API', async () => {

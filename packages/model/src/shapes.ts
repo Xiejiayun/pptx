@@ -68,7 +68,9 @@ import {
 } from './table-cell-horizontal-alignment.internal.js';
 import {
   readTableCellMargins,
+  readTableMargins,
   replaceTableCellMargins,
+  replaceTableMargins,
 } from './table-cell-margins.internal.js';
 import {
   readTableCellTextFit,
@@ -626,6 +628,21 @@ export class TableModel extends BaseShapeModel {
         alignment,
         this.slide.partUri,
       )) {
+        this.slide.setXml(xml.serialize());
+      }
+    });
+  }
+
+  get margins(): TextBoxMargins | undefined {
+    const { xml, element } = this.resolve();
+    return readTableMargins(xml, element);
+  }
+
+  set margins(value: TextBoxMarginInput | undefined) {
+    const margins = normalizeTextBoxMargins(value, 'Table margins');
+    this.slide.presentation.opcPackage.transaction(() => {
+      const { xml, element } = this.resolve();
+      if (replaceTableMargins(xml, element, margins, this.slide.partUri)) {
         this.slide.setXml(xml.serialize());
       }
     });

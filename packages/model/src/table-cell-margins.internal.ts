@@ -1,5 +1,6 @@
 import { LosslessXmlDocument, type XmlElement } from '@pptx/lossless-xml';
 import { ModelParseError } from './errors.js';
+import { readDirectTablePhysicalCells } from './table-physical-cells.internal.js';
 import type { TextBoxMargins } from './text.js';
 
 const EMU_PER_POINT = 12_700;
@@ -44,6 +45,22 @@ export function readTableCellMargins(
     if (raw !== undefined) margins[side] = raw / EMU_PER_POINT;
   }
   return Object.keys(margins).length > 0 ? margins : undefined;
+}
+
+export function readTableMargins(
+  _xml: LosslessXmlDocument,
+  frame: XmlElement,
+): TextBoxMargins | undefined {
+  const cells = readDirectTablePhysicalCells(frame);
+  if (!cells) return undefined;
+  const first = readStrictTableCellMargins(cells[0]!);
+  if (!first) return undefined;
+  return cells.slice(1).every((cell) => {
+    const candidate = readStrictTableCellMargins(cell);
+    return candidate !== undefined && SIDES.every(
+      ([side]) => candidate[side] === first[side],
+    );
+  }) ? first : undefined;
 }
 
 export function replaceTableCellMargins(
@@ -93,6 +110,43 @@ export function replaceTableCellMargins(
   }
   xml.replaceElement(propertiesElement, updated);
   return true;
+}
+
+export function replaceTableMargins(
+  xml: LosslessXmlDocument,
+  frame: XmlElement,
+  margins: TextBoxMargins | undefined,
+  partUri: string,
+): boolean {
+  const cells = readDirectTablePhysicalCells(frame);
+  if (!cells) {
+    throw new ModelParseError(
+      'Table must contain one complete set of direct physical cells',
+      partUri,
+    );
+  }
+  let changed = false;
+  for (const cell of cells) {
+    changed = replaceTableCellMargins(xml, cell, margins, partUri) || changed;
+  }
+  return changed;
+}
+
+function readStrictTableCellMargins(cell: XmlElement): TextBoxMargins | undefined {
+  const directProperties = directChildren(cell, 'tcPr');
+  if (directProperties.length !== 1) return undefined;
+  const margins: { top?: number; right?: number; bottom?: number; left?: number } = {};
+  for (const [side, attributeName] of SIDES) {
+    const attributes = directProperties[0]!.attributes.filter(
+      ({ name }) => name === attributeName,
+    );
+    if (attributes.length > 1) return undefined;
+    if (attributes.length === 0) continue;
+    const raw = parseRaw(attributes[0]!.value);
+    if (raw === undefined) return undefined;
+    margins[side] = raw / EMU_PER_POINT;
+  }
+  return Object.keys(margins).length > 0 ? margins : undefined;
 }
 
 function updateAttribute(
