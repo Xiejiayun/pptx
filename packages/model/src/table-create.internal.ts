@@ -53,6 +53,10 @@ import type {
   TextBoxVerticalAlignment,
 } from './text.js';
 import type { TableCellMergeTokens } from './table-cell-merge.internal.js';
+import {
+  normalizeTableAutoPageRequest,
+  type NormalizedTableAutoPageRequest,
+} from './table-auto-page.internal.js';
 
 const EMU_PER_INCH = 914_400;
 const DEFAULT_OFFSET = EMU_PER_INCH / 2;
@@ -63,6 +67,11 @@ const RELATIONSHIP_NAMESPACE =
 const OPTION_KEYS = [
   'name',
   'placeholder',
+  'autoPage',
+  'autoPageRepeatHeader',
+  'autoPageHeaderRows',
+  'autoPageSlideStartY',
+  'slideMargin',
   'x',
   'y',
   'width',
@@ -90,7 +99,7 @@ interface NormalizedTableTextDefaults {
   readonly spacing?: NormalizedParagraphSpacingUpdate;
 }
 
-interface NormalizedTableCell extends NormalizedTableTextDefaults {
+export interface NormalizedTableCell extends NormalizedTableTextDefaults {
   readonly text: string;
   readonly richText?: ReturnType<typeof normalizeRichText>;
   readonly colspan?: number;
@@ -122,6 +131,7 @@ export interface NormalizedTableDefinition {
   readonly autoRowHeight: boolean;
   readonly columnWidths: readonly number[];
   readonly rowHeights: readonly number[];
+  readonly autoPage?: Readonly<NormalizedTableAutoPageRequest>;
 }
 
 export type TableCellHyperlinkRelationshipIds =
@@ -289,6 +299,13 @@ export function normalizeTableDefinition(
       : distributeTableDimension(height, physicalRows.length);
   }
 
+  const autoPage = normalizeTableAutoPageRequest(normalizedOptions, {
+    rowCount: physicalRows.length,
+    rowHeights,
+    autoRowHeight,
+    hasPlaceholder: placeholder !== undefined,
+  });
+
   return {
     rows: physicalRows,
     ...(name !== undefined ? { name } : {}),
@@ -300,6 +317,7 @@ export function normalizeTableDefinition(
     autoRowHeight,
     columnWidths,
     rowHeights,
+    ...(autoPage === undefined ? {} : { autoPage }),
   };
 }
 

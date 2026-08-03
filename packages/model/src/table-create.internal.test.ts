@@ -5,6 +5,139 @@ import {
   renderTableGraphicFrame,
 } from './table-create.internal.js';
 
+describe('table auto-page option normalization', () => {
+  it('normalizes detached strict controls, defaults, and scalar margins', () => {
+    const margin = [100, 200, 300, 400] as [number, number, number, number];
+    const definition = normalizeTableDefinition(
+      [['Header'], ['Body']],
+      {
+        autoPage: true,
+        autoPageRepeatHeader: true,
+        autoPageHeaderRows: 1,
+        autoPageSlideStartY: 500,
+        slideMargin: margin,
+        rowHeights: [40, 60],
+      },
+    );
+    expect(definition.autoPage).toEqual({
+      repeatHeader: true,
+      headerRows: 1,
+      slideStartY: 500,
+      slideMargin: [100, 200, 300, 400],
+    });
+    expect(Object.isFrozen(definition.autoPage)).toBe(true);
+    expect(Object.isFrozen(definition.autoPage!.slideMargin)).toBe(true);
+    margin[0] = 999;
+    expect(definition.autoPage!.slideMargin).toEqual([100, 200, 300, 400]);
+
+    expect(normalizeTableDefinition(
+      [['Header'], ['Body']],
+      {
+        autoPage: true,
+        autoPageRepeatHeader: true,
+        slideMargin: 250,
+        rowHeights: 50,
+      },
+    ).autoPage).toEqual({
+      repeatHeader: true,
+      headerRows: 1,
+      slideMargin: [250, 250, 250, 250],
+    });
+    expect(normalizeTableDefinition(
+      [['A'], ['B']],
+      { autoPage: true, rowHeights: [10, 20] },
+    ).autoPage).toEqual({ repeatHeader: false, headerRows: 0 });
+    expect(normalizeTableDefinition(
+      [['A']],
+      { autoPage: false, rowHeights: [10] },
+    ).autoPage).toBeUndefined();
+  });
+
+  it.each([
+    ['non-boolean enable', { autoPage: 'yes', rowHeights: [10, 10] }, TypeError],
+    ['controls while disabled', {
+      autoPage: false,
+      autoPageRepeatHeader: true,
+      rowHeights: [10, 10],
+    }, TypeError],
+    ['header count without repeat', {
+      autoPage: true,
+      autoPageHeaderRows: 1,
+      rowHeights: [10, 10],
+    }, TypeError],
+    ['zero header count', {
+      autoPage: true,
+      autoPageRepeatHeader: true,
+      autoPageHeaderRows: 0,
+      rowHeights: [10, 10],
+    }, RangeError],
+    ['too many header rows', {
+      autoPage: true,
+      autoPageRepeatHeader: true,
+      autoPageHeaderRows: 3,
+      rowHeights: [10, 10],
+    }, RangeError],
+    ['automatic rows', { autoPage: true }, RangeError],
+    ['zero direct row', { autoPage: true, rowHeights: [0, 10] }, RangeError],
+    ['placeholder owner', {
+      autoPage: true,
+      placeholder: 'Body',
+      rowHeights: [10, 10],
+    }, TypeError],
+    ['negative start Y', {
+      autoPage: true,
+      autoPageSlideStartY: -1,
+      rowHeights: [10, 10],
+    }, RangeError],
+    ['fractional start Y', {
+      autoPage: true,
+      autoPageSlideStartY: 1.5,
+      rowHeights: [10, 10],
+    }, TypeError],
+    ['short margin tuple', {
+      autoPage: true,
+      slideMargin: [1, 2, 3],
+      rowHeights: [10, 10],
+    }, RangeError],
+    ['negative margin', {
+      autoPage: true,
+      slideMargin: [1, 2, -1, 4],
+      rowHeights: [10, 10],
+    }, RangeError],
+  ])('rejects %s before package access', (_name, options, error) => {
+    expect(() => normalizeTableDefinition([['A'], ['B']], options)).toThrow(error);
+  });
+
+  it('rejects unsafe control descriptors, tuples, and object shapes', () => {
+    const accessor = { autoPage: true, rowHeights: [10, 10] };
+    Object.defineProperty(accessor, 'slideMargin', { get: () => 1, enumerable: true });
+    expect(() => normalizeTableDefinition([['A'], ['B']], accessor)).toThrow(TypeError);
+
+    const sparse = [1, 2, 3, 4];
+    delete sparse[2];
+    expect(() => normalizeTableDefinition([['A'], ['B']], {
+      autoPage: true,
+      slideMargin: sparse,
+      rowHeights: [10, 10],
+    })).toThrow(TypeError);
+
+    const symbol = [1, 2, 3, 4];
+    Object.defineProperty(symbol, Symbol('unsafe'), { value: true });
+    expect(() => normalizeTableDefinition([['A'], ['B']], {
+      autoPage: true,
+      slideMargin: symbol,
+      rowHeights: [10, 10],
+    })).toThrow(TypeError);
+
+    class Margin extends Array<number> {}
+    expect(() => normalizeTableDefinition([['A'], ['B']], {
+      autoPage: true,
+      slideMargin: new Margin(1, 2, 3, 4),
+      rowHeights: [10, 10],
+    })).toThrow(TypeError);
+  });
+});
+
 describe('table creation internals', () => {
   it('normalizes and renders detached table-cell hyperlinks', () => {
     const url = {
