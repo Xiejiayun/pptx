@@ -615,6 +615,162 @@ async (page) => {
         failureIsolation: true,
         validationErrors: 0,
       });
+      const tableFillSnapshot = (value) => {
+        if (value === undefined) return null;
+        if (value.kind === 'none') return { kind: 'none' };
+        return {
+          kind: 'solid',
+          color: { kind: value.color.kind, value: value.color.value },
+          ...(value.transparency !== undefined
+            ? { transparency: value.transparency }
+            : {}),
+        };
+      };
+      const tableFillDocument = api.PptxDocument.create();
+      const tableFillSlide = tableFillDocument.addSlide();
+      const tableFillTable = tableFillSlide.addTable([
+        ['North', 'South'],
+        ['East', 'West'],
+      ], {
+        name: 'Chrome table fill',
+        fill: {
+          kind: 'solid',
+          color: { kind: 'scheme', value: 'accent1' },
+          transparency: 25,
+        },
+      });
+      const tableFillPart = () => tableFillDocument.opcPackage
+        .requirePart(tableFillSlide.partUri).bytes;
+      const tableFillReadBytes = tableFillPart().slice();
+      const tableFillReadJournal = JSON.stringify(
+        tableFillDocument.opcPackage.mutations,
+      );
+      const tableFillUniform = tableFillSnapshot(tableFillTable.fill);
+      const tableFillDetached = tableFillTable.fill;
+      if (tableFillDetached?.kind === 'solid') {
+        tableFillDetached.color.value = 'accent6';
+      }
+      const tableFillReadIsolation = tableMarginsBytesEqual(
+        tableFillReadBytes,
+        tableFillPart(),
+      ) && JSON.stringify(tableFillDocument.opcPackage.mutations) ===
+        tableFillReadJournal &&
+        JSON.stringify(tableFillSnapshot(tableFillTable.fill)) === JSON.stringify({
+          kind: 'solid',
+          color: { kind: 'scheme', value: 'accent1' },
+          transparency: 25,
+        });
+      const tableFillNoOpBytes = tableFillPart().slice();
+      const tableFillNoOpJournal = JSON.stringify(
+        tableFillDocument.opcPackage.mutations,
+      );
+      tableFillTable.fill = {
+        kind: 'solid',
+        color: { kind: 'scheme', value: 'accent1' },
+        transparency: 25,
+      };
+      const tableFillNoOp = tableMarginsBytesEqual(
+        tableFillNoOpBytes,
+        tableFillPart(),
+      ) && JSON.stringify(tableFillDocument.opcPackage.mutations) ===
+        tableFillNoOpJournal;
+      tableFillTable.setCellFill(0, 1, { kind: 'none' });
+      const tableFillMixed = tableFillSnapshot(tableFillTable.fill);
+      tableFillTable.fill = { kind: 'none' };
+      const tableFillNone = tableFillSnapshot(tableFillTable.fill);
+      const tableFillNoneCells = tableFillTable.rows.flatMap(({ cells }) =>
+        cells.map(({ fill }) => tableFillSnapshot(fill)));
+      tableFillTable.fill = {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'D9EAF7' },
+        transparency: 0,
+      };
+      const tableFillSolid = tableFillSnapshot(tableFillTable.fill);
+      const tableFillSolidCells = tableFillTable.rows.flatMap(({ cells }) =>
+        cells.map(({ fill }) => tableFillSnapshot(fill)));
+      tableFillTable.fill = undefined;
+      const tableFillCleared = tableFillSnapshot(tableFillTable.fill);
+      const tableFillClearedCells = tableFillTable.rows.flatMap(({ cells }) =>
+        cells.map(({ fill }) => tableFillSnapshot(fill)));
+      const tableFillInvalidBytes = tableFillPart().slice();
+      const tableFillInvalidJournal = JSON.stringify(
+        tableFillDocument.opcPackage.mutations,
+      );
+      let tableFillInvalidError;
+      try {
+        tableFillTable.fill = null;
+      } catch (error) {
+        tableFillInvalidError = { name: error.name, message: error.message };
+      }
+      const tableFillFailureIsolation = tableMarginsBytesEqual(
+        tableFillInvalidBytes,
+        tableFillPart(),
+      ) && JSON.stringify(tableFillDocument.opcPackage.mutations) ===
+        tableFillInvalidJournal;
+      tableFillTable.fill = { kind: 'none' };
+      const reopenedTableFillDocument = await api.PptxDocument.open(
+        await tableFillDocument.writeBlob(),
+      );
+      const reopenedTableFillTable = reopenedTableFillDocument.slides[0].shapes.find(
+        (shape) => shape.name === 'Chrome table fill',
+      );
+      const tableFillState = {
+        uniform: tableFillUniform,
+        readIsolation: tableFillReadIsolation,
+        noOp: tableFillNoOp,
+        mixed: tableFillMixed,
+        none: tableFillNone,
+        noneCells: tableFillNoneCells,
+        solid: tableFillSolid,
+        solidCells: tableFillSolidCells,
+        cleared: tableFillCleared,
+        clearedCells: tableFillClearedCells,
+        reopened: reopenedTableFillTable instanceof api.TableModel
+          ? tableFillSnapshot(reopenedTableFillTable.fill)
+          : null,
+        reopenedCells: reopenedTableFillTable instanceof api.TableModel
+          ? reopenedTableFillTable.rows.flatMap(({ cells }) =>
+            cells.map(({ fill }) => tableFillSnapshot(fill)))
+          : [],
+        invalidError: tableFillInvalidError,
+        failureIsolation: tableFillFailureIsolation,
+        validationErrors: tableFillDocument.diagnostics
+          .filter(({ severity }) => severity === 'error').length +
+          reopenedTableFillDocument.diagnostics
+            .filter(({ severity }) => severity === 'error').length,
+      };
+      const tableFill = JSON.stringify(tableFillState) === JSON.stringify({
+        uniform: {
+          kind: 'solid',
+          color: { kind: 'scheme', value: 'accent1' },
+          transparency: 25,
+        },
+        readIsolation: true,
+        noOp: true,
+        mixed: null,
+        none: { kind: 'none' },
+        noneCells: Array(4).fill({ kind: 'none' }),
+        solid: {
+          kind: 'solid',
+          color: { kind: 'srgb', value: 'D9EAF7' },
+          transparency: 0,
+        },
+        solidCells: Array(4).fill({
+          kind: 'solid',
+          color: { kind: 'srgb', value: 'D9EAF7' },
+          transparency: 0,
+        }),
+        cleared: null,
+        clearedCells: [null, null, null, null],
+        reopened: { kind: 'none' },
+        reopenedCells: Array(4).fill({ kind: 'none' }),
+        invalidError: {
+          name: 'TypeError',
+          message: 'Table fill must be an object',
+        },
+        failureIsolation: true,
+        validationErrors: 0,
+      });
       const schemeColorIsolationDocument = api.PptxDocument.create();
       const schemeColorIsolationJournal = JSON.stringify(
         schemeColorIsolationDocument.opcPackage.mutations,
@@ -2961,6 +3117,8 @@ async (page) => {
         tableHorizontalAlignmentState,
         tableMargins,
         tableMarginsState,
+        tableFill,
+        tableFillState,
         schemeColors,
         schemeColorState,
         outputTypes,
@@ -3246,6 +3404,39 @@ async (page) => {
       invalidError: {
         name: 'TypeError',
         message: 'Table margins must be a number, four-value tuple, or margin object',
+      },
+      failureIsolation: true,
+      validationErrors: 0,
+    },
+    tableFill: true,
+    tableFillState: {
+      uniform: {
+        kind: 'solid',
+        color: { kind: 'scheme', value: 'accent1' },
+        transparency: 25,
+      },
+      readIsolation: true,
+      noOp: true,
+      mixed: null,
+      none: { kind: 'none' },
+      noneCells: Array(4).fill({ kind: 'none' }),
+      solid: {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'D9EAF7' },
+        transparency: 0,
+      },
+      solidCells: Array(4).fill({
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'D9EAF7' },
+        transparency: 0,
+      }),
+      cleared: null,
+      clearedCells: [null, null, null, null],
+      reopened: { kind: 'none' },
+      reopenedCells: Array(4).fill({ kind: 'none' }),
+      invalidError: {
+        name: 'TypeError',
+        message: 'Table fill must be an object',
       },
       failureIsolation: true,
       validationErrors: 0,

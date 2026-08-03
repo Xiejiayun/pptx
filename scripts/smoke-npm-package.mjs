@@ -128,6 +128,13 @@ try {
   )) {
     throw new Error('Packed TableModel declaration is missing table-level margins');
   }
+  if (!tableModelDeclaration.includes(
+    'get fill(): TableCellFill | undefined;',
+  ) || !tableModelDeclaration.includes(
+    'set fill(value: TableCellFill | undefined);',
+  )) {
+    throw new Error('Packed TableModel declaration is missing table-level fill');
+  }
   if (!textOptionDeclarationSource.includes('readonly isTextBox?: boolean;') ||
       !shapeDeclarationSource.includes('get isTextBox(): boolean | undefined;') ||
       !shapeDeclarationSource.includes('set isTextBox(value: boolean);')) {
@@ -5734,6 +5741,152 @@ const tableMargins = JSON.stringify(tableMarginsState) === JSON.stringify({
   failureIsolation: true,
   validationErrors: 0,
 });
+const packedTableFillSnapshot = (value) => {
+  if (value === undefined) return null;
+  if (value.kind === 'none') return { kind: 'none' };
+  return {
+    kind: 'solid',
+    color: { kind: value.color.kind, value: value.color.value },
+    ...(value.transparency !== undefined
+      ? { transparency: value.transparency }
+      : {}),
+  };
+};
+const tableFillDocument = PptxDocument.create();
+const tableFillSlide = tableFillDocument.addSlide();
+const tableFillTable = tableFillSlide.addTable([
+  ['North', 'South'],
+  ['East', 'West'],
+], {
+  name: 'Packed table fill',
+  fill: {
+    kind: 'solid',
+    color: { kind: 'scheme', value: 'accent1' },
+    transparency: 25,
+  },
+});
+const tableFillPart = () => tableFillDocument.opcPackage
+  .requirePart(tableFillSlide.partUri).bytes;
+const tableFillReadBytes = tableFillPart().slice();
+const tableFillReadJournal = JSON.stringify(tableFillDocument.opcPackage.mutations);
+const tableFillUniform = packedTableFillSnapshot(tableFillTable.fill);
+const tableFillDetached = tableFillTable.fill;
+if (tableFillDetached?.kind === 'solid') tableFillDetached.color.value = 'accent6';
+const tableFillReadIsolation = packedBytesEqual(
+  tableFillReadBytes,
+  tableFillPart(),
+) && JSON.stringify(tableFillDocument.opcPackage.mutations) === tableFillReadJournal &&
+  JSON.stringify(packedTableFillSnapshot(tableFillTable.fill)) === JSON.stringify({
+    kind: 'solid',
+    color: { kind: 'scheme', value: 'accent1' },
+    transparency: 25,
+  });
+const tableFillNoOpBytes = tableFillPart().slice();
+const tableFillNoOpJournal = JSON.stringify(tableFillDocument.opcPackage.mutations);
+tableFillTable.fill = {
+  kind: 'solid',
+  color: { kind: 'scheme', value: 'accent1' },
+  transparency: 25,
+};
+const tableFillNoOp = packedBytesEqual(
+  tableFillNoOpBytes,
+  tableFillPart(),
+) && JSON.stringify(tableFillDocument.opcPackage.mutations) === tableFillNoOpJournal;
+tableFillTable.setCellFill(0, 1, { kind: 'none' });
+const tableFillMixed = packedTableFillSnapshot(tableFillTable.fill);
+tableFillTable.fill = { kind: 'none' };
+const tableFillNone = packedTableFillSnapshot(tableFillTable.fill);
+const tableFillNoneCells = tableFillTable.rows.flatMap(({ cells }) =>
+  cells.map(({ fill }) => packedTableFillSnapshot(fill)));
+tableFillTable.fill = {
+  kind: 'solid',
+  color: { kind: 'srgb', value: 'D9EAF7' },
+  transparency: 0,
+};
+const tableFillSolid = packedTableFillSnapshot(tableFillTable.fill);
+const tableFillSolidCells = tableFillTable.rows.flatMap(({ cells }) =>
+  cells.map(({ fill }) => packedTableFillSnapshot(fill)));
+tableFillTable.fill = undefined;
+const tableFillCleared = packedTableFillSnapshot(tableFillTable.fill);
+const tableFillClearedCells = tableFillTable.rows.flatMap(({ cells }) =>
+  cells.map(({ fill }) => packedTableFillSnapshot(fill)));
+const tableFillInvalidBytes = tableFillPart().slice();
+const tableFillInvalidJournal = JSON.stringify(tableFillDocument.opcPackage.mutations);
+let tableFillInvalidError;
+try {
+  tableFillTable.fill = null;
+} catch (error) {
+  tableFillInvalidError = { name: error.name, message: error.message };
+}
+const tableFillFailureIsolation = packedBytesEqual(
+  tableFillInvalidBytes,
+  tableFillPart(),
+) && JSON.stringify(tableFillDocument.opcPackage.mutations) === tableFillInvalidJournal;
+tableFillTable.fill = { kind: 'none' };
+await tableFillDocument.writeFile('table-fill-smoke.pptx');
+const reopenedTableFillDocument = await PptxDocument.open(
+  await readFile('table-fill-smoke.pptx'),
+);
+const reopenedTableFillTable = reopenedTableFillDocument.slides[0].shapes.find(
+  (shape) => shape.name === 'Packed table fill',
+);
+const tableFillState = {
+  uniform: tableFillUniform,
+  readIsolation: tableFillReadIsolation,
+  noOp: tableFillNoOp,
+  mixed: tableFillMixed,
+  none: tableFillNone,
+  noneCells: tableFillNoneCells,
+  solid: tableFillSolid,
+  solidCells: tableFillSolidCells,
+  cleared: tableFillCleared,
+  clearedCells: tableFillClearedCells,
+  reopened: reopenedTableFillTable instanceof TableModel
+    ? packedTableFillSnapshot(reopenedTableFillTable.fill)
+    : null,
+  reopenedCells: reopenedTableFillTable instanceof TableModel
+    ? reopenedTableFillTable.rows.flatMap(({ cells }) =>
+      cells.map(({ fill }) => packedTableFillSnapshot(fill)))
+    : [],
+  invalidError: tableFillInvalidError,
+  failureIsolation: tableFillFailureIsolation,
+  validationErrors: tableFillDocument.diagnostics
+    .filter(({ severity }) => severity === 'error').length +
+    reopenedTableFillDocument.diagnostics
+      .filter(({ severity }) => severity === 'error').length,
+};
+const tableFill = JSON.stringify(tableFillState) === JSON.stringify({
+  uniform: {
+    kind: 'solid',
+    color: { kind: 'scheme', value: 'accent1' },
+    transparency: 25,
+  },
+  readIsolation: true,
+  noOp: true,
+  mixed: null,
+  none: { kind: 'none' },
+  noneCells: Array(4).fill({ kind: 'none' }),
+  solid: {
+    kind: 'solid',
+    color: { kind: 'srgb', value: 'D9EAF7' },
+    transparency: 0,
+  },
+  solidCells: Array(4).fill({
+    kind: 'solid',
+    color: { kind: 'srgb', value: 'D9EAF7' },
+    transparency: 0,
+  }),
+  cleared: null,
+  clearedCells: [null, null, null, null],
+  reopened: { kind: 'none' },
+  reopenedCells: Array(4).fill({ kind: 'none' }),
+  invalidError: {
+    name: 'TypeError',
+    message: 'Table fill must be an object',
+  },
+  failureIsolation: true,
+  validationErrors: 0,
+});
 const packedSchemeColorIsolationDocument = PptxDocument.create();
 const packedSchemeColorIsolationJournal = JSON.stringify(
   packedSchemeColorIsolationDocument.opcPackage.mutations,
@@ -7045,6 +7198,8 @@ const checks = {
   tableHorizontalAlignmentState,
   tableMargins,
   tableMarginsState,
+  tableFill,
+  tableFillState,
   schemeColors,
   schemeColorState,
   outputTypes,
@@ -7768,6 +7923,164 @@ if (JSON.stringify(browserTableMarginsState) !== JSON.stringify({
 })) {
   throw new Error('Browser table-level margins failed: ' +
     JSON.stringify(browserTableMarginsState));
+}
+const browserTableFillSnapshot = (value) => {
+  if (value === undefined) return null;
+  if (value.kind === 'none') return { kind: 'none' };
+  return {
+    kind: 'solid',
+    color: { kind: value.color.kind, value: value.color.value },
+    ...(value.transparency !== undefined
+      ? { transparency: value.transparency }
+      : {}),
+  };
+};
+const browserTableFillDocument = PptxDocument.create();
+const browserTableFillSlide = browserTableFillDocument.addSlide();
+const browserTableFillTable = browserTableFillSlide.addTable([
+  ['North', 'South'],
+  ['East', 'West'],
+], {
+  name: 'Browser condition table fill',
+  fill: {
+    kind: 'solid',
+    color: { kind: 'scheme', value: 'accent1' },
+    transparency: 25,
+  },
+});
+const browserTableFillPart = () => browserTableFillDocument.opcPackage
+  .requirePart(browserTableFillSlide.partUri).bytes;
+const browserTableFillReadBytes = browserTableFillPart().slice();
+const browserTableFillReadJournal = JSON.stringify(
+  browserTableFillDocument.opcPackage.mutations,
+);
+const browserTableFillUniform = browserTableFillSnapshot(browserTableFillTable.fill);
+const browserTableFillDetached = browserTableFillTable.fill;
+if (browserTableFillDetached?.kind === 'solid') {
+  browserTableFillDetached.color.value = 'accent6';
+}
+const browserTableFillReadIsolation = browserCompressionEqual(
+  browserTableFillReadBytes,
+  browserTableFillPart(),
+) && JSON.stringify(browserTableFillDocument.opcPackage.mutations) ===
+  browserTableFillReadJournal &&
+  JSON.stringify(browserTableFillSnapshot(browserTableFillTable.fill)) === JSON.stringify({
+    kind: 'solid',
+    color: { kind: 'scheme', value: 'accent1' },
+    transparency: 25,
+  });
+const browserTableFillNoOpBytes = browserTableFillPart().slice();
+const browserTableFillNoOpJournal = JSON.stringify(
+  browserTableFillDocument.opcPackage.mutations,
+);
+browserTableFillTable.fill = {
+  kind: 'solid',
+  color: { kind: 'scheme', value: 'accent1' },
+  transparency: 25,
+};
+const browserTableFillNoOp = browserCompressionEqual(
+  browserTableFillNoOpBytes,
+  browserTableFillPart(),
+) && JSON.stringify(browserTableFillDocument.opcPackage.mutations) ===
+  browserTableFillNoOpJournal;
+browserTableFillTable.setCellFill(0, 1, { kind: 'none' });
+const browserTableFillMixed = browserTableFillSnapshot(browserTableFillTable.fill);
+browserTableFillTable.fill = { kind: 'none' };
+const browserTableFillNone = browserTableFillSnapshot(browserTableFillTable.fill);
+const browserTableFillNoneCells = browserTableFillTable.rows.flatMap(({ cells }) =>
+  cells.map(({ fill }) => browserTableFillSnapshot(fill)));
+browserTableFillTable.fill = {
+  kind: 'solid',
+  color: { kind: 'srgb', value: 'D9EAF7' },
+  transparency: 0,
+};
+const browserTableFillSolid = browserTableFillSnapshot(browserTableFillTable.fill);
+const browserTableFillSolidCells = browserTableFillTable.rows.flatMap(({ cells }) =>
+  cells.map(({ fill }) => browserTableFillSnapshot(fill)));
+browserTableFillTable.fill = undefined;
+const browserTableFillCleared = browserTableFillSnapshot(browserTableFillTable.fill);
+const browserTableFillClearedCells = browserTableFillTable.rows.flatMap(({ cells }) =>
+  cells.map(({ fill }) => browserTableFillSnapshot(fill)));
+const browserTableFillInvalidBytes = browserTableFillPart().slice();
+const browserTableFillInvalidJournal = JSON.stringify(
+  browserTableFillDocument.opcPackage.mutations,
+);
+let browserTableFillInvalidError;
+try {
+  browserTableFillTable.fill = null;
+} catch (error) {
+  browserTableFillInvalidError = { name: error.name, message: error.message };
+}
+const browserTableFillFailureIsolation = browserCompressionEqual(
+  browserTableFillInvalidBytes,
+  browserTableFillPart(),
+) && JSON.stringify(browserTableFillDocument.opcPackage.mutations) ===
+  browserTableFillInvalidJournal;
+browserTableFillTable.fill = { kind: 'none' };
+const reopenedBrowserTableFillDocument = await PptxDocument.open(
+  await browserTableFillDocument.writeBlob(),
+);
+const reopenedBrowserTableFillTable = reopenedBrowserTableFillDocument
+  .slides[0].shapes.find((shape) => shape.name === 'Browser condition table fill');
+const browserTableFillState = {
+  uniform: browserTableFillUniform,
+  readIsolation: browserTableFillReadIsolation,
+  noOp: browserTableFillNoOp,
+  mixed: browserTableFillMixed,
+  none: browserTableFillNone,
+  noneCells: browserTableFillNoneCells,
+  solid: browserTableFillSolid,
+  solidCells: browserTableFillSolidCells,
+  cleared: browserTableFillCleared,
+  clearedCells: browserTableFillClearedCells,
+  reopened: reopenedBrowserTableFillTable instanceof TableModel
+    ? browserTableFillSnapshot(reopenedBrowserTableFillTable.fill)
+    : null,
+  reopenedCells: reopenedBrowserTableFillTable instanceof TableModel
+    ? reopenedBrowserTableFillTable.rows.flatMap(({ cells }) =>
+      cells.map(({ fill }) => browserTableFillSnapshot(fill)))
+    : [],
+  invalidError: browserTableFillInvalidError,
+  failureIsolation: browserTableFillFailureIsolation,
+  validationErrors: browserTableFillDocument.diagnostics
+    .filter(({ severity }) => severity === 'error').length +
+    reopenedBrowserTableFillDocument.diagnostics
+      .filter(({ severity }) => severity === 'error').length,
+};
+if (JSON.stringify(browserTableFillState) !== JSON.stringify({
+  uniform: {
+    kind: 'solid',
+    color: { kind: 'scheme', value: 'accent1' },
+    transparency: 25,
+  },
+  readIsolation: true,
+  noOp: true,
+  mixed: null,
+  none: { kind: 'none' },
+  noneCells: Array(4).fill({ kind: 'none' }),
+  solid: {
+    kind: 'solid',
+    color: { kind: 'srgb', value: 'D9EAF7' },
+    transparency: 0,
+  },
+  solidCells: Array(4).fill({
+    kind: 'solid',
+    color: { kind: 'srgb', value: 'D9EAF7' },
+    transparency: 0,
+  }),
+  cleared: null,
+  clearedCells: [null, null, null, null],
+  reopened: { kind: 'none' },
+  reopenedCells: Array(4).fill({ kind: 'none' }),
+  invalidError: {
+    name: 'TypeError',
+    message: 'Table fill must be an object',
+  },
+  failureIsolation: true,
+  validationErrors: 0,
+})) {
+  throw new Error('Browser table-level fill failed: ' +
+    JSON.stringify(browserTableFillState));
 }
 const browserOutputTypeDocument = PptxDocument.create();
 const browserOutputTypeJournal = JSON.stringify(
@@ -11136,6 +11449,18 @@ typedTable.margins = undefined;
 typedTable.margins = null;
 // @ts-expect-error table margin tuple requires four values
 typedTable.margins = [1, 2, 3];
+const typedTableFill: TableCellFill | undefined = typedTable.fill;
+typedTable.fill = { kind: 'none' };
+typedTable.fill = {
+  kind: 'solid',
+  color: { kind: 'scheme', value: 'accent1' },
+  transparency: 25,
+};
+typedTable.fill = undefined;
+// @ts-expect-error table fill rejects null
+typedTable.fill = null;
+// @ts-expect-error table fill rejects PptxGenJS-shaped input
+typedTable.fill = { color: 'D9EAF7' };
 typedTable.setColumnWidths(inches(2));
 typedTable.setColumnWidths([inches(1.5), inches(2.5)]);
 typedTable.setRowHeights(inches(1));
@@ -11307,7 +11632,7 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
   invalidChartValues, typedSimpleBackground, typedImageBackground, typedSlideBackground,
   typedSlideBackgroundOptions, typedBackgroundSlide, typedBackgroundPromise,
   typedRasterContentType, typedRasterOptions, typedRasterImage,
-  invalidRasterSvg, invalidRasterMissingType, invalidRasterPath, invalidRasterData, typedSvgContentType, typedImageContentType, typedSvgInfo, typedImageInfo, typedCropRegion, typedImageSizing, typedImageSizingResult, typedImageSource, typedImageChunk, typedImageStream, typedImageSourceOptions, typedResolvedImage, typedSvgOptions, typedSvgImage, typedHighLevelSvgImage, typedMediaKind, typedMediaChunk, typedMediaStream, typedMediaSources, typedPlayback, typedMediaOptions, typedMediaPromise, typedVideoPromise, typedReplaceMediaSourceOptions, typedReplaceMediaPosterOptions, typedMediaLifecycle, invalidMediaKind, invalidMediaName, invalidMediaPoster, invalidMediaPlayback, invalidMediaTranscode, invalidMediaSource, invalidMediaSourceReplacement, invalidMediaPosterReplacement, invalidLowLevelSvgOptions, invalidSvgFallback, addSectionOptions, typedSection, addSlideOptions, sectionSnapshot, typedVisibilitySlide, hiddenSnapshot, globalRtl, globalRtlSnapshot, titledDocument, titleSnapshot, authoredDocument, authorSnapshot, lastModifiedDocument, lastModifiedSnapshot, createdAtDocument, createdAtSnapshot, modifiedAtDocument, modifiedAtSnapshot, subjectDocument, subjectSnapshot, revisionDocument, revisionSnapshot, companyDocument, companySnapshot, themedDocument, themeSnapshot, fontSnapshot, fontUpdate, customDocument, createdText, creationBorder, creationMargin, creationOptions, objectCell, tableRows, tableOptions, typedTable, widthSnapshot, heightSnapshot, typedTableVerticalAlignment, typedTableTextDirection, typedTableHorizontalAlignment, typedTableMargins, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotHorizontalAlignment, tableHorizontalAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellHorizontalAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
+  invalidRasterSvg, invalidRasterMissingType, invalidRasterPath, invalidRasterData, typedSvgContentType, typedImageContentType, typedSvgInfo, typedImageInfo, typedCropRegion, typedImageSizing, typedImageSizingResult, typedImageSource, typedImageChunk, typedImageStream, typedImageSourceOptions, typedResolvedImage, typedSvgOptions, typedSvgImage, typedHighLevelSvgImage, typedMediaKind, typedMediaChunk, typedMediaStream, typedMediaSources, typedPlayback, typedMediaOptions, typedMediaPromise, typedVideoPromise, typedReplaceMediaSourceOptions, typedReplaceMediaPosterOptions, typedMediaLifecycle, invalidMediaKind, invalidMediaName, invalidMediaPoster, invalidMediaPlayback, invalidMediaTranscode, invalidMediaSource, invalidMediaSourceReplacement, invalidMediaPosterReplacement, invalidLowLevelSvgOptions, invalidSvgFallback, addSectionOptions, typedSection, addSlideOptions, sectionSnapshot, typedVisibilitySlide, hiddenSnapshot, globalRtl, globalRtlSnapshot, titledDocument, titleSnapshot, authoredDocument, authorSnapshot, lastModifiedDocument, lastModifiedSnapshot, createdAtDocument, createdAtSnapshot, modifiedAtDocument, modifiedAtSnapshot, subjectDocument, subjectSnapshot, revisionDocument, revisionSnapshot, companyDocument, companySnapshot, themedDocument, themeSnapshot, fontSnapshot, fontUpdate, customDocument, createdText, creationBorder, creationMargin, creationOptions, objectCell, tableRows, tableOptions, typedTable, widthSnapshot, heightSnapshot, typedTableVerticalAlignment, typedTableTextDirection, typedTableHorizontalAlignment, typedTableMargins, typedTableFill, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotHorizontalAlignment, tableHorizontalAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellHorizontalAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
 `,
   );
   run(
@@ -11380,6 +11705,11 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
   if (!apiChecks.tableMargins) {
     throw new Error(
       `Table margins smoke failed: ${JSON.stringify(apiChecks.tableMarginsState)}`,
+    );
+  }
+  if (!apiChecks.tableFill) {
+    throw new Error(
+      `Table fill smoke failed: ${JSON.stringify(apiChecks.tableFillState)}`,
     );
   }
   if (!apiChecks.schemeColors) {
@@ -11710,6 +12040,85 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
       `CLI table margins part inspection failed: ${tableMarginsPartResult.stdout}`,
     );
   }
+  const tableFillDeckPath = join(directory, 'table-fill-smoke.pptx');
+  const tableFillInspectResult = run(
+    bin,
+    ['--json', 'package', 'inspect', tableFillDeckPath],
+    directory,
+  );
+  const tableFillInspected = JSON.parse(tableFillInspectResult.stdout);
+  if (!tableFillInspected.ok ||
+      tableFillInspected.data?.contentTypes?.[
+        'application/vnd.openxmlformats-officedocument.presentationml.slide+xml'
+      ] !== 1) {
+    throw new Error(
+      `CLI table fill package inspection failed: ${tableFillInspectResult.stdout}`,
+    );
+  }
+  const tableFillValidateResult = run(
+    bin,
+    [
+      '--json', 'package', 'validate', tableFillDeckPath,
+      '--profile', 'powerpoint-2010',
+    ],
+    directory,
+  );
+  const tableFillValidated = JSON.parse(tableFillValidateResult.stdout);
+  if (!tableFillValidated.ok ||
+      !tableFillValidated.data?.valid ||
+      tableFillValidated.data.errorCount !== 0 ||
+      tableFillValidated.data.warningCount !== 0) {
+    throw new Error(
+      `CLI table fill validation failed: ${tableFillValidateResult.stdout}`,
+    );
+  }
+  const tableFillSlidesResult = run(
+    bin,
+    ['--json', 'slides', 'list', tableFillDeckPath],
+    directory,
+  );
+  const tableFillSlides = JSON.parse(tableFillSlidesResult.stdout);
+  if (!tableFillSlides.ok ||
+      tableFillSlides.data?.length !== 1 ||
+      tableFillSlides.data[0]?.shapeCount !== 1) {
+    throw new Error(
+      `CLI table fill slide listing failed: ${tableFillSlidesResult.stdout}`,
+    );
+  }
+  const tableFillPartResult = run(
+    bin,
+    [
+      '--json', 'part', 'read', tableFillDeckPath,
+      tableFillSlides.data[0].partUri,
+    ],
+    directory,
+  );
+  const tableFillPart = JSON.parse(tableFillPartResult.stdout).data?.content ?? '';
+  const tableFillCells = [...tableFillPart.matchAll(
+    /<a:tc\b[^>]*>([\s\S]*?)<\/a:tc>/g,
+  )].map((match) => match[1]);
+  const tableFillChoices = tableFillCells.map((cell) => {
+    const properties = cell.match(/<a:tcPr\b[^>]*>([\s\S]*?)<\/a:tcPr>/);
+    if (!properties) return [];
+    const withoutBorders = properties[1]
+      .replace(/<a:(ln[LRBT])\b[^>]*>[\s\S]*?<\/a:\1>/g, '')
+      .replace(/<a:ln[LRBT]\b[^>]*\/>/g, '');
+    return [...withoutBorders.matchAll(
+      /<a:(noFill|solidFill|gradFill|blipFill|pattFill|grpFill)\b/g,
+    )].map((match) => match[1]);
+  });
+  if (!tableFillPart.includes('<a:tbl>') ||
+      tableFillCells.length !== 4 ||
+      tableFillChoices.some((choices) =>
+        JSON.stringify(choices) !== JSON.stringify(['noFill']))) {
+    throw new Error(
+      `CLI table fill part inspection failed: ${tableFillPartResult.stdout}`,
+    );
+  }
+  await writeFile(
+    join(dirname(tarball), 'table-fill-smoke.pptx'),
+    await readFile(tableFillDeckPath),
+  );
   const masterLayoutDeckPath = join(directory, 'master-layout-smoke.pptx');
   const masterLayoutInspectResult = run(
     bin,
@@ -12953,6 +13362,9 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
     summary.tableMargins = apiChecks.tableMargins;
     summary.tableMarginsState = apiChecks.tableMarginsState;
     summary.tableMarginsInspect = true;
+    summary.tableFill = apiChecks.tableFill;
+    summary.tableFillState = apiChecks.tableFillState;
+    summary.tableFillInspect = true;
     process.stdout.write(`${JSON.stringify(summary)}\n`);
   };
   writeSummary(

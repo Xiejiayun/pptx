@@ -103,6 +103,13 @@ if (!tableModelDeclaration.includes(
 )) {
   throw new Error('Packed TableModel declaration is missing table-level margins');
 }
+if (!tableModelDeclaration.includes(
+  'get fill(): TableCellFill | undefined;',
+) || !tableModelDeclaration.includes(
+  'set fill(value: TableCellFill | undefined);',
+)) {
+  throw new Error('Packed TableModel declaration is missing table-level fill');
+}
 
 await writeFile(
   join(outputRoot, 'index.d.ts'),
