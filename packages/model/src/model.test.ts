@@ -1180,8 +1180,10 @@ describe('PresentationModel', () => {
     const generated = source.newAutoPagedSlides;
     expect(Object.isFrozen(generated)).toBe(true);
     expect(generated).toHaveLength(1);
-    expect(() => source.addTable([['Invalid']], { autoPage: true }))
-      .toThrow(/rowHeights/i);
+    expect(() => source.addTable([['Invalid']], {
+      autoPage: true,
+      autoPageCharWeight: 2,
+    })).toThrow(/weight/i);
     expect(source.newAutoPagedSlides).toEqual(generated);
     expect(model.slides).toEqual([first, source, generated[0], sentinel]);
     expect(model.slides.at(-1)).toBe(sentinel);
@@ -1228,6 +1230,226 @@ describe('PresentationModel', () => {
 
     const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
     expect(reopened.slides.every((slide) => slide.newAutoPagedSlides.length === 0)).toBe(true);
+  });
+
+  it('measures automatic table rows through the public auto-page lifecycle', () => {
+    const { pkg, model } = emptyPresentationModel();
+    installNamedSlideLayouts(pkg, model, [{
+      name: 'MEASURED',
+      partUri: '/ppt/slideLayouts/slideLayout1.xml',
+    }]);
+    const source = model.addSlide({ masterName: 'MEASURED' });
+    const sentinel = model.addSlide({ masterName: 'MEASURED' });
+    const sourceTable = source.addTable([
+      ['H1', 'H2', 'H3'],
+      [{
+        text: 'AAAAAAAAAAAAAAAAAA',
+        options: { colspan: 3, margin: 0, autoPageCharWeight: -1 },
+      }],
+      [{
+        text: 'BBBBBBBBBBBBBBBBBB',
+        options: { colspan: 3, margin: 0, autoPageCharWeight: 1 },
+      }],
+      [{
+        text: [{
+          spacing: { before: 2, after: 3, line: { kind: 'multiple', factor: 1.25 } },
+          runs: [
+            { text: '汉字漢字', style: { fontSize: 18 } },
+            { text: 'soft', softBreakBefore: true, style: { bold: true } },
+          ],
+        }],
+        options: { colspan: 3, margin: [1, 2, 3, 4], textDirection: 'vert270' },
+      }],
+      [
+        { text: 'Merged', options: { rowspan: 2, colspan: 2, margin: 0 } },
+        'Right 1',
+      ],
+      ['Right 2'],
+    ], {
+      autoPage: true,
+      autoPageCharWeight: 0,
+      autoPageLineWeight: 0,
+      autoPageRepeatHeader: true,
+      autoPageHeaderRows: 1,
+      autoPageSlideStartY: inches(0.5),
+      slideMargin: inches(0.5),
+      y: inches(4.5),
+      columnWidths: [inches(0.5), inches(0.5), inches(0.5)],
+    });
+    const slides = [source, ...source.newAutoPagedSlides];
+    expect(source.newAutoPagedSlides.length).toBeGreaterThan(0);
+    expect(model.slides.at(-1)).toBe(sentinel);
+    const tables = slides.map((slide, index) => index === 0
+      ? sourceTable
+      : slide.shapes.find((shape): shape is TableModel => shape instanceof TableModel)!);
+    const rows = tables.flatMap((table) => {
+      const rowHeights = table.rowHeights!;
+      return table.rows.map((row, rowIndex) => ({
+        text: row.cells[0]!.text,
+        height: rowHeights[rowIndex]!,
+      }));
+    });
+
+    expect(tables.every((table) => {
+      const rowHeights = table.rowHeights!;
+      return rowHeights.every((height) => height > 0)
+        && table.transform.height === rowHeights.reduce((sum, height) => sum + height, 0);
+    }))
+      .toBe(true);
+    expect(rows.find(({ text }) => text.startsWith('AAAAAAAA'))!.height)
+      .toBeGreaterThan(rows.find(({ text }) => text.startsWith('BBBBBBBB'))!.height);
+    expect(tables.flatMap(({ mergeRegions }) => mergeRegions))
+      .toContainEqual({ rowIndex: expect.any(Number), columnIndex: 0, rowspan: 2, colspan: 2 });
+    expect(rows.some(({ text }) => text.includes('汉字漢字\nsoft'))).toBe(true);
+  });
+
+  it('keeps omitted and explicit-zero public measurement weights numerically equal', () => {
+    const omitted = emptyPresentationModel();
+    const explicit = emptyPresentationModel();
+    const omittedTable = omitted.model.addSlide().addTable([['AAAAAAAAAAAAAAAAAA']], {
+      autoPage: true,
+      margin: 0,
+      columnWidths: [inches(1)],
+    });
+    const explicitTable = explicit.model.addSlide().addTable([['AAAAAAAAAAAAAAAAAA']], {
+      autoPage: true,
+      autoPageCharWeight: 0,
+      autoPageLineWeight: 0,
+      margin: 0,
+      columnWidths: [inches(1)],
+    });
+    expect(explicitTable.rowHeights).toEqual(omittedTable.rowHeights);
+    expect(packageSnapshot(explicit.pkg)).toEqual(packageSnapshot(omitted.pkg));
+  });
+
+  it('fragments rich linked auto-page rows with page-local relationships', () => {
+    const { pkg, model } = emptyPresentationModel();
+    installNamedSlideLayouts(pkg, model, [{
+      name: 'MEASURED-LINKS',
+      partUri: '/ppt/slideLayouts/slideLayout1.xml',
+    }]);
+    const source = model.addSlide({ masterName: 'MEASURED-LINKS' });
+    const sentinel = model.addSlide({ masterName: 'MEASURED-LINKS' });
+    const target = model.addSlide({ masterName: 'MEASURED-LINKS' });
+    const headerLink = { url: 'https://header.measured.example' };
+    const outerLink = { url: 'https://outer.measured.example', tooltip: 'Outer' };
+    const runUrl = { url: 'https://run.measured.example', tooltip: 'Run' };
+    const runSlide = { slide: 3, tooltip: 'Target' };
+
+    source.addTable([
+      [{ text: 'Header', options: { hyperlink: headerLink, margin: 0 } }],
+      [{
+        text: [{ runs: [
+          { text: 'outer ' },
+          { text: 'A'.repeat(100), style: { hyperlink: runUrl, underline: true } },
+          {
+            text: 'B'.repeat(50),
+            softBreakBefore: true,
+            style: { hyperlink: runSlide, italic: true },
+          },
+        ] }],
+        options: { hyperlink: outerLink, margin: 0 },
+      }],
+    ], {
+      autoPage: true,
+      autoPageRepeatHeader: true,
+      autoPageHeaderRows: 1,
+      autoPageSlideStartY: inches(4),
+      slideMargin: inches(0.5),
+      y: inches(4),
+      columnWidths: [inches(1)],
+    });
+    const pageSlides = [source, ...source.newAutoPagedSlides];
+    expect(pageSlides.length).toBeGreaterThan(2);
+    expect(model.slides).toEqual([source, ...source.newAutoPagedSlides, sentinel, target]);
+
+    for (const slide of pageSlides) {
+      const xml = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+      const referencedIds = [...xml.matchAll(/<a:hlinkClick\b[^>]*\br:id="([^"]+)"/g)]
+        .map((match) => match[1]!);
+      const owned = slide.relationships.filter(({ type }) =>
+        type === HYPERLINK_RELATIONSHIP || type === SLIDE_RELATIONSHIP);
+      expect(new Set(referencedIds)).toEqual(new Set(owned.map(({ id }) => id)));
+      expect(owned.some(({ target: value }) => value === headerLink.url)).toBe(true);
+      expect(owned.every(({ resolvedTarget }) => resolvedTarget !== sentinel.partUri)).toBe(true);
+    }
+    expect(pageSlides.some((slide) => slide.relationships.some(({ target: value }) =>
+      value === runUrl.url))).toBe(true);
+    expect(pageSlides.some((slide) => slide.relationships.some(({ resolvedTarget }) =>
+      resolvedTarget === target.partUri))).toBe(true);
+    for (const value of [headerLink, outerLink, runUrl, runSlide]) {
+      expect(Object.hasOwn(value, '_rId')).toBe(false);
+    }
+  });
+
+  it('keeps every measurement preflight failure isolated from package and runtime state', () => {
+    const { pkg, model } = emptyPresentationModel();
+    installNamedSlideLayouts(pkg, model, [{
+      name: 'MEASURED-FAILURE',
+      partUri: '/ppt/slideLayouts/slideLayout1.xml',
+    }]);
+    const source = model.addSlide({ masterName: 'MEASURED-FAILURE' });
+    const sentinel = model.addSlide({ masterName: 'MEASURED-FAILURE' });
+    source.addTable([['A'], ['B']], {
+      autoPage: true,
+      y: inches(4.5),
+      slideMargin: inches(0.5),
+      rowHeights: [inches(0.5), inches(0.5)],
+    });
+    const previousRuntime = source.newAutoPagedSlides;
+    expect(previousRuntime).toHaveLength(1);
+
+    const cases: readonly (() => unknown)[] = [
+      () => source.addTable([['Invalid weight']], {
+        autoPage: true,
+        autoPageLineWeight: 2,
+      }),
+      () => source.addTable([['No inline width']], {
+        autoPage: true,
+        columnWidths: [1],
+      }),
+      () => source.addTable([[{
+        text: 'Single band',
+        options: { fontSize: 4000, margin: 0 },
+      }]], {
+        autoPage: true,
+        autoPageSlideStartY: inches(5),
+        slideMargin: inches(0.5),
+        y: inches(0.5),
+        columnWidths: [inches(1)],
+      }),
+      () => source.addTable([['Header'], ['Body']], {
+        autoPage: true,
+        autoPageRepeatHeader: true,
+        autoPageSlideStartY: inches(0.5),
+        slideMargin: inches(0.5),
+        y: inches(5),
+        margin: 0,
+        columnWidths: [inches(1)],
+      }),
+      () => source.addTable([
+        [{ text: 'Merged', options: { rowspan: 2, margin: 0 } }],
+        [],
+      ], {
+        autoPage: true,
+        autoPageSlideStartY: inches(5),
+        slideMargin: inches(0.5),
+        y: inches(0.5),
+        columnWidths: [inches(1)],
+      }),
+    ];
+
+    for (const fail of cases) {
+      const before = packageSnapshot(pkg);
+      const beforeSlides = [...model.slides];
+      const beforeShapes = model.slides.map((slide) => [...slide.shapes]);
+      expect(fail).toThrow();
+      expect(packageSnapshot(pkg)).toEqual(before);
+      expect(model.slides).toEqual(beforeSlides);
+      expect(model.slides.map((slide) => [...slide.shapes])).toEqual(beforeShapes);
+      expect(source.newAutoPagedSlides).toEqual(previousRuntime);
+      expect(model.slides.at(-1)).toBe(sentinel);
+    }
   });
 
   it('keeps the ordinary table creation package byte-identical with autoPage false', () => {

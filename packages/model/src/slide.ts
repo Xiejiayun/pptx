@@ -116,6 +116,7 @@ import {
   type TableCellHyperlinkRelationshipIds,
   type TableCellRichTextRunHyperlinkRelationshipIds,
 } from './table-create.internal.js';
+import { materializeTableAutoPageContent } from './table-content-measurement.internal.js';
 import {
   planTableAutoPages,
   resolveTableAutoPageLayout,
@@ -307,6 +308,8 @@ export interface AddTextOptions extends Partial<Transform> {
 
 export interface AddTableOptions {
   readonly autoPage?: boolean;
+  readonly autoPageCharWeight?: number;
+  readonly autoPageLineWeight?: number;
   readonly autoPageRepeatHeader?: boolean;
   readonly autoPageHeaderRows?: number;
   readonly autoPageSlideStartY?: number;
@@ -338,6 +341,8 @@ export type TableAutoPageMarginInput =
 
 export interface AddTableCellOptions {
   readonly align?: TextAlignment;
+  readonly autoPageCharWeight?: number;
+  readonly autoPageLineWeight?: number;
   readonly bold?: boolean;
   readonly border?: TableCellBorderInput;
   readonly color?: RichTextColor;
@@ -1624,9 +1629,12 @@ export class SlideModel {
           this.presentation.slideSize,
           this.presentation.tableAutoPageMarginsForSlide(this),
         );
+    const materialized = layoutRegion === undefined
+      ? definition
+      : materializeTableAutoPageContent(definition, layoutRegion);
     const pageDefinitions = layoutRegion === undefined
-      ? Object.freeze([definition])
-      : planTableAutoPages(definition, layoutRegion);
+      ? Object.freeze([materialized])
+      : planTableAutoPages(materialized, layoutRegion);
     const insertionPlans = pageDefinitions.slice(1).map(() =>
       this.presentation.prepareSlideInsertionAfter(this));
     const preparedHyperlinks = pageDefinitions.map((page) =>
