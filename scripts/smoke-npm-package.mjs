@@ -126,6 +126,11 @@ try {
     ? shapeDeclarationSource.slice(tableModelDeclarationStart, chartModelDeclarationStart)
     : '';
   if (!tableModelDeclaration.includes(
+    'setCellHyperlink(rowIndex: number, columnIndex: number, value: Hyperlink | undefined): void;',
+  )) {
+    throw new Error('Packed TableModel declaration is missing table-cell hyperlink editing');
+  }
+  if (!tableModelDeclaration.includes(
     'get verticalAlignment(): TextBoxVerticalAlignment | undefined;',
   ) || !tableModelDeclaration.includes(
     'set verticalAlignment(value: TextBoxVerticalAlignment | undefined);',
@@ -5776,18 +5781,21 @@ const tableMargins = JSON.stringify(tableMarginsState) === JSON.stringify({
 const tableCellHyperlinkDocument = PptxDocument.create();
 const tableCellHyperlinkSource = tableCellHyperlinkDocument.addSlide();
 const tableCellHyperlinkTarget = tableCellHyperlinkDocument.addSlide();
+const tableCellHyperlinkAlternate = tableCellHyperlinkDocument.addSlide();
 const tableCellHyperlinkUrlInput = {
-  url: 'https://example.com?a=1&b=2',
+  url: 'https://shared.example?a=1&b=2',
   tooltip: 'Visit & learn',
 };
 const tableCellHyperlinkEmptyTooltipInput = {
-  url: 'https://example.com?a=1&b=2',
+  url: 'https://second.example',
   tooltip: '',
 };
 const tableCellHyperlinkTable = tableCellHyperlinkSource.addTable([[
   { text: 'URL', options: { hyperlink: tableCellHyperlinkUrlInput } },
   { text: 'Empty', options: { hyperlink: tableCellHyperlinkEmptyTooltipInput } },
+  { text: 'Shared', options: { hyperlink: { url: 'https://third.example' } } },
   { text: 'Slide', options: { hyperlink: { slide: 2 } } },
+  { text: 'Self', options: { hyperlink: { slide: 1, tooltip: '' } } },
   'Plain',
 ]], { name: 'Packed table-cell hyperlinks' });
 const packedTableCellHyperlinkSnapshot = (table) => table.rows[0].cells
@@ -5804,12 +5812,14 @@ const tableCellHyperlinkInputDetached =
     JSON.stringify(tableCellHyperlinkImmediate) &&
   !Object.hasOwn(tableCellHyperlinkUrlInput, '_rId') &&
   !Object.hasOwn(tableCellHyperlinkEmptyTooltipInput, '_rId');
-const tableCellHyperlinkXml = new TextDecoder().decode(
+const packedTableCellHyperlinkXml = () => new TextDecoder().decode(
   tableCellHyperlinkDocument.opcPackage.requirePart(tableCellHyperlinkSource.partUri).bytes,
 );
-const tableCellHyperlinkClickIds = [...tableCellHyperlinkXml.matchAll(
+const packedTableCellHyperlinkClickIds = () => [...packedTableCellHyperlinkXml().matchAll(
   /<a:hlinkClick[^>]*r:id="([^"]+)"/g,
 )].map((match) => match[1]);
+const tableCellHyperlinkXml = packedTableCellHyperlinkXml();
+const tableCellHyperlinkClickIds = packedTableCellHyperlinkClickIds();
 const tableCellHyperlinkRelationships = tableCellHyperlinkSource.relationships.filter(
   ({ type }) => type.endsWith('/hyperlink'),
 );
@@ -5820,27 +5830,152 @@ const tableCellHyperlinkNonVisualEnd = tableCellHyperlinkXml.indexOf(
   '</p:nvGraphicFramePr>',
 );
 const tableCellHyperlinkIndependentRelationships =
-  tableCellHyperlinkClickIds.length === 3 &&
-  new Set(tableCellHyperlinkClickIds).size === 3 &&
-  tableCellHyperlinkRelationships.length === 2 &&
-  new Set(tableCellHyperlinkRelationships.map(({ id }) => id)).size === 2 &&
-  tableCellHyperlinkRelationships.every(({ target, targetMode }) =>
-    target === 'https://example.com?a=1&b=2' && targetMode === 'External') &&
-  tableCellSlideRelationships.length === 1 &&
+  tableCellHyperlinkClickIds.length === 5 &&
+  new Set(tableCellHyperlinkClickIds).size === 5 &&
+  tableCellHyperlinkRelationships.length === 3 &&
+  new Set(tableCellHyperlinkRelationships.map(({ id }) => id)).size === 3 &&
+  tableCellHyperlinkRelationships.every(({ targetMode }) => targetMode === 'External') &&
+  tableCellSlideRelationships.length === 2 &&
   tableCellSlideRelationships[0].resolvedTarget === tableCellHyperlinkTarget.partUri &&
-  tableCellHyperlinkXml.split('u="sng"').length - 1 === 3 &&
+  tableCellSlideRelationships[1].resolvedTarget === tableCellHyperlinkSource.partUri &&
+  tableCellHyperlinkXml.split('u="sng"').length - 1 === 5 &&
   tableCellHyperlinkNonVisualEnd >= 0 &&
   !tableCellHyperlinkXml.slice(0, tableCellHyperlinkNonVisualEnd)
     .includes('<a:hlinkClick');
+
+const tableCellHyperlinkSharedId = tableCellHyperlinkClickIds[0];
+const tableCellHyperlinkReplacedIds = tableCellHyperlinkClickIds.slice(1, 3);
+let tableCellHyperlinkSharedXml = tableCellHyperlinkXml;
+for (const id of tableCellHyperlinkReplacedIds) {
+  tableCellHyperlinkSharedXml = tableCellHyperlinkSharedXml.replace(
+    'r:id="' + id + '"',
+    'r:id="' + tableCellHyperlinkSharedId + '"',
+  );
+}
+tableCellHyperlinkDocument.transaction(() => {
+  tableCellHyperlinkDocument.opcPackage.setPart(
+    tableCellHyperlinkSource.partUri,
+    tableCellHyperlinkSharedXml,
+    tableCellHyperlinkDocument.opcPackage.requirePart(tableCellHyperlinkSource.partUri)
+      .contentType,
+  );
+  for (const id of tableCellHyperlinkReplacedIds) {
+    tableCellHyperlinkDocument.opcPackage.removeRelationship(
+      tableCellHyperlinkSource.partUri,
+      id,
+    );
+  }
+});
+const tableCellHyperlinkShared = packedTableCellHyperlinkSnapshot(tableCellHyperlinkTable);
+
+const tableCellHyperlinkNoOpBytes = tableCellHyperlinkDocument.opcPackage
+  .requirePart(tableCellHyperlinkSource.partUri).bytes.slice();
+const tableCellHyperlinkNoOpRelationships = JSON.stringify(
+  tableCellHyperlinkSource.relationships,
+);
+const tableCellHyperlinkNoOpJournal = JSON.stringify(
+  tableCellHyperlinkDocument.opcPackage.mutations,
+);
+tableCellHyperlinkTable.setCellHyperlink(0, 2, {
+  url: 'https://shared.example?a=1&b=2',
+});
+const tableCellHyperlinkNoOp = packedBytesEqual(
+  tableCellHyperlinkNoOpBytes,
+  tableCellHyperlinkDocument.opcPackage
+    .requirePart(tableCellHyperlinkSource.partUri).bytes,
+) && JSON.stringify(tableCellHyperlinkSource.relationships) ===
+  tableCellHyperlinkNoOpRelationships &&
+  JSON.stringify(tableCellHyperlinkDocument.opcPackage.mutations) ===
+  tableCellHyperlinkNoOpJournal;
+
+tableCellHyperlinkTable.setCellHyperlink(0, 1, {
+  url: 'https://shared.example?a=1&b=2',
+  tooltip: 'Peer',
+});
+const tableCellHyperlinkTooltipIdReuse = packedTableCellHyperlinkClickIds()[1] ===
+  tableCellHyperlinkSharedId;
+tableCellHyperlinkTable.setCellHyperlink(0, 0, {
+  url: 'https://edited.example?a=1&b=2',
+  tooltip: 'Edited',
+});
+const tableCellHyperlinkClonedId = packedTableCellHyperlinkClickIds()[0];
+const tableCellHyperlinkCloneOnWrite =
+  tableCellHyperlinkClonedId !== tableCellHyperlinkSharedId &&
+  packedTableCellHyperlinkClickIds().slice(1, 3).every(
+    (id) => id === tableCellHyperlinkSharedId,
+  ) &&
+  tableCellHyperlinkSource.relationships.find(
+    ({ id }) => id === tableCellHyperlinkClonedId,
+  )?.target === 'https://edited.example?a=1&b=2' &&
+  tableCellHyperlinkSource.relationships.find(
+    ({ id }) => id === tableCellHyperlinkSharedId,
+  )?.target === 'https://shared.example?a=1&b=2';
+
+const tableCellHyperlinkUniqueInternalId = packedTableCellHyperlinkClickIds()[3];
+tableCellHyperlinkTable.setCellHyperlink(0, 3, { slide: 3, tooltip: '' });
+const tableCellHyperlinkUniqueIdReuse = packedTableCellHyperlinkClickIds()[3] ===
+  tableCellHyperlinkUniqueInternalId &&
+  tableCellHyperlinkSource.relationships.find(
+    ({ id }) => id === tableCellHyperlinkUniqueInternalId,
+  )?.resolvedTarget === tableCellHyperlinkAlternate.partUri;
+
+tableCellHyperlinkTable.setCellHyperlink(0, 5, {
+  url: 'https://added.example',
+});
+const tableCellHyperlinkAddedId = packedTableCellHyperlinkClickIds()[5];
+tableCellHyperlinkTable.setCellHyperlink(0, 5, undefined);
+const tableCellHyperlinkAddClear =
+  tableCellHyperlinkTable.rows[0].cells[5].hyperlink === undefined &&
+  !tableCellHyperlinkSource.relationships.some(
+    ({ id }) => id === tableCellHyperlinkAddedId,
+  ) && packedTableCellHyperlinkXml().includes('u="sng"');
+
+tableCellHyperlinkTable.setCellHyperlink(0, 1, undefined);
+const tableCellHyperlinkSharedRetained = tableCellHyperlinkSource.relationships.some(
+  ({ id }) => id === tableCellHyperlinkSharedId,
+);
+tableCellHyperlinkTable.setCellHyperlink(0, 2, undefined);
+const tableCellHyperlinkSharedCollected = !tableCellHyperlinkSource.relationships.some(
+  ({ id }) => id === tableCellHyperlinkSharedId,
+);
+const tableCellHyperlinkSharedGc = tableCellHyperlinkSharedRetained &&
+  tableCellHyperlinkSharedCollected;
+
 tableCellHyperlinkTable.setCellText(0, 0, 'URL edited');
+tableCellHyperlinkTable.setCellFill(0, 0, { kind: 'none' });
+tableCellHyperlinkTable.setCellMargins(0, 0, { top: 2 });
 const tableCellHyperlinkTextEditPreserved = tableCellHyperlinkTable.rows[0].cells[0]
   .hyperlink;
-tableCellHyperlinkDocument.moveSlide(1, 0);
-const tableCellHyperlinkMovedInternal = tableCellHyperlinkTable.rows[0].cells[2]
+const tableCellHyperlinkAfterEdit = packedTableCellHyperlinkSnapshot(
+  tableCellHyperlinkTable,
+);
+
+tableCellHyperlinkDocument.moveSlide(
+  tableCellHyperlinkDocument.slides.indexOf(tableCellHyperlinkAlternate),
+  0,
+);
+const tableCellHyperlinkMovedInternal = tableCellHyperlinkTable.rows[0].cells[3]
   .hyperlink;
-tableCellHyperlinkDocument.moveSlide(0, 1);
-const tableCellHyperlinkRestoredInternal = tableCellHyperlinkTable.rows[0].cells[2]
+const tableCellHyperlinkMovedSelf = tableCellHyperlinkTable.rows[0].cells[4]
   .hyperlink;
+tableCellHyperlinkDocument.moveSlide(0, tableCellHyperlinkDocument.slides.length - 1);
+const tableCellHyperlinkRestoredInternal = tableCellHyperlinkTable.rows[0].cells[3]
+  .hyperlink;
+const tableCellHyperlinkDuplicate = tableCellHyperlinkDocument.duplicateSlide(
+  tableCellHyperlinkDocument.slides.indexOf(tableCellHyperlinkSource),
+);
+const tableCellHyperlinkDuplicateTable = tableCellHyperlinkDuplicate.shapes.find(
+  (shape) => shape instanceof TableModel,
+);
+const tableCellHyperlinkDuplicateSelf = tableCellHyperlinkDuplicateTable.rows[0].cells[4]
+  .hyperlink;
+tableCellHyperlinkDocument.deleteSlide(
+  tableCellHyperlinkDocument.slides.indexOf(tableCellHyperlinkAlternate),
+);
+const tableCellHyperlinkAfterTargetDeletion = {
+  source: tableCellHyperlinkTable.rows[0].cells[3].hyperlink ?? null,
+  duplicate: tableCellHyperlinkDuplicateTable.rows[0].cells[3].hyperlink ?? null,
+};
 const tableCellHyperlinkInvalidBytes = tableCellHyperlinkDocument.opcPackage
   .requirePart(tableCellHyperlinkSource.partUri).bytes.slice();
 const tableCellHyperlinkInvalidRelationships = JSON.stringify(
@@ -5851,10 +5986,7 @@ const tableCellHyperlinkInvalidJournal = JSON.stringify(
 );
 let tableCellHyperlinkInvalidError;
 try {
-  tableCellHyperlinkSource.addTable([[
-    { text: 'First', options: { hyperlink: { url: 'https://first.example' } } },
-    { text: 'Invalid', options: { hyperlink: { slide: 99 } } },
-  ]]);
+  tableCellHyperlinkTable.setCellHyperlink(0, 0, { slide: 99 });
 } catch (error) {
   tableCellHyperlinkInvalidError = { name: error.name, message: error.message };
 }
@@ -5871,15 +6003,44 @@ const reopenedTableCellHyperlinkDocument = await PptxDocument.open(
 );
 const reopenedTableCellHyperlinkTable = reopenedTableCellHyperlinkDocument.slides[0]
   .shapes.find(({ name }) => name === 'Packed table-cell hyperlinks');
+const reopenedTableCellHyperlinkDuplicateTable = reopenedTableCellHyperlinkDocument.slides
+  .at(-1).shapes.find(({ name }) => name === 'Packed table-cell hyperlinks');
+const tableCellHyperlinkFinalXml = packedTableCellHyperlinkXml();
+const tableCellHyperlinkFinalClickIds = packedTableCellHyperlinkClickIds();
+const tableCellHyperlinkFinalRelationshipIds = tableCellHyperlinkSource.relationships
+  .filter(({ type }) => type.endsWith('/hyperlink') || type.endsWith('/slide'))
+  .map(({ id }) => id);
 const tableCellHyperlinkState = {
   immediate: tableCellHyperlinkImmediate,
   inputDetached: tableCellHyperlinkInputDetached,
   snapshotsFrozen: tableCellHyperlinkSnapshotsFrozen,
   independentRelationships: tableCellHyperlinkIndependentRelationships,
+  shared: tableCellHyperlinkShared,
+  noOp: tableCellHyperlinkNoOp,
+  tooltipIdReuse: tableCellHyperlinkTooltipIdReuse,
+  cloneOnWrite: tableCellHyperlinkCloneOnWrite,
+  uniqueIdReuse: tableCellHyperlinkUniqueIdReuse,
+  addClear: tableCellHyperlinkAddClear,
+  sharedGc: tableCellHyperlinkSharedGc,
   textEditPreserved: tableCellHyperlinkTextEditPreserved,
+  afterEdit: tableCellHyperlinkAfterEdit,
   movedInternal: tableCellHyperlinkMovedInternal,
+  movedSelf: tableCellHyperlinkMovedSelf,
   restoredInternal: tableCellHyperlinkRestoredInternal,
+  duplicateSelf: tableCellHyperlinkDuplicateSelf,
+  targetDeletion: tableCellHyperlinkAfterTargetDeletion,
+  finalRelationshipOwnership: {
+    clickCount: tableCellHyperlinkFinalClickIds.length,
+    relationshipCount: tableCellHyperlinkFinalRelationshipIds.length,
+    uniqueClickIds: new Set(tableCellHyperlinkFinalClickIds).size,
+    idsMatch: JSON.stringify([...tableCellHyperlinkFinalClickIds].sort()) ===
+      JSON.stringify([...tableCellHyperlinkFinalRelationshipIds].sort()),
+    underlineCount: tableCellHyperlinkFinalXml.split('u="sng"').length - 1,
+  },
   reopened: packedTableCellHyperlinkSnapshot(reopenedTableCellHyperlinkTable),
+  reopenedDuplicate: packedTableCellHyperlinkSnapshot(
+    reopenedTableCellHyperlinkDuplicateTable,
+  ),
   invalidError: tableCellHyperlinkInvalidError,
   failureIsolation: tableCellHyperlinkFailureIsolation,
   validationErrors: tableCellHyperlinkDocument.diagnostics
@@ -5889,32 +6050,77 @@ const tableCellHyperlinkState = {
 };
 const tableCellHyperlinkExpected = {
   immediate: [
-    { url: 'https://example.com?a=1&b=2', tooltip: 'Visit & learn' },
-    { url: 'https://example.com?a=1&b=2', tooltip: '' },
+    { url: 'https://shared.example?a=1&b=2', tooltip: 'Visit & learn' },
+    { url: 'https://second.example', tooltip: '' },
+    { url: 'https://third.example' },
     { slide: 2 },
+    { slide: 1, tooltip: '' },
     null,
   ],
   inputDetached: true,
   snapshotsFrozen: true,
   independentRelationships: true,
-  textEditPreserved: { url: 'https://example.com?a=1&b=2', tooltip: 'Visit & learn' },
-  movedInternal: { slide: 1 },
-  restoredInternal: { slide: 2 },
-  reopened: [
-    { url: 'https://example.com?a=1&b=2', tooltip: 'Visit & learn' },
-    { url: 'https://example.com?a=1&b=2', tooltip: '' },
+  shared: [
+    { url: 'https://shared.example?a=1&b=2', tooltip: 'Visit & learn' },
+    { url: 'https://shared.example?a=1&b=2', tooltip: '' },
+    { url: 'https://shared.example?a=1&b=2' },
     { slide: 2 },
+    { slide: 1, tooltip: '' },
+    null,
+  ],
+  noOp: true,
+  tooltipIdReuse: true,
+  cloneOnWrite: true,
+  uniqueIdReuse: true,
+  addClear: true,
+  sharedGc: true,
+  textEditPreserved: { url: 'https://edited.example?a=1&b=2', tooltip: 'Edited' },
+  afterEdit: [
+    { url: 'https://edited.example?a=1&b=2', tooltip: 'Edited' },
+    null,
+    null,
+    { slide: 3, tooltip: '' },
+    { slide: 1, tooltip: '' },
+    null,
+  ],
+  movedInternal: { slide: 1, tooltip: '' },
+  movedSelf: { slide: 2, tooltip: '' },
+  restoredInternal: { slide: 3, tooltip: '' },
+  duplicateSelf: { slide: 4, tooltip: '' },
+  targetDeletion: { source: null, duplicate: null },
+  finalRelationshipOwnership: {
+    clickCount: 2,
+    relationshipCount: 2,
+    uniqueClickIds: 2,
+    idsMatch: true,
+    underlineCount: 6,
+  },
+  reopened: [
+    { url: 'https://edited.example?a=1&b=2', tooltip: 'Edited' },
+    null,
+    null,
+    null,
+    { slide: 1, tooltip: '' },
+    null,
+  ],
+  reopenedDuplicate: [
+    { url: 'https://edited.example?a=1&b=2', tooltip: 'Edited' },
+    null,
+    null,
+    null,
+    { slide: 3, tooltip: '' },
     null,
   ],
   invalidError: {
     name: 'RangeError',
-    message: 'Table cell 0,1 hyperlink slide 99 is out of range',
+    message: 'Table cell 0,0 hyperlink slide 99 is out of range',
   },
   failureIsolation: true,
   validationErrors: 0,
 };
 const tableCellHyperlinks = JSON.stringify(tableCellHyperlinkState) ===
   JSON.stringify(tableCellHyperlinkExpected);
+const tableCellHyperlinkEditing = tableCellHyperlinks;
 if (!tableCellHyperlinks) throw new Error(JSON.stringify(tableCellHyperlinkState));
 const packedTableBorderSideSnapshot = (value) => {
   if (value.kind === 'none') return { kind: 'none' };
@@ -7540,6 +7746,7 @@ const checks = {
   tableMargins,
   tableMarginsState,
   tableCellHyperlinks,
+  tableCellHyperlinkEditing,
   tableCellHyperlinkState,
   tableBorders,
   tableBordersState,
@@ -12108,6 +12315,18 @@ const typedTableCellHyperlinkTable: TableModel = createdDocument.slides[0].addTa
 const typedTableCellHyperlinkCell: TableCell = typedTableCellHyperlinkTable.rows[0].cells[0];
 const typedTableCellHyperlinkRead: Hyperlink | undefined =
   typedTableCellHyperlinkCell.hyperlink;
+typedTableCellHyperlinkTable.setCellHyperlink(0, 0, {
+  url: 'https://typed-table-cell-edited.example',
+  tooltip: '',
+});
+typedTableCellHyperlinkTable.setCellHyperlink(0, 0, { slide: 1 });
+typedTableCellHyperlinkTable.setCellHyperlink(0, 0, undefined);
+// @ts-expect-error table-cell hyperlink editing requires exactly one target
+typedTableCellHyperlinkTable.setCellHyperlink(0, 0, {});
+// @ts-expect-error table-cell hyperlink editing targets are mutually exclusive
+typedTableCellHyperlinkTable.setCellHyperlink(0, 0, { url: 'https://example.com', slide: 1 });
+// @ts-expect-error table-cell hyperlink editing tooltips are strings
+typedTableCellHyperlinkTable.setCellHyperlink(0, 0, { url: 'https://example.com', tooltip: 42 });
 // @ts-expect-error table-cell hyperlink requires exactly one target
 const missingTableCellHyperlinkTarget: AddTableCellOptions = { hyperlink: {} };
 // @ts-expect-error table-cell hyperlink branches are mutually exclusive
@@ -12116,6 +12335,8 @@ const bothTableCellHyperlinkTargets: AddTableCellOptions = { hyperlink: { url: '
 const tableCellHyperlinkRelationshipEscape: AddTableCellOptions = { hyperlink: { url: 'https://example.com', _rId: 'rId9' } };
 // @ts-expect-error there is no table-level hyperlink default
 createdDocument.slides[0].addTable([['A']], { hyperlink: { url: 'https://example.com' } });
+// @ts-expect-error there is no table-level hyperlink property
+typedTable.hyperlink = { url: 'https://example.com' };
 const widthSnapshot: readonly number[] | undefined = typedTable.columnWidths;
 const heightSnapshot: readonly number[] | undefined = typedTable.rowHeights;
 const typedTableVerticalAlignment: TextBoxVerticalAlignment | undefined =
@@ -12430,7 +12651,7 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
       `Table margins smoke failed: ${JSON.stringify(apiChecks.tableMarginsState)}`,
     );
   }
-  if (!apiChecks.tableCellHyperlinks) {
+  if (!apiChecks.tableCellHyperlinks || !apiChecks.tableCellHyperlinkEditing) {
     throw new Error(
       `Table-cell hyperlinks smoke failed: ${JSON.stringify(apiChecks.tableCellHyperlinkState)}`,
     );
@@ -12786,7 +13007,7 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
   if (!tableCellHyperlinkInspected.ok ||
       tableCellHyperlinkInspected.data?.contentTypes?.[
         'application/vnd.openxmlformats-officedocument.presentationml.slide+xml'
-      ] !== 2) {
+      ] !== 3) {
     throw new Error(
       `CLI table-cell hyperlink package inspection failed: ${tableCellHyperlinkInspectResult.stdout}`,
     );
@@ -12819,9 +13040,10 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
   );
   const tableCellHyperlinkSlides = JSON.parse(tableCellHyperlinkSlidesResult.stdout);
   if (!tableCellHyperlinkSlides.ok ||
-      tableCellHyperlinkSlides.data?.length !== 2 ||
+      tableCellHyperlinkSlides.data?.length !== 3 ||
       tableCellHyperlinkSlides.data[0]?.shapeCount !== 1 ||
-      tableCellHyperlinkSlides.data[1]?.shapeCount !== 0) {
+      tableCellHyperlinkSlides.data[1]?.shapeCount !== 0 ||
+      tableCellHyperlinkSlides.data[2]?.shapeCount !== 1) {
     throw new Error(
       `CLI table-cell hyperlink slide listing failed: ${tableCellHyperlinkSlidesResult.stdout}`,
     );
@@ -12880,25 +13102,27 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
     ...tableCellHyperlinkInternalRelationships,
   ].map((relationship) => relationship.match(/\bId="([^"]+)"/)?.[1]);
   if (!tableCellHyperlinkPart.includes('<a:tbl>') ||
-      tableCellHyperlinkCells.length !== 4 ||
-      tableCellHyperlinkClicks.length !== 3 ||
-      new Set(tableCellHyperlinkClickIds).size !== 3 ||
-      tableCellHyperlinkClicks.filter((click) => !click.includes('tooltip=')).length !== 1 ||
+      tableCellHyperlinkCells.length !== 6 ||
+      tableCellHyperlinkClicks.length !== 2 ||
+      new Set(tableCellHyperlinkClickIds).size !== 2 ||
+      tableCellHyperlinkClicks.filter((click) => !click.includes('tooltip=')).length !== 0 ||
       tableCellHyperlinkClicks.filter((click) => click.includes('tooltip=""')).length !== 1 ||
       tableCellHyperlinkClicks.filter((click) =>
         click.includes('action="ppaction://hlinksldjump"')).length !== 1 ||
-      [...tableCellHyperlinkPart.matchAll(/<a:rPr\b[^>]*\bu="sng"/g)].length !== 3 ||
+      [...tableCellHyperlinkPart.matchAll(/<a:rPr\b[^>]*\bu="sng"/g)].length !== 6 ||
+      !tableCellHyperlinkPart.includes('<a:t xml:space="preserve">URL edited</a:t>') ||
+      !tableCellHyperlinkPart.includes('marT="25400"') ||
       /<p:cNvPr\b[^>]*>[\s\S]*?<a:hlinkClick[\s\S]*?<\/p:cNvPr>/.test(
         tableCellHyperlinkPart,
       ) ||
-      tableCellHyperlinkExternalRelationships.length !== 2 ||
+      tableCellHyperlinkExternalRelationships.length !== 1 ||
       new Set(tableCellHyperlinkExternalRelationships.map((relationship) =>
-        relationship.match(/\bId="([^"]+)"/)?.[1])).size !== 2 ||
+        relationship.match(/\bId="([^"]+)"/)?.[1])).size !== 1 ||
       tableCellHyperlinkExternalRelationships.some((relationship) =>
-        !relationship.includes('Target="https://example.com?a=1&amp;b=2"') ||
+        !relationship.includes('Target="https://edited.example?a=1&amp;b=2"') ||
         !relationship.includes('TargetMode="External"')) ||
       tableCellHyperlinkInternalRelationships.length !== 1 ||
-      !tableCellHyperlinkInternalRelationships[0].includes('Target="slide2.xml"') ||
+      !tableCellHyperlinkInternalRelationships[0].includes('Target="slide1.xml"') ||
       tableCellHyperlinkInternalRelationships[0].includes('TargetMode=') ||
       JSON.stringify([...tableCellHyperlinkClickIds].sort()) !==
         JSON.stringify([...tableCellHyperlinkOwnedRelationshipIds].sort())) {
@@ -14322,6 +14546,7 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
     summary.tableMarginsState = apiChecks.tableMarginsState;
     summary.tableMarginsInspect = true;
     summary.tableCellHyperlinks = apiChecks.tableCellHyperlinks;
+    summary.tableCellHyperlinkEditing = apiChecks.tableCellHyperlinkEditing;
     summary.tableCellHyperlinkState = apiChecks.tableCellHyperlinkState;
     summary.tableCellHyperlinksInspect = true;
     summary.tableBorders = apiChecks.tableBorders;

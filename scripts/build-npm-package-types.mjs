@@ -103,6 +103,11 @@ const tableModelDeclaration = tableModelStart >= 0 && chartModelStart > tableMod
   ? shapeDeclarationSource.slice(tableModelStart, chartModelStart)
   : '';
 if (!tableModelDeclaration.includes(
+  'setCellHyperlink(rowIndex: number, columnIndex: number, value: Hyperlink | undefined): void;',
+)) {
+  throw new Error('Packed TableModel declaration is missing table-cell hyperlink editing');
+}
+if (!tableModelDeclaration.includes(
   'get verticalAlignment(): TextBoxVerticalAlignment | undefined;',
 ) || !tableModelDeclaration.includes(
   'set verticalAlignment(value: TextBoxVerticalAlignment | undefined);',
