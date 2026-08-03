@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { normalizeTableDefinition } from './table-create.internal.js';
+import { materializeTableAutoPageContent } from './table-content-measurement.internal.js';
 import {
   planTableAutoPages as partitionTableAutoPages,
   resolveTableAutoPageLayout,
@@ -226,6 +227,26 @@ describe('table auto-page layout region', () => {
 });
 
 describe('table auto-page partition planner', () => {
+  it('partitions oversized measured row fragments as ordinary positive rows', () => {
+    const advance = Math.round(12 * 12_700 / 2.3);
+    const lineHeight = Math.round(12 * 1.67 * 914_400 / 100);
+    const source = definition([['AAAAAAAAA']], {
+      y: 0,
+      margin: 0,
+      columnWidths: [3 * advance],
+      autoPageSlideStartY: 0,
+      slideMargin: 0,
+    });
+    const slideSize: SlideSize = { width: emu(1_000_000), height: emu(lineHeight) };
+    const region = resolveTableAutoPageLayout(source, slideSize);
+    const materialized = materializeTableAutoPageContent(source, region);
+    const pages = partitionTableAutoPages(materialized, region);
+
+    expect(materialized.rowHeights).toEqual([lineHeight, lineHeight, lineHeight]);
+    expect(firstColumnText(pages)).toEqual([['AAA'], ['AAA'], ['AAA']]);
+    expect(pages.every(({ autoPage }) => autoPage === undefined)).toBe(true);
+  });
+
   it('partitions exact EMU rows and repeats headers', () => {
     const pages = planTableAutoPages(definition(
       [['H'], ['A'], ['B'], ['C']],

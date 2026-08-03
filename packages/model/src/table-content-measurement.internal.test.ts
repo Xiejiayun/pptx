@@ -5,11 +5,13 @@ import {
 } from './table-create.internal.js';
 import {
   materializeMeasuredTableRows,
+  materializeTableAutoPageContent,
   measureTableCellContent,
   measureTableAutoPageRows,
   type MeasuredTableCellContent,
   type MeasuredTableRowLayout,
 } from './table-content-measurement.internal.js';
+import type { TableAutoPageLayoutRegion } from './table-auto-page.internal.js';
 
 const EMU_PER_POINT = 12_700;
 const EMU_PER_INCH = 914_400;
@@ -62,6 +64,19 @@ function syntheticRow(
     fragmentable: false,
     cells,
   };
+}
+
+function layoutRegion(
+  firstCapacity: number,
+  continuationCapacity = firstCapacity,
+): Readonly<TableAutoPageLayoutRegion> {
+  return Object.freeze({
+    firstY: 0,
+    continuationY: 0,
+    bottomEdge: Math.max(firstCapacity, continuationCapacity),
+    firstCapacity,
+    continuationCapacity,
+  });
 }
 
 describe('deterministic table-cell content measurement', () => {
@@ -522,5 +537,233 @@ describe('measured table row bands and materialization', () => {
     ];
     expect(() => materializeMeasuredTableRows(ordinary, overflowing))
       .toThrow(/safe integer/i);
+  });
+});
+
+describe('oversized measured table row fragmentation', () => {
+  it('splits the maximum band prefix while preserving peers, margins, and content', () => {
+    const fragmentHeight = BASE_LINE_HEIGHT + (2 * EMU_PER_POINT);
+    const definition = normalizeTableDefinition([[
+      {
+        text: 'AAAAAAAAA',
+        options: { margin: [1, 0, 1, 0] },
+      },
+      {
+        text: 'Z',
+        options: { margin: [1, 0, 1, 0] },
+      },
+    ]], {
+      autoPage: true,
+      columnWidths: [3 * BASE_ADVANCE, 3 * BASE_ADVANCE],
+      rowHeights: [0],
+    });
+    const materialized = materializeTableAutoPageContent(
+      definition,
+      layoutRegion(fragmentHeight),
+    );
+
+    expect(materialized.rows).toHaveLength(3);
+    expect(materialized.rowHeights).toEqual([
+      fragmentHeight,
+      fragmentHeight,
+      fragmentHeight,
+    ]);
+    expect(materialized.rows.map((row) => row[0]!.text).join(''))
+      .toBe('AAAAAAAAA');
+    expect(materialized.rows[0]![1]!.text).toBe('Z');
+    expect(materialized.rows.slice(1).every((row) => row[1]!.text === ''))
+      .toBe(true);
+    expect(materialized.rows.slice(1).every((row) =>
+      row[1]!.richText?.[0]?.runs.length === 0)).toBe(true);
+    expect(materialized.rows.every((row) =>
+      row.every((entry) => entry.margins?.top === 1 && entry.margins?.bottom === 1)))
+      .toBe(true);
+    expect(materialized.rows.every(Object.isFrozen)).toBe(true);
+    expect(materialized.rowHeights.every((height) => height <= fragmentHeight))
+      .toBe(true);
+  });
+
+  it('keeps colspan topology identical across fragments', () => {
+    const definition = normalizeTableDefinition([[
+      {
+        text: 'AAAAAAAAA',
+        options: { colspan: 2, margin: 0 },
+      },
+    ]], {
+      autoPage: true,
+      columnWidths: [Math.floor(1.5 * BASE_ADVANCE), Math.ceil(1.5 * BASE_ADVANCE)],
+      rowHeights: [0],
+    });
+    const materialized = materializeTableAutoPageContent(
+      definition,
+      layoutRegion(BASE_LINE_HEIGHT),
+    );
+    expect(materialized.rows).toHaveLength(3);
+    for (const row of materialized.rows) {
+      expect(row).toHaveLength(2);
+      expect(row[0]!.colspan).toBe(2);
+      expect(row[1]!.continuation).toEqual({ horizontal: true });
+    }
+  });
+
+  it('preserves rich styles and owns boundary spacing, bullets, and soft breaks', () => {
+    const source = normalizeTableDefinition([[{
+      text: [{
+        bullet: { kind: 'bullet', indent: 0 },
+        spacing: {
+          before: 3,
+          after: 3,
+          line: { kind: 'exact', points: 10 },
+        },
+        runs: [
+          {
+            text: 'AB',
+            style: {
+              bold: true,
+              color: { kind: 'srgb', value: '112233' },
+              hyperlink: { url: 'https://example.com' },
+            },
+          },
+          {
+            text: 'C',
+            softBreakBefore: true,
+            style: { italic: true },
+          },
+          {
+            text: 'D😀a\u0301👨‍👩‍👧‍👦',
+            softBreakBefore: true,
+            style: {
+              fontSize: 12,
+              hyperlink: { slide: 1 },
+            },
+          },
+        ],
+      }],
+      options: {
+        hyperlink: { url: 'https://outer.example' },
+        margin: 0,
+      },
+    }]], {
+      autoPage: true,
+      columnWidths: [BASE_ADVANCE],
+      rowHeights: [0],
+    });
+    const snapshot = JSON.stringify(source);
+    const materialized = materializeTableAutoPageContent(
+      source,
+      layoutRegion(20 * EMU_PER_POINT),
+    );
+    expect(JSON.stringify(source)).toBe(snapshot);
+    expect(materialized.rows.length).toBeGreaterThanOrEqual(4);
+
+    const cells = materialized.rows.map((row) => row[0]!);
+    const paragraphs = cells.map((entry) => entry.richText![0]!);
+    expect(paragraphs[0]!.bullet).toMatchObject({ kind: 'bullet' });
+    expect(paragraphs[0]!.spacing).toMatchObject({ before: 3, after: false });
+    expect(paragraphs.at(-1)!.bullet).toBe(false);
+    expect(paragraphs.at(-1)!.spacing).toMatchObject({ before: false, after: 3 });
+    for (const paragraph of paragraphs.slice(1, -1)) {
+      expect(paragraph.bullet).toBe(false);
+      expect(paragraph.spacing).toMatchObject({ before: false, after: false });
+    }
+    expect(paragraphs.every((paragraph) => {
+      const line = paragraph.spacing === false ? undefined : paragraph.spacing?.line;
+      return line !== false && line?.kind === 'exact' && line.points === 10;
+    })).toBe(true);
+
+    const runs = paragraphs.flatMap(({ runs }) => runs);
+    expect(runs.map(({ text }) => text).join('')).toBe('ABCD😀a\u0301👨‍👩‍👧‍👦');
+    expect(runs.some((run) => run.text === 'C' && run.softBreakBefore === true))
+      .toBe(true);
+    expect(runs.some((run) => run.text.startsWith('D') && run.softBreakBefore === undefined))
+      .toBe(true);
+    expect(runs.find((run) => run.text.includes('A'))?.style).toMatchObject({
+      bold: true,
+      color: { kind: 'srgb', value: '112233' },
+      hyperlink: { url: 'https://example.com' },
+    });
+    expect(runs.find((run) => run.text.includes('😀'))?.style?.hyperlink)
+      .toEqual({ slide: 1 });
+    expect(runs.find((run) => run.text === 'C')?.style?.italic).toBe(true);
+    expect(cells.every((entry) => entry.hyperlink?.url === 'https://outer.example'))
+      .toBe(true);
+    for (const run of runs) {
+      expect(run.text).not.toMatch(/^[\u0300-\u036F\u200D]/u);
+      expect(run.text).not.toMatch(/\u200D$/u);
+    }
+  });
+
+  it('does not split a row that fits continuation capacity', () => {
+    const definition = normalizeTableDefinition([
+      ['A'],
+      ['AAAAAA'],
+    ], {
+      autoPage: true,
+      margin: 0,
+      columnWidths: [3 * BASE_ADVANCE],
+      rowHeights: [0, 0],
+    });
+    const materialized = materializeTableAutoPageContent(
+      definition,
+      layoutRegion(BASE_LINE_HEIGHT, 2 * BASE_LINE_HEIGHT),
+    );
+    expect(materialized.rows).toHaveLength(2);
+    expect(materialized.rows[1]![0]!.text).toBe('AAAAAA');
+    expect(materialized.rowHeights[1]).toBe(2 * BASE_LINE_HEIGHT);
+  });
+
+  it.each([
+    ['repeated header overflow', () => {
+      const definition = normalizeTableDefinition([['HH'], ['B']], {
+        autoPage: true,
+        autoPageRepeatHeader: true,
+        margin: 0,
+        columnWidths: [BASE_ADVANCE],
+        rowHeights: [0, 0],
+      });
+      return [definition, layoutRegion(BASE_LINE_HEIGHT)] as const;
+    }, /header/i],
+    ['zero continuation body', () => {
+      const definition = normalizeTableDefinition([['H'], ['B']], {
+        autoPage: true,
+        autoPageRepeatHeader: true,
+        margin: 0,
+        columnWidths: [BASE_ADVANCE],
+        rowHeights: [0, 0],
+      });
+      return [definition, layoutRegion(BASE_LINE_HEIGHT)] as const;
+    }, /body|capacity/i],
+    ['rowspan block overflow', () => {
+      const definition = normalizeTableDefinition([
+        [{ text: 'A', options: { rowspan: 2, margin: 0 } }],
+        [],
+      ], {
+        autoPage: true,
+        rowHeights: [0, 0],
+      });
+      return [definition, layoutRegion(Math.floor(BASE_LINE_HEIGHT / 2))] as const;
+    }, /rowspan|merge|block/i],
+    ['minimum-only overflow', () => {
+      const definition = normalizeTableDefinition([['A']], {
+        autoPage: true,
+        autoPageCharWeight: 0,
+        margin: 0,
+        rowHeights: [2 * BASE_LINE_HEIGHT],
+      });
+      return [definition, layoutRegion(BASE_LINE_HEIGHT)] as const;
+    }, /minimum|fixed/i],
+    ['single band overflow', () => {
+      const definition = normalizeTableDefinition([['A']], {
+        autoPage: true,
+        margin: 0,
+        rowHeights: [0],
+      });
+      return [definition, layoutRegion(BASE_LINE_HEIGHT - 1)] as const;
+    }, /band|fit/i],
+  ])('rejects %s without mutating the source', (_name, prepare, message) => {
+    const [definition, region] = prepare();
+    const snapshot = JSON.stringify(definition);
+    expect(() => materializeTableAutoPageContent(definition, region)).toThrow(message);
+    expect(JSON.stringify(definition)).toBe(snapshot);
   });
 });

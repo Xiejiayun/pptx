@@ -2,11 +2,13 @@ import {
   normalizeRichText,
   resolveParagraphSpacing,
   type NormalizedRichTextParagraph,
+  type NormalizedRichTextRun,
 } from './rich-text.internal.js';
 import type {
   NormalizedTableCell,
   NormalizedTableDefinition,
 } from './table-create.internal.js';
+import type { TableAutoPageLayoutRegion } from './table-auto-page.internal.js';
 
 const DEFAULT_TABLE_FONT_SIZE_PT = 12;
 const BASE_CHAR_DIVISOR = 2.3;
@@ -44,6 +46,16 @@ interface EmptyRunPiece {
 }
 
 type LinePiece = ClusterPiece | EmptyRunPiece;
+
+interface FragmentedTableRow {
+  readonly row: readonly Readonly<NormalizedTableCell>[];
+  readonly height: number;
+}
+
+interface MeasuredTableRowBlock {
+  readonly start: number;
+  readonly end: number;
+}
 
 export interface MeasuredTableRunSlice {
   readonly paragraphIndex: number;
@@ -278,6 +290,297 @@ export function materializeMeasuredTableRows(
     rowHeights,
     autoPage,
   });
+}
+
+export function materializeTableAutoPageContent(
+  definition: Readonly<NormalizedTableDefinition>,
+  region: Readonly<TableAutoPageLayoutRegion>,
+): Readonly<NormalizedTableDefinition> {
+  if (definition.autoPage?.measureContent !== true) return definition;
+  const measuredRows = measureTableAutoPageRows(definition);
+  const materialized = materializeMeasuredTableRows(definition, measuredRows);
+  const headerRows = definition.autoPage.headerRows;
+  assertMeasuredHeaderBoundary(definition.rows, headerRows);
+  const headerHeight = safeSum(
+    materialized.rowHeights.slice(0, headerRows),
+    'Measured table header height',
+  );
+  if (headerHeight > region.firstCapacity) {
+    throw new RangeError('Measured table headers do not fit on the source slide');
+  }
+  if (headerRows < materialized.rows.length && headerHeight >= region.continuationCapacity) {
+    throw new RangeError('Measured table continuation body capacity must be positive');
+  }
+  const bodyCapacity = safeSubtract(
+    region.continuationCapacity,
+    headerHeight,
+    'Measured table continuation body capacity',
+  );
+
+  const rows: Array<readonly Readonly<NormalizedTableCell>[]> = [
+    ...materialized.rows.slice(0, headerRows),
+  ];
+  const rowHeights = [...materialized.rowHeights.slice(0, headerRows)];
+  let fragmented = false;
+  for (const block of measuredBodyRowBlocks(definition.rows, headerRows)) {
+    const blockHeight = safeSum(
+      materialized.rowHeights.slice(block.start, block.end),
+      'Measured table body block height',
+    );
+    if (block.end - block.start > 1) {
+      if (blockHeight > bodyCapacity) {
+        throw new RangeError('Measured table rowspan block does not fit continuation capacity');
+      }
+      for (let rowIndex = block.start; rowIndex < block.end; rowIndex += 1) {
+        rows.push(materialized.rows[rowIndex]!);
+        rowHeights.push(materialized.rowHeights[rowIndex]!);
+      }
+      continue;
+    }
+
+    const rowIndex = block.start;
+    if (blockHeight <= bodyCapacity) {
+      rows.push(materialized.rows[rowIndex]!);
+      rowHeights.push(blockHeight);
+      continue;
+    }
+    const measured = measuredRows[rowIndex]!;
+    if (!measured.fragmentable) {
+      throw new RangeError('Measured table merge row cannot be fragmented');
+    }
+    if (measured.contentHeight <= bodyCapacity) {
+      throw new RangeError('Measured table fixed minimum height cannot be fragmented');
+    }
+    const fragments = fragmentMeasuredRow(definition, measured, bodyCapacity);
+    fragmented = true;
+    for (const fragment of fragments) {
+      rows.push(fragment.row);
+      rowHeights.push(fragment.height);
+    }
+  }
+  if (!fragmented) return materialized;
+
+  const frozenRows = Object.freeze(rows);
+  const frozenHeights = Object.freeze(rowHeights);
+  return Object.freeze({
+    ...materialized,
+    rows: frozenRows,
+    height: safeSum(frozenHeights, 'Fragmented measured table height'),
+    rowHeights: frozenHeights,
+  });
+}
+
+function fragmentMeasuredRow(
+  definition: Readonly<NormalizedTableDefinition>,
+  measured: Readonly<MeasuredTableRowLayout>,
+  bodyCapacity: number,
+): readonly Readonly<FragmentedTableRow>[] {
+  const sourceRow = definition.rows[measured.sourceRowIndex];
+  if (sourceRow === undefined) {
+    throw new RangeError('Fragmented measured table source row is missing');
+  }
+  const { top, bottom } = effectiveMeasuredRowMargins(measured);
+  const marginHeight = safeSum([top, bottom], 'Fragmented measured row margins');
+  if (measured.bands.length === 0) {
+    throw new RangeError('Fragmented measured row must contain a content band');
+  }
+
+  const fragments: FragmentedTableRow[] = [];
+  let firstBand = 0;
+  while (firstBand < measured.bands.length) {
+    let endBand = firstBand;
+    let height = marginHeight;
+    while (endBand < measured.bands.length) {
+      const candidate = safeAdd(
+        height,
+        measured.bands[endBand]!,
+        'Fragmented measured row height',
+      );
+      if (Math.max(1, candidate) > bodyCapacity) break;
+      height = candidate;
+      endBand += 1;
+    }
+    if (endBand === firstBand) {
+      throw new RangeError('A single measured content band does not fit continuation capacity');
+    }
+
+    const row = Object.freeze(sourceRow.map((cell, columnIndex) => {
+      if (cell.continuation !== undefined) return cell;
+      const cellMeasurement = measured.cells[columnIndex];
+      if (cellMeasurement === undefined) {
+        throw new RangeError(
+          `Fragmented measured table cell ${measured.sourceRowIndex},${columnIndex} is missing`,
+        );
+      }
+      const richText = fragmentCellParagraphs(cellMeasurement, firstBand, endBand);
+      return Object.freeze({
+        ...cell,
+        text: projectFragmentText(richText),
+        richText,
+      });
+    }));
+    fragments.push(Object.freeze({ row, height: Math.max(1, height) }));
+    firstBand = endBand;
+  }
+  return Object.freeze(fragments);
+}
+
+function fragmentCellParagraphs(
+  measured: Readonly<MeasuredTableCellContent>,
+  firstBand: number,
+  endBand: number,
+): readonly Readonly<NormalizedRichTextParagraph>[] {
+  const lines = measured.lines.slice(firstBand, Math.min(endBand, measured.lines.length));
+  if (lines.length === 0) {
+    return Object.freeze([Object.freeze({ runs: Object.freeze([]) })]);
+  }
+
+  const grouped: Array<{
+    paragraphIndex: number;
+    lines: MeasuredTableLine[];
+  }> = [];
+  for (const line of lines) {
+    const current = grouped.at(-1);
+    if (current?.paragraphIndex === line.paragraphIndex) current.lines.push(line);
+    else grouped.push({ paragraphIndex: line.paragraphIndex, lines: [line] });
+  }
+  return Object.freeze(grouped.map(({ paragraphIndex, lines: paragraphLines }) => {
+    const source = measured.paragraphs[paragraphIndex];
+    if (source === undefined) {
+      throw new RangeError(`Fragmented paragraph ${paragraphIndex} is missing`);
+    }
+    return fragmentParagraph(source, paragraphLines);
+  }));
+}
+
+function fragmentParagraph(
+  source: Readonly<NormalizedRichTextParagraph>,
+  lines: readonly Readonly<MeasuredTableLine>[],
+): Readonly<NormalizedRichTextParagraph> {
+  const startsParagraph = lines[0]!.startsParagraph;
+  const endsParagraph = lines.at(-1)!.endsParagraph;
+  const properties: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(source)) {
+    if (key !== 'runs') properties[key] = detachedFrozen(value);
+  }
+  if (!startsParagraph) properties.bullet = false;
+  const spacing = fragmentParagraphSpacing(source.spacing, startsParagraph, endsParagraph);
+  if (spacing === undefined) delete properties.spacing;
+  else properties.spacing = spacing;
+
+  const runs: Array<{
+    runIndex: number;
+    text: string;
+    style?: NormalizedRichTextRun['style'];
+    softBreakBefore?: boolean;
+  }> = [];
+  let hasPrecedingText = false;
+  for (const line of lines) {
+    for (const slice of line.slices) {
+      const sourceRun = source.runs[slice.runIndex];
+      if (sourceRun === undefined) {
+        throw new RangeError(`Fragmented run ${slice.runIndex} is missing`);
+      }
+      const retainBreak = slice.retainsSoftBreak && hasPrecedingText;
+      const current = runs.at(-1);
+      if (current?.runIndex === slice.runIndex) {
+        current.text += slice.text;
+      } else {
+        runs.push({
+          runIndex: slice.runIndex,
+          text: slice.text,
+          ...(sourceRun.style === undefined
+            ? {}
+            : { style: detachedFrozen(sourceRun.style) }),
+          ...(retainBreak
+            ? { softBreakBefore: true }
+            : slice.startsAtRunStart && sourceRun.softBreakBefore === false
+              ? { softBreakBefore: false }
+              : {}),
+        });
+      }
+      if (slice.text.length > 0) hasPrecedingText = true;
+    }
+  }
+  return Object.freeze({
+    ...properties,
+    runs: Object.freeze(runs.map(({ runIndex: _runIndex, ...run }) => Object.freeze(run))),
+  }) as Readonly<NormalizedRichTextParagraph>;
+}
+
+function fragmentParagraphSpacing(
+  spacing: Readonly<NormalizedRichTextParagraph>['spacing'],
+  startsParagraph: boolean,
+  endsParagraph: boolean,
+): Readonly<NormalizedRichTextParagraph>['spacing'] {
+  if (startsParagraph && endsParagraph) return detachedFrozen(spacing);
+  if (spacing === false) return false;
+  const result = spacing === undefined ? {} : { ...detachedFrozen(spacing) };
+  if (!startsParagraph) result.before = false;
+  if (!endsParagraph) result.after = false;
+  return Object.freeze(result);
+}
+
+function projectFragmentText(
+  paragraphs: readonly Readonly<NormalizedRichTextParagraph>[],
+): string {
+  return paragraphs.map(({ runs }) => runs.map((run) =>
+    `${run.softBreakBefore ? '\n' : ''}${run.text}`).join('')).join('\n');
+}
+
+function effectiveMeasuredRowMargins(
+  measured: Readonly<MeasuredTableRowLayout>,
+): Readonly<{ top: number; bottom: number }> {
+  const cells = measured.cells.filter(
+    (entry): entry is Readonly<MeasuredTableCellContent> => entry !== undefined,
+  );
+  return Object.freeze({
+    top: cells.reduce(
+      (maximum, cell) => Math.max(maximum, cell.topMargin),
+      cells[0]?.topMargin ?? 0,
+    ),
+    bottom: cells.reduce(
+      (maximum, cell) => Math.max(maximum, cell.bottomMargin),
+      cells[0]?.bottomMargin ?? 0,
+    ),
+  });
+}
+
+function assertMeasuredHeaderBoundary(
+  rows: readonly (readonly NormalizedTableCell[])[],
+  headerRows: number,
+): void {
+  for (let rowIndex = 0; rowIndex < headerRows; rowIndex += 1) {
+    for (const cell of rows[rowIndex]!) {
+      if (cell.rowspan !== undefined && rowIndex + cell.rowspan > headerRows) {
+        throw new RangeError('Measured table merge cannot cross the repeated-header boundary');
+      }
+    }
+  }
+}
+
+function measuredBodyRowBlocks(
+  rows: readonly (readonly NormalizedTableCell[])[],
+  start: number,
+): readonly Readonly<MeasuredTableRowBlock>[] {
+  const blocks: MeasuredTableRowBlock[] = [];
+  let blockStart = start;
+  while (blockStart < rows.length) {
+    let blockEnd = blockStart + 1;
+    for (let rowIndex = blockStart; rowIndex < blockEnd; rowIndex += 1) {
+      for (const cell of rows[rowIndex]!) {
+        if (cell.rowspan !== undefined) {
+          blockEnd = Math.max(blockEnd, rowIndex + cell.rowspan);
+        }
+      }
+    }
+    if (blockEnd > rows.length) {
+      throw new RangeError('Measured table merge row block is out of range');
+    }
+    blocks.push(Object.freeze({ start: blockStart, end: blockEnd }));
+    blockStart = blockEnd;
+  }
+  return Object.freeze(blocks);
 }
 
 function measureParagraph(
