@@ -355,6 +355,132 @@ async (page) => {
           failureIsolation: true,
           validationErrors: 0,
         });
+      const tableHorizontalAlignmentDocument = api.PptxDocument.create();
+      const tableHorizontalAlignmentSlide = tableHorizontalAlignmentDocument.addSlide();
+      const tableHorizontalAlignmentTable = tableHorizontalAlignmentSlide.addTable([
+        ['North', 'South'],
+        ['East', 'West'],
+      ], { name: 'Chrome table horizontal alignment', align: 'center' });
+      const tableHorizontalAlignmentPart = () => tableHorizontalAlignmentDocument.opcPackage
+        .requirePart(tableHorizontalAlignmentSlide.partUri).bytes;
+      const tableHorizontalAlignmentBytesEqual = (left, right) =>
+        left.byteLength === right.byteLength &&
+        left.every((value, index) => value === right[index]);
+      const tableHorizontalAlignmentReadBytes = tableHorizontalAlignmentPart().slice();
+      const tableHorizontalAlignmentReadJournal = JSON.stringify(
+        tableHorizontalAlignmentDocument.opcPackage.mutations,
+      );
+      const tableHorizontalAlignmentUniform = tableHorizontalAlignmentTable
+        .horizontalAlignment;
+      const tableHorizontalAlignmentReadIsolation = tableHorizontalAlignmentBytesEqual(
+        tableHorizontalAlignmentReadBytes,
+        tableHorizontalAlignmentPart(),
+      ) && JSON.stringify(tableHorizontalAlignmentDocument.opcPackage.mutations) ===
+        tableHorizontalAlignmentReadJournal;
+      const tableHorizontalAlignmentNoOpBytes = tableHorizontalAlignmentPart().slice();
+      const tableHorizontalAlignmentNoOpJournal = JSON.stringify(
+        tableHorizontalAlignmentDocument.opcPackage.mutations,
+      );
+      tableHorizontalAlignmentTable.horizontalAlignment = 'center';
+      const tableHorizontalAlignmentNoOp = tableHorizontalAlignmentBytesEqual(
+        tableHorizontalAlignmentNoOpBytes,
+        tableHorizontalAlignmentPart(),
+      ) && JSON.stringify(tableHorizontalAlignmentDocument.opcPackage.mutations) ===
+        tableHorizontalAlignmentNoOpJournal;
+      tableHorizontalAlignmentTable.setCellHorizontalAlignment(0, 1, 'right');
+      const tableHorizontalAlignmentMixed = tableHorizontalAlignmentTable
+        .horizontalAlignment ?? null;
+      tableHorizontalAlignmentTable.horizontalAlignment = 'justify';
+      const tableHorizontalAlignmentOverwritten = tableHorizontalAlignmentTable
+        .horizontalAlignment;
+      const tableHorizontalAlignmentOverwrittenCells = tableHorizontalAlignmentTable.rows
+        .flatMap(({ cells }) => cells.map(({ horizontalAlignment }) =>
+          horizontalAlignment ?? null));
+      tableHorizontalAlignmentTable.horizontalAlignment = 'left';
+      const tableHorizontalAlignmentExplicitLeft = tableHorizontalAlignmentTable
+        .horizontalAlignment;
+      const tableHorizontalAlignmentExplicitLeftCells = tableHorizontalAlignmentTable.rows
+        .flatMap(({ cells }) => cells.map(({ horizontalAlignment }) =>
+          horizontalAlignment ?? null));
+      tableHorizontalAlignmentTable.horizontalAlignment = undefined;
+      const tableHorizontalAlignmentCleared = tableHorizontalAlignmentTable
+        .horizontalAlignment ?? null;
+      const tableHorizontalAlignmentClearedCells = tableHorizontalAlignmentTable.rows
+        .flatMap(({ cells }) => cells.map(({ horizontalAlignment }) =>
+          horizontalAlignment ?? null));
+      const tableHorizontalAlignmentInvalidBytes = tableHorizontalAlignmentPart().slice();
+      const tableHorizontalAlignmentInvalidJournal = JSON.stringify(
+        tableHorizontalAlignmentDocument.opcPackage.mutations,
+      );
+      let tableHorizontalAlignmentInvalidError;
+      try {
+        tableHorizontalAlignmentTable.horizontalAlignment = 'dist';
+      } catch (error) {
+        tableHorizontalAlignmentInvalidError = {
+          name: error.name,
+          message: error.message,
+        };
+      }
+      const tableHorizontalAlignmentFailureIsolation = tableHorizontalAlignmentBytesEqual(
+        tableHorizontalAlignmentInvalidBytes,
+        tableHorizontalAlignmentPart(),
+      ) && JSON.stringify(tableHorizontalAlignmentDocument.opcPackage.mutations) ===
+        tableHorizontalAlignmentInvalidJournal;
+      tableHorizontalAlignmentTable.horizontalAlignment = 'right';
+      const reopenedTableHorizontalAlignmentDocument = await api.PptxDocument.open(
+        await tableHorizontalAlignmentDocument.writeBlob(),
+      );
+      const reopenedTableHorizontalAlignmentTable = reopenedTableHorizontalAlignmentDocument
+        .slides[0].shapes.find(
+          (shape) => shape.name === 'Chrome table horizontal alignment',
+        );
+      const tableHorizontalAlignmentState = {
+        uniform: tableHorizontalAlignmentUniform,
+        readIsolation: tableHorizontalAlignmentReadIsolation,
+        noOp: tableHorizontalAlignmentNoOp,
+        mixed: tableHorizontalAlignmentMixed,
+        overwritten: tableHorizontalAlignmentOverwritten,
+        overwrittenCells: tableHorizontalAlignmentOverwrittenCells,
+        explicitLeft: tableHorizontalAlignmentExplicitLeft,
+        explicitLeftCells: tableHorizontalAlignmentExplicitLeftCells,
+        cleared: tableHorizontalAlignmentCleared,
+        clearedCells: tableHorizontalAlignmentClearedCells,
+        reopened: reopenedTableHorizontalAlignmentTable instanceof api.TableModel
+          ? reopenedTableHorizontalAlignmentTable.horizontalAlignment ?? null
+          : null,
+        reopenedCells: reopenedTableHorizontalAlignmentTable instanceof api.TableModel
+          ? reopenedTableHorizontalAlignmentTable.rows.flatMap(({ cells }) => cells.map(
+            ({ horizontalAlignment }) => horizontalAlignment ?? null,
+          ))
+          : [],
+        invalidError: tableHorizontalAlignmentInvalidError,
+        failureIsolation: tableHorizontalAlignmentFailureIsolation,
+        validationErrors: tableHorizontalAlignmentDocument.diagnostics
+          .filter(({ severity }) => severity === 'error').length +
+          reopenedTableHorizontalAlignmentDocument.diagnostics
+            .filter(({ severity }) => severity === 'error').length,
+      };
+      const tableHorizontalAlignment = JSON.stringify(tableHorizontalAlignmentState) ===
+        JSON.stringify({
+          uniform: 'center',
+          readIsolation: true,
+          noOp: true,
+          mixed: null,
+          overwritten: 'justify',
+          overwrittenCells: ['justify', 'justify', 'justify', 'justify'],
+          explicitLeft: 'left',
+          explicitLeftCells: ['left', 'left', 'left', 'left'],
+          cleared: null,
+          clearedCells: [null, null, null, null],
+          reopened: 'right',
+          reopenedCells: ['right', 'right', 'right', 'right'],
+          invalidError: {
+            name: 'TypeError',
+            message: 'Table horizontal alignment must be left, center, right, or justify',
+          },
+          failureIsolation: true,
+          validationErrors: 0,
+        });
       const schemeColorIsolationDocument = api.PptxDocument.create();
       const schemeColorIsolationJournal = JSON.stringify(
         schemeColorIsolationDocument.opcPackage.mutations,
@@ -2697,6 +2823,8 @@ async (page) => {
         tableVerticalAlignmentState,
         tableTextDirection,
         tableTextDirectionState,
+        tableHorizontalAlignment,
+        tableHorizontalAlignmentState,
         schemeColors,
         schemeColorState,
         outputTypes,
@@ -2940,6 +3068,27 @@ async (page) => {
       invalidError: {
         name: 'TypeError',
         message: 'Table text direction must be horz, vert, vert270, or wordArtVert',
+      },
+      failureIsolation: true,
+      validationErrors: 0,
+    },
+    tableHorizontalAlignment: true,
+    tableHorizontalAlignmentState: {
+      uniform: 'center',
+      readIsolation: true,
+      noOp: true,
+      mixed: null,
+      overwritten: 'justify',
+      overwrittenCells: ['justify', 'justify', 'justify', 'justify'],
+      explicitLeft: 'left',
+      explicitLeftCells: ['left', 'left', 'left', 'left'],
+      cleared: null,
+      clearedCells: [null, null, null, null],
+      reopened: 'right',
+      reopenedCells: ['right', 'right', 'right', 'right'],
+      invalidError: {
+        name: 'TypeError',
+        message: 'Table horizontal alignment must be left, center, right, or justify',
       },
       failureIsolation: true,
       validationErrors: 0,

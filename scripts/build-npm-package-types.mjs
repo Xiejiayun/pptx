@@ -89,6 +89,13 @@ if (!tableModelDeclaration.includes(
 )) {
   throw new Error('Packed TableModel declaration is missing table-level text direction');
 }
+if (!tableModelDeclaration.includes(
+  'get horizontalAlignment(): TextAlignment | undefined;',
+) || !tableModelDeclaration.includes(
+  'set horizontalAlignment(value: TextAlignment | undefined);',
+)) {
+  throw new Error('Packed TableModel declaration is missing table-level horizontal alignment');
+}
 
 await writeFile(
   join(outputRoot, 'index.d.ts'),
