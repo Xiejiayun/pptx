@@ -548,9 +548,12 @@ export class OpcPackage {
   #writeZipFile(name: string, bytes: Uint8Array, restoredDate?: Date): void {
     const date = restoredDate ?? this.#entryDate;
     if (date) {
-      this.#zip.file(name, bytes, { date: new Date(date.getTime()) });
+      this.#zip.file(name, bytes, {
+        createFolders: false,
+        date: new Date(date.getTime()),
+      });
     } else {
-      this.#zip.file(name, bytes);
+      this.#zip.file(name, bytes, { createFolders: false });
     }
   }
 }

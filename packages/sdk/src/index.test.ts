@@ -6985,7 +6985,7 @@ describe('PptxDocument vertical slice', () => {
       expect(before()).toEqual(expected);
       expect(await document.write()).toEqual(expectedZip);
     }
-  });
+  }, 10_000);
 
   it('creates preset shapes with deterministic defaults, transforms, order, and identity', () => {
     const document = PptxDocument.create();

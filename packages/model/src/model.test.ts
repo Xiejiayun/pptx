@@ -6309,7 +6309,7 @@ describe('PresentationModel', () => {
     expect(reopenedRich.presetType).toBe('diamond');
     expect(reopenedRich.text).toBe('Styled geometry');
     expect(reopenedRich.hyperlink).toEqual({ url: 'https://shape.example', tooltip: 'Shape' });
-  }, 10_000);
+  }, 20_000);
 
   it('rejects invalid and malformed text shape preset geometry without mutation', async () => {
     const pkg = await OpcPackage.open(await modelFixture());

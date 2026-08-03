@@ -77,13 +77,18 @@ describe('OpcPackage', () => {
   it('writes byte-identical new packages with a copied fixed entry date', async () => {
     const entryDate = new Date('1980-01-01T00:00:00.000Z');
     const first = OpcPackage.create({ entryDate });
-    first.setPart('/data.xml', '<data/>', 'application/xml');
+    first.setPart('/nested/data.xml', '<data/>', 'application/xml');
     entryDate.setUTCFullYear(2026);
 
     const second = OpcPackage.create({ entryDate: new Date('1980-01-01T00:00:00.000Z') });
-    second.setPart('/data.xml', '<data/>', 'application/xml');
+    second.setPart('/nested/data.xml', '<data/>', 'application/xml');
 
-    expect(await first.write()).toEqual(await second.write());
+    const firstBytes = await first.write();
+    expect(firstBytes).toEqual(await second.write());
+    expect(Object.keys((await JSZip.loadAsync(firstBytes)).files)).toEqual([
+      '[Content_Types].xml',
+      'nested/data.xml',
+    ]);
     expect(() => OpcPackage.create({ entryDate: new Date(Number.NaN) })).toThrow(/valid Date/);
   });
 
