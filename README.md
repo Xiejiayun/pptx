@@ -991,7 +991,43 @@ PptxGenJS 4.0.1 只提供创建期 margin，最终只留下 direct cell attribut
 
 Focused 为 7 files / 547 tests，最终 full 为 81 passed / 1 skipped test files、1437 passed / 1 skipped tests，performance 1/1（1.65s）。实际 62-file tarball SHA-256 为 `428f47de86cebb89ae19a59b4b5500f3c67c116f63107253e2bf997b04008e37`；installed Node/types/browser/CLI 与真实 Chrome 均报告 `tableMargins: true`。CLI 确认最终四个 direct `tcPr` 都恰有 `marL="50800" marR="25400" marT="12700" marB="38100"`，Chrome validation/console/page/network errors 为 0。证据位于 `/tmp/pptx-table-margins-artifacts.gPmz7V`。
 
-总体 PptxGenJS 对等进度仍约 97%。下一小项选择 table-level direct fill 共识读取与批量编辑；之后仍待 table-level border、其他 advanced text/table、`tableToSlides` 与最终 peer/client audit。
+## 表格级 fill 读取与批量编辑
+
+```ts
+import { PptxDocument, type TableCellFill } from '@jiayunxie/pptx';
+
+const document = PptxDocument.create();
+const table = document.addSlide().addTable([
+  ['North', 'South'],
+  ['East', 'West'],
+], {
+  fill: {
+    kind: 'solid',
+    color: { kind: 'scheme', value: 'accent1' },
+    transparency: 25,
+  },
+});
+
+const uniform: TableCellFill | undefined = table.fill;
+table.setCellFill(0, 1, { kind: 'none' });
+console.log(table.fill); // undefined：mixed direct cell state
+console.log(table.rows[0]!.cells[1]!.fill); // { kind: 'none' }
+table.fill = { kind: 'none' }; // 覆盖全部 physical cells
+table.fill = {
+  kind: 'solid',
+  color: { kind: 'srgb', value: 'D9EAF7' },
+  transparency: 0, // 显式 direct alpha=100000
+};
+table.fill = undefined; // 清除全部 direct fill choice
+```
+
+`TableModel.fill` 只在全部 physical cells（包括 merge continuation）都具有同一个安全、受支持的 direct `tcPr` fill choice 时返回 detached `TableCellFill`。Absent、mixed、malformed、advanced 或 ambiguous state 返回 `undefined`；它不会解析 table style、effective default 或创建期输入。Mixed 明细始终保留在 `rows[].cells[].fill`。赋值会在单一事务中 whole-replace 全部 physical cells；`{ kind: 'none' }` 写 direct `a:noFill`，solid 支持 strict sRGB/theme color 与可选 `0..100` transparency，`undefined` 清除 direct choice。同值与全 absent clear 是 exact no-op，不安全写入以 `ModelParseError` 零 partial mutation 拒绝。
+
+PptxGenJS 4.0.1 的合法 uniform table solid fill 可按最终 direct state 投影，omitted fill 为 `undefined`，table fill 加不同 cell override 为 mixed `undefined`。PptxGenJS 会把 `type: 'none'` 与 omitted 都折叠为没有 direct fill，并把 transparency 0 折叠为没有 alpha；native direct none、omitted、显式零透明度三种 direct intent 保持可区分。Existing-deck 共识读取和批量编辑是 native lossless extension。
+
+Focused 为 8 files / 557 tests；最终 full 为 1447 passed / 1 skipped tests，performance 1/1（1.17s）。实际 62-file tarball SHA-256 为 `ae7f09233b2ff596c21ec0dab891d5069d810d64921bce9ba96cd08771c6cfdc`；installed Node/types/browser/CLI、`pptx-inspect` 与真实 Google Chrome 均报告 `tableFill: true`，最终四个 physical cells 各有且仅有一个 direct `a:noFill`，PowerPoint 2010 validation 与 Chrome validation/console/page/network errors 均为 0。证据位于 `/private/tmp/pptx-table-fill-artifacts.5MqrXK`。
+
+总体 PptxGenJS 对等进度仍约 97%。下一小项是 table-level direct border 共识读取与批量编辑；之后仍待其他 advanced text/table、`tableToSlides` 与最终 peer/client audit。
 
 ## 创建和编辑预设形状、调整值与样式
 

@@ -967,7 +967,7 @@ $ pptx-inspect --json package inspect output.pptx
 ### 剩余 advanced API 与全功能路线
 
 - 总体 PptxGenJS 对等进度仍约 97%；PptxGenJS 4.0.1 声明的六类 presentation runtime catalogs，以及 table-level direct vertical alignment、text direction、horizontal alignment 与 margins 已支持。
-- Table-level direct margins 已在下一专项完成；之后仍待 table-level fill/border、其他 advanced text/table、`tableToSlides` 与最终 peer/client audit，当前不声明完整 PptxGenJS parity。
+- Table-level direct margins 与 fill 已在后续专项完成；仍待 table-level border、其他 advanced text/table、`tableToSlides` 与最终 peer/client audit，当前不声明完整 PptxGenJS parity。
 
 ## PptxGenJS 全功能对等：Table-level direct margins
 
@@ -988,7 +988,28 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余 advanced API 与全功能路线
 
-- 总体 PptxGenJS 对等进度仍约 97%。比较下一项后，table-level fill 是单一 direct fill choice，共识与 whole-replacement 边界小于四边 border，因此下一小项选择 table-level direct fill；之后仍待 table-level border、其他 advanced text/table、`tableToSlides` 与最终 peer/client audit，当前不声明完整 PptxGenJS parity。
+- 总体 PptxGenJS 对等进度仍约 97%。Table-level direct fill 已在下一专项完成；下一小项为 table-level direct border，之后仍待其他 advanced text/table、`tableToSlides` 与最终 peer/client audit，当前不声明完整 PptxGenJS parity。
+
+## PptxGenJS 全功能对等：Table-level direct fill
+
+状态：完成；实施与证据 8/8
+
+### 本阶段 change
+
+- 新增 live `TableModel.fill: TableCellFill | undefined`。Getter 只在 exact direct table path 上的全部 physical cells（包括 merge continuation）都具有相同安全 direct none 或 solid fill 时返回 detached snapshot；all-absent、mixed、malformed、advanced 或 ambiguous state 返回 `undefined`，不从 table style、effective default 或 creation metadata 合成值。
+- Setter 接受 strict direct none、solid sRGB/theme fill、可选 finite `0..100` transparency 或 `undefined`，在单一 transaction 内 whole-replace 全部 physical cells。Direct none、absence、omitted alpha 与 explicit-zero alpha 保持可区分；同值与 all-absent clear 是 exact bytes/journal no-op，late-cell unsafe state 以 `ModelParseError` 零 package partial mutation 拒绝。既有 `TableCell.fill` 与 `setCellFill()` 语义不变。
+- PptxGenJS 4.0.1 合法 uniform table solid fill 可按 final direct state 投影，omitted fill 为 `undefined`，table fill 加不同 cell override 为 mixed `undefined`。PptxGenJS 把 `type: 'none'` 与 omitted 折叠为 absence，并把 transparency zero 折叠为 omitted alpha；native 保留 direct intent，existing-deck 共识/批量编辑是 lossless extension。
+- 设计为 `55385eb`，实施计划为 `b498ade`，core API 与 PptxGenJS conformance 为 `75c7355`，实际包/Chrome 门禁为 `329b3f5`；文档作为独立小项 review、commit、push。
+
+### 验证结果
+
+- Focused 为 8 files / 557 tests；最终 clean full Vitest 为 1447 passed / 1 skipped tests。独立 performance gate 1/1（1.17s），两种 TypeScript check、Node/browser tsup 与 declaration build 全部通过。
+- Actual npm tarball 为 62 files，SHA-256 `ae7f09233b2ff596c21ec0dab891d5069d810d64921bce9ba96cd08771c6cfdc`。Installed Node、generated declarations、TypeScript consumer、browser conditional export 与 CLI inspect/validate/slides/part-read 全部通过；Node 顶层与 `api` 状态报告 `tableFill: true` 与 `tableFillInspect: true`。
+- `pptx-inspect` 宽到窄检查确认 18 parts、15 relationships、1 slide、1 table shape，四个 physical cells 各有且仅有一个 direct `a:noFill`，PowerPoint 2010 profile 为 0 errors / 0 warnings。Packed Node、browser conditional export 与真实 Google Chrome 的 uniform/read-isolation/no-op/mixed/none/explicit-zero-solid/clear/none-reopen/invalid-failure-isolation state 全部匹配，Chrome validation/console/page/network errors 为 0。完整证据位于 `/private/tmp/pptx-table-fill-artifacts.5MqrXK`，未进入仓库。
+
+### 剩余 advanced API 与全功能路线
+
+- 总体 PptxGenJS 对等进度仍约 97%。下一小项为 table-level direct border 共识读取/批量编辑；之后仍待其他 advanced text/table、`tableToSlides` 与最终 peer/client audit，当前不声明完整 PptxGenJS parity。
 
 ## 0.1.0 初始验收
 
