@@ -110,6 +110,10 @@ try {
   if (!addTableCellOptionsDeclaration.includes('readonly hyperlink?: Hyperlink;')) {
     throw new Error('Packed AddTableCellOptions declaration is missing table-cell hyperlink');
   }
+  if (!addTableCellOptionsDeclaration.includes('readonly colspan?: number;') ||
+      !addTableCellOptionsDeclaration.includes('readonly rowspan?: number;')) {
+    throw new Error('Packed AddTableCellOptions declaration is missing table-cell spans');
+  }
   const tableTextDefaultDeclarations = [
     'readonly bold?: boolean;',
     'readonly color?: RichTextColor;',
@@ -133,6 +137,11 @@ try {
   if (!tableCellDeclaration.includes('readonly hyperlink?: Hyperlink;')) {
     throw new Error('Packed TableCell declaration is missing table-cell hyperlink snapshot');
   }
+  if (!shapeDeclarationSource.includes('export interface TableMergeRegion {') ||
+      !shapeDeclarationSource.includes('export interface TableCellMerge extends TableMergeRegion {') ||
+      !tableCellDeclaration.includes('readonly merge?: Readonly<TableCellMerge>;')) {
+    throw new Error('Packed declarations are missing table-cell merge snapshots');
+  }
   const tableModelDeclarationStart = shapeDeclarationSource.indexOf(
     'export declare class TableModel',
   );
@@ -148,6 +157,15 @@ try {
     'setCellHyperlink(rowIndex: number, columnIndex: number, value: Hyperlink | undefined): void;',
   )) {
     throw new Error('Packed TableModel declaration is missing table-cell hyperlink editing');
+  }
+  if (!tableModelDeclaration.includes(
+    'get mergeRegions(): readonly Readonly<TableMergeRegion>[] | undefined;',
+  ) || !tableModelDeclaration.includes(
+    'mergeCells(rowIndex: number, columnIndex: number, rowspan: number, colspan: number): void;',
+  ) || !tableModelDeclaration.includes(
+    'unmergeCell(rowIndex: number, columnIndex: number): void;',
+  )) {
+    throw new Error('Packed TableModel declaration is missing table-cell merge editing');
   }
   if (!tableModelDeclaration.includes(
     'get verticalAlignment(): TextBoxVerticalAlignment | undefined;',
@@ -7834,6 +7852,105 @@ const tableTextDefaultsState = {
 const tableTextDefaults = Object.values(tableTextDefaultsState).every(
   (value) => value === true || value === 0,
 );
+const tableCellMergeSnapshot = (value) => value === undefined
+  ? null
+  : {
+      rowIndex: value.rowIndex,
+      columnIndex: value.columnIndex,
+      rowspan: value.rowspan,
+      colspan: value.colspan,
+      ...(value.isAnchor !== undefined ? { isAnchor: value.isAnchor } : {}),
+    };
+const tableCellMergesDocument = PptxDocument.create();
+const tableCellMergesSlide = tableCellMergesDocument.addSlide();
+const tableCellMergesTable = tableCellMergesSlide.addTable([
+  [{
+    text: 'Packed merge anchor',
+    options: { colspan: 2, rowspan: 2 },
+  }, 'Packed total'],
+  ['Packed tail'],
+], { name: 'Packed table cell merges' });
+const tableCellMergeRegion = {
+  rowIndex: 0,
+  columnIndex: 0,
+  rowspan: 2,
+  colspan: 2,
+};
+const tableCellMergeMembers = [
+  { ...tableCellMergeRegion, isAnchor: true },
+  { ...tableCellMergeRegion, isAnchor: false },
+  null,
+  { ...tableCellMergeRegion, isAnchor: false },
+  { ...tableCellMergeRegion, isAnchor: false },
+  null,
+];
+const tableCellMergesCreated =
+  tableCellMergesTable.rows.length === 2 &&
+  tableCellMergesTable.rows.every(({ cells }) => cells.length === 3) &&
+  JSON.stringify(tableCellMergesTable.mergeRegions) ===
+    JSON.stringify([tableCellMergeRegion]);
+const tableCellMergesRead = JSON.stringify(
+  tableCellMergesTable.rows.flatMap(({ cells }) =>
+    cells.map(({ merge }) => tableCellMergeSnapshot(merge))),
+) === JSON.stringify(tableCellMergeMembers);
+const tableCellMergesSnapshotsFrozen =
+  Object.isFrozen(tableCellMergesTable.mergeRegions) &&
+  Object.isFrozen(tableCellMergesTable.mergeRegions?.[0]) &&
+  tableCellMergesTable.rows.flatMap(({ cells }) => cells)
+    .filter(({ merge }) => merge !== undefined)
+    .every(({ merge }) => Object.isFrozen(merge));
+tableCellMergesTable.unmergeCell(1, 1);
+const tableCellMergesUnmerged =
+  JSON.stringify(tableCellMergesTable.mergeRegions) === '[]' &&
+  tableCellMergesTable.rows.flatMap(({ cells }) => cells)
+    .every(({ merge }) => merge === undefined);
+tableCellMergesTable.setCellFill(1, 1, {
+  kind: 'solid',
+  color: { kind: 'srgb', value: 'FCE4D6' },
+});
+const tableCellMergesEdited =
+  tableCellMergesTable.rows[1].cells[1].fill?.kind === 'solid' &&
+  tableCellMergesTable.rows[1].cells[1].fill.color.kind === 'srgb' &&
+  tableCellMergesTable.rows[1].cells[1].fill.color.value === 'FCE4D6';
+tableCellMergesTable.mergeCells(0, 0, 2, 2);
+const tableCellMergesRemerged =
+  JSON.stringify(tableCellMergesTable.mergeRegions) ===
+    JSON.stringify([tableCellMergeRegion]) &&
+  JSON.stringify(tableCellMergesTable.rows.flatMap(({ cells }) =>
+    cells.map(({ merge }) => tableCellMergeSnapshot(merge)))) ===
+    JSON.stringify(tableCellMergeMembers) &&
+  tableCellMergesTable.rows[1].cells[1].fill?.kind === 'solid' &&
+  tableCellMergesTable.rows[1].cells[1].fill.color.value === 'FCE4D6';
+await tableCellMergesDocument.writeFile('table-cell-merges-smoke.pptx');
+const reopenedTableCellMergesDocument = await PptxDocument.open(
+  await tableCellMergesDocument.write(),
+);
+const reopenedTableCellMergesTable = reopenedTableCellMergesDocument
+  .slides[0].shapes.find((shape) => shape.name === 'Packed table cell merges');
+const tableCellMergesReopened = reopenedTableCellMergesTable instanceof TableModel &&
+  JSON.stringify(reopenedTableCellMergesTable.mergeRegions) ===
+    JSON.stringify([tableCellMergeRegion]) &&
+  JSON.stringify(reopenedTableCellMergesTable.rows.flatMap(({ cells }) =>
+    cells.map(({ merge }) => tableCellMergeSnapshot(merge)))) ===
+    JSON.stringify(tableCellMergeMembers) &&
+  reopenedTableCellMergesTable.rows[1].cells[1].fill?.kind === 'solid' &&
+  reopenedTableCellMergesTable.rows[1].cells[1].fill.color.value === 'FCE4D6';
+const tableCellMergesState = {
+  created: tableCellMergesCreated,
+  read: tableCellMergesRead,
+  snapshotsFrozen: tableCellMergesSnapshotsFrozen,
+  unmerged: tableCellMergesUnmerged,
+  edited: tableCellMergesEdited,
+  remerged: tableCellMergesRemerged,
+  reopened: tableCellMergesReopened,
+  validationErrors: tableCellMergesDocument.diagnostics
+    .filter(({ severity }) => severity === 'error').length +
+    reopenedTableCellMergesDocument.diagnostics
+      .filter(({ severity }) => severity === 'error').length,
+};
+const tableCellMerges = Object.values(tableCellMergesState).every(
+  (value) => value === true || value === 0,
+);
 const checks = {
   slideNumbers,
   slideDefaultColor,
@@ -7895,6 +8012,8 @@ const checks = {
   tableFillState,
   tableTextDefaults,
   tableTextDefaultsState,
+  tableCellMerges,
+  tableCellMergesState,
   schemeColors,
   schemeColorState,
   outputTypes,
@@ -11109,12 +11228,14 @@ process.stdout.write(resolved);
   type PptxNodeReadableStream,
   type PptxVersion,
   type TableCell,
+  type TableCellMerge,
   type TableCellTextDirection,
   type TableCellBorder,
   type TableCellBorderInput,
   type TableCellBorders,
   type TableCellBorderStyle,
   type TableCellFill,
+  type TableMergeRegion,
   type TextBoxVerticalAlignment,
   GradientCodec,
   importPptxGenJS,
@@ -12439,6 +12560,10 @@ const typedTableCellHyperlink: Hyperlink = {
 const typedTableCellHyperlinkOptions: AddTableCellOptions = {
   hyperlink: typedTableCellHyperlink,
 };
+const typedTableCellMergeOptions: AddTableCellOptions = {
+  colspan: 2,
+  rowspan: 2,
+};
 const creationOptions: AddTableCellOptions = {
   align: cellHorizontalAlignment,
   bold: false,
@@ -12463,6 +12588,24 @@ const typedTableCellHyperlinkTable: TableModel = createdDocument.slides[0].addTa
 const typedTableCellHyperlinkCell: TableCell = typedTableCellHyperlinkTable.rows[0].cells[0];
 const typedTableCellHyperlinkRead: Hyperlink | undefined =
   typedTableCellHyperlinkCell.hyperlink;
+const typedTableCellMergeTable: TableModel = createdDocument.slides[0].addTable([
+  [{ text: 'Typed merged cell', options: typedTableCellMergeOptions }, 'Typed total'],
+  ['Typed tail'],
+]);
+const typedTableMergeRegions: readonly Readonly<TableMergeRegion>[] | undefined =
+  typedTableCellMergeTable.mergeRegions;
+const typedTableCellMerge: Readonly<TableCellMerge> | undefined =
+  typedTableCellMergeTable.rows[1].cells[1].merge;
+typedTableCellMergeTable.unmergeCell(1, 1);
+typedTableCellMergeTable.mergeCells(0, 0, 2, 2);
+// @ts-expect-error table-cell spans are numeric
+const typedTableCellInvalidColspan: AddTableCellOptions = { colspan: '2' };
+// @ts-expect-error table-cell span spelling is lowercase
+const typedTableCellInvalidRowSpan: AddTableCellOptions = { rowSpan: 2 };
+// @ts-expect-error merge coordinates are numeric
+typedTableCellMergeTable.mergeCells('0', 0, 2, 2);
+// @ts-expect-error unmerge requires both physical coordinates
+typedTableCellMergeTable.unmergeCell(1);
 typedTableCellHyperlinkTable.setCellHyperlink(0, 0, {
   url: 'https://typed-table-cell-edited.example',
   tooltip: '',
@@ -12730,7 +12873,7 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
   invalidChartValues, typedSimpleBackground, typedImageBackground, typedSlideBackground,
   typedSlideBackgroundOptions, typedBackgroundSlide, typedBackgroundPromise,
   typedRasterContentType, typedRasterOptions, typedRasterImage,
-  invalidRasterSvg, invalidRasterMissingType, invalidRasterPath, invalidRasterData, typedSvgContentType, typedImageContentType, typedSvgInfo, typedImageInfo, typedCropRegion, typedImageSizing, typedImageSizingResult, typedImageSource, typedImageChunk, typedImageStream, typedImageSourceOptions, typedResolvedImage, typedSvgOptions, typedSvgImage, typedHighLevelSvgImage, typedMediaKind, typedMediaChunk, typedMediaStream, typedMediaSources, typedPlayback, typedMediaOptions, typedMediaPromise, typedVideoPromise, typedReplaceMediaSourceOptions, typedReplaceMediaPosterOptions, typedMediaLifecycle, invalidMediaKind, invalidMediaName, invalidMediaPoster, invalidMediaPlayback, invalidMediaTranscode, invalidMediaSource, invalidMediaSourceReplacement, invalidMediaPosterReplacement, invalidLowLevelSvgOptions, invalidSvgFallback, addSectionOptions, typedSection, addSlideOptions, sectionSnapshot, typedVisibilitySlide, hiddenSnapshot, globalRtl, globalRtlSnapshot, titledDocument, titleSnapshot, authoredDocument, authorSnapshot, lastModifiedDocument, lastModifiedSnapshot, createdAtDocument, createdAtSnapshot, modifiedAtDocument, modifiedAtSnapshot, subjectDocument, subjectSnapshot, revisionDocument, revisionSnapshot, companyDocument, companySnapshot, themedDocument, themeSnapshot, fontSnapshot, fontUpdate, customDocument, createdText, creationBorder, creationMargin, creationOptions, objectCell, tableRows, tableOptions, typedTable, widthSnapshot, heightSnapshot, typedTableVerticalAlignment, typedTableTextDirection, typedTableHorizontalAlignment, typedTableMargins, typedTableFill, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotHorizontalAlignment, tableHorizontalAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellHorizontalAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
+  invalidRasterSvg, invalidRasterMissingType, invalidRasterPath, invalidRasterData, typedSvgContentType, typedImageContentType, typedSvgInfo, typedImageInfo, typedCropRegion, typedImageSizing, typedImageSizingResult, typedImageSource, typedImageChunk, typedImageStream, typedImageSourceOptions, typedResolvedImage, typedSvgOptions, typedSvgImage, typedHighLevelSvgImage, typedMediaKind, typedMediaChunk, typedMediaStream, typedMediaSources, typedPlayback, typedMediaOptions, typedMediaPromise, typedVideoPromise, typedReplaceMediaSourceOptions, typedReplaceMediaPosterOptions, typedMediaLifecycle, invalidMediaKind, invalidMediaName, invalidMediaPoster, invalidMediaPlayback, invalidMediaTranscode, invalidMediaSource, invalidMediaSourceReplacement, invalidMediaPosterReplacement, invalidLowLevelSvgOptions, invalidSvgFallback, addSectionOptions, typedSection, addSlideOptions, sectionSnapshot, typedVisibilitySlide, hiddenSnapshot, globalRtl, globalRtlSnapshot, titledDocument, titleSnapshot, authoredDocument, authorSnapshot, lastModifiedDocument, lastModifiedSnapshot, createdAtDocument, createdAtSnapshot, modifiedAtDocument, modifiedAtSnapshot, subjectDocument, subjectSnapshot, revisionDocument, revisionSnapshot, companyDocument, companySnapshot, themedDocument, themeSnapshot, fontSnapshot, fontUpdate, customDocument, createdText, creationBorder, creationMargin, creationOptions, objectCell, tableRows, tableOptions, typedTable, typedTableCellMergeOptions, typedTableCellMergeTable, typedTableMergeRegions, typedTableCellMerge, typedTableCellInvalidColspan, typedTableCellInvalidRowSpan, widthSnapshot, heightSnapshot, typedTableVerticalAlignment, typedTableTextDirection, typedTableHorizontalAlignment, typedTableMargins, typedTableFill, table, snapshotDirection, snapshotFit, snapshotAlignment, snapshotHorizontalAlignment, tableHorizontalAlignment, snapshotCellMargins, snapshotCellBorders, snapshotCellFill, cellDirection, cellFit, cellAlignment, cellHorizontalAlignment, cellMargins, cellBorderStyle, cellBorder, cellBorderInput, cellFill, marginSnapshot, wrapSnapshot, directionSnapshot, fitSnapshot, fit, direction, verticalAlignment, richText, transparentParagraphs, rtlParagraphs, paragraphMargins, paragraphRightMargins, paragraphIndents, gradientConstructor, adapter, transition, animationConstructor, chartConstructor, smartArtConstructor];
 `,
   );
   run(
@@ -12823,6 +12966,11 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
   if (!apiChecks.tableTextDefaults) {
     throw new Error(
       `Table text defaults smoke failed: ${JSON.stringify(apiChecks.tableTextDefaultsState)}`,
+    );
+  }
+  if (!apiChecks.tableCellMerges) {
+    throw new Error(
+      `Table-cell merges smoke failed: ${JSON.stringify(apiChecks.tableCellMergesState)}`,
     );
   }
   if (!apiChecks.schemeColors) {
@@ -13229,6 +13377,82 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
       !tableTextDefaultsPart.includes('<a:spcPts val="800"/>')) {
     throw new Error(
       `CLI table text defaults part inspection failed: ${tableTextDefaultsPartResult.stdout}`,
+    );
+  }
+  const tableCellMergesDeckPath = join(
+    directory,
+    'table-cell-merges-smoke.pptx',
+  );
+  const tableCellMergesInspectResult = run(
+    bin,
+    ['--json', 'package', 'inspect', tableCellMergesDeckPath],
+    directory,
+  );
+  const tableCellMergesInspected = JSON.parse(tableCellMergesInspectResult.stdout);
+  if (!tableCellMergesInspected.ok ||
+      tableCellMergesInspected.data?.contentTypes?.[
+        'application/vnd.openxmlformats-officedocument.presentationml.slide+xml'
+      ] !== 1) {
+    throw new Error(
+      `CLI table-cell merges package inspection failed: ${tableCellMergesInspectResult.stdout}`,
+    );
+  }
+  const tableCellMergesValidateResult = run(
+    bin,
+    [
+      '--json', 'package', 'validate', tableCellMergesDeckPath,
+      '--profile', 'powerpoint-2010',
+    ],
+    directory,
+  );
+  const tableCellMergesValidated = JSON.parse(tableCellMergesValidateResult.stdout);
+  if (!tableCellMergesValidated.ok ||
+      !tableCellMergesValidated.data?.valid ||
+      tableCellMergesValidated.data.errorCount !== 0 ||
+      tableCellMergesValidated.data.warningCount !== 0) {
+    throw new Error(
+      `CLI table-cell merges validation failed: ${tableCellMergesValidateResult.stdout}`,
+    );
+  }
+  const tableCellMergesSlidesResult = run(
+    bin,
+    ['--json', 'slides', 'list', tableCellMergesDeckPath],
+    directory,
+  );
+  const tableCellMergesSlides = JSON.parse(tableCellMergesSlidesResult.stdout);
+  if (!tableCellMergesSlides.ok ||
+      tableCellMergesSlides.data?.length !== 1 ||
+      tableCellMergesSlides.data[0]?.shapeCount !== 1) {
+    throw new Error(
+      `CLI table-cell merges slide listing failed: ${tableCellMergesSlidesResult.stdout}`,
+    );
+  }
+  const tableCellMergesPartResult = run(
+    bin,
+    [
+      '--json', 'part', 'read', tableCellMergesDeckPath,
+      tableCellMergesSlides.data[0].partUri,
+    ],
+    directory,
+  );
+  const tableCellMergesPart = JSON.parse(
+    tableCellMergesPartResult.stdout,
+  ).data?.content ?? '';
+  const tableCellMergesCellCount = (
+    tableCellMergesPart.match(/<a:tc(?:\s[^>]*)?>/g) ?? []
+  ).length;
+  if (!tableCellMergesPart.includes('<a:tbl>') ||
+      tableCellMergesCellCount !== 6 ||
+      !tableCellMergesPart.includes('<a:tc rowSpan="2" gridSpan="2">') ||
+      !tableCellMergesPart.includes('<a:tc rowSpan="2" hMerge="1">') ||
+      !tableCellMergesPart.includes('<a:tc gridSpan="2" vMerge="1">') ||
+      !tableCellMergesPart.includes('<a:tc vMerge="1" hMerge="1">') ||
+      !tableCellMergesPart.includes('>Packed merge anchor</a:t>') ||
+      !tableCellMergesPart.includes('>Packed total</a:t>') ||
+      !tableCellMergesPart.includes('>Packed tail</a:t>') ||
+      !tableCellMergesPart.includes('<a:srgbClr val="FCE4D6"/>')) {
+    throw new Error(
+      `CLI table-cell merges part inspection failed: ${tableCellMergesPartResult.stdout}`,
     );
   }
   const tableCellHyperlinkDeckPath = join(
@@ -14781,6 +15005,11 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
     await mkdir(dirname(output), { recursive: true });
     await writeFile(output, await readFile(tableTextDefaultsDeckPath));
   }
+  if (process.env.PPTX_TABLE_CELL_MERGES_OUT) {
+    const output = resolve(process.env.PPTX_TABLE_CELL_MERGES_OUT);
+    await mkdir(dirname(output), { recursive: true });
+    await writeFile(output, await readFile(tableCellMergesDeckPath));
+  }
 
   const writeSummary = (serialized) => {
     const summary = JSON.parse(serialized);
@@ -14800,6 +15029,9 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
     summary.tableTextDefaults = apiChecks.tableTextDefaults;
     summary.tableTextDefaultsState = apiChecks.tableTextDefaultsState;
     summary.tableTextDefaultsInspect = true;
+    summary.tableCellMerges = apiChecks.tableCellMerges;
+    summary.tableCellMergesState = apiChecks.tableCellMergesState;
+    summary.tableCellMergesInspect = true;
     process.stdout.write(`${JSON.stringify(summary)}\n`);
   };
   writeSummary(

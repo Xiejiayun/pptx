@@ -899,6 +899,106 @@ async (page) => {
       const tableTextDefaults = Object.values(tableTextDefaultsState).every(
         (value) => value === true || value === 0,
       );
+      const tableCellMergeSnapshot = (value) => value === undefined
+        ? null
+        : {
+            rowIndex: value.rowIndex,
+            columnIndex: value.columnIndex,
+            rowspan: value.rowspan,
+            colspan: value.colspan,
+            ...(value.isAnchor !== undefined ? { isAnchor: value.isAnchor } : {}),
+          };
+      const tableCellMergesDocument = api.PptxDocument.create();
+      const tableCellMergesSlide = tableCellMergesDocument.addSlide();
+      const tableCellMergesTable = tableCellMergesSlide.addTable([
+        [{
+          text: 'Chrome merge anchor',
+          options: { colspan: 2, rowspan: 2 },
+        }, 'Chrome total'],
+        ['Chrome tail'],
+      ], { name: 'Chrome table cell merges' });
+      const tableCellMergeRegion = {
+        rowIndex: 0,
+        columnIndex: 0,
+        rowspan: 2,
+        colspan: 2,
+      };
+      const tableCellMergeMembers = [
+        { ...tableCellMergeRegion, isAnchor: true },
+        { ...tableCellMergeRegion, isAnchor: false },
+        null,
+        { ...tableCellMergeRegion, isAnchor: false },
+        { ...tableCellMergeRegion, isAnchor: false },
+        null,
+      ];
+      const tableCellMergesCreated =
+        tableCellMergesTable.rows.length === 2
+        && tableCellMergesTable.rows.every(({ cells }) => cells.length === 3)
+        && JSON.stringify(tableCellMergesTable.mergeRegions) ===
+          JSON.stringify([tableCellMergeRegion]);
+      const tableCellMergesRead = JSON.stringify(
+        tableCellMergesTable.rows.flatMap(({ cells }) =>
+          cells.map(({ merge }) => tableCellMergeSnapshot(merge))),
+      ) === JSON.stringify(tableCellMergeMembers);
+      const tableCellMergesSnapshotsFrozen =
+        Object.isFrozen(tableCellMergesTable.mergeRegions)
+        && Object.isFrozen(tableCellMergesTable.mergeRegions?.[0])
+        && tableCellMergesTable.rows.flatMap(({ cells }) => cells)
+          .filter(({ merge }) => merge !== undefined)
+          .every(({ merge }) => Object.isFrozen(merge));
+      tableCellMergesTable.unmergeCell(1, 1);
+      const tableCellMergesUnmerged =
+        JSON.stringify(tableCellMergesTable.mergeRegions) === '[]'
+        && tableCellMergesTable.rows.flatMap(({ cells }) => cells)
+          .every(({ merge }) => merge === undefined);
+      tableCellMergesTable.setCellFill(1, 1, {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'FCE4D6' },
+      });
+      const tableCellMergesEdited =
+        tableCellMergesTable.rows[1].cells[1].fill?.kind === 'solid'
+        && tableCellMergesTable.rows[1].cells[1].fill.color.kind === 'srgb'
+        && tableCellMergesTable.rows[1].cells[1].fill.color.value === 'FCE4D6';
+      tableCellMergesTable.mergeCells(0, 0, 2, 2);
+      const tableCellMergesRemerged =
+        JSON.stringify(tableCellMergesTable.mergeRegions) ===
+          JSON.stringify([tableCellMergeRegion])
+        && JSON.stringify(tableCellMergesTable.rows.flatMap(({ cells }) =>
+          cells.map(({ merge }) => tableCellMergeSnapshot(merge)))) ===
+          JSON.stringify(tableCellMergeMembers)
+        && tableCellMergesTable.rows[1].cells[1].fill?.kind === 'solid'
+        && tableCellMergesTable.rows[1].cells[1].fill.color.value === 'FCE4D6';
+      const tableCellMergesEvidenceBlob = await tableCellMergesDocument.writeBlob();
+      globalThis.__pptxTableCellMergesEvidenceBlob = tableCellMergesEvidenceBlob;
+      const reopenedTableCellMergesDocument = await api.PptxDocument.open(
+        tableCellMergesEvidenceBlob,
+      );
+      const reopenedTableCellMergesTable = reopenedTableCellMergesDocument
+        .slides[0].shapes.find((shape) => shape.name === 'Chrome table cell merges');
+      const tableCellMergesReopened = reopenedTableCellMergesTable instanceof api.TableModel
+        && JSON.stringify(reopenedTableCellMergesTable.mergeRegions) ===
+          JSON.stringify([tableCellMergeRegion])
+        && JSON.stringify(reopenedTableCellMergesTable.rows.flatMap(({ cells }) =>
+          cells.map(({ merge }) => tableCellMergeSnapshot(merge)))) ===
+          JSON.stringify(tableCellMergeMembers)
+        && reopenedTableCellMergesTable.rows[1].cells[1].fill?.kind === 'solid'
+        && reopenedTableCellMergesTable.rows[1].cells[1].fill.color.value === 'FCE4D6';
+      const tableCellMergesState = {
+        created: tableCellMergesCreated,
+        read: tableCellMergesRead,
+        snapshotsFrozen: tableCellMergesSnapshotsFrozen,
+        unmerged: tableCellMergesUnmerged,
+        edited: tableCellMergesEdited,
+        remerged: tableCellMergesRemerged,
+        reopened: tableCellMergesReopened,
+        validationErrors: tableCellMergesDocument.diagnostics
+          .filter(({ severity }) => severity === 'error').length
+          + reopenedTableCellMergesDocument.diagnostics
+            .filter(({ severity }) => severity === 'error').length,
+      };
+      const tableCellMerges = Object.values(tableCellMergesState).every(
+        (value) => value === true || value === 0,
+      );
       const tableBorderSideSnapshot = (value) => {
         if (value.kind === 'none') return { kind: 'none' };
         return {
@@ -3777,6 +3877,8 @@ async (page) => {
         tableFillState,
         tableTextDefaults,
         tableTextDefaultsState,
+        tableCellMerges,
+        tableCellMergesState,
         schemeColors,
         schemeColorState,
         outputTypes,
@@ -3855,6 +3957,25 @@ async (page) => {
       base64: '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',
     },
   );
+  const tableCellMergesEvidenceDownloadPromise = page.waitForEvent('download');
+  await page.evaluate(() => {
+    const blob = globalThis.__pptxTableCellMergesEvidenceBlob;
+    if (!(blob instanceof Blob)) throw new Error('Missing table-cell merge evidence Blob');
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'browser-table-cell-merges.pptx';
+    anchor.click();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  });
+  const tableCellMergesEvidenceDownload = await tableCellMergesEvidenceDownloadPromise;
+  result.tableCellMergesEvidenceFileName =
+    tableCellMergesEvidenceDownload.suggestedFilename();
+  if (typeof process !== 'undefined' && process.env.PPTX_BROWSER_TABLE_CELL_MERGES_OUT) {
+    await tableCellMergesEvidenceDownload.saveAs(
+      process.env.PPTX_BROWSER_TABLE_CELL_MERGES_OUT,
+    );
+  }
   const downloadPromise = page.waitForEvent('download');
   await page.evaluate(
     async ({ moduleUrl, base64 }) => {
@@ -4259,6 +4380,17 @@ async (page) => {
       created: true,
       plainEdit: true,
       richReplacement: true,
+      reopened: true,
+      validationErrors: 0,
+    },
+    tableCellMerges: true,
+    tableCellMergesState: {
+      created: true,
+      read: true,
+      snapshotsFrozen: true,
+      unmerged: true,
+      edited: true,
+      remerged: true,
       reopened: true,
       validationErrors: 0,
     },
@@ -4967,6 +5099,7 @@ async (page) => {
     stableMediaLifecycle: true,
     mediaTargetIsolation: true,
     mediaOrphanCount: 0,
+    tableCellMergesEvidenceFileName: 'browser-table-cell-merges.pptx',
     downloadFileName: 'browser-smoke.pptx',
     errorCounts: { console: 0, page: 0, network: 0 },
   };
