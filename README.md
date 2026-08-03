@@ -1103,13 +1103,77 @@ console.log(reopenedTable.rows[0]!.cells[1]!.hyperlink); // undefined
 
 `AddTableCellOptions.hyperlink` 与 `TableModel.setCellHyperlink(rowIndex, columnIndex, value)` 支持 URL 或当前文稿内部的一基页码，`tooltip` 的省略与显式 `''` 保持可区分；`undefined` 清除选中 physical cell 的 direct run click。行列索引从零开始，创建或编辑后都可立即通过只读 `TableCell.hyperlink` 获得 detached frozen direct-state snapshot。链接属于普通 plain cell 的唯一 direct run，`setCellText()` 和其他已支持的 cell 属性编辑不会移除它。内部链接按目标页 identity 保存，页面移动后 snapshot 的 ordinal 会同步变化；duplicate、delete、rollback、六格式与 write/reopen 共用既有 relationship lifecycle。
 
-Native 创建时每个 linked cell 都独占 relationship，即使多个 cells 使用相同 URL；导入文件若共享 ID，则 target 变化只对所选 cell clone-on-write。相同值是 exact part/relationship/journal no-op；仅改 tooltip 会复用 ID，唯一 relationship 的 target 切换原位更新，clear/replace 只回收最后一个引用。添加链接只在没有 direct underline 时补 single underline；清除只删除 click，保留现有下划线和其他 run properties。当前没有 table-level hyperlink default。Strict reader/editor 只接受唯一 direct text body、paragraph、run、run properties 与 text，不猜测 rich/multi-run/multi-paragraph 状态；这些高级 cell text links 仍未支持。
+Native 创建时每个 linked cell 都独占 relationship，即使多个 cells 使用相同 URL；导入文件若共享 ID，则 target 变化只对所选 cell clone-on-write。相同值是 exact part/relationship/journal no-op；仅改 tooltip 会复用 ID，唯一 relationship 的 target 切换原位更新，clear/replace 只回收最后一个引用。添加链接只在没有 direct underline 时补 single underline；清除只删除 click，保留现有下划线和其他 run properties。当前没有 table-level hyperlink default。该 scalar reader/editor 只接受唯一 direct text body、paragraph、run、run properties 与 text，不猜测 rich/multi-run/multi-paragraph 状态；这些 cell 的 default/local run links 通过 `TableCell.richText` 读取并由 `setCellRichText()` whole-replace。
 
 PptxGenJS 4.0.1 的合法 URL/内部页输出可读取并编辑，包括 run click 上的 `invalidUrl=""`、`action=""`、`history="1"` 等额外兼容属性；它没有 existing-deck table-cell hyperlink editor。其 omitted tooltip 会物化 empty，并会向 caller hyperlink object 写入 `_rId`；native 保留更精确的 omitted/empty 差异、从不修改输入，也不复制宽松 coercion 或悬空 relationship 行为。
 
 最终 full Vitest 为 84 passed / 1 skipped test files、1476 passed / 1 skipped tests，performance 1/1（核心测试 1.63s）。实际 62-file tarball SHA-256 为 `2d06b955b48a25fc6f1e06accf2bd059045a7b3db04a6f3640c5bdca987ea816`；installed Node/types/browser/CLI、`pptx-inspect` 与真实 Google Chrome 均报告 `tableCellHyperlinkEditing: true`。最终证据文件为 22 parts、23 relationships、3 slides；首个表格页包含 6 cells、2 个 click、2 个匹配 relationship 与 6 个保留下划线。PowerPoint 2010 validation 为 0 errors，并只有 2 条预期 `OPC_EXTERNAL_RELATIONSHIP`，Chrome validation/console/page/network errors 均为 0。设计、计划、rollback、core 与 package-proof commits 分别为 `4fe0c43`、`0e566bd`、`dca33ba`、`99a6d3b`、`93b6b09`；证据位于 `/tmp/pptx-table-cell-hyperlink-editing-UphgYg`。
 
-总体 PptxGenJS 对等进度仍约 97%。下一小项是 rich/multi-paragraph table-cell text/style；之后继续 merge/colspan/rowspan、row/column CRUD、auto-page/repeated headers、`tableToSlides` 与最终 peer/client audit。
+## 创建、读取和编辑表格单元格富文本
+
+```ts
+import { PptxDocument } from '@jiayunxie/pptx';
+
+const document = PptxDocument.create();
+const slide = document.addSlide();
+const table = slide.addTable([[
+  {
+    text: [
+      {
+        align: 'center',
+        runs: [{
+          text: '季度摘要',
+          style: {
+            bold: true,
+            fontSize: 18,
+            color: { kind: 'scheme', value: 'accent1' },
+          },
+        }],
+      },
+      {
+        runs: [
+          { text: '默认链接' },
+          {
+            text: ' · OpenAI',
+            style: { italic: true, hyperlink: { url: 'https://openai.com' } },
+          },
+          {
+            text: '软换行且不继承链接',
+            softBreakBefore: true,
+            style: { hyperlink: false },
+          },
+        ],
+      },
+    ],
+    options: { hyperlink: { url: 'https://example.com/report' } },
+  },
+  '第一行\r\n\r第三行',
+]], { name: '富文本单元格' });
+
+const cell = table.rows[0]!.cells[0]!;
+console.log(cell.text);     // 段落和 soft break 均投影为 \n
+console.log(cell.richText); // detached readonly RichTextParagraph[]
+
+table.setCellRichText(0, 0, [{
+  runs: [
+    { text: '已替换', style: { bold: true } },
+    { text: ' · 文档', style: { hyperlink: { url: 'https://example.com/docs' } } },
+  ],
+}]);
+await document.writeFile('rich-table-cells.pptx');
+```
+
+`AddTableCell.text` 现在接受普通 string 或 `readonly RichTextParagraph[]`；富文本数组必须放在 `{ text, options? }` cell 对象中，不能把裸数组当作 cell。String 中的 CRLF/CR 会先规范化为 LF，再按段落拆分，连续或结尾换行产生的空段落会被保留；结构化输入直接表达多段落，`softBreakBefore` 表示同一段落内的软换行，`breakLine` 可在创建归一化时拆出新段落且不会出现在 snapshot。`TableCell.text` 将段落边界与 soft break 都投影为 `\n`，`TableCell.richText` 则保留 paragraph、run、alignment、list/spacing/tab 以及 font、size、bold/italic、color、underline、strike、highlight、outline、glow、baseline、character spacing、transparency 和 hyperlink 等已支持样式。
+
+Cell `options.hyperlink` 是默认 run link：未提供局部设置的非空 runs 继承它，显式 run hyperlink 使用独立 relationship，`hyperlink: false` 抑制继承。Rich cell 的链接通过 `richText[].runs[].style.hyperlink` 读取，并用 `setCellRichText()` whole-replace；plain `TableCell.hyperlink` / `setCellHyperlink()` 仍只负责安全的单段落单 run 状态。链接目标按 slide identity 保存，replacement 复用相同目标 ID、对共享 relationship clone-on-write，并只回收最后一个引用。
+
+`setCellRichText(rowIndex, columnIndex, value)` 使用从零开始的 physical row/cell index，保留 `bodyPr`、`lstStyle`、`tcPr`、表格 geometry、相邻 cells 与 live model identity；与当前结构和值完全相同的 replacement 是 exact bytes/relationships/journal no-op。输入与返回 snapshot 都会立即和 caller 脱离。`setCellText()` 只适合恰好一个安全 direct paragraph + run 的普通 cell，并保留该 run 的样式与链接；rich、multi-run、multi-paragraph、field 或 break cell 必须使用 `setCellRichText()`，否则在 mutation 前抛 `ModelParseError`。
+
+PptxGenJS 4.0.1 的合法 CR/LF、`breakLine`、多段落、paragraph alignment/bullet、run font/size/bold/italic/color/underline、cell-default link 与 run-local link 输出均可读取并继续编辑。Native 使用 canonical `RichTextParagraph[]`，不修改 caller、不写重复 `pPr`，保留 omitted 与 explicit-empty tooltip 的差异，并在 mutation 前拒绝 coercible、dangling 或 descriptor-unsafe input。
+
+最终 full Vitest 为 85 passed / 1 skipped test files、1487 passed / 1 skipped tests（143.22s），1000-part performance 为 1648ms；TypeScript project references、Node/browser bundle 与 declaration build 均通过。实际 62-file tarball SHA-256 为 `7de2354ac691ad09b58e0e103fd07ff1428caa799b548d2a65d9d19a4e0fd79f`；installed Node、NodeNext types、browser、CLI、Inspector 与 PptxGenJS 4.0.1 import/edit 均通过。最终 edited package 为 20 parts / 19 relationships，只有 slide XML 与其 relationships part 变化，2 个 click 无 dangling ID。PowerPoint 2010 全部为 0 errors，仅有预期 external-link warnings；Google Chrome 150.0.7871.188 的 create/snapshot/edit/link 均为 true，validation/console/page/network errors 均为 0。实现与复核 commits 为 `3eb6f37`、`6b40fc5`、`fd6fc43`、`d0aa76d`、`0e3c36a`；证据位于 `/tmp/pptx-table-cell-rich-text-DA3x3Z`。
+
+总体 PptxGenJS 对等进度约 98%。下一小项是 table/cell outer font defaults；之后依次完成 merge/colspan/rowspan、row/column CRUD、auto-page/repeated headers、`tableToSlides` 与最终 peer/client audit。
 
 ## 创建和编辑预设形状、调整值与样式
 
@@ -1178,7 +1242,7 @@ shape.hyperlink = undefined;
 
 `AddShapeOptions.shadow`、`AddTextOptions.shadow` 与 `ShapeModel.shadow` 支持 preset/text shape direct outer/inner shadow 的创建、读取、whole replacement 与清除，包括 sRGB/theme color、`0..1` opacity、`0..100pt` blur、`0..<360°` angle、`0..200pt` distance，以及 outer-only `rotateWithShape`。默认值为 black、0.75、8pt、270°、4pt 和 outer rotate false；显式 zero 会保留。输入在 mutation 前深度脱离，getter 的嵌套快照会 deep-freeze；同值赋值是 exact no-op，`undefined` 只移除 direct shadow 并保留 `effectLst` 与 glow/reflection 等 sibling effects。Generic/advanced effects、custom shadow transforms，以及 image/table/chart/media 等其他 owner 的 shadow API 仍待后续小项。
 
-`AddShapeOptions.hyperlink`、`AddTextOptions.hyperlink` 与 `ShapeModel.hyperlink` 支持整个 preset/text shape 的 click URL 或内部页链接。输入必须恰好包含一个非空 `url` 或一个当前文稿内的一基 `slide`；`tooltip` 可省略，也可显式为空。Getter 返回 detached frozen snapshot，setter 采用 whole replacement，同值赋值为 exact no-op，`undefined` 清除 click link。内部关系按目标页 identity 保存，移动或在目标前插删页面只更新 getter ordinal；复制 self-link 会指向副本自身，删除目标页会清理相关 click/hover，shared relationship 则按引用 clone-on-write 与回收。Text outer 与 `RichTextRunStyle.hyperlink` 分别管理 whole-shape/default run 和显式 run-local 链接，ownership 相互独立；run hyperlink 可与 `RichTextRun.breakLine` 组合并按规范段落重新索引。外部链接产生 validator 的预期可移植性 warning。Plain single-run table-cell hyperlink creation/read/edit/clear 已支持；rich/multi-paragraph cell links，以及 hover、table graphic-frame/image/chart/media 链接、action navigation、advanced line fill/custom dash 和 percentage positions 仍待后续小项；`isTextBox` 与 rich-text `breakLine` 已完成。
+`AddShapeOptions.hyperlink`、`AddTextOptions.hyperlink` 与 `ShapeModel.hyperlink` 支持整个 preset/text shape 的 click URL 或内部页链接。输入必须恰好包含一个非空 `url` 或一个当前文稿内的一基 `slide`；`tooltip` 可省略，也可显式为空。Getter 返回 detached frozen snapshot，setter 采用 whole replacement，同值赋值为 exact no-op，`undefined` 清除 click link。内部关系按目标页 identity 保存，移动或在目标前插删页面只更新 getter ordinal；复制 self-link 会指向副本自身，删除目标页会清理相关 click/hover，shared relationship 则按引用 clone-on-write 与回收。Text outer 与 `RichTextRunStyle.hyperlink` 分别管理 whole-shape/default run 和显式 run-local 链接，ownership 相互独立；run hyperlink 可与 `RichTextRun.breakLine` 组合并按规范段落重新索引。外部链接产生 validator 的预期可移植性 warning。Plain single-run table-cell scalar hyperlink API 与 rich/multi-paragraph cell default/local run links 均已支持；hover、table graphic-frame/image/chart/media 链接、action navigation、advanced line fill/custom dash 和 percentage positions 仍待后续小项；`isTextBox` 与 rich-text `breakLine` 已完成。
 
 ### 创建和编辑自定义几何路径
 
