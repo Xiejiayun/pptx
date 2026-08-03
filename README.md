@@ -1225,6 +1225,8 @@ Resolved 值只物化为每个 physical cell 的 direct paragraph/run OOXML，�
 
 PptxGenJS 4.0.1 的合法 table/cell `fontFace`、font size、bold、color、cell paragraph spacing、rich override、empty paragraph 和 hyperlink final state 均可导入、编辑并重开。Native 另外支持 table-level spacing 传播，并修正其 truthy fallback 会覆盖 cell/run `bold: false` 以及 writer 修改 caller options 的行为。总体 PptxGenJS 对等进度约 98.5%；剩余依次为 merge/colspan/rowspan、row/column CRUD、auto-page/repeated headers、`tableToSlides` 与最终 peer/client audit。
 
+最终 full Vitest 为 85 passed / 1 skipped test files、1497 passed / 1 skipped tests（167.50s），1000-part performance 为 1565ms；TypeScript、Node/browser bundles 与 declarations 均通过。实际 62-file tarball SHA-256 为 `79ed789e6d4f218cc5c838af9e5965e96bd7e35f132d2a630a85ac5dd39ed222`；installed Node、NodeNext types、browser conditional export、CLI 与 Inspector 均报告 table text defaults 通过。最终 evidence deck 为 18 parts / 15 relationships、1 slide / 1 table / 3 cells，PowerPoint 2010 为 0 errors / 0 warnings；Google Chrome 150.0.7871.188 的 create/snapshot/plain edit/rich replacement/reopen 均为 true，validation/console/page/network errors 均为 0。实现、复核与发布证明 commits 为 `e8cd0c7`、`0fc1567`、`af4e419`、`d6f3fd9`、`6e5df9a`、`145148b`、`2eb1a5f`；证据位于 `/tmp/pptx-table-text-defaults-proof.ViSdTX`。
+
 ## 创建和编辑预设形状、调整值与样式
 
 ```ts

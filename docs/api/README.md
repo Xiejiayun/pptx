@@ -586,6 +586,8 @@ Both `AddTableOptions` and `AddTableCellOptions` expose `fontFamily?: string`, `
 
 Only resolved direct OOXML is stored. `TableCell.richText` immediately reads it, `setCellText()` preserves a safe plain run's materialized style, and `setCellRichText()` does not reapply creation defaults. Font family and size are also written to empty-paragraph `endParaRPr`. Cell-default hyperlinks retain outer color; local run hyperlinks without explicit color skip the outer color. PptxGenJS 4.0.1 legal font/size/bold/color, cell spacing, rich override, empty paragraph, and hyperlink output imports and remains editable. Native additionally propagates table-level spacing, preserves explicit false values, and never mutates caller objects. Overall parity is approximately 98.5%; remaining work is merge/span, row/column CRUD, auto-page/repeated headers, `tableToSlides`, and the final peer/client audit.
 
+Final gates are 85 passed / 1 skipped test files and 1497 passed / 1 skipped tests in 167.50s, plus the 1000-part performance test at 1565ms. TypeScript, Node/browser bundles, declarations, and an actual 62-file tarball (SHA-256 `79ed789e6d4f218cc5c838af9e5965e96bd7e35f132d2a630a85ac5dd39ed222`) pass installed Node, NodeNext types, browser conditional-export, CLI, and Inspector probes. The retained 18-part / 15-relationship deck has one slide, one table, and three cells; PowerPoint 2010 reports zero errors and warnings. Chrome 150.0.7871.188 reports every table-text-default capability true and zero validation/console/page/network errors. Evidence is retained at `/tmp/pptx-table-text-defaults-proof.ViSdTX`.
+
 ## Embedded raster images
 
 ```ts
