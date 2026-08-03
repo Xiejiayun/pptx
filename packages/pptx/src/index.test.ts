@@ -56,6 +56,11 @@ import {
   type ShapeShadow,
   type TableCell,
   type TableAutoPageMarginInput,
+  type TableToSlidesAddImage,
+  type TableToSlidesAddShape,
+  type TableToSlidesAddTable,
+  type TableToSlidesAddText,
+  type TableToSlidesOptions,
   type TextAlignment,
   type TextBoxVerticalAlignment,
   type WriteBaseOptions,
@@ -64,6 +69,28 @@ import {
 } from './index.js';
 
 describe('@jiayunxie/pptx stable exports', () => {
+  it('exports the tableToSlides method and option types from the root package', () => {
+    const document = PptxDocument.create();
+    expect(typeof document.tableToSlides).toBe('function');
+
+    if (false) {
+      const addImage: TableToSlidesAddImage = { source: new Uint8Array([1]) };
+      const addShape: TableToSlidesAddShape = { type: 'rect' };
+      const addTable: TableToSlidesAddTable = { rows: [['A']] };
+      const addText: TableToSlidesAddText = { text: 'T' };
+      const options: TableToSlidesOptions = {
+        autoPage: false,
+        addImage,
+        addShape,
+        addTable,
+        addText,
+      };
+      const pages: Promise<readonly import('./index.js').SlideModel[]> =
+        document.tableToSlides('table', options);
+      void pages;
+    }
+  });
+
   it('exports the read-only runtime version from the root package', async () => {
     const current: PptxVersion = PPTX_VERSION;
     const document = PptxDocument.create();

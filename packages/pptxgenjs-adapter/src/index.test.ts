@@ -374,6 +374,7 @@ interface PptxGenJSInstance {
     readonly slideNumber?: PptxGenJSSlideNumberProps;
     readonly objects?: readonly PptxGenJSMasterObject[];
   }): void;
+  tableToSlides(elementId: string, options?: Record<string, unknown>): void;
   stream(options?: { readonly compression?: boolean }): Promise<unknown>;
   write(options: { outputType: 'nodebuffer'; compression: boolean }): Promise<Uint8Array>;
   write(options: { outputType: 'uint8array'; compression: boolean }): Promise<Uint8Array>;
@@ -406,6 +407,146 @@ const OFFICE_MEDIA_RELATIONSHIP =
 const OFFICE_MEDIA_EXTENSION_URI = '{DAA4B4D4-6D71-4841-9C94-3DE7FCFB9230}';
 const sectionState = (document: PptxDocument) =>
   document.sections?.map(({ title, slideIds }) => ({ title, slideIds }));
+
+interface TableToSlidesFixtureCell {
+  readonly localName: 'td' | 'th';
+  readonly innerText: string;
+  readonly offsetWidth: number;
+  readonly colSpan: number;
+  readonly rowSpan: number;
+  readonly style: Readonly<Record<string, string>>;
+  getAttribute(name: string): string | null;
+}
+
+function tableToSlidesFixture(options: {
+  readonly bodyRows?: number;
+  readonly fixedFirstWidth?: string;
+} = {}) {
+  const style = Object.freeze({
+    color: 'rgb(1, 2, 3)',
+    'background-color': 'rgb(240, 241, 242)',
+    'font-family': 'Arial, sans-serif',
+    'font-size': '12px',
+    'font-weight': '700',
+    'text-align': 'left',
+    'vertical-align': 'top',
+    direction: 'ltr',
+    'padding-top': '1px',
+    'padding-right': '1px',
+    'padding-bottom': '1px',
+    'padding-left': '1px',
+    'border-top-style': 'solid',
+    'border-right-style': 'solid',
+    'border-bottom-style': 'solid',
+    'border-left-style': 'solid',
+    'border-top-width': '1px',
+    'border-right-width': '1px',
+    'border-bottom-width': '1px',
+    'border-left-width': '1px',
+    'border-top-color': 'rgb(4, 5, 6)',
+    'border-right-color': 'rgb(4, 5, 6)',
+    'border-bottom-color': 'rgb(4, 5, 6)',
+    'border-left-color': 'rgb(4, 5, 6)',
+  });
+  const makeCell = (
+    text: string,
+    localName: 'td' | 'th',
+    width: number,
+    attributes: Readonly<Record<string, string>> = {},
+  ): TableToSlidesFixtureCell => ({
+    localName,
+    innerText: text,
+    offsetWidth: width,
+    colSpan: 1,
+    rowSpan: 1,
+    style,
+    getAttribute(name: string) {
+      return Object.hasOwn(attributes, name) ? attributes[name]! : null;
+    },
+  });
+  const headCells = [
+    makeCell('Header A', 'th', 100, options.fixedFirstWidth === undefined
+      ? {}
+      : { 'data-pptx-width': options.fixedFirstWidth }),
+    makeCell('Header B', 'th', 100),
+  ];
+  const headRows = [{ cells: headCells }];
+  const bodyRows = Array.from({ length: options.bodyRows ?? 2 }, (_, index) => ({
+    cells: [
+      makeCell(`A${index}`, 'td', 100),
+      makeCell(
+        `B${index} ${Array.from({
+          length: options.bodyRows && options.bodyRows > 10 ? 8 : 1,
+        }, () => 'content').join(' ')}`,
+        'td',
+        100,
+      ),
+    ],
+  }));
+  const defaultView = {
+    getComputedStyle(element: unknown) {
+      const values = (element as TableToSlidesFixtureCell).style;
+      return {
+        getPropertyValue(name: string): string {
+          return values[name] ?? '';
+        },
+      };
+    },
+  };
+  const table = {
+    localName: 'table',
+    tHead: { rows: headRows },
+    tBodies: [{ rows: bodyRows }],
+    tFoot: null,
+    ownerDocument: undefined as unknown,
+  };
+  const document = {
+    defaultView,
+    getElementById(id: string): unknown {
+      return id === 'report' ? table : null;
+    },
+    querySelectorAll(selector: string): readonly unknown[] {
+      if (selector === '#report tr:first-child th') return headCells;
+      if (selector === '#report tr:first-child td') return [];
+      if (selector === '#report thead tr') return headRows;
+      if (selector === '#report tbody tr') return bodyRows;
+      if (selector === '#report tfoot tr') return [];
+      return [];
+    },
+    querySelector(selector: string): unknown {
+      const match = selector.match(/^#report thead tr:first-child th:nth-child\((\d+)\)$/);
+      return match ? headCells[Number(match[1]) - 1] ?? null : null;
+    },
+  };
+  table.ownerDocument = document;
+  return { document, window: defaultView };
+}
+
+async function withTableToSlidesGlobals<T>(
+  fixture: ReturnType<typeof tableToSlidesFixture>,
+  operation: () => T | Promise<T>,
+): Promise<T> {
+  const previousDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
+  const previousWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  Object.defineProperty(globalThis, 'document', {
+    configurable: true,
+    writable: true,
+    value: fixture.document,
+  });
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    writable: true,
+    value: fixture.window,
+  });
+  try {
+    return await operation();
+  } finally {
+    if (previousDocument) Object.defineProperty(globalThis, 'document', previousDocument);
+    else Reflect.deleteProperty(globalThis, 'document');
+    if (previousWindow) Object.defineProperty(globalThis, 'window', previousWindow);
+    else Reflect.deleteProperty(globalThis, 'window');
+  }
+}
 
 function zipCompressionMethods(bytes: Uint8Array): number[] {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -863,6 +1004,118 @@ describe('importPptxGenJS', () => {
     await native.write();
     expect(generated.version).toBe('4.0.1');
     expect(native.version).toBe(PPTX_VERSION);
+  });
+
+  it('matches legal tableToSlides rows, styles, widths, and additions', async () => {
+    const generated = new PptxGenJS();
+    const legacyOptions: Record<string, unknown> = {
+      autoPage: true,
+      addImage: {
+        image: { data: PNG_DATA_URI },
+        options: { x: 0.1, y: 0.1, w: 0.2, h: 0.2 },
+      },
+      addShape: {
+        shapeName: 'rect',
+        options: { x: 0.3, y: 0.3, w: 0.2, h: 0.2 },
+      },
+      addTable: { rows: [['K', 'V']], options: { x: 0.5, y: 0.5, w: 1 } },
+      addText: { text: 'Details', options: { x: 0.5, y: 1, w: 1, h: 0.2 } },
+    };
+    const legacyReturn = await withTableToSlidesGlobals(tableToSlidesFixture(), () =>
+      generated.tableToSlides('report', legacyOptions));
+    const imported = await importPptxGenJS(generated);
+
+    const native = PptxDocument.create();
+    const nativeOptions = {
+      autoPage: true,
+      addImage: {
+        source: PNG_DATA_URI,
+        options: { x: inches(0.1), y: inches(0.1), width: inches(0.2), height: inches(0.2) },
+      },
+      addShape: {
+        type: 'rect' as const,
+        options: { x: inches(0.3), y: inches(0.3), width: inches(0.2), height: inches(0.2) },
+      },
+      addTable: {
+        rows: [['K', 'V']],
+        options: { x: inches(0.5), y: inches(0.5), width: inches(1) },
+      },
+      addText: {
+        text: 'Details',
+        options: { x: inches(0.5), y: inches(1), width: inches(1), height: inches(0.2) },
+      },
+    };
+    const nativeBefore = structuredClone(nativeOptions);
+    let returnedPromise = false;
+    const nativePages = await withTableToSlidesGlobals(tableToSlidesFixture(), () => {
+      const result = native.tableToSlides('report', nativeOptions);
+      returnedPromise = result instanceof Promise;
+      return result;
+    });
+
+    expect(legacyReturn).toBeUndefined();
+    expect(returnedPromise).toBe(true);
+    expect(legacyOptions).toHaveProperty('_arrObjTabHeadRows');
+    expect(legacyOptions).toHaveProperty('colW');
+    expect(nativeOptions).toEqual(nativeBefore);
+    expect(imported.slides).toHaveLength(1);
+    expect(nativePages).toHaveLength(1);
+    expect(imported.slides[0]!.shapes.map(({ kind }) => kind))
+      .toEqual(['table', 'image', 'shape', 'table', 'text']);
+    expect(nativePages[0]!.shapes.map(({ kind }) => kind))
+      .toEqual(['table', 'image', 'shape', 'table', 'text']);
+
+    const legacyTable = imported.slides[0]!.shapes[0] as TableModel;
+    const nativeTable = nativePages[0]!.shapes[0] as TableModel;
+    expect(legacyTable.rows.map((row) => row.cells.map(({ text }) => text)))
+      .toEqual(nativeTable.rows.map((row) => row.cells.map(({ text }) => text)));
+    expect(legacyTable.columnWidths).toEqual(nativeTable.columnWidths);
+    expect(legacyTable.rows[0]!.cells[0]!.fill).toEqual(nativeTable.rows[0]!.cells[0]!.fill);
+    expect(legacyTable.rows[0]!.cells[0]!.margins)
+      .toEqual(nativeTable.rows[0]!.cells[0]!.margins);
+    expect(legacyTable.rows[0]!.cells[0]!.horizontalAlignment ?? 'left')
+      .toBe(nativeTable.rows[0]!.cells[0]!.horizontalAlignment ?? 'left');
+    expect(legacyTable.rows[0]!.cells[0]!.verticalAlignment ?? 'top')
+      .toBe(nativeTable.rows[0]!.cells[0]!.verticalAlignment ?? 'top');
+  });
+
+  it('locks strict tableToSlides differences from PptxGenJS 4.0.1 defects', async () => {
+    const generated = new PptxGenJS();
+    const legacyOptions: Record<string, unknown> = {
+      autoPage: false,
+      addText: { text: 'Legacy' },
+    };
+    await withTableToSlidesGlobals(tableToSlidesFixture({
+      bodyRows: 45,
+      fixedFirstWidth: '0.5',
+    }), () => generated.tableToSlides('report', legacyOptions));
+    const imported = await importPptxGenJS(generated);
+
+    const native = PptxDocument.create();
+    const nativePages = await withTableToSlidesGlobals(tableToSlidesFixture({
+      bodyRows: 45,
+      fixedFirstWidth: '0.5',
+    }), () => native.tableToSlides('report', {
+      autoPage: false,
+      addText: { text: 'Native' },
+    }));
+    expect(imported.slides.length).toBeGreaterThan(1);
+    expect(nativePages).toHaveLength(1);
+    const legacyTable = imported.slides[0]!.shapes[0] as TableModel;
+    const nativeTable = nativePages[0]!.shapes[0] as TableModel;
+    expect(legacyTable.columnWidths![0]).toBe(inches(4.5));
+    expect(nativeTable.columnWidths![0]).toBe(inches(0.5));
+    expect(legacyOptions).not.toEqual({ autoPage: false, addText: { text: 'Legacy' } });
+
+    const permissive = new PptxGenJS();
+    await expect(withTableToSlidesGlobals(tableToSlidesFixture(), () =>
+      permissive.tableToSlides('report', { autoPage: 'false' })))
+      .resolves.toBeUndefined();
+    const strict = PptxDocument.create();
+    await expect(withTableToSlidesGlobals(tableToSlidesFixture(), () =>
+      strict.tableToSlides('report', { autoPage: 'false' as never })))
+      .rejects.toThrow(/autoPage.*boolean/i);
+    expect(strict.slides).toEqual([]);
   });
 
   it('matches the PptxGenJS horizontal alignment runtime catalog', async () => {

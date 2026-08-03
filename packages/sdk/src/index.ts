@@ -140,6 +140,13 @@ export type {
   SlideMasterMarginInput,
   SlideMasterObject,
 } from './master-layout.js';
+export type {
+  TableToSlidesAddImage,
+  TableToSlidesAddShape,
+  TableToSlidesAddTable,
+  TableToSlidesAddText,
+  TableToSlidesOptions,
+} from './table-to-slides.js';
 export { PackageError } from '@pptx/opc';
 export type { PackageOpenOptions } from '@pptx/opc';
 export { ValidationError } from '@pptx/validator';

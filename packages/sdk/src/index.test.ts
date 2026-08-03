@@ -91,6 +91,11 @@ import {
   type TableCellTextDirection,
   type TableMergeRegion,
   type TableAutoPageMarginInput,
+  type TableToSlidesAddImage,
+  type TableToSlidesAddShape,
+  type TableToSlidesAddTable,
+  type TableToSlidesAddText,
+  type TableToSlidesOptions,
   type TextBoxVerticalAlignment,
   type PresentationLayout,
   type PresentationLayoutName,
@@ -295,8 +300,23 @@ describe('PptxDocument vertical slice', () => {
     expect(reopened.version).toBe(PPTX_VERSION);
 
     if (false) {
+      const addImage: TableToSlidesAddImage = { source: sdkPngHeader(1, 1) };
+      const addShape: TableToSlidesAddShape = { type: 'rect' };
+      const addTable: TableToSlidesAddTable = { rows: [['A']] };
+      const addText: TableToSlidesAddText = {
+        text: [{ runs: [{ text: 'Title', style: { bold: true } }] }],
+      };
+      const options: TableToSlidesOptions = {
+        autoPage: true,
+        addImage,
+        addShape,
+        addTable,
+        addText,
+      };
+      const pages: Promise<readonly SlideModel[]> = document.tableToSlides('table', options);
       // @ts-expect-error version is read-only
       document.version = '9.9.9';
+      void pages;
     }
   });
 

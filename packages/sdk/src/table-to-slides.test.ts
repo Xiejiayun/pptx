@@ -1,11 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   ImageModel,
+  PRESENTATION_FORMAT_PROFILES,
   inches,
   ShapeModel,
   SlideModel,
   TableModel,
   type RichTextParagraph,
+  type PresentationFormat,
 } from '@pptx/model';
 import { PptxDocument } from './index.js';
 import {
@@ -1270,6 +1272,49 @@ describe('PptxDocument.tableToSlides image additions', () => {
     }))).rejects.toThrow(/image|signature|SVG/i);
     expect(packageState(deck)).toEqual(before);
     expect(deck.slides).toEqual([]);
+  });
+});
+
+describe('PptxDocument.tableToSlides presentation formats', () => {
+  it('creates editable styled tables in all six OOXML presentation formats', async () => {
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const dom = tableFixture({
+        head: [[cell('Header', {
+          localName: 'th',
+          width: 100,
+          style: {
+            color: 'rgb(1, 2, 3)',
+            'background-color': 'rgb(240, 241, 242)',
+            'font-weight': '700',
+          },
+        })]],
+        bodies: [[[cell('Body', { width: 100 })]]],
+      });
+      const deck = PptxDocument.create({ format });
+      const pages = await withGlobalDocument(dom.document, () => deck.tableToSlides('table', {
+        autoPage: false,
+        addShape: {
+          type: 'rect',
+          options: { x: inches(0.1), y: inches(0.2), width: inches(0.3), height: inches(0.4) },
+        },
+      }));
+      expect(pages).toHaveLength(1);
+      expect(pages[0]!.shapes.map(({ kind }) => kind)).toEqual(['table', 'shape']);
+
+      const reopened = await PptxDocument.open(await deck.write());
+      expect(reopened.format).toBe(format);
+      expect(reopened.slides).toHaveLength(1);
+      const table = reopened.slides[0]!.shapes[0];
+      expect(table).toBeInstanceOf(TableModel);
+      if (!(table instanceof TableModel)) throw new TypeError('Expected reopened HTML table');
+      expect(table.rows.map((row) => row.cells.map(({ text }) => text)))
+        .toEqual([['Header'], ['Body']]);
+      expect(table.rows[0]!.cells[0]!.fill)
+        .toEqual({ kind: 'solid', color: { kind: 'srgb', value: 'F0F1F2' } });
+      table.setCellText(1, 0, 'Edited');
+      expect(table.rows[1]!.cells[0]!.text).toBe('Edited');
+      expect((await PptxDocument.open(await reopened.write())).format).toBe(format);
+    }
   });
 });
 

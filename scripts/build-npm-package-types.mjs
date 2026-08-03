@@ -55,6 +55,13 @@ const requiredPublicDeclarations = new Map([
     'SlideLayoutModel',
     'SlideMasterModel',
   ]],
+  [join(typesRoot, 'sdk/table-to-slides.d.ts'), [
+    'TableToSlidesAddImage',
+    'TableToSlidesAddShape',
+    'TableToSlidesAddTable',
+    'TableToSlidesAddText',
+    'TableToSlidesOptions',
+  ]],
 ]);
 for (const [declaration, exports] of requiredPublicDeclarations) {
   const source = await readFile(declaration, 'utf8');
