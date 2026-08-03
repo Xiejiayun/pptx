@@ -1616,7 +1616,11 @@ export class SlideModel {
     const definition = normalizeTableDefinition(rows, options);
     const pageDefinitions = definition.autoPage === undefined
       ? Object.freeze([definition])
-      : planTableAutoPages(definition, this.presentation.slideSize);
+      : planTableAutoPages(
+          definition,
+          this.presentation.slideSize,
+          this.presentation.tableAutoPageMarginsForSlide(this),
+        );
     const insertionPlans = pageDefinitions.slice(1).map(() =>
       this.presentation.prepareSlideInsertionAfter(this));
     const preparedHyperlinks = pageDefinitions.map((page) =>

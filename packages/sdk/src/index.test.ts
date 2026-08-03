@@ -65,6 +65,7 @@ import {
   type RasterImageSource,
   type RichTextParagraph,
   type SetSlideBackgroundImageOptions,
+  type SlideModel,
   type SvgImageContentType,
   type ShapeArrows,
   type ShapeAdjustment,
@@ -89,6 +90,7 @@ import {
   type TableCellFill,
   type TableCellTextDirection,
   type TableMergeRegion,
+  type TableAutoPageMarginInput,
   type TextBoxVerticalAlignment,
   type PresentationLayout,
   type PresentationLayoutName,
@@ -1533,6 +1535,175 @@ describe('PptxDocument vertical slice', () => {
       .toBeUndefined();
     expect(reopened.diagnostics.filter(({ code }) => code === 'LAYOUT_MARGIN_TRANSIENT'))
       .toEqual([]);
+  });
+
+  it('uses runtime named-layout margins for auto-page and canonical fallback after reopen', async () => {
+    const document = PptxDocument.create({
+      slideSize: { width: inches(10), height: inches(5) },
+    });
+    const title = 'AUTO-PAGE-MARGINS';
+    const layoutMargin = [
+      inches(1),
+      inches(0.25),
+      inches(1.25),
+      inches(0.75),
+    ] as const;
+    await document.defineSlideMaster({ title, margin: layoutMargin });
+    const rows = [['Header'], ['A'], ['B'], ['C'], ['D']] as const;
+    const baseOptions: AddTableOptions = {
+      autoPage: true,
+      autoPageRepeatHeader: true,
+      autoPageHeaderRows: 1,
+      y: inches(3),
+      columnWidths: [inches(4)],
+      rowHeights: [
+        inches(0.5),
+        inches(0.75),
+        inches(0.75),
+        inches(0.75),
+        inches(0.75),
+      ],
+    };
+
+    const runtimeSource = document.addSlide({ masterName: title });
+    runtimeSource.addTable(rows, baseOptions);
+    expect(runtimeSource.newAutoPagedSlides).toHaveLength(2);
+    const runtimeTables = [runtimeSource, ...runtimeSource.newAutoPagedSlides].map(
+      (slide) => slide.shapes.find((shape): shape is TableModel => shape instanceof TableModel)!,
+    );
+    expect(runtimeTables.map(({ transform }) => transform.y)).toEqual([
+      inches(3),
+      layoutMargin[0],
+      layoutMargin[0],
+    ]);
+    expect(runtimeTables.map((table) => table.rows.map((row) => row.cells[0]!.text)))
+      .toEqual([['Header'], ['Header', 'A', 'B', 'C'], ['Header', 'D']]);
+
+    const explicitMargin: TableAutoPageMarginInput = [
+      inches(0.25),
+      inches(0.1),
+      inches(0.25),
+      inches(0.1),
+    ];
+    const explicitSource = document.addSlide({ masterName: title });
+    explicitSource.addTable(rows, { ...baseOptions, slideMargin: explicitMargin });
+    expect(explicitSource.newAutoPagedSlides).toHaveLength(1);
+    const explicitTable = explicitSource.newAutoPagedSlides[0]!.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    )!;
+    expect(explicitTable.transform.y).toBe(explicitMargin[0]);
+    expect(explicitTable.rows.map((row) => row.cells[0]!.text))
+      .toEqual(['Header', 'B', 'C', 'D']);
+
+    const reopened = await PptxDocument.open(await document.write());
+    expect(reopened.layouts.find(({ name }) => name === title)?.margin).toBeUndefined();
+    const fallbackSource = reopened.addSlide({ masterName: title });
+    fallbackSource.addTable(rows, baseOptions);
+    expect(fallbackSource.newAutoPagedSlides).toHaveLength(1);
+    const fallbackTables = [fallbackSource, ...fallbackSource.newAutoPagedSlides].map(
+      (slide) => slide.shapes.find((shape): shape is TableModel => shape instanceof TableModel)!,
+    );
+    expect(fallbackTables.map(({ transform }) => transform.y))
+      .toEqual([inches(3), inches(0.5)]);
+    expect(fallbackTables.map((table) => table.rows.map((row) => row.cells[0]!.text)))
+      .toEqual([['Header', 'A'], ['Header', 'B', 'C', 'D']]);
+  });
+
+  it('exports strict table auto-page contracts through all six presentation formats', async () => {
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const document = PptxDocument.create({ format });
+      const source = document.addSlide();
+      const margin: TableAutoPageMarginInput = inches(0.5);
+      const options: AddTableOptions = {
+        autoPage: true,
+        autoPageRepeatHeader: true,
+        autoPageHeaderRows: 1,
+        autoPageSlideStartY: inches(0.75),
+        slideMargin: margin,
+        y: inches(4.5),
+        columnWidths: [inches(4)],
+        rowHeights: [inches(0.5), inches(0.75), inches(0.75)],
+      };
+      source.addTable([['Header'], ['A'], ['B']], options);
+
+      const generated: readonly SlideModel[] = source.newAutoPagedSlides;
+      expect(generated).toHaveLength(1);
+      expect(Object.isFrozen(generated)).toBe(true);
+      const tables = [source, ...generated].map((slide) => slide.shapes.find(
+        (shape): shape is TableModel => shape instanceof TableModel,
+      )!);
+      expect(tables.map((table) => table.rows.map((row) => row.cells[0]!.text)))
+        .toEqual([['Header'], ['Header', 'A', 'B']]);
+      expect(tables.map(({ transform }) => transform.y))
+        .toEqual([inches(4.5), inches(0.75)]);
+
+      const reopened = await PptxDocument.open(await document.write());
+      expect(reopened.format).toBe(format);
+      expect(reopened.slides).toHaveLength(2);
+      expect(reopened.slides.every((slide) => slide.newAutoPagedSlides.length === 0))
+        .toBe(true);
+      expect(reopened.slides.map((slide) =>
+        (slide.shapes[0] as TableModel).rows.map((row) => row.cells[0]!.text)))
+        .toEqual([['Header'], ['Header', 'A', 'B']]);
+    }
+
+    const descriptor = Object.getOwnPropertyDescriptor(
+      Object.getPrototypeOf(PptxDocument.create().addSlide()),
+      'newAutoPagedSlides',
+    );
+    expect(descriptor?.get).toBeTypeOf('function');
+    expect(descriptor?.set).toBeUndefined();
+
+    if (false) {
+      const document = PptxDocument.create();
+      const slide = document.addSlide();
+      const scalar: TableAutoPageMarginInput = inches(0.5);
+      const tuple: TableAutoPageMarginInput = [1, 2, 3, 4];
+      slide.addTable([['A']], {
+        autoPage: true,
+        autoPageRepeatHeader: false,
+        autoPageSlideStartY: 0,
+        slideMargin: scalar,
+        rowHeights: [1],
+      });
+      slide.addTable([['A']], { autoPage: true, slideMargin: tuple, rowHeights: [1] });
+      // @ts-expect-error generated slide state is getter-only.
+      slide.newAutoPagedSlides = [];
+      // @ts-expect-error generated slide state is a readonly collection.
+      slide.newAutoPagedSlides.push(slide);
+      const stringBoolean: AddTableOptions = {
+        // @ts-expect-error autoPage is boolean-only.
+        autoPage: 'true',
+      };
+      const malformedMargin: AddTableOptions = {
+        // @ts-expect-error slideMargin tuple has exactly four values.
+        slideMargin: [1, 2, 3],
+      };
+      const legacyHeader: AddTableOptions = {
+        // @ts-expect-error legacy PptxGenJS header alias is not supported.
+        addHeaderToEach: true,
+      };
+      const legacyStart: AddTableOptions = {
+        // @ts-expect-error legacy PptxGenJS continuation-Y alias is not supported.
+        newSlideStartY: 1,
+      };
+      const unsupportedCharWeight: AddTableOptions = {
+        // @ts-expect-error automatic character measurement is a later specialty.
+        autoPageCharWeight: 0,
+      };
+      const unsupportedLineWeight: AddTableOptions = {
+        // @ts-expect-error automatic line measurement is a later specialty.
+        autoPageLineWeight: 0,
+      };
+      void [
+        stringBoolean,
+        malformedMargin,
+        legacyHeader,
+        legacyStart,
+        unsupportedCharWeight,
+        unsupportedLineWeight,
+      ];
+    }
   });
 
   it('prepares async slide master definition sources and charts before atomic commit', async () => {

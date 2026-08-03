@@ -82,6 +82,7 @@ import {
 import type { RichTextColor } from './text.js';
 import { resolveSlideLayoutPartUri } from './presentation-layout.internal.js';
 import { materializeLayoutPlaceholders } from './placeholder.internal.js';
+import type { TableAutoPageMargins } from './table-auto-page.internal.js';
 
 const SLIDE_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slide+xml';
 const SLIDE_LAYOUT_CONTENT_TYPE =
@@ -180,6 +181,13 @@ export class PresentationModel {
       width: readSlideSizeCoordinate(xml, size, 'cx', 'width', this.presentationPartUri),
       height: readSlideSizeCoordinate(xml, size, 'cy', 'height', this.presentationPartUri),
     };
+  }
+
+  /** @internal */
+  tableAutoPageMarginsForSlide(
+    _slide: SlideModel,
+  ): Readonly<TableAutoPageMargins> | undefined {
+    return undefined;
   }
 
   get rtlMode(): boolean | undefined {

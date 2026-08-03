@@ -78,6 +78,9 @@ import {
   type SlideMasterMargin,
 } from './master-layout.js';
 
+const SLIDE_LAYOUT_RELATIONSHIP =
+  'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout';
+
 export * from '@pptx/codecs';
 export * from '@pptx/model';
 export { MediaModel } from '@pptx/model';
@@ -242,6 +245,19 @@ export class PptxDocument extends PresentationModel {
 
   get presLayout(): PresentationLayout {
     return presentationLayoutFromSlideSize(this.slideSize);
+  }
+
+  /** @internal */
+  tableAutoPageMarginsForSlide(
+    slide: SlideModel,
+  ): Readonly<SlideMasterMargin> | undefined {
+    if (slide.presentation !== this) return undefined;
+    const relationships = slide.relationships.filter((relationship) =>
+      relationship.type === SLIDE_LAYOUT_RELATIONSHIP
+      && relationship.targetMode === 'Internal'
+      && relationship.resolvedTarget !== undefined);
+    if (relationships.length !== 1) return undefined;
+    return this.#layoutMargins.get(relationships[0]!.resolvedTarget!);
   }
 
   private constructor(opcPackage: OpcPackage) {

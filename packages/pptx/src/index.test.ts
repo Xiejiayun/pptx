@@ -25,6 +25,7 @@ import {
   TEXT_VERTICAL_ALIGNMENTS,
   type AddTextOptions,
   type AddTableCellOptions,
+  type AddTableOptions,
   type ReplaceMediaPosterOptions,
   type ReplaceMediaSourceOptions,
   type RichTextColor,
@@ -54,6 +55,7 @@ import {
   type ShapeLine,
   type ShapeShadow,
   type TableCell,
+  type TableAutoPageMarginInput,
   type TextAlignment,
   type TextBoxVerticalAlignment,
   type WriteBaseOptions,
@@ -939,6 +941,69 @@ describe('@jiayunxie/pptx stable exports', () => {
       // @ts-expect-error table-cell hyperlink snapshots are readonly
       cell.hyperlink = { slide: 2 };
       expect(invalid).toHaveLength(6);
+    }
+  });
+
+  it('exports strict table auto-page and newAutoPagedSlides contracts from the root package', async () => {
+    const document = PptxDocument.create();
+    const source = document.addSlide();
+    const slideMargin: TableAutoPageMarginInput = [
+      inches(0.5),
+      inches(0.25),
+      inches(0.5),
+      inches(0.25),
+    ];
+    const options: AddTableOptions = {
+      autoPage: true,
+      autoPageRepeatHeader: true,
+      autoPageHeaderRows: 1,
+      autoPageSlideStartY: inches(0.75),
+      slideMargin,
+      y: inches(4.5),
+      columnWidths: [inches(4)],
+      rowHeights: [inches(0.5), inches(0.75), inches(0.75)],
+    };
+    source.addTable([['Header'], ['A'], ['B']], options);
+
+    expect(source.newAutoPagedSlides).toHaveLength(1);
+    expect(Object.isFrozen(source.newAutoPagedSlides)).toBe(true);
+    const pageTables = [source, ...source.newAutoPagedSlides].map((slide) =>
+      slide.shapes.find((shape): shape is TableModel => shape instanceof TableModel)!);
+    expect(pageTables.map((table) => table.rows.map((row) => row.cells[0]!.text)))
+      .toEqual([['Header'], ['Header', 'A', 'B']]);
+    expect(pageTables[1]!.transform.y).toBe(inches(0.75));
+
+    const reopened = await PptxDocument.open(await document.write());
+    expect(reopened.slides).toHaveLength(2);
+    expect(reopened.slides.every((slide) => slide.newAutoPagedSlides.length === 0))
+      .toBe(true);
+
+    if (false) {
+      const scalar: TableAutoPageMarginInput = inches(0.5);
+      source.addTable([['A']], { autoPage: true, slideMargin: scalar, rowHeights: [1] });
+      // @ts-expect-error generated slide state is getter-only.
+      source.newAutoPagedSlides = [];
+      const stringRepeat: AddTableOptions = {
+        // @ts-expect-error repeat-header control is boolean-only.
+        autoPageRepeatHeader: 'true',
+      };
+      const malformedMargin: AddTableOptions = {
+        // @ts-expect-error slideMargin tuple has exactly four values.
+        slideMargin: [1, 2, 3, 4, 5],
+      };
+      const legacyHeader: AddTableOptions = {
+        // @ts-expect-error legacy PptxGenJS alias is intentionally excluded.
+        addHeaderToEach: true,
+      };
+      const legacyStart: AddTableOptions = {
+        // @ts-expect-error legacy PptxGenJS alias is intentionally excluded.
+        newSlideStartY: 1,
+      };
+      const unsupportedWeight: AddTableOptions = {
+        // @ts-expect-error automatic row measurement weights are not supported yet.
+        autoPageLineWeight: 0,
+      };
+      void [stringRepeat, malformedMargin, legacyHeader, legacyStart, unsupportedWeight];
     }
   });
 

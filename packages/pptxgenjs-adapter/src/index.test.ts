@@ -63,6 +63,7 @@ interface PptxGenJSSlide {
   };
   color?: string | undefined;
   hidden: unknown;
+  newAutoPagedSlides: PptxGenJSSlide[];
   slideNumber?: PptxGenJSSlideNumberProps;
   addChart(
     type: string | readonly {
@@ -8959,6 +8960,284 @@ describe('importPptxGenJS', () => {
       inches(1),
       inches(1.5),
     ]);
+  });
+
+  it('imports PptxGenJS 4.0.1 auto-page output with repeated headers and editable tables', async () => {
+    const noOverflow = new PptxGenJS();
+    const noOverflowSource = noOverflow.addSlide();
+    noOverflowSource.addTable([['Header'], ['Only body']], {
+      x: 1,
+      y: 1,
+      w: 8,
+      autoPage: true,
+      autoPageRepeatHeader: true,
+      autoPageHeaderRows: 1,
+    });
+    expect(noOverflow.version).toBe('4.0.1');
+    expect(noOverflowSource.newAutoPagedSlides).toEqual([]);
+    const noOverflowDocument = await importPptxGenJS(noOverflow);
+    expect((noOverflowDocument.slides[0]!.shapes[0] as TableModel).rows.map(
+      (row) => row.cells[0]!.text,
+    )).toEqual(['Header', 'Only body']);
+
+    const generated = new PptxGenJS();
+    const source = generated.addSlide();
+    const following = generated.addSlide();
+    following.addText('FOLLOWING', {
+      x: 1,
+      y: 1,
+      w: 3,
+      h: 0.5,
+      objectName: 'Following sentinel',
+    });
+    const generatedUrl: { url: string; tooltip: string; _rId?: number } = {
+      url: 'https://auto-page.example?a=1&b=2',
+      tooltip: 'Auto-page URL',
+    };
+    const generatedInternal: { slide: number; tooltip: string; _rId?: number } = {
+      slide: 2,
+      tooltip: 'Existing following slide',
+    };
+    const generatedRows: (string | PptxGenJSTableCell)[][] = [
+      ['Header A', 'Header B'],
+      [
+        { text: 'URL', options: { hyperlink: generatedUrl } },
+        { text: 'Internal', options: { hyperlink: generatedInternal } },
+      ],
+      [
+        {
+          text: [
+            { text: 'Rich', options: { bold: true, color: 'FF0000' } },
+            { text: 'body', options: { italic: true } },
+          ],
+        },
+        'Rich value',
+      ],
+      ...Array.from({ length: 12 }, (_, index) => [
+        `Body ${index}`,
+        `Value ${index}`,
+      ]),
+    ];
+    const generatedOptions: Record<string, unknown> = {
+      x: 1,
+      y: 4,
+      w: 8,
+      autoPage: true,
+      autoPageRepeatHeader: true,
+      autoPageHeaderRows: 1,
+      autoPageSlideStartY: 1.25,
+      slideMargin: [0.5, 0.5, 0.75, 0.5],
+      fontSize: 18,
+      margin: 0.05,
+    };
+    source.addTable(generatedRows, generatedOptions);
+
+    expect(generated.version).toBe('4.0.1');
+    expect(source.newAutoPagedSlides).toHaveLength(2);
+    expect(source.newAutoPagedSlides[0]).toBe(following);
+    expect(generatedOptions).toMatchObject({
+      autoPage: false,
+      y: inches(1.25),
+      margin: [0.05, 0.05, 0.05, 0.05],
+      autoPageLineWeight: 0,
+    });
+    expect(generatedOptions).toHaveProperty('_arrObjTabHeadRows');
+    expect(generatedUrl._rId).toBeTypeOf('number');
+    expect(generatedInternal._rId).toBeTypeOf('number');
+
+    const document = await importPptxGenJS(generated);
+    const tables = document.slides.map((slide) => slide.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    )!);
+    expect(tables).toHaveLength(3);
+    expect(tables.every((table) => table instanceof TableModel)).toBe(true);
+    expect(tables.map(({ transform }) => transform.y))
+      .toEqual([inches(4), inches(1.25), inches(1.25)]);
+    expect(tables.map((table) => table.rows[0]!.cells.map(({ text }) => text)))
+      .toEqual(Array(3).fill(['Header A', 'Header B']));
+    expect(tables.flatMap((table) => table.rows.slice(1).map(
+      (row) => row.cells[0]!.text,
+    ))).toEqual([
+      'URL',
+      'Richbody',
+      ...Array.from({ length: 12 }, (_, index) => `Body ${index}`),
+    ]);
+    const richCell = tables.flatMap((table) => table.rows.flatMap(({ cells }) => cells))
+      .find(({ text }) => text === 'Richbody')!;
+    expect(richCell.richText[0]!.runs.map(({ text, style }) => ({
+      text,
+      bold: style?.bold,
+      italic: style?.italic,
+      color: style?.color,
+    }))).toEqual([
+      {
+        text: 'Rich',
+        bold: true,
+        italic: undefined,
+        color: { kind: 'srgb', value: 'FF0000' },
+      },
+      {
+        text: 'body',
+        bold: undefined,
+        italic: true,
+        color: { kind: 'srgb', value: '000000' },
+      },
+    ]);
+    expect(tables[0]!.rows[1]!.cells.map(({ hyperlink }) => hyperlink)).toEqual([
+      { url: 'https://auto-page.example?a=1&b=2', tooltip: 'Auto-page URL' },
+      { slide: 2, tooltip: 'Existing following slide' },
+    ]);
+    expect(document.slides[1]!.shapes.map(({ name }) => name))
+      .toContain('Following sentinel');
+    expect(document.slides[2]!.shapes.map(({ name }) => name))
+      .not.toContain('Following sentinel');
+
+    tables.forEach((table, index) => table.setCellRichText(0, 1, [{
+      runs: [{ text: `Editable header ${index}` }],
+    }]));
+    const reopened = await PptxDocument.open(await document.write());
+    const reopenedTables = reopened.slides.map((slide) => slide.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    )!);
+    expect(reopenedTables.map((table) => table.rows[0]!.cells[1]!.text)).toEqual([
+      'Editable header 0',
+      'Editable header 1',
+      'Editable header 2',
+    ]);
+    expect(reopenedTables[0]!.rows[1]!.cells.map(({ hyperlink }) => hyperlink)).toEqual([
+      { url: 'https://auto-page.example?a=1&b=2', tooltip: 'Auto-page URL' },
+      { slide: 2, tooltip: 'Existing following slide' },
+    ]);
+
+    const twoHeaders = new PptxGenJS();
+    const twoHeaderSource = twoHeaders.addSlide();
+    twoHeaderSource.addTable([
+      ['Header 1'],
+      ['Header 2'],
+      ...Array.from({ length: 15 }, (_, index) => [`Body ${index}`]),
+    ], {
+      x: 1,
+      y: 4,
+      w: 8,
+      autoPage: true,
+      autoPageRepeatHeader: true,
+      autoPageHeaderRows: 2,
+      autoPageSlideStartY: 1,
+      fontSize: 18,
+      margin: 0.05,
+    });
+    expect(twoHeaderSource.newAutoPagedSlides).toHaveLength(2);
+    const twoHeaderDocument = await importPptxGenJS(twoHeaders);
+    const twoHeaderTables = twoHeaderDocument.slides.map((slide) => slide.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    )!);
+    expect(twoHeaderTables.map((table) => table.rows.slice(0, 2).map(
+      (row) => row.cells[0]!.text,
+    ))).toEqual(Array(3).fill(['Header 1', 'Header 2']));
+    expect(twoHeaderTables.flatMap((table) => table.rows.slice(2).map(
+      (row) => row.cells[0]!.text,
+    ))).toEqual(Array.from({ length: 15 }, (_, index) => `Body ${index}`));
+  }, 60_000);
+
+  it('keeps strict native auto-page behavior distinct from PptxGenJS 4.0.1 defects', async () => {
+    const document = PptxDocument.create();
+    const source = document.addSlide();
+    const following = document.addSlide();
+    following.addText('FOLLOWING', { name: 'Native following sentinel' });
+    const url = { url: 'https://auto-page.example?a=1&b=2', tooltip: 'Auto-page URL' };
+    const internal = { slide: 2, tooltip: 'Existing following slide' };
+    const rows = [
+      ['Header A', 'Header B'],
+      [
+        { text: 'URL', options: { hyperlink: url } },
+        { text: 'Internal', options: { hyperlink: internal } },
+      ],
+      [
+        {
+          text: [{
+            runs: [
+              { text: 'Rich', style: { bold: true, color: { kind: 'srgb', value: 'FF0000' } } },
+              { text: 'body', style: { italic: true } },
+            ],
+          }],
+        },
+        'Rich value',
+      ],
+      ...Array.from({ length: 12 }, (_, index) => [
+        `Body ${index}`,
+        `Value ${index}`,
+      ]),
+    ] as const;
+    const options = {
+      autoPage: true,
+      autoPageRepeatHeader: true,
+      autoPageHeaderRows: 1,
+      autoPageSlideStartY: inches(1.25),
+      slideMargin: [inches(0.5), inches(0.5), inches(0.75), inches(0.5)] as const,
+      x: inches(1),
+      y: inches(4),
+      columnWidths: [inches(4), inches(4)],
+      rowHeights: [
+        inches(0.25),
+        ...Array.from({ length: 14 }, () => inches(0.375)),
+      ],
+    } as const;
+    const callerSnapshot = JSON.stringify({ rows, options });
+    source.addTable(rows, options);
+
+    expect(JSON.stringify({ rows, options })).toBe(callerSnapshot);
+    expect(Object.hasOwn(url, '_rId')).toBe(false);
+    expect(Object.hasOwn(internal, '_rId')).toBe(false);
+    expect(source.newAutoPagedSlides).toHaveLength(2);
+    expect(document.slides).toEqual([
+      source,
+      ...source.newAutoPagedSlides,
+      following,
+    ]);
+    expect(following.shapes.some(({ kind }) => kind === 'table')).toBe(false);
+    const tables = [source, ...source.newAutoPagedSlides].map((slide) => slide.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    )!);
+    expect(tables.map((table) => table.rows.map((row) => row.cells[0]!.text))).toEqual([
+      ['Header A', 'URL'],
+      ['Header A', 'Richbody', ...Array.from({ length: 8 }, (_, index) => `Body ${index}`)],
+      ['Header A', ...Array.from({ length: 4 }, (_, index) => `Body ${index + 8}`)],
+    ]);
+    expect(tables[0]!.rows[1]!.cells.map(({ hyperlink }) => hyperlink)).toEqual([
+      url,
+      { slide: 4, tooltip: 'Existing following slide' },
+    ]);
+
+    for (const invalid of [
+      { autoPage: 'true', rowHeights: [1] },
+      { autoPage: true, rowHeights: [1], autoPageLineWeight: 1 },
+      { autoPage: true, rowHeights: [1], autoPageCharWeight: 1 },
+      { autoPage: true, rowHeights: [1], addHeaderToEach: true },
+      { autoPage: true, rowHeights: [1], newSlideStartY: 1 },
+    ]) {
+      expect(() => source.addTable([['Invalid']], invalid as never)).toThrow();
+    }
+
+    const pptxgenjs = new PptxGenJS();
+    const pptxgenjsSource = pptxgenjs.addSlide();
+    const clamped: Record<string, unknown> = {
+      x: 1,
+      y: 1,
+      w: 8,
+      autoPage: true,
+      autoPageLineWeight: 9,
+    };
+    pptxgenjsSource.addTable([['Clamped']], clamped);
+    expect(clamped).toMatchObject({ autoPage: false, autoPageLineWeight: 1 });
+    const coercible: Record<string, unknown> = {
+      x: 1,
+      y: 1,
+      w: 8,
+      autoPage: 'true',
+    };
+    expect(() => pptxgenjs.addSlide().addTable([['Coercible']], coercible))
+      .not.toThrow();
+    expect(coercible.autoPage).toBe(false);
   });
 
   it('imports and edits legal PptxGenJS plain table-cell hyperlinks', async () => {
