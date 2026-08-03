@@ -1027,7 +1027,47 @@ PptxGenJS 4.0.1 的合法 uniform table solid fill 可按最终 direct state 投
 
 Focused 为 8 files / 557 tests；最终 full 为 1447 passed / 1 skipped tests，performance 1/1（1.17s）。实际 62-file tarball SHA-256 为 `ae7f09233b2ff596c21ec0dab891d5069d810d64921bce9ba96cd08771c6cfdc`；installed Node/types/browser/CLI、`pptx-inspect` 与真实 Google Chrome 均报告 `tableFill: true`，最终四个 physical cells 各有且仅有一个 direct `a:noFill`，PowerPoint 2010 validation 与 Chrome validation/console/page/network errors 均为 0。证据位于 `/private/tmp/pptx-table-fill-artifacts.5MqrXK`。
 
-总体 PptxGenJS 对等进度仍约 97%。下一小项是 table-level direct border 共识读取与批量编辑；之后仍待其他 advanced text/table、`tableToSlides` 与最终 peer/client audit。
+## 表格级 borders 读取与批量编辑
+
+```ts
+import { PptxDocument, type TableCellBorders } from '@jiayunxie/pptx';
+
+const document = PptxDocument.create();
+const table = document.addSlide().addTable([
+  ['North', 'South'],
+  ['East', 'West'],
+], {
+  border: {
+    kind: 'line',
+    color: { kind: 'scheme', value: 'accent1' },
+    width: 1.5,
+    style: 'dash',
+  },
+});
+
+const uniform: TableCellBorders | undefined = table.borders;
+table.setCellBorders(0, 1, { kind: 'none' });
+console.log(table.borders); // undefined：mixed direct cell state
+console.log(table.rows[0]!.cells[1]!.borders); // 四边 direct none
+table.borders = {
+  top: {
+    kind: 'line',
+    color: { kind: 'srgb', value: 'D9EAF7' },
+    width: 2,
+  },
+  bottom: { kind: 'none' },
+}; // partial whole-replace，并清除 right/left
+table.borders = { kind: 'none' }; // 四边广播到全部 physical cells
+table.borders = undefined; // 清除全部 direct L/R/T/B
+```
+
+`TableModel.borders` 只在全部 physical cells（包括 merge continuation）都具有同一个非空、安全、受支持的 direct complete 或 partial L/R/T/B vector 时返回 detached `TableCellBorders`。All-absent、mixed、malformed、advanced、repeated 或 ambiguous state 返回 `undefined`；它不会解析 table style、shared edge、effective border、默认值或创建期输入。Mixed 明细始终保留在 `rows[].cells[].borders`。赋值接受 scalar、精确 TRBL、partial named object、`{}` 或 `undefined`，并在单一事务中 whole-replace 全部 physical cells：scalar 写四边，TRBL/named 清除遗漏边，empty/`undefined` 清除四边。同值与全 absent clear 是 exact no-op，不安全写入以 `ModelParseError` 零 partial mutation 拒绝。
+
+PptxGenJS 4.0.1 省略 border 时会物化 uniform four-side direct none；合法 uniform scalar/TRBL 可投影为同一个共识，合法不同 cell override 投影为 mixed `undefined`。Native bulk edit 是 final direct cell state 上的 existing-deck lossless extension。Native 继续区分 direct absence、direct none、zero-width line、omitted style 与 explicit solid；PptxGenJS 的 empty object 默认灰色 1pt solid、omitted type 物化 solid、TRBL zero 可能变 1pt、short tuple 自动补 none 等宽松行为不会被复制。
+
+Focused 为 9 files / 567 tests；最终 full 为 1457 passed / 1 skipped tests，performance 1/1（1.20s）。实际 62-file tarball SHA-256 为 `47d9666c1dac8454524a87f7ca1898af0442c6faa7816e39cec34ff42dbf0d48`；installed Node/types/browser/CLI、`pptx-inspect` 与真实 Google Chrome 均报告 `tableBorders: true` / `tableBordersInspect: true`。最终四个 physical cells 各自恰有一组 direct `lnL/lnR/lnT/lnB` no-fill，PowerPoint 2010 validation 为 0 errors / 0 warnings，Chrome validation/console/page/network errors 均为 0。设计、计划、修正、core 与 package-proof commits 分别为 `8d6dfae`、`d4bf9c9`、`faca4ba`、`9195e57`、`f8a9d0d`；证据位于 `/tmp/pptx-table-borders-artifacts.vyi1yo`。
+
+总体 PptxGenJS 对等进度仍约 97%。下一小项是 table-cell hyperlink creation；之后仍待 rich/multi-paragraph cell text/style、merge/colspan/rowspan、row/column CRUD、auto-page/repeated headers、`tableToSlides` 与最终 peer/client audit。
 
 ## 创建和编辑预设形状、调整值与样式
 
