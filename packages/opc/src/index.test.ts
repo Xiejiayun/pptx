@@ -262,12 +262,20 @@ describe('OpcPackage', () => {
     try {
       vi.setSystemTime(new Date('2026-08-02T00:00:00.000Z'));
       const pkg = OpcPackage.create();
-      pkg.setPart('/data.xml', '<data>original</data>', 'application/xml');
+      pkg.setPart(
+        '/ppt/slides/slide1.xml',
+        '<data>original</data>',
+        'application/xml',
+      );
       const before = await pkg.write({ compression: false });
 
       vi.setSystemTime(new Date('2026-08-02T00:02:00.000Z'));
       expect(() => pkg.transaction(() => {
-        pkg.setPart('/data.xml', '<data>temporary</data>', 'application/xml');
+        pkg.setPart(
+          '/ppt/slides/slide1.xml',
+          '<data>temporary</data>',
+          'application/xml',
+        );
         throw new Error('rollback across time');
       })).toThrow('rollback across time');
 

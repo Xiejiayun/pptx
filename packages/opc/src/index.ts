@@ -517,7 +517,6 @@ export class OpcPackage {
       defaults: [...this.#defaults.entries()],
       overrides: [...this.#overrides.entries()],
       zipEntryDates: Object.entries(this.#zip.files)
-        .filter(([, entry]) => !entry.dir)
         .map(([name, entry]) => [name, new Date(entry.date.getTime())] as const),
     };
   }
@@ -534,6 +533,10 @@ export class OpcPackage {
         part.bytes,
         zipEntryDates.get(part.uri.slice(1)),
       );
+    }
+    for (const [name, date] of savepoint.zipEntryDates) {
+      const entry = this.#zip.files[name];
+      if (entry) entry.date = new Date(date.getTime());
     }
     this.#defaults.clear();
     for (const [extension, contentType] of savepoint.defaults) this.#defaults.set(extension, contentType);
