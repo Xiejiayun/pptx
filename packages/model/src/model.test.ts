@@ -12588,6 +12588,209 @@ describe('PresentationModel', () => {
     }
   });
 
+  it('runs live table row and column structure editing with merge promotion and rollback', async () => {
+    const { pkg, model } = emptyPresentationModel();
+    const slide = model.addSlide();
+    const table = slide.addTable([
+      ['A0', 'A1', 'A2'],
+      ['B0', 'B1', 'B2'],
+      ['C0', 'C1', 'C2'],
+    ], {
+      name: 'Table structure lifecycle',
+      columnWidths: [100, 200, 300],
+      rowHeights: [10, 20, 30],
+    });
+    table.mergeCells(0, 0, 2, 2);
+    const identity = table;
+    const sibling = slide.addTable([['Sibling']], { name: 'Structure sibling' });
+
+    table.insertRows(1, { count: 2, rowHeights: [11, 12] });
+    expect(table.rowHeights).toEqual([10, 11, 12, 20, 30]);
+    expect(table.mergeRegions).toEqual([
+      { rowIndex: 0, columnIndex: 0, rowspan: 4, colspan: 2 },
+    ]);
+    table.insertColumns(1, { count: 2, columnWidths: [21, 22] });
+    expect(table.columnWidths).toEqual([100, 21, 22, 200, 300]);
+    expect(table.mergeRegions).toEqual([
+      { rowIndex: 0, columnIndex: 0, rowspan: 4, colspan: 4 },
+    ]);
+    table.setCellText(1, 4, 'Inserted row editable');
+    table.deleteRows(0);
+    table.deleteColumns(0);
+    expect(table).toBe(identity);
+    expect(slide.shapes.find(({ id }) => id === table.id)).toBe(identity);
+    expect(table.rowHeights).toEqual([11, 12, 20, 30]);
+    expect(table.columnWidths).toEqual([21, 22, 200, 300]);
+    expect(table.mergeRegions).toEqual([
+      { rowIndex: 0, columnIndex: 0, rowspan: 3, colspan: 3 },
+    ]);
+    expect(table.rows[0]!.cells[3]!.text).toBe('Inserted row editable');
+    expect(sibling.rows[0]!.cells[0]!.text).toBe('Sibling');
+
+    const duplicate = model.duplicateSlide(model.slides.indexOf(slide));
+    const duplicateTable = duplicate.shapes.find((shape): shape is TableModel =>
+      shape instanceof TableModel && shape.name === 'Table structure lifecycle')!;
+    expect(duplicateTable.mergeRegions).toEqual(table.mergeRegions);
+    table.setCellText(3, 3, 'Source only');
+    expect(duplicateTable.rows[3]!.cells[3]!.text).toBe('C2');
+
+    const beforeInvalid = packageSnapshot(pkg);
+    for (const operation of [
+      () => table.insertRows(-1),
+      () => table.insertRows(5),
+      () => table.insertRows(0, { count: 0 }),
+      () => table.insertRows(0, { count: 2, rowHeights: [1] }),
+      () => table.insertColumns(5),
+      () => table.insertColumns(0, { columnWidths: 0 }),
+      () => table.deleteRows(0, 4),
+      () => table.deleteColumns(0, 4),
+    ]) expect(operation).toThrow();
+    expect(packageSnapshot(pkg)).toEqual(beforeInvalid);
+
+    const beforeWriteFailure = packageSnapshot(pkg);
+    const originalSetPart = pkg.setPart.bind(pkg);
+    const setPartFailure = vi.spyOn(pkg, 'setPart').mockImplementation(
+      (uri, bytes, contentType) => {
+        if (uri === slide.partUri) throw new Error('injected table structure write');
+        return originalSetPart(uri, bytes, contentType);
+      },
+    );
+    expect(() => table.insertRows(1)).toThrow('injected table structure write');
+    setPartFailure.mockRestore();
+    expect(packageSnapshot(pkg)).toEqual(beforeWriteFailure);
+
+    const beforeOuterFailure = packageSnapshot(pkg);
+    const originalTransaction = pkg.transaction.bind(pkg);
+    const transactionFailure = vi.spyOn(pkg, 'transaction').mockImplementation((
+      (operation: () => unknown) => originalTransaction(() => {
+        operation();
+        throw new Error('injected table structure outer transaction');
+      })
+    ) as typeof pkg.transaction);
+    expect(() => table.insertColumns(1))
+      .toThrow('injected table structure outer transaction');
+    transactionFailure.mockRestore();
+    expect(packageSnapshot(pkg)).toEqual(beforeOuterFailure);
+
+    const staleSlide = model.addSlide();
+    const stale = staleSlide.addTable([['Stale A', 'Stale B']]);
+    model.deleteSlide(model.slides.indexOf(staleSlide));
+    for (const operation of [
+      () => stale.insertRows(1),
+      () => stale.deleteRows(0),
+      () => stale.insertColumns(1),
+      () => stale.deleteColumns(0),
+    ]) expect(operation).toThrow(/Missing package part/);
+
+    const unsafeSlide = model.addSlide();
+    const unsafe = unsafeSlide.addTable([
+      ['Unsafe A', 'Unsafe B'],
+      ['Unsafe C', 'Unsafe D'],
+    ]);
+    const unsafePart = pkg.requirePart(unsafeSlide.partUri);
+    pkg.setPart(
+      unsafeSlide.partUri,
+      new TextDecoder().decode(unsafePart.bytes)
+        .replace('<a:tc>', '<a:tc hMerge="1">'),
+      unsafePart.contentType,
+    );
+    const beforeUnsafe = packageSnapshot(pkg);
+    for (const operation of [
+      () => unsafe.insertRows(1),
+      () => unsafe.deleteRows(0),
+      () => unsafe.insertColumns(1),
+      () => unsafe.deleteColumns(0),
+    ]) expect(operation).toThrow(ModelParseError);
+    expect(packageSnapshot(pkg)).toEqual(beforeUnsafe);
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedSource = reopened.slides.find(({ partUri }) => partUri === slide.partUri)!;
+    const reopenedTable = reopenedSource.shapes.find((shape): shape is TableModel =>
+      shape instanceof TableModel && shape.name === 'Table structure lifecycle')!;
+    expect(reopenedTable.rowHeights).toEqual([11, 12, 20, 30]);
+    expect(reopenedTable.columnWidths).toEqual([21, 22, 200, 300]);
+    expect(reopenedTable.mergeRegions).toEqual([
+      { rowIndex: 0, columnIndex: 0, rowspan: 3, colspan: 3 },
+    ]);
+    expect(reopenedTable.rows[3]!.cells[3]!.text).toBe('Source only');
+  });
+
+  it('garbage-collects table structure relationships only after the final reference', () => {
+    const { pkg, model } = emptyPresentationModel();
+    const slide = model.addSlide();
+    model.addSlide();
+    const outside = slide.addText('Outside link', {
+      hyperlink: { url: 'https://outside.example' },
+    });
+    const table = slide.addTable([
+      [{ text: 'Shared keep', options: { hyperlink: { url: 'https://shared.example' } } }, 'K1', 'K2'],
+      [
+        { text: 'Shared delete', options: { hyperlink: { url: 'https://temporary.example' } } },
+        { text: 'Unique delete', options: { hyperlink: { url: 'https://unique.example' } } },
+        { text: 'Internal delete', options: { hyperlink: { slide: 2 } } },
+      ],
+      ['Tail', 'T1', 'T2'],
+    ], { name: 'Table structure relationships' });
+
+    const readCellRelationshipId = (text: string): string => {
+      const xml = LosslessXmlDocument.parse(pkg.requirePart(slide.partUri).bytes);
+      const target = xml.elements('tc').find((candidate) => xml.text(candidate).includes(text));
+      const hyperlink = target ? xml.descendants(target, 'hlinkClick')[0] : undefined;
+      const relationshipId = hyperlink ? xml.attribute(hyperlink, 'r:id')?.value : undefined;
+      if (!relationshipId) throw new Error(`Missing relationship for ${text}`);
+      return relationshipId;
+    };
+    const sharedId = readCellRelationshipId('Shared keep');
+    const temporaryId = readCellRelationshipId('Shared delete');
+    const uniqueId = readCellRelationshipId('Unique delete');
+    const internalId = readCellRelationshipId('Internal delete');
+    const outsideId = slide.relationships.find(({ target }) =>
+      target === 'https://outside.example')!.id;
+    const slidePart = pkg.requirePart(slide.partUri);
+    pkg.transaction(() => {
+      pkg.setPart(
+        slide.partUri,
+        new TextDecoder().decode(slidePart.bytes)
+          .replace(`r:id="${temporaryId}"`, `r:id="${sharedId}"`),
+        slidePart.contentType,
+      );
+      pkg.removeRelationship(slide.partUri, temporaryId);
+    });
+
+    table.deleteRows(1);
+    expect(slide.relationships.some(({ id }) => id === sharedId)).toBe(true);
+    expect(slide.relationships.some(({ id }) => id === uniqueId)).toBe(false);
+    expect(slide.relationships.some(({ id }) => id === internalId)).toBe(false);
+    expect(slide.relationships.some(({ id }) => id === outsideId)).toBe(true);
+    expect(outside.hyperlink).toEqual({ url: 'https://outside.example' });
+    table.deleteRows(0);
+    expect(slide.relationships.some(({ id }) => id === sharedId)).toBe(false);
+
+    const columnTable = slide.addTable([[
+      { text: 'Column link', options: { hyperlink: { url: 'https://column.example' } } },
+      'Column survivor',
+    ]], { name: 'Table column relationship GC' });
+    const columnRelationshipId = readCellRelationshipId('Column link');
+    columnTable.deleteColumns(0);
+    expect(columnTable.rows[0]!.cells[0]!.text).toBe('Column survivor');
+    expect(slide.relationships.some(({ id }) => id === columnRelationshipId)).toBe(false);
+
+    const rollbackTable = slide.addTable([
+      [{ text: 'Rollback link', options: { hyperlink: { url: 'https://rollback.example' } } }],
+      ['Rollback survivor'],
+    ], { name: 'Table structure relationship rollback' });
+    const beforeRollback = packageSnapshot(pkg);
+    const originalRemoveRelationship = pkg.removeRelationship.bind(pkg);
+    const failure = vi.spyOn(pkg, 'removeRelationship').mockImplementation((uri, id) => {
+      if (uri === slide.partUri) throw new Error('injected relationship removal');
+      return originalRemoveRelationship(uri, id);
+    });
+    expect(() => rollbackTable.deleteRows(0)).toThrow('injected relationship removal');
+    failure.mockRestore();
+    expect(packageSnapshot(pkg)).toEqual(beforeRollback);
+    expect(rollbackTable.rows[0]!.cells[0]!.text).toBe('Rollback link');
+  });
+
   it('preserves table-cell text style defaults through edits, duplication, rollback, and reopen', async () => {
     const pkg = await OpcPackage.open(await modelFixture());
     const model = new PresentationModel(pkg);

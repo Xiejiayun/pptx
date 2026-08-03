@@ -105,6 +105,15 @@ import {
   replaceTableRowHeights,
 } from './table-row-heights.internal.js';
 import {
+  deleteTableColumns,
+  deleteTableRows,
+  insertTableColumns,
+  insertTableRows,
+  normalizeTableColumnInsertInput,
+  normalizeTableDeleteInput,
+  normalizeTableRowInsertInput,
+} from './table-structure-edit.internal.js';
+import {
   readTableCellVerticalAlignment,
   readTableVerticalAlignment,
   replaceTableCellVerticalAlignment,
@@ -218,6 +227,16 @@ export interface TableCell {
 
 export interface TableRow {
   readonly cells: readonly TableCell[];
+}
+
+export interface InsertTableRowsOptions {
+  readonly count?: number;
+  readonly rowHeights?: number | readonly number[];
+}
+
+export interface InsertTableColumnsOptions {
+  readonly count?: number;
+  readonly columnWidths?: number | readonly number[];
 }
 
 export abstract class BaseShapeModel {
@@ -831,6 +850,73 @@ export class TableModel extends BaseShapeModel {
       const { xml, element } = this.resolve();
       if (replaceTableRowHeights(xml, element, input, this.slide.partUri)) {
         this.slide.setXml(xml.serialize());
+      }
+    });
+  }
+
+  insertRows(rowIndex: number, options?: InsertTableRowsOptions): void {
+    const input = normalizeTableRowInsertInput(rowIndex, options);
+    this.slide.presentation.opcPackage.transaction(() => {
+      const { xml, element } = this.resolve();
+      insertTableRows(xml, element, input, this.slide.partUri);
+      this.slide.setXml(xml.serialize());
+    });
+  }
+
+  deleteRows(rowIndex: number, count?: number): void {
+    const input = normalizeTableDeleteInput(rowIndex, count, 'row');
+    const pkg = this.slide.presentation.opcPackage;
+    pkg.transaction(() => {
+      const { xml, element } = this.resolve();
+      const removedRelationshipIds = deleteTableRows(
+        xml,
+        element,
+        input,
+        this.slide.partUri,
+      );
+      const updated = xml.serialize();
+      this.slide.setXml(updated);
+      const updatedXml = LosslessXmlDocument.parse(updated);
+      for (const relationshipId of removedRelationshipIds) {
+        if (
+          relationshipReferenceCount(updatedXml, relationshipId) === 0
+          && this.slide.relationships.some(({ id }) => id === relationshipId)
+        ) pkg.removeRelationship(this.slide.partUri, relationshipId);
+      }
+    });
+  }
+
+  insertColumns(
+    columnIndex: number,
+    options?: InsertTableColumnsOptions,
+  ): void {
+    const input = normalizeTableColumnInsertInput(columnIndex, options);
+    this.slide.presentation.opcPackage.transaction(() => {
+      const { xml, element } = this.resolve();
+      insertTableColumns(xml, element, input, this.slide.partUri);
+      this.slide.setXml(xml.serialize());
+    });
+  }
+
+  deleteColumns(columnIndex: number, count?: number): void {
+    const input = normalizeTableDeleteInput(columnIndex, count, 'column');
+    const pkg = this.slide.presentation.opcPackage;
+    pkg.transaction(() => {
+      const { xml, element } = this.resolve();
+      const removedRelationshipIds = deleteTableColumns(
+        xml,
+        element,
+        input,
+        this.slide.partUri,
+      );
+      const updated = xml.serialize();
+      this.slide.setXml(updated);
+      const updatedXml = LosslessXmlDocument.parse(updated);
+      for (const relationshipId of removedRelationshipIds) {
+        if (
+          relationshipReferenceCount(updatedXml, relationshipId) === 0
+          && this.slide.relationships.some(({ id }) => id === relationshipId)
+        ) pkg.removeRelationship(this.slide.partUri, relationshipId);
       }
     });
   }
