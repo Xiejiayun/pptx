@@ -9110,6 +9110,136 @@ describe('importPptxGenJS', () => {
     expect(nativeXml).toContain('<a:ext cx="914400" cy="2743200"/>');
   });
 
+  it('projects and normalizes PptxGenJS table-level border output', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    generated.layout = 'LAYOUT_WIDE';
+    const slide = generated.addSlide();
+    slide.addTable(
+      [[{ text: 'Uniform A', options: {} }, { text: 'Uniform B', options: {} }]],
+      {
+        x: 0.5,
+        y: 0.5,
+        w: 4,
+        h: 1,
+        border: { type: 'dash', color: '4472C4', pt: 1.5 },
+      },
+    );
+    slide.addTable(
+      [[{ text: 'Omitted A', options: {} }, { text: 'Omitted B', options: {} }]],
+      { x: 0.5, y: 2, w: 4, h: 1 },
+    );
+    slide.addTable(
+      [[
+        { text: 'Inherited', options: {} },
+        { text: 'Override', options: { border: { type: 'none' } } },
+      ]],
+      {
+        x: 0.5,
+        y: 3.5,
+        w: 4,
+        h: 1,
+        border: { type: 'solid', color: '0000FF', pt: 1 },
+      },
+    );
+    slide.addTable(
+      [[{ text: 'TRBL', options: {} }]],
+      {
+        x: 0.5,
+        y: 5,
+        w: 4,
+        h: 1,
+        border: [
+          { type: 'solid', color: 'FF0000', pt: 1 },
+          { type: 'none' },
+          { type: 'dash', color: '70AD47', pt: 2 },
+          { type: 'solid', color: '4472C4', pt: 3 },
+        ],
+      },
+    );
+
+    const imported = await importPptxGenJS(generated);
+    const tables = imported.slides[0]!.shapes.filter(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    );
+    const four = <T>(border: T) => ({
+      top: border,
+      right: border,
+      bottom: border,
+      left: border,
+    });
+    const none = { kind: 'none' as const };
+    const uniformLine = {
+      kind: 'line' as const,
+      color: { kind: 'srgb' as const, value: '4472C4' },
+      width: 1.5,
+      style: 'dash' as const,
+    };
+    const inheritedLine = {
+      kind: 'line' as const,
+      color: { kind: 'srgb' as const, value: '0000FF' },
+      width: 1,
+      style: 'solid' as const,
+    };
+    expect(tables).toHaveLength(4);
+    expect(tables[0]!.borders).toEqual(four(uniformLine));
+    expect(tables[0]!.rows[0]!.cells.map(({ borders }) => borders))
+      .toEqual(Array(2).fill(four(uniformLine)));
+    expect(tables[1]!.borders).toEqual(four(none));
+    expect(tables[1]!.rows[0]!.cells.map(({ borders }) => borders))
+      .toEqual(Array(2).fill(four(none)));
+    expect(tables[2]!.borders).toBeUndefined();
+    expect(tables[2]!.rows[0]!.cells.map(({ borders }) => borders)).toEqual([
+      four(inheritedLine),
+      four(none),
+    ]);
+    expect(tables[3]!.borders).toEqual({
+      top: {
+        kind: 'line',
+        color: { kind: 'srgb', value: 'FF0000' },
+        width: 1,
+        style: 'solid',
+      },
+      right: none,
+      bottom: {
+        kind: 'line',
+        color: { kind: 'srgb', value: '70AD47' },
+        width: 2,
+        style: 'dash',
+      },
+      left: {
+        kind: 'line',
+        color: { kind: 'srgb', value: '4472C4' },
+        width: 3,
+        style: 'solid',
+      },
+    });
+
+    const partial = {
+      top: {
+        kind: 'line' as const,
+        color: { kind: 'scheme' as const, value: 'accent1' as const },
+        width: 2,
+        style: 'dash' as const,
+      },
+      bottom: none,
+    };
+    tables[2]!.borders = partial;
+    expect(tables[2]!.borders).toEqual(partial);
+    expect(tables[2]!.rows[0]!.cells.map(({ borders }) => borders))
+      .toEqual(Array(2).fill(partial));
+
+    const reopened = await PptxDocument.open(await imported.write());
+    const reopenedTables = reopened.slides[0]!.shapes.filter(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    );
+    expect(reopenedTables[0]!.borders).toEqual(four(uniformLine));
+    expect(reopenedTables[1]!.borders).toEqual(four(none));
+    expect(reopenedTables[2]!.borders).toEqual(partial);
+    expect(reopenedTables[2]!.rows[0]!.cells.map(({ borders }) => borders))
+      .toEqual(Array(2).fill(partial));
+  });
+
   it('projects and normalizes PptxGenJS table-level fill output', async () => {
     const generated = new PptxGenJS();
     expect(generated.version).toBe('4.0.1');

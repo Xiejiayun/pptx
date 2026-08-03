@@ -33,6 +33,7 @@ import {
   type ShapeLineDash,
   type ShapeShadow,
   type TableCellBorderInput,
+  type TableCellBorders,
   type TableCellFill,
   type TableCellTextDirection,
   type TextAlignment,
@@ -11429,6 +11430,299 @@ describe('PresentationModel', () => {
     ]);
     expect(reopenedTable!.columnWidths).toEqual(Array(4).fill(inches(2)));
     expect(reopenedTable!.rowHeights).toEqual([inches(1)]);
+  });
+
+  it('projects and atomically edits uniform table borders', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const table = slide.addTable([
+      [
+        {
+          text: 'North',
+          options: {
+            fill: {
+              kind: 'solid',
+              color: { kind: 'srgb', value: 'D9EAF7' },
+              transparency: 25,
+            },
+            fit: 'shrink',
+            margin: [1, 2, 3, 4],
+            textDirection: 'vert270',
+            valign: 'middle',
+          },
+        },
+        'South',
+      ],
+      ['East', 'West'],
+    ], {
+      name: 'Uniform table borders',
+      align: 'center',
+      border: {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent1' },
+        width: 1.5,
+        style: 'dash',
+      },
+      columnWidths: [inches(2), inches(3)],
+      rowHeights: [inches(0.75), inches(1.25)],
+    });
+    const four = <T>(border: T) => ({
+      top: border,
+      right: border,
+      bottom: border,
+      left: border,
+    });
+    const initialLine = {
+      kind: 'line' as const,
+      color: { kind: 'scheme' as const, value: 'accent1' as const },
+      width: 1.5,
+      style: 'dash' as const,
+    };
+    const initialBorders = four(initialLine);
+    const nonBorderState = () => table.rows.map(({ cells }) => cells.map(({
+      text,
+      fill,
+      horizontalAlignment,
+      margins,
+      textDirection,
+      textFit,
+      verticalAlignment,
+    }) => ({
+      text,
+      fill,
+      horizontalAlignment,
+      margins,
+      textDirection,
+      textFit,
+      verticalAlignment,
+    })));
+    const initialNonBorderState = nonBorderState();
+    const initialTransform = table.transform;
+    const initialColumnWidths = table.columnWidths;
+    const initialRowHeights = table.rowHeights;
+    const untouchedPartUri = '/ppt/custom/opaque1.bin';
+    const untouchedBefore = pkg.requirePart(untouchedPartUri).bytes.slice();
+
+    expect(table.borders).toEqual(initialBorders);
+    const detached = table.borders!;
+    const detachedTop = detached.top;
+    expect(detachedTop?.kind).toBe('line');
+    if (detachedTop?.kind === 'line') {
+      (detachedTop.color as { value: string }).value = 'accent6';
+      (detachedTop as { width: number }).width = 99;
+    }
+    expect(table.borders).toEqual(initialBorders);
+    const noOpBytes = pkg.requirePart(slide.partUri).bytes.slice();
+    const noOpJournal = [...pkg.mutations];
+    table.borders = initialLine;
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(noOpBytes);
+    expect(pkg.mutations).toEqual(noOpJournal);
+
+    table.setCellBorders(0, 1, { kind: 'none' });
+    expect(table.borders).toBeUndefined();
+    const partial = {
+      top: {
+        kind: 'line' as const,
+        color: { kind: 'srgb' as const, value: 'D9EAF7' },
+        width: 2,
+      },
+      bottom: { kind: 'none' as const },
+    };
+    table.borders = partial;
+    expect(table.borders).toEqual(partial);
+    expect(table.rows.flatMap(({ cells }) => cells).map(({ borders }) => borders))
+      .toEqual(Array(4).fill(partial));
+    expect(nonBorderState()).toEqual(initialNonBorderState);
+
+    table.borders = { kind: 'none' };
+    const noneBorders = four({ kind: 'none' as const });
+    expect(table.borders).toEqual(noneBorders);
+    expect(table.rows.flatMap(({ cells }) => cells).map(({ borders }) => borders))
+      .toEqual(Array(4).fill(noneBorders));
+
+    table.borders = {};
+    expect(table.borders).toBeUndefined();
+    expect(table.rows.flatMap(({ cells }) => cells)
+      .every(({ borders }) => borders === undefined)).toBe(true);
+    const clearBytes = pkg.requirePart(slide.partUri).bytes.slice();
+    const clearJournal = [...pkg.mutations];
+    table.borders = undefined;
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(clearBytes);
+    expect(pkg.mutations).toEqual(clearJournal);
+
+    table.borders = { kind: 'none' };
+    const duplicate = model.duplicateSlide(model.slides.indexOf(slide));
+    const duplicateTable = duplicate.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    );
+    expect(duplicateTable).toBeInstanceOf(TableModel);
+    expect(duplicateTable!.borders).toEqual(noneBorders);
+    const finalLine = {
+      kind: 'line' as const,
+      color: { kind: 'scheme' as const, value: 'accent2' as const },
+      width: 0,
+      style: 'solid' as const,
+    };
+    const finalBorders = four(finalLine);
+    table.borders = finalLine;
+    expect(table.borders).toEqual(finalBorders);
+    expect(duplicateTable!.borders).toEqual(noneBorders);
+
+    const beforeRollback = pkg.requirePart(slide.partUri).bytes.slice();
+    const rollbackJournal = [...pkg.mutations];
+    expect(() => pkg.transaction(() => {
+      table.borders = { kind: 'none' };
+      throw new Error('restore table-level borders');
+    })).toThrow('restore table-level borders');
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeRollback);
+    expect(pkg.mutations).toEqual(rollbackJournal);
+    expect(table.borders).toEqual(finalBorders);
+
+    for (const invalid of [
+      null,
+      false,
+      '',
+      [],
+      { type: 'solid', color: '4472C4', pt: 1 },
+      { kind: 'line', color: { kind: 'srgb', value: 'bad' }, width: 1 },
+      { kind: 'line', color: { kind: 'srgb', value: '4472C4' }, width: -1 },
+      Object.create({ kind: 'none' }),
+      Symbol('borders'),
+    ]) {
+      const beforeInvalid = pkg.requirePart(slide.partUri).bytes.slice();
+      const invalidJournal = [...pkg.mutations];
+      expect(() => {
+        table.borders = invalid as never;
+      }).toThrow();
+      expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeInvalid);
+      expect(pkg.mutations).toEqual(invalidJournal);
+    }
+
+    model.moveSlide(model.slides.indexOf(duplicate), 0);
+    expect(table.borders).toEqual(finalBorders);
+    expect(duplicateTable!.borders).toEqual(noneBorders);
+    expect(nonBorderState()).toEqual(initialNonBorderState);
+    expect(table.transform).toEqual(initialTransform);
+    expect(table.columnWidths).toEqual(initialColumnWidths);
+    expect(table.rowHeights).toEqual(initialRowHeights);
+    expect(pkg.requirePart(untouchedPartUri).bytes).toEqual(untouchedBefore);
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedSourceTable = reopened.slides
+      .find(({ partUri }) => partUri === slide.partUri)
+      ?.shapes.find((shape): shape is TableModel => shape instanceof TableModel);
+    const reopenedDuplicateTable = reopened.slides
+      .find(({ partUri }) => partUri === duplicate.partUri)
+      ?.shapes.find((shape): shape is TableModel => shape instanceof TableModel);
+    expect(reopenedSourceTable).toBeInstanceOf(TableModel);
+    expect(reopenedDuplicateTable).toBeInstanceOf(TableModel);
+    expect(reopenedSourceTable!.borders).toEqual(finalBorders);
+    expect(reopenedSourceTable!.rows.flatMap(({ cells }) => cells).map(({ borders }) => borders))
+      .toEqual(Array(4).fill(finalBorders));
+    expect(reopenedDuplicateTable!.borders).toEqual(noneBorders);
+    expect(reopenedDuplicateTable!.rows.flatMap(({ cells }) => cells)
+      .map(({ borders }) => borders)).toEqual(Array(4).fill(noneBorders));
+    expect(reopenedSourceTable!.transform).toEqual(initialTransform);
+    expect(reopenedSourceTable!.columnWidths).toEqual(initialColumnWidths);
+    expect(reopenedSourceTable!.rowHeights).toEqual(initialRowHeights);
+    expect(reopened.opcPackage.requirePart(untouchedPartUri).bytes).toEqual(untouchedBefore);
+
+    if (false) {
+      const borders: TableCellBorders | undefined = table.borders;
+      table.borders = { kind: 'none' };
+      table.borders = [
+        { kind: 'none' },
+        undefined,
+        { kind: 'line', color: { kind: 'scheme', value: 'accent1' }, width: 2 },
+        undefined,
+      ];
+      table.borders = undefined;
+      // @ts-expect-error table borders reject null
+      table.borders = null;
+      // @ts-expect-error table borders reject PptxGenJS-shaped input
+      table.borders = { type: 'solid', color: '4472C4', pt: 1 };
+      void borders;
+    }
+  });
+
+  it('rejects unsafe table-level border edits without partial package mutation', async () => {
+    const pkg = await OpcPackage.open(await modelFixture());
+    const model = new PresentationModel(pkg);
+    const slide = model.addSlide();
+    const table = slide.addTable([['First', 'Second']], {
+      border: {
+        kind: 'line',
+        color: { kind: 'srgb', value: '4472C4' },
+        width: 1,
+      },
+    });
+    const original = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    const finalPropertiesEnd = original.lastIndexOf('</a:tcPr>');
+    expect(finalPropertiesEnd).toBeGreaterThanOrEqual(0);
+    const repeatedSide = original.slice(0, finalPropertiesEnd) +
+      '<a:lnL w="0"><a:noFill/></a:lnL>' + original.slice(finalPropertiesEnd);
+    pkg.setPart(slide.partUri, repeatedSide, pkg.requirePart(slide.partUri).contentType);
+    expect(table.borders).toBeUndefined();
+    const beforeUnsafe = pkg.requirePart(slide.partUri).bytes.slice();
+    const unsafeJournal = [...pkg.mutations];
+    expect(() => {
+      table.borders = { kind: 'none' };
+    }).toThrow(ModelParseError);
+    expect(pkg.requirePart(slide.partUri).bytes).toEqual(beforeUnsafe);
+    expect(pkg.mutations).toEqual(unsafeJournal);
+
+    const finalWidth = original.lastIndexOf('w="12700"');
+    expect(finalWidth).toBeGreaterThanOrEqual(0);
+    const malformed = original.slice(0, finalWidth) + 'w="invalid"' +
+      original.slice(finalWidth + 'w="12700"'.length);
+    pkg.setPart(slide.partUri, malformed, pkg.requirePart(slide.partUri).contentType);
+    expect(table.borders).toBeUndefined();
+    table.borders = { kind: 'none' };
+    const noneBorders = {
+      top: { kind: 'none' as const },
+      right: { kind: 'none' as const },
+      bottom: { kind: 'none' as const },
+      left: { kind: 'none' as const },
+    };
+    expect(table.borders).toEqual(noneBorders);
+    expect(table.rows[0]!.cells.map(({ borders }) => borders))
+      .toEqual(Array(2).fill(noneBorders));
+  });
+
+  it('reopens table-level borders in every presentation format', async () => {
+    for (const profile of Object.values(PRESENTATION_FORMAT_PROFILES)) {
+      const model = new PresentationModel(await OpcPackage.open(
+        await modelFixture(profile.presentationContentType),
+      ));
+      const table = model.addSlide().addTable([['A', 'B']], {
+        border: { kind: 'none' },
+      });
+      table.borders = {
+        top: {
+          kind: 'line',
+          color: { kind: 'srgb', value: 'D9EAF7' },
+          width: 2,
+          style: 'dash',
+        },
+        bottom: { kind: 'none' },
+      };
+      const reopened = new PresentationModel(await OpcPackage.open(await model.opcPackage.write()));
+      expect(reopened.format).toBe(profile.format);
+      const reopenedTable = reopened.slides.at(-1)!.shapes[0] as TableModel;
+      const expected = {
+        top: {
+          kind: 'line' as const,
+          color: { kind: 'srgb' as const, value: 'D9EAF7' },
+          width: 2,
+          style: 'dash' as const,
+        },
+        bottom: { kind: 'none' as const },
+      };
+      expect(reopenedTable.borders).toEqual(expected);
+      expect(reopenedTable.rows[0]!.cells.map(({ borders }) => borders))
+        .toEqual(Array(2).fill(expected));
+    }
   });
 
   it('projects and atomically edits uniform table fill', async () => {

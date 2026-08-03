@@ -9,6 +9,7 @@ import type {
   TableCellBorders,
   TableCellBorderStyle,
 } from './shapes.js';
+import { readDirectTablePhysicalCells } from './table-physical-cells.internal.js';
 import type { RichTextColor } from './text.js';
 
 const EMU_PER_POINT = 12_700;
@@ -120,6 +121,20 @@ export function readTableCellBorders(
   return Object.keys(result).length > 0 ? result : undefined;
 }
 
+export function readTableBorders(
+  _xml: LosslessXmlDocument,
+  frame: XmlElement,
+): TableCellBorders | undefined {
+  const cells = readDirectTablePhysicalCells(frame);
+  if (!cells) return undefined;
+  const first = readStrictTableCellBorders(cells[0]!);
+  if (!first) return undefined;
+  return cells.slice(1).every((cell) => {
+    const candidate = readStrictTableCellBorders(cell);
+    return candidate !== undefined && tableCellBordersEqual(candidate, first);
+  }) ? first : undefined;
+}
+
 export function replaceTableCellBorders(
   xml: LosslessXmlDocument,
   cell: XmlElement,
@@ -162,6 +177,45 @@ export function replaceTableCellBorders(
   }
   xml.replaceElement(propertiesElement, updated);
   return true;
+}
+
+export function replaceTableBorders(
+  xml: LosslessXmlDocument,
+  frame: XmlElement,
+  borders: TableCellBorders | undefined,
+  partUri: string,
+): boolean {
+  const cells = readDirectTablePhysicalCells(frame);
+  if (!cells) {
+    throw new ModelParseError(
+      'Table must contain one complete set of direct physical cells',
+      partUri,
+    );
+  }
+  let changed = false;
+  for (const cell of cells) {
+    changed = replaceTableCellBorders(xml, cell, borders, partUri) || changed;
+  }
+  return changed;
+}
+
+function readStrictTableCellBorders(cell: XmlElement): TableCellBorders | undefined {
+  const directProperties = directChildren(cell).filter(({ localName }) => localName === 'tcPr');
+  if (directProperties.length !== 1) return undefined;
+  const properties = directProperties[0]!;
+  const prefix = lexicalPrefix(properties.name);
+  const result: Partial<Record<TableCellSide, TableCellBorder>> = {};
+
+  for (const side of PUBLIC_SIDES) {
+    const tag = TAG_BY_SIDE.get(side)!;
+    const lines = directChildren(properties).filter(({ name }) => name === `${prefix}${tag}`);
+    if (lines.length > 1) return undefined;
+    if (lines.length === 0) continue;
+    const border = readBorder(lines[0]!, prefix);
+    if (border === undefined) return undefined;
+    result[side] = border;
+  }
+  return Object.keys(result).length > 0 ? result : undefined;
 }
 
 function normalizeTuple(value: unknown[], context: string): TableCellBorders | undefined {
@@ -421,6 +475,20 @@ function bordersEqual(
     && left.color.value === right.color.value
     && left.width === right.width
     && left.style === right.style;
+}
+
+function tableCellBordersEqual(
+  left: TableCellBorders,
+  right: TableCellBorders,
+): boolean {
+  return PUBLIC_SIDES.every((side) => {
+    const leftBorder = left[side];
+    const rightBorder = right[side];
+    if (leftBorder === undefined || rightBorder === undefined) {
+      return leftBorder === rightBorder;
+    }
+    return bordersEqual(leftBorder, rightBorder);
+  });
 }
 
 function cloneBorder(border: TableCellBorder): TableCellBorder {

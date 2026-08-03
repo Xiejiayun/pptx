@@ -52,7 +52,9 @@ import {
 import type { SlideModel } from './slide.js';
 import {
   normalizeTableCellBorders,
+  readTableBorders,
   readTableCellBorders,
+  replaceTableBorders,
   replaceTableCellBorders,
 } from './table-cell-borders.internal.js';
 import {
@@ -630,6 +632,21 @@ export class TableModel extends BaseShapeModel {
         alignment,
         this.slide.partUri,
       )) {
+        this.slide.setXml(xml.serialize());
+      }
+    });
+  }
+
+  get borders(): TableCellBorders | undefined {
+    const { xml, element } = this.resolve();
+    return readTableBorders(xml, element);
+  }
+
+  set borders(value: TableCellBorderInput | undefined) {
+    const borders = normalizeTableCellBorders(value, 'Table borders');
+    this.slide.presentation.opcPackage.transaction(() => {
+      const { xml, element } = this.resolve();
+      if (replaceTableBorders(xml, element, borders, this.slide.partUri)) {
         this.slide.setXml(xml.serialize());
       }
     });
