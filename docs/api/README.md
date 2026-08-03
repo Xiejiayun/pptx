@@ -611,6 +611,10 @@ Both editors modify only the direct physical-cell `rowSpan`, `gridSpan`, `vMerge
 
 Legal PptxGenJS 4.0.1 horizontal, vertical, rectangular, and offset spans reach the same final semantic state through native creation and remain readable/editable after import. Native rejects lopsided non-span rows, negative/fractional spans, and out-of-bounds rowspans that PptxGenJS can serialize into malformed or inconsistent tables.
 
+Final focused verification is 5/5 test files and 594/594 tests in 28.11s. The full suite is 86 passed / 1 skipped test files and 1512 passed / 1 skipped tests in 73.26s; the independent 1000-part performance gate is 1/1 at 709ms. TypeScript project references, Node/browser bundles, and declarations pass. Two 59-file dist manifests match exactly, and two 62-file actual tarballs are byte-identical with SHA-256 `0c85afa9bed6a04faa5d3dab6934a3974cea731091dc673ab2ff6e92cb83343d`. Installed Node, NodeNext types, browser conditional export, CLI, and Inspector report `tableCellMerges: true` / `tableCellMergesInspect: true`.
+
+Google Chrome 150.0.7871.188 reports create/read/frozen snapshot/unmerge/edit/remerge/reopen true with zero validation/console/page/network errors. The retained browser deck has 18 parts / 15 relationships, 1 slide / 1 table, a 2×3 physical matrix, and one 2×2 merge region. It contains all four anchor/continuation token forms, has only the valid slide-layout relationship, and validates under the PowerPoint 2010 profile at 0 errors / 0 warnings. Recognition, creation, snapshot/editor, SDK/adapter, documentation, and package-proof commits are `688f9f6`, `3d93f07`, `db01937`, `b2f6846`, `5832399`, `7073eae`, and `f174519`; evidence is retained at `/tmp/pptx-table-cell-merges-artifacts.B7ZhGQ`. Overall PptxGenJS parity remains approximately 98.9%; the next unsupported table item is row/column CRUD, followed by auto-page/repeated headers, content measurement/layout recomputation, `tableToSlides`, and the final peer/client audit.
+
 ## Embedded raster images
 
 ```ts

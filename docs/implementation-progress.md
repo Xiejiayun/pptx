@@ -1077,7 +1077,7 @@ $ pptx-inspect --json package inspect output.pptx
 
 ## PptxGenJS 全功能对等：Table-cell merge / colspan / rowspan
 
-状态：核心与公开契约完成；实施 5/5，发布制品与客户端最终证明待后续独立小项
+状态：完成；实施与证明 8/8，发布制品、真实浏览器与 PowerPoint 2010 最终门禁全部通过
 
 ### 本阶段 change
 
@@ -1085,16 +1085,17 @@ $ pptx-inspect --json package inspect output.pptx
 - 新增公开 `TableMergeRegion`、`TableCellMerge`、`TableModel.mergeRegions` 与 `TableCell.merge`。合法未合并表返回 `[]`；合法 merge regions 返回 row-major detached deep-frozen snapshot；不安全或歧义 direct topology 返回 `undefined`，不猜测、不修复。
 - 新增 `TableModel.mergeCells()` / `unmergeCell()`，统一采用零基 physical coordinates。编辑只改 `rowSpan/gridSpan/vMerge/hMerge`，continuation 的隐藏内容、样式、relationships、opaque children 与未知 XML 保持；exact repeat/unmerged unmerge 为零变更，非完全相同 overlap、越界和 malformed topology 在 mutation 前拒绝。
 - PptxGenJS 4.0.1 合法 horizontal、vertical、rectangular、offset span 的最终语义已对等。Native 严格拒绝其 lopsided non-span row、negative/fractional span 和 out-of-bounds rowspan 缺陷，不复制非法 OOXML；其余 PptxGenJS-specific input mutation 也不复制。
-- 识别、创建、snapshot/editor、SDK/root 类型契约与 adapter 对等 commits 为 `688f9f6`、`3d93f07`、`db01937`、`b2f6846`、`5832399`；文档作为独立小项 review、commit、push。
+- 识别、创建、snapshot/editor、SDK/root 类型契约、adapter 对等、文档与 package proof commits 为 `688f9f6`、`3d93f07`、`db01937`、`b2f6846`、`5832399`、`7073eae`、`f174519`。
 
-### 当前验证结果
+### 最终验证结果
 
-- Model suite 239/239、SDK suite 217/217、PptxGenJS adapter suite 107/107 通过；全仓 TypeScript project references、Node/browser 聚合 bundle 与 declaration build 通过。
-- 本节只记录已运行的核心和构建门禁。Actual tarball、Node/NodeNext/browser/CLI/Inspector、真实 Chrome、PowerPoint 2010、full/performance 与最终 evidence deck 数字在后续证明小项完成后补录。
+- Focused gate 为 5/5 test files、594/594 tests（28.11s）；其中 model merge boundary 6/6、table creation 25/25、Model suite 239/239、SDK suite 217/217、PptxGenJS adapter suite 107/107。最终 full 为 86 passed / 1 skipped test files、1512 passed / 1 skipped tests（73.26s）；独立 1000-part performance gate 为 1/1（核心测试 709ms）。全仓 TypeScript project references、Node/browser 聚合 bundle 与 declaration build 通过。
+- 两次构建的 59-file dist manifests 完全一致；两份 62-file actual tarball byte-identical，SHA-256 均为 `0c85afa9bed6a04faa5d3dab6934a3974cea731091dc673ab2ff6e92cb83343d`。Installed Node、NodeNext declarations、browser conditional export、CLI 与 Inspector 均报告 `tableCellMerges: true` / `tableCellMergesInspect: true`。
+- Google Chrome 150.0.7871.188 的 create/read/frozen snapshot/unmerge/edit/remerge/reopen 全部为 true，validation/console/page/network errors 均为 0。最终 browser evidence deck 为 18 parts / 15 relationships、1 slide / 1 table、2×3 physical cells 与 1 个 2×2 region；四种 anchor/continuation merge token 全部存在，slide relationship 只有合法 layout owner，PowerPoint 2010 validation 为 0 errors / 0 warnings。完整证据位于 `/tmp/pptx-table-cell-merges-artifacts.B7ZhGQ`。
 
 ### 剩余 advanced API 与全功能路线
 
-- 当前总体 PptxGenJS 对等进度约 98.9%。后续顺序固定为 row/column CRUD → auto-page/repeated headers → content measurement/layout recomputation → `tableToSlides` → 最终 peer/client audit；尚不声明完整 PptxGenJS parity。
+- 当前总体 PptxGenJS 对等进度仍约 98.9%；发布证明不重复计入能力覆盖率。下一小项固定为 row/column CRUD，之后依次为 auto-page/repeated headers → content measurement/layout recomputation → `tableToSlides` → 最终 peer/client audit；尚不声明完整 PptxGenJS parity。
 
 ## 0.1.0 初始验收
 

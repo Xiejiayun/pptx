@@ -452,6 +452,8 @@ PptxGenJS 4.0.1 的 public `addNotes(string)` 和 omitted call 都会为每张 s
 
 Merge 创建使用 logical rows：首行 `colspan` 总和定义 physical width，后续 rows 跳过 active `rowspan`，完全覆盖行可写 `[]`。Snapshot 与 editor 使用零基 physical coordinates；合法未合并表返回 `mergeRegions: []`，合法 regions 返回 row-major detached deep-frozen snapshot，不安全拓扑返回 `undefined`。`mergeCells()` / `unmergeCell()` 只改 `rowSpan/gridSpan/vMerge/hMerge`，保留 continuation 的隐藏内容、样式、关系与未知 XML；exact repeat 和 unmerged unmerge 是零变更，malformed topology 拒绝语义编辑。PptxGenJS 4.0.1 的合法 horizontal、vertical、rectangular、offset spans 与 native 最终语义对等。Native 严格拒绝其 lopsided non-span row、negative/fractional span 和 out-of-bounds rowspan 缺陷，不复制非法 OOXML 输出。
 
+最终 focused 为 5/5 test files、594/594 tests（28.11s），full 为 86 passed / 1 skipped test files、1512 passed / 1 skipped tests（73.26s），performance 为 1/1（709ms）。两份 59-file dist manifest 完全一致，两份 62-file actual tarball byte-identical，SHA-256 均为 `0c85afa9bed6a04faa5d3dab6934a3974cea731091dc673ab2ff6e92cb83343d`。Installed Node/NodeNext/browser/CLI/Inspector 与 Chrome 150.0.7871.188 均报告 `tableCellMerges: true`，Chrome 各阶段全 true 且 validation/console/page/network errors 为 0。18-part / 15-relationship browser evidence deck 含 1 slide / 1 table、2×3 physical cells、1 个 2×2 region 与四种 merge token，slide 只有合法 layout relationship；PowerPoint 2010 validation 为 0 errors / 0 warnings。证据位于 `/tmp/pptx-table-cell-merges-artifacts.B7ZhGQ`。总体 PptxGenJS 对等进度仍约 98.9%；下一项为 row/column CRUD。
+
 LibreOffice headless 可无修复打开 underline 文件，但当前会把 double/dash/wavy 和独立 underline color 降级显示为普通单实线；同一 PptxGenJS 4.0.1 对照文件表现一致。OOXML token 与颜色仍保持合法并可由支持这些样式的客户端读取。
 
 LibreOffice headless 当前也不显示 run-level single/double strike；同一 PptxGenJS 4.0.1 对照文件表现一致。三个合法 `strike` token 仍保留在 OOXML 中。
