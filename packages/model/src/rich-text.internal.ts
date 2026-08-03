@@ -133,7 +133,7 @@ export interface NormalizedParagraphTabStop {
   readonly alignment: ParagraphTabStopAlignment;
 }
 
-interface NormalizedRichTextRun {
+export interface NormalizedRichTextRun {
   readonly text: string;
   readonly style?: RichTextRunStyle;
   readonly softBreakBefore?: boolean;
@@ -144,7 +144,7 @@ interface NormalizedRichTextRunInput {
   readonly breakLine: boolean;
 }
 
-interface NormalizedRichTextParagraph {
+export interface NormalizedRichTextParagraph {
   readonly runs: readonly NormalizedRichTextRun[];
   readonly align?: TextAlignment;
   readonly rtl?: boolean;
