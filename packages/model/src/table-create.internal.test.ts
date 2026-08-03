@@ -177,6 +177,245 @@ describe('table creation internals', () => {
     expect(plainObject).toBe(plainString);
   });
 
+  it('normalizes and renders strict table-cell text style defaults', () => {
+    const tableColor = { kind: 'scheme' as const, value: 'accent1' };
+    const tableSpacing = {
+      before: 6,
+      after: 8,
+      line: { kind: 'multiple' as const, factor: 1.5 },
+    };
+    const cellSpacing = { before: 3 };
+    const cellColor = { kind: 'srgb' as const, value: '00AA00' };
+    const definition = normalizeTableDefinition([[
+      'Plain',
+      { text: 'False', options: { bold: false, spacing: cellSpacing } },
+      {
+        text: [{
+          spacing: { after: 9, line: false },
+          runs: [
+            { text: 'Inherited' },
+            { text: 'Local', style: { fontSize: 10, bold: false } },
+          ],
+        }, { spacing: false, runs: [] }],
+        options: {
+          fontFamily: 'Courier New',
+          color: cellColor,
+        },
+      },
+    ]], {
+      fontFamily: 'Aptos',
+      fontSize: 18.25,
+      bold: true,
+      color: tableColor,
+      spacing: tableSpacing,
+    });
+
+    expect(definition.rows[0]!.map((cell) => ({
+      fontFamily: cell.fontFamily,
+      fontSize: cell.fontSize,
+      bold: cell.bold,
+      color: cell.color,
+      spacing: cell.spacing,
+    }))).toEqual([
+      {
+        fontFamily: 'Aptos',
+        fontSize: 18.25,
+        bold: true,
+        color: { kind: 'scheme', value: 'accent1' },
+        spacing: tableSpacing,
+      },
+      {
+        fontFamily: 'Aptos',
+        fontSize: 18.25,
+        bold: false,
+        color: { kind: 'scheme', value: 'accent1' },
+        spacing: { ...tableSpacing, before: 3 },
+      },
+      {
+        fontFamily: 'Courier New',
+        fontSize: 18.25,
+        bold: true,
+        color: { kind: 'srgb', value: '00AA00' },
+        spacing: tableSpacing,
+      },
+    ]);
+
+    tableColor.value = 'accent2';
+    tableSpacing.before = 60;
+    tableSpacing.line.factor = 2;
+    cellSpacing.before = 30;
+    cellColor.value = 'FF0000';
+    expect(definition.rows[0]![0]!.color).toEqual({ kind: 'scheme', value: 'accent1' });
+    expect(definition.rows[0]![0]!.spacing).toEqual({
+      before: 6,
+      after: 8,
+      line: { kind: 'multiple', factor: 1.5 },
+    });
+    expect(definition.rows[0]![1]!.spacing?.before).toBe(3);
+    expect(definition.rows[0]![2]!.color).toEqual({ kind: 'srgb', value: '00AA00' });
+
+    const xml = renderTableGraphicFrame(11, definition);
+    const cells = [...xml.matchAll(/<a:tc>[\s\S]*?<\/a:tc>/g)].map(([cell]) => cell);
+    expect(cells).toHaveLength(3);
+    expect(cells[0]).toContain('<a:rPr lang="en-US" sz="1825" b="1" dirty="0">');
+    expect(cells[0]).toContain('<a:schemeClr val="accent1"/>');
+    expect(cells[0]).toContain(
+      '<a:latin typeface="Aptos"/><a:ea typeface="Aptos"/><a:cs typeface="Aptos"/>',
+    );
+    expect(cells[0]).toContain('<a:spcPct val="150000"/>');
+    expect(cells[0]).toContain('<a:spcPts val="600"/>');
+    expect(cells[0]).toContain('<a:spcPts val="800"/>');
+
+    expect(cells[1]).toContain('<a:rPr lang="en-US" sz="1825" b="0" dirty="0">');
+    expect(cells[1]).toContain('<a:spcPts val="300"/>');
+    expect(cells[1]).toContain('<a:spcPts val="800"/>');
+    expect(cells[1]).toContain('<a:spcPct val="150000"/>');
+
+    const richRuns = [...cells[2]!.matchAll(/<a:r>[\s\S]*?<\/a:r>/g)].map(([run]) => run);
+    expect(richRuns).toHaveLength(2);
+    expect(richRuns[0]).toContain('<a:rPr lang="en-US" sz="1825" b="1" dirty="0">');
+    expect(richRuns[0]).toContain('<a:srgbClr val="00AA00"/>');
+    expect(richRuns[0]).toContain('typeface="Courier New"');
+    expect(richRuns[1]).toContain('<a:rPr lang="en-US" sz="1000" b="0" dirty="0">');
+    expect(richRuns[1]).toContain('<a:srgbClr val="00AA00"/>');
+    expect(richRuns[1]).toContain('typeface="Courier New"');
+    const paragraphs = [...cells[2]!.matchAll(/<a:p>[\s\S]*?<\/a:p>/g)]
+      .map(([paragraph]) => paragraph);
+    expect(paragraphs).toHaveLength(2);
+    expect(paragraphs[0]).not.toContain('<a:lnSpc>');
+    expect(paragraphs[0]).toContain('<a:spcPts val="600"/>');
+    expect(paragraphs[0]).toContain('<a:spcPts val="900"/>');
+    expect(paragraphs[1]).not.toMatch(/<a:(?:lnSpc|spcBef|spcAft)>/);
+    expect(cells[2]!.match(
+      /<a:endParaRPr lang="en-US" sz="1825" dirty="0"><a:latin typeface="Courier New"\/><a:ea typeface="Courier New"\/><a:cs typeface="Courier New"\/><\/a:endParaRPr>/g,
+    )).toHaveLength(2);
+  });
+
+  it('suppresses inherited table-cell colors on linked runs without changing omitted bytes', () => {
+    const definition = normalizeTableDefinition([[
+      {
+        text: [{
+          runs: [
+            { text: 'Inherited link', style: { hyperlink: { url: 'https://one.example' } } },
+            {
+              text: 'Explicit link',
+              style: {
+                color: { kind: 'srgb', value: 'FF0000' },
+                hyperlink: { url: 'https://two.example' },
+              },
+            },
+          ],
+        }],
+      },
+      {
+        text: 'Default link',
+        options: { hyperlink: { url: 'https://default.example' } },
+      },
+    ]], {
+      fontFamily: 'Aptos',
+      fontSize: 18,
+      bold: true,
+      color: { kind: 'scheme', value: 'accent1' },
+    });
+    const xml = renderTableGraphicFrame(
+      12,
+      definition,
+      undefined,
+      undefined,
+      [[undefined, 'rIdDefault']],
+      [[[['rId7', 'rId8']], [[undefined]]]],
+    );
+    const runs = [...xml.matchAll(/<a:r>[\s\S]*?<\/a:r>/g)].map(([run]) => run);
+
+    expect(runs).toHaveLength(3);
+    expect(runs[0]).toContain('sz="1800" b="1" u="sng"');
+    expect(runs[0]).toContain('typeface="Aptos"');
+    expect(runs[0]).not.toContain('<a:solidFill>');
+    expect(runs[0]).toContain('r:id="rId7"');
+    expect(runs[1]).toContain('<a:srgbClr val="FF0000"/>');
+    expect(runs[1]).toContain('r:id="rId8"');
+    expect(runs[2]).toContain('sz="1800" b="1" u="sng"');
+    expect(runs[2]).toContain('typeface="Aptos"');
+    expect(runs[2]).not.toContain('<a:solidFill>');
+    expect(runs[2]).toContain('r:id="rIdDefault"');
+
+    const omitted = renderTableGraphicFrame(
+      13,
+      normalizeTableDefinition([['Same']], {}),
+    );
+    const runtimeUndefined = renderTableGraphicFrame(
+      13,
+      normalizeTableDefinition([[{
+        text: 'Same',
+        options: {
+          fontFamily: undefined,
+          fontSize: undefined,
+          bold: undefined,
+          color: undefined,
+          spacing: undefined,
+        },
+      }]], {
+        fontFamily: undefined,
+        fontSize: undefined,
+        bold: undefined,
+        color: undefined,
+        spacing: undefined,
+      }),
+    );
+    expect(runtimeUndefined).toBe(omitted);
+  });
+
+  it('strictly rejects malformed table-cell text style defaults', () => {
+    const invalidDefaults = [
+      { fontFamily: '' },
+      { fontFamily: 'bad\u0000font' },
+      { fontSize: Number.NaN },
+      { fontSize: 0.99 },
+      { fontSize: 4000.01 },
+      { bold: 1 },
+      { color: { kind: 'srgb', value: 'XYZ' } },
+      { spacing: {} },
+      { spacing: { before: -1 } },
+    ];
+    for (const options of invalidDefaults) {
+      expect(() => normalizeTableDefinition([['Invalid']], options)).toThrow();
+      expect(() => normalizeTableDefinition([[
+        { text: 'Invalid', options },
+      ]], {})).toThrow();
+    }
+
+    expect(() => normalizeTableDefinition([['Alias']], { fontFace: 'Aptos' })).toThrow(
+      /unsupported property fontFace/,
+    );
+    expect(() => normalizeTableDefinition([[
+      { text: 'Alias', options: { paraSpaceAfter: 6 } },
+    ]], {})).toThrow(/unsupported property paraSpaceAfter/);
+
+    let accessorCalls = 0;
+    const accessor = Object.defineProperty({}, 'fontFamily', {
+      enumerable: true,
+      get: () => {
+        accessorCalls += 1;
+        return 'Aptos';
+      },
+    });
+    class Defaults {
+      fontFamily = 'Aptos';
+    }
+    for (const options of [
+      accessor,
+      Object.assign(Object.create({ fontFamily: 'Aptos' }), { bold: true }),
+      { fontFamily: 'Aptos', [Symbol('unsafe')]: true },
+      new Defaults(),
+    ]) {
+      expect(() => normalizeTableDefinition([['Invalid']], options)).toThrow();
+      expect(() => normalizeTableDefinition([[
+        { text: 'Invalid', options },
+      ]], {})).toThrow();
+    }
+    expect(accessorCalls).toBe(0);
+  });
+
   it('rejects invalid table-cell hyperlinks and relationship ID matrices', () => {
     const invalid = [
       {},

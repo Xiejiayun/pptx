@@ -303,6 +303,10 @@ export interface AddTextOptions extends Partial<Transform> {
 
 export interface AddTableOptions {
   readonly align?: TextAlignment;
+  readonly bold?: boolean;
+  readonly color?: RichTextColor;
+  readonly fontFamily?: string;
+  readonly fontSize?: number;
   readonly name?: string;
   readonly placeholder?: PlaceholderSelector;
   readonly x?: number;
@@ -314,17 +318,23 @@ export interface AddTableOptions {
   readonly border?: TableCellBorderInput;
   readonly fill?: TableCellFill;
   readonly margin?: TextBoxMarginInput;
+  readonly spacing?: ParagraphSpacing;
   readonly textDirection?: TableCellTextDirection;
   readonly valign?: TextBoxVerticalAlignment;
 }
 
 export interface AddTableCellOptions {
   readonly align?: TextAlignment;
+  readonly bold?: boolean;
   readonly border?: TableCellBorderInput;
+  readonly color?: RichTextColor;
   readonly fill?: TableCellFill;
   readonly fit?: TextBoxFit;
+  readonly fontFamily?: string;
+  readonly fontSize?: number;
   readonly hyperlink?: Hyperlink;
   readonly margin?: TextBoxMarginInput;
+  readonly spacing?: ParagraphSpacing;
   readonly textDirection?: TableCellTextDirection;
   readonly valign?: TextBoxVerticalAlignment;
 }

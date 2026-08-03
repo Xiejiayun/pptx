@@ -3,9 +3,12 @@ import { normalizePlaceholderSelector } from './placeholder.internal.js';
 import type { PlaceholderIdentity, PlaceholderSelector } from './placeholder.js';
 import type { Transform } from './units.js';
 import {
+  normalizeParagraphSpacing,
   normalizeRichText,
+  normalizeRichTextColor,
   normalizeTextAlignment,
   renderRichTextParagraphs,
+  type NormalizedParagraphSpacingUpdate,
   type RichTextRunHyperlinkRelationshipIds,
 } from './rich-text.internal.js';
 import {
@@ -42,6 +45,7 @@ import type {
   TableCellTextDirection,
 } from './shapes.js';
 import type {
+  RichTextColor,
   TextAlignment,
   TextBoxFit,
   TextBoxMarginInput,
@@ -64,13 +68,27 @@ const OPTION_KEYS = [
   'columnWidths',
   'rowHeights',
   'align',
+  'bold',
   'border',
+  'color',
   'fill',
+  'fontFamily',
+  'fontSize',
   'margin',
+  'spacing',
   'textDirection',
   'valign',
 ] as const;
-interface NormalizedTableCell {
+
+interface NormalizedTableTextDefaults {
+  readonly fontFamily?: string;
+  readonly fontSize?: number;
+  readonly bold?: boolean;
+  readonly color?: Readonly<RichTextColor>;
+  readonly spacing?: NormalizedParagraphSpacingUpdate;
+}
+
+interface NormalizedTableCell extends NormalizedTableTextDefaults {
   readonly text: string;
   readonly richText?: ReturnType<typeof normalizeRichText>;
   readonly alignment?: TextAlignment;
@@ -121,12 +139,17 @@ export function normalizeTableDefinition(
   const placeholder = normalizedOptions.placeholder === undefined
     ? undefined
     : normalizePlaceholderSelector(normalizedOptions.placeholder);
+  const tableTextDefaults = normalizeTableTextDefaults(normalizedOptions, 'Table');
+  const textResolvedRows = Object.keys(tableTextDefaults).length === 0
+    ? normalizedRows
+    : normalizedRows.map((row) => row.map((cell) =>
+      resolveTableTextDefaults(tableTextDefaults, cell)));
   const tableAlignment = normalizedOptions.align === undefined
     ? undefined
     : normalizeTextAlignment(normalizedOptions.align, 'Table align');
   const alignmentResolvedRows = tableAlignment === undefined
-    ? normalizedRows
-    : normalizedRows.map((row) => row.map((cell) =>
+    ? textResolvedRows
+    : textResolvedRows.map((row) => row.map((cell) =>
       cell.alignment === undefined
         ? { ...cell, alignment: tableAlignment }
         : cell));
@@ -324,10 +347,15 @@ function normalizeTableCellOptions(
 ): Pick<
   NormalizedTableCell,
   | 'alignment'
+  | 'bold'
   | 'borders'
+  | 'color'
   | 'fill'
+  | 'fontFamily'
+  | 'fontSize'
   | 'hyperlink'
   | 'margins'
+  | 'spacing'
   | 'textDirection'
   | 'textFit'
   | 'verticalAlignment'
@@ -336,8 +364,23 @@ function normalizeTableCellOptions(
   const options = readDataObject(
     value,
     `${context} options`,
-    ['align', 'border', 'fill', 'fit', 'hyperlink', 'margin', 'textDirection', 'valign'],
+    [
+      'align',
+      'bold',
+      'border',
+      'color',
+      'fill',
+      'fit',
+      'fontFamily',
+      'fontSize',
+      'hyperlink',
+      'margin',
+      'spacing',
+      'textDirection',
+      'valign',
+    ],
   );
+  const textDefaults = normalizeTableTextDefaults(options, context);
   const alignment = options.align === undefined
     ? undefined
     : normalizeTextAlignment(options.align, `${context} align`);
@@ -363,6 +406,7 @@ function normalizeTableCellOptions(
     ? undefined
     : normalizeTextBoxVerticalAlignment(options.valign, `${context} valign`);
   return {
+    ...textDefaults,
     ...(alignment === undefined ? {} : { alignment }),
     ...(borders === undefined ? {} : { borders }),
     ...(fill === undefined ? {} : { fill }),
@@ -371,6 +415,74 @@ function normalizeTableCellOptions(
     ...(textDirection === undefined ? {} : { textDirection }),
     ...(textFit === undefined ? {} : { textFit }),
     ...(verticalAlignment === undefined ? {} : { verticalAlignment }),
+  };
+}
+
+function normalizeTableTextDefaults(
+  options: Readonly<Record<string, unknown>>,
+  context: string,
+): NormalizedTableTextDefaults {
+  const fontFamily = options.fontFamily;
+  if (fontFamily !== undefined) {
+    if (typeof fontFamily !== 'string' || fontFamily.length === 0) {
+      throw new TypeError(`${context} fontFamily must be a non-empty string`);
+    }
+    if (containsInvalidXmlCharacter(fontFamily)) {
+      throw new TypeError(`${context} fontFamily contains invalid XML characters`);
+    }
+  }
+  const requestedFontSize = options.fontSize;
+  if (
+    requestedFontSize !== undefined
+    && (typeof requestedFontSize !== 'number' || !Number.isFinite(requestedFontSize))
+  ) {
+    throw new TypeError(`${context} fontSize must be finite`);
+  }
+  if (
+    requestedFontSize !== undefined
+    && (requestedFontSize < 1 || requestedFontSize > 4000)
+  ) {
+    throw new RangeError(`${context} fontSize must be between 1 and 4000 points`);
+  }
+  const bold = options.bold;
+  if (bold !== undefined && typeof bold !== 'boolean') {
+    throw new TypeError(`${context} bold must be a boolean`);
+  }
+  const color = options.color === undefined
+    ? undefined
+    : normalizeRichTextColor(options.color, `${context} color`);
+  const spacing = options.spacing === undefined
+    ? undefined
+    : normalizeParagraphSpacing(options.spacing, `${context} spacing`);
+  return {
+    ...(fontFamily === undefined ? {} : { fontFamily }),
+    ...(requestedFontSize === undefined
+      ? {}
+      : { fontSize: Math.round(requestedFontSize * 100) / 100 }),
+    ...(bold === undefined ? {} : { bold }),
+    ...(color === undefined ? {} : { color }),
+    ...(spacing === undefined ? {} : { spacing }),
+  };
+}
+
+function resolveTableTextDefaults(
+  table: NormalizedTableTextDefaults,
+  cell: NormalizedTableCell,
+): NormalizedTableCell {
+  const fontFamily = cell.fontFamily ?? table.fontFamily;
+  const fontSize = cell.fontSize ?? table.fontSize;
+  const bold = cell.bold ?? table.bold;
+  const color = cell.color ?? table.color;
+  const spacing = table.spacing === undefined && cell.spacing === undefined
+    ? undefined
+    : { ...table.spacing, ...cell.spacing };
+  return {
+    ...cell,
+    ...(fontFamily === undefined ? {} : { fontFamily }),
+    ...(fontSize === undefined ? {} : { fontSize }),
+    ...(bold === undefined ? {} : { bold }),
+    ...(color === undefined ? {} : { color }),
+    ...(spacing === undefined ? {} : { spacing }),
   };
 }
 
@@ -572,6 +684,18 @@ function renderTableCell(
   }
   const renderedParagraphs = renderRichTextParagraphs(paragraphs, {
     ...(cell.alignment === undefined ? {} : { defaultAlign: cell.alignment }),
+    ...(cell.fontFamily === undefined
+      ? {}
+      : { defaultFontFamily: cell.fontFamily }),
+    ...(cell.fontSize === undefined ? {} : { defaultFontSize: cell.fontSize }),
+    ...(cell.bold === undefined ? {} : { defaultBold: cell.bold }),
+    ...(cell.color === undefined
+      ? {}
+      : {
+          defaultColor: cell.color,
+          suppressDefaultColorForHyperlinks: true,
+        }),
+    ...(cell.spacing === undefined ? {} : { defaultSpacing: cell.spacing }),
     ...(defaultHyperlink === undefined
       ? {}
       : {
