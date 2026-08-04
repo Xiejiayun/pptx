@@ -2981,366 +2981,1082 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "classifies PptxGenJS custom path unit heuristics and malformed runtime output"
+      },
       "declaredIn": "ShapeProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const browserCustomPathState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/custom-geometry.ts",
+            "pattern": "export type CustomGeometryCommand ="
+          },
+          {
+            "path": "packages/model/src/custom-geometry.internal.ts",
+            "pattern": "function normalizeCommand(value: unknown, context: string)"
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "  addCustomShape("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens styled custom geometry shapes through the public SDK"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const customGeometryPaths ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports every legal PptxGenJS custom path command as native geometry"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "classifies PptxGenJS custom path unit heuristics and malformed runtime output"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "creates detached styled, multi-path, and empty custom shapes before extensions"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates and reopens styled custom geometry shapes through the public SDK"
+          }
+        ]
       },
       "id": "inline:interface:ShapeProps@property:points@property:points.close",
       "kind": "property",
       "name": "points.close",
-      "native": [],
-      "note": "",
+      "native": [
+        "CustomGeometryCommand.close"
+      ],
+      "note": "Native covers every legal path command through the dedicated strict CustomGeometry command union and addCustomShape API, using explicit OOXML values or unit helpers instead of PptxGenJS points, implicit-unit heuristics, coercion, omission, and malformed-output passthrough.",
       "optional": false,
       "owner": "interface:ShapeProps@property:points",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "true"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "classifies PptxGenJS custom path unit heuristics and malformed runtime output"
+      },
       "declaredIn": "ShapeProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const browserCustomPathState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/custom-geometry.ts",
+            "pattern": "export type CustomGeometryCommand ="
+          },
+          {
+            "path": "packages/model/src/custom-geometry.internal.ts",
+            "pattern": "function normalizeCommand(value: unknown, context: string)"
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "  addCustomShape("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens styled custom geometry shapes through the public SDK"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const customGeometryPaths ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports every legal PptxGenJS custom path command as native geometry"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "classifies PptxGenJS custom path unit heuristics and malformed runtime output"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "creates detached styled, multi-path, and empty custom shapes before extensions"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates and reopens styled custom geometry shapes through the public SDK"
+          }
+        ]
       },
       "id": "inline:interface:ShapeProps@property:points@property:points.curve",
       "kind": "property",
       "name": "points.curve",
-      "native": [],
-      "note": "",
+      "native": [
+        "CustomGeometryCommand"
+      ],
+      "note": "Native covers every legal path command through the dedicated strict CustomGeometry command union and addCustomShape API, using explicit OOXML values or unit helpers instead of PptxGenJS points, implicit-unit heuristics, coercion, omission, and malformed-output passthrough.",
       "optional": false,
       "owner": "interface:ShapeProps@property:points",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "{ type: 'arc'; hR: Coord; wR: Coord; stAng: number; swAng: number; } | { type: 'cubic'; x1: Coord; y1: Coord; x2: Coord; y2: Coord; } | { type: 'quadratic'; x1: Coord; y1: Coord; }"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "classifies PptxGenJS custom path unit heuristics and malformed runtime output"
+      },
       "declaredIn": "ShapeProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const browserCustomPathState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/custom-geometry.ts",
+            "pattern": "export type CustomGeometryCommand ="
+          },
+          {
+            "path": "packages/model/src/custom-geometry.internal.ts",
+            "pattern": "function normalizeCommand(value: unknown, context: string)"
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "  addCustomShape("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens styled custom geometry shapes through the public SDK"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const customGeometryPaths ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports every legal PptxGenJS custom path command as native geometry"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "classifies PptxGenJS custom path unit heuristics and malformed runtime output"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "creates detached styled, multi-path, and empty custom shapes before extensions"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates and reopens styled custom geometry shapes through the public SDK"
+          }
+        ]
       },
       "id": "inline:interface:ShapeProps@property:points@property:points.curve.hR",
       "kind": "property",
       "name": "points.curve.hR",
-      "native": [],
-      "note": "",
+      "native": [
+        "CustomGeometryCommand.arcTo"
+      ],
+      "note": "Native covers every legal path command through the dedicated strict CustomGeometry command union and addCustomShape API, using explicit OOXML values or unit helpers instead of PptxGenJS points, implicit-unit heuristics, coercion, omission, and malformed-output passthrough.",
       "optional": false,
       "owner": "interface:ShapeProps@property:points",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "classifies PptxGenJS custom path unit heuristics and malformed runtime output"
+      },
       "declaredIn": "ShapeProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const browserCustomPathState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/custom-geometry.ts",
+            "pattern": "export type CustomGeometryCommand ="
+          },
+          {
+            "path": "packages/model/src/custom-geometry.internal.ts",
+            "pattern": "function normalizeCommand(value: unknown, context: string)"
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "  addCustomShape("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens styled custom geometry shapes through the public SDK"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const customGeometryPaths ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports every legal PptxGenJS custom path command as native geometry"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "classifies PptxGenJS custom path unit heuristics and malformed runtime output"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "creates detached styled, multi-path, and empty custom shapes before extensions"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates and reopens styled custom geometry shapes through the public SDK"
+          }
+        ]
       },
       "id": "inline:interface:ShapeProps@property:points@property:points.curve.stAng",
       "kind": "property",
       "name": "points.curve.stAng",
-      "native": [],
-      "note": "",
+      "native": [
+        "CustomGeometryCommand.arcTo"
+      ],
+      "note": "Native covers every legal path command through the dedicated strict CustomGeometry command union and addCustomShape API, using explicit OOXML values or unit helpers instead of PptxGenJS points, implicit-unit heuristics, coercion, omission, and malformed-output passthrough.",
       "optional": false,
       "owner": "interface:ShapeProps@property:points",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "number"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "classifies PptxGenJS custom path unit heuristics and malformed runtime output"
+      },
       "declaredIn": "ShapeProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const browserCustomPathState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/custom-geometry.ts",
+            "pattern": "export type CustomGeometryCommand ="
+          },
+          {
+            "path": "packages/model/src/custom-geometry.internal.ts",
+            "pattern": "function normalizeCommand(value: unknown, context: string)"
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "  addCustomShape("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens styled custom geometry shapes through the public SDK"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const customGeometryPaths ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports every legal PptxGenJS custom path command as native geometry"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "classifies PptxGenJS custom path unit heuristics and malformed runtime output"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "creates detached styled, multi-path, and empty custom shapes before extensions"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates and reopens styled custom geometry shapes through the public SDK"
+          }
+        ]
       },
       "id": "inline:interface:ShapeProps@property:points@property:points.curve.swAng",
       "kind": "property",
       "name": "points.curve.swAng",
-      "native": [],
-      "note": "",
+      "native": [
+        "CustomGeometryCommand.arcTo"
+      ],
+      "note": "Native covers every legal path command through the dedicated strict CustomGeometry command union and addCustomShape API, using explicit OOXML values or unit helpers instead of PptxGenJS points, implicit-unit heuristics, coercion, omission, and malformed-output passthrough.",
       "optional": false,
       "owner": "interface:ShapeProps@property:points",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "number"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "classifies PptxGenJS custom path unit heuristics and malformed runtime output"
+      },
       "declaredIn": "ShapeProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const browserCustomPathState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/custom-geometry.ts",
+            "pattern": "export type CustomGeometryCommand ="
+          },
+          {
+            "path": "packages/model/src/custom-geometry.internal.ts",
+            "pattern": "function normalizeCommand(value: unknown, context: string)"
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "  addCustomShape("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens styled custom geometry shapes through the public SDK"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const customGeometryPaths ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports every legal PptxGenJS custom path command as native geometry"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "classifies PptxGenJS custom path unit heuristics and malformed runtime output"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "creates detached styled, multi-path, and empty custom shapes before extensions"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates and reopens styled custom geometry shapes through the public SDK"
+          }
+        ]
       },
       "id": "inline:interface:ShapeProps@property:points@property:points.curve.type",
       "kind": "property",
       "name": "points.curve.type",
-      "native": [],
-      "note": "",
+      "native": [
+        "CustomGeometryCommand.kind"
+      ],
+      "note": "Native covers every legal path command through the dedicated strict CustomGeometry command union and addCustomShape API, using explicit OOXML values or unit helpers instead of PptxGenJS points, implicit-unit heuristics, coercion, omission, and malformed-output passthrough.",
       "optional": false,
       "owner": "interface:ShapeProps@property:points",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "'arc' | 'cubic' | 'quadratic'"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "classifies PptxGenJS custom path unit heuristics and malformed runtime output"
+      },
       "declaredIn": "ShapeProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const browserCustomPathState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/custom-geometry.ts",
+            "pattern": "export type CustomGeometryCommand ="
+          },
+          {
+            "path": "packages/model/src/custom-geometry.internal.ts",
+            "pattern": "function normalizeCommand(value: unknown, context: string)"
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "  addCustomShape("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens styled custom geometry shapes through the public SDK"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const customGeometryPaths ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports every legal PptxGenJS custom path command as native geometry"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "classifies PptxGenJS custom path unit heuristics and malformed runtime output"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "creates detached styled, multi-path, and empty custom shapes before extensions"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates and reopens styled custom geometry shapes through the public SDK"
+          }
+        ]
       },
       "id": "inline:interface:ShapeProps@property:points@property:points.curve.wR",
       "kind": "property",
       "name": "points.curve.wR",
-      "native": [],
-      "note": "",
+      "native": [
+        "CustomGeometryCommand.arcTo"
+      ],
+      "note": "Native covers every legal path command through the dedicated strict CustomGeometry command union and addCustomShape API, using explicit OOXML values or unit helpers instead of PptxGenJS points, implicit-unit heuristics, coercion, omission, and malformed-output passthrough.",
       "optional": false,
       "owner": "interface:ShapeProps@property:points",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "classifies PptxGenJS custom path unit heuristics and malformed runtime output"
+      },
       "declaredIn": "ShapeProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const browserCustomPathState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/custom-geometry.ts",
+            "pattern": "export type CustomGeometryCommand ="
+          },
+          {
+            "path": "packages/model/src/custom-geometry.internal.ts",
+            "pattern": "function normalizeCommand(value: unknown, context: string)"
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "  addCustomShape("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens styled custom geometry shapes through the public SDK"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const customGeometryPaths ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports every legal PptxGenJS custom path command as native geometry"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "classifies PptxGenJS custom path unit heuristics and malformed runtime output"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "creates detached styled, multi-path, and empty custom shapes before extensions"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates and reopens styled custom geometry shapes through the public SDK"
+          }
+        ]
       },
       "id": "inline:interface:ShapeProps@property:points@property:points.curve.x1",
       "kind": "property",
       "name": "points.curve.x1",
-      "native": [],
-      "note": "",
+      "native": [
+        "CustomGeometryCommand.cubicBezierTo",
+        "CustomGeometryCommand.quadraticBezierTo"
+      ],
+      "note": "Native covers every legal path command through the dedicated strict CustomGeometry command union and addCustomShape API, using explicit OOXML values or unit helpers instead of PptxGenJS points, implicit-unit heuristics, coercion, omission, and malformed-output passthrough.",
       "optional": false,
       "owner": "interface:ShapeProps@property:points",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "classifies PptxGenJS custom path unit heuristics and malformed runtime output"
+      },
       "declaredIn": "ShapeProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const browserCustomPathState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/custom-geometry.ts",
+            "pattern": "export type CustomGeometryCommand ="
+          },
+          {
+            "path": "packages/model/src/custom-geometry.internal.ts",
+            "pattern": "function normalizeCommand(value: unknown, context: string)"
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "  addCustomShape("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens styled custom geometry shapes through the public SDK"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const customGeometryPaths ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports every legal PptxGenJS custom path command as native geometry"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "classifies PptxGenJS custom path unit heuristics and malformed runtime output"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "creates detached styled, multi-path, and empty custom shapes before extensions"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates and reopens styled custom geometry shapes through the public SDK"
+          }
+        ]
       },
       "id": "inline:interface:ShapeProps@property:points@property:points.curve.x2",
       "kind": "property",
       "name": "points.curve.x2",
-      "native": [],
-      "note": "",
+      "native": [
+        "CustomGeometryCommand.cubicBezierTo"
+      ],
+      "note": "Native covers every legal path command through the dedicated strict CustomGeometry command union and addCustomShape API, using explicit OOXML values or unit helpers instead of PptxGenJS points, implicit-unit heuristics, coercion, omission, and malformed-output passthrough.",
       "optional": false,
       "owner": "interface:ShapeProps@property:points",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "classifies PptxGenJS custom path unit heuristics and malformed runtime output"
+      },
       "declaredIn": "ShapeProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const browserCustomPathState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/custom-geometry.ts",
+            "pattern": "export type CustomGeometryCommand ="
+          },
+          {
+            "path": "packages/model/src/custom-geometry.internal.ts",
+            "pattern": "function normalizeCommand(value: unknown, context: string)"
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "  addCustomShape("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens styled custom geometry shapes through the public SDK"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const customGeometryPaths ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports every legal PptxGenJS custom path command as native geometry"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "classifies PptxGenJS custom path unit heuristics and malformed runtime output"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "creates detached styled, multi-path, and empty custom shapes before extensions"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates and reopens styled custom geometry shapes through the public SDK"
+          }
+        ]
       },
       "id": "inline:interface:ShapeProps@property:points@property:points.curve.y1",
       "kind": "property",
       "name": "points.curve.y1",
-      "native": [],
-      "note": "",
+      "native": [
+        "CustomGeometryCommand.cubicBezierTo",
+        "CustomGeometryCommand.quadraticBezierTo"
+      ],
+      "note": "Native covers every legal path command through the dedicated strict CustomGeometry command union and addCustomShape API, using explicit OOXML values or unit helpers instead of PptxGenJS points, implicit-unit heuristics, coercion, omission, and malformed-output passthrough.",
       "optional": false,
       "owner": "interface:ShapeProps@property:points",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "classifies PptxGenJS custom path unit heuristics and malformed runtime output"
+      },
       "declaredIn": "ShapeProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const browserCustomPathState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/custom-geometry.ts",
+            "pattern": "export type CustomGeometryCommand ="
+          },
+          {
+            "path": "packages/model/src/custom-geometry.internal.ts",
+            "pattern": "function normalizeCommand(value: unknown, context: string)"
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "  addCustomShape("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens styled custom geometry shapes through the public SDK"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const customGeometryPaths ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports every legal PptxGenJS custom path command as native geometry"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "classifies PptxGenJS custom path unit heuristics and malformed runtime output"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "creates detached styled, multi-path, and empty custom shapes before extensions"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates and reopens styled custom geometry shapes through the public SDK"
+          }
+        ]
       },
       "id": "inline:interface:ShapeProps@property:points@property:points.curve.y2",
       "kind": "property",
       "name": "points.curve.y2",
-      "native": [],
-      "note": "",
+      "native": [
+        "CustomGeometryCommand.cubicBezierTo"
+      ],
+      "note": "Native covers every legal path command through the dedicated strict CustomGeometry command union and addCustomShape API, using explicit OOXML values or unit helpers instead of PptxGenJS points, implicit-unit heuristics, coercion, omission, and malformed-output passthrough.",
       "optional": false,
       "owner": "interface:ShapeProps@property:points",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "classifies PptxGenJS custom path unit heuristics and malformed runtime output"
+      },
       "declaredIn": "ShapeProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const browserCustomPathState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/custom-geometry.ts",
+            "pattern": "export type CustomGeometryCommand ="
+          },
+          {
+            "path": "packages/model/src/custom-geometry.internal.ts",
+            "pattern": "function normalizeCommand(value: unknown, context: string)"
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "  addCustomShape("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens styled custom geometry shapes through the public SDK"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const customGeometryPaths ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports every legal PptxGenJS custom path command as native geometry"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "classifies PptxGenJS custom path unit heuristics and malformed runtime output"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "creates detached styled, multi-path, and empty custom shapes before extensions"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates and reopens styled custom geometry shapes through the public SDK"
+          }
+        ]
       },
       "id": "inline:interface:ShapeProps@property:points@property:points.moveTo",
       "kind": "property",
       "name": "points.moveTo",
-      "native": [],
-      "note": "",
+      "native": [
+        "CustomGeometryCommand.moveTo"
+      ],
+      "note": "Native covers every legal path command through the dedicated strict CustomGeometry command union and addCustomShape API, using explicit OOXML values or unit helpers instead of PptxGenJS points, implicit-unit heuristics, coercion, omission, and malformed-output passthrough.",
       "optional": true,
       "owner": "interface:ShapeProps@property:points",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "boolean"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "classifies PptxGenJS custom path unit heuristics and malformed runtime output"
+      },
       "declaredIn": "ShapeProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const browserCustomPathState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/custom-geometry.ts",
+            "pattern": "export type CustomGeometryCommand ="
+          },
+          {
+            "path": "packages/model/src/custom-geometry.internal.ts",
+            "pattern": "function normalizeCommand(value: unknown, context: string)"
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "  addCustomShape("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens styled custom geometry shapes through the public SDK"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const customGeometryPaths ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports every legal PptxGenJS custom path command as native geometry"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "classifies PptxGenJS custom path unit heuristics and malformed runtime output"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "creates detached styled, multi-path, and empty custom shapes before extensions"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates and reopens styled custom geometry shapes through the public SDK"
+          }
+        ]
       },
       "id": "inline:interface:ShapeProps@property:points@property:points.x",
       "kind": "property",
       "name": "points.x",
-      "native": [],
-      "note": "",
+      "native": [
+        "CustomGeometryPoint"
+      ],
+      "note": "Native covers every legal path command through the dedicated strict CustomGeometry command union and addCustomShape API, using explicit OOXML values or unit helpers instead of PptxGenJS points, implicit-unit heuristics, coercion, omission, and malformed-output passthrough.",
       "optional": false,
       "owner": "interface:ShapeProps@property:points",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "classifies PptxGenJS custom path unit heuristics and malformed runtime output"
+      },
       "declaredIn": "ShapeProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const browserCustomPathState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/custom-geometry.ts",
+            "pattern": "export type CustomGeometryCommand ="
+          },
+          {
+            "path": "packages/model/src/custom-geometry.internal.ts",
+            "pattern": "function normalizeCommand(value: unknown, context: string)"
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "  addCustomShape("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens styled custom geometry shapes through the public SDK"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const customGeometryPaths ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports every legal PptxGenJS custom path command as native geometry"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "classifies PptxGenJS custom path unit heuristics and malformed runtime output"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "creates detached styled, multi-path, and empty custom shapes before extensions"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates and reopens styled custom geometry shapes through the public SDK"
+          }
+        ]
       },
       "id": "inline:interface:ShapeProps@property:points@property:points.y",
       "kind": "property",
       "name": "points.y",
-      "native": [],
-      "note": "",
+      "native": [
+        "CustomGeometryPoint"
+      ],
+      "note": "Native covers every legal path command through the dedicated strict CustomGeometry command union and addCustomShape API, using explicit OOXML values or unit helpers instead of PptxGenJS points, implicit-unit heuristics, coercion, omission, and malformed-output passthrough.",
       "optional": false,
       "owner": "interface:ShapeProps@property:points",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
@@ -24725,28 +25441,81 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "classifies PptxGenJS custom path unit heuristics and malformed runtime output"
+      },
       "declaredIn": "ShapeProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const browserCustomPathState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/custom-geometry.ts",
+            "pattern": "export type CustomGeometryCommand ="
+          },
+          {
+            "path": "packages/model/src/custom-geometry.internal.ts",
+            "pattern": "function normalizeCommand(value: unknown, context: string)"
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "  addCustomShape("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens styled custom geometry shapes through the public SDK"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const customGeometryPaths ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports every legal PptxGenJS custom path command as native geometry"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "classifies PptxGenJS custom path unit heuristics and malformed runtime output"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "creates detached styled, multi-path, and empty custom shapes before extensions"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates and reopens styled custom geometry shapes through the public SDK"
+          }
+        ]
       },
       "id": "interface:ShapeProps@property:points",
       "kind": "property",
       "name": "points",
-      "native": [],
-      "note": "",
+      "native": [
+        "CustomGeometry",
+        "CustomGeometryPath",
+        "SlideModel.addCustomShape"
+      ],
+      "note": "Native covers every legal path command through the dedicated strict CustomGeometry command union and addCustomShape API, using explicit OOXML values or unit helpers instead of PptxGenJS points, implicit-unit heuristics, coercion, omission, and malformed-output passthrough.",
       "optional": true,
       "owner": "ShapeProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Array<{ x: Coord; y: Coord; moveTo?: boolean; } | { x: Coord; y: Coord; curve: { type: 'arc'; hR: Coord; wR: Coord; stAng: number; swAng: number; }; } | { x: Coord; y: Coord; curve: { type: 'cubic'; x1: Coord; y1: Coord; x2: Coord; y2: Coord; }; } | { x: Coord; y: Coord; curve: { type: 'quadratic'; x1: Coord; y1: Coord; }; } | { close: true; }>"
     },
     {
@@ -87050,12 +87819,12 @@
   "complete": false,
   "counts": {
     "defect-excluded": 359,
-    "deliberate-difference": 339,
+    "deliberate-difference": 354,
     "deprecated-alias": 91,
     "stale": 0,
     "supported": 620,
     "unsupported": 0,
-    "unverified": 365
+    "unverified": 350
   },
   "declarationSha256": "0726d015dbcb55ccfa75546cb2fd43fe13a0dfeb783d08572f1c62f59193bbe5",
   "declarationTotal": 1774,
@@ -87065,20 +87834,6 @@
     "class:PptxGenJS@property:ChartType",
     "inline:interface:IChartOpts@property:titlePos@property:titlePos.x",
     "inline:interface:IChartOpts@property:titlePos@property:titlePos.y",
-    "inline:interface:ShapeProps@property:points@property:points.close",
-    "inline:interface:ShapeProps@property:points@property:points.curve",
-    "inline:interface:ShapeProps@property:points@property:points.curve.hR",
-    "inline:interface:ShapeProps@property:points@property:points.curve.stAng",
-    "inline:interface:ShapeProps@property:points@property:points.curve.swAng",
-    "inline:interface:ShapeProps@property:points@property:points.curve.type",
-    "inline:interface:ShapeProps@property:points@property:points.curve.wR",
-    "inline:interface:ShapeProps@property:points@property:points.curve.x1",
-    "inline:interface:ShapeProps@property:points@property:points.curve.x2",
-    "inline:interface:ShapeProps@property:points@property:points.curve.y1",
-    "inline:interface:ShapeProps@property:points@property:points.curve.y2",
-    "inline:interface:ShapeProps@property:points@property:points.moveTo",
-    "inline:interface:ShapeProps@property:points@property:points.x",
-    "inline:interface:ShapeProps@property:points@property:points.y",
     "inline:interface:TextPropsOptions@property:outline@property:outline.color",
     "inline:interface:TextPropsOptions@property:outline@property:outline.size",
     "interface:DataOrPathProps@property:data",
@@ -87296,7 +88051,6 @@
     "interface:ShapeProps@property:flipV",
     "interface:ShapeProps@property:hyperlink",
     "interface:ShapeProps@property:objectName",
-    "interface:ShapeProps@property:points",
     "interface:ShapeProps@property:rectRadius",
     "interface:ShapeProps@property:rotate",
     "interface:ShapeProps@property:shapeName",

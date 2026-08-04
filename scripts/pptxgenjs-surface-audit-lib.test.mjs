@@ -124,13 +124,13 @@ function assertDeepFrozen(value, seen = new Set()) {
 test('exports an immutable evidence-backed initial manifest batch', () => {
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.schemaVersion, 1);
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.packageVersion, '4.0.1');
-  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1409);
+  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1424);
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries.map(({ status }) => status).sort(),
     [
       ...Array(359).fill('defect-excluded'),
       ...Array(620).fill('supported'),
-      ...Array(339).fill('deliberate-difference'),
+      ...Array(354).fill('deliberate-difference'),
       ...Array(91).fill('deprecated-alias'),
     ].sort(),
   );
@@ -1273,6 +1273,73 @@ test('exports an immutable evidence-backed initial manifest batch', () => {
       placeholderCoreIds.has(addTablePropertyId('PlaceholderProps', 'margin')) ||
       placeholderCoreIds.has(addTablePropertyId('PlaceholderProps', 'transparency')) ||
       placeholderCoreIds.has(addTablePropertyId('PlaceholderProps', 'valign')),
+    false,
+  );
+  const shapeCustomPathExpected = [
+    addTablePropertyId('ShapeProps', 'points'),
+    ...[
+      'close',
+      'curve',
+      'curve.hR',
+      'curve.stAng',
+      'curve.swAng',
+      'curve.type',
+      'curve.wR',
+      'curve.x1',
+      'curve.x2',
+      'curve.y1',
+      'curve.y2',
+      'moveTo',
+      'x',
+      'y',
+    ].map((property) =>
+      `inline:interface:ShapeProps@property:points@property:points.${property}`),
+  ].sort();
+  const shapeCustomPathIds = new Set(shapeCustomPathExpected);
+  assert.equal(shapeCustomPathIds.size, 15);
+  const shapeCustomPathEntries = PPTXGENJS_SURFACE_MANIFEST.entries
+    .filter(({ id }) => shapeCustomPathIds.has(id))
+    .sort((left, right) => left.id.localeCompare(right.id));
+  assert.deepEqual(
+    shapeCustomPathEntries.map(({ id, status }) => ({ id, status })),
+    shapeCustomPathExpected.map((id) => ({
+      id,
+      status: 'deliberate-difference',
+    })),
+  );
+  assert.equal(
+    shapeCustomPathEntries.every(({
+      native,
+      evidence,
+      control,
+      serialization,
+      client,
+    }) => native.length > 0 && evidence.code.length === 3 &&
+      evidence.tests.length === 4 &&
+      evidence.package.some(({ pattern }) => pattern === 'const customGeometryPaths =') &&
+      evidence.ooxml.some(({ pattern }) =>
+        pattern === 'creates and reopens styled custom geometry shapes through the public SDK') &&
+      evidence.clients.some(({ pattern }) => pattern === 'const browserCustomPathState = {') &&
+      control.pattern ===
+        'classifies PptxGenJS custom path unit heuristics and malformed runtime output' &&
+      serialization === true && client === true),
+    true,
+  );
+  const shapeCustomPathById = new Map(
+    shapeCustomPathEntries.map((entry) => [entry.id, entry]),
+  );
+  assert.deepEqual(
+    shapeCustomPathById.get(
+      'inline:interface:ShapeProps@property:points@property:points.curve.x2',
+    )?.native,
+    ['CustomGeometryCommand.cubicBezierTo'],
+  );
+  assert.equal(
+    [
+      addTablePropertyId('ShapeProps', 'angleRange'),
+      addTablePropertyId('ShapeProps', 'arcThicknessRatio'),
+      addTablePropertyId('ShapeProps', 'rectRadius'),
+    ].some((id) => shapeCustomPathIds.has(id)),
     false,
   );
   assert.deepEqual(

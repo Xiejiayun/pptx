@@ -824,6 +824,127 @@ async (page) => {
         reopened: true,
         validationErrors: 0,
       });
+      const browserCustomPathDocument = api.PptxDocument.create();
+      const browserCustomPathSlide = browserCustomPathDocument.addSlide();
+      const browserCustomPathSource = {
+        paths: [{
+          width: 400,
+          height: 300,
+          commands: [
+            { kind: 'moveTo', point: { x: 0, y: 0 } },
+            { kind: 'lineTo', point: { x: 100, y: 0 } },
+            {
+              kind: 'quadraticBezierTo',
+              control: { x: 150, y: 0 },
+              end: { x: 200, y: 100 },
+            },
+            {
+              kind: 'cubicBezierTo',
+              control1: { x: 225, y: 100 },
+              control2: { x: 275, y: 200 },
+              end: { x: 300, y: 200 },
+            },
+            {
+              kind: 'arcTo',
+              widthRadius: 100,
+              heightRadius: 50,
+              startAngle: 1800000,
+              sweepAngle: 7200000,
+            },
+            { kind: 'moveTo', point: { x: 50, y: 50 } },
+            { kind: 'lineTo', point: { x: 125, y: 125 } },
+            { kind: 'close' },
+          ],
+        }],
+      };
+      const browserCustomPathExpected = structuredClone(browserCustomPathSource);
+      const browserCustomPathShape = browserCustomPathSlide.addCustomShape(
+        browserCustomPathSource,
+        { name: 'Browser custom path' },
+      );
+      browserCustomPathSource.paths[0].width = 1;
+      browserCustomPathSource.paths[0].commands.splice(0);
+      const browserCustomPathSnapshot = browserCustomPathShape.customGeometry;
+      const browserCustomPathXml = new TextDecoder().decode(
+        browserCustomPathDocument.opcPackage.requirePart(browserCustomPathSlide.partUri).bytes,
+      );
+      const browserCustomPathCommandTags = [...browserCustomPathXml.matchAll(
+        /<a:(moveTo|lnTo|quadBezTo|cubicBezTo|arcTo|close)(?:\s|\/?>)/g,
+      )].map((match) => match[1]);
+      const browserCustomPathBytes = browserCustomPathDocument.opcPackage
+        .requirePart(browserCustomPathSlide.partUri).bytes.slice();
+      const browserCustomPathJournal = JSON.stringify(
+        browserCustomPathDocument.opcPackage.mutations,
+      );
+      let browserCustomPathRejected = false;
+      try {
+        browserCustomPathSlide.addCustomShape({
+          paths: [{ width: 1, height: 1, commands: [{ kind: 'close' }] }],
+        });
+      } catch (error) {
+        browserCustomPathRejected = error instanceof TypeError;
+      }
+      const browserCustomPathAfter = browserCustomPathDocument.opcPackage
+        .requirePart(browserCustomPathSlide.partUri).bytes;
+      const browserCustomPathOutput = await browserCustomPathDocument.writeBlob();
+      globalThis.__pptxCustomPathEvidenceBlob = browserCustomPathOutput;
+      const reopenedBrowserCustomPathDocument = await api.PptxDocument.open(
+        browserCustomPathOutput,
+      );
+      const reopenedBrowserCustomPathShape = reopenedBrowserCustomPathDocument
+        .slides[0].shapes[0];
+      const browserCustomPathState = {
+        live: browserCustomPathShape instanceof api.ShapeModel
+          && browserCustomPathShape.presetType === undefined,
+        detached: JSON.stringify(browserCustomPathSnapshot)
+          === JSON.stringify(browserCustomPathExpected),
+        frozen: Object.isFrozen(browserCustomPathSnapshot)
+          && Object.isFrozen(browserCustomPathSnapshot?.paths)
+          && Object.isFrozen(browserCustomPathSnapshot?.paths[0])
+          && Object.isFrozen(browserCustomPathSnapshot?.paths[0]?.commands)
+          && browserCustomPathSnapshot?.paths[0]?.commands.every((command) =>
+            Object.isFrozen(command)
+              && (!('point' in command) || Object.isFrozen(command.point))
+              && (!('control' in command) || Object.isFrozen(command.control))
+              && (!('control1' in command) || Object.isFrozen(command.control1))
+              && (!('control2' in command) || Object.isFrozen(command.control2))
+              && (!('end' in command) || Object.isFrozen(command.end))),
+        serialized: JSON.stringify(browserCustomPathCommandTags) === JSON.stringify([
+          'moveTo',
+          'lnTo',
+          'quadBezTo',
+          'cubicBezTo',
+          'arcTo',
+          'moveTo',
+          'lnTo',
+          'close',
+        ]),
+        invalidRollback: browserCustomPathRejected
+          && browserCustomPathBytes.length === browserCustomPathAfter.length
+          && browserCustomPathBytes.every(
+            (value, index) => value === browserCustomPathAfter[index],
+          )
+          && browserCustomPathJournal === JSON.stringify(
+            browserCustomPathDocument.opcPackage.mutations,
+          ),
+        reopened: reopenedBrowserCustomPathShape instanceof api.ShapeModel
+          && reopenedBrowserCustomPathShape.name === 'Browser custom path'
+          && JSON.stringify(reopenedBrowserCustomPathShape.customGeometry)
+            === JSON.stringify(browserCustomPathExpected),
+        validationErrors: browserCustomPathDocument.diagnostics
+          .filter(({ severity }) => severity === 'error').length
+          + reopenedBrowserCustomPathDocument.diagnostics
+            .filter(({ severity }) => severity === 'error').length,
+      };
+      const browserCustomPaths = JSON.stringify(browserCustomPathState) === JSON.stringify({
+        live: true,
+        detached: true,
+        frozen: true,
+        serialized: true,
+        invalidRollback: true,
+        reopened: true,
+        validationErrors: 0,
+      });
       const shapeLineDashes = [
         'solid',
         'dash',
@@ -6938,6 +7059,8 @@ async (page) => {
         bulletNumberingState,
         presetShapes,
         presetShapeState,
+        browserCustomPaths,
+        browserCustomPathState,
         shapeLines,
         shapeLineState,
         shapeArrows,
@@ -7053,6 +7176,25 @@ async (page) => {
       base64: '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',
     },
   );
+  const customPathEvidenceDownloadPromise = page.waitForEvent('download');
+  await page.evaluate(() => {
+    const blob = globalThis.__pptxCustomPathEvidenceBlob;
+    if (!(blob instanceof Blob)) throw new Error('Missing custom-path evidence Blob');
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'browser-custom-paths.pptx';
+    anchor.click();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  });
+  const customPathEvidenceDownload = await customPathEvidenceDownloadPromise;
+  result.customPathEvidenceFileName = customPathEvidenceDownload.suggestedFilename();
+  const customPathEvidenceOutput = typeof process !== 'undefined'
+    ? process.env.PPTX_BROWSER_CUSTOM_PATH_OUT
+    : globalThis.__pptxCustomPathEvidenceOutput;
+  if (typeof customPathEvidenceOutput === 'string') {
+    await customPathEvidenceDownload.saveAs(customPathEvidenceOutput);
+  }
   const tableCellMergesEvidenceDownloadPromise = page.waitForEvent('download');
   await page.evaluate(() => {
     const blob = globalThis.__pptxTableCellMergesEvidenceBlob;
@@ -7436,6 +7578,16 @@ async (page) => {
       canonicalBoundary: true,
       created: true,
       serialized: true,
+      reopened: true,
+      validationErrors: 0,
+    },
+    browserCustomPaths: true,
+    browserCustomPathState: {
+      live: true,
+      detached: true,
+      frozen: true,
+      serialized: true,
+      invalidRollback: true,
       reopened: true,
       validationErrors: 0,
     },
@@ -8660,6 +8812,7 @@ async (page) => {
     stableMediaLifecycle: true,
     mediaTargetIsolation: true,
     mediaOrphanCount: 0,
+    customPathEvidenceFileName: 'browser-custom-paths.pptx',
     tableCellMergesEvidenceFileName: 'browser-table-cell-merges.pptx',
     tableStructureEditingEvidenceFileName: 'browser-table-structure-editing.pptx',
     tableAutoPageEvidenceFileName: 'browser-table-auto-page.pptx',

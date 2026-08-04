@@ -4454,6 +4454,115 @@ function coordinateNativeMapping(id) {
   return ['SlideModel.addText'];
 }
 
+const SHAPE_CUSTOM_PATH_CONTROL_TITLE =
+  'classifies PptxGenJS custom path unit heuristics and malformed runtime output';
+
+const SHAPE_CUSTOM_PATH_ATOMS = Object.freeze([
+  'interface:ShapeProps@property:points',
+  'inline:interface:ShapeProps@property:points@property:points.close',
+  'inline:interface:ShapeProps@property:points@property:points.curve',
+  'inline:interface:ShapeProps@property:points@property:points.curve.hR',
+  'inline:interface:ShapeProps@property:points@property:points.curve.stAng',
+  'inline:interface:ShapeProps@property:points@property:points.curve.swAng',
+  'inline:interface:ShapeProps@property:points@property:points.curve.type',
+  'inline:interface:ShapeProps@property:points@property:points.curve.wR',
+  'inline:interface:ShapeProps@property:points@property:points.curve.x1',
+  'inline:interface:ShapeProps@property:points@property:points.curve.x2',
+  'inline:interface:ShapeProps@property:points@property:points.curve.y1',
+  'inline:interface:ShapeProps@property:points@property:points.curve.y2',
+  'inline:interface:ShapeProps@property:points@property:points.moveTo',
+  'inline:interface:ShapeProps@property:points@property:points.x',
+  'inline:interface:ShapeProps@property:points@property:points.y',
+]);
+
+function shapeCustomPathNative(id) {
+  if (id === 'interface:ShapeProps@property:points') {
+    return ['CustomGeometry', 'CustomGeometryPath', 'SlideModel.addCustomShape'];
+  }
+  if (id.endsWith('.close')) return ['CustomGeometryCommand.close'];
+  if (id.endsWith('.moveTo')) return ['CustomGeometryCommand.moveTo'];
+  if (id.endsWith('.curve.type')) return ['CustomGeometryCommand.kind'];
+  if (/\.curve\.(?:hR|stAng|swAng|wR)$/u.test(id)) {
+    return ['CustomGeometryCommand.arcTo'];
+  }
+  if (/\.curve\.(?:x2|y2)$/u.test(id)) {
+    return ['CustomGeometryCommand.cubicBezierTo'];
+  }
+  if (/\.curve\.(?:x1|y1)$/u.test(id)) {
+    return [
+      'CustomGeometryCommand.cubicBezierTo',
+      'CustomGeometryCommand.quadraticBezierTo',
+    ];
+  }
+  if (id.endsWith('.curve')) return ['CustomGeometryCommand'];
+  return ['CustomGeometryPoint'];
+}
+
+function shapeCustomPathEntry(id) {
+  return {
+    id,
+    status: 'deliberate-difference',
+    native: shapeCustomPathNative(id),
+    evidence: {
+      code: [
+        {
+          path: 'packages/model/src/custom-geometry.ts',
+          pattern: 'export type CustomGeometryCommand =',
+        },
+        {
+          path: 'packages/model/src/custom-geometry.internal.ts',
+          pattern: 'function normalizeCommand(value: unknown, context: string)',
+        },
+        {
+          path: 'packages/model/src/slide.ts',
+          pattern: '  addCustomShape(',
+        },
+      ],
+      tests: [
+        {
+          path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+          title: 'imports every legal PptxGenJS custom path command as native geometry',
+        },
+        {
+          path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+          title: SHAPE_CUSTOM_PATH_CONTROL_TITLE,
+        },
+        {
+          path: 'packages/model/src/model.test.ts',
+          title: 'creates detached styled, multi-path, and empty custom shapes before extensions',
+        },
+        {
+          path: 'packages/sdk/src/index.test.ts',
+          title: 'creates and reopens styled custom geometry shapes through the public SDK',
+        },
+      ],
+      package: [{
+        path: 'scripts/smoke-npm-package.mjs',
+        pattern: 'const customGeometryPaths =',
+      }],
+      ooxml: [{
+        path: 'packages/sdk/src/index.test.ts',
+        pattern: 'creates and reopens styled custom geometry shapes through the public SDK',
+      }],
+      clients: [{
+        path: 'scripts/playwright-browser-smoke.js',
+        pattern: 'const browserCustomPathState = {',
+      }],
+    },
+    control: {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      pattern: SHAPE_CUSTOM_PATH_CONTROL_TITLE,
+    },
+    serialization: true,
+    client: true,
+    note: 'Native covers every legal path command through the dedicated strict CustomGeometry command union and addCustomShape API, using explicit OOXML values or unit helpers instead of PptxGenJS points, implicit-unit heuristics, coercion, omission, and malformed-output passthrough.',
+  };
+}
+
+const SHAPE_CUSTOM_PATH_FAMILY_ENTRIES = Object.freeze(
+  SHAPE_CUSTOM_PATH_ATOMS.map((id) => shapeCustomPathEntry(id)),
+);
+
 function deepFreeze(value, seen = new Set()) {
   if (value === null || typeof value !== 'object' || seen.has(value)) return value;
   seen.add(value);
@@ -4553,6 +4662,7 @@ export const PPTXGENJS_SURFACE_MANIFEST = deepFreeze({
     ...IMAGE_SOURCE_SIZING_TRANSFORM_FAMILY_ENTRIES,
     ...MEDIA_CORE_FAMILY_ENTRIES,
     ...PLACEHOLDER_CORE_FAMILY_ENTRIES,
+    ...SHAPE_CUSTOM_PATH_FAMILY_ENTRIES,
     ...CHART_AREA_FILL_LINE_ENTRIES,
     ...DEPRECATED_CHART_AREA_ALIAS_ENTRIES,
     ...CHART_CREATION_SUPPORTED_ENTRIES,
