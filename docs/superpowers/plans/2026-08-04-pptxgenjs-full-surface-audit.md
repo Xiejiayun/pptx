@@ -61,11 +61,12 @@ Each atom has this frozen shape:
   readonly: false,
   deprecated: false,
   signatures: [],
+  deprecatedSignatures: [],
   typeText: 'Margin',
 }
 ```
 
-Root methods use `class:<root>#<name>`, root properties use `class:<root>@property:<name>`, slide methods use `method:Slide#<name>`, and slide properties use `property:Slide#<name>`. Method overloads share one atom and store all normalized signatures. Enum and string-literal members use `union:<name>#<canonical-value>`. Inline records use `inline:<owning-atom-id>@property:<dot-path>`, so declaration reformatting cannot change their IDs.
+Root methods use `class:<root>#<name>`, root properties use `class:<root>@property:<name>`, slide methods use `method:Slide#<name>`, and slide properties use `property:Slide#<name>`. Method overloads share one atom, store all normalized signatures, and separately retain deprecated signatures. Named enum/union members use `union:<name>#<canonical-value>`; direct option unions use `union:<owning-atom-id>#<canonical-value>` and add `@path:<dot-path>` when a method parameter or nested property must disambiguate the owner. Inline records use `inline:<owning-atom-id>@property:<dot-path>`, so declaration reformatting cannot change their IDs.
 
 - [ ] **Step 1: Write failing resolver, AST, reachability, and stability tests**
 
@@ -128,7 +129,7 @@ Sort atoms by `id`, sort overload signatures by normalized text, freeze all outp
 
 ```bash
 node --test scripts/pptxgenjs-surface-declarations.test.mjs
-node --input-type=module -e "import ts from 'typescript'; import { readFile } from 'node:fs/promises'; import { extractPptxGenJSPublicSurface, resolvePptxGenJSPackage } from './scripts/pptxgenjs-surface-declarations.mjs'; const pkg = await resolvePptxGenJSPackage('./packages/pptxgenjs-adapter/package.json'); const sourceText = await readFile(pkg.declarationPath, 'utf8'); const result = extractPptxGenJSPublicSurface({ sourceText, fileName: 'types/index.d.ts', typescript: ts }); if (result.atoms.length < 500) throw new Error('unexpectedly small public surface'); console.log(JSON.stringify({ version: pkg.version, atoms: result.atoms.length }));"
+node --input-type=module -e "import ts from 'typescript'; import { readFile } from 'node:fs/promises'; import { extractPptxGenJSPublicSurface, resolvePptxGenJSPackage } from './scripts/pptxgenjs-surface-declarations.mjs'; const pkg = await resolvePptxGenJSPackage('./packages/pptxgenjs-adapter/package.json'); const sourceText = await readFile(pkg.declarationPath, 'utf8'); const result = extractPptxGenJSPublicSurface({ sourceText, fileName: 'types/index.d.ts', typescript: ts }); if (result.atoms.length !== 1774) throw new Error('unexpected PptxGenJS 4.0.1 public surface'); console.log(JSON.stringify({ version: pkg.version, atoms: result.atoms.length }));"
 node --check scripts/pptxgenjs-surface-declarations.mjs
 node --check scripts/pptxgenjs-surface-declarations.test.mjs
 git diff --check
