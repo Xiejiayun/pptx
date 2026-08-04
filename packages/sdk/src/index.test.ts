@@ -9951,14 +9951,21 @@ describe('PptxDocument vertical slice', () => {
           name: `${format} chart`,
           altText: 'Quarterly chart',
           x: inches(2),
+          y: inches(3),
           width: inches(7),
+          height: inches(4),
         } : {}));
       }
       expect(slide.shapes.filter((shape) => shape instanceof ChartModel)).toEqual(created);
       expect(created[0]).toBeInstanceOf(ChartModel);
       expect(created[0]?.name).toBe(`${format} chart`);
       expect(created[0]?.altText).toBe('Quarterly chart');
-      expect(created[0]?.transform).toMatchObject({ x: inches(2), width: inches(7) });
+      expect(created[0]?.transform).toMatchObject({
+        x: inches(2),
+        y: inches(3),
+        width: inches(7),
+        height: inches(4),
+      });
       expect(created.every((chart) => chart.workbookPartUri !== undefined)).toBe(true);
       const combo = await document.addChart(0, [
         {
@@ -9998,13 +10005,61 @@ describe('PptxDocument vertical slice', () => {
           series: [{ name: 'Trend edited', categories: ['Q1', 'Q2'], values: [16, 26] }],
         },
       ] });
+      const presentation = created[6]!;
+      const presentationGroup = presentation.definition?.groups[0];
+      if (presentationGroup?.type !== 'pie') throw new Error('Expected created pie chart');
+      await presentation.replaceDefinition({
+        groups: [{
+          type: 'pie',
+          series: presentationGroup.series,
+          options: {
+            firstSliceAngle: 45,
+            dataLabels: {
+              face: 'Aptos',
+              size: 11,
+              bold: true,
+              color: { kind: 'scheme', value: 'accent1' },
+              showCategoryName: true,
+              showPercent: true,
+              position: 'bestFit',
+              numberFormat: '0%',
+              showLeaderLines: true,
+            },
+          },
+        }],
+        options: {
+          title: { text: `Presentation ${format}`, size: 18, bold: true },
+          legend: { position: 'topRight', size: 10 },
+          displayBlanksAs: 'span',
+        },
+      });
       const duplicate = document.duplicateSlide(0);
-      const duplicateCombo = duplicate.shapes.filter(
+      const duplicateCharts = duplicate.shapes.filter(
         (shape): shape is ChartModel => shape instanceof ChartModel,
-      ).at(-1)!;
+      );
+      const duplicateCombo = duplicateCharts.at(-1)!;
+      const duplicatePresentation = duplicateCharts[6]!;
       expect(duplicateCombo.definition).toEqual(combo.definition);
       expect(duplicateCombo.chartPartUri).not.toBe(combo.chartPartUri);
       expect(duplicateCombo.workbookPartUri).not.toBe(combo.workbookPartUri);
+      expect(duplicatePresentation.definition).toEqual(presentation.definition);
+      expect(duplicatePresentation.definition?.groups[0]?.options?.dataLabels).toMatchObject({
+        showCategoryName: true,
+        showPercent: true,
+        position: 'bestFit',
+      });
+      const editedPresentation = presentation.definition!;
+      const editedPresentationGroup = editedPresentation.groups[0];
+      if (editedPresentationGroup?.type !== 'pie') throw new Error('Expected edited pie chart');
+      await presentation.replaceDefinition({
+        groups: [{
+          type: 'pie',
+          series: editedPresentationGroup.series,
+          options: { firstSliceAngle: 45 },
+        }],
+        options: editedPresentation.options,
+      });
+      expect(presentation.definition?.groups[0]?.options?.dataLabels).toBeUndefined();
       expect(validatePackage(document.opcPackage).filter(({ severity }) => severity === 'error'))
         .toEqual([]);
 
@@ -10015,6 +10070,16 @@ describe('PptxDocument vertical slice', () => {
       const singleCharts = charts.slice(0, types.length);
       const reopenedCombo = charts.at(-1)!;
       expect(reopened.format).toBe(format);
+      expect(singleCharts[0]).toMatchObject({
+        name: `${format} chart`,
+        altText: 'Quarterly chart',
+        transform: {
+          x: inches(2),
+          y: inches(3),
+          width: inches(7),
+          height: inches(4),
+        },
+      });
       expect(singleCharts.map((chart) => chart.definition?.groups[0]?.type)).toEqual(types);
       expect(singleCharts.map((chart) => chart.series[0]?.values)).toEqual(types.map((type) =>
         type === 'bar'
@@ -10028,6 +10093,12 @@ describe('PptxDocument vertical slice', () => {
         ?.series[0]?.xValues).toEqual([5, 6]);
       expect(singleCharts.find((chart) => chart.definition?.groups[0]?.type === 'bubble')
         ?.series[0]?.sizes).toEqual([7, 8]);
+      expect(singleCharts[6]?.definition?.groups[0]?.options).toEqual({ firstSliceAngle: 45 });
+      expect(singleCharts[6]?.definition?.options).toMatchObject({
+        title: { text: `Presentation ${format}`, size: 18, bold: true },
+        legend: { position: 'topRight', size: 10 },
+        displayBlanksAs: 'span',
+      });
       expect(reopenedCombo.definition?.groups.map(({ type, axis }) => [type, axis])).toEqual([
         ['bar', 'primary'],
         ['line', 'secondary'],
@@ -10040,6 +10111,16 @@ describe('PptxDocument vertical slice', () => {
         (shape): shape is ChartModel => shape instanceof ChartModel,
       ).at(-1)!;
       expect(reopenedDuplicateCombo.definition).toEqual(reopenedCombo.definition);
+      const reopenedDuplicatePresentation = reopened.slides[1]!.shapes.filter(
+        (shape): shape is ChartModel => shape instanceof ChartModel,
+      )[6]!;
+      expect(reopenedDuplicatePresentation.definition?.groups[0]?.options?.dataLabels)
+        .toMatchObject({
+          showCategoryName: true,
+          showPercent: true,
+          position: 'bestFit',
+          numberFormat: '0%',
+        });
       for (const chart of charts) {
         expect(reopened.opcPackage.requirePart(chart.workbookPartUri!).contentType)
           .toBe('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');

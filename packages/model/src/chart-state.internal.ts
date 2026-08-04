@@ -216,7 +216,7 @@ function readGroup(
   if (!expectedAxes.includes(axisIds.length)) {
     unsupported(`${group.localName} has an unsupported axis reference count`);
   }
-  const options = readGroupOptions(xml, group, orderedSeries, type);
+  const options = readGroupOptions(xml, group, orderedSeries, series, type);
   return {
     type,
     series,
@@ -612,6 +612,7 @@ function readGroupOptions(
   xml: LosslessXmlDocument,
   group: XmlElement,
   seriesElements: readonly XmlElement[],
+  series: readonly ChartSeriesInput[],
   type: ChartType,
 ): ChartGroupOptions | undefined {
   const result: Record<string, unknown> = {};
@@ -620,7 +621,23 @@ function readGroupOptions(
   if (varyColors !== undefined && varyColors !== defaultVaryColors) result.varyColors = varyColors;
 
   const dataLabels = optionalChartChild(group, 'dLbls');
-  if (dataLabels) result.dataLabels = readDataLabelOptions(dataLabels);
+  const groupDataLabels = dataLabels ? readDataLabelOptions(dataLabels) : undefined;
+  const promotedDataLabels = seriesElements.map((element, index) =>
+    readPromotableSeriesDataLabels(
+      element,
+      series[index]?.values.length ?? 0,
+      groupDataLabels,
+    ));
+  if (
+    promotedDataLabels.length > 0
+    && promotedDataLabels.every((options): options is ChartDataLabelOptions => options !== undefined)
+    && promotedDataLabels.every((options) =>
+      dataLabelOptionsEqual(options, promotedDataLabels[0]!))
+  ) {
+    result.dataLabels = promotedDataLabels[0]!;
+  } else if (groupDataLabels) {
+    result.dataLabels = groupDataLabels;
+  }
   const seriesOptions = seriesElements.map((series) => readSeriesOptions(series));
   if (seriesOptions.some((options) => Object.keys(options).length > 0)) {
     result.series = seriesOptions;
@@ -841,7 +858,24 @@ function readAxisOptions(
 }
 
 function readDataLabelOptions(labels: XmlElement): ChartDataLabelOptions {
-  const result: Record<string, unknown> = { ...readFontOptions(labels, false) };
+  return applyDataLabelLayer({}, readDataLabelLayer(labels));
+}
+
+function readDataLabelLayer(labels: XmlElement): ChartDataLabelOptions {
+  const textProperties = optionalChartChild(labels, 'txPr');
+  const result: Record<string, unknown> = {
+    ...(textProperties ? readFontOptions(textProperties, false) : {}),
+  };
+  const properties = textProperties
+    ? drawingDescendants(textProperties, 'defRPr')[0]
+      ?? drawingDescendants(textProperties, 'rPr')[0]
+    : undefined;
+  if (properties) {
+    const bold = readBooleanAttribute(properties, 'b');
+    const italic = readBooleanAttribute(properties, 'i');
+    if (bold !== undefined) result.bold = bold;
+    if (italic !== undefined) result.italic = italic;
+  }
   const flags: readonly [string, keyof ChartDataLabelOptions][] = [
     ['showVal', 'showValue'],
     ['showCatName', 'showCategoryName'],
@@ -851,27 +885,251 @@ function readDataLabelOptions(labels: XmlElement): ChartDataLabelOptions {
     ['showLeaderLines', 'showLeaderLines'],
   ];
   for (const [elementName, property] of flags) {
-    if (readChildBooleanValue(labels, elementName) === true) result[property] = true;
+    const value = readChildBooleanValue(labels, elementName);
+    if (value !== undefined) result[property] = value;
   }
   const position = readChildStringValue(labels, 'dLblPos');
   const mappedPosition = position === undefined
     ? undefined
-    : ({
-        bestFit: 'bestFit',
-        b: 'bottom',
-        ctr: 'center',
-        inBase: 'insideBase',
-        inEnd: 'insideEnd',
-        l: 'left',
-        outEnd: 'outsideEnd',
-        r: 'right',
-        t: 'top',
-      } as Readonly<Record<string, ChartDataLabelOptions['position']>>)[position];
+    : DATA_LABEL_POSITIONS[position];
   if (mappedPosition !== undefined) result.position = mappedPosition;
   const format = optionalChartChild(labels, 'numFmt');
   const formatCode = format ? readStringAttribute(format, 'formatCode') : undefined;
   if (formatCode !== undefined) result.numberFormat = formatCode;
   return result as ChartDataLabelOptions;
+}
+
+export function readPromotableSeriesDataLabels(
+  series: XmlElement,
+  valueCount: number,
+  inherited: Readonly<ChartDataLabelOptions> | undefined,
+): ChartDataLabelOptions | undefined {
+  const containers = chartChildren(series, 'dLbls');
+  if (containers.length !== 1) return undefined;
+  const labels = containers[0]!;
+  if (!isSafeDataLabelElement(labels, true)) return undefined;
+  const seriesOptions = applyDataLabelLayer(inherited ?? {}, readDataLabelLayer(labels));
+  const points = chartChildren(labels, 'dLbl');
+  if (points.length === 0) return seriesOptions;
+  if (points.length !== valueCount) return undefined;
+
+  const indexed = points.map((point) => {
+    if (!isSafeDataLabelElement(point, false)) return undefined;
+    const indexes = chartChildren(point, 'idx');
+    const value = indexes.length === 1 ? readStringAttribute(indexes[0]!, 'val') : undefined;
+    if (
+      value === undefined
+      || !CANONICAL_INDEX_PATTERN.test(value)
+      || !hasOnlyOrdinaryAttributes(indexes[0]!, ['val'])
+    ) return undefined;
+    const index = Number(value);
+    if (!Number.isSafeInteger(index) || index >= valueCount) return undefined;
+    return { index, options: applyDataLabelLayer(seriesOptions, readDataLabelLayer(point)) };
+  });
+  if (indexed.some((entry) => entry === undefined)) return undefined;
+  const resolved = indexed as readonly {
+    readonly index: number;
+    readonly options: ChartDataLabelOptions;
+  }[];
+  if (new Set(resolved.map(({ index }) => index)).size !== valueCount) return undefined;
+  if (!resolved.every(({ index }) => index >= 0 && index < valueCount)) return undefined;
+  const ordered = [...resolved].sort((left, right) => left.index - right.index);
+  if (!ordered.every(({ index }, expected) => index === expected)) return undefined;
+  return ordered.every(({ options }) => dataLabelOptionsEqual(options, ordered[0]!.options))
+    ? ordered[0]!.options
+    : undefined;
+}
+
+function applyDataLabelLayer(
+  inherited: Readonly<ChartDataLabelOptions>,
+  layer: Readonly<ChartDataLabelOptions>,
+): ChartDataLabelOptions {
+  const result = { ...inherited } as Record<string, unknown>;
+  for (const [key, value] of Object.entries(layer)) {
+    if (typeof value === 'boolean' && value === false) delete result[key];
+    else result[key] = value;
+  }
+  return result as ChartDataLabelOptions;
+}
+
+function dataLabelOptionsEqual(
+  left: Readonly<ChartDataLabelOptions>,
+  right: Readonly<ChartDataLabelOptions>,
+): boolean {
+  const leftRecord = left as Readonly<Record<string, unknown>>;
+  const rightRecord = right as Readonly<Record<string, unknown>>;
+  const leftKeys = Object.keys(leftRecord).sort();
+  const rightKeys = Object.keys(rightRecord).sort();
+  return leftKeys.length === rightKeys.length
+    && leftKeys.every((key, index) =>
+      key === rightKeys[index] && dataLabelValueEqual(leftRecord[key], rightRecord[key]));
+}
+
+function dataLabelValueEqual(left: unknown, right: unknown): boolean {
+  if (left === right) return true;
+  if (!left || !right || typeof left !== 'object' || typeof right !== 'object') return false;
+  const leftRecord = left as Readonly<Record<string, unknown>>;
+  const rightRecord = right as Readonly<Record<string, unknown>>;
+  const leftKeys = Object.keys(leftRecord).sort();
+  const rightKeys = Object.keys(rightRecord).sort();
+  return leftKeys.length === rightKeys.length
+    && leftKeys.every((key, index) =>
+      key === rightKeys[index] && dataLabelValueEqual(leftRecord[key], rightRecord[key]));
+}
+
+const DATA_LABEL_SCALAR_CHILDREN = new Set([
+  'numFmt',
+  'spPr',
+  'txPr',
+  'dLblPos',
+  'showLegendKey',
+  'showVal',
+  'showCatName',
+  'showSerName',
+  'showPercent',
+  'showBubbleSize',
+  'showLeaderLines',
+  'extLst',
+]);
+
+function isSafeDataLabelElement(element: XmlElement, allowPoints: boolean): boolean {
+  if (ordinaryAttributes(element).length > 0) return false;
+  const children = elementChildren(element);
+  const allowed = allowPoints
+    ? new Set([...DATA_LABEL_SCALAR_CHILDREN, 'dLbl'])
+    : new Set([...DATA_LABEL_SCALAR_CHILDREN, 'idx']);
+  if (children.some((child) =>
+    elementNamespaceUri(child) !== CHART_NAMESPACE || !allowed.has(child.localName))) return false;
+  for (const name of allowed) {
+    if (name !== 'dLbl' && chartChildren(element, name).length > 1) return false;
+  }
+  if (!allowPoints && chartChildren(element, 'idx').length !== 1) return false;
+  for (const child of children) {
+    if (child.localName === 'dLbl') continue;
+    if (child.localName === 'idx') {
+      if (elementChildren(child).length > 0 || !hasOnlyOrdinaryAttributes(child, ['val'])) return false;
+      continue;
+    }
+    if (child.localName === 'spPr' || child.localName === 'extLst') {
+      if (elementChildren(child).length > 0 || ordinaryAttributes(child).length > 0) return false;
+      continue;
+    }
+    if (child.localName === 'txPr') {
+      if (!isSafeDataLabelTextProperties(child)) return false;
+      continue;
+    }
+    if (child.localName === 'numFmt') {
+      const formatCode = readStringAttribute(child, 'formatCode');
+      const sourceLinked = readBooleanAttribute(child, 'sourceLinked');
+      if (
+        !formatCode
+        || (sourceLinked !== undefined && sourceLinked !== false)
+        || elementChildren(child).length > 0
+        || !hasOnlyOrdinaryAttributes(child, ['formatCode', 'sourceLinked'])
+      ) return false;
+      continue;
+    }
+    if (child.localName === 'dLblPos') {
+      const position = readStringAttribute(child, 'val');
+      if (
+        position === undefined
+        || !Object.hasOwn(DATA_LABEL_POSITIONS, position)
+        || elementChildren(child).length > 0
+        || !hasOnlyOrdinaryAttributes(child, ['val'])
+      ) return false;
+      continue;
+    }
+    const flag = readBooleanAttribute(child, 'val');
+    if (
+      flag === undefined
+      || (child.localName === 'showLegendKey' && flag !== false)
+      || elementChildren(child).length > 0
+      || !hasOnlyOrdinaryAttributes(child, ['val'])
+    ) return false;
+  }
+  return true;
+}
+
+const DATA_LABEL_POSITIONS: Readonly<Record<string, ChartDataLabelOptions['position']>> = Object.freeze({
+  bestFit: 'bestFit',
+  b: 'bottom',
+  ctr: 'center',
+  inBase: 'insideBase',
+  inEnd: 'insideEnd',
+  l: 'left',
+  outEnd: 'outsideEnd',
+  r: 'right',
+  t: 'top',
+});
+
+function isSafeDataLabelTextProperties(textProperties: XmlElement): boolean {
+  if (ordinaryAttributes(textProperties).length > 0) return false;
+  const descendants: XmlElement[] = [];
+  const visit = (parent: XmlElement): void => {
+    for (const child of elementChildren(parent)) {
+      descendants.push(child);
+      visit(child);
+    }
+  };
+  visit(textProperties);
+  const allowed = new Set([
+    'bodyPr', 'lstStyle', 'p', 'pPr', 'defRPr', 'rPr', 'solidFill', 'srgbClr', 'schemeClr', 'latin',
+  ]);
+  if (descendants.some((element) =>
+    elementNamespaceUri(element) !== DRAWING_NAMESPACE || !allowed.has(element.localName))) {
+    return false;
+  }
+  if (descendants.filter(({ localName }) => localName === 'defRPr' || localName === 'rPr').length > 1) {
+    return false;
+  }
+  for (const element of descendants) {
+    switch (element.localName) {
+      case 'defRPr':
+      case 'rPr': {
+        if (!hasOnlyOrdinaryAttributes(element, ['sz', 'b', 'i', 'u', 'strike'])) return false;
+        const size = readNumberAttribute(element, 'sz');
+        if (readStringAttribute(element, 'sz') !== undefined && (size === undefined || size <= 0)) return false;
+        if (readStringAttribute(element, 'b') !== undefined && readBooleanAttribute(element, 'b') === undefined) {
+          return false;
+        }
+        if (readStringAttribute(element, 'i') !== undefined && readBooleanAttribute(element, 'i') === undefined) {
+          return false;
+        }
+        const underline = readStringAttribute(element, 'u');
+        const strike = readStringAttribute(element, 'strike');
+        if ((underline !== undefined && underline !== 'none')
+          || (strike !== undefined && strike !== 'noStrike')) return false;
+        break;
+      }
+      case 'srgbClr':
+      case 'schemeClr':
+        if (!hasOnlyOrdinaryAttributes(element, ['val']) || !readStringAttribute(element, 'val')) return false;
+        break;
+      case 'latin':
+        if (!hasOnlyOrdinaryAttributes(element, ['typeface']) || !readStringAttribute(element, 'typeface')) {
+          return false;
+        }
+        break;
+      default:
+        if (ordinaryAttributes(element).length > 0) return false;
+    }
+  }
+  const fills = descendants.filter(({ localName }) => localName === 'solidFill');
+  if (fills.length > 1) return false;
+  if (fills.length === 1) {
+    const parsed = readSimpleFillChoice(fills[0]!, 'a:');
+    if (parsed?.kind !== 'solid' || parsed.transparency !== undefined) return false;
+  }
+  return true;
+}
+
+function ordinaryAttributes(element: XmlElement): readonly XmlAttribute[] {
+  return element.attributes.filter(({ name }) => name !== 'xmlns' && !name.startsWith('xmlns:'));
+}
+
+function hasOnlyOrdinaryAttributes(element: XmlElement, allowed: readonly string[]): boolean {
+  const allowedSet = new Set(allowed);
+  return ordinaryAttributes(element).every(({ name }) => allowedSet.has(name));
 }
 
 function readDataTableOptions(

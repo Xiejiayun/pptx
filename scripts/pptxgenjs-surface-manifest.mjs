@@ -867,6 +867,201 @@ const CHART_CREATION_DIFFERENCE_ENTRIES = Object.freeze([
   ),
 ]);
 
+const CHART_PRESENTATION_CONTROL_TITLE =
+  'projects and edits representative PptxGenJS chart options semantically';
+const CHART_PRESENTATION_IMPORTER_CONTROL_TITLE =
+  'promotes uniform PptxGenJS point labels and preserves custom scatter labels';
+const CHART_PRESENTATION_OOXML_TITLE =
+  'creates and reopens all native chart types through the public SDK in all six formats';
+const CHART_PRESENTATION_PACKAGE_PATTERN =
+  'const chartPresentation91Probe = await runChartPresentation91LifecycleProbe(';
+const CHART_PRESENTATION_FRAME_IDS = new Set([
+  'interface:IChartOpts@property:altText',
+  'interface:IChartOpts@property:h',
+  'interface:IChartOpts@property:objectName',
+  'interface:IChartOpts@property:w',
+  'interface:IChartOpts@property:x',
+  'interface:IChartOpts@property:y',
+]);
+const CHART_PRESENTATION_NOTES = Object.freeze({
+  supported: 'Native exposes and preserves the same effective chart-presentation semantic through its strict nested chart model.',
+  'deliberate-difference': 'Native preserves the effective presentation semantic through a strict nested field, explicit token, or corrected canonical representation instead of the permissive PptxGenJS top-level option.',
+});
+
+function chartPresentationEvidence(id, importerFix) {
+  if (CHART_PRESENTATION_FRAME_IDS.has(id)) {
+    return {
+      code: [
+        { path: 'packages/model/src/chart.ts', pattern: 'export interface AddChartOptions {' },
+        { path: 'packages/model/src/chart-render.internal.ts', pattern: 'export function normalizeAddChartOptions(' },
+        { path: 'packages/model/src/chart-render.internal.ts', pattern: 'export function renderChartGraphicFrame(' },
+      ],
+      tests: [{
+        path: 'packages/model/src/chart-render.internal.test.ts',
+        title: 'normalizes, freezes, escapes, and renders exact frame placement',
+      }],
+      package: [{
+        path: 'scripts/smoke-npm-package.mjs',
+        pattern: 'const chartPresentationFrame = reopenedAreaChart?.name',
+      }],
+      ooxml: [{ path: 'packages/sdk/src/index.test.ts', pattern: CHART_PRESENTATION_OOXML_TITLE }],
+      clients: [{
+        path: 'scripts/playwright-browser-smoke.js',
+        pattern: "const chartPresentationFrame = reopenedAreaChart?.name === 'Browser area chart'",
+      }],
+    };
+  }
+  const controlTitle = importerFix
+    ? CHART_PRESENTATION_IMPORTER_CONTROL_TITLE
+    : CHART_PRESENTATION_CONTROL_TITLE;
+  return {
+    code: [
+      { path: 'packages/model/src/chart.ts', pattern: 'export interface ChartOptions {' },
+      { path: 'packages/model/src/chart-render.internal.ts', pattern: 'export function renderChartPart(' },
+      { path: 'packages/model/src/chart-state.internal.ts', pattern: 'export function readChartState(' },
+      { path: 'packages/model/src/chart-edit.internal.ts', pattern: 'function patchChartOptions(' },
+    ],
+    tests: [{ path: 'packages/pptxgenjs-adapter/src/index.test.ts', title: controlTitle }],
+    package: [{
+      path: 'scripts/smoke-npm-package.mjs',
+      pattern: importerFix
+        ? CHART_PRESENTATION_PACKAGE_PATTERN
+        : 'const nativeCharts = reopenedNativeChartModels.length === 19',
+    }],
+    ooxml: [{ path: 'packages/sdk/src/index.test.ts', pattern: CHART_PRESENTATION_OOXML_TITLE }],
+    clients: [{
+      path: 'scripts/playwright-browser-smoke.js',
+      pattern: importerFix
+        ? 'const chartPresentation91Probe = await chartPresentationProbeModule'
+        : 'const nativeCharts = reopenedCharts.length === 19',
+    }],
+  };
+}
+
+function chartPresentationEntry(status, { id, native, importerNote }) {
+  const importerFix = importerNote !== undefined;
+  const controlTitle = importerFix
+    ? CHART_PRESENTATION_IMPORTER_CONTROL_TITLE
+    : CHART_PRESENTATION_CONTROL_TITLE;
+  return {
+    id,
+    status,
+    native,
+    evidence: chartPresentationEvidence(id, importerFix),
+    ...(status === 'deliberate-difference' ? {
+      control: { path: 'packages/pptxgenjs-adapter/src/index.test.ts', pattern: controlTitle },
+    } : {}),
+    serialization: true,
+    client: true,
+    note: importerNote ?? CHART_PRESENTATION_NOTES[status],
+  };
+}
+
+const CHART_PRESENTATION_SUPPORTED_ATOMS = Object.freeze([
+  { id: 'interface:IChartOpts@property:altText', native: ['AddChartOptions.altText'] },
+  { id: 'interface:IChartOpts@property:barGrouping', native: ['ChartBarGroupOptions.grouping', 'ChartBar3DGroupOptions.grouping'] },
+  { id: 'interface:IChartOpts@property:dataLabelFontBold', native: ['ChartDataLabelOptions.bold'] },
+  { id: 'interface:IChartOpts@property:dataLabelFontItalic', native: ['ChartDataLabelOptions.italic'] },
+  { id: 'interface:IChartOpts@property:dataLabelFontSize', native: ['ChartDataLabelOptions.size'] },
+  { id: 'interface:IChartOpts@property:dataTableFontSize', native: ['ChartDataTableOptions.size'] },
+  { id: 'interface:IChartOpts@property:holeSize', native: ['ChartDoughnutGroupOptions.holeSize'] },
+  { id: 'interface:IChartOpts@property:legendFontSize', native: ['ChartLegendOptions.size'] },
+  { id: 'interface:IChartOpts@property:lineSmooth', native: ['ChartLineGroupOptions.smooth', 'ChartScatterGroupOptions.smooth'] },
+  { id: 'interface:IChartOpts@property:radarStyle', native: ['ChartRadarGroupOptions.style'] },
+  { id: 'interface:IChartOpts@property:showDataTable', native: ['ChartDataTableOptions.visible'] },
+  { id: 'interface:IChartOpts@property:showDataTableHorzBorder', native: ['ChartDataTableOptions.showHorizontalBorder'] },
+  { id: 'interface:IChartOpts@property:showDataTableKeys', native: ['ChartDataTableOptions.showLegendKeys'] },
+  { id: 'interface:IChartOpts@property:showDataTableOutline', native: ['ChartDataTableOptions.showOutline'] },
+  { id: 'interface:IChartOpts@property:showDataTableVertBorder', native: ['ChartDataTableOptions.showVerticalBorder'] },
+  { id: 'interface:IChartOpts@property:showLeaderLines', native: ['ChartDataLabelOptions.showLeaderLines'] },
+  { id: 'interface:IChartOpts@property:showLegend', native: ['ChartLegendOptions.visible'] },
+  { id: 'interface:IChartOpts@property:showPercent', native: ['ChartDataLabelOptions.showPercent'], importerNote: 'Native preserves the same effective percent-label boolean after resolving PptxGenJS series-level and per-point pie label overrides.' },
+  { id: 'interface:IChartOpts@property:showTitle', native: ['ChartTitleOptions.visible'] },
+  { id: 'interface:IChartOpts@property:showValue', native: ['ChartDataLabelOptions.showValue'] },
+  { id: 'interface:IChartOpts@property:title', native: ['ChartTitleOptions.text'] },
+  { id: 'interface:IChartOpts@property:titleBold', native: ['ChartTitleOptions.bold'] },
+  { id: 'interface:IChartOpts@property:titleFontSize', native: ['ChartTitleOptions.size'] },
+  { id: 'union:interface:IChartOpts@property:radarStyle#filled', native: ['ChartRadarGroupOptions.style'] },
+  { id: 'union:interface:IChartOpts@property:radarStyle#marker', native: ['ChartRadarGroupOptions.style'] },
+  { id: 'union:interface:IChartOpts@property:radarStyle#standard', native: ['ChartRadarGroupOptions.style'] },
+]);
+
+const CHART_PRESENTATION_DIFFERENCE_ATOMS = Object.freeze([
+  { id: 'interface:IChartOpts@property:barDir', native: ['ChartBarGroupOptions.direction', 'ChartBar3DGroupOptions.direction'] },
+  { id: 'interface:IChartOpts@property:barGapDepthPct', native: ['ChartBar3DGroupOptions.gapDepth'] },
+  { id: 'interface:IChartOpts@property:barGapWidthPct', native: ['ChartBarGroupOptions.gapWidth', 'ChartBar3DGroupOptions.gapWidth'] },
+  { id: 'interface:IChartOpts@property:barOverlapPct', native: ['ChartBarGroupOptions.overlap'] },
+  { id: 'interface:IChartOpts@property:chartColors', native: ['ChartOptions.colors'] },
+  { id: 'interface:IChartOpts@property:chartColorsOpacity', native: ['ChartCommonGroupOptions.series', 'ChartSeriesOptions.fill', 'ChartSeriesOptions.line'] },
+  { id: 'interface:IChartOpts@property:dataLabelColor', native: ['ChartDataLabelOptions.color'] },
+  { id: 'interface:IChartOpts@property:dataLabelFontFace', native: ['ChartDataLabelOptions.face'] },
+  { id: 'interface:IChartOpts@property:dataLabelFormatCode', native: ['ChartDataLabelOptions.numberFormat'] },
+  { id: 'interface:IChartOpts@property:dataLabelPosition', native: ['ChartDataLabelOptions.position'] },
+  { id: 'interface:IChartOpts@property:dataTableFormatCode', native: ['ChartDataTableOptions.numberFormat'] },
+  { id: 'interface:IChartOpts@property:displayBlanksAs', native: ['ChartOptions.displayBlanksAs'] },
+  { id: 'interface:IChartOpts@property:firstSliceAng', native: ['ChartPieGroupOptions.firstSliceAngle', 'ChartDoughnutGroupOptions.firstSliceAngle'] },
+  { id: 'interface:IChartOpts@property:h', native: ['AddChartOptions.height'] },
+  { id: 'interface:IChartOpts@property:legendColor', native: ['ChartLegendOptions.color'] },
+  { id: 'interface:IChartOpts@property:legendFontFace', native: ['ChartLegendOptions.face'] },
+  { id: 'interface:IChartOpts@property:legendPos', native: ['ChartLegendOptions.position'] },
+  { id: 'interface:IChartOpts@property:lineDash', native: ['ChartSeriesOptions.line', 'ShapeLine.dash'] },
+  { id: 'interface:IChartOpts@property:lineDataSymbol', native: ['ChartMarkerOptions.shape'] },
+  { id: 'interface:IChartOpts@property:lineDataSymbolLineColor', native: ['ChartMarkerOptions.line', 'ShapeLine.color'] },
+  { id: 'interface:IChartOpts@property:lineDataSymbolLineSize', native: ['ChartMarkerOptions.line', 'ShapeLine.width'] },
+  { id: 'interface:IChartOpts@property:lineDataSymbolSize', native: ['ChartMarkerOptions.size'] },
+  { id: 'interface:IChartOpts@property:lineSize', native: ['ChartSeriesOptions.line', 'ShapeLine.width'] },
+  { id: 'interface:IChartOpts@property:objectName', native: ['AddChartOptions.name'] },
+  { id: 'interface:IChartOpts@property:showLabel', native: ['ChartDataLabelOptions.showCategoryName'], importerNote: 'PptxGenJS overloads showLabel across chart families and stores pie labels under series-level data labels; native exposes the explicit showCategoryName semantic and promotes only uniform effective series state.' },
+  { id: 'interface:IChartOpts@property:showSerName', native: ['ChartDataLabelOptions.showSeriesName'] },
+  { id: 'interface:IChartOpts@property:titleColor', native: ['ChartTitleOptions.color'] },
+  { id: 'interface:IChartOpts@property:titleFontFace', native: ['ChartTitleOptions.face'] },
+  { id: 'interface:IChartOpts@property:titlePos', native: ['ChartTitleOptions.position', 'ChartTitlePositionOptions'] },
+  { id: 'interface:IChartOpts@property:titleRotate', native: ['ChartTitleOptions.rotation'] },
+  { id: 'interface:IChartOpts@property:v3DPerspective', native: ['ChartOptions.perspective'] },
+  { id: 'interface:IChartOpts@property:v3DRAngAx', native: ['ChartOptions.rightAngleAxes'] },
+  { id: 'interface:IChartOpts@property:v3DRotX', native: ['ChartOptions.rotationX'] },
+  { id: 'interface:IChartOpts@property:v3DRotY', native: ['ChartOptions.rotationY'] },
+  { id: 'interface:IChartOpts@property:w', native: ['AddChartOptions.width'] },
+  { id: 'interface:IChartOpts@property:x', native: ['AddChartOptions.x'] },
+  { id: 'interface:IChartOpts@property:y', native: ['AddChartOptions.y'] },
+  { id: 'union:interface:IChartOpts@property:dataLabelPosition#b', native: ['ChartDataLabelOptions.position'] },
+  { id: 'union:interface:IChartOpts@property:dataLabelPosition#bestFit', native: ['ChartDataLabelOptions.position'], importerNote: 'PptxGenJS writes bestFit as uniform per-point pie labels; native promotes the effective value into strict group ChartDataLabelOptions and canonicalizes edits at group scope.' },
+  { id: 'union:interface:IChartOpts@property:dataLabelPosition#ctr', native: ['ChartDataLabelOptions.position'] },
+  { id: 'union:interface:IChartOpts@property:dataLabelPosition#inEnd', native: ['ChartDataLabelOptions.position'] },
+  { id: 'union:interface:IChartOpts@property:dataLabelPosition#l', native: ['ChartDataLabelOptions.position'] },
+  { id: 'union:interface:IChartOpts@property:dataLabelPosition#outEnd', native: ['ChartDataLabelOptions.position'] },
+  { id: 'union:interface:IChartOpts@property:dataLabelPosition#r', native: ['ChartDataLabelOptions.position'] },
+  { id: 'union:interface:IChartOpts@property:dataLabelPosition#t', native: ['ChartDataLabelOptions.position'] },
+  { id: 'union:interface:IChartOpts@property:legendPos#b', native: ['ChartLegendOptions.position'] },
+  { id: 'union:interface:IChartOpts@property:legendPos#l', native: ['ChartLegendOptions.position'] },
+  { id: 'union:interface:IChartOpts@property:legendPos#r', native: ['ChartLegendOptions.position'] },
+  { id: 'union:interface:IChartOpts@property:legendPos#t', native: ['ChartLegendOptions.position'] },
+  { id: 'union:interface:IChartOpts@property:legendPos#tr', native: ['ChartLegendOptions.position'] },
+  { id: 'union:interface:IChartOpts@property:lineDash#dash', native: ['ChartSeriesOptions.line', 'ShapeLine.dash'] },
+  { id: 'union:interface:IChartOpts@property:lineDash#dashDot', native: ['ChartSeriesOptions.line', 'ShapeLine.dash'] },
+  { id: 'union:interface:IChartOpts@property:lineDash#lgDash', native: ['ChartSeriesOptions.line', 'ShapeLine.dash'] },
+  { id: 'union:interface:IChartOpts@property:lineDash#lgDashDot', native: ['ChartSeriesOptions.line', 'ShapeLine.dash'] },
+  { id: 'union:interface:IChartOpts@property:lineDash#lgDashDotDot', native: ['ChartSeriesOptions.line', 'ShapeLine.dash'] },
+  { id: 'union:interface:IChartOpts@property:lineDash#solid', native: ['ChartSeriesOptions.line', 'ShapeLine.dash'] },
+  { id: 'union:interface:IChartOpts@property:lineDash#sysDash', native: ['ChartSeriesOptions.line', 'ShapeLine.dash'] },
+  { id: 'union:interface:IChartOpts@property:lineDash#sysDot', native: ['ChartSeriesOptions.line', 'ShapeLine.dash'] },
+  { id: 'union:interface:IChartOpts@property:lineDataSymbol#circle', native: ['ChartMarkerOptions.shape'] },
+  { id: 'union:interface:IChartOpts@property:lineDataSymbol#dash', native: ['ChartMarkerOptions.shape'] },
+  { id: 'union:interface:IChartOpts@property:lineDataSymbol#diamond', native: ['ChartMarkerOptions.shape'] },
+  { id: 'union:interface:IChartOpts@property:lineDataSymbol#dot', native: ['ChartMarkerOptions.shape'] },
+  { id: 'union:interface:IChartOpts@property:lineDataSymbol#none', native: ['ChartMarkerOptions.shape'] },
+  { id: 'union:interface:IChartOpts@property:lineDataSymbol#square', native: ['ChartMarkerOptions.shape'] },
+  { id: 'union:interface:IChartOpts@property:lineDataSymbol#triangle', native: ['ChartMarkerOptions.shape'] },
+]);
+
+const CHART_PRESENTATION_FAMILY_ENTRIES = Object.freeze([
+  ...CHART_PRESENTATION_SUPPORTED_ATOMS.map((atom) =>
+    chartPresentationEntry('supported', atom)),
+  ...CHART_PRESENTATION_DIFFERENCE_ATOMS.map((atom) =>
+    chartPresentationEntry('deliberate-difference', atom)),
+]);
+
+
 const CHART_AXIS_FOUNDATION_CONTROL_TITLE =
   'compares chart axis line gridline visibility label and tick semantics';
 const CHART_AXIS_FOUNDATION_OOXML_TITLE =
@@ -5381,6 +5576,7 @@ export const PPTXGENJS_SURFACE_MANIFEST = deepFreeze({
     ...DEPRECATED_CHART_AREA_ALIAS_ENTRIES,
     ...CHART_CREATION_SUPPORTED_ENTRIES,
     ...CHART_CREATION_DIFFERENCE_ENTRIES,
+    ...CHART_PRESENTATION_FAMILY_ENTRIES,
     ...CHART_AXIS_FOUNDATION_SUPPORTED_ENTRIES,
     ...CHART_AXIS_TICK_SUPPORTED_ENTRIES,
     ...CHART_AXIS_LINE_GRID_DIFFERENCE_ENTRIES,

@@ -17,7 +17,10 @@ import type {
 import { chartOptionValuesEqual } from './chart-options.internal.js';
 import { cloneOwnedPartForMutation } from './dependency.internal.js';
 import { renderChartPart } from './chart-render.internal.js';
-import { readChartState } from './chart-state.internal.js';
+import {
+  readChartState,
+  readPromotableSeriesDataLabels,
+} from './chart-state.internal.js';
 import { planChartWorkbook } from './chart-workbook.internal.js';
 import type { SlideModel } from './slide.js';
 
@@ -268,7 +271,7 @@ function patchChartPart(
   const optionsMatch = chartOptionsEqual(current, next);
   if (structureMatches) {
     if (!optionsMatch) {
-      patchChartOptions(xml, canonical, true);
+      patchChartOptions(xml, canonical, true, current, next);
       xml = LosslessXmlDocument.parse(xml.serialize());
     }
     patchSeriesData(xml, requirePlotArea(xml), canonical, canonicalPlotArea);
@@ -276,7 +279,7 @@ function patchChartPart(
     replaceOwnedPlotSpans(xml, requirePlotArea(xml), canonical, canonicalPlotArea);
     if (!optionsMatch) {
       xml = LosslessXmlDocument.parse(xml.serialize());
-      patchChartOptions(xml, canonical, false);
+      patchChartOptions(xml, canonical, false, current, next);
     }
   }
   if (addExternalData) {
@@ -290,6 +293,8 @@ function patchChartOptions(
   xml: LosslessXmlDocument,
   canonical: LosslessXmlDocument,
   patchPlotStructures: boolean,
+  current: Readonly<ChartDefinition>,
+  next: Readonly<ChartDefinition>,
 ): void {
   const root = xml.roots[0]!;
   const canonicalRoot = canonical.roots[0]!;
@@ -313,7 +318,16 @@ function patchChartOptions(
     .filter(({ localName }) => GROUP_NAMES.has(localName));
   groups.forEach((group, groupIndex) => {
     const canonicalGroup = canonicalGroups[groupIndex]!;
-    syncChartChildren(xml, group, canonical, canonicalGroup, groupOptionElementNames(group.localName));
+    const currentGroup = current.groups[groupIndex]!;
+    const nextGroup = next.groups[groupIndex]!;
+    const dataLabelsChanged = !dataLabelOptionsEqual(
+      currentGroup.options?.dataLabels,
+      nextGroup.options?.dataLabels,
+    );
+    const optionNames = dataLabelsChanged
+      ? groupOptionElementNames(group.localName)
+      : groupOptionElementNames(group.localName).filter((name) => name !== 'dLbls');
+    syncChartChildren(xml, group, canonical, canonicalGroup, optionNames);
     const series = directChartChildren(group).filter(({ localName }) => localName === 'ser');
     const canonicalSeries = directChartChildren(canonicalGroup).filter(({ localName }) => localName === 'ser');
     series.forEach((entry, seriesIndex) => {
@@ -322,6 +336,17 @@ function patchChartOptions(
         'marker',
         'smooth',
       ]);
+      if (
+        dataLabelsChanged
+        && readPromotableSeriesDataLabels(
+          entry,
+          currentGroup.series[seriesIndex]!.values.length,
+          currentGroup.options?.dataLabels,
+        ) !== undefined
+      ) {
+        const labels = directChartChildren(entry).filter(({ localName }) => localName === 'dLbls');
+        if (labels.length === 1) xml.removeElement(labels[0]!);
+      }
     });
   });
 
@@ -369,6 +394,15 @@ function patchChartOptions(
       renameChartElement(xml, axis, canonicalAxis.name);
     }
   });
+}
+
+function dataLabelOptionsEqual(left: unknown, right: unknown): boolean {
+  if (left === undefined || right === undefined) return left === right;
+  if (!left || !right || typeof left !== 'object' || typeof right !== 'object') return false;
+  const canonical = (value: object): Record<string, unknown> => Object.fromEntries(
+    Object.entries(value).filter(([, entry]) => entry !== false),
+  );
+  return chartOptionValuesEqual(canonical(left), canonical(right));
 }
 
 function renameChartElement(

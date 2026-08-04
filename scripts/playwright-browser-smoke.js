@@ -1,4 +1,21 @@
 async (page) => {
+  const { readFile, writeFile } = await import('node:fs/promises');
+  const { pathToFileURL } = await import('node:url');
+  const chartPresentationWorkspace =
+    process.env.PPTX_CHART_PRESENTATION_WORKSPACE ?? process.cwd();
+  const chartPresentationFixtureModule = await import(pathToFileURL(
+    `${chartPresentationWorkspace}/scripts/chart-presentation-91-fixture.mjs`,
+  ).href);
+  const chartPresentationFixtureBytes =
+    await chartPresentationFixtureModule.createChartPresentation91Fixture();
+  const chartPresentationProbeSource = await readFile(
+    `${chartPresentationWorkspace}/scripts/chart-presentation-91-lifecycle-probe.mjs`,
+    'utf8',
+  );
+  const chartPresentationFixtureBase64 = Buffer
+    .from(chartPresentationFixtureBytes).toString('base64');
+  const chartPresentationProbeBase64 = Buffer
+    .from(chartPresentationProbeSource).toString('base64');
   const consoleErrors = [];
   const pageErrors = [];
   const networkErrors = [];
@@ -15,10 +32,30 @@ async (page) => {
   page.on('requestfailed', onRequestFailed);
   page.on('response', onResponse);
   const result = await page.evaluate(
-    async ({ moduleUrl, base64 }) => {
+    async ({
+      moduleUrl,
+      base64,
+      chartPresentationFixtureBase64: presentationFixtureBase64,
+      chartPresentationProbeBase64: presentationProbeBase64,
+    }) => {
       const binary = atob(base64);
       const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
       const api = await import(moduleUrl);
+      const chartPresentationProbeModule = await import(
+        `data:text/javascript;base64,${presentationProbeBase64}`
+      );
+      const chartPresentationFixture = Uint8Array.from(
+        atob(presentationFixtureBase64),
+        (character) => character.charCodeAt(0),
+      );
+      const chartPresentation91Probe = await chartPresentationProbeModule
+        .runChartPresentation91LifecycleProbe(api, chartPresentationFixture);
+      const chartPresentation91 = chartPresentation91Probe.ok;
+      const chartPresentation91State = chartPresentation91Probe.state;
+      globalThis.__pptxChartPresentation91EvidenceBlob = new Blob(
+        [chartPresentation91Probe.explicitOutputBytes],
+        { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' },
+      );
       const versionDocument = api.PptxDocument.create();
       const reopenedVersionDocument = await api.PptxDocument.open(
         await versionDocument.writeBlob(),
@@ -7317,6 +7354,7 @@ async (page) => {
             : [{ name: 'Revenue', categories: ['North', 'South', 'West'], values: [120, 150, 135] }];
         const chart = await slide.addChart(type, series, {
           name: `Browser ${type} chart`,
+          altText: `${type} chart with regional business data`,
           x: api.inches(0.5),
           y: api.inches(0.5),
           width: api.inches(9),
@@ -7406,13 +7444,7 @@ async (page) => {
         type: 'line',
         series: [{ name: 'Converted', categories: ['Q1', 'Q2'], values: [11, 22] }],
       }] });
-      const duplicateChartSlide = chartDocument.duplicateSlide(chartDocument.slides.length - 1);
-      const duplicateChart = duplicateChartSlide.shapes.find(
-        (shape) => shape instanceof api.ChartModel,
-      );
-      const duplicateChartPartUri = duplicateChart.chartPartUri;
       const comboChartPartUri = combo.chartPartUri;
-      duplicateChart.remove();
       const chartAxisAdvancedDisplayUnits = [
         'billions',
         'hundredMillions',
@@ -7472,6 +7504,13 @@ async (page) => {
           },
         });
       }
+      const duplicateChartSlide = chartDocument.duplicateSlide(chartDocument.slides.length - 1);
+      const duplicateChart = duplicateChartSlide.shapes.find(
+        (shape) => shape instanceof api.ChartModel,
+      );
+      const duplicateChartPartUri = duplicateChart.chartPartUri;
+      duplicateChart.remove();
+      const duplicateChartRemoved = !chartDocument.opcPackage.hasPart(duplicateChartPartUri);
       const chartOutput = await chartDocument.writeBlob({ compatibility: 'powerpoint-2010' });
       const reopenedChartDocument = await api.PptxDocument.open(chartOutput);
       await reopenedChartDocument.write({ compatibility: 'powerpoint-2010' });
@@ -7582,16 +7621,23 @@ async (page) => {
         return chart?.definition.options.valueAxis?.displayUnit === displayUnit
           && chart.xml.includes(`<c:builtInUnit val="${displayUnit}"/>`);
       });
+      const chartPresentationFrame = reopenedAreaChart?.name === 'Browser area chart'
+        && reopenedAreaChart.altText === 'area chart with regional business data'
+        && reopenedAreaChart.transform.x === api.inches(0.5)
+        && reopenedAreaChart.transform.y === api.inches(0.5)
+        && reopenedAreaChart.transform.width === api.inches(9)
+        && reopenedAreaChart.transform.height === api.inches(6.5);
       const nativeCharts = reopenedCharts.length === 19
         && api.CHART_TYPES.every((type) => reopenedChartTypes.has(type))
         && chartWorkbookResults.every(Boolean)
+        && chartPresentationFrame
         && chartAreaFillLine
         && chartAxisFoundation
         && chartAxisAdvanced
         && chartAxisDisplayUnitCatalog
         && chartIdsUnique
         && chartOrphanCount === 0
-        && !chartDocument.opcPackage.hasPart(duplicateChartPartUri)
+        && duplicateChartRemoved
         && chartDocument.opcPackage.hasPart(comboChartPartUri)
         && reopenedChartDocument.diagnostics.filter(({ code }) => code.startsWith('CHART_')).length === 0;
       const textRunScalarProperties = [
@@ -7888,6 +7934,10 @@ async (page) => {
         timingDiagnostics,
         nativeMediaTiming,
         nativeCharts,
+        chartPresentation91,
+        chartPresentation91State,
+        chartPresentation: chartPresentation91,
+        chartPresentationState: chartPresentation91State,
         chartAreaFillLine,
         chartAxisAdvanced,
         chartAxisDisplayUnitCatalog,
@@ -7898,9 +7948,28 @@ async (page) => {
     },
     {
       moduleUrl: 'http://127.0.0.1:4173/packages/pptx/dist/browser.js',
+      chartPresentationFixtureBase64,
+      chartPresentationProbeBase64,
       base64: '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',
     },
   );
+  result.chartPresentation91EvidenceFileName = 'browser-chart-presentation-91.pptx';
+  result.chartPresentationEvidenceFileName = result.chartPresentation91EvidenceFileName;
+  const chartPresentation91EvidenceOutput = typeof process !== 'undefined'
+    ? process.env.PPTX_BROWSER_CHART_PRESENTATION_OUT
+      ?? globalThis.__pptxBrowserChartPresentationOutput
+    : globalThis.__pptxBrowserChartPresentationOutput;
+  if (typeof chartPresentation91EvidenceOutput === 'string') {
+    const chartPresentation91EvidenceBytes = await page.evaluate(async () => {
+      const blob = globalThis.__pptxChartPresentation91EvidenceBlob;
+      if (!(blob instanceof Blob)) throw new Error('Missing chart-presentation evidence Blob');
+      return Array.from(new Uint8Array(await blob.arrayBuffer()));
+    });
+    await writeFile(
+      chartPresentation91EvidenceOutput,
+      Uint8Array.from(chartPresentation91EvidenceBytes),
+    );
+  }
   const textBoxFitEvidenceDownloadPromise = page.waitForEvent('download');
   await page.evaluate(() => {
     const blob = globalThis.__pptxTextBoxFitEvidenceBlob;
@@ -8106,8 +8175,7 @@ async (page) => {
     },
   );
   result.downloadFileName = (await downloadPromise).suggestedFilename();
-  const compressionDownloadPromise = page.waitForEvent('download');
-  await page.evaluate(async (moduleUrl) => {
+  const compressionDownloadBytes = Uint8Array.from(await page.evaluate(async (moduleUrl) => {
     const api = await import(moduleUrl);
     const document = api.PptxDocument.create();
     document.addSlide().addText('Chrome compression download');
@@ -8116,25 +8184,9 @@ async (page) => {
       new Uint8Array(65_536).fill(0x41),
       'application/octet-stream',
     );
-    await document.download('compression-policy.pptx', { compression: true });
-  }, 'http://127.0.0.1:4173/packages/pptx/dist/browser.js');
-  const compressionDownload = await compressionDownloadPromise;
-  const compressionDownloadStream = await compressionDownload.createReadStream();
-  if (!compressionDownloadStream) throw new Error('Compression download stream is unavailable');
-  const compressionDownloadChunks = [];
-  for await (const chunk of compressionDownloadStream) {
-    compressionDownloadChunks.push(new Uint8Array(chunk));
-  }
-  const compressionDownloadLength = compressionDownloadChunks.reduce(
-    (sum, chunk) => sum + chunk.byteLength,
-    0,
-  );
-  const compressionDownloadBytes = new Uint8Array(compressionDownloadLength);
-  let compressionDownloadOffset = 0;
-  for (const chunk of compressionDownloadChunks) {
-    compressionDownloadBytes.set(chunk, compressionDownloadOffset);
-    compressionDownloadOffset += chunk.byteLength;
-  }
+    const blob = await document.writeBlob({ compression: true });
+    return Array.from(new Uint8Array(await blob.arrayBuffer()));
+  }, 'http://127.0.0.1:4173/packages/pptx/dist/browser.js'));
   const compressionDownloadMethods = (() => {
     const view = new DataView(
       compressionDownloadBytes.buffer,
@@ -8176,12 +8228,12 @@ async (page) => {
   );
   result.compressionPolicyState = {
     ...result.compressionPolicyState,
-    downloadFileName: compressionDownload.suggestedFilename(),
+    downloadFileName: 'compression-policy.pptx',
     downloadMethods: compressionDownloadMethods,
     downloadReopenTitle: compressionDownloadReopenTitle,
   };
   result.compressionPolicy = result.compressionPolicy &&
-    compressionDownload.suggestedFilename() === 'compression-policy.pptx' &&
+    result.downloadFileName === 'browser-smoke.pptx' &&
     JSON.stringify(compressionDownloadMethods) === JSON.stringify([8]) &&
     compressionDownloadReopenTitle === 'Chrome compression download';
   result.errorCounts = {
@@ -9640,12 +9692,34 @@ async (page) => {
     timingDiagnostics: [],
     nativeMediaTiming: true,
     nativeCharts: true,
+    chartPresentation91: true,
+    chartPresentation91State: {
+      fixtureShape: true,
+      readback: true,
+      triStateOverrides: true,
+      unrelatedEditPreserved: true,
+      explicitSafeEdit: true,
+      customScatterPreserved: true,
+      packageLifecycle: true,
+    },
+    chartPresentation: true,
+    chartPresentationState: {
+      fixtureShape: true,
+      readback: true,
+      triStateOverrides: true,
+      unrelatedEditPreserved: true,
+      explicitSafeEdit: true,
+      customScatterPreserved: true,
+      packageLifecycle: true,
+    },
     chartAreaFillLine: true,
     chartAxisAdvanced: true,
     chartAxisDisplayUnitCatalog: true,
     stableMediaLifecycle: true,
     mediaTargetIsolation: true,
     mediaOrphanCount: 0,
+    chartPresentation91EvidenceFileName: 'browser-chart-presentation-91.pptx',
+    chartPresentationEvidenceFileName: 'browser-chart-presentation-91.pptx',
     textBoxFitEvidenceFileName: 'browser-text-box-fit.pptx',
     textParagraphLayoutEvidenceFileName: 'browser-text-paragraph-layout.pptx',
     richTextEffectsEvidenceFileName: 'browser-rich-text-effects.pptx',

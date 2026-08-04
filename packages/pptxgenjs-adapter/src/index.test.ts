@@ -4918,6 +4918,8 @@ describe('importPptxGenJS', () => {
     slide.addChart(generated.ChartType.bar!, [{
       name: 'Revenue', labels: ['Q1', 'Q2'], values: [10, 20],
     }], {
+      altText: 'Quarterly revenue chart',
+      objectName: 'Revenue chart frame',
       x: 0.5,
       y: 0.5,
       w: 5,
@@ -5032,6 +5034,16 @@ describe('importPptxGenJS', () => {
       ChartModel, ChartModel, ChartModel, ChartModel, ChartModel,
     ];
 
+    expect(bar).toMatchObject({
+      name: 'Revenue chart frame',
+      altText: 'Quarterly revenue chart',
+      transform: {
+        x: inches(0.5),
+        y: inches(0.5),
+        width: inches(5),
+        height: inches(3),
+      },
+    });
     expect(bar.definition).toMatchObject({
       groups: [{
         type: 'bar',
@@ -5131,6 +5143,143 @@ describe('importPptxGenJS', () => {
     });
     expect(bar.definition?.options.title?.text).toBe('Revenue edited');
     expect(imported.opcPackage.requirePart(bar.workbookPartUri!).bytes).toEqual(workbookBefore);
+  });
+
+  it('promotes uniform PptxGenJS point labels and preserves custom scatter labels', async () => {
+    const generated = new PptxGenJS();
+    const cases = [
+      {
+        name: 'pie-label-true-percent-false',
+        type: generated.ChartType.pie!,
+        options: { dataLabelPosition: 'bestFit', showLabel: true, showPercent: false },
+      },
+      {
+        name: 'pie-label-false-percent-true',
+        type: generated.ChartType.pie!,
+        options: { dataLabelPosition: 'bestFit', showLabel: false, showPercent: true },
+      },
+      {
+        name: 'pie-label-false-percent-false',
+        type: generated.ChartType.pie!,
+        options: { dataLabelPosition: 'bestFit', showLabel: false, showPercent: false },
+      },
+      {
+        name: 'doughnut-label-true-percent-false',
+        type: generated.ChartType.doughnut!,
+        options: { dataLabelPosition: 'bestFit', showLabel: true, showPercent: false },
+      },
+    ] as const;
+    for (const entry of cases) {
+      generated.addSlide().addChart(entry.type, [{
+        name: entry.name, labels: ['A', 'B', 'C'], values: [10, 20, 30],
+      }], { x: 0.5, y: 0.5, w: 5, h: 3, ...entry.options });
+    }
+    generated.addSlide().addChart(generated.ChartType.scatter!, [
+      { name: 'X', values: [1, 2, 3] },
+      { name: 'Custom', labels: ['A', 'B', 'C'], values: [10, 20, 30] },
+    ], {
+      x: 0.5,
+      y: 0.5,
+      w: 5,
+      h: 3,
+      dataLabelPosition: 't',
+      dataLabelFormatScatter: 'custom',
+      showLabel: true,
+    });
+
+    const imported = await importPptxGenJS(generated);
+    const charts = imported.slides.map((slide) => slide.shapes.find(
+      (shape): shape is ChartModel => shape instanceof ChartModel,
+    )!);
+    expect(charts).toHaveLength(5);
+    expect(charts.map((chart) => chart.definition?.groups[0]?.options?.dataLabels)).toEqual([
+      {
+        face: 'Arial',
+        size: 12,
+        color: { kind: 'srgb', value: '000000' },
+        showCategoryName: true,
+        position: 'bestFit',
+        numberFormat: 'General',
+      },
+      {
+        face: 'Arial',
+        size: 12,
+        color: { kind: 'srgb', value: '000000' },
+        showPercent: true,
+        position: 'bestFit',
+        numberFormat: '0%',
+      },
+      {
+        face: 'Arial',
+        size: 12,
+        color: { kind: 'srgb', value: '000000' },
+        position: 'bestFit',
+        numberFormat: 'General',
+      },
+      {
+        face: 'Arial',
+        size: 12,
+        color: { kind: 'srgb', value: '000000' },
+        showCategoryName: true,
+        numberFormat: 'General',
+      },
+      {
+        face: 'Arial',
+        size: 12,
+        color: { kind: 'srgb', value: '000000' },
+        position: 'top',
+        numberFormat: 'General',
+      },
+    ]);
+
+    const pie = charts[0]!;
+    const pieLabels = pie.xml.match(/<c:dLbls>[\s\S]*?<\/c:dLbls>/gu)![0]!;
+    const pieWorkbookBefore = imported.opcPackage.requirePart(pie.workbookPartUri!).bytes.slice();
+    const pieDefinition = pie.definition!;
+    await pie.replaceDefinition({
+      groups: pieDefinition.groups,
+      options: { ...pieDefinition.options, title: { text: 'Unrelated pie title' } },
+    });
+    expect(pie.xml).toContain(pieLabels);
+    expect(imported.opcPackage.requirePart(pie.workbookPartUri!).bytes).toEqual(pieWorkbookBefore);
+
+    const titledPie = pie.definition!;
+    const titledPieGroup = titledPie.groups[0];
+    if (titledPieGroup?.type !== 'pie') throw new Error('Expected imported pie chart');
+    await pie.replaceDefinition({
+      groups: [{
+        type: 'pie',
+        series: titledPieGroup.series,
+        options: { dataLabels: { position: 'center', showPercent: true } },
+      }],
+      options: titledPie.options,
+    });
+    expect(pie.xml).not.toContain(pieLabels);
+    expect(pie.definition?.groups[0]?.options?.dataLabels).toEqual({
+      showPercent: true,
+      position: 'center',
+    });
+    expect(imported.opcPackage.requirePart(pie.workbookPartUri!).bytes)
+      .toEqual(pieWorkbookBefore);
+
+    const scatter = charts[4]!;
+    const scatterLabels = scatter.xml.match(/<c:dLbls>[\s\S]*?<\/c:dLbls>/gu)!;
+    expect(scatterLabels.join('')).toContain('<c:tx>');
+    expect(scatterLabels.join('')).toContain('<c:spPr>');
+    expect(scatterLabels.join('')).toContain('<c:extLst>');
+    const scatterDefinition = scatter.definition!;
+    await scatter.replaceDefinition({
+      groups: scatterDefinition.groups,
+      options: { ...scatterDefinition.options, title: { text: 'Unrelated scatter title' } },
+    });
+    expect(scatter.xml.match(/<c:dLbls>[\s\S]*?<\/c:dLbls>/gu)).toEqual(scatterLabels);
+
+    const reopened = await PptxDocument.open(await imported.write());
+    expect(reopened.slides.map((slide) => slide.shapes.find(
+      (shape): shape is ChartModel => shape instanceof ChartModel,
+    )?.definition?.groups[0]?.options?.dataLabels)).toEqual(
+      charts.map((chart) => chart.definition?.groups[0]?.options?.dataLabels),
+    );
   });
 
   it('compares chart axis line gridline visibility label and tick semantics', async () => {

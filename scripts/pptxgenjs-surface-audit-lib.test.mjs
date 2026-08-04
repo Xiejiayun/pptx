@@ -124,13 +124,13 @@ function assertDeepFrozen(value, seen = new Set()) {
 test('exports an immutable evidence-backed initial manifest batch', () => {
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.schemaVersion, 1);
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.packageVersion, '4.0.1');
-  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1611);
+  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1702);
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries.map(({ status }) => status).sort(),
     [
       ...Array(370).fill('defect-excluded'),
-      ...Array(716).fill('supported'),
-      ...Array(431).fill('deliberate-difference'),
+      ...Array(742).fill('supported'),
+      ...Array(496).fill('deliberate-difference'),
       ...Array(94).fill('deprecated-alias'),
     ].sort(),
   );
@@ -260,6 +260,139 @@ test('exports an immutable evidence-backed initial manifest batch', () => {
       'union:interface:OptsChartData@property:labels#string[][]',
     ].includes(id)),
     false,
+  );
+  const chartPresentationSupportedIds = [
+    'interface:IChartOpts@property:altText',
+    'interface:IChartOpts@property:barGrouping',
+    'interface:IChartOpts@property:dataLabelFontBold',
+    'interface:IChartOpts@property:dataLabelFontItalic',
+    'interface:IChartOpts@property:dataLabelFontSize',
+    'interface:IChartOpts@property:dataTableFontSize',
+    'interface:IChartOpts@property:holeSize',
+    'interface:IChartOpts@property:legendFontSize',
+    'interface:IChartOpts@property:lineSmooth',
+    'interface:IChartOpts@property:radarStyle',
+    'interface:IChartOpts@property:showDataTable',
+    'interface:IChartOpts@property:showDataTableHorzBorder',
+    'interface:IChartOpts@property:showDataTableKeys',
+    'interface:IChartOpts@property:showDataTableOutline',
+    'interface:IChartOpts@property:showDataTableVertBorder',
+    'interface:IChartOpts@property:showLeaderLines',
+    'interface:IChartOpts@property:showLegend',
+    'interface:IChartOpts@property:showPercent',
+    'interface:IChartOpts@property:showTitle',
+    'interface:IChartOpts@property:showValue',
+    'interface:IChartOpts@property:title',
+    'interface:IChartOpts@property:titleBold',
+    'interface:IChartOpts@property:titleFontSize',
+    'union:interface:IChartOpts@property:radarStyle#filled',
+    'union:interface:IChartOpts@property:radarStyle#marker',
+    'union:interface:IChartOpts@property:radarStyle#standard',
+  ];
+  const chartPresentationDifferenceIds = [
+    'interface:IChartOpts@property:barDir',
+    'interface:IChartOpts@property:barGapDepthPct',
+    'interface:IChartOpts@property:barGapWidthPct',
+    'interface:IChartOpts@property:barOverlapPct',
+    'interface:IChartOpts@property:chartColors',
+    'interface:IChartOpts@property:chartColorsOpacity',
+    'interface:IChartOpts@property:dataLabelColor',
+    'interface:IChartOpts@property:dataLabelFontFace',
+    'interface:IChartOpts@property:dataLabelFormatCode',
+    'interface:IChartOpts@property:dataLabelPosition',
+    'interface:IChartOpts@property:dataTableFormatCode',
+    'interface:IChartOpts@property:displayBlanksAs',
+    'interface:IChartOpts@property:firstSliceAng',
+    'interface:IChartOpts@property:h',
+    'interface:IChartOpts@property:legendColor',
+    'interface:IChartOpts@property:legendFontFace',
+    'interface:IChartOpts@property:legendPos',
+    'interface:IChartOpts@property:lineDash',
+    'interface:IChartOpts@property:lineDataSymbol',
+    'interface:IChartOpts@property:lineDataSymbolLineColor',
+    'interface:IChartOpts@property:lineDataSymbolLineSize',
+    'interface:IChartOpts@property:lineDataSymbolSize',
+    'interface:IChartOpts@property:lineSize',
+    'interface:IChartOpts@property:objectName',
+    'interface:IChartOpts@property:showLabel',
+    'interface:IChartOpts@property:showSerName',
+    'interface:IChartOpts@property:titleColor',
+    'interface:IChartOpts@property:titleFontFace',
+    'interface:IChartOpts@property:titlePos',
+    'interface:IChartOpts@property:titleRotate',
+    'interface:IChartOpts@property:v3DPerspective',
+    'interface:IChartOpts@property:v3DRAngAx',
+    'interface:IChartOpts@property:v3DRotX',
+    'interface:IChartOpts@property:v3DRotY',
+    'interface:IChartOpts@property:w',
+    'interface:IChartOpts@property:x',
+    'interface:IChartOpts@property:y',
+    'union:interface:IChartOpts@property:dataLabelPosition#b',
+    'union:interface:IChartOpts@property:dataLabelPosition#bestFit',
+    'union:interface:IChartOpts@property:dataLabelPosition#ctr',
+    'union:interface:IChartOpts@property:dataLabelPosition#inEnd',
+    'union:interface:IChartOpts@property:dataLabelPosition#l',
+    'union:interface:IChartOpts@property:dataLabelPosition#outEnd',
+    'union:interface:IChartOpts@property:dataLabelPosition#r',
+    'union:interface:IChartOpts@property:dataLabelPosition#t',
+    'union:interface:IChartOpts@property:legendPos#b',
+    'union:interface:IChartOpts@property:legendPos#l',
+    'union:interface:IChartOpts@property:legendPos#r',
+    'union:interface:IChartOpts@property:legendPos#t',
+    'union:interface:IChartOpts@property:legendPos#tr',
+    'union:interface:IChartOpts@property:lineDash#dash',
+    'union:interface:IChartOpts@property:lineDash#dashDot',
+    'union:interface:IChartOpts@property:lineDash#lgDash',
+    'union:interface:IChartOpts@property:lineDash#lgDashDot',
+    'union:interface:IChartOpts@property:lineDash#lgDashDotDot',
+    'union:interface:IChartOpts@property:lineDash#solid',
+    'union:interface:IChartOpts@property:lineDash#sysDash',
+    'union:interface:IChartOpts@property:lineDash#sysDot',
+    'union:interface:IChartOpts@property:lineDataSymbol#circle',
+    'union:interface:IChartOpts@property:lineDataSymbol#dash',
+    'union:interface:IChartOpts@property:lineDataSymbol#diamond',
+    'union:interface:IChartOpts@property:lineDataSymbol#dot',
+    'union:interface:IChartOpts@property:lineDataSymbol#none',
+    'union:interface:IChartOpts@property:lineDataSymbol#square',
+    'union:interface:IChartOpts@property:lineDataSymbol#triangle',
+  ];
+  const expectedChartPresentationEntries = [
+    ...chartPresentationSupportedIds.map((id) => ({ id, status: 'supported' })),
+    ...chartPresentationDifferenceIds.map((id) => ({
+      id, status: 'deliberate-difference',
+    })),
+  ].sort((left, right) => left.id.localeCompare(right.id));
+  assert.equal(new Set(expectedChartPresentationEntries.map(({ id }) => id)).size, 91);
+  assert.equal(chartPresentationSupportedIds.length, 26);
+  assert.equal(chartPresentationDifferenceIds.length, 65);
+  const chartPresentationIds = new Set(
+    expectedChartPresentationEntries.map(({ id }) => id),
+  );
+  assert.deepEqual(
+    PPTXGENJS_SURFACE_MANIFEST.entries
+      .filter(({ id }) => chartPresentationIds.has(id))
+      .map(({ id, status }) => ({ id, status }))
+      .sort((left, right) => left.id.localeCompare(right.id)),
+    expectedChartPresentationEntries,
+  );
+  const chartPresentationById = new Map(
+    PPTXGENJS_SURFACE_MANIFEST.entries
+      .filter(({ id }) => chartPresentationIds.has(id))
+      .map((entry) => [entry.id, entry]),
+  );
+  assert.equal(
+    chartPresentationById.get('interface:IChartOpts@property:showLabel')?.status,
+    'deliberate-difference',
+  );
+  assert.equal(
+    chartPresentationById.get('interface:IChartOpts@property:showPercent')?.status,
+    'supported',
+  );
+  assert.equal(
+    chartPresentationById.get(
+      'union:interface:IChartOpts@property:dataLabelPosition#bestFit',
+    )?.status,
+    'deliberate-difference',
   );
   const axisOwners = [
     ['IChartOpts', 'cat'],

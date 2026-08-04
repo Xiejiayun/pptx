@@ -172,6 +172,131 @@ describe('chart semantic editing', () => {
     expect(chart.xml).toContain('uri="urn:root-keep"');
   });
 
+  it('edits promoted labels only when requested and preserves unsafe custom point labels', async () => {
+    const { pkg, slide } = emptyPresentation();
+    const chart = await slide.addChart('pie', [{
+      name: 'Share', categories: ['A', 'B'], values: [60, 40],
+    }]);
+    const safeLabels = pptxGenJsSeriesLabels();
+    updateChartXml(pkg, chart, (xml) => xml
+      .replace('<c:cat>', `${safeLabels}<c:cat>`)
+      .replace('</c:ser>', '<c:extLst><c:ext uri="urn:series-keep"/></c:extLst></c:ser>'));
+    const workbookPartUri = chart.workbookPartUri!;
+    const workbookBefore = pkg.requirePart(workbookPartUri).bytes.slice();
+
+    expect(chart.definition?.groups[0]?.options?.dataLabels).toMatchObject({
+      position: 'bestFit',
+      showCategoryName: true,
+    });
+    expect(chart.definition?.groups[0]?.options?.dataLabels?.showPercent).toBeUndefined();
+
+    const imported = chart.definition!;
+    const importedGroup = imported.groups[0];
+    if (importedGroup?.type !== 'pie') throw new Error('Expected imported pie chart');
+    await chart.replaceDefinition({
+      groups: [{
+        type: 'pie',
+        series: importedGroup.series,
+        options: {
+          ...importedGroup.options,
+          dataLabels: {
+            ...importedGroup.options!.dataLabels,
+            showPercent: false,
+          },
+        },
+      }],
+      options: { ...imported.options, title: { text: 'Unrelated title' } },
+    });
+    expect(chart.xml).toContain(safeLabels);
+    expect(chart.xml.match(/<c:dLbls>/gu)).toHaveLength(1);
+    expect(chart.xml).toContain('uri="urn:series-keep"');
+    expect(pkg.requirePart(workbookPartUri).bytes).toEqual(workbookBefore);
+
+    const titled = chart.definition!;
+    await chart.replaceDefinition({
+      groups: [{
+        ...titled.groups[0]!,
+        options: { dataLabels: { position: 'center', showPercent: true } },
+      }],
+      options: titled.options,
+    });
+    expect(chart.xml).not.toContain(safeLabels);
+    expect(chart.xml.match(/<c:dLbls>/gu)).toHaveLength(1);
+    expect(chart.definition?.groups[0]?.options?.dataLabels).toEqual({
+      showPercent: true,
+      position: 'center',
+    });
+    expect(chart.xml).toContain('uri="urn:series-keep"');
+    expect(pkg.requirePart(workbookPartUri).bytes).toEqual(workbookBefore);
+
+    const edited = chart.definition!;
+    await chart.replaceDefinition({
+      groups: [{
+        type: edited.groups[0]!.type,
+        series: edited.groups[0]!.series,
+      }],
+      options: edited.options,
+    });
+    expect(chart.xml).not.toContain('<c:dLbls>');
+    expect(chart.definition?.groups[0]?.options?.dataLabels).toBeUndefined();
+    expect(chart.xml).toContain('uri="urn:series-keep"');
+    expect(pkg.requirePart(workbookPartUri).bytes).toEqual(workbookBefore);
+
+    const custom = await slide.addChart('scatter', [{
+      name: 'Custom', xValues: [1, 2], values: [3, 4],
+    }]);
+    const customLabels = pptxGenJsSeriesLabels().replace(
+      '<c:idx val="0"/>',
+      '<c:idx val="0"/><c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p>'
+        + '<a:r><a:t>KEEP CUSTOM</a:t></a:r></a:p></c:rich></c:tx>',
+    );
+    updateChartXml(pkg, custom, (xml) => xml.replace('<c:xVal>', `${customLabels}<c:xVal>`));
+    expect(custom.definition?.groups[0]?.options?.dataLabels).toBeUndefined();
+
+    const customImported = custom.definition!;
+    await custom.replaceDefinition({
+      groups: customImported.groups,
+      options: { ...customImported.options, title: { text: 'Custom title' } },
+    });
+    expect(custom.xml).toContain(customLabels);
+
+    const customTitled = custom.definition!;
+    await custom.replaceDefinition({
+      groups: [{
+        ...customTitled.groups[0]!,
+        options: { dataLabels: { position: 'top', showCategoryName: true } },
+      }],
+      options: customTitled.options,
+    });
+    expect(custom.xml).toContain(customLabels);
+    expect(custom.xml).toContain('KEEP CUSTOM');
+    expect(custom.xml.match(/<c:dLbls>/gu)).toHaveLength(2);
+    expect(custom.definition?.groups[0]?.options?.dataLabels).toEqual({
+      showCategoryName: true,
+      position: 'top',
+    });
+
+    await custom.replaceSeries([{
+      name: 'Custom edited', xValues: [10, 20], values: [30, 40],
+    }]);
+    expect(custom.xml).toContain(customLabels);
+    expect(custom.xml).toContain('KEEP CUSTOM');
+    expect(custom.definition?.groups[0]?.options?.dataLabels).toEqual({
+      showCategoryName: true,
+      position: 'top',
+    });
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedCustom = reopened.slides[0]!.shapes.find(
+      (shape): shape is ChartModel => shape instanceof ChartModel && shape.id === custom.id,
+    )!;
+    expect(reopenedCustom.xml).toContain(customLabels);
+    expect(reopenedCustom.definition?.groups[0]?.options?.dataLabels).toEqual({
+      showCategoryName: true,
+      position: 'top',
+    });
+  });
+
   it('treats explicit chart option defaults as exact semantic no-ops', async () => {
     const { pkg, slide } = emptyPresentation();
     const chart = await slide.addChart('bar', [{
@@ -508,6 +633,27 @@ function updateChartXml(
   const uri = chart.chartPartUri!;
   const part = pkg.requirePart(uri);
   pkg.setPart(uri, update(new TextDecoder().decode(part.bytes)), part.contentType);
+}
+
+function pptxGenJsSeriesLabels(): string {
+  const points = [0, 1].map((index) => '<c:dLbl>'
+    + `<c:idx val="${index}"/><c:numFmt formatCode="General" sourceLinked="0"/><c:spPr/>`
+    + '<c:txPr><a:bodyPr/><a:lstStyle/><a:p><a:pPr>'
+    + '<a:defRPr sz="1200" b="0" i="0" u="none" strike="noStrike">'
+    + '<a:solidFill><a:srgbClr val="000000"/></a:solidFill>'
+    + '<a:latin typeface="Arial"/></a:defRPr></a:pPr></a:p></c:txPr>'
+    + '<c:dLblPos val="bestFit"/><c:showLegendKey val="0"/><c:showVal val="0"/>'
+    + '<c:showCatName val="1"/><c:showSerName val="0"/><c:showPercent val="0"/>'
+    + '<c:showBubbleSize val="0"/></c:dLbl>').join('');
+  return '<c:dLbls>' + points
+    + '<c:numFmt formatCode="General" sourceLinked="0"/>'
+    + '<c:txPr><a:bodyPr/><a:lstStyle/><a:p><a:pPr>'
+    + '<a:defRPr sz="1800" b="0" i="0" u="none" strike="noStrike">'
+    + '<a:solidFill><a:srgbClr val="000000"/></a:solidFill>'
+    + '<a:latin typeface="Arial"/></a:defRPr></a:pPr></a:p></c:txPr>'
+    + '<c:dLblPos val="ctr"/><c:showLegendKey val="0"/><c:showVal val="0"/>'
+    + '<c:showCatName val="1"/><c:showSerName val="0"/><c:showPercent val="1"/>'
+    + '<c:showBubbleSize val="0"/><c:showLeaderLines val="0"/></c:dLbls>';
 }
 
 function packageSnapshot(pkg: OpcPackage): object {

@@ -265,6 +265,137 @@ describe('strict chart semantic state', () => {
     expect(Object.isFrozen(state.definition?.groups[0]?.options?.series?.[0]?.fill)).toBe(true);
   });
 
+  it('promotes complete uniform PptxGenJS series and point data labels', () => {
+    const labels = pptxGenJsDataLabels([
+      { position: 'bestFit', showCategoryName: true, showPercent: false },
+      { position: 'bestFit', showCategoryName: true, showPercent: false },
+      { position: 'bestFit', showCategoryName: true, showPercent: false },
+    ]);
+    const series = categoricalSeriesXml('Share', ['A', 'B', 'C'], [10, 20, 30])
+      .replace('<c:cat>', `${labels}<c:cat>`);
+
+    const state = readChartState(chartPackage(chartXml(
+      groupXml('pieChart', series),
+    )), CHART_URI);
+
+    expect(state.status, state.reason).toBe('recognized');
+    expect(state.definition?.groups[0]?.options?.dataLabels).toEqual({
+      face: 'Arial',
+      size: 12,
+      color: { kind: 'srgb', value: '000000' },
+      showCategoryName: true,
+      position: 'bestFit',
+      numberFormat: 'General',
+    });
+
+    const doughnutLabels = pptxGenJsDataLabels([
+      { showCategoryName: true, showPercent: false },
+      { showCategoryName: true, showPercent: false },
+      { showCategoryName: true, showPercent: false },
+    ]).replace('<c:dLblPos val="ctr"/>', '');
+    const doughnutSeries = categoricalSeriesXml('Share', ['A', 'B', 'C'], [10, 20, 30])
+      .replace('<c:cat>', `${doughnutLabels}<c:cat>`);
+    expect(readChartState(chartPackage(chartXml(
+      groupXml('doughnutChart', doughnutSeries),
+    )), CHART_URI).definition?.groups[0]?.options?.dataLabels).toEqual({
+      face: 'Arial',
+      size: 12,
+      color: { kind: 'srgb', value: '000000' },
+      showCategoryName: true,
+      numberFormat: 'General',
+    });
+
+    const seriesDefaults = categoricalSeriesXml('Share', ['A', 'B'], [10, 20])
+      .replace('<c:cat>', '<c:dLbls><c:showPercent val="1"/></c:dLbls><c:cat>');
+    expect(readChartState(chartPackage(chartXml(
+      groupXml('pieChart', seriesDefaults),
+    )), CHART_URI).definition?.groups[0]?.options?.dataLabels).toEqual({ showPercent: true });
+  });
+
+  it('promotes only when every series has the same safe effective labels', () => {
+    const labels = pptxGenJsDataLabels([
+      { position: 'ctr', showCategoryName: true, showPercent: false },
+      { position: 'ctr', showCategoryName: true, showPercent: false },
+    ]);
+    const first = categoricalSeriesXml('First', ['A', 'B'], [10, 20])
+      .replace('<c:cat>', `${labels}<c:cat>`);
+    const second = categoricalSeriesXml('Second', ['A', 'B'], [30, 40])
+      .replace('<c:idx val="0"/><c:order val="0"/>', '<c:idx val="1"/><c:order val="1"/>')
+      .replace('<c:cat>', `${labels}<c:cat>`);
+    const promoted = groupXml('barChart', first + second, [10, 20]);
+    expect(readChartState(chartPackage(chartXml(
+      promoted,
+      axisXml([10, 20]),
+    )), CHART_URI).definition?.groups[0]?.options?.dataLabels).toMatchObject({
+      showCategoryName: true,
+      position: 'center',
+    });
+
+    const fallback = groupXml('barChart', first + second.replace(labels, ''), [10, 20]).replace(
+      '</c:barChart>',
+      '<c:dLbls><c:showVal val="1"/></c:dLbls></c:barChart>',
+    );
+    expect(readChartState(chartPackage(chartXml(
+      fallback,
+      axisXml([10, 20]),
+    )), CHART_URI).definition?.groups[0]?.options?.dataLabels).toEqual({ showValue: true });
+  });
+
+  it.each([
+    ['partial point coverage', pptxGenJsDataLabels([
+      { position: 'bestFit', showCategoryName: true, showPercent: false },
+      { position: 'bestFit', showCategoryName: true, showPercent: false },
+    ])],
+    ['duplicate point index', pptxGenJsDataLabels([
+      { position: 'bestFit', showCategoryName: true, showPercent: false, index: 0 },
+      { position: 'bestFit', showCategoryName: true, showPercent: false, index: 0 },
+      { position: 'bestFit', showCategoryName: true, showPercent: false, index: 2 },
+    ])],
+    ['out-of-range point index', pptxGenJsDataLabels([
+      { position: 'bestFit', showCategoryName: true, showPercent: false, index: 0 },
+      { position: 'bestFit', showCategoryName: true, showPercent: false, index: 1 },
+      { position: 'bestFit', showCategoryName: true, showPercent: false, index: 3 },
+    ])],
+    ['non-uniform effective point font', pptxGenJsDataLabels([
+      { position: 'bestFit', showCategoryName: true, showPercent: false, fontSize: 12 },
+      { position: 'bestFit', showCategoryName: true, showPercent: false, fontSize: null },
+      { position: 'bestFit', showCategoryName: true, showPercent: false, fontSize: null },
+    ])],
+    ['custom point text', pptxGenJsDataLabels([
+      { position: 'bestFit', showCategoryName: true, showPercent: false, extra: '<c:tx><c:rich/></c:tx>' },
+      { position: 'bestFit', showCategoryName: true, showPercent: false },
+      { position: 'bestFit', showCategoryName: true, showPercent: false },
+    ])],
+    ['non-empty point shape', pptxGenJsDataLabels([
+      { position: 'bestFit', showCategoryName: true, showPercent: false, shape: '<c:spPr><a:noFill/></c:spPr>' },
+      { position: 'bestFit', showCategoryName: true, showPercent: false },
+      { position: 'bestFit', showCategoryName: true, showPercent: false },
+    ])],
+    ['unknown extension payload', pptxGenJsDataLabels([
+      { position: 'bestFit', showCategoryName: true, showPercent: false, extra: '<c:extLst><c:ext uri="urn:keep"/></c:extLst>' },
+      { position: 'bestFit', showCategoryName: true, showPercent: false },
+      { position: 'bestFit', showCategoryName: true, showPercent: false },
+    ])],
+    ['nested scalar payload', pptxGenJsDataLabels([
+      { position: 'bestFit', showCategoryName: true, showPercent: false },
+      { position: 'bestFit', showCategoryName: true, showPercent: false },
+      { position: 'bestFit', showCategoryName: true, showPercent: false },
+    ]).replace(
+      '<c:showPercent val="0"/>',
+      '<c:showPercent val="0"><x:keep xmlns:x="urn:keep"/></c:showPercent>',
+    )],
+  ])('keeps direct group labels when %s makes a series layer unsafe', (_label, labels) => {
+    const series = categoricalSeriesXml('Share', ['A', 'B', 'C'], [10, 20, 30])
+      .replace('<c:cat>', `${labels}<c:cat>`);
+    const group = groupXml('pieChart', series).replace(
+      '</c:pieChart>',
+      '<c:dLbls><c:showVal val="1"/></c:dLbls></c:pieChart>',
+    );
+
+    expect(readChartState(chartPackage(chartXml(group)), CHART_URI)
+      .definition?.groups[0]?.options?.dataLabels).toEqual({ showValue: true });
+  });
+
   it('round trips strict date value and editable series axes', () => {
     const definition = normalizeChartDefinition({
       groups: [{
@@ -498,7 +629,7 @@ function chartPackage(
 }
 
 function chartXml(groups: string, axes = ''): string {
-  return `<c:chartSpace xmlns:c="${CHART_NS}" xmlns:r="${REL_NS}">`
+  return `<c:chartSpace xmlns:c="${CHART_NS}" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="${REL_NS}">`
     + `<c:chart><c:plotArea>${groups}${axes}</c:plotArea></c:chart>`
     + '<c:externalData r:id="rId1"/><c:extLst><c:ext uri="urn:keep"/></c:extLst>'
     + '</c:chartSpace>';
@@ -530,6 +661,42 @@ function pointSeriesXml(
     + numericReference('yVal', values, `Sheet1!$B$2:$B$${values.length + 1}`)
     + (sizes ? numericReference('bubbleSize', sizes, `Sheet1!$C$2:$C$${sizes.length + 1}`) : '')
     + '</c:ser>';
+}
+
+function pptxGenJsDataLabels(points: readonly {
+  readonly position?: 'bestFit' | 'ctr';
+  readonly showCategoryName: boolean;
+  readonly showPercent: boolean;
+  readonly index?: number;
+  readonly fontSize?: number | null;
+  readonly shape?: string;
+  readonly extra?: string;
+}[]): string {
+  const pointXml = points.map((point, index) => '<c:dLbl>'
+    + `<c:idx val="${point.index ?? index}"/>`
+    + '<c:numFmt formatCode="General" sourceLinked="0"/>'
+    + (point.shape ?? '<c:spPr/>')
+    + (point.fontSize === null ? '' : '<c:txPr><a:bodyPr/><a:lstStyle/><a:p><a:pPr>'
+      + `<a:defRPr sz="${(point.fontSize ?? 12) * 100}" b="0" i="0" u="none" strike="noStrike">`
+      + '<a:solidFill><a:srgbClr val="000000"/></a:solidFill>'
+      + '<a:latin typeface="Arial"/></a:defRPr></a:pPr></a:p></c:txPr>')
+    + (point.position === undefined ? '' : `<c:dLblPos val="${point.position}"/>`)
+    + '<c:showLegendKey val="0"/><c:showVal val="0"/>'
+    + `<c:showCatName val="${point.showCategoryName ? 1 : 0}"/>`
+    + '<c:showSerName val="0"/>'
+    + `<c:showPercent val="${point.showPercent ? 1 : 0}"/>`
+    + '<c:showBubbleSize val="0"/>'
+    + (point.extra ?? '')
+    + '</c:dLbl>').join('');
+  return '<c:dLbls>' + pointXml
+    + '<c:numFmt formatCode="General" sourceLinked="0"/>'
+    + '<c:txPr><a:bodyPr/><a:lstStyle/><a:p><a:pPr>'
+    + '<a:defRPr sz="1800" b="0" i="0" u="none" strike="noStrike">'
+    + '<a:solidFill><a:srgbClr val="000000"/></a:solidFill>'
+    + '<a:latin typeface="Arial"/></a:defRPr></a:pPr></a:p></c:txPr>'
+    + '<c:dLblPos val="ctr"/><c:showLegendKey val="0"/><c:showVal val="0"/>'
+    + '<c:showCatName val="1"/><c:showSerName val="0"/><c:showPercent val="1"/>'
+    + '<c:showBubbleSize val="0"/><c:showLeaderLines val="0"/></c:dLbls>';
 }
 
 function stringReference(

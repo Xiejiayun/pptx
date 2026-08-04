@@ -4,6 +4,8 @@ import { basename, dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
+import { createChartPresentation91Fixture } from './chart-presentation-91-fixture.mjs';
+
 const tarball = resolve(process.argv[2] ?? '');
 if (!tarball.endsWith('.tgz')) throw new Error('Usage: node scripts/smoke-npm-package.mjs <package.tgz>');
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -12,6 +14,20 @@ const placeholderTypes = ['title', 'body', 'pic', 'chart', 'tbl', 'media'];
 const directory = await mkdtemp(join(tmpdir(), 'jiayunxie-pptx-smoke-'));
 try {
   await writeFile(join(directory, 'package.json'), JSON.stringify({ private: true, type: 'module' }));
+  const chartPresentationFixture = process.env.PPTX_CHART_PRESENTATION_FIXTURE
+    ? await readFile(resolve(process.env.PPTX_CHART_PRESENTATION_FIXTURE))
+    : await createChartPresentation91Fixture();
+  await writeFile(
+    join(directory, 'chart-presentation-91-fixture.pptx'),
+    chartPresentationFixture,
+  );
+  await writeFile(
+    join(directory, 'chart-presentation-91-lifecycle-probe.mjs'),
+    await readFile(
+      join(repositoryRoot, 'scripts/chart-presentation-91-lifecycle-probe.mjs'),
+      'utf8',
+    ),
+  );
   run('npm', [
     'install',
     '--ignore-scripts',
@@ -69,6 +85,10 @@ try {
     join(installed, 'dist/types/model/index.d.ts'),
     'utf8',
   );
+  const chartDeclarationSource = await readFile(
+    join(installed, 'dist/types/model/chart.d.ts'),
+    'utf8',
+  );
   const versionDeclarationSource = await readFile(
     join(installed, 'dist/types/sdk/version.d.ts'),
     'utf8',
@@ -93,6 +113,24 @@ try {
     join(installed, 'dist/types/opc/index.d.ts'),
     'utf8',
   );
+  const chartPresentationDeclarations = [
+    'export interface ChartOptions',
+    'export interface ChartTitleOptions',
+    'export interface ChartLegendOptions',
+    'export interface ChartDataLabelOptions',
+    'export interface ChartDataTableOptions',
+    'export interface ChartMarkerOptions',
+    'export interface ChartSeriesOptions',
+    'export interface ChartBarGroupOptions',
+    'export interface ChartBar3DGroupOptions',
+    'export interface ChartLineGroupOptions',
+    'export interface ChartRadarGroupOptions',
+    'export interface ChartDoughnutGroupOptions',
+  ];
+  if (!chartPresentationDeclarations.every((declaration) =>
+    chartDeclarationSource.includes(declaration))) {
+    throw new Error('Packed declarations are missing chart presentation contracts');
+  }
   const addTableOptionsStart = textOptionDeclarationSource.indexOf(
     'export interface AddTableOptions',
   );
@@ -411,7 +449,16 @@ try {
     `import { readFile } from 'node:fs/promises';
 import { Readable, Writable } from 'node:stream';
 import { CHART_TYPES, ChartModel, calculateImageSizing, chartWorkbookMatches, CustomGeometryEvaluationError, evaluateCustomGeometry, ImageModel, inches, inspectImage, inspectRasterImage, inspectSvgImage, MediaCodec, MediaModel, OUTPUT_TYPES, PLACEHOLDER_TYPES, PRESET_SHAPE_TYPES, PPTX_VERSION, PptxDocument, SCHEME_COLORS, ShapeModel, SlideLayoutModel, SlideMasterModel, TableModel, TEXT_ALIGNMENTS, TEXT_VERTICAL_ALIGNMENTS, GradientCodec, importPptxGenJS, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
+import { runChartPresentation91LifecycleProbe } from './chart-presentation-91-lifecycle-probe.mjs';
 const installedManifestVersion = ${JSON.stringify(manifest.version)};
+const chartPresentation91Probe = await runChartPresentation91LifecycleProbe(
+  { ChartModel, PptxDocument, chartWorkbookMatches },
+  await readFile(new URL('./chart-presentation-91-fixture.pptx', import.meta.url)),
+);
+const chartPresentation91 = chartPresentation91Probe.ok;
+const chartPresentation91State = chartPresentation91Probe.state;
+await (await PptxDocument.open(chartPresentation91Probe.explicitOutputBytes))
+  .writeFile('chart-presentation-91-smoke.pptx');
 const created = PptxDocument.create({ rtlMode: true });
 const slideNumberDeck = PptxDocument.create({ firstSlideNumber: 5 });
 const packedNumberSource = slideNumberDeck.addSlide();
@@ -8046,6 +8093,7 @@ const nativeDuplicate = nativeDuplicateSlide.shapes.find((shape) => shape instan
 const nativeDuplicatePartUri = nativeDuplicate.chartPartUri;
 const nativeComboPartUri = nativeCombo.chartPartUri;
 nativeDuplicate.remove();
+const nativeDuplicateRemoved = !nativeChartDeck.opcPackage.hasPart(nativeDuplicatePartUri);
 nativeDuplicateSlide.addText('Duplicate chart removed; source remains intact', {
   x: inches(1), y: inches(3), width: inches(8), height: inches(1), align: 'center',
 });
@@ -8159,16 +8207,23 @@ const chartAxisDisplayUnitCatalog = chartAxisAdvancedDisplayUnits.every((display
   return chart?.definition.options.valueAxis?.displayUnit === displayUnit
     && chart.xml.includes('<c:builtInUnit val="' + displayUnit + '"/>');
 });
+const chartPresentationFrame = reopenedAreaChart?.name === 'Packed area chart'
+  && reopenedAreaChart.altText === 'area chart with regional business data'
+  && reopenedAreaChart.transform.x === inches(1)
+  && reopenedAreaChart.transform.y === inches(1)
+  && reopenedAreaChart.transform.width === inches(8)
+  && reopenedAreaChart.transform.height === inches(4.5);
 const nativeCharts = reopenedNativeChartModels.length === 19
   && CHART_TYPES.every((type) => nativeChartTypes.has(type))
   && nativeChartWorkbooksMatch
+  && chartPresentationFrame
   && chartAreaFillLine
   && chartAxisFoundation
   && chartAxisAdvanced
   && chartAxisDisplayUnitCatalog
   && nativeChartIdsUnique
   && nativeChartOrphans.length === 0
-  && !nativeChartDeck.opcPackage.hasPart(nativeDuplicatePartUri)
+  && nativeDuplicateRemoved
   && nativeChartDeck.opcPackage.hasPart(nativeComboPartUri)
   && reopenedNativeCharts.diagnostics.filter(({ code }) => code.startsWith('CHART_')).length === 0;
 await reopenedNativeCharts.writeFile('native-charts-smoke.pptx');
@@ -10881,6 +10936,8 @@ const checks = {
   stableMediaLifecycle,
   nativeMediaTiming,
   nativeCharts,
+  chartPresentation91,
+  chartPresentation91State,
   chartAxisAdvanced,
   chartAxisDisplayUnitCatalog,
   slideBackgrounds,
@@ -18055,6 +18112,99 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition,
       !nativeChartAreaFillLineFragments.every((fragment) => nativeChartXml.includes(fragment))) {
     throw new Error(`CLI native chart part read failed: ${nativeChartPartResult.stdout}`);
   }
+  const chartPresentation91DeckPath = join(directory, 'chart-presentation-91-smoke.pptx');
+  const chartPresentation91InspectResult = run(
+    bin,
+    ['--json', 'package', 'inspect', chartPresentation91DeckPath],
+    directory,
+  );
+  const chartPresentation91Inspected = JSON.parse(chartPresentation91InspectResult.stdout);
+  const chartPresentation91ContentTypes = chartPresentation91Inspected.data?.contentTypes ?? {};
+  if (!chartPresentation91Inspected.ok ||
+      chartPresentation91ContentTypes[
+        'application/vnd.openxmlformats-officedocument.drawingml.chart+xml'
+      ] !== 5 ||
+      chartPresentation91ContentTypes[
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      ] !== 5) {
+    throw new Error(
+      `CLI chart presentation inspect failed: ${chartPresentation91InspectResult.stdout}`,
+    );
+  }
+  const chartPresentation91ValidateResult = run(
+    bin,
+    [
+      '--json', 'package', 'validate', chartPresentation91DeckPath,
+      '--profile', 'powerpoint-2010',
+    ],
+    directory,
+  );
+  const chartPresentation91Validated = JSON.parse(chartPresentation91ValidateResult.stdout);
+  if (!chartPresentation91Validated.ok || !chartPresentation91Validated.data?.valid ||
+      chartPresentation91Validated.data.errorCount !== 0 ||
+      chartPresentation91Validated.data.warningCount !== 0) {
+    throw new Error(
+      `CLI chart presentation validation failed: ${chartPresentation91ValidateResult.stdout}`,
+    );
+  }
+  const chartPresentation91SlidesResult = run(
+    bin,
+    ['--json', 'slides', 'list', chartPresentation91DeckPath],
+    directory,
+  );
+  const chartPresentation91Slides = JSON.parse(chartPresentation91SlidesResult.stdout);
+  if (!chartPresentation91Slides.ok || chartPresentation91Slides.data?.length !== 5 ||
+      chartPresentation91Slides.data.some(({ shapeCount }) => shapeCount !== 1)) {
+    throw new Error(
+      `CLI chart presentation slides failed: ${chartPresentation91SlidesResult.stdout}`,
+    );
+  }
+  const chartPresentation91SafePartResult = run(
+    bin,
+    [
+      '--json', 'part', 'read', chartPresentation91DeckPath,
+      '/ppt/charts/chart1.xml',
+    ],
+    directory,
+  );
+  const chartPresentation91SafePart = JSON.parse(chartPresentation91SafePartResult.stdout);
+  const chartPresentation91SafeXml = chartPresentation91SafePart.data?.content ?? '';
+  const chartPresentation91SafeSeries = chartPresentation91SafeXml.match(
+    /<c:ser>[\s\S]*?<\/c:ser>/u,
+  )?.[0] ?? '';
+  if (!chartPresentation91SafePart.ok ||
+      (chartPresentation91SafeXml.match(/<c:dLbls>/gu)?.length ?? 0) !== 1 ||
+      chartPresentation91SafeSeries.includes('<c:dLbls>') ||
+      !chartPresentation91SafeXml.includes('<c:dLblPos val="ctr"/>') ||
+      !chartPresentation91SafeXml.includes('<c:showPercent val="1"/>')) {
+    throw new Error(
+      `CLI chart presentation safe part failed: ${chartPresentation91SafePartResult.stdout}`,
+    );
+  }
+  const chartPresentation91CustomPartResult = run(
+    bin,
+    [
+      '--json', 'part', 'read', chartPresentation91DeckPath,
+      '/ppt/charts/chart5.xml',
+    ],
+    directory,
+  );
+  const chartPresentation91CustomPart = JSON.parse(chartPresentation91CustomPartResult.stdout);
+  const chartPresentation91CustomXml = chartPresentation91CustomPart.data?.content ?? '';
+  const chartPresentation91CustomLabels = chartPresentation91CustomXml.match(
+    /<c:ser>[\s\S]*?(<c:dLbls>[\s\S]*?<\/c:dLbls>)[\s\S]*?<\/c:ser>/u,
+  )?.[1] ?? '';
+  if (!chartPresentation91CustomPart.ok ||
+      (chartPresentation91CustomXml.match(/<c:dLbls>/gu)?.length ?? 0) !== 2 ||
+      (chartPresentation91CustomLabels.match(/<c:tx>/gu)?.length ?? 0) !== 3 ||
+      (chartPresentation91CustomLabels.match(/<c:spPr>/gu)?.length ?? 0) < 3 ||
+      (chartPresentation91CustomLabels.match(/<c:extLst>/gu)?.length ?? 0) < 3 ||
+      !['A', 'B', 'C'].every((value) =>
+        chartPresentation91CustomLabels.includes(`<a:t>${value}</a:t>`))) {
+    throw new Error(
+      `CLI chart presentation custom part failed: ${chartPresentation91CustomPartResult.stdout}`,
+    );
+  }
   const slideBackgroundDeckPath = join(directory, 'slide-background-smoke.pptx');
   const slideBackgroundInspectResult = run(
     bin,
@@ -19138,6 +19288,14 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition,
     await mkdir(dirname(galleryOutput), { recursive: true });
     await writeFile(galleryOutput, await readFile(nativeChartDeckPath));
   }
+  if (process.env.PPTX_CHART_PRESENTATION_OUT) {
+    const chartPresentationOutput = resolve(process.env.PPTX_CHART_PRESENTATION_OUT);
+    await mkdir(dirname(chartPresentationOutput), { recursive: true });
+    await writeFile(
+      chartPresentationOutput,
+      await readFile(chartPresentation91DeckPath),
+    );
+  }
   if (process.env.PPTX_SLIDE_NUMBER_GALLERY_OUT) {
     const galleryOutput = resolve(process.env.PPTX_SLIDE_NUMBER_GALLERY_OUT);
     await mkdir(dirname(galleryOutput), { recursive: true });
@@ -19203,6 +19361,10 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition,
     const summary = JSON.parse(serialized);
     summary.textRunScalarFamily = apiChecks.textRunScalarFamily;
     summary.textRunScalarFamilyState = apiChecks.textRunScalarFamilyState;
+    summary.chartPresentation91 = apiChecks.chartPresentation91;
+    summary.chartPresentation91State = apiChecks.chartPresentation91State;
+    summary.chartPresentation91Inspect = true;
+    summary.chartPresentation91Validate = true;
     summary.tableMargins = apiChecks.tableMargins;
     summary.tableMarginsState = apiChecks.tableMarginsState;
     summary.tableMarginsInspect = true;
