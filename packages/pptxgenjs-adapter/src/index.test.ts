@@ -1839,6 +1839,255 @@ describe('importPptxGenJS', () => {
     }
   }, 60_000);
 
+  it('locks the slide and section declarations against PptxGenJS 4.0.1', async () => {
+    const propertyId = (owner: string, property: string) =>
+      `interface:${owner}@property:${property}`;
+    const slidePropertyId = (property: string) => `property:Slide#${property}`;
+    const atomGroups = {
+      supported: [
+        ...['addChart', 'addImage', 'addNotes', 'addShape', 'addTable', 'addText']
+          .map((property) => propertyId('PresSlide', property)),
+        propertyId('PresSlide', 'hidden'),
+        'method:Slide#addNotes',
+        slidePropertyId('hidden'),
+        propertyId('SectionProps', 'title'),
+      ],
+      deliberate: [
+        propertyId('AddSlideProps', 'masterName'),
+        propertyId('AddSlideProps', 'sectionTitle'),
+        ...['addMedia', 'background', 'color', 'slideNumber']
+          .map((property) => propertyId('PresSlide', property)),
+        propertyId('SectionProps', 'order'),
+        ...['addImage', 'addMedia', 'addShape', 'addText']
+          .map((method) => `method:Slide#${method}`),
+        ...['background', 'color', 'newAutoPagedSlides', 'slideNumber']
+          .map(slidePropertyId),
+      ],
+      deprecated: [slidePropertyId('bkgd')],
+    } as const;
+    expect(Object.fromEntries(Object.entries(atomGroups).map(([status, ids]) => [
+      status,
+      ids.length,
+    ]))).toEqual({ supported: 10, deliberate: 15, deprecated: 1 });
+    expect(new Set(Object.values(atomGroups).flat()).size).toBe(26);
+    expect(Object.values(atomGroups).flat().some((id) => id.includes('@path:')))
+      .toBe(false);
+
+    const generated = new PptxGenJS();
+    generated.defineSlideMaster({ title: 'SLIDE-SECTION-AUDIT', objects: [] });
+    generated.addSection({ title: 'Family & <One>' });
+    const generatedSlide = generated.addSlide({
+      masterName: 'SLIDE-SECTION-AUDIT',
+      sectionTitle: 'Family & <One>',
+    });
+    const hyperlink: { url: string; _rId?: number } = {
+      url: 'https://slide-family.example?a=1&b=2',
+    };
+    expect(generatedSlide.addImage({
+      data: PNG_DATA_URI,
+      x: 0,
+      y: 0,
+      w: 1,
+      h: 1,
+    })).toBe(generatedSlide);
+    expect(generatedSlide.addMedia({
+      type: 'audio',
+      data: 'data:audio/mpeg;base64,AQIDBA==',
+      x: 1,
+      y: 0,
+      w: 1,
+      h: 1,
+    })).toBe(generatedSlide);
+    expect(generatedSlide.addNotes('Family notes')).toBe(generatedSlide);
+    expect(generatedSlide.addShape(generated.ShapeType.rect!, {
+      x: 2,
+      y: 0,
+      w: 1,
+      h: 1,
+    })).toBe(generatedSlide);
+    expect(generatedSlide.addText('Family text', {
+      x: 3,
+      y: 0,
+      w: 1,
+      h: 1,
+      hyperlink,
+    })).toBe(generatedSlide);
+    expect(hyperlink._rId).toBeTypeOf('number');
+
+    generatedSlide.hidden = true;
+    generatedSlide.color = 'FF3399';
+    const generatedSlideNumber = { x: 1, y: 1, w: 1, h: 0.3 };
+    generatedSlide.slideNumber = generatedSlideNumber;
+    expect(generatedSlide.hidden).toBe(true);
+    expect(generatedSlide.slideNumber).toBe(generatedSlideNumber);
+
+    const generatedBackground: { data: string; path?: string } = {
+      data: PNG_DATA_URI,
+    };
+    generatedSlide.background = generatedBackground;
+    expect(generatedBackground.path).toBe('preencoded.png');
+    expect(generatedSlide.background).toBe(generatedBackground);
+
+    const aliasOnly = generated.addSlide() as PptxGenJSSlide & { bkgd?: string };
+    aliasOnly.bkgd = 'AABBCC';
+    expect(aliasOnly.background).toEqual({ color: 'AABBCC' });
+    const canonicalWins = generated.addSlide() as PptxGenJSSlide & { bkgd?: string };
+    canonicalWins.background = { color: '112233' };
+    canonicalWins.bkgd = '445566';
+    expect(canonicalWins.background).toEqual({ color: '112233' });
+    expect(canonicalWins.bkgd).toBe('445566');
+
+    const autoPageSource = generated.addSlide({ sectionTitle: 'Family & <One>' });
+    const following = generated.addSlide({ sectionTitle: 'Family & <One>' });
+    expect(autoPageSource.newAutoPagedSlides).toBeUndefined();
+    const autoPageOptions: Record<string, unknown> = {
+      x: 1,
+      y: 4,
+      w: 8,
+      autoPage: true,
+      autoPageRepeatHeader: true,
+      autoPageHeaderRows: 1,
+      autoPageSlideStartY: 1,
+      fontSize: 18,
+      margin: 0.05,
+    };
+    autoPageSource.addTable([
+      ['Header'],
+      ...Array.from({ length: 15 }, (_, index) => [`Body ${index}`]),
+    ], autoPageOptions);
+    expect(autoPageSource.newAutoPagedSlides.length).toBeGreaterThan(0);
+    expect(autoPageSource.newAutoPagedSlides[0]).toBe(following);
+    expect(autoPageOptions).toHaveProperty('_arrObjTabHeadRows');
+    const continuation = autoPageSource.newAutoPagedSlides[0]!;
+    expect(Object.fromEntries(
+      ['addChart', 'addImage', 'addMedia', 'addNotes', 'addShape', 'addTable', 'addText']
+        .map((property) => [property, typeof continuation[property as keyof PptxGenJSSlide]]),
+    )).toEqual({
+      addChart: 'function',
+      addImage: 'function',
+      addMedia: 'function',
+      addNotes: 'function',
+      addShape: 'function',
+      addTable: 'function',
+      addText: 'function',
+    });
+
+    const masterProjection = (generated as unknown as {
+      masterSlide: Record<string, unknown>;
+    }).masterSlide;
+    expect(Object.fromEntries(
+      ['addChart', 'addImage', 'addMedia', 'addNotes', 'addShape', 'addTable', 'addText']
+        .map((property) => [property, masterProjection[property]]),
+    )).toEqual({
+      addChart: null,
+      addImage: null,
+      addMedia: null,
+      addNotes: null,
+      addShape: null,
+      addTable: null,
+      addText: null,
+    });
+    expect(['background', 'color', 'hidden', 'slideNumber'].map(
+      (property) => masterProjection[property],
+    )).toEqual([undefined, undefined, undefined, undefined]);
+
+    const unknownMaster = new PptxGenJS();
+    expect(() => unknownMaster.addSlide({ masterName: 'MISSING' })).not.toThrow();
+    const unknownSection = new PptxGenJS();
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      expect(() => unknownSection.addSlide({ sectionTitle: 'MISSING' })).not.toThrow();
+      expect(warning).toHaveBeenCalledTimes(1);
+    } finally {
+      warning.mockRestore();
+    }
+
+    const ordered = new PptxGenJS();
+    ordered.addSection({ title: 'A' });
+    ordered.addSection({ title: 'C' });
+    ordered.addSection({ title: 'B', order: 1 });
+    const orderZero = new PptxGenJS();
+    orderZero.addSection({ title: 'A' });
+    orderZero.addSection({ title: 'Zero', order: 0 });
+    const sectionTitles = (presentation: PptxGenJSInstance) =>
+      (presentation as unknown as { _sections: readonly { title: string }[] })
+        ._sections.map(({ title }) => title);
+    expect(sectionTitles(ordered)).toEqual(['A', 'B', 'C']);
+    expect(sectionTitles(orderZero)).toEqual(['A', 'Zero']);
+
+    const native = PptxDocument.create();
+    await native.defineSlideMaster({ title: 'SLIDE-SECTION-AUDIT' });
+    native.addSection({ title: 'Family & <One>' });
+    const nativeSlide = native.addSlide({
+      masterName: 'SLIDE-SECTION-AUDIT',
+      sectionTitle: 'Family & <One>',
+    });
+    expect(nativeSlide.addNotes('Family notes')).toBe(nativeSlide);
+    expect(await native.addImage(0, PNG_DATA_URI, {
+      x: inches(0),
+      y: inches(0),
+      width: inches(1),
+      height: inches(1),
+    })).toBeInstanceOf(ImageModel);
+    expect(await native.addAudio(0, 'data:audio/mpeg;base64,AQIDBA=='))
+      .toBeInstanceOf(MediaModel);
+    expect(nativeSlide.addShape('rect', {
+      x: inches(2),
+      y: inches(0),
+      width: inches(1),
+      height: inches(1),
+    })).toBeInstanceOf(ShapeModel);
+    expect(nativeSlide.addText('Family text', {
+      x: inches(3),
+      y: inches(0),
+      width: inches(1),
+      height: inches(1),
+    })).toBeInstanceOf(ShapeModel);
+    expect(Object.fromEntries(
+      ['addChart', 'addImage', 'addNotes', 'addShape', 'addTable', 'addText']
+        .map((property) => [property, typeof nativeSlide[property as keyof typeof nativeSlide]]),
+    )).toEqual({
+      addChart: 'function',
+      addImage: 'function',
+      addNotes: 'function',
+      addShape: 'function',
+      addTable: 'function',
+      addText: 'function',
+    });
+    expect('addMedia' in nativeSlide).toBe(false);
+    expect(Object.isFrozen(nativeSlide.newAutoPagedSlides)).toBe(true);
+
+    nativeSlide.hidden = true;
+    nativeSlide.color = { kind: 'srgb', value: 'FF3399' };
+    const nativeSlideNumber = { x: inches(1), y: inches(1) };
+    nativeSlide.slideNumber = nativeSlideNumber;
+    expect(nativeSlide.hidden).toBe(true);
+    expect(nativeSlide.color).toEqual({ kind: 'srgb', value: 'FF3399' });
+    expect(nativeSlide.slideNumber).not.toBe(nativeSlideNumber);
+    expect(nativeSlide.slideNumber).toMatchObject(nativeSlideNumber);
+
+    const nativeUnknownMaster = PptxDocument.create();
+    const unknownMasterBefore = packageState(nativeUnknownMaster);
+    expect(() => nativeUnknownMaster.addSlide({ masterName: 'MISSING' }))
+      .toThrow(RangeError);
+    expect(packageState(nativeUnknownMaster)).toEqual(unknownMasterBefore);
+    const nativeUnknownSection = PptxDocument.create();
+    const unknownSectionBefore = packageState(nativeUnknownSection);
+    expect(() => nativeUnknownSection.addSlide({ sectionTitle: 'MISSING' }))
+      .toThrow(RangeError);
+    expect(packageState(nativeUnknownSection)).toEqual(unknownSectionBefore);
+
+    const nativeOrdered = PptxDocument.create();
+    nativeOrdered.addSection({ title: 'A' });
+    nativeOrdered.addSection({ title: 'C' });
+    nativeOrdered.addSection({ title: 'B', order: 1 });
+    const nativeOrderZero = PptxDocument.create();
+    nativeOrderZero.addSection({ title: 'A' });
+    nativeOrderZero.addSection({ title: 'Zero', order: 0 });
+    expect(nativeOrdered.sections?.map(({ title }) => title)).toEqual(['A', 'B', 'C']);
+    expect(nativeOrderZero.sections?.map(({ title }) => title)).toEqual(['Zero', 'A']);
+  }, 60_000);
+
   it('matches the public PptxGenJS SchemeColor helper and legal output', async () => {
     const generated = new PptxGenJS();
     const second = new PptxGenJS();

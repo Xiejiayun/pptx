@@ -124,14 +124,14 @@ function assertDeepFrozen(value, seen = new Set()) {
 test('exports an immutable evidence-backed initial manifest batch', () => {
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.schemaVersion, 1);
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.packageVersion, '4.0.1');
-  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1301);
+  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1327);
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries.map(({ status }) => status).sort(),
     [
       ...Array(355).fill('defect-excluded'),
-      ...Array(606).fill('supported'),
-      ...Array(254).fill('deliberate-difference'),
-      ...Array(86).fill('deprecated-alias'),
+      ...Array(616).fill('supported'),
+      ...Array(269).fill('deliberate-difference'),
+      ...Array(87).fill('deprecated-alias'),
     ].sort(),
   );
   const lineFamilyEntries = PPTXGENJS_SURFACE_MANIFEST.entries.filter(({ id }) =>
@@ -881,6 +881,82 @@ test('exports an immutable evidence-backed initial manifest batch', () => {
     ['ArrayBuffer', 'Blob', 'string']
       .map((token) => outputReturnId('stream', token))
       .sort(),
+  );
+  const slidePropertyId = (property) => `property:Slide#${property}`;
+  const slideSectionExpected = [
+    ...['addChart', 'addImage', 'addNotes', 'addShape', 'addTable', 'addText']
+      .map((property) => ({
+        id: addTablePropertyId('PresSlide', property),
+        status: 'supported',
+      })),
+    {
+      id: addTablePropertyId('PresSlide', 'hidden'),
+      status: 'supported',
+    },
+    { id: 'method:Slide#addNotes', status: 'supported' },
+    { id: slidePropertyId('hidden'), status: 'supported' },
+    {
+      id: addTablePropertyId('SectionProps', 'title'),
+      status: 'supported',
+    },
+    ...[
+      ['AddSlideProps', 'masterName'],
+      ['AddSlideProps', 'sectionTitle'],
+      ['PresSlide', 'addMedia'],
+      ['PresSlide', 'background'],
+      ['PresSlide', 'color'],
+      ['PresSlide', 'slideNumber'],
+      ['SectionProps', 'order'],
+    ].map(([owner, property]) => ({
+      id: addTablePropertyId(owner, property),
+      status: 'deliberate-difference',
+    })),
+    ...['addImage', 'addMedia', 'addShape', 'addText'].map((method) => ({
+      id: `method:Slide#${method}`,
+      status: 'deliberate-difference',
+    })),
+    ...['background', 'color', 'newAutoPagedSlides', 'slideNumber']
+      .map((property) => ({
+        id: slidePropertyId(property),
+        status: 'deliberate-difference',
+      })),
+    { id: slidePropertyId('bkgd'), status: 'deprecated-alias' },
+  ].sort((left, right) => left.id.localeCompare(right.id));
+  const slideSectionIds = new Set(slideSectionExpected.map(({ id }) => id));
+  assert.equal(slideSectionIds.size, 26);
+  const slideSectionEntries = PPTXGENJS_SURFACE_MANIFEST.entries
+    .filter(({ id }) => slideSectionIds.has(id))
+    .sort((left, right) => left.id.localeCompare(right.id));
+  assert.deepEqual(
+    slideSectionEntries.map(({ id, status }) => ({ id, status })),
+    slideSectionExpected,
+  );
+  assert.deepEqual(
+    Object.fromEntries(
+      ['supported', 'deliberate-difference', 'deprecated-alias'].map((status) => [
+        status,
+        slideSectionEntries.filter((entry) => entry.status === status).length,
+      ]),
+    ),
+    { supported: 10, 'deliberate-difference': 15, 'deprecated-alias': 1 },
+  );
+  assert.equal(
+    slideSectionEntries.find(({ id }) => id === slidePropertyId('bkgd'))?.canonical,
+    slidePropertyId('background'),
+  );
+  assert.deepEqual(
+    slideSectionEntries
+      .filter(({ id }) => /^interface:PresSlide@property:add/u.test(id))
+      .map(({ id, status }) => ({ id, status })),
+    [
+      { id: addTablePropertyId('PresSlide', 'addChart'), status: 'supported' },
+      { id: addTablePropertyId('PresSlide', 'addImage'), status: 'supported' },
+      { id: addTablePropertyId('PresSlide', 'addMedia'), status: 'deliberate-difference' },
+      { id: addTablePropertyId('PresSlide', 'addNotes'), status: 'supported' },
+      { id: addTablePropertyId('PresSlide', 'addShape'), status: 'supported' },
+      { id: addTablePropertyId('PresSlide', 'addTable'), status: 'supported' },
+      { id: addTablePropertyId('PresSlide', 'addText'), status: 'supported' },
+    ],
   );
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries

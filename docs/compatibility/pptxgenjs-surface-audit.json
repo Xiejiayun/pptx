@@ -6915,54 +6915,122 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the slide and section declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "AddSlideProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const masterLayoutDocument = api.PptxDocument.create({ slideSize: 'wide' });"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "override addSlide(options: AddSlideOptions = {}): SlideModel {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "define slide master works in all six presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const masterLayoutSlide = masterLayoutDeck.addSlide({ masterName: masterLayout.name });"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the slide and section declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks public slide master fallbacks while native definitions reject atomically"
+          }
+        ]
       },
       "id": "interface:AddSlideProps@property:masterName",
       "kind": "property",
       "name": "masterName",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.addSlide",
+        "SlideModel"
+      ],
+      "note": "PptxGenJS silently falls back to its default layout for an unknown master name; native resolves known names and rejects an unknown reference before mutation.",
       "optional": true,
       "owner": "AddSlideProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "string"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the slide and section declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "AddSlideProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "code": [
+          {
+            "path": "packages/model/src/presentation.ts",
+            "pattern": "addSection(options: AddSectionOptions): PresentationSection {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, reads, and atomically edits detached presentation sections"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const sectioned = PptxDocument.create();"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the slide and section declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports and matches public PptxGenJS presentation sections"
+          }
+        ]
       },
       "id": "interface:AddSlideProps@property:sectionTitle",
       "kind": "property",
       "name": "sectionTitle",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.addSlide",
+        "PresentationModel.addSection",
+        "PresentationSection"
+      ],
+      "note": "PptxGenJS warns but still creates a loose slide for an unknown section title; native resolves known titles and rejects an unknown reference before mutation.",
       "optional": true,
       "owner": "AddSlideProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "string"
     },
     {
@@ -19567,80 +19635,184 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "PresSlide",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const chartDocument = api.PptxDocument.create();"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "async addChart("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens all native chart types through the public SDK in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 10"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the slide and section declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "compares PptxGenJS and native chart creation return semantics"
+          }
+        ]
       },
       "id": "interface:PresSlide@property:addChart",
       "kind": "property",
       "name": "addChart",
-      "native": [],
-      "note": "",
+      "native": [
+        "ChartModel",
+        "PptxDocument.addChart",
+        "SlideModel.addChart"
+      ],
+      "note": "Native exposes the same legal callable or state capability with typed live models, strict validation, packed-package coverage, serialization, and editable reopen evidence.",
       "optional": false,
       "owner": "PresSlide",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "Function"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "PresSlide",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const svgDocument = api.PptxDocument.create();"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "addImage(bytes: Uint8Array, options: AddImageOptions): ImageModel {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "adds detected raster image sources with immediate live model state"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const embeddedRasterImages = embeddedRasterImmediate"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the slide and section declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches PptxGenJS embedded raster image public output semantically"
+          }
+        ]
       },
       "id": "interface:PresSlide@property:addImage",
       "kind": "property",
       "name": "addImage",
-      "native": [],
-      "note": "",
+      "native": [
+        "ImageModel",
+        "PptxDocument.addImage",
+        "SlideModel.addImage"
+      ],
+      "note": "Native exposes the same legal callable or state capability with typed live models, strict validation, packed-package coverage, serialization, and editable reopen evidence.",
       "optional": false,
       "owner": "PresSlide",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "Function"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the slide and section declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "PresSlide",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const mediaDocument = api.PptxDocument.create();"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "async addAudio(source: MediaSource, options: AddMediaOptions = {}): Promise<MediaModel> {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates every public media source, MIME family, poster family, and external mode"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const embeddedMedia = packedMediaDeduplicated"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the slide and section declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches valid PptxGenJS public audio and video media output semantically"
+          }
+        ]
       },
       "id": "interface:PresSlide@property:addMedia",
       "kind": "property",
       "name": "addMedia",
-      "native": [],
-      "note": "",
+      "native": [
+        "MediaModel",
+        "SlideModel.addAudio",
+        "SlideModel.addOnlineVideo",
+        "SlideModel.addVideo"
+      ],
+      "note": "PptxGenJS exposes one generic callable addMedia property; native deliberately splits the capability into typed addAudio, addVideo, and addOnlineVideo operations.",
       "optional": false,
       "owner": "PresSlide",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Function"
     },
     {
@@ -19651,152 +19823,346 @@
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "addNotes(value: string): this {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "preserves speaker notes through lifecycle, rollback, sections, hidden state, and all formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const speakerNotesDeck = PptxDocument.create();"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the slide and section declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports and matches public PptxGenJS speaker notes output"
+          }
+        ]
       },
       "id": "interface:PresSlide@property:addNotes",
       "kind": "property",
       "name": "addNotes",
-      "native": [],
-      "note": "",
+      "native": [
+        "SlideModel.addNotes"
+      ],
+      "note": "Native exposes the same legal callable or state capability with typed live models, strict validation, packed-package coverage, serialization, and editable reopen evidence.",
       "optional": false,
       "owner": "PresSlide",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "Function"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "PresSlide",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const presetShapeDocument = api.PptxDocument.create();"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "addShape("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates preset shapes with deterministic defaults, transforms, order, and identity"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const presetShapes = PRESET_SHAPE_TYPES.length === 178"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the slide and section declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches representative preset shape public output semantically"
+          }
+        ]
       },
       "id": "interface:PresSlide@property:addShape",
       "kind": "property",
       "name": "addShape",
-      "native": [],
-      "note": "",
+      "native": [
+        "ShapeModel",
+        "SlideModel.addShape"
+      ],
+      "note": "Native exposes the same legal callable or state capability with typed live models, strict validation, packed-package coverage, serialization, and editable reopen evidence.",
       "optional": false,
       "owner": "PresSlide",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "Function"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "PresSlide",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableAutoPageDocument = api.PptxDocument.create();"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "addTable("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "exports measured table auto-page contracts through all six presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableAutoPageDocument = PptxDocument.create();"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the slide and section declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports PptxGenJS 4.0.1 auto-page output with repeated headers and editable tables"
+          }
+        ]
       },
       "id": "interface:PresSlide@property:addTable",
       "kind": "property",
       "name": "addTable",
-      "native": [],
-      "note": "",
+      "native": [
+        "SlideModel.addTable",
+        "TableModel"
+      ],
+      "note": "Native exposes the same legal callable or state capability with typed live models, strict validation, packed-package coverage, serialization, and editable reopen evidence.",
       "optional": false,
       "owner": "PresSlide",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "Function"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "PresSlide",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textShapeFillDocument = api.PptxDocument.create();"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "addText(value: string, options: AddTextOptions = {}): ShapeModel {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, and round-trips a basic text shape with stable identity"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const slideDefaultColorDeck = PptxDocument.create();"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the slide and section declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches PptxGenJS shape and text percentage coordinate output with explicit native units"
+          }
+        ]
       },
       "id": "interface:PresSlide@property:addText",
       "kind": "property",
       "name": "addText",
-      "native": [],
-      "note": "",
+      "native": [
+        "ShapeModel",
+        "SlideModel.addText"
+      ],
+      "note": "Native exposes the same legal callable or state capability with typed live models, strict validation, packed-package coverage, serialization, and editable reopen evidence.",
       "optional": false,
       "owner": "PresSlide",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "Function"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the slide and section declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "PresSlide",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const backgroundDocument = api.PptxDocument.create();"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "set background(value: SlideBackground | undefined) {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "round-trips image, none, solid, and gradient backgrounds twice in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const slideBackgroundDeck = PptxDocument.create();"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the slide and section declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches supported public PptxGenJS slide backgrounds and locks none divergences"
+          }
+        ]
       },
       "id": "interface:PresSlide@property:background",
       "kind": "property",
       "name": "background",
-      "native": [],
-      "note": "",
+      "native": [
+        "SlideBackground",
+        "SlideModel.background"
+      ],
+      "note": "PptxGenJS retains and may mutate permissive background objects and has malformed none fallbacks; native uses strict detached background state with explicit no-fill and transactional media loading.",
       "optional": true,
       "owner": "PresSlide",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "BackgroundProps"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the slide and section declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "PresSlide",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const slideDefaultColorDocument = api.PptxDocument.create();"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "set color(value: RichTextColor | undefined) {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "round-trips materialized slide default colors twice in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const slideDefaultColorDeck = PptxDocument.create();"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the slide and section declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches public PptxGenJS slide default colors and locks intentional differences"
+          }
+        ]
       },
       "id": "interface:PresSlide@property:color",
       "kind": "property",
       "name": "color",
-      "native": [],
-      "note": "",
+      "native": [
+        "RichTextColor",
+        "SlideModel.color"
+      ],
+      "note": "PptxGenJS uses a permissive hex string with black materialization fallbacks; native uses strict detached sRGB or scheme RichTextColor state and canonical theme inheritance.",
       "optional": true,
       "owner": "PresSlide",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "HexColor"
     },
     {
@@ -19807,74 +20173,168 @@
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "set hidden(value: boolean) {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "preserves hidden slide state through lifecycle, rollback, and all formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const hiddenDeck = PptxDocument.create();"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the slide and section declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports and matches public PptxGenJS hidden slide output"
+          }
+        ]
       },
       "id": "interface:PresSlide@property:hidden",
       "kind": "property",
       "name": "hidden",
-      "native": [],
-      "note": "",
+      "native": [
+        "SlideModel.hidden"
+      ],
+      "note": "Native exposes the same legal callable or state capability with typed live models, strict validation, packed-package coverage, serialization, and editable reopen evidence.",
       "optional": true,
       "owner": "PresSlide",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "boolean"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the slide and section declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "PresSlide",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const slideNumberDocument = api.PptxDocument.create({ firstSlideNumber: -2 });"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "set slideNumber(value: SlideNumberOptions | undefined) {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "round-trips all three slide-number owners twice in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const slideNumberDeck = PptxDocument.create({ firstSlideNumber: 5 });"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the slide and section declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports public slide-number variants and locks PptxGenJS 4.0.1 differences"
+          }
+        ]
       },
       "id": "interface:PresSlide@property:slideNumber",
       "kind": "property",
       "name": "slideNumber",
-      "native": [],
-      "note": "",
+      "native": [
+        "SlideModel.slideNumber",
+        "SlideNumberOptions"
+      ],
+      "note": "PptxGenJS retains permissive caller state and has lossy defaults plus fixed shape-id collisions; native snapshots strict editable options and allocates canonical unique OOXML owners.",
       "optional": true,
       "owner": "PresSlide",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "SlideNumberProps"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the slide and section declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "SectionProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "code": [
+          {
+            "path": "packages/model/src/presentation.ts",
+            "pattern": "addSection(options: AddSectionOptions): PresentationSection {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, reads, and atomically edits detached presentation sections"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const sectioned = PptxDocument.create();"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the slide and section declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports and matches public PptxGenJS presentation sections"
+          }
+        ]
       },
       "id": "interface:SectionProps@property:order",
       "kind": "property",
       "name": "order",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.addSlide",
+        "PresentationModel.addSection",
+        "PresentationSection"
+      ],
+      "note": "PptxGenJS treats declared numeric order zero as omitted and appends; native preserves zero as the first insertion index while matching documented positive indices.",
       "optional": true,
       "owner": "SectionProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "number"
     },
     {
@@ -19885,22 +20345,50 @@
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "code": [
+          {
+            "path": "packages/model/src/presentation.ts",
+            "pattern": "addSection(options: AddSectionOptions): PresentationSection {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, reads, and atomically edits detached presentation sections"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const sectioned = PptxDocument.create();"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the slide and section declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports and matches public PptxGenJS presentation sections"
+          }
+        ]
       },
       "id": "interface:SectionProps@property:title",
       "kind": "property",
       "name": "title",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.addSlide",
+        "PresentationModel.addSection",
+        "PresentationSection"
+      ],
+      "note": "Native exposes the same legal callable or state capability with typed live models, strict validation, packed-package coverage, serialization, and editable reopen evidence.",
       "optional": false,
       "owner": "SectionProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "string"
     },
     {
@@ -32096,58 +32584,133 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the slide and section declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "Slide",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const svgDocument = api.PptxDocument.create();"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "addImage(bytes: Uint8Array, options: AddImageOptions): ImageModel {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "adds detected raster image sources with immediate live model state"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const embeddedRasterImages = embeddedRasterImmediate"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the slide and section declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches PptxGenJS embedded raster image public output semantically"
+          }
+        ]
       },
       "id": "method:Slide#addImage",
       "kind": "method",
       "name": "addImage",
-      "native": [],
-      "note": "",
+      "native": [
+        "ImageModel",
+        "PptxDocument.addImage",
+        "SlideModel.addImage"
+      ],
+      "note": "PptxGenJS synchronously returns the owning slide and may retain or mutate caller state; native returns a typed live model, prepares asynchronous sources where required, and snapshots validated input.",
       "optional": false,
       "owner": "Slide",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [
         "addImage(options: ImageProps): Slide"
       ],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": ""
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the slide and section declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "Slide",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const mediaDocument = api.PptxDocument.create();"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "async addAudio(source: MediaSource, options: AddMediaOptions = {}): Promise<MediaModel> {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates every public media source, MIME family, poster family, and external mode"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const embeddedMedia = packedMediaDeduplicated"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the slide and section declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches valid PptxGenJS public audio and video media output semantically"
+          }
+        ]
       },
       "id": "method:Slide#addMedia",
       "kind": "method",
       "name": "addMedia",
-      "native": [],
-      "note": "",
+      "native": [
+        "MediaModel",
+        "SlideModel.addAudio",
+        "SlideModel.addOnlineVideo",
+        "SlideModel.addVideo"
+      ],
+      "note": "PptxGenJS synchronously returns the owning slide and may retain or mutate caller state; native returns a typed live model, prepares asynchronous sources where required, and snapshots validated input.",
       "optional": false,
       "owner": "Slide",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [
         "addMedia(options: MediaProps): Slide"
       ],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": ""
     },
     {
@@ -32158,52 +32721,114 @@
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "addNotes(value: string): this {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "preserves speaker notes through lifecycle, rollback, sections, hidden state, and all formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const speakerNotesDeck = PptxDocument.create();"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the slide and section declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports and matches public PptxGenJS speaker notes output"
+          }
+        ]
       },
       "id": "method:Slide#addNotes",
       "kind": "method",
       "name": "addNotes",
-      "native": [],
-      "note": "",
+      "native": [
+        "SlideModel.addNotes"
+      ],
+      "note": "Native exposes the same legal callable or state capability with typed live models, strict validation, packed-package coverage, serialization, and editable reopen evidence.",
       "optional": false,
       "owner": "Slide",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [
         "addNotes(notes: string): Slide"
       ],
-      "status": "unverified",
+      "status": "supported",
       "typeText": ""
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the slide and section declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "Slide",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const presetShapeDocument = api.PptxDocument.create();"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "addShape("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates preset shapes with deterministic defaults, transforms, order, and identity"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const presetShapes = PRESET_SHAPE_TYPES.length === 178"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the slide and section declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches representative preset shape public output semantically"
+          }
+        ]
       },
       "id": "method:Slide#addShape",
       "kind": "method",
       "name": "addShape",
-      "native": [],
-      "note": "",
+      "native": [
+        "ShapeModel",
+        "SlideModel.addShape"
+      ],
+      "note": "PptxGenJS synchronously returns the owning slide and may retain or mutate caller state; native returns a typed live model, prepares asynchronous sources where required, and snapshots validated input.",
       "optional": false,
       "owner": "Slide",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [
         "addShape(shapeName: SHAPE_NAME, options?: ShapeProps): Slide"
       ],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": ""
     },
     {
@@ -32292,108 +32917,253 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the slide and section declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "Slide",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textShapeFillDocument = api.PptxDocument.create();"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "addText(value: string, options: AddTextOptions = {}): ShapeModel {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, and round-trips a basic text shape with stable identity"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const slideDefaultColorDeck = PptxDocument.create();"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the slide and section declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches PptxGenJS shape and text percentage coordinate output with explicit native units"
+          }
+        ]
       },
       "id": "method:Slide#addText",
       "kind": "method",
       "name": "addText",
-      "native": [],
-      "note": "",
+      "native": [
+        "ShapeModel",
+        "SlideModel.addText"
+      ],
+      "note": "PptxGenJS synchronously returns the owning slide and may retain or mutate caller state; native returns a typed live model, prepares asynchronous sources where required, and snapshots validated input.",
       "optional": false,
       "owner": "Slide",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [
         "addText(text: string | TextProps[], options?: TextPropsOptions): Slide"
       ],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": ""
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the slide and section declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "Slide",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const backgroundDocument = api.PptxDocument.create();"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "set background(value: SlideBackground | undefined) {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "round-trips image, none, solid, and gradient backgrounds twice in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const slideBackgroundDeck = PptxDocument.create();"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the slide and section declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches supported public PptxGenJS slide backgrounds and locks none divergences"
+          }
+        ]
       },
       "id": "property:Slide#background",
       "kind": "property",
       "name": "background",
-      "native": [],
-      "note": "",
+      "native": [
+        "SlideBackground",
+        "SlideModel.background"
+      ],
+      "note": "PptxGenJS retains and may mutate permissive background objects and has malformed none fallbacks; native uses strict detached background state with explicit no-fill and transactional media loading.",
       "optional": false,
       "owner": "Slide",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "BackgroundProps"
     },
     {
+      "canonical": "property:Slide#background",
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the slide and section declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "Slide",
       "deprecated": true,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const backgroundDocument = api.PptxDocument.create();"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "set background(value: SlideBackground | undefined) {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "round-trips image, none, solid, and gradient backgrounds twice in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const slideBackgroundDeck = PptxDocument.create();"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the slide and section declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches supported public PptxGenJS slide backgrounds and locks none divergences"
+          }
+        ]
       },
       "id": "property:Slide#bkgd",
       "kind": "property",
       "name": "bkgd",
-      "native": [],
-      "note": "",
+      "native": [
+        "SlideBackground",
+        "SlideModel.background"
+      ],
+      "note": "PptxGenJS bkgd is a working deprecated setter for background.color; native exposes only the canonical strict background property.",
       "optional": false,
       "owner": "Slide",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deprecated-alias",
       "typeText": "string"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the slide and section declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "Slide",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const slideDefaultColorDocument = api.PptxDocument.create();"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "set color(value: RichTextColor | undefined) {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "round-trips materialized slide default colors twice in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const slideDefaultColorDeck = PptxDocument.create();"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the slide and section declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches public PptxGenJS slide default colors and locks intentional differences"
+          }
+        ]
       },
       "id": "property:Slide#color",
       "kind": "property",
       "name": "color",
-      "native": [],
-      "note": "",
+      "native": [
+        "RichTextColor",
+        "SlideModel.color"
+      ],
+      "note": "PptxGenJS uses a permissive hex string with black materialization fallbacks; native uses strict detached sRGB or scheme RichTextColor state and canonical theme inheritance.",
       "optional": false,
       "owner": "Slide",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "HexColor"
     },
     {
@@ -32404,74 +33174,172 @@
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "set hidden(value: boolean) {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "preserves hidden slide state through lifecycle, rollback, and all formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const hiddenDeck = PptxDocument.create();"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the slide and section declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports and matches public PptxGenJS hidden slide output"
+          }
+        ]
       },
       "id": "property:Slide#hidden",
       "kind": "property",
       "name": "hidden",
-      "native": [],
-      "note": "",
+      "native": [
+        "SlideModel.hidden"
+      ],
+      "note": "Native exposes the same legal callable or state capability with typed live models, strict validation, packed-package coverage, serialization, and editable reopen evidence.",
       "optional": false,
       "owner": "Slide",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "boolean"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the slide and section declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "Slide",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableAutoPageGenerated = tableAutoPageSource.newAutoPagedSlides;"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "get newAutoPagedSlides(): readonly SlideModel[] {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "exports measured table auto-page contracts through all six presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableAutoPageGenerated = tableAutoPageSource.newAutoPagedSlides;"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the slide and section declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports PptxGenJS 4.0.1 auto-page output with repeated headers and editable tables"
+          }
+        ]
       },
       "id": "property:Slide#newAutoPagedSlides",
       "kind": "property",
       "name": "newAutoPagedSlides",
-      "native": [],
-      "note": "",
+      "native": [
+        "SlideModel.addTable",
+        "SlideModel.newAutoPagedSlides"
+      ],
+      "note": "PptxGenJS starts undefined, reuses existing following slides, and mutates option and hyperlink inputs; native returns a frozen continuation list containing only transactionally created pages.",
       "optional": false,
       "owner": "Slide",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "PresSlide[]"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the slide and section declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "Slide",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const slideNumberDocument = api.PptxDocument.create({ firstSlideNumber: -2 });"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "set slideNumber(value: SlideNumberOptions | undefined) {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "round-trips all three slide-number owners twice in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const slideNumberDeck = PptxDocument.create({ firstSlideNumber: 5 });"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the slide and section declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports public slide-number variants and locks PptxGenJS 4.0.1 differences"
+          }
+        ]
       },
       "id": "property:Slide#slideNumber",
       "kind": "property",
       "name": "slideNumber",
-      "native": [],
-      "note": "",
+      "native": [
+        "SlideModel.slideNumber",
+        "SlideNumberOptions"
+      ],
+      "note": "PptxGenJS retains permissive caller state and has lossy defaults plus fixed shape-id collisions; native snapshots strict editable options and allocates canonical unique OOXML owners.",
       "optional": false,
       "owner": "Slide",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "SlideNumberProps"
     },
     {
@@ -82664,12 +83532,12 @@
   "complete": false,
   "counts": {
     "defect-excluded": 355,
-    "deliberate-difference": 254,
-    "deprecated-alias": 86,
+    "deliberate-difference": 269,
+    "deprecated-alias": 87,
     "stale": 0,
-    "supported": 606,
+    "supported": 616,
     "unsupported": 0,
-    "unverified": 473
+    "unverified": 447
   },
   "declarationSha256": "0726d015dbcb55ccfa75546cb2fd43fe13a0dfeb783d08572f1c62f59193bbe5",
   "declarationTotal": 1774,
@@ -82708,8 +83576,6 @@
     "inline:interface:SlideMasterProps@property:objects@property:objects.text",
     "inline:interface:TextPropsOptions@property:outline@property:outline.color",
     "inline:interface:TextPropsOptions@property:outline@property:outline.size",
-    "interface:AddSlideProps@property:masterName",
-    "interface:AddSlideProps@property:sectionTitle",
     "interface:BackgroundProps@property:alpha",
     "interface:BackgroundProps@property:color",
     "interface:BackgroundProps@property:data",
@@ -82950,19 +83816,6 @@
     "interface:PlaceholderProps@property:w",
     "interface:PlaceholderProps@property:x",
     "interface:PlaceholderProps@property:y",
-    "interface:PresSlide@property:addChart",
-    "interface:PresSlide@property:addImage",
-    "interface:PresSlide@property:addMedia",
-    "interface:PresSlide@property:addNotes",
-    "interface:PresSlide@property:addShape",
-    "interface:PresSlide@property:addTable",
-    "interface:PresSlide@property:addText",
-    "interface:PresSlide@property:background",
-    "interface:PresSlide@property:color",
-    "interface:PresSlide@property:hidden",
-    "interface:PresSlide@property:slideNumber",
-    "interface:SectionProps@property:order",
-    "interface:SectionProps@property:title",
     "interface:ShadowProps@property:angle",
     "interface:ShadowProps@property:blur",
     "interface:ShadowProps@property:color",
@@ -83036,17 +83889,6 @@
     "interface:TextPropsOptions@property:transparency",
     "interface:TextPropsOptions@property:valign",
     "interface:TextPropsOptions@property:wrap",
-    "method:Slide#addImage",
-    "method:Slide#addMedia",
-    "method:Slide#addNotes",
-    "method:Slide#addShape",
-    "method:Slide#addText",
-    "property:Slide#background",
-    "property:Slide#bkgd",
-    "property:Slide#color",
-    "property:Slide#hidden",
-    "property:Slide#newAutoPagedSlides",
-    "property:Slide#slideNumber",
     "union:ChartLineCap#flat",
     "union:ChartLineCap#round",
     "union:ChartLineCap#square",

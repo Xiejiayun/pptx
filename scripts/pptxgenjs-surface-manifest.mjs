@@ -2978,6 +2978,294 @@ const PRESENTATION_ROOT_OUTPUT_FAMILY_ENTRIES = Object.freeze([
     presentationRootOutputEntry(id, 'defect-excluded')),
 ]);
 
+const SLIDE_SECTION_CONTROL_TITLE =
+  'locks the slide and section declarations against PptxGenJS 4.0.1';
+const SLIDE_SECTION_SUPPORTED_IDS = Object.freeze([
+  ...['addChart', 'addImage', 'addNotes', 'addShape', 'addTable', 'addText']
+    .map((property) => linePropertyId('PresSlide', property)),
+  linePropertyId('PresSlide', 'hidden'),
+  'method:Slide#addNotes',
+  'property:Slide#hidden',
+  linePropertyId('SectionProps', 'title'),
+]);
+const SLIDE_SECTION_DIFFERENCE_IDS = Object.freeze([
+  linePropertyId('AddSlideProps', 'masterName'),
+  linePropertyId('AddSlideProps', 'sectionTitle'),
+  ...['addMedia', 'background', 'color', 'slideNumber']
+    .map((property) => linePropertyId('PresSlide', property)),
+  linePropertyId('SectionProps', 'order'),
+  ...['addImage', 'addMedia', 'addShape', 'addText']
+    .map((method) => `method:Slide#${method}`),
+  ...['background', 'color', 'newAutoPagedSlides', 'slideNumber']
+    .map((property) => `property:Slide#${property}`),
+]);
+const SLIDE_SECTION_DEPRECATED_IDS = Object.freeze(['property:Slide#bkgd']);
+
+function slideSectionCategory(id) {
+  if (id.includes('AddSlideProps@property:masterName')) return 'master';
+  if (id.includes('AddSlideProps@property:sectionTitle') || id.includes('SectionProps')) {
+    return 'section';
+  }
+  if (id.endsWith('addNotes')) return 'notes';
+  if (id.endsWith('#hidden') || id.endsWith('@property:hidden')) return 'hidden';
+  if (id.endsWith('addChart')) return 'chart';
+  if (id.endsWith('addImage')) return 'image';
+  if (id.endsWith('addMedia')) return 'media';
+  if (id.endsWith('addShape')) return 'shape';
+  if (id.endsWith('addTable')) return 'table';
+  if (id.endsWith('addText')) return 'text';
+  if (id.endsWith('#background') || id.endsWith('@property:background')
+      || id.endsWith('#bkgd')) return 'background';
+  if (id.endsWith('#color') || id.endsWith('@property:color')) return 'color';
+  if (id.endsWith('#slideNumber') || id.endsWith('@property:slideNumber')) {
+    return 'slide-number';
+  }
+  return 'auto-page';
+}
+
+const SLIDE_SECTION_EVIDENCE = Object.freeze({
+  master: Object.freeze({
+    code: Object.freeze({
+      path: 'packages/sdk/src/index.ts',
+      pattern: 'override addSlide(options: AddSlideOptions = {}): SlideModel {',
+    }),
+    test: 'locks public slide master fallbacks while native definitions reject atomically',
+    packagePattern: 'const masterLayoutSlide = masterLayoutDeck.addSlide({ masterName: masterLayout.name });',
+    ooxmlPattern: 'define slide master works in all six presentation formats',
+    clientPattern: "const masterLayoutDocument = api.PptxDocument.create({ slideSize: 'wide' });",
+  }),
+  section: Object.freeze({
+    code: Object.freeze({
+      path: 'packages/model/src/presentation.ts',
+      pattern: 'addSection(options: AddSectionOptions): PresentationSection {',
+    }),
+    test: 'imports and matches public PptxGenJS presentation sections',
+    packagePattern: "const sectioned = PptxDocument.create();",
+    ooxmlPattern: 'creates, reads, and atomically edits detached presentation sections',
+  }),
+  notes: Object.freeze({
+    code: Object.freeze({
+      path: 'packages/model/src/slide.ts',
+      pattern: 'addNotes(value: string): this {',
+    }),
+    test: 'imports and matches public PptxGenJS speaker notes output',
+    packagePattern: 'const speakerNotesDeck = PptxDocument.create();',
+    ooxmlPattern: 'preserves speaker notes through lifecycle, rollback, sections, hidden state, and all formats',
+  }),
+  hidden: Object.freeze({
+    code: Object.freeze({
+      path: 'packages/model/src/slide.ts',
+      pattern: 'set hidden(value: boolean) {',
+    }),
+    test: 'imports and matches public PptxGenJS hidden slide output',
+    packagePattern: 'const hiddenDeck = PptxDocument.create();',
+    ooxmlPattern: 'preserves hidden slide state through lifecycle, rollback, and all formats',
+  }),
+  chart: Object.freeze({
+    code: Object.freeze({ path: 'packages/model/src/slide.ts', pattern: 'async addChart(' }),
+    test: 'compares PptxGenJS and native chart creation return semantics',
+    packagePattern: 'const nativeCharts = reopenedNativeChartModels.length === 10',
+    ooxmlPattern: 'creates and reopens all native chart types through the public SDK in all six formats',
+    clientPattern: 'const chartDocument = api.PptxDocument.create();',
+  }),
+  image: Object.freeze({
+    code: Object.freeze({
+      path: 'packages/model/src/slide.ts',
+      pattern: 'addImage(bytes: Uint8Array, options: AddImageOptions): ImageModel {',
+    }),
+    test: 'matches PptxGenJS embedded raster image public output semantically',
+    packagePattern: 'const embeddedRasterImages = embeddedRasterImmediate',
+    ooxmlPattern: 'adds detected raster image sources with immediate live model state',
+    clientPattern: 'const svgDocument = api.PptxDocument.create();',
+  }),
+  media: Object.freeze({
+    code: Object.freeze({
+      path: 'packages/model/src/slide.ts',
+      pattern: 'async addAudio(source: MediaSource, options: AddMediaOptions = {}): Promise<MediaModel> {',
+    }),
+    test: 'matches valid PptxGenJS public audio and video media output semantically',
+    packagePattern: 'const embeddedMedia = packedMediaDeduplicated',
+    ooxmlPattern: 'creates every public media source, MIME family, poster family, and external mode',
+    clientPattern: 'const mediaDocument = api.PptxDocument.create();',
+  }),
+  shape: Object.freeze({
+    code: Object.freeze({ path: 'packages/model/src/slide.ts', pattern: 'addShape(' }),
+    test: 'matches representative preset shape public output semantically',
+    packagePattern: 'const presetShapes = PRESET_SHAPE_TYPES.length === 178',
+    ooxmlPattern: 'creates preset shapes with deterministic defaults, transforms, order, and identity',
+    clientPattern: 'const presetShapeDocument = api.PptxDocument.create();',
+  }),
+  table: Object.freeze({
+    code: Object.freeze({ path: 'packages/model/src/slide.ts', pattern: 'addTable(' }),
+    test: 'imports PptxGenJS 4.0.1 auto-page output with repeated headers and editable tables',
+    packagePattern: 'const tableAutoPageDocument = PptxDocument.create();',
+    ooxmlPattern: 'exports measured table auto-page contracts through all six presentation formats',
+    clientPattern: 'const tableAutoPageDocument = api.PptxDocument.create();',
+  }),
+  text: Object.freeze({
+    code: Object.freeze({
+      path: 'packages/model/src/slide.ts',
+      pattern: 'addText(value: string, options: AddTextOptions = {}): ShapeModel {',
+    }),
+    test: 'matches PptxGenJS shape and text percentage coordinate output with explicit native units',
+    packagePattern: 'const slideDefaultColorDeck = PptxDocument.create();',
+    ooxmlPattern: 'creates, edits, and round-trips a basic text shape with stable identity',
+    clientPattern: 'const textShapeFillDocument = api.PptxDocument.create();',
+  }),
+  background: Object.freeze({
+    code: Object.freeze({
+      path: 'packages/model/src/slide.ts',
+      pattern: 'set background(value: SlideBackground | undefined) {',
+    }),
+    test: 'matches supported public PptxGenJS slide backgrounds and locks none divergences',
+    packagePattern: 'const slideBackgroundDeck = PptxDocument.create();',
+    ooxmlPattern: 'round-trips image, none, solid, and gradient backgrounds twice in all six formats',
+    clientPattern: 'const backgroundDocument = api.PptxDocument.create();',
+  }),
+  color: Object.freeze({
+    code: Object.freeze({
+      path: 'packages/model/src/slide.ts',
+      pattern: 'set color(value: RichTextColor | undefined) {',
+    }),
+    test: 'matches public PptxGenJS slide default colors and locks intentional differences',
+    packagePattern: 'const slideDefaultColorDeck = PptxDocument.create();',
+    ooxmlPattern: 'round-trips materialized slide default colors twice in all six formats',
+    clientPattern: 'const slideDefaultColorDocument = api.PptxDocument.create();',
+  }),
+  'slide-number': Object.freeze({
+    code: Object.freeze({
+      path: 'packages/model/src/slide.ts',
+      pattern: 'set slideNumber(value: SlideNumberOptions | undefined) {',
+    }),
+    test: 'imports public slide-number variants and locks PptxGenJS 4.0.1 differences',
+    packagePattern: 'const slideNumberDeck = PptxDocument.create({ firstSlideNumber: 5 });',
+    ooxmlPattern: 'round-trips all three slide-number owners twice in all six formats',
+    clientPattern: 'const slideNumberDocument = api.PptxDocument.create({ firstSlideNumber: -2 });',
+  }),
+  'auto-page': Object.freeze({
+    code: Object.freeze({
+      path: 'packages/model/src/slide.ts',
+      pattern: 'get newAutoPagedSlides(): readonly SlideModel[] {',
+    }),
+    test: 'imports PptxGenJS 4.0.1 auto-page output with repeated headers and editable tables',
+    packagePattern: 'const tableAutoPageGenerated = tableAutoPageSource.newAutoPagedSlides;',
+    ooxmlPattern: 'exports measured table auto-page contracts through all six presentation formats',
+    clientPattern: 'const tableAutoPageGenerated = tableAutoPageSource.newAutoPagedSlides;',
+  }),
+});
+
+function slideSectionNative(id) {
+  const category = slideSectionCategory(id);
+  const mappings = {
+    master: ['PptxDocument.addSlide', 'SlideModel'],
+    section: ['PresentationModel.addSection', 'PresentationSection', 'PptxDocument.addSlide'],
+    notes: ['SlideModel.addNotes'],
+    hidden: ['SlideModel.hidden'],
+    chart: ['SlideModel.addChart', 'PptxDocument.addChart', 'ChartModel'],
+    image: ['SlideModel.addImage', 'PptxDocument.addImage', 'ImageModel'],
+    media: ['SlideModel.addAudio', 'SlideModel.addVideo', 'SlideModel.addOnlineVideo', 'MediaModel'],
+    shape: ['SlideModel.addShape', 'ShapeModel'],
+    table: ['SlideModel.addTable', 'TableModel'],
+    text: ['SlideModel.addText', 'ShapeModel'],
+    background: ['SlideModel.background', 'SlideBackground'],
+    color: ['SlideModel.color', 'RichTextColor'],
+    'slide-number': ['SlideModel.slideNumber', 'SlideNumberOptions'],
+    'auto-page': ['SlideModel.newAutoPagedSlides', 'SlideModel.addTable'],
+  };
+  return mappings[category];
+}
+
+function slideSectionEvidence(id) {
+  const category = slideSectionCategory(id);
+  const anchors = SLIDE_SECTION_EVIDENCE[category];
+  return {
+    code: [anchors.code],
+    tests: [{
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      title: SLIDE_SECTION_CONTROL_TITLE,
+    }, {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      title: anchors.test,
+    }],
+    package: [{
+      path: 'scripts/smoke-npm-package.mjs',
+      pattern: anchors.packagePattern,
+    }],
+    ooxml: [{
+      path: 'packages/sdk/src/index.test.ts',
+      pattern: anchors.ooxmlPattern,
+    }],
+    clients: anchors.clientPattern === undefined ? [] : [{
+      path: 'scripts/playwright-browser-smoke.js',
+      pattern: anchors.clientPattern,
+    }],
+  };
+}
+
+function slideSectionDifferenceNote(id) {
+  if (id === linePropertyId('AddSlideProps', 'masterName')) {
+    return 'PptxGenJS silently falls back to its default layout for an unknown master name; native resolves known names and rejects an unknown reference before mutation.';
+  }
+  if (id === linePropertyId('AddSlideProps', 'sectionTitle')) {
+    return 'PptxGenJS warns but still creates a loose slide for an unknown section title; native resolves known titles and rejects an unknown reference before mutation.';
+  }
+  if (id === linePropertyId('SectionProps', 'order')) {
+    return 'PptxGenJS treats declared numeric order zero as omitted and appends; native preserves zero as the first insertion index while matching documented positive indices.';
+  }
+  if (id === linePropertyId('PresSlide', 'addMedia')) {
+    return 'PptxGenJS exposes one generic callable addMedia property; native deliberately splits the capability into typed addAudio, addVideo, and addOnlineVideo operations.';
+  }
+  if (/^method:Slide#add(?:Image|Media|Shape|Text)$/u.test(id)) {
+    return 'PptxGenJS synchronously returns the owning slide and may retain or mutate caller state; native returns a typed live model, prepares asynchronous sources where required, and snapshots validated input.';
+  }
+  const category = slideSectionCategory(id);
+  const notes = {
+    background: 'PptxGenJS retains and may mutate permissive background objects and has malformed none fallbacks; native uses strict detached background state with explicit no-fill and transactional media loading.',
+    color: 'PptxGenJS uses a permissive hex string with black materialization fallbacks; native uses strict detached sRGB or scheme RichTextColor state and canonical theme inheritance.',
+    'slide-number': 'PptxGenJS retains permissive caller state and has lossy defaults plus fixed shape-id collisions; native snapshots strict editable options and allocates canonical unique OOXML owners.',
+    'auto-page': 'PptxGenJS starts undefined, reuses existing following slides, and mutates option and hyperlink inputs; native returns a frozen continuation list containing only transactionally created pages.',
+  };
+  return notes[category];
+}
+
+function slideSectionEntry(id, status) {
+  const evidence = slideSectionEvidence(id);
+  const entry = {
+    id,
+    status,
+    native: slideSectionNative(id),
+    evidence,
+    serialization: true,
+    client: evidence.clients.length > 0,
+    note: status === 'supported'
+      ? 'Native exposes the same legal callable or state capability with typed live models, strict validation, packed-package coverage, serialization, and editable reopen evidence.'
+      : slideSectionDifferenceNote(id),
+  };
+  if (status === 'deliberate-difference') {
+    entry.control = {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      pattern: SLIDE_SECTION_CONTROL_TITLE,
+    };
+  }
+  if (status === 'deprecated-alias') {
+    entry.canonical = 'property:Slide#background';
+    entry.control = {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      pattern: SLIDE_SECTION_CONTROL_TITLE,
+    };
+    entry.note = 'PptxGenJS bkgd is a working deprecated setter for background.color; native exposes only the canonical strict background property.';
+  }
+  return entry;
+}
+
+const SLIDE_SECTION_FAMILY_ENTRIES = Object.freeze([
+  ...SLIDE_SECTION_SUPPORTED_IDS.map((id) => slideSectionEntry(id, 'supported')),
+  ...SLIDE_SECTION_DIFFERENCE_IDS.map((id) =>
+    slideSectionEntry(id, 'deliberate-difference')),
+  ...SLIDE_SECTION_DEPRECATED_IDS.map((id) =>
+    slideSectionEntry(id, 'deprecated-alias')),
+]);
+
 function presetShapeCatalogEntry(owner, value) {
   const id = `union:${owner}#${value}`;
   if (value === 'folderCorner') {
@@ -3311,6 +3599,7 @@ export const PPTXGENJS_SURFACE_MANIFEST = deepFreeze({
     ...TABLE_TO_SLIDES_FAMILY_ENTRIES,
     ...ADD_TABLE_CORE_FAMILY_ENTRIES,
     ...PRESENTATION_ROOT_OUTPUT_FAMILY_ENTRIES,
+    ...SLIDE_SECTION_FAMILY_ENTRIES,
     ...CHART_AREA_FILL_LINE_ENTRIES,
     ...DEPRECATED_CHART_AREA_ALIAS_ENTRIES,
     ...CHART_CREATION_SUPPORTED_ENTRIES,
