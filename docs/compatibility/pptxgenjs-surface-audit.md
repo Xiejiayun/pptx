@@ -11,11 +11,11 @@
 | Status | Count |
 | --- | ---: |
 | supported | 7 |
-| deliberate-difference | 0 |
+| deliberate-difference | 12 |
 | deprecated-alias | 0 |
 | defect-excluded | 1 |
 | unsupported | 0 |
-| unverified | 1766 |
+| unverified | 1754 |
 | stale | 0 |
 
 ## Runtime declaration differences
@@ -515,10 +515,6 @@ None.
 - `interface:PlaceholderProps@property:w`
 - `interface:PlaceholderProps@property:x`
 - `interface:PlaceholderProps@property:y`
-- `interface:PositionProps@property:h`
-- `interface:PositionProps@property:w`
-- `interface:PositionProps@property:x`
-- `interface:PositionProps@property:y`
 - `interface:PresLayout@property:height`
 - `interface:PresLayout@property:name`
 - `interface:PresLayout@property:width`
@@ -565,7 +561,6 @@ None.
 - `interface:ShapeProps@property:fill`
 - `interface:ShapeProps@property:flipH`
 - `interface:ShapeProps@property:flipV`
-- `interface:ShapeProps@property:h`
 - `interface:ShapeProps@property:hyperlink`
 - `interface:ShapeProps@property:line`
 - `interface:ShapeProps@property:lineDash`
@@ -578,9 +573,6 @@ None.
 - `interface:ShapeProps@property:rotate`
 - `interface:ShapeProps@property:shadow`
 - `interface:ShapeProps@property:shapeName`
-- `interface:ShapeProps@property:w`
-- `interface:ShapeProps@property:x`
-- `interface:ShapeProps@property:y`
 - `interface:SlideMasterProps@property:background`
 - `interface:SlideMasterProps@property:bkgd`
 - `interface:SlideMasterProps@property:margin`
@@ -730,7 +722,6 @@ None.
 - `interface:TextPropsOptions@property:fontFace`
 - `interface:TextPropsOptions@property:fontSize`
 - `interface:TextPropsOptions@property:glow`
-- `interface:TextPropsOptions@property:h`
 - `interface:TextPropsOptions@property:highlight`
 - `interface:TextPropsOptions@property:hyperlink`
 - `interface:TextPropsOptions@property:indentLevel`
@@ -768,10 +759,7 @@ None.
 - `interface:TextPropsOptions@property:underline`
 - `interface:TextPropsOptions@property:valign`
 - `interface:TextPropsOptions@property:vert`
-- `interface:TextPropsOptions@property:w`
 - `interface:TextPropsOptions@property:wrap`
-- `interface:TextPropsOptions@property:x`
-- `interface:TextPropsOptions@property:y`
 - `interface:ThemeProps@property:bodyFontFace`
 - `interface:ThemeProps@property:headFontFace`
 - `interface:WriteBaseProps@property:compression`
@@ -1969,7 +1957,7 @@ None.
 | `interface:TextPropsOptions@property:fontFace` | unverified | — | — | — |
 | `interface:TextPropsOptions@property:fontSize` | unverified | — | — | — |
 | `interface:TextPropsOptions@property:glow` | unverified | — | — | — |
-| `interface:TextPropsOptions@property:h` | unverified | — | — | — |
+| `interface:TextPropsOptions@property:h` | deliberate-difference | SlideModel.addText | code:packages/model/src/slide-coordinate.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers the same legal percentage geometry with width/height and explicit Emu or inches() numeric units instead of PptxGenJS w/h and implicit-inch numbers. |
 | `interface:TextPropsOptions@property:highlight` | unverified | — | — | — |
 | `interface:TextPropsOptions@property:hyperlink` | unverified | — | — | — |
 | `interface:TextPropsOptions@property:indentLevel` | unverified | — | — | — |
@@ -2006,10 +1994,10 @@ None.
 | `interface:TextPropsOptions@property:underline` | unverified | — | — | — |
 | `interface:TextPropsOptions@property:valign` | unverified | — | — | — |
 | `interface:TextPropsOptions@property:vert` | unverified | — | — | — |
-| `interface:TextPropsOptions@property:w` | unverified | — | — | — |
+| `interface:TextPropsOptions@property:w` | deliberate-difference | SlideModel.addText | code:packages/model/src/slide-coordinate.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers the same legal percentage geometry with width/height and explicit Emu or inches() numeric units instead of PptxGenJS w/h and implicit-inch numbers. |
 | `interface:TextPropsOptions@property:wrap` | unverified | — | — | — |
-| `interface:TextPropsOptions@property:x` | unverified | — | — | — |
-| `interface:TextPropsOptions@property:y` | unverified | — | — | — |
+| `interface:TextPropsOptions@property:x` | deliberate-difference | SlideModel.addText | code:packages/model/src/slide-coordinate.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers the same legal percentage geometry with width/height and explicit Emu or inches() numeric units instead of PptxGenJS w/h and implicit-inch numbers. |
+| `interface:TextPropsOptions@property:y` | deliberate-difference | SlideModel.addText | code:packages/model/src/slide-coordinate.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers the same legal percentage geometry with width/height and explicit Emu or inches() numeric units instead of PptxGenJS w/h and implicit-inch numbers. |
 | `method:Slide#addText` | unverified | — | — | — |
 | `union:interface:TextPropsOptions@property:bullet#boolean` | unverified | — | — | — |
 | `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#alphaLcParenBoth` | unverified | — | — | — |
@@ -2137,7 +2125,7 @@ None.
 | `interface:ShapeProps@property:fill` | unverified | — | — | — |
 | `interface:ShapeProps@property:flipH` | unverified | — | — | — |
 | `interface:ShapeProps@property:flipV` | unverified | — | — | — |
-| `interface:ShapeProps@property:h` | unverified | — | — | — |
+| `interface:ShapeProps@property:h` | deliberate-difference | SlideModel.addCustomShape<br>SlideModel.addShape | code:packages/model/src/slide-coordinate.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers the same legal percentage geometry with width/height and explicit Emu or inches() numeric units instead of PptxGenJS w/h and implicit-inch numbers. |
 | `interface:ShapeProps@property:hyperlink` | unverified | — | — | — |
 | `interface:ShapeProps@property:line` | unverified | — | — | — |
 | `interface:ShapeProps@property:lineDash` | unverified | — | — | — |
@@ -2150,9 +2138,9 @@ None.
 | `interface:ShapeProps@property:rotate` | unverified | — | — | — |
 | `interface:ShapeProps@property:shadow` | unverified | — | — | — |
 | `interface:ShapeProps@property:shapeName` | unverified | — | — | — |
-| `interface:ShapeProps@property:w` | unverified | — | — | — |
-| `interface:ShapeProps@property:x` | unverified | — | — | — |
-| `interface:ShapeProps@property:y` | unverified | — | — | — |
+| `interface:ShapeProps@property:w` | deliberate-difference | SlideModel.addCustomShape<br>SlideModel.addShape | code:packages/model/src/slide-coordinate.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers the same legal percentage geometry with width/height and explicit Emu or inches() numeric units instead of PptxGenJS w/h and implicit-inch numbers. |
+| `interface:ShapeProps@property:x` | deliberate-difference | SlideModel.addCustomShape<br>SlideModel.addShape | code:packages/model/src/slide-coordinate.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers the same legal percentage geometry with width/height and explicit Emu or inches() numeric units instead of PptxGenJS w/h and implicit-inch numbers. |
+| `interface:ShapeProps@property:y` | deliberate-difference | SlideModel.addCustomShape<br>SlideModel.addShape | code:packages/model/src/slide-coordinate.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers the same legal percentage geometry with width/height and explicit Emu or inches() numeric units instead of PptxGenJS w/h and implicit-inch numbers. |
 | `method:Slide#addShape` | unverified | — | — | — |
 | `union:SHAPE_NAME#accentBorderCallout1` | unverified | — | — | — |
 | `union:SHAPE_NAME#accentBorderCallout2` | unverified | — | — | — |
@@ -3584,10 +3572,10 @@ None.
 | `interface:BorderProps@property:type` | unverified | — | — | — |
 | `interface:DataOrPathProps@property:data` | unverified | — | — | — |
 | `interface:DataOrPathProps@property:path` | unverified | — | — | — |
-| `interface:PositionProps@property:h` | unverified | — | — | — |
-| `interface:PositionProps@property:w` | unverified | — | — | — |
-| `interface:PositionProps@property:x` | unverified | — | — | — |
-| `interface:PositionProps@property:y` | unverified | — | — | — |
+| `interface:PositionProps@property:h` | deliberate-difference | SlideCoordinate<br>TransformInput | code:packages/model/src/slide-coordinate.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers the same legal percentage geometry with width/height and explicit Emu or inches() numeric units instead of PptxGenJS w/h and implicit-inch numbers. |
+| `interface:PositionProps@property:w` | deliberate-difference | SlideCoordinate<br>TransformInput | code:packages/model/src/slide-coordinate.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers the same legal percentage geometry with width/height and explicit Emu or inches() numeric units instead of PptxGenJS w/h and implicit-inch numbers. |
+| `interface:PositionProps@property:x` | deliberate-difference | SlideCoordinate<br>TransformInput | code:packages/model/src/slide-coordinate.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers the same legal percentage geometry with width/height and explicit Emu or inches() numeric units instead of PptxGenJS w/h and implicit-inch numbers. |
+| `interface:PositionProps@property:y` | deliberate-difference | SlideCoordinate<br>TransformInput | code:packages/model/src/slide-coordinate.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers the same legal percentage geometry with width/height and explicit Emu or inches() numeric units instead of PptxGenJS w/h and implicit-inch numbers. |
 | `interface:PresSlide@property:addNotes` | unverified | — | — | — |
 | `interface:PresSlide@property:color` | unverified | — | — | — |
 | `interface:SectionProps@property:order` | unverified | — | — | — |

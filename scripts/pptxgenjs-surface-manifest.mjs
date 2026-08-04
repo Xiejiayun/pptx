@@ -18,6 +18,69 @@ function supported(id, native, code, tests, packageEvidence, note) {
   };
 }
 
+const SHAPE_TEXT_COORDINATE_CONTROL_TITLE =
+  'matches PptxGenJS shape and text percentage coordinate output with explicit native units';
+const SHAPE_TEXT_COORDINATE_OOXML_TITLE =
+  'creates and reopens shape and text percentage coordinates against the current slide size';
+
+function deliberateDifference(id, native) {
+  return {
+    id,
+    status: 'deliberate-difference',
+    native,
+    evidence: {
+      code: [{
+        path: 'packages/model/src/slide-coordinate.internal.ts',
+        pattern: 'export function resolveSlideCoordinate(',
+      }],
+      tests: [{
+        path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+        title: SHAPE_TEXT_COORDINATE_CONTROL_TITLE,
+      }],
+      package: [{
+        path: 'scripts/smoke-npm-package.mjs',
+        pattern: 'const shapeTextPercentageCoordinates =',
+      }],
+      ooxml: [{
+        path: 'packages/sdk/src/index.test.ts',
+        pattern: SHAPE_TEXT_COORDINATE_OOXML_TITLE,
+      }],
+      clients: [],
+    },
+    control: {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      pattern: SHAPE_TEXT_COORDINATE_CONTROL_TITLE,
+    },
+    serialization: true,
+    note: 'Native covers the same legal percentage geometry with width/height and explicit Emu or inches() numeric units instead of PptxGenJS w/h and implicit-inch numbers.',
+  };
+}
+
+const SHAPE_TEXT_COORDINATE_ATOMS = Object.freeze([
+  'interface:PositionProps@property:x',
+  'interface:PositionProps@property:y',
+  'interface:PositionProps@property:w',
+  'interface:PositionProps@property:h',
+  'interface:ShapeProps@property:x',
+  'interface:ShapeProps@property:y',
+  'interface:ShapeProps@property:w',
+  'interface:ShapeProps@property:h',
+  'interface:TextPropsOptions@property:x',
+  'interface:TextPropsOptions@property:y',
+  'interface:TextPropsOptions@property:w',
+  'interface:TextPropsOptions@property:h',
+]);
+
+function coordinateNativeMapping(id) {
+  if (id.startsWith('interface:PositionProps@')) {
+    return ['SlideCoordinate', 'TransformInput'];
+  }
+  if (id.startsWith('interface:ShapeProps@')) {
+    return ['SlideModel.addShape', 'SlideModel.addCustomShape'];
+  }
+  return ['SlideModel.addText'];
+}
+
 function deepFreeze(value, seen = new Set()) {
   if (value === null || typeof value !== 'object' || seen.has(value)) return value;
   seen.add(value);
@@ -99,6 +162,8 @@ export const PPTXGENJS_SURFACE_MANIFEST = deepFreeze({
       control: { path: 'scripts/pptxgenjs-runtime-probe.test.mjs', pattern: 'assert.equal(first.catalogs.PlaceholderType, null);' },
       note: 'PptxGenJS 4.0.1 declares PlaceholderType on the instance but the real runtime property is absent.',
     },
+    ...SHAPE_TEXT_COORDINATE_ATOMS.map((id) =>
+      deliberateDifference(id, coordinateNativeMapping(id))),
   ],
   extensions: [],
 });

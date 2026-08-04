@@ -12995,105 +12995,213 @@
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "matches PptxGenJS shape and text percentage coordinate output with explicit native units"
+      },
       "declaredIn": "PositionProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "code": [
+          {
+            "path": "packages/model/src/slide-coordinate.internal.ts",
+            "pattern": "export function resolveSlideCoordinate("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens shape and text percentage coordinates against the current slide size"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeTextPercentageCoordinates ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches PptxGenJS shape and text percentage coordinate output with explicit native units"
+          }
+        ]
       },
       "id": "interface:PositionProps@property:h",
       "kind": "property",
       "name": "h",
-      "native": [],
-      "note": "",
+      "native": [
+        "SlideCoordinate",
+        "TransformInput"
+      ],
+      "note": "Native covers the same legal percentage geometry with width/height and explicit Emu or inches() numeric units instead of PptxGenJS w/h and implicit-inch numbers.",
       "optional": true,
       "owner": "PositionProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "matches PptxGenJS shape and text percentage coordinate output with explicit native units"
+      },
       "declaredIn": "PositionProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "code": [
+          {
+            "path": "packages/model/src/slide-coordinate.internal.ts",
+            "pattern": "export function resolveSlideCoordinate("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens shape and text percentage coordinates against the current slide size"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeTextPercentageCoordinates ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches PptxGenJS shape and text percentage coordinate output with explicit native units"
+          }
+        ]
       },
       "id": "interface:PositionProps@property:w",
       "kind": "property",
       "name": "w",
-      "native": [],
-      "note": "",
+      "native": [
+        "SlideCoordinate",
+        "TransformInput"
+      ],
+      "note": "Native covers the same legal percentage geometry with width/height and explicit Emu or inches() numeric units instead of PptxGenJS w/h and implicit-inch numbers.",
       "optional": true,
       "owner": "PositionProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "matches PptxGenJS shape and text percentage coordinate output with explicit native units"
+      },
       "declaredIn": "PositionProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "code": [
+          {
+            "path": "packages/model/src/slide-coordinate.internal.ts",
+            "pattern": "export function resolveSlideCoordinate("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens shape and text percentage coordinates against the current slide size"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeTextPercentageCoordinates ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches PptxGenJS shape and text percentage coordinate output with explicit native units"
+          }
+        ]
       },
       "id": "interface:PositionProps@property:x",
       "kind": "property",
       "name": "x",
-      "native": [],
-      "note": "",
+      "native": [
+        "SlideCoordinate",
+        "TransformInput"
+      ],
+      "note": "Native covers the same legal percentage geometry with width/height and explicit Emu or inches() numeric units instead of PptxGenJS w/h and implicit-inch numbers.",
       "optional": true,
       "owner": "PositionProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "matches PptxGenJS shape and text percentage coordinate output with explicit native units"
+      },
       "declaredIn": "PositionProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "code": [
+          {
+            "path": "packages/model/src/slide-coordinate.internal.ts",
+            "pattern": "export function resolveSlideCoordinate("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens shape and text percentage coordinates against the current slide size"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeTextPercentageCoordinates ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches PptxGenJS shape and text percentage coordinate output with explicit native units"
+          }
+        ]
       },
       "id": "interface:PositionProps@property:y",
       "kind": "property",
       "name": "y",
-      "native": [],
-      "note": "",
+      "native": [
+        "SlideCoordinate",
+        "TransformInput"
+      ],
+      "note": "Native covers the same legal percentage geometry with width/height and explicit Emu or inches() numeric units instead of PptxGenJS w/h and implicit-inch numbers.",
       "optional": true,
       "owner": "PositionProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
@@ -14295,27 +14403,54 @@
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "matches PptxGenJS shape and text percentage coordinate output with explicit native units"
+      },
       "declaredIn": "PositionProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "code": [
+          {
+            "path": "packages/model/src/slide-coordinate.internal.ts",
+            "pattern": "export function resolveSlideCoordinate("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens shape and text percentage coordinates against the current slide size"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeTextPercentageCoordinates ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches PptxGenJS shape and text percentage coordinate output with explicit native units"
+          }
+        ]
       },
       "id": "interface:ShapeProps@property:h",
       "kind": "property",
       "name": "h",
-      "native": [],
-      "note": "",
+      "native": [
+        "SlideModel.addCustomShape",
+        "SlideModel.addShape"
+      ],
+      "note": "Native covers the same legal percentage geometry with width/height and explicit Emu or inches() numeric units instead of PptxGenJS w/h and implicit-inch numbers.",
       "optional": true,
       "owner": "ShapeProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
@@ -14633,79 +14768,160 @@
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "matches PptxGenJS shape and text percentage coordinate output with explicit native units"
+      },
       "declaredIn": "PositionProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "code": [
+          {
+            "path": "packages/model/src/slide-coordinate.internal.ts",
+            "pattern": "export function resolveSlideCoordinate("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens shape and text percentage coordinates against the current slide size"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeTextPercentageCoordinates ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches PptxGenJS shape and text percentage coordinate output with explicit native units"
+          }
+        ]
       },
       "id": "interface:ShapeProps@property:w",
       "kind": "property",
       "name": "w",
-      "native": [],
-      "note": "",
+      "native": [
+        "SlideModel.addCustomShape",
+        "SlideModel.addShape"
+      ],
+      "note": "Native covers the same legal percentage geometry with width/height and explicit Emu or inches() numeric units instead of PptxGenJS w/h and implicit-inch numbers.",
       "optional": true,
       "owner": "ShapeProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "matches PptxGenJS shape and text percentage coordinate output with explicit native units"
+      },
       "declaredIn": "PositionProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "code": [
+          {
+            "path": "packages/model/src/slide-coordinate.internal.ts",
+            "pattern": "export function resolveSlideCoordinate("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens shape and text percentage coordinates against the current slide size"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeTextPercentageCoordinates ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches PptxGenJS shape and text percentage coordinate output with explicit native units"
+          }
+        ]
       },
       "id": "interface:ShapeProps@property:x",
       "kind": "property",
       "name": "x",
-      "native": [],
-      "note": "",
+      "native": [
+        "SlideModel.addCustomShape",
+        "SlideModel.addShape"
+      ],
+      "note": "Native covers the same legal percentage geometry with width/height and explicit Emu or inches() numeric units instead of PptxGenJS w/h and implicit-inch numbers.",
       "optional": true,
       "owner": "ShapeProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "matches PptxGenJS shape and text percentage coordinate output with explicit native units"
+      },
       "declaredIn": "PositionProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "code": [
+          {
+            "path": "packages/model/src/slide-coordinate.internal.ts",
+            "pattern": "export function resolveSlideCoordinate("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens shape and text percentage coordinates against the current slide size"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeTextPercentageCoordinates ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches PptxGenJS shape and text percentage coordinate output with explicit native units"
+          }
+        ]
       },
       "id": "interface:ShapeProps@property:y",
       "kind": "property",
       "name": "y",
-      "native": [],
-      "note": "",
+      "native": [
+        "SlideModel.addCustomShape",
+        "SlideModel.addShape"
+      ],
+      "note": "Native covers the same legal percentage geometry with width/height and explicit Emu or inches() numeric units instead of PptxGenJS w/h and implicit-inch numbers.",
       "optional": true,
       "owner": "ShapeProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
@@ -18585,27 +18801,53 @@
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "matches PptxGenJS shape and text percentage coordinate output with explicit native units"
+      },
       "declaredIn": "PositionProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "code": [
+          {
+            "path": "packages/model/src/slide-coordinate.internal.ts",
+            "pattern": "export function resolveSlideCoordinate("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens shape and text percentage coordinates against the current slide size"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeTextPercentageCoordinates ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches PptxGenJS shape and text percentage coordinate output with explicit native units"
+          }
+        ]
       },
       "id": "interface:TextPropsOptions@property:h",
       "kind": "property",
       "name": "h",
-      "native": [],
-      "note": "",
+      "native": [
+        "SlideModel.addText"
+      ],
+      "note": "Native covers the same legal percentage geometry with width/height and explicit Emu or inches() numeric units instead of PptxGenJS w/h and implicit-inch numbers.",
       "optional": true,
       "owner": "TextPropsOptions",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
@@ -19573,27 +19815,53 @@
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "matches PptxGenJS shape and text percentage coordinate output with explicit native units"
+      },
       "declaredIn": "PositionProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "code": [
+          {
+            "path": "packages/model/src/slide-coordinate.internal.ts",
+            "pattern": "export function resolveSlideCoordinate("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens shape and text percentage coordinates against the current slide size"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeTextPercentageCoordinates ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches PptxGenJS shape and text percentage coordinate output with explicit native units"
+          }
+        ]
       },
       "id": "interface:TextPropsOptions@property:w",
       "kind": "property",
       "name": "w",
-      "native": [],
-      "note": "",
+      "native": [
+        "SlideModel.addText"
+      ],
+      "note": "Native covers the same legal percentage geometry with width/height and explicit Emu or inches() numeric units instead of PptxGenJS w/h and implicit-inch numbers.",
       "optional": true,
       "owner": "TextPropsOptions",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
@@ -19625,53 +19893,105 @@
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "matches PptxGenJS shape and text percentage coordinate output with explicit native units"
+      },
       "declaredIn": "PositionProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "code": [
+          {
+            "path": "packages/model/src/slide-coordinate.internal.ts",
+            "pattern": "export function resolveSlideCoordinate("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens shape and text percentage coordinates against the current slide size"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeTextPercentageCoordinates ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches PptxGenJS shape and text percentage coordinate output with explicit native units"
+          }
+        ]
       },
       "id": "interface:TextPropsOptions@property:x",
       "kind": "property",
       "name": "x",
-      "native": [],
-      "note": "",
+      "native": [
+        "SlideModel.addText"
+      ],
+      "note": "Native covers the same legal percentage geometry with width/height and explicit Emu or inches() numeric units instead of PptxGenJS w/h and implicit-inch numbers.",
       "optional": true,
       "owner": "TextPropsOptions",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "matches PptxGenJS shape and text percentage coordinate output with explicit native units"
+      },
       "declaredIn": "PositionProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "code": [
+          {
+            "path": "packages/model/src/slide-coordinate.internal.ts",
+            "pattern": "export function resolveSlideCoordinate("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens shape and text percentage coordinates against the current slide size"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeTextPercentageCoordinates ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches PptxGenJS shape and text percentage coordinate output with explicit native units"
+          }
+        ]
       },
       "id": "interface:TextPropsOptions@property:y",
       "kind": "property",
       "name": "y",
-      "native": [],
-      "note": "",
+      "native": [
+        "SlideModel.addText"
+      ],
+      "note": "Native covers the same legal percentage geometry with width/height and explicit Emu or inches() numeric units instead of PptxGenJS w/h and implicit-inch numbers.",
       "optional": true,
       "owner": "TextPropsOptions",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
@@ -46290,12 +46610,12 @@
   "complete": false,
   "counts": {
     "defect-excluded": 1,
-    "deliberate-difference": 0,
+    "deliberate-difference": 12,
     "deprecated-alias": 0,
     "stale": 0,
     "supported": 7,
     "unsupported": 0,
-    "unverified": 1766
+    "unverified": 1754
   },
   "declarationSha256": "0726d015dbcb55ccfa75546cb2fd43fe13a0dfeb783d08572f1c62f59193bbe5",
   "declarationTotal": 1774,
@@ -46788,10 +47108,6 @@
     "interface:PlaceholderProps@property:w",
     "interface:PlaceholderProps@property:x",
     "interface:PlaceholderProps@property:y",
-    "interface:PositionProps@property:h",
-    "interface:PositionProps@property:w",
-    "interface:PositionProps@property:x",
-    "interface:PositionProps@property:y",
     "interface:PresLayout@property:height",
     "interface:PresLayout@property:name",
     "interface:PresLayout@property:width",
@@ -46838,7 +47154,6 @@
     "interface:ShapeProps@property:fill",
     "interface:ShapeProps@property:flipH",
     "interface:ShapeProps@property:flipV",
-    "interface:ShapeProps@property:h",
     "interface:ShapeProps@property:hyperlink",
     "interface:ShapeProps@property:line",
     "interface:ShapeProps@property:lineDash",
@@ -46851,9 +47166,6 @@
     "interface:ShapeProps@property:rotate",
     "interface:ShapeProps@property:shadow",
     "interface:ShapeProps@property:shapeName",
-    "interface:ShapeProps@property:w",
-    "interface:ShapeProps@property:x",
-    "interface:ShapeProps@property:y",
     "interface:SlideMasterProps@property:background",
     "interface:SlideMasterProps@property:bkgd",
     "interface:SlideMasterProps@property:margin",
@@ -47003,7 +47315,6 @@
     "interface:TextPropsOptions@property:fontFace",
     "interface:TextPropsOptions@property:fontSize",
     "interface:TextPropsOptions@property:glow",
-    "interface:TextPropsOptions@property:h",
     "interface:TextPropsOptions@property:highlight",
     "interface:TextPropsOptions@property:hyperlink",
     "interface:TextPropsOptions@property:indentLevel",
@@ -47041,10 +47352,7 @@
     "interface:TextPropsOptions@property:underline",
     "interface:TextPropsOptions@property:valign",
     "interface:TextPropsOptions@property:vert",
-    "interface:TextPropsOptions@property:w",
     "interface:TextPropsOptions@property:wrap",
-    "interface:TextPropsOptions@property:x",
-    "interface:TextPropsOptions@property:y",
     "interface:ThemeProps@property:bodyFontFace",
     "interface:ThemeProps@property:headFontFace",
     "interface:WriteBaseProps@property:compression",
