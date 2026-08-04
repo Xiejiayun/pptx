@@ -10,12 +10,12 @@
 
 | Status | Count |
 | --- | ---: |
-| supported | 588 |
-| deliberate-difference | 240 |
+| supported | 606 |
+| deliberate-difference | 254 |
 | deprecated-alias | 86 |
-| defect-excluded | 352 |
+| defect-excluded | 355 |
 | unsupported | 0 |
-| unverified | 508 |
+| unverified | 473 |
 | stale | 0 |
 
 ## Runtime declaration differences
@@ -29,22 +29,7 @@ None.
 
 ## Incomplete IDs
 
-- `class:PptxGenJS#addSection`
-- `class:PptxGenJS#addSlide`
-- `class:PptxGenJS#defineLayout`
-- `class:PptxGenJS#defineSlideMaster`
-- `class:PptxGenJS#stream`
-- `class:PptxGenJS#write`
-- `class:PptxGenJS#writeFile`
 - `class:PptxGenJS@property:ChartType`
-- `class:PptxGenJS@property:author`
-- `class:PptxGenJS@property:company`
-- `class:PptxGenJS@property:layout`
-- `class:PptxGenJS@property:revision`
-- `class:PptxGenJS@property:rtlMode`
-- `class:PptxGenJS@property:subject`
-- `class:PptxGenJS@property:theme`
-- `class:PptxGenJS@property:title`
 - `inline:interface:IChartOpts@property:titlePos@property:titlePos.x`
 - `inline:interface:IChartOpts@property:titlePos@property:titlePos.y`
 - `inline:interface:ImageProps@property:sizing@property:sizing.h`
@@ -318,9 +303,6 @@ None.
 - `interface:PlaceholderProps@property:w`
 - `interface:PlaceholderProps@property:x`
 - `interface:PlaceholderProps@property:y`
-- `interface:PresLayout@property:height`
-- `interface:PresLayout@property:name`
-- `interface:PresLayout@property:width`
 - `interface:PresSlide@property:addChart`
 - `interface:PresSlide@property:addImage`
 - `interface:PresSlide@property:addMedia`
@@ -407,13 +389,6 @@ None.
 - `interface:TextPropsOptions@property:transparency`
 - `interface:TextPropsOptions@property:valign`
 - `interface:TextPropsOptions@property:wrap`
-- `interface:ThemeProps@property:bodyFontFace`
-- `interface:ThemeProps@property:headFontFace`
-- `interface:WriteBaseProps@property:compression`
-- `interface:WriteFileProps@property:compression`
-- `interface:WriteFileProps@property:fileName`
-- `interface:WriteProps@property:compression`
-- `interface:WriteProps@property:outputType`
 - `method:Slide#addImage`
 - `method:Slide#addMedia`
 - `method:Slide#addNotes`
@@ -438,16 +413,6 @@ None.
 - `union:MediaType#audio`
 - `union:MediaType#online`
 - `union:MediaType#video`
-- `union:WRITE_OUTPUT_TYPE#JSZIP_OUTPUT_TYPE`
-- `union:WRITE_OUTPUT_TYPE#STREAM`
-- `union:class:PptxGenJS#stream@path:return#ArrayBuffer`
-- `union:class:PptxGenJS#stream@path:return#Blob`
-- `union:class:PptxGenJS#stream@path:return#Uint8Array`
-- `union:class:PptxGenJS#stream@path:return#string`
-- `union:class:PptxGenJS#write@path:return#ArrayBuffer`
-- `union:class:PptxGenJS#write@path:return#Blob`
-- `union:class:PptxGenJS#write@path:return#Uint8Array`
-- `union:class:PptxGenJS#write@path:return#string`
 - `union:interface:BackgroundProps@property:type#none`
 - `union:interface:BackgroundProps@property:type#solid`
 - `union:interface:IChartOpts@property:axisPos#b`
@@ -545,19 +510,19 @@ None.
 | `class:PptxGenJS@property:AlignH` | supported | TEXT_ALIGNMENTS | code:packages/model/src/text.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs | Native publishes the same four frozen horizontal alignment values. |
 | `class:PptxGenJS@property:AlignV` | supported | TEXT_VERTICAL_ALIGNMENTS | code:packages/model/src/text.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs | Native publishes the same three frozen vertical alignment values. |
 | `class:PptxGenJS@property:SchemeColor` | supported | SCHEME_COLORS | code:packages/model/src/scheme-color.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs | Native exposes the same ten key/value mappings as an immutable shared catalog. |
-| `class:PptxGenJS@property:author` | unverified | — | — | — |
-| `class:PptxGenJS@property:company` | unverified | — | — | — |
-| `class:PptxGenJS@property:revision` | unverified | — | — | — |
-| `class:PptxGenJS@property:rtlMode` | unverified | — | — | — |
-| `class:PptxGenJS@property:subject` | unverified | — | — | — |
-| `class:PptxGenJS@property:title` | unverified | — | — | — |
+| `class:PptxGenJS@property:author` | supported | PptxDocument.author | code:packages/model/src/presentation.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native preserves the same legal presentation-root capability with detached state, strict validation, packed-package use, serialization, and reopen evidence. |
+| `class:PptxGenJS@property:company` | supported | PptxDocument.company | code:packages/model/src/presentation.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native preserves the same legal presentation-root capability with detached state, strict validation, packed-package use, serialization, and reopen evidence. |
+| `class:PptxGenJS@property:revision` | supported | PptxDocument.revision | code:packages/model/src/presentation.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native preserves the same legal presentation-root capability with detached state, strict validation, packed-package use, serialization, and reopen evidence. |
+| `class:PptxGenJS@property:rtlMode` | supported | PptxDocument.rtlMode | code:packages/model/src/presentation.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native preserves the same legal presentation-root capability with detached state, strict validation, packed-package use, serialization, and reopen evidence. |
+| `class:PptxGenJS@property:subject` | supported | PptxDocument.subject | code:packages/model/src/presentation.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native preserves the same legal presentation-root capability with detached state, strict validation, packed-package use, serialization, and reopen evidence. |
+| `class:PptxGenJS@property:title` | supported | PptxDocument.title | code:packages/model/src/presentation.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native preserves the same legal presentation-root capability with detached state, strict validation, packed-package use, serialization, and reopen evidence. |
 
 ## Slide lifecycle
 
 | Atom | Status | Native | Evidence | Note |
 | --- | --- | --- | --- | --- |
-| `class:PptxGenJS#addSection` | unverified | — | — | — |
-| `class:PptxGenJS#addSlide` | unverified | — | — | — |
+| `class:PptxGenJS#addSection` | deliberate-difference | PresentationModel.addSection<br>PresentationSection | code:packages/model/src/presentation.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS returns undefined and treats order zero as an omitted truthy value; native returns an editable PresentationSection and preserves explicit zero insertion. |
+| `class:PptxGenJS#addSlide` | supported | PptxDocument.addSlide<br>SlideModel | code:packages/sdk/src/index.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native preserves the same legal presentation-root capability with detached state, strict validation, packed-package use, serialization, and reopen evidence. |
 | `inline:interface:SlideNumberProps@property:bullet@property:bullet.characterCode` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into SlideNumberProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
 | `inline:interface:SlideNumberProps@property:bullet@property:bullet.code` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into SlideNumberProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
 | `inline:interface:SlideNumberProps@property:bullet@property:bullet.indent` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into SlideNumberProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
@@ -2146,12 +2111,12 @@ None.
 
 | Atom | Status | Native | Evidence | Note |
 | --- | --- | --- | --- | --- |
-| `class:PptxGenJS#defineLayout` | unverified | — | — | — |
-| `class:PptxGenJS#defineSlideMaster` | unverified | — | — | — |
+| `class:PptxGenJS#defineLayout` | deliberate-difference | PptxDocument.create<br>PptxDocument.presLayout | code:packages/sdk/src/index.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/pptxgenjs-adapter/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS registers and retains user layout names; native selects an explicit slide size at creation and canonicalizes reopened custom layouts to the stable name custom. |
+| `class:PptxGenJS#defineSlideMaster` | deliberate-difference | PptxDocument.defineSlideMaster<br>SlideLayoutModel | code:packages/sdk/src/index.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS returns undefined, clones permissively, and permits duplicate names; native resolves an editable SlideLayoutModel and commits unique strict definitions atomically. |
 | `class:PptxGenJS@property:PlaceholderType` | defect-excluded | — | tests:scripts/pptxgenjs-runtime-probe.test.mjs<br>control:scripts/pptxgenjs-runtime-probe.test.mjs | PptxGenJS 4.0.1 declares PlaceholderType on the instance but the real runtime property is absent. |
-| `class:PptxGenJS@property:layout` | unverified | — | — | — |
+| `class:PptxGenJS@property:layout` | deliberate-difference | PptxDocument.create<br>PptxDocument.presLayout | code:packages/sdk/src/index.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/pptxgenjs-adapter/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS registers and retains user layout names; native selects an explicit slide size at creation and canonicalizes reopened custom layouts to the stable name custom. |
 | `class:PptxGenJS@property:presLayout` | supported | PptxDocument.presLayout | code:packages/sdk/src/index.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs | Native projects detached standard and custom presentation dimensions through a getter. |
-| `class:PptxGenJS@property:theme` | unverified | — | — | — |
+| `class:PptxGenJS@property:theme` | supported | PptxDocument.theme<br>PresentationThemeOptions | code:packages/sdk/src/index.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native preserves the same legal presentation-root capability with detached state, strict validation, packed-package use, serialization, and reopen evidence. |
 | `inline:interface:PlaceholderProps@property:bullet@property:bullet.characterCode` | deliberate-difference | AddTextOptions.bullet<br>CharacterBullet.character<br>SlideModel.addPlaceholder | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native represents PlaceholderProps bullets with a strict discriminated union, actual Unicode characters, bounded indentation and start values, and deterministic OOXML; PptxGenJS uses permissive inline fields and truthy fallbacks. |
 | `inline:interface:PlaceholderProps@property:bullet@property:bullet.code` | deprecated-alias | AddTextOptions.bullet<br>CharacterBullet.character<br>SlideModel.addPlaceholder | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 keeps bullet.code as a working deprecated alias of bullet.characterCode; native rejects the alias and exposes only its strict semantic bullet field. |
 | `inline:interface:PlaceholderProps@property:bullet@property:bullet.indent` | deliberate-difference | AddTextOptions.bullet<br>CharacterBullet.indent<br>NumberedBullet.indent<br>SlideModel.addPlaceholder | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native represents PlaceholderProps bullets with a strict discriminated union, actual Unicode characters, bounded indentation and start values, and deterministic OOXML; PptxGenJS uses permissive inline fields and truthy fallbacks. |
@@ -2198,17 +2163,17 @@ None.
 | `interface:PlaceholderProps@property:w` | unverified | — | — | — |
 | `interface:PlaceholderProps@property:x` | unverified | — | — | — |
 | `interface:PlaceholderProps@property:y` | unverified | — | — | — |
-| `interface:PresLayout@property:height` | unverified | — | — | — |
-| `interface:PresLayout@property:name` | unverified | — | — | — |
-| `interface:PresLayout@property:width` | unverified | — | — | — |
+| `interface:PresLayout@property:height` | supported | PptxDocument.create<br>PptxDocument.presLayout | code:packages/sdk/src/index.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/pptxgenjs-adapter/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native preserves the same legal presentation-root capability with detached state, strict validation, packed-package use, serialization, and reopen evidence. |
+| `interface:PresLayout@property:name` | deliberate-difference | PptxDocument.create<br>PptxDocument.presLayout | code:packages/sdk/src/index.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/pptxgenjs-adapter/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS registers and retains user layout names; native selects an explicit slide size at creation and canonicalizes reopened custom layouts to the stable name custom. |
+| `interface:PresLayout@property:width` | supported | PptxDocument.create<br>PptxDocument.presLayout | code:packages/sdk/src/index.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/pptxgenjs-adapter/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native preserves the same legal presentation-root capability with detached state, strict validation, packed-package use, serialization, and reopen evidence. |
 | `interface:SlideMasterProps@property:bkgd` | unverified | — | — | — |
 | `interface:SlideMasterProps@property:margin` | unverified | — | — | — |
 | `interface:SlideMasterProps@property:objects` | unverified | — | — | — |
 | `interface:SlideMasterProps@property:title` | unverified | — | — | — |
 | `interface:TableToSlidesProps@property:masterSlideName` | supported | PptxDocument.defineSlideMaster<br>TableToSlidesOptions.masterSlideName | code:packages/sdk/src/table-to-slides.ts<br>code:packages/sdk/src/index.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/table-to-slides.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/table-to-slides.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes effective TableToSlidesProps.masterSlideName under the same name with strict detached input, editable output, packed-package use, browser execution, and reopen evidence. |
 | `interface:TextPropsOptions@property:placeholder` | unverified | — | — | — |
-| `interface:ThemeProps@property:bodyFontFace` | unverified | — | — | — |
-| `interface:ThemeProps@property:headFontFace` | unverified | — | — | — |
+| `interface:ThemeProps@property:bodyFontFace` | supported | PptxDocument.theme<br>PresentationThemeOptions | code:packages/sdk/src/index.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native preserves the same legal presentation-root capability with detached state, strict validation, packed-package use, serialization, and reopen evidence. |
+| `interface:ThemeProps@property:headFontFace` | supported | PptxDocument.theme<br>PresentationThemeOptions | code:packages/sdk/src/index.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native preserves the same legal presentation-root capability with detached state, strict validation, packed-package use, serialization, and reopen evidence. |
 | `union:Color#ThemeColor` | unverified | — | — | — |
 | `union:PLACEHOLDER_TYPE#body` | supported | PLACEHOLDER_TYPES<br>PlaceholderType<br>SlideModel.addPlaceholder | code:packages/model/src/placeholder.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/pptxgenjs-adapter/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes, creates, serializes, and reopens the same placeholder type. |
 | `union:PLACEHOLDER_TYPE#chart` | supported | PLACEHOLDER_TYPES<br>PlaceholderType<br>SlideModel.addPlaceholder | code:packages/model/src/placeholder.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/pptxgenjs-adapter/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes, creates, serializes, and reopens the same placeholder type. |
@@ -2282,16 +2247,16 @@ None.
 
 | Atom | Status | Native | Evidence | Note |
 | --- | --- | --- | --- | --- |
-| `class:PptxGenJS#stream` | unverified | — | — | — |
-| `class:PptxGenJS#write` | unverified | — | — | — |
-| `class:PptxGenJS#writeFile` | unverified | — | — | — |
+| `class:PptxGenJS#stream` | deliberate-difference | PptxDocument.stream<br>PptxNodeReadableStream | code:packages/sdk/src/index.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS stream and STREAM resolve to an in-memory Buffer; native exposes the equivalent byte representations through write and reserves stream for a real Node Readable. |
+| `class:PptxGenJS#write` | deliberate-difference | PptxDocument.undefined | code:packages/sdk/src/index.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native matches all six JSZip representations through write but routes the misleading PptxGenJS STREAM selector to its separate real-stream API. |
+| `class:PptxGenJS#writeFile` | deliberate-difference | PptxDocument.writeFile<br>WriteBaseOptions | code:packages/sdk/src/index.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS accepts writeFile({ fileName, compression }), returns the final name, and ignores compression on the forced explicit output; native uses writeFile(path, options), returns void, and applies compression. |
 | `class:PptxGenJS@property:OutputType` | supported | OUTPUT_TYPES | code:packages/sdk/src/output-type.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs | Native publishes all six catalog values and returns the matching Node/browser representations. |
 | `class:PptxGenJS@property:version` | supported | PPTX_VERSION<br>PptxDocument.version | code:packages/sdk/src/version.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs | Native exposes one immutable library version through constants, instances, declarations, and packed consumers. |
-| `interface:WriteBaseProps@property:compression` | unverified | — | — | — |
-| `interface:WriteFileProps@property:compression` | unverified | — | — | — |
-| `interface:WriteFileProps@property:fileName` | unverified | — | — | — |
-| `interface:WriteProps@property:compression` | unverified | — | — | — |
-| `interface:WriteProps@property:outputType` | unverified | — | — | — |
+| `interface:WriteBaseProps@property:compression` | supported | OUTPUT_TYPES<br>PptxDocument.write<br>WriteOptions | code:packages/sdk/src/index.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native preserves the same legal presentation-root capability with detached state, strict validation, packed-package use, serialization, and reopen evidence. |
+| `interface:WriteFileProps@property:compression` | deliberate-difference | PptxDocument.writeFile<br>WriteBaseOptions | code:packages/sdk/src/index.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS accepts writeFile({ fileName, compression }), returns the final name, and ignores compression on the forced explicit output; native uses writeFile(path, options), returns void, and applies compression. |
+| `interface:WriteFileProps@property:fileName` | deliberate-difference | PptxDocument.writeFile<br>WriteBaseOptions | code:packages/sdk/src/index.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS accepts writeFile({ fileName, compression }), returns the final name, and ignores compression on the forced explicit output; native uses writeFile(path, options), returns void, and applies compression. |
+| `interface:WriteProps@property:compression` | deliberate-difference | OUTPUT_TYPES<br>PptxDocument.write<br>WriteOptions | code:packages/sdk/src/index.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS applies compression only through its implicit or STREAM path and ignores it for explicit JSZip output selectors; native applies the boolean consistently. |
+| `interface:WriteProps@property:outputType` | deliberate-difference | OUTPUT_TYPES<br>PptxDocument.write<br>WriteOptions | code:packages/sdk/src/index.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native matches all six JSZip representations through write but routes the misleading PptxGenJS STREAM selector to its separate real-stream API. |
 | `union:JSZIP_OUTPUT_TYPE#arraybuffer` | supported | OUTPUT_TYPES<br>OutputType<br>PptxDocument.write | code:packages/sdk/src/output-type.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/write-output.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes the same output selector and returns the matching representation. |
 | `union:JSZIP_OUTPUT_TYPE#base64` | supported | OUTPUT_TYPES<br>OutputType<br>PptxDocument.write | code:packages/sdk/src/output-type.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/write-output.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes the same output selector and returns the matching representation. |
 | `union:JSZIP_OUTPUT_TYPE#binarystring` | supported | OUTPUT_TYPES<br>OutputType<br>PptxDocument.write | code:packages/sdk/src/output-type.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/write-output.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes the same output selector and returns the matching representation. |
@@ -2306,16 +2271,16 @@ None.
 | `union:OutputType#uint8array` | supported | OUTPUT_TYPES<br>OutputType<br>PptxDocument.write | code:packages/sdk/src/output-type.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/write-output.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes the same output selector and returns the matching representation. |
 | `union:SHAPE_NAME#flowChartInputOutput` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
 | `union:ShapeType#flowChartInputOutput` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
-| `union:WRITE_OUTPUT_TYPE#JSZIP_OUTPUT_TYPE` | unverified | — | — | — |
-| `union:WRITE_OUTPUT_TYPE#STREAM` | unverified | — | — | — |
-| `union:class:PptxGenJS#stream@path:return#ArrayBuffer` | unverified | — | — | — |
-| `union:class:PptxGenJS#stream@path:return#Blob` | unverified | — | — | — |
-| `union:class:PptxGenJS#stream@path:return#Uint8Array` | unverified | — | — | — |
-| `union:class:PptxGenJS#stream@path:return#string` | unverified | — | — | — |
-| `union:class:PptxGenJS#write@path:return#ArrayBuffer` | unverified | — | — | — |
-| `union:class:PptxGenJS#write@path:return#Blob` | unverified | — | — | — |
-| `union:class:PptxGenJS#write@path:return#Uint8Array` | unverified | — | — | — |
-| `union:class:PptxGenJS#write@path:return#string` | unverified | — | — | — |
+| `union:WRITE_OUTPUT_TYPE#JSZIP_OUTPUT_TYPE` | supported | PptxDocument.undefined | code:packages/sdk/src/index.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native preserves the same legal presentation-root capability with detached state, strict validation, packed-package use, serialization, and reopen evidence. |
+| `union:WRITE_OUTPUT_TYPE#STREAM` | deliberate-difference | PptxDocument.stream<br>PptxNodeReadableStream | code:packages/sdk/src/index.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS stream and STREAM resolve to an in-memory Buffer; native exposes the equivalent byte representations through write and reserves stream for a real Node Readable. |
+| `union:class:PptxGenJS#stream@path:return#ArrayBuffer` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 stream always resolves to a Buffer/Uint8Array in Node; its declared ArrayBuffer return branch cannot be selected and never occurs. |
+| `union:class:PptxGenJS#stream@path:return#Blob` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 stream always resolves to a Buffer/Uint8Array in Node; its declared Blob return branch cannot be selected and never occurs. |
+| `union:class:PptxGenJS#stream@path:return#Uint8Array` | deliberate-difference | PptxDocument.stream<br>PptxNodeReadableStream | code:packages/sdk/src/index.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS stream and STREAM resolve to an in-memory Buffer; native exposes the equivalent byte representations through write and reserves stream for a real Node Readable. |
+| `union:class:PptxGenJS#stream@path:return#string` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 stream always resolves to a Buffer/Uint8Array in Node; its declared string return branch cannot be selected and never occurs. |
+| `union:class:PptxGenJS#write@path:return#ArrayBuffer` | supported | OUTPUT_TYPES<br>PptxDocument.write<br>WriteOptions | code:packages/sdk/src/index.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native preserves the same legal presentation-root capability with detached state, strict validation, packed-package use, serialization, and reopen evidence. |
+| `union:class:PptxGenJS#write@path:return#Blob` | supported | OUTPUT_TYPES<br>PptxDocument.write<br>WriteOptions | code:packages/sdk/src/index.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native preserves the same legal presentation-root capability with detached state, strict validation, packed-package use, serialization, and reopen evidence. |
+| `union:class:PptxGenJS#write@path:return#Uint8Array` | supported | OUTPUT_TYPES<br>PptxDocument.write<br>WriteOptions | code:packages/sdk/src/index.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native preserves the same legal presentation-root capability with detached state, strict validation, packed-package use, serialization, and reopen evidence. |
+| `union:class:PptxGenJS#write@path:return#string` | supported | OUTPUT_TYPES<br>PptxDocument.write<br>WriteOptions | code:packages/sdk/src/index.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native preserves the same legal presentation-root capability with detached state, strict validation, packed-package use, serialization, and reopen evidence. |
 
 ## Other
 

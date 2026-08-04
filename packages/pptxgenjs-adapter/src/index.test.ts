@@ -356,6 +356,7 @@ interface PptxGenJSInstance {
   } | undefined;
   title: string;
   addSection(options: { readonly title: string; readonly order?: number }): void;
+  addSlide(masterName?: string): PptxGenJSSlide;
   addSlide(options?: { readonly masterName?: string; readonly sectionTitle?: string }): PptxGenJSSlide;
   defineLayout(layout: {
     readonly name: string;
@@ -386,7 +387,12 @@ interface PptxGenJSInstance {
   write(options: { outputType: 'base64'; compression: boolean }): Promise<string>;
   write(options: { outputType: 'binarystring'; compression: boolean }): Promise<string>;
   write(options: { outputType: 'blob'; compression: boolean }): Promise<Blob>;
+  write(options: { outputType: 'STREAM'; compression: boolean }): Promise<Uint8Array>;
   write(options: { outputType: OutputType; compression: boolean }): Promise<unknown>;
+  writeFile(options?: {
+    readonly compression?: boolean;
+    readonly fileName?: string;
+  }): Promise<string>;
 }
 
 const require = createRequire(import.meta.url);
@@ -1679,6 +1685,159 @@ describe('importPptxGenJS', () => {
     expect((await PptxDocument.open(nativeStore)).slides).toHaveLength(1);
     expect((await PptxDocument.open(nativeDeflate)).slides).toHaveLength(1);
   }, 30_000);
+
+  it('locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1', async () => {
+    const rootPropertyId = (property: string) =>
+      `class:PptxGenJS@property:${property}`;
+    const propertyId = (owner: string, property: string) =>
+      `interface:${owner}@property:${property}`;
+    const outputUnionId = (token: string) =>
+      `union:WRITE_OUTPUT_TYPE#${token}`;
+    const returnUnionId = (method: 'stream' | 'write', token: string) =>
+      `union:class:PptxGenJS#${method}@path:return#${token}`;
+    const atomGroups = {
+      supported: [
+        'class:PptxGenJS#addSlide',
+        ...['author', 'company', 'revision', 'rtlMode', 'subject', 'theme', 'title']
+          .map(rootPropertyId),
+        ...['height', 'width'].map((property) => propertyId('PresLayout', property)),
+        ...['bodyFontFace', 'headFontFace']
+          .map((property) => propertyId('ThemeProps', property)),
+        propertyId('WriteBaseProps', 'compression'),
+        outputUnionId('JSZIP_OUTPUT_TYPE'),
+        ...['ArrayBuffer', 'Blob', 'Uint8Array', 'string']
+          .map((token) => returnUnionId('write', token)),
+      ],
+      deliberate: [
+        ...[
+          'addSection',
+          'defineLayout',
+          'defineSlideMaster',
+          'stream',
+          'write',
+          'writeFile',
+        ].map((method) => `class:PptxGenJS#${method}`),
+        rootPropertyId('layout'),
+        propertyId('PresLayout', 'name'),
+        propertyId('WriteFileProps', 'compression'),
+        propertyId('WriteFileProps', 'fileName'),
+        propertyId('WriteProps', 'compression'),
+        propertyId('WriteProps', 'outputType'),
+        outputUnionId('STREAM'),
+        returnUnionId('stream', 'Uint8Array'),
+      ],
+      defect: ['ArrayBuffer', 'Blob', 'string']
+        .map((token) => returnUnionId('stream', token)),
+    } as const;
+    expect(Object.fromEntries(Object.entries(atomGroups).map(([status, ids]) => [
+      status,
+      ids.length,
+    ]))).toEqual({ supported: 18, deliberate: 14, defect: 3 });
+    expect(new Set(Object.values(atomGroups).flat()).size).toBe(35);
+    expect(Object.values(atomGroups).flat().some((id) => id.includes('ChartType')))
+      .toBe(false);
+
+    const generated = new PptxGenJS();
+    expect(generated.addSection({ title: 'Root audit' })).toBeUndefined();
+    expect(generated.defineLayout({
+      name: 'ROOT_AUDIT',
+      width: 11.7,
+      height: 8.3,
+    })).toBeUndefined();
+    generated.layout = 'ROOT_AUDIT';
+    expect(generated.presLayout).toMatchObject({
+      name: 'ROOT_AUDIT',
+      width: inches(11.7),
+      height: inches(8.3),
+    });
+    expect(generated.defineSlideMaster({
+      title: 'ROOT_AUDIT_MASTER',
+      objects: [],
+    })).toBeUndefined();
+    const generatedMasterSlide = generated.addSlide('ROOT_AUDIT_MASTER');
+    const generatedObjectSlide = generated.addSlide({ masterName: 'ROOT_AUDIT_MASTER' });
+    expect(generatedMasterSlide).not.toBe(generatedObjectSlide);
+
+    const native = PptxDocument.create({
+      slideSize: { width: inches(11.7), height: inches(8.3) },
+    });
+    const nativeSection = native.addSection({ title: 'Root audit' });
+    expect(nativeSection.title).toBe('Root audit');
+    expect(native.presLayout).toEqual({
+      name: 'custom',
+      width: inches(11.7),
+      height: inches(8.3),
+    });
+    const nativeLayout = await native.defineSlideMaster({ title: 'ROOT_AUDIT_MASTER' });
+    expect(nativeLayout.name).toBe('ROOT_AUDIT_MASTER');
+    expect(native.addSlide({ masterName: nativeLayout.name }).presentation).toBe(native);
+
+    const streamResults = await Promise.all([
+      generated.stream(),
+      generated.stream({ compression: false }),
+      generated.stream({ compression: true }),
+    ]);
+    expect(streamResults.every((value) => Buffer.isBuffer(value))).toBe(true);
+    expect(streamResults.every((value) => value instanceof Uint8Array)).toBe(true);
+    expect(streamResults.some((value) =>
+      value instanceof ArrayBuffer || value instanceof Blob || typeof value === 'string'))
+      .toBe(false);
+
+    const misleadingStream = await generated.write({
+      outputType: 'STREAM',
+      compression: true,
+    });
+    expect(Buffer.isBuffer(misleadingStream)).toBe(true);
+    expect(misleadingStream).toBeInstanceOf(Uint8Array);
+    expect((misleadingStream as unknown as { read?: unknown }).read).toBeUndefined();
+
+    const nativeStream = await native.stream();
+    expect(nativeStream).toBeInstanceOf(Readable);
+    expect(Buffer.isBuffer(nativeStream)).toBe(false);
+    const nativeStreamChunks: Uint8Array[] = [];
+    for await (const chunk of nativeStream) nativeStreamChunks.push(new Uint8Array(chunk));
+    expect(nativeStreamChunks.length).toBeGreaterThan(0);
+
+    const generatedStored = await generated.write({
+      outputType: 'uint8array',
+      compression: false,
+    });
+    const generatedRequestedDeflate = await generated.write({
+      outputType: 'uint8array',
+      compression: true,
+    });
+    expect(new Set(zipCompressionMethods(generatedStored))).toEqual(new Set([0]));
+    expect(new Set(zipCompressionMethods(generatedRequestedDeflate))).toEqual(new Set([0]));
+    const nativeStored = await native.write({
+      outputType: 'uint8array',
+      compression: false,
+    });
+    const nativeDeflate = await native.write({
+      outputType: 'uint8array',
+      compression: true,
+    });
+    expect(new Set(zipCompressionMethods(nativeStored))).toEqual(new Set([0]));
+    expect(new Set(zipCompressionMethods(nativeDeflate))).toEqual(new Set([8]));
+
+    const directory = await mkdtemp(join(tmpdir(), 'pptx-root-output-'));
+    try {
+      const generatedPath = join(directory, 'generated.pptx');
+      const nativePath = join(directory, 'native.pptx');
+      expect(await generated.writeFile({ fileName: generatedPath, compression: true }))
+        .toBe(generatedPath);
+      expect(await native.writeFile(nativePath, { compression: true })).toBeUndefined();
+      const [generatedFile, nativeFile] = await Promise.all([
+        readFile(generatedPath),
+        readFile(nativePath),
+      ]);
+      expect(new Set(zipCompressionMethods(generatedFile))).toEqual(new Set([0]));
+      expect(new Set(zipCompressionMethods(nativeFile))).toEqual(new Set([8]));
+      expect((await PptxDocument.open(generatedFile)).slides).toHaveLength(2);
+      expect((await PptxDocument.open(nativeFile)).slides).toHaveLength(1);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  }, 60_000);
 
   it('matches the public PptxGenJS SchemeColor helper and legal output', async () => {
     const generated = new PptxGenJS();

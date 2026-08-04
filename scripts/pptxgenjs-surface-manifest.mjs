@@ -2701,6 +2701,283 @@ const ADD_TABLE_CORE_FAMILY_ENTRIES = Object.freeze([
     ))),
 ]);
 
+const PRESENTATION_ROOT_OUTPUT_CONTROL_TITLE =
+  'locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1';
+const PRESENTATION_ROOT_OUTPUT_SUPPORTED_IDS = Object.freeze([
+  'class:PptxGenJS#addSlide',
+  ...['author', 'company', 'revision', 'rtlMode', 'subject', 'theme', 'title']
+    .map((property) => `class:PptxGenJS@property:${property}`),
+  ...['height', 'width'].map((property) => linePropertyId('PresLayout', property)),
+  ...['bodyFontFace', 'headFontFace']
+    .map((property) => linePropertyId('ThemeProps', property)),
+  linePropertyId('WriteBaseProps', 'compression'),
+  'union:WRITE_OUTPUT_TYPE#JSZIP_OUTPUT_TYPE',
+  ...['ArrayBuffer', 'Blob', 'Uint8Array', 'string']
+    .map((token) => `union:class:PptxGenJS#write@path:return#${token}`),
+]);
+const PRESENTATION_ROOT_OUTPUT_DIFFERENCE_IDS = Object.freeze([
+  ...[
+    'addSection',
+    'defineLayout',
+    'defineSlideMaster',
+    'stream',
+    'write',
+    'writeFile',
+  ].map((method) => `class:PptxGenJS#${method}`),
+  'class:PptxGenJS@property:layout',
+  linePropertyId('PresLayout', 'name'),
+  linePropertyId('WriteFileProps', 'compression'),
+  linePropertyId('WriteFileProps', 'fileName'),
+  linePropertyId('WriteProps', 'compression'),
+  linePropertyId('WriteProps', 'outputType'),
+  'union:WRITE_OUTPUT_TYPE#STREAM',
+  'union:class:PptxGenJS#stream@path:return#Uint8Array',
+]);
+const PRESENTATION_ROOT_OUTPUT_DEFECT_IDS = Object.freeze(
+  ['ArrayBuffer', 'Blob', 'string']
+    .map((token) => `union:class:PptxGenJS#stream@path:return#${token}`),
+);
+
+function presentationRootOutputCategory(id) {
+  if (/^class:PptxGenJS@property:(?:author|company|revision|rtlMode|subject|title)$/u.test(id)) {
+    return 'metadata';
+  }
+  if (id.includes('ThemeProps') || id === 'class:PptxGenJS@property:theme') return 'theme';
+  if (
+    id.includes('PresLayout')
+    || id === 'class:PptxGenJS@property:layout'
+    || id === 'class:PptxGenJS#defineLayout'
+  ) return 'layout';
+  if (id === 'class:PptxGenJS#addSection') return 'section';
+  if (id === 'class:PptxGenJS#addSlide' || id === 'class:PptxGenJS#defineSlideMaster') {
+    return 'master';
+  }
+  if (id.includes('#stream') || id.endsWith('#STREAM')) return 'stream';
+  if (id.includes('WriteFileProps') || id === 'class:PptxGenJS#writeFile') return 'file';
+  return 'write';
+}
+
+function presentationRootOutputNative(id) {
+  if (id === 'class:PptxGenJS#addSection') {
+    return ['PresentationModel.addSection', 'PresentationSection'];
+  }
+  if (id === 'class:PptxGenJS#addSlide') return ['PptxDocument.addSlide', 'SlideModel'];
+  if (id === 'class:PptxGenJS#defineLayout' || id.includes('PresLayout')
+      || id === 'class:PptxGenJS@property:layout') {
+    return ['PptxDocument.create', 'PptxDocument.presLayout'];
+  }
+  if (id === 'class:PptxGenJS#defineSlideMaster') {
+    return ['PptxDocument.defineSlideMaster', 'SlideLayoutModel'];
+  }
+  if (id === 'class:PptxGenJS#stream' || id.includes('#stream@path:return')
+      || id.endsWith('#STREAM')) {
+    return ['PptxDocument.stream', 'PptxNodeReadableStream'];
+  }
+  if (id === 'class:PptxGenJS#writeFile' || id.includes('WriteFileProps')) {
+    return ['PptxDocument.writeFile', 'WriteBaseOptions'];
+  }
+  if (id.includes('Write') || id.includes('#write@path:return')) {
+    return ['PptxDocument.write', 'WriteOptions', 'OUTPUT_TYPES'];
+  }
+  if (id.includes('ThemeProps') || id === 'class:PptxGenJS@property:theme') {
+    return ['PptxDocument.theme', 'PresentationThemeOptions'];
+  }
+  const property = id.split('@property:')[1];
+  return [`PptxDocument.${property}`];
+}
+
+function presentationRootOutputEvidence(id) {
+  const category = presentationRootOutputCategory(id);
+  const aggregate = {
+    path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+    title: PRESENTATION_ROOT_OUTPUT_CONTROL_TITLE,
+  };
+  if (category === 'metadata') {
+    const property = id.split('@property:')[1];
+    const titles = {
+      author: 'imports and reopens PptxGenJS presentation author metadata from public output',
+      company: 'imports and reopens PptxGenJS presentation company metadata from public output',
+      revision: 'imports and reopens PptxGenJS presentation revision metadata from public output',
+      rtlMode: 'imports only direct PptxGenJS presentation RTL and reopens it',
+      subject: 'imports and reopens PptxGenJS presentation subject metadata from public output',
+      title: 'imports and reopens PptxGenJS presentation title metadata from public output',
+    };
+    const ooxmlPatterns = {
+      author: 'presentation author',
+      company: 'presentation company',
+      revision: 'presentation revision',
+      rtlMode: 'presentation RTL',
+      subject: 'presentation subject',
+      title: 'presentation title',
+    };
+    return {
+      code: [{ path: 'packages/model/src/presentation.ts', pattern: `get ${property}()` }],
+      tests: [aggregate, {
+        path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+        title: titles[property],
+      }],
+      package: [{ path: 'scripts/smoke-npm-package.mjs', pattern: 'const metadata = PptxDocument.create({' }],
+      ooxml: [{
+        path: 'packages/sdk/src/index.test.ts',
+        pattern: ooxmlPatterns[property],
+      }],
+      clients: [],
+    };
+  }
+  if (category === 'theme') {
+    return {
+      code: [{ path: 'packages/sdk/src/index.ts', pattern: 'get theme(): PresentationTheme | undefined {' }],
+      tests: [aggregate, {
+        path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+        title: 'matches public PptxGenJS presentation theme fonts and reopens a partial edit',
+      }],
+      package: [{ path: 'scripts/smoke-npm-package.mjs', pattern: 'const themed = PptxDocument.create({' }],
+      ooxml: [{ path: 'packages/sdk/src/index.test.ts', pattern: 'creates presentation theme fonts with explicit PptxGenJS partial fallbacks' }],
+      clients: [],
+    };
+  }
+  if (category === 'layout') {
+    return {
+      code: [{ path: 'packages/sdk/src/index.ts', pattern: 'get presLayout(): PresentationLayout {' }],
+      tests: [aggregate, {
+        path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+        title: 'matches the public presentation layout projection and locks the custom-name boundary',
+      }],
+      package: [{ path: 'scripts/smoke-npm-package.mjs', pattern: 'const presentationLayoutState = {' }],
+      ooxml: [{ path: 'packages/pptxgenjs-adapter/src/index.test.ts', pattern: 'matches the public presentation layout projection and locks the custom-name boundary' }],
+      clients: [{ path: 'scripts/playwright-browser-smoke.js', pattern: 'const presentationLayoutState = {' }],
+    };
+  }
+  if (category === 'section') {
+    return {
+      code: [{ path: 'packages/model/src/presentation.ts', pattern: 'addSection(options: AddSectionOptions): PresentationSection {' }],
+      tests: [aggregate, {
+        path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+        title: 'imports and matches public PptxGenJS presentation sections',
+      }],
+      package: [{ path: 'scripts/smoke-npm-package.mjs', pattern: 'const sectioned = PptxDocument.create();' }],
+      ooxml: [{ path: 'packages/sdk/src/index.test.ts', pattern: 'creates, reads, and atomically edits detached presentation sections' }],
+      clients: [],
+    };
+  }
+  if (category === 'master') {
+    return {
+      code: [{ path: 'packages/sdk/src/index.ts', pattern: 'async defineSlideMaster(options: DefineSlideMasterOptions): Promise<SlideLayoutModel> {' }],
+      tests: [aggregate, {
+        path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+        title: 'diagnoses, canonicalizes, reorders, and reopens named-master public output',
+      }],
+      package: [{ path: 'scripts/smoke-npm-package.mjs', pattern: 'const masterLayoutChecks = {' }],
+      ooxml: [{ path: 'packages/sdk/src/index.test.ts', pattern: 'define slide master works in all six presentation formats' }],
+      clients: [{ path: 'scripts/playwright-browser-smoke.js', pattern: 'const masterLayoutState = {' }],
+    };
+  }
+  if (category === 'stream') {
+    return {
+      code: [{ path: 'packages/sdk/src/index.ts', pattern: 'async stream(options: WriteBaseOptions = {}): Promise<PptxNodeReadableStream> {' }],
+      tests: [aggregate, {
+        path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+        title: 'records the public PptxGenJS stream result and provides a real Node readable',
+      }],
+      package: [{ path: 'scripts/smoke-npm-package.mjs', pattern: 'const nodeReadableStreamState = {' }],
+      ooxml: [{ path: 'packages/sdk/src/index.test.ts', pattern: 'keeps Node path, stream, and writeFile adapters working' }],
+      clients: [{ path: 'scripts/playwright-browser-smoke.js', pattern: 'const nodeReadableStreamState = {' }],
+    };
+  }
+  if (category === 'file') {
+    return {
+      code: [{ path: 'packages/sdk/src/index.ts', pattern: 'async writeFile(path: string, options: WriteBaseOptions = {}): Promise<void> {' }],
+      tests: [aggregate],
+      package: [{ path: 'scripts/smoke-npm-package.mjs', pattern: "typedWriteOutputDocument.writeFile('typed.pptx', { compression: true })" }],
+      ooxml: [{ path: 'packages/sdk/src/index.test.ts', pattern: 'keeps Node path, stream, and writeFile adapters working' }],
+      clients: [],
+    };
+  }
+  return {
+    code: [{ path: 'packages/sdk/src/index.ts', pattern: 'async write<TOutputType extends OutputType' }],
+    tests: [aggregate, {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      title: 'matches the PptxGenJS output type runtime catalog and return kinds',
+    }, {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      title: 'matches legal compression booleans without copying the explicit-output defect',
+    }],
+    package: [{ path: 'scripts/smoke-npm-package.mjs', pattern: 'const writeOutputTypeState = {' }],
+    ooxml: [{ path: 'packages/sdk/src/index.test.ts', pattern: 'writes every selected output representation without changing canonical bytes' }],
+    clients: [{ path: 'scripts/playwright-browser-smoke.js', pattern: 'const writeOutputTypeState = {' }],
+  };
+}
+
+function presentationRootOutputDifferenceNote(id) {
+  if (id === 'class:PptxGenJS#addSection') {
+    return 'PptxGenJS returns undefined and treats order zero as an omitted truthy value; native returns an editable PresentationSection and preserves explicit zero insertion.';
+  }
+  if (id === 'class:PptxGenJS#defineSlideMaster') {
+    return 'PptxGenJS returns undefined, clones permissively, and permits duplicate names; native resolves an editable SlideLayoutModel and commits unique strict definitions atomically.';
+  }
+  if (id === 'class:PptxGenJS#defineLayout' || id === 'class:PptxGenJS@property:layout'
+      || id === linePropertyId('PresLayout', 'name')) {
+    return 'PptxGenJS registers and retains user layout names; native selects an explicit slide size at creation and canonicalizes reopened custom layouts to the stable name custom.';
+  }
+  if (id.includes('#stream') || id.endsWith('#STREAM')) {
+    return 'PptxGenJS stream and STREAM resolve to an in-memory Buffer; native exposes the equivalent byte representations through write and reserves stream for a real Node Readable.';
+  }
+  if (id.includes('WriteFileProps') || id === 'class:PptxGenJS#writeFile') {
+    return 'PptxGenJS accepts writeFile({ fileName, compression }), returns the final name, and ignores compression on the forced explicit output; native uses writeFile(path, options), returns void, and applies compression.';
+  }
+  if (id === linePropertyId('WriteProps', 'compression')) {
+    return 'PptxGenJS applies compression only through its implicit or STREAM path and ignores it for explicit JSZip output selectors; native applies the boolean consistently.';
+  }
+  if (id === 'class:PptxGenJS#write' || id === linePropertyId('WriteProps', 'outputType')) {
+    return 'Native matches all six JSZip representations through write but routes the misleading PptxGenJS STREAM selector to its separate real-stream API.';
+  }
+  return 'Native preserves the legal final-state capability through a stricter editable presentation lifecycle instead of the permissive PptxGenJS root contract.';
+}
+
+function presentationRootOutputEntry(id, status) {
+  const evidence = presentationRootOutputEvidence(id);
+  if (status === 'defect-excluded') {
+    return {
+      id,
+      status,
+      native: [],
+      evidence: { code: [], tests: evidence.tests, package: [], ooxml: [], clients: [] },
+      control: {
+        path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+        pattern: PRESENTATION_ROOT_OUTPUT_CONTROL_TITLE,
+      },
+      note: `PptxGenJS 4.0.1 stream always resolves to a Buffer/Uint8Array in Node; its declared ${id.split('#').at(-1)} return branch cannot be selected and never occurs.`,
+    };
+  }
+  const entry = {
+    id,
+    status,
+    native: presentationRootOutputNative(id),
+    evidence,
+    serialization: true,
+    client: ['layout', 'master', 'write'].includes(presentationRootOutputCategory(id)),
+    note: status === 'supported'
+      ? 'Native preserves the same legal presentation-root capability with detached state, strict validation, packed-package use, serialization, and reopen evidence.'
+      : presentationRootOutputDifferenceNote(id),
+  };
+  if (status === 'deliberate-difference') {
+    entry.control = {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      pattern: PRESENTATION_ROOT_OUTPUT_CONTROL_TITLE,
+    };
+  }
+  return entry;
+}
+
+const PRESENTATION_ROOT_OUTPUT_FAMILY_ENTRIES = Object.freeze([
+  ...PRESENTATION_ROOT_OUTPUT_SUPPORTED_IDS.map((id) =>
+    presentationRootOutputEntry(id, 'supported')),
+  ...PRESENTATION_ROOT_OUTPUT_DIFFERENCE_IDS.map((id) =>
+    presentationRootOutputEntry(id, 'deliberate-difference')),
+  ...PRESENTATION_ROOT_OUTPUT_DEFECT_IDS.map((id) =>
+    presentationRootOutputEntry(id, 'defect-excluded')),
+]);
+
 function presetShapeCatalogEntry(owner, value) {
   const id = `union:${owner}#${value}`;
   if (value === 'folderCorner') {
@@ -3033,6 +3310,7 @@ export const PPTXGENJS_SURFACE_MANIFEST = deepFreeze({
     TABLE_TO_SLIDES_FILL_DEFECT_ENTRY,
     ...TABLE_TO_SLIDES_FAMILY_ENTRIES,
     ...ADD_TABLE_CORE_FAMILY_ENTRIES,
+    ...PRESENTATION_ROOT_OUTPUT_FAMILY_ENTRIES,
     ...CHART_AREA_FILL_LINE_ENTRIES,
     ...DEPRECATED_CHART_AREA_ALIAS_ENTRIES,
     ...CHART_CREATION_SUPPORTED_ENTRIES,

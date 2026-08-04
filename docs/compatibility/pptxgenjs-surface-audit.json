@@ -3,144 +3,315 @@
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "PptxGenJS",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "code": [
+          {
+            "path": "packages/model/src/presentation.ts",
+            "pattern": "addSection(options: AddSectionOptions): PresentationSection {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, reads, and atomically edits detached presentation sections"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const sectioned = PptxDocument.create();"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports and matches public PptxGenJS presentation sections"
+          }
+        ]
       },
       "id": "class:PptxGenJS#addSection",
       "kind": "method",
       "name": "addSection",
-      "native": [],
-      "note": "",
+      "native": [
+        "PresentationModel.addSection",
+        "PresentationSection"
+      ],
+      "note": "PptxGenJS returns undefined and treats order zero as an omitted truthy value; native returns an editable PresentationSection and preserves explicit zero insertion.",
       "optional": false,
       "owner": "PptxGenJS",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [
         "addSection(props: PptxGenJS.SectionProps): void"
       ],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": ""
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "PptxGenJS",
       "deprecated": false,
       "deprecatedSignatures": [
         "addSlide(masterName?: string): PptxGenJS.Slide"
       ],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const masterLayoutState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async defineSlideMaster(options: DefineSlideMasterOptions): Promise<SlideLayoutModel> {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "define slide master works in all six presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const masterLayoutChecks = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "diagnoses, canonicalizes, reorders, and reopens named-master public output"
+          }
+        ]
       },
       "id": "class:PptxGenJS#addSlide",
       "kind": "method",
       "name": "addSlide",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.addSlide",
+        "SlideModel"
+      ],
+      "note": "Native preserves the same legal presentation-root capability with detached state, strict validation, packed-package use, serialization, and reopen evidence.",
       "optional": false,
       "owner": "PptxGenJS",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [
         "addSlide(masterName?: string): PptxGenJS.Slide",
         "addSlide(props?: PptxGenJS.AddSlideProps): PptxGenJS.Slide"
       ],
-      "status": "unverified",
+      "status": "supported",
       "typeText": ""
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "PptxGenJS",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const presentationLayoutState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "get presLayout(): PresentationLayout {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "pattern": "matches the public presentation layout projection and locks the custom-name boundary"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const presentationLayoutState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches the public presentation layout projection and locks the custom-name boundary"
+          }
+        ]
       },
       "id": "class:PptxGenJS#defineLayout",
       "kind": "method",
       "name": "defineLayout",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.create",
+        "PptxDocument.presLayout"
+      ],
+      "note": "PptxGenJS registers and retains user layout names; native selects an explicit slide size at creation and canonicalizes reopened custom layouts to the stable name custom.",
       "optional": false,
       "owner": "PptxGenJS",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [
         "defineLayout(layout: PptxGenJS.PresLayout): void"
       ],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": ""
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "PptxGenJS",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const masterLayoutState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async defineSlideMaster(options: DefineSlideMasterOptions): Promise<SlideLayoutModel> {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "define slide master works in all six presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const masterLayoutChecks = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "diagnoses, canonicalizes, reorders, and reopens named-master public output"
+          }
+        ]
       },
       "id": "class:PptxGenJS#defineSlideMaster",
       "kind": "method",
       "name": "defineSlideMaster",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.defineSlideMaster",
+        "SlideLayoutModel"
+      ],
+      "note": "PptxGenJS returns undefined, clones permissively, and permits duplicate names; native resolves an editable SlideLayoutModel and commits unique strict definitions atomically.",
       "optional": false,
       "owner": "PptxGenJS",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [
         "defineSlideMaster(props: PptxGenJS.SlideMasterProps): void"
       ],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": ""
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "PptxGenJS",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const nodeReadableStreamState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async stream(options: WriteBaseOptions = {}): Promise<PptxNodeReadableStream> {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "keeps Node path, stream, and writeFile adapters working"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const nodeReadableStreamState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "records the public PptxGenJS stream result and provides a real Node readable"
+          }
+        ]
       },
       "id": "class:PptxGenJS#stream",
       "kind": "method",
       "name": "stream",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.stream",
+        "PptxNodeReadableStream"
+      ],
+      "note": "PptxGenJS stream and STREAM resolve to an in-memory Buffer; native exposes the equivalent byte representations through write and reserves stream for a real Node Readable.",
       "optional": false,
       "owner": "PptxGenJS",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [
         "stream(props?: PptxGenJS.WriteBaseProps): Promise<string | ArrayBuffer | Blob | Uint8Array>"
       ],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": ""
     },
     {
@@ -212,58 +383,124 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "PptxGenJS",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const writeOutputTypeState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async write<TOutputType extends OutputType"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "writes every selected output representation without changing canonical bytes"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const writeOutputTypeState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches the PptxGenJS output type runtime catalog and return kinds"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches legal compression booleans without copying the explicit-output defect"
+          }
+        ]
       },
       "id": "class:PptxGenJS#write",
       "kind": "method",
       "name": "write",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.undefined"
+      ],
+      "note": "Native matches all six JSZip representations through write but routes the misleading PptxGenJS STREAM selector to its separate real-stream API.",
       "optional": false,
       "owner": "PptxGenJS",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [
         "write(props?: PptxGenJS.WriteProps): Promise<string | ArrayBuffer | Blob | Uint8Array>"
       ],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": ""
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "PptxGenJS",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "code": [
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async writeFile(path: string, options: WriteBaseOptions = {}): Promise<void> {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "keeps Node path, stream, and writeFile adapters working"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "typedWriteOutputDocument.writeFile('typed.pptx', { compression: true })"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+          }
+        ]
       },
       "id": "class:PptxGenJS#writeFile",
       "kind": "method",
       "name": "writeFile",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.writeFile",
+        "WriteBaseOptions"
+      ],
+      "note": "PptxGenJS accepts writeFile({ fileName, compression }), returns the final name, and ignores compression on the forced explicit output; native uses writeFile(path, options), returns void, and applies compression.",
       "optional": false,
       "owner": "PptxGenJS",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [
         "writeFile(props?: PptxGenJS.WriteFileProps): Promise<string>"
       ],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": ""
     },
     {
@@ -550,22 +787,48 @@
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "code": [
+          {
+            "path": "packages/model/src/presentation.ts",
+            "pattern": "get author()"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "presentation author"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const metadata = PptxDocument.create({"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports and reopens PptxGenJS presentation author metadata from public output"
+          }
+        ]
       },
       "id": "class:PptxGenJS@property:author",
       "kind": "property",
       "name": "author",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.author"
+      ],
+      "note": "Native preserves the same legal presentation-root capability with detached state, strict validation, packed-package use, serialization, and reopen evidence.",
       "optional": false,
       "owner": "PptxGenJS",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "string"
     },
     {
@@ -576,48 +839,110 @@
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "code": [
+          {
+            "path": "packages/model/src/presentation.ts",
+            "pattern": "get company()"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "presentation company"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const metadata = PptxDocument.create({"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports and reopens PptxGenJS presentation company metadata from public output"
+          }
+        ]
       },
       "id": "class:PptxGenJS@property:company",
       "kind": "property",
       "name": "company",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.company"
+      ],
+      "note": "Native preserves the same legal presentation-root capability with detached state, strict validation, packed-package use, serialization, and reopen evidence.",
       "optional": false,
       "owner": "PptxGenJS",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "string"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "PptxGenJS",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const presentationLayoutState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "get presLayout(): PresentationLayout {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "pattern": "matches the public presentation layout projection and locks the custom-name boundary"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const presentationLayoutState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches the public presentation layout projection and locks the custom-name boundary"
+          }
+        ]
       },
       "id": "class:PptxGenJS@property:layout",
       "kind": "property",
       "name": "layout",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.create",
+        "PptxDocument.presLayout"
+      ],
+      "note": "PptxGenJS registers and retains user layout names; native selects an explicit slide size at creation and canonicalizes reopened custom layouts to the stable name custom.",
       "optional": false,
       "owner": "PptxGenJS",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "string"
     },
     {
@@ -671,22 +996,48 @@
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "code": [
+          {
+            "path": "packages/model/src/presentation.ts",
+            "pattern": "get revision()"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "presentation revision"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const metadata = PptxDocument.create({"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports and reopens PptxGenJS presentation revision metadata from public output"
+          }
+        ]
       },
       "id": "class:PptxGenJS@property:revision",
       "kind": "property",
       "name": "revision",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.revision"
+      ],
+      "note": "Native preserves the same legal presentation-root capability with detached state, strict validation, packed-package use, serialization, and reopen evidence.",
       "optional": false,
       "owner": "PptxGenJS",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "string"
     },
     {
@@ -697,22 +1048,48 @@
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "code": [
+          {
+            "path": "packages/model/src/presentation.ts",
+            "pattern": "get rtlMode()"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "presentation RTL"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const metadata = PptxDocument.create({"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports only direct PptxGenJS presentation RTL and reopens it"
+          }
+        ]
       },
       "id": "class:PptxGenJS@property:rtlMode",
       "kind": "property",
       "name": "rtlMode",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.rtlMode"
+      ],
+      "note": "Native preserves the same legal presentation-root capability with detached state, strict validation, packed-package use, serialization, and reopen evidence.",
       "optional": false,
       "owner": "PptxGenJS",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "boolean"
     },
     {
@@ -723,22 +1100,48 @@
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "code": [
+          {
+            "path": "packages/model/src/presentation.ts",
+            "pattern": "get subject()"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "presentation subject"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const metadata = PptxDocument.create({"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports and reopens PptxGenJS presentation subject metadata from public output"
+          }
+        ]
       },
       "id": "class:PptxGenJS@property:subject",
       "kind": "property",
       "name": "subject",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.subject"
+      ],
+      "note": "Native preserves the same legal presentation-root capability with detached state, strict validation, packed-package use, serialization, and reopen evidence.",
       "optional": false,
       "owner": "PptxGenJS",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "string"
     },
     {
@@ -749,22 +1152,49 @@
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "code": [
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "get theme(): PresentationTheme | undefined {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates presentation theme fonts with explicit PptxGenJS partial fallbacks"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const themed = PptxDocument.create({"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches public PptxGenJS presentation theme fonts and reopens a partial edit"
+          }
+        ]
       },
       "id": "class:PptxGenJS@property:theme",
       "kind": "property",
       "name": "theme",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.theme",
+        "PresentationThemeOptions"
+      ],
+      "note": "Native preserves the same legal presentation-root capability with detached state, strict validation, packed-package use, serialization, and reopen evidence.",
       "optional": false,
       "owner": "PptxGenJS",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "PptxGenJS.ThemeProps"
     },
     {
@@ -775,22 +1205,48 @@
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "code": [
+          {
+            "path": "packages/model/src/presentation.ts",
+            "pattern": "get title()"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "presentation title"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const metadata = PptxDocument.create({"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports and reopens PptxGenJS presentation title metadata from public output"
+          }
+        ]
       },
       "id": "class:PptxGenJS@property:title",
       "kind": "property",
       "name": "title",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.title"
+      ],
+      "note": "Native preserves the same legal presentation-root capability with detached state, strict validation, packed-package use, serialization, and reopen evidence.",
       "optional": false,
       "owner": "PptxGenJS",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "string"
     },
     {
@@ -18933,80 +19389,180 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "PresLayout",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const presentationLayoutState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "get presLayout(): PresentationLayout {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "pattern": "matches the public presentation layout projection and locks the custom-name boundary"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const presentationLayoutState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches the public presentation layout projection and locks the custom-name boundary"
+          }
+        ]
       },
       "id": "interface:PresLayout@property:height",
       "kind": "property",
       "name": "height",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.create",
+        "PptxDocument.presLayout"
+      ],
+      "note": "Native preserves the same legal presentation-root capability with detached state, strict validation, packed-package use, serialization, and reopen evidence.",
       "optional": false,
       "owner": "PresLayout",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "number"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "PresLayout",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const presentationLayoutState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "get presLayout(): PresentationLayout {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "pattern": "matches the public presentation layout projection and locks the custom-name boundary"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const presentationLayoutState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches the public presentation layout projection and locks the custom-name boundary"
+          }
+        ]
       },
       "id": "interface:PresLayout@property:name",
       "kind": "property",
       "name": "name",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.create",
+        "PptxDocument.presLayout"
+      ],
+      "note": "PptxGenJS registers and retains user layout names; native selects an explicit slide size at creation and canonicalizes reopened custom layouts to the stable name custom.",
       "optional": false,
       "owner": "PresLayout",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "string"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "PresLayout",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const presentationLayoutState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "get presLayout(): PresentationLayout {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "pattern": "matches the public presentation layout projection and locks the custom-name boundary"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const presentationLayoutState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches the public presentation layout projection and locks the custom-name boundary"
+          }
+        ]
       },
       "id": "interface:PresLayout@property:width",
       "kind": "property",
       "name": "width",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.create",
+        "PptxDocument.presLayout"
+      ],
+      "note": "Native preserves the same legal presentation-root capability with detached state, strict validation, packed-package use, serialization, and reopen evidence.",
       "optional": false,
       "owner": "PresLayout",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "number"
     },
     {
@@ -31076,22 +31632,49 @@
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "code": [
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "get theme(): PresentationTheme | undefined {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates presentation theme fonts with explicit PptxGenJS partial fallbacks"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const themed = PptxDocument.create({"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches public PptxGenJS presentation theme fonts and reopens a partial edit"
+          }
+        ]
       },
       "id": "interface:ThemeProps@property:bodyFontFace",
       "kind": "property",
       "name": "bodyFontFace",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.theme",
+        "PresentationThemeOptions"
+      ],
+      "note": "Native preserves the same legal presentation-root capability with detached state, strict validation, packed-package use, serialization, and reopen evidence.",
       "optional": true,
       "owner": "ThemeProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "string"
     },
     {
@@ -31102,152 +31685,352 @@
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "code": [
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "get theme(): PresentationTheme | undefined {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates presentation theme fonts with explicit PptxGenJS partial fallbacks"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const themed = PptxDocument.create({"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches public PptxGenJS presentation theme fonts and reopens a partial edit"
+          }
+        ]
       },
       "id": "interface:ThemeProps@property:headFontFace",
       "kind": "property",
       "name": "headFontFace",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.theme",
+        "PresentationThemeOptions"
+      ],
+      "note": "Native preserves the same legal presentation-root capability with detached state, strict validation, packed-package use, serialization, and reopen evidence.",
       "optional": true,
       "owner": "ThemeProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "string"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "WriteBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const writeOutputTypeState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async write<TOutputType extends OutputType"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "writes every selected output representation without changing canonical bytes"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const writeOutputTypeState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches the PptxGenJS output type runtime catalog and return kinds"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches legal compression booleans without copying the explicit-output defect"
+          }
+        ]
       },
       "id": "interface:WriteBaseProps@property:compression",
       "kind": "property",
       "name": "compression",
-      "native": [],
-      "note": "",
+      "native": [
+        "OUTPUT_TYPES",
+        "PptxDocument.write",
+        "WriteOptions"
+      ],
+      "note": "Native preserves the same legal presentation-root capability with detached state, strict validation, packed-package use, serialization, and reopen evidence.",
       "optional": true,
       "owner": "WriteBaseProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "boolean"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "WriteBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "code": [
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async writeFile(path: string, options: WriteBaseOptions = {}): Promise<void> {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "keeps Node path, stream, and writeFile adapters working"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "typedWriteOutputDocument.writeFile('typed.pptx', { compression: true })"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+          }
+        ]
       },
       "id": "interface:WriteFileProps@property:compression",
       "kind": "property",
       "name": "compression",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.writeFile",
+        "WriteBaseOptions"
+      ],
+      "note": "PptxGenJS accepts writeFile({ fileName, compression }), returns the final name, and ignores compression on the forced explicit output; native uses writeFile(path, options), returns void, and applies compression.",
       "optional": true,
       "owner": "WriteFileProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "boolean"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "WriteFileProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "code": [
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async writeFile(path: string, options: WriteBaseOptions = {}): Promise<void> {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "keeps Node path, stream, and writeFile adapters working"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "typedWriteOutputDocument.writeFile('typed.pptx', { compression: true })"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+          }
+        ]
       },
       "id": "interface:WriteFileProps@property:fileName",
       "kind": "property",
       "name": "fileName",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.writeFile",
+        "WriteBaseOptions"
+      ],
+      "note": "PptxGenJS accepts writeFile({ fileName, compression }), returns the final name, and ignores compression on the forced explicit output; native uses writeFile(path, options), returns void, and applies compression.",
       "optional": true,
       "owner": "WriteFileProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "string"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "WriteBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const writeOutputTypeState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async write<TOutputType extends OutputType"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "writes every selected output representation without changing canonical bytes"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const writeOutputTypeState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches the PptxGenJS output type runtime catalog and return kinds"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches legal compression booleans without copying the explicit-output defect"
+          }
+        ]
       },
       "id": "interface:WriteProps@property:compression",
       "kind": "property",
       "name": "compression",
-      "native": [],
-      "note": "",
+      "native": [
+        "OUTPUT_TYPES",
+        "PptxDocument.write",
+        "WriteOptions"
+      ],
+      "note": "PptxGenJS applies compression only through its implicit or STREAM path and ignores it for explicit JSZip output selectors; native applies the boolean consistently.",
       "optional": true,
       "owner": "WriteProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "boolean"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "WriteProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const writeOutputTypeState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async write<TOutputType extends OutputType"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "writes every selected output representation without changing canonical bytes"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const writeOutputTypeState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches the PptxGenJS output type runtime catalog and return kinds"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches legal compression booleans without copying the explicit-output defect"
+          }
+        ]
       },
       "id": "interface:WriteProps@property:outputType",
       "kind": "property",
       "name": "outputType",
-      "native": [],
-      "note": "",
+      "native": [
+        "OUTPUT_TYPES",
+        "PptxDocument.write",
+        "WriteOptions"
+      ],
+      "note": "Native matches all six JSZip representations through write but routes the misleading PptxGenJS STREAM selector to its separate real-stream API.",
       "optional": true,
       "owner": "WriteProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "WRITE_OUTPUT_TYPE"
     },
     {
@@ -55987,59 +56770,134 @@
     },
     {
       "catalogKey": "JSZIP_OUTPUT_TYPE",
-      "client": false,
+      "client": true,
       "declaredIn": "WRITE_OUTPUT_TYPE",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const writeOutputTypeState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async write<TOutputType extends OutputType"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "writes every selected output representation without changing canonical bytes"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const writeOutputTypeState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches the PptxGenJS output type runtime catalog and return kinds"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches legal compression booleans without copying the explicit-output defect"
+          }
+        ]
       },
       "id": "union:WRITE_OUTPUT_TYPE#JSZIP_OUTPUT_TYPE",
       "kind": "union-member",
       "name": "JSZIP_OUTPUT_TYPE",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.undefined"
+      ],
+      "note": "Native preserves the same legal presentation-root capability with detached state, strict validation, packed-package use, serialization, and reopen evidence.",
       "optional": false,
       "owner": "WRITE_OUTPUT_TYPE",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "JSZIP_OUTPUT_TYPE"
     },
     {
       "catalogKey": "STREAM",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "WRITE_OUTPUT_TYPE",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const nodeReadableStreamState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async stream(options: WriteBaseOptions = {}): Promise<PptxNodeReadableStream> {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "keeps Node path, stream, and writeFile adapters working"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const nodeReadableStreamState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "records the public PptxGenJS stream result and provides a real Node readable"
+          }
+        ]
       },
       "id": "union:WRITE_OUTPUT_TYPE#STREAM",
       "kind": "union-member",
       "name": "STREAM",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.stream",
+        "PptxNodeReadableStream"
+      ],
+      "note": "PptxGenJS stream and STREAM resolve to an in-memory Buffer; native exposes the equivalent byte representations through write and reserves stream for a real Node Readable.",
       "optional": false,
       "owner": "WRITE_OUTPUT_TYPE",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "'STREAM'"
     },
     {
       "catalogKey": "ArrayBuffer",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "class:PptxGenJS#stream@path:return",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -56048,24 +56906,37 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "records the public PptxGenJS stream result and provides a real Node readable"
+          }
+        ]
       },
       "id": "union:class:PptxGenJS#stream@path:return#ArrayBuffer",
       "kind": "union-member",
       "name": "ArrayBuffer",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 stream always resolves to a Buffer/Uint8Array in Node; its declared ArrayBuffer return branch cannot be selected and never occurs.",
       "optional": false,
       "owner": "class:PptxGenJS#stream@path:return",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "ArrayBuffer"
     },
     {
       "catalogKey": "Blob",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "class:PptxGenJS#stream@path:return",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -56074,50 +56945,99 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "records the public PptxGenJS stream result and provides a real Node readable"
+          }
+        ]
       },
       "id": "union:class:PptxGenJS#stream@path:return#Blob",
       "kind": "union-member",
       "name": "Blob",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 stream always resolves to a Buffer/Uint8Array in Node; its declared Blob return branch cannot be selected and never occurs.",
       "optional": false,
       "owner": "class:PptxGenJS#stream@path:return",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "Blob"
     },
     {
       "catalogKey": "Uint8Array",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "class:PptxGenJS#stream@path:return",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const nodeReadableStreamState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async stream(options: WriteBaseOptions = {}): Promise<PptxNodeReadableStream> {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "keeps Node path, stream, and writeFile adapters working"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const nodeReadableStreamState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "records the public PptxGenJS stream result and provides a real Node readable"
+          }
+        ]
       },
       "id": "union:class:PptxGenJS#stream@path:return#Uint8Array",
       "kind": "union-member",
       "name": "Uint8Array",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.stream",
+        "PptxNodeReadableStream"
+      ],
+      "note": "PptxGenJS stream and STREAM resolve to an in-memory Buffer; native exposes the equivalent byte representations through write and reserves stream for a real Node Readable.",
       "optional": false,
       "owner": "class:PptxGenJS#stream@path:return",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Uint8Array"
     },
     {
       "catalogKey": "string",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "class:PptxGenJS#stream@path:return",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -56126,123 +57046,280 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "records the public PptxGenJS stream result and provides a real Node readable"
+          }
+        ]
       },
       "id": "union:class:PptxGenJS#stream@path:return#string",
       "kind": "union-member",
       "name": "string",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 stream always resolves to a Buffer/Uint8Array in Node; its declared string return branch cannot be selected and never occurs.",
       "optional": false,
       "owner": "class:PptxGenJS#stream@path:return",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "string"
     },
     {
       "catalogKey": "ArrayBuffer",
-      "client": false,
+      "client": true,
       "declaredIn": "class:PptxGenJS#write@path:return",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const writeOutputTypeState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async write<TOutputType extends OutputType"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "writes every selected output representation without changing canonical bytes"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const writeOutputTypeState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches the PptxGenJS output type runtime catalog and return kinds"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches legal compression booleans without copying the explicit-output defect"
+          }
+        ]
       },
       "id": "union:class:PptxGenJS#write@path:return#ArrayBuffer",
       "kind": "union-member",
       "name": "ArrayBuffer",
-      "native": [],
-      "note": "",
+      "native": [
+        "OUTPUT_TYPES",
+        "PptxDocument.write",
+        "WriteOptions"
+      ],
+      "note": "Native preserves the same legal presentation-root capability with detached state, strict validation, packed-package use, serialization, and reopen evidence.",
       "optional": false,
       "owner": "class:PptxGenJS#write@path:return",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "ArrayBuffer"
     },
     {
       "catalogKey": "Blob",
-      "client": false,
+      "client": true,
       "declaredIn": "class:PptxGenJS#write@path:return",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const writeOutputTypeState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async write<TOutputType extends OutputType"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "writes every selected output representation without changing canonical bytes"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const writeOutputTypeState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches the PptxGenJS output type runtime catalog and return kinds"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches legal compression booleans without copying the explicit-output defect"
+          }
+        ]
       },
       "id": "union:class:PptxGenJS#write@path:return#Blob",
       "kind": "union-member",
       "name": "Blob",
-      "native": [],
-      "note": "",
+      "native": [
+        "OUTPUT_TYPES",
+        "PptxDocument.write",
+        "WriteOptions"
+      ],
+      "note": "Native preserves the same legal presentation-root capability with detached state, strict validation, packed-package use, serialization, and reopen evidence.",
       "optional": false,
       "owner": "class:PptxGenJS#write@path:return",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "Blob"
     },
     {
       "catalogKey": "Uint8Array",
-      "client": false,
+      "client": true,
       "declaredIn": "class:PptxGenJS#write@path:return",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const writeOutputTypeState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async write<TOutputType extends OutputType"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "writes every selected output representation without changing canonical bytes"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const writeOutputTypeState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches the PptxGenJS output type runtime catalog and return kinds"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches legal compression booleans without copying the explicit-output defect"
+          }
+        ]
       },
       "id": "union:class:PptxGenJS#write@path:return#Uint8Array",
       "kind": "union-member",
       "name": "Uint8Array",
-      "native": [],
-      "note": "",
+      "native": [
+        "OUTPUT_TYPES",
+        "PptxDocument.write",
+        "WriteOptions"
+      ],
+      "note": "Native preserves the same legal presentation-root capability with detached state, strict validation, packed-package use, serialization, and reopen evidence.",
       "optional": false,
       "owner": "class:PptxGenJS#write@path:return",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "Uint8Array"
     },
     {
       "catalogKey": "string",
-      "client": false,
+      "client": true,
       "declaredIn": "class:PptxGenJS#write@path:return",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const writeOutputTypeState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async write<TOutputType extends OutputType"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "writes every selected output representation without changing canonical bytes"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const writeOutputTypeState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the presentation root, output, and theme declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches the PptxGenJS output type runtime catalog and return kinds"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches legal compression booleans without copying the explicit-output defect"
+          }
+        ]
       },
       "id": "union:class:PptxGenJS#write@path:return#string",
       "kind": "union-member",
       "name": "string",
-      "native": [],
-      "note": "",
+      "native": [
+        "OUTPUT_TYPES",
+        "PptxDocument.write",
+        "WriteOptions"
+      ],
+      "note": "Native preserves the same legal presentation-root capability with detached state, strict validation, packed-package use, serialization, and reopen evidence.",
       "optional": false,
       "owner": "class:PptxGenJS#write@path:return",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "string"
     },
     {
@@ -81586,35 +82663,20 @@
   ],
   "complete": false,
   "counts": {
-    "defect-excluded": 352,
-    "deliberate-difference": 240,
+    "defect-excluded": 355,
+    "deliberate-difference": 254,
     "deprecated-alias": 86,
     "stale": 0,
-    "supported": 588,
+    "supported": 606,
     "unsupported": 0,
-    "unverified": 508
+    "unverified": 473
   },
   "declarationSha256": "0726d015dbcb55ccfa75546cb2fd43fe13a0dfeb783d08572f1c62f59193bbe5",
   "declarationTotal": 1774,
   "diagnostics": [],
   "extensions": [],
   "incompleteIds": [
-    "class:PptxGenJS#addSection",
-    "class:PptxGenJS#addSlide",
-    "class:PptxGenJS#defineLayout",
-    "class:PptxGenJS#defineSlideMaster",
-    "class:PptxGenJS#stream",
-    "class:PptxGenJS#write",
-    "class:PptxGenJS#writeFile",
     "class:PptxGenJS@property:ChartType",
-    "class:PptxGenJS@property:author",
-    "class:PptxGenJS@property:company",
-    "class:PptxGenJS@property:layout",
-    "class:PptxGenJS@property:revision",
-    "class:PptxGenJS@property:rtlMode",
-    "class:PptxGenJS@property:subject",
-    "class:PptxGenJS@property:theme",
-    "class:PptxGenJS@property:title",
     "inline:interface:IChartOpts@property:titlePos@property:titlePos.x",
     "inline:interface:IChartOpts@property:titlePos@property:titlePos.y",
     "inline:interface:ImageProps@property:sizing@property:sizing.h",
@@ -81888,9 +82950,6 @@
     "interface:PlaceholderProps@property:w",
     "interface:PlaceholderProps@property:x",
     "interface:PlaceholderProps@property:y",
-    "interface:PresLayout@property:height",
-    "interface:PresLayout@property:name",
-    "interface:PresLayout@property:width",
     "interface:PresSlide@property:addChart",
     "interface:PresSlide@property:addImage",
     "interface:PresSlide@property:addMedia",
@@ -81977,13 +83036,6 @@
     "interface:TextPropsOptions@property:transparency",
     "interface:TextPropsOptions@property:valign",
     "interface:TextPropsOptions@property:wrap",
-    "interface:ThemeProps@property:bodyFontFace",
-    "interface:ThemeProps@property:headFontFace",
-    "interface:WriteBaseProps@property:compression",
-    "interface:WriteFileProps@property:compression",
-    "interface:WriteFileProps@property:fileName",
-    "interface:WriteProps@property:compression",
-    "interface:WriteProps@property:outputType",
     "method:Slide#addImage",
     "method:Slide#addMedia",
     "method:Slide#addNotes",
@@ -82008,16 +83060,6 @@
     "union:MediaType#audio",
     "union:MediaType#online",
     "union:MediaType#video",
-    "union:WRITE_OUTPUT_TYPE#JSZIP_OUTPUT_TYPE",
-    "union:WRITE_OUTPUT_TYPE#STREAM",
-    "union:class:PptxGenJS#stream@path:return#ArrayBuffer",
-    "union:class:PptxGenJS#stream@path:return#Blob",
-    "union:class:PptxGenJS#stream@path:return#Uint8Array",
-    "union:class:PptxGenJS#stream@path:return#string",
-    "union:class:PptxGenJS#write@path:return#ArrayBuffer",
-    "union:class:PptxGenJS#write@path:return#Blob",
-    "union:class:PptxGenJS#write@path:return#Uint8Array",
-    "union:class:PptxGenJS#write@path:return#string",
     "union:interface:BackgroundProps@property:type#none",
     "union:interface:BackgroundProps@property:type#solid",
     "union:interface:IChartOpts@property:axisPos#b",

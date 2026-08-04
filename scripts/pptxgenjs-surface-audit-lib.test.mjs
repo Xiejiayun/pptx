@@ -124,13 +124,13 @@ function assertDeepFrozen(value, seen = new Set()) {
 test('exports an immutable evidence-backed initial manifest batch', () => {
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.schemaVersion, 1);
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.packageVersion, '4.0.1');
-  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1266);
+  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1301);
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries.map(({ status }) => status).sort(),
     [
-      ...Array(352).fill('defect-excluded'),
-      ...Array(588).fill('supported'),
-      ...Array(240).fill('deliberate-difference'),
+      ...Array(355).fill('defect-excluded'),
+      ...Array(606).fill('supported'),
+      ...Array(254).fill('deliberate-difference'),
       ...Array(86).fill('deprecated-alias'),
     ].sort(),
   );
@@ -792,6 +792,95 @@ test('exports an immutable evidence-backed initial manifest batch', () => {
   assert.equal(
     addTableById.get(addTablePropertyId('TableCellProps', 'transparency'))?.status,
     'supported',
+  );
+  const rootPropertyId = (property) => `class:PptxGenJS@property:${property}`;
+  const outputReturnId = (method, token) =>
+    `union:class:PptxGenJS#${method}@path:return#${token}`;
+  const rootOutputExpected = [
+    { id: 'class:PptxGenJS#addSlide', status: 'supported' },
+    ...['author', 'company', 'revision', 'rtlMode', 'subject', 'theme', 'title']
+      .map((property) => ({ id: rootPropertyId(property), status: 'supported' })),
+    ...['height', 'width'].map((property) => ({
+      id: addTablePropertyId('PresLayout', property),
+      status: 'supported',
+    })),
+    ...['bodyFontFace', 'headFontFace'].map((property) => ({
+      id: addTablePropertyId('ThemeProps', property),
+      status: 'supported',
+    })),
+    {
+      id: addTablePropertyId('WriteBaseProps', 'compression'),
+      status: 'supported',
+    },
+    { id: 'union:WRITE_OUTPUT_TYPE#JSZIP_OUTPUT_TYPE', status: 'supported' },
+    ...['ArrayBuffer', 'Blob', 'Uint8Array', 'string'].map((token) => ({
+      id: outputReturnId('write', token),
+      status: 'supported',
+    })),
+    ...[
+      'addSection',
+      'defineLayout',
+      'defineSlideMaster',
+      'stream',
+      'write',
+      'writeFile',
+    ].map((method) => ({
+      id: `class:PptxGenJS#${method}`,
+      status: 'deliberate-difference',
+    })),
+    { id: rootPropertyId('layout'), status: 'deliberate-difference' },
+    {
+      id: addTablePropertyId('PresLayout', 'name'),
+      status: 'deliberate-difference',
+    },
+    ...[
+      ['WriteFileProps', 'compression'],
+      ['WriteFileProps', 'fileName'],
+      ['WriteProps', 'compression'],
+      ['WriteProps', 'outputType'],
+    ].map(([owner, property]) => ({
+      id: addTablePropertyId(owner, property),
+      status: 'deliberate-difference',
+    })),
+    { id: 'union:WRITE_OUTPUT_TYPE#STREAM', status: 'deliberate-difference' },
+    {
+      id: outputReturnId('stream', 'Uint8Array'),
+      status: 'deliberate-difference',
+    },
+    ...['ArrayBuffer', 'Blob', 'string'].map((token) => ({
+      id: outputReturnId('stream', token),
+      status: 'defect-excluded',
+    })),
+  ].sort((left, right) => left.id.localeCompare(right.id));
+  const rootOutputIds = new Set(rootOutputExpected.map(({ id }) => id));
+  assert.equal(rootOutputIds.size, 35);
+  const rootOutputEntries = PPTXGENJS_SURFACE_MANIFEST.entries
+    .filter(({ id }) => rootOutputIds.has(id))
+    .sort((left, right) => left.id.localeCompare(right.id));
+  assert.deepEqual(
+    rootOutputEntries.map(({ id, status }) => ({ id, status })),
+    rootOutputExpected,
+  );
+  assert.deepEqual(
+    Object.fromEntries(
+      ['supported', 'deliberate-difference', 'defect-excluded'].map((status) => [
+        status,
+        rootOutputEntries.filter((entry) => entry.status === status).length,
+      ]),
+    ),
+    { supported: 18, 'deliberate-difference': 14, 'defect-excluded': 3 },
+  );
+  assert.equal(
+    rootOutputEntries.some(({ id }) => id.includes('ChartType')),
+    false,
+  );
+  assert.deepEqual(
+    rootOutputEntries
+      .filter(({ status }) => status === 'defect-excluded')
+      .map(({ id }) => id),
+    ['ArrayBuffer', 'Blob', 'string']
+      .map((token) => outputReturnId('stream', token))
+      .sort(),
   );
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries
