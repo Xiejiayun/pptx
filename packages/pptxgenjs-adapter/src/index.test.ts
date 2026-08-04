@@ -1006,6 +1006,72 @@ describe('importPptxGenJS', () => {
     expect(native.version).toBe(PPTX_VERSION);
   });
 
+  it('matches PptxGenJS shape and text percentage coordinate output with explicit native units', async () => {
+    const generated = new PptxGenJS();
+    generated.defineLayout({ name: 'PERCENT_AUDIT', width: 10, height: 8 });
+    generated.layout = 'PERCENT_AUDIT';
+    const generatedSlide = generated.addSlide();
+    generatedSlide.addShape(generated.ShapeType.rect!, {
+      x: '10%',
+      y: '20%',
+      w: '30%',
+      h: '40%',
+    });
+    generatedSlide.addText('Percentage text', {
+      x: '12.5%',
+      y: '25%',
+      w: '37.5%',
+      h: '50%',
+    });
+
+    const imported = await openPptxGenJSPublicOutput(generated);
+    const native = PptxDocument.create({
+      slideSize: { width: inches(10), height: inches(8) },
+    });
+    const nativeSlide = native.addSlide();
+    nativeSlide.addShape('rect', {
+      x: inches(1),
+      y: '20%',
+      width: '30%',
+      height: '40%',
+    });
+    nativeSlide.addText('Percentage text', {
+      x: '12.5%',
+      y: '25%',
+      width: '37.5%',
+      height: '50%',
+    });
+
+    const expected = [
+      {
+        x: 914_400,
+        y: 1_463_040,
+        width: 2_743_200,
+        height: 2_926_080,
+        rotation: 0,
+        flipHorizontal: false,
+        flipVertical: false,
+      },
+      {
+        x: 1_143_000,
+        y: 1_828_800,
+        width: 3_429_000,
+        height: 3_657_600,
+        rotation: 0,
+        flipHorizontal: false,
+        flipVertical: false,
+      },
+    ];
+    expect(imported.slides[0]!.shapes.map(({ transform }) => transform)).toEqual(expected);
+    expect(native.slides[0]!.shapes.map(({ transform }) => transform)).toEqual(expected);
+
+    await native.write({ compatibility: 'powerpoint-2010' });
+    expect(native.diagnostics.filter(({ severity }) => severity === 'error')).toEqual([]);
+    const reopened = await PptxDocument.open(await native.write());
+    expect(reopened.slides[0]!.shapes.map(({ transform }) => transform)).toEqual(expected);
+    expect(reopened.diagnostics.filter(({ severity }) => severity === 'error')).toEqual([]);
+  });
+
   it('matches legal tableToSlides rows, styles, widths, and additions', async () => {
     const generated = new PptxGenJS();
     const legacyOptions: Record<string, unknown> = {
