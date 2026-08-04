@@ -3140,6 +3140,10 @@
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "SlideMasterProps",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -3148,201 +3152,461 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+          }
+        ]
       },
       "id": "inline:interface:SlideMasterProps@property:objects@property:objects.chart",
       "kind": "property",
       "name": "objects.chart",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS declares the master chart branch as IChartOpts, but runtime requires an undeclared internal type/data/opts record and throws for the declared shape.",
       "optional": false,
       "owner": "interface:SlideMasterProps@property:objects",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "IChartOpts"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "SlideMasterProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const masterLayoutDocument = api.PptxDocument.create({ slideSize: 'wide' });"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/master-layout.ts",
+            "pattern": "export interface DefineSlideMasterOptions {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "define slide master works in all six presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const masterLayoutDeck = PptxDocument.create({ slideSize: 'wide', firstSlideNumber: 3 });"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches public slide master objects, topology, and empty placeholder geometry"
+          }
+        ]
       },
       "id": "inline:interface:SlideMasterProps@property:objects@property:objects.image",
       "kind": "property",
       "name": "objects.image",
-      "native": [],
-      "note": "",
+      "native": [
+        "ImageModel",
+        "SlideLayoutModel.shapes",
+        "SlideMasterObject"
+      ],
+      "note": "PptxGenJS uses loose untagged master object records with implicit-inch options; native uses strict discriminated objects, explicit sources and units, transactional preparation, and editable live models.",
       "optional": false,
       "owner": "interface:SlideMasterProps@property:objects",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "ImageProps"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "SlideMasterProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const masterLayoutDocument = api.PptxDocument.create({ slideSize: 'wide' });"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/master-layout.ts",
+            "pattern": "export interface DefineSlideMasterOptions {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "define slide master works in all six presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const masterLayoutDeck = PptxDocument.create({ slideSize: 'wide', firstSlideNumber: 3 });"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches public slide master objects, topology, and empty placeholder geometry"
+          }
+        ]
       },
       "id": "inline:interface:SlideMasterProps@property:objects@property:objects.line",
       "kind": "property",
       "name": "objects.line",
-      "native": [],
-      "note": "",
+      "native": [
+        "ShapeModel",
+        "SlideLayoutModel.shapes",
+        "SlideMasterObject"
+      ],
+      "note": "PptxGenJS uses loose untagged master object records with implicit-inch options; native uses strict discriminated objects, explicit sources and units, transactional preparation, and editable live models.",
       "optional": false,
       "owner": "interface:SlideMasterProps@property:objects",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "ShapeProps"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "SlideMasterProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const masterLayoutDocument = api.PptxDocument.create({ slideSize: 'wide' });"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/master-layout.ts",
+            "pattern": "export interface DefineSlideMasterOptions {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "define slide master works in all six presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const masterLayoutDeck = PptxDocument.create({ slideSize: 'wide', firstSlideNumber: 3 });"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches public slide master objects, topology, and empty placeholder geometry"
+          }
+        ]
       },
       "id": "inline:interface:SlideMasterProps@property:objects@property:objects.placeholder",
       "kind": "property",
       "name": "objects.placeholder",
-      "native": [],
-      "note": "",
+      "native": [
+        "ShapeModel.placeholder",
+        "SlideLayoutModel.placeholders",
+        "SlideMasterObject"
+      ],
+      "note": "PptxGenJS uses loose untagged master object records with implicit-inch options; native uses strict discriminated objects, explicit sources and units, transactional preparation, and editable live models.",
       "optional": false,
       "owner": "interface:SlideMasterProps@property:objects",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "{ options: PlaceholderProps; text?: string; }"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "SlideMasterProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const masterLayoutDocument = api.PptxDocument.create({ slideSize: 'wide' });"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/master-layout.ts",
+            "pattern": "export interface DefineSlideMasterOptions {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "define slide master works in all six presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const masterLayoutDeck = PptxDocument.create({ slideSize: 'wide', firstSlideNumber: 3 });"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches public slide master objects, topology, and empty placeholder geometry"
+          }
+        ]
       },
       "id": "inline:interface:SlideMasterProps@property:objects@property:objects.placeholder.options",
       "kind": "property",
       "name": "objects.placeholder.options",
-      "native": [],
-      "note": "",
+      "native": [
+        "ShapeModel.placeholder",
+        "SlideLayoutModel.placeholders",
+        "SlideMasterObject"
+      ],
+      "note": "PptxGenJS uses loose untagged master object records with implicit-inch options; native uses strict discriminated objects, explicit sources and units, transactional preparation, and editable live models.",
       "optional": false,
       "owner": "interface:SlideMasterProps@property:objects",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "PlaceholderProps"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "SlideMasterProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const masterLayoutDocument = api.PptxDocument.create({ slideSize: 'wide' });"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/master-layout.ts",
+            "pattern": "export interface DefineSlideMasterOptions {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "define slide master works in all six presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const masterLayoutDeck = PptxDocument.create({ slideSize: 'wide', firstSlideNumber: 3 });"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches public slide master objects, topology, and empty placeholder geometry"
+          }
+        ]
       },
       "id": "inline:interface:SlideMasterProps@property:objects@property:objects.placeholder.text",
       "kind": "property",
       "name": "objects.placeholder.text",
-      "native": [],
-      "note": "",
+      "native": [
+        "ShapeModel.placeholder",
+        "SlideLayoutModel.placeholders",
+        "SlideMasterObject"
+      ],
+      "note": "Native covers the same legal atomic value with strict detached state, packed and browser consumers, canonical OOXML, and editable reopen evidence.",
       "optional": true,
       "owner": "interface:SlideMasterProps@property:objects",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "string"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "SlideMasterProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const masterLayoutDocument = api.PptxDocument.create({ slideSize: 'wide' });"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/master-layout.ts",
+            "pattern": "export interface DefineSlideMasterOptions {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "define slide master works in all six presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const masterLayoutDeck = PptxDocument.create({ slideSize: 'wide', firstSlideNumber: 3 });"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches public slide master objects, topology, and empty placeholder geometry"
+          }
+        ]
       },
       "id": "inline:interface:SlideMasterProps@property:objects@property:objects.rect",
       "kind": "property",
       "name": "objects.rect",
-      "native": [],
-      "note": "",
+      "native": [
+        "ShapeModel",
+        "SlideLayoutModel.shapes",
+        "SlideMasterObject"
+      ],
+      "note": "PptxGenJS uses loose untagged master object records with implicit-inch options; native uses strict discriminated objects, explicit sources and units, transactional preparation, and editable live models.",
       "optional": false,
       "owner": "interface:SlideMasterProps@property:objects",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "ShapeProps"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "SlideMasterProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const masterLayoutDocument = api.PptxDocument.create({ slideSize: 'wide' });"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/master-layout.ts",
+            "pattern": "export interface DefineSlideMasterOptions {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "define slide master works in all six presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const masterLayoutDeck = PptxDocument.create({ slideSize: 'wide', firstSlideNumber: 3 });"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches public slide master objects, topology, and empty placeholder geometry"
+          }
+        ]
       },
       "id": "inline:interface:SlideMasterProps@property:objects@property:objects.text",
       "kind": "property",
       "name": "objects.text",
-      "native": [],
-      "note": "",
+      "native": [
+        "ShapeModel",
+        "SlideLayoutModel.shapes",
+        "SlideMasterObject"
+      ],
+      "note": "PptxGenJS uses loose untagged master object records with implicit-inch options; native uses strict discriminated objects, explicit sources and units, transactional preparation, and editable live models.",
       "optional": false,
       "owner": "interface:SlideMasterProps@property:objects",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "TextProps"
     },
     {
@@ -7034,138 +7298,326 @@
       "typeText": "string"
     },
     {
+      "canonical": "interface:BackgroundProps@property:transparency",
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "ShapeFillProps",
       "deprecated": true,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const backgroundDocument = api.PptxDocument.create();"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide-background.ts",
+            "pattern": "export type SlideBackground ="
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "round-trips image, none, solid, and gradient backgrounds twice in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "noFillBackgroundSlide.background = { kind: 'none' };"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches supported public PptxGenJS slide backgrounds and locks none divergences"
+          }
+        ]
       },
       "id": "interface:BackgroundProps@property:alpha",
       "kind": "property",
       "name": "alpha",
-      "native": [],
-      "note": "",
+      "native": [
+        "SlideBackground",
+        "SlideModel.background"
+      ],
+      "note": "PptxGenJS alpha is a working deprecated transparency alias and can duplicate the canonical alpha child; native exposes only canonical strict transparency.",
       "optional": true,
       "owner": "BackgroundProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deprecated-alias",
       "typeText": "number"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "ShapeFillProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const backgroundDocument = api.PptxDocument.create();"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide-background.ts",
+            "pattern": "export type SlideBackground ="
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "round-trips image, none, solid, and gradient backgrounds twice in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "noFillBackgroundSlide.background = { kind: 'none' };"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches supported public PptxGenJS slide backgrounds and locks none divergences"
+          }
+        ]
       },
       "id": "interface:BackgroundProps@property:color",
       "kind": "property",
       "name": "color",
-      "native": [],
-      "note": "",
+      "native": [
+        "SlideBackground",
+        "SlideModel.background"
+      ],
+      "note": "PptxGenJS retains and mutates a permissive background record, omits legal no-fill intent, and accepts implicit image and color forms; native uses detached strict background kinds and transactional image loading.",
       "optional": true,
       "owner": "BackgroundProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Color"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "DataOrPathProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const backgroundDocument = api.PptxDocument.create();"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async setSlideBackgroundImage("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "round-trips image, none, solid, and gradient backgrounds twice in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const slideBackgroundDeck = PptxDocument.create();"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "edits and validates imported PptxGenJS backgrounds without disturbing neighbors"
+          }
+        ]
       },
       "id": "interface:BackgroundProps@property:data",
       "kind": "property",
       "name": "data",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.setSlideBackgroundImage",
+        "RasterImageSource",
+        "SlideBackgroundImage"
+      ],
+      "note": "PptxGenJS retains and mutates a permissive background record, omits legal no-fill intent, and accepts implicit image and color forms; native uses detached strict background kinds and transactional image loading.",
       "optional": true,
       "owner": "BackgroundProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "string"
     },
     {
+      "canonical": "interface:BackgroundProps@property:color",
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "BackgroundProps",
       "deprecated": true,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const backgroundDocument = api.PptxDocument.create();"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide-background.ts",
+            "pattern": "export type SlideBackground ="
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "round-trips image, none, solid, and gradient backgrounds twice in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "noFillBackgroundSlide.background = { kind: 'none' };"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches supported public PptxGenJS slide backgrounds and locks none divergences"
+          }
+        ]
       },
       "id": "interface:BackgroundProps@property:fill",
       "kind": "property",
       "name": "fill",
-      "native": [],
-      "note": "",
+      "native": [
+        "SlideBackground",
+        "SlideModel.background"
+      ],
+      "note": "PptxGenJS fill is a working deprecated color alias that mutates caller state; native exposes only canonical strict color state.",
       "optional": true,
       "owner": "BackgroundProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deprecated-alias",
       "typeText": "HexColor"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "DataOrPathProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const backgroundDocument = api.PptxDocument.create();"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async setSlideBackgroundImage("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "round-trips image, none, solid, and gradient backgrounds twice in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const slideBackgroundDeck = PptxDocument.create();"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "edits and validates imported PptxGenJS backgrounds without disturbing neighbors"
+          }
+        ]
       },
       "id": "interface:BackgroundProps@property:path",
       "kind": "property",
       "name": "path",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.setSlideBackgroundImage",
+        "RasterImageSource",
+        "SlideBackgroundImage"
+      ],
+      "note": "PptxGenJS retains and mutates a permissive background record, omits legal no-fill intent, and accepts implicit image and color forms; native uses detached strict background kinds and transactional image loading.",
       "optional": true,
       "owner": "BackgroundProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "string"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "BackgroundProps",
       "deprecated": true,
       "deprecatedSignatures": [],
@@ -7174,71 +7626,148 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+          }
+        ]
       },
       "id": "interface:BackgroundProps@property:src",
       "kind": "property",
       "name": "src",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS declares deprecated direct background src, but its writer ignores the field for every legal string and creates no image relationship.",
       "optional": true,
       "owner": "BackgroundProps",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "string"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "ShapeFillProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const backgroundDocument = api.PptxDocument.create();"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide-background.ts",
+            "pattern": "export type SlideBackground ="
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "round-trips image, none, solid, and gradient backgrounds twice in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "noFillBackgroundSlide.background = { kind: 'none' };"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches supported public PptxGenJS slide backgrounds and locks none divergences"
+          }
+        ]
       },
       "id": "interface:BackgroundProps@property:transparency",
       "kind": "property",
       "name": "transparency",
-      "native": [],
-      "note": "",
+      "native": [
+        "SlideBackground",
+        "SlideModel.background"
+      ],
+      "note": "PptxGenJS retains and mutates a permissive background record, omits legal no-fill intent, and accepts implicit image and color forms; native uses detached strict background kinds and transactional image loading.",
       "optional": true,
       "owner": "BackgroundProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "number"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "ShapeFillProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const backgroundDocument = api.PptxDocument.create();"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide-background.ts",
+            "pattern": "export type SlideBackground ="
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "round-trips image, none, solid, and gradient backgrounds twice in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "noFillBackgroundSlide.background = { kind: 'none' };"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches supported public PptxGenJS slide backgrounds and locks none divergences"
+          }
+        ]
       },
       "id": "interface:BackgroundProps@property:type",
       "kind": "property",
       "name": "type",
-      "native": [],
-      "note": "",
+      "native": [
+        "SlideBackground",
+        "SlideModel.background"
+      ],
+      "note": "PptxGenJS retains and mutates a permissive background record, omits legal no-fill intent, and accepts implicit image and color forms; native uses detached strict background kinds and transactional image loading.",
       "optional": true,
       "owner": "BackgroundProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "'none' | 'solid'"
     },
     {
@@ -22693,184 +23222,438 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "SlideMasterProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const masterLayoutDocument = api.PptxDocument.create({ slideSize: 'wide' });"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/master-layout.ts",
+            "pattern": "export interface DefineSlideMasterOptions {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "define slide master works in all six presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const masterLayoutDeck = PptxDocument.create({ slideSize: 'wide', firstSlideNumber: 3 });"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches public slide master objects, topology, and empty placeholder geometry"
+          }
+        ]
       },
       "id": "interface:SlideMasterProps@property:background",
       "kind": "property",
       "name": "background",
-      "native": [],
-      "note": "",
+      "native": [
+        "DefineSlideMasterOptions.background",
+        "SlideLayoutModel.background",
+        "SlideMasterBackground"
+      ],
+      "note": "PptxGenJS accepts a loose BackgroundProps record; native uses a strict discriminated master background or explicit image-source contract with detached live state.",
       "optional": true,
       "owner": "SlideMasterProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "BackgroundProps"
     },
     {
+      "canonical": "interface:SlideMasterProps@property:background",
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "SlideMasterProps",
       "deprecated": true,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const masterLayoutDocument = api.PptxDocument.create({ slideSize: 'wide' });"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/master-layout.ts",
+            "pattern": "export interface DefineSlideMasterOptions {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "define slide master works in all six presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const masterLayoutDeck = PptxDocument.create({ slideSize: 'wide', firstSlideNumber: 3 });"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches public slide master objects, topology, and empty placeholder geometry"
+          }
+        ]
       },
       "id": "interface:SlideMasterProps@property:bkgd",
       "kind": "property",
       "name": "bkgd",
-      "native": [],
-      "note": "",
+      "native": [
+        "DefineSlideMasterOptions.background",
+        "SlideLayoutModel.background",
+        "SlideMasterBackground"
+      ],
+      "note": "PptxGenJS master bkgd and its string branch are working deprecated aliases for a solid background; native exposes only the canonical strict background property.",
       "optional": true,
       "owner": "SlideMasterProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deprecated-alias",
       "typeText": "string | BackgroundProps"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "SlideMasterProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const masterLayoutDocument = api.PptxDocument.create({ slideSize: 'wide' });"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/master-layout.ts",
+            "pattern": "export interface DefineSlideMasterOptions {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "define slide master works in all six presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const masterLayoutDeck = PptxDocument.create({ slideSize: 'wide', firstSlideNumber: 3 });"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches public slide master objects, topology, and empty placeholder geometry"
+          }
+        ]
       },
       "id": "interface:SlideMasterProps@property:margin",
       "kind": "property",
       "name": "margin",
-      "native": [],
-      "note": "",
+      "native": [
+        "DefineSlideMasterOptions.margin",
+        "SlideLayoutModel.margin",
+        "SlideMasterMarginInput"
+      ],
+      "note": "PptxGenJS stores implicit-inch master margins in its transient layout definition; native requires explicit EMU margins, exposes frozen live state, and does not claim the non-serialized input after reopen.",
       "optional": true,
       "owner": "SlideMasterProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Margin"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "SlideMasterProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const masterLayoutDocument = api.PptxDocument.create({ slideSize: 'wide' });"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/master-layout.ts",
+            "pattern": "export interface DefineSlideMasterOptions {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "define slide master works in all six presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const masterLayoutDeck = PptxDocument.create({ slideSize: 'wide', firstSlideNumber: 3 });"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches public slide master objects, topology, and empty placeholder geometry"
+          }
+        ]
       },
       "id": "interface:SlideMasterProps@property:objects",
       "kind": "property",
       "name": "objects",
-      "native": [],
-      "note": "",
+      "native": [
+        "DefineSlideMasterOptions.objects",
+        "SlideLayoutModel.shapes",
+        "SlideMasterObject"
+      ],
+      "note": "PptxGenJS uses loose untagged master object records with implicit-inch options; native uses strict discriminated objects, explicit sources and units, transactional preparation, and editable live models.",
       "optional": true,
       "owner": "SlideMasterProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Array<{ chart: IChartOpts; } | { image: ImageProps; } | { line: ShapeProps; } | { rect: ShapeProps; } | { text: TextProps; } | { placeholder: { options: PlaceholderProps; text?: string; }; }>"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "SlideMasterProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const masterLayoutDocument = api.PptxDocument.create({ slideSize: 'wide' });"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/master-layout.ts",
+            "pattern": "export interface DefineSlideMasterOptions {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "define slide master works in all six presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const masterLayoutDeck = PptxDocument.create({ slideSize: 'wide', firstSlideNumber: 3 });"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches public slide master objects, topology, and empty placeholder geometry"
+          }
+        ]
       },
       "id": "interface:SlideMasterProps@property:slideNumber",
       "kind": "property",
       "name": "slideNumber",
-      "native": [],
-      "note": "",
+      "native": [
+        "DefineSlideMasterOptions.slideNumber",
+        "SlideLayoutModel.slideNumber",
+        "SlideNumberOptions"
+      ],
+      "note": "PptxGenJS retains permissive slide-number input and writes fixed owner identities; native snapshots strict editable slide-number state and allocates canonical unique owners.",
       "optional": true,
       "owner": "SlideMasterProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "SlideNumberProps"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "SlideMasterProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const masterLayoutDocument = api.PptxDocument.create({ slideSize: 'wide' });"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/master-layout.ts",
+            "pattern": "export interface DefineSlideMasterOptions {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "define slide master works in all six presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const masterLayoutDeck = PptxDocument.create({ slideSize: 'wide', firstSlideNumber: 3 });"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches public slide master objects, topology, and empty placeholder geometry"
+          }
+        ]
       },
       "id": "interface:SlideMasterProps@property:title",
       "kind": "property",
       "name": "title",
-      "native": [],
-      "note": "",
+      "native": [
+        "DefineSlideMasterOptions.title",
+        "PptxDocument.defineSlideMaster"
+      ],
+      "note": "Native covers the same legal atomic value with strict detached state, packed and browser consumers, canonical OOXML, and editable reopen evidence.",
       "optional": false,
       "owner": "SlideMasterProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "string"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const slideNumberDocument = api.PptxDocument.create({ firstSlideNumber: -2 });"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/codecs/src/slide-number.ts",
+            "pattern": "export interface SlideNumberOptions {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "round-trips all three slide-number owners twice in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const slideNumberDeck = PptxDocument.create({ firstSlideNumber: 5 });"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports public slide-number variants and locks PptxGenJS 4.0.1 differences"
+          }
+        ]
       },
       "id": "interface:SlideNumberProps@property:align",
       "kind": "property",
       "name": "align",
-      "native": [],
-      "note": "",
+      "native": [
+        "SlideNumber.align",
+        "SlideNumberOptions.align"
+      ],
+      "note": "PptxGenJS uses implicit-inch or percentage geometry, truthy width and height defaults, and degrades justify to left; native uses explicit semantic geometry, rejects zero dimensions, and preserves justify.",
       "optional": true,
       "owner": "SlideNumberProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "HAlign"
     },
     {
@@ -23217,28 +24000,64 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "PositionProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const slideNumberDocument = api.PptxDocument.create({ firstSlideNumber: -2 });"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/codecs/src/slide-number.ts",
+            "pattern": "export interface SlideNumberOptions {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "round-trips all three slide-number owners twice in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const slideNumberDeck = PptxDocument.create({ firstSlideNumber: 5 });"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports public slide-number variants and locks PptxGenJS 4.0.1 differences"
+          }
+        ]
       },
       "id": "interface:SlideNumberProps@property:h",
       "kind": "property",
       "name": "h",
-      "native": [],
-      "note": "",
+      "native": [
+        "SlideNumber.height",
+        "SlideNumberOptions.height"
+      ],
+      "note": "PptxGenJS uses implicit-inch or percentage geometry, truthy width and height defaults, and degrades justify to left; native uses explicit semantic geometry, rejects zero dimensions, and preserves justify.",
       "optional": true,
       "owner": "SlideNumberProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
@@ -23348,28 +24167,60 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "SlideNumberProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const slideNumberDocument = api.PptxDocument.create({ firstSlideNumber: -2 });"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/codecs/src/slide-number.ts",
+            "pattern": "export interface SlideNumberOptions {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "round-trips all three slide-number owners twice in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const slideNumberDeck = PptxDocument.create({ firstSlideNumber: 5 });"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports public slide-number variants and locks PptxGenJS 4.0.1 differences"
+          }
+        ]
       },
       "id": "interface:SlideNumberProps@property:margin",
       "kind": "property",
       "name": "margin",
-      "native": [],
-      "note": "",
+      "native": [
+        "SlideNumber.margin",
+        "SlideNumberOptions.margin"
+      ],
+      "note": "Native covers the same legal atomic value with strict detached state, packed and browser consumers, canonical OOXML, and editable reopen evidence.",
       "optional": true,
       "owner": "SlideNumberProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "Margin"
     },
     {
@@ -23480,6 +24331,10 @@
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -23488,19 +24343,24 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+          }
+        ]
       },
       "id": "interface:SlideNumberProps@property:transparency",
       "kind": "property",
       "name": "transparency",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS declares top-level slide-number transparency, but the owner writer ignores every legal value; native places effective transparency in strict nested text style.",
       "optional": true,
       "owner": "SlideNumberProps",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "number"
     },
     {
@@ -23540,106 +24400,246 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const slideNumberDocument = api.PptxDocument.create({ firstSlideNumber: -2 });"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/codecs/src/slide-number.ts",
+            "pattern": "export interface SlideNumberOptions {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "round-trips all three slide-number owners twice in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const slideNumberDeck = PptxDocument.create({ firstSlideNumber: 5 });"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports public slide-number variants and locks PptxGenJS 4.0.1 differences"
+          }
+        ]
       },
       "id": "interface:SlideNumberProps@property:valign",
       "kind": "property",
       "name": "valign",
-      "native": [],
-      "note": "",
+      "native": [
+        "SlideNumber.valign",
+        "SlideNumberOptions.valign"
+      ],
+      "note": "Native covers the same legal atomic value with strict detached state, packed and browser consumers, canonical OOXML, and editable reopen evidence.",
       "optional": true,
       "owner": "SlideNumberProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "VAlign"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "PositionProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const slideNumberDocument = api.PptxDocument.create({ firstSlideNumber: -2 });"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/codecs/src/slide-number.ts",
+            "pattern": "export interface SlideNumberOptions {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "round-trips all three slide-number owners twice in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const slideNumberDeck = PptxDocument.create({ firstSlideNumber: 5 });"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports public slide-number variants and locks PptxGenJS 4.0.1 differences"
+          }
+        ]
       },
       "id": "interface:SlideNumberProps@property:w",
       "kind": "property",
       "name": "w",
-      "native": [],
-      "note": "",
+      "native": [
+        "SlideNumber.width",
+        "SlideNumberOptions.width"
+      ],
+      "note": "PptxGenJS uses implicit-inch or percentage geometry, truthy width and height defaults, and degrades justify to left; native uses explicit semantic geometry, rejects zero dimensions, and preserves justify.",
       "optional": true,
       "owner": "SlideNumberProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "PositionProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const slideNumberDocument = api.PptxDocument.create({ firstSlideNumber: -2 });"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/codecs/src/slide-number.ts",
+            "pattern": "export interface SlideNumberOptions {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "round-trips all three slide-number owners twice in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const slideNumberDeck = PptxDocument.create({ firstSlideNumber: 5 });"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports public slide-number variants and locks PptxGenJS 4.0.1 differences"
+          }
+        ]
       },
       "id": "interface:SlideNumberProps@property:x",
       "kind": "property",
       "name": "x",
-      "native": [],
-      "note": "",
+      "native": [
+        "SlideNumber.x",
+        "SlideNumberOptions.x"
+      ],
+      "note": "PptxGenJS uses implicit-inch or percentage geometry, truthy width and height defaults, and degrades justify to left; native uses explicit semantic geometry, rejects zero dimensions, and preserves justify.",
       "optional": true,
       "owner": "SlideNumberProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "PositionProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const slideNumberDocument = api.PptxDocument.create({ firstSlideNumber: -2 });"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/codecs/src/slide-number.ts",
+            "pattern": "export interface SlideNumberOptions {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "round-trips all three slide-number owners twice in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const slideNumberDeck = PptxDocument.create({ firstSlideNumber: 5 });"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports public slide-number variants and locks PptxGenJS 4.0.1 differences"
+          }
+        ]
       },
       "id": "interface:SlideNumberProps@property:y",
       "kind": "property",
       "name": "y",
-      "native": [],
-      "note": "",
+      "native": [
+        "SlideNumber.y",
+        "SlideNumberOptions.y"
+      ],
+      "note": "PptxGenJS uses implicit-inch or percentage geometry, truthy width and height defaults, and degrades justify to left; native uses explicit semantic geometry, rejects zero dimensions, and preserves justify.",
       "optional": true,
       "owner": "SlideNumberProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
@@ -58192,54 +59192,126 @@
     },
     {
       "catalogKey": "none",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "interface:BackgroundProps@property:type",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const backgroundDocument = api.PptxDocument.create();"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide-background.ts",
+            "pattern": "export type SlideBackground ="
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "round-trips image, none, solid, and gradient backgrounds twice in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "noFillBackgroundSlide.background = { kind: 'none' };"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches supported public PptxGenJS slide backgrounds and locks none divergences"
+          }
+        ]
       },
       "id": "union:interface:BackgroundProps@property:type#none",
       "kind": "union-member",
       "name": "none",
-      "native": [],
-      "note": "",
+      "native": [
+        "SlideBackground",
+        "SlideModel.background"
+      ],
+      "note": "PptxGenJS retains and mutates a permissive background record, omits legal no-fill intent, and accepts implicit image and color forms; native uses detached strict background kinds and transactional image loading.",
       "optional": false,
       "owner": "interface:BackgroundProps@property:type",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "'none'"
     },
     {
       "catalogKey": "solid",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "interface:BackgroundProps@property:type",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const backgroundDocument = api.PptxDocument.create();"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide-background.ts",
+            "pattern": "export type SlideBackground ="
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "round-trips image, none, solid, and gradient backgrounds twice in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "noFillBackgroundSlide.background = { kind: 'none' };"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches supported public PptxGenJS slide backgrounds and locks none divergences"
+          }
+        ]
       },
       "id": "union:interface:BackgroundProps@property:type#solid",
       "kind": "union-member",
       "name": "solid",
-      "native": [],
-      "note": "",
+      "native": [
+        "SlideBackground",
+        "SlideModel.background"
+      ],
+      "note": "PptxGenJS retains and mutates a permissive background record, omits legal no-fill intent, and accepts implicit image and color forms; native uses detached strict background kinds and transactional image loading.",
       "optional": false,
       "owner": "interface:BackgroundProps@property:type",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "'solid'"
     },
     {
@@ -70965,6 +72037,10 @@
     {
       "catalogKey": "BackgroundProps",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "interface:SlideMasterProps@property:bkgd",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -70973,45 +72049,88 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+          }
+        ]
       },
       "id": "union:interface:SlideMasterProps@property:bkgd#BackgroundProps",
       "kind": "union-member",
       "name": "BackgroundProps",
       "native": [],
-      "note": "",
+      "note": "Every legal BackgroundProps object supplied through the deprecated master bkgd union is inert; only the separate string branch produces output.",
       "optional": false,
       "owner": "interface:SlideMasterProps@property:bkgd",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "BackgroundProps"
     },
     {
+      "canonical": "interface:SlideMasterProps@property:background",
       "catalogKey": "string",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "interface:SlideMasterProps@property:bkgd",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const masterLayoutDocument = api.PptxDocument.create({ slideSize: 'wide' });"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/master-layout.ts",
+            "pattern": "export interface DefineSlideMasterOptions {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "define slide master works in all six presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const masterLayoutDeck = PptxDocument.create({ slideSize: 'wide', firstSlideNumber: 3 });"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks master, background, and slide-number declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches public slide master objects, topology, and empty placeholder geometry"
+          }
+        ]
       },
       "id": "union:interface:SlideMasterProps@property:bkgd#string",
       "kind": "union-member",
       "name": "string",
-      "native": [],
-      "note": "",
+      "native": [
+        "DefineSlideMasterOptions.background",
+        "SlideLayoutModel.background",
+        "SlideMasterBackground"
+      ],
+      "note": "PptxGenJS master bkgd and its string branch are working deprecated aliases for a solid background; native exposes only the canonical strict background property.",
       "optional": false,
       "owner": "interface:SlideMasterProps@property:bkgd",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deprecated-alias",
       "typeText": "string"
     },
     {
@@ -83531,13 +84650,13 @@
   ],
   "complete": false,
   "counts": {
-    "defect-excluded": 355,
-    "deliberate-difference": 269,
-    "deprecated-alias": 87,
+    "defect-excluded": 359,
+    "deliberate-difference": 291,
+    "deprecated-alias": 91,
     "stale": 0,
-    "supported": 616,
+    "supported": 620,
     "unsupported": 0,
-    "unverified": 447
+    "unverified": 413
   },
   "declarationSha256": "0726d015dbcb55ccfa75546cb2fd43fe13a0dfeb783d08572f1c62f59193bbe5",
   "declarationTotal": 1774,
@@ -83566,24 +84685,8 @@
     "inline:interface:ShapeProps@property:points@property:points.moveTo",
     "inline:interface:ShapeProps@property:points@property:points.x",
     "inline:interface:ShapeProps@property:points@property:points.y",
-    "inline:interface:SlideMasterProps@property:objects@property:objects.chart",
-    "inline:interface:SlideMasterProps@property:objects@property:objects.image",
-    "inline:interface:SlideMasterProps@property:objects@property:objects.line",
-    "inline:interface:SlideMasterProps@property:objects@property:objects.placeholder",
-    "inline:interface:SlideMasterProps@property:objects@property:objects.placeholder.options",
-    "inline:interface:SlideMasterProps@property:objects@property:objects.placeholder.text",
-    "inline:interface:SlideMasterProps@property:objects@property:objects.rect",
-    "inline:interface:SlideMasterProps@property:objects@property:objects.text",
     "inline:interface:TextPropsOptions@property:outline@property:outline.color",
     "inline:interface:TextPropsOptions@property:outline@property:outline.size",
-    "interface:BackgroundProps@property:alpha",
-    "interface:BackgroundProps@property:color",
-    "interface:BackgroundProps@property:data",
-    "interface:BackgroundProps@property:fill",
-    "interface:BackgroundProps@property:path",
-    "interface:BackgroundProps@property:src",
-    "interface:BackgroundProps@property:transparency",
-    "interface:BackgroundProps@property:type",
     "interface:DataOrPathProps@property:data",
     "interface:DataOrPathProps@property:path",
     "interface:HyperlinkProps@property:slide",
@@ -83835,20 +84938,6 @@
     "interface:ShapeProps@property:rotate",
     "interface:ShapeProps@property:shadow",
     "interface:ShapeProps@property:shapeName",
-    "interface:SlideMasterProps@property:background",
-    "interface:SlideMasterProps@property:bkgd",
-    "interface:SlideMasterProps@property:margin",
-    "interface:SlideMasterProps@property:objects",
-    "interface:SlideMasterProps@property:slideNumber",
-    "interface:SlideMasterProps@property:title",
-    "interface:SlideNumberProps@property:align",
-    "interface:SlideNumberProps@property:h",
-    "interface:SlideNumberProps@property:margin",
-    "interface:SlideNumberProps@property:transparency",
-    "interface:SlideNumberProps@property:valign",
-    "interface:SlideNumberProps@property:w",
-    "interface:SlideNumberProps@property:x",
-    "interface:SlideNumberProps@property:y",
     "interface:TableCell@property:options",
     "interface:TableCell@property:text",
     "interface:TextGlowProps@property:color",
@@ -83902,8 +84991,6 @@
     "union:MediaType#audio",
     "union:MediaType#online",
     "union:MediaType#video",
-    "union:interface:BackgroundProps@property:type#none",
-    "union:interface:BackgroundProps@property:type#solid",
     "union:interface:IChartOpts@property:axisPos#b",
     "union:interface:IChartOpts@property:axisPos#l",
     "union:interface:IChartOpts@property:axisPos#r",
@@ -83979,8 +85066,6 @@
     "union:interface:ShadowProps@property:type#inner",
     "union:interface:ShadowProps@property:type#none",
     "union:interface:ShadowProps@property:type#outer",
-    "union:interface:SlideMasterProps@property:bkgd#BackgroundProps",
-    "union:interface:SlideMasterProps@property:bkgd#string",
     "union:interface:TableCell@property:text#TableCell[]",
     "union:interface:TableCell@property:text#string",
     "union:interface:TextPropsOptions@property:fit#none",

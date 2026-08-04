@@ -124,14 +124,14 @@ function assertDeepFrozen(value, seen = new Set()) {
 test('exports an immutable evidence-backed initial manifest batch', () => {
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.schemaVersion, 1);
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.packageVersion, '4.0.1');
-  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1327);
+  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1361);
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries.map(({ status }) => status).sort(),
     [
-      ...Array(355).fill('defect-excluded'),
-      ...Array(616).fill('supported'),
-      ...Array(269).fill('deliberate-difference'),
-      ...Array(87).fill('deprecated-alias'),
+      ...Array(359).fill('defect-excluded'),
+      ...Array(620).fill('supported'),
+      ...Array(291).fill('deliberate-difference'),
+      ...Array(91).fill('deprecated-alias'),
     ].sort(),
   );
   const lineFamilyEntries = PPTXGENJS_SURFACE_MANIFEST.entries.filter(({ id }) =>
@@ -957,6 +957,112 @@ test('exports an immutable evidence-backed initial manifest batch', () => {
       { id: addTablePropertyId('PresSlide', 'addTable'), status: 'supported' },
       { id: addTablePropertyId('PresSlide', 'addText'), status: 'supported' },
     ],
+  );
+  const inlineMasterObjectId = (property) =>
+    `inline:interface:SlideMasterProps@property:objects@property:objects.${property}`;
+  const propertyUnionId = (owner, property, token) =>
+    `union:${addTablePropertyId(owner, property)}#${token}`;
+  const masterBackgroundSlideNumberExpected = [
+    ...[
+      inlineMasterObjectId('placeholder.text'),
+      addTablePropertyId('SlideMasterProps', 'title'),
+      addTablePropertyId('SlideNumberProps', 'margin'),
+      addTablePropertyId('SlideNumberProps', 'valign'),
+    ].map((id) => ({ id, status: 'supported' })),
+    ...[
+      ...[
+        'image',
+        'line',
+        'placeholder',
+        'placeholder.options',
+        'rect',
+        'text',
+      ].map(inlineMasterObjectId),
+      ...['background', 'margin', 'objects', 'slideNumber']
+        .map((property) => addTablePropertyId('SlideMasterProps', property)),
+      ...['color', 'data', 'path', 'transparency', 'type']
+        .map((property) => addTablePropertyId('BackgroundProps', property)),
+      propertyUnionId('BackgroundProps', 'type', 'none'),
+      propertyUnionId('BackgroundProps', 'type', 'solid'),
+      ...['align', 'h', 'w', 'x', 'y']
+        .map((property) => addTablePropertyId('SlideNumberProps', property)),
+    ].map((id) => ({ id, status: 'deliberate-difference' })),
+    ...[
+      addTablePropertyId('SlideMasterProps', 'bkgd'),
+      propertyUnionId('SlideMasterProps', 'bkgd', 'string'),
+      addTablePropertyId('BackgroundProps', 'alpha'),
+      addTablePropertyId('BackgroundProps', 'fill'),
+    ].map((id) => ({ id, status: 'deprecated-alias' })),
+    ...[
+      inlineMasterObjectId('chart'),
+      propertyUnionId('SlideMasterProps', 'bkgd', 'BackgroundProps'),
+      addTablePropertyId('BackgroundProps', 'src'),
+      addTablePropertyId('SlideNumberProps', 'transparency'),
+    ].map((id) => ({ id, status: 'defect-excluded' })),
+  ].sort((left, right) => left.id.localeCompare(right.id));
+  const masterBackgroundSlideNumberIds = new Set(
+    masterBackgroundSlideNumberExpected.map(({ id }) => id),
+  );
+  assert.equal(masterBackgroundSlideNumberIds.size, 34);
+  const masterBackgroundSlideNumberEntries = PPTXGENJS_SURFACE_MANIFEST.entries
+    .filter(({ id }) => masterBackgroundSlideNumberIds.has(id))
+    .sort((left, right) => left.id.localeCompare(right.id));
+  assert.deepEqual(
+    masterBackgroundSlideNumberEntries.map(({ id, status }) => ({ id, status })),
+    masterBackgroundSlideNumberExpected,
+  );
+  assert.deepEqual(
+    Object.fromEntries(
+      [
+        'supported',
+        'deliberate-difference',
+        'deprecated-alias',
+        'defect-excluded',
+      ].map((status) => [
+        status,
+        masterBackgroundSlideNumberEntries.filter((entry) => entry.status === status).length,
+      ]),
+    ),
+    {
+      supported: 4,
+      'deliberate-difference': 22,
+      'deprecated-alias': 4,
+      'defect-excluded': 4,
+    },
+  );
+  const masterBackgroundSlideNumberById = new Map(
+    masterBackgroundSlideNumberEntries.map((entry) => [entry.id, entry]),
+  );
+  assert.equal(
+    masterBackgroundSlideNumberById
+      .get(addTablePropertyId('SlideMasterProps', 'bkgd'))?.canonical,
+    addTablePropertyId('SlideMasterProps', 'background'),
+  );
+  assert.equal(
+    masterBackgroundSlideNumberById
+      .get(propertyUnionId('SlideMasterProps', 'bkgd', 'string'))?.canonical,
+    addTablePropertyId('SlideMasterProps', 'background'),
+  );
+  assert.equal(
+    masterBackgroundSlideNumberById
+      .get(addTablePropertyId('BackgroundProps', 'alpha'))?.canonical,
+    addTablePropertyId('BackgroundProps', 'transparency'),
+  );
+  assert.equal(
+    masterBackgroundSlideNumberById
+      .get(addTablePropertyId('BackgroundProps', 'fill'))?.canonical,
+    addTablePropertyId('BackgroundProps', 'color'),
+  );
+  assert.deepEqual(
+    masterBackgroundSlideNumberEntries
+      .filter(({ status }) => status === 'defect-excluded')
+      .map(({ id }) => id),
+    [
+      inlineMasterObjectId('chart'),
+      propertyUnionId('SlideMasterProps', 'bkgd', 'BackgroundProps'),
+      addTablePropertyId('BackgroundProps', 'src'),
+      addTablePropertyId('SlideNumberProps', 'transparency'),
+    ].sort(),
   );
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries

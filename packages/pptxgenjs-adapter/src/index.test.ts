@@ -57,9 +57,12 @@ interface PptxGenJSChartData {
 
 interface PptxGenJSSlide {
   background?: {
+    readonly alpha?: number;
     readonly color?: string;
     readonly data?: string;
     readonly fill?: string;
+    readonly path?: string;
+    readonly src?: string;
     readonly transparency?: number;
     readonly type?: 'none' | 'solid';
   };
@@ -366,14 +369,24 @@ interface PptxGenJSInstance {
   defineSlideMaster(options: {
     readonly title: string;
     readonly background?: {
+      readonly alpha?: number;
       readonly color?: string;
       readonly data?: string;
+      readonly fill?: string;
+      readonly path?: string;
+      readonly src?: string;
       readonly transparency?: number;
+      readonly type?: 'none' | 'solid';
     };
     readonly bkgd?: string | {
+      readonly alpha?: number;
       readonly color?: string;
       readonly data?: string;
+      readonly fill?: string;
+      readonly path?: string;
+      readonly src?: string;
       readonly transparency?: number;
+      readonly type?: 'none' | 'solid';
     };
     readonly margin?: number | readonly [number, number, number, number];
     readonly slideNumber?: PptxGenJSSlideNumberProps;
@@ -2086,6 +2099,396 @@ describe('importPptxGenJS', () => {
     nativeOrderZero.addSection({ title: 'Zero', order: 0 });
     expect(nativeOrdered.sections?.map(({ title }) => title)).toEqual(['A', 'B', 'C']);
     expect(nativeOrderZero.sections?.map(({ title }) => title)).toEqual(['Zero', 'A']);
+  }, 60_000);
+
+  it('locks master, background, and slide-number declarations against PptxGenJS 4.0.1', async () => {
+    const propertyId = (owner: string, property: string) =>
+      `interface:${owner}@property:${property}`;
+    const inlineObjectId = (property: string) =>
+      `inline:interface:SlideMasterProps@property:objects@property:objects.${property}`;
+    const unionId = (owner: string, property: string, token: string) =>
+      `union:${propertyId(owner, property)}#${token}`;
+    const atomGroups = {
+      supported: [
+        inlineObjectId('placeholder.text'),
+        propertyId('SlideMasterProps', 'title'),
+        propertyId('SlideNumberProps', 'margin'),
+        propertyId('SlideNumberProps', 'valign'),
+      ],
+      deliberate: [
+        ...[
+          'image',
+          'line',
+          'placeholder',
+          'placeholder.options',
+          'rect',
+          'text',
+        ].map(inlineObjectId),
+        ...['background', 'margin', 'objects', 'slideNumber']
+          .map((property) => propertyId('SlideMasterProps', property)),
+        ...['color', 'data', 'path', 'transparency', 'type']
+          .map((property) => propertyId('BackgroundProps', property)),
+        unionId('BackgroundProps', 'type', 'none'),
+        unionId('BackgroundProps', 'type', 'solid'),
+        ...['align', 'h', 'w', 'x', 'y']
+          .map((property) => propertyId('SlideNumberProps', property)),
+      ],
+      deprecated: [
+        propertyId('SlideMasterProps', 'bkgd'),
+        unionId('SlideMasterProps', 'bkgd', 'string'),
+        propertyId('BackgroundProps', 'alpha'),
+        propertyId('BackgroundProps', 'fill'),
+      ],
+      defect: [
+        inlineObjectId('chart'),
+        unionId('SlideMasterProps', 'bkgd', 'BackgroundProps'),
+        propertyId('BackgroundProps', 'src'),
+        propertyId('SlideNumberProps', 'transparency'),
+      ],
+    } as const;
+    expect(Object.fromEntries(Object.entries(atomGroups).map(([status, ids]) => [
+      status,
+      ids.length,
+    ]))).toEqual({ supported: 4, deliberate: 22, deprecated: 4, defect: 4 });
+    const atomIds = Object.values(atomGroups).flat();
+    expect(atomIds).toHaveLength(34);
+    expect(new Set(atomIds).size).toBe(34);
+    expect(atomIds.some((id) => /(?:PresSlide|property:Slide#)/u.test(id))).toBe(false);
+    expect(atomIds.some((id) => id.includes('ChartType'))).toBe(false);
+
+    const directory = await mkdtemp(join(tmpdir(), 'pptx-master-background-family-'));
+    try {
+      const pngPath = join(directory, 'background.png');
+      await writeFile(pngPath, Buffer.from(PNG_DATA_URI.split(',')[1]!, 'base64'));
+
+      const masterSource = new PptxGenJS();
+      const canonicalImageDefinition = {
+        title: 'MASTER-CANONICAL-IMAGE',
+        background: { data: PNG_DATA_URI },
+        objects: [],
+      };
+      const fullDefinition = {
+        title: 'MASTER-FULL',
+        margin: [1, 2, 3, 4] as const,
+        slideNumber: {
+          x: 0,
+          y: 0,
+          w: 1,
+          h: 0.3,
+          align: 'right' as const,
+        },
+        objects: [
+          { image: { objectName: 'family-image', data: PNG_DATA_URI, x: 0, y: 0, w: 1, h: 1 } },
+          { line: { objectName: 'family-line', x: 1, y: 0, w: 1, h: 1 } },
+          { rect: { objectName: 'family-rect', x: 2, y: 0, w: 1, h: 1 } },
+          {
+            text: {
+              text: 'Family text',
+              options: { objectName: 'family-text', x: 3, y: 0, w: 1, h: 1 },
+            },
+          },
+          {
+            placeholder: {
+              text: 'Family prompt',
+              options: {
+                name: 'family_prompt',
+                objectName: 'family-prompt',
+                type: 'body' as const,
+                x: 4,
+                y: 0,
+                w: 1,
+                h: 1,
+              },
+            },
+          },
+          {
+            placeholder: {
+              options: {
+                name: 'family_empty',
+                objectName: 'family-empty',
+                type: 'title' as const,
+                x: 5,
+                y: 0,
+                w: 1,
+                h: 1,
+              },
+            },
+          },
+        ] satisfies readonly PptxGenJSMasterObject[],
+      };
+      const masterDefinitions = [
+        { title: 'MASTER-CANONICAL-COLOR', background: { color: 'FF0000' }, objects: [] },
+        canonicalImageDefinition,
+        { title: 'MASTER-LEGACY-STRING', bkgd: '00FF00', objects: [] },
+        { title: 'MASTER-LEGACY-COLOR-OBJECT', bkgd: { color: '0000FF' }, objects: [] },
+        { title: 'MASTER-LEGACY-DATA-OBJECT', bkgd: { data: PNG_DATA_URI }, objects: [] },
+        { title: 'MASTER-LEGACY-PATH-OBJECT', bkgd: { path: pngPath }, objects: [] },
+        { title: 'MASTER-LEGACY-SRC-OBJECT', bkgd: { src: PNG_DATA_URI }, objects: [] },
+        fullDefinition,
+      ];
+      const masterSnapshots = masterDefinitions.map((definition) => JSON.stringify(definition));
+      for (const definition of masterDefinitions) {
+        expect(masterSource.defineSlideMaster(definition)).toBeUndefined();
+        masterSource.addSlide({ masterName: definition.title });
+      }
+      const importedMasters = await openPptxGenJSPublicOutput(masterSource);
+      expect(masterDefinitions.map((definition) => JSON.stringify(definition)))
+        .toEqual(masterSnapshots);
+      expect(canonicalImageDefinition.background).not.toHaveProperty('path');
+      const importedLayout = (name: string) => importedMasters.layouts.find(
+        ({ name: candidate }) => candidate === name,
+      )!;
+      expect(importedLayout('MASTER-CANONICAL-COLOR').background).toEqual({
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'FF0000' },
+      });
+      expect(importedLayout('MASTER-CANONICAL-IMAGE').background?.kind).toBe('image');
+      expect(importedLayout('MASTER-LEGACY-STRING').background).toEqual({
+        kind: 'solid',
+        color: { kind: 'srgb', value: '00FF00' },
+      });
+      for (const name of [
+        'MASTER-LEGACY-COLOR-OBJECT',
+        'MASTER-LEGACY-DATA-OBJECT',
+        'MASTER-LEGACY-PATH-OBJECT',
+        'MASTER-LEGACY-SRC-OBJECT',
+      ]) {
+        expect(importedLayout(name).background, name).toBeUndefined();
+        expect(importedMasters.opcPackage.relationships(importedLayout(name).partUri).some(
+          ({ type }) => type === IMAGE_RELATIONSHIP,
+        ), name).toBe(false);
+      }
+      const fullLayout = importedLayout('MASTER-FULL');
+      expect(fullLayout.shapes.map(({ name }) => name)).toEqual(expect.arrayContaining([
+        'family-image',
+        'family-line',
+        'family-rect',
+        'family-text',
+        'family-prompt',
+        'family-empty',
+      ]));
+      expect(fullLayout.placeholders.map(({ text }) => text)).toEqual([
+        'Family prompt',
+        '',
+      ]);
+      expect(fullLayout.slideNumber?.align).toBe('right');
+
+      const declaredChart = new PptxGenJS();
+      expect(() => declaredChart.defineSlideMaster({
+        title: 'MASTER-DECLARED-CHART',
+        objects: [{
+          chart: { x: 1, y: 1, w: 3, h: 2 } as unknown as PptxGenJSMasterChart,
+        }],
+      })).toThrow(TypeError);
+
+      const nativeMaster = PptxDocument.create();
+      const nativeMasterInput = {
+        title: 'NATIVE-MASTER-FAMILY',
+        background: {
+          kind: 'solid' as const,
+          color: { kind: 'srgb' as const, value: 'FF0000' },
+        },
+        margin: [inches(0.1), inches(0.2), inches(0.3), inches(0.4)] as const,
+        slideNumber: { x: 0, y: 0, width: 100, height: 30, align: 'right' as const },
+        objects: [
+          {
+            kind: 'rect' as const,
+            options: {
+              name: 'native-family-rect',
+              x: inches(0),
+              y: inches(0),
+              width: inches(1),
+              height: inches(1),
+            },
+          },
+          {
+            kind: 'placeholder' as const,
+            text: 'Native prompt',
+            options: { name: 'native_family_prompt', type: 'body' as const },
+          },
+        ],
+      };
+      const nativeMasterSnapshot = JSON.stringify(nativeMasterInput);
+      const nativeLayout = await nativeMaster.defineSlideMaster(nativeMasterInput);
+      expect(nativeLayout).toBe(nativeMaster.layouts.find(
+        ({ partUri }) => partUri === nativeLayout.partUri,
+      ));
+      expect(nativeLayout.margin).toEqual({
+        top: inches(0.1),
+        right: inches(0.2),
+        bottom: inches(0.3),
+        left: inches(0.4),
+      });
+      expect(nativeLayout.background).toEqual(nativeMasterInput.background);
+      expect(nativeLayout.slideNumber).toMatchObject({ align: 'right', width: 100, height: 30 });
+      expect(JSON.stringify(nativeMasterInput)).toBe(nativeMasterSnapshot);
+
+      const backgroundSource = new PptxGenJS();
+      const fillBackground: { fill: string; color?: string } = { fill: '00FF00' };
+      const dataBackground: { data: string; path?: string } = { data: PNG_DATA_URI };
+      const backgroundValues = [
+        undefined,
+        { color: 'FF3399' },
+        { color: 'FF3399', transparency: 50 },
+        { color: '112233', alpha: 40 },
+        { color: '223344', transparency: 25, alpha: 40 },
+        fillBackground,
+        dataBackground,
+        { path: pngPath },
+        { src: PNG_DATA_URI },
+        { type: 'none' as const },
+        { type: 'none' as const, color: '334455' },
+        { type: 'solid' as const, color: '445566' },
+      ];
+      for (const background of backgroundValues) {
+        const slide = backgroundSource.addSlide();
+        if (background !== undefined) {
+          slide.background = background;
+          expect(slide.background).toBe(background);
+        }
+      }
+      const importedBackgrounds = await openPptxGenJSPublicOutput(backgroundSource);
+      expect(fillBackground.color).toBe('00FF00');
+      expect(dataBackground.path).toBe('preencoded.png');
+      expect(importedBackgrounds.slides.map(({ background }) => background?.kind))
+        .toEqual([
+          undefined,
+          'solid',
+          'solid',
+          'solid',
+          undefined,
+          'solid',
+          'image',
+          'image',
+          undefined,
+          undefined,
+          undefined,
+          'solid',
+        ]);
+      expect(slideXml(importedBackgrounds, 3)).toContain('<a:alpha val="60000"/>');
+      expect(slideXml(importedBackgrounds, 4).match(/<a:alpha\b/gu)).toHaveLength(2);
+      expect(slideBackgroundStructuralState(importedBackgrounds, 8)).toMatchObject({
+        kind: undefined,
+        direct: { present: false },
+      });
+      expect(slideBackgroundStructuralState(importedBackgrounds, 9)).toMatchObject({
+        kind: undefined,
+        direct: { present: false, noFill: false },
+      });
+      expect(slideBackgroundStructuralState(importedBackgrounds, 10)).toMatchObject({
+        kind: undefined,
+        direct: { present: true, noFill: false, solidFill: false },
+      });
+
+      const nativeBackgrounds = PptxDocument.create();
+      const noFillSlide = nativeBackgrounds.addSlide();
+      noFillSlide.background = { kind: 'none' };
+      const nativeSolidInput = {
+        kind: 'solid' as const,
+        color: { kind: 'srgb' as const, value: 'FF3399' },
+        transparency: 50,
+      };
+      const solidSlide = nativeBackgrounds.addSlide();
+      solidSlide.background = nativeSolidInput;
+      const imageSlide = nativeBackgrounds.addSlide();
+      await nativeBackgrounds.setSlideBackgroundImage(
+        nativeBackgrounds.slides.indexOf(imageSlide),
+        PNG_DATA_URI,
+      );
+      expect(noFillSlide.background).toEqual({ kind: 'none' });
+      expect(slideBackgroundStructuralState(nativeBackgrounds, 0).direct.noFill).toBe(true);
+      expect(solidSlide.background).not.toBe(nativeSolidInput);
+      expect(solidSlide.background).toEqual(nativeSolidInput);
+      expect(Object.isFrozen(solidSlide.background)).toBe(true);
+      expect(imageSlide.background?.kind).toBe('image');
+
+      const slideNumberSource = new PptxGenJS();
+      const slideNumberValues: PptxGenJSSlideNumberProps[] = [
+        { x: 0, y: 0, w: 0, h: 0 },
+        { align: 'left' },
+        { align: 'center' },
+        { align: 'right' },
+        { align: 'justify' },
+        { margin: 0 },
+        { margin: 7 },
+        { margin: [1, 2, 3, 4] },
+        { valign: 'top' },
+        { valign: 'middle' },
+        { valign: 'bottom' },
+        { transparency: 25, color: 'FF3399' },
+      ];
+      for (const value of slideNumberValues) {
+        const slide = slideNumberSource.addSlide();
+        slide.slideNumber = value;
+        expect(slide.slideNumber).toBe(value);
+      }
+      const importedSlideNumbers = await openPptxGenJSPublicOutput(slideNumberSource);
+      expect(importedSlideNumbers.slides[0]?.slideNumber).toMatchObject({
+        x: 0,
+        y: 0,
+        width: 800_000,
+        height: 300_000,
+      });
+      expect(importedSlideNumbers.slides.slice(1, 5)
+        .map(({ slideNumber }) => slideNumber?.align))
+        .toEqual(['left', 'center', 'right', 'left']);
+      expect(importedSlideNumbers.slides.slice(5, 8)
+        .map(({ slideNumber }) => slideNumber?.margin))
+        .toEqual([
+          { top: 0, right: 0, bottom: 0, left: 0 },
+          { top: 7, right: 7, bottom: 7, left: 7 },
+          { top: 1, right: 2, bottom: 3, left: 4 },
+        ]);
+      expect(slideNumberOwnerState(
+        importedSlideNumbers,
+        importedSlideNumbers.slides[5]!.partUri,
+      ).xml).toContain(' lIns="0" tIns="0" rIns="0" bIns="0"');
+      expect(importedSlideNumbers.slides.slice(8, 11)
+        .map(({ slideNumber }) => slideNumber?.valign))
+        .toEqual(['top', 'middle', 'bottom']);
+      expect(importedSlideNumbers.slides[11]?.slideNumber?.style.transparency)
+        .toBeUndefined();
+      expect(slideNumberOwnerState(
+        importedSlideNumbers,
+        importedSlideNumbers.slides[11]!.partUri,
+      ).xml).not.toContain('<a:alpha');
+
+      const nativeSlideNumbers = PptxDocument.create();
+      const nativeSlideNumber = nativeSlideNumbers.addSlide();
+      const nativeSlideNumberInput = {
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 30,
+        align: 'justify' as const,
+        valign: 'middle' as const,
+        margin: 0,
+        style: { transparency: 25 },
+      };
+      nativeSlideNumber.slideNumber = nativeSlideNumberInput;
+      expect(nativeSlideNumber.slideNumber).not.toBe(nativeSlideNumberInput);
+      expect(nativeSlideNumber.slideNumber).toMatchObject({
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 30,
+        align: 'justify',
+        valign: 'middle',
+        margin: { top: 0, right: 0, bottom: 0, left: 0 },
+        style: { transparency: 25 },
+      });
+      expect(Object.isFrozen(nativeSlideNumber.slideNumber)).toBe(true);
+      const reopenedNativeSlideNumbers = await PptxDocument.open(
+        await nativeSlideNumbers.write(),
+      );
+      expect(reopenedNativeSlideNumbers.slides[0]?.slideNumber).toMatchObject({
+        align: 'justify',
+        margin: { top: 0, right: 0, bottom: 0, left: 0 },
+        style: { transparency: 25 },
+      });
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
   }, 60_000);
 
   it('matches the public PptxGenJS SchemeColor helper and legal output', async () => {

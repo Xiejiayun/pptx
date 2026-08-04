@@ -3266,6 +3266,277 @@ const SLIDE_SECTION_FAMILY_ENTRIES = Object.freeze([
     slideSectionEntry(id, 'deprecated-alias')),
 ]);
 
+const MASTER_BACKGROUND_SLIDE_NUMBER_CONTROL_TITLE =
+  'locks master, background, and slide-number declarations against PptxGenJS 4.0.1';
+const masterInlineObjectId = (property) =>
+  `inline:interface:SlideMasterProps@property:objects@property:objects.${property}`;
+const propertyUnionId = (owner, property, token) =>
+  `union:${linePropertyId(owner, property)}#${token}`;
+const MASTER_BACKGROUND_SLIDE_NUMBER_SUPPORTED_IDS = Object.freeze([
+  masterInlineObjectId('placeholder.text'),
+  linePropertyId('SlideMasterProps', 'title'),
+  linePropertyId('SlideNumberProps', 'margin'),
+  linePropertyId('SlideNumberProps', 'valign'),
+]);
+const MASTER_BACKGROUND_SLIDE_NUMBER_DIFFERENCE_IDS = Object.freeze([
+  ...[
+    'image',
+    'line',
+    'placeholder',
+    'placeholder.options',
+    'rect',
+    'text',
+  ].map(masterInlineObjectId),
+  ...['background', 'margin', 'objects', 'slideNumber']
+    .map((property) => linePropertyId('SlideMasterProps', property)),
+  ...['color', 'data', 'path', 'transparency', 'type']
+    .map((property) => linePropertyId('BackgroundProps', property)),
+  propertyUnionId('BackgroundProps', 'type', 'none'),
+  propertyUnionId('BackgroundProps', 'type', 'solid'),
+  ...['align', 'h', 'w', 'x', 'y']
+    .map((property) => linePropertyId('SlideNumberProps', property)),
+]);
+const MASTER_BACKGROUND_SLIDE_NUMBER_DEPRECATED_IDS = Object.freeze([
+  linePropertyId('SlideMasterProps', 'bkgd'),
+  propertyUnionId('SlideMasterProps', 'bkgd', 'string'),
+  linePropertyId('BackgroundProps', 'alpha'),
+  linePropertyId('BackgroundProps', 'fill'),
+]);
+const MASTER_BACKGROUND_SLIDE_NUMBER_DEFECT_IDS = Object.freeze([
+  masterInlineObjectId('chart'),
+  propertyUnionId('SlideMasterProps', 'bkgd', 'BackgroundProps'),
+  linePropertyId('BackgroundProps', 'src'),
+  linePropertyId('SlideNumberProps', 'transparency'),
+]);
+
+const MASTER_BACKGROUND_SLIDE_NUMBER_EVIDENCE = Object.freeze({
+  master: Object.freeze({
+    code: Object.freeze({
+      path: 'packages/sdk/src/master-layout.ts',
+      pattern: 'export interface DefineSlideMasterOptions {',
+    }),
+    test: 'matches public slide master objects, topology, and empty placeholder geometry',
+    packagePattern:
+      "const masterLayoutDeck = PptxDocument.create({ slideSize: 'wide', firstSlideNumber: 3 });",
+    ooxmlPattern: 'define slide master works in all six presentation formats',
+    clientPattern:
+      "const masterLayoutDocument = api.PptxDocument.create({ slideSize: 'wide' });",
+  }),
+  background: Object.freeze({
+    code: Object.freeze({
+      path: 'packages/model/src/slide-background.ts',
+      pattern: 'export type SlideBackground =',
+    }),
+    test: 'matches supported public PptxGenJS slide backgrounds and locks none divergences',
+    packagePattern: "noFillBackgroundSlide.background = { kind: 'none' };",
+    ooxmlPattern: 'round-trips image, none, solid, and gradient backgrounds twice in all six formats',
+    clientPattern: 'const backgroundDocument = api.PptxDocument.create();',
+  }),
+  'background-image': Object.freeze({
+    code: Object.freeze({
+      path: 'packages/sdk/src/index.ts',
+      pattern: 'async setSlideBackgroundImage(',
+    }),
+    test: 'edits and validates imported PptxGenJS backgrounds without disturbing neighbors',
+    packagePattern: 'const slideBackgroundDeck = PptxDocument.create();',
+    ooxmlPattern: 'round-trips image, none, solid, and gradient backgrounds twice in all six formats',
+    clientPattern: 'const backgroundDocument = api.PptxDocument.create();',
+  }),
+  'slide-number': Object.freeze({
+    code: Object.freeze({
+      path: 'packages/codecs/src/slide-number.ts',
+      pattern: 'export interface SlideNumberOptions {',
+    }),
+    test: 'imports public slide-number variants and locks PptxGenJS 4.0.1 differences',
+    packagePattern: 'const slideNumberDeck = PptxDocument.create({ firstSlideNumber: 5 });',
+    ooxmlPattern: 'round-trips all three slide-number owners twice in all six formats',
+    clientPattern: 'const slideNumberDocument = api.PptxDocument.create({ firstSlideNumber: -2 });',
+  }),
+});
+
+function masterBackgroundSlideNumberCategory(id) {
+  if (id.includes('BackgroundProps')) {
+    return /@property:(?:data|path|src)(?:#|$)/u.test(id)
+      ? 'background-image' : 'background';
+  }
+  if (id.includes('SlideNumberProps')) return 'slide-number';
+  return 'master';
+}
+
+function masterBackgroundSlideNumberNative(id) {
+  if (MASTER_BACKGROUND_SLIDE_NUMBER_DEFECT_IDS.includes(id)) return [];
+  if (id.includes('BackgroundProps')) {
+    if (/@property:(?:data|path)(?:#|$)/u.test(id)) {
+      return [
+        'RasterImageSource',
+        'PptxDocument.setSlideBackgroundImage',
+        'SlideBackgroundImage',
+      ];
+    }
+    return ['SlideBackground', 'SlideModel.background'];
+  }
+  if (id.includes('SlideNumberProps')) {
+    const property = id.split('@property:')[1]?.split('#')[0];
+    const mappings = {
+      align: ['SlideNumberOptions.align', 'SlideNumber.align'],
+      h: ['SlideNumberOptions.height', 'SlideNumber.height'],
+      margin: ['SlideNumberOptions.margin', 'SlideNumber.margin'],
+      valign: ['SlideNumberOptions.valign', 'SlideNumber.valign'],
+      w: ['SlideNumberOptions.width', 'SlideNumber.width'],
+      x: ['SlideNumberOptions.x', 'SlideNumber.x'],
+      y: ['SlideNumberOptions.y', 'SlideNumber.y'],
+    };
+    return mappings[property];
+  }
+  if (id === linePropertyId('SlideMasterProps', 'title')) {
+    return ['DefineSlideMasterOptions.title', 'PptxDocument.defineSlideMaster'];
+  }
+  if (id.includes('@property:background') || id.includes('@property:bkgd')) {
+    return [
+      'DefineSlideMasterOptions.background',
+      'SlideMasterBackground',
+      'SlideLayoutModel.background',
+    ];
+  }
+  if (id === linePropertyId('SlideMasterProps', 'margin')) {
+    return ['DefineSlideMasterOptions.margin', 'SlideMasterMarginInput', 'SlideLayoutModel.margin'];
+  }
+  if (id === linePropertyId('SlideMasterProps', 'slideNumber')) {
+    return ['DefineSlideMasterOptions.slideNumber', 'SlideNumberOptions', 'SlideLayoutModel.slideNumber'];
+  }
+  if (id.endsWith('.image')) return ['SlideMasterObject', 'ImageModel', 'SlideLayoutModel.shapes'];
+  if (id.endsWith('.placeholder') || id.includes('.placeholder.')) {
+    return ['SlideMasterObject', 'SlideLayoutModel.placeholders', 'ShapeModel.placeholder'];
+  }
+  if (id.endsWith('.line') || id.endsWith('.rect') || id.endsWith('.text')) {
+    return ['SlideMasterObject', 'ShapeModel', 'SlideLayoutModel.shapes'];
+  }
+  return ['DefineSlideMasterOptions.objects', 'SlideMasterObject', 'SlideLayoutModel.shapes'];
+}
+
+function masterBackgroundSlideNumberEvidence(id) {
+  const category = masterBackgroundSlideNumberCategory(id);
+  const anchors = MASTER_BACKGROUND_SLIDE_NUMBER_EVIDENCE[category];
+  return {
+    code: [anchors.code],
+    tests: [{
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      title: MASTER_BACKGROUND_SLIDE_NUMBER_CONTROL_TITLE,
+    }, {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      title: anchors.test,
+    }],
+    package: [{ path: 'scripts/smoke-npm-package.mjs', pattern: anchors.packagePattern }],
+    ooxml: [{ path: 'packages/sdk/src/index.test.ts', pattern: anchors.ooxmlPattern }],
+    clients: [{ path: 'scripts/playwright-browser-smoke.js', pattern: anchors.clientPattern }],
+  };
+}
+
+function masterBackgroundSlideNumberDifferenceNote(id) {
+  if (id === linePropertyId('SlideMasterProps', 'margin')) {
+    return 'PptxGenJS stores implicit-inch master margins in its transient layout definition; native requires explicit EMU margins, exposes frozen live state, and does not claim the non-serialized input after reopen.';
+  }
+  if (id === linePropertyId('SlideMasterProps', 'background')) {
+    return 'PptxGenJS accepts a loose BackgroundProps record; native uses a strict discriminated master background or explicit image-source contract with detached live state.';
+  }
+  if (id === linePropertyId('SlideMasterProps', 'slideNumber')) {
+    return 'PptxGenJS retains permissive slide-number input and writes fixed owner identities; native snapshots strict editable slide-number state and allocates canonical unique owners.';
+  }
+  if (id === linePropertyId('SlideMasterProps', 'objects')
+      || id.startsWith('inline:interface:SlideMasterProps@property:objects')) {
+    return 'PptxGenJS uses loose untagged master object records with implicit-inch options; native uses strict discriminated objects, explicit sources and units, transactional preparation, and editable live models.';
+  }
+  if (id.includes('BackgroundProps')) {
+    return 'PptxGenJS retains and mutates a permissive background record, omits legal no-fill intent, and accepts implicit image and color forms; native uses detached strict background kinds and transactional image loading.';
+  }
+  return 'PptxGenJS uses implicit-inch or percentage geometry, truthy width and height defaults, and degrades justify to left; native uses explicit semantic geometry, rejects zero dimensions, and preserves justify.';
+}
+
+function masterBackgroundSlideNumberAlias(id) {
+  if (id === linePropertyId('BackgroundProps', 'alpha')) {
+    return {
+      canonical: linePropertyId('BackgroundProps', 'transparency'),
+      note: 'PptxGenJS alpha is a working deprecated transparency alias and can duplicate the canonical alpha child; native exposes only canonical strict transparency.',
+    };
+  }
+  if (id === linePropertyId('BackgroundProps', 'fill')) {
+    return {
+      canonical: linePropertyId('BackgroundProps', 'color'),
+      note: 'PptxGenJS fill is a working deprecated color alias that mutates caller state; native exposes only canonical strict color state.',
+    };
+  }
+  return {
+    canonical: linePropertyId('SlideMasterProps', 'background'),
+    note: 'PptxGenJS master bkgd and its string branch are working deprecated aliases for a solid background; native exposes only the canonical strict background property.',
+  };
+}
+
+function masterBackgroundSlideNumberDefectNote(id) {
+  if (id === masterInlineObjectId('chart')) {
+    return 'PptxGenJS declares the master chart branch as IChartOpts, but runtime requires an undeclared internal type/data/opts record and throws for the declared shape.';
+  }
+  if (id === propertyUnionId('SlideMasterProps', 'bkgd', 'BackgroundProps')) {
+    return 'Every legal BackgroundProps object supplied through the deprecated master bkgd union is inert; only the separate string branch produces output.';
+  }
+  if (id === linePropertyId('BackgroundProps', 'src')) {
+    return 'PptxGenJS declares deprecated direct background src, but its writer ignores the field for every legal string and creates no image relationship.';
+  }
+  return 'PptxGenJS declares top-level slide-number transparency, but the owner writer ignores every legal value; native places effective transparency in strict nested text style.';
+}
+
+function masterBackgroundSlideNumberEntry(id, status) {
+  const evidence = masterBackgroundSlideNumberEvidence(id);
+  const entry = {
+    id,
+    status,
+    native: masterBackgroundSlideNumberNative(id),
+    evidence,
+    serialization: status !== 'defect-excluded',
+    client: status !== 'defect-excluded',
+    note: status === 'supported'
+      ? 'Native covers the same legal atomic value with strict detached state, packed and browser consumers, canonical OOXML, and editable reopen evidence.'
+      : status === 'deliberate-difference'
+        ? masterBackgroundSlideNumberDifferenceNote(id)
+        : status === 'defect-excluded'
+          ? masterBackgroundSlideNumberDefectNote(id)
+          : undefined,
+  };
+  if (status !== 'supported') {
+    entry.control = {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      pattern: MASTER_BACKGROUND_SLIDE_NUMBER_CONTROL_TITLE,
+    };
+  }
+  if (status === 'deprecated-alias') {
+    const alias = masterBackgroundSlideNumberAlias(id);
+    entry.canonical = alias.canonical;
+    entry.note = alias.note;
+  }
+  if (status === 'defect-excluded') {
+    entry.evidence = {
+      code: [],
+      tests: evidence.tests.slice(0, 1),
+      package: [],
+      ooxml: [],
+      clients: [],
+    };
+    delete entry.serialization;
+    delete entry.client;
+  }
+  return entry;
+}
+
+const MASTER_BACKGROUND_SLIDE_NUMBER_FAMILY_ENTRIES = Object.freeze([
+  ...MASTER_BACKGROUND_SLIDE_NUMBER_SUPPORTED_IDS.map((id) =>
+    masterBackgroundSlideNumberEntry(id, 'supported')),
+  ...MASTER_BACKGROUND_SLIDE_NUMBER_DIFFERENCE_IDS.map((id) =>
+    masterBackgroundSlideNumberEntry(id, 'deliberate-difference')),
+  ...MASTER_BACKGROUND_SLIDE_NUMBER_DEPRECATED_IDS.map((id) =>
+    masterBackgroundSlideNumberEntry(id, 'deprecated-alias')),
+  ...MASTER_BACKGROUND_SLIDE_NUMBER_DEFECT_IDS.map((id) =>
+    masterBackgroundSlideNumberEntry(id, 'defect-excluded')),
+]);
+
 function presetShapeCatalogEntry(owner, value) {
   const id = `union:${owner}#${value}`;
   if (value === 'folderCorner') {
@@ -3600,6 +3871,7 @@ export const PPTXGENJS_SURFACE_MANIFEST = deepFreeze({
     ...ADD_TABLE_CORE_FAMILY_ENTRIES,
     ...PRESENTATION_ROOT_OUTPUT_FAMILY_ENTRIES,
     ...SLIDE_SECTION_FAMILY_ENTRIES,
+    ...MASTER_BACKGROUND_SLIDE_NUMBER_FAMILY_ENTRIES,
     ...CHART_AREA_FILL_LINE_ENTRIES,
     ...DEPRECATED_CHART_AREA_ALIAS_ENTRIES,
     ...CHART_CREATION_SUPPORTED_ENTRIES,
