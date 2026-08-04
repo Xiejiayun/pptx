@@ -7282,6 +7282,136 @@ describe('PptxDocument vertical slice', () => {
     expect(xml).not.toContain('<p:txBody>');
   });
 
+  it('creates and reopens shape and text percentage coordinates against the current slide size', async () => {
+    const document = PptxDocument.create({
+      slideSize: { width: inches(10), height: inches(8) },
+    });
+    const slide = document.addSlide();
+    const geometry: CustomGeometry = {
+      paths: [{
+        width: 100,
+        height: 100,
+        commands: [
+          { kind: 'moveTo', point: { x: 0, y: 0 } },
+          { kind: 'lineTo', point: { x: 100, y: 100 } },
+        ],
+      }],
+    };
+    const shape = slide.addShape('rect', {
+      x: '10%',
+      y: '20%',
+      width: '30%',
+      height: '40%',
+    });
+    const custom = slide.addCustomShape(geometry, {
+      x: '-10%',
+      y: '125%',
+      width: '20%',
+      height: '25%',
+    });
+    const text = slide.addText('Percentage text', {
+      x: '12.5%',
+      y: '25%',
+      width: '37.5%',
+      height: '50%',
+    });
+    const richText = slide.addRichText([{
+      runs: [{ text: 'Percentage rich text' }],
+    }], {
+      x: inches(1),
+      y: '50%',
+      width: '50%',
+      height: inches(1),
+    });
+
+    const expectedTransforms = [
+      {
+        x: inches(1),
+        y: inches(1.6),
+        width: inches(3),
+        height: inches(3.2),
+        rotation: 0,
+        flipHorizontal: false,
+        flipVertical: false,
+      },
+      {
+        x: inches(-1),
+        y: inches(10),
+        width: inches(2),
+        height: inches(2),
+        rotation: 0,
+        flipHorizontal: false,
+        flipVertical: false,
+      },
+      {
+        x: inches(1.25),
+        y: inches(2),
+        width: inches(3.75),
+        height: inches(4),
+        rotation: 0,
+        flipHorizontal: false,
+        flipVertical: false,
+      },
+      {
+        x: inches(1),
+        y: inches(4),
+        width: inches(5),
+        height: inches(1),
+        rotation: 0,
+        flipHorizontal: false,
+        flipVertical: false,
+      },
+    ];
+    expect([shape.transform, custom.transform, text.transform, richText.transform])
+      .toEqual(expectedTransforms);
+
+    const xml = new TextDecoder().decode(
+      document.opcPackage.requirePart(slide.partUri).bytes,
+    );
+    for (const [x, y, width, height] of [
+      [914_400, 1_463_040, 2_743_200, 2_926_080],
+      [-914_400, 9_144_000, 1_828_800, 1_828_800],
+      [1_143_000, 1_828_800, 3_429_000, 3_657_600],
+      [914_400, 3_657_600, 4_572_000, 914_400],
+    ]) {
+      expect(xml).toContain(
+        `<a:off x="${x}" y="${y}"/><a:ext cx="${width}" cy="${height}"/>`,
+      );
+    }
+
+    const beforeInvalid = await sdkPackageSnapshot(document);
+    let accessorReads = 0;
+    const accessor = Object.defineProperty({
+      y: '10%',
+      width: '10%',
+      height: '10%',
+    }, 'x', {
+      enumerable: true,
+      get() {
+        accessorReads += 1;
+        return '10%';
+      },
+    });
+    for (const invoke of [
+      () => slide.addShape('rect', { width: '0%' }),
+      () => slide.addCustomShape(geometry, { height: '-1%' }),
+      () => slide.addText('Malformed', { x: '10%oops' } as never),
+      () => slide.addText('Accessor', accessor as never),
+    ]) {
+      expect(invoke).toThrow();
+      expect(await sdkPackageSnapshot(document)).toEqual(beforeInvalid);
+    }
+    expect(accessorReads).toBe(0);
+
+    expect(validatePackage(document.opcPackage).filter(({ severity }) => severity === 'error'))
+      .toEqual([]);
+    const reopened = await PptxDocument.open(await document.write());
+    expect(reopened.slides[0]!.shapes.map(({ transform }) => transform))
+      .toEqual(expectedTransforms);
+    expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error'))
+      .toEqual([]);
+  });
+
   it('creates and reopens styled custom geometry shapes through the public SDK', async () => {
     const document = PptxDocument.create();
     const source = document.addSlide();

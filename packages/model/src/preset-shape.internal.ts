@@ -48,6 +48,8 @@ import {
   normalizePlaceholderSelector,
 } from './placeholder.internal.js';
 import type { PlaceholderIdentity, PlaceholderSelector } from './placeholder.js';
+import { resolveSlideCoordinate } from './slide-coordinate.internal.js';
+import type { Emu, SlideSize } from './units.js';
 
 const PRESENTATION_NAMESPACE =
   'http://schemas.openxmlformats.org/presentationml/2006/main';
@@ -140,10 +142,11 @@ interface ResolvedPresetGeometry {
 export function normalizePresetShape(
   type: unknown,
   options: unknown = undefined,
+  slideSize?: Readonly<SlideSize>,
 ): NormalizedPresetShape {
   const normalizedType = normalizePresetShapeType(type, 'Preset shape type');
   const values = readOptions(options, PRESET_OPTION_KEYS, 'Preset shape');
-  const normalizedOptions = normalizeShapeOptions(values, 'Preset shape');
+  const normalizedOptions = normalizeShapeOptions(values, 'Preset shape', slideSize);
   const adjustments = normalizeShapeAdjustments(
     values.adjustments === undefined ? [] : values.adjustments,
     'Preset shape adjustments',
@@ -169,18 +172,20 @@ export function normalizePresetShapeType(
 export function normalizeCustomShape(
   geometry: unknown,
   options: unknown = undefined,
+  slideSize?: Readonly<SlideSize>,
 ): NormalizedCustomShape {
   const normalizedGeometry = normalizeCustomGeometry(geometry, 'Custom geometry');
   const values = readOptions(options, COMMON_OPTION_KEYS, 'Custom shape');
   return Object.freeze({
     geometry: normalizedGeometry,
-    ...normalizeShapeOptions(values, 'Custom shape'),
+    ...normalizeShapeOptions(values, 'Custom shape', slideSize),
   });
 }
 
 function normalizeShapeOptions(
   values: Record<string, unknown>,
   context: string,
+  slideSize: Readonly<SlideSize> | undefined,
 ): NormalizedShapeOptions {
   const name = values.name;
   if (name !== undefined) {
@@ -191,8 +196,20 @@ function normalizeShapeOptions(
       throw new TypeError(`${context} name contains invalid XML characters`);
     }
   }
-  const width = normalizeNumber(values.width, EMU_PER_INCH, 'width', context);
-  const height = normalizeNumber(values.height, EMU_PER_INCH, 'height', context);
+  const width = resolveSlideCoordinate(
+    values.width,
+    'horizontal',
+    slideSize,
+    EMU_PER_INCH as Emu,
+    `${context} width`,
+  );
+  const height = resolveSlideCoordinate(
+    values.height,
+    'vertical',
+    slideSize,
+    EMU_PER_INCH as Emu,
+    `${context} height`,
+  );
   if (width <= 0) throw new RangeError(`${context} width must be greater than zero`);
   if (height <= 0) throw new RangeError(`${context} height must be greater than zero`);
   const rotation = normalizeNumber(values.rotation, 0, 'rotation', context);
@@ -220,8 +237,20 @@ function normalizeShapeOptions(
     arrows,
     hyperlink,
     shadow,
-    x: normalizeNumber(values.x, EMU_PER_INCH, 'x', context),
-    y: normalizeNumber(values.y, EMU_PER_INCH, 'y', context),
+    x: resolveSlideCoordinate(
+      values.x,
+      'horizontal',
+      slideSize,
+      EMU_PER_INCH as Emu,
+      `${context} x`,
+    ),
+    y: resolveSlideCoordinate(
+      values.y,
+      'vertical',
+      slideSize,
+      EMU_PER_INCH as Emu,
+      `${context} y`,
+    ),
     width,
     height,
     rotation,

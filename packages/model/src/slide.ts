@@ -269,8 +269,11 @@ import {
   inches,
   points,
   type Emu,
+  type SlideSize,
   type Transform,
+  type TransformInput,
 } from './units.js';
+import { resolveSlideCoordinate } from './slide-coordinate.internal.js';
 
 const IMAGE_RELATIONSHIP_TYPE =
   'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image';
@@ -300,7 +303,7 @@ function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
   return left.every((byte, index) => byte === right[index]);
 }
 
-export interface AddTextOptions extends Partial<Transform> {
+export interface AddTextOptions extends Partial<TransformInput> {
   readonly name?: string;
   readonly placeholder?: PlaceholderSelector;
   readonly align?: TextAlignment;
@@ -1514,7 +1517,7 @@ export class SlideModel {
     options: AddShapeOptions = {},
   ): ShapeModel {
     return this.presentation.opcPackage.transaction(() => {
-      const normalized = normalizePresetShape(type, options);
+      const normalized = normalizePresetShape(type, options, this.presentation.slideSize);
       const owner = normalized.placeholder === undefined
         ? undefined
         : resolvePlaceholderOwner(
@@ -1583,7 +1586,7 @@ export class SlideModel {
     options: AddCustomShapeOptions = {},
   ): ShapeModel {
     return this.presentation.opcPackage.transaction(() => {
-      const normalized = normalizeCustomShape(geometry, options);
+      const normalized = normalizeCustomShape(geometry, options, this.presentation.slideSize);
       const owner = normalized.placeholder === undefined
         ? undefined
         : resolvePlaceholderOwner(
@@ -1833,7 +1836,7 @@ export class SlideModel {
   addText(value: string, options: AddTextOptions = {}): ShapeModel {
     return this.presentation.opcPackage.transaction(() => {
       const defaultColor = this.color;
-      const normalized = validateTextInput(value, options);
+      const normalized = validateTextInput(value, options, this.presentation.slideSize);
       const owner = options.placeholder === undefined
         ? undefined
         : resolvePlaceholderOwner(
@@ -1870,6 +1873,7 @@ export class SlideModel {
       return this.addTextShape(
         paragraphs,
         owner ? placeholderTextOptions(owner) : options,
+        owner?.transform ?? normalized.transform,
         normalized.shape,
         normalized.rectRadius,
         owner?.isTextBox ?? normalized.isTextBox,
@@ -1897,9 +1901,13 @@ export class SlideModel {
   ): ShapeModel {
     return this.presentation.opcPackage.transaction(() => {
       const defaultColor = this.color;
-      const plain = typeof value === 'string' ? validateTextInput(value, options) : undefined;
+      const plain = typeof value === 'string'
+        ? validateTextInput(value, options, this.presentation.slideSize)
+        : undefined;
       const rich = typeof value === 'string' ? undefined : normalizeRichText(value);
-      const defaults = typeof value === 'string' ? undefined : validateAddTextOptions(options);
+      const defaults = typeof value === 'string'
+        ? undefined
+        : validateAddTextOptions(options, this.presentation.slideSize);
       if (typeof options.name !== 'string' || options.name.length === 0) {
         throw new TypeError('Placeholder name must be a non-empty string');
       }
@@ -1953,6 +1961,7 @@ export class SlideModel {
         return this.addTextShape(
           paragraphs,
           options,
+          plain.transform,
           plain.shape,
           plain.rectRadius,
           plain.isTextBox,
@@ -2001,6 +2010,7 @@ export class SlideModel {
             : { runHyperlinkRelationshipIds }),
         }),
         options,
+        defaults!.transform,
         defaults!.shape,
         defaults!.rectRadius,
         defaults!.isTextBox,
@@ -2025,7 +2035,7 @@ export class SlideModel {
     return this.presentation.opcPackage.transaction(() => {
       const defaultColor = this.color;
       const paragraphs = normalizeRichText(value);
-      const defaults = validateAddTextOptions(options);
+      const defaults = validateAddTextOptions(options, this.presentation.slideSize);
       const owner = options.placeholder === undefined
         ? undefined
         : resolvePlaceholderOwner(
@@ -2062,6 +2072,7 @@ export class SlideModel {
           runHyperlinkRelationshipIds,
         }),
         owner ? placeholderTextOptions(owner) : options,
+        owner?.transform ?? defaults.transform,
         defaults.shape,
         defaults.rectRadius,
         owner?.isTextBox ?? defaults.isTextBox,
@@ -2095,6 +2106,7 @@ export class SlideModel {
   private addTextShape(
     paragraphs: string,
     options: AddTextOptions,
+    transform: Readonly<Transform>,
     presetType: PresetShapeType,
     rectRadius: Emu | undefined,
     isTextBox: boolean,
@@ -2124,6 +2136,7 @@ export class SlideModel {
       nextId,
       paragraphs,
       options,
+      transform,
       presetType,
       rectRadius,
       isTextBox,
@@ -2504,6 +2517,7 @@ function setAttribute(xml: LosslessXmlDocument, element: XmlElement, name: strin
 
 interface NormalizedTextInput {
   readonly value: string;
+  readonly transform: Readonly<Transform>;
   readonly arrows: NormalizedShapeArrows | undefined;
   readonly shadow: NormalizedShapeShadow | undefined;
   readonly bullet: NormalizedParagraphBullet | false | undefined;
@@ -2528,9 +2542,13 @@ interface NormalizedTextInput {
   readonly textWrap: boolean;
 }
 
-function validateTextInput(value: string, options: AddTextOptions): NormalizedTextInput {
+function validateTextInput(
+  value: string,
+  options: AddTextOptions,
+  slideSize: Readonly<SlideSize>,
+): NormalizedTextInput {
   const normalized = validatePlainText(value);
-  const defaults = validateAddTextOptions(options);
+  const defaults = validateAddTextOptions(options, slideSize);
   if (defaults.bullet && defaults.marginLeft !== undefined) {
     throw new TypeError('Paragraph left margin cannot be combined with an active bullet');
   }
@@ -2539,6 +2557,7 @@ function validateTextInput(value: string, options: AddTextOptions): NormalizedTe
   }
   return {
     value: normalized,
+    transform: defaults.transform,
     arrows: defaults.arrows,
     shadow: defaults.shadow,
     bullet: defaults.bullet,
@@ -2565,6 +2584,7 @@ function validateTextInput(value: string, options: AddTextOptions): NormalizedTe
 }
 
 interface NormalizedAddTextOptions {
+  readonly transform: Readonly<Transform>;
   readonly arrows?: NormalizedShapeArrows;
   readonly shadow?: NormalizedShapeShadow;
   readonly bullet?: NormalizedParagraphBullet | false;
@@ -2589,7 +2609,10 @@ interface NormalizedAddTextOptions {
   readonly textWrap: boolean;
 }
 
-function validateAddTextOptions(options: AddTextOptions): NormalizedAddTextOptions {
+function validateAddTextOptions(
+  options: AddTextOptions,
+  slideSize: Readonly<SlideSize>,
+): NormalizedAddTextOptions {
   if (options.name !== undefined && typeof options.name !== 'string') {
     throw new TypeError('Text shape name must be a string');
   }
@@ -2597,31 +2620,7 @@ function validateAddTextOptions(options: AddTextOptions): NormalizedAddTextOptio
   if (options.name !== undefined && containsInvalidXmlCharacter(options.name)) {
     throw new TypeError('Text shape name contains invalid XML characters');
   }
-  for (const [name, candidate] of [
-    ['x', options.x],
-    ['y', options.y],
-    ['width', options.width],
-    ['height', options.height],
-    ['rotation', options.rotation],
-  ] as const) {
-    if (candidate !== undefined && !Number.isFinite(candidate)) {
-      throw new TypeError(`Text shape ${name} must be finite`);
-    }
-  }
-  for (const [name, candidate] of [
-    ['flipHorizontal', options.flipHorizontal],
-    ['flipVertical', options.flipVertical],
-  ] as const) {
-    if (candidate !== undefined && typeof candidate !== 'boolean') {
-      throw new TypeError(`Text shape ${name} must be a boolean`);
-    }
-  }
-  if (options.width !== undefined && Math.round(options.width) <= 0) {
-    throw new RangeError('Text shape width must be greater than zero');
-  }
-  if (options.height !== undefined && Math.round(options.height) <= 0) {
-    throw new RangeError('Text shape height must be greater than zero');
-  }
+  const transform = normalizeTextTransform(options, slideSize);
   const bullet = options.bullet === undefined
     ? undefined
     : normalizeParagraphBullet(options.bullet, 'Text bullet');
@@ -2677,6 +2676,7 @@ function validateAddTextOptions(options: AddTextOptions): NormalizedAddTextOptio
     ? true
     : normalizeTextBoxWrap(options.wrap, 'Text wrap');
   return {
+    transform,
     ...(arrows !== undefined ? { arrows } : {}),
     ...(shadow !== undefined ? { shadow } : {}),
     ...(bullet !== undefined ? { bullet } : {}),
@@ -2700,6 +2700,95 @@ function validateAddTextOptions(options: AddTextOptions): NormalizedAddTextOptio
     ...(textFit !== undefined ? { textFit } : {}),
     textWrap,
   };
+}
+
+function normalizeTextTransform(
+  options: AddTextOptions,
+  slideSize: Readonly<SlideSize>,
+): Readonly<Transform> {
+  const x = resolveSlideCoordinate(
+    readTextTransformOption(options, 'x'),
+    'horizontal',
+    slideSize,
+    0 as Emu,
+    'Text shape x',
+  );
+  const y = resolveSlideCoordinate(
+    readTextTransformOption(options, 'y'),
+    'vertical',
+    slideSize,
+    0 as Emu,
+    'Text shape y',
+  );
+  const width = resolveSlideCoordinate(
+    readTextTransformOption(options, 'width'),
+    'horizontal',
+    slideSize,
+    inches(1),
+    'Text shape width',
+  );
+  const height = resolveSlideCoordinate(
+    readTextTransformOption(options, 'height'),
+    'vertical',
+    slideSize,
+    inches(1),
+    'Text shape height',
+  );
+  if (width <= 0) throw new RangeError('Text shape width must be greater than zero');
+  if (height <= 0) throw new RangeError('Text shape height must be greater than zero');
+  const rotation = normalizeTextRotation(readTextTransformOption(options, 'rotation'));
+  const flipHorizontal = normalizeTextFlip(
+    readTextTransformOption(options, 'flipHorizontal'),
+    'flipHorizontal',
+  );
+  const flipVertical = normalizeTextFlip(
+    readTextTransformOption(options, 'flipVertical'),
+    'flipVertical',
+  );
+  return Object.freeze({
+    x,
+    y,
+    width,
+    height,
+    rotation,
+    flipHorizontal,
+    flipVertical,
+  });
+}
+
+function readTextTransformOption(
+  options: AddTextOptions,
+  name: keyof TransformInput,
+): unknown {
+  const descriptor = Object.getOwnPropertyDescriptor(options, name);
+  if (!descriptor) return undefined;
+  if (!Object.hasOwn(descriptor, 'value')) {
+    throw new TypeError(`Text shape ${name} must be a data property`);
+  }
+  return descriptor.value;
+}
+
+function normalizeTextRotation(value: unknown): Transform['rotation'] {
+  if (value === undefined) return 0 as Transform['rotation'];
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new TypeError('Text shape rotation must be finite');
+  }
+  const rounded = Math.round(value);
+  if (!Number.isSafeInteger(rounded)) {
+    throw new RangeError('Text shape rotation must round to a safe integer');
+  }
+  return (Object.is(rounded, -0) ? 0 : rounded) as Transform['rotation'];
+}
+
+function normalizeTextFlip(
+  value: unknown,
+  name: 'flipHorizontal' | 'flipVertical',
+): boolean {
+  if (value === undefined) return false;
+  if (typeof value !== 'boolean') {
+    throw new TypeError(`Text shape ${name} must be a boolean`);
+  }
+  return value;
 }
 
 function normalizeTextShapeType(options: AddTextOptions): PresetShapeType {
@@ -2919,6 +3008,7 @@ function textShapeXml(
   id: number,
   paragraphs: string,
   options: AddTextOptions,
+  transform: Readonly<Transform>,
   shape: PresetShapeType,
   rectRadius: Emu | undefined,
   isTextBox: boolean,
@@ -2939,21 +3029,17 @@ function textShapeXml(
   if ((hyperlink === undefined) !== (hyperlinkRelationshipId === undefined)) {
     throw new TypeError('Text shape hyperlink and relationship ID must be supplied together');
   }
-  const x = Math.round(options.x ?? 0);
-  const y = Math.round(options.y ?? 0);
-  const width = Math.round(options.width ?? inches(1));
-  const height = Math.round(options.height ?? inches(1));
+  const { x, y, width, height, rotation, flipHorizontal, flipVertical } = transform;
   const adjustments = rectRadius === undefined
     ? undefined
     : normalizeShapeAdjustments([{
         name: 'adj',
         value: Math.round(rectRadius * 100_000 / Math.min(width, height)),
       }], 'Text rectangle radius adjustments');
-  const rotation = Math.round(options.rotation ?? 0);
   const transformAttributes = [
     rotation === 0 ? '' : ` rot="${rotation}"`,
-    options.flipHorizontal ? ' flipH="1"' : '',
-    options.flipVertical ? ' flipV="1"' : '',
+    flipHorizontal ? ' flipH="1"' : '',
+    flipVertical ? ' flipV="1"' : '',
   ].join('');
   const name = escapeXmlAttribute(options.name ?? `Text ${id}`);
   const wrapAttribute = renderTextBoxWrapAttribute(textWrap);

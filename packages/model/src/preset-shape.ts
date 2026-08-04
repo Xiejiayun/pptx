@@ -1,5 +1,5 @@
 import type { RichTextColor } from './text.js';
-import type { Transform } from './units.js';
+import type { TransformInput } from './units.js';
 import type { Hyperlink } from './hyperlink.js';
 import type { PlaceholderSelector } from './placeholder.js';
 
@@ -117,7 +117,7 @@ export type ShapeShadow =
       readonly rotateWithShape?: never;
     });
 
-export interface AddShapeOptions extends Partial<Transform> {
+export interface AddShapeOptions extends Partial<TransformInput> {
   readonly name?: string;
   readonly placeholder?: PlaceholderSelector;
   readonly adjustments?: readonly ShapeAdjustment[];

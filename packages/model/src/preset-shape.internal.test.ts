@@ -12,6 +12,7 @@ import {
 import type { ShapeArrowTypeValue } from './shape-arrows.internal.js';
 import type { SimpleLineDash } from './simple-line.internal.js';
 import type { CustomGeometry } from './custom-geometry.js';
+import { inches, type SlideSize } from './units.js';
 import {
   normalizeCustomShape,
   normalizePresetShape,
@@ -127,6 +128,56 @@ describe('preset geometry primitive', () => {
 });
 
 describe('normalizePresetShape', () => {
+  it('resolves strict slide-relative percentage transforms for preset and custom shapes', () => {
+    const slideSize: Readonly<SlideSize> = {
+      width: inches(10),
+      height: inches(8),
+    };
+    expect(normalizePresetShape('rect', {
+      x: '10%',
+      y: '20%',
+      width: '30%',
+      height: '40%',
+    }, slideSize)).toMatchObject({
+      x: inches(1),
+      y: inches(1.6),
+      width: inches(3),
+      height: inches(3.2),
+    });
+    expect(normalizeCustomShape(customGeometry, {
+      x: '-10%',
+      y: '125%',
+      width: '20%',
+      height: '25%',
+    }, slideSize)).toMatchObject({
+      x: inches(-1),
+      y: inches(10),
+      width: inches(2),
+      height: inches(2),
+    });
+    expect(normalizePresetShape('ellipse', {
+      x: inches(2),
+      y: inches(3),
+      width: inches(4),
+      height: inches(5),
+    }, slideSize)).toMatchObject({
+      x: inches(2),
+      y: inches(3),
+      width: inches(4),
+      height: inches(5),
+    });
+
+    expect(() => normalizePresetShape('rect', {
+      width: '0%',
+    }, slideSize)).toThrow(/width must be greater than zero/u);
+    expect(() => normalizeCustomShape(customGeometry, {
+      height: '-1%',
+    }, slideSize)).toThrow(/height must be greater than zero/u);
+    expect(() => normalizePresetShape('rect', {
+      x: '10%',
+    })).toThrow(/slide size/u);
+  });
+
   it('uses one-inch defaults and detaches rounded primitive values', () => {
     expect(normalizePresetShape('rect', undefined)).toEqual({
       type: 'rect',
