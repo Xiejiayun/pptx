@@ -867,6 +867,179 @@ const CHART_CREATION_DIFFERENCE_ENTRIES = Object.freeze([
   ),
 ]);
 
+const CHART_AXIS_FOUNDATION_CONTROL_TITLE =
+  'compares chart axis line gridline visibility label and tick semantics';
+const CHART_AXIS_FOUNDATION_OOXML_TITLE =
+  'creates and reopens chart axis foundation options in all six formats';
+const CHART_AXIS_LABEL_POSITIONS = Object.freeze(['high', 'low', 'nextTo', 'none']);
+const CHART_AXIS_DIFFERENT_TICK_MARKS = Object.freeze(['inside', 'outside']);
+const CHART_AXIS_LINE_STYLES = Object.freeze(['dash', 'dot', 'solid']);
+const CHART_AXIS_GRID_STYLES = Object.freeze(['dash', 'dot', 'none', 'solid']);
+const CHART_AXIS_OWNERS = Object.freeze([
+  Object.freeze({ owner: 'IChartOpts', prefix: 'cat', nativeAxis: 'categoryAxis' }),
+  Object.freeze({ owner: 'IChartOpts', prefix: 'val', nativeAxis: 'valueAxis' }),
+  Object.freeze({
+    owner: 'IChartPropsAxisCat', prefix: 'cat', nativeAxis: 'categoryAxis',
+  }),
+  Object.freeze({
+    owner: 'IChartPropsAxisVal', prefix: 'val', nativeAxis: 'valueAxis',
+  }),
+]);
+
+function chartAxisFoundationEvidence() {
+  return {
+    code: [{
+      path: 'packages/model/src/chart.ts',
+      pattern: 'export interface ChartAxisOptions extends ChartFontOptions {',
+    }, {
+      path: 'packages/model/src/chart-options.internal.ts',
+      pattern: 'function normalizeAxisOptions(value: unknown, context: string): Readonly<ChartAxisOptions> {',
+    }, {
+      path: 'packages/model/src/chart-render.internal.ts',
+      pattern: 'function renderAxisShapeProperties(',
+    }, {
+      path: 'packages/model/src/chart-state.internal.ts',
+      pattern: 'function readAxisOptions(',
+    }],
+    tests: [{
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      title: CHART_AXIS_FOUNDATION_CONTROL_TITLE,
+    }],
+    package: [{
+      path: 'scripts/smoke-npm-package.mjs',
+      pattern: 'const chartAxisFoundation =',
+    }],
+    ooxml: [{
+      path: 'packages/sdk/src/index.test.ts',
+      pattern: CHART_AXIS_FOUNDATION_OOXML_TITLE,
+    }],
+    clients: [{
+      path: 'scripts/playwright-browser-smoke.js',
+      pattern: 'const chartAxisFoundation =',
+    }],
+  };
+}
+
+function chartAxisSupportedEntry(id, native, note =
+  'Native exposes the same four explicit label-position semantics through strict nested ChartAxisOptions; nextTo remains the canonical serialized default after reopen.') {
+  return {
+    id,
+    status: 'supported',
+    native,
+    evidence: chartAxisFoundationEvidence(),
+    serialization: true,
+    client: true,
+    note,
+  };
+}
+
+function chartAxisDifferenceEntry(id, native, note) {
+  return {
+    id,
+    status: 'deliberate-difference',
+    native,
+    evidence: chartAxisFoundationEvidence(),
+    control: {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      pattern: CHART_AXIS_FOUNDATION_CONTROL_TITLE,
+    },
+    serialization: true,
+    client: true,
+    note,
+  };
+}
+
+const CHART_AXIS_FOUNDATION_SUPPORTED_ENTRIES = Object.freeze(
+  CHART_AXIS_OWNERS.flatMap(({ owner, prefix, nativeAxis }) => {
+    const property = `${prefix}AxisLabelPos`;
+    const id = linePropertyId(owner, property);
+    const native = [`ChartOptions.${nativeAxis}.labelPosition`, 'ChartAxisOptions.labelPosition'];
+    return [
+      chartAxisSupportedEntry(id, native),
+      ...CHART_AXIS_LABEL_POSITIONS.map((value) =>
+        chartAxisSupportedEntry(`union:${id}#${value}`, native)),
+    ];
+  }),
+);
+
+const CHART_AXIS_TICK_SUPPORTED_ENTRIES = Object.freeze(
+  ['cross', 'none'].map((value) => chartAxisSupportedEntry(
+    `union:ChartAxisTickMark#${value}`,
+    ['ChartAxisOptions.majorTickMark', 'ChartAxisOptions.minorTickMark'],
+    value === 'none'
+      ? 'Native exposes and serializes the same legal none tick-mark value; none becomes the canonical absence after reopen.'
+      : 'Native exposes, serializes, and reopens the same legal cross tick-mark value.',
+  )),
+);
+
+const CHART_AXIS_LINE_GRID_DIFFERENCE_ENTRIES = Object.freeze([
+  ...CHART_AXIS_OWNERS.flatMap(({ owner, prefix, nativeAxis }) => {
+    const axisLine = `ChartOptions.${nativeAxis}.line`;
+    const gridLine = `ChartOptions.${nativeAxis}.majorGridLine`;
+    const lineProperties = ['Color', 'Show', 'Size', 'Style'].map((suffix) =>
+      chartAxisDifferenceEntry(
+        linePropertyId(owner, `${prefix}AxisLine${suffix}`),
+        [axisLine, 'ShapeLine'],
+        'Native maps the flat permissive PptxGenJS axis-line fields to a strict nested ShapeLine, preserves none/solid color and width intent, and uses sysDot as an intentional approximation of the distinct PptxGenJS dot preset.',
+      ));
+    const lineStyles = CHART_AXIS_LINE_STYLES.map((value) =>
+      chartAxisDifferenceEntry(
+        `union:${linePropertyId(owner, `${prefix}AxisLineStyle`)}#${value}`,
+        [axisLine, 'ShapeLine.dash'],
+        'Native maps the flat PptxGenJS solid/dash/dot style domain to strict ShapeLine dash semantics; dash and solid remain exact, while dot uses the distinct sysDot preset as an intentional approximation.',
+      ));
+    return [
+      ...lineProperties,
+      chartAxisDifferenceEntry(
+        linePropertyId(owner, `${prefix}GridLine`),
+        [gridLine, 'ChartAxisOptions.majorGridLine', 'ShapeLine'],
+        'Native maps the flat PptxGenJS gridline object to the axis majorGridLine ShapeLine; minorGridLine and gridline cap remain outside this family.',
+      ),
+      ...lineStyles,
+    ];
+  }),
+  ...['color', 'size', 'style'].map((property) => chartAxisDifferenceEntry(
+    linePropertyId('OptsChartGridLine', property),
+    [
+      property === 'color' ? 'ShapeLine.color' : property === 'size'
+        ? 'ShapeLine.width'
+        : 'ShapeLine.dash',
+      'ChartAxisOptions.majorGridLine',
+    ],
+    'Native replaces the permissive PptxGenJS gridline field with a strict nested ShapeLine; the separately declared cap field is intentionally not closed by this mapping.',
+  )),
+  ...CHART_AXIS_GRID_STYLES.map((value) => chartAxisDifferenceEntry(
+    `union:${linePropertyId('OptsChartGridLine', 'style')}#${value}`,
+    ['ShapeLine', 'ChartAxisOptions.majorGridLine'],
+    'Native maps the PptxGenJS solid/dash/dot/none gridline styles to strict ShapeLine state, uses sysDot as an intentional approximation of the distinct dot preset, and represents none explicitly.',
+  )),
+]);
+
+const CHART_AXIS_BEHAVIOR_DIFFERENCE_ENTRIES = Object.freeze([
+  ...CHART_AXIS_OWNERS.flatMap(({ owner, prefix, nativeAxis }) => [
+    chartAxisDifferenceEntry(
+      linePropertyId(owner, `${prefix}AxisHidden`),
+      [`ChartOptions.${nativeAxis}.visible`, 'ChartAxisOptions.visible'],
+      'Native expresses the same legal boolean through positive visible semantics instead of the inverted PptxGenJS hidden flag.',
+    ),
+    chartAxisDifferenceEntry(
+      linePropertyId(owner, `${prefix}AxisLabelRotate`),
+      [`ChartOptions.${nativeAxis}.labelRotation`, 'ChartAxisOptions.labelRotation'],
+      'Native accepts only finite label rotations from -90 through 90 degrees and writes exact 60000-degree units; PptxGenJS wraps or serializes out-of-range and non-finite inputs.',
+    ),
+    ...['Major', 'Minor'].map((level) => chartAxisDifferenceEntry(
+      linePropertyId(owner, `${prefix}Axis${level}TickMark`),
+      [`ChartOptions.${nativeAxis}.${level.toLowerCase()}TickMark`, 'ChartAxisOptions'],
+      'Native keeps the semantic cross/inside/none/outside API but emits the canonical OOXML cross/in/none/out tokens; PptxGenJS writes inside/outside as invalid lexical values.',
+    )),
+  ]),
+  ...CHART_AXIS_DIFFERENT_TICK_MARKS.map((value) => chartAxisDifferenceEntry(
+    `union:ChartAxisTickMark#${value}`,
+    ['ChartAxisOptions.majorTickMark', 'ChartAxisOptions.minorTickMark'],
+    'Native keeps the semantic cross/inside/none/outside API but emits the canonical OOXML cross/in/none/out tokens; PptxGenJS writes inside/outside as invalid lexical values.',
+  )),
+]);
+
 const INERT_CHART_OPTION_CONTROL_TITLE =
   'isolates inherited inert IChartOpts text and top-level gridline declarations from chart output';
 const INERT_CHART_OPTION_PROPERTIES = Object.freeze([
@@ -1378,6 +1551,10 @@ export const PPTXGENJS_SURFACE_MANIFEST = deepFreeze({
     ...DEPRECATED_CHART_AREA_ALIAS_ENTRIES,
     ...CHART_CREATION_SUPPORTED_ENTRIES,
     ...CHART_CREATION_DIFFERENCE_ENTRIES,
+    ...CHART_AXIS_FOUNDATION_SUPPORTED_ENTRIES,
+    ...CHART_AXIS_TICK_SUPPORTED_ENTRIES,
+    ...CHART_AXIS_LINE_GRID_DIFFERENCE_ENTRIES,
+    ...CHART_AXIS_BEHAVIOR_DIFFERENCE_ENTRIES,
     ...INERT_CHART_OPTION_DEFECT_ENTRIES,
     ...['ShapeType', 'SHAPE_NAME'].flatMap((owner) =>
       DECLARED_PRESET_SHAPE_VALUES.map((value) => presetShapeCatalogEntry(owner, value))),

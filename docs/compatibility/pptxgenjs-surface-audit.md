@@ -10,12 +10,12 @@
 
 | Status | Count |
 | --- | ---: |
-| supported | 438 |
-| deliberate-difference | 73 |
+| supported | 460 |
+| deliberate-difference | 130 |
 | deprecated-alias | 77 |
 | defect-excluded | 83 |
 | unsupported | 0 |
-| unverified | 1103 |
+| unverified | 1024 |
 | stale | 0 |
 
 ## Runtime declaration differences
@@ -192,25 +192,16 @@ None.
 - `interface:IChartOpts@property:catAxes`
 - `interface:IChartOpts@property:catAxisBaseTimeUnit`
 - `interface:IChartOpts@property:catAxisCrossesAt`
-- `interface:IChartOpts@property:catAxisHidden`
 - `interface:IChartOpts@property:catAxisLabelColor`
 - `interface:IChartOpts@property:catAxisLabelFontBold`
 - `interface:IChartOpts@property:catAxisLabelFontFace`
 - `interface:IChartOpts@property:catAxisLabelFontItalic`
 - `interface:IChartOpts@property:catAxisLabelFontSize`
 - `interface:IChartOpts@property:catAxisLabelFrequency`
-- `interface:IChartOpts@property:catAxisLabelPos`
-- `interface:IChartOpts@property:catAxisLabelRotate`
-- `interface:IChartOpts@property:catAxisLineColor`
-- `interface:IChartOpts@property:catAxisLineShow`
-- `interface:IChartOpts@property:catAxisLineSize`
-- `interface:IChartOpts@property:catAxisLineStyle`
-- `interface:IChartOpts@property:catAxisMajorTickMark`
 - `interface:IChartOpts@property:catAxisMajorTimeUnit`
 - `interface:IChartOpts@property:catAxisMajorUnit`
 - `interface:IChartOpts@property:catAxisMaxVal`
 - `interface:IChartOpts@property:catAxisMinVal`
-- `interface:IChartOpts@property:catAxisMinorTickMark`
 - `interface:IChartOpts@property:catAxisMinorTimeUnit`
 - `interface:IChartOpts@property:catAxisMinorUnit`
 - `interface:IChartOpts@property:catAxisMultiLevelLabels`
@@ -220,7 +211,6 @@ None.
 - `interface:IChartOpts@property:catAxisTitleFontFace`
 - `interface:IChartOpts@property:catAxisTitleFontSize`
 - `interface:IChartOpts@property:catAxisTitleRotate`
-- `interface:IChartOpts@property:catGridLine`
 - `interface:IChartOpts@property:catLabelFormatCode`
 - `interface:IChartOpts@property:chartColors`
 - `interface:IChartOpts@property:chartColorsOpacity`
@@ -315,32 +305,22 @@ None.
 - `interface:IChartOpts@property:valAxisCrossesAt`
 - `interface:IChartOpts@property:valAxisDisplayUnit`
 - `interface:IChartOpts@property:valAxisDisplayUnitLabel`
-- `interface:IChartOpts@property:valAxisHidden`
 - `interface:IChartOpts@property:valAxisLabelColor`
 - `interface:IChartOpts@property:valAxisLabelFontBold`
 - `interface:IChartOpts@property:valAxisLabelFontFace`
 - `interface:IChartOpts@property:valAxisLabelFontItalic`
 - `interface:IChartOpts@property:valAxisLabelFontSize`
 - `interface:IChartOpts@property:valAxisLabelFormatCode`
-- `interface:IChartOpts@property:valAxisLabelPos`
-- `interface:IChartOpts@property:valAxisLabelRotate`
-- `interface:IChartOpts@property:valAxisLineColor`
-- `interface:IChartOpts@property:valAxisLineShow`
-- `interface:IChartOpts@property:valAxisLineSize`
-- `interface:IChartOpts@property:valAxisLineStyle`
 - `interface:IChartOpts@property:valAxisLogScaleBase`
-- `interface:IChartOpts@property:valAxisMajorTickMark`
 - `interface:IChartOpts@property:valAxisMajorUnit`
 - `interface:IChartOpts@property:valAxisMaxVal`
 - `interface:IChartOpts@property:valAxisMinVal`
-- `interface:IChartOpts@property:valAxisMinorTickMark`
 - `interface:IChartOpts@property:valAxisOrientation`
 - `interface:IChartOpts@property:valAxisTitle`
 - `interface:IChartOpts@property:valAxisTitleColor`
 - `interface:IChartOpts@property:valAxisTitleFontFace`
 - `interface:IChartOpts@property:valAxisTitleFontSize`
 - `interface:IChartOpts@property:valAxisTitleRotate`
-- `interface:IChartOpts@property:valGridLine`
 - `interface:IChartOpts@property:valLabelFormatCode`
 - `interface:IChartOpts@property:w`
 - `interface:IChartOpts@property:x`
@@ -348,25 +328,16 @@ None.
 - `interface:IChartPropsAxisCat@property:catAxes`
 - `interface:IChartPropsAxisCat@property:catAxisBaseTimeUnit`
 - `interface:IChartPropsAxisCat@property:catAxisCrossesAt`
-- `interface:IChartPropsAxisCat@property:catAxisHidden`
 - `interface:IChartPropsAxisCat@property:catAxisLabelColor`
 - `interface:IChartPropsAxisCat@property:catAxisLabelFontBold`
 - `interface:IChartPropsAxisCat@property:catAxisLabelFontFace`
 - `interface:IChartPropsAxisCat@property:catAxisLabelFontItalic`
 - `interface:IChartPropsAxisCat@property:catAxisLabelFontSize`
 - `interface:IChartPropsAxisCat@property:catAxisLabelFrequency`
-- `interface:IChartPropsAxisCat@property:catAxisLabelPos`
-- `interface:IChartPropsAxisCat@property:catAxisLabelRotate`
-- `interface:IChartPropsAxisCat@property:catAxisLineColor`
-- `interface:IChartPropsAxisCat@property:catAxisLineShow`
-- `interface:IChartPropsAxisCat@property:catAxisLineSize`
-- `interface:IChartPropsAxisCat@property:catAxisLineStyle`
-- `interface:IChartPropsAxisCat@property:catAxisMajorTickMark`
 - `interface:IChartPropsAxisCat@property:catAxisMajorTimeUnit`
 - `interface:IChartPropsAxisCat@property:catAxisMajorUnit`
 - `interface:IChartPropsAxisCat@property:catAxisMaxVal`
 - `interface:IChartPropsAxisCat@property:catAxisMinVal`
-- `interface:IChartPropsAxisCat@property:catAxisMinorTickMark`
 - `interface:IChartPropsAxisCat@property:catAxisMinorTimeUnit`
 - `interface:IChartPropsAxisCat@property:catAxisMinorUnit`
 - `interface:IChartPropsAxisCat@property:catAxisMultiLevelLabels`
@@ -376,7 +347,6 @@ None.
 - `interface:IChartPropsAxisCat@property:catAxisTitleFontFace`
 - `interface:IChartPropsAxisCat@property:catAxisTitleFontSize`
 - `interface:IChartPropsAxisCat@property:catAxisTitleRotate`
-- `interface:IChartPropsAxisCat@property:catGridLine`
 - `interface:IChartPropsAxisCat@property:catLabelFormatCode`
 - `interface:IChartPropsAxisCat@property:secondaryCatAxis`
 - `interface:IChartPropsAxisCat@property:showCatAxisTitle`
@@ -386,32 +356,22 @@ None.
 - `interface:IChartPropsAxisVal@property:valAxisCrossesAt`
 - `interface:IChartPropsAxisVal@property:valAxisDisplayUnit`
 - `interface:IChartPropsAxisVal@property:valAxisDisplayUnitLabel`
-- `interface:IChartPropsAxisVal@property:valAxisHidden`
 - `interface:IChartPropsAxisVal@property:valAxisLabelColor`
 - `interface:IChartPropsAxisVal@property:valAxisLabelFontBold`
 - `interface:IChartPropsAxisVal@property:valAxisLabelFontFace`
 - `interface:IChartPropsAxisVal@property:valAxisLabelFontItalic`
 - `interface:IChartPropsAxisVal@property:valAxisLabelFontSize`
 - `interface:IChartPropsAxisVal@property:valAxisLabelFormatCode`
-- `interface:IChartPropsAxisVal@property:valAxisLabelPos`
-- `interface:IChartPropsAxisVal@property:valAxisLabelRotate`
-- `interface:IChartPropsAxisVal@property:valAxisLineColor`
-- `interface:IChartPropsAxisVal@property:valAxisLineShow`
-- `interface:IChartPropsAxisVal@property:valAxisLineSize`
-- `interface:IChartPropsAxisVal@property:valAxisLineStyle`
 - `interface:IChartPropsAxisVal@property:valAxisLogScaleBase`
-- `interface:IChartPropsAxisVal@property:valAxisMajorTickMark`
 - `interface:IChartPropsAxisVal@property:valAxisMajorUnit`
 - `interface:IChartPropsAxisVal@property:valAxisMaxVal`
 - `interface:IChartPropsAxisVal@property:valAxisMinVal`
-- `interface:IChartPropsAxisVal@property:valAxisMinorTickMark`
 - `interface:IChartPropsAxisVal@property:valAxisOrientation`
 - `interface:IChartPropsAxisVal@property:valAxisTitle`
 - `interface:IChartPropsAxisVal@property:valAxisTitleColor`
 - `interface:IChartPropsAxisVal@property:valAxisTitleFontFace`
 - `interface:IChartPropsAxisVal@property:valAxisTitleFontSize`
 - `interface:IChartPropsAxisVal@property:valAxisTitleRotate`
-- `interface:IChartPropsAxisVal@property:valGridLine`
 - `interface:IChartPropsAxisVal@property:valLabelFormatCode`
 - `interface:ImageProps@property:altText`
 - `interface:ImageProps@property:data`
@@ -438,9 +398,6 @@ None.
 - `interface:MediaProps@property:x`
 - `interface:MediaProps@property:y`
 - `interface:OptsChartGridLine@property:cap`
-- `interface:OptsChartGridLine@property:color`
-- `interface:OptsChartGridLine@property:size`
-- `interface:OptsChartGridLine@property:style`
 - `interface:PlaceholderProps@property:align`
 - `interface:PlaceholderProps@property:bold`
 - `interface:PlaceholderProps@property:breakLine`
@@ -696,10 +653,6 @@ None.
 - `property:Slide#hidden`
 - `property:Slide#newAutoPagedSlides`
 - `property:Slide#slideNumber`
-- `union:ChartAxisTickMark#cross`
-- `union:ChartAxisTickMark#inside`
-- `union:ChartAxisTickMark#none`
-- `union:ChartAxisTickMark#outside`
 - `union:ChartLineCap#flat`
 - `union:ChartLineCap#round`
 - `union:ChartLineCap#square`
@@ -734,13 +687,6 @@ None.
 - `union:interface:IChartOpts@property:axisPos#t`
 - `union:interface:IChartOpts@property:catAxisCrossesAt#autoZero`
 - `union:interface:IChartOpts@property:catAxisCrossesAt#number`
-- `union:interface:IChartOpts@property:catAxisLabelPos#high`
-- `union:interface:IChartOpts@property:catAxisLabelPos#low`
-- `union:interface:IChartOpts@property:catAxisLabelPos#nextTo`
-- `union:interface:IChartOpts@property:catAxisLabelPos#none`
-- `union:interface:IChartOpts@property:catAxisLineStyle#dash`
-- `union:interface:IChartOpts@property:catAxisLineStyle#dot`
-- `union:interface:IChartOpts@property:catAxisLineStyle#solid`
 - `union:interface:IChartOpts@property:dataLabelFormatScatter#XY`
 - `union:interface:IChartOpts@property:dataLabelFormatScatter#custom`
 - `union:interface:IChartOpts@property:dataLabelFormatScatter#customXY`
@@ -790,22 +736,8 @@ None.
 - `union:interface:IChartOpts@property:valAxisDisplayUnit#tenThousands`
 - `union:interface:IChartOpts@property:valAxisDisplayUnit#thousands`
 - `union:interface:IChartOpts@property:valAxisDisplayUnit#trillions`
-- `union:interface:IChartOpts@property:valAxisLabelPos#high`
-- `union:interface:IChartOpts@property:valAxisLabelPos#low`
-- `union:interface:IChartOpts@property:valAxisLabelPos#nextTo`
-- `union:interface:IChartOpts@property:valAxisLabelPos#none`
-- `union:interface:IChartOpts@property:valAxisLineStyle#dash`
-- `union:interface:IChartOpts@property:valAxisLineStyle#dot`
-- `union:interface:IChartOpts@property:valAxisLineStyle#solid`
 - `union:interface:IChartPropsAxisCat@property:catAxisCrossesAt#autoZero`
 - `union:interface:IChartPropsAxisCat@property:catAxisCrossesAt#number`
-- `union:interface:IChartPropsAxisCat@property:catAxisLabelPos#high`
-- `union:interface:IChartPropsAxisCat@property:catAxisLabelPos#low`
-- `union:interface:IChartPropsAxisCat@property:catAxisLabelPos#nextTo`
-- `union:interface:IChartPropsAxisCat@property:catAxisLabelPos#none`
-- `union:interface:IChartPropsAxisCat@property:catAxisLineStyle#dash`
-- `union:interface:IChartPropsAxisCat@property:catAxisLineStyle#dot`
-- `union:interface:IChartPropsAxisCat@property:catAxisLineStyle#solid`
 - `union:interface:IChartPropsAxisVal@property:valAxisCrossesAt#autoZero`
 - `union:interface:IChartPropsAxisVal@property:valAxisCrossesAt#number`
 - `union:interface:IChartPropsAxisVal@property:valAxisDisplayUnit#billions`
@@ -817,21 +749,10 @@ None.
 - `union:interface:IChartPropsAxisVal@property:valAxisDisplayUnit#tenThousands`
 - `union:interface:IChartPropsAxisVal@property:valAxisDisplayUnit#thousands`
 - `union:interface:IChartPropsAxisVal@property:valAxisDisplayUnit#trillions`
-- `union:interface:IChartPropsAxisVal@property:valAxisLabelPos#high`
-- `union:interface:IChartPropsAxisVal@property:valAxisLabelPos#low`
-- `union:interface:IChartPropsAxisVal@property:valAxisLabelPos#nextTo`
-- `union:interface:IChartPropsAxisVal@property:valAxisLabelPos#none`
-- `union:interface:IChartPropsAxisVal@property:valAxisLineStyle#dash`
-- `union:interface:IChartPropsAxisVal@property:valAxisLineStyle#dot`
-- `union:interface:IChartPropsAxisVal@property:valAxisLineStyle#solid`
 - `union:interface:ImageProps@property:sizing@path:sizing.type#contain`
 - `union:interface:ImageProps@property:sizing@path:sizing.type#cover`
 - `union:interface:ImageProps@property:sizing@path:sizing.type#crop`
 - `union:interface:OptsChartData@property:labels#string[][]`
-- `union:interface:OptsChartGridLine@property:style#dash`
-- `union:interface:OptsChartGridLine@property:style#dot`
-- `union:interface:OptsChartGridLine@property:style#none`
-- `union:interface:OptsChartGridLine@property:style#solid`
 - `union:interface:PlaceholderProps@property:bullet#boolean`
 - `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#alphaLcParenBoth`
 - `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#alphaLcParenR`
@@ -1176,11 +1097,11 @@ None.
 | `interface:BackgroundProps@property:src` | unverified | — | — | — |
 | `interface:BackgroundProps@property:transparency` | unverified | — | — | — |
 | `interface:BackgroundProps@property:type` | unverified | — | — | — |
-| `interface:IChartOpts@property:catAxisHidden` | unverified | — | — | — |
+| `interface:IChartOpts@property:catAxisHidden` | deliberate-difference | ChartAxisOptions.visible<br>ChartOptions.categoryAxis.visible | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native expresses the same legal boolean through positive visible semantics instead of the inverted PptxGenJS hidden flag. |
 | `interface:IChartOpts@property:serAxisHidden` | unverified | — | — | — |
-| `interface:IChartOpts@property:valAxisHidden` | unverified | — | — | — |
-| `interface:IChartPropsAxisCat@property:catAxisHidden` | unverified | — | — | — |
-| `interface:IChartPropsAxisVal@property:valAxisHidden` | unverified | — | — | — |
+| `interface:IChartOpts@property:valAxisHidden` | deliberate-difference | ChartAxisOptions.visible<br>ChartOptions.valueAxis.visible | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native expresses the same legal boolean through positive visible semantics instead of the inverted PptxGenJS hidden flag. |
+| `interface:IChartPropsAxisCat@property:catAxisHidden` | deliberate-difference | ChartAxisOptions.visible<br>ChartOptions.categoryAxis.visible | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native expresses the same legal boolean through positive visible semantics instead of the inverted PptxGenJS hidden flag. |
+| `interface:IChartPropsAxisVal@property:valAxisHidden` | deliberate-difference | ChartAxisOptions.visible<br>ChartOptions.valueAxis.visible | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native expresses the same legal boolean through positive visible semantics instead of the inverted PptxGenJS hidden flag. |
 | `interface:PresSlide@property:background` | unverified | — | — | — |
 | `interface:PresSlide@property:hidden` | unverified | — | — | — |
 | `interface:PresSlide@property:slideNumber` | unverified | — | — | — |
@@ -1881,18 +1802,18 @@ None.
 | `interface:IChartOpts@property:catAxisLabelFontItalic` | unverified | — | — | — |
 | `interface:IChartOpts@property:catAxisLabelFontSize` | unverified | — | — | — |
 | `interface:IChartOpts@property:catAxisLabelFrequency` | unverified | — | — | — |
-| `interface:IChartOpts@property:catAxisLabelPos` | unverified | — | — | — |
-| `interface:IChartOpts@property:catAxisLabelRotate` | unverified | — | — | — |
-| `interface:IChartOpts@property:catAxisLineColor` | unverified | — | — | — |
-| `interface:IChartOpts@property:catAxisLineShow` | unverified | — | — | — |
-| `interface:IChartOpts@property:catAxisLineSize` | unverified | — | — | — |
-| `interface:IChartOpts@property:catAxisLineStyle` | unverified | — | — | — |
-| `interface:IChartOpts@property:catAxisMajorTickMark` | unverified | — | — | — |
+| `interface:IChartOpts@property:catAxisLabelPos` | supported | ChartAxisOptions.labelPosition<br>ChartOptions.categoryAxis.labelPosition | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes the same four explicit label-position semantics through strict nested ChartAxisOptions; nextTo remains the canonical serialized default after reopen. |
+| `interface:IChartOpts@property:catAxisLabelRotate` | deliberate-difference | ChartAxisOptions.labelRotation<br>ChartOptions.categoryAxis.labelRotation | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native accepts only finite label rotations from -90 through 90 degrees and writes exact 60000-degree units; PptxGenJS wraps or serializes out-of-range and non-finite inputs. |
+| `interface:IChartOpts@property:catAxisLineColor` | deliberate-difference | ChartOptions.categoryAxis.line<br>ShapeLine | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps the flat permissive PptxGenJS axis-line fields to a strict nested ShapeLine, preserves none/solid color and width intent, and uses sysDot as an intentional approximation of the distinct PptxGenJS dot preset. |
+| `interface:IChartOpts@property:catAxisLineShow` | deliberate-difference | ChartOptions.categoryAxis.line<br>ShapeLine | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps the flat permissive PptxGenJS axis-line fields to a strict nested ShapeLine, preserves none/solid color and width intent, and uses sysDot as an intentional approximation of the distinct PptxGenJS dot preset. |
+| `interface:IChartOpts@property:catAxisLineSize` | deliberate-difference | ChartOptions.categoryAxis.line<br>ShapeLine | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps the flat permissive PptxGenJS axis-line fields to a strict nested ShapeLine, preserves none/solid color and width intent, and uses sysDot as an intentional approximation of the distinct PptxGenJS dot preset. |
+| `interface:IChartOpts@property:catAxisLineStyle` | deliberate-difference | ChartOptions.categoryAxis.line<br>ShapeLine | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps the flat permissive PptxGenJS axis-line fields to a strict nested ShapeLine, preserves none/solid color and width intent, and uses sysDot as an intentional approximation of the distinct PptxGenJS dot preset. |
+| `interface:IChartOpts@property:catAxisMajorTickMark` | deliberate-difference | ChartAxisOptions<br>ChartOptions.categoryAxis.majorTickMark | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native keeps the semantic cross/inside/none/outside API but emits the canonical OOXML cross/in/none/out tokens; PptxGenJS writes inside/outside as invalid lexical values. |
 | `interface:IChartOpts@property:catAxisMajorTimeUnit` | unverified | — | — | — |
 | `interface:IChartOpts@property:catAxisMajorUnit` | unverified | — | — | — |
 | `interface:IChartOpts@property:catAxisMaxVal` | unverified | — | — | — |
 | `interface:IChartOpts@property:catAxisMinVal` | unverified | — | — | — |
-| `interface:IChartOpts@property:catAxisMinorTickMark` | unverified | — | — | — |
+| `interface:IChartOpts@property:catAxisMinorTickMark` | deliberate-difference | ChartAxisOptions<br>ChartOptions.categoryAxis.minorTickMark | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native keeps the semantic cross/inside/none/outside API but emits the canonical OOXML cross/in/none/out tokens; PptxGenJS writes inside/outside as invalid lexical values. |
 | `interface:IChartOpts@property:catAxisMinorTimeUnit` | unverified | — | — | — |
 | `interface:IChartOpts@property:catAxisMinorUnit` | unverified | — | — | — |
 | `interface:IChartOpts@property:catAxisMultiLevelLabels` | unverified | — | — | — |
@@ -1902,7 +1823,7 @@ None.
 | `interface:IChartOpts@property:catAxisTitleFontFace` | unverified | — | — | — |
 | `interface:IChartOpts@property:catAxisTitleFontSize` | unverified | — | — | — |
 | `interface:IChartOpts@property:catAxisTitleRotate` | unverified | — | — | — |
-| `interface:IChartOpts@property:catGridLine` | unverified | — | — | — |
+| `interface:IChartOpts@property:catGridLine` | deliberate-difference | ChartAxisOptions.majorGridLine<br>ChartOptions.categoryAxis.majorGridLine<br>ShapeLine | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps the flat PptxGenJS gridline object to the axis majorGridLine ShapeLine; minorGridLine and gridline cap remain outside this family. |
 | `interface:IChartOpts@property:catLabelFormatCode` | unverified | — | — | — |
 | `interface:IChartOpts@property:chartArea` | deliberate-difference | ChartAreaOptions<br>ChartOptions.chartArea<br>ChartOptions.roundedCorners | code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:scripts/smoke-npm-package.mjs<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native separates root roundedCorners from strict chart-area fill and line state, while PptxGenJS combines them in one permissive chartArea object with runtime defaults. |
 | `interface:IChartOpts@property:chartColors` | unverified | — | — | — |
@@ -2016,25 +1937,25 @@ None.
 | `interface:IChartOpts@property:valAxisLabelFontItalic` | unverified | — | — | — |
 | `interface:IChartOpts@property:valAxisLabelFontSize` | unverified | — | — | — |
 | `interface:IChartOpts@property:valAxisLabelFormatCode` | unverified | — | — | — |
-| `interface:IChartOpts@property:valAxisLabelPos` | unverified | — | — | — |
-| `interface:IChartOpts@property:valAxisLabelRotate` | unverified | — | — | — |
-| `interface:IChartOpts@property:valAxisLineColor` | unverified | — | — | — |
-| `interface:IChartOpts@property:valAxisLineShow` | unverified | — | — | — |
-| `interface:IChartOpts@property:valAxisLineSize` | unverified | — | — | — |
-| `interface:IChartOpts@property:valAxisLineStyle` | unverified | — | — | — |
+| `interface:IChartOpts@property:valAxisLabelPos` | supported | ChartAxisOptions.labelPosition<br>ChartOptions.valueAxis.labelPosition | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes the same four explicit label-position semantics through strict nested ChartAxisOptions; nextTo remains the canonical serialized default after reopen. |
+| `interface:IChartOpts@property:valAxisLabelRotate` | deliberate-difference | ChartAxisOptions.labelRotation<br>ChartOptions.valueAxis.labelRotation | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native accepts only finite label rotations from -90 through 90 degrees and writes exact 60000-degree units; PptxGenJS wraps or serializes out-of-range and non-finite inputs. |
+| `interface:IChartOpts@property:valAxisLineColor` | deliberate-difference | ChartOptions.valueAxis.line<br>ShapeLine | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps the flat permissive PptxGenJS axis-line fields to a strict nested ShapeLine, preserves none/solid color and width intent, and uses sysDot as an intentional approximation of the distinct PptxGenJS dot preset. |
+| `interface:IChartOpts@property:valAxisLineShow` | deliberate-difference | ChartOptions.valueAxis.line<br>ShapeLine | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps the flat permissive PptxGenJS axis-line fields to a strict nested ShapeLine, preserves none/solid color and width intent, and uses sysDot as an intentional approximation of the distinct PptxGenJS dot preset. |
+| `interface:IChartOpts@property:valAxisLineSize` | deliberate-difference | ChartOptions.valueAxis.line<br>ShapeLine | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps the flat permissive PptxGenJS axis-line fields to a strict nested ShapeLine, preserves none/solid color and width intent, and uses sysDot as an intentional approximation of the distinct PptxGenJS dot preset. |
+| `interface:IChartOpts@property:valAxisLineStyle` | deliberate-difference | ChartOptions.valueAxis.line<br>ShapeLine | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps the flat permissive PptxGenJS axis-line fields to a strict nested ShapeLine, preserves none/solid color and width intent, and uses sysDot as an intentional approximation of the distinct PptxGenJS dot preset. |
 | `interface:IChartOpts@property:valAxisLogScaleBase` | unverified | — | — | — |
-| `interface:IChartOpts@property:valAxisMajorTickMark` | unverified | — | — | — |
+| `interface:IChartOpts@property:valAxisMajorTickMark` | deliberate-difference | ChartAxisOptions<br>ChartOptions.valueAxis.majorTickMark | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native keeps the semantic cross/inside/none/outside API but emits the canonical OOXML cross/in/none/out tokens; PptxGenJS writes inside/outside as invalid lexical values. |
 | `interface:IChartOpts@property:valAxisMajorUnit` | unverified | — | — | — |
 | `interface:IChartOpts@property:valAxisMaxVal` | unverified | — | — | — |
 | `interface:IChartOpts@property:valAxisMinVal` | unverified | — | — | — |
-| `interface:IChartOpts@property:valAxisMinorTickMark` | unverified | — | — | — |
+| `interface:IChartOpts@property:valAxisMinorTickMark` | deliberate-difference | ChartAxisOptions<br>ChartOptions.valueAxis.minorTickMark | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native keeps the semantic cross/inside/none/outside API but emits the canonical OOXML cross/in/none/out tokens; PptxGenJS writes inside/outside as invalid lexical values. |
 | `interface:IChartOpts@property:valAxisOrientation` | unverified | — | — | — |
 | `interface:IChartOpts@property:valAxisTitle` | unverified | — | — | — |
 | `interface:IChartOpts@property:valAxisTitleColor` | unverified | — | — | — |
 | `interface:IChartOpts@property:valAxisTitleFontFace` | unverified | — | — | — |
 | `interface:IChartOpts@property:valAxisTitleFontSize` | unverified | — | — | — |
 | `interface:IChartOpts@property:valAxisTitleRotate` | unverified | — | — | — |
-| `interface:IChartOpts@property:valGridLine` | unverified | — | — | — |
+| `interface:IChartOpts@property:valGridLine` | deliberate-difference | ChartAxisOptions.majorGridLine<br>ChartOptions.valueAxis.majorGridLine<br>ShapeLine | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps the flat PptxGenJS gridline object to the axis majorGridLine ShapeLine; minorGridLine and gridline cap remain outside this family. |
 | `interface:IChartOpts@property:valLabelFormatCode` | unverified | — | — | — |
 | `interface:IChartOpts@property:valign` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
 | `interface:IChartOpts@property:w` | unverified | — | — | — |
@@ -2049,18 +1970,18 @@ None.
 | `interface:IChartPropsAxisCat@property:catAxisLabelFontItalic` | unverified | — | — | — |
 | `interface:IChartPropsAxisCat@property:catAxisLabelFontSize` | unverified | — | — | — |
 | `interface:IChartPropsAxisCat@property:catAxisLabelFrequency` | unverified | — | — | — |
-| `interface:IChartPropsAxisCat@property:catAxisLabelPos` | unverified | — | — | — |
-| `interface:IChartPropsAxisCat@property:catAxisLabelRotate` | unverified | — | — | — |
-| `interface:IChartPropsAxisCat@property:catAxisLineColor` | unverified | — | — | — |
-| `interface:IChartPropsAxisCat@property:catAxisLineShow` | unverified | — | — | — |
-| `interface:IChartPropsAxisCat@property:catAxisLineSize` | unverified | — | — | — |
-| `interface:IChartPropsAxisCat@property:catAxisLineStyle` | unverified | — | — | — |
-| `interface:IChartPropsAxisCat@property:catAxisMajorTickMark` | unverified | — | — | — |
+| `interface:IChartPropsAxisCat@property:catAxisLabelPos` | supported | ChartAxisOptions.labelPosition<br>ChartOptions.categoryAxis.labelPosition | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes the same four explicit label-position semantics through strict nested ChartAxisOptions; nextTo remains the canonical serialized default after reopen. |
+| `interface:IChartPropsAxisCat@property:catAxisLabelRotate` | deliberate-difference | ChartAxisOptions.labelRotation<br>ChartOptions.categoryAxis.labelRotation | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native accepts only finite label rotations from -90 through 90 degrees and writes exact 60000-degree units; PptxGenJS wraps or serializes out-of-range and non-finite inputs. |
+| `interface:IChartPropsAxisCat@property:catAxisLineColor` | deliberate-difference | ChartOptions.categoryAxis.line<br>ShapeLine | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps the flat permissive PptxGenJS axis-line fields to a strict nested ShapeLine, preserves none/solid color and width intent, and uses sysDot as an intentional approximation of the distinct PptxGenJS dot preset. |
+| `interface:IChartPropsAxisCat@property:catAxisLineShow` | deliberate-difference | ChartOptions.categoryAxis.line<br>ShapeLine | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps the flat permissive PptxGenJS axis-line fields to a strict nested ShapeLine, preserves none/solid color and width intent, and uses sysDot as an intentional approximation of the distinct PptxGenJS dot preset. |
+| `interface:IChartPropsAxisCat@property:catAxisLineSize` | deliberate-difference | ChartOptions.categoryAxis.line<br>ShapeLine | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps the flat permissive PptxGenJS axis-line fields to a strict nested ShapeLine, preserves none/solid color and width intent, and uses sysDot as an intentional approximation of the distinct PptxGenJS dot preset. |
+| `interface:IChartPropsAxisCat@property:catAxisLineStyle` | deliberate-difference | ChartOptions.categoryAxis.line<br>ShapeLine | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps the flat permissive PptxGenJS axis-line fields to a strict nested ShapeLine, preserves none/solid color and width intent, and uses sysDot as an intentional approximation of the distinct PptxGenJS dot preset. |
+| `interface:IChartPropsAxisCat@property:catAxisMajorTickMark` | deliberate-difference | ChartAxisOptions<br>ChartOptions.categoryAxis.majorTickMark | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native keeps the semantic cross/inside/none/outside API but emits the canonical OOXML cross/in/none/out tokens; PptxGenJS writes inside/outside as invalid lexical values. |
 | `interface:IChartPropsAxisCat@property:catAxisMajorTimeUnit` | unverified | — | — | — |
 | `interface:IChartPropsAxisCat@property:catAxisMajorUnit` | unverified | — | — | — |
 | `interface:IChartPropsAxisCat@property:catAxisMaxVal` | unverified | — | — | — |
 | `interface:IChartPropsAxisCat@property:catAxisMinVal` | unverified | — | — | — |
-| `interface:IChartPropsAxisCat@property:catAxisMinorTickMark` | unverified | — | — | — |
+| `interface:IChartPropsAxisCat@property:catAxisMinorTickMark` | deliberate-difference | ChartAxisOptions<br>ChartOptions.categoryAxis.minorTickMark | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native keeps the semantic cross/inside/none/outside API but emits the canonical OOXML cross/in/none/out tokens; PptxGenJS writes inside/outside as invalid lexical values. |
 | `interface:IChartPropsAxisCat@property:catAxisMinorTimeUnit` | unverified | — | — | — |
 | `interface:IChartPropsAxisCat@property:catAxisMinorUnit` | unverified | — | — | — |
 | `interface:IChartPropsAxisCat@property:catAxisMultiLevelLabels` | unverified | — | — | — |
@@ -2070,7 +1991,7 @@ None.
 | `interface:IChartPropsAxisCat@property:catAxisTitleFontFace` | unverified | — | — | — |
 | `interface:IChartPropsAxisCat@property:catAxisTitleFontSize` | unverified | — | — | — |
 | `interface:IChartPropsAxisCat@property:catAxisTitleRotate` | unverified | — | — | — |
-| `interface:IChartPropsAxisCat@property:catGridLine` | unverified | — | — | — |
+| `interface:IChartPropsAxisCat@property:catGridLine` | deliberate-difference | ChartAxisOptions.majorGridLine<br>ChartOptions.categoryAxis.majorGridLine<br>ShapeLine | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps the flat PptxGenJS gridline object to the axis majorGridLine ShapeLine; minorGridLine and gridline cap remain outside this family. |
 | `interface:IChartPropsAxisCat@property:catLabelFormatCode` | unverified | — | — | — |
 | `interface:IChartPropsAxisCat@property:secondaryCatAxis` | unverified | — | — | — |
 | `interface:IChartPropsAxisCat@property:showCatAxisTitle` | unverified | — | — | — |
@@ -2086,25 +2007,25 @@ None.
 | `interface:IChartPropsAxisVal@property:valAxisLabelFontItalic` | unverified | — | — | — |
 | `interface:IChartPropsAxisVal@property:valAxisLabelFontSize` | unverified | — | — | — |
 | `interface:IChartPropsAxisVal@property:valAxisLabelFormatCode` | unverified | — | — | — |
-| `interface:IChartPropsAxisVal@property:valAxisLabelPos` | unverified | — | — | — |
-| `interface:IChartPropsAxisVal@property:valAxisLabelRotate` | unverified | — | — | — |
-| `interface:IChartPropsAxisVal@property:valAxisLineColor` | unverified | — | — | — |
-| `interface:IChartPropsAxisVal@property:valAxisLineShow` | unverified | — | — | — |
-| `interface:IChartPropsAxisVal@property:valAxisLineSize` | unverified | — | — | — |
-| `interface:IChartPropsAxisVal@property:valAxisLineStyle` | unverified | — | — | — |
+| `interface:IChartPropsAxisVal@property:valAxisLabelPos` | supported | ChartAxisOptions.labelPosition<br>ChartOptions.valueAxis.labelPosition | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes the same four explicit label-position semantics through strict nested ChartAxisOptions; nextTo remains the canonical serialized default after reopen. |
+| `interface:IChartPropsAxisVal@property:valAxisLabelRotate` | deliberate-difference | ChartAxisOptions.labelRotation<br>ChartOptions.valueAxis.labelRotation | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native accepts only finite label rotations from -90 through 90 degrees and writes exact 60000-degree units; PptxGenJS wraps or serializes out-of-range and non-finite inputs. |
+| `interface:IChartPropsAxisVal@property:valAxisLineColor` | deliberate-difference | ChartOptions.valueAxis.line<br>ShapeLine | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps the flat permissive PptxGenJS axis-line fields to a strict nested ShapeLine, preserves none/solid color and width intent, and uses sysDot as an intentional approximation of the distinct PptxGenJS dot preset. |
+| `interface:IChartPropsAxisVal@property:valAxisLineShow` | deliberate-difference | ChartOptions.valueAxis.line<br>ShapeLine | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps the flat permissive PptxGenJS axis-line fields to a strict nested ShapeLine, preserves none/solid color and width intent, and uses sysDot as an intentional approximation of the distinct PptxGenJS dot preset. |
+| `interface:IChartPropsAxisVal@property:valAxisLineSize` | deliberate-difference | ChartOptions.valueAxis.line<br>ShapeLine | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps the flat permissive PptxGenJS axis-line fields to a strict nested ShapeLine, preserves none/solid color and width intent, and uses sysDot as an intentional approximation of the distinct PptxGenJS dot preset. |
+| `interface:IChartPropsAxisVal@property:valAxisLineStyle` | deliberate-difference | ChartOptions.valueAxis.line<br>ShapeLine | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps the flat permissive PptxGenJS axis-line fields to a strict nested ShapeLine, preserves none/solid color and width intent, and uses sysDot as an intentional approximation of the distinct PptxGenJS dot preset. |
 | `interface:IChartPropsAxisVal@property:valAxisLogScaleBase` | unverified | — | — | — |
-| `interface:IChartPropsAxisVal@property:valAxisMajorTickMark` | unverified | — | — | — |
+| `interface:IChartPropsAxisVal@property:valAxisMajorTickMark` | deliberate-difference | ChartAxisOptions<br>ChartOptions.valueAxis.majorTickMark | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native keeps the semantic cross/inside/none/outside API but emits the canonical OOXML cross/in/none/out tokens; PptxGenJS writes inside/outside as invalid lexical values. |
 | `interface:IChartPropsAxisVal@property:valAxisMajorUnit` | unverified | — | — | — |
 | `interface:IChartPropsAxisVal@property:valAxisMaxVal` | unverified | — | — | — |
 | `interface:IChartPropsAxisVal@property:valAxisMinVal` | unverified | — | — | — |
-| `interface:IChartPropsAxisVal@property:valAxisMinorTickMark` | unverified | — | — | — |
+| `interface:IChartPropsAxisVal@property:valAxisMinorTickMark` | deliberate-difference | ChartAxisOptions<br>ChartOptions.valueAxis.minorTickMark | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native keeps the semantic cross/inside/none/outside API but emits the canonical OOXML cross/in/none/out tokens; PptxGenJS writes inside/outside as invalid lexical values. |
 | `interface:IChartPropsAxisVal@property:valAxisOrientation` | unverified | — | — | — |
 | `interface:IChartPropsAxisVal@property:valAxisTitle` | unverified | — | — | — |
 | `interface:IChartPropsAxisVal@property:valAxisTitleColor` | unverified | — | — | — |
 | `interface:IChartPropsAxisVal@property:valAxisTitleFontFace` | unverified | — | — | — |
 | `interface:IChartPropsAxisVal@property:valAxisTitleFontSize` | unverified | — | — | — |
 | `interface:IChartPropsAxisVal@property:valAxisTitleRotate` | unverified | — | — | — |
-| `interface:IChartPropsAxisVal@property:valGridLine` | unverified | — | — | — |
+| `interface:IChartPropsAxisVal@property:valGridLine` | deliberate-difference | ChartAxisOptions.majorGridLine<br>ChartOptions.valueAxis.majorGridLine<br>ShapeLine | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps the flat PptxGenJS gridline object to the axis majorGridLine ShapeLine; minorGridLine and gridline cap remain outside this family. |
 | `interface:IChartPropsAxisVal@property:valLabelFormatCode` | unverified | — | — | — |
 | `interface:IChartPropsFillLine@property:border` | deliberate-difference | ChartAreaOptions.line<br>ChartModel.replaceDefinition<br>ChartOptions.plotArea | code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:scripts/smoke-npm-package.mjs<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers plot-area none/solid lines, sRGB/scheme colors, transparency, width, and eight dash styles through a strict ShapeLine; PptxGenJS ignores the declared border type, substitutes defaults for falsy values, and permits invalid widths. |
 | `interface:IChartPropsFillLine@property:fill` | deliberate-difference | ChartAreaOptions.fill<br>ChartModel.replaceDefinition<br>ChartOptions.plotArea | code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:scripts/smoke-npm-package.mjs<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers plot-area none/solid fills, sRGB/scheme colors, and transparency through a strict ShapeFill; PptxGenJS collapses several explicit none and zero-alpha forms and permits malformed or out-of-range values. |
@@ -2113,9 +2034,9 @@ None.
 | `interface:OptsChartData@property:sizes` | supported | ChartSeriesInput.sizes | code:packages/model/src/chart.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native accepts bubble sizes explicitly on ChartSeriesInput and preserves them through chart OOXML and workbook reopen. |
 | `interface:OptsChartData@property:values` | supported | ChartSeriesInput.values | code:packages/model/src/chart.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native requires and preserves numeric chart series values through ChartSeriesInput and the embedded workbook. |
 | `interface:OptsChartGridLine@property:cap` | unverified | — | — | — |
-| `interface:OptsChartGridLine@property:color` | unverified | — | — | — |
-| `interface:OptsChartGridLine@property:size` | unverified | — | — | — |
-| `interface:OptsChartGridLine@property:style` | unverified | — | — | — |
+| `interface:OptsChartGridLine@property:color` | deliberate-difference | ChartAxisOptions.majorGridLine<br>ShapeLine.color | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native replaces the permissive PptxGenJS gridline field with a strict nested ShapeLine; the separately declared cap field is intentionally not closed by this mapping. |
+| `interface:OptsChartGridLine@property:size` | deliberate-difference | ChartAxisOptions.majorGridLine<br>ShapeLine.width | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native replaces the permissive PptxGenJS gridline field with a strict nested ShapeLine; the separately declared cap field is intentionally not closed by this mapping. |
+| `interface:OptsChartGridLine@property:style` | deliberate-difference | ChartAxisOptions.majorGridLine<br>ShapeLine.dash | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native replaces the permissive PptxGenJS gridline field with a strict nested ShapeLine; the separately declared cap field is intentionally not closed by this mapping. |
 | `interface:PresSlide@property:addChart` | unverified | — | — | — |
 | `method:Slide#addChart` | deliberate-difference | ChartModel<br>PptxDocument.addChart<br>SlideModel.addChart | code:packages/model/src/slide.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS synchronously returns the chainable Slide; native chart creation is asynchronous and returns the created ChartModel after transactional workbook and relationship commits. |
 | `union:CHART_NAME#area` | supported | CHART_TYPES<br>ChartType | code:packages/model/src/chart.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes and serializes the same legal area chart type through the frozen CHART_TYPES catalog and strict ChartType union. |
@@ -2127,10 +2048,10 @@ None.
 | `union:CHART_NAME#pie` | supported | CHART_TYPES<br>ChartType | code:packages/model/src/chart.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes and serializes the same legal pie chart type through the frozen CHART_TYPES catalog and strict ChartType union. |
 | `union:CHART_NAME#radar` | supported | CHART_TYPES<br>ChartType | code:packages/model/src/chart.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes and serializes the same legal radar chart type through the frozen CHART_TYPES catalog and strict ChartType union. |
 | `union:CHART_NAME#scatter` | supported | CHART_TYPES<br>ChartType | code:packages/model/src/chart.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes and serializes the same legal scatter chart type through the frozen CHART_TYPES catalog and strict ChartType union. |
-| `union:ChartAxisTickMark#cross` | unverified | — | — | — |
-| `union:ChartAxisTickMark#inside` | unverified | — | — | — |
-| `union:ChartAxisTickMark#none` | unverified | — | — | — |
-| `union:ChartAxisTickMark#outside` | unverified | — | — | — |
+| `union:ChartAxisTickMark#cross` | supported | ChartAxisOptions.majorTickMark<br>ChartAxisOptions.minorTickMark | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes, serializes, and reopens the same legal cross tick-mark value. |
+| `union:ChartAxisTickMark#inside` | deliberate-difference | ChartAxisOptions.majorTickMark<br>ChartAxisOptions.minorTickMark | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native keeps the semantic cross/inside/none/outside API but emits the canonical OOXML cross/in/none/out tokens; PptxGenJS writes inside/outside as invalid lexical values. |
+| `union:ChartAxisTickMark#none` | supported | ChartAxisOptions.majorTickMark<br>ChartAxisOptions.minorTickMark | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes and serializes the same legal none tick-mark value; none becomes the canonical absence after reopen. |
+| `union:ChartAxisTickMark#outside` | deliberate-difference | ChartAxisOptions.majorTickMark<br>ChartAxisOptions.minorTickMark | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native keeps the semantic cross/inside/none/outside API but emits the canonical OOXML cross/in/none/out tokens; PptxGenJS writes inside/outside as invalid lexical values. |
 | `union:ChartLineCap#flat` | unverified | — | — | — |
 | `union:ChartLineCap#round` | unverified | — | — | — |
 | `union:ChartLineCap#square` | unverified | — | — | — |
@@ -2231,13 +2152,13 @@ None.
 | `union:interface:IChartOpts@property:bullet@path:bullet.type#number` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
 | `union:interface:IChartOpts@property:catAxisCrossesAt#autoZero` | unverified | — | — | — |
 | `union:interface:IChartOpts@property:catAxisCrossesAt#number` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:catAxisLabelPos#high` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:catAxisLabelPos#low` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:catAxisLabelPos#nextTo` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:catAxisLabelPos#none` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:catAxisLineStyle#dash` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:catAxisLineStyle#dot` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:catAxisLineStyle#solid` | unverified | — | — | — |
+| `union:interface:IChartOpts@property:catAxisLabelPos#high` | supported | ChartAxisOptions.labelPosition<br>ChartOptions.categoryAxis.labelPosition | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes the same four explicit label-position semantics through strict nested ChartAxisOptions; nextTo remains the canonical serialized default after reopen. |
+| `union:interface:IChartOpts@property:catAxisLabelPos#low` | supported | ChartAxisOptions.labelPosition<br>ChartOptions.categoryAxis.labelPosition | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes the same four explicit label-position semantics through strict nested ChartAxisOptions; nextTo remains the canonical serialized default after reopen. |
+| `union:interface:IChartOpts@property:catAxisLabelPos#nextTo` | supported | ChartAxisOptions.labelPosition<br>ChartOptions.categoryAxis.labelPosition | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes the same four explicit label-position semantics through strict nested ChartAxisOptions; nextTo remains the canonical serialized default after reopen. |
+| `union:interface:IChartOpts@property:catAxisLabelPos#none` | supported | ChartAxisOptions.labelPosition<br>ChartOptions.categoryAxis.labelPosition | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes the same four explicit label-position semantics through strict nested ChartAxisOptions; nextTo remains the canonical serialized default after reopen. |
+| `union:interface:IChartOpts@property:catAxisLineStyle#dash` | deliberate-difference | ChartOptions.categoryAxis.line<br>ShapeLine.dash | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps the flat PptxGenJS solid/dash/dot style domain to strict ShapeLine dash semantics; dash and solid remain exact, while dot uses the distinct sysDot preset as an intentional approximation. |
+| `union:interface:IChartOpts@property:catAxisLineStyle#dot` | deliberate-difference | ChartOptions.categoryAxis.line<br>ShapeLine.dash | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps the flat PptxGenJS solid/dash/dot style domain to strict ShapeLine dash semantics; dash and solid remain exact, while dot uses the distinct sysDot preset as an intentional approximation. |
+| `union:interface:IChartOpts@property:catAxisLineStyle#solid` | deliberate-difference | ChartOptions.categoryAxis.line<br>ShapeLine.dash | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps the flat PptxGenJS solid/dash/dot style domain to strict ShapeLine dash semantics; dash and solid remain exact, while dot uses the distinct sysDot preset as an intentional approximation. |
 | `union:interface:IChartOpts@property:dataLabelFormatScatter#XY` | unverified | — | — | — |
 | `union:interface:IChartOpts@property:dataLabelFormatScatter#custom` | unverified | — | — | — |
 | `union:interface:IChartOpts@property:dataLabelFormatScatter#customXY` | unverified | — | — | — |
@@ -2316,22 +2237,22 @@ None.
 | `union:interface:IChartOpts@property:valAxisDisplayUnit#tenThousands` | unverified | — | — | — |
 | `union:interface:IChartOpts@property:valAxisDisplayUnit#thousands` | unverified | — | — | — |
 | `union:interface:IChartOpts@property:valAxisDisplayUnit#trillions` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:valAxisLabelPos#high` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:valAxisLabelPos#low` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:valAxisLabelPos#nextTo` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:valAxisLabelPos#none` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:valAxisLineStyle#dash` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:valAxisLineStyle#dot` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:valAxisLineStyle#solid` | unverified | — | — | — |
+| `union:interface:IChartOpts@property:valAxisLabelPos#high` | supported | ChartAxisOptions.labelPosition<br>ChartOptions.valueAxis.labelPosition | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes the same four explicit label-position semantics through strict nested ChartAxisOptions; nextTo remains the canonical serialized default after reopen. |
+| `union:interface:IChartOpts@property:valAxisLabelPos#low` | supported | ChartAxisOptions.labelPosition<br>ChartOptions.valueAxis.labelPosition | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes the same four explicit label-position semantics through strict nested ChartAxisOptions; nextTo remains the canonical serialized default after reopen. |
+| `union:interface:IChartOpts@property:valAxisLabelPos#nextTo` | supported | ChartAxisOptions.labelPosition<br>ChartOptions.valueAxis.labelPosition | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes the same four explicit label-position semantics through strict nested ChartAxisOptions; nextTo remains the canonical serialized default after reopen. |
+| `union:interface:IChartOpts@property:valAxisLabelPos#none` | supported | ChartAxisOptions.labelPosition<br>ChartOptions.valueAxis.labelPosition | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes the same four explicit label-position semantics through strict nested ChartAxisOptions; nextTo remains the canonical serialized default after reopen. |
+| `union:interface:IChartOpts@property:valAxisLineStyle#dash` | deliberate-difference | ChartOptions.valueAxis.line<br>ShapeLine.dash | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps the flat PptxGenJS solid/dash/dot style domain to strict ShapeLine dash semantics; dash and solid remain exact, while dot uses the distinct sysDot preset as an intentional approximation. |
+| `union:interface:IChartOpts@property:valAxisLineStyle#dot` | deliberate-difference | ChartOptions.valueAxis.line<br>ShapeLine.dash | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps the flat PptxGenJS solid/dash/dot style domain to strict ShapeLine dash semantics; dash and solid remain exact, while dot uses the distinct sysDot preset as an intentional approximation. |
+| `union:interface:IChartOpts@property:valAxisLineStyle#solid` | deliberate-difference | ChartOptions.valueAxis.line<br>ShapeLine.dash | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps the flat PptxGenJS solid/dash/dot style domain to strict ShapeLine dash semantics; dash and solid remain exact, while dot uses the distinct sysDot preset as an intentional approximation. |
 | `union:interface:IChartPropsAxisCat@property:catAxisCrossesAt#autoZero` | unverified | — | — | — |
 | `union:interface:IChartPropsAxisCat@property:catAxisCrossesAt#number` | unverified | — | — | — |
-| `union:interface:IChartPropsAxisCat@property:catAxisLabelPos#high` | unverified | — | — | — |
-| `union:interface:IChartPropsAxisCat@property:catAxisLabelPos#low` | unverified | — | — | — |
-| `union:interface:IChartPropsAxisCat@property:catAxisLabelPos#nextTo` | unverified | — | — | — |
-| `union:interface:IChartPropsAxisCat@property:catAxisLabelPos#none` | unverified | — | — | — |
-| `union:interface:IChartPropsAxisCat@property:catAxisLineStyle#dash` | unverified | — | — | — |
-| `union:interface:IChartPropsAxisCat@property:catAxisLineStyle#dot` | unverified | — | — | — |
-| `union:interface:IChartPropsAxisCat@property:catAxisLineStyle#solid` | unverified | — | — | — |
+| `union:interface:IChartPropsAxisCat@property:catAxisLabelPos#high` | supported | ChartAxisOptions.labelPosition<br>ChartOptions.categoryAxis.labelPosition | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes the same four explicit label-position semantics through strict nested ChartAxisOptions; nextTo remains the canonical serialized default after reopen. |
+| `union:interface:IChartPropsAxisCat@property:catAxisLabelPos#low` | supported | ChartAxisOptions.labelPosition<br>ChartOptions.categoryAxis.labelPosition | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes the same four explicit label-position semantics through strict nested ChartAxisOptions; nextTo remains the canonical serialized default after reopen. |
+| `union:interface:IChartPropsAxisCat@property:catAxisLabelPos#nextTo` | supported | ChartAxisOptions.labelPosition<br>ChartOptions.categoryAxis.labelPosition | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes the same four explicit label-position semantics through strict nested ChartAxisOptions; nextTo remains the canonical serialized default after reopen. |
+| `union:interface:IChartPropsAxisCat@property:catAxisLabelPos#none` | supported | ChartAxisOptions.labelPosition<br>ChartOptions.categoryAxis.labelPosition | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes the same four explicit label-position semantics through strict nested ChartAxisOptions; nextTo remains the canonical serialized default after reopen. |
+| `union:interface:IChartPropsAxisCat@property:catAxisLineStyle#dash` | deliberate-difference | ChartOptions.categoryAxis.line<br>ShapeLine.dash | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps the flat PptxGenJS solid/dash/dot style domain to strict ShapeLine dash semantics; dash and solid remain exact, while dot uses the distinct sysDot preset as an intentional approximation. |
+| `union:interface:IChartPropsAxisCat@property:catAxisLineStyle#dot` | deliberate-difference | ChartOptions.categoryAxis.line<br>ShapeLine.dash | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps the flat PptxGenJS solid/dash/dot style domain to strict ShapeLine dash semantics; dash and solid remain exact, while dot uses the distinct sysDot preset as an intentional approximation. |
+| `union:interface:IChartPropsAxisCat@property:catAxisLineStyle#solid` | deliberate-difference | ChartOptions.categoryAxis.line<br>ShapeLine.dash | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps the flat PptxGenJS solid/dash/dot style domain to strict ShapeLine dash semantics; dash and solid remain exact, while dot uses the distinct sysDot preset as an intentional approximation. |
 | `union:interface:IChartPropsAxisVal@property:valAxisCrossesAt#autoZero` | unverified | — | — | — |
 | `union:interface:IChartPropsAxisVal@property:valAxisCrossesAt#number` | unverified | — | — | — |
 | `union:interface:IChartPropsAxisVal@property:valAxisDisplayUnit#billions` | unverified | — | — | — |
@@ -2343,19 +2264,19 @@ None.
 | `union:interface:IChartPropsAxisVal@property:valAxisDisplayUnit#tenThousands` | unverified | — | — | — |
 | `union:interface:IChartPropsAxisVal@property:valAxisDisplayUnit#thousands` | unverified | — | — | — |
 | `union:interface:IChartPropsAxisVal@property:valAxisDisplayUnit#trillions` | unverified | — | — | — |
-| `union:interface:IChartPropsAxisVal@property:valAxisLabelPos#high` | unverified | — | — | — |
-| `union:interface:IChartPropsAxisVal@property:valAxisLabelPos#low` | unverified | — | — | — |
-| `union:interface:IChartPropsAxisVal@property:valAxisLabelPos#nextTo` | unverified | — | — | — |
-| `union:interface:IChartPropsAxisVal@property:valAxisLabelPos#none` | unverified | — | — | — |
-| `union:interface:IChartPropsAxisVal@property:valAxisLineStyle#dash` | unverified | — | — | — |
-| `union:interface:IChartPropsAxisVal@property:valAxisLineStyle#dot` | unverified | — | — | — |
-| `union:interface:IChartPropsAxisVal@property:valAxisLineStyle#solid` | unverified | — | — | — |
+| `union:interface:IChartPropsAxisVal@property:valAxisLabelPos#high` | supported | ChartAxisOptions.labelPosition<br>ChartOptions.valueAxis.labelPosition | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes the same four explicit label-position semantics through strict nested ChartAxisOptions; nextTo remains the canonical serialized default after reopen. |
+| `union:interface:IChartPropsAxisVal@property:valAxisLabelPos#low` | supported | ChartAxisOptions.labelPosition<br>ChartOptions.valueAxis.labelPosition | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes the same four explicit label-position semantics through strict nested ChartAxisOptions; nextTo remains the canonical serialized default after reopen. |
+| `union:interface:IChartPropsAxisVal@property:valAxisLabelPos#nextTo` | supported | ChartAxisOptions.labelPosition<br>ChartOptions.valueAxis.labelPosition | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes the same four explicit label-position semantics through strict nested ChartAxisOptions; nextTo remains the canonical serialized default after reopen. |
+| `union:interface:IChartPropsAxisVal@property:valAxisLabelPos#none` | supported | ChartAxisOptions.labelPosition<br>ChartOptions.valueAxis.labelPosition | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes the same four explicit label-position semantics through strict nested ChartAxisOptions; nextTo remains the canonical serialized default after reopen. |
+| `union:interface:IChartPropsAxisVal@property:valAxisLineStyle#dash` | deliberate-difference | ChartOptions.valueAxis.line<br>ShapeLine.dash | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps the flat PptxGenJS solid/dash/dot style domain to strict ShapeLine dash semantics; dash and solid remain exact, while dot uses the distinct sysDot preset as an intentional approximation. |
+| `union:interface:IChartPropsAxisVal@property:valAxisLineStyle#dot` | deliberate-difference | ChartOptions.valueAxis.line<br>ShapeLine.dash | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps the flat PptxGenJS solid/dash/dot style domain to strict ShapeLine dash semantics; dash and solid remain exact, while dot uses the distinct sysDot preset as an intentional approximation. |
+| `union:interface:IChartPropsAxisVal@property:valAxisLineStyle#solid` | deliberate-difference | ChartOptions.valueAxis.line<br>ShapeLine.dash | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps the flat PptxGenJS solid/dash/dot style domain to strict ShapeLine dash semantics; dash and solid remain exact, while dot uses the distinct sysDot preset as an intentional approximation. |
 | `union:interface:OptsChartData@property:labels#string[]` | deliberate-difference | ChartSeriesInput.categories | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-definition.internal.ts<br>code:packages/model/src/chart-definition.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps the legal flat string label form to explicit ChartSeriesInput.categories and preserves it in chart formulas and workbook cells. |
 | `union:interface:OptsChartData@property:labels#string[][]` | unverified | — | — | — |
-| `union:interface:OptsChartGridLine@property:style#dash` | unverified | — | — | — |
-| `union:interface:OptsChartGridLine@property:style#dot` | unverified | — | — | — |
-| `union:interface:OptsChartGridLine@property:style#none` | unverified | — | — | — |
-| `union:interface:OptsChartGridLine@property:style#solid` | unverified | — | — | — |
+| `union:interface:OptsChartGridLine@property:style#dash` | deliberate-difference | ChartAxisOptions.majorGridLine<br>ShapeLine | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps the PptxGenJS solid/dash/dot/none gridline styles to strict ShapeLine state, uses sysDot as an intentional approximation of the distinct dot preset, and represents none explicitly. |
+| `union:interface:OptsChartGridLine@property:style#dot` | deliberate-difference | ChartAxisOptions.majorGridLine<br>ShapeLine | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps the PptxGenJS solid/dash/dot/none gridline styles to strict ShapeLine state, uses sysDot as an intentional approximation of the distinct dot preset, and represents none explicitly. |
+| `union:interface:OptsChartGridLine@property:style#none` | deliberate-difference | ChartAxisOptions.majorGridLine<br>ShapeLine | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps the PptxGenJS solid/dash/dot/none gridline styles to strict ShapeLine state, uses sysDot as an intentional approximation of the distinct dot preset, and represents none explicitly. |
+| `union:interface:OptsChartGridLine@property:style#solid` | deliberate-difference | ChartAxisOptions.majorGridLine<br>ShapeLine | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps the PptxGenJS solid/dash/dot/none gridline styles to strict ShapeLine state, uses sysDot as an intentional approximation of the distinct dot preset, and represents none explicitly. |
 | `union:method:Slide#addChart@path:type#CHART_NAME` | supported | ChartType<br>PptxDocument.addChart<br>SlideModel.addChart | code:packages/model/src/slide.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native accepts the same nine legal single-chart type values through strict PptxDocument and SlideModel addChart overloads. |
 | `union:method:Slide#addChart@path:type#IChartMulti[]` | deliberate-difference | ChartGroupInput[]<br>PptxDocument.addChart<br>SlideModel.addChart | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-definition.internal.ts<br>code:packages/model/src/chart-definition.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers combination charts with readonly ChartGroupInput arrays instead of the permissive PptxGenJS IChartMulti array shape. |
 

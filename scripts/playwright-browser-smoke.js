@@ -5704,6 +5704,34 @@ async (page) => {
                   width: 1,
                 },
               },
+              categoryAxis: {
+                visible: false,
+                labelPosition: 'high',
+                labelRotation: -45,
+                line: { kind: 'none' },
+                majorGridLine: {
+                  kind: 'line',
+                  color: { kind: 'srgb', value: '667788' },
+                  width: 0.75,
+                  dash: 'sysDot',
+                },
+                majorTickMark: 'inside',
+                minorTickMark: 'outside',
+              },
+              valueAxis: {
+                visible: false,
+                labelPosition: 'none',
+                labelRotation: 45,
+                line: {
+                  kind: 'line',
+                  color: { kind: 'srgb', value: '778899' },
+                  width: 1.25,
+                  dash: 'dash',
+                },
+                majorGridLine: { kind: 'none' },
+                majorTickMark: 'cross',
+                minorTickMark: 'none',
+              },
             },
           });
         }
@@ -5782,10 +5810,45 @@ async (page) => {
         && chartAreaFillLineState.plotArea.line.color.kind === 'scheme'
         && chartAreaFillLineState.plotArea.line.color.value === 'accent1'
         && chartAreaFillLineState.plotArea.line.width === 1;
+      const chartAxisFoundationXml = reopenedAreaChart?.xml ?? '';
+      const chartAxisFoundation = chartAreaFillLineState?.categoryAxis?.visible === false
+        && chartAreaFillLineState.categoryAxis.labelPosition === 'high'
+        && chartAreaFillLineState.categoryAxis.labelRotation === -45
+        && chartAreaFillLineState.categoryAxis.line?.kind === 'none'
+        && chartAreaFillLineState.categoryAxis.majorGridLine?.kind === 'line'
+        && chartAreaFillLineState.categoryAxis.majorGridLine.color.kind === 'srgb'
+        && chartAreaFillLineState.categoryAxis.majorGridLine.color.value === '667788'
+        && chartAreaFillLineState.categoryAxis.majorGridLine.width === 0.75
+        && chartAreaFillLineState.categoryAxis.majorGridLine.dash === 'sysDot'
+        && chartAreaFillLineState.categoryAxis.majorTickMark === 'inside'
+        && chartAreaFillLineState.categoryAxis.minorTickMark === 'outside'
+        && chartAreaFillLineState.valueAxis?.visible === false
+        && chartAreaFillLineState.valueAxis.labelPosition === 'none'
+        && chartAreaFillLineState.valueAxis.labelRotation === 45
+        && chartAreaFillLineState.valueAxis.line?.kind === 'line'
+        && chartAreaFillLineState.valueAxis.line.color.kind === 'srgb'
+        && chartAreaFillLineState.valueAxis.line.color.value === '778899'
+        && chartAreaFillLineState.valueAxis.line.width === 1.25
+        && chartAreaFillLineState.valueAxis.line.dash === 'dash'
+        && chartAreaFillLineState.valueAxis.majorGridLine?.kind === 'none'
+        && chartAreaFillLineState.valueAxis.majorTickMark === 'cross'
+        && chartAreaFillLineState.valueAxis.minorTickMark === undefined
+        && chartAxisFoundationXml.includes('<c:delete val="1"/>')
+        && chartAxisFoundationXml.includes('<c:tickLblPos val="high"/>')
+        && chartAxisFoundationXml.includes('<c:tickLblPos val="none"/>')
+        && chartAxisFoundationXml.includes('<c:majorTickMark val="in"/>')
+        && chartAxisFoundationXml.includes('<c:minorTickMark val="out"/>')
+        && chartAxisFoundationXml.includes('<c:majorTickMark val="cross"/>')
+        && chartAxisFoundationXml.includes('<c:minorTickMark val="none"/>')
+        && chartAxisFoundationXml.includes('rot="-2700000"')
+        && chartAxisFoundationXml.includes('rot="2700000"')
+        && chartAxisFoundationXml.includes('<a:prstDash val="sysDot"/>')
+        && chartAxisFoundationXml.includes('<a:prstDash val="dash"/>');
       const nativeCharts = reopenedCharts.length === 10
         && api.CHART_TYPES.every((type) => reopenedChartTypes.has(type))
         && chartWorkbookResults.every(Boolean)
         && chartAreaFillLine
+        && chartAxisFoundation
         && chartIdsUnique
         && chartOrphanCount === 0
         && !chartDocument.opcPackage.hasPart(duplicateChartPartUri)

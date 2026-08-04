@@ -3738,6 +3738,290 @@ describe('importPptxGenJS', () => {
     expect(imported.opcPackage.requirePart(bar.workbookPartUri!).bytes).toEqual(workbookBefore);
   });
 
+  it('compares chart axis line gridline visibility label and tick semantics', async () => {
+    const labelPositions = ['high', 'low', 'nextTo', 'none'] as const;
+    const tickMarks = ['cross', 'inside', 'none', 'outside'] as const;
+    const lineStyles = ['solid', 'dash', 'dot', 'solid'] as const;
+    const gridStyles = ['solid', 'dash', 'dot', 'none'] as const;
+    const rotations = [-90, -45, 45, 90] as const;
+    const generated = new PptxGenJS();
+    const generatedSlide = generated.addSlide();
+    for (const index of labelPositions.keys()) {
+      const reverse = labelPositions.length - index - 1;
+      generatedSlide.addChart(generated.ChartType.bar!, [{
+        name: `Series ${index + 1}`,
+        labels: ['Q1', 'Q2'],
+        values: [10 + index, 20 + index],
+      }], {
+        x: 0.5,
+        y: 0.5,
+        w: 5,
+        h: 3,
+        catAxisHidden: index % 2 === 0,
+        catAxisLabelPos: labelPositions[index]!,
+        catAxisLabelRotate: rotations[index]!,
+        catAxisMajorTickMark: tickMarks[index]!,
+        catAxisMinorTickMark: tickMarks[reverse]!,
+        catAxisLineColor: '112233',
+        catAxisLineShow: index !== 3,
+        catAxisLineSize: index + 1,
+        catAxisLineStyle: lineStyles[index]!,
+        catGridLine: {
+          color: '445566',
+          size: 0.5 + index * 0.25,
+          style: gridStyles[index]!,
+        },
+        valAxisHidden: index % 2 !== 0,
+        valAxisLabelPos: labelPositions[reverse]!,
+        valAxisLabelRotate: rotations[reverse]!,
+        valAxisMajorTickMark: tickMarks[reverse]!,
+        valAxisMinorTickMark: tickMarks[index]!,
+        valAxisLineColor: '778899',
+        valAxisLineShow: index !== 0,
+        valAxisLineSize: index + 1.5,
+        valAxisLineStyle: lineStyles[reverse]!,
+        valGridLine: {
+          color: 'AABBCC',
+          size: 0.75 + index * 0.25,
+          style: gridStyles[reverse]!,
+        },
+      });
+    }
+
+    const imported = await openPptxGenJSPublicOutput(generated);
+    const importedCharts = imported.slides[0]!.shapes.filter(
+      (shape): shape is ChartModel => shape instanceof ChartModel,
+    );
+    expect(importedCharts).toHaveLength(4);
+    const axisFragment = (xml: string, name: 'catAx' | 'valAx') => {
+      const fragment = xml.match(new RegExp(`<c:${name}>[\\s\\S]*?</c:${name}>`, 'u'))?.[0];
+      expect(fragment).toBeDefined();
+      return fragment!;
+    };
+    const axisShapeFragment = (xml: string) => {
+      const fragment = xml.match(
+        /<c:tickLblPos[^>]*\/>\s*<c:spPr>([\s\S]*?)<\/c:spPr>/u,
+      )?.[1];
+      expect(fragment).toBeDefined();
+      return fragment!;
+    };
+    const gridLineFragment = (xml: string) =>
+      xml.match(/<c:majorGridlines>([\s\S]*?)<\/c:majorGridlines>/u)?.[1];
+
+    for (const [index, chart] of importedCharts.entries()) {
+      const reverse = labelPositions.length - index - 1;
+      const categoryXml = axisFragment(chart.xml, 'catAx');
+      const valueXml = axisFragment(chart.xml, 'valAx');
+      expect(categoryXml).toContain(`<c:delete val="${index % 2 === 0 ? 1 : 0}"/>`);
+      expect(valueXml).toContain(`<c:delete val="${index % 2 !== 0 ? 1 : 0}"/>`);
+      expect(categoryXml).toContain(`<c:tickLblPos val="${labelPositions[index]}"/>`);
+      expect(valueXml).toContain(`<c:tickLblPos val="${labelPositions[reverse]}"/>`);
+      expect(categoryXml).toContain(`<c:majorTickMark val="${tickMarks[index]}"/>`);
+      expect(categoryXml).toContain(`<c:minorTickMark val="${tickMarks[reverse]}"/>`);
+      expect(valueXml).toContain(`<c:majorTickMark val="${tickMarks[reverse]}"/>`);
+      expect(valueXml).toContain(`<c:minorTickMark val="${tickMarks[index]}"/>`);
+      expect(categoryXml).toContain(`rot="${rotations[index]! * 60_000}"`);
+      expect(valueXml).toContain(`rot="${rotations[reverse]! * 60_000}"`);
+
+      const categoryShape = axisShapeFragment(categoryXml);
+      const valueShape = axisShapeFragment(valueXml);
+      expect(categoryShape).toContain(`<a:ln w="${(index + 1) * 12_700}"`);
+      expect(valueShape).toContain(`<a:ln w="${(index + 1.5) * 12_700}"`);
+      expect(categoryShape).toContain(`<a:prstDash val="${lineStyles[index]}"/>`);
+      expect(valueShape).toContain(`<a:prstDash val="${lineStyles[reverse]}"/>`);
+      expect(categoryShape).toContain(index === 3 ? '<a:noFill/>' : 'val="112233"');
+      expect(valueShape).toContain(index === 0 ? '<a:noFill/>' : 'val="778899"');
+
+      const categoryGrid = gridLineFragment(categoryXml);
+      const valueGrid = gridLineFragment(valueXml);
+      if (gridStyles[index] === 'none') expect(categoryGrid).toBeUndefined();
+      else {
+        expect(categoryGrid).toContain(
+          `<a:ln w="${(0.5 + index * 0.25) * 12_700}"`,
+        );
+        expect(categoryGrid).toContain('val="445566"');
+        expect(categoryGrid).toContain(`<a:prstDash val="${gridStyles[index]}"/>`);
+      }
+      if (gridStyles[reverse] === 'none') expect(valueGrid).toBeUndefined();
+      else {
+        expect(valueGrid).toContain(
+          `<a:ln w="${(0.75 + index * 0.25) * 12_700}"`,
+        );
+        expect(valueGrid).toContain('val="AABBCC"');
+        expect(valueGrid).toContain(`<a:prstDash val="${gridStyles[reverse]}"/>`);
+      }
+
+      const expectedCategoryPosition = labelPositions[index] === 'nextTo'
+        ? undefined
+        : labelPositions[index];
+      const expectedValuePosition = labelPositions[reverse] === 'nextTo'
+        ? undefined
+        : labelPositions[reverse];
+      expect(chart.definition?.options.categoryAxis).toMatchObject({
+        ...(index % 2 === 0 ? { visible: false } : {}),
+        ...(expectedCategoryPosition ? { labelPosition: expectedCategoryPosition } : {}),
+        labelRotation: rotations[index],
+      });
+      expect(chart.definition?.options.categoryAxis?.labelPosition)
+        .toBe(expectedCategoryPosition);
+      expect(chart.definition?.options.valueAxis).toMatchObject({
+        ...(index % 2 !== 0 ? { visible: false } : {}),
+        ...(expectedValuePosition ? { labelPosition: expectedValuePosition } : {}),
+        labelRotation: rotations[reverse],
+      });
+      expect(chart.definition?.options.valueAxis?.labelPosition).toBe(expectedValuePosition);
+    }
+
+    const native = PptxDocument.create();
+    const nativeSlide = native.addSlide();
+    for (const index of labelPositions.keys()) {
+      const reverse = labelPositions.length - index - 1;
+      const nativeChart = await nativeSlide.addChart('bar', [{
+        name: `Native ${index + 1}`,
+        categories: ['Q1', 'Q2'],
+        values: [10 + index, 20 + index],
+      }]);
+      const categoryGridStyle = gridStyles[index]!;
+      const valueGridStyle = gridStyles[reverse]!;
+      const categoryLineStyle = lineStyles[index]!;
+      const valueLineStyle = lineStyles[reverse]!;
+      await nativeChart.replaceDefinition({
+        groups: nativeChart.definition!.groups,
+        options: {
+          categoryAxis: {
+            visible: index % 2 !== 0,
+            labelPosition: labelPositions[index]!,
+            labelRotation: rotations[index]!,
+            line: index === 3
+              ? { kind: 'none' }
+              : {
+                  kind: 'line',
+                  color: { kind: 'srgb', value: '112233' },
+                  width: index + 1,
+                  dash: categoryLineStyle === 'dot' ? 'sysDot' : categoryLineStyle,
+                },
+            majorGridLine: categoryGridStyle === 'none'
+              ? { kind: 'none' }
+              : {
+                  kind: 'line',
+                  color: { kind: 'srgb', value: '445566' },
+                  width: 0.5 + index * 0.25,
+                  dash: categoryGridStyle === 'dot' ? 'sysDot' : categoryGridStyle,
+                },
+            majorTickMark: tickMarks[index]!,
+            minorTickMark: tickMarks[reverse]!,
+          },
+          valueAxis: {
+            visible: index % 2 === 0,
+            labelPosition: labelPositions[reverse]!,
+            labelRotation: rotations[reverse]!,
+            line: index === 0
+              ? { kind: 'none' }
+              : {
+                  kind: 'line',
+                  color: { kind: 'srgb', value: '778899' },
+                  width: index + 1.5,
+                  dash: valueLineStyle === 'dot' ? 'sysDot' : valueLineStyle,
+                },
+            majorGridLine: valueGridStyle === 'none'
+              ? { kind: 'none' }
+              : {
+                  kind: 'line',
+                  color: { kind: 'srgb', value: 'AABBCC' },
+                  width: 0.75 + index * 0.25,
+                  dash: valueGridStyle === 'dot' ? 'sysDot' : valueGridStyle,
+                },
+            majorTickMark: tickMarks[reverse]!,
+            minorTickMark: tickMarks[index]!,
+          },
+        },
+      });
+    }
+    const reopenedNative = await PptxDocument.open(await native.write());
+    const reopenedNativeCharts = reopenedNative.slides[0]!.shapes.filter(
+      (shape): shape is ChartModel => shape instanceof ChartModel,
+    );
+    expect(reopenedNativeCharts).toHaveLength(4);
+    const tickXml = {
+      cross: 'cross', inside: 'in', none: 'none', outside: 'out',
+    } as const;
+    for (const [index, chart] of reopenedNativeCharts.entries()) {
+      const reverse = labelPositions.length - index - 1;
+      const categoryXml = axisFragment(chart.xml, 'catAx');
+      const valueXml = axisFragment(chart.xml, 'valAx');
+      const categoryLineStyle = lineStyles[index]!;
+      const valueLineStyle = lineStyles[reverse]!;
+      const categoryGridStyle = gridStyles[index]!;
+      const valueGridStyle = gridStyles[reverse]!;
+      const expectedCategoryLine = index === 3
+        ? { kind: 'none' }
+        : {
+            kind: 'line',
+            color: { kind: 'srgb', value: '112233' },
+            width: index + 1,
+            dash: categoryLineStyle === 'dot' ? 'sysDot' : categoryLineStyle,
+          };
+      const expectedValueLine = index === 0
+        ? { kind: 'none' }
+        : {
+            kind: 'line',
+            color: { kind: 'srgb', value: '778899' },
+            width: index + 1.5,
+            dash: valueLineStyle === 'dot' ? 'sysDot' : valueLineStyle,
+          };
+      const expectedCategoryGrid = categoryGridStyle === 'none'
+        ? { kind: 'none' }
+        : {
+            kind: 'line',
+            color: { kind: 'srgb', value: '445566' },
+            width: 0.5 + index * 0.25,
+            dash: categoryGridStyle === 'dot' ? 'sysDot' : categoryGridStyle,
+          };
+      const expectedValueGrid = valueGridStyle === 'none'
+        ? { kind: 'none' }
+        : {
+            kind: 'line',
+            color: { kind: 'srgb', value: 'AABBCC' },
+            width: 0.75 + index * 0.25,
+            dash: valueGridStyle === 'dot' ? 'sysDot' : valueGridStyle,
+          };
+      expect(chart.definition?.options.categoryAxis?.line).toEqual(expectedCategoryLine);
+      expect(chart.definition?.options.valueAxis?.line).toEqual(expectedValueLine);
+      expect(chart.definition?.options.categoryAxis?.majorGridLine)
+        .toEqual(expectedCategoryGrid);
+      expect(chart.definition?.options.valueAxis?.majorGridLine).toEqual(expectedValueGrid);
+      expect(categoryXml).toContain(`<c:tickLblPos val="${labelPositions[index]}"/>`);
+      expect(valueXml).toContain(`<c:tickLblPos val="${labelPositions[reverse]}"/>`);
+      expect(categoryXml).toContain(
+        `<c:majorTickMark val="${tickXml[tickMarks[index]!]}"/>`,
+      );
+      expect(categoryXml).toContain(
+        `<c:minorTickMark val="${tickXml[tickMarks[reverse]!]}"/>`,
+      );
+      expect(valueXml).toContain(
+        `<c:majorTickMark val="${tickXml[tickMarks[reverse]!]}"/>`,
+      );
+      expect(valueXml).toContain(
+        `<c:minorTickMark val="${tickXml[tickMarks[index]!]}"/>`,
+      );
+      expect(categoryXml).toContain(`rot="${rotations[index]! * 60_000}"`);
+      expect(valueXml).toContain(`rot="${rotations[reverse]! * 60_000}"`);
+      expect(chart.xml).not.toContain('val="inside"');
+      expect(chart.xml).not.toContain('val="outside"');
+      expect(chart.xml).not.toContain('<a:prstDash val="dot"/>');
+      if (categoryLineStyle === 'dot' || categoryGridStyle === 'dot') {
+        expect(categoryXml).toContain('<a:prstDash val="sysDot"/>');
+      }
+      if (valueLineStyle === 'dot' || valueGridStyle === 'dot') {
+        expect(valueXml).toContain('<a:prstDash val="sysDot"/>');
+      }
+      expect(chart.definition?.options.categoryAxis?.labelPosition)
+        .toBe(labelPositions[index] === 'nextTo' ? undefined : labelPositions[index]);
+      expect(chart.definition?.options.valueAxis?.labelPosition)
+        .toBe(labelPositions[reverse] === 'nextTo' ? undefined : labelPositions[reverse]);
+    }
+  });
+
   it('matches valid PptxGenJS public audio and video media output semantically', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'pptxgenjs-media-'));
     const audioPath = join(directory, 'path-audio.mp3');

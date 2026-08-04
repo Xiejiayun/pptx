@@ -10070,6 +10070,107 @@ describe('PptxDocument vertical slice', () => {
     }
   }, 15_000);
 
+  it('creates and reopens chart axis foundation options in all six formats', async () => {
+    const axisFragment = (xml: string, name: 'catAx' | 'valAx') => {
+      const fragment = xml.match(new RegExp(`<c:${name}>[\\s\\S]*?</c:${name}>`, 'u'))?.[0];
+      expect(fragment).toBeDefined();
+      return fragment!;
+    };
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const document = PptxDocument.create({ format });
+      const slide = document.addSlide();
+      const chart = await slide.addChart('bar', [{
+        name: 'Revenue', categories: ['Q1', 'Q2'], values: [10, 20],
+      }]);
+      await chart.replaceDefinition({
+        groups: chart.definition!.groups,
+        options: {
+          categoryAxis: {
+            visible: false,
+            labelPosition: 'high',
+            labelRotation: -45,
+            line: { kind: 'none' },
+            majorGridLine: {
+              kind: 'line',
+              color: { kind: 'srgb', value: '445566' },
+              width: 0.75,
+              dash: 'sysDot',
+            },
+            majorTickMark: 'inside',
+            minorTickMark: 'outside',
+          },
+          valueAxis: {
+            visible: false,
+            labelPosition: 'none',
+            labelRotation: 45,
+            line: {
+              kind: 'line',
+              color: { kind: 'srgb', value: '778899' },
+              width: 1.25,
+              dash: 'dash',
+            },
+            majorGridLine: { kind: 'none' },
+            majorTickMark: 'cross',
+            minorTickMark: 'none',
+          },
+        },
+      });
+
+      const reopened = await PptxDocument.open(await document.write());
+      const reopenedChart = reopened.slides[0]!.shapes.find(
+        (shape): shape is ChartModel => shape instanceof ChartModel,
+      )!;
+      expect(reopenedChart.definition?.options.categoryAxis).toMatchObject({
+        visible: false,
+        labelPosition: 'high',
+        labelRotation: -45,
+        line: { kind: 'none' },
+        majorGridLine: {
+          kind: 'line',
+          color: { kind: 'srgb', value: '445566' },
+          width: 0.75,
+          dash: 'sysDot',
+        },
+        majorTickMark: 'inside',
+        minorTickMark: 'outside',
+      });
+      expect(reopenedChart.definition?.options.valueAxis).toMatchObject({
+        visible: false,
+        labelPosition: 'none',
+        labelRotation: 45,
+        line: {
+          kind: 'line',
+          color: { kind: 'srgb', value: '778899' },
+          width: 1.25,
+          dash: 'dash',
+        },
+        majorGridLine: { kind: 'none' },
+        majorTickMark: 'cross',
+      });
+      expect(reopenedChart.definition?.options.valueAxis?.minorTickMark).toBeUndefined();
+      const categoryXml = axisFragment(reopenedChart.xml, 'catAx');
+      const valueXml = axisFragment(reopenedChart.xml, 'valAx');
+      expect(categoryXml).toContain('<c:delete val="1"/>');
+      expect(categoryXml).toContain('<c:tickLblPos val="high"/>');
+      expect(categoryXml).toContain('<c:majorTickMark val="in"/>');
+      expect(categoryXml).toContain('<c:minorTickMark val="out"/>');
+      expect(categoryXml).toContain('rot="-2700000"');
+      expect(categoryXml).toContain('<a:ln w="9525"');
+      expect(categoryXml).toContain('val="445566"');
+      expect(categoryXml).toContain('<a:prstDash val="sysDot"/>');
+      expect(valueXml).toContain('<c:delete val="1"/>');
+      expect(valueXml).toContain('<c:tickLblPos val="none"/>');
+      expect(valueXml).toContain('<c:majorTickMark val="cross"/>');
+      expect(valueXml).toContain('<c:minorTickMark val="none"/>');
+      expect(valueXml).toContain('rot="2700000"');
+      expect(valueXml).toContain('<a:ln w="15875"');
+      expect(valueXml).toContain('val="778899"');
+      expect(valueXml).toContain('<a:prstDash val="dash"/>');
+      expect(validatePackage(reopened.opcPackage).filter(({ severity }) =>
+        severity === 'error')).toEqual([]);
+    }
+  }, 15_000);
+
   it('validates chart caches and workbooks on strict writes without mutating the package', async () => {
     const document = PptxDocument.create();
     const slide = document.addSlide();

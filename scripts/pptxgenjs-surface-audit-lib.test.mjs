@@ -124,13 +124,13 @@ function assertDeepFrozen(value, seen = new Set()) {
 test('exports an immutable evidence-backed initial manifest batch', () => {
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.schemaVersion, 1);
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.packageVersion, '4.0.1');
-  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 671);
+  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 750);
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries.map(({ status }) => status).sort(),
     [
       ...Array(83).fill('defect-excluded'),
-      ...Array(438).fill('supported'),
-      ...Array(73).fill('deliberate-difference'),
+      ...Array(460).fill('supported'),
+      ...Array(130).fill('deliberate-difference'),
       ...Array(77).fill('deprecated-alias'),
     ].sort(),
   );
@@ -258,6 +258,85 @@ test('exports an immutable evidence-backed initial manifest batch', () => {
       'union:ChartType#bubble3D',
       'class:PptxGenJS@property:ChartType',
       'union:interface:OptsChartData@property:labels#string[][]',
+    ].includes(id)),
+    false,
+  );
+  const axisOwners = [
+    ['IChartOpts', 'cat'],
+    ['IChartOpts', 'val'],
+    ['IChartPropsAxisCat', 'cat'],
+    ['IChartPropsAxisVal', 'val'],
+  ];
+  const expectedChartAxisFoundationEntries = [
+    ...axisOwners.flatMap(([owner, prefix]) => {
+      const labelPositionId = `interface:${owner}@property:${prefix}AxisLabelPos`;
+      return [
+        { id: labelPositionId, status: 'supported' },
+        ...['high', 'low', 'nextTo', 'none'].map((value) => ({
+          id: `union:${labelPositionId}#${value}`,
+          status: 'supported',
+        })),
+        ...['Color', 'Show', 'Size', 'Style'].map((suffix) => ({
+          id: `interface:${owner}@property:${prefix}AxisLine${suffix}`,
+          status: 'deliberate-difference',
+        })),
+        {
+          id: `interface:${owner}@property:${prefix}GridLine`,
+          status: 'deliberate-difference',
+        },
+        ...['dash', 'dot', 'solid'].map((value) => ({
+          id: `union:interface:${owner}@property:${prefix}AxisLineStyle#${value}`,
+          status: 'deliberate-difference',
+        })),
+        {
+          id: `interface:${owner}@property:${prefix}AxisHidden`,
+          status: 'deliberate-difference',
+        },
+        {
+          id: `interface:${owner}@property:${prefix}AxisLabelRotate`,
+          status: 'deliberate-difference',
+        },
+        ...['Major', 'Minor'].map((level) => ({
+          id: `interface:${owner}@property:${prefix}Axis${level}TickMark`,
+          status: 'deliberate-difference',
+        })),
+      ];
+    }),
+    ...['color', 'size', 'style'].map((property) => ({
+      id: `interface:OptsChartGridLine@property:${property}`,
+      status: 'deliberate-difference',
+    })),
+    ...['dash', 'dot', 'none', 'solid'].map((value) => ({
+      id: `union:interface:OptsChartGridLine@property:style#${value}`,
+      status: 'deliberate-difference',
+    })),
+    ...['cross', 'none'].map((value) => ({
+      id: `union:ChartAxisTickMark#${value}`,
+      status: 'supported',
+    })),
+    ...['inside', 'outside'].map((value) => ({
+      id: `union:ChartAxisTickMark#${value}`,
+      status: 'deliberate-difference',
+    })),
+  ].sort((left, right) => left.id.localeCompare(right.id));
+  const chartAxisFoundationIds = new Set(
+    expectedChartAxisFoundationEntries.map(({ id }) => id),
+  );
+  assert.equal(chartAxisFoundationIds.size, 79);
+  assert.deepEqual(
+    PPTXGENJS_SURFACE_MANIFEST.entries
+      .filter(({ id }) => chartAxisFoundationIds.has(id))
+      .map(({ id, status }) => ({ id, status }))
+      .sort((left, right) => left.id.localeCompare(right.id)),
+    expectedChartAxisFoundationEntries,
+  );
+  assert.equal(
+    PPTXGENJS_SURFACE_MANIFEST.entries.some(({ id }) => [
+      'interface:OptsChartGridLine@property:cap',
+      'union:ChartLineCap#flat',
+      'union:ChartLineCap#round',
+      'union:ChartLineCap#square',
+      'interface:IChartOpts@property:serGridLine',
     ].includes(id)),
     false,
   );
