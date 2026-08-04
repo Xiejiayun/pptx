@@ -2162,6 +2162,431 @@ async (page) => {
       const tableContentMeasurement = Object.values(
         tableContentMeasurementState,
       ).every((value) => value === true || value === 0);
+      const tableToSlidesElement = globalThis.document.createElement('table');
+      tableToSlidesElement.id = 'browser-table-to-slides';
+      tableToSlidesElement.style.borderCollapse = 'collapse';
+      tableToSlidesElement.style.tableLayout = 'fixed';
+      tableToSlidesElement.style.width = '600px';
+      tableToSlidesElement.style.margin = '16px';
+      tableToSlidesElement.style.background = 'white';
+      const tableToSlidesAppendCell = (row, text, options = {}) => {
+        const element = globalThis.document.createElement(
+          options.header === true ? 'th' : 'td',
+        );
+        element.innerText = text;
+        if (options.width !== undefined) element.style.width = options.width + 'px';
+        if (options.colspan !== undefined) element.colSpan = options.colspan;
+        if (options.rowspan !== undefined) element.rowSpan = options.rowspan;
+        for (const [name, value] of Object.entries(options.attributes ?? {})) {
+          element.setAttribute(name, value);
+        }
+        Object.assign(element.style, options.style ?? {});
+        row.append(element);
+        return element;
+      };
+      const tableToSlidesHeaderStyle = {
+        color: 'rgb(1, 2, 3)',
+        backgroundColor: 'rgb(240, 241, 242)',
+        fontFamily: 'Aptos, Arial, sans-serif',
+        fontSize: '16px',
+        fontWeight: '600',
+        textAlign: 'center',
+        verticalAlign: 'middle',
+        direction: 'ltr',
+        padding: '4px 6px',
+        borderTop: '2px solid rgb(10, 20, 30)',
+        borderRight: '1px dashed rgb(40, 50, 60)',
+        borderBottom: '1px solid rgb(70, 80, 90)',
+        borderLeft: '1px solid rgb(100, 110, 120)',
+      };
+      const tableToSlidesHead = tableToSlidesElement.createTHead();
+      const tableToSlidesHeaderRow = tableToSlidesHead.insertRow();
+      tableToSlidesAppendCell(tableToSlidesHeaderRow, 'Browser HTML header A', {
+        header: true,
+        width: 150,
+        attributes: { 'data-pptx-min-width': '0.8' },
+        style: tableToSlidesHeaderStyle,
+      });
+      tableToSlidesAppendCell(tableToSlidesHeaderRow, 'Browser HTML header B', {
+        header: true,
+        width: 300,
+        attributes: { 'data-pptx-width': '2.5' },
+        style: {
+          ...tableToSlidesHeaderStyle,
+          backgroundColor: 'transparent',
+          textAlign: 'right',
+        },
+      });
+      tableToSlidesAppendCell(tableToSlidesHeaderRow, 'Browser HTML header C', {
+        header: true,
+        width: 150,
+        style: tableToSlidesHeaderStyle,
+      });
+      const tableToSlidesSubheadRow = tableToSlidesHead.insertRow();
+      tableToSlidesAppendCell(tableToSlidesSubheadRow, 'Browser HTML subhead A', {
+        header: true,
+        width: 150,
+      });
+      tableToSlidesAppendCell(tableToSlidesSubheadRow, 'Browser HTML subhead B', {
+        header: true,
+        width: 300,
+      });
+      tableToSlidesAppendCell(tableToSlidesSubheadRow, 'Browser HTML subhead C', {
+        header: true,
+        width: 150,
+      });
+      const tableToSlidesFirstBody = tableToSlidesElement.createTBody();
+      const tableToSlidesFragmentRow = tableToSlidesFirstBody.insertRow();
+      tableToSlidesAppendCell(
+        tableToSlidesFragmentRow,
+        'Browser fragmented HTML ' + 'fragment '.repeat(60),
+        {
+          colspan: 3,
+          style: {
+            color: 'rgb(128, 0, 32)',
+            fontSize: '14px',
+            fontWeight: '500',
+            padding: '2px',
+          },
+        },
+      );
+      const tableToSlidesMergeRow = tableToSlidesFirstBody.insertRow();
+      tableToSlidesAppendCell(tableToSlidesMergeRow, 'Browser rowspan', {
+        rowspan: 2,
+      });
+      tableToSlidesAppendCell(tableToSlidesMergeRow, 'Browser colspan', {
+        colspan: 2,
+      });
+      const tableToSlidesMergeLower = tableToSlidesFirstBody.insertRow();
+      tableToSlidesAppendCell(tableToSlidesMergeLower, 'Browser merge lower B');
+      tableToSlidesAppendCell(tableToSlidesMergeLower, 'Browser merge lower C');
+      const tableToSlidesSecondBody = tableToSlidesElement.createTBody();
+      for (let index = 0; index < 4; index += 1) {
+        const row = tableToSlidesSecondBody.insertRow();
+        tableToSlidesAppendCell(row, 'Browser tail ' + String(index + 1));
+        tableToSlidesAppendCell(row, 'Browser value ' + String(index + 1));
+        tableToSlidesAppendCell(
+          row,
+          'Browser detail ' + String(index + 1) + ' ' + 'content '.repeat(4),
+        );
+      }
+      const tableToSlidesFoot = tableToSlidesElement.createTFoot();
+      const tableToSlidesFootRow = tableToSlidesFoot.insertRow();
+      tableToSlidesAppendCell(tableToSlidesFootRow, 'Browser footer A');
+      tableToSlidesAppendCell(tableToSlidesFootRow, 'Browser footer B');
+      tableToSlidesAppendCell(tableToSlidesFootRow, 'Browser footer C');
+      globalThis.document.body.append(tableToSlidesElement);
+      void tableToSlidesElement.offsetWidth;
+      const tableToSlidesDocument = api.PptxDocument.create({
+        firstSlideNumber: 31,
+        slideSize: 'wide',
+      });
+      const tableToSlidesLayout = await tableToSlidesDocument.defineSlideMaster({
+        title: 'BROWSER-HTML-TABLE',
+        margin: [
+          api.inches(0.4),
+          api.inches(0.5),
+          api.inches(0.5),
+          api.inches(0.5),
+        ],
+        background: {
+          kind: 'solid',
+          color: { kind: 'srgb', value: 'F7F9FC' },
+        },
+        slideNumber: {
+          x: api.inches(12.2),
+          y: api.inches(7),
+          width: api.inches(0.5),
+          height: api.inches(0.25),
+        },
+      });
+      const tableToSlidesTargetSection = tableToSlidesDocument.addSection({
+        title: 'Browser HTML target',
+      });
+      const tableToSlidesTarget = tableToSlidesDocument.addSlide({
+        masterName: tableToSlidesLayout.name,
+        sectionTitle: tableToSlidesTargetSection.title,
+      });
+      tableToSlidesTarget.addText('Browser HTML internal target', {
+        x: api.inches(0.5),
+        y: api.inches(0.5),
+        width: api.inches(4),
+        height: api.inches(0.5),
+      });
+      const tableToSlidesPngBytes = Uint8Array.from([
+        137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82,
+        0, 0, 0, 1, 0, 0, 0, 1, 8, 4, 0, 0, 0, 181, 28, 12, 2, 0, 0,
+        0, 11, 73, 68, 65, 84, 120, 218, 99, 100, 248, 15, 0, 1, 5, 1, 1,
+        39, 24, 227, 102, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130,
+      ]);
+      const tableToSlidesExternalUrl =
+        'https://browser-table-to-slides.example/external';
+      const tableToSlidesTableUrl =
+        'https://browser-table-to-slides.example/table';
+      const tableToSlidesPages = await tableToSlidesDocument.tableToSlides(
+        tableToSlidesElement.id,
+        {
+          name: 'browser_html_table',
+          masterSlideName: tableToSlidesLayout.name,
+          autoPage: true,
+          autoPageCharWeight: -1,
+          autoPageLineWeight: 1,
+          autoPageRepeatHeader: true,
+          autoPageHeaderRows: 2,
+          x: api.inches(0.5),
+          y: api.inches(0.6),
+          width: api.inches(6),
+          height: api.inches(6.2),
+          slideMargin: api.inches(0.5),
+          addImage: {
+            source: tableToSlidesPngBytes,
+            options: {
+              name: 'browser_html_image',
+              x: api.inches(7.2),
+              y: api.inches(0.6),
+              width: api.inches(1),
+              height: api.inches(0.5),
+            },
+          },
+          addShape: {
+            type: 'roundRect',
+            options: {
+              name: 'browser_html_shape',
+              x: api.inches(7.2),
+              y: api.inches(1.3),
+              width: api.inches(1.2),
+              height: api.inches(0.5),
+              fill: {
+                kind: 'solid',
+                color: { kind: 'scheme', value: 'accent2' },
+              },
+            },
+          },
+          addTable: {
+            rows: [[{
+              text: 'Browser addition table',
+              options: {
+                hyperlink: {
+                  url: tableToSlidesTableUrl,
+                  tooltip: 'Browser table addition',
+                },
+              },
+            }]],
+            options: {
+              name: 'browser_html_addition_table',
+              x: api.inches(7.2),
+              y: api.inches(2),
+              width: api.inches(3),
+            },
+          },
+          addText: {
+            text: [{ runs: [
+              {
+                text: 'Browser external',
+                style: {
+                  bold: true,
+                  hyperlink: {
+                    url: tableToSlidesExternalUrl,
+                    tooltip: 'Browser external addition',
+                  },
+                },
+              },
+              {
+                text: ' / internal',
+                style: {
+                  italic: true,
+                  hyperlink: {
+                    slide: tableToSlidesDocument.slides.indexOf(
+                      tableToSlidesTarget,
+                    ) + 1,
+                    tooltip: 'Browser internal addition',
+                  },
+                },
+              },
+            ] }],
+            options: {
+              name: 'browser_html_text',
+              x: api.inches(7.2),
+              y: api.inches(3),
+              width: api.inches(4.8),
+              height: api.inches(0.7),
+            },
+          },
+        },
+      );
+      const tableToSlidesPageTables = tableToSlidesPages.map((page) =>
+        page.shapes.find((shape) =>
+          shape instanceof api.TableModel && shape.name === 'browser_html_table'));
+      const tableToSlidesAdditionNames = [
+        'browser_html_table',
+        'browser_html_image',
+        'browser_html_shape',
+        'browser_html_addition_table',
+        'browser_html_text',
+      ];
+      const tableToSlidesCreated = tableToSlidesPages.length > 2 &&
+        Object.isFrozen(tableToSlidesPages) &&
+        tableToSlidesPageTables.every((table) => table instanceof api.TableModel);
+      const tableToSlidesFirstCell = tableToSlidesPageTables[0]?.rows[0]?.cells[0];
+      const tableToSlidesSecondCell = tableToSlidesPageTables[0]?.rows[0]?.cells[1];
+      const tableToSlidesFirstRunStyle =
+        tableToSlidesFirstCell?.richText[0]?.runs[0]?.style;
+      const tableToSlidesStyles =
+        tableToSlidesFirstRunStyle?.color?.kind === 'srgb' &&
+        tableToSlidesFirstRunStyle.color.value === '010203' &&
+        tableToSlidesFirstCell.fill?.kind === 'solid' &&
+        tableToSlidesFirstCell.fill.color.kind === 'srgb' &&
+        tableToSlidesFirstCell.fill.color.value === 'F0F1F2' &&
+        tableToSlidesFirstRunStyle.fontFamily === 'Aptos' &&
+        tableToSlidesFirstRunStyle.fontSize === 16 &&
+        tableToSlidesFirstRunStyle.bold === true &&
+        tableToSlidesFirstCell.horizontalAlignment === 'center' &&
+        tableToSlidesFirstCell.verticalAlignment === 'middle' &&
+        tableToSlidesFirstCell.borders?.top?.kind === 'line' &&
+        tableToSlidesFirstCell.borders.top.width === 2 &&
+        tableToSlidesSecondCell?.fill?.kind === 'solid' &&
+        tableToSlidesSecondCell.fill.color.kind === 'srgb' &&
+        tableToSlidesSecondCell.fill.color.value === 'FFFFFF' &&
+        tableToSlidesSecondCell.horizontalAlignment === 'right';
+      const tableToSlidesWidths = tableToSlidesPageTables.every((table) =>
+        table.columnWidths?.length === 3 &&
+        table.columnWidths[1] === api.inches(2.5) &&
+        table.columnWidths.every((width) => width > 0) &&
+        table.columnWidths.reduce((sum, width) => sum + width, 0) ===
+          api.inches(6) &&
+        table.transform.width === api.inches(6));
+      const tableToSlidesHeaders = tableToSlidesPageTables.every((table) =>
+        table.rows[0]?.cells[0]?.text === 'Browser HTML header A' &&
+        table.rows[1]?.cells[0]?.text === 'Browser HTML subhead A');
+      const tableToSlidesGeneratedSection = tableToSlidesDocument.sections?.find(
+        ({ slideIds }) => tableToSlidesPages.every((page) =>
+          slideIds.includes(page.slideId)),
+      );
+      const tableToSlidesLayoutState = tableToSlidesPages.every((page) =>
+        page.relationships.some(({ type, resolvedTarget }) =>
+          type.endsWith('/slideLayout') &&
+            resolvedTarget === tableToSlidesLayout.partUri) &&
+        page.slideNumber !== undefined) &&
+        tableToSlidesGeneratedSection?.slideIds.join(',') ===
+          tableToSlidesPages.map(({ slideId }) => slideId).join(',');
+      const tableToSlidesAdditions = tableToSlidesPages.every((page) =>
+        JSON.stringify(page.shapes.filter(({ name }) =>
+          tableToSlidesAdditionNames.includes(name)).map(({ name }) => name)) ===
+            JSON.stringify(tableToSlidesAdditionNames));
+      const tableToSlidesImageTargets = new Set(tableToSlidesPages.flatMap((page) =>
+        page.relationships.filter(({ type }) => type.endsWith('/image'))
+          .map(({ resolvedTarget }) => resolvedTarget)));
+      const tableToSlidesRelationships = tableToSlidesImageTargets.size === 1 &&
+        !tableToSlidesImageTargets.has(undefined) &&
+        tableToSlidesPages.every((page) =>
+          page.relationships.some(({ type, target }) =>
+            type.endsWith('/hyperlink') && target === tableToSlidesExternalUrl) &&
+          page.relationships.some(({ type, target }) =>
+            type.endsWith('/hyperlink') && target === tableToSlidesTableUrl) &&
+          page.relationships.some(({ type, resolvedTarget }) =>
+            type.endsWith('/slide') &&
+              resolvedTarget === tableToSlidesTarget.partUri));
+      const tableToSlidesEditableTable = tableToSlidesPageTables.find((table) =>
+        table.rows.some((row) => row.cells[0]?.text.startsWith(
+          'Browser tail ',
+        ) === true));
+      const tableToSlidesEditableRow = tableToSlidesEditableTable?.rows.findIndex(
+        (row) => row.cells[0]?.text.startsWith('Browser tail ') === true,
+      ) ?? -1;
+      if (tableToSlidesEditableTable instanceof api.TableModel &&
+          tableToSlidesEditableRow >= 0) {
+        tableToSlidesEditableTable.setCellText(
+          tableToSlidesEditableRow,
+          0,
+          'Browser HTML edited',
+        );
+      }
+      const tableToSlidesEditablePage = tableToSlidesPages[
+        tableToSlidesPageTables.indexOf(tableToSlidesEditableTable)
+      ];
+      const tableToSlidesLifecyclePage = tableToSlidesPages.find(
+        (page, index) => page !== tableToSlidesEditablePage &&
+          tableToSlidesPageTables[index]?.rows.some((row) =>
+            row.cells[0]?.text.startsWith('Browser tail ') === true) === true &&
+          index > 0 && index < tableToSlidesPages.length - 1,
+      ) ?? tableToSlidesPages.find((page) => page !== tableToSlidesEditablePage);
+      const tableToSlidesLifecycleOriginalIndex = tableToSlidesDocument.slides.indexOf(
+        tableToSlidesLifecyclePage,
+      );
+      tableToSlidesDocument.moveSlide(
+        tableToSlidesLifecycleOriginalIndex,
+        tableToSlidesDocument.slides.length - 1,
+      );
+      const tableToSlidesMovedAway = tableToSlidesDocument.slides.at(-1) ===
+        tableToSlidesLifecyclePage;
+      tableToSlidesDocument.moveSlide(
+        tableToSlidesDocument.slides.indexOf(tableToSlidesLifecyclePage),
+        tableToSlidesLifecycleOriginalIndex,
+      );
+      const tableToSlidesMovedBack = tableToSlidesDocument.slides[
+        tableToSlidesLifecycleOriginalIndex
+      ] === tableToSlidesLifecyclePage;
+      tableToSlidesDocument.deleteSlide(
+        tableToSlidesDocument.slides.indexOf(tableToSlidesLifecyclePage),
+      );
+      const tableToSlidesDeleted = !tableToSlidesDocument.slides.includes(
+        tableToSlidesLifecyclePage,
+      );
+      const tableToSlidesEdited =
+        tableToSlidesEditableTable instanceof api.TableModel &&
+        tableToSlidesEditableRow >= 0 &&
+        tableToSlidesEditableTable.rows[tableToSlidesEditableRow]?.cells[0]?.text ===
+          'Browser HTML edited' &&
+        tableToSlidesMovedAway && tableToSlidesMovedBack && tableToSlidesDeleted;
+      const tableToSlidesEvidenceBlob = await tableToSlidesDocument.writeBlob();
+      globalThis.__pptxTableToSlidesEvidenceBlob = tableToSlidesEvidenceBlob;
+      const reopenedTableToSlidesDocument = await api.PptxDocument.open(
+        tableToSlidesEvidenceBlob,
+      );
+      const reopenedTableToSlidesPages = reopenedTableToSlidesDocument.slides.filter(
+        (page) => page.shapes.some((shape) =>
+          shape instanceof api.TableModel && shape.name === 'browser_html_table'),
+      );
+      const reopenedTableToSlidesTables = reopenedTableToSlidesPages.map((page) =>
+        page.shapes.find((shape) =>
+          shape instanceof api.TableModel && shape.name === 'browser_html_table'));
+      const tableToSlidesReopened =
+        reopenedTableToSlidesPages.length === tableToSlidesPages.length - 1 &&
+        reopenedTableToSlidesTables.every((table) =>
+          table instanceof api.TableModel &&
+            table.columnWidths?.length === 3 &&
+            table.columnWidths[1] === api.inches(2.5) &&
+            table.rows[0]?.cells[0]?.text === 'Browser HTML header A' &&
+            table.rows[1]?.cells[0]?.text === 'Browser HTML subhead A') &&
+        reopenedTableToSlidesTables.some((table) =>
+          table.rows.some((row) => row.cells[0]?.text === 'Browser HTML edited')) &&
+        reopenedTableToSlidesPages.every((page) =>
+          tableToSlidesAdditionNames.every((name) =>
+            page.shapes.some((shape) => shape.name === name))) &&
+        reopenedTableToSlidesPages.every((page) =>
+          page.relationships.some(({ type, target }) =>
+            type.endsWith('/hyperlink') && target === tableToSlidesExternalUrl) &&
+          page.relationships.some(({ type, resolvedTarget }) =>
+            type.endsWith('/slide') &&
+              resolvedTarget === reopenedTableToSlidesDocument.slides[0]?.partUri));
+      const tableToSlidesState = {
+        created: tableToSlidesCreated,
+        styles: tableToSlidesStyles,
+        widths: tableToSlidesWidths,
+        headers: tableToSlidesHeaders,
+        layout: tableToSlidesLayoutState,
+        additions: tableToSlidesAdditions,
+        relationships: tableToSlidesRelationships,
+        edited: tableToSlidesEdited,
+        reopened: tableToSlidesReopened,
+        validationErrors: tableToSlidesDocument.diagnostics
+          .filter(({ severity }) => severity === 'error').length +
+          reopenedTableToSlidesDocument.diagnostics
+            .filter(({ severity }) => severity === 'error').length,
+      };
+      const tableToSlides = Object.values(tableToSlidesState).every(
+        (value) => value === true || value === 0,
+      );
       const tableBorderSideSnapshot = (value) => {
         if (value.kind === 'none') return { kind: 'none' };
         return {
@@ -5048,6 +5473,8 @@ async (page) => {
         tableAutoPageState,
         tableContentMeasurement,
         tableContentMeasurementState,
+        tableToSlides,
+        tableToSlidesState,
         schemeColors,
         schemeColorState,
         outputTypes,
@@ -5205,6 +5632,28 @@ async (page) => {
       process.env.PPTX_BROWSER_TABLE_CONTENT_MEASUREMENT_OUT) {
     await tableContentMeasurementEvidenceDownload.saveAs(
       process.env.PPTX_BROWSER_TABLE_CONTENT_MEASUREMENT_OUT,
+    );
+  }
+  const tableToSlidesEvidenceDownloadPromise = page.waitForEvent('download');
+  await page.evaluate(() => {
+    const blob = globalThis.__pptxTableToSlidesEvidenceBlob;
+    if (!(blob instanceof Blob)) {
+      throw new Error('Missing HTML table slide evidence Blob');
+    }
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'browser-table-to-slides.pptx';
+    anchor.click();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  });
+  const tableToSlidesEvidenceDownload = await tableToSlidesEvidenceDownloadPromise;
+  result.tableToSlidesEvidenceFileName =
+    tableToSlidesEvidenceDownload.suggestedFilename();
+  if (typeof process !== 'undefined' &&
+      process.env.PPTX_BROWSER_TABLE_TO_SLIDES_OUT) {
+    await tableToSlidesEvidenceDownload.saveAs(
+      process.env.PPTX_BROWSER_TABLE_TO_SLIDES_OUT,
     );
   }
   const downloadPromise = page.waitForEvent('download');
@@ -5662,6 +6111,19 @@ async (page) => {
       edited: true,
       moved: true,
       deleted: true,
+      reopened: true,
+      validationErrors: 0,
+    },
+    tableToSlides: true,
+    tableToSlidesState: {
+      created: true,
+      styles: true,
+      widths: true,
+      headers: true,
+      layout: true,
+      additions: true,
+      relationships: true,
+      edited: true,
       reopened: true,
       validationErrors: 0,
     },
@@ -6375,6 +6837,7 @@ async (page) => {
     tableAutoPageEvidenceFileName: 'browser-table-auto-page.pptx',
     tableContentMeasurementEvidenceFileName:
       'browser-table-content-measurement.pptx',
+    tableToSlidesEvidenceFileName: 'browser-table-to-slides.pptx',
     downloadFileName: 'browser-smoke.pptx',
     errorCounts: { console: 0, page: 0, network: 0 },
   };

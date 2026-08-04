@@ -85,6 +85,10 @@ try {
     join(installed, 'dist/types/sdk/index.d.ts'),
     'utf8',
   );
+  const tableToSlidesDeclarationSource = await readFile(
+    join(installed, 'dist/types/sdk/table-to-slides.d.ts'),
+    'utf8',
+  );
   const opcDeclarationSource = await readFile(
     join(installed, 'dist/types/opc/index.d.ts'),
     'utf8',
@@ -239,6 +243,22 @@ try {
         'set newAutoPagedSlides(',
       )) {
     throw new Error('Packed declarations are missing strict table auto-page contracts');
+  }
+  const tableToSlidesTypeNames = [
+    'TableToSlidesAddImage',
+    'TableToSlidesAddShape',
+    'TableToSlidesAddTable',
+    'TableToSlidesAddText',
+    'TableToSlidesOptions',
+  ];
+  if (!tableToSlidesTypeNames.every((name) =>
+    tableToSlidesDeclarationSource.includes('interface ' + name)) ||
+      !sdkDeclarationSource.includes(
+        'tableToSlides(elementId: string, options?: TableToSlidesOptions): Promise<readonly SlideModel[]>;',
+      ) ||
+      !sdkDeclarationSource.includes('TableToSlidesAddImage') ||
+      !sdkDeclarationSource.includes('TableToSlidesOptions')) {
+    throw new Error('Packed declarations are missing HTML table slide contracts');
   }
   if (!tableModelDeclaration.includes(
     'get verticalAlignment(): TextBoxVerticalAlignment | undefined;',
@@ -9100,6 +9120,454 @@ const tableContentMeasurementState = {
 const tableContentMeasurement = Object.values(tableContentMeasurementState).every(
   (value) => value === true || value === 0,
 );
+const tableToSlidesCell = (text, options = {}) => {
+  const attributes = { ...(options.attributes ?? {}) };
+  return {
+    localName: options.localName ?? 'td',
+    innerText: text,
+    offsetWidth: options.width ?? 120,
+    colSpan: options.colSpan ?? 1,
+    rowSpan: options.rowSpan ?? 1,
+    style: options.style ?? {},
+    getAttribute(name) {
+      return Object.hasOwn(attributes, name) ? attributes[name] : null;
+    },
+  };
+};
+const tableToSlidesRows = (rows) => ({
+  rows: rows.map((cells) => ({ cells })),
+});
+const tableToSlidesHeaderStyle = {
+  color: 'rgb(1, 2, 3)',
+  'background-color': 'rgb(240, 241, 242)',
+  'font-family': 'Aptos, Arial, sans-serif',
+  'font-size': '16px',
+  'font-weight': '600',
+  'text-align': 'center',
+  'vertical-align': 'middle',
+  direction: 'ltr',
+  'padding-top': '4px',
+  'padding-right': '6px',
+  'padding-bottom': '4px',
+  'padding-left': '6px',
+  'border-top-style': 'solid',
+  'border-top-width': '2px',
+  'border-top-color': 'rgb(10, 20, 30)',
+  'border-right-style': 'dashed',
+  'border-right-width': '1px',
+  'border-right-color': 'rgb(40, 50, 60)',
+  'border-bottom-style': 'solid',
+  'border-bottom-width': '1px',
+  'border-bottom-color': 'rgb(70, 80, 90)',
+  'border-left-style': 'solid',
+  'border-left-width': '1px',
+  'border-left-color': 'rgb(100, 110, 120)',
+};
+const tableToSlidesHead = [
+  [
+    tableToSlidesCell('Packed HTML header A', {
+      localName: 'th',
+      width: 120,
+      attributes: { 'data-pptx-min-width': '0.8' },
+      style: tableToSlidesHeaderStyle,
+    }),
+    tableToSlidesCell('Packed HTML header B', {
+      localName: 'th',
+      width: 240,
+      attributes: { 'data-pptx-width': '2.5' },
+      style: {
+        ...tableToSlidesHeaderStyle,
+        'background-color': 'transparent',
+        'text-align': 'right',
+      },
+    }),
+    tableToSlidesCell('Packed HTML header C', {
+      localName: 'th',
+      width: 120,
+      style: tableToSlidesHeaderStyle,
+    }),
+  ],
+  [
+    tableToSlidesCell('Packed HTML subhead A', { localName: 'th', width: 120 }),
+    tableToSlidesCell('Packed HTML subhead B', { localName: 'th', width: 240 }),
+    tableToSlidesCell('Packed HTML subhead C', { localName: 'th', width: 120 }),
+  ],
+];
+const tableToSlidesFirstBody = [
+  [tableToSlidesCell('Packed fragmented HTML ' + 'fragment '.repeat(60), {
+    width: 480,
+    colSpan: 3,
+    style: {
+      color: 'rgb(128, 0, 32)',
+      'font-size': '14px',
+      'font-weight': '500',
+      'padding-top': '2px',
+      'padding-right': '2px',
+      'padding-bottom': '2px',
+      'padding-left': '2px',
+    },
+  })],
+  [
+    tableToSlidesCell('Packed rowspan', { width: 120, rowSpan: 2 }),
+    tableToSlidesCell('Packed colspan', { width: 360, colSpan: 2 }),
+  ],
+  [
+    tableToSlidesCell('Packed merge lower B', { width: 240 }),
+    tableToSlidesCell('Packed merge lower C', { width: 120 }),
+  ],
+];
+const tableToSlidesSecondBody = Array.from({ length: 4 }, (_, index) => [
+  tableToSlidesCell('Packed tail ' + String(index + 1), { width: 120 }),
+  tableToSlidesCell('Value ' + String(index + 1), { width: 240 }),
+  tableToSlidesCell('Detail ' + String(index + 1) + ' ' + 'content '.repeat(4), {
+    width: 120,
+  }),
+]);
+const tableToSlidesFoot = [[
+  tableToSlidesCell('Packed footer A', { width: 120 }),
+  tableToSlidesCell('Packed footer B', { width: 240 }),
+  tableToSlidesCell('Packed footer C', { width: 120 }),
+]];
+const tableToSlidesDomTable = {
+  localName: 'table',
+  tHead: tableToSlidesRows(tableToSlidesHead),
+  tBodies: [
+    tableToSlidesRows(tableToSlidesFirstBody),
+    tableToSlidesRows(tableToSlidesSecondBody),
+  ],
+  tFoot: tableToSlidesRows(tableToSlidesFoot),
+  ownerDocument: undefined,
+};
+const tableToSlidesDomDocument = {
+  defaultView: {
+    getComputedStyle(element) {
+      const style = element.style ?? {};
+      return {
+        getPropertyValue(name) {
+          return style[name] ?? '';
+        },
+      };
+    },
+  },
+  getElementById(id) {
+    return id === 'packed-html-table' ? tableToSlidesDomTable : null;
+  },
+};
+tableToSlidesDomTable.ownerDocument = tableToSlidesDomDocument;
+const tableToSlidesDocument = PptxDocument.create({
+  firstSlideNumber: 21,
+  slideSize: 'wide',
+});
+const tableToSlidesLayout = await tableToSlidesDocument.defineSlideMaster({
+  title: 'PACKED-HTML-TABLE',
+  margin: [inches(0.4), inches(0.5), inches(0.5), inches(0.5)],
+  background: {
+    kind: 'solid',
+    color: { kind: 'srgb', value: 'F7F9FC' },
+  },
+  slideNumber: {
+    x: inches(12.2),
+    y: inches(7),
+    width: inches(0.5),
+    height: inches(0.25),
+  },
+});
+const tableToSlidesTargetSection = tableToSlidesDocument.addSection({
+  title: 'Packed HTML target',
+});
+const tableToSlidesTarget = tableToSlidesDocument.addSlide({
+  masterName: tableToSlidesLayout.name,
+  sectionTitle: tableToSlidesTargetSection.title,
+});
+tableToSlidesTarget.addText('Packed HTML internal target', {
+  x: inches(0.5),
+  y: inches(0.5),
+  width: inches(4),
+  height: inches(0.5),
+});
+const tableToSlidesExternalUrl = 'https://table-to-slides.example/external';
+const tableToSlidesTableUrl = 'https://table-to-slides.example/table';
+const tableToSlidesPreviousDocument = Object.getOwnPropertyDescriptor(
+  globalThis,
+  'document',
+);
+Object.defineProperty(globalThis, 'document', {
+  configurable: true,
+  enumerable: true,
+  writable: true,
+  value: tableToSlidesDomDocument,
+});
+let tableToSlidesPages;
+let tableToSlidesFailureIsolation = false;
+try {
+  tableToSlidesPages = await tableToSlidesDocument.tableToSlides(
+    'packed-html-table',
+    {
+      name: 'packed_html_table',
+      masterSlideName: tableToSlidesLayout.name,
+      autoPage: true,
+      autoPageCharWeight: -1,
+      autoPageLineWeight: 1,
+      autoPageRepeatHeader: true,
+      autoPageHeaderRows: 2,
+      x: inches(0.5),
+      y: inches(0.6),
+      width: inches(6),
+      height: inches(6.2),
+      slideMargin: inches(0.5),
+      addImage: {
+        source: packedFallbackPng,
+        options: {
+          name: 'packed_html_image',
+          x: inches(7.2),
+          y: inches(0.6),
+          width: inches(1),
+          height: inches(0.5),
+        },
+      },
+      addShape: {
+        type: 'roundRect',
+        options: {
+          name: 'packed_html_shape',
+          x: inches(7.2),
+          y: inches(1.3),
+          width: inches(1.2),
+          height: inches(0.5),
+          fill: {
+            kind: 'solid',
+            color: { kind: 'scheme', value: 'accent2' },
+          },
+        },
+      },
+      addTable: {
+        rows: [[{
+          text: 'Packed addition table',
+          options: {
+            hyperlink: {
+              url: tableToSlidesTableUrl,
+              tooltip: 'Packed table addition',
+            },
+          },
+        }]],
+        options: {
+          name: 'packed_html_addition_table',
+          x: inches(7.2),
+          y: inches(2),
+          width: inches(3),
+        },
+      },
+      addText: {
+        text: [{ runs: [
+          {
+            text: 'Packed external',
+            style: {
+              bold: true,
+              hyperlink: {
+                url: tableToSlidesExternalUrl,
+                tooltip: 'Packed external addition',
+              },
+            },
+          },
+          {
+            text: ' / internal',
+            style: {
+              italic: true,
+              hyperlink: {
+                slide: tableToSlidesDocument.slides.indexOf(
+                  tableToSlidesTarget,
+                ) + 1,
+                tooltip: 'Packed internal addition',
+              },
+            },
+          },
+        ] }],
+        options: {
+          name: 'packed_html_text',
+          x: inches(7.2),
+          y: inches(3),
+          width: inches(4.8),
+          height: inches(0.7),
+        },
+      },
+    },
+  );
+  const tableToSlidesPackageState = () => JSON.stringify({
+    slides: tableToSlidesDocument.slides.map(({ partUri }) => partUri),
+    parts: tableToSlidesDocument.opcPackage.parts.map(
+      ({ uri, contentType, bytes, relationships }) => ({
+        uri,
+        contentType,
+        bytes: Array.from(bytes),
+        relationships,
+      }),
+    ),
+    mutations: tableToSlidesDocument.opcPackage.mutations,
+  });
+  const tableToSlidesBeforeFailure = tableToSlidesPackageState();
+  let tableToSlidesFailureCaught = false;
+  try {
+    await tableToSlidesDocument.tableToSlides('packed-html-table', {
+      autoPage: false,
+      addShape: { type: 'not-a-shape' },
+    });
+  } catch {
+    tableToSlidesFailureCaught = true;
+  }
+  tableToSlidesFailureIsolation = tableToSlidesFailureCaught &&
+    tableToSlidesPackageState() === tableToSlidesBeforeFailure;
+} finally {
+  if (tableToSlidesPreviousDocument === undefined) {
+    Reflect.deleteProperty(globalThis, 'document');
+  } else {
+    Object.defineProperty(
+      globalThis,
+      'document',
+      tableToSlidesPreviousDocument,
+    );
+  }
+}
+const tableToSlidesPageTables = tableToSlidesPages.map((page) =>
+  page.shapes.find((shape) =>
+    shape instanceof TableModel && shape.name === 'packed_html_table'));
+const tableToSlidesExpectedWidths = [
+  inches(1.75),
+  inches(2.5),
+  inches(1.75),
+];
+const tableToSlidesAdditionNames = [
+  'packed_html_table',
+  'packed_html_image',
+  'packed_html_shape',
+  'packed_html_addition_table',
+  'packed_html_text',
+];
+const tableToSlidesCreated = tableToSlidesPages.length > 2 &&
+  Object.isFrozen(tableToSlidesPages) &&
+  tableToSlidesPages.every((page) =>
+    tableToSlidesDocument.slides.includes(page)) &&
+  tableToSlidesPageTables.every((table) => table instanceof TableModel) &&
+  tableToSlidesFailureIsolation;
+const tableToSlidesFirstCell = tableToSlidesPageTables[0]?.rows[0]?.cells[0];
+const tableToSlidesSecondCell = tableToSlidesPageTables[0]?.rows[0]?.cells[1];
+const tableToSlidesFirstRunStyle =
+  tableToSlidesFirstCell?.richText[0]?.runs[0]?.style;
+const tableToSlidesStyles =
+  tableToSlidesFirstRunStyle?.color?.kind === 'srgb' &&
+  tableToSlidesFirstRunStyle.color.value === '010203' &&
+  tableToSlidesFirstCell.fill?.kind === 'solid' &&
+  tableToSlidesFirstCell.fill.color.kind === 'srgb' &&
+  tableToSlidesFirstCell.fill.color.value === 'F0F1F2' &&
+  tableToSlidesFirstRunStyle.fontFamily === 'Aptos' &&
+  tableToSlidesFirstRunStyle.fontSize === 16 &&
+  tableToSlidesFirstRunStyle.bold === true &&
+  tableToSlidesFirstCell.horizontalAlignment === 'center' &&
+  tableToSlidesFirstCell.verticalAlignment === 'middle' &&
+  tableToSlidesFirstCell.borders?.top?.kind === 'line' &&
+  tableToSlidesFirstCell.borders.top.width === 2 &&
+  tableToSlidesSecondCell?.fill?.kind === 'solid' &&
+  tableToSlidesSecondCell.fill.color.kind === 'srgb' &&
+  tableToSlidesSecondCell.fill.color.value === 'FFFFFF' &&
+  tableToSlidesSecondCell.horizontalAlignment === 'right';
+const tableToSlidesWidths = tableToSlidesPageTables.every((table) =>
+  JSON.stringify(table.columnWidths) === JSON.stringify(tableToSlidesExpectedWidths) &&
+  table.transform.width === inches(6));
+const tableToSlidesHeaders = tableToSlidesPageTables.every((table) =>
+  table.rows[0]?.cells[0]?.text === 'Packed HTML header A' &&
+  table.rows[1]?.cells[0]?.text === 'Packed HTML subhead A');
+const tableToSlidesGeneratedSection = tableToSlidesDocument.sections?.find(
+  ({ slideIds }) => tableToSlidesPages.every((page) =>
+    slideIds.includes(page.slideId)),
+);
+const tableToSlidesLayoutState = tableToSlidesPages.every((page) =>
+  page.relationships.some(({ type, resolvedTarget }) =>
+    type.endsWith('/slideLayout') &&
+      resolvedTarget === tableToSlidesLayout.partUri) &&
+  page.slideNumber !== undefined) &&
+  tableToSlidesGeneratedSection?.slideIds.join(',') ===
+    tableToSlidesPages.map(({ slideId }) => slideId).join(',');
+const tableToSlidesAdditions = tableToSlidesPages.every((page) =>
+  JSON.stringify(page.shapes.filter(({ name }) =>
+    tableToSlidesAdditionNames.includes(name)).map(({ name }) => name)) ===
+      JSON.stringify(tableToSlidesAdditionNames));
+const tableToSlidesImageTargets = new Set(tableToSlidesPages.flatMap((page) =>
+  page.relationships.filter(({ type }) => type.endsWith('/image'))
+    .map(({ resolvedTarget }) => resolvedTarget)));
+const tableToSlidesRelationships = tableToSlidesImageTargets.size === 1 &&
+  !tableToSlidesImageTargets.has(undefined) &&
+  tableToSlidesPages.every((page) =>
+    page.relationships.some(({ type, target }) =>
+      type.endsWith('/hyperlink') && target === tableToSlidesExternalUrl) &&
+    page.relationships.some(({ type, target }) =>
+      type.endsWith('/hyperlink') && target === tableToSlidesTableUrl) &&
+    page.relationships.some(({ type, resolvedTarget }) =>
+      type.endsWith('/slide') &&
+        resolvedTarget === tableToSlidesTarget.partUri));
+const tableToSlidesEditableTable = tableToSlidesPageTables.find((table) =>
+  table.rows.some((row) => row.cells[0]?.text.startsWith('Packed tail ') === true));
+const tableToSlidesEditableRow = tableToSlidesEditableTable?.rows.findIndex(
+  (row) => row.cells[0]?.text.startsWith('Packed tail ') === true,
+) ?? -1;
+if (tableToSlidesEditableTable instanceof TableModel &&
+    tableToSlidesEditableRow >= 0) {
+  tableToSlidesEditableTable.setCellText(
+    tableToSlidesEditableRow,
+    0,
+    'Packed HTML edited',
+  );
+}
+const tableToSlidesEdited = tableToSlidesEditableTable instanceof TableModel &&
+  tableToSlidesEditableRow >= 0 &&
+  tableToSlidesEditableTable.rows[tableToSlidesEditableRow]?.cells[0]?.text ===
+    'Packed HTML edited';
+await tableToSlidesDocument.writeFile('table-to-slides-smoke.pptx');
+const reopenedTableToSlidesDocument = await PptxDocument.open(
+  await tableToSlidesDocument.write(),
+);
+const reopenedTableToSlidesPages = reopenedTableToSlidesDocument.slides.filter(
+  (page) => page.shapes.some((shape) =>
+    shape instanceof TableModel && shape.name === 'packed_html_table'),
+);
+const reopenedTableToSlidesTables = reopenedTableToSlidesPages.map((page) =>
+  page.shapes.find((shape) =>
+    shape instanceof TableModel && shape.name === 'packed_html_table'));
+const tableToSlidesReopened =
+  reopenedTableToSlidesPages.length === tableToSlidesPages.length &&
+  reopenedTableToSlidesTables.every((table) =>
+    table instanceof TableModel &&
+      JSON.stringify(table.columnWidths) ===
+        JSON.stringify(tableToSlidesExpectedWidths) &&
+      table.rows[0]?.cells[0]?.text === 'Packed HTML header A' &&
+      table.rows[1]?.cells[0]?.text === 'Packed HTML subhead A') &&
+  reopenedTableToSlidesTables.some((table) =>
+    table.rows.some((row) =>
+      row.cells[0]?.text === 'Packed HTML edited')) &&
+  reopenedTableToSlidesPages.every((page) =>
+    tableToSlidesAdditionNames.every((name) =>
+      page.shapes.some((shape) => shape.name === name))) &&
+  reopenedTableToSlidesPages.every((page) =>
+    page.relationships.some(({ type, target }) =>
+      type.endsWith('/hyperlink') && target === tableToSlidesExternalUrl) &&
+    page.relationships.some(({ type, resolvedTarget }) =>
+      type.endsWith('/slide') &&
+        resolvedTarget === reopenedTableToSlidesDocument.slides[0]?.partUri));
+const tableToSlidesState = {
+  created: tableToSlidesCreated,
+  styles: tableToSlidesStyles,
+  widths: tableToSlidesWidths,
+  headers: tableToSlidesHeaders,
+  layout: tableToSlidesLayoutState,
+  additions: tableToSlidesAdditions,
+  relationships: tableToSlidesRelationships,
+  edited: tableToSlidesEdited,
+  reopened: tableToSlidesReopened,
+  validationErrors: tableToSlidesDocument.diagnostics
+    .filter(({ severity }) => severity === 'error').length +
+    reopenedTableToSlidesDocument.diagnostics
+      .filter(({ severity }) => severity === 'error').length,
+};
+const tableToSlides = Object.values(tableToSlidesState).every(
+  (value) => value === true || value === 0,
+);
 const checks = {
   slideNumbers,
   slideDefaultColor,
@@ -9169,6 +9637,8 @@ const checks = {
   tableAutoPageState,
   tableContentMeasurement,
   tableContentMeasurementState,
+  tableToSlides,
+  tableToSlidesState,
   schemeColors,
   schemeColorState,
   outputTypes,
@@ -12379,6 +12849,11 @@ process.stdout.write(resolved);
   type AddTableCellInput,
   type AddTableOptions,
   type TableAutoPageMarginInput,
+  type TableToSlidesAddImage,
+  type TableToSlidesAddShape,
+  type TableToSlidesAddTable,
+  type TableToSlidesAddText,
+  type TableToSlidesOptions,
   type InsertTableColumnsOptions,
   type InsertTableRowsOptions,
   type PresentationLayout,
@@ -13770,6 +14245,25 @@ const invalidTableAutoPageCharWeight: AddTableCellOptions = {
   // @ts-expect-error autoPageCharWeight is number-only
   autoPageCharWeight: false,
 };
+const typedTableToSlidesImage: TableToSlidesAddImage = {
+  source: new Uint8Array(),
+  options: { width: inches(1), height: inches(1) },
+};
+const typedTableToSlidesShape: TableToSlidesAddShape = { type: 'rect' };
+const typedTableToSlidesTable: TableToSlidesAddTable = { rows: [['Typed']] };
+const typedTableToSlidesText: TableToSlidesAddText = {
+  text: [{ runs: [{ text: 'Typed rich text', style: { bold: true } }] }],
+};
+const typedTableToSlidesOptions: TableToSlidesOptions = {
+  autoPage: true,
+  autoPageRepeatHeader: true,
+  addImage: typedTableToSlidesImage,
+  addShape: typedTableToSlidesShape,
+  addTable: typedTableToSlidesTable,
+  addText: typedTableToSlidesText,
+};
+const typedTableToSlidesPages: Promise<readonly SlideModel[]> =
+  createdDocument.tableToSlides('typed-table', typedTableToSlidesOptions);
 const typedTableCellHyperlinkTable: TableModel = createdDocument.slides[0].addTable([[
   { text: 'Typed table-cell hyperlink', options: typedTableCellHyperlinkOptions },
 ]]);
@@ -14082,7 +14576,9 @@ void [typedPreset, typedNoneShapeFill, typedSolidShapeFill,
   invalidInsertTableRowsOptions, invalidInsertTableColumnsOptions,
   typedTableAutoPageMargin, typedTableAutoPageOptions, typedTableAutoPageSource,
   typedNewAutoPagedSlides, invalidTableAutoPageFlag, invalidTableAutoPageMargin,
-  invalidTableAutoPageLineWeight, invalidTableAutoPageCharWeight];
+  invalidTableAutoPageLineWeight, invalidTableAutoPageCharWeight,
+  typedTableToSlidesImage, typedTableToSlidesShape, typedTableToSlidesTable,
+  typedTableToSlidesText, typedTableToSlidesOptions, typedTableToSlidesPages];
 void typedTableBorders;
 void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, typedChartPromise,
   typedChartDiagnostics, typedChartWorkbookCheck, invalidChartType, invalidChartAxis,
@@ -14203,6 +14699,13 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
     throw new Error(
       `Table content measurement smoke failed: ${JSON.stringify(
         apiChecks.tableContentMeasurementState,
+      )}`,
+    );
+  }
+  if (!apiChecks.tableToSlides) {
+    throw new Error(
+      `HTML table slide smoke failed: ${JSON.stringify(
+        apiChecks.tableToSlidesState,
       )}`,
     );
   }
@@ -15368,6 +15871,205 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
         sections: tableContentMeasurementSectionInspect,
         sentinel: tableContentMeasurementSentinelInspect,
         layouts: tableContentMeasurementLayoutTargets,
+      })}`,
+    );
+  }
+  const tableToSlidesDeckPath = join(directory, 'table-to-slides-smoke.pptx');
+  const tableToSlidesInspectResult = run(
+    bin,
+    ['--json', 'package', 'inspect', tableToSlidesDeckPath],
+    directory,
+  );
+  const tableToSlidesInspected = JSON.parse(tableToSlidesInspectResult.stdout);
+  if (!tableToSlidesInspected.ok ||
+      tableToSlidesInspected.data?.contentTypes?.[
+        'application/vnd.openxmlformats-officedocument.presentationml.slide+xml'
+      ] < 4) {
+    throw new Error(
+      `CLI HTML table slide package inspection failed: ${
+        tableToSlidesInspectResult.stdout
+      }`,
+    );
+  }
+  const tableToSlidesValidateResult = run(
+    bin,
+    [
+      '--json', 'package', 'validate', tableToSlidesDeckPath,
+      '--profile', 'powerpoint-2010',
+    ],
+    directory,
+  );
+  const tableToSlidesValidated = JSON.parse(tableToSlidesValidateResult.stdout);
+  if (!tableToSlidesValidated.ok ||
+      !tableToSlidesValidated.data?.valid ||
+      tableToSlidesValidated.data.errorCount !== 0 ||
+      !tableToSlidesValidated.data.diagnostics.every(
+        ({ code, severity }) => severity === 'warning' &&
+          code === 'OPC_EXTERNAL_RELATIONSHIP',
+      )) {
+    throw new Error(
+      `CLI HTML table slide validation failed: ${tableToSlidesValidateResult.stdout}`,
+    );
+  }
+  const tableToSlidesSlidesResult = run(
+    bin,
+    ['--json', 'slides', 'list', tableToSlidesDeckPath],
+    directory,
+  );
+  const tableToSlidesSlides = JSON.parse(tableToSlidesSlidesResult.stdout);
+  if (!tableToSlidesSlides.ok || tableToSlidesSlides.data?.length < 4) {
+    throw new Error(
+      `CLI HTML table slide listing failed: ${tableToSlidesSlidesResult.stdout}`,
+    );
+  }
+  const tableToSlidesReadPart = (partUri) => {
+    const result = run(
+      bin,
+      ['--json', 'part', 'read', tableToSlidesDeckPath, partUri],
+      directory,
+    );
+    const parsed = JSON.parse(result.stdout);
+    if (!parsed.ok || typeof parsed.data?.content !== 'string') {
+      throw new Error(`CLI HTML table slide part read failed: ${result.stdout}`);
+    }
+    return parsed.data.content;
+  };
+  const tableToSlidesRelationshipPartUri = (partUri) => partUri.slice(
+    0,
+    partUri.lastIndexOf('/'),
+  ) + '/_rels/' + basename(partUri) + '.rels';
+  const tableToSlidesSlideParts = tableToSlidesSlides.data.map((entry) => ({
+    ...entry,
+    xml: tableToSlidesReadPart(entry.partUri),
+  }));
+  const tableToSlidesPageParts = tableToSlidesSlideParts.filter(({ xml }) =>
+    xml.includes('name="packed_html_table"'));
+  const tableToSlidesTargetPart = tableToSlidesSlideParts.find(({ xml }) =>
+    xml.includes('Packed HTML internal target'));
+  const tableToSlidesPageRelationships = tableToSlidesPageParts.map(({ partUri }) =>
+    tableToSlidesReadPart(tableToSlidesRelationshipPartUri(partUri)));
+  const tableToSlidesMainFrames = tableToSlidesPageParts.map(({ xml }) => [
+    ...xml.matchAll(/<p:graphicFrame\b[\s\S]*?<\/p:graphicFrame>/g),
+  ].map((match) => match[0]).find((frame) =>
+    frame.includes('name="packed_html_table"')));
+  const tableToSlidesRelationshipElements = (xml) => [
+    ...xml.matchAll(/<Relationship\b[^>]*\/>/g),
+  ].map((match) => match[0]);
+  const tableToSlidesLinkRelationships = (xml) =>
+    tableToSlidesRelationshipElements(xml).filter((relationship) =>
+      relationship.includes('/relationships/hyperlink"') ||
+      relationship.includes('/relationships/slide"'));
+  const tableToSlidesClickIds = (xml) => new Set([
+    ...xml.matchAll(/<a:hlinkClick\b[^>]*\br:id="([^"]+)"/g),
+  ].map((match) => match[1]));
+  const tableToSlidesLinkIds = (xml) => new Set(
+    tableToSlidesLinkRelationships(xml).map((relationship) =>
+      relationship.match(/\bId="([^"]+)"/)?.[1]),
+  );
+  const tableToSlidesPackageCreated = tableToSlidesPageParts.length > 2 &&
+    tableToSlidesSlides.data.length === tableToSlidesPageParts.length + 1;
+  const tableToSlidesPackageWidths = tableToSlidesMainFrames.every((frame) =>
+    frame !== undefined &&
+    JSON.stringify([
+      ...frame.matchAll(/<a:gridCol\b[^>]*\bw="(\d+)"/g),
+    ].map((match) => Number(match[1]))) ===
+      JSON.stringify([1600200, 2286000, 1600200]));
+  const tableToSlidesFirstMainFrame = tableToSlidesMainFrames[0];
+  const tableToSlidesPackageStyleState = {
+    color: tableToSlidesFirstMainFrame?.includes(
+      '<a:srgbClr val="010203"/>',
+    ) === true,
+    fill: tableToSlidesFirstMainFrame?.includes(
+      '<a:srgbClr val="F0F1F2"/>',
+    ) === true,
+    transparentFill: tableToSlidesFirstMainFrame?.includes(
+      '<a:srgbClr val="FFFFFF"/>',
+    ) === true,
+    fontFamily: tableToSlidesFirstMainFrame?.includes('typeface="Aptos"') === true,
+    fontSize: tableToSlidesFirstMainFrame?.includes(' sz="1600"') === true,
+    borderWidth: tableToSlidesFirstMainFrame?.includes(
+      '<a:lnT w="25400"',
+    ) === true,
+  };
+  const tableToSlidesPackageStyles = Object.values(
+    tableToSlidesPackageStyleState,
+  ).every((value) => value);
+  const tableToSlidesPackageHeaders = tableToSlidesPageParts.every(({ xml }) =>
+    xml.includes('>Packed HTML header A</a:t>') &&
+    xml.includes('>Packed HTML subhead A</a:t>'));
+  const tableToSlidesPackageAdditions = tableToSlidesPageParts.every(({ xml }) => {
+    const names = [
+      'packed_html_table',
+      'packed_html_image',
+      'packed_html_shape',
+      'packed_html_addition_table',
+      'packed_html_text',
+    ];
+    const positions = names.map((name) => xml.indexOf('name="' + name + '"'));
+    return positions.every((position) => position >= 0) &&
+      positions.every((position, index) => index === 0 ||
+        position > positions[index - 1]) &&
+      (xml.match(/<a:tbl>/g) ?? []).length === 2;
+  });
+  const tableToSlidesPackageRelationships =
+    tableToSlidesTargetPart !== undefined &&
+    tableToSlidesPageParts.every(({ xml }, index) => {
+      const clicks = tableToSlidesClickIds(xml);
+      const owned = tableToSlidesLinkIds(tableToSlidesPageRelationships[index]);
+      return clicks.size === owned.size &&
+        [...clicks].every((id) => owned.has(id));
+    }) &&
+    tableToSlidesPageRelationships.every((xml) =>
+      xml.includes('https://table-to-slides.example/external') &&
+      xml.includes('https://table-to-slides.example/table') &&
+      xml.includes('/relationships/image"') &&
+      xml.includes('/relationships/slide"') &&
+      xml.includes('Target="' + basename(tableToSlidesTargetPart.partUri) + '"')) &&
+    new Set(tableToSlidesPageRelationships.map((xml) =>
+      tableToSlidesRelationshipElements(xml).find((relationship) =>
+        relationship.includes('/relationships/image"'))
+        ?.match(/\bTarget="([^"]+)"/)?.[1])).size === 1;
+  const tableToSlidesLayoutTargets = tableToSlidesPageRelationships.map((xml) =>
+    tableToSlidesRelationshipElements(xml).find((relationship) =>
+      relationship.includes('/relationships/slideLayout"'))
+      ?.match(/\bTarget="([^"]+)"/)?.[1]);
+  const tableToSlidesPresentationPart = tableToSlidesReadPart('/ppt/presentation.xml');
+  const tableToSlidesPackageLayout = tableToSlidesLayoutTargets[0] !== undefined &&
+    new Set(tableToSlidesLayoutTargets).size === 1 &&
+    tableToSlidesPresentationPart.includes('<p14:section ') &&
+    (tableToSlidesPresentationPart.match(/<p14:sldId\b/g) ?? []).length >=
+      tableToSlidesPageParts.length;
+  const tableToSlidesPackageEdited = tableToSlidesPageParts.some(({ xml }) =>
+    xml.includes('>Packed HTML edited</a:t>'));
+  const tableToSlidesPackageRows = tableToSlidesPageParts.some(({ xml }) =>
+    xml.includes('>Packed rowspan</a:t>') &&
+    xml.includes('<a:tc rowSpan="2">') &&
+    xml.includes('<a:tc gridSpan="2">')) &&
+    tableToSlidesPageParts.at(-1)?.xml.includes('>Packed footer A</a:t>') === true &&
+    tableToSlidesPageParts.filter(({ xml }) => xml.includes('fragment ')).length > 1;
+  const tableToSlidesInspect = tableToSlidesPackageCreated &&
+    tableToSlidesPackageWidths &&
+    tableToSlidesPackageStyles &&
+    tableToSlidesPackageHeaders &&
+    tableToSlidesPackageAdditions &&
+    tableToSlidesPackageRelationships &&
+    tableToSlidesPackageLayout &&
+    tableToSlidesPackageEdited &&
+    tableToSlidesPackageRows;
+  if (!tableToSlidesInspect) {
+    throw new Error(
+      `CLI HTML table slide part inspection failed: ${JSON.stringify({
+        created: tableToSlidesPackageCreated,
+        widths: tableToSlidesPackageWidths,
+        styles: tableToSlidesPackageStyles,
+        styleState: tableToSlidesPackageStyleState,
+        headers: tableToSlidesPackageHeaders,
+        additions: tableToSlidesPackageAdditions,
+        relationships: tableToSlidesPackageRelationships,
+        layout: tableToSlidesPackageLayout,
+        edited: tableToSlidesPackageEdited,
+        rows: tableToSlidesPackageRows,
+        pages: tableToSlidesPageParts.length,
       })}`,
     );
   }
@@ -16941,6 +17643,11 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
     await mkdir(dirname(output), { recursive: true });
     await writeFile(output, await readFile(tableContentMeasurementDeckPath));
   }
+  if (process.env.PPTX_TABLE_TO_SLIDES_OUT) {
+    const output = resolve(process.env.PPTX_TABLE_TO_SLIDES_OUT);
+    await mkdir(dirname(output), { recursive: true });
+    await writeFile(output, await readFile(tableToSlidesDeckPath));
+  }
 
   const writeSummary = (serialized) => {
     const summary = JSON.parse(serialized);
@@ -16972,6 +17679,9 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
     summary.tableContentMeasurement = apiChecks.tableContentMeasurement;
     summary.tableContentMeasurementState = apiChecks.tableContentMeasurementState;
     summary.tableContentMeasurementInspect = tableContentMeasurementInspect;
+    summary.tableToSlides = apiChecks.tableToSlides;
+    summary.tableToSlidesState = apiChecks.tableToSlidesState;
+    summary.tableToSlidesInspect = tableToSlidesInspect;
     process.stdout.write(`${JSON.stringify(summary)}\n`);
   };
   writeSummary(
