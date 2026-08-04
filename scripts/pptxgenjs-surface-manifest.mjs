@@ -372,6 +372,141 @@ const DEPRECATED_LINE_ENTRIES = Object.freeze([
     deprecatedLineEntry(owner, 'lineTail', 'endArrowType'),
   ]),
 ]);
+const FILL_CONTROL_TITLE =
+  'locks fill boundaries and deprecated alpha across shape and text owners';
+const SHAPE_FILL_CONTROL_TITLE =
+  'compares shape fill public output and strict native divergences';
+const TEXT_SHAPE_FILL_CONTROL_TITLE =
+  'compares text shape fill public output and strict native divergences';
+
+function fillFamilyEvidence(id, deprecated = false) {
+  const textOwner = id.includes('TextPropsOptions');
+  const shapeOwner = id.includes('ShapeProps');
+  const packageEvidence = [
+    ...(!textOwner ? [{
+      path: 'scripts/smoke-npm-package.mjs',
+      pattern: 'const shapeFills =',
+    }] : []),
+    ...(!shapeOwner ? [{
+      path: 'scripts/smoke-npm-package.mjs',
+      pattern: 'const textShapeFills =',
+    }] : []),
+  ];
+  const ooxml = [
+    ...(!textOwner ? [{
+      path: 'packages/sdk/src/index.test.ts',
+      pattern: 'creates preset shape fills through the public SDK surface',
+    }, {
+      path: 'scripts/smoke-npm-package.mjs',
+      pattern: "const shapeFillDeckPath = join(directory, 'shape-fill-smoke.pptx');",
+    }] : []),
+    ...(!shapeOwner ? [{
+      path: 'packages/sdk/src/index.test.ts',
+      pattern: 'creates text fills across slide layout master and placeholder owners',
+    }, {
+      path: 'scripts/smoke-npm-package.mjs',
+      pattern: "const textShapeFillDeckPath = join(directory, 'text-shape-fill-smoke.pptx');",
+    }] : []),
+  ];
+  const clients = deprecated
+    ? []
+    : [
+        ...(!textOwner ? [{
+          path: 'scripts/playwright-browser-smoke.js',
+          pattern: 'const shapeFills = JSON.stringify(shapeFillState)',
+        }] : []),
+        ...(!shapeOwner ? [{
+          path: 'scripts/playwright-browser-smoke.js',
+          pattern: 'const textShapeFillState = {',
+        }] : []),
+      ];
+  return {
+    control: {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      pattern: deprecated
+        ? FILL_CONTROL_TITLE
+        : textOwner
+          ? TEXT_SHAPE_FILL_CONTROL_TITLE
+          : SHAPE_FILL_CONTROL_TITLE,
+    },
+    evidence: {
+      code: [
+        {
+          path: 'packages/model/src/simple-fill.internal.ts',
+          pattern: 'export function normalizeSimpleFill(',
+        },
+        {
+          path: 'packages/model/src/shape-fill.internal.ts',
+          pattern: 'export function readShapeFill(',
+        },
+      ],
+      tests: [
+        {
+          path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+          title: FILL_CONTROL_TITLE,
+        },
+        ...(!deprecated && !textOwner ? [{
+          path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+          title: SHAPE_FILL_CONTROL_TITLE,
+        }] : []),
+        ...(!deprecated && !shapeOwner ? [{
+          path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+          title: TEXT_SHAPE_FILL_CONTROL_TITLE,
+        }] : []),
+      ],
+      package: packageEvidence,
+      ooxml,
+      clients,
+    },
+    shapeOwner,
+    textOwner,
+  };
+}
+
+function canonicalFillEntry(id) {
+  const { control, evidence, shapeOwner, textOwner } = fillFamilyEvidence(id);
+  return {
+    id,
+    status: 'deliberate-difference',
+    native: [
+      'ShapeFill',
+      'ShapeModel.fill',
+      ...(shapeOwner
+        ? ['SlideModel.addShape']
+        : textOwner
+          ? ['SlideModel.addText']
+          : ['SlideModel.addShape', 'SlideModel.addText']),
+    ],
+    evidence,
+    control,
+    serialization: true,
+    client: true,
+    note: 'Native covers the legal none/solid, sRGB/scheme, and transparency domain through a strict ShapeFill kind union with explicit direct-state editing; PptxGenJS instead omits none and zero-alpha intent and permits fallback values that native rejects before mutation.',
+  };
+}
+
+const CANONICAL_FILL_ATOM_IDS = Object.freeze([
+  ...['color', 'transparency', 'type'].map((property) =>
+    linePropertyId('ShapeFillProps', property)),
+  ...['none', 'solid'].map((value) =>
+    lineUnionId('ShapeFillProps', 'type', value)),
+  linePropertyId('ShapeProps', 'fill'),
+  linePropertyId('TextPropsOptions', 'fill'),
+]);
+const DEPRECATED_FILL_ENTRY = Object.freeze((() => {
+  const id = linePropertyId('ShapeFillProps', 'alpha');
+  const { control, evidence } = fillFamilyEvidence(id, true);
+  return {
+    id,
+    status: 'deprecated-alias',
+    native: ['ShapeFill', 'ShapeModel.fill', 'SlideModel.addShape', 'SlideModel.addText'],
+    evidence,
+    control,
+    canonical: linePropertyId('ShapeFillProps', 'transparency'),
+    serialization: true,
+    note: 'PptxGenJS declares alpha as a deprecated transparency alias across shape and text fills; when both nonzero fields are present it writes duplicate alpha children, while native rejects the alias and exposes only the strict canonical transparency field.',
+  };
+})());
 
 function presetShapeCatalogEntry(owner, value) {
   const id = `union:${owner}#${value}`;
@@ -699,6 +834,8 @@ export const PPTXGENJS_SURFACE_MANIFEST = deepFreeze({
     ...IMAGE_COORDINATE_ATOMS.map((id) => imageCoordinateDifference(id)),
     ...CANONICAL_LINE_ATOM_IDS.map((id) => canonicalLineEntry(id)),
     ...DEPRECATED_LINE_ENTRIES,
+    ...CANONICAL_FILL_ATOM_IDS.map((id) => canonicalFillEntry(id)),
+    DEPRECATED_FILL_ENTRY,
     ...['ShapeType', 'SHAPE_NAME'].flatMap((owner) =>
       DECLARED_PRESET_SHAPE_VALUES.map((value) => presetShapeCatalogEntry(owner, value))),
     ...['SchemeColor', 'ThemeColor'].flatMap((owner) =>

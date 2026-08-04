@@ -124,14 +124,14 @@ function assertDeepFrozen(value, seen = new Set()) {
 test('exports an immutable evidence-backed initial manifest batch', () => {
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.schemaVersion, 1);
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.packageVersion, '4.0.1');
-  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 543);
+  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 551);
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries.map(({ status }) => status).sort(),
     [
       ...Array(3).fill('defect-excluded'),
       ...Array(415).fill('supported'),
-      ...Array(51).fill('deliberate-difference'),
-      ...Array(74).fill('deprecated-alias'),
+      ...Array(58).fill('deliberate-difference'),
+      ...Array(75).fill('deprecated-alias'),
     ].sort(),
   );
   const lineFamilyEntries = PPTXGENJS_SURFACE_MANIFEST.entries.filter(({ id }) =>
@@ -159,6 +159,21 @@ test('exports an immutable evidence-backed initial manifest batch', () => {
   assert.equal(
     lineFamilyById.get('interface:ShapeProps@property:lineSize')?.canonical,
     'interface:ShapeLineProps@property:width',
+  );
+  const fillFamilyEntries = PPTXGENJS_SURFACE_MANIFEST.entries.filter(({ id }) =>
+    /^(?:union:)?interface:(?:ShapeFillProps@property:(?:alpha|color|transparency|type)|(?:ShapeProps|TextPropsOptions)@property:fill)(?:#.+)?$/u.test(id));
+  assert.equal(fillFamilyEntries.length, 8);
+  assert.deepEqual(
+    fillFamilyEntries.map(({ status }) => status).sort(),
+    [
+      ...Array(7).fill('deliberate-difference'),
+      'deprecated-alias',
+    ].sort(),
+  );
+  const fillFamilyById = new Map(fillFamilyEntries.map((entry) => [entry.id, entry]));
+  assert.equal(
+    fillFamilyById.get('interface:ShapeFillProps@property:alpha')?.canonical,
+    'interface:ShapeFillProps@property:transparency',
   );
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries

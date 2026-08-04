@@ -2358,6 +2358,7 @@ const shapeFills = packedSrgbFill instanceof ShapeModel &&
     { kind: 'solid', color: { kind: 'scheme', value: 'accent2' }, transparency: 25 },
     { kind: 'none' },
   ]);
+await reopenedShapeFillDeck.writeFile('shape-fill-smoke.pptx');
 const textShapeFillDeck = PptxDocument.create();
 const textShapeFillLayout = textShapeFillDeck.layouts[0];
 const textShapeFillMaster = textShapeFillDeck.masters[0];
@@ -16931,6 +16932,61 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
       )) {
     throw new Error(`CLI slide-default-color part inspection failed: ${slideDefaultColorPartResult.stdout}`);
   }
+  const shapeFillDeckPath = join(directory, 'shape-fill-smoke.pptx');
+  const shapeFillInspectResult = run(
+    bin,
+    ['--json', 'package', 'inspect', shapeFillDeckPath],
+    directory,
+  );
+  const shapeFillInspected = JSON.parse(shapeFillInspectResult.stdout);
+  if (!shapeFillInspected.ok ||
+      shapeFillInspected.data?.contentTypes?.[
+        'application/vnd.openxmlformats-officedocument.presentationml.slide+xml'
+      ] !== 2) {
+    throw new Error(`CLI shape-fill inspect failed: ${shapeFillInspectResult.stdout}`);
+  }
+  const shapeFillValidateResult = run(
+    bin,
+    ['--json', 'package', 'validate', shapeFillDeckPath, '--profile', 'powerpoint-2010'],
+    directory,
+  );
+  const shapeFillValidated = JSON.parse(shapeFillValidateResult.stdout);
+  if (!shapeFillValidated.ok || !shapeFillValidated.data?.valid ||
+      shapeFillValidated.data.errorCount !== 0 ||
+      shapeFillValidated.data.warningCount !== 0) {
+    throw new Error(`CLI shape-fill validation failed: ${shapeFillValidateResult.stdout}`);
+  }
+  const shapeFillSlidesResult = run(
+    bin,
+    ['--json', 'slides', 'list', shapeFillDeckPath],
+    directory,
+  );
+  const shapeFillSlides = JSON.parse(shapeFillSlidesResult.stdout);
+  if (!shapeFillSlides.ok || shapeFillSlides.data?.length !== 2 ||
+      shapeFillSlides.data[0]?.shapeCount !== 3 ||
+      shapeFillSlides.data[1]?.shapeCount !== 3) {
+    throw new Error(`CLI shape-fill slide listing failed: ${shapeFillSlidesResult.stdout}`);
+  }
+  const shapeFillPart = (uri) => JSON.parse(run(
+    bin,
+    ['--json', 'part', 'read', shapeFillDeckPath, uri],
+    directory,
+  ).stdout).data?.content ?? '';
+  const shapeFillSourceXml = shapeFillPart(shapeFillSlides.data[0].partUri);
+  const shapeFillDuplicateXml = shapeFillPart(shapeFillSlides.data[1].partUri);
+  if (!shapeFillSourceXml.includes(
+        '<a:schemeClr val="accent4"><a:alpha val="60000"/></a:schemeClr>',
+      ) ||
+      !shapeFillSourceXml.includes(
+        '<a:schemeClr val="accent2"><a:alpha val="75000"/></a:schemeClr>',
+      ) ||
+      !shapeFillSourceXml.includes('<a:noFill/>') ||
+      (shapeFillDuplicateXml.match(/<a:noFill\/>/g)?.length ?? 0) < 2 ||
+      !shapeFillDuplicateXml.includes(
+        '<a:schemeClr val="accent2"><a:alpha val="75000"/></a:schemeClr>',
+      )) {
+    throw new Error('CLI shape-fill part inspection failed');
+  }
   const textShapeFillDeckPath = join(directory, 'text-shape-fill-smoke.pptx');
   const textShapeFillInspectResult = run(
     bin,
@@ -17934,7 +17990,7 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
     process.stdout.write(`${JSON.stringify(summary)}\n`);
   };
   writeSummary(
-    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presentationVersion: apiChecks.presentationVersion, presentationVersionState, presentationLayouts: apiChecks.presentationLayouts, presentationLayoutState: apiChecks.presentationLayoutState, horizontalAlignments: apiChecks.horizontalAlignments, horizontalAlignmentState: apiChecks.horizontalAlignmentState, verticalAlignments: apiChecks.verticalAlignments, verticalAlignmentState: apiChecks.verticalAlignmentState, tableVerticalAlignment: apiChecks.tableVerticalAlignment, tableVerticalAlignmentState: apiChecks.tableVerticalAlignmentState, tableTextDirection: apiChecks.tableTextDirection, tableTextDirectionState: apiChecks.tableTextDirectionState, tableHorizontalAlignment: apiChecks.tableHorizontalAlignment, tableHorizontalAlignmentState: apiChecks.tableHorizontalAlignmentState, schemeColors: apiChecks.schemeColors, schemeColorState: apiChecks.schemeColorState, outputTypes: apiChecks.outputTypes, outputTypeState: apiChecks.outputTypeState, writeOutputTypes: apiChecks.writeOutputTypes, writeOutputTypeState: apiChecks.writeOutputTypeState, nodeReadableStream: apiChecks.nodeReadableStream, nodeReadableStreamState: apiChecks.nodeReadableStreamState, masterLayouts: apiChecks.masterLayouts, slideNumbers: apiChecks.slideNumbers, slideDefaultColor: apiChecks.slideDefaultColor, presetShapes: apiChecks.presetShapes, shapeTextPercentageCoordinates: apiChecks.shapeTextPercentageCoordinates, imagePercentageCoordinates: apiChecks.imagePercentageCoordinates, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, textShapeFills: apiChecks.textShapeFills, textShapeLines: apiChecks.textShapeLines, textShapeArrows: apiChecks.textShapeArrows, textShapeShadows: apiChecks.textShapeShadows, textShapeHyperlinks: apiChecks.textShapeHyperlinks, textShapePresetGeometry: apiChecks.textShapePresetGeometry, textShapeRectRadius: apiChecks.textShapeRectRadius, textShapeIsTextBox: apiChecks.textShapeIsTextBox, richTextBreakLine: apiChecks.richTextBreakLine, richTextRunHyperlinks: apiChecks.richTextRunHyperlinks, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, slideBackgrounds: apiChecks.slideBackgrounds, types: true, cli: doctor.data.version, presentationLayoutInspect: true, horizontalAlignmentInspect: true, verticalAlignmentInspect: true, tableVerticalAlignmentInspect: true, tableTextDirectionInspect: true, tableHorizontalAlignmentInspect: true, masterLayoutInspect: true, masterLayoutValidate: true, masterLayoutSlides: true, masterLayoutPartRead: true, masterLayoutDiff: true, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true, slideBackgroundInspect: true, slideBackgroundValidate: true, slideNumberInspect: true, slideNumberValidate: true, slideNumberSlides: true, slideNumberPartRead: true, slideDefaultColorInspect: true, slideDefaultColorValidate: true, slideDefaultColorSlides: true, slideDefaultColorPartRead: true, textShapeFillInspect: true, textShapeFillValidate: true, textShapeFillSlides: true, textShapeFillPartRead: true, textShapeLineInspect: true, textShapeLineValidate: true, textShapeLineSlides: true, textShapeLinePartRead: true, textShapeArrowInspect: true, textShapeArrowValidate: true, textShapeArrowSlides: true, textShapeArrowPartRead: true, textShapeShadowInspect: true, textShapeShadowValidate: true, textShapeShadowSlides: true, textShapeShadowPartRead: true, textShapeHyperlinkInspect: true, textShapeHyperlinkValidate: true, textShapeHyperlinkSlides: true, textShapeHyperlinkPartRead: true, textShapeHyperlinkInternalValidate: true, textShapePresetGeometryValidate: true, textShapePresetGeometrySlides: true, textShapePresetGeometryPartRead: true, textShapeRectRadiusValidate: true, textShapeRectRadiusSlides: true, textShapeRectRadiusPartRead: true, textShapeIsTextBoxValidate: true, textShapeIsTextBoxSlides: true, textShapeIsTextBoxPartRead: true, textShapeIsTextBoxLayoutPartRead: true, textShapeIsTextBoxMasterPartRead: true, richTextRunHyperlinkInspect: true, richTextRunHyperlinkValidate: true, richTextRunHyperlinkSlides: true, richTextRunHyperlinkPartRead: true, richTextRunHyperlinkInternalValidate: true, richTextBreakLineValidate: true, richTextBreakLineSlides: true, richTextBreakLinePartRead: true })}\n`,
+    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presentationVersion: apiChecks.presentationVersion, presentationVersionState, presentationLayouts: apiChecks.presentationLayouts, presentationLayoutState: apiChecks.presentationLayoutState, horizontalAlignments: apiChecks.horizontalAlignments, horizontalAlignmentState: apiChecks.horizontalAlignmentState, verticalAlignments: apiChecks.verticalAlignments, verticalAlignmentState: apiChecks.verticalAlignmentState, tableVerticalAlignment: apiChecks.tableVerticalAlignment, tableVerticalAlignmentState: apiChecks.tableVerticalAlignmentState, tableTextDirection: apiChecks.tableTextDirection, tableTextDirectionState: apiChecks.tableTextDirectionState, tableHorizontalAlignment: apiChecks.tableHorizontalAlignment, tableHorizontalAlignmentState: apiChecks.tableHorizontalAlignmentState, schemeColors: apiChecks.schemeColors, schemeColorState: apiChecks.schemeColorState, outputTypes: apiChecks.outputTypes, outputTypeState: apiChecks.outputTypeState, writeOutputTypes: apiChecks.writeOutputTypes, writeOutputTypeState: apiChecks.writeOutputTypeState, nodeReadableStream: apiChecks.nodeReadableStream, nodeReadableStreamState: apiChecks.nodeReadableStreamState, masterLayouts: apiChecks.masterLayouts, slideNumbers: apiChecks.slideNumbers, slideDefaultColor: apiChecks.slideDefaultColor, presetShapes: apiChecks.presetShapes, shapeTextPercentageCoordinates: apiChecks.shapeTextPercentageCoordinates, imagePercentageCoordinates: apiChecks.imagePercentageCoordinates, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, textShapeFills: apiChecks.textShapeFills, textShapeLines: apiChecks.textShapeLines, textShapeArrows: apiChecks.textShapeArrows, textShapeShadows: apiChecks.textShapeShadows, textShapeHyperlinks: apiChecks.textShapeHyperlinks, textShapePresetGeometry: apiChecks.textShapePresetGeometry, textShapeRectRadius: apiChecks.textShapeRectRadius, textShapeIsTextBox: apiChecks.textShapeIsTextBox, richTextBreakLine: apiChecks.richTextBreakLine, richTextRunHyperlinks: apiChecks.richTextRunHyperlinks, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, slideBackgrounds: apiChecks.slideBackgrounds, types: true, cli: doctor.data.version, presentationLayoutInspect: true, horizontalAlignmentInspect: true, verticalAlignmentInspect: true, tableVerticalAlignmentInspect: true, tableTextDirectionInspect: true, tableHorizontalAlignmentInspect: true, masterLayoutInspect: true, masterLayoutValidate: true, masterLayoutSlides: true, masterLayoutPartRead: true, masterLayoutDiff: true, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true, slideBackgroundInspect: true, slideBackgroundValidate: true, slideNumberInspect: true, slideNumberValidate: true, slideNumberSlides: true, slideNumberPartRead: true, slideDefaultColorInspect: true, slideDefaultColorValidate: true, slideDefaultColorSlides: true, slideDefaultColorPartRead: true, shapeFillInspect: true, shapeFillValidate: true, shapeFillSlides: true, shapeFillPartRead: true, textShapeFillInspect: true, textShapeFillValidate: true, textShapeFillSlides: true, textShapeFillPartRead: true, textShapeLineInspect: true, textShapeLineValidate: true, textShapeLineSlides: true, textShapeLinePartRead: true, textShapeArrowInspect: true, textShapeArrowValidate: true, textShapeArrowSlides: true, textShapeArrowPartRead: true, textShapeShadowInspect: true, textShapeShadowValidate: true, textShapeShadowSlides: true, textShapeShadowPartRead: true, textShapeHyperlinkInspect: true, textShapeHyperlinkValidate: true, textShapeHyperlinkSlides: true, textShapeHyperlinkPartRead: true, textShapeHyperlinkInternalValidate: true, textShapePresetGeometryValidate: true, textShapePresetGeometrySlides: true, textShapePresetGeometryPartRead: true, textShapeRectRadiusValidate: true, textShapeRectRadiusSlides: true, textShapeRectRadiusPartRead: true, textShapeIsTextBoxValidate: true, textShapeIsTextBoxSlides: true, textShapeIsTextBoxPartRead: true, textShapeIsTextBoxLayoutPartRead: true, textShapeIsTextBoxMasterPartRead: true, richTextRunHyperlinkInspect: true, richTextRunHyperlinkValidate: true, richTextRunHyperlinkSlides: true, richTextRunHyperlinkPartRead: true, richTextRunHyperlinkInternalValidate: true, richTextBreakLineValidate: true, richTextBreakLineSlides: true, richTextBreakLinePartRead: true })}\n`,
   );
 } finally {
   await rm(directory, { recursive: true, force: true });

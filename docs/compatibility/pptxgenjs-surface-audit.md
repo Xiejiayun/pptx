@@ -11,11 +11,11 @@
 | Status | Count |
 | --- | ---: |
 | supported | 415 |
-| deliberate-difference | 51 |
-| deprecated-alias | 74 |
+| deliberate-difference | 58 |
+| deprecated-alias | 75 |
 | defect-excluded | 3 |
 | unsupported | 0 |
-| unverified | 1231 |
+| unverified | 1223 |
 | stale | 0 |
 
 ## Runtime declaration differences
@@ -534,14 +534,9 @@ None.
 - `interface:ShadowProps@property:opacity`
 - `interface:ShadowProps@property:rotateWithShape`
 - `interface:ShadowProps@property:type`
-- `interface:ShapeFillProps@property:alpha`
-- `interface:ShapeFillProps@property:color`
-- `interface:ShapeFillProps@property:transparency`
-- `interface:ShapeFillProps@property:type`
 - `interface:ShapeProps@property:align`
 - `interface:ShapeProps@property:angleRange`
 - `interface:ShapeProps@property:arcThicknessRatio`
-- `interface:ShapeProps@property:fill`
 - `interface:ShapeProps@property:flipH`
 - `interface:ShapeProps@property:flipV`
 - `interface:ShapeProps@property:hyperlink`
@@ -693,7 +688,6 @@ None.
 - `interface:TextPropsOptions@property:charSpacing`
 - `interface:TextPropsOptions@property:color`
 - `interface:TextPropsOptions@property:data`
-- `interface:TextPropsOptions@property:fill`
 - `interface:TextPropsOptions@property:fit`
 - `interface:TextPropsOptions@property:flipH`
 - `interface:TextPropsOptions@property:flipV`
@@ -1003,8 +997,6 @@ None.
 - `union:interface:ShadowProps@property:type#inner`
 - `union:interface:ShadowProps@property:type#none`
 - `union:interface:ShadowProps@property:type#outer`
-- `union:interface:ShapeFillProps@property:type#none`
-- `union:interface:ShapeFillProps@property:type#solid`
 - `union:interface:SlideMasterProps@property:bkgd#BackgroundProps`
 - `union:interface:SlideMasterProps@property:bkgd#string`
 - `union:interface:SlideNumberProps@property:bullet#boolean`
@@ -1427,7 +1419,7 @@ None.
 | `interface:TextPropsOptions@property:charSpacing` | unverified | — | — | — |
 | `interface:TextPropsOptions@property:color` | unverified | — | — | — |
 | `interface:TextPropsOptions@property:data` | unverified | — | — | — |
-| `interface:TextPropsOptions@property:fill` | unverified | — | — | — |
+| `interface:TextPropsOptions@property:fill` | deliberate-difference | ShapeFill<br>ShapeModel.fill<br>SlideModel.addText | code:packages/model/src/simple-fill.internal.ts<br>code:packages/model/src/shape-fill.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>ooxml:scripts/smoke-npm-package.mjs<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers the legal none/solid, sRGB/scheme, and transparency domain through a strict ShapeFill kind union with explicit direct-state editing; PptxGenJS instead omits none and zero-alpha intent and permits fallback values that native rejects before mutation. |
 | `interface:TextPropsOptions@property:fit` | unverified | — | — | — |
 | `interface:TextPropsOptions@property:flipH` | unverified | — | — | — |
 | `interface:TextPropsOptions@property:flipV` | unverified | — | — | — |
@@ -1581,10 +1573,10 @@ None.
 | `interface:ShadowProps@property:opacity` | unverified | — | — | — |
 | `interface:ShadowProps@property:rotateWithShape` | unverified | — | — | — |
 | `interface:ShadowProps@property:type` | unverified | — | — | — |
-| `interface:ShapeFillProps@property:alpha` | unverified | — | — | — |
-| `interface:ShapeFillProps@property:color` | unverified | — | — | — |
-| `interface:ShapeFillProps@property:transparency` | unverified | — | — | — |
-| `interface:ShapeFillProps@property:type` | unverified | — | — | — |
+| `interface:ShapeFillProps@property:alpha` | deprecated-alias | ShapeFill<br>ShapeModel.fill<br>SlideModel.addShape<br>SlideModel.addText | code:packages/model/src/simple-fill.internal.ts<br>code:packages/model/src/shape-fill.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>ooxml:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>ooxml:scripts/smoke-npm-package.mjs<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS declares alpha as a deprecated transparency alias across shape and text fills; when both nonzero fields are present it writes duplicate alpha children, while native rejects the alias and exposes only the strict canonical transparency field. |
+| `interface:ShapeFillProps@property:color` | deliberate-difference | ShapeFill<br>ShapeModel.fill<br>SlideModel.addShape<br>SlideModel.addText | code:packages/model/src/simple-fill.internal.ts<br>code:packages/model/src/shape-fill.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>ooxml:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>ooxml:scripts/smoke-npm-package.mjs<br>clients:scripts/playwright-browser-smoke.js<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers the legal none/solid, sRGB/scheme, and transparency domain through a strict ShapeFill kind union with explicit direct-state editing; PptxGenJS instead omits none and zero-alpha intent and permits fallback values that native rejects before mutation. |
+| `interface:ShapeFillProps@property:transparency` | deliberate-difference | ShapeFill<br>ShapeModel.fill<br>SlideModel.addShape<br>SlideModel.addText | code:packages/model/src/simple-fill.internal.ts<br>code:packages/model/src/shape-fill.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>ooxml:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>ooxml:scripts/smoke-npm-package.mjs<br>clients:scripts/playwright-browser-smoke.js<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers the legal none/solid, sRGB/scheme, and transparency domain through a strict ShapeFill kind union with explicit direct-state editing; PptxGenJS instead omits none and zero-alpha intent and permits fallback values that native rejects before mutation. |
+| `interface:ShapeFillProps@property:type` | deliberate-difference | ShapeFill<br>ShapeModel.fill<br>SlideModel.addShape<br>SlideModel.addText | code:packages/model/src/simple-fill.internal.ts<br>code:packages/model/src/shape-fill.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>ooxml:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>ooxml:scripts/smoke-npm-package.mjs<br>clients:scripts/playwright-browser-smoke.js<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers the legal none/solid, sRGB/scheme, and transparency domain through a strict ShapeFill kind union with explicit direct-state editing; PptxGenJS instead omits none and zero-alpha intent and permits fallback values that native rejects before mutation. |
 | `interface:ShapeLineProps@property:alpha` | deprecated-alias | ShapeLine<br>ShapeModel.line<br>SlideModel.addShape<br>SlideModel.addText | code:packages/model/src/simple-line.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>ooxml:packages/sdk/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS declares alpha as a deprecated transparency alias, but 4.0.1 applies it only to ordinary text lines and ignores it for shapes and line-shaped text; native rejects the alias and exposes the strict canonical transparency field. |
 | `interface:ShapeLineProps@property:color` | deliberate-difference | ShapeLine<br>ShapeModel.line<br>SlideModel.addShape<br>SlideModel.addText | code:packages/model/src/simple-line.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers the same legal none/solid line semantics, colors, transparency, width, and eight dash tokens through a strict ShapeLine contract with deterministic direct OOXML instead of PptxGenJS fallbacks and permissive aliases. |
 | `interface:ShapeLineProps@property:dashType` | deliberate-difference | ShapeLine<br>ShapeModel.line<br>SlideModel.addShape<br>SlideModel.addText | code:packages/model/src/simple-line.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers the same legal none/solid line semantics, colors, transparency, width, and eight dash tokens through a strict ShapeLine contract with deterministic direct OOXML instead of PptxGenJS fallbacks and permissive aliases. |
@@ -1599,7 +1591,7 @@ None.
 | `interface:ShapeProps@property:align` | unverified | — | — | — |
 | `interface:ShapeProps@property:angleRange` | unverified | — | — | — |
 | `interface:ShapeProps@property:arcThicknessRatio` | unverified | — | — | — |
-| `interface:ShapeProps@property:fill` | unverified | — | — | — |
+| `interface:ShapeProps@property:fill` | deliberate-difference | ShapeFill<br>ShapeModel.fill<br>SlideModel.addShape | code:packages/model/src/simple-fill.internal.ts<br>code:packages/model/src/shape-fill.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>ooxml:scripts/smoke-npm-package.mjs<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers the legal none/solid, sRGB/scheme, and transparency domain through a strict ShapeFill kind union with explicit direct-state editing; PptxGenJS instead omits none and zero-alpha intent and permits fallback values that native rejects before mutation. |
 | `interface:ShapeProps@property:flipH` | unverified | — | — | — |
 | `interface:ShapeProps@property:flipV` | unverified | — | — | — |
 | `interface:ShapeProps@property:h` | deliberate-difference | SlideModel.addCustomShape<br>SlideModel.addShape | code:packages/model/src/slide-coordinate.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers the same legal percentage geometry with width/height and explicit Emu or inches() numeric units instead of PptxGenJS w/h and implicit-inch numbers. |
@@ -1856,8 +1848,8 @@ None.
 | `union:interface:ShadowProps@property:type#inner` | unverified | — | — | — |
 | `union:interface:ShadowProps@property:type#none` | unverified | — | — | — |
 | `union:interface:ShadowProps@property:type#outer` | unverified | — | — | — |
-| `union:interface:ShapeFillProps@property:type#none` | unverified | — | — | — |
-| `union:interface:ShapeFillProps@property:type#solid` | unverified | — | — | — |
+| `union:interface:ShapeFillProps@property:type#none` | deliberate-difference | ShapeFill<br>ShapeModel.fill<br>SlideModel.addShape<br>SlideModel.addText | code:packages/model/src/simple-fill.internal.ts<br>code:packages/model/src/shape-fill.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>ooxml:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>ooxml:scripts/smoke-npm-package.mjs<br>clients:scripts/playwright-browser-smoke.js<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers the legal none/solid, sRGB/scheme, and transparency domain through a strict ShapeFill kind union with explicit direct-state editing; PptxGenJS instead omits none and zero-alpha intent and permits fallback values that native rejects before mutation. |
+| `union:interface:ShapeFillProps@property:type#solid` | deliberate-difference | ShapeFill<br>ShapeModel.fill<br>SlideModel.addShape<br>SlideModel.addText | code:packages/model/src/simple-fill.internal.ts<br>code:packages/model/src/shape-fill.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>ooxml:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>ooxml:scripts/smoke-npm-package.mjs<br>clients:scripts/playwright-browser-smoke.js<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers the legal none/solid, sRGB/scheme, and transparency domain through a strict ShapeFill kind union with explicit direct-state editing; PptxGenJS instead omits none and zero-alpha intent and permits fallback values that native rejects before mutation. |
 | `union:interface:ShapeLineProps@property:dashType#dash` | deliberate-difference | ShapeLine<br>ShapeModel.line<br>SlideModel.addShape<br>SlideModel.addText | code:packages/model/src/simple-line.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers the same legal none/solid line semantics, colors, transparency, width, and eight dash tokens through a strict ShapeLine contract with deterministic direct OOXML instead of PptxGenJS fallbacks and permissive aliases. |
 | `union:interface:ShapeLineProps@property:dashType#dashDot` | deliberate-difference | ShapeLine<br>ShapeModel.line<br>SlideModel.addShape<br>SlideModel.addText | code:packages/model/src/simple-line.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers the same legal none/solid line semantics, colors, transparency, width, and eight dash tokens through a strict ShapeLine contract with deterministic direct OOXML instead of PptxGenJS fallbacks and permissive aliases. |
 | `union:interface:ShapeLineProps@property:dashType#lgDash` | deliberate-difference | ShapeLine<br>ShapeModel.line<br>SlideModel.addShape<br>SlideModel.addText | code:packages/model/src/simple-line.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers the same legal none/solid line semantics, colors, transparency, width, and eight dash tokens through a strict ShapeLine contract with deterministic direct OOXML instead of PptxGenJS fallbacks and permissive aliases. |

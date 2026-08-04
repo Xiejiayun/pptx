@@ -3516,6 +3516,121 @@ async (page) => {
           ({ severity }) => severity === 'error',
         ).length,
       };
+      const shapeFillDocument = api.PptxDocument.create();
+      const shapeFillSlide = shapeFillDocument.addSlide();
+      const shapeFillSource = {
+        kind: 'solid',
+        color: { kind: 'srgb', value: '#AB12CD' },
+        transparency: 25,
+      };
+      const browserNoneShapeFill = shapeFillSlide.addShape('rect', {
+        fill: { kind: 'none' },
+      });
+      const browserSrgbShapeFill = shapeFillSlide.addShape('ellipse', {
+        fill: shapeFillSource,
+      });
+      const browserSchemeShapeFill = shapeFillSlide.addShape('star5', {
+        fill: {
+          kind: 'solid',
+          color: { kind: 'scheme', value: 'accent2' },
+          transparency: 0,
+        },
+      });
+      const shapeFillImmediate = [
+        browserNoneShapeFill.fill,
+        browserSrgbShapeFill.fill,
+        browserSchemeShapeFill.fill,
+      ];
+      shapeFillSource.color.value = 'FFFFFF';
+      shapeFillSource.transparency = 90;
+      const shapeFillDetached = browserSrgbShapeFill.fill;
+      const shapeFillPartCount = shapeFillDocument.opcPackage.parts.length;
+      const shapeFillRelationshipCount = shapeFillSlide.relationships.length;
+      browserSrgbShapeFill.fill = { kind: 'none' };
+      const shapeFillReplacedNone = browserSrgbShapeFill.fill;
+      browserSrgbShapeFill.fill = undefined;
+      const shapeFillCleared = browserSrgbShapeFill.fill;
+      browserSrgbShapeFill.fill = {
+        kind: 'solid',
+        color: { kind: 'scheme', value: 'accent4' },
+        transparency: 50,
+      };
+      const shapeFillXml = new TextDecoder().decode(
+        shapeFillDocument.opcPackage.requirePart(shapeFillSlide.partUri).bytes,
+      );
+      const shapeFillOutput = await shapeFillDocument.writeBlob();
+      const reopenedShapeFills = await api.PptxDocument.open(shapeFillOutput);
+      const shapeFillState = {
+        mime: shapeFillOutput.type,
+        immediate: shapeFillImmediate,
+        detached: shapeFillDetached,
+        replacedNone: shapeFillReplacedNone,
+        cleared: shapeFillCleared ?? null,
+        edited: browserSrgbShapeFill.fill,
+        preserved: browserNoneShapeFill.fill,
+        serialized: {
+          none: shapeFillXml.includes('<a:noFill/>'),
+          edited: shapeFillXml.includes(
+            '<a:schemeClr val="accent4"><a:alpha val="50000"/></a:schemeClr>',
+          ),
+          explicitZero: shapeFillXml.includes(
+            '<a:schemeClr val="accent2"><a:alpha val="100000"/></a:schemeClr>',
+          ),
+        },
+        partIsolation: shapeFillDocument.opcPackage.parts.length === shapeFillPartCount,
+        relationshipIsolation: shapeFillSlide.relationships.length ===
+          shapeFillRelationshipCount,
+        reopened: reopenedShapeFills.slides[0].shapes.map(({ fill }) => fill),
+        validationErrors: reopenedShapeFills.diagnostics.filter(
+          ({ severity }) => severity === 'error',
+        ).length,
+      };
+      const shapeFills = JSON.stringify(shapeFillState) === JSON.stringify({
+        mime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        immediate: [
+          { kind: 'none' },
+          {
+            kind: 'solid',
+            color: { kind: 'srgb', value: 'AB12CD' },
+            transparency: 25,
+          },
+          {
+            kind: 'solid',
+            color: { kind: 'scheme', value: 'accent2' },
+            transparency: 0,
+          },
+        ],
+        detached: {
+          kind: 'solid',
+          color: { kind: 'srgb', value: 'AB12CD' },
+          transparency: 25,
+        },
+        replacedNone: { kind: 'none' },
+        cleared: null,
+        edited: {
+          kind: 'solid',
+          color: { kind: 'scheme', value: 'accent4' },
+          transparency: 50,
+        },
+        preserved: { kind: 'none' },
+        serialized: { none: true, edited: true, explicitZero: true },
+        partIsolation: true,
+        relationshipIsolation: true,
+        reopened: [
+          { kind: 'none' },
+          {
+            kind: 'solid',
+            color: { kind: 'scheme', value: 'accent4' },
+            transparency: 50,
+          },
+          {
+            kind: 'solid',
+            color: { kind: 'scheme', value: 'accent2' },
+            transparency: 0,
+          },
+        ],
+        validationErrors: 0,
+      });
       const textShapeFillDocument = api.PptxDocument.create();
       const textShapeFillLayout = textShapeFillDocument.layouts[0];
       textShapeFillLayout.addPlaceholder('Browser text fill prompt', {
@@ -5681,6 +5796,8 @@ async (page) => {
         slideNumbers: slideNumberState,
         masterLayouts: masterLayoutState,
         slideDefaultColor: slideDefaultColorState,
+        shapeFills,
+        shapeFillState,
         textShapeFills: textShapeFillState,
         textShapeLines: textShapeLineState,
         textShapeArrows: textShapeArrowState,
@@ -6554,6 +6671,53 @@ async (page) => {
         ],
       ],
       reopened: [null, null],
+      validationErrors: 0,
+    },
+    shapeFills: true,
+    shapeFillState: {
+      mime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      immediate: [
+        { kind: 'none' },
+        {
+          kind: 'solid',
+          color: { kind: 'srgb', value: 'AB12CD' },
+          transparency: 25,
+        },
+        {
+          kind: 'solid',
+          color: { kind: 'scheme', value: 'accent2' },
+          transparency: 0,
+        },
+      ],
+      detached: {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'AB12CD' },
+        transparency: 25,
+      },
+      replacedNone: { kind: 'none' },
+      cleared: null,
+      edited: {
+        kind: 'solid',
+        color: { kind: 'scheme', value: 'accent4' },
+        transparency: 50,
+      },
+      preserved: { kind: 'none' },
+      serialized: { none: true, edited: true, explicitZero: true },
+      partIsolation: true,
+      relationshipIsolation: true,
+      reopened: [
+        { kind: 'none' },
+        {
+          kind: 'solid',
+          color: { kind: 'scheme', value: 'accent4' },
+          transparency: 50,
+        },
+        {
+          kind: 'solid',
+          color: { kind: 'scheme', value: 'accent2' },
+          transparency: 0,
+        },
+      ],
       validationErrors: 0,
     },
     textShapeFills: {

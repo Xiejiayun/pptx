@@ -13915,107 +13915,355 @@
       "typeText": "'outer' | 'inner' | 'none'"
     },
     {
+      "canonical": "interface:ShapeFillProps@property:transparency",
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks fill boundaries and deprecated alpha across shape and text owners"
+      },
       "declaredIn": "ShapeFillProps",
       "deprecated": true,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "code": [
+          {
+            "path": "packages/model/src/simple-fill.internal.ts",
+            "pattern": "export function normalizeSimpleFill("
+          },
+          {
+            "path": "packages/model/src/shape-fill.internal.ts",
+            "pattern": "export function readShapeFill("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates preset shape fills through the public SDK surface"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeFillDeckPath = join(directory, 'shape-fill-smoke.pptx');"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates text fills across slide layout master and placeholder owners"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const textShapeFillDeckPath = join(directory, 'text-shape-fill-smoke.pptx');"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeFills ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const textShapeFills ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks fill boundaries and deprecated alpha across shape and text owners"
+          }
+        ]
       },
       "id": "interface:ShapeFillProps@property:alpha",
       "kind": "property",
       "name": "alpha",
-      "native": [],
-      "note": "",
+      "native": [
+        "ShapeFill",
+        "ShapeModel.fill",
+        "SlideModel.addShape",
+        "SlideModel.addText"
+      ],
+      "note": "PptxGenJS declares alpha as a deprecated transparency alias across shape and text fills; when both nonzero fields are present it writes duplicate alpha children, while native rejects the alias and exposes only the strict canonical transparency field.",
       "optional": true,
       "owner": "ShapeFillProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deprecated-alias",
       "typeText": "number"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "compares shape fill public output and strict native divergences"
+      },
       "declaredIn": "ShapeFillProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const shapeFills = JSON.stringify(shapeFillState)"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textShapeFillState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/simple-fill.internal.ts",
+            "pattern": "export function normalizeSimpleFill("
+          },
+          {
+            "path": "packages/model/src/shape-fill.internal.ts",
+            "pattern": "export function readShapeFill("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates preset shape fills through the public SDK surface"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeFillDeckPath = join(directory, 'shape-fill-smoke.pptx');"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates text fills across slide layout master and placeholder owners"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const textShapeFillDeckPath = join(directory, 'text-shape-fill-smoke.pptx');"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeFills ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const textShapeFills ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks fill boundaries and deprecated alpha across shape and text owners"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "compares shape fill public output and strict native divergences"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "compares text shape fill public output and strict native divergences"
+          }
+        ]
       },
       "id": "interface:ShapeFillProps@property:color",
       "kind": "property",
       "name": "color",
-      "native": [],
-      "note": "",
+      "native": [
+        "ShapeFill",
+        "ShapeModel.fill",
+        "SlideModel.addShape",
+        "SlideModel.addText"
+      ],
+      "note": "Native covers the legal none/solid, sRGB/scheme, and transparency domain through a strict ShapeFill kind union with explicit direct-state editing; PptxGenJS instead omits none and zero-alpha intent and permits fallback values that native rejects before mutation.",
       "optional": true,
       "owner": "ShapeFillProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Color"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "compares shape fill public output and strict native divergences"
+      },
       "declaredIn": "ShapeFillProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const shapeFills = JSON.stringify(shapeFillState)"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textShapeFillState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/simple-fill.internal.ts",
+            "pattern": "export function normalizeSimpleFill("
+          },
+          {
+            "path": "packages/model/src/shape-fill.internal.ts",
+            "pattern": "export function readShapeFill("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates preset shape fills through the public SDK surface"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeFillDeckPath = join(directory, 'shape-fill-smoke.pptx');"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates text fills across slide layout master and placeholder owners"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const textShapeFillDeckPath = join(directory, 'text-shape-fill-smoke.pptx');"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeFills ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const textShapeFills ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks fill boundaries and deprecated alpha across shape and text owners"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "compares shape fill public output and strict native divergences"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "compares text shape fill public output and strict native divergences"
+          }
+        ]
       },
       "id": "interface:ShapeFillProps@property:transparency",
       "kind": "property",
       "name": "transparency",
-      "native": [],
-      "note": "",
+      "native": [
+        "ShapeFill",
+        "ShapeModel.fill",
+        "SlideModel.addShape",
+        "SlideModel.addText"
+      ],
+      "note": "Native covers the legal none/solid, sRGB/scheme, and transparency domain through a strict ShapeFill kind union with explicit direct-state editing; PptxGenJS instead omits none and zero-alpha intent and permits fallback values that native rejects before mutation.",
       "optional": true,
       "owner": "ShapeFillProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "number"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "compares shape fill public output and strict native divergences"
+      },
       "declaredIn": "ShapeFillProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const shapeFills = JSON.stringify(shapeFillState)"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textShapeFillState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/simple-fill.internal.ts",
+            "pattern": "export function normalizeSimpleFill("
+          },
+          {
+            "path": "packages/model/src/shape-fill.internal.ts",
+            "pattern": "export function readShapeFill("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates preset shape fills through the public SDK surface"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeFillDeckPath = join(directory, 'shape-fill-smoke.pptx');"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates text fills across slide layout master and placeholder owners"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const textShapeFillDeckPath = join(directory, 'text-shape-fill-smoke.pptx');"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeFills ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const textShapeFills ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks fill boundaries and deprecated alpha across shape and text owners"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "compares shape fill public output and strict native divergences"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "compares text shape fill public output and strict native divergences"
+          }
+        ]
       },
       "id": "interface:ShapeFillProps@property:type",
       "kind": "property",
       "name": "type",
-      "native": [],
-      "note": "",
+      "native": [
+        "ShapeFill",
+        "ShapeModel.fill",
+        "SlideModel.addShape",
+        "SlideModel.addText"
+      ],
+      "note": "Native covers the legal none/solid, sRGB/scheme, and transparency domain through a strict ShapeFill kind union with explicit direct-state editing; PptxGenJS instead omits none and zero-alpha intent and permits fallback values that native rejects before mutation.",
       "optional": true,
       "owner": "ShapeFillProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "'none' | 'solid'"
     },
     {
@@ -14990,28 +15238,73 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "compares shape fill public output and strict native divergences"
+      },
       "declaredIn": "ShapeProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const shapeFills = JSON.stringify(shapeFillState)"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/simple-fill.internal.ts",
+            "pattern": "export function normalizeSimpleFill("
+          },
+          {
+            "path": "packages/model/src/shape-fill.internal.ts",
+            "pattern": "export function readShapeFill("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates preset shape fills through the public SDK surface"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeFillDeckPath = join(directory, 'shape-fill-smoke.pptx');"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeFills ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks fill boundaries and deprecated alpha across shape and text owners"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "compares shape fill public output and strict native divergences"
+          }
+        ]
       },
       "id": "interface:ShapeProps@property:fill",
       "kind": "property",
       "name": "fill",
-      "native": [],
-      "note": "",
+      "native": [
+        "ShapeFill",
+        "ShapeModel.fill",
+        "SlideModel.addShape"
+      ],
+      "note": "Native covers the legal none/solid, sRGB/scheme, and transparency domain through a strict ShapeFill kind union with explicit direct-state editing; PptxGenJS instead omits none and zero-alpha intent and permits fallback values that native rejects before mutation.",
       "optional": true,
       "owner": "ShapeProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "ShapeFillProps"
     },
     {
@@ -19433,28 +19726,73 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "compares text shape fill public output and strict native divergences"
+      },
       "declaredIn": "TextPropsOptions",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textShapeFillState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/simple-fill.internal.ts",
+            "pattern": "export function normalizeSimpleFill("
+          },
+          {
+            "path": "packages/model/src/shape-fill.internal.ts",
+            "pattern": "export function readShapeFill("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates text fills across slide layout master and placeholder owners"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const textShapeFillDeckPath = join(directory, 'text-shape-fill-smoke.pptx');"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const textShapeFills ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks fill boundaries and deprecated alpha across shape and text owners"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "compares text shape fill public output and strict native divergences"
+          }
+        ]
       },
       "id": "interface:TextPropsOptions@property:fill",
       "kind": "property",
       "name": "fill",
-      "native": [],
-      "note": "",
+      "native": [
+        "ShapeFill",
+        "ShapeModel.fill",
+        "SlideModel.addText"
+      ],
+      "note": "Native covers the legal none/solid, sRGB/scheme, and transparency domain through a strict ShapeFill kind union with explicit direct-state editing; PptxGenJS instead omits none and zero-alpha intent and permits fallback values that native rejects before mutation.",
       "optional": true,
       "owner": "TextPropsOptions",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "ShapeFillProps"
     },
     {
@@ -50706,54 +51044,186 @@
     },
     {
       "catalogKey": "none",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "compares shape fill public output and strict native divergences"
+      },
       "declaredIn": "interface:ShapeFillProps@property:type",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const shapeFills = JSON.stringify(shapeFillState)"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textShapeFillState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/simple-fill.internal.ts",
+            "pattern": "export function normalizeSimpleFill("
+          },
+          {
+            "path": "packages/model/src/shape-fill.internal.ts",
+            "pattern": "export function readShapeFill("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates preset shape fills through the public SDK surface"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeFillDeckPath = join(directory, 'shape-fill-smoke.pptx');"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates text fills across slide layout master and placeholder owners"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const textShapeFillDeckPath = join(directory, 'text-shape-fill-smoke.pptx');"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeFills ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const textShapeFills ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks fill boundaries and deprecated alpha across shape and text owners"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "compares shape fill public output and strict native divergences"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "compares text shape fill public output and strict native divergences"
+          }
+        ]
       },
       "id": "union:interface:ShapeFillProps@property:type#none",
       "kind": "union-member",
       "name": "none",
-      "native": [],
-      "note": "",
+      "native": [
+        "ShapeFill",
+        "ShapeModel.fill",
+        "SlideModel.addShape",
+        "SlideModel.addText"
+      ],
+      "note": "Native covers the legal none/solid, sRGB/scheme, and transparency domain through a strict ShapeFill kind union with explicit direct-state editing; PptxGenJS instead omits none and zero-alpha intent and permits fallback values that native rejects before mutation.",
       "optional": false,
       "owner": "interface:ShapeFillProps@property:type",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "'none'"
     },
     {
       "catalogKey": "solid",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "compares shape fill public output and strict native divergences"
+      },
       "declaredIn": "interface:ShapeFillProps@property:type",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const shapeFills = JSON.stringify(shapeFillState)"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textShapeFillState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/simple-fill.internal.ts",
+            "pattern": "export function normalizeSimpleFill("
+          },
+          {
+            "path": "packages/model/src/shape-fill.internal.ts",
+            "pattern": "export function readShapeFill("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates preset shape fills through the public SDK surface"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeFillDeckPath = join(directory, 'shape-fill-smoke.pptx');"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates text fills across slide layout master and placeholder owners"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const textShapeFillDeckPath = join(directory, 'text-shape-fill-smoke.pptx');"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeFills ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const textShapeFills ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks fill boundaries and deprecated alpha across shape and text owners"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "compares shape fill public output and strict native divergences"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "compares text shape fill public output and strict native divergences"
+          }
+        ]
       },
       "id": "union:interface:ShapeFillProps@property:type#solid",
       "kind": "union-member",
       "name": "solid",
-      "native": [],
-      "note": "",
+      "native": [
+        "ShapeFill",
+        "ShapeModel.fill",
+        "SlideModel.addShape",
+        "SlideModel.addText"
+      ],
+      "note": "Native covers the legal none/solid, sRGB/scheme, and transparency domain through a strict ShapeFill kind union with explicit direct-state editing; PptxGenJS instead omits none and zero-alpha intent and permits fallback values that native rejects before mutation.",
       "optional": false,
       "owner": "interface:ShapeFillProps@property:type",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "'solid'"
     },
     {
@@ -62462,12 +62932,12 @@
   "complete": false,
   "counts": {
     "defect-excluded": 3,
-    "deliberate-difference": 51,
-    "deprecated-alias": 74,
+    "deliberate-difference": 58,
+    "deprecated-alias": 75,
     "stale": 0,
     "supported": 415,
     "unsupported": 0,
-    "unverified": 1231
+    "unverified": 1223
   },
   "declarationSha256": "0726d015dbcb55ccfa75546cb2fd43fe13a0dfeb783d08572f1c62f59193bbe5",
   "declarationTotal": 1774,
@@ -62979,14 +63449,9 @@
     "interface:ShadowProps@property:opacity",
     "interface:ShadowProps@property:rotateWithShape",
     "interface:ShadowProps@property:type",
-    "interface:ShapeFillProps@property:alpha",
-    "interface:ShapeFillProps@property:color",
-    "interface:ShapeFillProps@property:transparency",
-    "interface:ShapeFillProps@property:type",
     "interface:ShapeProps@property:align",
     "interface:ShapeProps@property:angleRange",
     "interface:ShapeProps@property:arcThicknessRatio",
-    "interface:ShapeProps@property:fill",
     "interface:ShapeProps@property:flipH",
     "interface:ShapeProps@property:flipV",
     "interface:ShapeProps@property:hyperlink",
@@ -63138,7 +63603,6 @@
     "interface:TextPropsOptions@property:charSpacing",
     "interface:TextPropsOptions@property:color",
     "interface:TextPropsOptions@property:data",
-    "interface:TextPropsOptions@property:fill",
     "interface:TextPropsOptions@property:fit",
     "interface:TextPropsOptions@property:flipH",
     "interface:TextPropsOptions@property:flipV",
@@ -63448,8 +63912,6 @@
     "union:interface:ShadowProps@property:type#inner",
     "union:interface:ShadowProps@property:type#none",
     "union:interface:ShadowProps@property:type#outer",
-    "union:interface:ShapeFillProps@property:type#none",
-    "union:interface:ShapeFillProps@property:type#solid",
     "union:interface:SlideMasterProps@property:bkgd#BackgroundProps",
     "union:interface:SlideMasterProps@property:bkgd#string",
     "union:interface:SlideNumberProps@property:bullet#boolean",

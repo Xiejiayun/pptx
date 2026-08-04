@@ -30,6 +30,7 @@ import {
   type OutputType,
   type PresetShapeType,
   type ShapeArrows,
+  type ShapeFill,
   type ShapeLine,
   type ShapeShadow,
   type SlideMasterObject,
@@ -6131,6 +6132,161 @@ describe('importPptxGenJS', () => {
         .toEqual(imported.slides[0]!.shapes.map((shape) => (shape as ShapeModel).fill));
     } finally {
       warning.mockRestore();
+    }
+  });
+
+  it('locks fill boundaries and deprecated alpha across shape and text owners', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    const generatedSlide = generated.addSlide();
+    const hosts: readonly {
+      readonly name: string;
+      readonly add: (name: string, fill: Record<string, unknown>) => void;
+    }[] = [
+      {
+        name: 'shape rect',
+        add: (name, fill) => generatedSlide.addShape(generated.ShapeType.rect!, {
+          objectName: name,
+          fill,
+        }),
+      },
+      {
+        name: 'shape line',
+        add: (name, fill) => generatedSlide.addShape(generated.ShapeType.line!, {
+          objectName: name,
+          fill,
+        }),
+      },
+      {
+        name: 'text default',
+        add: (name, fill) => generatedSlide.addText(name, { objectName: name, fill }),
+      },
+      {
+        name: 'text ellipse',
+        add: (name, fill) => generatedSlide.addText(name, {
+          objectName: name,
+          shape: generated.ShapeType.ellipse,
+          fill,
+        }),
+      },
+      {
+        name: 'text line',
+        add: (name, fill) => generatedSlide.addText(name, {
+          objectName: name,
+          shape: generated.ShapeType.line,
+          fill,
+          line: { color: '000000' },
+        }),
+      },
+    ];
+    const scenarios: readonly {
+      readonly name: string;
+      readonly fill: Record<string, unknown>;
+      readonly expected?: ShapeFill;
+      readonly alphaValues: readonly string[];
+    }[] = [
+      {
+        name: 'explicit none',
+        fill: { type: 'none' },
+        alphaValues: [],
+      },
+      {
+        name: 'explicit solid',
+        fill: { type: 'solid', color: '001122' },
+        expected: {
+          kind: 'solid',
+          color: { kind: 'srgb', value: '001122' },
+        },
+        alphaValues: [],
+      },
+      {
+        name: 'scheme color',
+        fill: { color: generated.SchemeColor.accent2 },
+        expected: {
+          kind: 'solid',
+          color: { kind: 'scheme', value: 'accent2' },
+        },
+        alphaValues: [],
+      },
+      {
+        name: 'full transparency',
+        fill: { color: '102030', transparency: 100 },
+        expected: {
+          kind: 'solid',
+          color: { kind: 'srgb', value: '102030' },
+          transparency: 100,
+        },
+        alphaValues: ['0'],
+      },
+      {
+        name: 'fractional transparency',
+        fill: { color: '203040', transparency: 33.333 },
+        expected: {
+          kind: 'solid',
+          color: { kind: 'srgb', value: '203040' },
+          transparency: 33.333,
+        },
+        alphaValues: ['66667'],
+      },
+      {
+        name: 'alpha only',
+        fill: { color: '112233', alpha: 40 },
+        expected: {
+          kind: 'solid',
+          color: { kind: 'srgb', value: '112233' },
+          transparency: 40,
+        },
+        alphaValues: ['60000'],
+      },
+      {
+        name: 'transparency then alpha',
+        fill: { color: '223344', transparency: 25, alpha: 40 },
+        alphaValues: ['60000', '75000'],
+      },
+      {
+        name: 'zero alpha',
+        fill: { color: '334455', transparency: 25, alpha: 0 },
+        expected: {
+          kind: 'solid',
+          color: { kind: 'srgb', value: '334455' },
+          transparency: 25,
+        },
+        alphaValues: ['75000'],
+      },
+      {
+        name: 'zero transparency',
+        fill: { color: '445566', transparency: 0, alpha: 40 },
+        expected: {
+          kind: 'solid',
+          color: { kind: 'srgb', value: '445566' },
+          transparency: 40,
+        },
+        alphaValues: ['60000'],
+      },
+    ];
+    const expected = new Map<string, (typeof scenarios)[number]>();
+    for (const host of hosts) {
+      for (const scenario of scenarios) {
+        const name = `${host.name} ${scenario.name}`;
+        host.add(name, scenario.fill);
+        expected.set(name, scenario);
+      }
+    }
+
+    const imported = await openPptxGenJSPublicOutput(generated);
+    const importedShapes = new Map(imported.slides[0]!.shapes.map((shape) => [
+      shape.name,
+      shape as ShapeModel,
+    ]));
+    expect(importedShapes.size).toBe(expected.size);
+    for (const [name, scenario] of expected) {
+      const shape = importedShapes.get(name)!;
+      expect(shape, name).toBeInstanceOf(ShapeModel);
+      expect(shape.fill, name).toEqual(scenario.expected);
+      const alphaValues = [...shapeXml(imported, 0, shape.id).matchAll(
+        /<a:alpha val="([0-9]+)"\/>/g,
+      )].map((match) => match[1]);
+      expect(alphaValues, name).toEqual(scenario.alphaValues);
     }
   });
 
