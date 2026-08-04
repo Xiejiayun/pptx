@@ -165,6 +165,142 @@ async (page) => {
         reopened: true,
         validationErrors: 0,
       });
+      const shapeLineDashes = [
+        'solid',
+        'dash',
+        'dashDot',
+        'lgDash',
+        'lgDashDot',
+        'lgDashDotDot',
+        'sysDash',
+        'sysDot',
+      ];
+      const shapeArrowTypes = [
+        'none',
+        'arrow',
+        'diamond',
+        'oval',
+        'stealth',
+        'triangle',
+      ];
+      const shapeStyleDocument = api.PptxDocument.create();
+      const shapeLineSlide = shapeStyleDocument.addSlide();
+      const shapeLineModels = shapeLineDashes.map((dash) =>
+        shapeLineSlide.addShape('rect', {
+          line: {
+            kind: 'line',
+            color: { kind: 'scheme', value: 'accent2' },
+            transparency: 25,
+            width: 2.5,
+            dash,
+          },
+        }));
+      const shapeArrowSlide = shapeStyleDocument.addSlide();
+      const shapeArrowModels = shapeArrowTypes.map((type) =>
+        shapeArrowSlide.addShape('line', {
+          arrows: { begin: type, end: type },
+        }));
+      const shapeStyleEditSlide = shapeStyleDocument.addSlide();
+      const shapeStyleEditModel = shapeStyleEditSlide.addShape('line', {
+        line: {
+          kind: 'line',
+          color: { kind: 'srgb', value: '112233' },
+          dash: 'dashDot',
+        },
+        arrows: { begin: 'triangle', end: 'arrow' },
+      });
+      shapeStyleEditModel.line = {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent4' },
+        transparency: 50,
+        width: 3,
+        dash: 'sysDash',
+      };
+      const arrowsAfterLineEdit = shapeStyleEditModel.arrows;
+      shapeStyleEditModel.arrows = { begin: 'diamond' };
+      const lineAfterArrowEdit = shapeStyleEditModel.line;
+      const shapeLineXml = new TextDecoder().decode(
+        shapeStyleDocument.opcPackage.requirePart(shapeLineSlide.partUri).bytes,
+      );
+      const shapeArrowXml = new TextDecoder().decode(
+        shapeStyleDocument.opcPackage.requirePart(shapeArrowSlide.partUri).bytes,
+      );
+      const serializedShapeLineDashes = [...shapeLineXml.matchAll(
+        /<a:prstDash val="([^"]+)"\/>/g,
+      )].map((match) => match[1]);
+      const serializedShapeArrowBegins = [...shapeArrowXml.matchAll(
+        /<a:headEnd type="([^"]+)"\/>/g,
+      )].map((match) => match[1]);
+      const serializedShapeArrowEnds = [...shapeArrowXml.matchAll(
+        /<a:tailEnd type="([^"]+)"\/>/g,
+      )].map((match) => match[1]);
+      const reopenedShapeStyleDocument = await api.PptxDocument.open(
+        await shapeStyleDocument.writeBlob(),
+      );
+      const reopenedShapeStyleEditModel = reopenedShapeStyleDocument.slides[2].shapes[0];
+      const shapeLineState = {
+        immediate: shapeLineModels.map(({ line }) => line?.dash),
+        serialized: serializedShapeLineDashes,
+        reopened: reopenedShapeStyleDocument.slides[0].shapes
+          .map(({ line }) => line?.dash),
+        preservedArrows: arrowsAfterLineEdit,
+        edited: lineAfterArrowEdit,
+        reopenedEdited: reopenedShapeStyleEditModel.line,
+        validationErrors: reopenedShapeStyleDocument.diagnostics
+          .filter(({ severity }) => severity === 'error').length,
+      };
+      const shapeLines = JSON.stringify(shapeLineState) === JSON.stringify({
+        immediate: shapeLineDashes,
+        serialized: shapeLineDashes,
+        reopened: shapeLineDashes,
+        preservedArrows: { begin: 'triangle', end: 'arrow' },
+        edited: {
+          kind: 'line',
+          color: { kind: 'scheme', value: 'accent4' },
+          transparency: 50,
+          width: 3,
+          dash: 'sysDash',
+        },
+        reopenedEdited: {
+          kind: 'line',
+          color: { kind: 'scheme', value: 'accent4' },
+          transparency: 50,
+          width: 3,
+          dash: 'sysDash',
+        },
+        validationErrors: 0,
+      });
+      const shapeArrowState = {
+        immediateBegins: shapeArrowModels.map(({ arrows }) => arrows?.begin),
+        immediateEnds: shapeArrowModels.map(({ arrows }) => arrows?.end),
+        serializedBegins: serializedShapeArrowBegins,
+        serializedEnds: serializedShapeArrowEnds,
+        reopenedBegins: reopenedShapeStyleDocument.slides[1].shapes
+          .map(({ arrows }) => arrows?.begin),
+        reopenedEnds: reopenedShapeStyleDocument.slides[1].shapes
+          .map(({ arrows }) => arrows?.end),
+        preservedLine: lineAfterArrowEdit,
+        reopenedEdited: reopenedShapeStyleEditModel.arrows,
+        validationErrors: reopenedShapeStyleDocument.diagnostics
+          .filter(({ severity }) => severity === 'error').length,
+      };
+      const shapeArrows = JSON.stringify(shapeArrowState) === JSON.stringify({
+        immediateBegins: shapeArrowTypes,
+        immediateEnds: shapeArrowTypes,
+        serializedBegins: shapeArrowTypes,
+        serializedEnds: shapeArrowTypes,
+        reopenedBegins: shapeArrowTypes,
+        reopenedEnds: shapeArrowTypes,
+        preservedLine: {
+          kind: 'line',
+          color: { kind: 'scheme', value: 'accent4' },
+          transparency: 50,
+          width: 3,
+          dash: 'sysDash',
+        },
+        reopenedEdited: { begin: 'diamond' },
+        validationErrors: 0,
+      });
       const tableVerticalAlignmentDocument = api.PptxDocument.create();
       const tableVerticalAlignmentSlide = tableVerticalAlignmentDocument.addSlide();
       const tableVerticalAlignmentTable = tableVerticalAlignmentSlide.addTable([
@@ -5495,6 +5631,10 @@ async (page) => {
         verticalAlignmentState,
         presetShapes,
         presetShapeState,
+        shapeLines,
+        shapeLineState,
+        shapeArrows,
+        shapeArrowState,
         tableVerticalAlignment,
         tableVerticalAlignmentState,
         tableTextDirection,
@@ -5841,6 +5981,46 @@ async (page) => {
       created: true,
       serialized: true,
       reopened: true,
+      validationErrors: 0,
+    },
+    shapeLines: true,
+    shapeLineState: {
+      immediate: ['solid', 'dash', 'dashDot', 'lgDash', 'lgDashDot', 'lgDashDotDot', 'sysDash', 'sysDot'],
+      serialized: ['solid', 'dash', 'dashDot', 'lgDash', 'lgDashDot', 'lgDashDotDot', 'sysDash', 'sysDot'],
+      reopened: ['solid', 'dash', 'dashDot', 'lgDash', 'lgDashDot', 'lgDashDotDot', 'sysDash', 'sysDot'],
+      preservedArrows: { begin: 'triangle', end: 'arrow' },
+      edited: {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent4' },
+        transparency: 50,
+        width: 3,
+        dash: 'sysDash',
+      },
+      reopenedEdited: {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent4' },
+        transparency: 50,
+        width: 3,
+        dash: 'sysDash',
+      },
+      validationErrors: 0,
+    },
+    shapeArrows: true,
+    shapeArrowState: {
+      immediateBegins: ['none', 'arrow', 'diamond', 'oval', 'stealth', 'triangle'],
+      immediateEnds: ['none', 'arrow', 'diamond', 'oval', 'stealth', 'triangle'],
+      serializedBegins: ['none', 'arrow', 'diamond', 'oval', 'stealth', 'triangle'],
+      serializedEnds: ['none', 'arrow', 'diamond', 'oval', 'stealth', 'triangle'],
+      reopenedBegins: ['none', 'arrow', 'diamond', 'oval', 'stealth', 'triangle'],
+      reopenedEnds: ['none', 'arrow', 'diamond', 'oval', 'stealth', 'triangle'],
+      preservedLine: {
+        kind: 'line',
+        color: { kind: 'scheme', value: 'accent4' },
+        transparency: 50,
+        width: 3,
+        dash: 'sysDash',
+      },
+      reopenedEdited: { begin: 'diamond' },
       validationErrors: 0,
     },
     tableVerticalAlignment: true,

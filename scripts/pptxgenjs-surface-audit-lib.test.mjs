@@ -124,14 +124,41 @@ function assertDeepFrozen(value, seen = new Set()) {
 test('exports an immutable evidence-backed initial manifest batch', () => {
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.schemaVersion, 1);
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.packageVersion, '4.0.1');
-  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 438);
+  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 543);
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries.map(({ status }) => status).sort(),
     [
       ...Array(3).fill('defect-excluded'),
       ...Array(415).fill('supported'),
-      ...Array(20).fill('deliberate-difference'),
+      ...Array(51).fill('deliberate-difference'),
+      ...Array(74).fill('deprecated-alias'),
     ].sort(),
+  );
+  const lineFamilyEntries = PPTXGENJS_SURFACE_MANIFEST.entries.filter(({ id }) =>
+    /^(?:union:)?interface:(?:ShapeLineProps@property:(?:alpha|beginArrowType|color|dashType|endArrowType|lineDash|lineHead|lineTail|pt|size|transparency|type|width)|(?:ShapeProps|TextPropsOptions)@property:(?:line|lineDash|lineHead|lineSize|lineTail))(?:#.+)?$/u
+      .test(id));
+  assert.equal(lineFamilyEntries.length, 105);
+  assert.deepEqual(
+    lineFamilyEntries.map(({ status }) => status).sort(),
+    [
+      ...Array(31).fill('deliberate-difference'),
+      ...Array(74).fill('deprecated-alias'),
+    ].sort(),
+  );
+  const lineFamilyById = new Map(lineFamilyEntries.map((entry) => [entry.id, entry]));
+  for (const entry of lineFamilyEntries.filter(
+    ({ status }) => status === 'deprecated-alias',
+  )) {
+    assert.equal(lineFamilyById.get(entry.canonical)?.status, 'deliberate-difference');
+  }
+  assert.equal(
+    lineFamilyById.get('union:interface:TextPropsOptions@property:lineHead#triangle')
+      ?.canonical,
+    'union:interface:ShapeLineProps@property:beginArrowType#triangle',
+  );
+  assert.equal(
+    lineFamilyById.get('interface:ShapeProps@property:lineSize')?.canonical,
+    'interface:ShapeLineProps@property:width',
   );
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries

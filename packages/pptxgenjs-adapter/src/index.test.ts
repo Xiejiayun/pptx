@@ -7621,6 +7621,153 @@ describe('importPptxGenJS', () => {
     expect(reopenedXml).toContain('<a:tailEnd type="stealth"/>');
   });
 
+  it('locks every deprecated line alias against its owner-specific runtime behavior', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    const generatedSlide = generated.addSlide();
+    const dashes = [
+      'solid',
+      'dash',
+      'dashDot',
+      'lgDash',
+      'lgDashDot',
+      'lgDashDotDot',
+      'sysDash',
+      'sysDot',
+    ] as const;
+    const arrowTypes = [
+      'none',
+      'arrow',
+      'diamond',
+      'oval',
+      'stealth',
+      'triangle',
+    ] as const;
+    const baseLine = {
+      kind: 'line' as const,
+      color: { kind: 'srgb' as const, value: '112233' },
+      width: 1,
+      dash: 'solid' as const,
+    };
+    const expected = new Map<string, {
+      readonly line: ShapeLine;
+      readonly arrows?: ShapeArrows;
+    }>();
+    const addShapeCase = (
+      name: string,
+      options: Record<string, unknown>,
+      line: ShapeLine,
+      arrows?: ShapeArrows,
+    ) => {
+      generatedSlide.addShape(generated.ShapeType.line!, {
+        objectName: name,
+        ...options,
+      });
+      expected.set(name, { line, arrows });
+    };
+    const addTextCase = (
+      name: string,
+      options: Record<string, unknown>,
+      line: ShapeLine,
+      arrows?: ShapeArrows,
+    ) => {
+      generatedSlide.addText(name, { objectName: name, ...options });
+      expected.set(name, { line, arrows });
+    };
+
+    for (const dash of dashes) {
+      addShapeCase(`Nested shape lineDash ${dash}`, {
+        line: { color: '112233', lineDash: dash },
+      }, baseLine);
+      addTextCase(`Nested text lineDash ${dash}`, {
+        line: { color: '112233', lineDash: dash },
+      }, baseLine);
+      addShapeCase(`Top shape lineDash ${dash}`, {
+        line: { color: '112233', dashType: 'solid' },
+        lineDash: dash,
+      }, { ...baseLine, dash });
+      addTextCase(`Top text lineDash ignored ${dash}`, {
+        line: { color: '112233', dashType: 'solid' },
+        lineDash: dash,
+      }, baseLine);
+      addTextCase(`Top text-shape lineDash ${dash}`, {
+        shape: generated.ShapeType.line,
+        line: { color: '112233', dashType: 'solid' },
+        lineDash: dash,
+      }, { ...baseLine, dash });
+    }
+
+    for (const type of arrowTypes) {
+      addShapeCase(`Nested shape lineHead lineTail ${type}`, {
+        line: { color: '112233', lineHead: type, lineTail: type },
+      }, baseLine);
+      addTextCase(`Nested text lineHead lineTail ${type}`, {
+        line: { color: '112233', lineHead: type, lineTail: type },
+      }, baseLine);
+      addShapeCase(`Top shape lineHead lineTail ${type}`, {
+        line: { color: '112233' },
+        lineHead: type,
+        lineTail: type,
+      }, baseLine, { begin: type, end: type });
+      addTextCase(`Top text lineHead lineTail ignored ${type}`, {
+        line: { color: '112233' },
+        lineHead: type,
+        lineTail: type,
+      }, baseLine);
+      addTextCase(`Top text-shape lineHead lineTail ${type}`, {
+        shape: generated.ShapeType.line,
+        line: { color: '112233' },
+        lineHead: type,
+        lineTail: type,
+      }, baseLine, { begin: type, end: type });
+    }
+
+    for (const alias of ['pt', 'size'] as const) {
+      addShapeCase(`Nested shape ${alias}`, {
+        line: { color: '112233', [alias]: 2.5 },
+      }, baseLine);
+      addTextCase(`Nested text ${alias}`, {
+        line: { color: '112233', [alias]: 2.5 },
+      }, baseLine);
+    }
+    addShapeCase('Top shape lineSize', {
+      line: { color: '112233', width: 1 },
+      lineSize: 2.5,
+    }, { ...baseLine, width: 2.5 });
+    addTextCase('Top text lineSize ignored', {
+      line: { color: '112233', width: 1 },
+      lineSize: 2.5,
+    }, baseLine);
+    addTextCase('Top text-shape lineSize', {
+      shape: generated.ShapeType.line,
+      line: { color: '112233', width: 1 },
+      lineSize: 2.5,
+    }, { ...baseLine, width: 2.5 });
+    addShapeCase('Nested shape alpha', {
+      line: { color: '112233', alpha: 40 },
+    }, baseLine);
+    addTextCase('Nested text alpha', {
+      line: { color: '112233', alpha: 40 },
+    }, { ...baseLine, transparency: 40 });
+    addTextCase('Nested text-shape alpha', {
+      shape: generated.ShapeType.line,
+      line: { color: '112233', alpha: 40 },
+    }, baseLine);
+
+    const imported = await openPptxGenJSPublicOutput(generated);
+    const importedShapes = new Map(imported.slides[0]!.shapes.map((shape) => [
+      shape.name,
+      shape as ShapeModel,
+    ]));
+    expect(importedShapes.size).toBe(expected.size);
+    for (const [name, state] of expected) {
+      const shape = importedShapes.get(name);
+      expect(shape, name).toBeInstanceOf(ShapeModel);
+      expect(shape!.line, name).toEqual(state.line);
+      expect(shape!.arrows, name).toEqual(state.arrows);
+    }
+  });
+
   it('compares text shape hyperlink public output and strict native divergences', async () => {
     const generated = new PptxGenJS();
     expect(generated.version).toBe('4.0.1');

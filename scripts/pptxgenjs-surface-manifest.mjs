@@ -158,6 +158,220 @@ const OUTPUT_TYPE_VALUES = Object.freeze([
 const PLACEHOLDER_TYPE_VALUES = Object.freeze([
   'body', 'chart', 'media', 'pic', 'tbl', 'title',
 ]);
+const LINE_DASH_VALUES = Object.freeze([
+  'solid', 'dash', 'dashDot', 'lgDash',
+  'lgDashDot', 'lgDashDotDot', 'sysDash', 'sysDot',
+]);
+const LINE_ARROW_VALUES = Object.freeze([
+  'none', 'arrow', 'diamond', 'oval', 'stealth', 'triangle',
+]);
+const LINE_TYPE_VALUES = Object.freeze(['none', 'solid']);
+const LINE_ALIAS_CONTROL_TITLE =
+  'locks every deprecated line alias against its owner-specific runtime behavior';
+
+function linePropertyId(owner, property) {
+  return `interface:${owner}@property:${property}`;
+}
+
+function lineUnionId(owner, property, value) {
+  return `union:interface:${owner}@property:${property}#${value}`;
+}
+
+function lineFamilyEvidence(id, deprecated = false) {
+  const arrow = /(?:beginArrowType|endArrowType|lineHead|lineTail)/u.test(id);
+  const textOwner = id.includes('TextPropsOptions');
+  const shapeOwner = id.includes('ShapeProps');
+  const sharedOwner = id.includes('ShapeLineProps');
+  const controlTitle = deprecated
+    ? LINE_ALIAS_CONTROL_TITLE
+    : arrow
+      ? textOwner
+        ? 'compares text shape arrows public output and strict native divergences'
+        : 'compares shape arrow public output and strict native divergences'
+      : textOwner
+        ? 'compares text shape line public output and strict native divergences'
+        : 'compares shape line public output and strict native divergences';
+  const tests = deprecated
+    ? [{ path: 'packages/pptxgenjs-adapter/src/index.test.ts', title: controlTitle }]
+    : [
+        ...(!textOwner ? [{
+          path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+          title: arrow
+            ? 'compares shape arrow public output and strict native divergences'
+            : 'compares shape line public output and strict native divergences',
+        }] : []),
+        ...(!shapeOwner ? [{
+          path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+          title: arrow
+            ? 'compares text shape arrows public output and strict native divergences'
+            : 'compares text shape line public output and strict native divergences',
+        }] : []),
+      ];
+  const packageEvidence = deprecated
+    ? [{ path: 'scripts/smoke-npm-package.mjs', pattern: 'const deprecatedLineAliases =' }]
+    : [
+        ...(!textOwner ? [{
+          path: 'scripts/smoke-npm-package.mjs',
+          pattern: arrow ? 'const shapeArrows =' : 'const shapeLines =',
+        }] : []),
+        ...(!shapeOwner ? [{
+          path: 'scripts/smoke-npm-package.mjs',
+          pattern: arrow ? 'const textShapeArrows =' : 'const textShapeLines =',
+        }] : []),
+      ];
+  const ooxml = [
+    ...(!textOwner ? [{
+      path: 'packages/sdk/src/index.test.ts',
+      pattern: arrow
+        ? 'creates preset shape arrows through the public SDK surface'
+        : 'creates preset shape lines through the public SDK surface',
+    }] : []),
+    ...(!shapeOwner ? [{
+      path: 'packages/sdk/src/index.test.ts',
+      pattern: arrow
+        ? 'creates text arrows across slide layout master and placeholder owners'
+        : 'creates text lines across slide layout master and placeholder owners',
+    }] : []),
+  ];
+  const clients = deprecated
+    ? []
+    : [
+        ...(!textOwner ? [{
+          path: 'scripts/playwright-browser-smoke.js',
+          pattern: arrow
+            ? 'const shapeArrows = JSON.stringify(shapeArrowState)'
+            : 'const shapeLines = JSON.stringify(shapeLineState)',
+        }] : []),
+        ...(!shapeOwner ? [{
+          path: 'scripts/playwright-browser-smoke.js',
+          pattern: arrow
+            ? 'const textShapeArrowState = {'
+            : 'const textShapeLineState = {',
+        }] : []),
+      ];
+  return {
+    arrow,
+    control: { path: 'packages/pptxgenjs-adapter/src/index.test.ts', pattern: controlTitle },
+    evidence: {
+      code: [{
+        path: arrow
+          ? 'packages/model/src/shape-arrows.internal.ts'
+          : 'packages/model/src/simple-line.internal.ts',
+        pattern: arrow
+          ? 'export function normalizeShapeArrows('
+          : 'export function normalizeSimpleLine(',
+      }],
+      tests,
+      package: packageEvidence,
+      ooxml,
+      clients,
+    },
+    sharedOwner,
+    textOwner,
+  };
+}
+
+function canonicalLineEntry(id) {
+  const { arrow, control, evidence, sharedOwner, textOwner } = lineFamilyEvidence(id);
+  return {
+    id,
+    status: 'deliberate-difference',
+    native: [
+      arrow ? 'ShapeArrows' : 'ShapeLine',
+      arrow ? 'ShapeModel.arrows' : 'ShapeModel.line',
+      ...(sharedOwner
+        ? ['SlideModel.addShape', 'SlideModel.addText']
+        : [textOwner ? 'SlideModel.addText' : 'SlideModel.addShape']),
+    ],
+    evidence,
+    control,
+    serialization: true,
+    client: true,
+    note: arrow
+      ? 'Native covers the same six legal begin/end arrow tokens through strict ShapeArrows begin/end fields, lossless editing, and deterministic OOXML instead of PptxGenJS line aliases and permissive passthrough.'
+      : 'Native covers the same legal none/solid line semantics, colors, transparency, width, and eight dash tokens through a strict ShapeLine contract with deterministic direct OOXML instead of PptxGenJS fallbacks and permissive aliases.',
+  };
+}
+
+function deprecatedLineEntry(owner, alias, canonicalProperty, value) {
+  const id = value === undefined
+    ? linePropertyId(owner, alias)
+    : lineUnionId(owner, alias, value);
+  const canonical = value === undefined
+    ? linePropertyId('ShapeLineProps', canonicalProperty)
+    : lineUnionId('ShapeLineProps', canonicalProperty, value);
+  const { arrow, control, evidence, sharedOwner, textOwner } = lineFamilyEvidence(id, true);
+  let note;
+  if (sharedOwner && alias === 'alpha') {
+    note = 'PptxGenJS declares alpha as a deprecated transparency alias, but 4.0.1 applies it only to ordinary text lines and ignores it for shapes and line-shaped text; native rejects the alias and exposes the strict canonical transparency field.';
+  } else if (sharedOwner) {
+    note = `PptxGenJS declares ${alias} as a deprecated ${canonicalProperty} alias but 4.0.1 ignores it in nested shape and text line objects; native rejects the alias and exposes only the strict canonical field.`;
+  } else if (textOwner) {
+    note = `PptxGenJS declares top-level ${alias} as a deprecated nested-line alias, ignores it for ordinary text, and applies it to line-shaped text; the native type contract rejects the alias while direct JavaScript calls leave it inert, exposing only the strict canonical line/arrows field.`;
+  } else {
+    note = `PptxGenJS maps top-level ${alias} to the canonical nested-line field and lets it override modern nested input; native rejects the deprecated alias and exposes only the strict canonical line/arrows field.`;
+  }
+  return {
+    id,
+    status: 'deprecated-alias',
+    native: [
+      arrow ? 'ShapeArrows' : 'ShapeLine',
+      arrow ? 'ShapeModel.arrows' : 'ShapeModel.line',
+      ...(sharedOwner
+        ? ['SlideModel.addShape', 'SlideModel.addText']
+        : [textOwner ? 'SlideModel.addText' : 'SlideModel.addShape']),
+    ],
+    evidence,
+    control,
+    canonical,
+    serialization: true,
+    note,
+  };
+}
+
+const CANONICAL_LINE_ATOM_IDS = Object.freeze([
+  ...[
+    'beginArrowType', 'color', 'dashType', 'endArrowType',
+    'transparency', 'type', 'width',
+  ].map((property) => linePropertyId('ShapeLineProps', property)),
+  ...LINE_ARROW_VALUES.map((value) =>
+    lineUnionId('ShapeLineProps', 'beginArrowType', value)),
+  ...LINE_DASH_VALUES.map((value) =>
+    lineUnionId('ShapeLineProps', 'dashType', value)),
+  ...LINE_ARROW_VALUES.map((value) =>
+    lineUnionId('ShapeLineProps', 'endArrowType', value)),
+  ...LINE_TYPE_VALUES.map((value) =>
+    lineUnionId('ShapeLineProps', 'type', value)),
+  linePropertyId('ShapeProps', 'line'),
+  linePropertyId('TextPropsOptions', 'line'),
+]);
+
+const DEPRECATED_LINE_ENTRIES = Object.freeze([
+  deprecatedLineEntry('ShapeLineProps', 'alpha', 'transparency'),
+  ...LINE_DASH_VALUES.map((value) =>
+    deprecatedLineEntry('ShapeLineProps', 'lineDash', 'dashType', value)),
+  deprecatedLineEntry('ShapeLineProps', 'lineDash', 'dashType'),
+  ...LINE_ARROW_VALUES.map((value) =>
+    deprecatedLineEntry('ShapeLineProps', 'lineHead', 'beginArrowType', value)),
+  deprecatedLineEntry('ShapeLineProps', 'lineHead', 'beginArrowType'),
+  ...LINE_ARROW_VALUES.map((value) =>
+    deprecatedLineEntry('ShapeLineProps', 'lineTail', 'endArrowType', value)),
+  deprecatedLineEntry('ShapeLineProps', 'lineTail', 'endArrowType'),
+  deprecatedLineEntry('ShapeLineProps', 'pt', 'width'),
+  deprecatedLineEntry('ShapeLineProps', 'size', 'width'),
+  ...['ShapeProps', 'TextPropsOptions'].flatMap((owner) => [
+    ...LINE_DASH_VALUES.map((value) =>
+      deprecatedLineEntry(owner, 'lineDash', 'dashType', value)),
+    deprecatedLineEntry(owner, 'lineDash', 'dashType'),
+    ...LINE_ARROW_VALUES.map((value) =>
+      deprecatedLineEntry(owner, 'lineHead', 'beginArrowType', value)),
+    deprecatedLineEntry(owner, 'lineHead', 'beginArrowType'),
+    deprecatedLineEntry(owner, 'lineSize', 'width'),
+    ...LINE_ARROW_VALUES.map((value) =>
+      deprecatedLineEntry(owner, 'lineTail', 'endArrowType', value)),
+    deprecatedLineEntry(owner, 'lineTail', 'endArrowType'),
+  ]),
+]);
 
 function presetShapeCatalogEntry(owner, value) {
   const id = `union:${owner}#${value}`;
@@ -483,6 +697,8 @@ export const PPTXGENJS_SURFACE_MANIFEST = deepFreeze({
     ...SHAPE_TEXT_COORDINATE_ATOMS.map((id) =>
       deliberateDifference(id, coordinateNativeMapping(id))),
     ...IMAGE_COORDINATE_ATOMS.map((id) => imageCoordinateDifference(id)),
+    ...CANONICAL_LINE_ATOM_IDS.map((id) => canonicalLineEntry(id)),
+    ...DEPRECATED_LINE_ENTRIES,
     ...['ShapeType', 'SHAPE_NAME'].flatMap((owner) =>
       DECLARED_PRESET_SHAPE_VALUES.map((value) => presetShapeCatalogEntry(owner, value))),
     ...['SchemeColor', 'ThemeColor'].flatMap((owner) =>

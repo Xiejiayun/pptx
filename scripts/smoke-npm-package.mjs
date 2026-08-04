@@ -5316,6 +5316,91 @@ if (!shapeArrows) {
     reopenedDuplicate: reopenedDuplicateArrows[0],
   }));
 }
+const deprecatedLineAliasDeck = PptxDocument.create();
+const deprecatedLineAliasSlide = deprecatedLineAliasDeck.addSlide();
+const deprecatedNestedLineAliases = [
+  { alpha: 40 },
+  { lineDash: undefined },
+  ...packedLineDashes.map((lineDash) => ({ lineDash })),
+  { lineHead: undefined },
+  ...packedArrowTypes.map((lineHead) => ({ lineHead })),
+  { lineTail: undefined },
+  ...packedArrowTypes.map((lineTail) => ({ lineTail })),
+  { pt: 2.5 },
+  { size: 2.5 },
+];
+const deprecatedOuterLineAliases = [
+  { lineDash: undefined },
+  ...packedLineDashes.map((lineDash) => ({ lineDash })),
+  { lineHead: undefined },
+  ...packedArrowTypes.map((lineHead) => ({ lineHead })),
+  { lineSize: 2.5 },
+  { lineTail: undefined },
+  ...packedArrowTypes.map((lineTail) => ({ lineTail })),
+];
+const rejectedDeprecatedLineAliasAttempts = [
+  ...deprecatedNestedLineAliases.flatMap((alias) => [
+    () => deprecatedLineAliasSlide.addShape('rect', {
+      line: {
+        kind: 'line',
+        color: { kind: 'srgb', value: '112233' },
+        ...alias,
+      },
+    }),
+    () => deprecatedLineAliasSlide.addText('Invalid nested line alias', {
+      line: {
+        kind: 'line',
+        color: { kind: 'srgb', value: '112233' },
+        ...alias,
+      },
+    }),
+  ]),
+  ...deprecatedOuterLineAliases.map((alias) =>
+    () => deprecatedLineAliasSlide.addShape('rect', alias)),
+];
+const deprecatedLineAliasBytes = deprecatedLineAliasDeck.opcPackage
+  .requirePart(deprecatedLineAliasSlide.partUri).bytes.slice();
+const deprecatedLineAliasPartCount = deprecatedLineAliasDeck.opcPackage.parts.length;
+const deprecatedLineAliasRelationshipCount = deprecatedLineAliasSlide.relationships.length;
+const deprecatedLineAliasJournal = JSON.stringify(
+  deprecatedLineAliasDeck.opcPackage.mutations,
+);
+let deprecatedLineAliasRejectionCount = 0;
+for (const attempt of rejectedDeprecatedLineAliasAttempts) {
+  try {
+    attempt();
+  } catch (error) {
+    if (!(error instanceof TypeError)) throw error;
+    deprecatedLineAliasRejectionCount += 1;
+  }
+}
+const deprecatedLineAliasCurrentBytes = deprecatedLineAliasDeck.opcPackage
+  .requirePart(deprecatedLineAliasSlide.partUri).bytes;
+const deprecatedLineAliases =
+  rejectedDeprecatedLineAliasAttempts.length === 76 &&
+  deprecatedLineAliasRejectionCount === rejectedDeprecatedLineAliasAttempts.length &&
+  deprecatedLineAliasPartCount === deprecatedLineAliasDeck.opcPackage.parts.length &&
+  deprecatedLineAliasRelationshipCount === deprecatedLineAliasSlide.relationships.length &&
+  deprecatedLineAliasJournal === JSON.stringify(deprecatedLineAliasDeck.opcPackage.mutations) &&
+  deprecatedLineAliasBytes.length === deprecatedLineAliasCurrentBytes.length &&
+  deprecatedLineAliasBytes.every(
+    (value, index) => value === deprecatedLineAliasCurrentBytes[index],
+  ) &&
+  deprecatedOuterLineAliases.length === 24 &&
+  deprecatedOuterLineAliases.every((alias, index) => {
+    const shape = deprecatedLineAliasSlide.addText('Ignored outer line alias ' + index, alias);
+    return shape.line?.kind === 'none' && shape.arrows === undefined;
+  });
+if (!deprecatedLineAliases) {
+  throw new Error('Packed deprecated line alias rejection failed: ' + JSON.stringify({
+    attempts: rejectedDeprecatedLineAliasAttempts.length,
+    rejected: deprecatedLineAliasRejectionCount,
+    ignoredTextAliases: deprecatedOuterLineAliases.length,
+    partCount: deprecatedLineAliasDeck.opcPackage.parts.length,
+    relationshipCount: deprecatedLineAliasSlide.relationships.length,
+    journal: deprecatedLineAliasDeck.opcPackage.mutations,
+  }));
+}
 const initialTextWrap = createdText.textWrap;
 const initialTextDirection = createdText.textDirection;
 const initialTextFit = createdText.textFit;
@@ -9681,6 +9766,7 @@ const checks = {
   richTextRunHyperlinks,
   shapeLines,
   shapeArrows,
+  deprecatedLineAliases,
   shapeHyperlinks,
   embeddedRasterImages,
   svgImages,
@@ -13889,6 +13975,22 @@ const typedShapeOptions: AddShapeOptions = {
   hyperlink: typedUrlHyperlink,
   shadow: typedOuterShapeShadow,
 };
+const invalidDeprecatedShapeLineDash: AddShapeOptions = {
+  // @ts-expect-error deprecated PptxGenJS top-level line aliases are not native options
+  lineDash: 'dash',
+};
+const invalidDeprecatedShapeLineHead: AddShapeOptions = {
+  // @ts-expect-error deprecated PptxGenJS top-level line aliases are not native options
+  lineHead: 'arrow',
+};
+const invalidDeprecatedShapeLineSize: AddShapeOptions = {
+  // @ts-expect-error deprecated PptxGenJS top-level line aliases are not native options
+  lineSize: 2.5,
+};
+const invalidDeprecatedShapeLineTail: AddShapeOptions = {
+  // @ts-expect-error deprecated PptxGenJS top-level line aliases are not native options
+  lineTail: 'triangle',
+};
 const typedShape: ShapeModel = createdDocument.addSlide().addShape(
   typedPreset,
   typedShapeOptions,
@@ -13968,6 +14070,22 @@ const invalidTextFillUnknownKey: AddTextOptions = {
     // @ts-expect-error text shape none fills reject unknown fields
     extra: true,
   },
+};
+const invalidDeprecatedTextLineDash: AddTextOptions = {
+  // @ts-expect-error deprecated PptxGenJS top-level line aliases are not native options
+  lineDash: 'dash',
+};
+const invalidDeprecatedTextLineHead: AddTextOptions = {
+  // @ts-expect-error deprecated PptxGenJS top-level line aliases are not native options
+  lineHead: 'arrow',
+};
+const invalidDeprecatedTextLineSize: AddTextOptions = {
+  // @ts-expect-error deprecated PptxGenJS top-level line aliases are not native options
+  lineSize: 2.5,
+};
+const invalidDeprecatedTextLineTail: AddTextOptions = {
+  // @ts-expect-error deprecated PptxGenJS top-level line aliases are not native options
+  lineTail: 'triangle',
 };
 const invalidPptxGenJSTextLine: AddTextOptions = {
   // @ts-expect-error PptxGenJS-style text line objects are intentionally unsupported
@@ -14650,10 +14768,14 @@ void [typedPreset, typedNoneShapeFill, typedSolidShapeFill,
   typedTextShapeShadow, typedTextShapeInnerShadow, typedTextShapeShadowRead,
   invalidPptxGenJSTextFill, invalidTextFillKind, invalidTextFillMissingColor,
   invalidTextFillTransparency, invalidTextFillUnknownKey, invalidPptxGenJSTextLine,
+  invalidDeprecatedTextLineDash, invalidDeprecatedTextLineHead,
+  invalidDeprecatedTextLineSize, invalidDeprecatedTextLineTail,
   invalidTextLineKind, invalidTextLineMissingColor, invalidTextLineWidth,
   invalidTextLineDash, invalidPptxGenJSTextShadow, invalidNoneTextShadow,
   invalidTextShadowOffset, invalidTextInnerShadowRotate, invalidTextShadowOpacity,
   typedShapeOptions, typedShape,
+  invalidDeprecatedShapeLineDash, invalidDeprecatedShapeLineHead,
+  invalidDeprecatedShapeLineSize, invalidDeprecatedShapeLineTail,
   typedCustomPoint, typedCustomCommand, typedCustomFill, typedCustomPath, typedCustomGeometry,
   typedCustomValue, typedUnaryFormula, typedBinaryFormula, typedTernaryFormula,
   typedCustomGuide, typedFormulaGeometry, typedXyHandle, typedPolarHandle,
