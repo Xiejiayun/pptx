@@ -17636,6 +17636,10 @@
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks text direction behavior across every declared owner"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -17644,19 +17648,24 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks text direction behavior across every declared owner"
+          }
+        ]
       },
       "id": "interface:PlaceholderProps@property:textDirection",
       "kind": "property",
       "name": "textDirection",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits textDirection into PlaceholderProps, but its writer ignores the property and all four declared tokens for that owner.",
       "optional": true,
       "owner": "PlaceholderProps",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'horz' | 'vert' | 'vert270' | 'wordArtVert'"
     },
     {
@@ -21345,6 +21354,10 @@
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks text direction behavior across every declared owner"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -21353,19 +21366,24 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks text direction behavior across every declared owner"
+          }
+        ]
       },
       "id": "interface:SlideNumberProps@property:textDirection",
       "kind": "property",
       "name": "textDirection",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits textDirection into SlideNumberProps, but its writer ignores the property and all four declared tokens for that owner.",
       "optional": true,
       "owner": "SlideNumberProps",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'horz' | 'vert' | 'vert270' | 'wordArtVert'"
     },
     {
@@ -22212,28 +22230,62 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textDirectionFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/table-cell-text-direction.internal.ts",
+            "pattern": "export function normalizeTableCellTextDirection("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens text direction owners in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const textDirectionFamilyState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks text direction behavior across every declared owner"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates and reopens text direction owners in all six formats"
+          }
+        ]
       },
       "id": "interface:TableCellProps@property:textDirection",
       "kind": "property",
       "name": "textDirection",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableCellOptions.textDirection",
+        "TableCell.textDirection",
+        "TableCellTextDirection",
+        "TableModel.setCellTextDirection"
+      ],
+      "note": "Native covers TableCellProps.textDirection with the same four legal tokens, strict pre-mutation validation, editable table-cell OOXML, and canonical omission of the horizontal default.",
       "optional": true,
       "owner": "TableCellProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'horz' | 'vert' | 'vert270' | 'wordArtVert'"
     },
     {
@@ -23080,28 +23132,61 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textDirectionFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/table-cell-text-direction.internal.ts",
+            "pattern": "export function normalizeTableCellTextDirection("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens text direction owners in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const textDirectionFamilyState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks text direction behavior across every declared owner"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates and reopens text direction owners in all six formats"
+          }
+        ]
       },
       "id": "interface:TableProps@property:textDirection",
       "kind": "property",
       "name": "textDirection",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableOptions.textDirection",
+        "TableCellTextDirection",
+        "TableModel.textDirection"
+      ],
+      "note": "Native covers TableProps.textDirection with the same four legal tokens, strict pre-mutation validation, editable table-cell OOXML, and canonical omission of the horizontal default.",
       "optional": true,
       "owner": "TableProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'horz' | 'vert' | 'vert270' | 'wordArtVert'"
     },
     {
@@ -24225,6 +24310,10 @@
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks text direction behavior across every declared owner"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -24233,19 +24322,24 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks text direction behavior across every declared owner"
+          }
+        ]
       },
       "id": "interface:TableToSlidesProps@property:textDirection",
       "kind": "property",
       "name": "textDirection",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits textDirection into TableToSlidesProps, but its writer ignores the property and all four declared tokens for that owner.",
       "optional": true,
       "owner": "TableToSlidesProps",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'horz' | 'vert' | 'vert270' | 'wordArtVert'"
     },
     {
@@ -26172,6 +26266,10 @@
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks text direction behavior across every declared owner"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -26180,19 +26278,24 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks text direction behavior across every declared owner"
+          }
+        ]
       },
       "id": "interface:TextPropsOptions@property:textDirection",
       "kind": "property",
       "name": "textDirection",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits textDirection into TextPropsOptions, but its writer ignores the property and all four declared tokens for that owner.",
       "optional": true,
       "owner": "TextPropsOptions",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'horz' | 'vert' | 'vert270' | 'wordArtVert'"
     },
     {
@@ -26310,28 +26413,61 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "TextPropsOptions",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textDirectionFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/text-box-text-direction.internal.ts",
+            "pattern": "export function normalizeTextBoxTextDirection("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens text direction owners in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const textDirectionFamilyState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks text direction behavior across every declared owner"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates and reopens text direction owners in all six formats"
+          }
+        ]
       },
       "id": "interface:TextPropsOptions@property:vert",
       "kind": "property",
       "name": "vert",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.vert",
+        "ShapeModel.textDirection",
+        "TextBoxTextDirection"
+      ],
+      "note": "Native covers TextPropsOptions.vert with the same seven legal text-body tokens, strict pre-mutation validation, exact bodyPr OOXML, and reopen editing.",
       "optional": true,
       "owner": "TextPropsOptions",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'eaVert' | 'horz' | 'mongolianVert' | 'vert' | 'vert270' | 'wordArtVert' | 'wordArtVertRtl'"
     },
     {
@@ -58866,6 +59002,10 @@
     {
       "catalogKey": "horz",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks text direction behavior across every declared owner"
+      },
       "declaredIn": "interface:PlaceholderProps@property:textDirection",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -58874,24 +59014,33 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks text direction behavior across every declared owner"
+          }
+        ]
       },
       "id": "union:interface:PlaceholderProps@property:textDirection#horz",
       "kind": "union-member",
       "name": "horz",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits textDirection into PlaceholderProps, but its writer ignores the property and all four declared tokens for that owner.",
       "optional": false,
       "owner": "interface:PlaceholderProps@property:textDirection",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'horz'"
     },
     {
       "catalogKey": "vert",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks text direction behavior across every declared owner"
+      },
       "declaredIn": "interface:PlaceholderProps@property:textDirection",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -58900,24 +59049,33 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks text direction behavior across every declared owner"
+          }
+        ]
       },
       "id": "union:interface:PlaceholderProps@property:textDirection#vert",
       "kind": "union-member",
       "name": "vert",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits textDirection into PlaceholderProps, but its writer ignores the property and all four declared tokens for that owner.",
       "optional": false,
       "owner": "interface:PlaceholderProps@property:textDirection",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'vert'"
     },
     {
       "catalogKey": "vert270",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks text direction behavior across every declared owner"
+      },
       "declaredIn": "interface:PlaceholderProps@property:textDirection",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -58926,24 +59084,33 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks text direction behavior across every declared owner"
+          }
+        ]
       },
       "id": "union:interface:PlaceholderProps@property:textDirection#vert270",
       "kind": "union-member",
       "name": "vert270",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits textDirection into PlaceholderProps, but its writer ignores the property and all four declared tokens for that owner.",
       "optional": false,
       "owner": "interface:PlaceholderProps@property:textDirection",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'vert270'"
     },
     {
       "catalogKey": "wordArtVert",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks text direction behavior across every declared owner"
+      },
       "declaredIn": "interface:PlaceholderProps@property:textDirection",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -58952,19 +59119,24 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks text direction behavior across every declared owner"
+          }
+        ]
       },
       "id": "union:interface:PlaceholderProps@property:textDirection#wordArtVert",
       "kind": "union-member",
       "name": "wordArtVert",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits textDirection into PlaceholderProps, but its writer ignores the property and all four declared tokens for that owner.",
       "optional": false,
       "owner": "interface:PlaceholderProps@property:textDirection",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'wordArtVert'"
     },
     {
@@ -65065,6 +65237,10 @@
     {
       "catalogKey": "horz",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks text direction behavior across every declared owner"
+      },
       "declaredIn": "interface:SlideNumberProps@property:textDirection",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -65073,24 +65249,33 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks text direction behavior across every declared owner"
+          }
+        ]
       },
       "id": "union:interface:SlideNumberProps@property:textDirection#horz",
       "kind": "union-member",
       "name": "horz",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits textDirection into SlideNumberProps, but its writer ignores the property and all four declared tokens for that owner.",
       "optional": false,
       "owner": "interface:SlideNumberProps@property:textDirection",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'horz'"
     },
     {
       "catalogKey": "vert",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks text direction behavior across every declared owner"
+      },
       "declaredIn": "interface:SlideNumberProps@property:textDirection",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -65099,24 +65284,33 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks text direction behavior across every declared owner"
+          }
+        ]
       },
       "id": "union:interface:SlideNumberProps@property:textDirection#vert",
       "kind": "union-member",
       "name": "vert",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits textDirection into SlideNumberProps, but its writer ignores the property and all four declared tokens for that owner.",
       "optional": false,
       "owner": "interface:SlideNumberProps@property:textDirection",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'vert'"
     },
     {
       "catalogKey": "vert270",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks text direction behavior across every declared owner"
+      },
       "declaredIn": "interface:SlideNumberProps@property:textDirection",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -65125,24 +65319,33 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks text direction behavior across every declared owner"
+          }
+        ]
       },
       "id": "union:interface:SlideNumberProps@property:textDirection#vert270",
       "kind": "union-member",
       "name": "vert270",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits textDirection into SlideNumberProps, but its writer ignores the property and all four declared tokens for that owner.",
       "optional": false,
       "owner": "interface:SlideNumberProps@property:textDirection",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'vert270'"
     },
     {
       "catalogKey": "wordArtVert",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks text direction behavior across every declared owner"
+      },
       "declaredIn": "interface:SlideNumberProps@property:textDirection",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -65151,19 +65354,24 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks text direction behavior across every declared owner"
+          }
+        ]
       },
       "id": "union:interface:SlideNumberProps@property:textDirection#wordArtVert",
       "kind": "union-member",
       "name": "wordArtVert",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits textDirection into SlideNumberProps, but its writer ignores the property and all four declared tokens for that owner.",
       "optional": false,
       "owner": "interface:SlideNumberProps@property:textDirection",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'wordArtVert'"
     },
     {
@@ -66953,106 +67161,242 @@
     },
     {
       "catalogKey": "horz",
-      "client": false,
+      "client": true,
       "declaredIn": "interface:TableCellProps@property:textDirection",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textDirectionFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/table-cell-text-direction.internal.ts",
+            "pattern": "export function normalizeTableCellTextDirection("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens text direction owners in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const textDirectionFamilyState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks text direction behavior across every declared owner"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates and reopens text direction owners in all six formats"
+          }
+        ]
       },
       "id": "union:interface:TableCellProps@property:textDirection#horz",
       "kind": "union-member",
       "name": "horz",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableCellOptions.textDirection",
+        "TableCell.textDirection",
+        "TableCellTextDirection",
+        "TableModel.setCellTextDirection"
+      ],
+      "note": "Native covers TableCellProps.textDirection with the same four legal tokens, strict pre-mutation validation, editable table-cell OOXML, and canonical omission of the horizontal default.",
       "optional": false,
       "owner": "interface:TableCellProps@property:textDirection",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'horz'"
     },
     {
       "catalogKey": "vert",
-      "client": false,
+      "client": true,
       "declaredIn": "interface:TableCellProps@property:textDirection",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textDirectionFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/table-cell-text-direction.internal.ts",
+            "pattern": "export function normalizeTableCellTextDirection("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens text direction owners in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const textDirectionFamilyState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks text direction behavior across every declared owner"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates and reopens text direction owners in all six formats"
+          }
+        ]
       },
       "id": "union:interface:TableCellProps@property:textDirection#vert",
       "kind": "union-member",
       "name": "vert",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableCellOptions.textDirection",
+        "TableCell.textDirection",
+        "TableCellTextDirection",
+        "TableModel.setCellTextDirection"
+      ],
+      "note": "Native covers TableCellProps.textDirection with the same four legal tokens, strict pre-mutation validation, editable table-cell OOXML, and canonical omission of the horizontal default.",
       "optional": false,
       "owner": "interface:TableCellProps@property:textDirection",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'vert'"
     },
     {
       "catalogKey": "vert270",
-      "client": false,
+      "client": true,
       "declaredIn": "interface:TableCellProps@property:textDirection",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textDirectionFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/table-cell-text-direction.internal.ts",
+            "pattern": "export function normalizeTableCellTextDirection("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens text direction owners in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const textDirectionFamilyState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks text direction behavior across every declared owner"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates and reopens text direction owners in all six formats"
+          }
+        ]
       },
       "id": "union:interface:TableCellProps@property:textDirection#vert270",
       "kind": "union-member",
       "name": "vert270",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableCellOptions.textDirection",
+        "TableCell.textDirection",
+        "TableCellTextDirection",
+        "TableModel.setCellTextDirection"
+      ],
+      "note": "Native covers TableCellProps.textDirection with the same four legal tokens, strict pre-mutation validation, editable table-cell OOXML, and canonical omission of the horizontal default.",
       "optional": false,
       "owner": "interface:TableCellProps@property:textDirection",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'vert270'"
     },
     {
       "catalogKey": "wordArtVert",
-      "client": false,
+      "client": true,
       "declaredIn": "interface:TableCellProps@property:textDirection",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textDirectionFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/table-cell-text-direction.internal.ts",
+            "pattern": "export function normalizeTableCellTextDirection("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens text direction owners in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const textDirectionFamilyState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks text direction behavior across every declared owner"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates and reopens text direction owners in all six formats"
+          }
+        ]
       },
       "id": "union:interface:TableCellProps@property:textDirection#wordArtVert",
       "kind": "union-member",
       "name": "wordArtVert",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableCellOptions.textDirection",
+        "TableCell.textDirection",
+        "TableCellTextDirection",
+        "TableModel.setCellTextDirection"
+      ],
+      "note": "Native covers TableCellProps.textDirection with the same four legal tokens, strict pre-mutation validation, editable table-cell OOXML, and canonical omission of the horizontal default.",
       "optional": false,
       "owner": "interface:TableCellProps@property:textDirection",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'wordArtVert'"
     },
     {
@@ -69056,106 +69400,238 @@
     },
     {
       "catalogKey": "horz",
-      "client": false,
+      "client": true,
       "declaredIn": "interface:TableProps@property:textDirection",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textDirectionFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/table-cell-text-direction.internal.ts",
+            "pattern": "export function normalizeTableCellTextDirection("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens text direction owners in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const textDirectionFamilyState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks text direction behavior across every declared owner"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates and reopens text direction owners in all six formats"
+          }
+        ]
       },
       "id": "union:interface:TableProps@property:textDirection#horz",
       "kind": "union-member",
       "name": "horz",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableOptions.textDirection",
+        "TableCellTextDirection",
+        "TableModel.textDirection"
+      ],
+      "note": "Native covers TableProps.textDirection with the same four legal tokens, strict pre-mutation validation, editable table-cell OOXML, and canonical omission of the horizontal default.",
       "optional": false,
       "owner": "interface:TableProps@property:textDirection",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'horz'"
     },
     {
       "catalogKey": "vert",
-      "client": false,
+      "client": true,
       "declaredIn": "interface:TableProps@property:textDirection",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textDirectionFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/table-cell-text-direction.internal.ts",
+            "pattern": "export function normalizeTableCellTextDirection("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens text direction owners in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const textDirectionFamilyState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks text direction behavior across every declared owner"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates and reopens text direction owners in all six formats"
+          }
+        ]
       },
       "id": "union:interface:TableProps@property:textDirection#vert",
       "kind": "union-member",
       "name": "vert",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableOptions.textDirection",
+        "TableCellTextDirection",
+        "TableModel.textDirection"
+      ],
+      "note": "Native covers TableProps.textDirection with the same four legal tokens, strict pre-mutation validation, editable table-cell OOXML, and canonical omission of the horizontal default.",
       "optional": false,
       "owner": "interface:TableProps@property:textDirection",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'vert'"
     },
     {
       "catalogKey": "vert270",
-      "client": false,
+      "client": true,
       "declaredIn": "interface:TableProps@property:textDirection",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textDirectionFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/table-cell-text-direction.internal.ts",
+            "pattern": "export function normalizeTableCellTextDirection("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens text direction owners in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const textDirectionFamilyState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks text direction behavior across every declared owner"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates and reopens text direction owners in all six formats"
+          }
+        ]
       },
       "id": "union:interface:TableProps@property:textDirection#vert270",
       "kind": "union-member",
       "name": "vert270",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableOptions.textDirection",
+        "TableCellTextDirection",
+        "TableModel.textDirection"
+      ],
+      "note": "Native covers TableProps.textDirection with the same four legal tokens, strict pre-mutation validation, editable table-cell OOXML, and canonical omission of the horizontal default.",
       "optional": false,
       "owner": "interface:TableProps@property:textDirection",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'vert270'"
     },
     {
       "catalogKey": "wordArtVert",
-      "client": false,
+      "client": true,
       "declaredIn": "interface:TableProps@property:textDirection",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textDirectionFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/table-cell-text-direction.internal.ts",
+            "pattern": "export function normalizeTableCellTextDirection("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens text direction owners in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const textDirectionFamilyState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks text direction behavior across every declared owner"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates and reopens text direction owners in all six formats"
+          }
+        ]
       },
       "id": "union:interface:TableProps@property:textDirection#wordArtVert",
       "kind": "union-member",
       "name": "wordArtVert",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableOptions.textDirection",
+        "TableCellTextDirection",
+        "TableModel.textDirection"
+      ],
+      "note": "Native covers TableProps.textDirection with the same four legal tokens, strict pre-mutation validation, editable table-cell OOXML, and canonical omission of the horizontal default.",
       "optional": false,
       "owner": "interface:TableProps@property:textDirection",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'wordArtVert'"
     },
     {
@@ -71160,6 +71636,10 @@
     {
       "catalogKey": "horz",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks text direction behavior across every declared owner"
+      },
       "declaredIn": "interface:TableToSlidesProps@property:textDirection",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -71168,24 +71648,33 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks text direction behavior across every declared owner"
+          }
+        ]
       },
       "id": "union:interface:TableToSlidesProps@property:textDirection#horz",
       "kind": "union-member",
       "name": "horz",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits textDirection into TableToSlidesProps, but its writer ignores the property and all four declared tokens for that owner.",
       "optional": false,
       "owner": "interface:TableToSlidesProps@property:textDirection",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'horz'"
     },
     {
       "catalogKey": "vert",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks text direction behavior across every declared owner"
+      },
       "declaredIn": "interface:TableToSlidesProps@property:textDirection",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -71194,24 +71683,33 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks text direction behavior across every declared owner"
+          }
+        ]
       },
       "id": "union:interface:TableToSlidesProps@property:textDirection#vert",
       "kind": "union-member",
       "name": "vert",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits textDirection into TableToSlidesProps, but its writer ignores the property and all four declared tokens for that owner.",
       "optional": false,
       "owner": "interface:TableToSlidesProps@property:textDirection",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'vert'"
     },
     {
       "catalogKey": "vert270",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks text direction behavior across every declared owner"
+      },
       "declaredIn": "interface:TableToSlidesProps@property:textDirection",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -71220,24 +71718,33 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks text direction behavior across every declared owner"
+          }
+        ]
       },
       "id": "union:interface:TableToSlidesProps@property:textDirection#vert270",
       "kind": "union-member",
       "name": "vert270",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits textDirection into TableToSlidesProps, but its writer ignores the property and all four declared tokens for that owner.",
       "optional": false,
       "owner": "interface:TableToSlidesProps@property:textDirection",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'vert270'"
     },
     {
       "catalogKey": "wordArtVert",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks text direction behavior across every declared owner"
+      },
       "declaredIn": "interface:TableToSlidesProps@property:textDirection",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -71246,19 +71753,24 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks text direction behavior across every declared owner"
+          }
+        ]
       },
       "id": "union:interface:TableToSlidesProps@property:textDirection#wordArtVert",
       "kind": "union-member",
       "name": "wordArtVert",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits textDirection into TableToSlidesProps, but its writer ignores the property and all four declared tokens for that owner.",
       "optional": false,
       "owner": "interface:TableToSlidesProps@property:textDirection",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'wordArtVert'"
     },
     {
@@ -74178,6 +74690,10 @@
     {
       "catalogKey": "horz",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks text direction behavior across every declared owner"
+      },
       "declaredIn": "interface:TextPropsOptions@property:textDirection",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -74186,24 +74702,33 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks text direction behavior across every declared owner"
+          }
+        ]
       },
       "id": "union:interface:TextPropsOptions@property:textDirection#horz",
       "kind": "union-member",
       "name": "horz",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits textDirection into TextPropsOptions, but its writer ignores the property and all four declared tokens for that owner.",
       "optional": false,
       "owner": "interface:TextPropsOptions@property:textDirection",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'horz'"
     },
     {
       "catalogKey": "vert",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks text direction behavior across every declared owner"
+      },
       "declaredIn": "interface:TextPropsOptions@property:textDirection",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -74212,24 +74737,33 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks text direction behavior across every declared owner"
+          }
+        ]
       },
       "id": "union:interface:TextPropsOptions@property:textDirection#vert",
       "kind": "union-member",
       "name": "vert",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits textDirection into TextPropsOptions, but its writer ignores the property and all four declared tokens for that owner.",
       "optional": false,
       "owner": "interface:TextPropsOptions@property:textDirection",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'vert'"
     },
     {
       "catalogKey": "vert270",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks text direction behavior across every declared owner"
+      },
       "declaredIn": "interface:TextPropsOptions@property:textDirection",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -74238,24 +74772,33 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks text direction behavior across every declared owner"
+          }
+        ]
       },
       "id": "union:interface:TextPropsOptions@property:textDirection#vert270",
       "kind": "union-member",
       "name": "vert270",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits textDirection into TextPropsOptions, but its writer ignores the property and all four declared tokens for that owner.",
       "optional": false,
       "owner": "interface:TextPropsOptions@property:textDirection",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'vert270'"
     },
     {
       "catalogKey": "wordArtVert",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks text direction behavior across every declared owner"
+      },
       "declaredIn": "interface:TextPropsOptions@property:textDirection",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -74264,19 +74807,24 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks text direction behavior across every declared owner"
+          }
+        ]
       },
       "id": "union:interface:TextPropsOptions@property:textDirection#wordArtVert",
       "kind": "union-member",
       "name": "wordArtVert",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits textDirection into TextPropsOptions, but its writer ignores the property and all four declared tokens for that owner.",
       "optional": false,
       "owner": "interface:TextPropsOptions@property:textDirection",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'wordArtVert'"
     },
     {
@@ -75302,184 +75850,415 @@
     },
     {
       "catalogKey": "eaVert",
-      "client": false,
+      "client": true,
       "declaredIn": "interface:TextPropsOptions@property:vert",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textDirectionFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/text-box-text-direction.internal.ts",
+            "pattern": "export function normalizeTextBoxTextDirection("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens text direction owners in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const textDirectionFamilyState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks text direction behavior across every declared owner"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates and reopens text direction owners in all six formats"
+          }
+        ]
       },
       "id": "union:interface:TextPropsOptions@property:vert#eaVert",
       "kind": "union-member",
       "name": "eaVert",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.vert",
+        "ShapeModel.textDirection",
+        "TextBoxTextDirection"
+      ],
+      "note": "Native covers TextPropsOptions.vert with the same seven legal text-body tokens, strict pre-mutation validation, exact bodyPr OOXML, and reopen editing.",
       "optional": false,
       "owner": "interface:TextPropsOptions@property:vert",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'eaVert'"
     },
     {
       "catalogKey": "horz",
-      "client": false,
+      "client": true,
       "declaredIn": "interface:TextPropsOptions@property:vert",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textDirectionFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/text-box-text-direction.internal.ts",
+            "pattern": "export function normalizeTextBoxTextDirection("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens text direction owners in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const textDirectionFamilyState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks text direction behavior across every declared owner"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates and reopens text direction owners in all six formats"
+          }
+        ]
       },
       "id": "union:interface:TextPropsOptions@property:vert#horz",
       "kind": "union-member",
       "name": "horz",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.vert",
+        "ShapeModel.textDirection",
+        "TextBoxTextDirection"
+      ],
+      "note": "Native covers TextPropsOptions.vert with the same seven legal text-body tokens, strict pre-mutation validation, exact bodyPr OOXML, and reopen editing.",
       "optional": false,
       "owner": "interface:TextPropsOptions@property:vert",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'horz'"
     },
     {
       "catalogKey": "mongolianVert",
-      "client": false,
+      "client": true,
       "declaredIn": "interface:TextPropsOptions@property:vert",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textDirectionFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/text-box-text-direction.internal.ts",
+            "pattern": "export function normalizeTextBoxTextDirection("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens text direction owners in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const textDirectionFamilyState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks text direction behavior across every declared owner"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates and reopens text direction owners in all six formats"
+          }
+        ]
       },
       "id": "union:interface:TextPropsOptions@property:vert#mongolianVert",
       "kind": "union-member",
       "name": "mongolianVert",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.vert",
+        "ShapeModel.textDirection",
+        "TextBoxTextDirection"
+      ],
+      "note": "Native covers TextPropsOptions.vert with the same seven legal text-body tokens, strict pre-mutation validation, exact bodyPr OOXML, and reopen editing.",
       "optional": false,
       "owner": "interface:TextPropsOptions@property:vert",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'mongolianVert'"
     },
     {
       "catalogKey": "vert",
-      "client": false,
+      "client": true,
       "declaredIn": "interface:TextPropsOptions@property:vert",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textDirectionFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/text-box-text-direction.internal.ts",
+            "pattern": "export function normalizeTextBoxTextDirection("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens text direction owners in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const textDirectionFamilyState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks text direction behavior across every declared owner"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates and reopens text direction owners in all six formats"
+          }
+        ]
       },
       "id": "union:interface:TextPropsOptions@property:vert#vert",
       "kind": "union-member",
       "name": "vert",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.vert",
+        "ShapeModel.textDirection",
+        "TextBoxTextDirection"
+      ],
+      "note": "Native covers TextPropsOptions.vert with the same seven legal text-body tokens, strict pre-mutation validation, exact bodyPr OOXML, and reopen editing.",
       "optional": false,
       "owner": "interface:TextPropsOptions@property:vert",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'vert'"
     },
     {
       "catalogKey": "vert270",
-      "client": false,
+      "client": true,
       "declaredIn": "interface:TextPropsOptions@property:vert",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textDirectionFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/text-box-text-direction.internal.ts",
+            "pattern": "export function normalizeTextBoxTextDirection("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens text direction owners in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const textDirectionFamilyState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks text direction behavior across every declared owner"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates and reopens text direction owners in all six formats"
+          }
+        ]
       },
       "id": "union:interface:TextPropsOptions@property:vert#vert270",
       "kind": "union-member",
       "name": "vert270",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.vert",
+        "ShapeModel.textDirection",
+        "TextBoxTextDirection"
+      ],
+      "note": "Native covers TextPropsOptions.vert with the same seven legal text-body tokens, strict pre-mutation validation, exact bodyPr OOXML, and reopen editing.",
       "optional": false,
       "owner": "interface:TextPropsOptions@property:vert",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'vert270'"
     },
     {
       "catalogKey": "wordArtVert",
-      "client": false,
+      "client": true,
       "declaredIn": "interface:TextPropsOptions@property:vert",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textDirectionFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/text-box-text-direction.internal.ts",
+            "pattern": "export function normalizeTextBoxTextDirection("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens text direction owners in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const textDirectionFamilyState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks text direction behavior across every declared owner"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates and reopens text direction owners in all six formats"
+          }
+        ]
       },
       "id": "union:interface:TextPropsOptions@property:vert#wordArtVert",
       "kind": "union-member",
       "name": "wordArtVert",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.vert",
+        "ShapeModel.textDirection",
+        "TextBoxTextDirection"
+      ],
+      "note": "Native covers TextPropsOptions.vert with the same seven legal text-body tokens, strict pre-mutation validation, exact bodyPr OOXML, and reopen editing.",
       "optional": false,
       "owner": "interface:TextPropsOptions@property:vert",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'wordArtVert'"
     },
     {
       "catalogKey": "wordArtVertRtl",
-      "client": false,
+      "client": true,
       "declaredIn": "interface:TextPropsOptions@property:vert",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textDirectionFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/text-box-text-direction.internal.ts",
+            "pattern": "export function normalizeTextBoxTextDirection("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens text direction owners in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const textDirectionFamilyState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks text direction behavior across every declared owner"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates and reopens text direction owners in all six formats"
+          }
+        ]
       },
       "id": "union:interface:TextPropsOptions@property:vert#wordArtVertRtl",
       "kind": "union-member",
       "name": "wordArtVertRtl",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.vert",
+        "ShapeModel.textDirection",
+        "TextBoxTextDirection"
+      ],
+      "note": "Native covers TextPropsOptions.vert with the same seven legal text-body tokens, strict pre-mutation validation, exact bodyPr OOXML, and reopen editing.",
       "optional": false,
       "owner": "interface:TextPropsOptions@property:vert",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'wordArtVertRtl'"
     },
     {
@@ -75659,13 +76438,13 @@
   ],
   "complete": false,
   "counts": {
-    "defect-excluded": 292,
+    "defect-excluded": 312,
     "deliberate-difference": 178,
     "deprecated-alias": 83,
     "stale": 0,
-    "supported": 534,
+    "supported": 552,
     "unsupported": 0,
-    "unverified": 687
+    "unverified": 649
   },
   "declarationSha256": "0726d015dbcb55ccfa75546cb2fd43fe13a0dfeb783d08572f1c62f59193bbe5",
   "declarationTotal": 1774,
@@ -75976,7 +76755,6 @@
     "interface:PlaceholderProps@property:margin",
     "interface:PlaceholderProps@property:name",
     "interface:PlaceholderProps@property:softBreakBefore",
-    "interface:PlaceholderProps@property:textDirection",
     "interface:PlaceholderProps@property:transparency",
     "interface:PlaceholderProps@property:type",
     "interface:PlaceholderProps@property:valign",
@@ -76036,7 +76814,6 @@
     "interface:SlideNumberProps@property:lang",
     "interface:SlideNumberProps@property:margin",
     "interface:SlideNumberProps@property:softBreakBefore",
-    "interface:SlideNumberProps@property:textDirection",
     "interface:SlideNumberProps@property:transparency",
     "interface:SlideNumberProps@property:valign",
     "interface:SlideNumberProps@property:w",
@@ -76061,7 +76838,6 @@
     "interface:TableCellProps@property:margin",
     "interface:TableCellProps@property:rowspan",
     "interface:TableCellProps@property:softBreakBefore",
-    "interface:TableCellProps@property:textDirection",
     "interface:TableCellProps@property:transparency",
     "interface:TableCellProps@property:valign",
     "interface:TableProps@property:align",
@@ -76087,7 +76863,6 @@
     "interface:TableProps@property:objectName",
     "interface:TableProps@property:rowH",
     "interface:TableProps@property:softBreakBefore",
-    "interface:TableProps@property:textDirection",
     "interface:TableProps@property:transparency",
     "interface:TableProps@property:valign",
     "interface:TableProps@property:verbose",
@@ -76124,7 +76899,6 @@
     "interface:TableToSlidesProps@property:rowH",
     "interface:TableToSlidesProps@property:slideMargin",
     "interface:TableToSlidesProps@property:softBreakBefore",
-    "interface:TableToSlidesProps@property:textDirection",
     "interface:TableToSlidesProps@property:transparency",
     "interface:TableToSlidesProps@property:valign",
     "interface:TableToSlidesProps@property:verbose",
@@ -76175,10 +76949,8 @@
     "interface:TextPropsOptions@property:strike",
     "interface:TextPropsOptions@property:subscript",
     "interface:TextPropsOptions@property:superscript",
-    "interface:TextPropsOptions@property:textDirection",
     "interface:TextPropsOptions@property:transparency",
     "interface:TextPropsOptions@property:valign",
-    "interface:TextPropsOptions@property:vert",
     "interface:TextPropsOptions@property:wrap",
     "interface:ThemeProps@property:bodyFontFace",
     "interface:ThemeProps@property:headFontFace",
@@ -76299,64 +77071,33 @@
     "union:interface:ImageProps@property:sizing@path:sizing.type#cover",
     "union:interface:ImageProps@property:sizing@path:sizing.type#crop",
     "union:interface:OptsChartData@property:labels#string[][]",
-    "union:interface:PlaceholderProps@property:textDirection#horz",
-    "union:interface:PlaceholderProps@property:textDirection#vert",
-    "union:interface:PlaceholderProps@property:textDirection#vert270",
-    "union:interface:PlaceholderProps@property:textDirection#wordArtVert",
     "union:interface:ShadowProps@property:type#inner",
     "union:interface:ShadowProps@property:type#none",
     "union:interface:ShadowProps@property:type#outer",
     "union:interface:SlideMasterProps@property:bkgd#BackgroundProps",
     "union:interface:SlideMasterProps@property:bkgd#string",
-    "union:interface:SlideNumberProps@property:textDirection#horz",
-    "union:interface:SlideNumberProps@property:textDirection#vert",
-    "union:interface:SlideNumberProps@property:textDirection#vert270",
-    "union:interface:SlideNumberProps@property:textDirection#wordArtVert",
     "union:interface:TableCell@property:text#TableCell[]",
     "union:interface:TableCell@property:text#string",
     "union:interface:TableCellProps@property:border#BorderProps",
     "union:interface:TableCellProps@property:border#[BorderProps,BorderProps,BorderProps,BorderProps]",
-    "union:interface:TableCellProps@property:textDirection#horz",
-    "union:interface:TableCellProps@property:textDirection#vert",
-    "union:interface:TableCellProps@property:textDirection#vert270",
-    "union:interface:TableCellProps@property:textDirection#wordArtVert",
     "union:interface:TableProps@property:border#BorderProps",
     "union:interface:TableProps@property:border#[BorderProps,BorderProps,BorderProps,BorderProps]",
     "union:interface:TableProps@property:colW#number",
     "union:interface:TableProps@property:colW#number[]",
     "union:interface:TableProps@property:rowH#number",
     "union:interface:TableProps@property:rowH#number[]",
-    "union:interface:TableProps@property:textDirection#horz",
-    "union:interface:TableProps@property:textDirection#vert",
-    "union:interface:TableProps@property:textDirection#vert270",
-    "union:interface:TableProps@property:textDirection#wordArtVert",
     "union:interface:TableToSlidesProps@property:border#BorderProps",
     "union:interface:TableToSlidesProps@property:border#[BorderProps,BorderProps,BorderProps,BorderProps]",
     "union:interface:TableToSlidesProps@property:colW#number",
     "union:interface:TableToSlidesProps@property:colW#number[]",
     "union:interface:TableToSlidesProps@property:rowH#number",
     "union:interface:TableToSlidesProps@property:rowH#number[]",
-    "union:interface:TableToSlidesProps@property:textDirection#horz",
-    "union:interface:TableToSlidesProps@property:textDirection#vert",
-    "union:interface:TableToSlidesProps@property:textDirection#vert270",
-    "union:interface:TableToSlidesProps@property:textDirection#wordArtVert",
     "union:interface:TextPropsOptions@property:fit#none",
     "union:interface:TextPropsOptions@property:fit#resize",
     "union:interface:TextPropsOptions@property:fit#shrink",
     "union:interface:TextPropsOptions@property:strike#boolean",
     "union:interface:TextPropsOptions@property:strike#dblStrike",
     "union:interface:TextPropsOptions@property:strike#sngStrike",
-    "union:interface:TextPropsOptions@property:textDirection#horz",
-    "union:interface:TextPropsOptions@property:textDirection#vert",
-    "union:interface:TextPropsOptions@property:textDirection#vert270",
-    "union:interface:TextPropsOptions@property:textDirection#wordArtVert",
-    "union:interface:TextPropsOptions@property:vert#eaVert",
-    "union:interface:TextPropsOptions@property:vert#horz",
-    "union:interface:TextPropsOptions@property:vert#mongolianVert",
-    "union:interface:TextPropsOptions@property:vert#vert",
-    "union:interface:TextPropsOptions@property:vert#vert270",
-    "union:interface:TextPropsOptions@property:vert#wordArtVert",
-    "union:interface:TextPropsOptions@property:vert#wordArtVertRtl",
     "union:method:Slide#addText@path:text#TextProps[]",
     "union:method:Slide#addText@path:text#string"
   ],

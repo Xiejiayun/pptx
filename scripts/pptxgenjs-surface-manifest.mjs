@@ -1768,6 +1768,149 @@ const UNDERLINE_FAMILY_ENTRIES = Object.freeze([
     underlineFamilyOwnerIds(owner).map((id) => underlineFamilyDefectEntry(owner, id))),
 ]);
 
+const TEXT_DIRECTION_FAMILY_CONTROL_TITLE =
+  'locks text direction behavior across every declared owner';
+const TEXT_DIRECTION_FAMILY_OOXML_TITLE =
+  'creates and reopens text direction owners in all six formats';
+const TEXT_DIRECTION_TABLE_TOKENS = Object.freeze([
+  'horz',
+  'vert',
+  'vert270',
+  'wordArtVert',
+]);
+const TEXT_DIRECTION_TEXT_TOKENS = Object.freeze([
+  'eaVert',
+  'horz',
+  'mongolianVert',
+  'vert',
+  'vert270',
+  'wordArtVert',
+  'wordArtVertRtl',
+]);
+const TEXT_DIRECTION_ACTIVE_TABLE_OWNERS = Object.freeze([
+  'TableCellProps',
+  'TableProps',
+]);
+const TEXT_DIRECTION_INERT_OWNERS = Object.freeze([
+  'PlaceholderProps',
+  'SlideNumberProps',
+  'TableToSlidesProps',
+  'TextPropsOptions',
+]);
+
+function textDirectionPropertyIds(owner, property, tokens) {
+  const propertyId = linePropertyId(owner, property);
+  return [
+    propertyId,
+    ...tokens.map((value) => `union:${propertyId}#${value}`),
+  ].sort();
+}
+
+function textDirectionFamilyEvidence(kind) {
+  return {
+    code: [{
+      path: kind === 'table'
+        ? 'packages/model/src/table-cell-text-direction.internal.ts'
+        : 'packages/model/src/text-box-text-direction.internal.ts',
+      pattern: kind === 'table'
+        ? 'export function normalizeTableCellTextDirection('
+        : 'export function normalizeTextBoxTextDirection(',
+    }],
+    tests: [
+      {
+        path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+        title: TEXT_DIRECTION_FAMILY_CONTROL_TITLE,
+      },
+      {
+        path: 'packages/sdk/src/index.test.ts',
+        title: TEXT_DIRECTION_FAMILY_OOXML_TITLE,
+      },
+    ],
+    package: [{
+      path: 'scripts/smoke-npm-package.mjs',
+      pattern: 'const textDirectionFamilyState = {',
+    }],
+    ooxml: [{
+      path: 'packages/sdk/src/index.test.ts',
+      pattern: TEXT_DIRECTION_FAMILY_OOXML_TITLE,
+    }],
+    clients: [{
+      path: 'scripts/playwright-browser-smoke.js',
+      pattern: 'const textDirectionFamilyState = {',
+    }],
+  };
+}
+
+function textDirectionSupportedEntry(owner, property, id) {
+  const table = property === 'textDirection';
+  const native = table
+    ? owner === 'TableCellProps'
+      ? [
+          'AddTableCellOptions.textDirection',
+          'TableCell.textDirection',
+          'TableCellTextDirection',
+          'TableModel.setCellTextDirection',
+        ]
+      : [
+          'AddTableOptions.textDirection',
+          'TableCellTextDirection',
+          'TableModel.textDirection',
+        ]
+    : [
+        'AddTextOptions.vert',
+        'ShapeModel.textDirection',
+        'TextBoxTextDirection',
+      ];
+  return {
+    id,
+    status: 'supported',
+    native,
+    evidence: textDirectionFamilyEvidence(table ? 'table' : 'text'),
+    serialization: true,
+    client: true,
+    note: table
+      ? `Native covers ${owner}.textDirection with the same four legal tokens, strict pre-mutation validation, editable table-cell OOXML, and canonical omission of the horizontal default.`
+      : 'Native covers TextPropsOptions.vert with the same seven legal text-body tokens, strict pre-mutation validation, exact bodyPr OOXML, and reopen editing.',
+  };
+}
+
+function textDirectionDefectEntry(owner, id) {
+  return {
+    id,
+    status: 'defect-excluded',
+    native: [],
+    evidence: {
+      code: [],
+      tests: [{
+        path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+        title: TEXT_DIRECTION_FAMILY_CONTROL_TITLE,
+      }],
+      package: [],
+      ooxml: [],
+      clients: [],
+    },
+    control: {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      pattern: TEXT_DIRECTION_FAMILY_CONTROL_TITLE,
+    },
+    note: `PptxGenJS 4.0.1 inherits textDirection into ${owner}, but its writer ignores the property and all four declared tokens for that owner.`,
+  };
+}
+
+const TEXT_DIRECTION_FAMILY_ENTRIES = Object.freeze([
+  ...TEXT_DIRECTION_ACTIVE_TABLE_OWNERS.flatMap((owner) =>
+    textDirectionPropertyIds(owner, 'textDirection', TEXT_DIRECTION_TABLE_TOKENS)
+      .map((id) => textDirectionSupportedEntry(owner, 'textDirection', id))),
+  ...TEXT_DIRECTION_INERT_OWNERS.flatMap((owner) =>
+    textDirectionPropertyIds(owner, 'textDirection', TEXT_DIRECTION_TABLE_TOKENS)
+      .map((id) => textDirectionDefectEntry(owner, id))),
+  ...textDirectionPropertyIds(
+    'TextPropsOptions',
+    'vert',
+    TEXT_DIRECTION_TEXT_TOKENS,
+  ).map((id) => textDirectionSupportedEntry('TextPropsOptions', 'vert', id)),
+]);
+
 const TABLE_TO_SLIDES_FILL_CONTROL_TITLE =
   'isolates the ignored tableToSlides fill declaration from computed CSS backgrounds';
 const TABLE_TO_SLIDES_FILL_DEFECT_ENTRY = Object.freeze({
@@ -2142,6 +2285,7 @@ export const PPTXGENJS_SURFACE_MANIFEST = deepFreeze({
     ...BULLET_FAMILY_ENTRIES,
     ...TAB_STOPS_FAMILY_ENTRIES,
     ...UNDERLINE_FAMILY_ENTRIES,
+    ...TEXT_DIRECTION_FAMILY_ENTRIES,
     ...['ShapeType', 'SHAPE_NAME'].flatMap((owner) =>
       DECLARED_PRESET_SHAPE_VALUES.map((value) => presetShapeCatalogEntry(owner, value))),
     ...['SchemeColor', 'ThemeColor'].flatMap((owner) =>

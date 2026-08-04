@@ -15175,6 +15175,224 @@ describe('importPptxGenJS', () => {
     }
   });
 
+  it('locks text direction behavior across every declared owner', async () => {
+    const tableDirections = ['horz', 'vert', 'vert270', 'wordArtVert'] as const;
+    const textDirections = [
+      'eaVert',
+      'horz',
+      'mongolianVert',
+      'vert',
+      'vert270',
+      'wordArtVert',
+      'wordArtVertRtl',
+    ] as const;
+    const namedOwnerXml = (
+      xml: string,
+      name: string,
+      ownerTag: 'p:sp' | 'p:graphicFrame',
+    ) => {
+      const nameOffset = xml.indexOf(`name="${name}"`);
+      expect(nameOffset).toBeGreaterThanOrEqual(0);
+      const start = xml.lastIndexOf(`<${ownerTag}`, nameOffset);
+      const end = xml.indexOf(`</${ownerTag}>`, nameOffset);
+      expect(start).toBeGreaterThanOrEqual(0);
+      expect(end).toBeGreaterThan(nameOffset);
+      return xml.slice(start, end + ownerTag.length + 3);
+    };
+    const bodyDirection = (xml: string) =>
+      xml.match(/<a:bodyPr\b[^>]*\bvert="([^"]+)"/u)?.[1];
+    const cellDirections = (xml: string) => [...xml.matchAll(
+      /<a:tc(?:\s[^>]*)?>([\s\S]*?)<\/a:tc>/gu,
+    )].map((match) =>
+      match[1]!.match(/<a:tcPr\b[^>]*\bvert="([^"]+)"/u)?.[1]);
+
+    const source = new PptxGenJS();
+    const activeSlide = source.addSlide();
+    activeSlide.addTable([tableDirections.map((textDirection) => ({
+      text: `Cell ${textDirection}`,
+      options: { textDirection },
+    }))], {
+      objectName: 'text-direction-cell-owner',
+      x: 0,
+      y: 0,
+      w: 12,
+      h: 0.5,
+    });
+    tableDirections.forEach((textDirection, index) => {
+      activeSlide.addTable([[`Table ${textDirection}`]], {
+        objectName: `text-direction-table-owner-${textDirection}`,
+        x: index * 3,
+        y: 0.75,
+        w: 3,
+        h: 0.5,
+        textDirection,
+      });
+    });
+    textDirections.forEach((vert, index) => {
+      activeSlide.addText(`Text ${vert}`, {
+        objectName: `text-direction-vert-owner-${vert}`,
+        x: index % 4 * 3,
+        y: 1.5 + Math.floor(index / 4) * 0.5,
+        w: 3,
+        h: 0.5,
+        vert,
+      });
+    });
+    tableDirections.forEach((textDirection, index) => {
+      activeSlide.addText(`Ignored ${textDirection}`, {
+        objectName: `text-direction-text-owner-${textDirection}`,
+        x: index * 3,
+        y: 2.75,
+        w: 3,
+        h: 0.5,
+        textDirection,
+      });
+    });
+    activeSlide.addText('Canonical direction wins', {
+      objectName: 'text-direction-canonical-wins',
+      x: 0,
+      y: 3.5,
+      w: 4,
+      h: 0.5,
+      textDirection: 'vert',
+      vert: 'vert270',
+    });
+    activeSlide.addText(
+      [{
+        text: 'Run direction is ignored',
+        options: { vert: 'wordArtVert', textDirection: 'vert' } as Record<string, unknown>,
+      }],
+      {
+        objectName: 'text-direction-run-owner',
+        x: 4,
+        y: 3.5,
+        w: 4,
+        h: 0.5,
+      },
+    );
+
+    source.defineSlideMaster({
+      title: 'TEXT-DIRECTION-OWNER-MATRIX',
+      objects: tableDirections.map((textDirection, index): PptxGenJSMasterObject => ({
+        placeholder: {
+          text: `Placeholder ${textDirection}`,
+          options: {
+            name: `text-direction-placeholder-owner-${textDirection}`,
+            objectName: `text-direction-placeholder-owner-${textDirection}`,
+            type: 'body',
+            x: index * 3,
+            y: 0,
+            w: 3,
+            h: 0.5,
+            textDirection,
+          },
+        },
+      })),
+    });
+    source.addSlide({ masterName: 'TEXT-DIRECTION-OWNER-MATRIX' });
+    for (const [index, textDirection] of tableDirections.entries()) {
+      const slide = source.addSlide();
+      slide.addText(`Slide number control ${textDirection}`, {
+        objectName: `text-direction-slide-number-control-${textDirection}`,
+        x: 0,
+        y: 0,
+        w: 4,
+        h: 0.5,
+      });
+      slide.slideNumber = {
+        x: 0,
+        y: 0.5,
+        w: 1,
+        h: 0.5,
+        textDirection,
+        bold: index % 2 === 0,
+      } as PptxGenJSSlideNumberProps;
+    }
+
+    const imported = await openPptxGenJSPublicOutput(source);
+    const activeXml = slideXml(imported, 0);
+    expect(cellDirections(namedOwnerXml(
+      activeXml,
+      'text-direction-cell-owner',
+      'p:graphicFrame',
+    ))).toEqual([undefined, 'vert', 'vert270', 'wordArtVert']);
+    expect(tableDirections.map((textDirection) => cellDirections(namedOwnerXml(
+      activeXml,
+      `text-direction-table-owner-${textDirection}`,
+      'p:graphicFrame',
+    ))[0])).toEqual([undefined, 'vert', 'vert270', 'wordArtVert']);
+    expect(textDirections.map((vert) => bodyDirection(namedOwnerXml(
+      activeXml,
+      `text-direction-vert-owner-${vert}`,
+      'p:sp',
+    )))).toEqual(textDirections);
+    for (const textDirection of tableDirections) {
+      expect(bodyDirection(namedOwnerXml(
+        activeXml,
+        `text-direction-text-owner-${textDirection}`,
+        'p:sp',
+      ))).toBeUndefined();
+    }
+    expect(bodyDirection(namedOwnerXml(
+      activeXml,
+      'text-direction-canonical-wins',
+      'p:sp',
+    ))).toBe('vert270');
+    expect(bodyDirection(namedOwnerXml(
+      activeXml,
+      'text-direction-run-owner',
+      'p:sp',
+    ))).toBeUndefined();
+
+    const layout = imported.layouts.find(
+      ({ name }) => name === 'TEXT-DIRECTION-OWNER-MATRIX',
+    )!;
+    const layoutXml = new TextDecoder().decode(
+      imported.opcPackage.requirePart(layout.partUri).bytes,
+    );
+    for (const textDirection of tableDirections) {
+      const placeholderXml = namedOwnerXml(
+        layoutXml,
+        `text-direction-placeholder-owner-${textDirection}`,
+        'p:sp',
+      );
+      expect(placeholderXml).toContain(`Placeholder ${textDirection}`);
+      expect(bodyDirection(placeholderXml)).toBeUndefined();
+    }
+
+    for (const [index, textDirection] of tableDirections.entries()) {
+      const slideXmlValue = slideXml(imported, index + 2);
+      const slideNumberXml = slideNumberOwnerState(
+        imported,
+        imported.slides[index + 2]!.partUri,
+      ).xml.match(
+        /<p:sp(?:\s[^>]*)?>[\s\S]*?<p:ph\b[^>]*\btype="sldNum"[\s\S]*?<\/p:sp>/u,
+      )?.[0];
+      expect(slideXmlValue).toContain(
+        `text-direction-slide-number-control-${textDirection}`,
+      );
+      expect(slideNumberXml).toBeDefined();
+      expect(bodyDirection(slideNumberXml!)).toBeUndefined();
+    }
+
+    const generateTableToSlides = async (textDirection?: unknown) => {
+      const presentation = new PptxGenJS();
+      await withTableToSlidesGlobals(tableToSlidesFixture(), () =>
+        presentation.tableToSlides(
+          'report',
+          textDirection === undefined ? {} : { textDirection },
+        ));
+      return openPptxGenJSPublicOutput(presentation);
+    };
+    const tableToSlidesBaseline = await generateTableToSlides();
+    const tableToSlidesBaselineXml = slideXml(tableToSlidesBaseline, 0);
+    expect(tableToSlidesBaselineXml).toContain('<a:tbl>');
+    for (const textDirection of tableDirections) {
+      const variant = await generateTableToSlides(textDirection);
+      expect(slideXml(variant, 0)).toBe(tableToSlidesBaselineXml);
+    }
+  });
+
   it('locks tab stop behavior across every declared owner', async () => {
     const tabStops = [
       { position: 1, alignment: 'l' },

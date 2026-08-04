@@ -19446,6 +19446,124 @@ describe('PptxDocument vertical slice', () => {
     }
   });
 
+  it('creates and reopens text direction owners in all six formats', async () => {
+    const textDirections = [
+      'eaVert',
+      'horz',
+      'mongolianVert',
+      'vert',
+      'vert270',
+      'wordArtVert',
+      'wordArtVertRtl',
+    ] as const;
+    const tableDirections = [
+      'horz',
+      'vert',
+      'vert270',
+      'wordArtVert',
+    ] as const;
+    const namedOwnerXml = (
+      xml: string,
+      name: string,
+      ownerTag: 'p:sp' | 'p:graphicFrame',
+    ) => {
+      const nameOffset = xml.indexOf(`name="${name}"`);
+      expect(nameOffset).toBeGreaterThanOrEqual(0);
+      const start = xml.lastIndexOf(`<${ownerTag}`, nameOffset);
+      const end = xml.indexOf(`</${ownerTag}>`, nameOffset);
+      expect(start).toBeGreaterThanOrEqual(0);
+      expect(end).toBeGreaterThan(nameOffset);
+      return xml.slice(start, end + ownerTag.length + 3);
+    };
+    const bodyDirection = (xml: string) =>
+      xml.match(/<a:bodyPr\b[^>]*\bvert="([^"]+)"/u)?.[1];
+    const cellDirections = (xml: string) => [...xml.matchAll(
+      /<a:tc(?:\s[^>]*)?>([\s\S]*?)<\/a:tc>/gu,
+    )].map((match) =>
+      match[1]!.match(/<a:tcPr\b[^>]*\bvert="([^"]+)"/u)?.[1]);
+
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const created = PptxDocument.create({ format });
+      const slide = created.addSlide();
+      const textShapes = textDirections.map((vert) =>
+        slide.addText(`Text ${vert}`, {
+          name: `text-direction-${vert}`,
+          vert,
+        }));
+      const cellTable = slide.addTable([tableDirections.map((textDirection) => ({
+        text: `Cell ${textDirection}`,
+        options: { textDirection },
+      }))], {
+        name: 'text-direction-cell-owner',
+      });
+      const tableOwner = slide.addTable([['Inherited A', 'Inherited B']], {
+        name: 'text-direction-table-owner',
+        textDirection: 'vert270',
+      });
+
+      expect(textShapes.map(({ textDirection }) => textDirection)).toEqual(textDirections);
+      expect(cellTable.rows[0]!.cells.map(({ textDirection }) => textDirection)).toEqual([
+        undefined,
+        'vert',
+        'vert270',
+        'wordArtVert',
+      ]);
+      expect(tableOwner.textDirection).toBe('vert270');
+      expect(tableOwner.rows[0]!.cells.map(({ textDirection }) => textDirection)).toEqual([
+        'vert270',
+        'vert270',
+      ]);
+
+      const initialXml = new TextDecoder().decode(
+        created.opcPackage.requirePart(slide.partUri).bytes,
+      );
+      expect(textDirections.map((vert) => bodyDirection(namedOwnerXml(
+        initialXml,
+        `text-direction-${vert}`,
+        'p:sp',
+      )))).toEqual(textDirections);
+      expect(cellDirections(namedOwnerXml(
+        initialXml,
+        'text-direction-cell-owner',
+        'p:graphicFrame',
+      ))).toEqual([undefined, 'vert', 'vert270', 'wordArtVert']);
+      expect(cellDirections(namedOwnerXml(
+        initialXml,
+        'text-direction-table-owner',
+        'p:graphicFrame',
+      ))).toEqual(['vert270', 'vert270']);
+      expect(initialXml).not.toMatch(/<a:tcPr\b[^>]*\bvert="(?:eaVert|mongolianVert|wordArtVertRtl)"/u);
+
+      const reopened = await PptxDocument.open(await created.write());
+      const reopenedTextShapes = textDirections.map((vert) =>
+        reopened.slides[0]!.shapes.find(
+          (shape): shape is ShapeModel => shape instanceof ShapeModel
+            && shape.name === `text-direction-${vert}`,
+        )!);
+      const reopenedCellTable = reopened.slides[0]!.shapes.find(
+        (shape): shape is TableModel => shape instanceof TableModel
+          && shape.name === 'text-direction-cell-owner',
+      )!;
+      const reopenedTableOwner = reopened.slides[0]!.shapes.find(
+        (shape): shape is TableModel => shape instanceof TableModel
+          && shape.name === 'text-direction-table-owner',
+      )!;
+      expect(reopenedTextShapes.map(({ textDirection }) => textDirection))
+        .toEqual(textDirections);
+      expect(reopenedCellTable.rows[0]!.cells.map(({ textDirection }) => textDirection))
+        .toEqual([undefined, 'vert', 'vert270', 'wordArtVert']);
+      expect(reopenedTableOwner.textDirection).toBe('vert270');
+      expect(reopenedTableOwner.rows[0]!.cells.map(({ textDirection }) => textDirection))
+        .toEqual(['vert270', 'vert270']);
+      expect(reopened.diagnostics.filter(
+        ({ severity }) => severity === 'error' || severity === 'warning',
+      )).toEqual([]);
+      expect(validatePackage(reopened.opcPackage).filter(
+        ({ severity }) => severity === 'error' || severity === 'warning',
+      )).toEqual([]);
+    }
+  });
+
   it('rejects malformed rich text values before changing the slide package state', () => {
     const document = PptxDocument.create();
     const slide = document.addSlide();

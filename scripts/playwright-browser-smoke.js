@@ -1195,6 +1195,90 @@ async (page) => {
           failureIsolation: true,
           validationErrors: 0,
         });
+      const browserTextDirectionValues = [
+        'eaVert',
+        'horz',
+        'mongolianVert',
+        'vert',
+        'vert270',
+        'wordArtVert',
+        'wordArtVertRtl',
+      ];
+      const textDirectionFamilyDocument = api.PptxDocument.create();
+      const textDirectionFamilySlide = textDirectionFamilyDocument.addSlide();
+      const browserTextDirectionShapes = browserTextDirectionValues.map((vert) =>
+        textDirectionFamilySlide.addText(`Browser ${vert}`, {
+          name: `browser_text_direction_${vert}`,
+          vert,
+        }));
+      const browserTextDirectionPart = () => textDirectionFamilyDocument.opcPackage
+        .requirePart(textDirectionFamilySlide.partUri).bytes;
+      const browserTextDirectionTokens = (bytes) => [
+        ...new TextDecoder().decode(bytes).matchAll(
+          /<a:bodyPr\b[^>]*\bvert="([^"]+)"/g,
+        ),
+      ].map((match) => match[1]);
+      const browserTextDirectionCatalog = JSON.stringify(
+        browserTextDirectionShapes.map(({ textDirection }) => textDirection),
+      ) === JSON.stringify(browserTextDirectionValues);
+      const browserTextDirectionInitialOoxml = JSON.stringify(
+        browserTextDirectionTokens(browserTextDirectionPart()),
+      ) === JSON.stringify(browserTextDirectionValues);
+      const browserTextDirectionInvalidBytes = browserTextDirectionPart().slice();
+      const browserTextDirectionInvalidJournal = JSON.stringify(
+        textDirectionFamilyDocument.opcPackage.mutations,
+      );
+      let browserTextDirectionInvalidRejected = false;
+      try {
+        browserTextDirectionShapes[0].textDirection = 'vertical';
+      } catch {
+        browserTextDirectionInvalidRejected = true;
+      }
+      const browserTextDirectionInvalidRollback = browserTextDirectionInvalidRejected
+        && tableTextDirectionBytesEqual(
+          browserTextDirectionInvalidBytes,
+          browserTextDirectionPart(),
+        )
+        && browserTextDirectionInvalidJournal === JSON.stringify(
+          textDirectionFamilyDocument.opcPackage.mutations,
+        );
+      textDirectionFamilyDocument.duplicateSlide(0);
+      browserTextDirectionShapes[0].textDirection = 'vert270';
+      browserTextDirectionShapes[1].textDirection = undefined;
+      const browserTextDirectionEdited = [
+        'vert270',
+        undefined,
+        ...browserTextDirectionValues.slice(2),
+      ];
+      const browserTextDirectionEditedOoxml = JSON.stringify(
+        browserTextDirectionTokens(browserTextDirectionPart()),
+      ) === JSON.stringify(
+        browserTextDirectionEdited.filter((value) => value !== undefined),
+      );
+      const reopenedTextDirectionFamilyDocument = await api.PptxDocument.open(
+        await textDirectionFamilyDocument.writeBlob(),
+      );
+      const reopenedBrowserTextDirectionValues = reopenedTextDirectionFamilyDocument
+        .slides[0].shapes.map(({ textDirection }) => textDirection);
+      const duplicateBrowserTextDirectionValues = reopenedTextDirectionFamilyDocument
+        .slides[1].shapes.map(({ textDirection }) => textDirection);
+      const textDirectionFamilyState = {
+        table: tableTextDirection,
+        catalog: browserTextDirectionCatalog,
+        initialOoxml: browserTextDirectionInitialOoxml,
+        invalidRollback: browserTextDirectionInvalidRollback,
+        editedOoxml: browserTextDirectionEditedOoxml,
+        reopened: JSON.stringify(reopenedBrowserTextDirectionValues) ===
+          JSON.stringify(browserTextDirectionEdited),
+        duplicateIsolation: JSON.stringify(duplicateBrowserTextDirectionValues) ===
+          JSON.stringify(browserTextDirectionValues),
+        diagnostics: textDirectionFamilyDocument.diagnostics.filter(
+          ({ severity }) => severity === 'error' || severity === 'warning',
+        ).length === 0 && reopenedTextDirectionFamilyDocument.diagnostics.filter(
+          ({ severity }) => severity === 'error' || severity === 'warning',
+        ).length === 0,
+      };
+      const textDirectionFamily = Object.values(textDirectionFamilyState).every(Boolean);
       const tableHorizontalAlignmentDocument = api.PptxDocument.create();
       const tableHorizontalAlignmentSlide = tableHorizontalAlignmentDocument.addSlide();
       const tableHorizontalAlignmentTable = tableHorizontalAlignmentSlide.addTable([
@@ -6536,6 +6620,8 @@ async (page) => {
         shapeArrowState,
         tableVerticalAlignment,
         tableVerticalAlignmentState,
+        textDirectionFamily,
+        textDirectionFamilyState,
         tableTextDirection,
         tableTextDirectionState,
         tableHorizontalAlignment,
@@ -7073,6 +7159,17 @@ async (page) => {
       },
       failureIsolation: true,
       validationErrors: 0,
+    },
+    textDirectionFamily: true,
+    textDirectionFamilyState: {
+      table: true,
+      catalog: true,
+      initialOoxml: true,
+      invalidRollback: true,
+      editedOoxml: true,
+      reopened: true,
+      duplicateIsolation: true,
+      diagnostics: true,
     },
     tableTextDirection: true,
     tableTextDirectionState: {

@@ -5847,6 +5847,98 @@ const tableTextDirection = JSON.stringify(tableTextDirectionState) === JSON.stri
   failureIsolation: true,
   validationErrors: 0,
 });
+const packedTextDirectionValues = [
+  'eaVert',
+  'horz',
+  'mongolianVert',
+  'vert',
+  'vert270',
+  'wordArtVert',
+  'wordArtVertRtl',
+];
+const textDirectionFamilyDocument = PptxDocument.create();
+const textDirectionFamilySlide = textDirectionFamilyDocument.addSlide();
+const packedTextDirectionShapes = packedTextDirectionValues.map((vert) =>
+  textDirectionFamilySlide.addText('Packed ' + vert, {
+    name: 'packed_text_direction_' + vert,
+    vert,
+  }));
+const packedTextDirectionPart = () => textDirectionFamilyDocument.opcPackage
+  .requirePart(textDirectionFamilySlide.partUri).bytes;
+const packedTextDirectionTokens = (bytes) => [...new TextDecoder().decode(bytes).matchAll(
+  /<a:bodyPr\\b[^>]*\\bvert="([^"]+)"/g,
+)].map((match) => match[1]);
+const packedTextDirectionCatalog = JSON.stringify(
+  packedTextDirectionShapes.map(({ textDirection }) => textDirection),
+) === JSON.stringify(packedTextDirectionValues);
+const packedTextDirectionInitialTokens = packedTextDirectionTokens(
+  packedTextDirectionPart(),
+);
+const packedTextDirectionInitialOoxml = JSON.stringify(
+  packedTextDirectionInitialTokens,
+) === JSON.stringify(packedTextDirectionValues);
+const packedTextDirectionInvalidBytes = packedTextDirectionPart().slice();
+const packedTextDirectionInvalidJournal = JSON.stringify(
+  textDirectionFamilyDocument.opcPackage.mutations,
+);
+let packedTextDirectionInvalidRejected = false;
+try {
+  packedTextDirectionShapes[0].textDirection = 'vertical';
+} catch {
+  packedTextDirectionInvalidRejected = true;
+}
+const packedTextDirectionInvalidRollback = packedTextDirectionInvalidRejected &&
+  packedBytesEqual(packedTextDirectionInvalidBytes, packedTextDirectionPart()) &&
+  packedTextDirectionInvalidJournal === JSON.stringify(
+    textDirectionFamilyDocument.opcPackage.mutations,
+  );
+textDirectionFamilyDocument.duplicateSlide(0);
+packedTextDirectionShapes[0].textDirection = 'vert270';
+packedTextDirectionShapes[1].textDirection = undefined;
+const packedTextDirectionEdited = [
+  'vert270',
+  undefined,
+  ...packedTextDirectionValues.slice(2),
+];
+const packedTextDirectionEditedTokens = packedTextDirectionTokens(
+  packedTextDirectionPart(),
+);
+const packedTextDirectionEditedOoxml = JSON.stringify(
+  packedTextDirectionEditedTokens,
+) === JSON.stringify(packedTextDirectionEdited.filter((value) => value !== undefined));
+const reopenedTextDirectionFamilyDocument = await PptxDocument.open(
+  await textDirectionFamilyDocument.write(),
+);
+const reopenedPackedTextDirectionValues = reopenedTextDirectionFamilyDocument.slides[0].shapes
+  .map(({ textDirection }) => textDirection);
+const duplicatePackedTextDirectionValues = reopenedTextDirectionFamilyDocument.slides[1].shapes
+  .map(({ textDirection }) => textDirection);
+const textDirectionFamilyState = {
+  table: tableTextDirection,
+  catalog: packedTextDirectionCatalog,
+  initialOoxml: packedTextDirectionInitialOoxml,
+  invalidRollback: packedTextDirectionInvalidRollback,
+  editedOoxml: packedTextDirectionEditedOoxml,
+  reopened: JSON.stringify(reopenedPackedTextDirectionValues) ===
+    JSON.stringify(packedTextDirectionEdited),
+  duplicateIsolation: JSON.stringify(duplicatePackedTextDirectionValues) ===
+    JSON.stringify(packedTextDirectionValues),
+  diagnostics: textDirectionFamilyDocument.diagnostics.filter(
+    ({ severity }) => severity === 'error' || severity === 'warning',
+  ).length === 0 && reopenedTextDirectionFamilyDocument.diagnostics.filter(
+    ({ severity }) => severity === 'error' || severity === 'warning',
+  ).length === 0,
+};
+const textDirectionFamily = Object.values(textDirectionFamilyState).every(Boolean);
+if (!textDirectionFamily) {
+  throw new Error('Packed text direction family failed: ' + JSON.stringify({
+    state: textDirectionFamilyState,
+    initialTokens: packedTextDirectionInitialTokens,
+    editedTokens: packedTextDirectionEditedTokens,
+    reopened: reopenedPackedTextDirectionValues,
+    duplicate: duplicatePackedTextDirectionValues,
+  }));
+}
 const tableHorizontalAlignmentDocument = PptxDocument.create();
 const tableHorizontalAlignmentSlide = tableHorizontalAlignmentDocument.addSlide();
 const tableHorizontalAlignmentTable = tableHorizontalAlignmentSlide.addTable([
@@ -10427,6 +10519,8 @@ const checks = {
   verticalAlignmentState,
   tableVerticalAlignment,
   tableVerticalAlignmentState,
+  textDirectionFamily,
+  textDirectionFamilyState,
   tableTextDirection,
   tableTextDirectionState,
   tableHorizontalAlignment,

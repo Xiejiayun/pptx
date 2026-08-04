@@ -124,12 +124,12 @@ function assertDeepFrozen(value, seen = new Set()) {
 test('exports an immutable evidence-backed initial manifest batch', () => {
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.schemaVersion, 1);
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.packageVersion, '4.0.1');
-  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1087);
+  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1125);
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries.map(({ status }) => status).sort(),
     [
-      ...Array(292).fill('defect-excluded'),
-      ...Array(534).fill('supported'),
+      ...Array(312).fill('defect-excluded'),
+      ...Array(552).fill('supported'),
       ...Array(178).fill('deliberate-difference'),
       ...Array(83).fill('deprecated-alias'),
     ].sort(),
@@ -454,6 +454,48 @@ test('exports an immutable evidence-backed initial manifest batch', () => {
       owner,
     );
   }
+  const textDirectionFamilyOwners = new Set([
+    'PlaceholderProps',
+    'SlideNumberProps',
+    'TableCellProps',
+    'TableProps',
+    'TableToSlidesProps',
+    'TextPropsOptions',
+  ]);
+  const textDirectionFamilyEntries = PPTXGENJS_SURFACE_MANIFEST.entries.filter(({ id }) => {
+    const match = id.match(
+      /interface:([^@]+)@property:(textDirection|vert)(?:#|$)/u,
+    );
+    return match !== null
+      && textDirectionFamilyOwners.has(match[1])
+      && (match[2] === 'textDirection' || match[1] === 'TextPropsOptions');
+  });
+  assert.equal(textDirectionFamilyEntries.length, 38);
+  assert.deepEqual(
+    Object.fromEntries(
+      ['supported', 'defect-excluded'].map((status) => [
+        status,
+        textDirectionFamilyEntries.filter((entry) => entry.status === status).length,
+      ]),
+    ),
+    { supported: 18, 'defect-excluded': 20 },
+  );
+  for (const owner of textDirectionFamilyOwners) {
+    const entries = textDirectionFamilyEntries.filter(({ id }) =>
+      id.includes(`interface:${owner}@property:textDirection`));
+    assert.equal(entries.length, 5, owner);
+    assert.deepEqual(
+      entries.map(({ status }) => status),
+      ['TableCellProps', 'TableProps'].includes(owner)
+        ? Array(5).fill('supported')
+        : Array(5).fill('defect-excluded'),
+      owner,
+    );
+  }
+  const textVertEntries = textDirectionFamilyEntries.filter(({ id }) =>
+    id.includes('interface:TextPropsOptions@property:vert'));
+  assert.equal(textVertEntries.length, 8);
+  assert.deepEqual(textVertEntries.map(({ status }) => status), Array(8).fill('supported'));
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries
       .filter(({ id }) => id.endsWith('#folderCorner'))
