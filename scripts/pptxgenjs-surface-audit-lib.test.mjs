@@ -124,13 +124,13 @@ function assertDeepFrozen(value, seen = new Set()) {
 test('exports an immutable evidence-backed initial manifest batch', () => {
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.schemaVersion, 1);
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.packageVersion, '4.0.1');
-  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 642);
+  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 671);
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries.map(({ status }) => status).sort(),
     [
       ...Array(83).fill('defect-excluded'),
-      ...Array(415).fill('supported'),
-      ...Array(67).fill('deliberate-difference'),
+      ...Array(438).fill('supported'),
+      ...Array(73).fill('deliberate-difference'),
       ...Array(77).fill('deprecated-alias'),
     ].sort(),
   );
@@ -214,6 +214,52 @@ test('exports an immutable evidence-backed initial manifest batch', () => {
   assert.equal(
     chartAreaFillLineById.get('interface:IChartOpts@property:fill')?.canonical,
     'interface:IChartPropsFillLine@property:fill',
+  );
+  const chartTypeValues = [
+    'area', 'bar', 'bar3D', 'bubble', 'doughnut', 'line', 'pie', 'radar', 'scatter',
+  ];
+  const expectedChartCreationEntries = [
+    ...['CHART_NAME', 'ChartType'].flatMap((owner) =>
+      chartTypeValues.map((value) => ({
+        id: `union:${owner}#${value}`,
+        status: 'supported',
+      }))),
+    {
+      id: 'union:method:Slide#addChart@path:type#CHART_NAME',
+      status: 'supported',
+    },
+    { id: 'interface:IChartMulti@property:type', status: 'supported' },
+    { id: 'interface:OptsChartData@property:name', status: 'supported' },
+    { id: 'interface:OptsChartData@property:sizes', status: 'supported' },
+    { id: 'interface:OptsChartData@property:values', status: 'supported' },
+    { id: 'method:Slide#addChart', status: 'deliberate-difference' },
+    {
+      id: 'union:method:Slide#addChart@path:type#IChartMulti[]',
+      status: 'deliberate-difference',
+    },
+    { id: 'interface:IChartMulti@property:data', status: 'deliberate-difference' },
+    { id: 'interface:IChartMulti@property:options', status: 'deliberate-difference' },
+    { id: 'interface:OptsChartData@property:labels', status: 'deliberate-difference' },
+    {
+      id: 'union:interface:OptsChartData@property:labels#string[]',
+      status: 'deliberate-difference',
+    },
+  ].sort((left, right) => left.id.localeCompare(right.id));
+  const chartCreationIds = new Set(expectedChartCreationEntries.map(({ id }) => id));
+  assert.deepEqual(
+    PPTXGENJS_SURFACE_MANIFEST.entries
+      .filter(({ id }) => chartCreationIds.has(id))
+      .map(({ id, status }) => ({ id, status }))
+      .sort((left, right) => left.id.localeCompare(right.id)),
+    expectedChartCreationEntries,
+  );
+  assert.equal(
+    PPTXGENJS_SURFACE_MANIFEST.entries.some(({ id }) => [
+      'union:ChartType#bubble3D',
+      'class:PptxGenJS@property:ChartType',
+      'union:interface:OptsChartData@property:labels#string[][]',
+    ].includes(id)),
+    false,
   );
   const inertChartOptionProperties = new Set([
     'align',

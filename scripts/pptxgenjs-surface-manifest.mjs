@@ -689,6 +689,184 @@ const DEPRECATED_CHART_AREA_ALIAS_ENTRIES = Object.freeze([
   deprecatedChartAreaAliasEntry('fill'),
 ]);
 
+const CHART_CREATION_CONTROL_TITLE =
+  'matches all public slide master chart types and combo workbooks to native output';
+const CHART_CREATION_RETURN_CONTROL_TITLE =
+  'compares PptxGenJS and native chart creation return semantics';
+const CHART_CREATION_NORMALIZATION_CONTROL_TITLE =
+  'normalizes and semantically replaces imported PptxGenJS chart families';
+const CHART_CREATION_OOXML_TITLE =
+  'creates and reopens all native chart types through the public SDK in all six formats';
+const CHART_TYPE_VALUES = Object.freeze([
+  'area',
+  'bar',
+  'bar3D',
+  'bubble',
+  'doughnut',
+  'line',
+  'pie',
+  'radar',
+  'scatter',
+]);
+
+function chartCreationEvidence(
+  id,
+  testTitle = id === 'union:method:Slide#addChart@path:type#CHART_NAME'
+    ? CHART_CREATION_RETURN_CONTROL_TITLE
+    : CHART_CREATION_CONTROL_TITLE,
+) {
+  const catalog = /^union:(?:CHART_NAME|ChartType)#/u.test(id);
+  const method = id === 'method:Slide#addChart'
+    || id === 'union:method:Slide#addChart@path:type#CHART_NAME';
+  const group = id.includes('IChartMulti');
+  const code = catalog
+    ? [{
+        path: 'packages/model/src/chart.ts',
+        pattern: 'export const CHART_TYPES = Object.freeze([',
+      }]
+    : method
+      ? [{
+          path: 'packages/model/src/slide.ts',
+          pattern: 'return this.presentation.opcPackage.transaction(() => commitPreparedChart(this, prepared));',
+        }]
+      : group
+        ? [{
+            path: 'packages/model/src/chart.ts',
+            pattern: 'export type ChartGroupInput =',
+          }]
+        : [{
+            path: 'packages/model/src/chart.ts',
+            pattern: 'export interface ChartSeriesInput {',
+          }];
+  if (testTitle === CHART_CREATION_NORMALIZATION_CONTROL_TITLE) {
+    code.push({
+      path: 'packages/model/src/chart-definition.internal.ts',
+      pattern: "const GROUP_KEYS = new Set(['type', 'series', 'axis', 'options']);",
+    }, {
+      path: 'packages/model/src/chart-definition.internal.ts',
+      pattern: "const SERIES_KEYS = new Set(['name', 'categories', 'values', 'xValues', 'sizes']);",
+    });
+  }
+  return {
+    code,
+    tests: [{
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      title: testTitle,
+    }],
+    package: [{
+      path: 'scripts/smoke-npm-package.mjs',
+      pattern: 'const nativeCharts = reopenedNativeChartModels.length === 10',
+    }],
+    ooxml: [{
+      path: 'packages/sdk/src/index.test.ts',
+      pattern: CHART_CREATION_OOXML_TITLE,
+    }],
+    clients: [{
+      path: 'scripts/playwright-browser-smoke.js',
+      pattern: 'const nativeCharts = reopenedCharts.length === 10',
+    }],
+  };
+}
+
+function chartCreationSupportedEntry(id, native, note) {
+  return {
+    id,
+    status: 'supported',
+    native,
+    evidence: chartCreationEvidence(id),
+    serialization: true,
+    client: true,
+    note,
+  };
+}
+
+function chartCreationDifferenceEntry(id, native, note, returnSemantics = false) {
+  const title = returnSemantics
+    ? CHART_CREATION_RETURN_CONTROL_TITLE
+    : CHART_CREATION_NORMALIZATION_CONTROL_TITLE;
+  return {
+    id,
+    status: 'deliberate-difference',
+    native,
+    evidence: chartCreationEvidence(id, title),
+    control: {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      pattern: title,
+    },
+    serialization: true,
+    client: true,
+    note,
+  };
+}
+
+const CHART_CREATION_SUPPORTED_ENTRIES = Object.freeze([
+  ...['CHART_NAME', 'ChartType'].flatMap((owner) =>
+    CHART_TYPE_VALUES.map((value) => chartCreationSupportedEntry(
+      `union:${owner}#${value}`,
+      ['CHART_TYPES', 'ChartType'],
+      `Native exposes and serializes the same legal ${value} chart type through the frozen CHART_TYPES catalog and strict ChartType union.`,
+    ))),
+  chartCreationSupportedEntry(
+    'union:method:Slide#addChart@path:type#CHART_NAME',
+    ['ChartType', 'PptxDocument.addChart', 'SlideModel.addChart'],
+    'Native accepts the same nine legal single-chart type values through strict PptxDocument and SlideModel addChart overloads.',
+  ),
+  chartCreationSupportedEntry(
+    'interface:IChartMulti@property:type',
+    ['ChartGroupInput.type'],
+    'Native represents each combination-chart member with a strict ChartGroupInput discriminated by the same nine legal chart types.',
+  ),
+  chartCreationSupportedEntry(
+    'interface:OptsChartData@property:name',
+    ['ChartSeriesInput.name'],
+    'Native preserves each public chart series name through ChartSeriesInput and the embedded workbook.',
+  ),
+  chartCreationSupportedEntry(
+    'interface:OptsChartData@property:sizes',
+    ['ChartSeriesInput.sizes'],
+    'Native accepts bubble sizes explicitly on ChartSeriesInput and preserves them through chart OOXML and workbook reopen.',
+  ),
+  chartCreationSupportedEntry(
+    'interface:OptsChartData@property:values',
+    ['ChartSeriesInput.values'],
+    'Native requires and preserves numeric chart series values through ChartSeriesInput and the embedded workbook.',
+  ),
+]);
+
+const CHART_CREATION_DIFFERENCE_ENTRIES = Object.freeze([
+  chartCreationDifferenceEntry(
+    'method:Slide#addChart',
+    ['PptxDocument.addChart', 'SlideModel.addChart', 'ChartModel'],
+    'PptxGenJS synchronously returns the chainable Slide; native chart creation is asynchronous and returns the created ChartModel after transactional workbook and relationship commits.',
+    true,
+  ),
+  chartCreationDifferenceEntry(
+    'union:method:Slide#addChart@path:type#IChartMulti[]',
+    ['ChartGroupInput[]', 'PptxDocument.addChart', 'SlideModel.addChart'],
+    'Native covers combination charts with readonly ChartGroupInput arrays instead of the permissive PptxGenJS IChartMulti array shape.',
+  ),
+  chartCreationDifferenceEntry(
+    'interface:IChartMulti@property:data',
+    ['ChartGroupInput.series'],
+    'Native names combination-chart data series explicitly as ChartGroupInput.series and validates them before mutation.',
+  ),
+  chartCreationDifferenceEntry(
+    'interface:IChartMulti@property:options',
+    ['ChartGroupInput.options', 'ChartGroupOptions'],
+    'Native maps supported per-group semantics to chart-type-specific ChartGroupOptions instead of accepting the permissive PptxGenJS options bag.',
+  ),
+  chartCreationDifferenceEntry(
+    'interface:OptsChartData@property:labels',
+    ['ChartSeriesInput.categories', 'ChartSeriesInput.xValues'],
+    'Native separates categorical labels from numeric scatter and bubble x-values instead of overloading one permissive labels field.',
+  ),
+  chartCreationDifferenceEntry(
+    'union:interface:OptsChartData@property:labels#string[]',
+    ['ChartSeriesInput.categories'],
+    'Native maps the legal flat string label form to explicit ChartSeriesInput.categories and preserves it in chart formulas and workbook cells.',
+  ),
+]);
+
 const INERT_CHART_OPTION_CONTROL_TITLE =
   'isolates inherited inert IChartOpts text and top-level gridline declarations from chart output';
 const INERT_CHART_OPTION_PROPERTIES = Object.freeze([
@@ -1198,6 +1376,8 @@ export const PPTXGENJS_SURFACE_MANIFEST = deepFreeze({
     TABLE_TO_SLIDES_FILL_DEFECT_ENTRY,
     ...CHART_AREA_FILL_LINE_ENTRIES,
     ...DEPRECATED_CHART_AREA_ALIAS_ENTRIES,
+    ...CHART_CREATION_SUPPORTED_ENTRIES,
+    ...CHART_CREATION_DIFFERENCE_ENTRIES,
     ...INERT_CHART_OPTION_DEFECT_ENTRIES,
     ...['ShapeType', 'SHAPE_NAME'].flatMap((owner) =>
       DECLARED_PRESET_SHAPE_VALUES.map((value) => presetShapeCatalogEntry(owner, value))),

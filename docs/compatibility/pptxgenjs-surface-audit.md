@@ -10,12 +10,12 @@
 
 | Status | Count |
 | --- | ---: |
-| supported | 415 |
-| deliberate-difference | 67 |
+| supported | 438 |
+| deliberate-difference | 73 |
 | deprecated-alias | 77 |
 | defect-excluded | 83 |
 | unsupported | 0 |
-| unverified | 1132 |
+| unverified | 1103 |
 | stale | 0 |
 
 ## Runtime declaration differences
@@ -181,9 +181,6 @@ None.
 - `interface:HyperlinkProps@property:slide`
 - `interface:HyperlinkProps@property:tooltip`
 - `interface:HyperlinkProps@property:url`
-- `interface:IChartMulti@property:data`
-- `interface:IChartMulti@property:options`
-- `interface:IChartMulti@property:type`
 - `interface:IChartOpts@property:altText`
 - `interface:IChartOpts@property:axisPos`
 - `interface:IChartOpts@property:bar3DShape`
@@ -440,10 +437,6 @@ None.
 - `interface:MediaProps@property:w`
 - `interface:MediaProps@property:x`
 - `interface:MediaProps@property:y`
-- `interface:OptsChartData@property:labels`
-- `interface:OptsChartData@property:name`
-- `interface:OptsChartData@property:sizes`
-- `interface:OptsChartData@property:values`
 - `interface:OptsChartGridLine@property:cap`
 - `interface:OptsChartGridLine@property:color`
 - `interface:OptsChartGridLine@property:size`
@@ -691,7 +684,6 @@ None.
 - `interface:WriteFileProps@property:fileName`
 - `interface:WriteProps@property:compression`
 - `interface:WriteProps@property:outputType`
-- `method:Slide#addChart`
 - `method:Slide#addImage`
 - `method:Slide#addMedia`
 - `method:Slide#addNotes`
@@ -704,15 +696,6 @@ None.
 - `property:Slide#hidden`
 - `property:Slide#newAutoPagedSlides`
 - `property:Slide#slideNumber`
-- `union:CHART_NAME#area`
-- `union:CHART_NAME#bar`
-- `union:CHART_NAME#bar3D`
-- `union:CHART_NAME#bubble`
-- `union:CHART_NAME#doughnut`
-- `union:CHART_NAME#line`
-- `union:CHART_NAME#pie`
-- `union:CHART_NAME#radar`
-- `union:CHART_NAME#scatter`
 - `union:ChartAxisTickMark#cross`
 - `union:ChartAxisTickMark#inside`
 - `union:ChartAxisTickMark#none`
@@ -720,16 +703,7 @@ None.
 - `union:ChartLineCap#flat`
 - `union:ChartLineCap#round`
 - `union:ChartLineCap#square`
-- `union:ChartType#area`
-- `union:ChartType#bar`
-- `union:ChartType#bar3D`
-- `union:ChartType#bubble`
 - `union:ChartType#bubble3D`
-- `union:ChartType#doughnut`
-- `union:ChartType#line`
-- `union:ChartType#pie`
-- `union:ChartType#radar`
-- `union:ChartType#scatter`
 - `union:Color#HexColor`
 - `union:Color#ThemeColor`
 - `union:Coord#${number}%`
@@ -853,7 +827,6 @@ None.
 - `union:interface:ImageProps@property:sizing@path:sizing.type#contain`
 - `union:interface:ImageProps@property:sizing@path:sizing.type#cover`
 - `union:interface:ImageProps@property:sizing@path:sizing.type#crop`
-- `union:interface:OptsChartData@property:labels#string[]`
 - `union:interface:OptsChartData@property:labels#string[][]`
 - `union:interface:OptsChartGridLine@property:style#dash`
 - `union:interface:OptsChartGridLine@property:style#dot`
@@ -1157,8 +1130,6 @@ None.
 - `union:interface:TextPropsOptions@property:vert#vert270`
 - `union:interface:TextPropsOptions@property:vert#wordArtVert`
 - `union:interface:TextPropsOptions@property:vert#wordArtVertRtl`
-- `union:method:Slide#addChart@path:type#CHART_NAME`
-- `union:method:Slide#addChart@path:type#IChartMulti[]`
 - `union:method:Slide#addText@path:text#TextProps[]`
 - `union:method:Slide#addText@path:text#string`
 
@@ -1884,9 +1855,9 @@ None.
 | `interface:IChartAreaProps@property:border` | deliberate-difference | ChartAreaOptions.line<br>ChartModel.replaceDefinition<br>ChartOptions.chartArea | code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:scripts/smoke-npm-package.mjs<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers chart-area none/solid lines, sRGB/scheme colors, transparency, width, and eight dash styles through a strict ShapeLine; PptxGenJS ignores the declared border type, substitutes defaults for falsy values, and permits invalid widths. |
 | `interface:IChartAreaProps@property:fill` | deliberate-difference | ChartAreaOptions.fill<br>ChartModel.replaceDefinition<br>ChartOptions.chartArea | code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:scripts/smoke-npm-package.mjs<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers chart-area none/solid fills, sRGB/scheme colors, and transparency through a strict ShapeFill; PptxGenJS collapses several explicit none and zero-alpha forms and permits malformed or out-of-range values. |
 | `interface:IChartAreaProps@property:roundedCorners` | deliberate-difference | ChartModel.replaceDefinition<br>ChartOptions.roundedCorners | code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:scripts/smoke-npm-package.mjs<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native exposes roundedCorners at the chart root where OOXML stores it; PptxGenJS nests the option under chartArea, defaults it to true, and serializes false as an explicit default state. |
-| `interface:IChartMulti@property:data` | unverified | — | — | — |
-| `interface:IChartMulti@property:options` | unverified | — | — | — |
-| `interface:IChartMulti@property:type` | unverified | — | — | — |
+| `interface:IChartMulti@property:data` | deliberate-difference | ChartGroupInput.series | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-definition.internal.ts<br>code:packages/model/src/chart-definition.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native names combination-chart data series explicitly as ChartGroupInput.series and validates them before mutation. |
+| `interface:IChartMulti@property:options` | deliberate-difference | ChartGroupInput.options<br>ChartGroupOptions | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-definition.internal.ts<br>code:packages/model/src/chart-definition.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps supported per-group semantics to chart-type-specific ChartGroupOptions instead of accepting the permissive PptxGenJS options bag. |
+| `interface:IChartMulti@property:type` | supported | ChartGroupInput.type | code:packages/model/src/chart.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native represents each combination-chart member with a strict ChartGroupInput discriminated by the same nine legal chart types. |
 | `interface:IChartOpts@property:align` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
 | `interface:IChartOpts@property:altText` | unverified | — | — | — |
 | `interface:IChartOpts@property:axisPos` | unverified | — | — | — |
@@ -2137,25 +2108,25 @@ None.
 | `interface:IChartPropsAxisVal@property:valLabelFormatCode` | unverified | — | — | — |
 | `interface:IChartPropsFillLine@property:border` | deliberate-difference | ChartAreaOptions.line<br>ChartModel.replaceDefinition<br>ChartOptions.plotArea | code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:scripts/smoke-npm-package.mjs<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers plot-area none/solid lines, sRGB/scheme colors, transparency, width, and eight dash styles through a strict ShapeLine; PptxGenJS ignores the declared border type, substitutes defaults for falsy values, and permits invalid widths. |
 | `interface:IChartPropsFillLine@property:fill` | deliberate-difference | ChartAreaOptions.fill<br>ChartModel.replaceDefinition<br>ChartOptions.plotArea | code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:scripts/smoke-npm-package.mjs<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers plot-area none/solid fills, sRGB/scheme colors, and transparency through a strict ShapeFill; PptxGenJS collapses several explicit none and zero-alpha forms and permits malformed or out-of-range values. |
-| `interface:OptsChartData@property:labels` | unverified | — | — | — |
-| `interface:OptsChartData@property:name` | unverified | — | — | — |
-| `interface:OptsChartData@property:sizes` | unverified | — | — | — |
-| `interface:OptsChartData@property:values` | unverified | — | — | — |
+| `interface:OptsChartData@property:labels` | deliberate-difference | ChartSeriesInput.categories<br>ChartSeriesInput.xValues | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-definition.internal.ts<br>code:packages/model/src/chart-definition.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native separates categorical labels from numeric scatter and bubble x-values instead of overloading one permissive labels field. |
+| `interface:OptsChartData@property:name` | supported | ChartSeriesInput.name | code:packages/model/src/chart.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native preserves each public chart series name through ChartSeriesInput and the embedded workbook. |
+| `interface:OptsChartData@property:sizes` | supported | ChartSeriesInput.sizes | code:packages/model/src/chart.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native accepts bubble sizes explicitly on ChartSeriesInput and preserves them through chart OOXML and workbook reopen. |
+| `interface:OptsChartData@property:values` | supported | ChartSeriesInput.values | code:packages/model/src/chart.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native requires and preserves numeric chart series values through ChartSeriesInput and the embedded workbook. |
 | `interface:OptsChartGridLine@property:cap` | unverified | — | — | — |
 | `interface:OptsChartGridLine@property:color` | unverified | — | — | — |
 | `interface:OptsChartGridLine@property:size` | unverified | — | — | — |
 | `interface:OptsChartGridLine@property:style` | unverified | — | — | — |
 | `interface:PresSlide@property:addChart` | unverified | — | — | — |
-| `method:Slide#addChart` | unverified | — | — | — |
-| `union:CHART_NAME#area` | unverified | — | — | — |
-| `union:CHART_NAME#bar` | unverified | — | — | — |
-| `union:CHART_NAME#bar3D` | unverified | — | — | — |
-| `union:CHART_NAME#bubble` | unverified | — | — | — |
-| `union:CHART_NAME#doughnut` | unverified | — | — | — |
-| `union:CHART_NAME#line` | unverified | — | — | — |
-| `union:CHART_NAME#pie` | unverified | — | — | — |
-| `union:CHART_NAME#radar` | unverified | — | — | — |
-| `union:CHART_NAME#scatter` | unverified | — | — | — |
+| `method:Slide#addChart` | deliberate-difference | ChartModel<br>PptxDocument.addChart<br>SlideModel.addChart | code:packages/model/src/slide.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS synchronously returns the chainable Slide; native chart creation is asynchronous and returns the created ChartModel after transactional workbook and relationship commits. |
+| `union:CHART_NAME#area` | supported | CHART_TYPES<br>ChartType | code:packages/model/src/chart.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes and serializes the same legal area chart type through the frozen CHART_TYPES catalog and strict ChartType union. |
+| `union:CHART_NAME#bar` | supported | CHART_TYPES<br>ChartType | code:packages/model/src/chart.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes and serializes the same legal bar chart type through the frozen CHART_TYPES catalog and strict ChartType union. |
+| `union:CHART_NAME#bar3D` | supported | CHART_TYPES<br>ChartType | code:packages/model/src/chart.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes and serializes the same legal bar3D chart type through the frozen CHART_TYPES catalog and strict ChartType union. |
+| `union:CHART_NAME#bubble` | supported | CHART_TYPES<br>ChartType | code:packages/model/src/chart.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes and serializes the same legal bubble chart type through the frozen CHART_TYPES catalog and strict ChartType union. |
+| `union:CHART_NAME#doughnut` | supported | CHART_TYPES<br>ChartType | code:packages/model/src/chart.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes and serializes the same legal doughnut chart type through the frozen CHART_TYPES catalog and strict ChartType union. |
+| `union:CHART_NAME#line` | supported | CHART_TYPES<br>ChartType | code:packages/model/src/chart.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes and serializes the same legal line chart type through the frozen CHART_TYPES catalog and strict ChartType union. |
+| `union:CHART_NAME#pie` | supported | CHART_TYPES<br>ChartType | code:packages/model/src/chart.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes and serializes the same legal pie chart type through the frozen CHART_TYPES catalog and strict ChartType union. |
+| `union:CHART_NAME#radar` | supported | CHART_TYPES<br>ChartType | code:packages/model/src/chart.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes and serializes the same legal radar chart type through the frozen CHART_TYPES catalog and strict ChartType union. |
+| `union:CHART_NAME#scatter` | supported | CHART_TYPES<br>ChartType | code:packages/model/src/chart.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes and serializes the same legal scatter chart type through the frozen CHART_TYPES catalog and strict ChartType union. |
 | `union:ChartAxisTickMark#cross` | unverified | — | — | — |
 | `union:ChartAxisTickMark#inside` | unverified | — | — | — |
 | `union:ChartAxisTickMark#none` | unverified | — | — | — |
@@ -2163,16 +2134,16 @@ None.
 | `union:ChartLineCap#flat` | unverified | — | — | — |
 | `union:ChartLineCap#round` | unverified | — | — | — |
 | `union:ChartLineCap#square` | unverified | — | — | — |
-| `union:ChartType#area` | unverified | — | — | — |
-| `union:ChartType#bar` | unverified | — | — | — |
-| `union:ChartType#bar3D` | unverified | — | — | — |
-| `union:ChartType#bubble` | unverified | — | — | — |
+| `union:ChartType#area` | supported | CHART_TYPES<br>ChartType | code:packages/model/src/chart.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes and serializes the same legal area chart type through the frozen CHART_TYPES catalog and strict ChartType union. |
+| `union:ChartType#bar` | supported | CHART_TYPES<br>ChartType | code:packages/model/src/chart.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes and serializes the same legal bar chart type through the frozen CHART_TYPES catalog and strict ChartType union. |
+| `union:ChartType#bar3D` | supported | CHART_TYPES<br>ChartType | code:packages/model/src/chart.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes and serializes the same legal bar3D chart type through the frozen CHART_TYPES catalog and strict ChartType union. |
+| `union:ChartType#bubble` | supported | CHART_TYPES<br>ChartType | code:packages/model/src/chart.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes and serializes the same legal bubble chart type through the frozen CHART_TYPES catalog and strict ChartType union. |
 | `union:ChartType#bubble3D` | unverified | — | — | — |
-| `union:ChartType#doughnut` | unverified | — | — | — |
-| `union:ChartType#line` | unverified | — | — | — |
-| `union:ChartType#pie` | unverified | — | — | — |
-| `union:ChartType#radar` | unverified | — | — | — |
-| `union:ChartType#scatter` | unverified | — | — | — |
+| `union:ChartType#doughnut` | supported | CHART_TYPES<br>ChartType | code:packages/model/src/chart.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes and serializes the same legal doughnut chart type through the frozen CHART_TYPES catalog and strict ChartType union. |
+| `union:ChartType#line` | supported | CHART_TYPES<br>ChartType | code:packages/model/src/chart.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes and serializes the same legal line chart type through the frozen CHART_TYPES catalog and strict ChartType union. |
+| `union:ChartType#pie` | supported | CHART_TYPES<br>ChartType | code:packages/model/src/chart.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes and serializes the same legal pie chart type through the frozen CHART_TYPES catalog and strict ChartType union. |
+| `union:ChartType#radar` | supported | CHART_TYPES<br>ChartType | code:packages/model/src/chart.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes and serializes the same legal radar chart type through the frozen CHART_TYPES catalog and strict ChartType union. |
+| `union:ChartType#scatter` | supported | CHART_TYPES<br>ChartType | code:packages/model/src/chart.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes and serializes the same legal scatter chart type through the frozen CHART_TYPES catalog and strict ChartType union. |
 | `union:SHAPE_NAME#chartPlus` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
 | `union:SHAPE_NAME#chartStar` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
 | `union:SHAPE_NAME#chartX` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
@@ -2379,14 +2350,14 @@ None.
 | `union:interface:IChartPropsAxisVal@property:valAxisLineStyle#dash` | unverified | — | — | — |
 | `union:interface:IChartPropsAxisVal@property:valAxisLineStyle#dot` | unverified | — | — | — |
 | `union:interface:IChartPropsAxisVal@property:valAxisLineStyle#solid` | unverified | — | — | — |
-| `union:interface:OptsChartData@property:labels#string[]` | unverified | — | — | — |
+| `union:interface:OptsChartData@property:labels#string[]` | deliberate-difference | ChartSeriesInput.categories | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-definition.internal.ts<br>code:packages/model/src/chart-definition.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps the legal flat string label form to explicit ChartSeriesInput.categories and preserves it in chart formulas and workbook cells. |
 | `union:interface:OptsChartData@property:labels#string[][]` | unverified | — | — | — |
 | `union:interface:OptsChartGridLine@property:style#dash` | unverified | — | — | — |
 | `union:interface:OptsChartGridLine@property:style#dot` | unverified | — | — | — |
 | `union:interface:OptsChartGridLine@property:style#none` | unverified | — | — | — |
 | `union:interface:OptsChartGridLine@property:style#solid` | unverified | — | — | — |
-| `union:method:Slide#addChart@path:type#CHART_NAME` | unverified | — | — | — |
-| `union:method:Slide#addChart@path:type#IChartMulti[]` | unverified | — | — | — |
+| `union:method:Slide#addChart@path:type#CHART_NAME` | supported | ChartType<br>PptxDocument.addChart<br>SlideModel.addChart | code:packages/model/src/slide.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native accepts the same nine legal single-chart type values through strict PptxDocument and SlideModel addChart overloads. |
+| `union:method:Slide#addChart@path:type#IChartMulti[]` | deliberate-difference | ChartGroupInput[]<br>PptxDocument.addChart<br>SlideModel.addChart | code:packages/model/src/chart.ts<br>code:packages/model/src/chart-definition.internal.ts<br>code:packages/model/src/chart-definition.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers combination charts with readonly ChartGroupInput arrays instead of the permissive PptxGenJS IChartMulti array shape. |
 
 ## Table
 

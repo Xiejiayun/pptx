@@ -5030,80 +5030,186 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "normalizes and semantically replaces imported PptxGenJS chart families"
+      },
       "declaredIn": "IChartMulti",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const nativeCharts = reopenedCharts.length === 10"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export type ChartGroupInput ="
+          },
+          {
+            "path": "packages/model/src/chart-definition.internal.ts",
+            "pattern": "const GROUP_KEYS = new Set(['type', 'series', 'axis', 'options']);"
+          },
+          {
+            "path": "packages/model/src/chart-definition.internal.ts",
+            "pattern": "const SERIES_KEYS = new Set(['name', 'categories', 'values', 'xValues', 'sizes']);"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens all native chart types through the public SDK in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 10"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "normalizes and semantically replaces imported PptxGenJS chart families"
+          }
+        ]
       },
       "id": "interface:IChartMulti@property:data",
       "kind": "property",
       "name": "data",
-      "native": [],
-      "note": "",
+      "native": [
+        "ChartGroupInput.series"
+      ],
+      "note": "Native names combination-chart data series explicitly as ChartGroupInput.series and validates them before mutation.",
       "optional": false,
       "owner": "IChartMulti",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "OptsChartData[]"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "normalizes and semantically replaces imported PptxGenJS chart families"
+      },
       "declaredIn": "IChartMulti",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const nativeCharts = reopenedCharts.length === 10"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export type ChartGroupInput ="
+          },
+          {
+            "path": "packages/model/src/chart-definition.internal.ts",
+            "pattern": "const GROUP_KEYS = new Set(['type', 'series', 'axis', 'options']);"
+          },
+          {
+            "path": "packages/model/src/chart-definition.internal.ts",
+            "pattern": "const SERIES_KEYS = new Set(['name', 'categories', 'values', 'xValues', 'sizes']);"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens all native chart types through the public SDK in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 10"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "normalizes and semantically replaces imported PptxGenJS chart families"
+          }
+        ]
       },
       "id": "interface:IChartMulti@property:options",
       "kind": "property",
       "name": "options",
-      "native": [],
-      "note": "",
+      "native": [
+        "ChartGroupInput.options",
+        "ChartGroupOptions"
+      ],
+      "note": "Native maps supported per-group semantics to chart-type-specific ChartGroupOptions instead of accepting the permissive PptxGenJS options bag.",
       "optional": false,
       "owner": "IChartMulti",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "IChartOpts"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "IChartMulti",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const nativeCharts = reopenedCharts.length === 10"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export type ChartGroupInput ="
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens all native chart types through the public SDK in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 10"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches all public slide master chart types and combo workbooks to native output"
+          }
+        ]
       },
       "id": "interface:IChartMulti@property:type",
       "kind": "property",
       "name": "type",
-      "native": [],
-      "note": "",
+      "native": [
+        "ChartGroupInput.type"
+      ],
+      "note": "Native represents each combination-chart member with a strict ChartGroupInput discriminated by the same nine legal chart types.",
       "optional": false,
       "owner": "IChartMulti",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "CHART_NAME"
     },
     {
@@ -13116,106 +13222,227 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "normalizes and semantically replaces imported PptxGenJS chart families"
+      },
       "declaredIn": "OptsChartData",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const nativeCharts = reopenedCharts.length === 10"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export interface ChartSeriesInput {"
+          },
+          {
+            "path": "packages/model/src/chart-definition.internal.ts",
+            "pattern": "const GROUP_KEYS = new Set(['type', 'series', 'axis', 'options']);"
+          },
+          {
+            "path": "packages/model/src/chart-definition.internal.ts",
+            "pattern": "const SERIES_KEYS = new Set(['name', 'categories', 'values', 'xValues', 'sizes']);"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens all native chart types through the public SDK in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 10"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "normalizes and semantically replaces imported PptxGenJS chart families"
+          }
+        ]
       },
       "id": "interface:OptsChartData@property:labels",
       "kind": "property",
       "name": "labels",
-      "native": [],
-      "note": "",
+      "native": [
+        "ChartSeriesInput.categories",
+        "ChartSeriesInput.xValues"
+      ],
+      "note": "Native separates categorical labels from numeric scatter and bubble x-values instead of overloading one permissive labels field.",
       "optional": true,
       "owner": "OptsChartData",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "string[] | string[][]"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "OptsChartData",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const nativeCharts = reopenedCharts.length === 10"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export interface ChartSeriesInput {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens all native chart types through the public SDK in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 10"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches all public slide master chart types and combo workbooks to native output"
+          }
+        ]
       },
       "id": "interface:OptsChartData@property:name",
       "kind": "property",
       "name": "name",
-      "native": [],
-      "note": "",
+      "native": [
+        "ChartSeriesInput.name"
+      ],
+      "note": "Native preserves each public chart series name through ChartSeriesInput and the embedded workbook.",
       "optional": true,
       "owner": "OptsChartData",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "string"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "OptsChartData",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const nativeCharts = reopenedCharts.length === 10"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export interface ChartSeriesInput {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens all native chart types through the public SDK in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 10"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches all public slide master chart types and combo workbooks to native output"
+          }
+        ]
       },
       "id": "interface:OptsChartData@property:sizes",
       "kind": "property",
       "name": "sizes",
-      "native": [],
-      "note": "",
+      "native": [
+        "ChartSeriesInput.sizes"
+      ],
+      "note": "Native accepts bubble sizes explicitly on ChartSeriesInput and preserves them through chart OOXML and workbook reopen.",
       "optional": true,
       "owner": "OptsChartData",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "number[]"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "OptsChartData",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const nativeCharts = reopenedCharts.length === 10"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export interface ChartSeriesInput {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens all native chart types through the public SDK in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 10"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches all public slide master chart types and combo workbooks to native output"
+          }
+        ]
       },
       "id": "interface:OptsChartData@property:values",
       "kind": "property",
       "name": "values",
-      "native": [],
-      "note": "",
+      "native": [
+        "ChartSeriesInput.values"
+      ],
+      "note": "Native requires and preserves numeric chart series values through ChartSeriesInput and the embedded workbook.",
       "optional": true,
       "owner": "OptsChartData",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "number[]"
     },
     {
@@ -22389,30 +22616,63 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "compares PptxGenJS and native chart creation return semantics"
+      },
       "declaredIn": "Slide",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const nativeCharts = reopenedCharts.length === 10"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "return this.presentation.opcPackage.transaction(() => commitPreparedChart(this, prepared));"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens all native chart types through the public SDK in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 10"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "compares PptxGenJS and native chart creation return semantics"
+          }
+        ]
       },
       "id": "method:Slide#addChart",
       "kind": "method",
       "name": "addChart",
-      "native": [],
-      "note": "",
+      "native": [
+        "ChartModel",
+        "PptxDocument.addChart",
+        "SlideModel.addChart"
+      ],
+      "note": "PptxGenJS synchronously returns the chainable Slide; native chart creation is asynchronous and returns the created ChartModel after transactional workbook and relationship commits.",
       "optional": false,
       "owner": "Slide",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [
         "addChart(type: CHART_NAME | IChartMulti[], data: any[], options?: IChartOpts): Slide"
       ],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": ""
     },
     {
@@ -23119,236 +23379,488 @@
     },
     {
       "catalogKey": "area",
-      "client": false,
+      "client": true,
       "declaredIn": "CHART_NAME",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const nativeCharts = reopenedCharts.length === 10"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export const CHART_TYPES = Object.freeze(["
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens all native chart types through the public SDK in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 10"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches all public slide master chart types and combo workbooks to native output"
+          }
+        ]
       },
       "id": "union:CHART_NAME#area",
       "kind": "union-member",
       "name": "area",
-      "native": [],
-      "note": "",
+      "native": [
+        "CHART_TYPES",
+        "ChartType"
+      ],
+      "note": "Native exposes and serializes the same legal area chart type through the frozen CHART_TYPES catalog and strict ChartType union.",
       "optional": false,
       "owner": "CHART_NAME",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'area'"
     },
     {
       "catalogKey": "bar",
-      "client": false,
+      "client": true,
       "declaredIn": "CHART_NAME",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const nativeCharts = reopenedCharts.length === 10"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export const CHART_TYPES = Object.freeze(["
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens all native chart types through the public SDK in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 10"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches all public slide master chart types and combo workbooks to native output"
+          }
+        ]
       },
       "id": "union:CHART_NAME#bar",
       "kind": "union-member",
       "name": "bar",
-      "native": [],
-      "note": "",
+      "native": [
+        "CHART_TYPES",
+        "ChartType"
+      ],
+      "note": "Native exposes and serializes the same legal bar chart type through the frozen CHART_TYPES catalog and strict ChartType union.",
       "optional": false,
       "owner": "CHART_NAME",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'bar'"
     },
     {
       "catalogKey": "bar3D",
-      "client": false,
+      "client": true,
       "declaredIn": "CHART_NAME",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const nativeCharts = reopenedCharts.length === 10"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export const CHART_TYPES = Object.freeze(["
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens all native chart types through the public SDK in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 10"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches all public slide master chart types and combo workbooks to native output"
+          }
+        ]
       },
       "id": "union:CHART_NAME#bar3D",
       "kind": "union-member",
       "name": "bar3D",
-      "native": [],
-      "note": "",
+      "native": [
+        "CHART_TYPES",
+        "ChartType"
+      ],
+      "note": "Native exposes and serializes the same legal bar3D chart type through the frozen CHART_TYPES catalog and strict ChartType union.",
       "optional": false,
       "owner": "CHART_NAME",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'bar3D'"
     },
     {
       "catalogKey": "bubble",
-      "client": false,
+      "client": true,
       "declaredIn": "CHART_NAME",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const nativeCharts = reopenedCharts.length === 10"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export const CHART_TYPES = Object.freeze(["
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens all native chart types through the public SDK in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 10"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches all public slide master chart types and combo workbooks to native output"
+          }
+        ]
       },
       "id": "union:CHART_NAME#bubble",
       "kind": "union-member",
       "name": "bubble",
-      "native": [],
-      "note": "",
+      "native": [
+        "CHART_TYPES",
+        "ChartType"
+      ],
+      "note": "Native exposes and serializes the same legal bubble chart type through the frozen CHART_TYPES catalog and strict ChartType union.",
       "optional": false,
       "owner": "CHART_NAME",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'bubble'"
     },
     {
       "catalogKey": "doughnut",
-      "client": false,
+      "client": true,
       "declaredIn": "CHART_NAME",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const nativeCharts = reopenedCharts.length === 10"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export const CHART_TYPES = Object.freeze(["
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens all native chart types through the public SDK in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 10"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches all public slide master chart types and combo workbooks to native output"
+          }
+        ]
       },
       "id": "union:CHART_NAME#doughnut",
       "kind": "union-member",
       "name": "doughnut",
-      "native": [],
-      "note": "",
+      "native": [
+        "CHART_TYPES",
+        "ChartType"
+      ],
+      "note": "Native exposes and serializes the same legal doughnut chart type through the frozen CHART_TYPES catalog and strict ChartType union.",
       "optional": false,
       "owner": "CHART_NAME",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'doughnut'"
     },
     {
       "catalogKey": "line",
-      "client": false,
+      "client": true,
       "declaredIn": "CHART_NAME",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const nativeCharts = reopenedCharts.length === 10"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export const CHART_TYPES = Object.freeze(["
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens all native chart types through the public SDK in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 10"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches all public slide master chart types and combo workbooks to native output"
+          }
+        ]
       },
       "id": "union:CHART_NAME#line",
       "kind": "union-member",
       "name": "line",
-      "native": [],
-      "note": "",
+      "native": [
+        "CHART_TYPES",
+        "ChartType"
+      ],
+      "note": "Native exposes and serializes the same legal line chart type through the frozen CHART_TYPES catalog and strict ChartType union.",
       "optional": false,
       "owner": "CHART_NAME",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'line'"
     },
     {
       "catalogKey": "pie",
-      "client": false,
+      "client": true,
       "declaredIn": "CHART_NAME",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const nativeCharts = reopenedCharts.length === 10"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export const CHART_TYPES = Object.freeze(["
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens all native chart types through the public SDK in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 10"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches all public slide master chart types and combo workbooks to native output"
+          }
+        ]
       },
       "id": "union:CHART_NAME#pie",
       "kind": "union-member",
       "name": "pie",
-      "native": [],
-      "note": "",
+      "native": [
+        "CHART_TYPES",
+        "ChartType"
+      ],
+      "note": "Native exposes and serializes the same legal pie chart type through the frozen CHART_TYPES catalog and strict ChartType union.",
       "optional": false,
       "owner": "CHART_NAME",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'pie'"
     },
     {
       "catalogKey": "radar",
-      "client": false,
+      "client": true,
       "declaredIn": "CHART_NAME",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const nativeCharts = reopenedCharts.length === 10"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export const CHART_TYPES = Object.freeze(["
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens all native chart types through the public SDK in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 10"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches all public slide master chart types and combo workbooks to native output"
+          }
+        ]
       },
       "id": "union:CHART_NAME#radar",
       "kind": "union-member",
       "name": "radar",
-      "native": [],
-      "note": "",
+      "native": [
+        "CHART_TYPES",
+        "ChartType"
+      ],
+      "note": "Native exposes and serializes the same legal radar chart type through the frozen CHART_TYPES catalog and strict ChartType union.",
       "optional": false,
       "owner": "CHART_NAME",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'radar'"
     },
     {
       "catalogKey": "scatter",
-      "client": false,
+      "client": true,
       "declaredIn": "CHART_NAME",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const nativeCharts = reopenedCharts.length === 10"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export const CHART_TYPES = Object.freeze(["
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens all native chart types through the public SDK in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 10"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches all public slide master chart types and combo workbooks to native output"
+          }
+        ]
       },
       "id": "union:CHART_NAME#scatter",
       "kind": "union-member",
       "name": "scatter",
-      "native": [],
-      "note": "",
+      "native": [
+        "CHART_TYPES",
+        "ChartType"
+      ],
+      "note": "Native exposes and serializes the same legal scatter chart type through the frozen CHART_TYPES catalog and strict ChartType union.",
       "optional": false,
       "owner": "CHART_NAME",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'scatter'"
     },
     {
@@ -23535,106 +24047,218 @@
     },
     {
       "catalogKey": "area",
-      "client": false,
+      "client": true,
       "declaredIn": "ChartType",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const nativeCharts = reopenedCharts.length === 10"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export const CHART_TYPES = Object.freeze(["
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens all native chart types through the public SDK in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 10"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches all public slide master chart types and combo workbooks to native output"
+          }
+        ]
       },
       "id": "union:ChartType#area",
       "kind": "union-member",
       "name": "area",
-      "native": [],
-      "note": "",
+      "native": [
+        "CHART_TYPES",
+        "ChartType"
+      ],
+      "note": "Native exposes and serializes the same legal area chart type through the frozen CHART_TYPES catalog and strict ChartType union.",
       "optional": false,
       "owner": "ChartType",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'area'"
     },
     {
       "catalogKey": "bar",
-      "client": false,
+      "client": true,
       "declaredIn": "ChartType",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const nativeCharts = reopenedCharts.length === 10"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export const CHART_TYPES = Object.freeze(["
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens all native chart types through the public SDK in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 10"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches all public slide master chart types and combo workbooks to native output"
+          }
+        ]
       },
       "id": "union:ChartType#bar",
       "kind": "union-member",
       "name": "bar",
-      "native": [],
-      "note": "",
+      "native": [
+        "CHART_TYPES",
+        "ChartType"
+      ],
+      "note": "Native exposes and serializes the same legal bar chart type through the frozen CHART_TYPES catalog and strict ChartType union.",
       "optional": false,
       "owner": "ChartType",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'bar'"
     },
     {
       "catalogKey": "bar3d",
-      "client": false,
+      "client": true,
       "declaredIn": "ChartType",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const nativeCharts = reopenedCharts.length === 10"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export const CHART_TYPES = Object.freeze(["
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens all native chart types through the public SDK in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 10"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches all public slide master chart types and combo workbooks to native output"
+          }
+        ]
       },
       "id": "union:ChartType#bar3D",
       "kind": "union-member",
       "name": "bar3D",
-      "native": [],
-      "note": "",
+      "native": [
+        "CHART_TYPES",
+        "ChartType"
+      ],
+      "note": "Native exposes and serializes the same legal bar3D chart type through the frozen CHART_TYPES catalog and strict ChartType union.",
       "optional": false,
       "owner": "ChartType",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'bar3D'"
     },
     {
       "catalogKey": "bubble",
-      "client": false,
+      "client": true,
       "declaredIn": "ChartType",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const nativeCharts = reopenedCharts.length === 10"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export const CHART_TYPES = Object.freeze(["
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens all native chart types through the public SDK in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 10"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches all public slide master chart types and combo workbooks to native output"
+          }
+        ]
       },
       "id": "union:ChartType#bubble",
       "kind": "union-member",
       "name": "bubble",
-      "native": [],
-      "note": "",
+      "native": [
+        "CHART_TYPES",
+        "ChartType"
+      ],
+      "note": "Native exposes and serializes the same legal bubble chart type through the frozen CHART_TYPES catalog and strict ChartType union.",
       "optional": false,
       "owner": "ChartType",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'bubble'"
     },
     {
@@ -23665,132 +24289,272 @@
     },
     {
       "catalogKey": "doughnut",
-      "client": false,
+      "client": true,
       "declaredIn": "ChartType",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const nativeCharts = reopenedCharts.length === 10"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export const CHART_TYPES = Object.freeze(["
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens all native chart types through the public SDK in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 10"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches all public slide master chart types and combo workbooks to native output"
+          }
+        ]
       },
       "id": "union:ChartType#doughnut",
       "kind": "union-member",
       "name": "doughnut",
-      "native": [],
-      "note": "",
+      "native": [
+        "CHART_TYPES",
+        "ChartType"
+      ],
+      "note": "Native exposes and serializes the same legal doughnut chart type through the frozen CHART_TYPES catalog and strict ChartType union.",
       "optional": false,
       "owner": "ChartType",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'doughnut'"
     },
     {
       "catalogKey": "line",
-      "client": false,
+      "client": true,
       "declaredIn": "ChartType",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const nativeCharts = reopenedCharts.length === 10"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export const CHART_TYPES = Object.freeze(["
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens all native chart types through the public SDK in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 10"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches all public slide master chart types and combo workbooks to native output"
+          }
+        ]
       },
       "id": "union:ChartType#line",
       "kind": "union-member",
       "name": "line",
-      "native": [],
-      "note": "",
+      "native": [
+        "CHART_TYPES",
+        "ChartType"
+      ],
+      "note": "Native exposes and serializes the same legal line chart type through the frozen CHART_TYPES catalog and strict ChartType union.",
       "optional": false,
       "owner": "ChartType",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'line'"
     },
     {
       "catalogKey": "pie",
-      "client": false,
+      "client": true,
       "declaredIn": "ChartType",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const nativeCharts = reopenedCharts.length === 10"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export const CHART_TYPES = Object.freeze(["
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens all native chart types through the public SDK in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 10"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches all public slide master chart types and combo workbooks to native output"
+          }
+        ]
       },
       "id": "union:ChartType#pie",
       "kind": "union-member",
       "name": "pie",
-      "native": [],
-      "note": "",
+      "native": [
+        "CHART_TYPES",
+        "ChartType"
+      ],
+      "note": "Native exposes and serializes the same legal pie chart type through the frozen CHART_TYPES catalog and strict ChartType union.",
       "optional": false,
       "owner": "ChartType",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'pie'"
     },
     {
       "catalogKey": "radar",
-      "client": false,
+      "client": true,
       "declaredIn": "ChartType",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const nativeCharts = reopenedCharts.length === 10"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export const CHART_TYPES = Object.freeze(["
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens all native chart types through the public SDK in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 10"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches all public slide master chart types and combo workbooks to native output"
+          }
+        ]
       },
       "id": "union:ChartType#radar",
       "kind": "union-member",
       "name": "radar",
-      "native": [],
-      "note": "",
+      "native": [
+        "CHART_TYPES",
+        "ChartType"
+      ],
+      "note": "Native exposes and serializes the same legal radar chart type through the frozen CHART_TYPES catalog and strict ChartType union.",
       "optional": false,
       "owner": "ChartType",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'radar'"
     },
     {
       "catalogKey": "scatter",
-      "client": false,
+      "client": true,
       "declaredIn": "ChartType",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const nativeCharts = reopenedCharts.length === 10"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export const CHART_TYPES = Object.freeze(["
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens all native chart types through the public SDK in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 10"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches all public slide master chart types and combo workbooks to native output"
+          }
+        ]
       },
       "id": "union:ChartType#scatter",
       "kind": "union-member",
       "name": "scatter",
-      "native": [],
-      "note": "",
+      "native": [
+        "CHART_TYPES",
+        "ChartType"
+      ],
+      "note": "Native exposes and serializes the same legal scatter chart type through the frozen CHART_TYPES catalog and strict ChartType union.",
       "optional": false,
       "owner": "ChartType",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'scatter'"
     },
     {
@@ -51247,28 +52011,67 @@
     },
     {
       "catalogKey": "string[]",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "normalizes and semantically replaces imported PptxGenJS chart families"
+      },
       "declaredIn": "interface:OptsChartData@property:labels",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const nativeCharts = reopenedCharts.length === 10"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export interface ChartSeriesInput {"
+          },
+          {
+            "path": "packages/model/src/chart-definition.internal.ts",
+            "pattern": "const GROUP_KEYS = new Set(['type', 'series', 'axis', 'options']);"
+          },
+          {
+            "path": "packages/model/src/chart-definition.internal.ts",
+            "pattern": "const SERIES_KEYS = new Set(['name', 'categories', 'values', 'xValues', 'sizes']);"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens all native chart types through the public SDK in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 10"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "normalizes and semantically replaces imported PptxGenJS chart families"
+          }
+        ]
       },
       "id": "union:interface:OptsChartData@property:labels#string[]",
       "kind": "union-member",
       "name": "string[]",
-      "native": [],
-      "note": "",
+      "native": [
+        "ChartSeriesInput.categories"
+      ],
+      "note": "Native maps the legal flat string label form to explicit ChartSeriesInput.categories and preserves it in chart formulas and workbook cells.",
       "optional": false,
       "owner": "interface:OptsChartData@property:labels",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "string[]"
     },
     {
@@ -64407,54 +65210,124 @@
     },
     {
       "catalogKey": "CHART_NAME",
-      "client": false,
+      "client": true,
       "declaredIn": "method:Slide#addChart@path:type",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const nativeCharts = reopenedCharts.length === 10"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "return this.presentation.opcPackage.transaction(() => commitPreparedChart(this, prepared));"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens all native chart types through the public SDK in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 10"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "compares PptxGenJS and native chart creation return semantics"
+          }
+        ]
       },
       "id": "union:method:Slide#addChart@path:type#CHART_NAME",
       "kind": "union-member",
       "name": "CHART_NAME",
-      "native": [],
-      "note": "",
+      "native": [
+        "ChartType",
+        "PptxDocument.addChart",
+        "SlideModel.addChart"
+      ],
+      "note": "Native accepts the same nine legal single-chart type values through strict PptxDocument and SlideModel addChart overloads.",
       "optional": false,
       "owner": "method:Slide#addChart@path:type",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "CHART_NAME"
     },
     {
       "catalogKey": "IChartMulti[]",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "normalizes and semantically replaces imported PptxGenJS chart families"
+      },
       "declaredIn": "method:Slide#addChart@path:type",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const nativeCharts = reopenedCharts.length === 10"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export type ChartGroupInput ="
+          },
+          {
+            "path": "packages/model/src/chart-definition.internal.ts",
+            "pattern": "const GROUP_KEYS = new Set(['type', 'series', 'axis', 'options']);"
+          },
+          {
+            "path": "packages/model/src/chart-definition.internal.ts",
+            "pattern": "const SERIES_KEYS = new Set(['name', 'categories', 'values', 'xValues', 'sizes']);"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens all native chart types through the public SDK in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 10"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "normalizes and semantically replaces imported PptxGenJS chart families"
+          }
+        ]
       },
       "id": "union:method:Slide#addChart@path:type#IChartMulti[]",
       "kind": "union-member",
       "name": "IChartMulti[]",
-      "native": [],
-      "note": "",
+      "native": [
+        "ChartGroupInput[]",
+        "PptxDocument.addChart",
+        "SlideModel.addChart"
+      ],
+      "note": "Native covers combination charts with readonly ChartGroupInput arrays instead of the permissive PptxGenJS IChartMulti array shape.",
       "optional": false,
       "owner": "method:Slide#addChart@path:type",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "IChartMulti[]"
     },
     {
@@ -64513,12 +65386,12 @@
   "complete": false,
   "counts": {
     "defect-excluded": 83,
-    "deliberate-difference": 67,
+    "deliberate-difference": 73,
     "deprecated-alias": 77,
     "stale": 0,
-    "supported": 415,
+    "supported": 438,
     "unsupported": 0,
-    "unverified": 1132
+    "unverified": 1103
   },
   "declarationSha256": "0726d015dbcb55ccfa75546cb2fd43fe13a0dfeb783d08572f1c62f59193bbe5",
   "declarationTotal": 1774,
@@ -64677,9 +65550,6 @@
     "interface:HyperlinkProps@property:slide",
     "interface:HyperlinkProps@property:tooltip",
     "interface:HyperlinkProps@property:url",
-    "interface:IChartMulti@property:data",
-    "interface:IChartMulti@property:options",
-    "interface:IChartMulti@property:type",
     "interface:IChartOpts@property:altText",
     "interface:IChartOpts@property:axisPos",
     "interface:IChartOpts@property:bar3DShape",
@@ -64936,10 +65806,6 @@
     "interface:MediaProps@property:w",
     "interface:MediaProps@property:x",
     "interface:MediaProps@property:y",
-    "interface:OptsChartData@property:labels",
-    "interface:OptsChartData@property:name",
-    "interface:OptsChartData@property:sizes",
-    "interface:OptsChartData@property:values",
     "interface:OptsChartGridLine@property:cap",
     "interface:OptsChartGridLine@property:color",
     "interface:OptsChartGridLine@property:size",
@@ -65187,7 +66053,6 @@
     "interface:WriteFileProps@property:fileName",
     "interface:WriteProps@property:compression",
     "interface:WriteProps@property:outputType",
-    "method:Slide#addChart",
     "method:Slide#addImage",
     "method:Slide#addMedia",
     "method:Slide#addNotes",
@@ -65200,15 +66065,6 @@
     "property:Slide#hidden",
     "property:Slide#newAutoPagedSlides",
     "property:Slide#slideNumber",
-    "union:CHART_NAME#area",
-    "union:CHART_NAME#bar",
-    "union:CHART_NAME#bar3D",
-    "union:CHART_NAME#bubble",
-    "union:CHART_NAME#doughnut",
-    "union:CHART_NAME#line",
-    "union:CHART_NAME#pie",
-    "union:CHART_NAME#radar",
-    "union:CHART_NAME#scatter",
     "union:ChartAxisTickMark#cross",
     "union:ChartAxisTickMark#inside",
     "union:ChartAxisTickMark#none",
@@ -65216,16 +66072,7 @@
     "union:ChartLineCap#flat",
     "union:ChartLineCap#round",
     "union:ChartLineCap#square",
-    "union:ChartType#area",
-    "union:ChartType#bar",
-    "union:ChartType#bar3D",
-    "union:ChartType#bubble",
     "union:ChartType#bubble3D",
-    "union:ChartType#doughnut",
-    "union:ChartType#line",
-    "union:ChartType#pie",
-    "union:ChartType#radar",
-    "union:ChartType#scatter",
     "union:Color#HexColor",
     "union:Color#ThemeColor",
     "union:Coord#${number}%",
@@ -65349,7 +66196,6 @@
     "union:interface:ImageProps@property:sizing@path:sizing.type#contain",
     "union:interface:ImageProps@property:sizing@path:sizing.type#cover",
     "union:interface:ImageProps@property:sizing@path:sizing.type#crop",
-    "union:interface:OptsChartData@property:labels#string[]",
     "union:interface:OptsChartData@property:labels#string[][]",
     "union:interface:OptsChartGridLine@property:style#dash",
     "union:interface:OptsChartGridLine@property:style#dot",
@@ -65653,8 +66499,6 @@
     "union:interface:TextPropsOptions@property:vert#vert270",
     "union:interface:TextPropsOptions@property:vert#wordArtVert",
     "union:interface:TextPropsOptions@property:vert#wordArtVertRtl",
-    "union:method:Slide#addChart@path:type#CHART_NAME",
-    "union:method:Slide#addChart@path:type#IChartMulti[]",
     "union:method:Slide#addText@path:text#TextProps[]",
     "union:method:Slide#addText@path:text#string"
   ],

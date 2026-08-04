@@ -75,7 +75,7 @@ interface PptxGenJSSlide {
     }[],
     data: readonly PptxGenJSChartData[] | Record<string, unknown>,
     options?: Record<string, unknown> | PptxGenJSPublicChartOptions,
-  ): void;
+  ): PptxGenJSSlide;
   addImage(options: Record<string, unknown>): void;
   addMedia(options: PptxGenJSMediaOptions): void;
   addNotes(notes: string): PptxGenJSSlide;
@@ -2264,6 +2264,25 @@ describe('importPptxGenJS', () => {
       expect(native.diagnostics.filter(({ code, severity }) =>
         severity !== 'info' && /^(LAYOUT_|PLACEHOLDER_)/.test(code))).toEqual([]);
     }
+  });
+
+  it('compares PptxGenJS and native chart creation return semantics', async () => {
+    const generated = new PptxGenJS();
+    const generatedSlide = generated.addSlide();
+    const generatedResult = generatedSlide.addChart(generated.ChartType.bar!, [{
+      name: 'Revenue', labels: ['Q1', 'Q2'], values: [10, 20],
+    }]);
+    expect(generatedResult).toBe(generatedSlide);
+
+    const native = PptxDocument.create();
+    native.addSlide();
+    const nativeResult = native.addChart(0, 'bar', [{
+      name: 'Revenue', categories: ['Q1', 'Q2'], values: [10, 20],
+    }]);
+    expect(nativeResult).toBeInstanceOf(Promise);
+    const chart = await nativeResult;
+    expect(chart).toBeInstanceOf(ChartModel);
+    expect(native.slides[0]!.shapes).toContain(chart);
   });
 
   it('matches all public slide master chart types and combo workbooks to native output', async () => {
