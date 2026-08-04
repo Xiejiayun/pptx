@@ -124,14 +124,23 @@ function assertDeepFrozen(value, seen = new Set()) {
 test('exports an immutable evidence-backed initial manifest batch', () => {
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.schemaVersion, 1);
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.packageVersion, '4.0.1');
-  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 24);
+  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 438);
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries.map(({ status }) => status).sort(),
     [
-      'defect-excluded',
-      ...Array(7).fill('supported'),
+      ...Array(3).fill('defect-excluded'),
+      ...Array(419).fill('supported'),
       ...Array(16).fill('deliberate-difference'),
     ].sort(),
+  );
+  assert.deepEqual(
+    PPTXGENJS_SURFACE_MANIFEST.entries
+      .filter(({ id }) => id.endsWith('#folderCorner'))
+      .map(({ id, status }) => ({ id, status })),
+    [
+      { id: 'union:ShapeType#folderCorner', status: 'defect-excluded' },
+      { id: 'union:SHAPE_NAME#folderCorner', status: 'defect-excluded' },
+    ],
   );
   assert.deepEqual(PPTXGENJS_SURFACE_MANIFEST.extensions, []);
   assertDeepFrozen(PPTXGENJS_SURFACE_MANIFEST);

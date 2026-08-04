@@ -10,12 +10,12 @@
 
 | Status | Count |
 | --- | ---: |
-| supported | 7 |
+| supported | 419 |
 | deliberate-difference | 16 |
 | deprecated-alias | 0 |
-| defect-excluded | 1 |
+| defect-excluded | 3 |
 | unsupported | 0 |
-| unverified | 1750 |
+| unverified | 1336 |
 | stale | 0 |
 
 ## Runtime declaration differences
@@ -776,13 +776,6 @@ None.
 - `property:Slide#hidden`
 - `property:Slide#newAutoPagedSlides`
 - `property:Slide#slideNumber`
-- `union:AlignH#center`
-- `union:AlignH#justify`
-- `union:AlignH#left`
-- `union:AlignH#right`
-- `union:AlignV#bottom`
-- `union:AlignV#middle`
-- `union:AlignV#top`
 - `union:CHART_NAME#area`
 - `union:CHART_NAME#bar`
 - `union:CHART_NAME#bar3D`
@@ -813,418 +806,11 @@ None.
 - `union:Color#ThemeColor`
 - `union:Coord#${number}%`
 - `union:Coord#number`
-- `union:HAlign#center`
-- `union:HAlign#justify`
-- `union:HAlign#left`
-- `union:HAlign#right`
-- `union:JSZIP_OUTPUT_TYPE#arraybuffer`
-- `union:JSZIP_OUTPUT_TYPE#base64`
-- `union:JSZIP_OUTPUT_TYPE#binarystring`
-- `union:JSZIP_OUTPUT_TYPE#blob`
-- `union:JSZIP_OUTPUT_TYPE#nodebuffer`
-- `union:JSZIP_OUTPUT_TYPE#uint8array`
 - `union:Margin#[number,number,number,number]`
 - `union:Margin#number`
 - `union:MediaType#audio`
 - `union:MediaType#online`
 - `union:MediaType#video`
-- `union:OutputType#arraybuffer`
-- `union:OutputType#base64`
-- `union:OutputType#binarystring`
-- `union:OutputType#blob`
-- `union:OutputType#nodebuffer`
-- `union:OutputType#uint8array`
-- `union:PLACEHOLDER_TYPE#body`
-- `union:PLACEHOLDER_TYPE#chart`
-- `union:PLACEHOLDER_TYPE#media`
-- `union:PLACEHOLDER_TYPE#pic`
-- `union:PLACEHOLDER_TYPE#tbl`
-- `union:PLACEHOLDER_TYPE#title`
-- `union:PLACEHOLDER_TYPES#body`
-- `union:PLACEHOLDER_TYPES#chart`
-- `union:PLACEHOLDER_TYPES#media`
-- `union:PLACEHOLDER_TYPES#pic`
-- `union:PLACEHOLDER_TYPES#tbl`
-- `union:PLACEHOLDER_TYPES#title`
-- `union:SHAPE_NAME#accentBorderCallout1`
-- `union:SHAPE_NAME#accentBorderCallout2`
-- `union:SHAPE_NAME#accentBorderCallout3`
-- `union:SHAPE_NAME#accentCallout1`
-- `union:SHAPE_NAME#accentCallout2`
-- `union:SHAPE_NAME#accentCallout3`
-- `union:SHAPE_NAME#actionButtonBackPrevious`
-- `union:SHAPE_NAME#actionButtonBeginning`
-- `union:SHAPE_NAME#actionButtonBlank`
-- `union:SHAPE_NAME#actionButtonDocument`
-- `union:SHAPE_NAME#actionButtonEnd`
-- `union:SHAPE_NAME#actionButtonForwardNext`
-- `union:SHAPE_NAME#actionButtonHelp`
-- `union:SHAPE_NAME#actionButtonHome`
-- `union:SHAPE_NAME#actionButtonInformation`
-- `union:SHAPE_NAME#actionButtonMovie`
-- `union:SHAPE_NAME#actionButtonReturn`
-- `union:SHAPE_NAME#actionButtonSound`
-- `union:SHAPE_NAME#arc`
-- `union:SHAPE_NAME#bentArrow`
-- `union:SHAPE_NAME#bentUpArrow`
-- `union:SHAPE_NAME#bevel`
-- `union:SHAPE_NAME#blockArc`
-- `union:SHAPE_NAME#borderCallout1`
-- `union:SHAPE_NAME#borderCallout2`
-- `union:SHAPE_NAME#borderCallout3`
-- `union:SHAPE_NAME#bracePair`
-- `union:SHAPE_NAME#bracketPair`
-- `union:SHAPE_NAME#callout1`
-- `union:SHAPE_NAME#callout2`
-- `union:SHAPE_NAME#callout3`
-- `union:SHAPE_NAME#can`
-- `union:SHAPE_NAME#chartPlus`
-- `union:SHAPE_NAME#chartStar`
-- `union:SHAPE_NAME#chartX`
-- `union:SHAPE_NAME#chevron`
-- `union:SHAPE_NAME#chord`
-- `union:SHAPE_NAME#circularArrow`
-- `union:SHAPE_NAME#cloud`
-- `union:SHAPE_NAME#cloudCallout`
-- `union:SHAPE_NAME#corner`
-- `union:SHAPE_NAME#cornerTabs`
-- `union:SHAPE_NAME#cube`
-- `union:SHAPE_NAME#curvedDownArrow`
-- `union:SHAPE_NAME#curvedLeftArrow`
-- `union:SHAPE_NAME#curvedRightArrow`
-- `union:SHAPE_NAME#curvedUpArrow`
-- `union:SHAPE_NAME#decagon`
-- `union:SHAPE_NAME#diagStripe`
-- `union:SHAPE_NAME#diamond`
-- `union:SHAPE_NAME#dodecagon`
-- `union:SHAPE_NAME#donut`
-- `union:SHAPE_NAME#doubleWave`
-- `union:SHAPE_NAME#downArrow`
-- `union:SHAPE_NAME#downArrowCallout`
-- `union:SHAPE_NAME#ellipse`
-- `union:SHAPE_NAME#ellipseRibbon`
-- `union:SHAPE_NAME#ellipseRibbon2`
-- `union:SHAPE_NAME#flowChartAlternateProcess`
-- `union:SHAPE_NAME#flowChartCollate`
-- `union:SHAPE_NAME#flowChartConnector`
-- `union:SHAPE_NAME#flowChartDecision`
-- `union:SHAPE_NAME#flowChartDelay`
-- `union:SHAPE_NAME#flowChartDisplay`
-- `union:SHAPE_NAME#flowChartDocument`
-- `union:SHAPE_NAME#flowChartExtract`
-- `union:SHAPE_NAME#flowChartInputOutput`
-- `union:SHAPE_NAME#flowChartInternalStorage`
-- `union:SHAPE_NAME#flowChartMagneticDisk`
-- `union:SHAPE_NAME#flowChartMagneticDrum`
-- `union:SHAPE_NAME#flowChartMagneticTape`
-- `union:SHAPE_NAME#flowChartManualInput`
-- `union:SHAPE_NAME#flowChartManualOperation`
-- `union:SHAPE_NAME#flowChartMerge`
-- `union:SHAPE_NAME#flowChartMultidocument`
-- `union:SHAPE_NAME#flowChartOfflineStorage`
-- `union:SHAPE_NAME#flowChartOffpageConnector`
-- `union:SHAPE_NAME#flowChartOnlineStorage`
-- `union:SHAPE_NAME#flowChartOr`
-- `union:SHAPE_NAME#flowChartPredefinedProcess`
-- `union:SHAPE_NAME#flowChartPreparation`
-- `union:SHAPE_NAME#flowChartProcess`
-- `union:SHAPE_NAME#flowChartPunchedCard`
-- `union:SHAPE_NAME#flowChartPunchedTape`
-- `union:SHAPE_NAME#flowChartSort`
-- `union:SHAPE_NAME#flowChartSummingJunction`
-- `union:SHAPE_NAME#flowChartTerminator`
-- `union:SHAPE_NAME#folderCorner`
-- `union:SHAPE_NAME#frame`
-- `union:SHAPE_NAME#funnel`
-- `union:SHAPE_NAME#gear6`
-- `union:SHAPE_NAME#gear9`
-- `union:SHAPE_NAME#halfFrame`
-- `union:SHAPE_NAME#heart`
-- `union:SHAPE_NAME#heptagon`
-- `union:SHAPE_NAME#hexagon`
-- `union:SHAPE_NAME#homePlate`
-- `union:SHAPE_NAME#horizontalScroll`
-- `union:SHAPE_NAME#irregularSeal1`
-- `union:SHAPE_NAME#irregularSeal2`
-- `union:SHAPE_NAME#leftArrow`
-- `union:SHAPE_NAME#leftArrowCallout`
-- `union:SHAPE_NAME#leftBrace`
-- `union:SHAPE_NAME#leftBracket`
-- `union:SHAPE_NAME#leftCircularArrow`
-- `union:SHAPE_NAME#leftRightArrow`
-- `union:SHAPE_NAME#leftRightArrowCallout`
-- `union:SHAPE_NAME#leftRightCircularArrow`
-- `union:SHAPE_NAME#leftRightRibbon`
-- `union:SHAPE_NAME#leftRightUpArrow`
-- `union:SHAPE_NAME#leftUpArrow`
-- `union:SHAPE_NAME#lightningBolt`
-- `union:SHAPE_NAME#line`
-- `union:SHAPE_NAME#lineInv`
-- `union:SHAPE_NAME#mathDivide`
-- `union:SHAPE_NAME#mathEqual`
-- `union:SHAPE_NAME#mathMinus`
-- `union:SHAPE_NAME#mathMultiply`
-- `union:SHAPE_NAME#mathNotEqual`
-- `union:SHAPE_NAME#mathPlus`
-- `union:SHAPE_NAME#moon`
-- `union:SHAPE_NAME#noSmoking`
-- `union:SHAPE_NAME#nonIsoscelesTrapezoid`
-- `union:SHAPE_NAME#notchedRightArrow`
-- `union:SHAPE_NAME#octagon`
-- `union:SHAPE_NAME#parallelogram`
-- `union:SHAPE_NAME#pentagon`
-- `union:SHAPE_NAME#pie`
-- `union:SHAPE_NAME#pieWedge`
-- `union:SHAPE_NAME#plaque`
-- `union:SHAPE_NAME#plaqueTabs`
-- `union:SHAPE_NAME#plus`
-- `union:SHAPE_NAME#quadArrow`
-- `union:SHAPE_NAME#quadArrowCallout`
-- `union:SHAPE_NAME#rect`
-- `union:SHAPE_NAME#ribbon`
-- `union:SHAPE_NAME#ribbon2`
-- `union:SHAPE_NAME#rightArrow`
-- `union:SHAPE_NAME#rightArrowCallout`
-- `union:SHAPE_NAME#rightBrace`
-- `union:SHAPE_NAME#rightBracket`
-- `union:SHAPE_NAME#round1Rect`
-- `union:SHAPE_NAME#round2DiagRect`
-- `union:SHAPE_NAME#round2SameRect`
-- `union:SHAPE_NAME#roundRect`
-- `union:SHAPE_NAME#rtTriangle`
-- `union:SHAPE_NAME#smileyFace`
-- `union:SHAPE_NAME#snip1Rect`
-- `union:SHAPE_NAME#snip2DiagRect`
-- `union:SHAPE_NAME#snip2SameRect`
-- `union:SHAPE_NAME#snipRoundRect`
-- `union:SHAPE_NAME#squareTabs`
-- `union:SHAPE_NAME#star10`
-- `union:SHAPE_NAME#star12`
-- `union:SHAPE_NAME#star16`
-- `union:SHAPE_NAME#star24`
-- `union:SHAPE_NAME#star32`
-- `union:SHAPE_NAME#star4`
-- `union:SHAPE_NAME#star5`
-- `union:SHAPE_NAME#star6`
-- `union:SHAPE_NAME#star7`
-- `union:SHAPE_NAME#star8`
-- `union:SHAPE_NAME#stripedRightArrow`
-- `union:SHAPE_NAME#sun`
-- `union:SHAPE_NAME#swooshArrow`
-- `union:SHAPE_NAME#teardrop`
-- `union:SHAPE_NAME#trapezoid`
-- `union:SHAPE_NAME#triangle`
-- `union:SHAPE_NAME#upArrow`
-- `union:SHAPE_NAME#upArrowCallout`
-- `union:SHAPE_NAME#upDownArrow`
-- `union:SHAPE_NAME#upDownArrowCallout`
-- `union:SHAPE_NAME#uturnArrow`
-- `union:SHAPE_NAME#verticalScroll`
-- `union:SHAPE_NAME#wave`
-- `union:SHAPE_NAME#wedgeEllipseCallout`
-- `union:SHAPE_NAME#wedgeRectCallout`
-- `union:SHAPE_NAME#wedgeRoundRectCallout`
-- `union:SchemeColor#accent1`
-- `union:SchemeColor#accent2`
-- `union:SchemeColor#accent3`
-- `union:SchemeColor#accent4`
-- `union:SchemeColor#accent5`
-- `union:SchemeColor#accent6`
-- `union:SchemeColor#bg1`
-- `union:SchemeColor#bg2`
-- `union:SchemeColor#tx1`
-- `union:SchemeColor#tx2`
-- `union:ShapeType#accentBorderCallout1`
-- `union:ShapeType#accentBorderCallout2`
-- `union:ShapeType#accentBorderCallout3`
-- `union:ShapeType#accentCallout1`
-- `union:ShapeType#accentCallout2`
-- `union:ShapeType#accentCallout3`
-- `union:ShapeType#actionButtonBackPrevious`
-- `union:ShapeType#actionButtonBeginning`
-- `union:ShapeType#actionButtonBlank`
-- `union:ShapeType#actionButtonDocument`
-- `union:ShapeType#actionButtonEnd`
-- `union:ShapeType#actionButtonForwardNext`
-- `union:ShapeType#actionButtonHelp`
-- `union:ShapeType#actionButtonHome`
-- `union:ShapeType#actionButtonInformation`
-- `union:ShapeType#actionButtonMovie`
-- `union:ShapeType#actionButtonReturn`
-- `union:ShapeType#actionButtonSound`
-- `union:ShapeType#arc`
-- `union:ShapeType#bentArrow`
-- `union:ShapeType#bentUpArrow`
-- `union:ShapeType#bevel`
-- `union:ShapeType#blockArc`
-- `union:ShapeType#borderCallout1`
-- `union:ShapeType#borderCallout2`
-- `union:ShapeType#borderCallout3`
-- `union:ShapeType#bracePair`
-- `union:ShapeType#bracketPair`
-- `union:ShapeType#callout1`
-- `union:ShapeType#callout2`
-- `union:ShapeType#callout3`
-- `union:ShapeType#can`
-- `union:ShapeType#chartPlus`
-- `union:ShapeType#chartStar`
-- `union:ShapeType#chartX`
-- `union:ShapeType#chevron`
-- `union:ShapeType#chord`
-- `union:ShapeType#circularArrow`
-- `union:ShapeType#cloud`
-- `union:ShapeType#cloudCallout`
-- `union:ShapeType#corner`
-- `union:ShapeType#cornerTabs`
-- `union:ShapeType#cube`
-- `union:ShapeType#curvedDownArrow`
-- `union:ShapeType#curvedLeftArrow`
-- `union:ShapeType#curvedRightArrow`
-- `union:ShapeType#curvedUpArrow`
-- `union:ShapeType#decagon`
-- `union:ShapeType#diagStripe`
-- `union:ShapeType#diamond`
-- `union:ShapeType#dodecagon`
-- `union:ShapeType#donut`
-- `union:ShapeType#doubleWave`
-- `union:ShapeType#downArrow`
-- `union:ShapeType#downArrowCallout`
-- `union:ShapeType#ellipse`
-- `union:ShapeType#ellipseRibbon`
-- `union:ShapeType#ellipseRibbon2`
-- `union:ShapeType#flowChartAlternateProcess`
-- `union:ShapeType#flowChartCollate`
-- `union:ShapeType#flowChartConnector`
-- `union:ShapeType#flowChartDecision`
-- `union:ShapeType#flowChartDelay`
-- `union:ShapeType#flowChartDisplay`
-- `union:ShapeType#flowChartDocument`
-- `union:ShapeType#flowChartExtract`
-- `union:ShapeType#flowChartInputOutput`
-- `union:ShapeType#flowChartInternalStorage`
-- `union:ShapeType#flowChartMagneticDisk`
-- `union:ShapeType#flowChartMagneticDrum`
-- `union:ShapeType#flowChartMagneticTape`
-- `union:ShapeType#flowChartManualInput`
-- `union:ShapeType#flowChartManualOperation`
-- `union:ShapeType#flowChartMerge`
-- `union:ShapeType#flowChartMultidocument`
-- `union:ShapeType#flowChartOfflineStorage`
-- `union:ShapeType#flowChartOffpageConnector`
-- `union:ShapeType#flowChartOnlineStorage`
-- `union:ShapeType#flowChartOr`
-- `union:ShapeType#flowChartPredefinedProcess`
-- `union:ShapeType#flowChartPreparation`
-- `union:ShapeType#flowChartProcess`
-- `union:ShapeType#flowChartPunchedCard`
-- `union:ShapeType#flowChartPunchedTape`
-- `union:ShapeType#flowChartSort`
-- `union:ShapeType#flowChartSummingJunction`
-- `union:ShapeType#flowChartTerminator`
-- `union:ShapeType#folderCorner`
-- `union:ShapeType#frame`
-- `union:ShapeType#funnel`
-- `union:ShapeType#gear6`
-- `union:ShapeType#gear9`
-- `union:ShapeType#halfFrame`
-- `union:ShapeType#heart`
-- `union:ShapeType#heptagon`
-- `union:ShapeType#hexagon`
-- `union:ShapeType#homePlate`
-- `union:ShapeType#horizontalScroll`
-- `union:ShapeType#irregularSeal1`
-- `union:ShapeType#irregularSeal2`
-- `union:ShapeType#leftArrow`
-- `union:ShapeType#leftArrowCallout`
-- `union:ShapeType#leftBrace`
-- `union:ShapeType#leftBracket`
-- `union:ShapeType#leftCircularArrow`
-- `union:ShapeType#leftRightArrow`
-- `union:ShapeType#leftRightArrowCallout`
-- `union:ShapeType#leftRightCircularArrow`
-- `union:ShapeType#leftRightRibbon`
-- `union:ShapeType#leftRightUpArrow`
-- `union:ShapeType#leftUpArrow`
-- `union:ShapeType#lightningBolt`
-- `union:ShapeType#line`
-- `union:ShapeType#lineInv`
-- `union:ShapeType#mathDivide`
-- `union:ShapeType#mathEqual`
-- `union:ShapeType#mathMinus`
-- `union:ShapeType#mathMultiply`
-- `union:ShapeType#mathNotEqual`
-- `union:ShapeType#mathPlus`
-- `union:ShapeType#moon`
-- `union:ShapeType#noSmoking`
-- `union:ShapeType#nonIsoscelesTrapezoid`
-- `union:ShapeType#notchedRightArrow`
-- `union:ShapeType#octagon`
-- `union:ShapeType#parallelogram`
-- `union:ShapeType#pentagon`
-- `union:ShapeType#pie`
-- `union:ShapeType#pieWedge`
-- `union:ShapeType#plaque`
-- `union:ShapeType#plaqueTabs`
-- `union:ShapeType#plus`
-- `union:ShapeType#quadArrow`
-- `union:ShapeType#quadArrowCallout`
-- `union:ShapeType#rect`
-- `union:ShapeType#ribbon`
-- `union:ShapeType#ribbon2`
-- `union:ShapeType#rightArrow`
-- `union:ShapeType#rightArrowCallout`
-- `union:ShapeType#rightBrace`
-- `union:ShapeType#rightBracket`
-- `union:ShapeType#round1Rect`
-- `union:ShapeType#round2DiagRect`
-- `union:ShapeType#round2SameRect`
-- `union:ShapeType#roundRect`
-- `union:ShapeType#rtTriangle`
-- `union:ShapeType#smileyFace`
-- `union:ShapeType#snip1Rect`
-- `union:ShapeType#snip2DiagRect`
-- `union:ShapeType#snip2SameRect`
-- `union:ShapeType#snipRoundRect`
-- `union:ShapeType#squareTabs`
-- `union:ShapeType#star10`
-- `union:ShapeType#star12`
-- `union:ShapeType#star16`
-- `union:ShapeType#star24`
-- `union:ShapeType#star32`
-- `union:ShapeType#star4`
-- `union:ShapeType#star5`
-- `union:ShapeType#star6`
-- `union:ShapeType#star7`
-- `union:ShapeType#star8`
-- `union:ShapeType#stripedRightArrow`
-- `union:ShapeType#sun`
-- `union:ShapeType#swooshArrow`
-- `union:ShapeType#teardrop`
-- `union:ShapeType#trapezoid`
-- `union:ShapeType#triangle`
-- `union:ShapeType#upArrow`
-- `union:ShapeType#upArrowCallout`
-- `union:ShapeType#upDownArrow`
-- `union:ShapeType#upDownArrowCallout`
-- `union:ShapeType#uturnArrow`
-- `union:ShapeType#verticalScroll`
-- `union:ShapeType#wave`
-- `union:ShapeType#wedgeEllipseCallout`
-- `union:ShapeType#wedgeRectCallout`
-- `union:ShapeType#wedgeRoundRectCallout`
-- `union:ThemeColor#accent1`
-- `union:ThemeColor#accent2`
-- `union:ThemeColor#accent3`
-- `union:ThemeColor#accent4`
-- `union:ThemeColor#accent5`
-- `union:ThemeColor#accent6`
-- `union:ThemeColor#bg1`
-- `union:ThemeColor#bg2`
-- `union:ThemeColor#tx1`
-- `union:ThemeColor#tx2`
-- `union:VAlign#bottom`
-- `union:VAlign#middle`
-- `union:VAlign#top`
 - `union:WRITE_OUTPUT_TYPE#JSZIP_OUTPUT_TYPE`
 - `union:WRITE_OUTPUT_TYPE#STREAM`
 - `union:class:PptxGenJS#stream@path:return#ArrayBuffer`
@@ -2138,240 +1724,240 @@ None.
 | `interface:ShapeProps@property:x` | deliberate-difference | SlideModel.addCustomShape<br>SlideModel.addShape | code:packages/model/src/slide-coordinate.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers the same legal percentage geometry with width/height and explicit Emu or inches() numeric units instead of PptxGenJS w/h and implicit-inch numbers. |
 | `interface:ShapeProps@property:y` | deliberate-difference | SlideModel.addCustomShape<br>SlideModel.addShape | code:packages/model/src/slide-coordinate.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers the same legal percentage geometry with width/height and explicit Emu or inches() numeric units instead of PptxGenJS w/h and implicit-inch numbers. |
 | `method:Slide#addShape` | unverified | — | — | — |
-| `union:SHAPE_NAME#accentBorderCallout1` | unverified | — | — | — |
-| `union:SHAPE_NAME#accentBorderCallout2` | unverified | — | — | — |
-| `union:SHAPE_NAME#accentBorderCallout3` | unverified | — | — | — |
-| `union:SHAPE_NAME#accentCallout1` | unverified | — | — | — |
-| `union:SHAPE_NAME#accentCallout2` | unverified | — | — | — |
-| `union:SHAPE_NAME#accentCallout3` | unverified | — | — | — |
-| `union:SHAPE_NAME#actionButtonBackPrevious` | unverified | — | — | — |
-| `union:SHAPE_NAME#actionButtonBeginning` | unverified | — | — | — |
-| `union:SHAPE_NAME#actionButtonBlank` | unverified | — | — | — |
-| `union:SHAPE_NAME#actionButtonDocument` | unverified | — | — | — |
-| `union:SHAPE_NAME#actionButtonEnd` | unverified | — | — | — |
-| `union:SHAPE_NAME#actionButtonForwardNext` | unverified | — | — | — |
-| `union:SHAPE_NAME#actionButtonHelp` | unverified | — | — | — |
-| `union:SHAPE_NAME#actionButtonHome` | unverified | — | — | — |
-| `union:SHAPE_NAME#actionButtonInformation` | unverified | — | — | — |
-| `union:SHAPE_NAME#actionButtonMovie` | unverified | — | — | — |
-| `union:SHAPE_NAME#actionButtonReturn` | unverified | — | — | — |
-| `union:SHAPE_NAME#actionButtonSound` | unverified | — | — | — |
-| `union:SHAPE_NAME#arc` | unverified | — | — | — |
-| `union:SHAPE_NAME#bevel` | unverified | — | — | — |
-| `union:SHAPE_NAME#blockArc` | unverified | — | — | — |
-| `union:SHAPE_NAME#borderCallout1` | unverified | — | — | — |
-| `union:SHAPE_NAME#borderCallout2` | unverified | — | — | — |
-| `union:SHAPE_NAME#borderCallout3` | unverified | — | — | — |
-| `union:SHAPE_NAME#bracePair` | unverified | — | — | — |
-| `union:SHAPE_NAME#bracketPair` | unverified | — | — | — |
-| `union:SHAPE_NAME#callout1` | unverified | — | — | — |
-| `union:SHAPE_NAME#callout2` | unverified | — | — | — |
-| `union:SHAPE_NAME#callout3` | unverified | — | — | — |
-| `union:SHAPE_NAME#can` | unverified | — | — | — |
-| `union:SHAPE_NAME#chevron` | unverified | — | — | — |
-| `union:SHAPE_NAME#chord` | unverified | — | — | — |
-| `union:SHAPE_NAME#cloud` | unverified | — | — | — |
-| `union:SHAPE_NAME#cloudCallout` | unverified | — | — | — |
-| `union:SHAPE_NAME#corner` | unverified | — | — | — |
-| `union:SHAPE_NAME#cornerTabs` | unverified | — | — | — |
-| `union:SHAPE_NAME#cube` | unverified | — | — | — |
-| `union:SHAPE_NAME#decagon` | unverified | — | — | — |
-| `union:SHAPE_NAME#diagStripe` | unverified | — | — | — |
-| `union:SHAPE_NAME#diamond` | unverified | — | — | — |
-| `union:SHAPE_NAME#dodecagon` | unverified | — | — | — |
-| `union:SHAPE_NAME#donut` | unverified | — | — | — |
-| `union:SHAPE_NAME#doubleWave` | unverified | — | — | — |
-| `union:SHAPE_NAME#ellipse` | unverified | — | — | — |
-| `union:SHAPE_NAME#ellipseRibbon` | unverified | — | — | — |
-| `union:SHAPE_NAME#ellipseRibbon2` | unverified | — | — | — |
-| `union:SHAPE_NAME#folderCorner` | unverified | — | — | — |
-| `union:SHAPE_NAME#frame` | unverified | — | — | — |
-| `union:SHAPE_NAME#funnel` | unverified | — | — | — |
-| `union:SHAPE_NAME#gear6` | unverified | — | — | — |
-| `union:SHAPE_NAME#gear9` | unverified | — | — | — |
-| `union:SHAPE_NAME#halfFrame` | unverified | — | — | — |
-| `union:SHAPE_NAME#heart` | unverified | — | — | — |
-| `union:SHAPE_NAME#heptagon` | unverified | — | — | — |
-| `union:SHAPE_NAME#hexagon` | unverified | — | — | — |
-| `union:SHAPE_NAME#homePlate` | unverified | — | — | — |
-| `union:SHAPE_NAME#horizontalScroll` | unverified | — | — | — |
-| `union:SHAPE_NAME#irregularSeal1` | unverified | — | — | — |
-| `union:SHAPE_NAME#irregularSeal2` | unverified | — | — | — |
-| `union:SHAPE_NAME#leftBrace` | unverified | — | — | — |
-| `union:SHAPE_NAME#leftBracket` | unverified | — | — | — |
-| `union:SHAPE_NAME#leftRightRibbon` | unverified | — | — | — |
-| `union:SHAPE_NAME#lightningBolt` | unverified | — | — | — |
-| `union:SHAPE_NAME#line` | unverified | — | — | — |
-| `union:SHAPE_NAME#lineInv` | unverified | — | — | — |
-| `union:SHAPE_NAME#mathDivide` | unverified | — | — | — |
-| `union:SHAPE_NAME#mathEqual` | unverified | — | — | — |
-| `union:SHAPE_NAME#mathMinus` | unverified | — | — | — |
-| `union:SHAPE_NAME#mathMultiply` | unverified | — | — | — |
-| `union:SHAPE_NAME#mathNotEqual` | unverified | — | — | — |
-| `union:SHAPE_NAME#mathPlus` | unverified | — | — | — |
-| `union:SHAPE_NAME#moon` | unverified | — | — | — |
-| `union:SHAPE_NAME#noSmoking` | unverified | — | — | — |
-| `union:SHAPE_NAME#nonIsoscelesTrapezoid` | unverified | — | — | — |
-| `union:SHAPE_NAME#octagon` | unverified | — | — | — |
-| `union:SHAPE_NAME#parallelogram` | unverified | — | — | — |
-| `union:SHAPE_NAME#pentagon` | unverified | — | — | — |
-| `union:SHAPE_NAME#pie` | unverified | — | — | — |
-| `union:SHAPE_NAME#pieWedge` | unverified | — | — | — |
-| `union:SHAPE_NAME#plaque` | unverified | — | — | — |
-| `union:SHAPE_NAME#plaqueTabs` | unverified | — | — | — |
-| `union:SHAPE_NAME#plus` | unverified | — | — | — |
-| `union:SHAPE_NAME#rect` | unverified | — | — | — |
-| `union:SHAPE_NAME#ribbon` | unverified | — | — | — |
-| `union:SHAPE_NAME#ribbon2` | unverified | — | — | — |
-| `union:SHAPE_NAME#rightBrace` | unverified | — | — | — |
-| `union:SHAPE_NAME#rightBracket` | unverified | — | — | — |
-| `union:SHAPE_NAME#round1Rect` | unverified | — | — | — |
-| `union:SHAPE_NAME#round2DiagRect` | unverified | — | — | — |
-| `union:SHAPE_NAME#round2SameRect` | unverified | — | — | — |
-| `union:SHAPE_NAME#roundRect` | unverified | — | — | — |
-| `union:SHAPE_NAME#rtTriangle` | unverified | — | — | — |
-| `union:SHAPE_NAME#smileyFace` | unverified | — | — | — |
-| `union:SHAPE_NAME#snip1Rect` | unverified | — | — | — |
-| `union:SHAPE_NAME#snip2DiagRect` | unverified | — | — | — |
-| `union:SHAPE_NAME#snip2SameRect` | unverified | — | — | — |
-| `union:SHAPE_NAME#snipRoundRect` | unverified | — | — | — |
-| `union:SHAPE_NAME#squareTabs` | unverified | — | — | — |
-| `union:SHAPE_NAME#star10` | unverified | — | — | — |
-| `union:SHAPE_NAME#star12` | unverified | — | — | — |
-| `union:SHAPE_NAME#star16` | unverified | — | — | — |
-| `union:SHAPE_NAME#star24` | unverified | — | — | — |
-| `union:SHAPE_NAME#star32` | unverified | — | — | — |
-| `union:SHAPE_NAME#star4` | unverified | — | — | — |
-| `union:SHAPE_NAME#star5` | unverified | — | — | — |
-| `union:SHAPE_NAME#star6` | unverified | — | — | — |
-| `union:SHAPE_NAME#star7` | unverified | — | — | — |
-| `union:SHAPE_NAME#star8` | unverified | — | — | — |
-| `union:SHAPE_NAME#sun` | unverified | — | — | — |
-| `union:SHAPE_NAME#teardrop` | unverified | — | — | — |
-| `union:SHAPE_NAME#trapezoid` | unverified | — | — | — |
-| `union:SHAPE_NAME#triangle` | unverified | — | — | — |
-| `union:SHAPE_NAME#verticalScroll` | unverified | — | — | — |
-| `union:SHAPE_NAME#wave` | unverified | — | — | — |
-| `union:SHAPE_NAME#wedgeEllipseCallout` | unverified | — | — | — |
-| `union:SHAPE_NAME#wedgeRectCallout` | unverified | — | — | — |
-| `union:SHAPE_NAME#wedgeRoundRectCallout` | unverified | — | — | — |
-| `union:ShapeType#accentBorderCallout1` | unverified | — | — | — |
-| `union:ShapeType#accentBorderCallout2` | unverified | — | — | — |
-| `union:ShapeType#accentBorderCallout3` | unverified | — | — | — |
-| `union:ShapeType#accentCallout1` | unverified | — | — | — |
-| `union:ShapeType#accentCallout2` | unverified | — | — | — |
-| `union:ShapeType#accentCallout3` | unverified | — | — | — |
-| `union:ShapeType#actionButtonBackPrevious` | unverified | — | — | — |
-| `union:ShapeType#actionButtonBeginning` | unverified | — | — | — |
-| `union:ShapeType#actionButtonBlank` | unverified | — | — | — |
-| `union:ShapeType#actionButtonDocument` | unverified | — | — | — |
-| `union:ShapeType#actionButtonEnd` | unverified | — | — | — |
-| `union:ShapeType#actionButtonForwardNext` | unverified | — | — | — |
-| `union:ShapeType#actionButtonHelp` | unverified | — | — | — |
-| `union:ShapeType#actionButtonHome` | unverified | — | — | — |
-| `union:ShapeType#actionButtonInformation` | unverified | — | — | — |
-| `union:ShapeType#actionButtonMovie` | unverified | — | — | — |
-| `union:ShapeType#actionButtonReturn` | unverified | — | — | — |
-| `union:ShapeType#actionButtonSound` | unverified | — | — | — |
-| `union:ShapeType#arc` | unverified | — | — | — |
-| `union:ShapeType#bevel` | unverified | — | — | — |
-| `union:ShapeType#blockArc` | unverified | — | — | — |
-| `union:ShapeType#borderCallout1` | unverified | — | — | — |
-| `union:ShapeType#borderCallout2` | unverified | — | — | — |
-| `union:ShapeType#borderCallout3` | unverified | — | — | — |
-| `union:ShapeType#bracePair` | unverified | — | — | — |
-| `union:ShapeType#bracketPair` | unverified | — | — | — |
-| `union:ShapeType#callout1` | unverified | — | — | — |
-| `union:ShapeType#callout2` | unverified | — | — | — |
-| `union:ShapeType#callout3` | unverified | — | — | — |
-| `union:ShapeType#can` | unverified | — | — | — |
-| `union:ShapeType#chevron` | unverified | — | — | — |
-| `union:ShapeType#chord` | unverified | — | — | — |
-| `union:ShapeType#cloud` | unverified | — | — | — |
-| `union:ShapeType#cloudCallout` | unverified | — | — | — |
-| `union:ShapeType#corner` | unverified | — | — | — |
-| `union:ShapeType#cornerTabs` | unverified | — | — | — |
-| `union:ShapeType#cube` | unverified | — | — | — |
-| `union:ShapeType#decagon` | unverified | — | — | — |
-| `union:ShapeType#diagStripe` | unverified | — | — | — |
-| `union:ShapeType#diamond` | unverified | — | — | — |
-| `union:ShapeType#dodecagon` | unverified | — | — | — |
-| `union:ShapeType#donut` | unverified | — | — | — |
-| `union:ShapeType#doubleWave` | unverified | — | — | — |
-| `union:ShapeType#ellipse` | unverified | — | — | — |
-| `union:ShapeType#ellipseRibbon` | unverified | — | — | — |
-| `union:ShapeType#ellipseRibbon2` | unverified | — | — | — |
-| `union:ShapeType#folderCorner` | unverified | — | — | — |
-| `union:ShapeType#frame` | unverified | — | — | — |
-| `union:ShapeType#funnel` | unverified | — | — | — |
-| `union:ShapeType#gear6` | unverified | — | — | — |
-| `union:ShapeType#gear9` | unverified | — | — | — |
-| `union:ShapeType#halfFrame` | unverified | — | — | — |
-| `union:ShapeType#heart` | unverified | — | — | — |
-| `union:ShapeType#heptagon` | unverified | — | — | — |
-| `union:ShapeType#hexagon` | unverified | — | — | — |
-| `union:ShapeType#homePlate` | unverified | — | — | — |
-| `union:ShapeType#horizontalScroll` | unverified | — | — | — |
-| `union:ShapeType#irregularSeal1` | unverified | — | — | — |
-| `union:ShapeType#irregularSeal2` | unverified | — | — | — |
-| `union:ShapeType#leftBrace` | unverified | — | — | — |
-| `union:ShapeType#leftBracket` | unverified | — | — | — |
-| `union:ShapeType#leftRightRibbon` | unverified | — | — | — |
-| `union:ShapeType#lightningBolt` | unverified | — | — | — |
-| `union:ShapeType#line` | unverified | — | — | — |
-| `union:ShapeType#lineInv` | unverified | — | — | — |
-| `union:ShapeType#mathDivide` | unverified | — | — | — |
-| `union:ShapeType#mathEqual` | unverified | — | — | — |
-| `union:ShapeType#mathMinus` | unverified | — | — | — |
-| `union:ShapeType#mathMultiply` | unverified | — | — | — |
-| `union:ShapeType#mathNotEqual` | unverified | — | — | — |
-| `union:ShapeType#mathPlus` | unverified | — | — | — |
-| `union:ShapeType#moon` | unverified | — | — | — |
-| `union:ShapeType#noSmoking` | unverified | — | — | — |
-| `union:ShapeType#nonIsoscelesTrapezoid` | unverified | — | — | — |
-| `union:ShapeType#octagon` | unverified | — | — | — |
-| `union:ShapeType#parallelogram` | unverified | — | — | — |
-| `union:ShapeType#pentagon` | unverified | — | — | — |
-| `union:ShapeType#pie` | unverified | — | — | — |
-| `union:ShapeType#pieWedge` | unverified | — | — | — |
-| `union:ShapeType#plaque` | unverified | — | — | — |
-| `union:ShapeType#plaqueTabs` | unverified | — | — | — |
-| `union:ShapeType#plus` | unverified | — | — | — |
-| `union:ShapeType#rect` | unverified | — | — | — |
-| `union:ShapeType#ribbon` | unverified | — | — | — |
-| `union:ShapeType#ribbon2` | unverified | — | — | — |
-| `union:ShapeType#rightBrace` | unverified | — | — | — |
-| `union:ShapeType#rightBracket` | unverified | — | — | — |
-| `union:ShapeType#round1Rect` | unverified | — | — | — |
-| `union:ShapeType#round2DiagRect` | unverified | — | — | — |
-| `union:ShapeType#round2SameRect` | unverified | — | — | — |
-| `union:ShapeType#roundRect` | unverified | — | — | — |
-| `union:ShapeType#rtTriangle` | unverified | — | — | — |
-| `union:ShapeType#smileyFace` | unverified | — | — | — |
-| `union:ShapeType#snip1Rect` | unverified | — | — | — |
-| `union:ShapeType#snip2DiagRect` | unverified | — | — | — |
-| `union:ShapeType#snip2SameRect` | unverified | — | — | — |
-| `union:ShapeType#snipRoundRect` | unverified | — | — | — |
-| `union:ShapeType#squareTabs` | unverified | — | — | — |
-| `union:ShapeType#star10` | unverified | — | — | — |
-| `union:ShapeType#star12` | unverified | — | — | — |
-| `union:ShapeType#star16` | unverified | — | — | — |
-| `union:ShapeType#star24` | unverified | — | — | — |
-| `union:ShapeType#star32` | unverified | — | — | — |
-| `union:ShapeType#star4` | unverified | — | — | — |
-| `union:ShapeType#star5` | unverified | — | — | — |
-| `union:ShapeType#star6` | unverified | — | — | — |
-| `union:ShapeType#star7` | unverified | — | — | — |
-| `union:ShapeType#star8` | unverified | — | — | — |
-| `union:ShapeType#sun` | unverified | — | — | — |
-| `union:ShapeType#teardrop` | unverified | — | — | — |
-| `union:ShapeType#trapezoid` | unverified | — | — | — |
-| `union:ShapeType#triangle` | unverified | — | — | — |
-| `union:ShapeType#verticalScroll` | unverified | — | — | — |
-| `union:ShapeType#wave` | unverified | — | — | — |
-| `union:ShapeType#wedgeEllipseCallout` | unverified | — | — | — |
-| `union:ShapeType#wedgeRectCallout` | unverified | — | — | — |
-| `union:ShapeType#wedgeRoundRectCallout` | unverified | — | — | — |
+| `union:SHAPE_NAME#accentBorderCallout1` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#accentBorderCallout2` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#accentBorderCallout3` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#accentCallout1` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#accentCallout2` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#accentCallout3` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#actionButtonBackPrevious` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#actionButtonBeginning` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#actionButtonBlank` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#actionButtonDocument` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#actionButtonEnd` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#actionButtonForwardNext` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#actionButtonHelp` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#actionButtonHome` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#actionButtonInformation` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#actionButtonMovie` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#actionButtonReturn` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#actionButtonSound` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#arc` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#bevel` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#blockArc` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#borderCallout1` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#borderCallout2` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#borderCallout3` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#bracePair` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#bracketPair` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#callout1` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#callout2` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#callout3` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#can` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#chevron` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#chord` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#cloud` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#cloudCallout` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#corner` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#cornerTabs` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#cube` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#decagon` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#diagStripe` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#diamond` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#dodecagon` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#donut` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#doubleWave` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#ellipse` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#ellipseRibbon` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#ellipseRibbon2` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#folderCorner` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 exposes folderCorner but writes an invalid preset token; native rejects it and exposes the valid OOXML foldedCorner token instead. |
+| `union:SHAPE_NAME#frame` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#funnel` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#gear6` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#gear9` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#halfFrame` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#heart` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#heptagon` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#hexagon` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#homePlate` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#horizontalScroll` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#irregularSeal1` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#irregularSeal2` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#leftBrace` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#leftBracket` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#leftRightRibbon` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#lightningBolt` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#line` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#lineInv` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#mathDivide` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#mathEqual` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#mathMinus` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#mathMultiply` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#mathNotEqual` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#mathPlus` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#moon` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#noSmoking` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#nonIsoscelesTrapezoid` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#octagon` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#parallelogram` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#pentagon` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#pie` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#pieWedge` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#plaque` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#plaqueTabs` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#plus` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#rect` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#ribbon` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#ribbon2` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#rightBrace` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#rightBracket` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#round1Rect` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#round2DiagRect` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#round2SameRect` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#roundRect` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#rtTriangle` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#smileyFace` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#snip1Rect` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#snip2DiagRect` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#snip2SameRect` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#snipRoundRect` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#squareTabs` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#star10` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#star12` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#star16` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#star24` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#star32` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#star4` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#star5` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#star6` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#star7` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#star8` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#sun` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#teardrop` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#trapezoid` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#triangle` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#verticalScroll` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#wave` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#wedgeEllipseCallout` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#wedgeRectCallout` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#wedgeRoundRectCallout` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#accentBorderCallout1` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#accentBorderCallout2` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#accentBorderCallout3` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#accentCallout1` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#accentCallout2` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#accentCallout3` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#actionButtonBackPrevious` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#actionButtonBeginning` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#actionButtonBlank` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#actionButtonDocument` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#actionButtonEnd` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#actionButtonForwardNext` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#actionButtonHelp` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#actionButtonHome` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#actionButtonInformation` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#actionButtonMovie` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#actionButtonReturn` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#actionButtonSound` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#arc` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#bevel` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#blockArc` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#borderCallout1` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#borderCallout2` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#borderCallout3` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#bracePair` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#bracketPair` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#callout1` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#callout2` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#callout3` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#can` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#chevron` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#chord` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#cloud` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#cloudCallout` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#corner` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#cornerTabs` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#cube` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#decagon` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#diagStripe` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#diamond` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#dodecagon` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#donut` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#doubleWave` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#ellipse` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#ellipseRibbon` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#ellipseRibbon2` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#folderCorner` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 exposes folderCorner but writes an invalid preset token; native rejects it and exposes the valid OOXML foldedCorner token instead. |
+| `union:ShapeType#frame` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#funnel` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#gear6` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#gear9` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#halfFrame` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#heart` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#heptagon` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#hexagon` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#homePlate` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#horizontalScroll` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#irregularSeal1` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#irregularSeal2` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#leftBrace` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#leftBracket` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#leftRightRibbon` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#lightningBolt` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#line` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#lineInv` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#mathDivide` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#mathEqual` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#mathMinus` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#mathMultiply` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#mathNotEqual` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#mathPlus` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#moon` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#noSmoking` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#nonIsoscelesTrapezoid` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#octagon` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#parallelogram` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#pentagon` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#pie` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#pieWedge` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#plaque` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#plaqueTabs` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#plus` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#rect` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#ribbon` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#ribbon2` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#rightBrace` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#rightBracket` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#round1Rect` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#round2DiagRect` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#round2SameRect` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#roundRect` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#rtTriangle` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#smileyFace` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#snip1Rect` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#snip2DiagRect` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#snip2SameRect` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#snipRoundRect` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#squareTabs` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#star10` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#star12` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#star16` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#star24` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#star32` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#star4` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#star5` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#star6` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#star7` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#star8` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#sun` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#teardrop` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#trapezoid` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#triangle` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#verticalScroll` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#wave` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#wedgeEllipseCallout` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#wedgeRectCallout` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#wedgeRoundRectCallout` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
 | `union:interface:ShadowProps@property:type#inner` | unverified | — | — | — |
 | `union:interface:ShadowProps@property:type#none` | unverified | — | — | — |
 | `union:interface:ShadowProps@property:type#outer` | unverified | — | — | — |
@@ -2791,68 +2377,68 @@ None.
 | `union:ChartType#pie` | unverified | — | — | — |
 | `union:ChartType#radar` | unverified | — | — | — |
 | `union:ChartType#scatter` | unverified | — | — | — |
-| `union:SHAPE_NAME#chartPlus` | unverified | — | — | — |
-| `union:SHAPE_NAME#chartStar` | unverified | — | — | — |
-| `union:SHAPE_NAME#chartX` | unverified | — | — | — |
-| `union:SHAPE_NAME#flowChartAlternateProcess` | unverified | — | — | — |
-| `union:SHAPE_NAME#flowChartCollate` | unverified | — | — | — |
-| `union:SHAPE_NAME#flowChartConnector` | unverified | — | — | — |
-| `union:SHAPE_NAME#flowChartDecision` | unverified | — | — | — |
-| `union:SHAPE_NAME#flowChartDelay` | unverified | — | — | — |
-| `union:SHAPE_NAME#flowChartDisplay` | unverified | — | — | — |
-| `union:SHAPE_NAME#flowChartDocument` | unverified | — | — | — |
-| `union:SHAPE_NAME#flowChartExtract` | unverified | — | — | — |
-| `union:SHAPE_NAME#flowChartInternalStorage` | unverified | — | — | — |
-| `union:SHAPE_NAME#flowChartMagneticDisk` | unverified | — | — | — |
-| `union:SHAPE_NAME#flowChartMagneticDrum` | unverified | — | — | — |
-| `union:SHAPE_NAME#flowChartMagneticTape` | unverified | — | — | — |
-| `union:SHAPE_NAME#flowChartManualInput` | unverified | — | — | — |
-| `union:SHAPE_NAME#flowChartManualOperation` | unverified | — | — | — |
-| `union:SHAPE_NAME#flowChartMerge` | unverified | — | — | — |
-| `union:SHAPE_NAME#flowChartMultidocument` | unverified | — | — | — |
-| `union:SHAPE_NAME#flowChartOfflineStorage` | unverified | — | — | — |
-| `union:SHAPE_NAME#flowChartOffpageConnector` | unverified | — | — | — |
-| `union:SHAPE_NAME#flowChartOnlineStorage` | unverified | — | — | — |
-| `union:SHAPE_NAME#flowChartOr` | unverified | — | — | — |
-| `union:SHAPE_NAME#flowChartPredefinedProcess` | unverified | — | — | — |
-| `union:SHAPE_NAME#flowChartPreparation` | unverified | — | — | — |
-| `union:SHAPE_NAME#flowChartProcess` | unverified | — | — | — |
-| `union:SHAPE_NAME#flowChartPunchedCard` | unverified | — | — | — |
-| `union:SHAPE_NAME#flowChartPunchedTape` | unverified | — | — | — |
-| `union:SHAPE_NAME#flowChartSort` | unverified | — | — | — |
-| `union:SHAPE_NAME#flowChartSummingJunction` | unverified | — | — | — |
-| `union:SHAPE_NAME#flowChartTerminator` | unverified | — | — | — |
-| `union:ShapeType#chartPlus` | unverified | — | — | — |
-| `union:ShapeType#chartStar` | unverified | — | — | — |
-| `union:ShapeType#chartX` | unverified | — | — | — |
-| `union:ShapeType#flowChartAlternateProcess` | unverified | — | — | — |
-| `union:ShapeType#flowChartCollate` | unverified | — | — | — |
-| `union:ShapeType#flowChartConnector` | unverified | — | — | — |
-| `union:ShapeType#flowChartDecision` | unverified | — | — | — |
-| `union:ShapeType#flowChartDelay` | unverified | — | — | — |
-| `union:ShapeType#flowChartDisplay` | unverified | — | — | — |
-| `union:ShapeType#flowChartDocument` | unverified | — | — | — |
-| `union:ShapeType#flowChartExtract` | unverified | — | — | — |
-| `union:ShapeType#flowChartInternalStorage` | unverified | — | — | — |
-| `union:ShapeType#flowChartMagneticDisk` | unverified | — | — | — |
-| `union:ShapeType#flowChartMagneticDrum` | unverified | — | — | — |
-| `union:ShapeType#flowChartMagneticTape` | unverified | — | — | — |
-| `union:ShapeType#flowChartManualInput` | unverified | — | — | — |
-| `union:ShapeType#flowChartManualOperation` | unverified | — | — | — |
-| `union:ShapeType#flowChartMerge` | unverified | — | — | — |
-| `union:ShapeType#flowChartMultidocument` | unverified | — | — | — |
-| `union:ShapeType#flowChartOfflineStorage` | unverified | — | — | — |
-| `union:ShapeType#flowChartOffpageConnector` | unverified | — | — | — |
-| `union:ShapeType#flowChartOnlineStorage` | unverified | — | — | — |
-| `union:ShapeType#flowChartOr` | unverified | — | — | — |
-| `union:ShapeType#flowChartPredefinedProcess` | unverified | — | — | — |
-| `union:ShapeType#flowChartPreparation` | unverified | — | — | — |
-| `union:ShapeType#flowChartProcess` | unverified | — | — | — |
-| `union:ShapeType#flowChartPunchedCard` | unverified | — | — | — |
-| `union:ShapeType#flowChartPunchedTape` | unverified | — | — | — |
-| `union:ShapeType#flowChartSort` | unverified | — | — | — |
-| `union:ShapeType#flowChartSummingJunction` | unverified | — | — | — |
-| `union:ShapeType#flowChartTerminator` | unverified | — | — | — |
+| `union:SHAPE_NAME#chartPlus` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#chartStar` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#chartX` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#flowChartAlternateProcess` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#flowChartCollate` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#flowChartConnector` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#flowChartDecision` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#flowChartDelay` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#flowChartDisplay` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#flowChartDocument` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#flowChartExtract` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#flowChartInternalStorage` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#flowChartMagneticDisk` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#flowChartMagneticDrum` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#flowChartMagneticTape` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#flowChartManualInput` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#flowChartManualOperation` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#flowChartMerge` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#flowChartMultidocument` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#flowChartOfflineStorage` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#flowChartOffpageConnector` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#flowChartOnlineStorage` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#flowChartOr` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#flowChartPredefinedProcess` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#flowChartPreparation` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#flowChartProcess` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#flowChartPunchedCard` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#flowChartPunchedTape` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#flowChartSort` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#flowChartSummingJunction` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#flowChartTerminator` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#chartPlus` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#chartStar` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#chartX` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#flowChartAlternateProcess` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#flowChartCollate` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#flowChartConnector` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#flowChartDecision` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#flowChartDelay` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#flowChartDisplay` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#flowChartDocument` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#flowChartExtract` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#flowChartInternalStorage` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#flowChartMagneticDisk` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#flowChartMagneticDrum` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#flowChartMagneticTape` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#flowChartManualInput` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#flowChartManualOperation` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#flowChartMerge` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#flowChartMultidocument` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#flowChartOfflineStorage` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#flowChartOffpageConnector` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#flowChartOnlineStorage` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#flowChartOr` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#flowChartPredefinedProcess` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#flowChartPreparation` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#flowChartProcess` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#flowChartPunchedCard` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#flowChartPunchedTape` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#flowChartSort` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#flowChartSummingJunction` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#flowChartTerminator` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
 | `union:interface:IChartOpts@property:axisPos#b` | unverified | — | — | — |
 | `union:interface:IChartOpts@property:axisPos#l` | unverified | — | — | — |
 | `union:interface:IChartOpts@property:axisPos#r` | unverified | — | — | — |
@@ -3159,64 +2745,64 @@ None.
 | `interface:TableToSlidesProps@property:x` | unverified | — | — | — |
 | `interface:TableToSlidesProps@property:y` | unverified | — | — | — |
 | `method:Slide#addTable` | unverified | — | — | — |
-| `union:SHAPE_NAME#bentArrow` | unverified | — | — | — |
-| `union:SHAPE_NAME#bentUpArrow` | unverified | — | — | — |
-| `union:SHAPE_NAME#circularArrow` | unverified | — | — | — |
-| `union:SHAPE_NAME#curvedDownArrow` | unverified | — | — | — |
-| `union:SHAPE_NAME#curvedLeftArrow` | unverified | — | — | — |
-| `union:SHAPE_NAME#curvedRightArrow` | unverified | — | — | — |
-| `union:SHAPE_NAME#curvedUpArrow` | unverified | — | — | — |
-| `union:SHAPE_NAME#downArrow` | unverified | — | — | — |
-| `union:SHAPE_NAME#downArrowCallout` | unverified | — | — | — |
-| `union:SHAPE_NAME#leftArrow` | unverified | — | — | — |
-| `union:SHAPE_NAME#leftArrowCallout` | unverified | — | — | — |
-| `union:SHAPE_NAME#leftCircularArrow` | unverified | — | — | — |
-| `union:SHAPE_NAME#leftRightArrow` | unverified | — | — | — |
-| `union:SHAPE_NAME#leftRightArrowCallout` | unverified | — | — | — |
-| `union:SHAPE_NAME#leftRightCircularArrow` | unverified | — | — | — |
-| `union:SHAPE_NAME#leftRightUpArrow` | unverified | — | — | — |
-| `union:SHAPE_NAME#leftUpArrow` | unverified | — | — | — |
-| `union:SHAPE_NAME#notchedRightArrow` | unverified | — | — | — |
-| `union:SHAPE_NAME#quadArrow` | unverified | — | — | — |
-| `union:SHAPE_NAME#quadArrowCallout` | unverified | — | — | — |
-| `union:SHAPE_NAME#rightArrow` | unverified | — | — | — |
-| `union:SHAPE_NAME#rightArrowCallout` | unverified | — | — | — |
-| `union:SHAPE_NAME#stripedRightArrow` | unverified | — | — | — |
-| `union:SHAPE_NAME#swooshArrow` | unverified | — | — | — |
-| `union:SHAPE_NAME#upArrow` | unverified | — | — | — |
-| `union:SHAPE_NAME#upArrowCallout` | unverified | — | — | — |
-| `union:SHAPE_NAME#upDownArrow` | unverified | — | — | — |
-| `union:SHAPE_NAME#upDownArrowCallout` | unverified | — | — | — |
-| `union:SHAPE_NAME#uturnArrow` | unverified | — | — | — |
-| `union:ShapeType#bentArrow` | unverified | — | — | — |
-| `union:ShapeType#bentUpArrow` | unverified | — | — | — |
-| `union:ShapeType#circularArrow` | unverified | — | — | — |
-| `union:ShapeType#curvedDownArrow` | unverified | — | — | — |
-| `union:ShapeType#curvedLeftArrow` | unverified | — | — | — |
-| `union:ShapeType#curvedRightArrow` | unverified | — | — | — |
-| `union:ShapeType#curvedUpArrow` | unverified | — | — | — |
-| `union:ShapeType#downArrow` | unverified | — | — | — |
-| `union:ShapeType#downArrowCallout` | unverified | — | — | — |
-| `union:ShapeType#leftArrow` | unverified | — | — | — |
-| `union:ShapeType#leftArrowCallout` | unverified | — | — | — |
-| `union:ShapeType#leftCircularArrow` | unverified | — | — | — |
-| `union:ShapeType#leftRightArrow` | unverified | — | — | — |
-| `union:ShapeType#leftRightArrowCallout` | unverified | — | — | — |
-| `union:ShapeType#leftRightCircularArrow` | unverified | — | — | — |
-| `union:ShapeType#leftRightUpArrow` | unverified | — | — | — |
-| `union:ShapeType#leftUpArrow` | unverified | — | — | — |
-| `union:ShapeType#notchedRightArrow` | unverified | — | — | — |
-| `union:ShapeType#quadArrow` | unverified | — | — | — |
-| `union:ShapeType#quadArrowCallout` | unverified | — | — | — |
-| `union:ShapeType#rightArrow` | unverified | — | — | — |
-| `union:ShapeType#rightArrowCallout` | unverified | — | — | — |
-| `union:ShapeType#stripedRightArrow` | unverified | — | — | — |
-| `union:ShapeType#swooshArrow` | unverified | — | — | — |
-| `union:ShapeType#upArrow` | unverified | — | — | — |
-| `union:ShapeType#upArrowCallout` | unverified | — | — | — |
-| `union:ShapeType#upDownArrow` | unverified | — | — | — |
-| `union:ShapeType#upDownArrowCallout` | unverified | — | — | — |
-| `union:ShapeType#uturnArrow` | unverified | — | — | — |
+| `union:SHAPE_NAME#bentArrow` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#bentUpArrow` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#circularArrow` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#curvedDownArrow` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#curvedLeftArrow` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#curvedRightArrow` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#curvedUpArrow` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#downArrow` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#downArrowCallout` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#leftArrow` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#leftArrowCallout` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#leftCircularArrow` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#leftRightArrow` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#leftRightArrowCallout` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#leftRightCircularArrow` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#leftRightUpArrow` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#leftUpArrow` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#notchedRightArrow` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#quadArrow` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#quadArrowCallout` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#rightArrow` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#rightArrowCallout` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#stripedRightArrow` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#swooshArrow` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#upArrow` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#upArrowCallout` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#upDownArrow` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#upDownArrowCallout` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:SHAPE_NAME#uturnArrow` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#bentArrow` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#bentUpArrow` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#circularArrow` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#curvedDownArrow` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#curvedLeftArrow` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#curvedRightArrow` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#curvedUpArrow` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#downArrow` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#downArrowCallout` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#leftArrow` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#leftArrowCallout` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#leftCircularArrow` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#leftRightArrow` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#leftRightArrowCallout` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#leftRightCircularArrow` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#leftRightUpArrow` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#leftUpArrow` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#notchedRightArrow` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#quadArrow` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#quadArrowCallout` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#rightArrow` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#rightArrowCallout` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#stripedRightArrow` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#swooshArrow` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#upArrow` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#upArrowCallout` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#upDownArrow` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#upDownArrowCallout` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#uturnArrow` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
 | `union:interface:ShapeLineProps@property:beginArrowType#arrow` | unverified | — | — | — |
 | `union:interface:ShapeLineProps@property:beginArrowType#diamond` | unverified | — | — | — |
 | `union:interface:ShapeLineProps@property:beginArrowType#none` | unverified | — | — | — |
@@ -3452,28 +3038,28 @@ None.
 | `interface:ThemeProps@property:bodyFontFace` | unverified | — | — | — |
 | `interface:ThemeProps@property:headFontFace` | unverified | — | — | — |
 | `union:Color#ThemeColor` | unverified | — | — | — |
-| `union:PLACEHOLDER_TYPE#body` | unverified | — | — | — |
-| `union:PLACEHOLDER_TYPE#chart` | unverified | — | — | — |
-| `union:PLACEHOLDER_TYPE#media` | unverified | — | — | — |
-| `union:PLACEHOLDER_TYPE#pic` | unverified | — | — | — |
-| `union:PLACEHOLDER_TYPE#tbl` | unverified | — | — | — |
-| `union:PLACEHOLDER_TYPE#title` | unverified | — | — | — |
-| `union:PLACEHOLDER_TYPES#body` | unverified | — | — | — |
-| `union:PLACEHOLDER_TYPES#chart` | unverified | — | — | — |
-| `union:PLACEHOLDER_TYPES#media` | unverified | — | — | — |
-| `union:PLACEHOLDER_TYPES#pic` | unverified | — | — | — |
-| `union:PLACEHOLDER_TYPES#tbl` | unverified | — | — | — |
-| `union:PLACEHOLDER_TYPES#title` | unverified | — | — | — |
-| `union:ThemeColor#accent1` | unverified | — | — | — |
-| `union:ThemeColor#accent2` | unverified | — | — | — |
-| `union:ThemeColor#accent3` | unverified | — | — | — |
-| `union:ThemeColor#accent4` | unverified | — | — | — |
-| `union:ThemeColor#accent5` | unverified | — | — | — |
-| `union:ThemeColor#accent6` | unverified | — | — | — |
-| `union:ThemeColor#bg1` | unverified | — | — | — |
-| `union:ThemeColor#bg2` | unverified | — | — | — |
-| `union:ThemeColor#tx1` | unverified | — | — | — |
-| `union:ThemeColor#tx2` | unverified | — | — | — |
+| `union:PLACEHOLDER_TYPE#body` | supported | PLACEHOLDER_TYPES<br>PlaceholderType<br>SlideModel.addPlaceholder | code:packages/model/src/placeholder.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same placeholder type. |
+| `union:PLACEHOLDER_TYPE#chart` | supported | PLACEHOLDER_TYPES<br>PlaceholderType<br>SlideModel.addPlaceholder | code:packages/model/src/placeholder.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same placeholder type. |
+| `union:PLACEHOLDER_TYPE#media` | supported | PLACEHOLDER_TYPES<br>PlaceholderType<br>SlideModel.addPlaceholder | code:packages/model/src/placeholder.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same placeholder type. |
+| `union:PLACEHOLDER_TYPE#pic` | supported | PLACEHOLDER_TYPES<br>PlaceholderType<br>SlideModel.addPlaceholder | code:packages/model/src/placeholder.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same placeholder type. |
+| `union:PLACEHOLDER_TYPE#tbl` | supported | PLACEHOLDER_TYPES<br>PlaceholderType<br>SlideModel.addPlaceholder | code:packages/model/src/placeholder.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same placeholder type. |
+| `union:PLACEHOLDER_TYPE#title` | supported | PLACEHOLDER_TYPES<br>PlaceholderType<br>SlideModel.addPlaceholder | code:packages/model/src/placeholder.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same placeholder type. |
+| `union:PLACEHOLDER_TYPES#body` | supported | PLACEHOLDER_TYPES<br>PlaceholderType<br>SlideModel.addPlaceholder | code:packages/model/src/placeholder.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same placeholder type. |
+| `union:PLACEHOLDER_TYPES#chart` | supported | PLACEHOLDER_TYPES<br>PlaceholderType<br>SlideModel.addPlaceholder | code:packages/model/src/placeholder.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same placeholder type. |
+| `union:PLACEHOLDER_TYPES#media` | supported | PLACEHOLDER_TYPES<br>PlaceholderType<br>SlideModel.addPlaceholder | code:packages/model/src/placeholder.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same placeholder type. |
+| `union:PLACEHOLDER_TYPES#pic` | supported | PLACEHOLDER_TYPES<br>PlaceholderType<br>SlideModel.addPlaceholder | code:packages/model/src/placeholder.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same placeholder type. |
+| `union:PLACEHOLDER_TYPES#tbl` | supported | PLACEHOLDER_TYPES<br>PlaceholderType<br>SlideModel.addPlaceholder | code:packages/model/src/placeholder.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same placeholder type. |
+| `union:PLACEHOLDER_TYPES#title` | supported | PLACEHOLDER_TYPES<br>PlaceholderType<br>SlideModel.addPlaceholder | code:packages/model/src/placeholder.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same placeholder type. |
+| `union:ThemeColor#accent1` | supported | SCHEME_COLORS<br>SchemeColor | code:packages/model/src/scheme-color.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/pptxgenjs-adapter/src/index.test.ts | Native exposes the same scheme-color value through its frozen catalog and legal OOXML output. |
+| `union:ThemeColor#accent2` | supported | SCHEME_COLORS<br>SchemeColor | code:packages/model/src/scheme-color.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/pptxgenjs-adapter/src/index.test.ts | Native exposes the same scheme-color value through its frozen catalog and legal OOXML output. |
+| `union:ThemeColor#accent3` | supported | SCHEME_COLORS<br>SchemeColor | code:packages/model/src/scheme-color.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/pptxgenjs-adapter/src/index.test.ts | Native exposes the same scheme-color value through its frozen catalog and legal OOXML output. |
+| `union:ThemeColor#accent4` | supported | SCHEME_COLORS<br>SchemeColor | code:packages/model/src/scheme-color.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/pptxgenjs-adapter/src/index.test.ts | Native exposes the same scheme-color value through its frozen catalog and legal OOXML output. |
+| `union:ThemeColor#accent5` | supported | SCHEME_COLORS<br>SchemeColor | code:packages/model/src/scheme-color.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/pptxgenjs-adapter/src/index.test.ts | Native exposes the same scheme-color value through its frozen catalog and legal OOXML output. |
+| `union:ThemeColor#accent6` | supported | SCHEME_COLORS<br>SchemeColor | code:packages/model/src/scheme-color.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/pptxgenjs-adapter/src/index.test.ts | Native exposes the same scheme-color value through its frozen catalog and legal OOXML output. |
+| `union:ThemeColor#bg1` | supported | SCHEME_COLORS<br>SchemeColor | code:packages/model/src/scheme-color.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/pptxgenjs-adapter/src/index.test.ts | Native exposes the same scheme-color value through its frozen catalog and legal OOXML output. |
+| `union:ThemeColor#bg2` | supported | SCHEME_COLORS<br>SchemeColor | code:packages/model/src/scheme-color.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/pptxgenjs-adapter/src/index.test.ts | Native exposes the same scheme-color value through its frozen catalog and legal OOXML output. |
+| `union:ThemeColor#tx1` | supported | SCHEME_COLORS<br>SchemeColor | code:packages/model/src/scheme-color.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/pptxgenjs-adapter/src/index.test.ts | Native exposes the same scheme-color value through its frozen catalog and legal OOXML output. |
+| `union:ThemeColor#tx2` | supported | SCHEME_COLORS<br>SchemeColor | code:packages/model/src/scheme-color.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/pptxgenjs-adapter/src/index.test.ts | Native exposes the same scheme-color value through its frozen catalog and legal OOXML output. |
 | `union:interface:PlaceholderProps@property:bullet#boolean` | unverified | — | — | — |
 | `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#alphaLcParenBoth` | unverified | — | — | — |
 | `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#alphaLcParenR` | unverified | — | — | — |
@@ -3534,20 +3120,20 @@ None.
 | `interface:WriteFileProps@property:fileName` | unverified | — | — | — |
 | `interface:WriteProps@property:compression` | unverified | — | — | — |
 | `interface:WriteProps@property:outputType` | unverified | — | — | — |
-| `union:JSZIP_OUTPUT_TYPE#arraybuffer` | unverified | — | — | — |
-| `union:JSZIP_OUTPUT_TYPE#base64` | unverified | — | — | — |
-| `union:JSZIP_OUTPUT_TYPE#binarystring` | unverified | — | — | — |
-| `union:JSZIP_OUTPUT_TYPE#blob` | unverified | — | — | — |
-| `union:JSZIP_OUTPUT_TYPE#nodebuffer` | unverified | — | — | — |
-| `union:JSZIP_OUTPUT_TYPE#uint8array` | unverified | — | — | — |
-| `union:OutputType#arraybuffer` | unverified | — | — | — |
-| `union:OutputType#base64` | unverified | — | — | — |
-| `union:OutputType#binarystring` | unverified | — | — | — |
-| `union:OutputType#blob` | unverified | — | — | — |
-| `union:OutputType#nodebuffer` | unverified | — | — | — |
-| `union:OutputType#uint8array` | unverified | — | — | — |
-| `union:SHAPE_NAME#flowChartInputOutput` | unverified | — | — | — |
-| `union:ShapeType#flowChartInputOutput` | unverified | — | — | — |
+| `union:JSZIP_OUTPUT_TYPE#arraybuffer` | supported | OUTPUT_TYPES<br>OutputType<br>PptxDocument.write | code:packages/sdk/src/output-type.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/write-output.test.ts | Native exposes the same output selector and returns the matching representation. |
+| `union:JSZIP_OUTPUT_TYPE#base64` | supported | OUTPUT_TYPES<br>OutputType<br>PptxDocument.write | code:packages/sdk/src/output-type.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/write-output.test.ts | Native exposes the same output selector and returns the matching representation. |
+| `union:JSZIP_OUTPUT_TYPE#binarystring` | supported | OUTPUT_TYPES<br>OutputType<br>PptxDocument.write | code:packages/sdk/src/output-type.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/write-output.test.ts | Native exposes the same output selector and returns the matching representation. |
+| `union:JSZIP_OUTPUT_TYPE#blob` | supported | OUTPUT_TYPES<br>OutputType<br>PptxDocument.write | code:packages/sdk/src/output-type.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/write-output.test.ts | Native exposes the same output selector and returns the matching representation. |
+| `union:JSZIP_OUTPUT_TYPE#nodebuffer` | supported | OUTPUT_TYPES<br>OutputType<br>PptxDocument.write | code:packages/sdk/src/output-type.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/write-output.test.ts | Native exposes the same output selector and returns the matching representation. |
+| `union:JSZIP_OUTPUT_TYPE#uint8array` | supported | OUTPUT_TYPES<br>OutputType<br>PptxDocument.write | code:packages/sdk/src/output-type.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/write-output.test.ts | Native exposes the same output selector and returns the matching representation. |
+| `union:OutputType#arraybuffer` | supported | OUTPUT_TYPES<br>OutputType<br>PptxDocument.write | code:packages/sdk/src/output-type.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/write-output.test.ts | Native exposes the same output selector and returns the matching representation. |
+| `union:OutputType#base64` | supported | OUTPUT_TYPES<br>OutputType<br>PptxDocument.write | code:packages/sdk/src/output-type.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/write-output.test.ts | Native exposes the same output selector and returns the matching representation. |
+| `union:OutputType#binarystring` | supported | OUTPUT_TYPES<br>OutputType<br>PptxDocument.write | code:packages/sdk/src/output-type.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/write-output.test.ts | Native exposes the same output selector and returns the matching representation. |
+| `union:OutputType#blob` | supported | OUTPUT_TYPES<br>OutputType<br>PptxDocument.write | code:packages/sdk/src/output-type.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/write-output.test.ts | Native exposes the same output selector and returns the matching representation. |
+| `union:OutputType#nodebuffer` | supported | OUTPUT_TYPES<br>OutputType<br>PptxDocument.write | code:packages/sdk/src/output-type.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/write-output.test.ts | Native exposes the same output selector and returns the matching representation. |
+| `union:OutputType#uint8array` | supported | OUTPUT_TYPES<br>OutputType<br>PptxDocument.write | code:packages/sdk/src/output-type.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/write-output.test.ts | Native exposes the same output selector and returns the matching representation. |
+| `union:SHAPE_NAME#flowChartInputOutput` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
+| `union:ShapeType#flowChartInputOutput` | supported | PRESET_SHAPE_TYPES<br>PresetShapeType<br>SlideModel.addShape | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes, creates, serializes, and reopens the same legal canonical preset token. |
 | `union:WRITE_OUTPUT_TYPE#JSZIP_OUTPUT_TYPE` | unverified | — | — | — |
 | `union:WRITE_OUTPUT_TYPE#STREAM` | unverified | — | — | — |
 | `union:class:PptxGenJS#stream@path:return#ArrayBuffer` | unverified | — | — | — |
@@ -3576,35 +3162,35 @@ None.
 | `interface:PresSlide@property:color` | unverified | — | — | — |
 | `interface:SectionProps@property:order` | unverified | — | — | — |
 | `interface:SectionProps@property:title` | unverified | — | — | — |
-| `union:AlignH#center` | unverified | — | — | — |
-| `union:AlignH#justify` | unverified | — | — | — |
-| `union:AlignH#left` | unverified | — | — | — |
-| `union:AlignH#right` | unverified | — | — | — |
-| `union:AlignV#bottom` | unverified | — | — | — |
-| `union:AlignV#middle` | unverified | — | — | — |
-| `union:AlignV#top` | unverified | — | — | — |
+| `union:AlignH#center` | supported | TEXT_ALIGNMENTS<br>TextAlignment | code:packages/model/src/text.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes and serializes the same alignment value through its frozen catalog. |
+| `union:AlignH#justify` | supported | TEXT_ALIGNMENTS<br>TextAlignment | code:packages/model/src/text.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes and serializes the same alignment value through its frozen catalog. |
+| `union:AlignH#left` | supported | TEXT_ALIGNMENTS<br>TextAlignment | code:packages/model/src/text.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes and serializes the same alignment value through its frozen catalog. |
+| `union:AlignH#right` | supported | TEXT_ALIGNMENTS<br>TextAlignment | code:packages/model/src/text.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes and serializes the same alignment value through its frozen catalog. |
+| `union:AlignV#bottom` | supported | TEXT_VERTICAL_ALIGNMENTS<br>TextBoxVerticalAlignment | code:packages/model/src/text.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes and serializes the same alignment value through its frozen catalog. |
+| `union:AlignV#middle` | supported | TEXT_VERTICAL_ALIGNMENTS<br>TextBoxVerticalAlignment | code:packages/model/src/text.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes and serializes the same alignment value through its frozen catalog. |
+| `union:AlignV#top` | supported | TEXT_VERTICAL_ALIGNMENTS<br>TextBoxVerticalAlignment | code:packages/model/src/text.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes and serializes the same alignment value through its frozen catalog. |
 | `union:Color#HexColor` | unverified | — | — | — |
 | `union:Coord#${number}%` | unverified | — | — | — |
 | `union:Coord#number` | unverified | — | — | — |
-| `union:HAlign#center` | unverified | — | — | — |
-| `union:HAlign#justify` | unverified | — | — | — |
-| `union:HAlign#left` | unverified | — | — | — |
-| `union:HAlign#right` | unverified | — | — | — |
+| `union:HAlign#center` | supported | TEXT_ALIGNMENTS<br>TextAlignment | code:packages/model/src/text.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes and serializes the same alignment value through its frozen catalog. |
+| `union:HAlign#justify` | supported | TEXT_ALIGNMENTS<br>TextAlignment | code:packages/model/src/text.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes and serializes the same alignment value through its frozen catalog. |
+| `union:HAlign#left` | supported | TEXT_ALIGNMENTS<br>TextAlignment | code:packages/model/src/text.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes and serializes the same alignment value through its frozen catalog. |
+| `union:HAlign#right` | supported | TEXT_ALIGNMENTS<br>TextAlignment | code:packages/model/src/text.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes and serializes the same alignment value through its frozen catalog. |
 | `union:Margin#[number,number,number,number]` | unverified | — | — | — |
 | `union:Margin#number` | unverified | — | — | — |
-| `union:SchemeColor#accent1` | unverified | — | — | — |
-| `union:SchemeColor#accent2` | unverified | — | — | — |
-| `union:SchemeColor#accent3` | unverified | — | — | — |
-| `union:SchemeColor#accent4` | unverified | — | — | — |
-| `union:SchemeColor#accent5` | unverified | — | — | — |
-| `union:SchemeColor#accent6` | unverified | — | — | — |
-| `union:SchemeColor#bg1` | unverified | — | — | — |
-| `union:SchemeColor#bg2` | unverified | — | — | — |
-| `union:SchemeColor#tx1` | unverified | — | — | — |
-| `union:SchemeColor#tx2` | unverified | — | — | — |
-| `union:VAlign#bottom` | unverified | — | — | — |
-| `union:VAlign#middle` | unverified | — | — | — |
-| `union:VAlign#top` | unverified | — | — | — |
+| `union:SchemeColor#accent1` | supported | SCHEME_COLORS<br>SchemeColor | code:packages/model/src/scheme-color.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/pptxgenjs-adapter/src/index.test.ts | Native exposes the same scheme-color value through its frozen catalog and legal OOXML output. |
+| `union:SchemeColor#accent2` | supported | SCHEME_COLORS<br>SchemeColor | code:packages/model/src/scheme-color.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/pptxgenjs-adapter/src/index.test.ts | Native exposes the same scheme-color value through its frozen catalog and legal OOXML output. |
+| `union:SchemeColor#accent3` | supported | SCHEME_COLORS<br>SchemeColor | code:packages/model/src/scheme-color.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/pptxgenjs-adapter/src/index.test.ts | Native exposes the same scheme-color value through its frozen catalog and legal OOXML output. |
+| `union:SchemeColor#accent4` | supported | SCHEME_COLORS<br>SchemeColor | code:packages/model/src/scheme-color.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/pptxgenjs-adapter/src/index.test.ts | Native exposes the same scheme-color value through its frozen catalog and legal OOXML output. |
+| `union:SchemeColor#accent5` | supported | SCHEME_COLORS<br>SchemeColor | code:packages/model/src/scheme-color.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/pptxgenjs-adapter/src/index.test.ts | Native exposes the same scheme-color value through its frozen catalog and legal OOXML output. |
+| `union:SchemeColor#accent6` | supported | SCHEME_COLORS<br>SchemeColor | code:packages/model/src/scheme-color.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/pptxgenjs-adapter/src/index.test.ts | Native exposes the same scheme-color value through its frozen catalog and legal OOXML output. |
+| `union:SchemeColor#bg1` | supported | SCHEME_COLORS<br>SchemeColor | code:packages/model/src/scheme-color.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/pptxgenjs-adapter/src/index.test.ts | Native exposes the same scheme-color value through its frozen catalog and legal OOXML output. |
+| `union:SchemeColor#bg2` | supported | SCHEME_COLORS<br>SchemeColor | code:packages/model/src/scheme-color.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/pptxgenjs-adapter/src/index.test.ts | Native exposes the same scheme-color value through its frozen catalog and legal OOXML output. |
+| `union:SchemeColor#tx1` | supported | SCHEME_COLORS<br>SchemeColor | code:packages/model/src/scheme-color.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/pptxgenjs-adapter/src/index.test.ts | Native exposes the same scheme-color value through its frozen catalog and legal OOXML output. |
+| `union:SchemeColor#tx2` | supported | SCHEME_COLORS<br>SchemeColor | code:packages/model/src/scheme-color.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/pptxgenjs-adapter/src/index.test.ts | Native exposes the same scheme-color value through its frozen catalog and legal OOXML output. |
+| `union:VAlign#bottom` | supported | TEXT_VERTICAL_ALIGNMENTS<br>TextBoxVerticalAlignment | code:packages/model/src/text.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes and serializes the same alignment value through its frozen catalog. |
+| `union:VAlign#middle` | supported | TEXT_VERTICAL_ALIGNMENTS<br>TextBoxVerticalAlignment | code:packages/model/src/text.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes and serializes the same alignment value through its frozen catalog. |
+| `union:VAlign#top` | supported | TEXT_VERTICAL_ALIGNMENTS<br>TextBoxVerticalAlignment | code:packages/model/src/text.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts | Native exposes and serializes the same alignment value through its frozen catalog. |
 | `union:interface:BorderProps@property:type#dash` | unverified | — | — | — |
 | `union:interface:BorderProps@property:type#none` | unverified | — | — | — |
 | `union:interface:BorderProps@property:type#solid` | unverified | — | — | — |
