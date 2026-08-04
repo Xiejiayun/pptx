@@ -20922,184 +20922,604 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks ShadowProps across shape, text, image, and chart owners against PptxGenJS 4.0.1"
+      },
       "declaredIn": "ShadowProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const browserShadowChecks = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textShapeShadowState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/preset-shape.ts",
+            "pattern": "export interface ShapeShadowBase {"
+          },
+          {
+            "path": "packages/model/src/preset-shape.ts",
+            "pattern": "export type ShapeShadow ="
+          },
+          {
+            "path": "packages/model/src/shape-shadow.internal.ts",
+            "pattern": "export function replaceShapeShadow("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates text shadows across slide layout master and placeholder owners"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "supports the shape shadow lifecycle across duplicate, move, rollback, reopen, and all formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeShadows ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const textShapeShadows ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks ShadowProps across shape, text, image, and chart owners against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "compares shape shadow public output and strict native divergences"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "compares text shape shadow public output and strict native divergences"
+          }
+        ]
       },
       "id": "interface:ShadowProps@property:angle",
       "kind": "property",
       "name": "angle",
-      "native": [],
-      "note": "",
+      "native": [
+        "ShapeModel.shadow",
+        "ShapeShadowBase.angle"
+      ],
+      "note": "PptxGenJS shares ShadowProps across owners but varies coercion, defaults, zero handling, inner output, and rotate behavior between shape, text, image, and chart writers; native exposes one strict detached ShapeShadow contract with legal editable OOXML.",
       "optional": true,
       "owner": "ShadowProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "number"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks ShadowProps across shape, text, image, and chart owners against PptxGenJS 4.0.1"
+      },
       "declaredIn": "ShadowProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const browserShadowChecks = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textShapeShadowState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/preset-shape.ts",
+            "pattern": "export interface ShapeShadowBase {"
+          },
+          {
+            "path": "packages/model/src/preset-shape.ts",
+            "pattern": "export type ShapeShadow ="
+          },
+          {
+            "path": "packages/model/src/shape-shadow.internal.ts",
+            "pattern": "export function replaceShapeShadow("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates text shadows across slide layout master and placeholder owners"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "supports the shape shadow lifecycle across duplicate, move, rollback, reopen, and all formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeShadows ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const textShapeShadows ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks ShadowProps across shape, text, image, and chart owners against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "compares shape shadow public output and strict native divergences"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "compares text shape shadow public output and strict native divergences"
+          }
+        ]
       },
       "id": "interface:ShadowProps@property:blur",
       "kind": "property",
       "name": "blur",
-      "native": [],
-      "note": "",
+      "native": [
+        "ShapeModel.shadow",
+        "ShapeShadowBase.blur"
+      ],
+      "note": "PptxGenJS shares ShadowProps across owners but varies coercion, defaults, zero handling, inner output, and rotate behavior between shape, text, image, and chart writers; native exposes one strict detached ShapeShadow contract with legal editable OOXML.",
       "optional": true,
       "owner": "ShadowProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "number"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks ShadowProps across shape, text, image, and chart owners against PptxGenJS 4.0.1"
+      },
       "declaredIn": "ShadowProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const browserShadowChecks = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textShapeShadowState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/preset-shape.ts",
+            "pattern": "export interface ShapeShadowBase {"
+          },
+          {
+            "path": "packages/model/src/preset-shape.ts",
+            "pattern": "export type ShapeShadow ="
+          },
+          {
+            "path": "packages/model/src/shape-shadow.internal.ts",
+            "pattern": "export function replaceShapeShadow("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates text shadows across slide layout master and placeholder owners"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "supports the shape shadow lifecycle across duplicate, move, rollback, reopen, and all formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeShadows ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const textShapeShadows ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks ShadowProps across shape, text, image, and chart owners against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "compares shape shadow public output and strict native divergences"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "compares text shape shadow public output and strict native divergences"
+          }
+        ]
       },
       "id": "interface:ShadowProps@property:color",
       "kind": "property",
       "name": "color",
-      "native": [],
-      "note": "",
+      "native": [
+        "ShapeModel.shadow",
+        "ShapeShadowBase.color"
+      ],
+      "note": "PptxGenJS shares ShadowProps across owners but varies coercion, defaults, zero handling, inner output, and rotate behavior between shape, text, image, and chart writers; native exposes one strict detached ShapeShadow contract with legal editable OOXML.",
       "optional": true,
       "owner": "ShadowProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "HexColor"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks ShadowProps across shape, text, image, and chart owners against PptxGenJS 4.0.1"
+      },
       "declaredIn": "ShadowProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const browserShadowChecks = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textShapeShadowState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/preset-shape.ts",
+            "pattern": "export interface ShapeShadowBase {"
+          },
+          {
+            "path": "packages/model/src/preset-shape.ts",
+            "pattern": "export type ShapeShadow ="
+          },
+          {
+            "path": "packages/model/src/shape-shadow.internal.ts",
+            "pattern": "export function replaceShapeShadow("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates text shadows across slide layout master and placeholder owners"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "supports the shape shadow lifecycle across duplicate, move, rollback, reopen, and all formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeShadows ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const textShapeShadows ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks ShadowProps across shape, text, image, and chart owners against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "compares shape shadow public output and strict native divergences"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "compares text shape shadow public output and strict native divergences"
+          }
+        ]
       },
       "id": "interface:ShadowProps@property:offset",
       "kind": "property",
       "name": "offset",
-      "native": [],
-      "note": "",
+      "native": [
+        "ShapeModel.shadow",
+        "ShapeShadowBase.distance"
+      ],
+      "note": "PptxGenJS shares ShadowProps across owners but varies coercion, defaults, zero handling, inner output, and rotate behavior between shape, text, image, and chart writers; native exposes one strict detached ShapeShadow contract with legal editable OOXML.",
       "optional": true,
       "owner": "ShadowProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "number"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks ShadowProps across shape, text, image, and chart owners against PptxGenJS 4.0.1"
+      },
       "declaredIn": "ShadowProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const browserShadowChecks = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textShapeShadowState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/preset-shape.ts",
+            "pattern": "export interface ShapeShadowBase {"
+          },
+          {
+            "path": "packages/model/src/preset-shape.ts",
+            "pattern": "export type ShapeShadow ="
+          },
+          {
+            "path": "packages/model/src/shape-shadow.internal.ts",
+            "pattern": "export function replaceShapeShadow("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates text shadows across slide layout master and placeholder owners"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "supports the shape shadow lifecycle across duplicate, move, rollback, reopen, and all formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeShadows ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const textShapeShadows ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks ShadowProps across shape, text, image, and chart owners against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "compares shape shadow public output and strict native divergences"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "compares text shape shadow public output and strict native divergences"
+          }
+        ]
       },
       "id": "interface:ShadowProps@property:opacity",
       "kind": "property",
       "name": "opacity",
-      "native": [],
-      "note": "",
+      "native": [
+        "ShapeModel.shadow",
+        "ShapeShadowBase.opacity"
+      ],
+      "note": "PptxGenJS shares ShadowProps across owners but varies coercion, defaults, zero handling, inner output, and rotate behavior between shape, text, image, and chart writers; native exposes one strict detached ShapeShadow contract with legal editable OOXML.",
       "optional": true,
       "owner": "ShadowProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "number"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks ShadowProps across shape, text, image, and chart owners against PptxGenJS 4.0.1"
+      },
       "declaredIn": "ShadowProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const browserShadowChecks = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textShapeShadowState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/preset-shape.ts",
+            "pattern": "export interface ShapeShadowBase {"
+          },
+          {
+            "path": "packages/model/src/preset-shape.ts",
+            "pattern": "export type ShapeShadow ="
+          },
+          {
+            "path": "packages/model/src/shape-shadow.internal.ts",
+            "pattern": "export function replaceShapeShadow("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates text shadows across slide layout master and placeholder owners"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "supports the shape shadow lifecycle across duplicate, move, rollback, reopen, and all formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeShadows ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const textShapeShadows ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks ShadowProps across shape, text, image, and chart owners against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "compares shape shadow public output and strict native divergences"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "compares text shape shadow public output and strict native divergences"
+          }
+        ]
       },
       "id": "interface:ShadowProps@property:rotateWithShape",
       "kind": "property",
       "name": "rotateWithShape",
-      "native": [],
-      "note": "",
+      "native": [
+        "ShapeModel.shadow",
+        "ShapeShadow.rotateWithShape"
+      ],
+      "note": "PptxGenJS shares ShadowProps across owners but varies coercion, defaults, zero handling, inner output, and rotate behavior between shape, text, image, and chart writers; native exposes one strict detached ShapeShadow contract with legal editable OOXML.",
       "optional": true,
       "owner": "ShadowProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "boolean"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks ShadowProps across shape, text, image, and chart owners against PptxGenJS 4.0.1"
+      },
       "declaredIn": "ShadowProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const browserShadowChecks = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textShapeShadowState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/preset-shape.ts",
+            "pattern": "export interface ShapeShadowBase {"
+          },
+          {
+            "path": "packages/model/src/preset-shape.ts",
+            "pattern": "export type ShapeShadow ="
+          },
+          {
+            "path": "packages/model/src/shape-shadow.internal.ts",
+            "pattern": "export function replaceShapeShadow("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates text shadows across slide layout master and placeholder owners"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "supports the shape shadow lifecycle across duplicate, move, rollback, reopen, and all formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeShadows ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const textShapeShadows ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks ShadowProps across shape, text, image, and chart owners against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "compares shape shadow public output and strict native divergences"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "compares text shape shadow public output and strict native divergences"
+          }
+        ]
       },
       "id": "interface:ShadowProps@property:type",
       "kind": "property",
       "name": "type",
-      "native": [],
-      "note": "",
+      "native": [
+        "ShapeModel.shadow",
+        "ShapeShadow.kind"
+      ],
+      "note": "PptxGenJS shares ShadowProps across owners but varies coercion, defaults, zero handling, inner output, and rotate behavior between shape, text, image, and chart writers; native exposes one strict detached ShapeShadow contract with legal editable OOXML.",
       "optional": false,
       "owner": "ShadowProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "'outer' | 'inner' | 'none'"
     },
     {
@@ -23011,28 +23431,73 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "compares shape shadow public output and strict native divergences"
+      },
       "declaredIn": "ShapeProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const browserShadowChecks = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/preset-shape.ts",
+            "pattern": "readonly shadow?: ShapeShadow;"
+          },
+          {
+            "path": "packages/model/src/shape-shadow.internal.ts",
+            "pattern": "export function replaceShapeShadow("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "supports the shape shadow lifecycle across duplicate, move, rollback, reopen, and all formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeShadows ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks ShadowProps across shape, text, image, and chart owners against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "compares shape shadow public output and strict native divergences"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "compares text shape shadow public output and strict native divergences"
+          }
+        ]
       },
       "id": "interface:ShapeProps@property:shadow",
       "kind": "property",
       "name": "shadow",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddShapeOptions.shadow",
+        "ShapeModel.shadow",
+        "ShapeShadow"
+      ],
+      "note": "PptxGenJS shape shadows use permissive type/offset/hex input, collapse explicit zero to defaults, ignore rotate true, and produce malformed inner XML; native uses a strict detached ShapeShadow with legal outer and inner editable state.",
       "optional": true,
       "owner": "ShapeProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "ShadowProps"
     },
     {
@@ -32441,28 +32906,73 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "compares text shape shadow public output and strict native divergences"
+      },
       "declaredIn": "TextPropsOptions",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textShapeShadowState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "readonly shadow?: ShapeShadow;"
+          },
+          {
+            "path": "packages/model/src/shape-shadow.internal.ts",
+            "pattern": "export function replaceShapeShadow("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates text shadows across slide layout master and placeholder owners"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const textShapeShadows ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks ShadowProps across shape, text, image, and chart owners against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "compares shape shadow public output and strict native divergences"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "compares text shape shadow public output and strict native divergences"
+          }
+        ]
       },
       "id": "interface:TextPropsOptions@property:shadow",
       "kind": "property",
       "name": "shadow",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.shadow",
+        "ShapeModel.shadow",
+        "ShapeShadow"
+      ],
+      "note": "PptxGenJS text shadows mutate or correct permissive input, collapse explicit zero to defaults, ignore rotate true, and produce malformed inner XML; native uses the same strict detached ShapeShadow across every text owner.",
       "optional": true,
       "owner": "TextPropsOptions",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "ShadowProps"
     },
     {
@@ -67802,80 +68312,259 @@
     },
     {
       "catalogKey": "inner",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks ShadowProps across shape, text, image, and chart owners against PptxGenJS 4.0.1"
+      },
       "declaredIn": "interface:ShadowProps@property:type",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const browserShadowChecks = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textShapeShadowState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/preset-shape.ts",
+            "pattern": "export interface ShapeShadowBase {"
+          },
+          {
+            "path": "packages/model/src/preset-shape.ts",
+            "pattern": "export type ShapeShadow ="
+          },
+          {
+            "path": "packages/model/src/shape-shadow.internal.ts",
+            "pattern": "export function replaceShapeShadow("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates text shadows across slide layout master and placeholder owners"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "supports the shape shadow lifecycle across duplicate, move, rollback, reopen, and all formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeShadows ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const textShapeShadows ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks ShadowProps across shape, text, image, and chart owners against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "compares shape shadow public output and strict native divergences"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "compares text shape shadow public output and strict native divergences"
+          }
+        ]
       },
       "id": "union:interface:ShadowProps@property:type#inner",
       "kind": "union-member",
       "name": "inner",
-      "native": [],
-      "note": "",
+      "native": [
+        "ShapeModel.shadow",
+        "ShapeShadow.kind"
+      ],
+      "note": "PptxGenJS shares ShadowProps across owners but varies coercion, defaults, zero handling, inner output, and rotate behavior between shape, text, image, and chart writers; native exposes one strict detached ShapeShadow contract with legal editable OOXML.",
       "optional": false,
       "owner": "interface:ShadowProps@property:type",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "'inner'"
     },
     {
       "catalogKey": "none",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks ShadowProps across shape, text, image, and chart owners against PptxGenJS 4.0.1"
+      },
       "declaredIn": "interface:ShadowProps@property:type",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const browserShadowChecks = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textShapeShadowState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/preset-shape.ts",
+            "pattern": "export interface ShapeShadowBase {"
+          },
+          {
+            "path": "packages/model/src/preset-shape.ts",
+            "pattern": "export type ShapeShadow ="
+          },
+          {
+            "path": "packages/model/src/shape-shadow.internal.ts",
+            "pattern": "export function replaceShapeShadow("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates text shadows across slide layout master and placeholder owners"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "supports the shape shadow lifecycle across duplicate, move, rollback, reopen, and all formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeShadows ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const textShapeShadows ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks ShadowProps across shape, text, image, and chart owners against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "compares shape shadow public output and strict native divergences"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "compares text shape shadow public output and strict native divergences"
+          }
+        ]
       },
       "id": "union:interface:ShadowProps@property:type#none",
       "kind": "union-member",
       "name": "none",
-      "native": [],
-      "note": "",
+      "native": [
+        "ShapeModel.shadow"
+      ],
+      "note": "PptxGenJS shares ShadowProps across owners but varies coercion, defaults, zero handling, inner output, and rotate behavior between shape, text, image, and chart writers; native exposes one strict detached ShapeShadow contract with legal editable OOXML.",
       "optional": false,
       "owner": "interface:ShadowProps@property:type",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "'none'"
     },
     {
       "catalogKey": "outer",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks ShadowProps across shape, text, image, and chart owners against PptxGenJS 4.0.1"
+      },
       "declaredIn": "interface:ShadowProps@property:type",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const browserShadowChecks = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textShapeShadowState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/preset-shape.ts",
+            "pattern": "export interface ShapeShadowBase {"
+          },
+          {
+            "path": "packages/model/src/preset-shape.ts",
+            "pattern": "export type ShapeShadow ="
+          },
+          {
+            "path": "packages/model/src/shape-shadow.internal.ts",
+            "pattern": "export function replaceShapeShadow("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates text shadows across slide layout master and placeholder owners"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "supports the shape shadow lifecycle across duplicate, move, rollback, reopen, and all formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeShadows ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const textShapeShadows ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks ShadowProps across shape, text, image, and chart owners against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "compares shape shadow public output and strict native divergences"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "compares text shape shadow public output and strict native divergences"
+          }
+        ]
       },
       "id": "union:interface:ShadowProps@property:type#outer",
       "kind": "union-member",
       "name": "outer",
-      "native": [],
-      "note": "",
+      "native": [
+        "ShapeModel.shadow",
+        "ShapeShadow.kind"
+      ],
+      "note": "PptxGenJS shares ShadowProps across owners but varies coercion, defaults, zero handling, inner output, and rotate behavior between shape, text, image, and chart writers; native exposes one strict detached ShapeShadow contract with legal editable OOXML.",
       "optional": false,
       "owner": "interface:ShadowProps@property:type",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "'outer'"
     },
     {
@@ -84651,12 +85340,12 @@
   "complete": false,
   "counts": {
     "defect-excluded": 359,
-    "deliberate-difference": 291,
+    "deliberate-difference": 303,
     "deprecated-alias": 91,
     "stale": 0,
     "supported": 620,
     "unsupported": 0,
-    "unverified": 413
+    "unverified": 401
   },
   "declarationSha256": "0726d015dbcb55ccfa75546cb2fd43fe13a0dfeb783d08572f1c62f59193bbe5",
   "declarationTotal": 1774,
@@ -84919,13 +85608,6 @@
     "interface:PlaceholderProps@property:w",
     "interface:PlaceholderProps@property:x",
     "interface:PlaceholderProps@property:y",
-    "interface:ShadowProps@property:angle",
-    "interface:ShadowProps@property:blur",
-    "interface:ShadowProps@property:color",
-    "interface:ShadowProps@property:offset",
-    "interface:ShadowProps@property:opacity",
-    "interface:ShadowProps@property:rotateWithShape",
-    "interface:ShadowProps@property:type",
     "interface:ShapeProps@property:align",
     "interface:ShapeProps@property:angleRange",
     "interface:ShapeProps@property:arcThicknessRatio",
@@ -84936,7 +85618,6 @@
     "interface:ShapeProps@property:points",
     "interface:ShapeProps@property:rectRadius",
     "interface:ShapeProps@property:rotate",
-    "interface:ShapeProps@property:shadow",
     "interface:ShapeProps@property:shapeName",
     "interface:TableCell@property:options",
     "interface:TableCell@property:text",
@@ -84969,7 +85650,6 @@
     "interface:TextPropsOptions@property:rectRadius",
     "interface:TextPropsOptions@property:rotate",
     "interface:TextPropsOptions@property:rtlMode",
-    "interface:TextPropsOptions@property:shadow",
     "interface:TextPropsOptions@property:shape",
     "interface:TextPropsOptions@property:shrinkText",
     "interface:TextPropsOptions@property:strike",
@@ -85063,9 +85743,6 @@
     "union:interface:ImageProps@property:sizing@path:sizing.type#cover",
     "union:interface:ImageProps@property:sizing@path:sizing.type#crop",
     "union:interface:OptsChartData@property:labels#string[][]",
-    "union:interface:ShadowProps@property:type#inner",
-    "union:interface:ShadowProps@property:type#none",
-    "union:interface:ShadowProps@property:type#outer",
     "union:interface:TableCell@property:text#TableCell[]",
     "union:interface:TableCell@property:text#string",
     "union:interface:TextPropsOptions@property:fit#none",

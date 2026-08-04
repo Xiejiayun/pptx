@@ -124,13 +124,13 @@ function assertDeepFrozen(value, seen = new Set()) {
 test('exports an immutable evidence-backed initial manifest batch', () => {
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.schemaVersion, 1);
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.packageVersion, '4.0.1');
-  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1361);
+  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1373);
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries.map(({ status }) => status).sort(),
     [
       ...Array(359).fill('defect-excluded'),
       ...Array(620).fill('supported'),
-      ...Array(291).fill('deliberate-difference'),
+      ...Array(303).fill('deliberate-difference'),
       ...Array(91).fill('deprecated-alias'),
     ].sort(),
   );
@@ -1063,6 +1063,61 @@ test('exports an immutable evidence-backed initial manifest batch', () => {
       addTablePropertyId('BackgroundProps', 'src'),
       addTablePropertyId('SlideNumberProps', 'transparency'),
     ].sort(),
+  );
+  const shapeTextShadowExpected = [
+    ...[
+      'angle',
+      'blur',
+      'color',
+      'offset',
+      'opacity',
+      'rotateWithShape',
+      'type',
+    ].map((property) => addTablePropertyId('ShadowProps', property)),
+    ...['inner', 'none', 'outer']
+      .map((token) => propertyUnionId('ShadowProps', 'type', token)),
+    addTablePropertyId('ShapeProps', 'shadow'),
+    addTablePropertyId('TextPropsOptions', 'shadow'),
+  ].sort();
+  const shapeTextShadowIds = new Set(shapeTextShadowExpected);
+  assert.equal(shapeTextShadowIds.size, 12);
+  const shapeTextShadowEntries = PPTXGENJS_SURFACE_MANIFEST.entries
+    .filter(({ id }) => shapeTextShadowIds.has(id))
+    .sort((left, right) => left.id.localeCompare(right.id));
+  assert.deepEqual(
+    shapeTextShadowEntries.map(({ id, status }) => ({ id, status })),
+    shapeTextShadowExpected.map((id) => ({
+      id,
+      status: 'deliberate-difference',
+    })),
+  );
+  assert.equal(
+    PPTXGENJS_SURFACE_MANIFEST.entries
+      .some(({ id }) => id === addTablePropertyId('ImageProps', 'shadow')),
+    false,
+  );
+  assert.equal(
+    shapeTextShadowEntries.every(({ native, serialization, client }) =>
+      native.length > 0 && serialization === true && client === true),
+    true,
+  );
+  const shapeTextShadowById = new Map(
+    shapeTextShadowEntries.map((entry) => [entry.id, entry]),
+  );
+  assert.deepEqual(
+    shapeTextShadowById
+      .get(propertyUnionId('ShadowProps', 'type', 'none'))?.native,
+    ['ShapeModel.shadow'],
+  );
+  assert.deepEqual(
+    shapeTextShadowById
+      .get(addTablePropertyId('ShapeProps', 'shadow'))?.evidence.package,
+    [{ path: 'scripts/smoke-npm-package.mjs', pattern: 'const shapeShadows =' }],
+  );
+  assert.deepEqual(
+    shapeTextShadowById
+      .get(addTablePropertyId('TextPropsOptions', 'shadow'))?.evidence.package,
+    [{ path: 'scripts/smoke-npm-package.mjs', pattern: 'const textShapeShadows =' }],
   );
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries

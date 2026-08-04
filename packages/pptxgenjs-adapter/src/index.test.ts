@@ -10481,6 +10481,157 @@ describe('importPptxGenJS', () => {
     }).toEqual(beforeInvalid);
   });
 
+  it('locks ShadowProps across shape, text, image, and chart owners against PptxGenJS 4.0.1', async () => {
+    const atomIds = [
+      ...[
+        'angle',
+        'blur',
+        'color',
+        'offset',
+        'opacity',
+        'rotateWithShape',
+        'type',
+      ].map((property) => `interface:ShadowProps@property:${property}`),
+      ...['inner', 'none', 'outer']
+        .map((value) => `union:interface:ShadowProps@property:type#${value}`),
+      'interface:ShapeProps@property:shadow',
+      'interface:TextPropsOptions@property:shadow',
+    ];
+    expect(new Set(atomIds).size).toBe(12);
+    expect(atomIds).not.toContain('interface:ImageProps@property:shadow');
+
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    const slide = generated.addSlide();
+    const outer = () => ({
+      type: 'outer' as const,
+      color: '123456',
+      opacity: 0.6,
+      blur: 4,
+      angle: 135,
+      offset: 5,
+      rotateWithShape: true,
+    });
+    slide.addShape(generated.ShapeType.rect!, {
+      objectName: 'Shape shared shadow',
+      x: 0,
+      y: 0,
+      w: 1,
+      h: 1,
+      shadow: outer(),
+    });
+    slide.addText('Text shared shadow', {
+      objectName: 'Text shared shadow',
+      x: 1,
+      y: 0,
+      w: 1,
+      h: 1,
+      shadow: outer(),
+    });
+    slide.addShape(generated.ShapeType.rect!, {
+      objectName: 'Shape shared shadow none',
+      x: 2,
+      y: 0,
+      w: 1,
+      h: 1,
+      shadow: { type: 'none' },
+    });
+    slide.addText('Text shared shadow none', {
+      objectName: 'Text shared shadow none',
+      x: 3,
+      y: 0,
+      w: 1,
+      h: 1,
+      shadow: { type: 'none' },
+    });
+    slide.addImage({
+      data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+      x: 0,
+      y: 1,
+      w: 1,
+      h: 1,
+      shadow: {
+        type: 'inner',
+        color: '112233',
+        opacity: 0.4,
+        blur: 2,
+        angle: 45,
+        offset: 3,
+        rotateWithShape: true,
+      },
+    });
+    slide.addChart(generated.ChartType.bar!, [{
+      name: 'Series',
+      labels: ['A'],
+      values: [1],
+    }], {
+      x: 1,
+      y: 1,
+      w: 2,
+      h: 2,
+      shadow: {
+        type: 'inner',
+        color: '223344',
+        opacity: 0.5,
+        blur: 3,
+        angle: 90,
+        offset: 4,
+        rotateWithShape: true,
+      },
+    });
+
+    const document = await PptxDocument.open(await generated.write({
+      outputType: 'nodebuffer',
+      compression: true,
+    }));
+    const slideXml = new TextDecoder().decode(
+      document.opcPackage.requirePart(document.slides[0]!.partUri).bytes,
+    );
+    const chartXml = document.opcPackage.parts
+      .filter(({ uri }) => uri.startsWith('/ppt/charts/chart') && uri.endsWith('.xml'))
+      .map(({ bytes }) => new TextDecoder().decode(bytes))
+      .join('');
+
+    const slideOuterTags = slideXml.match(/<a:outerShdw\b[^>]*>/gu) ?? [];
+    expect(slideOuterTags).toHaveLength(2);
+    for (const tag of slideOuterTags) {
+      expect(tag).toContain('rotWithShape="0"');
+      expect(tag).toContain('blurRad="50800"');
+      expect(tag).toContain('dist="63500"');
+      expect(tag).toContain('dir="8100000"');
+    }
+    expect(slideXml.match(/<\/a:outerShdw>/gu) ?? []).toHaveLength(2);
+    expect(slideXml.match(/<a:srgbClr val="123456">/gu) ?? []).toHaveLength(2);
+    expect(slideXml.match(/<a:alpha val="60000"\/>/gu) ?? []).toHaveLength(2);
+    const noneOwners = document.slides[0]!.shapes.filter(({ name }) =>
+      name === 'Shape shared shadow none' || name === 'Text shared shadow none');
+    expect(noneOwners).toHaveLength(2);
+    for (const owner of noneOwners) {
+      expect((owner as ShapeModel).shadow).toBeUndefined();
+      expect(shapeXml(document, 0, owner.id)).not.toContain('<a:effectLst>');
+    }
+    const imageInnerTags = slideXml.match(/<a:innerShdw\b[^>]*>/gu) ?? [];
+    expect(imageInnerTags).toHaveLength(1);
+    expect(imageInnerTags[0]).toContain('blurRad="25400"');
+    expect(imageInnerTags[0]).toContain('dist="38100"');
+    expect(imageInnerTags[0]).toContain('dir="2700000"');
+    expect(imageInnerTags[0]).not.toContain('rotWithShape');
+    expect(slideXml.match(/<\/a:innerShdw>/gu) ?? []).toHaveLength(1);
+    expect(slideXml).toContain('<a:srgbClr val="112233">');
+    expect(slideXml).toContain('<a:alpha val="40000"/>');
+
+    const chartInnerTags = chartXml.match(/<a:innerShdw\b[^>]*>/gu) ?? [];
+    expect(chartInnerTags).toHaveLength(1);
+    expect(chartInnerTags[0]).toContain('blurRad="38100"');
+    expect(chartInnerTags[0]).toContain('rotWithShape="1"');
+    expect(chartInnerTags[0]).toContain('dist="50800"');
+    expect(chartInnerTags[0]).toContain('dir="5400000"');
+    expect(chartXml.match(/<\/a:innerShdw>/gu) ?? []).toHaveLength(1);
+    expect(chartXml).toContain('<a:srgbClr val="223344">');
+    expect(chartXml).toContain('<a:alpha val="50000"/>');
+    expect(document.diagnostics).toEqual([]);
+  });
+
   it('reads and round-trips PptxGenJS preset shape adjustment output', async () => {
     const generated = new PptxGenJS();
     expect(generated.version).toBe('4.0.1');

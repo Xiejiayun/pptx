@@ -3537,6 +3537,170 @@ const MASTER_BACKGROUND_SLIDE_NUMBER_FAMILY_ENTRIES = Object.freeze([
     masterBackgroundSlideNumberEntry(id, 'defect-excluded')),
 ]);
 
+const SHAPE_TEXT_SHADOW_CONTROL_TITLE =
+  'locks ShadowProps across shape, text, image, and chart owners against PptxGenJS 4.0.1';
+const SHAPE_SHADOW_CONTROL_TITLE =
+  'compares shape shadow public output and strict native divergences';
+const TEXT_SHADOW_CONTROL_TITLE =
+  'compares text shape shadow public output and strict native divergences';
+const SHAPE_TEXT_SHADOW_IDS = Object.freeze([
+  ...[
+    'angle',
+    'blur',
+    'color',
+    'offset',
+    'opacity',
+    'rotateWithShape',
+    'type',
+  ].map((property) => linePropertyId('ShadowProps', property)),
+  ...['inner', 'none', 'outer']
+    .map((token) => propertyUnionId('ShadowProps', 'type', token)),
+  linePropertyId('ShapeProps', 'shadow'),
+  linePropertyId('TextPropsOptions', 'shadow'),
+]);
+
+function shapeTextShadowControlTitle(id) {
+  if (id === linePropertyId('ShapeProps', 'shadow')) return SHAPE_SHADOW_CONTROL_TITLE;
+  if (id === linePropertyId('TextPropsOptions', 'shadow')) {
+    return TEXT_SHADOW_CONTROL_TITLE;
+  }
+  return SHAPE_TEXT_SHADOW_CONTROL_TITLE;
+}
+
+function shapeTextShadowNative(id) {
+  if (id === linePropertyId('ShapeProps', 'shadow')) {
+    return ['AddShapeOptions.shadow', 'ShapeShadow', 'ShapeModel.shadow'];
+  }
+  if (id === linePropertyId('TextPropsOptions', 'shadow')) {
+    return ['AddTextOptions.shadow', 'ShapeShadow', 'ShapeModel.shadow'];
+  }
+  if (id === propertyUnionId('ShadowProps', 'type', 'none')) {
+    return ['ShapeModel.shadow'];
+  }
+  const property = id.split('@property:')[1]?.split('#')[0];
+  const mappings = {
+    angle: ['ShapeShadowBase.angle', 'ShapeModel.shadow'],
+    blur: ['ShapeShadowBase.blur', 'ShapeModel.shadow'],
+    color: ['ShapeShadowBase.color', 'ShapeModel.shadow'],
+    offset: ['ShapeShadowBase.distance', 'ShapeModel.shadow'],
+    opacity: ['ShapeShadowBase.opacity', 'ShapeModel.shadow'],
+    rotateWithShape: ['ShapeShadow.rotateWithShape', 'ShapeModel.shadow'],
+    type: ['ShapeShadow.kind', 'ShapeModel.shadow'],
+  };
+  return mappings[property];
+}
+
+function shapeTextShadowEvidence(id) {
+  const shapeOwner = id === linePropertyId('ShapeProps', 'shadow');
+  const textOwner = id === linePropertyId('TextPropsOptions', 'shadow');
+  const shapeClient = {
+    path: 'scripts/smoke-npm-package.mjs',
+    pattern: 'const browserShadowChecks = {',
+  };
+  const textClient = {
+    path: 'scripts/playwright-browser-smoke.js',
+    pattern: 'const textShapeShadowState = {',
+  };
+  const clients = shapeOwner
+    ? [shapeClient]
+    : textOwner
+      ? [textClient]
+      : [shapeClient, textClient];
+  const code = shapeOwner
+    ? [{
+        path: 'packages/model/src/preset-shape.ts',
+        pattern: 'readonly shadow?: ShapeShadow;',
+      }, {
+        path: 'packages/model/src/shape-shadow.internal.ts',
+        pattern: 'export function replaceShapeShadow(',
+      }]
+    : textOwner
+      ? [{
+          path: 'packages/model/src/slide.ts',
+          pattern: 'readonly shadow?: ShapeShadow;',
+        }, {
+          path: 'packages/model/src/shape-shadow.internal.ts',
+          pattern: 'export function replaceShapeShadow(',
+        }]
+      : [{
+          path: 'packages/model/src/preset-shape.ts',
+          pattern: 'export interface ShapeShadowBase {',
+        }, {
+          path: 'packages/model/src/preset-shape.ts',
+          pattern: 'export type ShapeShadow =',
+        }, {
+          path: 'packages/model/src/shape-shadow.internal.ts',
+          pattern: 'export function replaceShapeShadow(',
+        }];
+  const packageEvidence = [
+    ...(textOwner ? [] : [{
+      path: 'scripts/smoke-npm-package.mjs',
+      pattern: 'const shapeShadows =',
+    }]),
+    ...(shapeOwner ? [] : [{
+      path: 'scripts/smoke-npm-package.mjs',
+      pattern: 'const textShapeShadows =',
+    }]),
+  ];
+  const ooxml = [
+    ...(shapeOwner ? [] : [{
+      path: 'packages/sdk/src/index.test.ts',
+      pattern: 'creates text shadows across slide layout master and placeholder owners',
+    }]),
+    ...(textOwner ? [] : [{
+      path: 'packages/sdk/src/index.test.ts',
+      pattern: 'supports the shape shadow lifecycle across duplicate, move, rollback, reopen, and all formats',
+    }]),
+  ];
+  return {
+    code,
+    tests: [{
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      title: SHAPE_TEXT_SHADOW_CONTROL_TITLE,
+    }, {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      title: SHAPE_SHADOW_CONTROL_TITLE,
+    }, {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      title: TEXT_SHADOW_CONTROL_TITLE,
+    }],
+    package: packageEvidence,
+    ooxml,
+    clients,
+  };
+}
+
+function shapeTextShadowNote(id) {
+  if (id === linePropertyId('ShapeProps', 'shadow')) {
+    return 'PptxGenJS shape shadows use permissive type/offset/hex input, collapse explicit zero to defaults, ignore rotate true, and produce malformed inner XML; native uses a strict detached ShapeShadow with legal outer and inner editable state.';
+  }
+  if (id === linePropertyId('TextPropsOptions', 'shadow')) {
+    return 'PptxGenJS text shadows mutate or correct permissive input, collapse explicit zero to defaults, ignore rotate true, and produce malformed inner XML; native uses the same strict detached ShapeShadow across every text owner.';
+  }
+  return 'PptxGenJS shares ShadowProps across owners but varies coercion, defaults, zero handling, inner output, and rotate behavior between shape, text, image, and chart writers; native exposes one strict detached ShapeShadow contract with legal editable OOXML.';
+}
+
+function shapeTextShadowEntry(id) {
+  const controlTitle = shapeTextShadowControlTitle(id);
+  return {
+    id,
+    status: 'deliberate-difference',
+    native: shapeTextShadowNative(id),
+    evidence: shapeTextShadowEvidence(id),
+    control: {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      pattern: controlTitle,
+    },
+    serialization: true,
+    client: true,
+    note: shapeTextShadowNote(id),
+  };
+}
+
+const SHAPE_TEXT_SHADOW_FAMILY_ENTRIES = Object.freeze(
+  SHAPE_TEXT_SHADOW_IDS.map((id) => shapeTextShadowEntry(id)),
+);
+
 function presetShapeCatalogEntry(owner, value) {
   const id = `union:${owner}#${value}`;
   if (value === 'folderCorner') {
@@ -3872,6 +4036,7 @@ export const PPTXGENJS_SURFACE_MANIFEST = deepFreeze({
     ...PRESENTATION_ROOT_OUTPUT_FAMILY_ENTRIES,
     ...SLIDE_SECTION_FAMILY_ENTRIES,
     ...MASTER_BACKGROUND_SLIDE_NUMBER_FAMILY_ENTRIES,
+    ...SHAPE_TEXT_SHADOW_FAMILY_ENTRIES,
     ...CHART_AREA_FILL_LINE_ENTRIES,
     ...DEPRECATED_CHART_AREA_ALIAS_ENTRIES,
     ...CHART_CREATION_SUPPORTED_ENTRIES,
