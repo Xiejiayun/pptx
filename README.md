@@ -1557,7 +1557,13 @@ table.setCellText(1, 0, 'Edited after import');
 
 边界：该 API 需要 browser `document` 与真实 table-like DOM；不解析 word-level HTML，样式只取 cell computed CSS；颜色 alpha 不写入 cell fill/border；隐藏且没有固定列宽依据的表格会拒绝。Native 不复制 PptxGenJS 4.0.1 的 selector 插值、caller mutation、`autoPage:false` 忽略、truthy coercion、fixed-width-as-minimum 缺陷或 silent NaN。
 
-至此锁定的 PptxGenJS 4.0.1 公开能力项覆盖达到 100%。最终“全功能对等”认证仍等待实际 tarball、真实 Chrome、CLI/Inspector、PowerPoint/LibreOffice 与最终 peer/client audit，当前不提前声明完整 parity 已认证。
+HTML `tableToSlides` 专项最终 10/10 完成。Focused gate 为 4 个文件 / 463 tests，Vitest 57.92s；full gate 为 91 passed / 1 skipped test files、1764 passed / 1 skipped tests，Vitest 102.00s；独立 performance gate 为 1/1，核心测试 1.145s、Vitest 3.10s。TypeScript、root build 与 package build 分别为 2.46s、2.48s、18.14s。
+
+两次构建的 63-file dist manifest 完全一致，SHA-256 为 `280e78ad56ad3cb5891b80a729d2a899bfd42f3e77648517c1982df71a63bc3a`；两份 66-entry、712,812-byte actual tarball byte-identical，SHA-256 均为 `2fbd19e234d9e92591c0825acd6082bfda394ff871aa58d715c20d71f2e1d623`。Installed Node、NodeNext declarations、browser conditional export、CLI 与 Inspector 均通过并报告 `tableToSlides: true` / `tableToSlidesInspect: true`。Google Chrome 150.0.7871.188 的 create/style/width/header/layout/addition/relationship/edit/reopen 状态全部为 true，validation/console/page/network errors 为 0/0/0。
+
+Node evidence deck 为 93,142 bytes、29 parts / 41 relationships、5 slides / 4 generated pages，SHA-256 为 `923b84490d4e588d32d4a91cb55f2df37478d9b3e2b2ce5113285a2992b9f1e2`；Chrome evidence deck 为 126,095 bytes、33 parts / 53 relationships、7 slides / 6 generated pages，SHA-256 为 `c60b0665cee91dfe114f7aebb537f2a13b933e7e0577d23c81486ac2eef6495a`。两者均验证为 0 errors，仅分别包含 8/12 条预期 external-link warnings；每个 generated page 的两张表、`[1600200, 2286000, 1600200]` grid、重复两层表头、fragment/merge/footer、image/shape/table/text additions、内部/外部关系及编辑生命周期均已精确复核。全部 12 页以 2400×1350 渲染并逐页检查，overflow 为 0；LibreOffice 26.8 可打开、保存和重开两份文件，回存件仍为 0 errors。本机 PowerPoint 16.112 的自动化仍返回统一 `-9074` 且未产生回存件，因此不把该环境记为 PowerPoint round-trip 通过。
+
+实现与证明 commit chain 为 `b22a065`、`8b7cca2`、`434129c`、`ab57e13`、`0dfe5c3`、`63fb2f2`、`63ecd98`、`00ca3c7`、`4df0839`、`0242491`、`efec32b`；完整证据位于 `/tmp/pptx-table-to-slides-artifacts.2sH8Fw`。至此锁定的 PptxGenJS 4.0.1 公开能力项覆盖达到 100%，actual-package/browser/PowerPoint-2010-validator/LibreOffice 证明已完成。最终“全功能对等已认证”仍保留给独立 peer/client audit，包括 Windows PowerPoint、macOS Keynote 与受控 Google Slides 导入；当前公开表面没有已知未实现项，但不提前把这些外部客户端认证写成已通过。
 
 ## 开发
 

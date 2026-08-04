@@ -1172,11 +1172,11 @@ $ pptx-inspect --json package inspect output.pptx
 ### 剩余 advanced API 与全功能路线
 
 - 这是 measurement/layout workstream 完成时的历史 checkpoint：当时总体 PptxGenJS 对等进度约 99.7%，尚不声明 100% 或完整 parity。
-- 当时剩余能力项只有 `tableToSlides`；该能力已在下一节实现，随后执行最终 actual-package/browser/client/peer audit 与全量发布证明。
+- 当时剩余能力项只有 `tableToSlides`；该能力及其 actual-package/browser/validator/LibreOffice 全量发布证明已在下一节完成，当前只保留独立 client/peer 认证。
 
 ## PptxGenJS 全功能对等：HTML `tableToSlides`
 
-状态：实现与公开契约完成；专项 8/10（80%），剩余 actual-package/browser/client proof 与最终证据收口
+状态：完成；专项 10/10（100%），actual-package/browser/PowerPoint-2010-validator/LibreOffice proof 与最终证据收口全部完成
 
 ### 本阶段 change
 
@@ -1189,18 +1189,20 @@ $ pptx-inspect --json package inspect output.pptx
 - DOM/CSS/layout/columns/images 全部 preflight；slide creation、HTML pagination、relations 与 additions 位于一个 outer transaction，任何失败整体回滚并清理 detached model identity。
 - SDK/root 导出 `TableToSlidesAddImage`、`TableToSlidesAddShape`、`TableToSlidesAddTable`、`TableToSlidesAddText`、`TableToSlidesOptions`；六种 presentation format、generated declarations 与 PptxGenJS 4.0.1 legal/difference contracts 已验证。
 
-### 当前验证结果
+### 最终验证结果
 
-- Task 5 gate：table/SDK/model 3 files、577 tests 全部通过；workspace typecheck 与 diff check 通过。
-- Task 6 gate：prepared image/raster/SVG/table/SDK/model 6 files、680 tests 全部通过；workspace typecheck 与 diff check 通过。
-- Task 7 gate：SDK table/SDK root/package root/adapter 4 files、463 tests 全部通过；workspace typecheck、Node/browser package build 与 packed declaration generation 通过。
-- 已锁定 PptxGenJS 4.0.1 合法 row/style/column/layout/addition 语义，以及 native 对 `void` return、caller mutation、ignored `autoPage:false`、truthy coercion、fixed-width-as-minimum 与 silent-invalid-number defects 的明确差异。
+- Task 5 gate：table/SDK/model 3 files、577 tests 全部通过；Task 6 gate：prepared image/raster/SVG/table/SDK/model 6 files、680 tests 全部通过；Task 7 gate：SDK table/SDK root/package root/adapter 4 files、463 tests 全部通过。已锁定 PptxGenJS 4.0.1 合法 row/style/column/layout/addition 语义，以及 native 对 `void` return、caller mutation、ignored `autoPage:false`、truthy coercion、fixed-width-as-minimum 与 silent-invalid-number defects 的明确差异。
+- Task 9 最终 focused gate 为 4 files / 463 tests，Vitest 57.92s；full gate 为 91 passed / 1 skipped files、1764 passed / 1 skipped tests，Vitest 102.00s；独立 performance gate 为 1/1，核心 1.145s、Vitest 3.10s。TypeScript、root build、package build 分别为 2.46s、2.48s、18.14s。
+- 两次构建的 63-file dist manifest 完全一致，SHA-256 为 `280e78ad56ad3cb5891b80a729d2a899bfd42f3e77648517c1982df71a63bc3a`；两份 66-entry、712,812-byte actual tarball byte-identical，SHA-256 均为 `2fbd19e234d9e92591c0825acd6082bfda394ff871aa58d715c20d71f2e1d623`。Installed Node、NodeNext declarations、browser conditional export、CLI 与 Inspector 全部通过并报告 `tableToSlides: true` / `tableToSlidesInspect: true`。
+- Google Chrome 150.0.7871.188 的 create/styles/widths/headers/layout/additions/relationships/edited/reopened 全部为 true，validation/console/page/network errors 为 0/0/0。Node evidence deck 为 93,142 bytes、29 parts / 41 relationships、5 slides / 4 generated pages，SHA-256 `923b84490d4e588d32d4a91cb55f2df37478d9b3e2b2ce5113285a2992b9f1e2`；Chrome deck 为 126,095 bytes、33 parts / 53 relationships、7 slides / 6 generated pages，SHA-256 `c60b0665cee91dfe114f7aebb537f2a13b933e7e0577d23c81486ac2eef6495a`。
+- 两份 evidence deck 的 generated pages 均有两张表，main grid 固定为 `[1600200, 2286000, 1600200]`、main width 5,486,400 EMU、addition width 2,743,200 EMU；重复两层表头、fragment、rowspan/colspan、multi-`tbody`、`tfoot`、image/shape/table/text additions、每页 2 external + 1 internal slide + 1 image relationships、编辑与重开状态全部通过。PowerPoint 2010 profile 均为 0 errors，仅分别有 8/12 条预期 external-link warnings。
+- 全部 12 页 evidence 以 2400×1350 渲染并逐页检查，overflow 为 0。LibreOffice 26.8 能打开、保存、重开和渲染两份文件；回存 Node/Chrome 文件仍为 0 errors，分别只有 24/34 条 external-link、placeholder-owner 与 slide-number-cache normalization warnings。本机 PowerPoint 16.112 自动化仍返回统一 `-9074` 且没有产生 PPTX/PDF，因此不把该环境记为 PowerPoint round-trip 通过。
+- 实现与证明 commit chain 为 `b22a065`、`8b7cca2`、`434129c`、`ab57e13`、`0dfe5c3`、`63fb2f2`、`63ecd98`、`00ca3c7`、`4df0839`、`0242491`、`efec32b`；完整证据位于 `/tmp/pptx-table-to-slides-artifacts.2sH8Fw`。
 
-### 剩余工作与对等结论
+### 对等结论与后续认证
 
-- 公开 capability checklist 已达到 100%；不再存在 `tableToSlides` 能力缺口。
-- 尚未完成 Task 9 actual tarball、real Chrome、installed Node/NodeNext/browser/CLI/Inspector、PowerPoint 2010、LibreOffice/render/overflow proof，以及 Task 10 final evidence consistency/peer-client audit。
-- 因此当前只声明“公开能力覆盖 100%”，不提前声明“最终完整 PptxGenJS parity 已认证”。
+- 公开 capability checklist 已达到 100%；不再存在已知 `tableToSlides` 或其他锁定 PptxGenJS 4.0.1 公开表面能力缺口，本专项 10/10 完成。
+- “最终完整 PptxGenJS parity 已认证”仍保留给独立 peer/client audit：Windows PowerPoint corpus、macOS Keynote corpus、受控 Google Slides import 与外部复核。它们是认证工作，不再是已知实现缺口。
 
 ## 0.1.0 初始验收
 
