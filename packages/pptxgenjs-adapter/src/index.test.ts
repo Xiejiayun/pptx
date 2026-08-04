@@ -18435,6 +18435,49 @@ describe('importPptxGenJS', () => {
         objectName: 'RTL run probe',
       },
     );
+    generatedSlide.addText('Inset one inch', {
+      x: 2,
+      y: 4,
+      w: 2,
+      h: 0.5,
+      inset: 1,
+      objectName: 'Inset one',
+    });
+    generatedSlide.addText('Inset explicit zero', {
+      x: 2,
+      y: 4.5,
+      w: 2,
+      h: 0.5,
+      inset: 0,
+      objectName: 'Inset zero',
+    });
+    generatedSlide.addText('Equivalent modern margin', {
+      x: 2,
+      y: 5,
+      w: 2,
+      h: 0.5,
+      margin: 72,
+      objectName: 'Inset margin equivalent',
+    });
+    generatedSlide.addText('Modern margin precedence', {
+      x: 2,
+      y: 5.5,
+      w: 2,
+      h: 0.5,
+      inset: 1,
+      margin: 10,
+      objectName: 'Inset modern margin wins',
+    });
+    generatedSlide.addText(
+      [{ text: 'Run inset is inert', options: { inset: 1 } }],
+      {
+        x: 2,
+        y: 6,
+        w: 2,
+        h: 0.5,
+        objectName: 'Inset run ignored',
+      },
+    );
     const document = await importPptxGenJS(generated);
     expect(document.slides[0]?.title.text).toBe('Created by PptxGenJS');
     expect((document.slides[0]!.shapes[0] as ShapeModel).richText[0]!.align).toBe('center');
@@ -18616,6 +18659,19 @@ describe('importPptxGenJS', () => {
       left: 1,
     });
     expect([
+      'Inset one',
+      'Inset zero',
+      'Inset margin equivalent',
+      'Inset modern margin wins',
+      'Inset run ignored',
+    ].map((name) => shapeByName(name).textMargins)).toEqual([
+      { top: 72, right: 72, bottom: 72, left: 72 },
+      { top: 0, right: 0, bottom: 0, left: 0 },
+      { top: 72, right: 72, bottom: 72, left: 72 },
+      { top: 10, right: 10, bottom: 10, left: 10 },
+      undefined,
+    ]);
+    expect([
       'Vertical omitted',
       'Vertical top',
       'Vertical middle',
@@ -18675,6 +18731,22 @@ describe('importPptxGenJS', () => {
     ]);
     const importedXml = new TextDecoder().decode(
       document.opcPackage.requirePart(document.slides[0]!.partUri).bytes,
+    );
+    const expectInsetAttributes = (name: string, value: number) => {
+      expect(importedXml).toMatch(new RegExp(
+        `name="${name}"[\\s\\S]*?<a:bodyPr`
+          + `(?=[^>]*lIns="${value}")`
+          + `(?=[^>]*tIns="${value}")`
+          + `(?=[^>]*rIns="${value}")`
+          + `(?=[^>]*bIns="${value}")[^>]*>`,
+      ));
+    };
+    expectInsetAttributes('Inset one', 914400);
+    expectInsetAttributes('Inset zero', 0);
+    expectInsetAttributes('Inset margin equivalent', 914400);
+    expectInsetAttributes('Inset modern margin wins', 127000);
+    expect(importedXml).toMatch(
+      /name="Inset run ignored"[\s\S]*?<a:bodyPr(?![^>]*(?:lIns|tIns|rIns|bIns)=)[^>]*>/,
     );
     expect(importedXml).toContain('lIns="12700" tIns="50800" rIns="25400" bIns="38100"');
     expect(importedXml).toMatch(/name="Vertical omitted"[\s\S]*?<a:bodyPr[^>]*anchor="ctr"/);
@@ -18871,6 +18943,17 @@ describe('importPptxGenJS', () => {
       }],
       ['Margin negative', { top: -0.5, right: -0.5, bottom: -0.5, left: -0.5 }],
       ['Margin asymmetric probe', { top: 4, right: 2, bottom: 3, left: 1 }],
+    ]);
+    const reopenedInsets = reopened.slides[1]!.shapes
+      .filter((shape): shape is ShapeModel => shape instanceof ShapeModel)
+      .filter(({ name }) => name.startsWith('Inset '))
+      .map(({ name, textMargins }) => [name, textMargins]);
+    expect(reopenedInsets).toEqual([
+      ['Inset one', { top: 72, right: 72, bottom: 72, left: 72 }],
+      ['Inset zero', { top: 0, right: 0, bottom: 0, left: 0 }],
+      ['Inset margin equivalent', { top: 72, right: 72, bottom: 72, left: 72 }],
+      ['Inset modern margin wins', { top: 10, right: 10, bottom: 10, left: 10 }],
+      ['Inset run ignored', undefined],
     ]);
     const reopenedVerticalAlignment = reopened.slides[1]!.shapes
       .filter((shape): shape is ShapeModel => shape instanceof ShapeModel)

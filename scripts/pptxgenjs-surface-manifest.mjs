@@ -1995,6 +1995,135 @@ const TEXT_BOX_FIT_FAMILY_ENTRIES = Object.freeze([
   textBoxFitDeprecatedEntry('shrinkText', 'shrink'),
 ]);
 
+const TEXT_PARAGRAPH_LAYOUT_FAMILY_CONTROL_TITLE =
+  'imports public PptxGenJS output and continues editing in the OOXML kernel';
+const TEXT_PARAGRAPH_LAYOUT_FAMILY_CLIENT_PATTERN =
+  'const textParagraphLayoutFamilyState = {';
+const TEXT_PARAGRAPH_LAYOUT_FAMILY_PACKAGE_PATTERN =
+  'const createdText = created.addSlide().addText(';
+const TEXT_PARAGRAPH_LAYOUT_FAMILY_DEFINITIONS = Object.freeze([
+  {
+    property: 'align',
+    status: 'supported',
+    native: ['AddTextOptions.align', 'RichTextParagraph.align', 'TextAlignment', 'ShapeModel.richText'],
+    codePath: 'packages/model/src/rich-text.internal.ts',
+    codePattern: 'export function normalizeTextAlignment(',
+    ooxmlTitle: 'creates, replaces, rolls back, and round-trips paragraph alignment',
+    note: 'Native accepts the same left, center, right, and justify paragraph alignments, preserves them through live rich-text editing, and writes the same DrawingML alignment intent.',
+  },
+  {
+    property: 'rtlMode',
+    status: 'supported',
+    native: ['AddTextOptions.rtlMode', 'RichTextParagraph.rtl', 'ShapeModel.richText'],
+    codePath: 'packages/model/src/rich-text.internal.ts',
+    codePattern: 'export function normalizeParagraphRtl(',
+    ooxmlTitle: 'creates, edits, duplicates, and reopens plain and rich paragraph RTL',
+    note: 'Native accepts the same boolean paragraph direction intent and additionally retains explicit false during reversible rich-text editing instead of collapsing it into omission.',
+  },
+  {
+    property: 'valign',
+    status: 'supported',
+    native: ['AddTextOptions.valign', 'ShapeModel.verticalAlignment', 'TextBoxVerticalAlignment'],
+    codePath: 'packages/model/src/text-box-vertical-alignment.internal.ts',
+    codePattern: 'export function normalizeTextBoxVerticalAlignment(',
+    ooxmlTitle: 'creates, edits, duplicates, and reopens text-box vertical alignment',
+    note: 'Native accepts the same top, middle, and bottom values, maps them to the same bodyPr anchors, and exposes strict reversible live editing.',
+  },
+  {
+    property: 'wrap',
+    status: 'supported',
+    native: ['AddTextOptions.wrap', 'ShapeModel.textWrap'],
+    codePath: 'packages/model/src/text-box-wrapping.internal.ts',
+    codePattern: 'export function normalizeTextBoxWrap(',
+    ooxmlTitle: 'creates, edits, duplicates, and reopens text-box wrapping',
+    note: 'Native preserves the same true square-wrap and false no-wrap intent while rejecting non-boolean values before mutation and exposing clearable live editing.',
+  },
+  ...['lineSpacing', 'lineSpacingMultiple', 'paraSpaceAfter', 'paraSpaceBefore'].map(
+    (property) => ({
+      property,
+      status: 'deliberate-difference',
+      native: ['AddTextOptions.spacing', 'RichTextParagraph.spacing', 'ParagraphSpacing'],
+      codePath: 'packages/model/src/rich-text.internal.ts',
+      codePattern: 'export function normalizeParagraphSpacing(',
+      ooxmlTitle: 'creates, replaces, rolls back, and round-trips paragraph spacing',
+      note: `Native represents TextPropsOptions.${property} through the strict ParagraphSpacing object, preserving the legal exact, multiple, before, and after intent without PptxGenJS truthy-zero collapse, competing-field precedence, or invalid negative output.`,
+    }),
+  ),
+  {
+    property: 'margin',
+    status: 'deliberate-difference',
+    native: ['AddTextOptions.margin', 'ShapeModel.textMargins', 'TextBoxMarginInput'],
+    codePath: 'packages/model/src/text-box-margins.internal.ts',
+    codePattern: 'export function normalizeTextBoxMargins(',
+    ooxmlTitle: 'creates, edits, duplicates, and reopens text-box margins',
+    note: 'Native preserves scalar, zero, fractional, negative, tuple, and named-side text-box margins but intentionally uses the documented top/right/bottom/left tuple order instead of PptxGenJS 4.0.1 left/right/bottom/top runtime order.',
+  },
+  {
+    property: 'inset',
+    status: 'deprecated-alias',
+    canonical: linePropertyId('TextPropsOptions', 'margin'),
+    native: ['AddTextOptions.margin', 'ShapeModel.textMargins', 'TextBoxMarginInput'],
+    codePath: 'packages/model/src/text-box-margins.internal.ts',
+    codePattern: 'export function normalizeTextBoxMargins(',
+    ooxmlTitle: 'creates, edits, duplicates, and reopens text-box margins',
+    note: 'PptxGenJS 4.0.1 keeps inset as a deprecated inch-based alias of margin, preserves explicit zero, and gives modern margin precedence; native exposes only the canonical point-based TextBoxMarginInput.',
+  },
+]);
+
+function textParagraphLayoutFamilyEvidence(definition) {
+  return {
+    code: [{
+      path: definition.codePath,
+      pattern: definition.codePattern,
+    }],
+    tests: [
+      {
+        path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+        title: TEXT_PARAGRAPH_LAYOUT_FAMILY_CONTROL_TITLE,
+      },
+      {
+        path: 'packages/sdk/src/index.test.ts',
+        title: definition.ooxmlTitle,
+      },
+    ],
+    package: [{
+      path: 'scripts/smoke-npm-package.mjs',
+      pattern: TEXT_PARAGRAPH_LAYOUT_FAMILY_PACKAGE_PATTERN,
+    }],
+    ooxml: [{
+      path: 'packages/sdk/src/index.test.ts',
+      pattern: definition.ooxmlTitle,
+    }],
+    clients: [{
+      path: 'scripts/playwright-browser-smoke.js',
+      pattern: TEXT_PARAGRAPH_LAYOUT_FAMILY_CLIENT_PATTERN,
+    }],
+  };
+}
+
+function textParagraphLayoutFamilyEntry(definition) {
+  return {
+    id: linePropertyId('TextPropsOptions', definition.property),
+    status: definition.status,
+    native: definition.native,
+    evidence: textParagraphLayoutFamilyEvidence(definition),
+    ...(definition.status === 'supported' ? {} : {
+      control: {
+        path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+        pattern: TEXT_PARAGRAPH_LAYOUT_FAMILY_CONTROL_TITLE,
+      },
+    }),
+    ...(definition.canonical ? { canonical: definition.canonical } : {}),
+    serialization: true,
+    client: true,
+    note: definition.note,
+  };
+}
+
+const TEXT_PARAGRAPH_LAYOUT_FAMILY_ENTRIES = Object.freeze(
+  TEXT_PARAGRAPH_LAYOUT_FAMILY_DEFINITIONS.map(textParagraphLayoutFamilyEntry),
+);
+
 const TEXT_RUN_SCALAR_FAMILY_CONTROL_TITLE =
   'locks scalar text formatting behavior across every declared owner';
 const TEXT_RUN_SCALAR_FAMILY_OOXML_TITLE =
@@ -4761,6 +4890,7 @@ export const PPTXGENJS_SURFACE_MANIFEST = deepFreeze({
     ...UNDERLINE_FAMILY_ENTRIES,
     ...TEXT_DIRECTION_FAMILY_ENTRIES,
     ...TEXT_BOX_FIT_FAMILY_ENTRIES,
+    ...TEXT_PARAGRAPH_LAYOUT_FAMILY_ENTRIES,
     ...TEXT_RUN_SCALAR_FAMILY_ENTRIES,
     ...['ShapeType', 'SHAPE_NAME'].flatMap((owner) =>
       DECLARED_PRESET_SHAPE_VALUES.map((value) => presetShapeCatalogEntry(owner, value))),

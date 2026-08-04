@@ -124,14 +124,14 @@ function assertDeepFrozen(value, seen = new Set()) {
 test('exports an immutable evidence-backed initial manifest batch', () => {
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.schemaVersion, 1);
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.packageVersion, '4.0.1');
-  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1430);
+  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1440);
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries.map(({ status }) => status).sort(),
     [
       ...Array(359).fill('defect-excluded'),
-      ...Array(624).fill('supported'),
-      ...Array(354).fill('deliberate-difference'),
-      ...Array(93).fill('deprecated-alias'),
+      ...Array(628).fill('supported'),
+      ...Array(359).fill('deliberate-difference'),
+      ...Array(94).fill('deprecated-alias'),
     ].sort(),
   );
   const lineFamilyEntries = PPTXGENJS_SURFACE_MANIFEST.entries.filter(({ id }) =>
@@ -555,6 +555,73 @@ test('exports an immutable evidence-backed initial manifest batch', () => {
       'imports public PptxGenJS output and continues editing in the OOXML kernel',
     );
   }
+  const textParagraphLayoutExpectedStatus = {
+    align: 'supported',
+    inset: 'deprecated-alias',
+    lineSpacing: 'deliberate-difference',
+    lineSpacingMultiple: 'deliberate-difference',
+    margin: 'deliberate-difference',
+    paraSpaceAfter: 'deliberate-difference',
+    paraSpaceBefore: 'deliberate-difference',
+    rtlMode: 'supported',
+    valign: 'supported',
+    wrap: 'supported',
+  };
+  const textParagraphLayoutEntries = PPTXGENJS_SURFACE_MANIFEST.entries
+    .filter(({ id }) => id.startsWith('interface:TextPropsOptions@property:'))
+    .filter(({ id }) => Object.hasOwn(
+      textParagraphLayoutExpectedStatus,
+      id.slice(id.lastIndexOf(':') + 1),
+    ))
+    .sort((left, right) => left.id.localeCompare(right.id));
+  assert.equal(textParagraphLayoutEntries.length, 10);
+  assert.equal(new Set(textParagraphLayoutEntries.map(({ id }) => id)).size, 10);
+  assert.deepEqual(
+    Object.fromEntries(textParagraphLayoutEntries.map(({ id, status }) => [
+      id.slice(id.lastIndexOf(':') + 1),
+      status,
+    ])),
+    textParagraphLayoutExpectedStatus,
+  );
+  assert.deepEqual(
+    Object.fromEntries(
+      ['supported', 'deliberate-difference', 'deprecated-alias'].map((status) => [
+        status,
+        textParagraphLayoutEntries.filter((entry) => entry.status === status).length,
+      ]),
+    ),
+    { supported: 4, 'deliberate-difference': 5, 'deprecated-alias': 1 },
+  );
+  assert.equal(
+    textParagraphLayoutEntries.every(({
+      native,
+      evidence,
+      serialization,
+      client,
+    }) => native.length >= 2 && evidence.code.length === 1 &&
+      evidence.tests.length === 2 &&
+      evidence.package.some(({ pattern }) =>
+        pattern === 'const createdText = created.addSlide().addText(') &&
+      evidence.ooxml.length === 1 &&
+      evidence.clients.some(({ pattern }) =>
+        pattern === 'const textParagraphLayoutFamilyState = {') &&
+      serialization === true && client === true),
+    true,
+  );
+  for (const entry of textParagraphLayoutEntries.filter(
+    ({ status }) => status !== 'supported',
+  )) {
+    assert.equal(
+      entry.control.pattern,
+      'imports public PptxGenJS output and continues editing in the OOXML kernel',
+    );
+  }
+  const textInsetEntry = textParagraphLayoutEntries.find(({ id }) =>
+    id === 'interface:TextPropsOptions@property:inset');
+  assert.equal(
+    textInsetEntry.canonical,
+    'interface:TextPropsOptions@property:margin',
+  );
   const textRunScalarFamilyStatus = {
     PlaceholderProps: {
       supported: 4,

@@ -33350,28 +33350,62 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textParagraphLayoutFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "export function normalizeTextAlignment("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, replaces, rolls back, and round-trips paragraph alignment"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const createdText = created.addSlide().addText("
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, replaces, rolls back, and round-trips paragraph alignment"
+          }
+        ]
       },
       "id": "interface:TextPropsOptions@property:align",
       "kind": "property",
       "name": "align",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.align",
+        "RichTextParagraph.align",
+        "ShapeModel.richText",
+        "TextAlignment"
+      ],
+      "note": "Native accepts the same left, center, right, and justify paragraph alignments, preserves them through live rich-text editing, and writes the same DrawingML alignment intent.",
       "optional": true,
       "owner": "TextPropsOptions",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "HAlign"
     },
     {
@@ -34348,29 +34382,67 @@
       "typeText": "number"
     },
     {
+      "canonical": "interface:TextPropsOptions@property:margin",
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+      },
       "declaredIn": "TextPropsOptions",
       "deprecated": true,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textParagraphLayoutFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/text-box-margins.internal.ts",
+            "pattern": "export function normalizeTextBoxMargins("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, and reopens text-box margins"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const createdText = created.addSlide().addText("
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, and reopens text-box margins"
+          }
+        ]
       },
       "id": "interface:TextPropsOptions@property:inset",
       "kind": "property",
       "name": "inset",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.margin",
+        "ShapeModel.textMargins",
+        "TextBoxMarginInput"
+      ],
+      "note": "PptxGenJS 4.0.1 keeps inset as a deprecated inch-based alias of margin, preserves explicit zero, and gives modern margin precedence; native exposes only the canonical point-based TextBoxMarginInput.",
       "optional": true,
       "owner": "TextPropsOptions",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deprecated-alias",
       "typeText": "number"
     },
     {
@@ -34759,54 +34831,128 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+      },
       "declaredIn": "TextPropsOptions",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textParagraphLayoutFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "export function normalizeParagraphSpacing("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, replaces, rolls back, and round-trips paragraph spacing"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const createdText = created.addSlide().addText("
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, replaces, rolls back, and round-trips paragraph spacing"
+          }
+        ]
       },
       "id": "interface:TextPropsOptions@property:lineSpacing",
       "kind": "property",
       "name": "lineSpacing",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.spacing",
+        "ParagraphSpacing",
+        "RichTextParagraph.spacing"
+      ],
+      "note": "Native represents TextPropsOptions.lineSpacing through the strict ParagraphSpacing object, preserving the legal exact, multiple, before, and after intent without PptxGenJS truthy-zero collapse, competing-field precedence, or invalid negative output.",
       "optional": true,
       "owner": "TextPropsOptions",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "number"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+      },
       "declaredIn": "TextPropsOptions",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textParagraphLayoutFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "export function normalizeParagraphSpacing("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, replaces, rolls back, and round-trips paragraph spacing"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const createdText = created.addSlide().addText("
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, replaces, rolls back, and round-trips paragraph spacing"
+          }
+        ]
       },
       "id": "interface:TextPropsOptions@property:lineSpacingMultiple",
       "kind": "property",
       "name": "lineSpacingMultiple",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.spacing",
+        "ParagraphSpacing",
+        "RichTextParagraph.spacing"
+      ],
+      "note": "Native represents TextPropsOptions.lineSpacingMultiple through the strict ParagraphSpacing object, preserving the legal exact, multiple, before, and after intent without PptxGenJS truthy-zero collapse, competing-field precedence, or invalid negative output.",
       "optional": true,
       "owner": "TextPropsOptions",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "number"
     },
     {
@@ -34866,28 +35012,65 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+      },
       "declaredIn": "TextPropsOptions",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textParagraphLayoutFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/text-box-margins.internal.ts",
+            "pattern": "export function normalizeTextBoxMargins("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, and reopens text-box margins"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const createdText = created.addSlide().addText("
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, and reopens text-box margins"
+          }
+        ]
       },
       "id": "interface:TextPropsOptions@property:margin",
       "kind": "property",
       "name": "margin",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.margin",
+        "ShapeModel.textMargins",
+        "TextBoxMarginInput"
+      ],
+      "note": "Native preserves scalar, zero, fractional, negative, tuple, and named-side text-box margins but intentionally uses the documented top/right/bottom/left tuple order instead of PptxGenJS 4.0.1 left/right/bottom/top runtime order.",
       "optional": true,
       "owner": "TextPropsOptions",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Margin"
     },
     {
@@ -34944,54 +35127,128 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+      },
       "declaredIn": "TextPropsOptions",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textParagraphLayoutFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "export function normalizeParagraphSpacing("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, replaces, rolls back, and round-trips paragraph spacing"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const createdText = created.addSlide().addText("
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, replaces, rolls back, and round-trips paragraph spacing"
+          }
+        ]
       },
       "id": "interface:TextPropsOptions@property:paraSpaceAfter",
       "kind": "property",
       "name": "paraSpaceAfter",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.spacing",
+        "ParagraphSpacing",
+        "RichTextParagraph.spacing"
+      ],
+      "note": "Native represents TextPropsOptions.paraSpaceAfter through the strict ParagraphSpacing object, preserving the legal exact, multiple, before, and after intent without PptxGenJS truthy-zero collapse, competing-field precedence, or invalid negative output.",
       "optional": true,
       "owner": "TextPropsOptions",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "number"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+      },
       "declaredIn": "TextPropsOptions",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textParagraphLayoutFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "export function normalizeParagraphSpacing("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, replaces, rolls back, and round-trips paragraph spacing"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const createdText = created.addSlide().addText("
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, replaces, rolls back, and round-trips paragraph spacing"
+          }
+        ]
       },
       "id": "interface:TextPropsOptions@property:paraSpaceBefore",
       "kind": "property",
       "name": "paraSpaceBefore",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.spacing",
+        "ParagraphSpacing",
+        "RichTextParagraph.spacing"
+      ],
+      "note": "Native represents TextPropsOptions.paraSpaceBefore through the strict ParagraphSpacing object, preserving the legal exact, multiple, before, and after intent without PptxGenJS truthy-zero collapse, competing-field precedence, or invalid negative output.",
       "optional": true,
       "owner": "TextPropsOptions",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "number"
     },
     {
@@ -35147,28 +35404,61 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "TextPropsOptions",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textParagraphLayoutFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "export function normalizeParagraphRtl("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, and reopens plain and rich paragraph RTL"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const createdText = created.addSlide().addText("
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, and reopens plain and rich paragraph RTL"
+          }
+        ]
       },
       "id": "interface:TextPropsOptions@property:rtlMode",
       "kind": "property",
       "name": "rtlMode",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.rtlMode",
+        "RichTextParagraph.rtl",
+        "ShapeModel.richText"
+      ],
+      "note": "Native accepts the same boolean paragraph direction intent and additionally retains explicit false during reversible rich-text editing instead of collapsing it into omission.",
       "optional": true,
       "owner": "TextPropsOptions",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "boolean"
     },
     {
@@ -35666,28 +35956,61 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "TextPropsOptions",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textParagraphLayoutFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/text-box-vertical-alignment.internal.ts",
+            "pattern": "export function normalizeTextBoxVerticalAlignment("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, and reopens text-box vertical alignment"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const createdText = created.addSlide().addText("
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, and reopens text-box vertical alignment"
+          }
+        ]
       },
       "id": "interface:TextPropsOptions@property:valign",
       "kind": "property",
       "name": "valign",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.valign",
+        "ShapeModel.verticalAlignment",
+        "TextBoxVerticalAlignment"
+      ],
+      "note": "Native accepts the same top, middle, and bottom values, maps them to the same bodyPr anchors, and exposes strict reversible live editing.",
       "optional": true,
       "owner": "TextPropsOptions",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "VAlign"
     },
     {
@@ -35803,28 +36126,60 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "TextPropsOptions",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textParagraphLayoutFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/text-box-wrapping.internal.ts",
+            "pattern": "export function normalizeTextBoxWrap("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, and reopens text-box wrapping"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const createdText = created.addSlide().addText("
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, and reopens text-box wrapping"
+          }
+        ]
       },
       "id": "interface:TextPropsOptions@property:wrap",
       "kind": "property",
       "name": "wrap",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.wrap",
+        "ShapeModel.textWrap"
+      ],
+      "note": "Native preserves the same true square-wrap and false no-wrap intent while rejecting non-boolean values before mutation and exposing clearable live editing.",
       "optional": true,
       "owner": "TextPropsOptions",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "boolean"
     },
     {
@@ -88051,12 +88406,12 @@
   "complete": false,
   "counts": {
     "defect-excluded": 359,
-    "deliberate-difference": 354,
-    "deprecated-alias": 93,
+    "deliberate-difference": 359,
+    "deprecated-alias": 94,
     "stale": 0,
-    "supported": 624,
+    "supported": 628,
     "unsupported": 0,
-    "unverified": 344
+    "unverified": 334
   },
   "declarationSha256": "0726d015dbcb55ccfa75546cb2fd43fe13a0dfeb783d08572f1c62f59193bbe5",
   "declarationTotal": 1774,
@@ -88293,7 +88648,6 @@
     "interface:TextGlowProps@property:size",
     "interface:TextProps@property:options",
     "interface:TextProps@property:text",
-    "interface:TextPropsOptions@property:align",
     "interface:TextPropsOptions@property:baseline",
     "interface:TextPropsOptions@property:charSpacing",
     "interface:TextPropsOptions@property:data",
@@ -88301,26 +88655,17 @@
     "interface:TextPropsOptions@property:flipV",
     "interface:TextPropsOptions@property:glow",
     "interface:TextPropsOptions@property:hyperlink",
-    "interface:TextPropsOptions@property:inset",
     "interface:TextPropsOptions@property:isTextBox",
-    "interface:TextPropsOptions@property:lineSpacing",
-    "interface:TextPropsOptions@property:lineSpacingMultiple",
-    "interface:TextPropsOptions@property:margin",
     "interface:TextPropsOptions@property:objectName",
     "interface:TextPropsOptions@property:outline",
-    "interface:TextPropsOptions@property:paraSpaceAfter",
-    "interface:TextPropsOptions@property:paraSpaceBefore",
     "interface:TextPropsOptions@property:path",
     "interface:TextPropsOptions@property:rectRadius",
     "interface:TextPropsOptions@property:rotate",
-    "interface:TextPropsOptions@property:rtlMode",
     "interface:TextPropsOptions@property:shape",
     "interface:TextPropsOptions@property:strike",
     "interface:TextPropsOptions@property:subscript",
     "interface:TextPropsOptions@property:superscript",
     "interface:TextPropsOptions@property:transparency",
-    "interface:TextPropsOptions@property:valign",
-    "interface:TextPropsOptions@property:wrap",
     "union:ChartLineCap#flat",
     "union:ChartLineCap#round",
     "union:ChartLineCap#square",

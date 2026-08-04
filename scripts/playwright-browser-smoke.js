@@ -1512,6 +1512,269 @@ async (page) => {
         ).length === 0,
       };
       const textBoxFitFamily = Object.values(textBoxFitFamilyState).every(Boolean);
+      const textParagraphLayoutDocument = api.PptxDocument.create();
+      const textParagraphLayoutSlide = textParagraphLayoutDocument.addSlide();
+      const textParagraphLayoutShape = textParagraphLayoutSlide.addText(
+        'Browser paragraph layout',
+        {
+          name: 'browser_text_paragraph_layout',
+          align: 'center',
+          rtlMode: true,
+          spacing: {
+            before: 6.25,
+            after: 8.5,
+            line: { kind: 'exact', points: 28 },
+          },
+          margin: [1, 2, 3, 4],
+          valign: 'bottom',
+          wrap: false,
+        },
+      );
+      const textParagraphLayoutCatalogShapes = [
+        textParagraphLayoutSlide.addText('Browser paragraph layout left scalar middle', {
+          name: 'browser_text_paragraph_layout_left_scalar_middle',
+          align: 'left',
+          rtlMode: false,
+          margin: 8,
+          valign: 'middle',
+          wrap: true,
+        }),
+        textParagraphLayoutSlide.addText('Browser paragraph layout justify zero top', {
+          name: 'browser_text_paragraph_layout_justify_zero_top',
+          align: 'justify',
+          rtlMode: true,
+          margin: 0,
+          valign: 'top',
+          wrap: false,
+        }),
+      ];
+      const textParagraphLayoutPart = () => textParagraphLayoutDocument.opcPackage
+        .requirePart(textParagraphLayoutSlide.partUri).bytes;
+      const textParagraphLayoutBytesEqual = (left, right) =>
+        left.byteLength === right.byteLength
+        && left.every((value, index) => value === right[index]);
+      const textParagraphLayoutSnapshot = (shape) => ({
+        paragraphs: shape.richText.map(({ align, rtl, spacing }) => ({
+          align,
+          rtl,
+          spacing,
+        })),
+        margins: shape.textMargins,
+        verticalAlignment: shape.verticalAlignment,
+        textWrap: shape.textWrap,
+      });
+      const initialTextParagraphLayoutExpected = {
+        paragraphs: [{
+          align: 'center',
+          rtl: true,
+          spacing: {
+            before: 6.25,
+            after: 8.5,
+            line: { kind: 'exact', points: 28 },
+          },
+        }],
+        margins: { left: 4, top: 1, right: 2, bottom: 3 },
+        verticalAlignment: 'bottom',
+        textWrap: false,
+      };
+      const textParagraphLayoutCatalogExpected = [
+        {
+          paragraphs: [{ align: 'left', rtl: false }],
+          margins: { left: 8, top: 8, right: 8, bottom: 8 },
+          verticalAlignment: 'middle',
+          textWrap: true,
+        },
+        {
+          paragraphs: [{ align: 'justify', rtl: true }],
+          margins: { left: 0, top: 0, right: 0, bottom: 0 },
+          verticalAlignment: 'top',
+          textWrap: false,
+        },
+      ];
+      const textParagraphLayoutImmediate = JSON.stringify(
+        textParagraphLayoutSnapshot(textParagraphLayoutShape),
+      ) === JSON.stringify(initialTextParagraphLayoutExpected);
+      const textParagraphLayoutCatalogImmediate = JSON.stringify(
+        textParagraphLayoutCatalogShapes.map(textParagraphLayoutSnapshot),
+      ) === JSON.stringify(textParagraphLayoutCatalogExpected);
+      const initialTextParagraphLayoutSlideXml = new TextDecoder().decode(
+        textParagraphLayoutPart(),
+      );
+      const initialTextParagraphLayoutXml = namedOwnerXml(
+        initialTextParagraphLayoutSlideXml,
+        'browser_text_paragraph_layout',
+        '</p:sp>',
+      );
+      const textParagraphLayoutInitialOoxml =
+        /<a:bodyPr(?=[^>]*wrap="none")(?=[^>]*lIns="50800")(?=[^>]*tIns="12700")(?=[^>]*rIns="25400")(?=[^>]*bIns="38100")(?=[^>]*anchor="b")[^>]*>/u
+          .test(initialTextParagraphLayoutXml)
+        && /<a:pPr(?=[^>]*algn="ctr")(?=[^>]*rtl="1")[^>]*>/u
+          .test(initialTextParagraphLayoutXml)
+        && initialTextParagraphLayoutXml.includes(
+          '<a:lnSpc><a:spcPts val="2800"/></a:lnSpc>',
+        )
+        && initialTextParagraphLayoutXml.includes(
+          '<a:spcBef><a:spcPts val="625"/></a:spcBef>',
+        )
+        && initialTextParagraphLayoutXml.includes(
+          '<a:spcAft><a:spcPts val="850"/></a:spcAft>',
+        );
+      const initialTextParagraphLayoutLeftCatalogXml = namedOwnerXml(
+        initialTextParagraphLayoutSlideXml,
+        'browser_text_paragraph_layout_left_scalar_middle',
+        '</p:sp>',
+      );
+      const initialTextParagraphLayoutJustifyCatalogXml = namedOwnerXml(
+        initialTextParagraphLayoutSlideXml,
+        'browser_text_paragraph_layout_justify_zero_top',
+        '</p:sp>',
+      );
+      const textParagraphLayoutCatalogOoxml =
+        /<a:bodyPr(?=[^>]*wrap="square")(?=[^>]*lIns="101600")(?=[^>]*tIns="101600")(?=[^>]*rIns="101600")(?=[^>]*bIns="101600")(?=[^>]*anchor="ctr")[^>]*>/u
+          .test(initialTextParagraphLayoutLeftCatalogXml)
+        && /<a:pPr(?=[^>]*algn="l")(?=[^>]*rtl="0")[^>]*>/u
+          .test(initialTextParagraphLayoutLeftCatalogXml)
+        && /<a:bodyPr(?=[^>]*wrap="none")(?=[^>]*lIns="0")(?=[^>]*tIns="0")(?=[^>]*rIns="0")(?=[^>]*bIns="0")(?=[^>]*anchor="t")[^>]*>/u
+          .test(initialTextParagraphLayoutJustifyCatalogXml)
+        && /<a:pPr(?=[^>]*algn="just")(?=[^>]*rtl="1")[^>]*>/u
+          .test(initialTextParagraphLayoutJustifyCatalogXml);
+      const textParagraphLayoutInvalidBytes = textParagraphLayoutPart().slice();
+      const textParagraphLayoutInvalidJournal = JSON.stringify(
+        textParagraphLayoutDocument.opcPackage.mutations,
+      );
+      let textParagraphLayoutInvalidRejected = false;
+      try {
+        textParagraphLayoutShape.textMargins = [1, 2, 3];
+      } catch {
+        textParagraphLayoutInvalidRejected = true;
+      }
+      const textParagraphLayoutInvalidMarginRollback = textParagraphLayoutInvalidRejected
+        && textParagraphLayoutBytesEqual(
+          textParagraphLayoutInvalidBytes,
+          textParagraphLayoutPart(),
+        )
+        && textParagraphLayoutInvalidJournal === JSON.stringify(
+          textParagraphLayoutDocument.opcPackage.mutations,
+        );
+      const textParagraphLayoutInvalidSpacingBytes = textParagraphLayoutPart().slice();
+      const textParagraphLayoutInvalidSpacingJournal = JSON.stringify(
+        textParagraphLayoutDocument.opcPackage.mutations,
+      );
+      let textParagraphLayoutInvalidSpacingRejected = false;
+      try {
+        textParagraphLayoutShape.richText = [{
+          runs: [{ text: 'Invalid browser paragraph spacing' }],
+          spacing: { line: { kind: 'multiple', factor: 0 } },
+        }];
+      } catch {
+        textParagraphLayoutInvalidSpacingRejected = true;
+      }
+      const textParagraphLayoutInvalidSpacingRollback =
+        textParagraphLayoutInvalidSpacingRejected
+        && textParagraphLayoutBytesEqual(
+          textParagraphLayoutInvalidSpacingBytes,
+          textParagraphLayoutPart(),
+        )
+        && textParagraphLayoutInvalidSpacingJournal === JSON.stringify(
+          textParagraphLayoutDocument.opcPackage.mutations,
+        );
+      textParagraphLayoutDocument.duplicateSlide(0);
+      textParagraphLayoutShape.richText = [{
+        runs: [{ text: 'Edited browser paragraph layout' }],
+        align: 'right',
+        rtl: false,
+        spacing: {
+          before: 2,
+          after: 3,
+          line: { kind: 'multiple', factor: 1.5 },
+        },
+      }];
+      textParagraphLayoutShape.textMargins = { top: 5, left: 6 };
+      textParagraphLayoutShape.verticalAlignment = 'top';
+      textParagraphLayoutShape.textWrap = true;
+      const editedTextParagraphLayoutExpected = {
+        paragraphs: [{
+          align: 'right',
+          rtl: false,
+          spacing: {
+            before: 2,
+            after: 3,
+            line: { kind: 'multiple', factor: 1.5 },
+          },
+        }],
+        margins: { left: 6, top: 5 },
+        verticalAlignment: 'top',
+        textWrap: true,
+      };
+      const textParagraphLayoutEdited = JSON.stringify(
+        textParagraphLayoutSnapshot(textParagraphLayoutShape),
+      ) === JSON.stringify(editedTextParagraphLayoutExpected);
+      const editedTextParagraphLayoutXml = namedOwnerXml(
+        new TextDecoder().decode(textParagraphLayoutPart()),
+        'browser_text_paragraph_layout',
+        '</p:sp>',
+      );
+      const textParagraphLayoutEditedOoxml =
+        /<a:bodyPr(?=[^>]*wrap="square")(?=[^>]*lIns="76200")(?=[^>]*tIns="63500")(?=[^>]*anchor="t")(?![^>]*(?:rIns|bIns)=)[^>]*>/u
+          .test(editedTextParagraphLayoutXml)
+        && /<a:pPr(?=[^>]*algn="r")(?=[^>]*rtl="0")[^>]*>/u
+          .test(editedTextParagraphLayoutXml)
+        && editedTextParagraphLayoutXml.includes(
+          '<a:lnSpc><a:spcPct val="150000"/></a:lnSpc>',
+        )
+        && editedTextParagraphLayoutXml.includes(
+          '<a:spcBef><a:spcPts val="200"/></a:spcBef>',
+        )
+        && editedTextParagraphLayoutXml.includes(
+          '<a:spcAft><a:spcPts val="300"/></a:spcAft>',
+        );
+      const textParagraphLayoutOutput = await textParagraphLayoutDocument.writeBlob();
+      globalThis.__pptxTextParagraphLayoutEvidenceBlob = textParagraphLayoutOutput;
+      const reopenedTextParagraphLayoutDocument = await api.PptxDocument.open(
+        textParagraphLayoutOutput,
+      );
+      const reopenedTextParagraphLayoutSource = reopenedTextParagraphLayoutDocument
+        .slides[0].shapes.find(({ name }) => name === 'browser_text_paragraph_layout');
+      const reopenedTextParagraphLayoutDuplicate = reopenedTextParagraphLayoutDocument
+        .slides[1].shapes.find(({ name }) => name === 'browser_text_paragraph_layout');
+      const reopenedTextParagraphLayoutCatalog = reopenedTextParagraphLayoutDocument
+        .slides[0].shapes
+        .filter(({ name }) => name.startsWith('browser_text_paragraph_layout_'))
+        .map(textParagraphLayoutSnapshot);
+      const duplicateTextParagraphLayoutCatalog = reopenedTextParagraphLayoutDocument
+        .slides[1].shapes
+        .filter(({ name }) => name.startsWith('browser_text_paragraph_layout_'))
+        .map(textParagraphLayoutSnapshot);
+      const textParagraphLayoutFamilyState = {
+        immediate: textParagraphLayoutImmediate,
+        initialOoxml: textParagraphLayoutInitialOoxml,
+        catalog: textParagraphLayoutCatalogImmediate
+          && JSON.stringify(reopenedTextParagraphLayoutCatalog) ===
+            JSON.stringify(textParagraphLayoutCatalogExpected)
+          && JSON.stringify(duplicateTextParagraphLayoutCatalog) ===
+            JSON.stringify(textParagraphLayoutCatalogExpected),
+        catalogOoxml: textParagraphLayoutCatalogOoxml,
+        invalidRollback: textParagraphLayoutInvalidMarginRollback
+          && textParagraphLayoutInvalidSpacingRollback,
+        edited: textParagraphLayoutEdited,
+        editedOoxml: textParagraphLayoutEditedOoxml,
+        reopened: reopenedTextParagraphLayoutSource !== undefined
+          && JSON.stringify(textParagraphLayoutSnapshot(reopenedTextParagraphLayoutSource)) ===
+            JSON.stringify(editedTextParagraphLayoutExpected),
+        duplicateIsolation: reopenedTextParagraphLayoutDuplicate !== undefined
+          && JSON.stringify(textParagraphLayoutSnapshot(reopenedTextParagraphLayoutDuplicate)) ===
+            JSON.stringify(initialTextParagraphLayoutExpected),
+        mime: textParagraphLayoutOutput.type ===
+          'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        diagnostics: textParagraphLayoutDocument.diagnostics.filter(
+          ({ severity }) => severity === 'error' || severity === 'warning',
+        ).length === 0 && reopenedTextParagraphLayoutDocument.diagnostics.filter(
+          ({ severity }) => severity === 'error' || severity === 'warning',
+        ).length === 0,
+      };
+      const textParagraphLayoutFamily = Object.values(
+        textParagraphLayoutFamilyState,
+      ).every(Boolean);
       const tableHorizontalAlignmentDocument = api.PptxDocument.create();
       const tableHorizontalAlignmentSlide = tableHorizontalAlignmentDocument.addSlide();
       const tableHorizontalAlignmentTable = tableHorizontalAlignmentSlide.addTable([
@@ -7183,6 +7446,8 @@ async (page) => {
         textDirectionFamilyState,
         textBoxFitFamily,
         textBoxFitFamilyState,
+        textParagraphLayoutFamily,
+        textParagraphLayoutFamilyState,
         tableTextDirection,
         tableTextDirectionState,
         tableHorizontalAlignment,
@@ -7309,6 +7574,30 @@ async (page) => {
     : globalThis.__pptxTextBoxFitEvidenceOutput;
   if (typeof textBoxFitEvidenceOutput === 'string') {
     await textBoxFitEvidenceDownload.saveAs(textBoxFitEvidenceOutput);
+  }
+  const textParagraphLayoutEvidenceDownloadPromise = page.waitForEvent('download');
+  await page.evaluate(() => {
+    const blob = globalThis.__pptxTextParagraphLayoutEvidenceBlob;
+    if (!(blob instanceof Blob)) {
+      throw new Error('Missing text paragraph/layout evidence Blob');
+    }
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'browser-text-paragraph-layout.pptx';
+    anchor.click();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  });
+  const textParagraphLayoutEvidenceDownload =
+    await textParagraphLayoutEvidenceDownloadPromise;
+  result.textParagraphLayoutEvidenceFileName =
+    textParagraphLayoutEvidenceDownload.suggestedFilename();
+  const textParagraphLayoutEvidenceOutput = typeof process !== 'undefined'
+    ? process.env.PPTX_BROWSER_TEXT_PARAGRAPH_LAYOUT_OUT ??
+      globalThis.__pptxTextParagraphLayoutEvidenceOutput
+    : globalThis.__pptxTextParagraphLayoutEvidenceOutput;
+  if (typeof textParagraphLayoutEvidenceOutput === 'string') {
+    await textParagraphLayoutEvidenceDownload.saveAs(textParagraphLayoutEvidenceOutput);
   }
   const customPathEvidenceDownloadPromise = page.waitForEvent('download');
   await page.evaluate(() => {
@@ -7800,6 +8089,20 @@ async (page) => {
       initial: true,
       initialOoxml: true,
       invalidRollback: true,
+      editedOoxml: true,
+      reopened: true,
+      duplicateIsolation: true,
+      mime: true,
+      diagnostics: true,
+    },
+    textParagraphLayoutFamily: true,
+    textParagraphLayoutFamilyState: {
+      immediate: true,
+      initialOoxml: true,
+      catalog: true,
+      catalogOoxml: true,
+      invalidRollback: true,
+      edited: true,
       editedOoxml: true,
       reopened: true,
       duplicateIsolation: true,
@@ -8958,6 +9261,7 @@ async (page) => {
     mediaTargetIsolation: true,
     mediaOrphanCount: 0,
     textBoxFitEvidenceFileName: 'browser-text-box-fit.pptx',
+    textParagraphLayoutEvidenceFileName: 'browser-text-paragraph-layout.pptx',
     customPathEvidenceFileName: 'browser-custom-paths.pptx',
     tableCellMergesEvidenceFileName: 'browser-table-cell-merges.pptx',
     tableStructureEditingEvidenceFileName: 'browser-table-structure-editing.pptx',
