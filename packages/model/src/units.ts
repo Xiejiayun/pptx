@@ -25,6 +25,18 @@ export function angleToDegrees(value: OoxmlAngle | number): number {
   return value / OOXML_ANGLE_PER_DEGREE;
 }
 
+export type SlideCoordinate = Emu | `${number}%`;
+
+export interface TransformInput {
+  readonly x: SlideCoordinate;
+  readonly y: SlideCoordinate;
+  readonly width: SlideCoordinate;
+  readonly height: SlideCoordinate;
+  readonly rotation: OoxmlAngle;
+  readonly flipHorizontal: boolean;
+  readonly flipVertical: boolean;
+}
+
 export interface Transform {
   readonly x: Emu;
   readonly y: Emu;
