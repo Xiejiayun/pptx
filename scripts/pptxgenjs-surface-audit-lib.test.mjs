@@ -124,14 +124,14 @@ function assertDeepFrozen(value, seen = new Set()) {
 test('exports an immutable evidence-backed initial manifest batch', () => {
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.schemaVersion, 1);
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.packageVersion, '4.0.1');
-  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1221);
+  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1266);
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries.map(({ status }) => status).sort(),
     [
-      ...Array(349).fill('defect-excluded'),
-      ...Array(575).fill('supported'),
-      ...Array(212).fill('deliberate-difference'),
-      ...Array(85).fill('deprecated-alias'),
+      ...Array(352).fill('defect-excluded'),
+      ...Array(588).fill('supported'),
+      ...Array(240).fill('deliberate-difference'),
+      ...Array(86).fill('deprecated-alias'),
     ].sort(),
   );
   const lineFamilyEntries = PPTXGENJS_SURFACE_MANIFEST.entries.filter(({ id }) =>
@@ -677,6 +677,121 @@ test('exports an immutable evidence-backed initial manifest batch', () => {
   assert.equal(
     tableToSlidesById.get(tableToSlidesPropertyId('newSlideStartY'))?.canonical,
     tableToSlidesPropertyId('autoPageSlideStartY'),
+  );
+  const addTablePropertyId = (owner, property) =>
+    `interface:${owner}@property:${property}`;
+  const addTableUnionId = (owner, property, token) =>
+    `union:${addTablePropertyId(owner, property)}#${token}`;
+  const addTableExpected = [
+    ...['align', 'colspan', 'hyperlink', 'rowspan', 'transparency', 'valign']
+      .map((property) => ({
+        id: addTablePropertyId('TableCellProps', property),
+        status: 'supported',
+      })),
+    ...[
+      'align',
+      'autoPage',
+      'autoPageCharWeight',
+      'autoPageHeaderRows',
+      'autoPageLineWeight',
+      'autoPageRepeatHeader',
+      'valign',
+    ].map((property) => ({
+      id: addTablePropertyId('TableProps', property),
+      status: 'supported',
+    })),
+    { id: 'method:Slide#addTable', status: 'deliberate-difference' },
+    ...['color', 'pt', 'type'].map((property) => ({
+      id: addTablePropertyId('BorderProps', property),
+      status: 'deliberate-difference',
+    })),
+    ...['dash', 'none', 'solid'].map((token) => ({
+      id: addTableUnionId('BorderProps', 'type', token),
+      status: 'deliberate-difference',
+    })),
+    ...['border', 'margin'].map((property) => ({
+      id: addTablePropertyId('TableCellProps', property),
+      status: 'deliberate-difference',
+    })),
+    ...[
+      'BorderProps',
+      '[BorderProps,BorderProps,BorderProps,BorderProps]',
+    ].map((token) => ({
+      id: addTableUnionId('TableCellProps', 'border', token),
+      status: 'deliberate-difference',
+    })),
+    ...[
+      'autoPageSlideStartY',
+      'border',
+      'colW',
+      'h',
+      'margin',
+      'objectName',
+      'rowH',
+      'verbose',
+      'w',
+      'x',
+      'y',
+    ].map((property) => ({
+      id: addTablePropertyId('TableProps', property),
+      status: 'deliberate-difference',
+    })),
+    ...[
+      ['border', 'BorderProps'],
+      ['border', '[BorderProps,BorderProps,BorderProps,BorderProps]'],
+      ['colW', 'number'],
+      ['colW', 'number[]'],
+      ['rowH', 'number'],
+      ['rowH', 'number[]'],
+    ].map(([property, token]) => ({
+      id: addTableUnionId('TableProps', property, token),
+      status: 'deliberate-difference',
+    })),
+    {
+      id: addTablePropertyId('TableProps', 'newSlideStartY'),
+      status: 'deprecated-alias',
+    },
+    ...[
+      ['TableCellProps', 'autoPageCharWeight'],
+      ['TableCellProps', 'autoPageLineWeight'],
+      ['TableProps', 'transparency'],
+    ].map(([owner, property]) => ({
+      id: addTablePropertyId(owner, property),
+      status: 'defect-excluded',
+    })),
+  ].sort((left, right) => left.id.localeCompare(right.id));
+  const addTableIds = new Set(addTableExpected.map(({ id }) => id));
+  assert.equal(addTableIds.size, 45);
+  const addTableEntries = PPTXGENJS_SURFACE_MANIFEST.entries
+    .filter(({ id }) => addTableIds.has(id))
+    .sort((left, right) => left.id.localeCompare(right.id));
+  assert.deepEqual(
+    addTableEntries.map(({ id, status }) => ({ id, status })),
+    addTableExpected,
+  );
+  assert.deepEqual(
+    Object.fromEntries(
+      ['supported', 'deliberate-difference', 'deprecated-alias', 'defect-excluded']
+        .map((status) => [
+          status,
+          addTableEntries.filter((entry) => entry.status === status).length,
+        ]),
+    ),
+    {
+      supported: 13,
+      'deliberate-difference': 28,
+      'deprecated-alias': 1,
+      'defect-excluded': 3,
+    },
+  );
+  const addTableById = new Map(addTableEntries.map((entry) => [entry.id, entry]));
+  assert.equal(
+    addTableById.get(addTablePropertyId('TableProps', 'newSlideStartY'))?.canonical,
+    addTablePropertyId('TableProps', 'autoPageSlideStartY'),
+  );
+  assert.equal(
+    addTableById.get(addTablePropertyId('TableCellProps', 'transparency'))?.status,
+    'supported',
   );
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries

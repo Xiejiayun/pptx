@@ -6719,80 +6719,246 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "BorderProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTableOptions {"
+          },
+          {
+            "path": "packages/model/src/table-create.internal.ts",
+            "pattern": "export function normalizeTableDefinition("
+          },
+          {
+            "path": "packages/model/src/table-auto-page.internal.ts",
+            "pattern": "export function normalizeTableAutoPageRequest("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableCreation ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ]
       },
       "id": "interface:BorderProps@property:color",
       "kind": "property",
       "name": "color",
-      "native": [],
-      "note": "",
+      "native": [
+        "TableCellBorder.color"
+      ],
+      "note": "Native represents table borders as a strict kind/color/width/style union with sRGB or scheme colors, explicit zero-width and none intent, and partial side maps instead of permissive PptxGenJS type/color/pt fallbacks.",
       "optional": true,
       "owner": "BorderProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "HexColor"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "BorderProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTableOptions {"
+          },
+          {
+            "path": "packages/model/src/table-create.internal.ts",
+            "pattern": "export function normalizeTableDefinition("
+          },
+          {
+            "path": "packages/model/src/table-auto-page.internal.ts",
+            "pattern": "export function normalizeTableAutoPageRequest("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableCreation ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ]
       },
       "id": "interface:BorderProps@property:pt",
       "kind": "property",
       "name": "pt",
-      "native": [],
-      "note": "",
+      "native": [
+        "TableCellBorder.width"
+      ],
+      "note": "Native represents table borders as a strict kind/color/width/style union with sRGB or scheme colors, explicit zero-width and none intent, and partial side maps instead of permissive PptxGenJS type/color/pt fallbacks.",
       "optional": true,
       "owner": "BorderProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "number"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "BorderProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTableOptions {"
+          },
+          {
+            "path": "packages/model/src/table-create.internal.ts",
+            "pattern": "export function normalizeTableDefinition("
+          },
+          {
+            "path": "packages/model/src/table-auto-page.internal.ts",
+            "pattern": "export function normalizeTableAutoPageRequest("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableCreation ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ]
       },
       "id": "interface:BorderProps@property:type",
       "kind": "property",
       "name": "type",
-      "native": [],
-      "note": "",
+      "native": [
+        "TableCellBorder.kind",
+        "TableCellBorder.style"
+      ],
+      "note": "Native represents table borders as a strict kind/color/width/style union with sRGB or scheme colors, explicit zero-width and none intent, and partial side maps instead of permissive PptxGenJS type/color/pt fallbacks.",
       "optional": true,
       "owner": "BorderProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "'none' | 'dash' | 'solid'"
     },
     {
@@ -22486,33 +22652,89 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTableOptions {"
+          },
+          {
+            "path": "packages/model/src/table-create.internal.ts",
+            "pattern": "export function normalizeTableDefinition("
+          },
+          {
+            "path": "packages/model/src/table-auto-page.internal.ts",
+            "pattern": "export function normalizeTableAutoPageRequest("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableCreation ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ]
       },
       "id": "interface:TableCellProps@property:align",
       "kind": "property",
       "name": "align",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableCellOptions.align",
+        "TableCell.horizontalAlignment"
+      ],
+      "note": "Native preserves legal TableCellProps.align table behavior under the same public name with strict detached input, editable output, packed-package use, browser execution, and reopen evidence.",
       "optional": true,
       "owner": "TableCellProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "HAlign"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "TableCellProps",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -22521,24 +22743,33 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          }
+        ]
       },
       "id": "interface:TableCellProps@property:autoPageCharWeight",
       "kind": "property",
       "name": "autoPageCharWeight",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS overwrites every cell autoPageCharWeight with the table-level value or null before measurement, so the declared cell-local value never controls output.",
       "optional": true,
       "owner": "TableCellProps",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "number"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "TableCellProps",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -22547,19 +22778,24 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          }
+        ]
       },
       "id": "interface:TableCellProps@property:autoPageLineWeight",
       "kind": "property",
       "name": "autoPageLineWeight",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS never reads cell-local autoPageLineWeight; only the table-level value enters automatic row-height calculation.",
       "optional": true,
       "owner": "TableCellProps",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "number"
     },
     {
@@ -22635,28 +22871,84 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "TableCellProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTableOptions {"
+          },
+          {
+            "path": "packages/model/src/table-create.internal.ts",
+            "pattern": "export function normalizeTableDefinition("
+          },
+          {
+            "path": "packages/model/src/table-auto-page.internal.ts",
+            "pattern": "export function normalizeTableAutoPageRequest("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableCreation ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ]
       },
       "id": "interface:TableCellProps@property:border",
       "kind": "property",
       "name": "border",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableCellOptions.border",
+        "TableCell.borders"
+      ],
+      "note": "Native represents table borders as a strict kind/color/width/style union with sRGB or scheme colors, explicit zero-width and none intent, and partial side maps instead of permissive PptxGenJS type/color/pt fallbacks.",
       "optional": true,
       "owner": "TableCellProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "BorderProps | [ BorderProps, BorderProps, BorderProps, BorderProps ]"
     },
     {
@@ -22859,28 +23151,80 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "TableCellProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTableOptions {"
+          },
+          {
+            "path": "packages/model/src/table-create.internal.ts",
+            "pattern": "export function normalizeTableDefinition("
+          },
+          {
+            "path": "packages/model/src/table-auto-page.internal.ts",
+            "pattern": "export function normalizeTableAutoPageRequest("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableCreation ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ]
       },
       "id": "interface:TableCellProps@property:colspan",
       "kind": "property",
       "name": "colspan",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableCellOptions.colspan",
+        "TableModel.mergeRegions"
+      ],
+      "note": "Native preserves legal TableCellProps.colspan table behavior under the same public name with strict detached input, editable output, packed-package use, browser execution, and reopen evidence.",
       "optional": true,
       "owner": "TableCellProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "number"
     },
     {
@@ -23155,28 +23499,80 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "TableCellProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTableOptions {"
+          },
+          {
+            "path": "packages/model/src/table-create.internal.ts",
+            "pattern": "export function normalizeTableDefinition("
+          },
+          {
+            "path": "packages/model/src/table-auto-page.internal.ts",
+            "pattern": "export function normalizeTableAutoPageRequest("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableCreation ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ]
       },
       "id": "interface:TableCellProps@property:hyperlink",
       "kind": "property",
       "name": "hyperlink",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableCellOptions.hyperlink",
+        "TableCell.hyperlink"
+      ],
+      "note": "Native preserves legal TableCellProps.hyperlink table behavior under the same public name with strict detached input, editable output, packed-package use, browser execution, and reopen evidence.",
       "optional": true,
       "owner": "TableCellProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "HyperlinkProps"
     },
     {
@@ -23315,54 +23711,162 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "TableCellProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTableOptions {"
+          },
+          {
+            "path": "packages/model/src/table-create.internal.ts",
+            "pattern": "export function normalizeTableDefinition("
+          },
+          {
+            "path": "packages/model/src/table-auto-page.internal.ts",
+            "pattern": "export function normalizeTableAutoPageRequest("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableCreation ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ]
       },
       "id": "interface:TableCellProps@property:margin",
       "kind": "property",
       "name": "margin",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableCellOptions.margin",
+        "TableCell.margins"
+      ],
+      "note": "PptxGenJS mixes scalar-inch and vector-point table-cell margins; native uses one strict point-based scalar, tuple, or partial-side contract and preserves the same legal final OOXML state.",
       "optional": true,
       "owner": "TableCellProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Margin"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "TableCellProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTableOptions {"
+          },
+          {
+            "path": "packages/model/src/table-create.internal.ts",
+            "pattern": "export function normalizeTableDefinition("
+          },
+          {
+            "path": "packages/model/src/table-auto-page.internal.ts",
+            "pattern": "export function normalizeTableAutoPageRequest("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableCreation ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ]
       },
       "id": "interface:TableCellProps@property:rowspan",
       "kind": "property",
       "name": "rowspan",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableCellOptions.rowspan",
+        "TableModel.mergeRegions"
+      ],
+      "note": "Native preserves legal TableCellProps.rowspan table behavior under the same public name with strict detached input, editable output, packed-package use, browser execution, and reopen evidence.",
       "optional": true,
       "owner": "TableCellProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "number"
     },
     {
@@ -23556,28 +24060,80 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTableOptions {"
+          },
+          {
+            "path": "packages/model/src/table-create.internal.ts",
+            "pattern": "export function normalizeTableDefinition("
+          },
+          {
+            "path": "packages/model/src/table-auto-page.internal.ts",
+            "pattern": "export function normalizeTableAutoPageRequest("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableCreation ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ]
       },
       "id": "interface:TableCellProps@property:transparency",
       "kind": "property",
       "name": "transparency",
-      "native": [],
-      "note": "",
+      "native": [
+        "RichTextRunStyle.transparency",
+        "TableCell.richText"
+      ],
+      "note": "Native preserves the same legal table-cell color and alpha final state through RichTextRunStyle.transparency, editable TableCell.richText, packed output, and reopen.",
       "optional": true,
       "owner": "TableCellProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "number"
     },
     {
@@ -23644,210 +24200,637 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTableOptions {"
+          },
+          {
+            "path": "packages/model/src/table-create.internal.ts",
+            "pattern": "export function normalizeTableDefinition("
+          },
+          {
+            "path": "packages/model/src/table-auto-page.internal.ts",
+            "pattern": "export function normalizeTableAutoPageRequest("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableCreation ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ]
       },
       "id": "interface:TableCellProps@property:valign",
       "kind": "property",
       "name": "valign",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableCellOptions.valign",
+        "TableCell.verticalAlignment"
+      ],
+      "note": "Native preserves legal TableCellProps.valign table behavior under the same public name with strict detached input, editable output, packed-package use, browser execution, and reopen evidence.",
       "optional": true,
       "owner": "TableCellProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "VAlign"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTableOptions {"
+          },
+          {
+            "path": "packages/model/src/table-create.internal.ts",
+            "pattern": "export function normalizeTableDefinition("
+          },
+          {
+            "path": "packages/model/src/table-auto-page.internal.ts",
+            "pattern": "export function normalizeTableAutoPageRequest("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableCreation ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ]
       },
       "id": "interface:TableProps@property:align",
       "kind": "property",
       "name": "align",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableOptions.align",
+        "SlideModel.addTable",
+        "TableModel"
+      ],
+      "note": "Native preserves legal TableProps.align table behavior under the same public name with strict detached input, editable output, packed-package use, browser execution, and reopen evidence.",
       "optional": true,
       "owner": "TableProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "HAlign"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "TableProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTableOptions {"
+          },
+          {
+            "path": "packages/model/src/table-create.internal.ts",
+            "pattern": "export function normalizeTableDefinition("
+          },
+          {
+            "path": "packages/model/src/table-auto-page.internal.ts",
+            "pattern": "export function normalizeTableAutoPageRequest("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableCreation ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ]
       },
       "id": "interface:TableProps@property:autoPage",
       "kind": "property",
       "name": "autoPage",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableOptions.autoPage",
+        "SlideModel.addTable",
+        "TableModel"
+      ],
+      "note": "Native preserves legal TableProps.autoPage table behavior under the same public name with strict detached input, editable output, packed-package use, browser execution, and reopen evidence.",
       "optional": true,
       "owner": "TableProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "boolean"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "TableProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTableOptions {"
+          },
+          {
+            "path": "packages/model/src/table-create.internal.ts",
+            "pattern": "export function normalizeTableDefinition("
+          },
+          {
+            "path": "packages/model/src/table-auto-page.internal.ts",
+            "pattern": "export function normalizeTableAutoPageRequest("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableCreation ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ]
       },
       "id": "interface:TableProps@property:autoPageCharWeight",
       "kind": "property",
       "name": "autoPageCharWeight",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableOptions.autoPageCharWeight",
+        "SlideModel.addTable",
+        "TableModel"
+      ],
+      "note": "Native preserves legal TableProps.autoPageCharWeight table behavior under the same public name with strict detached input, editable output, packed-package use, browser execution, and reopen evidence.",
       "optional": true,
       "owner": "TableProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "number"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "TableProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTableOptions {"
+          },
+          {
+            "path": "packages/model/src/table-create.internal.ts",
+            "pattern": "export function normalizeTableDefinition("
+          },
+          {
+            "path": "packages/model/src/table-auto-page.internal.ts",
+            "pattern": "export function normalizeTableAutoPageRequest("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableCreation ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ]
       },
       "id": "interface:TableProps@property:autoPageHeaderRows",
       "kind": "property",
       "name": "autoPageHeaderRows",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableOptions.autoPageHeaderRows",
+        "SlideModel.addTable",
+        "TableModel"
+      ],
+      "note": "Native preserves legal TableProps.autoPageHeaderRows table behavior under the same public name with strict detached input, editable output, packed-package use, browser execution, and reopen evidence.",
       "optional": true,
       "owner": "TableProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "number"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "TableProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTableOptions {"
+          },
+          {
+            "path": "packages/model/src/table-create.internal.ts",
+            "pattern": "export function normalizeTableDefinition("
+          },
+          {
+            "path": "packages/model/src/table-auto-page.internal.ts",
+            "pattern": "export function normalizeTableAutoPageRequest("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableCreation ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ]
       },
       "id": "interface:TableProps@property:autoPageLineWeight",
       "kind": "property",
       "name": "autoPageLineWeight",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableOptions.autoPageLineWeight",
+        "SlideModel.addTable",
+        "TableModel"
+      ],
+      "note": "Native preserves legal TableProps.autoPageLineWeight table behavior under the same public name with strict detached input, editable output, packed-package use, browser execution, and reopen evidence.",
       "optional": true,
       "owner": "TableProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "number"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "TableProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTableOptions {"
+          },
+          {
+            "path": "packages/model/src/table-create.internal.ts",
+            "pattern": "export function normalizeTableDefinition("
+          },
+          {
+            "path": "packages/model/src/table-auto-page.internal.ts",
+            "pattern": "export function normalizeTableAutoPageRequest("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableCreation ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ]
       },
       "id": "interface:TableProps@property:autoPageRepeatHeader",
       "kind": "property",
       "name": "autoPageRepeatHeader",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableOptions.autoPageRepeatHeader",
+        "SlideModel.addTable",
+        "TableModel"
+      ],
+      "note": "Native preserves legal TableProps.autoPageRepeatHeader table behavior under the same public name with strict detached input, editable output, packed-package use, browser execution, and reopen evidence.",
       "optional": true,
       "owner": "TableProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "boolean"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "TableProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTableOptions {"
+          },
+          {
+            "path": "packages/model/src/table-create.internal.ts",
+            "pattern": "export function normalizeTableDefinition("
+          },
+          {
+            "path": "packages/model/src/table-auto-page.internal.ts",
+            "pattern": "export function normalizeTableAutoPageRequest("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableCreation ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ]
       },
       "id": "interface:TableProps@property:autoPageSlideStartY",
       "kind": "property",
       "name": "autoPageSlideStartY",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableOptions.autoPageSlideStartY",
+        "SlideModel.addTable",
+        "TableModel"
+      ],
+      "note": "Native maps TableProps.autoPageSlideStartY to exact geometry with explicit EMU or inches() units and preserves legal zero values instead of PptxGenJS truthy implicit-inch behavior.",
       "optional": true,
       "owner": "TableProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "number"
     },
     {
@@ -23919,28 +24902,85 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "TableProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTableOptions {"
+          },
+          {
+            "path": "packages/model/src/table-create.internal.ts",
+            "pattern": "export function normalizeTableDefinition("
+          },
+          {
+            "path": "packages/model/src/table-auto-page.internal.ts",
+            "pattern": "export function normalizeTableAutoPageRequest("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableCreation ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ]
       },
       "id": "interface:TableProps@property:border",
       "kind": "property",
       "name": "border",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableOptions.border",
+        "SlideModel.addTable",
+        "TableModel"
+      ],
+      "note": "Native represents table borders as a strict kind/color/width/style union with sRGB or scheme colors, explicit zero-width and none intent, and partial side maps instead of permissive PptxGenJS type/color/pt fallbacks.",
       "optional": true,
       "owner": "TableProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "BorderProps | [ BorderProps, BorderProps, BorderProps, BorderProps ]"
     },
     {
@@ -24015,28 +25055,85 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "TableProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTableOptions {"
+          },
+          {
+            "path": "packages/model/src/table-create.internal.ts",
+            "pattern": "export function normalizeTableDefinition("
+          },
+          {
+            "path": "packages/model/src/table-auto-page.internal.ts",
+            "pattern": "export function normalizeTableAutoPageRequest("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableCreation ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ]
       },
       "id": "interface:TableProps@property:colW",
       "kind": "property",
       "name": "colW",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableOptions.columnWidths",
+        "SlideModel.addTable",
+        "TableModel"
+      ],
+      "note": "Native names TableProps.colW as columnWidths, requires explicit EMU or inches() units, and normalizes scalar/vector intent deterministically instead of PptxGenJS mutation and fallback behavior.",
       "optional": true,
       "owner": "TableProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "number | number[]"
     },
     {
@@ -24310,28 +25407,85 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "PositionProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTableOptions {"
+          },
+          {
+            "path": "packages/model/src/table-create.internal.ts",
+            "pattern": "export function normalizeTableDefinition("
+          },
+          {
+            "path": "packages/model/src/table-auto-page.internal.ts",
+            "pattern": "export function normalizeTableAutoPageRequest("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableCreation ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ]
       },
       "id": "interface:TableProps@property:h",
       "kind": "property",
       "name": "h",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableOptions.height",
+        "SlideModel.addTable",
+        "TableModel"
+      ],
+      "note": "Native maps TableProps.h to exact geometry with explicit EMU or inches() units and preserves legal zero values instead of PptxGenJS truthy implicit-inch behavior.",
       "optional": true,
       "owner": "TableProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
@@ -24441,106 +25595,335 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "TableProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTableOptions {"
+          },
+          {
+            "path": "packages/model/src/table-create.internal.ts",
+            "pattern": "export function normalizeTableDefinition("
+          },
+          {
+            "path": "packages/model/src/table-auto-page.internal.ts",
+            "pattern": "export function normalizeTableAutoPageRequest("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableCreation ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ]
       },
       "id": "interface:TableProps@property:margin",
       "kind": "property",
       "name": "margin",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableOptions.margin",
+        "SlideModel.addTable",
+        "TableModel"
+      ],
+      "note": "PptxGenJS table-level margins use implicit inches; native uses one strict point-based scalar, tuple, or partial-side contract and preserves the same legal final OOXML state.",
       "optional": true,
       "owner": "TableProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Margin"
     },
     {
+      "canonical": "interface:TableProps@property:autoPageSlideStartY",
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "TableProps",
       "deprecated": true,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTableOptions {"
+          },
+          {
+            "path": "packages/model/src/table-create.internal.ts",
+            "pattern": "export function normalizeTableDefinition("
+          },
+          {
+            "path": "packages/model/src/table-auto-page.internal.ts",
+            "pattern": "export function normalizeTableAutoPageRequest("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableCreation ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ]
       },
       "id": "interface:TableProps@property:newSlideStartY",
       "kind": "property",
       "name": "newSlideStartY",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableOptions.autoPageSlideStartY",
+        "SlideModel.addTable",
+        "TableModel"
+      ],
+      "note": "PptxGenJS 4.0.1 still consumes deprecated TableProps.newSlideStartY; native exposes only its canonical autoPageSlideStartY capability.",
       "optional": true,
       "owner": "TableProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deprecated-alias",
       "typeText": "number"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "ObjectNameProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTableOptions {"
+          },
+          {
+            "path": "packages/model/src/table-create.internal.ts",
+            "pattern": "export function normalizeTableDefinition("
+          },
+          {
+            "path": "packages/model/src/table-auto-page.internal.ts",
+            "pattern": "export function normalizeTableAutoPageRequest("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableCreation ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ]
       },
       "id": "interface:TableProps@property:objectName",
       "kind": "property",
       "name": "objectName",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableOptions.name",
+        "SlideModel.addTable",
+        "TableModel"
+      ],
+      "note": "Native names TableProps.objectName as AddTableOptions.name, snapshots the original XML-safe string, and returns an editable TableModel instead of entity-encoding the caller option in place.",
       "optional": true,
       "owner": "TableProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "string"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "TableProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTableOptions {"
+          },
+          {
+            "path": "packages/model/src/table-create.internal.ts",
+            "pattern": "export function normalizeTableDefinition("
+          },
+          {
+            "path": "packages/model/src/table-auto-page.internal.ts",
+            "pattern": "export function normalizeTableAutoPageRequest("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableCreation ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ]
       },
       "id": "interface:TableProps@property:rowH",
       "kind": "property",
       "name": "rowH",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableOptions.rowHeights",
+        "SlideModel.addTable",
+        "TableModel"
+      ],
+      "note": "Native names TableProps.rowH as rowHeights, requires explicit EMU or inches() units, and normalizes scalar/vector intent deterministically instead of PptxGenJS mutation and fallback behavior.",
       "optional": true,
       "owner": "TableProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "number | number[]"
     },
     {
@@ -24675,6 +26058,10 @@
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -24683,19 +26070,24 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          }
+        ]
       },
       "id": "interface:TableProps@property:transparency",
       "kind": "property",
       "name": "transparency",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS does not propagate TableProps.transparency to table cells or text runs, so every legal table-level value is inert.",
       "optional": true,
       "owner": "TableProps",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "number"
     },
     {
@@ -24762,132 +26154,413 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTableOptions {"
+          },
+          {
+            "path": "packages/model/src/table-create.internal.ts",
+            "pattern": "export function normalizeTableDefinition("
+          },
+          {
+            "path": "packages/model/src/table-auto-page.internal.ts",
+            "pattern": "export function normalizeTableAutoPageRequest("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableCreation ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ]
       },
       "id": "interface:TableProps@property:valign",
       "kind": "property",
       "name": "valign",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableOptions.valign",
+        "SlideModel.addTable",
+        "TableModel"
+      ],
+      "note": "Native preserves legal TableProps.valign table behavior under the same public name with strict detached input, editable output, packed-package use, browser execution, and reopen evidence.",
       "optional": true,
       "owner": "TableProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "VAlign"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "TableProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTableOptions {"
+          },
+          {
+            "path": "packages/model/src/table-create.internal.ts",
+            "pattern": "export function normalizeTableDefinition("
+          },
+          {
+            "path": "packages/model/src/table-auto-page.internal.ts",
+            "pattern": "export function normalizeTableAutoPageRequest("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableCreation ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ]
       },
       "id": "interface:TableProps@property:verbose",
       "kind": "property",
       "name": "verbose",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableOptions.verbose",
+        "SlideModel.addTable",
+        "TableModel"
+      ],
+      "note": "PptxGenJS verbose produces process-global auto-page console traces without changing table output; native deliberately keeps SlideModel.addTable deterministic and free of global logging.",
       "optional": true,
       "owner": "TableProps",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "boolean"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "PositionProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTableOptions {"
+          },
+          {
+            "path": "packages/model/src/table-create.internal.ts",
+            "pattern": "export function normalizeTableDefinition("
+          },
+          {
+            "path": "packages/model/src/table-auto-page.internal.ts",
+            "pattern": "export function normalizeTableAutoPageRequest("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableCreation ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ]
       },
       "id": "interface:TableProps@property:w",
       "kind": "property",
       "name": "w",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableOptions.width",
+        "SlideModel.addTable",
+        "TableModel"
+      ],
+      "note": "Native maps TableProps.w to exact geometry with explicit EMU or inches() units and preserves legal zero values instead of PptxGenJS truthy implicit-inch behavior.",
       "optional": true,
       "owner": "TableProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "PositionProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTableOptions {"
+          },
+          {
+            "path": "packages/model/src/table-create.internal.ts",
+            "pattern": "export function normalizeTableDefinition("
+          },
+          {
+            "path": "packages/model/src/table-auto-page.internal.ts",
+            "pattern": "export function normalizeTableAutoPageRequest("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableCreation ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ]
       },
       "id": "interface:TableProps@property:x",
       "kind": "property",
       "name": "x",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableOptions.x",
+        "SlideModel.addTable",
+        "TableModel"
+      ],
+      "note": "Native maps TableProps.x to exact geometry with explicit EMU or inches() units and preserves legal zero values instead of PptxGenJS truthy implicit-inch behavior.",
       "optional": true,
       "owner": "TableProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "PositionProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTableOptions {"
+          },
+          {
+            "path": "packages/model/src/table-create.internal.ts",
+            "pattern": "export function normalizeTableDefinition("
+          },
+          {
+            "path": "packages/model/src/table-auto-page.internal.ts",
+            "pattern": "export function normalizeTableAutoPageRequest("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableCreation ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ]
       },
       "id": "interface:TableProps@property:y",
       "kind": "property",
       "name": "y",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableOptions.y",
+        "SlideModel.addTable",
+        "TableModel"
+      ],
+      "note": "Native maps TableProps.y to exact geometry with explicit EMU or inches() units and preserves legal zero values instead of PptxGenJS truthy implicit-inch behavior.",
       "optional": true,
       "owner": "TableProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
@@ -29752,30 +31425,86 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "Slide",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTableOptions {"
+          },
+          {
+            "path": "packages/model/src/table-create.internal.ts",
+            "pattern": "export function normalizeTableDefinition("
+          },
+          {
+            "path": "packages/model/src/table-auto-page.internal.ts",
+            "pattern": "export function normalizeTableAutoPageRequest("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableCreation ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ]
       },
       "id": "method:Slide#addTable",
       "kind": "method",
       "name": "addTable",
-      "native": [],
-      "note": "",
+      "native": [
+        "SlideModel.addTable",
+        "TableModel"
+      ],
+      "note": "Native covers Slide.addTable through a strict detached table contract and transactional editing instead of PptxGenJS permissive input and caller mutation.",
       "optional": false,
       "owner": "Slide",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [
         "addTable(tableRows: TableRow[], options?: TableProps): Slide"
       ],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": ""
     },
     {
@@ -54570,80 +56299,248 @@
     },
     {
       "catalogKey": "dash",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "interface:BorderProps@property:type",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTableOptions {"
+          },
+          {
+            "path": "packages/model/src/table-create.internal.ts",
+            "pattern": "export function normalizeTableDefinition("
+          },
+          {
+            "path": "packages/model/src/table-auto-page.internal.ts",
+            "pattern": "export function normalizeTableAutoPageRequest("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableCreation ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ]
       },
       "id": "union:interface:BorderProps@property:type#dash",
       "kind": "union-member",
       "name": "dash",
-      "native": [],
-      "note": "",
+      "native": [
+        "TableCellBorder.kind",
+        "TableCellBorder.style"
+      ],
+      "note": "Native represents table borders as a strict kind/color/width/style union with sRGB or scheme colors, explicit zero-width and none intent, and partial side maps instead of permissive PptxGenJS type/color/pt fallbacks.",
       "optional": false,
       "owner": "interface:BorderProps@property:type",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "'dash'"
     },
     {
       "catalogKey": "none",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "interface:BorderProps@property:type",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTableOptions {"
+          },
+          {
+            "path": "packages/model/src/table-create.internal.ts",
+            "pattern": "export function normalizeTableDefinition("
+          },
+          {
+            "path": "packages/model/src/table-auto-page.internal.ts",
+            "pattern": "export function normalizeTableAutoPageRequest("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableCreation ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ]
       },
       "id": "union:interface:BorderProps@property:type#none",
       "kind": "union-member",
       "name": "none",
-      "native": [],
-      "note": "",
+      "native": [
+        "TableCellBorder.kind",
+        "TableCellBorder.style"
+      ],
+      "note": "Native represents table borders as a strict kind/color/width/style union with sRGB or scheme colors, explicit zero-width and none intent, and partial side maps instead of permissive PptxGenJS type/color/pt fallbacks.",
       "optional": false,
       "owner": "interface:BorderProps@property:type",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "'none'"
     },
     {
       "catalogKey": "solid",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "interface:BorderProps@property:type",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTableOptions {"
+          },
+          {
+            "path": "packages/model/src/table-create.internal.ts",
+            "pattern": "export function normalizeTableDefinition("
+          },
+          {
+            "path": "packages/model/src/table-auto-page.internal.ts",
+            "pattern": "export function normalizeTableAutoPageRequest("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableCreation ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ]
       },
       "id": "union:interface:BorderProps@property:type#solid",
       "kind": "union-member",
       "name": "solid",
-      "native": [],
-      "note": "",
+      "native": [
+        "TableCellBorder.kind",
+        "TableCellBorder.style"
+      ],
+      "note": "Native represents table borders as a strict kind/color/width/style union with sRGB or scheme colors, explicit zero-width and none intent, and partial side maps instead of permissive PptxGenJS type/color/pt fallbacks.",
       "optional": false,
       "owner": "interface:BorderProps@property:type",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "'solid'"
     },
     {
@@ -68766,54 +70663,166 @@
     },
     {
       "catalogKey": "BorderProps",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "interface:TableCellProps@property:border",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTableOptions {"
+          },
+          {
+            "path": "packages/model/src/table-create.internal.ts",
+            "pattern": "export function normalizeTableDefinition("
+          },
+          {
+            "path": "packages/model/src/table-auto-page.internal.ts",
+            "pattern": "export function normalizeTableAutoPageRequest("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableCreation ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ]
       },
       "id": "union:interface:TableCellProps@property:border#BorderProps",
       "kind": "union-member",
       "name": "BorderProps",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableCellOptions.border",
+        "TableCell.borders"
+      ],
+      "note": "Native represents table borders as a strict kind/color/width/style union with sRGB or scheme colors, explicit zero-width and none intent, and partial side maps instead of permissive PptxGenJS type/color/pt fallbacks.",
       "optional": false,
       "owner": "interface:TableCellProps@property:border",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "BorderProps"
     },
     {
       "catalogKey": "[BorderProps,BorderProps,BorderProps,BorderProps]",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "interface:TableCellProps@property:border",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTableOptions {"
+          },
+          {
+            "path": "packages/model/src/table-create.internal.ts",
+            "pattern": "export function normalizeTableDefinition("
+          },
+          {
+            "path": "packages/model/src/table-auto-page.internal.ts",
+            "pattern": "export function normalizeTableAutoPageRequest("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableCreation ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ]
       },
       "id": "union:interface:TableCellProps@property:border#[BorderProps,BorderProps,BorderProps,BorderProps]",
       "kind": "union-member",
       "name": "[BorderProps,BorderProps,BorderProps,BorderProps]",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableCellOptions.border",
+        "TableCell.borders"
+      ],
+      "note": "Native represents table borders as a strict kind/color/width/style union with sRGB or scheme colors, explicit zero-width and none intent, and partial side maps instead of permissive PptxGenJS type/color/pt fallbacks.",
       "optional": false,
       "owner": "interface:TableCellProps@property:border",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "[ BorderProps, BorderProps, BorderProps, BorderProps ]"
     },
     {
@@ -71182,54 +73191,168 @@
     },
     {
       "catalogKey": "BorderProps",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "interface:TableProps@property:border",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTableOptions {"
+          },
+          {
+            "path": "packages/model/src/table-create.internal.ts",
+            "pattern": "export function normalizeTableDefinition("
+          },
+          {
+            "path": "packages/model/src/table-auto-page.internal.ts",
+            "pattern": "export function normalizeTableAutoPageRequest("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableCreation ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ]
       },
       "id": "union:interface:TableProps@property:border#BorderProps",
       "kind": "union-member",
       "name": "BorderProps",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableOptions.border",
+        "SlideModel.addTable",
+        "TableModel"
+      ],
+      "note": "Native represents table borders as a strict kind/color/width/style union with sRGB or scheme colors, explicit zero-width and none intent, and partial side maps instead of permissive PptxGenJS type/color/pt fallbacks.",
       "optional": false,
       "owner": "interface:TableProps@property:border",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "BorderProps"
     },
     {
       "catalogKey": "[BorderProps,BorderProps,BorderProps,BorderProps]",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "interface:TableProps@property:border",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTableOptions {"
+          },
+          {
+            "path": "packages/model/src/table-create.internal.ts",
+            "pattern": "export function normalizeTableDefinition("
+          },
+          {
+            "path": "packages/model/src/table-auto-page.internal.ts",
+            "pattern": "export function normalizeTableAutoPageRequest("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableCreation ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ]
       },
       "id": "union:interface:TableProps@property:border#[BorderProps,BorderProps,BorderProps,BorderProps]",
       "kind": "union-member",
       "name": "[BorderProps,BorderProps,BorderProps,BorderProps]",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableOptions.border",
+        "SlideModel.addTable",
+        "TableModel"
+      ],
+      "note": "Native represents table borders as a strict kind/color/width/style union with sRGB or scheme colors, explicit zero-width and none intent, and partial side maps instead of permissive PptxGenJS type/color/pt fallbacks.",
       "optional": false,
       "owner": "interface:TableProps@property:border",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "[ BorderProps, BorderProps, BorderProps, BorderProps ]"
     },
     {
@@ -71899,106 +74022,334 @@
     },
     {
       "catalogKey": "number",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "interface:TableProps@property:colW",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTableOptions {"
+          },
+          {
+            "path": "packages/model/src/table-create.internal.ts",
+            "pattern": "export function normalizeTableDefinition("
+          },
+          {
+            "path": "packages/model/src/table-auto-page.internal.ts",
+            "pattern": "export function normalizeTableAutoPageRequest("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableCreation ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ]
       },
       "id": "union:interface:TableProps@property:colW#number",
       "kind": "union-member",
       "name": "number",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableOptions.columnWidths",
+        "SlideModel.addTable",
+        "TableModel"
+      ],
+      "note": "Native names TableProps.colW as columnWidths, requires explicit EMU or inches() units, and normalizes scalar/vector intent deterministically instead of PptxGenJS mutation and fallback behavior.",
       "optional": false,
       "owner": "interface:TableProps@property:colW",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "number"
     },
     {
       "catalogKey": "number[]",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "interface:TableProps@property:colW",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTableOptions {"
+          },
+          {
+            "path": "packages/model/src/table-create.internal.ts",
+            "pattern": "export function normalizeTableDefinition("
+          },
+          {
+            "path": "packages/model/src/table-auto-page.internal.ts",
+            "pattern": "export function normalizeTableAutoPageRequest("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableCreation ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ]
       },
       "id": "union:interface:TableProps@property:colW#number[]",
       "kind": "union-member",
       "name": "number[]",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableOptions.columnWidths",
+        "SlideModel.addTable",
+        "TableModel"
+      ],
+      "note": "Native names TableProps.colW as columnWidths, requires explicit EMU or inches() units, and normalizes scalar/vector intent deterministically instead of PptxGenJS mutation and fallback behavior.",
       "optional": false,
       "owner": "interface:TableProps@property:colW",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "number[]"
     },
     {
       "catalogKey": "number",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "interface:TableProps@property:rowH",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTableOptions {"
+          },
+          {
+            "path": "packages/model/src/table-create.internal.ts",
+            "pattern": "export function normalizeTableDefinition("
+          },
+          {
+            "path": "packages/model/src/table-auto-page.internal.ts",
+            "pattern": "export function normalizeTableAutoPageRequest("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableCreation ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ]
       },
       "id": "union:interface:TableProps@property:rowH#number",
       "kind": "union-member",
       "name": "number",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableOptions.rowHeights",
+        "SlideModel.addTable",
+        "TableModel"
+      ],
+      "note": "Native names TableProps.rowH as rowHeights, requires explicit EMU or inches() units, and normalizes scalar/vector intent deterministically instead of PptxGenJS mutation and fallback behavior.",
       "optional": false,
       "owner": "interface:TableProps@property:rowH",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "number"
     },
     {
       "catalogKey": "number[]",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+      },
       "declaredIn": "interface:TableProps@property:rowH",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTableOptions {"
+          },
+          {
+            "path": "packages/model/src/table-create.internal.ts",
+            "pattern": "export function normalizeTableDefinition("
+          },
+          {
+            "path": "packages/model/src/table-auto-page.internal.ts",
+            "pattern": "export function normalizeTableAutoPageRequest("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableCreation ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableAutoPageState = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableBordersState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks the remaining addTable core declarations against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens a basic table"
+          }
+        ]
       },
       "id": "union:interface:TableProps@property:rowH#number[]",
       "kind": "union-member",
       "name": "number[]",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableOptions.rowHeights",
+        "SlideModel.addTable",
+        "TableModel"
+      ],
+      "note": "Native names TableProps.rowH as rowHeights, requires explicit EMU or inches() units, and normalizes scalar/vector intent deterministically instead of PptxGenJS mutation and fallback behavior.",
       "optional": false,
       "owner": "interface:TableProps@property:rowH",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "number[]"
     },
     {
@@ -79235,13 +81586,13 @@
   ],
   "complete": false,
   "counts": {
-    "defect-excluded": 349,
-    "deliberate-difference": 212,
-    "deprecated-alias": 85,
+    "defect-excluded": 352,
+    "deliberate-difference": 240,
+    "deprecated-alias": 86,
     "stale": 0,
-    "supported": 575,
+    "supported": 588,
     "unsupported": 0,
-    "unverified": 553
+    "unverified": 508
   },
   "declarationSha256": "0726d015dbcb55ccfa75546cb2fd43fe13a0dfeb783d08572f1c62f59193bbe5",
   "declarationTotal": 1774,
@@ -79305,9 +81656,6 @@
     "interface:BackgroundProps@property:src",
     "interface:BackgroundProps@property:transparency",
     "interface:BackgroundProps@property:type",
-    "interface:BorderProps@property:color",
-    "interface:BorderProps@property:pt",
-    "interface:BorderProps@property:type",
     "interface:DataOrPathProps@property:data",
     "interface:DataOrPathProps@property:path",
     "interface:HyperlinkProps@property:slide",
@@ -79591,36 +81939,6 @@
     "interface:SlideNumberProps@property:y",
     "interface:TableCell@property:options",
     "interface:TableCell@property:text",
-    "interface:TableCellProps@property:align",
-    "interface:TableCellProps@property:autoPageCharWeight",
-    "interface:TableCellProps@property:autoPageLineWeight",
-    "interface:TableCellProps@property:border",
-    "interface:TableCellProps@property:colspan",
-    "interface:TableCellProps@property:hyperlink",
-    "interface:TableCellProps@property:margin",
-    "interface:TableCellProps@property:rowspan",
-    "interface:TableCellProps@property:transparency",
-    "interface:TableCellProps@property:valign",
-    "interface:TableProps@property:align",
-    "interface:TableProps@property:autoPage",
-    "interface:TableProps@property:autoPageCharWeight",
-    "interface:TableProps@property:autoPageHeaderRows",
-    "interface:TableProps@property:autoPageLineWeight",
-    "interface:TableProps@property:autoPageRepeatHeader",
-    "interface:TableProps@property:autoPageSlideStartY",
-    "interface:TableProps@property:border",
-    "interface:TableProps@property:colW",
-    "interface:TableProps@property:h",
-    "interface:TableProps@property:margin",
-    "interface:TableProps@property:newSlideStartY",
-    "interface:TableProps@property:objectName",
-    "interface:TableProps@property:rowH",
-    "interface:TableProps@property:transparency",
-    "interface:TableProps@property:valign",
-    "interface:TableProps@property:verbose",
-    "interface:TableProps@property:w",
-    "interface:TableProps@property:x",
-    "interface:TableProps@property:y",
     "interface:TextGlowProps@property:color",
     "interface:TextGlowProps@property:opacity",
     "interface:TextGlowProps@property:size",
@@ -79670,7 +81988,6 @@
     "method:Slide#addMedia",
     "method:Slide#addNotes",
     "method:Slide#addShape",
-    "method:Slide#addTable",
     "method:Slide#addText",
     "property:Slide#background",
     "property:Slide#bkgd",
@@ -79703,9 +82020,6 @@
     "union:class:PptxGenJS#write@path:return#string",
     "union:interface:BackgroundProps@property:type#none",
     "union:interface:BackgroundProps@property:type#solid",
-    "union:interface:BorderProps@property:type#dash",
-    "union:interface:BorderProps@property:type#none",
-    "union:interface:BorderProps@property:type#solid",
     "union:interface:IChartOpts@property:axisPos#b",
     "union:interface:IChartOpts@property:axisPos#l",
     "union:interface:IChartOpts@property:axisPos#r",
@@ -79785,14 +82099,6 @@
     "union:interface:SlideMasterProps@property:bkgd#string",
     "union:interface:TableCell@property:text#TableCell[]",
     "union:interface:TableCell@property:text#string",
-    "union:interface:TableCellProps@property:border#BorderProps",
-    "union:interface:TableCellProps@property:border#[BorderProps,BorderProps,BorderProps,BorderProps]",
-    "union:interface:TableProps@property:border#BorderProps",
-    "union:interface:TableProps@property:border#[BorderProps,BorderProps,BorderProps,BorderProps]",
-    "union:interface:TableProps@property:colW#number",
-    "union:interface:TableProps@property:colW#number[]",
-    "union:interface:TableProps@property:rowH#number",
-    "union:interface:TableProps@property:rowH#number[]",
     "union:interface:TextPropsOptions@property:fit#none",
     "union:interface:TextPropsOptions@property:fit#resize",
     "union:interface:TextPropsOptions@property:fit#shrink",

@@ -2406,6 +2406,301 @@ const TABLE_TO_SLIDES_FAMILY_ENTRIES = Object.freeze([
     ))),
 ]);
 
+const ADD_TABLE_CORE_CONTROL_TITLE =
+  'locks the remaining addTable core declarations against PptxGenJS 4.0.1';
+const ADD_TABLE_CORE_OOXML_TITLE =
+  'creates, edits, duplicates, rolls back, and reopens a basic table';
+const ADD_TABLE_CORE_STATUS = Object.freeze({
+  BorderProps: Object.freeze({
+    color: 'deliberate-difference',
+    pt: 'deliberate-difference',
+    type: 'deliberate-difference',
+  }),
+  TableCellProps: Object.freeze({
+    align: 'supported',
+    autoPageCharWeight: 'defect-excluded',
+    autoPageLineWeight: 'defect-excluded',
+    border: 'deliberate-difference',
+    colspan: 'supported',
+    hyperlink: 'supported',
+    margin: 'deliberate-difference',
+    rowspan: 'supported',
+    transparency: 'supported',
+    valign: 'supported',
+  }),
+  TableProps: Object.freeze({
+    align: 'supported',
+    autoPage: 'supported',
+    autoPageCharWeight: 'supported',
+    autoPageHeaderRows: 'supported',
+    autoPageLineWeight: 'supported',
+    autoPageRepeatHeader: 'supported',
+    autoPageSlideStartY: 'deliberate-difference',
+    border: 'deliberate-difference',
+    colW: 'deliberate-difference',
+    h: 'deliberate-difference',
+    margin: 'deliberate-difference',
+    newSlideStartY: 'deprecated-alias',
+    objectName: 'deliberate-difference',
+    rowH: 'deliberate-difference',
+    transparency: 'defect-excluded',
+    valign: 'supported',
+    verbose: 'deliberate-difference',
+    w: 'deliberate-difference',
+    x: 'deliberate-difference',
+    y: 'deliberate-difference',
+  }),
+});
+const ADD_TABLE_CORE_UNIONS = Object.freeze([
+  Object.freeze({
+    owner: 'BorderProps',
+    property: 'type',
+    tokens: Object.freeze(['dash', 'none', 'solid']),
+  }),
+  Object.freeze({
+    owner: 'TableCellProps',
+    property: 'border',
+    tokens: Object.freeze([
+      'BorderProps',
+      '[BorderProps,BorderProps,BorderProps,BorderProps]',
+    ]),
+  }),
+  Object.freeze({
+    owner: 'TableProps',
+    property: 'border',
+    tokens: Object.freeze([
+      'BorderProps',
+      '[BorderProps,BorderProps,BorderProps,BorderProps]',
+    ]),
+  }),
+  Object.freeze({
+    owner: 'TableProps',
+    property: 'colW',
+    tokens: Object.freeze(['number', 'number[]']),
+  }),
+  Object.freeze({
+    owner: 'TableProps',
+    property: 'rowH',
+    tokens: Object.freeze(['number', 'number[]']),
+  }),
+]);
+
+function addTableCoreFamilyEvidence() {
+  return {
+    code: [
+      {
+        path: 'packages/model/src/slide.ts',
+        pattern: 'export interface AddTableOptions {',
+      },
+      {
+        path: 'packages/model/src/table-create.internal.ts',
+        pattern: 'export function normalizeTableDefinition(',
+      },
+      {
+        path: 'packages/model/src/table-auto-page.internal.ts',
+        pattern: 'export function normalizeTableAutoPageRequest(',
+      },
+    ],
+    tests: [
+      {
+        path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+        title: ADD_TABLE_CORE_CONTROL_TITLE,
+      },
+      {
+        path: 'packages/sdk/src/index.test.ts',
+        title: ADD_TABLE_CORE_OOXML_TITLE,
+      },
+    ],
+    package: [
+      {
+        path: 'scripts/smoke-npm-package.mjs',
+        pattern: 'const tableCreation =',
+      },
+      {
+        path: 'scripts/smoke-npm-package.mjs',
+        pattern: 'const tableAutoPageState = {',
+      },
+      {
+        path: 'scripts/smoke-npm-package.mjs',
+        pattern: 'const tableBordersState = {',
+      },
+    ],
+    ooxml: [{
+      path: 'packages/sdk/src/index.test.ts',
+      pattern: ADD_TABLE_CORE_OOXML_TITLE,
+    }],
+    clients: [
+      {
+        path: 'scripts/playwright-browser-smoke.js',
+        pattern: 'const tableAutoPageState = {',
+      },
+      {
+        path: 'scripts/playwright-browser-smoke.js',
+        pattern: 'const tableBordersState = {',
+      },
+    ],
+  };
+}
+
+function addTableCoreNative(owner, property) {
+  if (owner === 'Slide' && property === 'addTable') {
+    return ['SlideModel.addTable', 'TableModel'];
+  }
+  if (owner === 'BorderProps') {
+    if (property === 'color') return ['TableCellBorder.color'];
+    if (property === 'pt') return ['TableCellBorder.width'];
+    return ['TableCellBorder.kind', 'TableCellBorder.style'];
+  }
+  if (owner === 'TableCellProps') {
+    const native = {
+      align: ['AddTableCellOptions.align', 'TableCell.horizontalAlignment'],
+      border: ['AddTableCellOptions.border', 'TableCell.borders'],
+      colspan: ['AddTableCellOptions.colspan', 'TableModel.mergeRegions'],
+      hyperlink: ['AddTableCellOptions.hyperlink', 'TableCell.hyperlink'],
+      margin: ['AddTableCellOptions.margin', 'TableCell.margins'],
+      rowspan: ['AddTableCellOptions.rowspan', 'TableModel.mergeRegions'],
+      transparency: ['RichTextRunStyle.transparency', 'TableCell.richText'],
+      valign: ['AddTableCellOptions.valign', 'TableCell.verticalAlignment'],
+    };
+    return native[property] ?? [];
+  }
+  const nativeProperty = {
+    border: 'border',
+    colW: 'columnWidths',
+    h: 'height',
+    margin: 'margin',
+    objectName: 'name',
+    rowH: 'rowHeights',
+    w: 'width',
+  }[property] ?? property;
+  return [`AddTableOptions.${nativeProperty}`, 'SlideModel.addTable', 'TableModel'];
+}
+
+function addTableCoreControl() {
+  return {
+    path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+    pattern: ADD_TABLE_CORE_CONTROL_TITLE,
+  };
+}
+
+function addTableCoreSupportedEntry(owner, property) {
+  return {
+    id: linePropertyId(owner, property),
+    status: 'supported',
+    native: addTableCoreNative(owner, property),
+    evidence: addTableCoreFamilyEvidence(),
+    serialization: true,
+    client: true,
+    note: owner === 'TableCellProps' && property === 'transparency'
+      ? 'Native preserves the same legal table-cell color and alpha final state through RichTextRunStyle.transparency, editable TableCell.richText, packed output, and reopen.'
+      : `Native preserves legal ${owner}.${property} table behavior under the same public name with strict detached input, editable output, packed-package use, browser execution, and reopen evidence.`,
+  };
+}
+
+function addTableCoreDifferenceNote(owner, property) {
+  if (owner === 'BorderProps' || property === 'border') {
+    return 'Native represents table borders as a strict kind/color/width/style union with sRGB or scheme colors, explicit zero-width and none intent, and partial side maps instead of permissive PptxGenJS type/color/pt fallbacks.';
+  }
+  if (property === 'margin') {
+    return owner === 'TableCellProps'
+      ? 'PptxGenJS mixes scalar-inch and vector-point table-cell margins; native uses one strict point-based scalar, tuple, or partial-side contract and preserves the same legal final OOXML state.'
+      : 'PptxGenJS table-level margins use implicit inches; native uses one strict point-based scalar, tuple, or partial-side contract and preserves the same legal final OOXML state.';
+  }
+  if (property === 'autoPageSlideStartY' || ['w', 'h', 'x', 'y'].includes(property)) {
+    return `Native maps TableProps.${property} to exact geometry with explicit EMU or inches() units and preserves legal zero values instead of PptxGenJS truthy implicit-inch behavior.`;
+  }
+  if (property === 'colW' || property === 'rowH') {
+    const nativeProperty = property === 'colW' ? 'columnWidths' : 'rowHeights';
+    return `Native names TableProps.${property} as ${nativeProperty}, requires explicit EMU or inches() units, and normalizes scalar/vector intent deterministically instead of PptxGenJS mutation and fallback behavior.`;
+  }
+  if (property === 'objectName') {
+    return 'Native names TableProps.objectName as AddTableOptions.name, snapshots the original XML-safe string, and returns an editable TableModel instead of entity-encoding the caller option in place.';
+  }
+  if (property === 'verbose') {
+    return 'PptxGenJS verbose produces process-global auto-page console traces without changing table output; native deliberately keeps SlideModel.addTable deterministic and free of global logging.';
+  }
+  return `Native covers ${owner}.${property} through a strict detached table contract and transactional editing instead of PptxGenJS permissive input and caller mutation.`;
+}
+
+function addTableCoreDifferenceEntry(id, owner, property) {
+  const verbose = owner === 'TableProps' && property === 'verbose';
+  return {
+    id,
+    status: 'deliberate-difference',
+    native: addTableCoreNative(owner, property),
+    evidence: addTableCoreFamilyEvidence(),
+    control: addTableCoreControl(),
+    serialization: !verbose,
+    client: !verbose,
+    note: addTableCoreDifferenceNote(owner, property),
+  };
+}
+
+function addTableCoreDeprecatedEntry() {
+  return {
+    id: linePropertyId('TableProps', 'newSlideStartY'),
+    status: 'deprecated-alias',
+    native: addTableCoreNative('TableProps', 'autoPageSlideStartY'),
+    evidence: addTableCoreFamilyEvidence(),
+    canonical: linePropertyId('TableProps', 'autoPageSlideStartY'),
+    control: addTableCoreControl(),
+    serialization: true,
+    client: true,
+    note: 'PptxGenJS 4.0.1 still consumes deprecated TableProps.newSlideStartY; native exposes only its canonical autoPageSlideStartY capability.',
+  };
+}
+
+function addTableCoreDefectEntry(owner, property) {
+  const notes = {
+    autoPageCharWeight: 'PptxGenJS overwrites every cell autoPageCharWeight with the table-level value or null before measurement, so the declared cell-local value never controls output.',
+    autoPageLineWeight: 'PptxGenJS never reads cell-local autoPageLineWeight; only the table-level value enters automatic row-height calculation.',
+    transparency: 'PptxGenJS does not propagate TableProps.transparency to table cells or text runs, so every legal table-level value is inert.',
+  };
+  return {
+    id: linePropertyId(owner, property),
+    status: 'defect-excluded',
+    native: [],
+    evidence: {
+      code: [],
+      tests: [{
+        path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+        title: ADD_TABLE_CORE_CONTROL_TITLE,
+      }],
+      package: [],
+      ooxml: [],
+      clients: [],
+    },
+    control: addTableCoreControl(),
+    note: notes[property],
+  };
+}
+
+function addTableCorePropertyEntry(owner, property, status) {
+  if (status === 'supported') return addTableCoreSupportedEntry(owner, property);
+  if (status === 'deliberate-difference') {
+    return addTableCoreDifferenceEntry(linePropertyId(owner, property), owner, property);
+  }
+  if (status === 'deprecated-alias') return addTableCoreDeprecatedEntry();
+  return addTableCoreDefectEntry(owner, property);
+}
+
+const ADD_TABLE_CORE_FAMILY_ENTRIES = Object.freeze([
+  addTableCoreDifferenceEntry(
+    'method:Slide#addTable',
+    'Slide',
+    'addTable',
+  ),
+  ...Object.entries(ADD_TABLE_CORE_STATUS).flatMap(([owner, properties]) =>
+    Object.entries(properties).map(([property, status]) =>
+      addTableCorePropertyEntry(owner, property, status))),
+  ...ADD_TABLE_CORE_UNIONS.flatMap(({ owner, property, tokens }) =>
+    tokens.map((token) => addTableCoreDifferenceEntry(
+      `union:${linePropertyId(owner, property)}#${token}`,
+      owner,
+      property,
+    ))),
+]);
+
 function presetShapeCatalogEntry(owner, value) {
   const id = `union:${owner}#${value}`;
   if (value === 'folderCorner') {
@@ -2737,6 +3032,7 @@ export const PPTXGENJS_SURFACE_MANIFEST = deepFreeze({
     ...['TableCellProps', 'TableProps'].map((owner) => tableFillEntry(owner)),
     TABLE_TO_SLIDES_FILL_DEFECT_ENTRY,
     ...TABLE_TO_SLIDES_FAMILY_ENTRIES,
+    ...ADD_TABLE_CORE_FAMILY_ENTRIES,
     ...CHART_AREA_FILL_LINE_ENTRIES,
     ...DEPRECATED_CHART_AREA_ALIAS_ENTRIES,
     ...CHART_CREATION_SUPPORTED_ENTRIES,

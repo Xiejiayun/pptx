@@ -87,7 +87,7 @@ interface PptxGenJSSlide {
   addTable(
     rows: readonly (readonly (string | PptxGenJSTableCell)[])[],
     options: Record<string, unknown>,
-  ): void;
+  ): PptxGenJSSlide;
 }
 
 interface PptxGenJSSlideNumberProps {
@@ -10782,6 +10782,337 @@ describe('importPptxGenJS', () => {
     });
     expect(overriddenCell.options.autoPageCharWeight).toBe(1);
   });
+
+  it('locks the remaining addTable core declarations against PptxGenJS 4.0.1', async () => {
+    const propertyId = (owner: string, property: string) =>
+      `interface:${owner}@property:${property}`;
+    const unionId = (owner: string, property: string, token: string) =>
+      `union:${propertyId(owner, property)}#${token}`;
+    const atomGroups = {
+      supported: [
+        ...['align', 'colspan', 'hyperlink', 'rowspan', 'transparency', 'valign']
+          .map((property) => propertyId('TableCellProps', property)),
+        ...[
+          'align',
+          'autoPage',
+          'autoPageCharWeight',
+          'autoPageHeaderRows',
+          'autoPageLineWeight',
+          'autoPageRepeatHeader',
+          'valign',
+        ].map((property) => propertyId('TableProps', property)),
+      ],
+      deliberate: [
+        'method:Slide#addTable',
+        ...['color', 'pt', 'type'].map((property) =>
+          propertyId('BorderProps', property)),
+        ...['dash', 'none', 'solid'].map((token) =>
+          unionId('BorderProps', 'type', token)),
+        ...['border', 'margin'].map((property) =>
+          propertyId('TableCellProps', property)),
+        unionId('TableCellProps', 'border', 'BorderProps'),
+        unionId(
+          'TableCellProps',
+          'border',
+          '[BorderProps,BorderProps,BorderProps,BorderProps]',
+        ),
+        ...[
+          'autoPageSlideStartY',
+          'border',
+          'colW',
+          'h',
+          'margin',
+          'objectName',
+          'rowH',
+          'verbose',
+          'w',
+          'x',
+          'y',
+        ].map((property) => propertyId('TableProps', property)),
+        unionId('TableProps', 'border', 'BorderProps'),
+        unionId(
+          'TableProps',
+          'border',
+          '[BorderProps,BorderProps,BorderProps,BorderProps]',
+        ),
+        ...['number', 'number[]'].flatMap((token) => [
+          unionId('TableProps', 'colW', token),
+          unionId('TableProps', 'rowH', token),
+        ]),
+      ],
+      deprecated: [propertyId('TableProps', 'newSlideStartY')],
+      defect: [
+        propertyId('TableCellProps', 'autoPageCharWeight'),
+        propertyId('TableCellProps', 'autoPageLineWeight'),
+        propertyId('TableProps', 'transparency'),
+      ],
+    } as const;
+    expect(Object.fromEntries(Object.entries(atomGroups).map(([status, ids]) => [
+      status,
+      ids.length,
+    ]))).toEqual({ supported: 13, deliberate: 28, deprecated: 1, defect: 3 });
+    expect(new Set(Object.values(atomGroups).flat()).size).toBe(45);
+
+    const generated = new PptxGenJS();
+    generated.layout = 'LAYOUT_WIDE';
+    const generatedSlide = generated.addSlide();
+    const generatedLink: { url: string; tooltip: string; _rId?: number } = {
+      url: 'https://add-table.example?a=1&b=2',
+      tooltip: 'addTable family',
+    };
+    const tableOptions: Record<string, unknown> = {
+      x: 0.5,
+      y: 0.5,
+      w: 6,
+      h: 1.5,
+      objectName: 'Audit & Table',
+      colW: [1, 2, 3],
+      rowH: [0.5, 0.5, 0.5],
+      border: { type: 'dash', color: '4472C4', pt: 1.5 },
+      margin: 0.1,
+      align: 'center',
+      valign: 'middle',
+    };
+    const returned = generatedSlide.addTable([
+      [
+        {
+          text: 'Merge anchor',
+          options: {
+            colspan: 2,
+            rowspan: 2,
+            hyperlink: generatedLink,
+            transparency: 25,
+            color: '445566',
+            margin: [1, 2, 3, 4],
+            align: 'right',
+            valign: 'bottom',
+            border: [
+              { type: 'none' },
+              { type: 'dash', color: '00FF00', pt: 1 },
+              { type: 'solid', color: '0000FF', pt: 2 },
+              { type: 'solid', color: 'FF0000', pt: 3 },
+            ],
+          },
+        },
+        'Top right',
+      ],
+      ['Bottom right'],
+      ['Footer 1', 'Footer 2', 'Footer 3'],
+    ], tableOptions);
+    generatedSlide.addTable([['Scalar A', 'Scalar B']], {
+      x: 7,
+      y: 0.5,
+      w: 2.5,
+      h: 0.5,
+      objectName: 'Scalar table',
+      colW: 1.25,
+      rowH: 0.5,
+      border: [
+        { type: 'solid', color: 'FF0000', pt: 1 },
+        { type: 'none' },
+        { type: 'dash', color: '70AD47', pt: 2 },
+        { type: 'solid', color: '4472C4', pt: 3 },
+      ],
+      align: 'left',
+      valign: 'top',
+    });
+
+    expect(returned).toBe(generatedSlide);
+    expect(tableOptions.objectName).toBe('Audit &amp; Table');
+    const imported = await openPptxGenJSPublicOutput(generated);
+    const [table, scalarTable] = imported.slides[0]!.shapes.filter(
+      (shape): shape is TableModel => shape instanceof TableModel,
+    );
+    expect(table).toBeInstanceOf(TableModel);
+    expect(table!.name).toBe('Audit & Table');
+    expect(table!.transform).toMatchObject({
+      x: inches(0.5),
+      y: inches(0.5),
+      width: inches(6),
+      height: inches(1.5),
+    });
+    expect(table!.columnWidths).toEqual([inches(1), inches(2), inches(3)]);
+    expect(table!.rowHeights).toEqual(Array(3).fill(inches(0.5)));
+    expect(table!.mergeRegions).toEqual([
+      { rowIndex: 0, columnIndex: 0, rowspan: 2, colspan: 2 },
+    ]);
+    const anchor = table!.rows[0]!.cells[0]!;
+    expect(anchor.hyperlink).toEqual({
+      url: generatedLink.url,
+      tooltip: generatedLink.tooltip,
+    });
+    expect(anchor.horizontalAlignment).toBe('right');
+    expect(anchor.verticalAlignment).toBe('bottom');
+    expect(anchor.richText[0]!.runs[0]!.style?.transparency).toBe(25);
+    expect(anchor.margins).toBeDefined();
+    expect(generatedLink._rId).toBeTypeOf('number');
+    expect(table!.horizontalAlignment).toBeUndefined();
+    expect(table!.verticalAlignment).toBeUndefined();
+    expect(scalarTable!.name).toBe('Scalar table');
+    expect(scalarTable!.columnWidths).toEqual(Array(2).fill(inches(1)));
+    expect(scalarTable!.rowHeights).toEqual([inches(0.5)]);
+    expect(scalarTable!.horizontalAlignment).toBe('left');
+    expect(scalarTable!.verticalAlignment).toBe('top');
+    const familyXml = slideXml(imported, 0);
+    expect(familyXml).toContain('<a:alpha val="75000"/>');
+    expect(familyXml).toContain('<a:prstDash val="sysDash"/>');
+    expect(familyXml).toContain('<a:prstDash val="solid"/>');
+    expect(familyXml).toContain('<a:noFill/>');
+    expect(familyXml).toContain('<a:srgbClr val="00FF00"/>');
+    expect(familyXml).toContain('<a:srgbClr val="0000FF"/>');
+    expect(familyXml).toContain('<a:srgbClr val="FF0000"/>');
+
+    const renderTransparency = async (
+      tableTransparency: number | undefined,
+      cellTransparency: number | undefined,
+    ): Promise<string> => {
+      const presentation = new PptxGenJS();
+      const options: Record<string, unknown> = {
+        x: 1,
+        y: 1,
+        w: 4,
+        h: 1,
+        color: '445566',
+      };
+      if (tableTransparency !== undefined) options.transparency = tableTransparency;
+      const cellOptions: Record<string, unknown> = {};
+      if (cellTransparency !== undefined) cellOptions.transparency = cellTransparency;
+      presentation.addSlide().addTable(
+        [[{ text: 'Transparency control', options: cellOptions }]],
+        options,
+      );
+      return slideXml(await openPptxGenJSPublicOutput(presentation), 0);
+    };
+    const transparencyBaseline = await renderTransparency(undefined, undefined);
+    const tableTransparency = await renderTransparency(50, undefined);
+    const cellTransparency = await renderTransparency(undefined, 25);
+    expect(tableTransparency).toBe(transparencyBaseline);
+    expect(tableTransparency).not.toContain('<a:alpha val="50000"/>');
+    expect(cellTransparency).toContain('<a:alpha val="75000"/>');
+
+    const pagingRows = [
+      ['Header'],
+      ...Array.from(
+        { length: 10 },
+        (_, index) => [`Body ${index} ${'content '.repeat(12)}`],
+      ),
+    ];
+    const createPaged = (
+      startProperty: 'autoPageSlideStartY' | 'newSlideStartY',
+      verbose = false,
+    ) => {
+      const presentation = new PptxGenJS();
+      const source = presentation.addSlide();
+      const options: Record<string, unknown> = {
+        x: 1,
+        y: 4,
+        w: 5,
+        autoPage: true,
+        autoPageRepeatHeader: true,
+        autoPageHeaderRows: 1,
+        autoPageCharWeight: 0,
+        autoPageLineWeight: 0,
+        slideMargin: 0.5,
+        fontSize: 18,
+        margin: 0.05,
+        verbose,
+        [startProperty]: 1.25,
+      };
+      source.addTable(structuredClone(pagingRows), options);
+      return { presentation, source };
+    };
+    const alias = createPaged('newSlideStartY');
+    const canonical = createPaged('autoPageSlideStartY');
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    let verbose: ReturnType<typeof createPaged> | undefined;
+    let verboseMessages = '';
+    try {
+      verbose = createPaged('autoPageSlideStartY', true);
+    } finally {
+      verboseMessages = consoleLog.mock.calls.flat().map(String).join('\n');
+      consoleLog.mockRestore();
+    }
+    expect(verboseMessages).toContain('[[VERBOSE MODE]]');
+    expect(verboseMessages).toContain('NEW SLIDE CREATED');
+    expect(alias.source.newAutoPagedSlides.length).toBeGreaterThan(0);
+    expect(alias.source.newAutoPagedSlides).toHaveLength(
+      canonical.source.newAutoPagedSlides.length,
+    );
+    expect(verbose!.source.newAutoPagedSlides).toHaveLength(
+      canonical.source.newAutoPagedSlides.length,
+    );
+    const [aliasDocument, canonicalDocument, verboseDocument] = await Promise.all([
+      openPptxGenJSPublicOutput(alias.presentation),
+      openPptxGenJSPublicOutput(canonical.presentation),
+      openPptxGenJSPublicOutput(verbose!.presentation),
+    ]);
+    const tableState = (document: PptxDocument) => document.slides.map((slide) => {
+      const candidate = slide.shapes.find(
+        (shape): shape is TableModel => shape instanceof TableModel,
+      )!;
+      return {
+        y: candidate.transform.y,
+        rows: candidate.rows.map((row) => row.cells[0]!.text),
+      };
+    });
+    expect(tableState(aliasDocument)).toEqual(tableState(canonicalDocument));
+    expect(tableState(verboseDocument)).toEqual(tableState(canonicalDocument));
+    expect(tableState(aliasDocument).slice(1).every(({ y }) => y === inches(1.25)))
+      .toBe(true);
+
+    const overriddenCell = {
+      text: 'Cell char weight',
+      options: { margin: 0, autoPageCharWeight: -1 } as Record<string, unknown>,
+    };
+    const charWeight = new PptxGenJS();
+    charWeight.addSlide().addTable([[overriddenCell], ['Second cell weight row']], {
+      x: 1,
+      y: 4,
+      w: 2,
+      autoPage: true,
+      autoPageCharWeight: 1,
+      margin: 0,
+    });
+    expect(overriddenCell.options.autoPageCharWeight).toBe(1);
+
+    const measurementRows = Array.from({ length: 8 }, (_, index) => [{
+      text: `${index} ${'AAAAAAAAAA '.repeat(8)}`,
+      options: { margin: 0 } as Record<string, unknown>,
+    }]);
+    const pageCount = (
+      cellLineWeight: number,
+      tableLineWeight: number,
+    ): { readonly pages: number; readonly local: number } => {
+      const presentation = new PptxGenJS();
+      presentation.defineLayout({ name: 'ADD-TABLE-WEIGHT', width: 10, height: 5.625 });
+      presentation.layout = 'ADD-TABLE-WEIGHT';
+      const source = presentation.addSlide();
+      const rows = structuredClone(measurementRows);
+      rows.forEach((row) => {
+        row[0]!.options.autoPageLineWeight = cellLineWeight;
+      });
+      source.addTable(rows, {
+        x: 1,
+        y: 4,
+        w: 2,
+        autoPage: true,
+        autoPageSlideStartY: 1,
+        slideMargin: 0.5,
+        fontSize: 12,
+        margin: 0,
+        autoPageLineWeight: tableLineWeight,
+      });
+      return {
+        pages: source.newAutoPagedSlides.length,
+        local: rows[0]![0]!.options.autoPageLineWeight as number,
+      };
+    };
+    const cellMinus = pageCount(-1, 0);
+    const cellPlus = pageCount(1, 0);
+    expect(cellMinus.pages).toBe(cellPlus.pages);
+    expect([cellMinus.local, cellPlus.local]).toEqual([-1, 1]);
+    expect(pageCount(-1, -1).pages).toBeLessThan(pageCount(1, 1).pages);
+  }, 60_000);
 
   it('matches legal PptxGenJS automatic table boundaries at all public weights', async () => {
     const weights = [-1, 0, 1] as const;
