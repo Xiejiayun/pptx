@@ -1400,6 +1400,118 @@ async (page) => {
         ).length === 0,
       };
       const textDirectionFamily = Object.values(textDirectionFamilyState).every(Boolean);
+      const textBoxFitFamilyDocument = api.PptxDocument.create();
+      const textBoxFitFamilySlide = textBoxFitFamilyDocument.addSlide();
+      const browserTextBoxFitShapes = [
+        textBoxFitFamilySlide.addText('Browser fit omitted', {
+          name: 'browser_text_box_fit_omitted',
+        }),
+        textBoxFitFamilySlide.addText('Browser fit none', {
+          name: 'browser_text_box_fit_none',
+          fit: 'none',
+        }),
+        textBoxFitFamilySlide.addText('Browser fit shrink', {
+          name: 'browser_text_box_fit_shrink',
+          fit: 'shrink',
+        }),
+        textBoxFitFamilySlide.addText('Browser fit resize', {
+          name: 'browser_text_box_fit_resize',
+          fit: 'resize',
+        }),
+      ];
+      const browserTextBoxFitPart = () => textBoxFitFamilyDocument.opcPackage
+        .requirePart(textBoxFitFamilySlide.partUri).bytes;
+      const browserTextBoxFitBytesEqual = (left, right) =>
+        left.byteLength === right.byteLength
+        && left.every((value, index) => value === right[index]);
+      const browserTextBoxFitXml = new TextDecoder().decode(browserTextBoxFitPart());
+      const browserTextBoxFitOwners = Object.fromEntries(
+        ['omitted', 'none', 'shrink', 'resize'].map((value) => [
+          value,
+          namedOwnerXml(
+            browserTextBoxFitXml,
+            `browser_text_box_fit_${value}`,
+            '</p:sp>',
+          ),
+        ]),
+      );
+      const browserTextBoxFitInitial = JSON.stringify(
+        browserTextBoxFitShapes.map(({ textFit }) => textFit),
+      ) === JSON.stringify([undefined, undefined, 'shrink', 'resize']);
+      const browserTextBoxFitInitialOoxml =
+        !/<a:(?:noAutofit|normAutofit|spAutoFit)\b/u.test(
+          browserTextBoxFitOwners.omitted,
+        )
+        && !/<a:(?:noAutofit|normAutofit|spAutoFit)\b/u.test(
+          browserTextBoxFitOwners.none,
+        )
+        && /<a:normAutofit\/>/u.test(browserTextBoxFitOwners.shrink)
+        && !/<a:(?:noAutofit|spAutoFit)\b/u.test(browserTextBoxFitOwners.shrink)
+        && /<a:spAutoFit\/>/u.test(browserTextBoxFitOwners.resize)
+        && !/<a:(?:noAutofit|normAutofit)\b/u.test(browserTextBoxFitOwners.resize);
+      const browserTextBoxFitInvalidBytes = browserTextBoxFitPart().slice();
+      const browserTextBoxFitInvalidJournal = JSON.stringify(
+        textBoxFitFamilyDocument.opcPackage.mutations,
+      );
+      let browserTextBoxFitInvalidRejected = false;
+      try {
+        browserTextBoxFitShapes[1].textFit = 'SHRINK';
+      } catch {
+        browserTextBoxFitInvalidRejected = true;
+      }
+      const browserTextBoxFitInvalidRollback = browserTextBoxFitInvalidRejected
+        && browserTextBoxFitBytesEqual(
+          browserTextBoxFitInvalidBytes,
+          browserTextBoxFitPart(),
+        )
+        && browserTextBoxFitInvalidJournal === JSON.stringify(
+          textBoxFitFamilyDocument.opcPackage.mutations,
+        );
+      textBoxFitFamilyDocument.duplicateSlide(0);
+      browserTextBoxFitShapes[0].textFit = 'shrink';
+      browserTextBoxFitShapes[2].textFit = 'resize';
+      browserTextBoxFitShapes[3].textFit = 'none';
+      const browserTextBoxFitEditedXml = new TextDecoder().decode(browserTextBoxFitPart());
+      const browserTextBoxFitEdited = [
+        ['omitted', 'normAutofit'],
+        ['none', undefined],
+        ['shrink', 'spAutoFit'],
+        ['resize', undefined],
+      ].every(([name, token]) => {
+        const owner = namedOwnerXml(
+          browserTextBoxFitEditedXml,
+          `browser_text_box_fit_${name}`,
+          '</p:sp>',
+        );
+        return token === undefined
+          ? !/<a:(?:noAutofit|normAutofit|spAutoFit)\b/u.test(owner)
+          : new RegExp(`<a:${token}\\/>`, 'u').test(owner);
+      });
+      const textBoxFitFamilyOutput = await textBoxFitFamilyDocument.writeBlob();
+      globalThis.__pptxTextBoxFitEvidenceBlob = textBoxFitFamilyOutput;
+      const reopenedTextBoxFitFamilyDocument = await api.PptxDocument.open(
+        textBoxFitFamilyOutput,
+      );
+      const textBoxFitFamilyState = {
+        initial: browserTextBoxFitInitial,
+        initialOoxml: browserTextBoxFitInitialOoxml,
+        invalidRollback: browserTextBoxFitInvalidRollback,
+        editedOoxml: browserTextBoxFitEdited,
+        reopened: JSON.stringify(
+          reopenedTextBoxFitFamilyDocument.slides[0].shapes.map(({ textFit }) => textFit),
+        ) === JSON.stringify(['shrink', undefined, 'resize', undefined]),
+        duplicateIsolation: JSON.stringify(
+          reopenedTextBoxFitFamilyDocument.slides[1].shapes.map(({ textFit }) => textFit),
+        ) === JSON.stringify([undefined, undefined, 'shrink', 'resize']),
+        mime: textBoxFitFamilyOutput.type ===
+          'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        diagnostics: textBoxFitFamilyDocument.diagnostics.filter(
+          ({ severity }) => severity === 'error' || severity === 'warning',
+        ).length === 0 && reopenedTextBoxFitFamilyDocument.diagnostics.filter(
+          ({ severity }) => severity === 'error' || severity === 'warning',
+        ).length === 0,
+      };
+      const textBoxFitFamily = Object.values(textBoxFitFamilyState).every(Boolean);
       const tableHorizontalAlignmentDocument = api.PptxDocument.create();
       const tableHorizontalAlignmentSlide = tableHorizontalAlignmentDocument.addSlide();
       const tableHorizontalAlignmentTable = tableHorizontalAlignmentSlide.addTable([
@@ -7069,6 +7181,8 @@ async (page) => {
         tableVerticalAlignmentState,
         textDirectionFamily,
         textDirectionFamilyState,
+        textBoxFitFamily,
+        textBoxFitFamilyState,
         tableTextDirection,
         tableTextDirectionState,
         tableHorizontalAlignment,
@@ -7176,6 +7290,26 @@ async (page) => {
       base64: 'UEsDBAoAAAAIAOMg/FxMagnj0QAAAP0BAAATAAAAW0NvbnRlbnRfVHlwZXNdLnhtbK1RvU7DQAx+lejWqnHpwICaLsBKGXgB6+I0J+7HOrtVeXuctEiACixMlv39St68vDFJc0oxS+dGVb4DED9SQmkLUzZkKDWh2lr3wOhfcU+wXq1uwZeslHWpk4fbbh5owEPU5vFkZwkld65SFNfcn4lTVueQOQaPajgcc/8tZXlJaE05c2QMLAsjOLiaMCE/B1x0uyPVGnpqnrHqEyZjAbMCVxLTzdz2d6crVcswBE998YdkkvazWYpf1jZhyIs/yki0o5zHzX+3mV0/GsD89e07UEsDBAoAAAAAAOMg/FwAAAAAAAAAAAAAAAAGAAAAX3JlbHMvUEsDBAoAAAAIAOMg/Fwvm14oigAAAPUAAAALAAAAX3JlbHMvLnJlbHONzz0OwjAMBeCrVDlAXRgYUJKJpSvqBaLU+RFNYiVGgtsTMRXEwOjnp8+yvOJmOJbcQqQ2PNKWmxKBmc4AzQZMpo2FMPeNKzUZ7mP1QMbejEc4TtMJ6t4QWu7NYV6VqPN6EMPyJPzHLs5Fi5di7wkz/zjx1eiyqR5ZCSIGqth6+G6PXRagJXx8qV9QSwMECgAAAAAA4yD8XAAAAAAAAAAAAAAAAAQAAABwcHQvUEsDBAoAAAAIAOMg/FzLe24cTgAAAHEAAAAUAAAAcHB0L3ByZXNlbnRhdGlvbi54bWyzKbAqKEotTs0rSSzJzM9TqMjNySu2KrBVKlCCsotslYqU7GwKrIpzUjxTfIpL4GyFzBRbJSNTMyWFIisQs8gzxVBJ385GH1mtPqoFdgBQSwMECgAAAAAA4yD8XAAAAAAAAAAAAAAAAAoAAABwcHQvX3JlbHMvUEsDBAoAAAAIAOMg/Fw2SaGViAAAAOkAAAAfAAAAcHB0L19yZWxzL3ByZXNlbnRhdGlvbi54bWwucmVsc43PPQoCMRAF4KssOcDOroWFJKlsthUvEJLJD+aPTAS9vUEsVrCwfPPgGx6/YFQ9lEw+VJoeKWYSzPdeTwCkPSZFc6mYR2NLS6qP2BxUpW/KIRyW5QhtbzDJ9+a0GcHaZlY2XZ8V/7GLtUHjueh7wtx/vACKweAAVXPYBXvHz3Wdh8ZAcvhaJl9QSwMECgAAAAAA4yD8XAAAAAAAAAAAAAAAAAsAAABwcHQvc2xpZGVzL1BLAwQKAAAACADjIPxc5NE7A5MAAAD3AAAAFQAAAHBwdC9zbGlkZXMvc2xpZGUxLnhtbE2PUQrDIAyGryK5QGCPoj70AKPQXkCmYwXbhug6e/tNnWwvX0L+Pz+JIhmDE3kNW5SkgeDbWw0WjCJ5m4IrNdLM3reucDsmGrk6rsfIYnEaLiA2u3oN85KCB2y+5qKHSCd9tNQ17CL+p6U87O40ykoq4IJkBt5f0bO4Lzk92Sssw0KupBrSV7HdiL+jsf+B9V/zBlBLAQIUAAoAAAAIAOMg/FxMagnj0QAAAP0BAAATAAAAAAAAAAAAAAAAAAAAAABbQ29udGVudF9UeXBlc10ueG1sUEsBAhQACgAAAAAA4yD8XAAAAAAAAAAAAAAAAAYAAAAAAAAAAAAQAAAAAgEAAF9yZWxzL1BLAQIUAAoAAAAIAOMg/Fwvm14oigAAAPUAAAALAAAAAAAAAAAAAAAAACYBAABfcmVscy8ucmVsc1BLAQIUAAoAAAAAAOMg/FwAAAAAAAAAAAAAAAAEAAAAAAAAAAAAEAAAANkBAABwcHQvUEsBAhQACgAAAAgA4yD8XMt7bhxOAAAAcQAAABQAAAAAAAAAAAAAAAAA+wEAAHBwdC9wcmVzZW50YXRpb24ueG1sUEsBAhQACgAAAAAA4yD8XAAAAAAAAAAAAAAAAAoAAAAAAAAAAAAQAAAAewIAAHBwdC9fcmVscy9QSwECFAAKAAAACADjIPxcNkmhlYgAAADpAAAAHwAAAAAAAAAAAAAAAACjAgAAcHB0L19yZWxzL3ByZXNlbnRhdGlvbi54bWwucmVsc1BLAQIUAAoAAAAAAOMg/FwAAAAAAAAAAAAAAAALAAAAAAAAAAAAEAAAAGgDAABwcHQvc2xpZGVzL1BLAQIUAAoAAAAIAOMg/Fzk0TsDkwAAAPcAAAAVAAAAAAAAAAAAAAAAAJEDAABwcHQvc2xpZGVzL3NsaWRlMS54bWxQSwUGAAAAAAkACQAjAgAAVwQAAAAA',
     },
   );
+  const textBoxFitEvidenceDownloadPromise = page.waitForEvent('download');
+  await page.evaluate(() => {
+    const blob = globalThis.__pptxTextBoxFitEvidenceBlob;
+    if (!(blob instanceof Blob)) throw new Error('Missing text-box fit evidence Blob');
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'browser-text-box-fit.pptx';
+    anchor.click();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  });
+  const textBoxFitEvidenceDownload = await textBoxFitEvidenceDownloadPromise;
+  result.textBoxFitEvidenceFileName = textBoxFitEvidenceDownload.suggestedFilename();
+  const textBoxFitEvidenceOutput = typeof process !== 'undefined'
+    ? process.env.PPTX_BROWSER_TEXT_BOX_FIT_OUT ??
+      globalThis.__pptxTextBoxFitEvidenceOutput
+    : globalThis.__pptxTextBoxFitEvidenceOutput;
+  if (typeof textBoxFitEvidenceOutput === 'string') {
+    await textBoxFitEvidenceDownload.saveAs(textBoxFitEvidenceOutput);
+  }
   const customPathEvidenceDownloadPromise = page.waitForEvent('download');
   await page.evaluate(() => {
     const blob = globalThis.__pptxCustomPathEvidenceBlob;
@@ -7659,6 +7793,17 @@ async (page) => {
       editedOoxml: true,
       reopened: true,
       duplicateIsolation: true,
+      diagnostics: true,
+    },
+    textBoxFitFamily: true,
+    textBoxFitFamilyState: {
+      initial: true,
+      initialOoxml: true,
+      invalidRollback: true,
+      editedOoxml: true,
+      reopened: true,
+      duplicateIsolation: true,
+      mime: true,
       diagnostics: true,
     },
     tableTextDirection: true,
@@ -8812,6 +8957,7 @@ async (page) => {
     stableMediaLifecycle: true,
     mediaTargetIsolation: true,
     mediaOrphanCount: 0,
+    textBoxFitEvidenceFileName: 'browser-text-box-fit.pptx',
     customPathEvidenceFileName: 'browser-custom-paths.pptx',
     tableCellMergesEvidenceFileName: 'browser-table-cell-merges.pptx',
     tableStructureEditingEvidenceFileName: 'browser-table-structure-editing.pptx',

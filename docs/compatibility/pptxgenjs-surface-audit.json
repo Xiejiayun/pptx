@@ -33375,29 +33375,71 @@
       "typeText": "HAlign"
     },
     {
+      "canonical": "interface:TextPropsOptions@property:fit",
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+      },
       "declaredIn": "TextPropsOptions",
       "deprecated": true,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textBoxFitFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/text-box-fit.internal.ts",
+            "pattern": "export function normalizeTextBoxFit("
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "  getShapeTextFit(id: number): TextBoxFit | undefined {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, and reopens text-box fit modes"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const initialTextFit = createdText.textFit;"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, and reopens text-box fit modes"
+          }
+        ]
       },
       "id": "interface:TextPropsOptions@property:autoFit",
       "kind": "property",
       "name": "autoFit",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.fit",
+        "ShapeModel.textFit",
+        "TextBoxFit"
+      ],
+      "note": "PptxGenJS 4.0.1 keeps TextPropsOptions.autoFit as a deprecated boolean alias for fit='resize'; native exposes only the canonical strict fit union.",
       "optional": true,
       "owner": "TextPropsOptions",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deprecated-alias",
       "typeText": "boolean"
     },
     {
@@ -33815,28 +33857,65 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "TextPropsOptions",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textBoxFitFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/text-box-fit.internal.ts",
+            "pattern": "export function normalizeTextBoxFit("
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "  getShapeTextFit(id: number): TextBoxFit | undefined {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, and reopens text-box fit modes"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const initialTextFit = createdText.textFit;"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, and reopens text-box fit modes"
+          }
+        ]
       },
       "id": "interface:TextPropsOptions@property:fit",
       "kind": "property",
       "name": "fit",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.fit",
+        "ShapeModel.textFit",
+        "TextBoxFit"
+      ],
+      "note": "Native covers TextPropsOptions.fit with the same none, resize, and shrink tokens and the same legal OOXML intent, plus strict pre-mutation validation and reversible live editing.",
       "optional": true,
       "owner": "TextPropsOptions",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'none' | 'shrink' | 'resize'"
     },
     {
@@ -35190,29 +35269,71 @@
       "typeText": "SHAPE_NAME"
     },
     {
+      "canonical": "interface:TextPropsOptions@property:fit",
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+      },
       "declaredIn": "TextPropsOptions",
       "deprecated": true,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textBoxFitFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/text-box-fit.internal.ts",
+            "pattern": "export function normalizeTextBoxFit("
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "  getShapeTextFit(id: number): TextBoxFit | undefined {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, and reopens text-box fit modes"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const initialTextFit = createdText.textFit;"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, and reopens text-box fit modes"
+          }
+        ]
       },
       "id": "interface:TextPropsOptions@property:shrinkText",
       "kind": "property",
       "name": "shrinkText",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.fit",
+        "ShapeModel.textFit",
+        "TextBoxFit"
+      ],
+      "note": "PptxGenJS 4.0.1 keeps TextPropsOptions.shrinkText as a deprecated boolean alias for fit='shrink'; native exposes only the canonical strict fit union.",
       "optional": true,
       "owner": "TextPropsOptions",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deprecated-alias",
       "typeText": "boolean"
     },
     {
@@ -84557,80 +84678,191 @@
     },
     {
       "catalogKey": "none",
-      "client": false,
+      "client": true,
       "declaredIn": "interface:TextPropsOptions@property:fit",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textBoxFitFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/text-box-fit.internal.ts",
+            "pattern": "export function normalizeTextBoxFit("
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "  getShapeTextFit(id: number): TextBoxFit | undefined {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, and reopens text-box fit modes"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const initialTextFit = createdText.textFit;"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, and reopens text-box fit modes"
+          }
+        ]
       },
       "id": "union:interface:TextPropsOptions@property:fit#none",
       "kind": "union-member",
       "name": "none",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.fit",
+        "ShapeModel.textFit",
+        "TextBoxFit"
+      ],
+      "note": "Native covers TextPropsOptions.fit with the same none, resize, and shrink tokens and the same legal OOXML intent, plus strict pre-mutation validation and reversible live editing.",
       "optional": false,
       "owner": "interface:TextPropsOptions@property:fit",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'none'"
     },
     {
       "catalogKey": "resize",
-      "client": false,
+      "client": true,
       "declaredIn": "interface:TextPropsOptions@property:fit",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textBoxFitFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/text-box-fit.internal.ts",
+            "pattern": "export function normalizeTextBoxFit("
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "  getShapeTextFit(id: number): TextBoxFit | undefined {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, and reopens text-box fit modes"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const initialTextFit = createdText.textFit;"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, and reopens text-box fit modes"
+          }
+        ]
       },
       "id": "union:interface:TextPropsOptions@property:fit#resize",
       "kind": "union-member",
       "name": "resize",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.fit",
+        "ShapeModel.textFit",
+        "TextBoxFit"
+      ],
+      "note": "Native covers TextPropsOptions.fit with the same none, resize, and shrink tokens and the same legal OOXML intent, plus strict pre-mutation validation and reversible live editing.",
       "optional": false,
       "owner": "interface:TextPropsOptions@property:fit",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'resize'"
     },
     {
       "catalogKey": "shrink",
-      "client": false,
+      "client": true,
       "declaredIn": "interface:TextPropsOptions@property:fit",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textBoxFitFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/text-box-fit.internal.ts",
+            "pattern": "export function normalizeTextBoxFit("
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "  getShapeTextFit(id: number): TextBoxFit | undefined {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, and reopens text-box fit modes"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const initialTextFit = createdText.textFit;"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, and reopens text-box fit modes"
+          }
+        ]
       },
       "id": "union:interface:TextPropsOptions@property:fit#shrink",
       "kind": "union-member",
       "name": "shrink",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.fit",
+        "ShapeModel.textFit",
+        "TextBoxFit"
+      ],
+      "note": "Native covers TextPropsOptions.fit with the same none, resize, and shrink tokens and the same legal OOXML intent, plus strict pre-mutation validation and reversible live editing.",
       "optional": false,
       "owner": "interface:TextPropsOptions@property:fit",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'shrink'"
     },
     {
@@ -87820,11 +88052,11 @@
   "counts": {
     "defect-excluded": 359,
     "deliberate-difference": 354,
-    "deprecated-alias": 91,
+    "deprecated-alias": 93,
     "stale": 0,
-    "supported": 620,
+    "supported": 624,
     "unsupported": 0,
-    "unverified": 350
+    "unverified": 344
   },
   "declarationSha256": "0726d015dbcb55ccfa75546cb2fd43fe13a0dfeb783d08572f1c62f59193bbe5",
   "declarationTotal": 1774,
@@ -88062,11 +88294,9 @@
     "interface:TextProps@property:options",
     "interface:TextProps@property:text",
     "interface:TextPropsOptions@property:align",
-    "interface:TextPropsOptions@property:autoFit",
     "interface:TextPropsOptions@property:baseline",
     "interface:TextPropsOptions@property:charSpacing",
     "interface:TextPropsOptions@property:data",
-    "interface:TextPropsOptions@property:fit",
     "interface:TextPropsOptions@property:flipH",
     "interface:TextPropsOptions@property:flipV",
     "interface:TextPropsOptions@property:glow",
@@ -88085,7 +88315,6 @@
     "interface:TextPropsOptions@property:rotate",
     "interface:TextPropsOptions@property:rtlMode",
     "interface:TextPropsOptions@property:shape",
-    "interface:TextPropsOptions@property:shrinkText",
     "interface:TextPropsOptions@property:strike",
     "interface:TextPropsOptions@property:subscript",
     "interface:TextPropsOptions@property:superscript",
@@ -88173,9 +88402,6 @@
     "union:interface:OptsChartData@property:labels#string[][]",
     "union:interface:TableCell@property:text#TableCell[]",
     "union:interface:TableCell@property:text#string",
-    "union:interface:TextPropsOptions@property:fit#none",
-    "union:interface:TextPropsOptions@property:fit#resize",
-    "union:interface:TextPropsOptions@property:fit#shrink",
     "union:interface:TextPropsOptions@property:strike#boolean",
     "union:interface:TextPropsOptions@property:strike#dblStrike",
     "union:interface:TextPropsOptions@property:strike#sngStrike",

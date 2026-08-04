@@ -10,12 +10,12 @@
 
 | Status | Count |
 | --- | ---: |
-| supported | 620 |
+| supported | 624 |
 | deliberate-difference | 354 |
-| deprecated-alias | 91 |
+| deprecated-alias | 93 |
 | defect-excluded | 359 |
 | unsupported | 0 |
-| unverified | 350 |
+| unverified | 344 |
 | stale | 0 |
 
 ## Runtime declaration differences
@@ -260,11 +260,9 @@ None.
 - `interface:TextProps@property:options`
 - `interface:TextProps@property:text`
 - `interface:TextPropsOptions@property:align`
-- `interface:TextPropsOptions@property:autoFit`
 - `interface:TextPropsOptions@property:baseline`
 - `interface:TextPropsOptions@property:charSpacing`
 - `interface:TextPropsOptions@property:data`
-- `interface:TextPropsOptions@property:fit`
 - `interface:TextPropsOptions@property:flipH`
 - `interface:TextPropsOptions@property:flipV`
 - `interface:TextPropsOptions@property:glow`
@@ -283,7 +281,6 @@ None.
 - `interface:TextPropsOptions@property:rotate`
 - `interface:TextPropsOptions@property:rtlMode`
 - `interface:TextPropsOptions@property:shape`
-- `interface:TextPropsOptions@property:shrinkText`
 - `interface:TextPropsOptions@property:strike`
 - `interface:TextPropsOptions@property:subscript`
 - `interface:TextPropsOptions@property:superscript`
@@ -371,9 +368,6 @@ None.
 - `union:interface:OptsChartData@property:labels#string[][]`
 - `union:interface:TableCell@property:text#TableCell[]`
 - `union:interface:TableCell@property:text#string`
-- `union:interface:TextPropsOptions@property:fit#none`
-- `union:interface:TextPropsOptions@property:fit#resize`
-- `union:interface:TextPropsOptions@property:fit#shrink`
 - `union:interface:TextPropsOptions@property:strike#boolean`
 - `union:interface:TextPropsOptions@property:strike#dblStrike`
 - `union:interface:TextPropsOptions@property:strike#sngStrike`
@@ -538,7 +532,7 @@ None.
 | `interface:TextProps@property:options` | unverified | — | — | — |
 | `interface:TextProps@property:text` | unverified | — | — | — |
 | `interface:TextPropsOptions@property:align` | unverified | — | — | — |
-| `interface:TextPropsOptions@property:autoFit` | unverified | — | — | — |
+| `interface:TextPropsOptions@property:autoFit` | deprecated-alias | AddTextOptions.fit<br>ShapeModel.textFit<br>TextBoxFit | code:packages/model/src/text-box-fit.internal.ts<br>code:packages/model/src/slide.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 keeps TextPropsOptions.autoFit as a deprecated boolean alias for fit='resize'; native exposes only the canonical strict fit union. |
 | `interface:TextPropsOptions@property:baseline` | unverified | — | — | — |
 | `interface:TextPropsOptions@property:bold` | supported | RichTextRunStyle.bold<br>ShapeModel.richText<br>SlideModel.addRichText | code:packages/model/src/rich-text.internal.ts<br>code:packages/model/src/table-create.internal.ts<br>code:packages/codecs/src/slide-number.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native covers effective TextPropsOptions.bold with strict detached state, exact OOXML, edit, duplicate, all six formats, and reopen. |
 | `interface:TextPropsOptions@property:breakLine` | supported | RichTextRun.breakLine<br>ShapeModel.richText<br>SlideModel.addRichText | code:packages/model/src/rich-text.internal.ts<br>code:packages/model/src/table-create.internal.ts<br>code:packages/codecs/src/slide-number.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native covers effective TextPropsOptions.breakLine with canonical paragraph or soft-break OOXML and preserves it through edit, duplicate, all six formats, and reopen. |
@@ -547,7 +541,7 @@ None.
 | `interface:TextPropsOptions@property:color` | deliberate-difference | RichTextRunStyle.color<br>ShapeModel.richText<br>SlideModel.addRichText | code:packages/model/src/rich-text.internal.ts<br>code:packages/model/src/table-create.internal.ts<br>code:packages/codecs/src/slide-number.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native represents TextPropsOptions.color as a strict sRGB or scheme RichTextColor instead of a permissive PptxGenJS color string. |
 | `interface:TextPropsOptions@property:data` | unverified | — | — | — |
 | `interface:TextPropsOptions@property:fill` | deliberate-difference | ShapeFill<br>ShapeModel.fill<br>SlideModel.addText | code:packages/model/src/simple-fill.internal.ts<br>code:packages/model/src/shape-fill.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>ooxml:scripts/smoke-npm-package.mjs<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers the legal none/solid, sRGB/scheme, and transparency domain through a strict ShapeFill kind union with explicit direct-state editing; PptxGenJS instead omits none and zero-alpha intent and permits fallback values that native rejects before mutation. |
-| `interface:TextPropsOptions@property:fit` | unverified | — | — | — |
+| `interface:TextPropsOptions@property:fit` | supported | AddTextOptions.fit<br>ShapeModel.textFit<br>TextBoxFit | code:packages/model/src/text-box-fit.internal.ts<br>code:packages/model/src/slide.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native covers TextPropsOptions.fit with the same none, resize, and shrink tokens and the same legal OOXML intent, plus strict pre-mutation validation and reversible live editing. |
 | `interface:TextPropsOptions@property:flipH` | unverified | — | — | — |
 | `interface:TextPropsOptions@property:flipV` | unverified | — | — | — |
 | `interface:TextPropsOptions@property:fontFace` | deliberate-difference | RichTextRunStyle.fontFamily<br>ShapeModel.richText<br>SlideModel.addRichText | code:packages/model/src/rich-text.internal.ts<br>code:packages/model/src/table-create.internal.ts<br>code:packages/codecs/src/slide-number.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native names TextPropsOptions.fontFace as fontFamily, requires a non-empty XML-safe string, and writes the same effective typeface. |
@@ -579,7 +573,7 @@ None.
 | `interface:TextPropsOptions@property:rtlMode` | unverified | — | — | — |
 | `interface:TextPropsOptions@property:shadow` | deliberate-difference | AddTextOptions.shadow<br>ShapeModel.shadow<br>ShapeShadow | code:packages/model/src/slide.ts<br>code:packages/model/src/shape-shadow.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS text shadows mutate or correct permissive input, collapse explicit zero to defaults, ignore rotate true, and produce malformed inner XML; native uses the same strict detached ShapeShadow across every text owner. |
 | `interface:TextPropsOptions@property:shape` | unverified | — | — | — |
-| `interface:TextPropsOptions@property:shrinkText` | unverified | — | — | — |
+| `interface:TextPropsOptions@property:shrinkText` | deprecated-alias | AddTextOptions.fit<br>ShapeModel.textFit<br>TextBoxFit | code:packages/model/src/text-box-fit.internal.ts<br>code:packages/model/src/slide.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 keeps TextPropsOptions.shrinkText as a deprecated boolean alias for fit='shrink'; native exposes only the canonical strict fit union. |
 | `interface:TextPropsOptions@property:softBreakBefore` | supported | RichTextRun.softBreakBefore<br>ShapeModel.richText<br>SlideModel.addRichText | code:packages/model/src/rich-text.internal.ts<br>code:packages/model/src/table-create.internal.ts<br>code:packages/codecs/src/slide-number.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native covers effective TextPropsOptions.softBreakBefore with canonical paragraph or soft-break OOXML and preserves it through edit, duplicate, all six formats, and reopen. |
 | `interface:TextPropsOptions@property:strike` | unverified | — | — | — |
 | `interface:TextPropsOptions@property:subscript` | unverified | — | — | — |
@@ -614,9 +608,9 @@ None.
 | `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#romanUcPeriod` | defect-excluded | AddTextOptions.bullet<br>NumberedBullet.style<br>NumberingStyle<br>SlideModel.addText | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares TextPropsOptions.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
 | `union:interface:TextPropsOptions@property:bullet@path:bullet.type#bullet` | defect-excluded | AddTextOptions.bullet<br>CharacterBullet.kind<br>NumberedBullet.kind<br>SlideModel.addText | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares TextPropsOptions.bullet.type='bullet', but its object writer only handles the number branch and emits no bullet for this legal token. |
 | `union:interface:TextPropsOptions@property:bullet@path:bullet.type#number` | deliberate-difference | AddTextOptions.bullet<br>CharacterBullet.kind<br>NumberedBullet.kind<br>SlideModel.addText | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native represents TextPropsOptions bullets with a strict discriminated union, actual Unicode characters, bounded indentation and start values, and deterministic OOXML; PptxGenJS uses permissive inline fields and truthy fallbacks. |
-| `union:interface:TextPropsOptions@property:fit#none` | unverified | — | — | — |
-| `union:interface:TextPropsOptions@property:fit#resize` | unverified | — | — | — |
-| `union:interface:TextPropsOptions@property:fit#shrink` | unverified | — | — | — |
+| `union:interface:TextPropsOptions@property:fit#none` | supported | AddTextOptions.fit<br>ShapeModel.textFit<br>TextBoxFit | code:packages/model/src/text-box-fit.internal.ts<br>code:packages/model/src/slide.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native covers TextPropsOptions.fit with the same none, resize, and shrink tokens and the same legal OOXML intent, plus strict pre-mutation validation and reversible live editing. |
+| `union:interface:TextPropsOptions@property:fit#resize` | supported | AddTextOptions.fit<br>ShapeModel.textFit<br>TextBoxFit | code:packages/model/src/text-box-fit.internal.ts<br>code:packages/model/src/slide.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native covers TextPropsOptions.fit with the same none, resize, and shrink tokens and the same legal OOXML intent, plus strict pre-mutation validation and reversible live editing. |
+| `union:interface:TextPropsOptions@property:fit#shrink` | supported | AddTextOptions.fit<br>ShapeModel.textFit<br>TextBoxFit | code:packages/model/src/text-box-fit.internal.ts<br>code:packages/model/src/slide.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native covers TextPropsOptions.fit with the same none, resize, and shrink tokens and the same legal OOXML intent, plus strict pre-mutation validation and reversible live editing. |
 | `union:interface:TextPropsOptions@property:lineDash#dash` | deprecated-alias | ShapeLine<br>ShapeModel.line<br>SlideModel.addText | code:packages/model/src/simple-line.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS declares top-level lineDash as a deprecated nested-line alias, ignores it for ordinary text, and applies it to line-shaped text; the native type contract rejects the alias while direct JavaScript calls leave it inert, exposing only the strict canonical line/arrows field. |
 | `union:interface:TextPropsOptions@property:lineDash#dashDot` | deprecated-alias | ShapeLine<br>ShapeModel.line<br>SlideModel.addText | code:packages/model/src/simple-line.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS declares top-level lineDash as a deprecated nested-line alias, ignores it for ordinary text, and applies it to line-shaped text; the native type contract rejects the alias while direct JavaScript calls leave it inert, exposing only the strict canonical line/arrows field. |
 | `union:interface:TextPropsOptions@property:lineDash#lgDash` | deprecated-alias | ShapeLine<br>ShapeModel.line<br>SlideModel.addText | code:packages/model/src/simple-line.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS declares top-level lineDash as a deprecated nested-line alias, ignores it for ordinary text, and applies it to line-shaped text; the native type contract rejects the alias while direct JavaScript calls leave it inert, exposing only the strict canonical line/arrows field. |

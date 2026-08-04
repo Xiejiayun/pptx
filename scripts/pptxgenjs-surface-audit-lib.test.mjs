@@ -124,14 +124,14 @@ function assertDeepFrozen(value, seen = new Set()) {
 test('exports an immutable evidence-backed initial manifest batch', () => {
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.schemaVersion, 1);
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.packageVersion, '4.0.1');
-  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1424);
+  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1430);
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries.map(({ status }) => status).sort(),
     [
       ...Array(359).fill('defect-excluded'),
-      ...Array(620).fill('supported'),
+      ...Array(624).fill('supported'),
       ...Array(354).fill('deliberate-difference'),
-      ...Array(91).fill('deprecated-alias'),
+      ...Array(93).fill('deprecated-alias'),
     ].sort(),
   );
   const lineFamilyEntries = PPTXGENJS_SURFACE_MANIFEST.entries.filter(({ id }) =>
@@ -496,6 +496,65 @@ test('exports an immutable evidence-backed initial manifest batch', () => {
     id.includes('interface:TextPropsOptions@property:vert'));
   assert.equal(textVertEntries.length, 8);
   assert.deepEqual(textVertEntries.map(({ status }) => status), Array(8).fill('supported'));
+  const textBoxFitPropertyId = 'interface:TextPropsOptions@property:fit';
+  const textBoxFitExpected = [
+    { id: textBoxFitPropertyId, status: 'supported' },
+    ...['none', 'resize', 'shrink'].map((value) => ({
+      id: `union:${textBoxFitPropertyId}#${value}`,
+      status: 'supported',
+    })),
+    {
+      id: 'interface:TextPropsOptions@property:autoFit',
+      status: 'deprecated-alias',
+    },
+    {
+      id: 'interface:TextPropsOptions@property:shrinkText',
+      status: 'deprecated-alias',
+    },
+  ].sort((left, right) => left.id.localeCompare(right.id));
+  const textBoxFitEntries = PPTXGENJS_SURFACE_MANIFEST.entries
+    .filter(({ id }) => textBoxFitExpected.some((expected) => expected.id === id))
+    .sort((left, right) => left.id.localeCompare(right.id));
+  assert.deepEqual(
+    textBoxFitEntries.map(({ id, status }) => ({ id, status })),
+    textBoxFitExpected,
+  );
+  assert.equal(textBoxFitEntries.length, 6);
+  assert.deepEqual(
+    Object.fromEntries(
+      ['supported', 'deprecated-alias'].map((status) => [
+        status,
+        textBoxFitEntries.filter((entry) => entry.status === status).length,
+      ]),
+    ),
+    { supported: 4, 'deprecated-alias': 2 },
+  );
+  assert.equal(
+    textBoxFitEntries.every(({
+      native,
+      evidence,
+      serialization,
+      client,
+    }) => native.length === 3 && evidence.code.length === 2 &&
+      evidence.tests.length === 2 &&
+      evidence.package.some(({ pattern }) =>
+        pattern === 'const initialTextFit = createdText.textFit;') &&
+      evidence.ooxml.some(({ pattern }) =>
+        pattern === 'creates, edits, duplicates, and reopens text-box fit modes') &&
+      evidence.clients.some(({ pattern }) =>
+        pattern === 'const textBoxFitFamilyState = {') &&
+      serialization === true && client === true),
+    true,
+  );
+  for (const entry of textBoxFitEntries.filter(
+    ({ status }) => status === 'deprecated-alias',
+  )) {
+    assert.equal(entry.canonical, textBoxFitPropertyId);
+    assert.equal(
+      entry.control.pattern,
+      'imports public PptxGenJS output and continues editing in the OOXML kernel',
+    );
+  }
   const textRunScalarFamilyStatus = {
     PlaceholderProps: {
       supported: 4,

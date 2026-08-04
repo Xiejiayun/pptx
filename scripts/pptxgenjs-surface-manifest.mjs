@@ -1911,6 +1911,90 @@ const TEXT_DIRECTION_FAMILY_ENTRIES = Object.freeze([
   ).map((id) => textDirectionSupportedEntry('TextPropsOptions', 'vert', id)),
 ]);
 
+const TEXT_BOX_FIT_FAMILY_CONTROL_TITLE =
+  'imports public PptxGenJS output and continues editing in the OOXML kernel';
+const TEXT_BOX_FIT_FAMILY_OOXML_TITLE =
+  'creates, edits, duplicates, and reopens text-box fit modes';
+const TEXT_BOX_FIT_PROPERTY_ID = linePropertyId('TextPropsOptions', 'fit');
+const TEXT_BOX_FIT_SUPPORTED_IDS = Object.freeze([
+  TEXT_BOX_FIT_PROPERTY_ID,
+  ...['none', 'resize', 'shrink'].map((value) =>
+    `union:${TEXT_BOX_FIT_PROPERTY_ID}#${value}`),
+]);
+
+function textBoxFitFamilyEvidence() {
+  return {
+    code: [
+      {
+        path: 'packages/model/src/text-box-fit.internal.ts',
+        pattern: 'export function normalizeTextBoxFit(',
+      },
+      {
+        path: 'packages/model/src/slide.ts',
+        pattern: '  getShapeTextFit(id: number): TextBoxFit | undefined {',
+      },
+    ],
+    tests: [
+      {
+        path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+        title: TEXT_BOX_FIT_FAMILY_CONTROL_TITLE,
+      },
+      {
+        path: 'packages/sdk/src/index.test.ts',
+        title: TEXT_BOX_FIT_FAMILY_OOXML_TITLE,
+      },
+    ],
+    package: [{
+      path: 'scripts/smoke-npm-package.mjs',
+      pattern: 'const initialTextFit = createdText.textFit;',
+    }],
+    ooxml: [{
+      path: 'packages/sdk/src/index.test.ts',
+      pattern: TEXT_BOX_FIT_FAMILY_OOXML_TITLE,
+    }],
+    clients: [{
+      path: 'scripts/playwright-browser-smoke.js',
+      pattern: 'const textBoxFitFamilyState = {',
+    }],
+  };
+}
+
+function textBoxFitSupportedEntry(id) {
+  return {
+    id,
+    status: 'supported',
+    native: ['AddTextOptions.fit', 'ShapeModel.textFit', 'TextBoxFit'],
+    evidence: textBoxFitFamilyEvidence(),
+    serialization: true,
+    client: true,
+    note: 'Native covers TextPropsOptions.fit with the same none, resize, and shrink tokens and the same legal OOXML intent, plus strict pre-mutation validation and reversible live editing.',
+  };
+}
+
+function textBoxFitDeprecatedEntry(property, canonicalValue) {
+  const id = linePropertyId('TextPropsOptions', property);
+  return {
+    id,
+    status: 'deprecated-alias',
+    native: ['AddTextOptions.fit', 'ShapeModel.textFit', 'TextBoxFit'],
+    evidence: textBoxFitFamilyEvidence(),
+    control: {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      pattern: TEXT_BOX_FIT_FAMILY_CONTROL_TITLE,
+    },
+    canonical: TEXT_BOX_FIT_PROPERTY_ID,
+    serialization: true,
+    client: true,
+    note: `PptxGenJS 4.0.1 keeps TextPropsOptions.${property} as a deprecated boolean alias for fit='${canonicalValue}'; native exposes only the canonical strict fit union.`,
+  };
+}
+
+const TEXT_BOX_FIT_FAMILY_ENTRIES = Object.freeze([
+  ...TEXT_BOX_FIT_SUPPORTED_IDS.map((id) => textBoxFitSupportedEntry(id)),
+  textBoxFitDeprecatedEntry('autoFit', 'resize'),
+  textBoxFitDeprecatedEntry('shrinkText', 'shrink'),
+]);
+
 const TEXT_RUN_SCALAR_FAMILY_CONTROL_TITLE =
   'locks scalar text formatting behavior across every declared owner';
 const TEXT_RUN_SCALAR_FAMILY_OOXML_TITLE =
@@ -4676,6 +4760,7 @@ export const PPTXGENJS_SURFACE_MANIFEST = deepFreeze({
     ...TAB_STOPS_FAMILY_ENTRIES,
     ...UNDERLINE_FAMILY_ENTRIES,
     ...TEXT_DIRECTION_FAMILY_ENTRIES,
+    ...TEXT_BOX_FIT_FAMILY_ENTRIES,
     ...TEXT_RUN_SCALAR_FAMILY_ENTRIES,
     ...['ShapeType', 'SHAPE_NAME'].flatMap((owner) =>
       DECLARED_PRESET_SHAPE_VALUES.map((value) => presetShapeCatalogEntry(owner, value))),
