@@ -7795,54 +7795,134 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+      },
       "declaredIn": "TextPropsOptions",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const richTextEffectsFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "export function normalizeRichTextColor("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, and reopens rich text outlines"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const richText = created.slides[0].addRichText("
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, and reopens rich text outlines"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates edits duplicates and reopens rich text effects in all six formats"
+          }
+        ]
       },
       "id": "inline:interface:TextPropsOptions@property:outline@property:outline.color",
       "kind": "property",
       "name": "outline.color",
-      "native": [],
-      "note": "",
+      "native": [
+        "RichTextColor",
+        "RichTextOutline.color",
+        "RichTextRunStyle.outline",
+        "ShapeModel.richText"
+      ],
+      "note": "Native represents text-outline color as the strict sRGB-or-scheme RichTextColor union instead of PptxGenJS permissive color strings while preserving legal resulting DrawingML intent.",
       "optional": false,
       "owner": "interface:TextPropsOptions@property:outline",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Color"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "TextPropsOptions",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const richTextEffectsFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "function normalizeOutline("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, and reopens rich text outlines"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const richText = created.slides[0].addRichText("
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, and reopens rich text outlines"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates edits duplicates and reopens rich text effects in all six formats"
+          }
+        ]
       },
       "id": "inline:interface:TextPropsOptions@property:outline@property:outline.size",
       "kind": "property",
       "name": "outline.size",
-      "native": [],
-      "note": "",
+      "native": [
+        "RichTextOutline.size",
+        "RichTextRunStyle.outline",
+        "ShapeModel.richText",
+        "SlideModel.addRichText"
+      ],
+      "note": "Native writes the same DrawingML line width for positive legal text-outline sizes and additionally preserves explicit zero instead of PptxGenJS 4.0.1's 0.75-point falsy fallback.",
       "optional": false,
       "owner": "interface:TextPropsOptions@property:outline",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "number"
     },
     {
@@ -33220,80 +33300,198 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+      },
       "declaredIn": "TextGlowProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const richTextEffectsFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "export function normalizeRichTextColor("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, and reopens rich text glows"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const richText = created.slides[0].addRichText("
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, and reopens rich text glows"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates edits duplicates and reopens rich text effects in all six formats"
+          }
+        ]
       },
       "id": "interface:TextGlowProps@property:color",
       "kind": "property",
       "name": "color",
-      "native": [],
-      "note": "",
+      "native": [
+        "RichTextColor",
+        "RichTextGlow.color",
+        "RichTextRunStyle.glow",
+        "ShapeModel.richText"
+      ],
+      "note": "Native represents glow color as the strict sRGB-or-scheme RichTextColor union with an explicit white default instead of PptxGenJS permissive color strings.",
       "optional": true,
       "owner": "TextGlowProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "HexColor"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "TextGlowProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const richTextEffectsFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "function normalizeGlow("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, and reopens rich text glows"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const richText = created.slides[0].addRichText("
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, and reopens rich text glows"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates edits duplicates and reopens rich text effects in all six formats"
+          }
+        ]
       },
       "id": "interface:TextGlowProps@property:opacity",
       "kind": "property",
       "name": "opacity",
-      "native": [],
-      "note": "",
+      "native": [
+        "RichTextGlow.opacity",
+        "RichTextRunStyle.glow",
+        "ShapeModel.richText",
+        "SlideModel.addRichText"
+      ],
+      "note": "Native accepts the same zero-through-one glow opacity intent, preserves explicit zero, and writes the same DrawingML alpha transform.",
       "optional": false,
       "owner": "TextGlowProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "number"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "TextGlowProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const richTextEffectsFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "function normalizeGlow("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, and reopens rich text glows"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const richText = created.slides[0].addRichText("
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, and reopens rich text glows"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates edits duplicates and reopens rich text effects in all six formats"
+          }
+        ]
       },
       "id": "interface:TextGlowProps@property:size",
       "kind": "property",
       "name": "size",
-      "native": [],
-      "note": "",
+      "native": [
+        "RichTextGlow.size",
+        "RichTextRunStyle.glow",
+        "ShapeModel.richText",
+        "SlideModel.addRichText"
+      ],
+      "note": "Native accepts the same legal non-negative glow radius intent, preserves zero and quantized point values, and writes the same DrawingML radius.",
       "optional": false,
       "owner": "TextGlowProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "number"
     },
     {
@@ -33478,28 +33676,70 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+      },
       "declaredIn": "TextPropsOptions",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const richTextEffectsFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "function normalizeBaseline("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, and reopens rich text baselines"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "richText.richText = [{ align: 'justify'"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, and reopens rich text baselines"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates edits duplicates and reopens rich text effects in all six formats"
+          }
+        ]
       },
       "id": "interface:TextPropsOptions@property:baseline",
       "kind": "property",
       "name": "baseline",
-      "native": [],
-      "note": "",
+      "native": [
+        "RichTextBaseline",
+        "RichTextRunStyle.baseline",
+        "ShapeModel.richText",
+        "SlideModel.addRichText"
+      ],
+      "note": "Native represents direct OOXML baseline percentages and canonical superscript/subscript values without PptxGenJS custom-baseline multiplication by fifty or truthy-zero omission.",
       "optional": true,
       "owner": "TextPropsOptions",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "number"
     },
     {
@@ -33697,28 +33937,69 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+      },
       "declaredIn": "TextPropsOptions",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const richTextEffectsFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "function normalizeCharacterSpacing("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, and reopens rich text character spacing"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "richText.richText = [{ align: 'justify'"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, and reopens rich text character spacing"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates edits duplicates and reopens rich text effects in all six formats"
+          }
+        ]
       },
       "id": "interface:TextPropsOptions@property:charSpacing",
       "kind": "property",
       "name": "charSpacing",
-      "native": [],
-      "note": "",
+      "native": [
+        "RichTextRunStyle.characterSpacing",
+        "ShapeModel.richText",
+        "SlideModel.addRichText"
+      ],
+      "note": "Native exposes the same legal point-based run character spacing under the explicit characterSpacing name and additionally preserves direct zero instead of truthy omission.",
       "optional": true,
       "owner": "TextPropsOptions",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "number"
     },
     {
@@ -34144,28 +34425,66 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "TextPropsOptions",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const richTextEffectsFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "function normalizeGlow("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, and reopens rich text glows"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const richText = created.slides[0].addRichText("
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, and reopens rich text glows"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates edits duplicates and reopens rich text effects in all six formats"
+          }
+        ]
       },
       "id": "interface:TextPropsOptions@property:glow",
       "kind": "property",
       "name": "glow",
-      "native": [],
-      "note": "",
+      "native": [
+        "RichTextGlow",
+        "RichTextRunStyle.glow",
+        "ShapeModel.richText",
+        "SlideModel.addRichText"
+      ],
+      "note": "Native exposes the complete run-level glow lifecycle with strict detached state, exact effectLst OOXML, edit, duplicate, all-format, and reopen evidence.",
       "optional": true,
       "owner": "TextPropsOptions",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "TextGlowProps"
     },
     {
@@ -35101,28 +35420,66 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "TextPropsOptions",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const richTextEffectsFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "function normalizeOutline("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, and reopens rich text outlines"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const richText = created.slides[0].addRichText("
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, and reopens rich text outlines"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates edits duplicates and reopens rich text effects in all six formats"
+          }
+        ]
       },
       "id": "interface:TextPropsOptions@property:outline",
       "kind": "property",
       "name": "outline",
-      "native": [],
-      "note": "",
+      "native": [
+        "RichTextOutline",
+        "RichTextRunStyle.outline",
+        "ShapeModel.richText",
+        "SlideModel.addRichText"
+      ],
+      "note": "Native exposes the complete run-level outline lifecycle with strict detached state, exact line OOXML, edit, duplicate, all-format, and reopen evidence.",
       "optional": true,
       "owner": "TextPropsOptions",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "{ color: Color; size: number; }"
     },
     {
@@ -35695,80 +36052,202 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "TextPropsOptions",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const richTextEffectsFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "function normalizeStrike("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, and reopens rich text strike styles"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const richText = created.slides[0].addRichText("
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, and reopens rich text strike styles"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates edits duplicates and reopens rich text effects in all six formats"
+          }
+        ]
       },
       "id": "interface:TextPropsOptions@property:strike",
       "kind": "property",
       "name": "strike",
-      "native": [],
-      "note": "",
+      "native": [
+        "RichTextRunStyle.strike",
+        "RichTextStrikeStyle",
+        "ShapeModel.richText",
+        "SlideModel.addRichText"
+      ],
+      "note": "Native exposes run-level strike creation and editing with the same single and double strike tokens plus an explicit reversible false state.",
       "optional": true,
       "owner": "TextPropsOptions",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "boolean | 'dblStrike' | 'sngStrike'"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+      },
       "declaredIn": "TextPropsOptions",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const richTextEffectsFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "function normalizeBaseline("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, and reopens rich text baselines"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "richText.richText = [{ align: 'justify'"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, and reopens rich text baselines"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates edits duplicates and reopens rich text effects in all six formats"
+          }
+        ]
       },
       "id": "interface:TextPropsOptions@property:subscript",
       "kind": "property",
       "name": "subscript",
-      "native": [],
-      "note": "",
+      "native": [
+        "RichTextBaseline",
+        "RichTextRunStyle.baseline",
+        "ShapeModel.richText",
+        "SlideModel.addRichText"
+      ],
+      "note": "Native represents TextPropsOptions.subscript through the single strict RichTextRunStyle.baseline union, preserving its canonical DrawingML percentage and preventing competing baseline flags.",
       "optional": true,
       "owner": "TextPropsOptions",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "boolean"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+      },
       "declaredIn": "TextPropsOptions",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const richTextEffectsFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "function normalizeBaseline("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, and reopens rich text baselines"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "richText.richText = [{ align: 'justify'"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, and reopens rich text baselines"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates edits duplicates and reopens rich text effects in all six formats"
+          }
+        ]
       },
       "id": "interface:TextPropsOptions@property:superscript",
       "kind": "property",
       "name": "superscript",
-      "native": [],
-      "note": "",
+      "native": [
+        "RichTextBaseline",
+        "RichTextRunStyle.baseline",
+        "ShapeModel.richText",
+        "SlideModel.addRichText"
+      ],
+      "note": "Native represents TextPropsOptions.superscript through the single strict RichTextRunStyle.baseline union, preserving its canonical DrawingML percentage and preventing competing baseline flags.",
       "optional": true,
       "owner": "TextPropsOptions",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "boolean"
     },
     {
@@ -35869,28 +36348,65 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const richTextEffectsFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "function normalizeTextTransparency("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, clears, duplicates, rolls back, and reopens rich text transparency"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const transparencyText = created.slides[0].addRichText("
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports and reopens PptxGenJS rich text transparency from real output"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, clears, duplicates, rolls back, and reopens rich text transparency"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates edits duplicates and reopens rich text effects in all six formats"
+          }
+        ]
       },
       "id": "interface:TextPropsOptions@property:transparency",
       "kind": "property",
       "name": "transparency",
-      "native": [],
-      "note": "",
+      "native": [
+        "RichTextRunStyle.transparency",
+        "ShapeModel.richText",
+        "SlideModel.addRichText"
+      ],
+      "note": "Native preserves the same legal text-alpha intent through strict percentage transparency, including fractional and fully transparent values, while retaining explicit zero for reversible editing.",
       "optional": true,
       "owner": "TextPropsOptions",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "number"
     },
     {
@@ -86322,80 +86838,198 @@
     },
     {
       "catalogKey": "boolean",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+      },
       "declaredIn": "interface:TextPropsOptions@property:strike",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const richTextEffectsFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "function normalizeStrike("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, and reopens rich text strike styles"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const richText = created.slides[0].addRichText("
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, and reopens rich text strike styles"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates edits duplicates and reopens rich text effects in all six formats"
+          }
+        ]
       },
       "id": "union:interface:TextPropsOptions@property:strike#boolean",
       "kind": "union-member",
       "name": "boolean",
-      "native": [],
-      "note": "",
+      "native": [
+        "RichTextRunStyle.strike",
+        "RichTextStrikeStyle",
+        "ShapeModel.richText",
+        "SlideModel.addRichText"
+      ],
+      "note": "Native maps true to sngStrike and writes explicit false as noStrike for reversible editing; PptxGenJS maps true to sngStrike but omits false.",
       "optional": false,
       "owner": "interface:TextPropsOptions@property:strike",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "boolean"
     },
     {
       "catalogKey": "dblStrike",
-      "client": false,
+      "client": true,
       "declaredIn": "interface:TextPropsOptions@property:strike",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const richTextEffectsFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "function normalizeStrike("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, and reopens rich text strike styles"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const richText = created.slides[0].addRichText("
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, and reopens rich text strike styles"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates edits duplicates and reopens rich text effects in all six formats"
+          }
+        ]
       },
       "id": "union:interface:TextPropsOptions@property:strike#dblStrike",
       "kind": "union-member",
       "name": "dblStrike",
-      "native": [],
-      "note": "",
+      "native": [
+        "RichTextRunStyle.strike",
+        "RichTextStrikeStyle",
+        "ShapeModel.richText",
+        "SlideModel.addRichText"
+      ],
+      "note": "Native accepts, serializes, edits, duplicates, and reopens the same dblStrike DrawingML strike token.",
       "optional": false,
       "owner": "interface:TextPropsOptions@property:strike",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'dblStrike'"
     },
     {
       "catalogKey": "sngStrike",
-      "client": false,
+      "client": true,
       "declaredIn": "interface:TextPropsOptions@property:strike",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const richTextEffectsFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "function normalizeStrike("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, and reopens rich text strike styles"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const richText = created.slides[0].addRichText("
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports public PptxGenJS output and continues editing in the OOXML kernel"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, and reopens rich text strike styles"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates edits duplicates and reopens rich text effects in all six formats"
+          }
+        ]
       },
       "id": "union:interface:TextPropsOptions@property:strike#sngStrike",
       "kind": "union-member",
       "name": "sngStrike",
-      "native": [],
-      "note": "",
+      "native": [
+        "RichTextRunStyle.strike",
+        "RichTextStrikeStyle",
+        "ShapeModel.richText",
+        "SlideModel.addRichText"
+      ],
+      "note": "Native accepts, serializes, edits, duplicates, and reopens the same sngStrike DrawingML strike token.",
       "optional": false,
       "owner": "interface:TextPropsOptions@property:strike",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'sngStrike'"
     },
     {
@@ -88406,12 +89040,12 @@
   "complete": false,
   "counts": {
     "defect-excluded": 359,
-    "deliberate-difference": 359,
+    "deliberate-difference": 366,
     "deprecated-alias": 94,
     "stale": 0,
-    "supported": 628,
+    "supported": 637,
     "unsupported": 0,
-    "unverified": 334
+    "unverified": 318
   },
   "declarationSha256": "0726d015dbcb55ccfa75546cb2fd43fe13a0dfeb783d08572f1c62f59193bbe5",
   "declarationTotal": 1774,
@@ -88421,8 +89055,6 @@
     "class:PptxGenJS@property:ChartType",
     "inline:interface:IChartOpts@property:titlePos@property:titlePos.x",
     "inline:interface:IChartOpts@property:titlePos@property:titlePos.y",
-    "inline:interface:TextPropsOptions@property:outline@property:outline.color",
-    "inline:interface:TextPropsOptions@property:outline@property:outline.size",
     "interface:DataOrPathProps@property:data",
     "interface:DataOrPathProps@property:path",
     "interface:HyperlinkProps@property:slide",
@@ -88643,29 +89275,18 @@
     "interface:ShapeProps@property:shapeName",
     "interface:TableCell@property:options",
     "interface:TableCell@property:text",
-    "interface:TextGlowProps@property:color",
-    "interface:TextGlowProps@property:opacity",
-    "interface:TextGlowProps@property:size",
     "interface:TextProps@property:options",
     "interface:TextProps@property:text",
-    "interface:TextPropsOptions@property:baseline",
-    "interface:TextPropsOptions@property:charSpacing",
     "interface:TextPropsOptions@property:data",
     "interface:TextPropsOptions@property:flipH",
     "interface:TextPropsOptions@property:flipV",
-    "interface:TextPropsOptions@property:glow",
     "interface:TextPropsOptions@property:hyperlink",
     "interface:TextPropsOptions@property:isTextBox",
     "interface:TextPropsOptions@property:objectName",
-    "interface:TextPropsOptions@property:outline",
     "interface:TextPropsOptions@property:path",
     "interface:TextPropsOptions@property:rectRadius",
     "interface:TextPropsOptions@property:rotate",
     "interface:TextPropsOptions@property:shape",
-    "interface:TextPropsOptions@property:strike",
-    "interface:TextPropsOptions@property:subscript",
-    "interface:TextPropsOptions@property:superscript",
-    "interface:TextPropsOptions@property:transparency",
     "union:ChartLineCap#flat",
     "union:ChartLineCap#round",
     "union:ChartLineCap#square",
@@ -88747,9 +89368,6 @@
     "union:interface:OptsChartData@property:labels#string[][]",
     "union:interface:TableCell@property:text#TableCell[]",
     "union:interface:TableCell@property:text#string",
-    "union:interface:TextPropsOptions@property:strike#boolean",
-    "union:interface:TextPropsOptions@property:strike#dblStrike",
-    "union:interface:TextPropsOptions@property:strike#sngStrike",
     "union:method:Slide#addText@path:text#TextProps[]",
     "union:method:Slide#addText@path:text#string"
   ],

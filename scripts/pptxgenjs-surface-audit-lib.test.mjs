@@ -124,13 +124,13 @@ function assertDeepFrozen(value, seen = new Set()) {
 test('exports an immutable evidence-backed initial manifest batch', () => {
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.schemaVersion, 1);
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.packageVersion, '4.0.1');
-  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1440);
+  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1456);
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries.map(({ status }) => status).sort(),
     [
       ...Array(359).fill('defect-excluded'),
-      ...Array(628).fill('supported'),
-      ...Array(359).fill('deliberate-difference'),
+      ...Array(637).fill('supported'),
+      ...Array(366).fill('deliberate-difference'),
       ...Array(94).fill('deprecated-alias'),
     ].sort(),
   );
@@ -622,6 +622,62 @@ test('exports an immutable evidence-backed initial manifest batch', () => {
     textInsetEntry.canonical,
     'interface:TextPropsOptions@property:margin',
   );
+  const richTextEffectsExpectedStatus = {
+    'inline:interface:TextPropsOptions@property:outline@property:outline.color':
+      'deliberate-difference',
+    'inline:interface:TextPropsOptions@property:outline@property:outline.size': 'supported',
+    'interface:TextGlowProps@property:color': 'deliberate-difference',
+    'interface:TextGlowProps@property:opacity': 'supported',
+    'interface:TextGlowProps@property:size': 'supported',
+    'interface:TextPropsOptions@property:baseline': 'deliberate-difference',
+    'interface:TextPropsOptions@property:charSpacing': 'deliberate-difference',
+    'interface:TextPropsOptions@property:glow': 'supported',
+    'interface:TextPropsOptions@property:outline': 'supported',
+    'interface:TextPropsOptions@property:strike': 'supported',
+    'interface:TextPropsOptions@property:subscript': 'deliberate-difference',
+    'interface:TextPropsOptions@property:superscript': 'deliberate-difference',
+    'interface:TextPropsOptions@property:transparency': 'supported',
+    'union:interface:TextPropsOptions@property:strike#boolean': 'deliberate-difference',
+    'union:interface:TextPropsOptions@property:strike#dblStrike': 'supported',
+    'union:interface:TextPropsOptions@property:strike#sngStrike': 'supported',
+  };
+  const richTextEffectsEntries = PPTXGENJS_SURFACE_MANIFEST.entries
+    .filter(({ id }) => Object.hasOwn(richTextEffectsExpectedStatus, id))
+    .sort((left, right) => left.id.localeCompare(right.id));
+  assert.equal(richTextEffectsEntries.length, 16);
+  assert.equal(new Set(richTextEffectsEntries.map(({ id }) => id)).size, 16);
+  assert.deepEqual(
+    Object.fromEntries(richTextEffectsEntries.map(({ id, status }) => [id, status])),
+    richTextEffectsExpectedStatus,
+  );
+  assert.deepEqual(
+    Object.fromEntries(
+      ['supported', 'deliberate-difference'].map((status) => [
+        status,
+        richTextEffectsEntries.filter((entry) => entry.status === status).length,
+      ]),
+    ),
+    { supported: 9, 'deliberate-difference': 7 },
+  );
+  assert.equal(
+    richTextEffectsEntries.every(({
+      native,
+      evidence,
+      serialization,
+      client,
+    }) => native.length >= 3 && evidence.code.length === 1 &&
+      evidence.tests.length === 3 && evidence.package.length === 1 &&
+      evidence.ooxml.length === 1 &&
+      evidence.clients.some(({ pattern }) =>
+        pattern === 'const richTextEffectsFamilyState = {') &&
+      serialization === true && client === true),
+    true,
+  );
+  for (const entry of richTextEffectsEntries.filter(
+    ({ status }) => status === 'deliberate-difference',
+  )) {
+    assert.equal(entry.control.path, 'packages/pptxgenjs-adapter/src/index.test.ts');
+  }
   const textRunScalarFamilyStatus = {
     PlaceholderProps: {
       supported: 4,

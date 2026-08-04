@@ -19122,6 +19122,202 @@ describe('PptxDocument vertical slice', () => {
     expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
   });
 
+  it('creates edits duplicates and reopens rich text effects in all six formats', async () => {
+    const initialParagraphs: readonly RichTextParagraph[] = [{
+      runs: [
+        {
+          text: 'Primary',
+          style: {
+            baseline: 'superscript',
+            characterSpacing: 2.5,
+            color: { kind: 'srgb', value: '112233' },
+            glow: {
+              color: { kind: 'scheme', value: 'accent1' },
+              opacity: 0.5,
+              size: 8,
+            },
+            outline: { color: { kind: 'srgb', value: 'FF0000' }, size: 1.5 },
+            strike: 'sngStrike',
+            transparency: 25,
+          },
+        },
+        {
+          text: ' Secondary',
+          style: {
+            baseline: 'subscript',
+            characterSpacing: -1.25,
+            glow: {
+              color: { kind: 'srgb', value: '00FF00' },
+              opacity: 0,
+              size: 0,
+            },
+            outline: { color: { kind: 'scheme', value: 'accent2' }, size: 0 },
+            strike: 'dblStrike',
+            transparency: 50.555,
+          },
+        },
+        {
+          text: ' Explicit zero',
+          style: {
+            baseline: 0,
+            characterSpacing: 0,
+            strike: false,
+            transparency: 0,
+          },
+        },
+      ],
+    }];
+    const editedParagraphs: readonly RichTextParagraph[] = [{
+      runs: [
+        {
+          text: 'Edited',
+          style: {
+            baseline: 12.345,
+            characterSpacing: 1,
+            glow: {
+              color: { kind: 'srgb', value: '0000FF' },
+              opacity: 0.75,
+              size: 3,
+            },
+            outline: { color: { kind: 'scheme', value: 'tx1' }, size: 2 },
+            strike: false,
+            transparency: 100,
+          },
+        },
+        { text: ' Cleared' },
+      ],
+    }];
+    const snapshot = (shape: ShapeModel) => shape.richText[0]!.runs.map(({ style }) => ({
+      baseline: style?.baseline,
+      characterSpacing: style?.characterSpacing,
+      glow: style?.glow,
+      outline: style?.outline,
+      strike: style?.strike,
+      transparency: style?.transparency,
+    }));
+
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const document = PptxDocument.create({ format });
+      const slide = document.addSlide();
+      const shape = slide.addRichText(initialParagraphs, {
+        name: 'rich-text-effects-family',
+      });
+      const initialSnapshot = snapshot(shape);
+      expect(initialSnapshot).toEqual([
+        {
+          baseline: 'superscript',
+          characterSpacing: 2.5,
+          glow: {
+            color: { kind: 'scheme', value: 'accent1' },
+            opacity: 0.5,
+            size: 8,
+          },
+          outline: { color: { kind: 'srgb', value: 'FF0000' }, size: 1.5 },
+          strike: 'sngStrike',
+          transparency: 25,
+        },
+        {
+          baseline: 'subscript',
+          characterSpacing: -1.25,
+          glow: {
+            color: { kind: 'srgb', value: '00FF00' },
+            opacity: 0,
+            size: 0,
+          },
+          outline: { color: { kind: 'scheme', value: 'accent2' }, size: 0 },
+          strike: 'dblStrike',
+          transparency: 50.555,
+        },
+        {
+          baseline: 0,
+          characterSpacing: 0,
+          glow: undefined,
+          outline: undefined,
+          strike: false,
+          transparency: 0,
+        },
+      ]);
+      const createdXml = new TextDecoder().decode(
+        document.opcPackage.requirePart(slide.partUri).bytes,
+      );
+      expect(createdXml).toMatch(
+        /<a:rPr\b(?=[^>]*baseline="30000")(?=[^>]*spc="250")(?=[^>]*strike="sngStrike")[^>]*>/u,
+      );
+      expect(createdXml).toContain(
+        '<a:glow rad="101600"><a:schemeClr val="accent1"><a:alpha val="50000"/>',
+      );
+      expect(createdXml).toContain(
+        '<a:ln w="19050"><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill></a:ln>',
+      );
+      expect(createdXml).toMatch(
+        /<a:rPr\b(?=[^>]*baseline="-40000")(?=[^>]*spc="-125")(?=[^>]*strike="dblStrike")[^>]*>/u,
+      );
+      expect(createdXml).toMatch(
+        /<a:rPr\b(?=[^>]*baseline="0")(?=[^>]*spc="0")(?=[^>]*strike="noStrike")[^>]*>/u,
+      );
+
+      document.duplicateSlide(0);
+      shape.richText = editedParagraphs;
+      const editedSnapshot = snapshot(shape);
+      expect(editedSnapshot).toEqual([
+        {
+          baseline: 12.345,
+          characterSpacing: 1,
+          glow: {
+            color: { kind: 'srgb', value: '0000FF' },
+            opacity: 0.75,
+            size: 3,
+          },
+          outline: { color: { kind: 'scheme', value: 'tx1' }, size: 2 },
+          strike: false,
+          transparency: 100,
+        },
+        {
+          baseline: undefined,
+          characterSpacing: undefined,
+          glow: undefined,
+          outline: undefined,
+          strike: undefined,
+          transparency: undefined,
+        },
+      ]);
+      const editedXml = new TextDecoder().decode(
+        document.opcPackage.requirePart(slide.partUri).bytes,
+      );
+      const clearedRunXml = editedXml.match(
+        /<a:r>(?:(?!<\/a:r>)[\s\S])*?<a:t xml:space="preserve"> Cleared<\/a:t><\/a:r>/u,
+      )?.[0];
+      expect(clearedRunXml).toBeDefined();
+      expect(clearedRunXml).not.toMatch(
+        /\bbaseline=|\bspc=|\bstrike=|<a:ln\b|<a:effectLst\b|<a:alpha\b/u,
+      );
+      expect(document.diagnostics.filter(
+        ({ severity }) => severity === 'error' || severity === 'warning',
+      )).toEqual([]);
+      expect(validatePackage(document.opcPackage).filter(
+        ({ severity }) => severity === 'error' || severity === 'warning',
+      )).toEqual([]);
+
+      const reopened = await PptxDocument.open(await document.write());
+      const reopenedSource = reopened.slides[0]!.shapes.find(
+        ({ name }) => name === 'rich-text-effects-family',
+      );
+      const reopenedDuplicate = reopened.slides[1]!.shapes.find(
+        ({ name }) => name === 'rich-text-effects-family',
+      );
+      expect(reopenedSource).toBeInstanceOf(ShapeModel);
+      expect(reopenedDuplicate).toBeInstanceOf(ShapeModel);
+      expect(snapshot(reopenedSource as ShapeModel)).toEqual(editedSnapshot);
+      expect(snapshot(reopenedDuplicate as ShapeModel)).toEqual(initialSnapshot);
+      expect(reopened.diagnostics.filter(
+        ({ severity }) => severity === 'error' || severity === 'warning',
+      )).toEqual([]);
+      expect(validatePackage(reopened.opcPackage).filter(
+        ({ severity }) => severity === 'error' || severity === 'warning',
+      )).toEqual([]);
+    }
+  });
+
   it('creates, edits, duplicates, and reopens rich text underline styles', async () => {
     const underlineStyles: readonly RichTextUnderlineStyle[] = [
       'words',

@@ -2124,6 +2124,200 @@ const TEXT_PARAGRAPH_LAYOUT_FAMILY_ENTRIES = Object.freeze(
   TEXT_PARAGRAPH_LAYOUT_FAMILY_DEFINITIONS.map(textParagraphLayoutFamilyEntry),
 );
 
+const RICH_TEXT_EFFECTS_FAMILY_CONTROL_TITLE =
+  'imports public PptxGenJS output and continues editing in the OOXML kernel';
+const RICH_TEXT_EFFECTS_TRANSPARENCY_CONTROL_TITLE =
+  'imports and reopens PptxGenJS rich text transparency from real output';
+const RICH_TEXT_EFFECTS_FAMILY_CLIENT_PATTERN =
+  'const richTextEffectsFamilyState = {';
+const RICH_TEXT_EFFECTS_ALL_FORMATS_TITLE =
+  'creates edits duplicates and reopens rich text effects in all six formats';
+const RICH_TEXT_EFFECTS_FAMILY_DEFINITIONS = Object.freeze([
+  {
+    id: 'inline:interface:TextPropsOptions@property:outline@property:outline.size',
+    status: 'supported',
+    native: ['RichTextOutline.size', 'RichTextRunStyle.outline', 'ShapeModel.richText', 'SlideModel.addRichText'],
+    codePattern: 'function normalizeOutline(',
+    sdkTitle: 'creates, edits, duplicates, and reopens rich text outlines',
+    packagePattern: 'const richText = created.slides[0].addRichText(',
+    note: 'Native writes the same DrawingML line width for positive legal text-outline sizes and additionally preserves explicit zero instead of PptxGenJS 4.0.1\'s 0.75-point falsy fallback.',
+  },
+  {
+    id: 'interface:TextGlowProps@property:opacity',
+    status: 'supported',
+    native: ['RichTextGlow.opacity', 'RichTextRunStyle.glow', 'ShapeModel.richText', 'SlideModel.addRichText'],
+    codePattern: 'function normalizeGlow(',
+    sdkTitle: 'creates, edits, duplicates, and reopens rich text glows',
+    packagePattern: 'const richText = created.slides[0].addRichText(',
+    note: 'Native accepts the same zero-through-one glow opacity intent, preserves explicit zero, and writes the same DrawingML alpha transform.',
+  },
+  {
+    id: 'interface:TextGlowProps@property:size',
+    status: 'supported',
+    native: ['RichTextGlow.size', 'RichTextRunStyle.glow', 'ShapeModel.richText', 'SlideModel.addRichText'],
+    codePattern: 'function normalizeGlow(',
+    sdkTitle: 'creates, edits, duplicates, and reopens rich text glows',
+    packagePattern: 'const richText = created.slides[0].addRichText(',
+    note: 'Native accepts the same legal non-negative glow radius intent, preserves zero and quantized point values, and writes the same DrawingML radius.',
+  },
+  {
+    id: 'interface:TextPropsOptions@property:glow',
+    status: 'supported',
+    native: ['RichTextGlow', 'RichTextRunStyle.glow', 'ShapeModel.richText', 'SlideModel.addRichText'],
+    codePattern: 'function normalizeGlow(',
+    sdkTitle: 'creates, edits, duplicates, and reopens rich text glows',
+    packagePattern: 'const richText = created.slides[0].addRichText(',
+    note: 'Native exposes the complete run-level glow lifecycle with strict detached state, exact effectLst OOXML, edit, duplicate, all-format, and reopen evidence.',
+  },
+  {
+    id: 'interface:TextPropsOptions@property:outline',
+    status: 'supported',
+    native: ['RichTextOutline', 'RichTextRunStyle.outline', 'ShapeModel.richText', 'SlideModel.addRichText'],
+    codePattern: 'function normalizeOutline(',
+    sdkTitle: 'creates, edits, duplicates, and reopens rich text outlines',
+    packagePattern: 'const richText = created.slides[0].addRichText(',
+    note: 'Native exposes the complete run-level outline lifecycle with strict detached state, exact line OOXML, edit, duplicate, all-format, and reopen evidence.',
+  },
+  {
+    id: 'interface:TextPropsOptions@property:strike',
+    status: 'supported',
+    native: ['RichTextStrikeStyle', 'RichTextRunStyle.strike', 'ShapeModel.richText', 'SlideModel.addRichText'],
+    codePattern: 'function normalizeStrike(',
+    sdkTitle: 'creates, edits, duplicates, and reopens rich text strike styles',
+    packagePattern: 'const richText = created.slides[0].addRichText(',
+    note: 'Native exposes run-level strike creation and editing with the same single and double strike tokens plus an explicit reversible false state.',
+  },
+  {
+    id: 'interface:TextPropsOptions@property:transparency',
+    status: 'supported',
+    native: ['RichTextRunStyle.transparency', 'ShapeModel.richText', 'SlideModel.addRichText'],
+    codePattern: 'function normalizeTextTransparency(',
+    sdkTitle: 'creates, edits, clears, duplicates, rolls back, and reopens rich text transparency',
+    packagePattern: 'const transparencyText = created.slides[0].addRichText(',
+    transparencyControl: true,
+    note: 'Native preserves the same legal text-alpha intent through strict percentage transparency, including fractional and fully transparent values, while retaining explicit zero for reversible editing.',
+  },
+  ...['dblStrike', 'sngStrike'].map((value) => ({
+    id: `union:interface:TextPropsOptions@property:strike#${value}`,
+    status: 'supported',
+    native: ['RichTextStrikeStyle', 'RichTextRunStyle.strike', 'ShapeModel.richText', 'SlideModel.addRichText'],
+    codePattern: 'function normalizeStrike(',
+    sdkTitle: 'creates, edits, duplicates, and reopens rich text strike styles',
+    packagePattern: 'const richText = created.slides[0].addRichText(',
+    note: `Native accepts, serializes, edits, duplicates, and reopens the same ${value} DrawingML strike token.`,
+  })),
+  {
+    id: 'inline:interface:TextPropsOptions@property:outline@property:outline.color',
+    status: 'deliberate-difference',
+    native: ['RichTextColor', 'RichTextOutline.color', 'RichTextRunStyle.outline', 'ShapeModel.richText'],
+    codePattern: 'export function normalizeRichTextColor(',
+    sdkTitle: 'creates, edits, duplicates, and reopens rich text outlines',
+    packagePattern: 'const richText = created.slides[0].addRichText(',
+    note: 'Native represents text-outline color as the strict sRGB-or-scheme RichTextColor union instead of PptxGenJS permissive color strings while preserving legal resulting DrawingML intent.',
+  },
+  {
+    id: 'interface:TextGlowProps@property:color',
+    status: 'deliberate-difference',
+    native: ['RichTextColor', 'RichTextGlow.color', 'RichTextRunStyle.glow', 'ShapeModel.richText'],
+    codePattern: 'export function normalizeRichTextColor(',
+    sdkTitle: 'creates, edits, duplicates, and reopens rich text glows',
+    packagePattern: 'const richText = created.slides[0].addRichText(',
+    note: 'Native represents glow color as the strict sRGB-or-scheme RichTextColor union with an explicit white default instead of PptxGenJS permissive color strings.',
+  },
+  {
+    id: 'interface:TextPropsOptions@property:baseline',
+    status: 'deliberate-difference',
+    native: ['RichTextBaseline', 'RichTextRunStyle.baseline', 'ShapeModel.richText', 'SlideModel.addRichText'],
+    codePattern: 'function normalizeBaseline(',
+    sdkTitle: 'creates, edits, duplicates, and reopens rich text baselines',
+    packagePattern: "richText.richText = [{ align: 'justify'",
+    note: 'Native represents direct OOXML baseline percentages and canonical superscript/subscript values without PptxGenJS custom-baseline multiplication by fifty or truthy-zero omission.',
+  },
+  {
+    id: 'interface:TextPropsOptions@property:charSpacing',
+    status: 'deliberate-difference',
+    native: ['RichTextRunStyle.characterSpacing', 'ShapeModel.richText', 'SlideModel.addRichText'],
+    codePattern: 'function normalizeCharacterSpacing(',
+    sdkTitle: 'creates, edits, duplicates, and reopens rich text character spacing',
+    packagePattern: "richText.richText = [{ align: 'justify'",
+    note: 'Native exposes the same legal point-based run character spacing under the explicit characterSpacing name and additionally preserves direct zero instead of truthy omission.',
+  },
+  ...['subscript', 'superscript'].map((property) => ({
+    id: linePropertyId('TextPropsOptions', property),
+    status: 'deliberate-difference',
+    native: ['RichTextBaseline', 'RichTextRunStyle.baseline', 'ShapeModel.richText', 'SlideModel.addRichText'],
+    codePattern: 'function normalizeBaseline(',
+    sdkTitle: 'creates, edits, duplicates, and reopens rich text baselines',
+    packagePattern: "richText.richText = [{ align: 'justify'",
+    note: `Native represents TextPropsOptions.${property} through the single strict RichTextRunStyle.baseline union, preserving its canonical DrawingML percentage and preventing competing baseline flags.`,
+  })),
+  {
+    id: 'union:interface:TextPropsOptions@property:strike#boolean',
+    status: 'deliberate-difference',
+    native: ['RichTextStrikeStyle', 'RichTextRunStyle.strike', 'ShapeModel.richText', 'SlideModel.addRichText'],
+    codePattern: 'function normalizeStrike(',
+    sdkTitle: 'creates, edits, duplicates, and reopens rich text strike styles',
+    packagePattern: 'const richText = created.slides[0].addRichText(',
+    note: 'Native maps true to sngStrike and writes explicit false as noStrike for reversible editing; PptxGenJS maps true to sngStrike but omits false.',
+  },
+]);
+
+function richTextEffectsFamilyEntry(definition) {
+  const controlTitle = definition.transparencyControl
+    ? RICH_TEXT_EFFECTS_TRANSPARENCY_CONTROL_TITLE
+    : RICH_TEXT_EFFECTS_FAMILY_CONTROL_TITLE;
+  return {
+    id: definition.id,
+    status: definition.status,
+    native: definition.native,
+    evidence: {
+      code: [{
+        path: 'packages/model/src/rich-text.internal.ts',
+        pattern: definition.codePattern,
+      }],
+      tests: [
+        {
+          path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+          title: controlTitle,
+        },
+        {
+          path: 'packages/sdk/src/index.test.ts',
+          title: definition.sdkTitle,
+        },
+        {
+          path: 'packages/sdk/src/index.test.ts',
+          title: RICH_TEXT_EFFECTS_ALL_FORMATS_TITLE,
+        },
+      ],
+      package: [{
+        path: 'scripts/smoke-npm-package.mjs',
+        pattern: definition.packagePattern,
+      }],
+      ooxml: [{
+        path: 'packages/sdk/src/index.test.ts',
+        pattern: definition.sdkTitle,
+      }],
+      clients: [{
+        path: 'scripts/playwright-browser-smoke.js',
+        pattern: RICH_TEXT_EFFECTS_FAMILY_CLIENT_PATTERN,
+      }],
+    },
+    ...(definition.status === 'supported' ? {} : {
+      control: {
+        path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+        pattern: controlTitle,
+      },
+    }),
+    serialization: true,
+    client: true,
+    note: definition.note,
+  };
+}
+
+const RICH_TEXT_EFFECTS_FAMILY_ENTRIES = Object.freeze(
+  RICH_TEXT_EFFECTS_FAMILY_DEFINITIONS.map(richTextEffectsFamilyEntry),
+);
+
 const TEXT_RUN_SCALAR_FAMILY_CONTROL_TITLE =
   'locks scalar text formatting behavior across every declared owner';
 const TEXT_RUN_SCALAR_FAMILY_OOXML_TITLE =
@@ -4891,6 +5085,7 @@ export const PPTXGENJS_SURFACE_MANIFEST = deepFreeze({
     ...TEXT_DIRECTION_FAMILY_ENTRIES,
     ...TEXT_BOX_FIT_FAMILY_ENTRIES,
     ...TEXT_PARAGRAPH_LAYOUT_FAMILY_ENTRIES,
+    ...RICH_TEXT_EFFECTS_FAMILY_ENTRIES,
     ...TEXT_RUN_SCALAR_FAMILY_ENTRIES,
     ...['ShapeType', 'SHAPE_NAME'].flatMap((owner) =>
       DECLARED_PRESET_SHAPE_VALUES.map((value) => presetShapeCatalogEntry(owner, value))),

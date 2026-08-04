@@ -1775,6 +1775,256 @@ async (page) => {
       const textParagraphLayoutFamily = Object.values(
         textParagraphLayoutFamilyState,
       ).every(Boolean);
+      const richTextEffectsDocument = api.PptxDocument.create();
+      const richTextEffectsSlide = richTextEffectsDocument.addSlide();
+      const richTextEffectsShape = richTextEffectsSlide.addRichText([{
+        runs: [
+          {
+            text: 'Primary',
+            style: {
+              baseline: 'superscript',
+              characterSpacing: 2.5,
+              color: { kind: 'srgb', value: '112233' },
+              glow: {
+                color: { kind: 'scheme', value: 'accent1' },
+                opacity: 0.5,
+                size: 8,
+              },
+              outline: { color: { kind: 'srgb', value: 'FF0000' }, size: 1.5 },
+              strike: 'sngStrike',
+              transparency: 25,
+            },
+          },
+          {
+            text: ' Secondary',
+            style: {
+              baseline: 'subscript',
+              characterSpacing: -1.25,
+              glow: {
+                color: { kind: 'srgb', value: '00FF00' },
+                opacity: 0,
+                size: 0,
+              },
+              outline: { color: { kind: 'scheme', value: 'accent2' }, size: 0 },
+              strike: 'dblStrike',
+              transparency: 50.555,
+            },
+          },
+          {
+            text: ' Explicit zero',
+            style: {
+              baseline: 0,
+              characterSpacing: 0,
+              strike: false,
+              transparency: 0,
+            },
+          },
+        ],
+      }], { name: 'browser_rich_text_effects_family' });
+      const richTextEffectsPart = () => richTextEffectsDocument.opcPackage
+        .requirePart(richTextEffectsSlide.partUri).bytes;
+      const richTextEffectsBytesEqual = (left, right) =>
+        left.byteLength === right.byteLength
+        && left.every((value, index) => value === right[index]);
+      const richTextEffectsSnapshot = (shape) => shape.richText[0].runs.map(
+        ({ style }) => ({
+          baseline: style?.baseline,
+          characterSpacing: style?.characterSpacing,
+          glow: style?.glow,
+          outline: style?.outline,
+          strike: style?.strike,
+          transparency: style?.transparency,
+        }),
+      );
+      const initialRichTextEffectsExpected = [
+        {
+          baseline: 'superscript',
+          characterSpacing: 2.5,
+          glow: {
+            color: { kind: 'scheme', value: 'accent1' },
+            opacity: 0.5,
+            size: 8,
+          },
+          outline: { color: { kind: 'srgb', value: 'FF0000' }, size: 1.5 },
+          strike: 'sngStrike',
+          transparency: 25,
+        },
+        {
+          baseline: 'subscript',
+          characterSpacing: -1.25,
+          glow: {
+            color: { kind: 'srgb', value: '00FF00' },
+            opacity: 0,
+            size: 0,
+          },
+          outline: { color: { kind: 'scheme', value: 'accent2' }, size: 0 },
+          strike: 'dblStrike',
+          transparency: 50.555,
+        },
+        {
+          baseline: 0,
+          characterSpacing: 0,
+          strike: false,
+          transparency: 0,
+        },
+      ];
+      const initialRichTextEffectsSnapshot = richTextEffectsSnapshot(
+        richTextEffectsShape,
+      );
+      const richTextEffectsImmediate = JSON.stringify(
+        initialRichTextEffectsSnapshot[0],
+      ) === JSON.stringify(initialRichTextEffectsExpected[0]);
+      const richTextEffectsCatalog = JSON.stringify(
+        initialRichTextEffectsSnapshot.slice(1),
+      ) === JSON.stringify(initialRichTextEffectsExpected.slice(1));
+      const initialRichTextEffectsXml = namedOwnerXml(
+        new TextDecoder().decode(richTextEffectsPart()),
+        'browser_rich_text_effects_family',
+        '</p:sp>',
+      );
+      const richTextEffectsInitialOoxml =
+        /<a:rPr\b(?=[^>]*baseline="30000")(?=[^>]*spc="250")(?=[^>]*strike="sngStrike")[^>]*>/u
+          .test(initialRichTextEffectsXml)
+        && initialRichTextEffectsXml.includes(
+          '<a:ln w="19050"><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill></a:ln>',
+        )
+        && initialRichTextEffectsXml.includes(
+          '<a:glow rad="101600"><a:schemeClr val="accent1"><a:alpha val="50000"/>',
+        )
+        && initialRichTextEffectsXml.includes('<a:alpha val="75000"/>');
+      const richTextEffectsCatalogOoxml =
+        /<a:rPr\b(?=[^>]*baseline="-40000")(?=[^>]*spc="-125")(?=[^>]*strike="dblStrike")[^>]*>/u
+          .test(initialRichTextEffectsXml)
+        && /<a:rPr\b(?=[^>]*baseline="0")(?=[^>]*spc="0")(?=[^>]*strike="noStrike")[^>]*>/u
+          .test(initialRichTextEffectsXml)
+        && initialRichTextEffectsXml.includes(
+          '<a:ln w="0"><a:solidFill><a:schemeClr val="accent2"/></a:solidFill></a:ln>',
+        )
+        && initialRichTextEffectsXml.includes(
+          '<a:glow rad="0"><a:srgbClr val="00FF00"><a:alpha val="0"/>',
+        )
+        && initialRichTextEffectsXml.includes('<a:alpha val="49445"/>');
+      const richTextEffectsInvalidBytes = richTextEffectsPart().slice();
+      const richTextEffectsInvalidJournal = JSON.stringify(
+        richTextEffectsDocument.opcPackage.mutations,
+      );
+      let richTextEffectsInvalidRejected = false;
+      try {
+        richTextEffectsShape.richText = [{
+          runs: [{
+            text: 'Invalid browser rich text effect',
+            style: { glow: { opacity: 2, size: 1 } },
+          }],
+        }];
+      } catch {
+        richTextEffectsInvalidRejected = true;
+      }
+      const richTextEffectsInvalidRollback = richTextEffectsInvalidRejected
+        && richTextEffectsBytesEqual(
+          richTextEffectsInvalidBytes,
+          richTextEffectsPart(),
+        )
+        && richTextEffectsInvalidJournal === JSON.stringify(
+          richTextEffectsDocument.opcPackage.mutations,
+        );
+      richTextEffectsDocument.duplicateSlide(0);
+      richTextEffectsShape.richText = [{
+        runs: [
+          {
+            text: 'Edited browser rich text effects',
+            style: {
+              baseline: 12.345,
+              characterSpacing: 1,
+              glow: {
+                color: { kind: 'srgb', value: '0000FF' },
+                opacity: 0.75,
+                size: 3,
+              },
+              outline: { color: { kind: 'scheme', value: 'tx1' }, size: 2 },
+              strike: false,
+              transparency: 100,
+            },
+          },
+          { text: ' Cleared browser rich text effects' },
+        ],
+      }];
+      const editedRichTextEffectsExpected = [
+        {
+          baseline: 12.345,
+          characterSpacing: 1,
+          glow: {
+            color: { kind: 'srgb', value: '0000FF' },
+            opacity: 0.75,
+            size: 3,
+          },
+          outline: { color: { kind: 'scheme', value: 'tx1' }, size: 2 },
+          strike: false,
+          transparency: 100,
+        },
+        {},
+      ];
+      const richTextEffectsEdited = JSON.stringify(
+        richTextEffectsSnapshot(richTextEffectsShape),
+      ) === JSON.stringify(editedRichTextEffectsExpected);
+      const editedRichTextEffectsXml = namedOwnerXml(
+        new TextDecoder().decode(richTextEffectsPart()),
+        'browser_rich_text_effects_family',
+        '</p:sp>',
+      );
+      const clearedRichTextEffectsRunXml = editedRichTextEffectsXml.match(
+        /<a:r>(?:(?!<\/a:r>)[\s\S])*?<a:t xml:space="preserve"> Cleared browser rich text effects<\/a:t><\/a:r>/u,
+      )?.[0] ?? '';
+      const richTextEffectsEditedOoxml =
+        /<a:rPr\b(?=[^>]*baseline="12345")(?=[^>]*spc="100")(?=[^>]*strike="noStrike")[^>]*>/u
+          .test(editedRichTextEffectsXml)
+        && editedRichTextEffectsXml.includes(
+          '<a:ln w="25400"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill></a:ln>',
+        )
+        && editedRichTextEffectsXml.includes(
+          '<a:glow rad="38100"><a:srgbClr val="0000FF"><a:alpha val="75000"/>',
+        )
+        && editedRichTextEffectsXml.includes('<a:alpha val="0"/>')
+        && clearedRichTextEffectsRunXml.length > 0
+        && !/\bbaseline=|\bspc=|\bstrike=|<a:ln\b|<a:effectLst\b|<a:alpha\b/u
+          .test(clearedRichTextEffectsRunXml);
+      const richTextEffectsOutput = await richTextEffectsDocument.writeBlob();
+      globalThis.__pptxRichTextEffectsEvidenceBlob = richTextEffectsOutput;
+      const reopenedRichTextEffectsDocument = await api.PptxDocument.open(
+        richTextEffectsOutput,
+      );
+      const reopenedRichTextEffectsSource = reopenedRichTextEffectsDocument
+        .slides[0].shapes.find(
+          ({ name }) => name === 'browser_rich_text_effects_family',
+        );
+      const reopenedRichTextEffectsDuplicate = reopenedRichTextEffectsDocument
+        .slides[1].shapes.find(
+          ({ name }) => name === 'browser_rich_text_effects_family',
+        );
+      const richTextEffectsFamilyState = {
+        immediate: richTextEffectsImmediate,
+        initialOoxml: richTextEffectsInitialOoxml,
+        catalog: richTextEffectsCatalog,
+        catalogOoxml: richTextEffectsCatalogOoxml,
+        invalidRollback: richTextEffectsInvalidRollback,
+        edited: richTextEffectsEdited,
+        editedOoxml: richTextEffectsEditedOoxml,
+        reopened: reopenedRichTextEffectsSource !== undefined
+          && JSON.stringify(richTextEffectsSnapshot(reopenedRichTextEffectsSource)) ===
+            JSON.stringify(editedRichTextEffectsExpected),
+        duplicateIsolation: reopenedRichTextEffectsDuplicate !== undefined
+          && JSON.stringify(richTextEffectsSnapshot(reopenedRichTextEffectsDuplicate)) ===
+            JSON.stringify(initialRichTextEffectsExpected),
+        mime: richTextEffectsOutput.type ===
+          'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        diagnostics: richTextEffectsDocument.diagnostics.filter(
+          ({ severity }) => severity === 'error' || severity === 'warning',
+        ).length === 0 && reopenedRichTextEffectsDocument.diagnostics.filter(
+          ({ severity }) => severity === 'error' || severity === 'warning',
+        ).length === 0,
+      };
+      const richTextEffectsFamily = Object.values(
+        richTextEffectsFamilyState,
+      ).every(Boolean);
       const tableHorizontalAlignmentDocument = api.PptxDocument.create();
       const tableHorizontalAlignmentSlide = tableHorizontalAlignmentDocument.addSlide();
       const tableHorizontalAlignmentTable = tableHorizontalAlignmentSlide.addTable([
@@ -7448,6 +7698,8 @@ async (page) => {
         textBoxFitFamilyState,
         textParagraphLayoutFamily,
         textParagraphLayoutFamilyState,
+        richTextEffectsFamily,
+        richTextEffectsFamilyState,
         tableTextDirection,
         tableTextDirectionState,
         tableHorizontalAlignment,
@@ -7598,6 +7850,30 @@ async (page) => {
     : globalThis.__pptxTextParagraphLayoutEvidenceOutput;
   if (typeof textParagraphLayoutEvidenceOutput === 'string') {
     await textParagraphLayoutEvidenceDownload.saveAs(textParagraphLayoutEvidenceOutput);
+  }
+  const richTextEffectsEvidenceDownloadPromise = page.waitForEvent('download');
+  await page.evaluate(() => {
+    const blob = globalThis.__pptxRichTextEffectsEvidenceBlob;
+    if (!(blob instanceof Blob)) {
+      throw new Error('Missing rich-text effects evidence Blob');
+    }
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'browser-rich-text-effects.pptx';
+    anchor.click();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  });
+  const richTextEffectsEvidenceDownload =
+    await richTextEffectsEvidenceDownloadPromise;
+  result.richTextEffectsEvidenceFileName =
+    richTextEffectsEvidenceDownload.suggestedFilename();
+  const richTextEffectsEvidenceOutput = typeof process !== 'undefined'
+    ? process.env.PPTX_BROWSER_RICH_TEXT_EFFECTS_OUT ??
+      globalThis.__pptxRichTextEffectsEvidenceOutput
+    : globalThis.__pptxRichTextEffectsEvidenceOutput;
+  if (typeof richTextEffectsEvidenceOutput === 'string') {
+    await richTextEffectsEvidenceDownload.saveAs(richTextEffectsEvidenceOutput);
   }
   const customPathEvidenceDownloadPromise = page.waitForEvent('download');
   await page.evaluate(() => {
@@ -8097,6 +8373,20 @@ async (page) => {
     },
     textParagraphLayoutFamily: true,
     textParagraphLayoutFamilyState: {
+      immediate: true,
+      initialOoxml: true,
+      catalog: true,
+      catalogOoxml: true,
+      invalidRollback: true,
+      edited: true,
+      editedOoxml: true,
+      reopened: true,
+      duplicateIsolation: true,
+      mime: true,
+      diagnostics: true,
+    },
+    richTextEffectsFamily: true,
+    richTextEffectsFamilyState: {
       immediate: true,
       initialOoxml: true,
       catalog: true,
@@ -9262,6 +9552,7 @@ async (page) => {
     mediaOrphanCount: 0,
     textBoxFitEvidenceFileName: 'browser-text-box-fit.pptx',
     textParagraphLayoutEvidenceFileName: 'browser-text-paragraph-layout.pptx',
+    richTextEffectsEvidenceFileName: 'browser-rich-text-effects.pptx',
     customPathEvidenceFileName: 'browser-custom-paths.pptx',
     tableCellMergesEvidenceFileName: 'browser-table-cell-merges.pptx',
     tableStructureEditingEvidenceFileName: 'browser-table-structure-editing.pptx',
