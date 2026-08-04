@@ -10,9 +10,12 @@
     "test": "vitest run",
     "test:fuzz": "vitest run packages/testkit/src/fuzz.test.ts",
     "test:performance": "RUN_PERF=1 vitest run packages/testkit/src/performance.test.ts",
+    "test:pptxgenjs-surface-audit": "node --test scripts/pptxgenjs-surface-*.test.mjs scripts/pptxgenjs-runtime-probe.test.mjs",
     "test:watch": "vitest",
     "typecheck": "tsc -b --pretty false",
     "check": "pnpm typecheck && pnpm test",
+    "audit:pptxgenjs": "node scripts/pptxgenjs-surface-audit.mjs --check",
+    "audit:pptxgenjs:write": "node scripts/pptxgenjs-surface-audit.mjs --write",
     "cli": "node packages/cli/dist/main.js"
   },
   "devDependencies": {
