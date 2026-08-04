@@ -5667,13 +5667,47 @@ async (page) => {
           : type === 'bubble'
             ? [{ name: 'Portfolio', xValues: [1, 2, 3], values: [120, 150, 135], sizes: [8, 12, 10] }]
             : [{ name: 'Revenue', categories: ['North', 'South', 'West'], values: [120, 150, 135] }];
-        chartModels.push(await slide.addChart(type, series, {
+        const chart = await slide.addChart(type, series, {
           name: `Browser ${type} chart`,
           x: api.inches(0.5),
           y: api.inches(0.5),
           width: api.inches(9),
           height: api.inches(6.5),
-        }));
+        });
+        if (type === 'area') {
+          await chart.replaceDefinition({
+            groups: chart.definition.groups,
+            options: {
+              ...chart.definition.options,
+              roundedCorners: true,
+              chartArea: {
+                fill: {
+                  kind: 'solid',
+                  color: { kind: 'scheme', value: 'accent2' },
+                  transparency: 25,
+                },
+                line: {
+                  kind: 'line',
+                  color: { kind: 'srgb', value: '112233' },
+                  width: 2,
+                },
+              },
+              plotArea: {
+                fill: {
+                  kind: 'solid',
+                  color: { kind: 'srgb', value: '445566' },
+                  transparency: 50,
+                },
+                line: {
+                  kind: 'line',
+                  color: { kind: 'scheme', value: 'accent1' },
+                  width: 1,
+                },
+              },
+            },
+          });
+        }
+        chartModels.push(chart);
       }
       const comboSlide = chartDocument.addSlide();
       const combo = await comboSlide.addChart([
@@ -5727,9 +5761,31 @@ async (page) => {
         .filter(({ uri }) =>
           (reopenedChartDocument.opcPackage.graph.find((node) => node.uri === uri)?.incoming.length ?? 0) === 0)
         .length;
+      const reopenedAreaChart = reopenedCharts.find(
+        ({ definition }) => definition.groups[0]?.type === 'area',
+      );
+      const chartAreaFillLineState = reopenedAreaChart?.definition.options;
+      const chartAreaFillLine = chartAreaFillLineState?.roundedCorners === true
+        && chartAreaFillLineState.chartArea?.fill?.kind === 'solid'
+        && chartAreaFillLineState.chartArea.fill.color.kind === 'scheme'
+        && chartAreaFillLineState.chartArea.fill.color.value === 'accent2'
+        && chartAreaFillLineState.chartArea.fill.transparency === 25
+        && chartAreaFillLineState.chartArea.line?.kind === 'line'
+        && chartAreaFillLineState.chartArea.line.color.kind === 'srgb'
+        && chartAreaFillLineState.chartArea.line.color.value === '112233'
+        && chartAreaFillLineState.chartArea.line.width === 2
+        && chartAreaFillLineState.plotArea?.fill?.kind === 'solid'
+        && chartAreaFillLineState.plotArea.fill.color.kind === 'srgb'
+        && chartAreaFillLineState.plotArea.fill.color.value === '445566'
+        && chartAreaFillLineState.plotArea.fill.transparency === 50
+        && chartAreaFillLineState.plotArea.line?.kind === 'line'
+        && chartAreaFillLineState.plotArea.line.color.kind === 'scheme'
+        && chartAreaFillLineState.plotArea.line.color.value === 'accent1'
+        && chartAreaFillLineState.plotArea.line.width === 1;
       const nativeCharts = reopenedCharts.length === 10
         && api.CHART_TYPES.every((type) => reopenedChartTypes.has(type))
         && chartWorkbookResults.every(Boolean)
+        && chartAreaFillLine
         && chartIdsUnique
         && chartOrphanCount === 0
         && !chartDocument.opcPackage.hasPart(duplicateChartPartUri)
@@ -5847,6 +5903,7 @@ async (page) => {
         timingDiagnostics,
         nativeMediaTiming,
         nativeCharts,
+        chartAreaFillLine,
         stableMediaLifecycle,
         mediaTargetIsolation: browserMediaCloneOnWrite,
         mediaOrphanCount,
@@ -7231,6 +7288,7 @@ async (page) => {
     timingDiagnostics: [],
     nativeMediaTiming: true,
     nativeCharts: true,
+    chartAreaFillLine: true,
     stableMediaLifecycle: true,
     mediaTargetIsolation: true,
     mediaOrphanCount: 0,

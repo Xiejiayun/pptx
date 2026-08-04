@@ -124,14 +124,14 @@ function assertDeepFrozen(value, seen = new Set()) {
 test('exports an immutable evidence-backed initial manifest batch', () => {
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.schemaVersion, 1);
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.packageVersion, '4.0.1');
-  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 554);
+  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 563);
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries.map(({ status }) => status).sort(),
     [
       ...Array(4).fill('defect-excluded'),
       ...Array(415).fill('supported'),
-      ...Array(60).fill('deliberate-difference'),
-      ...Array(75).fill('deprecated-alias'),
+      ...Array(67).fill('deliberate-difference'),
+      ...Array(77).fill('deprecated-alias'),
     ].sort(),
   );
   const lineFamilyEntries = PPTXGENJS_SURFACE_MANIFEST.entries.filter(({ id }) =>
@@ -193,6 +193,27 @@ test('exports an immutable evidence-backed initial manifest batch', () => {
         status: 'defect-excluded',
       },
     ],
+  );
+  const chartAreaFillLineEntries = PPTXGENJS_SURFACE_MANIFEST.entries.filter(({ id }) =>
+    /^interface:(?:IChartAreaProps@property:(?:border|fill|roundedCorners)|IChartPropsFillLine@property:(?:border|fill)|IChartOpts@property:(?:border|chartArea|fill|plotArea))$/u.test(id));
+  assert.equal(chartAreaFillLineEntries.length, 9);
+  assert.deepEqual(
+    chartAreaFillLineEntries.map(({ status }) => status).sort(),
+    [
+      ...Array(7).fill('deliberate-difference'),
+      ...Array(2).fill('deprecated-alias'),
+    ].sort(),
+  );
+  const chartAreaFillLineById = new Map(
+    chartAreaFillLineEntries.map((entry) => [entry.id, entry]),
+  );
+  assert.equal(
+    chartAreaFillLineById.get('interface:IChartOpts@property:border')?.canonical,
+    'interface:IChartPropsFillLine@property:border',
+  );
+  assert.equal(
+    chartAreaFillLineById.get('interface:IChartOpts@property:fill')?.canonical,
+    'interface:IChartPropsFillLine@property:fill',
   );
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries

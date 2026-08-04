@@ -3239,6 +3239,141 @@ describe('importPptxGenJS', () => {
     }
   });
 
+  it('locks chart area and plot area fill, border, rounding, and deprecated aliases', async () => {
+    const generated = new PptxGenJS();
+    const slide = generated.addSlide();
+    const data = [{ name: 'Revenue', labels: ['Q1', 'Q2'], values: [10, 20] }];
+    const geometry = { x: 1, y: 1, w: 6, h: 4 };
+
+    slide.addChart(generated.ChartType.bar!, data, {
+      ...geometry,
+      chartArea: {
+        roundedCorners: false,
+        fill: { color: generated.SchemeColor.accent2, transparency: 25 },
+        border: { color: '112233', pt: 2 },
+      },
+      plotArea: {
+        fill: { color: '445566', transparency: 50 },
+        border: { color: generated.SchemeColor.accent1, pt: 1 },
+      },
+    });
+    slide.addChart(generated.ChartType.bar!, data, {
+      ...geometry,
+      chartArea: {
+        roundedCorners: true,
+        fill: { type: 'none' },
+        border: { type: 'none', color: '778899', pt: 1.5 },
+      },
+      plotArea: {
+        fill: { type: 'none' },
+        border: { type: 'dash', color: 'AABBCC', pt: 2.5 },
+      },
+    });
+    slide.addChart(generated.ChartType.bar!, data, {
+      ...geometry,
+      plotArea: {
+        fill: { color: '654321', transparency: 25 },
+        border: { color: '654321', pt: 1 },
+      },
+      fill: 'ABCDEF',
+      border: { color: '123456', pt: 3 },
+    });
+    slide.addChart(generated.ChartType.bar!, data, geometry);
+    slide.addChart(generated.ChartType.bar!, data, {
+      ...geometry,
+      chartArea: { fill: { type: 'none', color: 'C0FFEE' } },
+      plotArea: { fill: { type: 'none', color: 'C0FFEE' } },
+    });
+
+    const imported = await importPptxGenJS(generated);
+    const charts = imported.slides[0]!.shapes.filter(
+      (shape): shape is ChartModel => shape instanceof ChartModel,
+    );
+    expect(charts).toHaveLength(5);
+    const [canonical, ignoredTypes, aliases, defaults, coloredNone] = charts as [
+      ChartModel, ChartModel, ChartModel, ChartModel, ChartModel,
+    ];
+
+    expect(canonical.definition?.options).toMatchObject({
+      chartArea: {
+        fill: {
+          kind: 'solid',
+          color: { kind: 'scheme', value: 'accent2' },
+          transparency: 25,
+        },
+        line: {
+          kind: 'line',
+          color: { kind: 'srgb', value: '112233' },
+          width: 2,
+          dash: 'solid',
+        },
+      },
+      plotArea: {
+        fill: {
+          kind: 'solid',
+          color: { kind: 'srgb', value: '445566' },
+          transparency: 50,
+        },
+        line: {
+          kind: 'line',
+          color: { kind: 'scheme', value: 'accent1' },
+          width: 1,
+          dash: 'solid',
+        },
+      },
+    });
+    expect(canonical.definition?.options.roundedCorners).toBeUndefined();
+    expect(canonical.xml).toContain('<c:roundedCorners val="0"/>');
+
+    expect(ignoredTypes.definition?.options).toMatchObject({
+      roundedCorners: true,
+      chartArea: {
+        fill: { kind: 'none' },
+        line: {
+          kind: 'line',
+          color: { kind: 'srgb', value: '778899' },
+          width: 1.5,
+          dash: 'solid',
+        },
+      },
+      plotArea: {
+        fill: { kind: 'none' },
+        line: {
+          kind: 'line',
+          color: { kind: 'srgb', value: 'AABBCC' },
+          width: 2.5,
+          dash: 'solid',
+        },
+      },
+    });
+    expect(ignoredTypes.xml).toContain('<c:roundedCorners val="1"/>');
+
+    expect(aliases.definition?.options.plotArea).toMatchObject({
+      fill: {
+        kind: 'solid',
+        color: { kind: 'srgb', value: 'ABCDEF' },
+        transparency: 25,
+      },
+      line: {
+        kind: 'line',
+        color: { kind: 'srgb', value: '123456' },
+        width: 3,
+        dash: 'solid',
+      },
+    });
+    expect(aliases.definition?.options.plotArea?.fill).not.toMatchObject({
+      color: { kind: 'srgb', value: '654321' },
+    });
+    expect(defaults.definition?.options).toMatchObject({
+      roundedCorners: true,
+      plotArea: { fill: { kind: 'none' }, line: { kind: 'none' } },
+    });
+    expect(defaults.definition?.options.chartArea).toBeUndefined();
+    expect(coloredNone.definition?.options.chartArea?.fill).toBeUndefined();
+    expect(coloredNone.definition?.options.plotArea?.fill).toBeUndefined();
+    expect(coloredNone.xml).not.toContain('C0FFEE');
+  });
+
   it('projects and edits representative PptxGenJS chart options semantically', async () => {
     const generated = new PptxGenJS();
     const slide = generated.addSlide();

@@ -11,11 +11,11 @@
 | Status | Count |
 | --- | ---: |
 | supported | 415 |
-| deliberate-difference | 60 |
-| deprecated-alias | 75 |
+| deliberate-difference | 67 |
+| deprecated-alias | 77 |
 | defect-excluded | 4 |
 | unsupported | 0 |
-| unverified | 1220 |
+| unverified | 1211 |
 | stale | 0 |
 
 ## Runtime declaration differences
@@ -194,9 +194,6 @@ None.
 - `interface:HyperlinkProps@property:slide`
 - `interface:HyperlinkProps@property:tooltip`
 - `interface:HyperlinkProps@property:url`
-- `interface:IChartAreaProps@property:border`
-- `interface:IChartAreaProps@property:fill`
-- `interface:IChartAreaProps@property:roundedCorners`
 - `interface:IChartMulti@property:data`
 - `interface:IChartMulti@property:options`
 - `interface:IChartMulti@property:type`
@@ -210,7 +207,6 @@ None.
 - `interface:IChartOpts@property:barGrouping`
 - `interface:IChartOpts@property:barOverlapPct`
 - `interface:IChartOpts@property:bold`
-- `interface:IChartOpts@property:border`
 - `interface:IChartOpts@property:breakLine`
 - `interface:IChartOpts@property:bullet`
 - `interface:IChartOpts@property:cap`
@@ -247,7 +243,6 @@ None.
 - `interface:IChartOpts@property:catAxisTitleRotate`
 - `interface:IChartOpts@property:catGridLine`
 - `interface:IChartOpts@property:catLabelFormatCode`
-- `interface:IChartOpts@property:chartArea`
 - `interface:IChartOpts@property:chartColors`
 - `interface:IChartOpts@property:chartColorsOpacity`
 - `interface:IChartOpts@property:color`
@@ -265,7 +260,6 @@ None.
 - `interface:IChartOpts@property:dataTableFontSize`
 - `interface:IChartOpts@property:dataTableFormatCode`
 - `interface:IChartOpts@property:displayBlanksAs`
-- `interface:IChartOpts@property:fill`
 - `interface:IChartOpts@property:firstSliceAng`
 - `interface:IChartOpts@property:fontFace`
 - `interface:IChartOpts@property:fontSize`
@@ -289,7 +283,6 @@ None.
 - `interface:IChartOpts@property:lineSize`
 - `interface:IChartOpts@property:lineSmooth`
 - `interface:IChartOpts@property:objectName`
-- `interface:IChartOpts@property:plotArea`
 - `interface:IChartOpts@property:radarStyle`
 - `interface:IChartOpts@property:secondaryCatAxis`
 - `interface:IChartOpts@property:secondaryValAxis`
@@ -454,8 +447,6 @@ None.
 - `interface:IChartPropsAxisVal@property:valAxisTitleRotate`
 - `interface:IChartPropsAxisVal@property:valGridLine`
 - `interface:IChartPropsAxisVal@property:valLabelFormatCode`
-- `interface:IChartPropsFillLine@property:border`
-- `interface:IChartPropsFillLine@property:fill`
 - `interface:ImageProps@property:altText`
 - `interface:ImageProps@property:data`
 - `interface:ImageProps@property:flipH`
@@ -1969,9 +1960,9 @@ None.
 | `inline:interface:IChartOpts@property:titlePos@property:titlePos.y` | unverified | — | — | — |
 | `inline:interface:IChartOpts@property:underline@property:underline.color` | unverified | — | — | — |
 | `inline:interface:IChartOpts@property:underline@property:underline.style` | unverified | — | — | — |
-| `interface:IChartAreaProps@property:border` | unverified | — | — | — |
-| `interface:IChartAreaProps@property:fill` | unverified | — | — | — |
-| `interface:IChartAreaProps@property:roundedCorners` | unverified | — | — | — |
+| `interface:IChartAreaProps@property:border` | deliberate-difference | ChartAreaOptions.line<br>ChartModel.replaceDefinition<br>ChartOptions.chartArea | code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:scripts/smoke-npm-package.mjs<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers chart-area none/solid lines, sRGB/scheme colors, transparency, width, and eight dash styles through a strict ShapeLine; PptxGenJS ignores the declared border type, substitutes defaults for falsy values, and permits invalid widths. |
+| `interface:IChartAreaProps@property:fill` | deliberate-difference | ChartAreaOptions.fill<br>ChartModel.replaceDefinition<br>ChartOptions.chartArea | code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:scripts/smoke-npm-package.mjs<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers chart-area none/solid fills, sRGB/scheme colors, and transparency through a strict ShapeFill; PptxGenJS collapses several explicit none and zero-alpha forms and permits malformed or out-of-range values. |
+| `interface:IChartAreaProps@property:roundedCorners` | deliberate-difference | ChartModel.replaceDefinition<br>ChartOptions.roundedCorners | code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:scripts/smoke-npm-package.mjs<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native exposes roundedCorners at the chart root where OOXML stores it; PptxGenJS nests the option under chartArea, defaults it to true, and serializes false as an explicit default state. |
 | `interface:IChartMulti@property:data` | unverified | — | — | — |
 | `interface:IChartMulti@property:options` | unverified | — | — | — |
 | `interface:IChartMulti@property:type` | unverified | — | — | — |
@@ -1985,7 +1976,7 @@ None.
 | `interface:IChartOpts@property:barGrouping` | unverified | — | — | — |
 | `interface:IChartOpts@property:barOverlapPct` | unverified | — | — | — |
 | `interface:IChartOpts@property:bold` | unverified | — | — | — |
-| `interface:IChartOpts@property:border` | unverified | — | — | — |
+| `interface:IChartOpts@property:border` | deprecated-alias | ChartAreaOptions.line<br>ChartModel.replaceDefinition<br>ChartOptions.plotArea | code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:scripts/smoke-npm-package.mjs<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS keeps top-level border as a deprecated plotArea.border alias and lets it completely replace the nested border; native rejects the alias and exposes only strict ChartOptions.plotArea.line. |
 | `interface:IChartOpts@property:breakLine` | unverified | — | — | — |
 | `interface:IChartOpts@property:bullet` | unverified | — | — | — |
 | `interface:IChartOpts@property:cap` | unverified | — | — | — |
@@ -2021,7 +2012,7 @@ None.
 | `interface:IChartOpts@property:catAxisTitleRotate` | unverified | — | — | — |
 | `interface:IChartOpts@property:catGridLine` | unverified | — | — | — |
 | `interface:IChartOpts@property:catLabelFormatCode` | unverified | — | — | — |
-| `interface:IChartOpts@property:chartArea` | unverified | — | — | — |
+| `interface:IChartOpts@property:chartArea` | deliberate-difference | ChartAreaOptions<br>ChartOptions.chartArea<br>ChartOptions.roundedCorners | code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:scripts/smoke-npm-package.mjs<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native separates root roundedCorners from strict chart-area fill and line state, while PptxGenJS combines them in one permissive chartArea object with runtime defaults. |
 | `interface:IChartOpts@property:chartColors` | unverified | — | — | — |
 | `interface:IChartOpts@property:chartColorsOpacity` | unverified | — | — | — |
 | `interface:IChartOpts@property:color` | unverified | — | — | — |
@@ -2039,7 +2030,7 @@ None.
 | `interface:IChartOpts@property:dataTableFontSize` | unverified | — | — | — |
 | `interface:IChartOpts@property:dataTableFormatCode` | unverified | — | — | — |
 | `interface:IChartOpts@property:displayBlanksAs` | unverified | — | — | — |
-| `interface:IChartOpts@property:fill` | unverified | — | — | — |
+| `interface:IChartOpts@property:fill` | deprecated-alias | ChartAreaOptions.fill<br>ChartModel.replaceDefinition<br>ChartOptions.plotArea | code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:scripts/smoke-npm-package.mjs<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS keeps top-level fill as a deprecated plotArea.fill color alias and lets it replace the nested color while retaining nested transparency; native rejects the alias and exposes only strict ChartOptions.plotArea.fill. |
 | `interface:IChartOpts@property:firstSliceAng` | unverified | — | — | — |
 | `interface:IChartOpts@property:fontFace` | unverified | — | — | — |
 | `interface:IChartOpts@property:fontSize` | unverified | — | — | — |
@@ -2062,7 +2053,7 @@ None.
 | `interface:IChartOpts@property:lineSize` | unverified | — | — | — |
 | `interface:IChartOpts@property:lineSmooth` | unverified | — | — | — |
 | `interface:IChartOpts@property:objectName` | unverified | — | — | — |
-| `interface:IChartOpts@property:plotArea` | unverified | — | — | — |
+| `interface:IChartOpts@property:plotArea` | deliberate-difference | ChartAreaOptions<br>ChartModel.replaceDefinition<br>ChartOptions.plotArea | code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:scripts/smoke-npm-package.mjs<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native exposes strict plot-area fill and line state through ChartOptions.plotArea; PptxGenJS accepts the same legal visual domain plus permissive and deprecated override behavior that native rejects. |
 | `interface:IChartOpts@property:radarStyle` | unverified | — | — | — |
 | `interface:IChartOpts@property:secondaryCatAxis` | unverified | — | — | — |
 | `interface:IChartOpts@property:secondaryValAxis` | unverified | — | — | — |
@@ -2223,8 +2214,8 @@ None.
 | `interface:IChartPropsAxisVal@property:valAxisTitleRotate` | unverified | — | — | — |
 | `interface:IChartPropsAxisVal@property:valGridLine` | unverified | — | — | — |
 | `interface:IChartPropsAxisVal@property:valLabelFormatCode` | unverified | — | — | — |
-| `interface:IChartPropsFillLine@property:border` | unverified | — | — | — |
-| `interface:IChartPropsFillLine@property:fill` | unverified | — | — | — |
+| `interface:IChartPropsFillLine@property:border` | deliberate-difference | ChartAreaOptions.line<br>ChartModel.replaceDefinition<br>ChartOptions.plotArea | code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:scripts/smoke-npm-package.mjs<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers plot-area none/solid lines, sRGB/scheme colors, transparency, width, and eight dash styles through a strict ShapeLine; PptxGenJS ignores the declared border type, substitutes defaults for falsy values, and permits invalid widths. |
+| `interface:IChartPropsFillLine@property:fill` | deliberate-difference | ChartAreaOptions.fill<br>ChartModel.replaceDefinition<br>ChartOptions.plotArea | code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:scripts/smoke-npm-package.mjs<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers plot-area none/solid fills, sRGB/scheme colors, and transparency through a strict ShapeFill; PptxGenJS collapses several explicit none and zero-alpha forms and permits malformed or out-of-range values. |
 | `interface:OptsChartData@property:labels` | unverified | — | — | — |
 | `interface:OptsChartData@property:name` | unverified | — | — | — |
 | `interface:OptsChartData@property:sizes` | unverified | — | — | — |

@@ -560,6 +560,135 @@ function tableFillEntry(owner) {
   };
 }
 
+const CHART_AREA_FILL_LINE_CONTROL_TITLE =
+  'locks chart area and plot area fill, border, rounding, and deprecated aliases';
+
+function chartAreaFillLineEvidence(id) {
+  const rounded = id === linePropertyId('IChartAreaProps', 'roundedCorners');
+  const chartArea = id === linePropertyId('IChartOpts', 'chartArea');
+  return {
+    code: [
+      ...(!rounded ? [{
+        path: 'packages/model/src/chart-options.internal.ts',
+        pattern: 'function normalizeAreaOptions(',
+      }, {
+        path: 'packages/model/src/chart-render.internal.ts',
+        pattern: 'function renderAreaShapeProperties(',
+      }, {
+        path: 'packages/model/src/chart-state.internal.ts',
+        pattern: 'function readAreaOptions(',
+      }] : []),
+      ...(rounded || chartArea ? [{
+        path: 'packages/model/src/chart-options.internal.ts',
+        pattern: 'export function normalizeChartOptions(',
+      }, {
+        path: 'packages/model/src/chart-render.internal.ts',
+        pattern: 'export function renderChartPart(',
+      }, {
+        path: 'packages/model/src/chart-state.internal.ts',
+        pattern: 'function readRootChartOptions(',
+      }] : []),
+    ],
+    tests: [{
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      title: CHART_AREA_FILL_LINE_CONTROL_TITLE,
+    }],
+    package: [{
+      path: 'scripts/smoke-npm-package.mjs',
+      pattern: 'const chartAreaFillLineState =',
+    }],
+    ooxml: [{
+      path: 'scripts/smoke-npm-package.mjs',
+      pattern: 'const nativeChartAreaFillLineFragments = [',
+    }],
+    clients: [{
+      path: 'scripts/playwright-browser-smoke.js',
+      pattern: 'const chartAreaFillLineState =',
+    }],
+  };
+}
+
+function chartAreaFillLineEntry(id, native, note) {
+  return {
+    id,
+    status: 'deliberate-difference',
+    native,
+    evidence: chartAreaFillLineEvidence(id),
+    control: {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      pattern: CHART_AREA_FILL_LINE_CONTROL_TITLE,
+    },
+    serialization: true,
+    client: true,
+    note,
+  };
+}
+
+const CHART_AREA_FILL_LINE_ENTRIES = Object.freeze([
+  chartAreaFillLineEntry(
+    linePropertyId('IChartAreaProps', 'border'),
+    ['ChartAreaOptions.line', 'ChartOptions.chartArea', 'ChartModel.replaceDefinition'],
+    'Native covers chart-area none/solid lines, sRGB/scheme colors, transparency, width, and eight dash styles through a strict ShapeLine; PptxGenJS ignores the declared border type, substitutes defaults for falsy values, and permits invalid widths.',
+  ),
+  chartAreaFillLineEntry(
+    linePropertyId('IChartAreaProps', 'fill'),
+    ['ChartAreaOptions.fill', 'ChartOptions.chartArea', 'ChartModel.replaceDefinition'],
+    'Native covers chart-area none/solid fills, sRGB/scheme colors, and transparency through a strict ShapeFill; PptxGenJS collapses several explicit none and zero-alpha forms and permits malformed or out-of-range values.',
+  ),
+  chartAreaFillLineEntry(
+    linePropertyId('IChartAreaProps', 'roundedCorners'),
+    ['ChartOptions.roundedCorners', 'ChartModel.replaceDefinition'],
+    'Native exposes roundedCorners at the chart root where OOXML stores it; PptxGenJS nests the option under chartArea, defaults it to true, and serializes false as an explicit default state.',
+  ),
+  chartAreaFillLineEntry(
+    linePropertyId('IChartPropsFillLine', 'border'),
+    ['ChartAreaOptions.line', 'ChartOptions.plotArea', 'ChartModel.replaceDefinition'],
+    'Native covers plot-area none/solid lines, sRGB/scheme colors, transparency, width, and eight dash styles through a strict ShapeLine; PptxGenJS ignores the declared border type, substitutes defaults for falsy values, and permits invalid widths.',
+  ),
+  chartAreaFillLineEntry(
+    linePropertyId('IChartPropsFillLine', 'fill'),
+    ['ChartAreaOptions.fill', 'ChartOptions.plotArea', 'ChartModel.replaceDefinition'],
+    'Native covers plot-area none/solid fills, sRGB/scheme colors, and transparency through a strict ShapeFill; PptxGenJS collapses several explicit none and zero-alpha forms and permits malformed or out-of-range values.',
+  ),
+  chartAreaFillLineEntry(
+    linePropertyId('IChartOpts', 'chartArea'),
+    ['ChartAreaOptions', 'ChartOptions.chartArea', 'ChartOptions.roundedCorners'],
+    'Native separates root roundedCorners from strict chart-area fill and line state, while PptxGenJS combines them in one permissive chartArea object with runtime defaults.',
+  ),
+  chartAreaFillLineEntry(
+    linePropertyId('IChartOpts', 'plotArea'),
+    ['ChartAreaOptions', 'ChartOptions.plotArea', 'ChartModel.replaceDefinition'],
+    'Native exposes strict plot-area fill and line state through ChartOptions.plotArea; PptxGenJS accepts the same legal visual domain plus permissive and deprecated override behavior that native rejects.',
+  ),
+]);
+
+function deprecatedChartAreaAliasEntry(property) {
+  const border = property === 'border';
+  return {
+    id: linePropertyId('IChartOpts', property),
+    status: 'deprecated-alias',
+    native: border
+      ? ['ChartAreaOptions.line', 'ChartOptions.plotArea', 'ChartModel.replaceDefinition']
+      : ['ChartAreaOptions.fill', 'ChartOptions.plotArea', 'ChartModel.replaceDefinition'],
+    evidence: chartAreaFillLineEvidence(linePropertyId('IChartOpts', property)),
+    control: {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      pattern: CHART_AREA_FILL_LINE_CONTROL_TITLE,
+    },
+    canonical: linePropertyId('IChartPropsFillLine', property),
+    serialization: true,
+    client: true,
+    note: border
+      ? 'PptxGenJS keeps top-level border as a deprecated plotArea.border alias and lets it completely replace the nested border; native rejects the alias and exposes only strict ChartOptions.plotArea.line.'
+      : 'PptxGenJS keeps top-level fill as a deprecated plotArea.fill color alias and lets it replace the nested color while retaining nested transparency; native rejects the alias and exposes only strict ChartOptions.plotArea.fill.',
+  };
+}
+
+const DEPRECATED_CHART_AREA_ALIAS_ENTRIES = Object.freeze([
+  deprecatedChartAreaAliasEntry('border'),
+  deprecatedChartAreaAliasEntry('fill'),
+]);
+
 const TABLE_TO_SLIDES_FILL_CONTROL_TITLE =
   'isolates the ignored tableToSlides fill declaration from computed CSS backgrounds';
 const TABLE_TO_SLIDES_FILL_DEFECT_ENTRY = Object.freeze({
@@ -922,6 +1051,8 @@ export const PPTXGENJS_SURFACE_MANIFEST = deepFreeze({
     DEPRECATED_FILL_ENTRY,
     ...['TableCellProps', 'TableProps'].map((owner) => tableFillEntry(owner)),
     TABLE_TO_SLIDES_FILL_DEFECT_ENTRY,
+    ...CHART_AREA_FILL_LINE_ENTRIES,
+    ...DEPRECATED_CHART_AREA_ALIAS_ENTRIES,
     ...['ShapeType', 'SHAPE_NAME'].flatMap((owner) =>
       DECLARED_PRESET_SHAPE_VALUES.map((value) => presetShapeCatalogEntry(owner, value))),
     ...['SchemeColor', 'ThemeColor'].flatMap((owner) =>

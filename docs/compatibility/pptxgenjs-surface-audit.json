@@ -4648,80 +4648,202 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks chart area and plot area fill, border, rounding, and deprecated aliases"
+      },
       "declaredIn": "IChartPropsFillLine",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const chartAreaFillLineState ="
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "function normalizeAreaOptions("
+          },
+          {
+            "path": "packages/model/src/chart-render.internal.ts",
+            "pattern": "function renderAreaShapeProperties("
+          },
+          {
+            "path": "packages/model/src/chart-state.internal.ts",
+            "pattern": "function readAreaOptions("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const nativeChartAreaFillLineFragments = ["
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const chartAreaFillLineState ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks chart area and plot area fill, border, rounding, and deprecated aliases"
+          }
+        ]
       },
       "id": "interface:IChartAreaProps@property:border",
       "kind": "property",
       "name": "border",
-      "native": [],
-      "note": "",
+      "native": [
+        "ChartAreaOptions.line",
+        "ChartModel.replaceDefinition",
+        "ChartOptions.chartArea"
+      ],
+      "note": "Native covers chart-area none/solid lines, sRGB/scheme colors, transparency, width, and eight dash styles through a strict ShapeLine; PptxGenJS ignores the declared border type, substitutes defaults for falsy values, and permits invalid widths.",
       "optional": true,
       "owner": "IChartAreaProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "BorderProps"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks chart area and plot area fill, border, rounding, and deprecated aliases"
+      },
       "declaredIn": "IChartPropsFillLine",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const chartAreaFillLineState ="
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "function normalizeAreaOptions("
+          },
+          {
+            "path": "packages/model/src/chart-render.internal.ts",
+            "pattern": "function renderAreaShapeProperties("
+          },
+          {
+            "path": "packages/model/src/chart-state.internal.ts",
+            "pattern": "function readAreaOptions("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const nativeChartAreaFillLineFragments = ["
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const chartAreaFillLineState ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks chart area and plot area fill, border, rounding, and deprecated aliases"
+          }
+        ]
       },
       "id": "interface:IChartAreaProps@property:fill",
       "kind": "property",
       "name": "fill",
-      "native": [],
-      "note": "",
+      "native": [
+        "ChartAreaOptions.fill",
+        "ChartModel.replaceDefinition",
+        "ChartOptions.chartArea"
+      ],
+      "note": "Native covers chart-area none/solid fills, sRGB/scheme colors, and transparency through a strict ShapeFill; PptxGenJS collapses several explicit none and zero-alpha forms and permits malformed or out-of-range values.",
       "optional": true,
       "owner": "IChartAreaProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "ShapeFillProps"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks chart area and plot area fill, border, rounding, and deprecated aliases"
+      },
       "declaredIn": "IChartAreaProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const chartAreaFillLineState ="
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "export function normalizeChartOptions("
+          },
+          {
+            "path": "packages/model/src/chart-render.internal.ts",
+            "pattern": "export function renderChartPart("
+          },
+          {
+            "path": "packages/model/src/chart-state.internal.ts",
+            "pattern": "function readRootChartOptions("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const nativeChartAreaFillLineFragments = ["
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const chartAreaFillLineState ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks chart area and plot area fill, border, rounding, and deprecated aliases"
+          }
+        ]
       },
       "id": "interface:IChartAreaProps@property:roundedCorners",
       "kind": "property",
       "name": "roundedCorners",
-      "native": [],
-      "note": "",
+      "native": [
+        "ChartModel.replaceDefinition",
+        "ChartOptions.roundedCorners"
+      ],
+      "note": "Native exposes roundedCorners at the chart root where OOXML stores it; PptxGenJS nests the option under chartArea, defaults it to true, and serializes false as an explicit default state.",
       "optional": true,
       "owner": "IChartAreaProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "boolean"
     },
     {
@@ -5063,29 +5185,71 @@
       "typeText": "boolean"
     },
     {
+      "canonical": "interface:IChartPropsFillLine@property:border",
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks chart area and plot area fill, border, rounding, and deprecated aliases"
+      },
       "declaredIn": "IChartPropsBase",
       "deprecated": true,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const chartAreaFillLineState ="
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "function normalizeAreaOptions("
+          },
+          {
+            "path": "packages/model/src/chart-render.internal.ts",
+            "pattern": "function renderAreaShapeProperties("
+          },
+          {
+            "path": "packages/model/src/chart-state.internal.ts",
+            "pattern": "function readAreaOptions("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const nativeChartAreaFillLineFragments = ["
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const chartAreaFillLineState ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks chart area and plot area fill, border, rounding, and deprecated aliases"
+          }
+        ]
       },
       "id": "interface:IChartOpts@property:border",
       "kind": "property",
       "name": "border",
-      "native": [],
-      "note": "",
+      "native": [
+        "ChartAreaOptions.line",
+        "ChartModel.replaceDefinition",
+        "ChartOptions.plotArea"
+      ],
+      "note": "PptxGenJS keeps top-level border as a deprecated plotArea.border alias and lets it completely replace the nested border; native rejects the alias and exposes only strict ChartOptions.plotArea.line.",
       "optional": true,
       "owner": "IChartOpts",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deprecated-alias",
       "typeText": "BorderProps"
     },
     {
@@ -6026,28 +6190,81 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks chart area and plot area fill, border, rounding, and deprecated aliases"
+      },
       "declaredIn": "IChartPropsBase",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const chartAreaFillLineState ="
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "function normalizeAreaOptions("
+          },
+          {
+            "path": "packages/model/src/chart-render.internal.ts",
+            "pattern": "function renderAreaShapeProperties("
+          },
+          {
+            "path": "packages/model/src/chart-state.internal.ts",
+            "pattern": "function readAreaOptions("
+          },
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "export function normalizeChartOptions("
+          },
+          {
+            "path": "packages/model/src/chart-render.internal.ts",
+            "pattern": "export function renderChartPart("
+          },
+          {
+            "path": "packages/model/src/chart-state.internal.ts",
+            "pattern": "function readRootChartOptions("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const nativeChartAreaFillLineFragments = ["
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const chartAreaFillLineState ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks chart area and plot area fill, border, rounding, and deprecated aliases"
+          }
+        ]
       },
       "id": "interface:IChartOpts@property:chartArea",
       "kind": "property",
       "name": "chartArea",
-      "native": [],
-      "note": "",
+      "native": [
+        "ChartAreaOptions",
+        "ChartOptions.chartArea",
+        "ChartOptions.roundedCorners"
+      ],
+      "note": "Native separates root roundedCorners from strict chart-area fill and line state, while PptxGenJS combines them in one permissive chartArea object with runtime defaults.",
       "optional": true,
       "owner": "IChartOpts",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "IChartAreaProps"
     },
     {
@@ -6493,29 +6710,71 @@
       "typeText": "string"
     },
     {
+      "canonical": "interface:IChartPropsFillLine@property:fill",
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks chart area and plot area fill, border, rounding, and deprecated aliases"
+      },
       "declaredIn": "IChartPropsBase",
       "deprecated": true,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const chartAreaFillLineState ="
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "function normalizeAreaOptions("
+          },
+          {
+            "path": "packages/model/src/chart-render.internal.ts",
+            "pattern": "function renderAreaShapeProperties("
+          },
+          {
+            "path": "packages/model/src/chart-state.internal.ts",
+            "pattern": "function readAreaOptions("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const nativeChartAreaFillLineFragments = ["
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const chartAreaFillLineState ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks chart area and plot area fill, border, rounding, and deprecated aliases"
+          }
+        ]
       },
       "id": "interface:IChartOpts@property:fill",
       "kind": "property",
       "name": "fill",
-      "native": [],
-      "note": "",
+      "native": [
+        "ChartAreaOptions.fill",
+        "ChartModel.replaceDefinition",
+        "ChartOptions.plotArea"
+      ],
+      "note": "PptxGenJS keeps top-level fill as a deprecated plotArea.fill color alias and lets it replace the nested color while retaining nested transparency; native rejects the alias and exposes only strict ChartOptions.plotArea.fill.",
       "optional": true,
       "owner": "IChartOpts",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deprecated-alias",
       "typeText": "HexColor"
     },
     {
@@ -7118,28 +7377,69 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks chart area and plot area fill, border, rounding, and deprecated aliases"
+      },
       "declaredIn": "IChartPropsBase",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const chartAreaFillLineState ="
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "function normalizeAreaOptions("
+          },
+          {
+            "path": "packages/model/src/chart-render.internal.ts",
+            "pattern": "function renderAreaShapeProperties("
+          },
+          {
+            "path": "packages/model/src/chart-state.internal.ts",
+            "pattern": "function readAreaOptions("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const nativeChartAreaFillLineFragments = ["
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const chartAreaFillLineState ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks chart area and plot area fill, border, rounding, and deprecated aliases"
+          }
+        ]
       },
       "id": "interface:IChartOpts@property:plotArea",
       "kind": "property",
       "name": "plotArea",
-      "native": [],
-      "note": "",
+      "native": [
+        "ChartAreaOptions",
+        "ChartModel.replaceDefinition",
+        "ChartOptions.plotArea"
+      ],
+      "note": "Native exposes strict plot-area fill and line state through ChartOptions.plotArea; PptxGenJS accepts the same legal visual domain plus permissive and deprecated override behavior that native rejects.",
       "optional": true,
       "owner": "IChartOpts",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "IChartPropsFillLine"
     },
     {
@@ -11408,54 +11708,136 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks chart area and plot area fill, border, rounding, and deprecated aliases"
+      },
       "declaredIn": "IChartPropsFillLine",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const chartAreaFillLineState ="
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "function normalizeAreaOptions("
+          },
+          {
+            "path": "packages/model/src/chart-render.internal.ts",
+            "pattern": "function renderAreaShapeProperties("
+          },
+          {
+            "path": "packages/model/src/chart-state.internal.ts",
+            "pattern": "function readAreaOptions("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const nativeChartAreaFillLineFragments = ["
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const chartAreaFillLineState ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks chart area and plot area fill, border, rounding, and deprecated aliases"
+          }
+        ]
       },
       "id": "interface:IChartPropsFillLine@property:border",
       "kind": "property",
       "name": "border",
-      "native": [],
-      "note": "",
+      "native": [
+        "ChartAreaOptions.line",
+        "ChartModel.replaceDefinition",
+        "ChartOptions.plotArea"
+      ],
+      "note": "Native covers plot-area none/solid lines, sRGB/scheme colors, transparency, width, and eight dash styles through a strict ShapeLine; PptxGenJS ignores the declared border type, substitutes defaults for falsy values, and permits invalid widths.",
       "optional": true,
       "owner": "IChartPropsFillLine",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "BorderProps"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks chart area and plot area fill, border, rounding, and deprecated aliases"
+      },
       "declaredIn": "IChartPropsFillLine",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const chartAreaFillLineState ="
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "function normalizeAreaOptions("
+          },
+          {
+            "path": "packages/model/src/chart-render.internal.ts",
+            "pattern": "function renderAreaShapeProperties("
+          },
+          {
+            "path": "packages/model/src/chart-state.internal.ts",
+            "pattern": "function readAreaOptions("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const nativeChartAreaFillLineFragments = ["
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const chartAreaFillLineState ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks chart area and plot area fill, border, rounding, and deprecated aliases"
+          }
+        ]
       },
       "id": "interface:IChartPropsFillLine@property:fill",
       "kind": "property",
       "name": "fill",
-      "native": [],
-      "note": "",
+      "native": [
+        "ChartAreaOptions.fill",
+        "ChartModel.replaceDefinition",
+        "ChartOptions.plotArea"
+      ],
+      "note": "Native covers plot-area none/solid fills, sRGB/scheme colors, and transparency through a strict ShapeFill; PptxGenJS collapses several explicit none and zero-alpha forms and permits malformed or out-of-range values.",
       "optional": true,
       "owner": "IChartPropsFillLine",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "ShapeFillProps"
     },
     {
@@ -63025,12 +63407,12 @@
   "complete": false,
   "counts": {
     "defect-excluded": 4,
-    "deliberate-difference": 60,
-    "deprecated-alias": 75,
+    "deliberate-difference": 67,
+    "deprecated-alias": 77,
     "stale": 0,
     "supported": 415,
     "unsupported": 0,
-    "unverified": 1220
+    "unverified": 1211
   },
   "declarationSha256": "0726d015dbcb55ccfa75546cb2fd43fe13a0dfeb783d08572f1c62f59193bbe5",
   "declarationTotal": 1774,
@@ -63202,9 +63584,6 @@
     "interface:HyperlinkProps@property:slide",
     "interface:HyperlinkProps@property:tooltip",
     "interface:HyperlinkProps@property:url",
-    "interface:IChartAreaProps@property:border",
-    "interface:IChartAreaProps@property:fill",
-    "interface:IChartAreaProps@property:roundedCorners",
     "interface:IChartMulti@property:data",
     "interface:IChartMulti@property:options",
     "interface:IChartMulti@property:type",
@@ -63218,7 +63597,6 @@
     "interface:IChartOpts@property:barGrouping",
     "interface:IChartOpts@property:barOverlapPct",
     "interface:IChartOpts@property:bold",
-    "interface:IChartOpts@property:border",
     "interface:IChartOpts@property:breakLine",
     "interface:IChartOpts@property:bullet",
     "interface:IChartOpts@property:cap",
@@ -63255,7 +63633,6 @@
     "interface:IChartOpts@property:catAxisTitleRotate",
     "interface:IChartOpts@property:catGridLine",
     "interface:IChartOpts@property:catLabelFormatCode",
-    "interface:IChartOpts@property:chartArea",
     "interface:IChartOpts@property:chartColors",
     "interface:IChartOpts@property:chartColorsOpacity",
     "interface:IChartOpts@property:color",
@@ -63273,7 +63650,6 @@
     "interface:IChartOpts@property:dataTableFontSize",
     "interface:IChartOpts@property:dataTableFormatCode",
     "interface:IChartOpts@property:displayBlanksAs",
-    "interface:IChartOpts@property:fill",
     "interface:IChartOpts@property:firstSliceAng",
     "interface:IChartOpts@property:fontFace",
     "interface:IChartOpts@property:fontSize",
@@ -63297,7 +63673,6 @@
     "interface:IChartOpts@property:lineSize",
     "interface:IChartOpts@property:lineSmooth",
     "interface:IChartOpts@property:objectName",
-    "interface:IChartOpts@property:plotArea",
     "interface:IChartOpts@property:radarStyle",
     "interface:IChartOpts@property:secondaryCatAxis",
     "interface:IChartOpts@property:secondaryValAxis",
@@ -63462,8 +63837,6 @@
     "interface:IChartPropsAxisVal@property:valAxisTitleRotate",
     "interface:IChartPropsAxisVal@property:valGridLine",
     "interface:IChartPropsAxisVal@property:valLabelFormatCode",
-    "interface:IChartPropsFillLine@property:border",
-    "interface:IChartPropsFillLine@property:fill",
     "interface:ImageProps@property:altText",
     "interface:ImageProps@property:data",
     "interface:ImageProps@property:flipH",

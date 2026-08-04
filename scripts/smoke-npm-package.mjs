@@ -7688,7 +7688,37 @@ for (const type of CHART_TYPES) {
   });
   await chart.replaceDefinition({
     groups: chart.definition.groups,
-    options: { ...chart.definition.options, title: { text: 'Native ' + type + ' chart' } },
+    options: {
+      ...chart.definition.options,
+      title: { text: 'Native ' + type + ' chart' },
+      ...(type === 'area' ? {
+        roundedCorners: true,
+        chartArea: {
+          fill: {
+            kind: 'solid',
+            color: { kind: 'scheme', value: 'accent2' },
+            transparency: 25,
+          },
+          line: {
+            kind: 'line',
+            color: { kind: 'srgb', value: '112233' },
+            width: 2,
+          },
+        },
+        plotArea: {
+          fill: {
+            kind: 'solid',
+            color: { kind: 'srgb', value: '445566' },
+            transparency: 50,
+          },
+          line: {
+            kind: 'line',
+            color: { kind: 'scheme', value: 'accent1' },
+            width: 1,
+          },
+        },
+      } : {}),
+    },
   });
   nativeChartModels.push(chart);
 }
@@ -7758,9 +7788,31 @@ const nativeChartOrphans = reopenedNativeCharts.opcPackage.parts
     || contentType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
   .filter(({ uri }) =>
     (reopenedNativeCharts.opcPackage.graph.find((node) => node.uri === uri)?.incoming.length ?? 0) === 0);
+const reopenedAreaChart = reopenedNativeChartModels.find(
+  ({ definition }) => definition.groups[0]?.type === 'area',
+);
+const chartAreaFillLineState = reopenedAreaChart?.definition.options;
+const chartAreaFillLine = chartAreaFillLineState?.roundedCorners === true
+  && chartAreaFillLineState.chartArea?.fill?.kind === 'solid'
+  && chartAreaFillLineState.chartArea.fill.color.kind === 'scheme'
+  && chartAreaFillLineState.chartArea.fill.color.value === 'accent2'
+  && chartAreaFillLineState.chartArea.fill.transparency === 25
+  && chartAreaFillLineState.chartArea.line?.kind === 'line'
+  && chartAreaFillLineState.chartArea.line.color.kind === 'srgb'
+  && chartAreaFillLineState.chartArea.line.color.value === '112233'
+  && chartAreaFillLineState.chartArea.line.width === 2
+  && chartAreaFillLineState.plotArea?.fill?.kind === 'solid'
+  && chartAreaFillLineState.plotArea.fill.color.kind === 'srgb'
+  && chartAreaFillLineState.plotArea.fill.color.value === '445566'
+  && chartAreaFillLineState.plotArea.fill.transparency === 50
+  && chartAreaFillLineState.plotArea.line?.kind === 'line'
+  && chartAreaFillLineState.plotArea.line.color.kind === 'scheme'
+  && chartAreaFillLineState.plotArea.line.color.value === 'accent1'
+  && chartAreaFillLineState.plotArea.line.width === 1;
 const nativeCharts = reopenedNativeChartModels.length === 10
   && CHART_TYPES.every((type) => nativeChartTypes.has(type))
   && nativeChartWorkbooksMatch
+  && chartAreaFillLine
   && nativeChartIdsUnique
   && nativeChartOrphans.length === 0
   && !nativeChartDeck.opcPackage.hasPart(nativeDuplicatePartUri)
@@ -16807,7 +16859,20 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
     directory,
   );
   const nativeChartPart = JSON.parse(nativeChartPartResult.stdout);
-  if (!nativeChartPart.ok || !nativeChartPart.data?.content?.includes('<c:chartSpace')) {
+  const nativeChartXml = nativeChartPart.data?.content ?? '';
+  const nativeChartAreaFillLineFragments = [
+    '<c:spPr><a:solidFill><a:srgbClr val="445566"><a:alpha val="50000"/>'
+      + '</a:srgbClr></a:solidFill><a:ln w="12700"><a:solidFill>'
+      + '<a:schemeClr val="accent1"/></a:solidFill><a:prstDash val="solid"/>'
+      + '</a:ln></c:spPr>',
+    '<c:spPr><a:solidFill><a:schemeClr val="accent2"><a:alpha val="75000"/>'
+      + '</a:schemeClr></a:solidFill><a:ln w="25400"><a:solidFill>'
+      + '<a:srgbClr val="112233"/></a:solidFill><a:prstDash val="solid"/>'
+      + '</a:ln></c:spPr>',
+  ];
+  if (!nativeChartPart.ok || !nativeChartXml.includes('<c:chartSpace') ||
+      !nativeChartXml.includes('<c:roundedCorners val="1"/>') ||
+      !nativeChartAreaFillLineFragments.every((fragment) => nativeChartXml.includes(fragment))) {
     throw new Error(`CLI native chart part read failed: ${nativeChartPartResult.stdout}`);
   }
   const slideBackgroundDeckPath = join(directory, 'slide-background-smoke.pptx');
