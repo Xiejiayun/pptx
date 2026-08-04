@@ -656,6 +656,26 @@ describe('raster image document options', () => {
     expect(Object.isFrozen(normalized)).toBe(true);
   });
 
+  it('preserves detached percentage coordinate source options', () => {
+    const options = {
+      x: '10%',
+      y: '20%',
+      width: '30%',
+      height: '40%',
+    };
+    const normalized = normalizeAddImageSourceOptions(options);
+    options.x = '90%';
+
+    expect(normalized.imageOptions).toEqual({
+      x: '10%',
+      y: '20%',
+      width: '30%',
+      height: '40%',
+    });
+    expect(Object.getPrototypeOf(normalized.imageOptions)).toBeNull();
+    expect(Object.isFrozen(normalized.imageOptions)).toBe(true);
+  });
+
   it('detaches and deeply freezes explicit sizing while keeping placement separate', () => {
     const source = { x: 400, y: 225, width: 800, height: 450 };
     const sizing = {

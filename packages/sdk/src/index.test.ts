@@ -7050,6 +7050,12 @@ describe('PptxDocument vertical slice', () => {
       const info: RasterImageInfo = inspectRasterImage(png);
       const typedSource: RasterImageSource = new Blob([png]);
       const typedOptions: AddImageSourceOptions = { contentType: 'image/png' };
+      const percentageOptions: AddImageSourceOptions = {
+        x: '10%',
+        y: '20%',
+        width: '30%',
+        height: '40%',
+      };
       const typedResult: Promise<ImageModel> = document.addImage(0, typedSource, typedOptions);
       const containResult: Promise<ImageModel> = document.addImage(0, typedSource, {
         sizing: { type: 'contain', width: inches(4), height: inches(3) },
@@ -7088,6 +7094,7 @@ describe('PptxDocument vertical slice', () => {
       void [
         info,
         typedResult,
+        percentageOptions,
         containResult,
         coverResult,
         cropResult,
@@ -7098,6 +7105,80 @@ describe('PptxDocument vertical slice', () => {
         malformedCrop,
         invalidSource,
       ];
+    }
+  });
+
+  it('creates and reopens raster and SVG percentage coordinates through the source loader', async () => {
+    const document = PptxDocument.create({
+      slideSize: { width: inches(10), height: inches(8) },
+    });
+    const slide = document.addSlide();
+    const raster = await document.addImage(0, sdkPngHeader(16, 9), {
+      x: '10%',
+      y: '20%',
+      width: '30%',
+      height: '40%',
+    });
+    const vector = await document.addImage(0, sdkSvg(640, 360), {
+      fallback: sdkPngHeader(1, 1),
+      x: '12.5%',
+      y: '25%',
+      width: '37.5%',
+      height: '50%',
+    });
+
+    const expected = [
+      {
+        x: inches(1),
+        y: inches(1.6),
+        width: inches(3),
+        height: inches(3.2),
+        rotation: 0,
+        flipHorizontal: false,
+        flipVertical: false,
+      },
+      {
+        x: inches(1.25),
+        y: inches(2),
+        width: inches(3.75),
+        height: inches(4),
+        rotation: 0,
+        flipHorizontal: false,
+        flipVertical: false,
+      },
+    ];
+    expect([raster.transform, vector.transform]).toEqual(expected);
+    expect(vector.isSvg).toBe(true);
+
+    const source = new TextDecoder().decode(
+      document.opcPackage.requirePart(slide.partUri).bytes,
+    );
+    expect(source).toContain(
+      '<a:off x="914400" y="1463040"/><a:ext cx="2743200" cy="2926080"/>',
+    );
+    expect(source).toContain(
+      '<a:off x="1143000" y="1828800"/><a:ext cx="3429000" cy="3657600"/>',
+    );
+
+    await document.write({ compatibility: 'powerpoint-2010' });
+    expect(document.diagnostics.filter(({ severity }) => severity === 'error')).toEqual([]);
+    const reopened = await PptxDocument.open(await document.write());
+    expect(reopened.slides[0]!.shapes.map(({ transform }) => transform)).toEqual(expected);
+    expect((reopened.slides[0]!.shapes[1] as ImageModel).isSvg).toBe(true);
+    expect(reopened.diagnostics.filter(({ severity }) => severity === 'error')).toEqual([]);
+
+    const before = await sdkPackageSnapshot(document);
+    for (const options of [
+      { x: '10%junk' },
+      { width: '0%' },
+      { height: '-10%' },
+    ]) {
+      await expect(document.addImage(
+        0,
+        sdkPngHeader(1, 1),
+        options as AddImageSourceOptions,
+      )).rejects.toBeInstanceOf(Error);
+      expect(await sdkPackageSnapshot(document)).toEqual(before);
     }
   });
 

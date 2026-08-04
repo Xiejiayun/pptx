@@ -1,6 +1,7 @@
 import type {
   AddSvgImageOptions,
   RasterImageContentType,
+  SlideCoordinate,
   SvgImageContentType,
 } from '@pptx/model';
 import {
@@ -56,8 +57,8 @@ type AddImageSourceBaseOptions = Omit<
 export type AddImageSourceOptions = AddImageSourceBaseOptions & (
   | {
       readonly sizing?: undefined;
-      readonly width?: number;
-      readonly height?: number;
+      readonly width?: SlideCoordinate;
+      readonly height?: SlideCoordinate;
     }
   | {
       readonly sizing: ImageSizing;
