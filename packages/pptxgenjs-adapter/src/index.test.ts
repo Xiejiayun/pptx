@@ -7663,7 +7663,7 @@ describe('importPptxGenJS', () => {
         objectName: name,
         ...options,
       });
-      expected.set(name, { line, arrows });
+      expected.set(name, arrows === undefined ? { line } : { line, arrows });
     };
     const addTextCase = (
       name: string,
@@ -7672,7 +7672,7 @@ describe('importPptxGenJS', () => {
       arrows?: ShapeArrows,
     ) => {
       generatedSlide.addText(name, { objectName: name, ...options });
-      expected.set(name, { line, arrows });
+      expected.set(name, arrows === undefined ? { line } : { line, arrows });
     };
 
     for (const dash of dashes) {
