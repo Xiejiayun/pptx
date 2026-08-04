@@ -124,11 +124,11 @@ function assertDeepFrozen(value, seen = new Set()) {
 test('exports an immutable evidence-backed initial manifest batch', () => {
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.schemaVersion, 1);
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.packageVersion, '4.0.1');
-  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 563);
+  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 642);
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries.map(({ status }) => status).sort(),
     [
-      ...Array(4).fill('defect-excluded'),
+      ...Array(83).fill('defect-excluded'),
       ...Array(415).fill('supported'),
       ...Array(67).fill('deliberate-difference'),
       ...Array(77).fill('deprecated-alias'),
@@ -214,6 +214,48 @@ test('exports an immutable evidence-backed initial manifest batch', () => {
   assert.equal(
     chartAreaFillLineById.get('interface:IChartOpts@property:fill')?.canonical,
     'interface:IChartPropsFillLine@property:fill',
+  );
+  const inertChartOptionProperties = new Set([
+    'align',
+    'bold',
+    'breakLine',
+    'bullet',
+    'cap',
+    'color',
+    'fontFace',
+    'fontSize',
+    'highlight',
+    'italic',
+    'size',
+    'softBreakBefore',
+    'style',
+    'tabStops',
+    'textDirection',
+    'transparency',
+    'underline',
+    'valign',
+  ]);
+  const inertChartOptionEntries = PPTXGENJS_SURFACE_MANIFEST.entries.filter(({ id }) => {
+    const property = id.match(/interface:IChartOpts@property:([^@#]+)/u)?.[1];
+    return property !== undefined && inertChartOptionProperties.has(property);
+  });
+  assert.equal(inertChartOptionEntries.length, 79);
+  assert.deepEqual(
+    Object.fromEntries(
+      ['property', 'inline', 'union'].map((kind) => [
+        kind,
+        inertChartOptionEntries.filter(({ id }) => {
+          if (kind === 'inline') return id.startsWith('inline:');
+          if (kind === 'union') return id.startsWith('union:');
+          return id.startsWith('interface:');
+        }).length,
+      ]),
+    ),
+    { property: 18, inline: 13, union: 48 },
+  );
+  assert.deepEqual(
+    [...new Set(inertChartOptionEntries.map(({ status }) => status))],
+    ['defect-excluded'],
   );
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries

@@ -801,287 +801,441 @@
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "inline:interface:IChartOpts@property:bullet@property:bullet.characterCode",
       "kind": "property",
       "name": "bullet.characterCode",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": true,
       "owner": "interface:IChartOpts@property:bullet",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "string"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": true,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "inline:interface:IChartOpts@property:bullet@property:bullet.code",
       "kind": "property",
       "name": "bullet.code",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": true,
       "owner": "interface:IChartOpts@property:bullet",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "string"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "inline:interface:IChartOpts@property:bullet@property:bullet.indent",
       "kind": "property",
       "name": "bullet.indent",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": true,
       "owner": "interface:IChartOpts@property:bullet",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "number"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "inline:interface:IChartOpts@property:bullet@property:bullet.marginPt",
       "kind": "property",
       "name": "bullet.marginPt",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": true,
       "owner": "interface:IChartOpts@property:bullet",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "number"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "inline:interface:IChartOpts@property:bullet@property:bullet.numberStartAt",
       "kind": "property",
       "name": "bullet.numberStartAt",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": true,
       "owner": "interface:IChartOpts@property:bullet",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "number"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "inline:interface:IChartOpts@property:bullet@property:bullet.numberType",
       "kind": "property",
       "name": "bullet.numberType",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": true,
       "owner": "interface:IChartOpts@property:bullet",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'alphaLcParenBoth' | 'alphaLcParenR' | 'alphaLcPeriod' | 'alphaUcParenBoth' | 'alphaUcParenR' | 'alphaUcPeriod' | 'arabicParenBoth' | 'arabicParenR' | 'arabicPeriod' | 'arabicPlain' | 'romanLcParenBoth' | 'romanLcParenR' | 'romanLcPeriod' | 'romanUcParenBoth' | 'romanUcParenR' | 'romanUcPeriod'"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": true,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "inline:interface:IChartOpts@property:bullet@property:bullet.startAt",
       "kind": "property",
       "name": "bullet.startAt",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": true,
       "owner": "interface:IChartOpts@property:bullet",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "number"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": true,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "inline:interface:IChartOpts@property:bullet@property:bullet.style",
       "kind": "property",
       "name": "bullet.style",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": true,
       "owner": "interface:IChartOpts@property:bullet",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "string"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "inline:interface:IChartOpts@property:bullet@property:bullet.type",
       "kind": "property",
       "name": "bullet.type",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": true,
       "owner": "interface:IChartOpts@property:bullet",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'bullet' | 'number'"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "inline:interface:IChartOpts@property:tabStops@property:tabStops.alignment",
       "kind": "property",
       "name": "tabStops.alignment",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": true,
       "owner": "interface:IChartOpts@property:tabStops",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'l' | 'r' | 'ctr' | 'dec'"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "inline:interface:IChartOpts@property:tabStops@property:tabStops.position",
       "kind": "property",
       "name": "tabStops.position",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:tabStops",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "number"
     },
     {
@@ -1139,53 +1293,81 @@
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "inline:interface:IChartOpts@property:underline@property:underline.color",
       "kind": "property",
       "name": "underline.color",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": true,
       "owner": "interface:IChartOpts@property:underline",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "Color"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "inline:interface:IChartOpts@property:underline@property:underline.style",
       "kind": "property",
       "name": "underline.style",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": true,
       "owner": "interface:IChartOpts@property:underline",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'dash' | 'dashHeavy' | 'dashLong' | 'dashLongHeavy' | 'dbl' | 'dotDash' | 'dotDashHeave' | 'dotDotDash' | 'dotDotDashHeavy' | 'dotted' | 'dottedHeavy' | 'heavy' | 'none' | 'sng' | 'wavy' | 'wavyDbl' | 'wavyHeavy'"
     },
     {
@@ -4927,27 +5109,41 @@
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "interface:IChartOpts@property:align",
       "kind": "property",
       "name": "align",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": true,
       "owner": "IChartOpts",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "HAlign"
     },
     {
@@ -5161,27 +5357,41 @@
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "interface:IChartOpts@property:bold",
       "kind": "property",
       "name": "bold",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": true,
       "owner": "IChartOpts",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "boolean"
     },
     {
@@ -5255,79 +5465,121 @@
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "interface:IChartOpts@property:breakLine",
       "kind": "property",
       "name": "breakLine",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": true,
       "owner": "IChartOpts",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "boolean"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "interface:IChartOpts@property:bullet",
       "kind": "property",
       "name": "bullet",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": true,
       "owner": "IChartOpts",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "boolean | { type?: 'bullet' | 'number'; characterCode?: string; indent?: number; numberType?: 'alphaLcParenBoth' | 'alphaLcParenR' | 'alphaLcPeriod' | 'alphaUcParenBoth' | 'alphaUcParenR' | 'alphaUcPeriod' | 'arabicParenBoth' | 'arabicParenR' | 'arabicPeriod' | 'arabicPlain' | 'romanLcParenBoth' | 'romanLcParenR' | 'romanLcPeriod' | 'romanUcParenBoth' | 'romanUcParenR' | 'romanUcPeriod'; numberStartAt?: number; code?: string; marginPt?: number; startAt?: number; style?: string; }"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "OptsChartGridLine",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "interface:IChartOpts@property:cap",
       "kind": "property",
       "name": "cap",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": true,
       "owner": "IChartOpts",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "ChartLineCap"
     },
     {
@@ -6322,27 +6574,41 @@
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "interface:IChartOpts@property:color",
       "kind": "property",
       "name": "color",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": true,
       "owner": "IChartOpts",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "Color"
     },
     {
@@ -6806,53 +7072,81 @@
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "interface:IChartOpts@property:fontFace",
       "kind": "property",
       "name": "fontFace",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": true,
       "owner": "IChartOpts",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "string"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "interface:IChartOpts@property:fontSize",
       "kind": "property",
       "name": "fontSize",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": true,
       "owner": "IChartOpts",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "number"
     },
     {
@@ -6884,27 +7178,41 @@
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "interface:IChartOpts@property:highlight",
       "kind": "property",
       "name": "highlight",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": true,
       "owner": "IChartOpts",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "HexColor"
     },
     {
@@ -6962,27 +7270,41 @@
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "interface:IChartOpts@property:italic",
       "kind": "property",
       "name": "italic",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": true,
       "owner": "IChartOpts",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "boolean"
     },
     {
@@ -8537,131 +8859,201 @@
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "OptsChartGridLine",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "interface:IChartOpts@property:size",
       "kind": "property",
       "name": "size",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": true,
       "owner": "IChartOpts",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "number"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "interface:IChartOpts@property:softBreakBefore",
       "kind": "property",
       "name": "softBreakBefore",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": true,
       "owner": "IChartOpts",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "boolean"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "OptsChartGridLine",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "interface:IChartOpts@property:style",
       "kind": "property",
       "name": "style",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": true,
       "owner": "IChartOpts",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'solid' | 'dash' | 'dot' | 'none'"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "interface:IChartOpts@property:tabStops",
       "kind": "property",
       "name": "tabStops",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": true,
       "owner": "IChartOpts",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "Array<{ position: number; alignment?: 'l' | 'r' | 'ctr' | 'dec'; }>"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "interface:IChartOpts@property:textDirection",
       "kind": "property",
       "name": "textDirection",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": true,
       "owner": "IChartOpts",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'horz' | 'vert' | 'vert270' | 'wordArtVert'"
     },
     {
@@ -8875,53 +9267,81 @@
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "interface:IChartOpts@property:transparency",
       "kind": "property",
       "name": "transparency",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": true,
       "owner": "IChartOpts",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "number"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "interface:IChartOpts@property:underline",
       "kind": "property",
       "name": "underline",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": true,
       "owner": "IChartOpts",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "{ style?: 'dash' | 'dashHeavy' | 'dashLong' | 'dashLongHeavy' | 'dbl' | 'dotDash' | 'dotDashHeave' | 'dotDotDash' | 'dotDotDashHeavy' | 'dotted' | 'dottedHeavy' | 'heavy' | 'none' | 'sng' | 'wavy' | 'wavyDbl' | 'wavyHeavy'; color?: Color; }"
     },
     {
@@ -9837,27 +10257,41 @@
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "interface:IChartOpts@property:valign",
       "kind": "property",
       "name": "valign",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": true,
       "owner": "IChartOpts",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "VAlign"
     },
     {
@@ -46424,495 +46858,761 @@
     {
       "catalogKey": "boolean",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:bullet",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:bullet#boolean",
       "kind": "union-member",
       "name": "boolean",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:bullet",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "boolean"
     },
     {
       "catalogKey": "alphaLcParenBoth",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:bullet@path:bullet.numberType",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:bullet@path:bullet.numberType#alphaLcParenBoth",
       "kind": "union-member",
       "name": "alphaLcParenBoth",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:bullet@path:bullet.numberType",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'alphaLcParenBoth'"
     },
     {
       "catalogKey": "alphaLcParenR",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:bullet@path:bullet.numberType",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:bullet@path:bullet.numberType#alphaLcParenR",
       "kind": "union-member",
       "name": "alphaLcParenR",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:bullet@path:bullet.numberType",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'alphaLcParenR'"
     },
     {
       "catalogKey": "alphaLcPeriod",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:bullet@path:bullet.numberType",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:bullet@path:bullet.numberType#alphaLcPeriod",
       "kind": "union-member",
       "name": "alphaLcPeriod",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:bullet@path:bullet.numberType",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'alphaLcPeriod'"
     },
     {
       "catalogKey": "alphaUcParenBoth",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:bullet@path:bullet.numberType",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:bullet@path:bullet.numberType#alphaUcParenBoth",
       "kind": "union-member",
       "name": "alphaUcParenBoth",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:bullet@path:bullet.numberType",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'alphaUcParenBoth'"
     },
     {
       "catalogKey": "alphaUcParenR",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:bullet@path:bullet.numberType",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:bullet@path:bullet.numberType#alphaUcParenR",
       "kind": "union-member",
       "name": "alphaUcParenR",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:bullet@path:bullet.numberType",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'alphaUcParenR'"
     },
     {
       "catalogKey": "alphaUcPeriod",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:bullet@path:bullet.numberType",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:bullet@path:bullet.numberType#alphaUcPeriod",
       "kind": "union-member",
       "name": "alphaUcPeriod",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:bullet@path:bullet.numberType",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'alphaUcPeriod'"
     },
     {
       "catalogKey": "arabicParenBoth",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:bullet@path:bullet.numberType",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:bullet@path:bullet.numberType#arabicParenBoth",
       "kind": "union-member",
       "name": "arabicParenBoth",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:bullet@path:bullet.numberType",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'arabicParenBoth'"
     },
     {
       "catalogKey": "arabicParenR",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:bullet@path:bullet.numberType",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:bullet@path:bullet.numberType#arabicParenR",
       "kind": "union-member",
       "name": "arabicParenR",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:bullet@path:bullet.numberType",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'arabicParenR'"
     },
     {
       "catalogKey": "arabicPeriod",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:bullet@path:bullet.numberType",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:bullet@path:bullet.numberType#arabicPeriod",
       "kind": "union-member",
       "name": "arabicPeriod",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:bullet@path:bullet.numberType",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'arabicPeriod'"
     },
     {
       "catalogKey": "arabicPlain",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:bullet@path:bullet.numberType",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:bullet@path:bullet.numberType#arabicPlain",
       "kind": "union-member",
       "name": "arabicPlain",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:bullet@path:bullet.numberType",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'arabicPlain'"
     },
     {
       "catalogKey": "romanLcParenBoth",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:bullet@path:bullet.numberType",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:bullet@path:bullet.numberType#romanLcParenBoth",
       "kind": "union-member",
       "name": "romanLcParenBoth",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:bullet@path:bullet.numberType",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'romanLcParenBoth'"
     },
     {
       "catalogKey": "romanLcParenR",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:bullet@path:bullet.numberType",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:bullet@path:bullet.numberType#romanLcParenR",
       "kind": "union-member",
       "name": "romanLcParenR",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:bullet@path:bullet.numberType",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'romanLcParenR'"
     },
     {
       "catalogKey": "romanLcPeriod",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:bullet@path:bullet.numberType",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:bullet@path:bullet.numberType#romanLcPeriod",
       "kind": "union-member",
       "name": "romanLcPeriod",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:bullet@path:bullet.numberType",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'romanLcPeriod'"
     },
     {
       "catalogKey": "romanUcParenBoth",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:bullet@path:bullet.numberType",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:bullet@path:bullet.numberType#romanUcParenBoth",
       "kind": "union-member",
       "name": "romanUcParenBoth",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:bullet@path:bullet.numberType",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'romanUcParenBoth'"
     },
     {
       "catalogKey": "romanUcParenR",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:bullet@path:bullet.numberType",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:bullet@path:bullet.numberType#romanUcParenR",
       "kind": "union-member",
       "name": "romanUcParenR",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:bullet@path:bullet.numberType",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'romanUcParenR'"
     },
     {
       "catalogKey": "romanUcPeriod",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:bullet@path:bullet.numberType",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:bullet@path:bullet.numberType#romanUcPeriod",
       "kind": "union-member",
       "name": "romanUcPeriod",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:bullet@path:bullet.numberType",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'romanUcPeriod'"
     },
     {
       "catalogKey": "bullet",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:bullet@path:bullet.type",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:bullet@path:bullet.type#bullet",
       "kind": "union-member",
       "name": "bullet",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:bullet@path:bullet.type",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'bullet'"
     },
     {
       "catalogKey": "number",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:bullet@path:bullet.type",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:bullet@path:bullet.type#number",
       "kind": "union-member",
       "name": "number",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:bullet@path:bullet.type",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'number'"
     },
     {
@@ -48140,755 +48840,1161 @@
     {
       "catalogKey": "dash",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:style",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:style#dash",
       "kind": "union-member",
       "name": "dash",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:style",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'dash'"
     },
     {
       "catalogKey": "dot",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:style",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:style#dot",
       "kind": "union-member",
       "name": "dot",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:style",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'dot'"
     },
     {
       "catalogKey": "none",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:style",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:style#none",
       "kind": "union-member",
       "name": "none",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:style",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'none'"
     },
     {
       "catalogKey": "solid",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:style",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:style#solid",
       "kind": "union-member",
       "name": "solid",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:style",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'solid'"
     },
     {
       "catalogKey": "ctr",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:tabStops@path:tabStops.alignment",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:tabStops@path:tabStops.alignment#ctr",
       "kind": "union-member",
       "name": "ctr",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:tabStops@path:tabStops.alignment",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'ctr'"
     },
     {
       "catalogKey": "dec",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:tabStops@path:tabStops.alignment",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:tabStops@path:tabStops.alignment#dec",
       "kind": "union-member",
       "name": "dec",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:tabStops@path:tabStops.alignment",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'dec'"
     },
     {
       "catalogKey": "l",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:tabStops@path:tabStops.alignment",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:tabStops@path:tabStops.alignment#l",
       "kind": "union-member",
       "name": "l",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:tabStops@path:tabStops.alignment",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'l'"
     },
     {
       "catalogKey": "r",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:tabStops@path:tabStops.alignment",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:tabStops@path:tabStops.alignment#r",
       "kind": "union-member",
       "name": "r",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:tabStops@path:tabStops.alignment",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'r'"
     },
     {
       "catalogKey": "horz",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:textDirection",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:textDirection#horz",
       "kind": "union-member",
       "name": "horz",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:textDirection",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'horz'"
     },
     {
       "catalogKey": "vert",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:textDirection",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:textDirection#vert",
       "kind": "union-member",
       "name": "vert",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:textDirection",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'vert'"
     },
     {
       "catalogKey": "vert270",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:textDirection",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:textDirection#vert270",
       "kind": "union-member",
       "name": "vert270",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:textDirection",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'vert270'"
     },
     {
       "catalogKey": "wordArtVert",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:textDirection",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:textDirection#wordArtVert",
       "kind": "union-member",
       "name": "wordArtVert",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:textDirection",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'wordArtVert'"
     },
     {
       "catalogKey": "dash",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:underline@path:underline.style",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:underline@path:underline.style#dash",
       "kind": "union-member",
       "name": "dash",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:underline@path:underline.style",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'dash'"
     },
     {
       "catalogKey": "dashHeavy",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:underline@path:underline.style",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:underline@path:underline.style#dashHeavy",
       "kind": "union-member",
       "name": "dashHeavy",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:underline@path:underline.style",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'dashHeavy'"
     },
     {
       "catalogKey": "dashLong",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:underline@path:underline.style",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:underline@path:underline.style#dashLong",
       "kind": "union-member",
       "name": "dashLong",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:underline@path:underline.style",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'dashLong'"
     },
     {
       "catalogKey": "dashLongHeavy",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:underline@path:underline.style",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:underline@path:underline.style#dashLongHeavy",
       "kind": "union-member",
       "name": "dashLongHeavy",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:underline@path:underline.style",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'dashLongHeavy'"
     },
     {
       "catalogKey": "dbl",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:underline@path:underline.style",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:underline@path:underline.style#dbl",
       "kind": "union-member",
       "name": "dbl",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:underline@path:underline.style",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'dbl'"
     },
     {
       "catalogKey": "dotDash",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:underline@path:underline.style",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:underline@path:underline.style#dotDash",
       "kind": "union-member",
       "name": "dotDash",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:underline@path:underline.style",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'dotDash'"
     },
     {
       "catalogKey": "dotDashHeave",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:underline@path:underline.style",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:underline@path:underline.style#dotDashHeave",
       "kind": "union-member",
       "name": "dotDashHeave",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:underline@path:underline.style",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'dotDashHeave'"
     },
     {
       "catalogKey": "dotDotDash",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:underline@path:underline.style",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:underline@path:underline.style#dotDotDash",
       "kind": "union-member",
       "name": "dotDotDash",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:underline@path:underline.style",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'dotDotDash'"
     },
     {
       "catalogKey": "dotDotDashHeavy",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:underline@path:underline.style",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:underline@path:underline.style#dotDotDashHeavy",
       "kind": "union-member",
       "name": "dotDotDashHeavy",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:underline@path:underline.style",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'dotDotDashHeavy'"
     },
     {
       "catalogKey": "dotted",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:underline@path:underline.style",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:underline@path:underline.style#dotted",
       "kind": "union-member",
       "name": "dotted",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:underline@path:underline.style",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'dotted'"
     },
     {
       "catalogKey": "dottedHeavy",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:underline@path:underline.style",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:underline@path:underline.style#dottedHeavy",
       "kind": "union-member",
       "name": "dottedHeavy",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:underline@path:underline.style",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'dottedHeavy'"
     },
     {
       "catalogKey": "heavy",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:underline@path:underline.style",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:underline@path:underline.style#heavy",
       "kind": "union-member",
       "name": "heavy",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:underline@path:underline.style",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'heavy'"
     },
     {
       "catalogKey": "none",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:underline@path:underline.style",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:underline@path:underline.style#none",
       "kind": "union-member",
       "name": "none",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:underline@path:underline.style",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'none'"
     },
     {
       "catalogKey": "sng",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:underline@path:underline.style",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:underline@path:underline.style#sng",
       "kind": "union-member",
       "name": "sng",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:underline@path:underline.style",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'sng'"
     },
     {
       "catalogKey": "wavy",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:underline@path:underline.style",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:underline@path:underline.style#wavy",
       "kind": "union-member",
       "name": "wavy",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:underline@path:underline.style",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'wavy'"
     },
     {
       "catalogKey": "wavyDbl",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:underline@path:underline.style",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:underline@path:underline.style#wavyDbl",
       "kind": "union-member",
       "name": "wavyDbl",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:underline@path:underline.style",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'wavyDbl'"
     },
     {
       "catalogKey": "wavyHeavy",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+      },
       "declaredIn": "interface:IChartOpts@property:underline@path:underline.style",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/chart-options.internal.ts",
+            "pattern": "const OPTION_KEYS = ["
+          }
+        ],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates inherited inert IChartOpts text and top-level gridline declarations from chart output"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:underline@path:underline.style#wavyHeavy",
       "kind": "union-member",
       "name": "wavyHeavy",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.",
       "optional": false,
       "owner": "interface:IChartOpts@property:underline@path:underline.style",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'wavyHeavy'"
     },
     {
@@ -63406,13 +64512,13 @@
   ],
   "complete": false,
   "counts": {
-    "defect-excluded": 4,
+    "defect-excluded": 83,
     "deliberate-difference": 67,
     "deprecated-alias": 77,
     "stale": 0,
     "supported": 415,
     "unsupported": 0,
-    "unverified": 1211
+    "unverified": 1132
   },
   "declarationSha256": "0726d015dbcb55ccfa75546cb2fd43fe13a0dfeb783d08572f1c62f59193bbe5",
   "declarationTotal": 1774,
@@ -63436,21 +64542,8 @@
     "class:PptxGenJS@property:subject",
     "class:PptxGenJS@property:theme",
     "class:PptxGenJS@property:title",
-    "inline:interface:IChartOpts@property:bullet@property:bullet.characterCode",
-    "inline:interface:IChartOpts@property:bullet@property:bullet.code",
-    "inline:interface:IChartOpts@property:bullet@property:bullet.indent",
-    "inline:interface:IChartOpts@property:bullet@property:bullet.marginPt",
-    "inline:interface:IChartOpts@property:bullet@property:bullet.numberStartAt",
-    "inline:interface:IChartOpts@property:bullet@property:bullet.numberType",
-    "inline:interface:IChartOpts@property:bullet@property:bullet.startAt",
-    "inline:interface:IChartOpts@property:bullet@property:bullet.style",
-    "inline:interface:IChartOpts@property:bullet@property:bullet.type",
-    "inline:interface:IChartOpts@property:tabStops@property:tabStops.alignment",
-    "inline:interface:IChartOpts@property:tabStops@property:tabStops.position",
     "inline:interface:IChartOpts@property:titlePos@property:titlePos.x",
     "inline:interface:IChartOpts@property:titlePos@property:titlePos.y",
-    "inline:interface:IChartOpts@property:underline@property:underline.color",
-    "inline:interface:IChartOpts@property:underline@property:underline.style",
     "inline:interface:ImageProps@property:sizing@property:sizing.h",
     "inline:interface:ImageProps@property:sizing@property:sizing.type",
     "inline:interface:ImageProps@property:sizing@property:sizing.w",
@@ -63587,7 +64680,6 @@
     "interface:IChartMulti@property:data",
     "interface:IChartMulti@property:options",
     "interface:IChartMulti@property:type",
-    "interface:IChartOpts@property:align",
     "interface:IChartOpts@property:altText",
     "interface:IChartOpts@property:axisPos",
     "interface:IChartOpts@property:bar3DShape",
@@ -63596,10 +64688,6 @@
     "interface:IChartOpts@property:barGapWidthPct",
     "interface:IChartOpts@property:barGrouping",
     "interface:IChartOpts@property:barOverlapPct",
-    "interface:IChartOpts@property:bold",
-    "interface:IChartOpts@property:breakLine",
-    "interface:IChartOpts@property:bullet",
-    "interface:IChartOpts@property:cap",
     "interface:IChartOpts@property:catAxes",
     "interface:IChartOpts@property:catAxisBaseTimeUnit",
     "interface:IChartOpts@property:catAxisCrossesAt",
@@ -63635,7 +64723,6 @@
     "interface:IChartOpts@property:catLabelFormatCode",
     "interface:IChartOpts@property:chartColors",
     "interface:IChartOpts@property:chartColorsOpacity",
-    "interface:IChartOpts@property:color",
     "interface:IChartOpts@property:dataBorder",
     "interface:IChartOpts@property:dataLabelBkgrdColors",
     "interface:IChartOpts@property:dataLabelColor",
@@ -63651,13 +64738,9 @@
     "interface:IChartOpts@property:dataTableFormatCode",
     "interface:IChartOpts@property:displayBlanksAs",
     "interface:IChartOpts@property:firstSliceAng",
-    "interface:IChartOpts@property:fontFace",
-    "interface:IChartOpts@property:fontSize",
     "interface:IChartOpts@property:h",
-    "interface:IChartOpts@property:highlight",
     "interface:IChartOpts@property:holeSize",
     "interface:IChartOpts@property:invertedColors",
-    "interface:IChartOpts@property:italic",
     "interface:IChartOpts@property:lang",
     "interface:IChartOpts@property:layout",
     "interface:IChartOpts@property:legendColor",
@@ -63715,11 +64798,6 @@
     "interface:IChartOpts@property:showTitle",
     "interface:IChartOpts@property:showValAxisTitle",
     "interface:IChartOpts@property:showValue",
-    "interface:IChartOpts@property:size",
-    "interface:IChartOpts@property:softBreakBefore",
-    "interface:IChartOpts@property:style",
-    "interface:IChartOpts@property:tabStops",
-    "interface:IChartOpts@property:textDirection",
     "interface:IChartOpts@property:title",
     "interface:IChartOpts@property:titleAlign",
     "interface:IChartOpts@property:titleBold",
@@ -63728,8 +64806,6 @@
     "interface:IChartOpts@property:titleFontSize",
     "interface:IChartOpts@property:titlePos",
     "interface:IChartOpts@property:titleRotate",
-    "interface:IChartOpts@property:transparency",
-    "interface:IChartOpts@property:underline",
     "interface:IChartOpts@property:v3DPerspective",
     "interface:IChartOpts@property:v3DRAngAx",
     "interface:IChartOpts@property:v3DRotX",
@@ -63765,7 +64841,6 @@
     "interface:IChartOpts@property:valAxisTitleRotate",
     "interface:IChartOpts@property:valGridLine",
     "interface:IChartOpts@property:valLabelFormatCode",
-    "interface:IChartOpts@property:valign",
     "interface:IChartOpts@property:w",
     "interface:IChartOpts@property:x",
     "interface:IChartOpts@property:y",
@@ -64179,25 +65254,6 @@
     "union:interface:IChartOpts@property:axisPos#l",
     "union:interface:IChartOpts@property:axisPos#r",
     "union:interface:IChartOpts@property:axisPos#t",
-    "union:interface:IChartOpts@property:bullet#boolean",
-    "union:interface:IChartOpts@property:bullet@path:bullet.numberType#alphaLcParenBoth",
-    "union:interface:IChartOpts@property:bullet@path:bullet.numberType#alphaLcParenR",
-    "union:interface:IChartOpts@property:bullet@path:bullet.numberType#alphaLcPeriod",
-    "union:interface:IChartOpts@property:bullet@path:bullet.numberType#alphaUcParenBoth",
-    "union:interface:IChartOpts@property:bullet@path:bullet.numberType#alphaUcParenR",
-    "union:interface:IChartOpts@property:bullet@path:bullet.numberType#alphaUcPeriod",
-    "union:interface:IChartOpts@property:bullet@path:bullet.numberType#arabicParenBoth",
-    "union:interface:IChartOpts@property:bullet@path:bullet.numberType#arabicParenR",
-    "union:interface:IChartOpts@property:bullet@path:bullet.numberType#arabicPeriod",
-    "union:interface:IChartOpts@property:bullet@path:bullet.numberType#arabicPlain",
-    "union:interface:IChartOpts@property:bullet@path:bullet.numberType#romanLcParenBoth",
-    "union:interface:IChartOpts@property:bullet@path:bullet.numberType#romanLcParenR",
-    "union:interface:IChartOpts@property:bullet@path:bullet.numberType#romanLcPeriod",
-    "union:interface:IChartOpts@property:bullet@path:bullet.numberType#romanUcParenBoth",
-    "union:interface:IChartOpts@property:bullet@path:bullet.numberType#romanUcParenR",
-    "union:interface:IChartOpts@property:bullet@path:bullet.numberType#romanUcPeriod",
-    "union:interface:IChartOpts@property:bullet@path:bullet.type#bullet",
-    "union:interface:IChartOpts@property:bullet@path:bullet.type#number",
     "union:interface:IChartOpts@property:catAxisCrossesAt#autoZero",
     "union:interface:IChartOpts@property:catAxisCrossesAt#number",
     "union:interface:IChartOpts@property:catAxisLabelPos#high",
@@ -64245,35 +65301,6 @@
     "union:interface:IChartOpts@property:serAxisLabelPos#low",
     "union:interface:IChartOpts@property:serAxisLabelPos#nextTo",
     "union:interface:IChartOpts@property:serAxisLabelPos#none",
-    "union:interface:IChartOpts@property:style#dash",
-    "union:interface:IChartOpts@property:style#dot",
-    "union:interface:IChartOpts@property:style#none",
-    "union:interface:IChartOpts@property:style#solid",
-    "union:interface:IChartOpts@property:tabStops@path:tabStops.alignment#ctr",
-    "union:interface:IChartOpts@property:tabStops@path:tabStops.alignment#dec",
-    "union:interface:IChartOpts@property:tabStops@path:tabStops.alignment#l",
-    "union:interface:IChartOpts@property:tabStops@path:tabStops.alignment#r",
-    "union:interface:IChartOpts@property:textDirection#horz",
-    "union:interface:IChartOpts@property:textDirection#vert",
-    "union:interface:IChartOpts@property:textDirection#vert270",
-    "union:interface:IChartOpts@property:textDirection#wordArtVert",
-    "union:interface:IChartOpts@property:underline@path:underline.style#dash",
-    "union:interface:IChartOpts@property:underline@path:underline.style#dashHeavy",
-    "union:interface:IChartOpts@property:underline@path:underline.style#dashLong",
-    "union:interface:IChartOpts@property:underline@path:underline.style#dashLongHeavy",
-    "union:interface:IChartOpts@property:underline@path:underline.style#dbl",
-    "union:interface:IChartOpts@property:underline@path:underline.style#dotDash",
-    "union:interface:IChartOpts@property:underline@path:underline.style#dotDashHeave",
-    "union:interface:IChartOpts@property:underline@path:underline.style#dotDotDash",
-    "union:interface:IChartOpts@property:underline@path:underline.style#dotDotDashHeavy",
-    "union:interface:IChartOpts@property:underline@path:underline.style#dotted",
-    "union:interface:IChartOpts@property:underline@path:underline.style#dottedHeavy",
-    "union:interface:IChartOpts@property:underline@path:underline.style#heavy",
-    "union:interface:IChartOpts@property:underline@path:underline.style#none",
-    "union:interface:IChartOpts@property:underline@path:underline.style#sng",
-    "union:interface:IChartOpts@property:underline@path:underline.style#wavy",
-    "union:interface:IChartOpts@property:underline@path:underline.style#wavyDbl",
-    "union:interface:IChartOpts@property:underline@path:underline.style#wavyHeavy",
     "union:interface:IChartOpts@property:valAxisCrossesAt#autoZero",
     "union:interface:IChartOpts@property:valAxisCrossesAt#number",
     "union:interface:IChartOpts@property:valAxisDisplayUnit#billions",

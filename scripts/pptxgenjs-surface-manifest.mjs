@@ -689,6 +689,151 @@ const DEPRECATED_CHART_AREA_ALIAS_ENTRIES = Object.freeze([
   deprecatedChartAreaAliasEntry('fill'),
 ]);
 
+const INERT_CHART_OPTION_CONTROL_TITLE =
+  'isolates inherited inert IChartOpts text and top-level gridline declarations from chart output';
+const INERT_CHART_OPTION_PROPERTIES = Object.freeze([
+  'align',
+  'bold',
+  'breakLine',
+  'bullet',
+  'cap',
+  'color',
+  'fontFace',
+  'fontSize',
+  'highlight',
+  'italic',
+  'size',
+  'softBreakBefore',
+  'style',
+  'tabStops',
+  'textDirection',
+  'transparency',
+  'underline',
+  'valign',
+]);
+const INERT_CHART_OPTION_INLINE_FIELDS = Object.freeze({
+  bullet: Object.freeze([
+    'characterCode',
+    'code',
+    'indent',
+    'marginPt',
+    'numberStartAt',
+    'numberType',
+    'startAt',
+    'style',
+    'type',
+  ]),
+  tabStops: Object.freeze(['alignment', 'position']),
+  underline: Object.freeze(['color', 'style']),
+});
+const INERT_CHART_BULLET_NUMBER_TYPES = Object.freeze([
+  'alphaLcParenBoth',
+  'alphaLcParenR',
+  'alphaLcPeriod',
+  'alphaUcParenBoth',
+  'alphaUcParenR',
+  'alphaUcPeriod',
+  'arabicParenBoth',
+  'arabicParenR',
+  'arabicPeriod',
+  'arabicPlain',
+  'romanLcParenBoth',
+  'romanLcParenR',
+  'romanLcPeriod',
+  'romanUcParenBoth',
+  'romanUcParenR',
+  'romanUcPeriod',
+]);
+const INERT_CHART_UNDERLINE_STYLES = Object.freeze([
+  'dash',
+  'dashHeavy',
+  'dashLong',
+  'dashLongHeavy',
+  'dbl',
+  'dotDash',
+  'dotDashHeave',
+  'dotDotDash',
+  'dotDotDashHeavy',
+  'dotted',
+  'dottedHeavy',
+  'heavy',
+  'none',
+  'sng',
+  'wavy',
+  'wavyDbl',
+  'wavyHeavy',
+]);
+
+function inertChartOptionInlineId(property, field) {
+  return `inline:${linePropertyId('IChartOpts', property)}@property:${property}.${field}`;
+}
+
+function inertChartOptionUnionIds(property, path, values) {
+  const suffix = path === undefined ? '' : `@path:${path}`;
+  return values.map((value) =>
+    `union:${linePropertyId('IChartOpts', property)}${suffix}#${value}`);
+}
+
+const INERT_CHART_OPTION_IDS = Object.freeze([
+  ...INERT_CHART_OPTION_PROPERTIES.map((property) =>
+    linePropertyId('IChartOpts', property)),
+  ...Object.entries(INERT_CHART_OPTION_INLINE_FIELDS).flatMap(([property, fields]) =>
+    fields.map((field) => inertChartOptionInlineId(property, field))),
+  ...inertChartOptionUnionIds('bullet', undefined, ['boolean']),
+  ...inertChartOptionUnionIds(
+    'bullet',
+    'bullet.numberType',
+    INERT_CHART_BULLET_NUMBER_TYPES,
+  ),
+  ...inertChartOptionUnionIds('bullet', 'bullet.type', ['bullet', 'number']),
+  ...inertChartOptionUnionIds('style', undefined, ['dash', 'dot', 'none', 'solid']),
+  ...inertChartOptionUnionIds(
+    'tabStops',
+    'tabStops.alignment',
+    ['ctr', 'dec', 'l', 'r'],
+  ),
+  ...inertChartOptionUnionIds(
+    'textDirection',
+    undefined,
+    ['horz', 'vert', 'vert270', 'wordArtVert'],
+  ),
+  ...inertChartOptionUnionIds(
+    'underline',
+    'underline.style',
+    INERT_CHART_UNDERLINE_STYLES,
+  ),
+].sort());
+
+function inertChartOptionDefectEntry(id) {
+  return {
+    id,
+    status: 'defect-excluded',
+    native: [],
+    evidence: {
+      code: [{
+        path: 'packages/model/src/chart-options.internal.ts',
+        pattern: 'const OPTION_KEYS = [',
+      }],
+      tests: [{
+        path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+        title: INERT_CHART_OPTION_CONTROL_TITLE,
+      }],
+      package: [],
+      ooxml: [],
+      clients: [],
+    },
+    control: {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      pattern: INERT_CHART_OPTION_CONTROL_TITLE,
+    },
+    note: 'PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise.',
+  };
+}
+
+const INERT_CHART_OPTION_DEFECT_ENTRIES = Object.freeze(
+  INERT_CHART_OPTION_IDS.map((id) => inertChartOptionDefectEntry(id)),
+);
+
 const TABLE_TO_SLIDES_FILL_CONTROL_TITLE =
   'isolates the ignored tableToSlides fill declaration from computed CSS backgrounds';
 const TABLE_TO_SLIDES_FILL_DEFECT_ENTRY = Object.freeze({
@@ -1053,6 +1198,7 @@ export const PPTXGENJS_SURFACE_MANIFEST = deepFreeze({
     TABLE_TO_SLIDES_FILL_DEFECT_ENTRY,
     ...CHART_AREA_FILL_LINE_ENTRIES,
     ...DEPRECATED_CHART_AREA_ALIAS_ENTRIES,
+    ...INERT_CHART_OPTION_DEFECT_ENTRIES,
     ...['ShapeType', 'SHAPE_NAME'].flatMap((owner) =>
       DECLARED_PRESET_SHAPE_VALUES.map((value) => presetShapeCatalogEntry(owner, value))),
     ...['SchemeColor', 'ThemeColor'].flatMap((owner) =>

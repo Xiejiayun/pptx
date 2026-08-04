@@ -13,9 +13,9 @@
 | supported | 415 |
 | deliberate-difference | 67 |
 | deprecated-alias | 77 |
-| defect-excluded | 4 |
+| defect-excluded | 83 |
 | unsupported | 0 |
-| unverified | 1211 |
+| unverified | 1132 |
 | stale | 0 |
 
 ## Runtime declaration differences
@@ -46,21 +46,8 @@ None.
 - `class:PptxGenJS@property:subject`
 - `class:PptxGenJS@property:theme`
 - `class:PptxGenJS@property:title`
-- `inline:interface:IChartOpts@property:bullet@property:bullet.characterCode`
-- `inline:interface:IChartOpts@property:bullet@property:bullet.code`
-- `inline:interface:IChartOpts@property:bullet@property:bullet.indent`
-- `inline:interface:IChartOpts@property:bullet@property:bullet.marginPt`
-- `inline:interface:IChartOpts@property:bullet@property:bullet.numberStartAt`
-- `inline:interface:IChartOpts@property:bullet@property:bullet.numberType`
-- `inline:interface:IChartOpts@property:bullet@property:bullet.startAt`
-- `inline:interface:IChartOpts@property:bullet@property:bullet.style`
-- `inline:interface:IChartOpts@property:bullet@property:bullet.type`
-- `inline:interface:IChartOpts@property:tabStops@property:tabStops.alignment`
-- `inline:interface:IChartOpts@property:tabStops@property:tabStops.position`
 - `inline:interface:IChartOpts@property:titlePos@property:titlePos.x`
 - `inline:interface:IChartOpts@property:titlePos@property:titlePos.y`
-- `inline:interface:IChartOpts@property:underline@property:underline.color`
-- `inline:interface:IChartOpts@property:underline@property:underline.style`
 - `inline:interface:ImageProps@property:sizing@property:sizing.h`
 - `inline:interface:ImageProps@property:sizing@property:sizing.type`
 - `inline:interface:ImageProps@property:sizing@property:sizing.w`
@@ -197,7 +184,6 @@ None.
 - `interface:IChartMulti@property:data`
 - `interface:IChartMulti@property:options`
 - `interface:IChartMulti@property:type`
-- `interface:IChartOpts@property:align`
 - `interface:IChartOpts@property:altText`
 - `interface:IChartOpts@property:axisPos`
 - `interface:IChartOpts@property:bar3DShape`
@@ -206,10 +192,6 @@ None.
 - `interface:IChartOpts@property:barGapWidthPct`
 - `interface:IChartOpts@property:barGrouping`
 - `interface:IChartOpts@property:barOverlapPct`
-- `interface:IChartOpts@property:bold`
-- `interface:IChartOpts@property:breakLine`
-- `interface:IChartOpts@property:bullet`
-- `interface:IChartOpts@property:cap`
 - `interface:IChartOpts@property:catAxes`
 - `interface:IChartOpts@property:catAxisBaseTimeUnit`
 - `interface:IChartOpts@property:catAxisCrossesAt`
@@ -245,7 +227,6 @@ None.
 - `interface:IChartOpts@property:catLabelFormatCode`
 - `interface:IChartOpts@property:chartColors`
 - `interface:IChartOpts@property:chartColorsOpacity`
-- `interface:IChartOpts@property:color`
 - `interface:IChartOpts@property:dataBorder`
 - `interface:IChartOpts@property:dataLabelBkgrdColors`
 - `interface:IChartOpts@property:dataLabelColor`
@@ -261,13 +242,9 @@ None.
 - `interface:IChartOpts@property:dataTableFormatCode`
 - `interface:IChartOpts@property:displayBlanksAs`
 - `interface:IChartOpts@property:firstSliceAng`
-- `interface:IChartOpts@property:fontFace`
-- `interface:IChartOpts@property:fontSize`
 - `interface:IChartOpts@property:h`
-- `interface:IChartOpts@property:highlight`
 - `interface:IChartOpts@property:holeSize`
 - `interface:IChartOpts@property:invertedColors`
-- `interface:IChartOpts@property:italic`
 - `interface:IChartOpts@property:lang`
 - `interface:IChartOpts@property:layout`
 - `interface:IChartOpts@property:legendColor`
@@ -325,11 +302,6 @@ None.
 - `interface:IChartOpts@property:showTitle`
 - `interface:IChartOpts@property:showValAxisTitle`
 - `interface:IChartOpts@property:showValue`
-- `interface:IChartOpts@property:size`
-- `interface:IChartOpts@property:softBreakBefore`
-- `interface:IChartOpts@property:style`
-- `interface:IChartOpts@property:tabStops`
-- `interface:IChartOpts@property:textDirection`
 - `interface:IChartOpts@property:title`
 - `interface:IChartOpts@property:titleAlign`
 - `interface:IChartOpts@property:titleBold`
@@ -338,8 +310,6 @@ None.
 - `interface:IChartOpts@property:titleFontSize`
 - `interface:IChartOpts@property:titlePos`
 - `interface:IChartOpts@property:titleRotate`
-- `interface:IChartOpts@property:transparency`
-- `interface:IChartOpts@property:underline`
 - `interface:IChartOpts@property:v3DPerspective`
 - `interface:IChartOpts@property:v3DRAngAx`
 - `interface:IChartOpts@property:v3DRotX`
@@ -375,7 +345,6 @@ None.
 - `interface:IChartOpts@property:valAxisTitleRotate`
 - `interface:IChartOpts@property:valGridLine`
 - `interface:IChartOpts@property:valLabelFormatCode`
-- `interface:IChartOpts@property:valign`
 - `interface:IChartOpts@property:w`
 - `interface:IChartOpts@property:x`
 - `interface:IChartOpts@property:y`
@@ -789,25 +758,6 @@ None.
 - `union:interface:IChartOpts@property:axisPos#l`
 - `union:interface:IChartOpts@property:axisPos#r`
 - `union:interface:IChartOpts@property:axisPos#t`
-- `union:interface:IChartOpts@property:bullet#boolean`
-- `union:interface:IChartOpts@property:bullet@path:bullet.numberType#alphaLcParenBoth`
-- `union:interface:IChartOpts@property:bullet@path:bullet.numberType#alphaLcParenR`
-- `union:interface:IChartOpts@property:bullet@path:bullet.numberType#alphaLcPeriod`
-- `union:interface:IChartOpts@property:bullet@path:bullet.numberType#alphaUcParenBoth`
-- `union:interface:IChartOpts@property:bullet@path:bullet.numberType#alphaUcParenR`
-- `union:interface:IChartOpts@property:bullet@path:bullet.numberType#alphaUcPeriod`
-- `union:interface:IChartOpts@property:bullet@path:bullet.numberType#arabicParenBoth`
-- `union:interface:IChartOpts@property:bullet@path:bullet.numberType#arabicParenR`
-- `union:interface:IChartOpts@property:bullet@path:bullet.numberType#arabicPeriod`
-- `union:interface:IChartOpts@property:bullet@path:bullet.numberType#arabicPlain`
-- `union:interface:IChartOpts@property:bullet@path:bullet.numberType#romanLcParenBoth`
-- `union:interface:IChartOpts@property:bullet@path:bullet.numberType#romanLcParenR`
-- `union:interface:IChartOpts@property:bullet@path:bullet.numberType#romanLcPeriod`
-- `union:interface:IChartOpts@property:bullet@path:bullet.numberType#romanUcParenBoth`
-- `union:interface:IChartOpts@property:bullet@path:bullet.numberType#romanUcParenR`
-- `union:interface:IChartOpts@property:bullet@path:bullet.numberType#romanUcPeriod`
-- `union:interface:IChartOpts@property:bullet@path:bullet.type#bullet`
-- `union:interface:IChartOpts@property:bullet@path:bullet.type#number`
 - `union:interface:IChartOpts@property:catAxisCrossesAt#autoZero`
 - `union:interface:IChartOpts@property:catAxisCrossesAt#number`
 - `union:interface:IChartOpts@property:catAxisLabelPos#high`
@@ -855,35 +805,6 @@ None.
 - `union:interface:IChartOpts@property:serAxisLabelPos#low`
 - `union:interface:IChartOpts@property:serAxisLabelPos#nextTo`
 - `union:interface:IChartOpts@property:serAxisLabelPos#none`
-- `union:interface:IChartOpts@property:style#dash`
-- `union:interface:IChartOpts@property:style#dot`
-- `union:interface:IChartOpts@property:style#none`
-- `union:interface:IChartOpts@property:style#solid`
-- `union:interface:IChartOpts@property:tabStops@path:tabStops.alignment#ctr`
-- `union:interface:IChartOpts@property:tabStops@path:tabStops.alignment#dec`
-- `union:interface:IChartOpts@property:tabStops@path:tabStops.alignment#l`
-- `union:interface:IChartOpts@property:tabStops@path:tabStops.alignment#r`
-- `union:interface:IChartOpts@property:textDirection#horz`
-- `union:interface:IChartOpts@property:textDirection#vert`
-- `union:interface:IChartOpts@property:textDirection#vert270`
-- `union:interface:IChartOpts@property:textDirection#wordArtVert`
-- `union:interface:IChartOpts@property:underline@path:underline.style#dash`
-- `union:interface:IChartOpts@property:underline@path:underline.style#dashHeavy`
-- `union:interface:IChartOpts@property:underline@path:underline.style#dashLong`
-- `union:interface:IChartOpts@property:underline@path:underline.style#dashLongHeavy`
-- `union:interface:IChartOpts@property:underline@path:underline.style#dbl`
-- `union:interface:IChartOpts@property:underline@path:underline.style#dotDash`
-- `union:interface:IChartOpts@property:underline@path:underline.style#dotDashHeave`
-- `union:interface:IChartOpts@property:underline@path:underline.style#dotDotDash`
-- `union:interface:IChartOpts@property:underline@path:underline.style#dotDotDashHeavy`
-- `union:interface:IChartOpts@property:underline@path:underline.style#dotted`
-- `union:interface:IChartOpts@property:underline@path:underline.style#dottedHeavy`
-- `union:interface:IChartOpts@property:underline@path:underline.style#heavy`
-- `union:interface:IChartOpts@property:underline@path:underline.style#none`
-- `union:interface:IChartOpts@property:underline@path:underline.style#sng`
-- `union:interface:IChartOpts@property:underline@path:underline.style#wavy`
-- `union:interface:IChartOpts@property:underline@path:underline.style#wavyDbl`
-- `union:interface:IChartOpts@property:underline@path:underline.style#wavyHeavy`
 - `union:interface:IChartOpts@property:valAxisCrossesAt#autoZero`
 - `union:interface:IChartOpts@property:valAxisCrossesAt#number`
 - `union:interface:IChartOpts@property:valAxisDisplayUnit#billions`
@@ -1945,28 +1866,28 @@ None.
 | Atom | Status | Native | Evidence | Note |
 | --- | --- | --- | --- | --- |
 | `class:PptxGenJS@property:ChartType` | unverified | — | — | — |
-| `inline:interface:IChartOpts@property:bullet@property:bullet.characterCode` | unverified | — | — | — |
-| `inline:interface:IChartOpts@property:bullet@property:bullet.code` | unverified | — | — | — |
-| `inline:interface:IChartOpts@property:bullet@property:bullet.indent` | unverified | — | — | — |
-| `inline:interface:IChartOpts@property:bullet@property:bullet.marginPt` | unverified | — | — | — |
-| `inline:interface:IChartOpts@property:bullet@property:bullet.numberStartAt` | unverified | — | — | — |
-| `inline:interface:IChartOpts@property:bullet@property:bullet.numberType` | unverified | — | — | — |
-| `inline:interface:IChartOpts@property:bullet@property:bullet.startAt` | unverified | — | — | — |
-| `inline:interface:IChartOpts@property:bullet@property:bullet.style` | unverified | — | — | — |
-| `inline:interface:IChartOpts@property:bullet@property:bullet.type` | unverified | — | — | — |
-| `inline:interface:IChartOpts@property:tabStops@property:tabStops.alignment` | unverified | — | — | — |
-| `inline:interface:IChartOpts@property:tabStops@property:tabStops.position` | unverified | — | — | — |
+| `inline:interface:IChartOpts@property:bullet@property:bullet.characterCode` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `inline:interface:IChartOpts@property:bullet@property:bullet.code` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `inline:interface:IChartOpts@property:bullet@property:bullet.indent` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `inline:interface:IChartOpts@property:bullet@property:bullet.marginPt` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `inline:interface:IChartOpts@property:bullet@property:bullet.numberStartAt` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `inline:interface:IChartOpts@property:bullet@property:bullet.numberType` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `inline:interface:IChartOpts@property:bullet@property:bullet.startAt` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `inline:interface:IChartOpts@property:bullet@property:bullet.style` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `inline:interface:IChartOpts@property:bullet@property:bullet.type` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `inline:interface:IChartOpts@property:tabStops@property:tabStops.alignment` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `inline:interface:IChartOpts@property:tabStops@property:tabStops.position` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
 | `inline:interface:IChartOpts@property:titlePos@property:titlePos.x` | unverified | — | — | — |
 | `inline:interface:IChartOpts@property:titlePos@property:titlePos.y` | unverified | — | — | — |
-| `inline:interface:IChartOpts@property:underline@property:underline.color` | unverified | — | — | — |
-| `inline:interface:IChartOpts@property:underline@property:underline.style` | unverified | — | — | — |
+| `inline:interface:IChartOpts@property:underline@property:underline.color` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `inline:interface:IChartOpts@property:underline@property:underline.style` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
 | `interface:IChartAreaProps@property:border` | deliberate-difference | ChartAreaOptions.line<br>ChartModel.replaceDefinition<br>ChartOptions.chartArea | code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:scripts/smoke-npm-package.mjs<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers chart-area none/solid lines, sRGB/scheme colors, transparency, width, and eight dash styles through a strict ShapeLine; PptxGenJS ignores the declared border type, substitutes defaults for falsy values, and permits invalid widths. |
 | `interface:IChartAreaProps@property:fill` | deliberate-difference | ChartAreaOptions.fill<br>ChartModel.replaceDefinition<br>ChartOptions.chartArea | code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:scripts/smoke-npm-package.mjs<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers chart-area none/solid fills, sRGB/scheme colors, and transparency through a strict ShapeFill; PptxGenJS collapses several explicit none and zero-alpha forms and permits malformed or out-of-range values. |
 | `interface:IChartAreaProps@property:roundedCorners` | deliberate-difference | ChartModel.replaceDefinition<br>ChartOptions.roundedCorners | code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:scripts/smoke-npm-package.mjs<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native exposes roundedCorners at the chart root where OOXML stores it; PptxGenJS nests the option under chartArea, defaults it to true, and serializes false as an explicit default state. |
 | `interface:IChartMulti@property:data` | unverified | — | — | — |
 | `interface:IChartMulti@property:options` | unverified | — | — | — |
 | `interface:IChartMulti@property:type` | unverified | — | — | — |
-| `interface:IChartOpts@property:align` | unverified | — | — | — |
+| `interface:IChartOpts@property:align` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
 | `interface:IChartOpts@property:altText` | unverified | — | — | — |
 | `interface:IChartOpts@property:axisPos` | unverified | — | — | — |
 | `interface:IChartOpts@property:bar3DShape` | unverified | — | — | — |
@@ -1975,11 +1896,11 @@ None.
 | `interface:IChartOpts@property:barGapWidthPct` | unverified | — | — | — |
 | `interface:IChartOpts@property:barGrouping` | unverified | — | — | — |
 | `interface:IChartOpts@property:barOverlapPct` | unverified | — | — | — |
-| `interface:IChartOpts@property:bold` | unverified | — | — | — |
+| `interface:IChartOpts@property:bold` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
 | `interface:IChartOpts@property:border` | deprecated-alias | ChartAreaOptions.line<br>ChartModel.replaceDefinition<br>ChartOptions.plotArea | code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:scripts/smoke-npm-package.mjs<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS keeps top-level border as a deprecated plotArea.border alias and lets it completely replace the nested border; native rejects the alias and exposes only strict ChartOptions.plotArea.line. |
-| `interface:IChartOpts@property:breakLine` | unverified | — | — | — |
-| `interface:IChartOpts@property:bullet` | unverified | — | — | — |
-| `interface:IChartOpts@property:cap` | unverified | — | — | — |
+| `interface:IChartOpts@property:breakLine` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `interface:IChartOpts@property:bullet` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `interface:IChartOpts@property:cap` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
 | `interface:IChartOpts@property:catAxes` | unverified | — | — | — |
 | `interface:IChartOpts@property:catAxisBaseTimeUnit` | unverified | — | — | — |
 | `interface:IChartOpts@property:catAxisCrossesAt` | unverified | — | — | — |
@@ -2015,7 +1936,7 @@ None.
 | `interface:IChartOpts@property:chartArea` | deliberate-difference | ChartAreaOptions<br>ChartOptions.chartArea<br>ChartOptions.roundedCorners | code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:scripts/smoke-npm-package.mjs<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native separates root roundedCorners from strict chart-area fill and line state, while PptxGenJS combines them in one permissive chartArea object with runtime defaults. |
 | `interface:IChartOpts@property:chartColors` | unverified | — | — | — |
 | `interface:IChartOpts@property:chartColorsOpacity` | unverified | — | — | — |
-| `interface:IChartOpts@property:color` | unverified | — | — | — |
+| `interface:IChartOpts@property:color` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
 | `interface:IChartOpts@property:dataBorder` | unverified | — | — | — |
 | `interface:IChartOpts@property:dataLabelBkgrdColors` | unverified | — | — | — |
 | `interface:IChartOpts@property:dataLabelColor` | unverified | — | — | — |
@@ -2032,13 +1953,13 @@ None.
 | `interface:IChartOpts@property:displayBlanksAs` | unverified | — | — | — |
 | `interface:IChartOpts@property:fill` | deprecated-alias | ChartAreaOptions.fill<br>ChartModel.replaceDefinition<br>ChartOptions.plotArea | code:packages/model/src/chart-options.internal.ts<br>code:packages/model/src/chart-render.internal.ts<br>code:packages/model/src/chart-state.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:scripts/smoke-npm-package.mjs<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS keeps top-level fill as a deprecated plotArea.fill color alias and lets it replace the nested color while retaining nested transparency; native rejects the alias and exposes only strict ChartOptions.plotArea.fill. |
 | `interface:IChartOpts@property:firstSliceAng` | unverified | — | — | — |
-| `interface:IChartOpts@property:fontFace` | unverified | — | — | — |
-| `interface:IChartOpts@property:fontSize` | unverified | — | — | — |
+| `interface:IChartOpts@property:fontFace` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `interface:IChartOpts@property:fontSize` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
 | `interface:IChartOpts@property:h` | unverified | — | — | — |
-| `interface:IChartOpts@property:highlight` | unverified | — | — | — |
+| `interface:IChartOpts@property:highlight` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
 | `interface:IChartOpts@property:holeSize` | unverified | — | — | — |
 | `interface:IChartOpts@property:invertedColors` | unverified | — | — | — |
-| `interface:IChartOpts@property:italic` | unverified | — | — | — |
+| `interface:IChartOpts@property:italic` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
 | `interface:IChartOpts@property:lang` | unverified | — | — | — |
 | `interface:IChartOpts@property:legendColor` | unverified | — | — | — |
 | `interface:IChartOpts@property:legendFontFace` | unverified | — | — | — |
@@ -2095,11 +2016,11 @@ None.
 | `interface:IChartOpts@property:showTitle` | unverified | — | — | — |
 | `interface:IChartOpts@property:showValAxisTitle` | unverified | — | — | — |
 | `interface:IChartOpts@property:showValue` | unverified | — | — | — |
-| `interface:IChartOpts@property:size` | unverified | — | — | — |
-| `interface:IChartOpts@property:softBreakBefore` | unverified | — | — | — |
-| `interface:IChartOpts@property:style` | unverified | — | — | — |
-| `interface:IChartOpts@property:tabStops` | unverified | — | — | — |
-| `interface:IChartOpts@property:textDirection` | unverified | — | — | — |
+| `interface:IChartOpts@property:size` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `interface:IChartOpts@property:softBreakBefore` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `interface:IChartOpts@property:style` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `interface:IChartOpts@property:tabStops` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `interface:IChartOpts@property:textDirection` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
 | `interface:IChartOpts@property:title` | unverified | — | — | — |
 | `interface:IChartOpts@property:titleAlign` | unverified | — | — | — |
 | `interface:IChartOpts@property:titleBold` | unverified | — | — | — |
@@ -2108,8 +2029,8 @@ None.
 | `interface:IChartOpts@property:titleFontSize` | unverified | — | — | — |
 | `interface:IChartOpts@property:titlePos` | unverified | — | — | — |
 | `interface:IChartOpts@property:titleRotate` | unverified | — | — | — |
-| `interface:IChartOpts@property:transparency` | unverified | — | — | — |
-| `interface:IChartOpts@property:underline` | unverified | — | — | — |
+| `interface:IChartOpts@property:transparency` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `interface:IChartOpts@property:underline` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
 | `interface:IChartOpts@property:v3DPerspective` | unverified | — | — | — |
 | `interface:IChartOpts@property:v3DRAngAx` | unverified | — | — | — |
 | `interface:IChartOpts@property:v3DRotX` | unverified | — | — | — |
@@ -2144,7 +2065,7 @@ None.
 | `interface:IChartOpts@property:valAxisTitleRotate` | unverified | — | — | — |
 | `interface:IChartOpts@property:valGridLine` | unverified | — | — | — |
 | `interface:IChartOpts@property:valLabelFormatCode` | unverified | — | — | — |
-| `interface:IChartOpts@property:valign` | unverified | — | — | — |
+| `interface:IChartOpts@property:valign` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
 | `interface:IChartOpts@property:w` | unverified | — | — | — |
 | `interface:IChartOpts@property:x` | unverified | — | — | — |
 | `interface:IChartOpts@property:y` | unverified | — | — | — |
@@ -2318,25 +2239,25 @@ None.
 | `union:interface:IChartOpts@property:axisPos#l` | unverified | — | — | — |
 | `union:interface:IChartOpts@property:axisPos#r` | unverified | — | — | — |
 | `union:interface:IChartOpts@property:axisPos#t` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:bullet#boolean` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:bullet@path:bullet.numberType#alphaLcParenBoth` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:bullet@path:bullet.numberType#alphaLcParenR` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:bullet@path:bullet.numberType#alphaLcPeriod` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:bullet@path:bullet.numberType#alphaUcParenBoth` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:bullet@path:bullet.numberType#alphaUcParenR` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:bullet@path:bullet.numberType#alphaUcPeriod` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:bullet@path:bullet.numberType#arabicParenBoth` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:bullet@path:bullet.numberType#arabicParenR` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:bullet@path:bullet.numberType#arabicPeriod` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:bullet@path:bullet.numberType#arabicPlain` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:bullet@path:bullet.numberType#romanLcParenBoth` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:bullet@path:bullet.numberType#romanLcParenR` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:bullet@path:bullet.numberType#romanLcPeriod` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:bullet@path:bullet.numberType#romanUcParenBoth` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:bullet@path:bullet.numberType#romanUcParenR` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:bullet@path:bullet.numberType#romanUcPeriod` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:bullet@path:bullet.type#bullet` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:bullet@path:bullet.type#number` | unverified | — | — | — |
+| `union:interface:IChartOpts@property:bullet#boolean` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:bullet@path:bullet.numberType#alphaLcParenBoth` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:bullet@path:bullet.numberType#alphaLcParenR` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:bullet@path:bullet.numberType#alphaLcPeriod` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:bullet@path:bullet.numberType#alphaUcParenBoth` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:bullet@path:bullet.numberType#alphaUcParenR` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:bullet@path:bullet.numberType#alphaUcPeriod` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:bullet@path:bullet.numberType#arabicParenBoth` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:bullet@path:bullet.numberType#arabicParenR` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:bullet@path:bullet.numberType#arabicPeriod` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:bullet@path:bullet.numberType#arabicPlain` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:bullet@path:bullet.numberType#romanLcParenBoth` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:bullet@path:bullet.numberType#romanLcParenR` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:bullet@path:bullet.numberType#romanLcPeriod` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:bullet@path:bullet.numberType#romanUcParenBoth` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:bullet@path:bullet.numberType#romanUcParenR` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:bullet@path:bullet.numberType#romanUcPeriod` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:bullet@path:bullet.type#bullet` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:bullet@path:bullet.type#number` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
 | `union:interface:IChartOpts@property:catAxisCrossesAt#autoZero` | unverified | — | — | — |
 | `union:interface:IChartOpts@property:catAxisCrossesAt#number` | unverified | — | — | — |
 | `union:interface:IChartOpts@property:catAxisLabelPos#high` | unverified | — | — | — |
@@ -2384,35 +2305,35 @@ None.
 | `union:interface:IChartOpts@property:serAxisLabelPos#low` | unverified | — | — | — |
 | `union:interface:IChartOpts@property:serAxisLabelPos#nextTo` | unverified | — | — | — |
 | `union:interface:IChartOpts@property:serAxisLabelPos#none` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:style#dash` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:style#dot` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:style#none` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:style#solid` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:tabStops@path:tabStops.alignment#ctr` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:tabStops@path:tabStops.alignment#dec` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:tabStops@path:tabStops.alignment#l` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:tabStops@path:tabStops.alignment#r` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:textDirection#horz` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:textDirection#vert` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:textDirection#vert270` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:textDirection#wordArtVert` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:underline@path:underline.style#dash` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:underline@path:underline.style#dashHeavy` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:underline@path:underline.style#dashLong` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:underline@path:underline.style#dashLongHeavy` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:underline@path:underline.style#dbl` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:underline@path:underline.style#dotDash` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:underline@path:underline.style#dotDashHeave` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:underline@path:underline.style#dotDotDash` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:underline@path:underline.style#dotDotDashHeavy` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:underline@path:underline.style#dotted` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:underline@path:underline.style#dottedHeavy` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:underline@path:underline.style#heavy` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:underline@path:underline.style#none` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:underline@path:underline.style#sng` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:underline@path:underline.style#wavy` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:underline@path:underline.style#wavyDbl` | unverified | — | — | — |
-| `union:interface:IChartOpts@property:underline@path:underline.style#wavyHeavy` | unverified | — | — | — |
+| `union:interface:IChartOpts@property:style#dash` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:style#dot` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:style#none` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:style#solid` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:tabStops@path:tabStops.alignment#ctr` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:tabStops@path:tabStops.alignment#dec` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:tabStops@path:tabStops.alignment#l` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:tabStops@path:tabStops.alignment#r` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:textDirection#horz` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:textDirection#vert` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:textDirection#vert270` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:textDirection#wordArtVert` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:underline@path:underline.style#dash` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:underline@path:underline.style#dashHeavy` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:underline@path:underline.style#dashLong` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:underline@path:underline.style#dashLongHeavy` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:underline@path:underline.style#dbl` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:underline@path:underline.style#dotDash` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:underline@path:underline.style#dotDashHeave` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:underline@path:underline.style#dotDotDash` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:underline@path:underline.style#dotDotDashHeavy` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:underline@path:underline.style#dotted` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:underline@path:underline.style#dottedHeavy` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:underline@path:underline.style#heavy` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:underline@path:underline.style#none` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:underline@path:underline.style#sng` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:underline@path:underline.style#wavy` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:underline@path:underline.style#wavyDbl` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
+| `union:interface:IChartOpts@property:underline@path:underline.style#wavyHeavy` | defect-excluded | — | code:packages/model/src/chart-options.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits this IChartOpts field through IChartPropsTitle/TextBaseProps or top-level OptsChartGridLine, but its chart writer ignores every legal value; native uses explicit nested chart options and does not copy inert declaration noise. |
 | `union:interface:IChartOpts@property:valAxisCrossesAt#autoZero` | unverified | — | — | — |
 | `union:interface:IChartOpts@property:valAxisCrossesAt#number` | unverified | — | — | — |
 | `union:interface:IChartOpts@property:valAxisDisplayUnit#billions` | unverified | — | — | — |

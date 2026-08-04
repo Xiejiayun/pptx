@@ -74,7 +74,7 @@ interface PptxGenJSSlide {
       readonly options: Record<string, unknown>;
     }[],
     data: readonly PptxGenJSChartData[] | Record<string, unknown>,
-    options?: Record<string, unknown>,
+    options?: Record<string, unknown> | PptxGenJSPublicChartOptions,
   ): void;
   addImage(options: Record<string, unknown>): void;
   addMedia(options: PptxGenJSMediaOptions): void;
@@ -188,6 +188,9 @@ type PptxGenJSMasterObject =
     };
 
 type PptxGenJSPublicInstance = InstanceType<typeof import('pptxgenjs').default>;
+type PptxGenJSPublicChartOptions = NonNullable<
+  Parameters<ReturnType<PptxGenJSPublicInstance['addSlide']>['addChart']>[2]
+>;
 type PptxGenJSPublicShapeOptions = NonNullable<
   Parameters<ReturnType<PptxGenJSPublicInstance['addSlide']>['addShape']>[1]
 >;
@@ -3372,6 +3375,127 @@ describe('importPptxGenJS', () => {
     expect(coloredNone.definition?.options.chartArea?.fill).toBeUndefined();
     expect(coloredNone.definition?.options.plotArea?.fill).toBeUndefined();
     expect(coloredNone.xml).not.toContain('C0FFEE');
+  });
+
+  it('isolates inherited inert IChartOpts text and top-level gridline declarations from chart output', async () => {
+    const bulletNumberTypes = [
+      'alphaLcParenBoth',
+      'alphaLcParenR',
+      'alphaLcPeriod',
+      'alphaUcParenBoth',
+      'alphaUcParenR',
+      'alphaUcPeriod',
+      'arabicParenBoth',
+      'arabicParenR',
+      'arabicPeriod',
+      'arabicPlain',
+      'romanLcParenBoth',
+      'romanLcParenR',
+      'romanLcPeriod',
+      'romanUcParenBoth',
+      'romanUcParenR',
+      'romanUcPeriod',
+    ] as const;
+    const underlineStyles = [
+      'dash',
+      'dashHeavy',
+      'dashLong',
+      'dashLongHeavy',
+      'dbl',
+      'dotDash',
+      'dotDashHeave',
+      'dotDotDash',
+      'dotDotDashHeavy',
+      'dotted',
+      'dottedHeavy',
+      'heavy',
+      'none',
+      'sng',
+      'wavy',
+      'wavyDbl',
+      'wavyHeavy',
+    ] as const;
+    const alignments = ['left', 'center', 'right', 'justify'] as const;
+    const verticalAlignments = ['top', 'middle', 'bottom'] as const;
+    const lineCaps = ['flat', 'round', 'square'] as const;
+    const lineStyles = ['solid', 'dash', 'dot', 'none'] as const;
+    const tabAlignments = ['l', 'r', 'ctr', 'dec'] as const;
+    const textDirections = ['horz', 'vert', 'vert270', 'wordArtVert'] as const;
+    const generated = new PptxGenJS();
+    const slide = generated.addSlide();
+    const geometry = { x: 1, y: 1, w: 6, h: 4 } as const;
+    const data = () => [{ name: 'Revenue', labels: ['Q1', 'Q2'], values: [10, 20] }];
+    const inertVariants: PptxGenJSPublicChartOptions[] = Array.from(
+      { length: 18 },
+      (_, index) => ({
+        ...geometry,
+        align: alignments[index % alignments.length]!,
+        bold: index % 2 === 0,
+        breakLine: index % 2 !== 0,
+        bullet: index === 0
+          ? true
+          : index === 1
+            ? false
+            : {
+                type: index % 2 === 0 ? 'bullet' : 'number',
+                characterCode: '25BA',
+                indent: 12,
+                numberType: bulletNumberTypes[index - 2]!,
+                numberStartAt: 3,
+                code: '2022',
+                marginPt: 4,
+                startAt: 2,
+                style: 'arabicPeriod',
+              },
+        cap: lineCaps[index % lineCaps.length]!,
+        color: generated.SchemeColor.accent1,
+        fontFace: 'Aptos',
+        fontSize: 18,
+        highlight: 'FFFF00',
+        italic: index % 2 !== 0,
+        size: 2,
+        softBreakBefore: index % 2 === 0,
+        style: lineStyles[index % lineStyles.length]!,
+        tabStops: [{
+          position: 1.5,
+          alignment: tabAlignments[index % tabAlignments.length]!,
+        }],
+        textDirection: textDirections[index % textDirections.length]!,
+        transparency: 25,
+        underline: {
+          style: underlineStyles[index % underlineStyles.length]!,
+          color: '112233',
+        },
+        valign: verticalAlignments[index % verticalAlignments.length]!,
+      }),
+    );
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    try {
+      slide.addChart(generated.ChartType.bar!, data(), geometry);
+      for (const options of inertVariants) {
+        slide.addChart(generated.ChartType.bar!, data(), options);
+      }
+      slide.addChart(generated.ChartType.bar!, data(), {
+        ...geometry,
+        showTitle: true,
+        title: 'Observable title',
+      });
+
+      const imported = await importPptxGenJS(generated);
+      const charts = imported.slides[0]!.shapes.filter(
+        (shape): shape is ChartModel => shape instanceof ChartModel,
+      );
+      expect(charts).toHaveLength(20);
+      const [baseline, ...variantsAndControl] = charts;
+      const control = variantsAndControl.pop();
+      for (const variant of variantsAndControl) expect(variant.xml).toBe(baseline!.xml);
+      expect(control!.xml).not.toBe(baseline!.xml);
+      expect(control!.xml).toContain('Observable title');
+      expect(warning).not.toHaveBeenCalled();
+    } finally {
+      warning.mockRestore();
+    }
   });
 
   it('projects and edits representative PptxGenJS chart options semantically', async () => {
