@@ -120,6 +120,51 @@ async (page) => {
       })
         && reopenedVerticalAlignmentDocument.diagnostics
           .filter(({ severity }) => severity === 'error').length === 0;
+      const presetShapeDocument = api.PptxDocument.create();
+      const presetShapeSlide = presetShapeDocument.addSlide();
+      const presetShapeModels = api.PRESET_SHAPE_TYPES.map(
+        (type) => presetShapeSlide.addShape(type),
+      );
+      const presetShapeXml = new TextDecoder().decode(
+        presetShapeDocument.opcPackage.requirePart(presetShapeSlide.partUri).bytes,
+      );
+      const serializedPresetShapeTypes = [...presetShapeXml.matchAll(
+        /<a:prstGeom prst="([^"]+)"/g,
+      )].map((match) => match[1]);
+      const reopenedPresetShapeDocument = await api.PptxDocument.open(
+        await presetShapeDocument.writeBlob(),
+      );
+      const reopenedPresetShapeTypes = reopenedPresetShapeDocument.slides[0].shapes.map(
+        (shape) => shape instanceof api.ShapeModel ? shape.presetType : undefined,
+      );
+      const presetShapeState = {
+        count: api.PRESET_SHAPE_TYPES.length,
+        unique: new Set(api.PRESET_SHAPE_TYPES).size === api.PRESET_SHAPE_TYPES.length,
+        frozen: Object.isFrozen(api.PRESET_SHAPE_TYPES),
+        canonicalBoundary: api.PRESET_SHAPE_TYPES[0] === 'accentBorderCallout1'
+          && api.PRESET_SHAPE_TYPES.at(-1) === 'wedgeRoundRectCallout'
+          && api.PRESET_SHAPE_TYPES.includes('foldedCorner')
+          && !api.PRESET_SHAPE_TYPES.includes('folderCorner'),
+        created: presetShapeModels.every(
+          ({ presetType }, index) => presetType === api.PRESET_SHAPE_TYPES[index],
+        ),
+        serialized: JSON.stringify(serializedPresetShapeTypes)
+          === JSON.stringify(api.PRESET_SHAPE_TYPES),
+        reopened: JSON.stringify(reopenedPresetShapeTypes)
+          === JSON.stringify(api.PRESET_SHAPE_TYPES),
+        validationErrors: reopenedPresetShapeDocument.diagnostics
+          .filter(({ severity }) => severity === 'error').length,
+      };
+      const presetShapes = JSON.stringify(presetShapeState) === JSON.stringify({
+        count: 178,
+        unique: true,
+        frozen: true,
+        canonicalBoundary: true,
+        created: true,
+        serialized: true,
+        reopened: true,
+        validationErrors: 0,
+      });
       const tableVerticalAlignmentDocument = api.PptxDocument.create();
       const tableVerticalAlignmentSlide = tableVerticalAlignmentDocument.addSlide();
       const tableVerticalAlignmentTable = tableVerticalAlignmentSlide.addTable([
@@ -5448,6 +5493,8 @@ async (page) => {
         horizontalAlignmentState,
         verticalAlignments,
         verticalAlignmentState,
+        presetShapes,
+        presetShapeState,
         tableVerticalAlignment,
         tableVerticalAlignmentState,
         tableTextDirection,
@@ -5784,6 +5831,17 @@ async (page) => {
       textReopened: ['top', 'middle', 'bottom'],
       tableReopened: ['top', 'middle', 'bottom'],
       frozen: true,
+    },
+    presetShapes: true,
+    presetShapeState: {
+      count: 178,
+      unique: true,
+      frozen: true,
+      canonicalBoundary: true,
+      created: true,
+      serialized: true,
+      reopened: true,
+      validationErrors: 0,
     },
     tableVerticalAlignment: true,
     tableVerticalAlignmentState: {

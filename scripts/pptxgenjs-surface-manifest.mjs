@@ -25,6 +25,7 @@ function serializedCatalogMember(
   tests,
   packageEvidence,
   ooxml,
+  clientEvidence,
   note,
 ) {
   return {
@@ -36,9 +37,10 @@ function serializedCatalogMember(
       tests: [tests],
       package: [packageEvidence],
       ooxml: [ooxml],
-      clients: [],
+      clients: [clientEvidence],
     },
     serialization: true,
+    client: true,
     note,
   };
 }
@@ -195,6 +197,10 @@ function presetShapeCatalogEntry(owner, value) {
       path: 'packages/sdk/src/index.test.ts',
       pattern: 'creates all 178 canonical preset shapes in catalog order',
     },
+    {
+      path: 'scripts/playwright-browser-smoke.js',
+      pattern: 'const presetShapes = JSON.stringify(presetShapeState)',
+    },
     'Native exposes, creates, serializes, and reopens the same legal canonical preset token.',
   );
 }
@@ -218,6 +224,10 @@ function schemeColorCatalogEntry(owner, value) {
     {
       path: 'packages/pptxgenjs-adapter/src/index.test.ts',
       pattern: 'matches the public PptxGenJS SchemeColor helper and legal output',
+    },
+    {
+      path: 'scripts/playwright-browser-smoke.js',
+      pattern: 'const schemeColors = JSON.stringify(schemeColorState)',
     },
     'Native exposes the same scheme-color value through its frozen catalog and legal OOXML output.',
   );
@@ -251,6 +261,12 @@ function alignmentCatalogEntry(owner, value, vertical) {
         ? 'publishes TEXT_VERTICAL_ALIGNMENTS through text and table lifecycles'
         : 'publishes TEXT_ALIGNMENTS through the SDK lifecycle',
     },
+    {
+      path: 'scripts/playwright-browser-smoke.js',
+      pattern: vertical
+        ? 'const verticalAlignments = JSON.stringify(verticalAlignmentState)'
+        : 'const horizontalAlignments = JSON.stringify(horizontalAlignmentState)',
+    },
     'Native exposes and serializes the same alignment value through its frozen catalog.',
   );
 }
@@ -275,6 +291,10 @@ function outputTypeCatalogEntry(owner, value) {
       path: 'packages/sdk/src/write-output.test.ts',
       pattern: 'converts canonical bytes into all six Node output representations',
     },
+    {
+      path: 'scripts/playwright-browser-smoke.js',
+      pattern: 'const writeOutputTypes = JSON.stringify(writeOutputTypeState)',
+    },
     'Native exposes the same output selector and returns the matching representation.',
   );
 }
@@ -298,10 +318,14 @@ function placeholderTypeCatalogEntry(owner, value) {
           pattern: "PLACEHOLDER_TYPES.join(',') === 'title,body,pic,chart,tbl,media'",
         }],
         ooxml: [{ path: 'packages/pptxgenjs-adapter/src/index.test.ts', pattern: controlTitle }],
-        clients: [],
+        clients: [{
+          path: 'scripts/playwright-browser-smoke.js',
+          pattern: 'placeholderTypes: [...api.PLACEHOLDER_TYPES]',
+        }],
       },
       control: { path: 'packages/pptxgenjs-adapter/src/index.test.ts', pattern: controlTitle },
       serialization: true,
+      client: true,
       note: `PptxGenJS 4.0.1 normalizes an empty ${value} layout placeholder to body; native preserves the declared ${value} type and uses the correct owner geometry.`,
     };
   }
@@ -323,6 +347,10 @@ function placeholderTypeCatalogEntry(owner, value) {
     {
       path: 'packages/pptxgenjs-adapter/src/index.test.ts',
       pattern: controlTitle,
+    },
+    {
+      path: 'scripts/playwright-browser-smoke.js',
+      pattern: 'placeholderTypes: [...api.PLACEHOLDER_TYPES]',
     },
     'Native exposes, creates, serializes, and reopens the same placeholder type.',
   );
