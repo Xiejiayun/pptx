@@ -554,6 +554,231 @@ async (page) => {
       const tabStops = tabStopsOutput.type ===
           'application/vnd.openxmlformats-officedocument.presentationml.presentation'
         && Object.values(tabStopsState).every(Boolean);
+      const browserUnderlineCommonStyles = [
+        'dash',
+        'dashHeavy',
+        'dashLong',
+        'dashLongHeavy',
+        'dbl',
+        'dotDash',
+        'dotDotDash',
+        'dotDotDashHeavy',
+        'dotted',
+        'dottedHeavy',
+        'heavy',
+        'sng',
+        'wavy',
+        'wavyDbl',
+        'wavyHeavy',
+      ];
+      const browserUnderlineExpectedTokens = [
+        ...browserUnderlineCommonStyles,
+        'sng',
+        'none',
+        'dbl',
+        'sng',
+        'words',
+        'dotDashHeavy',
+      ];
+      const browserUnderlineRuns = () => [
+        ...browserUnderlineCommonStyles.map((style) => ({
+          text: style,
+          style: { underline: { style } },
+        })),
+        { text: 'true', style: { underline: true } },
+        { text: 'none', style: { underline: false } },
+        {
+          text: 'srgb',
+          style: {
+            underline: {
+              style: 'dbl',
+              color: { kind: 'srgb', value: 'FF0000' },
+            },
+          },
+        },
+        {
+          text: 'scheme',
+          style: { underline: { color: { kind: 'scheme', value: 'accent2' } } },
+        },
+        { text: 'words', style: { underline: { style: 'words' } } },
+        { text: 'dotDashHeavy', style: { underline: { style: 'dotDashHeavy' } } },
+      ];
+      const browserUnderlineSnapshot = (paragraphs) =>
+        paragraphs[0].runs.map(({ style }) => style?.underline);
+      const browserUnderlineTokens = (xml) => [...xml.matchAll(
+        /<a:rPr\b[^>]*\bu="([^"]+)"/g,
+      )].map((match) => match[1]);
+      const underlineFamilyDocument = api.PptxDocument.create();
+      const underlineFamilyLayout = underlineFamilyDocument.layouts[0];
+      const browserUnderlinePlaceholder = underlineFamilyLayout.addPlaceholder(
+        'Browser underline placeholder',
+        { name: 'browser_underline_placeholder', type: 'body', index: 222 },
+      );
+      browserUnderlinePlaceholder.richText = [{ runs: browserUnderlineRuns() }];
+      const underlineFamilySlide = underlineFamilyDocument.addSlide();
+      const browserUnderlineText = underlineFamilySlide.addRichText(
+        [{ runs: browserUnderlineRuns() }],
+        { name: 'Browser underline text' },
+      );
+      const browserUnderlineCellTable = underlineFamilySlide.addTable([[{
+        text: [{ runs: browserUnderlineRuns() }],
+      }]], { name: 'Browser underline cell owner' });
+      const browserUnderlineTableOwner = underlineFamilySlide.addTable([[{
+        text: [{ runs: browserUnderlineRuns() }],
+      }]], { name: 'Browser underline table owner equivalent' });
+      const browserUnderlineInitialSnapshots = [
+        browserUnderlineText.richText,
+        browserUnderlinePlaceholder.richText,
+        browserUnderlineCellTable.rows[0].cells[0].richText,
+        browserUnderlineTableOwner.rows[0].cells[0].richText,
+      ].map(browserUnderlineSnapshot);
+      const browserUnderlineImmediate = browserUnderlineInitialSnapshots.every((snapshot) =>
+        JSON.stringify(snapshot.slice(0, browserUnderlineCommonStyles.length)
+          .map((underline) => typeof underline === 'object'
+            ? underline.style : underline)) ===
+          JSON.stringify(browserUnderlineCommonStyles)
+        && JSON.stringify(snapshot.slice(browserUnderlineCommonStyles.length))
+          === JSON.stringify([
+            { style: 'sng' },
+            false,
+            { style: 'dbl', color: { kind: 'srgb', value: 'FF0000' } },
+            { style: 'sng', color: { kind: 'scheme', value: 'accent2' } },
+            { style: 'words' },
+            { style: 'dotDashHeavy' },
+          ]));
+      const browserUnderlineDetached = browserUnderlineText.richText;
+      browserUnderlineDetached[0].runs[0].style.underline.style = 'wavyDbl';
+      browserUnderlineDetached[0].runs[browserUnderlineCommonStyles.length + 2]
+        .style.underline.color.value = '00FF00';
+      const browserUnderlineSnapshotDetached =
+        browserUnderlineText.richText[0].runs[0].style.underline.style === 'dash'
+        && browserUnderlineText.richText[0]
+          .runs[browserUnderlineCommonStyles.length + 2]
+          .style.underline.color.value === 'FF0000';
+      const browserUnderlineInitialSlideXml = new TextDecoder().decode(
+        underlineFamilyDocument.opcPackage.requirePart(underlineFamilySlide.partUri).bytes,
+      );
+      const browserUnderlineInitialLayoutXml = new TextDecoder().decode(
+        underlineFamilyDocument.opcPackage.requirePart(underlineFamilyLayout.partUri).bytes,
+      );
+      const browserUnderlineInitialOoxml =
+        JSON.stringify(browserUnderlineTokens(browserUnderlineInitialSlideXml))
+          === JSON.stringify([
+            ...browserUnderlineExpectedTokens,
+            ...browserUnderlineExpectedTokens,
+            ...browserUnderlineExpectedTokens,
+          ])
+        && JSON.stringify(browserUnderlineTokens(browserUnderlineInitialLayoutXml))
+          === JSON.stringify(browserUnderlineExpectedTokens)
+        && browserUnderlineInitialSlideXml.includes(
+          '<a:uFill><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill></a:uFill>',
+        )
+        && browserUnderlineInitialSlideXml.includes(
+          '<a:uFill><a:solidFill><a:schemeClr val="accent2"/></a:solidFill></a:uFill>',
+        )
+        && !browserUnderlineInitialSlideXml.includes('dotDashHeave"')
+        && !browserUnderlineInitialLayoutXml.includes('dotDashHeave"');
+      const browserUnderlineBeforeInvalid = underlineFamilyDocument.opcPackage
+        .requirePart(underlineFamilySlide.partUri).bytes.slice();
+      const browserUnderlineInvalidJournal = underlineFamilyDocument.opcPackage.mutations.length;
+      let browserUnderlineInvalidRejected = false;
+      try {
+        browserUnderlineText.richText = [{ runs: [{
+          text: 'Invalid upstream underline',
+          style: { underline: { style: 'dotDashHeave' } },
+        }] }];
+      } catch {
+        browserUnderlineInvalidRejected = true;
+      }
+      const browserUnderlineAfterInvalid = underlineFamilyDocument.opcPackage
+        .requirePart(underlineFamilySlide.partUri).bytes;
+      const browserUnderlineInvalidRollback = browserUnderlineInvalidRejected
+        && browserUnderlineInvalidJournal === underlineFamilyDocument.opcPackage.mutations.length
+        && browserUnderlineBeforeInvalid.length === browserUnderlineAfterInvalid.length
+        && browserUnderlineBeforeInvalid.every(
+          (value, index) => value === browserUnderlineAfterInvalid[index],
+        );
+      underlineFamilyDocument.duplicateSlide(0);
+      const browserUnderlineEditedRuns = [
+        { text: 'Disabled', style: { underline: false } },
+        { text: 'Cleared' },
+      ];
+      browserUnderlineText.richText = [{ runs: browserUnderlineEditedRuns }];
+      browserUnderlinePlaceholder.richText = [{ runs: browserUnderlineEditedRuns }];
+      browserUnderlineCellTable.setCellRichText(
+        0,
+        0,
+        [{ runs: browserUnderlineEditedRuns }],
+      );
+      browserUnderlineTableOwner.setCellRichText(
+        0,
+        0,
+        [{ runs: browserUnderlineEditedRuns }],
+      );
+      const browserUnderlineEditedSlideXml = new TextDecoder().decode(
+        underlineFamilyDocument.opcPackage.requirePart(underlineFamilySlide.partUri).bytes,
+      );
+      const browserUnderlineEditedLayoutXml = new TextDecoder().decode(
+        underlineFamilyDocument.opcPackage.requirePart(underlineFamilyLayout.partUri).bytes,
+      );
+      const browserUnderlineEditedOoxml =
+        browserUnderlineTokens(browserUnderlineEditedSlideXml).every(
+          (token) => token === 'none',
+        )
+        && browserUnderlineTokens(browserUnderlineEditedSlideXml).length === 3
+        && JSON.stringify(browserUnderlineTokens(browserUnderlineEditedLayoutXml))
+          === JSON.stringify(['none'])
+        && !browserUnderlineEditedSlideXml.includes('<a:uFill>')
+        && !browserUnderlineEditedLayoutXml.includes('<a:uFill>');
+      const underlineFamilyOutput = await underlineFamilyDocument.writeBlob();
+      const reopenedUnderlineFamilyDocument = await api.PptxDocument.open(
+        underlineFamilyOutput,
+      );
+      const reopenedBrowserUnderlineText = reopenedUnderlineFamilyDocument
+        .slides[0].shapes.find(({ name }) => name === browserUnderlineText.name);
+      const reopenedBrowserUnderlinePlaceholder = reopenedUnderlineFamilyDocument
+        .layouts[0].placeholders.find(({ name }) => name === browserUnderlinePlaceholder.name);
+      const reopenedBrowserUnderlineCellTable = reopenedUnderlineFamilyDocument
+        .slides[0].shapes.find(({ name }) => name === browserUnderlineCellTable.name);
+      const reopenedBrowserUnderlineTableOwner = reopenedUnderlineFamilyDocument
+        .slides[0].shapes.find(({ name }) => name === browserUnderlineTableOwner.name);
+      const reopenedBrowserUnderlineDuplicate = reopenedUnderlineFamilyDocument
+        .slides[1].shapes.find(({ name }) => name === browserUnderlineText.name);
+      const browserUnderlineReopenedOwners = [
+        reopenedBrowserUnderlineText.richText,
+        reopenedBrowserUnderlinePlaceholder.richText,
+        reopenedBrowserUnderlineCellTable.rows[0].cells[0].richText,
+        reopenedBrowserUnderlineTableOwner.rows[0].cells[0].richText,
+      ].every((paragraphs) => JSON.stringify(browserUnderlineSnapshot(paragraphs))
+        === JSON.stringify([false, undefined]));
+      const browserUnderlineDuplicateIsolation =
+        JSON.stringify(browserUnderlineSnapshot(reopenedBrowserUnderlineDuplicate.richText)
+          .slice(0, browserUnderlineCommonStyles.length).map((underline) =>
+            typeof underline === 'object' ? underline.style : underline))
+          === JSON.stringify(browserUnderlineCommonStyles)
+        && browserUnderlineSnapshot(reopenedBrowserUnderlineDuplicate.richText)
+          .at(-1).style === 'dotDashHeavy';
+      const underlineFamilyState = {
+        catalog: browserUnderlineInitialSnapshots.every((snapshot) =>
+          JSON.stringify(snapshot.slice(0, browserUnderlineCommonStyles.length)
+            .map((underline) => typeof underline === 'object'
+              ? underline.style : underline)) === JSON.stringify(browserUnderlineCommonStyles)),
+        trueAsSingle: browserUnderlineInitialSnapshots.every((snapshot) =>
+          JSON.stringify(snapshot[browserUnderlineCommonStyles.length])
+            === JSON.stringify({ style: 'sng' })),
+        immediate: browserUnderlineImmediate,
+        initialOoxml: browserUnderlineInitialOoxml,
+        snapshotDetached: browserUnderlineSnapshotDetached,
+        invalidRollback: browserUnderlineInvalidRollback,
+        editedOoxml: browserUnderlineEditedOoxml,
+        reopenedOwners: browserUnderlineReopenedOwners,
+        duplicateIsolation: browserUnderlineDuplicateIsolation,
+        diagnostics: underlineFamilyDocument.diagnostics.length === 0
+          && reopenedUnderlineFamilyDocument.diagnostics.length === 0,
+      };
+      const underlineFamily = underlineFamilyOutput.type ===
+          'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+        && Object.values(underlineFamilyState).every(Boolean);
       const presetShapeDocument = api.PptxDocument.create();
       const presetShapeSlide = presetShapeDocument.addSlide();
       const presetShapeModels = api.PRESET_SHAPE_TYPES.map(
@@ -6297,6 +6522,8 @@ async (page) => {
         horizontalAlignmentState,
         verticalAlignments,
         verticalAlignmentState,
+        underlineFamily,
+        underlineFamilyState,
         tabStops,
         tabStopsState,
         bulletNumbering,
@@ -6646,6 +6873,19 @@ async (page) => {
       textReopened: ['top', 'middle', 'bottom'],
       tableReopened: ['top', 'middle', 'bottom'],
       frozen: true,
+    },
+    underlineFamily: true,
+    underlineFamilyState: {
+      catalog: true,
+      trueAsSingle: true,
+      immediate: true,
+      initialOoxml: true,
+      snapshotDetached: true,
+      invalidRollback: true,
+      editedOoxml: true,
+      reopenedOwners: true,
+      duplicateIsolation: true,
+      diagnostics: true,
     },
     tabStops: true,
     tabStopsState: {

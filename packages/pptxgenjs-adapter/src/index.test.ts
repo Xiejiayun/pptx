@@ -14898,6 +14898,283 @@ describe('importPptxGenJS', () => {
     expect(slideXml(tableToSlidesVariant, 0)).toBe(slideXml(tableToSlidesBaseline, 0));
   });
 
+  it('locks underline behavior across every declared owner', async () => {
+    const underlineStyles = [
+      'dash',
+      'dashHeavy',
+      'dashLong',
+      'dashLongHeavy',
+      'dbl',
+      'dotDash',
+      'dotDashHeave',
+      'dotDotDash',
+      'dotDotDashHeavy',
+      'dotted',
+      'dottedHeavy',
+      'heavy',
+      'none',
+      'sng',
+      'wavy',
+      'wavyDbl',
+      'wavyHeavy',
+    ] as const;
+    const underlineCases = [
+      ...underlineStyles.map((style) => ({ name: style, value: { style } })),
+      { name: 'styled-color', value: { style: 'dbl', color: 'FF0000' } },
+      { name: 'color-only', value: { color: '00FF00' } },
+      { name: 'empty-object', value: {} },
+      { name: 'boolean-true', value: true },
+      { name: 'boolean-false', value: false },
+    ] as const;
+    const namedOwnerXml = (
+      xml: string,
+      name: string,
+      ownerTag: 'p:sp' | 'p:graphicFrame',
+    ) => {
+      const nameOffset = xml.indexOf(`name="${name}"`);
+      expect(nameOffset).toBeGreaterThanOrEqual(0);
+      const start = xml.lastIndexOf(`<${ownerTag}`, nameOffset);
+      const end = xml.indexOf(`</${ownerTag}>`, nameOffset);
+      expect(start).toBeGreaterThanOrEqual(0);
+      expect(end).toBeGreaterThan(nameOffset);
+      return xml.slice(start, end + ownerTag.length + 3);
+    };
+    const underlineTokens = (xml: string) => [...xml.matchAll(
+      /<a:(?:rPr|defRPr)\b[^>]*\bu="([^"]+)"/gu,
+    )].map((match) => match[1]);
+
+    const source = new PptxGenJS();
+    const activeSlide = source.addSlide();
+    activeSlide.addText(
+      underlineStyles.map((style) => ({ text: style, options: { underline: { style } } })),
+      {
+        objectName: 'underline-text-owner',
+        x: 0,
+        y: 0,
+        w: 6,
+        h: 1,
+      },
+    );
+    activeSlide.addTable([underlineCases.map(({ name, value }) => ({
+      text: name,
+      options: { underline: value },
+    }))], {
+      objectName: 'underline-cell-owner',
+      x: 0,
+      y: 1,
+      w: 12,
+      h: 0.5,
+    });
+    underlineCases.forEach(({ name, value }, index) => {
+      activeSlide.addTable([[name]], {
+        objectName: `underline-table-owner-${name}`,
+        x: index % 6,
+        y: 2 + Math.floor(index / 6) * 0.4,
+        w: 1,
+        h: 0.4,
+        underline: value,
+      });
+    });
+    activeSlide.addText([
+      { text: 'styled-color', options: { underline: { style: 'dbl', color: 'FF0000' } } },
+      { text: 'color-only', options: { underline: { color: '00FF00' } } },
+      { text: 'empty', options: { underline: {} } },
+      {
+        text: 'runtime-correct',
+        options: { underline: { style: 'dotDashHeavy' } as unknown },
+      },
+      { text: 'boolean-true', options: { underline: true } },
+      { text: 'boolean-false', options: { underline: false } },
+    ], {
+      objectName: 'underline-edge-cases',
+      x: 0,
+      y: 4,
+      w: 8,
+      h: 0.5,
+    });
+    source.defineSlideMaster({
+      title: 'UNDERLINE-OWNER-MATRIX',
+      objects: underlineCases.map(({ name, value }, index): PptxGenJSMasterObject => ({
+        placeholder: {
+          text: name,
+          options: {
+            name: `underline-placeholder-${name}`,
+            objectName: `underline-placeholder-${name}`,
+            type: 'body',
+            x: index % 6,
+            y: Math.floor(index / 6) * 0.4,
+            w: 1,
+            h: 0.4,
+            underline: value,
+          },
+        },
+      })),
+    });
+    source.addSlide({ masterName: 'UNDERLINE-OWNER-MATRIX' });
+    for (const [index, { value: underline }] of underlineCases.entries()) {
+      const slide = source.addSlide();
+      slide.addText(`Slide number control ${index + 1}`, {
+        objectName: `underline-slide-number-control-${index}`,
+        x: 0,
+        y: 0,
+        w: 3,
+        h: 0.3,
+        bold: true,
+      });
+      slide.slideNumber = {
+        x: 0,
+        y: 0.4,
+        w: 1,
+        h: 0.3,
+        underline,
+      } as unknown as PptxGenJSSlideNumberProps;
+    }
+
+    const imported = await openPptxGenJSPublicOutput(source);
+    const activeXml = slideXml(imported, 0);
+    expect(underlineTokens(namedOwnerXml(
+      activeXml,
+      'underline-text-owner',
+      'p:sp',
+    ))).toEqual(underlineStyles);
+    const cellOwnerXml = namedOwnerXml(
+      activeXml,
+      'underline-cell-owner',
+      'p:graphicFrame',
+    );
+    expect(underlineTokens(cellOwnerXml)).toEqual([...underlineStyles, 'dbl']);
+    expect(cellOwnerXml).toContain(
+      '<a:uFill><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill></a:uFill>',
+    );
+    expect(cellOwnerXml).toContain(
+      '<a:uFill><a:solidFill><a:srgbClr val="00FF00"/></a:solidFill></a:uFill>',
+    );
+    expect(underlineCases.map(({ name }) => underlineTokens(namedOwnerXml(
+      activeXml,
+      `underline-table-owner-${name}`,
+      'p:graphicFrame',
+    ))[0])).toEqual([
+      ...underlineStyles,
+      'dbl',
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    ]);
+    const tableStyledColorXml = namedOwnerXml(
+      activeXml,
+      'underline-table-owner-styled-color',
+      'p:graphicFrame',
+    );
+    const tableColorOnlyXml = namedOwnerXml(
+      activeXml,
+      'underline-table-owner-color-only',
+      'p:graphicFrame',
+    );
+    expect(tableStyledColorXml).toContain(
+      '<a:uFill><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill></a:uFill>',
+    );
+    expect(tableColorOnlyXml).not.toMatch(/<a:rPr\b[^>]*\bu=/u);
+    expect(tableColorOnlyXml).toContain(
+      '<a:uFill><a:solidFill><a:srgbClr val="00FF00"/></a:solidFill></a:uFill>',
+    );
+    expect(namedOwnerXml(
+      activeXml,
+      'underline-table-owner-empty-object',
+      'p:graphicFrame',
+    )).not.toMatch(/\bu=|<a:uFill>/u);
+
+    const layout = imported.layouts.find(({ name }) => name === 'UNDERLINE-OWNER-MATRIX')!;
+    const layoutXml = new TextDecoder().decode(
+      imported.opcPackage.requirePart(layout.partUri).bytes,
+    );
+    expect(underlineCases.map(({ name }) => {
+      const tokens = underlineTokens(namedOwnerXml(
+        layoutXml,
+        `underline-placeholder-${name}`,
+        'p:sp',
+      ));
+      const expected = name === 'styled-color'
+        ? ['dbl', 'dbl']
+        : name === 'boolean-true'
+        ? ['sng', 'sng']
+          : ['boolean-false', 'color-only', 'empty-object'].includes(name)
+            ? [] : [name, name];
+      expect(tokens).toEqual(expected);
+      return tokens[0];
+    })).toEqual([
+      ...underlineStyles,
+      'dbl',
+      undefined,
+      undefined,
+      'sng',
+      undefined,
+    ]);
+    const placeholderStyledColorXml = namedOwnerXml(
+      layoutXml,
+      'underline-placeholder-styled-color',
+      'p:sp',
+    );
+    const placeholderColorOnlyXml = namedOwnerXml(
+      layoutXml,
+      'underline-placeholder-color-only',
+      'p:sp',
+    );
+    expect(placeholderStyledColorXml.match(/<a:uFill>/gu)).toHaveLength(2);
+    expect(placeholderStyledColorXml).toContain('<a:srgbClr val="FF0000"/>');
+    expect(placeholderColorOnlyXml).not.toMatch(/<a:(?:rPr|defRPr)\b[^>]*\bu=/u);
+    expect(placeholderColorOnlyXml.match(/<a:uFill>/gu)).toHaveLength(2);
+    expect(placeholderColorOnlyXml).toContain('<a:srgbClr val="00FF00"/>');
+
+    const edgeRuns = [...namedOwnerXml(
+      activeXml,
+      'underline-edge-cases',
+      'p:sp',
+    ).matchAll(/<a:r>([\s\S]*?)<\/a:r>/gu)].map((match) => match[1]!);
+    expect(edgeRuns).toHaveLength(6);
+    expect(edgeRuns[0]).toContain('u="dbl"');
+    expect(edgeRuns[0]).toContain(
+      '<a:uFill><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill></a:uFill>',
+    );
+    expect(edgeRuns[1]).not.toMatch(/<a:rPr\b[^>]*\bu=/u);
+    expect(edgeRuns[1]).toContain(
+      '<a:uFill><a:solidFill><a:srgbClr val="00FF00"/></a:solidFill></a:uFill>',
+    );
+    expect(edgeRuns[2]).not.toMatch(/\bu=|<a:uFill>/u);
+    expect(edgeRuns[3]).toContain('u="dotDashHeavy"');
+    expect(edgeRuns[4]).toContain('u="sng"');
+    expect(edgeRuns[5]).not.toMatch(/<a:rPr\b[^>]*\bu=/u);
+
+    for (let index = 0; index < underlineCases.length; index += 1) {
+      const slideXmlValue = slideXml(imported, index + 2);
+      const slideNumberXml = slideNumberOwnerState(
+        imported,
+        imported.slides[index + 2]!.partUri,
+      ).xml.match(
+        /<p:sp(?:\s[^>]*)?>[\s\S]*?<p:ph\b[^>]*\btype="sldNum"[\s\S]*?<\/p:sp>/u,
+      )?.[0];
+      expect(slideXmlValue).toContain(`underline-slide-number-control-${index}`);
+      expect(slideNumberXml).toBeDefined();
+      expect(slideNumberXml).not.toMatch(/<a:(?:rPr|defRPr)\b[^>]*\bu=|<a:uFill>/u);
+    }
+
+    const generateTableToSlides = async (underline?: unknown) => {
+      const presentation = new PptxGenJS();
+      await withTableToSlidesGlobals(tableToSlidesFixture(), () =>
+        presentation.tableToSlides(
+          'report',
+          underline === undefined ? {} : { underline },
+        ));
+      return openPptxGenJSPublicOutput(presentation);
+    };
+    const tableToSlidesBaseline = await generateTableToSlides();
+    const tableToSlidesBaselineXml = slideXml(tableToSlidesBaseline, 0);
+    for (const { value: underline } of underlineCases) {
+      const variant = await generateTableToSlides(underline);
+      expect(slideXml(variant, 0)).toBe(tableToSlidesBaselineXml);
+    }
+  });
+
   it('locks tab stop behavior across every declared owner', async () => {
     const tabStops = [
       { position: 1, alignment: 'l' },

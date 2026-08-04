@@ -124,13 +124,13 @@ function assertDeepFrozen(value, seen = new Set()) {
 test('exports an immutable evidence-backed initial manifest batch', () => {
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.schemaVersion, 1);
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.packageVersion, '4.0.1');
-  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 967);
+  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1087);
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries.map(({ status }) => status).sort(),
     [
-      ...Array(248).fill('defect-excluded'),
-      ...Array(466).fill('supported'),
-      ...Array(170).fill('deliberate-difference'),
+      ...Array(292).fill('defect-excluded'),
+      ...Array(534).fill('supported'),
+      ...Array(178).fill('deliberate-difference'),
       ...Array(83).fill('deprecated-alias'),
     ].sort(),
   );
@@ -413,6 +413,44 @@ test('exports an immutable evidence-backed initial manifest batch', () => {
       ['PlaceholderProps', 'TableCellProps', 'TextPropsOptions'].includes(owner)
         ? ['supported', ...Array(6).fill('deliberate-difference')].sort()
         : Array(7).fill('defect-excluded'),
+      owner,
+    );
+  }
+  const underlineFamilyOwners = new Set([
+    'PlaceholderProps',
+    'SlideNumberProps',
+    'TableCellProps',
+    'TableProps',
+    'TableToSlidesProps',
+    'TextPropsOptions',
+  ]);
+  const underlineFamilyEntries = PPTXGENJS_SURFACE_MANIFEST.entries.filter(({ id }) => {
+    const owner = id.match(/interface:([^@]+)@property:underline/u)?.[1];
+    return owner !== undefined && underlineFamilyOwners.has(owner);
+  });
+  assert.equal(underlineFamilyEntries.length, 120);
+  assert.deepEqual(
+    Object.fromEntries(
+      ['supported', 'deliberate-difference', 'defect-excluded'].map((status) => [
+        status,
+        underlineFamilyEntries.filter((entry) => entry.status === status).length,
+      ]),
+    ),
+    { supported: 68, 'deliberate-difference': 8, 'defect-excluded': 44 },
+  );
+  for (const owner of underlineFamilyOwners) {
+    const entries = underlineFamilyEntries.filter(({ id }) =>
+      id.includes(`interface:${owner}@property:underline`));
+    assert.equal(entries.length, 20, owner);
+    assert.deepEqual(
+      entries.map(({ status }) => status).sort(),
+      ['PlaceholderProps', 'TableCellProps', 'TableProps', 'TextPropsOptions'].includes(owner)
+        ? [
+            ...Array(17).fill('supported'),
+            ...Array(2).fill('deliberate-difference'),
+            'defect-excluded',
+          ].sort()
+        : Array(20).fill('defect-excluded'),
       owner,
     );
   }

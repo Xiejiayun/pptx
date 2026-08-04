@@ -19220,6 +19220,232 @@ describe('PptxDocument vertical slice', () => {
     expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
   });
 
+  it('creates edits clears and reopens underline owners in all six formats', async () => {
+    const commonStyles: readonly RichTextUnderlineStyle[] = [
+      'dash',
+      'dashHeavy',
+      'dashLong',
+      'dashLongHeavy',
+      'dbl',
+      'dotDash',
+      'dotDotDash',
+      'dotDotDashHeavy',
+      'dotted',
+      'dottedHeavy',
+      'heavy',
+      'sng',
+      'wavy',
+      'wavyDbl',
+      'wavyHeavy',
+    ];
+    const expectedTokens = [
+      ...commonStyles,
+      'sng',
+      'none',
+      'dbl',
+      'sng',
+      'words',
+      'dotDashHeavy',
+    ];
+    const underlineRuns = () => [
+      ...commonStyles.map((style) => ({
+        text: style,
+        style: { underline: { style } },
+      })),
+      { text: 'true', style: { underline: true as const } },
+      { text: 'none', style: { underline: false as const } },
+      {
+        text: 'srgb',
+        style: {
+          underline: {
+            style: 'dbl' as const,
+            color: { kind: 'srgb' as const, value: 'FF0000' },
+          },
+        },
+      },
+      {
+        text: 'scheme',
+        style: {
+          underline: { color: { kind: 'scheme' as const, value: 'accent2' as const } },
+        },
+      },
+      { text: 'words', style: { underline: { style: 'words' as const } } },
+      {
+        text: 'dotDashHeavy',
+        style: { underline: { style: 'dotDashHeavy' as const } },
+      },
+    ];
+    const underlineSnapshot = (
+      paragraphs: readonly RichTextParagraph[],
+    ) => paragraphs[0]!.runs.map(({ style }) => style?.underline);
+    const underlineTokens = (xml: string) => [...xml.matchAll(
+      /<a:rPr\b[^>]*\bu="([^"]+)"/gu,
+    )].map((match) => match[1]);
+    const namedOwnerXml = (
+      xml: string,
+      name: string,
+      ownerTag: 'p:sp' | 'p:graphicFrame',
+    ) => {
+      const nameOffset = xml.indexOf(`name="${name}"`);
+      expect(nameOffset).toBeGreaterThanOrEqual(0);
+      const start = xml.lastIndexOf(`<${ownerTag}`, nameOffset);
+      const end = xml.indexOf(`</${ownerTag}>`, nameOffset);
+      expect(start).toBeGreaterThanOrEqual(0);
+      expect(end).toBeGreaterThan(nameOffset);
+      return xml.slice(start, end + ownerTag.length + 3);
+    };
+
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const created = PptxDocument.create({ format });
+      const layout = created.layouts[0]!;
+      const placeholder = layout.addPlaceholder('Placeholder underline owner', {
+        name: 'underline-placeholder-owner',
+        type: 'body',
+        index: 302,
+      });
+      placeholder.richText = [{ runs: underlineRuns() }];
+      const slide = created.addSlide();
+      const text = slide.addRichText([{ runs: underlineRuns() }], {
+        name: 'underline-text-owner',
+      });
+      const cellTable = slide.addTable([[{
+        text: [{ runs: underlineRuns() }],
+      }]], { name: 'underline-cell-owner' });
+      const tableOwner = slide.addTable([[{
+        text: [{ runs: underlineRuns() }],
+      }]], { name: 'underline-table-owner-equivalent' });
+
+      for (const paragraphs of [
+        text.richText,
+        placeholder.richText,
+        cellTable.rows[0]!.cells[0]!.richText,
+        tableOwner.rows[0]!.cells[0]!.richText,
+      ]) {
+        const snapshot = underlineSnapshot(paragraphs);
+        expect(snapshot.slice(0, commonStyles.length).map((underline) =>
+          typeof underline === 'object' ? underline.style : underline)).toEqual(commonStyles);
+        expect(snapshot.slice(commonStyles.length)).toEqual([
+          { style: 'sng' },
+          false,
+          { style: 'dbl', color: { kind: 'srgb', value: 'FF0000' } },
+          { style: 'sng', color: { kind: 'scheme', value: 'accent2' } },
+          { style: 'words' },
+          { style: 'dotDashHeavy' },
+        ]);
+      }
+
+      const detached = text.richText as unknown as Array<{
+        runs: Array<{ style?: { underline?: { style?: string; color?: { value: string } } } }>;
+      }>;
+      detached[0]!.runs[0]!.style!.underline!.style = 'wavyDbl';
+      detached[0]!.runs[commonStyles.length + 2]!.style!.underline!.color!.value = '00FF00';
+      expect(underlineSnapshot(text.richText)[0]).toEqual({ style: 'dash' });
+      expect(underlineSnapshot(text.richText)[commonStyles.length + 2]).toEqual({
+        style: 'dbl',
+        color: { kind: 'srgb', value: 'FF0000' },
+      });
+
+      const initialSlideXml = new TextDecoder().decode(
+        created.opcPackage.requirePart(slide.partUri).bytes,
+      );
+      const initialLayoutXml = new TextDecoder().decode(
+        created.opcPackage.requirePart(layout.partUri).bytes,
+      );
+      for (const [name, ownerTag] of [
+        ['underline-text-owner', 'p:sp'],
+        ['underline-cell-owner', 'p:graphicFrame'],
+        ['underline-table-owner-equivalent', 'p:graphicFrame'],
+      ] as const) {
+        const ownerXml = namedOwnerXml(initialSlideXml, name, ownerTag);
+        expect(underlineTokens(ownerXml)).toEqual(expectedTokens);
+        expect(ownerXml).toContain(
+          '<a:uFill><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill></a:uFill>',
+        );
+        expect(ownerXml).toContain(
+          '<a:uFill><a:solidFill><a:schemeClr val="accent2"/></a:solidFill></a:uFill>',
+        );
+        expect(ownerXml).not.toContain('dotDashHeave"');
+      }
+      const placeholderXml = namedOwnerXml(
+        initialLayoutXml,
+        'underline-placeholder-owner',
+        'p:sp',
+      );
+      expect(underlineTokens(placeholderXml)).toEqual(expectedTokens);
+      expect(placeholderXml).not.toContain('dotDashHeave"');
+
+      const beforeInvalid = created.opcPackage.requirePart(slide.partUri).bytes.slice();
+      const beforeInvalidJournal = [...created.opcPackage.mutations];
+      expect(() => {
+        text.richText = [{ runs: [{
+          text: 'Invalid upstream spelling',
+          style: { underline: { style: 'dotDashHeave' as never } },
+        }] }];
+      }).toThrow(/underline/u);
+      expect(created.opcPackage.requirePart(slide.partUri).bytes).toEqual(beforeInvalid);
+      expect(created.opcPackage.mutations).toEqual(beforeInvalidJournal);
+
+      created.duplicateSlide(0);
+      text.richText = [{ runs: [
+        { text: 'Disabled', style: { underline: false } },
+        { text: 'Cleared' },
+      ] }];
+      placeholder.richText = [{ runs: [
+        { text: 'Disabled', style: { underline: false } },
+        { text: 'Cleared' },
+      ] }];
+      cellTable.setCellRichText(0, 0, [{ runs: [
+        { text: 'Disabled', style: { underline: false } },
+        { text: 'Cleared' },
+      ] }]);
+      tableOwner.setCellRichText(0, 0, [{ runs: [
+        { text: 'Disabled', style: { underline: false } },
+        { text: 'Cleared' },
+      ] }]);
+
+      const reopened = await PptxDocument.open(await created.write());
+      const reopenedText = reopened.slides[0]!.shapes.find(
+        (shape): shape is ShapeModel => shape instanceof ShapeModel
+          && shape.name === 'underline-text-owner',
+      )!;
+      const reopenedCellTable = reopened.slides[0]!.shapes.find(
+        (shape): shape is TableModel => shape instanceof TableModel
+          && shape.name === 'underline-cell-owner',
+      )!;
+      const reopenedTableOwner = reopened.slides[0]!.shapes.find(
+        (shape): shape is TableModel => shape instanceof TableModel
+          && shape.name === 'underline-table-owner-equivalent',
+      )!;
+      const reopenedPlaceholder = reopened.layouts[0]!.placeholders.find(
+        (shape): shape is ShapeModel => shape instanceof ShapeModel
+          && shape.name === 'underline-placeholder-owner',
+      )!;
+      for (const paragraphs of [
+        reopenedText.richText,
+        reopenedPlaceholder.richText,
+        reopenedCellTable.rows[0]!.cells[0]!.richText,
+        reopenedTableOwner.rows[0]!.cells[0]!.richText,
+      ]) {
+        expect(underlineSnapshot(paragraphs)).toEqual([false, undefined]);
+      }
+
+      const duplicateText = reopened.slides[1]!.shapes.find(
+        (shape): shape is ShapeModel => shape instanceof ShapeModel
+          && shape.name === 'underline-text-owner',
+      )!;
+      expect(underlineSnapshot(duplicateText.richText).slice(0, commonStyles.length)
+        .map((underline) => typeof underline === 'object' ? underline.style : underline))
+        .toEqual(commonStyles);
+      expect(underlineSnapshot(duplicateText.richText).at(-1)).toEqual({
+        style: 'dotDashHeavy',
+      });
+      expect(reopened.diagnostics.filter(({ severity }) => severity === 'error')).toEqual([]);
+      expect(validatePackage(reopened.opcPackage).filter(
+        ({ severity }) => severity === 'error',
+      )).toEqual([]);
+    }
+  });
+
   it('rejects malformed rich text values before changing the slide package state', () => {
     const document = PptxDocument.create();
     const slide = document.addSlide();

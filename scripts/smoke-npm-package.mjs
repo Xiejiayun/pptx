@@ -9980,6 +9980,228 @@ if (!tabStops) {
     diagnostics: reopenedTabStopsDeck.diagnostics,
   }));
 }
+const packedUnderlineCommonStyles = [
+  'dash',
+  'dashHeavy',
+  'dashLong',
+  'dashLongHeavy',
+  'dbl',
+  'dotDash',
+  'dotDotDash',
+  'dotDotDashHeavy',
+  'dotted',
+  'dottedHeavy',
+  'heavy',
+  'sng',
+  'wavy',
+  'wavyDbl',
+  'wavyHeavy',
+];
+const packedUnderlineExpectedTokens = [
+  ...packedUnderlineCommonStyles,
+  'sng',
+  'none',
+  'dbl',
+  'sng',
+  'words',
+  'dotDashHeavy',
+];
+const packedUnderlineRuns = () => [
+  ...packedUnderlineCommonStyles.map((style) => ({
+    text: style,
+    style: { underline: { style } },
+  })),
+  { text: 'true', style: { underline: true } },
+  { text: 'none', style: { underline: false } },
+  {
+    text: 'srgb',
+    style: {
+      underline: {
+        style: 'dbl',
+        color: { kind: 'srgb', value: 'FF0000' },
+      },
+    },
+  },
+  {
+    text: 'scheme',
+    style: { underline: { color: { kind: 'scheme', value: 'accent2' } } },
+  },
+  { text: 'words', style: { underline: { style: 'words' } } },
+  { text: 'dotDashHeavy', style: { underline: { style: 'dotDashHeavy' } } },
+];
+const packedUnderlineSnapshot = (paragraphs) =>
+  paragraphs[0].runs.map(({ style }) => style?.underline);
+const packedUnderlineTokens = (xml) => [...xml.matchAll(
+  /<a:rPr\\b[^>]*\\bu="([^"]+)"/g,
+)].map((match) => match[1]);
+const underlineFamilyDeck = PptxDocument.create();
+const underlineFamilyLayout = underlineFamilyDeck.layouts[0];
+const packedUnderlinePlaceholder = underlineFamilyLayout.addPlaceholder(
+  'Packed underline placeholder',
+  { name: 'packed_underline_placeholder', type: 'body', index: 503 },
+);
+packedUnderlinePlaceholder.richText = [{ runs: packedUnderlineRuns() }];
+const underlineFamilySlide = underlineFamilyDeck.addSlide();
+const packedUnderlineText = underlineFamilySlide.addRichText(
+  [{ runs: packedUnderlineRuns() }],
+  { name: 'Packed underline text' },
+);
+const packedUnderlineCellTable = underlineFamilySlide.addTable([[{
+  text: [{ runs: packedUnderlineRuns() }],
+}]], { name: 'Packed underline cell owner' });
+const packedUnderlineTableOwner = underlineFamilySlide.addTable([[{
+  text: [{ runs: packedUnderlineRuns() }],
+}]], { name: 'Packed underline table owner equivalent' });
+const packedUnderlineInitialSnapshots = [
+  packedUnderlineText.richText,
+  packedUnderlinePlaceholder.richText,
+  packedUnderlineCellTable.rows[0].cells[0].richText,
+  packedUnderlineTableOwner.rows[0].cells[0].richText,
+].map(packedUnderlineSnapshot);
+const packedUnderlineImmediate = packedUnderlineInitialSnapshots.every((snapshot) =>
+  JSON.stringify(snapshot.slice(0, packedUnderlineCommonStyles.length).map((underline) =>
+    typeof underline === 'object' ? underline.style : underline)) ===
+      JSON.stringify(packedUnderlineCommonStyles) &&
+  JSON.stringify(snapshot.slice(packedUnderlineCommonStyles.length)) === JSON.stringify([
+    { style: 'sng' },
+    false,
+    { style: 'dbl', color: { kind: 'srgb', value: 'FF0000' } },
+    { style: 'sng', color: { kind: 'scheme', value: 'accent2' } },
+    { style: 'words' },
+    { style: 'dotDashHeavy' },
+  ]));
+const packedUnderlineDetached = packedUnderlineText.richText;
+packedUnderlineDetached[0].runs[0].style.underline.style = 'wavyDbl';
+packedUnderlineDetached[0].runs[packedUnderlineCommonStyles.length + 2]
+  .style.underline.color.value = '00FF00';
+const packedUnderlineSnapshotDetached =
+  packedUnderlineText.richText[0].runs[0].style.underline.style === 'dash' &&
+  packedUnderlineText.richText[0].runs[packedUnderlineCommonStyles.length + 2]
+    .style.underline.color.value === 'FF0000';
+const packedUnderlineInitialSlideXml = new TextDecoder().decode(
+  underlineFamilyDeck.opcPackage.requirePart(underlineFamilySlide.partUri).bytes,
+);
+const packedUnderlineInitialLayoutXml = new TextDecoder().decode(
+  underlineFamilyDeck.opcPackage.requirePart(underlineFamilyLayout.partUri).bytes,
+);
+const packedUnderlineInitialOoxml =
+  JSON.stringify(packedUnderlineTokens(packedUnderlineInitialSlideXml)) ===
+    JSON.stringify([
+      ...packedUnderlineExpectedTokens,
+      ...packedUnderlineExpectedTokens,
+      ...packedUnderlineExpectedTokens,
+    ]) &&
+  JSON.stringify(packedUnderlineTokens(packedUnderlineInitialLayoutXml)) ===
+    JSON.stringify(packedUnderlineExpectedTokens) &&
+  packedUnderlineInitialSlideXml.includes(
+    '<a:uFill><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill></a:uFill>',
+  ) &&
+  packedUnderlineInitialSlideXml.includes(
+    '<a:uFill><a:solidFill><a:schemeClr val="accent2"/></a:solidFill></a:uFill>',
+  ) &&
+  !packedUnderlineInitialSlideXml.includes('dotDashHeave"') &&
+  !packedUnderlineInitialLayoutXml.includes('dotDashHeave"');
+const packedUnderlineBeforeInvalid = underlineFamilyDeck.opcPackage
+  .requirePart(underlineFamilySlide.partUri).bytes.slice();
+const packedUnderlineInvalidJournal = underlineFamilyDeck.opcPackage.mutations.length;
+let packedUnderlineInvalidRejected = false;
+try {
+  packedUnderlineText.richText = [{ runs: [{
+    text: 'Invalid upstream underline',
+    style: { underline: { style: 'dotDashHeave' } },
+  }] }];
+} catch {
+  packedUnderlineInvalidRejected = true;
+}
+const packedUnderlineAfterInvalid = underlineFamilyDeck.opcPackage
+  .requirePart(underlineFamilySlide.partUri).bytes;
+const packedUnderlineInvalidRollback = packedUnderlineInvalidRejected &&
+  packedUnderlineInvalidJournal === underlineFamilyDeck.opcPackage.mutations.length &&
+  packedUnderlineBeforeInvalid.length === packedUnderlineAfterInvalid.length &&
+  packedUnderlineBeforeInvalid.every(
+    (value, index) => value === packedUnderlineAfterInvalid[index],
+  );
+underlineFamilyDeck.duplicateSlide(0);
+const packedUnderlineEditedRuns = [
+  { text: 'Disabled', style: { underline: false } },
+  { text: 'Cleared' },
+];
+packedUnderlineText.richText = [{ runs: packedUnderlineEditedRuns }];
+packedUnderlinePlaceholder.richText = [{ runs: packedUnderlineEditedRuns }];
+packedUnderlineCellTable.setCellRichText(0, 0, [{ runs: packedUnderlineEditedRuns }]);
+packedUnderlineTableOwner.setCellRichText(0, 0, [{ runs: packedUnderlineEditedRuns }]);
+const packedUnderlineEditedSlideXml = new TextDecoder().decode(
+  underlineFamilyDeck.opcPackage.requirePart(underlineFamilySlide.partUri).bytes,
+);
+const packedUnderlineEditedLayoutXml = new TextDecoder().decode(
+  underlineFamilyDeck.opcPackage.requirePart(underlineFamilyLayout.partUri).bytes,
+);
+const packedUnderlineEditedOoxml =
+  packedUnderlineTokens(packedUnderlineEditedSlideXml).every((token) => token === 'none') &&
+  packedUnderlineTokens(packedUnderlineEditedSlideXml).length === 3 &&
+  JSON.stringify(packedUnderlineTokens(packedUnderlineEditedLayoutXml)) ===
+    JSON.stringify(['none']) &&
+  !packedUnderlineEditedSlideXml.includes('<a:uFill>') &&
+  !packedUnderlineEditedLayoutXml.includes('<a:uFill>');
+const reopenedUnderlineFamilyDeck = await PptxDocument.open(
+  await underlineFamilyDeck.write(),
+);
+await reopenedUnderlineFamilyDeck.write({ compatibility: 'powerpoint-2010' });
+const reopenedPackedUnderlineText = reopenedUnderlineFamilyDeck.slides[0].shapes.find(
+  ({ name }) => name === packedUnderlineText.name,
+);
+const reopenedPackedUnderlinePlaceholder = reopenedUnderlineFamilyDeck.layouts[0]
+  .placeholders.find(({ name }) => name === packedUnderlinePlaceholder.name);
+const reopenedPackedUnderlineCellTable = reopenedUnderlineFamilyDeck.slides[0].shapes.find(
+  ({ name }) => name === packedUnderlineCellTable.name,
+);
+const reopenedPackedUnderlineTableOwner = reopenedUnderlineFamilyDeck.slides[0].shapes.find(
+  ({ name }) => name === packedUnderlineTableOwner.name,
+);
+const reopenedPackedUnderlineDuplicate = reopenedUnderlineFamilyDeck.slides[1].shapes.find(
+  ({ name }) => name === packedUnderlineText.name,
+);
+const packedUnderlineReopenedOwners = [
+  reopenedPackedUnderlineText.richText,
+  reopenedPackedUnderlinePlaceholder.richText,
+  reopenedPackedUnderlineCellTable.rows[0].cells[0].richText,
+  reopenedPackedUnderlineTableOwner.rows[0].cells[0].richText,
+].every((paragraphs) => JSON.stringify(packedUnderlineSnapshot(paragraphs)) ===
+  JSON.stringify([false, undefined]));
+const packedUnderlineDuplicateIsolation =
+  JSON.stringify(packedUnderlineSnapshot(reopenedPackedUnderlineDuplicate.richText)
+    .slice(0, packedUnderlineCommonStyles.length).map((underline) =>
+      typeof underline === 'object' ? underline.style : underline)) ===
+      JSON.stringify(packedUnderlineCommonStyles) &&
+  packedUnderlineSnapshot(reopenedPackedUnderlineDuplicate.richText).at(-1).style ===
+    'dotDashHeavy';
+const underlineFamilyState = {
+  catalog: packedUnderlineInitialSnapshots.every((snapshot) =>
+    JSON.stringify(snapshot.slice(0, packedUnderlineCommonStyles.length)
+      .map((underline) => typeof underline === 'object'
+        ? underline.style : underline)) === JSON.stringify(packedUnderlineCommonStyles)),
+  trueAsSingle: packedUnderlineInitialSnapshots.every((snapshot) =>
+    JSON.stringify(snapshot[packedUnderlineCommonStyles.length]) ===
+      JSON.stringify({ style: 'sng' })),
+  immediate: packedUnderlineImmediate,
+  initialOoxml: packedUnderlineInitialOoxml,
+  snapshotDetached: packedUnderlineSnapshotDetached,
+  invalidRollback: packedUnderlineInvalidRollback,
+  editedOoxml: packedUnderlineEditedOoxml,
+  reopenedOwners: packedUnderlineReopenedOwners,
+  duplicateIsolation: packedUnderlineDuplicateIsolation,
+  diagnostics: underlineFamilyDeck.diagnostics.length === 0 &&
+    reopenedUnderlineFamilyDeck.diagnostics.length === 0,
+};
+const underlineFamily = Object.values(underlineFamilyState).every(
+  (value) => value === true,
+);
+if (!underlineFamily) {
+  throw new Error('Packed underline family lifecycle failed: ' + JSON.stringify({
+    state: underlineFamilyState,
+    diagnostics: reopenedUnderlineFamilyDeck.diagnostics,
+  }));
+}
 const packedBulletNumberingStyles = [
   'alphaLcParenBoth',
   'alphaLcParenR',
@@ -10151,6 +10373,8 @@ if (!bulletNumbering) {
   }));
 }
 const checks = {
+  underlineFamily,
+  underlineFamilyState,
   tabStops,
   tabStopsState,
   bulletNumbering,

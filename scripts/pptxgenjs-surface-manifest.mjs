@@ -1580,6 +1580,194 @@ const TAB_STOPS_FAMILY_ENTRIES = Object.freeze([
     tabStopsFamilyOwnerIds(owner).map((id) => tabStopsFamilyDefectEntry(owner, id))),
 ]);
 
+const UNDERLINE_FAMILY_CONTROL_TITLE =
+  'locks underline behavior across every declared owner';
+const UNDERLINE_FAMILY_OOXML_TITLE =
+  'creates edits clears and reopens underline owners in all six formats';
+const UNDERLINE_FAMILY_ACTIVE_OWNERS = Object.freeze([
+  'PlaceholderProps',
+  'TableCellProps',
+  'TableProps',
+  'TextPropsOptions',
+]);
+const UNDERLINE_FAMILY_INERT_OWNERS = Object.freeze([
+  'SlideNumberProps',
+  'TableToSlidesProps',
+]);
+const UNDERLINE_FAMILY_FIELDS = Object.freeze(['color', 'style']);
+const UNDERLINE_FAMILY_STYLE_TOKENS = Object.freeze([
+  'dash',
+  'dashHeavy',
+  'dashLong',
+  'dashLongHeavy',
+  'dbl',
+  'dotDash',
+  'dotDashHeave',
+  'dotDotDash',
+  'dotDotDashHeavy',
+  'dotted',
+  'dottedHeavy',
+  'heavy',
+  'none',
+  'sng',
+  'wavy',
+  'wavyDbl',
+  'wavyHeavy',
+]);
+
+function underlineFamilyInlineId(owner, field) {
+  return `inline:${linePropertyId(owner, 'underline')}@property:underline.${field}`;
+}
+
+function underlineFamilyUnionId(owner, value) {
+  return `union:${linePropertyId(owner, 'underline')}@path:underline.style#${value}`;
+}
+
+function underlineFamilyOwnerIds(owner) {
+  return [
+    linePropertyId(owner, 'underline'),
+    ...UNDERLINE_FAMILY_FIELDS.map((field) => underlineFamilyInlineId(owner, field)),
+    ...UNDERLINE_FAMILY_STYLE_TOKENS.map((value) =>
+      underlineFamilyUnionId(owner, value)),
+  ].sort();
+}
+
+function underlineFamilyNative(owner, id) {
+  const ownerMapping = owner === 'PlaceholderProps'
+    ? ['ShapeModel.richText', 'SlideModel.addPlaceholder']
+    : owner === 'TextPropsOptions'
+      ? ['RichTextRunStyle.underline', 'SlideModel.addRichText', 'SlideModel.addText']
+      : owner === 'TableCellProps'
+        ? [
+            'AddTableCell.text',
+            'RichTextRunStyle.underline',
+            'SlideModel.addTable',
+            'TableModel.setCellRichText',
+          ]
+        : [
+            'AddTableCell.text',
+            'RichTextRunStyle.underline',
+            'SlideModel.addTable',
+            'TableModel.setCellRichText',
+          ];
+  const fieldMapping = id.includes('underline.color')
+    ? ['RichTextColor', 'RichTextUnderline.color']
+    : id.includes('underline.style')
+      ? ['RichTextUnderline.style', 'RichTextUnderlineStyle']
+      : ['RichTextRunStyle.underline', 'RichTextUnderline', 'RichTextUnderlineStyle'];
+  const native = [...fieldMapping, ...ownerMapping];
+  return [...new Set(native)];
+}
+
+function underlineFamilyEvidence() {
+  return {
+    code: [{
+      path: 'packages/model/src/rich-text.internal.ts',
+      pattern: 'function normalizeUnderline(',
+    }],
+    tests: [
+      {
+        path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+        title: UNDERLINE_FAMILY_CONTROL_TITLE,
+      },
+      {
+        path: 'packages/sdk/src/index.test.ts',
+        title: UNDERLINE_FAMILY_OOXML_TITLE,
+      },
+    ],
+    package: [{
+      path: 'scripts/smoke-npm-package.mjs',
+      pattern: 'const underlineFamilyState = {',
+    }],
+    ooxml: [{
+      path: 'packages/sdk/src/index.test.ts',
+      pattern: UNDERLINE_FAMILY_OOXML_TITLE,
+    }],
+    clients: [{
+      path: 'scripts/playwright-browser-smoke.js',
+      pattern: 'const underlineFamilyState = {',
+    }],
+  };
+}
+
+function underlineFamilySupportedEntry(owner, id) {
+  const tableOwner = owner === 'TableProps';
+  return {
+    id,
+    status: 'supported',
+    native: underlineFamilyNative(owner, id),
+    evidence: underlineFamilyEvidence(),
+    serialization: true,
+    client: true,
+    note: tableOwner
+      ? 'Native covers effective TableProps underline output through explicit cell rich-text equivalents, strict same-named legal styles, deterministic OOXML, and reopen editing.'
+      : `Native covers the effective ${owner} underline output through strict run styles, deterministic OOXML, and reopen editing.`,
+  };
+}
+
+function underlineFamilyDifferenceEntry(owner, id) {
+  const color = id === underlineFamilyInlineId(owner, 'color');
+  return {
+    id,
+    status: 'deliberate-difference',
+    native: underlineFamilyNative(owner, id),
+    evidence: underlineFamilyEvidence(),
+    control: {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      pattern: UNDERLINE_FAMILY_CONTROL_TITLE,
+    },
+    serialization: true,
+    client: true,
+    note: color
+      ? `Native represents ${owner}.underline.color as a strict sRGB or scheme RichTextColor and normalizes color-only input to a single underline; PptxGenJS accepts a permissive color string and emits only uFill for color-only input.`
+      : `Native expresses ${owner}.underline.style='none' as underline false and may omit or explicitly serialize the local disable state while preserving the same final text semantics.`,
+  };
+}
+
+function underlineFamilyDefectEntry(owner, id) {
+  const inertOwner = UNDERLINE_FAMILY_INERT_OWNERS.includes(owner);
+  return {
+    id,
+    status: 'defect-excluded',
+    native: inertOwner ? [] : underlineFamilyNative(owner, id),
+    evidence: {
+      code: [],
+      tests: [{
+        path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+        title: UNDERLINE_FAMILY_CONTROL_TITLE,
+      }],
+      package: [],
+      ooxml: [],
+      clients: [],
+    },
+    control: {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      pattern: UNDERLINE_FAMILY_CONTROL_TITLE,
+    },
+    note: inertOwner
+      ? `PptxGenJS 4.0.1 inherits underline declarations into ${owner}, but its writer ignores the property, both inline fields, and all seventeen declared style tokens for that owner.`
+      : `PptxGenJS 4.0.1 declares ${owner}.underline.style='dotDashHeave' and writes that invalid token literally; native exposes the correct DrawingML token dotDashHeavy and rejects the typo before mutation.`,
+  };
+}
+
+function underlineFamilyActiveEntry(owner, id) {
+  if (id === underlineFamilyUnionId(owner, 'dotDashHeave')) {
+    return underlineFamilyDefectEntry(owner, id);
+  }
+  if (
+    id === underlineFamilyInlineId(owner, 'color')
+    || id === underlineFamilyUnionId(owner, 'none')
+  ) return underlineFamilyDifferenceEntry(owner, id);
+  return underlineFamilySupportedEntry(owner, id);
+}
+
+const UNDERLINE_FAMILY_ENTRIES = Object.freeze([
+  ...UNDERLINE_FAMILY_ACTIVE_OWNERS.flatMap((owner) =>
+    underlineFamilyOwnerIds(owner).map((id) => underlineFamilyActiveEntry(owner, id))),
+  ...UNDERLINE_FAMILY_INERT_OWNERS.flatMap((owner) =>
+    underlineFamilyOwnerIds(owner).map((id) => underlineFamilyDefectEntry(owner, id))),
+]);
+
 const TABLE_TO_SLIDES_FILL_CONTROL_TITLE =
   'isolates the ignored tableToSlides fill declaration from computed CSS backgrounds';
 const TABLE_TO_SLIDES_FILL_DEFECT_ENTRY = Object.freeze({
@@ -1953,6 +2141,7 @@ export const PPTXGENJS_SURFACE_MANIFEST = deepFreeze({
     ...INERT_CHART_OPTION_DEFECT_ENTRIES,
     ...BULLET_FAMILY_ENTRIES,
     ...TAB_STOPS_FAMILY_ENTRIES,
+    ...UNDERLINE_FAMILY_ENTRIES,
     ...['ShapeType', 'SHAPE_NAME'].flatMap((owner) =>
       DECLARED_PRESET_SHAPE_VALUES.map((value) => presetShapeCatalogEntry(owner, value))),
     ...['SchemeColor', 'ThemeColor'].flatMap((owner) =>
