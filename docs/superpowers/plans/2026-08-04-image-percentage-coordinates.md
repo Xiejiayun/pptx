@@ -14,6 +14,7 @@
 - PptxGenJS 4.0.1 is the only control baseline.
 - Public `Transform`, `ImageModel.transform`, and `setTransform()` remain absolute EMU APIs.
 - Existing numeric image inputs remain absolute EMU; callers use `inches()` for explicit inch conversion.
+- Numeric image inputs retain the existing exact-safe-integer requirement; only percentage results are rounded.
 - Percentages resolve against current slide width for `x`/`width` and height for `y`/`height`.
 - Position may be negative or exceed the slide; width and height must resolve to positive safe integers.
 - Reject malformed, non-finite, whitespace-padded, accessor-backed, and unsafe coordinate inputs before package mutation.
@@ -117,25 +118,27 @@ Expected: FAIL because image options accept only `Transform` and the normalizers
 
 - [ ] **Step 3: Integrate the shared resolver once**
 
-Change both public image option interfaces to `Partial<TransformInput>`. In
-`normalizeEmbeddedRasterImage()`, replace the four transform `normalizeInteger()` calls with:
+Change both public image option interfaces to `Partial<TransformInput>`. Add one image-specific
+wrapper that preserves the existing numeric branch and delegates strings to the shared resolver:
 
 ```ts
-const x = resolveSlideCoordinate(
-  values.x, 'horizontal', slideSize, 0 as Emu, 'Embedded raster image x',
-);
-const y = resolveSlideCoordinate(
-  values.y, 'vertical', slideSize, 0 as Emu, 'Embedded raster image y',
-);
-const width = resolveSlideCoordinate(
-  values.width, 'horizontal', slideSize, EMU_PER_INCH, 'Embedded raster image width',
-);
-const height = resolveSlideCoordinate(
-  values.height, 'vertical', slideSize, EMU_PER_INCH, 'Embedded raster image height',
-);
+function resolveImageCoordinate(
+  value: unknown,
+  axis: 'horizontal' | 'vertical',
+  slideSize: Readonly<SlideSize> | undefined,
+  fallback: Emu,
+  name: string,
+): Emu {
+  if (value === undefined || typeof value === 'number') {
+    return normalizeInteger(value, fallback, name) as Emu;
+  }
+  return resolveSlideCoordinate(
+    value, axis, slideSize, fallback, `Embedded raster image ${name}`,
+  );
+}
 ```
 
-Keep the existing positive extent checks. Pass `slideSize` through
+Use it for `x/y/width/height` and keep the existing positive extent checks. Pass `slideSize` through
 `normalizeEmbeddedSvgImage()` to the raster normalizer. Pass
 `this.presentation.slideSize` from both `SlideModel.addImage()` and `addSvgImage()`.
 

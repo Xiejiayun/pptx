@@ -93,9 +93,11 @@ slide size 时必须抛出。所有真实 slide 创建路径都必须传入当�
 
 ## 验证与错误语义
 
-四个字段完全复用共享 coordinate 规则：水平字段按 slide width，垂直字段按 slide
-height；position 可为负或超过 100%，width/height 必须解析为正 safe integer；空白、
-尾随字符、非有限值、对象、数组与 accessor 均不接受。
+百分比字符串复用共享 coordinate 规则：水平字段按 slide width，垂直字段按 slide
+height，并对最终 EMU 四舍五入。既有 numeric 图片输入继续要求输入本身就是 safe
+integer，不采用 resolver 对 numeric 小数的四舍五入，以免放宽现有图片契约。
+position 可为负或超过 100%，width/height 必须解析为正 safe integer；空白、尾随字符、
+非有限值、对象、数组与 accessor 均不接受。
 
 低层入口在任何关系、media part 或 XML 写入前完成正规化。高层异步 source loader
 可能先读取图片来源再发现合法容器内的错误 coordinate，但仍必须在 package mutation
@@ -131,7 +133,8 @@ height；position 可为负或超过 100%，width/height 必须解析为正 safe
 ## 完成标准
 
 - raster、SVG、高层 source loader 与 master/layout 图片可使用顶层百分比 rectangle；
-- 绝对 EMU、默认一英寸、sizing、crop、placeholder、图片编辑和 source lifecycle 不回归；
+- 严格 safe-integer 绝对 EMU、默认一英寸、sizing、crop、placeholder、图片编辑和
+  source lifecycle 不回归；
 - 非法输入不产生 package mutation；
 - PptxGenJS control、OOXML、reopen、PowerPoint 2010 profile 与 packed declarations 全部通过；
 - 审计计数变为 `supported=7`、`deliberate-difference=16`、
