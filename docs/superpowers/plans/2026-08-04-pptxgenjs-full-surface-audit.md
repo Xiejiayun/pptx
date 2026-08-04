@@ -62,11 +62,12 @@ Each atom has this frozen shape:
   deprecated: false,
   signatures: [],
   deprecatedSignatures: [],
+  catalogKey: '',
   typeText: 'Margin',
 }
 ```
 
-Root methods use `class:<root>#<name>`, root properties use `class:<root>@property:<name>`, slide methods use `method:Slide#<name>`, and slide properties use `property:Slide#<name>`. Method overloads share one atom, store all normalized signatures, and separately retain deprecated signatures. Named enum/union members use `union:<name>#<canonical-value>`; direct option unions use `union:<owning-atom-id>#<canonical-value>` and add `@path:<dot-path>` when a method parameter or nested property must disambiguate the owner. Inline records use `inline:<owning-atom-id>@property:<dot-path>`, so declaration reformatting cannot change their IDs.
+Root methods use `class:<root>#<name>`, root properties use `class:<root>@property:<name>`, slide methods use `method:Slide#<name>`, and slide properties use `property:Slide#<name>`. Method overloads share one atom, store all normalized signatures, and separately retain deprecated signatures. Named enum/union members use `union:<name>#<canonical-value>` and preserve an enum's runtime property name in `catalogKey`; direct option unions use `union:<owning-atom-id>#<canonical-value>` and add `@path:<dot-path>` when a method parameter or nested property must disambiguate the owner. Inline records use `inline:<owning-atom-id>@property:<dot-path>`, so declaration reformatting cannot change their IDs.
 
 - [ ] **Step 1: Write failing resolver, AST, reachability, and stability tests**
 
@@ -166,7 +167,7 @@ Expected divergence: `0 0`.
 export async function probePptxGenJSRuntime({ packageInfo, surface })
 // => Object.freeze({ schemaVersion: 1, packageVersion, declarationSha256,
 //                    runtimeEntrySha256, classMembers, slideMembers,
-//                    catalogs, minimalCalls })
+//                    catalogs, runtimeMismatches, minimalCalls })
 
 export function hashRuntimeProbe(probe)
 // => lowercase SHA-256 of canonical JSON
@@ -174,7 +175,7 @@ export function hashRuntimeProbe(probe)
 
 - [ ] **Step 1: Write failing public-only and deterministic probe tests**
 
-Assert the real probe reports version `4.0.1`, the six output catalog values, all declared presentation methods, all declared `Slide` methods, and stable minimal call results:
+Assert the real probe reports version `4.0.1`, the six output catalog values, all declared presentation methods, all declared `Slide` methods, and stable minimal call results. Lock the two observed 4.0.1 declaration/runtime differences: the declared instance property `PlaceholderType` is absent, while the runtime `ShapeType` catalog has the undeclared `custGeom` entry. Any additional difference or disappearance of either locked difference is drift and fails the probe.
 
 ```js
 assert.deepEqual(probe.minimalCalls, {

@@ -309,6 +309,14 @@ test('locks the real 4.0.1 declaration hash and reachable atom inventory', async
   ]) {
     assert.equal(ids.has(id), true, id);
   }
+  assert.equal(
+    first.atoms.find(({ id }) => id === 'union:SchemeColor#tx1')?.catalogKey,
+    'text1',
+  );
+  assert.equal(
+    first.atoms.find(({ id }) => id === 'union:ChartType#bar3D')?.catalogKey,
+    'bar3d',
+  );
 });
 
 test('rejects a resolved PptxGenJS package with a different version', async () => {

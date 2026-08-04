@@ -343,6 +343,7 @@ export function extractPptxGenJSPublicSurface({
       deprecated,
       signatures: [...signatures].sort(),
       deprecatedSignatures: deprecated ? [...signatures].sort() : [],
+      catalogKey: '',
       typeText: typeNode ? printType(typeNode) : '',
     };
   };
@@ -385,15 +386,24 @@ export function extractPptxGenJSPublicSurface({
     return printed.replace(/\s+/gu, '');
   };
 
-  const addUnionAtom = (owner, token, typeNode, node = typeNode) => {
-    addAtom(makeAtom({
-      id: `union:${owner}#${token}`,
-      kind: 'union-member',
-      owner,
-      name: token,
-      node,
-      typeNode,
-    }));
+  const addUnionAtom = (
+    owner,
+    token,
+    typeNode,
+    node = typeNode,
+    catalogKey = token,
+  ) => {
+    addAtom({
+      ...makeAtom({
+        id: `union:${owner}#${token}`,
+        kind: 'union-member',
+        owner,
+        name: token,
+        node,
+        typeNode,
+      }),
+      catalogKey,
+    });
   };
 
   const unionOwner = (owningAtomId, pathPrefix) => {
@@ -631,7 +641,7 @@ export function extractPptxGenJSPublicSurface({
           token = printNode(member.initializer).replace(/\s+/gu, '');
         }
       }
-      addUnionAtom(name, token, member.initializer ?? member, member);
+      addUnionAtom(name, token, member.initializer ?? member, member, memberName);
     }
   };
 
