@@ -280,6 +280,31 @@ function outputTypeCatalogEntry(owner, value) {
 }
 
 function placeholderTypeCatalogEntry(owner, value) {
+  const controlTitle =
+    'matches public slide master objects, topology, and empty placeholder geometry';
+  if (value === 'pic' || value === 'tbl') {
+    return {
+      id: `union:${owner}#${value}`,
+      status: 'deliberate-difference',
+      native: ['PLACEHOLDER_TYPES', 'PlaceholderType', 'SlideModel.addPlaceholder'],
+      evidence: {
+        code: [{
+          path: 'packages/model/src/placeholder.ts',
+          pattern: 'export const PLACEHOLDER_TYPES = [',
+        }],
+        tests: [{ path: 'packages/pptxgenjs-adapter/src/index.test.ts', title: controlTitle }],
+        package: [{
+          path: 'scripts/smoke-npm-package.mjs',
+          pattern: "PLACEHOLDER_TYPES.join(',') === 'title,body,pic,chart,tbl,media'",
+        }],
+        ooxml: [{ path: 'packages/pptxgenjs-adapter/src/index.test.ts', pattern: controlTitle }],
+        clients: [],
+      },
+      control: { path: 'packages/pptxgenjs-adapter/src/index.test.ts', pattern: controlTitle },
+      serialization: true,
+      note: `PptxGenJS 4.0.1 normalizes an empty ${value} layout placeholder to body; native preserves the declared ${value} type and uses the correct owner geometry.`,
+    };
+  }
   return serializedCatalogMember(
     `union:${owner}#${value}`,
     ['PLACEHOLDER_TYPES', 'PlaceholderType', 'SlideModel.addPlaceholder'],
@@ -289,15 +314,15 @@ function placeholderTypeCatalogEntry(owner, value) {
     },
     {
       path: 'packages/pptxgenjs-adapter/src/index.test.ts',
-      title: 'matches public slide master objects, topology, and empty placeholder geometry',
+      title: controlTitle,
     },
     {
       path: 'scripts/smoke-npm-package.mjs',
       pattern: "PLACEHOLDER_TYPES.join(',') === 'title,body,pic,chart,tbl,media'",
     },
     {
-      path: 'packages/sdk/src/index.test.ts',
-      pattern: 'round-trips empty layout placeholders in all six presentation formats',
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      pattern: controlTitle,
     },
     'Native exposes, creates, serializes, and reopens the same placeholder type.',
   );
@@ -411,7 +436,7 @@ export const PPTXGENJS_SURFACE_MANIFEST = deepFreeze({
       { path: 'packages/model/src/preset-shape.ts', pattern: 'export const PRESET_SHAPE_TYPES = Object.freeze([' },
       { path: 'packages/pptxgenjs-adapter/src/index.test.ts', title: 'reads every legal PptxGenJS preset shape public output' },
       { path: 'scripts/smoke-npm-package.mjs', pattern: 'const typedPresetCatalog: readonly PresetShapeType[] = PRESET_SHAPE_TYPES;' },
-      'Native exposes and creates every one of the 178 declared canonical preset shape values.',
+      'Native exposes the 177 legal declared preset values plus valid foldedCorner; invalid folderCorner and runtime-only custGeom are tracked separately.',
     ),
     {
       id: 'class:PptxGenJS@property:PlaceholderType',

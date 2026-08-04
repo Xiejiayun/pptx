@@ -494,7 +494,7 @@
       "native": [
         "PRESET_SHAPE_TYPES"
       ],
-      "note": "Native exposes and creates every one of the 178 declared canonical preset shape values.",
+      "note": "Native exposes the 177 legal declared preset values plus valid foldedCorner; invalid folderCorner and runtime-only custGeom are tracked separately.",
       "optional": false,
       "owner": "PptxGenJS",
       "readonly": true,
@@ -22705,8 +22705,8 @@
         ],
         "ooxml": [
           {
-            "path": "packages/sdk/src/index.test.ts",
-            "pattern": "round-trips empty layout placeholders in all six presentation formats"
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "pattern": "matches public slide master objects, topology, and empty placeholder geometry"
           }
         ],
         "package": [
@@ -22755,8 +22755,8 @@
         ],
         "ooxml": [
           {
-            "path": "packages/sdk/src/index.test.ts",
-            "pattern": "round-trips empty layout placeholders in all six presentation formats"
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "pattern": "matches public slide master objects, topology, and empty placeholder geometry"
           }
         ],
         "package": [
@@ -22805,8 +22805,8 @@
         ],
         "ooxml": [
           {
-            "path": "packages/sdk/src/index.test.ts",
-            "pattern": "round-trips empty layout placeholders in all six presentation formats"
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "pattern": "matches public slide master objects, topology, and empty placeholder geometry"
           }
         ],
         "package": [
@@ -22842,6 +22842,10 @@
     {
       "catalogKey": "pic",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "matches public slide master objects, topology, and empty placeholder geometry"
+      },
       "declaredIn": "PLACEHOLDER_TYPE",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -22855,8 +22859,8 @@
         ],
         "ooxml": [
           {
-            "path": "packages/sdk/src/index.test.ts",
-            "pattern": "round-trips empty layout placeholders in all six presentation formats"
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "pattern": "matches public slide master objects, topology, and empty placeholder geometry"
           }
         ],
         "package": [
@@ -22880,18 +22884,22 @@
         "PlaceholderType",
         "SlideModel.addPlaceholder"
       ],
-      "note": "Native exposes, creates, serializes, and reopens the same placeholder type.",
+      "note": "PptxGenJS 4.0.1 normalizes an empty pic layout placeholder to body; native preserves the declared pic type and uses the correct owner geometry.",
       "optional": false,
       "owner": "PLACEHOLDER_TYPE",
       "readonly": false,
       "serialization": true,
       "signatures": [],
-      "status": "supported",
+      "status": "deliberate-difference",
       "typeText": "'pic'"
     },
     {
       "catalogKey": "tbl",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "matches public slide master objects, topology, and empty placeholder geometry"
+      },
       "declaredIn": "PLACEHOLDER_TYPE",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -22905,8 +22913,8 @@
         ],
         "ooxml": [
           {
-            "path": "packages/sdk/src/index.test.ts",
-            "pattern": "round-trips empty layout placeholders in all six presentation formats"
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "pattern": "matches public slide master objects, topology, and empty placeholder geometry"
           }
         ],
         "package": [
@@ -22930,13 +22938,13 @@
         "PlaceholderType",
         "SlideModel.addPlaceholder"
       ],
-      "note": "Native exposes, creates, serializes, and reopens the same placeholder type.",
+      "note": "PptxGenJS 4.0.1 normalizes an empty tbl layout placeholder to body; native preserves the declared tbl type and uses the correct owner geometry.",
       "optional": false,
       "owner": "PLACEHOLDER_TYPE",
       "readonly": false,
       "serialization": true,
       "signatures": [],
-      "status": "supported",
+      "status": "deliberate-difference",
       "typeText": "'tbl'"
     },
     {
@@ -22955,8 +22963,8 @@
         ],
         "ooxml": [
           {
-            "path": "packages/sdk/src/index.test.ts",
-            "pattern": "round-trips empty layout placeholders in all six presentation formats"
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "pattern": "matches public slide master objects, topology, and empty placeholder geometry"
           }
         ],
         "package": [
@@ -23005,8 +23013,8 @@
         ],
         "ooxml": [
           {
-            "path": "packages/sdk/src/index.test.ts",
-            "pattern": "round-trips empty layout placeholders in all six presentation formats"
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "pattern": "matches public slide master objects, topology, and empty placeholder geometry"
           }
         ],
         "package": [
@@ -23055,8 +23063,8 @@
         ],
         "ooxml": [
           {
-            "path": "packages/sdk/src/index.test.ts",
-            "pattern": "round-trips empty layout placeholders in all six presentation formats"
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "pattern": "matches public slide master objects, topology, and empty placeholder geometry"
           }
         ],
         "package": [
@@ -23105,8 +23113,8 @@
         ],
         "ooxml": [
           {
-            "path": "packages/sdk/src/index.test.ts",
-            "pattern": "round-trips empty layout placeholders in all six presentation formats"
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "pattern": "matches public slide master objects, topology, and empty placeholder geometry"
           }
         ],
         "package": [
@@ -23142,6 +23150,10 @@
     {
       "catalogKey": "image",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "matches public slide master objects, topology, and empty placeholder geometry"
+      },
       "declaredIn": "PLACEHOLDER_TYPES",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -23155,8 +23167,8 @@
         ],
         "ooxml": [
           {
-            "path": "packages/sdk/src/index.test.ts",
-            "pattern": "round-trips empty layout placeholders in all six presentation formats"
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "pattern": "matches public slide master objects, topology, and empty placeholder geometry"
           }
         ],
         "package": [
@@ -23180,18 +23192,22 @@
         "PlaceholderType",
         "SlideModel.addPlaceholder"
       ],
-      "note": "Native exposes, creates, serializes, and reopens the same placeholder type.",
+      "note": "PptxGenJS 4.0.1 normalizes an empty pic layout placeholder to body; native preserves the declared pic type and uses the correct owner geometry.",
       "optional": false,
       "owner": "PLACEHOLDER_TYPES",
       "readonly": false,
       "serialization": true,
       "signatures": [],
-      "status": "supported",
+      "status": "deliberate-difference",
       "typeText": "'pic'"
     },
     {
       "catalogKey": "table",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "matches public slide master objects, topology, and empty placeholder geometry"
+      },
       "declaredIn": "PLACEHOLDER_TYPES",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -23205,8 +23221,8 @@
         ],
         "ooxml": [
           {
-            "path": "packages/sdk/src/index.test.ts",
-            "pattern": "round-trips empty layout placeholders in all six presentation formats"
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "pattern": "matches public slide master objects, topology, and empty placeholder geometry"
           }
         ],
         "package": [
@@ -23230,13 +23246,13 @@
         "PlaceholderType",
         "SlideModel.addPlaceholder"
       ],
-      "note": "Native exposes, creates, serializes, and reopens the same placeholder type.",
+      "note": "PptxGenJS 4.0.1 normalizes an empty tbl layout placeholder to body; native preserves the declared tbl type and uses the correct owner geometry.",
       "optional": false,
       "owner": "PLACEHOLDER_TYPES",
       "readonly": false,
       "serialization": true,
       "signatures": [],
-      "status": "supported",
+      "status": "deliberate-difference",
       "typeText": "'tbl'"
     },
     {
@@ -23255,8 +23271,8 @@
         ],
         "ooxml": [
           {
-            "path": "packages/sdk/src/index.test.ts",
-            "pattern": "round-trips empty layout placeholders in all six presentation formats"
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "pattern": "matches public slide master objects, topology, and empty placeholder geometry"
           }
         ],
         "package": [
@@ -56594,10 +56610,10 @@
   "complete": false,
   "counts": {
     "defect-excluded": 3,
-    "deliberate-difference": 16,
+    "deliberate-difference": 20,
     "deprecated-alias": 0,
     "stale": 0,
-    "supported": 419,
+    "supported": 415,
     "unsupported": 0,
     "unverified": 1336
   },

@@ -129,8 +129,8 @@ test('exports an immutable evidence-backed initial manifest batch', () => {
     PPTXGENJS_SURFACE_MANIFEST.entries.map(({ status }) => status).sort(),
     [
       ...Array(3).fill('defect-excluded'),
-      ...Array(419).fill('supported'),
-      ...Array(16).fill('deliberate-difference'),
+      ...Array(415).fill('supported'),
+      ...Array(20).fill('deliberate-difference'),
     ].sort(),
   );
   assert.deepEqual(
@@ -140,6 +140,17 @@ test('exports an immutable evidence-backed initial manifest batch', () => {
     [
       { id: 'union:ShapeType#folderCorner', status: 'defect-excluded' },
       { id: 'union:SHAPE_NAME#folderCorner', status: 'defect-excluded' },
+    ],
+  );
+  assert.deepEqual(
+    PPTXGENJS_SURFACE_MANIFEST.entries
+      .filter(({ id }) => /^union:PLACEHOLDER_TYPES?#(?:pic|tbl)$/u.test(id))
+      .map(({ id, status }) => ({ id, status })),
+    [
+      { id: 'union:PLACEHOLDER_TYPE#pic', status: 'deliberate-difference' },
+      { id: 'union:PLACEHOLDER_TYPE#tbl', status: 'deliberate-difference' },
+      { id: 'union:PLACEHOLDER_TYPES#pic', status: 'deliberate-difference' },
+      { id: 'union:PLACEHOLDER_TYPES#tbl', status: 'deliberate-difference' },
     ],
   );
   assert.deepEqual(PPTXGENJS_SURFACE_MANIFEST.extensions, []);
