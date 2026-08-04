@@ -4098,27 +4098,51 @@ async (page) => {
         objects: [
           {
             kind: 'placeholder', text: 'Title prompt',
-            options: { name: 'browser_title', type: 'title', index: 101 },
+            options: {
+              name: 'browser_title', type: 'title', index: 101,
+              x: api.inches(0.5), y: api.inches(0.5),
+              width: api.inches(12), height: api.inches(0.6),
+            },
           },
           {
             kind: 'placeholder', text: 'Body prompt',
-            options: { name: 'browser_body', type: 'body', index: 102 },
+            options: {
+              name: 'browser_body', type: 'body', index: 102,
+              x: api.inches(0.5), y: api.inches(1.3),
+              width: api.inches(4), height: api.inches(0.8),
+            },
           },
           {
             kind: 'placeholder', text: 'Picture prompt',
-            options: { name: 'browser_picture', type: 'pic', index: 103 },
+            options: {
+              name: 'browser_picture', type: 'pic', index: 103,
+              x: api.inches(0.5), y: api.inches(2.4),
+              width: api.inches(3), height: api.inches(2),
+            },
           },
           {
             kind: 'placeholder', text: 'Chart prompt',
-            options: { name: 'browser_chart', type: 'chart', index: 104 },
+            options: {
+              name: 'browser_chart', type: 'chart', index: 104,
+              x: api.inches(3.75), y: api.inches(2.4),
+              width: api.inches(4), height: api.inches(2),
+            },
           },
           {
             kind: 'placeholder', text: 'Table prompt',
-            options: { name: 'browser_table', type: 'tbl', index: 105 },
+            options: {
+              name: 'browser_table', type: 'tbl', index: 105,
+              x: api.inches(8), y: api.inches(2.4),
+              width: api.inches(4.8), height: api.inches(2),
+            },
           },
           {
             kind: 'placeholder', text: 'Media prompt',
-            options: { name: 'browser_media', type: 'media', index: 106 },
+            options: {
+              name: 'browser_media', type: 'media', index: 106,
+              x: api.inches(0.5), y: api.inches(4.8),
+              width: api.inches(2.5), height: api.inches(1.4),
+            },
           },
           {
             kind: 'image',
@@ -4199,6 +4223,19 @@ async (page) => {
         slidePlaceholders: reopenedBrowserMasterSlide.placeholders.map(
           ({ name, kind, placeholder }) => ({ name, kind, placeholder }),
         ),
+        placeholderGeometryPreserved: reopenedBrowserMasterSlide.placeholders.every((shape) => {
+          const source = reopenedBrowserMasterLayout.placeholders.find(({ placeholder }) =>
+            placeholder?.type === shape.placeholder?.type
+            && placeholder?.index === shape.placeholder?.index);
+          return source !== undefined
+            && source.transform.x === shape.transform.x
+            && source.transform.y === shape.transform.y
+            && source.transform.width === shape.transform.width
+            && source.transform.height === shape.transform.height
+            && source.transform.rotation === shape.transform.rotation
+            && source.transform.flipHorizontal === shape.transform.flipHorizontal
+            && source.transform.flipVertical === shape.transform.flipVertical;
+        }),
         selectedTargets: [
           browserMasterSelectedTarget,
           reopenedBrowserMasterSlide.relationships.find(
@@ -7821,6 +7858,7 @@ async (page) => {
         { name: 'browser_table', kind: 'table', placeholder: { type: 'tbl', index: 105 } },
         { name: 'browser_media', kind: 'audio', placeholder: { type: 'media', index: 106 } },
       ],
+      placeholderGeometryPreserved: true,
       selectedTargets: [
         '/ppt/slideLayouts/slideLayout2.xml',
         '/ppt/slideLayouts/slideLayout2.xml',

@@ -3701,6 +3701,176 @@ const SHAPE_TEXT_SHADOW_FAMILY_ENTRIES = Object.freeze(
   SHAPE_TEXT_SHADOW_IDS.map((id) => shapeTextShadowEntry(id)),
 );
 
+const PLACEHOLDER_CORE_CONTROL_TITLE =
+  'locks PlaceholderProps and text/image placeholder population against PptxGenJS 4.0.1';
+const PLACEHOLDER_DEFINITION_CONTROL_TITLE =
+  'matches public slide master objects, topology, and empty placeholder geometry';
+const PLACEHOLDER_POPULATION_CONTROL_TITLE =
+  'compares public placeholder population payloads with strict native owners';
+const PLACEHOLDER_FALLBACK_CONTROL_TITLE =
+  'locks public slide master fallbacks while native definitions reject atomically';
+const PLACEHOLDER_CORE_IDS = Object.freeze([
+  ...['name', 'type', 'x', 'y', 'w', 'h']
+    .map((property) => linePropertyId('PlaceholderProps', property)),
+  linePropertyId('ImageProps', 'placeholder'),
+  linePropertyId('TextPropsOptions', 'placeholder'),
+]);
+
+function placeholderCoreNative(id) {
+  if (id === linePropertyId('ImageProps', 'placeholder')) {
+    return [
+      'AddImageOptions.placeholder',
+      'PlaceholderSelector',
+      'PptxDocument.addImage',
+      'SlideModel.addImage',
+      'SlideModel.addSvgImage',
+      'ImageModel.placeholder',
+    ];
+  }
+  if (id === linePropertyId('TextPropsOptions', 'placeholder')) {
+    return [
+      'AddTextOptions.placeholder',
+      'PlaceholderSelector',
+      'SlideModel.addText',
+      'SlideModel.addRichText',
+      'ShapeModel.placeholder',
+    ];
+  }
+  const property = id.split('@property:')[1];
+  const mappings = {
+    name: [
+      'AddPlaceholderOptions.name',
+      'PlaceholderSelector',
+      'ShapeModel.name',
+      'SlideModel.addPlaceholder',
+    ],
+    type: [
+      'AddPlaceholderOptions.type',
+      'PLACEHOLDER_TYPES',
+      'PlaceholderType',
+      'PlaceholderIdentity.type',
+      'ShapeModel.placeholder',
+    ],
+    x: ['AddPlaceholderOptions.x', 'SlideCoordinate', 'Transform.x'],
+    y: ['AddPlaceholderOptions.y', 'SlideCoordinate', 'Transform.y'],
+    w: ['AddPlaceholderOptions.width', 'SlideCoordinate', 'Transform.width'],
+    h: ['AddPlaceholderOptions.height', 'SlideCoordinate', 'Transform.height'],
+  };
+  return mappings[property];
+}
+
+function placeholderCoreEvidence(id) {
+  const image = id === linePropertyId('ImageProps', 'placeholder');
+  const text = id === linePropertyId('TextPropsOptions', 'placeholder');
+  const definition = !image && !text;
+  const definitionProperty = definition ? id.split('@property:')[1] : undefined;
+  const definitionNormalizer = definitionProperty === 'name'
+    ? {
+        path: 'packages/model/src/slide.ts',
+        pattern: "throw new TypeError('Placeholder name must be a non-empty string');",
+      }
+    : definitionProperty === 'type'
+      ? {
+          path: 'packages/model/src/placeholder.internal.ts',
+          pattern: 'export function normalizePlaceholderIdentity(',
+        }
+      : {
+          path: 'packages/model/src/slide.ts',
+          pattern: 'function normalizeTextTransform(',
+        };
+  const code = image
+    ? [{
+        path: 'packages/model/src/image.ts',
+        pattern: 'readonly placeholder?: PlaceholderSelector;',
+      }, {
+        path: 'packages/model/src/image-create.internal.ts',
+        pattern: 'const placeholder = values.placeholder === undefined',
+      }]
+    : text
+      ? [{
+          path: 'packages/model/src/slide.ts',
+          pattern: 'readonly placeholder?: PlaceholderSelector;',
+        }, {
+          path: 'packages/model/src/placeholder.internal.ts',
+          pattern: 'export function resolvePlaceholderOwner(',
+        }]
+      : [{
+          path: 'packages/model/src/placeholder.ts',
+          pattern: 'export interface AddPlaceholderOptions',
+        }, definitionNormalizer];
+  const tests = [{
+    path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+    title: PLACEHOLDER_CORE_CONTROL_TITLE,
+  }, {
+    path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+    title: definition
+      ? PLACEHOLDER_DEFINITION_CONTROL_TITLE
+      : PLACEHOLDER_POPULATION_CONTROL_TITLE,
+  }, {
+    path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+    title: PLACEHOLDER_FALLBACK_CONTROL_TITLE,
+  }];
+  const ooxmlPattern = image
+    ? 'populate image chart placeholders from high-level sources and chart groups'
+    : text
+      ? 'populate text shape placeholder owners in place with layout geometry'
+      : 'round-trips empty layout placeholders in all six presentation formats';
+  return {
+    code,
+    tests,
+    package: [{
+      path: 'scripts/smoke-npm-package.mjs',
+      pattern: 'const masterLayoutChecks = {',
+    }],
+    ooxml: [{ path: 'packages/sdk/src/index.test.ts', pattern: ooxmlPattern }],
+    clients: [{
+      path: 'scripts/playwright-browser-smoke.js',
+      pattern: 'const masterLayoutState = {',
+    }],
+  };
+}
+
+function placeholderCoreNote(id) {
+  if (id === linePropertyId('PlaceholderProps', 'name')) {
+    return 'PptxGenJS separates its runtime lookup name from the selection-pane object name and internally remaps the name on its cloned definition; native requires one detached non-empty unique owner name and persists it.';
+  }
+  if (id === linePropertyId('PlaceholderProps', 'type')) {
+    return 'PptxGenJS accepts invalid placeholder types by fallback and emits empty pic and tbl definitions as body; native preserves all six strict PlaceholderType domains through editable identity state.';
+  }
+  if (id === linePropertyId('PlaceholderProps', 'x') ||
+      id === linePropertyId('PlaceholderProps', 'y')) {
+    return 'PptxGenJS accepts loose Coord values and implicit-inch numbers; native uses explicit EMU, inches(), or strict percentage SlideCoordinate values with validation before mutation.';
+  }
+  if (id === linePropertyId('PlaceholderProps', 'w') ||
+      id === linePropertyId('PlaceholderProps', 'h')) {
+    return 'PptxGenJS exposes loose implicit-inch w/h coordinates and permits zero extent; native names the field width/height, uses explicit units, and requires a positive extent.';
+  }
+  if (id === linePropertyId('ImageProps', 'placeholder')) {
+    return 'PptxGenJS accepts only a string selector, can degrade pic identity to body, changes the populated object name, and inherits only owner position; native accepts name or identity selectors and preserves the full pic owner geometry in place.';
+  }
+  return 'PptxGenJS accepts a string placeholder selector, can silently create an ordinary text object for an unknown selector, and can duplicate identities after delayed population; native accepts name or identity selectors and replaces one strict owner atomically.';
+}
+
+function placeholderCoreEntry(id) {
+  return {
+    id,
+    status: 'deliberate-difference',
+    native: placeholderCoreNative(id),
+    evidence: placeholderCoreEvidence(id),
+    control: {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      pattern: PLACEHOLDER_CORE_CONTROL_TITLE,
+    },
+    serialization: true,
+    client: true,
+    note: placeholderCoreNote(id),
+  };
+}
+
+const PLACEHOLDER_CORE_FAMILY_ENTRIES = Object.freeze(
+  PLACEHOLDER_CORE_IDS.map((id) => placeholderCoreEntry(id)),
+);
+
 function presetShapeCatalogEntry(owner, value) {
   const id = `union:${owner}#${value}`;
   if (value === 'folderCorner') {
@@ -4037,6 +4207,7 @@ export const PPTXGENJS_SURFACE_MANIFEST = deepFreeze({
     ...SLIDE_SECTION_FAMILY_ENTRIES,
     ...MASTER_BACKGROUND_SLIDE_NUMBER_FAMILY_ENTRIES,
     ...SHAPE_TEXT_SHADOW_FAMILY_ENTRIES,
+    ...PLACEHOLDER_CORE_FAMILY_ENTRIES,
     ...CHART_AREA_FILL_LINE_ENTRIES,
     ...DEPRECATED_CHART_AREA_ALIAS_ENTRIES,
     ...CHART_CREATION_SUPPORTED_ENTRIES,

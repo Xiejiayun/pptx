@@ -3773,6 +3773,261 @@ describe('importPptxGenJS', () => {
     }
   });
 
+  it('locks PlaceholderProps and text/image placeholder population against PptxGenJS 4.0.1', async () => {
+    const source = new PptxGenJS();
+    source.layout = 'LAYOUT_WIDE';
+    source.defineSlideMaster({
+      title: 'PUBLIC-PLACEHOLDER-CORE',
+      objects: [
+        {
+          placeholder: {
+            text: 'Numeric title',
+            options: {
+              name: 'runtime_title',
+              objectName: 'Selection title',
+              type: 'title',
+              x: 1,
+              y: 2,
+              w: 3,
+              h: 1,
+            },
+          },
+        },
+        {
+          placeholder: {
+            text: 'Percentage body',
+            options: {
+              name: 'percentage_body',
+              objectName: 'Selection percentage body',
+              type: 'body',
+              x: '10%',
+              y: '20%',
+              w: '30%',
+              h: '40%',
+            },
+          },
+        },
+        {
+          placeholder: {
+            text: 'Picture',
+            options: {
+              name: 'picture_box',
+              objectName: 'Selection picture',
+              type: 'pic',
+              x: 5,
+              y: 1,
+              w: 4,
+              h: 3,
+            },
+          },
+        },
+        {
+          placeholder: {
+            text: 'Official fields only',
+            options: { name: 'official_only', type: 'body' },
+          },
+        },
+      ],
+    });
+    const publicSlide = source.addSlide({ masterName: 'PUBLIC-PLACEHOLDER-CORE' });
+    publicSlide.addText('Filled numeric title', {
+      placeholder: 'runtime_title', x: 9, y: 6, w: 2, h: 0.5,
+    });
+    publicSlide.addText('Filled official fields', {
+      placeholder: 'official_only', x: 8, y: 5, w: 2, h: 0.5,
+    });
+    publicSlide.addText('Unknown selector text', {
+      placeholder: 'missing_text', x: 7, y: 6, w: 2, h: 0.5,
+    });
+    publicSlide.addImage({
+      data: PNG_DATA_URI,
+      placeholder: 'picture_box',
+      x: 9,
+      y: 6,
+      w: 2,
+      h: 0.5,
+    });
+    publicSlide.addImage({
+      data: PNG_DATA_URI,
+      placeholder: 'missing_image',
+      x: 10,
+      y: 6,
+      w: 2,
+      h: 0.5,
+    });
+
+    const imported = await openPptxGenJSPublicOutput(source);
+    const importedLayout = imported.layouts.find(
+      ({ name }) => name === 'PUBLIC-PLACEHOLDER-CORE',
+    )!;
+    expect(importedLayout.placeholders.map(({ name, placeholder }) => ({ name, placeholder })))
+      .toEqual([
+        { name: 'Selection title', placeholder: { type: 'title', index: 100 } },
+        { name: 'Selection percentage body', placeholder: { type: 'body', index: 101 } },
+        { name: 'Selection picture', placeholder: { type: 'body', index: 102 } },
+        { name: 'Text 0', placeholder: { type: 'body', index: 103 } },
+      ]);
+    expect(importedLayout.placeholders[1]?.transform).toEqual({
+      x: 1_219_200,
+      y: 1_371_600,
+      width: 3_657_600,
+      height: 2_743_200,
+      rotation: 0,
+      flipHorizontal: false,
+      flipVertical: false,
+    });
+    expect(importedLayout.placeholders[3]?.transform).toMatchObject({
+      x: 0,
+      y: 0,
+      width: 9_144_000,
+      height: 0,
+    });
+    const importedTitle = imported.slides[0]!.shapes.find(
+      (shape) => shape instanceof ShapeModel && shape.text === 'Filled numeric title',
+    ) as ShapeModel;
+    const importedOfficial = imported.slides[0]!.shapes.find(
+      (shape) => shape instanceof ShapeModel && shape.text === 'Filled official fields',
+    ) as ShapeModel;
+    const importedUnknownText = imported.slides[0]!.shapes.find(
+      (shape) => shape instanceof ShapeModel && shape.text === 'Unknown selector text',
+    ) as ShapeModel;
+    const importedImages = imported.slides[0]!.shapes.filter(
+      (shape): shape is ImageModel => shape instanceof ImageModel,
+    );
+    const importedPicture = importedImages.find(({ placeholder }) => placeholder !== undefined)!;
+    const importedUnknownImage = importedImages.find(
+      ({ placeholder }) => placeholder === undefined,
+    )!;
+    expect({
+      name: importedTitle.name,
+      placeholder: importedTitle.placeholder,
+      transform: importedTitle.transform,
+    }).toEqual({
+      name: 'Selection title',
+      placeholder: { type: 'title', index: 100 },
+      transform: importedLayout.placeholders[0]?.transform,
+    });
+    expect({
+      name: importedOfficial.name,
+      placeholder: importedOfficial.placeholder,
+      transform: importedOfficial.transform,
+    }).toEqual({
+      name: 'Text 0',
+      placeholder: { type: 'body', index: 103 },
+      transform: {
+        x: inches(8),
+        y: inches(5),
+        width: inches(2),
+        height: inches(0.5),
+        rotation: 0,
+        flipHorizontal: false,
+        flipVertical: false,
+      },
+    });
+    expect(importedUnknownText.placeholder).toBeUndefined();
+    expect(importedUnknownText.transform).toMatchObject({
+      x: inches(7), y: inches(6), width: inches(2), height: inches(0.5),
+    });
+    expect({
+      name: importedPicture.name,
+      placeholder: importedPicture.placeholder,
+      transform: importedPicture.transform,
+    }).toMatchObject({
+      name: 'Image 0',
+      placeholder: { type: 'body', index: 102 },
+      transform: {
+        x: inches(5), y: inches(1), width: inches(2), height: inches(0.5),
+      },
+    });
+    expect(importedUnknownImage.placeholder).toBeUndefined();
+    expect(importedUnknownImage.transform).toMatchObject({
+      x: inches(10), y: inches(6), width: inches(2), height: inches(0.5),
+    });
+    await imported.write({ mode: 'permissive', compatibility: 'powerpoint-current' });
+    expect(imported.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'PLACEHOLDER_DOMAIN_MISMATCH',
+        objectId: 'body:102',
+      }),
+    ]));
+
+    const native = PptxDocument.create({ slideSize: 'wide' });
+    const nativeLayout = await native.defineSlideMaster({
+      title: 'NATIVE-PLACEHOLDER-CORE',
+      objects: [
+        {
+          kind: 'placeholder', text: 'Numeric title',
+          options: {
+            name: 'runtime_title', type: 'title', index: 100,
+            x: inches(1), y: inches(2), width: inches(3), height: inches(1),
+          },
+        },
+        {
+          kind: 'placeholder', text: 'Percentage body',
+          options: {
+            name: 'percentage_body', type: 'body', index: 101,
+            x: '10%', y: '20%', width: '30%', height: '40%',
+          },
+        },
+        {
+          kind: 'placeholder', text: 'Picture',
+          options: {
+            name: 'picture_box', type: 'pic', index: 102,
+            x: inches(5), y: inches(1), width: inches(4), height: inches(3),
+          },
+        },
+        {
+          kind: 'placeholder', text: 'Official fields only',
+          options: { name: 'official_only', type: 'body', index: 103 },
+        },
+      ],
+    });
+    const nativeSlide = native.addSlide({ masterName: 'NATIVE-PLACEHOLDER-CORE' });
+    const nativeTitle = nativeSlide.addText('Filled numeric title', {
+      placeholder: 'runtime_title',
+      x: inches(9), y: inches(6), width: inches(2), height: inches(0.5),
+    });
+    const nativeOfficial = nativeSlide.addText('Filled official fields', {
+      placeholder: { type: 'body', index: 103 },
+      x: inches(8), y: inches(5), width: inches(2), height: inches(0.5),
+    });
+    const nativePicture = await native.addImage(0, PNG_DATA_URI, {
+      placeholder: 'picture_box',
+      x: inches(9), y: inches(6), width: inches(2), height: inches(0.5),
+    });
+    expect(nativeLayout.placeholders.map(({ name, placeholder }) => ({ name, placeholder })))
+      .toEqual([
+        { name: 'runtime_title', placeholder: { type: 'title', index: 100 } },
+        { name: 'percentage_body', placeholder: { type: 'body', index: 101 } },
+        { name: 'picture_box', placeholder: { type: 'pic', index: 102 } },
+        { name: 'official_only', placeholder: { type: 'body', index: 103 } },
+      ]);
+    expect(nativeLayout.placeholders[1]?.transform).toEqual(
+      importedLayout.placeholders[1]?.transform,
+    );
+    expect(nativeTitle.transform).toEqual(nativeLayout.placeholders[0]?.transform);
+    expect(nativeOfficial.transform).toEqual(nativeLayout.placeholders[3]?.transform);
+    expect({
+      name: nativePicture.name,
+      placeholder: nativePicture.placeholder,
+      transform: nativePicture.transform,
+    }).toEqual({
+      name: 'picture_box',
+      placeholder: { type: 'pic', index: 102 },
+      transform: nativeLayout.placeholders[2]?.transform,
+    });
+
+    const beforeUnknownText = packageState(native);
+    expect(() => nativeSlide.addText('Unknown selector text', {
+      placeholder: 'missing_text',
+    })).toThrow(/placeholder/i);
+    expect(packageState(native)).toEqual(beforeUnknownText);
+    const beforeUnknownImage = packageState(native);
+    await expect(native.addImage(0, PNG_DATA_URI, { placeholder: 'missing_image' }))
+      .rejects.toThrow(/placeholder/i);
+    expect(packageState(native)).toEqual(beforeUnknownImage);
+  });
+
   it('locks public slide master fallbacks while native definitions reject atomically', async () => {
     const unknown = new PptxGenJS();
     unknown.defineSlideMaster({ title: 'KNOWN', objects: [] });

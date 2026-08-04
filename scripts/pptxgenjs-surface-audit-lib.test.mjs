@@ -124,13 +124,13 @@ function assertDeepFrozen(value, seen = new Set()) {
 test('exports an immutable evidence-backed initial manifest batch', () => {
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.schemaVersion, 1);
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.packageVersion, '4.0.1');
-  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1373);
+  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1381);
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries.map(({ status }) => status).sort(),
     [
       ...Array(359).fill('defect-excluded'),
       ...Array(620).fill('supported'),
-      ...Array(303).fill('deliberate-difference'),
+      ...Array(311).fill('deliberate-difference'),
       ...Array(91).fill('deprecated-alias'),
     ].sort(),
   );
@@ -1118,6 +1118,51 @@ test('exports an immutable evidence-backed initial manifest batch', () => {
     shapeTextShadowById
       .get(addTablePropertyId('TextPropsOptions', 'shadow'))?.evidence.package,
     [{ path: 'scripts/smoke-npm-package.mjs', pattern: 'const textShapeShadows =' }],
+  );
+  const placeholderCoreExpected = [
+    ...['name', 'type', 'x', 'y', 'w', 'h']
+      .map((property) => addTablePropertyId('PlaceholderProps', property)),
+    addTablePropertyId('ImageProps', 'placeholder'),
+    addTablePropertyId('TextPropsOptions', 'placeholder'),
+  ].sort();
+  const placeholderCoreIds = new Set(placeholderCoreExpected);
+  assert.equal(placeholderCoreIds.size, 8);
+  const placeholderCoreEntries = PPTXGENJS_SURFACE_MANIFEST.entries
+    .filter(({ id }) => placeholderCoreIds.has(id))
+    .sort((left, right) => left.id.localeCompare(right.id));
+  assert.deepEqual(
+    placeholderCoreEntries.map(({ id, status }) => ({ id, status })),
+    placeholderCoreExpected.map((id) => ({
+      id,
+      status: 'deliberate-difference',
+    })),
+  );
+  assert.equal(
+    placeholderCoreEntries.every(({ native, serialization, client }) =>
+      native.length > 0 && serialization === true && client === true),
+    true,
+  );
+  assert.equal(
+    placeholderCoreEntries.every(({ evidence, control }) =>
+      evidence.package.some(({ pattern }) => pattern === 'const masterLayoutChecks = {') &&
+      evidence.clients.some(({ pattern }) => pattern === 'const masterLayoutState = {') &&
+      control.pattern ===
+        'locks PlaceholderProps and text/image placeholder population against PptxGenJS 4.0.1'),
+    true,
+  );
+  assert.deepEqual(
+    placeholderCoreEntries
+      .filter(({ id }) => /PlaceholderProps@property:(?:w|h)$/u.test(id))
+      .map(({ native }) => native[0])
+      .sort(),
+    ['AddPlaceholderOptions.height', 'AddPlaceholderOptions.width'],
+  );
+  assert.equal(
+    placeholderCoreIds.has(addTablePropertyId('PlaceholderProps', 'align')) ||
+      placeholderCoreIds.has(addTablePropertyId('PlaceholderProps', 'margin')) ||
+      placeholderCoreIds.has(addTablePropertyId('PlaceholderProps', 'transparency')) ||
+      placeholderCoreIds.has(addTablePropertyId('PlaceholderProps', 'valign')),
+    false,
   );
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries

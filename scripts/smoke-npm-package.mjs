@@ -8152,6 +8152,20 @@ const masterLayoutOwnerIdsUnique = [
   const ids = owner.shapes.map(({ id }) => id);
   return new Set(ids).size === ids.length;
 });
+const masterLayoutPlaceholderGeometryPreserved = reopenedMasterLayoutSlide.placeholders
+  .every((shape) => {
+    const source = reopenedMasterLayout.placeholders.find(({ placeholder }) =>
+      placeholder?.type === shape.placeholder?.type &&
+      placeholder?.index === shape.placeholder?.index);
+    return source !== undefined &&
+      source.transform.x === shape.transform.x &&
+      source.transform.y === shape.transform.y &&
+      source.transform.width === shape.transform.width &&
+      source.transform.height === shape.transform.height &&
+      source.transform.rotation === shape.transform.rotation &&
+      source.transform.flipHorizontal === shape.transform.flipHorizontal &&
+      source.transform.flipVertical === shape.transform.flipVertical;
+  });
 const masterLayoutChecks = {
   liveIdentity: masterLayoutLiveIdentity,
   replaced: masterLayoutReplaced,
@@ -8171,6 +8185,7 @@ const masterLayoutChecks = {
     .map(({ placeholder }) => placeholder?.type).join(',') === PLACEHOLDER_TYPES.join(','),
   slidePlaceholders: reopenedMasterLayoutSlide.placeholders
     .map(({ placeholder }) => placeholder?.type).join(',') === PLACEHOLDER_TYPES.join(','),
+  placeholderGeometry: masterLayoutPlaceholderGeometryPreserved,
   slideKinds: reopenedMasterLayoutSlide.shapes.slice(0, 6)
     .map(({ kind }) => kind).join(',') === 'text,text,image,chart,table,audio',
   slideTargets: reopenedMasterLayoutDeck.slides[0].relationships.some(

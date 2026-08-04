@@ -17682,28 +17682,76 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks PlaceholderProps and text/image placeholder population against PptxGenJS 4.0.1"
+      },
       "declaredIn": "ImageProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const masterLayoutState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/image.ts",
+            "pattern": "readonly placeholder?: PlaceholderSelector;"
+          },
+          {
+            "path": "packages/model/src/image-create.internal.ts",
+            "pattern": "const placeholder = values.placeholder === undefined"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "populate image chart placeholders from high-level sources and chart groups"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const masterLayoutChecks = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks PlaceholderProps and text/image placeholder population against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "compares public placeholder population payloads with strict native owners"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks public slide master fallbacks while native definitions reject atomically"
+          }
+        ]
       },
       "id": "interface:ImageProps@property:placeholder",
       "kind": "property",
       "name": "placeholder",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddImageOptions.placeholder",
+        "ImageModel.placeholder",
+        "PlaceholderSelector",
+        "PptxDocument.addImage",
+        "SlideModel.addImage",
+        "SlideModel.addSvgImage"
+      ],
+      "note": "PptxGenJS accepts only a string selector, can degrade pic identity to body, changes the populated object name, and inherits only owner position; native accepts name or identity selectors and preserves the full pic owner geometry in place.",
       "optional": true,
       "owner": "ImageProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "string"
     },
     {
@@ -19143,28 +19191,73 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks PlaceholderProps and text/image placeholder population against PptxGenJS 4.0.1"
+      },
       "declaredIn": "PositionProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const masterLayoutState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/placeholder.ts",
+            "pattern": "export interface AddPlaceholderOptions"
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "function normalizeTextTransform("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "round-trips empty layout placeholders in all six presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const masterLayoutChecks = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks PlaceholderProps and text/image placeholder population against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches public slide master objects, topology, and empty placeholder geometry"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks public slide master fallbacks while native definitions reject atomically"
+          }
+        ]
       },
       "id": "interface:PlaceholderProps@property:h",
       "kind": "property",
       "name": "h",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddPlaceholderOptions.height",
+        "SlideCoordinate",
+        "Transform.height"
+      ],
+      "note": "PptxGenJS exposes loose implicit-inch w/h coordinates and permits zero extent; native names the field width/height, uses explicit units, and requires a positive extent.",
       "optional": true,
       "owner": "PlaceholderProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
@@ -19400,28 +19493,74 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks PlaceholderProps and text/image placeholder population against PptxGenJS 4.0.1"
+      },
       "declaredIn": "PlaceholderProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const masterLayoutState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/placeholder.ts",
+            "pattern": "export interface AddPlaceholderOptions"
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "throw new TypeError('Placeholder name must be a non-empty string');"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "round-trips empty layout placeholders in all six presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const masterLayoutChecks = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks PlaceholderProps and text/image placeholder population against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches public slide master objects, topology, and empty placeholder geometry"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks public slide master fallbacks while native definitions reject atomically"
+          }
+        ]
       },
       "id": "interface:PlaceholderProps@property:name",
       "kind": "property",
       "name": "name",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddPlaceholderOptions.name",
+        "PlaceholderSelector",
+        "ShapeModel.name",
+        "SlideModel.addPlaceholder"
+      ],
+      "note": "PptxGenJS separates its runtime lookup name from the selection-pane object name and internally remaps the name on its cloned definition; native requires one detached non-empty unique owner name and persists it.",
       "optional": false,
       "owner": "PlaceholderProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "string"
     },
     {
@@ -19583,28 +19722,75 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks PlaceholderProps and text/image placeholder population against PptxGenJS 4.0.1"
+      },
       "declaredIn": "PlaceholderProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const masterLayoutState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/placeholder.ts",
+            "pattern": "export interface AddPlaceholderOptions"
+          },
+          {
+            "path": "packages/model/src/placeholder.internal.ts",
+            "pattern": "export function normalizePlaceholderIdentity("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "round-trips empty layout placeholders in all six presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const masterLayoutChecks = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks PlaceholderProps and text/image placeholder population against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches public slide master objects, topology, and empty placeholder geometry"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks public slide master fallbacks while native definitions reject atomically"
+          }
+        ]
       },
       "id": "interface:PlaceholderProps@property:type",
       "kind": "property",
       "name": "type",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddPlaceholderOptions.type",
+        "PLACEHOLDER_TYPES",
+        "PlaceholderIdentity.type",
+        "PlaceholderType",
+        "ShapeModel.placeholder"
+      ],
+      "note": "PptxGenJS accepts invalid placeholder types by fallback and emits empty pic and tbl definitions as body; native preserves all six strict PlaceholderType domains through editable identity state.",
       "optional": false,
       "owner": "PlaceholderProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "PLACEHOLDER_TYPE"
     },
     {
@@ -19696,80 +19882,215 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks PlaceholderProps and text/image placeholder population against PptxGenJS 4.0.1"
+      },
       "declaredIn": "PositionProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const masterLayoutState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/placeholder.ts",
+            "pattern": "export interface AddPlaceholderOptions"
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "function normalizeTextTransform("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "round-trips empty layout placeholders in all six presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const masterLayoutChecks = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks PlaceholderProps and text/image placeholder population against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches public slide master objects, topology, and empty placeholder geometry"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks public slide master fallbacks while native definitions reject atomically"
+          }
+        ]
       },
       "id": "interface:PlaceholderProps@property:w",
       "kind": "property",
       "name": "w",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddPlaceholderOptions.width",
+        "SlideCoordinate",
+        "Transform.width"
+      ],
+      "note": "PptxGenJS exposes loose implicit-inch w/h coordinates and permits zero extent; native names the field width/height, uses explicit units, and requires a positive extent.",
       "optional": true,
       "owner": "PlaceholderProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks PlaceholderProps and text/image placeholder population against PptxGenJS 4.0.1"
+      },
       "declaredIn": "PositionProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const masterLayoutState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/placeholder.ts",
+            "pattern": "export interface AddPlaceholderOptions"
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "function normalizeTextTransform("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "round-trips empty layout placeholders in all six presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const masterLayoutChecks = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks PlaceholderProps and text/image placeholder population against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches public slide master objects, topology, and empty placeholder geometry"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks public slide master fallbacks while native definitions reject atomically"
+          }
+        ]
       },
       "id": "interface:PlaceholderProps@property:x",
       "kind": "property",
       "name": "x",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddPlaceholderOptions.x",
+        "SlideCoordinate",
+        "Transform.x"
+      ],
+      "note": "PptxGenJS accepts loose Coord values and implicit-inch numbers; native uses explicit EMU, inches(), or strict percentage SlideCoordinate values with validation before mutation.",
       "optional": true,
       "owner": "PlaceholderProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks PlaceholderProps and text/image placeholder population against PptxGenJS 4.0.1"
+      },
       "declaredIn": "PositionProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const masterLayoutState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/placeholder.ts",
+            "pattern": "export interface AddPlaceholderOptions"
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "function normalizeTextTransform("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "round-trips empty layout placeholders in all six presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const masterLayoutChecks = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks PlaceholderProps and text/image placeholder population against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches public slide master objects, topology, and empty placeholder geometry"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks public slide master fallbacks while native definitions reject atomically"
+          }
+        ]
       },
       "id": "interface:PlaceholderProps@property:y",
       "kind": "property",
       "name": "y",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddPlaceholderOptions.y",
+        "SlideCoordinate",
+        "Transform.y"
+      ],
+      "note": "PptxGenJS accepts loose Coord values and implicit-inch numbers; native uses explicit EMU, inches(), or strict percentage SlideCoordinate values with validation before mutation.",
       "optional": true,
       "owner": "PlaceholderProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
@@ -32802,28 +33123,75 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks PlaceholderProps and text/image placeholder population against PptxGenJS 4.0.1"
+      },
       "declaredIn": "TextPropsOptions",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const masterLayoutState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "readonly placeholder?: PlaceholderSelector;"
+          },
+          {
+            "path": "packages/model/src/placeholder.internal.ts",
+            "pattern": "export function resolvePlaceholderOwner("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "populate text shape placeholder owners in place with layout geometry"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const masterLayoutChecks = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks PlaceholderProps and text/image placeholder population against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "compares public placeholder population payloads with strict native owners"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks public slide master fallbacks while native definitions reject atomically"
+          }
+        ]
       },
       "id": "interface:TextPropsOptions@property:placeholder",
       "kind": "property",
       "name": "placeholder",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.placeholder",
+        "PlaceholderSelector",
+        "ShapeModel.placeholder",
+        "SlideModel.addRichText",
+        "SlideModel.addText"
+      ],
+      "note": "PptxGenJS accepts a string placeholder selector, can silently create an ordinary text object for an unknown selector, and can duplicate identities after delayed population; native accepts name or identity selectors and replaces one strict owner atomically.",
       "optional": true,
       "owner": "TextPropsOptions",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "string"
     },
     {
@@ -85340,12 +85708,12 @@
   "complete": false,
   "counts": {
     "defect-excluded": 359,
-    "deliberate-difference": 303,
+    "deliberate-difference": 311,
     "deprecated-alias": 91,
     "stale": 0,
     "supported": 620,
     "unsupported": 0,
-    "unverified": 401
+    "unverified": 393
   },
   "declarationSha256": "0726d015dbcb55ccfa75546cb2fd43fe13a0dfeb783d08572f1c62f59193bbe5",
   "declarationTotal": 1774,
@@ -85580,7 +85948,6 @@
     "interface:ImageProps@property:hyperlink",
     "interface:ImageProps@property:objectName",
     "interface:ImageProps@property:path",
-    "interface:ImageProps@property:placeholder",
     "interface:ImageProps@property:rotate",
     "interface:ImageProps@property:rounding",
     "interface:ImageProps@property:shadow",
@@ -85599,15 +85966,9 @@
     "interface:MediaProps@property:y",
     "interface:OptsChartGridLine@property:cap",
     "interface:PlaceholderProps@property:align",
-    "interface:PlaceholderProps@property:h",
     "interface:PlaceholderProps@property:margin",
-    "interface:PlaceholderProps@property:name",
     "interface:PlaceholderProps@property:transparency",
-    "interface:PlaceholderProps@property:type",
     "interface:PlaceholderProps@property:valign",
-    "interface:PlaceholderProps@property:w",
-    "interface:PlaceholderProps@property:x",
-    "interface:PlaceholderProps@property:y",
     "interface:ShapeProps@property:align",
     "interface:ShapeProps@property:angleRange",
     "interface:ShapeProps@property:arcThicknessRatio",
@@ -85646,7 +86007,6 @@
     "interface:TextPropsOptions@property:paraSpaceAfter",
     "interface:TextPropsOptions@property:paraSpaceBefore",
     "interface:TextPropsOptions@property:path",
-    "interface:TextPropsOptions@property:placeholder",
     "interface:TextPropsOptions@property:rectRadius",
     "interface:TextPropsOptions@property:rotate",
     "interface:TextPropsOptions@property:rtlMode",
