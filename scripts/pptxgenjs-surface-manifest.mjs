@@ -22,6 +22,10 @@ const SHAPE_TEXT_COORDINATE_CONTROL_TITLE =
   'matches PptxGenJS shape and text percentage coordinate output with explicit native units';
 const SHAPE_TEXT_COORDINATE_OOXML_TITLE =
   'creates and reopens shape and text percentage coordinates against the current slide size';
+const IMAGE_COORDINATE_CONTROL_TITLE =
+  'matches PptxGenJS image percentage coordinate output with explicit native units';
+const IMAGE_COORDINATE_OOXML_TITLE =
+  'creates and reopens raster and SVG percentage coordinates through the source loader';
 
 function deliberateDifference(id, native) {
   return {
@@ -70,6 +74,46 @@ const SHAPE_TEXT_COORDINATE_ATOMS = Object.freeze([
   'interface:TextPropsOptions@property:w',
   'interface:TextPropsOptions@property:h',
 ]);
+
+const IMAGE_COORDINATE_ATOMS = Object.freeze([
+  'interface:ImageProps@property:x',
+  'interface:ImageProps@property:y',
+  'interface:ImageProps@property:w',
+  'interface:ImageProps@property:h',
+]);
+
+function imageCoordinateDifference(id) {
+  return {
+    id,
+    status: 'deliberate-difference',
+    native: ['SlideModel.addImage', 'SlideModel.addSvgImage', 'PptxDocument.addImage'],
+    evidence: {
+      code: [{
+        path: 'packages/model/src/image-create.internal.ts',
+        pattern: 'function resolveImageCoordinate(',
+      }],
+      tests: [{
+        path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+        title: IMAGE_COORDINATE_CONTROL_TITLE,
+      }],
+      package: [{
+        path: 'scripts/smoke-npm-package.mjs',
+        pattern: 'const imagePercentageCoordinates =',
+      }],
+      ooxml: [{
+        path: 'packages/sdk/src/index.test.ts',
+        pattern: IMAGE_COORDINATE_OOXML_TITLE,
+      }],
+      clients: [],
+    },
+    control: {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      pattern: IMAGE_COORDINATE_CONTROL_TITLE,
+    },
+    serialization: true,
+    note: 'Native covers the same legal direct image percentage geometry with width/height and explicit Emu or inches() numeric units; nested sizing coordinates remain a separate capability family.',
+  };
+}
 
 function coordinateNativeMapping(id) {
   if (id.startsWith('interface:PositionProps@')) {
@@ -164,6 +208,7 @@ export const PPTXGENJS_SURFACE_MANIFEST = deepFreeze({
     },
     ...SHAPE_TEXT_COORDINATE_ATOMS.map((id) =>
       deliberateDifference(id, coordinateNativeMapping(id))),
+    ...IMAGE_COORDINATE_ATOMS.map((id) => imageCoordinateDifference(id)),
   ],
   extensions: [],
 });

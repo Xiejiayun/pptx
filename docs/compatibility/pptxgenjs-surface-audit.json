@@ -11565,27 +11565,55 @@
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "matches PptxGenJS image percentage coordinate output with explicit native units"
+      },
       "declaredIn": "PositionProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "code": [
+          {
+            "path": "packages/model/src/image-create.internal.ts",
+            "pattern": "function resolveImageCoordinate("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens raster and SVG percentage coordinates through the source loader"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const imagePercentageCoordinates ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches PptxGenJS image percentage coordinate output with explicit native units"
+          }
+        ]
       },
       "id": "interface:ImageProps@property:h",
       "kind": "property",
       "name": "h",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.addImage",
+        "SlideModel.addImage",
+        "SlideModel.addSvgImage"
+      ],
+      "note": "Native covers the same legal direct image percentage geometry with width/height and explicit Emu or inches() numeric units; nested sizing coordinates remain a separate capability family.",
       "optional": true,
       "owner": "ImageProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
@@ -11825,79 +11853,163 @@
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "matches PptxGenJS image percentage coordinate output with explicit native units"
+      },
       "declaredIn": "PositionProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "code": [
+          {
+            "path": "packages/model/src/image-create.internal.ts",
+            "pattern": "function resolveImageCoordinate("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens raster and SVG percentage coordinates through the source loader"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const imagePercentageCoordinates ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches PptxGenJS image percentage coordinate output with explicit native units"
+          }
+        ]
       },
       "id": "interface:ImageProps@property:w",
       "kind": "property",
       "name": "w",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.addImage",
+        "SlideModel.addImage",
+        "SlideModel.addSvgImage"
+      ],
+      "note": "Native covers the same legal direct image percentage geometry with width/height and explicit Emu or inches() numeric units; nested sizing coordinates remain a separate capability family.",
       "optional": true,
       "owner": "ImageProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "matches PptxGenJS image percentage coordinate output with explicit native units"
+      },
       "declaredIn": "PositionProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "code": [
+          {
+            "path": "packages/model/src/image-create.internal.ts",
+            "pattern": "function resolveImageCoordinate("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens raster and SVG percentage coordinates through the source loader"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const imagePercentageCoordinates ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches PptxGenJS image percentage coordinate output with explicit native units"
+          }
+        ]
       },
       "id": "interface:ImageProps@property:x",
       "kind": "property",
       "name": "x",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.addImage",
+        "SlideModel.addImage",
+        "SlideModel.addSvgImage"
+      ],
+      "note": "Native covers the same legal direct image percentage geometry with width/height and explicit Emu or inches() numeric units; nested sizing coordinates remain a separate capability family.",
       "optional": true,
       "owner": "ImageProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "matches PptxGenJS image percentage coordinate output with explicit native units"
+      },
       "declaredIn": "PositionProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "code": [
+          {
+            "path": "packages/model/src/image-create.internal.ts",
+            "pattern": "function resolveImageCoordinate("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates and reopens raster and SVG percentage coordinates through the source loader"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const imagePercentageCoordinates ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches PptxGenJS image percentage coordinate output with explicit native units"
+          }
+        ]
       },
       "id": "interface:ImageProps@property:y",
       "kind": "property",
       "name": "y",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.addImage",
+        "SlideModel.addImage",
+        "SlideModel.addSvgImage"
+      ],
+      "note": "Native covers the same legal direct image percentage geometry with width/height and explicit Emu or inches() numeric units; nested sizing coordinates remain a separate capability family.",
       "optional": true,
       "owner": "ImageProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
@@ -46610,12 +46722,12 @@
   "complete": false,
   "counts": {
     "defect-excluded": 1,
-    "deliberate-difference": 12,
+    "deliberate-difference": 16,
     "deprecated-alias": 0,
     "stale": 0,
     "supported": 7,
     "unsupported": 0,
-    "unverified": 1754
+    "unverified": 1750
   },
   "declarationSha256": "0726d015dbcb55ccfa75546cb2fd43fe13a0dfeb783d08572f1c62f59193bbe5",
   "declarationTotal": 1774,
@@ -47053,7 +47165,6 @@
     "interface:ImageProps@property:data",
     "interface:ImageProps@property:flipH",
     "interface:ImageProps@property:flipV",
-    "interface:ImageProps@property:h",
     "interface:ImageProps@property:hyperlink",
     "interface:ImageProps@property:objectName",
     "interface:ImageProps@property:path",
@@ -47063,9 +47174,6 @@
     "interface:ImageProps@property:shadow",
     "interface:ImageProps@property:sizing",
     "interface:ImageProps@property:transparency",
-    "interface:ImageProps@property:w",
-    "interface:ImageProps@property:x",
-    "interface:ImageProps@property:y",
     "interface:MediaProps@property:cover",
     "interface:MediaProps@property:data",
     "interface:MediaProps@property:extn",

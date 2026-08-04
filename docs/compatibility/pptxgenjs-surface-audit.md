@@ -11,11 +11,11 @@
 | Status | Count |
 | --- | ---: |
 | supported | 7 |
-| deliberate-difference | 12 |
+| deliberate-difference | 16 |
 | deprecated-alias | 0 |
 | defect-excluded | 1 |
 | unsupported | 0 |
-| unverified | 1754 |
+| unverified | 1750 |
 | stale | 0 |
 
 ## Runtime declaration differences
@@ -460,7 +460,6 @@ None.
 - `interface:ImageProps@property:data`
 - `interface:ImageProps@property:flipH`
 - `interface:ImageProps@property:flipV`
-- `interface:ImageProps@property:h`
 - `interface:ImageProps@property:hyperlink`
 - `interface:ImageProps@property:objectName`
 - `interface:ImageProps@property:path`
@@ -470,9 +469,6 @@ None.
 - `interface:ImageProps@property:shadow`
 - `interface:ImageProps@property:sizing`
 - `interface:ImageProps@property:transparency`
-- `interface:ImageProps@property:w`
-- `interface:ImageProps@property:x`
-- `interface:ImageProps@property:y`
 - `interface:MediaProps@property:cover`
 - `interface:MediaProps@property:data`
 - `interface:MediaProps@property:extn`
@@ -2443,7 +2439,7 @@ None.
 | `interface:ImageProps@property:data` | unverified | — | — | — |
 | `interface:ImageProps@property:flipH` | unverified | — | — | — |
 | `interface:ImageProps@property:flipV` | unverified | — | — | — |
-| `interface:ImageProps@property:h` | unverified | — | — | — |
+| `interface:ImageProps@property:h` | deliberate-difference | PptxDocument.addImage<br>SlideModel.addImage<br>SlideModel.addSvgImage | code:packages/model/src/image-create.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers the same legal direct image percentage geometry with width/height and explicit Emu or inches() numeric units; nested sizing coordinates remain a separate capability family. |
 | `interface:ImageProps@property:hyperlink` | unverified | — | — | — |
 | `interface:ImageProps@property:objectName` | unverified | — | — | — |
 | `interface:ImageProps@property:path` | unverified | — | — | — |
@@ -2452,9 +2448,9 @@ None.
 | `interface:ImageProps@property:shadow` | unverified | — | — | — |
 | `interface:ImageProps@property:sizing` | unverified | — | — | — |
 | `interface:ImageProps@property:transparency` | unverified | — | — | — |
-| `interface:ImageProps@property:w` | unverified | — | — | — |
-| `interface:ImageProps@property:x` | unverified | — | — | — |
-| `interface:ImageProps@property:y` | unverified | — | — | — |
+| `interface:ImageProps@property:w` | deliberate-difference | PptxDocument.addImage<br>SlideModel.addImage<br>SlideModel.addSvgImage | code:packages/model/src/image-create.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers the same legal direct image percentage geometry with width/height and explicit Emu or inches() numeric units; nested sizing coordinates remain a separate capability family. |
+| `interface:ImageProps@property:x` | deliberate-difference | PptxDocument.addImage<br>SlideModel.addImage<br>SlideModel.addSvgImage | code:packages/model/src/image-create.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers the same legal direct image percentage geometry with width/height and explicit Emu or inches() numeric units; nested sizing coordinates remain a separate capability family. |
+| `interface:ImageProps@property:y` | deliberate-difference | PptxDocument.addImage<br>SlideModel.addImage<br>SlideModel.addSvgImage | code:packages/model/src/image-create.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers the same legal direct image percentage geometry with width/height and explicit Emu or inches() numeric units; nested sizing coordinates remain a separate capability family. |
 | `interface:PresSlide@property:addImage` | unverified | — | — | — |
 | `interface:TableToSlidesProps@property:addImage` | unverified | — | — | — |
 | `method:Slide#addImage` | unverified | — | — | — |
