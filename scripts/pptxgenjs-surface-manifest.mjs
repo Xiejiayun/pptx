@@ -2162,6 +2162,250 @@ const TABLE_TO_SLIDES_FILL_DEFECT_ENTRY = Object.freeze({
   note: 'PptxGenJS 4.0.1 inherits TableProps.fill into TableToSlidesProps but drops the option before creating any auto-paged table; computed CSS backgrounds alone determine cell fills, which native exposes directly without copying the inert declaration.',
 });
 
+const TABLE_TO_SLIDES_FAMILY_CONTROL_TITLE =
+  'locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1';
+const TABLE_TO_SLIDES_FAMILY_OOXML_TITLE =
+  'creates editable styled tables in all six OOXML presentation formats';
+const TABLE_TO_SLIDES_TOP_STATUS = Object.freeze({
+  autoPageCharWeight: 'supported',
+  autoPageLineWeight: 'supported',
+  autoPageRepeatHeader: 'supported',
+  masterSlideName: 'supported',
+  addImage: 'deliberate-difference',
+  addShape: 'deliberate-difference',
+  addTable: 'deliberate-difference',
+  addText: 'deliberate-difference',
+  autoPageSlideStartY: 'deliberate-difference',
+  h: 'deliberate-difference',
+  slideMargin: 'deliberate-difference',
+  verbose: 'deliberate-difference',
+  w: 'deliberate-difference',
+  x: 'deliberate-difference',
+  y: 'deliberate-difference',
+  addHeaderToEach: 'deprecated-alias',
+  newSlideStartY: 'deprecated-alias',
+  align: 'defect-excluded',
+  autoPage: 'defect-excluded',
+  autoPageHeaderRows: 'defect-excluded',
+  border: 'defect-excluded',
+  colW: 'defect-excluded',
+  margin: 'defect-excluded',
+  objectName: 'defect-excluded',
+  rowH: 'defect-excluded',
+  transparency: 'defect-excluded',
+  valign: 'defect-excluded',
+});
+const TABLE_TO_SLIDES_NESTED_FIELDS = Object.freeze({
+  addImage: Object.freeze({ image: 'source', options: 'options' }),
+  addShape: Object.freeze({ options: 'options', shapeName: 'type' }),
+  addTable: Object.freeze({ options: 'options', rows: 'rows' }),
+  addText: Object.freeze({ options: 'options', text: 'text' }),
+});
+const TABLE_TO_SLIDES_UNION_TOKENS = Object.freeze({
+  border: Object.freeze(['BorderProps', '[BorderProps,BorderProps,BorderProps,BorderProps]']),
+  colW: Object.freeze(['number', 'number[]']),
+  rowH: Object.freeze(['number', 'number[]']),
+});
+
+function tableToSlidesFamilyEvidence() {
+  return {
+    code: [
+      {
+        path: 'packages/sdk/src/table-to-slides.ts',
+        pattern: 'export interface TableToSlidesOptions {',
+      },
+      {
+        path: 'packages/sdk/src/index.ts',
+        pattern: 'async tableToSlides(',
+      },
+    ],
+    tests: [
+      {
+        path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+        title: TABLE_TO_SLIDES_FAMILY_CONTROL_TITLE,
+      },
+      {
+        path: 'packages/sdk/src/table-to-slides.test.ts',
+        title: TABLE_TO_SLIDES_FAMILY_OOXML_TITLE,
+      },
+    ],
+    package: [{
+      path: 'scripts/smoke-npm-package.mjs',
+      pattern: 'const tableToSlidesState = {',
+    }],
+    ooxml: [{
+      path: 'packages/sdk/src/table-to-slides.test.ts',
+      pattern: TABLE_TO_SLIDES_FAMILY_OOXML_TITLE,
+    }],
+    clients: [{
+      path: 'scripts/playwright-browser-smoke.js',
+      pattern: 'const tableToSlidesState = {',
+    }],
+  };
+}
+
+function tableToSlidesNative(property) {
+  if (property === 'w') return ['TableToSlidesOptions.width'];
+  if (property === 'h') return ['TableToSlidesOptions.height'];
+  if (property === 'masterSlideName') {
+    return ['TableToSlidesOptions.masterSlideName', 'PptxDocument.defineSlideMaster'];
+  }
+  return [`TableToSlidesOptions.${property}`, 'PptxDocument.tableToSlides'];
+}
+
+function tableToSlidesSupportedEntry(property) {
+  return {
+    id: linePropertyId('TableToSlidesProps', property),
+    status: 'supported',
+    native: tableToSlidesNative(property),
+    evidence: tableToSlidesFamilyEvidence(),
+    serialization: true,
+    client: true,
+    note: `Native exposes effective TableToSlidesProps.${property} under the same name with strict detached input, editable output, packed-package use, browser execution, and reopen evidence.`,
+  };
+}
+
+function tableToSlidesDifferenceEntry(
+  id,
+  native,
+  note,
+  { serialization = true, client = true } = {},
+) {
+  return {
+    id,
+    status: 'deliberate-difference',
+    native,
+    evidence: tableToSlidesFamilyEvidence(),
+    control: {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      pattern: TABLE_TO_SLIDES_FAMILY_CONTROL_TITLE,
+    },
+    serialization,
+    client,
+    note,
+  };
+}
+
+function tableToSlidesTopDifferenceEntry(property) {
+  const id = linePropertyId('TableToSlidesProps', property);
+  if (property === 'verbose') {
+    return tableToSlidesDifferenceEntry(
+      id,
+      ['PptxDocument.tableToSlides'],
+      'PptxGenJS verbose produces process-global console traces without changing the deck; native deliberately keeps tableToSlides deterministic and free of global logging.',
+      { serialization: false, client: false },
+    );
+  }
+  if (['w', 'h'].includes(property)) {
+    return tableToSlidesDifferenceEntry(
+      id,
+      tableToSlidesNative(property),
+      `Native maps TableToSlidesProps.${property} to strict exact geometry with explicit EMU or inches() units, preserves legal zero values, and uses width/height names instead of PptxGenJS truthy implicit-inch behavior.`,
+    );
+  }
+  if (['x', 'y', 'slideMargin', 'autoPageSlideStartY'].includes(property)) {
+    return tableToSlidesDifferenceEntry(
+      id,
+      tableToSlidesNative(property),
+      `Native maps TableToSlidesProps.${property} to strict exact geometry with explicit EMU or inches() units and preserves legal zero values instead of PptxGenJS truthy implicit-inch behavior.`,
+    );
+  }
+  return tableToSlidesDifferenceEntry(
+    id,
+    tableToSlidesNative(property),
+    `Native covers TableToSlidesProps.${property} with a strict detached addition record and transactional page creation instead of PptxGenJS caller mutation and permissive nested inputs.`,
+  );
+}
+
+function tableToSlidesNestedDifferenceEntry(owner, field, nativeField) {
+  return tableToSlidesDifferenceEntry(
+    `inline:interface:TableToSlidesProps@property:${owner}@property:${owner}.${field}`,
+    [`TableToSlides${owner.slice(0, 1).toUpperCase()}${owner.slice(1)}.${nativeField}`],
+    `Native maps TableToSlidesProps.${owner}.${field} to the detached, strictly typed ${nativeField} field with native geometry and content types while preserving the same legal page addition.`,
+  );
+}
+
+function tableToSlidesDeprecatedEntry(property) {
+  const canonicalProperty = property === 'addHeaderToEach'
+    ? 'autoPageRepeatHeader'
+    : 'autoPageSlideStartY';
+  return {
+    id: linePropertyId('TableToSlidesProps', property),
+    status: 'deprecated-alias',
+    native: tableToSlidesNative(canonicalProperty),
+    evidence: tableToSlidesFamilyEvidence(),
+    canonical: linePropertyId('TableToSlidesProps', canonicalProperty),
+    control: {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      pattern: TABLE_TO_SLIDES_FAMILY_CONTROL_TITLE,
+    },
+    serialization: true,
+    client: true,
+    note: `PptxGenJS 4.0.1 still consumes deprecated ${property}; native exposes only its canonical ${canonicalProperty} capability.`,
+  };
+}
+
+function tableToSlidesDefectEntry(id, property) {
+  const notes = {
+    autoPage: 'PptxGenJS tableToSlides always paginates even when autoPage is false; native implements the declared false value, but that strict correction does not make the broken upstream field a delivered capability.',
+    autoPageHeaderRows: 'PptxGenJS never reads autoPageHeaderRows in tableToSlides and always repeats every thead row; native supports an explicit count as a strict correction.',
+    colW: 'PptxGenJS overwrites caller colW with DOM-derived widths before output, so neither declared scalar nor vector input controls the table; native columnWidths is a strict correction.',
+    margin: 'PptxGenJS margin only enters an inconsistent pagination fallback and is not forwarded as the declared final cell margin; computed CSS padding remains the effective source.',
+    rowH: 'PptxGenJS never forwards tableToSlides rowH to the final table, so neither declared scalar nor vector branch affects output.',
+  };
+  return {
+    id,
+    status: 'defect-excluded',
+    native: [],
+    evidence: {
+      code: [],
+      tests: [{
+        path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+        title: TABLE_TO_SLIDES_FAMILY_CONTROL_TITLE,
+      }],
+      package: [],
+      ooxml: [],
+      clients: [],
+    },
+    control: {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      pattern: TABLE_TO_SLIDES_FAMILY_CONTROL_TITLE,
+    },
+    note: notes[property]
+      ?? `PptxGenJS tableToSlides does not forward inherited ${property} to the final table; computed DOM/CSS state remains the effective input and native does not copy the inert alias.`,
+  };
+}
+
+function tableToSlidesTopEntry(property, status) {
+  if (status === 'supported') return tableToSlidesSupportedEntry(property);
+  if (status === 'deliberate-difference') {
+    return tableToSlidesTopDifferenceEntry(property);
+  }
+  if (status === 'deprecated-alias') return tableToSlidesDeprecatedEntry(property);
+  return tableToSlidesDefectEntry(
+    linePropertyId('TableToSlidesProps', property),
+    property,
+  );
+}
+
+const TABLE_TO_SLIDES_FAMILY_ENTRIES = Object.freeze([
+  tableToSlidesDifferenceEntry(
+    'class:PptxGenJS#tableToSlides',
+    ['PptxDocument.tableToSlides'],
+    'Native tableToSlides returns a Promise of frozen created SlideModel identities, snapshots caller input, and rolls back atomically instead of returning undefined and mutating caller options.',
+  ),
+  ...Object.entries(TABLE_TO_SLIDES_TOP_STATUS).map(([property, status]) =>
+    tableToSlidesTopEntry(property, status)),
+  ...Object.entries(TABLE_TO_SLIDES_NESTED_FIELDS).flatMap(([owner, fields]) =>
+    Object.entries(fields).map(([field, nativeField]) =>
+      tableToSlidesNestedDifferenceEntry(owner, field, nativeField))),
+  ...Object.entries(TABLE_TO_SLIDES_UNION_TOKENS).flatMap(([property, tokens]) =>
+    tokens.map((token) => tableToSlidesDefectEntry(
+      `union:${linePropertyId('TableToSlidesProps', property)}#${token}`,
+      property,
+    ))),
+]);
+
 function presetShapeCatalogEntry(owner, value) {
   const id = `union:${owner}#${value}`;
   if (value === 'folderCorner') {
@@ -2492,6 +2736,7 @@ export const PPTXGENJS_SURFACE_MANIFEST = deepFreeze({
     DEPRECATED_FILL_ENTRY,
     ...['TableCellProps', 'TableProps'].map((owner) => tableFillEntry(owner)),
     TABLE_TO_SLIDES_FILL_DEFECT_ENTRY,
+    ...TABLE_TO_SLIDES_FAMILY_ENTRIES,
     ...CHART_AREA_FILL_LINE_ENTRIES,
     ...DEPRECATED_CHART_AREA_ALIAS_ENTRIES,
     ...CHART_CREATION_SUPPORTED_ENTRIES,

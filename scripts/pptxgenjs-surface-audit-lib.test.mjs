@@ -124,14 +124,14 @@ function assertDeepFrozen(value, seen = new Set()) {
 test('exports an immutable evidence-backed initial manifest batch', () => {
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.schemaVersion, 1);
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.packageVersion, '4.0.1');
-  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1179);
+  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1221);
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries.map(({ status }) => status).sort(),
     [
-      ...Array(333).fill('defect-excluded'),
-      ...Array(571).fill('supported'),
-      ...Array(192).fill('deliberate-difference'),
-      ...Array(83).fill('deprecated-alias'),
+      ...Array(349).fill('defect-excluded'),
+      ...Array(575).fill('supported'),
+      ...Array(212).fill('deliberate-difference'),
+      ...Array(85).fill('deprecated-alias'),
     ].sort(),
   );
   const lineFamilyEntries = PPTXGENJS_SURFACE_MANIFEST.entries.filter(({ id }) =>
@@ -570,6 +570,114 @@ test('exports an immutable evidence-backed initial manifest batch', () => {
       owner,
     );
   }
+  const tableToSlidesPropertyId = (property) =>
+    `interface:TableToSlidesProps@property:${property}`;
+  const tableToSlidesExpected = [
+    ...[
+      'autoPageCharWeight',
+      'autoPageLineWeight',
+      'autoPageRepeatHeader',
+      'masterSlideName',
+    ].map((property) => ({
+      id: tableToSlidesPropertyId(property),
+      status: 'supported',
+    })),
+    {
+      id: 'class:PptxGenJS#tableToSlides',
+      status: 'deliberate-difference',
+    },
+    ...[
+      'addImage',
+      'addShape',
+      'addTable',
+      'addText',
+      'autoPageSlideStartY',
+      'h',
+      'slideMargin',
+      'verbose',
+      'w',
+      'x',
+      'y',
+    ].map((property) => ({
+      id: tableToSlidesPropertyId(property),
+      status: 'deliberate-difference',
+    })),
+    ...[
+      ['addImage', 'image'],
+      ['addImage', 'options'],
+      ['addShape', 'options'],
+      ['addShape', 'shapeName'],
+      ['addTable', 'options'],
+      ['addTable', 'rows'],
+      ['addText', 'options'],
+      ['addText', 'text'],
+    ].map(([owner, field]) => ({
+      id: `inline:interface:TableToSlidesProps@property:${owner}@property:${owner}.${field}`,
+      status: 'deliberate-difference',
+    })),
+    ...['addHeaderToEach', 'newSlideStartY'].map((property) => ({
+      id: tableToSlidesPropertyId(property),
+      status: 'deprecated-alias',
+    })),
+    ...[
+      'align',
+      'autoPage',
+      'autoPageHeaderRows',
+      'border',
+      'colW',
+      'margin',
+      'objectName',
+      'rowH',
+      'transparency',
+      'valign',
+    ].map((property) => ({
+      id: tableToSlidesPropertyId(property),
+      status: 'defect-excluded',
+    })),
+    ...Object.entries({
+      border: ['BorderProps', '[BorderProps,BorderProps,BorderProps,BorderProps]'],
+      colW: ['number', 'number[]'],
+      rowH: ['number', 'number[]'],
+    }).flatMap(([property, tokens]) => tokens.map((token) => ({
+      id: `union:${tableToSlidesPropertyId(property)}#${token}`,
+      status: 'defect-excluded',
+    }))),
+  ].sort((left, right) => left.id.localeCompare(right.id));
+  const tableToSlidesIds = new Set(tableToSlidesExpected.map(({ id }) => id));
+  assert.equal(tableToSlidesIds.size, 42);
+  const tableToSlidesEntries = PPTXGENJS_SURFACE_MANIFEST.entries
+    .filter(({ id }) => tableToSlidesIds.has(id))
+    .sort((left, right) => left.id.localeCompare(right.id));
+  assert.deepEqual(
+    tableToSlidesEntries.map(({ id, status }) => ({ id, status })),
+    tableToSlidesExpected,
+  );
+  assert.deepEqual(
+    Object.fromEntries(
+      ['supported', 'deliberate-difference', 'deprecated-alias', 'defect-excluded']
+        .map((status) => [
+          status,
+          tableToSlidesEntries.filter((entry) => entry.status === status).length,
+        ]),
+    ),
+    {
+      supported: 4,
+      'deliberate-difference': 20,
+      'deprecated-alias': 2,
+      'defect-excluded': 16,
+    },
+  );
+  const tableToSlidesById = new Map(
+    tableToSlidesEntries.map((entry) => [entry.id, entry]),
+  );
+  assert.equal(
+    tableToSlidesById.get(tableToSlidesPropertyId('addHeaderToEach'))?.canonical,
+    tableToSlidesPropertyId('autoPageRepeatHeader'),
+  );
+  assert.equal(
+    tableToSlidesById.get(tableToSlidesPropertyId('newSlideStartY'))?.canonical,
+    tableToSlidesPropertyId('autoPageSlideStartY'),
+  );
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries
       .filter(({ id }) => id.endsWith('#folderCorner'))

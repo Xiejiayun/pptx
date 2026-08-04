@@ -145,30 +145,69 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+      },
       "declaredIn": "PptxGenJS",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/table-to-slides.ts",
+            "pattern": "export interface TableToSlidesOptions {"
+          },
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async tableToSlides("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "pattern": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "title": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ]
       },
       "id": "class:PptxGenJS#tableToSlides",
       "kind": "method",
       "name": "tableToSlides",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.tableToSlides"
+      ],
+      "note": "Native tableToSlides returns a Promise of frozen created SlideModel identities, snapshots caller input, and rolls back atomically instead of returning undefined and mutating caller options.",
       "optional": false,
       "owner": "PptxGenJS",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [
         "tableToSlides(eleId: string, props?: PptxGenJS.TableToSlidesProps): void"
       ],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": ""
     },
     {
@@ -4613,210 +4652,522 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+      },
       "declaredIn": "TableToSlidesProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/table-to-slides.ts",
+            "pattern": "export interface TableToSlidesOptions {"
+          },
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async tableToSlides("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "pattern": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "title": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ]
       },
       "id": "inline:interface:TableToSlidesProps@property:addImage@property:addImage.image",
       "kind": "property",
       "name": "addImage.image",
-      "native": [],
-      "note": "",
+      "native": [
+        "TableToSlidesAddImage.source"
+      ],
+      "note": "Native maps TableToSlidesProps.addImage.image to the detached, strictly typed source field with native geometry and content types while preserving the same legal page addition.",
       "optional": false,
       "owner": "interface:TableToSlidesProps@property:addImage",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "DataOrPathProps"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+      },
       "declaredIn": "TableToSlidesProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/table-to-slides.ts",
+            "pattern": "export interface TableToSlidesOptions {"
+          },
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async tableToSlides("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "pattern": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "title": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ]
       },
       "id": "inline:interface:TableToSlidesProps@property:addImage@property:addImage.options",
       "kind": "property",
       "name": "addImage.options",
-      "native": [],
-      "note": "",
+      "native": [
+        "TableToSlidesAddImage.options"
+      ],
+      "note": "Native maps TableToSlidesProps.addImage.options to the detached, strictly typed options field with native geometry and content types while preserving the same legal page addition.",
       "optional": false,
       "owner": "interface:TableToSlidesProps@property:addImage",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "PositionProps"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+      },
       "declaredIn": "TableToSlidesProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/table-to-slides.ts",
+            "pattern": "export interface TableToSlidesOptions {"
+          },
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async tableToSlides("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "pattern": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "title": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ]
       },
       "id": "inline:interface:TableToSlidesProps@property:addShape@property:addShape.options",
       "kind": "property",
       "name": "addShape.options",
-      "native": [],
-      "note": "",
+      "native": [
+        "TableToSlidesAddShape.options"
+      ],
+      "note": "Native maps TableToSlidesProps.addShape.options to the detached, strictly typed options field with native geometry and content types while preserving the same legal page addition.",
       "optional": false,
       "owner": "interface:TableToSlidesProps@property:addShape",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "ShapeProps"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+      },
       "declaredIn": "TableToSlidesProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/table-to-slides.ts",
+            "pattern": "export interface TableToSlidesOptions {"
+          },
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async tableToSlides("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "pattern": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "title": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ]
       },
       "id": "inline:interface:TableToSlidesProps@property:addShape@property:addShape.shapeName",
       "kind": "property",
       "name": "addShape.shapeName",
-      "native": [],
-      "note": "",
+      "native": [
+        "TableToSlidesAddShape.type"
+      ],
+      "note": "Native maps TableToSlidesProps.addShape.shapeName to the detached, strictly typed type field with native geometry and content types while preserving the same legal page addition.",
       "optional": false,
       "owner": "interface:TableToSlidesProps@property:addShape",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "SHAPE_NAME"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+      },
       "declaredIn": "TableToSlidesProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/table-to-slides.ts",
+            "pattern": "export interface TableToSlidesOptions {"
+          },
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async tableToSlides("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "pattern": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "title": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ]
       },
       "id": "inline:interface:TableToSlidesProps@property:addTable@property:addTable.options",
       "kind": "property",
       "name": "addTable.options",
-      "native": [],
-      "note": "",
+      "native": [
+        "TableToSlidesAddTable.options"
+      ],
+      "note": "Native maps TableToSlidesProps.addTable.options to the detached, strictly typed options field with native geometry and content types while preserving the same legal page addition.",
       "optional": false,
       "owner": "interface:TableToSlidesProps@property:addTable",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "TableProps"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+      },
       "declaredIn": "TableToSlidesProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/table-to-slides.ts",
+            "pattern": "export interface TableToSlidesOptions {"
+          },
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async tableToSlides("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "pattern": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "title": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ]
       },
       "id": "inline:interface:TableToSlidesProps@property:addTable@property:addTable.rows",
       "kind": "property",
       "name": "addTable.rows",
-      "native": [],
-      "note": "",
+      "native": [
+        "TableToSlidesAddTable.rows"
+      ],
+      "note": "Native maps TableToSlidesProps.addTable.rows to the detached, strictly typed rows field with native geometry and content types while preserving the same legal page addition.",
       "optional": false,
       "owner": "interface:TableToSlidesProps@property:addTable",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "TableRow[]"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+      },
       "declaredIn": "TableToSlidesProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/table-to-slides.ts",
+            "pattern": "export interface TableToSlidesOptions {"
+          },
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async tableToSlides("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "pattern": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "title": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ]
       },
       "id": "inline:interface:TableToSlidesProps@property:addText@property:addText.options",
       "kind": "property",
       "name": "addText.options",
-      "native": [],
-      "note": "",
+      "native": [
+        "TableToSlidesAddText.options"
+      ],
+      "note": "Native maps TableToSlidesProps.addText.options to the detached, strictly typed options field with native geometry and content types while preserving the same legal page addition.",
       "optional": false,
       "owner": "interface:TableToSlidesProps@property:addText",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "TextPropsOptions"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+      },
       "declaredIn": "TableToSlidesProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/table-to-slides.ts",
+            "pattern": "export interface TableToSlidesOptions {"
+          },
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async tableToSlides("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "pattern": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "title": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ]
       },
       "id": "inline:interface:TableToSlidesProps@property:addText@property:addText.text",
       "kind": "property",
       "name": "addText.text",
-      "native": [],
-      "note": "",
+      "native": [
+        "TableToSlidesAddText.text"
+      ],
+      "note": "Native maps TableToSlidesProps.addText.text to the detached, strictly typed text field with native geometry and content types while preserving the same legal page addition.",
       "optional": false,
       "owner": "interface:TableToSlidesProps@property:addText",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "TextProps[]"
     },
     {
@@ -24540,138 +24891,343 @@
       "typeText": "Coord"
     },
     {
+      "canonical": "interface:TableToSlidesProps@property:autoPageRepeatHeader",
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+      },
       "declaredIn": "TableToSlidesProps",
       "deprecated": true,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/table-to-slides.ts",
+            "pattern": "export interface TableToSlidesOptions {"
+          },
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async tableToSlides("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "pattern": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "title": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ]
       },
       "id": "interface:TableToSlidesProps@property:addHeaderToEach",
       "kind": "property",
       "name": "addHeaderToEach",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.tableToSlides",
+        "TableToSlidesOptions.autoPageRepeatHeader"
+      ],
+      "note": "PptxGenJS 4.0.1 still consumes deprecated addHeaderToEach; native exposes only its canonical autoPageRepeatHeader capability.",
       "optional": true,
       "owner": "TableToSlidesProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deprecated-alias",
       "typeText": "boolean"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+      },
       "declaredIn": "TableToSlidesProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/table-to-slides.ts",
+            "pattern": "export interface TableToSlidesOptions {"
+          },
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async tableToSlides("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "pattern": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "title": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ]
       },
       "id": "interface:TableToSlidesProps@property:addImage",
       "kind": "property",
       "name": "addImage",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.tableToSlides",
+        "TableToSlidesOptions.addImage"
+      ],
+      "note": "Native covers TableToSlidesProps.addImage with a strict detached addition record and transactional page creation instead of PptxGenJS caller mutation and permissive nested inputs.",
       "optional": true,
       "owner": "TableToSlidesProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "{ image: DataOrPathProps; options: PositionProps; }"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+      },
       "declaredIn": "TableToSlidesProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/table-to-slides.ts",
+            "pattern": "export interface TableToSlidesOptions {"
+          },
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async tableToSlides("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "pattern": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "title": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ]
       },
       "id": "interface:TableToSlidesProps@property:addShape",
       "kind": "property",
       "name": "addShape",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.tableToSlides",
+        "TableToSlidesOptions.addShape"
+      ],
+      "note": "Native covers TableToSlidesProps.addShape with a strict detached addition record and transactional page creation instead of PptxGenJS caller mutation and permissive nested inputs.",
       "optional": true,
       "owner": "TableToSlidesProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "{ shapeName: SHAPE_NAME; options: ShapeProps; }"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+      },
       "declaredIn": "TableToSlidesProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/table-to-slides.ts",
+            "pattern": "export interface TableToSlidesOptions {"
+          },
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async tableToSlides("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "pattern": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "title": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ]
       },
       "id": "interface:TableToSlidesProps@property:addTable",
       "kind": "property",
       "name": "addTable",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.tableToSlides",
+        "TableToSlidesOptions.addTable"
+      ],
+      "note": "Native covers TableToSlidesProps.addTable with a strict detached addition record and transactional page creation instead of PptxGenJS caller mutation and permissive nested inputs.",
       "optional": true,
       "owner": "TableToSlidesProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "{ rows: TableRow[]; options: TableProps; }"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+      },
       "declaredIn": "TableToSlidesProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/table-to-slides.ts",
+            "pattern": "export interface TableToSlidesOptions {"
+          },
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async tableToSlides("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "pattern": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "title": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ]
       },
       "id": "interface:TableToSlidesProps@property:addText",
       "kind": "property",
       "name": "addText",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.tableToSlides",
+        "TableToSlidesOptions.addText"
+      ],
+      "note": "Native covers TableToSlidesProps.addText with a strict detached addition record and transactional page creation instead of PptxGenJS caller mutation and permissive nested inputs.",
       "optional": true,
       "owner": "TableToSlidesProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "{ text: TextProps[]; options: TextPropsOptions; }"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -24680,24 +25236,33 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+          }
+        ]
       },
       "id": "interface:TableToSlidesProps@property:align",
       "kind": "property",
       "name": "align",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS tableToSlides does not forward inherited align to the final table; computed DOM/CSS state remains the effective input and native does not copy the inert alias.",
       "optional": true,
       "owner": "TableToSlidesProps",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "HAlign"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+      },
       "declaredIn": "TableToSlidesProps",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -24706,50 +25271,95 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+          }
+        ]
       },
       "id": "interface:TableToSlidesProps@property:autoPage",
       "kind": "property",
       "name": "autoPage",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS tableToSlides always paginates even when autoPage is false; native implements the declared false value, but that strict correction does not make the broken upstream field a delivered capability.",
       "optional": true,
       "owner": "TableToSlidesProps",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "boolean"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "TableToSlidesProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/table-to-slides.ts",
+            "pattern": "export interface TableToSlidesOptions {"
+          },
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async tableToSlides("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "pattern": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "title": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ]
       },
       "id": "interface:TableToSlidesProps@property:autoPageCharWeight",
       "kind": "property",
       "name": "autoPageCharWeight",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.tableToSlides",
+        "TableToSlidesOptions.autoPageCharWeight"
+      ],
+      "note": "Native exposes effective TableToSlidesProps.autoPageCharWeight under the same name with strict detached input, editable output, packed-package use, browser execution, and reopen evidence.",
       "optional": true,
       "owner": "TableToSlidesProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "number"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+      },
       "declaredIn": "TableProps",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -24758,97 +25368,214 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+          }
+        ]
       },
       "id": "interface:TableToSlidesProps@property:autoPageHeaderRows",
       "kind": "property",
       "name": "autoPageHeaderRows",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS never reads autoPageHeaderRows in tableToSlides and always repeats every thead row; native supports an explicit count as a strict correction.",
       "optional": true,
       "owner": "TableToSlidesProps",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "number"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "TableToSlidesProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/table-to-slides.ts",
+            "pattern": "export interface TableToSlidesOptions {"
+          },
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async tableToSlides("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "pattern": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "title": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ]
       },
       "id": "interface:TableToSlidesProps@property:autoPageLineWeight",
       "kind": "property",
       "name": "autoPageLineWeight",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.tableToSlides",
+        "TableToSlidesOptions.autoPageLineWeight"
+      ],
+      "note": "Native exposes effective TableToSlidesProps.autoPageLineWeight under the same name with strict detached input, editable output, packed-package use, browser execution, and reopen evidence.",
       "optional": true,
       "owner": "TableToSlidesProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "number"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "TableToSlidesProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/table-to-slides.ts",
+            "pattern": "export interface TableToSlidesOptions {"
+          },
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async tableToSlides("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "pattern": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "title": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ]
       },
       "id": "interface:TableToSlidesProps@property:autoPageRepeatHeader",
       "kind": "property",
       "name": "autoPageRepeatHeader",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.tableToSlides",
+        "TableToSlidesOptions.autoPageRepeatHeader"
+      ],
+      "note": "Native exposes effective TableToSlidesProps.autoPageRepeatHeader under the same name with strict detached input, editable output, packed-package use, browser execution, and reopen evidence.",
       "optional": true,
       "owner": "TableToSlidesProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "boolean"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+      },
       "declaredIn": "TableToSlidesProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/table-to-slides.ts",
+            "pattern": "export interface TableToSlidesOptions {"
+          },
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async tableToSlides("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "pattern": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "title": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ]
       },
       "id": "interface:TableToSlidesProps@property:autoPageSlideStartY",
       "kind": "property",
       "name": "autoPageSlideStartY",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.tableToSlides",
+        "TableToSlidesOptions.autoPageSlideStartY"
+      ],
+      "note": "Native maps TableToSlidesProps.autoPageSlideStartY to strict exact geometry with explicit EMU or inches() units and preserves legal zero values instead of PptxGenJS truthy implicit-inch behavior.",
       "optional": true,
       "owner": "TableToSlidesProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "number"
     },
     {
@@ -24894,6 +25621,10 @@
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+      },
       "declaredIn": "TableProps",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -24902,19 +25633,24 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+          }
+        ]
       },
       "id": "interface:TableToSlidesProps@property:border",
       "kind": "property",
       "name": "border",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS tableToSlides does not forward inherited border to the final table; computed DOM/CSS state remains the effective input and native does not copy the inert alias.",
       "optional": true,
       "owner": "TableToSlidesProps",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "BorderProps | [ BorderProps, BorderProps, BorderProps, BorderProps ]"
     },
     {
@@ -24995,6 +25731,10 @@
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+      },
       "declaredIn": "TableToSlidesProps",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -25003,19 +25743,24 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+          }
+        ]
       },
       "id": "interface:TableToSlidesProps@property:colW",
       "kind": "property",
       "name": "colW",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS overwrites caller colW with DOM-derived widths before output, so neither declared scalar nor vector input controls the table; native columnWidths is a strict correction.",
       "optional": true,
       "owner": "TableToSlidesProps",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "number | number[]"
     },
     {
@@ -25190,28 +25935,67 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+      },
       "declaredIn": "PositionProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/table-to-slides.ts",
+            "pattern": "export interface TableToSlidesOptions {"
+          },
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async tableToSlides("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "pattern": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "title": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ]
       },
       "id": "interface:TableToSlidesProps@property:h",
       "kind": "property",
       "name": "h",
-      "native": [],
-      "note": "",
+      "native": [
+        "TableToSlidesOptions.height"
+      ],
+      "note": "Native maps TableToSlidesProps.h to strict exact geometry with explicit EMU or inches() units, preserves legal zero values, and uses width/height names instead of PptxGenJS truthy implicit-inch behavior.",
       "optional": true,
       "owner": "TableToSlidesProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
@@ -25337,6 +26121,10 @@
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+      },
       "declaredIn": "TableProps",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -25345,76 +26133,162 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+          }
+        ]
       },
       "id": "interface:TableToSlidesProps@property:margin",
       "kind": "property",
       "name": "margin",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS margin only enters an inconsistent pagination fallback and is not forwarded as the declared final cell margin; computed CSS padding remains the effective source.",
       "optional": true,
       "owner": "TableToSlidesProps",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "Margin"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "TableToSlidesProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/table-to-slides.ts",
+            "pattern": "export interface TableToSlidesOptions {"
+          },
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async tableToSlides("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "pattern": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "title": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ]
       },
       "id": "interface:TableToSlidesProps@property:masterSlideName",
       "kind": "property",
       "name": "masterSlideName",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.defineSlideMaster",
+        "TableToSlidesOptions.masterSlideName"
+      ],
+      "note": "Native exposes effective TableToSlidesProps.masterSlideName under the same name with strict detached input, editable output, packed-package use, browser execution, and reopen evidence.",
       "optional": true,
       "owner": "TableToSlidesProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "string"
     },
     {
+      "canonical": "interface:TableToSlidesProps@property:autoPageSlideStartY",
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+      },
       "declaredIn": "TableToSlidesProps",
       "deprecated": true,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/table-to-slides.ts",
+            "pattern": "export interface TableToSlidesOptions {"
+          },
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async tableToSlides("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "pattern": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "title": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ]
       },
       "id": "interface:TableToSlidesProps@property:newSlideStartY",
       "kind": "property",
       "name": "newSlideStartY",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.tableToSlides",
+        "TableToSlidesOptions.autoPageSlideStartY"
+      ],
+      "note": "PptxGenJS 4.0.1 still consumes deprecated newSlideStartY; native exposes only its canonical autoPageSlideStartY capability.",
       "optional": true,
       "owner": "TableToSlidesProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deprecated-alias",
       "typeText": "number"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+      },
       "declaredIn": "ObjectNameProps",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -25423,24 +26297,33 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+          }
+        ]
       },
       "id": "interface:TableToSlidesProps@property:objectName",
       "kind": "property",
       "name": "objectName",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS tableToSlides does not forward inherited objectName to the final table; computed DOM/CSS state remains the effective input and native does not copy the inert alias.",
       "optional": true,
       "owner": "TableToSlidesProps",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "string"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+      },
       "declaredIn": "TableProps",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -25449,45 +26332,90 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+          }
+        ]
       },
       "id": "interface:TableToSlidesProps@property:rowH",
       "kind": "property",
       "name": "rowH",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS never forwards tableToSlides rowH to the final table, so neither declared scalar nor vector branch affects output.",
       "optional": true,
       "owner": "TableToSlidesProps",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "number | number[]"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+      },
       "declaredIn": "TableToSlidesProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/table-to-slides.ts",
+            "pattern": "export interface TableToSlidesOptions {"
+          },
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async tableToSlides("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "pattern": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "title": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ]
       },
       "id": "interface:TableToSlidesProps@property:slideMargin",
       "kind": "property",
       "name": "slideMargin",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.tableToSlides",
+        "TableToSlidesOptions.slideMargin"
+      ],
+      "note": "Native maps TableToSlidesProps.slideMargin to strict exact geometry with explicit EMU or inches() units and preserves legal zero values instead of PptxGenJS truthy implicit-inch behavior.",
       "optional": true,
       "owner": "TableToSlidesProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Margin"
     },
     {
@@ -25603,6 +26531,10 @@
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -25611,19 +26543,24 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+          }
+        ]
       },
       "id": "interface:TableToSlidesProps@property:transparency",
       "kind": "property",
       "name": "transparency",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS tableToSlides does not forward inherited transparency to the final table; computed DOM/CSS state remains the effective input and native does not copy the inert alias.",
       "optional": true,
       "owner": "TableToSlidesProps",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "number"
     },
     {
@@ -25664,6 +26601,10 @@
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -25672,123 +26613,286 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+          }
+        ]
       },
       "id": "interface:TableToSlidesProps@property:valign",
       "kind": "property",
       "name": "valign",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS tableToSlides does not forward inherited valign to the final table; computed DOM/CSS state remains the effective input and native does not copy the inert alias.",
       "optional": true,
       "owner": "TableToSlidesProps",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "VAlign"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+      },
       "declaredIn": "TableProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/table-to-slides.ts",
+            "pattern": "export interface TableToSlidesOptions {"
+          },
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async tableToSlides("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "pattern": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "title": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ]
       },
       "id": "interface:TableToSlidesProps@property:verbose",
       "kind": "property",
       "name": "verbose",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.tableToSlides"
+      ],
+      "note": "PptxGenJS verbose produces process-global console traces without changing the deck; native deliberately keeps tableToSlides deterministic and free of global logging.",
       "optional": true,
       "owner": "TableToSlidesProps",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "boolean"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+      },
       "declaredIn": "PositionProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/table-to-slides.ts",
+            "pattern": "export interface TableToSlidesOptions {"
+          },
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async tableToSlides("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "pattern": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "title": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ]
       },
       "id": "interface:TableToSlidesProps@property:w",
       "kind": "property",
       "name": "w",
-      "native": [],
-      "note": "",
+      "native": [
+        "TableToSlidesOptions.width"
+      ],
+      "note": "Native maps TableToSlidesProps.w to strict exact geometry with explicit EMU or inches() units, preserves legal zero values, and uses width/height names instead of PptxGenJS truthy implicit-inch behavior.",
       "optional": true,
       "owner": "TableToSlidesProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+      },
       "declaredIn": "PositionProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/table-to-slides.ts",
+            "pattern": "export interface TableToSlidesOptions {"
+          },
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async tableToSlides("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "pattern": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "title": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ]
       },
       "id": "interface:TableToSlidesProps@property:x",
       "kind": "property",
       "name": "x",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.tableToSlides",
+        "TableToSlidesOptions.x"
+      ],
+      "note": "Native maps TableToSlidesProps.x to strict exact geometry with explicit EMU or inches() units and preserves legal zero values instead of PptxGenJS truthy implicit-inch behavior.",
       "optional": true,
       "owner": "TableToSlidesProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+      },
       "declaredIn": "PositionProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/table-to-slides.ts",
+            "pattern": "export interface TableToSlidesOptions {"
+          },
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "async tableToSlides("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "pattern": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/sdk/src/table-to-slides.test.ts",
+            "title": "creates editable styled tables in all six OOXML presentation formats"
+          }
+        ]
       },
       "id": "interface:TableToSlidesProps@property:y",
       "kind": "property",
       "name": "y",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.tableToSlides",
+        "TableToSlidesOptions.y"
+      ],
+      "note": "Native maps TableToSlidesProps.y to strict exact geometry with explicit EMU or inches() units and preserves legal zero values instead of PptxGenJS truthy implicit-inch behavior.",
       "optional": true,
       "owner": "TableToSlidesProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
@@ -72314,6 +73418,10 @@
     {
       "catalogKey": "BorderProps",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+      },
       "declaredIn": "interface:TableToSlidesProps@property:border",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -72322,24 +73430,33 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+          }
+        ]
       },
       "id": "union:interface:TableToSlidesProps@property:border#BorderProps",
       "kind": "union-member",
       "name": "BorderProps",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS tableToSlides does not forward inherited border to the final table; computed DOM/CSS state remains the effective input and native does not copy the inert alias.",
       "optional": false,
       "owner": "interface:TableToSlidesProps@property:border",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "BorderProps"
     },
     {
       "catalogKey": "[BorderProps,BorderProps,BorderProps,BorderProps]",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+      },
       "declaredIn": "interface:TableToSlidesProps@property:border",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -72348,19 +73465,24 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+          }
+        ]
       },
       "id": "union:interface:TableToSlidesProps@property:border#[BorderProps,BorderProps,BorderProps,BorderProps]",
       "kind": "union-member",
       "name": "[BorderProps,BorderProps,BorderProps,BorderProps]",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS tableToSlides does not forward inherited border to the final table; computed DOM/CSS state remains the effective input and native does not copy the inert alias.",
       "optional": false,
       "owner": "interface:TableToSlidesProps@property:border",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "[ BorderProps, BorderProps, BorderProps, BorderProps ]"
     },
     {
@@ -73031,6 +74153,10 @@
     {
       "catalogKey": "number",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+      },
       "declaredIn": "interface:TableToSlidesProps@property:colW",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -73039,24 +74165,33 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+          }
+        ]
       },
       "id": "union:interface:TableToSlidesProps@property:colW#number",
       "kind": "union-member",
       "name": "number",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS overwrites caller colW with DOM-derived widths before output, so neither declared scalar nor vector input controls the table; native columnWidths is a strict correction.",
       "optional": false,
       "owner": "interface:TableToSlidesProps@property:colW",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "number"
     },
     {
       "catalogKey": "number[]",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+      },
       "declaredIn": "interface:TableToSlidesProps@property:colW",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -73065,24 +74200,33 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+          }
+        ]
       },
       "id": "union:interface:TableToSlidesProps@property:colW#number[]",
       "kind": "union-member",
       "name": "number[]",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS overwrites caller colW with DOM-derived widths before output, so neither declared scalar nor vector input controls the table; native columnWidths is a strict correction.",
       "optional": false,
       "owner": "interface:TableToSlidesProps@property:colW",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "number[]"
     },
     {
       "catalogKey": "number",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+      },
       "declaredIn": "interface:TableToSlidesProps@property:rowH",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -73091,24 +74235,33 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+          }
+        ]
       },
       "id": "union:interface:TableToSlidesProps@property:rowH#number",
       "kind": "union-member",
       "name": "number",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS never forwards tableToSlides rowH to the final table, so neither declared scalar nor vector branch affects output.",
       "optional": false,
       "owner": "interface:TableToSlidesProps@property:rowH",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "number"
     },
     {
       "catalogKey": "number[]",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+      },
       "declaredIn": "interface:TableToSlidesProps@property:rowH",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -73117,19 +74270,24 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1"
+          }
+        ]
       },
       "id": "union:interface:TableToSlidesProps@property:rowH#number[]",
       "kind": "union-member",
       "name": "number[]",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS never forwards tableToSlides rowH to the final table, so neither declared scalar nor vector branch affects output.",
       "optional": false,
       "owner": "interface:TableToSlidesProps@property:rowH",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "number[]"
     },
     {
@@ -78077,13 +79235,13 @@
   ],
   "complete": false,
   "counts": {
-    "defect-excluded": 333,
-    "deliberate-difference": 192,
-    "deprecated-alias": 83,
+    "defect-excluded": 349,
+    "deliberate-difference": 212,
+    "deprecated-alias": 85,
     "stale": 0,
-    "supported": 571,
+    "supported": 575,
     "unsupported": 0,
-    "unverified": 595
+    "unverified": 553
   },
   "declarationSha256": "0726d015dbcb55ccfa75546cb2fd43fe13a0dfeb783d08572f1c62f59193bbe5",
   "declarationTotal": 1774,
@@ -78095,7 +79253,6 @@
     "class:PptxGenJS#defineLayout",
     "class:PptxGenJS#defineSlideMaster",
     "class:PptxGenJS#stream",
-    "class:PptxGenJS#tableToSlides",
     "class:PptxGenJS#write",
     "class:PptxGenJS#writeFile",
     "class:PptxGenJS@property:ChartType",
@@ -78136,14 +79293,6 @@
     "inline:interface:SlideMasterProps@property:objects@property:objects.placeholder.text",
     "inline:interface:SlideMasterProps@property:objects@property:objects.rect",
     "inline:interface:SlideMasterProps@property:objects@property:objects.text",
-    "inline:interface:TableToSlidesProps@property:addImage@property:addImage.image",
-    "inline:interface:TableToSlidesProps@property:addImage@property:addImage.options",
-    "inline:interface:TableToSlidesProps@property:addShape@property:addShape.options",
-    "inline:interface:TableToSlidesProps@property:addShape@property:addShape.shapeName",
-    "inline:interface:TableToSlidesProps@property:addTable@property:addTable.options",
-    "inline:interface:TableToSlidesProps@property:addTable@property:addTable.rows",
-    "inline:interface:TableToSlidesProps@property:addText@property:addText.options",
-    "inline:interface:TableToSlidesProps@property:addText@property:addText.text",
     "inline:interface:TextPropsOptions@property:outline@property:outline.color",
     "inline:interface:TextPropsOptions@property:outline@property:outline.size",
     "interface:AddSlideProps@property:masterName",
@@ -78472,33 +79621,6 @@
     "interface:TableProps@property:w",
     "interface:TableProps@property:x",
     "interface:TableProps@property:y",
-    "interface:TableToSlidesProps@property:addHeaderToEach",
-    "interface:TableToSlidesProps@property:addImage",
-    "interface:TableToSlidesProps@property:addShape",
-    "interface:TableToSlidesProps@property:addTable",
-    "interface:TableToSlidesProps@property:addText",
-    "interface:TableToSlidesProps@property:align",
-    "interface:TableToSlidesProps@property:autoPage",
-    "interface:TableToSlidesProps@property:autoPageCharWeight",
-    "interface:TableToSlidesProps@property:autoPageHeaderRows",
-    "interface:TableToSlidesProps@property:autoPageLineWeight",
-    "interface:TableToSlidesProps@property:autoPageRepeatHeader",
-    "interface:TableToSlidesProps@property:autoPageSlideStartY",
-    "interface:TableToSlidesProps@property:border",
-    "interface:TableToSlidesProps@property:colW",
-    "interface:TableToSlidesProps@property:h",
-    "interface:TableToSlidesProps@property:margin",
-    "interface:TableToSlidesProps@property:masterSlideName",
-    "interface:TableToSlidesProps@property:newSlideStartY",
-    "interface:TableToSlidesProps@property:objectName",
-    "interface:TableToSlidesProps@property:rowH",
-    "interface:TableToSlidesProps@property:slideMargin",
-    "interface:TableToSlidesProps@property:transparency",
-    "interface:TableToSlidesProps@property:valign",
-    "interface:TableToSlidesProps@property:verbose",
-    "interface:TableToSlidesProps@property:w",
-    "interface:TableToSlidesProps@property:x",
-    "interface:TableToSlidesProps@property:y",
     "interface:TextGlowProps@property:color",
     "interface:TextGlowProps@property:opacity",
     "interface:TextGlowProps@property:size",
@@ -78671,12 +79793,6 @@
     "union:interface:TableProps@property:colW#number[]",
     "union:interface:TableProps@property:rowH#number",
     "union:interface:TableProps@property:rowH#number[]",
-    "union:interface:TableToSlidesProps@property:border#BorderProps",
-    "union:interface:TableToSlidesProps@property:border#[BorderProps,BorderProps,BorderProps,BorderProps]",
-    "union:interface:TableToSlidesProps@property:colW#number",
-    "union:interface:TableToSlidesProps@property:colW#number[]",
-    "union:interface:TableToSlidesProps@property:rowH#number",
-    "union:interface:TableToSlidesProps@property:rowH#number[]",
     "union:interface:TextPropsOptions@property:fit#none",
     "union:interface:TextPropsOptions@property:fit#resize",
     "union:interface:TextPropsOptions@property:fit#shrink",

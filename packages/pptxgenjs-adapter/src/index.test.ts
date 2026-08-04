@@ -425,6 +425,7 @@ interface TableToSlidesFixtureCell {
 function tableToSlidesFixture(options: {
   readonly bodyRows?: number;
   readonly fixedFirstWidth?: string;
+  readonly headerRows?: number;
 } = {}) {
   const style = Object.freeze({
     color: 'rgb(1, 2, 3)',
@@ -468,13 +469,20 @@ function tableToSlidesFixture(options: {
       return Object.hasOwn(attributes, name) ? attributes[name]! : null;
     },
   });
-  const headCells = [
-    makeCell('Header A', 'th', 100, options.fixedFirstWidth === undefined
-      ? {}
-      : { 'data-pptx-width': options.fixedFirstWidth }),
-    makeCell('Header B', 'th', 100),
-  ];
-  const headRows = [{ cells: headCells }];
+  const headRows = Array.from({ length: options.headerRows ?? 1 }, (_, index) => ({
+    cells: [
+      makeCell(
+        index === 0 ? 'Header A' : `Header ${index + 1} A`,
+        'th',
+        100,
+        index === 0 && options.fixedFirstWidth !== undefined
+          ? { 'data-pptx-width': options.fixedFirstWidth }
+          : {},
+      ),
+      makeCell(index === 0 ? 'Header B' : `Header ${index + 1} B`, 'th', 100),
+    ],
+  }));
+  const headCells = headRows[0]!.cells;
   const bodyRows = Array.from({ length: options.bodyRows ?? 2 }, (_, index) => ({
     cells: [
       makeCell(`A${index}`, 'td', 100),
@@ -1262,6 +1270,253 @@ describe('importPptxGenJS', () => {
       .rejects.toThrow(/autoPage.*boolean/i);
     expect(strict.slides).toEqual([]);
   });
+
+  it('locks every declared tableToSlides option and nested addition against PptxGenJS 4.0.1', async () => {
+    const propertyId = (property: string) =>
+      `interface:TableToSlidesProps@property:${property}`;
+    const atomGroups = {
+      supported: [
+        'autoPageCharWeight',
+        'autoPageLineWeight',
+        'autoPageRepeatHeader',
+        'masterSlideName',
+      ].map(propertyId),
+      deliberate: [
+        'class:PptxGenJS#tableToSlides',
+        ...[
+          'addImage',
+          'addShape',
+          'addTable',
+          'addText',
+          'autoPageSlideStartY',
+          'h',
+          'slideMargin',
+          'verbose',
+          'w',
+          'x',
+          'y',
+        ].map(propertyId),
+        'inline:interface:TableToSlidesProps@property:addImage@property:addImage.image',
+        'inline:interface:TableToSlidesProps@property:addImage@property:addImage.options',
+        'inline:interface:TableToSlidesProps@property:addShape@property:addShape.options',
+        'inline:interface:TableToSlidesProps@property:addShape@property:addShape.shapeName',
+        'inline:interface:TableToSlidesProps@property:addTable@property:addTable.options',
+        'inline:interface:TableToSlidesProps@property:addTable@property:addTable.rows',
+        'inline:interface:TableToSlidesProps@property:addText@property:addText.options',
+        'inline:interface:TableToSlidesProps@property:addText@property:addText.text',
+      ],
+      deprecated: ['addHeaderToEach', 'newSlideStartY'].map(propertyId),
+      defect: [
+        ...[
+          'align',
+          'autoPage',
+          'autoPageHeaderRows',
+          'border',
+          'colW',
+          'margin',
+          'objectName',
+          'rowH',
+          'transparency',
+          'valign',
+        ].map(propertyId),
+        'union:interface:TableToSlidesProps@property:border#BorderProps',
+        'union:interface:TableToSlidesProps@property:border#[BorderProps,BorderProps,BorderProps,BorderProps]',
+        'union:interface:TableToSlidesProps@property:colW#number',
+        'union:interface:TableToSlidesProps@property:colW#number[]',
+        'union:interface:TableToSlidesProps@property:rowH#number',
+        'union:interface:TableToSlidesProps@property:rowH#number[]',
+      ],
+    } as const;
+    expect(Object.fromEntries(Object.entries(atomGroups).map(([status, ids]) => [
+      status,
+      ids.length,
+    ]))).toEqual({ supported: 4, deliberate: 20, deprecated: 2, defect: 16 });
+    expect(new Set(Object.values(atomGroups).flat()).size).toBe(42);
+
+    const tableOn = (slide: PptxDocument['slides'][number]) =>
+      slide.shapes.find((shape): shape is TableModel => shape instanceof TableModel)!;
+    const tableState = (table: TableModel) => ({
+      transform: table.transform,
+      columnWidths: table.columnWidths,
+      rowHeights: table.rowHeights,
+      rows: table.rows.map((row) => row.cells.map((cell) => ({
+        text: cell.text,
+        fill: cell.fill,
+        borders: cell.borders,
+        margins: cell.margins,
+        horizontalAlignment: cell.horizontalAlignment,
+        verticalAlignment: cell.verticalAlignment,
+      }))),
+    });
+
+    const active = new PptxGenJS();
+    active.defineSlideMaster({ title: 'TTS-AUDIT-MASTER', objects: [] });
+    const activeOptions: Record<string, unknown> = {
+      masterSlideName: 'TTS-AUDIT-MASTER',
+      autoPageCharWeight: -0.25,
+      autoPageLineWeight: 0.25,
+      autoPageRepeatHeader: true,
+      autoPageHeaderRows: 1,
+      autoPageSlideStartY: 1.25,
+      slideMargin: [0.5, 0.5, 0.5, 0.5],
+      x: 1.25,
+      y: 3,
+      w: 9,
+      h: 6,
+      addImage: {
+        image: { data: PNG_DATA_URI },
+        options: { x: 0.1, y: 0.1, w: 0.2, h: 0.2 },
+      },
+      addShape: {
+        shapeName: 'rect',
+        options: { x: 0.3, y: 0.3, w: 0.2, h: 0.2 },
+      },
+      addTable: {
+        rows: [['Nested K', 'Nested V']],
+        options: { x: 0.5, y: 0.5, w: 1 },
+      },
+      addText: {
+        text: [{ text: 'Nested text', options: { bold: true } }],
+        options: { x: 0.5, y: 1, w: 1, h: 0.2 },
+      },
+    };
+    const activeReturn = await withTableToSlidesGlobals(tableToSlidesFixture({
+      bodyRows: 45,
+      headerRows: 2,
+    }), () => active.tableToSlides('report', activeOptions));
+    expect(activeReturn).toBeUndefined();
+    expect(activeOptions).toHaveProperty('_arrObjTabHeadRows');
+    expect(activeOptions).toHaveProperty('colW');
+    const activeImported = await openPptxGenJSPublicOutput(active);
+    expect(activeImported.slides.length).toBeGreaterThan(1);
+    const activeLayout = activeImported.layouts.find(
+      ({ name }) => name === 'TTS-AUDIT-MASTER',
+    )!;
+    expect(activeLayout).toBeDefined();
+    for (const [index, slide] of activeImported.slides.entries()) {
+      expect(slide.shapes.map(({ kind }) => kind))
+        .toEqual(['table', 'image', 'shape', 'table', 'text']);
+      const table = tableOn(slide);
+      expect(table.rows.slice(0, 2).map((row) => row.cells.map(({ text }) => text)))
+        .toEqual([
+          ['Header A', 'Header B'],
+          ['Header 2 A', 'Header 2 B'],
+        ]);
+      expect(table.transform.x).toBe(inches(1.25));
+      expect(table.transform.y).toBe(inches(index === 0 ? 3 : 1.25));
+      expect(table.transform.width).toBe(inches(8));
+      expect(activeImported.opcPackage.relationships(slide.partUri).some(
+        ({ type, resolvedTarget }) =>
+          type.endsWith('/slideLayout') && resolvedTarget === activeLayout.partUri,
+      )).toBe(true);
+    }
+
+    const weightedPageCount = async (
+      autoPageCharWeight: number,
+      autoPageLineWeight: number,
+    ) => {
+      const generated = new PptxGenJS();
+      await withTableToSlidesGlobals(tableToSlidesFixture({ bodyRows: 24 }), () =>
+        generated.tableToSlides('report', {
+          autoPageCharWeight,
+          autoPageLineWeight,
+          x: 0.5,
+          y: 2.5,
+          w: 4,
+          h: 5,
+          slideMargin: 0.5,
+        }));
+      return (await openPptxGenJSPublicOutput(generated)).slides.length;
+    };
+    const compactLines = await weightedPageCount(0, -1);
+    const tallLines = await weightedPageCount(0, 1);
+    const narrowCharacters = await weightedPageCount(-1, 0);
+    const wideCharacters = await weightedPageCount(1, 0);
+    expect(compactLines).toBeLessThan(tallLines);
+    expect(narrowCharacters).not.toBe(wideCharacters);
+
+    const alias = new PptxGenJS();
+    await withTableToSlidesGlobals(tableToSlidesFixture({
+      bodyRows: 45,
+      headerRows: 2,
+    }), () => alias.tableToSlides('report', {
+      addHeaderToEach: true,
+      newSlideStartY: 1.25,
+      x: 1,
+      y: 3,
+      w: 8,
+      h: 6,
+    }));
+    const aliasImported = await openPptxGenJSPublicOutput(alias);
+    expect(aliasImported.slides.length).toBeGreaterThan(1);
+    for (const [index, slide] of aliasImported.slides.entries()) {
+      const table = tableOn(slide);
+      expect(table.rows.slice(0, 2).map((row) => row.cells.map(({ text }) => text)))
+        .toEqual([
+          ['Header A', 'Header B'],
+          ['Header 2 A', 'Header 2 B'],
+        ]);
+      expect(table.transform.y).toBe(inches(index === 0 ? 3 : 1.25));
+    }
+
+    const inertVariants: readonly (readonly [string, Record<string, unknown>])[] = [
+      ['baseline', {}],
+      ['align', { align: 'right' }],
+      ['autoPage', { autoPage: false }],
+      ['autoPageHeaderRows', { autoPageHeaderRows: 9 }],
+      ['border scalar', { border: { color: 'FF0000', pt: 9 } }],
+      ['border tuple', { border: Array.from({ length: 4 }, () => ({ color: '00FF00', pt: 8 })) }],
+      ['colW scalar', { colW: 7 }],
+      ['colW vector', { colW: [3, 4] }],
+      ['margin scalar', { margin: 9 }],
+      ['margin tuple', { margin: [9, 8, 7, 6] }],
+      ['objectName', { objectName: 'Ignored table name' }],
+      ['rowH scalar', { rowH: 7 }],
+      ['rowH vector', { rowH: [3, 4, 5] }],
+      ['transparency', { transparency: 75 }],
+      ['valign', { valign: 'bottom' }],
+    ];
+    const inert = new PptxGenJS();
+    const inertInputs: Record<string, unknown>[] = [];
+    for (const [, options] of inertVariants) {
+      const input = structuredClone(options);
+      inertInputs.push(input);
+      await withTableToSlidesGlobals(tableToSlidesFixture(), () =>
+        inert.tableToSlides('report', input));
+    }
+    const inertImported = await openPptxGenJSPublicOutput(inert);
+    expect(inertImported.slides).toHaveLength(inertVariants.length);
+    const baselineState = tableState(tableOn(inertImported.slides[0]!));
+    inertImported.slides.forEach((slide, index) => {
+      expect(tableState(tableOn(slide)), inertVariants[index]![0]).toEqual(baselineState);
+    });
+    expect(inertImported.slides[10]!.shapes.map(({ name }) => name))
+      .not.toContain('Ignored table name');
+    expect(inertInputs[6]!.colW).not.toBe(7);
+    expect(inertInputs[7]!.colW).not.toEqual([3, 4]);
+
+    const forcedPaging = new PptxGenJS();
+    await withTableToSlidesGlobals(tableToSlidesFixture({ bodyRows: 45 }), () =>
+      forcedPaging.tableToSlides('report', { autoPage: false }));
+    expect((await openPptxGenJSPublicOutput(forcedPaging)).slides.length)
+      .toBeGreaterThan(1);
+
+    const verboseLogs: unknown[][] = [];
+    const verboseLog = vi.spyOn(console, 'log').mockImplementation((...values) => {
+      verboseLogs.push(values);
+    });
+    try {
+      const verbose = new PptxGenJS();
+      await withTableToSlidesGlobals(tableToSlidesFixture(), () =>
+        verbose.tableToSlides('report', { verbose: true }));
+      const verboseImported = await openPptxGenJSPublicOutput(verbose);
+      expect(tableState(tableOn(verboseImported.slides[0]!))).toEqual(baselineState);
+      expect(verboseLogs.flat().some((value) => String(value).includes('VERBOSE MODE')))
+        .toBe(true);
+    } finally {
+      verboseLog.mockRestore();
+    }
+  }, 120_000);
 
   it('matches the PptxGenJS horizontal alignment runtime catalog', async () => {
     const generated = new PptxGenJS();
