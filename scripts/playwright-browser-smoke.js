@@ -6164,8 +6164,35 @@ async (page) => {
         altText: 'Canvas fallback from data URI',
         x: api.inches(5.5),
         y: api.inches(1),
-        width: api.inches(3),
-        height: api.inches(2),
+        sizing: { type: 'contain', width: api.inches(4), height: api.inches(3) },
+        flipVertical: true,
+      });
+      const relativePngPath = new URL(
+        '../../../docs/images/wp4-gradient-codecs.png',
+        moduleUrl,
+      ).pathname;
+      const relativePngResponse = await fetch(relativePngPath);
+      const relativePngInfo = api.inspectRasterImage(
+        new Uint8Array(await relativePngResponse.arrayBuffer()),
+      );
+      const relativeRaster = await svgDocument.addImage(0, relativePngPath, {
+        name: 'Browser relative PNG',
+        altText: 'Relative path with pixel crop',
+        x: api.inches(1),
+        y: api.inches(4.5),
+        sizing: {
+          type: 'crop',
+          width: api.inches(4),
+          height: api.inches(3),
+          source: {
+            x: relativePngInfo.width / 4,
+            y: relativePngInfo.height / 4,
+            width: relativePngInfo.width / 2,
+            height: relativePngInfo.height / 2,
+          },
+        },
+        rotation: api.degrees(-10),
+        flipHorizontal: true,
         flipVertical: true,
       });
       const backgroundDocument = api.PptxDocument.create();
@@ -6344,12 +6371,35 @@ async (page) => {
           fallbackType: fallback.contentType,
           svgType: vector.contentType,
           pngSignature: Array.from(fallback.bytes.slice(0, 8)),
+          transform: image.transform,
+          sourceRectangle: image.sourceRectangle,
           internalTargets: targets.filter((target) => reopenedSlide.relationships.some(
             ({ type, targetMode, resolvedTarget }) => type.endsWith('/image')
               && targetMode === 'Internal' && resolvedTarget === target,
           )).length,
         };
       });
+      const reopenedRelativeRaster = reopenedSlide.shapes.find(
+        ({ name }) => name === 'Browser relative PNG',
+      );
+      const relativeRasterPart = reopenedSvgDocument.opcPackage.requirePart(
+        reopenedRelativeRaster.sourcePartUri,
+      );
+      const imageSourceSizingTransformState = {
+        live: svgDocument.slides[0].shapes.includes(blobSvg)
+          && svgDocument.slides[0].shapes.includes(dataSvg)
+          && svgDocument.slides[0].shapes.includes(relativeRaster),
+        relativeRaster: {
+          contentType: relativeRasterPart.contentType,
+          transform: reopenedRelativeRaster.transform,
+          sourceRectangle: reopenedRelativeRaster.sourceRectangle,
+          internalTargets: reopenedSlide.relationships.filter(
+            ({ type, targetMode, resolvedTarget }) => type.endsWith('/image')
+              && targetMode === 'Internal'
+              && resolvedTarget === reopenedRelativeRaster.sourcePartUri,
+          ).length,
+        },
+      };
       const mediaOutput = await mediaDocument.writeBlob({ compatibility: 'powerpoint-2010' });
       const reopenedMediaDocument = await api.PptxDocument.open(mediaOutput);
       await reopenedMediaDocument.write({ mode: 'permissive', compatibility: 'powerpoint-2010' });
@@ -6886,9 +6936,9 @@ async (page) => {
         textShapeHyperlinkState,
         richTextRunHyperlinks,
         richTextRunHyperlinkState,
-        svgCreatedLive: svgDocument.slides[0].shapes.includes(blobSvg)
-          && svgDocument.slides[0].shapes.includes(dataSvg),
+        svgCreatedLive: imageSourceSizingTransformState.live,
         svgState,
+        imageSourceSizingTransformState,
         backgroundMime: backgroundOutput.type,
         slideBackgroundKinds: reopenedBackgroundDocument.slides.map(
           ({ background }) => background?.kind,
@@ -8400,6 +8450,16 @@ async (page) => {
         fallbackType: 'image/png',
         svgType: 'image/svg+xml',
         pngSignature: [137, 80, 78, 71, 13, 10, 26, 10],
+        transform: {
+          x: 914400,
+          y: 914400,
+          width: 3657600,
+          height: 2743200,
+          rotation: 900000,
+          flipHorizontal: true,
+          flipVertical: false,
+        },
+        sourceRectangle: { left: 12.5, top: 0, right: 12.5, bottom: 0 },
         internalTargets: 2,
       },
       {
@@ -8407,9 +8467,36 @@ async (page) => {
         fallbackType: 'image/png',
         svgType: 'image/svg+xml',
         pngSignature: [137, 80, 78, 71, 13, 10, 26, 10],
+        transform: {
+          x: 5029200,
+          y: 914400,
+          width: 3657600,
+          height: 2743200,
+          rotation: 0,
+          flipHorizontal: false,
+          flipVertical: true,
+        },
+        sourceRectangle: { left: 0, top: -16.667, right: 0, bottom: -16.667 },
         internalTargets: 2,
       },
     ],
+    imageSourceSizingTransformState: {
+      live: true,
+      relativeRaster: {
+        contentType: 'image/png',
+        transform: {
+          x: 914400,
+          y: 4114800,
+          width: 3657600,
+          height: 2743200,
+          rotation: -600000,
+          flipHorizontal: true,
+          flipVertical: true,
+        },
+        sourceRectangle: { left: 25, top: 25, right: 25, bottom: 25 },
+        internalTargets: 1,
+      },
+    },
     backgroundMime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
     slideBackgroundKinds: ['image', 'image', 'solid', 'linear-gradient'],
     backgroundPayloadHashes: [

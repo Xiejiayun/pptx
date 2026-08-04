@@ -1867,132 +1867,338 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks ImageProps source, sizing, and transform divergences against PptxGenJS 4.0.1"
+      },
       "declaredIn": "ImageProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const imageSourceSizingTransformState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/raster-image-sizing.ts",
+            "pattern": "export function calculateImageSizing("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "sizes every raster source form from intrinsic dimensions and round-trips all formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const packedSvgSizing = calculateImageSizing(packedSvgInfo, {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks ImageProps source, sizing, and transform divergences against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches PptxGenJS contain, cover, and crop sizing final state"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "records PptxGenJS sizing fallbacks while native rejects ambiguous or unsafe state"
+          }
+        ]
       },
       "id": "inline:interface:ImageProps@property:sizing@property:sizing.h",
       "kind": "property",
       "name": "sizing.h",
-      "native": [],
-      "note": "",
+      "native": [
+        "ImageSizing.height",
+        "ImageSizingResult.height",
+        "Transform.height"
+      ],
+      "note": "PptxGenJS exposes implicit-inch sizing w/h with truthy fallbacks to outer geometry; native exposes positive explicit-unit ImageSizing width/height as the final frame extent.",
       "optional": false,
       "owner": "interface:ImageProps@property:sizing",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks ImageProps source, sizing, and transform divergences against PptxGenJS 4.0.1"
+      },
       "declaredIn": "ImageProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const imageSourceSizingTransformState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/raster-image-sizing.ts",
+            "pattern": "export function calculateImageSizing("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "sizes every raster source form from intrinsic dimensions and round-trips all formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const packedSvgSizing = calculateImageSizing(packedSvgInfo, {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks ImageProps source, sizing, and transform divergences against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches PptxGenJS contain, cover, and crop sizing final state"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "records PptxGenJS sizing fallbacks while native rejects ambiguous or unsafe state"
+          }
+        ]
       },
       "id": "inline:interface:ImageProps@property:sizing@property:sizing.type",
       "kind": "property",
       "name": "sizing.type",
-      "native": [],
-      "note": "",
+      "native": [
+        "ImageModel.sourceRectangle",
+        "ImageSizing.type",
+        "calculateImageSizing",
+        "normalizeImageSizing"
+      ],
+      "note": "Native exposes the same contain, cover, and crop vocabulary but calculates from intrinsic image dimensions; PptxGenJS calculates from outer w/h, so legal aspect-ratio mismatches produce different a:srcRect output and failure timing.",
       "optional": false,
       "owner": "interface:ImageProps@property:sizing",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "'contain' | 'cover' | 'crop'"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks ImageProps source, sizing, and transform divergences against PptxGenJS 4.0.1"
+      },
       "declaredIn": "ImageProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const imageSourceSizingTransformState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/raster-image-sizing.ts",
+            "pattern": "export function calculateImageSizing("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "sizes every raster source form from intrinsic dimensions and round-trips all formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const packedSvgSizing = calculateImageSizing(packedSvgInfo, {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks ImageProps source, sizing, and transform divergences against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches PptxGenJS contain, cover, and crop sizing final state"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "records PptxGenJS sizing fallbacks while native rejects ambiguous or unsafe state"
+          }
+        ]
       },
       "id": "inline:interface:ImageProps@property:sizing@property:sizing.w",
       "kind": "property",
       "name": "sizing.w",
-      "native": [],
-      "note": "",
+      "native": [
+        "ImageSizing.width",
+        "ImageSizingResult.width",
+        "Transform.width"
+      ],
+      "note": "PptxGenJS exposes implicit-inch sizing w/h with truthy fallbacks to outer geometry; native exposes positive explicit-unit ImageSizing width/height as the final frame extent.",
       "optional": false,
       "owner": "interface:ImageProps@property:sizing",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks ImageProps source, sizing, and transform divergences against PptxGenJS 4.0.1"
+      },
       "declaredIn": "ImageProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const imageSourceSizingTransformState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/raster-image-sizing.ts",
+            "pattern": "export function calculateImageSizing("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "sizes every raster source form from intrinsic dimensions and round-trips all formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const packedSvgSizing = calculateImageSizing(packedSvgInfo, {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks ImageProps source, sizing, and transform divergences against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches PptxGenJS contain, cover, and crop sizing final state"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "records PptxGenJS sizing fallbacks while native rejects ambiguous or unsafe state"
+          }
+        ]
       },
       "id": "inline:interface:ImageProps@property:sizing@property:sizing.x",
       "kind": "property",
       "name": "sizing.x",
-      "native": [],
-      "note": "",
+      "native": [
+        "ImageCropRegion.x",
+        "ImageSizing.source",
+        "ImageSourceRectangle.left"
+      ],
+      "note": "PptxGenJS reuses loose layout coordinates as crop input; native requires a bounded intrinsic-pixel ImageCropRegion under sizing.source and converts it to editable a:srcRect state.",
       "optional": true,
       "owner": "interface:ImageProps@property:sizing",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks ImageProps source, sizing, and transform divergences against PptxGenJS 4.0.1"
+      },
       "declaredIn": "ImageProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const imageSourceSizingTransformState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/raster-image-sizing.ts",
+            "pattern": "export function calculateImageSizing("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "sizes every raster source form from intrinsic dimensions and round-trips all formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const packedSvgSizing = calculateImageSizing(packedSvgInfo, {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks ImageProps source, sizing, and transform divergences against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches PptxGenJS contain, cover, and crop sizing final state"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "records PptxGenJS sizing fallbacks while native rejects ambiguous or unsafe state"
+          }
+        ]
       },
       "id": "inline:interface:ImageProps@property:sizing@property:sizing.y",
       "kind": "property",
       "name": "sizing.y",
-      "native": [],
-      "note": "",
+      "native": [
+        "ImageCropRegion.y",
+        "ImageSizing.source",
+        "ImageSourceRectangle.top"
+      ],
+      "note": "PptxGenJS reuses loose layout coordinates as crop input; native requires a bounded intrinsic-pixel ImageCropRegion under sizing.source and converts it to editable a:srcRect state.",
       "optional": true,
       "owner": "interface:ImageProps@property:sizing",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
@@ -17472,80 +17678,205 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks ImageProps source, sizing, and transform divergences against PptxGenJS 4.0.1"
+      },
       "declaredIn": "DataOrPathProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const imageSourceSizingTransformState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/raster-image-source.ts",
+            "pattern": "export async function resolveImageSource("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "adds detected raster image sources with immediate live model state"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const packedSvgPath ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks ImageProps source, sizing, and transform divergences against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches PptxGenJS path and data images through the document source loader"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "preserves PptxGenJS embedded raster image divergences while native stays strict"
+          }
+        ]
       },
       "id": "interface:ImageProps@property:data",
       "kind": "property",
       "name": "data",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddImageSourceOptions",
+        "ImageModel.sourcePartUri",
+        "ImageSource",
+        "PptxDocument.addImage",
+        "resolveImageSource"
+      ],
+      "note": "PptxGenJS exposes permissive optional data/path fields with observable precedence and MIME fallbacks; native accepts one typed ImageSource, detects content from bytes, resolves it before mutation, and rejects ambiguous or unsafe state atomically.",
       "optional": true,
       "owner": "ImageProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "string"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks ImageProps source, sizing, and transform divergences against PptxGenJS 4.0.1"
+      },
       "declaredIn": "ImageProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const imageSourceSizingTransformState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/image-create.internal.ts",
+            "pattern": "export function normalizeEmbeddedRasterImage("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/model/src/model.test.ts",
+            "pattern": "round-trips embedded raster image lifecycle in all six presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const packedExplicitSvg = await packedSvgDeck.addImage"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks ImageProps source, sizing, and transform divergences against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches PptxGenJS embedded raster image public output semantically"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "preserves PptxGenJS embedded raster image divergences while native stays strict"
+          }
+        ]
       },
       "id": "interface:ImageProps@property:flipH",
       "kind": "property",
       "name": "flipH",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddImageSourceOptions.flipHorizontal",
+        "ImageModel.transform",
+        "Transform.flipHorizontal"
+      ],
+      "note": "PptxGenJS exposes flipH/flipV and coerces truthy values; native names the fields flipHorizontal/flipVertical, requires booleans, and rejects before mutation.",
       "optional": true,
       "owner": "ImageProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "boolean"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks ImageProps source, sizing, and transform divergences against PptxGenJS 4.0.1"
+      },
       "declaredIn": "ImageProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const imageSourceSizingTransformState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/image-create.internal.ts",
+            "pattern": "export function normalizeEmbeddedRasterImage("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/model/src/model.test.ts",
+            "pattern": "round-trips embedded raster image lifecycle in all six presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const packedExplicitSvg = await packedSvgDeck.addImage"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks ImageProps source, sizing, and transform divergences against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches PptxGenJS embedded raster image public output semantically"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "preserves PptxGenJS embedded raster image divergences while native stays strict"
+          }
+        ]
       },
       "id": "interface:ImageProps@property:flipV",
       "kind": "property",
       "name": "flipV",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddImageSourceOptions.flipVertical",
+        "ImageModel.transform",
+        "Transform.flipVertical"
+      ],
+      "note": "PptxGenJS exposes flipH/flipV and coerces truthy values; native names the fields flipHorizontal/flipVertical, requires booleans, and rejects before mutation.",
       "optional": true,
       "owner": "ImageProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "boolean"
     },
     {
@@ -17656,28 +17987,71 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks ImageProps source, sizing, and transform divergences against PptxGenJS 4.0.1"
+      },
       "declaredIn": "DataOrPathProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const imageSourceSizingTransformState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/raster-image-source.ts",
+            "pattern": "export async function resolveImageSource("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "adds detected raster image sources with immediate live model state"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const packedSvgPath ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks ImageProps source, sizing, and transform divergences against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches PptxGenJS path and data images through the document source loader"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "preserves PptxGenJS embedded raster image divergences while native stays strict"
+          }
+        ]
       },
       "id": "interface:ImageProps@property:path",
       "kind": "property",
       "name": "path",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddImageSourceOptions",
+        "ImageModel.sourcePartUri",
+        "ImageSource",
+        "PptxDocument.addImage",
+        "resolveImageSource"
+      ],
+      "note": "PptxGenJS exposes permissive optional data/path fields with observable precedence and MIME fallbacks; native accepts one typed ImageSource, detects content from bytes, resolves it before mutation, and rejects ambiguous or unsafe state atomically.",
       "optional": true,
       "owner": "ImageProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "string"
     },
     {
@@ -17756,28 +18130,71 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks ImageProps source, sizing, and transform divergences against PptxGenJS 4.0.1"
+      },
       "declaredIn": "ImageProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const imageSourceSizingTransformState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/image-create.internal.ts",
+            "pattern": "export function normalizeEmbeddedRasterImage("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/model/src/model.test.ts",
+            "pattern": "round-trips embedded raster image lifecycle in all six presentation formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const packedExplicitSvg = await packedSvgDeck.addImage"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks ImageProps source, sizing, and transform divergences against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches PptxGenJS embedded raster image public output semantically"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "preserves PptxGenJS embedded raster image divergences while native stays strict"
+          }
+        ]
       },
       "id": "interface:ImageProps@property:rotate",
       "kind": "property",
       "name": "rotate",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddImageSourceOptions.rotation",
+        "ImageModel.transform",
+        "OoxmlAngle",
+        "Transform.rotation",
+        "degrees"
+      ],
+      "note": "PptxGenJS exposes a permissive degree-like rotate field with coercion and wrapping fallbacks; native exposes explicit OoxmlAngle/degrees() rotation, requires a finite bounded integer, and rejects before mutation.",
       "optional": true,
       "owner": "ImageProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "number"
     },
     {
@@ -17834,28 +18251,70 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks ImageProps source, sizing, and transform divergences against PptxGenJS 4.0.1"
+      },
       "declaredIn": "ImageProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const imageSourceSizingTransformState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/raster-image-sizing.ts",
+            "pattern": "export function calculateImageSizing("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "sizes every raster source form from intrinsic dimensions and round-trips all formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const packedSvgSizing = calculateImageSizing(packedSvgInfo, {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks ImageProps source, sizing, and transform divergences against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches PptxGenJS contain, cover, and crop sizing final state"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "records PptxGenJS sizing fallbacks while native rejects ambiguous or unsafe state"
+          }
+        ]
       },
       "id": "interface:ImageProps@property:sizing",
       "kind": "property",
       "name": "sizing",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddImageSourceOptions.sizing",
+        "ImageModel.sourceRectangle",
+        "ImageSizing",
+        "calculateImageSizing"
+      ],
+      "note": "PptxGenJS combines outer geometry and a permissive inline sizing object; native exposes a strict discriminated ImageSizing option with explicit target extents and an intrinsic-pixel crop source.",
       "optional": true,
       "owner": "ImageProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "{ type: 'contain' | 'cover' | 'crop'; w: Coord; h: Coord; x?: Coord; y?: Coord; }"
     },
     {
@@ -66024,80 +66483,206 @@
     },
     {
       "catalogKey": "contain",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks ImageProps source, sizing, and transform divergences against PptxGenJS 4.0.1"
+      },
       "declaredIn": "interface:ImageProps@property:sizing@path:sizing.type",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const imageSourceSizingTransformState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/raster-image-sizing.ts",
+            "pattern": "export function calculateImageSizing("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "sizes every raster source form from intrinsic dimensions and round-trips all formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const packedSvgSizing = calculateImageSizing(packedSvgInfo, {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks ImageProps source, sizing, and transform divergences against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches PptxGenJS contain, cover, and crop sizing final state"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "records PptxGenJS sizing fallbacks while native rejects ambiguous or unsafe state"
+          }
+        ]
       },
       "id": "union:interface:ImageProps@property:sizing@path:sizing.type#contain",
       "kind": "union-member",
       "name": "contain",
-      "native": [],
-      "note": "",
+      "native": [
+        "ImageModel.sourceRectangle",
+        "ImageSizing.type",
+        "calculateImageSizing",
+        "normalizeImageSizing"
+      ],
+      "note": "Native exposes the same contain, cover, and crop vocabulary but calculates from intrinsic image dimensions; PptxGenJS calculates from outer w/h, so legal aspect-ratio mismatches produce different a:srcRect output and failure timing.",
       "optional": false,
       "owner": "interface:ImageProps@property:sizing@path:sizing.type",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "'contain'"
     },
     {
       "catalogKey": "cover",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks ImageProps source, sizing, and transform divergences against PptxGenJS 4.0.1"
+      },
       "declaredIn": "interface:ImageProps@property:sizing@path:sizing.type",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const imageSourceSizingTransformState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/raster-image-sizing.ts",
+            "pattern": "export function calculateImageSizing("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "sizes every raster source form from intrinsic dimensions and round-trips all formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const packedSvgSizing = calculateImageSizing(packedSvgInfo, {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks ImageProps source, sizing, and transform divergences against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches PptxGenJS contain, cover, and crop sizing final state"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "records PptxGenJS sizing fallbacks while native rejects ambiguous or unsafe state"
+          }
+        ]
       },
       "id": "union:interface:ImageProps@property:sizing@path:sizing.type#cover",
       "kind": "union-member",
       "name": "cover",
-      "native": [],
-      "note": "",
+      "native": [
+        "ImageModel.sourceRectangle",
+        "ImageSizing.type",
+        "calculateImageSizing",
+        "normalizeImageSizing"
+      ],
+      "note": "Native exposes the same contain, cover, and crop vocabulary but calculates from intrinsic image dimensions; PptxGenJS calculates from outer w/h, so legal aspect-ratio mismatches produce different a:srcRect output and failure timing.",
       "optional": false,
       "owner": "interface:ImageProps@property:sizing@path:sizing.type",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "'cover'"
     },
     {
       "catalogKey": "crop",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks ImageProps source, sizing, and transform divergences against PptxGenJS 4.0.1"
+      },
       "declaredIn": "interface:ImageProps@property:sizing@path:sizing.type",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const imageSourceSizingTransformState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/raster-image-sizing.ts",
+            "pattern": "export function calculateImageSizing("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "sizes every raster source form from intrinsic dimensions and round-trips all formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const packedSvgSizing = calculateImageSizing(packedSvgInfo, {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks ImageProps source, sizing, and transform divergences against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches PptxGenJS contain, cover, and crop sizing final state"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "records PptxGenJS sizing fallbacks while native rejects ambiguous or unsafe state"
+          }
+        ]
       },
       "id": "union:interface:ImageProps@property:sizing@path:sizing.type#crop",
       "kind": "union-member",
       "name": "crop",
-      "native": [],
-      "note": "",
+      "native": [
+        "ImageModel.sourceRectangle",
+        "ImageSizing.type",
+        "calculateImageSizing",
+        "normalizeImageSizing"
+      ],
+      "note": "Native exposes the same contain, cover, and crop vocabulary but calculates from intrinsic image dimensions; PptxGenJS calculates from outer w/h, so legal aspect-ratio mismatches produce different a:srcRect output and failure timing.",
       "optional": false,
       "owner": "interface:ImageProps@property:sizing@path:sizing.type",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "'crop'"
     },
     {
@@ -85708,12 +86293,12 @@
   "complete": false,
   "counts": {
     "defect-excluded": 359,
-    "deliberate-difference": 311,
+    "deliberate-difference": 325,
     "deprecated-alias": 91,
     "stale": 0,
     "supported": 620,
     "unsupported": 0,
-    "unverified": 393
+    "unverified": 379
   },
   "declarationSha256": "0726d015dbcb55ccfa75546cb2fd43fe13a0dfeb783d08572f1c62f59193bbe5",
   "declarationTotal": 1774,
@@ -85723,11 +86308,6 @@
     "class:PptxGenJS@property:ChartType",
     "inline:interface:IChartOpts@property:titlePos@property:titlePos.x",
     "inline:interface:IChartOpts@property:titlePos@property:titlePos.y",
-    "inline:interface:ImageProps@property:sizing@property:sizing.h",
-    "inline:interface:ImageProps@property:sizing@property:sizing.type",
-    "inline:interface:ImageProps@property:sizing@property:sizing.w",
-    "inline:interface:ImageProps@property:sizing@property:sizing.x",
-    "inline:interface:ImageProps@property:sizing@property:sizing.y",
     "inline:interface:ShapeProps@property:points@property:points.close",
     "inline:interface:ShapeProps@property:points@property:points.curve",
     "inline:interface:ShapeProps@property:points@property:points.curve.hR",
@@ -85942,16 +86522,10 @@
     "interface:IChartPropsAxisVal@property:valAxisTitleRotate",
     "interface:IChartPropsAxisVal@property:valLabelFormatCode",
     "interface:ImageProps@property:altText",
-    "interface:ImageProps@property:data",
-    "interface:ImageProps@property:flipH",
-    "interface:ImageProps@property:flipV",
     "interface:ImageProps@property:hyperlink",
     "interface:ImageProps@property:objectName",
-    "interface:ImageProps@property:path",
-    "interface:ImageProps@property:rotate",
     "interface:ImageProps@property:rounding",
     "interface:ImageProps@property:shadow",
-    "interface:ImageProps@property:sizing",
     "interface:ImageProps@property:transparency",
     "interface:MediaProps@property:cover",
     "interface:MediaProps@property:data",
@@ -86099,9 +86673,6 @@
     "union:interface:IChartPropsAxisVal@property:valAxisDisplayUnit#tenThousands",
     "union:interface:IChartPropsAxisVal@property:valAxisDisplayUnit#thousands",
     "union:interface:IChartPropsAxisVal@property:valAxisDisplayUnit#trillions",
-    "union:interface:ImageProps@property:sizing@path:sizing.type#contain",
-    "union:interface:ImageProps@property:sizing@path:sizing.type#cover",
-    "union:interface:ImageProps@property:sizing@path:sizing.type#crop",
     "union:interface:OptsChartData@property:labels#string[][]",
     "union:interface:TableCell@property:text#TableCell[]",
     "union:interface:TableCell@property:text#string",

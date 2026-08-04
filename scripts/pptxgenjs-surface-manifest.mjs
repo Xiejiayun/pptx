@@ -3701,6 +3701,201 @@ const SHAPE_TEXT_SHADOW_FAMILY_ENTRIES = Object.freeze(
   SHAPE_TEXT_SHADOW_IDS.map((id) => shapeTextShadowEntry(id)),
 );
 
+const IMAGE_SOURCE_SIZING_TRANSFORM_CONTROL_TITLE =
+  'locks ImageProps source, sizing, and transform divergences against PptxGenJS 4.0.1';
+const IMAGE_SOURCE_CONTROL_TITLE =
+  'matches PptxGenJS path and data images through the document source loader';
+const IMAGE_SIZING_CONTROL_TITLE =
+  'matches PptxGenJS contain, cover, and crop sizing final state';
+const IMAGE_SIZING_FALLBACK_CONTROL_TITLE =
+  'records PptxGenJS sizing fallbacks while native rejects ambiguous or unsafe state';
+const IMAGE_TRANSFORM_CONTROL_TITLE =
+  'matches PptxGenJS embedded raster image public output semantically';
+const IMAGE_STRICTNESS_CONTROL_TITLE =
+  'preserves PptxGenJS embedded raster image divergences while native stays strict';
+const IMAGE_SOURCE_SIZING_TRANSFORM_IDS = Object.freeze([
+  ...['data', 'path', 'rotate', 'flipH', 'flipV', 'sizing']
+    .map((property) => linePropertyId('ImageProps', property)),
+  ...['type', 'w', 'h', 'x', 'y']
+    .map((property) =>
+      `inline:interface:ImageProps@property:sizing@property:sizing.${property}`),
+  ...['contain', 'cover', 'crop']
+    .map((token) =>
+      `union:interface:ImageProps@property:sizing@path:sizing.type#${token}`),
+]);
+
+function imageSourceSizingTransformCategory(id) {
+  if (id.endsWith('@property:data') || id.endsWith('@property:path')) return 'source';
+  if (id.endsWith('@property:rotate') || id.endsWith('@property:flipH') ||
+      id.endsWith('@property:flipV')) return 'transform';
+  return 'sizing';
+}
+
+function imageSourceSizingTransformNative(id) {
+  if (id.endsWith('@property:data') || id.endsWith('@property:path')) {
+    return [
+      'ImageSource',
+      'AddImageSourceOptions',
+      'PptxDocument.addImage',
+      'resolveImageSource',
+      'ImageModel.sourcePartUri',
+    ];
+  }
+  if (id.endsWith('@property:rotate')) {
+    return [
+      'AddImageSourceOptions.rotation',
+      'OoxmlAngle',
+      'degrees',
+      'Transform.rotation',
+      'ImageModel.transform',
+    ];
+  }
+  if (id.endsWith('@property:flipH')) {
+    return [
+      'AddImageSourceOptions.flipHorizontal',
+      'Transform.flipHorizontal',
+      'ImageModel.transform',
+    ];
+  }
+  if (id.endsWith('@property:flipV')) {
+    return [
+      'AddImageSourceOptions.flipVertical',
+      'Transform.flipVertical',
+      'ImageModel.transform',
+    ];
+  }
+  if (id.endsWith('@property:sizing')) {
+    return [
+      'AddImageSourceOptions.sizing',
+      'ImageSizing',
+      'calculateImageSizing',
+      'ImageModel.sourceRectangle',
+    ];
+  }
+  if (id.endsWith('sizing.w')) {
+    return ['ImageSizing.width', 'ImageSizingResult.width', 'Transform.width'];
+  }
+  if (id.endsWith('sizing.h')) {
+    return ['ImageSizing.height', 'ImageSizingResult.height', 'Transform.height'];
+  }
+  if (id.endsWith('sizing.x')) {
+    return ['ImageCropRegion.x', 'ImageSizing.source', 'ImageSourceRectangle.left'];
+  }
+  if (id.endsWith('sizing.y')) {
+    return ['ImageCropRegion.y', 'ImageSizing.source', 'ImageSourceRectangle.top'];
+  }
+  return [
+    'ImageSizing.type',
+    'normalizeImageSizing',
+    'calculateImageSizing',
+    'ImageModel.sourceRectangle',
+  ];
+}
+
+function imageSourceSizingTransformEvidence(id) {
+  const category = imageSourceSizingTransformCategory(id);
+  const anchors = {
+    source: {
+      code: {
+        path: 'packages/sdk/src/raster-image-source.ts',
+        pattern: 'export async function resolveImageSource(',
+      },
+      test: IMAGE_SOURCE_CONTROL_TITLE,
+      packagePattern: 'const packedSvgPath =',
+      ooxmlPattern: 'adds detected raster image sources with immediate live model state',
+      clientPattern: 'const imageSourceSizingTransformState = {',
+    },
+    sizing: {
+      code: {
+        path: 'packages/sdk/src/raster-image-sizing.ts',
+        pattern: 'export function calculateImageSizing(',
+      },
+      test: IMAGE_SIZING_CONTROL_TITLE,
+      packagePattern: 'const packedSvgSizing = calculateImageSizing(packedSvgInfo, {',
+      ooxmlPattern: 'sizes every raster source form from intrinsic dimensions and round-trips all formats',
+      clientPattern: 'const imageSourceSizingTransformState = {',
+    },
+    transform: {
+      code: {
+        path: 'packages/model/src/image-create.internal.ts',
+        pattern: 'export function normalizeEmbeddedRasterImage(',
+      },
+      test: IMAGE_TRANSFORM_CONTROL_TITLE,
+      packagePattern: 'const packedExplicitSvg = await packedSvgDeck.addImage',
+      ooxmlPattern: 'round-trips embedded raster image lifecycle in all six presentation formats',
+      clientPattern: 'const imageSourceSizingTransformState = {',
+    },
+  }[category];
+  return {
+    code: [anchors.code],
+    tests: [{
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      title: IMAGE_SOURCE_SIZING_TRANSFORM_CONTROL_TITLE,
+    }, {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      title: anchors.test,
+    }, {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      title: category === 'sizing'
+        ? IMAGE_SIZING_FALLBACK_CONTROL_TITLE
+        : IMAGE_STRICTNESS_CONTROL_TITLE,
+    }],
+    package: [{
+      path: 'scripts/smoke-npm-package.mjs',
+      pattern: anchors.packagePattern,
+    }],
+    ooxml: [{ path: category === 'transform'
+      ? 'packages/model/src/model.test.ts'
+      : 'packages/sdk/src/index.test.ts', pattern: anchors.ooxmlPattern }],
+    clients: [{
+      path: 'scripts/playwright-browser-smoke.js',
+      pattern: anchors.clientPattern,
+    }],
+  };
+}
+
+function imageSourceSizingTransformNote(id) {
+  if (id.endsWith('@property:data') || id.endsWith('@property:path')) {
+    return 'PptxGenJS exposes permissive optional data/path fields with observable precedence and MIME fallbacks; native accepts one typed ImageSource, detects content from bytes, resolves it before mutation, and rejects ambiguous or unsafe state atomically.';
+  }
+  if (id.endsWith('@property:rotate')) {
+    return 'PptxGenJS exposes a permissive degree-like rotate field with coercion and wrapping fallbacks; native exposes explicit OoxmlAngle/degrees() rotation, requires a finite bounded integer, and rejects before mutation.';
+  }
+  if (id.endsWith('@property:flipH') || id.endsWith('@property:flipV')) {
+    return 'PptxGenJS exposes flipH/flipV and coerces truthy values; native names the fields flipHorizontal/flipVertical, requires booleans, and rejects before mutation.';
+  }
+  if (id.endsWith('sizing.w') || id.endsWith('sizing.h')) {
+    return 'PptxGenJS exposes implicit-inch sizing w/h with truthy fallbacks to outer geometry; native exposes positive explicit-unit ImageSizing width/height as the final frame extent.';
+  }
+  if (id.endsWith('sizing.x') || id.endsWith('sizing.y')) {
+    return 'PptxGenJS reuses loose layout coordinates as crop input; native requires a bounded intrinsic-pixel ImageCropRegion under sizing.source and converts it to editable a:srcRect state.';
+  }
+  if (id.includes('@path:sizing.type#') || id.endsWith('sizing.type')) {
+    return 'Native exposes the same contain, cover, and crop vocabulary but calculates from intrinsic image dimensions; PptxGenJS calculates from outer w/h, so legal aspect-ratio mismatches produce different a:srcRect output and failure timing.';
+  }
+  return 'PptxGenJS combines outer geometry and a permissive inline sizing object; native exposes a strict discriminated ImageSizing option with explicit target extents and an intrinsic-pixel crop source.';
+}
+
+function imageSourceSizingTransformEntry(id) {
+  return {
+    id,
+    status: 'deliberate-difference',
+    native: imageSourceSizingTransformNative(id),
+    evidence: imageSourceSizingTransformEvidence(id),
+    control: {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      pattern: IMAGE_SOURCE_SIZING_TRANSFORM_CONTROL_TITLE,
+    },
+    serialization: true,
+    client: true,
+    note: imageSourceSizingTransformNote(id),
+  };
+}
+
+const IMAGE_SOURCE_SIZING_TRANSFORM_FAMILY_ENTRIES = Object.freeze(
+  IMAGE_SOURCE_SIZING_TRANSFORM_IDS.map((id) => imageSourceSizingTransformEntry(id)),
+);
+
 const PLACEHOLDER_CORE_CONTROL_TITLE =
   'locks PlaceholderProps and text/image placeholder population against PptxGenJS 4.0.1';
 const PLACEHOLDER_DEFINITION_CONTROL_TITLE =
@@ -4207,6 +4402,7 @@ export const PPTXGENJS_SURFACE_MANIFEST = deepFreeze({
     ...SLIDE_SECTION_FAMILY_ENTRIES,
     ...MASTER_BACKGROUND_SLIDE_NUMBER_FAMILY_ENTRIES,
     ...SHAPE_TEXT_SHADOW_FAMILY_ENTRIES,
+    ...IMAGE_SOURCE_SIZING_TRANSFORM_FAMILY_ENTRIES,
     ...PLACEHOLDER_CORE_FAMILY_ENTRIES,
     ...CHART_AREA_FILL_LINE_ENTRIES,
     ...DEPRECATED_CHART_AREA_ALIAS_ENTRIES,

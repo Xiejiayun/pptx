@@ -124,13 +124,13 @@ function assertDeepFrozen(value, seen = new Set()) {
 test('exports an immutable evidence-backed initial manifest batch', () => {
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.schemaVersion, 1);
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.packageVersion, '4.0.1');
-  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1381);
+  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1395);
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries.map(({ status }) => status).sort(),
     [
       ...Array(359).fill('defect-excluded'),
       ...Array(620).fill('supported'),
-      ...Array(311).fill('deliberate-difference'),
+      ...Array(325).fill('deliberate-difference'),
       ...Array(91).fill('deprecated-alias'),
     ].sort(),
   );
@@ -1118,6 +1118,68 @@ test('exports an immutable evidence-backed initial manifest batch', () => {
     shapeTextShadowById
       .get(addTablePropertyId('TextPropsOptions', 'shadow'))?.evidence.package,
     [{ path: 'scripts/smoke-npm-package.mjs', pattern: 'const textShapeShadows =' }],
+  );
+  const imageSourceSizingTransformExpected = [
+    ...['data', 'path', 'rotate', 'flipH', 'flipV', 'sizing']
+      .map((property) => addTablePropertyId('ImageProps', property)),
+    ...['type', 'w', 'h', 'x', 'y']
+      .map((property) =>
+        `inline:interface:ImageProps@property:sizing@property:sizing.${property}`),
+    ...['contain', 'cover', 'crop']
+      .map((token) =>
+        `union:interface:ImageProps@property:sizing@path:sizing.type#${token}`),
+  ].sort();
+  const imageSourceSizingTransformIds = new Set(imageSourceSizingTransformExpected);
+  assert.equal(imageSourceSizingTransformIds.size, 14);
+  const imageSourceSizingTransformEntries = PPTXGENJS_SURFACE_MANIFEST.entries
+    .filter(({ id }) => imageSourceSizingTransformIds.has(id))
+    .sort((left, right) => left.id.localeCompare(right.id));
+  assert.deepEqual(
+    imageSourceSizingTransformEntries.map(({ id, status }) => ({ id, status })),
+    imageSourceSizingTransformExpected.map((id) => ({
+      id,
+      status: 'deliberate-difference',
+    })),
+  );
+  assert.equal(
+    imageSourceSizingTransformEntries.every(({
+      native,
+      evidence,
+      control,
+      serialization,
+      client,
+    }) => native.length > 0 && evidence.code.length > 0 &&
+      evidence.tests.length >= 3 && evidence.package.length > 0 &&
+      evidence.ooxml.length > 0 && evidence.clients.some(
+        ({ pattern }) => pattern === 'const imageSourceSizingTransformState = {',
+      ) && control.pattern ===
+        'locks ImageProps source, sizing, and transform divergences against PptxGenJS 4.0.1' &&
+      serialization === true && client === true),
+    true,
+  );
+  const imageSourceSizingTransformById = new Map(
+    imageSourceSizingTransformEntries.map((entry) => [entry.id, entry]),
+  );
+  assert.deepEqual(
+    imageSourceSizingTransformById
+      .get(addTablePropertyId('ImageProps', 'path'))?.evidence.package,
+    [{ path: 'scripts/smoke-npm-package.mjs', pattern: 'const packedSvgPath =' }],
+  );
+  assert.deepEqual(
+    imageSourceSizingTransformEntries
+      .filter(({ id }) => id.includes('@path:sizing.type#'))
+      .map(({ native }) => native[0]),
+    ['ImageSizing.type', 'ImageSizing.type', 'ImageSizing.type'],
+  );
+  assert.equal(
+    [
+      ...['altText', 'objectName', 'hyperlink', 'rounding', 'shadow', 'transparency',
+        'x', 'y', 'w', 'h', 'placeholder']
+        .map((property) => addTablePropertyId('ImageProps', property)),
+      addTablePropertyId('DataOrPathProps', 'data'),
+      addTablePropertyId('DataOrPathProps', 'path'),
+    ].some((id) => imageSourceSizingTransformIds.has(id)),
+    false,
   );
   const placeholderCoreExpected = [
     ...['name', 'type', 'x', 'y', 'w', 'h']

@@ -11,11 +11,11 @@
 | Status | Count |
 | --- | ---: |
 | supported | 620 |
-| deliberate-difference | 311 |
+| deliberate-difference | 325 |
 | deprecated-alias | 91 |
 | defect-excluded | 359 |
 | unsupported | 0 |
-| unverified | 393 |
+| unverified | 379 |
 | stale | 0 |
 
 ## Runtime declaration differences
@@ -32,11 +32,6 @@ None.
 - `class:PptxGenJS@property:ChartType`
 - `inline:interface:IChartOpts@property:titlePos@property:titlePos.x`
 - `inline:interface:IChartOpts@property:titlePos@property:titlePos.y`
-- `inline:interface:ImageProps@property:sizing@property:sizing.h`
-- `inline:interface:ImageProps@property:sizing@property:sizing.type`
-- `inline:interface:ImageProps@property:sizing@property:sizing.w`
-- `inline:interface:ImageProps@property:sizing@property:sizing.x`
-- `inline:interface:ImageProps@property:sizing@property:sizing.y`
 - `inline:interface:ShapeProps@property:points@property:points.close`
 - `inline:interface:ShapeProps@property:points@property:points.curve`
 - `inline:interface:ShapeProps@property:points@property:points.curve.hR`
@@ -251,16 +246,10 @@ None.
 - `interface:IChartPropsAxisVal@property:valAxisTitleRotate`
 - `interface:IChartPropsAxisVal@property:valLabelFormatCode`
 - `interface:ImageProps@property:altText`
-- `interface:ImageProps@property:data`
-- `interface:ImageProps@property:flipH`
-- `interface:ImageProps@property:flipV`
 - `interface:ImageProps@property:hyperlink`
 - `interface:ImageProps@property:objectName`
-- `interface:ImageProps@property:path`
-- `interface:ImageProps@property:rotate`
 - `interface:ImageProps@property:rounding`
 - `interface:ImageProps@property:shadow`
-- `interface:ImageProps@property:sizing`
 - `interface:ImageProps@property:transparency`
 - `interface:MediaProps@property:cover`
 - `interface:MediaProps@property:data`
@@ -408,9 +397,6 @@ None.
 - `union:interface:IChartPropsAxisVal@property:valAxisDisplayUnit#tenThousands`
 - `union:interface:IChartPropsAxisVal@property:valAxisDisplayUnit#thousands`
 - `union:interface:IChartPropsAxisVal@property:valAxisDisplayUnit#trillions`
-- `union:interface:ImageProps@property:sizing@path:sizing.type#contain`
-- `union:interface:ImageProps@property:sizing@path:sizing.type#cover`
-- `union:interface:ImageProps@property:sizing@path:sizing.type#crop`
 - `union:interface:OptsChartData@property:labels#string[][]`
 - `union:interface:TableCell@property:text#TableCell[]`
 - `union:interface:TableCell@property:text#string`
@@ -1071,25 +1057,25 @@ None.
 
 | Atom | Status | Native | Evidence | Note |
 | --- | --- | --- | --- | --- |
-| `inline:interface:ImageProps@property:sizing@property:sizing.h` | unverified | — | — | — |
-| `inline:interface:ImageProps@property:sizing@property:sizing.type` | unverified | — | — | — |
-| `inline:interface:ImageProps@property:sizing@property:sizing.w` | unverified | — | — | — |
-| `inline:interface:ImageProps@property:sizing@property:sizing.x` | unverified | — | — | — |
-| `inline:interface:ImageProps@property:sizing@property:sizing.y` | unverified | — | — | — |
+| `inline:interface:ImageProps@property:sizing@property:sizing.h` | deliberate-difference | ImageSizing.height<br>ImageSizingResult.height<br>Transform.height | code:packages/sdk/src/raster-image-sizing.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS exposes implicit-inch sizing w/h with truthy fallbacks to outer geometry; native exposes positive explicit-unit ImageSizing width/height as the final frame extent. |
+| `inline:interface:ImageProps@property:sizing@property:sizing.type` | deliberate-difference | ImageModel.sourceRectangle<br>ImageSizing.type<br>calculateImageSizing<br>normalizeImageSizing | code:packages/sdk/src/raster-image-sizing.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native exposes the same contain, cover, and crop vocabulary but calculates from intrinsic image dimensions; PptxGenJS calculates from outer w/h, so legal aspect-ratio mismatches produce different a:srcRect output and failure timing. |
+| `inline:interface:ImageProps@property:sizing@property:sizing.w` | deliberate-difference | ImageSizing.width<br>ImageSizingResult.width<br>Transform.width | code:packages/sdk/src/raster-image-sizing.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS exposes implicit-inch sizing w/h with truthy fallbacks to outer geometry; native exposes positive explicit-unit ImageSizing width/height as the final frame extent. |
+| `inline:interface:ImageProps@property:sizing@property:sizing.x` | deliberate-difference | ImageCropRegion.x<br>ImageSizing.source<br>ImageSourceRectangle.left | code:packages/sdk/src/raster-image-sizing.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS reuses loose layout coordinates as crop input; native requires a bounded intrinsic-pixel ImageCropRegion under sizing.source and converts it to editable a:srcRect state. |
+| `inline:interface:ImageProps@property:sizing@property:sizing.y` | deliberate-difference | ImageCropRegion.y<br>ImageSizing.source<br>ImageSourceRectangle.top | code:packages/sdk/src/raster-image-sizing.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS reuses loose layout coordinates as crop input; native requires a bounded intrinsic-pixel ImageCropRegion under sizing.source and converts it to editable a:srcRect state. |
 | `inline:interface:TableToSlidesProps@property:addImage@property:addImage.image` | deliberate-difference | TableToSlidesAddImage.source | code:packages/sdk/src/table-to-slides.ts<br>code:packages/sdk/src/index.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/table-to-slides.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/table-to-slides.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps TableToSlidesProps.addImage.image to the detached, strictly typed source field with native geometry and content types while preserving the same legal page addition. |
 | `inline:interface:TableToSlidesProps@property:addImage@property:addImage.options` | deliberate-difference | TableToSlidesAddImage.options | code:packages/sdk/src/table-to-slides.ts<br>code:packages/sdk/src/index.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/table-to-slides.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/table-to-slides.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps TableToSlidesProps.addImage.options to the detached, strictly typed options field with native geometry and content types while preserving the same legal page addition. |
 | `interface:ImageProps@property:altText` | unverified | — | — | — |
-| `interface:ImageProps@property:data` | unverified | — | — | — |
-| `interface:ImageProps@property:flipH` | unverified | — | — | — |
-| `interface:ImageProps@property:flipV` | unverified | — | — | — |
+| `interface:ImageProps@property:data` | deliberate-difference | AddImageSourceOptions<br>ImageModel.sourcePartUri<br>ImageSource<br>PptxDocument.addImage<br>resolveImageSource | code:packages/sdk/src/raster-image-source.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS exposes permissive optional data/path fields with observable precedence and MIME fallbacks; native accepts one typed ImageSource, detects content from bytes, resolves it before mutation, and rejects ambiguous or unsafe state atomically. |
+| `interface:ImageProps@property:flipH` | deliberate-difference | AddImageSourceOptions.flipHorizontal<br>ImageModel.transform<br>Transform.flipHorizontal | code:packages/model/src/image-create.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/model/src/model.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS exposes flipH/flipV and coerces truthy values; native names the fields flipHorizontal/flipVertical, requires booleans, and rejects before mutation. |
+| `interface:ImageProps@property:flipV` | deliberate-difference | AddImageSourceOptions.flipVertical<br>ImageModel.transform<br>Transform.flipVertical | code:packages/model/src/image-create.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/model/src/model.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS exposes flipH/flipV and coerces truthy values; native names the fields flipHorizontal/flipVertical, requires booleans, and rejects before mutation. |
 | `interface:ImageProps@property:h` | deliberate-difference | PptxDocument.addImage<br>SlideModel.addImage<br>SlideModel.addSvgImage | code:packages/model/src/image-create.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers the same legal direct image percentage geometry with width/height and explicit Emu or inches() numeric units; nested sizing coordinates remain a separate capability family. |
 | `interface:ImageProps@property:hyperlink` | unverified | — | — | — |
 | `interface:ImageProps@property:objectName` | unverified | — | — | — |
-| `interface:ImageProps@property:path` | unverified | — | — | — |
-| `interface:ImageProps@property:rotate` | unverified | — | — | — |
+| `interface:ImageProps@property:path` | deliberate-difference | AddImageSourceOptions<br>ImageModel.sourcePartUri<br>ImageSource<br>PptxDocument.addImage<br>resolveImageSource | code:packages/sdk/src/raster-image-source.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS exposes permissive optional data/path fields with observable precedence and MIME fallbacks; native accepts one typed ImageSource, detects content from bytes, resolves it before mutation, and rejects ambiguous or unsafe state atomically. |
+| `interface:ImageProps@property:rotate` | deliberate-difference | AddImageSourceOptions.rotation<br>ImageModel.transform<br>OoxmlAngle<br>Transform.rotation<br>degrees | code:packages/model/src/image-create.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/model/src/model.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS exposes a permissive degree-like rotate field with coercion and wrapping fallbacks; native exposes explicit OoxmlAngle/degrees() rotation, requires a finite bounded integer, and rejects before mutation. |
 | `interface:ImageProps@property:rounding` | unverified | — | — | — |
 | `interface:ImageProps@property:shadow` | unverified | — | — | — |
-| `interface:ImageProps@property:sizing` | unverified | — | — | — |
+| `interface:ImageProps@property:sizing` | deliberate-difference | AddImageSourceOptions.sizing<br>ImageModel.sourceRectangle<br>ImageSizing<br>calculateImageSizing | code:packages/sdk/src/raster-image-sizing.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS combines outer geometry and a permissive inline sizing object; native exposes a strict discriminated ImageSizing option with explicit target extents and an intrinsic-pixel crop source. |
 | `interface:ImageProps@property:transparency` | unverified | — | — | — |
 | `interface:ImageProps@property:w` | deliberate-difference | PptxDocument.addImage<br>SlideModel.addImage<br>SlideModel.addSvgImage | code:packages/model/src/image-create.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers the same legal direct image percentage geometry with width/height and explicit Emu or inches() numeric units; nested sizing coordinates remain a separate capability family. |
 | `interface:ImageProps@property:x` | deliberate-difference | PptxDocument.addImage<br>SlideModel.addImage<br>SlideModel.addSvgImage | code:packages/model/src/image-create.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers the same legal direct image percentage geometry with width/height and explicit Emu or inches() numeric units; nested sizing coordinates remain a separate capability family. |
@@ -1097,9 +1083,9 @@ None.
 | `interface:PresSlide@property:addImage` | supported | ImageModel<br>PptxDocument.addImage<br>SlideModel.addImage | code:packages/model/src/slide.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes the same legal callable or state capability with typed live models, strict validation, packed-package coverage, serialization, and editable reopen evidence. |
 | `interface:TableToSlidesProps@property:addImage` | deliberate-difference | PptxDocument.tableToSlides<br>TableToSlidesOptions.addImage | code:packages/sdk/src/table-to-slides.ts<br>code:packages/sdk/src/index.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/table-to-slides.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/table-to-slides.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers TableToSlidesProps.addImage with a strict detached addition record and transactional page creation instead of PptxGenJS caller mutation and permissive nested inputs. |
 | `method:Slide#addImage` | deliberate-difference | ImageModel<br>PptxDocument.addImage<br>SlideModel.addImage | code:packages/model/src/slide.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS synchronously returns the owning slide and may retain or mutate caller state; native returns a typed live model, prepares asynchronous sources where required, and snapshots validated input. |
-| `union:interface:ImageProps@property:sizing@path:sizing.type#contain` | unverified | — | — | — |
-| `union:interface:ImageProps@property:sizing@path:sizing.type#cover` | unverified | — | — | — |
-| `union:interface:ImageProps@property:sizing@path:sizing.type#crop` | unverified | — | — | — |
+| `union:interface:ImageProps@property:sizing@path:sizing.type#contain` | deliberate-difference | ImageModel.sourceRectangle<br>ImageSizing.type<br>calculateImageSizing<br>normalizeImageSizing | code:packages/sdk/src/raster-image-sizing.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native exposes the same contain, cover, and crop vocabulary but calculates from intrinsic image dimensions; PptxGenJS calculates from outer w/h, so legal aspect-ratio mismatches produce different a:srcRect output and failure timing. |
+| `union:interface:ImageProps@property:sizing@path:sizing.type#cover` | deliberate-difference | ImageModel.sourceRectangle<br>ImageSizing.type<br>calculateImageSizing<br>normalizeImageSizing | code:packages/sdk/src/raster-image-sizing.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native exposes the same contain, cover, and crop vocabulary but calculates from intrinsic image dimensions; PptxGenJS calculates from outer w/h, so legal aspect-ratio mismatches produce different a:srcRect output and failure timing. |
+| `union:interface:ImageProps@property:sizing@path:sizing.type#crop` | deliberate-difference | ImageModel.sourceRectangle<br>ImageSizing.type<br>calculateImageSizing<br>normalizeImageSizing | code:packages/sdk/src/raster-image-sizing.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native exposes the same contain, cover, and crop vocabulary but calculates from intrinsic image dimensions; PptxGenJS calculates from outer w/h, so legal aspect-ratio mismatches produce different a:srcRect output and failure timing. |
 
 ## Media
 

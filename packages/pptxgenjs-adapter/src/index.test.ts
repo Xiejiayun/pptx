@@ -6463,6 +6463,213 @@ describe('importPptxGenJS', () => {
     }
   }, 20_000);
 
+  it('locks ImageProps source, sizing, and transform divergences against PptxGenJS 4.0.1', async () => {
+    const atomIds = [
+      ...['data', 'path', 'rotate', 'flipH', 'flipV', 'sizing']
+        .map((property) => `interface:ImageProps@property:${property}`),
+      ...['type', 'w', 'h', 'x', 'y']
+        .map((property) =>
+          `inline:interface:ImageProps@property:sizing@property:sizing.${property}`),
+      ...['contain', 'cover', 'crop']
+        .map((value) =>
+          `union:interface:ImageProps@property:sizing@path:sizing.type#${value}`),
+    ];
+    expect(new Set(atomIds).size).toBe(14);
+    for (const property of ['x', 'y', 'w', 'h']) {
+      expect(atomIds).not.toContain(`interface:ImageProps@property:${property}`);
+    }
+
+    const sizing = new PptxGenJS();
+    expect(sizing.version).toBe('4.0.1');
+    sizing.defineLayout({ name: 'IMAGE-SIZING-PROBE', width: 10, height: 8 });
+    sizing.layout = 'IMAGE-SIZING-PROBE';
+    const sizingSlide = sizing.addSlide();
+    sizingSlide.addImage({
+      data: PNG_DATA_URI,
+      objectName: 'Percent contain',
+      x: 0,
+      y: 0,
+      w: 10,
+      h: 8,
+      sizing: { type: 'contain', w: '30%', h: '40%' },
+    });
+    sizingSlide.addImage({
+      data: PNG_DATA_URI,
+      objectName: 'Percent crop',
+      x: 0,
+      y: 0,
+      w: 10,
+      h: 8,
+      sizing: { type: 'crop', x: '10%', y: '20%', w: '30%', h: '40%' },
+    });
+    sizingSlide.addImage({
+      data: PNG_DATA_URI,
+      objectName: 'Missing sizing dimensions',
+      x: 0,
+      y: 0,
+      w: 4,
+      h: 3,
+      sizing: { type: 'cover' } as never,
+    });
+    sizingSlide.addImage({
+      data: PNG_DATA_URI,
+      objectName: 'Outer ratio wins',
+      x: 0,
+      y: 0,
+      w: 16,
+      h: 9,
+      sizing: { type: 'contain', w: 4, h: 3 },
+    });
+
+    const importedSizing = await openPptxGenJSPublicOutput(sizing);
+    const imageByName = (name: string) => importedSizing.slides[0]!.shapes.find(
+      (shape): shape is ImageModel => shape instanceof ImageModel && shape.name === name,
+    )!;
+    const contain = imageByName('Percent contain');
+    const crop = imageByName('Percent crop');
+    const missing = imageByName('Missing sizing dimensions');
+    const outerRatio = imageByName('Outer ratio wins');
+
+    expect(contain.transform).toMatchObject({
+      x: 0,
+      y: 0,
+      width: 2_743_200,
+      height: 2_926_080,
+    });
+    expect(pictureXml(importedSizing, 0, contain.id)).toContain(
+      '<a:srcRect l="0" r="0" t="-16667" b="-16667"/><a:stretch/>',
+    );
+    expect(directSourceRectangleRaw(pictureXml(importedSizing, 0, contain.id)))
+      .toEqual({ left: 0, top: -16_667, right: 0, bottom: -16_667 });
+
+    expect(crop.transform).toMatchObject({
+      x: 0,
+      y: 0,
+      width: 2_743_200,
+      height: 2_926_080,
+    });
+    expect(pictureXml(importedSizing, 0, crop.id)).toContain(
+      '<a:srcRect l="10000" r="60000" t="20000" b="40000"/><a:stretch/>',
+    );
+    expect(directSourceRectangleRaw(pictureXml(importedSizing, 0, crop.id)))
+      .toEqual({ left: 10_000, top: 20_000, right: 60_000, bottom: 40_000 });
+
+    expect(missing.transform).toMatchObject({
+      x: 0,
+      y: 0,
+      width: inches(4),
+      height: inches(3),
+    });
+    expect(pictureXml(importedSizing, 0, missing.id)).toContain(
+      '<a:srcRect l="0" r="0" t="0" b="0"/><a:stretch/>',
+    );
+    expect(directSourceRectangleRaw(pictureXml(importedSizing, 0, outerRatio.id)))
+      .toEqual({ left: 0, top: -16_667, right: 0, bottom: -16_667 });
+
+    const intrinsicNative = PptxDocument.create();
+    intrinsicNative.addSlide();
+    const intrinsic = await intrinsicNative.addImage(0, PNG_DATA_URI, {
+      sizing: { type: 'contain', width: inches(4), height: inches(3) },
+    });
+    expect(directSourceRectangleRaw(pictureXml(intrinsicNative, 0, intrinsic.id)))
+      .toEqual({ left: -16_667, top: 0, right: -16_667, bottom: 0 });
+
+    const invalidSizing = new PptxGenJS();
+    const invalidSizingSlide = invalidSizing.addSlide();
+    expect(() => invalidSizingSlide.addImage({
+      data: PNG_DATA_URI,
+      sizing: { type: 'bogus', w: 1, h: 1 },
+    })).not.toThrow();
+    await expect(invalidSizing.write({ outputType: 'nodebuffer', compression: false }))
+      .rejects.toThrow(/ImageSizingXml.*is not a function/i);
+
+    const transforms = new PptxGenJS();
+    const transformSlide = transforms.addSlide();
+    for (const [name, rotate] of [
+      ['Rotate 361', 361],
+      ['Rotate 721', 721],
+      ['Rotate -361', -361],
+      ['Rotate string', '45'],
+      ['Rotate infinity', Number.POSITIVE_INFINITY],
+    ] as const) {
+      transformSlide.addImage({
+        data: PNG_DATA_URI,
+        objectName: name,
+        w: 1,
+        h: 1,
+        rotate,
+      });
+    }
+    transformSlide.addImage({
+      data: PNG_DATA_URI,
+      objectName: 'Truthy flips',
+      w: 1,
+      h: 1,
+      flipH: 'yes',
+      flipV: 1,
+    });
+    const importedTransforms = await openPptxGenJSPublicOutput(transforms);
+    const transformXml = (name: string) => {
+      const image = importedTransforms.slides[0]!.shapes.find(
+        (shape): shape is ImageModel => shape instanceof ImageModel && shape.name === name,
+      )!;
+      return pictureXml(importedTransforms, 0, image.id);
+    };
+    expect(transformXml('Rotate 361')).toContain('<a:xfrm rot="60000">');
+    expect(transformXml('Rotate 721')).toContain('<a:xfrm rot="21660000">');
+    expect(transformXml('Rotate -361')).toContain('<a:xfrm rot="-21660000">');
+    expect(transformXml('Rotate string')).toContain('<a:xfrm rot="2700000">');
+    expect(transformXml('Rotate infinity')).toContain('<a:xfrm rot="Infinity">');
+    expect(transformXml('Truthy flips')).toContain('<a:xfrm flipH="1" flipV="1">');
+
+    const invalidSources = new PptxGenJS();
+    const invalidSourceSlide = invalidSources.addSlide();
+    invalidSourceSlide.addImage({
+      data: 'data:image/png;base64,',
+      objectName: 'Empty source',
+    });
+    invalidSourceSlide.addImage({
+      data: 'data:image/png;base64,%%%%',
+      objectName: 'Junk source',
+    });
+    const importedInvalidSources = await openPptxGenJSPublicOutput(invalidSources);
+    const invalidImages = importedInvalidSources.slides[0]!.shapes as readonly ImageModel[];
+    expect(invalidImages.map((image) => importedInvalidSources.opcPackage
+      .requirePart(image.sourcePartUri!).bytes.byteLength)).toEqual([0, 0]);
+
+    const native = PptxDocument.create();
+    const nativeSlide = native.addSlide();
+    const before = packageState(native);
+    const beforeShapes = nativeSlide.shapes;
+    const rasterBytes = new Uint8Array(
+      Buffer.from(PNG_DATA_URI.split(',')[1]!, 'base64'),
+    );
+    for (const options of [
+      { contentType: 'image/png', rotation: degrees(361) },
+      { contentType: 'image/png', rotation: Number.POSITIVE_INFINITY },
+      { contentType: 'image/png', flipHorizontal: 'yes' },
+      { contentType: 'image/png', flipVertical: 1 },
+    ]) {
+      expect(() => nativeSlide.addImage(rasterBytes, options as never)).toThrow();
+      expect(packageState(native)).toEqual(before);
+      expect(nativeSlide.shapes).toEqual(beforeShapes);
+    }
+    for (const source of ['data:image/png;base64,', 'data:image/png;base64,%%%%']) {
+      await expect(native.addImage(0, source)).rejects.toThrow();
+      expect(packageState(native)).toEqual(before);
+      expect(nativeSlide.shapes).toEqual(beforeShapes);
+    }
+    for (const value of [
+      { type: 'bogus', width: inches(1), height: inches(1) },
+      { type: 'cover' },
+    ]) {
+      await expect(native.addImage(0, PNG_DATA_URI, { sizing: value } as never))
+        .rejects.toThrow();
+      expect(packageState(native)).toEqual(before);
+      expect(nativeSlide.shapes).toEqual(beforeShapes);
+    }
+  }, 20_000);
+
   it('matches representative preset shape public output semantically', async () => {
     const generated = new PptxGenJS();
     expect(generated.version).toBe('4.0.1');

@@ -649,6 +649,11 @@ const packedFallbackPng = Uint8Array.from(Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
   'base64',
 ));
+const packedSvgPath = (await import('node:url')).fileURLToPath(
+  new URL('./packed-path-image.svg', import.meta.url),
+);
+await import('node:fs/promises').then(({ writeFile }) =>
+  writeFile(packedSvgPath, packedSvgBytes));
 const packedSvgInfo = inspectSvgImage(packedSvgBytes);
 const packedGenericSvgInfo = inspectImage(packedSvgBytes);
 const packedSvgSizing = calculateImageSizing(packedSvgInfo, {
@@ -676,8 +681,28 @@ const packedDefaultSvg = await packedSvgDeck.addImage(0, packedSvgDataUri, {
   altText: 'Automatic PNG fallback',
   x: inches(5),
   y: inches(1),
-  width: inches(3),
-  height: inches(2),
+  sizing: {
+    type: 'contain',
+    width: inches(4),
+    height: inches(3),
+  },
+  flipVertical: true,
+});
+const packedPathSvg = await packedSvgDeck.addImage(0, packedSvgPath, {
+  fallback: packedFallbackPng,
+  sizing: {
+    type: 'crop',
+    width: inches(4),
+    height: inches(3),
+    source: { x: 160, y: 90, width: 320, height: 180 },
+  },
+  name: 'Packed path SVG',
+  altText: 'Path with pixel crop',
+  x: inches(1),
+  y: inches(4.5),
+  rotation: -600_000,
+  flipHorizontal: true,
+  flipVertical: true,
 });
 const packedSvgPairIsValid = (deck, slide, image) => {
   if (!(image instanceof ImageModel) || !image.isSvg ||
@@ -696,11 +721,25 @@ const packedSvgPairIsValid = (deck, slide, image) => {
 };
 const packedSvgImmediate = packedSvgSlide.shapes[0] === packedExplicitSvg &&
   packedSvgSlide.shapes[1] === packedDefaultSvg &&
+  packedSvgSlide.shapes[2] === packedPathSvg &&
   packedSvgInfo.contentType === 'image/svg+xml' && packedSvgInfo.width === 640 &&
   packedSvgInfo.height === 360 && packedGenericSvgInfo.contentType === 'image/svg+xml' &&
   packedSvgSizing.sourceRectangle.left === 12.5 &&
+  packedExplicitSvg.sourceRectangle.left === 12.5 &&
+  packedExplicitSvg.sourceRectangle.right === 12.5 &&
+  packedExplicitSvg.transform.rotation === 900_000 &&
+  packedExplicitSvg.transform.flipHorizontal === true &&
+  packedDefaultSvg.sourceRectangle.top === -16.667 &&
+  packedDefaultSvg.sourceRectangle.bottom === -16.667 &&
+  packedDefaultSvg.transform.flipVertical === true &&
+  packedPathSvg.sourceRectangle.left === 25 && packedPathSvg.sourceRectangle.top === 25 &&
+  packedPathSvg.sourceRectangle.right === 25 && packedPathSvg.sourceRectangle.bottom === 25 &&
+  packedPathSvg.transform.rotation === -600_000 &&
+  packedPathSvg.transform.flipHorizontal === true &&
+  packedPathSvg.transform.flipVertical === true &&
   packedSvgPairIsValid(packedSvgDeck, packedSvgSlide, packedExplicitSvg) &&
-  packedSvgPairIsValid(packedSvgDeck, packedSvgSlide, packedDefaultSvg);
+  packedSvgPairIsValid(packedSvgDeck, packedSvgSlide, packedDefaultSvg) &&
+  packedSvgPairIsValid(packedSvgDeck, packedSvgSlide, packedPathSvg);
 let packedLowLevelSvgRejected = false;
 try {
   packedSvgSlide.addImage(packedSvgBytes, { contentType: 'image/svg+xml' });
@@ -715,12 +754,12 @@ try {
 } catch {
   packedInvalidFallbackRejected = true;
 }
-const packedSvgUnchangedAfterFailures = packedSvgSlide.shapes.length === 2;
+const packedSvgUnchangedAfterFailures = packedSvgSlide.shapes.length === 3;
 const packedSvgDuplicateSlide = packedSvgDeck.duplicateSlide(0);
 const packedSvgDuplicateImages = packedSvgDuplicateSlide.shapes.filter(
   (shape) => shape instanceof ImageModel,
 );
-const packedSvgShared = packedSvgDuplicateImages.length === 2 &&
+const packedSvgShared = packedSvgDuplicateImages.length === 3 &&
   packedSvgDuplicateImages.every((image, index) =>
     image.fallbackPartUri === packedSvgSlide.shapes[index].fallbackPartUri &&
     image.svgPartUri === packedSvgSlide.shapes[index].svgPartUri);
@@ -740,9 +779,18 @@ const packedSvgCloneOnWrite = packedSvgDuplicateImages[0].fallbackPartUri !== pa
 const reopenedPackedSvgDeck = await PptxDocument.open(await packedSvgDeck.write());
 const reopenedPackedSvgImages = reopenedPackedSvgDeck.slides.flatMap((slide) =>
   slide.shapes.filter((shape) => shape instanceof ImageModel));
-const packedSvgReopened = reopenedPackedSvgImages.length === 4 &&
+const packedSvgReopened = reopenedPackedSvgImages.length === 6 &&
   reopenedPackedSvgDeck.slides.every((slide) => slide.shapes.every((shape) =>
     !(shape instanceof ImageModel) || packedSvgPairIsValid(reopenedPackedSvgDeck, slide, shape))) &&
+  reopenedPackedSvgDeck.slides[0].shapes[0].sourceRectangle.left === 12.5 &&
+  reopenedPackedSvgDeck.slides[0].shapes[0].transform.rotation === 900_000 &&
+  reopenedPackedSvgDeck.slides[0].shapes[1].sourceRectangle.top === -16.667 &&
+  reopenedPackedSvgDeck.slides[0].shapes[1].transform.flipVertical === true &&
+  reopenedPackedSvgDeck.slides[0].shapes[2].sourceRectangle.left === 25 &&
+  reopenedPackedSvgDeck.slides[0].shapes[2].sourceRectangle.bottom === 25 &&
+  reopenedPackedSvgDeck.slides[0].shapes[2].transform.rotation === -600_000 &&
+  reopenedPackedSvgDeck.slides[0].shapes[2].transform.flipHorizontal === true &&
+  reopenedPackedSvgDeck.slides[0].shapes[2].transform.flipVertical === true &&
   packedBytesEqual(
     reopenedPackedSvgDeck.opcPackage.requirePart(
       reopenedPackedSvgDeck.slides[1].shapes[0].svgPartUri,
