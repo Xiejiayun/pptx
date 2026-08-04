@@ -71,11 +71,6 @@ export interface ChartAxisOptions extends ChartFontOptions {
   readonly visible?: boolean;
   readonly position?: 'bottom' | 'left' | 'right' | 'top';
   readonly title?: ChartTitleOptions;
-  readonly minimum?: number;
-  readonly maximum?: number;
-  readonly majorUnit?: number;
-  readonly minorUnit?: number;
-  readonly logarithmicBase?: number;
   readonly numberFormat?: string;
   readonly orientation?: 'minMax' | 'maxMin';
   readonly labelPosition?: 'high' | 'low' | 'nextTo' | 'none';
@@ -85,6 +80,50 @@ export interface ChartAxisOptions extends ChartFontOptions {
   readonly minorGridLine?: ShapeLine;
   readonly majorTickMark?: 'cross' | 'inside' | 'none' | 'outside';
   readonly minorTickMark?: 'cross' | 'inside' | 'none' | 'outside';
+}
+
+export type ChartTimeUnit = 'days' | 'months' | 'years';
+
+export type ChartDisplayUnit =
+  | 'billions'
+  | 'hundredMillions'
+  | 'hundredThousands'
+  | 'hundreds'
+  | 'millions'
+  | 'tenMillions'
+  | 'tenThousands'
+  | 'thousands'
+  | 'trillions';
+
+export interface ChartCategoryAxisOptions extends ChartAxisOptions {
+  readonly kind?: 'category' | 'date';
+  readonly minimum?: number;
+  readonly maximum?: number;
+  readonly majorUnit?: number;
+  readonly minorUnit?: number;
+  readonly crossesAt?: number | 'autoZero';
+  readonly baseTimeUnit?: ChartTimeUnit;
+  readonly majorTimeUnit?: ChartTimeUnit;
+  readonly minorTimeUnit?: ChartTimeUnit;
+  readonly labelFrequency?: number;
+  readonly multiLevelLabels?: boolean;
+}
+
+export interface ChartValueAxisOptions extends ChartAxisOptions {
+  readonly minimum?: number;
+  readonly maximum?: number;
+  readonly majorUnit?: number;
+  readonly minorUnit?: number;
+  readonly logarithmicBase?: number;
+  readonly crossesAt?: number | 'autoZero';
+  readonly displayUnit?: ChartDisplayUnit;
+  readonly displayUnitLabel?: boolean;
+}
+
+export interface ChartSeriesAxisOptions extends ChartAxisOptions {
+  readonly majorUnit?: number;
+  readonly minorUnit?: number;
+  readonly labelFrequency?: number;
 }
 
 export interface ChartDataLabelOptions extends ChartFontOptions {
@@ -251,10 +290,11 @@ export interface ChartOptions {
   readonly legend?: ChartLegendOptions;
   readonly chartArea?: ChartAreaOptions;
   readonly plotArea?: ChartAreaOptions;
-  readonly categoryAxis?: ChartAxisOptions;
-  readonly valueAxis?: ChartAxisOptions;
-  readonly secondaryCategoryAxis?: ChartAxisOptions;
-  readonly secondaryValueAxis?: ChartAxisOptions;
+  readonly categoryAxis?: ChartCategoryAxisOptions;
+  readonly valueAxis?: ChartValueAxisOptions;
+  readonly seriesAxis?: ChartSeriesAxisOptions;
+  readonly secondaryCategoryAxis?: ChartCategoryAxisOptions;
+  readonly secondaryValueAxis?: ChartValueAxisOptions;
   readonly dataTable?: ChartDataTableOptions;
   readonly colors?: readonly RichTextColor[];
   readonly rightAngleAxes?: boolean;

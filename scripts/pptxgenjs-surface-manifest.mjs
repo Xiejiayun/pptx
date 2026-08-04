@@ -755,7 +755,7 @@ function chartCreationEvidence(
     }],
     package: [{
       path: 'scripts/smoke-npm-package.mjs',
-      pattern: 'const nativeCharts = reopenedNativeChartModels.length === 10',
+      pattern: 'const nativeCharts = reopenedNativeChartModels.length === 19',
     }],
     ooxml: [{
       path: 'packages/sdk/src/index.test.ts',
@@ -763,7 +763,7 @@ function chartCreationEvidence(
     }],
     clients: [{
       path: 'scripts/playwright-browser-smoke.js',
-      pattern: 'const nativeCharts = reopenedCharts.length === 10',
+      pattern: 'const nativeCharts = reopenedCharts.length === 19',
     }],
   };
 }
@@ -893,7 +893,7 @@ function chartAxisFoundationEvidence() {
       pattern: 'export interface ChartAxisOptions extends ChartFontOptions {',
     }, {
       path: 'packages/model/src/chart-options.internal.ts',
-      pattern: 'function normalizeAxisOptions(value: unknown, context: string): Readonly<ChartAxisOptions> {',
+      pattern: 'function normalizeAxisBaseOptions(',
     }, {
       path: 'packages/model/src/chart-render.internal.ts',
       pattern: 'function renderAxisShapeProperties(',
@@ -1037,6 +1037,313 @@ const CHART_AXIS_BEHAVIOR_DIFFERENCE_ENTRIES = Object.freeze([
     `union:ChartAxisTickMark#${value}`,
     ['ChartAxisOptions.majorTickMark', 'ChartAxisOptions.minorTickMark'],
     'Native keeps the semantic cross/inside/none/outside API but emits the canonical OOXML cross/in/none/out tokens; PptxGenJS writes inside/outside as invalid lexical values.',
+  )),
+]);
+
+const CHART_AXIS_ADVANCED_CONTROL_TITLE =
+  'compares advanced date value display-unit and series-axis semantics';
+const CHART_AXIS_DEFECT_CONTROL_TITLE =
+  'locks PptxGenJS chart axis position and series-axis runtime defects';
+const CHART_AXIS_ADVANCED_OOXML_TITLE =
+  'edits duplicates rolls back and reopens advanced chart axes in all six formats';
+const CHART_AXIS_ADVANCED_PACKAGE_PATTERN = 'const chartAxisAdvancedDisplayUnits = [';
+const CHART_AXIS_CATEGORY_OWNERS = Object.freeze(['IChartOpts', 'IChartPropsAxisCat']);
+const CHART_AXIS_VALUE_OWNERS = Object.freeze(['IChartOpts', 'IChartPropsAxisVal']);
+const CHART_AXIS_ADVANCED_DISPLAY_UNITS = Object.freeze([
+  'billions',
+  'hundredMillions',
+  'hundredThousands',
+  'hundreds',
+  'millions',
+  'tenMillions',
+  'tenThousands',
+  'thousands',
+  'trillions',
+]);
+const CHART_AXIS_CATEGORY_SUPPORTED_PROPERTIES = Object.freeze([
+  'catAxisBaseTimeUnit',
+  'catAxisLabelFontBold',
+  'catAxisLabelFontItalic',
+  'catAxisLabelFontSize',
+  'catAxisMajorTimeUnit',
+  'catAxisMajorUnit',
+  'catAxisMinorTimeUnit',
+  'catAxisMinorUnit',
+  'catAxisMultiLevelLabels',
+  'catAxisOrientation',
+  'catAxisTitle',
+  'catAxisTitleFontSize',
+  'showCatAxisTitle',
+]);
+const CHART_AXIS_CATEGORY_DIFFERENCE_PROPERTIES = Object.freeze([
+  'catAxes',
+  'catAxisCrossesAt',
+  'catAxisLabelColor',
+  'catAxisLabelFontFace',
+  'catAxisLabelFrequency',
+  'catAxisMaxVal',
+  'catAxisMinVal',
+  'catAxisTitleColor',
+  'catAxisTitleFontFace',
+  'catAxisTitleRotate',
+  'catLabelFormatCode',
+  'secondaryCatAxis',
+]);
+const CHART_AXIS_VALUE_SUPPORTED_PROPERTIES = Object.freeze([
+  'showValAxisTitle',
+  'valAxisDisplayUnit',
+  'valAxisDisplayUnitLabel',
+  'valAxisLabelFontBold',
+  'valAxisLabelFontItalic',
+  'valAxisLabelFontSize',
+  'valAxisMajorUnit',
+  'valAxisOrientation',
+  'valAxisTitle',
+  'valAxisTitleFontSize',
+]);
+const CHART_AXIS_VALUE_DIFFERENCE_PROPERTIES = Object.freeze([
+  'secondaryValAxis',
+  'valAxes',
+  'valAxisCrossesAt',
+  'valAxisLabelColor',
+  'valAxisLabelFontFace',
+  'valAxisLabelFormatCode',
+  'valAxisLogScaleBase',
+  'valAxisMaxVal',
+  'valAxisMinVal',
+  'valAxisTitleColor',
+  'valAxisTitleFontFace',
+  'valAxisTitleRotate',
+  'valLabelFormatCode',
+]);
+const CHART_AXIS_SERIES_SUPPORTED_PROPERTIES = Object.freeze([
+  'serAxisLabelFontBold',
+  'serAxisLabelFontItalic',
+  'serAxisLabelFontSize',
+  'serAxisLabelPos',
+  'serAxisMajorUnit',
+  'serAxisMinorUnit',
+  'serAxisOrientation',
+  'serAxisTitle',
+  'serAxisTitleFontSize',
+  'showSerAxisTitle',
+]);
+const CHART_AXIS_SERIES_DIFFERENCE_PROPERTIES = Object.freeze([
+  'serAxisHidden',
+  'serAxisLabelColor',
+  'serAxisLabelFontFace',
+  'serAxisLabelFrequency',
+  'serAxisLineColor',
+  'serAxisLineShow',
+  'serAxisTitleColor',
+  'serAxisTitleFontFace',
+  'serAxisTitleRotate',
+  'serGridLine',
+  'serLabelFormatCode',
+]);
+
+function chartAxisAdvancedEvidence(kind, defect = false) {
+  if (defect) {
+    return {
+      code: [],
+      tests: [{
+        path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+        title: CHART_AXIS_DEFECT_CONTROL_TITLE,
+      }],
+      package: [],
+      ooxml: [],
+      clients: [],
+    };
+  }
+  const anchors = {
+    category: {
+      type: 'export interface ChartCategoryAxisOptions extends ChartAxisOptions {',
+      normalizer: 'function normalizeCategoryAxisOptions(',
+      renderer: 'function renderCategoryAxis(',
+      editor: 'function renameChartElement(',
+    },
+    series: {
+      type: 'export interface ChartSeriesAxisOptions extends ChartAxisOptions {',
+      normalizer: 'function normalizeSeriesAxisOptions(',
+      renderer: 'function renderSeriesAxis(',
+      editor: 'function syncChartChildren(',
+    },
+    value: {
+      type: 'export interface ChartValueAxisOptions extends ChartAxisOptions {',
+      normalizer: 'function normalizeValueAxisOptions(',
+      renderer: 'function renderValueAxis(',
+      editor: 'function syncChartChildren(',
+    },
+  }[kind];
+  return {
+    code: [{
+      path: 'packages/model/src/chart.ts',
+      pattern: anchors.type,
+    }, {
+      path: 'packages/model/src/chart-options.internal.ts',
+      pattern: anchors.normalizer,
+    }, {
+      path: 'packages/model/src/chart-render.internal.ts',
+      pattern: anchors.renderer,
+    }, {
+      path: 'packages/model/src/chart-state.internal.ts',
+      pattern: 'function readAxisOptions(',
+    }, {
+      path: 'packages/model/src/chart-edit.internal.ts',
+      pattern: anchors.editor,
+    }],
+    tests: [{
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      title: CHART_AXIS_ADVANCED_CONTROL_TITLE,
+    }],
+    package: [{
+      path: 'scripts/smoke-npm-package.mjs',
+      pattern: CHART_AXIS_ADVANCED_PACKAGE_PATTERN,
+    }],
+    ooxml: [{
+      path: 'packages/sdk/src/index.test.ts',
+      pattern: CHART_AXIS_ADVANCED_OOXML_TITLE,
+    }],
+    clients: [{
+      path: 'scripts/playwright-browser-smoke.js',
+      pattern: CHART_AXIS_ADVANCED_PACKAGE_PATTERN,
+    }],
+  };
+}
+
+function chartAxisAdvancedNative(kind, id) {
+  if (id.includes('@property:axisPos')) return ['ChartAxisOptions.position'];
+  if (/serAxis(?:Base|Major|Minor)TimeUnit/u.test(id)) return [];
+  if (/serAxisLabelPos#(?:high|nextTo|none)$/u.test(id)) {
+    return ['ChartSeriesAxisOptions.labelPosition', 'ChartOptions.seriesAxis'];
+  }
+  if (kind === 'category') {
+    return [
+      'ChartCategoryAxisOptions',
+      'ChartOptions.categoryAxis',
+      'ChartOptions.secondaryCategoryAxis',
+    ];
+  }
+  if (kind === 'value') {
+    return [
+      'ChartValueAxisOptions',
+      'ChartOptions.valueAxis',
+      'ChartOptions.secondaryValueAxis',
+    ];
+  }
+  return ['ChartSeriesAxisOptions', 'ChartOptions.seriesAxis'];
+}
+
+function chartAxisAdvancedEntry(id, status, kind, note) {
+  const defect = status === 'defect-excluded';
+  return {
+    id,
+    status,
+    native: chartAxisAdvancedNative(kind, id),
+    evidence: chartAxisAdvancedEvidence(kind, defect),
+    ...(status === 'deliberate-difference' || defect ? {
+      control: {
+        path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+        pattern: defect ? CHART_AXIS_DEFECT_CONTROL_TITLE : CHART_AXIS_ADVANCED_CONTROL_TITLE,
+      },
+    } : {}),
+    ...(!defect ? { serialization: true, client: true } : {}),
+    note,
+  };
+}
+
+function chartAxisSupportedAdvancedEntry(id, kind) {
+  return chartAxisAdvancedEntry(
+    id,
+    'supported',
+    kind,
+    'Native typed axis options preserve this semantic through create, edit, package write, browser use, and reopen.',
+  );
+}
+
+function chartAxisDifferenceAdvancedEntry(id, kind) {
+  const crossing = id.includes('catAxisCrossesAt') || id.includes('valAxisCrossesAt');
+  return chartAxisAdvancedEntry(
+    id,
+    'deliberate-difference',
+    kind,
+    crossing
+      ? 'PptxGenJS names this crossing after the opposite axis while native attaches the strict finite number-or-autoZero value directly to the OOXML axis that owns it.'
+      : 'Native exposes the same supported semantic through strict named category, value, or series axis objects instead of permissive flat PptxGenJS fields and aliases.',
+  );
+}
+
+function chartAxisDefectEntry(id, kind, note) {
+  return chartAxisAdvancedEntry(id, 'defect-excluded', kind, note);
+}
+
+const CHART_AXIS_ADVANCED_FAMILY_ENTRIES = Object.freeze([
+  ...CHART_AXIS_CATEGORY_OWNERS.flatMap((owner) => [
+    ...CHART_AXIS_CATEGORY_SUPPORTED_PROPERTIES.map((property) =>
+      chartAxisSupportedAdvancedEntry(linePropertyId(owner, property), 'category')),
+    chartAxisSupportedAdvancedEntry(
+      `union:${linePropertyId(owner, 'catAxisCrossesAt')}#autoZero`,
+      'value',
+    ),
+    ...CHART_AXIS_CATEGORY_DIFFERENCE_PROPERTIES.map((property) =>
+      chartAxisDifferenceAdvancedEntry(
+        linePropertyId(owner, property),
+        property === 'catAxisCrossesAt' ? 'value' : 'category',
+      )),
+    chartAxisDifferenceAdvancedEntry(
+      `union:${linePropertyId(owner, 'catAxisCrossesAt')}#number`,
+      'value',
+    ),
+  ]),
+  ...CHART_AXIS_VALUE_OWNERS.flatMap((owner) => [
+    ...CHART_AXIS_VALUE_SUPPORTED_PROPERTIES.map((property) =>
+      chartAxisSupportedAdvancedEntry(linePropertyId(owner, property), 'value')),
+    chartAxisSupportedAdvancedEntry(
+      `union:${linePropertyId(owner, 'valAxisCrossesAt')}#autoZero`,
+      'category',
+    ),
+    ...CHART_AXIS_ADVANCED_DISPLAY_UNITS.map((value) => chartAxisSupportedAdvancedEntry(
+      `union:${linePropertyId(owner, 'valAxisDisplayUnit')}#${value}`,
+      'value',
+    )),
+    ...CHART_AXIS_VALUE_DIFFERENCE_PROPERTIES.map((property) =>
+      chartAxisDifferenceAdvancedEntry(
+        linePropertyId(owner, property),
+        property === 'valAxisCrossesAt' ? 'category' : 'value',
+      )),
+    chartAxisDifferenceAdvancedEntry(
+      `union:${linePropertyId(owner, 'valAxisCrossesAt')}#number`,
+      'category',
+    ),
+  ]),
+  ...CHART_AXIS_SERIES_SUPPORTED_PROPERTIES.map((property) =>
+    chartAxisSupportedAdvancedEntry(linePropertyId('IChartOpts', property), 'series')),
+  chartAxisSupportedAdvancedEntry(
+    `union:${linePropertyId('IChartOpts', 'serAxisLabelPos')}#low`,
+    'series',
+  ),
+  ...CHART_AXIS_SERIES_DIFFERENCE_PROPERTIES.map((property) =>
+    chartAxisDifferenceAdvancedEntry(linePropertyId('IChartOpts', property), 'series')),
+  ...['serAxisBaseTimeUnit', 'serAxisMajorTimeUnit', 'serAxisMinorTimeUnit'].map((property) =>
+    chartAxisDefectEntry(
+      linePropertyId('IChartOpts', property),
+      'series',
+      'PptxGenJS 4.0.1 validates the property name instead of its value, warns for every declared legal token, and emits no series time-unit element.',
+    )),
+  ...['high', 'nextTo', 'none'].map((value) => chartAxisDefectEntry(
+    `union:${linePropertyId('IChartOpts', 'serAxisLabelPos')}#${value}`,
+    'series',
+    'PptxGenJS 4.0.1 serializes this declared series label position as low, identical to its only working low token.',
+  )),
+  chartAxisDefectEntry(
+    linePropertyId('IChartOpts', 'axisPos'),
+    'category',
+    'PptxGenJS 4.0.1 accepts axisPos but every declared token emits axis XML identical to the baseline.',
+  ),
+  ...['b', 'l', 'r', 't'].map((value) => chartAxisDefectEntry(
+    `union:${linePropertyId('IChartOpts', 'axisPos')}#${value}`,
+    'category',
+    'PptxGenJS 4.0.1 accepts this axisPos token but emits axis XML identical to the baseline.',
   )),
 ]);
 
@@ -3471,7 +3778,7 @@ const SLIDE_SECTION_EVIDENCE = Object.freeze({
   chart: Object.freeze({
     code: Object.freeze({ path: 'packages/model/src/slide.ts', pattern: 'async addChart(' }),
     test: 'compares PptxGenJS and native chart creation return semantics',
-    packagePattern: 'const nativeCharts = reopenedNativeChartModels.length === 10',
+    packagePattern: 'const nativeCharts = reopenedNativeChartModels.length === 19',
     ooxmlPattern: 'creates and reopens all native chart types through the public SDK in all six formats',
     clientPattern: 'const chartDocument = api.PptxDocument.create();',
   }),
@@ -5078,6 +5385,7 @@ export const PPTXGENJS_SURFACE_MANIFEST = deepFreeze({
     ...CHART_AXIS_TICK_SUPPORTED_ENTRIES,
     ...CHART_AXIS_LINE_GRID_DIFFERENCE_ENTRIES,
     ...CHART_AXIS_BEHAVIOR_DIFFERENCE_ENTRIES,
+    ...CHART_AXIS_ADVANCED_FAMILY_ENTRIES,
     ...INERT_CHART_OPTION_DEFECT_ENTRIES,
     ...BULLET_FAMILY_ENTRIES,
     ...TAB_STOPS_FAMILY_ENTRIES,

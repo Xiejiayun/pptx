@@ -124,13 +124,13 @@ function assertDeepFrozen(value, seen = new Set()) {
 test('exports an immutable evidence-backed initial manifest batch', () => {
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.schemaVersion, 1);
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.packageVersion, '4.0.1');
-  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1456);
+  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1611);
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries.map(({ status }) => status).sort(),
     [
-      ...Array(359).fill('defect-excluded'),
-      ...Array(637).fill('supported'),
-      ...Array(366).fill('deliberate-difference'),
+      ...Array(370).fill('defect-excluded'),
+      ...Array(716).fill('supported'),
+      ...Array(431).fill('deliberate-difference'),
       ...Array(94).fill('deprecated-alias'),
     ].sort(),
   );
@@ -330,13 +330,162 @@ test('exports an immutable evidence-backed initial manifest batch', () => {
       .sort((left, right) => left.id.localeCompare(right.id)),
     expectedChartAxisFoundationEntries,
   );
+  const advancedAxisProperty = (owner, property, status) => ({
+    id: `interface:${owner}@property:${property}`,
+    status,
+  });
+  const advancedAxisUnion = (owner, property, value, status) => ({
+    id: `union:interface:${owner}@property:${property}#${value}`,
+    status,
+  });
+  const categorySupportedProperties = [
+    'catAxisBaseTimeUnit',
+    'catAxisLabelFontBold',
+    'catAxisLabelFontItalic',
+    'catAxisLabelFontSize',
+    'catAxisMajorTimeUnit',
+    'catAxisMajorUnit',
+    'catAxisMinorTimeUnit',
+    'catAxisMinorUnit',
+    'catAxisMultiLevelLabels',
+    'catAxisOrientation',
+    'catAxisTitle',
+    'catAxisTitleFontSize',
+    'showCatAxisTitle',
+  ];
+  const categoryDifferenceProperties = [
+    'catAxes',
+    'catAxisCrossesAt',
+    'catAxisLabelColor',
+    'catAxisLabelFontFace',
+    'catAxisLabelFrequency',
+    'catAxisMaxVal',
+    'catAxisMinVal',
+    'catAxisTitleColor',
+    'catAxisTitleFontFace',
+    'catAxisTitleRotate',
+    'catLabelFormatCode',
+    'secondaryCatAxis',
+  ];
+  const valueSupportedProperties = [
+    'showValAxisTitle',
+    'valAxisDisplayUnit',
+    'valAxisDisplayUnitLabel',
+    'valAxisLabelFontBold',
+    'valAxisLabelFontItalic',
+    'valAxisLabelFontSize',
+    'valAxisMajorUnit',
+    'valAxisOrientation',
+    'valAxisTitle',
+    'valAxisTitleFontSize',
+  ];
+  const valueDifferenceProperties = [
+    'secondaryValAxis',
+    'valAxes',
+    'valAxisCrossesAt',
+    'valAxisLabelColor',
+    'valAxisLabelFontFace',
+    'valAxisLabelFormatCode',
+    'valAxisLogScaleBase',
+    'valAxisMaxVal',
+    'valAxisMinVal',
+    'valAxisTitleColor',
+    'valAxisTitleFontFace',
+    'valAxisTitleRotate',
+    'valLabelFormatCode',
+  ];
+  const seriesSupportedProperties = [
+    'serAxisLabelFontBold',
+    'serAxisLabelFontItalic',
+    'serAxisLabelFontSize',
+    'serAxisLabelPos',
+    'serAxisMajorUnit',
+    'serAxisMinorUnit',
+    'serAxisOrientation',
+    'serAxisTitle',
+    'serAxisTitleFontSize',
+    'showSerAxisTitle',
+  ];
+  const seriesDifferenceProperties = [
+    'serAxisHidden',
+    'serAxisLabelColor',
+    'serAxisLabelFontFace',
+    'serAxisLabelFrequency',
+    'serAxisLineColor',
+    'serAxisLineShow',
+    'serAxisTitleColor',
+    'serAxisTitleFontFace',
+    'serAxisTitleRotate',
+    'serGridLine',
+    'serLabelFormatCode',
+  ];
+  const displayUnits = [
+    'billions',
+    'hundredMillions',
+    'hundredThousands',
+    'hundreds',
+    'millions',
+    'tenMillions',
+    'tenThousands',
+    'thousands',
+    'trillions',
+  ];
+  const expectedAdvancedAxisEntries = [
+    ...['IChartOpts', 'IChartPropsAxisCat'].flatMap((owner) => [
+      ...categorySupportedProperties.map((property) =>
+        advancedAxisProperty(owner, property, 'supported')),
+      advancedAxisUnion(owner, 'catAxisCrossesAt', 'autoZero', 'supported'),
+      ...categoryDifferenceProperties.map((property) =>
+        advancedAxisProperty(owner, property, 'deliberate-difference')),
+      advancedAxisUnion(owner, 'catAxisCrossesAt', 'number', 'deliberate-difference'),
+    ]),
+    ...['IChartOpts', 'IChartPropsAxisVal'].flatMap((owner) => [
+      ...valueSupportedProperties.map((property) =>
+        advancedAxisProperty(owner, property, 'supported')),
+      advancedAxisUnion(owner, 'valAxisCrossesAt', 'autoZero', 'supported'),
+      ...displayUnits.map((value) =>
+        advancedAxisUnion(owner, 'valAxisDisplayUnit', value, 'supported')),
+      ...valueDifferenceProperties.map((property) =>
+        advancedAxisProperty(owner, property, 'deliberate-difference')),
+      advancedAxisUnion(owner, 'valAxisCrossesAt', 'number', 'deliberate-difference'),
+    ]),
+    ...seriesSupportedProperties.map((property) =>
+      advancedAxisProperty('IChartOpts', property, 'supported')),
+    advancedAxisUnion('IChartOpts', 'serAxisLabelPos', 'low', 'supported'),
+    ...seriesDifferenceProperties.map((property) =>
+      advancedAxisProperty('IChartOpts', property, 'deliberate-difference')),
+    ...['serAxisBaseTimeUnit', 'serAxisMajorTimeUnit', 'serAxisMinorTimeUnit'].map(
+      (property) => advancedAxisProperty('IChartOpts', property, 'defect-excluded'),
+    ),
+    ...['high', 'nextTo', 'none'].map((value) =>
+      advancedAxisUnion('IChartOpts', 'serAxisLabelPos', value, 'defect-excluded')),
+    advancedAxisProperty('IChartOpts', 'axisPos', 'defect-excluded'),
+    ...['b', 'l', 'r', 't'].map((value) =>
+      advancedAxisUnion('IChartOpts', 'axisPos', value, 'defect-excluded')),
+  ].sort((left, right) => left.id.localeCompare(right.id));
+  const advancedAxisIds = new Set(expectedAdvancedAxisEntries.map(({ id }) => id));
+  assert.equal(advancedAxisIds.size, 155);
+  assert.deepEqual(
+    expectedAdvancedAxisEntries.map(({ status }) => status).sort(),
+    [
+      ...Array(79).fill('supported'),
+      ...Array(65).fill('deliberate-difference'),
+      ...Array(11).fill('defect-excluded'),
+    ].sort(),
+  );
+  assert.deepEqual(
+    PPTXGENJS_SURFACE_MANIFEST.entries
+      .filter(({ id }) => advancedAxisIds.has(id))
+      .map(({ id, status }) => ({ id, status }))
+      .sort((left, right) => left.id.localeCompare(right.id)),
+    expectedAdvancedAxisEntries,
+  );
   assert.equal(
     PPTXGENJS_SURFACE_MANIFEST.entries.some(({ id }) => [
       'interface:OptsChartGridLine@property:cap',
       'union:ChartLineCap#flat',
       'union:ChartLineCap#round',
       'union:ChartLineCap#square',
-      'interface:IChartOpts@property:serGridLine',
     ].includes(id)),
     false,
   );

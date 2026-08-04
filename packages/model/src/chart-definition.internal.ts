@@ -37,9 +37,13 @@ export function normalizeChartDefinition(
     throw new RangeError('Chart definition requires at least one group');
   }
   validateGroupCompatibility(groups);
+  const options = normalizeChartOptions(root.options);
+  if (options.seriesAxis !== undefined && groups[0]!.type !== 'bar3D') {
+    throw new TypeError('Chart series axis options require a bar3D chart');
+  }
   return Object.freeze({
     groups: Object.freeze(groups),
-    options: normalizeChartOptions(root.options),
+    options,
   });
 }
 

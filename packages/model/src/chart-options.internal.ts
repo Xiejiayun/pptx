@@ -1,16 +1,21 @@
 import type {
   ChartAreaOptions,
   ChartAxisOptions,
+  ChartCategoryAxisOptions,
   ChartDataLabelOptions,
   ChartDataTableOptions,
+  ChartDisplayUnit,
   ChartFontOptions,
   ChartGroupOptions,
   ChartLegendOptions,
   ChartMarkerOptions,
   ChartOptions,
+  ChartSeriesAxisOptions,
   ChartSeriesOptions,
+  ChartTimeUnit,
   ChartTitleOptions,
   ChartType,
+  ChartValueAxisOptions,
 } from './chart.js';
 import { normalizeSimpleFill, type SimpleFill } from './simple-fill.internal.js';
 import {
@@ -30,6 +35,7 @@ const OPTION_KEYS = [
   'plotArea',
   'categoryAxis',
   'valueAxis',
+  'seriesAxis',
   'secondaryCategoryAxis',
   'secondaryValueAxis',
   'dataTable',
@@ -49,11 +55,6 @@ const AXIS_KEYS = [
   'visible',
   'position',
   'title',
-  'minimum',
-  'maximum',
-  'majorUnit',
-  'minorUnit',
-  'logarithmicBase',
   'numberFormat',
   'orientation',
   'labelPosition',
@@ -64,6 +65,49 @@ const AXIS_KEYS = [
   'majorTickMark',
   'minorTickMark',
 ] as const;
+const CATEGORY_AXIS_KEYS = [
+  ...AXIS_KEYS,
+  'kind',
+  'minimum',
+  'maximum',
+  'majorUnit',
+  'minorUnit',
+  'crossesAt',
+  'baseTimeUnit',
+  'majorTimeUnit',
+  'minorTimeUnit',
+  'labelFrequency',
+  'multiLevelLabels',
+] as const;
+const VALUE_AXIS_KEYS = [
+  ...AXIS_KEYS,
+  'minimum',
+  'maximum',
+  'majorUnit',
+  'minorUnit',
+  'logarithmicBase',
+  'crossesAt',
+  'displayUnit',
+  'displayUnitLabel',
+] as const;
+const SERIES_AXIS_KEYS = [
+  ...AXIS_KEYS,
+  'majorUnit',
+  'minorUnit',
+  'labelFrequency',
+] as const;
+const TIME_UNITS = ['days', 'months', 'years'] as const satisfies readonly ChartTimeUnit[];
+const DISPLAY_UNITS = [
+  'billions',
+  'hundredMillions',
+  'hundredThousands',
+  'hundreds',
+  'millions',
+  'tenMillions',
+  'tenThousands',
+  'thousands',
+  'trillions',
+] as const satisfies readonly ChartDisplayUnit[];
 const DATA_LABEL_KEYS = [
   ...FONT_KEYS,
   'showValue',
@@ -118,18 +162,24 @@ export function normalizeChartOptions(value: unknown): Readonly<ChartOptions> {
     ...optionalObject(input, 'legend', normalizeLegendOptions, 'Chart legend'),
     ...optionalObject(input, 'chartArea', normalizeAreaOptions, 'Chart area'),
     ...optionalObject(input, 'plotArea', normalizeAreaOptions, 'Chart plot area'),
-    ...optionalObject(input, 'categoryAxis', normalizeAxisOptions, 'Chart category axis'),
-    ...optionalObject(input, 'valueAxis', normalizeAxisOptions, 'Chart value axis'),
+    ...optionalObject(
+      input,
+      'categoryAxis',
+      normalizeCategoryAxisOptions,
+      'Chart category axis',
+    ),
+    ...optionalObject(input, 'valueAxis', normalizeValueAxisOptions, 'Chart value axis'),
+    ...optionalObject(input, 'seriesAxis', normalizeSeriesAxisOptions, 'Chart series axis'),
     ...optionalObject(
       input,
       'secondaryCategoryAxis',
-      normalizeAxisOptions,
+      normalizeCategoryAxisOptions,
       'Chart secondary category axis',
     ),
     ...optionalObject(
       input,
       'secondaryValueAxis',
-      normalizeAxisOptions,
+      normalizeValueAxisOptions,
       'Chart secondary value axis',
     ),
     ...optionalObject(input, 'dataTable', normalizeDataTableOptions, 'Chart data table'),
@@ -139,16 +189,6 @@ export function normalizeChartOptions(value: unknown): Readonly<ChartOptions> {
     ...optionalNumber(input, 'rotationY', 'Chart rotationY', 0, 360),
     ...optionalNumber(input, 'perspective', 'Chart perspective', 0, 240),
   };
-  if (
-    result.categoryAxis?.minimum !== undefined
-    && result.categoryAxis.maximum !== undefined
-    && result.categoryAxis.minimum >= result.categoryAxis.maximum
-  ) throw new RangeError('Chart category axis minimum must be less than maximum');
-  if (
-    result.valueAxis?.minimum !== undefined
-    && result.valueAxis.maximum !== undefined
-    && result.valueAxis.minimum >= result.valueAxis.maximum
-  ) throw new RangeError('Chart value axis minimum must be less than maximum');
   return Object.freeze(result);
 }
 
@@ -327,18 +367,95 @@ function normalizeAreaOptions(value: unknown, context: string): Readonly<ChartAr
   });
 }
 
-function normalizeAxisOptions(value: unknown, context: string): Readonly<ChartAxisOptions> {
-  const input = readObject(value, AXIS_KEYS, context);
-  const result: ChartAxisOptions = {
-    ...normalizeFontOptions(input, context),
-    ...optionalBoolean(input, 'visible', `${context} visible`),
-    ...optionalEnum(input, 'position', `${context} position`, ['bottom', 'left', 'right', 'top']),
-    ...optionalObject(input, 'title', normalizeTitleOptions, `${context} title`),
+function normalizeCategoryAxisOptions(
+  value: unknown,
+  context: string,
+): Readonly<ChartCategoryAxisOptions> {
+  const input = readObject(value, CATEGORY_AXIS_KEYS, context);
+  const kind = optionalEnum(input, 'kind', `${context} kind`, ['category', 'date']);
+  const timeUnits = {
+    ...optionalEnum(input, 'baseTimeUnit', `${context} baseTimeUnit`, TIME_UNITS),
+    ...optionalEnum(input, 'majorTimeUnit', `${context} majorTimeUnit`, TIME_UNITS),
+    ...optionalEnum(input, 'minorTimeUnit', `${context} minorTimeUnit`, TIME_UNITS),
+  };
+  const hasTimeUnits = Object.keys(timeUnits).length > 0;
+  if (input.kind === 'category' && hasTimeUnits) {
+    throw new TypeError(`${context} category kind cannot use time units`);
+  }
+  const result: ChartCategoryAxisOptions = {
+    ...normalizeAxisBaseOptions(input, context),
+    ...kind,
+    ...(!Object.hasOwn(kind, 'kind') && hasTimeUnits ? { kind: 'date' as const } : {}),
+    ...optionalFinite(input, 'minimum', `${context} minimum`),
+    ...optionalFinite(input, 'maximum', `${context} maximum`),
+    ...optionalPositive(input, 'majorUnit', `${context} majorUnit`),
+    ...optionalPositive(input, 'minorUnit', `${context} minorUnit`),
+    ...optionalCrossesAt(input, context),
+    ...timeUnits,
+    ...optionalInteger(
+      input,
+      'labelFrequency',
+      `${context} labelFrequency`,
+      1,
+      Number.MAX_SAFE_INTEGER,
+    ),
+    ...optionalBoolean(input, 'multiLevelLabels', `${context} multiLevelLabels`),
+  };
+  validateAxisRange(result, context);
+  return Object.freeze(result);
+}
+
+function normalizeValueAxisOptions(
+  value: unknown,
+  context: string,
+): Readonly<ChartValueAxisOptions> {
+  const input = readObject(value, VALUE_AXIS_KEYS, context);
+  const result: ChartValueAxisOptions = {
+    ...normalizeAxisBaseOptions(input, context),
     ...optionalFinite(input, 'minimum', `${context} minimum`),
     ...optionalFinite(input, 'maximum', `${context} maximum`),
     ...optionalPositive(input, 'majorUnit', `${context} majorUnit`),
     ...optionalPositive(input, 'minorUnit', `${context} minorUnit`),
     ...optionalNumber(input, 'logarithmicBase', `${context} logarithmicBase`, 2, 1_000),
+    ...optionalCrossesAt(input, context),
+    ...optionalEnum(input, 'displayUnit', `${context} displayUnit`, DISPLAY_UNITS),
+    ...optionalBoolean(input, 'displayUnitLabel', `${context} displayUnitLabel`),
+  };
+  if (result.displayUnitLabel !== undefined && result.displayUnit === undefined) {
+    throw new TypeError(`${context} displayUnitLabel requires displayUnit`);
+  }
+  validateAxisRange(result, context);
+  return Object.freeze(result);
+}
+
+function normalizeSeriesAxisOptions(
+  value: unknown,
+  context: string,
+): Readonly<ChartSeriesAxisOptions> {
+  const input = readObject(value, SERIES_AXIS_KEYS, context);
+  return Object.freeze({
+    ...normalizeAxisBaseOptions(input, context),
+    ...optionalPositive(input, 'majorUnit', `${context} majorUnit`),
+    ...optionalPositive(input, 'minorUnit', `${context} minorUnit`),
+    ...optionalInteger(
+      input,
+      'labelFrequency',
+      `${context} labelFrequency`,
+      1,
+      Number.MAX_SAFE_INTEGER,
+    ),
+  });
+}
+
+function normalizeAxisBaseOptions(
+  input: Record<string, unknown>,
+  context: string,
+): Readonly<ChartAxisOptions> {
+  return Object.freeze({
+    ...normalizeFontOptions(input, context),
+    ...optionalBoolean(input, 'visible', `${context} visible`),
+    ...optionalEnum(input, 'position', `${context} position`, ['bottom', 'left', 'right', 'top']),
+    ...optionalObject(input, 'title', normalizeTitleOptions, `${context} title`),
     ...optionalString(input, 'numberFormat', `${context} numberFormat`, true),
     ...optionalEnum(input, 'orientation', `${context} orientation`, ['maxMin', 'minMax']),
     ...optionalEnum(
@@ -363,13 +480,27 @@ function normalizeAxisOptions(value: unknown, context: string): Readonly<ChartAx
       `${context} minorTickMark`,
       ['cross', 'inside', 'none', 'outside'],
     ),
-  };
+  });
+}
+
+function validateAxisRange(
+  options: Readonly<{ readonly minimum?: number; readonly maximum?: number }>,
+  context: string,
+): void {
   if (
-    result.minimum !== undefined
-    && result.maximum !== undefined
-    && result.minimum >= result.maximum
+    options.minimum !== undefined
+    && options.maximum !== undefined
+    && options.minimum >= options.maximum
   ) throw new RangeError(`${context} minimum must be less than maximum`);
-  return Object.freeze(result);
+}
+
+function optionalCrossesAt(input: Record<string, unknown>, context: string): object {
+  if (!Object.hasOwn(input, 'crossesAt')) return {};
+  if (input.crossesAt === 'autoZero') return { crossesAt: 'autoZero' as const };
+  if (typeof input.crossesAt !== 'number' || !Number.isFinite(input.crossesAt)) {
+    throw new TypeError(`${context} crossesAt must be a finite number or autoZero`);
+  }
+  return { crossesAt: input.crossesAt };
 }
 
 function normalizeDataLabelOptions(

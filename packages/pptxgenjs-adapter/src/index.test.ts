@@ -5417,6 +5417,172 @@ describe('importPptxGenJS', () => {
     }
   });
 
+  it('compares advanced date value display-unit and series-axis semantics', async () => {
+    const displayUnits = [
+      'billions',
+      'hundredMillions',
+      'hundredThousands',
+      'hundreds',
+      'millions',
+      'tenMillions',
+      'tenThousands',
+      'thousands',
+      'trillions',
+    ] as const;
+    const generated = new PptxGenJS();
+    const slide = generated.addSlide();
+    for (const [index, valAxisDisplayUnit] of displayUnits.entries()) {
+      const options: PptxGenJSPublicChartOptions = {
+        x: 0.5,
+        y: 0.5,
+        w: 5,
+        h: 3,
+        valAxisDisplayUnit,
+        valAxisDisplayUnitLabel: index !== 1,
+        ...(index === 0 ? {
+          catLabelFormatCode: 'yyyy-mm-dd',
+          catAxisBaseTimeUnit: 'days',
+          catAxisMajorTimeUnit: 'months',
+          catAxisMinorTimeUnit: 'years',
+          catAxisMajorUnit: 2,
+          catAxisMinorUnit: 3,
+          catAxisLabelFrequency: '4',
+          catAxisMultiLevelLabels: true,
+          valAxisCrossesAt: 2,
+          catAxisCrossesAt: 4,
+          serAxisHidden: true,
+          serAxisLabelFrequency: '5',
+          serAxisLabelPos: 'low',
+          serAxisMajorUnit: 2,
+          serAxisMinorUnit: 3,
+          serAxisOrientation: 'maxMin',
+          serLabelFormatCode: 'yyyy',
+          serAxisLabelColor: 'AABBCC',
+          serAxisLabelFontBold: true,
+          serAxisLabelFontItalic: true,
+          serAxisLabelFontFace: 'Aptos',
+          serAxisLabelFontSize: 11,
+          serAxisLineColor: '112233',
+          serAxisLineShow: true,
+          serGridLine: { color: '445566', size: 1.5, style: 'dash' },
+          showSerAxisTitle: true,
+          serAxisTitle: 'Series title',
+          serAxisTitleColor: '778899',
+          serAxisTitleFontFace: 'Aptos Display',
+          serAxisTitleFontSize: 15,
+          serAxisTitleRotate: 25,
+        } : {}),
+      };
+      slide.addChart(index === 0 ? generated.ChartType.bar3d! : generated.ChartType.bar!, [{
+        name: `Axis ${valAxisDisplayUnit}`,
+        labels: index === 0 ? ['46023', '46054'] : ['Q1', 'Q2'],
+        values: [10, 20],
+      }], options);
+    }
+
+    const imported = await openPptxGenJSPublicOutput(generated);
+    const charts = imported.slides[0]!.shapes.filter(
+      (shape): shape is ChartModel => shape instanceof ChartModel,
+    );
+    expect(charts).toHaveLength(displayUnits.length);
+    for (const [index, chart] of charts.entries()) {
+      expect(chart.definition?.options.valueAxis?.displayUnit).toBe(displayUnits[index]);
+      expect(chart.definition?.options.valueAxis?.displayUnitLabel)
+        .toBe(index === 1 ? undefined : true);
+    }
+    expect(charts[0]!.definition?.options.categoryAxis).toMatchObject({
+      kind: 'date',
+      numberFormat: 'yyyy-mm-dd',
+      crossesAt: 2,
+      majorUnit: 2,
+      minorUnit: 3,
+      baseTimeUnit: 'days',
+      majorTimeUnit: 'months',
+      minorTimeUnit: 'years',
+      labelFrequency: 4,
+      multiLevelLabels: true,
+    });
+    expect(charts[0]!.definition?.options.valueAxis).toMatchObject({
+      crossesAt: 4,
+      displayUnit: 'billions',
+      displayUnitLabel: true,
+    });
+    expect(charts[0]!.definition?.options.seriesAxis).toMatchObject({
+      visible: false,
+      numberFormat: 'yyyy',
+      orientation: 'maxMin',
+      labelPosition: 'low',
+      labelFrequency: 5,
+      majorUnit: 2,
+      minorUnit: 3,
+      face: 'Aptos',
+      size: 11,
+      bold: true,
+      italic: true,
+      color: { kind: 'srgb', value: 'AABBCC' },
+      line: {
+        kind: 'line', color: { kind: 'srgb', value: '112233' }, width: 1, dash: 'solid',
+      },
+      majorGridLine: {
+        kind: 'line', color: { kind: 'srgb', value: '445566' }, width: 1.5, dash: 'dash',
+      },
+      title: {
+        text: 'Series title', rotation: 25, face: 'Aptos Display', size: 15,
+        color: { kind: 'srgb', value: '778899' },
+      },
+    });
+    expect(imported.diagnostics.filter(({ code }) => code.startsWith('CHART_'))).toEqual([]);
+  });
+
+  it('locks PptxGenJS chart axis position and series-axis runtime defects', async () => {
+    const generated = new PptxGenJS();
+    const slide = generated.addSlide();
+    const data = [{ name: 'Axis', labels: ['A', 'B'], values: [1, 2] }];
+    slide.addChart(generated.ChartType.bar!, data, {});
+    for (const axisPos of ['b', 'l', 'r', 't'] as const) {
+      slide.addChart(generated.ChartType.bar!, data, { axisPos });
+    }
+    for (const serAxisLabelPos of ['low', 'high', 'nextTo', 'none'] as const) {
+      slide.addChart(generated.ChartType.bar3d!, data, {
+        serAxisLabelPos,
+        ...(serAxisLabelPos === 'low' ? {
+          serLabelFormatCode: 'yyyy',
+          serAxisBaseTimeUnit: 'days',
+          serAxisMajorTimeUnit: 'months',
+          serAxisMinorTimeUnit: 'years',
+        } : {}),
+      });
+    }
+
+    const warnings: string[] = [];
+    const warning = vi.spyOn(console, 'warn').mockImplementation((message) => {
+      warnings.push(String(message));
+    });
+    try {
+      const imported = await openPptxGenJSPublicOutput(generated);
+      const charts = imported.slides[0]!.shapes.filter(
+        (shape): shape is ChartModel => shape instanceof ChartModel,
+      );
+      expect(charts).toHaveLength(9);
+      const axisPair = (xml: string) => ['catAx', 'valAx'].map((name) =>
+        xml.match(new RegExp(`<c:${name}>[\\s\\S]*?</c:${name}>`, 'u'))?.[0]);
+      const baseline = axisPair(charts[0]!.xml);
+      for (const chart of charts.slice(1, 5)) expect(axisPair(chart.xml)).toEqual(baseline);
+
+      const seriesAxes = charts.slice(5).map((chart) =>
+        chart.xml.match(/<c:serAx>[\s\S]*?<\/c:serAx>/u)?.[0]);
+      expect(seriesAxes.every((xml) => xml?.includes('<c:tickLblPos val="low"/>'))).toBe(true);
+      expect(seriesAxes[0]).not.toMatch(/<c:(?:base|major|minor)TimeUnit\b/u);
+      expect(warnings).toEqual([
+        '"serAxisBaseTimeUnit" must be one of: \'days\',\'months\',\'years\' !',
+        '"serAxisMajorTimeUnit" must be one of: \'days\',\'months\',\'years\' !',
+        '"serAxisMinorTimeUnit" must be one of: \'days\',\'months\',\'years\' !',
+      ]);
+    } finally {
+      warning.mockRestore();
+    }
+  });
+
   it('matches valid PptxGenJS public audio and video media output semantically', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'pptxgenjs-media-'));
     const audioPath = join(directory, 'path-audio.mp3');

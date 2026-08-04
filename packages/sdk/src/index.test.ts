@@ -10171,6 +10171,150 @@ describe('PptxDocument vertical slice', () => {
     }
   }, 15_000);
 
+  it('edits duplicates rolls back and reopens advanced chart axes in all six formats', async () => {
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const document = PptxDocument.create({ format });
+      const slide = document.addSlide();
+      const chart = await slide.addChart('bar3D', [{
+        name: 'Revenue',
+        categories: [45_658, 45_689],
+        values: [1e8, 2e8],
+      }]);
+      const chartPartUri = chart.chartPartUri;
+      if (chartPartUri === undefined) {
+        throw new Error('Expected the created chart to have a chart part URI.');
+      }
+      const initialChartPart = document.opcPackage.requirePart(chartPartUri);
+      document.opcPackage.setPart(
+        chartPartUri,
+        new TextDecoder().decode(initialChartPart.bytes).replace(
+          '</c:catAx>',
+          '<c:extLst><c:ext uri="urn:axis-keep"/></c:extLst></c:catAx>',
+        ),
+        initialChartPart.contentType,
+      );
+      await chart.replaceDefinition({
+        groups: chart.definition!.groups,
+        options: {
+          categoryAxis: {
+            kind: 'date',
+            crossesAt: 0,
+            baseTimeUnit: 'days',
+            majorTimeUnit: 'months',
+            minorTimeUnit: 'years',
+            majorUnit: 2,
+            minorUnit: 3,
+            labelFrequency: 4,
+            multiLevelLabels: true,
+          },
+          valueAxis: {
+            crossesAt: 5,
+            displayUnit: 'trillions',
+            displayUnitLabel: true,
+          },
+          seriesAxis: {
+            visible: false,
+            title: { text: 'Initial depth', color: { kind: 'srgb', value: '112233' } },
+            labelPosition: 'low',
+            labelFrequency: 3,
+            majorUnit: 2,
+            minorUnit: 1,
+            numberFormat: '0.0',
+            orientation: 'maxMin',
+            line: { kind: 'none' },
+          },
+        },
+      });
+      expect(chart.xml).toContain('uri="urn:axis-keep"');
+      const duplicateSlide = document.duplicateSlide(0);
+      const duplicateChart = duplicateSlide.shapes.find(
+        (shape): shape is ChartModel => shape instanceof ChartModel,
+      )!;
+      const duplicateDefinition = duplicateChart.definition;
+
+      const beforeInvalidBytes = document.opcPackage.requirePart(chartPartUri).bytes.slice();
+      const beforeInvalidJournal = [...document.opcPackage.mutations];
+      await expect(chart.replaceDefinition({
+        groups: chart.definition!.groups,
+        options: {
+          categoryAxis: { kind: 'category', baseTimeUnit: 'days' },
+        },
+      } as never)).rejects.toThrow(/cannot use time units/);
+      expect(document.opcPackage.requirePart(chartPartUri).bytes).toEqual(beforeInvalidBytes);
+      expect(document.opcPackage.mutations).toEqual(beforeInvalidJournal);
+
+      await chart.replaceDefinition({
+        groups: chart.definition!.groups,
+        options: {
+          categoryAxis: {
+            kind: 'date',
+            crossesAt: 1,
+            baseTimeUnit: 'months',
+            majorTimeUnit: 'years',
+            majorUnit: 1,
+            labelFrequency: 2,
+            multiLevelLabels: true,
+          },
+          valueAxis: {
+            crossesAt: 10,
+            displayUnit: 'hundredMillions',
+            displayUnitLabel: true,
+          },
+          seriesAxis: {
+            visible: false,
+            title: { text: 'Edited depth', color: { kind: 'srgb', value: '445566' } },
+            labelPosition: 'high',
+            labelFrequency: 2,
+            majorUnit: 4,
+            minorUnit: 2,
+            numberFormat: '#,##0',
+            line: { kind: 'line', color: { kind: 'srgb', value: '778899' } },
+          },
+        },
+      });
+      expect(duplicateChart.definition).toEqual(duplicateDefinition);
+
+      const reopened = await PptxDocument.open(await document.write());
+      const source = reopened.slides[0]!.shapes.find(
+        (shape): shape is ChartModel => shape instanceof ChartModel,
+      )!;
+      const duplicate = reopened.slides[1]!.shapes.find(
+        (shape): shape is ChartModel => shape instanceof ChartModel,
+      )!;
+      expect(source.definition?.options.categoryAxis).toMatchObject({
+        kind: 'date',
+        crossesAt: 1,
+        baseTimeUnit: 'months',
+        majorTimeUnit: 'years',
+        majorUnit: 1,
+        labelFrequency: 2,
+        multiLevelLabels: true,
+      });
+      expect(source.definition?.options.valueAxis).toMatchObject({
+        crossesAt: 10,
+        displayUnit: 'hundredMillions',
+        displayUnitLabel: true,
+      });
+      expect(source.definition?.options.seriesAxis).toMatchObject({
+        visible: false,
+        title: { text: 'Edited depth', color: { kind: 'srgb', value: '445566' } },
+        labelPosition: 'high',
+        labelFrequency: 2,
+        majorUnit: 4,
+        minorUnit: 2,
+        numberFormat: '#,##0',
+        line: { kind: 'line', color: { kind: 'srgb', value: '778899' } },
+      });
+      expect(duplicate.definition).toEqual(duplicateDefinition);
+      expect(source.xml).toContain('<c:dateAx>');
+      expect(source.xml).toContain('uri="urn:axis-keep"');
+      expect(source.xml).toContain('<c:builtInUnit val="hundredMillions"/>');
+      expect(source.xml).toContain('<a:t>Edited depth</a:t>');
+      expect(validatePackage(reopened.opcPackage).filter(({ severity }) =>
+        severity === 'error')).toEqual([]);
+    }
+  }, 30_000);
+
   it('validates chart caches and workbooks on strict writes without mutating the package', async () => {
     const document = PptxDocument.create();
     const slide = document.addSlide();

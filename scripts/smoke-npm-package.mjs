@@ -7972,6 +7972,63 @@ await nativeCombo.replaceDefinition({
   groups: nativeCombo.definition.groups,
   options: { ...nativeCombo.definition.options, title: { text: 'Revenue and margin' } },
 });
+const chartAxisAdvancedDisplayUnits = [
+  'billions',
+  'hundredMillions',
+  'hundredThousands',
+  'hundreds',
+  'millions',
+  'tenMillions',
+  'tenThousands',
+  'thousands',
+  'trillions',
+];
+for (const [index, displayUnit] of chartAxisAdvancedDisplayUnits.entries()) {
+  const slide = nativeChartDeck.addSlide();
+  const chart = await slide.addChart(index === 0 ? 'bar3D' : 'bar', [{
+    name: displayUnit,
+    categories: index === 0 ? [46_023, 46_054] : ['Q1', 'Q2'],
+    values: [10, 20],
+  }], { name: 'Packed advanced axis ' + displayUnit });
+  await chart.replaceDefinition({
+    groups: chart.definition.groups,
+    options: {
+      valueAxis: {
+        crossesAt: index === 0 ? 4 : 'autoZero',
+        displayUnit,
+        displayUnitLabel: index % 2 === 0,
+      },
+      ...(index === 0 ? {
+        categoryAxis: {
+          kind: 'date',
+          crossesAt: 2,
+          minimum: 46_000,
+          maximum: 47_000,
+          majorUnit: 2,
+          minorUnit: 1,
+          baseTimeUnit: 'days',
+          majorTimeUnit: 'months',
+          minorTimeUnit: 'days',
+          labelFrequency: 4,
+          multiLevelLabels: true,
+          numberFormat: 'yyyy-mm-dd',
+        },
+        seriesAxis: {
+          visible: false,
+          title: { text: 'Packed series axis', rotation: 25 },
+          labelPosition: 'high',
+          labelFrequency: 3,
+          majorUnit: 2,
+          minorUnit: 1,
+          numberFormat: '0.00',
+          orientation: 'maxMin',
+          line: { kind: 'line', color: { kind: 'srgb', value: '112233' } },
+          majorGridLine: { kind: 'line', color: { kind: 'srgb', value: '445566' } },
+        },
+      } : {}),
+    },
+  });
+}
 await nativeChartModels[0].replaceSeries([{
   name: 'Revenue edited',
   categories: ['North', 'South', 'West'],
@@ -8071,11 +8128,44 @@ const chartAxisFoundation = chartAreaFillLineState?.categoryAxis?.visible === fa
   && chartAxisFoundationXml.includes('rot="2700000"')
   && chartAxisFoundationXml.includes('<a:prstDash val="sysDot"/>')
   && chartAxisFoundationXml.includes('<a:prstDash val="dash"/>');
-const nativeCharts = reopenedNativeChartModels.length === 10
+const reopenedChartAxisAdvanced = reopenedNativeChartModels.find(
+  ({ name }) => name === 'Packed advanced axis billions',
+);
+const chartAxisAdvancedOptions = reopenedChartAxisAdvanced?.definition.options;
+const chartAxisAdvancedXml = reopenedChartAxisAdvanced?.xml ?? '';
+const chartAxisAdvanced = chartAxisAdvancedOptions?.categoryAxis?.kind === 'date'
+  && chartAxisAdvancedOptions.categoryAxis.crossesAt === 2
+  && chartAxisAdvancedOptions.categoryAxis.baseTimeUnit === 'days'
+  && chartAxisAdvancedOptions.categoryAxis.majorTimeUnit === 'months'
+  && chartAxisAdvancedOptions.categoryAxis.minorTimeUnit === 'days'
+  && chartAxisAdvancedOptions.categoryAxis.labelFrequency === 4
+  && chartAxisAdvancedOptions.categoryAxis.multiLevelLabels === true
+  && chartAxisAdvancedOptions.valueAxis?.crossesAt === 4
+  && chartAxisAdvancedOptions.valueAxis.displayUnit === 'billions'
+  && chartAxisAdvancedOptions.valueAxis.displayUnitLabel === true
+  && chartAxisAdvancedOptions.seriesAxis?.visible === false
+  && chartAxisAdvancedOptions.seriesAxis.labelPosition === 'high'
+  && chartAxisAdvancedOptions.seriesAxis.labelFrequency === 3
+  && chartAxisAdvancedOptions.seriesAxis.majorUnit === 2
+  && chartAxisAdvancedOptions.seriesAxis.minorUnit === 1
+  && chartAxisAdvancedOptions.seriesAxis.orientation === 'maxMin'
+  && chartAxisAdvancedXml.includes('<c:dateAx>')
+  && chartAxisAdvancedXml.includes('<c:serAx>')
+  && chartAxisAdvancedXml.includes('<c:dispUnitsLbl>');
+const chartAxisDisplayUnitCatalog = chartAxisAdvancedDisplayUnits.every((displayUnit) => {
+  const chart = reopenedNativeChartModels.find(
+    ({ name }) => name === 'Packed advanced axis ' + displayUnit,
+  );
+  return chart?.definition.options.valueAxis?.displayUnit === displayUnit
+    && chart.xml.includes('<c:builtInUnit val="' + displayUnit + '"/>');
+});
+const nativeCharts = reopenedNativeChartModels.length === 19
   && CHART_TYPES.every((type) => nativeChartTypes.has(type))
   && nativeChartWorkbooksMatch
   && chartAreaFillLine
   && chartAxisFoundation
+  && chartAxisAdvanced
+  && chartAxisDisplayUnitCatalog
   && nativeChartIdsUnique
   && nativeChartOrphans.length === 0
   && !nativeChartDeck.opcPackage.hasPart(nativeDuplicatePartUri)
@@ -10791,6 +10881,8 @@ const checks = {
   stableMediaLifecycle,
   nativeMediaTiming,
   nativeCharts,
+  chartAxisAdvanced,
+  chartAxisDisplayUnitCatalog,
   slideBackgrounds,
   presentationVersion: Object.values(presentationVersionState)
     .every((value) => value === PPTX_VERSION),
@@ -13981,11 +14073,15 @@ process.stdout.write(resolved);
   TableModel,
   inches,
   type AddCustomShapeOptions,
+  type ChartCategoryAxisOptions,
   type ChartDefinitionInput,
   type ChartDiagnostic,
+  type ChartDisplayUnit,
   type ChartGroupInput,
+  type ChartSeriesAxisOptions,
   type ChartSeriesInput,
   type ChartType,
+  type ChartValueAxisOptions,
   type AddImageSourceOptions,
   type AddImageOptions,
   type AddSvgImageOptions,
@@ -14254,6 +14350,51 @@ const typedChartGroups: readonly ChartGroupInput[] = [{
   series: [{ name: 'Margin', categories: ['Q1', 'Q2'], values: [25, 30] }],
 }];
 const typedChartDefinition: ChartDefinitionInput = { groups: typedChartGroups };
+const typedChartDisplayUnits: readonly ChartDisplayUnit[] = [
+  'billions', 'hundredMillions', 'hundredThousands', 'hundreds', 'millions',
+  'tenMillions', 'tenThousands', 'thousands', 'trillions',
+];
+const typedChartCategoryAxis: ChartCategoryAxisOptions = {
+  kind: 'date',
+  crossesAt: 0,
+  baseTimeUnit: 'days',
+  majorTimeUnit: 'months',
+  minorTimeUnit: 'years',
+  labelFrequency: 2,
+  multiLevelLabels: true,
+};
+const typedChartValueAxis: ChartValueAxisOptions = {
+  crossesAt: 'autoZero',
+  displayUnit: typedChartDisplayUnits[0],
+  displayUnitLabel: true,
+};
+const typedChartSeriesAxis: ChartSeriesAxisOptions = {
+  visible: false,
+  labelPosition: 'high',
+  labelFrequency: 3,
+  majorUnit: 2,
+  minorUnit: 1,
+};
+const typedAdvancedChartDefinition: ChartDefinitionInput = {
+  groups: [{ type: 'bar3D', series: typedChartSeries }],
+  options: {
+    categoryAxis: typedChartCategoryAxis,
+    valueAxis: typedChartValueAxis,
+    seriesAxis: typedChartSeriesAxis,
+  },
+};
+const invalidChartCategoryAxis: ChartCategoryAxisOptions = {
+  // @ts-expect-error display units belong only to value axes
+  displayUnit: 'millions',
+};
+const invalidChartValueAxis: ChartValueAxisOptions = {
+  // @ts-expect-error time units belong only to category/date axes
+  baseTimeUnit: 'days',
+};
+const invalidChartSeriesAxis: ChartSeriesAxisOptions = {
+  // @ts-expect-error logarithmic scaling belongs only to value axes
+  logarithmicBase: 10,
+};
 const typedChartPromise: Promise<ChartModel> = createdDocument.addChart(0, typedChartGroups);
 const typedChartDiagnostics: Promise<readonly ChartDiagnostic[]> = typedChartPromise.then(
   (chart) => chart.diagnostics(),
@@ -15911,7 +16052,9 @@ void [typedPreset, typedNoneShapeFill, typedSolidShapeFill,
   typedTableToSlidesImage, typedTableToSlidesShape, typedTableToSlidesTable,
   typedTableToSlidesText, typedTableToSlidesOptions, typedTableToSlidesPages];
 void typedTableBorders;
-void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, typedChartPromise,
+void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition,
+  typedAdvancedChartDefinition, invalidChartCategoryAxis, invalidChartValueAxis,
+  invalidChartSeriesAxis, typedChartPromise,
   typedChartDiagnostics, typedChartWorkbookCheck, invalidChartType, invalidChartAxis,
   invalidChartValues, typedSimpleBackground, typedImageBackground, typedSlideBackground,
   typedSlideBackgroundOptions, typedBackgroundSlide, typedBackgroundPromise,
@@ -17866,8 +18009,8 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
   const nativeChartInspected = JSON.parse(nativeChartInspectResult.stdout);
   const nativeChartContentTypes = nativeChartInspected.data?.contentTypes ?? {};
   if (!nativeChartInspected.ok ||
-      nativeChartContentTypes['application/vnd.openxmlformats-officedocument.drawingml.chart+xml'] !== 10 ||
-      nativeChartContentTypes['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'] !== 10) {
+      nativeChartContentTypes['application/vnd.openxmlformats-officedocument.drawingml.chart+xml'] !== 19 ||
+      nativeChartContentTypes['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'] !== 19) {
     throw new Error(`CLI native chart inspect failed: ${nativeChartInspectResult.stdout}`);
   }
   const nativeChartValidateResult = run(
@@ -17886,8 +18029,8 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
     directory,
   );
   const nativeChartSlides = JSON.parse(nativeChartSlidesResult.stdout);
-  if (!nativeChartSlides.ok || nativeChartSlides.data?.length !== 11 ||
-      nativeChartSlides.data[10]?.shapeCount !== 1) {
+  if (!nativeChartSlides.ok || nativeChartSlides.data?.length !== 20 ||
+      nativeChartSlides.data[19]?.shapeCount !== 1) {
     throw new Error(`CLI native chart slide listing failed: ${nativeChartSlidesResult.stdout}`);
   }
   const nativeChartPartResult = run(

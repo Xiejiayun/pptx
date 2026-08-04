@@ -4,6 +4,7 @@ import type {
   ChartAreaOptions,
   ChartAxisOptions,
   ChartCategories,
+  ChartCategoryAxisOptions,
   ChartDataLabelOptions,
   ChartDataTableOptions,
   ChartDefinitionInput,
@@ -13,11 +14,13 @@ import type {
   ChartLegendOptions,
   ChartMarkerOptions,
   ChartOptions,
+  ChartSeriesAxisOptions,
   ChartSeriesInput,
   ChartSeriesOptions,
   ChartState,
   ChartTitleOptions,
   ChartType,
+  ChartValueAxisOptions,
 } from './chart.js';
 import { normalizeChartDefinition } from './chart-definition.internal.js';
 import { readSimpleFillChoice, type SimpleFill } from './simple-fill.internal.js';
@@ -529,21 +532,41 @@ function readRootChartOptions(
 
   const primary = assignment.axisSets[0];
   if (primary) {
-    const { category, value } = resolveAxisRoles(assignment, primary, firstType, false);
+    const { category, value, series } = resolveAxisRoles(assignment, primary, firstType, false);
     const categoryOptions = category
-      ? readAxisOptions(xml, category, 'bottom', firstType === 'scatter' || firstType === 'bubble')
+      ? readAxisOptions(
+          xml,
+          category,
+          'bottom',
+          firstType === 'scatter' || firstType === 'bubble',
+          'category',
+        ) as ChartCategoryAxisOptions | undefined
       : undefined;
-    const valueOptions = value ? readAxisOptions(xml, value, 'left', false) : undefined;
+    const valueOptions = value
+      ? readAxisOptions(xml, value, 'left', false, 'value') as ChartValueAxisOptions | undefined
+      : undefined;
+    const seriesOptions = series
+      ? readAxisOptions(xml, series, 'bottom', false, 'series') as ChartSeriesAxisOptions | undefined
+      : undefined;
     if (categoryOptions) result.categoryAxis = categoryOptions;
     if (valueOptions) result.valueAxis = valueOptions;
+    if (seriesOptions) result.seriesAxis = seriesOptions;
   }
   const secondary = assignment.axisSets[1];
   if (secondary) {
     const { category, value } = resolveAxisRoles(assignment, secondary, firstType, true);
     const categoryOptions = category
-      ? readAxisOptions(xml, category, 'top', firstType === 'scatter' || firstType === 'bubble')
+      ? readAxisOptions(
+          xml,
+          category,
+          'top',
+          firstType === 'scatter' || firstType === 'bubble',
+          'category',
+        ) as ChartCategoryAxisOptions | undefined
       : undefined;
-    const valueOptions = value ? readAxisOptions(xml, value, 'right', false) : undefined;
+    const valueOptions = value
+      ? readAxisOptions(xml, value, 'right', false, 'value') as ChartValueAxisOptions | undefined
+      : undefined;
     if (categoryOptions) result.secondaryCategoryAxis = categoryOptions;
     if (valueOptions) result.secondaryValueAxis = valueOptions;
   }
@@ -563,6 +586,7 @@ function resolveAxisRoles(
 ): {
   readonly category: XmlElement | undefined;
   readonly value: XmlElement | undefined;
+  readonly series: XmlElement | undefined;
 } {
   const elements = ids.map((id) => assignment.axesById.get(id)?.element).filter(
     (element): element is XmlElement => element !== undefined,
@@ -571,12 +595,17 @@ function resolveAxisRoles(
     return {
       category: elements.find(({ localName }) => localName === 'catAx' || localName === 'dateAx'),
       value: elements.find(({ localName }) => localName === 'valAx'),
+      series: elements.find(({ localName }) => localName === 'serAx'),
     };
   }
   const horizontalPosition = secondary ? 't' : 'b';
   const category = elements.find((element) =>
     readChildStringValue(element, 'axPos') === horizontalPosition) ?? elements[0];
-  return { category, value: elements.find((element) => element !== category) };
+  return {
+    category,
+    value: elements.find((element) => element !== category),
+    series: undefined,
+  };
 }
 
 function readGroupOptions(
@@ -715,8 +744,14 @@ function readAxisOptions(
   axis: XmlElement,
   defaultPosition: 'bottom' | 'left' | 'right' | 'top',
   horizontalValueAxis: boolean,
-): ChartAxisOptions | undefined {
-  const result: Record<string, unknown> = { ...readFontOptions(axis, false) };
+  kind: 'category' | 'series' | 'value',
+): ChartAxisOptions | ChartCategoryAxisOptions | ChartSeriesAxisOptions
+  | ChartValueAxisOptions | undefined {
+  const axisTextProperties = optionalChartChild(axis, 'txPr');
+  const result: Record<string, unknown> = {
+    ...(axisTextProperties ? readFontOptions(axisTextProperties, false) : {}),
+  };
+  if (kind === 'category' && axis.localName === 'dateAx') result.kind = 'date';
   if (readChildBooleanValue(axis, 'delete') === true) result.visible = false;
   const rawPosition = readChildStringValue(axis, 'axPos');
   const position = rawPosition === undefined
@@ -732,15 +767,43 @@ function readAxisOptions(
     const maximum = readChildNumberValue(scaling, 'max');
     const logBase = readChildNumberValue(scaling, 'logBase');
     const orientation = readChildStringValue(scaling, 'orientation');
-    if (minimum !== undefined) result.minimum = minimum;
-    if (maximum !== undefined) result.maximum = maximum;
-    if (logBase !== undefined) result.logarithmicBase = logBase;
+    if (kind !== 'series' && minimum !== undefined) result.minimum = minimum;
+    if (kind !== 'series' && maximum !== undefined) result.maximum = maximum;
+    if (kind === 'value' && logBase !== undefined) result.logarithmicBase = logBase;
     if (orientation !== undefined && orientation !== 'minMax') result.orientation = orientation;
   }
   const majorUnit = readChildNumberValue(axis, 'majorUnit');
   const minorUnit = readChildNumberValue(axis, 'minorUnit');
   if (majorUnit !== undefined) result.majorUnit = majorUnit;
   if (minorUnit !== undefined) result.minorUnit = minorUnit;
+  if (kind === 'category') {
+    const baseTimeUnit = readChildStringValue(axis, 'baseTimeUnit');
+    const majorTimeUnit = readChildStringValue(axis, 'majorTimeUnit');
+    const minorTimeUnit = readChildStringValue(axis, 'minorTimeUnit');
+    const labelFrequency = readChildNumberValue(axis, 'tickLblSkip');
+    if (baseTimeUnit !== undefined) result.baseTimeUnit = baseTimeUnit;
+    if (majorTimeUnit !== undefined) result.majorTimeUnit = majorTimeUnit;
+    if (minorTimeUnit !== undefined) result.minorTimeUnit = minorTimeUnit;
+    if (labelFrequency !== undefined) result.labelFrequency = labelFrequency;
+    const noMultiLevelLabels = readChildBooleanValue(axis, 'noMultiLvlLbl');
+    if (noMultiLevelLabels !== undefined) result.multiLevelLabels = !noMultiLevelLabels;
+  }
+  if (kind === 'series') {
+    const labelFrequency = readChildNumberValue(axis, 'tickLblSkip');
+    if (labelFrequency !== undefined) result.labelFrequency = labelFrequency;
+  }
+  if (kind !== 'series') {
+    const crossesAt = readChildNumberValue(axis, 'crossesAt');
+    if (crossesAt !== undefined) result.crossesAt = crossesAt;
+  }
+  if (kind === 'value') {
+    const displayUnits = optionalChartChild(axis, 'dispUnits');
+    const builtInUnit = displayUnits ? readChildStringValue(displayUnits, 'builtInUnit') : undefined;
+    if (builtInUnit !== undefined) result.displayUnit = builtInUnit;
+    if (displayUnits && optionalChartChild(displayUnits, 'dispUnitsLbl')) {
+      result.displayUnitLabel = true;
+    }
+  }
   const format = optionalChartChild(axis, 'numFmt');
   const formatCode = format ? readStringAttribute(format, 'formatCode') : undefined;
   if (formatCode !== undefined && formatCode !== 'General') result.numberFormat = formatCode;
@@ -748,8 +811,9 @@ function readAxisOptions(
   const mappedLabel = labelPosition === undefined
     ? undefined
     : (LABEL_POSITIONS as Readonly<Record<string, ChartAxisOptions['labelPosition']>>)[labelPosition];
-  if (mappedLabel !== undefined && mappedLabel !== 'nextTo') result.labelPosition = mappedLabel;
-  const textProperties = optionalChartChild(axis, 'txPr');
+  const defaultLabel = kind === 'series' ? 'none' : 'nextTo';
+  if (mappedLabel !== undefined && mappedLabel !== defaultLabel) result.labelPosition = mappedLabel;
+  const textProperties = axisTextProperties;
   const body = textProperties ? drawingDescendants(textProperties, 'bodyPr')[0] : undefined;
   const rotation = body ? readNumberAttribute(body, 'rot') : undefined;
   if (rotation !== undefined && rotation !== 0) result.labelRotation = rotation / 60_000;
@@ -766,7 +830,7 @@ function readAxisOptions(
   const minorGridProperties = minorGridLine ? optionalChartChild(minorGridLine, 'spPr') : undefined;
   const minorGrid = minorGridProperties ? readLineFromProperties(minorGridProperties) : undefined;
   if (minorGrid) result.minorGridLine = minorGrid;
-  const defaultMajorTick = horizontalValueAxis ? 'none' : 'out';
+  const defaultMajorTick = kind === 'series' || horizontalValueAxis ? 'none' : 'out';
   const majorTick = readChildStringValue(axis, 'majorTickMark');
   const minorTick = readChildStringValue(axis, 'minorTickMark');
   const mappedMajor = mapTickMark(majorTick);

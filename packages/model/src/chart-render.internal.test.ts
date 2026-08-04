@@ -75,6 +75,98 @@ describe('categorical chart rendering', () => {
     expect(multiXml.match(/<c:lvl>/g)).toHaveLength(2);
   });
 
+  it('renders strict date value and editable series axis options', () => {
+    const definition = normalizeChartDefinition({
+      groups: [{
+        type: 'bar3D',
+        series: [{ name: 'Revenue', categories: [45_658, 45_689], values: [1e8, 2e8] }],
+      }],
+      options: {
+        categoryAxis: {
+          kind: 'date',
+          crossesAt: 0,
+          baseTimeUnit: 'days',
+          majorTimeUnit: 'months',
+          minorTimeUnit: 'years',
+          majorUnit: 2,
+          minorUnit: 3,
+          labelFrequency: 4,
+          multiLevelLabels: true,
+        },
+        valueAxis: {
+          crossesAt: 5,
+          displayUnit: 'hundredMillions',
+          displayUnitLabel: true,
+        },
+        seriesAxis: {
+          visible: false,
+          title: { text: 'Series depth', rotation: 30 },
+          labelPosition: 'low',
+          labelFrequency: 3,
+          majorUnit: 2,
+          minorUnit: 1,
+          numberFormat: '0.0',
+          orientation: 'maxMin',
+          line: { kind: 'none' },
+          majorGridLine: { kind: 'line', color: { kind: 'srgb', value: '112233' } },
+        },
+      },
+    });
+    const xml = renderChartPart(definition, planChartWorkbook(definition).formulas, 'rId1');
+    const dateAxis = xml.match(/<c:dateAx>[\s\S]*?<\/c:dateAx>/u)?.[0];
+    const valueAxis = xml.match(/<c:valAx>[\s\S]*?<\/c:valAx>/u)?.[0];
+    const seriesAxis = xml.match(/<c:serAx>[\s\S]*?<\/c:serAx>/u)?.[0];
+
+    expect(dateAxis).toContain('<c:crossesAt val="0"/>');
+    expect(dateAxis).toContain('<c:baseTimeUnit val="days"/>');
+    expect(dateAxis).toContain('<c:majorUnit val="2"/><c:majorTimeUnit val="months"/>');
+    expect(dateAxis).toContain('<c:minorUnit val="3"/><c:minorTimeUnit val="years"/>');
+    expect(dateAxis).toContain('<c:tickLblSkip val="4"/><c:noMultiLvlLbl val="0"/>');
+    expect(valueAxis).toContain('<c:crossesAt val="5"/>');
+    expect(valueAxis).toContain(
+      '<c:dispUnits><c:builtInUnit val="hundredMillions"/>'
+      + '<c:dispUnitsLbl><c:layout/></c:dispUnitsLbl></c:dispUnits>',
+    );
+    expect(seriesAxis).toContain('<c:delete val="1"/>');
+    expect(seriesAxis).toContain('<c:orientation val="maxMin"/>');
+    expect(seriesAxis).toContain('<a:t>Series depth</a:t>');
+    expect(seriesAxis).toContain('<c:numFmt formatCode="0.0" sourceLinked="0"/>');
+    expect(seriesAxis).toContain('<c:tickLblPos val="low"/>');
+    expect(seriesAxis).toContain('<c:majorUnit val="2"/><c:minorUnit val="1"/>');
+    expect(seriesAxis).toContain('<c:tickLblSkip val="3"/>');
+    expect(seriesAxis).not.toContain('<c:crossBetween');
+  });
+
+  it('renders every value display unit and canonical auto-zero crossings', () => {
+    const displayUnits = [
+      'billions',
+      'hundredMillions',
+      'hundredThousands',
+      'hundreds',
+      'millions',
+      'tenMillions',
+      'tenThousands',
+      'thousands',
+      'trillions',
+    ] as const;
+    for (const displayUnit of displayUnits) {
+      const definition = normalizeChartDefinition({
+        groups: [{
+          type: 'bar',
+          series: [{ name: displayUnit, categories: ['A'], values: [1] }],
+        }],
+        options: {
+          categoryAxis: { crossesAt: 'autoZero' },
+          valueAxis: { crossesAt: 'autoZero', displayUnit },
+        },
+      });
+      const xml = renderChartPart(definition, planChartWorkbook(definition).formulas, 'rId1');
+      expect(xml).toContain(`<c:builtInUnit val="${displayUnit}"/>`);
+      expect(xml.match(/<c:crosses val="autoZero"\/>/gu)).toHaveLength(2);
+      expect(xml).not.toContain('<c:crossesAt');
+    }
+  });
+
   it('renders multiple series with stable idx/order and matching formula ownership', () => {
     const definition = normalizeChartDefinition({ groups: [{
       type: 'bar',

@@ -7413,6 +7413,65 @@ async (page) => {
       const duplicateChartPartUri = duplicateChart.chartPartUri;
       const comboChartPartUri = combo.chartPartUri;
       duplicateChart.remove();
+      const chartAxisAdvancedDisplayUnits = [
+        'billions',
+        'hundredMillions',
+        'hundredThousands',
+        'hundreds',
+        'millions',
+        'tenMillions',
+        'tenThousands',
+        'thousands',
+        'trillions',
+      ];
+      for (const [index, displayUnit] of chartAxisAdvancedDisplayUnits.entries()) {
+        const slide = chartDocument.addSlide();
+        const chart = await slide.addChart(index === 0 ? 'bar3D' : 'bar', [{
+          name: displayUnit,
+          categories: index === 0 ? [46_023, 46_054] : ['Q1', 'Q2'],
+          values: [10, 20],
+        }], { name: `Browser advanced axis ${displayUnit}` });
+        await chart.replaceDefinition({
+          groups: chart.definition.groups,
+          options: {
+            valueAxis: {
+              crossesAt: index === 0 ? 4 : 'autoZero',
+              displayUnit,
+              displayUnitLabel: index % 2 === 0,
+            },
+            ...(index === 0 ? {
+              categoryAxis: {
+                kind: 'date',
+                crossesAt: 2,
+                minimum: 46_000,
+                maximum: 47_000,
+                majorUnit: 2,
+                minorUnit: 1,
+                baseTimeUnit: 'days',
+                majorTimeUnit: 'months',
+                minorTimeUnit: 'days',
+                labelFrequency: 4,
+                multiLevelLabels: true,
+                numberFormat: 'yyyy-mm-dd',
+              },
+              seriesAxis: {
+                visible: false,
+                title: { text: 'Browser series axis', rotation: 25 },
+                labelPosition: 'high',
+                labelFrequency: 3,
+                majorUnit: 2,
+                minorUnit: 1,
+                numberFormat: '0.00',
+                orientation: 'maxMin',
+                line: { kind: 'line', color: { kind: 'srgb', value: '112233' } },
+                majorGridLine: {
+                  kind: 'line', color: { kind: 'srgb', value: '445566' },
+                },
+              },
+            } : {}),
+          },
+        });
+      }
       const chartOutput = await chartDocument.writeBlob({ compatibility: 'powerpoint-2010' });
       const reopenedChartDocument = await api.PptxDocument.open(chartOutput);
       await reopenedChartDocument.write({ compatibility: 'powerpoint-2010' });
@@ -7492,11 +7551,44 @@ async (page) => {
         && chartAxisFoundationXml.includes('rot="2700000"')
         && chartAxisFoundationXml.includes('<a:prstDash val="sysDot"/>')
         && chartAxisFoundationXml.includes('<a:prstDash val="dash"/>');
-      const nativeCharts = reopenedCharts.length === 10
+      const reopenedChartAxisAdvanced = reopenedCharts.find(
+        ({ name }) => name === 'Browser advanced axis billions',
+      );
+      const chartAxisAdvancedOptions = reopenedChartAxisAdvanced?.definition.options;
+      const chartAxisAdvancedXml = reopenedChartAxisAdvanced?.xml ?? '';
+      const chartAxisAdvanced = chartAxisAdvancedOptions?.categoryAxis?.kind === 'date'
+        && chartAxisAdvancedOptions.categoryAxis.crossesAt === 2
+        && chartAxisAdvancedOptions.categoryAxis.baseTimeUnit === 'days'
+        && chartAxisAdvancedOptions.categoryAxis.majorTimeUnit === 'months'
+        && chartAxisAdvancedOptions.categoryAxis.minorTimeUnit === 'days'
+        && chartAxisAdvancedOptions.categoryAxis.labelFrequency === 4
+        && chartAxisAdvancedOptions.categoryAxis.multiLevelLabels === true
+        && chartAxisAdvancedOptions.valueAxis?.crossesAt === 4
+        && chartAxisAdvancedOptions.valueAxis.displayUnit === 'billions'
+        && chartAxisAdvancedOptions.valueAxis.displayUnitLabel === true
+        && chartAxisAdvancedOptions.seriesAxis?.visible === false
+        && chartAxisAdvancedOptions.seriesAxis.labelPosition === 'high'
+        && chartAxisAdvancedOptions.seriesAxis.labelFrequency === 3
+        && chartAxisAdvancedOptions.seriesAxis.majorUnit === 2
+        && chartAxisAdvancedOptions.seriesAxis.minorUnit === 1
+        && chartAxisAdvancedOptions.seriesAxis.orientation === 'maxMin'
+        && chartAxisAdvancedXml.includes('<c:dateAx>')
+        && chartAxisAdvancedXml.includes('<c:serAx>')
+        && chartAxisAdvancedXml.includes('<c:dispUnitsLbl>');
+      const chartAxisDisplayUnitCatalog = chartAxisAdvancedDisplayUnits.every((displayUnit) => {
+        const chart = reopenedCharts.find(
+          ({ name }) => name === `Browser advanced axis ${displayUnit}`,
+        );
+        return chart?.definition.options.valueAxis?.displayUnit === displayUnit
+          && chart.xml.includes(`<c:builtInUnit val="${displayUnit}"/>`);
+      });
+      const nativeCharts = reopenedCharts.length === 19
         && api.CHART_TYPES.every((type) => reopenedChartTypes.has(type))
         && chartWorkbookResults.every(Boolean)
         && chartAreaFillLine
         && chartAxisFoundation
+        && chartAxisAdvanced
+        && chartAxisDisplayUnitCatalog
         && chartIdsUnique
         && chartOrphanCount === 0
         && !chartDocument.opcPackage.hasPart(duplicateChartPartUri)
@@ -7797,6 +7889,8 @@ async (page) => {
         nativeMediaTiming,
         nativeCharts,
         chartAreaFillLine,
+        chartAxisAdvanced,
+        chartAxisDisplayUnitCatalog,
         stableMediaLifecycle,
         mediaTargetIsolation: browserMediaCloneOnWrite,
         mediaOrphanCount,
@@ -9547,6 +9641,8 @@ async (page) => {
     nativeMediaTiming: true,
     nativeCharts: true,
     chartAreaFillLine: true,
+    chartAxisAdvanced: true,
+    chartAxisDisplayUnitCatalog: true,
     stableMediaLifecycle: true,
     mediaTargetIsolation: true,
     mediaOrphanCount: 0,

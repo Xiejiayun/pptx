@@ -328,28 +328,67 @@ function patchChartOptions(
   const axes = directChartChildren(plotArea).filter(({ localName }) => AXIS_NAMES.has(localName));
   const canonicalAxes = directChartChildren(canonicalPlotArea)
     .filter(({ localName }) => AXIS_NAMES.has(localName));
-  axes.forEach((axis, index) => syncChartChildren(
-    xml,
-    axis,
-    canonical,
-    canonicalAxes[index]!,
-    [
-      'scaling',
-      'delete',
-      'axPos',
-      'majorGridlines',
-      'minorGridlines',
-      'title',
-      'numFmt',
-      'majorTickMark',
-      'minorTickMark',
-      'tickLblPos',
-      'spPr',
-      'txPr',
-      'majorUnit',
-      'minorUnit',
-    ],
-  ));
+  axes.forEach((axis, index) => {
+    const canonicalAxis = canonicalAxes[index]!;
+    syncChartChildren(
+      xml,
+      axis,
+      canonical,
+      canonicalAxis,
+      [
+        'scaling',
+        'delete',
+        'axPos',
+        'majorGridlines',
+        'minorGridlines',
+        'title',
+        'numFmt',
+        'majorTickMark',
+        'minorTickMark',
+        'tickLblPos',
+        'spPr',
+        'txPr',
+        'crosses',
+        'crossesAt',
+        'auto',
+        'lblAlgn',
+        'lblOffset',
+        'baseTimeUnit',
+        'majorUnit',
+        'majorTimeUnit',
+        'minorUnit',
+        'minorTimeUnit',
+        'tickLblSkip',
+        'tickMarkSkip',
+        'noMultiLvlLbl',
+        'crossBetween',
+        'dispUnits',
+      ],
+    );
+    if (axis.localName !== canonicalAxis.localName) {
+      renameChartElement(xml, axis, canonicalAxis.name);
+    }
+  });
+}
+
+function renameChartElement(
+  xml: LosslessXmlDocument,
+  element: XmlElement,
+  name: string,
+): void {
+  if (element.selfClosing || element.endTagStart < element.startTagEnd) {
+    throw new Error(`Chart ${element.localName} cannot be renamed safely`);
+  }
+  const opening = xml.source.slice(element.start, element.startTagEnd);
+  if (!opening.startsWith(`<${element.name}`)) {
+    throw new Error(`Chart ${element.localName} opening tag is malformed`);
+  }
+  xml.replace(
+    element.start,
+    element.startTagEnd,
+    `<${name}${opening.slice(element.name.length + 1)}`,
+  );
+  xml.replace(element.endTagStart, element.end, `</${name}>`);
 }
 
 function syncChartChildren(

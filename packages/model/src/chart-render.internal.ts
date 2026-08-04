@@ -4,6 +4,7 @@ import type {
   ChartAreaOptions,
   ChartAxisOptions,
   ChartCategories,
+  ChartCategoryAxisOptions,
   ChartDataLabelOptions,
   ChartDataTableOptions,
   ChartDefinition,
@@ -12,9 +13,11 @@ import type {
   ChartLegendOptions,
   ChartMarkerOptions,
   ChartSeries,
+  ChartSeriesAxisOptions,
   ChartSeriesOptions,
   ChartTitleOptions,
   ChartType,
+  ChartValueAxisOptions,
 } from './chart.js';
 import { normalizePlaceholderSelector } from './placeholder.internal.js';
 import type { PlaceholderIdentity, PlaceholderSelector } from './placeholder.js';
@@ -205,6 +208,7 @@ function renderAllocatedAxes(
     false,
     definition.options.categoryAxis,
     definition.options.valueAxis,
+    definition.options.seriesAxis,
   ) + (allocation.secondary
     ? renderAxes(
         type,
@@ -212,6 +216,7 @@ function renderAllocatedAxes(
         true,
         definition.options.secondaryCategoryAxis,
         definition.options.secondaryValueAxis,
+        undefined,
       )
     : '');
 }
@@ -445,8 +450,9 @@ function renderAxes(
   type: ChartType,
   ids: readonly number[],
   secondary: boolean,
-  categoryOptions: Readonly<ChartAxisOptions> | undefined,
-  valueOptions: Readonly<ChartAxisOptions> | undefined,
+  categoryOptions: Readonly<ChartCategoryAxisOptions> | undefined,
+  valueOptions: Readonly<ChartValueAxisOptions> | undefined,
+  seriesOptions: Readonly<ChartSeriesAxisOptions> | undefined,
 ): string {
   if (ids.length === 0) return '';
   if (type === 'scatter' || type === 'bubble') {
@@ -456,17 +462,31 @@ function renderAxes(
   const category = renderCategoryAxis(ids[0]!, ids[1]!, secondary, categoryOptions);
   const value = renderValueAxis(ids[1]!, ids[0]!, 'between', secondary, valueOptions);
   if (type !== 'bar3D') return category + value;
-  return category + value + renderSeriesAxis(ids[2]!, ids[1]!);
+  return category + value + renderSeriesAxis(ids[2]!, ids[1]!, secondary, seriesOptions);
 }
 
 function renderCategoryAxis(
   id: number,
   crossId: number,
   secondary: boolean,
-  options: Readonly<ChartAxisOptions> | undefined,
+  options: Readonly<ChartCategoryAxisOptions> | undefined,
 ): string {
   const position = axisPosition(options?.position, secondary ? 'top' : 'bottom');
-  return `<c:catAx><c:axId val="${id}"/>${renderScaling(options)}`
+  const element = options?.kind === 'date' ? 'dateAx' : 'catAx';
+  const tail = element === 'dateAx'
+    ? '<c:auto val="1"/><c:lblOffset val="100"/>'
+      + renderTimeUnit('baseTimeUnit', options?.baseTimeUnit)
+      + (options?.majorUnit === undefined ? '' : `<c:majorUnit val="${options.majorUnit}"/>`)
+      + renderTimeUnit('majorTimeUnit', options?.majorTimeUnit)
+      + (options?.minorUnit === undefined ? '' : `<c:minorUnit val="${options.minorUnit}"/>`)
+      + renderTimeUnit('minorTimeUnit', options?.minorTimeUnit)
+    : '<c:auto val="1"/><c:lblAlgn val="ctr"/><c:lblOffset val="100"/>'
+      + (options?.majorUnit === undefined ? '' : `<c:majorUnit val="${options.majorUnit}"/>`)
+      + (options?.minorUnit === undefined ? '' : `<c:minorUnit val="${options.minorUnit}"/>`)
+      + (options?.labelFrequency === undefined
+        ? ''
+        : `<c:tickLblSkip val="${options.labelFrequency}"/>`);
+  return `<c:${element}><c:axId val="${id}"/>${renderScaling(options)}`
     + `<c:delete val="${options?.visible === false ? 1 : 0}"/><c:axPos val="${position}"/>`
     + renderGridLine('majorGridlines', options?.majorGridLine, false)
     + renderGridLine('minorGridlines', options?.minorGridLine, false)
@@ -477,11 +497,15 @@ function renderCategoryAxis(
     + `<c:tickLblPos val="${labelPosition(options?.labelPosition)}"/>`
     + renderAxisShapeProperties(options?.line)
     + renderTextProperties(options, options?.labelRotation)
-    + `<c:crossAx val="${crossId}"/><c:crosses val="autoZero"/><c:auto val="1"/>`
-    + '<c:lblAlgn val="ctr"/><c:lblOffset val="100"/>'
-    + (options?.majorUnit === undefined ? '' : `<c:majorUnit val="${options.majorUnit}"/>`)
-    + (options?.minorUnit === undefined ? '' : `<c:minorUnit val="${options.minorUnit}"/>`)
-    + '</c:catAx>';
+    + `<c:crossAx val="${crossId}"/>${renderCrossing(options?.crossesAt)}`
+    + tail
+    + (element === 'dateAx' && options?.labelFrequency !== undefined
+      ? `<c:tickLblSkip val="${options.labelFrequency}"/>`
+      : '')
+    + (options?.multiLevelLabels === undefined
+      ? ''
+      : `<c:noMultiLvlLbl val="${options.multiLevelLabels ? 0 : 1}"/>`)
+    + `</c:${element}>`;
 }
 
 function renderValueAxis(
@@ -489,7 +513,7 @@ function renderValueAxis(
   crossId: number,
   crossBetween: 'between' | 'midCat' = 'between',
   secondary = false,
-  options: Readonly<ChartAxisOptions> | undefined = undefined,
+  options: Readonly<ChartValueAxisOptions> | undefined = undefined,
 ): string {
   const position = axisPosition(options?.position, secondary ? 'right' : 'left');
   return `<c:valAx><c:axId val="${id}"/>${renderScaling(options)}`
@@ -503,9 +527,11 @@ function renderValueAxis(
     + `<c:tickLblPos val="${labelPosition(options?.labelPosition)}"/>`
     + renderAxisShapeProperties(options?.line)
     + renderTextProperties(options, options?.labelRotation)
-    + `<c:crossAx val="${crossId}"/><c:crosses val="autoZero"/><c:crossBetween val="${crossBetween}"/>`
+    + `<c:crossAx val="${crossId}"/>${renderCrossing(options?.crossesAt)}`
+    + `<c:crossBetween val="${crossBetween}"/>`
     + (options?.majorUnit === undefined ? '' : `<c:majorUnit val="${options.majorUnit}"/>`)
     + (options?.minorUnit === undefined ? '' : `<c:minorUnit val="${options.minorUnit}"/>`)
+    + renderDisplayUnits(options)
     + '</c:valAx>';
 }
 
@@ -513,7 +539,7 @@ function renderHorizontalValueAxis(
   id: number,
   crossId: number,
   secondary: boolean,
-  options: Readonly<ChartAxisOptions> | undefined,
+  options: Readonly<ChartCategoryAxisOptions> | undefined,
 ): string {
   const position = axisPosition(options?.position, secondary ? 'top' : 'bottom');
   return `<c:valAx><c:axId val="${id}"/>${renderScaling(options)}`
@@ -527,17 +553,38 @@ function renderHorizontalValueAxis(
     + `<c:tickLblPos val="${labelPosition(options?.labelPosition)}"/>`
     + renderAxisShapeProperties(options?.line)
     + renderTextProperties(options, options?.labelRotation)
-    + `<c:crossAx val="${crossId}"/><c:crosses val="autoZero"/><c:crossBetween val="midCat"/>`
+    + `<c:crossAx val="${crossId}"/>${renderCrossing(options?.crossesAt)}`
+    + '<c:crossBetween val="midCat"/>'
     + (options?.majorUnit === undefined ? '' : `<c:majorUnit val="${options.majorUnit}"/>`)
     + (options?.minorUnit === undefined ? '' : `<c:minorUnit val="${options.minorUnit}"/>`)
     + '</c:valAx>';
 }
 
-function renderSeriesAxis(id: number, crossId: number): string {
-  return `<c:serAx><c:axId val="${id}"/><c:scaling><c:orientation val="minMax"/></c:scaling>`
-    + '<c:delete val="0"/><c:axPos val="b"/><c:majorTickMark val="none"/>'
-    + '<c:minorTickMark val="none"/><c:tickLblPos val="none"/>'
-    + `<c:crossAx val="${crossId}"/><c:crosses val="autoZero"/></c:serAx>`;
+function renderSeriesAxis(
+  id: number,
+  crossId: number,
+  secondary: boolean,
+  options: Readonly<ChartSeriesAxisOptions> | undefined,
+): string {
+  const position = axisPosition(options?.position, secondary ? 'top' : 'bottom');
+  return `<c:serAx><c:axId val="${id}"/>${renderScaling(options)}`
+    + `<c:delete val="${options?.visible === false ? 1 : 0}"/><c:axPos val="${position}"/>`
+    + renderGridLine('majorGridlines', options?.majorGridLine, false)
+    + renderGridLine('minorGridlines', options?.minorGridLine, false)
+    + renderAxisTitle(options?.title)
+    + renderNumberFormat(options?.numberFormat, false)
+    + `<c:majorTickMark val="${tickMark(options?.majorTickMark, 'none')}"/>`
+    + `<c:minorTickMark val="${tickMark(options?.minorTickMark, 'none')}"/>`
+    + `<c:tickLblPos val="${labelPosition(options?.labelPosition, 'none')}"/>`
+    + renderAxisShapeProperties(options?.line)
+    + renderTextProperties(options, options?.labelRotation)
+    + `<c:crossAx val="${crossId}"/><c:crosses val="autoZero"/>`
+    + (options?.majorUnit === undefined ? '' : `<c:majorUnit val="${options.majorUnit}"/>`)
+    + (options?.minorUnit === undefined ? '' : `<c:minorUnit val="${options.minorUnit}"/>`)
+    + (options?.labelFrequency === undefined
+      ? ''
+      : `<c:tickLblSkip val="${options.labelFrequency}"/>`)
+    + '</c:serAx>';
 }
 
 function renderChartTitle(
@@ -693,7 +740,11 @@ function renderAxisTitle(options: Readonly<ChartTitleOptions> | undefined): stri
   return renderChartTitle(options, undefined);
 }
 
-function renderScaling(options: Readonly<ChartAxisOptions> | undefined): string {
+function renderScaling(options: Readonly<ChartAxisOptions & {
+  readonly logarithmicBase?: number;
+  readonly maximum?: number;
+  readonly minimum?: number;
+}> | undefined): string {
   return '<c:scaling>'
     + (options?.logarithmicBase === undefined
       ? ''
@@ -702,6 +753,26 @@ function renderScaling(options: Readonly<ChartAxisOptions> | undefined): string 
     + (options?.maximum === undefined ? '' : `<c:max val="${options.maximum}"/>`)
     + (options?.minimum === undefined ? '' : `<c:min val="${options.minimum}"/>`)
     + '</c:scaling>';
+}
+
+function renderCrossing(value: number | 'autoZero' | undefined): string {
+  return typeof value === 'number'
+    ? `<c:crossesAt val="${value}"/>`
+    : '<c:crosses val="autoZero"/>';
+}
+
+function renderTimeUnit(
+  name: 'baseTimeUnit' | 'majorTimeUnit' | 'minorTimeUnit',
+  value: import('./chart.js').ChartTimeUnit | undefined,
+): string {
+  return value === undefined ? '' : `<c:${name} val="${value}"/>`;
+}
+
+function renderDisplayUnits(options: Readonly<ChartValueAxisOptions> | undefined): string {
+  if (options?.displayUnit === undefined) return '';
+  return `<c:dispUnits><c:builtInUnit val="${options.displayUnit}"/>`
+    + (options.displayUnitLabel === true ? '<c:dispUnitsLbl><c:layout/></c:dispUnitsLbl>' : '')
+    + '</c:dispUnits>';
 }
 
 function renderGridLine(
@@ -781,9 +852,12 @@ function tickMark(
     : { cross: 'cross', inside: 'in', none: 'none', outside: 'out' }[value];
 }
 
-function labelPosition(value: ChartAxisOptions['labelPosition'] | undefined): string {
+function labelPosition(
+  value: ChartAxisOptions['labelPosition'] | undefined,
+  fallback: 'nextTo' | 'none' = 'nextTo',
+): string {
   return value === undefined
-    ? 'nextTo'
+    ? fallback
     : { high: 'high', low: 'low', nextTo: 'nextTo', none: 'none' }[value];
 }
 

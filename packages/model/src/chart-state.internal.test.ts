@@ -265,6 +265,80 @@ describe('strict chart semantic state', () => {
     expect(Object.isFrozen(state.definition?.groups[0]?.options?.series?.[0]?.fill)).toBe(true);
   });
 
+  it('round trips strict date value and editable series axes', () => {
+    const definition = normalizeChartDefinition({
+      groups: [{
+        type: 'bar3D',
+        series: [{ name: 'Revenue', categories: [45_658, 45_689], values: [1e8, 2e8] }],
+      }],
+      options: {
+        categoryAxis: {
+          kind: 'date',
+          crossesAt: 0,
+          baseTimeUnit: 'days',
+          majorTimeUnit: 'months',
+          minorTimeUnit: 'years',
+          majorUnit: 2,
+          minorUnit: 3,
+          labelFrequency: 4,
+          multiLevelLabels: true,
+        },
+        valueAxis: {
+          crossesAt: 5,
+          displayUnit: 'trillions',
+          displayUnitLabel: true,
+        },
+        seriesAxis: {
+          visible: false,
+          position: 'left',
+          title: { text: 'Series depth', rotation: 30, color: { kind: 'srgb', value: '112233' } },
+          labelPosition: 'low',
+          labelFrequency: 3,
+          majorUnit: 2,
+          minorUnit: 1,
+          numberFormat: '0.0',
+          orientation: 'maxMin',
+          line: { kind: 'none' },
+          majorGridLine: { kind: 'line', color: { kind: 'srgb', value: '445566' } },
+        },
+      },
+    });
+    const xml = renderChartPart(definition, planChartWorkbook(definition).formulas, 'rId1');
+    const state = readChartState(chartPackage(xml), CHART_URI);
+
+    expect(state).toEqual({
+      status: 'recognized',
+      definition: {
+        groups: [{ ...definition.groups[0], axis: 'primary' }],
+        options: definition.options,
+      },
+      workbookPartUri: WORKBOOK_URI,
+    });
+    expect(Object.isFrozen(state.definition?.options.categoryAxis)).toBe(true);
+    expect(Object.isFrozen(state.definition?.options.valueAxis)).toBe(true);
+    expect(Object.isFrozen(state.definition?.options.seriesAxis?.majorGridLine)).toBe(true);
+  });
+
+  it('preserves explicitly disabled multi-level labels on a secondary category axis', () => {
+    const definition = normalizeChartDefinition({
+      groups: [{
+        type: 'bar',
+        series: [{ name: 'Primary', categories: ['A', 'B'], values: [1, 2] }],
+      }, {
+        type: 'line',
+        axis: 'secondary',
+        series: [{ name: 'Secondary', categories: ['A', 'B'], values: [3, 4] }],
+      }],
+      options: { secondaryCategoryAxis: { multiLevelLabels: false } },
+    });
+    const xml = renderChartPart(definition, planChartWorkbook(definition).formulas, 'rId1');
+    const state = readChartState(chartPackage(xml), CHART_URI);
+
+    expect(xml.match(/<c:catAx>[\s\S]*?<\/c:catAx>/gu)?.[1])
+      .toContain('<c:noMultiLvlLbl val="1"/>');
+    expect(state.definition?.options.secondaryCategoryAxis?.multiLevelLabels).toBe(false);
+  });
+
   it('normalizes the single trailing dangling categorical axis emitted by PptxGenJS', () => {
     const series = categoricalSeriesXml('Revenue', ['Q1', 'Q2'], [10, 20]);
     const normalized = readChartState(chartPackage(chartXml(

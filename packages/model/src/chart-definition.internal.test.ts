@@ -201,7 +201,12 @@ describe('chart definition normalization', () => {
       { title: { rotation: 91 } },
       { legend: { position: 'center' } },
       { categoryAxis: { minimum: 2, maximum: 1 } },
+      { categoryAxis: { kind: 'category', baseTimeUnit: 'days' } },
+      { categoryAxis: { labelFrequency: 0 } },
+      { categoryAxis: { crossesAt: Number.POSITIVE_INFINITY } },
       { valueAxis: { logarithmicBase: 1 } },
+      { valueAxis: { displayUnit: 'lakhs' } },
+      { valueAxis: { displayUnitLabel: true } },
       { dataTable: { visible: 1 } },
       { rotationX: Number.NaN },
       { perspective: 241 },
@@ -235,12 +240,74 @@ describe('chart definition normalization', () => {
       }],
     } as never)).toThrow(/unsupported property overlap/);
 
+    expect(() => normalizeChartDefinition({
+      groups: [{ type: 'bar', series: [categoricalSeries() as never] }],
+      options: { seriesAxis: { visible: false } },
+    } as never)).toThrow(/require a bar3D chart/);
+
     const accessor = {};
     Object.defineProperty(accessor, 'style', { get: () => 1, enumerable: true });
     expect(() => normalizeChartDefinition({
       groups: [{ type: 'bar', series: [categoricalSeries() as never] }],
       options: accessor,
     } as never)).toThrow(/data property/);
+  });
+
+  it('normalizes strict category date value and series axis domains', () => {
+    const normalized = normalizeChartDefinition({
+      groups: [{ type: 'bar3D', series: [categoricalSeries() as never] }],
+      options: {
+        categoryAxis: {
+          crossesAt: 0,
+          baseTimeUnit: 'days',
+          majorTimeUnit: 'months',
+          minorTimeUnit: 'years',
+          labelFrequency: 4,
+          multiLevelLabels: true,
+        },
+        valueAxis: {
+          crossesAt: 'autoZero',
+          displayUnit: 'hundredMillions',
+          displayUnitLabel: true,
+        },
+        seriesAxis: {
+          visible: false,
+          labelPosition: 'low',
+          labelFrequency: 3,
+          majorUnit: 2,
+          minorUnit: 1,
+          numberFormat: '0.0',
+        },
+      },
+    });
+
+    expect(normalized.options).toMatchObject({
+      categoryAxis: {
+        kind: 'date',
+        crossesAt: 0,
+        baseTimeUnit: 'days',
+        majorTimeUnit: 'months',
+        minorTimeUnit: 'years',
+        labelFrequency: 4,
+        multiLevelLabels: true,
+      },
+      valueAxis: {
+        crossesAt: 'autoZero',
+        displayUnit: 'hundredMillions',
+        displayUnitLabel: true,
+      },
+      seriesAxis: {
+        visible: false,
+        labelPosition: 'low',
+        labelFrequency: 3,
+        majorUnit: 2,
+        minorUnit: 1,
+        numberFormat: '0.0',
+      },
+    });
+    expect(Object.isFrozen(normalized.options.categoryAxis)).toBe(true);
+    expect(Object.isFrozen(normalized.options.valueAxis)).toBe(true);
+    expect(Object.isFrozen(normalized.options.seriesAxis)).toBe(true);
   });
 
   it('accepts compatible primary-only, primary-secondary, same-type, and scatter combinations', () => {
